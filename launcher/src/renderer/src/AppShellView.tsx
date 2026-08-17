@@ -30,12 +30,11 @@ export type AppShellViewProps = {
   onStart: () => void;
   onStop: () => void;
   onOpenWeb: () => void;
-  onOpenRecoveryTasks: () => void;
-  onOpenRuntimeTasks: () => void;
-  onOpenRecoveryPlugin: (pluginId: string) => void;
+  onOpenTasks: () => void;
   onCheckForUpdates: () => void;
   onDownloadUpdate: () => void;
   onInstallDownloadedUpdate: () => void;
+  onOpenReleasePage: () => void;
   onOpenRepositoryPage: () => void;
   onOpenLogs: () => void;
   onResetAdmin: () => void;
@@ -68,11 +67,11 @@ export function AppShellView({
   onStart,
   onStop,
   onOpenWeb,
-  onOpenRecoveryTasks,
-  onOpenRuntimeTasks,
+  onOpenTasks,
   onCheckForUpdates,
   onDownloadUpdate,
   onInstallDownloadedUpdate,
+  onOpenReleasePage,
   onOpenRepositoryPage,
   onOpenLogs,
   onResetAdmin,
@@ -107,7 +106,7 @@ export function AppShellView({
             controlsDisabled={controlsDisabled}
             editingSettings={editingSettings}
             onRefresh={onRefresh}
-            onOpenRuntimeTasks={onOpenRuntimeTasks}
+            onOpenTasks={onOpenTasks}
             onBeginEdit={onBeginEdit}
             onCancelEdit={onCancelEdit}
             onSaveSettings={onSaveSettings}
@@ -123,8 +122,7 @@ export function AppShellView({
                 onStart={onStart}
                 onStop={onStop}
                 onOpenWeb={onOpenWeb}
-                onOpenRecoveryTasks={onOpenRecoveryTasks}
-                onOpenRuntimeTasks={onOpenRuntimeTasks}
+                onOpenTasks={onOpenTasks}
                 onOpenLogs={onOpenLogs}
               />
             )}
@@ -171,6 +169,7 @@ export function AppShellView({
                 onCheckForUpdates={onCheckForUpdates}
                 onDownloadUpdate={onDownloadUpdate}
                 onInstallDownloadedUpdate={onInstallDownloadedUpdate}
+                onOpenReleasePage={onOpenReleasePage}
                 onOpenRepositoryPage={onOpenRepositoryPage}
               />
             )}

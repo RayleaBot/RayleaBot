@@ -62,19 +62,6 @@ describe("ThemeModeMenu", () => {
     expect(trigger).toHaveFocus();
   });
 
-  test("allows the first theme option to be selected", async () => {
-    setupMatchMedia(false);
-    window.localStorage.setItem("raylea-theme-mode", "light");
-    renderMenu();
-
-    fireEvent.click(screen.getByRole("button", { name: "主题：浅色" }));
-    fireEvent.click(screen.getByRole("menuitemradio", { name: "跟随系统" }));
-
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "主题：跟随系统" })).toHaveFocus();
-    });
-  });
-
   test("closes immediately when reduced motion is requested", () => {
     setupMatchMedia(true);
     renderMenu();

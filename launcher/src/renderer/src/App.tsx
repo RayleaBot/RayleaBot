@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherAdvancedOverrides, LauncherSettings } from "@shared/launcher-models";
 
-import { AppShell } from "./AppShell";
-import { describeLauncherError, type SectionId } from "./AppState.shared";
+import { AppShellView } from "./AppShellView";
+import { describeLauncherError } from "./AppState.shared";
 import { ExitConfirmDialog } from "./ExitConfirmDialog";
 import { ActionConfirmDialog, type ConfirmedLauncherAction } from "./ActionConfirmDialog";
 import { useLauncherInitialization } from "./useLauncherInitialization";
@@ -15,6 +15,7 @@ export function App() {
   const [editingSettings, setEditingSettings] = useState(false);
   const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const [confirmedAction, setConfirmedAction] = useState<ConfirmedLauncherAction | null>(null);
+  const externalStopConfirmPending = useRef(false);
   const {
     activeSection,
     setActiveSection,
@@ -35,10 +36,7 @@ export function App() {
   } = useLauncherSettingsState(snapshot, editingSettings);
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
 
-  const controlsDisabled = useMemo(
-    () => initializing || busyAction === "initialize",
-    [initializing, busyAction],
-  );
+  const controlsDisabled = busyAction !== null;
 
   const runAction = useCallback(
     async (action: string, task: () => Promise<void>) => {
@@ -124,36 +122,123 @@ export function App() {
     });
   }, [editingDraft, runAction, setEditingDraft]);
 
+  const respondToExitConfirm = useCallback(
+    async (action: "hide" | "exit" | "cancel", setAsDefault: boolean) => {
+      setExitConfirmOpen(false);
+      try {
+        await window.rayleaLauncher.closeConfirmResponse({ action, setAsDefault });
+      } catch (error) {
+        setExitConfirmOpen(true);
+        setSnapshot((prev) => ({
+          ...prev,
+          launcher: {
+            ...prev.launcher,
+            statusHint: "无法提交关闭确认。",
+            lastLocalError: describeLauncherError(error, "关闭确认提交失败。"),
+          },
+        }));
+      }
+    },
+    [setSnapshot],
+  );
+
   const handleExitConfirm = useCallback(
     (action: "hide" | "exit", setAsDefault: boolean) => {
-      setExitConfirmOpen(false);
-      void window.rayleaLauncher.closeConfirmResponse({ action, setAsDefault });
+      void respondToExitConfirm(action, setAsDefault);
     },
-    [],
+    [respondToExitConfirm],
   );
 
   const handleExitConfirmClose = useCallback(() => {
-    setExitConfirmOpen(false);
-  }, []);
+    void respondToExitConfirm("cancel", false);
+  }, [respondToExitConfirm]);
+
+  const respondToExternalStopConfirm = useCallback((confirmed: boolean) => {
+    if (!externalStopConfirmPending.current) {
+      return;
+    }
+    externalStopConfirmPending.current = false;
+    void window.rayleaLauncher.externalStopConfirmResponse(confirmed).catch((error) => {
+      setSnapshot((prev) => ({
+        ...prev,
+        launcher: {
+          ...prev.launcher,
+          statusHint: "无法提交现有服务的停止确认。",
+          lastLocalError: describeLauncherError(error, "停止确认提交失败。"),
+        },
+      }));
+    });
+  }, [setSnapshot]);
 
   const handleConfirmedAction = useCallback((action: ConfirmedLauncherAction) => {
     setConfirmedAction(null);
+    if (action === "stop-external") {
+      respondToExternalStopConfirm(true);
+      return;
+    }
     if (action === "install-update") {
       void runAction(action, () => window.rayleaLauncher.installDownloadedUpdate());
       return;
     }
     void runAction(action, () => window.rayleaLauncher.resetAdmin());
-  }, [runAction]);
+  }, [respondToExternalStopConfirm, runAction]);
+
+  const handleConfirmedActionCancel = useCallback(() => {
+    if (confirmedAction === "stop-external") {
+      respondToExternalStopConfirm(false);
+    }
+    setConfirmedAction(null);
+  }, [confirmedAction, respondToExternalStopConfirm]);
 
   useEffect(() => {
-    const unsubscribe = window.rayleaLauncher.onShowExitConfirm(() => {
+    const showExitConfirm = () => {
       setExitConfirmOpen(true);
-    });
+    };
+    const unsubscribe = window.rayleaLauncher.onShowExitConfirm(showExitConfirm);
+    void window.rayleaLauncher.hasPendingCloseConfirm()
+      .then((pending) => {
+        if (pending) {
+          showExitConfirm();
+        }
+      })
+      .catch((error) => {
+        setSnapshot((prev) => ({
+          ...prev,
+          launcher: {
+            ...prev.launcher,
+            lastLocalError: describeLauncherError(error, "无法读取关闭确认状态。"),
+          },
+        }));
+      });
     return unsubscribe;
-  }, []);
+  }, [setSnapshot]);
+
+  useEffect(() => {
+    const showExternalStopConfirm = () => {
+      externalStopConfirmPending.current = true;
+      setConfirmedAction("stop-external");
+    };
+    const unsubscribe = window.rayleaLauncher.onShowExternalStopConfirm(showExternalStopConfirm);
+    void window.rayleaLauncher.hasPendingExternalStopConfirm()
+      .then((pending) => {
+        if (pending) {
+          showExternalStopConfirm();
+        }
+      })
+      .catch((error) => {
+        setSnapshot((prev) => ({
+          ...prev,
+          launcher: {
+            ...prev.launcher,
+            lastLocalError: describeLauncherError(error, "无法读取现有服务停止确认状态。"),
+          },
+        }));
+      });
+    return unsubscribe;
+  }, [setSnapshot]);
 
   const handleBeginEdit = useCallback(() => {
-      setEditingDraft({
+    setEditingDraft({
       ...snapshot.launcher.settings,
       advancedOverrides: snapshot.launcher.settings.advancedOverrides
         ? { ...snapshot.launcher.settings.advancedOverrides }
@@ -180,14 +265,16 @@ export function App() {
     return runAction("start", () => window.rayleaLauncher.start());
   }, [presentation.state, runAction, snapshot.launcher.processOwnership]);
 
-  const handleNavigate = useCallback(
-    (section: SectionId) => {
-      if (section === activeSection) {
-        return;
-      }
-      setActiveSection(section);
+  const handleChoosePath = useCallback(
+    (choose: () => Promise<string | null>, apply: (value: string) => void) => {
+      void runAction("choose-path", async () => {
+        const value = await choose();
+        if (value) {
+          apply(value);
+        }
+      });
     },
-    [activeSection, setActiveSection],
+    [runAction],
   );
 
   if (initializing) {
@@ -202,7 +289,7 @@ export function App() {
 
   return (
     <>
-    <AppShell
+    <AppShellView
       snapshot={snapshot}
       activeSection={activeSection}
       platformLabel={platformLabel}
@@ -213,17 +300,16 @@ export function App() {
       busyAction={busyAction}
       controlsDisabled={controlsDisabled}
       isMaximized={isMaximized}
-      onNavigate={handleNavigate}
+      onNavigate={setActiveSection}
       onRefresh={() => runAction("refresh", () => window.rayleaLauncher.refresh())}
       onStart={handlePrimaryServiceAction}
       onStop={() => runAction("stop", () => window.rayleaLauncher.stop())}
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
-      onOpenRecoveryTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/logs?source=tasks"))}
-      onOpenRuntimeTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/logs?source=tasks"))}
-      onOpenRecoveryPlugin={(pluginId: string) => runAction("open-plugin", () => window.rayleaLauncher.openWebUi(`/plugins/${encodeURIComponent(pluginId)}`))}
+      onOpenTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/logs?source=tasks"))}
       onCheckForUpdates={() => runAction("check-updates", () => window.rayleaLauncher.checkForUpdates())}
       onDownloadUpdate={() => runAction("download-update", () => window.rayleaLauncher.downloadUpdate())}
       onInstallDownloadedUpdate={() => setConfirmedAction("install-update")}
+      onOpenReleasePage={() => runAction("open-release-page", () => window.rayleaLauncher.openReleasePage())}
       onOpenRepositoryPage={() => runAction("open-repository-page", () => window.rayleaLauncher.openRepositoryPage())}
       onOpenLogs={() => runAction("open-logs", () => window.rayleaLauncher.openLogsDirectory())}
       onResetAdmin={() => setConfirmedAction("reset-admin")}
@@ -233,26 +319,22 @@ export function App() {
       onUpdateInstallationRoot={handleUpdateInstallationRoot}
       onUpdateCloseBehavior={handleUpdateCloseBehavior}
       onUpdateAdvancedOverride={handleUpdateAdvancedOverride}
-      onChooseInstallationRoot={() => {
-        window.rayleaLauncher.chooseInstallationRoot().then((value: string | null) => {
-          if (value) handleUpdateInstallationRoot(value);
-        });
-      }}
-      onChooseServer={() => {
-        window.rayleaLauncher.chooseServerExecutable().then((value: string | null) => {
-          if (value) handleUpdateAdvancedOverride("serverExecutablePath", value);
-        });
-      }}
-      onChooseConfig={() => {
-        window.rayleaLauncher.chooseConfigFile().then((value: string | null) => {
-          if (value) handleUpdateAdvancedOverride("configPath", value);
-        });
-      }}
-      onChooseWorkdir={() => {
-        window.rayleaLauncher.chooseWorkdir().then((value: string | null) => {
-          if (value) handleUpdateAdvancedOverride("workdir", value);
-        });
-      }}
+      onChooseInstallationRoot={() => handleChoosePath(
+        () => window.rayleaLauncher.chooseInstallationRoot(),
+        handleUpdateInstallationRoot,
+      )}
+      onChooseServer={() => handleChoosePath(
+        () => window.rayleaLauncher.chooseServerExecutable(),
+        (value) => handleUpdateAdvancedOverride("serverExecutablePath", value),
+      )}
+      onChooseConfig={() => handleChoosePath(
+        () => window.rayleaLauncher.chooseConfigFile(),
+        (value) => handleUpdateAdvancedOverride("configPath", value),
+      )}
+      onChooseWorkdir={() => handleChoosePath(
+        () => window.rayleaLauncher.chooseWorkdir(),
+        (value) => handleUpdateAdvancedOverride("workdir", value),
+      )}
       onExit={() => window.rayleaLauncher.exitApplication()}
     />
     <ExitConfirmDialog
@@ -262,7 +344,7 @@ export function App() {
     />
     <ActionConfirmDialog
       action={confirmedAction}
-      onCancel={() => setConfirmedAction(null)}
+      onCancel={handleConfirmedActionCancel}
       onConfirm={handleConfirmedAction}
     />
   </>);

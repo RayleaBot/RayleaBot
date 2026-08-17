@@ -2,38 +2,40 @@ import { getEnvironmentSummaryLabel, resolveRecoverySummary } from "@shared/laun
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatRecoverySummary } from "./AppShell.copy";
-import { severityConfig, sortChecks } from "./AppShell.shared";
+import { isRuntimePreparationIssue, severityConfig, sortChecks } from "./AppShell.shared";
 
 type EnvironmentSectionProps = {
   snapshot: LauncherSnapshot;
   platformLabel: string;
 };
 
+const coreEnvironmentPrefixes = ["server.", "config.", "workdir."];
+
 export function AppShellEnvironmentSection({
   snapshot,
   platformLabel,
 }: EnvironmentSectionProps) {
   const checks = sortChecks(snapshot.launcher.preflightChecks || []);
-  const groupedChecks = {
-    blocking: checks.filter((item) => item.severity === "error"),
-    warnings: checks.filter((item) => item.severity === "warning"),
-    ready: checks.filter((item) => item.severity === "ok"),
+  const groupedChecks: Record<"blocking" | "warnings" | "ready", typeof checks> = {
+    blocking: [],
+    warnings: [],
+    ready: [],
   };
-  const categorizedChecks = (() => {
-    const corePrefixes = ["server.", "config.", "workdir."];
-    const runtimePrefixes = ["deps.", "chromium.", "python.", "nodejs.", "npm."];
-    return {
-      core: sortChecks(checks.filter((item) => corePrefixes.some((prefix) => item.code.startsWith(prefix)))),
-      runtimes: sortChecks(checks.filter((item) => runtimePrefixes.some((prefix) => item.code.startsWith(prefix)))),
-      others: sortChecks(
-        checks.filter(
-          (item) =>
-            !corePrefixes.some((prefix) => item.code.startsWith(prefix))
-            && !runtimePrefixes.some((prefix) => item.code.startsWith(prefix)),
-        ),
-      ),
-    };
-  })();
+  const categorizedChecks: Record<"core" | "runtimes" | "others", typeof checks> = {
+    core: [],
+    runtimes: [],
+    others: [],
+  };
+  for (const item of checks) {
+    groupedChecks[item.severity === "error" ? "blocking" : item.severity === "warning" ? "warnings" : "ready"].push(item);
+    if (coreEnvironmentPrefixes.some((prefix) => item.code.startsWith(prefix))) {
+      categorizedChecks.core.push(item);
+    } else if (isRuntimePreparationIssue(item.code)) {
+      categorizedChecks.runtimes.push(item);
+    } else {
+      categorizedChecks.others.push(item);
+    }
+  }
   const environmentSummaryLabel = getEnvironmentSummaryLabel(snapshot.launcher.preflightChecks);
   const environmentReadiness =
     environmentSummaryLabel === "需要处理"

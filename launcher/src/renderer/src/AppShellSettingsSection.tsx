@@ -80,29 +80,29 @@ export function AppShellSettingsSection({
             <label className="path-field">
               <span className="path-field__label">安装目录</span>
               <div className="path-control">
-                <Input aria-label="安装目录" value={settingsDraft.installationRoot} className="settings-input settings-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
-                <Button appearance="secondary" onClick={onChooseInstallationRoot} icon={<FolderOpen20Filled />}>浏览</Button>
+                <Input aria-label="安装目录" value={settingsDraft.installationRoot} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
+                <Button appearance="secondary" onClick={onChooseInstallationRoot} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>浏览</Button>
               </div>
             </label>
             <label className="path-field">
               <span className="path-field__label">服务端程序</span>
               <div className="path-control">
-                <Input aria-label="服务端程序" value={serverExecutablePath} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
-                <Button appearance="secondary" onClick={onChooseServer} icon={<FolderOpen20Filled />}>浏览</Button>
+                <Input aria-label="服务端程序" value={serverExecutablePath} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
+                <Button appearance="secondary" onClick={onChooseServer} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>浏览</Button>
               </div>
             </label>
             <label className="path-field">
               <span className="path-field__label">配置文件</span>
               <div className="path-control">
-                <Input aria-label="配置文件" value={configPath} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
-                <Button appearance="secondary" onClick={onChooseConfig} icon={<FolderOpen20Filled />}>浏览</Button>
+                <Input aria-label="配置文件" value={configPath} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
+                <Button appearance="secondary" onClick={onChooseConfig} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>浏览</Button>
               </div>
             </label>
             <label className="path-field">
               <span className="path-field__label">进程工作目录</span>
               <div className="path-control">
-                <Input aria-label="进程工作目录" value={workdir} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
-                <Button appearance="secondary" onClick={onChooseWorkdir} icon={<FolderOpen20Filled />}>选择</Button>
+                <Input aria-label="进程工作目录" value={workdir} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
+                <Button appearance="secondary" onClick={onChooseWorkdir} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>选择</Button>
               </div>
             </label>
           </div>
@@ -122,7 +122,7 @@ export function AppShellSettingsSection({
         </div>
 
         {editingSettings ? (
-          <RadioGroup value={settingsDraft.closeBehavior} onChange={(_, data) => onUpdateCloseBehavior(data.value as LauncherSettings["closeBehavior"])}>
+          <RadioGroup value={settingsDraft.closeBehavior} disabled={controlsDisabled} onChange={(_, data) => onUpdateCloseBehavior(data.value as LauncherSettings["closeBehavior"])}>
             <div className="preference-options">
               {closeBehaviorOptions.map((option) => (
                 <label key={option.value} className={`preference-option${settingsDraft.closeBehavior === option.value ? " is-selected" : ""}`}>
@@ -162,7 +162,7 @@ export function AppShellSettingsSection({
               <strong>退出启动器</strong>
               <span>关闭窗口和托盘入口，不影响已保存配置与服务文件。</span>
             </div>
-            <Button appearance="secondary" className="danger-outline-button" onClick={onExit}>退出启动器</Button>
+            <Button appearance="secondary" className="danger-outline-button" onClick={onExit} disabled={controlsDisabled}>退出启动器</Button>
           </div>
         </div>
       </section>

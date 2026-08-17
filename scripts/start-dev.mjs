@@ -25,10 +25,12 @@ import {
   parseDevelopmentServerLease,
   requestDevelopmentServerShutdown,
   createTrustedChildEnvironment,
+  createLauncherGoArgs,
   loadStartEnvironmentFile,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
   resolveInstallMode,
+  resolveCorepackCliPath,
   resolveServerReloadMode,
   resolveStartProfile,
   shouldInstallDependencies,
@@ -51,7 +53,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "..");
 loadStartEnvironmentFile({ rootDir });
-const corepackCliPath = path.join(path.dirname(process.execPath), "node_modules", "corepack", "dist", "corepack.js");
+let corepackCliPath = "";
 const webDir = path.join(rootDir, "web");
 const serverDir = path.join(rootDir, "server");
 const serverDistDir = path.join(serverDir, "dist");
@@ -111,6 +113,7 @@ process.once("SIGTERM", () => {
 });
 
 try {
+  corepackCliPath = resolveCorepackCliPath();
   await main();
   await cleanup();
   startLog.end();
@@ -170,9 +173,9 @@ async function runBuildProfile({ installMode, pluginDev }) {
     log("已跳过 Launcher 启动。");
     return;
   }
-  await runCommand("启动 Launcher", "pnpm", ["exec", "electron", "."], {
+  await runCommand("启动 Launcher", "go", createLauncherGoArgs("run", ["."]), {
     cwd: launcherDir,
-    env: { RAYLEA_WEB_UI_BASE_URL: "" },
+    env: { RAYLEA_WEB_UI_BASE_URL: "", GOWORK: "off" },
     logPath: launcherLogPath,
   });
 }
@@ -187,10 +190,11 @@ async function runWebDevProfile({ installMode, devEnvironment, serverDevEnvironm
     log("已跳过 Launcher 启动。");
     return;
   }
-  await runCommand("启动 Launcher", "pnpm", ["exec", "electron", "."], {
+  await runCommand("启动 Launcher", "go", createLauncherGoArgs("run", ["."]), {
     cwd: launcherDir,
     env: {
       ...devEnvironment,
+      GOWORK: "off",
       ...developmentControlEnvironment,
       ...(serverReloadMode === SERVER_RELOAD_WATCH ? developmentServerWatcherEnvironment : {}),
     },
@@ -209,11 +213,11 @@ async function runLauncherDevProfile({ installMode, devEnvironment, serverDevEnv
   }
   await runCommand("启动 Launcher 开发模式", "pnpm", ["run", "dev"], {
     cwd: launcherDir,
-    env: {
+    env: createLauncherToolEnvironment({
       ...devEnvironment,
       ...developmentControlEnvironment,
       ...(serverReloadMode === SERVER_RELOAD_WATCH ? developmentServerWatcherEnvironment : {}),
-    },
+    }),
     logPath: launcherLogPath,
   });
 }
@@ -721,7 +725,17 @@ function ensureTrailingSlash(value) {
 }
 
 async function buildLauncherApp() {
-  await runCommand("构建 Launcher App", "pnpm", ["run", "build:app"], { cwd: launcherDir });
+  await runCommand("构建 Launcher App", "pnpm", ["run", "build:app"], {
+    cwd: launcherDir,
+    env: createLauncherToolEnvironment(),
+  });
+}
+
+function createLauncherToolEnvironment(environment = {}) {
+  return {
+    ...environment,
+    RAYLEA_GO_EXECUTABLE: resolveGoExecutablePath(),
+  };
 }
 
 async function ensureDependencies(label, projectDir, installMode) {

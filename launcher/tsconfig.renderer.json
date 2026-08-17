@@ -7,5 +7,5 @@
     "moduleResolution": "Bundler",
     "types": ["node"]
   },
-  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.tsx", "src/renderer/src/**/*.d.ts", "src/shared/**/*.ts"]
+  "include": ["src/renderer/src/**/*.ts", "src/renderer/src/**/*.tsx", "src/renderer/src/**/*.d.ts", "src/renderer/bindings/**/*.ts", "src/shared/**/*.ts"]
 }

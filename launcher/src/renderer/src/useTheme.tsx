@@ -16,7 +16,7 @@ import {
 import { applyLauncherDocumentTheme } from "./launcherTheme";
 import { runLauncherViewTransition } from "./launcherMotion";
 
-export type ThemeMode = LauncherThemeMode;
+type ThemeMode = LauncherThemeMode;
 
 function resolveSystemTheme(): LauncherEffectiveTheme {
   if (typeof window === "undefined" || !window.matchMedia) {
@@ -43,7 +43,7 @@ function writeStoredMode(mode: ThemeMode) {
   window.localStorage.setItem("raylea-theme-mode", mode);
 }
 
-export interface ThemeContextValue {
+interface ThemeContextValue {
   mode: ThemeMode;
   effectiveTheme: LauncherEffectiveTheme;
   setMode: (mode: ThemeMode) => void;
@@ -60,7 +60,7 @@ const ThemeContext = createContext<ThemeContextValue>({
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>(readStoredMode);
   const [effectiveTheme, setEffectiveTheme] = useState<LauncherEffectiveTheme>(() =>
-    resolveLauncherEffectiveTheme(readStoredMode(), resolveSystemTheme() === "dark"),
+    resolveLauncherEffectiveTheme(mode, resolveSystemTheme() === "dark"),
   );
   const [syncError, setSyncError] = useState<string | null>(null);
   const effectiveThemeRef = useRef(effectiveTheme);
@@ -112,6 +112,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const handler = () => {
       if (mode === "system") {
         transitionToEffectiveTheme(resolveLauncherEffectiveTheme("system", mql.matches));
+        void window.rayleaLauncher.setThemeMode("system").catch(() => {
+          setSyncError("窗口主题同步失败，界面主题仍已保留。");
+        });
       }
     };
     mql.addEventListener("change", handler);

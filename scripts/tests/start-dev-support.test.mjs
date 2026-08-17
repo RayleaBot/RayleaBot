@@ -20,6 +20,7 @@ import {
   createDevEnvironment,
   createServerDevelopmentEnvironment,
   createTrustedChildEnvironment,
+  createLauncherGoArgs,
   formatLocalLogDate,
   loadStartEnvironmentFile,
   isProcessRunning,
@@ -27,6 +28,7 @@ import {
   parseBackendEndpointFromConfigText,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
+  resolveCorepackCliPath,
   resolveInstallMode,
   resolveServerReloadMode,
   resolveStartProfile,
@@ -295,12 +297,36 @@ test("creates non-interactive dependency install environment", () => {
   );
 });
 
+test("finds Corepack on PATH when the selected Node runtime contains only node.exe", () => {
+  const selectedNode = String.raw`C:\managed-node\node.exe`;
+  const fallbackCorepack = String.raw`D:\toolchain\node_modules\corepack\dist\corepack.js`;
+  assert.equal(resolveCorepackCliPath({
+    nodeExecutablePath: selectedNode,
+    env: { PATH: String.raw`C:\managed-node;D:\toolchain` },
+    platform: "win32",
+    fileExists: (candidate) => candidate === fallbackCorepack,
+  }), fallbackCorepack);
+});
+
 test("creates a minimal child environment with the managed Node executable", () => {
+  const nodeDirectory = String.raw`C:\toolchains\node-v24.18.0-win-x64`;
+  const appData = String.raw`C:\Profiles\developer\AppData\Roaming`;
+  const localAppData = String.raw`C:\Profiles\developer\AppData\Local`;
+  const userProfile = String.raw`C:\Profiles\developer`;
+  const goPath = String.raw`D:\go-workspace`;
+  const goModCache = String.raw`D:\go-modules`;
   const environment = createTrustedChildEnvironment({
-    nodeExecutablePath: String.raw`C:\Users\Raylea\.local\opt\node-v24.18.0-win-x64\node.exe`,
+    nodeExecutablePath: path.win32.join(nodeDirectory, "node.exe"),
     env: {
       SystemRoot: String.raw`C:\Windows`,
-      TEMP: String.raw`C:\Users\Raylea\AppData\Local\Temp`,
+      APPDATA: appData,
+      LOCALAPPDATA: localAppData,
+      USERPROFILE: userProfile,
+      HOMEDRIVE: "C:",
+      HOMEPATH: String.raw`\Profiles\developer`,
+      GOPATH: goPath,
+      GOMODCACHE: goModCache,
+      TEMP: path.win32.join(localAppData, "Temp"),
       PATH: String.raw`C:\untrusted;C:\Program Files\Go\bin`,
     },
     platform: "win32",
@@ -309,14 +335,46 @@ test("creates a minimal child environment with the managed Node executable", () 
   assert.equal(
     environment.PATH,
     [
-      String.raw`C:\Users\Raylea\.local\opt\node-v24.18.0-win-x64`,
+      nodeDirectory,
       String.raw`C:\Windows\System32`,
       String.raw`C:\Windows`,
     ].join(";"),
   );
   assert.equal(environment.ComSpec, String.raw`C:\Windows\System32\cmd.exe`);
-  assert.equal(environment.TEMP, String.raw`C:\Users\Raylea\AppData\Local\Temp`);
+  assert.equal(environment.APPDATA, appData);
+  assert.equal(environment.LOCALAPPDATA, localAppData);
+  assert.equal(environment.USERPROFILE, userProfile);
+  assert.equal(environment.HOMEDRIVE, "C:");
+  assert.equal(environment.HOMEPATH, String.raw`\Profiles\developer`);
+  assert.equal(environment.GOPATH, goPath);
+  assert.equal(environment.GOMODCACHE, goModCache);
+  assert.equal(environment.TEMP, path.win32.join(localAppData, "Temp"));
   assert.equal(environment.PATH.includes("untrusted"), false);
+});
+
+test("preserves the POSIX home and explicit Go module cache roots", () => {
+  const environment = createTrustedChildEnvironment({
+    nodeExecutablePath: "/opt/raylea/node/bin/node",
+    env: {
+      HOME: "/home/developer",
+      GOPATH: "/work/go",
+      GOMODCACHE: "/cache/go-modules",
+      PATH: "/untrusted/bin",
+      TMP: "/tmp",
+    },
+    platform: "linux",
+  });
+
+  assert.equal(environment.HOME, "/home/developer");
+  assert.equal(environment.GOPATH, "/work/go");
+  assert.equal(environment.GOMODCACHE, "/cache/go-modules");
+  assert.equal(environment.PATH.includes("/untrusted/bin"), false);
+});
+
+test("enables the GTK 3 build tag only for Linux launcher commands", () => {
+  assert.deepEqual(createLauncherGoArgs("run", ["."], "linux"), ["run", "-tags", "gtk3", "."]);
+  assert.deepEqual(createLauncherGoArgs("run", ["."], "win32"), ["run", "."]);
+  assert.deepEqual(createLauncherGoArgs("test", ["./..."], "darwin"), ["test", "./..."]);
 });
 
 test("detects install need from node_modules and lockfile marker", async () => {
@@ -388,11 +446,11 @@ test("waits for a child process to release its executable", async () => {
 });
 
 test("classifies web dev server port states", async () => {
-  const availablePort = await reservePort();
   assert.equal(
     await classifyWebDevServer({
-      url: `http://127.0.0.1:${availablePort}/`,
-      port: availablePort,
+      url: "http://127.0.0.1:5174/",
+      port: 5174,
+      portAvailable: async () => true,
       timeoutMs: 100,
     }),
     "available",
@@ -405,6 +463,7 @@ test("classifies web dev server port states", async () => {
       await classifyWebDevServer({
         url: `http://127.0.0.1:${port}/`,
         port,
+        portAvailable: async () => false,
         timeoutMs: 100,
       }),
       "rayleabot",
@@ -420,6 +479,7 @@ test("classifies web dev server port states", async () => {
       await classifyWebDevServer({
         url: `http://127.0.0.1:${port}/`,
         port,
+        portAvailable: async () => false,
         timeoutMs: 100,
       }),
       "occupied",
@@ -446,6 +506,7 @@ test("classifies rayleabot dev server by backend target", async () => {
         url: `http://127.0.0.1:${port}/`,
         port,
         backendBaseUrl: "http://127.0.0.1:8080/",
+        portAvailable: async () => false,
         timeoutMs: 100,
       }),
       "rayleabot",
@@ -455,6 +516,7 @@ test("classifies rayleabot dev server by backend target", async () => {
         url: `http://127.0.0.1:${port}/`,
         port,
         backendBaseUrl: "http://127.0.0.1:18080",
+        portAvailable: async () => false,
         timeoutMs: 100,
       }),
       "occupied",
@@ -473,6 +535,7 @@ test("classifies rayleabot dev server without status as occupied when backend ta
         url: `http://127.0.0.1:${port}/`,
         port,
         backendBaseUrl: "http://127.0.0.1:8080",
+        portAvailable: async () => false,
         timeoutMs: 100,
       }),
       "occupied",
@@ -481,14 +544,6 @@ test("classifies rayleabot dev server without status as occupied when backend ta
     await closeServer(rayleaServer);
   }
 });
-
-async function reservePort() {
-  const server = net.createServer();
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const port = server.address().port;
-  await closeServer(server);
-  return port;
-}
 
 async function listenHttp(body, contentType = "text/html; charset=utf-8") {
   const server = http.createServer((_, response) => {

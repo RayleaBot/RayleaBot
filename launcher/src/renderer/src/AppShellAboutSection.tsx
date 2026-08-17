@@ -3,7 +3,7 @@ import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
 import { MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-message-bar";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
-import { formatReleaseVersion } from "./AppShell.shared";
+import { formatByteCount, formatReleaseVersion } from "./AppShell.shared";
 import { RayleaMark } from "./RayleaMark";
 
 type AppShellAboutSectionProps = {
@@ -12,21 +12,9 @@ type AppShellAboutSectionProps = {
   onCheckForUpdates: () => void;
   onDownloadUpdate: () => void;
   onInstallDownloadedUpdate: () => void;
+  onOpenReleasePage: () => void;
   onOpenRepositoryPage: () => void;
 };
-
-function formatBytes(value: number | null) {
-  if (!value || value <= 0) {
-    return "";
-  }
-  if (value >= 1024 * 1024) {
-    return `${(value / 1024 / 1024).toFixed(1)} MB`;
-  }
-  if (value >= 1024) {
-    return `${(value / 1024).toFixed(1)} KB`;
-  }
-  return `${value} B`;
-}
 
 function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseCheck"], progressLabel: string) {
   const latestVersion = releaseCheck.latestVersion.trim();
@@ -57,17 +45,27 @@ export function AppShellAboutSection({
   onCheckForUpdates,
   onDownloadUpdate,
   onInstallDownloadedUpdate,
+  onOpenReleasePage,
   onOpenRepositoryPage,
 }: AppShellAboutSectionProps) {
   const releaseCheck = snapshot.launcher.releaseCheck;
   const currentVersion = formatReleaseVersion(releaseCheck.currentVersion);
   const progressLabel =
     releaseCheck.downloadedBytes && releaseCheck.totalBytes
-      ? `${formatBytes(releaseCheck.downloadedBytes)} / ${formatBytes(releaseCheck.totalBytes)}`
+      ? `${formatByteCount(releaseCheck.downloadedBytes)} / ${formatByteCount(releaseCheck.totalBytes)}`
       : "";
   const versionHint = buildVersionHint(releaseCheck, progressLabel);
+  const guidedRelease = Boolean(releaseCheck.releasePageUrl)
+    && !releaseCheck.canDownload
+    && !releaseCheck.canInstall
+    && (
+      releaseCheck.updateAvailable
+      || (releaseCheck.status === "disabled" && !releaseCheck.canCheck)
+    );
   const updateButtonLabel =
-    releaseCheck.status === "ready_to_install"
+    guidedRelease
+      ? "打开发布页"
+      : releaseCheck.status === "ready_to_install"
       ? "确认安装"
       : releaseCheck.status === "downloading"
         ? "下载中"
@@ -83,19 +81,22 @@ export function AppShellAboutSection({
     || releaseCheck.status === "checking"
     || releaseCheck.status === "downloading"
     || releaseCheck.status === "installing"
-    || (!releaseCheck.canCheck && !releaseCheck.canDownload && !releaseCheck.canInstall);
+    || (!guidedRelease && !releaseCheck.canCheck && !releaseCheck.canDownload && !releaseCheck.canInstall);
   const updateInProgress = releaseCheck.status === "checking"
     || releaseCheck.status === "downloading"
     || releaseCheck.status === "installing";
   const showUpdateAction = releaseCheck.canCheck
     || releaseCheck.canDownload
     || releaseCheck.canInstall
+    || guidedRelease
     || updateInProgress;
   const showUpdateError = Boolean(releaseCheck.errorCode)
     || releaseCheck.status === "failed"
     || releaseCheck.status === "rollback_failed";
   const onUpdateAction =
-    releaseCheck.canInstall
+    guidedRelease
+      ? onOpenReleasePage
+      : releaseCheck.canInstall
       ? onInstallDownloadedUpdate
       : releaseCheck.canDownload
         ? onDownloadUpdate
@@ -118,7 +119,7 @@ export function AppShellAboutSection({
               <Button
                 appearance={releaseCheck.canInstall ? "primary" : "secondary"}
                 className={releaseCheck.canInstall ? "attention-button" : undefined}
-                icon={<ArrowClockwise20Regular />}
+                icon={guidedRelease ? <Open20Regular /> : <ArrowClockwise20Regular />}
                 disabled={updateDisabled}
                 onClick={onUpdateAction}
               >

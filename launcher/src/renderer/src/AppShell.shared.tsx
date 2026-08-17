@@ -12,7 +12,7 @@ import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/l
 import type { LauncherSettings } from "@shared/launcher-models";
 
 export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
-export type LauncherVisualTone = "neutral" | "info" | "success" | "attention" | "warning" | "danger";
+type LauncherVisualTone = "neutral" | "info" | "success" | "attention" | "warning" | "danger";
 
 export const serviceStateConfig: Record<LauncherPresentationState, { label: string; tone: LauncherVisualTone }> = {
   stopped: { label: getLauncherStateLabel("stopped"), tone: "neutral" },
@@ -60,14 +60,13 @@ export const sectionContent = {
   },
 } satisfies Record<SectionId, { eyebrow: string; title: string }>;
 
-export const severityOrder = {
+const severityOrder = {
   error: 0,
   warning: 1,
   ok: 2,
 } satisfies Record<"error" | "warning" | "ok", number>;
 
 export const busyActionLabels: Record<string, string> = {
-  initialize: "正在准备启动器",
   refresh: "正在刷新状态",
   start: "正在启动服务",
   stop: "正在停止服务",
@@ -78,9 +77,10 @@ export const busyActionLabels: Record<string, string> = {
   "download-update": "正在下载更新",
   "install-update": "正在安装更新",
   "open-repository-page": "正在打开 GitHub",
+  "open-release-page": "正在打开版本页面",
   "open-logs": "正在打开日志目录",
+  "choose-path": "正在选择路径",
   "reset-admin": "正在重置本地凭据",
-  "open-plugin": "正在打开插件详情",
 };
 
 export const closeBehaviorOptions: Array<{
@@ -93,12 +93,28 @@ export const closeBehaviorOptions: Array<{
   { value: "exit_application", label: "完全退出", detail: "直接结束启动器窗口与托盘进程。" },
 ];
 
-export function statusSummary(state: LauncherPresentationState): string {
-  return getLauncherStateLabel(state);
-}
-
 export function formatReleaseVersion(currentVersion: string): string {
   return currentVersion.trim() || "开发";
+}
+
+const runtimePreparationPrefixes = ["deps.", "chromium.", "python.", "nodejs.", "npm."];
+
+export function isRuntimePreparationIssue(code: string): boolean {
+  return runtimePreparationPrefixes.some((prefix) => code.startsWith(prefix));
+}
+
+export function formatByteCount(value: number | null | undefined): string {
+  if (!value || value <= 0) {
+    return "";
+  }
+  const units = ["B", "KB", "MB", "GB"];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
 }
 
 export function sortChecks<T extends { severity: "ok" | "warning" | "error"; title: string }>(items: T[]): T[] {

@@ -42,11 +42,14 @@ class StartBatTests(unittest.TestCase):
         (bin_dir / "node.cmd").write_text(fake_node, encoding="ascii")
         return bin_dir, calls_path
 
-    def test_launcher_workspace_allows_required_build_dependencies(self) -> None:
+    def test_launcher_workspace_pins_wails_without_electron_build_scripts(self) -> None:
         workspace_yaml = (REPO_ROOT / "launcher" / "pnpm-workspace.yaml").read_text(encoding="utf-8")
-        self.assertIn("allowBuilds:", workspace_yaml)
-        self.assertRegex(workspace_yaml, r"(?m)^  electron: true$")
-        self.assertRegex(workspace_yaml, r"(?m)^  electron-winstaller: true$")
+        package_json = (REPO_ROOT / "launcher" / "package.json").read_text(encoding="utf-8")
+        go_mod = (REPO_ROOT / "launcher" / "go.mod").read_text(encoding="utf-8")
+        self.assertNotIn("allowBuilds:", workspace_yaml)
+        self.assertIn('"@wailsio/runtime": "3.0.0-beta.8"', package_json)
+        self.assertNotIn('"electron"', package_json)
+        self.assertIn("github.com/wailsapp/wails/v3 v3.0.0-beta.8", go_mod)
 
     @unittest.skipIf(os.name != "nt", "start.bat is a Windows entrypoint")
     def test_start_bat_invokes_node_orchestrator(self) -> None:

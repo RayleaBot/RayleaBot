@@ -5,7 +5,12 @@ import { App } from "./App";
 import { LauncherErrorBoundary } from "./LauncherErrorBoundary";
 import { ThemeProvider, useTheme } from "./useTheme";
 import { launcherFluentThemes } from "./launcherTheme";
+import { installTrustedNavigationGuards } from "./trustedNavigation";
+import { installWailsDesktopApi } from "./wailsDesktopApi";
 import "./style.css";
+
+const uninstallTrustedNavigationGuards = installTrustedNavigationGuards();
+const uninstallWailsDesktopApi = installWailsDesktopApi();
 
 function ThemedApp() {
   const { effectiveTheme } = useTheme();
@@ -30,3 +35,11 @@ root.render(
     </ThemeProvider>
   </StrictMode>,
 );
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    root.unmount();
+    uninstallWailsDesktopApi();
+    uninstallTrustedNavigationGuards();
+  });
+}

@@ -48,9 +48,12 @@ plugins/**/node_modules/
 /server/config/
 plugins/**/.rayleabot/
 
-# Electron launcher outputs.
+# Wails launcher outputs.
+/.pnpm-store/
 /launcher/node_modules/
 /launcher/dist/
+/launcher/internal/frontend/dist/*
+!/launcher/internal/frontend/dist/.gitkeep
 /launcher/*.tsbuildinfo
 
 # Environment files and local editor cruft.

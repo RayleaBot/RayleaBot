@@ -2,9 +2,8 @@
   "name": "@rayleabot/launcher",
   "version": "0.1.0",
   "private": true,
-  "description": "RayleaBot Electron desktop launcher",
+  "description": "RayleaBot Wails desktop launcher",
   "author": "RayleaBot",
-  "main": "dist/main/main/index.js",
   "packageManager": "pnpm@11.11.0",
   "engines": {
     "node": "24.18.0",
@@ -13,22 +12,22 @@
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "dev": "node scripts/dev.mjs",
+    "generate:wails": "node scripts/run-go.mjs generate:wails",
     "generate:types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/shared/web-api.generated.ts",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.preload.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "build:app": "tsc -p tsconfig.main.json && vite build --config vite.preload.config.ts && vite build",
-    "build": "corepack pnpm run clean && corepack pnpm run build:app && node scripts/build-package.mjs"
+    "test": "vitest run && node scripts/run-go.mjs test:platform ./...",
+    "test:coverage": "vitest run --coverage && node scripts/run-go.mjs test:platform -cover ./...",
+    "typecheck": "tsc -p tsconfig.renderer.json --noEmit && node scripts/run-go.mjs vet:platform ./...",
+    "build:app": "node scripts/build-app.mjs",
+    "build": "node scripts/clean.mjs && node scripts/build-package.mjs"
   },
   "dependencies": {
     "@fluentui/react-components": "9.74.3",
     "@fluentui/react-icons": "2.0.316",
     "@fluentui/react-message-bar": "9.7.3",
     "@fluentui/react-motion": "9.16.1",
+    "@wailsio/runtime": "3.0.0-beta.8",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "semver": "7.8.5",
-    "yaml": "2.9.0"
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",
@@ -37,59 +36,12 @@
     "@types/node": "24.13.3",
     "@types/react": "18.3.28",
     "@types/react-dom": "18.3.7",
-    "@types/semver": "7.7.1",
     "@vitejs/plugin-react": "6.0.3",
     "@vitest/coverage-v8": "4.1.10",
-    "electron": "41.10.1",
-    "electron-builder": "26.15.3",
     "jsdom": "29.1.1",
     "openapi-typescript": "7.13.0",
     "typescript": "6.0.2",
     "vite": "8.1.4",
-    "vitest": "4.1.10",
-    "wait-on": "9.0.10"
-  },
-  "build": {
-    "appId": "local.rayleabot.launcher",
-    "productName": "RayleaLauncher",
-    "asar": true,
-    "beforeBuild": "scripts/package-before-build.cjs",
-    "directories": {
-      "output": "dist/package"
-    },
-    "files": [
-      "dist/main/**/*",
-      "dist/preload/**/*",
-      "dist/renderer/**/*",
-      {
-        "from": "node_modules/yaml",
-        "to": "node_modules/yaml",
-        "filter": [
-          "**/*"
-        ]
-      },
-      "package.json"
-    ],
-    "extraMetadata": {
-      "main": "dist/main/main/index.js"
-    },
-    "win": {
-      "executableName": "RayleaLauncher",
-      "target": [
-        "dir"
-      ],
-      "signAndEditExecutable": false
-    },
-    "linux": {
-      "target": [
-        "dir"
-      ],
-      "executableName": "RayleaLauncher"
-    },
-    "mac": {
-      "target": [
-        "dir"
-      ]
-    }
+    "vitest": "4.1.10"
   }
 }

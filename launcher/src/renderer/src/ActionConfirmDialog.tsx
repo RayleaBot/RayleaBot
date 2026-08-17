@@ -8,9 +8,9 @@ import {
   DialogSurface,
   DialogTitle,
 } from "@fluentui/react-components";
-import { ArrowSync20Regular, Delete20Regular } from "@fluentui/react-icons";
+import { ArrowSync20Regular, Delete20Regular, Stop20Regular } from "@fluentui/react-icons";
 
-export type ConfirmedLauncherAction = "install-update" | "reset-admin";
+export type ConfirmedLauncherAction = "install-update" | "reset-admin" | "stop-external";
 
 type ActionConfirmDialogProps = {
   action: ConfirmedLauncherAction | null;
@@ -32,6 +32,13 @@ const actionCopy = {
     detail: "服务会停止并重置管理员状态，随后回到首次设置流程。配置、数据和已安装插件不会被删除。",
     confirm: "确认重置",
     icon: <Delete20Regular />,
+  },
+  "stop-external": {
+    title: "停止现有服务",
+    lead: "确认停止当前检测到的本机 RayleaBot 服务？",
+    detail: "该服务并非由当前启动器拉起。确认后，启动器会通过管理接口请求它安全停止；取消或关闭此对话框不会更改服务状态。",
+    confirm: "停止服务",
+    icon: <Stop20Regular />,
   },
 } satisfies Record<ConfirmedLauncherAction, {
   title: string;

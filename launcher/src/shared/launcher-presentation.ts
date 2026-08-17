@@ -45,17 +45,17 @@ function isBlockingEnvironmentIssue(check: EnvironmentCheckResult) {
   return check.scope === "preflight" && check.severity === "error";
 }
 
-export function hasBootstrapConfigAvailable(checks: EnvironmentCheckResult[]) {
+function hasBootstrapConfigAvailable(checks: EnvironmentCheckResult[]) {
   return checks.some((item) => item.code === "config.bootstrap_available");
 }
 
-export function getPrimaryEnvironmentIssue(checks: EnvironmentCheckResult[]) {
+function getPrimaryEnvironmentIssue(checks: EnvironmentCheckResult[]) {
   return checks.find(isBlockingEnvironmentIssue)
     ?? checks.find((item) => item.severity === "warning")
     ?? null;
 }
 
-export function buildLocalDetail(fallback: string, checks: EnvironmentCheckResult[]) {
+function buildLocalDetail(fallback: string, checks: EnvironmentCheckResult[]) {
   const issue = getPrimaryEnvironmentIssue(checks);
   if (!issue) {
     return fallback;
@@ -65,11 +65,11 @@ export function buildLocalDetail(fallback: string, checks: EnvironmentCheckResul
   return issue.remediation ? `${detail} ${issue.remediation}` : detail;
 }
 
-export function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: string) {
+function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: string) {
   return readiness.reason?.trim() || firstReadinessIssue(readiness)?.summary || fallback;
 }
 
-export function startingDetail(hasBootstrapConfig: boolean) {
+function startingDetail(hasBootstrapConfig: boolean) {
   return hasBootstrapConfig
     ? "已基于 default.yaml 生成首份用户配置，正在准备运行环境并等待服务就绪。"
     : "正在准备运行环境并等待服务就绪。";

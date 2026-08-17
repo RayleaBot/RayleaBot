@@ -1,10 +1,10 @@
 import { Button } from "@fluentui/react-components";
 import { ArrowClockwise20Regular } from "@fluentui/react-icons";
-import { deriveLauncherPresentation } from "@shared/launcher-presentation";
+import { deriveLauncherPresentation, type LauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import type { ReactNode } from "react";
 
-import { busyActionLabels, sectionContent, serviceStateConfig } from "./AppShell.shared";
+import { busyActionLabels, isRuntimePreparationIssue, sectionContent, serviceStateConfig } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 
 type AppShellSectionHeaderProps = {
@@ -14,7 +14,7 @@ type AppShellSectionHeaderProps = {
   controlsDisabled: boolean;
   editingSettings: boolean;
   onRefresh: () => void;
-  onOpenRuntimeTasks: () => void;
+  onOpenTasks: () => void;
   onBeginEdit: () => void;
   onCancelEdit: () => void;
   onSaveSettings: () => void;
@@ -22,13 +22,11 @@ type AppShellSectionHeaderProps = {
 
 function getSectionHeaderBadges(
   renderedSection: SectionId,
-  snapshot: LauncherSnapshot,
+  presentation: LauncherPresentation,
   busyAction: string | null,
   editingSettings: boolean,
   hasRecentStderr: boolean,
 ): ReactNode {
-  const presentation = deriveLauncherPresentation(snapshot);
-
   if (renderedSection === "status") {
     return (
       <>
@@ -49,10 +47,6 @@ function getSectionHeaderBadges(
     return null;
   }
   return editingSettings ? <span className="status-chip" data-tone="attention">草稿编辑中</span> : null;
-}
-
-function isRuntimePreparationIssue(code: string) {
-  return ["deps.", "chromium.", "python.", "nodejs.", "npm."].some((prefix) => code.startsWith(prefix));
 }
 
 function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRuntime: boolean): ReactNode {
@@ -79,7 +73,7 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
         >
           重新检查
         </Button>
-        {canPrepareRuntime ? <Button appearance="primary" onClick={props.onOpenRuntimeTasks}>准备运行环境</Button> : null}
+        {canPrepareRuntime ? <Button appearance="primary" onClick={props.onOpenTasks}>准备运行环境</Button> : null}
       </>
     );
   }
@@ -92,12 +86,12 @@ function getSectionHeaderActions(props: AppShellSectionHeaderProps, canPrepareRu
   if (props.editingSettings) {
     return (
       <>
-        <Button appearance="subtle" onClick={props.onCancelEdit}>放弃</Button>
-        <Button appearance="primary" onClick={props.onSaveSettings}>保存</Button>
+        <Button appearance="subtle" onClick={props.onCancelEdit} disabled={props.controlsDisabled}>放弃</Button>
+        <Button appearance="primary" onClick={props.onSaveSettings} disabled={props.controlsDisabled}>保存</Button>
       </>
     );
   }
-  return <Button appearance="primary" onClick={props.onBeginEdit}>编辑配置</Button>;
+  return <Button appearance="primary" onClick={props.onBeginEdit} disabled={props.controlsDisabled}>编辑配置</Button>;
 }
 
 export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
@@ -114,7 +108,7 @@ export function AppShellSectionHeader(props: AppShellSectionHeaderProps) {
         <div className="section-header__title-row">
           <h1 className="section-header__title">{sectionMeta.title}</h1>
           <div className="section-header__badges">
-            {getSectionHeaderBadges(props.renderedSection, props.snapshot, props.busyAction, props.editingSettings, hasRecentStderr)}
+            {getSectionHeaderBadges(props.renderedSection, presentation, props.busyAction, props.editingSettings, hasRecentStderr)}
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@ import {
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
-import { sections, serviceStateConfig, statusSummary } from "./AppShell.shared";
+import { sections, serviceStateConfig } from "./AppShell.shared";
 import type { SectionId } from "./AppShell.shared";
 import { RayleaMark } from "./RayleaMark";
 import { ThemeModeMenu } from "./ThemeModeMenu";
@@ -30,7 +30,7 @@ export function AppShellChrome({
 }: AppShellChromeProps) {
   const presentation = deriveLauncherPresentation(snapshot);
   const stateConfig = serviceStateConfig[presentation.state];
-  const trayStatus = statusSummary(presentation.state);
+  const trayStatus = stateConfig.label;
 
   return (
     <>

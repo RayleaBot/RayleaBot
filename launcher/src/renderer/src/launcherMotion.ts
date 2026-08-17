@@ -9,7 +9,7 @@ export const launcherMotion = {
   ease: "cubic-bezier(0.16, 1, 0.3, 1)",
 } as const;
 
-export type LauncherViewTransitionKind = "theme";
+type LauncherViewTransitionKind = "theme";
 
 interface LauncherViewTransitionRequest {
   sequence: number;
@@ -40,7 +40,7 @@ export function prefersReducedMotion(): boolean {
     Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 }
 
-export function supportsViewTransitions(): boolean {
+function supportsViewTransitions(): boolean {
   return typeof document !== "undefined" &&
     typeof document.startViewTransition === "function";
 }

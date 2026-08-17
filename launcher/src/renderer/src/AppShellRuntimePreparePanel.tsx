@@ -3,6 +3,7 @@ import type {
   RuntimePrepareResourceProgress,
   RuntimePrepareSnapshot,
 } from "@shared/launcher-models";
+import { formatByteCount } from "./AppShell.shared";
 
 type AppShellRuntimePreparePanelProps = {
   runtimePrepare: RuntimePrepareSnapshot | null;
@@ -29,20 +30,6 @@ const stageLabels: Record<string, string> = {
   entrypoint: "入口文件",
 };
 
-function formatBytes(value: number | null) {
-  if (!value || value <= 0) {
-    return "";
-  }
-  const units = ["B", "KB", "MB", "GB"];
-  let next = value;
-  let unitIndex = 0;
-  while (next >= 1024 && unitIndex < units.length - 1) {
-    next /= 1024;
-    unitIndex += 1;
-  }
-  return `${next.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-}
-
 function progressValue(item: RuntimePrepareResourceProgress) {
   if (item.progress === null) {
     return undefined;
@@ -52,13 +39,13 @@ function progressValue(item: RuntimePrepareResourceProgress) {
 
 function progressText(item: RuntimePrepareResourceProgress) {
   if (item.stage === "download") {
-    const downloaded = formatBytes(item.downloadedBytes);
-    const total = formatBytes(item.totalBytes);
+    const downloaded = formatByteCount(item.downloadedBytes);
+    const total = formatByteCount(item.totalBytes);
     if (downloaded && total) {
       return `${downloaded} / ${total}`;
     }
     if (downloaded) {
-      return `${downloaded}`;
+      return downloaded;
     }
   }
   if (item.stage === "extract" && item.extractedEntries !== null && item.totalEntries !== null && item.totalEntries > 0) {

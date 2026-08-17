@@ -6,8 +6,6 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@main": path.resolve(__dirname, "src/main"),
-      "@preload": path.resolve(__dirname, "src/preload"),
       "@renderer": path.resolve(__dirname, "src/renderer/src"),
       "@shared": path.resolve(__dirname, "src/shared"),
     },
@@ -16,7 +14,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     setupFiles: ["./tests/setup.ts"],
-    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    include: ["tests/renderer/**/*.test.ts", "tests/renderer/**/*.test.tsx", "tests/shared/**/*.test.ts", "tests/scripts/**/*.test.ts"],
     coverage: {
       provider: "v8",
       reporter: ["text-summary"],

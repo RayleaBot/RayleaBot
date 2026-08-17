@@ -12,8 +12,6 @@ import {
   formatSystemStatus,
 } from "./AppShell.copy";
 
-export type SectionId = "status" | "environment" | "diagnostics" | "settings" | "about";
-
 export const initialSnapshot: LauncherSnapshot = {
   server: {
     health: null,
@@ -126,9 +124,6 @@ export function buildDiagnosticsSummary(snapshot: LauncherSnapshot) {
   ].join("\n");
 }
 
-export function describeLauncherError(error: unknown, fallback: string) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
+export function describeLauncherError(_error: unknown, fallback: string) {
   return fallback;
 }

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { App } from "@renderer/App";
 import { buildDiagnosticsSummary } from "@renderer/AppState.shared";
@@ -106,7 +106,6 @@ describe("App", () => {
         initialized = true;
       }),
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
@@ -130,62 +129,15 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
       onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
     });
 
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getAllByText(TEST_INSTALLATION_ROOT).length).toBeGreaterThan(0);
-    });
-  });
-
-  test("shows a dedicated loading shell while initialization is still running", async () => {
-    let resolveInitialize: (() => void) | null = null;
-    installDesktopApi({
-      getPlatform: vi.fn(async () => "win32-x64"),
-      getSnapshot: vi.fn(async () => blankSnapshot),
-      initialize: vi.fn(
-        () =>
-          new Promise<void>((resolve) => {
-            resolveInitialize = resolve;
-          }),
-      ),
-      refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
-      start: vi.fn(async () => undefined),
-      stop: vi.fn(async () => undefined),
-      openWebUi: vi.fn(async () => undefined),
-      openReleasePage: vi.fn(async () => undefined),
-      checkForUpdates: vi.fn(async () => undefined),
-      downloadUpdate: vi.fn(async () => undefined),
-      installDownloadedUpdate: vi.fn(async () => undefined),
-      openLogsDirectory: vi.fn(async () => undefined),
-      saveSettings: vi.fn(async () => undefined),
-      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
-      chooseInstallationRoot: vi.fn(async () => null),
-      chooseServerExecutable: vi.fn(async () => null),
-      chooseConfigFile: vi.fn(async () => null),
-      chooseWorkdir: vi.fn(async () => null),
-      exitApplication: vi.fn(async () => undefined),
-      minimize: vi.fn(async () => undefined),
-      maximize: vi.fn(async () => undefined),
-      close: vi.fn(async () => undefined),
-      closeConfirmResponse: vi.fn(async () => undefined),
-      isMaximized: vi.fn(async () => false),
-      onSnapshot: vi.fn(() => () => undefined),
-      onMaximizedChange: vi.fn(() => () => undefined),
-      onShowExitConfirm: vi.fn(() => () => undefined),
-    });
-
-    render(<App />);
-
-    expect(screen.getByText("正在准备启动器")).toBeInTheDocument();
-    expect(screen.queryByText("正在加载启动器设置...")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "启动 RayleaBot" })).not.toBeInTheDocument();
-
-    resolveInitialize?.();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "启动 RayleaBot" })).toBeEnabled();
     });
   });
 
@@ -199,7 +151,6 @@ describe("App", () => {
         initialized = true;
       }),
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => {
         calls.push("start");
       }),
@@ -227,6 +178,9 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
       onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
     });
 
     render(<App />);
@@ -248,7 +202,6 @@ describe("App", () => {
         initialized = true;
       }),
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
@@ -273,6 +226,9 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
       onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
     } as LauncherDesktopApi);
 
     render(<App />);
@@ -292,7 +248,6 @@ describe("App", () => {
         initialized = true;
       }),
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
@@ -317,6 +272,9 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
       onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
     } as LauncherDesktopApi);
 
     render(<App />);
@@ -355,7 +313,6 @@ describe("App", () => {
         initialized = true;
       }),
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
@@ -378,6 +335,9 @@ describe("App", () => {
       onSnapshot: vi.fn(() => () => undefined),
       onMaximizedChange: vi.fn(() => () => undefined),
       onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
       previewResolvedSettings,
     } as LauncherDesktopApi);
 
@@ -400,6 +360,125 @@ describe("App", () => {
       expect(previewResolvedSettings).toHaveBeenCalled();
       expect(screen.getByRole("textbox", { name: "服务端程序" })).toHaveValue("D:\\RayleaPortable\\server\\raylea-server.exe");
       expect(screen.getByRole("textbox", { name: "配置文件" })).toHaveValue("D:\\RayleaPortable\\config\\user.yaml");
+    });
+  });
+
+  test("restores a pending close confirmation until cancellation succeeds", async () => {
+    let initialized = false;
+    const closeConfirmResponse = vi.fn()
+      .mockRejectedValueOnce(new Error("desktop bridge unavailable"))
+      .mockResolvedValue(undefined);
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? loadedSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => { initialized = true; }),
+      refresh: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      resetAdmin: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openRepositoryPage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      closeConfirmResponse,
+      setThemeMode: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => true),
+      onShowExternalStopConfirm: vi.fn(() => () => undefined),
+      hasPendingExternalStopConfirm: vi.fn(async () => false),
+    } as LauncherDesktopApi);
+
+    render(<App />);
+    await screen.findByText(TEST_INSTALLATION_ROOT);
+    fireEvent.click(await screen.findByRole("button", { name: "取消" }));
+
+    await waitFor(() => {
+      expect(closeConfirmResponse).toHaveBeenCalledWith({ action: "cancel", setAsDefault: false });
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => {
+      expect(closeConfirmResponse).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  test("always resolves the external-service stop confirmation", async () => {
+    let initialized = false;
+    let showExternalStopConfirm: (() => void) | undefined;
+    const externalStopConfirmResponse = vi.fn(async () => undefined);
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "linux-x64"),
+      getSnapshot: vi.fn(async () => (initialized ? loadedSnapshot : blankSnapshot)),
+      initialize: vi.fn(async () => { initialized = true; }),
+      refresh: vi.fn(async () => undefined),
+      start: vi.fn(async () => undefined),
+      stop: vi.fn(async () => undefined),
+      resetAdmin: vi.fn(async () => undefined),
+      checkForUpdates: vi.fn(async () => undefined),
+      downloadUpdate: vi.fn(async () => undefined),
+      installDownloadedUpdate: vi.fn(async () => undefined),
+      openWebUi: vi.fn(async () => undefined),
+      openReleasePage: vi.fn(async () => undefined),
+      openRepositoryPage: vi.fn(async () => undefined),
+      openLogsDirectory: vi.fn(async () => undefined),
+      saveSettings: vi.fn(async () => undefined),
+      previewResolvedSettings: vi.fn(async (settings) => previewSettings(settings)),
+      chooseInstallationRoot: vi.fn(async () => null),
+      chooseServerExecutable: vi.fn(async () => null),
+      chooseConfigFile: vi.fn(async () => null),
+      chooseWorkdir: vi.fn(async () => null),
+      exitApplication: vi.fn(async () => undefined),
+      minimize: vi.fn(async () => undefined),
+      maximize: vi.fn(async () => undefined),
+      close: vi.fn(async () => undefined),
+      closeConfirmResponse: vi.fn(async () => undefined),
+      hasPendingCloseConfirm: vi.fn(async () => false),
+      externalStopConfirmResponse,
+      hasPendingExternalStopConfirm: vi.fn(async () => true),
+      setThemeMode: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => false),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+      onShowExitConfirm: vi.fn(() => () => undefined),
+      onShowExternalStopConfirm: vi.fn((listener) => {
+        showExternalStopConfirm = listener;
+        return () => undefined;
+      }),
+    });
+
+    render(<App />);
+    await screen.findByText(TEST_INSTALLATION_ROOT);
+
+    const externalStopDialog = await screen.findByRole("dialog", { name: "停止现有服务" });
+    fireEvent.keyDown(externalStopDialog, { key: "Escape", code: "Escape" });
+    await waitFor(() => {
+      expect(externalStopConfirmResponse).toHaveBeenLastCalledWith(false);
+      expect(screen.queryByRole("dialog", { name: "停止现有服务" })).not.toBeInTheDocument();
+    });
+
+    act(() => showExternalStopConfirm?.());
+    const confirmedDialog = await screen.findByRole("dialog", { name: "停止现有服务" });
+    fireEvent.click(within(confirmedDialog).getByRole("button", { name: "停止服务" }));
+    await waitFor(() => {
+      expect(externalStopConfirmResponse).toHaveBeenLastCalledWith(true);
     });
   });
 });

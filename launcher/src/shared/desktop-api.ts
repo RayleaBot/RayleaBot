@@ -11,7 +11,6 @@ export interface LauncherDesktopApi {
   getSnapshot(): Promise<LauncherSnapshot>;
   initialize(): Promise<void>;
   refresh(): Promise<void>;
-  retry(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
   resetAdmin(): Promise<void>;
@@ -32,10 +31,14 @@ export interface LauncherDesktopApi {
   minimize(): Promise<void>;
   maximize(): Promise<void>;
   close(): Promise<void>;
+  hasPendingCloseConfirm(): Promise<boolean>;
   closeConfirmResponse(response: LauncherCloseConfirmResponse): Promise<void>;
+  externalStopConfirmResponse(confirmed: boolean): Promise<void>;
+  hasPendingExternalStopConfirm(): Promise<boolean>;
   setThemeMode(mode: LauncherThemeMode): Promise<void>;
   isMaximized(): Promise<boolean>;
   onSnapshot(listener: (snapshot: LauncherSnapshot) => void): () => void;
   onMaximizedChange(listener: (maximized: boolean) => void): () => void;
   onShowExitConfirm(listener: () => void): () => void;
+  onShowExternalStopConfirm(listener: () => void): () => void;
 }

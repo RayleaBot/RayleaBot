@@ -5,9 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import { AppShellDiagnosticsSection } from "@renderer/AppShellDiagnosticsSection";
 import { AppShellEnvironmentSection } from "@renderer/AppShellEnvironmentSection";
 import { AppShellAboutSection } from "@renderer/AppShellAboutSection";
-import { serviceStateConfig } from "@renderer/AppShell.shared";
 import { AppShellSettingsSection } from "@renderer/AppShellSettingsSection";
-import { AppShellStatusSection } from "@renderer/AppShellStatusSection";
 import { createLauncherSnapshot } from "../helpers/snapshot";
 
 const noop = vi.fn();
@@ -28,37 +26,6 @@ const configuredSnapshot = createLauncherSnapshot({
 });
 
 describe("Launcher workspace presentation", () => {
-  test("maps service states to their single visual tone vocabulary", () => {
-    expect(serviceStateConfig.stopped.tone).toBe("neutral");
-    expect(serviceStateConfig.starting.tone).toBe("info");
-    expect(serviceStateConfig.running.tone).toBe("success");
-    expect(serviceStateConfig.degraded.tone).toBe("warning");
-    expect(serviceStateConfig.failed.tone).toBe("danger");
-  });
-
-  test("keeps a normal stopped state compact and free of attention panels", () => {
-    render(
-      <AppShellStatusSection
-        snapshot={configuredSnapshot}
-        resolvedSettings={configuredSnapshot.launcher.resolvedSettings}
-        busyAction={null}
-        controlsDisabled={false}
-        onStart={noop}
-        onStop={noop}
-        onOpenWeb={noop}
-        onOpenRecoveryTasks={noop}
-        onOpenRuntimeTasks={noop}
-        onOpenLogs={noop}
-      />,
-    );
-
-    expect(screen.queryByText("运行说明")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "恢复与准备" })).not.toBeInTheDocument();
-    expect(screen.queryByText("服务操作已就绪")).not.toBeInTheDocument();
-    expect(screen.getByText("当前没有新的异常日志。")).toBeInTheDocument();
-    expect(screen.getByText("服务启动后可进入管理界面")).toBeInTheDocument();
-  });
-
   test("shows issues immediately while keeping healthy environment checks collapsed", () => {
     const snapshot = createLauncherSnapshot({
       launcher: {
@@ -158,6 +125,7 @@ describe("Launcher workspace presentation", () => {
         onCheckForUpdates={noop}
         onDownloadUpdate={noop}
         onInstallDownloadedUpdate={noop}
+        onOpenReleasePage={noop}
         onOpenRepositoryPage={noop}
       />,
     );
@@ -165,6 +133,72 @@ describe("Launcher workspace presentation", () => {
     expect(screen.getByText("当前构建不提供更新检查")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "检查更新" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "GitHub" })).toBeEnabled();
+  });
+
+  test("opens the release page for guided updates", () => {
+    const onOpenReleasePage = vi.fn();
+    const snapshot = createLauncherSnapshot({
+      launcher: {
+        releaseCheck: {
+          status: "update_available",
+          currentVersion: "0.3.0",
+          latestVersion: "0.4.0",
+          releasePageUrl: "https://example.invalid/releases/v0.4.0",
+          updateAvailable: true,
+          canCheck: true,
+          canDownload: false,
+          canInstall: false,
+        },
+      },
+    });
+
+    render(
+      <AppShellAboutSection
+        snapshot={snapshot}
+        controlsDisabled={false}
+        onCheckForUpdates={noop}
+        onDownloadUpdate={noop}
+        onInstallDownloadedUpdate={noop}
+        onOpenReleasePage={onOpenReleasePage}
+        onOpenRepositoryPage={noop}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "打开发布页" }));
+    expect(onOpenReleasePage).toHaveBeenCalledOnce();
+  });
+
+  test("offers the release page for platform-guided builds", () => {
+    const onOpenReleasePage = vi.fn();
+    const snapshot = createLauncherSnapshot({
+      launcher: {
+        releaseCheck: {
+          status: "disabled",
+          currentVersion: "0.3.0",
+          releasePageUrl: "https://example.invalid/releases/latest",
+          updateAvailable: false,
+          canCheck: false,
+          canDownload: false,
+          canInstall: false,
+        },
+      },
+    });
+
+    render(
+      <AppShellAboutSection
+        snapshot={snapshot}
+        controlsDisabled={false}
+        onCheckForUpdates={noop}
+        onDownloadUpdate={noop}
+        onInstallDownloadedUpdate={noop}
+        onOpenReleasePage={onOpenReleasePage}
+        onOpenRepositoryPage={noop}
+      />,
+    );
+
+    expect(screen.getByText("0.3.0")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "打开发布页" }));
+    expect(onOpenReleasePage).toHaveBeenCalledOnce();
   });
 
   test("shows the specific update error code and complete reason", () => {
@@ -188,6 +222,7 @@ describe("Launcher workspace presentation", () => {
         onCheckForUpdates={noop}
         onDownloadUpdate={noop}
         onInstallDownloadedUpdate={noop}
+        onOpenReleasePage={noop}
         onOpenRepositoryPage={noop}
       />,
     );

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { LauncherDesktopApi } from "@shared/desktop-api";
 import type { LauncherSnapshot } from "@shared/launcher-models";
@@ -21,14 +21,28 @@ afterEach(() => {
 });
 
 describe("useLauncherInitialization", () => {
-  test("hydrates snapshot, platform, and maximize state after initialize", async () => {
+  test("subscribes before initialize and retains snapshots emitted during initialization", async () => {
     let snapshotListener: ((snapshot: LauncherSnapshot) => void) | undefined;
+    const initializedSnapshot = createLauncherSnapshot({
+      launcher: {
+        processLifecycle: "running",
+        processOwnership: "launcher_managed",
+      },
+    });
+    const onSnapshot = vi.fn((listener: (snapshot: LauncherSnapshot) => void) => {
+      snapshotListener = listener;
+      return () => undefined;
+    });
+    const initialize = vi.fn(async () => {
+      expect(snapshotListener).toBeDefined();
+      snapshotListener?.(initializedSnapshot);
+    });
+
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
-      getSnapshot: vi.fn(async () => blankSnapshot),
-      initialize: vi.fn(async () => undefined),
+      getSnapshot: vi.fn(async () => initializedSnapshot),
+      initialize,
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
@@ -48,12 +62,9 @@ describe("useLauncherInitialization", () => {
       maximize: vi.fn(async () => undefined),
       close: vi.fn(async () => undefined),
       isMaximized: vi.fn(async () => true),
-      onSnapshot: vi.fn((listener) => {
-        snapshotListener = listener;
-        return () => undefined;
-      }),
+      onSnapshot,
       onMaximizedChange: vi.fn(() => () => undefined),
-    });
+    } as LauncherDesktopApi);
 
     const { result } = renderHook(() => useLauncherInitialization());
 
@@ -61,26 +72,9 @@ describe("useLauncherInitialization", () => {
       expect(result.current.initializing).toBe(false);
       expect(result.current.platformLabel).toBe("win32-x64");
       expect(result.current.isMaximized).toBe(true);
+      expect(result.current.snapshot.launcher.processLifecycle).toBe("running");
     });
-
-    act(() => {
-      snapshotListener?.({
-        ...blankSnapshot,
-        server: {
-          ...blankSnapshot.server,
-          health: { status: "ok" },
-          readiness: { status: "ready" },
-        },
-        launcher: {
-          ...blankSnapshot.launcher,
-          processLifecycle: "running",
-          processOwnership: "launcher_managed",
-        },
-      });
-    });
-
-    expect(result.current.snapshot.server.readiness?.status).toBe("ready");
-    expect(result.current.snapshot.launcher.processLifecycle).toBe("running");
+    expect(onSnapshot.mock.invocationCallOrder[0]).toBeLessThan(initialize.mock.invocationCallOrder[0]);
   });
 
   test("projects initialization failures into snapshot error state", async () => {
@@ -88,10 +82,9 @@ describe("useLauncherInitialization", () => {
       getPlatform: vi.fn(async () => "win32-x64"),
       getSnapshot: vi.fn(async () => blankSnapshot),
       initialize: vi.fn(async () => {
-        throw new Error("启动器初始化失败");
+        throw new Error(String.raw`open C:\Users\developer\RayleaBot\config\user.yaml failed`);
       }),
       refresh: vi.fn(async () => undefined),
-      retry: vi.fn(async () => undefined),
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       openWebUi: vi.fn(async () => undefined),
@@ -119,8 +112,28 @@ describe("useLauncherInitialization", () => {
 
     await waitFor(() => {
       expect(result.current.initializing).toBe(false);
-      expect(result.current.snapshot.launcher.lastLocalError).toBe("启动器初始化失败");
+      expect(result.current.snapshot.launcher.lastLocalError).toBe("启动器初始化失败。");
       expect(result.current.snapshot.launcher.statusHint).toBe("启动器初始化失败。");
+    });
+  });
+
+  test("handles maximize-state lookup failures without an unhandled rejection", async () => {
+    installDesktopApi({
+      getPlatform: vi.fn(async () => "win32-x64"),
+      getSnapshot: vi.fn(async () => blankSnapshot),
+      initialize: vi.fn(async () => undefined),
+      isMaximized: vi.fn(async () => {
+        throw new Error("window state unavailable");
+      }),
+      onSnapshot: vi.fn(() => () => undefined),
+      onMaximizedChange: vi.fn(() => () => undefined),
+    } as LauncherDesktopApi);
+
+    const { result } = renderHook(() => useLauncherInitialization());
+
+    await waitFor(() => {
+      expect(result.current.initializing).toBe(false);
+      expect(result.current.isMaximized).toBe(false);
     });
   });
 });

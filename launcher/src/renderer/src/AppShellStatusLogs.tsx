@@ -3,20 +3,18 @@ import { FolderOpen20Filled, CheckmarkCircle20Filled } from "@fluentui/react-ico
 
 type AppShellStatusLogsProps = {
   hasRecentStderr: boolean;
-  logAlert: "none" | "error";
   logs: string[];
   onOpenLogs: () => void;
 };
 
 export function AppShellStatusLogs({
   hasRecentStderr,
-  logAlert,
   logs,
   onOpenLogs,
 }: AppShellStatusLogsProps) {
   if (!hasRecentStderr) {
     return (
-      <section className="log-summary-row" data-alert={logAlert} aria-labelledby="status-log-title">
+      <section className="log-summary-row" data-alert="none" aria-labelledby="status-log-title">
         <div className="log-summary-row__status" role="status">
           <span className="log-summary-row__icon" aria-hidden="true">
             <CheckmarkCircle20Filled />
@@ -32,7 +30,7 @@ export function AppShellStatusLogs({
   }
 
   return (
-    <section className="log-workspace" data-alert={logAlert} aria-labelledby="status-log-title">
+    <section className="log-workspace" data-alert="error" aria-labelledby="status-log-title">
       <div className="workspace-heading">
         <h3 id="status-log-title">异常输出</h3>
         <span className="status-label" data-state="danger">已检测到异常输出</span>

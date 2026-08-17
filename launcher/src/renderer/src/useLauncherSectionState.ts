@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import type { SectionId } from "./AppState.shared";
+import type { SectionId } from "./AppShell.shared";
 import { runLauncherWorkspaceTransition } from "./launcherMotion";
 
 export function useLauncherSectionState() {

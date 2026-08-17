@@ -63,14 +63,14 @@ class StartShTests(unittest.TestCase):
                 ],
             )
 
-    def test_start_sh_launches_electron_from_launcher_dir(self) -> None:
+    def test_start_sh_launches_wails_from_launcher_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             workspace = Path(tmpdir)
             shutil.copy2(REPO_ROOT / "start.sh", workspace / "start.sh")
 
             launcher_dir = workspace / "launcher"
-            (launcher_dir / "dist" / "main" / "main").mkdir(parents=True)
-            (launcher_dir / "dist" / "main" / "main" / "index.js").write_text("// main bundle\n", encoding="utf-8")
+            (launcher_dir / "internal" / "frontend" / "dist").mkdir(parents=True)
+            (launcher_dir / "internal" / "frontend" / "dist" / "index.html").write_text("<html></html>\n", encoding="utf-8")
             (launcher_dir / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
 
             bin_dir = workspace / "bin"
@@ -87,6 +87,19 @@ class StartShTests(unittest.TestCase):
             fake_pnpm_path = bin_dir / "pnpm"
             fake_pnpm_path.write_text(fake_pnpm, encoding="utf-8")
             fake_pnpm_path.chmod(fake_pnpm_path.stat().st_mode | stat.S_IEXEC)
+            go_calls_path = workspace / "go-calls.log"
+            fake_go = textwrap.dedent(
+                f"""\
+                #!/bin/sh
+                printf 'CWD=%s\n' "$PWD" >> "{go_calls_path}"
+                printf 'ARGS=%s\n' "$*" >> "{go_calls_path}"
+                printf 'GOWORK=%s\n' "$GOWORK" >> "{go_calls_path}"
+                exit 0
+                """
+            )
+            fake_go_path = bin_dir / "go"
+            fake_go_path.write_text(fake_go, encoding="utf-8")
+            fake_go_path.chmod(fake_go_path.stat().st_mode | stat.S_IEXEC)
 
             env = os.environ.copy()
             env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
@@ -108,8 +121,11 @@ class StartShTests(unittest.TestCase):
                 [
                     f"--dir {launcher_dir} install --frozen-lockfile",
                     f"--dir {launcher_dir} run build:app",
-                    f"--dir {launcher_dir} exec electron .",
                 ],
+            )
+            self.assertEqual(
+                go_calls_path.read_text(encoding="utf-8").splitlines(),
+                [f"CWD={launcher_dir}", "ARGS=run -tags gtk3 .", "GOWORK=off"],
             )
 
 

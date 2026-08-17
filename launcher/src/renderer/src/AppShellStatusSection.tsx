@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { deriveLauncherPresentation, resolveRecoverySummary } from "@shared/launcher-presentation";
+import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type { LauncherResolvedSettings, LauncherSnapshot } from "@shared/launcher-models";
 
-import { busyActionLabels, sortChecks } from "./AppShell.shared";
+import { busyActionLabels, isRuntimePreparationIssue, sortChecks } from "./AppShell.shared";
 import { formatRecoverySummary } from "./AppShell.copy";
 import { AppShellServiceControl } from "./AppShellServiceControl";
 import { AppShellStatusLogs } from "./AppShellStatusLogs";
@@ -18,14 +18,9 @@ type StatusSectionProps = {
   onStart: () => void;
   onStop: () => void;
   onOpenWeb: () => void;
-  onOpenRecoveryTasks: () => void;
-  onOpenRuntimeTasks: () => void;
+  onOpenTasks: () => void;
   onOpenLogs: () => void;
 };
-
-function isRuntimePreparationIssue(code: string) {
-  return ["deps.", "chromium.", "python.", "nodejs.", "npm."].some((prefix) => code.startsWith(prefix));
-}
 
 export function AppShellStatusSection({
   snapshot,
@@ -35,12 +30,11 @@ export function AppShellStatusSection({
   onStart,
   onStop,
   onOpenWeb,
-  onOpenRecoveryTasks,
-  onOpenRuntimeTasks,
+  onOpenTasks,
   onOpenLogs,
 }: StatusSectionProps) {
   const presentation = useMemo(() => deriveLauncherPresentation(snapshot), [snapshot]);
-  const recoverySummary = useMemo(() => resolveRecoverySummary(snapshot), [snapshot]);
+  const recoverySummary = presentation.recoverySummary;
   const runtimePrepare = snapshot.launcher.runtimePrepare ?? null;
   const readiness = snapshot.server.readiness ?? null;
   const setupRequired = readiness?.status === "setup_required";
@@ -49,9 +43,16 @@ export function AppShellStatusSection({
   const readinessIssues = setupRequired ? [] : readiness?.issues ?? [];
   const readinessReason = setupRequired ? "" : readiness?.reason?.trim() ?? "";
   const readinessReasonCodes = setupRequired ? [] : readiness?.reason_codes ?? [];
-  const nonOkReadinessChecks = setupRequired
-    ? []
-    : Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok");
+  const nonOkReadinessChecks = useMemo(
+    () => setupRequired
+      ? []
+      : Object.entries(readiness?.checks ?? {}).filter(([, value]) => value && value !== "ok"),
+    [readiness?.checks, setupRequired],
+  );
+  const remediationIssues = useMemo(
+    () => readinessIssues.filter((issue) => issue.remediation).slice(0, 3),
+    [readinessIssues],
+  );
   const primaryReadinessIssue = setupRequired ? null : readinessIssues[0] ?? null;
   const primaryEnvironmentIssue = nonOkChecks[0] ?? null;
   const recoveryStatusSummary = formatRecoverySummary(recoverySummary);
@@ -66,7 +67,6 @@ export function AppShellStatusSection({
           : nonOkChecks.length > 0
             ? "warning"
           : "none";
-  const logAlert = hasRecentStderr ? "error" : "none";
   const statusReasonText =
     runtimePrepare?.active
       ? (runtimePrepare.summary || "正在准备运行环境。")
@@ -89,7 +89,7 @@ export function AppShellStatusSection({
             : presentation.detail;
   const hasReadinessDiagnostics = !runtimePrepare?.active && Boolean(
     readinessReasonCodes.length
-      || readinessIssues.some((issue) => issue.remediation)
+      || remediationIssues.length
       || nonOkReadinessChecks.length,
   );
   const canOpenWebUi = presentation.canOpenWebUi;
@@ -100,18 +100,12 @@ export function AppShellStatusSection({
   const showStatusRail = nonOkChecks.length > 0 || showRecoveryPanel;
   const startDisabled =
     controlsDisabled
-    || busyAction === "start"
-    || busyAction === "restart"
-    || busyAction === "stop"
-    || busyAction === "open-web"
     || ((presentation.state === "running" || presentation.state === "degraded")
       && snapshot.launcher.processOwnership === "external")
     || presentation.state === "starting"
     || presentation.state === "stopping";
   const stopDisabled =
     controlsDisabled
-    || busyAction === "restart"
-    || busyAction === "stop"
     || presentation.state === "starting"
     || presentation.state === "stopping"
     || snapshot.launcher.processOwnership === "none";
@@ -174,11 +168,11 @@ export function AppShellStatusSection({
                 </div>
               ) : null}
 
-              {readinessIssues.some((issue) => issue.remediation) ? (
+              {remediationIssues.length > 0 ? (
                 <div className="status-diagnostics-block">
                   <span className="status-label">处理方式</span>
                   <div className="status-diagnostics-list">
-                    {readinessIssues.filter((issue) => issue.remediation).slice(0, 3).map((issue) => (
+                    {remediationIssues.map((issue) => (
                       <div
                         key={`${issue.code}-${issue.summary}`}
                         className={`status-diagnostics-item status-diagnostics-item--${issue.severity}`}
@@ -220,8 +214,7 @@ export function AppShellStatusSection({
             canPrepareRuntime={canPrepareRuntime}
             canRecheckRecovery={canRecheckRecovery}
             checks={nonOkChecks}
-            onOpenRecoveryTasks={onOpenRecoveryTasks}
-            onOpenRuntimeTasks={onOpenRuntimeTasks}
+            onOpenTasks={onOpenTasks}
             recoveryStatusSummary={recoveryStatusSummary}
             showRecoverySummary={Boolean(recoverySummary)}
           />
@@ -230,7 +223,6 @@ export function AppShellStatusSection({
 
       <AppShellStatusLogs
         hasRecentStderr={hasRecentStderr}
-        logAlert={logAlert}
         logs={snapshot.launcher.recentStderr}
         onOpenLogs={onOpenLogs}
       />

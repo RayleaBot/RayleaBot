@@ -38,14 +38,13 @@ afterEach(() => {
 
 describe("useLauncherSettingsState", () => {
   test("keeps a draft and refreshes preview settings while editing", async () => {
-    installDesktopApi({
-      previewResolvedSettings: vi.fn(async (settings) => ({
-        installationRoot: settings.installationRoot,
-        serverExecutablePath: `${settings.installationRoot}\\custom-server.exe`,
-        configPath: `${settings.installationRoot}\\custom.yaml`,
-        workdir: settings.installationRoot,
-      })),
-    });
+    const previewResolvedSettings = vi.fn(async (settings: LauncherSnapshot["launcher"]["settings"]) => ({
+      installationRoot: settings.installationRoot,
+      serverExecutablePath: `${settings.installationRoot}\\custom-server.exe`,
+      configPath: `${settings.installationRoot}\\custom.yaml`,
+      workdir: settings.installationRoot,
+    }));
+    installDesktopApi({ previewResolvedSettings });
 
     const { result } = renderHook(
       ({ editingSettings }) => useLauncherSettingsState(snapshot, editingSettings),
@@ -63,6 +62,7 @@ describe("useLauncherSettingsState", () => {
       expect(result.current.settingsDraft.installationRoot).toBe("D:\\Portable");
       expect(result.current.previewResolvedSettings.serverExecutablePath).toBe("D:\\Portable\\custom-server.exe");
     });
+    expect(previewResolvedSettings).toHaveBeenLastCalledWith(expect.objectContaining({ installationRoot: "D:\\Portable" }));
   });
 
   test("falls back to current resolved settings when preview fails", async () => {

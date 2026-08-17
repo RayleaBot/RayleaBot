@@ -240,7 +240,7 @@ code,
   padding-left: 16px;
   border-bottom: 1px solid var(--color-nav-selected);
   background: var(--color-chrome);
-  -webkit-app-region: drag;
+  --wails-draggable: drag;
   user-select: none;
 }
 
@@ -256,7 +256,7 @@ code,
 .window-controls {
   display: flex;
   height: 100%;
-  -webkit-app-region: no-drag;
+  --wails-draggable: no-drag;
 }
 
 .window-control-btn {

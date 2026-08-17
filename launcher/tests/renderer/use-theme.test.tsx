@@ -56,6 +56,7 @@ describe("ThemeProvider", () => {
     act(() => listener?.());
     expect(screen.getByText("system:dark")).toBeInTheDocument();
     expect(document.documentElement.style.colorScheme).toBe("dark");
+    expect(setThemeMode).toHaveBeenCalledTimes(2);
   });
 
   test("persists explicit choices and reports native synchronization failures", async () => {
@@ -66,7 +67,7 @@ describe("ThemeProvider", () => {
     })));
     window.localStorage.setItem("raylea-theme-mode", "light");
     const setThemeMode = installDesktopApi(vi.fn(async () => {
-      throw new Error("IPC unavailable");
+      throw new Error("desktop bridge unavailable");
     }));
 
     render(<ThemeProvider><ThemeProbe /></ThemeProvider>);

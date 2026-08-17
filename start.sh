@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Development-only shortcut for building and starting the local Electron launcher.
+# Development-only shortcut for building and starting the local Wails launcher.
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
 
@@ -18,4 +18,4 @@ if [ "${RAYLEA_START_SKIP_LAUNCH:-0}" = "1" ]; then
 fi
 
 echo "[RayleaBot] Starting launcher..."
-pnpm --dir "$LAUNCHER_DIR" exec electron .
+(cd "$LAUNCHER_DIR" && GOWORK=off go run -tags gtk3 .)

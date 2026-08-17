@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import net from "node:net";
 import path from "node:path";
@@ -342,6 +343,37 @@ export function createDependencyInstallEnvironment(environment = {}) {
   };
 }
 
+export function resolveCorepackCliPath({
+  nodeExecutablePath = process.execPath,
+  env = process.env,
+  platform = process.platform,
+  fileExists = existsSync,
+} = {}) {
+  const pathApi = platform === "win32" ? path.win32 : path.posix;
+  const delimiter = platform === "win32" ? ";" : ":";
+  const searchDirectories = [
+    pathApi.dirname(nodeExecutablePath),
+    ...String(env.PATH ?? env.Path ?? "")
+      .split(delimiter)
+      .map((directory) => stripQuotes(directory.trim()))
+      .filter(Boolean),
+  ];
+  const seen = new Set();
+  for (const directory of searchDirectories) {
+    const key = platform === "win32" ? directory.toLowerCase() : directory;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    const candidate = pathApi.join(directory, "node_modules", "corepack", "dist", "corepack.js");
+    if (fileExists(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error("Corepack CLI was not found next to Node.js or in a Node.js directory on PATH.");
+}
+
 export function createTrustedChildEnvironment({
   nodeExecutablePath,
   env = process.env,
@@ -368,7 +400,20 @@ export function createTrustedChildEnvironment({
     pathEntries.push("/usr/local/bin", "/usr/bin", "/bin");
   }
 
-  for (const key of ["TEMP", "TMP"]) {
+  const inheritedPathKeys = isWindows
+    ? [
+        "APPDATA",
+        "LOCALAPPDATA",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "GOPATH",
+        "GOMODCACHE",
+        "TEMP",
+        "TMP",
+      ]
+    : ["HOME", "GOPATH", "GOMODCACHE", "TEMP", "TMP"];
+  for (const key of inheritedPathKeys) {
     const value = env[key]?.trim();
     if (value) {
       childEnvironment[key] = value;
@@ -377,6 +422,12 @@ export function createTrustedChildEnvironment({
 
   childEnvironment.PATH = uniquePathEntries(pathEntries, isWindows).join(delimiter);
   return childEnvironment;
+}
+
+export function createLauncherGoArgs(command, args = [], platform = process.platform) {
+  return platform === "linux"
+    ? [command, "-tags", "gtk3", ...args]
+    : [command, ...args];
 }
 
 export async function shouldInstallDependencies({
@@ -494,9 +545,10 @@ export async function classifyWebDevServer({
   port = WEB_DEV_PORT,
   backendBaseUrl,
   fetchImpl = globalThis.fetch,
+  portAvailable = isTcpPortAvailable,
   timeoutMs = 1500,
 } = {}) {
-  if (await isTcpPortAvailable(host, port)) {
+  if (await portAvailable(host, port)) {
     return "available";
   }
 

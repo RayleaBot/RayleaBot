@@ -36,9 +36,24 @@ export function useLauncherInitialization() {
   }, []);
 
   useEffect(() => {
-    window.rayleaLauncher.isMaximized().then(setIsMaximized);
+    let cancelled = false;
+    window.rayleaLauncher
+      .isMaximized()
+      .then((value) => {
+        if (!cancelled) {
+          setIsMaximized(value);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsMaximized(false);
+        }
+      });
     const unsub = window.rayleaLauncher.onMaximizedChange(setIsMaximized);
-    return unsub;
+    return () => {
+      cancelled = true;
+      unsub();
+    };
   }, []);
 
   useEffect(() => {
