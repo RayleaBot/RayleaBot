@@ -8,7 +8,6 @@ import json
 import fnmatch
 import re
 import shutil
-import struct
 import subprocess
 import tarfile
 import tempfile
@@ -95,23 +94,6 @@ RELEASE_SOURCE_FILE_PATTERNS = (
 )
 RELEASE_FILTERED_FILE_PATTERNS = FORBIDDEN_FILE_PATTERNS + RELEASE_SOURCE_FILE_PATTERNS + ("*.md",)
 RELEASE_FILTERED_DIRECTORY_NAMES = FORBIDDEN_DIRECTORY_NAMES
-LAUNCHER_ASAR_ALLOWED_NODE_MODULES = {"yaml"}
-LAUNCHER_ASAR_ALLOWED_TOP_LEVEL_PATHS = {"dist", "node_modules", "package.json"}
-LAUNCHER_ASAR_FORBIDDEN_DIRECTORY_NAMES = (
-    FORBIDDEN_DIRECTORY_NAMES - {"node_modules"}
-) | {"example", "examples", "src"}
-LAUNCHER_ASAR_FORBIDDEN_FILE_PATTERNS = FORBIDDEN_FILE_PATTERNS + (
-    "*.d.cts",
-    "*.d.mts",
-    "*.d.ts",
-    "*.ts",
-    "*.tsx",
-    "CHANGELOG*",
-    "CONTRIBUTING*",
-    "README*",
-)
-MAX_LAUNCHER_ASAR_HEADER_BYTES = 64 * 1024 * 1024
-WINDOWS_LAUNCHER_RUNTIME_DIRECTORY = "launcher"
 
 
 @dataclass(frozen=True)
@@ -199,102 +181,31 @@ def copy_file(src: Path, dst: Path) -> None:
     shutil.copy2(src, dst)
 
 
-def read_asar_entries(path: Path) -> list[str]:
-    with path.open("rb") as handle:
-        prefix = handle.read(16)
-        if len(prefix) != 16:
-            raise ValueError(f"launcher app.asar header is truncated: {path}")
-        header_size = struct.unpack_from("<I", prefix, 12)[0]
-        if header_size == 0 or header_size > MAX_LAUNCHER_ASAR_HEADER_BYTES:
-            raise ValueError(f"launcher app.asar header size is invalid: {header_size}")
-        raw_header = handle.read(header_size).rstrip(b"\0")
-    try:
-        header = json.loads(raw_header.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise ValueError(f"launcher app.asar header is invalid: {path}") from exc
-
-    entries: list[str] = []
-
-    def walk(node: object, prefix_parts: tuple[str, ...]) -> None:
-        if not isinstance(node, dict):
-            raise ValueError(f"launcher app.asar entry is invalid: {'/'.join(prefix_parts)}")
-        files = node.get("files")
-        if not isinstance(files, dict):
-            return
-        for name, child in files.items():
-            if not isinstance(name, str) or not name:
-                raise ValueError("launcher app.asar contains an invalid entry name")
-            parts = (*prefix_parts, name)
-            entries.append("/".join(parts))
-            walk(child, parts)
-
-    walk(header, ())
-    return entries
-
-
-def launcher_asar_node_module(entry: str) -> str | None:
-    parts = Path(entry).parts
-    if len(parts) < 2 or parts[0] != "node_modules":
-        return None
-    if parts[1].startswith("@"):
-        return "/".join(parts[1:3]) if len(parts) >= 3 else None
-    return parts[1]
-
-
-def find_forbidden_launcher_asar_entries(entries: list[str]) -> list[str]:
-    forbidden: list[str] = []
-    for entry in entries:
-        normalized = entry.replace("\\", "/").strip("/")
-        parts = tuple(part for part in normalized.split("/") if part)
-        if not parts:
-            continue
-        if parts[0] not in LAUNCHER_ASAR_ALLOWED_TOP_LEVEL_PATHS:
-            forbidden.append(normalized)
-            continue
-        module = launcher_asar_node_module(normalized)
-        if module is not None and module not in LAUNCHER_ASAR_ALLOWED_NODE_MODULES:
-            forbidden.append(normalized)
-            continue
-        if any(part in LAUNCHER_ASAR_FORBIDDEN_DIRECTORY_NAMES for part in parts):
-            forbidden.append(normalized)
-            continue
-        if any(fnmatch.fnmatchcase(parts[-1], pattern) for pattern in LAUNCHER_ASAR_FORBIDDEN_FILE_PATTERNS):
-            forbidden.append(normalized)
-    return forbidden
-
-
 def assert_launcher_bundle_clean(src: Path) -> None:
-    candidates = (
-        [src / "Contents" / "Resources" / "app.asar"]
-        if src.suffix == ".app"
-        else [
-            src / "resources" / "app.asar",
-            src / WINDOWS_LAUNCHER_RUNTIME_DIRECTORY / "resources" / "app.asar",
-        ]
-    )
+    if not src.exists():
+        raise ValueError(f"launcher bundle path does not exist: {src}")
+    candidates = [src] if src.is_file() else sorted(src.rglob("*"))
     for candidate in candidates:
-        if not candidate.is_file():
+        if candidate.is_symlink():
+            raise ValueError(f"launcher bundle contains a symbolic link: {candidate}")
+        if candidate.is_dir():
             continue
-        forbidden = find_forbidden_launcher_asar_entries(read_asar_entries(candidate))
-        if forbidden:
-            preview = forbidden[:20]
-            suffix = f" (+{len(forbidden) - len(preview)} more)" if len(forbidden) > len(preview) else ""
-            raise ValueError(f"launcher app.asar contains development files: {preview}{suffix}")
+        relative = Path(candidate.name) if src.is_file() else candidate.relative_to(src)
+        if any(part in FORBIDDEN_DIRECTORY_NAMES for part in relative.parts) or is_forbidden_file_name(candidate.name):
+            raise ValueError(f"launcher bundle contains development files: {relative.as_posix()}")
 
 
 def assert_windows_launcher_bundle_layout(src: Path) -> None:
-    required = (
-        src / "RayleaLauncher.exe",
-        src / WINDOWS_LAUNCHER_RUNTIME_DIRECTORY / "RayleaLauncher.exe",
-        src / WINDOWS_LAUNCHER_RUNTIME_DIRECTORY / "resources" / "app.asar",
-    )
-    missing = [path.relative_to(src).as_posix() for path in required if not path.is_file()]
-    if missing:
-        raise ValueError(f"Windows launcher bundle is missing packaged entries: {missing}")
-    allowed_root_entries = {"RayleaLauncher.exe", WINDOWS_LAUNCHER_RUNTIME_DIRECTORY}
-    unexpected = sorted(item.name for item in src.iterdir() if item.name not in allowed_root_entries)
+    executable = src / "RayleaLauncher.exe"
+    if not executable.is_file() or executable.stat().st_size == 0:
+        raise ValueError("Windows launcher bundle is missing RayleaLauncher.exe")
+    runtime_guide = src / "WINDOWS-RUNTIME.md"
+    if not runtime_guide.is_file() or runtime_guide.stat().st_size == 0:
+        raise ValueError("Windows launcher bundle is missing WINDOWS-RUNTIME.md")
+    expected = {"RayleaLauncher.exe", "WINDOWS-RUNTIME.md"}
+    unexpected = sorted(item.name for item in src.iterdir() if item.name not in expected)
     if unexpected:
-        raise ValueError(f"Windows launcher bundle has Electron resources at its root: {unexpected}")
+        raise ValueError(f"Windows Wails launcher bundle has unexpected entries: {unexpected}")
 
 
 def copy_launcher_bundle(src: Path, dst_root: Path) -> None:

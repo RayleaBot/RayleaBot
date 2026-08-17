@@ -13,6 +13,32 @@ import generate_third_party_notices as notices
 
 class ThirdPartyNoticeTests(unittest.TestCase):
 
+    @mock.patch.object(notices, "run_command", return_value="")
+    def test_go_collection_uses_release_build_tags(self, run_command) -> None:
+        self.assertEqual(notices.collect_go_components(), [])
+
+        launcher_calls = [
+            call
+            for call in run_command.call_args_list
+            if call.args[1] == ROOT / "launcher"
+        ]
+        commands_by_target = {
+            (call.args[2]["GOOS"], call.args[2]["GOARCH"]): call.args[0]
+            for call in launcher_calls
+        }
+        self.assertIn("production", commands_by_target[("windows", "amd64")])
+        self.assertIn("production,gtk3", commands_by_target[("linux", "amd64")])
+        self.assertIn("production", commands_by_target[("darwin", "arm64")])
+
+    @mock.patch.object(notices.subprocess, "run")
+    def test_command_failure_handles_missing_captured_output(self, run) -> None:
+        run.return_value = mock.Mock(returncode=7, stdout=None, stderr=None)
+
+        with self.assertRaisesRegex(notices.NoticeGenerationError, "exit code 7"):
+            notices.run_command(["example"], ROOT)
+
+        self.assertEqual(run.call_args.kwargs["errors"], "replace")
+
     @mock.patch.object(notices, "run_command", return_value="No licenses in packages found")
     def test_empty_pnpm_production_graph_is_accepted(self, run_command):
         self.assertEqual(notices.collect_node_components("sdk/vue"), [])

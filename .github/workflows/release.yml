@@ -47,6 +47,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -94,10 +95,19 @@ jobs:
         working-directory: web
         run: pnpm build
 
+      - name: Setup launcher Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: launcher/go.mod
+          cache-dependency-path: launcher/go.sum
 
       - name: Install launcher dependencies
         working-directory: launcher
         run: pnpm install --frozen-lockfile
+
+      - name: Install Wails Linux build dependencies
+        if: matrix.artifact_id == 'linux-x64-full'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - name: Run launcher tests
         working-directory: launcher
@@ -105,8 +115,6 @@ jobs:
 
       - name: Build launcher
         working-directory: launcher
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: pnpm build
 
       - name: Apply and verify Windows Authenticode gate
@@ -128,8 +136,7 @@ jobs:
           $signTargets = @(
             'dist/server/raylea-server.exe',
             'dist/server/raylea-updater.exe',
-            'launcher/dist/package/win-unpacked/RayleaLauncher.exe',
-            'launcher/dist/package/win-unpacked/launcher/RayleaLauncher.exe'
+            'launcher/dist/package/win-unpacked/RayleaLauncher.exe'
           )
           if (-not [string]::IsNullOrWhiteSpace($env:RAYLEA_WINDOWS_CERT_SHA1)) {
             foreach ($target in $signTargets) {
@@ -323,6 +330,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod
+          cache-dependency-path: |
+            server/go.sum
+            launcher/go.sum
 
       - name: Download release artifacts
         uses: actions/download-artifact@v4

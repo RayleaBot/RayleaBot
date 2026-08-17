@@ -8,31 +8,12 @@ import tarfile
 import tempfile
 import unittest
 import zipfile
-import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
 
 import release_tool
-
-
-def write_test_asar(path: Path, entries: list[str]) -> None:
-    root: dict[str, object] = {"files": {}}
-    for entry in entries:
-        node = root
-        for part in Path(entry).parts:
-            files = node.setdefault("files", {})
-            assert isinstance(files, dict)
-            child = files.setdefault(part, {"files": {}})
-            assert isinstance(child, dict)
-            node = child
-    raw_header = json.dumps(root, separators=(",", ":")).encode("utf-8")
-    padded_size = (len(raw_header) + 3) & ~3
-    padded_header = raw_header + (b"\0" * (padded_size - len(raw_header)))
-    prefix = struct.pack("<IIII", 4, padded_size + 8, padded_size + 4, padded_size)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(prefix + padded_header)
 
 
 class ReleaseToolTests(unittest.TestCase):
@@ -70,6 +51,16 @@ class ReleaseToolTests(unittest.TestCase):
             for item in envelope["signatures"]:
                 self.assertEqual(64, len(base64.urlsafe_b64decode(item["signature"])))
 
+    def test_windows_launcher_bundle_requires_runtime_guide(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = Path(tmp)
+            (bundle / "RayleaLauncher.exe").write_text("wails", encoding="utf-8")
+
+            with self.assertRaises(ValueError) as ctx:
+                release_tool.assert_windows_launcher_bundle_layout(bundle)
+
+        self.assertIn("WINDOWS-RUNTIME.md", str(ctx.exception))
+
     def test_package_metadata_and_verify_windows_bundle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp = Path(tmp)
@@ -89,16 +80,11 @@ class ReleaseToolTests(unittest.TestCase):
             license_file.write_text("AGPL", encoding="utf-8")
             notices_file.write_text("notices", encoding="utf-8")
             (launcher_bundle / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
-            (launcher_bundle / "RayleaLauncher.exe").write_text("entry", encoding="utf-8")
-            (launcher_bundle / "launcher" / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
-            (launcher_bundle / "launcher" / "RayleaLauncher.exe").write_text("electron", encoding="utf-8")
-            write_test_asar(
-                launcher_bundle / "launcher" / "resources" / "app.asar",
-                ["dist/main/main/index.js", "node_modules/yaml/package.json", "package.json"],
+            (launcher_bundle / "RayleaLauncher.exe").write_text("wails", encoding="utf-8")
+            (launcher_bundle / "WINDOWS-RUNTIME.md").write_text(
+                "Microsoft Edge WebView2 Runtime is required.\n",
+                encoding="utf-8",
             )
-            (launcher_bundle / "launcher" / "locales" / "zh-CN.pak").parent.mkdir(parents=True, exist_ok=True)
-            (launcher_bundle / "launcher" / "locales" / "zh-CN.pak").write_text("locale", encoding="utf-8")
-            (launcher_bundle / "launcher" / "libEGL.dll").write_text("dll", encoding="utf-8")
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (web_dist / "app.js.map").write_text("source map", encoding="utf-8")
@@ -144,16 +130,11 @@ class ReleaseToolTests(unittest.TestCase):
                 )
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
+            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/WINDOWS-RUNTIME.md", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/raylea-updater.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/THIRD_PARTY_NOTICES.md", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/RayleaLauncher.exe", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/resources/app.asar", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/locales/zh-CN.pak", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/launcher/libEGL.dll", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/resources/app.asar", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/locales/zh-CN.pak", names)
-            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/libEGL.dll", names)
+            self.assertFalse(any("app.asar" in name or "/launcher/" in name for name in names))
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
@@ -210,18 +191,16 @@ class ReleaseToolTests(unittest.TestCase):
 
             release_tool.verify_release_bundle(manifest_path, checksums_path, output)
 
-    def test_launcher_asar_rejects_unbundled_renderer_dependencies(self) -> None:
+    def test_launcher_bundle_rejects_development_sources(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
-            asar_path = Path(tmp) / "resources" / "app.asar"
-            write_test_asar(
-                asar_path,
-                ["dist/main/main/index.js", "node_modules/react/index.js", "package.json"],
-            )
+            source_path = Path(tmp) / "src" / "main.go"
+            source_path.parent.mkdir(parents=True)
+            source_path.write_text("package main\n", encoding="utf-8")
 
             with self.assertRaises(ValueError) as ctx:
                 release_tool.assert_launcher_bundle_clean(Path(tmp))
 
-        self.assertIn("node_modules/react", str(ctx.exception))
+        self.assertIn("src/main.go", str(ctx.exception))
 
     def test_package_linux_desktop_bundle_places_launcher_at_release_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -241,8 +220,10 @@ class ReleaseToolTests(unittest.TestCase):
             notices_file.write_text("notices", encoding="utf-8")
             (launcher_bundle / "RayleaLauncher").parent.mkdir(parents=True, exist_ok=True)
             (launcher_bundle / "RayleaLauncher").write_text("launcher", encoding="utf-8")
-            (launcher_bundle / "locales" / "en-US.pak").parent.mkdir(parents=True, exist_ok=True)
-            (launcher_bundle / "locales" / "en-US.pak").write_text("locale", encoding="utf-8")
+            (launcher_bundle / "LINUX-RUNTIME.md").write_text(
+                "GTK 3 and WebKit2GTK 4.1 are required.\n",
+                encoding="utf-8",
+            )
             (web_dist / "index.html").parent.mkdir(parents=True, exist_ok=True)
             (web_dist / "index.html").write_text("<html></html>", encoding="utf-8")
             (deps / "manifest.json").parent.mkdir(parents=True, exist_ok=True)
@@ -276,7 +257,7 @@ class ReleaseToolTests(unittest.TestCase):
             with tarfile.open(archive_path, "r:gz") as tf:
                 names = set(tf.getnames())
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/RayleaLauncher", names)
-            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/locales/en-US.pak", names)
+            self.assertIn("RayleaBot-v0.1.0-linux-x64-full/LINUX-RUNTIME.md", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-linux-x64-full/THIRD_PARTY_NOTICES.md", names)
             self.assertNotIn("RayleaBot-v0.1.0-linux-x64-full/contracts/config.user.schema.json", names)

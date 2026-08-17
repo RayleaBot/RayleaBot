@@ -56,12 +56,13 @@ def run_command(command: list[str], cwd: Path, env: dict[str, str] | None = None
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
+        errors="replace",
         env=env,
     )
     if completed.returncode != 0:
-        detail = completed.stderr.strip() or completed.stdout.strip() or f"exit code {completed.returncode}"
+        detail = (completed.stderr or "").strip() or (completed.stdout or "").strip() or f"exit code {completed.returncode}"
         raise NoticeGenerationError(f"{' '.join(command)} failed in {cwd}: {detail}")
-    return completed.stdout
+    return completed.stdout or ""
 
 
 def pnpm_command() -> list[str]:
@@ -221,14 +222,33 @@ def detect_go_license(text: str, component: str) -> str:
 
 
 def collect_go_components() -> list[Component]:
-    projects = [(REPO_ROOT / "server", "./cmd/raylea-server")]
+    projects = [
+        (
+            REPO_ROOT / "server",
+            "./cmd/raylea-server",
+            (("windows", "amd64", "0", ""), ("linux", "amd64", "0", ""), ("darwin", "arm64", "0", "")),
+        ),
+        (
+            REPO_ROOT / "launcher",
+            ".",
+            (
+                ("windows", "amd64", "0", "production"),
+                ("linux", "amd64", "1", "production,gtk3"),
+                ("darwin", "arm64", "1", "production"),
+            ),
+        ),
+    ]
     modules_by_key: dict[tuple[str, str], dict[str, Any]] = {}
-    for project_dir, package_pattern in projects:
-        for goos, goarch in (("windows", "amd64"), ("linux", "amd64"), ("darwin", "arm64")):
+    for project_dir, package_pattern, targets in projects:
+        for goos, goarch, cgo_enabled, build_tags in targets:
             target_env = dict(os.environ)
-            target_env.update({"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": "0", "GOWORK": "off"})
+            target_env.update({"GOOS": goos, "GOARCH": goarch, "CGO_ENABLED": cgo_enabled, "GOWORK": "off"})
+            command = ["go", "list"]
+            if build_tags:
+                command.extend(["-tags", build_tags])
+            command.extend(["-deps", "-json", package_pattern])
             packages = decode_json_stream(
-                run_command(["go", "list", "-deps", "-json", package_pattern], project_dir, target_env)
+                run_command(command, project_dir, target_env)
             )
             for package in packages:
                 module = package.get("Module")
@@ -262,28 +282,6 @@ def collect_go_components() -> list[Component]:
             )
         )
     return sorted(components, key=lambda item: item.key)
-
-
-def collect_electron_runtime_component() -> Component:
-    package_dir = REPO_ROOT / "launcher" / "node_modules" / "electron"
-    manifest_path = package_dir / "package.json"
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise NoticeGenerationError(f"unable to read Electron package metadata: {exc}") from exc
-    name = str(manifest.get("name") or "electron")
-    version = str(manifest.get("version") or "").strip()
-    expression = normalize_license_expression(manifest.get("license"), f"{name}@{version}")
-    chromium_notices = package_dir / "dist" / "LICENSES.chromium.html"
-    if not chromium_notices.is_file() or chromium_notices.stat().st_size == 0:
-        raise NoticeGenerationError("Electron runtime is missing LICENSES.chromium.html")
-    notice = license_documents(package_dir, f"{name}@{version}")
-    notice += (
-        "\n\n[Runtime notices]\n"
-        "The packaged Electron runtime ships LICENSES.chromium.html beside the executable. "
-        "That file contains the Chromium and bundled runtime notices."
-    )
-    return Component("electron-runtime", name, version, expression, notice)
 
 
 def merge_components(groups: list[list[Component]]) -> list[Component]:
@@ -340,7 +338,6 @@ def generate() -> str:
             collect_go_components(),
             collect_node_components("web"),
             collect_node_components("launcher"),
-            [collect_electron_runtime_component()],
         ]
     )
     return render_notices(components)

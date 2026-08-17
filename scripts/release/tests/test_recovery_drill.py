@@ -68,14 +68,15 @@ class RecoveryDrillTests(unittest.TestCase):
         required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
 
         self.assertIn("RayleaLauncher.exe", required)
-        self.assertIn("launcher/RayleaLauncher.exe", required)
-        self.assertIn("launcher/resources/app.asar", required)
+        self.assertNotIn("launcher/RayleaLauncher.exe", required)
+        self.assertNotIn("launcher/resources/app.asar", required)
         self.assertIn("raylea-updater.exe", required)
         self.assertIn("LICENSE", required)
         self.assertIn("THIRD_PARTY_NOTICES.md", required)
         self.assertNotIn("contracts/config.user.schema.json", required)
         self.assertNotIn("contracts/plugin-info.schema.json", required)
         self.assertIn("web/dist/index.html", required)
+        self.assertIn("LINUX-RUNTIME.md", recovery_drill.REQUIRED_PATHS["linux-x64-full"])
 
     def test_release_runtime_forbidden_paths_cover_development_materials(self) -> None:
         self.assertIn("contracts", FORBIDDEN_TOP_LEVEL_PATHS)

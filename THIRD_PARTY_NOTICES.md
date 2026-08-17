@@ -9,7 +9,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 
 | Ecosystem | Component | Version | License |
 | --- | --- | --- | --- |
-| electron-runtime | electron | 41.10.1 | MIT |
+| go | github.com/adrg/xdg | v0.5.3 | MIT |
 | go | github.com/beorn7/perks | v1.0.1 | MIT |
 | go | github.com/cespare/xxhash/v2 | v2.3.0 | MIT |
 | go | github.com/chromedp/cdproto | v0.0.0-20250724212937-08a3db8b4327 | MIT |
@@ -19,9 +19,11 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | go | github.com/dustin/go-humanize | v1.0.1 | MIT |
 | go | github.com/go-chi/chi/v5 | v5.3.1 | MIT |
 | go | github.com/go-json-experiment/json | v0.0.0-20250725192818-e39067aee2d2 | BSD-3-Clause |
+| go | github.com/go-ole/go-ole | v1.3.0 | MIT |
 | go | github.com/gobwas/httphead | v0.1.0 | MIT |
 | go | github.com/gobwas/pool | v0.2.1 | MIT |
 | go | github.com/gobwas/ws | v1.4.0 | MIT |
+| go | github.com/godbus/dbus/v5 | v5.2.2 | BSD-2-Clause |
 | go | github.com/google/uuid | v1.6.0 | BSD-3-Clause |
 | go | github.com/mattn/go-isatty | v0.0.22 | MIT |
 | go | github.com/munnerz/goautoneg | v0.0.0-20191010083416-a7dc8b61c822 | BSD-3-Clause |
@@ -32,6 +34,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | go | github.com/prometheus/procfs | v0.16.1 | Apache-2.0 |
 | go | github.com/remyoudompheng/bigfft | v0.0.0-20230129092748-24d4a6f8daec | BSD-3-Clause |
 | go | github.com/santhosh-tekuri/jsonschema/v6 | v6.0.2 | Apache-2.0 |
+| go | github.com/wailsapp/wails/v3 | v3.0.0-beta.8 | MIT |
 | go | go.yaml.in/yaml/v2 | v2.4.2 | Apache-2.0 |
 | go | golang.org/x/crypto | v0.54.0 | BSD-3-Clause |
 | go | golang.org/x/sys | v0.47.0 | BSD-3-Clause |
@@ -125,6 +128,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | @types/prop-types | 15.7.15 | MIT |
 | npm:launcher | @types/react | 18.3.28 | MIT |
 | npm:launcher | @types/react-dom | 18.3.7 | MIT |
+| npm:launcher | @wailsio/runtime | 3.0.0-beta.8 | MIT |
 | npm:launcher | csstype | 3.2.3 | MIT |
 | npm:launcher | embla-carousel | 8.6.0 | MIT |
 | npm:launcher | embla-carousel-autoplay | 8.6.0 | MIT |
@@ -136,12 +140,10 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | react-dom | 18.3.1 | MIT |
 | npm:launcher | rtl-css-js | 1.16.1 | MIT |
 | npm:launcher | scheduler | 0.23.2 | MIT |
-| npm:launcher | semver | 7.8.5 | ISC |
 | npm:launcher | stylis | 4.4.0 | MIT |
 | npm:launcher | tabster | 8.8.0 | MIT |
 | npm:launcher | tslib | 2.8.1 | 0BSD |
 | npm:launcher | use-sync-external-store | 1.6.0 | MIT |
-| npm:launcher | yaml | 2.9.0 | ISC |
 | npm:web | @ant-design/colors | 6.0.0 | MIT |
 | npm:web | @ant-design/icons-svg | 4.4.2 | MIT |
 | npm:web | @ant-design/icons-vue | 7.0.1 | MIT |
@@ -2216,6 +2218,37 @@ Applies to: entities@7.0.1
     THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS,
     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+### BSD-2-Clause (c4af1cb14e21)
+
+Applies to: github.com/godbus/dbus/v5@v5.2.2
+
+    [LICENSE]
+    Copyright (c) 2013, Georg Reinke (<guelfey at gmail dot com>), Google
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    1. Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+    HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+    SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+    TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+    LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 ### BSD-3-Clause (35e9375fba7e)
 
 Applies to: speakingurl@14.0.1
@@ -2694,7 +2727,7 @@ Applies to: github.com/coder/websocket@v1.8.15
 
 ### ISC (774f90485553)
 
-Applies to: yaml@2.9.0, yaml@2.9.0
+Applies to: yaml@2.9.0
 
     [LICENSE]
     Copyright Eemeli Aro <eemeli@gmail.com>
@@ -2710,27 +2743,6 @@ Applies to: yaml@2.9.0, yaml@2.9.0
     OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
     TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
     THIS SOFTWARE.
-
-### ISC (86c80e08af1c)
-
-Applies to: semver@7.8.5
-
-    [LICENSE]
-    The ISC License
-
-    Copyright (c) Isaac Z. Schlueter and Contributors
-
-    Permission to use, copy, modify, and/or distribute this software for any
-    purpose with or without fee is hereby granted, provided that the above
-    copyright notice and this permission notice appear in all copies.
-
-    THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-    WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-    MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-    ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-    WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-    ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
-    IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### ISC (8aaaa162277f)
 
@@ -3336,6 +3348,33 @@ Applies to: github.com/ncruces/go-strftime@v1.0.0
     MIT License
 
     Copyright (c) 2022 Nuno Cruces
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+
+### MIT (1c4d5971c0bd)
+
+Applies to: github.com/wailsapp/wails/v3@v3.0.0-beta.8
+
+    [LICENSE]
+    MIT License
+
+    Copyright (c) 2018-Present Lea Anthony
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -10335,36 +10374,6 @@ Applies to: ast-walker-scope@0.9.0
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (d24e0259433f)
-
-Applies to: electron@41.10.1
-
-    [LICENSE]
-    Copyright (c) Electron contributors
-    Copyright (c) 2013-2020 GitHub Inc.
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    [Runtime notices]
-    The packaged Electron runtime ships LICENSES.chromium.html beside the executable. That file contains the Chromium and bundled runtime notices.
-
 ### MIT (d404726b9e77)
 
 Applies to: confbox@0.2.4
@@ -10742,7 +10751,7 @@ Applies to: github.com/chromedp/sysutil@v1.1.0
 
 ### MIT (dd8399dbd6c0)
 
-Applies to: @fluentui/react-icons@2.0.316, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @ant-design/icons-svg@4.4.2, @ant-design/icons-vue@7.0.1, @rolldown/binding-darwin-arm64@1.1.5, @rolldown/binding-darwin-x64@1.1.5, @rolldown/binding-linux-arm64-gnu@1.1.5, @rolldown/binding-linux-arm64-musl@1.1.5, @rolldown/binding-linux-x64-gnu@1.1.5, @rolldown/binding-linux-x64-musl@1.1.5, @rolldown/binding-win32-arm64-msvc@1.1.5, @rolldown/binding-win32-x64-msvc@1.1.5, @vue/devtools-api@6.6.4, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1
+Applies to: @fluentui/react-icons@2.0.316, @wailsio/runtime@3.0.0-beta.8, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @ant-design/icons-svg@4.4.2, @ant-design/icons-vue@7.0.1, @rolldown/binding-darwin-arm64@1.1.5, @rolldown/binding-darwin-x64@1.1.5, @rolldown/binding-linux-arm64-gnu@1.1.5, @rolldown/binding-linux-arm64-musl@1.1.5, @rolldown/binding-linux-x64-gnu@1.1.5, @rolldown/binding-linux-x64-musl@1.1.5, @rolldown/binding-win32-arm64-msvc@1.1.5, @rolldown/binding-win32-x64-msvc@1.1.5, @vue/devtools-api@6.6.4, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1
 
     [Declared license]
     MIT
@@ -10857,6 +10866,33 @@ Applies to: @floating-ui/core@1.7.5, @floating-ui/devtools@0.2.3, @floating-ui/d
     IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+### MIT (e234d1bcdbde)
+
+Applies to: github.com/adrg/xdg@v0.5.3
+
+    [LICENSE]
+    The MIT License (MIT)
+
+    Copyright (c) 2014 Adrian-George Bostan <adrg@epistack.com>
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+    THE SOFTWARE.
+
 ### MIT (e3e7a8bea646)
 
 Applies to: nanoid@3.3.12
@@ -10957,6 +10993,33 @@ Applies to: postcss@8.5.18
     COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
     IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
     CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### MIT (e97b4c112ffc)
+
+Applies to: github.com/go-ole/go-ole@v1.3.0
+
+    [LICENSE]
+    The MIT License (MIT)
+
+    Copyright © 2013-2017 Yasuhiro Matsumoto, <mattn.jp@gmail.com>
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy of
+    this software and associated documentation files (the “Software”), to deal in
+    the Software without restriction, including without limitation the rights to
+    use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+    of the Software, and to permit persons to whom the Software is furnished to do
+    so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 
 ### MIT (edfb7ea980c7)
 
