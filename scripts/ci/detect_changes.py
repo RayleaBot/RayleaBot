@@ -106,14 +106,8 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path.startswith("launcher/"):
             result["launcher"] = True
-            matched = True
-        if (
-            path.startswith("launcher/native/")
-            or path.startswith("launcher/scripts/build-package")
-            or path == "launcher/scripts/package-before-build.cjs"
-            or path == "launcher/package.json"
-        ):
             result["release"] = True
+            matched = True
         if path.startswith("sdk/"):
             result["sdk"] = True
             matched = True
@@ -232,7 +226,7 @@ def self_test() -> None:
         (["go.work"], {"server": True, "sdk": True, "release": True, "ci": True}),
         (["plugin-workspace.example.json"], {"sdk": True, "docs_only": False}),
         (["examples/plugins/hello-go/cmd/hello-go/main.go"], {"sdk": True, "contracts": True}),
-        (["launcher/native/windows-entry/main_windows.go"], {"launcher": True, "release": True}),
+        (["launcher/main.go"], {"launcher": True, "release": True}),
         (["launcher/scripts/build-package.mjs"], {"launcher": True, "release": True}),
         ([".github/workflows/ci.yml"], {"ci": True, "docs_only": False}),
         (["AGENTS.md"], {"docs": True, "docs_only": True}),

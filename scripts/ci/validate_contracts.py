@@ -1005,22 +1005,10 @@ def validate_baseline() -> None:
             },
         },
         ROOT / "launcher" / "package.json": {
-            "allowBuilds": {
-                "electron": True,
-                "electron-winstaller": True,
-            },
+            "allowBuilds": None,
             "overrides": {
                 "@fluentui/react-motion": "9.16.1",
-                "@xmldom/xmldom": "0.8.13",
-                "axios": "1.16.0",
-                "follow-redirects": "1.16.0",
-                "form-data": "4.0.6",
-                "glob": "10.5.0",
-                "ip-address": "10.1.1",
                 "js-yaml": "4.2.0",
-                "lodash": "4.18.0",
-                "tar": "7.5.16",
-                "tmp": "0.2.7",
                 "undici": "7.28.0",
             },
         },
@@ -1052,6 +1040,49 @@ def validate_baseline() -> None:
             fail(f"{workspace_path.relative_to(ROOT)} allowBuilds drifted")
         if workspace_config.get("overrides") != expected_workspace["overrides"]:
             fail(f"{workspace_path.relative_to(ROOT)} overrides drifted")
+
+    launcher_package = load_json(ROOT / "launcher" / "package.json")
+    launcher_dependencies = require_object(launcher_package.get("dependencies"), "launcher dependencies")
+    if launcher_dependencies.get("@wailsio/runtime") != "3.0.0-beta.8":
+        fail("launcher/package.json must pin @wailsio/runtime 3.0.0-beta.8")
+    all_launcher_dependencies = {
+        **launcher_dependencies,
+        **require_object(launcher_package.get("devDependencies"), "launcher devDependencies"),
+    }
+    if any(name == "electron" or name.startswith("electron-") for name in all_launcher_dependencies):
+        fail("launcher/package.json must not depend on Electron packages")
+    launcher_go_mod = (ROOT / "launcher" / "go.mod").read_text(encoding="utf-8")
+    if "github.com/wailsapp/wails/v3 v3.0.0-beta.8" not in launcher_go_mod:
+        fail("launcher/go.mod must pin Wails v3.0.0-beta.8")
+    root_go_work = (ROOT / "go.work").read_text(encoding="utf-8")
+    if re.search(r"(?m)^\s*\./launcher\s*$", root_go_work):
+        fail("launcher must remain outside the root go.work to protect the server dependency graph")
+    launcher_scripts = require_object(launcher_package.get("scripts"), "launcher scripts")
+    for script_name in ("generate:wails", "test", "test:coverage", "typecheck"):
+        if "scripts/run-go.mjs" not in str(launcher_scripts.get(script_name, "")):
+            fail(f"launcher script {script_name} must run Go with the isolated wrapper")
+    platform_wrapped_scripts = {
+        "test": "test:platform",
+        "test:coverage": "test:platform",
+        "typecheck": "vet:platform",
+    }
+    for script_name, wrapped_command in platform_wrapped_scripts.items():
+        if wrapped_command not in str(launcher_scripts.get(script_name, "")):
+            fail(f"launcher script {script_name} must use the platform-aware Go wrapper")
+    launcher_go_wrapper = (ROOT / "launcher" / "scripts" / "run-go.mjs").read_text(encoding="utf-8")
+    if 'GOWORK: "off"' not in launcher_go_wrapper:
+        fail("launcher Go wrapper must set GOWORK=off")
+    if "createLauncherGoArgs(command.slice" not in launcher_go_wrapper:
+        fail("launcher Go wrapper must delegate platform-specific tags to createLauncherGoArgs")
+    launcher_go_support = (ROOT / "scripts" / "start-dev-support.mjs").read_text(encoding="utf-8")
+    if not re.search(
+        r'platform\s*===\s*"linux"\s*\?\s*\[command,\s*"-tags",\s*"gtk3",\s*\.\.\.args\]',
+        launcher_go_support,
+    ):
+        fail("launcher Linux Go wrapper must inject the GTK3 compatibility tag")
+    launcher_build_script = (ROOT / "launcher" / "scripts" / "build-package.mjs").read_text(encoding="utf-8")
+    if 'process.platform === "linux" ? "production,gtk3" : "production"' not in launcher_build_script:
+        fail("launcher Linux build must keep the Wails v3.0.x GTK3 compatibility tag")
 
 
 def validate_strict_openapi(web_api: dict[str, Any]) -> None:
