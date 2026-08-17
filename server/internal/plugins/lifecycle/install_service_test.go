@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -292,6 +293,7 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 	resumed := make(chan string, 1)
 	service.SetBeforeReplace(func(_ context.Context, pluginID string) { stopped <- pluginID })
 	service.SetAfterRollback(func(_ context.Context, pluginID string) { resumed <- pluginID })
+	service.deps.waitRename = func(context.Context) error { return nil }
 	service.deps.rename = func(source, target string) error {
 		if filepath.Base(source) == "candidate" && filepath.Base(target) == "rename-rollback-weather" {
 			return errors.New("injected candidate rename failure")
@@ -325,6 +327,93 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 	manifestPath := filepath.Join(repoRoot, "plugins", "installed", "rename-rollback-weather", "info.json")
 	if version := readInstallManifestVersion(t, manifestPath); version != "0.1.0" {
 		t.Fatalf("restored manifest version = %q", version)
+	}
+}
+
+func TestInstallServiceRetriesTransientReplacementRename(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	repository := &stubInstallRepository{}
+	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
+	defer service.Close()
+
+	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "retry-initial"), "retry-weather")
+	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
+	if err != nil {
+		t.Fatalf("install initial plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, initialTask); snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("initial task status = %q", snapshot.Status)
+	}
+
+	var activationAttempts atomic.Int32
+	service.deps.retryRename = func(error) bool { return true }
+	service.deps.waitRename = func(context.Context) error { return nil }
+	service.deps.rename = func(source, target string) error {
+		if filepath.Base(source) == "candidate" && filepath.Base(target) == "retry-weather" {
+			if activationAttempts.Add(1) < 3 {
+				return errors.New("injected transient candidate rename failure")
+			}
+		}
+		return os.Rename(source, target)
+	}
+
+	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "retry-next"), "retry-weather")
+	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
+		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
+		ResolvedSource: replacement, ReplaceExisting: true,
+	})
+	if err != nil {
+		t.Fatalf("replace plugin: %v", err)
+	}
+	if snapshot := waitForTaskCompletion(t, registry, replaceTask); snapshot.Status != tasks.StatusSucceeded {
+		t.Fatalf("replacement task = %#v", snapshot)
+	}
+	if attempts := activationAttempts.Load(); attempts != 3 {
+		t.Fatalf("activation rename attempts = %d, want 3", attempts)
+	}
+	installed, ok := catalog.Get("retry-weather")
+	if !ok || installed.Version != "0.2.0" {
+		t.Fatalf("catalog snapshot = %#v, want version 0.2.0", installed)
+	}
+}
+
+func TestInstallRenameDoesNotRetryPermanentErrors(t *testing.T) {
+	var attempts atomic.Int32
+	permanentErr := errors.New("permanent rename failure")
+	service := &InstallService{deps: installerDeps{
+		rename: func(string, string) error {
+			attempts.Add(1)
+			return permanentErr
+		},
+		retryRename: func(error) bool { return false },
+		waitRename:  func(context.Context) error { t.Fatal("waited after a permanent error"); return nil },
+	}}
+
+	err := service.renameInstallPath(context.Background(), "source", "target")
+	if !errors.Is(err, permanentErr) || attempts.Load() != 1 {
+		t.Fatalf("rename result = %v after %d attempts", err, attempts.Load())
+	}
+}
+
+func TestInstallRenamePreservesFailureWhenRetryIsCancelled(t *testing.T) {
+	renameErr := errors.New("rename blocked")
+	ctx, cancel := context.WithCancel(context.Background())
+	service := &InstallService{deps: installerDeps{
+		rename:      func(string, string) error { return renameErr },
+		retryRename: func(error) bool { return true },
+		waitRename: func(context.Context) error {
+			cancel()
+			return context.Canceled
+		},
+	}}
+
+	err := service.renameInstallPath(ctx, "source", "target")
+	if !errors.Is(err, renameErr) || !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled rename error = %v", err)
 	}
 }
 

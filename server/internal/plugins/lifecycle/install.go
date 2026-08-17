@@ -44,6 +44,8 @@ const (
 	maxPluginArchiveRatio       = 100
 	maxPluginDownloadRedirects  = 5
 	pluginInspectionTTL         = 10 * time.Minute
+	installRenameAttempts       = 10
+	installRenameRetryDelay     = 100 * time.Millisecond
 )
 
 var errPluginPackageResourceLimit = errors.New("plugin package resource limit exceeded")
@@ -55,6 +57,8 @@ type installerDeps struct {
 	mkdirTemp    func(string, string) (string, error)
 	removeAll    func(string) error
 	rename       func(string, string) error
+	retryRename  func(error) bool
+	waitRename   func(context.Context) error
 	stat         func(string) (os.FileInfo, error)
 	readDir      func(string) ([]os.DirEntry, error)
 	hashFile     func(string) (string, error)
@@ -613,6 +617,12 @@ func withDefaultInstallerDeps(_ string, deps installerDeps) installerDeps {
 	if deps.rename == nil {
 		deps.rename = os.Rename
 	}
+	if deps.retryRename == nil {
+		deps.retryRename = isRetryableInstallRenameError
+	}
+	if deps.waitRename == nil {
+		deps.waitRename = waitForInstallRenameRetry
+	}
 	if deps.stat == nil {
 		deps.stat = os.Stat
 	}
@@ -629,6 +639,43 @@ func withDefaultInstallerDeps(_ string, deps installerDeps) installerDeps {
 		deps.downloadFile = downloadHTTPSFile
 	}
 	return deps
+}
+
+func waitForInstallRenameRetry(ctx context.Context) error {
+	timer := time.NewTimer(installRenameRetryDelay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (s *InstallService) renameInstallPath(ctx context.Context, source, target string) error {
+	if installRenameAttempts < 1 {
+		return errors.New("install rename attempts must be positive")
+	}
+	var lastErr error
+	for attempt := 0; attempt < installRenameAttempts; attempt++ {
+		if contextErr := ctx.Err(); contextErr != nil {
+			if lastErr != nil {
+				return errors.Join(lastErr, contextErr)
+			}
+			return contextErr
+		}
+		lastErr = s.deps.rename(source, target)
+		if lastErr == nil {
+			return nil
+		}
+		if !s.deps.retryRename(lastErr) || attempt+1 == installRenameAttempts {
+			return lastErr
+		}
+		if waitErr := s.deps.waitRename(ctx); waitErr != nil {
+			return errors.Join(lastErr, waitErr)
+		}
+	}
+	return errors.New("install rename attempts exhausted")
 }
 
 func (s *InstallService) refreshCatalog(ctx context.Context) error {
@@ -815,16 +862,22 @@ func (s *InstallService) runInstall(job installJob) error {
 		if s.beforeReplace != nil {
 			s.beforeReplace(job.ctx, candidateSnapshot.PluginID)
 		}
-		if err := s.deps.rename(finalTarget, previousTarget); err != nil {
+		if err := s.renameInstallPath(job.ctx, finalTarget, previousTarget); err != nil {
 			resumePrevious()
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
 			return installError(codePluginInstallFailed, "备份当前插件版本失败", "插件更新未写入")
 		}
 	}
 
-	if err := s.deps.rename(candidateDir, finalTarget); err != nil {
+	if err := s.renameInstallPath(job.ctx, candidateDir, finalTarget); err != nil {
 		if replacing {
-			_ = s.deps.rename(previousTarget, finalTarget)
+			_ = s.renameInstallPath(context.WithoutCancel(job.ctx), previousTarget, finalTarget)
 			resumePrevious()
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
 		}
 		return installError(codePluginInstallFailed, "写入插件安装目录失败", "写入插件安装目录失败")
 	}
@@ -833,7 +886,7 @@ func (s *InstallService) runInstall(job installJob) error {
 		cleanupCtx := context.WithoutCancel(job.ctx)
 		_ = s.deps.removeAll(finalTarget)
 		if replacing {
-			_ = s.deps.rename(previousTarget, finalTarget)
+			_ = s.renameInstallPath(cleanupCtx, previousTarget, finalTarget)
 		}
 		if s.packageRepo != nil {
 			if hadPreviousMetadata {
