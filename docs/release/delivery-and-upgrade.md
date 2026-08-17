@@ -23,7 +23,11 @@
 - `build_info.json`；
 - 根仓库 `LICENSE` 与生成、审阅后的 `THIRD_PARTY_NOTICES.md`。
 
-Windows 完整包以根目录的 `RayleaLauncher.exe` 作为唯一桌面入口。Electron 主程序、DLL、PAK、语言包及 `resources/app.asar` 位于 `launcher/`；根入口与该目录必须作为同一安装单元保留。
+Windows 完整包以根目录的 Wails 程序 `RayleaLauncher.exe` 作为唯一桌面入口，不附带嵌套桌面运行时目录。Launcher 依赖系统安装的 Microsoft Edge WebView2 Runtime；包内 `WINDOWS-RUNTIME.md` 与 [Windows Desktop Runtime](./windows-desktop-runtime.md) 说明联网和离线安装方式。
+
+Linux 完整包使用根目录的 `RayleaLauncher`，macOS 完整包使用 `RayleaLauncher.app`。
+
+Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，压缩包不内嵌这些发行版组件；安装要求见 [Linux Desktop Runtime](./linux-desktop-runtime.md)。
 
 主程序 release workflow 不 checkout、不构建也不打包业务插件。正式归档中不得出现 `plugins/` 业务产物、插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v4 只携带 Chromium 资源声明。
 

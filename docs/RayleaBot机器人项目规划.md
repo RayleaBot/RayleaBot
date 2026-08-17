@@ -43,7 +43,7 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 - **Trust boundaries are explicit**：浏览器会话、Launcher control、插件代码和发布更新各自具有独立信任根与拒绝策略。
 - **Transactional state changes**：安装、升级、恢复和调度变更必须具有原子边界、可追溯终态和失败恢复。
 - **Bounded resources**：队列、HTTP 响应、下载、归档、展开文件和插件包均有硬上限。
-- **Frozen stack**：Go、Vue、React、Electron 和 SQLite 是正式技术栈；依赖只在单一版本线内维护。
+- **Frozen stack**：Go、Vue、React、Wails 和 SQLite 是正式技术栈；依赖只在单一版本线内维护。
 - **Evidence-based quality**：测试覆盖真实风险；性能优化以 benchmark、trace 或 profile 为依据。
 
 ## 顶层架构

@@ -154,4 +154,4 @@ Phase 3 只有在正式 Authenticode 与真实签名 Windows packaged E2E 通过
 - Server 是在线状态源；Web 和 Launcher 只消费正式接口。
 - 更新核心只接受编译进程序的仓库和公钥，`build_info.json` 不能改变信任根。
 - 插件完全信任边界、更新发布信任边界和管理会话边界彼此独立。
-- 主技术栈维持 Go、Vue、React、Electron 和 SQLite，不引入平行框架或第二状态模型。
+- 主技术栈维持 Go、Vue、React、Wails 和 SQLite，不引入平行框架或第二状态模型。

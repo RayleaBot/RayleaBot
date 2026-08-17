@@ -15,7 +15,7 @@
 - **Go 插件**：插件后端使用预编译 Go 可执行文件，通过语言无关的 JSONL v1 协议与服务端通信；插件管理页使用隔离域中的 Vue 静态产物。
 - **Bilibili 集成**：直播监控、动态监控、扫码登录、多账号轮转，内置反风控与验证码处理。
 - **Web 管理控制台**：仪表盘、插件管理、权限策略、任务调度、日志检索、模板预览等。
-- **桌面启动器**：基于 Electron，支持 Windows / macOS / Linux，提供一键启动、环境预检和进程编排。
+- **桌面启动器**：基于 Wails，支持 Windows / macOS / Linux，提供一键启动、环境预检、进程编排和原生系统托盘。
 - **契约驱动**：HTTP / WebSocket / 插件协议等对外接口统一维护在 `contracts/`，实现与测试双向校验。
 
 ## 快速开始
@@ -34,6 +34,8 @@
 1. 下载并解压到固定目录，该目录即运行根目录。
 2. 运行桌面入口或 `raylea-server`；服务器包可参考包内 `systemd/rayleabot.service` 托管。
 3. 浏览器访问 `http://127.0.0.1:8080`，按引导完成管理员初始化。
+
+Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌面 Launcher 需要 GTK 3 和 WebKit2GTK 4.1；对应完整包内的 `WINDOWS-RUNTIME.md`、`LINUX-RUNTIME.md` 提供安装说明。
 
 首个支持签名更新的版本需要手动安装。Launcher 每 6 小时检查一次更新；Windows 只有在 Ed25519 发布签名和正式 Authenticode 全部通过时才提供用户确认后的事务安装，Linux、macOS 和未满足签名门槛的 Windows 包使用引导更新。
 

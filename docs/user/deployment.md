@@ -20,7 +20,7 @@ GitHub 自动生成的源代码压缩包不是正式运行时产物。
 3. 解压到固定目录。该目录是安装根和默认运行根。
 4. 启动 Launcher 或 server，按一次性初始化入口创建管理员。
 
-Windows 用户只需启动解压根目录的 `RayleaLauncher.exe`。请勿移动该文件或删除同级 `launcher/` 目录。
+Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Microsoft Edge WebView2 Runtime；窗口未出现且系统未安装该运行库时，先按包内 `WINDOWS-RUNTIME.md` 或 [Windows Desktop Runtime](../release/windows-desktop-runtime.md) 完成安装。请勿单独移动 Launcher，完整安装根应作为一个单元保留。
 
 首个支持 v2 发布信任的版本必须手动安装。旧 updater 不能自动跨越新的信任边界。
 
@@ -57,6 +57,8 @@ Windows 自动安装仅适用于 `windows-x64-full`，并要求 Ed25519 manifest
 ### Linux 与 macOS
 
 Linux 和 macOS 使用 guided update：验证签名与 artifact，生成 offline backup，停止服务，替换程序文件，运行 doctor 和健康检查。失败时使用升级前包与备份恢复。
+
+Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整包不内嵌这些发行版组件。启动前按包内 `LINUX-RUNTIME.md` 或 [Linux Desktop Runtime](../release/linux-desktop-runtime.md) 安装所需系统包；无桌面环境时使用 `linux-x64-server`。
 
 完整信任与回滚语义见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)；恢复操作见 [Recovery](./recovery.md)。
 

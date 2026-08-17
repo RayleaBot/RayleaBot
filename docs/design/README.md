@@ -16,7 +16,7 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据继续由 
 | 文档 | 作用 |
 | --- | --- |
 | [Web Management UI](./web-management-ui.md) | Ant Design Vue、Vue Vben Admin 壳层与页面组合规范 |
-| [Launcher Design System](./launcher-design-system.md) | Fluent UI React v9、Electron 桌面壳与本机操作规范 |
+| [Launcher Design System](./launcher-design-system.md) | Fluent UI React v9、Wails 桌面壳与本机操作规范 |
 | [Plugin Management Surface](./plugin-management-surface.md) | 官方插件页面完整规范与第三方页面兼容包络 |
 
 ## 采用矩阵
@@ -35,7 +35,7 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据继续由 
 ## 共同边界
 
 - Web 继续使用 Ant Design Vue 与 Vue Vben Admin 对齐方案。
-- Launcher 继续使用 Fluent UI React v9 与现有 Electron 分层。
+- Launcher 使用 Fluent UI React v9，并通过生成的 Wails bindings 连接 Go 桌面宿主。
 - 插件管理页继续使用包内静态 HTML、CSS 和 JavaScript 产物，不获得宿主组件运行时；官方插件的这些产物由 Vue 3、TypeScript 和 Vite 构建。
 - 三个分面共享颜色角色、字体层级、间距、圆角、状态语义和无障碍门槛，不共享框架组件。
 - 聊天图片模板属于渲染产物，不受本产品界面规范约束。

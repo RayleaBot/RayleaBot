@@ -1,6 +1,6 @@
 # RayleaBot Launcher Design System
 
-本规范服务于 `launcher/` 的 Electron 桌面启动器。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；Launcher 继续使用 React 18、Fluent UI React v9 和现有 main、preload、renderer 分层。
+本规范服务于 `launcher/` 的 Wails 桌面启动器。项目级视觉语义以根目录 [`DESIGN.md`](../../DESIGN.md) 为准；Launcher 使用 React 18、Fluent UI React v9、Go 桌面宿主和生成的 typed bindings。
 
 ## 产品职责
 

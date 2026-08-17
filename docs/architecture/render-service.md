@@ -83,7 +83,7 @@
 - 已准备的 `.deps` Chromium 是默认托管资源；`.deps` 未准备且系统 Chrome、Chromium 或 Edge 可用时，平台会直接复用系统浏览器。
 - 模板基线目录和浏览器资源缺失时，平台会在启动、`doctor`、Launcher 和管理面中暴露同一份问题摘要。
 - `render.browser_path` 可显式指定 Chromium 系浏览器可执行文件路径。
-- Electron 内置 Chromium 和原生 WebView 不属于图片渲染浏览器入口。
+- Wails 桌面 WebView 不属于图片渲染浏览器入口。
 - 运行环境资源可按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`。
 
 ## 管理面能力

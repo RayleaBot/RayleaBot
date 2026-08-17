@@ -8,7 +8,7 @@
 | --- | --- |
 | `server/` | Go 服务端主链路 |
 | `web/` | Web 管理面 |
-| `launcher/` | Electron 桌面启动器 |
+| `launcher/` | Wails 桌面启动器 |
 | `contracts/` | 正式接口、schema、错误码与 release metadata |
 | `fixtures/` | 契约样例与回归基线 |
 | `examples/` | 示例插件、示例配置和示例请求 |

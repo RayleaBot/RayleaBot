@@ -19,7 +19,7 @@
 
 - `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
 - `web/` 承载管理控制台主链路。
-- `launcher/` 承载 Electron 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
+- `launcher/` 承载 Wails 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
 - `.deps/manifest.json` v4 只固定图片渲染 Chromium 资源矩阵及其可信来源列表；插件运行不依赖托管语言运行时。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
@@ -32,7 +32,7 @@
 | Web / build runtime | Node.js `24.18.0` |
 | JS package manager | `pnpm 11.11.0` |
 | Web UI | Vue `3.5.39` + Vite `8.1.4` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.1.0` + Pinia `3.0.4` + Motion Mini `12.42.2` |
-| Launcher runtime | Electron `41.10.1` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Fluent Motion `9.16.1` + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` + `electron-builder 26.15.3` |
+| Launcher runtime | Wails v3 `v3.0.0-beta.8` + `@wailsio/runtime 3.0.0-beta.8` + Go `1.25.12` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Fluent Motion `9.16.1` + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` |
 | Repository scripting | Python `3.12.13` |
 | Plugin backend | Go `1.25.12`，`CGO_ENABLED=0` 的平台预编译 artifact |
 | Plugin UI | Vue `3.5.39` + TypeScript `5.9.2` + Vite `8.1.4` + 按需 Ant Design Vue |
@@ -49,6 +49,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 - Node.js 使用 24.18.0；pnpm 使用 Corepack 管理的 11.11.0。若全局 `pnpm` 版本不同，优先执行 `corepack enable` 与 `corepack prepare pnpm@11.11.0 --activate`。
 - sqlc 固定为 v1.29.0，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源。
+- Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
 - 仓库提供 devcontainer，包含 Go 1.25.12、Node.js 24.18.0、pnpm 11.11.0、sqlc v1.29.0、Chromium、SQLite 与 `make doctor`。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
 
@@ -68,8 +69,8 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | Web 实时通信 | 原生 `WebSocket` + 受控连接封装 |
 | Web 样式 | Ant Design Vue Tokens + Vue Vben Admin 样式体系 + Vue SFC `lang="scss"` + Tailwind CSS `4.x` + CSS Variables |
 | Web 动效 | View Transition API + `motion/mini`，CSS transition 只承担简单控件状态 |
-| Launcher 主进程 | Electron `main` + typed service layer |
-| Launcher 桌面桥接 | `preload` 暴露受限 IPC API |
+| Launcher 桌面宿主 | Wails v3 Go host + `internal/desktop` typed service layer |
+| Launcher 桌面桥接 | Wails generated bindings 暴露受限 typed API |
 | Launcher 渲染层 | React 18 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | 插件后端 | 独立 Go module + `sdk/go`；`cmd/<plugin>` 为进程入口，`internal/` 保存业务实现与嵌入资源；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
@@ -130,7 +131,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `examples/` | 示例插件、示例配置、示例请求/响应 |
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
-| `launcher/` | Electron 桌面启动器工程 |
+| `launcher/` | Wails 桌面启动器工程 |
 | `plugins/installed/` | 运行期统一安装目录；只保存经 artifact 校验的商店、社区或开发插件产物，不进入版本控制 |
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
 | `sdk/vue/` | `@rayleabot/plugin-ui` bridge v2 client、composables、主题和 contract 类型 |
@@ -148,9 +149,11 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `server/go.sum` | 维护 server 依赖锁定结果 |
 | `web/package.json` | 固定 `packageManager = pnpm@11.11.0` 与 `engines.node = 24.18.0` |
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
-| `launcher/package.json` | 固定 `packageManager = pnpm@11.11.0`、`engines.node = 24.18.0`、Electron/Vite/React/`@vitejs/plugin-react`/build 脚本与打包配置 |
+| `launcher/go.mod` | 固定 Go `1.25.12`、Wails v3 Go module 与桌面宿主依赖 |
+| `launcher/go.sum` | 维护 Launcher Go 依赖锁定结果 |
+| `launcher/package.json` | 固定 `packageManager = pnpm@11.11.0`、`engines.node = 24.18.0`、Wails runtime/Vite/React/`@vitejs/plugin-react` 与构建脚本 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
-| `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；独立插件只通过本地临时开发工作区连接 |
+| `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
 | `contracts/*` | 对外接口与错误码唯一正式来源 |
 
@@ -158,7 +161,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 - `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `127.0.0.1`。
 - OneBot 连接配置正式键名采用 `onebot.reverse_ws.url`、`onebot.forward_ws.url`、`onebot.http_api.url` 与 `onebot.webhook.url`。
-- `launcher/package.json` 锁定 Electron 启动器的脚本入口、打包形态与 Node / pnpm 基线。
+- `launcher/go.mod` 与 `launcher/package.json` 共同锁定 Wails 启动器的 Go host、typed runtime、构建形态与 Node / pnpm 基线。原生托盘和单实例能力依赖当前固定的 Wails v3 预发布版本，变更版本必须同步验证 Go bindings、三平台构建与发布包布局。
 - `server/go.mod` 采用 `github.com/RayleaBot/RayleaBot/server` 作为 module path。
 
 ## `contracts/` 作为正式来源
