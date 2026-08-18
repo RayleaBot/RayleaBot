@@ -4,15 +4,15 @@
     {
       "id": "chromium-windows-x64",
       "kind": "chromium",
-      "version": "147.0.7727.24",
+      "version": "152.0.7977.42",
       "platform": "windows-x64",
       "sources": [
         {
-          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/win64/chrome-win64.zip",
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.42/win64/chrome-win64.zip",
           "kind": "upstream"
         }
       ],
-      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+      "sha256": "5093f03a401b5579da490d281aba80b687d92fe6fdfec47ee522920918d6e327",
       "archive_format": "zip",
       "entrypoints": {
         "browser": [
@@ -23,15 +23,15 @@
     {
       "id": "chromium-linux-x64",
       "kind": "chromium",
-      "version": "147.0.7727.24",
+      "version": "152.0.7977.42",
       "platform": "linux-x64",
       "sources": [
         {
-          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/linux64/chrome-linux64.zip",
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.42/linux64/chrome-linux64.zip",
           "kind": "upstream"
         }
       ],
-      "sha256": "2623af6b98ab1029e9e752450e905e30c4669774aee14acf2a203ef2ea797ee0",
+      "sha256": "cb77f4781cad7d5e06fcc78b4476e6a6375616e7278dc313abaa9db22ed4674e",
       "archive_format": "zip",
       "entrypoints": {
         "browser": [
@@ -42,15 +42,15 @@
     {
       "id": "chromium-macos-arm64",
       "kind": "chromium",
-      "version": "147.0.7727.24",
+      "version": "152.0.7977.42",
       "platform": "macos-arm64",
       "sources": [
         {
-          "url": "https://storage.googleapis.com/chrome-for-testing-public/147.0.7727.24/mac-arm64/chrome-mac-arm64.zip",
+          "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.42/mac-arm64/chrome-mac-arm64.zip",
           "kind": "upstream"
         }
       ],
-      "sha256": "37da2605bae9b5d349546eb9b6700ee6af27aa9b643ee4c58d7bc22d1209a03f",
+      "sha256": "c9a7b6bfb57731944990ffb7cafc17ae2f2a2e25ad1f145f45584d7b799d3ce8",
       "archive_format": "zip",
       "entrypoints": {
         "browser": [

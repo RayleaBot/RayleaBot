@@ -41,7 +41,7 @@ test('development go.work includes the SDK, plugin modules and SDK replacement o
       { path: 'C:/workspace/plugins/echo' },
     ],
   })
-  assert.match(rendered, /^go 1\.25\.12/m)
+  assert.match(rendered, /^go 1\.26\.6/m)
   assert.equal((rendered.match(/plugins(?:\\\\|\/)echo/g) ?? []).length, 1)
   assert.match(rendered, /RayleaBot(?:\\\\|\/)sdk(?:\\\\|\/)go/)
   assert.equal((rendered.match(/replace github\.com\/RayleaBot\/RayleaBot\/sdk\/go v0\.2\.0/g) ?? []).length, 1)

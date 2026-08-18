@@ -16,26 +16,34 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+
+      - name: Install Corepack
+        run: npm install --global corepack@0.35.0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Install sqlc
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 
       - name: Run server doctor
         run: make doctor
@@ -58,22 +66,21 @@ jobs:
           go tool cover -func=coverage.out | awk '/^total:/ {print "Go coverage total: " $3}'
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v1.64.8
-          install-mode: goinstall
+          version: v2.12.2
           working-directory: server
-          args: --timeout=10m --disable-all -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
+          args: --timeout=10m --default=none -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
 
   server-security:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
@@ -86,24 +93,24 @@ jobs:
           tmp_bin="$(mktemp)"
           trap 'rm -f "$tmp_bin"' EXIT
           go build -o "$tmp_bin" ./cmd/raylea-server
-          go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 -mode=binary "$tmp_bin"
+          go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 -mode=binary "$tmp_bin"
 
   web-full:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
@@ -132,23 +139,23 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: launcher/go.mod
           cache-dependency-path: launcher/go.sum
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
           cache: pnpm
           cache-dependency-path: launcher/pnpm-lock.yaml
 
@@ -172,15 +179,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Install contract validators
-        run: python -m pip install --disable-pip-version-check pyyaml jsonschema==4.26.0
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
       - name: Validate contracts strictly
         run: python scripts/ci/validate_contracts.py --mode=strict
@@ -190,17 +197,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Install web dependencies
         working-directory: web
@@ -223,30 +230,30 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Run release helper tests
         run: python -m unittest discover -s scripts/release/tests

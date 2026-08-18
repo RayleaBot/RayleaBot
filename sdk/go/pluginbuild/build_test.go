@@ -15,7 +15,7 @@ import (
 
 func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 	pluginDir := t.TempDir()
-	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.25.12\n")
+	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
@@ -69,7 +69,7 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 
 func TestBuildAcceptsCommandBelowCmd(t *testing.T) {
 	pluginDir := t.TempDir()
-	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.25.12\n")
+	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(pluginDir, "cmd", "test-plugin", "main.go"), "package main\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
@@ -122,9 +122,9 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 	root := t.TempDir()
 	pluginDir := filepath.Join(root, "plugin")
 	sdkDir := filepath.Join(root, "sdk")
-	writeTestFile(t, filepath.Join(sdkDir, "go.mod"), "module example.test/sdk\n\ngo 1.25.12\n")
+	writeTestFile(t, filepath.Join(sdkDir, "go.mod"), "module example.test/sdk\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(sdkDir, "sdk.go"), "package sdk\nfunc Run() {}\n")
-	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.25.12\n\nrequire example.test/sdk v0.2.0\n")
+	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.26.6\n\nrequire example.test/sdk v0.2.0\n")
 	writeTestFile(t, filepath.Join(pluginDir, "cmd", "plugin", "main.go"), "package main\nimport \"example.test/sdk\"\nfunc main() { sdk.Run() }\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
@@ -137,7 +137,7 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
 	goWorkPath := filepath.Join(root, "go.work")
 	writeTestFile(t, goWorkPath, fmt.Sprintf(
-		"go 1.25.12\n\nuse (\n\t%q\n\t%q\n)\n\nreplace example.test/sdk v0.2.0 => %q\n",
+		"go 1.26.6\n\nuse (\n\t%q\n\t%q\n)\n\nreplace example.test/sdk v0.2.0 => %q\n",
 		pluginDir, sdkDir, sdkDir,
 	))
 	t.Setenv("GOWORK", goWorkPath)

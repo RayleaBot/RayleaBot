@@ -29,9 +29,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
 
       - name: Detect changed areas
         id: detect
@@ -48,15 +53,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Install contract validators
-        run: python -m pip install --disable-pip-version-check pyyaml jsonschema==4.26.0
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
       - name: Validate contracts
         run: python scripts/ci/validate_contracts.py --mode=strict
@@ -68,26 +73,34 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+
+      - name: Install Corepack
+        run: npm install --global corepack@0.35.0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Install sqlc
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
 
       - name: Run server doctor
         run: make doctor
@@ -105,7 +118,7 @@ jobs:
 
       - name: Run binary vulnerability scan
         working-directory: server
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 -mode=binary dist/raylea-server
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 -mode=binary dist/raylea-server
 
       - name: Check sqlc generated code drift
         working-directory: server
@@ -118,12 +131,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
 
       - name: Check design token generation and color drift
         run: node scripts/generate-design-tokens.mjs --check
@@ -135,19 +148,24 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install Corepack and activate pnpm
+        run: |
+          npm install --global corepack@0.35.0
+          corepack prepare pnpm@11.22.0 --activate
 
       - name: Install web dependencies
         working-directory: web
@@ -182,23 +200,23 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: launcher/go.mod
           cache-dependency-path: launcher/go.sum
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
           cache: pnpm
           cache-dependency-path: launcher/pnpm-lock.yaml
 
@@ -244,10 +262,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: sdk/go/go.mod
           cache-dependency-path: |
@@ -255,14 +273,14 @@ jobs:
             examples/plugins/*/go.mod
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
 
       - name: Run Go SDK and example race tests
         shell: bash
@@ -295,15 +313,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
@@ -325,23 +343,28 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
 
       - name: Install production graph inputs
         run: |
@@ -359,17 +382,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Check agent docs
         run: |
@@ -387,20 +410,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
 
       - name: Install contract validators
-        run: python -m pip install --disable-pip-version-check pyyaml jsonschema==4.26.0
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
       - name: Check CI scripts
         run: |
@@ -427,6 +450,11 @@ jobs:
       - ci-self-check
 
     steps:
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+
       - name: Check required CI result
         shell: bash
         env:

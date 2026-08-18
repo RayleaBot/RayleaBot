@@ -2,9 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
-import { createPreserveWailsEmbedPlaceholderPlugin } from "./scripts/vite-placeholder";
+import { createPreserveWailsEmbedPlaceholderPlugin } from "./scripts/vite-placeholder.ts";
 
-const frontendDist = path.resolve(__dirname, "internal/frontend/dist");
+const frontendDist = path.resolve(import.meta.dirname, "internal/frontend/dist");
 
 export default defineConfig({
   root: "src/renderer",
@@ -15,8 +15,8 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      "@renderer": path.resolve(__dirname, "src/renderer/src"),
-      "@shared": path.resolve(__dirname, "src/shared"),
+      "@renderer": path.resolve(import.meta.dirname, "src/renderer/src"),
+      "@shared": path.resolve(import.meta.dirname, "src/shared"),
     },
   },
   build: {

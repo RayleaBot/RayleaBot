@@ -19,10 +19,10 @@ allowBuilds:
   esbuild: true
 
 overrides:
-  esbuild: 0.28.1
-  glob: 10.5.0
-  immutable: 5.1.8
-  js-cookie: 3.0.7
+  esbuild: 0.28.2
+  glob: 13.0.6
+  immutable: 5.1.9
+  js-cookie: 3.0.8
   js-yaml: 4.2.0
-  picomatch: 4.0.4
-  postcss: 8.5.18
+  picomatch: 4.0.5
+  postcss: 8.5.26

@@ -124,7 +124,7 @@ export function createDevelopmentReloadQueue() {
   }
 }
 
-export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = '1.25.12' }) {
+export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = '1.26.6' }) {
   const modulePaths = [sdkGoPath, ...plugins.map((plugin) => plugin.path)]
   const uniquePaths = [...new Set(modulePaths.map((modulePath) => path.resolve(modulePath)))]
   const uses = uniquePaths.map((modulePath) => `\t${quoteGoWorkPath(modulePath)}`).join('\n')

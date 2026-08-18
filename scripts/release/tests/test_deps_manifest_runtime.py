@@ -65,7 +65,7 @@ class DepsManifestRuntimeTests(unittest.TestCase):
                 package_runtime.ensure_runtime_bootstrap(root, "windows-x64-full")
 
             self.assertTrue(
-                (root / ".deps" / "store" / "chromium-windows-x64" / "147.0.7727.24" / "chrome-win64" / "chrome.exe").exists()
+                (root / ".deps" / "store" / "chromium-windows-x64" / "152.0.7977.42" / "chrome-win64" / "chrome.exe").exists()
             )
             self.assertEqual(["chromium"], list(package_runtime.REQUIRED_ENTRYPOINTS))
 
@@ -134,8 +134,8 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             resource = self._resource(archive)
             store_parent = root / ".deps" / "store" / "chromium-windows-x64"
             stale = [
-                store_parent / ".chromium-windows-x64-147.0.7727.24-stale",
-                store_parent / "chromium-windows-x64-147.0.7727.24-stale",
+                store_parent / ".chromium-windows-x64-152.0.7977.42-stale",
+                store_parent / "chromium-windows-x64-152.0.7977.42-stale",
             ]
             for path in stale:
                 (path / "chrome-win64").mkdir(parents=True)
@@ -160,7 +160,7 @@ class DepsManifestRuntimeTests(unittest.TestCase):
         return {
             "id": "chromium-windows-x64",
             "kind": "chromium",
-            "version": "147.0.7727.24",
+            "version": "152.0.7977.42",
             "platform": "windows-x64",
             "sources": [{"url": "https://example.invalid/chromium.zip", "kind": "upstream"}],
             "sha256": package_runtime.hashlib.sha256(archive).hexdigest(),

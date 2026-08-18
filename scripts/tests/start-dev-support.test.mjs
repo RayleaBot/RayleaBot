@@ -309,7 +309,7 @@ test("finds Corepack on PATH when the selected Node runtime contains only node.e
 });
 
 test("creates a minimal child environment with the managed Node executable", () => {
-  const nodeDirectory = String.raw`C:\toolchains\node-v24.18.0-win-x64`;
+  const nodeDirectory = String.raw`C:\toolchains\node-v26.7.0-win-x64`;
   const appData = String.raw`C:\Profiles\developer\AppData\Roaming`;
   const localAppData = String.raw`C:\Profiles\developer\AppData\Local`;
   const userProfile = String.raw`C:\Profiles\developer`;

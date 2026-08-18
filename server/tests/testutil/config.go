@@ -67,7 +67,7 @@ func NewPreparedTestRuntimeRoot(t testing.TB) string {
 
 	root := t.TempDir()
 	WriteTestDepsManifest(t, root)
-	WriteTestRuntimeEntry(t, root, "chromium-test", "147.0.7727.24", "chrome-win64", "chrome.exe")
+	WriteTestRuntimeEntry(t, root, "chromium-test", "152.0.7977.42", "chrome-win64", "chrome.exe")
 	WriteTestTemplate(t, root, "help.menu", 640)
 	WriteTestTemplate(t, root, "status.panel", 540)
 	return root
@@ -87,10 +87,10 @@ func WriteTestDepsManifest(t testing.TB, root string) {
     {
       "id": "chromium-test",
       "kind": "chromium",
-      "version": "147.0.7727.24",
+      "version": "152.0.7977.42",
       "platform": "` + platform + `",
       "sources": [{"url": "https://example.invalid/chromium.zip", "kind": "upstream"}],
-      "sha256": "22d9f6baf54f755ccf5843f8e6ad4ad6e0ba10d11092c574df9e8f97ce55369e",
+      "sha256": "5093f03a401b5579da490d281aba80b687d92fe6fdfec47ee522920918d6e327",
       "archive_format": "zip",
       "entrypoints": {"browser": ["chrome-win64/chrome.exe"]}
     }

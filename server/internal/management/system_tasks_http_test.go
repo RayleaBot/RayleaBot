@@ -228,7 +228,7 @@ func TestHandleSystemRuntimeBootstrapAcceptsTaskAndReportsPreparedStoreHits(t *t
 	repoRoot := t.TempDir()
 	testutil.WritePlatformDepsManifest(t, repoRoot)
 	platform := deps.CurrentPlatform()
-	testutil.WritePreparedRuntime(t, repoRoot, "chromium-"+platform, "147.0.7727.24", "chrome-win64", "chrome.exe")
+	testutil.WritePreparedRuntime(t, repoRoot, "chromium-"+platform, "152.0.7977.42", "chrome-win64", "chrome.exe")
 
 	handlers, registry := newTaskOnlyHandlers(t, repoRoot)
 	request := httptest.NewRequest(http.MethodPost, "/api/system/runtime/bootstrap", strings.NewReader(`{"resources":["chromium"]}`))

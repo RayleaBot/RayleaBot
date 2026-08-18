@@ -28,7 +28,7 @@ class CheckToolchainTests(unittest.TestCase):
 
         def fake_run(args: list[str], cwd: Path | None = None):
             calls.append((args, cwd))
-            return module.CommandOutput(0, "go1.25.12\n", "")
+            return module.CommandOutput(0, "go1.26.6\n", "")
 
         original_exists = module.executable_exists
         original_run = module.run_command
@@ -51,9 +51,9 @@ class CheckToolchainTests(unittest.TestCase):
 
         def fake_run(args: list[str]):
             if args == ["pnpm", "--version"]:
-                return module.CommandOutput(0, "11.8.0\n", "")
+                return module.CommandOutput(0, "11.21.0\n", "")
             if args == ["corepack", "pnpm", "--version"]:
-                return module.CommandOutput(0, "11.11.0\n", "")
+                return module.CommandOutput(0, "11.22.0\n", "")
             return module.CommandOutput(127, "", "unexpected command")
 
         original_exists = module.executable_exists
@@ -68,7 +68,20 @@ class CheckToolchainTests(unittest.TestCase):
 
         self.assertEqual(result.status, "warning")
         self.assertIn("corepack pnpm --version", result.detail)
-        self.assertIn("corepack prepare pnpm@11.11.0 --activate", result.remediation)
+        self.assertIn("corepack prepare pnpm@11.22.0 --activate", result.remediation)
+
+    def test_python_checks_running_interpreter(self) -> None:
+        module = load_module()
+
+        original_version = module.platform.python_version
+        try:
+            module.platform.python_version = lambda: "3.14.7"
+            result = module.check_python()
+        finally:
+            module.platform.python_version = original_version
+
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(result.detail, "3.14.7")
 
 
 if __name__ == "__main__":

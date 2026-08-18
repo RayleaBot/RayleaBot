@@ -226,7 +226,7 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
     {
       "id": "chromium-test",
       "kind": "chromium",
-      "version": "147.0.7727.24",
+      "version": "152.0.7977.42",
       "platform": "` + CurrentPlatform() + `",
       "sources": [
         {
@@ -244,12 +244,12 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
 }`
 	writeManifest(t, repoRoot, manifest)
 
-	resource := &Resource{ID: "chromium-test", Version: "147.0.7727.24"}
+	resource := &Resource{ID: "chromium-test", Version: "152.0.7977.42"}
 	storeParent := filepath.Dir(StoreRoot(repoRoot, resource))
-	staleRoot := filepath.Join(storeParent, ".chromium-test-147.0.7727.24-stale")
+	staleRoot := filepath.Join(storeParent, ".chromium-test-152.0.7977.42-stale")
 	writePreparedFile(t, filepath.Join(staleRoot, "chrome-win64", "chrome.exe"))
 
-	archivePath := filepath.Join(CacheRoot(repoRoot), "chromium-test-147.0.7727.24.zip")
+	archivePath := filepath.Join(CacheRoot(repoRoot), "chromium-test-152.0.7977.42.zip")
 	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
 		t.Fatalf("mkdir cache root: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
 	if err != nil {
 		t.Fatalf("PrepareWithReport failed: %v", err)
 	}
-	wantPath := filepath.Join(repoRoot, ".deps", "store", "chromium-test", "147.0.7727.24", "chrome-win64", "chrome.exe")
+	wantPath := filepath.Join(repoRoot, ".deps", "store", "chromium-test", "152.0.7977.42", "chrome-win64", "chrome.exe")
 	if report.PreparedEntrypoint != wantPath {
 		t.Fatalf("prepared entrypoint = %q, want %q", report.PreparedEntrypoint, wantPath)
 	}
@@ -299,7 +299,7 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
     {
       "id": "chromium-test",
       "kind": "chromium",
-      "version": "147.0.7727.24",
+      "version": "152.0.7977.42",
       "platform": "` + CurrentPlatform() + `",
       "sources": [
         {
@@ -317,11 +317,11 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
 }`
 	writeManifest(t, repoRoot, manifest)
 
-	resource := &Resource{ID: "chromium-test", Kind: "chromium", Version: "147.0.7727.24"}
+	resource := &Resource{ID: "chromium-test", Kind: "chromium", Version: "152.0.7977.42"}
 	storeRoot := StoreRoot(repoRoot, resource)
 	writePreparedFile(t, filepath.Join(storeRoot, "chrome-win64", "chrome.dll"))
 
-	archivePath := filepath.Join(CacheRoot(repoRoot), "chromium-test-147.0.7727.24.zip")
+	archivePath := filepath.Join(CacheRoot(repoRoot), "chromium-test-152.0.7977.42.zip")
 	if err := os.MkdirAll(filepath.Dir(archivePath), 0o755); err != nil {
 		t.Fatalf("mkdir cache root: %v", err)
 	}

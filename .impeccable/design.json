@@ -793,12 +793,12 @@
       },
       {
         "name": "motion-mini",
-        "value": "12.42.2",
+        "value": "13.1.0",
         "purpose": "Web 路由在 View Transition 不可用或历史导航时使用 WAAPI 降级动画。"
       },
       {
         "name": "fluent-motion",
-        "value": "9.16.1",
+        "value": "9.16.2",
         "purpose": "Launcher Fluent 浮层使用 WAAPI presence 管理进入、退出、取消和卸载。"
       },
       {

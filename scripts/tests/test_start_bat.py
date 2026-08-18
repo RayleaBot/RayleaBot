@@ -29,7 +29,7 @@ class StartBatTests(unittest.TestCase):
             @echo off
             setlocal
             if "%~1"=="--version" (
-              echo v24.18.0
+              echo v26.7.0
               exit /b 0
             )
             >> "{calls_path}" echo CWD=%CD%
@@ -47,9 +47,9 @@ class StartBatTests(unittest.TestCase):
         package_json = (REPO_ROOT / "launcher" / "package.json").read_text(encoding="utf-8")
         go_mod = (REPO_ROOT / "launcher" / "go.mod").read_text(encoding="utf-8")
         self.assertNotIn("allowBuilds:", workspace_yaml)
-        self.assertIn('"@wailsio/runtime": "3.0.0-beta.8"', package_json)
+        self.assertIn('"@wailsio/runtime": "3.0.0-beta.9"', package_json)
         self.assertNotIn('"electron"', package_json)
-        self.assertIn("github.com/wailsapp/wails/v3 v3.0.0-beta.8", go_mod)
+        self.assertIn("github.com/wailsapp/wails/v3 v3.0.0-beta.9", go_mod)
 
     @unittest.skipIf(os.name != "nt", "start.bat is a Windows entrypoint")
     def test_start_bat_invokes_node_orchestrator(self) -> None:

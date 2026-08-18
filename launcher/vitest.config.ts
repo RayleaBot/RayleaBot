@@ -6,13 +6,18 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@renderer": path.resolve(__dirname, "src/renderer/src"),
-      "@shared": path.resolve(__dirname, "src/shared"),
+      "@renderer": path.resolve(import.meta.dirname, "src/renderer/src"),
+      "@shared": path.resolve(import.meta.dirname, "src/shared"),
     },
   },
   test: {
     globals: true,
     environment: "node",
+    server: {
+      deps: {
+        inline: [/@fluentui\/react-/, /tabster/],
+      },
+    },
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/renderer/**/*.test.ts", "tests/renderer/**/*.test.tsx", "tests/shared/**/*.test.ts", "tests/scripts/**/*.test.ts"],
     coverage: {

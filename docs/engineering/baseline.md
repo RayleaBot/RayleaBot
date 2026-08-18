@@ -28,29 +28,32 @@
 
 | 领域 | 固定基线 |
 | --- | --- |
-| Server | Go `1.25.12` |
-| Web / build runtime | Node.js `24.18.0` |
-| JS package manager | `pnpm 11.11.0` |
-| Web UI | Vue `3.5.39` + Vite `8.1.4` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.1.0` + Pinia `3.0.4` + Motion Mini `12.42.2` |
-| Launcher runtime | Wails v3 `v3.0.0-beta.8` + `@wailsio/runtime 3.0.0-beta.8` + Go `1.25.12` + TypeScript `6.0.2` + React `18.3.1` + Fluent UI React v9 + Fluent Motion `9.16.1` + Vite `8.1.4` + `@vitejs/plugin-react 6.0.3` |
-| Repository scripting | Python `3.12.13` |
-| Plugin backend | Go `1.25.12`，`CGO_ENABLED=0` 的平台预编译 artifact |
-| Plugin UI | Vue `3.5.39` + TypeScript `5.9.2` + Vite `8.1.4` + 按需 Ant Design Vue |
-| Database | SQLite via `modernc.org/sqlite v1.53.0` |
-| Render | `chromedp 0.14.2` + 图片渲染 Chromium |
-| Metrics | `github.com/prometheus/client_golang 1.23.2`（Prometheus 文本暴露格式） |
+| Server | Go `1.26.6` |
+| Web / build runtime | Node.js `26.7.0` + npm `11.19.0` |
+| JS package bootstrap | Corepack `0.35.0` |
+| JS package manager | `pnpm 11.22.0` |
+| Web UI | Vue `3.5.41` + Vite `8.2.1` + Ant Design Vue `4.2.6` + Vue Vben Admin `5.7.0` 对齐方案 + Vue Router `5.2.0` + Pinia `4.0.3` + Motion Mini `13.1.0` |
+| Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.26.6` + TypeScript `5.9.3` + React `19.2.8` + Fluent UI React v9 + Fluent Motion `9.16.2` + Vite `8.2.1` + `@vitejs/plugin-react 6.0.5` |
+| Repository scripting | Python `3.14.7` |
+| SQL generation | sqlc `v1.31.1` |
+| Plugin backend | Go `1.26.6`，`CGO_ENABLED=0` 的平台预编译 artifact |
+| Plugin UI | Vue `3.5.41` + TypeScript `5.9.3` + Vite `8.2.1` + 按需 Ant Design Vue |
+| Database | SQLite via `modernc.org/sqlite v1.56.0` |
+| Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
+| Metrics | `github.com/prometheus/client_golang 1.24.1`（Prometheus 文本暴露格式） |
+| macOS CI / release runner | `macos-26` |
 
 Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式工程基线；相关目录结构、样式入口与测试基线按 [`web-admin-baseline.md`](./web-admin-baseline.md) 约束维护。
 
 ## 工具链获取
 
 - 仓库根目录的 `.tool-versions` 与本节固定版本线保持一致，可由 mise 或 asdf 读取。
-- `server/go.mod` 的 `go 1.25.12` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.25.12，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
-- Node.js 使用 24.18.0；pnpm 使用 Corepack 管理的 11.11.0。若全局 `pnpm` 版本不同，优先执行 `corepack enable` 与 `corepack prepare pnpm@11.11.0 --activate`。
-- sqlc 固定为 v1.29.0，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0`。
+- `server/go.mod` 的 `go 1.26.6` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+- Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Node.js 26 不再随发行包提供 Corepack，因此先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
+- sqlc 固定为 v1.31.1，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
-- 仓库提供 devcontainer，包含 Go 1.25.12、Node.js 24.18.0、pnpm 11.11.0、sqlc v1.29.0、Chromium、SQLite 与 `make doctor`。
+- 仓库提供 devcontainer，包含 Go 1.26.6、Node.js 26.7.0、npm 11.19.0、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc v1.31.1、Chromium、SQLite 与 `make doctor`。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
 
 ## 固定工程选型
@@ -64,14 +67,14 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | 配置解析 | `gopkg.in/yaml.v3` |
 | 数据访问 | `database/sql` + repository / service 分层 + 手写 SQL |
 | Web 路由 | Vue Router `5.x` |
-| Web 全局状态 | Pinia `3.x` + Vben stores 对齐组织 |
+| Web 全局状态 | Pinia `4.x` + Vben stores 对齐组织 |
 | Web HTTP | Vben request 风格封装 + RayleaBot 鉴权 / 错误语义适配 |
 | Web 实时通信 | 原生 `WebSocket` + 受控连接封装 |
 | Web 样式 | Ant Design Vue Tokens + Vue Vben Admin 样式体系 + Vue SFC `lang="scss"` + Tailwind CSS `4.x` + CSS Variables |
 | Web 动效 | View Transition API + `motion/mini`，CSS transition 只承担简单控件状态 |
 | Launcher 桌面宿主 | Wails v3 Go host + `internal/desktop` typed service layer |
 | Launcher 桌面桥接 | Wails generated bindings 暴露受限 typed API |
-| Launcher 渲染层 | React 18 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
+| Launcher 渲染层 | React 19 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
 | 仓库级 JS 包管理器 | `pnpm` |
 | 插件后端 | 独立 Go module + `sdk/go`；`cmd/<plugin>` 为进程入口，`internal/` 保存业务实现与嵌入资源；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
@@ -145,13 +148,13 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 | 路径 | 约束 |
 | --- | --- |
-| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、Go `1.25.12` 与 server 依赖版本 |
+| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、Go `1.26.6` 与 server 依赖版本 |
 | `server/go.sum` | 维护 server 依赖锁定结果 |
-| `web/package.json` | 固定 `packageManager = pnpm@11.11.0` 与 `engines.node = 24.18.0` |
+| `web/package.json` | 固定 `packageManager = pnpm@11.22.0` 与 `engines.node = 26.7.0` |
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
-| `launcher/go.mod` | 固定 Go `1.25.12`、Wails v3 Go module 与桌面宿主依赖 |
+| `launcher/go.mod` | 固定 Go `1.26.6`、Wails v3 Go module 与桌面宿主依赖 |
 | `launcher/go.sum` | 维护 Launcher Go 依赖锁定结果 |
-| `launcher/package.json` | 固定 `packageManager = pnpm@11.11.0`、`engines.node = 24.18.0`、Wails runtime/Vite/React/`@vitejs/plugin-react` 与构建脚本 |
+| `launcher/package.json` | 固定 `packageManager = pnpm@11.22.0`、`engines.node = 26.7.0`、Wails runtime/Vite/React/`@vitejs/plugin-react` 与构建脚本 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |

@@ -2,46 +2,47 @@
   "name": "@rayleabot/launcher",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "RayleaBot Wails desktop launcher",
   "author": "RayleaBot",
-  "packageManager": "pnpm@11.11.0",
+  "packageManager": "pnpm@11.22.0",
   "engines": {
-    "node": "24.18.0",
-    "pnpm": "11.11.0"
+    "node": "26.7.0",
+    "pnpm": "11.22.0"
   },
   "scripts": {
     "clean": "node scripts/clean.mjs",
     "dev": "node scripts/dev.mjs",
     "generate:wails": "node scripts/run-go.mjs generate:wails",
     "generate:types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/shared/web-api.generated.ts",
-    "test": "vitest run && node scripts/run-go.mjs test:platform ./...",
-    "test:coverage": "vitest run --coverage && node scripts/run-go.mjs test:platform -cover ./...",
+    "test": "node ../scripts/run-vitest.mjs run && node scripts/run-go.mjs test:platform ./...",
+    "test:coverage": "node ../scripts/run-vitest.mjs run --coverage && node scripts/run-go.mjs test:platform -cover ./...",
     "typecheck": "tsc -p tsconfig.renderer.json --noEmit && node scripts/run-go.mjs vet:platform ./...",
     "build:app": "node scripts/build-app.mjs",
     "build": "node scripts/clean.mjs && node scripts/build-package.mjs"
   },
   "dependencies": {
-    "@fluentui/react-components": "9.74.3",
-    "@fluentui/react-icons": "2.0.316",
-    "@fluentui/react-message-bar": "9.7.3",
-    "@fluentui/react-motion": "9.16.1",
-    "@wailsio/runtime": "3.0.0-beta.8",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "@fluentui/react-components": "9.74.6",
+    "@fluentui/react-icons": "2.0.337",
+    "@fluentui/react-message-bar": "9.7.5",
+    "@fluentui/react-motion": "9.16.2",
+    "@wailsio/runtime": "3.0.0-beta.9",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@testing-library/dom": "10.4.1",
-    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.2",
-    "@types/node": "24.13.3",
-    "@types/react": "18.3.28",
-    "@types/react-dom": "18.3.7",
-    "@vitejs/plugin-react": "6.0.3",
+    "@types/node": "26.2.0",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "6.0.5",
     "@vitest/coverage-v8": "4.1.10",
-    "jsdom": "29.1.1",
+    "jsdom": "30.0.1",
     "openapi-typescript": "7.13.0",
-    "typescript": "6.0.2",
-    "vite": "8.1.4",
+    "typescript": "5.9.3",
+    "vite": "8.2.1",
     "vitest": "4.1.10"
   }
 }

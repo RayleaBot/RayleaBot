@@ -79,14 +79,14 @@ func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 				Summary:  deps.ManagedResourceLabel(kind) + "已准备完成",
 			})
 		}
-		testutil.WritePreparedRuntime(t, repoRoot, "chromium-"+platform, "147.0.7727.24", "chrome-win64", "chrome.exe")
+		testutil.WritePreparedRuntime(t, repoRoot, "chromium-"+platform, "152.0.7977.42", "chrome-win64", "chrome.exe")
 		return &managedRuntimePrepareReport{
 			Kind:               kind,
-			ArchivePath:        filepath.Join(repoRoot, "cache", "downloads", "runtime", "chromium-"+platform+"-147.0.7727.24.zip"),
-			StoreRoot:          filepath.Join(repoRoot, ".deps", "store", "chromium-"+platform, "147.0.7727.24"),
+			ArchivePath:        filepath.Join(repoRoot, "cache", "downloads", "runtime", "chromium-"+platform+"-152.0.7977.42.zip"),
+			StoreRoot:          filepath.Join(repoRoot, ".deps", "store", "chromium-"+platform, "152.0.7977.42"),
 			UsedPreparedStore:  false,
 			UsedCachedArchive:  false,
-			PreparedEntrypoint: filepath.Join(repoRoot, ".deps", "store", "chromium-"+platform, "147.0.7727.24", "chrome-win64", "chrome.exe"),
+			PreparedEntrypoint: filepath.Join(repoRoot, ".deps", "store", "chromium-"+platform, "152.0.7977.42", "chrome-win64", "chrome.exe"),
 		}, nil
 	}
 

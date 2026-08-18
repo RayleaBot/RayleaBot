@@ -967,7 +967,15 @@ def validate_fixture_matrix() -> None:
 
 def validate_baseline() -> None:
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
-    for snippet in ["Go `1.25.12`", "Node.js `24.18.0`", "`pnpm 11.11.0`", "Python `3.12.13`"]:
+    for snippet in [
+        "Go `1.26.6`",
+        "Node.js `26.7.0`",
+        "npm `11.19.0`",
+        "Corepack `0.35.0`",
+        "`pnpm 11.22.0`",
+        "Python `3.14.7`",
+        "sqlc `v1.31.1`",
+    ]:
         if snippet not in baseline:
             fail(f"docs/engineering/baseline.md missing expected snippet: {snippet}")
 
@@ -984,8 +992,8 @@ def validate_baseline() -> None:
     go_mod = (ROOT / "server" / "go.mod").read_text(encoding="utf-8")
     if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
         fail("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
-    if "go 1.25.12" not in go_mod:
-        fail("server/go.mod must pin Go 1.25.12")
+    if "go 1.26.6" not in go_mod:
+        fail("server/go.mod must pin Go 1.26.6")
 
     expected_pnpm_workspaces = {
         ROOT / "web" / "package.json": {
@@ -995,34 +1003,34 @@ def validate_baseline() -> None:
                 "esbuild": True,
             },
             "overrides": {
-                "esbuild": "0.28.1",
-                "glob": "10.5.0",
-                "immutable": "5.1.8",
-                "js-cookie": "3.0.7",
+                "esbuild": "0.28.2",
+                "glob": "13.0.6",
+                "immutable": "5.1.9",
+                "js-cookie": "3.0.8",
                 "js-yaml": "4.2.0",
-                "picomatch": "4.0.4",
-                "postcss": "8.5.18",
+                "picomatch": "4.0.5",
+                "postcss": "8.5.26",
             },
         },
         ROOT / "launcher" / "package.json": {
             "allowBuilds": None,
             "overrides": {
-                "@fluentui/react-motion": "9.16.1",
+                "@fluentui/react-motion": "9.16.2",
                 "js-yaml": "4.2.0",
-                "undici": "7.28.0",
+                "undici": "8.10.0",
             },
         },
     }
 
     for package_path, expected_workspace in expected_pnpm_workspaces.items():
         package_json = load_json(package_path)
-        if package_json.get("packageManager") != "pnpm@11.11.0":
-            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@11.11.0")
+        if package_json.get("packageManager") != "pnpm@11.22.0":
+            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@11.22.0")
         engines = package_json.get("engines", {})
-        if engines.get("node") != "24.18.0":
-            fail(f"{package_path.relative_to(ROOT)} engines.node must be 24.18.0")
-        if engines.get("pnpm") != "11.11.0":
-            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 11.11.0")
+        if engines.get("node") != "26.7.0":
+            fail(f"{package_path.relative_to(ROOT)} engines.node must be 26.7.0")
+        if engines.get("pnpm") != "11.22.0":
+            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 11.22.0")
         if "pnpm" in package_json:
             fail(f"{package_path.relative_to(ROOT)} must keep pnpm settings in pnpm-workspace.yaml")
 
@@ -1043,8 +1051,8 @@ def validate_baseline() -> None:
 
     launcher_package = load_json(ROOT / "launcher" / "package.json")
     launcher_dependencies = require_object(launcher_package.get("dependencies"), "launcher dependencies")
-    if launcher_dependencies.get("@wailsio/runtime") != "3.0.0-beta.8":
-        fail("launcher/package.json must pin @wailsio/runtime 3.0.0-beta.8")
+    if launcher_dependencies.get("@wailsio/runtime") != "3.0.0-beta.9":
+        fail("launcher/package.json must pin @wailsio/runtime 3.0.0-beta.9")
     all_launcher_dependencies = {
         **launcher_dependencies,
         **require_object(launcher_package.get("devDependencies"), "launcher devDependencies"),
@@ -1052,8 +1060,8 @@ def validate_baseline() -> None:
     if any(name == "electron" or name.startswith("electron-") for name in all_launcher_dependencies):
         fail("launcher/package.json must not depend on Electron packages")
     launcher_go_mod = (ROOT / "launcher" / "go.mod").read_text(encoding="utf-8")
-    if "github.com/wailsapp/wails/v3 v3.0.0-beta.8" not in launcher_go_mod:
-        fail("launcher/go.mod must pin Wails v3.0.0-beta.8")
+    if "github.com/wailsapp/wails/v3 v3.0.0-beta.9" not in launcher_go_mod:
+        fail("launcher/go.mod must pin Wails v3.0.0-beta.9")
     root_go_work = (ROOT / "go.work").read_text(encoding="utf-8")
     if re.search(r"(?m)^\s*\./launcher\s*$", root_go_work):
         fail("launcher must remain outside the root go.work to protect the server dependency graph")

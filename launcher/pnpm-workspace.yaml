@@ -14,6 +14,6 @@ supportedArchitectures:
     - musl
 
 overrides:
-  "@fluentui/react-motion": 9.16.1
+  "@fluentui/react-motion": 9.16.2
   js-yaml: 4.2.0
-  undici: 7.28.0
+  undici: 8.10.0

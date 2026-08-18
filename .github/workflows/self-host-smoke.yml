@@ -60,7 +60,7 @@ jobs:
             systemd_file: packaging/systemd/rayleabot.service
           - artifact_id: macos-arm64-full
             recovery_fixture_target: macos-arm64
-            runner: macos-14
+            runner: macos-26
             server_bin: dist/server/raylea-server
             launcher_required: true
             launcher_bundle: launcher/dist/package/mac-arm64/RayleaLauncher.app
@@ -69,7 +69,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Resolve artifact selection
         id: filter
@@ -84,28 +84,28 @@ jobs:
 
       - name: Setup Go
         if: steps.filter.outputs.selected == 'true'
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
       - name: Setup Node
         if: steps.filter.outputs.selected == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: "24.18.0"
+          node-version: "26.7.0"
 
       - name: Setup pnpm
         if: steps.filter.outputs.selected == 'true'
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
-          version: 11.11.0
+          version: 11.22.0
 
       - name: Setup Python
         if: steps.filter.outputs.selected == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.14.7"
 
       - name: Build server
         if: steps.filter.outputs.selected == 'true'
@@ -140,7 +140,7 @@ jobs:
 
       - name: Setup launcher Go
         if: steps.filter.outputs.selected == 'true' && matrix.launcher_required
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: launcher/go.mod
           cache-dependency-path: launcher/go.sum
@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload smoke diagnostics
         if: always() && steps.filter.outputs.selected == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_id }}-self-host-smoke-diagnostics
           path: |

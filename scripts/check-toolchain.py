@@ -15,14 +15,19 @@ from dataclasses import dataclass
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-REQUIRED_GO_VERSION = "go1.25.12"
-REQUIRED_NODE_VERSION = "v24.18.0"
-REQUIRED_PNPM_VERSION = "11.11.0"
-REQUIRED_SQLC_VERSION = "v1.29.0"
+REQUIRED_GO_VERSION = "go1.26.6"
+REQUIRED_NODE_VERSION = "v26.7.0"
+REQUIRED_NPM_VERSION = "11.19.0"
+REQUIRED_COREPACK_VERSION = "0.35.0"
+REQUIRED_PNPM_VERSION = "11.22.0"
+REQUIRED_PYTHON_VERSION = "3.14.7"
+REQUIRED_SQLC_VERSION = "v1.31.1"
 
 GO_INSTALL_URL = "https://go.dev/dl/"
-NODE_INSTALL_URL = "https://nodejs.org/dist/v24.18.0/"
-SQLC_INSTALL = "go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.29.0"
+NODE_INSTALL_URL = "https://nodejs.org/dist/v26.7.0/"
+PYTHON_INSTALL_URL = "https://www.python.org/downloads/release/python-3147/"
+COREPACK_INSTALL = "npm install --global corepack@0.35.0"
+SQLC_INSTALL = "go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1"
 
 
 @dataclass(frozen=True)
@@ -80,11 +85,11 @@ def check_go() -> CheckResult:
             f"Go is not on PATH; required {REQUIRED_GO_VERSION}.",
             "\n".join(
                 [
-                    "Install Go 1.25.12 before running server tests.",
+                    "Install Go 1.26.6 before running server tests.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.25.12",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.12.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.12.linux-amd64.tar.gz",
-                    "Offline: copy the matching go1.25.12 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
+                    "Windows: winget install GoLang.Go --version 1.26.6",
+                    "Linux x64 online: curl -LO https://go.dev/dl/go1.26.6.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz",
+                    "Offline: copy the matching go1.26.6 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
                 ]
             ),
         )
@@ -107,9 +112,9 @@ def check_go() -> CheckResult:
                 [
                     "Install the exact Go patch version used by server/go.mod.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.25.12",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.25.12.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.25.12.linux-amd64.tar.gz",
-                    "Offline: preinstall go1.25.12 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
+                    "Windows: winget install GoLang.Go --version 1.26.6",
+                    "Linux x64 online: curl -LO https://go.dev/dl/go1.26.6.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz",
+                    "Offline: preinstall go1.26.6 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
                 ]
             ),
         )
@@ -122,7 +127,7 @@ def check_node() -> CheckResult:
             "Node.js",
             "error",
             f"Node.js is not on PATH; required {REQUIRED_NODE_VERSION}.",
-            f"Install Node.js 24.18.0 from {NODE_INSTALL_URL}; offline images must preinstall it before running Web or Launcher tests.",
+            f"Install Node.js 26.7.0 from {NODE_INSTALL_URL}; offline images must preinstall it before running Web or Launcher tests.",
         )
 
     result = run_command(["node", "--version"])
@@ -139,9 +144,65 @@ def check_node() -> CheckResult:
             "Node.js",
             "error",
             f"Found {actual}; required {REQUIRED_NODE_VERSION}.",
-            f"Install Node.js 24.18.0 from {NODE_INSTALL_URL}, then run `corepack enable`.",
+            f"Install Node.js 26.7.0 from {NODE_INSTALL_URL}, then install Corepack with `{COREPACK_INSTALL}`.",
         )
     return CheckResult("Node.js", "ok", actual)
+
+
+def check_npm() -> CheckResult:
+    if not executable_exists("npm"):
+        return CheckResult(
+            "npm",
+            "error",
+            f"npm is not on PATH; required {REQUIRED_NPM_VERSION}.",
+            f"Install Node.js 26.7.0 from {NODE_INSTALL_URL}; its distribution includes npm {REQUIRED_NPM_VERSION}.",
+        )
+
+    result = run_command(["npm", "--version"])
+    if result.returncode != 0:
+        return CheckResult(
+            "npm",
+            "error",
+            f"Unable to read npm version: {command_failure_detail(result)}.",
+            "Fix PATH so `npm --version` runs.",
+        )
+    actual = first_line(result.stdout)
+    if actual != REQUIRED_NPM_VERSION:
+        return CheckResult(
+            "npm",
+            "error",
+            f"Found {actual}; required {REQUIRED_NPM_VERSION}.",
+            f"Reinstall Node.js 26.7.0 from {NODE_INSTALL_URL}, or run `npm install --global npm@{REQUIRED_NPM_VERSION}`.",
+        )
+    return CheckResult("npm", "ok", actual)
+
+
+def check_corepack() -> CheckResult:
+    if not executable_exists("corepack"):
+        return CheckResult(
+            "Corepack",
+            "error",
+            f"Corepack is not on PATH; required {REQUIRED_COREPACK_VERSION}.",
+            f"Node.js 26 no longer bundles Corepack; install it with `{COREPACK_INSTALL}`.",
+        )
+
+    result = run_command(["corepack", "--version"])
+    if result.returncode != 0:
+        return CheckResult(
+            "Corepack",
+            "error",
+            f"Unable to read Corepack version: {command_failure_detail(result)}.",
+            f"Reinstall it with `{COREPACK_INSTALL}`.",
+        )
+    actual = first_line(result.stdout)
+    if actual != REQUIRED_COREPACK_VERSION:
+        return CheckResult(
+            "Corepack",
+            "error",
+            f"Found {actual}; required {REQUIRED_COREPACK_VERSION}.",
+            f"Install the pinned version with `{COREPACK_INSTALL}`.",
+        )
+    return CheckResult("Corepack", "ok", actual)
 
 
 def check_pnpm() -> CheckResult:
@@ -164,7 +225,7 @@ def check_pnpm() -> CheckResult:
                     "pnpm",
                     "warning",
                     f"`pnpm --version` is {found}; `corepack pnpm --version` is {corepack_actual}.",
-                    "Run `corepack enable` and `corepack prepare pnpm@11.11.0 --activate`, or use `corepack pnpm` for project commands.",
+                    "Run `corepack enable` and `corepack prepare pnpm@11.22.0 --activate`, or use `corepack pnpm` for project commands.",
                 )
 
     found = pnpm_actual or corepack_actual or "not found"
@@ -172,8 +233,20 @@ def check_pnpm() -> CheckResult:
         "pnpm",
         "error",
         f"Found {found}; required {REQUIRED_PNPM_VERSION}.",
-        "Run `corepack enable` and `corepack prepare pnpm@11.11.0 --activate`; offline images must pre-seed Corepack's pnpm 11.11.0 package.",
+        "Run `corepack enable` and `corepack prepare pnpm@11.22.0 --activate`; offline images must pre-seed Corepack's pnpm 11.22.0 package.",
     )
+
+
+def check_python() -> CheckResult:
+    actual = platform.python_version()
+    if actual != REQUIRED_PYTHON_VERSION:
+        return CheckResult(
+            "Python",
+            "error",
+            f"This script is running under Python {actual}; required {REQUIRED_PYTHON_VERSION}.",
+            f"Install Python {REQUIRED_PYTHON_VERSION} from {PYTHON_INSTALL_URL}, then run this script with that interpreter.",
+        )
+    return CheckResult("Python", "ok", actual)
 
 
 def check_sqlc() -> CheckResult:
@@ -327,7 +400,7 @@ def check_runtime_paths() -> list[CheckResult]:
 
 
 def run_checks(include_runtime: bool) -> list[CheckResult]:
-    results = [check_go(), check_node(), check_pnpm(), check_sqlc()]
+    results = [check_go(), check_node(), check_npm(), check_corepack(), check_pnpm(), check_python(), check_sqlc()]
     if include_runtime:
         results.extend(check_runtime_paths())
     return results
