@@ -26,6 +26,7 @@ import {
   requestDevelopmentServerShutdown,
   createTrustedChildEnvironment,
   createLauncherGoArgs,
+  describeCommandFailure,
   loadStartEnvironmentFile,
   resolveDatedLogPath,
   resolveBackendBaseUrl,
@@ -96,6 +97,8 @@ const launcherLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "laun
 const serverDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "server", date: logDate });
 const startLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "start", date: logDate });
 const longRunningChildren = new Set();
+const childOutputTails = new WeakMap();
+const childOutputTailLimit = 64 * 1024;
 const cleanupCallbacks = new Set();
 let startLog;
 let shuttingDown = false;
@@ -792,7 +795,10 @@ async function runCommand(label, command, args, { cwd, env = {}, logPath } = {})
   const child = spawnManaged(command, args, { cwd, env, logPath });
   const exit = await waitForChild(child);
   if (exit.code !== 0) {
-    throw new Error(`${label}失败，退出码 ${exit.code}。`);
+    const output = childOutputTails.get(child)?.() ?? "";
+    const hints = describeCommandFailure(output, { cwd: cwd ?? rootDir });
+    const detail = hints.map((hint) => `提示：${hint}`).join("\n");
+    throw new Error(`${label}失败，退出码 ${exit.code}。${detail ? `\n${detail}` : ""}`);
   }
 }
 
@@ -811,8 +817,19 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
     stdio: ["ignore", "pipe", "pipe"],
   });
 
-  child.stdout.on("data", (chunk) => writeChildOutput(chunk, process.stdout, childLog));
-  child.stderr.on("data", (chunk) => writeChildOutput(chunk, process.stderr, childLog));
+  let outputTail = "";
+  const appendOutputTail = (chunk) => {
+    outputTail = (outputTail + chunk.toString("utf8")).slice(-childOutputTailLimit);
+  };
+  childOutputTails.set(child, () => outputTail);
+  child.stdout.on("data", (chunk) => {
+    appendOutputTail(chunk);
+    writeChildOutput(chunk, process.stdout, childLog);
+  });
+  child.stderr.on("data", (chunk) => {
+    appendOutputTail(chunk);
+    writeChildOutput(chunk, process.stderr, childLog);
+  });
   longRunningChildren.add(child);
   child.once("exit", () => {
     childLog?.end();

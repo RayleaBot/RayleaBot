@@ -343,6 +343,26 @@ export function createDependencyInstallEnvironment(environment = {}) {
   };
 }
 
+const commandFailureHintRules = [
+  {
+    pattern: /ERR_PNPM_(?:OUTDATED_LOCKFILE|LOCKFILE_CONFIG_MISMATCH)/,
+    hints: ({ cwd }) => [
+      "pnpm 锁文件与 package.json 不一致，通常发生在 SDK 或依赖基线升级之后。",
+      `修复：在 ${cwd} 执行 corepack pnpm install --no-frozen-lockfile 更新锁文件。`,
+      "若是开发插件 UI 构建失败，在插件目录的 ui/ 子目录执行同一命令后重新启动。",
+    ],
+  },
+];
+
+export function describeCommandFailure(output, { cwd = process.cwd() } = {}) {
+  if (!output) {
+    return [];
+  }
+  return commandFailureHintRules
+    .filter((rule) => rule.pattern.test(output))
+    .flatMap((rule) => rule.hints({ cwd }));
+}
+
 export function resolveCorepackCliPath({
   nodeExecutablePath = process.execPath,
   env = process.env,

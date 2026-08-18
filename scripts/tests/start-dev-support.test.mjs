@@ -21,6 +21,7 @@ import {
   createServerDevelopmentEnvironment,
   createTrustedChildEnvironment,
   createLauncherGoArgs,
+  describeCommandFailure,
   formatLocalLogDate,
   loadStartEnvironmentFile,
   isProcessRunning,
@@ -543,6 +544,29 @@ test("classifies rayleabot dev server without status as occupied when backend ta
   } finally {
     await closeServer(rayleaServer);
   }
+});
+
+test("describeCommandFailure explains an outdated pnpm lockfile with a repair command", () => {
+  const hints = describeCommandFailure(
+    "[ERR_PNPM_OUTDATED_LOCKFILE] Cannot install with \"frozen-lockfile\" because pnpm-lock.yaml is not up to date with .rayleabot\\sdk\\vue\\package.json",
+    { cwd: "C:/workspace/plugin-fortune" },
+  );
+  assert.ok(hints.some((hint) => hint.includes("corepack pnpm install --no-frozen-lockfile")));
+  assert.ok(hints.some((hint) => hint.includes("C:/workspace/plugin-fortune")));
+  assert.ok(hints.some((hint) => hint.includes("ui/")));
+});
+
+test("describeCommandFailure explains a lockfile config mismatch", () => {
+  const hints = describeCommandFailure(
+    "[ERR_PNPM_LOCKFILE_CONFIG_MISMATCH] Cannot proceed with the frozen installation.",
+    { cwd: "/repo/web" },
+  );
+  assert.ok(hints.some((hint) => hint.includes("corepack pnpm install --no-frozen-lockfile")));
+});
+
+test("describeCommandFailure ignores unrelated or empty output", () => {
+  assert.deepEqual(describeCommandFailure("go: unresolved import", { cwd: "/repo" }), []);
+  assert.deepEqual(describeCommandFailure("", { cwd: "/repo" }), []);
 });
 
 async function listenHttp(body, contentType = "text/html; charset=utf-8") {
