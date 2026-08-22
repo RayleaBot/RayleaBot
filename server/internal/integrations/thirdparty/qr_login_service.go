@@ -9,20 +9,25 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const (
-	QRLoginStatePendingScan    = "pending_scan"
-	QRLoginStatePendingConfirm = "pending_confirm"
-	QRLoginStateExpired        = "expired"
-	QRLoginStateSucceeded      = "succeeded"
+	QRLoginStatePendingScan          = "pending_scan"
+	QRLoginStatePendingConfirm       = "pending_confirm"
+	QRLoginStateVerificationRequired = "verification_required"
+	QRLoginStateExpired              = "expired"
+	QRLoginStateFailed               = "failed"
+	QRLoginStateSucceeded            = "succeeded"
+	qrLoginPersistTimeout            = 30 * time.Second
 )
 
 var (
 	ErrQRLoginUnsupportedPlatform = errors.New("unsupported third-party qrcode login platform")
 	ErrQRLoginSessionNotFound     = errors.New("third-party qrcode login session not found")
 	ErrQRLoginCredentialMissing   = errors.New("third-party qrcode login credential missing")
+	ErrQRLoginBrowserUnavailable  = errors.New("third-party qrcode login browser unavailable")
 )
 
 type QRLoginCreateResult struct {
@@ -79,7 +84,19 @@ type QRLoginService struct {
 	accounts  QRLoginAccountStore
 	now       func() time.Time
 	mu        sync.Mutex
-	sessions  map[string]QRLoginSession
+	sessions  map[string]*qrLoginEntry
+}
+
+type qrLoginEntry struct {
+	mu           sync.Mutex
+	platform     string
+	session      QRLoginSession
+	closeSession QRLoginSession
+	expiresAt    time.Time
+	sessionCtx   context.Context
+	cancel       context.CancelFunc
+	cancelled    atomic.Bool
+	closeOnce    sync.Once
 }
 
 type QRLoginServiceOption func(*QRLoginService)
@@ -104,7 +121,7 @@ func NewQRLoginService(providers map[string]QRLoginProvider, now func() time.Tim
 	service := &QRLoginService{
 		providers: providers,
 		now:       now,
-		sessions:  make(map[string]QRLoginSession),
+		sessions:  make(map[string]*qrLoginEntry),
 	}
 	for _, option := range options {
 		if option != nil {
@@ -137,13 +154,23 @@ func (s *QRLoginService) Create(ctx context.Context, platform string) (QRLoginCr
 	}
 	loginID, err := providerLoginID(provider, platform)
 	if err != nil {
+		closeProviderSession(provider, session)
 		return QRLoginCreateResult{}, err
 	}
 	session.LoginID = loginID
+	sessionCtx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
-	s.pruneExpiredLocked(now)
-	s.sessions[loginID] = session
+	stale := s.pruneExpiredLocked(now)
+	s.sessions[loginID] = &qrLoginEntry{
+		platform:     platform,
+		session:      session,
+		closeSession: CloneQRLoginSession(session),
+		expiresAt:    session.ExpiresAt,
+		sessionCtx:   sessionCtx,
+		cancel:       cancel,
+	}
 	s.mu.Unlock()
+	s.closeEntries(stale, true)
 	return QRLoginCreateResultFromSession(session), nil
 }
 
@@ -164,31 +191,54 @@ func (s *QRLoginService) Poll(ctx context.Context, platform, loginID string) (QR
 	if err != nil {
 		return QRLoginPollResult{}, err
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	loginID = strings.TrimSpace(loginID)
 	now := s.now().UTC()
 	s.mu.Lock()
-	session, ok := s.sessions[loginID]
-	if !ok || session.Platform != platform {
+	entry, ok := s.sessions[loginID]
+	if !ok {
 		s.mu.Unlock()
 		return QRLoginPollResult{}, ErrQRLoginSessionNotFound
 	}
-	if now.After(session.ExpiresAt) && session.State != QRLoginStateSucceeded {
-		session.State = QRLoginStateExpired
-		s.sessions[loginID] = session
-		result := QRLoginPollResultFromSession(session)
-		s.mu.Unlock()
-		closeProviderSession(provider, session)
-		return result, nil
-	}
-	if session.State == QRLoginStateSucceeded || session.State == QRLoginStateExpired {
-		result := QRLoginPollResultFromSession(session)
-		s.mu.Unlock()
-		return result, nil
-	}
 	s.mu.Unlock()
 
-	next, err := provider.Poll(ctx, CloneQRLoginSession(session), now)
+	entry.mu.Lock()
+	if entry.cancelled.Load() {
+		entry.mu.Unlock()
+		return QRLoginPollResult{}, ErrQRLoginSessionNotFound
+	}
+	session := entry.session
+	if entry.platform != platform {
+		entry.mu.Unlock()
+		return QRLoginPollResult{}, ErrQRLoginSessionNotFound
+	}
+	if IsQRLoginTerminalState(session.State) {
+		result := QRLoginPollResultFromSession(session)
+		entry.mu.Unlock()
+		return result, nil
+	}
+	if now.After(session.ExpiresAt) && session.State != QRLoginStateSucceeded {
+		session.State = QRLoginStateExpired
+		entry.session = session
+		result := QRLoginPollResultFromSession(session)
+		entry.mu.Unlock()
+		s.closeEntry(entry, provider, false)
+		return result, nil
+	}
+
+	pollCtx, cancelPoll := context.WithCancel(ctx)
+	stopSessionCancel := context.AfterFunc(entry.sessionCtx, cancelPoll)
+	next, err := provider.Poll(pollCtx, CloneQRLoginSession(session), now)
+	stopSessionCancel()
+	cancelPoll()
+	if entry.cancelled.Load() {
+		entry.mu.Unlock()
+		return QRLoginPollResult{}, ErrQRLoginSessionNotFound
+	}
 	if err != nil {
+		entry.mu.Unlock()
 		return QRLoginPollResult{}, err
 	}
 	next.Platform = platform
@@ -200,20 +250,69 @@ func (s *QRLoginService) Poll(ctx context.Context, platform, loginID string) (QR
 		next.State = session.State
 	}
 	if next.State == QRLoginStateSucceeded && s.accounts != nil {
-		account, err := PersistQRLoginAccount(ctx, s.accounts, platform, next.Cookie, next.Account, now)
+		if entry.cancelled.Load() || entry.sessionCtx.Err() != nil {
+			entry.mu.Unlock()
+			return QRLoginPollResult{}, ErrQRLoginSessionNotFound
+		}
+		persistCtx, cancelPersist := context.WithTimeout(entry.sessionCtx, qrLoginPersistTimeout)
+		account, err := PersistQRLoginAccount(persistCtx, s.accounts, platform, next.Cookie, next.Account, now)
+		cancelPersist()
+		if entry.cancelled.Load() || entry.sessionCtx.Err() != nil {
+			entry.mu.Unlock()
+			return QRLoginPollResult{}, ErrQRLoginSessionNotFound
+		}
 		if err != nil {
+			entry.mu.Unlock()
 			return QRLoginPollResult{}, err
 		}
 		next.SavedAccount = &account
 	}
-	s.mu.Lock()
-	s.sessions[loginID] = next
+	entry.session = next
 	result := QRLoginPollResultFromSession(next)
-	s.mu.Unlock()
-	if next.State == QRLoginStateSucceeded || next.State == QRLoginStateExpired {
-		closeProviderSession(provider, next)
+	terminal := IsQRLoginTerminalState(next.State)
+	entry.mu.Unlock()
+	if terminal {
+		s.closeEntry(entry, provider, false)
 	}
 	return result, nil
+}
+
+func (s *QRLoginService) Cancel(_ context.Context, platform, loginID string) error {
+	if s == nil {
+		return ErrQRLoginUnsupportedPlatform
+	}
+	platform, provider, err := s.provider(platform)
+	if err != nil {
+		return err
+	}
+	loginID = strings.TrimSpace(loginID)
+	s.mu.Lock()
+	entry, ok := s.sessions[loginID]
+	if ok && entry.platform == platform {
+		delete(s.sessions, loginID)
+	}
+	s.mu.Unlock()
+	if !ok || entry.platform != platform {
+		return ErrQRLoginSessionNotFound
+	}
+	s.closeEntry(entry, provider, true)
+	entry.mu.Lock()
+	entry.mu.Unlock()
+	return nil
+}
+
+func (s *QRLoginService) Close() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	entries := make([]*qrLoginEntry, 0, len(s.sessions))
+	for loginID, entry := range s.sessions {
+		delete(s.sessions, loginID)
+		entries = append(entries, entry)
+	}
+	s.mu.Unlock()
+	s.closeEntries(entries, true)
 }
 
 func (s *QRLoginService) provider(value string) (string, QRLoginProvider, error) {
@@ -228,15 +327,40 @@ func (s *QRLoginService) provider(value string) (string, QRLoginProvider, error)
 	return platform, provider, nil
 }
 
-func (s *QRLoginService) pruneExpiredLocked(now time.Time) {
-	for loginID, session := range s.sessions {
-		if now.After(session.ExpiresAt.Add(5 * time.Minute)) {
+func (s *QRLoginService) pruneExpiredLocked(now time.Time) []*qrLoginEntry {
+	stale := make([]*qrLoginEntry, 0)
+	for loginID, entry := range s.sessions {
+		if now.After(entry.expiresAt.Add(5 * time.Minute)) {
 			delete(s.sessions, loginID)
-			if provider := s.providers[session.Platform]; provider != nil {
-				closeProviderSession(provider, session)
+			stale = append(stale, entry)
+		}
+	}
+	return stale
+}
+
+func (s *QRLoginService) closeEntries(entries []*qrLoginEntry, cancelled bool) {
+	for _, entry := range entries {
+		if provider := s.providers[entry.platform]; provider != nil {
+			s.closeEntry(entry, provider, cancelled)
+			if cancelled {
+				entry.mu.Lock()
+				entry.mu.Unlock()
 			}
 		}
 	}
+}
+
+func (s *QRLoginService) closeEntry(entry *qrLoginEntry, provider QRLoginProvider, cancelled bool) {
+	if entry == nil || provider == nil {
+		return
+	}
+	if cancelled {
+		entry.cancelled.Store(true)
+	}
+	entry.cancel()
+	entry.closeOnce.Do(func() {
+		closeProviderSession(provider, CloneQRLoginSession(entry.closeSession))
+	})
 }
 
 func closeProviderSession(provider QRLoginProvider, session QRLoginSession) {
@@ -277,12 +401,25 @@ func NormalizeQRLoginState(value string) string {
 		return QRLoginStatePendingScan
 	case QRLoginStatePendingConfirm:
 		return QRLoginStatePendingConfirm
+	case QRLoginStateVerificationRequired:
+		return QRLoginStateVerificationRequired
 	case QRLoginStateExpired:
 		return QRLoginStateExpired
+	case QRLoginStateFailed:
+		return QRLoginStateFailed
 	case QRLoginStateSucceeded:
 		return QRLoginStateSucceeded
 	default:
 		return ""
+	}
+}
+
+func IsQRLoginTerminalState(value string) bool {
+	switch NormalizeQRLoginState(value) {
+	case QRLoginStateExpired, QRLoginStateFailed, QRLoginStateSucceeded:
+		return true
+	default:
+		return false
 	}
 }
 

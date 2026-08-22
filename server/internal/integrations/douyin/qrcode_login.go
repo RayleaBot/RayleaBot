@@ -39,11 +39,19 @@ type LoginBrowser interface {
 	Close(string)
 }
 
+type browserQRCodePollMode uint8
+
+const (
+	browserQRCodePollCaptured browserQRCodePollMode = iota
+	browserQRCodePollActiveToken
+)
+
 type BrowserCreateResult struct {
 	Token     string
 	QRCodeURL string
 	ExpiresAt time.Time
 	Cookies   map[string]string
+	pollMode  browserQRCodePollMode
 }
 
 type BrowserPollResult struct {
@@ -58,13 +66,13 @@ func NewProvider(client *http.Client, browser LoginBrowser) *Provider {
 
 func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
 	if p.browser == nil {
-		return thirdparty.QRLoginSession{}, fmt.Errorf("douyin login requires Chrome/Chromium browser (configure browser_path in config)")
+		return thirdparty.QRLoginSession{}, fmt.Errorf("%w: Douyin login browser is not configured", thirdparty.ErrQRLoginBrowserUnavailable)
 	}
 	browserCtx, cancel := context.WithTimeout(ctx, douyinBrowserCreateTimeout)
 	defer cancel()
 	session, err := p.createWithBrowser(browserCtx, now)
 	if err != nil {
-		return thirdparty.QRLoginSession{}, fmt.Errorf("douyin browser login failed (Chrome/Chromium required): %w", err)
+		return thirdparty.QRLoginSession{}, fmt.Errorf("douyin browser login failed: %w", err)
 	}
 	return session, nil
 }
@@ -274,14 +282,19 @@ func douyinTicket(rawURL string) string {
 func HasLoginCookie(cookies map[string]string) bool {
 	for _, name := range []string{
 		"sessionid",
+		"sessionid_ss",
 		"sid_guard",
-		"sid_tt",
-		"uid_tt",
-		"uid_tt_ss",
-		"passport_auth_status",
-		"passport_auth_status_ss",
 	} {
 		if strings.TrimSpace(cookies[name]) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func HasLoginMarker(cookies map[string]string) bool {
+	for name, value := range cookies {
+		if strings.EqualFold(strings.TrimSpace(name), "LOGIN_STATUS") && strings.TrimSpace(value) == "1" {
 			return true
 		}
 	}

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -18,11 +19,13 @@ type integrationRenderer interface {
 }
 
 type integrationDeps struct {
-	Config        config.Config
-	Platform      PlatformState
-	Renderer      integrationRenderer
-	HTTPTransport http.RoundTripper
-	Clock         func() time.Time
+	Config               config.Config
+	Platform             PlatformState
+	Renderer             integrationRenderer
+	HTTPTransport        http.RoundTripper
+	Clock                func() time.Time
+	Logger               *slog.Logger
+	NotifyAccountChanged func()
 }
 
 type integrationState struct {
@@ -45,8 +48,15 @@ func buildIntegrations(deps integrationDeps) (integrationState, error) {
 }
 
 func buildQRLoginService(deps integrationDeps, accountStore *thirdparty.Service) *thirdparty.QRLoginService {
-	browserPath, browserArgs := browserLaunchConfig(deps)
-	douyinBrowser := douyin.NewChromedpBrowser(browserPath, browserArgs, deps.HTTPTransport)
+	configuredBrowserPath, managedBrowserPath, browserArgs := browserLaunchConfig(deps)
+	douyinBrowser := douyin.NewChromedpBrowser(douyin.BrowserOptions{
+		ConfiguredBrowserPath: configuredBrowserPath,
+		ManagedBrowserPath:    managedBrowserPath,
+		BrowserArgs:           browserArgs,
+		Mode:                  deps.Config.ThirdParty.DouyinLogin.BrowserMode,
+		RemoteDebuggingURL:    deps.Config.ThirdParty.DouyinLogin.RemoteDebuggingURL,
+		Logger:                deps.Logger,
+	})
 	return thirdparty.NewQRLoginService(map[string]thirdparty.QRLoginProvider{
 		bilibilisession.Platform: bilibilisession.NewProvider(deps.HTTPTransport, deps.Clock),
 		weibo.Platform:           weibo.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
@@ -55,11 +65,12 @@ func buildQRLoginService(deps integrationDeps, accountStore *thirdparty.Service)
 	}, deps.Clock, thirdparty.WithQRLoginAccountStore(accountStore))
 }
 
-func browserLaunchConfig(deps integrationDeps) (string, []string) {
-	browserPath := deps.Config.Render.BrowserPath
+func browserLaunchConfig(deps integrationDeps) (string, string, []string) {
+	configuredPath := deps.Config.Render.BrowserPath
+	managedPath := configuredPath
 	browserArgs := deps.Config.Render.BrowserArgs
 	if deps.Renderer != nil {
-		browserPath, browserArgs = deps.Renderer.BrowserLaunchConfig()
+		managedPath, browserArgs = deps.Renderer.BrowserLaunchConfig()
 	}
-	return browserPath, browserArgs
+	return configuredPath, managedPath, browserArgs
 }

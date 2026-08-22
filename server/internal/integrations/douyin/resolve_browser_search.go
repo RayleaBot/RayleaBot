@@ -20,7 +20,11 @@ func (b *ChromedpBrowser) ResolveUser(ctx context.Context, query string, cookieS
 	if b == nil {
 		return nil, false, nil
 	}
-	tabCtx, cancelBrowser := newDouyinBrowserContext(b.browserPath, b.browserArgs)
+	path := resolveDouyinBrowserPath(b.options.ConfiguredBrowserPath, b.options.ManagedBrowserPath)
+	tabCtx, cancelBrowser, err := newDouyinBrowserContext(ctx, browserLaunchAttempt{mode: BrowserModeHeadless, browserPath: path}, b.options.BrowserArgs)
+	if err != nil {
+		return nil, false, fmt.Errorf("douyin browser search: %w", err)
+	}
 	defer cancelBrowser()
 	tabCtx, cancelTimeout := context.WithTimeout(tabCtx, douyinBrowserResolveTimeout)
 	defer cancelTimeout()

@@ -153,6 +153,27 @@ func TestDouyinBrowserCreateTimeoutFitsWebRequestTimeout(t *testing.T) {
 	}
 }
 
+func TestHasLoginCookieRequiresStrongSessionCookie(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"sessionid", "sessionid_ss", "sid_guard"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if !HasLoginCookie(map[string]string{name: "fixture"}) {
+				t.Fatalf("HasLoginCookie rejected %s", name)
+			}
+		})
+	}
+	for _, name := range []string{"LOGIN_STATUS", "uid_tt", "passport_auth_status", "sid_tt"} {
+		t.Run("marker "+name, func(t *testing.T) {
+			t.Parallel()
+			if HasLoginCookie(map[string]string{name: "1"}) {
+				t.Fatalf("HasLoginCookie accepted marker %s", name)
+			}
+		})
+	}
+}
+
 type stubDouyinBrowser struct {
 	createResult BrowserCreateResult
 	createErr    error

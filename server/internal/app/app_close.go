@@ -31,6 +31,10 @@ func (a *App) Close() error {
 		}
 		a.pluginStack.PluginInstaller = nil
 	}
+	if a != nil && a.services.ThirdPartyQRLogin != nil {
+		a.services.ThirdPartyQRLogin.Close()
+		a.services.ThirdPartyQRLogin = nil
+	}
 	if a != nil && a.platform.TaskExecutor != nil {
 		if err := a.platform.TaskExecutor.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close task executor: %w", err))
