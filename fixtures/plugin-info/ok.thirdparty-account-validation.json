@@ -1,0 +1,33 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "account-health-observer",
+    "name": "Account Health Observer",
+    "version": "1.0.0",
+    "manifest_version": "2",
+    "plugin_protocol_version": "1",
+    "runtime": "go",
+    "entry": "bin/account-health-observer",
+    "license": "MIT",
+    "description": "Reads allowed accounts and requests authoritative validation after bounded authentication observations.",
+    "author": "raylea",
+    "platforms": [
+      "windows-x64",
+      "linux-x64",
+      "macos-arm64"
+    ],
+    "capabilities": [
+      "thirdparty.account.read",
+      "thirdparty.account.validate"
+    ],
+    "capability_parameters": {
+      "third_party_account_platforms": [
+        "weibo"
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

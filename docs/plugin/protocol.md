@@ -85,6 +85,7 @@
 - `config.write`
 - `secret.read`：只读取调用插件自己的 secret 命名空间内的单个值
 - `thirdparty.account.read`：只读取 manifest 允许平台中已保存、已启用且非 invalid 的三方账号；CK 以 secret 值返回
+- `thirdparty.account.validate`：对 manifest 允许平台中的精确账号提交 `auth_rejected` 或 `session_blocked` 观察，请求 Server 执行权威 CK 复检；插件不能直接提交 `valid`、`invalid` 或 `unknown` 状态
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`

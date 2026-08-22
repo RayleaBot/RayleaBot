@@ -120,6 +120,8 @@ STRICT_OPENAPI_PATHS = {
     "/api/third-party/accounts/{platform}/login/qrcode",
     "/api/third-party/accounts/{platform}/login/qrcode/{login_id}",
     "/api/third-party/accounts/{platform}/{account_id}",
+    "/api/third-party/accounts/{platform}/{account_id}/avatar",
+    "/api/third-party/accounts/{platform}/{account_id}/validate",
     "/api/governance/blacklist",
     "/api/governance/blacklist/entries",
     "/api/governance/blacklist/entries/{entry_type}/{target_id}",

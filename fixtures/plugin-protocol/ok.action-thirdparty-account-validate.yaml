@@ -1,0 +1,19 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000433
+    plugin_id: subscription-hub
+    request_id: local_thirdparty_account_validate_0001
+    parent_request_id: event_subscription_check_0001
+    action: thirdparty.account.validate
+    data:
+      platform: weibo
+      account_id: primary
+      observation: session_blocked
+      http_status: 432
+expect:
+  valid: true
+  notes:
+    - thirdparty.account.validate requests an authoritative server-side check without submitting a credential state.

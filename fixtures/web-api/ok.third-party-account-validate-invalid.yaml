@@ -1,0 +1,26 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Credential validation reports an expired Weibo CK as a normal invalid outcome.
+request:
+  method: POST
+  path: /api/third-party/accounts/weibo/primary/validate
+response:
+  status: 200
+  body:
+    account:
+      platform: weibo
+      account_id: primary
+      label: 微博主账号
+      enabled: true
+      configured: true
+      profile:
+        uid: "123456"
+        nickname: 微博扫码账号
+        avatar_url: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"
+      credential:
+        state: invalid
+        checked_at: "2026-08-21T01:16:16Z"
+        last_error: 微博账号 CK 已失效，请重新扫码
+      updated_at: "2026-08-12T08:49:13Z"
+expect:
+  valid: true

@@ -116,6 +116,10 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-account-upsert.yaml
   - fixtures/web-api/ok.third-party-account-upsert-weibo.yaml
   - fixtures/web-api/ok.third-party-account-delete.yaml
+  - fixtures/web-api/ok.third-party-account-validate-invalid.yaml
+  - fixtures/web-api/invalid.third-party-account-validate-not-found.yaml
+  - fixtures/web-api/ok.third-party-account-avatar-weibo.yaml
+  - fixtures/web-api/invalid.third-party-account-avatar-not-found.yaml
   - fixtures/web-api/ok.plugin-management-action.yaml
   - fixtures/web-api/ok.update-status.yaml
   - fixtures/web-api/ok.update-check.yaml
@@ -127,7 +131,10 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-succeeded.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-verification-required.yaml
+  - fixtures/web-api/edge.third-party-login-qrcode-poll-douyin-failed.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml
+  - fixtures/web-api/ok.third-party-login-qrcode-cancel-douyin.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml
   - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml
@@ -1826,6 +1833,98 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+    delete:
+      summary: Cancel a third-party QR code login session.
+      operationId: cancelThirdPartyQRCodeLogin
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+        - $ref: '#/components/parameters/ThirdPartyQRCodeLoginId'
+      responses:
+        '204':
+          description: QR code login session cancelled and its provider resources released.
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/third-party/accounts/{platform}/{account_id}/validate:
+    post:
+      summary: Validate one saved third-party account credential.
+      operationId: validateThirdPartyAccount
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+        - $ref: '#/components/parameters/ThirdPartyAccountId'
+      responses:
+        '200':
+          description: Credential check completed. Valid, invalid, and unknown are all successful check outcomes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThirdPartyAccountValidationResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/third-party/accounts/{platform}/{account_id}/avatar:
+    get:
+      summary: Fetch the saved profile avatar for one third-party account through a controlled platform media request.
+      operationId: getThirdPartyAccountAvatar
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ThirdPartyPlatform'
+        - $ref: '#/components/parameters/ThirdPartyAccountId'
+      responses:
+        '200':
+          description: Saved account avatar bytes.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            image/gif:
+              schema:
+                type: string
+                format: binary
+            image/avif:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '502':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -4156,9 +4255,23 @@ components:
         account:
           $ref: '#/components/schemas/ThirdPartyAccountSummary'
 
+    ThirdPartyAccountValidationResponse:
+      type: object
+      additionalProperties: false
+      required: [account]
+      properties:
+        account:
+          $ref: '#/components/schemas/ThirdPartyAccountSummary'
+
     ThirdPartyQRCodeLoginState:
       type: string
-      enum: [pending_scan, pending_confirm, expired, succeeded]
+      enum: [pending_scan, pending_confirm, verification_required, expired, failed, succeeded]
+      description: >
+        QR login lifecycle state. pending_scan, pending_confirm, and
+        verification_required are transient. expired, failed, and succeeded
+        are terminal. verification_required means the operator must complete
+        an interactive browser challenge. Consumers must treat an unknown
+        value as a terminal failure and offer a fresh login attempt.
 
     ThirdPartyQRCodeLoginCreateResponse:
       type: object

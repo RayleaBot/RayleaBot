@@ -1,27 +1,28 @@
 package config
 
 type Config struct {
-	SchemaVersion string           `json:"schema_version" yaml:"schema_version"`
-	Server        ServerConfig     `json:"server" yaml:"server"`
-	OneBot        OneBotConfig     `json:"onebot" yaml:"onebot"`
-	Database      DatabaseConfig   `json:"database" yaml:"database"`
-	Command       *CommandConfig   `json:"command" yaml:"command"`
-	Builtin       BuiltinConfig    `json:"builtin_features" yaml:"builtin_features"`
-	Admin         AdminConfig      `json:"admin" yaml:"admin"`
-	Permission    PermissionConfig `json:"permission" yaml:"permission"`
-	Render        RenderConfig     `json:"render" yaml:"render"`
-	Scheduler     SchedulerConfig  `json:"scheduler" yaml:"scheduler"`
-	Runtime       RuntimeConfig    `json:"runtime" yaml:"runtime"`
-	Storage       StorageConfig    `json:"storage" yaml:"storage"`
-	Data          DataConfig       `json:"data" yaml:"data"`
-	Log           LogConfig        `json:"log" yaml:"log"`
-	Message       MessageConfig    `json:"message" yaml:"message"`
-	User          UserConfig       `json:"user" yaml:"user"`
-	Group         GroupConfig      `json:"group" yaml:"group"`
-	Adapter       AdapterConfig    `json:"adapter" yaml:"adapter"`
-	HTTP          HTTPConfig       `json:"http" yaml:"http"`
-	Web           WebConfig        `json:"web" yaml:"web"`
-	Backup        BackupConfig     `json:"backup" yaml:"backup"`
+	SchemaVersion string                   `json:"schema_version" yaml:"schema_version"`
+	Server        ServerConfig             `json:"server" yaml:"server"`
+	OneBot        OneBotConfig             `json:"onebot" yaml:"onebot"`
+	Database      DatabaseConfig           `json:"database" yaml:"database"`
+	Command       *CommandConfig           `json:"command" yaml:"command"`
+	Builtin       BuiltinConfig            `json:"builtin_features" yaml:"builtin_features"`
+	Admin         AdminConfig              `json:"admin" yaml:"admin"`
+	Permission    PermissionConfig         `json:"permission" yaml:"permission"`
+	Render        RenderConfig             `json:"render" yaml:"render"`
+	ThirdParty    ThirdPartyAccountsConfig `json:"third_party_accounts" yaml:"third_party_accounts"`
+	Scheduler     SchedulerConfig          `json:"scheduler" yaml:"scheduler"`
+	Runtime       RuntimeConfig            `json:"runtime" yaml:"runtime"`
+	Storage       StorageConfig            `json:"storage" yaml:"storage"`
+	Data          DataConfig               `json:"data" yaml:"data"`
+	Log           LogConfig                `json:"log" yaml:"log"`
+	Message       MessageConfig            `json:"message" yaml:"message"`
+	User          UserConfig               `json:"user" yaml:"user"`
+	Group         GroupConfig              `json:"group" yaml:"group"`
+	Adapter       AdapterConfig            `json:"adapter" yaml:"adapter"`
+	HTTP          HTTPConfig               `json:"http" yaml:"http"`
+	Web           WebConfig                `json:"web" yaml:"web"`
+	Backup        BackupConfig             `json:"backup" yaml:"backup"`
 }
 
 type CommandConfig struct {
@@ -154,6 +155,16 @@ type RenderConfig struct {
 	QueueWaitTimeoutSeconds int      `json:"queue_wait_timeout_seconds" yaml:"queue_wait_timeout_seconds"`
 	QueueMaxLength          int      `json:"queue_max_length" yaml:"queue_max_length"`
 	FooterTemplate          string   `json:"footer_template" yaml:"footer_template"`
+}
+
+type ThirdPartyAccountsConfig struct {
+	CredentialCheckIntervalMinutes int               `json:"credential_check_interval_minutes" yaml:"credential_check_interval_minutes"`
+	DouyinLogin                    DouyinLoginConfig `json:"douyin_login" yaml:"douyin_login"`
+}
+
+type DouyinLoginConfig struct {
+	BrowserMode        string `json:"browser_mode" yaml:"browser_mode"`
+	RemoteDebuggingURL string `json:"remote_debugging_url" yaml:"remote_debugging_url"`
 }
 
 type WebConfig struct {

@@ -75,6 +75,11 @@ render:
     queue_wait_timeout_seconds: 15
     timeout_seconds: 30
     worker_count: 1
+third_party_accounts:
+    credential_check_interval_minutes: 360
+    douyin_login:
+        browser_mode: auto
+        remote_debugging_url: ""
 runtime:
     crash_backoff_initial_seconds: 2
     crash_backoff_max_seconds: 60

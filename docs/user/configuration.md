@@ -35,6 +35,26 @@
 | 局部重载或重连 | OneBot11 连接信息、调度时区、`render.browser_path`、部分运行时资源配置 | 触发局部重连、重建或受控重载 |
 | 需要重启 | Web 监听地址、SQLite 路径、关键目录根路径 | 保存后进入 `restart_required`，服务重启后生效 |
 
+## 三方账号检查与抖音扫码浏览器
+
+`third_party_accounts` 控制 CK 自动检查和抖音扫码获取 CK 使用的浏览器：
+
+```yaml
+third_party_accounts:
+  credential_check_interval_minutes: 360
+  douyin_login:
+    browser_mode: auto
+    remote_debugging_url: ""
+```
+
+- `credential_check_interval_minutes` 是服务端自动检查已启用账号 CK 的间隔，默认 `360` 分钟；`0` 关闭自动检查，三方账号页仍可手动检查。非零值范围为 `15` 到 `10080`，保存后立即生效。
+- `browser_mode: auto` 优先连接已配置且可用的本机 CDP 专用浏览器，再启动可见的隔离浏览器；服务器没有图形界面时使用无头浏览器。
+- `visible`、`headless` 和 `remote_cdp` 是显式模式，启动失败时不会切换到其他模式。
+- 本地浏览器优先使用 `render.browser_path`，随后查找系统 Chrome、Edge 或 Chromium，最后使用 RayleaBot 托管的 Chromium。
+- `remote_cdp` 必须配置 `remote_debugging_url`。地址只接受无凭据的本机回环 HTTP(S) 或 WS(S) 端点，例如 `http://127.0.0.1:9222`。
+- CDP 浏览器应使用专用 profile，不应连接个人默认浏览器。RayleaBot 不读取个人浏览器的 Cookie。
+- `douyin_login` 的两个字段保存后均需重启服务生效。
+
 ## 配置提醒
 
 - 容器或跨时区部署建议显式设置 `scheduler.timezone`。

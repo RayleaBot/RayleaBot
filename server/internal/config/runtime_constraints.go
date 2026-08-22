@@ -69,6 +69,44 @@ func validateRuntimeConstraints(cfg Config) error {
 			return fmt.Errorf("invalid web.trusted_proxy_cidrs entry %q", rawCIDR)
 		}
 	}
+	if err := validateDouyinLoginConfig(cfg.ThirdParty.DouyinLogin); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateDouyinLoginConfig(cfg DouyinLoginConfig) error {
+	mode := strings.TrimSpace(strings.ToLower(cfg.BrowserMode))
+	switch mode {
+	case "auto", "visible", "headless", "remote_cdp":
+	default:
+		return fmt.Errorf("unsupported third_party_accounts.douyin_login.browser_mode %q", cfg.BrowserMode)
+	}
+
+	rawURL := strings.TrimSpace(cfg.RemoteDebuggingURL)
+	if rawURL == "" {
+		if mode == "remote_cdp" {
+			return fmt.Errorf("third_party_accounts.douyin_login.remote_debugging_url is required for remote_cdp")
+		}
+		return nil
+	}
+
+	endpoint, err := url.Parse(rawURL)
+	if err != nil || endpoint.Host == "" || endpoint.User != nil || endpoint.Fragment != "" {
+		return fmt.Errorf("third_party_accounts.douyin_login.remote_debugging_url must be a loopback HTTP(S) or WS(S) endpoint without credentials")
+	}
+	switch strings.ToLower(endpoint.Scheme) {
+	case "http", "https", "ws", "wss":
+	default:
+		return fmt.Errorf("third_party_accounts.douyin_login.remote_debugging_url must use HTTP(S) or WS(S)")
+	}
+	host := strings.TrimSpace(strings.Trim(endpoint.Hostname(), "[]"))
+	if !strings.EqualFold(host, "localhost") {
+		ip := net.ParseIP(host)
+		if ip == nil || !ip.IsLoopback() {
+			return fmt.Errorf("third_party_accounts.douyin_login.remote_debugging_url must use a loopback host")
+		}
+	}
 	return nil
 }
 

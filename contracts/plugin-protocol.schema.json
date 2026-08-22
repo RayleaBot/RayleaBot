@@ -90,7 +90,8 @@
         "render.image",
         "plugin.list",
         "secret.read",
-        "thirdparty.account.read"
+        "thirdparty.account.read",
+        "thirdparty.account.validate"
       ]
     },
     "onebot_action_kind": {
@@ -1015,6 +1016,9 @@
           "$ref": "#/$defs/action_thirdparty_account_read"
         },
         {
+          "$ref": "#/$defs/action_thirdparty_account_validate"
+        },
+        {
           "$ref": "#/$defs/action_config_write"
         },
         {
@@ -1840,6 +1844,42 @@
         }
       }
     },
+    "action_thirdparty_account_validate_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "account_id",
+        "observation"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "bilibili",
+            "weibo",
+            "douyin",
+            "netease_music"
+          ]
+        },
+        "account_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$"
+        },
+        "observation": {
+          "type": "string",
+          "enum": [
+            "auth_rejected",
+            "session_blocked"
+          ]
+        },
+        "http_status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        }
+      }
+    },
     "action_config_write_data": {
       "type": "object",
       "additionalProperties": false,
@@ -2295,6 +2335,38 @@
             },
             "data": {
               "$ref": "#/$defs/action_thirdparty_account_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_thirdparty_account_validate": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "thirdparty.account.validate"
+            },
+            "data": {
+              "$ref": "#/$defs/action_thirdparty_account_validate_data"
             }
           }
         }
@@ -2784,6 +2856,23 @@
     },
     {
       "type": "action",
+      "action_kind": "thirdparty.account.validate",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-thirdparty-account-validate.yaml"
+    },
+    {
+      "type": "action",
       "action_kind": "config.write",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
@@ -3095,6 +3184,7 @@
     "fixtures/plugin-protocol/ok.action-plugin-list.yaml",
     "fixtures/plugin-protocol/ok.action-secret-read.yaml",
     "fixtures/plugin-protocol/ok.action-thirdparty-account-read.yaml",
+    "fixtures/plugin-protocol/ok.action-thirdparty-account-validate.yaml",
     "fixtures/plugin-protocol/ok.action-config-write.yaml",
     "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml",
     "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml",
@@ -3144,6 +3234,7 @@
     "fixtures/plugin-protocol/invalid.action-config-read-empty-keys.yaml",
     "fixtures/plugin-protocol/invalid.action-secret-read-empty-key.yaml",
     "fixtures/plugin-protocol/invalid.action-thirdparty-account-read-missing-platform.yaml",
+    "fixtures/plugin-protocol/invalid.action-thirdparty-account-validate-observation.yaml",
     "fixtures/plugin-protocol/invalid.action-config-write-empty-values.yaml",
     "fixtures/plugin-protocol/invalid.action-governance-blacklist-write-missing-target.yaml",
     "fixtures/plugin-protocol/invalid.action-governance-whitelist-write-missing-enabled.yaml",
@@ -3175,5 +3266,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/thirdparty.account.validate/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. thirdparty.account.validate reports a bounded authentication observation for an exact allowed account and only requests authoritative platform validation; it cannot submit credential state, credentials, response bodies, or free-form errors. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

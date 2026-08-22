@@ -46,13 +46,13 @@
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
 - `websocket-events.yaml`
   - 当前已冻结的管理 WebSocket envelope、事件名和 payload 约束
-  - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
+  - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed` 与 `third_party.account.changed`
 - `plugin-info.schema.json`
   - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
   - 固定 `manifest_version: "2"`、`runtime: "go"`、`plugin_protocol_version: "1"`；`entry` 是 `bin/` 下无扩展名的逻辑路径，`platforms` 必填
   - 当前已冻结 `default_config`、`default_config_file`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`management_ui`、`commands`、`dynamic_commands`、`command_patterns`、`render_templates`、`help` 与插件详情页投影所需 metadata；官方、社区或开发身份不由 manifest 声明
   - `capabilities` 使用正式 capability 集合，覆盖基础 local action、治理 local action、冻结的 OneBot 单动作能力与 3 个正式 provider 扩展动作
-  - `capability_parameters` 表达 `http.request`、`storage.file` 与 `event.expose_webhook` 的边界参数
+  - `capability_parameters` 表达 `http.request`、`storage.file`、`thirdparty.account.read`、`thirdparty.account.validate` 与 `event.expose_webhook` 的边界参数
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-artifact.schema.json`
@@ -79,7 +79,7 @@
   - `message.send`、`message.reply` 使用 shared `message.segments` payload；非终态 `message.send` 通过独立 `request_id` 和当前事件 `parent_request_id` 返回发送结果后继续处理
   - `init.bot` 在协议身份可用时出现，`bot.identity.changed` 用于向运行中插件同步当前 bot 身份
   - 协议身份不可用时 `init.bot` 缺省或 `bot.identity.changed` 携带空身份；依赖 `self_id` 的出站 OneBot 动作返回正式 `error` 帧，不依赖身份的 local action 保持可用
-  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`plugin.list`、`secret.read`、`thirdparty.account.read`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface；`scheduler.create.log_label` 用于定时任务管理日志展示；`secret.read` 只读取调用插件自己的 secret 命名空间；`thirdparty.account.read` 只读取插件 manifest 声明平台的已启用有效三方账号，并把 CK 标记为 secret 值；`render.image` 支持系统模板 ID 和调用插件声明的模板短 ID
+  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`plugin.list`、`secret.read`、`thirdparty.account.read`、`thirdparty.account.validate`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface；`scheduler.create.log_label` 用于定时任务管理日志展示；`secret.read` 只读取调用插件自己的 secret 命名空间；`thirdparty.account.read` 只读取插件 manifest 声明平台的已启用有效三方账号，并把 CK 标记为 secret 值；`thirdparty.account.validate` 只提交受限异常观察并请求 Server 权威复检，不能提交 CK 状态、凭据、响应正文或自由文本错误；`render.image` 支持系统模板 ID 和调用插件声明的模板短 ID
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已冻结 OneBot 单动作 surface，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`plugin.started`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
@@ -132,10 +132,13 @@
 - `GET /api/third-party/accounts`
 - `PUT /api/third-party/accounts/{platform}/{account_id}`
 - `DELETE /api/third-party/accounts/{platform}/{account_id}`
+- `POST /api/third-party/accounts/{platform}/{account_id}/validate`
+- `GET /api/third-party/accounts/{platform}/{account_id}/avatar`
 - `POST /api/third-party/accounts/{platform}/login/qrcode`
 - `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
+- `DELETE /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
 
-其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。扫码登录统一使用通用三方账号扫码接口。订阅、用户解析、内容检查和状态展示由订阅中心插件通过 `thirdparty.account.read` 与插件管理动作承接。
+其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。账号头像接口只读取已保存的头像地址，并通过对应平台的受控图片来源返回内容。凭据检查以 `valid`、`invalid` 或 `unknown` 作为正常的 `200` 结果；账号不存在或尚未配置凭据时返回 `platform.third_party_account_not_found`。扫码登录的瞬态为 `pending_scan`、`pending_confirm`、`verification_required`，终态为 `expired`、`failed`、`succeeded`；取消接口释放对应 provider 资源。插件使用 CK 时可通过 `thirdparty.account.validate` 报告 `auth_rejected` 或 `session_blocked`，Server 去重并执行权威复检，状态写回后通过 `third_party.account.changed` 通知管理面刷新。订阅、用户解析、内容检查和状态展示由订阅中心插件通过三方账号 local action 与插件管理动作承接。
 
 当前已进入 OpenAPI 冻结范围的 plugin settings surface：
 

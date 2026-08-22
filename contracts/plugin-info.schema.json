@@ -207,7 +207,7 @@
         },
         "third_party_account_platforms": {
           "type": "array",
-          "description": "Third-party account platforms accepted by thirdparty.account.read.",
+          "description": "Third-party account platforms accepted by thirdparty.account.read and thirdparty.account.validate.",
           "items": {
             "type": "string",
             "enum": [
@@ -489,7 +489,8 @@
         "render.image",
         "plugin.list",
         "secret.read",
-        "thirdparty.account.read"
+        "thirdparty.account.read",
+        "thirdparty.account.validate"
       ]
     },
     "onebot_action_capability_name": {
@@ -664,6 +665,7 @@
   },
   "x-fixtures": [
     "fixtures/plugin-info/ok.minimal-go.json",
+    "fixtures/plugin-info/ok.thirdparty-account-validation.json",
     "fixtures/plugin-info/ok.wider-and-provider-capabilities.json",
     "fixtures/plugin-info/ok.governance-capabilities.json",
     "fixtures/plugin-info/invalid.legacy-runtime.json",

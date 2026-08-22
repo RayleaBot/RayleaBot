@@ -63,6 +63,11 @@ request:
       queue_wait_timeout_seconds: 15
       queue_max_length: 32
       footer_template: "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
+    third_party_accounts:
+      credential_check_interval_minutes: 360
+      douyin_login:
+        browser_mode: auto
+        remote_debugging_url: ""
     scheduler:
       timezone: ""
     runtime:
@@ -183,6 +188,11 @@ response:
         queue_wait_timeout_seconds: 15
         queue_max_length: 32
         footer_template: "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
+      third_party_accounts:
+        credential_check_interval_minutes: 360
+        douyin_login:
+          browser_mode: auto
+          remote_debugging_url: ""
       scheduler:
         timezone: ""
       runtime:

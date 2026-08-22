@@ -10,6 +10,13 @@ input:
       http_status: 504
       retryable: true
       applies_to: [http, websocket, task]
+    - code: platform.third_party_account_not_found
+      message_key: errors.platform.third_party_account_not_found
+      message: 三方账号不存在或尚未配置凭据
+      description: The requested third-party account does not exist or has no stored credential available for validation.
+      http_status: 404
+      retryable: false
+      applies_to: [http]
     - code: plugin.capability_violation
       message_key: errors.plugin.capability_violation
       message: 插件访问未声明能力

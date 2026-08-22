@@ -249,6 +249,24 @@ func (actions *Actions) ThirdPartyAccountRead(ctx context.Context, request Third
 	return actions.callResult(ctx, "thirdparty.account.read", request)
 }
 
+type ThirdPartyAccountObservation string
+
+const (
+	ThirdPartyAccountObservationAuthRejected   ThirdPartyAccountObservation = "auth_rejected"
+	ThirdPartyAccountObservationSessionBlocked ThirdPartyAccountObservation = "session_blocked"
+)
+
+type ThirdPartyAccountValidateRequest struct {
+	Platform    string                       `json:"platform"`
+	AccountID   string                       `json:"account_id"`
+	Observation ThirdPartyAccountObservation `json:"observation"`
+	HTTPStatus  int                          `json:"http_status,omitempty"`
+}
+
+func (actions *Actions) ThirdPartyAccountValidate(ctx context.Context, request ThirdPartyAccountValidateRequest) (ActionResult, error) {
+	return actions.callResult(ctx, "thirdparty.account.validate", request)
+}
+
 func (actions *Actions) GovernanceBlacklistRead(ctx context.Context) (ActionResult, error) {
 	return actions.callResult(ctx, "governance.blacklist.read", struct{}{})
 }

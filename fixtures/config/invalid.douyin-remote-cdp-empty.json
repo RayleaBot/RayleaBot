@@ -1,7 +1,7 @@
 {
   "contract": "contracts/config.user.schema.json",
   "case": "invalid",
-  "description": "Invalid because onebot reverse_ws.url must use ws:// or wss://.",
+  "description": "Remote CDP mode requires a loopback debugging endpoint.",
   "input": {
     "schema_version": "3",
     "server": {
@@ -10,8 +10,8 @@
     },
     "onebot": {
       "reverse_ws": {
-        "enabled": true,
-        "url": "http://127.0.0.1:6700",
+        "enabled": false,
+        "url": "",
         "access_token": "",
         "access_token_query_compat": false
       },
@@ -54,6 +54,7 @@
     "admin": {
       "super_admins": [],
       "session_ttl_days": 7,
+      "session_absolute_ttl_days": 30,
       "sliding_renewal": true,
       "max_sessions": 3,
       "login_fail_limit": 5,
@@ -78,7 +79,7 @@
     "third_party_accounts": {
       "credential_check_interval_minutes": 360,
       "douyin_login": {
-        "browser_mode": "auto",
+        "browser_mode": "remote_cdp",
         "remote_debugging_url": ""
       }
     },
@@ -138,7 +139,8 @@
     "http": {
       "timeout_seconds": 10,
       "max_retries": 2,
-      "allow_private_hosts": []
+      "allow_private_hosts": [],
+      "max_response_body_bytes": 4194304
     },
     "web": {
       "exposure_mode": "localhost_only",
@@ -152,7 +154,6 @@
     }
   },
   "expect": {
-    "valid": false,
-    "reason": "onebot.reverse_ws.url must satisfy the formal reverse WebSocket URI constraint"
+    "valid": false
   }
 }

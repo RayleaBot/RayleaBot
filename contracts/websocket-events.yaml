@@ -14,6 +14,7 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-service-running.json
   - fixtures/websocket/ok.events-received-service-stopping.json
   - fixtures/websocket/ok.events-received-governance-changed.json
+  - fixtures/websocket/ok.events-received-third-party-account-changed.json
   - fixtures/websocket/edge.events-received-degraded.json
   - fixtures/websocket/edge.events-received-bridge-runtime-zeroed.json
   - fixtures/websocket/edge.events-received-plugin-crashed.json
@@ -225,7 +226,7 @@ channels:
               properties:
                 event_type:
                   type: string
-                  description: Generic management event type. Current values include governance.changed.
+                  description: Generic management event type. Current values include governance.changed and third_party.account.changed.
                 summary:
                   type: string
             - type: object

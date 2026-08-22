@@ -21,7 +21,7 @@ err := rayleabot.Run(ctx, rayleabot.Options{
 `event.Actions()` 提供 request-bound typed helpers：
 
 - 非终态消息、日志、KV、文件、HTTP、配置、插件列表与 secret；
-- 治理黑白名单、命令策略、scheduler、webhook、渲染与三方账号；
+- 治理黑白名单、命令策略、scheduler、webhook、渲染、三方账号读取与权威复检请求；
 - 已冻结的 OneBot 单动作和 provider 扩展动作；
 - `Call` 作为正式 action 名称已经进入 contract 时的通用入口。
 

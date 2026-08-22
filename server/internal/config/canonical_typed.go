@@ -4,27 +4,28 @@ import "strings"
 
 func canonicalDocumentFromTyped(cfg Config) map[string]any {
 	return map[string]any{
-		"schema_version":   currentSchemaVersion,
-		"server":           configServerDocument(cfg),
-		"onebot":           configOneBotDocument(cfg),
-		"database":         configDatabaseDocument(cfg),
-		"command":          configCommandDocument(cfg),
-		"builtin_features": configBuiltinFeaturesDocument(cfg),
-		"admin":            configAdminDocument(cfg),
-		"permission":       configPermissionDocument(cfg),
-		"render":           configRenderDocument(cfg),
-		"scheduler":        configSchedulerDocument(cfg),
-		"runtime":          configRuntimeDocument(cfg),
-		"storage":          configStorageDocument(cfg),
-		"data":             configDataDocument(cfg),
-		"log":              configLogDocument(cfg),
-		"message":          configMessageDocument(cfg),
-		"user":             configUserDocument(cfg),
-		"group":            configGroupDocument(cfg),
-		"adapter":          configAdapterDocument(cfg),
-		"http":             configHTTPDocument(cfg),
-		"web":              configWebDocument(cfg),
-		"backup":           configBackupDocument(cfg),
+		"schema_version":       currentSchemaVersion,
+		"server":               configServerDocument(cfg),
+		"onebot":               configOneBotDocument(cfg),
+		"database":             configDatabaseDocument(cfg),
+		"command":              configCommandDocument(cfg),
+		"builtin_features":     configBuiltinFeaturesDocument(cfg),
+		"admin":                configAdminDocument(cfg),
+		"permission":           configPermissionDocument(cfg),
+		"render":               configRenderDocument(cfg),
+		"third_party_accounts": configThirdPartyAccountsDocument(cfg),
+		"scheduler":            configSchedulerDocument(cfg),
+		"runtime":              configRuntimeDocument(cfg),
+		"storage":              configStorageDocument(cfg),
+		"data":                 configDataDocument(cfg),
+		"log":                  configLogDocument(cfg),
+		"message":              configMessageDocument(cfg),
+		"user":                 configUserDocument(cfg),
+		"group":                configGroupDocument(cfg),
+		"adapter":              configAdapterDocument(cfg),
+		"http":                 configHTTPDocument(cfg),
+		"web":                  configWebDocument(cfg),
+		"backup":               configBackupDocument(cfg),
 	}
 }
 
@@ -234,6 +235,16 @@ func configRenderDocument(cfg Config) map[string]any {
 		"queue_wait_timeout_seconds": cfg.Render.QueueWaitTimeoutSeconds,
 		"queue_max_length":           cfg.Render.QueueMaxLength,
 		"footer_template":            configRenderFooterTemplate(cfg),
+	}
+}
+
+func configThirdPartyAccountsDocument(cfg Config) map[string]any {
+	return map[string]any{
+		"credential_check_interval_minutes": cfg.ThirdParty.CredentialCheckIntervalMinutes,
+		"douyin_login": map[string]any{
+			"browser_mode":         cfg.ThirdParty.DouyinLogin.BrowserMode,
+			"remote_debugging_url": cfg.ThirdParty.DouyinLogin.RemoteDebuggingURL,
+		},
 	}
 }
 
