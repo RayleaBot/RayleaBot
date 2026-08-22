@@ -32,6 +32,24 @@ func thirdPartyAccountReadRegistrar() registrar {
 	}
 }
 
+func thirdPartyAccountValidateRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "thirdparty.account.validate",
+			Capability:     "thirdparty.account.validate",
+			RequestSchema:  "plugin-protocol.action_thirdparty_account_validate",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			AuditFields:    []string{"plugin_id", "platform", "account_id", "observation", "http_status", "accepted", "reason"},
+			ErrorCodes:     commonErrorCodes("platform.invalid_request"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeThirdPartyAccountValidate(ctx, deps, req)
+			}
+		},
+	}
+}
+
 func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.account.read") {
 		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read capability is not declared"}
@@ -79,6 +97,41 @@ func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequ
 		"platform": platform,
 		"accounts": items,
 	}, nil
+}
+
+func executeThirdPartyAccountValidate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.account.validate") {
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.validate capability is not declared"}
+	}
+
+	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
+	if err != nil {
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate platform is invalid"}
+	}
+	if !thirdPartyAccountPlatformAllowed(deps.Capabilities.ThirdPartyAccountPlatforms(ctx, req.PluginID), platform) {
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.validate platform is outside declared capability parameters"}
+	}
+	accountID := strings.TrimSpace(req.Action.ThirdPartyAccountID)
+	if !thirdPartyAccountIDPattern.MatchString(accountID) {
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate account_id is invalid"}
+	}
+	observation := strings.TrimSpace(req.Action.ThirdPartyAccountObservation)
+	if observation != "auth_rejected" && observation != "session_blocked" {
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate observation is invalid"}
+	}
+	httpStatus := req.Action.ThirdPartyAccountHTTPStatus
+	if httpStatus != 0 && (httpStatus < 100 || httpStatus > 599) {
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate http_status is invalid"}
+	}
+	if deps.AccountValidation == nil {
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate service is not available"}
+	}
+
+	accepted, reason, err := deps.AccountValidation.RequestPluginValidation(ctx, req.PluginID, platform, accountID, observation, httpStatus)
+	if err != nil {
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate failed", Err: err}
+	}
+	return map[string]any{"accepted": accepted, "reason": reason}, nil
 }
 
 func thirdPartyAccountPlatformAllowed(allowed []string, platform string) bool {

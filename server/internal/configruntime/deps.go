@@ -28,6 +28,7 @@ type Service struct {
 	renderer           renderRuntimeConfigUpdater
 	pluginLogLimiter   *localaction.PluginLogLimiter
 	outboundLimiter    interface{ ApplyConfig(config.Config) }
+	accountValidation  interface{ ApplyConfig(config.Config) }
 	protocol           configProtocolReloader
 	eventIngress       configEventIngress
 	secrets            secrets.Store
@@ -46,6 +47,7 @@ type Deps struct {
 	Renderer           renderRuntimeConfigUpdater
 	PluginLogLimiter   *localaction.PluginLogLimiter
 	OutboundLimiter    interface{ ApplyConfig(config.Config) }
+	AccountValidation  interface{ ApplyConfig(config.Config) }
 	Protocol           configProtocolReloader
 	EventIngress       configEventIngress
 	Secrets            secrets.Store
@@ -69,6 +71,7 @@ func NewService(deps Deps) *Service {
 		renderer:           deps.Renderer,
 		pluginLogLimiter:   deps.PluginLogLimiter,
 		outboundLimiter:    deps.OutboundLimiter,
+		accountValidation:  deps.AccountValidation,
 		protocol:           protocol,
 		eventIngress:       deps.EventIngress,
 		secrets:            deps.Secrets,

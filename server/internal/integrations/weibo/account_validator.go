@@ -2,11 +2,11 @@ package weibo
 
 import (
 	"context"
-	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 type Validator struct {
@@ -26,15 +26,15 @@ func NewValidator(transport http.RoundTripper, now func() time.Time) *Validator 
 
 func (v *Validator) CheckCookie(ctx context.Context, cookies map[string]string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
 	if !weiboHasLoginCookie(cookies) {
-		err := fmt.Errorf("weibo cookie missing login state")
-		return thirdparty.AccountProfile{}, v.invalidStatus(err.Error()), err
+		err := weiboCredentialExpiredError(0, 0)
+		return thirdparty.AccountProfile{}, v.invalidStatus("微博账号 CK 已失效，请重新扫码"), err
 	}
 	profile, err := FetchAccountProfile(ctx, v.client, cookies)
 	if err != nil {
-		// KEY FIX: Return unknown instead of valid when profile fetch fails.
-		// The cookies are present (login succeeded) but profile retrieval failed.
-		// This preserves the profile from QR login and prevents empty overwrite.
-		return thirdparty.AccountProfile{}, v.unknownStatus(err.Error()), nil
+		if typed := thirdparty.AsThirdPartyError(err); typed != nil && (typed.Kind == thirdparty.ErrorAuth || typed.Kind == thirdparty.ErrorExpired) {
+			return thirdparty.AccountProfile{}, v.invalidStatus("微博账号 CK 已失效，请重新扫码"), err
+		}
+		return thirdparty.AccountProfile{}, v.unknownStatus("微博 CK 状态暂时无法确认，请稍后重试"), err
 	}
 	return profile, v.validStatus(), nil
 }

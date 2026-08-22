@@ -67,6 +67,65 @@ func TestConfigSchemaMetadataMarksSecrets(t *testing.T) {
 	}
 }
 
+func TestDouyinLoginBrowserSettingsRequireRestart(t *testing.T) {
+	t.Parallel()
+
+	current, _, err := internalconfig.Load(filepath.Join(t.TempDir(), "config", "user.yaml"), "")
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+	next := current
+	next.ThirdParty.DouyinLogin.BrowserMode = "remote_cdp"
+	next.ThirdParty.DouyinLogin.RemoteDebuggingURL = "http://127.0.0.1:9222"
+
+	effects := ClassifyApplyEffects(current, next)
+	want := []string{
+		"third_party_accounts.douyin_login.browser_mode",
+		"third_party_accounts.douyin_login.remote_debugging_url",
+	}
+	if !slices.Equal(effects.RestartRequiredFields, want) {
+		t.Fatalf("restart-required fields = %#v, want %#v", effects.RestartRequiredFields, want)
+	}
+	if len(effects.AppliedNow) != 0 || len(effects.ReloadedNow) != 0 {
+		t.Fatalf("unexpected immediate effects: %#v", effects)
+	}
+}
+
+type accountValidationConfigRecorder struct {
+	interval int
+}
+
+func (r *accountValidationConfigRecorder) ApplyConfig(cfg internalconfig.Config) {
+	r.interval = cfg.ThirdParty.CredentialCheckIntervalMinutes
+}
+
+func TestCredentialCheckIntervalHotReloadsMonitor(t *testing.T) {
+	t.Parallel()
+
+	current, _, err := internalconfig.Load(filepath.Join(t.TempDir(), "config", "user.yaml"), "")
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+	next := current
+	next.ThirdParty.CredentialCheckIntervalMinutes = 720
+	recorder := &accountValidationConfigRecorder{}
+	service := NewService(Deps{
+		CurrentConfig:     func() internalconfig.Config { return current },
+		SetConfig:         func(cfg internalconfig.Config) { current = cfg },
+		AccountValidation: recorder,
+	})
+
+	effects := service.ApplyHotReloadableFields(next)
+
+	if recorder.interval != 720 {
+		t.Fatalf("credential monitor interval = %d, want 720", recorder.interval)
+	}
+	want := []string{"third_party_accounts.credential_check_interval_minutes"}
+	if !slices.Equal(effects.AppliedNow, want) || len(effects.ReloadedNow) != 0 || len(effects.RestartRequiredFields) != 0 {
+		t.Fatalf("unexpected apply effects: %#v", effects)
+	}
+}
+
 func collectConfigLeafPaths(document map[string]any) []string {
 	var paths []string
 	collectConfigLeafPath("", document, &paths)

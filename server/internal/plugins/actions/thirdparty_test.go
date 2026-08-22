@@ -85,6 +85,62 @@ func TestThirdPartyAccountReadRejectsUndeclaredPlatform(t *testing.T) {
 	}
 }
 
+func TestThirdPartyAccountValidateQueuesAuthoritativeCheck(t *testing.T) {
+	t.Parallel()
+
+	requester := &stubThirdPartyAccountValidationRequester{}
+	result, err := executeThirdPartyAccountValidate(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.account.validate": true},
+			platforms:    []string{thirdparty.PlatformWeibo},
+		},
+		AccountValidation: requester,
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                         "thirdparty.account.validate",
+			ThirdPartyAccountPlatform:    thirdparty.PlatformWeibo,
+			ThirdPartyAccountID:          "primary",
+			ThirdPartyAccountObservation: "session_blocked",
+			ThirdPartyAccountHTTPStatus:  432,
+		},
+	})
+	if err != nil {
+		t.Fatalf("thirdparty.account.validate failed: %v", err)
+	}
+	if result["accepted"] != true || result["reason"] != "queued" {
+		t.Fatalf("unexpected validation result: %#v", result)
+	}
+	if requester.pluginID != "raylea.subscription-hub" || requester.platform != thirdparty.PlatformWeibo || requester.accountID != "primary" || requester.observation != "session_blocked" || requester.httpStatus != 432 {
+		t.Fatalf("unexpected validation request: %#v", requester)
+	}
+}
+
+func TestThirdPartyAccountValidateRequiresSeparateCapability(t *testing.T) {
+	t.Parallel()
+
+	_, err := executeThirdPartyAccountValidate(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.account.read": true},
+			platforms:    []string{thirdparty.PlatformWeibo},
+		},
+		AccountValidation: &stubThirdPartyAccountValidationRequester{},
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                         "thirdparty.account.validate",
+			ThirdPartyAccountPlatform:    thirdparty.PlatformWeibo,
+			ThirdPartyAccountID:          "primary",
+			ThirdPartyAccountObservation: "auth_rejected",
+			ThirdPartyAccountHTTPStatus:  401,
+		},
+	})
+	var runtimeErr *pluginruntime.Error
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.capability_violation" {
+		t.Fatalf("expected capability violation, got %#v", err)
+	}
+}
+
 type stubThirdPartyCapabilityView struct {
 	capabilities map[string]bool
 	platforms    []string
@@ -117,6 +173,23 @@ func (s stubThirdPartyCapabilityView) ListPluginSnapshots() []plugins.Snapshot {
 type stubThirdPartyAccountReader struct {
 	accounts []thirdparty.Account
 	cookies  map[string]string
+}
+
+type stubThirdPartyAccountValidationRequester struct {
+	pluginID    string
+	platform    string
+	accountID   string
+	observation string
+	httpStatus  int
+}
+
+func (s *stubThirdPartyAccountValidationRequester) RequestPluginValidation(_ context.Context, pluginID, platform, accountID, observation string, httpStatus int) (bool, string, error) {
+	s.pluginID = pluginID
+	s.platform = platform
+	s.accountID = accountID
+	s.observation = observation
+	s.httpStatus = httpStatus
+	return true, "queued", nil
 }
 
 func (s stubThirdPartyAccountReader) ListEnabled(context.Context, string) ([]thirdparty.Account, error) {

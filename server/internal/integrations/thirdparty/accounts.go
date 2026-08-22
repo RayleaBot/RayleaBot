@@ -25,7 +25,10 @@ const (
 
 var accountIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$`)
 
-var ErrInvalidAccount = errors.New("invalid third-party account")
+var (
+	ErrInvalidAccount  = errors.New("invalid third-party account")
+	ErrAccountNotFound = errors.New("third-party account not found")
+)
 
 const (
 	CredentialUnknown = "unknown"
@@ -190,12 +193,46 @@ func (v *AccountValidator) CheckCookie(ctx context.Context, platform, cookie str
 
 	profile, err := checkFn(ctx, v.Client, cookies)
 	if err != nil {
-		// Profile fetch failed but login cookies are present.
-		// Return nil error so the caller preserves the QR-login profile
-		// and marks the credential as unknown (not invalid).
-		return AccountProfile{}, v.unknownStatus(err.Error()), nil
+		if platformError := AsThirdPartyError(err); platformError != nil && (platformError.Kind == ErrorAuth || platformError.Kind == ErrorExpired) {
+			return AccountProfile{}, v.invalidStatus(credentialInvalidMessage(normalized)), err
+		}
+		return AccountProfile{}, v.unknownStatus(credentialUnknownMessage(normalized, err)), err
 	}
 	return profile, v.validStatus(), nil
+}
+
+func credentialInvalidMessage(platform string) string {
+	switch platform {
+	case PlatformWeibo:
+		return "微博账号 CK 已失效，请重新扫码"
+	case PlatformDouyin:
+		return "抖音账号 CK 已失效，请重新扫码"
+	case PlatformNeteaseMusic:
+		return "网易云音乐账号 CK 已失效，请重新扫码"
+	default:
+		return "账号 CK 已失效，请重新登录"
+	}
+}
+
+func credentialUnknownMessage(platform string, err error) string {
+	label := "三方账号"
+	switch platform {
+	case PlatformWeibo:
+		label = "微博"
+	case PlatformDouyin:
+		label = "抖音"
+	case PlatformNeteaseMusic:
+		label = "网易云音乐"
+	}
+	if platformError := AsThirdPartyError(err); platformError != nil {
+		switch platformError.Kind {
+		case ErrorRiskControl, ErrorCaptcha:
+			return label + " CK 检查受到平台风控限制，请稍后重试"
+		case ErrorRateLimit:
+			return label + " CK 检查触发频率限制，请稍后重试"
+		}
+	}
+	return label + " CK 状态暂时无法确认，请稍后重试"
 }
 
 func (v *AccountValidator) validStatus() CredentialStatus {
@@ -405,6 +442,47 @@ func (s *Service) List(ctx context.Context) ([]Account, error) {
 	return accounts, nil
 }
 
+func (s *Service) Get(ctx context.Context, platform, accountID string) (Account, error) {
+	platform, err := normalizePlatform(platform)
+	if err != nil {
+		return Account{}, err
+	}
+	accountID, err = normalizeAccountID(accountID)
+	if err != nil {
+		return Account{}, err
+	}
+	var account Account
+	var enabled int
+	var credentialCheckedAt sql.NullString
+	var updatedAt string
+	err = s.read.QueryRowContext(ctx, `SELECT platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at FROM third_party_accounts WHERE platform = ? AND account_id = ?`, platform, accountID).Scan(
+		&account.Platform,
+		&account.AccountID,
+		&account.Label,
+		&enabled,
+		&account.SecretKey,
+		&account.Profile.UID,
+		&account.Profile.Nickname,
+		&account.Profile.AvatarURL,
+		&account.Credential.State,
+		&credentialCheckedAt,
+		&account.Credential.LastError,
+		&updatedAt,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Account{}, ErrAccountNotFound
+	}
+	if err != nil {
+		return Account{}, fmt.Errorf("read third-party account: %w", err)
+	}
+	account.Enabled = enabled != 0
+	account.Configured = s.secretConfigured(ctx, account.SecretKey)
+	account.Credential.State = normalizeCredentialState(account.Credential.State)
+	account.Credential.CheckedAt = parseOptionalTime(credentialCheckedAt)
+	account.UpdatedAt = parseTime(updatedAt)
+	return account, nil
+}
+
 func (s *Service) ListEnabled(ctx context.Context, platform string) ([]Account, error) {
 	platform, err := normalizePlatform(platform)
 	if err != nil {
@@ -487,7 +565,7 @@ func (s *Service) UpdateCookie(ctx context.Context, account Account, cookie stri
 	_, err = s.write.ExecContext(ctx,
 		`UPDATE third_party_accounts SET secret_key = ?, updated_at = ? WHERE platform = ? AND account_id = ?`,
 		secretKey,
-		s.now().UTC().Format(time.RFC3339),
+		s.now().UTC().Format(time.RFC3339Nano),
 		platform,
 		accountID,
 	)
@@ -514,21 +592,13 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 
 	if strings.TrimSpace(request.Cookie) != "" {
 		if request.Validate != nil {
-			checkedProfile, checkedCredential, err := request.Validate(ctx, request.Cookie)
+			checkedProfile, checkedCredential, _ := request.Validate(ctx, request.Cookie)
 			// Only overwrite the profile if the validator returned non-empty data.
 			// This preserves the QR-login profile when the validator fails to refetch.
 			if !checkedProfile.Empty() {
 				profile = checkedProfile.normalized()
 			}
 			credential = checkedCredential.normalized()
-			if err != nil && credential.State == CredentialUnknown {
-				checkedAt := now
-				credential = CredentialStatus{
-					State:     CredentialInvalid,
-					CheckedAt: &checkedAt,
-					LastError: err.Error(),
-				}
-			}
 		} else if credential.State == "" || credential.State == CredentialUnknown {
 			checkedAt := now
 			credential = CredentialStatus{State: CredentialUnknown, CheckedAt: &checkedAt}
@@ -549,9 +619,9 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 		   label = excluded.label,
 		   enabled = excluded.enabled,
 		   secret_key = excluded.secret_key,
-		   profile_uid = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.profile_uid ELSE excluded.profile_uid END,
-		   profile_nickname = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.profile_nickname ELSE excluded.profile_nickname END,
-		   profile_avatar_url = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.profile_avatar_url ELSE excluded.profile_avatar_url END,
+		   profile_uid = CASE WHEN excluded.profile_uid = '' THEN third_party_accounts.profile_uid ELSE excluded.profile_uid END,
+		   profile_nickname = CASE WHEN excluded.profile_nickname = '' THEN third_party_accounts.profile_nickname ELSE excluded.profile_nickname END,
+		   profile_avatar_url = CASE WHEN excluded.profile_avatar_url = '' THEN third_party_accounts.profile_avatar_url ELSE excluded.profile_avatar_url END,
 		   credential_state = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.credential_state ELSE excluded.credential_state END,
 		   credential_checked_at = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.credential_checked_at ELSE excluded.credential_checked_at END,
 		   credential_last_error = CASE WHEN excluded.credential_checked_at IS NULL THEN third_party_accounts.credential_last_error ELSE excluded.credential_last_error END,
@@ -567,7 +637,7 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 		credential.State,
 		nullableTime(credential.CheckedAt),
 		credential.LastError,
-		now.Format(time.RFC3339),
+		now.Format(time.RFC3339Nano),
 	); err != nil {
 		return Account{}, fmt.Errorf("upsert third-party account: %w", err)
 	}
@@ -631,4 +701,49 @@ func (s *Service) UpdateCredentialStatus(ctx context.Context, platform, accountI
 		return fmt.Errorf("update third-party credential status: %w", err)
 	}
 	return nil
+}
+
+func (s *Service) UpdateCredentialStatusIfUnchanged(ctx context.Context, account Account, profile AccountProfile, credential CredentialStatus) (Account, bool, error) {
+	platform, err := normalizePlatform(account.Platform)
+	if err != nil {
+		return Account{}, false, err
+	}
+	accountID, err := normalizeAccountID(account.AccountID)
+	if err != nil {
+		return Account{}, false, err
+	}
+	profile = profile.normalized()
+	credential = credential.normalized()
+	result, err := s.write.ExecContext(ctx,
+		`UPDATE third_party_accounts
+		 SET profile_uid = CASE WHEN ? = '' THEN profile_uid ELSE ? END,
+		     profile_nickname = CASE WHEN ? = '' THEN profile_nickname ELSE ? END,
+		     profile_avatar_url = CASE WHEN ? = '' THEN profile_avatar_url ELSE ? END,
+		     credential_state = ?, credential_checked_at = ?, credential_last_error = ?
+		 WHERE platform = ? AND account_id = ? AND updated_at = ?`,
+		profile.UID,
+		profile.UID,
+		profile.Nickname,
+		profile.Nickname,
+		profile.AvatarURL,
+		profile.AvatarURL,
+		credential.State,
+		nullableTime(credential.CheckedAt),
+		credential.LastError,
+		platform,
+		accountID,
+		account.UpdatedAt.UTC().Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return Account{}, false, fmt.Errorf("update third-party credential status: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Account{}, false, fmt.Errorf("read third-party credential update result: %w", err)
+	}
+	current, err := s.Get(ctx, platform, accountID)
+	if err != nil {
+		return Account{}, false, err
+	}
+	return current, rowsAffected == 1, nil
 }

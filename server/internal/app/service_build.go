@@ -53,10 +53,12 @@ type Services struct {
 	PluginWebhooks    *pluginwebhook.Service
 	Governance        *governance.Service
 	GovernanceEvents  *wsevents.GovernanceService
+	ThirdPartyEvents  *wsevents.ThirdPartyAccountService
 	Logs              *logging.ManagementService
 	System            *systemsvc.Service
 	ThirdParty        *thirdparty.Service
 	ThirdPartyQRLogin *thirdparty.QRLoginService
+	AccountValidation *accountvalidation.Service
 }
 
 type serviceBuildResult struct {
@@ -83,26 +85,30 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	logService := logging.NewManagementService(platform.Logs, platform.LogRepository)
 	policyRepos := buildPolicyRepositories(platform)
 	governanceEvents := wsevents.NewGovernanceService()
+	thirdPartyEvents := wsevents.NewThirdPartyAccountService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
 	integrations, err := buildIntegrations(integrationDeps{
-		Config:        runtimeState.CurrentConfig(),
-		Platform:      platform,
-		Renderer:      renderer,
-		HTTPTransport: deps.BilibiliHTTPTransport,
-		Clock:         deps.BilibiliClock,
+		Config:               runtimeState.CurrentConfig(),
+		Platform:             platform,
+		Renderer:             renderer,
+		HTTPTransport:        deps.BilibiliHTTPTransport,
+		Clock:                deps.BilibiliClock,
+		Logger:               runtimeState.RuntimeLogger(),
+		NotifyAccountChanged: thirdPartyEvents.PublishChanged,
 	})
 	if err != nil {
 		return serviceBuildResult{}, err
 	}
 	pluginRuntime := buildPluginRuntime(pluginRuntimeDeps{
-		Runtime:          runtimeState,
-		Platform:         platform,
-		Plugins:          pluginStack,
-		Events:           eventStack,
-		Renderer:         renderer,
-		Governance:       governanceService,
-		ManagementRedact: deps.ManagementRedact,
-		ThirdParty:       integrations.ThirdParty,
+		Runtime:           runtimeState,
+		Platform:          platform,
+		Plugins:           pluginStack,
+		Events:            eventStack,
+		Renderer:          renderer,
+		Governance:        governanceService,
+		ManagementRedact:  deps.ManagementRedact,
+		ThirdParty:        integrations.ThirdParty,
+		AccountValidation: integrations.AccountValidation,
 	})
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *wsevents.ServiceStatusService
@@ -169,10 +175,12 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 			PluginWebhooks:    pluginServices.PluginWebhooks,
 			Governance:        governanceService,
 			GovernanceEvents:  governanceEvents,
+			ThirdPartyEvents:  thirdPartyEvents,
 			Logs:              logService,
 			System:            systemService,
 			ThirdParty:        integrations.ThirdParty,
 			ThirdPartyQRLogin: integrations.ThirdPartyQRLogin,
+			AccountValidation: integrations.AccountValidation,
 		},
 		Runtimes:                   runtimeRegistry,
 		Status:                     serviceStatusService,

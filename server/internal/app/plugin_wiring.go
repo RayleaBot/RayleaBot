@@ -17,14 +17,15 @@ import (
 )
 
 type pluginRuntimeDeps struct {
-	Runtime          runtimeStateView
-	Platform         PlatformState
-	Plugins          PluginStackState
-	Events           EventState
-	Renderer         *renderservice.Service
-	Governance       *governance.Service
-	ManagementRedact func(string) string
-	ThirdParty       localaction.ThirdPartyAccountReader
+	Runtime           runtimeStateView
+	Platform          PlatformState
+	Plugins           PluginStackState
+	Events            EventState
+	Renderer          *renderservice.Service
+	Governance        *governance.Service
+	ManagementRedact  func(string) string
+	ThirdParty        localaction.ThirdPartyAccountReader
+	AccountValidation localaction.ThirdPartyAccountValidationRequester
 }
 
 type pluginRuntime struct {
@@ -35,7 +36,7 @@ type pluginRuntime struct {
 
 func buildPluginRuntime(deps pluginRuntimeDeps) pluginRuntime {
 	capabilityView := buildPluginCapabilityView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty, deps.AccountValidation)
 	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
@@ -69,25 +70,27 @@ func buildLocalActionService(
 	capabilityView *plugins.CapabilityView,
 	governanceService *governance.Service,
 	thirdParty localaction.ThirdPartyAccountReader,
+	accountValidation localaction.ThirdPartyAccountValidationRequester,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
-		CurrentConfig:    runtimeState.CurrentConfig,
-		Logger:           runtimeState.RuntimeLogger(),
-		RedactText:       runtimeState.RedactString,
-		Capabilities:     capabilityView,
-		PluginConfig:     pluginStack.PluginConfig,
-		PluginFiles:      pluginStack.PluginFiles,
-		PluginKV:         pluginStack.PluginKV,
-		Secrets:          localaction.SecretReaderFromStore(platform.Secrets),
-		ThirdParty:       thirdParty,
-		Scheduler:        localaction.Scheduler(platform.Scheduler),
-		Dispatcher:       localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
-		MessageSender:    localaction.OutboundMessageSender(eventStack.Dispatcher),
-		Renderer:         localaction.RendererFromService(renderer),
-		Adapter:          eventStack.Adapter,
-		PluginLogLimiter: pluginStack.PluginLogLimiter,
-		Governance:       governanceService,
-		RefreshCommands:  localaction.RefreshCommands(pluginStack.Plugins, eventStack.Dispatcher),
+		CurrentConfig:     runtimeState.CurrentConfig,
+		Logger:            runtimeState.RuntimeLogger(),
+		RedactText:        runtimeState.RedactString,
+		Capabilities:      capabilityView,
+		PluginConfig:      pluginStack.PluginConfig,
+		PluginFiles:       pluginStack.PluginFiles,
+		PluginKV:          pluginStack.PluginKV,
+		Secrets:           localaction.SecretReaderFromStore(platform.Secrets),
+		ThirdParty:        thirdParty,
+		AccountValidation: accountValidation,
+		Scheduler:         localaction.Scheduler(platform.Scheduler),
+		Dispatcher:        localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
+		MessageSender:     localaction.OutboundMessageSender(eventStack.Dispatcher),
+		Renderer:          localaction.RendererFromService(renderer),
+		Adapter:           eventStack.Adapter,
+		PluginLogLimiter:  pluginStack.PluginLogLimiter,
+		Governance:        governanceService,
+		RefreshCommands:   localaction.RefreshCommands(pluginStack.Plugins, eventStack.Dispatcher),
 	})
 }
 

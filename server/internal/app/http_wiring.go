@@ -53,15 +53,16 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 	services := deps.ServiceBuild.Services
 
 	configService := newConfigService(configServiceDeps{
-		Runtime:          runtimeState,
-		Logs:             platformState.Logs,
-		LogRepository:    platformState.LogRepository,
-		Renderer:         renderer,
-		PluginLogLimiter: pluginState.PluginLogLimiter,
-		OutboundLimiter:  eventState.OutboundLimiter,
-		Protocol:         services.Protocol,
-		EventIngress:     services.EventIngress,
-		Secrets:          platformState.Secrets,
+		Runtime:           runtimeState,
+		Logs:              platformState.Logs,
+		LogRepository:     platformState.LogRepository,
+		Renderer:          renderer,
+		PluginLogLimiter:  pluginState.PluginLogLimiter,
+		OutboundLimiter:   eventState.OutboundLimiter,
+		AccountValidation: services.AccountValidation,
+		Protocol:          services.Protocol,
+		EventIngress:      services.EventIngress,
+		Secrets:           platformState.Secrets,
 	})
 	pluginManagementUIHandler := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{
 		Plugins:      pluginState.Plugins,

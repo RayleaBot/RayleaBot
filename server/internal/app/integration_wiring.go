@@ -32,6 +32,7 @@ type integrationState struct {
 	ThirdParty        *thirdparty.Service
 	ThirdPartyQRLogin *thirdparty.QRLoginService
 	AccountValidator  *accountvalidation.Validator
+	AccountValidation *accountvalidation.Service
 }
 
 func buildIntegrations(deps integrationDeps) (integrationState, error) {
@@ -40,10 +41,24 @@ func buildIntegrations(deps integrationDeps) (integrationState, error) {
 		return integrationState{}, err
 	}
 
+	validator := accountvalidation.NewDefault(deps.HTTPTransport, deps.Clock)
+	validationService, err := accountvalidation.NewService(
+		thirdPartyService,
+		validator,
+		deps.Config.ThirdParty.CredentialCheckIntervalMinutes,
+		deps.Logger,
+		deps.Clock,
+		deps.NotifyAccountChanged,
+	)
+	if err != nil {
+		return integrationState{}, err
+	}
+
 	return integrationState{
 		ThirdParty:        thirdPartyService,
 		ThirdPartyQRLogin: buildQRLoginService(deps, thirdPartyService),
-		AccountValidator:  accountvalidation.NewDefault(deps.HTTPTransport, deps.Clock),
+		AccountValidator:  validator,
+		AccountValidation: validationService,
 	}, nil
 }
 

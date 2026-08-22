@@ -221,6 +221,32 @@ func TestParseSecretReadAction(t *testing.T) {
 	}
 }
 
+func TestParseThirdPartyAccountValidateAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{
+		"platform":"weibo",
+		"account_id":"primary",
+		"observation":"session_blocked",
+		"http_status":432
+	}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction returned error: %v", err)
+	}
+	if action.Kind != "thirdparty.account.validate" || action.ThirdPartyAccountPlatform != "weibo" || action.ThirdPartyAccountID != "primary" || action.ThirdPartyAccountObservation != "session_blocked" || action.ThirdPartyAccountHTTPStatus != 432 {
+		t.Fatalf("unexpected action: %#v", action)
+	}
+	if _, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{"platform":"weibo","account_id":"primary","observation":"expired"}`)); err == nil {
+		t.Fatal("invalid observation was accepted")
+	}
+	if _, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{"platform":"weibo","account_id":"primary","observation":"auth_rejected","response_body":"secret"}`)); err == nil {
+		t.Fatal("free-form upstream response data was accepted")
+	}
+	if _, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{"platform":"weibo","account_id":"primary","observation":"auth_rejected","http_status":0}`)); err == nil {
+		t.Fatal("out-of-contract http_status was accepted")
+	}
+}
+
 func TestParseConfigWriteAction(t *testing.T) {
 	t.Parallel()
 

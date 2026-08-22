@@ -25,15 +25,16 @@ type configRuntimeState interface {
 }
 
 type configServiceDeps struct {
-	Runtime          configRuntimeState
-	Logs             *logging.Stream
-	LogRepository    logging.Repository
-	Renderer         *renderservice.Service
-	PluginLogLimiter *localaction.PluginLogLimiter
-	OutboundLimiter  interface{ ApplyConfig(config.Config) }
-	Protocol         *wsevents.ProtocolService
-	EventIngress     *chatpolicy.Ingress
-	Secrets          secrets.Store
+	Runtime           configRuntimeState
+	Logs              *logging.Stream
+	LogRepository     logging.Repository
+	Renderer          *renderservice.Service
+	PluginLogLimiter  *localaction.PluginLogLimiter
+	OutboundLimiter   interface{ ApplyConfig(config.Config) }
+	AccountValidation interface{ ApplyConfig(config.Config) }
+	Protocol          *wsevents.ProtocolService
+	EventIngress      *chatpolicy.Ingress
+	Secrets           secrets.Store
 }
 
 func newConfigService(deps configServiceDeps) *configruntime.Service {
@@ -69,10 +70,11 @@ func newConfigService(deps configServiceDeps) *configruntime.Service {
 				deps.Runtime.AddRedactionValues(values...)
 			}
 		},
-		Renderer:         deps.Renderer,
-		PluginLogLimiter: deps.PluginLogLimiter,
-		OutboundLimiter:  deps.OutboundLimiter,
-		Secrets:          deps.Secrets,
+		Renderer:          deps.Renderer,
+		PluginLogLimiter:  deps.PluginLogLimiter,
+		OutboundLimiter:   deps.OutboundLimiter,
+		AccountValidation: deps.AccountValidation,
+		Secrets:           deps.Secrets,
 	}
 	// Assign concrete pointers only when non-nil so interface deps stay nil
 	// instead of holding typed nils.

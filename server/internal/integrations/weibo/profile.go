@@ -2,14 +2,11 @@ package weibo
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 const (
@@ -19,21 +16,32 @@ const (
 
 func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
 	if !weiboHasLoginCookie(cookies) {
-		return thirdparty.AccountProfile{}, fmt.Errorf("weibo cookie missing login state")
+		return thirdparty.AccountProfile{}, weiboCredentialExpiredError(0, 0)
 	}
 	var profile thirdparty.AccountProfile
+	probeErrors := make([]error, 0, 2)
 	if configProfile, err := fetchWeiboMobileConfigProfile(ctx, client, cookies); err == nil {
 		profile = thirdparty.MergeAccountProfiles(profile, configProfile)
+	} else {
+		probeErrors = append(probeErrors, err)
 	}
-	// Always fetch side config too — it may contain the avatar URL even when
-	// the mobile config already provided UID and nickname.
 	if configProfile, err := fetchWeiboSideConfigProfile(ctx, client, cookies); err == nil {
 		profile = thirdparty.MergeAccountProfiles(profile, configProfile)
+	} else {
+		probeErrors = append(probeErrors, err)
+	}
+	for _, probeErr := range probeErrors {
+		if typed := thirdparty.AsThirdPartyError(probeErr); typed != nil && (typed.Kind == thirdparty.ErrorAuth || typed.Kind == thirdparty.ErrorExpired) {
+			return thirdparty.AccountProfile{}, probeErr
+		}
+	}
+	if thirdparty.AccountProfileEmpty(profile) {
+		if len(probeErrors) > 0 {
+			return thirdparty.AccountProfile{}, probeErrors[0]
+		}
+		return thirdparty.AccountProfile{}, thirdparty.NewPlatformError("weibo", thirdparty.ErrorInvalidResponse, 0, 0, "微博账号资料不可用", nil)
 	}
 	if strings.TrimSpace(profile.UID) != "" {
-		// Visit m.weibo.cn first to obtain its domain-specific X-CSRF-TOKEN.
-		// Use FollowGet to manually track every redirect hop and preserve
-		// cookies set at intermediate redirects (e.g., passport.weibo.cn).
 		_ = thirdparty.FollowGet(ctx, client, "https://m.weibo.cn/", weiboProfileHeaders("https://m.weibo.cn/"), cookies)
 		if detailProfile, err := fetchWeiboMobileDetailProfile(ctx, client, cookies, profile.UID); err == nil {
 			profile = thirdparty.MergeAccountProfiles(profile, detailProfile)
@@ -42,15 +50,10 @@ func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[s
 			profile = thirdparty.MergeAccountProfiles(profile, detailProfile)
 		}
 	}
-	// If avatar is still empty, try fetching the mobile user page to extract
-	// the avatar from Open Graph meta tags.
 	if strings.TrimSpace(profile.AvatarURL) == "" && strings.TrimSpace(profile.UID) != "" {
 		if avatar := fetchWeiboAvatarFromMobilePage(ctx, client, profile.UID, cookies); avatar != "" {
 			profile.AvatarURL = avatar
 		}
-	}
-	if thirdparty.AccountProfileEmpty(profile) {
-		return thirdparty.AccountProfile{}, fmt.Errorf("weibo profile unavailable")
 	}
 	return profile, nil
 }
@@ -58,7 +61,7 @@ func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[s
 // fetchWeiboAvatarFromMobilePage fetches the user's mobile page and extracts
 // the avatar URL from Open Graph meta tags.
 func fetchWeiboAvatarFromMobilePage(ctx context.Context, client *http.Client, uid string, cookies map[string]string) string {
-	body, err := thirdparty.FetchPageBody(ctx, thirdparty.NewHTTPClientFollow(nil),
+	body, err := thirdparty.FetchPageBody(ctx, weiboFollowClient(client),
 		"https://m.weibo.cn/u/"+uid, weiboProfileHeaders("https://m.weibo.cn/"), cookies)
 	if err != nil {
 		return ""
@@ -93,15 +96,25 @@ func fetchWeiboMobileConfigProfile(ctx context.Context, client *http.Client, coo
 	if err := getWeiboJSON(ctx, client, weiboMobileConfigURL, weiboProfileHeaders("https://m.weibo.cn/"), cookies, &response); err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
+	if login, exists := response.Data["login"].(bool); exists && !login {
+		return thirdparty.AccountProfile{}, weiboCredentialExpiredError(0, http.StatusOK)
+	}
 	return weiboProfileFromObject(response.Data), nil
 }
 
 func fetchWeiboSideConfigProfile(ctx context.Context, client *http.Client, cookies map[string]string) (thirdparty.AccountProfile, error) {
 	var response struct {
+		OK   int            `json:"ok"`
 		Data map[string]any `json:"data"`
 	}
 	if err := getWeiboJSON(ctx, client, weiboSideConfigURL, weiboProfileHeaders("https://weibo.com/"), cookies, &response); err != nil {
 		return thirdparty.AccountProfile{}, err
+	}
+	if response.OK == -100 {
+		return thirdparty.AccountProfile{}, weiboCredentialExpiredError(response.OK, http.StatusOK)
+	}
+	if response.OK != 0 && response.OK != 1 {
+		return thirdparty.AccountProfile{}, thirdparty.NewPlatformError("weibo", thirdparty.ErrorUpstream, response.OK, http.StatusOK, "微博账号检查被上游拒绝", nil)
 	}
 	return weiboProfileFromObject(response.Data), nil
 }
@@ -133,39 +146,31 @@ func fetchWeiboAjaxProfile(ctx context.Context, client *http.Client, cookies map
 }
 
 func getWeiboJSON(ctx context.Context, client *http.Client, rawURL string, headers map[string]string, cookies map[string]string, target any) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
-	if err != nil {
-		return err
-	}
 	if csrf := strings.TrimSpace(cookies["X-CSRF-TOKEN"]); csrf != "" {
 		headers["x-csrf-token"] = csrf
 	}
-	thirdparty.ApplyHeaders(request, headers, cookies)
-	// Use a redirect-following client so 302 responses from Weibo APIs are
-	// handled transparently rather than treated as errors.
-	followClient := &http.Client{Transport: client.Transport, Timeout: 20 * time.Second}
-	response, err := followClient.Do(request)
+	response, err := thirdparty.GetJSON(ctx, weiboFollowClient(client), rawURL, headers, cookies, target)
 	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	thirdparty.MergeResponseCookies(cookies, response)
-	body, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
-	if err != nil {
-		return err
-	}
-	if target != nil && len(body) > 0 {
-		if err := json.Unmarshal(body, target); err == nil {
-			return nil
+		if response != nil && (response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices) {
+			return thirdparty.NewPlatformError("weibo", thirdparty.ClassifyHTTPStatus(response.StatusCode), 0, response.StatusCode, "微博账号检查被上游拒绝", nil)
 		}
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("weibo profile http %d", response.StatusCode)
-	}
-	if target != nil {
-		return fmt.Errorf("decode weibo profile response")
+		if response != nil {
+			return thirdparty.NewPlatformError("weibo", thirdparty.ErrorInvalidResponse, 0, response.StatusCode, "微博账号检查响应格式不正确", err)
+		}
+		return thirdparty.NewPlatformError("weibo", thirdparty.ErrorNetwork, 0, 0, "微博账号检查请求失败", err)
 	}
 	return nil
+}
+
+func weiboFollowClient(client *http.Client) *http.Client {
+	if client == nil {
+		return thirdparty.NewHTTPClientFollow(nil)
+	}
+	return thirdparty.NewHTTPClientFollow(client.Transport)
+}
+
+func weiboCredentialExpiredError(code, httpStatus int) error {
+	return thirdparty.NewPlatformError("weibo", thirdparty.ErrorAuth, code, httpStatus, "微博账号 CK 已失效", nil)
 }
 
 func weiboProfileHeaders(referer string) map[string]string {

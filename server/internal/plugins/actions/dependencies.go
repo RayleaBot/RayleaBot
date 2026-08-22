@@ -60,6 +60,10 @@ type ThirdPartyAccountReader interface {
 	ReadCookie(context.Context, thirdparty.Account) (string, error)
 }
 
+type ThirdPartyAccountValidationRequester interface {
+	RequestPluginValidation(context.Context, string, string, string, string, int) (bool, string, error)
+}
+
 type Renderer interface {
 	ResolvePluginTemplate(context.Context, string, string) (string, error)
 	RenderImage(context.Context, RenderImageRequest) (RenderImageResult, error)

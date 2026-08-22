@@ -12,57 +12,59 @@ type ActionSegment struct {
 }
 
 type Action struct {
-	Kind                      string
-	RawData                   map[string]any
-	TargetType                string
-	TargetID                  string
-	ReplyToEventID            string
-	FallbackToSendIfMissing   bool
-	MessageSegments           []ActionSegment
-	LogLevel                  string
-	LogMessage                string
-	LogFields                 map[string]any
-	ConfigKeys                []string
-	PluginListVisibility      string
-	SecretKey                 string
-	ThirdPartyAccountPlatform string
-	ThirdPartyAccountID       string
-	ConfigValues              map[string]any
-	GovernanceOperation       string
-	GovernanceEntryType       string
-	GovernanceTargetID        string
-	GovernanceReason          string
-	GovernanceEnabled         *bool
-	StorageOperation          string
-	StorageRoot               string
-	StoragePath               string
-	StorageKey                string
-	StoragePrefix             string
-	StorageValue              any
-	StorageContent            []byte
-	HTTPMethod                string
-	HTTPURL                   string
-	HTTPHeaders               map[string]string
-	HTTPTimeoutSeconds        int
-	HTTPBody                  []byte
-	SchedulerTaskID           string
-	SchedulerLogLabel         string
-	SchedulerCron             string
-	SchedulerEventType        string
-	SchedulerPayload          map[string]any
-	WebhookRoute              string
-	WebhookMethods            []string
-	WebhookAuthStrategy       string
-	WebhookHeader             string
-	WebhookSecretRef          string
-	WebhookSignaturePrefix    string
-	WebhookSourceIPs          []string
-	WebhookReplayProtection   *WebhookReplayProtection
-	RenderTemplate            string
-	RenderTheme               string
-	RenderOutput              string
-	RenderFallbackText        string
-	RenderData                map[string]any
+	Kind                         string
+	RawData                      map[string]any
+	TargetType                   string
+	TargetID                     string
+	ReplyToEventID               string
+	FallbackToSendIfMissing      bool
+	MessageSegments              []ActionSegment
+	LogLevel                     string
+	LogMessage                   string
+	LogFields                    map[string]any
+	ConfigKeys                   []string
+	PluginListVisibility         string
+	SecretKey                    string
+	ThirdPartyAccountPlatform    string
+	ThirdPartyAccountID          string
+	ThirdPartyAccountObservation string
+	ThirdPartyAccountHTTPStatus  int
+	ConfigValues                 map[string]any
+	GovernanceOperation          string
+	GovernanceEntryType          string
+	GovernanceTargetID           string
+	GovernanceReason             string
+	GovernanceEnabled            *bool
+	StorageOperation             string
+	StorageRoot                  string
+	StoragePath                  string
+	StorageKey                   string
+	StoragePrefix                string
+	StorageValue                 any
+	StorageContent               []byte
+	HTTPMethod                   string
+	HTTPURL                      string
+	HTTPHeaders                  map[string]string
+	HTTPTimeoutSeconds           int
+	HTTPBody                     []byte
+	SchedulerTaskID              string
+	SchedulerLogLabel            string
+	SchedulerCron                string
+	SchedulerEventType           string
+	SchedulerPayload             map[string]any
+	WebhookRoute                 string
+	WebhookMethods               []string
+	WebhookAuthStrategy          string
+	WebhookHeader                string
+	WebhookSecretRef             string
+	WebhookSignaturePrefix       string
+	WebhookSourceIPs             []string
+	WebhookReplayProtection      *WebhookReplayProtection
+	RenderTemplate               string
+	RenderTheme                  string
+	RenderOutput                 string
+	RenderFallbackText           string
+	RenderData                   map[string]any
 }
 
 // WebhookReplayProtection mirrors the formal replay_protection contract on
@@ -187,6 +189,44 @@ func parseThirdPartyAccountReadAction(raw json.RawMessage) (*Action, error) {
 		Kind:                      "thirdparty.account.read",
 		ThirdPartyAccountPlatform: platform,
 		ThirdPartyAccountID:       strings.TrimSpace(frame.AccountID),
+	}, nil
+}
+
+func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*Action, error) {
+	var frame ProtocolActionThirdPartyAccountValidateFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.validate data", err)
+	}
+	payload := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.validate data", err)
+	}
+	for key := range payload {
+		switch key {
+		case "platform", "account_id", "observation", "http_status":
+		default:
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate data", nil)
+		}
+	}
+
+	platform := strings.TrimSpace(frame.Platform)
+	accountID := strings.TrimSpace(frame.AccountID)
+	observation := strings.TrimSpace(frame.Observation)
+	if platform == "" || accountID == "" || observation == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.account.validate fields", nil)
+	}
+	if observation != "auth_rejected" && observation != "session_blocked" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate observation", nil)
+	}
+	if _, provided := payload["http_status"]; provided && (frame.HTTPStatus < 100 || frame.HTTPStatus > 599) {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate http_status", nil)
+	}
+	return &Action{
+		Kind:                         "thirdparty.account.validate",
+		ThirdPartyAccountPlatform:    platform,
+		ThirdPartyAccountID:          accountID,
+		ThirdPartyAccountObservation: observation,
+		ThirdPartyAccountHTTPStatus:  frame.HTTPStatus,
 	}, nil
 }
 

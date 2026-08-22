@@ -478,6 +478,13 @@ type ProtocolActionThirdPartyAccountReadFrame struct {
 	AccountID string `json:"account_id,omitempty"`
 }
 
+type ProtocolActionThirdPartyAccountValidateFrame struct {
+	Platform    string `json:"platform"`
+	AccountID   string `json:"account_id"`
+	Observation string `json:"observation"`
+	HTTPStatus  int    `json:"http_status,omitempty"`
+}
+
 type ProtocolActionConfigWriteFrame struct {
 	Values map[string]json.RawMessage `json:"values"`
 }

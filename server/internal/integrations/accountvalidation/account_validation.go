@@ -47,7 +47,21 @@ func (v *Validator) CheckCookie(ctx context.Context, platform string, cookie str
 		if v.bilibili == nil {
 			return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount
 		}
-		return v.bilibili.CheckCookie(ctx, cookie)
+		profile, status, checkErr := v.bilibili.CheckCookie(ctx, cookie)
+		if checkErr == nil {
+			return profile, status, nil
+		}
+		bilibiliErr := bilibilisession.AsError(checkErr)
+		explicitAuth := bilibiliErr != nil && bilibiliErr.Kind == bilibilisession.ErrorAuth &&
+			(bilibiliErr.HTTPStatus == 0 || bilibiliErr.HTTPStatus == http.StatusUnauthorized || bilibiliErr.Code == -101 || bilibiliErr.Code == -102 || bilibiliErr.Code == -658)
+		if explicitAuth {
+			status.State = thirdparty.CredentialInvalid
+			status.LastError = "Bilibili 账号 CK 已失效，请重新扫码"
+		} else {
+			status.State = thirdparty.CredentialUnknown
+			status.LastError = "Bilibili CK 状态暂时无法确认，请稍后重试"
+		}
+		return profile, status, checkErr
 	}
 	if v.thirdParty == nil {
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{}, thirdparty.ErrInvalidAccount

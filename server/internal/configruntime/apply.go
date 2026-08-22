@@ -237,6 +237,9 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 		newCfg.Message.CircuitBreakerSeconds != oldCfg.Message.CircuitBreakerSeconds) {
 		s.outboundLimiter.ApplyConfig(newCfg)
 	}
+	if s.accountValidation != nil && newCfg.ThirdParty.CredentialCheckIntervalMinutes != oldCfg.ThirdParty.CredentialCheckIntervalMinutes {
+		s.accountValidation.ApplyConfig(newCfg)
+	}
 	if s.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
 		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
 		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength ||
