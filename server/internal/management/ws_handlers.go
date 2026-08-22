@@ -59,6 +59,7 @@ type EventsHandler struct {
 	protocol      protocolEventSource
 	serviceStatus serviceStatusEventSource
 	governance    governanceEventSource
+	thirdParty    thirdPartyAccountEventSource
 }
 
 type eventBridgeSource interface {
@@ -84,8 +85,12 @@ type governanceEventSource interface {
 	Subscribe(int) (<-chan wsevents.Frame, func())
 }
 
-func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, protocol protocolEventSource, serviceStatus serviceStatusEventSource, governance governanceEventSource) *EventsHandler {
-	return &EventsHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance}
+type thirdPartyAccountEventSource interface {
+	Subscribe(int) (<-chan wsevents.Frame, func())
+}
+
+func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, protocol protocolEventSource, serviceStatus serviceStatusEventSource, governance governanceEventSource, thirdParty thirdPartyAccountEventSource) *EventsHandler {
+	return &EventsHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance, thirdParty: thirdParty}
 }
 
 type LogsHandler struct {
@@ -159,6 +164,12 @@ func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 		governanceFrames, unsubscribeGovernance = h.governance.Subscribe(4)
 	}
 	defer unsubscribeGovernance()
+	var thirdPartyFrames <-chan wsevents.Frame
+	unsubscribeThirdParty := func() {}
+	if h.thirdParty != nil {
+		thirdPartyFrames, unsubscribeThirdParty = h.thirdParty.Subscribe(4)
+	}
+	defer unsubscribeThirdParty()
 
 	for _, frame := range []wsevents.Frame{
 		h.serviceStatus.CurrentEvent(),
@@ -202,6 +213,13 @@ func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 				return
 			}
 		case frame, ok := <-governanceFrames:
+			if !ok {
+				return
+			}
+			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
+				return
+			}
+		case frame, ok := <-thirdPartyFrames:
 			if !ok {
 				return
 			}

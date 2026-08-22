@@ -218,6 +218,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Renderer:             renderState.Renderer,
 		ServiceBuild:         serviceBuild,
 		Metrics:              metricRegistry,
+		HTTPTransport:        options.BilibiliHTTPTransport,
 		RequestShutdown:      application.requestShutdown,
 		SetupToken:           options.SetupToken,
 		LauncherControlToken: options.LauncherControlToken,

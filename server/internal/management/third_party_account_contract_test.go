@@ -15,6 +15,7 @@ func TestThirdPartyAccountDTOFieldsMatchOpenAPI(t *testing.T) {
 	schemas := loadOpenAPIComponentSchemas(t)
 	assertDTOFieldsMatchOpenAPI(t, reflect.TypeOf(thirdPartyAccountUpsertRequest{}), schemas, "ThirdPartyAccountUpsertRequest")
 	assertDTOFieldsMatchOpenAPI(t, reflect.TypeOf(thirdPartyAccountSummary{}), schemas, "ThirdPartyAccountSummary")
+	assertDTOFieldsMatchOpenAPI(t, reflect.TypeOf(thirdPartyAccountValidationResponse{}), schemas, "ThirdPartyAccountValidationResponse")
 }
 
 func loadOpenAPIComponentSchemas(t *testing.T) map[string]any {

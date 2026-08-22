@@ -19,6 +19,8 @@ type stubThirdPartyQRCodeLogin struct {
 	createErr    error
 	pollResult   thirdparty.QRLoginPollResult
 	pollErr      error
+	cancelErr    error
+	cancelled    []string
 }
 
 func (s *stubThirdPartyQRCodeLogin) Create(context.Context, string) (thirdparty.QRLoginCreateResult, error) {
@@ -27,6 +29,11 @@ func (s *stubThirdPartyQRCodeLogin) Create(context.Context, string) (thirdparty.
 
 func (s *stubThirdPartyQRCodeLogin) Poll(context.Context, string, string) (thirdparty.QRLoginPollResult, error) {
 	return s.pollResult, s.pollErr
+}
+
+func (s *stubThirdPartyQRCodeLogin) Cancel(_ context.Context, platform, loginID string) error {
+	s.cancelled = append(s.cancelled, platform+":"+loginID)
+	return s.cancelErr
 }
 
 func TestThirdPartyQRCodeLoginHandlersCreateAndPoll(t *testing.T) {
@@ -155,9 +162,83 @@ func TestThirdPartyQRCodeLoginHandlerDoesNotExposeRawError(t *testing.T) {
 	}
 }
 
+func TestThirdPartyQRCodeLoginHandlerCancelsSession(t *testing.T) {
+	t.Parallel()
+
+	qrLogin := &stubThirdPartyQRCodeLogin{}
+	handler := NewThirdPartyHandlers(nil, nil, qrLogin)
+	router := thirdPartyQRCodeLoginRouter(handler)
+	request := httptest.NewRequest(http.MethodDelete, "/api/third-party/accounts/douyin/login/qrcode/douyin_qr_fixture", nil)
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204 body=%s", recorder.Code, recorder.Body.String())
+	}
+	if len(qrLogin.cancelled) != 1 || qrLogin.cancelled[0] != "douyin:douyin_qr_fixture" {
+		t.Fatalf("cancelled = %#v", qrLogin.cancelled)
+	}
+}
+
+func TestThirdPartyQRCodeLoginHandlerProjectsNewStatesWithoutCredentials(t *testing.T) {
+	t.Parallel()
+
+	for _, state := range []string{thirdparty.QRLoginStateVerificationRequired, thirdparty.QRLoginStateFailed} {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			qrLogin := &stubThirdPartyQRCodeLogin{pollResult: thirdparty.QRLoginPollResult{
+				Platform:  thirdparty.PlatformDouyin,
+				LoginID:   "douyin_qr_fixture",
+				State:     state,
+				ExpiresAt: time.Date(2026, 8, 21, 8, 3, 0, 0, time.UTC),
+				Cookie:    "sessionid=must-not-leak;",
+			}}
+			handler := NewThirdPartyHandlers(nil, nil, qrLogin)
+			router := thirdPartyQRCodeLoginRouter(handler)
+			request := httptest.NewRequest(http.MethodGet, "/api/third-party/accounts/douyin/login/qrcode/douyin_qr_fixture", nil)
+			recorder := httptest.NewRecorder()
+
+			router.ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200 body=%s", recorder.Code, recorder.Body.String())
+			}
+			if !strings.Contains(recorder.Body.String(), `"state":"`+state+`"`) {
+				t.Fatalf("response did not include state %q: %s", state, recorder.Body.String())
+			}
+			for _, leaked := range []string{"sessionid", "must-not-leak", "cookie"} {
+				if strings.Contains(strings.ToLower(recorder.Body.String()), strings.ToLower(leaked)) {
+					t.Fatalf("response leaked %q: %s", leaked, recorder.Body.String())
+				}
+			}
+		})
+	}
+}
+
+func TestThirdPartyQRCodeLoginHandlerMapsMissingBrowser(t *testing.T) {
+	t.Parallel()
+
+	qrLogin := &stubThirdPartyQRCodeLogin{createErr: thirdparty.ErrQRLoginBrowserUnavailable}
+	handler := NewThirdPartyHandlers(nil, nil, qrLogin)
+	router := thirdPartyQRCodeLoginRouter(handler)
+	request := httptest.NewRequest(http.MethodPost, "/api/third-party/accounts/douyin/login/qrcode", nil)
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503 body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "platform.resource_missing") {
+		t.Fatalf("response missing resource error code: %s", recorder.Body.String())
+	}
+}
+
 func thirdPartyQRCodeLoginRouter(handler *ThirdPartyHandlers) chi.Router {
 	router := chi.NewRouter()
 	router.Post("/api/third-party/accounts/{platform}/login/qrcode", handler.HandleThirdPartyQRCodeLoginCreate())
 	router.Get("/api/third-party/accounts/{platform}/login/qrcode/{login_id}", handler.HandleThirdPartyQRCodeLoginPoll())
+	router.Delete("/api/third-party/accounts/{platform}/login/qrcode/{login_id}", handler.HandleThirdPartyQRCodeLoginCancel())
 	return router
 }

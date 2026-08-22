@@ -66,9 +66,11 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		services.ThirdParty,
 		deps.ServiceBuild.ThirdPartyAccountValidator,
 		services.ThirdPartyQRLogin,
+		managementapi.WithThirdPartyAccountValidation(services.AccountValidation),
+		managementapi.WithThirdPartyAvatarTransport(deps.HTTPTransport),
 	)
 	updateHandler := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
-	eventsWS := managementapi.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents)
+	eventsWS := managementapi.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents, services.ThirdPartyEvents)
 	logsWS := managementapi.NewLogsHandler(services.Logs)
 	consoleWS := managementapi.NewConsoleHandler(platformState.Console, pluginState.Plugins)
 	configHandler := managementapi.NewConfigHandlers(configService)

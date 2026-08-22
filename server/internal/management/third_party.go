@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/go-chi/chi/v5"
 )
@@ -18,9 +19,12 @@ const (
 )
 
 type ThirdPartyHandlers struct {
-	accounts         thirdPartyAccountService
-	accountValidator thirdPartyCredentialValidator
-	qrLogin          thirdPartyQRCodeLoginService
+	accounts          thirdPartyAccountService
+	avatarAccounts    thirdPartyAccountAvatarService
+	avatarClient      *http.Client
+	accountValidator  thirdPartyCredentialValidator
+	accountValidation thirdPartyAccountValidationService
+	qrLogin           thirdPartyQRCodeLoginService
 }
 
 type thirdPartyAccountService interface {
@@ -29,13 +33,22 @@ type thirdPartyAccountService interface {
 	Delete(context.Context, string, string) error
 }
 
+type thirdPartyAccountAvatarService interface {
+	Get(context.Context, string, string) (thirdparty.Account, error)
+}
+
 type thirdPartyCredentialValidator interface {
 	CheckCookie(context.Context, string, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error)
+}
+
+type thirdPartyAccountValidationService interface {
+	ValidateAccount(context.Context, string, string, accountvalidation.Trigger) (thirdparty.Account, error)
 }
 
 type thirdPartyQRCodeLoginService interface {
 	Create(context.Context, string) (thirdparty.QRLoginCreateResult, error)
 	Poll(context.Context, string, string) (thirdparty.QRLoginPollResult, error)
+	Cancel(context.Context, string, string) error
 }
 
 type thirdPartyAccountsResponse struct {
@@ -49,6 +62,10 @@ type thirdPartyAccountUpsertRequest struct {
 }
 
 type thirdPartyAccountUpsertResponse struct {
+	Account thirdPartyAccountSummary `json:"account"`
+}
+
+type thirdPartyAccountValidationResponse struct {
 	Account thirdPartyAccountSummary `json:"account"`
 }
 
@@ -91,20 +108,70 @@ type thirdPartyQRCodeLoginPollResponse struct {
 	Account   *thirdPartyAccountSummary `json:"account"`
 }
 
-func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator thirdPartyCredentialValidator, qrLogin thirdPartyQRCodeLoginService) *ThirdPartyHandlers {
-	return &ThirdPartyHandlers{
+// ThirdPartyHandlersOption configures optional third-party management services.
+type ThirdPartyHandlersOption func(*ThirdPartyHandlers)
+
+// WithThirdPartyAccountValidation configures the authoritative account validation service.
+func WithThirdPartyAccountValidation(validation thirdPartyAccountValidationService) ThirdPartyHandlersOption {
+	return func(handlers *ThirdPartyHandlers) {
+		handlers.accountValidation = validation
+	}
+}
+
+// WithThirdPartyAvatarTransport configures the transport used for controlled account avatar requests.
+func WithThirdPartyAvatarTransport(transport http.RoundTripper) ThirdPartyHandlersOption {
+	return func(handlers *ThirdPartyHandlers) {
+		handlers.avatarClient = thirdparty.NewHTTPClient(transport)
+	}
+}
+
+// NewThirdPartyHandlers creates the protected third-party account management handlers.
+func NewThirdPartyHandlers(accounts thirdPartyAccountService, accountValidator thirdPartyCredentialValidator, qrLogin thirdPartyQRCodeLoginService, options ...ThirdPartyHandlersOption) *ThirdPartyHandlers {
+	avatarAccounts, _ := accounts.(thirdPartyAccountAvatarService)
+	handlers := &ThirdPartyHandlers{
 		accounts:         accounts,
+		avatarAccounts:   avatarAccounts,
+		avatarClient:     thirdparty.NewHTTPClient(nil),
 		accountValidator: accountValidator,
 		qrLogin:          qrLogin,
 	}
+	for _, option := range options {
+		if option != nil {
+			option(handlers)
+		}
+	}
+	return handlers
 }
 
 func (h *ThirdPartyHandlers) RegisterProtectedRoutes(router chi.Router) {
 	router.Get("/api/third-party/accounts", h.HandleThirdPartyAccountList())
 	router.Post("/api/third-party/accounts/{platform}/login/qrcode", h.HandleThirdPartyQRCodeLoginCreate())
 	router.Get("/api/third-party/accounts/{platform}/login/qrcode/{login_id}", h.HandleThirdPartyQRCodeLoginPoll())
+	router.Delete("/api/third-party/accounts/{platform}/login/qrcode/{login_id}", h.HandleThirdPartyQRCodeLoginCancel())
 	router.Put("/api/third-party/accounts/{platform}/{account_id}", h.HandleThirdPartyAccountUpsert())
 	router.Delete("/api/third-party/accounts/{platform}/{account_id}", h.HandleThirdPartyAccountDelete())
+	router.Post("/api/third-party/accounts/{platform}/{account_id}/validate", h.HandleThirdPartyAccountValidate())
+	router.Get("/api/third-party/accounts/{platform}/{account_id}/avatar", h.HandleThirdPartyAccountAvatar())
+}
+
+func (h *ThirdPartyHandlers) HandleThirdPartyAccountValidate() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h.accountValidation == nil {
+			httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方账号检查不可用", "errors.platform.internal_error", nil)
+			return
+		}
+		account, err := h.accountValidation.ValidateAccount(
+			r.Context(),
+			chi.URLParam(r, "platform"),
+			chi.URLParam(r, "account_id"),
+			accountvalidation.TriggerManual,
+		)
+		if err != nil {
+			writeThirdPartyAccountValidationError(w, r, err)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, thirdPartyAccountValidationResponse{Account: accountSummary(account)})
+	}
 }
 
 func (h *ThirdPartyHandlers) HandleThirdPartyAccountList() http.HandlerFunc {
@@ -179,6 +246,18 @@ func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err err
 	})
 }
 
+func writeThirdPartyAccountValidationError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, thirdparty.ErrInvalidAccount) {
+		httpapi.WriteError(w, r, http.StatusBadRequest, thirdPartyCodeInvalidRequest, "三方账号参数不正确", "errors.platform.invalid_request", nil)
+		return
+	}
+	if errors.Is(err, thirdparty.ErrAccountNotFound) {
+		httpapi.WriteError(w, r, http.StatusNotFound, "platform.third_party_account_not_found", "三方账号不存在或尚未配置凭据", "errors.platform.third_party_account_not_found", nil)
+		return
+	}
+	httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方账号检查失败", "errors.platform.internal_error", nil)
+}
+
 func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginCreate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.qrLogin == nil {
@@ -206,6 +285,20 @@ func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginPoll() http.HandlerFunc 
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, thirdPartyQRCodeLoginPollResponseFrom(result))
+	}
+}
+
+func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginCancel() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h.qrLogin == nil {
+			httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方扫码登录不可用", "errors.platform.internal_error", nil)
+			return
+		}
+		if err := h.qrLogin.Cancel(r.Context(), chi.URLParam(r, "platform"), chi.URLParam(r, "login_id")); err != nil {
+			writeThirdPartyQRCodeLoginError(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
@@ -237,6 +330,10 @@ func thirdPartyQRCodeLoginPollResponseFrom(result thirdparty.QRLoginPollResult) 
 func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, thirdparty.ErrInvalidAccount) || errors.Is(err, thirdparty.ErrQRLoginUnsupportedPlatform) || errors.Is(err, thirdparty.ErrQRLoginSessionNotFound) {
 		httpapi.WriteError(w, r, http.StatusBadRequest, thirdPartyCodeInvalidRequest, "三方扫码登录参数不正确", "errors.platform.invalid_request", nil)
+		return
+	}
+	if errors.Is(err, thirdparty.ErrQRLoginBrowserUnavailable) {
+		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "platform.resource_missing", "缺少扫码登录浏览器", "errors.platform.resource_missing", nil)
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{

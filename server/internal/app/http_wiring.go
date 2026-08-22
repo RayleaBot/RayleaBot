@@ -25,6 +25,7 @@ type httpBuildDeps struct {
 	Renderer             *renderservice.Service
 	ServiceBuild         serviceBuildResult
 	Metrics              *MetricsRegistry
+	HTTPTransport        http.RoundTripper
 	RequestShutdown      func()
 	SetupToken           string
 	LauncherControlToken string
