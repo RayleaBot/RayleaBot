@@ -187,6 +187,43 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
+      key: 'third-party-accounts',
+      title: t('config.sections.thirdPartyAccounts'),
+      fields: [
+        {
+          path: 'third_party_accounts.credential_check_interval_minutes',
+          label: t('config.fields.credentialCheckIntervalMinutes'),
+          type: 'number',
+          unit: t('config.units.minute'),
+          description: t('config.descriptions.credentialCheckIntervalMinutes'),
+          min: 0,
+          max: 10080,
+          step: 15,
+        },
+        {
+          path: 'third_party_accounts.douyin_login.browser_mode',
+          label: t('config.fields.douyinLoginBrowserMode'),
+          type: 'select',
+          description: t('config.descriptions.douyinLoginBrowserMode'),
+          restartRequired: true,
+          options: [
+            { label: t('config.options.douyinBrowserAuto'), value: 'auto' },
+            { label: t('config.options.douyinBrowserVisible'), value: 'visible' },
+            { label: t('config.options.douyinBrowserHeadless'), value: 'headless' },
+            { label: t('config.options.douyinBrowserRemoteCdp'), value: 'remote_cdp' },
+          ],
+        },
+        {
+          path: 'third_party_accounts.douyin_login.remote_debugging_url',
+          label: t('config.fields.douyinLoginRemoteDebuggingUrl'),
+          type: 'text',
+          description: t('config.descriptions.douyinLoginRemoteDebuggingUrl'),
+          placeholder: 'http://127.0.0.1:9222',
+          restartRequired: true,
+        },
+      ],
+    },
+    {
       key: 'scheduler',
       title: t('config.sections.scheduler'),
       fields: [

@@ -11,6 +11,7 @@ export const errors = {
   platform: {
     invalidRequest: '请求参数不正确，请检查后重试。',
     notFound: '请求的资源不存在或已被移除。',
+    thirdPartyAccountNotFound: '三方账号不存在或尚未配置凭据。',
     resourceMissing: '缺少必要资源，请检查当前环境。',
     templateNotFound: '模板不存在。',
     templateSourceInvalid: '模板源码不合法，请检查 JSON、HTML 和输入结构。',

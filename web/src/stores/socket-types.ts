@@ -52,6 +52,9 @@ export interface SocketFrameRouterDependencies {
   governance: {
     refresh: () => Promise<unknown>
   }
+  thirdPartyAccounts: {
+    refresh: () => Promise<unknown>
+  }
   protocols: {
     applySnapshot: (snapshot: OneBot11ProtocolSnapshotResponse) => void
   }

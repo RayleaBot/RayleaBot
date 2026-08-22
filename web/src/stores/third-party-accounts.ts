@@ -5,6 +5,7 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type {
   ThirdPartyAccountSummary,
+  ThirdPartyAccountValidationResponse,
   ThirdPartyAccountUpsertRequest,
   ThirdPartyAccountUpsertResponse,
   ThirdPartyAccountsResponse,
@@ -28,6 +29,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   const loading = ref(false)
   const savingAccountId = ref<string | null>(null)
   const deletingAccountId = ref<string | null>(null)
+  const validatingAccountIds = ref<string[]>([])
   const qrcodeCreating = ref(false)
   const qrcodePollingLoginId = ref<string | null>(null)
   const error = ref<string | null>(null)
@@ -74,6 +76,23 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     return saveAccount('bilibili', accountId, payload)
   }
 
+  async function validateAccount(platform: ThirdPartyPlatform, accountId: string) {
+    const key = accountOperationKey(platform, accountId)
+    if (!validatingAccountIds.value.includes(key)) {
+      validatingAccountIds.value = [...validatingAccountIds.value, key]
+    }
+    try {
+      const response = await apiRequest<ThirdPartyAccountValidationResponse>(
+        `/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}/validate`,
+        { method: 'POST' },
+      )
+      upsertAccount(response.account)
+      return response.account
+    } finally {
+      validatingAccountIds.value = validatingAccountIds.value.filter((item) => item !== key)
+    }
+  }
+
   async function deleteAccount(platform: ThirdPartyPlatform, accountId: string) {
     deletingAccountId.value = accountOperationKey(platform, accountId)
     try {
@@ -115,6 +134,13 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     }
   }
 
+  async function cancelQRCodeLogin(platform: ThirdPartyPlatform, loginId: string, keepalive = false) {
+    await apiRequest<void>(
+      `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode/${encodeURIComponent(loginId)}`,
+      { method: 'DELETE', keepalive },
+    )
+  }
+
   async function applyQRCodeAccount(account: ThirdPartyAccountSummary | null | undefined) {
     if (!account) {
       return
@@ -148,6 +174,8 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     qrcodeCreating,
     qrcodePollingLoginId,
     savingAccountId,
+    validatingAccountIds,
+    cancelQRCodeLogin,
     createQRCodeLogin,
     deleteAccount,
     deleteBilibiliAccount,
@@ -156,5 +184,6 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     pollQRCodeLogin,
     saveAccount,
     saveBilibiliAccount,
+    validateAccount,
   }
 })

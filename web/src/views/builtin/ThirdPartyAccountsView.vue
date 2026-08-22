@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, onBeforeUnmount, onMounted } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
   QrcodeOutlined,
+  ReloadOutlined,
   SaveOutlined,
   UserOutlined,
 } from '@ant-design/icons-vue'
@@ -70,6 +71,7 @@ interface QRLoginState {
 }
 
 const qrPollIntervalMs = 2000
+const avatarRetryCooldownMs = 30_000
 
 const store = useThirdPartyAccountsStore()
 const {
@@ -81,14 +83,17 @@ const {
   qrcodeCreating,
   qrcodePollingLoginId,
   savingAccountId,
+  validatingAccountIds,
 } = storeToRefs(store)
 
 const drafts = reactive<Record<string, AccountDraft>>({})
 const qrLogins = reactive<Record<string, QRLoginState>>({})
-const avatarLoadFailures = reactive<Record<string, boolean>>({})
+const avatarLoadFailures = reactive<Record<string, number>>({})
 const editingAccountKey = ref<string>('')
 const deleteCandidate = ref<ThirdPartyAccountSummary | null>(null)
 const draftSequence = ref(0)
+const qrPollInFlight = new Set<string>()
+const avatarRetryTimers = new Map<string, number>()
 let qrPollTimer: number | undefined
 
 const pageErrorToast = computed(() => (
@@ -122,17 +127,34 @@ const platformSections = computed<PlatformSection[]>(() => thirdPartyPlatformOrd
     configuredCount: platformAccounts.filter((account) => account.configured).length,
     enabledCount: platformAccounts.filter((account) => account.enabled).length,
     supportsQRCode: supportsQRCode(platform),
-    cookiePlaceholder: platform === 'bilibili' ? 'SESSDATA=...' : 'Cookie',
+    cookiePlaceholder: platform === 'bilibili'
+      ? 'SESSDATA=...'
+      : platform === 'douyin'
+        ? 'sessionid=...; sid_guard=...'
+        : 'Cookie',
   }
 }))
 
+watch(accounts, () => {
+  clearAvatarFailures()
+}, { flush: 'sync' })
+
 onMounted(() => {
+  window.addEventListener('pagehide', handlePageHide)
   void loadPage()
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('pagehide', handlePageHide)
   stopQRPolling()
+  clearAvatarFailures()
+  void cancelAllQRCodeLogins(true)
   store.disposeMedia()
+})
+
+onDeactivated(() => {
+  stopQRPolling()
+  void cancelAllQRCodeLogins()
 })
 
 async function loadPage() {
@@ -175,11 +197,12 @@ function beginEdit(account: ThirdPartyAccountSummary) {
 }
 
 function cancelEdit(key: string) {
+  const cancellation = cancelQRCodeSession(key)
   delete drafts[key]
-  delete qrLogins[key]
   if (editingAccountKey.value === key) {
     editingAccountKey.value = ''
   }
+  return cancellation
 }
 
 function isEditing(key: string) {
@@ -212,12 +235,13 @@ async function saveDraft(key: string) {
     return
   }
   try {
+    await cancelQRCodeSession(key, false, false)
     await store.saveAccount(draft.platform, accountId, {
       label,
       enabled: draft.enabled,
       ...(cookie ? { cookie } : {}),
     })
-    cancelEdit(key)
+    await cancelEdit(key)
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.saved'))
   } catch (err) {
     notifyError(getDisplayErrorMessage(err))
@@ -227,7 +251,7 @@ async function saveDraft(key: string) {
 async function deleteAccount(account: ThirdPartyAccountSummary) {
   try {
     await store.deleteAccount(account.platform, account.account_id)
-    cancelEdit(accountKey(account))
+    await cancelEdit(accountKey(account))
     deleteCandidate.value = null
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.deleted'))
     await nextTick()
@@ -241,6 +265,15 @@ function requestDeleteAccount(account: ThirdPartyAccountSummary) {
   deleteCandidate.value = account
 }
 
+async function validateAccount(account: ThirdPartyAccountSummary) {
+  try {
+    await store.validateAccount(account.platform, account.account_id)
+    notifySuccess(t('builtinFeatures.thirdPartyAccounts.credentialValidated'))
+  } catch (err) {
+    notifyError(getDisplayErrorMessage(err))
+  }
+}
+
 function deleteDraft(key: string) {
   cancelEdit(key)
 }
@@ -251,6 +284,7 @@ async function startQRCodeLogin(key: string) {
     return
   }
   try {
+    await cancelQRCodeSession(key)
     const response = await store.createQRCodeLogin(platform)
     setQRLogin(key, response)
     scheduleQRPolling()
@@ -267,15 +301,66 @@ function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse |
     loginId: response.login_id,
     qrcodeUrl: 'qrcode_url' in response ? response.qrcode_url : previous?.qrcodeUrl || '',
     expiresAt: response.expires_at,
-    state: response.state,
+    state: normalizeQRCodeState(response.state),
     accountNickname: account?.profile?.nickname || account?.label || previous?.accountNickname || '',
     accountUid: account?.profile?.uid || account?.account_id || previous?.accountUid || '',
     accountAvatarUrl: account?.profile?.avatar_url || previous?.accountAvatarUrl || '',
     pollErrorNotified: false,
   }
-  if (response.state === 'succeeded' && account && drafts[key]) {
+  if (qrLogins[key].state === 'succeeded' && account && drafts[key]) {
     reconcileQRCodeAccount(key, account)
   }
+}
+
+function normalizeQRCodeState(state: string): ThirdPartyQRCodeLoginState {
+  switch (state) {
+    case 'pending_scan':
+    case 'pending_confirm':
+    case 'verification_required':
+    case 'expired':
+    case 'failed':
+    case 'succeeded':
+      return state
+    default:
+      return 'failed'
+  }
+}
+
+function isActiveQRCodeState(state: ThirdPartyQRCodeLoginState) {
+  return state === 'pending_scan' || state === 'pending_confirm' || state === 'verification_required'
+}
+
+async function cancelQRCodeSession(key: string, keepalive = false, ignoreError = true) {
+  const qr = qrLogins[key]
+  delete qrLogins[key]
+  qrPollInFlight.delete(key)
+  if (!qr) {
+    return
+  }
+  try {
+    await store.cancelQRCodeLogin(qr.platform, qr.loginId, keepalive)
+  } catch (err) {
+    if (!ignoreError) {
+      qrLogins[key] = qr
+      scheduleQRPolling()
+      throw err
+    }
+    // 服务端会在会话到期或应用退出时执行兜底清理。
+  }
+}
+
+async function cancelAllQRCodeLogins(keepalive = false) {
+  const sessions = Object.entries(qrLogins)
+  for (const [key] of sessions) {
+    delete qrLogins[key]
+    qrPollInFlight.delete(key)
+  }
+  await Promise.allSettled(sessions.map(([, qr]) => store.cancelQRCodeLogin(qr.platform, qr.loginId, keepalive)))
+}
+
+function handlePageHide() {
+  stopQRPolling()
+  void cancelAllQRCodeLogins(true)
 }
 
 function reconcileQRCodeAccount(key: string, account: ThirdPartyAccountSummary) {
@@ -321,16 +406,24 @@ function stopQRPolling() {
 }
 
 async function pollActiveQRLogins() {
-  const active = Object.entries(qrLogins).filter(([, qr]) => qr.state === 'pending_scan' || qr.state === 'pending_confirm')
+  const active = Object.entries(qrLogins).filter(([key, qr]) => isActiveQRCodeState(qr.state) && !qrPollInFlight.has(key))
   if (active.length === 0) {
-    stopQRPolling()
+    if (!Object.values(qrLogins).some((qr) => isActiveQRCodeState(qr.state))) {
+      stopQRPolling()
+    }
     return
   }
   await Promise.all(active.map(async ([key, qr]) => {
+    qrPollInFlight.add(key)
     try {
       const response = await store.pollQRCodeLogin(qr.platform, qr.loginId)
-      setQRLogin(key, response)
+      if (qrLogins[key]?.loginId === qr.loginId) {
+        setQRLogin(key, response)
+      }
     } catch (err) {
+      if (qrLogins[key]?.loginId !== qr.loginId) {
+        return
+      }
       const expiresAt = Date.parse(qr.expiresAt)
       if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
         qr.state = 'expired'
@@ -340,8 +433,13 @@ async function pollActiveQRLogins() {
         qr.pollErrorNotified = true
         notifyError(getDisplayErrorMessage(err))
       }
+    } finally {
+      qrPollInFlight.delete(key)
     }
   }))
+  if (!Object.values(qrLogins).some((qr) => isActiveQRCodeState(qr.state))) {
+    stopQRPolling()
+  }
 }
 
 function accountKey(account: Pick<ThirdPartyAccountSummary, 'platform' | 'account_id'>) {
@@ -415,10 +513,13 @@ function credentialMeta(state?: ThirdPartyCredentialState) {
 function qrStatus(qr?: QRLoginState) {
   switch (qr?.state) {
     case 'pending_confirm':
+    case 'verification_required':
     case 'succeeded':
       return 'scanned'
     case 'expired':
       return 'expired'
+    case 'failed':
+      return 'active'
     case 'pending_scan':
     default:
       return 'active'
@@ -429,14 +530,35 @@ function qrStatusText(qr?: QRLoginState) {
   switch (qr?.state) {
     case 'pending_confirm':
       return t('builtinFeatures.thirdPartyAccounts.qrPendingConfirm')
+    case 'verification_required':
+      return t('builtinFeatures.thirdPartyAccounts.qrVerificationRequired')
     case 'expired':
       return t('builtinFeatures.thirdPartyAccounts.qrExpired')
+    case 'failed':
+      return t('builtinFeatures.thirdPartyAccounts.qrFailed')
     case 'succeeded':
       return t('builtinFeatures.thirdPartyAccounts.qrSucceeded')
     case 'pending_scan':
     default:
       return t('builtinFeatures.thirdPartyAccounts.qrPendingScan')
   }
+}
+
+function qrStatusHint(qr: QRLoginState) {
+  switch (qr.state) {
+    case 'verification_required':
+      return t('builtinFeatures.thirdPartyAccounts.qrVerificationHint')
+    case 'failed':
+      return t('builtinFeatures.thirdPartyAccounts.qrFailedHint')
+    default:
+      return qr.accountNickname || qrScanPrompt(qr.platform)
+  }
+}
+
+function qrActionText(qr?: QRLoginState) {
+  return qr?.state === 'failed' || qr?.state === 'expired'
+    ? t('builtinFeatures.thirdPartyAccounts.qrRetry')
+    : t('builtinFeatures.thirdPartyAccounts.scanLogin')
 }
 
 function qrScanPrompt(platform?: ThirdPartyPlatform) {
@@ -478,14 +600,46 @@ function avatarText(account: ThirdPartyAccountSummary) {
 
 function accountAvatarSrc(account: ThirdPartyAccountSummary) {
   const avatarURL = account.profile?.avatar_url?.trim()
-  if (!avatarURL || avatarLoadFailures[avatarFailureKey(account)]) {
+  if (!avatarURL || avatarLoadFailures[avatarFailureKey(account)] !== undefined) {
     return ''
   }
-  return avatarURL
+  return `/api/third-party/accounts/${encodeURIComponent(account.platform)}/${encodeURIComponent(account.account_id)}/avatar`
 }
 
 function markAvatarFailed(account: ThirdPartyAccountSummary) {
-  avatarLoadFailures[avatarFailureKey(account)] = true
+  const key = avatarFailureKey(account)
+  avatarLoadFailures[key] = Date.now()
+  const existingTimer = avatarRetryTimers.get(key)
+  if (existingTimer !== undefined) {
+    window.clearTimeout(existingTimer)
+  }
+  avatarRetryTimers.set(key, window.setTimeout(() => {
+    avatarRetryTimers.delete(key)
+    delete avatarLoadFailures[key]
+  }, avatarRetryCooldownMs))
+}
+
+function markAvatarLoaded(account: ThirdPartyAccountSummary) {
+  clearAvatarFailure(avatarFailureKey(account))
+}
+
+function clearAvatarFailure(key: string) {
+  const timer = avatarRetryTimers.get(key)
+  if (timer !== undefined) {
+    window.clearTimeout(timer)
+    avatarRetryTimers.delete(key)
+  }
+  delete avatarLoadFailures[key]
+}
+
+function clearAvatarFailures() {
+  for (const timer of avatarRetryTimers.values()) {
+    window.clearTimeout(timer)
+  }
+  avatarRetryTimers.clear()
+  for (const key of Object.keys(avatarLoadFailures)) {
+    delete avatarLoadFailures[key]
+  }
 }
 
 function avatarFailureKey(account: ThirdPartyAccountSummary) {
@@ -595,23 +749,28 @@ function timeText(value?: string | null) {
                       :placeholder="section.cookiePlaceholder"
                     />
                   </a-form-item>
-                  <div v-if="section.supportsQRCode && qrLogins[entry.key]" class="qr-panel">
+                  <div
+                    v-if="section.supportsQRCode && qrLogins[entry.key]"
+                    :class="['qr-panel', `qr-panel--${qrLogins[entry.key].state}`]"
+                    aria-live="polite"
+                  >
                     <a-qrcode
                       :value="qrLogins[entry.key].qrcodeUrl"
                       :status="qrStatus(qrLogins[entry.key])"
                       :size="168"
                       bordered
+                      @refresh="startQRCodeLogin(entry.key)"
                     />
                     <div>
                       <strong>{{ qrStatusText(qrLogins[entry.key]) }}</strong>
-                      <p>{{ qrLogins[entry.key].accountNickname || qrScanPrompt(qrLogins[entry.key].platform) }}</p>
+                      <p>{{ qrStatusHint(qrLogins[entry.key]) }}</p>
                       <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[entry.key].expiresAt) }) }}</small>
                     </div>
                   </div>
                   <div class="account-editor-actions">
                     <a-button v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[entry.key]?.loginId" @click="startQRCodeLogin(entry.key)">
                       <template #icon><QrcodeOutlined /></template>
-                      {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
+                      {{ qrActionText(qrLogins[entry.key]) }}
                     </a-button>
                     <a-button danger @click="deleteDraft(entry.key)">
                       <template #icon><DeleteOutlined /></template>
@@ -634,13 +793,14 @@ function timeText(value?: string | null) {
                   <a-avatar class="account-avatar" :size="52">
                     <img
                       v-if="accountAvatarSrc(account)"
+                      :key="avatarFailureKey(account)"
                       class="account-avatar__image"
                       data-testid="bilibili-account-avatar-image"
                       :src="accountAvatarSrc(account)"
                       :alt="displayName(account)"
                       draggable="false"
                       loading="lazy"
-                      referrerpolicy="no-referrer"
+                      @load="markAvatarLoaded(account)"
                       @error="markAvatarFailed(account)"
                     >
                     <template v-else>
@@ -686,6 +846,15 @@ function timeText(value?: string | null) {
                 </p>
 
                 <div v-if="!isEditing(accountKey(account))" class="account-card__actions">
+                  <a-button
+                    v-if="account.configured"
+                    size="small"
+                    :loading="validatingAccountIds.includes(operationKey(account.platform, account.account_id))"
+                    @click="validateAccount(account)"
+                  >
+                    <template #icon><ReloadOutlined /></template>
+                    {{ t('builtinFeatures.thirdPartyAccounts.validateCredential') }}
+                  </a-button>
                   <a-button size="small" @click="beginEdit(account)">
                     <template #icon><EditOutlined /></template>
                     {{ t('builtinFeatures.thirdPartyAccounts.edit') }}
@@ -721,23 +890,28 @@ function timeText(value?: string | null) {
                       :placeholder="section.cookiePlaceholder"
                     />
                   </a-form-item>
-                  <div v-if="section.supportsQRCode && qrLogins[accountKey(account)]" class="qr-panel">
+                  <div
+                    v-if="section.supportsQRCode && qrLogins[accountKey(account)]"
+                    :class="['qr-panel', `qr-panel--${qrLogins[accountKey(account)].state}`]"
+                    aria-live="polite"
+                  >
                     <a-qrcode
                       :value="qrLogins[accountKey(account)].qrcodeUrl"
                       :status="qrStatus(qrLogins[accountKey(account)])"
                       :size="168"
                       bordered
+                      @refresh="startQRCodeLogin(accountKey(account))"
                     />
                     <div>
                       <strong>{{ qrStatusText(qrLogins[accountKey(account)]) }}</strong>
-                      <p>{{ qrLogins[accountKey(account)].accountNickname || qrScanPrompt(qrLogins[accountKey(account)].platform) }}</p>
+                      <p>{{ qrStatusHint(qrLogins[accountKey(account)]) }}</p>
                       <small>{{ t('builtinFeatures.thirdPartyAccounts.qrExpiresAt', { time: timeText(qrLogins[accountKey(account)].expiresAt) }) }}</small>
                     </div>
                   </div>
                   <div class="account-editor-actions">
                     <a-button v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[accountKey(account)]?.loginId" @click="startQRCodeLogin(accountKey(account))">
                       <template #icon><QrcodeOutlined /></template>
-                      {{ t('builtinFeatures.thirdPartyAccounts.scanLogin') }}
+                      {{ qrActionText(qrLogins[accountKey(account)]) }}
                     </a-button>
                     <a-button danger :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)">
                       <template #icon><DeleteOutlined /></template>
@@ -1079,6 +1253,16 @@ function timeText(value?: string | null) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-strong);
+}
+
+.qr-panel--verification_required {
+  border-color: var(--border-attention);
+  background: var(--surface-attention);
+}
+
+.qr-panel--failed {
+  border-color: var(--border-danger);
+  background: var(--surface-danger);
 }
 
 .qr-panel > div:last-child {

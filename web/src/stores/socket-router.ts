@@ -21,6 +21,9 @@ export function createSocketFrameRouter(
   let governanceRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
   let governanceRefreshInFlight = false
   let governanceRefreshQueued = false
+  let thirdPartyAccountRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
+  let thirdPartyAccountRefreshInFlight = false
+  let thirdPartyAccountRefreshQueued = false
   let pendingLiveLogs: LogSummary[] = []
   let flushLiveLogsScheduled = false
 
@@ -32,6 +35,10 @@ export function createSocketFrameRouter(
     if (governanceRefreshHandle !== null) {
       window.clearTimeout(governanceRefreshHandle)
       governanceRefreshHandle = null
+    }
+    if (thirdPartyAccountRefreshHandle !== null) {
+      window.clearTimeout(thirdPartyAccountRefreshHandle)
+      thirdPartyAccountRefreshHandle = null
     }
   }
 
@@ -97,6 +104,42 @@ export function createSocketFrameRouter(
     }, statusRefreshDebounceMs)
   }
 
+  async function runThirdPartyAccountRefresh() {
+    if (thirdPartyAccountRefreshInFlight) {
+      thirdPartyAccountRefreshQueued = true
+      return
+    }
+
+    thirdPartyAccountRefreshInFlight = true
+    try {
+      await dependencies.thirdPartyAccounts.refresh()
+    } catch {
+      // account pages keep the last successful snapshot until the next update
+    } finally {
+      thirdPartyAccountRefreshInFlight = false
+      if (thirdPartyAccountRefreshQueued) {
+        thirdPartyAccountRefreshQueued = false
+        scheduleThirdPartyAccountRefresh()
+      }
+    }
+  }
+
+  function scheduleThirdPartyAccountRefresh() {
+    if (thirdPartyAccountRefreshInFlight) {
+      thirdPartyAccountRefreshQueued = true
+      return
+    }
+
+    if (thirdPartyAccountRefreshHandle !== null) {
+      return
+    }
+
+    thirdPartyAccountRefreshHandle = window.setTimeout(() => {
+      thirdPartyAccountRefreshHandle = null
+      void runThirdPartyAccountRefresh()
+    }, statusRefreshDebounceMs)
+  }
+
   function handleEventsFrame(frame: WebSocketFrame<EventsPayload>) {
     dependencies.system.applyEvent(frame.timestamp, frame.data)
 
@@ -107,6 +150,11 @@ export function createSocketFrameRouter(
 
     if (isGovernanceChangedEvent(frame.data)) {
       scheduleGovernanceRefresh()
+      return
+    }
+
+    if (isThirdPartyAccountChangedEvent(frame.data)) {
+      scheduleThirdPartyAccountRefresh()
       return
     }
 
@@ -190,6 +238,10 @@ function isProtocolSnapshotEvent(payload: EventsPayload): payload is ProtocolSna
 
 function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
   return 'event_type' in payload && payload.event_type === 'governance.changed'
+}
+
+function isThirdPartyAccountChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
+  return 'event_type' in payload && payload.event_type === 'third_party.account.changed'
 }
 
 function isSchedulerLog(log: LogSummary) {

@@ -93,6 +93,8 @@ const fixtures = {
   governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
   thirdPartyAccounts: await readFixture('fixtures/web-api/ok.third-party-accounts-list.yaml'),
   thirdPartyAccountUpsert: await readFixture('fixtures/web-api/ok.third-party-account-upsert.yaml'),
+  thirdPartyAccountValidateInvalid: await readFixture('fixtures/web-api/ok.third-party-account-validate-invalid.yaml'),
+  thirdPartyAccountValidateNotFound: await readFixture('fixtures/web-api/invalid.third-party-account-validate-not-found.yaml'),
   thirdPartyQRCodeCreateBilibili: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-bilibili.yaml'),
   thirdPartyQRCodePollBilibiliPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-pending.yaml'),
   thirdPartyQRCodePollBilibiliSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-succeeded.yaml'),
@@ -101,6 +103,8 @@ const fixtures = {
   thirdPartyQRCodePollWeiboSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml'),
   thirdPartyQRCodeCreateDouyin: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml'),
   thirdPartyQRCodePollDouyinPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml'),
+  thirdPartyQRCodePollDouyinVerificationRequired: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-verification-required.yaml'),
+  thirdPartyQRCodePollDouyinFailed: await readFixture('fixtures/web-api/edge.third-party-login-qrcode-poll-douyin-failed.yaml'),
   thirdPartyQRCodePollDouyinSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml'),
   thirdPartyQRCodeCreateNeteaseMusic: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml'),
   thirdPartyQRCodePollNeteaseMusicPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml'),
@@ -159,6 +163,8 @@ function baseState() {
       failSystemStatusOnce: false,
       failUninstallOnce: false,
       failThirdPartyQRCodePollOnce: false,
+      douyinQRCodeVerificationRequired: false,
+      douyinQRCodeFailed: false,
     },
     networkOffline: false,
   }
@@ -352,6 +358,8 @@ function thirdPartyQRCodeFixtures(platform) {
       return {
         create: fixtures.thirdPartyQRCodeCreateDouyin,
         pending: fixtures.thirdPartyQRCodePollDouyinPending,
+        verificationRequired: fixtures.thirdPartyQRCodePollDouyinVerificationRequired,
+        failed: fixtures.thirdPartyQRCodePollDouyinFailed,
         succeeded: fixtures.thirdPartyQRCodePollDouyinSucceeded,
       }
     case 'netease_music':
@@ -474,6 +482,8 @@ const configRestartRequiredFields = new Set([
   'render.worker_count',
   'server.host',
   'server.port',
+  'third_party_accounts.douyin_login.browser_mode',
+  'third_party_accounts.douyin_login.remote_debugging_url',
   'web.exposure_mode',
   'web.setup_local_only',
 ])
@@ -1755,6 +1765,20 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (/^\/api\/third-party\/accounts\/[^/]+\/[^/]+\/avatar$/.test(pathname) && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    response.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    })
+    response.end(externalPreviewImageBytes)
+    return
+  }
+
   if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'PUT') {
     if (!requireAuth(request, response)) {
       return
@@ -1805,6 +1829,37 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (/^\/api\/third-party\/accounts\/[^/]+\/[^/]+\/validate$/.test(pathname) && request.method === 'POST') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const segments = pathname.split('/')
+    const platform = decodeURIComponent(segments[4] ?? '')
+    const accountId = decodeURIComponent(segments[5] ?? '')
+    const account = state.thirdPartyAccounts.find((item) => item.platform === platform && item.account_id === accountId)
+    if (!account?.configured) {
+      json(response, fixtures.thirdPartyAccountValidateNotFound.response.status, structuredClone(fixtures.thirdPartyAccountValidateNotFound.response.body))
+      return
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    const nextAccount = structuredClone(account)
+    if (platform === 'weibo') {
+      nextAccount.credential = structuredClone(fixtures.thirdPartyAccountValidateInvalid.response.body.account.credential)
+    } else {
+      nextAccount.credential = {
+        state: 'valid',
+        checked_at: new Date().toISOString(),
+        last_error: '',
+      }
+    }
+    state.thirdPartyAccounts = state.thirdPartyAccounts.map((item) => (
+      item.platform === platform && item.account_id === accountId ? nextAccount : item
+    ))
+    json(response, 200, { account: structuredClone(nextAccount) })
+    return
+  }
+
   if (pathname.startsWith('/api/third-party/accounts/') && pathname.endsWith('/login/qrcode') && request.method === 'POST') {
     if (!requireAuth(request, response)) {
       return
@@ -1846,19 +1901,56 @@ const server = http.createServer(async (request, response) => {
       return
     }
     state.thirdPartyQRCodePolls[pollKey] += 1
-    const fixture = state.thirdPartyQRCodePolls[pollKey] > 1
+    const pollCount = state.thirdPartyQRCodePolls[pollKey]
+    let fixture = pollCount > 1
       ? fixturesForPlatform.succeeded
       : fixturesForPlatform.pending
+    if (platform === 'douyin' && state.failures.douyinQRCodeFailed && pollCount > 1) {
+      fixture = fixturesForPlatform.failed
+    } else if (platform === 'douyin' && state.failures.douyinQRCodeVerificationRequired && pollCount === 2) {
+      fixture = fixturesForPlatform.verificationRequired
+    }
     const body = structuredClone(fixture.response.body)
     body.expires_at = state.thirdPartyQRCodeExpiresAt[pollKey] ?? body.expires_at
+    if (platform === 'douyin' && body.account && !body.account.profile) {
+      body.account.profile = {
+        uid: 'fixture-douyin-account',
+        nickname: '抖音扫码账号',
+        avatar_url: 'https://p3-pc-sign.douyinpic.com/fixture/avatar.jpeg',
+      }
+    }
     if (platform === 'weibo' && body.account?.profile) {
       body.account.profile.avatar_url = weiboAvatarUrl
+    }
+    if (body.account) {
+      const savedAccount = localizeBilibiliAccountAvatar(structuredClone(body.account))
+      state.thirdPartyAccounts = [
+        ...state.thirdPartyAccounts.filter((item) => item.platform !== savedAccount.platform || item.account_id !== savedAccount.account_id),
+        savedAccount,
+      ].sort((left, right) => left.account_id.localeCompare(right.account_id))
     }
     json(response, fixture.response.status, {
       ...body,
       login_id: loginId,
     })
     return
+  }
+
+  if (/^\/api\/third-party\/accounts\/[^/]+\/login\/qrcode\/[^/]+$/.test(pathname) && request.method === 'DELETE') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+
+    const segments = pathname.split('/')
+    const platform = decodeURIComponent(segments[4] ?? '')
+    const loginId = decodeURIComponent(segments[7] ?? '')
+    if (segments[5] === 'login' && segments[6] === 'qrcode' && platform && loginId) {
+      const pollKey = thirdPartyQRCodePollKey(platform, loginId)
+      delete state.thirdPartyQRCodePolls[pollKey]
+      delete state.thirdPartyQRCodeExpiresAt[pollKey]
+      noContent(response)
+      return
+    }
   }
 
   if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'DELETE') {

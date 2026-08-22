@@ -7,6 +7,7 @@ const errorMessageByKey: Record<string, string> = {
   'errors.permission.not_whitelisted': t('errors.permission.notWhitelisted'),
   'errors.platform.invalid_request': t('errors.platform.invalidRequest'),
   'errors.platform.not_found': t('errors.platform.notFound'),
+  'errors.platform.third_party_account_not_found': t('errors.platform.thirdPartyAccountNotFound'),
   'errors.platform.resource_missing': t('errors.platform.resourceMissing'),
   'errors.platform.template_not_found': t('errors.platform.templateNotFound'),
 }
@@ -17,6 +18,7 @@ const errorMessageByCode: Record<string, string> = {
   'permission.not_whitelisted': t('errors.permission.notWhitelisted'),
   'platform.invalid_request': t('errors.platform.invalidRequest'),
   'platform.not_found': t('errors.platform.notFound'),
+  'platform.third_party_account_not_found': t('errors.platform.thirdPartyAccountNotFound'),
   'platform.resource_missing': t('errors.platform.resourceMissing'),
   'platform.template_not_found': t('errors.platform.templateNotFound'),
 }

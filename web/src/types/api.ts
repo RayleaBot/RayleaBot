@@ -19,6 +19,7 @@ export type ThirdPartyAccountProfile = components['schemas']['ThirdPartyAccountP
 export type ThirdPartyCredentialState = components['schemas']['ThirdPartyCredentialState']
 export type ThirdPartyAccountUpsertRequest = components['schemas']['ThirdPartyAccountUpsertRequest']
 export type ThirdPartyAccountUpsertResponse = components['schemas']['ThirdPartyAccountUpsertResponse']
+export type ThirdPartyAccountValidationResponse = components['schemas']['ThirdPartyAccountValidationResponse']
 export type ThirdPartyAccountsResponse = components['schemas']['ThirdPartyAccountsResponse']
 export type ThirdPartyPlatform = components['schemas']['ThirdPartyPlatform']
 export type ThirdPartyQRCodeLoginCreateResponse = components['schemas']['ThirdPartyQRCodeLoginCreateResponse']

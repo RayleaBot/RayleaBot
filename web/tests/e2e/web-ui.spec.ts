@@ -1362,6 +1362,41 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
   await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
 })
 
+test('config page saves restart-required Douyin browser settings', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/config')
+  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
+  await scrollConfigSectionIntoView(page, 'third-party-accounts')
+
+  await page.getByRole('spinbutton', { name: 'CK 自动检查间隔' }).fill('720')
+  await expect(page.locator('#config-section-third-party-accounts').getByText('自动选择', { exact: true })).toBeVisible()
+  await page.locator('#config-section-third-party-accounts .ant-select-selector').click()
+  await page.locator('.ant-select-dropdown:visible').getByText('远程 CDP', { exact: true }).click()
+  await page.getByRole('textbox', { name: '抖音远程调试地址' }).fill('http://127.0.0.1:9222')
+
+  const configResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'PUT'
+    && response.url().endsWith('/api/config')
+  ))
+  await page.getByRole('button', { name: '保存更改' }).click()
+  const configResponse = await configResponsePromise
+  const responseBody = await configResponse.json()
+  expect(responseBody.restart_required).toBe(true)
+  expect(responseBody.apply_effects.restart_required_fields).toEqual(expect.arrayContaining([
+    'third_party_accounts.douyin_login.browser_mode',
+    'third_party_accounts.douyin_login.remote_debugging_url',
+  ]))
+  expect(responseBody.apply_effects.applied_now).toContain('third_party_accounts.credential_check_interval_minutes')
+
+  await page.reload()
+  await scrollConfigSectionIntoView(page, 'third-party-accounts')
+  await expect(page.getByRole('spinbutton', { name: 'CK 自动检查间隔' })).toHaveValue('720')
+  await expect(page.locator('#config-section-third-party-accounts').getByText('远程 CDP', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: '抖音远程调试地址' })).toHaveValue('http://127.0.0.1:9222')
+})
+
 test('rate limits page edits chat and outbound limits', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -2088,13 +2123,30 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   const accountCard = page.locator('.account-card').filter({ hasText: '测试账号昵称' }).first()
   await expect(accountCard).toBeVisible()
   await expect(accountCard).toContainText('UID 123456')
-  await expect(accountCard).toContainText('CK 有效')
+  await expect(accountCard).toContainText('上次检查有效')
   const avatarImage = accountCard.getByTestId('bilibili-account-avatar-image')
   await expect(avatarImage).toBeVisible()
-  await expect(avatarImage).toHaveAttribute('src', /external-preview\/avatar\.png/)
+  await expect(avatarImage).toHaveAttribute('src', '/api/third-party/accounts/bilibili/primary/avatar')
+  await page.clock.install()
   await avatarImage.evaluate((element) => element.dispatchEvent(new Event('error')))
   await expect(accountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
   await expect(accountCard.getByTestId('bilibili-account-avatar-image')).toHaveCount(0)
+  await page.clock.fastForward(30_001)
+  await expect(accountCard.getByTestId('bilibili-account-avatar-image')).toBeVisible()
+  await expect.poll(() => accountCard.getByTestId('bilibili-account-avatar-image')
+    .evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  await accountCard.getByTestId('bilibili-account-avatar-image')
+    .evaluate((element) => element.dispatchEvent(new Event('error')))
+  await expect(accountCard.getByTestId('bilibili-account-avatar-fallback')).toBeVisible()
+  await accountCard.getByRole('button', { name: '检查 CK' }).click()
+  await expect(accountCard.getByTestId('bilibili-account-avatar-image')).toBeVisible()
+  await page.clock.resume()
+
+  const weiboAccountCard = page.locator('.account-card').filter({ hasText: '微博扫码账号' }).first()
+  const weiboAvatarImage = weiboAccountCard.getByTestId('bilibili-account-avatar-image')
+  await expect(weiboAvatarImage).toBeVisible()
+  await expect(weiboAvatarImage).toHaveAttribute('src', '/api/third-party/accounts/weibo/primary/avatar')
+  await expect.poll(() => weiboAvatarImage.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
 
   await accountCard.getByRole('button', { name: '编辑' }).click()
   const editingExistingCard = page.locator('.account-card--editing').filter({ hasText: '留空时保留当前 CK。' }).first()
@@ -2110,6 +2162,7 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   await page.setViewportSize({ width: 1280, height: 720 })
   const draftCard = page.locator('.account-card--editing').nth(0)
   await expect(draftCard).toBeVisible()
+  await expect(draftCard.getByRole('button', { name: '检查 CK' })).toHaveCount(0)
   await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
   await expect(draftCard.locator('.qr-panel')).toBeVisible()
   const scannedAccountCard = page.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
@@ -2118,24 +2171,39 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   await expect(scannedInputs.nth(1)).toHaveValue('测试账号昵称')
   const savedQRCodeAccountCards = page.locator('.account-card').filter({ hasText: '账号 ID123456' })
   await expect(savedQRCodeAccountCards).toHaveCount(1)
-  await expect(scannedAccountCard).toContainText('CK 有效')
+  await expect(scannedAccountCard).toContainText('上次检查有效')
+  const saveRequestOrder: string[] = []
+  const recordSaveRequest = (request: import('@playwright/test').Request) => {
+    const url = new URL(request.url())
+    if (url.pathname.includes('/login/qrcode/') && request.method() === 'DELETE') {
+      saveRequestOrder.push('cancel')
+    } else if (url.pathname === '/api/third-party/accounts/bilibili/123456' && request.method() === 'PUT') {
+      saveRequestOrder.push('save')
+    }
+  }
+  page.on('request', recordSaveRequest)
   await scannedAccountCard.getByRole('button', { name: '保存' }).click()
+  await expect.poll(() => saveRequestOrder).toEqual(['cancel', 'save'])
+  page.off('request', recordSaveRequest)
   await expect(savedQRCodeAccountCards).toHaveCount(1)
   await expect(savedQRCodeAccountCards.first()).not.toHaveClass(/account-card--editing/)
 
   const additionalQRLogins = [
     {
+      platform: 'weibo',
       addLabel: '添加微博 Cookie',
       draftTitle: '微博 Cookie',
       savedAccountId: '123456',
       savedCardText: '微博扫码账号',
     },
     {
+      platform: 'douyin',
       addLabel: '添加抖音 Cookie',
       draftTitle: '抖音 Cookie',
       savedAccountId: 'primary',
     },
     {
+      platform: 'netease_music',
       addLabel: '添加网易云音乐 Cookie',
       draftTitle: '网易云音乐 Cookie',
       savedAccountId: '123456789',
@@ -2164,7 +2232,39 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
     await scannedPlatformCard.getByRole('button', { name: '保存' }).click()
     await expect(savedAccountCards).toHaveCount(1)
     await expect(savedAccountCards.first()).not.toHaveClass(/account-card--editing/)
+    await expect(savedAccountCards.first().getByTestId('bilibili-account-avatar-image')).toHaveAttribute(
+      'src',
+      `/api/third-party/accounts/${item.platform}/${item.savedAccountId}/avatar`,
+    )
   }
+
+  const weiboSection = page.getByRole('heading', { name: '微博', level: 3 }).locator('xpath=ancestor::section[contains(@class,"platform-section")]')
+  const savedWeiboCard = weiboSection.locator('.account-card').filter({ hasText: '账号 ID123456' }).first()
+  await expect(savedWeiboCard.getByTestId('bilibili-account-avatar-image')).toHaveAttribute(
+    'src',
+    '/api/third-party/accounts/weibo/123456/avatar',
+  )
+  await expect.poll(() => savedWeiboCard.getByTestId('bilibili-account-avatar-image')
+    .evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+})
+
+test('third-party account manual check updates an expired Weibo CK', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+
+  await page.goto('/third-party-accounts')
+  const accountCard = page.locator('.account-card').filter({ hasText: '微博扫码账号' }).first()
+  await expect(accountCard).toContainText('CK 状态未知')
+  const validateButton = accountCard.getByRole('button', { name: '检查 CK' })
+  await validateButton.click()
+  await expect(validateButton).toHaveClass(/ant-btn-loading/)
+  await expect(accountCard).toContainText('CK 已失效')
+  await expect(accountCard).toContainText('微博账号 CK 已失效，请重新扫码')
+  await expect(page.getByText('CK 检查完成')).toBeVisible()
+
+  await page.reload()
+  const persistedCard = page.locator('.account-card').filter({ hasText: '微博扫码账号' }).first()
+  await expect(persistedCard).toContainText('CK 已失效')
 })
 
 test('third-party QR login survives a transient polling failure', async ({ page, request }) => {
@@ -2188,6 +2288,83 @@ test('third-party QR login survives a transient polling failure', async ({ page,
   await failedPoll
   await expect(qrPanel).toBeVisible()
   await expect(scannedCard.locator('input').nth(0)).toHaveValue('123456', { timeout: 7000 })
+})
+
+test('Douyin QR login keeps polling while browser verification is required', async ({ page, request }) => {
+  await resetBackend(request, true, {
+    douyinQRCodeVerificationRequired: true,
+  })
+  await login(page)
+
+  await page.goto('/third-party-accounts')
+  const addButton = page.getByRole('button', { name: '添加抖音 Cookie' }).first()
+  const platformSection = addButton.locator('xpath=ancestor::section[contains(@class,"platform-section")]')
+  await addButton.click()
+  const draftCard = platformSection.locator('.account-card--editing').filter({ hasText: '抖音 Cookie' }).first()
+  await expect(draftCard.locator('textarea')).toHaveAttribute('placeholder', 'sessionid=...; sid_guard=...')
+
+  await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
+  const scannedCard = platformSection.locator('.account-card--editing').filter({ has: page.locator('.qr-panel') }).first()
+  const qrPanel = scannedCard.locator('.qr-panel')
+  await expect(qrPanel).toContainText('等待完成安全验证', { timeout: 7000 })
+  await expect(qrPanel).toContainText('登录浏览器窗口')
+  await expect(qrPanel).toContainText('远程 CDP')
+  await expect(qrPanel).toContainText('已获取 CK', { timeout: 5000 })
+  await expect(scannedCard).toContainText('已配置')
+})
+
+test('Douyin QR login exposes failure recovery and cancels abandoned sessions', async ({ page, request }) => {
+  await resetBackend(request, true, {
+    douyinQRCodeFailed: true,
+  })
+  await login(page)
+
+  await page.goto('/third-party-accounts')
+  const addButton = page.getByRole('button', { name: '添加抖音 Cookie' }).first()
+  const platformSection = addButton.locator('xpath=ancestor::section[contains(@class,"platform-section")]')
+  await addButton.click()
+  let draftCard = platformSection.locator('.account-card--editing').filter({ hasText: '抖音 Cookie' }).first()
+  await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
+
+  const qrPanel = draftCard.locator('.qr-panel')
+  await expect(qrPanel).toContainText('扫码登录失败', { timeout: 7000 })
+  await expect(qrPanel).toContainText('手动填写 CK')
+  const retryButton = draftCard.getByRole('button', { name: '重新扫码' })
+  await expect(retryButton).toBeVisible()
+
+  const retryLifecycle = [] as string[]
+  const recordRetryLifecycle = (outbound: import('@playwright/test').Request) => {
+    if (outbound.url().includes('/api/third-party/accounts/douyin/login/qrcode')) {
+      const method = outbound.method()
+      if (method === 'DELETE' || method === 'POST') {
+        retryLifecycle.push(method)
+      }
+    }
+  }
+  page.on('request', recordRetryLifecycle)
+  await retryButton.click()
+  await expect.poll(() => retryLifecycle).toEqual(['DELETE', 'POST'])
+  page.off('request', recordRetryLifecycle)
+
+  const cancelRequest = page.waitForRequest((outbound) => (
+    outbound.method() === 'DELETE'
+    && outbound.url().includes('/api/third-party/accounts/douyin/login/qrcode/')
+  ))
+  await draftCard.getByRole('button', { name: /取\s*消/ }).click()
+  await cancelRequest
+  await expect(draftCard).toHaveCount(0)
+
+  await addButton.click()
+  draftCard = platformSection.locator('.account-card--editing').filter({ hasText: '抖音 Cookie' }).first()
+  await draftCard.getByRole('button', { name: '扫码获取 CK' }).click()
+  await expect(draftCard.locator('.qr-panel')).toBeVisible()
+  const pageLeaveCancel = page.waitForRequest((outbound) => (
+    outbound.method() === 'DELETE'
+    && outbound.url().includes('/api/third-party/accounts/douyin/login/qrcode/')
+  ))
+  await navigateThroughMenu(page, '配置', '系统')
+  await pageLeaveCancel
+  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
 })
 
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {

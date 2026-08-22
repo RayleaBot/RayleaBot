@@ -53,6 +53,13 @@ function createFixtureConfig(): ConfigDocument {
       queue_max_length: 32,
       footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
     },
+    third_party_accounts: {
+      credential_check_interval_minutes: 360,
+      douyin_login: {
+        browser_mode: 'auto',
+        remote_debugging_url: '',
+      },
+    },
     scheduler: {
       timezone: '',
     },
@@ -292,6 +299,61 @@ describe('ConfigPage', () => {
     expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
     expect(wrapper.text()).not.toContain('server.port')
     expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
+  })
+
+  it('edits hot credential checks and restart-required Douyin browser settings', async () => {
+    const store = useConfigStore()
+    store.document = createFixtureConfig()
+
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
+      config: store.document,
+      redacted_fields: [],
+      restart_required: true,
+      apply_effects: {
+        applied_now: ['third_party_accounts.credential_check_interval_minutes'],
+        reloaded_now: [],
+        restart_required_fields: [
+          'third_party_accounts.douyin_login.browser_mode',
+          'third_party_accounts.douyin_login.remote_debugging_url',
+        ],
+      },
+    })
+
+    const wrapper = mount(ConfigPage, {
+      global: {
+        plugins: [Antd],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('三方账号')
+    expect(wrapper.text()).toContain('CK 自动检查间隔')
+    expect(wrapper.text()).toContain('抖音登录浏览器模式')
+    expect(wrapper.text()).toContain('抖音远程调试地址')
+    const fields = getConfigSections().find((section) => section.key === 'third-party-accounts')?.fields ?? []
+    expect(fields.find((field) => field.path === 'third_party_accounts.credential_check_interval_minutes')?.restartRequired).toBeFalsy()
+    expect(fields.filter((field) => field.path.includes('.douyin_login.')).every((field) => field.restartRequired)).toBe(true)
+
+    const viewModel = wrapper.vm as unknown as {
+      writeField: (path: string, value: unknown) => void
+    }
+    viewModel.writeField('third_party_accounts.credential_check_interval_minutes', 720)
+    viewModel.writeField('third_party_accounts.douyin_login.browser_mode', 'remote_cdp')
+    viewModel.writeField('third_party_accounts.douyin_login.remote_debugging_url', 'http://127.0.0.1:9222')
+    await flushPromises()
+
+    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+
+    expect(saveSpy).toHaveBeenCalledTimes(1)
+    expect(saveSpy.mock.calls[0][0].third_party_accounts.douyin_login).toEqual({
+      browser_mode: 'remote_cdp',
+      remote_debugging_url: 'http://127.0.0.1:9222',
+    })
+    expect(saveSpy.mock.calls[0][0].third_party_accounts.credential_check_interval_minutes).toBe(720)
   })
 
   it('keeps plugin-facing settings out of the general config page', async () => {
