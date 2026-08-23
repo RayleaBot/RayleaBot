@@ -1,0 +1,16 @@
+{
+  "account": {
+    "platform": "weibo",
+    "account_id": "primary",
+    "label": "示例微博账号",
+    "enabled": true,
+    "configured": true,
+    "profile": null,
+    "credential": {
+      "state": "invalid",
+      "checked_at": "2026-08-23T08:05:00Z",
+      "last_error": "账号凭据已失效，请重新扫码"
+    },
+    "updated_at": "2026-08-23T08:05:00Z"
+  }
+}

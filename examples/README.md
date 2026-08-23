@@ -1,31 +1,36 @@
 # Examples
 
-本目录承载 RayleaBot 的示例内容，包括：
+本目录只演示已经由 `contracts/` 冻结的结构，不是正式裁决来源。
 
-- 示例插件。
-- 示例配置。
-- 示例请求 / 响应。
+## 分类索引
 
-当前已收录的 HTTP 请求 / 响应示例包含：
+- `http/`
+  - 配置与治理：配置保存、黑白名单和命令策略请求 / 响应。
+  - 日志与协议：当前会话、历史区间和 OneBot11 兼容矩阵响应。
+  - 恢复与运行时：恢复确认、恢复复检和 Chromium bootstrap 请求 / 响应。
+  - 三方账号：账号列表、保存、校验和扫码登录 JSON payload。
+- `plugins/`：Go SDK、能力参数、Vue 管理页和 artifact 构建示例。
+- `deps-manifest.sample.json`：Chromium deps manifest v4 示例。
+- `backup-manifest.sample.json`：恢复包 backup manifest 示例。
 
-- `examples/http/recovery-confirm.request.json`
-- `examples/http/recovery-confirm.accepted.json`
-- `examples/http/recovery-confirm.task-detail.json`
-- `examples/http/logs-current-session.request.json`
-- `examples/http/logs-current-session.response.json`
-- `examples/http/logs-history-range.request.json`
-- `examples/http/logs-history-range.response.json`
-- `examples/http/recovery-recheck.accepted.json`
-- `examples/http/runtime-bootstrap.request.json`
-- `examples/http/runtime-bootstrap.accepted.json`
+## 三方账号 HTTP 面
 
-当前已收录的资源清单示例包含：
+下列 JSON 文件均使用脱敏测试值；Cookie 示例 `fixture-only-secret` 不是可用凭据。
 
-- `examples/deps-manifest.sample.json`
+| 操作 | 端点 | 示例或响应 |
+| --- | --- | --- |
+| 列出账号 | `GET /api/third-party/accounts` | `http/third-party-accounts.response.json` |
+| 保存账号 | `PUT /api/third-party/accounts/{platform}/{account_id}` | `http/third-party-account-upsert.request.json`、`http/third-party-account-upsert.response.json` |
+| 删除账号 | `DELETE /api/third-party/accounts/{platform}/{account_id}` | 成功返回 `204`，无响应体 |
+| 校验凭据 | `POST /api/third-party/accounts/{platform}/{account_id}/validate` | `http/third-party-account-validation.response.json` |
+| 读取头像 | `GET /api/third-party/accounts/{platform}/{account_id}/avatar` | 成功返回受控代理的图片二进制 |
+| 创建扫码会话 | `POST /api/third-party/accounts/{platform}/login/qrcode` | `http/third-party-login-qrcode-create.response.json` |
+| 轮询扫码会话 | `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}` | `http/third-party-login-qrcode-poll.response.json` |
+| 取消扫码会话 | `DELETE /api/third-party/accounts/{platform}/login/qrcode/{login_id}` | 成功返回 `204`，无响应体 |
 
-规则：
+## 规则
 
 - 示例只能演示已被 `contracts/` 确认的结构。
 - 示例不是正式裁决来源。
-- 若示例需要新增字段或消息类型，必须先更新对应 contract。
-- `examples/plugins/` 下的示例插件服务于 manifest、plugin protocol、生产运行时客户端入口和常用 local action 理解。
+- 新字段或消息类型必须先更新对应 contract。
+- `plugins/` 下的示例只服务于 manifest、插件协议、运行时客户端入口和常用 local action 的理解，不进入发现或发布主链。

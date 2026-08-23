@@ -1,0 +1,20 @@
+{
+  "account": {
+    "platform": "bilibili",
+    "account_id": "primary",
+    "label": "示例主账号",
+    "enabled": true,
+    "configured": true,
+    "profile": {
+      "uid": "123456",
+      "nickname": "示例昵称",
+      "avatar_url": "https://example.invalid/avatar.jpg"
+    },
+    "credential": {
+      "state": "valid",
+      "checked_at": "2026-08-23T08:00:00Z",
+      "last_error": ""
+    },
+    "updated_at": "2026-08-23T08:00:00Z"
+  }
+}
