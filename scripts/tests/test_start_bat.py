@@ -13,6 +13,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class StartBatTests(unittest.TestCase):
+    def test_start_bat_does_not_probe_retired_managed_node_runtime(self) -> None:
+        script = (REPO_ROOT / "start.bat").read_text(encoding="utf-8")
+        self.assertNotIn(r".deps\store\nodejs-windows-x64", script)
+
     def _prepare_workspace(self, workspace: Path) -> None:
         shutil.copy2(REPO_ROOT / "start.bat", workspace / "start.bat")
         shutil.copy2(REPO_ROOT / ".tool-versions", workspace / ".tool-versions")

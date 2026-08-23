@@ -1,21 +1,37 @@
 #!/bin/sh
 set -eu
 
-# Development-only shortcut for building and starting the local Wails launcher.
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$SCRIPT_DIR"
 
-LAUNCHER_DIR="$SCRIPT_DIR/launcher"
+NODE_VERSION=""
+while read -r tool version _rest; do
+  if [ "$tool" = "nodejs" ]; then
+    NODE_VERSION="$version"
+    break
+  fi
+done < "$SCRIPT_DIR/.tool-versions"
 
-echo "[RayleaBot] Installing launcher dependencies..."
-pnpm --dir "$LAUNCHER_DIR" install --frozen-lockfile
-
-echo "[RayleaBot] Building launcher..."
-pnpm --dir "$LAUNCHER_DIR" run build:app
-
-if [ "${RAYLEA_START_SKIP_LAUNCH:-0}" = "1" ]; then
-  exit 0
+if [ -z "$NODE_VERSION" ]; then
+  echo "[RayleaBot] Startup failed: .tool-versions does not declare Node.js." >&2
+  exit 1
 fi
 
-echo "[RayleaBot] Starting launcher..."
-(cd "$LAUNCHER_DIR" && GOWORK=off go run -tags gtk3 .)
+NODE_BIN=$(command -v node 2>/dev/null || true)
+if [ -z "$NODE_BIN" ]; then
+  echo "[RayleaBot] Startup failed: Node.js $NODE_VERSION was not found." >&2
+  echo "[RayleaBot] Run python scripts/check-toolchain.py for installation guidance." >&2
+  exit 1
+fi
+
+NODE_ACTUAL=$("$NODE_BIN" --version 2>/dev/null || true)
+if [ "$NODE_ACTUAL" != "v$NODE_VERSION" ]; then
+  echo "[RayleaBot] Startup failed: Node.js version mismatch." >&2
+  echo "[RayleaBot] Current version: ${NODE_ACTUAL:-unavailable}" >&2
+  echo "[RayleaBot] Required version: v$NODE_VERSION" >&2
+  echo "[RayleaBot] Executable: $NODE_BIN" >&2
+  exit 1
+fi
+
+echo "[RayleaBot] Using Node.js $NODE_ACTUAL."
+exec "$NODE_BIN" scripts/start-dev.mjs "$@"

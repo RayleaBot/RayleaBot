@@ -29,10 +29,6 @@ if defined RAYLEA_START_NODE (
   set "NODE_BIN=%RAYLEA_START_NODE%"
 )
 
-if not defined NODE_BIN if exist "%~dp0.deps\store\nodejs-windows-x64\%NODE_VERSION%\node-v%NODE_VERSION%-win-x64\node.exe" (
-  set "NODE_BIN=%~dp0.deps\store\nodejs-windows-x64\%NODE_VERSION%\node-v%NODE_VERSION%-win-x64\node.exe"
-)
-
 if not defined NODE_BIN if exist "%USERPROFILE%\.local\opt\node-v%NODE_VERSION%-win-x64\node.exe" (
   set "NODE_BIN=%USERPROFILE%\.local\opt\node-v%NODE_VERSION%-win-x64\node.exe"
 )
