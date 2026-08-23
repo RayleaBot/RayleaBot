@@ -938,7 +938,7 @@ useToastFeedback(protocolIssueToast)
   color: var(--text-danger) !important;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1199px) {
   .dashboard-main-grid,
   .dashboard-bottom-grid {
     grid-template-columns: 1fr;

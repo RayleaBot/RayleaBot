@@ -1,4 +1,8 @@
-@media (max-width: 1200px) {
+@media (max-width: 1199px) {
+  .admin-layout__content {
+    padding: var(--space-lg);
+  }
+
   .content-grid {
     grid-template-columns: 1fr;
   }
@@ -75,9 +79,11 @@
     gap: 2px;
   }
 
-  .admin-layout__nav-trigger {
+  .admin-layout__nav-trigger.ant-btn {
     width: 44px;
     height: 44px;
+    min-width: 44px;
+    min-height: 44px;
     margin-inline-start: 6px;
   }
 
@@ -95,10 +101,12 @@
     padding: 12px;
   }
 
-  .admin-layout__icon-button,
+  .admin-layout__icon-button.ant-btn,
   .admin-layout__theme-menu.ant-btn {
     width: 44px;
     height: 44px;
+    min-width: 44px;
+    min-height: 44px;
   }
 
   .app-page__extra .ant-btn,
