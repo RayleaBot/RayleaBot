@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -17,6 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	"gopkg.in/yaml.v3"
 
 	_ "modernc.org/sqlite"
 )
@@ -36,19 +38,19 @@ type Command struct {
 func Run(cmd Command) int {
 	switch cmd.Name {
 	case "plugin":
-		return runPlugin(cmd)
+		return runLifecycleLocked(cmd, "开发插件同步", runPlugin)
 	case "config":
 		return runConfig(cmd)
 	case "reset-admin":
-		return runResetAdmin(cmd)
+		return runLifecycleLocked(cmd, "管理员凭据重置", runResetAdmin)
 	case "doctor":
 		return runDoctor(cmd)
 	case "cleanup":
-		return runCleanup(cmd)
+		return runLifecycleLocked(cmd, "运行数据清理", runCleanup)
 	case "backup":
-		return runBackup(cmd)
+		return runLifecycleLocked(cmd, "离线备份", runBackup)
 	case "restore":
-		return runRestore(cmd)
+		return runLifecycleLocked(cmd, "离线恢复", runRestore)
 	case "version":
 		return runVersion(cmd)
 	case "update":
@@ -75,14 +77,27 @@ func displayLogError(repoRoot string, err error, paths ...string) string {
 	return logpath.Error(repoRoot, err, paths...)
 }
 
-func resolveDatabasePath(configPath string) (string, error) {
-	configDir := filepath.Dir(configPath)
-	dbPath := filepath.Join(configDir, "..", "data", "rayleabot.db")
-	absPath, err := filepath.Abs(dbPath)
-	if err != nil {
-		return "", fmt.Errorf("resolve database path: %w", err)
+func resolveDatabasePath(cmd Command) (string, error) {
+	payload, err := os.ReadFile(cmd.ConfigPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return runtimepaths.ResolveDatabasePath(cmd.ConfigPath, "data/rayleabot.db")
 	}
-	return absPath, nil
+	if err != nil {
+		return "", fmt.Errorf("read database configuration: %w", err)
+	}
+	var document struct {
+		Database struct {
+			Path string `yaml:"path"`
+		} `yaml:"database"`
+	}
+	if err := yaml.Unmarshal(payload, &document); err != nil {
+		return "", fmt.Errorf("parse database configuration: %w", err)
+	}
+	databasePath := strings.TrimSpace(document.Database.Path)
+	if databasePath == "" {
+		databasePath = "data/rayleabot.db"
+	}
+	return runtimepaths.ResolveDatabasePath(cmd.ConfigPath, databasePath)
 }
 
 func runConfig(cmd Command) int {
@@ -136,16 +151,9 @@ func configActionLabel(action string) string {
 }
 
 func runConfigMutation(cmd Command, mutate func() error) (err error) {
-	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(cmd.ConfigPath)
+	lock, err := acquireLifecycleLock(cmd.ConfigPath)
 	if err != nil {
 		return err
-	}
-	lock, err := filelock.Acquire(lockPath)
-	if err != nil {
-		if errors.Is(err, filelock.ErrLocked) {
-			return errors.New("服务生命周期锁已被占用；请在停服窗口执行该命令")
-		}
-		return fmt.Errorf("acquire service lifecycle lock: %w", err)
 	}
 	defer func() {
 		err = errors.Join(err, lock.Close())
@@ -153,10 +161,39 @@ func runConfigMutation(cmd Command, mutate func() error) (err error) {
 	return mutate()
 }
 
+func acquireLifecycleLock(configPath string) (*filelock.Lock, error) {
+	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(configPath)
+	if err != nil {
+		return nil, err
+	}
+	lock, err := filelock.Acquire(lockPath)
+	if err != nil {
+		if errors.Is(err, filelock.ErrLocked) {
+			return nil, errors.New("服务生命周期锁已被占用；请在停服窗口执行该命令")
+		}
+		return nil, fmt.Errorf("acquire service lifecycle lock: %w", err)
+	}
+	return lock, nil
+}
+
+func runLifecycleLocked(cmd Command, action string, run func(Command) int) int {
+	lock, err := acquireLifecycleLock(cmd.ConfigPath)
+	if err != nil {
+		cmd.Logger.Error(action+"失败：请确认服务已停止", "err", err.Error())
+		return 1
+	}
+	code := run(cmd)
+	if closeErr := lock.Close(); closeErr != nil {
+		cmd.Logger.Error(action+"完成后释放生命周期锁失败", "err", closeErr.Error())
+		return 1
+	}
+	return code
+}
+
 func runResetAdmin(cmd Command) int {
 	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
-	databasePath, err := resolveDatabasePath(cmd.ConfigPath)
+	databasePath, err := resolveDatabasePath(cmd)
 	if err != nil {
 		cmd.Logger.Error("解析数据库路径失败："+configPathDisplay, "config_path", configPathDisplay, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 		return 1
@@ -184,51 +221,96 @@ func runResetAdmin(cmd Command) int {
 }
 
 func runCleanup(cmd Command) int {
-	configDir := filepath.Dir(cmd.ConfigPath)
-	repoRoot := filepath.Dir(configDir)
+	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	cfg, _, err := internalconfig.Load(cmd.ConfigPath, cmd.SchemaPath)
+	if err != nil {
+		cmd.Logger.Error("读取清理保留策略失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))
+		return 1
+	}
+	now := time.Now
+	if cmd.Now != nil {
+		now = cmd.Now
+	}
+	currentTime := now().UTC()
 	cleaned := 0
+	failed := false
 
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 	entries, err := os.ReadDir(installedRoot)
 	if err == nil {
 		for _, entry := range entries {
-			if !entry.IsDir() {
+			if !entry.IsDir() || !strings.HasPrefix(entry.Name(), ".plugin-install-") {
 				continue
 			}
-			name := entry.Name()
-			if len(name) > len(".plugin-install-") && name[:len(".plugin-install-")] == ".plugin-install-" {
-				orphanPath := filepath.Join(installedRoot, name)
-				orphanPathDisplay := displayLogPath(repoRoot, orphanPath)
-				if err := os.RemoveAll(orphanPath); err != nil {
-					cmd.Logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay, "path", orphanPathDisplay, "err", displayLogError(repoRoot, err, orphanPath))
-				} else {
-					cmd.Logger.Info("遗留插件安装目录已清理："+orphanPathDisplay, "path", orphanPathDisplay)
-					cleaned++
-				}
+			orphanPath := filepath.Join(installedRoot, entry.Name())
+			if !pathOlderThan(orphanPath, currentTime.Add(-24*time.Hour)) {
+				continue
+			}
+			orphanPathDisplay := displayLogPath(repoRoot, orphanPath)
+			if err := os.RemoveAll(orphanPath); err != nil {
+				cmd.Logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay, "path", orphanPathDisplay, "err", displayLogError(repoRoot, err, orphanPath))
+				failed = true
+			} else {
+				cmd.Logger.Info("遗留插件安装目录已清理："+orphanPathDisplay, "path", orphanPathDisplay)
+				cleaned++
 			}
 		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		cmd.Logger.Warn("读取插件安装目录失败", "err", displayLogError(repoRoot, err, installedRoot))
+		failed = true
 	}
 
-	cacheRoot := filepath.Join(repoRoot, "cache", "downloads")
-	if _, err := os.Stat(cacheRoot); err == nil {
-		cacheEntries, err := os.ReadDir(cacheRoot)
-		if err == nil {
-			for _, entry := range cacheEntries {
-				entryPath := filepath.Join(cacheRoot, entry.Name())
-				entryPathDisplay := displayLogPath(repoRoot, entryPath)
-				if err := os.RemoveAll(entryPath); err != nil {
-					cmd.Logger.Warn("清理下载缓存条目失败："+entryPathDisplay, "path", entryPathDisplay, "err", displayLogError(repoRoot, err, entryPath))
-				} else {
-					cleaned++
-				}
-			}
-			if len(cacheEntries) > 0 {
-				cacheRootDisplay := displayLogPath(repoRoot, cacheRoot)
-				cmd.Logger.Info(fmt.Sprintf("下载缓存已清理：%s，条目 %d 个", cacheRootDisplay, len(cacheEntries)), "path", cacheRootDisplay, "entries", len(cacheEntries))
-			}
-		}
+	downloadRetentionDays := cfg.Data.DownloadCacheRetentionDays
+	if downloadRetentionDays <= 0 {
+		downloadRetentionDays = 15
 	}
+	cleanedDownloads, downloadFailed := cleanupEntriesOlderThan(cmd, repoRoot, filepath.Join(repoRoot, "cache", "downloads"), currentTime.AddDate(0, 0, -downloadRetentionDays), "下载缓存")
+	cleaned += cleanedDownloads
+	failed = failed || downloadFailed
+
+	cleanedRender, renderFailed := cleanupEntriesOlderThan(cmd, repoRoot, filepath.Join(repoRoot, "data", "render"), currentTime.AddDate(0, 0, -7), "渲染缓存")
+	cleaned += cleanedRender
+	failed = failed || renderFailed
 
 	cmd.Logger.Info(fmt.Sprintf("清理完成，共处理 %d 项", cleaned), "cleaned_items", cleaned)
+	if failed {
+		return 1
+	}
 	return 0
+}
+
+func cleanupEntriesOlderThan(cmd Command, repoRoot, root string, cutoff time.Time, label string) (int, bool) {
+	entries, err := os.ReadDir(root)
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, false
+	}
+	if err != nil {
+		cmd.Logger.Warn("读取"+label+"目录失败", "err", displayLogError(repoRoot, err, root))
+		return 0, true
+	}
+	cleaned := 0
+	failed := false
+	for _, entry := range entries {
+		entryPath := filepath.Join(root, entry.Name())
+		if !pathOlderThan(entryPath, cutoff) {
+			continue
+		}
+		entryPathDisplay := displayLogPath(repoRoot, entryPath)
+		if err := os.RemoveAll(entryPath); err != nil {
+			cmd.Logger.Warn("清理"+label+"条目失败："+entryPathDisplay, "path", entryPathDisplay, "err", displayLogError(repoRoot, err, entryPath))
+			failed = true
+			continue
+		}
+		cleaned++
+	}
+	if cleaned > 0 {
+		rootDisplay := displayLogPath(repoRoot, root)
+		cmd.Logger.Info(fmt.Sprintf("%s已清理：%s，条目 %d 个", label, rootDisplay, cleaned), "path", rootDisplay, "entries", cleaned)
+	}
+	return cleaned, failed
+}
+
+func pathOlderThan(path string, cutoff time.Time) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.ModTime().After(cutoff)
 }

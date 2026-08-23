@@ -10,6 +10,7 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const targetDir = 'server/internal/config/contracts'
 
 const schemas = [
+  'backup-manifest.schema.json',
   'config.user.schema.json',
   'plugin-info.schema.json',
   'plugin-artifact.schema.json',

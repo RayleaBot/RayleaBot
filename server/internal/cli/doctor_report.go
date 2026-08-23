@@ -62,7 +62,7 @@ func runDoctor(cmd Command) int {
 }
 
 func BuildDoctorReport(cmd Command) DoctorReport {
-	issues := make([]DoctorIssue, 0, 8)
+	issues := make([]DoctorIssue, 0, 10)
 	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 
@@ -97,7 +97,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		})
 	}
 
-	databasePath, err := resolveDatabasePath(cmd.ConfigPath)
+	databasePath, err := resolveDatabasePath(cmd)
 	if err != nil {
 		issues = append(issues, DoctorIssue{
 			Code:        "database.path_unresolvable",
@@ -130,6 +130,7 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		issues = append(issues, depsManifestPlatformIssue(manifest, currentPlatform))
 		issues = append(issues, chromiumMetadataIssue(manifest, currentPlatform))
 	}
+	issues = append(issues, platformDoctorIssues()...)
 
 	report := DoctorReport{Issues: issues}
 	summary, err := recovery.LoadSummary(repoRoot)

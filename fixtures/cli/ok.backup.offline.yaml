@@ -1,10 +1,9 @@
 contract: contracts/cli-commands.yaml#commands.backup
-case: edge
+case: ok
 input:
   command: raylea backup
   mode: offline
 expect:
   valid: true
-  exit_code: 1
-  task_model: true
-  task_type: backup.create
+  exit_code: 0
+  task_model: false

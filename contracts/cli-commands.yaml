@@ -1,6 +1,6 @@
 version: 1
 description: >
-  v0.1 CLI 子命令正式契约。CLI 是本地离线恢复与运维入口，
+  RayleaBot CLI 子命令正式契约。CLI 是本地离线恢复与运维入口，
   不承担常规在线管理面职责。命令由主程序提供受控子命令，
   文档中统一记为 raylea <subcommand>。
 
@@ -8,15 +8,17 @@ x-fixtures:
   - fixtures/cli/ok.reset-admin.offline.yaml
   - fixtures/cli/invalid.reset-admin.online.yaml
   - fixtures/cli/edge.reset-admin.exit-code-1.yaml
-  - fixtures/cli/ok.backup.online.yaml
-  - fixtures/cli/edge.backup.offline-exit-code-1.yaml
+  - fixtures/cli/ok.backup.offline.yaml
+  - fixtures/cli/invalid.backup.online.yaml
   - fixtures/cli/ok.restore.offline.yaml
   - fixtures/cli/invalid.restore.online.yaml
   - fixtures/cli/edge.restore.exit-code-1.yaml
   - fixtures/cli/ok.doctor.online.yaml
   - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
-  - fixtures/cli/ok.cleanup.online.yaml
-  - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
+  - fixtures/cli/ok.doctor.windows-long-paths-enabled.yaml
+  - fixtures/cli/edge.doctor.windows-long-paths-disabled.yaml
+  - fixtures/cli/ok.cleanup.offline.yaml
+  - fixtures/cli/invalid.cleanup.online.yaml
   - fixtures/cli/ok.version-json.yaml
   - fixtures/cli/ok.update-check-json.yaml
   - fixtures/cli/ok.update-verify.yaml
@@ -221,23 +223,21 @@ commands:
     name: backup
     summary: 导出恢复用备份包。
     availability:
-      online: true
+      online: false
       offline: true
     description: >
-      导出 config/、data/ 与 plugins/installed/ 的一致性快照为
-      可恢复备份包。在线执行时通过 task 模型异步运行（task_type:
-      backup.create）；停服后执行时直接同步完成。在线备份为尽力
-      一致性，追求强一致性时建议停服后执行。
+      在停服窗口导出 config/user.yaml、SQLite 一致性快照、data/ 下的
+      非数据库运行数据与 plugins/installed/，同步生成可恢复备份包。
+      运行中的在线备份只通过管理 API 创建 backup.create 异步任务。
     exit_codes:
       0: 备份成功
       1: 备份失败
-    task_model: true
-    task_type: backup.create
-    cancellable: true
+    task_model: false
+    cancellable: false
     implemented: true
     x-fixtures:
-      - fixtures/cli/ok.backup.online.yaml
-      - fixtures/cli/edge.backup.offline-exit-code-1.yaml
+      - fixtures/cli/ok.backup.offline.yaml
+      - fixtures/cli/invalid.backup.online.yaml
 
   restore:
     name: restore
@@ -259,8 +259,7 @@ commands:
     exit_codes:
       0: 恢复成功
       1: 恢复包格式错误或恢复失败
-    task_model: true
-    task_type: restore.apply
+    task_model: false
     cancellable: false
     implemented: true
     x-fixtures:
@@ -270,36 +269,50 @@ commands:
 
   doctor:
     name: doctor
-    summary: 执行本地环境与资源完整性检查。
+    summary: 执行本地配置、SQLite 快速完整性与依赖元数据检查。
     availability:
       online: true
       offline: true
     description: >
-      检查 Chromium 资源完整性、.deps/ v4 清单一致性、SQLite
-      数据库可打开性、基础 schema、已安装插件 artifact 与退役
-      插件运行时配置键。存在恢复摘要时，doctor 复用同一份
-      recovery_summary 输出，帮助离线排查恢复后的资源、插件与
-      人工处理项。Windows 上额外检查 LongPathsEnabled 注册表项。
+      检查配置文件可访问性、配置 schema 可用性、SQLite quick_check、
+      .deps/ v4 清单的当前平台项与 Chromium 元数据，以及退役插件运行时
+      配置键。存在恢复摘要时附带 recovery_summary；Windows 上额外检查
+      LongPathsEnabled 注册表项。
     exit_codes:
       0: 所有检查通过
       1: 存在 WARN 或 ERROR 级别问题
     task_model: false
     cancellable: false
     implemented: true
+    x-doctor-issues:
+      windows_long_paths:
+        registry_key: HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled
+        outcomes:
+          enabled:
+            code: windows.long_paths_enabled
+            severity: ok
+          disabled:
+            code: windows.long_paths_disabled
+            severity: warning
+          unavailable:
+            code: windows.long_paths_unavailable
+            severity: warning
     x-fixtures:
       - fixtures/cli/ok.doctor.online.yaml
       - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
+      - fixtures/cli/ok.doctor.windows-long-paths-enabled.yaml
+      - fixtures/cli/edge.doctor.windows-long-paths-disabled.yaml
 
   cleanup:
     name: cleanup
     summary: 回收可重建缓存与遗留临时目录。
     availability:
-      online: true
+      online: false
       offline: true
     description: >
-      回收 cache/downloads/、过期渲染缓存与失败安装残留临时目录。
-      不触碰 config/、状态库和插件业务数据。在线执行时跳过当前
-      活跃安装 / 渲染任务占用的缓存与临时文件。
+      在停服窗口回收超过 data.download_cache_retention_days 的
+      cache/downloads/ 条目、超过 7 天的 data/render/ 缓存与超过
+      24 小时的失败安装临时目录。不触碰 config/、状态库和插件业务数据。
     exit_codes:
       0: 清理成功
       1: 清理过程中遇到错误
@@ -307,5 +320,5 @@ commands:
     cancellable: false
     implemented: true
     x-fixtures:
-      - fixtures/cli/ok.cleanup.online.yaml
-      - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
+      - fixtures/cli/ok.cleanup.offline.yaml
+      - fixtures/cli/invalid.cleanup.online.yaml

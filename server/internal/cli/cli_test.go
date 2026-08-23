@@ -3,15 +3,19 @@ package cli
 import (
 	"archive/zip"
 	"bytes"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -106,7 +110,8 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
-	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go"}`)
+	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"2","version":"1.0.0","platforms":["windows-x64"]}`)
+	writeFile(t, filepath.Join(pluginsDir, "artifact.json"), `{"artifact_version":"1"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runBackup(Command{
@@ -189,6 +194,9 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 		}
 		if len(manifest.Directories) == 0 {
 			t.Error("manifest directories should not be empty")
+		}
+		if err := recovery.ValidateBackupManifest(manifest); err != nil {
+			t.Fatalf("manifest does not satisfy formal schema: %v", err)
 		}
 	}
 }
@@ -445,9 +453,17 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 	w := zip.NewWriter(outFile)
 
 	manifest := recovery.BackupManifest{
-		Version: recovery.BackupManifestVersion, CreatedAt: "2025-01-01T00:00:00Z",
+		Version:               recovery.BackupManifestVersion,
+		CreatedAt:             "2025-01-01T00:00:00Z",
+		CoreVersion:           "0.2.0",
+		ConfigSchemaVersion:   "3",
+		DBSchemaVersion:       "000004",
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
+		Consistency:           "offline",
+		Directories: []recovery.BackupManifestDirectory{
+			recovery.Directory("config/user.yaml", "config"),
+		},
 	}
 	data, err := json.Marshal(manifest)
 	if err != nil {
@@ -579,6 +595,189 @@ func TestConfigMutatingCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 	}
 }
 
+func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	writeFile(t, configPath, "database:\n  path: data/rayleabot.db\n")
+	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(configPath)
+	if err != nil {
+		t.Fatalf("resolve lifecycle lock: %v", err)
+	}
+	lock, err := filelock.Acquire(lockPath)
+	if err != nil {
+		t.Fatalf("acquire lifecycle lock: %v", err)
+	}
+	defer lock.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	commands := []Command{
+		{Name: "reset-admin", ConfigPath: configPath, Logger: logger},
+		{Name: "backup", ConfigPath: configPath, Logger: logger},
+		{Name: "restore", ConfigPath: configPath, Logger: logger, Args: []string{"fixture.zip"}},
+		{Name: "cleanup", ConfigPath: configPath, Logger: logger},
+		{Name: "plugin", ConfigPath: configPath, Logger: logger, Args: []string{"dev-sync"}},
+	}
+	for _, command := range commands {
+		if code := Run(command); code != 1 {
+			t.Fatalf("%s exit code = %d, want 1 while lifecycle lock is held", command.Name, code)
+		}
+	}
+}
+
+func TestConfiguredDatabasePathDrivesResetBackupAndDoctor(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	customDatabasePath := filepath.Join(repoRoot, "custom", "state.db")
+	defaultDatabasePath := filepath.Join(repoRoot, "data", "rayleabot.db")
+	writeFile(t, configPath, "database:\n  path: custom/state.db\n")
+	seedAuthAndPluginMarker(t, customDatabasePath, "custom-marker")
+	seedAuthAndPluginMarker(t, defaultDatabasePath, "default-marker")
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	command := Command{ConfigPath: configPath, Logger: logger}
+	if code := runResetAdmin(command); code != 0 {
+		t.Fatalf("runResetAdmin exit code = %d", code)
+	}
+	if got := countRows(t, customDatabasePath, "auth_bootstrap_state"); got != 0 {
+		t.Fatalf("custom database bootstrap rows = %d, want 0", got)
+	}
+	if got := countRows(t, defaultDatabasePath, "auth_bootstrap_state"); got != 1 {
+		t.Fatalf("default database bootstrap rows = %d, want 1", got)
+	}
+
+	if code := runBackup(command); code != 0 {
+		t.Fatalf("runBackup exit code = %d", code)
+	}
+	backupEntries, err := os.ReadDir(filepath.Join(repoRoot, "backups"))
+	if err != nil || len(backupEntries) != 1 {
+		t.Fatalf("unexpected backup entries: %#v, %v", backupEntries, err)
+	}
+	reader, err := zip.OpenReader(filepath.Join(repoRoot, "backups", backupEntries[0].Name()))
+	if err != nil {
+		t.Fatalf("open backup: %v", err)
+	}
+	extracted := filepath.Join(t.TempDir(), "state.db")
+	extractZipEntry(t, reader.File, "data/rayleabot.db", extracted)
+	reader.Close()
+	if got := countPluginMarker(t, extracted); got != "custom-marker" {
+		t.Fatalf("backup marker = %q, want custom-marker", got)
+	}
+
+	report := BuildDoctorReport(command)
+	if issue := findDoctorIssue(report.Issues, "database.ok"); issue == nil {
+		t.Fatalf("doctor did not inspect configured database: %#v", report.Issues)
+	}
+}
+
+func TestCleanupOnlyRemovesExpiredRecoverableEntries(t *testing.T) {
+	t.Parallel()
+
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	if _, _, err := internalconfig.Init(configPath, ""); err != nil {
+		t.Fatalf("initialize config: %v", err)
+	}
+	now := time.Date(2026, 8, 23, 8, 0, 0, 0, time.UTC)
+	old := now.AddDate(0, 0, -30)
+	recent := now.Add(-time.Hour)
+
+	oldDownload := filepath.Join(repoRoot, "cache", "downloads", "old.bin")
+	recentDownload := filepath.Join(repoRoot, "cache", "downloads", "recent.bin")
+	oldRender := filepath.Join(repoRoot, "data", "render", "old.png")
+	recentRender := filepath.Join(repoRoot, "data", "render", "recent.png")
+	oldInstall := filepath.Join(repoRoot, "plugins", "installed", ".plugin-install-old")
+	recentInstall := filepath.Join(repoRoot, "plugins", "installed", ".plugin-install-recent")
+	for _, path := range []string{oldDownload, recentDownload, oldRender, recentRender, filepath.Join(oldInstall, "artifact.json"), filepath.Join(recentInstall, "artifact.json")} {
+		writeFile(t, path, "fixture")
+	}
+	for _, item := range []struct {
+		path string
+		when time.Time
+	}{
+		{oldDownload, old}, {recentDownload, recent}, {oldRender, old}, {recentRender, recent},
+		{oldInstall, old}, {recentInstall, recent},
+	} {
+		if err := os.Chtimes(item.path, item.when, item.when); err != nil {
+			t.Fatalf("set fixture timestamp %s: %v", item.path, err)
+		}
+	}
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if code := runCleanup(Command{ConfigPath: configPath, Logger: logger, Now: func() time.Time { return now }}); code != 0 {
+		t.Fatalf("runCleanup exit code = %d", code)
+	}
+	for _, removed := range []string{oldDownload, oldRender, oldInstall} {
+		if _, err := os.Stat(removed); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("expired entry still exists: %s", removed)
+		}
+	}
+	for _, retained := range []string{recentDownload, recentRender, recentInstall} {
+		if _, err := os.Stat(retained); err != nil {
+			t.Fatalf("recent entry was removed: %s: %v", retained, err)
+		}
+	}
+}
+
+func seedAuthAndPluginMarker(t *testing.T, databasePath, marker string) {
+	t.Helper()
+	store, err := storage.Open(databasePath)
+	if err != nil {
+		t.Fatalf("open fixture database %s: %v", databasePath, err)
+	}
+	repository, err := auth.NewSQLiteRepository(store)
+	if err != nil {
+		store.Close()
+		t.Fatalf("create auth repository: %v", err)
+	}
+	manager, err := auth.NewManager(auth.Config{SessionTTLDays: 1, MaxSessions: 2}, auth.WithRepository(repository))
+	if err != nil {
+		store.Close()
+		t.Fatalf("create auth manager: %v", err)
+	}
+	if _, _, err := manager.Bootstrap("admin", "fixture-only-secret"); err != nil {
+		store.Close()
+		t.Fatalf("bootstrap fixture database: %v", err)
+	}
+	if _, err := store.Write.Exec(`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES (?, 'enabled', '2026-08-23T00:00:00Z')`, marker); err != nil {
+		store.Close()
+		t.Fatalf("seed plugin marker: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close fixture database: %v", err)
+	}
+}
+
+func countRows(t *testing.T, databasePath, table string) int {
+	t.Helper()
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open database %s: %v", databasePath, err)
+	}
+	defer database.Close()
+	var count int
+	if err := database.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
+		t.Fatalf("count %s rows: %v", table, err)
+	}
+	return count
+}
+
+func countPluginMarker(t *testing.T, databasePath string) string {
+	t.Helper()
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatalf("open extracted database: %v", err)
+	}
+	defer database.Close()
+	var marker string
+	if err := database.QueryRow(`SELECT plugin_id FROM plugin_instances ORDER BY plugin_id LIMIT 1`).Scan(&marker); err != nil {
+		t.Fatalf("read plugin marker: %v", err)
+	}
+	return marker
+}
+
 func TestRestoreRequiresExactlyOneBackupPath(t *testing.T) {
 	t.Parallel()
 
@@ -626,6 +825,38 @@ func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
 	issues, ok := decoded["issues"].([]any)
 	if !ok || len(issues) == 0 {
 		t.Fatalf("encoded doctor report must expose issues: %#v", decoded)
+	}
+}
+
+func TestLongPathsDoctorIssue(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		value        uint64
+		readErr      error
+		wantCode     string
+		wantSeverity string
+	}{
+		{name: "enabled", value: 1, wantCode: "windows.long_paths_enabled", wantSeverity: "ok"},
+		{name: "disabled", value: 0, wantCode: "windows.long_paths_disabled", wantSeverity: "warning"},
+		{name: "read failure", readErr: errors.New("access denied"), wantCode: "windows.long_paths_unavailable", wantSeverity: "warning"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			issue := longPathsDoctorIssue(tt.value, tt.readErr)
+			if issue.Code != tt.wantCode || issue.Severity != tt.wantSeverity {
+				t.Fatalf("longPathsDoctorIssue() = %#v, want code %q and severity %q", issue, tt.wantCode, tt.wantSeverity)
+			}
+			if issue.Summary == "" {
+				t.Fatal("longPathsDoctorIssue() must provide a summary")
+			}
+			if tt.wantSeverity == "warning" && (!strings.Contains(issue.Remediation, "LongPathsEnabled") || !strings.Contains(issue.Remediation, "重启")) {
+				t.Fatalf("warning remediation must explain the registry setting and restart requirement: %#v", issue)
+			}
+		})
 	}
 }
 

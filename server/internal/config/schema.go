@@ -14,6 +14,7 @@ import (
 
 const (
 	ConfigUserSchemaID           = "builtin://contracts/config.user.schema.json"
+	BackupManifestSchemaID       = "builtin://contracts/backup-manifest.schema.json"
 	PluginInfoSchemaID           = "builtin://contracts/plugin-info.schema.json"
 	PluginArtifactSchemaID       = "builtin://contracts/plugin-artifact.schema.json"
 	PluginStoreCatalogSchemaID   = "builtin://contracts/plugin-store-catalog.schema.json"
@@ -25,6 +26,12 @@ const (
 //
 //go:embed contracts/config.user.schema.json
 var ConfigUserSchemaJSON []byte
+
+// BackupManifestSchemaJSON mirrors contracts/backup-manifest.schema.json; keep
+// the copy in sync via scripts/generate-runtime-schemas.mjs.
+//
+//go:embed contracts/backup-manifest.schema.json
+var BackupManifestSchemaJSON []byte
 
 // PluginInfoSchemaJSON mirrors contracts/plugin-info.schema.json; keep the
 // copy in sync via scripts/generate-runtime-schemas.mjs.

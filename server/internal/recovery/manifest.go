@@ -48,6 +48,22 @@ func Directory(path, label string) BackupManifestDirectory {
 	return BackupManifestDirectory{Label: label, Path: filepath.ToSlash(path)}
 }
 
+func ValidateBackupManifest(manifest BackupManifest) error {
+	payload, err := json.Marshal(manifest)
+	if err != nil {
+		return err
+	}
+	var document any
+	if err := json.Unmarshal(payload, &document); err != nil {
+		return err
+	}
+	validator, err := config.CompileJSON(config.BackupManifestSchemaID, config.BackupManifestSchemaJSON)
+	if err != nil {
+		return err
+	}
+	return validator.Validate(document)
+}
+
 func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 	entries, err := os.ReadDir(pluginsRoot)
 	if err != nil {

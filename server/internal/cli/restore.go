@@ -55,6 +55,10 @@ func runRestore(cmd Command) int {
 		cmd.Logger.Error("备份压缩包缺少 backup-manifest.json："+backupPathDisplay, "path", backupPathDisplay)
 		return 1
 	}
+	if err := recovery.ValidateBackupManifest(manifest); err != nil {
+		cmd.Logger.Error("备份清单不符合正式契约："+backupPathDisplay, "path", backupPathDisplay, "err", err.Error())
+		return 1
+	}
 	summary := recovery.EvaluateRestore(manifest, repoRoot)
 	summaryPath := recovery.SummaryPath(repoRoot)
 	summaryPathDisplay := displayLogPath(repoRoot, summaryPath)
@@ -70,6 +74,20 @@ func runRestore(cmd Command) int {
 		cmd.Logger.Error("备份版本不支持："+manifest.Version, "version", manifest.Version)
 		return 1
 	}
+	databaseEntries := make(map[string]struct{})
+	for _, directory := range manifest.Directories {
+		if directory.Label == "database" {
+			databaseEntries[path.Clean(strings.ReplaceAll(directory.Path, "\\", "/"))] = struct{}{}
+		}
+	}
+	databasePath := ""
+	if len(databaseEntries) > 0 {
+		databasePath, err = resolveDatabasePath(cmd)
+		if err != nil {
+			cmd.Logger.Error("解析恢复目标数据库路径失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))
+			return 1
+		}
+	}
 
 	cmd.Logger.Info("开始从备份恢复："+backupPathDisplay,
 		"path", backupPathDisplay,
@@ -84,7 +102,7 @@ func runRestore(cmd Command) int {
 			continue
 		}
 
-		targetPath, ok := restoreTargetPath(repoRoot, f.Name)
+		targetPath, ok := restoreManifestTargetPath(repoRoot, databasePath, databaseEntries, f.Name)
 		if !ok {
 			cmd.Logger.Warn("备份条目路径不安全，已跳过："+f.Name, "name", f.Name)
 			continue
@@ -111,6 +129,17 @@ func runRestore(cmd Command) int {
 		"recovery_summary", summaryPathDisplay,
 	)
 	return 0
+}
+
+func restoreManifestTargetPath(repoRoot, databasePath string, databaseEntries map[string]struct{}, entryName string) (string, bool) {
+	normalized := path.Clean(strings.ReplaceAll(strings.TrimSpace(entryName), "\\", "/"))
+	if _, isDatabase := databaseEntries[normalized]; isDatabase {
+		if strings.TrimSpace(databasePath) == "" || strings.HasSuffix(strings.TrimSpace(entryName), "/") {
+			return "", false
+		}
+		return filepath.Clean(databasePath), true
+	}
+	return restoreTargetPath(repoRoot, entryName)
 }
 
 func restoreTargetPath(repoRoot string, entryName string) (string, bool) {

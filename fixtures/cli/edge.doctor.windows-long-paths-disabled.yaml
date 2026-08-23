@@ -1,0 +1,15 @@
+contract: contracts/cli-commands.yaml#commands.doctor
+case: edge
+input:
+  command: raylea doctor
+  mode: offline
+  platform: windows
+  registry:
+    LongPathsEnabled: 0
+expect:
+  valid: true
+  exit_code: 1
+  task_model: false
+  issue:
+    code: windows.long_paths_disabled
+    severity: warning

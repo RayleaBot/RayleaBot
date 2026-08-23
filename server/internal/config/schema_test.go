@@ -112,6 +112,11 @@ func TestEmbeddedRuntimeSchemasMatchFormalContracts(t *testing.T) {
 		embedded     []byte
 	}{
 		{
+			name:         "backup manifest",
+			contractPath: "../../../contracts/backup-manifest.schema.json",
+			embedded:     BackupManifestSchemaJSON,
+		},
+		{
 			name:         "config user",
 			contractPath: filepath.Join(repoRoot, "contracts", "config.user.schema.json"),
 			embedded:     ConfigUserSchemaJSON,

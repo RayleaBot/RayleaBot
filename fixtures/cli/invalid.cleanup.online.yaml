@@ -1,9 +1,9 @@
 contract: contracts/cli-commands.yaml#commands.cleanup
-case: edge
+case: invalid
 input:
   command: raylea cleanup
-  mode: offline
+  mode: online
 expect:
-  valid: true
+  valid: false
   exit_code: 1
   task_model: false
