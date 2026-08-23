@@ -43,6 +43,14 @@ func ResolveRuntimeRoot(configPath string) (string, error) {
 	return recovery.RepoRootFromConfigPath(absoluteConfigPath), nil
 }
 
+func ResolveConfigLifecycleLockPath(configPath string) (string, error) {
+	absoluteConfigPath, err := filepath.Abs(configPath)
+	if err != nil {
+		return "", fmt.Errorf("resolve config lifecycle lock from %s: %w", configPath, err)
+	}
+	return filepath.Clean(absoluteConfigPath) + ".runtime.lock", nil
+}
+
 type PluginDiscoveryOptions struct {
 	ConfigPath       string
 	PluginRepoRoot   string

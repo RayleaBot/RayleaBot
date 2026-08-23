@@ -13,7 +13,9 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -534,17 +536,62 @@ func TestConfigInitNormalizeValidateCommands(t *testing.T) {
 	}
 }
 
-func TestRestoreRequiresBackupPath(t *testing.T) {
+func TestConfigRequiresExactlyOneSubcommand(t *testing.T) {
 	t.Parallel()
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	code := runRestore(Command{
-		ConfigPath: filepath.Join(t.TempDir(), "config", "user.yaml"),
-		Logger:     logger,
-		Args:       []string{},
-	})
-	if code != 1 {
-		t.Fatalf("restore should fail with exit code 1 when no path given, got %d", code)
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	for _, args := range [][]string{nil, {"validate", "unexpected"}} {
+		if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: args}); code != 1 {
+			t.Fatalf("config args %v should fail with exit code 1, got %d", args, code)
+		}
+	}
+}
+
+func TestConfigMutatingCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(configPath)
+	if err != nil {
+		t.Fatalf("resolve config lifecycle lock: %v", err)
+	}
+	lock, err := filelock.Acquire(lockPath)
+	if err != nil {
+		t.Fatalf("acquire config lifecycle lock: %v", err)
+	}
+	defer lock.Close()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: ::1\n  port: 8080\n")
+
+	for _, action := range []string{"init", "normalize"} {
+		if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{action}}); code != 1 {
+			t.Fatalf("config %s exit code = %d, want 1 while lifecycle lock is held", action, code)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); err == nil {
+		t.Fatalf("config init must not create default.yaml while lifecycle lock is held")
+	}
+
+	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"validate"}}); code != 0 {
+		t.Fatalf("config validate exit code = %d, want 0 while lifecycle lock is held", code)
+	}
+}
+
+func TestRestoreRequiresExactlyOneBackupPath(t *testing.T) {
+	t.Parallel()
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	for _, args := range [][]string{nil, {"first.zip", "second.zip"}} {
+		code := runRestore(Command{
+			ConfigPath: filepath.Join(t.TempDir(), "config", "user.yaml"),
+			Logger:     logger,
+			Args:       args,
+		})
+		if code != 1 {
+			t.Fatalf("restore args %v should fail with exit code 1, got %d", args, code)
+		}
 	}
 }
 

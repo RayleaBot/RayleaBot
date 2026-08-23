@@ -8,6 +8,7 @@
 /logs/
 /backups/
 /config/user.yaml
+*.runtime.lock
 /plugin-workspace.local.json
 /plugins/installed/*
 !/plugins/installed/.gitkeep

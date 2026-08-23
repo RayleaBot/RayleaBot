@@ -69,6 +69,12 @@ func (a *App) Close() error {
 		}
 		a.platform.Storage = nil
 	}
+	if a != nil && a.configLifecycleLock != nil {
+		if err := a.configLifecycleLock.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("release config lifecycle lock: %w", err))
+		}
+		a.configLifecycleLock = nil
+	}
 	return errors.Join(errs...)
 }
 

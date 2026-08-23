@@ -14,8 +14,8 @@ import (
 )
 
 func runRestore(cmd Command) int {
-	if len(cmd.Args) == 0 {
-		cmd.Logger.Error("恢复备份失败：缺少备份文件路径，用法 raylea-server restore <path>")
+	if len(cmd.Args) != 1 {
+		cmd.Logger.Error("恢复备份失败：用法 raylea restore <backup-path>")
 		return 1
 	}
 	configDir := filepath.Dir(cmd.ConfigPath)

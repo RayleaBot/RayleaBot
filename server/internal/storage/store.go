@@ -11,6 +11,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 )
 
@@ -31,7 +32,7 @@ type Store struct {
 	Path  string
 	Read  *sql.DB
 	Write *sql.DB
-	lock  *dbFileLock
+	lock  *filelock.Lock
 }
 
 func WithBusyTimeout(timeout time.Duration) Option {
@@ -64,9 +65,13 @@ func Open(path string, opts ...Option) (*Store, error) {
 		return nil, fmt.Errorf("create sqlite parent directory: %w", err)
 	}
 
-	lock, err := acquireDBFileLock(databaseLockPath(path))
+	lockPath := databaseLockPath(path)
+	lock, err := filelock.Acquire(lockPath)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, filelock.ErrLocked) {
+			return nil, fmt.Errorf("sqlite database is already in use: %s", lockPath)
+		}
+		return nil, fmt.Errorf("lock sqlite database: %w", err)
 	}
 
 	store, err := openWithProtection(path, options, lock)

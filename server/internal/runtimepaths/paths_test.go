@@ -25,3 +25,17 @@ func TestResolveDatabasePathUsesTopLevelDataRoot(t *testing.T) {
 		t.Fatalf("resolved database path = %s, want %s", resolved, expected)
 	}
 }
+
+func TestResolveConfigLifecycleLockPathFollowsConfigFile(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	resolved, err := ResolveConfigLifecycleLockPath(configPath)
+	if err != nil {
+		t.Fatalf("resolve config lifecycle lock path: %v", err)
+	}
+	want := configPath + ".runtime.lock"
+	if resolved != want {
+		t.Fatalf("resolved lock path = %s, want %s", resolved, want)
+	}
+}

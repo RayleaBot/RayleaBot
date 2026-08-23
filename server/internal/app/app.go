@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -9,10 +10,12 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -51,6 +54,7 @@ type App struct {
 
 	metrics                 *MetricsRegistry
 	metricsRuntimeGaugeStop func()
+	configLifecycleLock     *filelock.Lock
 }
 
 func New(options Options) (*App, error) {
@@ -84,6 +88,23 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	if err := auth.ValidateOpaqueToken(options.LauncherControlToken); err != nil {
 		return nil, fmt.Errorf("validate launcher control token: %w", err)
 	}
+	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(options.ConfigPath)
+	if err != nil {
+		return nil, err
+	}
+	configLifecycleLock, err := filelock.Acquire(lockPath)
+	if err != nil {
+		if errors.Is(err, filelock.ErrLocked) {
+			return nil, fmt.Errorf("config is already in use by a running service: %s", options.ConfigPath)
+		}
+		return nil, fmt.Errorf("acquire config lifecycle lock: %w", err)
+	}
+	lockTransferred := false
+	defer func() {
+		if !lockTransferred {
+			_ = configLifecycleLock.Close()
+		}
+	}()
 
 	buildState, err := initializeAppBuild(options)
 	if err != nil {
@@ -208,6 +229,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		runtimes:                serviceBuild.Runtimes,
 		metrics:                 metricRegistry,
 		metricsRuntimeGaugeStop: stopRuntimeStateGauge,
+		configLifecycleLock:     configLifecycleLock,
 	}
 	configureAppRuntimeCallbacks(application)
 	httpState := buildHTTP(httpBuildDeps{
@@ -226,6 +248,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	application.process.router = httpState.Router
 	application.process.server = httpState.Server
 	application.httpHandlers = httpState.Handlers
+	lockTransferred = true
 	return application, nil
 }
 

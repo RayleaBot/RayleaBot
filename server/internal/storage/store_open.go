@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 )
 
-func openWithProtection(path string, options options, lock *dbFileLock) (*Store, error) {
+func openWithProtection(path string, options options, lock *filelock.Lock) (*Store, error) {
 	if databaseFileExists(path) {
 		if err := QuickCheckPath(context.Background(), path); err != nil {
 			if !isSQLiteCorruptionError(err) {
@@ -33,7 +35,7 @@ func openWithProtection(path string, options options, lock *dbFileLock) (*Store,
 	return nil, err
 }
 
-func openConfigured(path string, options options, lock *dbFileLock) (*Store, error) {
+func openConfigured(path string, options options, lock *filelock.Lock) (*Store, error) {
 	writeDB, err := sql.Open(sqliteDriverName, path)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite write handle: %w", err)

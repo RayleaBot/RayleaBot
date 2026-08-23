@@ -2,6 +2,7 @@ package cli
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,9 +12,11 @@ import (
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 
 	_ "modernc.org/sqlite"
 )
@@ -83,7 +86,7 @@ func resolveDatabasePath(configPath string) (string, error) {
 }
 
 func runConfig(cmd Command) int {
-	if len(cmd.Args) == 0 {
+	if len(cmd.Args) != 1 {
 		fmt.Fprintln(os.Stderr, "可用子命令: config init, config normalize, config validate")
 		return 1
 	}
@@ -92,9 +95,15 @@ func runConfig(cmd Command) int {
 	var err error
 	switch action {
 	case "init":
-		_, _, err = internalconfig.Init(cmd.ConfigPath, cmd.SchemaPath)
+		err = runConfigMutation(cmd, func() error {
+			_, _, mutationErr := internalconfig.Init(cmd.ConfigPath, cmd.SchemaPath)
+			return mutationErr
+		})
 	case "normalize":
-		_, _, err = internalconfig.Normalize(cmd.ConfigPath, cmd.SchemaPath)
+		err = runConfigMutation(cmd, func() error {
+			_, _, mutationErr := internalconfig.Normalize(cmd.ConfigPath, cmd.SchemaPath)
+			return mutationErr
+		})
 	case "validate":
 		_, _, err = internalconfig.Validate(cmd.ConfigPath, cmd.SchemaPath)
 	default:
@@ -124,6 +133,24 @@ func configActionLabel(action string) string {
 	default:
 		return action
 	}
+}
+
+func runConfigMutation(cmd Command, mutate func() error) (err error) {
+	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(cmd.ConfigPath)
+	if err != nil {
+		return err
+	}
+	lock, err := filelock.Acquire(lockPath)
+	if err != nil {
+		if errors.Is(err, filelock.ErrLocked) {
+			return errors.New("服务生命周期锁已被占用；请在停服窗口执行该命令")
+		}
+		return fmt.Errorf("acquire service lifecycle lock: %w", err)
+	}
+	defer func() {
+		err = errors.Join(err, lock.Close())
+	}()
+	return mutate()
 }
 
 func runResetAdmin(cmd Command) int {
