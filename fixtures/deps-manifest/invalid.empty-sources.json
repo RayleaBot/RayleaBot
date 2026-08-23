@@ -4,14 +4,14 @@
     {
       "id": "chromium-linux-x64",
       "kind": "chromium",
-      "version": "3.14.7",
+      "version": "152.0.7977.42",
       "platform": "linux-x64",
       "sources": [],
-      "sha256": "c71033dc2e0d1f73d3ee34d174090dbe6f96fbc6226ec636f7968b1d7419afbe",
-      "archive_format": "tar.gz",
+      "sha256": "cb77f4781cad7d5e06fcc78b4476e6a6375616e7278dc313abaa9db22ed4674e",
+      "archive_format": "zip",
       "entrypoints": {
         "browser": [
-          "python/install/bin/python3.12"
+          "chrome-linux64/chrome"
         ]
       }
     }
