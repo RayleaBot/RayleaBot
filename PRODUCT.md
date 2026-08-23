@@ -1,8 +1,10 @@
 # Product
 
-## Register
+<!-- impeccable:product-schema 1 -->
 
-product
+## Platform
+
+web
 
 ## Users
 
@@ -12,7 +14,23 @@ RayleaBot 管理面面向个人开发者、自用机器人部署者和开源协�
 
 RayleaBot 为自托管聊天机器人提供清晰、可验证、可恢复的本地管理体验。界面应帮助操作者快速判断系统是否健康、下一步是否需要人工处理，以及操作完成后正式状态是否已经生效。
 
-## Brand Personality
+## Positioning
+
+RayleaBot 以 contract 驱动的本地控制面连接 OneBot11、插件运行时、Web 管理面和桌面启动器。服务端持有正式状态，其他界面只展示可丢弃投影，使配置、诊断、长任务和恢复结果能够从同一来源核实。
+
+## Operating Context
+
+RayleaBot 由个人开发者或开源协作者部署在自有 Windows、macOS 或 Linux 环境中。操作者通过 Web 管理面处理日常配置与治理，通过 Launcher 完成本机预检和服务进程编排，并在服务停机窗口使用 CLI 执行维护、备份与恢复。插件以受信本机进程运行，长期服务需要明确暴露降级、人工处理和恢复事项。
+
+## Capabilities and Constraints
+
+- 当前正式聊天协议是 OneBot11，提供 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种传输。
+- 正式部署模型是单实例、本地 SQLite 和单活跃 OneBot；Web 与 Launcher 不持有第二份业务状态。
+- 插件以经过 artifact 校验的本机原生代码运行，通过 manifest capability 和 JSONL 协议访问平台能力；capability 不是操作系统沙盒。
+- 对外字段、状态、错误码、事件、CLI 和发布元数据以 `contracts/` 为唯一正式来源。
+- 配置、业务数据和已安装插件需要支持可验证备份、恢复与版本升级，不以云端控制面作为运行前提。
+
+## Brand Commitments
 
 安静、精密、可信。界面保持优雅但不追求装饰性惊喜，熟悉的交互和稳定的状态反馈应让工具退到任务之后。
 
@@ -25,14 +43,21 @@ RayleaBot 为自托管聊天机器人提供清晰、可验证、可恢复的本�
 - 彩色侧边条、装饰性动效和依赖颜色单独表达状态。
 - 为了风格重造标准控件，导致 Web、Launcher 和插件页面出现互不一致的操作词汇。
 
-## Design Principles
+## Evidence on Hand
 
-- 高价值信息和待处理事项优先展示，减少为了分组而分组的页面切换。
-- 表单与数据布局服务于快速扫描、连续编辑和明确提交，说明靠近对应字段。
-- 系统自动状态与需要人工判断的事项具有稳定、可复用的视觉语义。
-- Web、Launcher 和官方插件页面共享设计语义，同时继续使用各自冻结的原生组件体系。
-- 布局紧凑但不拥挤，窄屏保留完整功能，输入控件和说明文本自然换行。
-- 首次显示跟随系统主题，亮色与暗色提供等价的信息层级、状态语义和操作能力。
+- 产品范围与入口：`README.md`、`docs/RayleaBot机器人项目规划.md`
+- 正式接口与状态语义：`contracts/`、`docs/architecture/`
+- 视觉语言与机器 token：`DESIGN.md`、`design/tokens.json`、`.impeccable/design.json`
+- 当前实现证据：`web/src/`、`launcher/src/`、`server/internal/`
+- 当前记录不包含用户研究、客户证言、市场排名或性能基准；后续设计不得虚构这些证据。
+
+## Product Principles
+
+- 本地所有权：运行、数据、凭据和恢复路径由部署者控制。
+- 单一正式状态：每项业务状态都能追溯到服务端或正式 contract，不由客户端猜测重建。
+- 可核实操作：长任务、配置生效、诊断和恢复都提供明确结果与下一步。
+- 连续运行优先：管理操作、插件隔离和失败边界不得无故打断其他健康能力。
+- 受控扩展：插件复用统一协议、能力网关和安装事务，不建立平行平台栈。
 
 ## Accessibility & Inclusion
 
