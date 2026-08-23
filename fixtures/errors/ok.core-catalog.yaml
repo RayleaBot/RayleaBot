@@ -31,5 +31,12 @@ input:
       http_status: 502
       retryable: false
       applies_to: [http, task, cli]
+    - code: adapter.api_call_failed
+      message_key: errors.adapter.api_call_failed
+      message: 协议 API 调用失败
+      description: An OneBot11 API action forwarded by the adapter failed, timed out, or returned a payload whose shape could not be interpreted as a usable response.
+      http_status: 502
+      retryable: true
+      applies_to: [http, websocket, plugin_protocol]
 expect:
   valid: true
