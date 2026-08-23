@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.config.subcommands.validate
+case: edge
+input:
+  command: raylea config validate
+  mode: online
+expect:
+  valid: true
+  exit_code: 1

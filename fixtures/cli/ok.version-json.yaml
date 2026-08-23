@@ -1,13 +1,13 @@
-contract: contracts/cli-commands.yaml
+contract: contracts/cli-commands.yaml#commands.version
 case: ok
-command: raylea version --json
-mode: offline
-expected:
+input:
+  command: raylea version --json
+  mode: offline
+expect:
+  valid: true
   exit_code: 0
   stdout_json:
     version: 0.3.0
     git_commit: a8ee7bb
     artifact_id: windows-x64-full
     update_protocol_version: 2
-expect:
-  valid: true

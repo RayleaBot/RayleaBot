@@ -1,13 +1,13 @@
-contract: contracts/cli-commands.yaml
+contract: contracts/cli-commands.yaml#commands.update.subcommands.check
 case: ok
-command: raylea update check --json
-mode: online
-expected:
+input:
+  command: raylea update check --json
+  mode: online
+expect:
+  valid: true
   exit_code: 0
   stdout_json:
     status: update_available
     current_version: 0.3.0
     available_version: 0.3.1
     update_mode: guided
-expect:
-  valid: true

@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.config.subcommands.normalize
+case: ok
+input:
+  command: raylea config normalize
+  mode: offline
+expect:
+  valid: true
+  exit_code: 0

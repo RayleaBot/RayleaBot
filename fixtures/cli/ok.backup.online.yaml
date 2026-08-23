@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.backup
+case: ok
 input:
-  command: backup
+  command: raylea backup
   mode: online
 expect:
   valid: true

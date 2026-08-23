@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.cleanup
+case: ok
 input:
-  command: cleanup
+  command: raylea cleanup
   mode: online
 expect:
   valid: true

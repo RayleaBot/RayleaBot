@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.backup
+case: edge
 input:
-  command: backup
+  command: raylea backup
   mode: offline
 expect:
   valid: true

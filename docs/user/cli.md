@@ -2,18 +2,23 @@
 
 本页说明 RayleaBot 当前正式提供的 CLI 子命令及其使用边界。
 
-CLI 是本地离线恢复与运维入口，不是第二套常规在线管理面。
+CLI 是本地离线恢复与运维入口，不是第二套常规在线管理面。命令统一记为
+`raylea <subcommand>`；实际二进制名为 `raylea-server`。
 
 ## 当前正式命令
 
 | 命令 | 作用 |
 | --- | --- |
-| `raylea-server config init` | 创建默认配置模板并写出规范化用户配置 |
-| `raylea-server config normalize` | 按当前 schema 整理默认模板和用户配置 |
-| `raylea-server config validate` | 校验配置文件，不修改文件内容 |
+| `raylea config init` | 创建默认配置模板并写出规范化用户配置 |
+| `raylea config normalize` | 按当前 schema 整理默认模板和用户配置 |
+| `raylea config validate` | 校验配置文件，不修改文件内容 |
+| `raylea plugin dev-sync` | 把已构建的开发插件 artifact 同步进本地插件安装目录 |
+| `raylea version --json` | 输出当前构建版本与更新协议版本 |
+| `raylea update check --json` | 获取并验证签名发布清单，不下载或安装更新 |
+| `raylea update verify` | 离线验证发布清单、签名 envelope 与 artifact |
 | `raylea reset-admin` | 重置管理员凭据并重新进入初始化向导 |
 | `raylea backup` | 创建恢复用备份 |
-| `raylea restore` | 在停服窗口恢复配置、状态与插件目录 |
+| `raylea restore <backup-path>` | 在停服窗口从指定备份包恢复配置、状态与插件目录 |
 | `raylea doctor` | 检查本地环境、资源与数据一致性 |
 | `raylea cleanup` | 清理可重建缓存和临时目录 |
 
@@ -21,12 +26,16 @@ CLI 是本地离线恢复与运维入口，不是第二套常规在线管理面�
 
 | 命令 | 在线可用 | 停服后可用 | 说明 |
 | --- | --- | --- | --- |
-| `config init` | 否 | 是 | 初始化配置文件，适合首次启动前执行 |
-| `config normalize` | 否 | 是 | 整理配置文件结构，适合维护窗口执行 |
+| `config init` | 否 | 是 | 写入配置目录；服务生命周期锁被占用时拒绝执行 |
+| `config normalize` | 否 | 是 | 写入配置目录；服务生命周期锁被占用时拒绝执行 |
 | `config validate` | 是 | 是 | 只读取并校验配置文件 |
+| `plugin dev-sync` | 否 | 是 | 需要数据库锁，在启动前或协调的重启窗口执行 |
+| `version --json` | 是 | 是 | 输出构建版本信息 |
+| `update check --json` | 是 | 否 | 需要网络访问受信发布来源 |
+| `update verify` | 是 | 是 | 离线校验更新包三件套 |
 | `reset-admin` | 否 | 是 | 必须在停服窗口执行 |
 | `backup` | 是 | 是 | 在线可导出，强一致性场景建议停服执行 |
-| `restore` | 否 | 是 | 恢复导入必须在停服状态执行 |
+| `restore <backup-path>` | 否 | 是 | 备份路径必填，恢复导入必须在停服状态执行 |
 | `doctor` | 是 | 是 | 可在线或停服执行 |
 | `cleanup` | 是 | 是 | 只能清理可重建内容 |
 

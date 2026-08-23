@@ -1,8 +1,8 @@
-contract: contracts/cli-commands.yaml
+contract: contracts/cli-commands.yaml#commands.update.subcommands.verify
 case: ok
-command: raylea update verify --manifest release_manifest.v2.json --signature release_manifest.v2.sig.json --artifact RayleaBot-v0.3.1-windows-x64-full.zip
-mode: offline
-expected:
-  exit_code: 0
+input:
+  command: raylea update verify --manifest release_manifest.v2.json --signature release_manifest.v2.sig.json --artifact RayleaBot-v0.3.1-windows-x64-full.zip
+  mode: offline
 expect:
   valid: true
+  exit_code: 0

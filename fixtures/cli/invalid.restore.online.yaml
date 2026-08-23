@@ -1,7 +1,9 @@
 contract: contracts/cli-commands.yaml#commands.restore
+case: invalid
 input:
-  command: restore
+  command: raylea restore backups/fixture-backup.zip
   mode: online
 expect:
   valid: false
+  exit_code: 1
   reason: mode_unavailable

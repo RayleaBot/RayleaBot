@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.restore
+case: ok
 input:
-  command: restore
+  command: raylea restore backups/fixture-backup.zip
   mode: offline
 expect:
   valid: true

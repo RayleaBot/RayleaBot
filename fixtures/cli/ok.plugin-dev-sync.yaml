@@ -1,8 +1,10 @@
-contract: contracts/cli-commands.yaml
+contract: contracts/cli-commands.yaml#commands.plugin.subcommands.dev-sync
 case: ok
-command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo --plugin-id raylea.echo
-mode: offline
+input:
+  command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo --plugin-id raylea.echo
+  mode: offline
 expect:
+  valid: true
   exit_code: 0
   task_type: null
   notes:

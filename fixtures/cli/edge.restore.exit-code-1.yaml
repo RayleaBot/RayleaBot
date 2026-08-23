@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.restore
+case: edge
 input:
-  command: restore
+  command: raylea restore fixtures/backup-invalid.zip
   mode: offline
 expect:
   valid: true

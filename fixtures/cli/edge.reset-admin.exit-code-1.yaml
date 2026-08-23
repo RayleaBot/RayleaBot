@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.reset-admin
+case: edge
 input:
-  command: reset-admin
+  command: raylea reset-admin
   mode: offline
 expect:
   valid: true

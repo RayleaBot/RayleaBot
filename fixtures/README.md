@@ -30,8 +30,32 @@
   - 主要服务产物元数据校验，以及后续 doctor、launcher、release 共享结构验证
 - `deps-manifest/`
   - 对应 `contracts/deps-manifest.schema.json`
+  - 直接承载 manifest 文档样例，文件名前缀或可选 `expect.valid` 表达预期结果
+  - 主要服务图片渲染 Chromium 资源来源、校验值、归档格式与相对入口的契约回归
+- `backup-manifest/`
+  - 对应 `contracts/backup-manifest.schema.json`
+  - 直接承载 manifest 文档样例
+  - 主要服务恢复包版本、config / db schema 兼容性字段与插件库存摘要的契约回归
+- `plugin-artifact/`
+  - 对应 `contracts/plugin-artifact.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务 Python / Node.js 运行环境来源、校验值、归档格式与相对入口的契约回归
+  - 主要服务 artifact 文件清单、目标平台与完整性边界校验
+- `plugin-development-workspace/`
+  - 对应 `contracts/plugin-development-workspace.schema.json`
+  - 直接承载工作区配置样例
+  - 主要服务本地插件开发工作区的字段与启用状态校验
+- `plugin-management-ui/`
+  - 对应 `contracts/plugin-management-ui.yaml` 与 `contracts/plugin-management-ui-bridge.schema.json`
+  - 统一采用 `input + expect` 结构
+  - 主要服务管理页静态来源边界与 bridge v2 消息类型、窗口和 resize 边界校验
+- `plugin-store-catalog/`
+  - 对应 `contracts/plugin-store-catalog.schema.json`
+  - 直接承载 catalog 文档样例
+  - 主要服务签名商店目录发布者身份、版本、撤回状态与平台资产摘要的契约回归
+- `plugin-store-signature/`
+  - 对应 `contracts/plugin-store-signature.schema.json`
+  - 直接承载签名 envelope 样例
+  - 主要服务 Ed25519 单签、双签轮换与 catalog 摘要绑定的契约回归
 - `cli/`
   - 对应 `contracts/cli-commands.yaml`
   - 统一采用 `input + expect` 结构

@@ -1,0 +1,8 @@
+contract: contracts/cli-commands.yaml#commands.config.subcommands.init
+case: invalid
+input:
+  command: raylea config init
+  mode: online
+expect:
+  valid: false
+  exit_code: 1

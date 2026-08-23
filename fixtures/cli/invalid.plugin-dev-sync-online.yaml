@@ -1,9 +1,10 @@
-contract: contracts/cli-commands.yaml
+contract: contracts/cli-commands.yaml#commands.plugin.subcommands.dev-sync
 case: invalid
-command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo --plugin-id raylea.echo
-mode: online
+input:
+  command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo --plugin-id raylea.echo
+  mode: online
 expect:
+  valid: false
   exit_code: 1
-  error_code: platform.state_conflict
   notes:
-    - Development sync requires the server database lock and therefore runs before startup or during a coordinated development restart.
+    - Development sync requires the server database lock and therefore runs before startup or during a coordinated development restart; the CLI reports the storage error on stderr and exits 1 without a machine-readable error code.

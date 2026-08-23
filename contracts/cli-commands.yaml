@@ -9,22 +9,24 @@ x-fixtures:
   - fixtures/cli/invalid.reset-admin.online.yaml
   - fixtures/cli/edge.reset-admin.exit-code-1.yaml
   - fixtures/cli/ok.backup.online.yaml
-  - fixtures/cli/invalid.backup.unsupported-mode.yaml
   - fixtures/cli/edge.backup.offline-exit-code-1.yaml
   - fixtures/cli/ok.restore.offline.yaml
   - fixtures/cli/invalid.restore.online.yaml
   - fixtures/cli/edge.restore.exit-code-1.yaml
   - fixtures/cli/ok.doctor.online.yaml
-  - fixtures/cli/invalid.doctor.unsupported-mode.yaml
   - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
   - fixtures/cli/ok.cleanup.online.yaml
-  - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
   - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml
   - fixtures/cli/ok.version-json.yaml
   - fixtures/cli/ok.update-check-json.yaml
   - fixtures/cli/ok.update-verify.yaml
   - fixtures/cli/ok.plugin-dev-sync.yaml
   - fixtures/cli/invalid.plugin-dev-sync-online.yaml
+  - fixtures/cli/ok.config-init.yaml
+  - fixtures/cli/invalid.config-init.online.yaml
+  - fixtures/cli/ok.config-normalize.yaml
+  - fixtures/cli/ok.config-validate.yaml
+  - fixtures/cli/edge.config-validate.exit-code-1.yaml
 
 x-design-source: docs/user/cli.md
 
@@ -69,6 +71,58 @@ commands:
           - fixtures/cli/ok.plugin-dev-sync.yaml
           - fixtures/cli/invalid.plugin-dev-sync-online.yaml
 
+  config:
+    name: config
+    summary: 维护本地配置模板与用户配置文件。
+    availability:
+      online: false
+      offline: true
+    task_model: false
+    cancellable: false
+    implemented: true
+    subcommands:
+      init:
+        name: init
+        summary: 创建默认配置模板并写出规范化用户配置。
+        description: >
+          确保存在按当前 schema 生成的默认模板，将用户配置合并到默认值之上，
+          整体通过 schema 与运行时约束校验后写出规范化配置文件。
+          命令会写入配置目录；服务生命周期锁被占用时直接拒绝执行，
+          必须在停服窗口运行。
+        exit_codes:
+          0: 配置模板与用户配置已初始化并规范化
+          1: 生命周期锁、文件读写、schema 校验或运行时约束失败
+        x-fixtures:
+          - fixtures/cli/ok.config-init.yaml
+          - fixtures/cli/invalid.config-init.online.yaml
+      normalize:
+        name: normalize
+        summary: 按当前 schema 整理默认模板和用户配置。
+        description: >
+          与 init 使用同一规范化事务：确保默认模板存在、合并用户覆盖值、
+          通过 schema 校验与运行时约束检查后写回规范化文档。
+          服务生命周期锁被占用时直接拒绝执行；请在停服窗口运行。
+        exit_codes:
+          0: 配置文件已规范化
+          1: 生命周期锁、文件读写、schema 校验或运行时约束失败
+        x-fixtures:
+          - fixtures/cli/ok.config-normalize.yaml
+      validate:
+        name: validate
+        summary: 校验配置文件，不修改文件内容。
+        description: >
+          以只读方式加载默认模板与用户配置，执行 schema 校验与
+          运行时约束检查，不写回任何文件；可在线或停服执行。
+        availability:
+          online: true
+          offline: true
+        exit_codes:
+          0: 配置校验通过
+          1: 配置缺失、schema 校验或运行时约束失败
+        x-fixtures:
+          - fixtures/cli/ok.config-validate.yaml
+          - fixtures/cli/edge.config-validate.exit-code-1.yaml
+
   version:
     name: version
     summary: 输出当前构建版本与更新协议版本。
@@ -80,6 +134,7 @@ commands:
         flag: --json
         type: boolean
         required: true
+        const: true
     exit_codes:
       0: 版本信息已输出
       1: 构建信息不可读
@@ -110,6 +165,7 @@ commands:
             flag: --json
             type: boolean
             required: true
+            const: true
         exit_codes:
           0: 检查完成
           1: 网络、契约或信任校验失败
@@ -181,7 +237,6 @@ commands:
     implemented: true
     x-fixtures:
       - fixtures/cli/ok.backup.online.yaml
-      - fixtures/cli/invalid.backup.unsupported-mode.yaml
       - fixtures/cli/edge.backup.offline-exit-code-1.yaml
 
   restore:
@@ -196,6 +251,11 @@ commands:
       生成统一 recovery_summary 并在 `logs/recovery-summary.json`
       中落盘。硬不兼容时恢复在解包前失败；通过预检时继续恢复，
       并把后续启动期资源 / 插件兼容检查标记为待完成。
+    arguments:
+      - name: backup_path
+        type: path
+        required: true
+        description: 待恢复的备份 ZIP 文件路径。
     exit_codes:
       0: 恢复成功
       1: 恢复包格式错误或恢复失败
@@ -228,7 +288,6 @@ commands:
     implemented: true
     x-fixtures:
       - fixtures/cli/ok.doctor.online.yaml
-      - fixtures/cli/invalid.doctor.unsupported-mode.yaml
       - fixtures/cli/edge.doctor.offline-exit-code-1.yaml
 
   cleanup:
@@ -249,5 +308,4 @@ commands:
     implemented: true
     x-fixtures:
       - fixtures/cli/ok.cleanup.online.yaml
-      - fixtures/cli/invalid.cleanup.unsupported-mode.yaml
       - fixtures/cli/edge.cleanup.offline-exit-code-1.yaml

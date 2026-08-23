@@ -1,7 +1,9 @@
 contract: contracts/cli-commands.yaml#commands.reset-admin
+case: invalid
 input:
-  command: reset-admin
+  command: raylea reset-admin
   mode: online
 expect:
   valid: false
+  exit_code: 1
   reason: mode_unavailable

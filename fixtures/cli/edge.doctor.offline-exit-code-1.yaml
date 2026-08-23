@@ -1,6 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.doctor
+case: edge
 input:
-  command: doctor
+  command: raylea doctor
   mode: offline
 expect:
   valid: true

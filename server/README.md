@@ -160,11 +160,15 @@
   - 管理面模板实时预览与插件图片渲染
   - startup logs、`/readyz`、CLI `doctor` 与 Launcher preflight 的统一资源诊断
 - CLI 子命令：
+  - `config init` / `config normalize` / `config validate`
   - `reset-admin`
   - `backup`
-  - `restore`
+  - `restore <backup-path>`
   - `doctor`
   - `cleanup`
+  - `plugin dev-sync`
+  - `version --json`
+  - `update check --json` / `update verify`
 
 ## 当前边界
 

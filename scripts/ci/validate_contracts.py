@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -1136,12 +1137,488 @@ def validate_no_legacy_contract_content() -> None:
             fail(f"out-of-scope content leaked into formal contracts: {legacy}")
 
 
+def _split_cli_command(text: str) -> tuple[list[str], str | None]:
+    try:
+        tokens = shlex.split(str(text), posix=True)
+    except ValueError as exc:
+        return [], str(exc)
+    if not tokens or tokens[0] != "raylea":
+        return [], "command must start with 'raylea'"
+    return tokens[1:], None
+
+
+def _resolve_cli_invocation(
+    commands: dict,
+    tokens: list[str],
+) -> tuple[dict | None, dict, str, list[str]]:
+    if not tokens:
+        return None, {}, "", []
+    availability: dict = {}
+    current: Any = commands
+    chain: list[str] = []
+    for index, token in enumerate(tokens):
+        entry = current.get(token) if isinstance(current, dict) else None
+        if not isinstance(entry, dict):
+            return None, availability, " ".join(chain), tokens[index:]
+        chain.append(token)
+        node_availability = entry.get("availability")
+        if isinstance(node_availability, dict):
+            availability.update(node_availability)
+        subcommands = entry.get("subcommands")
+        if isinstance(subcommands, dict):
+            current = subcommands
+            continue
+        return entry, availability, " ".join(chain), tokens[index + 1 :]
+    return None, availability, " ".join(chain), []
+
+
+def _parse_cli_bool(value: str) -> bool | None:
+    normalized = value.strip().lower()
+    if normalized in {"true", "1"}:
+        return True
+    if normalized in {"false", "0"}:
+        return False
+    return None
+
+
+def _check_cli_invocation_arguments(node: dict, argv: list[str], ref: str, report) -> None:
+    option_defs = node.get("options") or {}
+    if not isinstance(option_defs, dict):
+        report(f"{ref}: command options must be a mapping")
+        return
+    options_by_flag = {
+        str(spec.get("flag")): spec
+        for spec in option_defs.values()
+        if isinstance(spec, dict) and isinstance(spec.get("flag"), str)
+    }
+    seen_options: dict[str, Any] = {}
+    positionals: list[str] = []
+    index = 0
+    while index < len(argv):
+        token = argv[index]
+        if token == "--":
+            positionals.extend(argv[index + 1 :])
+            break
+        if not token.startswith("-") or token == "-":
+            positionals.append(token)
+            index += 1
+            continue
+
+        flag, separator, inline_value = token.partition("=")
+        spec = options_by_flag.get(flag)
+        if spec is None:
+            report(f"{ref}: unknown option {flag!r}")
+            index += 1
+            continue
+        if flag in seen_options:
+            report(f"{ref}: duplicate option {flag!r}")
+            index += 1
+            continue
+        seen_options[flag] = None
+
+        option_type = spec.get("type")
+        if option_type == "boolean":
+            if separator:
+                value = _parse_cli_bool(inline_value)
+                if value is None:
+                    report(f"{ref}: option {flag} requires a boolean value")
+                    index += 1
+                    continue
+            else:
+                value = True
+        else:
+            if separator:
+                value = inline_value
+            elif index + 1 < len(argv) and not argv[index + 1].startswith("-"):
+                index += 1
+                value = argv[index]
+            else:
+                report(f"{ref}: option {flag} requires a value")
+                index += 1
+                continue
+            if not value:
+                report(f"{ref}: option {flag} requires a non-empty value")
+                index += 1
+                continue
+        if "const" in spec and value != spec["const"]:
+            report(f"{ref}: option {flag} must equal {spec['const']!r}")
+        seen_options[flag] = value
+        index += 1
+
+    for flag, spec in options_by_flag.items():
+        if spec.get("required") is True and flag not in seen_options:
+            report(f"{ref}: required option {flag} missing")
+
+    argument_defs = node.get("arguments") or []
+    if not isinstance(argument_defs, list) or any(not isinstance(item, dict) for item in argument_defs):
+        report(f"{ref}: command arguments must be an array of mappings")
+        return
+    required_arguments = sum(1 for item in argument_defs if item.get("required") is True)
+    if len(positionals) < required_arguments:
+        missing = [
+            str(item.get("name") or "argument")
+            for item in argument_defs[len(positionals) :]
+            if item.get("required") is True
+        ]
+        report(f"{ref}: missing required positional arguments: {', '.join(missing)}")
+    if len(positionals) > len(argument_defs):
+        report(f"{ref}: unexpected positional arguments: {positionals[len(argument_defs):]}")
+
+
+def _load_cli_error_code_catalog() -> dict[str, frozenset[str]]:
+    catalog_doc = load_yaml(CONTRACTS / "error-codes.yaml")
+    codes = catalog_doc.get("codes") if isinstance(catalog_doc, dict) else None
+    if not isinstance(codes, dict):
+        return {}
+    return {
+        str(name): frozenset(str(scope) for scope in body.get("applies_to", []))
+        for name, body in codes.items()
+        if isinstance(body, dict)
+    }
+
+
+def _check_cli_fixture_doc(
+    commands: dict,
+    ref: str,
+    doc: Any,
+    report,
+    catalog_codes: dict[str, frozenset[str]] | None = None,
+) -> None:
+    if not isinstance(doc, dict):
+        report(f"{ref}: cli fixture must be a mapping")
+        return
+    contract_ref = str(doc.get("contract", ""))
+    base = contract_ref.split("#")[0].strip().replace("\\", "/")
+    fragment = contract_ref.split("#", 1)[1] if "#" in contract_ref else ""
+    if base != "contracts/cli-commands.yaml":
+        report(f"{ref}: contract must reference contracts/cli-commands.yaml, got '{contract_ref}'")
+        return
+
+    case = doc.get("case")
+    if case not in {"ok", "invalid", "edge"}:
+        report(f"{ref}: case must be one of ok|invalid|edge, got {case!r}")
+        return
+    if not Path(ref).name.startswith(f"{case}."):
+        report(f"{ref}: fixture filename prefix must match case '{case}'")
+
+    payload = doc.get("input")
+    if not isinstance(payload, dict):
+        report(f"{ref}: input must be a mapping")
+        return
+    command_line = str(payload.get("command", ""))
+    mode = payload.get("mode")
+    if not command_line.strip():
+        report(f"{ref}: missing command")
+        return
+    if mode not in {"online", "offline"}:
+        report(f"{ref}: mode must be online or offline, got {mode!r}")
+        return
+
+    raw_expect = doc.get("expect")
+    if not isinstance(raw_expect, dict):
+        report(f"{ref}: expect must be a mapping")
+        return
+    if "expected" in doc:
+        report(f"{ref}: expected is unsupported; use expect")
+        return
+    expect = raw_expect
+
+    valid_flag = expect.get("valid")
+    expected_valid = case != "invalid"
+    if valid_flag is not expected_valid:
+        report(f"{ref}: expect.valid must be {expected_valid!r} for case '{case}', got {valid_flag!r}")
+        return
+
+    tokens, parse_error = _split_cli_command(command_line)
+    if parse_error is not None:
+        report(f"{ref}: command is not parseable: {parse_error}")
+        return
+    node, availability, chain, argv = _resolve_cli_invocation(commands, tokens)
+    if node is None:
+        report(f"{ref}: command '{chain}' is not declared in contracts/cli-commands.yaml")
+        return
+    expected_fragment = "commands." + chain.replace(" ", ".subcommands.")
+    if fragment != expected_fragment:
+        report(f"{ref}: fragment '{fragment}' does not match command '{chain}' (expected '{expected_fragment}')")
+
+    _check_cli_invocation_arguments(node, argv, ref, report)
+
+    error_code = expect.get("error_code")
+    if error_code is not None:
+        scopes = (catalog_codes or {}).get(str(error_code))
+        if scopes is None:
+            report(f"{ref}: expect.error_code '{error_code}' is not registered in contracts/error-codes.yaml")
+        elif "cli" not in scopes:
+            report(f"{ref}: expect.error_code '{error_code}' does not apply to cli")
+
+    exit_sources = []
+    if "exit_code" not in expect:
+        report(f"{ref}: expect.exit_code is required")
+    else:
+        code = expect["exit_code"]
+        if isinstance(code, bool) or not isinstance(code, int):
+            report(f"{ref}: expect.exit_code must be an integer, got {code!r}")
+        else:
+            exit_sources.append(("expect", code))
+    declared_exit_codes = node.get("exit_codes") or {}
+    if len({code for _, code in exit_sources}) > 1:
+        detail = ", ".join(f"{name}={code}" for name, code in exit_sources)
+        report(f"{ref}: conflicting exit codes ({detail}) for '{chain}'")
+        return
+    if exit_sources and declared_exit_codes and exit_sources[0][1] not in declared_exit_codes:
+        report(f"{ref}: exit_code {exit_sources[0][1]} is not declared for '{chain}'")
+
+    if case == "invalid":
+        refusal = (mode == "online" and availability.get("online") is False) or (
+            mode == "offline" and availability.get("offline") is False
+        )
+        failure_marked = any(isinstance(code, int) and code != 0 for _, code in exit_sources) or bool(
+            expect.get("error_code")
+        )
+        if not (refusal or failure_marked):
+            report(
+                f"{ref}: invalid case must document a refusal (mode vs availability) "
+                "or carry a nonzero exit_code / error_code"
+            )
+        return
+    if mode == "online" and availability.get("online") is False:
+        report(f"{ref}: mode=online contradicts contract availability.online=false for '{chain}'")
+    if mode == "offline" and availability.get("offline") is False:
+        report(f"{ref}: mode=offline contradicts contract availability.offline=false for '{chain}'")
+
+
+def validate_cli_fixture_semantics(cli_commands: dict, _fail=None) -> None:
+    report = _fail or fail
+    commands = require_object(cli_commands.get("commands"), "cli commands")
+    catalog_codes = _load_cli_error_code_catalog()
+    refs: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key == "x-fixtures":
+                    if isinstance(item, list):
+                        refs.extend(str(ref) for ref in item)
+                    else:
+                        refs.append(str(item))
+                else:
+                    collect(item)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+
+    collect(cli_commands)
+
+    declared_refs = set(refs)
+    actual_refs = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "fixtures" / "cli").iterdir()
+        if path.is_file() and path.suffix in {".yaml", ".yml"}
+    }
+    for ref in sorted(actual_refs - declared_refs):
+        report(f"cli fixture is not declared by contracts/cli-commands.yaml: {ref}")
+
+    for ref in sorted(declared_refs):
+        path = ROOT / ref
+        if not path.is_file():
+            report(f"cli fixture missing: {ref}")
+            continue
+        try:
+            doc = load_yaml(path)
+        except yaml.YAMLError as exc:
+            report(f"cli fixture unparseable: {ref}: {exc}")
+            continue
+        _check_cli_fixture_doc(commands, ref, doc, report, catalog_codes)
+
+
+def run_cli_semantics_self_test() -> list[str]:
+    problems: list[str] = []
+
+    def expect(condition: bool, message: str) -> None:
+        if not condition:
+            problems.append(message)
+
+    synth_commands: dict = {
+        "group": {
+            "name": "group",
+            "availability": {"online": False, "offline": True},
+            "subcommands": {
+                "act": {
+                    "name": "act",
+                    "exit_codes": {0: "done", 1: "failed"},
+                },
+                "strict": {
+                    "name": "strict",
+                    "options": {
+                        "token": {"flag": "--token", "type": "string", "required": True},
+                        "verbose": {"flag": "--verbose", "type": "boolean", "required": True, "const": True},
+                    },
+                    "exit_codes": {0: "done"},
+                },
+                "with-arg": {
+                    "name": "with-arg",
+                    "arguments": [{"name": "path", "type": "path", "required": True}],
+                    "exit_codes": {0: "done"},
+                },
+            },
+        },
+    }
+    catalog_codes = {
+        "platform.demo": frozenset({"cli"}),
+        "platform.http_only": frozenset({"http"}),
+    }
+    tokens, split_error = _split_cli_command("raylea group act")
+    expect(split_error is None, "self-test: valid command parses")
+    node, availability, chain, argv = _resolve_cli_invocation(synth_commands, tokens)
+    expect(node is not None, "self-test: nested command resolves")
+    expect(chain == "group act" and argv == [], "self-test: command chain and argv split")
+    expect(availability == {"online": False, "offline": True}, "self-test: group availability inherited")
+    expect(_resolve_cli_invocation(synth_commands, ["group"])[0] is None, "self-test: non-leaf command does not resolve")
+
+    def base_doc() -> dict:
+        return {
+            "contract": "contracts/cli-commands.yaml#commands.group.subcommands.act",
+            "case": "ok",
+            "input": {"command": "raylea group act", "mode": "offline"},
+            "expect": {"valid": True, "exit_code": 0},
+        }
+
+    def reports_for(doc: dict) -> list[str]:
+        collected: list[str] = []
+        case = doc.get("case")
+        ref = f"{case}.synthetic.yaml" if isinstance(case, str) else "synthetic.yaml"
+        _check_cli_fixture_doc(synth_commands, ref, doc, collected.append, catalog_codes)
+        return collected
+
+    expect(reports_for(base_doc()) == [], "self-test: happy path passes")
+
+    doc = base_doc()
+    doc["input"]["command"] = "group act"
+    expect(any("start with 'raylea'" in item for item in reports_for(doc)), "self-test: command prefix required")
+
+    doc = base_doc()
+    doc.pop("case")
+    expect(any("case" in item for item in reports_for(doc)), "self-test: missing case rejected")
+
+    doc = base_doc()
+    doc["input"]["mode"] = "sideways"
+    expect(any("mode" in item for item in reports_for(doc)), "self-test: unknown mode rejected")
+
+    doc = base_doc()
+    doc["input"].pop("mode")
+    expect(any("mode" in item for item in reports_for(doc)), "self-test: empty mode rejected")
+
+    doc = base_doc()
+    doc["expect"] = ["valid", True]
+    expect(any("expect must be a mapping" in item for item in reports_for(doc)), "self-test: non-mapping expect rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group"
+    expect(reports_for(doc) != [], "self-test: bare group command rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group strict"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.strict"
+    expect(any("--token" in item for item in reports_for(doc)), "self-test: missing required option rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group strict --token --verbose"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.strict"
+    expect(any("requires a value" in item for item in reports_for(doc)), "self-test: valueless option rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group strict --token=demo --verbose --unknown"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.strict"
+    expect(any("unknown option" in item for item in reports_for(doc)), "self-test: unknown option rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group strict --token=demo --verbose=false"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.strict"
+    expect(any("must equal" in item for item in reports_for(doc)), "self-test: boolean const enforced")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group strict --token demo --verbose"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.strict"
+    expect(reports_for(doc) == [], "self-test: satisfied required options pass")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group with-arg"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.with-arg"
+    expect(any("missing required positional" in item for item in reports_for(doc)), "self-test: missing positional rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group with-arg fixture.zip"
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group.subcommands.with-arg"
+    expect(reports_for(doc) == [], "self-test: required positional accepted")
+
+    doc = base_doc()
+    doc["expect"]["error_code"] = "phantom.code"
+    expect(any("not registered" in item for item in reports_for(doc)), "self-test: unregistered error_code rejected")
+
+    doc = base_doc()
+    doc["expect"]["error_code"] = "platform.http_only"
+    expect(any("does not apply" in item for item in reports_for(doc)), "self-test: non-cli error_code rejected")
+
+    doc = base_doc()
+    doc["expect"]["error_code"] = "platform.demo"
+    expect(reports_for(doc) == [], "self-test: registered error_code accepted")
+
+    doc = base_doc()
+    doc["expect"]["valid"] = False
+    expect(any("expect.valid" in item for item in reports_for(doc)), "self-test: ok case with valid=false rejected")
+
+    doc = base_doc()
+    doc["case"] = "invalid"
+    doc["expect"]["valid"] = False
+    doc["input"]["mode"] = "online"
+    doc["expect"]["exit_code"] = 1
+    expect(reports_for(doc) == [], "self-test: refusal documented by invalid case allowed")
+
+    doc = base_doc()
+    doc["case"] = "invalid"
+    expect(any("expect.valid" in item for item in reports_for(doc)), "self-test: invalid case with valid=true rejected")
+
+    doc = base_doc()
+    doc["expected"] = {"exit_code": 0}
+    expect(any("expected is unsupported" in item for item in reports_for(doc)), "self-test: legacy expected block rejected")
+
+    doc = base_doc()
+    doc["expect"]["exit_code"] = 7
+    expect(any("not declared" in item for item in reports_for(doc)), "self-test: undeclared exit code rejected")
+
+    doc = base_doc()
+    doc["contract"] = "contracts/cli-commands.yaml#commands.group"
+    expect(any("fragment" in item for item in reports_for(doc)), "self-test: stale fragment rejected")
+
+    doc = base_doc()
+    doc["input"]["command"] = "raylea group missing"
+    expect(any("not declared" in item for item in reports_for(doc)), "self-test: unknown command rejected")
+
+    doc = base_doc()
+    doc["input"]["mode"] = "online"
+    expect(any("contradicts" in item for item in reports_for(doc)), "self-test: online contradiction rejected")
+
+    doc = base_doc()
+    doc["case"] = "invalid"
+    doc["expect"] = {"valid": False, "exit_code": 1}
+    expect(reports_for(doc) == [], "self-test: failure-marked invalid case allowed")
+
+    doc = base_doc()
+    doc["case"] = "invalid"
+    doc["expect"] = {"valid": False, "exit_code": 0}
+    expect(any("invalid case must document" in item for item in reports_for(doc)), "self-test: vacuous invalid case rejected")
+
+    return problems
+
+
 def validate_strict_cli() -> None:
     cli_commands = require_object(load_yaml(CONTRACTS / "cli-commands.yaml"), "cli commands")
-    expected = {"version", "update", "reset-admin", "backup", "restore", "doctor", "cleanup", "plugin"}
+    expected = {"version", "update", "reset-admin", "backup", "restore", "doctor", "cleanup", "plugin", "config"}
     actual = set(cli_commands.get("commands", {}).keys())
     if actual != expected:
         fail(f"cli commands drift: expected={sorted(expected)} actual={sorted(actual)}")
+    validate_cli_fixture_semantics(cli_commands)
 
 
 def validate_strict() -> None:
@@ -1158,11 +1635,20 @@ def validate_strict() -> None:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["pr", "strict"], default="pr")
+    parser.add_argument("--self-test", action="store_true", help="run internal CLI fixture semantics self-test and exit")
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
+    if args.self_test:
+        problems = run_cli_semantics_self_test()
+        if problems:
+            for problem in problems:
+                print(problem)
+            return 1
+        print("contracts validator self-test passed")
+        return 0
     if args.mode == "pr":
         validate_pr()
     else:

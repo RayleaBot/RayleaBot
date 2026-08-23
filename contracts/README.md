@@ -90,7 +90,7 @@
   - Ed25519 双签轮换、artifact 摘要与资源上限、更新协议、平台模式和 Windows signer 摘要
   - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则裁决，不作为独立 schema
 - `cli-commands.yaml`
-  - `reset-admin`、`backup`、`restore`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 与 `update verify` 的正式命令模型
+  - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 与 `update verify` 的正式命令模型
 
 ## 当前延后到后续版本的边界
 
