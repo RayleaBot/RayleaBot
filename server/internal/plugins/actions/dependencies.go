@@ -71,11 +71,20 @@ type Renderer interface {
 }
 
 type RenderImageRequest struct {
-	Template string
-	Theme    string
-	Output   string
-	Data     map[string]any
-	Plugin   RenderPluginContext
+	Template  string
+	Theme     string
+	Output    string
+	Data      map[string]any
+	Resources []RenderImageResource
+	Plugin    RenderPluginContext
+}
+
+type RenderImageResource struct {
+	ID     string
+	Path   string
+	MIME   string
+	SHA256 string
+	Size   int64
 }
 
 type RenderPluginContext struct {

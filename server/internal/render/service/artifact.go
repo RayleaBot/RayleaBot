@@ -175,7 +175,7 @@ func (a *artifactStore) lookup(artifactID string) (Artifact, error) {
 
 func BuildCacheKey(request Request, version string, sourceDigest string, resourceDigest string, deviceScalePercent int, payloadBytes []byte) string {
 	sum := sha256.Sum256(payloadBytes)
-	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%d:%s", "render-cache-v3-template-sources", request.Template, version, sourceDigest, resourceDigest, request.Theme, request.Output, normalizeArtifactDeviceScalePercent(deviceScalePercent), hex.EncodeToString(sum[:12]))
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s:%d:%s", "render-cache-v4-prefetched-resources", request.Template, version, sourceDigest, resourceDigest, renderResourcesDigest(request.Resources), request.Theme, request.Output, normalizeArtifactDeviceScalePercent(deviceScalePercent), hex.EncodeToString(sum[:12]))
 }
 
 func BuildPreviewHTMLCacheKey(request Request, revisionID string, payloadBytes []byte) string {

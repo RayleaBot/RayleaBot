@@ -3,6 +3,9 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"image/color"
 	"image/png"
@@ -352,6 +355,107 @@ func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
 	r, g, b, _ := screenshot.At(160, 120).RGBA()
 	if r>>8 < 220 || g>>8 > 40 || b>>8 > 40 {
 		t.Fatalf("relative asset did not paint expected pixel: got rgb(%d,%d,%d)", r>>8, g>>8, b>>8)
+	}
+}
+
+func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
+	repoRoot := filepath.Join("..", "..", "..", "..")
+	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
+	if err != nil {
+		t.Skipf("managed chromium is not prepared: %v", err)
+	}
+
+	resourcePath := filepath.Join(t.TempDir(), "source.png")
+	resourceFile, err := os.Create(resourcePath)
+	if err != nil {
+		t.Fatalf("create resource: %v", err)
+	}
+	if err := png.Encode(resourceFile, singlePixel(color.RGBA{R: 16, G: 80, B: 240, A: 255})); err != nil {
+		_ = resourceFile.Close()
+		t.Fatalf("encode resource: %v", err)
+	}
+	if err := resourceFile.Close(); err != nil {
+		t.Fatalf("close resource: %v", err)
+	}
+	resourceBytes, err := os.ReadFile(resourcePath)
+	if err != nil {
+		t.Fatalf("read resource: %v", err)
+	}
+	digest := sha256.Sum256(resourceBytes)
+
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
+	content, err := runner.Render(context.Background(), Document{
+		Template: "prefetched.resource",
+		Output:   "png",
+		Width:    64,
+		Height:   64,
+		HTML: `<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8" /><style>body { margin: 0; } img { width: 64px; height: 64px; display: block; }</style></head>
+  <body><img src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" data-render-resource="media-0" alt="" /></body>
+</html>`,
+		Resources: []RenderResource{{
+			ID: "media-0", Path: resourcePath, MIME: "image/png", SHA256: hex.EncodeToString(digest[:]), Size: int64(len(resourceBytes)),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Render with prefetched resource: %v", err)
+	}
+	screenshot, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		t.Fatalf("decode screenshot: %v", err)
+	}
+	r, g, b, _ := screenshot.At(32, 32).RGBA()
+	if r>>8 > 40 || g>>8 < 60 || g>>8 > 100 || b>>8 < 220 {
+		t.Fatalf("prefetched resource did not paint expected pixel: got rgb(%d,%d,%d)", r>>8, g>>8, b>>8)
+	}
+}
+
+func TestChromiumRunnerRestoresSourceWhenPrefetchedResourceCannotDecode(t *testing.T) {
+	repoRoot := filepath.Join("..", "..", "..", "..")
+	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
+	if err != nil {
+		t.Skipf("managed chromium is not prepared: %v", err)
+	}
+
+	invalidContent := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
+	resourcePath := filepath.Join(t.TempDir(), "invalid.png")
+	if err := os.WriteFile(resourcePath, invalidContent, 0o600); err != nil {
+		t.Fatalf("write invalid resource: %v", err)
+	}
+	digest := sha256.Sum256(invalidContent)
+
+	var fallback bytes.Buffer
+	if err := png.Encode(&fallback, singlePixel(color.RGBA{R: 16, G: 80, B: 240, A: 255})); err != nil {
+		t.Fatalf("encode fallback: %v", err)
+	}
+	fallbackURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(fallback.Bytes())
+
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
+	content, err := runner.Render(context.Background(), Document{
+		Template: "prefetched.resource.fallback",
+		Output:   "png",
+		Width:    64,
+		Height:   64,
+		HTML: `<!doctype html>
+<html lang="zh-CN">
+  <head><meta charset="utf-8" /><style>body { margin: 0; } img { width: 64px; height: 64px; display: block; }</style></head>
+  <body><img src="` + fallbackURL + `" data-render-resource="media-0" alt="" /></body>
+</html>`,
+		Resources: []RenderResource{{
+			ID: "media-0", Path: resourcePath, MIME: "image/png", SHA256: hex.EncodeToString(digest[:]), Size: int64(len(invalidContent)),
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Render with invalid prefetched resource: %v", err)
+	}
+	screenshot, err := png.Decode(bytes.NewReader(content))
+	if err != nil {
+		t.Fatalf("decode screenshot: %v", err)
+	}
+	r, g, b, _ := screenshot.At(32, 32).RGBA()
+	if r>>8 > 40 || g>>8 < 60 || g>>8 > 100 || b>>8 < 220 {
+		t.Fatalf("source fallback did not paint expected pixel: got rgb(%d,%d,%d)", r>>8, g>>8, b>>8)
 	}
 }
 

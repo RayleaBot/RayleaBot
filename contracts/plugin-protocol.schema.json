@@ -2164,6 +2164,49 @@
         }
       }
     },
+    "render_image_resource_url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^https://",
+      "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; the target and every redirect must remain inside the calling plugin's declared http_hosts scope."
+    },
+    "render_image_resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "url"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
+          "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference this value through a host-recognized data-render-resource attribute."
+        },
+        "url": {
+          "$ref": "#/$defs/render_image_resource_url"
+        },
+        "fallback_urls": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/render_image_resource_url"
+          },
+          "description": "Ordered lower-priority HTTPS candidates. The platform tries these only when the primary URL cannot produce an accepted image or when the retained resource set must be reduced to the request limit."
+        },
+        "referer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https://",
+          "description": "Optional HTTPS Referer sent by the platform while fetching this resource. No Cookie, Authorization, or arbitrary request headers can be supplied through render.image."
+        }
+      }
+    },
     "action_render_image_data": {
       "type": "object",
       "additionalProperties": false,
@@ -2191,6 +2234,14 @@
         "fallback_text": {
           "type": "string",
           "minLength": 1
+        },
+        "resources": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/render_image_resource"
+          },
+          "description": "Optional platform-prefetched image resources. Using this field requires both render.image and http.request capabilities. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input or capability-scope violations reject the action."
         },
         "data": {
           "type": "object",
@@ -3045,7 +3096,7 @@
       "type": "action",
       "action_kind": "render.image",
       "direction": "plugin->platform",
-      "description": "The platform resolves a package-local template short ID against the calling plugin before falling back to a system template ID. Formal plugin template IDs use plugin.<plugin_id>.<template_id> and are only renderable by the owning plugin.",
+      "description": "The platform resolves a package-local template short ID against the calling plugin before falling back to a system template ID. Formal plugin template IDs use plugin.<plugin_id>.<template_id> and are only renderable by the owning plugin. Optional resources are fetched through the platform HTTP trust boundary, materialized as request-scoped temporary files, and removed after Chromium finishes.",
       "request_id_policy": "required_new_request_distinct_from_event",
       "required_fields": [
         "protocol_version",
@@ -3203,6 +3254,7 @@
     "fixtures/plugin-protocol/ok.action-event-expose-webhook-grace.yaml",
     "fixtures/plugin-protocol/ok.event-webhook-received.yaml",
     "fixtures/plugin-protocol/ok.action-render-image.yaml",
+    "fixtures/plugin-protocol/ok.action-render-image-resources.yaml",
     "fixtures/plugin-protocol/ok.action-message-history-get.yaml",
     "fixtures/plugin-protocol/ok.action-group-announcement-create.yaml",
     "fixtures/plugin-protocol/ok.action-file-group-upload.yaml",
@@ -3226,6 +3278,7 @@
     "fixtures/plugin-protocol/edge.action-scheduler-create-result.yaml",
     "fixtures/plugin-protocol/edge.action-event-expose-webhook-result.yaml",
     "fixtures/plugin-protocol/edge.action-render-image-result.yaml",
+    "fixtures/plugin-protocol/edge.action-render-image-resource-fallbacks.yaml",
     "fixtures/plugin-protocol/edge.action-http-request-concurrent-parent-routing.yaml",
     "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
     "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
@@ -3246,6 +3299,7 @@
     "fixtures/plugin-protocol/invalid.action-event-expose-webhook-invalid-route.yaml",
     "fixtures/plugin-protocol/invalid.event-webhook-in-payload.yaml",
     "fixtures/plugin-protocol/invalid.action-render-image-missing-template.yaml",
+    "fixtures/plugin-protocol/invalid.action-render-image-resource-http-url.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
     "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
@@ -3266,5 +3320,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/thirdparty.account.validate/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. thirdparty.account.validate reports a bounded authentication observation for an exact allowed account and only requests authoritative platform validation; it cannot submit credential state, credentials, response bodies, or free-form errors. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/thirdparty.account.validate/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. thirdparty.account.validate reports a bounded authentication observation for an exact allowed account and only requests authoritative platform validation; it cannot submit credential state, credentials, response bodies, or free-form errors. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. Optional render.image resources require http.request, remain inside declared http_hosts, carry no credentials or arbitrary headers, and are materialized as request-scoped temporary image files. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

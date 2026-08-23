@@ -196,6 +196,35 @@ func TestHTTPClientRejectsDecodedBodyLimitWithoutRetry(t *testing.T) {
 	}
 }
 
+func TestHTTPClientAllowsHeadResponseWithLargeContentLength(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Length", "1048576")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	requestURL, resolver := testHTTPURLAndResolver(t, server.URL, "internal.test")
+	client := newHTTPClient(httpClientConfig{
+		Resolver:             resolver,
+		Timeout:              5 * time.Second,
+		MaxResponseBodyBytes: 64,
+		AllowPrivateHosts:    []string{"internal.test"},
+	})
+
+	response, err := client.do(context.Background(), httpClientRequest{
+		Method: "HEAD",
+		URL:    requestURL,
+	}, []string{"internal.test"})
+	if err != nil {
+		t.Fatalf("Do HEAD request: %v", err)
+	}
+	if response.StatusCode != http.StatusOK || response.BodyBytes != 0 {
+		t.Fatalf("HEAD response = %#v", response)
+	}
+}
+
 func TestHTTPClientRejectsHeaderLimitWithoutRetry(t *testing.T) {
 	t.Parallel()
 

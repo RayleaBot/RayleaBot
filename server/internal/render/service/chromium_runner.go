@@ -2,6 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
 	"math"
 	"net/url"
 	"os"
@@ -111,6 +116,7 @@ type Document struct {
 	AutoHeight        bool
 	DeviceScaleFactor float64
 	HTML              string
+	Resources         []RenderResource
 }
 
 type Runner interface {
@@ -152,10 +158,10 @@ func browserFileURL(path string) string {
 	}).String()
 }
 
-func writeTemporaryRenderDocument(html, baseURL string) (string, func(), error) {
+func writeTemporaryRenderDocument(html, baseURL string, resources []RenderResource) (string, map[string]string, func(), error) {
 	dir, err := os.MkdirTemp("", "rayleabot-render-*")
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	cleanup := func() {
@@ -165,9 +171,98 @@ func writeTemporaryRenderDocument(html, baseURL string) (string, func(), error) 
 	documentPath := filepath.Join(dir, "document.html")
 	if err := os.WriteFile(documentPath, []byte(htmlWithBaseURL(html, baseURL)), 0o600); err != nil {
 		cleanup()
-		return "", nil, err
+		return "", nil, nil, err
 	}
-	return browserFileURL(documentPath), cleanup, nil
+	resourceURLs, err := materializeRenderResources(dir, resources)
+	if err != nil {
+		cleanup()
+		return "", nil, nil, err
+	}
+	return browserFileURL(documentPath), resourceURLs, cleanup, nil
+}
+
+func materializeRenderResources(renderDir string, resources []RenderResource) (map[string]string, error) {
+	if len(resources) == 0 {
+		return nil, nil
+	}
+	resourceDir := filepath.Join(renderDir, "resources")
+	if err := os.Mkdir(resourceDir, 0o700); err != nil {
+		return nil, err
+	}
+	result := make(map[string]string, len(resources))
+	for index, resource := range resources {
+		extension, ok := renderResourceExtension(resource.MIME)
+		if !ok {
+			return nil, fmt.Errorf("render resource %q has unsupported MIME %q", resource.ID, resource.MIME)
+		}
+		destination := filepath.Join(resourceDir, fmt.Sprintf("%02d%s", index, extension))
+		if err := copyVerifiedRenderResource(resource, destination); err != nil {
+			return nil, err
+		}
+		result[resource.ID] = browserFileURL(destination)
+	}
+	return result, nil
+}
+
+func copyVerifiedRenderResource(resource RenderResource, destination string) error {
+	source, err := os.Open(resource.Path)
+	if err != nil {
+		return fmt.Errorf("open render resource %q: %w", resource.ID, err)
+	}
+	defer source.Close()
+
+	target, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return fmt.Errorf("create render resource %q: %w", resource.ID, err)
+	}
+	hash := sha256.New()
+	written, copyErr := io.Copy(io.MultiWriter(target, hash), io.LimitReader(source, resource.Size+1))
+	closeErr := target.Close()
+	if copyErr != nil {
+		return fmt.Errorf("copy render resource %q: %w", resource.ID, copyErr)
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close render resource %q: %w", resource.ID, closeErr)
+	}
+	if written != resource.Size || !strings.EqualFold(hex.EncodeToString(hash.Sum(nil)), resource.SHA256) {
+		return fmt.Errorf("render resource %q changed before materialization", resource.ID)
+	}
+	return nil
+}
+
+func bindRenderResourcesExpression(resources map[string]string) (string, error) {
+	if len(resources) == 0 {
+		return "", nil
+	}
+	payload, err := json.Marshal(resources)
+	if err != nil {
+		return "", err
+	}
+	return `(async () => {
+  const resources = ` + string(payload) + `;
+  const images = Array.from(document.querySelectorAll("img[data-render-resource]"));
+  await Promise.all(images.map(async (image) => {
+    const resourceID = image.dataset.renderResource || "";
+    const source = resources[resourceID];
+    if (!source) {
+      return;
+    }
+    const fallback = image.dataset.fallback || image.getAttribute("src") || "";
+    image.src = source;
+    try {
+      await image.decode();
+    } catch (_) {
+      if (!fallback) {
+        return;
+      }
+      image.src = new URL(fallback, document.baseURI).href;
+      try {
+        await image.decode();
+      } catch (_) {}
+    }
+  }));
+  return true;
+})()`, nil
 }
 
 var headOpenPattern = regexp.MustCompile(`(?i)<head(\s[^>]*)?>`)
@@ -191,7 +286,6 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		return nil, err
 	}
 	tabCtx, cancelTab := chromedp.NewContext(browserCtx)
-	defer cancelTab()
 
 	runCtx, cancelRun := contextWithRenderDeadline(tabCtx, ctx)
 	defer cancelRun()
@@ -207,11 +301,17 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		deviceScaleFactor = 1
 	}
 
-	renderURL, cleanup, err := writeTemporaryRenderDocument(doc.HTML, doc.BaseURL)
+	renderURL, resourceURLs, cleanup, err := writeTemporaryRenderDocument(doc.HTML, doc.BaseURL, doc.Resources)
 	if err != nil {
+		cancelTab()
 		return nil, err
 	}
 	defer cleanup()
+	defer cancelTab()
+	bindResources, err := bindRenderResourcesExpression(resourceURLs)
+	if err != nil {
+		return nil, err
+	}
 
 	var content []byte
 	var measuredHeight float64
@@ -220,8 +320,11 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false),
 		chromedp.Navigate(renderURL),
 		chromedp.WaitReady("body"),
-		chromedp.Evaluate(waitForLocalAssetsExpression, nil),
 	}
+	if bindResources != "" {
+		actions = append(actions, chromedp.Evaluate(bindResources, nil))
+	}
+	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil))
 	if doc.AutoHeight {
 		actions = append(actions,
 			chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight),

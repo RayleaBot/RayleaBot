@@ -172,6 +172,7 @@
   - Chromium 渲染与 bounded queue
   - `templates/` 模板注册、input schema 校验与缓存键生成
   - 管理面模板实时预览与插件图片渲染
+  - `render.image` 可在插件 HTTP scope 内预取原始图片，按内容摘要参与缓存，并以请求级临时文件交给 Chromium
   - 模板与浏览器问题通过 startup logs、`/readyz` 和 `/api/system/diagnostics` 暴露；Launcher 组合服务端快照与本地 preflight，CLI `doctor` 在渲染资源范围内只检查 deps / Chromium 元数据
 - CLI 子命令：
   - `config init` / `config normalize` / `config validate`

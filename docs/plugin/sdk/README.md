@@ -27,6 +27,8 @@ err := rayleabot.Run(ctx, rayleabot.Options{
 
 SDK 为每个 local action 分配独立 request ID，并通过父事件 request ID 关联并发响应。stdout 只写 JSONL，使用串行 writer；日志写 stderr。运行时处理 `init/init_ack`、`ping/pong`、shutdown、超时、并发上限和 panic 隔离，panic 只终止当前事件并返回受控错误。
 
+`RenderImageRequest.Resources` 接受 `RenderImageResource` 列表；每项使用 `ID`、`URL`、可选 `FallbackURLs` 与 `Referer` 描述宿主预取图片。模板通过 `data-render-resource` 引用同一 ID。该能力同时要求插件声明 `render.image`、`http.request` 以及对应 `http_hosts`，图片字节不进入 `RenderImageRequest.Data`。
+
 ## Artifact 构建器
 
 每个插件拥有独立 `go.mod`、`info.json` 和薄 `tools/build` 入口。后端遵循 Go 应用工程的职责分层：可执行入口放在 `cmd/<plugin>/`，不可被仓库外导入的业务实现和嵌入资源放在 `internal/`，UI、模板与发布工具各自保持顶层目录：

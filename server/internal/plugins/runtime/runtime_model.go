@@ -552,11 +552,19 @@ type ProtocolWebhookReplayProtectionFrame struct {
 }
 
 type ProtocolActionRenderImageFrame struct {
-	Template     string          `json:"template"`
-	Theme        string          `json:"theme,omitempty"`
-	Output       string          `json:"output,omitempty"`
-	FallbackText string          `json:"fallback_text,omitempty"`
-	Data         json.RawMessage `json:"data"`
+	Template     string                             `json:"template"`
+	Theme        string                             `json:"theme,omitempty"`
+	Output       string                             `json:"output,omitempty"`
+	FallbackText string                             `json:"fallback_text,omitempty"`
+	Resources    []ProtocolRenderImageResourceFrame `json:"resources,omitempty"`
+	Data         json.RawMessage                    `json:"data"`
+}
+
+type ProtocolRenderImageResourceFrame struct {
+	ID           string   `json:"id"`
+	URL          string   `json:"url"`
+	FallbackURLs []string `json:"fallback_urls,omitempty"`
+	Referer      string   `json:"referer,omitempty"`
 }
 
 // CrashCallback is invoked by the runtime manager when a running plugin

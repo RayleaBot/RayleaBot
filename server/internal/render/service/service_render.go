@@ -120,6 +120,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 		AutoHeight:        true,
 		DeviceScaleFactor: deviceScaleFactorFromPercent(deviceScalePercent),
 		HTML:              html,
+		Resources:         normalized.Resources,
 	})
 	if err != nil {
 		return Result{}, wrapRenderError(WrapRenderError(renderCtx, err), "render execution failed")
@@ -232,6 +233,11 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	if request.Data == nil {
 		request.Data = map[string]any{}
 	}
+	resources, err := normalizeRenderResources(request.Resources)
+	if err != nil {
+		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render resources are invalid", Err: err}
+	}
+	request.Resources = resources
 	request.Data = cloneRenderData(request.Data)
 	request.Data["render_footer"] = s.renderFooter(request.Plugin)
 

@@ -62,10 +62,11 @@ func (r renderer) ResolvePluginTemplate(ctx context.Context, pluginID, templateP
 
 func (r renderer) RenderImage(ctx context.Context, req RenderImageRequest) (RenderImageResult, error) {
 	result, err := r.service.Render(ctx, renderservice.Request{
-		Template: req.Template,
-		Theme:    req.Theme,
-		Output:   req.Output,
-		Data:     req.Data,
+		Template:  req.Template,
+		Theme:     req.Theme,
+		Output:    req.Output,
+		Data:      req.Data,
+		Resources: renderServiceResources(req.Resources),
 		Plugin: &renderservice.PluginContext{
 			Name:    req.Plugin.Name,
 			Version: req.Plugin.Version,
@@ -87,6 +88,20 @@ func (r renderer) RenderImage(ctx context.Context, req RenderImageRequest) (Rend
 		MIME:       result.MIME,
 		CacheKey:   result.CacheKey,
 	}, nil
+}
+
+func renderServiceResources(resources []RenderImageResource) []renderservice.RenderResource {
+	result := make([]renderservice.RenderResource, 0, len(resources))
+	for _, resource := range resources {
+		result = append(result, renderservice.RenderResource{
+			ID:     resource.ID,
+			Path:   resource.Path,
+			MIME:   resource.MIME,
+			SHA256: resource.SHA256,
+			Size:   resource.Size,
+		})
+	}
+	return result
 }
 
 func (r renderer) TemplateAcceptsRenderIdentity(ctx context.Context, templateID string) bool {

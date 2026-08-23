@@ -361,11 +361,19 @@ func (actions *Actions) ExposeWebhook(ctx context.Context, request ExposeWebhook
 }
 
 type RenderImageRequest struct {
-	Template     string         `json:"template"`
-	Data         map[string]any `json:"data"`
-	Theme        string         `json:"theme,omitempty"`
-	Output       string         `json:"output,omitempty"`
-	FallbackText string         `json:"fallback_text,omitempty"`
+	Template     string                `json:"template"`
+	Data         map[string]any        `json:"data"`
+	Theme        string                `json:"theme,omitempty"`
+	Output       string                `json:"output,omitempty"`
+	FallbackText string                `json:"fallback_text,omitempty"`
+	Resources    []RenderImageResource `json:"resources,omitempty"`
+}
+
+type RenderImageResource struct {
+	ID           string   `json:"id"`
+	URL          string   `json:"url"`
+	FallbackURLs []string `json:"fallback_urls,omitempty"`
+	Referer      string   `json:"referer,omitempty"`
 }
 
 func (actions *Actions) RenderImage(ctx context.Context, request RenderImageRequest) (ActionResult, error) {

@@ -3,7 +3,20 @@ package runtime
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"net/url"
+	"regexp"
 	"strings"
+)
+
+const (
+	maxRenderImageResources         = 16
+	maxRenderImageResourceFallbacks = 4
+)
+
+var (
+	renderImageResourceIDPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]{0,63}$`)
+	errInvalidRenderImageResourceURL = errors.New("invalid render.image resource URL")
 )
 
 type ActionSegment struct {
@@ -65,6 +78,14 @@ type Action struct {
 	RenderOutput                 string
 	RenderFallbackText           string
 	RenderData                   map[string]any
+	RenderResources              []RenderImageResource
+}
+
+type RenderImageResource struct {
+	ID           string
+	URL          string
+	FallbackURLs []string
+	Referer      string
 }
 
 // WebhookReplayProtection mirrors the formal replay_protection contract on
@@ -677,6 +698,10 @@ func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
 	if err := json.Unmarshal(frame.Data, &renderData); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image data", err)
 	}
+	resources, err := parseRenderImageResources(frame.Resources)
+	if err != nil {
+		return nil, err
+	}
 
 	output := strings.TrimSpace(frame.Output)
 	switch output {
@@ -693,7 +718,77 @@ func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
 		RenderOutput:       output,
 		RenderFallbackText: strings.TrimSpace(frame.FallbackText),
 		RenderData:         renderData,
+		RenderResources:    resources,
 	}, nil
+}
+
+func parseRenderImageResources(frames []ProtocolRenderImageResourceFrame) ([]RenderImageResource, error) {
+	if len(frames) > maxRenderImageResources {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has too many render.image resources", nil)
+	}
+	resources := make([]RenderImageResource, 0, len(frames))
+	seenIDs := make(map[string]struct{}, len(frames))
+	for _, frame := range frames {
+		id := strings.TrimSpace(frame.ID)
+		if !renderImageResourceIDPattern.MatchString(id) {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource id", nil)
+		}
+		if _, exists := seenIDs[id]; exists {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has duplicate render.image resource ids", nil)
+		}
+		seenIDs[id] = struct{}{}
+
+		primary, err := parseRenderImageResourceURL(frame.URL)
+		if err != nil {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource URL", err)
+		}
+		if len(frame.FallbackURLs) > maxRenderImageResourceFallbacks {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has too many render.image resource fallback URLs", nil)
+		}
+		fallbacks := make([]string, 0, len(frame.FallbackURLs))
+		seenURLs := map[string]struct{}{primary: {}}
+		for _, rawURL := range frame.FallbackURLs {
+			fallback, err := parseRenderImageResourceURL(rawURL)
+			if err != nil {
+				return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource fallback URL", err)
+			}
+			if _, exists := seenURLs[fallback]; exists {
+				return nil, errorf(codePluginProtocolViolation, "plugin action frame has duplicate render.image resource URLs", nil)
+			}
+			seenURLs[fallback] = struct{}{}
+			fallbacks = append(fallbacks, fallback)
+		}
+
+		referer := ""
+		if strings.TrimSpace(frame.Referer) != "" {
+			if len(strings.TrimSpace(frame.Referer)) > 2048 {
+				return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource referer", errInvalidRenderImageResourceURL)
+			}
+			referer, err = parseRenderImageResourceURL(frame.Referer)
+			if err != nil {
+				return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource referer", err)
+			}
+		}
+		resources = append(resources, RenderImageResource{
+			ID:           id,
+			URL:          primary,
+			FallbackURLs: fallbacks,
+			Referer:      referer,
+		})
+	}
+	return resources, nil
+}
+
+func parseRenderImageResourceURL(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) == 0 || len(trimmed) > 4096 {
+		return "", errInvalidRenderImageResourceURL
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+		return "", errInvalidRenderImageResourceURL
+	}
+	return parsed.String(), nil
 }
 
 func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {

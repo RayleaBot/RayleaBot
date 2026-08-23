@@ -436,6 +436,50 @@ func TestParseRenderImageActionKeepsOmittedOutputEmpty(t *testing.T) {
 	}
 }
 
+func TestParseRenderImageActionResources(t *testing.T) {
+	t.Parallel()
+
+	action, err := ParseLocalAction("render.image", json.RawMessage(`{
+		"template": "weibo-update",
+		"resources": [{
+			"id": "media-0",
+			"url": "https://wx2.sinaimg.cn/large/example.jpg",
+			"fallback_urls": ["https://wx2.sinaimg.cn/mw2000/example.jpg"],
+			"referer": "https://weibo.com/"
+		}],
+		"data": {"media_items": [{"resource_id": "media-0"}]}
+	}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction(render.image resources): %v", err)
+	}
+	if len(action.RenderResources) != 1 {
+		t.Fatalf("RenderResources = %#v", action.RenderResources)
+	}
+	resource := action.RenderResources[0]
+	if resource.ID != "media-0" || resource.URL != "https://wx2.sinaimg.cn/large/example.jpg" || resource.Referer != "https://weibo.com/" {
+		t.Fatalf("resource = %#v", resource)
+	}
+	if len(resource.FallbackURLs) != 1 || resource.FallbackURLs[0] != "https://wx2.sinaimg.cn/mw2000/example.jpg" {
+		t.Fatalf("fallback URLs = %#v", resource.FallbackURLs)
+	}
+}
+
+func TestParseRenderImageActionRejectsDuplicateResourceIDs(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseLocalAction("render.image", json.RawMessage(`{
+		"template": "weibo-update",
+		"resources": [
+			{"id": "media-0", "url": "https://wx2.sinaimg.cn/large/one.jpg"},
+			{"id": "media-0", "url": "https://wx2.sinaimg.cn/large/two.jpg"}
+		],
+		"data": {}
+	}`))
+	if err == nil {
+		t.Fatal("expected duplicate render.image resource IDs to fail")
+	}
+}
+
 func TestClassifyProtocolReadErrorTreatsExitedProcessAsInternalError(t *testing.T) {
 	t.Parallel()
 

@@ -118,11 +118,20 @@ type RuntimeConfig struct {
 }
 
 type Request struct {
-	Template string         `json:"template"`
-	Theme    string         `json:"theme,omitempty"`
-	Output   string         `json:"output,omitempty"`
-	Data     map[string]any `json:"data"`
-	Plugin   *PluginContext `json:"-"`
+	Template  string           `json:"template"`
+	Theme     string           `json:"theme,omitempty"`
+	Output    string           `json:"output,omitempty"`
+	Data      map[string]any   `json:"data"`
+	Resources []RenderResource `json:"-"`
+	Plugin    *PluginContext   `json:"-"`
+}
+
+type RenderResource struct {
+	ID     string
+	Path   string
+	MIME   string
+	SHA256 string
+	Size   int64
 }
 
 type PluginContext struct {

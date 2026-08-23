@@ -93,7 +93,7 @@
 - `governance.command_policy.read`
 - `scheduler.create`：`task_id` 是插件内幂等任务名；`cron` 使用五段 cron；`event_type` 固定为 `scheduler.trigger`；`payload` 会随触发事件进入插件；`log_label` 可选，用于管理日志中的中文任务说明。
 - `event.expose_webhook`
-- `render.image`
+- `render.image`：可选 `resources` 由平台在 `http.request` 信任边界内预取为临时图片资源，再交给 Chromium 渲染
 - OneBot family actions:
   - `message.get`
   - `message.delete`
@@ -146,6 +146,14 @@
 同一事件需要先发送进度提示、再继续查询或渲染时，使用非终态 `message.send` local action：Go SDK 为 `event.Actions().MessageSend(ctx, request)`。它使用独立 `request_id` 和当前事件的 `parent_request_id`；`event.SendText(...)`、`event.Send(...)`、`event.Reply(...)`、`event.Result(...)` 与 `event.Fail(...)` 用于结束当前事件且只能成功调用一次。
 
 所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+
+### `render.image` 临时图片资源
+
+`render.image.data.resources` 是可选的请求级图片资源列表。每项包含唯一 `id`、主 `url`、最多四个有序 `fallback_urls` 和可选 `referer`；模板通过 `<img data-render-resource="资源 ID">` 引用资源。资源 URL 和 Referer 只接受 HTTPS，URL 用户信息与 fragment 被拒绝。
+
+使用 `resources` 的插件必须同时声明 `render.image` 与 `http.request`，资源目标和重定向目标必须位于 manifest 的 `http_hosts`。平台不会从插件接收 Cookie、Authorization 或任意下载请求头，只附带固定图片请求头和资源声明中的 Referer。JPEG、PNG、GIF 与 WebP 可作为渲染资源；单项响应上限为 16 MiB，每次渲染保留资源总量上限为 96 MiB，最多 16 项，全部资源共享 30 秒处理期限。
+
+平台按 `url`、`fallback_urls` 的顺序解析资源。不可用或内容校验失败的资源保持未解析，模板原有 `src` 或 `data-fallback` 继续生效；格式错误、能力缺失、超出 `http_hosts` 或最终总量超限会拒绝 action。已接受图片保持原始字节，不进入 `data` 的 JSON/base64 大小预算。平台计算内容摘要并将其纳入截图缓存键，在 Chromium 完成或失败后删除请求级临时文件。
 
 `message.send`、`message.reply`、OneBot family actions 与 provider extension actions 需要可用的 OneBot adapter 连接；连接不可用时返回 adapter 类错误，插件进程保持运行。
 

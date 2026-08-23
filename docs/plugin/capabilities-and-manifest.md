@@ -85,7 +85,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 
 `capability_parameters` 只表达运行边界参数，当前正式范围包括：
 
-- `http_hosts`：`http.request` 可访问的主机名列表。平台仍执行全局 HTTP 超时、重试、DNS 预检、SSRF 防护和私网主机限制。
+- `http_hosts`：`http.request` 与 `render.image.resources` 可访问的主机名列表。平台仍执行 HTTP 超时、DNS 预检、SSRF 防护、私网主机限制和重定向目标复检；`render.image.resources` 使用独立的图片资源上限与请求级期限。
 - `storage_roots`：`storage.file` 可访问的插件文件根目录列表；当前唯一合法值是 `plugin_data`。平台仍执行路径穿越、符号链接和插件工作目录配额校验。
 - `third_party_account_platforms`：`thirdparty.account.read` 可读取、`thirdparty.account.validate` 可请求复检的平台列表；冻结值为 `bilibili`、`weibo`、`douyin`、`netease_music`。读取只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回；复检动作只能提交账号 ID、受限异常观察和可选 HTTP 状态，最终凭据状态由 Server 校验器决定。
 - `webhooks`：`event.expose_webhook` 可暴露的路由列表。每项必填 `route`、`auth_strategy`、`header`、`secret_ref`，可选 `source_ips`。重放保护不在 manifest 中声明，而是每次注册 `event.expose_webhook` action 时通过必填 `replay_protection` 提交。

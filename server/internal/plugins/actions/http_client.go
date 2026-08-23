@@ -38,17 +38,19 @@ type httpClientConfig struct {
 }
 
 type httpClientRequest struct {
-	Method        string
-	URL           string
-	Headers       map[string]string
-	Body          []byte
-	ActionTimeout time.Duration
+	Method             string
+	URL                string
+	Headers            map[string]string
+	Body               []byte
+	ActionTimeout      time.Duration
+	ResponseBodyWriter io.Writer
 }
 
 type httpClientResponse struct {
 	StatusCode int
 	Headers    map[string]string
 	Body       []byte
+	BodyBytes  int64
 }
 
 type httpClient struct {
@@ -60,13 +62,14 @@ type httpClient struct {
 }
 
 type httpAttemptOptions struct {
-	method           string
-	url              *url.URL
-	body             []byte
-	headers          map[string]string
-	host             string
-	allowPrivateHost bool
-	remaining        time.Duration
+	method             string
+	url                *url.URL
+	body               []byte
+	headers            map[string]string
+	host               string
+	allowPrivateHost   bool
+	remaining          time.Duration
+	responseBodyWriter io.Writer
 }
 
 func newHTTPClient(cfg httpClientConfig) *httpClient {
@@ -92,6 +95,9 @@ func newHTTPClient(cfg httpClientConfig) *httpClient {
 }
 
 func (c *httpClient) do(ctx context.Context, req httpClientRequest, scopeHosts []string) (httpClientResponse, error) {
+	if req.ResponseBodyWriter != nil && c.maxRetries != 0 {
+		return httpClientResponse{}, errHTTPInvalidRequest
+	}
 	parsedURL, method, body, err := c.validateRequest(req)
 	if err != nil {
 		return httpClientResponse{}, err
@@ -138,13 +144,14 @@ func (c *httpClient) do(ctx context.Context, req httpClientRequest, scopeHosts [
 		}
 
 		response, shouldRetry, err := c.doAttempt(ctx, httpAttemptOptions{
-			method:           method,
-			url:              parsedURL,
-			body:             body,
-			headers:          req.Headers,
-			host:             host,
-			allowPrivateHost: allowPrivateHost,
-			remaining:        remaining,
+			method:             method,
+			url:                parsedURL,
+			body:               body,
+			headers:            req.Headers,
+			host:               host,
+			allowPrivateHost:   allowPrivateHost,
+			remaining:          remaining,
+			responseBodyWriter: req.ResponseBodyWriter,
 		})
 		if !shouldRetry || attempts >= c.maxRetries+1 {
 			return response, err
@@ -197,6 +204,7 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 	}
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	defer transport.CloseIdleConnections()
 	transport.Proxy = nil
 	transport.DisableCompression = false
 	transport.MaxResponseHeaderBytes = maxHTTPResponseHeaderBytes
@@ -248,18 +256,35 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 		return httpClientResponse{}, false, errHTTPResponseTooLarge
 	}
 
-	body, err := io.ReadAll(io.LimitReader(httpResponse.Body, c.maxResponseBodyBytes+1))
-	if err != nil {
-		return httpClientResponse{}, false, err
-	}
-	if int64(len(body)) > c.maxResponseBodyBytes {
-		return httpClientResponse{}, false, errHTTPResponseTooLarge
-	}
-
 	response := httpClientResponse{
 		StatusCode: httpResponse.StatusCode,
 		Headers:    flattenHeaders(httpResponse.Header),
-		Body:       body,
+	}
+	if opts.method != http.MethodHead && httpResponse.ContentLength > c.maxResponseBodyBytes {
+		return response, false, errHTTPResponseTooLarge
+	}
+	if opts.responseBodyWriter != nil {
+		written, err := io.Copy(opts.responseBodyWriter, io.LimitReader(httpResponse.Body, c.maxResponseBodyBytes+1))
+		if err != nil {
+			if errors.Is(err, errHTTPResponseTooLarge) {
+				return response, false, errHTTPResponseTooLarge
+			}
+			return response, false, err
+		}
+		if written > c.maxResponseBodyBytes {
+			return response, false, errHTTPResponseTooLarge
+		}
+		response.BodyBytes = written
+	} else {
+		body, err := io.ReadAll(io.LimitReader(httpResponse.Body, c.maxResponseBodyBytes+1))
+		if err != nil {
+			return response, false, err
+		}
+		if int64(len(body)) > c.maxResponseBodyBytes {
+			return response, false, errHTTPResponseTooLarge
+		}
+		response.Body = body
+		response.BodyBytes = int64(len(body))
 	}
 	if isRetryableStatus(opts.method, httpResponse.StatusCode) {
 		return response, true, nil
