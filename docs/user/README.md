@@ -10,7 +10,7 @@
 | [configuration.md](./configuration.md) | 配置文件模型、目录职责和运行根目录 |
 | [recovery.md](./recovery.md) | 恢复、兼容检查、人工处理和运行环境准备 |
 | [cli.md](./cli.md) | CLI 子命令与离线运维边界 |
-| [deployment.md](./deployment.md) | 本地交付形态、Docker 和 Linux 自托管 |
+| [deployment.md](./deployment.md) | 本地交付形态、容器边界和 Linux 自托管 |
 
 ## 当前原则
 

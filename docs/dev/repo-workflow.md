@@ -35,13 +35,13 @@ dist/
 
 ## 本地插件联调
 
-主仓库启动器负责编排本机独立插件仓库，不依赖 GitHub 构建：
+主仓库开发启动脚本（`node scripts/start-dev.mjs`，Windows 下为 `start.bat`）负责编排本机独立插件仓库，不依赖 GitHub 构建：
 
 独立插件后端采用 `cmd/<plugin>`、`internal/plugin` 与可选 `internal/assets` 目录；`tools/build` 显式指定唯一后端 package，并可把内部资源映射到稳定 artifact 路径。
 
 1. `plugin-workspace.local.json` 声明需要联调的仓库；该文件及 `.tmp/plugin-dev/` 均不进入版本控制。
 2. 首次启动为所有启用插件生成临时 `go.work`，镜像当前主仓库 Vue SDK，调用各插件自己的 `tools/build` 构建当前平台完整 artifact。
-3. 启动器在 Server 未运行时调用 `plugin dev-sync`，经正式校验与原子安装事务写入 `plugins/installed/`；运行期仍只发现已安装产物，不直接发现源码目录。
+3. 开发启动脚本在 Server 未运行时调用 `plugin dev-sync`，经正式校验与原子安装事务写入 `plugins/installed/`；运行期仍只发现已安装产物，不直接发现源码目录。
 4. `watch` 模式按 500ms 窗口和插件 ID 合并变更，后续只重建本批变化的插件；构建过程中发生的新变更进入下一批。
 5. 候选构建或同步失败时保留并恢复上一个已安装 artifact。
 

@@ -91,7 +91,7 @@ OneBot11 上报帧
 - 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`secret.read`、`plugin.list`、`scheduler.create`、`event.expose_webhook`、`render.image` 与 `governance.*`。
 - OneBot generic action 覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke 等家族。
 - Provider 扩展动作固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 和 `provider.luckylillia.friend_groups.get`。
-- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`config.changed`、`webhook.received`、`bot.identity.changed`、`management.action`。
+- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`plugin.started`、`config.changed`、`webhook.received`、`bot.identity.changed`、`management.action`。
 
 ### 当前正式消息段
 
@@ -132,7 +132,7 @@ OneBot11 上报帧
 - `service_status`：服务总体状态变化摘要
 - `plugin_id` + `state` + `commands` + `command_conflicts` + 可选 `state_diagnosis`：插件生命周期状态投影
 - `connection_status`：OneBot 连接状态摘要
-- `event_type` + `summary`：通用管理事件（当前包括 `governance.changed`）
+- `event_type` + `summary`：通用管理事件（当前包括 `governance.changed` 与 `third_party.account.changed`）
 - `protocol` + `protocol_snapshot`：OneBot11 协议快照推送
 - `observability_scope` = `bridge_runtime` 时的聚合观测摘要
 - `observability_scope` = `dispatcher_runtime` 时的 dispatcher 窗口统计摘要

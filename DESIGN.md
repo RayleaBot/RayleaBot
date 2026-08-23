@@ -71,7 +71,7 @@ node scripts/generate-design-tokens.mjs
 node scripts/generate-design-tokens.mjs --check
 ```
 
-生成物包括 Web TypeScript、Web SCSS、Launcher TypeScript、本文件前置元数据和 `.impeccable/design.json` 的色彩元数据。`--check` 同时校验生成漂移、指定对比度、退役颜色和核心产品代码中的颜色字面量。
+生成物包括 Web TypeScript、Web SCSS、Launcher TypeScript、`web/public/favicon.svg`、本文件前置元数据和 `.impeccable/design.json` 的色彩元数据。`--check` 同时校验生成漂移、指定对比度、退役颜色和核心产品代码中的颜色字面量。
 
 规范依据：
 

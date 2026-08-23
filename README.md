@@ -2,8 +2,8 @@
 
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/RayleaBot/RayleaBot)](https://github.com/RayleaBot/RayleaBot/releases)
-[![Go](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev)
-[![Node.js](https://img.shields.io/badge/Node.js-24+-339933?logo=nodedotjs)](https://nodejs.org)
+[![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)](https://go.dev)
+[![Node.js](https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs)](https://nodejs.org)
 [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs)](https://vuejs.org)
 
 面向个人开发者和开源协作者的自托管聊天机器人框架。基于 OneBot11 协议接入 QQ，提供插件扩展、Web 管理控制台和桌面启动器，所有数据运行在本地。

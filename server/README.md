@@ -5,6 +5,7 @@
 ## 当前已接线能力
 
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags；`-config-schema` 默认使用内置配置 schema
+- 辅助命令入口：`cmd/raylea-updater` 外置更新器，执行 Windows 事务安装
 - `config/user.yaml` 读取与内置配置 schema 校验；`contracts/config.user.schema.json` 是源码中的正式来源
 - `GET /healthz`、`GET /readyz`
 - SQLite store、current schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、third-party account persistence
@@ -27,6 +28,9 @@
   - `POST /api/system/render/templates/{template_id}/preview-html`
   - `GET /api/system/render/templates/{template_id}/asset`
 - `GET /api/protocols/onebot11`
+- `GET /api/protocols/onebot11/targets`
+- `POST /api/protocols/onebot11/identities/resolve`
+- `GET /api/protocols/onebot11/compatibility`
 - `GET /api/logs`
 - `GET /api/logs/{log_id}`
 - `POST /api/system/backup`
@@ -36,6 +40,8 @@
 - `GET /api/system/diagnostics`
 - `GET /api/system/diagnostics/export`
 - `GET /api/system/metrics`
+- `GET /api/update/status`
+- `POST /api/update/check`
 - `GET /api/protocols/onebot11/reverse-ws`
 - `POST /api/protocols/onebot11/webhook`
 - `GET /api/third-party/accounts`
@@ -56,6 +62,14 @@
 - `GET /api/governance/command-policy`
 - `GET /api/system/scheduler/jobs`
 - `POST /api/system/scheduler/jobs/{job_id}/trigger`
+- `GET /api/plugins`
+- `GET /api/plugins/{plugin_id}`
+- `POST /api/plugins/install/inspect`
+- `POST /api/plugins/install`
+- `POST /api/plugins/{plugin_id}/enable`
+- `POST /api/plugins/{plugin_id}/disable`
+- `POST /api/plugins/{plugin_id}/reload`
+- `DELETE /api/plugins/{plugin_id}`
 - `GET /api/plugins/{plugin_id}/settings`
 - `PUT /api/plugins/{plugin_id}/settings`
 - `GET /api/plugins/{plugin_id}/secrets`
@@ -139,6 +153,10 @@
 - launcher local companion：
   - loopback-only launcher status
   - loopback-only launcher shutdown
+- 受信更新核心（releaseupdate）：
+  - 签名发布清单、Ed25519 envelope 与 artifact SHA-256 校验
+  - `GET /api/update/status`、`POST /api/update/check` 与 CLI `update check --json` / `update verify` 复用同一校验核心
+  - Windows 自动安装由外置 updater（`cmd/raylea-updater`）执行
 - config runtime snapshot / hot reload：
   - `command.prefixes`
   - `user.command_rate_limit`

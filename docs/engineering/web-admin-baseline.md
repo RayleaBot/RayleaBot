@@ -33,23 +33,28 @@
 
 | 路径 | 职责 |
 | --- | --- |
-| `layout/` | 页面壳、菜单、页头、页签、面包屑 |
+| `layouts/` | 页面壳、菜单、页头、页签、面包屑 |
+| `router/` | 路由表与正式页面注册 |
 | `adapter/` | 反馈、运行时桥接和 UI 层薄适配 |
 | `request/` / `lib/http.ts` | HTTP 请求、鉴权、下载和错误信封解析 |
 | `lib/ws.ts` | 受控 WebSocket 连接封装 |
 | `stores/` | Pinia stores、工作区状态和实时快照 |
 | `access/` | 路由准入与会话驱动可达性 |
 | `preferences/` | 主题、布局和显示偏好 |
+| `styles/` | Tailwind 入口、SCSS 分区和生成主题 token 转发 |
+| `types/` | contract 生成类型的别名与共享类型 |
+| `locales/` | zh-CN 文案资源 |
 | `views/` | 页面与页面级工作区 |
 
 ## 请求与实时通信
 
 - HTTP 请求继续保留：
-  - `Authorization: Bearer <token>`
+  - 浏览器会话使用 Host-only HttpOnly cookie 与 `X-Raylea-CSRF` 请求头，CSRF 值只保存在内存
   - 请求超时
-  - `401` 时按 token 快照清理会话
+  - `401` 时清理内存会话快照并回到登录入口
   - RayleaBot error envelope 解析
   - 下载文件名解析
+- Bearer transport 保留给非浏览器客户端，Web 前端不使用，并在会话初始化时清除历史遗留的 bearer token。
 - WebSocket 继续使用受控连接模型，覆盖：
   - `events`
   - `logs`
@@ -63,13 +68,14 @@
 - 工作区 query 只表达当前筛选、选中项和详情抽屉状态，不制造重复页签和历史噪音。
 - 模板预览页使用 `/render/templates/:templateId?` 单页工作区，模板切换使用同一页面实例。
 - 桌面端只有在打开多个工作区时显示页签，移动端隐藏页签；页签隐藏不改变 keep-alive、搜索跳转和工作区恢复语义。
-- 偏好持久化版本为 `3`，正式字段为主题、密度、内容宽度、页面动效、页签、工作区记忆和快捷键。旧版本在读取时迁移，废弃的自由视觉字段不再写回。
+- 偏好持久化版本为 `3`，正式字段为主题、密度、内容宽度、页面动效、页签和工作区记忆。旧版本在读取时迁移，废弃的自由视觉字段不再写回。
 
 ## 当前正式页面
 
 - 登录、初始化和会话入口
+- 离线状态异常页
 - 系统状态
-- 菜单中心、插件列表、插件设置、插件详情和指令中心
+- 菜单中心、插件列表、插件商店、插件设置、插件详情和指令中心
 - 三方账号、协议中心和兼容矩阵
 - 权限策略、黑白名单和限流中心
 - 定时任务、实时日志和历史日志
@@ -85,6 +91,7 @@
 ## 样式与组件映射
 
 - 样式系统采用 Ant Design Vue tokens、Tailwind CSS 4、SCSS 和 CSS Variables。
+- 样式入口为 `src/main.ts` 引入的 `@/styles/tailwind.css` 与 `@/styles/main.scss`；生成主题 token 经 `styles/_tokens.scss` 转发的 `theme-tokens.generated` 消费。
 - `system`、`light`、`dark` 主题通过同一语义映射生成 Ant Design tokens 与 CSS variables；系统主题变化只影响 `system` 模式。
 - 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回落为中性。
 - 表单、表格、弹窗、抽屉、空态、骨架屏、标签和消息提示统一使用 Ant Design Vue 对应组件。

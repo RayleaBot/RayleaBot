@@ -17,7 +17,7 @@
 
 发行包根目录按产物形态包含：
 
-- server 二进制与 Launcher 桌面入口；
+- server 二进制与 Launcher 桌面入口；Windows 完整包另含事务安装使用的 `raylea-updater.exe`；
 - `web/dist` 与核心 `templates/`；
 - `config/default.yaml` 与 `.deps/manifest.json`；
 - `build_info.json`；
