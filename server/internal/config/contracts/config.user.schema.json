@@ -47,7 +47,7 @@
         "host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart.",
+          "description": "HTTP server bind address. Use a loopback address for localhost_only and public_via_reverse_proxy, or an explicit private/LAN address for lan_enabled. Wildcard addresses are rejected. Requires restart.",
           "x-apply-policy": "restart_required"
         },
         "port": {
@@ -103,7 +103,7 @@
           "type": "string",
           "minLength": 1,
           "default": "data/rayleabot.db",
-          "description": "Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart.",
+          "description": "Database file path. Relative paths resolve against the runtime root; absolute paths may be used for operational clarity. Requires restart.",
           "x-apply-policy": "restart_required"
         }
       }
@@ -292,7 +292,7 @@
         "browser_path": {
           "type": "string",
           "default": "",
-          "description": "Chromium executable path. Leave empty to use a prepared image rendering Chromium or a system Chromium-family browser.",
+          "description": "Shared Chromium executable path for image rendering and the Douyin QR-login browser fallback. Leave empty to use a prepared managed Chromium or a system Chromium-family browser.",
           "x-apply-policy": "restart_required"
         },
         "default_output": {
@@ -454,14 +454,14 @@
           "type": "integer",
           "minimum": 1,
           "default": 30,
-          "description": "Maximum time allowed for a single plugin's initialization (load and handshake). Default: 30.",
+          "description": "Wall-clock deadline for one plugin's load and init handshake. init_progress frames do not extend the deadline. Default: 30.",
           "x-apply-policy": "restart_required"
         },
         "plugin_init_max_total_seconds": {
           "type": "integer",
           "minimum": 1,
           "default": 300,
-          "description": "Cumulative initialization time budget across all plugins; remaining plugins skip initialization when exceeded. Default: 300.",
+          "description": "Cumulative initialization time budget for one runtime reconciliation pass across all enabled plugins; remaining plugins skip initialization when the budget is exhausted. Default: 300.",
           "x-apply-policy": "restart_required"
         },
         "plugin_event_timeout_seconds": {
@@ -475,27 +475,28 @@
           "type": "integer",
           "minimum": 1,
           "default": 16,
-          "description": "Maximum queued events per plugin; new events are dropped when exceeded. Default: 16.",
+          "description": "Maximum queued non-control events per plugin across the inbound channel and per-lane scheduler buffers; active deliveries are not counted and new events are dropped when exceeded. Default: 16.",
           "x-apply-policy": "restart_required"
         },
         "max_pending_control_events_per_plugin": {
           "type": "integer",
           "minimum": 1,
           "default": 4,
-          "description": "Maximum queued control events per plugin. Default: 4.",
+          "description": "Independent priority queue bound for plugin.started, config.changed, bot.identity.changed, and management.action events per plugin. Default: 4.",
           "x-apply-policy": "restart_required"
         },
         "ipc_pending_actions_max": {
           "type": "integer",
           "minimum": 1,
           "default": 256,
-          "description": "Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256.",
+          "description": "Maximum simultaneously outstanding local-action IPC requests per plugin. Rejected requests receive platform.rate_limited without starting a goroutine. Recent request-id history is bounded by the same value. Default: 256.",
           "x-apply-policy": "restart_required"
         },
         "ipc_action_burst_limit": {
           "$ref": "#/$defs/rateLimit",
           "default": "100/1s",
-          "description": "Burst rate limit for IPC actions, expressed as count per time window."
+          "description": "Per-plugin admission rate for local-action IPC requests, expressed as count per fixed time window. Rejected requests receive platform.rate_limited.",
+          "x-apply-policy": "restart_required"
         },
         "stderr_rate_limit_bytes_per_second": {
           "type": "integer",
@@ -536,7 +537,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 8388608,
-          "description": "Maximum size of a single IPC message; exceeding this disconnects and restarts the plugin. Default: 8388608.",
+          "description": "Maximum encoded JSON bytes in one inbound or outbound IPC frame, excluding the newline delimiter. An oversized frame terminates the plugin runtime as a protocol violation. Default: 8388608.",
           "x-apply-policy": "restart_required"
         }
       }
@@ -576,6 +577,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 256,
+          "description": "Per-plugin file-workspace warning threshold. Writes remain allowed after the threshold; storage.file write results report usage, the threshold, and a cleanup recommendation. Default: 256.",
           "x-apply-policy": "hot_reload"
         }
       }
@@ -593,22 +595,24 @@
           "type": "integer",
           "minimum": 1,
           "default": 90,
-          "description": "Audit log retention in days; entries older are purged. Default: 90.",
-          "x-apply-policy": "restart_required"
+          "description": "Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot has no separate audit-log store; management log retention is controlled by log.retention_days.",
+          "deprecated": true,
+          "x-apply-policy": "read_only"
         },
         "event_records_retention_days": {
           "type": "integer",
           "minimum": 1,
           "default": 7,
-          "description": "Event-record retention in days; entries older are purged. Default: 7.",
-          "x-apply-policy": "restart_required"
+          "description": "Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot does not persist a general raw event-record stream.",
+          "deprecated": true,
+          "x-apply-policy": "read_only"
         },
         "download_cache_retention_days": {
           "type": "integer",
           "minimum": 1,
           "default": 15,
-          "description": "Download cache retention in days; entries older are purged. Default: 15.",
-          "x-apply-policy": "restart_required"
+          "description": "Minimum age in days before the offline cleanup command removes entries from cache/downloads. Default: 15.",
+          "x-apply-policy": "hot_reload"
         }
       }
     },
@@ -637,7 +641,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 7,
-          "description": "Log file retention in days; older files are purged. Default: 7.",
+          "description": "Retention in days for persisted management log rows in SQLite; older rows are pruned. Default: 7.",
           "x-apply-policy": "hot_reload"
         },
         "rate_limit_per_plugin": {
@@ -667,7 +671,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 30,
-          "description": "Cooldown after consecutive send failures trigger the message circuit breaker. Default: 30.",
+          "description": "Per-target message circuit-breaker cooldown after three consecutive adapter send failures. The open state rejects sends with adapter.send_failed; after the cooldown, one half-open probe closes the circuit on success or reopens it on failure. Default: 30.",
           "x-apply-policy": "hot_reload"
         }
       }
@@ -844,7 +848,7 @@
             "pattern": "^[0-9A-Fa-f:.]+/[0-9]{1,3}$"
           },
           "uniqueItems": true,
-          "description": "Proxy source networks whose Forwarded and X-Forwarded-* headers may be trusted. Required and non-empty for public_via_reverse_proxy.",
+          "description": "TCP peer networks allowed to supply Forwarded, X-Forwarded-For, or X-Real-IP client chains. The server walks the chain from right to left, strips configured trusted proxies, and uses the first untrusted address for login throttling. Headers from other peers are ignored. Required and non-empty for public_via_reverse_proxy.",
           "x-apply-policy": "restart_required"
         },
         "plugin_ui_origin_template": {
@@ -878,8 +882,9 @@
             "online"
           ],
           "default": "offline",
-          "description": "Default backup consistency mode: offline takes an offline snapshot; online exports while running.",
-          "x-apply-policy": "restart_required"
+          "description": "Deprecated compatibility field retained for existing schema-v3 documents. CLI backup is always offline and synchronous; the management API backup.create task is always online.",
+          "deprecated": true,
+          "x-apply-policy": "read_only"
         }
       }
     }

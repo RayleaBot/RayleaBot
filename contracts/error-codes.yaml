@@ -1,7 +1,7 @@
 version: 1
 description: >
   Fixture-ready error catalog. This file is the only formal source for
-  v0.1 HTTP, task, WebSocket, and plugin-protocol error codes.
+  v0.1 HTTP, task, WebSocket, plugin-protocol, logs, CLI, and readiness error codes.
 x-fixtures:
   - fixtures/errors/ok.core-catalog.yaml
   - fixtures/errors/invalid.missing-required-fields.yaml

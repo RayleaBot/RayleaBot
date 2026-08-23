@@ -359,20 +359,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       title: t('config.sections.data'),
       fields: [
         {
-          path: 'data.audit_logs_retention_days',
-          label: t('config.fields.dataAuditLogsRetentionDays'),
-          type: 'number',
-          unit: t('config.units.day'),
-          description: t('config.descriptions.dataAuditLogsRetentionDays'),
-        },
-        {
-          path: 'data.event_records_retention_days',
-          label: t('config.fields.dataEventRecordsRetentionDays'),
-          type: 'number',
-          unit: t('config.units.day'),
-          description: t('config.descriptions.dataEventRecordsRetentionDays'),
-        },
-        {
           path: 'data.download_cache_retention_days',
           label: t('config.fields.dataDownloadCacheRetentionDays'),
           type: 'number',
@@ -474,22 +460,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
           description: t('config.descriptions.webPluginUiOriginTemplate'),
           placeholder: 'https://{plugin_host}.plugins.example.com',
           restartRequired: true,
-        },
-      ],
-    },
-    {
-      key: 'backup',
-      title: t('config.sections.backup'),
-      fields: [
-        {
-          path: 'backup.default_consistency',
-          label: t('config.fields.backupDefaultConsistency'),
-          type: 'select',
-          description: t('config.descriptions.backupDefaultConsistency'),
-          options: [
-            { label: t('config.options.backupOffline'), value: 'offline' },
-            { label: t('config.options.backupOnline'), value: 'online' },
-          ],
         },
       ],
     },

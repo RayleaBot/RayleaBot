@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/deps-manifest.schema.json",
   "title": "RayleaBot Managed Dependencies Manifest",
-  "description": "Fixture-ready schema for .deps/manifest.json. Version 4 manages only the Chromium resource used by image rendering.",
+  "description": "Fixture-ready schema for .deps/manifest.json. Version 4 manages the shared Chromium resource used by image rendering and the Douyin QR-login browser fallback.",
   "type": "object",
   "additionalProperties": false,
   "required": [
