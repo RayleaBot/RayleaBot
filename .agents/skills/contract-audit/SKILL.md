@@ -11,26 +11,25 @@ description: 任务或 diff 触及本仓库的 contract、API、schema、状态�
 
 - 用户要修改 API、schema、状态、错误码、事件名
 - 代码改动疑似影响 contract，但用户没有显式提到 contract
-- 你需要判断五件套是否满足
+- 你需要判断四件套是否满足
 - 你需要做 contract-focused review，而不是普通代码 review
 
 ## 输入
 
 - 任务描述或 diff 范围
-- 受影响的 boundary：
-  - config
-  - web-api
-  - websocket
-  - error-codes
-  - plugin-info
-  - plugin-protocol
-  - release-manifest
+- 受影响的 16 个正式 boundary：
+  - backup-manifest、config.user、deps-manifest、error-codes
+  - web-api、websocket-events、cli-commands、release-manifest
+  - plugin-info、plugin-artifact、plugin-protocol
+  - plugin-store-catalog、plugin-store-signature、plugin-development-workspace
+  - plugin-management-ui、plugin-management-ui-bridge
 
 ## 工作流
 
 1. 先读根 `AGENTS.md` 和 `contracts/AGENTS.md`。
 2. 打开相关 contract 文件与 `contracts/README.md`。
 3. 对照对应的：
+   - 实现
    - `fixtures/`
    - `examples/`
    - tests
@@ -47,7 +46,7 @@ description: 任务或 diff 触及本仓库的 contract、API、schema、状态�
 - 受影响 contract 清单
 - 命名漂移或 shape 漂移清单
 - 缺失的 fixture / example / test / doc 更新
-- 是否满足五件套门禁
+- 是否满足实现、契约、测试、示例四件套门禁
 - 如有需要，给出建议的最小 contract-first 修正顺序
 
 ## 禁止

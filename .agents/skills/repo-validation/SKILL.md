@@ -19,17 +19,20 @@ description: 本仓库改动需要验证时使用。按受影响面选择最小�
 1. 读取根 `AGENTS.md` 和受影响目录的局部 `AGENTS.md`。
 2. 识别改动面：
    - `server/` → Go build + 受影响包的 Go test；外部行为或共享路径变化再扩到 `go test ./...`
-   - `server/` 触及并发路径（配置热更新、订阅广播、共享状态、goroutine 生命周期）→ 对相关包追加 `go test -race`
+   - `server/` 触及并发路径（配置热更新、订阅广播、共享状态、goroutine 生命周期）→ 在支持 race 的环境对相关包追加 `go test -race`；Windows 仅在 `CGO_ENABLED=1` 且 C 编译器可用时执行，否则记录验证缺口并由 Linux CI/nightly 的 race job 覆盖
    - `server/` 触及包结构、包搬移或跨包依赖 → 确认 `server/tests/architecture` 仍通过
    - `web/` → pnpm typecheck + pnpm test + pnpm build
    - `launcher/` → pnpm typecheck + pnpm test + pnpm build
-   - `contracts/` → 检查对应 generated types（`web/src/types/generated.ts`、`web/src/types/websocket.generated.ts`、`launcher/src/shared/web-api.generated.ts`）
-   - `sdk/` → SDK build + SDK test
+   - `contracts/` → 运行 `python scripts/ci/validate_contracts.py --self-test` 与 `python scripts/ci/validate_contracts.py --mode=strict`；检查 Web API/WebSocket 类型、Launcher API/Wails bindings、Server 嵌入 contracts/schema bytes、Vue SDK contract 类型，并运行 `node scripts/generate-runtime-schemas.mjs --verify`
+   - `sdk/go/` → `go test ./...`
+   - `sdk/vue/` → 分别运行 `pnpm run typecheck`、`pnpm test`、`pnpm build`
    - `scripts/` → 脚本自测或相关 CI 验证
+   - `docs/` → 运行 `python scripts/check-doc-links.py`；修改 AGENTS、CLAUDE 或 `.agents/skills/` 时再运行 `node scripts/check-agent-docs.mjs`
 3. 运行最小命令集：
    - 只在受影响的子工程目录执行对应命令。
    - 不运行与本次改动无关的全量测试。
    - 纯搬移、包合并、等价改名或普通文案调整用构建和现有相关测试证明，不新增测试。
+   - 运行 race 前先读取 `go env GOOS CGO_ENABLED CC`；不把 Windows `CGO_ENABLED=0` 下必然出现的 `go: -race requires cgo` 当作已执行验证。
 4. 检查生成物：
    - 若 contract 变更，确认 generated types 已重新生成且一致。
    - 若 SQL 变更，确认 `sqlc diff` 无漂移。

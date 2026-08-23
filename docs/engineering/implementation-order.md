@@ -58,11 +58,11 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 ## 5. 接入协议、插件和平台能力
 
 - Adapter 只负责平台协议、连接状态、事件归一化和动作投影，不直接写业务状态。
-- Event Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
+- `eventpipeline/chatpolicy` Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
 - Dispatcher 是插件事件排队和出站 action 的唯一执行出口。
 - Runtime Manager 只负责插件进程、JSONL 协议和生命周期。
 - Plugin Store Service 只消费签名目录并复用统一 Installer，不直接写运行目录或信任 manifest 自报身份。
-- Local Action Service 是插件访问配置、存储、调度、渲染、HTTP、治理和 OneBot 扩展的唯一入口。
+- Local Action Service 是插件访问消息、配置、secret、存储、插件目录、三方账号、调度、渲染、HTTP、治理、Webhook、OneBot 与 provider 扩展的唯一入口。
 - Scheduler 只触发插件事件，不直接发送消息。
 - Render Service 是平台统一渲染入口，插件不维护独立浏览器链路。
 

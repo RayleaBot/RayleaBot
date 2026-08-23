@@ -2,25 +2,23 @@
 
 ## 目的
 
-本文件固定 RayleaBot 的工程版本线、默认命令、目录职责和长期有效的实现选型。
-进入正式实现后，AI 与人工协作都应先读本文件，再读 `contracts/`，最后才进入代码与文档修改。
+本文件固定 RayleaBot 的工程版本线、默认命令、目录职责和长期有效的实现选型。进入具体实现前，应按改动领域读取对应正式来源。
 
-单向优先级：
+不同领域分别裁决，不使用跨领域的全局优先级：
 
-`docs/RayleaBot机器人项目规划.md > contracts/ > fixtures/examples > code`
+- 产品目标、范围、顶层架构与路线图以 `docs/RayleaBot机器人项目规划.md` 为准。
+- HTTP、WebSocket、schema、错误码、事件、CLI、插件协议与发布元数据以 `contracts/` 为准。
+- 工具链、默认命令、目录职责与固定工程选型以本文件及对应工程文件为准。
+- fixtures、examples、实现和说明文档必须跟随所属领域的正式来源，不能反向裁决正式 contract。
 
-补充说明：
-
-- 对外接口、schema、错误码最终以 `contracts/` 为准。
-- 工程工具链、默认命令、目录职责最终以本文件和对应工程文件为准。
-- 若规划文档与工程基线冲突，先在本文件和对应工程文件中收敛，再同步相关说明。
+来源之间发生冲突时，先在冲突所属领域的正式来源中作出决议，再同步全部 companion；产品规划不能覆盖已经冻结的对外 contract。
 
 ## 当前工程落点
 
 - `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
 - `web/` 承载管理控制台主链路。
 - `launcher/` 承载 Wails 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` v4 只固定图片渲染 Chromium 资源矩阵及其可信来源列表；插件运行不依赖托管语言运行时。
+- `.deps/manifest.json` v4 只固定图片渲染与抖音扫码浏览器回落共用的 Chromium 资源矩阵及其可信来源列表；插件运行不依赖托管语言运行时。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
 
@@ -47,7 +45,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 ## 工具链获取
 
-- 仓库根目录的 `.tool-versions` 与本节固定版本线保持一致，可由 mise 或 asdf 读取。
+- 仓库根目录的 `.tool-versions` 只固定 Go、Node.js、Python 与 pnpm，可由 mise 或 asdf 读取。npm 随 Node.js 提供；Corepack 与 sqlc 不在该文件中，由下列独立安装步骤和 doctor 校验覆盖。
 - `server/go.mod` 的 `go 1.26.6` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 - Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Node.js 26 不再随发行包提供 Corepack，因此先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
 - sqlc 固定为 v1.31.1，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`。
@@ -65,7 +63,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | 运行指标 | `github.com/prometheus/client_golang` + 受 admin session 保护的 `/api/system/metrics` |
 | 日志 | `log/slog` |
 | 配置解析 | `gopkg.in/yaml.v3` |
-| 数据访问 | `database/sql` + repository / service 分层 + 手写 SQL |
+| 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主链；必须保留的手写 SQL 登记在 `docs/engineering/manual-sql-exceptions.json` |
 | Web 路由 | Vue Router `5.x` |
 | Web 全局状态 | Pinia `4.x` + Vben stores 对齐组织 |
 | Web HTTP | Vben request 风格封装 + RayleaBot 鉴权 / 错误语义适配 |
@@ -79,7 +77,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | 插件后端 | 独立 Go module + `sdk/go`；`cmd/<plugin>` 为进程入口，`internal/` 保存业务实现与嵌入资源；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
 | 插件构建 | 每插件 `tools/build` 显式指定 `BackendPackage`，调用 `pluginbuild.Build` 输出单根目录 ZIP 与展开 artifact；`MappedAssets` 可将 `internal/` 资源映射到稳定 artifact 路径 |
-| 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染 Chromium 可复用已安装的 Chrome、Chromium 或 Edge |
+| 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和抖音扫码浏览器回落可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium |
 
 ## 默认命令
 
@@ -100,6 +98,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 - 安装：`pnpm install --frozen-lockfile`
 - 开发：`pnpm dev`
+- 类型检查：`pnpm run typecheck`
 - 构建：`pnpm build`
 - 单元测试：`pnpm test`
 - E2E：`pnpm test:e2e`
@@ -107,6 +106,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 ### Launcher
 
 - 安装：`pnpm install --frozen-lockfile`
+- 类型检查：`pnpm run typecheck`
 - 测试：`pnpm test`
 - 构建：`pnpm build`
 
@@ -131,14 +131,14 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `docs/user/` | 用户安装、初始化、配置、运行、恢复 |
 | `docs/release/` | 版本说明、迁移说明、已知问题 |
 | `fixtures/` | Golden fixtures 与可执行样例 |
-| `examples/` | 示例插件、示例配置、示例请求/响应 |
+| `examples/` | 示例插件、manifest 与示例请求/响应 |
 | `server/` | Go 服务端工程 |
 | `web/` | Web UI 工程 |
 | `launcher/` | Wails 桌面启动器工程 |
 | `plugins/installed/` | 运行期统一安装目录；只保存经 artifact 校验的商店、社区或开发插件产物，不进入版本控制 |
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
 | `sdk/vue/` | `@rayleabot/plugin-ui` bridge v2 client、composables、主题和 contract 类型 |
-| `.deps/` | 图片渲染 Chromium 资源清单，以及按需展开后的资源目录 |
+| `.deps/` | 图片渲染与抖音扫码浏览器回落共用的 Chromium 资源清单，以及按需展开后的资源目录 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |
 | `cache/` | 渲染缓存、下载缓存、插件临时缓存 |

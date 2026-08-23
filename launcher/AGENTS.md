@@ -30,14 +30,16 @@
 ## Shared Surface Rules
 
 - 与服务端共享的正式接口继续来自 `contracts/web-api.openapi.yaml`，生成文件固定为 `launcher/src/shared/web-api.generated.ts`。
-- 启动器展示的系统状态、恢复摘要和诊断结果都直接消费服务端正式接口。
-- Launcher 打开 Web 管理面只传普通 URL；Web 会话由管理面自己的初始化和登录流程建立。
+- 系统状态与服务端诊断使用服务端正式 snapshot；Launcher 不从局部字段重建业务状态。
+- `preflightChecks` 与 `recentStderr` 是 `internal/desktop` 持有的本机诊断，不属于服务端 contract。
+- 恢复摘要在服务尚不可用时可由 `internal/desktop` 从本机日志目录的 recovery-summary.json 读取兜底；服务可用后由服务端 snapshot 覆盖。
+- 常规打开管理面只传普通 URL，Web 会话由管理面建立。`setup_required` 是唯一例外：Launcher 把一次性 `setup_token` 放入 URL fragment，Web 立即清除 fragment，并只通过初始化请求头提交该 token。
 
 ## Error and Diagnostics Rules
 
 - 启动、停止、恢复和诊断流程必须同时暴露用户可读错误和机器可读 `code`。
 - 用户可读错误使用稳定文案，不拼接动态异常堆栈或内部路径。
-- 服务端返回的机器可读 `code` 原样复用 `contracts/error-codes.yaml` 目录中的错误码，不转写、不发明 launcher 变体。
+- 服务端返回的机器可读 `code` 原样复用 `contracts/error-codes.yaml` 文件中的错误码，不转写、不发明 launcher 变体。
 - Launcher 本机产生的错误（桌面桥、环境预检）使用本机命名空间：`launcher.*` 与 `chromium.*`、`deps.*`、`workdir.*` 等预检前缀；这些本机码不进入 `contracts/error-codes.yaml`。
 - 诊断信息结构化输出，便于脚本和 CI 解析；人类可读摘要与机器可读字段共存。
 - 本地环境检查失败时，给出明确修复指引或文档链接，不只返回失败状态码。

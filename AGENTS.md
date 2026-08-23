@@ -26,7 +26,7 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 
 - 对外接口、schema、错误码、事件、CLI、发布元数据：`contracts/`
 - 工程基线、固定版本线、默认命令：`docs/engineering/baseline.md`
-- 实施顺序与边界判断：`docs/engineering/implementation-order.md`
+- 长期依赖顺序与实现边界：`docs/engineering/implementation-order.md`
 - 架构、状态模型、事件模型与跨层边界：`docs/architecture/`
 - 用户操作与管理面：`docs/user/`
 - 产品目标、范围、顶层架构与路线图：`docs/RayleaBot机器人项目规划.md`
@@ -36,7 +36,7 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 
 - 修改服务端：`server/README.md`、`server/AGENTS.md`、相关 contracts/docs。
 - 修改 Web：`web/AGENTS.md`、`web/package.json`、相关 generated types 与 contracts。
-- 修改 Launcher：`launcher/AGENTS.md`、`launcher/package.json`、相关 generated types 与 contracts。
+- 修改 Launcher：`launcher/AGENTS.md`、`launcher/package.json`、`launcher/go.mod`、`launcher/src/renderer/bindings/`、相关 generated types 与 contracts。
 - 修改 contract：`contracts/AGENTS.md`、`contracts/README.md`、对应 fixtures/examples/tests/docs。
 - 修改文档：`docs/AGENTS.md` 与 `editing-final-state-content` skill。
 - 选择依赖、框架、抽象层或复用策略：`glue-coding` skill。
@@ -45,24 +45,24 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 
 ## Commands
 
-只运行能证明当前改动正确性的最小命令集；在对应子工程目录执行。
+只运行能证明当前改动正确性的最小命令集；在对应子工程目录执行。Windows 上的 Bash 语法通过 `gbash -lc '<command>'` 运行，PowerShell 原生命令不使用 `cd ... &&`、`mkdir -p` 或 `$(...)`。
 
 - Repository doctor: `make doctor`（在仓库根目录执行；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`）
-- Server build: `cd server && mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
-- Server test: `cd server && go test ./...`
-- Web typecheck: `cd web && pnpm run typecheck`
-- Web test: `cd web && pnpm test`
-- Web build: `cd web && pnpm build`
-- Launcher typecheck: `cd launcher && pnpm run typecheck`
-- Launcher test: `cd launcher && pnpm test`
-- Launcher build: `cd launcher && pnpm build`
+- Server build: `gbash -lc 'mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server'`
+- Server test: `go test ./...`
+- Web typecheck: `pnpm run typecheck`
+- Web test: `pnpm test`
+- Web build: `pnpm build`
+- Launcher typecheck: `pnpm run typecheck`
+- Launcher test: `pnpm test`
+- Launcher build: `pnpm build`
 - Agent docs check: `node scripts/check-agent-docs.mjs`
 
 ## Skills
 
 - `contract-audit`: contract、fixture、generated type 或 API drift 检查。
 - `glue-coding`: 跨面设计、依赖选择、复用与注入策略。
-- `phase-boundary-check`: 阶段边界不清或可能抢跑后续能力。
+- `phase-boundary-check`: 实现边界不清或可能违反长期依赖顺序。
 - `editing-final-state-content`: 文档、注释、用户可见文本保持最终态。
 - `agent-instruction-maintenance`: 修改 AGENTS/CLAUDE/skills。
 - `repo-validation`: 选择最小验证命令（含 -race、架构测试触发条件）和 drift 检查。

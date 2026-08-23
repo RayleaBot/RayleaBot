@@ -5,7 +5,7 @@
 ## Web Stack Rules
 
 - Web 管理面固定采用 `Ant Design Vue + Vue Vben Admin` 对齐方案、Vue Router、Pinia 和当前工程锁定版本。
-- 当前默认请求入口是 `web/src/request/http.ts`，不要新增平行 HTTP client。
+- HTTP 实现唯一入口是 `web/src/lib/http.ts`；`web/src/request/http.ts` 仅保留兼容 re-export。不要在兼容层写实现，也不要新增平行 HTTP client。
 - WebSocket 继续复用现有受控连接封装，不新增平行实时通信层。
 - OpenAPI 生成类型继续来自 `contracts/web-api.openapi.yaml`，输出到 `web/src/types/generated.ts`。
 

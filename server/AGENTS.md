@@ -26,7 +26,7 @@
 
 - 运行期可变共享状态（配置快照、策略引擎、订阅表）必须用原子快照（`atomic.Pointer`）或锁保护；热更新写路径不得与事件读路径共享裸字段。
 - 配置热更新的读-改-写必须串行化；策略相关派生对象整体替换，不逐字段就地修改。
-- 订阅/广播一律复用 `server/internal/pubsub` 的泛型 Hub，不再手写订阅表。
+- 订阅/广播统一复用 `server/internal/pubsub` 的泛型 Hub。
 
 ## Nil Defense and Assembly
 
@@ -41,12 +41,15 @@
 
 ## Config and Policy Reading
 
-- 聊天策略优先读取正式配置字段：
+- 聊天入站策略优先读取正式配置字段：
+  - `command.prefixes`
   - `admin.super_admins`
   - `permission.default_level`
   - `user.command_rate_limit`
   - `group.command_rate_limit`
   - `user.cooldown_reply`
+- 用户与群命令命中限流后的冷却提示共用 `user.cooldown_reply`。
+- 出站消息限流由 `server/internal/eventpipeline/outbound` 读取 `message.rate_limit_per_plugin` 和 `message.rate_limit_per_target`。
 - 白名单、黑名单、默认权限、冷却与 super admin 判断保持同一套正式语义。
 
 ## Testing Rules
@@ -58,7 +61,7 @@
 - 插件 runtime helper 测试发出预期协议违规 frame 后，不要立刻退出进程；应等待 stdin 关闭或管理器终止进程，避免 CI 因进程退出竞态把协议违规误判为 `plugin.internal_error`。
 - 测试替身通过 `app.Options` 构造期注入；禁止为测试在 App 或服务上新增运行期 setter。
 - 测试分层：包内单测验证包内行为；`server/tests/services` 验证服务装配与配置链路；`server/tests/integration` 验证跨包端到端流程；`server/tests/ws` 验证 WebSocket 事件契约；`server/tests/architecture` 验证包依赖边界；跨层共享的构建替身与测试数据放 `server/tests/testutil`。同一行为不跨层重复覆盖。
-- 需要区分 race 构建时使用 `server/internal/testenv` 的 `RaceEnabled` 常量，不再复制 build tag stub。
+- 需要区分 race 构建时统一使用 `server/internal/testenv` 的 `RaceEnabled` 常量。
 
 ## Cross-Surface Checks
 

@@ -1,6 +1,6 @@
 ---
 name: glue-coding
-description: 在 server、web、launcher、storage、render 或依赖选型上规划、编写 RayleaBot 实现改动时使用，尤其是在决定是否引入新库、新框架、新服务或跨面模式时。优先复用仓库现有代码、冻结技术栈、标准库和薄胶水层，而不是平行栈或重新造轮子。
+description: 在 server、web、launcher 或跨面依赖选型上规划、编写 RayleaBot 实现改动时使用，尤其是在决定是否引入新库、新框架、新服务或跨面模式时。优先复用仓库现有代码、冻结技术栈、标准库和薄胶水层，而不是平行栈或重新造轮子。
 ---
 
 # Glue Coding
@@ -35,7 +35,7 @@ description: 在 server、web、launcher、storage、render 或依赖选型上�
 - Server：从 `server/internal/*` 出发，尤其是既有 repository、service、HTTP handler、runtime、adapter、scheduler、storage、logging 包。
 - Server 订阅/广播：一律复用 `server/internal/pubsub` 的泛型 Hub，不手写订阅表。
 - Server 投影：领域视图只在领域包构建一次（如 `plugins.BuildSummaryView`）；`management` 层只做序列化标注，不复制投影逻辑。
-- Web：从 `web/src/lib/http.ts`、`web/src/lib/ws.ts`、`web/src/stores/*`、`web/src/components/*` 和既有页面模式出发。
+- Web：HTTP 实现唯一入口是 `web/src/lib/http.ts`；`web/src/request/http.ts` 只做兼容 re-export。实时连接从 `web/src/lib/ws.ts` 出发，状态和视图复用 `web/src/stores/*`、`web/src/components/*` 与既有页面模式。
 - Launcher：从 `Go host / internal/desktop / Wails generated bindings / renderer / shared` 边界出发，即 `launcher/main.go`、`launcher/internal/desktop/*`、生成的 Wails bindings 与 `launcher/src/renderer/*`、`launcher/src/shared/*`。
 - Contracts 与示例：`contracts/`、`fixtures/`、`examples/` 是冻结结构、示例 payload 和回归锚点的首选来源。
 

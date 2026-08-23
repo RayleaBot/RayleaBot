@@ -5,6 +5,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 MODULE = "github.com/RayleaBot/RayleaBot/server"
@@ -186,6 +187,18 @@ def load_manual_sql_exceptions(root: Path, errors: list[str]) -> dict[str, str]:
         }.items():
             if not isinstance(value, str) or not value.strip():
                 errors.append(f"{registry_path.relative_to(root).as_posix()} entry {rel} missing {field_name}")
+        if isinstance(revisit_after, str) and revisit_after.strip():
+            try:
+                revisit_date = date.fromisoformat(revisit_after.strip())
+            except ValueError:
+                errors.append(
+                    f"{registry_path.relative_to(root).as_posix()} entry {rel} has invalid revisit_after; expected YYYY-MM-DD"
+                )
+            else:
+                if revisit_date < date.today():
+                    errors.append(
+                        f"{registry_path.relative_to(root).as_posix()} entry {rel} expired on {revisit_date.isoformat()}"
+                    )
         if not isinstance(reason, str) or not reason.strip():
             continue
         registry[rel.replace("\\", "/")] = reason.strip()
