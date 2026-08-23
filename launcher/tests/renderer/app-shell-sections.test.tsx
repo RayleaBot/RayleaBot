@@ -6,9 +6,23 @@ import { AppShellDiagnosticsSection } from "@renderer/AppShellDiagnosticsSection
 import { AppShellEnvironmentSection } from "@renderer/AppShellEnvironmentSection";
 import { AppShellAboutSection } from "@renderer/AppShellAboutSection";
 import { AppShellSettingsSection } from "@renderer/AppShellSettingsSection";
+import { isRuntimePreparationIssue } from "@renderer/AppShell.shared";
 import { createLauncherSnapshot } from "../helpers/snapshot";
 
 const noop = vi.fn();
+
+describe("runtime preparation issue classification", () => {
+  test.each([
+    ["deps.manifest_missing", true],
+    ["chromium.not_ready", true],
+    ["python.not_ready", false],
+    ["nodejs.not_ready", false],
+    ["npm.not_ready", false],
+    ["config.user", false],
+  ])("classifies %s", (code, expected) => {
+    expect(isRuntimePreparationIssue(code)).toBe(expected);
+  });
+});
 
 const configuredSnapshot = createLauncherSnapshot({
   launcher: {

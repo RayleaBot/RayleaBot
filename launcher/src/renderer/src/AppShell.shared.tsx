@@ -97,7 +97,7 @@ export function formatReleaseVersion(currentVersion: string): string {
   return currentVersion.trim() || "开发";
 }
 
-const runtimePreparationPrefixes = ["deps.", "chromium.", "python.", "nodejs.", "npm."];
+const runtimePreparationPrefixes = ["deps.", "chromium."];
 
 export function isRuntimePreparationIssue(code: string): boolean {
   return runtimePreparationPrefixes.some((prefix) => code.startsWith(prefix));
