@@ -57,13 +57,13 @@ func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T
 			CircuitBreakerSeconds: 1,
 		},
 	})
-	limiter.maxWait = 20 * time.Millisecond
-
 	if err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"}); err != nil {
 		t.Fatalf("first Wait() error = %v", err)
 	}
 
-	err := limiter.Wait(context.Background(), MessageLimitRequest{TargetType: "group", TargetID: "100"})
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	err := limiter.Wait(ctx, MessageLimitRequest{TargetType: "group", TargetID: "100"})
 	if err == nil {
 		t.Fatal("second Wait() error = nil, want platform.rate_limited")
 	}

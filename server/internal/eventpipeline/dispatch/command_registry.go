@@ -13,20 +13,13 @@ func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []strin
 		concurrency = 1
 	}
 
-	slot := &pluginSlot{
-		runtime:       rt,
-		subscriptions: append([]string(nil), subs...),
-		commands:      append([]CommandDecl(nil), cmds...),
-		concurrency:   concurrency,
-		queue:         make(chan dispatchItem, d.queueSize),
-		done:          make(chan struct{}),
-	}
+	slot := d.newPluginSlot(rt, subs, cmds, concurrency)
 	d.slots[pluginID] = slot
 	go d.worker(pluginID, slot)
 	d.mu.Unlock()
 
 	if replacing {
-		close(old.queue)
+		old.closeQueues()
 		<-old.done
 	}
 }
@@ -42,7 +35,7 @@ func (d *Dispatcher) Deregister(pluginID string) {
 	delete(d.slots, pluginID)
 	d.mu.Unlock()
 
-	close(slot.queue)
+	slot.closeQueues()
 	<-slot.done
 }
 
@@ -134,7 +127,72 @@ func (d *Dispatcher) Close() {
 	d.mu.Unlock()
 
 	for _, slot := range slots {
-		close(slot.queue)
+		slot.closeQueues()
 		<-slot.done
 	}
+}
+
+func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []CommandDecl, concurrency int) *pluginSlot {
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+	return &pluginSlot{
+		runtime:       rt,
+		subscriptions: append([]string(nil), subs...),
+		commands:      append([]CommandDecl(nil), cmds...),
+		concurrency:   concurrency,
+		eventQueue:    make(chan dispatchItem, d.queueSize),
+		controlQueue:  make(chan dispatchItem, d.controlQueueSize),
+		done:          make(chan struct{}),
+		accepting:     true,
+		eventLimit:    d.queueSize,
+		controlLimit:  d.controlQueueSize,
+	}
+}
+
+func (s *pluginSlot) tryEnqueue(item dispatchItem) bool {
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	if !s.accepting {
+		return false
+	}
+	if item.control {
+		if s.pendingControl >= s.controlLimit {
+			return false
+		}
+		s.pendingControl++
+		s.controlQueue <- item
+		return true
+	}
+	if s.pendingEvents >= s.eventLimit {
+		return false
+	}
+	s.pendingEvents++
+	s.eventQueue <- item
+	return true
+}
+
+func (s *pluginSlot) markStarted(item dispatchItem) {
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	if item.control {
+		if s.pendingControl > 0 {
+			s.pendingControl--
+		}
+		return
+	}
+	if s.pendingEvents > 0 {
+		s.pendingEvents--
+	}
+}
+
+func (s *pluginSlot) closeQueues() {
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	if !s.accepting {
+		return
+	}
+	s.accepting = false
+	close(s.controlQueue)
+	close(s.eventQueue)
 }

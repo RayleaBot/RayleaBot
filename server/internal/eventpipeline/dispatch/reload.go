@@ -35,14 +35,7 @@ func (d *Dispatcher) ReloadPlugin(
 	d.mu.Lock()
 	oldSlot, hadOld := d.slots[pluginID]
 	// Register new slot.
-	newSlot := &pluginSlot{
-		runtime:       newManager,
-		subscriptions: append([]string(nil), subscriptions...),
-		commands:      append([]CommandDecl(nil), cmds...),
-		concurrency:   spec.EffectiveConcurrency,
-		queue:         make(chan dispatchItem, d.queueSize),
-		done:          make(chan struct{}),
-	}
+	newSlot := d.newPluginSlot(newManager, subscriptions, cmds, spec.EffectiveConcurrency)
 	d.slots[pluginID] = newSlot
 	go d.worker(pluginID, newSlot)
 	d.mu.Unlock()
@@ -50,7 +43,7 @@ func (d *Dispatcher) ReloadPlugin(
 	// Stop old runtime in background (non-blocking for the caller).
 	if hadOld && oldSlot != nil {
 		go func(slot *pluginSlot, manager *pluginruntime.Manager) {
-			close(slot.queue)
+			slot.closeQueues()
 			<-slot.done
 			if manager == nil {
 				return

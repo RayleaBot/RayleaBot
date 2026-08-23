@@ -234,11 +234,12 @@ func (state *runtimeState) updateBotIdentity(event Event) {
 			botID, _ = onebot["self_id"].(string)
 		}
 	}
-	if botID == "" {
-		return
-	}
 	state.botMu.Lock()
-	state.bot.ID = botID
+	if botID == "" {
+		state.bot = Bot{}
+	} else {
+		state.bot.ID = botID
+	}
 	state.botMu.Unlock()
 }
 

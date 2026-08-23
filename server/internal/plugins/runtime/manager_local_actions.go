@@ -7,34 +7,104 @@ import (
 	"strings"
 )
 
-func (m *Manager) routeLocalActionFrameLocked(handle *Handle, line []byte) *Error {
+type localActionRejection struct {
+	parentRequestID string
+	requestID       string
+	code            string
+	message         string
+	details         map[string]any
+}
+
+func (m *Manager) routeLocalActionFrameLocked(handle *Handle, line []byte) (*localActionRejection, *Error) {
 	frame, action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, line)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if action == nil && m.eventExpiredLocked(parentRequestID) {
-		return nil
+		return nil, nil
 	}
 
 	session := m.pendingEvents[parentRequestID]
 	if session == nil {
 		if m.eventExpiredLocked(parentRequestID) {
-			return nil
+			return nil, nil
 		}
-		return errorf(codePluginProtocolViolation, "plugin local action parent_request_id does not match an active event", nil)
+		return nil, errorf(codePluginProtocolViolation, "plugin local action parent_request_id does not match an active event", nil)
 	}
 	if frame.RequestID == session.requestID {
-		return errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
+		return nil, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 	}
 	if _, exists := session.localActionIDs[frame.RequestID]; exists {
-		return errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
+		return nil, errorf(codePluginProtocolViolation, "plugin reused a local action request_id within one event delivery", nil)
+	}
+	if !m.allowActionBurstLocked(handle) {
+		return &localActionRejection{
+			parentRequestID: parentRequestID,
+			requestID:       frame.RequestID,
+			code:            codePlatformRateLimited,
+			message:         "plugin IPC action burst limit exceeded",
+			details: map[string]any{
+				"limit_scope": "runtime.ipc_action_burst_limit",
+				"limit":       handle.Spec.IPCActionBurstCount,
+			},
+		}, nil
+	}
+	if m.pendingLocalActions >= handle.Spec.IPCPendingActionsMax {
+		return &localActionRejection{
+			parentRequestID: parentRequestID,
+			requestID:       frame.RequestID,
+			code:            codePlatformRateLimited,
+			message:         "plugin IPC pending action limit exceeded",
+			details: map[string]any{
+				"limit_scope": "runtime.ipc_pending_actions_max",
+				"limit":       handle.Spec.IPCPendingActionsMax,
+			},
+		}, nil
 	}
 
-	session.localActionIDs[frame.RequestID] = struct{}{}
+	rememberLocalActionID(session, frame.RequestID, handle.Spec.IPCPendingActionsMax)
+	session.pendingActionIDs[frame.RequestID] = struct{}{}
 	session.pendingLocalAction++
+	m.pendingLocalActions++
 
 	go m.executeLocalAction(session.ctx, handle, parentRequestID, frame.RequestID, *action, session.event)
-	return nil
+	return nil, nil
+}
+
+func (m *Manager) allowActionBurstLocked(handle *Handle) bool {
+	limit := handle.Spec.IPCActionBurstCount
+	window := handle.Spec.IPCActionBurstWindow
+	if limit <= 0 || window <= 0 {
+		return true
+	}
+	now := m.deps.now()
+	if m.actionBurstStarted.IsZero() || !now.Before(m.actionBurstStarted.Add(window)) {
+		m.actionBurstStarted = now
+		m.actionBurstCount = 0
+	}
+	if m.actionBurstCount >= limit {
+		return false
+	}
+	m.actionBurstCount++
+	return true
+}
+
+func rememberLocalActionID(session *eventSession, requestID string, limit int) {
+	if limit < 1 {
+		limit = 1
+	}
+	for len(session.localActionIDs) >= limit && len(session.localActionOrder) > 0 {
+		candidate := session.localActionOrder[0]
+		session.localActionOrder = session.localActionOrder[1:]
+		if _, pending := session.pendingActionIDs[candidate]; pending {
+			session.localActionOrder = append(session.localActionOrder, candidate)
+			continue
+		}
+		delete(session.localActionIDs, candidate)
+		break
+	}
+	session.localActionIDs[requestID] = struct{}{}
+	session.localActionOrder = append(session.localActionOrder, requestID)
 }
 
 func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (ActionFrame, *Action, string, *Error) {
@@ -140,13 +210,48 @@ func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, fra
 		m.mu.Unlock()
 		return nil
 	}
-	if session.pendingLocalAction > 0 {
+	requestID, _ := frame["request_id"].(string)
+	if _, pending := session.pendingActionIDs[requestID]; pending {
+		delete(session.pendingActionIDs, requestID)
 		session.pendingLocalAction--
+		if m.pendingLocalActions > 0 {
+			m.pendingLocalActions--
+		}
 	}
 	m.mu.Unlock()
 
 	if err := handle.WriteJSONLine(frame); err != nil {
 		return errorf(codePluginInternalError, "write local action response frame", err)
+	}
+	return nil
+}
+
+func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActionRejection) *Error {
+	m.mu.RLock()
+	if m.proc != handle {
+		m.mu.RUnlock()
+		return nil
+	}
+	session := m.pendingEvents[rejection.parentRequestID]
+	active := session != nil && !session.completed
+	m.mu.RUnlock()
+	if !active {
+		return nil
+	}
+	frame := map[string]any{
+		"protocol_version": "1",
+		"type":             "error",
+		"timestamp":        m.deps.now().Unix(),
+		"plugin_id":        handle.Spec.PluginID,
+		"request_id":       rejection.requestID,
+		"code":             rejection.code,
+		"message":          rejection.message,
+	}
+	if len(rejection.details) > 0 {
+		frame["details"] = cloneDetails(rejection.details)
+	}
+	if err := handle.WriteJSONLine(frame); err != nil {
+		return errorf(codePluginInternalError, "write local action rejection frame", err)
 	}
 	return nil
 }

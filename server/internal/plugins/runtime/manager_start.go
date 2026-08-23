@@ -33,6 +33,9 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		CrashCount:    crashCount,
 	}
 	m.expiredEvents = make(map[string]time.Time)
+	m.pendingLocalActions = 0
+	m.actionBurstStarted = time.Time{}
+	m.actionBurstCount = 0
 	m.mu.Unlock()
 
 	cmd := exec.Command(spec.Command, spec.Args...)
@@ -148,16 +151,26 @@ func processSpec(spec Spec) ProcessSpec {
 	return ProcessSpec{
 		PluginID:             spec.PluginID,
 		InitTimeout:          spec.InitTimeout,
-		InitMaxTotal:         spec.InitMaxTotal,
 		EventTimeout:         spec.EventTimeout,
 		ShutdownGrace:        spec.ShutdownGrace,
 		EffectiveConcurrency: spec.EffectiveConcurrency,
+		IPCPendingActionsMax: positiveInt(spec.IPCPendingActionsMax, 256),
+		IPCActionBurstCount:  positiveInt(spec.IPCActionBurstCount, 100),
+		IPCActionBurstWindow: durationOrFallback(spec.IPCActionBurstWindow, time.Second),
+		IPCMessageMaxBytes:   positiveInt(spec.IPCMessageMaxBytes, 8*1024*1024),
 	}
+}
+
+func durationOrFallback(value, fallback time.Duration) time.Duration {
+	if value <= 0 {
+		return fallback
+	}
+	return value
 }
 
 func (m *Manager) readRuntimeFrames(handle *Handle) {
 	for {
-		line, err := handle.Stdout.ReadBytes('\n')
+		line, err := readProtocolLine(handle.Stdout, handle.Spec.IPCMessageMaxBytes)
 		if err != nil {
 			runtimeErr := classifyProtocolReadError(handle, err, "plugin exited during runtime delivery", "read plugin runtime response")
 			if errorsAreExitLike(handle, err) {
@@ -169,7 +182,10 @@ func (m *Manager) readRuntimeFrames(handle *Handle) {
 		}
 
 		m.protocolMu.Lock()
-		runtimeErr := m.routeRuntimeFrame(handle, line)
+		rejection, runtimeErr := m.routeRuntimeFrame(handle, line)
+		if runtimeErr == nil && rejection != nil {
+			runtimeErr = m.writeLocalRejectionLocked(handle, *rejection)
+		}
 		m.protocolMu.Unlock()
 		if runtimeErr != nil {
 			_ = m.failRuntime(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
@@ -189,40 +205,40 @@ func errorsAreExitLike(handle *Handle, err error) bool {
 	return exited
 }
 
-func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) *Error {
+func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRejection, *Error) {
 	envelope, err := parseEventEnvelope(line, handle.Spec.PluginID)
 	if err != nil {
-		return normalizeRuntimeError(err, "parse runtime frame envelope")
+		return nil, normalizeRuntimeError(err, "parse runtime frame envelope")
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.proc != handle {
-		return nil
+		return nil, nil
 	}
 
 	if ping := m.pendingPings[envelope.RequestID]; ping != nil {
 		if envelope.Type != "pong" {
-			return errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
+			return nil, errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
 		}
 		m.completePingLocked(envelope.RequestID, ping, nil)
-		return nil
+		return nil, nil
 	}
 
 	if session := m.pendingEvents[envelope.RequestID]; session != nil {
-		return m.routeTerminalFrameLocked(session, envelope, line)
+		return nil, m.routeTerminalFrameLocked(session, envelope, line)
 	}
 
 	if m.eventExpiredLocked(envelope.RequestID) && (envelope.Type == "result" || envelope.Type == "error") {
-		return nil
+		return nil, nil
 	}
 
 	if envelope.Type == "action" {
 		return m.routeLocalActionFrameLocked(handle, line)
 	}
 
-	return errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
+	return nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
 }
 
 func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope FrameEnvelope, line []byte) *Error {

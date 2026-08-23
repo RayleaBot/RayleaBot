@@ -43,6 +43,36 @@ func TestBroadcastBotIdentityChangedDispatchesToRunningPlugin(t *testing.T) {
 	}
 }
 
+func TestBroadcastBotIdentityChangedDispatchesUnavailableIdentity(t *testing.T) {
+	t.Parallel()
+
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 16, 4)
+	defer dispatcher.Close()
+	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
+	dispatcher.Register("weather", fakeRuntime, nil, nil, 1)
+	controller := NewController(Deps{
+		CurrentConfig: newTestAppState(config.Config{}, nil).state.CurrentConfig,
+		Logger:        slog.Default(),
+		Dispatcher:    dispatcher,
+	})
+	controller.markBotIdentitySent("weather", "10001")
+
+	controller.broadcastBotIdentityChanged(context.Background(), "")
+
+	select {
+	case event := <-fakeRuntime.events:
+		if event.Target != nil {
+			t.Fatalf("unavailable identity target = %#v, want nil", event.Target)
+		}
+		onebot, ok := event.PayloadFields["onebot"].(map[string]any)
+		if !ok || onebot["self_id"] != "" {
+			t.Fatalf("unexpected unavailable identity payload: %#v", event.PayloadFields)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected unavailable bot.identity.changed event")
+	}
+}
+
 func TestAfterRuntimeRegisteredDispatchesPluginStarted(t *testing.T) {
 	t.Parallel()
 

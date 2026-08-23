@@ -34,6 +34,9 @@ func TestBuildSpecUsesVerifiedGoExecutableDirectly(t *testing.T) {
 	if spec.InitTimeout != 2*time.Second || spec.EventTimeout != 3*time.Second || spec.ShutdownGrace != 4*time.Second || spec.EffectiveConcurrency != 2 {
 		t.Fatalf("runtime limits were not projected: %#v", spec)
 	}
+	if spec.IPCPendingActionsMax != 7 || spec.IPCActionBurstCount != 11 || spec.IPCActionBurstWindow != 2*time.Second || spec.IPCMessageMaxBytes != 4096 {
+		t.Fatalf("IPC limits were not projected: %#v", spec)
+	}
 }
 
 func TestBuildSpecRejectsTamperedArtifact(t *testing.T) {
@@ -162,6 +165,9 @@ func minimalRuntimeConfig() config.RuntimeConfig {
 		PluginEventTimeoutSeconds:   3,
 		ShutdownGraceSeconds:        4,
 		MaxConcurrentTasksPerPlugin: 2,
+		IPCPendingActionsMax:        7,
+		IPCActionBurstLimit:         "11/2s",
+		IPCMessageMaxBytes:          4096,
 	}
 }
 

@@ -601,7 +601,7 @@ func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string,
 	return spec
 }
 
-func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, initMaxTotal time.Duration, shutdownGrace time.Duration) Spec {
+func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, _ time.Duration, shutdownGrace time.Duration) Spec {
 	t.Helper()
 
 	executable, err := os.Executable()
@@ -625,7 +625,6 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 		WorkDir:              t.TempDir(),
 		EntryPath:            "helper",
 		InitTimeout:          runtimeTestDuration(initTimeout),
-		InitMaxTotal:         runtimeTestDuration(initMaxTotal),
 		EventTimeout:         runtimeTestDuration(300 * time.Millisecond),
 		ShutdownGrace:        runtimeTestDuration(shutdownGrace),
 		EffectiveConcurrency: 1,

@@ -23,6 +23,7 @@ const (
 
 const (
 	codePlatformInvalidRequest  = "platform.invalid_request"
+	codePlatformRateLimited     = "platform.rate_limited"
 	codePlatformResourceMissing = "platform.resource_missing"
 	codePluginInitTimeout       = "plugin.init_timeout"
 	codePluginEventTimeout      = "plugin.event_timeout"

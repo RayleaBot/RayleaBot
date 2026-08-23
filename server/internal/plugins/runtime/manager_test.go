@@ -131,7 +131,7 @@ func TestManagerStartFailsOnInitAckTimeout(t *testing.T) {
 	}
 }
 
-func TestManagerStartFailsWhenInitExceedsMaxTotal(t *testing.T) {
+func TestManagerStartProgressDoesNotExtendInitDeadline(t *testing.T) {
 	t.Parallel()
 
 	manager := testManager()

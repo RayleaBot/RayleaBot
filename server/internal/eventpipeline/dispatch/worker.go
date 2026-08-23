@@ -21,7 +21,8 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 	pendingByLane := make(map[string][]dispatchItem)
 	laneOrder := make([]string, 0)
 	completions := make(chan laneCompletion, slot.concurrency)
-	queue := slot.queue
+	eventQueue := (<-chan dispatchItem)(slot.eventQueue)
+	controlQueue := (<-chan dispatchItem)(slot.controlQueue)
 	fallbackCounter := 0
 	activeCount := 0
 
@@ -67,6 +68,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 
 				activeLanes[laneKey] = struct{}{}
 				activeCount++
+				slot.markStarted(item)
 				started = true
 
 				go func(laneKey string, item dispatchItem) {
@@ -113,26 +115,42 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 
 	for {
 		startReadyLanes()
-		if queue == nil && activeCount == 0 && len(pendingByLane) == 0 {
+		if eventQueue == nil && controlQueue == nil && activeCount == 0 && len(pendingByLane) == 0 {
 			return
 		}
 
-		var inbound <-chan dispatchItem
-		if queue != nil && activeCount < slot.concurrency {
-			inbound = queue
+		var normalInbound <-chan dispatchItem
+		var controlInbound <-chan dispatchItem
+		if activeCount < slot.concurrency {
+			normalInbound = eventQueue
+			controlInbound = controlQueue
+		}
+		if controlInbound != nil {
+			select {
+			case item, ok := <-controlInbound:
+				if !ok {
+					controlQueue = nil
+					continue
+				}
+				enqueueLaneItem(item, pendingByLane, &laneOrder, activeLanes, &fallbackCounter)
+				continue
+			default:
+			}
 		}
 
 		select {
-		case item, ok := <-inbound:
+		case item, ok := <-controlInbound:
 			if !ok {
-				queue = nil
+				controlQueue = nil
 				continue
 			}
-			laneKey := laneKeyForEvent(item.event, &fallbackCounter)
-			pendingByLane[laneKey] = append(pendingByLane[laneKey], item)
-			if _, active := activeLanes[laneKey]; !active {
-				appendLane(laneKey)
+			enqueueLaneItem(item, pendingByLane, &laneOrder, activeLanes, &fallbackCounter)
+		case item, ok := <-normalInbound:
+			if !ok {
+				eventQueue = nil
+				continue
 			}
+			enqueueLaneItem(item, pendingByLane, &laneOrder, activeLanes, &fallbackCounter)
 		case completion := <-completions:
 			if _, active := activeLanes[completion.laneKey]; !active {
 				continue
@@ -144,6 +162,26 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 			}
 		}
 	}
+}
+
+func enqueueLaneItem(
+	item dispatchItem,
+	pendingByLane map[string][]dispatchItem,
+	laneOrder *[]string,
+	activeLanes map[string]struct{},
+	fallbackCounter *int,
+) {
+	laneKey := laneKeyForEvent(item.event, fallbackCounter)
+	pendingByLane[laneKey] = append(pendingByLane[laneKey], item)
+	if _, active := activeLanes[laneKey]; active {
+		return
+	}
+	for _, existing := range *laneOrder {
+		if existing == laneKey {
+			return
+		}
+	}
+	*laneOrder = append(*laneOrder, laneKey)
 }
 
 func laneKeyForEvent(event pluginruntime.Event, fallbackCounter *int) string {

@@ -59,7 +59,7 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 		LogRepository:     platformState.LogRepository,
 		Renderer:          renderer,
 		PluginLogLimiter:  pluginState.PluginLogLimiter,
-		OutboundLimiter:   eventState.OutboundLimiter,
+		OutboundLimiter:   eventState.OutboundPolicy,
 		AccountValidation: services.AccountValidation,
 		Protocol:          services.Protocol,
 		EventIngress:      services.EventIngress,
@@ -96,12 +96,14 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 
 func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandlers) {
 	router := chi.NewRouter()
+	cfg := deps.runtime.CurrentConfig()
+	proxyResolver := httpapi.NewTrustedProxyResolver(cfg.Web.ExposureMode, cfg.Web.TrustedProxyCIDRs)
+	router.Use(proxyResolver.Middleware)
 	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger(), httpapi.WithRequestObserver(NewHTTPObserver(deps.metrics))))
 
 	managementapi.RegisterRoutes(router, deps.routes.RouterDeps, deps.routes.RequireAuth)
 	handlers := deps.routes.Handlers
 
-	cfg := deps.runtime.CurrentConfig()
 	listenAddr := net.JoinHostPort(cfg.Server.Host, strconv.Itoa(cfg.Server.Port))
 	handler := http.Handler(router)
 	if deps.pluginUI != nil {

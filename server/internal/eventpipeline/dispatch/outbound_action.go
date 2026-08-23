@@ -68,11 +68,26 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 	if strings.TrimSpace(limitTargetID) == "" {
 		limitTargetID = targetID
 	}
-	if err := d.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+	limitRequest := outbound.MessageLimitRequest{
 		PluginID:   pluginID,
 		TargetType: limitTargetType,
 		TargetID:   limitTargetID,
-	}); err != nil {
+	}
+	if err := d.waitOutboundLimit(ctx, limitRequest); err != nil {
+		result := outbound.SendResult{
+			DeliveryKind: action.Kind,
+			TargetType:   limitTargetType,
+			TargetID:     limitTargetID,
+		}
+		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
+			PluginID:    pluginID,
+			RequestID:   requestID,
+			CommandName: commandName,
+			TargetLabel: targetLabel,
+		}, attempt, result, err)
+		return result, err
+	}
+	if err := d.allowOutboundSend(limitRequest); err != nil {
 		result := outbound.SendResult{
 			DeliveryKind: action.Kind,
 			TargetType:   limitTargetType,
@@ -88,6 +103,7 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 	}
 	outboundStart := time.Now()
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
+	d.recordOutboundSend(limitRequest, err)
 	d.recordOutboundMetric(action, result, err, time.Since(outboundStart))
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
@@ -96,6 +112,25 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		TargetLabel: targetLabel,
 	}, attempt, result, err)
 	return result, err
+}
+
+func (d *Dispatcher) allowOutboundSend(request outbound.MessageLimitRequest) error {
+	d.mu.RLock()
+	breaker := d.outboundBreaker
+	d.mu.RUnlock()
+	if breaker == nil {
+		return nil
+	}
+	return breaker.Allow(request)
+}
+
+func (d *Dispatcher) recordOutboundSend(request outbound.MessageLimitRequest, err error) {
+	d.mu.RLock()
+	breaker := d.outboundBreaker
+	d.mu.RUnlock()
+	if breaker != nil {
+		breaker.Record(request, err)
+	}
 }
 
 func (d *Dispatcher) capabilityDeclared(ctx context.Context, pluginID string, capability string) bool {

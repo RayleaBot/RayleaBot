@@ -96,6 +96,9 @@ func isIgnorableShutdownWriteError(err error) bool {
 }
 
 func classifyProtocolReadError(handle *Handle, readErr error, exitMessage string, protocolMessage string) *Error {
+	if errors.Is(readErr, errProtocolFrameTooLarge) {
+		return errorf(codePluginProtocolViolation, "plugin IPC frame exceeds runtime.ipc_message_max_bytes", readErr)
+	}
 	if waitErr, exited := handle.ExitResult(); exited {
 		if waitErr == nil {
 			return errorf(codePluginInternalError, exitMessage, nil)

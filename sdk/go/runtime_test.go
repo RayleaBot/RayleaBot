@@ -10,6 +10,19 @@ import (
 	"time"
 )
 
+func TestRuntimeStateClearsBotIdentity(t *testing.T) {
+	state := &runtimeState{bot: Bot{ID: "10001", Nickname: "RayleaBot"}}
+	state.updateBotIdentity(Event{
+		EventType: "bot.identity.changed",
+		Payload:   map[string]any{"onebot": map[string]any{"self_id": ""}},
+	})
+	state.botMu.RLock()
+	defer state.botMu.RUnlock()
+	if state.bot.ID != "" || state.bot.Nickname != "" {
+		t.Fatalf("bot identity was not cleared: %#v", state.bot)
+	}
+}
+
 func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testing.T) {
 	inputReader, inputWriter := io.Pipe()
 	outputReader, outputWriter := io.Pipe()

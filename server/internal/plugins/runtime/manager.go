@@ -21,6 +21,10 @@ type Manager struct {
 	pendingEvents map[string]*eventSession
 	pendingPings  map[string]*pingRequest
 	expiredEvents map[string]time.Time
+
+	pendingLocalActions int
+	actionBurstStarted  time.Time
+	actionBurstCount    int
 }
 
 func NewManager(logger *slog.Logger, options Options) *Manager {
@@ -80,6 +84,7 @@ func (m *Manager) abortPendingLocked(runtimeErr *Error) {
 		}
 		session.completed = true
 		session.err = runtimeErr
+		m.releaseSessionActionsLocked(session)
 		session.cancel()
 		close(session.done)
 		delete(m.pendingEvents, requestID)

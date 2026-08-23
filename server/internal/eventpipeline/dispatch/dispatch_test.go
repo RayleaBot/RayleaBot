@@ -554,6 +554,72 @@ func TestDispatchQueueOverflow(t *testing.T) {
 	close(blocker.blockCh)
 }
 
+func TestDispatchQueueLimitIncludesSameLanePendingBuffer(t *testing.T) {
+	t.Parallel()
+
+	d := New(slog.Default(), nil, nil, 1, 1)
+	defer d.Close()
+	blocker := &fakeDeliverer{
+		blockCh:  make(chan struct{}),
+		started:  make(chan pluginruntime.Event, 3),
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+	}
+	d.Register("ordered", blocker, nil, nil, 2)
+
+	first := testEventWithTarget("same-lane")
+	if result := d.DispatchToPlugin(context.Background(), "ordered", first); result.Outcome != OutcomeDelivered {
+		t.Fatalf("first outcome = %s", result.Outcome)
+	}
+	waitForStartedEvent(t, blocker.started)
+
+	second := testEventWithTarget("same-lane")
+	second.EventID = "same-lane-second"
+	if result := d.DispatchToPlugin(context.Background(), "ordered", second); result.Outcome != OutcomeDelivered {
+		t.Fatalf("second outcome = %s", result.Outcome)
+	}
+	third := testEventWithTarget("same-lane")
+	third.EventID = "same-lane-third"
+	if result := d.DispatchToPlugin(context.Background(), "ordered", third); result.Outcome != OutcomeDropped {
+		t.Fatalf("third outcome = %s, want dropped", result.Outcome)
+	}
+
+	close(blocker.blockCh)
+}
+
+func TestDispatchControlQueueIsIndependentAndBounded(t *testing.T) {
+	t.Parallel()
+
+	d := New(slog.Default(), nil, nil, 1, 1)
+	defer d.Close()
+	blocker := &fakeDeliverer{
+		blockCh:  make(chan struct{}),
+		started:  make(chan pluginruntime.Event, 3),
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+	}
+	d.Register("control", blocker, nil, nil, 1)
+
+	if result := d.DispatchToPlugin(context.Background(), "control", testEventWithTarget("active")); result.Outcome != OutcomeDelivered {
+		t.Fatalf("active outcome = %s", result.Outcome)
+	}
+	waitForStartedEvent(t, blocker.started)
+	if result := d.DispatchToPlugin(context.Background(), "control", testEventWithTarget("normal-pending")); result.Outcome != OutcomeDelivered {
+		t.Fatalf("normal pending outcome = %s", result.Outcome)
+	}
+
+	identity := testEventWithTarget("bot-1")
+	identity.EventType = "bot.identity.changed"
+	identity.EventID = "identity-one"
+	if result := d.DispatchToPlugin(context.Background(), "control", identity); result.Outcome != OutcomeDelivered {
+		t.Fatalf("control outcome = %s, want delivered despite full normal queue", result.Outcome)
+	}
+	identity.EventID = "identity-two"
+	if result := d.DispatchToPlugin(context.Background(), "control", identity); result.Outcome != OutcomeDropped {
+		t.Fatalf("second control outcome = %s, want dropped at control cap", result.Outcome)
+	}
+
+	close(blocker.blockCh)
+}
+
 func TestDispatchDifferentTargetsRunConcurrently(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)

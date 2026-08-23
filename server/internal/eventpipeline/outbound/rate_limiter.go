@@ -3,7 +3,6 @@ package outbound
 import (
 	"context"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -14,7 +13,6 @@ import (
 const (
 	defaultMessageRateLimitPerPlugin = "20/10s"
 	defaultMessageRateLimitPerTarget = "5/5s"
-	defaultMessageCircuitBreakerSecs = 30
 )
 
 // MessageLimitRequest identifies one outbound message for platform throttling.
@@ -31,8 +29,6 @@ type MessageLimiter interface {
 
 // MessageRateLimiter enforces plugin and target outbound message limits.
 type MessageRateLimiter struct {
-	mu            sync.RWMutex
-	maxWait       time.Duration
 	pluginLimiter *windowLimiter
 	targetLimiter *windowLimiter
 }
@@ -42,7 +38,6 @@ func NewMessageRateLimiter(cfg config.Config) *MessageRateLimiter {
 	limiter := &MessageRateLimiter{
 		pluginLimiter: newWindowLimiter(time.Now, parseOutboundRateLimit(cfg.Message.RateLimitPerPlugin, defaultMessageRateLimitPerPlugin)),
 		targetLimiter: newWindowLimiter(time.Now, parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget)),
-		maxWait:       messageCircuitBreaker(cfg),
 	}
 	return limiter
 }
@@ -52,12 +47,6 @@ func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
 
 	pluginLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerPlugin, defaultMessageRateLimitPerPlugin)
 	targetLimit := parseOutboundRateLimit(cfg.Message.RateLimitPerTarget, defaultMessageRateLimitPerTarget)
-	maxWait := messageCircuitBreaker(cfg)
-
-	l.mu.Lock()
-	l.maxWait = maxWait
-	l.mu.Unlock()
-
 	l.pluginLimiter.SetLimit(pluginLimit)
 	l.targetLimiter.SetLimit(targetLimit)
 }
@@ -65,16 +54,6 @@ func (l *MessageRateLimiter) ApplyConfig(cfg config.Config) {
 // Wait blocks in FIFO order until the message can be sent or the configured
 // wait limit is reached.
 func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitRequest) error {
-
-	l.mu.RLock()
-	maxWait := l.maxWait
-	l.mu.RUnlock()
-
-	if maxWait > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, maxWait)
-		defer cancel()
-	}
 
 	pluginID := strings.TrimSpace(request.PluginID)
 	if pluginID != "" {
@@ -108,12 +87,4 @@ func parseOutboundRateLimit(raw string, fallback string) permission.RateLimit {
 	}
 	limit, _ = permission.ParseRateLimit(fallback)
 	return limit
-}
-
-func messageCircuitBreaker(cfg config.Config) time.Duration {
-	seconds := cfg.Message.CircuitBreakerSeconds
-	if seconds <= 0 {
-		seconds = defaultMessageCircuitBreakerSecs
-	}
-	return time.Duration(seconds) * time.Second
 }

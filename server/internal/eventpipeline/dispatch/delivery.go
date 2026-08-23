@@ -56,22 +56,37 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 			continue
 		}
 
-		item := dispatchItem{ctx: ctx, event: event}
-		select {
-		case slot.queue <- item:
+		control := isControlEvent(event.EventType)
+		item := dispatchItem{ctx: ctx, event: event, control: control}
+		if slot.tryEnqueue(item) {
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
 			d.recordOutcome(OutcomeDelivered, pluginID, "")
-		default:
-			d.logger.Warn("插件 "+pluginID+" 的事件队列已满，已丢弃事件："+event.EventID,
+		} else {
+			reason := "queue_full"
+			queueLabel := "事件"
+			if control {
+				reason = "control_queue_full"
+				queueLabel = "控制事件"
+			}
+			d.logger.Warn("插件 "+pluginID+" 的"+queueLabel+"队列已满，已丢弃事件："+event.EventID,
 				"component", "dispatch",
 				"plugin_id", pluginID,
 				"event_id", event.EventID,
 			)
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDropped})
-			d.recordOutcome(OutcomeDropped, pluginID, "queue_full")
+			d.recordOutcome(OutcomeDropped, pluginID, reason)
 		}
 	}
 	return results
+}
+
+func isControlEvent(eventType string) bool {
+	switch strings.TrimSpace(eventType) {
+	case "plugin.started", "config.changed", "bot.identity.changed", "management.action":
+		return true
+	default:
+		return false
+	}
 }
 
 // selectTargets picks which plugins should receive the event.

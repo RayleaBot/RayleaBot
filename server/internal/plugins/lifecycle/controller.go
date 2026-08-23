@@ -378,13 +378,22 @@ func (c *Controller) reconcileRuntime(ctx context.Context, botID string) {
 	if c.plugins == nil {
 		return
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	botID = strings.TrimSpace(botID)
+	budgetCtx, cancel := context.WithTimeout(ctx, runtimeInitBudget(c.config().Runtime))
+	defer cancel()
 
 	for _, snapshot := range c.plugins.List() {
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 			continue
 		}
-		if err := c.ensurePluginRunning(ctx, snapshot.PluginID, botID); err != nil {
+		if err := budgetCtx.Err(); err != nil {
+			c.logLifecycleWarn("plugin runtime reconcile skipped after cumulative init budget", snapshot.PluginID, err)
+			continue
+		}
+		if err := c.ensurePluginRunning(budgetCtx, snapshot.PluginID, botID); err != nil {
 			c.logLifecycleWarn("plugin runtime reconcile failed", snapshot.PluginID, err)
 		}
 	}
@@ -822,9 +831,6 @@ func (c *Controller) broadcastBotIdentityChanged(ctx context.Context, botID stri
 		return
 	}
 	botID = strings.TrimSpace(botID)
-	if botID == "" {
-		return
-	}
 	for _, pluginID := range c.dispatcher.PluginIDs() {
 		c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, botID)
 	}
@@ -836,7 +842,7 @@ func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, plu
 	}
 	pluginID = strings.TrimSpace(pluginID)
 	botID = strings.TrimSpace(botID)
-	if pluginID == "" || botID == "" {
+	if pluginID == "" {
 		return
 	}
 	if c.botIdentityAlreadySent(pluginID, botID) {
@@ -844,23 +850,23 @@ func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, plu
 	}
 
 	now := time.Now()
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
-		EventID:        fmt.Sprintf("onebot11-bot-identity-%d-%s", now.UnixNano(), botID),
+	event := pluginruntime.Event{
+		EventID:        fmt.Sprintf("onebot11-bot-identity-%d", now.UnixNano()),
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "bot.identity.changed",
 		Timestamp:      now.Unix(),
-		Target: &pluginruntime.EventTarget{
-			Type: "bot",
-			ID:   botID,
-		},
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
 				"self_id": botID,
 				"time":    now.Unix(),
 			},
 		},
-	})
+	}
+	if botID != "" {
+		event.Target = &pluginruntime.EventTarget{Type: "bot", ID: botID}
+	}
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, event)
 	if result.Outcome == dispatch.OutcomeDelivered {
 		c.markBotIdentitySent(pluginID, botID)
 	}
@@ -869,7 +875,11 @@ func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, plu
 func (c *Controller) botIdentityAlreadySent(pluginID string, botID string) bool {
 	c.identityMu.Lock()
 	defer c.identityMu.Unlock()
-	return c.identityByPlugin != nil && c.identityByPlugin[pluginID] == botID
+	if c.identityByPlugin == nil {
+		return false
+	}
+	current, ok := c.identityByPlugin[pluginID]
+	return ok && current == botID
 }
 
 func (c *Controller) markBotIdentitySent(pluginID string, botID string) {
@@ -1036,11 +1046,19 @@ func dispatchCommands(commands []plugins.Command) []dispatch.CommandDecl {
 }
 
 func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {
+	seconds := cfg.PluginInitTimeoutSeconds
+	if seconds <= 0 {
+		seconds = 30
+	}
+	return time.Duration(seconds+5) * time.Second
+}
+
+func runtimeInitBudget(cfg config.RuntimeConfig) time.Duration {
 	seconds := cfg.PluginInitMaxTotalSeconds
 	if seconds <= 0 {
 		seconds = 300
 	}
-	return time.Duration(seconds+5) * time.Second
+	return time.Duration(seconds) * time.Second
 }
 
 func (c *Controller) seedPluginDefaultConfig(ctx context.Context, snapshot plugins.Snapshot) error {

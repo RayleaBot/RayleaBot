@@ -10,18 +10,15 @@ import (
 const pluginExitedBeforeInitMessage = "插件进程在初始化完成前退出，请查看该插件的 stderr 日志"
 
 func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) ([]string, *Error) {
-	silenceTimer := time.NewTimer(handle.Spec.InitTimeout)
-	defer silenceTimer.Stop()
-
-	totalTimer := time.NewTimer(handle.Spec.InitMaxTotal)
-	defer totalTimer.Stop()
+	deadlineTimer := time.NewTimer(handle.Spec.InitTimeout)
+	defer deadlineTimer.Stop()
 
 	for {
 		readCh := make(chan []byte, 1)
 		readErrCh := make(chan error, 1)
 
 		go func() {
-			line, err := handle.Stdout.ReadBytes('\n')
+			line, err := readProtocolLine(handle.Stdout, handle.Spec.IPCMessageMaxBytes)
 			if err != nil {
 				readErrCh <- err
 				return
@@ -50,7 +47,6 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 				"runtime_state", string(StateStarting),
 				"summary", summary,
 			)
-			resetTimer(silenceTimer, handle.Spec.InitTimeout)
 		case readErr := <-readErrCh:
 			return nil, classifyProtocolReadError(handle, readErr, pluginExitedBeforeInitMessage, "read plugin init response")
 		case <-handle.Done():
@@ -59,24 +55,12 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 				return nil, errorf(codePluginInternalError, pluginExitedBeforeInitMessage, nil)
 			}
 			return nil, errorf(codePluginInternalError, pluginExitedBeforeInitMessage, waitErr)
-		case <-silenceTimer.C:
+		case <-deadlineTimer.C:
 			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
-		case <-totalTimer.C:
-			return nil, errorf(codePluginInitTimeout, "plugin init exceeded maximum total duration", nil)
 		case <-ctx.Done():
 			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
 		}
 	}
-}
-
-func resetTimer(timer *time.Timer, duration time.Duration) {
-	if !timer.Stop() {
-		select {
-		case <-timer.C:
-		default:
-		}
-	}
-	timer.Reset(duration)
 }
 
 func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *Error) {

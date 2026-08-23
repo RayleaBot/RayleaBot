@@ -1,0 +1,184 @@
+package outbound
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+)
+
+const (
+	defaultMessageCircuitBreakerSecs = 30
+	messageCircuitFailureThreshold   = 3
+)
+
+type circuitState struct {
+	failures      int
+	openUntil     time.Time
+	probeInFlight bool
+}
+
+type MessageCircuitBreaker struct {
+	mu        sync.Mutex
+	now       func() time.Time
+	cooldown  time.Duration
+	threshold int
+	states    map[string]*circuitState
+}
+
+func NewMessageCircuitBreaker(cfg config.Config) *MessageCircuitBreaker {
+	return newMessageCircuitBreaker(time.Now, messageCircuitCooldown(cfg), messageCircuitFailureThreshold)
+}
+
+func newMessageCircuitBreaker(now func() time.Time, cooldown time.Duration, threshold int) *MessageCircuitBreaker {
+	if now == nil {
+		now = time.Now
+	}
+	if cooldown <= 0 {
+		cooldown = defaultMessageCircuitBreakerSecs * time.Second
+	}
+	if threshold <= 0 {
+		threshold = messageCircuitFailureThreshold
+	}
+	return &MessageCircuitBreaker{
+		now:       now,
+		cooldown:  cooldown,
+		threshold: threshold,
+		states:    make(map[string]*circuitState),
+	}
+}
+
+func (b *MessageCircuitBreaker) ApplyConfig(cfg config.Config) {
+	if b == nil {
+		return
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.cooldown = messageCircuitCooldown(cfg)
+}
+
+func (b *MessageCircuitBreaker) Allow(request MessageLimitRequest) error {
+	if b == nil {
+		return nil
+	}
+	key := circuitKey(request)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	state := b.states[key]
+	if state == nil || state.openUntil.IsZero() {
+		return nil
+	}
+	now := b.now().UTC()
+	if now.Before(state.openUntil) || state.probeInFlight {
+		return circuitOpenError()
+	}
+	state.probeInFlight = true
+	return nil
+}
+
+func (b *MessageCircuitBreaker) Record(request MessageLimitRequest, sendErr error) {
+	if b == nil {
+		return
+	}
+	key := circuitKey(request)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	state := b.states[key]
+	if ignoreCircuitResult(sendErr) {
+		if state != nil {
+			state.probeInFlight = false
+		}
+		return
+	}
+	if sendErr == nil {
+		delete(b.states, key)
+		return
+	}
+	if state == nil {
+		state = &circuitState{}
+		b.states[key] = state
+	}
+	if state.probeInFlight || !state.openUntil.IsZero() {
+		state.failures = b.threshold
+		state.probeInFlight = false
+		state.openUntil = b.now().UTC().Add(b.cooldown)
+		return
+	}
+	state.failures++
+	if state.failures >= b.threshold {
+		state.openUntil = b.now().UTC().Add(b.cooldown)
+	}
+}
+
+func ignoreCircuitResult(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var adapterErr *onebot11.Error
+	return errors.As(err, &adapterErr) && adapterErr.Code == onebot11.ErrorCodeReplyTargetMissing
+}
+
+func circuitKey(request MessageLimitRequest) string {
+	targetType := strings.TrimSpace(request.TargetType)
+	targetID := strings.TrimSpace(request.TargetID)
+	if targetType != "" && targetID != "" {
+		return "target:" + targetType + ":" + targetID
+	}
+	if pluginID := strings.TrimSpace(request.PluginID); pluginID != "" {
+		return "plugin:" + pluginID
+	}
+	return "adapter:onebot11"
+}
+
+func circuitOpenError() error {
+	return &onebot11.Error{
+		Code:    onebot11.ErrorCodeSendFailed,
+		Message: "outbound message circuit breaker is open",
+	}
+}
+
+func messageCircuitCooldown(cfg config.Config) time.Duration {
+	seconds := cfg.Message.CircuitBreakerSeconds
+	if seconds <= 0 {
+		seconds = defaultMessageCircuitBreakerSecs
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+type MessagePolicy struct {
+	Limiter *MessageRateLimiter
+	Breaker *MessageCircuitBreaker
+}
+
+func NewMessagePolicy(cfg config.Config) *MessagePolicy {
+	return &MessagePolicy{
+		Limiter: NewMessageRateLimiter(cfg),
+		Breaker: NewMessageCircuitBreaker(cfg),
+	}
+}
+
+func (p *MessagePolicy) ApplyConfig(cfg config.Config) {
+	if p == nil {
+		return
+	}
+	if p.Limiter != nil {
+		p.Limiter.ApplyConfig(cfg)
+	}
+	if p.Breaker != nil {
+		p.Breaker.ApplyConfig(cfg)
+	}
+}
+
+func (p *MessagePolicy) Wait(ctx context.Context, request MessageLimitRequest) error {
+	if p == nil || p.Limiter == nil {
+		return nil
+	}
+	return p.Limiter.Wait(ctx, request)
+}

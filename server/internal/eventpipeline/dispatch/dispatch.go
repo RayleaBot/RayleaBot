@@ -41,16 +41,25 @@ type CommandDecl struct {
 	Permission   string
 }
 type dispatchItem struct {
-	ctx   context.Context
-	event pluginruntime.Event
+	ctx     context.Context
+	event   pluginruntime.Event
+	control bool
 }
 type pluginSlot struct {
 	runtime       runtimeDeliverer
 	subscriptions []string
 	commands      []CommandDecl
 	concurrency   int
-	queue         chan dispatchItem
+	eventQueue    chan dispatchItem
+	controlQueue  chan dispatchItem
 	done          chan struct{}
+
+	queueMu        sync.Mutex
+	accepting      bool
+	pendingEvents  int
+	pendingControl int
+	eventLimit     int
+	controlLimit   int
 }
 type CapabilityChecker func(context.Context, string, string) bool
 
@@ -87,7 +96,9 @@ type Dispatcher struct {
 	sender            outbound.ActionSender
 	resolver          outbound.ReplyTargetResolver
 	outboundLimiter   outbound.MessageLimiter
+	outboundBreaker   *outbound.MessageCircuitBreaker
 	queueSize         int
+	controlQueueSize  int
 	mu                sync.RWMutex
 	slots             map[string]*pluginSlot
 	capabilityChecker CapabilityChecker
@@ -108,20 +119,25 @@ type Dispatcher struct {
 }
 
 // New creates a Dispatcher.
-func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.ReplyTargetResolver, queueSize int) *Dispatcher {
+func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.ReplyTargetResolver, queueSize int, controlQueueSize ...int) *Dispatcher {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	if queueSize <= 0 {
 		queueSize = 16
 	}
+	controlSize := 4
+	if len(controlQueueSize) > 0 && controlQueueSize[0] > 0 {
+		controlSize = controlQueueSize[0]
+	}
 	return &Dispatcher{
-		logger:        logger,
-		sender:        sender,
-		resolver:      resolver,
-		queueSize:     queueSize,
-		slots:         make(map[string]*pluginSlot),
-		dropsByReason: make(map[string]map[string]uint64),
+		logger:           logger,
+		sender:           sender,
+		resolver:         resolver,
+		queueSize:        queueSize,
+		controlQueueSize: controlSize,
+		slots:            make(map[string]*pluginSlot),
+		dropsByReason:    make(map[string]map[string]uint64),
 	}
 }
 func (d *Dispatcher) SetCapabilityChecker(checker CapabilityChecker) {
@@ -133,4 +149,9 @@ func (d *Dispatcher) SetOutboundLimiter(limiter outbound.MessageLimiter) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.outboundLimiter = limiter
+}
+func (d *Dispatcher) SetOutboundCircuitBreaker(breaker *outbound.MessageCircuitBreaker) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.outboundBreaker = breaker
 }

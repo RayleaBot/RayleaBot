@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
@@ -34,10 +35,13 @@ type Spec struct {
 	WorkDir              string
 	EntryPath            string
 	InitTimeout          time.Duration
-	InitMaxTotal         time.Duration
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration
 	EffectiveConcurrency int
+	IPCPendingActionsMax int
+	IPCActionBurstCount  int
+	IPCActionBurstWindow time.Duration
+	IPCMessageMaxBytes   int
 }
 
 func BuildSpec(snapshot plugins.Snapshot, repoRoot string, runtimeConfig config.RuntimeConfig) (Spec, error) {
@@ -80,7 +84,10 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	}
 
 	initTimeout := durationFromSeconds(runtimeConfig.PluginInitTimeoutSeconds, 10)
-	initMaxTotal := durationFromSeconds(runtimeConfig.PluginInitMaxTotalSeconds, 300)
+	burstLimit, err := permission.ParseRateLimit(runtimeConfig.IPCActionBurstLimit)
+	if err != nil {
+		burstLimit, _ = permission.ParseRateLimit("100/1s")
+	}
 
 	return Spec{
 		PluginID:             snapshot.PluginID,
@@ -93,10 +100,13 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		WorkDir:              verified.Root,
 		EntryPath:            verified.BackendPath,
 		InitTimeout:          initTimeout,
-		InitMaxTotal:         initMaxTotal,
 		EventTimeout:         durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
 		ShutdownGrace:        durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),
 		EffectiveConcurrency: effectivePluginConcurrency(snapshot.Concurrency, runtimeConfig.MaxConcurrentTasksPerPlugin),
+		IPCPendingActionsMax: positiveInt(runtimeConfig.IPCPendingActionsMax, 256),
+		IPCActionBurstCount:  burstLimit.Count,
+		IPCActionBurstWindow: burstLimit.Window,
+		IPCMessageMaxBytes:   positiveInt(runtimeConfig.IPCMessageMaxBytes, 8*1024*1024),
 	}, nil
 }
 
@@ -128,4 +138,11 @@ func durationFromSeconds(seconds int, fallback int) time.Duration {
 		seconds = fallback
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+func positiveInt(value, fallback int) int {
+	if value <= 0 {
+		return fallback
+	}
+	return value
 }

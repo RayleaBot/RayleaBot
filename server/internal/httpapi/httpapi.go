@@ -314,17 +314,10 @@ func RequestRemoteIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-
-	host := strings.TrimSpace(r.RemoteAddr)
-	if host == "" {
-		return ""
+	if info, ok := r.Context().Value(clientIPContextKey{}).(clientIPContext); ok && info.clientIP != "" {
+		return info.clientIP
 	}
-
-	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-		host = parsedHost
-	}
-
-	return strings.Trim(host, "[]")
+	return remoteAddressIP(r)
 }
 
 func newRequestID() string {

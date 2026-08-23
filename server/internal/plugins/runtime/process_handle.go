@@ -14,10 +14,13 @@ import (
 type ProcessSpec struct {
 	PluginID             string
 	InitTimeout          time.Duration
-	InitMaxTotal         time.Duration
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration
 	EffectiveConcurrency int
+	IPCPendingActionsMax int
+	IPCActionBurstCount  int
+	IPCActionBurstWindow time.Duration
+	IPCMessageMaxBytes   int
 }
 
 type Handle struct {
@@ -85,16 +88,23 @@ func (h *Handle) WriteJSONLine(value any) error {
 	h.writeMu.Lock()
 	defer h.writeMu.Unlock()
 
-	return writeJSONLine(h.Stdin, value)
+	return writeJSONLineWithLimit(h.Stdin, value, h.Spec.IPCMessageMaxBytes)
 }
 
 func writeJSONLine(writer io.Writer, value any) error {
+	return writeJSONLineWithLimit(writer, value, 0)
+}
+
+func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
 		return err
 	}
 	if !json.Valid(encoded) {
 		return fmt.Errorf("protocol frame encoded invalid json")
+	}
+	if maxBytes > 0 && len(encoded) > maxBytes {
+		return fmt.Errorf("%w: encoded frame has %d bytes, limit %d", errProtocolFrameTooLarge, len(encoded), maxBytes)
 	}
 
 	data := append(encoded, '\n')

@@ -25,15 +25,28 @@ type EventState struct {
 	Dispatcher      *dispatch.Dispatcher
 	ReplyTargets    *outbound.ReplyTargetCache
 	OutboundSender  outbound.ActionSender
-	OutboundLimiter *outbound.MessageRateLimiter
+	OutboundLimiter outboundRuntimePolicy
+	OutboundPolicy  *outbound.MessagePolicy
+}
+
+type outboundRuntimePolicy interface {
+	outbound.MessageLimiter
+	ApplyConfig(config.Config)
 }
 
 func buildEvents(deps eventDeps) EventState {
 	adapterShell := onebot11.New(deps.Config.OneBot, deps.Config.Adapter, deps.Logger)
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
-	eventDispatcher := dispatch.New(deps.Logger, adapterShell, replyTargets, deps.Config.Runtime.MaxPendingEventsPerPlugin)
-	outboundLimiter := outbound.NewMessageRateLimiter(deps.Config)
-	eventDispatcher.SetOutboundLimiter(outboundLimiter)
+	eventDispatcher := dispatch.New(
+		deps.Logger,
+		adapterShell,
+		replyTargets,
+		deps.Config.Runtime.MaxPendingEventsPerPlugin,
+		deps.Config.Runtime.MaxPendingControlEvents,
+	)
+	outboundPolicy := outbound.NewMessagePolicy(deps.Config)
+	eventDispatcher.SetOutboundLimiter(outboundPolicy)
+	eventDispatcher.SetOutboundCircuitBreaker(outboundPolicy.Breaker)
 	var bridgeDispatch bridge.Dispatch = eventDispatcher
 	if deps.BridgeDispatch != nil {
 		bridgeDispatch = deps.BridgeDispatch
@@ -50,7 +63,8 @@ func buildEvents(deps eventDeps) EventState {
 		Dispatcher:      eventDispatcher,
 		ReplyTargets:    replyTargets,
 		OutboundSender:  adapterShell,
-		OutboundLimiter: outboundLimiter,
+		OutboundLimiter: outboundPolicy,
+		OutboundPolicy:  outboundPolicy,
 	}
 }
 

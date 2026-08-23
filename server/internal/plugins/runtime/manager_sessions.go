@@ -17,6 +17,8 @@ type eventSession struct {
 	delivery           Delivery
 	err                error
 	localActionIDs     map[string]struct{}
+	localActionOrder   []string
+	pendingActionIDs   map[string]struct{}
 	pendingLocalAction int
 	completed          bool
 }
@@ -47,12 +49,13 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 	}
 
 	session := &eventSession{
-		requestID:      requestID,
-		event:          event,
-		ctx:            sessionCtx,
-		cancel:         cancel,
-		done:           make(chan struct{}),
-		localActionIDs: make(map[string]struct{}),
+		requestID:        requestID,
+		event:            event,
+		ctx:              sessionCtx,
+		cancel:           cancel,
+		done:             make(chan struct{}),
+		localActionIDs:   make(map[string]struct{}),
+		pendingActionIDs: make(map[string]struct{}),
 	}
 	m.pendingEvents[requestID] = session
 	return session, nil
@@ -65,9 +68,22 @@ func (m *Manager) completeEventLocked(session *eventSession, delivery Delivery, 
 	session.completed = true
 	session.delivery = delivery
 	session.err = err
+	m.releaseSessionActionsLocked(session)
 	delete(m.pendingEvents, session.requestID)
 	session.cancel()
 	close(session.done)
+}
+
+func (m *Manager) releaseSessionActionsLocked(session *eventSession) {
+	if session == nil || session.pendingLocalAction <= 0 {
+		return
+	}
+	m.pendingLocalActions -= session.pendingLocalAction
+	if m.pendingLocalActions < 0 {
+		m.pendingLocalActions = 0
+	}
+	session.pendingLocalAction = 0
+	clear(session.pendingActionIDs)
 }
 
 func (m *Manager) markEventExpiredLocked(requestID string) {
@@ -175,6 +191,7 @@ func (m *Manager) removeEventSession(handle *Handle, requestID string) {
 	}
 	session.completed = true
 	session.err = errorf(codePluginInternalError, "plugin runtime stopped before delivery completed", io.EOF)
+	m.releaseSessionActionsLocked(session)
 	session.cancel()
 	close(session.done)
 	delete(m.pendingEvents, requestID)
