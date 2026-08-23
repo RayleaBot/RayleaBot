@@ -36,7 +36,7 @@ description: 在 server、web、launcher、storage、render 或依赖选型上�
 - Server 订阅/广播：一律复用 `server/internal/pubsub` 的泛型 Hub，不手写订阅表。
 - Server 投影：领域视图只在领域包构建一次（如 `plugins.BuildSummaryView`）；`management` 层只做序列化标注，不复制投影逻辑。
 - Web：从 `web/src/lib/http.ts`、`web/src/lib/ws.ts`、`web/src/stores/*`、`web/src/components/*` 和既有页面模式出发。
-- Launcher：从 `launcher/src/main/services/*`、`launcher/src/shared/*` 和现有 Electron `main` / `preload` / `renderer` 分层出发。
+- Launcher：从 `Go host / internal/desktop / Wails generated bindings / renderer / shared` 边界出发，即 `launcher/main.go`、`launcher/internal/desktop/*`、生成的 Wails bindings 与 `launcher/src/renderer/*`、`launcher/src/shared/*`。
 - Contracts 与示例：`contracts/`、`fixtures/`、`examples/` 是冻结结构、示例 payload 和回归锚点的首选来源。
 
 ## 依赖门禁

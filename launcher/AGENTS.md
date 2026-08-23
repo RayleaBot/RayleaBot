@@ -6,7 +6,7 @@
 
 - `launcher/` 只负责桌面壳、本地环境检查、服务进程编排、启动停止、版本提示和打开 Web 管理面。
 - 保持 `Go host / desktop / bindings / renderer / shared` 边界清晰：
-  - Go host 负责原生窗口、托盘、单实例和系统对话框
+  - Go host 负责原生窗口、托盘、单实例、系统对话框与静态资源安全中间件（`internal/frontend`）
   - `internal/desktop` 负责进程、服务控制和本地资源检查
   - Wails generated bindings 只暴露受限的 typed desktop bridge
   - `renderer` 负责界面展示
@@ -37,7 +37,8 @@
 
 - 启动、停止、恢复和诊断流程必须同时暴露用户可读错误和机器可读 `code`。
 - 用户可读错误使用稳定文案，不拼接动态异常堆栈或内部路径。
-- 机器可读 `code` 优先复用 `contracts/` 中已定义的错误码，不发明 launcher 专属错误码。
+- 服务端返回的机器可读 `code` 原样复用 `contracts/error-codes.yaml` 目录中的错误码，不转写、不发明 launcher 变体。
+- Launcher 本机产生的错误（桌面桥、环境预检）使用本机命名空间：`launcher.*` 与 `chromium.*`、`deps.*`、`workdir.*` 等预检前缀；这些本机码不进入 `contracts/error-codes.yaml`。
 - 诊断信息结构化输出，便于脚本和 CI 解析；人类可读摘要与机器可读字段共存。
 - 本地环境检查失败时，给出明确修复指引或文档链接，不只返回失败状态码。
 

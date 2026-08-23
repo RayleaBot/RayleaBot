@@ -34,7 +34,7 @@ description: 本仓库改动需要验证时使用。按受影响面选择最小�
    - 若 contract 变更，确认 generated types 已重新生成且一致。
    - 若 SQL 变更，确认 `sqlc diff` 无漂移。
    - 若 fixture/example 变更，确认它们仍只表达已冻结结构。
-5. 检查产物存在性：命令 exit 0 不足以证明成功；确认目标产物（dist、app.asar、node_modules/.electron/ 等）真实存在。
+5. 检查产物存在性：命令 exit 0 不足以证明成功；确认目标产物（server 的 dist 二进制、web/launcher 的 dist 构建产物、Wails 打包目录等）真实存在。
 6. 输出验证摘要。
 
 ## 输出

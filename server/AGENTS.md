@@ -57,7 +57,7 @@
 - 优先复用 `fixtures/` 与 `examples/`，不要先写散乱的 ad-hoc 样例。
 - 插件 runtime helper 测试发出预期协议违规 frame 后，不要立刻退出进程；应等待 stdin 关闭或管理器终止进程，避免 CI 因进程退出竞态把协议违规误判为 `plugin.internal_error`。
 - 测试替身通过 `app.Options` 构造期注入；禁止为测试在 App 或服务上新增运行期 setter。
-- 测试分层：包内单测验证包内行为；`server/tests/services` 验证服务装配与配置链路；`server/tests/integration` 验证跨包端到端流程；`server/tests/ws` 验证 WebSocket 事件契约；`server/tests/architecture` 验证包依赖边界。同一行为不跨层重复覆盖。
+- 测试分层：包内单测验证包内行为；`server/tests/services` 验证服务装配与配置链路；`server/tests/integration` 验证跨包端到端流程；`server/tests/ws` 验证 WebSocket 事件契约；`server/tests/architecture` 验证包依赖边界；跨层共享的构建替身与测试数据放 `server/tests/testutil`。同一行为不跨层重复覆盖。
 - 需要区分 race 构建时使用 `server/internal/testenv` 的 `RaceEnabled` 常量，不再复制 build tag stub。
 
 ## Cross-Surface Checks

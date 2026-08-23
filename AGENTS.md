@@ -67,6 +67,7 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 - `agent-instruction-maintenance`: 修改 AGENTS/CLAUDE/skills。
 - `repo-validation`: 选择最小验证命令（含 -race、架构测试触发条件）和 drift 检查。
 - `rayleabot-evidence-scan`: 只看证据的 bug 扫描、性能观察、skill 推荐与 automation memory 更新。
+- `impeccable`: 前端界面设计、评审与打磨流程。
 
 ## Maintaining Agent Instructions
 

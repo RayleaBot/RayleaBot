@@ -74,20 +74,87 @@ for (const dir of topLevelDirs) {
 
 // ── 2. Line count budgets ──────────────────────────────────────────────────
 
+function countLines(text) {
+  const parts = text.split(/\r?\n/);
+  if (parts.length > 0 && parts[parts.length - 1] === "") parts.pop();
+  return parts.length;
+}
+
 const rootAgents = join(ROOT, "AGENTS.md");
 const rootClaude = join(ROOT, "CLAUDE.md");
 
 if (existsSync(rootAgents)) {
-  const lines = readFileSync(rootAgents, "utf-8").split(/\r?\n/).length;
+  const lines = countLines(readFileSync(rootAgents, "utf-8"));
   if (lines > 150) {
     addIssue(rootAgents, `line count ${lines} exceeds budget 150`);
   }
 }
 
 if (existsSync(rootClaude)) {
-  const lines = readFileSync(rootClaude, "utf-8").split(/\r?\n/).length;
+  const lines = countLines(readFileSync(rootClaude, "utf-8"));
   if (lines > 40) {
     addIssue(rootClaude, `line count ${lines} exceeds budget 40`);
+  }
+}
+
+const LOCAL_AGENTS_BUDGET = 120;
+for (const file of agentsFiles) {
+  if (file === rootAgents) continue;
+  const lines = countLines(readFileSync(file, "utf-8"));
+  if (lines > LOCAL_AGENTS_BUDGET) {
+    addIssue(file, `line count ${lines} exceeds budget ${LOCAL_AGENTS_BUDGET}`);
+  }
+}
+
+const SKILL_BUDGET = 100;
+for (const file of skillFiles) {
+  const lines = countLines(readFileSync(file, "utf-8"));
+  if (lines > SKILL_BUDGET) {
+    addIssue(file, `line count ${lines} exceeds budget ${SKILL_BUDGET}`);
+  }
+}
+
+// ── 2b. Skills list consistency ─────────────────────────────────────────────
+
+function extractMarkdownSection(text, heading) {
+  const lines = text.split(/\r?\n/);
+  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
+  if (start === -1) return null;
+  const body = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (/^##\s/.test(lines[i])) break;
+    body.push(lines[i]);
+  }
+  return body.join("\n");
+}
+
+const skillsDir = join(ROOT, ".agents", "skills");
+const diskSkills = existsSync(skillsDir)
+  ? readdirSync(skillsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && existsSync(join(skillsDir, entry.name, "SKILL.md")))
+      .map((entry) => entry.name)
+  : [];
+
+if (existsSync(rootAgents)) {
+  const skillsSection = extractMarkdownSection(readFileSync(rootAgents, "utf-8"), "Skills");
+  if (skillsSection === null) {
+    if (diskSkills.length > 0) {
+      addIssue(rootAgents, "missing ## Skills section while .agents/skills/ has entries");
+    }
+  } else {
+    const listedSkills = new Set(
+      [...skillsSection.matchAll(/`([^`]+)`/g)].map((m) => m[1])
+    );
+    for (const name of diskSkills) {
+      if (!listedSkills.has(name)) {
+        addIssue(rootAgents, `skill \`${name}\` is missing from the Skills section`);
+      }
+    }
+    for (const name of listedSkills) {
+      if (!diskSkills.includes(name)) {
+        addIssue(rootAgents, `Skills section lists \`${name}\` but .agents/skills/${name}/SKILL.md does not exist`);
+      }
+    }
   }
 }
 
