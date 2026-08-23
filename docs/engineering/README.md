@@ -11,13 +11,13 @@
 | `launcher/` | Wails 桌面启动器 |
 | `contracts/` | 正式接口、schema、错误码与 release metadata |
 | `fixtures/` | 契约样例与回归基线 |
-| `examples/` | 示例插件、示例配置和示例请求 |
+| `examples/` | 示例插件、manifest 和示例请求/响应 |
 | `plugins/installed/` | 统一插件安装与发现目录；商店、本地 artifact 和开发同步共用 |
 | `config/` | 默认配置与用户配置 |
 | `data/` | SQLite 状态库与插件业务数据 |
 | `cache/` | 渲染缓存、下载缓存与临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
-| `.deps/` | 图片渲染 Chromium 资源清单 |
+| `.deps/` | 图片渲染与抖音扫码浏览器回落共用的 Chromium 资源清单 |
 | `.github/workflows/` | CI、打包与发布门禁 |
 | `docs/` | 文档总纲与专题说明 |
 

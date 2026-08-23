@@ -5,8 +5,8 @@ RayleaBot 的插件平台从 manifest v1 断代到 manifest v2。新版本只运
 ## 升级前
 
 1. 停止服务。
-2. 使用 `scripts/release/breaking_plugin_epoch_reset.py backup` 把 `config/`、`data/` 和 `plugins/installed/` 备份到仓库外。
-3. 使用同一工具的 verify 命令校验备份清单和 SHA-256。
+2. 在仓库根目录运行 `python scripts/release/breaking_baseline_prepare.py --root <install-root> --output <outside-backup.zip>`，把 `config/`、`data/` 和 `plugins/installed/` 写入安装根外的备份包。
+3. 确认命令成功并妥善保存备份，然后运行 `python scripts/release/breaking_plugin_epoch_reset.py --root <install-root> --backup <outside-backup.zip> --apply`。重置脚本会先校验备份清单与 SHA-256，再执行清理。
 
 外部备份只用于人工留档或回退到旧版本，不能恢复进 Go+Vue 插件 epoch。
 

@@ -4,23 +4,32 @@
 
 正式 schema 以 `contracts/plugin-info.schema.json` 和 `contracts/plugin-artifact.schema.json` 为准。
 
-## Manifest 核心字段
+## Manifest 字段
+
+必填字段：
 
 | 字段 | 含义 |
 | --- | --- |
-| `id` / `name` / `version` | 插件身份与版本 |
+| `id` / `name` / `version` | 插件身份、展示名称与版本 |
 | `manifest_version` / `plugin_protocol_version` | 固定为 `"2"` / `"1"` |
 | `runtime` | 固定为 `"go"` |
 | `entry` | `bin/` 下无扩展名的相对逻辑路径；Windows 安装时解析为 `.exe` |
-| `platforms` | 必填的 `windows-x64`、`linux-x64`、`macos-arm64` 子集 |
-| `concurrency` | 事件并发度声明；省略时按 `1` 处理 |
-| `role` | `builtin` / `user` / `example` / `dev` |
-| `default_config` | 插件默认配置 |
-| `management_ui` | 插件详情页内置管理页入口 |
-| `capabilities` | 插件声明的平台能力集合 |
-| `capability_parameters` | HTTP 主机、文件存储根和 Webhook 路由边界 |
-| `commands` / `dynamic_commands` / `command_patterns` | 插件命令声明 |
-| `icon` / `repo` / `homepage` / `keywords` / `screenshots` | 展示与来源元数据 |
+| `platforms` | `windows-x64`、`linux-x64`、`macos-arm64` 的非空子集 |
+| `license` | 插件开源许可证标识 |
+
+可选字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `description` / `author` | 描述与作者信息 |
+| `min_core_version` / `data_schema_version` / `concurrency` | 最低核心版本、插件数据 schema 版本与事件并发度；`concurrency` 省略时按 `1` 处理 |
+| `icon` / `repo` / `homepage` / `keywords` / `screenshots` | 展示、来源和截图元数据 |
+| `management_ui` / `render_templates` / `help` | 插件详情页、渲染模板与帮助菜单声明 |
+| `capabilities` / `capability_parameters` | 平台能力及 HTTP 主机、文件根、Webhook、三方账号平台边界 |
+| `default_config` / `default_config_file` | 首次启用时使用的内联默认配置和包内 JSON 默认配置；两者并用时内联字段覆盖文件中的同名字段 |
+| `commands` / `command_patterns` / `dynamic_commands` | 精确命令、正则命令族与设置驱动命令声明 |
+
+插件角色不属于 manifest。Server 根据已验证商店目录、本地安装来源或开发同步来源投影 `official`、`community`、`development`。
 
 ## 正式 capability 集合
 
@@ -66,7 +75,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
       "api.example.com"
     ],
     "storage_roots": [
-      "cache"
+      "plugin_data"
     ]
   }
 }
@@ -77,9 +86,9 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 `capability_parameters` 只表达运行边界参数，当前正式范围包括：
 
 - `http_hosts`：`http.request` 可访问的主机名列表。平台仍执行全局 HTTP 超时、重试、DNS 预检、SSRF 防护和私网主机限制。
-- `storage_roots`：`storage.file` 可访问的插件文件根目录列表。平台仍执行路径穿越、符号链接和插件工作目录配额校验。
-- `third_party_account_platforms`：`thirdparty.account.read` 可读取、`thirdparty.account.validate` 可请求复检的三方平台列表。读取只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回；复检动作只能提交账号 ID、受限异常观察和可选 HTTP 状态，最终凭据状态由 Server 校验器决定。
-- `webhooks`：`event.expose_webhook` 可暴露的路由列表。每个路由可声明签名要求、允许来源和重放窗口。
+- `storage_roots`：`storage.file` 可访问的插件文件根目录列表；当前唯一合法值是 `plugin_data`。平台仍执行路径穿越、符号链接和插件工作目录配额校验。
+- `third_party_account_platforms`：`thirdparty.account.read` 可读取、`thirdparty.account.validate` 可请求复检的平台列表；冻结值为 `bilibili`、`weibo`、`douyin`、`netease_music`。读取只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回；复检动作只能提交账号 ID、受限异常观察和可选 HTTP 状态，最终凭据状态由 Server 校验器决定。
+- `webhooks`：`event.expose_webhook` 可暴露的路由列表。每项必填 `route`、`auth_strategy`、`header`、`secret_ref`，可选 `source_ips`。重放保护不在 manifest 中声明，而是每次注册 `event.expose_webhook` action 时通过必填 `replay_protection` 提交。
 
 ## 基础 capability
 
@@ -143,7 +152,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 
 ## Artifact 与发布边界
 
-- 每个平台包包含 manifest v2、artifact v1、一个 Go 后端、可选 UI/模板/数据、许可证、第三方 notices 和 SPDX SBOM。
+- 使用 `sdk/go/pluginbuild` 正式构建器生成的平台包包含 manifest v2、artifact v1、一个 Go 后端、可选 UI/模板/数据、许可证、第三方 notices 和 SPDX SBOM。通用安装 contract 只要求满足 `plugin-artifact.schema.json`；合法的外部 artifact 不因缺少构建器附加的供应链文件而被拒绝。
 - `artifact.json` 固定插件 ID、版本、目标平台和 `info.json` SHA-256，并列出除自身外所有文件的路径、角色、大小和 SHA-256。
 - 包必须且只能有一个 `backend` 文件；`management_ui.pages[].entry` 必须属于 `ui` 文件集合。ZIP 只有一个插件根目录。
 - 服务端只安装编译产物，不读取源码依赖声明、不运行安装脚本、不准备语言运行时，也不解析插件间依赖。

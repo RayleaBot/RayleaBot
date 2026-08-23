@@ -17,24 +17,29 @@
 
 ## 本地启动
 
-- Windows 本地开发入口为仓库根目录的 `start.bat`。
-- `start.bat` 会加载仓库根目录的 `.env`；可复制 `.env.example` 并按注释配置本地启动参数，父进程已设置的环境变量优先。
+- Windows 本地开发入口为仓库根目录的 `start.bat`，Linux 和 macOS 使用 `sh start.sh`；两个包装器都调用 `scripts/start-dev.mjs`。
+- 两个包装器都从 `.tool-versions` 读取 Node 版本，并要求实际版本精确匹配。
+- `start.sh` 使用 `PATH` 中的 Node；`start.bat` 依次检查父进程提供的 `RAYLEA_START_NODE`、`%USERPROFILE%\.local\opt\node-v<version>-win-x64\node.exe` 和 `PATH`。
+- `RAYLEA_START_NODE` 必须由父进程在运行 `start.bat` 前设置；包装器在 Node 启动前选择可执行文件，因此不会从 `.env` 读取该覆盖项。
+- 统一编排器会加载仓库根目录的 `.env`；可复制 `.env.example` 并按注释配置本地启动参数，父进程已设置的环境变量优先。
 - Windows 环境执行开发命令使用 `gbash -lc '<command>'`。
-- `start.bat` 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
+- 默认 profile 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
 - Web 开发服务器代理到 `config/user.yaml` 中的 `server.host` / `server.port`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
 - WebSocket 后端地址使用 `VITE_WS_BASE_URL`，缺省值与 `VITE_BACKEND_TARGET` 一致。
 - Launcher 打开的管理面地址使用 `RAYLEA_WEB_UI_BASE_URL`，缺省值为 `http://127.0.0.1:4173/`。
 
 | Profile | 用途 | 命令 |
 | --- | --- | --- |
-| `web-dev` | Web 热更新、Server 构建、Launcher 启动 | `./start.bat` |
-| `build` | 后端托管静态管理面验证 | `RAYLEA_START_PROFILE=build ./start.bat` |
-| `launcher-dev` | Launcher 本体热更新 | `RAYLEA_START_PROFILE=launcher-dev ./start.bat` |
+| `web-dev` | Web 热更新、Server 构建、Launcher 启动 | `start.bat` / `sh start.sh` |
+| `build` | 后端托管静态管理面验证 | 设置 `RAYLEA_START_PROFILE=build` 后运行包装器 |
+| `launcher-dev` | Launcher 本体热更新 | 设置 `RAYLEA_START_PROFILE=launcher-dev` 后运行包装器 |
 
 兼容环境变量：
 
-- `RAYLEA_START_PROFILE=build ./start.bat` 使用构建产物启动 Web 管理面。
-- `RAYLEA_START_SKIP_LAUNCH=1 ./start.bat` 执行准备与启动检查，不打开 Wails Launcher。
+- `RAYLEA_START_PROFILE=build` 使用构建产物启动 Web 管理面。
+- `RAYLEA_START_SKIP_LAUNCH=1` 执行准备与启动检查，不打开 Wails Launcher。
+
+只开发 Launcher 时，可在仓库根目录运行 `pnpm --dir launcher dev`。
 
 依赖安装策略：
 

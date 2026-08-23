@@ -8,7 +8,7 @@
 sequenceDiagram
     participant OB as OneBot11
     participant AD as Adapter
-    participant IN as Event Ingress
+    participant IN as Chat Policy Ingress
     participant BR as Bridge
     participant DP as Dispatcher
     participant RT as Runtime Manager
@@ -39,18 +39,18 @@ sequenceDiagram
 | 环节 | Owner | 状态源 |
 | --- | --- | --- |
 | transport 与协议帧 | Adapter | connection snapshot、echo waiters、dedupe state |
-| 命令与聊天治理 | Event Ingress | 配置与治理服务 |
+| 命令与聊天治理 | `eventpipeline/chatpolicy` | 配置与治理服务 |
 | 统一事件校验 | Bridge | formal event contract |
 | 目标与队列 | Dispatcher | manifest subscriptions、command declarations、per-plugin lanes |
 | 插件进程协议 | Runtime Manager | runtime snapshot 与 event session |
 | 平台 action | Local Action Service | capability declarations 与领域服务 |
 | 出站限流与发送 | Outbound / Adapter | rate limit、reply target、transport snapshot |
 
-同一 `event.target` lane 保持 FIFO；不同目标可在插件并发度内并行。队列满时必须返回或记录正式拒绝结果，不能产生无 owner 的 pending 状态。
+同一 `event.target` lane 保持 FIFO；不同目标可在插件并发度内并行。队列满时 Dispatcher 返回内部 `OutcomeDropped`，以 `queue_full` 原因计入观测摘要并丢弃该次投递；不会向原始入站调用方返回插件拒绝结果，也不会产生无 owner 的 pending 状态。
 
 ## 入站语义
 
-Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。Event Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却裁决。
+Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。`eventpipeline/chatpolicy` 的 Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却裁决。
 
 Bridge 只处理 OneBot11 归一化事件。无法通过正式结构校验的事件进入结构化诊断，不交给插件。
 
@@ -69,7 +69,7 @@ Runtime Manager 不直接访问存储、HTTP、渲染、调度、治理或 OneBo
 
 ## 出站语义
 
-插件返回 `message.send` 或 `message.reply` 后，Dispatcher 是唯一执行出口。Outbound 按插件和目标执行 admission、限流、冷却与受控重试。Adapter Send 把消息段投影为 OneBot11 `send_msg` 参数；WebSocket 可用时等待 echo，无法使用时按配置回退到 `http_api`。
+插件返回 `message.send` 或 `message.reply` 后，Dispatcher 是唯一执行出口。Outbound 按插件和目标执行 admission、限流、熔断与冷却，并为每个获准动作发起一次发送。Adapter Send 把消息段投影为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
 
 冷却提示、内置菜单和调度消息共享同一条 Outbound 与 Adapter Send 链路。
 
@@ -83,19 +83,19 @@ flowchart LR
     D --> R["Target Runtime"]
 
     H["Webhook caller"] -->|"token / HMAC"| WH["Plugin Webhook Service"]
-    WH -->|"webhook.received + event.webhook"| D
+    WH -->|"event_type=webhook.received + webhook field"| D
 ```
 
 Scheduler 以插件 ID、任务 ID 和 revision 维护单一串行 mutation path。旧 trigger 不能覆盖或复活更新后的 job。Scheduler 只投递 `scheduler.trigger`，消息仍由插件通过正式出站 action 发送。
 
-Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `event.webhook` typed metadata，其中 `route` 与 `received_at` 必填。Webhook 事件定向进入 Dispatcher，不经过 OneBot11 Bridge。
+Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `event_type=webhook.received` 的事件；来源元数据放在该事件的 `webhook` 字段，其中 `route` 与 `received_at` 必填。Webhook 事件定向进入 Dispatcher，不经过 OneBot11 Bridge。
 
 其他平台内部事件如 `config.changed`、`bot.identity.changed` 和 `management.action` 也可按目标直接进入 Dispatcher，但仍使用同一 runtime、local action 和出站链路。
 
 ## 关键边界
 
 - Adapter 不写业务状态库。
-- Event Ingress 是命令与聊天治理 owner；Bridge 只校验统一事件。
+- `eventpipeline/chatpolicy` 的 Ingress 是命令与聊天治理 owner；Bridge 只校验统一事件。
 - Dispatcher 是插件事件排队和出站 action 的 owner。
 - Runtime Manager 是插件进程协议 owner，不是平台能力 owner。
 - Local Action Service 是插件访问平台能力的唯一入口。

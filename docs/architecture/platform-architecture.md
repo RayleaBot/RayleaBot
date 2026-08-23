@@ -17,8 +17,8 @@ flowchart TB
     subgraph Server["raylea-server"]
         API["Management API / WebSocket"]
         APP["App / Domain Services"]
-        PIPE["Adapter → Ingress → Bridge → Dispatcher"]
-        PR["Plugin Catalog / Runtime"]
+        PIPE["Adapter → chatpolicy ingress → Bridge → Dispatcher"]
+        PR["Plugin Catalog / Store / Runtime"]
         CAP["Local Actions / Render / Scheduler / Tasks / Governance"]
         OUT["Outbound / Adapter Send"]
     end
@@ -47,11 +47,15 @@ flowchart TB
 | 对外接口与发布元数据 | `contracts/` | schema、OpenAPI、WebSocket、errors、CLI、fixtures | 所有实现与文档 |
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
 | OneBot11 连接与事件 | Adapter / Event Pipeline | adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
+| 三方平台集成 | Integrations | 平台账号、资料、扫码会话与校验结果 | 三方账号服务、插件动作、管理面 |
 | 插件静态声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源 | Lifecycle、管理面 |
+| 插件商店目录 | Plugin Store Service | 已验签 catalog、来源元数据与刷新状态 | 安装流程、管理面 |
 | 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、Dispatcher、管理投影 |
 | 后台任务 | Task Registry | 有序持久化记录 | API/WebSocket、恢复逻辑 |
 | 调度任务 | Scheduler | SQLite job 与内存 revision | 插件定向事件 |
 | 图片渲染 | Render Service | 模板仓、artifact 与 cache metadata | Local Action、管理面 |
+| Chromium 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、抖音扫码回落、运行环境准备与系统诊断；doctor 只读取清单元数据 |
+| 配置单实例锁 | File Lock / App | `<config-path>.runtime.lock` | Server 启动、配置 CLI |
 | 更新信任 | Shared update core | 编译内置仓库/公钥、最高版本与 digest 记录 | CLI、API、Launcher、updater |
 | 更新事务 | External updater | 安装根外 journal、offline backup、staging | Launcher 与恢复流程 |
 | 客户端视图 | Web / Launcher | API/WebSocket 的临时投影 | 用户 |
@@ -88,10 +92,11 @@ flowchart LR
 | App | 服务组装、启动、关闭和领域服务协调 | 把内部对象暴露给客户端 |
 | Management handlers | transport、鉴权、参数校验、错误映射 | 业务状态机和私有字段 |
 | Adapter | OneBot11 transport、鉴权、归一化、动作投影 | 业务持久化和插件治理 |
-| Event Ingress | 元数据、命令解析、聊天治理、reply target | 插件进程管理 |
+| Chat Policy Ingress | `eventpipeline/chatpolicy` 中的元数据、命令解析、聊天治理、reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
 | Dispatcher | 插件目标选择、队列和出站 action 执行 | 直接访问插件私有存储 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活和事件 session | 直接执行平台能力 |
+| Plugin Store Service | 商店 catalog 获取、签名校验、来源投影和安装委托 | 绕过统一插件安装事务或持有插件运行状态 |
 | Local Action Service | capability 与参数校验、平台能力网关 | 绕过正式 action contract |
 | Task Registry | admission、执行状态、有序持久化和关闭 drain | 为队列已满请求创建 pending task |
 | Scheduler | revision、到期检查和插件事件触发 | 直接发送聊天消息 |
@@ -105,12 +110,13 @@ flowchart LR
 | --- | --- | --- |
 | `config/default.yaml`、`config/user.yaml` | Config | 校验后合并为运行快照 |
 | SQLite | Server services | auth、tasks、plugins、scheduler、logs 等正式状态 |
-| `data/` | Server / plugin store | 状态库与插件业务数据 |
-| `plugins/installed/` | Plugin Catalog | 插件包、每插件数据与包内自定义管理页资源 |
+| `data/` | Server services | 状态库与服务端业务数据 |
+| `data/plugins/` | Plugin File Store | 每插件文件工作目录；artifact 升级不覆盖该目录 |
+| `plugins/installed/` | Plugin Catalog | 经校验的插件 artifact、后端二进制与包内管理页资源 |
 | `templates/` | Render Service | 模板版本与资源 |
 | `cache/` | 各 owner | 可重建缓存，不影响正确性 |
 | `logs/` | Logging | 结构化日志、spool 与诊断输出 |
-| `.deps/` | Deps service | 图片渲染 Chromium 受控资源 |
+| `.deps/` | Deps service | 图片渲染与抖音扫码浏览器回落共用的 Chromium 受控资源 |
 | updater transaction directory | External updater | journal、offline backup、旧版与 staging |
 
 ## 部署边界
@@ -128,9 +134,13 @@ flowchart LR
 | Auth | `server/internal/auth/` |
 | OneBot11 adapter | `server/internal/onebot11/` |
 | Event pipeline | `server/internal/eventpipeline/` |
+| Third-party integrations | `server/internal/integrations/` |
 | Plugin catalog/lifecycle/runtime/actions | `server/internal/plugins/` |
+| Plugin Store Service | `server/internal/pluginmarket/` |
 | Tasks / Scheduler | `server/internal/tasks/`、`server/internal/scheduler/` |
 | Render | `server/internal/render/` |
+| Managed Chromium | `server/internal/deps/` |
+| Process/config locks | `server/internal/filelock/` |
 | Storage / migrations | `server/internal/storage/`、`server/internal/sqlcgen/` |
 | Shared update core | `server/internal/releaseupdate/` |
 | CLI | `server/internal/cli/` |

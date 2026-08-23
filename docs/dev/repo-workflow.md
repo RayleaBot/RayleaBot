@@ -20,7 +20,8 @@ plugins/installed/*
 config/user.yaml
 plugin-workspace.local.json
 .tmp/plugin-dev/
-.deps/
+/.deps/*
+!/.deps/manifest.json
 node_modules/
 dist/
 .env

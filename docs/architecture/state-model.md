@@ -1,6 +1,6 @@
 # State Model
 
-本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件状态、后台任务、OneBot11 连接状态和三方账号凭据状态。
+本文档说明 RayleaBot 当前已落地的核心状态机，覆盖插件状态、后台任务、OneBot11 连接状态、三方账号凭据状态和扫码登录会话。
 
 正式枚举值以 `contracts/` 和当前实现常量为准。
 
@@ -138,3 +138,26 @@ running -> interrupted   # 服务重启
 | `netease_music` | 网易云音乐账号 CK |
 
 平台负责保存、删除、扫码、手动及定时校验 CK。订阅状态、用户解析、内容检查和内容立即检查由订阅中心插件管理。
+
+## 七、三方账号扫码登录状态
+
+正式 schema 名为 `ThirdPartyQRCodeLoginState`：
+
+```plain
+[*] -> pending_scan
+pending_scan -> pending_confirm / verification_required / succeeded
+pending_confirm -> verification_required / succeeded
+verification_required -> pending_confirm / succeeded
+pending_scan / pending_confirm / verification_required -> expired / failed
+```
+
+| 状态 | 类型 | 含义 |
+| --- | --- | --- |
+| `pending_scan` | 瞬态 | 等待用户扫描二维码 |
+| `pending_confirm` | 瞬态 | 已扫码，等待用户在平台端确认 |
+| `verification_required` | 瞬态 | 需要在登录浏览器完成短信、滑块或验证码等交互校验 |
+| `expired` | 终态 | 二维码或登录会话已过期 |
+| `failed` | 终态 | 平台拒绝、浏览器关闭或会话发生不可恢复错误 |
+| `succeeded` | 终态 | 凭据已取得并保存为三方账号 |
+
+轮询方遇到未知或未来状态时必须按终态失败处理，停止当前轮询，并向用户提供重新创建扫码会话的入口。取消、重新扫码、离开页面、过期和服务关闭都会释放对应 provider 会话资源。

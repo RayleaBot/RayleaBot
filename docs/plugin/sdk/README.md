@@ -9,7 +9,7 @@ RayleaBot 插件开发由 Go 后端 SDK、artifact 构建器和 Vue 管理页 SD
 ```go
 err := rayleabot.Run(ctx, rayleabot.Options{
     PluginID:              "example.plugin",
-    Subscriptions:         []string{"message.*"},
+    Subscriptions:         []string{"message.private", "message.group"},
     MaxConcurrentHandlers: 4,
 }, rayleabot.HandlerFunc(func(ctx context.Context, event *rayleabot.EventContext) error {
     return event.SendText("ok")

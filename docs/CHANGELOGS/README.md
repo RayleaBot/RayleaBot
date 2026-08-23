@@ -13,7 +13,7 @@
 
 - 当前正式执行计划见 [`../execution-plan-v0.3.md`](../execution-plan-v0.3.md)。
 - 工程基线、目录职责、固定版本线见 [`../engineering/baseline.md`](../engineering/baseline.md)。
-- 长期实施顺序与阶段边界见 [`../engineering/implementation-order.md`](../engineering/implementation-order.md)。
+- 长期依赖顺序与实现边界见 [`../engineering/implementation-order.md`](../engineering/implementation-order.md)。
 - 对外接口、错误码、release metadata 以 `contracts/` 为准。
 
 ## 维护原则

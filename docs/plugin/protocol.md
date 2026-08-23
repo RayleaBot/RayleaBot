@@ -45,7 +45,7 @@
 ### 事件字段
 
 - 当前正式 `event_type` 集合包括：
-  - 平台事件：`scheduler.trigger`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed`
+  - 平台事件：`plugin.started`、`scheduler.trigger`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed`
   - OneBot 消息事件：`message.private`、`message.group`、`message_sent.private`、`message_sent.group`
   - OneBot notice 事件：`notice.member_increase`、`notice.member_decrease`、`notice.group_admin`、`notice.group_ban`、`notice.group_recall`、`notice.group_upload`、`notice.group_card`、`notice.group_title`、`notice.group_essence`、`notice.friend_add`、`notice.friend_recall`、`notice.flash_file`、`notice.poke`、`notice.poke_recall`、`notice.profile_like`、`notice.input_status`、`notice.group_message_emoji_like`
   - OneBot request 事件：`request.friend`、`request.group`
@@ -77,8 +77,8 @@
 - `message.send`
 - `message.reply`
 - `logger.write`
-- `storage.kv`
-- `storage.file`
+- `storage.kv`：单值受 `storage.kv_value_max_bytes` 限制，所有插件的 KV 合计受 `storage.kv_total_limit_mb` 硬上限限制
+- `storage.file`：单文件受 `storage.file_max_bytes` 硬上限限制；写入结果返回 `usage_bytes`、`soft_limit_bytes`、`soft_limit_exceeded` 与 `cleanup_recommended`，超过每插件工作目录软限制时仍完成写入
 - `http.request`
 - `config.read`
 - `plugin.list`
@@ -156,6 +156,23 @@ OneBot 单动作 capability 名称与 action kind 保持一致，provider capabi
 - `governance.blacklist.write` 支持单条黑名单 `upsert` 与 `delete`。
 - `governance.whitelist.write` 支持白名单开关 `set_enabled`，以及单条白名单 `upsert` 与 `delete`。
 - `governance.command_policy.read` 返回当前生效的默认权限、冷却配置和命令级权限投影。
+
+### Webhook 暴露参数
+
+`event.expose_webhook` 的 `data` 必填 `route`、`methods`、`auth_strategy`、`header`、`secret_ref` 和 `replay_protection`；`methods` 当前只能包含 `POST`。`signature_prefix` 与 `source_ips` 可选。
+
+`replay_protection` 必填：
+
+| 字段 | 含义 |
+| --- | --- |
+| `timestamp_header` | 调用方时间戳请求头名称 |
+| `event_id_header` | 调用方唯一事件 ID 请求头名称 |
+| `tolerance_seconds` | 允许的时间偏差，范围 1 到 3600 秒 |
+| `enforce` | `true` 时拒绝超时或重复事件；`false` 时仅记录观察 |
+
+缺少上述字段属于协议违规。manifest 的 `capability_parameters.webhooks` 只限定允许注册的路由、鉴权头、secret 引用和来源地址，不承载重放窗口。
+
+注册完成后，外部调用方使用 `POST /api/webhooks/{plugin_id}/{route}`。Server 完成声明鉴权、来源地址和重放检查后，把请求投递为所属插件的 `webhook.received` 事件。
 
 - 同一事件内允许多个 local action 同时在途。
 - 插件在本地 action 尚未完成时返回事件级 `result` 或 `error`，属于协议违规。

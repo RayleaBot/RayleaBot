@@ -33,11 +33,11 @@ flowchart TD
   dispatcher["eventpipeline/dispatch"] --> runtime["plugins/runtime"]
   runtime --> plugin["plugin subprocess"]
   plugin --> localaction["plugins/actions"]
-  localaction --> service["storage / config / render / scheduler / webhook / protocol"]
+  localaction --> service["message / storage / config / secret / plugin / thirdparty / governance / render / scheduler / webhook / protocol"]
   plugin --> result["dispatch result / outbound actions"]
 ```
 
-本地 action 是插件访问平台能力的唯一入口。新增 action 应通过 `plugins/actions` 的模块注册接入，声明 capability、权限和参数校验，避免插件 runtime 直接 import 管理层或业务实现细节。
+本地 action 是插件访问平台能力的唯一入口。完整 action 清单由[插件协议](../plugin/protocol.md#local-action-rpc)维护；新增 action 应通过 `plugins/actions` 的模块注册接入，声明 capability、权限和参数校验，避免插件 runtime 直接 import 管理层或业务实现细节。
 
 插件 stdout 专用于 JSONL 协议，stderr 进入受控插件日志。Runtime Manager 保持请求关联、超时、并发、重启、ping/pong、一次终态响应和 shutdown grace 语义。
 

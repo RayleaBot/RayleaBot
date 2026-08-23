@@ -17,6 +17,8 @@ flowchart TD
 
 `internal/app` 是组合根。它负责把配置、存储、日志、插件、渲染、事件管线和管理 HTTP 入口组装起来。业务规则留在各自领域包内，组合根只持有模块对外接口。
 
+`App.New` 在构建任何运行期服务前获取 `<config-path>.runtime.lock`。锁已被同配置的另一实例持有时启动立即失败；构建中途失败或 `App.Close` 完成时释放该锁。
+
 ## 运行态资源
 
 | 资源 | 主要路径 | 职责 |
@@ -32,11 +34,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  signal["context cancelled / shutdown request"] --> http["stop HTTP server"]
-  http --> plugins["stop plugin lifecycle"]
-  plugins --> events["stop event dispatch"]
-  events --> render["stop render workers"]
-  render --> storage["close storage"]
+  signal["context cancelled / shutdown request"] --> scheduler["stop scheduler"]
+  scheduler --> plugins["stop runtime managers"]
+  plugins --> adapter["stop adapter"]
+  adapter --> http["shutdown HTTP server"]
+  http --> close["App.Close"]
+  close --> services["events · installer · QR sessions · tasks · render · logs"]
+  services --> storage["close storage"]
+  storage --> lock["release config lifecycle lock"]
 ```
 
-关闭顺序保持外部入口先停、后台任务后停、持久化资源最后释放。新的长期运行资源需要接入同一关闭链路，避免请求结束后继续无界运行。
+`App.Close` 还会关闭事件栈、插件安装与卸载服务、剩余三方扫码会话、任务 executor 与 registry、渲染和日志。持久化资源和配置生命周期锁最后释放。新的长期运行资源需要接入同一关闭链路，避免关闭完成后继续无界运行。

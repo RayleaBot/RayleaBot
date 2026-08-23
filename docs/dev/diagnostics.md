@@ -8,9 +8,10 @@
 | --- | --- |
 | `/healthz` | 进程存活检查 |
 | `/readyz` | 本地控制面与关键资源就绪检查 |
+| `GET /api/system/diagnostics` | 读取仪表盘使用的聚合诊断快照 |
 | `GET /api/system/diagnostics/export` | 导出诊断包 |
 | `GET /api/system/metrics` | 导出 Prometheus 文本格式运行指标 |
-| `raylea doctor` | 执行本地环境与资源检查 |
+| `raylea doctor` | 检查本地配置、SQLite `quick_check` 与依赖元数据 |
 | `/api/logs`、`/api/logs/{log_id}` 与 `/ws/logs` | 查看实时日志、历史日志、日志详情与当前启动窗口增量日志 |
 | `/ws/plugins/{id}/console` | 查看插件 stderr |
 | `logs/launcher/YYYY-MM-DD.log` | 查看 Launcher 自身诊断和进程编排错误 |
@@ -42,19 +43,20 @@
 
 ## 健康接口语义
 
-| 服务状态 | `/healthz` | `/readyz` |
+| 接口状态 | HTTP | wire body |
 | --- | --- | --- |
-| `starting` | `200 OK` | `503 Service Unavailable` |
-| `running` | `200 OK` | `200 OK` |
-| `degraded` | `200 OK` | `200 OK`，返回退化原因 |
-| `setup_required` | `200 OK` | `503 Service Unavailable` |
-| `failed` | `200 OK` | `503 Service Unavailable`，返回失败摘要 |
-| 进程不可达 | 连接失败 | 连接失败 |
+| `/healthz` 可达 | `200 OK` | `{"status":"ok"}` |
+| `/readyz` 为 `ready` | `200 OK` | `status=ready` |
+| `/readyz` 为 `degraded` | `200 OK` | `status=degraded`，可附退化原因与 checks |
+| `/readyz` 为 `setup_required` | `503 Service Unavailable` | `status=setup_required` |
+| `/readyz` 为 `failed` | `503 Service Unavailable` | `status=failed`，可附失败摘要与 checks |
+| 进程不可达 | 连接失败 | 无响应体 |
 
 - `/healthz` 只反映进程是否存活，适合 Launcher、`systemd`、Docker 和 LXC。
 - `/readyz` 反映本地控制面、初始化状态和关键资源是否就绪。
 - OneBot11 外部链路暂时不可用时，可返回 `degraded`，不与本地启动失败混淆。
 - 健康接口返回 JSON，至少包含 `status`，可附带 `reason`、`reason_codes` 和 `checks`。
+- `starting`、`running`、`stopping`、`stopped` 是管理 WebSocket `service_status` 的投影词，不是健康探针 wire 值；该投影还可使用 `degraded`、`setup_required` 和 `failed`。
 
 ## 诊断包内容
 
@@ -65,7 +67,8 @@
 
 ## 使用原则
 
-- Web 管理面、CLI、Launcher 和导出诊断包复用同一套结构化摘要。
+- `/api/system/diagnostics` 是 Web 仪表盘使用的聚合运行时快照；诊断导出在此基础上收集受限的运行信息和日志摘要。
+- `/readyz` 只投影关键资源就绪状态；CLI `doctor` 检查本地配置、SQLite 和依赖元数据，Launcher preflight 检查安装根、启动文件与本机环境。各入口不共享完整问题列表。
 - 排障优先使用正式诊断入口，而不是依赖临时日志拼接。
 - 高风险问题在多个入口保持同一份 `code`、`severity`、`summary` 和 `remediation` 口径。
 - OneBot API response 的 `echo` 缺失、空值或非字符串时，诊断面记录 warning 与结构化详情；真实 JSON 解析错误、读超时和连接错误继续按断链处理。

@@ -30,7 +30,7 @@
   - 主要服务产物元数据校验，以及后续 doctor、launcher、release 共享结构验证
 - `deps-manifest/`
   - 对应 `contracts/deps-manifest.schema.json`
-  - 直接承载 manifest 文档样例，文件名前缀或可选 `expect.valid` 表达预期结果
+  - 统一采用 `contract + case + input + expect` 包装结构，`input` 承载待校验 manifest
   - 主要服务图片渲染 Chromium 资源来源、校验值、归档格式与相对入口的契约回归
 - `backup-manifest/`
   - 对应 `contracts/backup-manifest.schema.json`

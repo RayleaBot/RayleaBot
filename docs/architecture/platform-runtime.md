@@ -8,6 +8,7 @@
 - 运行根目录围绕 `config/`、`data/`、`cache/`、`logs/`、`plugins/installed/` 和 `.deps/` 组织。
 - Launcher 本地设置位于 `data/launcher.json`，用于安装根选择、关闭行为和本地覆盖项，不替代 `config/user.yaml`。
 - 配置读取、schema 校验、热更新快照和 `restart_required` 语义由服务端统一裁决。
+- 服务启动先获取 `<config-path>.runtime.lock`；同一配置文件已有运行实例时 fail-fast。锁在构建失败或服务关闭完成时释放，离线 `config init` / `config normalize` 在锁被占用时拒绝写入。
 - 插件不能直接读写 `config/user.yaml`，配置读写必须通过正式能力入口。
 
 ## 存储与日志
@@ -20,7 +21,7 @@
 ## 恢复、诊断与运行环境准备
 
 - 恢复预检、启动后的兼容检查和人工处理摘要统一收敛到 `logs/recovery-summary.json`。
-- `doctor`、诊断导出、Web 管理面和 Launcher 状态页共享同一份恢复摘要和资源问题摘要。
+- Web 管理面使用聚合系统 diagnostics，诊断导出收集受限运行信息；CLI `doctor` 与 Launcher preflight 各自检查本地职责范围。各入口可以复用恢复摘要，但不共享完整资源问题列表。
 - `runtime.bootstrap` 负责运行环境资源准备；`recovery.recheck` 和 `recovery.confirm` 负责恢复摘要再检查与人工确认。
 - 平台把恢复、兼容检查、运行环境资源准备和人工处理建议视为同一条正式运维链路的一部分。
 - `data/launcher.json` 随同机目录保留，不进入正式恢复包范围。
@@ -47,7 +48,7 @@
   - `config/user.yaml` 可定位
   - 工作目录可用
   - Launcher 设置可解析
-- Chromium、模板资源和 Go 插件进程问题由服务端 readiness、恢复摘要与 diagnostics 统一裁决。
+- 模板基线目录和插件进程问题由服务端 readiness 与 system diagnostics 裁决；实际浏览器可用性通过 readiness、system diagnostics 与 Launcher 状态展示。
 - Launcher 可以展示这些问题，但不单独发明第二套运行态语义。
 
 ## 兼容与演进边界

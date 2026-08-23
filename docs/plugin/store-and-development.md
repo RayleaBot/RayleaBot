@@ -64,7 +64,8 @@ Web 不直接请求 GitHub、商店目录或插件下载地址。Web 只访问 S
 - 同一进程内拒绝早于最后已验证快照的 `generated_at`，也拒绝同一时间戳对应不同正文，避免刷新链路接受已知回退或歧义目录。
 - 远程刷新失败、目录无效或签名失败时，Server 在当前进程内保留最后一个已验证快照；进程重启后从应用签名覆盖的 bootstrap catalog 重新开始。
 - 应用内嵌的 bootstrap catalog 由主程序发布签名覆盖，用于首次启动和远程目录不可用时展示四个官方插件。bootstrap 条目没有 release 时显示为“尚未发布”，不会伪造可安装资产。
-- `official` 角色只授予通过已验证 catalog 安装且 `publisher_verified=true` 的包；`development` 只授予开发同步来源；其余本地可信包投影为 `community`。
+- `official` 角色只授予通过已验证 catalog 安装且 `publisher_verified=true` 的包；`development` 只授予开发同步来源；其他安装来源投影为 `community`。角色用于目录分组，不代表代码信任等级。
+- 已验证 catalog 中非官方发布者的包可投影为 `community` 且信任级为 `third_party`；`local_zip`、`local_directory`、`remote_url` 来源的包同样投影为 `community`，但信任级固定为 `unverified`，安装前必须人工确认本机原生代码风险。
 
 插件自身的 `info.json` 不包含 `role`，不能修改官方身份、发布者信息或目录摘要。
 

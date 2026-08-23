@@ -34,7 +34,7 @@ Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Mi
 - `logs/`：运行日志和诊断输出；
 - `plugins/installed/`：已安装插件；
 - `templates/`：渲染模板；
-- `.deps/`：图片渲染 Chromium 受控资源。
+- `.deps/`：图片渲染与抖音扫码浏览器回落共用的 Chromium 受控资源。
 
 图片渲染也可使用配置允许的系统 Chrome、Chromium 或 Edge。
 
@@ -66,7 +66,7 @@ Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整
 
 管理面默认只监听 loopback。远程访问应使用 HTTPS 反向代理，并配置：
 
-- `web.exposure_mode: reverse_proxy`；
+- `web.exposure_mode: public_via_reverse_proxy`；
 - `web.public_origin` 为唯一公开 HTTPS origin；
 - `web.trusted_proxy_cidrs` 只包含实际代理地址段。
 - `web.plugin_ui_origin_template` 使用独立插件域模板并包含 `{plugin_host}`，例如 `https://{plugin_host}.plugins.example.com`；代理只向插件域提供只读静态文件，不能转发管理 API。

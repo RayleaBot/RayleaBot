@@ -10,7 +10,7 @@
 4. 重新启动服务。
 5. 让平台完成迁移、兼容检查和恢复摘要生成。
 
-同一插件 epoch 内升级默认不覆盖 `config/`、`data/` 和 `plugins/installed/`。备份清单必须记录 `plugin_manifest_version=2` 与 `plugin_ui_bridge_version=2`；旧 epoch 的恢复或原位升级返回 `plugin.reset_required`，不会转换旧插件数据。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
+同一插件 epoch 内升级默认保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；`config/default.yaml` 与其他发行基线文件由新版本替换。备份清单必须记录 `plugin_manifest_version=2` 与 `plugin_ui_bridge_version=2`；旧 epoch 的恢复或原位升级返回 `plugin.reset_required`，不会转换旧插件数据。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
 
 ## 恢复摘要
 

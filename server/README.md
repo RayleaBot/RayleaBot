@@ -74,6 +74,7 @@
 - `PUT /api/plugins/{plugin_id}/settings`
 - `GET /api/plugins/{plugin_id}/secrets`
 - `PUT /api/plugins/{plugin_id}/secrets`
+- `DELETE /api/plugins/{plugin_id}/secrets`
 - `POST /api/plugins/{plugin_id}/management/actions`
 - `POST /api/plugins/{plugin_id}/recover`
 - `GET /api/plugin-store/plugins`
@@ -103,25 +104,20 @@
   - `event` / `result` / `error`
   - `ping` / `pong`
   - `shutdown`
-  - local action RPC for `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`scheduler.create`、`event.expose_webhook`、`render.image`、`thirdparty.account.read`、`thirdparty.account.validate`
+  - local action RPC 覆盖消息、日志、存储、HTTP、配置、secret、插件目录、三方账号、治理、调度、Webhook、渲染、OneBot 与 provider 扩展能力；完整清单见 [`docs/plugin/protocol.md`](../docs/plugin/protocol.md#local-action-rpc)
   - crash / retry backoff / recovery-required failure
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
   - bridge event validation and observability
-  - event ingress command extraction / chat policy
+  - `eventpipeline/chatpolicy` ingress command extraction / chat policy
   - dispatcher target selection, fan-out, and outbound action execution
   - command-directed delivery
   - scheduler `scheduler.trigger`
   - zero-gap reload
 - plugin local actions：
-  - `logger.write` through management log redaction / persistence
-  - plugin-scoped `storage.kv` persistence with SQLite-backed limits
-  - `storage.file` scoped to `plugin_data` with path traversal / symlink rejection and per-plugin workdir limits
-  - `http.request` scoped by `http_hosts` with DNS preflight, SSRF guards, controlled private-host exceptions, timeout, and retry policy
-  - `scheduler.create`
-  - `event.expose_webhook`
-  - `render.image`
-  - generic / provider-specific OneBot local action execution
+  - 消息、日志、插件 KV/文件、HTTP、配置与 secret、插件目录、三方账号和治理动作均经过 capability 与 scope 校验
+  - 调度、Webhook、渲染、OneBot 单动作和 provider 扩展动作复用同一 request/response 与结构化错误边界
+  - `storage.file` 仅限 `plugin_data`，`http.request` 受 `http_hosts`、DNS 预检、SSRF、防私网、超时与重试策略约束
 - protocol / webhook / system services：
   - protocol snapshot aggregation and `/ws/events` protocol updates
   - plugin webhook registry, auth validation, on-demand runtime start, and `webhook.received`
@@ -176,7 +172,7 @@
   - Chromium 渲染与 bounded queue
   - `templates/` 模板注册、input schema 校验与缓存键生成
   - 管理面模板实时预览与插件图片渲染
-  - startup logs、`/readyz`、CLI `doctor` 与 Launcher preflight 的统一资源诊断
+  - 模板与浏览器问题通过 startup logs、`/readyz` 和 `/api/system/diagnostics` 暴露；Launcher 组合服务端快照与本地 preflight，CLI `doctor` 在渲染资源范围内只检查 deps / Chromium 元数据
 - CLI 子命令：
   - `config init` / `config normalize` / `config validate`
   - `reset-admin`

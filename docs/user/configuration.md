@@ -29,11 +29,16 @@
 
 ## 配置生效方式
 
-| 类别 | 典型内容 | 生效方式 |
+常规字段以 schema 的四种 `x-apply-policy` 为准：
+
+| 策略 | 典型内容 | 保存后的效果 |
 | --- | --- | --- |
-| 立即生效 | 日志级别、留存天数、部分插件非敏感配置 | 服务端保存后直接应用 |
-| 局部重载或重连 | OneBot11 连接信息、调度时区、`render.browser_path`、部分运行时资源配置 | 触发局部重连、重建或受控重载 |
-| 需要重启 | Web 监听地址、SQLite 路径、关键目录根路径 | 保存后进入 `restart_required`，服务重启后生效 |
+| `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
+| `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、三方账号检查间隔、存储配额、日志、消息、用户和 HTTP 参数 | 保存后直接应用，列入 `apply_effects.applied_now` |
+| `adapter_reload` | OneBot11 连接地址、启用状态、兼容开关以及 adapter 连接和重连参数 | 保存后受控重载 adapter，列入 `apply_effects.reloaded_now` |
+| `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、抖音扫码浏览器、调度时区、插件运行限制、数据留存、Web、备份一致性 | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
+
+OneBot11 `access_token` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
 
 ## 三方账号检查与抖音扫码浏览器
 
@@ -74,7 +79,7 @@ third_party_accounts:
 | `cache/` | 渲染缓存、下载缓存和临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
 | `plugins/installed/` | 用户安装插件 |
-| `.deps/` | 图片渲染 Chromium 资源与展开目录 |
+| `.deps/` | 图片渲染与抖音扫码浏览器回落共用的 Chromium 资源与展开目录 |
 
 ## 日志目录
 

@@ -36,7 +36,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
-  - 图片渲染 Chromium 的可信来源列表、SHA256、归档格式与相对入口
+  - 图片渲染与抖音扫码浏览器回落共用 Chromium 的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
@@ -106,79 +106,26 @@
 
 ## OpenAPI 已冻结范围
 
-当前没有额外的管理 HTTP 路由保留在正式 OpenAPI 冻结范围之外。
+`web-api.openapi.yaml#paths` 是完整 method/path 集合的唯一正式来源。以下索引按能力族镜像当前 64 个 path template；仓库没有保留在 OpenAPI 之外的管理 HTTP 路由。
 
-当前已进入 OpenAPI 冻结范围的 protocol management surface：
+### Method / path 索引
 
-- `GET /api/protocols/onebot11/compatibility`
-- `GET /api/protocols/onebot11/targets`
-- `POST /api/protocols/onebot11/identities/resolve`
+#### 健康与初始化
 
-其中 compatibility response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵；provider 支持状态固定为 `supported` 或 `unsupported`。targets response 固定返回 `groups`、`private_users` 与可展示的 `issues`。identities resolve response 固定返回每个请求项的展示身份与失败原因。
+- `GET /healthz`
+- `GET /readyz`
+- `POST /api/setup/admin`
+- `GET /api/setup/status`
+- `POST /api/session/login`
+- `DELETE /api/session`
 
-当前已进入 OpenAPI 冻结范围的 scheduler surface：
-
-- `GET /api/system/scheduler/jobs`
-- `POST /api/system/scheduler/jobs/{job_id}/trigger`
-
-当前已进入 OpenAPI 冻结范围的 metrics surface：
-
-- `GET /api/system/metrics`
-
-其中 response 为 Prometheus text exposition format，并受 admin session 保护。
-
-当前已进入 OpenAPI 冻结范围的 third-party account surface：
-
-- `GET /api/third-party/accounts`
-- `PUT /api/third-party/accounts/{platform}/{account_id}`
-- `DELETE /api/third-party/accounts/{platform}/{account_id}`
-- `POST /api/third-party/accounts/{platform}/{account_id}/validate`
-- `GET /api/third-party/accounts/{platform}/{account_id}/avatar`
-- `POST /api/third-party/accounts/{platform}/login/qrcode`
-- `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
-- `DELETE /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
-
-其中正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。账号头像接口只读取已保存的头像地址，并通过对应平台的受控图片来源返回内容。凭据检查以 `valid`、`invalid` 或 `unknown` 作为正常的 `200` 结果；账号不存在或尚未配置凭据时返回 `platform.third_party_account_not_found`。扫码登录的瞬态为 `pending_scan`、`pending_confirm`、`verification_required`，终态为 `expired`、`failed`、`succeeded`；取消接口释放对应 provider 资源。插件使用 CK 时可通过 `thirdparty.account.validate` 报告 `auth_rejected` 或 `session_blocked`，Server 去重并执行权威复检，状态写回后通过 `third_party.account.changed` 通知管理面刷新。订阅、用户解析、内容检查和状态展示由订阅中心插件通过三方账号 local action 与插件管理动作承接。
-
-当前已进入 OpenAPI 冻结范围的 plugin settings surface：
-
-- `GET /api/plugins/{plugin_id}/settings`
-- `PUT /api/plugins/{plugin_id}/settings`
-- `POST /api/plugins/{plugin_id}/management/actions`
-
-其中插件详情 response 会暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置；插件管理动作接口只把插件管理页动作转给所属插件 runtime 处理。
-
-当前已进入 OpenAPI 冻结范围的 plugin secrets surface：
-
-- `GET /api/plugins/{plugin_id}/secrets`
-- `PUT /api/plugins/{plugin_id}/secrets`
-
-其中插件 secrets 接口只读写插件自己的敏感值命名空间，供受保护插件管理页配置 token、webhook secret 和 API key 等敏感值；插件 runtime 通过 `secret.read` 读取自身命名空间内的单个值。
-
-当前已进入 OpenAPI 冻结范围的 launcher bootstrap surface：
+#### Launcher 与配置
 
 - `GET /api/launcher/status`
 - `POST /api/launcher/shutdown`
+- `GET /api/config`、`PUT /api/config`
 
-其中 launcher surface 只接受本机直连请求和独立 launcher control token，带代理转发头、来自非本机地址或缺少凭据的请求统一拒绝。浏览器管理面通过 Host-only HttpOnly cookie 与 CSRF 建立会话；Bearer transport 保留给非浏览器客户端。
-
-当前已进入 OpenAPI 冻结范围的 release update surface：
-
-- `GET /api/update/status`
-- `POST /api/update/check`
-
-Web 只读取状态并触发受信元数据检查，不下载或安装更新。Windows 自动安装由 Launcher 和外置 updater 执行；正式 Authenticode 与真实签名 packaged E2E 未满足时，发布元数据必须保持 `guided`。
-
-当前已进入 OpenAPI 冻结范围的 render management surface：
-
-- `GET /api/system/render/templates`
-- `GET /api/system/render/templates/{template_id}`
-- `POST /api/system/render/templates/{template_id}/preview-html`
-- `GET /api/system/render/templates/{template_id}/asset`
-
-其中模板预览工作区使用同步 HTML 预览接口展示当前模板文档；模板资源接口只读取受控模板资源。模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；模板目录可提供 `preview.json` 作为预览示例数据。
-
-当前已进入 OpenAPI 冻结范围的 governance surface：
+#### 治理
 
 - `GET /api/governance/blacklist`
 - `POST /api/governance/blacklist/entries`
@@ -189,21 +136,123 @@ Web 只读取状态并触发受信元数据检查，不下载或安装更新。W
 - `DELETE /api/governance/whitelist/entries/{entry_type}/{target_id}`
 - `GET /api/governance/command-policy`
 
-其中黑白名单条目使用单条 upsert 与单条删除；白名单状态通过独立开关接口表达。`GET /api/governance/command-policy` 继续返回当前生效的默认权限、冷却配置和命令级权限投影，供指令中心直接展示。
+#### 系统控制与备份
 
-当前已进入正式边界的 config / lifecycle semantics：
+- `GET /api/system/status`
+- `POST /api/system/shutdown`
+- `POST /api/system/backup`
 
-- `PUT /api/config` response 使用 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
-- `restart_required` 与 `apply_effects.restart_required_fields` 保持一致
-- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload / recover 响应与 `/ws/events` 插件生命周期分支统一使用正式 `state` 枚举与可选 `state_diagnosis`
+#### OneBot11 协议
 
-当前已进入 OpenAPI 冻结范围的 recovery / runtime task surface：
+- `GET /api/protocols/onebot11`
+- `GET /api/protocols/onebot11/targets`
+- `POST /api/protocols/onebot11/identities/resolve`
+- `GET /api/protocols/onebot11/compatibility`
+- `GET /api/protocols/onebot11/reverse-ws`
+- `POST /api/protocols/onebot11/webhook`
+
+#### 恢复与运行环境准备
 
 - `POST /api/system/recovery/recheck`
 - `POST /api/system/recovery/confirm`
 - `POST /api/system/runtime/bootstrap`
 
-其中 `recovery.confirm` request 支持 `review_ids` 与可选 `note`；`runtime.bootstrap` request 支持可选 `resources` 列表。异步任务的创建、运行和完成结果通过管理日志 `source=tasks` 暴露，不提供单独任务查询面。
+#### 渲染
+
+- `GET /api/system/render/templates`
+- `GET /api/system/render/templates/{template_id}`
+- `POST /api/system/render/templates/{template_id}/preview-html`
+- `GET /api/system/render/templates/{template_id}/asset`
+
+#### 调度、诊断、指标与日志
+
+- `GET /api/system/scheduler/jobs`
+- `POST /api/system/scheduler/jobs/{job_id}/trigger`
+- `GET /api/system/diagnostics`
+- `GET /api/system/diagnostics/export`
+- `GET /api/system/metrics`
+- `GET /api/logs`
+- `GET /api/logs/{log_id}`
+
+#### 插件生命周期、设置与安装
+
+- `GET /api/plugins`
+- `POST /api/plugins/{plugin_id}/enable`
+- `POST /api/plugins/{plugin_id}/disable`
+- `POST /api/plugins/{plugin_id}/reload`
+- `POST /api/plugins/{plugin_id}/recover`
+- `GET /api/plugins/{plugin_id}/settings`、`PUT /api/plugins/{plugin_id}/settings`
+- `GET /api/plugins/{plugin_id}/secrets`、`PUT /api/plugins/{plugin_id}/secrets`、`DELETE /api/plugins/{plugin_id}/secrets`
+- `POST /api/plugins/{plugin_id}/management/actions`
+- `GET /api/plugins/{plugin_id}`、`DELETE /api/plugins/{plugin_id}`
+- `POST /api/plugins/install/inspect`
+- `POST /api/plugins/install`
+
+#### 插件商店
+
+- `GET /api/plugin-store/plugins`
+- `GET /api/plugin-store/plugins/{plugin_id}`
+- `POST /api/plugin-store/plugins/{plugin_id}/install`
+- `POST /api/plugin-store/refresh`
+
+#### 三方账号
+
+- `GET /api/third-party/accounts`
+- `PUT /api/third-party/accounts/{platform}/{account_id}`、`DELETE /api/third-party/accounts/{platform}/{account_id}`
+- `POST /api/third-party/accounts/{platform}/login/qrcode`
+- `GET /api/third-party/accounts/{platform}/login/qrcode/{login_id}`、`DELETE /api/third-party/accounts/{platform}/login/qrcode/{login_id}`
+- `POST /api/third-party/accounts/{platform}/{account_id}/validate`
+- `GET /api/third-party/accounts/{platform}/{account_id}/avatar`
+
+#### 更新与插件 Webhook
+
+- `GET /api/update/status`
+- `POST /api/update/check`
+- `POST /api/webhooks/{plugin_id}/{route}`
+
+### 关键冻结语义
+
+#### OneBot11 协议管理
+
+Compatibility response 固定返回 `events`、`message_segments`、`read_capabilities`、`provider_extensions` 四类能力矩阵，provider 支持状态固定为 `supported` 或 `unsupported`。Targets response 固定返回 `groups`、`private_users` 与可展示的 `issues`；identities resolve response 固定返回每个请求项的展示身份与失败原因。
+
+#### 指标
+
+Metrics response 使用 Prometheus text exposition format，并受 admin session 保护。
+
+#### 三方账号
+
+正式平台为 `bilibili`、`weibo`、`douyin`、`netease_music`；三方账号响应只暴露账号摘要、凭据状态和保存状态，不暴露 Cookie / CK 明文。账号头像接口只读取已保存的头像地址，并通过对应平台的受控图片来源返回内容。凭据检查以 `valid`、`invalid` 或 `unknown` 作为正常的 `200` 结果；账号不存在或尚未配置凭据时返回 `platform.third_party_account_not_found`。扫码登录的瞬态为 `pending_scan`、`pending_confirm`、`verification_required`，终态为 `expired`、`failed`、`succeeded`；取消接口释放对应 provider 资源。插件使用 CK 时可通过 `thirdparty.account.validate` 报告 `auth_rejected` 或 `session_blocked`，Server 去重并执行权威复检，状态写回后通过 `third_party.account.changed` 通知管理面刷新。订阅、用户解析、内容检查和状态展示由订阅中心插件通过三方账号 local action 与插件管理动作承接。
+
+#### 插件设置与敏感值
+
+插件详情 response 暴露只读 `management_ui` 元数据；插件设置接口只读写插件自己的当前生效配置；插件管理动作只投递给所属插件 runtime。插件 secrets 接口只读写所属插件的敏感值命名空间，供受保护插件管理页配置 token、webhook secret 和 API key；插件 runtime 通过 `secret.read` 读取自身命名空间内的单个值。
+
+#### Launcher 与管理会话
+
+Launcher surface 只接受本机直连请求和独立 launcher control token，带代理转发头、来自非本机地址或缺少凭据的请求统一拒绝。浏览器管理面通过 Host-only HttpOnly cookie 与 CSRF 建立会话；Bearer transport 保留给非浏览器客户端。
+
+#### 更新
+
+Web 只读取状态并触发受信元数据检查，不下载或安装更新。Windows 自动安装由 Launcher 和外置 updater 执行；正式 Authenticode 与真实签名 packaged E2E 未满足时，发布元数据保持 `guided`。
+
+#### 渲染管理
+
+模板预览工作区使用同步 HTML 预览接口展示当前模板文档；模板资源接口只读取受控模板资源。模板列表和详情返回 `source`，用于区分系统模板与插件携带模板；模板目录可提供 `preview.json` 作为预览示例数据。
+
+#### 治理
+
+黑白名单条目使用单条 upsert 与单条删除；白名单状态通过独立开关接口表达。`GET /api/governance/command-policy` 返回当前生效的默认权限、冷却配置和命令级权限投影，供指令中心直接展示。
+
+#### 配置与插件生命周期
+
+- `PUT /api/config` response 使用 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
+- `restart_required` 与 `apply_effects.restart_required_fields` 保持一致
+- `/api/plugins`、`/api/plugins/{plugin_id}`、enable / disable / reload / recover 响应与 `/ws/events` 插件生命周期分支统一使用正式 `state` 枚举与可选 `state_diagnosis`
+
+#### 恢复与运行环境任务
+
+`recovery.confirm` request 支持 `review_ids` 与可选 `note`；`runtime.bootstrap` request 支持可选 `resources` 列表。异步任务的创建、运行和完成结果通过管理日志 `source=tasks` 暴露，不提供单独任务查询面。
 
 ## 通用规则
 

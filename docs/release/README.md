@@ -9,7 +9,7 @@
 | [Delivery and Upgrade](./delivery-and-upgrade.md) | 产物矩阵、manifest v2、Ed25519、Authenticode、自动检查、事务安装与 guided update |
 | [Acceptance and Risks](./acceptance-and-risks.md) | 风险控制、发布门禁、故障注入和真实签名 Windows E2E |
 | [Plugin Go + Vue Reset](./plugin-go-vue-reset.md) | manifest v2 断代前备份、重置范围与旧 epoch 拒绝语义 |
-| [Windows Desktop Runtime](./windows-desktop-runtime.md) | Windows WebView2 运行时要求、检测方式与修复入口 |
+| [Windows Desktop Runtime](./windows-desktop-runtime.md) | Windows WebView2 运行时要求与联网、离线安装指引 |
 | [Linux Desktop Runtime](./linux-desktop-runtime.md) | Linux GTK 3、WebKitGTK 运行时要求与发行版安装命令 |
 
 ## 正式来源

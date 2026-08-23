@@ -47,7 +47,7 @@
 - 未进入正式范围的事件不会伪装成已支持能力。
 - Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
-- OneBot 原生字段通过 `event.payload.onebot` 正式暴露，插件和管理面都可以直接读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。
+- OneBot 原生字段通过 `event.payload.onebot` 正式暴露给具备对应 capability 的插件，可读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。管理面不接收该原始 payload，只消费脱敏后的观测摘要和管理日志详情。
 - `meta.*` 事件使用 `conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
 
 ### 归一化链路
@@ -86,11 +86,11 @@ OneBot11 上报帧
 - 本地 action 使用独立 `request_id`，并通过 `parent_request_id` 归属到对应事件。
 - manifest 省略 `concurrency` 时，插件按串行事件处理；显式声明后，同一 `event.target` 保持顺序，不同 `event.target` 可并发。
 
-### 当前正式 local action
+### Local action 能力族
 
-- 平台基础动作包括 `message.send`、`message.reply`、`logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`secret.read`、`plugin.list`、`scheduler.create`、`event.expose_webhook`、`render.image` 与 `governance.*`。
-- OneBot generic action 覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke 等家族。
-- Provider 扩展动作固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 和 `provider.luckylillia.friend_groups.get`。
+- 平台能力族包括消息、日志、存储、HTTP、配置、secret、插件目录、三方账号、治理、调度、Webhook 和渲染。
+- OneBot 动作族覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke；provider 另有受控扩展动作。
+- 人类可读的完整 action 名称与参数清单只维护在[插件协议](../plugin/protocol.md#local-action-rpc)，机器可读结构以 `contracts/plugin-protocol.schema.json` 为准。
 - 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`plugin.started`、`config.changed`、`webhook.received`、`bot.identity.changed`、`management.action`。
 
 ### 当前正式消息段

@@ -2,7 +2,7 @@
 
 本页说明 RayleaBot 当前的渲染服务，包括模板来源、版本仓、同步 HTML 预览、图片渲染、缓存键和管理面能力。
 
-正式接口、错误码和任务结构以 `contracts/` 为准。
+正式接口、错误码和 payload 结构以 `contracts/` 为准。
 
 ## 当前定位
 
@@ -14,8 +14,7 @@
 
 | 包 | 职责 |
 | --- | --- |
-| `server/internal/render/service` | 对管理 API 和插件 action 暴露渲染 facade，协调模板同步、预览、图片渲染、artifact 读取和诊断 |
-| `server/internal/render/service` | 模板 manifest、源码读取、资源路径、输入 schema、HTML 编译、模板错误和渲染服务 |
+| `server/internal/render/service` | 对管理 API 和插件 action 暴露 facade，并负责模板 manifest、源码与资源路径、输入 schema、HTML 编译、模板同步、预览、图片渲染、artifact 读取和诊断 |
 | `server/internal/render/repository` | SQLite 中的模板状态、revision、校验状态和插件模板同步 |
 
 `management` 和插件 action 只依赖 `render/service` 的 facade，不直接访问 repository、artifact store 或模板目录细节。
@@ -69,19 +68,21 @@
 - `render.device_scale_percent` 控制图片渲染 Chromium 截图倍率，`100` 对应 `deviceScaleFactor=1.0`，`200` 对应 `2.0`，取值范围为 `50` 到 `500`。
 - 失败时返回结构化错误，而不是浏览器原始报错
 
-## 执行模型与缓存
+## 图片渲染执行模型与缓存
 
-- 渲染任务进入有界队列，由受控 worker 执行。
+- 插件侧图片渲染请求进入有界队列，由受控 worker 执行。
+- 管理面同步 HTML 预览直接返回结果，不创建后台任务。
 - 队列长度、并发数、排队超时和执行超时由平台统一控制。
 - 缓存键和 artifact identity 包含模板版本、源码摘要、主题、输出格式、截图倍率和输入数据摘要。
-- 保存或回退后，即使模板版本号不变，也会因源码摘要变化而生成新的缓存键。
+- 模板源码摘要变化时，即使展示版本号不变，也会生成新的缓存键。
 - 渲染失败不会拖垮插件进程；错误摘要进入任务结果、日志和诊断面。
 
 ## 资源边界
 
 - 图片渲染 Chromium 使用 `chromedp` 调用 Chromium 系浏览器可执行文件。
 - 已准备的 `.deps` Chromium 是默认托管资源；`.deps` 未准备且系统 Chrome、Chromium 或 Edge 可用时，平台会直接复用系统浏览器。
-- 模板基线目录和浏览器资源缺失时，平台会在启动、`doctor`、Launcher 和管理面中暴露同一份问题摘要。
+- 模板基线目录问题通过启动日志、`/readyz`、系统 diagnostics 和管理面暴露。
+- 实际浏览器可用性通过启动检查、`/readyz`、系统 diagnostics 与 Launcher 状态暴露；CLI `doctor` 在渲染资源范围内只检查 deps 清单与 Chromium 元数据。
 - `render.browser_path` 可显式指定 Chromium 系浏览器可执行文件路径。
 - Wails 桌面 WebView 不属于图片渲染浏览器入口。
 - 运行环境资源可按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`。

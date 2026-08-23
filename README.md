@@ -11,10 +11,10 @@
 ## 核心特性
 
 - **自托管**：服务端、插件、管理面板全部运行在本地，无需云端控制面板。
-- **多平台接入**：支持 OneBot11 的 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`。
+- **OneBot11 传输**：支持 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种连接方式。
 - **Go 插件**：插件后端使用预编译 Go 可执行文件，通过语言无关的 JSONL v1 协议与服务端通信；插件管理页使用隔离域中的 Vue 静态产物。
-- **Bilibili 集成**：直播监控、动态监控、扫码登录、多账号轮转，内置反风控与验证码处理。
-- **Web 管理控制台**：仪表盘、插件管理、权限策略、任务调度、日志检索、模板预览等。
+- **三方账号**：支持 Bilibili、微博、抖音和网易云音乐账号的 CK 保存、扫码登录、资料与凭据校验；订阅与内容监控由独立插件 `raylea.subscription-hub` 提供。
+- **Web 管理控制台**：仪表盘、插件列表与商店、三方账号、菜单中心、指令中心、权限与限流、任务调度、日志检索和模板预览。
 - **桌面启动器**：基于 Wails，支持 Windows / macOS / Linux，提供一键启动、环境预检、进程编排和原生系统托盘。
 - **契约驱动**：HTTP / WebSocket / 插件协议等对外接口统一维护在 `contracts/`，实现与测试双向校验。
 
@@ -43,7 +43,8 @@ Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌�
 
 ### 方式二：从源码启动
 
-前置条件：Go 1.26.6、Node.js 26.7.0（npm 11.19.0）、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc 1.31.1、Git 2.x。Node.js 26 需要先运行 `npm install --global corepack@0.35.0`；`.tool-versions` 可由 mise 或 asdf 读取。
+前置条件：Go 1.26.6、Node.js 26.7.0（自带 npm 11.19.0）、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc 1.31.1、Git 2.x，以及系统 Chrome / Chromium / Edge 或已经准备完成的托管 Chromium。Node.js 26 需要先运行 `npm install --global corepack@0.35.0`。
+`.tool-versions` 只固定 Go、Node.js、Python 和 pnpm；npm 随 Node.js 提供，Corepack 与 sqlc 需要单独安装并由 doctor 脚本校验。
 工具链检查：`make doctor`；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 Devcontainer 位于 `.devcontainer/`，可直接提供 server tests 所需的 Go、Node、pnpm、sqlc、Chromium 与 SQLite 环境。
 
@@ -54,7 +55,10 @@ cd RayleaBot
 # Windows
 start.bat
 
-# 跨平台
+# Linux / macOS
+sh start.sh
+
+# 也可在任意平台直接运行统一编排器
 node scripts/start-dev.mjs
 ```
 
