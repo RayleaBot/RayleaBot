@@ -9,7 +9,7 @@ export function resolveExceptionStatus(error: unknown, fallback: ExceptionStatus
       return '403'
     }
 
-    if (error.status === 404 || error.code === 'platform.not_found') {
+    if (error.status === 404) {
       return '404'
     }
 

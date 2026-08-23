@@ -1175,19 +1175,19 @@ const server = http.createServer(async (request, response) => {
 
   if (String(request.headers.host ?? '').toLowerCase() === exampleConfigPanelHost) {
     if ((request.method !== 'GET' && request.method !== 'HEAD') || pathname.startsWith('/api/') || pathname.startsWith('/ws/')) {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin origin has no API routes', 'req_plugin_ui_isolated'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin origin has no API routes', 'req_plugin_ui_isolated'))
       return
     }
     let requestedPath = ''
     try {
       requestedPath = pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment)).join('/')
     } catch {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_invalid_path'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin management page not found', 'req_plugin_ui_invalid_path'))
       return
     }
     const filePath = resolvePluginManagementUIFile('example-config-panel', requestedPath)
     if (!filePath) {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin management page not found', 'req_plugin_ui_not_found'))
       return
     }
     try {
@@ -1202,7 +1202,7 @@ const server = http.createServer(async (request, response) => {
       response.end(request.method === 'HEAD' ? undefined : file)
       return
     } catch {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin management page not found', 'req_plugin_ui_missing'))
       return
     }
   }
@@ -1479,12 +1479,12 @@ const server = http.createServer(async (request, response) => {
     const entryType = decodeURIComponent(pathname.split('/')[5] ?? '')
     const targetId = decodeURIComponent(pathname.split('/')[6] ?? '')
     if (!['user', 'group'].includes(entryType) || !targetId) {
-      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
       return
     }
 
     if (!removeGovernanceEntry(state.governanceBlacklist, entryType, targetId)) {
-      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
       return
     }
 
@@ -1540,12 +1540,12 @@ const server = http.createServer(async (request, response) => {
     const entryType = decodeURIComponent(pathname.split('/')[5] ?? '')
     const targetId = decodeURIComponent(pathname.split('/')[6] ?? '')
     if (!['user', 'group'].includes(entryType) || !targetId) {
-      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
       return
     }
 
     if (!removeGovernanceEntry(state.governanceWhitelist, entryType, targetId)) {
-      json(response, 404, errorEnvelope('platform.not_found', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
       return
     }
 
@@ -1683,7 +1683,7 @@ const server = http.createServer(async (request, response) => {
     const jobId = decodeURIComponent(pathname.split('/')[5] ?? '')
     const job = state.schedulerJobs.find((item) => item.job_id === jobId)
     if (!job) {
-      json(response, 404, errorEnvelope('platform.not_found', 'scheduler job not found', 'req_scheduler_job_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'scheduler job not found', 'req_scheduler_job_not_found'))
       return
     }
 
@@ -2193,7 +2193,7 @@ const server = http.createServer(async (request, response) => {
     const pluginId = pathname.split('/')[3]
     const settingsBody = pluginSettingsBody(pluginId)
     if (!settingsBody) {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin settings not found', 'req_plugin_settings_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin settings not found', 'req_plugin_settings_not_found'))
       return
     }
 
@@ -2215,7 +2215,7 @@ const server = http.createServer(async (request, response) => {
 
     const updatedBody = updatePluginSettings(pluginId, payload.values)
     if (!updatedBody) {
-      json(response, 404, errorEnvelope('platform.not_found', 'plugin settings not found', 'req_plugin_settings_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin settings not found', 'req_plugin_settings_not_found'))
       return
     }
 
@@ -2314,9 +2314,9 @@ const server = http.createServer(async (request, response) => {
 
   json(response, 404, {
     error: {
-      code: 'platform.not_found',
+      code: 'platform.resource_missing',
       message: 'mock route not found',
-      message_key: 'errors.platform.not_found',
+      message_key: 'errors.platform.resource_missing',
       request_id: 'req_mock_not_found',
     },
   })
