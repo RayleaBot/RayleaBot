@@ -125,7 +125,7 @@ type KVRepository interface {
 
 type FileStore interface {
 	Read(string, string) (pluginstore.FileReadResult, error)
-	Write(string, string, []byte, pluginstore.FileLimits) error
+	WriteWithResult(string, string, []byte, pluginstore.FileLimits) (pluginstore.FileWriteResult, error)
 	Delete(string, string) (bool, error)
 	List(string, string) ([]string, error)
 }

@@ -56,11 +56,11 @@ func (q *Queries) GetKVSize(ctx context.Context, arg GetKVSizeParams) (int64, er
 }
 
 const getKVTotalSize = `-- name: GetKVTotalSize :one
-SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv WHERE plugin_id = ?
+SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv
 `
 
-func (q *Queries) GetKVTotalSize(ctx context.Context, pluginID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getKVTotalSize, pluginID)
+func (q *Queries) GetKVTotalSize(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getKVTotalSize)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err

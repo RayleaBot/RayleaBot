@@ -100,9 +100,9 @@ func (r *KVSQLiteRepository) Set(ctx context.Context, pluginID, key string, valu
 		return fmt.Errorf("query previous plugin kv size: %w", err)
 	}
 
-	totalSize, err := q.GetKVTotalSize(ctx, pluginID)
+	totalSize, err := q.GetKVTotalSize(ctx)
 	if err != nil {
-		return fmt.Errorf("query plugin kv total size: %w", err)
+		return fmt.Errorf("query global plugin kv total size: %w", err)
 	}
 
 	nextTotal := int(totalSize) - int(previousSize) + sizeBytes

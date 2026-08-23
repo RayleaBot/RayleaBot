@@ -75,6 +75,20 @@ func TestSQLiteRepositoryEnforcesValueAndTotalLimits(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryEnforcesTotalLimitAcrossPlugins(t *testing.T) {
+	t.Parallel()
+
+	repo := openRepository(t)
+	ctx := context.Background()
+	limits := KVLimits{ValueMaxBytes: 64, TotalMaxBytes: 17}
+	if err := repo.Set(ctx, "weather", "k1", "12345", limits); err != nil {
+		t.Fatalf("Set(weather): %v", err)
+	}
+	if err := repo.Set(ctx, "subscription", "k2", "67890", limits); !errors.Is(err, ErrKVQuotaExceeded) {
+		t.Fatalf("Set(global quota) error = %v, want ErrKVQuotaExceeded", err)
+	}
+}
+
 func TestSQLiteRepositoryDeleteMissingKeyReturnsFalse(t *testing.T) {
 	t.Parallel()
 

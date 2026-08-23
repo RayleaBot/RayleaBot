@@ -116,10 +116,10 @@ type DatabaseConfig struct {
 }
 
 type StorageConfig struct {
-	KVValueMaxBytes int `json:"kv_value_max_bytes" yaml:"kv_value_max_bytes"`
-	KVTotalLimitMB  int `json:"kv_total_limit_mb" yaml:"kv_total_limit_mb"`
-	FileMaxBytes    int `json:"file_max_bytes" yaml:"file_max_bytes"`
-	PluginWorkDirMB int `json:"plugin_workdir_soft_limit_mb" yaml:"plugin_workdir_soft_limit_mb"`
+	KVValueMaxBytes          int `json:"kv_value_max_bytes" yaml:"kv_value_max_bytes"`
+	KVTotalLimitMB           int `json:"kv_total_limit_mb" yaml:"kv_total_limit_mb"`
+	FileMaxBytes             int `json:"file_max_bytes" yaml:"file_max_bytes"`
+	PluginWorkDirSoftLimitMB int `json:"plugin_workdir_soft_limit_mb" yaml:"plugin_workdir_soft_limit_mb"`
 }
 
 type HTTPConfig struct {

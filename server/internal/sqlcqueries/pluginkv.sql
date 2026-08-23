@@ -5,7 +5,7 @@ SELECT value_json FROM plugin_kv WHERE plugin_id = ? AND key = ?;
 SELECT COALESCE(size_bytes, 0) FROM plugin_kv WHERE plugin_id = ? AND key = ?;
 
 -- name: GetKVTotalSize :one
-SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv WHERE plugin_id = ?;
+SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv;
 
 -- name: UpsertKV :exec
 INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at)

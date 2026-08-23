@@ -14,8 +14,8 @@ func TestServiceReadWriteDeleteAndList(t *testing.T) {
 
 	service := NewFileService(filepath.Join(t.TempDir(), "plugins"))
 	limits := FileLimits{
-		FileMaxBytes:  1024,
-		TotalMaxBytes: 4096,
+		FileMaxBytes:   1024,
+		SoftLimitBytes: 4096,
 	}
 
 	if err := service.Write("scope-cache", "cache/example.txt", []byte("hello"), limits); err != nil {
@@ -73,7 +73,7 @@ func TestServiceRejectsPathEscapeAndSymlink(t *testing.T) {
 	t.Parallel()
 
 	service := NewFileService(filepath.Join(t.TempDir(), "plugins"))
-	limits := FileLimits{FileMaxBytes: 1024, TotalMaxBytes: 4096}
+	limits := FileLimits{FileMaxBytes: 1024, SoftLimitBytes: 4096}
 
 	if err := service.Write("scope-cache", "../escape.txt", []byte("denied"), limits); !errors.Is(err, ErrFileInvalidPath) {
 		t.Fatalf("Write path escape error = %v, want ErrFileInvalidPath", err)
@@ -102,21 +102,25 @@ func TestServiceRejectsPathEscapeAndSymlink(t *testing.T) {
 	}
 }
 
-func TestServiceEnforcesWorkspaceQuota(t *testing.T) {
+func TestServiceReportsWorkspaceSoftLimitWithoutRejectingWrite(t *testing.T) {
 	t.Parallel()
 
 	service := NewFileService(filepath.Join(t.TempDir(), "plugins"))
 	limits := FileLimits{
-		FileMaxBytes:  8,
-		TotalMaxBytes: 10,
+		FileMaxBytes:   8,
+		SoftLimitBytes: 10,
 	}
 
 	if err := service.Write("scope-cache", "a.txt", []byte("12345"), limits); err != nil {
 		t.Fatalf("Write first file: %v", err)
 	}
 
-	if err := service.Write("scope-cache", "b.txt", []byte("123456"), limits); !errors.Is(err, ErrFileQuotaExceeded) {
-		t.Fatalf("Write quota error = %v, want ErrFileQuotaExceeded", err)
+	result, err := service.WriteWithResult("scope-cache", "b.txt", []byte("123456"), limits)
+	if err != nil {
+		t.Fatalf("Write over soft limit: %v", err)
+	}
+	if !result.SoftLimitExceeded || result.UsageBytes != 11 || result.SoftLimitBytes != 10 {
+		t.Fatalf("unexpected soft-limit result: %#v", result)
 	}
 	if err := service.Write("scope-cache", "c.txt", []byte("123456789"), limits); !errors.Is(err, ErrFileTooLarge) {
 		t.Fatalf("Write file size error = %v, want ErrFileTooLarge", err)

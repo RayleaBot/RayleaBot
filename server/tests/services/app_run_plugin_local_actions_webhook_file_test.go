@@ -77,8 +77,8 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 
 	application := newTestAppState(config.Config{
 		Storage: config.StorageConfig{
-			FileMaxBytes:    1024,
-			PluginWorkDirMB: 1,
+			FileMaxBytes:             1024,
+			PluginWorkDirSoftLimitMB: 1,
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
@@ -102,14 +102,18 @@ func TestExecuteStorageFileRoundTrip(t *testing.T) {
 		nil,
 	)
 
-	if _, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_1", pluginruntime.Action{
+	writeResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_1", pluginruntime.Action{
 		Kind:             "storage.file",
 		StorageOperation: "write",
 		StorageRoot:      "plugin_data",
 		StoragePath:      "cache/example.txt",
 		StorageContent:   []byte("hello file"),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("storage.file write failed: %v", err)
+	}
+	if writeResult["soft_limit_exceeded"] != false || writeResult["cleanup_recommended"] != false {
+		t.Fatalf("unexpected storage.file soft-limit result: %#v", writeResult)
 	}
 
 	readResult, err := application.executeLocalAction(context.Background(), "scope-cache", "req_local_file_2", pluginruntime.Action{

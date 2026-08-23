@@ -159,20 +159,33 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 		}
 		return payload, nil
 	case "write":
-		err := deps.PluginFiles.Write(req.PluginID, req.Action.StoragePath, req.Action.StorageContent, currentFileLimits(currentConfig(deps)))
+		writeResult, err := deps.PluginFiles.WriteWithResult(req.PluginID, req.Action.StoragePath, req.Action.StorageContent, currentFileLimits(currentConfig(deps)))
 		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
 			return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
 		}
-		if errors.Is(err, pluginstore.ErrFileTooLarge) || errors.Is(err, pluginstore.ErrFileQuotaExceeded) {
+		if errors.Is(err, pluginstore.ErrFileTooLarge) {
 			return nil, &pluginruntime.Error{Code: "platform.value_too_large", Message: "storage.file write exceeds configured platform limit"}
 		}
 		if err != nil {
 			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file write failed", Err: err}
 		}
-		return map[string]any{
-			"root": req.Action.StorageRoot,
-			"path": req.Action.StoragePath,
-		}, nil
+		result := map[string]any{
+			"root":                req.Action.StorageRoot,
+			"path":                req.Action.StoragePath,
+			"usage_bytes":         writeResult.UsageBytes,
+			"soft_limit_bytes":    writeResult.SoftLimitBytes,
+			"soft_limit_exceeded": writeResult.SoftLimitExceeded,
+			"cleanup_recommended": writeResult.SoftLimitExceeded,
+		}
+		if writeResult.SoftLimitExceeded && deps.Logger != nil {
+			deps.Logger.Warn("插件文件工作目录超过软限制",
+				"component", "plugin_action",
+				"plugin_id", req.PluginID,
+				"usage_bytes", writeResult.UsageBytes,
+				"soft_limit_bytes", writeResult.SoftLimitBytes,
+			)
+		}
+		return result, nil
 	case "delete":
 		deleted, err := deps.PluginFiles.Delete(req.PluginID, req.Action.StoragePath)
 		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
@@ -227,12 +240,12 @@ func currentFileLimits(cfg config.Config) pluginstore.FileLimits {
 	if fileLimit <= 0 {
 		fileLimit = defaultFileMaxBytes
 	}
-	totalLimitMB := cfg.Storage.PluginWorkDirMB
+	totalLimitMB := cfg.Storage.PluginWorkDirSoftLimitMB
 	if totalLimitMB <= 0 {
 		totalLimitMB = defaultPluginWorkdirMB
 	}
 	return pluginstore.FileLimits{
-		FileMaxBytes:  fileLimit,
-		TotalMaxBytes: totalLimitMB * 1024 * 1024,
+		FileMaxBytes:   fileLimit,
+		SoftLimitBytes: totalLimitMB * 1024 * 1024,
 	}
 }

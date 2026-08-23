@@ -12,9 +12,8 @@ import (
 )
 
 var (
-	ErrFileInvalidPath   = errors.New("plugin file path is invalid")
-	ErrFileTooLarge      = errors.New("plugin file exceeds configured single-file limit")
-	ErrFileQuotaExceeded = errors.New("plugin file workspace exceeds configured total limit")
+	ErrFileInvalidPath = errors.New("plugin file path is invalid")
+	ErrFileTooLarge    = errors.New("plugin file exceeds configured single-file limit")
 )
 
 type FileService struct {
@@ -22,8 +21,14 @@ type FileService struct {
 }
 
 type FileLimits struct {
-	FileMaxBytes  int
-	TotalMaxBytes int
+	FileMaxBytes   int
+	SoftLimitBytes int
+}
+
+type FileWriteResult struct {
+	UsageBytes        int64
+	SoftLimitBytes    int64
+	SoftLimitExceeded bool
 }
 
 type FileReadResult struct {
@@ -60,25 +65,30 @@ func (s *FileService) Read(pluginID, relativePath string) (FileReadResult, error
 }
 
 func (s *FileService) Write(pluginID, relativePath string, content []byte, limits FileLimits) error {
+	_, err := s.WriteWithResult(pluginID, relativePath, content, limits)
+	return err
+}
+
+func (s *FileService) WriteWithResult(pluginID, relativePath string, content []byte, limits FileLimits) (FileWriteResult, error) {
 	if limits.FileMaxBytes > 0 && len(content) > limits.FileMaxBytes {
-		return ErrFileTooLarge
+		return FileWriteResult{}, ErrFileTooLarge
 	}
 
 	root, err := s.pluginRoot(pluginID)
 	if err != nil {
-		return err
+		return FileWriteResult{}, err
 	}
 	target, info, exists, err := s.resolve(pluginID, relativePath, true)
 	if err != nil {
-		return err
+		return FileWriteResult{}, err
 	}
 	if exists && info.IsDir() {
-		return ErrFileInvalidPath
+		return FileWriteResult{}, ErrFileInvalidPath
 	}
 
 	currentSize, err := directorySize(root)
 	if err != nil {
-		return err
+		return FileWriteResult{}, err
 	}
 
 	existingSize := int64(0)
@@ -86,21 +96,22 @@ func (s *FileService) Write(pluginID, relativePath string, content []byte, limit
 		existingSize = info.Size()
 	}
 	nextTotal := currentSize - existingSize + int64(len(content))
-	if limits.TotalMaxBytes > 0 && nextTotal > int64(limits.TotalMaxBytes) {
-		return ErrFileQuotaExceeded
-	}
-
 	parentDir := filepath.Dir(target)
 	if err := os.MkdirAll(parentDir, 0o755); err != nil {
-		return fmt.Errorf("create plugin file parent directory: %w", err)
+		return FileWriteResult{}, fmt.Errorf("create plugin file parent directory: %w", err)
 	}
 	if err := ensureNoSymlinks(root, target); err != nil {
-		return err
+		return FileWriteResult{}, err
 	}
 	if err := os.WriteFile(target, content, 0o644); err != nil {
-		return fmt.Errorf("write plugin file: %w", err)
+		return FileWriteResult{}, fmt.Errorf("write plugin file: %w", err)
 	}
-	return nil
+	softLimit := int64(limits.SoftLimitBytes)
+	return FileWriteResult{
+		UsageBytes:        nextTotal,
+		SoftLimitBytes:    softLimit,
+		SoftLimitExceeded: softLimit > 0 && nextTotal > softLimit,
+	}, nil
 }
 
 func (s *FileService) Delete(pluginID, relativePath string) (bool, error) {

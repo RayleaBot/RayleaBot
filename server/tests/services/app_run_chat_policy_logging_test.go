@@ -121,10 +121,10 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 		Storage: config.StorageConfig{
-			KVValueMaxBytes: 1024,
-			KVTotalLimitMB:  8,
-			FileMaxBytes:    2048,
-			PluginWorkDirMB: 32,
+			KVValueMaxBytes:          1024,
+			KVTotalLimitMB:           8,
+			FileMaxBytes:             2048,
+			PluginWorkDirSoftLimitMB: 32,
 		},
 		HTTP: config.HTTPConfig{
 			TimeoutSeconds:    10,
@@ -167,10 +167,10 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 			CommandRateLimit: "2/1h",
 		},
 		Storage: config.StorageConfig{
-			KVValueMaxBytes: 4096,
-			KVTotalLimitMB:  16,
-			FileMaxBytes:    8192,
-			PluginWorkDirMB: 64,
+			KVValueMaxBytes:          4096,
+			KVTotalLimitMB:           16,
+			FileMaxBytes:             8192,
+			PluginWorkDirSoftLimitMB: 64,
 		},
 		HTTP: config.HTTPConfig{
 			TimeoutSeconds:    15,
@@ -199,7 +199,7 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
-	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirMB != 64 {
+	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirSoftLimitMB != 64 {
 		t.Fatalf("storage config was not hot reloaded: %+v", app.state.Config.Storage)
 	}
 	if app.state.Config.HTTP.TimeoutSeconds != 15 || app.state.Config.HTTP.MaxRetries != 2 {
