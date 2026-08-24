@@ -1018,6 +1018,10 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
 	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
 		c.logLifecycleWarn("restart plugin after crash backoff", pluginID, err)
+		// startRuntime 可能在构建启动输入阶段失败（此时 Manager.Start 尚未执行），
+		// manager 会停留在 backoff 状态，之后所有触发都视为等待重试而跳过启动；
+		// 重置为 stopped，让下一次 scheduler 触发或管理操作能再次尝试。
+		manager.SetStopped()
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 	}
 }
