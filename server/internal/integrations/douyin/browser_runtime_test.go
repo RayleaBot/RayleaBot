@@ -109,18 +109,18 @@ func TestFindSystemChromiumUsesPathLookupFallback(t *testing.T) {
 	}
 }
 
-func TestResolveDouyinBrowserPathUsesConfiguredSystemManagedOrder(t *testing.T) {
+func TestResolveDouyinBrowserPathUsesConfiguredManagedSystemOrder(t *testing.T) {
 	t.Parallel()
 
-	exists := func(path string) bool { return path == "/configured/chrome" }
+	exists := func(path string) bool { return path == "/configured/chrome" || path == "/managed/chrome" }
 	if got := resolveDouyinBrowserPathWith("/configured/chrome", "/managed/chrome", func() string { return "/system/chrome" }, exists); got != "/configured/chrome" {
 		t.Fatalf("configured browser path = %q", got)
 	}
-	if got := resolveDouyinBrowserPathWith("/missing/chrome", "/managed/chrome", func() string { return "/system/chrome" }, exists); got != "/system/chrome" {
-		t.Fatalf("system browser path = %q", got)
-	}
-	if got := resolveDouyinBrowserPathWith("", "/managed/chrome", func() string { return "" }, exists); got != "/managed/chrome" {
+	if got := resolveDouyinBrowserPathWith("/missing/chrome", "/managed/chrome", func() string { return "/system/chrome" }, exists); got != "/managed/chrome" {
 		t.Fatalf("managed browser path = %q", got)
+	}
+	if got := resolveDouyinBrowserPathWith("", "", func() string { return "/system/chrome" }, exists); got != "/system/chrome" {
+		t.Fatalf("system browser path = %q", got)
 	}
 }
 
@@ -152,6 +152,9 @@ func TestBuildDouyinBrowserLaunchAttempts(t *testing.T) {
 	}
 	if len(attempts) != 3 || attempts[0].mode != BrowserModeRemoteCDP || attempts[1].mode != BrowserModeVisible || attempts[2].mode != BrowserModeHeadless {
 		t.Fatalf("auto attempts = %#v", attempts)
+	}
+	if !attempts[1].useProfile {
+		t.Fatalf("visible attempt must use the persistent profile: %#v", attempts[1])
 	}
 
 	attempts, err = buildDouyinBrowserLaunchAttempts(BrowserModeAuto, "", "/fixture/chrome", false)

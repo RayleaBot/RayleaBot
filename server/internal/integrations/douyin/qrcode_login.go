@@ -26,7 +26,9 @@ const (
 	douyinBrowserCreateTimeout = 25 * time.Second
 )
 
-var douyinUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+// HTTP 模式登录轮询的请求头 UA，与托管 Chromium 版本线保持一致，
+// 避免明显过旧的 UA 被平台标记。
+var douyinUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.7977.42 Safari/537.36"
 
 type Provider struct {
 	client  *http.Client

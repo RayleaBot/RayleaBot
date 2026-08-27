@@ -28,6 +28,7 @@ var (
 	ErrQRLoginSessionNotFound     = errors.New("third-party qrcode login session not found")
 	ErrQRLoginCredentialMissing   = errors.New("third-party qrcode login credential missing")
 	ErrQRLoginBrowserUnavailable  = errors.New("third-party qrcode login browser unavailable")
+	ErrQRLoginBrowserBusy         = errors.New("third-party qrcode login browser profile busy")
 )
 
 type QRLoginCreateResult struct {

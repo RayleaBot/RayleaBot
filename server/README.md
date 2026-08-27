@@ -128,6 +128,7 @@
   - Bilibili、微博、抖音、网易云音乐 QR login session create / poll
   - `thirdparty.account.read` 允许已声明插件读取已保存、已启用且有效的账号摘要和 CK
   - `thirdparty.account.validate` 接收受限认证异常观察，按账号去重并触发权威 CK 复检
+  - `thirdparty.resolve` 用已登录浏览器环境解析三方平台用户，当前仅支持抖音
   - CK 校验结果写回后通过 `/ws/events` 的 `third_party.account.changed` 事件通知 Web 刷新
 - runtime metrics：
   - Prometheus text format through authenticated `GET /api/system/metrics`

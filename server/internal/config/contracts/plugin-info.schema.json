@@ -207,7 +207,7 @@
         },
         "third_party_account_platforms": {
           "type": "array",
-          "description": "Third-party account platforms accepted by thirdparty.account.read and thirdparty.account.validate.",
+          "description": "Third-party account platforms accepted by thirdparty.account.read, thirdparty.account.validate and thirdparty.resolve. thirdparty.resolve currently only accepts douyin.",
           "items": {
             "type": "string",
             "enum": [
@@ -490,7 +490,8 @@
         "plugin.list",
         "secret.read",
         "thirdparty.account.read",
-        "thirdparty.account.validate"
+        "thirdparty.account.validate",
+        "thirdparty.resolve"
       ]
     },
     "onebot_action_capability_name": {

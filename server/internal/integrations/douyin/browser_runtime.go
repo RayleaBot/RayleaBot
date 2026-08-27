@@ -12,10 +12,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/chromedp/cdproto/browser"
+	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 )
@@ -26,17 +30,23 @@ const (
 	BrowserModeHeadless  = "headless"
 	BrowserModeRemoteCDP = "remote_cdp"
 
-	douyinCDPDiscoveryTimeout  = 5 * time.Second
-	douyinCDPDiscoveryMaxBytes = 64 << 10
+	douyinCDPDiscoveryTimeout      = 5 * time.Second
+	douyinCDPDiscoveryMaxBytes     = 64 << 10
+	douyinBrowserDevToolsWait      = 15 * time.Second
+	douyinBrowserDevToolsPollEvery = 300 * time.Millisecond
 )
 
 type browserLaunchAttempt struct {
 	mode               string
 	browserPath        string
 	remoteDebuggingURL string
+	// useProfile 标记该尝试使用持久化浏览器 profile：扫码登录的可见窗口
+	// 与登录态搜索（headless）共享同一 profile 目录，两者通过 profileSlot
+	// 互斥；未配置 UserDataDir 时该标记无效果。
+	useProfile bool
 }
 
-func newDouyinBrowserContext(requestCtx context.Context, attempt browserLaunchAttempt, browserArgs []string) (context.Context, context.CancelFunc, error) {
+func newDouyinBrowserContext(requestCtx context.Context, attempt browserLaunchAttempt, browserArgs []string, userDataDir string) (context.Context, context.CancelFunc, error) {
 	if attempt.mode == BrowserModeRemoteCDP {
 		if strings.TrimSpace(attempt.remoteDebuggingURL) == "" {
 			return nil, nil, fmt.Errorf("%w: remote CDP endpoint is missing", thirdparty.ErrQRLoginBrowserUnavailable)
@@ -59,44 +69,141 @@ func newDouyinBrowserContext(requestCtx context.Context, attempt browserLaunchAt
 	if path == "" {
 		return nil, nil, fmt.Errorf("%w: Chromium executable is missing", thirdparty.ErrQRLoginBrowserUnavailable)
 	}
-	allocatorOptions := []chromedp.ExecAllocatorOption{
-		chromedp.NoDefaultBrowserCheck,
-		chromedp.NoFirstRun,
-		chromedp.ExecPath(path),
-	}
-	allocatorOptions = append(allocatorOptions, douyinAllocatorFlags(browserArgs)...)
-	allocatorOptions = append(allocatorOptions,
-		chromedp.Flag("user-agent", douyinUserAgent),
-		chromedp.Flag("accept-lang", "zh-CN,zh;q=0.9,en;q=0.8"),
-		chromedp.Flag("lang", "zh-CN"),
-		chromedp.Flag("disable-blink-features", "AutomationControlled"),
-		chromedp.Flag("disable-features", "IsolateOrigins,site-per-process,TranslateUI,BlinkRuntimeCallStats,OptimizationHints,MediaRouter"),
-		chromedp.Flag("no-sandbox", true),
-		chromedp.Flag("disable-setuid-sandbox", true),
-		chromedp.Flag("disable-dev-shm-usage", true),
-		chromedp.Flag("disable-infobars", true),
-		chromedp.Flag("mute-audio", true),
-		chromedp.Flag("disable-sync", true),
-		chromedp.Flag("metrics-recording-only", true),
-		chromedp.Flag("disable-background-networking", true),
-		chromedp.Flag("disable-backgrounding-occluded-windows", true),
-		chromedp.Flag("disable-renderer-backgrounding", true),
-		chromedp.Flag("window-size", "1920,1080"),
-		chromedp.Flag("force-color-profile", "srgb"),
-		chromedp.Flag("force-fieldtrials", "WebRTC-MultipleRoutes/Disabled/"),
-	)
-	if attempt.mode == BrowserModeHeadless {
-		allocatorOptions = append(allocatorOptions, chromedp.Flag("headless", "new"))
+	// 本地启动必须挂载 user-data-dir：持久化 profile 保留设备指纹与
+	// sec_sdk 环境（扫码登录可见窗口与登录态搜索共享，降低新设备风控）；
+	// 无持久 profile 的尝试使用一次性临时目录，避免浏览器落入系统默认
+	// profile（委托既有 Chrome 实例、会话互相污染）。
+	effectiveUserDataDir := ""
+	tempUserDataDir := ""
+	if attempt.useProfile && strings.TrimSpace(userDataDir) != "" {
+		effectiveUserDataDir = strings.TrimSpace(userDataDir)
+		// chromedp 的 context cancel 在 Windows 上无法保证杀掉完整进程树，
+		// 残留进程会占用 profile 导致启动报"无法在现有的会话中打开"。
+		killDouyinProfileProcesses(effectiveUserDataDir)
+		if err := os.MkdirAll(effectiveUserDataDir, 0o755); err != nil {
+			return nil, nil, fmt.Errorf("%w: login browser profile directory is unavailable", thirdparty.ErrQRLoginBrowserUnavailable)
+		}
+	} else {
+		dir, err := os.MkdirTemp("", "rayleabot-douyin-browser-")
+		if err != nil {
+			return nil, nil, fmt.Errorf("%w: temporary browser profile directory is unavailable", thirdparty.ErrQRLoginBrowserUnavailable)
+		}
+		tempUserDataDir = dir
+		effectiveUserDataDir = dir
 	}
 
-	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
+	port, err := reserveDouyinBrowserPort()
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: browser debugging port is unavailable", thirdparty.ErrQRLoginBrowserUnavailable)
+	}
+	// chromedp 的 ExecAllocator 通过读取浏览器 stderr 管道发现 DevTools 端口，
+	// 但 Edge/Chrome 经 Go 管道启动时不向管道输出 "DevTools listening on" 行
+	// （stderr 重定向到文件则正常），chromedp 读不到端口便报启动失败，且其
+	// cancel 杀不掉进程树，每次尝试都会泄漏一整套浏览器进程。改为自管启动：
+	// 固定端口 + 轮询 /json/version 发现端点，stderr 落到临时文件（文件句柄
+	// 语义），进程树由 taskkill 显式回收。
+	// 浏览器 stderr 落到固定路径并保留（诊断需要）：每次启动覆盖，
+	// 失败后从服务器日志里的 browser_log 路径读取浏览器输出。
+	logPath := filepath.Join(os.TempDir(), "rayleabot-douyin-browser.log")
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: browser log file is unavailable", thirdparty.ErrQRLoginBrowserUnavailable)
+	}
+
+	command := exec.Command(path, douyinBrowserLaunchArgs(attempt, browserArgs, effectiveUserDataDir, port)...)
+	command.Stderr = logFile
+	command.Stdout = logFile
+	if err := command.Start(); err != nil {
+		logFile.Close()
+		if tempUserDataDir != "" {
+			_ = os.RemoveAll(tempUserDataDir)
+		}
+		return nil, nil, fmt.Errorf("%w: browser process could not start", thirdparty.ErrQRLoginBrowserUnavailable)
+	}
+	pid := command.Process.Pid
+	go func() { _ = command.Wait() }()
+
+	wsURL, err := waitDouyinBrowserDevTools(requestCtx, port)
+	if err != nil {
+		if attempt.useProfile {
+			// Edge 可能以 relaunch 方式启动：首个进程拉起真正的浏览器
+			// 进程后立即退出，记录的 pid 到回收时已不存在。按 profile
+			// 路径匹配整树回收最可靠。
+			killDouyinProfileProcesses(effectiveUserDataDir)
+		} else {
+			killDouyinBrowserTree(pid)
+		}
+		if tempUserDataDir != "" {
+			_ = os.RemoveAll(tempUserDataDir)
+		}
+		logFile.Close()
+		return nil, nil, fmt.Errorf("%w: browser debugging endpoint did not become ready", thirdparty.ErrQRLoginBrowserUnavailable)
+	}
+
+	allocatorCtx, cancelAllocator := chromedp.NewRemoteAllocator(context.Background(), wsURL)
 	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
 	tabCtx, cancelTab := chromedp.NewContext(browserCtx)
-	return tabCtx, func() {
-		cancelTab()
-		cancelBrowser()
-		cancelAllocator()
-	}, nil
+	var once sync.Once
+	cancel := func() {
+		once.Do(func() {
+			cancelTab()
+			cancelBrowser()
+			cancelAllocator()
+			if attempt.useProfile {
+				killDouyinProfileProcesses(effectiveUserDataDir)
+			} else {
+				killDouyinBrowserTree(pid)
+			}
+			if tempUserDataDir != "" {
+				_ = os.RemoveAll(tempUserDataDir)
+			}
+			logFile.Close()
+		})
+	}
+	return tabCtx, cancel, nil
+}
+
+// overrideDouyinBrowserUserAgent 把 UA 替换为与实际浏览器版本一致的字符串。
+// 硬编码 UA 会与真实 Chromium 版本（navigator.userAgentData 等信号）不一致，
+// 被 sec_sdk 视为可疑环境；这里用 CDP 版本信息动态构造。
+func overrideDouyinBrowserUserAgent(ctx context.Context) error {
+	var product string
+	err := chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		_, versionProduct, _, _, _, err := browser.GetVersion().Do(ctx)
+		if err != nil {
+			return err
+		}
+		product = strings.TrimSpace(versionProduct)
+		return nil
+	}))
+	if err != nil || product == "" {
+		if err == nil {
+			err = fmt.Errorf("douyin browser version product is empty")
+		}
+		return err
+	}
+	// headless 模式下 GetVersion 返回 HeadlessChrome/…，保留该前缀会向
+	// sec_sdk 暴露无头环境；清洗成普通 Chrome 形态与实际渲染引擎一致。
+	product = strings.ReplaceAll(product, "HeadlessChrome", "Chrome")
+	userAgent := douyinUserAgentForProduct(runtime.GOOS, product)
+	return chromedp.Run(ctx, emulation.SetUserAgentOverride(userAgent).WithAcceptLanguage("zh-CN,zh;q=0.9,en;q=0.8"))
+}
+
+// douyinUserAgentForProduct 按平台生成与浏览器 product（如 "Chrome/152.0.7977.42"）
+// 一致的 UA 字符串。
+func douyinUserAgentForProduct(goos, product string) string {
+	product = strings.TrimSpace(product)
+	if product == "" {
+		return ""
+	}
+	switch goos {
+	case "darwin":
+		return "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) " + product + " Safari/537.36"
+	case "linux", "freebsd", "openbsd":
+		return "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " + product + " Safari/537.36"
+	default:
+		return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) " + product + " Safari/537.36"
+	}
 }
 
 func resolveDouyinRemoteDebuggingURL(ctx context.Context, raw string, client *http.Client) (string, error) {
@@ -212,12 +319,14 @@ func buildDouyinBrowserLaunchAttempts(mode, remoteDebuggingURL, browserPath stri
 			attempts = append(attempts, browserLaunchAttempt{mode: BrowserModeRemoteCDP, remoteDebuggingURL: remoteDebuggingURL})
 		}
 		if interactive {
-			attempts = append(attempts, browserLaunchAttempt{mode: BrowserModeVisible, browserPath: browserPath})
+			attempts = append(attempts, browserLaunchAttempt{mode: BrowserModeVisible, browserPath: browserPath, useProfile: true})
 		}
 		attempts = append(attempts, browserLaunchAttempt{mode: BrowserModeHeadless, browserPath: browserPath})
 		return attempts, nil
-	case BrowserModeVisible, BrowserModeHeadless:
-		return []browserLaunchAttempt{{mode: mode, browserPath: browserPath}}, nil
+	case BrowserModeVisible:
+		return []browserLaunchAttempt{{mode: BrowserModeVisible, browserPath: browserPath, useProfile: true}}, nil
+	case BrowserModeHeadless:
+		return []browserLaunchAttempt{{mode: BrowserModeHeadless, browserPath: browserPath}}, nil
 	case BrowserModeRemoteCDP:
 		if remoteDebuggingURL == "" {
 			return nil, fmt.Errorf("%w: remote CDP endpoint is missing", thirdparty.ErrQRLoginBrowserUnavailable)
@@ -241,10 +350,13 @@ func resolveDouyinBrowserPathWith(configuredPath, managedPath string, findSystem
 	if path := strings.TrimSpace(configuredPath); path != "" && exists(path) {
 		return path
 	}
-	if path := strings.TrimSpace(findSystem()); path != "" {
+	// 托管 Chromium 优先于系统浏览器：系统 Edge/Chrome 可能不向 stderr 输出
+	// DevTools 端点（chromedp 依赖该输出发现调试端口），且版本不受控，
+	// 与 UA 对齐策略冲突；仅当托管浏览器不可用时才回退系统探测。
+	if path := strings.TrimSpace(managedPath); path != "" && exists(path) {
 		return path
 	}
-	return strings.TrimSpace(managedPath)
+	return strings.TrimSpace(findSystem())
 }
 
 func findSystemChromium(goos string, getenv func(string) string, lookPath func(string) (string, error), exists func(string) bool) string {
@@ -343,8 +455,106 @@ func douyinNetworkCookies(cookies []*network.Cookie) map[string]string {
 	return values
 }
 
-func douyinAllocatorFlags(arguments []string) []chromedp.ExecAllocatorOption {
-	flags := make([]chromedp.ExecAllocatorOption, 0, len(arguments))
+// clearDouyinLoginStateCookies 删除持久化 profile 中残留的登录态 Cookie。
+// 保留 ttwid、s_v_web_id、webid、odin_tt 等设备/安全字段，维持设备信誉；
+// 只清理会把登录页直接带入"已登录"状态的会话字段。
+func clearDouyinLoginStateCookies(ctx context.Context) error {
+	names := []string{
+		"sessionid", "sessionid_ss", "sid_guard", "sid_tt", "uid_tt", "uid_tt_ss",
+		"sid_ucp_v1", "ssid_ucp_v1", "passport_csrf_token", "passport_csrf_token_default",
+		"passport_auth_mix_state", "passport_assist_user", "passport_mfa_token",
+		"d_ticket", "LOGIN_STATUS", "__ac_nonce",
+	}
+	return chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		for _, name := range names {
+			if err := network.DeleteCookies(name).WithDomain(".douyin.com").Do(ctx); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+}
+
+// killDouyinProfileProcesses 结束占用指定 profile 目录的残留 Chromium 进程。
+// 仅 Windows 需要：chromedp 通过 context cancel 关闭浏览器时可能留下子进程，
+// 导致后续以同一 user-data-dir 启动时报"无法在现有的会话中打开"。
+// 需同时匹配 chrome.exe 与 msedge.exe：系统浏览器探测可能回退到 Edge，
+// Edge 主进程被杀后子进程树同样会残留。
+func killDouyinProfileProcesses(userDataDir string) {
+	if runtime.GOOS != "windows" || strings.TrimSpace(userDataDir) == "" {
+		return
+	}
+	// PowerShell -like 是通配符匹配，路径中的 [ ] * ? ` 必须转义，
+	// 否则包含特殊字符的 profile 路径匹配不到（或误匹配其他进程）。
+	escaped := strings.NewReplacer(
+		"'", "''",
+		"`", "``",
+		"[", "`[",
+		"]", "`]",
+		"*", "`*",
+		"?", "`?",
+	).Replace(userDataDir)
+	script := "Get-CimInstance Win32_Process | " +
+		"Where-Object { $_.Name -in @('chrome.exe','msedge.exe') -and $_.CommandLine -like '*" + escaped + "*' } | " +
+		"ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+	_ = command.Run()
+}
+
+// douyinBrowserLaunchArgs 构建自管启动的浏览器命令行参数。保持与原先
+// chromedp ExecAllocator 相同的旗标语义：先加 no-first-run 等基础旗标，
+// 挂载 user-data-dir（持久 profile 或调用方准备的一次性临时目录，必挂），
+// 再叠加用户配置的 browserArgs（过滤关键旗标），
+// 最后是标准反检测旗标与固定调试端口。
+func douyinBrowserLaunchArgs(attempt browserLaunchAttempt, configured []string, userDataDir string, port int) []string {
+	args := make([]string, 0, len(configured)+40)
+	args = append(args, "--no-first-run", "--no-default-browser-check")
+	if strings.TrimSpace(userDataDir) != "" {
+		args = append(args, "--user-data-dir="+userDataDir)
+	}
+	args = append(args, douyinConfiguredBrowserArgs(configured)...)
+	args = append(args,
+		"--accept-lang=zh-CN,zh;q=0.9,en;q=0.8",
+		"--lang=zh-CN",
+		"--disable-blink-features=AutomationControlled",
+		"--disable-features=IsolateOrigins,site-per-process,TranslateUI,BlinkRuntimeCallStats,OptimizationHints,MediaRouter",
+		"--no-sandbox",
+		"--disable-setuid-sandbox",
+		"--disable-dev-shm-usage",
+		"--disable-infobars",
+		"--mute-audio",
+		"--disable-sync",
+		"--metrics-recording-only",
+		"--disable-background-networking",
+		"--disable-backgrounding-occluded-windows",
+		"--disable-renderer-backgrounding",
+		"--disable-breakpad",
+		"--disable-client-side-phishing-detection",
+		"--disable-default-apps",
+		"--disable-extensions",
+		"--disable-hang-monitor",
+		"--disable-ipc-flooding-protection",
+		"--disable-popup-blocking",
+		"--disable-prompt-on-repost",
+		"--safebrowsing-disable-auto-update",
+		"--password-store=basic",
+		"--window-size=1920,1080",
+		"--force-color-profile=srgb",
+		"--force-fieldtrials=WebRTC-MultipleRoutes/Disabled/",
+	)
+	if attempt.mode == BrowserModeHeadless {
+		args = append(args, "--headless=new")
+	}
+	args = append(args, fmt.Sprintf("--remote-debugging-port=%d", port), "about:blank")
+	return args
+}
+
+// douyinConfiguredBrowserArgs 把用户配置的 browserArgs 转成命令行旗标，
+// 过滤掉会破坏启动契约的 headless / user-data-dir / remote-debugging-*。
+func douyinConfiguredBrowserArgs(arguments []string) []string {
+	flags := make([]string, 0, len(arguments))
 	for _, argument := range arguments {
 		argument = strings.TrimSpace(strings.TrimPrefix(argument, "--"))
 		if argument == "" {
@@ -357,12 +567,66 @@ func douyinAllocatorFlags(arguments []string) []chromedp.ExecAllocatorOption {
 			continue
 		}
 		if hasValue {
-			flags = append(flags, chromedp.Flag(key, value))
+			flags = append(flags, "--"+key+"="+value)
 			continue
 		}
-		flags = append(flags, chromedp.Flag(key, true))
+		flags = append(flags, "--"+key)
 	}
 	return flags
+}
+
+func reserveDouyinBrowserPort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	_ = listener.Close()
+	return port, nil
+}
+
+// waitDouyinBrowserDevTools 轮询浏览器调试端点直到 /json/version 可访问。
+// Edge/Chrome 新 headless 模式经 Go 管道启动时不写 "DevTools listening on"
+// 到管道，chromedp 的 stderr 端口发现不可用；固定端口后直接轮询 HTTP 端点。
+func waitDouyinBrowserDevTools(ctx context.Context, port int) (string, error) {
+	endpoint := fmt.Sprintf("http://127.0.0.1:%d", port)
+	deadline := time.Now().Add(douyinBrowserDevToolsWait)
+	for {
+		wsURL, err := resolveDouyinRemoteDebuggingURL(ctx, endpoint, nil)
+		if err == nil {
+			return wsURL, nil
+		}
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		if time.Now().After(deadline) {
+			return "", fmt.Errorf("douyin browser debugging endpoint did not become ready")
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(douyinBrowserDevToolsPollEvery):
+		}
+	}
+}
+
+// killDouyinBrowserTree 结束浏览器进程树。Windows 上 Kill 只杀主进程，
+// 子进程残留会占用 profile；用 taskkill /T 整树回收。
+func killDouyinBrowserTree(pid int) {
+	if pid <= 0 {
+		return
+	}
+	if runtime.GOOS == "windows" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		command := exec.CommandContext(ctx, "taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
+		_ = command.Run()
+		return
+	}
+	process, err := os.FindProcess(pid)
+	if err == nil {
+		_ = process.Kill()
+	}
 }
 
 func cloneStringMap(values map[string]string) map[string]string {

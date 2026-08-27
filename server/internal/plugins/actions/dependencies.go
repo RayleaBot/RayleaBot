@@ -64,6 +64,13 @@ type ThirdPartyAccountValidationRequester interface {
 	RequestPluginValidation(context.Context, string, string, string, string, int) (bool, string, error)
 }
 
+// ThirdPartyResolver 用平台侧的登录环境（浏览器会话与设备信誉）把昵称
+// 关键词解析为候选用户列表。resolve 是插件纯 HTTP 搜索被风控拦截后的
+// 回退路径，只有宿主持有登录浏览器资源的平台（douyin）提供实现。
+type ThirdPartyResolver interface {
+	ResolveUser(context.Context, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
+}
+
 type Renderer interface {
 	ResolvePluginTemplate(context.Context, string, string) (string, error)
 	RenderImage(context.Context, RenderImageRequest) (RenderImageResult, error)

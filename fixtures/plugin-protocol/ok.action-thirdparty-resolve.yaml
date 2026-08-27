@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000433
+    plugin_id: subscription-hub
+    request_id: local_thirdparty_resolve_0001
+    parent_request_id: event_subscription_check_0002
+    action: thirdparty.resolve
+    data:
+      platform: douyin
+      query: 洛天依
+expect:
+  valid: true
+  notes:
+    - thirdparty.resolve asks the platform to resolve a user nickname keyword into candidate profiles for a manifest-allowed platform.

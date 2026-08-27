@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
@@ -132,6 +133,98 @@ func executeThirdPartyAccountValidate(ctx context.Context, deps Deps, req Action
 		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate failed", Err: err}
 	}
 	return map[string]any{"accepted": accepted, "reason": reason}, nil
+}
+
+func thirdPartyResolveRegistrar() registrar {
+	return registrar{
+		metadata: Metadata{
+			Action:         "thirdparty.resolve",
+			Capability:     "thirdparty.resolve",
+			RequestSchema:  "plugin-protocol.action_thirdparty_resolve",
+			ResponseSchema: "plugin-protocol.local_action_result",
+			ReadsSecret:    true,
+			AuditFields:    []string{"plugin_id", "platform", "query", "count"},
+			ErrorCodes:     commonErrorCodes("platform.invalid_request", "platform.resource_busy", "platform.upstream_request_failed"),
+		},
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeThirdPartyResolve(ctx, deps, req)
+			}
+		},
+	}
+}
+
+func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.resolve") {
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.resolve capability is not declared"}
+	}
+
+	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
+	if err != nil || platform != thirdparty.PlatformDouyin {
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve platform is invalid"}
+	}
+	if !thirdPartyAccountPlatformAllowed(deps.Capabilities.ThirdPartyAccountPlatforms(ctx, req.PluginID), platform) {
+		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.resolve platform is outside declared capability parameters"}
+	}
+	query := strings.TrimSpace(req.Action.ThirdPartyResolveQuery)
+	// schema maxLength 按 Unicode 码点计，这里用 rune 计数保持一致，
+	// 避免多字节昵称（如 emoji）被字节长度误拒。
+	if query == "" || utf8.RuneCountInString(query) > 64 {
+		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve query is invalid"}
+	}
+	if deps.ThirdPartyResolve == nil {
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.resolve service is not available"}
+	}
+
+	cookieSets := make([]map[string]string, 0)
+	// store CK 先注入作为基线：store 查询已排除 invalid 凭据，质量可控；
+	// 插件显式 CK（当前会话更新鲜）后注入，同名字段覆盖基线。
+	if deps.ThirdParty != nil {
+		accounts, err := deps.ThirdParty.ListEnabled(ctx, platform)
+		if err != nil {
+			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.resolve account read failed", Err: err}
+		}
+		for _, account := range accounts {
+			if !account.Configured {
+				continue
+			}
+			cookie, err := deps.ThirdParty.ReadCookie(ctx, account)
+			if err != nil || strings.TrimSpace(cookie) == "" {
+				continue
+			}
+			cookieSets = append(cookieSets, thirdparty.CookieMapFromHeader(cookie))
+		}
+	}
+	if cookie := strings.TrimSpace(req.Action.ThirdPartyResolveCookie); cookie != "" {
+		cookieSets = append(cookieSets, thirdparty.CookieMapFromHeader(cookie))
+	}
+
+	profiles, exact, err := deps.ThirdPartyResolve.ResolveUser(ctx, query, cookieSets)
+	if err != nil {
+		if deps.Logger != nil {
+			deps.Logger.Warn("thirdparty.resolve 失败", "component", "plugin_action", "plugin_id", req.PluginID, "platform", platform, "err", err.Error())
+		}
+		// 登录 profile 槽忙是瞬态（409，可重试）；其余上游失败统一
+		// 502，不再用「缺少必要资源」的 resource_missing 语义。
+		if errors.Is(err, thirdparty.ErrQRLoginBrowserBusy) {
+			return nil, &pluginruntime.Error{Code: "platform.resource_busy", Message: "thirdparty.resolve browser profile is busy", Err: err}
+		}
+		return nil, &pluginruntime.Error{Code: "platform.upstream_request_failed", Message: "thirdparty.resolve failed", Err: err}
+	}
+	items := make([]map[string]any, 0, len(profiles))
+	for _, profile := range profiles {
+		items = append(items, map[string]any{
+			"uid":        profile.UID,
+			"unique_id":  profile.UniqueID,
+			"nickname":   profile.Nickname,
+			"avatar_url": profile.AvatarURL,
+		})
+	}
+	return map[string]any{
+		"platform": platform,
+		"profiles": items,
+		"exact":    exact,
+	}, nil
 }
 
 func thirdPartyAccountPlatformAllowed(allowed []string, platform string) bool {

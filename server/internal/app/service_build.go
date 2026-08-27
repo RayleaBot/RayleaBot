@@ -94,6 +94,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		HTTPTransport:        deps.BilibiliHTTPTransport,
 		Clock:                deps.BilibiliClock,
 		Logger:               runtimeState.RuntimeLogger(),
+		RepoRoot:             runtimeState.RepoRoot(),
 		NotifyAccountChanged: thirdPartyEvents.PublishChanged,
 	})
 	if err != nil {
@@ -109,6 +110,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		ManagementRedact:  deps.ManagementRedact,
 		ThirdParty:        integrations.ThirdParty,
 		AccountValidation: integrations.AccountValidation,
+		ThirdPartyResolve: integrations.DouyinBrowser,
 	})
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *wsevents.ServiceStatusService

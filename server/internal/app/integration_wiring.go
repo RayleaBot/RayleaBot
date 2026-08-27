@@ -3,6 +3,7 @@ package app
 import (
 	"log/slog"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -25,6 +26,7 @@ type integrationDeps struct {
 	HTTPTransport        http.RoundTripper
 	Clock                func() time.Time
 	Logger               *slog.Logger
+	RepoRoot             string
 	NotifyAccountChanged func()
 }
 
@@ -33,6 +35,7 @@ type integrationState struct {
 	ThirdPartyQRLogin *thirdparty.QRLoginService
 	AccountValidator  *accountvalidation.Validator
 	AccountValidation *accountvalidation.Service
+	DouyinBrowser     *douyin.ChromedpBrowser
 }
 
 func buildIntegrations(deps integrationDeps) (integrationState, error) {
@@ -54,15 +57,6 @@ func buildIntegrations(deps integrationDeps) (integrationState, error) {
 		return integrationState{}, err
 	}
 
-	return integrationState{
-		ThirdParty:        thirdPartyService,
-		ThirdPartyQRLogin: buildQRLoginService(deps, thirdPartyService),
-		AccountValidator:  validator,
-		AccountValidation: validationService,
-	}, nil
-}
-
-func buildQRLoginService(deps integrationDeps, accountStore *thirdparty.Service) *thirdparty.QRLoginService {
 	configuredBrowserPath, managedBrowserPath, browserArgs := browserLaunchConfig(deps)
 	douyinBrowser := douyin.NewChromedpBrowser(douyin.BrowserOptions{
 		ConfiguredBrowserPath: configuredBrowserPath,
@@ -70,8 +64,19 @@ func buildQRLoginService(deps integrationDeps, accountStore *thirdparty.Service)
 		BrowserArgs:           browserArgs,
 		Mode:                  deps.Config.ThirdParty.DouyinLogin.BrowserMode,
 		RemoteDebuggingURL:    deps.Config.ThirdParty.DouyinLogin.RemoteDebuggingURL,
+		UserDataDir:           douyinLoginProfileDir(deps.RepoRoot),
 		Logger:                deps.Logger,
 	})
+	return integrationState{
+		ThirdParty:        thirdPartyService,
+		ThirdPartyQRLogin: buildQRLoginService(deps, thirdPartyService, douyinBrowser),
+		AccountValidator:  validator,
+		AccountValidation: validationService,
+		DouyinBrowser:     douyinBrowser,
+	}, nil
+}
+
+func buildQRLoginService(deps integrationDeps, accountStore *thirdparty.Service, douyinBrowser *douyin.ChromedpBrowser) *thirdparty.QRLoginService {
 	return thirdparty.NewQRLoginService(map[string]thirdparty.QRLoginProvider{
 		bilibilisession.Platform: bilibilisession.NewProvider(deps.HTTPTransport, deps.Clock),
 		weibo.Platform:           weibo.NewProvider(thirdparty.NewHTTPClient(deps.HTTPTransport)),
@@ -88,4 +93,13 @@ func browserLaunchConfig(deps integrationDeps) (string, string, []string) {
 		managedPath, browserArgs = deps.Renderer.BrowserLaunchConfig()
 	}
 	return configuredPath, managedPath, browserArgs
+}
+
+// douyinLoginProfileDir 返回抖音扫码登录浏览器的持久化 profile 目录。
+// RepoRoot 为空时返回空串，登录浏览器退化为临时 profile（不持久化）。
+func douyinLoginProfileDir(repoRoot string) string {
+	if repoRoot == "" {
+		return ""
+	}
+	return filepath.Join(repoRoot, "data", "douyin-login-profile")
 }

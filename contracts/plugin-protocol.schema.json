@@ -91,7 +91,8 @@
         "plugin.list",
         "secret.read",
         "thirdparty.account.read",
-        "thirdparty.account.validate"
+        "thirdparty.account.validate",
+        "thirdparty.resolve"
       ]
     },
     "onebot_action_kind": {
@@ -1019,6 +1020,9 @@
           "$ref": "#/$defs/action_thirdparty_account_validate"
         },
         {
+          "$ref": "#/$defs/action_thirdparty_resolve"
+        },
+        {
           "$ref": "#/$defs/action_config_write"
         },
         {
@@ -1880,6 +1884,33 @@
         }
       }
     },
+    "action_thirdparty_resolve_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "query"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "douyin"
+          ]
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "User nickname keyword; leading and trailing whitespace is trimmed by the platform."
+        },
+        "cookie": {
+          "type": "string",
+          "maxLength": 8192,
+          "description": "Optional account cookie header (semicolon-separated name=value pairs) used by the platform login environment for the resolution. Sensitive credential; must not be logged or returned in responses."
+        }
+      }
+    },
     "action_config_write_data": {
       "type": "object",
       "additionalProperties": false,
@@ -2424,6 +2455,38 @@
       ],
       "unevaluatedProperties": false
     },
+    "action_thirdparty_resolve": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "thirdparty.resolve"
+            },
+            "data": {
+              "$ref": "#/$defs/action_thirdparty_resolve_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
     "action_config_write": {
       "allOf": [
         {
@@ -2924,6 +2987,23 @@
     },
     {
       "type": "action",
+      "action_kind": "thirdparty.resolve",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "protocol_version",
+        "type",
+        "timestamp",
+        "plugin_id",
+        "request_id",
+        "parent_request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.action-thirdparty-resolve.yaml"
+    },
+    {
+      "type": "action",
       "action_kind": "config.write",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
@@ -3236,6 +3316,7 @@
     "fixtures/plugin-protocol/ok.action-secret-read.yaml",
     "fixtures/plugin-protocol/ok.action-thirdparty-account-read.yaml",
     "fixtures/plugin-protocol/ok.action-thirdparty-account-validate.yaml",
+    "fixtures/plugin-protocol/ok.action-thirdparty-resolve.yaml",
     "fixtures/plugin-protocol/ok.action-config-write.yaml",
     "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml",
     "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml",
@@ -3307,6 +3388,7 @@
     "fixtures/plugin-protocol/invalid.action-provider-unsupported-action.yaml",
     "fixtures/plugin-protocol/invalid.action-onebot-family-non-object-data.yaml",
     "fixtures/plugin-protocol/invalid.action-http-request-missing-parent-request-id.yaml",
+    "fixtures/plugin-protocol/invalid.action-thirdparty-resolve-platform.yaml",
     "fixtures/plugin-protocol/edge.action-logger-write-result.yaml",
     "fixtures/plugin-protocol/edge.action-storage-kv-list-result.yaml",
     "fixtures/plugin-protocol/edge.action-provider-luckylillia-friend-groups-get-result.yaml",
@@ -3320,5 +3402,5 @@
     "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
     "fixtures/plugin-protocol/ok.action-file-get.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/thirdparty.account.validate/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. thirdparty.account.validate reports a bounded authentication observation for an exact allowed account and only requests authoritative platform validation; it cannot submit credential state, credentials, response bodies, or free-form errors. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. Optional render.image resources require http.request, remain inside declared http_hosts, carry no credentials or arbitrary headers, and are materialized as request-scoped temporary image files. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/thirdparty.account.validate/thirdparty.resolve/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. thirdparty.account.validate reports a bounded authentication observation for an exact allowed account and only requests authoritative platform validation; it cannot submit credential state, credentials, response bodies, or free-form errors. thirdparty.resolve requests host-side third-party platform user resolution through the logged-in browser environment, currently for douyin only; the returned uid is the stable binding identifier and unique_id is a platform-mutable identifier used for display only. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. Optional render.image resources require http.request, remain inside declared http_hosts, carry no credentials or arbitrary headers, and are materialized as request-scoped temporary image files. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
 }

@@ -26,6 +26,7 @@ type pluginRuntimeDeps struct {
 	ManagementRedact  func(string) string
 	ThirdParty        localaction.ThirdPartyAccountReader
 	AccountValidation localaction.ThirdPartyAccountValidationRequester
+	ThirdPartyResolve localaction.ThirdPartyResolver
 }
 
 type pluginRuntime struct {
@@ -36,7 +37,7 @@ type pluginRuntime struct {
 
 func buildPluginRuntime(deps pluginRuntimeDeps) pluginRuntime {
 	capabilityView := buildPluginCapabilityView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty, deps.AccountValidation)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty, deps.AccountValidation, deps.ThirdPartyResolve)
 	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
@@ -71,6 +72,7 @@ func buildLocalActionService(
 	governanceService *governance.Service,
 	thirdParty localaction.ThirdPartyAccountReader,
 	accountValidation localaction.ThirdPartyAccountValidationRequester,
+	thirdPartyResolve localaction.ThirdPartyResolver,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
 		CurrentConfig:     runtimeState.CurrentConfig,
@@ -83,6 +85,7 @@ func buildLocalActionService(
 		Secrets:           localaction.SecretReaderFromStore(platform.Secrets),
 		ThirdParty:        thirdParty,
 		AccountValidation: accountValidation,
+		ThirdPartyResolve: thirdPartyResolve,
 		Scheduler:         localaction.Scheduler(platform.Scheduler),
 		Dispatcher:        localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
 		MessageSender:     localaction.OutboundMessageSender(eventStack.Dispatcher),

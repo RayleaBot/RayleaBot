@@ -336,6 +336,10 @@ func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err
 		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "platform.resource_missing", "缺少扫码登录浏览器", "errors.platform.resource_missing", nil)
 		return
 	}
+	if errors.Is(err, thirdparty.ErrQRLoginBrowserBusy) {
+		httpapi.WriteError(w, r, http.StatusConflict, "platform.resource_busy", "扫码登录浏览器正被占用，请稍后重试", "errors.platform.resource_busy", nil)
+		return
+	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
 		Code:        "platform.upstream_request_failed",
 		HTTPStatus:  http.StatusBadGateway,

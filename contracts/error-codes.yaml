@@ -125,6 +125,16 @@ codes:
     retryable: true
     applies_to: [http, websocket, plugin_protocol]
 
+  platform.resource_busy:
+    code: platform.resource_busy
+    domain: platform
+    message_key: errors.platform.resource_busy
+    message: 资源正被占用，请稍后重试
+    description: A platform resource (such as the persistent login browser profile) is held by another in-flight session; retry after it is released.
+    http_status: 409
+    retryable: true
+    applies_to: [http, websocket, plugin_protocol]
+
   platform.resource_missing:
     code: platform.resource_missing
     domain: platform

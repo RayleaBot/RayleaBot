@@ -486,6 +486,12 @@ type ProtocolActionThirdPartyAccountValidateFrame struct {
 	HTTPStatus  int    `json:"http_status,omitempty"`
 }
 
+type ProtocolActionThirdPartyResolveFrame struct {
+	Platform string `json:"platform"`
+	Query    string `json:"query"`
+	Cookie   string `json:"cookie"`
+}
+
 type ProtocolActionConfigWriteFrame struct {
 	Values map[string]json.RawMessage `json:"values"`
 }

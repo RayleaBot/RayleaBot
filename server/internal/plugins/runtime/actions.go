@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -42,6 +43,8 @@ type Action struct {
 	ThirdPartyAccountID          string
 	ThirdPartyAccountObservation string
 	ThirdPartyAccountHTTPStatus  int
+	ThirdPartyResolveQuery       string
+	ThirdPartyResolveCookie      string
 	ConfigValues                 map[string]any
 	GovernanceOperation          string
 	GovernanceEntryType          string
@@ -248,6 +251,34 @@ func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*Action, error) 
 		ThirdPartyAccountID:          accountID,
 		ThirdPartyAccountObservation: observation,
 		ThirdPartyAccountHTTPStatus:  frame.HTTPStatus,
+	}, nil
+}
+
+func parseThirdPartyResolveAction(raw json.RawMessage) (*Action, error) {
+	var frame ProtocolActionThirdPartyResolveFrame
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.resolve data", err)
+	}
+
+	platform := strings.TrimSpace(frame.Platform)
+	query := strings.TrimSpace(frame.Query)
+	if platform == "" || query == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.resolve fields", nil)
+	}
+	// schema maxLength 按 Unicode 码点计，这里用 rune 计数保持一致，
+	// 避免多字节昵称（如 emoji）被字节长度误拒。
+	if utf8.RuneCountInString(query) > 64 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.resolve query", nil)
+	}
+	cookie := strings.TrimSpace(frame.Cookie)
+	if len(cookie) > 8192 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.resolve cookie", nil)
+	}
+	return &Action{
+		Kind:                      "thirdparty.resolve",
+		ThirdPartyAccountPlatform: platform,
+		ThirdPartyResolveQuery:    query,
+		ThirdPartyResolveCookie:   cookie,
 	}, nil
 }
 

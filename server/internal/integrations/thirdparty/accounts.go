@@ -61,6 +61,9 @@ type UpsertRequest struct {
 
 type AccountProfile struct {
 	UID       string
+	// UniqueID 是平台用户可见、可被用户修改的标识（如抖音号）；仅用于
+	// 展示，解析/订阅绑定必须以 UID 为准。
+	UniqueID  string
 	Nickname  string
 	AvatarURL string
 }

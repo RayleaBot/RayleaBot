@@ -18,6 +18,7 @@ type Deps struct {
 	Secrets           SecretReader
 	ThirdParty        ThirdPartyAccountReader
 	AccountValidation ThirdPartyAccountValidationRequester
+	ThirdPartyResolve ThirdPartyResolver
 	Scheduler         SchedulerCreateFunc
 	Dispatcher        ConfigChangeDispatcher
 	MessageSender     MessageSendFunc

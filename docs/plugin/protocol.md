@@ -86,6 +86,7 @@
 - `secret.read`：只读取调用插件自己的 secret 命名空间内的单个值
 - `thirdparty.account.read`：只读取 manifest 允许平台中已保存、已启用且非 invalid 的三方账号；CK 以 secret 值返回
 - `thirdparty.account.validate`：对 manifest 允许平台中的精确账号提交 `auth_rejected` 或 `session_blocked` 观察，请求 Server 执行权威 CK 复检；插件不能直接提交 `valid`、`invalid` 或 `unknown` 状态
+- `thirdparty.resolve`：提交平台与昵称关键词（1–64 字符，平台去除首尾空白），请求 Server 用该平台的登录环境（浏览器会话与设备信誉）解析候选用户；可选附带账号 `cookie`（分号分隔的 `name=value` 头，敏感凭据，不落日志、不返回响应）供平台登录环境恢复会话；成功返回 `data.profiles`（每项含 `uid`、`unique_id`、`nickname`、`avatar_url`；`uid` 为稳定绑定标识，`unique_id` 为平台可修改标识仅用于展示）与 `data.exact`（是否存在昵称完全匹配的候选），无结果时 `data.profiles` 为空数组
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`

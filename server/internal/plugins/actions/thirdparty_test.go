@@ -141,6 +141,179 @@ func TestThirdPartyAccountValidateRequiresSeparateCapability(t *testing.T) {
 	}
 }
 
+func TestThirdPartyResolvePassesAccountCookiesToBrowserResolver(t *testing.T) {
+	t.Parallel()
+
+	resolver := &stubThirdPartyResolver{
+		profiles: []thirdparty.AccountProfile{{
+			UID:       "MS4wLjABAAAAhost",
+			Nickname:  "洛天依",
+			AvatarURL: "https://p3-pc.douyinpic.com/host.jpeg",
+		}},
+		exact: true,
+	}
+	result, err := executeThirdPartyResolve(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.resolve": true},
+			platforms:    []string{thirdparty.PlatformDouyin},
+		},
+		ThirdParty: stubThirdPartyAccountReader{
+			accounts: []thirdparty.Account{{
+				Platform:   thirdparty.PlatformDouyin,
+				AccountID:  "primary",
+				Enabled:    true,
+				Configured: true,
+			}},
+			cookies: map[string]string{"douyin/primary": "sessionid=fixture; ttwid=fixture;"},
+		},
+		ThirdPartyResolve: resolver,
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                      "thirdparty.resolve",
+			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
+			ThirdPartyResolveQuery:    "  洛天依  ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("thirdparty.resolve failed: %v", err)
+	}
+	if resolver.query != "洛天依" {
+		t.Fatalf("resolver query = %q, want trimmed keyword", resolver.query)
+	}
+	if len(resolver.cookieSets) != 1 || resolver.cookieSets[0]["sessionid"] != "fixture" {
+		t.Fatalf("resolver cookie sets = %#v", resolver.cookieSets)
+	}
+	if result["platform"] != thirdparty.PlatformDouyin || result["exact"] != true {
+		t.Fatalf("unexpected resolve result: %#v", result)
+	}
+	profiles, ok := result["profiles"].([]map[string]any)
+	if !ok || len(profiles) != 1 {
+		t.Fatalf("unexpected profiles result: %#v", result["profiles"])
+	}
+	if profiles[0]["uid"] != "MS4wLjABAAAAhost" || profiles[0]["nickname"] != "洛天依" || profiles[0]["avatar_url"] != "https://p3-pc.douyinpic.com/host.jpeg" {
+		t.Fatalf("unexpected profile payload: %#v", profiles[0])
+	}
+}
+
+func TestThirdPartyResolveMergesRequestCookie(t *testing.T) {
+	t.Parallel()
+
+	resolver := &stubThirdPartyResolver{
+		profiles: []thirdparty.AccountProfile{{UID: "MS4wLjABAAAAhost", Nickname: "洛天依"}},
+		exact:    true,
+	}
+	result, err := executeThirdPartyResolve(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.resolve": true},
+			platforms:    []string{thirdparty.PlatformDouyin},
+		},
+		ThirdParty: stubThirdPartyAccountReader{
+			accounts: []thirdparty.Account{{
+				Platform:   thirdparty.PlatformDouyin,
+				AccountID:  "primary",
+				Enabled:    true,
+				Configured: true,
+			}},
+			cookies: map[string]string{"douyin/primary": "sessionid=store; ttwid=store;"},
+		},
+		ThirdPartyResolve: resolver,
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                      "thirdparty.resolve",
+			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
+			ThirdPartyResolveQuery:    "洛天依",
+			ThirdPartyResolveCookie:   "sessionid=req; odin_tt=req;",
+		},
+	})
+	if err != nil {
+		t.Fatalf("thirdparty.resolve failed: %v", err)
+	}
+	if len(resolver.cookieSets) != 2 {
+		t.Fatalf("resolver cookie sets = %d, want store account plus request cookie", len(resolver.cookieSets))
+	}
+	// store CK 先注入作为基线，插件显式 CK 后注入并覆盖同名字段。
+	if resolver.cookieSets[0]["sessionid"] != "store" || resolver.cookieSets[0]["ttwid"] != "store" {
+		t.Fatalf("store account cookie set = %#v", resolver.cookieSets[0])
+	}
+	if resolver.cookieSets[1]["sessionid"] != "req" || resolver.cookieSets[1]["odin_tt"] != "req" {
+		t.Fatalf("request cookie set = %#v", resolver.cookieSets[1])
+	}
+	if result["exact"] != true {
+		t.Fatalf("unexpected resolve result: %#v", result)
+	}
+}
+
+func TestThirdPartyResolveRejectsUnsupportedPlatform(t *testing.T) {
+	t.Parallel()
+
+	_, err := executeThirdPartyResolve(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.resolve": true},
+			platforms:    []string{thirdparty.PlatformBilibili},
+		},
+		ThirdPartyResolve: &stubThirdPartyResolver{},
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                      "thirdparty.resolve",
+			ThirdPartyAccountPlatform: thirdparty.PlatformBilibili,
+			ThirdPartyResolveQuery:    "测试用户",
+		},
+	})
+	var runtimeErr *pluginruntime.Error
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
+		t.Fatalf("expected platform.invalid_request, got %#v", err)
+	}
+}
+
+func TestThirdPartyResolveRequiresCapability(t *testing.T) {
+	t.Parallel()
+
+	_, err := executeThirdPartyResolve(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.account.read": true},
+			platforms:    []string{thirdparty.PlatformDouyin},
+		},
+		ThirdPartyResolve: &stubThirdPartyResolver{},
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                      "thirdparty.resolve",
+			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
+			ThirdPartyResolveQuery:    "测试用户",
+		},
+	})
+	var runtimeErr *pluginruntime.Error
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.capability_violation" {
+		t.Fatalf("expected capability violation, got %#v", err)
+	}
+}
+
+func TestThirdPartyResolveRejectsEmptyQuery(t *testing.T) {
+	t.Parallel()
+
+	_, err := executeThirdPartyResolve(context.Background(), Deps{
+		Capabilities: stubThirdPartyCapabilityView{
+			capabilities: map[string]bool{"thirdparty.resolve": true},
+			platforms:    []string{thirdparty.PlatformDouyin},
+		},
+		ThirdPartyResolve: &stubThirdPartyResolver{},
+	}, ActionRequest{
+		PluginID: "raylea.subscription-hub",
+		Action: pluginruntime.Action{
+			Kind:                      "thirdparty.resolve",
+			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
+			ThirdPartyResolveQuery:    "   ",
+		},
+	})
+	var runtimeErr *pluginruntime.Error
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
+		t.Fatalf("expected platform.invalid_request, got %#v", err)
+	}
+}
+
 type stubThirdPartyCapabilityView struct {
 	capabilities map[string]bool
 	platforms    []string
@@ -198,4 +371,18 @@ func (s stubThirdPartyAccountReader) ListEnabled(context.Context, string) ([]thi
 
 func (s stubThirdPartyAccountReader) ReadCookie(_ context.Context, account thirdparty.Account) (string, error) {
 	return s.cookies[account.Platform+"/"+account.AccountID], nil
+}
+
+type stubThirdPartyResolver struct {
+	query      string
+	cookieSets []map[string]string
+	profiles   []thirdparty.AccountProfile
+	exact      bool
+	err        error
+}
+
+func (s *stubThirdPartyResolver) ResolveUser(_ context.Context, query string, cookieSets []map[string]string) ([]thirdparty.AccountProfile, bool, error) {
+	s.query = query
+	s.cookieSets = cookieSets
+	return s.profiles, s.exact, s.err
 }

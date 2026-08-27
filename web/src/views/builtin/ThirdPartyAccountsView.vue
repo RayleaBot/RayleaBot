@@ -56,6 +56,7 @@ interface PlatformSection {
   enabledCount: number
   supportsQRCode: boolean
   cookiePlaceholder: string
+  cookieExtra?: string
 }
 
 interface QRLoginState {
@@ -132,6 +133,9 @@ const platformSections = computed<PlatformSection[]>(() => thirdPartyPlatformOrd
       : platform === 'douyin'
         ? 'sessionid=...; sid_guard=...'
         : 'Cookie',
+    cookieExtra: platform === 'douyin'
+      ? t('builtinFeatures.thirdPartyAccounts.douyinCookieExtra')
+      : undefined,
   }
 }))
 
@@ -881,7 +885,7 @@ function timeText(value?: string | null) {
                       />
                     </a-form-item>
                   </div>
-                  <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :extra="t('builtinFeatures.thirdPartyAccounts.keepCookie')">
+                  <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :extra="section.cookieExtra || t('builtinFeatures.thirdPartyAccounts.keepCookie')">
                     <a-textarea
                       v-model:value="drafts[accountKey(account)].cookie"
                       :auto-size="{ minRows: 3, maxRows: 5 }"

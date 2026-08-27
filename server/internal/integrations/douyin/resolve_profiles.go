@@ -3,37 +3,16 @@ package douyin
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	"html"
 	"net/url"
-	"regexp"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
-var douyinDataScriptPattern = regexp.MustCompile(`(?is)<script[^>]+id=["'](?:RENDER_DATA|ROUTER_DATA|__UNIVERSAL_DATA_FOR_REHYDRATION__)["'][^>]*>(.*?)</script>`)
-
-func douyinProfilesFromSearchPage(body string, query string) []thirdparty.AccountProfile {
-	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
-	seen := map[string]bool{}
-	for _, match := range douyinDataScriptPattern.FindAllStringSubmatch(body, -1) {
-		if len(match) < 2 {
-			continue
-		}
-		decoded := html.UnescapeString(strings.TrimSpace(match[1]))
-		if unescaped, err := url.QueryUnescape(decoded); err == nil {
-			decoded = unescaped
-		}
-		var document any
-		if err := json.Unmarshal([]byte(decoded), &document); err != nil {
-			continue
-		}
-		collectDouyinSearchProfiles(document, seen, &profiles, 0, false)
-		if len(profiles) >= maxDouyinResolveCandidates {
-			break
-		}
-	}
-	return filterDouyinProfilesForQuery(profiles, query)
-}
+const (
+	maxDouyinResolveCandidates = 8
+	maxDouyinResolveDepth      = 8
+)
 
 func douyinSearchProfilesFromDocument(document any, query string) []thirdparty.AccountProfile {
 	profiles := make([]thirdparty.AccountProfile, 0, maxDouyinResolveCandidates)
@@ -94,7 +73,9 @@ func normalizedDouyinQuery(query string) string {
 }
 
 func douyinProfileMatchesQuery(profile thirdparty.AccountProfile, query string) bool {
-	for _, value := range []string{profile.UID, profile.Nickname} {
+	// unique_id（抖音号）是用户搜索的常见输入，必须参与匹配；
+	// UID 为稳定 sec_uid，绑定与展示均需要命中。
+	for _, value := range []string{profile.UID, profile.UniqueID, profile.Nickname} {
 		normalized := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(value, "@")))
 		if normalized == "" {
 			continue
@@ -106,73 +87,12 @@ func douyinProfileMatchesQuery(profile thirdparty.AccountProfile, query string) 
 	return false
 }
 
-func douyinProfileFromPage(body string) thirdparty.AccountProfile {
-	for _, match := range douyinDataScriptPattern.FindAllStringSubmatch(body, -1) {
-		if len(match) < 2 {
-			continue
-		}
-		decoded := html.UnescapeString(strings.TrimSpace(match[1]))
-		if unescaped, err := url.QueryUnescape(decoded); err == nil {
-			decoded = unescaped
-		}
-		var document any
-		if err := json.Unmarshal([]byte(decoded), &document); err != nil {
-			continue
-		}
-		if profile := douyinProfileFromValue(document); profileIsUsable(profile) {
-			return profile
-		}
-	}
-	return thirdparty.AccountProfile{}
-}
-
-func douyinProfileFromUserPayload(value any) thirdparty.AccountProfile {
-	object, ok := value.(map[string]any)
-	if !ok {
-		return thirdparty.AccountProfile{}
-	}
-	for _, key := range []string{"user", "user_info"} {
-		if user, ok := object[key].(map[string]any); ok {
-			if profile := douyinProfileFromObject(user); profileIsUsable(profile) {
-				return profile
-			}
-		}
-	}
-	return thirdparty.AccountProfile{}
-}
-
-func douyinProfileFromValue(value any) thirdparty.AccountProfile {
-	return douyinProfileFromValueAtDepth(value, 0)
-}
-
-func douyinProfileFromValueAtDepth(value any, depth int) thirdparty.AccountProfile {
-	if depth > maxDouyinResolveDepth {
-		return thirdparty.AccountProfile{}
-	}
-	switch item := value.(type) {
-	case map[string]any:
-		profile := douyinProfileFromObject(item)
-		if profileIsUsable(profile) {
-			return profile
-		}
-		for _, child := range item {
-			if nested := douyinProfileFromValueAtDepth(child, depth+1); profileIsUsable(nested) {
-				return nested
-			}
-		}
-	case []any:
-		for _, child := range item {
-			if nested := douyinProfileFromValueAtDepth(child, depth+1); profileIsUsable(nested) {
-				return nested
-			}
-		}
-	}
-	return thirdparty.AccountProfile{}
-}
-
 func douyinProfileFromObject(object map[string]any) thirdparty.AccountProfile {
+	// UID 必须是稳定的 sec_uid：抖音号（unique_id）可被用户修改，不能作为
+	// 订阅绑定标识；unique_id 只用于展示。
 	profile := thirdparty.AccountProfile{
-		UID:      thirdparty.FirstNonEmpty(thirdparty.JSONStringValue(object["unique_id"]), thirdparty.JSONStringValue(object["short_id"]), thirdparty.JSONStringValue(object["uid"]), thirdparty.JSONStringValue(object["sec_uid"])),
+		UID:      thirdparty.FirstNonEmpty(thirdparty.JSONStringValue(object["sec_uid"]), thirdparty.JSONStringValue(object["uid"])),
+		UniqueID: thirdparty.FirstNonEmpty(thirdparty.JSONStringValue(object["unique_id"]), thirdparty.JSONStringValue(object["short_id"])),
 		Nickname: thirdparty.JSONStringValue(object["nickname"]),
 	}
 	profile.AvatarURL = douyinAvatarURLFromObject(object)
@@ -257,8 +177,10 @@ func profileIsUsable(profile thirdparty.AccountProfile) bool {
 func exactProfileMatch(profiles []thirdparty.AccountProfile, query string) bool {
 	normalized := strings.TrimSpace(strings.ToLower(strings.TrimPrefix(query, "@")))
 	for _, profile := range profiles {
-		if strings.ToLower(strings.TrimSpace(profile.UID)) == normalized || strings.ToLower(strings.TrimSpace(profile.Nickname)) == normalized {
-			return true
+		for _, value := range []string{profile.UID, profile.UniqueID, profile.Nickname} {
+			if strings.ToLower(strings.TrimSpace(value)) == normalized {
+				return true
+			}
 		}
 	}
 	return false

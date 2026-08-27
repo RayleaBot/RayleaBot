@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    type: action
+    timestamp: 1710000454
+    plugin_id: subscription-hub
+    request_id: local_thirdparty_resolve_invalid_0001
+    parent_request_id: event_subscription_check_0002
+    action: thirdparty.resolve
+    data:
+      platform: weibo
+      query: 洛天依
+expect:
+  valid: false
+  reason: thirdparty.resolve only accepts the douyin platform.

@@ -20,7 +20,11 @@ const (
 	douyinBrowserLoginHost     = "login.douyin.com"
 	douyinBrowserQRCodePath    = "/passport/web/get_qrcode/"
 	douyinBrowserQRConnectPath = "/passport/web/check_qrconnect/"
-	douyinBrowserLaunchTimeout = 8 * time.Second
+	douyinBrowserLaunchTimeout = 20 * time.Second
+	// 登录成功后导航到主页并停留，让 mssdk/sec_sdk 完成会话初始化。
+	douyinBrowserHomeURL       = "https://www.douyin.com/"
+	douyinBrowserSettleDelay   = 8 * time.Second
+	douyinBrowserSettleTimeout = 15 * time.Second
 )
 
 type BrowserOptions struct {
@@ -29,12 +33,16 @@ type BrowserOptions struct {
 	BrowserArgs           []string
 	Mode                  string
 	RemoteDebuggingURL    string
-	Logger                *slog.Logger
-	cookieReader          func(context.Context) (map[string]string, error)
-	signalReader          func(context.Context, context.Context) (douyinPageSignals, error)
-	attemptRunner         func(context.Context, browserLaunchAttempt, time.Time) (BrowserCreateResult, *browserRuntime, error)
-	fallbackPoller        func(context.Context, context.Context, string) (douyinBrowserPollResponse, error)
-	redirectFollower      func(context.Context, context.Context, string) error
+	// UserDataDir 可选：可见登录窗口的持久化浏览器 profile 目录。
+	// 设置后设备指纹与 sec_sdk 环境跨登录会话保留，平台会把重复登录
+	// 识别为同一设备，降低新设备风控；同一时间只允许一个会话使用。
+	UserDataDir      string
+	Logger           *slog.Logger
+	cookieReader     func(context.Context) (map[string]string, error)
+	signalReader     func(context.Context, context.Context) (douyinPageSignals, error)
+	attemptRunner    func(context.Context, browserLaunchAttempt, time.Time) (BrowserCreateResult, *browserRuntime, error)
+	fallbackPoller   func(context.Context, context.Context, string) (douyinBrowserPollResponse, error)
+	redirectFollower func(context.Context, context.Context, string) error
 }
 
 type ChromedpBrowser struct {
@@ -47,6 +55,9 @@ type ChromedpBrowser struct {
 
 	mu       sync.Mutex
 	sessions map[string]*browserRuntime
+	// profileSlot 串行化持久化 profile 的使用：同一目录同时只能被一个
+	// 浏览器进程占用。容量 1 信号量，获取失败时可见模式跳过本次尝试。
+	profileSlot chan struct{}
 }
 
 type browserRuntime struct {
@@ -68,6 +79,8 @@ type browserRuntime struct {
 	blockCount int
 	pollSeq    uint64
 	lastState  string
+	// usesProfile 标记本会话占用了持久化浏览器 profile，关闭时需要释放。
+	usesProfile bool
 }
 
 func NewChromedpBrowser(options BrowserOptions) *ChromedpBrowser {
@@ -79,7 +92,12 @@ func NewChromedpBrowser(options BrowserOptions) *ChromedpBrowser {
 		options.Mode = BrowserModeAuto
 	}
 	options.RemoteDebuggingURL = strings.TrimSpace(options.RemoteDebuggingURL)
+	options.UserDataDir = strings.TrimSpace(options.UserDataDir)
 	browser := &ChromedpBrowser{options: options, sessions: make(map[string]*browserRuntime)}
+	if browser.options.UserDataDir != "" {
+		browser.profileSlot = make(chan struct{}, 1)
+		browser.profileSlot <- struct{}{}
+	}
 	browser.cookieReader = options.cookieReader
 	if browser.cookieReader == nil {
 		browser.cookieReader = browser.readCookies
@@ -126,6 +144,22 @@ func (b *ChromedpBrowser) Create(ctx context.Context, now time.Time) (BrowserCre
 func (b *ChromedpBrowser) createWithAttempts(ctx context.Context, now time.Time, attempts []browserLaunchAttempt) (BrowserCreateResult, error) {
 	var lastErr error
 	for index, attempt := range attempts {
+		profileHeld := false
+		if attempt.useProfile && b.profileSlot != nil {
+			select {
+			case <-b.profileSlot:
+				profileHeld = true
+			default:
+				b.logBrowserProfileBusy()
+				// 槽忙时不回退到无 profile 的 headless：无设备信誉的登录
+				// 环境会触发新设备风控，且丢失既有登录态。剩余尝试里没有
+				// 其他 profile 尝试时直接拒绝本次登录。
+				if !douyinAttemptsUseProfile(attempts[index+1:]) {
+					return BrowserCreateResult{}, fmt.Errorf("%w: login browser profile is busy, retry later", thirdparty.ErrQRLoginBrowserBusy)
+				}
+				continue
+			}
+		}
 		attemptCtx, cancelAttempt := douyinBrowserAttemptContext(ctx, len(attempts)-index)
 		result, runtime, err := b.attemptRunner(attemptCtx, attempt, now)
 		cancelAttempt()
@@ -136,6 +170,9 @@ func (b *ChromedpBrowser) createWithAttempts(ctx context.Context, now time.Time,
 			closeDouyinBrowserRuntime(runtime)
 		}
 		if err != nil {
+			if profileHeld {
+				b.releaseProfileSlot()
+			}
 			if requestErr := ctx.Err(); requestErr != nil {
 				return BrowserCreateResult{}, fmt.Errorf("douyin browser: %w", requestErr)
 			}
@@ -143,6 +180,7 @@ func (b *ChromedpBrowser) createWithAttempts(ctx context.Context, now time.Time,
 			b.logBrowserFallback(attempt.mode)
 			continue
 		}
+		runtime.usesProfile = profileHeld
 		b.mu.Lock()
 		old := b.sessions[result.Token]
 		b.sessions[result.Token] = runtime
@@ -177,6 +215,30 @@ func (b *ChromedpBrowser) createWithAttempts(ctx context.Context, now time.Time,
 	return BrowserCreateResult{}, thirdparty.ErrQRLoginBrowserUnavailable
 }
 
+// douyinAttemptsUseProfile 判断剩余尝试列表中是否还有持久化 profile 尝试。
+func douyinAttemptsUseProfile(attempts []browserLaunchAttempt) bool {
+	for _, attempt := range attempts {
+		if attempt.useProfile {
+			return true
+		}
+	}
+	return false
+}
+
+// releaseProfileSlot 归还持久化 profile 使用权。旧浏览器进程退出是异步的，
+// 延迟归还避免下一个会话在 profile 目录锁尚未释放时启动失败；残留进程
+// 由下一次启动前的 killDouyinProfileProcesses 统一清理（杀完立即启动，
+// 不存在迟到 kill 误伤新进程的并发窗口）。
+func (b *ChromedpBrowser) releaseProfileSlot() {
+	if b.profileSlot == nil {
+		return
+	}
+	go func() {
+		time.Sleep(1500 * time.Millisecond)
+		b.profileSlot <- struct{}{}
+	}()
+}
+
 func douyinBrowserAttemptContext(ctx context.Context, attemptsRemaining int) (context.Context, context.CancelFunc) {
 	if attemptsRemaining <= 1 {
 		return ctx, func() {}
@@ -195,13 +257,32 @@ func douyinBrowserAttemptContext(ctx context.Context, attemptsRemaining int) (co
 }
 
 func (b *ChromedpBrowser) createAttempt(ctx context.Context, attempt browserLaunchAttempt, now time.Time) (BrowserCreateResult, *browserRuntime, error) {
-	tabCtx, cancel, err := newDouyinBrowserContext(ctx, attempt, b.options.BrowserArgs)
+	tabCtx, cancel, err := newDouyinBrowserContext(ctx, attempt, b.options.BrowserArgs, b.options.UserDataDir)
 	if err != nil {
 		return BrowserCreateResult{}, nil, err
 	}
 	if err := startDouyinBrowserContext(ctx, tabCtx, cancel); err != nil {
 		cancel()
-		return BrowserCreateResult{}, nil, fmt.Errorf("douyin browser start failed")
+		return BrowserCreateResult{}, nil, fmt.Errorf("douyin browser start failed: %w", err)
+	}
+	// 启动后立即把 UA 对齐到实际浏览器版本，避免硬编码 UA 与版本信号不一致。
+	setupCtx, cancelSetup := douyinBrowserActionContext(tabCtx, ctx, 8*time.Second)
+	setupErr := overrideDouyinBrowserUserAgent(setupCtx)
+	cancelSetup()
+	if setupErr != nil {
+		cancel()
+		return BrowserCreateResult{}, nil, fmt.Errorf("douyin browser user agent setup failed: %w", setupErr)
+	}
+	// 持久化 profile 会保留上次的登录态；复用同一设备登录新账号前清掉
+	// 旧登录字段（保留 ttwid/s_v_web_id 等设备字段，维持设备信誉）。
+	if attempt.mode == BrowserModeVisible && strings.TrimSpace(b.options.UserDataDir) != "" {
+		resetCtx, cancelReset := douyinBrowserActionContext(tabCtx, ctx, 8*time.Second)
+		resetErr := clearDouyinLoginStateCookies(resetCtx)
+		cancelReset()
+		if resetErr != nil {
+			cancel()
+			return BrowserCreateResult{}, nil, fmt.Errorf("douyin browser profile reset failed: %w", resetErr)
+		}
 	}
 
 	capture := newDouyinNetworkCapture(tabCtx)
@@ -397,6 +478,10 @@ func (b *ChromedpBrowser) Poll(ctx context.Context, token string) (BrowserPollRe
 			return b.finishState(session, thirdparty.QRLoginStateFailed, nil), nil
 		}
 		if HasLoginCookie(cookies) {
+			if settled := b.settleLoginSession(ctx, session.ctx); settled != nil {
+				cookies = b.mergeCookies(session, settled)
+			}
+			b.logCookieGaps(cookies)
 			return b.finishState(session, thirdparty.QRLoginStateSucceeded, cookies), nil
 		}
 		observedState = thirdparty.QRLoginStatePendingConfirm
@@ -540,6 +625,9 @@ func (b *ChromedpBrowser) closeSession(token string, expected *browserRuntime) {
 	}
 	delete(b.sessions, token)
 	b.mu.Unlock()
+	if session.usesProfile {
+		b.releaseProfileSlot()
+	}
 	closeDouyinBrowserRuntime(session)
 }
 
@@ -620,6 +708,44 @@ func (b *ChromedpBrowser) waitLoginCookies(requestCtx, sessionCtx context.Contex
 	}
 }
 
+// settleLoginSession 登录成功后导航到主页并停留片刻，让 mssdk/sec_sdk 完成
+// 会话初始化（生成 msToken、webid 等设备字段）后再抓取完整 CK，避免保存
+// 残缺会话；任何失败都返回 nil，回退到已抓取的 Cookie，不阻断登录。
+func (b *ChromedpBrowser) settleLoginSession(requestCtx, sessionCtx context.Context) map[string]string {
+	settleCtx, cancel := douyinBrowserActionContext(sessionCtx, requestCtx, douyinBrowserSettleTimeout)
+	defer cancel()
+	if err := chromedp.Run(settleCtx,
+		chromedp.Navigate(douyinBrowserHomeURL),
+		chromedp.WaitReady("body"),
+		chromedp.Sleep(douyinBrowserSettleDelay),
+	); err != nil {
+		return nil
+	}
+	readCtx, cancelRead := douyinBrowserActionContext(sessionCtx, requestCtx, 3*time.Second)
+	settled, err := b.cookieReader(readCtx)
+	cancelRead()
+	if err != nil {
+		return nil
+	}
+	return settled
+}
+
+// logCookieGaps 记录登录 Cookie 缺失的平台设备字段，提示会话初始化不完整。
+func (b *ChromedpBrowser) logCookieGaps(cookies map[string]string) {
+	if b.options.Logger == nil {
+		return
+	}
+	var missing []string
+	for _, name := range []string{"s_v_web_id", "ttwid", "msToken", "webid"} {
+		if strings.TrimSpace(cookies[name]) == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		b.options.Logger.Warn("抖音扫码登录 Cookie 缺少设备字段", "component", "douyin_qrcode", "missing", strings.Join(missing, ","))
+	}
+}
+
 func (b *ChromedpBrowser) logBrowserFallback(mode string) {
 	if b.options.Logger != nil {
 		b.options.Logger.Warn("抖音扫码登录浏览器模式不可用", "component", "douyin_qrcode", "mode", mode)
@@ -629,6 +755,12 @@ func (b *ChromedpBrowser) logBrowserFallback(mode string) {
 func (b *ChromedpBrowser) logBrowserStarted(mode string) {
 	if b.options.Logger != nil {
 		b.options.Logger.Info("抖音扫码登录浏览器已启动", "component", "douyin_qrcode", "mode", mode)
+	}
+}
+
+func (b *ChromedpBrowser) logBrowserProfileBusy() {
+	if b.options.Logger != nil {
+		b.options.Logger.Warn("抖音扫码登录浏览器 profile 正被其他登录会话使用，本次跳过可见模式", "component", "douyin_qrcode")
 	}
 }
 

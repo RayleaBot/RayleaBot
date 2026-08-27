@@ -267,6 +267,17 @@ func (actions *Actions) ThirdPartyAccountValidate(ctx context.Context, request T
 	return actions.callResult(ctx, "thirdparty.account.validate", request)
 }
 
+type ThirdPartyResolveRequest struct {
+	Platform string `json:"platform"`
+	Query    string `json:"query"`
+	// Cookie 为账号 CK（敏感凭据），宿主用于恢复登录环境解析关键词。
+	Cookie string `json:"cookie,omitempty"`
+}
+
+func (actions *Actions) ThirdPartyResolve(ctx context.Context, request ThirdPartyResolveRequest) (ActionResult, error) {
+	return actions.callResult(ctx, "thirdparty.resolve", request)
+}
+
 func (actions *Actions) GovernanceBlacklistRead(ctx context.Context) (ActionResult, error) {
 	return actions.callResult(ctx, "governance.blacklist.read", struct{}{})
 }

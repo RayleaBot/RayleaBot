@@ -82,6 +82,7 @@ func defaultRegistrarItems() []registrar {
 		pluginListRegistrar(),
 		thirdPartyAccountReadRegistrar(),
 		thirdPartyAccountValidateRegistrar(),
+		thirdPartyResolveRegistrar(),
 	}
 	items = append(items, configRegistrars()...)
 	items = append(items, governanceRegistrars()...)

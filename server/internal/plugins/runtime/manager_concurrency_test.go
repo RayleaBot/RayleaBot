@@ -247,6 +247,45 @@ func TestParseThirdPartyAccountValidateAction(t *testing.T) {
 	}
 }
 
+func TestParseThirdPartyResolveAction(t *testing.T) {
+	t.Parallel()
+
+	action, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{
+		"platform":"douyin",
+		"query":"  洛天依  ",
+		"cookie":"  sessionid=fixture; ttwid=fixture;  "
+	}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction returned error: %v", err)
+	}
+	if action.Kind != "thirdparty.resolve" || action.ThirdPartyAccountPlatform != "douyin" || action.ThirdPartyResolveQuery != "洛天依" {
+		t.Fatalf("unexpected action: %#v", action)
+	}
+	if action.ThirdPartyResolveCookie != "sessionid=fixture; ttwid=fixture;" {
+		t.Fatalf("resolve cookie = %q, want trimmed cookie header", action.ThirdPartyResolveCookie)
+	}
+	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"   "}`)); err == nil {
+		t.Fatal("empty query was accepted")
+	}
+	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"`+strings.Repeat("长", 65)+`"}`)); err == nil {
+		t.Fatal("oversized query was accepted")
+	}
+	// maxLength 按 Unicode 码点计：64 个 emoji（每字符 4 字节）必须被接受，
+	// 65 个 emoji 必须被拒绝；字节计数会把 64 个 emoji 误拒。
+	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"`+strings.Repeat("🎵", 64)+`"}`)); err != nil {
+		t.Fatalf("64-codepoint emoji query was rejected: %v", err)
+	}
+	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"`+strings.Repeat("🎵", 65)+`"}`)); err == nil {
+		t.Fatal("65-codepoint emoji query was accepted")
+	}
+	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"query":"洛天依"}`)); err == nil {
+		t.Fatal("missing platform was accepted")
+	}
+	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"洛天依","cookie":"`+strings.Repeat("c", 8193)+`"}`)); err == nil {
+		t.Fatal("oversized cookie was accepted")
+	}
+}
+
 func TestParseConfigWriteAction(t *testing.T) {
 	t.Parallel()
 

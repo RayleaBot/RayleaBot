@@ -138,7 +138,7 @@ func fetchDouyinWebProfile(ctx context.Context, client *http.Client, cookies map
 		"Referer":            douyinReferer,
 		"User-Agent":         douyinUserAgent,
 		"DNT":                "1",
-		"Sec-CH-UA":          `"Chromium";v="134", "Google Chrome";v="134", "Not?A_Brand";v="99"`,
+		"Sec-CH-UA":          `"Chromium";v="152", "Google Chrome";v="152", "Not?A_Brand";v="99"`,
 		"Sec-CH-UA-Mobile":   "?0",
 		"Sec-CH-UA-Platform": `"Windows"`,
 		"Sec-Fetch-Dest":     "empty",

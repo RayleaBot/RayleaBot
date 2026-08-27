@@ -53,6 +53,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 | 调用通用 local action | action kind，例如 `logger.write`、`storage.kv`、`config.read` | 需要 | 按 action 需要声明 |
 | 读取三方账号 CK | `thirdparty.account.read` | 需要 | `third_party_account_platforms` |
 | 请求复检三方账号 CK | `thirdparty.account.validate` | 需要 | `third_party_account_platforms` |
+| 请求解析三方平台用户 | `thirdparty.resolve` | 需要 | `third_party_account_platforms`（当前仅 douyin） |
 | 调用 OneBot 单动作 | action kind，例如 `message.history.get`、`group.member.list` | 需要 | 无 |
 | 调用 provider 扩展动作 | provider action kind | 需要 | 无 |
 | 发起 HTTP 请求 | `http.request` | 需要 | `http_hosts` |
@@ -87,7 +88,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 
 - `http_hosts`：`http.request` 与 `render.image.resources` 可访问的主机名列表。声明的主机名匹配该主机及其子域，例如 `douyinpic.com` 覆盖 `p3-pc-sign.douyinpic.com`，但不覆盖 `evil-douyinpic.com`。平台仍执行 HTTP 超时、DNS 预检、SSRF 防护、私网主机限制和重定向目标复检；`render.image.resources` 使用独立的图片资源上限与请求级期限。
 - `storage_roots`：`storage.file` 可访问的插件文件根目录列表；当前唯一合法值是 `plugin_data`。平台仍执行路径穿越、符号链接和插件工作目录配额校验。
-- `third_party_account_platforms`：`thirdparty.account.read` 可读取、`thirdparty.account.validate` 可请求复检的平台列表；冻结值为 `bilibili`、`weibo`、`douyin`、`netease_music`。读取只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回；复检动作只能提交账号 ID、受限异常观察和可选 HTTP 状态，最终凭据状态由 Server 校验器决定。
+- `third_party_account_platforms`：`thirdparty.account.read` 可读取、`thirdparty.account.validate` 可请求复检、`thirdparty.resolve` 可请求用户解析的平台列表；冻结值为 `bilibili`、`weibo`、`douyin`、`netease_music`。读取只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回；复检动作只能提交账号 ID、受限异常观察和可选 HTTP 状态，最终凭据状态由 Server 校验器决定；解析动作提交昵称关键词，由 Server 用该平台的登录环境解析候选用户列表。
 - `webhooks`：`event.expose_webhook` 可暴露的路由列表。每项必填 `route`、`auth_strategy`、`header`、`secret_ref`，可选 `source_ips`。重放保护不在 manifest 中声明，而是每次注册 `event.expose_webhook` action 时通过必填 `replay_protection` 提交。
 
 ## 基础 capability
@@ -105,6 +106,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 - `secret.read`
 - `thirdparty.account.read`
 - `thirdparty.account.validate`
+- `thirdparty.resolve`
 - `governance.blacklist.read`
 - `governance.blacklist.write`
 - `governance.whitelist.read`
