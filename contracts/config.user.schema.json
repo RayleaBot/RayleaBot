@@ -772,8 +772,8 @@
         "max_retries": {
           "type": "integer",
           "minimum": 0,
-          "default": 2,
-          "description": "Maximum retry count for plugin HTTP requests. Default: 2.",
+          "default": 1,
+          "description": "Maximum retry count for plugin HTTP requests after the initial attempt. GET/HEAD requests retry on transport errors and 408/429/502/503/504 responses. Default: 1.",
           "x-apply-policy": "hot_reload"
         },
         "allow_private_hosts": {

@@ -35,7 +35,7 @@ group:
 http:
     allow_private_hosts: []
     max_response_body_bytes: 4194304
-    max_retries: 2
+    max_retries: 1
     timeout_seconds: 10
 log:
     level: info
