@@ -85,6 +85,44 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}
 }
 
+func TestPrefetchRenderImageResourcesAllowsSuffixMatchedHost(t *testing.T) {
+	t.Parallel()
+
+	content := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("fixture-suffix-host")...)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(content)
+	}))
+	defer server.Close()
+
+	resources, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
+		CurrentConfig: func() config.Config {
+			return config.Config{HTTP: config.HTTPConfig{
+				TimeoutSeconds:    5,
+				AllowPrivateHosts: []string{"127.0.0.1"},
+			}}
+		},
+		Capabilities: stubHTTPActionCapabilities{
+			capabilities: map[string]bool{"render.image": true, "http.request": true},
+			httpHosts:    []string{"0.0.1"},
+		},
+	}, ActionRequest{
+		PluginID:  "plugin.render",
+		RequestID: "render-resource-suffix",
+		Action: pluginruntime.Action{RenderResources: []pluginruntime.RenderImageResource{{
+			ID:  "media-0",
+			URL: server.URL + "/cover.png",
+		}}},
+	})
+	if err != nil {
+		t.Fatalf("prefetchRenderImageResources: %v", err)
+	}
+	defer cleanup()
+	if len(resources) != 1 || resources[0].ID != "media-0" {
+		t.Fatalf("resources = %#v", resources)
+	}
+}
+
 func TestPrefetchRenderImageResourcesRejectsUndeclaredHost(t *testing.T) {
 	t.Parallel()
 

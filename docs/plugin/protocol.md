@@ -151,7 +151,7 @@
 
 `render.image.data.resources` 是可选的请求级图片资源列表。每项包含唯一 `id`、主 `url`、最多四个有序 `fallback_urls` 和可选 `referer`；模板通过 `<img data-render-resource="资源 ID">` 引用资源。资源 URL 和 Referer 只接受 HTTPS，URL 用户信息与 fragment 被拒绝。
 
-使用 `resources` 的插件必须同时声明 `render.image` 与 `http.request`，资源目标和重定向目标必须位于 manifest 的 `http_hosts`。平台不会从插件接收 Cookie、Authorization 或任意下载请求头，只附带固定图片请求头和资源声明中的 Referer。JPEG、PNG、GIF 与 WebP 可作为渲染资源；单项响应上限为 16 MiB，每次渲染保留资源总量上限为 96 MiB，最多 16 项，全部资源共享 30 秒处理期限。
+使用 `resources` 的插件必须同时声明 `render.image` 与 `http.request`，资源目标和重定向目标必须位于 manifest 的 `http_hosts`。声明的主机名匹配该主机及其子域。平台不会从插件接收 Cookie、Authorization 或任意下载请求头，只附带固定图片请求头和资源声明中的 Referer。JPEG、PNG、GIF 与 WebP 可作为渲染资源；单项响应上限为 16 MiB，每次渲染保留资源总量上限为 96 MiB，最多 16 项，全部资源共享 30 秒处理期限。
 
 平台按 `url`、`fallback_urls` 的顺序解析资源。不可用或内容校验失败的资源保持未解析，模板原有 `src` 或 `data-fallback` 继续生效；格式错误、能力缺失、超出 `http_hosts` 或最终总量超限会拒绝 action。已接受图片保持原始字节，不进入 `data` 的 JSON/base64 大小预算。平台计算内容摘要并将其纳入截图缓存键，在 Chromium 完成或失败后删除请求级临时文件。
 

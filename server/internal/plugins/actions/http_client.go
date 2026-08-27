@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 var (
@@ -107,7 +109,7 @@ func (c *httpClient) do(ctx context.Context, req httpClientRequest, scopeHosts [
 	if host == "" {
 		return httpClientResponse{}, errHTTPInvalidRequest
 	}
-	if _, ok := toHostSet(scopeHosts)[host]; !ok {
+	if !hostAllowedByHTTPScope(host, scopeHosts) {
 		return httpClientResponse{}, errHTTPScopeViolation
 	}
 
@@ -370,6 +372,19 @@ func toHostSet(hosts []string) map[string]struct{} {
 		items[normalized] = struct{}{}
 	}
 	return items
+}
+
+func hostAllowedByHTTPScope(host string, scopeHosts []string) bool {
+	normalizedHost := normalizeHost(host)
+	if normalizedHost == "" {
+		return false
+	}
+	for _, allowed := range scopeHosts {
+		if thirdparty.HostMatches(normalizedHost, allowed) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeHost(host string) string {

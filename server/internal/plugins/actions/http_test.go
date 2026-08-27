@@ -48,6 +48,38 @@ func TestExecuteHTTPSendsExplicitRequestAndReturnsText(t *testing.T) {
 	}
 }
 
+func TestExecuteHTTPAllowsSuffixMatchedHost(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	result, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
+		HTTPMethod: "GET",
+		HTTPURL:    server.URL + "/cover.jpg",
+	}, config.Config{
+		HTTP: config.HTTPConfig{
+			TimeoutSeconds:    5,
+			MaxRetries:        0,
+			AllowPrivateHosts: []string{"127.0.0.1"},
+		},
+	}, stubHTTPActionCapabilities{
+		capabilities: map[string]bool{"http.request": true},
+		httpHosts:    []string{"0.0.1"},
+	})
+	if err != nil {
+		t.Fatalf("executeHTTPRequest failed: %v", err)
+	}
+	if result["status_code"] != http.StatusOK || result["body_text"] != "ok" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
 func TestExecuteHTTPRejectsUndeclaredHost(t *testing.T) {
 	t.Parallel()
 

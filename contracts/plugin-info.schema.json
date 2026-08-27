@@ -180,7 +180,7 @@
       "properties": {
         "http_hosts": {
           "type": "array",
-          "description": "Outbound HTTP hosts accepted by the http.request capability.",
+          "description": "Outbound HTTP host scopes accepted by the http.request capability. Each entry matches the exact host and its dot-delimited subdomains, but not lookalike suffixes.",
           "items": {
             "$ref": "#/$defs/host_name"
           },

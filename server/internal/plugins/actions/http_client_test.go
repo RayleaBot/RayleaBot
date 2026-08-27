@@ -50,6 +50,59 @@ func TestHTTPClientAllowsPrivateHostAndDoesNotFollowRedirect(t *testing.T) {
 	}
 }
 
+func TestHostAllowedByHTTPScopeMatchesDeclaredSuffix(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		host  string
+		scope []string
+		want  bool
+	}{
+		{host: "p3-pc-sign.douyinpic.com", scope: []string{"douyinpic.com"}, want: true},
+		{host: "www.douyin.com", scope: []string{"douyin.com"}, want: true},
+		{host: "douyin.com", scope: []string{"douyin.com"}, want: true},
+		{host: "api.example.test", scope: []string{"api.example.test"}, want: true},
+		{host: "evil-douyinpic.com", scope: []string{"douyinpic.com"}, want: false},
+		{host: "douyinpic.com.evil.test", scope: []string{"douyinpic.com"}, want: false},
+		{host: "images.example.test", scope: []string{"other.example.test"}, want: false},
+	}
+	for _, item := range cases {
+		if got := hostAllowedByHTTPScope(item.host, item.scope); got != item.want {
+			t.Fatalf("hostAllowedByHTTPScope(%q, %q) = %v, want %v", item.host, item.scope, got, item.want)
+		}
+	}
+}
+
+func TestHTTPClientAllowsSuffixMatchedPublicHost(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write([]byte("ok")); err != nil {
+			t.Errorf("Write response body failed: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	requestURL, resolver := testHTTPURLAndResolver(t, server.URL, "p3-pc-sign.douyinpic.test")
+	client := newHTTPClient(httpClientConfig{
+		Resolver:          resolver,
+		Timeout:           5 * time.Second,
+		MaxRetries:        0,
+		AllowPrivateHosts: []string{"p3-pc-sign.douyinpic.test"},
+	})
+
+	response, err := client.do(context.Background(), httpClientRequest{
+		Method: "GET",
+		URL:    requestURL,
+	}, []string{"douyinpic.test"})
+	if err != nil {
+		t.Fatalf("Do suffix-matched request: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("StatusCode = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+}
+
 func TestHTTPClientRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 	t.Parallel()
 
