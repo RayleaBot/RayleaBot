@@ -42,12 +42,14 @@ plugins/**/node_modules/
 /server/*.exe~
 /server/dist/
 /server/tmp/
+/server/.tmp/
 /server/coverage.out
 /server/.coverprofile
 /server/.gocache
 /.tmp/
 /server/config/
 plugins/**/.rayleabot/
+/reference/
 
 # Wails launcher outputs.
 /.pnpm-store/
