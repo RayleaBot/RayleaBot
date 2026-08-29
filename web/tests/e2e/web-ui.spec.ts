@@ -67,6 +67,39 @@ async function expectDocumentWithinViewport(page: import('@playwright/test').Pag
   ))).toBeLessThanOrEqual(1)
 }
 
+async function readFocusedAuthControlStyle(
+  focusTarget: import('@playwright/test').Locator,
+  visualTarget = focusTarget,
+) {
+  await focusTarget.focus()
+  return visualTarget.evaluate((element) => {
+    const style = getComputedStyle(element)
+    return {
+      borderWidth: style.borderTopWidth,
+      boxShadow: style.boxShadow,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: style.outlineWidth,
+    }
+  })
+}
+
+async function expectConsistentAuthControlFocus(page: import('@playwright/test').Page) {
+  const identifier = page.locator('.auth-form__control--identifier')
+  const secretWrapper = page.locator('.auth-form__control--secret')
+  const secretInput = secretWrapper.locator('input')
+
+  const identifierStyle = await readFocusedAuthControlStyle(identifier)
+  const secretStyle = await readFocusedAuthControlStyle(secretInput, secretWrapper)
+
+  expect(identifierStyle).toEqual({
+    borderWidth: '1px',
+    boxShadow: 'none',
+    outlineStyle: 'solid',
+    outlineWidth: '2px',
+  })
+  expect(secretStyle).toEqual(identifierStyle)
+}
+
 async function tabToLocator(
   page: import('@playwright/test').Page,
   locator: import('@playwright/test').Locator,
@@ -425,6 +458,28 @@ test('authentication surface keeps theme controls and credentials reachable on a
   await expect(page.getByLabel('管理员账号')).toBeFocused()
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
   await expectDocumentWithinViewport(page)
+})
+
+test('authentication controls share one focus treatment in light and dark themes', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.goto('/login')
+
+  await expectConsistentAuthControlFocus(page)
+
+  const themeToggle = page.getByTestId('auth-theme-toggle')
+  await themeToggle.click()
+  await page.getByRole('menuitem', { name: '暗色' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+
+  await expectConsistentAuthControlFocus(page)
+
+  const identifier = page.locator('.auth-form__control--identifier')
+  const secret = page.locator('.auth-form__control--secret input')
+  await identifier.fill('')
+  await page.locator('.auth-form__submit').click()
+  await expect(identifier).toHaveAttribute('aria-invalid', 'true')
+  await expect(secret).toHaveAttribute('aria-invalid', 'true')
+  await expectConsistentAuthControlFocus(page)
 })
 
 test('authentication stays stable during pointer interaction and reduced motion', async ({ page, request }) => {

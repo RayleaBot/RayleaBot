@@ -66,23 +66,28 @@ function setThemeModeWithMotion(mode: ThemeMode) {
 
 .auth-layout__fold {
   position: absolute;
-  width: clamp(160px, 24vw, 340px);
+  width: clamp(190px, 23vw, 300px);
   height: auto;
-  opacity: .12;
+  opacity: .07;
 }
-.auth-layout__fold--near { left: max(24px, calc(50% - 640px)); top: 24%; transform: rotate(-8deg); }
+.auth-layout__fold--near {
+  top: 50%;
+  left: max(20px, calc(50% - 390px));
+  transform: translateY(-54%) rotate(-10deg);
+}
 
 .auth-layout__surface {
   position: relative;
-  width: min(440px, 100%);
+  width: min(432px, 100%);
   color: var(--auth-text);
-  border: 1px solid var(--auth-border);
-  border-radius: 16px;
+  border: 0;
+  border-radius: 18px;
   background: var(--auth-surface);
-  animation: auth-surface-enter 240ms var(--motion-easing) both;
+  box-shadow: var(--auth-panel-shadow);
+  animation: auth-surface-enter 220ms var(--motion-easing) both;
 }
 
-.auth-layout__toolbar { position: absolute; top: 24px; right: 24px; z-index: 2; }
+.auth-layout__toolbar { position: absolute; top: 28px; right: 28px; z-index: 2; }
 
 .auth-layout__theme-toggle.ant-btn {
   display: grid;
@@ -92,17 +97,17 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   height: 36px;
   padding: 0;
   color: var(--auth-text-muted);
-  border: 1px solid var(--auth-border);
-  border-radius: 50%;
-  background: var(--auth-control);
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
   transition: background-color 160ms var(--motion-easing), color 160ms var(--motion-easing);
 
-  &:hover { color: var(--auth-brand-foreground); background: var(--auth-brand-soft); }
+  &:hover { color: var(--auth-brand-foreground); background: var(--auth-control-hover); }
   &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: 2px; }
 }
 
 @keyframes auth-surface-enter {
-  from { opacity: .72; transform: translateY(6px); }
+  from { opacity: .82; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -111,8 +116,10 @@ function setThemeModeWithMotion(mode: ThemeMode) {
 }
 
 @media (max-width: 600px) {
-  .auth-layout { padding: 40px 20px; }
-  .auth-layout__fold--near { left: -80px; top: 2%; opacity: .05; }
+  .auth-layout { padding: 32px 16px; }
+  .auth-layout__surface { border-radius: 16px; }
+  .auth-layout__fold { width: 180px; }
+  .auth-layout__fold--near { top: 8%; left: -72px; opacity: .04; transform: rotate(-10deg); }
   .auth-layout__toolbar { top: 20px; right: 20px; }
   .auth-layout__theme-toggle.ant-btn { width: 44px; min-width: 44px; height: 44px; }
 }
@@ -123,7 +130,11 @@ function setThemeModeWithMotion(mode: ThemeMode) {
 
 @media (forced-colors: active) {
   .auth-layout__art { display: none; }
-  .auth-layout__surface, .auth-layout__theme-toggle.ant-btn { border-color: CanvasText; }
+  .auth-layout__surface {
+    border: 1px solid CanvasText;
+    box-shadow: none;
+  }
+  .auth-layout__theme-toggle.ant-btn { border: 1px solid CanvasText; }
   .auth-layout__theme-toggle.ant-btn:focus-visible { outline-color: Highlight; }
 }
 </style>

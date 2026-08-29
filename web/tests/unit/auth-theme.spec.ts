@@ -17,12 +17,15 @@ describe('auth theme', () => {
       colorPrimary: '#476C5E',
       colorText: '#252525',
       colorTextLightSolid: '#FFFFFF',
+      controlHeight: 46,
     })
+    expect(theme.components?.Button).toMatchObject({ controlHeight: 46 })
+    expect(theme.components?.Input).toMatchObject({ activeShadow: 'none', controlHeight: 46 })
     expect(variables['--auth-border']).toBe('#E3E3E3')
     expect(variables['--auth-brand-fill']).toBe('#476C5E')
     expect(variables['--auth-brand-foreground']).toBe('#476C5E')
     expect(variables['--auth-canvas-focus']).toBe('#476C5E1F')
-    expect(variables['--auth-panel-shadow']).toContain('0 2px 8px')
+    expect(variables['--auth-panel-shadow']).toContain('0 18px 40px')
   })
 
   it('uses the accessible celadon action and dark action text in dark mode', () => {
@@ -38,6 +41,7 @@ describe('auth theme', () => {
     expect(variables['--auth-text-muted']).toBe('#ADADAD')
     expect(variables['--auth-control']).toBe('#252525')
     expect(variables['--auth-panel-highlight']).toBe('#292929')
-    expect(variables['--auth-panel-shadow']).toContain('0 2px 10px')
+    expect(theme.components?.Input).toMatchObject({ activeShadow: 'none', controlHeight: 46 })
+    expect(variables['--auth-panel-shadow']).toContain('0 20px 56px')
   })
 })

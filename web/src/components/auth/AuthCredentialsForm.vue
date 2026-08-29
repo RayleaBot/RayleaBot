@@ -122,6 +122,7 @@ async function handleSubmit() {
         <a-input
           id="auth-identifier"
           ref="identifierField"
+          class="auth-form__control auth-form__control--identifier"
           v-model:value="credentials.identifier"
           autocomplete="username"
           :disabled="pending"
@@ -144,6 +145,7 @@ async function handleSubmit() {
         <a-input-password
           id="auth-secret"
           ref="secretField"
+          class="auth-form__control auth-form__control--secret"
           v-model:value="credentials.secret"
           :autocomplete="secretAutocomplete"
           :disabled="pending"
@@ -181,18 +183,18 @@ async function handleSubmit() {
 <style scoped lang="scss">
 .auth-panel {
   width: 100%;
-  padding: 32px;
+  padding: 36px;
   color: var(--auth-text);
 }
 
 .auth-panel__header {
-  padding: 2px 42px 0 0;
+  padding: 0 44px 0 0;
 }
 
 .auth-panel__brand {
   margin: 0;
   color: var(--auth-brand-foreground);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -215,7 +217,7 @@ async function handleSubmit() {
 
 .auth-panel__subtitle {
   max-width: 34ch;
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--auth-text-muted);
   font-size: 14px;
   line-height: 1.55;
@@ -223,8 +225,8 @@ async function handleSubmit() {
 
 .auth-form {
   display: grid;
-  gap: 20px;
-  margin-top: 28px;
+  gap: 18px;
+  margin-top: 24px;
 }
 
 .auth-form :deep(.ant-form-item) {
@@ -243,44 +245,73 @@ async function handleSubmit() {
   line-height: 1.4;
 }
 
-.auth-form :deep(.ant-input),
-.auth-form :deep(.ant-input-affix-wrapper) {
-  min-height: 44px;
-  border-color: var(--auth-border-control);
-  border-radius: 8px;
+.auth-form :deep(.auth-form__control--identifier.ant-input),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper) {
+  box-sizing: border-box;
+  height: 46px;
+  min-height: 46px;
+  border: 1px solid var(--auth-border-control);
+  border-radius: 10px;
+  outline: none;
   background: var(--auth-control);
+  box-shadow: none;
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    outline-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.auth-form :deep(.ant-input:hover),
-.auth-form :deep(.ant-input-affix-wrapper:hover) {
+.auth-form :deep(.auth-form__control--identifier.ant-input) {
+  padding-inline: 14px 48px;
+}
+
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper) {
+  padding-inline: 14px 8px;
+}
+
+.auth-form :deep(.auth-form__control--identifier.ant-input:hover),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper:hover) {
   border-color: var(--auth-brand-stroke, var(--auth-brand-foreground));
   background: var(--auth-control-hover);
 }
 
-.auth-form :deep(.ant-input:focus),
-.auth-form :deep(.ant-input-affix-wrapper-focused) {
+.auth-form :deep(.auth-form__control--identifier.ant-input:focus),
+.auth-form :deep(.auth-form__control--identifier.ant-input:focus-visible),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper-focused),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper:focus-within) {
+  border-width: 1px;
   border-color: var(--auth-brand-stroke, var(--auth-brand-foreground));
-  background: var(--auth-control-hover);
-}
-
-.auth-form :deep(.ant-input-affix-wrapper:has(input:focus-visible)) {
   outline: 2px solid var(--auth-focus);
   outline-offset: 2px;
+  background: var(--auth-control-hover);
+  box-shadow: none;
 }
 
-.auth-form :deep(.ant-input-affix-wrapper .ant-input) {
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper > .ant-input) {
   min-height: 32px;
+  padding-right: 40px;
+  outline: none;
   background: transparent;
+  box-shadow: none;
 }
 
-.auth-form :deep(.ant-input:disabled),
-.auth-form :deep(.ant-input-affix-wrapper-disabled) {
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper > .ant-input:focus),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper > .ant-input:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.auth-form :deep(.auth-form__control--identifier.ant-input-status-error),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper-status-error) {
+  border-width: 1px;
+  border-color: var(--auth-danger);
+}
+
+.auth-form :deep(.auth-form__control--identifier.ant-input:disabled),
+.auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper-disabled) {
   color: var(--auth-text-muted);
+  border-width: 1px;
   border-color: var(--auth-border);
   background: color-mix(in srgb, var(--auth-control) 72%, var(--auth-canvas));
 }
@@ -326,6 +357,8 @@ async function handleSubmit() {
 }
 
 .auth-form__submit.ant-btn {
+  height: 46px;
+  min-height: 46px;
   margin-top: 4px;
   color: var(--auth-on-brand);
   border-color: var(--auth-brand-fill);
@@ -373,10 +406,10 @@ async function handleSubmit() {
     margin-top: 24px;
   }
 
-  .auth-form :deep(.ant-input),
-  .auth-form :deep(.ant-input-affix-wrapper),
+  .auth-form :deep(.auth-form__control--identifier.ant-input),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper),
   .auth-form__submit.ant-btn {
-    min-height: 44px;
+    min-height: 46px;
   }
 
   .auth-form :deep(.ant-input-password-icon) {
@@ -386,20 +419,39 @@ async function handleSubmit() {
 }
 
 @media (pointer: coarse) {
-  .auth-form :deep(.ant-input),
-  .auth-form :deep(.ant-input-affix-wrapper),
+  .auth-form :deep(.auth-form__control--identifier.ant-input),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper),
   .auth-form__submit.ant-btn {
-    min-height: 44px;
+    min-height: 46px;
   }
   .auth-form :deep(.ant-input-password-icon) { width: 44px; height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-form :deep(.ant-input),
-  .auth-form :deep(.ant-input-affix-wrapper),
+  .auth-form :deep(.auth-form__control--identifier.ant-input),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper),
   .auth-form :deep(.ant-input-password-icon),
   .auth-form__submit.ant-btn {
     transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .auth-form :deep(.auth-form__control--identifier.ant-input),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper) {
+    border-color: CanvasText;
+  }
+
+  .auth-form :deep(.auth-form__control--identifier.ant-input:focus),
+  .auth-form :deep(.auth-form__control--identifier.ant-input:focus-visible),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper-focused),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper:focus-within) {
+    outline-color: Highlight;
+  }
+
+  .auth-form :deep(.auth-form__control--identifier.ant-input-status-error),
+  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper-status-error) {
+    border-color: Mark;
   }
 }
 </style>
