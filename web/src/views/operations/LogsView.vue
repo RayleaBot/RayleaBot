@@ -470,7 +470,7 @@ onUnmounted(() => {
                   type="button"
                   class="logs-row"
                   :class="{ 'is-selected': selectedLogId === item.log_id }"
-                  :aria-label="`${getLogLevelLabel(item.level)} · ${item.source} · ${formatDateTime(item.timestamp)}`"
+                  :aria-label="`${getLogLevelLabel(item.level)} · ${item.source} · ${formatDateTime(item.timestamp)} · ${escapeUnsafeDisplayText(item.message)}`"
                   @click="openLogDetail(item)"
                 >
                 <div class="logs-row__meta">
@@ -707,7 +707,8 @@ onUnmounted(() => {
   line-height: 1.6;
   font-size: 0.9rem;
   white-space: pre-wrap;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   unicode-bidi: plaintext;
 }
 
