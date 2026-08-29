@@ -689,7 +689,7 @@ func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string)
 		}
 	}
 	c.logger.Warn(
-		"插件"+pluginLabel+"启动事件投递失败",
+		"插件"+pluginLabel+"的启动事件投递失败；插件已启动，但未收到启动通知。结果："+string(result.Outcome)+"，错误码："+result.ErrorCode,
 		"component", "app",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -750,7 +750,7 @@ func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, p
 		return
 	}
 	c.logger.Warn(
-		scheduler.DisplayMessage(pluginName, taskName, logLabel, "处理失败")+"耗时 "+scheduler.FormatDuration(duration),
+		scheduler.DisplayMessage(pluginName, taskName, logLabel, "处理失败")+"耗时 "+scheduler.FormatDuration(duration)+"；任务未完成。原因："+errorText,
 		"component", "scheduler",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -776,7 +776,7 @@ func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string,
 		OccurredAt: occurredAt,
 	}); err != nil && c.logger != nil {
 		c.logger.Warn(
-			"定时任务 "+jobID+" 的运行结果保存失败",
+			"定时任务 "+jobID+" 的运行结果保存失败；任务已执行，但历史记录可能缺失。原因："+err.Error(),
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),
@@ -946,7 +946,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 		}
 		if c.logger != nil {
 			c.logger.Warn(
-				"插件"+plugins.DisplayLabel(snapshot)+"连续崩溃，已进入死信状态",
+				fmt.Sprintf("插件%s连续崩溃 %d 次，已进入死信状态；自动重启已停止，需要人工检查后重新启用。", plugins.DisplayLabel(snapshot), crashCount),
 				"component", "app",
 				"plugin_id", pluginID,
 				"plugin_name", snapshot.Name,
@@ -966,7 +966,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 
 	if c.logger != nil {
 		c.logger.Info(
-			"插件"+plugins.DisplayLabel(snapshot)+"运行时崩溃，等待重启",
+			fmt.Sprintf("插件%s运行时崩溃，已进入退避；将在 %d 秒后尝试第 %d 次重启。", plugins.DisplayLabel(snapshot), int(delay.Seconds()), crashCount),
 			"component", "app",
 			"plugin_id", pluginID,
 			"plugin_name", snapshot.Name,
@@ -1087,7 +1087,7 @@ func (c *Controller) logLifecycleWarn(message, pluginID string, err error) {
 
 	pluginLabel, pluginName := c.pluginLogLabel(pluginID)
 	c.logger.Warn(
-		"插件"+pluginLabel+lifecycleActionLabel(message)+"失败",
+		"插件"+pluginLabel+lifecycleActionLabel(message)+"失败；请求未完成。原因："+err.Error(),
 		"component", "app",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,

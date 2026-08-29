@@ -9,7 +9,7 @@ frames:
     action: logger.write
     data:
       level: info
-      message: member notice received
+      message: Member 3001 joined group 2001; the membership counter will be updated.
       fields:
         event_type: notice.member_increase
         actor_id: "3001"
@@ -18,3 +18,4 @@ expect:
   notes:
     - logger.write is a platform-local action that uses a distinct request_id inside event handling.
     - The platform answers this request_id with result or error before the plugin finishes the outer event.
+    - message is complete without fields; fields retain structured diagnostics for filtering and detail views.

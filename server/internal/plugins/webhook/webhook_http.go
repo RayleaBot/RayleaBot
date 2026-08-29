@@ -107,7 +107,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			botID := strings.TrimSpace(s.runtime.CurrentBotID())
 			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
 				s.logger.Warn(
-					"插件 "+pluginID+" Webhook 分发前启动运行时失败，路由："+route,
+					"插件 "+pluginID+" 在处理 Webhook 路由 "+route+" 前启动运行时失败；本次 Webhook 无法分发。原因："+err.Error(),
 					"component", "app",
 					"plugin_id", pluginID,
 					"route", route,

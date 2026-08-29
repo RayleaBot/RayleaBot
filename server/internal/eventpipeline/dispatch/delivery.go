@@ -68,7 +68,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 				reason = "control_queue_full"
 				queueLabel = "控制事件"
 			}
-			d.logger.Warn("插件 "+pluginID+" 的"+queueLabel+"队列已满，已丢弃事件："+event.EventID,
+			d.logger.Warn("插件 "+pluginID+" 的"+queueLabel+"队列已满；事件 "+event.EventID+" 未进入插件处理流程并已丢弃。",
 				"component", "dispatch",
 				"plugin_id", pluginID,
 				"event_id", event.EventID,

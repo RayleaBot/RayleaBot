@@ -34,6 +34,6 @@ func handle(ctx context.Context, event *rayleabot.EventContext) error {
 	if err != nil {
 		return err
 	}
-	_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "scoped content cached", Fields: map[string]any{"status_code": result["status_code"], "cached_path": path}})
+	_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "The scoped HTTP response was cached at " + path + ".", Fields: map[string]any{"status_code": result["status_code"], "cached_path": path}})
 	return event.Result(map[string]any{"handled": true, "cached_path": path})
 }

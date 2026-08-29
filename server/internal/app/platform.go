@@ -138,7 +138,7 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	deps.Logs.SetRepository(logRepository, deps.Config.Log.RetentionDays)
 	deps.Tasks.SetLogSink(deps.Logs)
 	if err := deps.Logs.FlushSpool(ctx); err != nil {
-		deps.Logger.Warn("启动时刷新管理日志缓存失败",
+		deps.Logger.Warn("启动时刷新管理日志缓存失败；缓存中的日志暂未写入数据库，服务将继续运行并保留后续日志。原因："+err.Error(),
 			"component", "logging",
 			"err", err.Error(),
 		)

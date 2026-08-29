@@ -116,9 +116,14 @@ func (actions *Actions) MessageSend(ctx context.Context, request MessageSendRequ
 }
 
 type LoggerWriteRequest struct {
-	Level   string         `json:"level"`
-	Message string         `json:"message"`
-	Fields  map[string]any `json:"fields,omitempty"`
+	Level string `json:"level"`
+	// Message is a redacted operator-facing narrative that remains understandable
+	// without Fields. Include the known cause, impact, and recovery direction for
+	// warnings and errors when that information is available.
+	Message string `json:"message"`
+	// Fields contains supplemental redacted diagnostics for filtering and detail
+	// views; it must not carry context required to understand Message.
+	Fields map[string]any `json:"fields,omitempty"`
 }
 
 func (actions *Actions) LoggerWrite(ctx context.Context, request LoggerWriteRequest) (ActionResult, error) {

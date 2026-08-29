@@ -17,7 +17,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	if err != nil {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件清单 JSON 解析失败，已跳过：%s（来源：%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
+				fmt.Sprintf("插件清单 JSON 解析失败，已跳过：%s（来源：%s）；该插件本次不会加载，请修正清单后重新扫描。原因：%s", logpath.Display(repoRoot, infoPath), sourceRoot, err.Error()),
 				"component", "plugins",
 				"manifest_path", logpath.Display(repoRoot, infoPath),
 				"source_root", sourceRoot,
@@ -31,7 +31,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	if !ok {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件清单顶层结构不是对象，已跳过：%s（来源：%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
+				fmt.Sprintf("插件清单顶层结构不是对象，已跳过：%s（来源：%s）；该插件本次不会加载，请将清单顶层改为 JSON 对象后重新扫描。", logpath.Display(repoRoot, infoPath), sourceRoot),
 				"component", "plugins",
 				"manifest_path", logpath.Display(repoRoot, infoPath),
 				"source_root", sourceRoot,
@@ -44,7 +44,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	if !ok {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件清单缺少有效 ID，已跳过：%s（来源：%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
+				fmt.Sprintf("插件清单缺少有效 ID，已跳过：%s（来源：%s）；该插件本次不会加载，请补充有效 ID 后重新扫描。", logpath.Display(repoRoot, infoPath), sourceRoot),
 				"component", "plugins",
 				"manifest_path", logpath.Display(repoRoot, infoPath),
 				"source_root", sourceRoot,

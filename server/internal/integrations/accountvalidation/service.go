@@ -341,7 +341,7 @@ func (s *Service) runPluginRequests(ctx context.Context) {
 			_, err := s.validateAccount(ctx, request.platform, request.accountID, TriggerPlugin, request.requestedAt)
 			if err != nil && s.logger != nil && !errors.Is(err, context.Canceled) {
 				s.logger.Warn(
-					"third-party account validation requested by plugin failed",
+					fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 后，服务器校验失败；凭据状态未被插件直接修改，请稍后重试。原因：%s", request.pluginID, request.platform, request.accountID, err.Error()),
 					"component", "third_party_account_validation",
 					"trigger", string(TriggerPlugin),
 					"plugin_id", request.pluginID,
@@ -372,7 +372,7 @@ func (s *Service) runDue(ctx context.Context, trigger Trigger, interval time.Dur
 	}
 	accounts, err := s.accounts.List(ctx)
 	if err != nil {
-		s.logCycle(trigger, 0, 0, 1, err)
+		s.logCycle(trigger, 0, 0, 0, 1, err)
 		return
 	}
 	cutoff := s.now().UTC().Add(-interval)
@@ -396,7 +396,7 @@ func (s *Service) runDue(ctx context.Context, trigger Trigger, interval time.Dur
 		}
 		checked++
 	}
-	s.logCycle(trigger, len(accounts), due, failed, nil, "checked", checked)
+	s.logCycle(trigger, len(accounts), due, checked, failed, nil)
 }
 
 func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Account, applied bool, checkErr error) {
@@ -430,15 +430,22 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 	}
 	switch current.Credential.State {
 	case thirdparty.CredentialInvalid:
-		s.logger.Warn("三方账号 CK 已失效", args...)
+		s.logger.Warn(fmt.Sprintf("%s 账号 %s 的 CK 已确认失效；依赖该账号的请求将停止使用此凭据，请重新登录。", current.Platform, current.AccountID), args...)
 	case thirdparty.CredentialUnknown:
-		s.logger.Warn("三方账号 CK 状态检查未确认", args...)
+		reason := strings.TrimSpace(current.Credential.LastError)
+		if reason == "" && checkErr != nil {
+			reason = checkErr.Error()
+		}
+		if reason == "" {
+			reason = "平台未返回可确认的登录状态"
+		}
+		s.logger.Warn(fmt.Sprintf("%s 账号 %s 的 CK 状态暂时无法确认；当前状态保持 unknown，请稍后重试。原因：%s", current.Platform, current.AccountID, reason), args...)
 	default:
-		s.logger.Info("三方账号 CK 检查完成", args...)
+		s.logger.Info(fmt.Sprintf("%s 账号 %s 的 CK 检查完成，凭据状态有效。", current.Platform, current.AccountID), args...)
 	}
 }
 
-func (s *Service) logCycle(trigger Trigger, total, due, failed int, err error, extra ...any) {
+func (s *Service) logCycle(trigger Trigger, total, due, checked, failed int, err error) {
 	if s.logger == nil {
 		return
 	}
@@ -447,22 +454,26 @@ func (s *Service) logCycle(trigger Trigger, total, due, failed int, err error, e
 		"trigger", string(trigger),
 		"total", total,
 		"due", due,
+		"checked", checked,
 		"failed", failed,
 	}
-	args = append(args, extra...)
 	if err != nil {
-		s.logger.Warn("三方账号 CK 自动检查失败", append(args, "error_kind", "storage")...)
+		s.logger.Warn("三方账号 CK 自动检查未能开始；账号列表读取失败，现有凭据状态未改变。原因："+err.Error(), append(args, "error_kind", "storage")...)
 		return
 	}
-	s.logger.Info("三方账号 CK 自动检查完成", args...)
+	s.logger.Info(fmt.Sprintf("三方账号 CK 自动检查完成：共 %d 个账号，%d 个到期，成功检查 %d 个，失败 %d 个。", total, due, checked, failed), args...)
 }
 
 func (s *Service) logPluginRequest(pluginID, platform, accountID, observation string, httpStatus int, accepted bool, reason string) {
 	if s.logger == nil {
 		return
 	}
+	message := fmt.Sprintf("插件 %s 请求复检 %s 账号 %s：观察 %s 已接收，最终凭据状态由服务器校验决定。", pluginID, platform, accountID, observation)
+	if !accepted {
+		message = fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 未被接收；凭据状态未改变。原因：%s", pluginID, platform, accountID, strings.TrimSpace(reason))
+	}
 	s.logger.Info(
-		"plugin requested third-party account validation",
+		message,
 		"component", "third_party_account_validation",
 		"trigger", string(TriggerPlugin),
 		"plugin_id", pluginID,

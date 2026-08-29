@@ -17,10 +17,10 @@ func main() {
 
 func handle(ctx context.Context, event *rayleabot.EventContext) error {
 	key := "notice:member_decrease:count"
-	message := "member left notice received"
+	message := "Member " + event.Event.Actor.ID + " left group " + event.Event.Target.ID + "; the membership counter will be updated."
 	if event.Event.EventType == "notice.member_increase" {
 		key = "notice:member_increase:count"
-		message = "member joined notice received"
+		message = "Member " + event.Event.Actor.ID + " joined group " + event.Event.Target.ID + "; the membership counter will be updated."
 	}
 	_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: message, Fields: map[string]any{"user_id": event.Event.Actor.ID, "group_id": event.Event.Target.ID, "sub_type": event.Event.Payload["sub_type"]}})
 	result, _ := event.Actions().KVGet(ctx, key)

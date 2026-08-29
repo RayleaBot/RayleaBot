@@ -23,7 +23,7 @@ func handle(ctx context.Context, event *rayleabot.EventContext) error {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "webhook received", Fields: map[string]any{"route": event.Event.Target.ID}})
+		_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "Webhook route " + event.Event.Target.ID + " was received and accepted for processing.", Fields: map[string]any{"route": event.Event.Target.ID}})
 		return event.Result(map[string]any{"handled": true, "raw_payload_keys": keys})
 	}
 	if event.Event.Command() != "webhook_register" {

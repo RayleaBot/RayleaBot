@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -35,6 +36,9 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, event pluginruntime
 	}
 	message := schedulerCompletionMessage(ctx.PluginName, ctx.TaskName, ctx.LogLabel, status, duration)
 	if status == "处理失败" {
+		if reason := strings.TrimSpace(fmt.Sprint(extra["error"])); reason != "" && reason != "<nil>" {
+			message += "；任务未完成。原因：" + reason
+		}
 		d.logger.Warn(message, attrs...)
 		return
 	}
@@ -65,7 +69,7 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event plugin
 		OccurredAt: time.Now(),
 	}); err != nil && d.logger != nil {
 		d.logger.Warn(
-			"定时任务 "+jobID+" 的运行结果保存失败",
+			"定时任务 "+jobID+" 的运行结果保存失败；任务已执行，但历史记录可能缺失。原因："+err.Error(),
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),

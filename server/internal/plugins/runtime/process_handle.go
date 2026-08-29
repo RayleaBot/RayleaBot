@@ -150,7 +150,7 @@ func (m *Manager) watchRunningProcess(handle *Handle) {
 		m.mu.Unlock()
 
 		m.logger.Warn(
-			fmt.Sprintf("插件%s运行时异常退出，累计崩溃 %d 次", pluginIDLabel(handle.Spec.PluginID), crashCount),
+			fmt.Sprintf("插件%s运行时异常退出，累计崩溃 %d 次；当前事件处理已中断。原因：%s", pluginIDLabel(handle.Spec.PluginID), crashCount, waitErr.Error()),
 			"component", "runtime",
 			"plugin_id", handle.Spec.PluginID,
 			"runtime_state", string(StateCrashed),

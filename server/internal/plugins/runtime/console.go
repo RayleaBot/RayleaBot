@@ -94,7 +94,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 			}
 			if truncated {
 				m.logger.Warn(
-					"插件"+pluginIDLabel(pluginID)+"运行时 stderr 输出超过速率限制，已截断",
+					"插件"+pluginIDLabel(pluginID)+"运行时 stderr 输出超过速率限制，已截断；被截断的诊断内容不会写入控制台，请降低输出频率后重试。",
 					"component", "runtime",
 					"plugin_id", pluginID,
 				)
@@ -114,7 +114,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 			return
 		}
 		m.logger.Warn(
-			"插件"+pluginIDLabel(pluginID)+"运行时 stderr 读取失败",
+			"插件"+pluginIDLabel(pluginID)+"运行时 stderr 读取失败；后续控制台输出可能缺失。原因："+err.Error(),
 			"component", "runtime",
 			"plugin_id", pluginID,
 			"err", err.Error(),

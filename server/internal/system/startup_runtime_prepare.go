@@ -272,7 +272,8 @@ func logStartupFailure(logger *slog.Logger, repoRoot string, kind string, err er
 	}
 
 	label := runtimePrepareKindLabel(kind)
-	logger.Warn(label+"运行环境准备失败，已跳过自动准备", append(fields, "err", logpath.Error(repoRoot, err, pathValues...))...)
+	safeErr := logpath.Error(repoRoot, err, pathValues...)
+	logger.Warn(label+"运行环境准备失败，已跳过自动准备；依赖该运行环境的功能暂不可用。原因："+safeErr, append(fields, "err", safeErr)...)
 }
 
 func logStartupProgress(logger *slog.Logger, repoRoot string, event deps.PrepareProgress) {
@@ -340,10 +341,17 @@ func runtimePrepareProgressMessage(event deps.PrepareProgress) string {
 	}
 	stage := runtimePrepareStageLabel(event.Stage)
 	status := runtimePrepareStatusLabel(event.Status)
+	message := "运行环境准备：" + label + "，" + stage + status
 	if event.Summary != "" {
-		return "运行环境准备：" + label + "，" + stage + status + "，" + event.Summary
+		message += "，" + event.Summary
 	}
-	return "运行环境准备：" + label + "，" + stage + status
+	if event.Status == "failed" {
+		message += "；依赖该资源的功能暂不可用"
+		if strings.TrimSpace(event.Error) != "" {
+			message += "。原因：" + strings.TrimSpace(event.Error)
+		}
+	}
+	return message
 }
 
 func runtimePrepareKindLabel(kind string) string {

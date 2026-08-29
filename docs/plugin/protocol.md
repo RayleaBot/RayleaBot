@@ -76,7 +76,7 @@
 
 - `message.send`
 - `message.reply`
-- `logger.write`
+- `logger.write`：`message` 是管理日志列表直接展示的脱敏完整叙述，需要独立说明操作对象与结果；warn/error 在信息已知时同时说明原因、影响和恢复方向。`fields` 只保留过滤与详情诊断所需的结构化补充，不能作为理解 `message` 的前提
 - `storage.kv`：单值受 `storage.kv_value_max_bytes` 限制，所有插件的 KV 合计受 `storage.kv_total_limit_mb` 硬上限限制
 - `storage.file`：单文件受 `storage.file_max_bytes` 硬上限限制；写入结果返回 `usage_bytes`、`soft_limit_bytes`、`soft_limit_exceeded` 与 `cleanup_recommended`，超过每插件工作目录软限制时仍完成写入
 - `http.request`

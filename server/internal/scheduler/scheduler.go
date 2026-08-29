@@ -251,7 +251,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 
 	nextRun, err := nextCronTime(j.CronExpr, now, e.location)
 	if err != nil {
-		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间计算失败，已停止继续调度",
+		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间计算失败，已停止继续调度；请修正 cron 表达式后重新启用。原因："+err.Error(),
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),
@@ -280,7 +280,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := e.repo.UpdateJobSchedule(ctx, j); err != nil {
-		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间保存失败",
+		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间保存失败；内存中的调度已更新，但服务重启后可能恢复旧时间。原因："+err.Error(),
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),

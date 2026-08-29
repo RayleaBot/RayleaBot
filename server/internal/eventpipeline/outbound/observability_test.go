@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -105,7 +106,9 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 	})
 
 	summary := waitForOutboundSummary(t, stream)
-	if summary.Message != "系统 -> 私聊(300) 发送失败：cooldown reply" {
+	if !strings.Contains(summary.Message, "系统 -> 私聊(300)") ||
+		!strings.Contains(summary.Message, "本条消息未送达") ||
+		!strings.Contains(summary.Message, "send rejected by upstream") {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.Details["error_code"] != "adapter.send_failed" {

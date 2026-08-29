@@ -85,7 +85,10 @@ func (s *Service) Handle(ctx context.Context, event onebot11.NormalizedEvent) bo
 
 	result, err := s.renderBuiltinMenu(ctx, payload)
 	if err != nil || strings.TrimSpace(result.ImagePath) == "" {
-		s.logBuiltinMenuError(err)
+		if err == nil {
+			err = fmt.Errorf("render service returned no image")
+		}
+		s.logBuiltinMenuError("渲染", event.ConversationType, event.ConversationID, "已改用文字菜单回复", err)
 		s.sendBuiltinMenuText(ctx, event, request.Command, builtinMenuFallback)
 		return true
 	}
@@ -760,11 +763,16 @@ func (s *Service) waitLimit(ctx context.Context, request outbound.MessageLimitRe
 	return s.waitOutbound(ctx, request)
 }
 
-func (s *Service) logBuiltinMenuError(err error) {
+func (s *Service) logBuiltinMenuError(operation, targetType, targetID, impact string, err error) {
 	if err == nil || s == nil || s.logger == nil {
 		return
 	}
-	s.logger.Warn("内置菜单回复发送失败："+err.Error(), "component", "app", "error", err)
+	target := strings.TrimSpace(targetType) + " " + strings.TrimSpace(targetID)
+	if strings.TrimSpace(target) == "" {
+		target = "当前会话"
+	}
+	s.logger.Warn("内置菜单"+operation+"失败：目标 "+target+"；"+impact+"。原因："+err.Error(),
+		"component", "app", "target_type", targetType, "target_id", targetID, "operation", operation, "error", err)
 }
 
 func (s *Service) logBuiltinMenuTrigger(_ context.Context, event onebot11.NormalizedEvent, request Request) {
@@ -872,7 +880,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.No
 		TargetType: targetType,
 		TargetID:   targetID,
 	}); err != nil {
-		s.logBuiltinMenuError(err)
+		s.logBuiltinMenuError("等待发送", targetType, targetID, "本次菜单未发送，将等待下次请求重试", err)
 		logOutcome(outbound.SendResult{
 			DeliveryKind: strings.TrimSpace(attempt.ActionKind),
 			TargetType:   targetType,
@@ -889,7 +897,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.No
 			ReplyToMessageID: strings.TrimSpace(event.MessageID),
 			Segments:         segments,
 		})
-		s.logBuiltinMenuError(err)
+		s.logBuiltinMenuError("回复发送", targetType, targetID, "本次菜单未送达", err)
 		logOutcome(outbound.SendResult{
 			MessageID:    result.MessageID,
 			DeliveryKind: "message.reply",
@@ -903,7 +911,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.No
 		TargetID:   targetID,
 		Segments:   segments,
 	})
-	s.logBuiltinMenuError(err)
+	s.logBuiltinMenuError("消息发送", targetType, targetID, "本次菜单未送达", err)
 	logOutcome(outbound.SendResult{
 		MessageID:    result.MessageID,
 		DeliveryKind: "message.send",

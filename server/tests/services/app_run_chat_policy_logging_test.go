@@ -16,6 +16,7 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 )
@@ -86,7 +87,9 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	}
 
 	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "系统 -> [测试群(20001)] 发送失败：命令触发冷却，请稍后再试。"
+		return strings.Contains(summary.Message, "系统 -> [测试群(20001)]") &&
+			strings.Contains(summary.Message, "本条消息未送达") &&
+			strings.Contains(summary.Message, "cooldown reply blocked")
 	})
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)

@@ -86,7 +86,8 @@ func CreateSnapshotBestEffort(parent context.Context, store *Store, logger *slog
 	path, err := store.CreateSnapshot(ctx)
 	if err != nil {
 		if logger != nil {
-			logger.Warn("SQLite 数据库快照创建失败", "component", "storage", "err", logpath.Error(repoRoot, err, store.Path, SnapshotDirForDatabase(store.Path)))
+			safeErr := logpath.Error(repoRoot, err, store.Path, SnapshotDirForDatabase(store.Path))
+			logger.Warn("SQLite 数据库快照创建失败；本轮没有生成可恢复快照，服务将按计划在下个周期重试。原因："+safeErr, "component", "storage", "err", safeErr)
 		}
 		return
 	}

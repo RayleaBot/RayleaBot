@@ -1,8 +1,11 @@
 package accountvalidation
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -73,6 +76,26 @@ type credentialValidatorFunc func(context.Context, string, string) (thirdparty.A
 
 func (fn credentialValidatorFunc) CheckCookie(ctx context.Context, platform, cookie string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
 	return fn(ctx, platform, cookie)
+}
+
+func TestLogValidationKeepsAmbiguousHTTP432Unknown(t *testing.T) {
+	var output bytes.Buffer
+	service := &Service{logger: slog.New(slog.NewJSONHandler(&output, nil))}
+	previous := thirdparty.Account{Platform: thirdparty.PlatformWeibo, AccountID: "primary", Credential: thirdparty.CredentialStatus{State: thirdparty.CredentialValid}}
+	current := previous
+	current.Credential = thirdparty.CredentialStatus{State: thirdparty.CredentialUnknown, LastError: "微博 CK 状态暂时无法确认，请稍后重试"}
+	err := thirdparty.NewPlatformError(thirdparty.PlatformWeibo, thirdparty.ErrorRiskControl, 0, 432, "session blocked", nil)
+
+	service.logValidation(TriggerScheduled, previous, current, true, err)
+	message := output.String()
+	for _, expected := range []string{"当前状态保持 unknown", "暂时无法确认", "请稍后重试"} {
+		if !strings.Contains(message, expected) {
+			t.Fatalf("log %q does not contain %q", message, expected)
+		}
+	}
+	if strings.Contains(message, "已确认失效") {
+		t.Fatalf("ambiguous HTTP 432 was logged as invalid: %s", message)
+	}
 }
 
 func TestValidateAccountPersistsInvalidOutcomeAndKeepsProfile(t *testing.T) {

@@ -456,7 +456,7 @@ func TestBridgeEventSummaryFormatsGroupMessageContext(t *testing.T) {
 		},
 	})
 
-	if summary != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容" {
+	if summary != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容；已进入插件分发队列。" {
 		t.Fatalf("unexpected group summary: %#v", summary)
 	}
 }
@@ -479,7 +479,7 @@ func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
 		},
 	})
 
-	if summary != "10001: 测试私聊用户(30002): 你好" {
+	if summary != "10001: 测试私聊用户(30002): 你好；已进入插件分发队列。" {
 		t.Fatalf("unexpected private summary: %#v", summary)
 	}
 }

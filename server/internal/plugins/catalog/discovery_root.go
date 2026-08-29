@@ -61,7 +61,7 @@ func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, m
 				skipped++
 				if logger != nil {
 					logger.Warn(
-						fmt.Sprintf("插件目录缺少 info.json，已跳过：%s", logpath.Display(repoRoot, pluginDir)),
+						fmt.Sprintf("插件目录缺少 info.json，已跳过：%s；该目录本次不会作为插件加载，请补充清单后重新扫描。", logpath.Display(repoRoot, pluginDir)),
 						"component", "plugins",
 						"plugin_dir", logpath.Display(repoRoot, pluginDir),
 						"manifest_path", logpath.Display(repoRoot, infoPath),

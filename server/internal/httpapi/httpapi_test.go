@@ -54,8 +54,10 @@ func TestWithRequestContextRecoversPanicAndLogsStack(t *testing.T) {
 		t.Fatalf("decode panic log: %v", err)
 	}
 
-	if got := record["msg"]; got != "HTTP 请求处理发生内部异常：GET /api/panic" {
-		t.Fatalf("unexpected log message: got %#v want %#v", got, "HTTP 请求处理发生内部异常：GET /api/panic")
+	if got, _ := record["msg"].(string); !strings.Contains(got, "HTTP 请求处理发生内部异常：GET /api/panic") ||
+		!strings.Contains(got, "本次请求未完成") ||
+		!strings.Contains(got, "处理程序触发未恢复异常") {
+		t.Fatalf("unexpected log message: got %#v", got)
 	}
 	if got := record["panic"]; got != "boom" {
 		t.Fatalf("unexpected panic field: got %#v want %#v", got, "boom")

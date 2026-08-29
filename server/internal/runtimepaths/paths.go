@@ -117,10 +117,11 @@ func CleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugincatalog.ScanR
 				repoRoot := filepath.Dir(filepath.Dir(root.Path))
 				orphanPathDisplay := logpath.Display(repoRoot, orphanPath)
 				if err := os.RemoveAll(orphanPath); err != nil {
-					logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay,
+					safeErr := logpath.Error(repoRoot, err, orphanPath)
+					logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay+"；目录仍保留，服务将继续启动。原因："+safeErr,
 						"component", "app",
 						"path", orphanPathDisplay,
-						"err", logpath.Error(repoRoot, err, orphanPath),
+						"err", safeErr,
 					)
 				} else {
 					logger.Info("已清理遗留插件安装目录："+orphanPathDisplay,

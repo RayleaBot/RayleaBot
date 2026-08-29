@@ -99,7 +99,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 			PluginID:    pluginID,
 			CommandName: commandName,
 			TargetLabel: strings.TrimSpace(context.TargetLabel),
-		}, targetType, targetID, plainText, true),
+		}, targetType, targetID, plainText, true, reason),
 		fields...,
 	)
 }
@@ -121,7 +121,7 @@ func errorDetails(err error) (string, string) {
 	return "", reason
 }
 
-func sendSummary(context SendLogContext, targetType, targetID, plainText string, failed bool) string {
+func sendSummary(context SendLogContext, targetType, targetID, plainText string, failed bool, failureReason ...string) string {
 	subject := "系统"
 	if pluginID := strings.TrimSpace(context.PluginID); pluginID != "" {
 		subject = pluginID
@@ -136,7 +136,11 @@ func sendSummary(context SendLogContext, targetType, targetID, plainText string,
 	}
 
 	if failed {
-		return subject + " -> " + targetLabel + " 发送失败：" + summarizePlainText(plainText)
+		reason := "未知出站错误"
+		if len(failureReason) > 0 && strings.TrimSpace(failureReason[0]) != "" {
+			reason = strings.TrimSpace(failureReason[0])
+		}
+		return subject + " -> " + targetLabel + " 发送失败，本条消息未送达：" + summarizePlainText(plainText) + "；原因：" + reason
 	}
 	return subject + " -> " + targetLabel + "：" + summarizePlainText(plainText)
 }

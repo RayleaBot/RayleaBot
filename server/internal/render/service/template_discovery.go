@@ -44,11 +44,12 @@ func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed,
 		if err != nil {
 			if logger != nil {
 				templateDirDisplay := logpath.Display(repoRoot, templateDir)
+				safeErr := logpath.Error(repoRoot, err, templateDir)
 				logger.Warn(
-					"渲染模板加载失败，已跳过目录："+templateDirDisplay,
+					"渲染模板加载失败，已跳过目录："+templateDirDisplay+"；该目录中的模板本次不可用。原因："+safeErr,
 					"component", "render",
 					"template_dir", templateDirDisplay,
-					"err", logpath.Error(repoRoot, err, templateDir),
+					"err", safeErr,
 				)
 			}
 			continue

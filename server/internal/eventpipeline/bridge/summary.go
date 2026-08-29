@@ -10,6 +10,7 @@ import (
 )
 
 func bridgeEventSummary(action string, event onebot11.NormalizedEvent) string {
+	action = strings.TrimSpace(action)
 	if summary, ok := logging.OneBotInboundMessageSummary(logging.OneBotInboundMessageSummaryInput{
 		SourceProtocol:   event.SourceProtocol,
 		BotID:            event.BotID,
@@ -22,7 +23,16 @@ func bridgeEventSummary(action string, event onebot11.NormalizedEvent) string {
 		PlainText:        event.PlainText,
 		PayloadFields:    event.PayloadFields,
 	}); ok {
-		return summary
+		switch action {
+		case "ignored":
+			return summary + "；未匹配可处理该事件的插件，已忽略。"
+		case "queued for dispatcher":
+			return summary + "；已进入插件分发队列。"
+		case "failed to queue for dispatcher":
+			return summary + "；进入插件分发队列失败，没有插件完成接收，请检查插件运行状态与队列容量。"
+		default:
+			return summary
+		}
 	}
 
 	base := "适配器事件"
@@ -81,13 +91,16 @@ func bridgeEventSummary(action string, event onebot11.NormalizedEvent) string {
 		"ignored":                        "已忽略",
 		"queued for dispatcher":          "已进入插件分发队列",
 		"failed to queue for dispatcher": "进入插件分发队列失败",
-	}[strings.TrimSpace(action)]
+	}[action]
 	if actionLabel == "" {
 		actionLabel = strings.TrimSpace(action)
 	}
 	summary := fmt.Sprintf("插件桥接%s：%s", actionLabel, base)
 	if text := strings.TrimSpace(event.PlainText); text != "" {
 		summary += "：" + summarizeBridgeText(text)
+	}
+	if action == "failed to queue for dispatcher" {
+		summary += "；没有插件完成接收，请检查插件运行状态与队列容量。"
 	}
 	return summary
 }

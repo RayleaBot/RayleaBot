@@ -347,11 +347,13 @@ func logRenderImageResourceUnavailable(deps Deps, req ActionRequest, resourceID,
 	if deps.Logger == nil {
 		return
 	}
-	deps.Logger.Warn("插件图片资源预取失败",
+	trimmedResourceID := strings.TrimSpace(resourceID)
+	trimmedReason := strings.TrimSpace(reason)
+	deps.Logger.Warn("插件 "+req.PluginID+" 的图片资源 "+trimmedResourceID+" 预取失败；本次渲染无法使用该资源。原因："+trimmedReason,
 		"component", "render",
 		"plugin_id", req.PluginID,
 		"request_id", req.RequestID,
-		"resource_id", strings.TrimSpace(resourceID),
-		"reason", strings.TrimSpace(reason),
+		"resource_id", trimmedResourceID,
+		"reason", trimmedReason,
 	)
 }

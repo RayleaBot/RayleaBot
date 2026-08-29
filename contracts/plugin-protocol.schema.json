@@ -1201,10 +1201,12 @@
         },
         "message": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Redacted operator-facing narrative shown in management log lists. It must identify the operation and outcome without requiring fields; warn and error messages include the known cause, impact, and recovery direction when available."
         },
         "fields": {
           "type": "object",
+          "description": "Supplemental redacted structured diagnostics. Fields must not be required to understand the normal operator-facing outcome described by message.",
           "additionalProperties": true
         }
       }

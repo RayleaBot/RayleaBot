@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -126,7 +127,11 @@ func logRenderImageFailure(deps Deps, req ActionRequest, phase, template string,
 	if errors.As(err, &renderErr) && strings.TrimSpace(renderErr.Code) != "" {
 		attrs = append(attrs, "error_code", renderErr.Code)
 	}
-	deps.Logger.Warn("插件图片渲染失败", attrs...)
+	displayTemplate := strings.TrimSpace(template)
+	if displayTemplate == "" {
+		displayTemplate = "未命名模板"
+	}
+	deps.Logger.Warn(fmt.Sprintf("插件 %s 的图片渲染在 %s 阶段失败，模板 %s 未生成图片。原因：%s", req.PluginID, phase, displayTemplate, cause), attrs...)
 }
 
 func deepestRenderError(err error) error {

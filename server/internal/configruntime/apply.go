@@ -267,7 +267,7 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
 			if err != ErrProtocolStopped && s.logger != nil {
-				s.logger.Warn("OneBot 适配器热加载失败，需要重启相关配置",
+				s.logger.Warn("OneBot 适配器配置热加载失败；相关变更尚未生效，需要重启服务。原因："+err.Error(),
 					"component", "config",
 					"err", err.Error(),
 				)

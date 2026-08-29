@@ -1446,7 +1446,7 @@ export interface components {
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
-            /** @description OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context. */
+            /** @description Redacted operator-facing narrative that identifies the operation and outcome without opening log details. Warning and error messages include the known cause, impact, and recovery direction when available. OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context. */
             message: string;
             protocol?: components["schemas"]["LogProtocol"];
             plugin_id?: string;

@@ -135,7 +135,7 @@ func (t shellOutboundTransport) DoHTTPAPI(ctx context.Context, request APICallRe
 
 func (t shellOutboundTransport) LogUnsupportedSegment(segmentType string) {
 	t.s.logger.Warn(
-		"OneBot 出站消息包含不支持的消息段，已丢弃：类型 "+segmentType,
+		"OneBot 出站消息包含不支持的 "+segmentType+" 消息段；该消息段已丢弃，其余受支持内容将继续发送。",
 		"component", "adapter",
 		"segment_type", segmentType,
 	)

@@ -52,12 +52,18 @@ func (s *Shell) run(ctx context.Context) {
 		}
 
 		delay := s.deps.backoff.Duration(retryAttempt)
+		failure := s.Snapshot()
+		reason := failure.LastErrorMessage
+		if reason == "" {
+			reason = "连接会话意外结束"
+		}
 		s.logger.Warn(
-			"OneBot 主动 WebSocket 连接断开，将在 "+delay.String()+" 后重连："+sanitizeWSURL(s.forwardWSURL()),
+			"OneBot 主动 WebSocket 连接断开；事件收发暂时中断，将在 "+delay.String()+" 后重连："+sanitizeWSURL(s.forwardWSURL())+"。原因："+reason,
 			"component", "adapter",
 			"adapter_state", StateReconnecting,
 			"retry_in", delay.String(),
-			"error_code", s.Snapshot().LastErrorCode,
+			"error_code", failure.LastErrorCode,
+			"err", reason,
 		)
 
 		if err := s.deps.sleep(ctx, delay); err != nil {
@@ -85,14 +91,15 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	if err != nil {
 		if isAuthFailure(response) {
 			s.markAuthFailed(err)
+			errorSummary := summarizeError(err)
 			s.logger.Error(
-				"OneBot 主动 WebSocket 鉴权失败："+sanitizeWSURL(s.forwardWSURL()),
+				"OneBot 主动 WebSocket 鉴权失败："+sanitizeWSURL(s.forwardWSURL())+"；适配器已停止重连，请修正凭据后重启。原因："+errorSummary,
 				"component", "adapter",
 				"adapter_state", StateAuthFailed,
 				"transport", string(TransportForwardWS),
 				"ws_url", sanitizeWSURL(s.forwardWSURL()),
 				"error_code", errorCodeForwardWSConnectFail,
-				"err", summarizeError(err),
+				"err", errorSummary,
 			)
 
 			<-ctx.Done()
@@ -145,7 +152,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		s.logger.Warn(
-			"OneBot 主动 WebSocket 心跳超时，准备重连："+sanitizeWSURL(s.forwardWSURL()),
+			"OneBot 主动 WebSocket 心跳超时；当前事件收发已中断，适配器将重新连接："+sanitizeWSURL(s.forwardWSURL()),
 			"component", "adapter",
 			"adapter_state", StateConnected,
 			"error_code", errorCodeForwardWSSessionLost,

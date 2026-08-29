@@ -65,7 +65,7 @@ func (s *Service) reconcileRecoverySummary() (*recovery.CompatibilitySummary, er
 func (s *Service) ReconcileRecoverySummaryBestEffort(trigger string) {
 	if _, err := s.reconcileRecoverySummary(); err != nil && s.currentLogger() != nil {
 		s.currentLogger().Warn(
-			"failed to reconcile recovery summary",
+			"恢复兼容性摘要刷新失败；管理首页将继续显示上一次结果。触发来源："+strings.TrimSpace(trigger)+"。原因："+err.Error(),
 			"component", "app",
 			"trigger", strings.TrimSpace(trigger),
 			"err", err.Error(),

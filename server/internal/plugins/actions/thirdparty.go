@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -202,7 +203,7 @@ func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest)
 	profiles, exact, err := deps.ThirdPartyResolve.ResolveUser(ctx, query, cookieSets)
 	if err != nil {
 		if deps.Logger != nil {
-			deps.Logger.Warn("thirdparty.resolve 失败", "component", "plugin_action", "plugin_id", req.PluginID, "platform", platform, "err", err.Error())
+			deps.Logger.Warn(fmt.Sprintf("插件 %s 解析 %s 用户“%s”失败；本次没有返回候选用户，请稍后重试。原因：%s", req.PluginID, platform, query, err.Error()), "component", "plugin_action", "plugin_id", req.PluginID, "platform", platform, "query", query, "err", err.Error())
 		}
 		// 登录 profile 槽忙是瞬态（409，可重试）；其余上游失败统一
 		// 502，不再用「缺少必要资源」的 resource_missing 语义。

@@ -123,6 +123,8 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 - `render.image`
 - `plugin.list`
 
+`logger.write.message` 面向管理者并直接显示在实时与历史日志列表中。消息使用完整、可翻译的句子说明操作对象与结果；警告和错误在原因已知时说明影响与恢复方向。敏感值、响应正文和凭据不得进入消息或字段，`fields` 只用于结构化诊断。
+
 ## OneBot 单动作 capability
 
 能力名称直接等于正式 action kind：

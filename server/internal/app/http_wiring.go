@@ -161,8 +161,12 @@ func logConfiguredServer(state configRuntimeState, renderer *renderservice.Servi
 		"url", serverURL,
 	)
 	for _, issue := range renderer.Diagnostics() {
+		message := "渲染资源存在问题：" + issue.Summary
+		if issue.Remediation != "" {
+			message += "；处理建议：" + issue.Remediation
+		}
 		state.RuntimeLogger().Warn(
-			"渲染资源存在问题："+issue.Summary,
+			message,
 			"component", "render",
 			"code", issue.Code,
 			"severity", issue.Severity,

@@ -6,6 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -200,7 +201,9 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
 	}
-	if summary.Message != "action-plugin/echo -> [测试群(200)] 发送失败：hello dispatch" {
+	if !strings.Contains(summary.Message, "action-plugin/echo -> [测试群(200)]") ||
+		!strings.Contains(summary.Message, "本条消息未送达") ||
+		!strings.Contains(summary.Message, "send rejected by upstream") {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if summary.Details["command_name"] != "echo" {
