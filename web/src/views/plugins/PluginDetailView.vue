@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  ArrowLeftOutlined,
   ClearOutlined,
   ReloadOutlined,
 } from '@ant-design/icons-vue'
@@ -41,6 +42,7 @@ import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
+import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginConsolePanel, type PluginDetailInnerTab } from './usePluginConsolePanel'
 
 type PluginPanelOption = { label: string; value: string }
@@ -48,6 +50,7 @@ const CONSOLE_ROW_ESTIMATED_HEIGHT = 84
 
 const route = useRoute()
 const router = useRouter()
+const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
 const pluginConsoleStore = usePluginConsoleStore()
 const socketStore = useSocketStore()
@@ -137,7 +140,10 @@ const panelOptions = computed(() => {
 })
 const pluginWorkbenchActions = computed(() => buildPluginWorkbenchActions(pluginId.value))
 const managementPanelTitle = computed(() => activeManagementPage.value?.label?.trim() || t('plugins.sections.managementUi'))
-const pluginDisplayName = computed(() => currentPlugin.value?.name?.trim() || pluginId.value)
+const pluginDisplayName = computed(() => (
+  currentPlugin.value?.name?.trim() || pluginsStore.getPluginDisplayName(pluginId.value)
+))
+const pluginPageTitle = computed(() => t('plugins.detailPageTitle', { name: pluginDisplayName.value }))
 const requiresTrustAttention = computed(() => currentPlugin.value?.trust?.level === 'unverified')
 const pluginInitial = computed(() => pluginDisplayName.value.trim().slice(0, 1).toUpperCase() || 'P')
 const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
@@ -288,6 +294,10 @@ function getPluginAvatarStyle(name: string) {
   }
 }
 
+function returnToPluginList() {
+  void navigate({ name: 'plugins' })
+}
+
 async function syncPanelQuery(nextPanel: PluginDetailPanel, managementPage?: string | null) {
   const target = buildPluginDetailLocation(pluginId.value, {
     panel: nextPanel,
@@ -357,12 +367,23 @@ onUnmounted(() => {
 <template>
   <AppPage
     width="detail"
-    :title="pluginId"
+    :title="pluginPageTitle"
     :full-height="activePanel === 'management-ui' || (activePanel === 'overview' && activeDetailTab === 'console')"
   >
     <template #title>
       <div class="plugin-page-title-layout">
-        <h1>{{ pluginId }}</h1>
+        <a-tooltip :title="t('plugins.actions.backToList')">
+          <a-button
+            type="text"
+            class="plugin-detail-back-button"
+            :aria-label="t('plugins.actions.backToList')"
+            data-testid="plugin-detail-back-button"
+            @click="returnToPluginList"
+          >
+            <template #icon><ArrowLeftOutlined /></template>
+          </a-button>
+        </a-tooltip>
+        <h1>{{ pluginPageTitle }}</h1>
         <a-segmented
           v-if="panelOptions.length > 1"
           :value="activePanelKey"
@@ -854,8 +875,26 @@ onUnmounted(() => {
     font-size: clamp(1.12rem, 1.38vw, 1.32rem) !important;
     line-height: 1.25 !important;
     letter-spacing: -0.02em !important;
-    font-family: var(--font-mono) !important;
     font-weight: 700 !important;
+  }
+}
+
+.plugin-detail-back-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+
+  &:hover,
+  &:focus-visible {
+    background: var(--surface-soft);
+    color: var(--text);
   }
 }
 
@@ -1558,6 +1597,12 @@ onUnmounted(() => {
 }
 
 @media (max-width: 720px) {
+  .plugin-detail-back-button {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
   .console-terminal-line {
     grid-template-columns: 1fr;
     gap: 8px;

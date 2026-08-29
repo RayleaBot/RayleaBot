@@ -25,6 +25,7 @@ const lifecycleRefreshDelaysMs = [700, 1_500, 3_000, 5_000]
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
   const current = ref<PluginDetail | null>(null)
+  const pluginNameCache = ref<Record<string, string>>({})
   const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
   const loading = ref(false)
   const detailLoading = ref(false)
@@ -41,6 +42,25 @@ export const usePluginsStore = defineStore('plugins', () => {
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
+  function rememberPluginNames(plugins: Array<Pick<PluginSummary, 'id' | 'name'>>) {
+    const nextNames = { ...pluginNameCache.value }
+    let changed = false
+    for (const plugin of plugins) {
+      const name = plugin.name?.trim()
+      if (name && nextNames[plugin.id] !== name) {
+        nextNames[plugin.id] = name
+        changed = true
+      }
+    }
+    if (changed) {
+      pluginNameCache.value = nextNames
+    }
+  }
+
+  function getPluginDisplayName(pluginId: string) {
+    return pluginNameCache.value[pluginId] ?? pluginId
+  }
+
   async function fetchList() {
     if (listRequest) {
       return listRequest
@@ -52,6 +72,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       try {
         const response = await apiRequest<PluginListResponse>('/api/plugins')
         items.value = response.items
+        rememberPluginNames(response.items)
         reconcileLifecycleRefreshes(response.items)
       } catch (err) {
         error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
@@ -117,6 +138,8 @@ export const usePluginsStore = defineStore('plugins', () => {
         ...nextPlugin,
       }
     }
+
+    rememberPluginNames([nextPlugin])
 
     if (
       !isLifecycleTransitionState(plugin.state) ||
@@ -328,6 +351,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     fetchSettings,
     fetchList,
     getSettings,
+    getPluginDisplayName,
     installPlugin,
     inspectPlugin,
     uninstallPlugin,

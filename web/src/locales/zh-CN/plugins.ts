@@ -44,6 +44,7 @@ export const plugins = {
   title: '插件列表',
   install: '安装插件',
   detailTitle: '插件详情',
+  detailPageTitle: '插件：{name}',
   installDialogTitle: '安装插件',
   stats: {
     total: '全部插件',
@@ -135,6 +136,7 @@ export const plugins = {
     screenshotAlt: '说明',
   },
   actions: {
+    backToList: '返回插件列表',
     enable: '启用',
     reload: '重载',
     disable: '停用',

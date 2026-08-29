@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
+import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore } from '@/stores/ui-shell'
@@ -566,12 +567,19 @@ describe('BasicLayout', () => {
         affix: false,
         icon: 'plugins',
         path: '/plugins/weather',
-        title: 'weather',
+        title: '插件：weather',
       }),
     ]))
-    expect(getTabLabels()).toEqual(['系统状态', 'weather'])
+    expect(getTabLabels()).toEqual(['系统状态', '插件：weather'])
     expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
-    expect(getActiveTabLabel()).toBe('weather')
+    expect(getActiveTabLabel()).toBe('插件：weather')
+
+    const pluginsStore = usePluginsStore()
+    pluginsStore.upsert({ id: 'weather', name: 'Weather', state: 'running' })
+    await flushPromises()
+
+    expect(uiShellStore.tabs.find((item) => item.path === '/plugins/weather')?.title).toBe('插件：Weather')
+    expect(getActiveTabLabel()).toBe('插件：Weather')
   })
 
   it('keeps the same plugin detail page instance when only the panel query changes', async () => {
@@ -583,7 +591,7 @@ describe('BasicLayout', () => {
     await flushPromises()
 
     expect(uiShellStore.tabs.filter((item) => item.name === 'plugin-detail')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('weather')
+    expect(getActiveTabLabel()).toBe('插件：weather')
     expect(wrapper.get('[data-testid="plugin-detail-page"]').element).toBe(initialNode)
   })
 

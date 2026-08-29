@@ -150,6 +150,7 @@ describe('PluginDetailPage', () => {
     return createRouter({
       history: createMemoryHistory(),
       routes: [
+        { path: '/plugins', name: 'plugins', component: { template: '<div>plugins</div>' } },
         { path: '/plugins/:id', name: 'plugin-detail', component: PluginDetailPage },
         { path: '/commands', name: 'commands', component: { template: '<div>commands</div>' } },
         { path: '/logs/history', name: 'logs-history', component: { template: '<div>logs-history</div>' } },
@@ -159,6 +160,31 @@ describe('PluginDetailPage', () => {
 
   beforeEach(() => {
     setActivePinia(createPinia())
+  })
+
+  it('uses the session-cached plugin name while detail data is loading', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/weather')
+    await router.isReady()
+
+    const configStore = useConfigStore()
+    const pluginConsoleStore = usePluginConsoleStore()
+    const pluginsStore = usePluginsStore()
+    pluginsStore.upsert({ id: 'weather', name: 'Weather', state: 'running' })
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(pluginsStore, 'fetchDetail').mockReturnValue(new Promise(() => undefined))
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+    await nextTick()
+
+    expect(wrapper.get('h1').text()).toBe('插件：Weather')
+    wrapper.unmount()
   })
 
   it('renders manifest metadata and reconnects the console stream', async () => {
@@ -300,6 +326,7 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('process heartbeat ok')
     expect(wrapper.text()).toContain('plugin weather command weather delivered group message: 杭州晴')
     expect(wrapper.text()).toContain('Weather')
+    expect(wrapper.get('h1').text()).toBe('插件：Weather')
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.text()).toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
@@ -317,6 +344,10 @@ describe('PluginDetailPage', () => {
 
     expect(historySpy).toHaveBeenCalledWith('weather')
     expect(reconnectSpy).toHaveBeenCalledTimes(1)
+
+    await wrapper.get('[data-testid="plugin-detail-back-button"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('plugins')
   })
 
   it('keeps the console anchored to the bottom after the page transition settles', async () => {

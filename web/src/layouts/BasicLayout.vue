@@ -38,6 +38,7 @@ import ThemeModeMenu from '@/components/shell/ThemeModeMenu.vue'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { adminRoutes } from '@/router/routes/modules/admin'
+import { usePluginsStore } from '@/stores/plugins'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
@@ -56,6 +57,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const pluginsStore = usePluginsStore()
 const sessionStore = useSessionStore()
 const systemStore = useSystemStore()
 const uiShellStore = useUiShellStore()
@@ -338,7 +340,10 @@ uiShellStore.syncTabs(affixTabs)
 function resolveCurrentTabTitle(viewRoute: RouteLocationNormalizedLoaded) {
   if (viewRoute.name === 'plugin-detail') {
     const pluginId = viewRoute.params.id
-    return typeof pluginId === 'string' && pluginId ? pluginId : resolveRouteTitle(getLeafRouteMeta(viewRoute))
+    if (typeof pluginId === 'string' && pluginId) {
+      const pluginName = pluginsStore.getPluginDisplayName(pluginId)
+      return t('plugins.detailPageTitle', { name: pluginName })
+    }
   }
 
   return resolveRouteTitle(getLeafRouteMeta(viewRoute))
@@ -400,6 +405,20 @@ const {
   uiShellStore,
   navigate: (target) => navigateWithMotion(router, target, pageMotionProfile.value),
 })
+
+watch(
+  () => route.name === 'plugin-detail' ? resolveCurrentTabTitle(route) : null,
+  () => {
+    if (route.name !== 'plugin-detail') {
+      return
+    }
+
+    const projection = resolveCurrentWorkspaceTab(route)
+    if (projection) {
+      uiShellStore.upsertTab(projection.tab)
+    }
+  },
+)
 
 function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: string }> = []) {
   return items.flatMap((item) => {

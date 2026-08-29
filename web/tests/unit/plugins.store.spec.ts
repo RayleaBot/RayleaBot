@@ -23,10 +23,21 @@ describe('plugins store', () => {
   it('sorts plugins by id after upsert', () => {
     const store = usePluginsStore()
 
-    store.upsert({ id: 'zeta', state: 'disabled' })
-    store.upsert({ id: 'alpha', state: 'disabled' })
+    store.upsert({ id: 'zeta', name: 'Zeta', state: 'disabled' })
+    store.upsert({ id: 'alpha', name: 'Alpha', state: 'disabled' })
 
     expect(store.sortedItems.map((item) => item.id)).toEqual(['alpha', 'zeta'])
+    expect(store.getPluginDisplayName('alpha')).toBe('Alpha')
+    expect(store.getPluginDisplayName('unknown')).toBe('unknown')
+  })
+
+  it('keeps plugin names for the current session after list state changes', () => {
+    const store = usePluginsStore()
+
+    store.upsert({ id: 'weather', name: 'Weather', state: 'running' })
+    store.items = []
+
+    expect(store.getPluginDisplayName('weather')).toBe('Weather')
   })
 
   it('updates pending action state and plugin snapshot around actions', async () => {
