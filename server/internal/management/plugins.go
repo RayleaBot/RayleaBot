@@ -121,6 +121,7 @@ func RegisterPluginRoutes(router chi.Router, catalog plugins.CatalogView, _ *tas
 
 func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
 	router.Get("/api/plugins", newListHandler(catalog))
+	router.Get("/api/plugins/{plugin_id}/icon", newPluginIconHandler(catalog))
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
 }
 

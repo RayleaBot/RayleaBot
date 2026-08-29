@@ -31,6 +31,12 @@
 
 插件角色不属于 manifest。Server 根据已验证商店目录、本地安装来源或开发同步来源投影 `official`、`community`、`development`。
 
+### 图标
+
+`icon` 是插件包根目录内的相对路径，例如 `"icon": "assets/icon.svg"`，不接受外部 URL、绝对路径或父目录跳转。插件列表和详情返回该声明；Web 通过受管理会话保护的 `GET /api/plugins/{plugin_id}/icon` 加载图片，不将声明路径直接作为 URL。
+
+图标接口支持 SVG、PNG、JPEG、GIF 和 WebP，单文件上限为 `512 KiB`，只读取已安装且清单有效的插件包内普通文件，并限制符号链接不能越出包根目录。SVG 应自包含，不依赖脚本、外部图片或样式。响应使用私有无缓存策略、`nosniff` 与沙箱 CSP；不存在、未声明、不可读、不支持或超限的图标统一返回 `404 platform.resource_missing`，不暴露磁盘路径。Web 使用 RayleaBot Logo 作为缺失或失败的回退。
+
 ## 正式 capability 集合
 
 `capabilities` 使用同一套正式 capability 名称。机器可读的完整枚举以 `contracts/plugin-info.schema.json` 的 `capability_name` 定义为准。

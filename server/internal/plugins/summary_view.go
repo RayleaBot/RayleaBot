@@ -52,6 +52,7 @@ type SummaryView struct {
 	Version          string
 	Description      string
 	Author           string
+	Icon             string
 	Role             string
 	State            string
 	StateDiagnosis   *StateDiagnosis
@@ -71,6 +72,7 @@ func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
 		Version:          strings.TrimSpace(snapshot.Version),
 		Description:      strings.TrimSpace(snapshot.Description),
 		Author:           strings.TrimSpace(snapshot.Author),
+		Icon:             strings.TrimSpace(snapshot.Icon),
 		Role:             role,
 		State:            state,
 		StateDiagnosis:   diagnosis,

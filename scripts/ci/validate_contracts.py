@@ -165,6 +165,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/plugins/{plugin_id}/enable",
     "/api/plugins/{plugin_id}/disable",
     "/api/plugins/{plugin_id}/recover",
+    "/api/plugins/{plugin_id}/icon",
     "/api/plugins/{plugin_id}/reload",
     "/api/plugins/{plugin_id}/management/actions",
     "/api/plugins/{plugin_id}/settings",

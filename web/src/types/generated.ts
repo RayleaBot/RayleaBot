@@ -714,6 +714,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugins/{plugin_id}/icon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the declared icon of an installed plugin.
+         * @description Reads only the manifest icon relative to the validated plugin package root; callers cannot select another file or an external URL. Symlinks cannot escape the package root. Only regular SVG, PNG, JPEG, GIF or WebP files up to 524288 bytes are returned. Responses are private and no-store, use nosniff, and apply a sandboxed Content-Security-Policy that blocks scripts and external resources. Missing plugins, invalid manifests, absent or unreadable icons, unsupported content and oversized files return 404 platform.resource_missing without file paths.
+         */
+        get: operations["getPluginIcon"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugins/{plugin_id}/enable": {
         parameters: {
             query?: never;
@@ -1764,6 +1784,8 @@ export interface components {
             version?: string;
             description?: string;
             author?: string;
+            /** @description Optional package-relative icon path from the manifest; load bytes through getPluginIcon, never as a URL. */
+            icon?: string;
             role: components["schemas"]["PluginRole"];
             state: components["schemas"]["PluginState"];
             state_diagnosis?: components["schemas"]["PluginStateDiagnosis"];
@@ -2169,7 +2191,7 @@ export interface components {
             schema_version: "3";
             server: {
                 /**
-                 * @description HTTP server bind address. Use 0.0.0.0 to listen on all interfaces; for production bind 127.0.0.1 behind a reverse proxy. Requires restart.
+                 * @description HTTP server bind address. Use a loopback address for localhost_only and public_via_reverse_proxy, or an explicit private/LAN address for lan_enabled. Wildcard addresses are rejected. Requires restart.
                  * @default 127.0.0.1
                  */
                 host: string;
@@ -2193,7 +2215,7 @@ export interface components {
                  */
                 engine: "sqlite";
                 /**
-                 * @description Database file path. Relative paths resolve against the data directory; absolute paths are recommended for operational clarity. Requires restart.
+                 * @description Database file path. Relative paths resolve against the runtime root; absolute paths may be used for operational clarity. Requires restart.
                  * @default data/rayleabot.db
                  */
                 path: string;
@@ -2274,7 +2296,7 @@ export interface components {
                  */
                 browser_args: string[];
                 /**
-                 * @description Chromium executable path. Leave empty to use a prepared image rendering Chromium or a system Chromium-family browser.
+                 * @description Shared Chromium executable path for image rendering and the Douyin QR-login browser fallback. Leave empty to use a prepared managed Chromium or a system Chromium-family browser.
                  * @default
                  */
                 browser_path: string;
@@ -2336,12 +2358,12 @@ export interface components {
             };
             runtime: {
                 /**
-                 * @description Maximum time allowed for a single plugin's initialization (load and handshake). Default: 30.
+                 * @description Wall-clock deadline for one plugin's load and init handshake. init_progress frames do not extend the deadline. Default: 30.
                  * @default 30
                  */
                 plugin_init_timeout_seconds: number;
                 /**
-                 * @description Cumulative initialization time budget across all plugins; remaining plugins skip initialization when exceeded. Default: 300.
+                 * @description Cumulative initialization time budget for one runtime reconciliation pass across all enabled plugins; remaining plugins skip initialization when the budget is exhausted. Default: 300.
                  * @default 300
                  */
                 plugin_init_max_total_seconds: number;
@@ -2351,22 +2373,22 @@ export interface components {
                  */
                 plugin_event_timeout_seconds: number;
                 /**
-                 * @description Maximum queued events per plugin; new events are dropped when exceeded. Default: 16.
+                 * @description Maximum queued non-control events per plugin across the inbound channel and per-lane scheduler buffers; active deliveries are not counted and new events are dropped when exceeded. Default: 16.
                  * @default 16
                  */
                 max_pending_events_per_plugin: number;
                 /**
-                 * @description Maximum queued control events per plugin. Default: 4.
+                 * @description Independent priority queue bound for plugin.started, config.changed, bot.identity.changed, and management.action events per plugin. Default: 4.
                  * @default 4
                  */
                 max_pending_control_events_per_plugin: number;
                 /**
-                 * @description Maximum queued IPC actions per plugin; new actions are rejected when exceeded. Default: 256.
+                 * @description Maximum simultaneously outstanding local-action IPC requests per plugin. Rejected requests receive platform.rate_limited without starting a goroutine. Recent request-id history is bounded by the same value. Default: 256.
                  * @default 256
                  */
                 ipc_pending_actions_max: number;
                 /**
-                 * @description Burst rate limit for IPC actions, expressed as count per time window.
+                 * @description Per-plugin admission rate for local-action IPC requests, expressed as count per fixed time window. Rejected requests receive platform.rate_limited.
                  * @default 100/1s
                  */
                 ipc_action_burst_limit: components["schemas"]["rateLimit"];
@@ -2396,7 +2418,7 @@ export interface components {
                  */
                 shutdown_grace_seconds: number;
                 /**
-                 * @description Maximum size of a single IPC message; exceeding this disconnects and restarts the plugin. Default: 8388608.
+                 * @description Maximum encoded JSON bytes in one inbound or outbound IPC frame, excluding the newline delimiter. An oversized frame terminates the plugin runtime as a protocol violation. Default: 8388608.
                  * @default 8388608
                  */
                 ipc_message_max_bytes: number;
@@ -2417,22 +2439,27 @@ export interface components {
                  * @default 10485760
                  */
                 file_max_bytes: number;
-                /** @default 256 */
+                /**
+                 * @description Per-plugin file-workspace warning threshold. Writes remain allowed after the threshold; storage.file write results report usage, the threshold, and a cleanup recommendation. Default: 256.
+                 * @default 256
+                 */
                 plugin_workdir_soft_limit_mb: number;
             };
             data: {
                 /**
-                 * @description Audit log retention in days; entries older are purged. Default: 90.
+                 * @deprecated
+                 * @description Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot has no separate audit-log store; management log retention is controlled by log.retention_days.
                  * @default 90
                  */
                 audit_logs_retention_days: number;
                 /**
-                 * @description Event-record retention in days; entries older are purged. Default: 7.
+                 * @deprecated
+                 * @description Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot does not persist a general raw event-record stream.
                  * @default 7
                  */
                 event_records_retention_days: number;
                 /**
-                 * @description Download cache retention in days; entries older are purged. Default: 15.
+                 * @description Minimum age in days before the offline cleanup command removes entries from cache/downloads. Default: 15.
                  * @default 15
                  */
                 download_cache_retention_days: number;
@@ -2445,7 +2472,7 @@ export interface components {
                  */
                 level: "debug" | "info" | "warn" | "error";
                 /**
-                 * @description Log file retention in days; older files are purged. Default: 7.
+                 * @description Retention in days for persisted management log rows in SQLite; older rows are pruned. Default: 7.
                  * @default 7
                  */
                 retention_days: number;
@@ -2458,7 +2485,7 @@ export interface components {
                 /** @default 5/5s */
                 rate_limit_per_target: components["schemas"]["rateLimit"];
                 /**
-                 * @description Cooldown after consecutive send failures trigger the message circuit breaker. Default: 30.
+                 * @description Per-target message circuit-breaker cooldown after three consecutive adapter send failures. The open state rejects sends with adapter.send_failed; after the cooldown, one half-open probe closes the circuit on success or reopens it on failure. Default: 30.
                  * @default 30
                  */
                 circuit_breaker_seconds: number;
@@ -2492,8 +2519,8 @@ export interface components {
                  */
                 timeout_seconds: number;
                 /**
-                 * @description Maximum retry count for plugin HTTP requests. Default: 2.
-                 * @default 2
+                 * @description Maximum retry count for plugin HTTP requests after the initial attempt. GET/HEAD requests retry on transport errors and 408/429/502/503/504 responses. Default: 1.
+                 * @default 1
                  */
                 max_retries: number;
                 /**
@@ -2525,7 +2552,7 @@ export interface components {
                  */
                 public_origin: string | "" | unknown;
                 /**
-                 * @description Proxy source networks whose Forwarded and X-Forwarded-* headers may be trusted. Required and non-empty for public_via_reverse_proxy.
+                 * @description TCP peer networks allowed to supply Forwarded, X-Forwarded-For, or X-Real-IP client chains. The server walks the chain from right to left, strips configured trusted proxies, and uses the first untrusted address for login throttling. Headers from other peers are ignored. Required and non-empty for public_via_reverse_proxy.
                  * @default []
                  */
                 trusted_proxy_cidrs: string[];
@@ -2537,7 +2564,8 @@ export interface components {
             };
             backup: {
                 /**
-                 * @description Default backup consistency mode: offline takes an offline snapshot; online exports while running.
+                 * @deprecated
+                 * @description Deprecated compatibility field retained for existing schema-v3 documents. CLI backup is always offline and synchronous; the management API backup.create task is always online.
                  * @default offline
                  * @enum {string}
                  */
@@ -3667,6 +3695,42 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
+        };
+    };
+    getPluginIcon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Declared plugin icon bytes, at most 524288 bytes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/svg+xml": string;
+                    "image/png": string;
+                    "image/jpeg": string;
+                    "image/gif": string;
+                    "image/webp": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            /** @description The plugin or its declared icon is unavailable (platform.resource_missing). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     enablePlugin: {

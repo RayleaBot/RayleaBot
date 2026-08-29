@@ -6,6 +6,9 @@ info:
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
 x-fixtures:
+  - fixtures/web-api/ok.plugin-icon.yaml
+  - fixtures/web-api/edge.plugin-icon-unavailable.yaml
+  - fixtures/web-api/invalid.plugin-icon-unauthorized.yaml
   - fixtures/web-api/ok.healthz-response.yaml
   - fixtures/web-api/ok.setup-admin.yaml
   - fixtures/web-api/ok.setup-status.yaml
@@ -1188,6 +1191,46 @@ paths:
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
+
+  /api/plugins/{plugin_id}/icon:
+    get:
+      summary: Read the declared icon of an installed plugin.
+      description: >
+        Reads only the manifest icon relative to the validated plugin package root;
+        callers cannot select another file or an external URL. Symlinks cannot escape
+        the package root. Only regular SVG, PNG, JPEG, GIF or WebP files up to 524288
+        bytes are returned. Responses are private and no-store, use nosniff, and apply
+        a sandboxed Content-Security-Policy that blocks scripts and external resources.
+        Missing plugins, invalid manifests, absent or unreadable icons, unsupported
+        content and oversized files return 404 platform.resource_missing without file paths.
+      operationId: getPluginIcon
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      responses:
+        '200':
+          description: Declared plugin icon bytes, at most 524288 bytes.
+          content:
+            image/svg+xml:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/gif:
+              schema: { type: string, format: binary }
+            image/webp:
+              schema: { type: string, format: binary }
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          description: The plugin or its declared icon is unavailable (platform.resource_missing).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
   /api/plugins/{plugin_id}/enable:
     post:
@@ -3710,6 +3753,9 @@ components:
           type: string
         author:
           type: string
+        icon:
+          type: string
+          description: Optional package-relative icon path from the manifest; load bytes through getPluginIcon, never as a URL.
         role:
           $ref: '#/components/schemas/PluginRole'
         state:

@@ -21,6 +21,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			RuntimeState:             "running",
 			DisplayState:             "running",
 			Name:                     "Echo",
+			Icon:                     "assets/icon.svg",
 			Description:              "Official echo command",
 			SourceRoot:               "plugins/installed",
 			PackageSourceType:        "catalog",
@@ -129,6 +130,7 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 			"version":           true,
 			"description":       true,
 			"author":            true,
+			"icon":              true,
 			"role":              true,
 			"state":             true,
 			"state_diagnosis":   true,
@@ -147,6 +149,9 @@ func TestListPluginsReturnsContractShape(t *testing.T) {
 	}
 
 	official := byID["raylea.echo"]
+	if official["icon"] != "assets/icon.svg" {
+		t.Fatalf("list icon = %v, want declared package path", official["icon"])
+	}
 	if official["state"] != "running" {
 		t.Fatalf("raylea.echo state = %v, want running", official["state"])
 	}

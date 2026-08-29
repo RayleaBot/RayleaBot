@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: A declared plugin icon is returned as a protected image resource.
+request:
+  method: GET
+  path: /api/plugins/hello-go/icon
+response:
+  status: 200
+  content_type: image/svg+xml
+  headers:
+    Cache-Control: private, no-store
+    X-Content-Type-Options: nosniff
+    Content-Security-Policy: "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+  body: <binary>
+expect:
+  valid: true

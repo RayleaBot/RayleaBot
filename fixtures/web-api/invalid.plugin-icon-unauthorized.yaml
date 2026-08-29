@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Plugin icons require a management session.
+request:
+  method: GET
+  path: /api/plugins/hello-go/icon
+response:
+  status: 401
+  body:
+    error:
+      code: permission.denied
+      message: 当前用户无权执行该操作
+      message_key: errors.permission.denied
+      request_id: req_plugin_icon_unauthorized
+expect:
+  valid: true

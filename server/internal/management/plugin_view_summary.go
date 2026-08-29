@@ -12,6 +12,7 @@ type SummaryResponse struct {
 	Version          string                  `json:"version,omitempty"`
 	Description      string                  `json:"description,omitempty"`
 	Author           string                  `json:"author,omitempty"`
+	Icon             string                  `json:"icon,omitempty"`
 	Role             string                  `json:"role"`
 	State            string                  `json:"state"`
 	StateDiagnosis   *plugins.StateDiagnosis `json:"state_diagnosis,omitempty"`
@@ -83,6 +84,7 @@ func ToSummary(snapshot plugins.Snapshot, conflicts []string) SummaryResponse {
 		Version:          view.Version,
 		Description:      view.Description,
 		Author:           view.Author,
+		Icon:             view.Icon,
 		Role:             view.Role,
 		State:            view.State,
 		StateDiagnosis:   view.StateDiagnosis,

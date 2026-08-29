@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: An absent or unusable declared icon returns a safe error and the client can use its fallback logo.
+request:
+  method: GET
+  path: /api/plugins/hello-go/icon
+response:
+  status: 404
+  body:
+    error:
+      code: platform.resource_missing
+      message: 缺少必要资源
+      message_key: errors.platform.resource_missing
+      request_id: req_plugin_icon_missing
+expect:
+  valid: true

@@ -11,6 +11,7 @@ response:
       - id: weather
         name: Weather
         version: "1.2.3"
+        icon: assets/weather.svg
         description: 提供当前城市天气与未来天气查询。
         author: raylea
         role: official
