@@ -11,7 +11,7 @@ const wailsVersionMatch = goModuleText.match(/^\s*github\.com\/wailsapp\/wails\/
 if (!wailsVersionMatch) {
   throw new Error("launcher/go.mod does not declare github.com/wailsapp/wails/v3");
 }
-const wailsVersion = wailsVersionMatch[1];
+export const wailsVersion = wailsVersionMatch[1];
 
 export function wailsGenerateBindingsArgs(platform = process.platform) {
   const args = [

@@ -280,7 +280,6 @@ export function App() {
   if (initializing) {
     return (
       <div className="launcher-loading-shell">
-        <div className="section-kicker">RayleaBot 启动器</div>
         <h1 className="launcher-loading-shell__title">正在准备启动器</h1>
         <p className="launcher-loading-shell__detail">正在读取安装设置并检查本地服务状态。</p>
       </div>

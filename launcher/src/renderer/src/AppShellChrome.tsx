@@ -55,7 +55,6 @@ export function AppShellChrome({
             >
               <span className="nav-item__icon">{section.icon}</span>
               <span className="nav-item__label">{section.title}</span>
-              <RayleaMark className="nav-item__locator" variant="chrome" />
             </button>
           ))}
         </nav>

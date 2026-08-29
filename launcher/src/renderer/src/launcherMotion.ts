@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 export const launcherMotion = {
   control: 160,
   content: 200,
-  workspace: 300,
+  workspace: 220,
   workspaceEase: "cubic-bezier(0.25, 0.1, 0.25, 1)",
   overlay: 220,
   ease: "cubic-bezier(0.16, 1, 0.3, 1)",
@@ -33,11 +33,11 @@ interface ActiveWorkspaceAnimation {
 }
 
 let activeWorkspaceAnimation: ActiveWorkspaceAnimation | null = null;
-const workspaceEntryOpacity = 0;
+const workspaceEntryOpacity = 0.88;
 
 export function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" &&
-    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
+    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce), (forced-colors: active)").matches);
 }
 
 function supportsViewTransitions(): boolean {

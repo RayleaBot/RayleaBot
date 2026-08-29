@@ -1,9 +1,31 @@
 package main
 
 import (
+	"bytes"
+	"image/png"
 	"testing"
 	"time"
 )
+
+func TestEmbeddedLauncherIconsMatchNativeRoles(t *testing.T) {
+	for name, testCase := range map[string]struct {
+		data []byte
+		want int
+	}{
+		"application": {data: appIcon, want: 1024},
+		"tray":        {data: trayIcon, want: 32},
+	} {
+		t.Run(name, func(t *testing.T) {
+			image, err := png.Decode(bytes.NewReader(testCase.data))
+			if err != nil {
+				t.Fatalf("decode embedded icon: %v", err)
+			}
+			if bounds := image.Bounds(); bounds.Dx() != testCase.want || bounds.Dy() != testCase.want {
+				t.Fatalf("icon bounds = %v, want %dx%d", bounds, testCase.want, testCase.want)
+			}
+		})
+	}
+}
 
 func TestExternalStopConfirmationWaitsForRendererResponse(t *testing.T) {
 	for _, confirmed := range []bool{false, true} {

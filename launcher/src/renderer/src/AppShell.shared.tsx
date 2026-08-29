@@ -1,11 +1,11 @@
 import {
-  CheckmarkCircle20Filled,
-  DocumentText20Filled,
-  HeartPulse20Filled,
-  Info20Filled,
-  Settings20Filled,
-  Status20Filled,
-  Warning20Filled,
+  CheckmarkCircle20Regular,
+  DocumentText20Regular,
+  HeartPulse20Regular,
+  Info20Regular,
+  Settings20Regular,
+  Status20Regular,
+  Warning20Regular,
 } from "@fluentui/react-icons";
 
 import { getLauncherStateLabel, type LauncherPresentationState } from "@shared/launcher-presentation";
@@ -24,17 +24,17 @@ export const serviceStateConfig: Record<LauncherPresentationState, { label: stri
 };
 
 export const severityConfig = {
-  error: { label: "阻塞", icon: <Warning20Filled /> },
-  warning: { label: "警告", icon: <Warning20Filled /> },
-  ok: { label: "正常", icon: <CheckmarkCircle20Filled /> },
+  error: { label: "阻塞", icon: <Warning20Regular /> },
+  warning: { label: "警告", icon: <Warning20Regular /> },
+  ok: { label: "正常", icon: <CheckmarkCircle20Regular /> },
 };
 
 export const sections = [
-  { id: "status" as SectionId, title: "运行状态", icon: <Status20Filled /> },
-  { id: "environment" as SectionId, title: "环境检查", icon: <HeartPulse20Filled /> },
-  { id: "diagnostics" as SectionId, title: "日志诊断", icon: <DocumentText20Filled /> },
-  { id: "settings" as SectionId, title: "偏好设置", icon: <Settings20Filled /> },
-  { id: "about" as SectionId, title: "关于应用", icon: <Info20Filled /> },
+  { id: "status" as SectionId, title: "运行状态", icon: <Status20Regular /> },
+  { id: "environment" as SectionId, title: "环境检查", icon: <HeartPulse20Regular /> },
+  { id: "diagnostics" as SectionId, title: "日志诊断", icon: <DocumentText20Regular /> },
+  { id: "settings" as SectionId, title: "偏好设置", icon: <Settings20Regular /> },
+  { id: "about" as SectionId, title: "关于应用", icon: <Info20Regular /> },
 ];
 
 export const sectionContent = {

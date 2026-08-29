@@ -1,11 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
-	"image"
-	"image/color"
-	"image/png"
+	_ "embed"
 	"io/fs"
 	"log"
 	"os"
@@ -23,6 +19,12 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/icons"
 )
+
+//go:embed assets/appicon.png
+var appIcon []byte
+
+//go:embed assets/tray.png
+var trayIcon []byte
 
 var singleInstanceKey = [32]byte{
 	0x52, 0x61, 0x79, 0x6c, 0x65, 0x61, 0x42, 0x6f,
@@ -108,8 +110,8 @@ func main() {
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:                       "main",
 		Title:                      "RayleaBot 启动器",
-		Width:                      1380,
-		Height:                     920,
+		Width:                      1280,
+		Height:                     720,
 		MinWidth:                   760,
 		MinHeight:                  560,
 		URL:                        "/",
@@ -117,7 +119,7 @@ func main() {
 		Hidden:                     true,
 		InitialPosition:            application.WindowCentered,
 		BackgroundType:             application.BackgroundTypeSolid,
-		BackgroundColour:           application.NewRGB(246, 243, 245),
+		BackgroundColour:           application.NewRGB(250, 250, 250),
 		DefaultContextMenuDisabled: true,
 		EnableFileDrop:             false,
 		Permissions: map[application.PermissionType]application.Permission{
@@ -133,7 +135,13 @@ func main() {
 	host.app, host.window, host.tray, host.service = app, window, tray, service
 	var showInitialWindow sync.Once
 	showWindow := func() {
-		showInitialWindow.Do(func() { window.Show() })
+		showInitialWindow.Do(func() {
+			if screen := app.Screen.GetPrimary(); screen != nil {
+				window.SetSize(max(760, min(1280, screen.WorkArea.Width)), max(560, min(720, screen.WorkArea.Height)))
+				window.Center()
+			}
+			window.Show()
+		})
 	}
 	showFallback := time.AfterFunc(initialWindowReadyTimeout, func() {
 		application.InvokeAsync(showWindow)
@@ -147,7 +155,7 @@ func main() {
 	if runtime.GOOS == "darwin" {
 		tray.SetTemplateIcon(icons.SystrayMacTemplate)
 	} else {
-		tray.SetIcon(icon)
+		tray.SetIcon(trayIcon)
 	}
 	tray.SetTooltip("RayleaBot 启动器")
 	tray.OnClick(host.toggleWindow)
@@ -313,7 +321,7 @@ func (h *appHost) SetThemeMode(mode string) {
 	dark := mode == "dark" || (mode == "system" && h.app.Env.IsDarkMode())
 	background := application.NewRGB(246, 243, 245)
 	if dark {
-		background = application.NewRGB(21, 17, 20)
+		background = application.NewRGB(22, 22, 22)
 	}
 	h.window.SetBackgroundColour(background)
 }
@@ -353,50 +361,5 @@ func consumePIDEnvironment(name string) int {
 }
 
 func launcherIcon() []byte {
-	canvas := image.NewRGBA(image.Rect(0, 0, 64, 64))
-	fillRoundedRect(canvas, 5, 5, 59, 59, 13, color.RGBA{104, 72, 224, 255})
-	fillRoundedRect(canvas, 14, 17, 50, 47, 10, color.RGBA{248, 247, 255, 255})
-	fillCircle(canvas, 25, 31, 4, color.RGBA{70, 48, 160, 255})
-	fillCircle(canvas, 39, 31, 4, color.RGBA{70, 48, 160, 255})
-	for x := 24; x <= 40; x++ {
-		canvas.SetRGBA(x, 40, color.RGBA{104, 72, 224, 255})
-		canvas.SetRGBA(x, 41, color.RGBA{104, 72, 224, 255})
-	}
-	var output bytes.Buffer
-	if err := png.Encode(&output, canvas); err != nil {
-		panic(fmt.Sprintf("encode launcher icon: %v", err))
-	}
-	return output.Bytes()
-}
-
-func fillRoundedRect(target *image.RGBA, left, top, right, bottom, radius int, fill color.RGBA) {
-	for y := top; y < bottom; y++ {
-		for x := left; x < right; x++ {
-			dx := 0
-			if x < left+radius {
-				dx = left + radius - x
-			} else if x >= right-radius {
-				dx = x - (right - radius - 1)
-			}
-			dy := 0
-			if y < top+radius {
-				dy = top + radius - y
-			} else if y >= bottom-radius {
-				dy = y - (bottom - radius - 1)
-			}
-			if dx == 0 || dy == 0 || dx*dx+dy*dy <= radius*radius {
-				target.SetRGBA(x, y, fill)
-			}
-		}
-	}
-}
-
-func fillCircle(target *image.RGBA, centerX, centerY, radius int, fill color.RGBA) {
-	for y := centerY - radius; y <= centerY+radius; y++ {
-		for x := centerX - radius; x <= centerX+radius; x++ {
-			if (x-centerX)*(x-centerX)+(y-centerY)*(y-centerY) <= radius*radius {
-				target.SetRGBA(x, y, fill)
-			}
-		}
-	}
+	return appIcon
 }

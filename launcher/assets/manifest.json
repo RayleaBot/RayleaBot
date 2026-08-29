@@ -1,0 +1,64 @@
+{
+  "inputs": {
+    "geometry": {
+      "path": "design/mark.json",
+      "sha256": "ff35ea0fd0c3502d5b4f20f1cbf6aba4dd9eefcea987a89e5c0847fe7be6646d"
+    },
+    "palette": {
+      "path": "design/tokens.json",
+      "roles": {
+        "semantic.light.color.brandFill": "#476C5E",
+        "semantic.light.color.surfaceSoft": "#F4F4F4",
+        "base.color.celadon.600": "#638673"
+      },
+      "sha256": "af434d8de65e4c42c2265e62fd6df0e87e7ef10ac31bbd2784e4340cc466197c"
+    },
+    "generator": {
+      "path": "scripts/generate-launcher-icons.mjs",
+      "sha256": "c525eee06ce47711646118e7e1a9474665126d435d785c83169c87b5411b6231"
+    },
+    "icoEncoder": {
+      "module": "github.com/wailsapp/wails/v3",
+      "version": "v3.0.0-beta.9"
+    }
+  },
+  "rasterizer": {
+    "playwright": "1.62.1",
+    "chromium": "151.0.7922.34"
+  },
+  "outputs": {
+    "appicon.png": {
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "role": "application",
+      "treatment": "original facets on a neutral tile with transparent padding"
+    },
+    "tray.png": {
+      "width": 32,
+      "height": 32,
+      "alpha": true,
+      "role": "system tray",
+      "treatment": "original geometry as an opaque silhouette"
+    },
+    "icon.ico": {
+      "sizes": [
+        16,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "role": "Windows executable resource"
+    }
+  },
+  "sha256": {
+    "appicon.png": "063ce04d3083c7762fcc07f9191be40ff22f2a3fa4191abf6d03da2891b15c11",
+    "tray.png": "ee063ffefe0c4720c24733e4ac9f4d15cd60fdc2ce24e14dcbe10c5d4115977f",
+    "icon.ico": "d55ffff8852550b1bd1e83e71829e608882d6d2317f3e0583a2afcdb02b1d45a",
+    "sources/appicon.svg": "844bae3fbeac2c6dede02e0a02c173c183211cf64a65c42b5840a0eb3b1f7d51",
+    "sources/tray.svg": "64f70396dfcb25095e067643cd803ee98382d528b149819042b455f5dce6e4ea"
+  }
+}

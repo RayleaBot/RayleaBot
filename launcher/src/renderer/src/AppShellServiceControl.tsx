@@ -1,9 +1,8 @@
 import { Button } from "@fluentui/react-components";
-import { Globe20Filled, Play20Filled, Stop20Filled } from "@fluentui/react-icons";
+import { Globe20Regular, Play20Regular, Server24Regular, Stop20Regular } from "@fluentui/react-icons";
 import type { LauncherPresentationState } from "@shared/launcher-presentation";
 
 import { serviceStateConfig } from "./AppShell.shared";
-import { RayleaMark } from "./RayleaMark";
 
 type AppShellServiceControlProps = {
   attention: {
@@ -56,17 +55,11 @@ export function AppShellServiceControl({
   return (
     <section className="service-control" data-tone={tone} aria-labelledby="service-control-title">
       <div className="service-control__summary">
-        <div className="service-control__eyebrow">
-          <span className="section-kicker">服务控制</span>
-          <span className="service-control__state-chip" data-tone={tone}>
-            {stateLabel}
-          </span>
-        </div>
         <div className="service-control__state" aria-live="polite">
-          <RayleaMark className="service-state-mark" tone={tone} variant="neutral" />
+          <span className="service-state-mark" data-tone={tone} aria-label={stateHint}><Server24Regular /></span>
           <div className="service-control__state-copy">
-            <span className="service-control__state-hint">{stateHint}</span>
-            <h2 id="service-control-title">{stateLabel}</h2>
+            <h2 id="service-control-title">服务控制</h2>
+            <span className="service-control__state-value">{stateLabel}</span>
           </div>
         </div>
         <p className="service-control__detail">{snapshot.serviceDetail}</p>
@@ -82,15 +75,19 @@ export function AppShellServiceControl({
         <Button
           appearance="primary"
           className="service-control__primary"
-          onClick={onStart}
-          disabled={startDisabled}
-          icon={<Play20Filled />}
+          onClick={canOpenWebUi ? onOpenWeb : onStart}
+          disabled={canOpenWebUi ? controlsDisabled : startDisabled}
+          icon={canOpenWebUi ? <Globe20Regular /> : <Play20Regular />}
         >
-          {primaryActionLabel}
+          {canOpenWebUi ? "管理界面" : primaryActionLabel}
         </Button>
         <div className="service-control__secondary">
-          <Button appearance="secondary" className="danger-outline-button" onClick={onStop} disabled={stopDisabled} icon={<Stop20Filled />}>停止服务</Button>
-          <Button appearance="subtle" onClick={onOpenWeb} disabled={controlsDisabled || !canOpenWebUi} icon={<Globe20Filled />}>管理界面</Button>
+          <Button appearance="secondary" className="danger-outline-button" onClick={onStop} disabled={stopDisabled} icon={<Stop20Regular />}>停止服务</Button>
+          {canOpenWebUi ? (
+            !startDisabled && <Button appearance="subtle" onClick={onStart} disabled={controlsDisabled} icon={<Play20Regular />}>{primaryActionLabel}</Button>
+          ) : (
+            <Button appearance="subtle" onClick={onOpenWeb} disabled icon={<Globe20Regular />}>管理界面</Button>
+          )}
         </div>
         {busyLabel || !canOpenWebUi ? (
           <p className="operation-status" aria-live="polite">

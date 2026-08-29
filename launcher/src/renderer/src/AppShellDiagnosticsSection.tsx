@@ -1,5 +1,5 @@
 import { Button } from "@fluentui/react-components";
-import { CheckmarkCircle20Regular, FolderOpen20Filled, Warning20Filled } from "@fluentui/react-icons";
+import { CheckmarkCircle20Regular, FolderOpen20Regular, Warning20Regular } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 
@@ -42,7 +42,7 @@ export function AppShellDiagnosticsSection({
           <section className="diagnostics-log" aria-labelledby="diagnostics-log-title">
             <div className="workspace-heading">
               <div className="diagnostics-log__title">
-                <Warning20Filled aria-hidden="true" />
+                <Warning20Regular aria-hidden="true" />
                 <h3 id="diagnostics-log-title">最近异常输出</h3>
               </div>
               <span className="status-label" data-state="danger">需要检查</span>
@@ -69,7 +69,7 @@ export function AppShellDiagnosticsSection({
       </div>
 
       <div className="workspace-footer diagnostics-footer">
-        <Button appearance="subtle" onClick={onOpenLogs} icon={<FolderOpen20Filled />}>打开完整日志</Button>
+        <Button appearance="subtle" onClick={onOpenLogs} icon={<FolderOpen20Regular />}>打开完整日志</Button>
       </div>
     </section>
   );

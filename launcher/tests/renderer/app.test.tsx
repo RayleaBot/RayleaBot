@@ -141,7 +141,7 @@ describe("App", () => {
     });
   });
 
-  test("restarts the managed service when the running-state primary action is clicked", async () => {
+  test("restarts the managed service through its secondary restart action", async () => {
     let initialized = false;
     const calls: string[] = [];
     installDesktopApi({
@@ -193,7 +193,7 @@ describe("App", () => {
     });
   });
 
-  test("shows a disabled external-service action instead of start or restart", async () => {
+  test("opens management for an external service without offering start or restart", async () => {
     let initialized = false;
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
@@ -233,14 +233,16 @@ describe("App", () => {
 
     render(<App />);
 
-    const externalButton = await screen.findByRole("button", { name: "检测到现有服务" });
-    expect(externalButton).toBeDisabled();
+    const managementButton = await screen.findByRole("button", { name: "管理界面" });
+    expect(managementButton).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "检测到现有服务" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "启动 RayleaBot" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "重启服务" })).not.toBeInTheDocument();
   });
 
   test("keeps first-run setup inside the normal running flow", async () => {
     let initialized = false;
+    const openWebUi = vi.fn(async () => undefined);
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
       getSnapshot: vi.fn(async () => (initialized ? setupRequiredSnapshot : blankSnapshot)),
@@ -251,7 +253,7 @@ describe("App", () => {
       start: vi.fn(async () => undefined),
       stop: vi.fn(async () => undefined),
       resetAdmin: vi.fn(async () => undefined),
-      openWebUi: vi.fn(async () => undefined),
+      openWebUi,
       openReleasePage: vi.fn(async () => undefined),
       checkForUpdates: vi.fn(async () => undefined),
       downloadUpdate: vi.fn(async () => undefined),
@@ -279,7 +281,10 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "管理界面" })).not.toBeDisabled();
+    const managementButton = await screen.findByRole("button", { name: "管理界面" });
+    expect(managementButton).not.toBeDisabled();
+    fireEvent.click(document.querySelector<HTMLButtonElement>(".service-control__primary")!);
+    await waitFor(() => expect(openWebUi).toHaveBeenCalledOnce());
     expect(screen.getAllByText("运行中").length).toBeGreaterThan(0);
     expect(screen.queryByText("管理员初始化尚未完成。")).not.toBeInTheDocument();
     expect(screen.queryByText("需要设置")).not.toBeInTheDocument();

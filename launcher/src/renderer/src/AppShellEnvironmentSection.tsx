@@ -57,7 +57,6 @@ export function AppShellEnvironmentSection({
     <div className="environment-workspace">
       <section className="environment-summary" aria-labelledby="environment-summary-title">
         <div>
-          <div className="section-kicker">启动前检查</div>
           <h2 id="environment-summary-title">{environmentReadiness.label}</h2>
           <p>{environmentReadiness.detail}</p>
         </div>

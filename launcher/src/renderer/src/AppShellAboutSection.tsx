@@ -109,7 +109,6 @@ export function AppShellAboutSection({
           <div className="about-panel__identity">
             <span className="about-panel__mark" aria-hidden="true"><RayleaMark variant="neutral" /></span>
             <div>
-              <div className="section-kicker">RayleaBot</div>
               <h2>RayleaBot 启动器</h2>
               <p>检查本地环境、管理服务并定位运行问题。</p>
             </div>

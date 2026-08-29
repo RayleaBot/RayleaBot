@@ -108,7 +108,6 @@ export function AppShellRuntimePreparePanel({ runtimePrepare }: AppShellRuntimeP
     <article className="panel surface-panel surface-panel--subtle runtime-prepare-panel">
       <div className="runtime-prepare-panel__header">
         <div>
-          <div className="brand-eyebrow">运行环境准备</div>
           <Text size={200} className="panel-muted">
             {runtimePrepare.summary || current?.summary || "正在准备运行环境"}
           </Text>

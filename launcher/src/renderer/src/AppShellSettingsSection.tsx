@@ -1,8 +1,8 @@
 import { Button, Input, Radio, RadioGroup } from "@fluentui/react-components";
 import {
-  FolderOpen20Filled,
-  Stop20Filled,
-  Warning20Filled,
+  FolderOpen20Regular,
+  Stop20Regular,
+  Warning20Regular,
 } from "@fluentui/react-icons";
 import { deriveLauncherPresentation } from "@shared/launcher-presentation";
 import type {
@@ -71,7 +71,7 @@ export function AppShellSettingsSection({
 
       <section className="settings-section">
         <div className="settings-section__heading">
-          <FolderOpen20Filled />
+          <FolderOpen20Regular />
           <div><h3>路径设置</h3><p>启动器当前使用的目录和文件位置。</p></div>
         </div>
 
@@ -81,28 +81,28 @@ export function AppShellSettingsSection({
               <span className="path-field__label">安装目录</span>
               <div className="path-control">
                 <Input aria-label="安装目录" value={settingsDraft.installationRoot} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateInstallationRoot(data.value)} />
-                <Button appearance="secondary" onClick={onChooseInstallationRoot} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>浏览</Button>
+                <Button appearance="secondary" onClick={onChooseInstallationRoot} disabled={controlsDisabled} icon={<FolderOpen20Regular />}>浏览</Button>
               </div>
             </label>
             <label className="path-field">
               <span className="path-field__label">服务端程序</span>
               <div className="path-control">
                 <Input aria-label="服务端程序" value={serverExecutablePath} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("serverExecutablePath", data.value)} />
-                <Button appearance="secondary" onClick={onChooseServer} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>浏览</Button>
+                <Button appearance="secondary" onClick={onChooseServer} disabled={controlsDisabled} icon={<FolderOpen20Regular />}>浏览</Button>
               </div>
             </label>
             <label className="path-field">
               <span className="path-field__label">配置文件</span>
               <div className="path-control">
                 <Input aria-label="配置文件" value={configPath} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("configPath", data.value)} />
-                <Button appearance="secondary" onClick={onChooseConfig} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>浏览</Button>
+                <Button appearance="secondary" onClick={onChooseConfig} disabled={controlsDisabled} icon={<FolderOpen20Regular />}>浏览</Button>
               </div>
             </label>
             <label className="path-field">
               <span className="path-field__label">进程工作目录</span>
               <div className="path-control">
                 <Input aria-label="进程工作目录" value={workdir} disabled={controlsDisabled} className="settings-input settings-input--path" onChange={(_, data) => onUpdateAdvancedOverride("workdir", data.value)} />
-                <Button appearance="secondary" onClick={onChooseWorkdir} disabled={controlsDisabled} icon={<FolderOpen20Filled />}>选择</Button>
+                <Button appearance="secondary" onClick={onChooseWorkdir} disabled={controlsDisabled} icon={<FolderOpen20Regular />}>选择</Button>
               </div>
             </label>
           </div>
@@ -149,7 +149,7 @@ export function AppShellSettingsSection({
         </div>
         <div className="maintenance-action-list">
           <div className="maintenance-row" data-tone="danger">
-            <span className="maintenance-row__icon" aria-hidden="true"><Warning20Filled /></span>
+            <span className="maintenance-row__icon" aria-hidden="true"><Warning20Regular /></span>
             <div className="maintenance-row__copy">
               <strong>重置凭据</strong>
               <span>清除本地管理凭据，下次启动时重新完成初始化。</span>
@@ -157,7 +157,7 @@ export function AppShellSettingsSection({
             <Button appearance="secondary" className="danger-button" onClick={onResetAdmin} disabled={controlsDisabled || presentation.state === "starting" || presentation.state === "stopping"}>立即重置</Button>
           </div>
           <div className="maintenance-row">
-            <span className="maintenance-row__icon" aria-hidden="true"><Stop20Filled /></span>
+            <span className="maintenance-row__icon" aria-hidden="true"><Stop20Regular /></span>
             <div className="maintenance-row__copy">
               <strong>退出启动器</strong>
               <span>关闭窗口和托盘入口，不影响已保存配置与服务文件。</span>
