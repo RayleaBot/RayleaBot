@@ -1,6 +1,6 @@
 # Server
 
-本目录承载 RayleaBot 的 Go 服务端工程。
+本目录包含 RayleaBot 的 Go 服务端工程。
 
 ## 当前已接线能力
 
@@ -10,12 +10,12 @@
 - `GET /healthz`、`GET /readyz`
 - SQLite store、current schema bootstrap、auth persistence、task persistence、plugin enable intent persistence、secret store、third-party account persistence
 - plugin discovery：只扫描 `plugins/installed`；官方、社区和开发来源均通过统一安装事务进入该目录
-- management auth surface：
+- 管理认证接口：
   - `POST /api/setup/admin`
   - `GET /api/setup/status`
   - `POST /api/session/login`
   - `DELETE /api/session`
-- launcher local surface：
+- Launcher 本机接口：
   - `GET /api/launcher/status`
   - `POST /api/launcher/shutdown`
 - management HTTP / WebSocket：
@@ -173,8 +173,8 @@
   - Chromium 渲染与 bounded queue
   - `templates/` 模板注册、input schema 校验与缓存键生成
   - 管理面模板实时预览与插件图片渲染
-  - `render.image` 可在插件 HTTP scope 内预取原始图片，按内容摘要参与缓存，并以请求级临时文件交给 Chromium
-  - 模板与浏览器问题通过 startup logs、`/readyz` 和 `/api/system/diagnostics` 暴露；Launcher 组合服务端快照与本地 preflight，CLI `doctor` 在渲染资源范围内只检查 deps / Chromium 元数据
+  - `render.image` 可在插件声明的 HTTP 范围内预取原始图片，按内容摘要参与缓存，并以请求级临时文件交给 Chromium
+  - 模板与浏览器问题通过 startup logs、`/readyz` 和 `/api/system/diagnostics` 暴露；Launcher 合并服务端快照与本地预检结果，CLI `doctor` 只检查渲染资源相关的 deps 与 Chromium 元数据
 - CLI 子命令：
   - `config init` / `config normalize` / `config validate`
   - `reset-admin`
@@ -190,10 +190,10 @@
 
 - 单实例、单活跃 OneBot 主模型
 - 插件 runtime 通过正式 local action surface 访问平台能力
-- App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力分别由独立服务承载
+- App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力各自由独立服务实现
 - 内置三方账号平台包含 Bilibili、微博、抖音和网易云音乐
 - Cookie / CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
-- 平台保存三方账号 CK、扫码登录结果和账号资料，并负责手动与定时 CK 检查；订阅检查、用户解析、状态读取和内容立即检查由订阅中心插件处理
+- 平台保存三方账号 CK、扫码登录结果和账号资料，并负责手动与定时 CK 检查；订阅检查、用户解析、状态读取和内容的即时检查由订阅中心插件处理
 
 ## 默认命令
 

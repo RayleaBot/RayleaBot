@@ -1,6 +1,6 @@
 # Plugin Examples
 
-本目录承载与 `contracts/plugin-info.schema.json` 和
+本目录收录与 `contracts/plugin-info.schema.json` 和
 `contracts/plugin-protocol.schema.json` 对齐的示例插件。
 
 规则：

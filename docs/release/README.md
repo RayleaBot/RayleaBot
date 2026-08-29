@@ -1,6 +1,6 @@
 # Release Docs
 
-本目录说明 RayleaBot 的产物矩阵、发布信任、升级事务、回滚和验收门槛。
+本目录说明 RayleaBot 的产物矩阵、发布签名与信任、升级安装、回滚和验收条件。
 
 ## 阅读入口
 
@@ -19,4 +19,4 @@
 - CLI 更新入口：[`contracts/cli-commands.yaml`](../../contracts/cli-commands.yaml)
 - 固定工具链与发布基线：[`docs/engineering/baseline.md`](../engineering/baseline.md)
 
-正式 Authenticode 证书和真实签名 Windows packaged E2E 通过前，`windows-x64-full` 的正式更新方式为 `guided`。
+在正式 Authenticode 证书和真实签名 Windows packaged E2E 通过之前，`windows-x64-full` 的更新方式固定为 `guided`（引导更新）。

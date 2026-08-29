@@ -1,6 +1,6 @@
 # Engineering Docs
 
-本目录承载 RayleaBot 的工程治理内容，固定版本线、目录职责、实施顺序和质量门禁。
+本目录说明 RayleaBot 的工程治理：固定版本线、目录职责、实施顺序和质量门禁。
 
 ## 工程目录模型
 
@@ -17,7 +17,7 @@
 | `data/` | SQLite 状态库与插件业务数据 |
 | `cache/` | 渲染缓存、下载缓存与临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
-| `.deps/` | 图片渲染与抖音扫码浏览器回落共用的 Chromium 资源清单 |
+| `.deps/` | 图片渲染与抖音扫码登录（浏览器兜底）共用的 Chromium 资源清单 |
 | `.github/workflows/` | CI、打包与发布门禁 |
 | `docs/` | 文档总纲与专题说明 |
 
@@ -25,8 +25,8 @@
 
 | 文档 | 主题 |
 | --- | --- |
-| [baseline.md](./baseline.md) | 固定版本线、默认命令、目录职责与冻结选型 |
-| [implementation-order.md](./implementation-order.md) | 长期依赖顺序、状态 owner 与跨层边界 |
+| [baseline.md](./baseline.md) | 固定版本线、默认命令、目录职责与固定的技术选型 |
+| [implementation-order.md](./implementation-order.md) | 长期依赖顺序、状态归属与跨层边界 |
 | [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
 | [web-admin-baseline.md](./web-admin-baseline.md) | Web 管理面 Ant Design Vue + Vue Vben Admin 工程基线 |
 | [`../execution-plan-v0.3.md`](../execution-plan-v0.3.md) | 当前执行计划 |
@@ -34,6 +34,6 @@
 
 ## 维护规则
 
-- 对外接口裁决不在本目录，而在 `contracts/`。
+- 对外接口不由本目录决定，以 `contracts/` 为准。
 - 工程基线变化必须同步对应工程文件和 CI。
 - 本目录负责约束实现边界和协作规则，不替代正式契约。

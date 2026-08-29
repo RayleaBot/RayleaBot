@@ -6,17 +6,17 @@
 [![Node.js](https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs)](https://nodejs.org)
 [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs)](https://vuejs.org)
 
-面向个人开发者和开源协作者的自托管聊天机器人框架。基于 OneBot11 协议接入 QQ，提供插件扩展、Web 管理控制台和桌面启动器，所有数据运行在本地。
+面向个人开发者和开源协作者的自托管聊天机器人框架。基于 OneBot11 协议接入 QQ，提供插件扩展、Web 管理控制台和桌面启动器，所有数据只保存在本地。
 
 ## 核心特性
 
 - **自托管**：服务端、插件、管理面板全部运行在本地，无需云端控制面板。
 - **OneBot11 传输**：支持 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种连接方式。
-- **Go 插件**：插件后端使用预编译 Go 可执行文件，通过语言无关的 JSONL v1 协议与服务端通信；插件管理页使用隔离域中的 Vue 静态产物。
+- **Go 插件**：插件后端使用预编译 Go 可执行文件，通过语言无关的 JSONL v1 协议与服务端通信；插件管理页是运行在独立插件域中的 Vue 静态页面。
 - **三方账号**：支持 Bilibili、微博、抖音和网易云音乐账号的 CK 保存、扫码登录、资料与凭据校验；订阅与内容监控由独立插件 `raylea.subscription-hub` 提供。
 - **Web 管理控制台**：仪表盘、插件列表与商店、三方账号、菜单中心、指令中心、权限与限流、任务调度、日志检索和模板预览。
 - **桌面启动器**：基于 Wails，支持 Windows / macOS / Linux，提供一键启动、环境预检、进程编排和原生系统托盘。
-- **契约驱动**：HTTP / WebSocket / 插件协议等对外接口统一维护在 `contracts/`，实现与测试双向校验。
+- **契约驱动**：HTTP / WebSocket / 插件协议等对外接口统一以 `contracts/` 为准，实现和测试都对照它编写。
 
 ## 快速开始
 

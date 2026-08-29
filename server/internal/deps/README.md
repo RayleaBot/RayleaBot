@@ -18,7 +18,7 @@
 
 ## Caller Rules
 
-- 图片渲染和抖音扫码浏览器回落通过 runtime boundary 请求 Chromium `browser` 入口，不直接遍历缓存或 `.deps/store`。
+- 图片渲染和抖音扫码登录（浏览器兜底）通过 runtime boundary 请求 Chromium `browser` 入口，不直接遍历缓存或 `.deps/store`。
 - CLI doctor 与系统诊断只使用 diagnostics boundary，不在只读检查中准备资源。
 - 插件安装与插件 runtime 不依赖 `internal/deps`；它们只运行已校验的 Go artifact。
 - 用户可见的准备失败应保留 `BootstrapError` 的 stage、source、路径和 remediation，并用现有摘要 helper 生成一致文案。
