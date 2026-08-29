@@ -1,0 +1,14 @@
+{
+  "direction": "雾白·青瓷",
+  "kind": "pick",
+  "buildPath": "comp",
+  "userDecision": "按：雾白·青瓷",
+  "approvedComp": ".impeccable/mocks/decision/2026-08-27/pick.png",
+  "seed": "8c683bf9",
+  "scope": [
+    "login",
+    "web",
+    "launcher"
+  ],
+  "constraints": "保留功能、导航分组、操作路径和首页信息；按用户简报处理生成图中的蓝色和图标尺寸偏差。"
+}

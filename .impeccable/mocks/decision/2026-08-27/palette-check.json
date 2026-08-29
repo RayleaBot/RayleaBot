@@ -1,0 +1,58 @@
+{
+  "note": "设计阶段的候选色值计算；不构成渲染后的对比度、透明材质、全部状态或 WCAG 合规验证。",
+  "palettes": {
+    "assigned": {
+      "text": "#24242C",
+      "background": "#FFFFFF",
+      "primary": "#75648D",
+      "onPrimary": "#FFFFFF",
+      "darkBg": "#18171D",
+      "darkText": "#EDEBF2",
+      "darkPrimary": "#B8A7CE",
+      "darkOnPrimary": "#1F1928"
+    },
+    "pick": {
+      "text": "#25352F",
+      "background": "#FFFFFF",
+      "primary": "#476C5E",
+      "onPrimary": "#FFFFFF",
+      "darkBg": "#161B18",
+      "darkText": "#E7EEE9",
+      "darkPrimary": "#A3C5B3",
+      "darkOnPrimary": "#18281F"
+    },
+    "canon": {
+      "text": "#292825",
+      "background": "#FFFFFF",
+      "primary": "#A7623D",
+      "onPrimary": "#FFFFFF",
+      "darkBg": "#1C1B19",
+      "darkText": "#EEECE7",
+      "darkPrimary": "#E0B18A",
+      "darkOnPrimary": "#2F2318"
+    }
+  },
+  "values": [
+    {
+      "id": "assigned",
+      "textOnSurface": 15.4,
+      "buttonText": 5.3,
+      "darkText": 15.07,
+      "darkButtonText": 7.7
+    },
+    {
+      "id": "pick",
+      "textOnSurface": 12.89,
+      "buttonText": 5.87,
+      "darkText": 14.79,
+      "darkButtonText": 8.22
+    },
+    {
+      "id": "canon",
+      "textOnSurface": 14.74,
+      "buttonText": 4.71,
+      "darkText": 14.58,
+      "darkButtonText": 7.88
+    }
+  ]
+}

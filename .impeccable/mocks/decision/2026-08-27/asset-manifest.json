@@ -1,0 +1,19 @@
+{
+  "approvedComp": ".impeccable/mocks/decision/2026-08-27/pick.png",
+  "produce": [],
+  "new_generated_raster_required": false,
+  "semanticCode": [
+    "navigation",
+    "text",
+    "controls",
+    "data",
+    "state"
+  ],
+  "vectorSource": "design/mark.json",
+  "derivedConsumers": [
+    "web brand",
+    "launcher brand",
+    "web favicon"
+  ],
+  "review": "独立素材审查确认折叶是可数几何色面，其余为数字界面表面；不需新生成位图。"
+}

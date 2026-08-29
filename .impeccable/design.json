@@ -1,238 +1,238 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-23T00:00:00Z",
+  "generatedAt": "2026-08-27T10:20:08.730Z",
   "title": "Design System: RayleaBot",
   "extensions": {
     "colorMeta": {
-      "plum-50": {
+      "celadon-50": {
         "role": "brand-base",
-        "displayName": "梅紫 50",
-        "canonical": "#FFF4F9",
+        "displayName": "青瓷 50",
+        "canonical": "#F1F6F2",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-100": {
+      "celadon-100": {
         "role": "brand-base",
-        "displayName": "梅紫 100",
-        "canonical": "#FBE8F2",
+        "displayName": "青瓷 100",
+        "canonical": "#E1E9E3",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-200": {
+      "celadon-200": {
         "role": "brand-base",
-        "displayName": "梅紫 200",
-        "canonical": "#F4CEE0",
+        "displayName": "青瓷 200",
+        "canonical": "#CEDCD1",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-300": {
+      "celadon-300": {
         "role": "brand-base",
-        "displayName": "梅紫 300",
-        "canonical": "#E8AAC7",
+        "displayName": "青瓷 300",
+        "canonical": "#BBD0C1",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-400": {
+      "celadon-400": {
         "role": "brand-base",
-        "displayName": "梅紫 400",
-        "canonical": "#D57BA6",
+        "displayName": "青瓷 400",
+        "canonical": "#A3C5B3",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-500": {
+      "celadon-500": {
         "role": "brand-base",
-        "displayName": "梅紫 500",
-        "canonical": "#BF4F87",
+        "displayName": "青瓷 500",
+        "canonical": "#80A48F",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-600": {
+      "celadon-600": {
         "role": "brand-base",
-        "displayName": "梅紫 600",
-        "canonical": "#9F356C",
+        "displayName": "青瓷 600",
+        "canonical": "#638673",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-700": {
+      "celadon-700": {
         "role": "brand-base",
-        "displayName": "梅紫 700",
-        "canonical": "#8A285D",
+        "displayName": "青瓷 700",
+        "canonical": "#476C5E",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-800": {
+      "celadon-800": {
         "role": "brand-base",
-        "displayName": "梅紫 800",
-        "canonical": "#6C204B",
+        "displayName": "青瓷 800",
+        "canonical": "#365749",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-900": {
+      "celadon-900": {
         "role": "brand-base",
-        "displayName": "梅紫 900",
-        "canonical": "#3F1830",
+        "displayName": "青瓷 900",
+        "canonical": "#294438",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
-      "plum-1000": {
+      "celadon-1000": {
         "role": "brand-base",
-        "displayName": "梅紫 1000",
-        "canonical": "#27101E",
+        "displayName": "青瓷 1000",
+        "canonical": "#18281F",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
       "light-canvas": {
         "role": "neutral",
         "displayName": "浅色画布",
-        "canonical": "#F6F3F5",
+        "canonical": "#FAFAFA",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "light-surface": {
         "role": "neutral",
         "displayName": "浅色表面",
-        "canonical": "#FFFBFD",
+        "canonical": "#FFFFFF",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -241,156 +241,258 @@
         "displayName": "浅色抬升表面",
         "canonical": "#FFFFFF",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "light-text": {
         "role": "neutral",
         "displayName": "浅色正文",
-        "canonical": "#211820",
+        "canonical": "#252525",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "light-text-muted": {
         "role": "neutral",
         "displayName": "浅色辅文",
-        "canonical": "#6B5E66",
+        "canonical": "#666666",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "light-border": {
         "role": "neutral",
         "displayName": "浅色结构边界",
-        "canonical": "#DDD4D9",
+        "canonical": "#E3E3E3",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
-      "light-border-control": {
+      "light-control-border": {
         "role": "neutral",
         "displayName": "浅色控件边界",
-        "canonical": "#93868E",
+        "canonical": "#8A8A8A",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
-      "light-brand-fill": {
+      "light-primary": {
         "role": "primary",
         "displayName": "浅色主操作",
-        "canonical": "#8A285D",
+        "canonical": "#476C5E",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
+        ]
+      },
+      "light-primary-hover": {
+        "role": "primary",
+        "displayName": "浅色主操作悬停",
+        "canonical": "#365749",
+        "tonalRamp": [
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
+        ]
+      },
+      "light-primary-pressed": {
+        "role": "primary",
+        "displayName": "浅色主操作按下",
+        "canonical": "#294438",
+        "tonalRamp": [
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
+        ]
+      },
+      "light-on-brand": {
+        "role": "neutral",
+        "displayName": "浅色主操作内容",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "light-brand-foreground": {
+        "role": "primary",
+        "displayName": "浅色品牌前景",
+        "canonical": "#476C5E",
+        "tonalRamp": [
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
       "light-brand-soft": {
-        "role": "primary",
-        "displayName": "浅色品牌淡面",
-        "canonical": "#F7E9F1",
+        "role": "neutral",
+        "displayName": "浅色中性淡面",
+        "canonical": "#F0F0F0",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
         ]
       },
       "light-focus": {
-        "role": "primary",
+        "role": "neutral",
         "displayName": "浅色焦点",
-        "canonical": "#9F356C",
+        "canonical": "#555555",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
         ]
       },
       "light-chrome": {
-        "role": "primary",
-        "displayName": "浅色品牌壳层",
-        "canonical": "#3F1830",
+        "role": "neutral",
+        "displayName": "浅色导航表面",
+        "canonical": "#F7F7F7",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "light-nav-selected": {
+        "role": "neutral",
+        "displayName": "浅色导航选中",
+        "canonical": "#E9E9E9",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "light-nav-selected-text": {
+        "role": "neutral",
+        "displayName": "浅色导航选中文字",
+        "canonical": "#252525",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
         ]
       },
       "light-attention": {
@@ -398,15 +500,49 @@
         "displayName": "浅色人工关注",
         "canonical": "#9B4A2F",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "light-attention-soft": {
+        "role": "neutral",
+        "displayName": "浅色人工关注淡面",
+        "canonical": "#F9ECE6",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "light-on-attention": {
+        "role": "neutral",
+        "displayName": "浅色人工关注内容",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -415,15 +551,32 @@
         "displayName": "浅色成功",
         "canonical": "#227653",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "light-success-soft": {
+        "role": "neutral",
+        "displayName": "浅色成功淡面",
+        "canonical": "#E8F4EE",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -432,15 +585,15 @@
         "displayName": "浅色警告",
         "canonical": "#8A5600",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -449,207 +602,309 @@
         "displayName": "浅色危险",
         "canonical": "#B9384E",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "dark-canvas": {
         "role": "neutral",
         "displayName": "暗色画布",
-        "canonical": "#151114",
+        "canonical": "#161616",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "dark-surface": {
         "role": "neutral",
         "displayName": "暗色表面",
-        "canonical": "#1D181C",
+        "canonical": "#1E1E1E",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "dark-surface-raised": {
         "role": "neutral",
         "displayName": "暗色抬升表面",
-        "canonical": "#282127",
+        "canonical": "#292929",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "dark-text": {
         "role": "neutral",
         "displayName": "暗色正文",
-        "canonical": "#F4EDF1",
+        "canonical": "#EEEEEE",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "dark-text-muted": {
         "role": "neutral",
         "displayName": "暗色辅文",
-        "canonical": "#BAADB4",
+        "canonical": "#ADADAD",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
       "dark-border": {
         "role": "neutral",
         "displayName": "暗色结构边界",
-        "canonical": "#41363D",
+        "canonical": "#3D3D3D",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
-      "dark-border-control": {
+      "dark-control-border": {
         "role": "neutral",
         "displayName": "暗色控件边界",
-        "canonical": "#806C78",
+        "canonical": "#858585",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
-      "dark-brand-fill": {
+      "dark-primary": {
         "role": "primary",
         "displayName": "暗色主操作",
-        "canonical": "#D57BA6",
+        "canonical": "#A3C5B3",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
+        ]
+      },
+      "dark-primary-hover": {
+        "role": "primary",
+        "displayName": "暗色主操作悬停",
+        "canonical": "#BBD0C1",
+        "tonalRamp": [
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
+        ]
+      },
+      "dark-primary-pressed": {
+        "role": "primary",
+        "displayName": "暗色主操作按下",
+        "canonical": "#80A48F",
+        "tonalRamp": [
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
+        ]
+      },
+      "dark-on-brand": {
+        "role": "neutral",
+        "displayName": "暗色主操作内容",
+        "canonical": "#18281F",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "dark-brand-foreground": {
+        "role": "primary",
+        "displayName": "暗色品牌前景",
+        "canonical": "#BBD0C1",
+        "tonalRamp": [
+          "#18281F",
+          "#294438",
+          "#365749",
+          "#476C5E",
+          "#638673",
+          "#80A48F",
+          "#A3C5B3",
+          "#BBD0C1",
+          "#CEDCD1",
+          "#E1E9E3",
+          "#F1F6F2"
         ]
       },
       "dark-brand-soft": {
-        "role": "primary",
-        "displayName": "暗色品牌淡面",
-        "canonical": "#3A2030",
+        "role": "neutral",
+        "displayName": "暗色中性淡面",
+        "canonical": "#2B2B2B",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
         ]
       },
       "dark-focus": {
-        "role": "primary",
+        "role": "neutral",
         "displayName": "暗色焦点",
-        "canonical": "#F0A4C9",
+        "canonical": "#C0C0C0",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
         ]
       },
       "dark-chrome": {
-        "role": "primary",
-        "displayName": "暗色品牌壳层",
-        "canonical": "#24151F",
+        "role": "neutral",
+        "displayName": "暗色导航表面",
+        "canonical": "#1B1B1B",
         "tonalRamp": [
-          "#FFF4F9",
-          "#FBE8F2",
-          "#F4CEE0",
-          "#E8AAC7",
-          "#D57BA6",
-          "#BF4F87",
-          "#9F356C",
-          "#8A285D",
-          "#6C204B",
-          "#3F1830",
-          "#27101E"
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "dark-nav-selected": {
+        "role": "neutral",
+        "displayName": "暗色导航选中",
+        "canonical": "#333333",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "dark-nav-selected-text": {
+        "role": "neutral",
+        "displayName": "暗色导航选中文字",
+        "canonical": "#EEEEEE",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
         ]
       },
       "dark-attention": {
@@ -657,15 +912,49 @@
         "displayName": "暗色人工关注",
         "canonical": "#E08A61",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "dark-attention-soft": {
+        "role": "neutral",
+        "displayName": "暗色人工关注淡面",
+        "canonical": "#3B261E",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "dark-on-attention": {
+        "role": "neutral",
+        "displayName": "暗色人工关注内容",
+        "canonical": "#18281F",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -674,15 +963,32 @@
         "displayName": "暗色成功",
         "canonical": "#65D39A",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
+          "#FFFFFF"
+        ]
+      },
+      "dark-success-soft": {
+        "role": "neutral",
+        "displayName": "暗色成功淡面",
+        "canonical": "#193429",
+        "tonalRamp": [
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -691,15 +997,15 @@
         "displayName": "暗色警告",
         "canonical": "#F0BB5A",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       },
@@ -708,35 +1014,39 @@
         "displayName": "暗色危险",
         "canonical": "#FF8494",
         "tonalRamp": [
-          "#151114",
-          "#1D181C",
-          "#282127",
-          "#41363D",
-          "#806C78",
-          "#6B5E66",
-          "#DDD4D9",
-          "#F6F3F5",
-          "#FFFBFD",
+          "#161616",
+          "#1E1E1E",
+          "#292929",
+          "#3D3D3D",
+          "#858585",
+          "#666666",
+          "#E3E3E3",
+          "#FAFAFA",
+          "#FFFFFF",
           "#FFFFFF"
         ]
       }
     },
     "typographyMeta": {
-      "display": {
+      "headline": {
         "displayName": "页面标题",
-        "purpose": "页面顶层标题和少量关键状态。"
+        "purpose": "Noto Sans SC 紧凑页面标题。"
       },
       "title": {
         "displayName": "分区标题",
-        "purpose": "面板、工作区和分区名称。"
+        "purpose": "Noto Sans SC 工作区和分区标题。"
+      },
+      "section": {
+        "displayName": "组标题",
+        "purpose": "Noto Sans SC 面板与字段组标题。"
       },
       "body": {
         "displayName": "正文",
-        "purpose": "说明、表单与详情内容。"
+        "purpose": "系统无衬线栈承载说明、表单与标准控件。"
       },
       "label": {
         "displayName": "标签",
-        "purpose": "控件、表头与紧凑状态标题。"
+        "purpose": "控件、表头与紧凑状态。"
       },
       "mono": {
         "displayName": "等宽数据",
@@ -746,12 +1056,12 @@
     "shadows": [
       {
         "name": "surface-light",
-        "value": "0 2px 8px #21182014",
+        "value": "0 2px 8px #2525250B",
         "purpose": "浅色主题中的独立任务表面。"
       },
       {
         "name": "floating-light",
-        "value": "0 18px 48px #21182029",
+        "value": "0 18px 40px #25252524",
         "purpose": "浅色主题中的菜单、抽屉和对话框。"
       },
       {
@@ -788,8 +1098,8 @@
       },
       {
         "name": "launcher-workspace-waapi",
-        "value": "300ms cubic-bezier(0.25, 0.1, 0.25, 1)",
-        "purpose": "Launcher 工作区使用可取消且完整可感知的透明度动画，切换期间保持桌面导航可交互。"
+        "value": "220ms cubic-bezier(0.25, 0.1, 0.25, 1)",
+        "purpose": "Launcher 工作区从 0.88 的可见透明度进入，点击时更新内容；连续切换取消旧动画并承接当前可见程度，导航持续可交互。"
       },
       {
         "name": "motion-mini",
@@ -802,14 +1112,19 @@
         "purpose": "Launcher Fluent 浮层使用 WAAPI presence 管理进入、退出、取消和卸载。"
       },
       {
-        "name": "auth-particle-network",
-        "value": "80-160 particles",
-        "purpose": "认证画布使用单一 Canvas 2D 帧循环呈现稀疏定位节点与低对比连接线，并保留既有资源预算、指针边界和静态 reduced-motion 模式。"
+        "name": "auth-surface-entry",
+        "value": "240ms",
+        "purpose": "认证页只在进入时呈现轻量表面过渡，折叶为静态矢量，空闲时没有持续绘制循环；reduced-motion 下即时呈现。"
       },
       {
         "name": "ease-out",
         "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "所有非线性状态过渡。"
+        "purpose": "控件、浮层和主题切换；工作区使用独立 easing。"
+      },
+      {
+        "name": "motion-reduction",
+        "value": "(prefers-reduced-motion: reduce), (forced-colors: active)",
+        "purpose": "导航和主题即时完成，保留静态状态与完整操作；日志追加不逐条播放进入动画，动效时长不构成稳定帧率承诺。"
       }
     ],
     "breakpoints": [
@@ -825,7 +1140,45 @@
         "name": "wide",
         "value": "1200px"
       }
-    ]
+    ],
+    "materials": [
+      {
+        "name": "opaque-content",
+        "purpose": "表单、列表、日志、搜索框与普通内容面使用不透明中性表面。"
+      },
+      {
+        "name": "overlay-glass",
+        "value": "90% surface color; backdrop-filter: blur(12px)",
+        "purpose": "Web 菜单、选择器浮层、Modal、Drawer，以及 Launcher 主题菜单和 Dialog；模糊半径保持静态。",
+        "fallback": "backdrop-filter 不可用、prefers-reduced-transparency: reduce 或 forced-colors: active 时，使用完整不透明表面。"
+      }
+    ],
+    "nativeAssets": {
+      "master": "design/mark.json",
+      "generator": "scripts/generate-launcher-icons.mjs",
+      "directory": "launcher/assets/",
+      "provenance": "由既有折叶几何确定性生成；PNG 内嵌来源元数据，不属于 AI 生成图像。",
+      "applicationPng": "1024x1024",
+      "trayPng": "32x32",
+      "windowsIcoSizes": [
+        16,
+        24,
+        32,
+        48,
+        64,
+        128,
+        256
+      ],
+      "windowsResourceVerification": "python launcher/scripts/verify-windows-icon-resources.py"
+    },
+    "layers": {
+      "sticky": 100,
+      "menu": 200,
+      "drawer": 300,
+      "modal": 400,
+      "toast": 500,
+      "emergency": 600
+    }
   },
   "components": [
     {
@@ -834,7 +1187,7 @@
       "refersTo": "button-primary",
       "description": "当前工作流唯一突出的主操作。",
       "html": "<button class=\"ds-btn-primary\">保存设置</button>",
-      "css": ".ds-btn-primary { height: 36px; padding: 8px 14px; border: 1px solid #8A285D; border-radius: 10px; background: #8A285D; color: #FFFFFF; font: 600 14px/1.4 Inter, system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #6C204B; border-color: #6C204B; } .ds-btn-primary:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } .ds-btn-primary:active { background: #3F1830; border-color: #3F1830; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { border-color: #D57BA6; background: #D57BA6; color: #27101E; } .ds-btn-primary:hover { border-color: #E8AAC7; background: #E8AAC7; } .ds-btn-primary:focus-visible { outline-color: #F0A4C9; } .ds-btn-primary:active { border-color: #BF4F87; background: #BF4F87; } }"
+      "css": ".ds-btn-primary { height: 36px; padding: 8px 14px; border: 1px solid #476C5E; border-radius: 8px; background: #476C5E; color: #FFFFFF; font: 600 14px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; cursor: pointer; transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1), border-color 160ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #365749; border-color: #365749; } .ds-btn-primary:focus-visible { outline: 2px solid #555555; outline-offset: 2px; } .ds-btn-primary:active { background: #294438; border-color: #294438; } .ds-btn-primary:disabled { cursor: not-allowed; opacity: 0.58; } @media (prefers-color-scheme: dark) { .ds-btn-primary { border-color: #A3C5B3; background: #A3C5B3; color: #18281F; } .ds-btn-primary:hover { border-color: #BBD0C1; background: #BBD0C1; } .ds-btn-primary:focus-visible { outline-color: #C0C0C0; } .ds-btn-primary:active { border-color: #80A48F; background: #80A48F; } }"
     },
     {
       "name": "Attention Button",
@@ -842,7 +1195,7 @@
       "refersTo": "button-attention",
       "description": "需要人工判断或确认的明确操作。",
       "html": "<button class=\"ds-btn-attention\">确认继续</button>",
-      "css": ".ds-btn-attention { height: 36px; padding: 8px 14px; border: 1px solid #9B4A2F; border-radius: 10px; background: #9B4A2F; color: #FFFFFF; font: 600 14px/1.4 Inter, system-ui, sans-serif; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { border-color: #E08A61; background: #E08A61; color: #27101E; } .ds-btn-attention:focus-visible { outline-color: #F0A4C9; } }"
+      "css": ".ds-btn-attention { height: 36px; padding: 8px 14px; border: 1px solid #9B4A2F; border-radius: 8px; background: #9B4A2F; color: #FFFFFF; font: 600 14px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; cursor: pointer; } .ds-btn-attention:focus-visible { outline: 2px solid #555555; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-btn-attention { border-color: #E08A61; background: #E08A61; color: #18281F; } .ds-btn-attention:focus-visible { outline-color: #C0C0C0; } }"
     },
     {
       "name": "Text Input",
@@ -850,23 +1203,23 @@
       "refersTo": "input",
       "description": "带持续标签、控件边界和清晰焦点的标准输入框。",
       "html": "<label class=\"ds-field\"><span>服务地址</span><input value=\"http://127.0.0.1:8080\"></label>",
-      "css": ".ds-field { display: grid; gap: 6px; color: #211820; font: 600 13px/1.4 Inter, system-ui, sans-serif; } .ds-field input { width: 100%; height: 36px; padding: 8px 12px; border: 1px solid #93868E; border-radius: 10px; background: #FFFFFF; color: #211820; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-field input:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-field { color: #F4EDF1; } .ds-field input { border-color: #806C78; background: #282127; color: #F4EDF1; } .ds-field input:focus-visible { outline-color: #F0A4C9; } }"
+      "css": ".ds-field { display: grid; gap: 6px; color: #252525; font: 600 13px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } .ds-field input { width: 100%; height: 36px; padding: 8px 12px; border: 1px solid #8A8A8A; border-radius: 8px; background: #FFFFFF; color: #252525; font: 400 14px/1.55 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } .ds-field input:focus-visible { outline: 2px solid #555555; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-field { color: #EEEEEE; } .ds-field input { border-color: #858585; background: #292929; color: #EEEEEE; } .ds-field input:focus-visible { outline-color: #C0C0C0; } }"
     },
     {
       "name": "Selected Navigation Item",
       "kind": "nav",
       "refersTo": "navigation-item",
-      "description": "使用完整色面、文字和定位器表达当前工作区。",
-      "html": "<a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\">⌖ 系统状态</a>",
-      "css": ".ds-nav-item { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border-radius: 10px; background: #6C204B; color: #FFF4F9; font: 600 14px/1.4 Inter, system-ui, sans-serif; text-decoration: none; } .ds-nav-item:focus-visible { outline: 2px solid #E8AAC7; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-nav-item { background: #3F1830; color: #FFF4F9; } .ds-nav-item:focus-visible { outline-color: #E8AAC7; } }"
+      "description": "使用完整中性色面、高对比文字和可见焦点表达当前工作区。",
+      "html": "<a class=\"ds-nav-item\" href=\"#\" aria-current=\"page\">系统状态</a>",
+      "css": ".ds-nav-item { display: inline-flex; align-items: center; min-height: 40px; padding: 8px 12px; border-radius: 8px; background: #E9E9E9; color: #252525; font: 600 14px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; text-decoration: none; } .ds-nav-item:focus-visible { outline: 2px solid #666666; outline-offset: 2px; } @media (prefers-color-scheme: dark) { .ds-nav-item { background: #333333; color: #EEEEEE; } .ds-nav-item:focus-visible { outline-color: #ADADAD; } }"
     },
     {
       "name": "Status Chip",
       "kind": "chip",
       "refersTo": "status-chip",
       "description": "同时使用语义色、文字和形状表达状态。",
-      "html": "<span class=\"ds-status-chip\">● 运行正常</span>",
-      "css": ".ds-status-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid #227653; border-radius: 999px; background: #E8F4EE; color: #227653; font: 600 13px/1.4 Inter, system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-status-chip { border-color: #65D39A; background: #193429; color: #65D39A; } }"
+      "html": "<span class=\"ds-status-chip\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" aria-hidden=\"true\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"m5 12 4 4L19 6\"/></svg>运行正常</span>",
+      "css": ".ds-status-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid #227653; border-radius: 999px; background: #E8F4EE; color: #227653; font: 600 13px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-status-chip { border-color: #65D39A; background: #193429; color: #65D39A; } }"
     },
     {
       "name": "Section Surface",
@@ -874,7 +1227,7 @@
       "refersTo": "section-surface",
       "description": "只承载具有独立任务边界的内容。",
       "html": "<section class=\"ds-section-surface\"><h3>运行环境</h3><p>检查托管运行时与模板资源。</p></section>",
-      "css": ".ds-section-surface { max-width: 560px; padding: 16px; border: 1px solid #DDD4D9; border-radius: 14px; background: #FFFBFD; color: #211820; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-section-surface h3 { margin: 0 0 8px; font-size: 18px; } .ds-section-surface p { margin: 0; color: #6B5E66; } @media (prefers-color-scheme: dark) { .ds-section-surface { border-color: #41363D; background: #1D181C; color: #F4EDF1; } .ds-section-surface p { color: #BAADB4; } }"
+      "css": ".ds-section-surface { max-width: 560px; padding: 16px; border: 1px solid #E3E3E3; border-radius: 12px; background: #FFFFFF; color: #252525; font: 400 14px/1.55 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } .ds-section-surface h3 { margin: 0 0 8px; font-family: \"Noto Sans SC\", \"Microsoft YaHei UI\", sans-serif; font-size: 18px; } .ds-section-surface p { margin: 0; color: #666666; } @media (prefers-color-scheme: dark) { .ds-section-surface { border-color: #3D3D3D; background: #1E1E1E; color: #EEEEEE; } .ds-section-surface p { color: #ADADAD; } }"
     },
     {
       "name": "Attention Callout",
@@ -882,7 +1235,7 @@
       "refersTo": "attention-callout",
       "description": "解释需要人工判断的事项并提供直接操作。",
       "html": "<aside class=\"ds-attention\"><strong>需要人工确认</strong><p>继续前请检查插件来源和声明能力。</p></aside>",
-      "css": ".ds-attention { display: grid; gap: 4px; padding: 12px 16px; border: 1px solid #9B4A2F; border-radius: 14px; background: #F9ECE6; color: #9B4A2F; font: 400 14px/1.55 Inter, system-ui, sans-serif; } .ds-attention p { margin: 0; color: #211820; } @media (prefers-color-scheme: dark) { .ds-attention { border-color: #E08A61; background: #3B261E; color: #E08A61; } .ds-attention p { color: #F4EDF1; } }"
+      "css": ".ds-attention { display: grid; gap: 4px; padding: 12px 16px; border: 1px solid #9B4A2F; border-radius: 12px; background: #F9ECE6; color: #9B4A2F; font: 400 14px/1.55 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } .ds-attention p { margin: 0; color: #252525; } @media (prefers-color-scheme: dark) { .ds-attention { border-color: #E08A61; background: #3B261E; color: #E08A61; } .ds-attention p { color: #EEEEEE; } }"
     },
     {
       "name": "Data Row",
@@ -890,18 +1243,18 @@
       "refersTo": "data-row",
       "description": "紧凑展示对象、状态和右侧操作。",
       "html": "<div class=\"ds-data-row\" role=\"row\" tabindex=\"0\"><strong>subscription_hub</strong><span>运行中</span><button>查看</button></div>",
-      "css": ".ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px; border: 1px solid #DDD4D9; border-radius: 10px; background: #FFFBFD; color: #211820; font: 400 14px/1.4 Inter, system-ui, sans-serif; } .ds-data-row:hover { border-color: #8A285D; background: #F7E9F1; } .ds-data-row:focus-visible { outline: 2px solid #9F356C; outline-offset: 2px; } .ds-data-row button { border: 0; background: transparent; color: #8A285D; font: 600 13px/1.4 Inter, system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: #41363D; background: #1D181C; color: #F4EDF1; } .ds-data-row:hover { border-color: #F0A4C9; background: #3A2030; } .ds-data-row:focus-visible { outline-color: #F0A4C9; } .ds-data-row button { color: #F0A4C9; } }"
+      "css": ".ds-data-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px; border: 1px solid #E3E3E3; border-radius: 8px; background: #FFFFFF; color: #252525; font: 400 14px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } .ds-data-row:hover { border-color: #E3E3E3; background: #F0F0F0; } .ds-data-row:focus-visible { outline: 2px solid #555555; outline-offset: 2px; } .ds-data-row button { border: 0; background: transparent; color: #252525; font: 600 13px/1.4 \"Segoe UI Variable Text\", \"Segoe UI\", system-ui, sans-serif; } @media (prefers-color-scheme: dark) { .ds-data-row { border-color: #3D3D3D; background: #1E1E1E; color: #EEEEEE; } .ds-data-row:hover { border-color: #3D3D3D; background: #2B2B2B; } .ds-data-row:focus-visible { outline-color: #C0C0C0; } .ds-data-row button { color: #EEEEEE; } }"
     }
   ],
   "narrative": {
-    "northStar": "梅紫仪表盘",
-    "overview": "RayleaBot 使用深梅紫应用壳建立稳定方位感，以中性高密度工作区承载诊断、配置和恢复任务。原创定位器连接品牌、当前导航和真实运行状态。Web 克制使用品牌色，Launcher 的标题栏与导航轨具有更明确的品牌识别；亮暗主题提供等价的信息层级、状态语义与操作能力。",
+    "northStar": "雾白·青瓷",
+    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义，分别使用 Ant Design Vue 与 Fluent UI。",
     "keyCharacteristics": [
-      "深梅紫应用壳与中性工作区",
-      "定位器品牌与状态母题",
-      "完整且等价的亮暗主题",
-      "紧凑、清晰、可预测的任务密度",
-      "Web 与 Launcher 共享语义而不共享框架"
+      "灰白与炭灰画布、中性导航和连续工作区。",
+      "少量青瓷主操作、选中标记和几何折叶标识。",
+      "自托管 Noto Sans SC 承载 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。",
+      "亮暗主题、键盘操作和窄屏呈现保持等价操作能力。",
+      "状态、表单、列表与日志采用不透明表面，玻璃只用于浮层。"
     ],
     "rules": [
       {
@@ -910,23 +1263,18 @@
         "section": "colors"
       },
       {
-        "name": "The Plum Shell Rule",
-        "body": "大面积品牌色只用于应用壳；中性工作区依靠表面、边界和间距建立层级。",
+        "name": "The Neutral Ground Rule",
+        "body": "普通表面、边框、文字、搜索框和选中背景保持中性；青瓷只强调品牌、主操作和少数选中标记。",
         "section": "colors"
       },
       {
-        "name": "The Locator Rule",
-        "body": "定位器只用于品牌、当前导航和真实主任务状态，不作为无意义装饰。",
-        "section": "components"
-      },
-      {
         "name": "The Semantic Independence Rule",
-        "body": "人工关注、警告和危险保持独立，状态同时提供文字、图标或结构化标签。",
+        "body": "人工关注、成功、警告和危险保持独立，状态同时提供文字、图标或结构化标签。",
         "section": "colors"
       },
       {
         "name": "The Quiet Hierarchy Rule",
-        "body": "层级依靠字号、字重和间距建立，不通过全大写标签、渐变或巨型指标制造噪音。",
+        "body": "层级依靠字号、字重和间距建立，不通过装饰性眉题、渐变文字或巨型指标制造噪音。",
         "section": "typography"
       },
       {
@@ -935,30 +1283,36 @@
         "section": "elevation"
       },
       {
-        "name": "The Focus Rule",
-        "body": "焦点使用 2px 外轮廓和 2px 间距，并与相邻背景保持至少 3:1。",
-        "section": "accessibility"
+        "name": "The Overlay Glass Rule",
+        "body": "玻璃只属于覆盖内容的浮层，表单、列表和日志使用不透明底色，并始终保留不透明降级。",
+        "section": "elevation"
       },
       {
         "name": "The Single Motion Owner Rule",
         "body": "同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。",
-        "section": "motion"
+        "section": "components"
+      },
+      {
+        "name": "The Fold Mark Rule",
+        "body": "折叶由同一几何母版生成，品牌不代替状态图标或导航文字。",
+        "section": "components"
       }
     ],
     "dos": [
-      "Do 使用深梅紫壳层和中性工作区建立稳定方位。",
-      "Do 让亮暗主题具有等价层级、对比度和状态信息。",
-      "Do 使用 4/8/12/16/24/32px 间距与 4/6/10/14/999px 圆角。",
-      "Do 使用可见焦点、键盘操作、reduced-motion 和 forced-colors 完成 WCAG 2.2 AA。",
-      "Do 只在真实浮层使用阴影。"
+      "Do 用中性导航、连续工作区和精确分隔线建立稳定方位。",
+      "Do 将青瓷留给品牌、主操作和少数选中标记，保持普通表面与文字中性。",
+      "Do 保持亮暗主题的信息层级、状态含义与操作能力等价。",
+      "Do 使用项目 token、共享标题字体与标准框架控件。",
+      "Do 保持可见焦点、键盘操作、触控目标、reduced-motion 与 forced-colors 支持。",
+      "Do 让真实数据、必要警告和用户任务决定内容高度与页面密度。"
     ],
     "donts": [
-      "Don't 使用退役蓝色、霓虹边界或通用科技感仪表盘。",
-      "Don't 使用渐变、渐变文字、玻璃拟态或无意义装饰。",
-      "Don't 使用同尺寸卡片墙、嵌套卡片和组件拼贴页面。",
-      "Don't 使用彩色侧边条代替完整导航选中态。",
-      "Don't 依赖颜色单独表达状态。",
-      "Don't 为视觉风格引入新的组件库、字体或运行时主题服务。"
+      "Don't 使用科技蓝、霓虹边界或通用深色科技仪表盘作为品牌语言。",
+      "Don't 使用巨型标题、装饰性眉题、hero 指标模板或虚构数据填满页面。",
+      "Don't 使用无任务意义的同尺寸卡片拼贴、多层日志外框或无任务边界的嵌套卡片；独立插件集合的卡片网格属于明确保留的例外。",
+      "Don't 将浮层玻璃铺到表单、列表或日志，不动画化模糊半径，也不逐条动画日志。",
+      "Don't 依赖颜色单独表达状态，或用 attention 混同 warning 与 danger。",
+      "Don't 为视觉风格引入平行组件库、运行时主题服务或跨 iframe 样式注入。"
     ]
   }
 }

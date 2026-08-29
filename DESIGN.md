@@ -1,175 +1,296 @@
 ---
 name: RayleaBot
-description: 深梅紫应用壳与中性高密度工作区组成的自托管机器人管理界面
-token-source: design/tokens.json
-token-format: DTCG 2025.10 compatible
-north-star: 梅紫仪表盘
+description: 雾白表面、青瓷绿与紧凑工作区组成的自托管机器人管理界面
 colors:
-  plum-50: "#FFF4F9"
-  plum-100: "#FBE8F2"
-  plum-200: "#F4CEE0"
-  plum-300: "#E8AAC7"
-  plum-400: "#D57BA6"
-  plum-500: "#BF4F87"
-  plum-600: "#9F356C"
-  plum-700: "#8A285D"
-  plum-800: "#6C204B"
-  plum-900: "#3F1830"
-  plum-1000: "#27101E"
-  light-canvas: "#F6F3F5"
-  light-surface: "#FFFBFD"
-  light-text: "#211820"
-  light-text-muted: "#6B5E66"
-  light-border: "#DDD4D9"
-  light-control-border: "#93868E"
-  light-primary: "#8A285D"
-  light-focus: "#9F356C"
-  light-chrome: "#3F1830"
-  dark-canvas: "#151114"
-  dark-surface: "#1D181C"
-  dark-text: "#F4EDF1"
-  dark-text-muted: "#BAADB4"
-  dark-border: "#41363D"
-  dark-control-border: "#806C78"
-  dark-primary: "#D57BA6"
-  dark-focus: "#F0A4C9"
-  dark-chrome: "#24151F"
+  celadon-50: "#F1F6F2"
+  celadon-100: "#E1E9E3"
+  celadon-200: "#CEDCD1"
+  celadon-300: "#BBD0C1"
+  celadon-400: "#A3C5B3"
+  celadon-500: "#80A48F"
+  celadon-600: "#638673"
+  celadon-700: "#476C5E"
+  celadon-800: "#365749"
+  celadon-900: "#294438"
+  celadon-1000: "#18281F"
+  light-canvas: "#FAFAFA"
+  light-surface: "#FFFFFF"
+  light-surface-raised: "#FFFFFF"
+  light-text: "#252525"
+  light-text-muted: "#666666"
+  light-border: "#E3E3E3"
+  light-control-border: "#8A8A8A"
+  light-primary: "#476C5E"
+  light-primary-hover: "#365749"
+  light-primary-pressed: "#294438"
+  light-on-brand: "#FFFFFF"
+  light-brand-foreground: "#476C5E"
+  light-brand-soft: "#F0F0F0"
+  light-focus: "#555555"
+  light-chrome: "#F7F7F7"
+  light-nav-selected: "#E9E9E9"
+  light-nav-selected-text: "#252525"
+  light-attention: "#9B4A2F"
+  light-attention-soft: "#F9ECE6"
+  light-on-attention: "#FFFFFF"
+  light-success: "#227653"
+  light-success-soft: "#E8F4EE"
+  light-warning: "#8A5600"
+  light-danger: "#B9384E"
+  dark-canvas: "#161616"
+  dark-surface: "#1E1E1E"
+  dark-surface-raised: "#292929"
+  dark-text: "#EEEEEE"
+  dark-text-muted: "#ADADAD"
+  dark-border: "#3D3D3D"
+  dark-control-border: "#858585"
+  dark-primary: "#A3C5B3"
+  dark-primary-hover: "#BBD0C1"
+  dark-primary-pressed: "#80A48F"
+  dark-on-brand: "#18281F"
+  dark-brand-foreground: "#BBD0C1"
+  dark-brand-soft: "#2B2B2B"
+  dark-focus: "#C0C0C0"
+  dark-chrome: "#1B1B1B"
+  dark-nav-selected: "#333333"
+  dark-nav-selected-text: "#EEEEEE"
+  dark-attention: "#E08A61"
+  dark-attention-soft: "#3B261E"
+  dark-on-attention: "#18281F"
+  dark-success: "#65D39A"
+  dark-success-soft: "#193429"
+  dark-warning: "#F0BB5A"
+  dark-danger: "#FF8494"
 typography:
-  sizes: "12 / 13 / 14 / 16 / 18 / 24 / 30px"
+  headline:
+    fontFamily: "'Noto Sans SC', 'Microsoft YaHei UI', sans-serif"
+    fontSize: "22px"
+  title:
+    fontFamily: "'Noto Sans SC', 'Microsoft YaHei UI', sans-serif"
+    fontSize: "18px"
+  section:
+    fontFamily: "'Noto Sans SC', 'Microsoft YaHei UI', sans-serif"
+    fontSize: "16px"
+  body:
+    fontFamily: "'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', system-ui, sans-serif"
+    fontSize: "14px"
+  label:
+    fontFamily: "'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', system-ui, sans-serif"
+    fontSize: "13px"
+  mono:
+    fontFamily: "'Cascadia Mono', Consolas, 'JetBrains Mono', 'Courier New', monospace"
+    fontSize: "13px"
 rounded:
-  scale: "4 / 6 / 10 / 14 / 999px"
+  xs: "4px"
+  sm: "6px"
+  md: "8px"
+  lg: "12px"
+  full: "999px"
 spacing:
-  scale: "4 / 8 / 12 / 16 / 24 / 32px"
-layers:
-  scale: "sticky 100 / menu 200 / drawer 300 / modal 400 / toast 500 / emergency 600"
+  xs: "4px"
+  sm: "8px"
+  md: "12px"
+  lg: "16px"
+  xl: "24px"
+  xxl: "32px"
+components:
+  button-primary:
+    backgroundColor: "{colors.light-primary}"
+    textColor: "{colors.light-on-brand}"
+    rounded: "{rounded.md}"
+    height: "36px"
+  button-primary-hover:
+    backgroundColor: "{colors.light-primary-hover}"
+  button-primary-active:
+    backgroundColor: "{colors.light-primary-pressed}"
+  button-attention:
+    backgroundColor: "{colors.light-attention}"
+    textColor: "{colors.light-on-attention}"
+    rounded: "{rounded.md}"
+    height: "36px"
+  input:
+    backgroundColor: "{colors.light-surface-raised}"
+    textColor: "{colors.light-text}"
+    rounded: "{rounded.md}"
+    height: "36px"
+  navigation-item:
+    backgroundColor: "{colors.light-nav-selected}"
+    textColor: "{colors.light-nav-selected-text}"
+    rounded: "{rounded.md}"
+  status-chip:
+    backgroundColor: "{colors.light-success-soft}"
+    textColor: "{colors.light-success}"
+    rounded: "{rounded.full}"
+  section-surface:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-text}"
+    rounded: "{rounded.lg}"
+  attention-callout:
+    backgroundColor: "{colors.light-attention-soft}"
+    textColor: "{colors.light-attention}"
+    rounded: "{rounded.lg}"
+  data-row:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-text}"
 ---
 
-# RayleaBot 设计体系
+# Design System: RayleaBot
 
-## 设计北极星
+## Overview
 
-RayleaBot 的设计北极星是“梅紫仪表盘”：深梅紫应用壳提供稳定、可辨认的方位感，中性工作区承载高密度管理任务，原创“定位器”标识把品牌、导航选择和真实运行状态连接成同一视觉语言。
+**Creative North Star: "雾白·青瓷"**
 
-界面首先服务于诊断、配置、恢复和长期运行。信息层级依靠字号、间距、表面与完整边界建立；品牌色集中在应用壳、焦点和当前工作流的主操作，不把每个容器都做成品牌色卡片。
+RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。
 
-关键特征：
+界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义，分别使用 Ant Design Vue 与 Fluent UI。
 
-- 深梅紫应用壳与中性工作区形成稳定分区。
-- Web 克制使用品牌色；Launcher 的标题栏与导航轨具有更明确的品牌识别。
-- 亮暗主题提供等价的信息层级、状态语义和操作能力。
-- 定位器只出现在品牌、当前导航和真实主任务状态，不作为无意义装饰。
-- 标准控件、清晰文案和可见焦点优先于装饰性效果。
+**Key Characteristics:**
 
-## Token 契约
+- 灰白与炭灰画布、中性导航和连续工作区。
+- 少量青瓷主操作、选中标记和几何折叶标识。
+- 自托管 Noto Sans SC 承载 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。
+- 亮暗主题、键盘操作和窄屏呈现保持等价操作能力。
+- 状态、表单、列表与日志采用不透明表面，玻璃只用于浮层。
 
-`design/tokens.json` 是唯一机器值源，结构固定为 `base → semantic light/dark → component`。运行代码只消费语义或组件 token，不直接消费基础色阶。
+本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验漂移、指定对比度与颜色边界。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
 
-生成命令：
+前置数据、共享字体 CSS 与 sidecar 均由生成器维护，不直接编辑；sidecar 的 narrative 同步本文件正文。应用局部映射在正文与分面规范中说明，不改变共享基础 token 的含义。
 
-```bash
-node scripts/generate-design-tokens.mjs
-node scripts/generate-design-tokens.mjs --check
-```
+## Colors
 
-生成物包括 Web TypeScript、Web SCSS、Launcher TypeScript、`web/public/favicon.svg`、本文件前置元数据和 `.impeccable/design.json` 的色彩元数据。`--check` 同时校验生成漂移、指定对比度、退役颜色和核心产品代码中的颜色字面量。
+青瓷是低饱和的交互强调色；近白画布、实色表面和柔和结构边界承载主体内容。暗色主题使用炭灰背景与浅灰文字，青瓷只在对应品牌和操作角色中提高亮度。
 
-规范依据：
+### Primary
 
-- Token 文件遵循 [DTCG Format Module 2025.10](https://www.designtokens.org/TR/2025.10/format/) 的类型和值结构。
-- 颜色分层参考 [GitHub Primer](https://www.primer.style/product/getting-started/foundations/color-usage/)、[Fluent 2](https://fluent2.microsoft.design/design-tokens)、[Carbon](https://carbondesignsystem.com/elements/color/overview/) 与 [Ant Design](https://ant.design/docs/spec/colors/) 的产品语义映射。
-- 对比度、焦点、键盘操作、目标尺寸和非颜色状态表达以 [WCAG 2.2](https://www.w3.org/TR/WCAG22/) AA 为最低门槛。
+- **青瓷主操作**：浅色使用 light-primary，暗色使用 dark-primary；悬停与按下分别消费对应组件映射。
+- **青瓷品牌前景**：折叶标识、品牌链接和少数勾选标记消费品牌角色，不扩散到普通正文和容器边界。
 
-## 色彩
+### Neutral
 
-### 品牌与壳层
+- **雾白画布与瓷白表面**：应用底色、表单和有独立任务边界的面板保持连续、轻盈的层次。
+- **炭灰表面**：暗色画布、内容面与导航面。
+- **中性选择与焦点**：导航选中背景、菜单选中背景与文字、搜索框、普通悬停面及键盘焦点使用中性角色；Web 导航当前项使用主题色文字，名为 brand-soft 的兼容 token 也表示中性淡面。
+- **正文、辅文与边界**：结构边界负责分组；控件边界负责可操作目标，两者不能互换。
 
-梅紫色阶用于建立品牌关系，不等于所有交互都使用同一个颜色。浅色主操作使用梅紫 700，暗色主操作使用梅紫 400；主操作的悬停和按下状态由组件 token 明确定义。应用壳使用更深的梅紫表面，壳层中的文字、图标和定位器使用专属高对比前景。
+### Named Rules
 
-Web 仅将侧栏作为大面积品牌色面。页面页头、表单、表格和插件管理 Host 保持中性。Launcher 的标题栏与 76px 导航轨共同构成品牌壳层，主工作区保持中性。
+**The Semantic Token Rule.** 运行代码只消费语义和组件 token；基础色阶仅用于建立映射。
 
-### 语义颜色
+**The Neutral Ground Rule.** 普通表面、边框、文字、搜索框和选中背景保持中性；青瓷只强调品牌、主操作和少数选中标记。
 
-- `brand`：品牌前景、主操作、链接和当前选择。
-- `attention`：需要人工判断或确认的内容。
-- `success`：健康、完成或可用。
-- `warning`：风险、降级或需要留意。
-- `danger`：失败、阻塞或破坏性操作。
+**The Semantic Independence Rule.** 人工关注、成功、警告和危险保持独立，状态同时提供文字、图标或结构化标签。
 
-状态不得只靠颜色表达，必须同时提供文字、图标、形状或结构化标签。`attention`、`warning` 与 `danger` 是三个独立角色。
+人工关注用于确认、可信代码提示和未保存草稿；警告表达降级，危险表达失败、阻塞或破坏性操作。恢复兼容、降级、阻塞分别使用 success、warning、danger，文字与图形使用同一语义。
 
-### 表面与边界
+## Typography
 
-Canvas 承载应用背景；Surface 承载连续工作区；Raised 仅用于确实覆盖其他内容的表面。静态边框表面不叠加大阴影，抽屉、菜单、对话框和 Toast 才使用浮层阴影。
+**Display Font:** 自托管 Noto Sans SC，回退为 Microsoft YaHei UI 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 引入仓库已有 WOFF2 子集，两端随构建打包；[字体授权](templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 随两端公开资源附带。
 
-结构边界用于分组，控件边界用于输入、选择和交互目标。两者不得互换，以保证非文本控件在亮暗主题中都达到至少 `3:1` 的可辨识度。
+**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`，管理面与认证入口的 Ant Design theme 同时消费 `var(--font-sans)`；因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。该映射不修改共享基础 token，也不影响 Launcher 或独立 iframe 的字体。
 
-## 排版与密度
+**Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用 Noto Sans SC，不因位于 `pre` 中而改用等宽字体。
 
-界面使用现有系统字体栈，不下载或捆绑新字体。字号限定为 `12/13/14/16/18/24/30px`：
+### Hierarchy
 
-- 24px 用于页面标题；30px 只用于少量真实主状态。
-- 18px 与 16px 用于分区和面板标题。
-- 14px 用于正文与标准控件。
-- 13px 用于标签、表头和紧凑状态。
-- 12px 用于辅助元数据，不用于关键操作。
+- **Headline**：页面标题保持紧凑（20–22px），项目主标题 token 为 22px。
+- **Title / Section**：分区、面板与组标题（18px / 16px）。
+- **Body**：正文与标准控件（14px）。
+- **Label / Mono**：标签、表头与技术元数据（13px）。
+- 辅助元数据使用最小一级字号（12px）；关键操作不用该级字号。少量真实主状态可以使用 token 中的 26px 级，不形成巨型指标区。
+- 连续说明正文最大宽度为 72ch；表格、日志和技术工作区按内容需要延展。
 
-日志、路径、标识符和结构化数据使用现有等宽字体栈。说明正文上限为 `72ch`；数据工作区可按任务需要延展。
+### Named Rules
 
-间距限定为 `4/8/12/16/24/32px`，圆角限定为 `4/6/10/14/999px`。36px 是桌面标准控件高度，粗指针和窄屏交互目标至少为 44px。
+**The Quiet Hierarchy Rule.** 层级依靠字号、字重和间距建立，不通过装饰性眉题、渐变文字或巨型指标制造噪音。
 
-## 定位器标识
+## Layout
 
-定位器使用 24×24 视框、中央实心点、四个向内圆角定位框和 2px 描边。标识不包含字母、渐变或吉祥物。
+桌面 Web 使用持久导航（244px）与紧凑页头（60px）；面包屑、搜索、主题、全屏和偏好入口直接可达。Launcher 默认窗口为 1280×720，最小为 760×560，按可用工作区与最小尺寸约束调整；窗口包含原生标题栏（44px）、带文字导航（184px）与单一主工作区。具体分面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
 
-- 中性变体：用于认证、About 和中性工作区。
-- 壳层变体：用于深梅紫标题栏、侧栏和当前导航。
-- 单色变体：用于系统托盘和只能使用单色的环境。
+间距使用前置 token 的 xs 至 xxl 标尺。独立任务可以使用完整有边界表面，同一任务内的字段、日志和数据行通过间距与分隔线组织。页面主操作位于稳定位置，状态总览保持连续横条，列表按真实内容排列。
 
-导航选中态同时使用完整背景、文字和定位器，不使用单条彩色边线。运行状态定位器只出现在 Launcher 的真实服务控制主任务面。
+插件集合使用一至五列的独立对象卡片网格，同排卡片等高、操作栏底部对齐，长元数据与健康提示允许内容自然增高。约 10–15 张完整卡片是 2K 桌面上的密度目标，实际数量随视口高度、内容和宽度偏好变化；不通过裁掉状态或缩小触控目标保证固定数量。断点与卡片入口见 [Web 分面规范](docs/design/web-management-ui.md)。
+
+窄屏通过抽屉、换行与单列流调整结构；手机保留必要纵向滚动。技术表、长路径与日志可以在自身区域横向查看，普通页面不依赖整页横向滚动。正文和关键控件不随视口任意缩小，窄屏或粗指针交互目标使用至少 44px。
+
+## Elevation & Depth
+
+实色表面、精确边界与留白提供主要层级。表单、列表、日志和常规内容面保持不透明。菜单、选择器浮层、抽屉和 Dialog 可使用静态玻璃：表面色占 90%，背景模糊固定为 12px；不随指针、滚动或动画改变模糊半径。浮层阴影表达覆盖关系，两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
+
+不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
+
+### Named Rules
+
+**The Structural Shadow Rule.** 静态边框表面不叠加大阴影，阴影只说明真实浮层关系。
+
+**The Overlay Glass Rule.** 玻璃只属于覆盖内容的浮层，表单、列表和日志使用不透明底色，并始终保留不透明降级。
+
+## Shapes
+
+标准控件使用温和圆角（8px），独立任务面与浮层采用较宽圆角（12px）；紧凑组件使用小圆角（4px / 6px），状态胶囊使用 full。认证表面的局部圆角不是通用控件标准。
+
+品牌标识为四个色面组成的几何折叶，形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
+
+原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、托盘 PNG 和 Windows ICO 由母版确定性生成，PNG 内嵌来源元数据，不属于 AI 生成图像。ICO 包含 16、24、32、48、64、128、256px 图像。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的验证入口见 Launcher 分面规范。
 
 ## Components
 
-### 主操作
+### Buttons
 
-每个工作流只保留一个视觉主操作。主按钮必须覆盖默认、悬停、焦点、按下、禁用和加载状态。焦点统一为 2px 外轮廓并保留 2px 间距。
+主按钮只强调当前工作流的主要动作，使用青瓷填充、对应前景与标准控件圆角。次级操作使用中性边界或轻量背景，人工关注和危险操作各用独立语义。默认、悬停、焦点、按下、禁用和加载状态均保留明确反馈。桌面标准高度为 36px，窄屏或粗指针目标为 44px。Launcher 在管理面可用时以打开管理面为主操作，否则使用现有启动动作；停止保持危险次级操作及原有确认规则。
 
-### 字段
+### Inputs / Fields
 
-字段始终显示标签，使用完整控件边界和实色表面。错误同时提供关联文案；禁用状态保持可读；占位文本不承担标签职责。
+字段采用实色表面、完整控件边界和持续可见标签。错误说明关联字段，禁用状态保持可读，占位文本不承担标签职责。焦点使用专用 token，轮廓为 2px，间距为 2px；forced-colors 使用系统焦点色。
 
-### 导航
+### Navigation
 
-桌面使用持久侧栏或导航轨，窄屏使用现有抽屉或紧凑导航。当前选择使用完整色面、清晰文字和定位器标识。键盘顺序与路由能力在各断点保持一致。
+当前项使用完整中性选择背景、高对比文字与功能图标，不依赖细侧边条或品牌标识表达当前位置。插件中心在侧栏使用一个顶级入口，菜单中心、插件商店、插件列表、插件设置和指令中心在内容区顶部切换，并共享一个可关闭工作区页签；原路由与页面缓存独立，插件详情保留自己的页签。其余分类保持稳定；移动导航以抽屉或紧凑形式承载同一能力。
 
-### 状态与提示
+插件中心五页以当前切换项承担可见页名，页面一级标题仅供辅助技术读取；无重复页头介绍。保存、刷新等操作与对应字段或筛选工具栏相邻，保留必要的状态和字段说明。
 
-Chip 用于状态和筛选，不替代按钮。人工关注提示使用完整边界、明确标题与直接操作。错误、警告和成功信息必须能被辅助技术读取。
+### Chips / Status
 
-### 空态与异常页
+状态标签同时呈现文字或图标，不能只显示色点。标签表达状态和筛选，不替代操作按钮。关注提示、异常和空态提供原因、影响、可执行动作或必要前置条件。首页没有恢复摘要时显示“暂无恢复记录”，不能推断兼容通过；日志无匹配结果时说明为空，并提供调整筛选或等待新日志的方向。
 
-异常插图使用定位器线性语言和语义 token，不使用独立第三方调色板。空态说明当前为空的原因、可执行动作和必要前置条件。
+### Cards / Containers
 
-## 动效与层级
+容器使用项目级表面与结构边界，正文按自然高度排列。字段组不层层包成卡片，日志只保留一个外框，其内部使用行分隔与独立正文滚动区。
 
-状态反馈、内容切换、浮层和 Launcher 工作区分别使用 `160/200/220/300ms`。内容位移动效只改变 `opacity` 与 `transform`；控件反馈可以改变颜色、边界和阴影，不通过宽高、间距或定位等布局属性驱动。主题切换、路由切换和元素自身过渡遵守单一动效所有者规则。
+插件卡片展示包内图标、名称及其后的版本、描述、安装来源类型、信任、运行状态和健康提示；图标缺失或加载失败时使用共享折叶 Logo。ID、作者与安装根目录保留在概要或详情。卡片底部提供概要、详情、重载和启停四个图标入口，每个入口具有可访问名称与提示；指令与别名在既有概要、详情中查看，不外显为卡片内容。该集合是有任务意义的卡片布局，不要求其他数据页采用卡片。
 
-认证画布保留单一 Canvas 2D 和单一 `requestAnimationFrame` 循环，使用稀疏定位节点与低对比连接线。资源预算、页面隐藏暂停、粗指针 30fps 上限和指针交互边界保持固定；`prefers-reduced-motion` 下只绘制静态场。
+### Authentication
 
-层级固定为 sticky 100、menu 200、drawer 300、modal 400、toast 500、emergency 600。
+登录与初始化使用单栏认证表面。背景只保留一处静态低对比折面，空闲时没有 Canvas 或持续绘制循环。认证表面只在进入时执行轻量 opacity / transform 过渡（240ms）；低高度视口允许自然滚动，reduced-motion 下即时呈现，forced-colors 隐藏背景折面。
 
-## 可访问性
+### Motion and ownership
 
-WCAG 2.2 AA 是强制门槛：
+控件反馈采用 100–160ms 的短节奏，工作区采用 180–220ms，浮层采用 200–220ms；当前共有反馈、Web 内容切换、Launcher 工作区和浮层分别使用 160ms、200ms、220ms 和 220ms。动画只改变 opacity / transform 或控件状态属性，服务于选择、层级切换和显隐，持续日志不逐条播放进入动画。
 
-- 正文和控件文字满足文本对比度要求。
-- 控件边界、焦点和状态图形满足非文本对比度要求。
-- 所有操作支持键盘，焦点可见且不被遮挡。
-- 粗指针目标至少 44px，桌面目标不低于 WCAG 2.2 的 24px 最低要求。
-- 支持 `prefers-reduced-motion` 与 `forced-colors`。
-- 状态不依赖颜色单独表达。
+Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击时更新；连续切换取消旧动画并承接当前可见程度。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不构成稳定帧率或性能提升承诺。
 
-## 产品边界
+**The Single Motion Owner Rule.** 同一元素只接受一种动效机制，连续操作取消旧动画并以最新状态为准。
 
-Web 继续使用 Ant Design Vue，Launcher 继续使用 Fluent UI。两端共享 token 语义和定位器标识，不共享组件实现。
+**The Fold Mark Rule.** 折叶由同一几何母版生成，品牌不代替状态图标或导航文字。
 
-内置聊天卡片、插件渲染模板和 `NativeTemplatePreviewFrame` 保持独立预览调色板；承载它们的管理面 Host 使用本设计体系。第三方内容和数据驱动颜色必须在 `design/color-literal-allowlist.json` 中说明边界与原因。
+插件页面、聊天卡片与渲染模板拥有独立内容和样式边界；其管理面 Host 使用本体系。独立 iframe 不继承宿主 CSS、字体或组件运行时，详见 [插件管理面](docs/design/plugin-management-surface.md)。
+
+## Do's and Don'ts
+
+### Do:
+
+- Do 用中性导航、连续工作区和精确分隔线建立稳定方位。
+- Do 将青瓷留给品牌、主操作和少数选中标记，保持普通表面与文字中性。
+- Do 保持亮暗主题的信息层级、状态含义与操作能力等价。
+- Do 使用项目 token、共享标题字体与标准框架控件。
+- Do 保持可见焦点、键盘操作、触控目标、reduced-motion 与 forced-colors 支持。
+- Do 让真实数据、必要警告和用户任务决定内容高度与页面密度。
+
+### Don't:
+
+- Don't 使用科技蓝、霓虹边界或通用深色科技仪表盘作为品牌语言。
+- Don't 使用巨型标题、装饰性眉题、hero 指标模板或虚构数据填满页面。
+- Don't 使用无任务意义的同尺寸卡片拼贴、多层日志外框或无任务边界的嵌套卡片；独立插件集合的卡片网格属于明确保留的例外。
+- Don't 将浮层玻璃铺到表单、列表或日志，不动画化模糊半径，也不逐条动画日志。
+- Don't 依赖颜色单独表达状态，或用 attention 混同 warning 与 danger。
+- Don't 为视觉风格引入平行组件库、运行时主题服务或跨 iframe 样式注入。

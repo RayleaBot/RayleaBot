@@ -1,0 +1,226 @@
+{
+  "title": "RayleaBot · 主视觉方向",
+  "question": "三种方案保留同一组功能与首页信息。图中为演示数据，用于确认视觉，不代表已实现界面或性能结果。",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "瓷白 · 淡藤",
+      "kicker": "01 · 轻盈层次",
+      "lineage": "现代管理面 × 赛璐璐的简洁色面",
+      "thesis": "瓷白工作区、淡藤色选择态与少量透光工具栏，以细节形成辨识度。",
+      "palette": [
+        "#F5F5F7",
+        "#FFFFFF",
+        "#24242C",
+        "#75648D",
+        "#E9E4F0"
+      ],
+      "materials": [
+        "实色瓷白面板",
+        "局部磨砂玻璃",
+        "简洁色面标识"
+      ],
+      "viewport": "保留侧栏、工作区页签、四项状态、事件与恢复面板和下方运维工具；无英雄区。",
+      "risk": "淡藤色需要控制面积；标识可带赛璐璐气质，但管理区不能变成插画展台。",
+      "raised": [
+        {
+          "from": "虹彩云缘",
+          "raise": "光学材质只作用于覆盖内容的交互层。"
+        },
+        {
+          "from": "舞台晨光",
+          "raise": "亮暗主题保持同一信息层级与内容位置。"
+        },
+        {
+          "from": "数码仪表",
+          "raise": "状态数字保持对齐，更新时布局不跳动。"
+        },
+        {
+          "from": "单色像素桌面",
+          "raise": "选中、按下、禁用与键盘焦点明确可辨。"
+        },
+        {
+          "from": "信息噪声封套",
+          "raise": "高密度建立在严格栅格与文字对齐上。"
+        },
+        {
+          "from": "夜色交通图",
+          "raise": "窄屏保留当前位置与分组语境，不整体缩小桌面。"
+        }
+      ],
+      "comp": ".impeccable/mocks/decision/2026-08-27/assigned.png"
+    },
+    {
+      "id": "pick",
+      "label": "雾白 · 青瓷",
+      "kicker": "02 · 推荐",
+      "lineage": "现代创作软件的紧凑检查器与工作区",
+      "thesis": "雾白与低饱和青瓷绿，通过连续面板和精确对齐获得安定、耐看的日常体验。",
+      "palette": [
+        "#F4F6F3",
+        "#FFFFFF",
+        "#25352F",
+        "#476C5E",
+        "#E1E9E3"
+      ],
+      "materials": [
+        "实色面板",
+        "细分隔线",
+        "极少量缎面玻璃"
+      ],
+      "viewport": "浅色导航连接连续工作区；状态采用紧凑横条，事件、恢复与工具区层级清楚。",
+      "risk": "最接近成熟管理软件，熟悉易用；新意集中在细节而非强烈造型。",
+      "comp": ".impeccable/mocks/decision/2026-08-27/pick.png"
+    },
+    {
+      "id": "challenger-iridescent",
+      "label": "虹彩云缘",
+      "verdict": "declined",
+      "lineage": "clouds-storms-auroras-iridescent-cloud-edge",
+      "thesis": "窄虹彩边缘、无彩正文",
+      "palette": [
+        "#FFFFFF",
+        "#525862",
+        "#B9A7CD"
+      ],
+      "materials": [
+        "窄虹彩边缘、无彩正文"
+      ],
+      "viewport": "宽留白与光谱边缘为主的管理面",
+      "case": "与用户指定的现代紧凑管理面比较：使用场景认同和产品清晰度均较弱。",
+      "risk": "装饰性光谱会分散状态识别，宽边距削弱信息密度。",
+      "kept": "光学材质只作用于覆盖内容的交互层。",
+      "hero": "https://impeccable.style/worlds/cards/clouds-storms-auroras-iridescent-cloud-edge-hero.webp"
+    },
+    {
+      "id": "challenger-cyclorama",
+      "label": "舞台晨光",
+      "verdict": "declined",
+      "lineage": "stagecraft-theater-lighting-cyclorama-dawn",
+      "thesis": "黑色天幕、蓝粉水平光带",
+      "palette": [
+        "#08090D",
+        "#284DBB",
+        "#C7859A"
+      ],
+      "materials": [
+        "黑色天幕、蓝粉水平光带"
+      ],
+      "viewport": "用水平光带组织系统状态",
+      "case": "与用户指定的现代紧凑管理面比较：使用场景认同和产品清晰度均较弱。",
+      "risk": "钴蓝光带与戏剧性大色面不符合配色和密度要求。",
+      "kept": "亮暗主题保持同一信息层级与内容位置。",
+      "hero": "https://impeccable.style/worlds/cards/stagecraft-theater-lighting-cyclorama-dawn-hero.webp"
+    },
+    {
+      "id": "challenger-segment",
+      "label": "数码仪表",
+      "verdict": "declined",
+      "lineage": "signals-instruments-seven-segment-alarm-clock",
+      "thesis": "哑黑面板、发光数字",
+      "palette": [
+        "#151515",
+        "#D54B42",
+        "#D99E4B"
+      ],
+      "materials": [
+        "哑黑面板、发光数字"
+      ],
+      "viewport": "固定数码格呈现运行状态",
+      "case": "与用户指定的现代紧凑管理面比较：使用场景认同和产品清晰度均较弱。",
+      "risk": "数码字母体系不适合中文配置与日志阅读。",
+      "kept": "状态数字保持对齐，更新时布局不跳动。",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-seven-segment-alarm-clock-hero.webp"
+    },
+    {
+      "id": "challenger-onebit",
+      "label": "单色像素桌面",
+      "verdict": "declined",
+      "lineage": "medium-native-one-bit-desktop",
+      "thesis": "黑白像素、抖色边界",
+      "palette": [
+        "#FFFFFF",
+        "#000000"
+      ],
+      "materials": [
+        "黑白像素、抖色边界"
+      ],
+      "viewport": "叠置像素窗口呈现管理任务",
+      "case": "与用户指定的现代紧凑管理面比较：使用场景认同和产品清晰度均较弱。",
+      "risk": "复古像素与现代优雅的方向不符，细字可读性受限。",
+      "kept": "选中、按下、禁用与键盘焦点明确可辨。",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-one-bit-desktop-hero.webp"
+    },
+    {
+      "id": "challenger-noise",
+      "label": "信息噪声封套",
+      "verdict": "declined",
+      "lineage": "tdr-info-noise-sleeve",
+      "thesis": "高饱和印刷、密集标记",
+      "palette": [
+        "#000000",
+        "#FF00A8",
+        "#FF7200"
+      ],
+      "materials": [
+        "高饱和印刷、密集标记"
+      ],
+      "viewport": "高密度标记环绕巨大标题",
+      "case": "与用户指定的现代紧凑管理面比较：使用场景认同和产品清晰度均较弱。",
+      "risk": "巨大标题、伪文字和高饱和装饰违背明确禁区。",
+      "kept": "高密度建立在严格栅格与文字对齐上。",
+      "hero": "https://impeccable.style/worlds/cards/tdr-info-noise-sleeve-hero.webp"
+    },
+    {
+      "id": "challenger-transit",
+      "label": "夜色交通图",
+      "verdict": "declined",
+      "lineage": "wayfinding-cartography-signage-midnight-transit-diagram",
+      "thesis": "深蓝瓷釉、线路图",
+      "palette": [
+        "#0F1C37",
+        "#FFFFFF",
+        "#D34336"
+      ],
+      "materials": [
+        "深蓝瓷釉、线路图"
+      ],
+      "viewport": "以线路和换乘节点组织功能",
+      "case": "与用户指定的现代紧凑管理面比较：使用场景认同和产品清晰度均较弱。",
+      "risk": "地图导航会改变分组与操作路径，深蓝大面也不适用。",
+      "kept": "窄屏保留当前位置与分组语境，不整体缩小桌面。",
+      "hero": "https://impeccable.style/worlds/cards/wayfinding-cartography-signage-midnight-transit-diagram-hero.webp"
+    }
+  ],
+  "reroll": {
+    "registers": [
+      "safer",
+      "bolder"
+    ]
+  },
+  "buildPath": {
+    "value": "comp",
+    "toggle": true
+  },
+  "canon": true,
+  "canonCard": {
+    "label": "石墨 · 暖杏",
+    "thesis": "深石墨导航与暖白工作区，沿用参考图中成熟的管理面结构。",
+    "palette": [
+      "#232321",
+      "#F6F5F3",
+      "#FFFFFF",
+      "#292825",
+      "#A7623D"
+    ],
+    "materials": [
+      "哑光石墨导航",
+      "实色暖白面板",
+      "浅层阴影"
+    ],
+    "viewport": "深浅分区提供方向感，紧凑状态卡、事件区和工具区保持熟悉布局。",
+    "risk": "变化更稳妥、适应成本低；原创辨识度弱于前两种。",
+    "comp": ".impeccable/mocks/decision/2026-08-27/canon.png"
+  },
+  "steer": true
+}
