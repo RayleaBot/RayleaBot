@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch } from 'vue'
+import { DownOutlined, FilterOutlined } from '@ant-design/icons-vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -42,6 +43,10 @@ const {
   selectedSummary,
 } = detailController
 const logsLayoutRef = ref<HTMLElement | null>(null)
+const filtersExpanded = ref(false)
+const filterPanelRef = ref<HTMLElement | null>(null)
+const filterToggleRef = ref<HTMLButtonElement | null>(null)
+const filterPanelId = useId()
 const viewportRef = ref<{
   getScrollMetrics?: () => {
     clientHeight: number
@@ -360,10 +365,18 @@ async function refreshHistory() {
   try {
     await historyStore.refreshAnchor()
     await replaceRouteState()
+    collapseMobileFilters()
     await syncViewportAfterRender()
   } catch {
     // store error drives the page
   }
+}
+
+function collapseMobileFilters() {
+  if (!filterToggleRef.value?.getClientRects().length) return
+  const restoreFocus = filterPanelRef.value?.contains(document.activeElement)
+  filtersExpanded.value = false
+  if (restoreFocus) filterToggleRef.value?.focus()
 }
 
 async function applyFilters() {
@@ -373,6 +386,7 @@ async function applyFilters() {
   try {
     await historyStore.applyFilters()
     await replaceRouteState(null)
+    collapseMobileFilters()
     await syncViewportAfterRender()
   } catch {
     // store error drives the page
@@ -451,6 +465,19 @@ onBeforeUnmount(() => {
   <AppPage :title="t('logs.historyTitle')" full-height>
     <template #toolbar>
       <a-card :bordered="false" class="app-view-card logs-toolbar">
+        <button
+          ref="filterToggleRef"
+          type="button"
+          class="logs-filter-toggle"
+          :aria-expanded="filtersExpanded"
+          :aria-controls="filterPanelId"
+          @click="filtersExpanded = !filtersExpanded"
+        >
+          <FilterOutlined aria-hidden="true" />
+          <span>{{ t('logs.filters.panel') }}</span>
+          <DownOutlined class="logs-filter-toggle__chevron" :class="{ 'is-expanded': filtersExpanded }" aria-hidden="true" />
+        </button>
+        <div :id="filterPanelId" ref="filterPanelRef" class="logs-filter-panel" :class="{ 'is-expanded': filtersExpanded }">
         <a-form layout="vertical" class="logs-filter-grid logs-filter-grid--history">
           <a-form-item :label="t('logs.filters.level')">
             <a-select
@@ -485,6 +512,7 @@ onBeforeUnmount(() => {
             <a-button class="logs-toolbar__apply" type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
           </div>
         </a-form>
+        </div>
       </a-card>
     </template>
 
@@ -522,7 +550,7 @@ onBeforeUnmount(() => {
           :dynamic-item-height="true"
           :overscan="6"
           :follow-bottom="autoFollowBottom"
-          :empty-label="t('display.empty')"
+          :empty-label="t('logs.history.empty')"
           :get-item-key="(item) => item.log_id"
           @reach-top="loadOlder"
         >
@@ -593,6 +621,8 @@ onBeforeUnmount(() => {
   padding: 12px 14px;
 }
 
+.logs-filter-toggle { display: none; }
+
 .logs-filter-grid {
   display: flex;
   flex-wrap: wrap;
@@ -631,6 +661,11 @@ onBeforeUnmount(() => {
 
 .logs-feed-card {
   box-shadow: none;
+}
+
+.logs-feed-card :deep(.data-viewport) {
+  border: 0;
+  border-radius: 0;
 }
 
 .logs-feed-card__title {
@@ -717,6 +752,26 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
+  .logs-toolbar :deep(.ant-card-body) { padding: 6px 12px; }
+  .logs-filter-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 2px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .logs-filter-toggle__chevron { margin-inline-start: auto; color: var(--muted); }
+  .logs-filter-toggle__chevron.is-expanded { transform: rotate(180deg); }
+  .logs-filter-panel { display: none; }
+  .logs-filter-panel.is-expanded { display: block; max-height: 55dvh; overflow: auto; padding: 8px 2px 10px; }
+
   .logs-filter-grid :deep(.ant-form-item) {
     flex-basis: 100%;
     max-width: none;

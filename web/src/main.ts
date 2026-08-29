@@ -12,6 +12,7 @@ import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
 import { useUiShellStore } from '@/stores/ui-shell'
 import 'ant-design-vue/dist/reset.css'
+import '../../design/typography.generated.css'
 import '@/styles/tailwind.css'
 import '@/styles/main.scss'
 

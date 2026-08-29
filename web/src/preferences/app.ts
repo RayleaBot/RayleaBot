@@ -86,13 +86,14 @@ export function resolveThemeConfig(
       colorText: tokens.text,
       colorTextLightSolid: tokens.onBrand,
       colorTextSecondary: tokens.textMuted,
+      colorTextPlaceholder: tokens.textMuted,
       colorWarning: tokens.warning,
       controlOutline: tokens.focus,
-      borderRadius: 10,
-      borderRadiusLG: 14,
+      borderRadius: 8,
+      borderRadiusLG: 12,
       borderRadiusSM: 6,
       controlHeight,
-      fontFamily: 'Inter, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif',
+      fontFamily: 'var(--font-sans)',
       fontSize: 14,
       wireframe: false,
     },
@@ -101,7 +102,13 @@ export function resolveThemeConfig(
         controlHeight,
       },
       Card: {
-        borderRadiusLG: 14,
+        borderRadiusLG: 12,
+      },
+      Dropdown: {
+        colorPrimary: tokens.navSelectedText,
+        controlItemBgActive: tokens.navSelected,
+        controlItemBgActiveHover: tokens.navHover,
+        controlItemBgHover: tokens.navHover,
       },
       Input: {
         controlHeight,
@@ -120,9 +127,9 @@ export function resolveThemeConfig(
         darkItemSelectedColor: tokens.navSelectedText,
         darkSubMenuItemBg: tokens.chrome,
         itemBg: 'transparent',
-        itemSelectedBg: tokens.brandSoft,
-        itemSelectedColor: tokens.brandForeground,
-        borderRadius: 10,
+        itemSelectedBg: tokens.navSelected,
+        itemSelectedColor: tokens.navSelectedText,
+        borderRadius: 8,
       },
       Select: {
         controlHeight,
@@ -130,7 +137,7 @@ export function resolveThemeConfig(
       Table: {
         headerBg: tokens.canvas,
         headerColor: tokens.textMuted,
-        rowHoverBg: `color-mix(in srgb, ${tokens.brandFill} ${isDark ? '5%' : '9%'}, ${tokens.surface})`,
+        rowHoverBg: tokens.surfaceSoft,
       },
     },
   }
@@ -143,10 +150,10 @@ export function resolvePreferenceCssVariables(preferences: LayoutPreferences) {
     '--app-content-max-width': preferences.contentWidth === 'fixed' ? '1240px' : 'none',
     '--app-control-height': '36px',
     '--app-layout-gap': compact ? '12px' : '16px',
-    '--app-page-gap': compact ? '16px' : '24px',
-    '--app-page-header-gap': compact ? '16px' : '24px',
+    '--app-page-gap': compact ? '12px' : '16px',
+    '--app-page-header-gap': compact ? '12px' : '16px',
     '--app-page-toolbar-gap': compact ? '12px' : '16px',
     '--app-shell-padding-inline': compact ? '16px' : '24px',
-    '--app-shell-padding-block': compact ? '16px' : '24px',
+    '--app-shell-padding-block': compact ? '12px' : '20px',
   }
 }

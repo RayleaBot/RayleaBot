@@ -1,5 +1,6 @@
 import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { pluginCenterPages, pluginCenterTabName, restorePluginCenterTabs } from '@/access/plugin-center'
 
 import {
   defaultLayoutPreferences,
@@ -80,7 +81,7 @@ function normalizePersistedState(value: unknown): PersistedShellState {
     version: 3,
     preferences: normalizeLayoutPreferences(nextValue.preferences),
     siderCollapsed: Boolean(nextValue.siderCollapsed),
-    tabs: normalizeTabs(nextValue.tabs),
+    tabs: restorePluginCenterTabs(normalizeTabs(nextValue.tabs)),
   }
 }
 
@@ -149,7 +150,9 @@ export const useUiShellStore = defineStore('ui-shell', () => {
   const cachedViewNames = computed(() => {
     const names = tabs.value
       .filter((item) => item.keepAlive)
-      .map((item) => item.name)
+      .flatMap((item) => item.name === pluginCenterTabName
+        ? pluginCenterPages.map(page => page.name)
+        : [item.name])
 
     return Array.from(new Set(names))
   })

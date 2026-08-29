@@ -101,32 +101,10 @@ onMounted(() => {
 <template>
   <AppPage
     :title="t('plugins.store.title')"
-    :description="t('plugins.store.description')"
+    :show-header="false"
   >
-    <template #status>
-      <a-tag v-if="catalog" color="blue">
-        <SafetyCertificateOutlined />
-        {{ t('plugins.store.catalog.verified') }} · {{ catalogSourceLabel }}
-      </a-tag>
-    </template>
-
-    <template #extra>
-      <a-button :loading="refreshing" @click="refreshCatalog">
-        <template #icon><ReloadOutlined /></template>
-        {{ t('plugins.store.actions.refresh') }}
-      </a-button>
-    </template>
-
-    <RetryPanel
-      v-if="error && items.length === 0"
-      :title="t('errors.common.loadFailed')"
-      :description="error"
-      :loading="loading"
-      @retry="loadEntries"
-    />
-
-    <template v-else>
-      <AppCard borderless class="store-toolbar-card">
+    <template #toolbar>
+      <AppCard borderless>
         <div class="store-toolbar">
           <a-input-search
             v-model:value="query"
@@ -142,10 +120,30 @@ onMounted(() => {
             <a-select-option value="name">{{ t('plugins.store.sort.name') }}</a-select-option>
             <a-select-option value="updated">{{ t('plugins.store.sort.updated') }}</a-select-option>
           </a-select>
-          <span class="store-count">{{ t('plugins.store.resultCount', { count: total }) }}</span>
+          <div class="store-toolbar-meta">
+            <a-tag v-if="catalog" color="blue">
+              <SafetyCertificateOutlined />
+              {{ t('plugins.store.catalog.verified') }} · {{ catalogSourceLabel }}
+            </a-tag>
+            <span class="store-count">{{ t('plugins.store.resultCount', { count: total }) }}</span>
+            <a-button :loading="refreshing" data-testid="plugin-store-refresh" @click="refreshCatalog">
+              <template #icon><ReloadOutlined /></template>
+              {{ t('plugins.store.actions.refresh') }}
+            </a-button>
+          </div>
         </div>
       </AppCard>
+    </template>
 
+    <RetryPanel
+      v-if="error && items.length === 0"
+      :title="t('errors.common.loadFailed')"
+      :description="error"
+      :loading="loading"
+      @retry="loadEntries"
+    />
+
+    <template v-else>
       <a-skeleton v-if="loading" active :paragraph="{ rows: 8 }" />
       <AppEmptyState
         v-else-if="items.length === 0"
@@ -240,13 +238,10 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
-.store-toolbar-card {
-  margin-bottom: 18px;
-}
-
 .store-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
@@ -258,8 +253,17 @@ onMounted(() => {
   width: 150px;
 }
 
+.store-toolbar-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-inline-start: auto;
+}
+
+.store-toolbar-meta .ant-tag { margin: 0; }
+
 .store-count {
-  margin-left: auto;
   color: var(--muted);
   font-size: 13px;
 }
@@ -378,8 +382,9 @@ onMounted(() => {
     width: 100%;
   }
 
-  .store-count {
-    margin-left: 0;
+  .store-toolbar-meta {
+    margin-inline-start: 0;
+    justify-content: space-between;
   }
 }
 </style>

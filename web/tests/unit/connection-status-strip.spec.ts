@@ -26,7 +26,6 @@ describe('ConnectionStatusStrip', () => {
 
     expect(wrapper.find('[data-testid="dashboard-connection-card"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('连接状态')
-    expect(wrapper.text()).toContain('事件和日志连接')
     expect(wrapper.text()).toContain('事件流')
     expect(wrapper.text()).toContain('已认证')
     expect(wrapper.text()).toContain('重连中')

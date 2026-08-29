@@ -8,7 +8,6 @@ import {
   MessageOutlined,
   SafetyCertificateOutlined,
   SaveOutlined,
-  SettingOutlined,
   PictureOutlined,
 } from '@ant-design/icons-vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
@@ -77,7 +76,8 @@ const saveStatusLabel = computed(() => {
   }
 })
 
-watch(document, (value) => {
+watch(document, (value, previous) => {
+  if (value && previous && JSON.stringify(value) === JSON.stringify(previous)) return
   draft.value = value ? cloneConfig(value) : null
 }, { immediate: true })
 
@@ -246,25 +246,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.settings.title')" width="form">
-    <template #extra>
-      <div class="table-actions">
-        <a-button
-          type="primary"
-          :disabled="!canSave"
-          :loading="saving"
-          :aria-label="t('config.save')"
-          data-testid="plugin-settings-save"
-          @click="save"
-        >
-          <template #icon>
-            <SaveOutlined />
-          </template>
-          {{ t('config.save') }}
-        </a-button>
-      </div>
-    </template>
-
+  <AppPage :title="t('plugins.settings.title')" :show-header="false" width="form">
     <RetryPanel
       v-if="error && !draft"
       :title="t('plugins.settings.title')"
@@ -279,33 +261,6 @@ async function save() {
 
     <div v-else-if="draft" class="plugin-settings-layout">
       <section class="plugin-settings-board" :aria-label="t('plugins.settings.title')">
-        <div class="plugin-settings-board__header">
-          <div class="plugin-settings-board__title">
-            <span class="plugin-settings-board__icon">
-              <SettingOutlined />
-            </span>
-            <h2>{{ t('plugins.settings.title') }}</h2>
-          </div>
-          <div class="plugin-settings-status-row" aria-live="polite">
-            <span
-              v-if="hasUnsavedChanges"
-              class="plugin-settings-status-pill plugin-settings-status-pill--dirty"
-              data-testid="plugin-settings-unsaved-status"
-            >
-              <ExclamationCircleOutlined />
-              {{ t('plugins.settings.status.unsaved') }}
-            </span>
-            <span
-              v-else-if="saveStatus"
-              class="plugin-settings-status-pill plugin-settings-status-pill--saved"
-              data-testid="plugin-settings-save-status"
-            >
-              <CheckCircleOutlined />
-              {{ saveStatusLabel }}
-            </span>
-          </div>
-        </div>
-
         <a-form layout="vertical" class="plugin-settings-form-matrix">
           <section
             v-for="section in configSections"
@@ -426,6 +381,20 @@ async function save() {
           </section>
         </a-form>
       </section>
+      <footer class="plugin-settings-save-bar">
+        <div class="plugin-settings-status-row" aria-live="polite">
+          <span v-if="hasUnsavedChanges" class="plugin-settings-status-pill plugin-settings-status-pill--dirty" data-testid="plugin-settings-unsaved-status">
+            <ExclamationCircleOutlined />{{ t('plugins.settings.status.unsaved') }}
+          </span>
+          <span v-else-if="saveStatus" class="plugin-settings-status-pill plugin-settings-status-pill--saved" data-testid="plugin-settings-save-status">
+            <CheckCircleOutlined />{{ saveStatusLabel }}
+          </span>
+        </div>
+        <a-button type="primary" :disabled="!canSave" :loading="saving" :aria-label="t('config.save')" data-testid="plugin-settings-save" @click="save">
+          <template #icon><SaveOutlined /></template>
+          {{ t('config.save') }}
+        </a-button>
+      </footer>
     </div>
   </AppPage>
 </template>
@@ -437,30 +406,45 @@ async function save() {
 
 .plugin-settings-layout {
   display: grid;
+  width: 100%;
+}
+
+.plugin-settings-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 20px;
+  border: 1px solid var(--border);
+  margin-top: -1px;
+  border-radius: 0 0 var(--app-card-radius) var(--app-card-radius);
+  background: var(--surface);
+}
+
+.plugin-settings-save-bar .ant-btn { flex: 0 0 auto; }
+@media (max-width: 639px) {
+  .plugin-settings-save-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
+  .plugin-settings-save-bar .ant-btn { min-height: 44px; }
 }
 
 .plugin-settings-board {
   display: grid;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
+  border-radius: var(--app-card-radius) var(--app-card-radius) 0 0;
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
-}
-
-.plugin-settings-board__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border);
+  box-shadow: none;
 }
 
 .plugin-settings-status-row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  min-width: 0;
   min-height: 28px;
 }
 
@@ -470,11 +454,11 @@ async function save() {
   gap: 7px;
   min-height: 28px;
   padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 650;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
   line-height: 1;
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .plugin-settings-status-pill--dirty {
@@ -500,7 +484,7 @@ async function save() {
   margin: 0;
   color: var(--text);
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .plugin-settings-board__icon,
@@ -509,10 +493,9 @@ async function save() {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border-radius: 50%;
-  color: var(--accent);
-  background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
+  color: var(--muted);
+  background: transparent;
+  border: 0;
 }
 
 .plugin-settings-board__icon {
@@ -526,7 +509,7 @@ async function save() {
 
 .plugin-settings-setting-row {
   display: grid;
-  grid-template-columns: minmax(176px, 240px) minmax(0, 1fr);
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
   gap: 24px;
   padding: 18px 20px;
   border-top: 1px solid var(--border);
@@ -552,8 +535,8 @@ async function save() {
 .plugin-settings-setting-row__title h3 {
   margin: 0;
   color: var(--text);
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 1.35;
 }
 
@@ -574,8 +557,8 @@ async function save() {
 }
 
 .field-label-text {
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: 500;
+  font-size: 14px;
   color: var(--theme-text, var(--text));
 }
 
@@ -699,11 +682,6 @@ async function save() {
 }
 
 @media (max-width: 860px) {
-  .plugin-settings-board__header {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .plugin-settings-setting-row {
     grid-template-columns: 1fr;
     gap: 12px;

@@ -79,10 +79,15 @@ describe('PluginStoreView', () => {
     })
     const refresh = vi.spyOn(store, 'refreshCatalog').mockRejectedValue(new Error('offline'))
 
-    mount(PluginStoreView, { global: { plugins: [Antd] } })
+    const wrapper = mount(PluginStoreView, { global: { plugins: [Antd] } })
     await flushPromises()
 
     expect(refresh).toHaveBeenCalledOnce()
+    expect(store.catalog?.source).toBe('embedded')
+
+    await wrapper.get('[data-testid="plugin-store-refresh"]').trigger('click')
+    await flushPromises()
+    expect(refresh).toHaveBeenCalledTimes(2)
     expect(store.catalog?.source).toBe('embedded')
   })
 })

@@ -3,14 +3,17 @@ import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   FilterOutlined,
+  EyeOutlined,
+  SettingOutlined,
   SearchOutlined,
   PlusOutlined,
-  ReloadOutlined,
+  SyncOutlined,
 } from '@ant-design/icons-vue'
 
 import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import AppTableToolbar from '@/components/AppTableToolbar.vue'
 import AppStatusTag from '@/components/AppStatusTag.vue'
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
@@ -23,8 +26,6 @@ import {
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
-import { isPluginCommandConflicted } from '@/lib/plugin-commands'
-import type { PluginCommandSummary } from '@/types/api'
 import { usePluginsStore } from '@/stores/plugins'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginInstallFlow } from './usePluginInstallFlow'
@@ -49,7 +50,6 @@ const {
 } = usePluginInstallFlow(pluginsStore)
 const summaryDrawerVisible = ref(false)
 const summaryPluginId = ref<string | null>(null)
-const expandedCommandPluginIds = ref(new Set<string>())
 const filterDrawerVisible = ref(false)
 
 const searchQuery = ref('')
@@ -82,19 +82,9 @@ function getTrustLabel(record: (typeof sortedItems.value)[number]) {
 }
 
 function getTrustColor(record: (typeof sortedItems.value)[number]) {
-  if (isOfficialPlugin(record)) return 'blue'
+  if (isOfficialPlugin(record)) return 'default'
   if (record.trust?.level === 'unverified') return 'warning'
   return 'default'
-}
-
-function getPluginInitials(name: string) {
-  const normalized = name.trim()
-  if (!normalized) return 'PL'
-  if (/^[\u4e00-\u9fa5]/.test(normalized)) return normalized.slice(0, 2)
-  const words = normalized.split(/[\s._-]+/).filter(Boolean)
-  return words.length > 1
-    ? `${words[0][0]}${words[1][0]}`.toUpperCase()
-    : normalized.slice(0, 2).toUpperCase()
 }
 
 function getSourceTypeLabel(type?: string) {
@@ -170,45 +160,15 @@ function getPluginHealthNotices(row: (typeof sortedItems.value)[number]) {
   return notices.slice(0, 3)
 }
 
-function isCommandsExpanded(pluginId: string) {
-  return expandedCommandPluginIds.value.has(pluginId)
-}
-
-function getVisibleCommands(pluginId: string, commands: PluginCommandSummary[]) {
-  return isCommandsExpanded(pluginId) ? commands : commands.slice(0, 3)
-}
-
-function getOverflowCommandCount(commands: PluginCommandSummary[]) {
-  return Math.max(commands.length - 3, 0)
-}
-
-function toggleCommandExpansion(pluginId: string) {
-  const next = new Set(expandedCommandPluginIds.value)
-  if (next.has(pluginId)) {
-    next.delete(pluginId)
-  } else {
-    next.add(pluginId)
-  }
-  expandedCommandPluginIds.value = next
-}
-
-function getCommandAliasesText(command: PluginCommandSummary) {
-  return command.aliases?.length ? command.aliases.join(', ') : t('display.empty')
-}
-
 function getOptionalDisplayText(value?: string | null) {
   const text = value?.trim()
   return text ? text : t('display.empty')
 }
 
-function isConflictedCommand(command: PluginCommandSummary, conflicts?: string[]) {
-  return isPluginCommandConflicted(command, conflicts)
-}
-
 function getTagColor(tone: HealthNoticeTone) {
   if (tone === 'danger') return 'error'
   if (tone === 'warning') return 'warning'
-  if (tone === 'info') return 'blue'
+  if (tone === 'info') return 'default'
   return 'default'
 }
 
@@ -266,7 +226,7 @@ async function reloadPlugin(pluginId: string) {
 </script>
 
 <template>
-  <AppPage :title="t('plugins.title')">
+  <AppPage :title="t('plugins.title')" :show-header="false">
     <RetryPanel
       v-if="error && sortedItems.length === 0"
       :title="t('errors.common.loadFailed')"
@@ -334,14 +294,12 @@ async function reloadPlugin(pluginId: string) {
           <div v-else class="plugins-grid" aria-label="插件列表">
             <article v-for="item in filteredItems" :key="item.id" class="plugin-grid-card">
               <header class="plugin-card__header">
-                <div class="plugin-card__avatar" aria-hidden="true">
-                  {{ getPluginInitials(item.name) }}
-                </div>
+                <PluginIcon :plugin-id="item.id" :icon="item.icon" :version="item.version" />
                 <div class="plugin-card__identity">
-                  <button type="button" class="plugin-card__name" @click="openDetail(item.id)">
+                  <button type="button" class="plugin-card__name" :title="item.name" @click="openDetail(item.id)">
                     {{ item.name }}
                   </button>
-                  <span class="plugin-card__id">{{ item.id }}</span>
+                  <span v-if="item.version" class="plugin-card__version" :title="item.version">v{{ item.version }}</span>
                 </div>
                 <AppStatusTag :status="item.state" :label="getPluginStateLabel(item.state)" :aria-label="`状态：${getPluginStateLabel(item.state)}`" />
               </header>
@@ -351,11 +309,6 @@ async function reloadPlugin(pluginId: string) {
               </p>
 
               <div class="plugin-card__meta">
-                <span>{{ getOptionalDisplayText(item.version) }}</span>
-                <span>{{ getOptionalDisplayText(item.author) }}</span>
-                <span class="plugin-card__source" :title="item.source?.root ?? t('display.empty')">
-                  {{ item.source?.root ?? t('display.empty') }}
-                </span>
                 <span>{{ getSourceTypeLabel(item.source?.package_source_type) }}</span>
                 <a-tag size="small" :color="getTrustColor(item)">{{ getTrustLabel(item) }}</a-tag>
               </div>
@@ -372,61 +325,34 @@ async function reloadPlugin(pluginId: string) {
                 </a-tag>
               </div>
 
-              <div class="plugin-card__commands">
-                <div class="plugin-card__section-label">{{ t('plugins.fields.commands') }}</div>
-                <div v-if="item.commands.length > 0" class="plugin-cell-commands">
-                  <div
-                    v-for="command in getVisibleCommands(item.id, item.commands)"
-                    :key="`${item.id}-${command.name}`"
-                    class="plugin-command-chip"
-                  >
-                    <a-tag
-                      size="small"
-                      :color="isConflictedCommand(command, item.command_conflicts) ? 'warning' : 'success'"
-                      :aria-label="`指令：${command.name}`"
-                    >
-                      {{ command.name }}
-                    </a-tag>
-                    <a-tooltip v-if="command.aliases?.length" :title="getCommandAliasesText(command)">
-                      <small>{{ t('plugins.commandAliasesCount', { count: command.aliases.length }) }}</small>
-                    </a-tooltip>
-                  </div>
-                  <a-button
-                    v-if="getOverflowCommandCount(item.commands) > 0"
-                    class="plugin-command-expander"
-                    size="small"
-                    type="link"
-                    :aria-expanded="isCommandsExpanded(item.id)"
-                    :aria-label="isCommandsExpanded(item.id)
-                      ? t('plugins.commandCollapseAria', { name: item.name })
-                      : t('plugins.commandExpandAria', { name: item.name, count: getOverflowCommandCount(item.commands) })"
-                    @click="toggleCommandExpansion(item.id)"
-                  >
-                    {{ isCommandsExpanded(item.id)
-                      ? t('plugins.commandCollapse')
-                      : t('plugins.commandOverflow', { count: getOverflowCommandCount(item.commands) }) }}
-                  </a-button>
-                </div>
-                <span v-else class="plugin-command-empty">{{ t('plugins.empty.commands') }}</span>
-              </div>
-
               <footer class="plugin-card__actions">
                 <div class="plugin-card__action-buttons">
-                  <a-button size="small" @click="openSummary(item.id)">{{ t('plugins.actions.summary') }}</a-button>
-                  <a-button size="small" @click="openDetail(item.id)">{{ t('plugins.actions.detail') }}</a-button>
+                  <a-tooltip :title="t('plugins.actions.summary')">
+                    <a-button class="plugin-card__icon-action" type="text" :aria-label="t('plugins.actions.summary')" @click="openSummary(item.id)">
+                      <template #icon><EyeOutlined /></template>
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip :title="t('plugins.actions.detail')">
+                    <a-button class="plugin-card__icon-action" type="text" :aria-label="t('plugins.actions.detail')" @click="openDetail(item.id)">
+                      <template #icon><SettingOutlined /></template>
+                    </a-button>
+                  </a-tooltip>
+                  <a-tooltip :title="t('plugins.actions.reload')">
                   <a-button
-                    size="small"
+                    class="plugin-card__icon-action"
+                    type="text"
+                    :aria-label="t('plugins.actions.reload')"
                     :data-testid="`plugin-reload-button-${item.id}`"
                     :loading="actionPending[item.id] === 'reload'"
                     :disabled="isReloadDisabled(item.state)"
                     @click="reloadPlugin(item.id)"
                   >
-                    <template #icon><ReloadOutlined /></template>
-                    {{ t('plugins.actions.reload') }}
+                    <template #icon><SyncOutlined /></template>
                   </a-button>
+                  </a-tooltip>
                 </div>
                 <PluginPowerButton
-                  compact
+                  icon-only
                   :checked="item.state !== 'disabled'"
                   :data-testid="`plugin-enable-button-${item.id}`"
                   :loading="isToggleLoading(item.id, item.state)"
@@ -666,23 +592,7 @@ async function reloadPlugin(pluginId: string) {
     display: inline-flex;
   }
 
-  .plugin-card__actions,
-  .plugin-card__action-buttons {
-    align-items: stretch;
-    flex-direction: column;
-  }
 
-  .plugin-card__actions :deep(.ant-btn),
-  .plugin-card__actions :deep(.plugin-holo-button) {
-    width: 100%;
-    min-height: 44px;
-  }
-}
-
-.plugin-command-empty {
-  font-size: 0.875rem;
-  color: var(--muted);
-  display: block;
 }
 
 .plugins-card {
@@ -695,15 +605,15 @@ async function reloadPlugin(pluginId: string) {
 
 .plugins-grid-container {
   min-height: 220px;
-  padding: var(--space-lg);
-  background: var(--surface-soft);
+  padding: 16px 0 0;
+  background: var(--bg);
 }
 
 .plugins-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-lg);
-  align-items: start;
+  align-items: stretch;
 }
 
 .plugin-grid-card {
@@ -711,16 +621,17 @@ async function reloadPlugin(pluginId: string) {
   min-width: 0;
   overflow: hidden;
   flex-direction: column;
+  min-height: 224px;
   border: 1px solid var(--border);
   border-radius: var(--app-card-radius);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
   transition: border-color 160ms var(--motion-easing), box-shadow 160ms var(--motion-easing);
 }
 
 .plugin-grid-card:hover {
   border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .plugin-card__header {
@@ -731,29 +642,18 @@ async function reloadPlugin(pluginId: string) {
   padding: 16px 16px 12px;
 }
 
-.plugin-card__avatar {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid var(--border-accent);
-  border-radius: 10px;
-  background: var(--surface-accent);
-  color: var(--text-accent);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
 .plugin-card__identity {
-  display: grid;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
   min-width: 0;
   flex: 1 1 auto;
-  gap: 2px;
+  gap: 2px 8px;
 }
 
 .plugin-card__name {
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   padding: 0;
   border: 0;
@@ -762,7 +662,7 @@ async function reloadPlugin(pluginId: string) {
   cursor: pointer;
   font: inherit;
   font-size: 15px;
-  font-weight: 650;
+  font-weight: 600;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -779,11 +679,11 @@ async function reloadPlugin(pluginId: string) {
   border-radius: 4px;
 }
 
-.plugin-card__id {
+.plugin-card__version {
+  max-width: 100%;
   overflow: hidden;
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -806,14 +706,15 @@ async function reloadPlugin(pluginId: string) {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 10px;
+  gap: 6px 8px;
 }
 
 .plugin-card__meta {
-  margin: 12px 16px 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--surface-soft);
+  margin: 12px 16px 12px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--muted);
   font-size: 13px;
 }
@@ -825,71 +726,13 @@ async function reloadPlugin(pluginId: string) {
   white-space: nowrap;
 }
 
-.plugin-card__source {
-  max-width: 180px;
-}
-
 .plugin-card__meta :deep(.ant-tag),
 .plugin-health-notices :deep(.ant-tag) {
   margin-inline-end: 0;
 }
 
 .plugin-health-notices {
-  padding: 10px 16px 0;
-}
-
-.plugin-card__commands {
-  display: grid;
-  flex: 1 1 auto;
-  align-content: start;
-  gap: 8px;
-  margin-top: 14px;
-  padding: 14px 16px 16px;
-  border-top: 1px solid var(--border);
-}
-
-.plugin-card__section-label {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.plugin-cell-commands {
-  display: flex;
-  gap: 6px 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.plugin-command-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-  flex: 0 1 auto;
-}
-
-.plugin-command-chip :deep(.ant-tag) {
-  margin-inline-end: 0;
-}
-
-.plugin-command-chip small,
-.plugin-command-empty {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.plugin-command-expander {
-  height: 22px;
-  padding: 0 6px;
-  color: var(--muted);
-  font-size: 0.875rem;
-  line-height: 20px;
-}
-
-.plugin-command-expander:hover,
-.plugin-command-expander:focus-visible {
-  color: var(--primary);
+  padding: 0 16px 12px;
 }
 
 .plugin-card__actions,
@@ -902,9 +745,10 @@ async function reloadPlugin(pluginId: string) {
 
 .plugin-card__actions {
   justify-content: space-between;
-  padding: 12px 16px;
+  margin-top: auto;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
-  background: var(--surface-soft);
+  background: transparent;
 }
 
 .plugin-card__actions :deep(.plugin-holo-button) {
@@ -947,5 +791,36 @@ async function reloadPlugin(pluginId: string) {
   gap: var(--space-xs);
   strong { font-size: 1rem; font-weight: 600; }
   small { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+}
+
+.plugin-card__action-buttons { gap: 8px; }
+.plugin-card__icon-action.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 18px;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+.plugin-card__icon-action.ant-btn:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
+.plugin-card__icon-action.ant-btn:active:not(:disabled) { transform: scale(.94); }
+.plugin-card__icon-action.ant-btn:disabled { color: var(--muted); opacity: .45; }
+@media (min-width: 1800px) { .plugins-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 2300px) {
+ .plugins-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+ .plugin-grid-card { min-height: 240px; }
+}
+@media (max-width: 1199px) { .plugins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .plugins-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 639px), (pointer: coarse) {
+ .plugin-card__name { min-height: 44px; white-space: normal; line-height: 1.4; }
+ .plugin-card__icon-action.ant-btn { width: 44px; height: 44px; }
+ .plugin-card__description { min-height: 0; }
 }
 </style>

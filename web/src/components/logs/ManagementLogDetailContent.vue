@@ -79,21 +79,28 @@ const summaryFields = computed(() => {
 <template>
   <a-skeleton :loading="loading && !detail" active>
     <template v-if="summary">
-      <section class="log-detail-content__summary">
+      <section class="log-detail-card log-detail-card--message">
+        <header class="log-detail-card__header">
+          <span>{{ t('logs.fields.message') }}</span>
+        </header>
+        <pre class="log-detail-card__content log-detail-card__content--message">{{ escapeUnsafeDisplayText(summary.message) }}</pre>
+      </section>
+
+      <dl class="log-detail-content__summary">
         <div
           v-for="field in summaryFields"
           :key="field.label"
           class="log-detail-content__field"
         >
-          <div class="log-detail-content__field-label">{{ field.label }}</div>
-          <div
+          <dt class="log-detail-content__field-label">{{ field.label }}</dt>
+          <dd
             class="log-detail-content__field-value"
             :class="{ 'is-mono': field.mono }"
           >
             {{ field.value }}
-          </div>
+          </dd>
         </div>
-      </section>
+      </dl>
 
       <ManagementContextActions
         v-if="contextActions.length"
@@ -101,13 +108,6 @@ const summaryFields = computed(() => {
         class="log-detail-content__actions"
         @action="emit('action')"
       />
-
-      <section class="log-detail-card">
-        <header class="log-detail-card__header">
-          <span>{{ t('logs.fields.message') }}</span>
-        </header>
-        <pre class="log-detail-card__content log-detail-card__content--message">{{ escapeUnsafeDisplayText(summary.message) }}</pre>
-      </section>
 
       <section class="log-detail-card">
         <header class="log-detail-card__header">
@@ -123,7 +123,8 @@ const summaryFields = computed(() => {
 .log-detail-content__summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 0 20px;
+  margin: 16px 0 0;
 }
 
 .log-detail-content__actions {
@@ -132,17 +133,22 @@ const summaryFields = computed(() => {
 
 .log-detail-content__field {
   display: grid;
-  gap: 6px;
-  padding: 12px 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
-  background: var(--surface-soft);
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
 }
+
+.log-detail-content__field dt,
+.log-detail-content__field dd { margin: 0; min-width: 0; }
+.log-detail-card.log-detail-card--message { margin-top: 0; }
 
 .log-detail-content__field-label {
   color: var(--muted);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -195,6 +201,7 @@ const summaryFields = computed(() => {
 }
 
 .log-detail-card__content--message {
+  font-family: var(--font-sans);
   max-height: min(28vh, 240px);
 }
 

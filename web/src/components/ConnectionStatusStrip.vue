@@ -71,7 +71,6 @@ function resolveBadgeStatus(status: ConnectionStatus) {
       <div class="card-header">
         <div>
           <span>{{ t('dashboard.connectionStatus') }}</span>
-          <p>{{ t('dashboard.connectionStatusHint') }}</p>
         </div>
       </div>
     </template>
@@ -105,19 +104,26 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 
 <style scoped lang="scss">
 .connection-card {
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
-.connection-card :deep(.ant-card-body) {
-  padding: var(--space-lg);
-}
+.connection-card :deep(.ant-card-head) { min-height: 0; padding: 0; border: 0; }
+.connection-card :deep(.ant-card-head-title) { padding: 0; }
+.connection-card :deep(.ant-card-body) { padding: 0; }
+.connection-card :deep(.ant-card-body)::before,
+.connection-card :deep(.ant-card-body)::after { display: none; }
 
 .card-header {
   span {
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 500;
     color: var(--text);
   }
   p {
@@ -131,20 +137,20 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 .connection-card__grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  border-block: 1px solid var(--border);
+  gap: 16px;
+  max-width: 640px;
 }
 
 .connection-card__item {
-  padding: 12px 0;
+  padding: 0;
   display: grid;
   gap: 6px;
 }
 
 .connection-card__item + .connection-card__item {
-  margin-inline-start: 16px;
-  padding-inline-start: 16px;
-  border-inline-start: 1px solid var(--border);
+  margin-inline-start: 0;
+  padding-inline-start: 0;
+  border-inline-start: 0;
 }
 
 .connection-card__row {
@@ -155,8 +161,8 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 }
 
 .connection-card__label {
-  font-weight: 700;
-  font-size: 0.88rem;
+  font-weight: 400;
+  font-size: 13px;
   color: var(--text);
 }
 
@@ -172,15 +178,15 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 }
 
 @media (max-width: 639px) {
-  .connection-card__grid {
-    grid-template-columns: 1fr;
-  }
+  .connection-card { grid-template-columns: 1fr; gap: 8px; }
+  .connection-card__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .connection-card__row { flex-wrap: wrap; gap: 4px 8px; }
 
   .connection-card__item + .connection-card__item {
     margin-inline-start: 0;
     padding-inline-start: 0;
     border-inline-start: 0;
-    border-top: 1px solid var(--border);
+    border-top: 0;
   }
 }
 

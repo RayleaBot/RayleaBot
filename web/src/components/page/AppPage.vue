@@ -9,9 +9,11 @@ const props = withDefaults(defineProps<{
   description?: string
   eyebrow?: string
   fullHeight?: boolean
+  showHeader?: boolean
   title: string
   width?: 'detail' | 'form' | 'wide'
 }>(), {
+  showHeader: true,
   width: 'wide',
 })
 
@@ -27,7 +29,8 @@ const pageClasses = computed(() => {
 
 <template>
   <div :class="['app-page', pageClasses, { 'app-page--full-height': fullHeight }]">
-    <header class="app-page__header">
+    <h1 v-if="!showHeader" class="sr-only">{{ title }}</h1>
+    <header v-else class="app-page__header">
       <div class="app-page__heading">
         <span v-if="eyebrow" class="page-eyebrow">{{ eyebrow }}</span>
         <div class="app-page__title-row">

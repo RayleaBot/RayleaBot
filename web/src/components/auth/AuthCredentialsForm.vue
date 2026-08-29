@@ -181,20 +181,18 @@ async function handleSubmit() {
 <style scoped lang="scss">
 .auth-panel {
   width: 100%;
-  padding: 40px;
+  padding: 32px;
   color: var(--auth-text);
 }
 
 .auth-panel__header {
-  min-height: 132px;
-  padding: 2px 56px 28px 0;
-  border-bottom: 1px solid var(--auth-border);
+  padding: 2px 42px 0 0;
 }
 
 .auth-panel__brand {
   margin: 0;
   color: var(--auth-brand-foreground);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -203,14 +201,14 @@ async function handleSubmit() {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 24px;
 }
 
 .auth-panel__title {
   margin: 0;
   color: var(--auth-text);
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1.25;
   letter-spacing: -0.015em;
 }
@@ -247,8 +245,9 @@ async function handleSubmit() {
 
 .auth-form :deep(.ant-input),
 .auth-form :deep(.ant-input-affix-wrapper) {
-  border-color: var(--auth-border);
-  border-radius: 10px;
+  min-height: 44px;
+  border-color: var(--auth-border-control);
+  border-radius: 8px;
   background: var(--auth-control);
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -275,7 +274,7 @@ async function handleSubmit() {
 }
 
 .auth-form :deep(.ant-input-affix-wrapper .ant-input) {
-  min-height: auto;
+  min-height: 32px;
   background: transparent;
 }
 
@@ -308,7 +307,7 @@ async function handleSubmit() {
   place-items: center;
   color: var(--auth-text-muted);
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
   transition: color 160ms cubic-bezier(0.16, 1, 0.3, 1), background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -366,8 +365,7 @@ async function handleSubmit() {
   }
 
   .auth-panel__header {
-    min-height: 124px;
-    padding: 0 48px 24px 0;
+    padding: 0 44px 0 0;
   }
 
   .auth-form {
@@ -382,8 +380,8 @@ async function handleSubmit() {
   }
 
   .auth-form :deep(.ant-input-password-icon) {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
   }
 }
 
@@ -393,6 +391,7 @@ async function handleSubmit() {
   .auth-form__submit.ant-btn {
     min-height: 44px;
   }
+  .auth-form :deep(.ant-input-password-icon) { width: 44px; height: 44px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

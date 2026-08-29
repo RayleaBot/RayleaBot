@@ -3,6 +3,7 @@ export const logs = {
   currentTitle: '实时日志',
   historyTitle: '历史日志',
   filters: {
+    panel: '筛选条件',
     level: '级别',
     source: '来源',
     protocol: '协议',
@@ -35,6 +36,7 @@ export const logs = {
     openRequestHistory: '相关历史日志',
   },
   current: {
+    empty: '没有符合条件的日志。可调整筛选条件，或等待新的日志。',
     streamTitle: '本次服务端启动以来的日志',
     following: '跟随最新',
     paused: '已暂停跟随',
@@ -42,6 +44,7 @@ export const logs = {
     jumpToLatest: '滚动到最新',
   },
   history: {
+    empty: '当前时间范围内没有符合条件的日志。可扩大时间范围或调整筛选条件。',
     streamTitle: '历史日志',
     frozen: '固定时间窗口',
     startAt: '开始时间',

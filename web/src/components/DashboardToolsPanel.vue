@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   CloudUploadOutlined,
+  DatabaseOutlined,
   FileZipOutlined,
 } from '@ant-design/icons-vue'
 import { t } from '@/i18n'
@@ -24,7 +25,9 @@ defineEmits<{
       </div>
     </template>
 
-    <div class="table-actions">
+    <div class="tools-panel__body">
+      <DatabaseOutlined class="tools-panel__icon" aria-hidden="true" />
+      <div class="table-actions">
       <a-button
         type="primary"
         class="tool-button tool-button--backup"
@@ -42,6 +45,7 @@ defineEmits<{
         <template #icon><FileZipOutlined v-if="!diagnosticsPending" /></template>
         {{ t('dashboard.exportDiagnostics') }}
       </a-button>
+      </div>
     </div>
   </a-card>
 </template>
@@ -59,13 +63,17 @@ defineEmits<{
 
 .card-header {
   span {
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 16px;
+    font-weight: 600;
     color: var(--text);
   }
 }
 
+.tools-panel__body { display: flex; align-items: center; gap: 20px; }
+.tools-panel__icon { display: grid; place-items: center; width: 28px; height: 32px; flex: none; color: var(--muted); font-size: 24px; }
 .table-actions {
+  flex: 1;
+  min-width: 0;
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;

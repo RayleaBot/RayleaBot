@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { SyncOutlined } from '@ant-design/icons-vue'
+import { SyncOutlined, ArrowUpOutlined } from '@ant-design/icons-vue'
 
 import AppCard from '@/components/AppCard.vue'
 import { t } from '@/i18n'
@@ -64,7 +64,9 @@ onMounted(() => {
 
 <template>
   <AppCard :title="t('dashboard.update.title')" borderless class="dashboard-update-card">
-    <div class="dashboard-update-card__body" aria-live="polite">
+    <div class="dashboard-update-card__layout">
+      <ArrowUpOutlined class="dashboard-update-card__icon" aria-hidden="true" />
+      <div class="dashboard-update-card__body" aria-live="polite">
       <div>
         <span class="dashboard-update-card__state">{{ stateLabel }}</span>
         <p>{{ detail }}</p>
@@ -74,6 +76,7 @@ onMounted(() => {
         {{ t('dashboard.update.check') }}
       </a-button>
       <p v-if="error" class="dashboard-update-card__error" role="alert">{{ error }}</p>
+      </div>
     </div>
   </AppCard>
 </template>
@@ -85,14 +88,18 @@ onMounted(() => {
   box-shadow: none;
 }
 
+.dashboard-update-card__layout { display: flex; align-items: center; gap: 20px; }
+.dashboard-update-card__icon { display: grid; place-items: center; width: 28px; height: 32px; flex: none; color: var(--muted); font-size: 24px; }
 .dashboard-update-card__body {
+  flex: 1;
+  min-width: 0;
   display: grid;
   gap: var(--space-md);
 }
 
 .dashboard-update-card__state {
   color: var(--text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dashboard-update-card__body p {

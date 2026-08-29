@@ -35,7 +35,7 @@ const elementAnimations = new WeakMap<HTMLElement, ReturnType<typeof animate>>()
 
 export function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined'
-    && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+    && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce), (forced-colors: active)').matches)
 }
 
 export function supportsViewTransitions(): boolean {
@@ -174,9 +174,9 @@ export function runRouteFallbackMotion(
     return
   }
 
-  const y = profile === 'fade-slide' ? 6 : 0
+  const y = profile === 'fade-slide' ? 4 : 0
   const keyframes = {
-    opacity: [0, 1],
+    opacity: [0.88, 1],
     transform: [`translateY(${y}px)`, 'translateY(0)'],
   }
   const controls = animate(element, keyframes, {

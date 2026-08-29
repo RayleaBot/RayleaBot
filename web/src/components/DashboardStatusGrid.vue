@@ -99,15 +99,15 @@ defineProps<{
   border: 1px solid var(--border);
   border-radius: var(--app-card-radius);
   background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 .dashboard-status-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
-  padding: 16px;
+  padding: 20px;
 }
 
 .dashboard-status-item + .dashboard-status-item {
@@ -132,14 +132,14 @@ defineProps<{
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
+  width: 28px;
   height: 36px;
   color: var(--muted);
   flex-shrink: 0;
 }
 
 .dashboard-status-item__glyph {
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .dashboard-status-item__body {
@@ -157,12 +157,14 @@ defineProps<{
 
 .dashboard-status-item__body strong {
   color: var(--text);
-  font-size: 18px;
+  font-size: 22px;
+  font-weight: 600;
   line-height: 1.3;
+  font-variant-numeric: tabular-nums;
 
   &.monospace {
-    font-family: var(--font-mono);
-    font-size: 16px;
+    font-family: var(--font-sans);
+    font-size: 22px;
   }
 }
 
@@ -197,13 +199,20 @@ defineProps<{
 }
 
 @media (max-width: 639px) {
-  .dashboard-status-grid {
-    grid-template-columns: 1fr;
-  }
+  .dashboard-status-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 4px 8px; padding: 12px; align-items: center; }
+  .dashboard-status-item__icon { width: 20px; height: 24px; grid-column: 1; grid-row: 1; }
+  .dashboard-status-item__body { display: contents; }
+  .dashboard-status-item__body span { grid-column: 2; }
+  .dashboard-status-item__body strong,
+  .dashboard-status-item__body small { grid-column: 1 / -1; }
+  .dashboard-status-item__glyph { font-size: 18px; }
+  .dashboard-status-item__body strong,
+  .dashboard-status-item__body strong.monospace { font-size: 20px; }
+  .dashboard-status-item__body small { font-size: 12px; }
+}
 
-  .dashboard-status-item + .dashboard-status-item {
-    border-inline-start: 0;
-    border-top: 1px solid var(--border);
-  }
+@media (max-width: 359px) {
+  .dashboard-status-grid { grid-template-columns: 1fr; }
+  .dashboard-status-item + .dashboard-status-item { border-inline-start: 0; border-top: 1px solid var(--border); }
 }
 </style>

@@ -29,31 +29,31 @@ describe('app preferences', () => {
 
   it('projects the design palette into equivalent light and dark Ant tokens', () => {
     expect(resolveThemeConfig('light', 'default').token).toEqual(expect.objectContaining({
-      colorBgBase: '#F6F3F5',
-      colorLink: '#8A285D',
-      colorPrimary: '#8A285D',
-      colorPrimaryHover: '#6C204B',
-      colorPrimaryActive: '#3F1830',
-      colorText: '#211820',
+      colorBgBase: '#FAFAFA',
+      colorLink: '#476C5E',
+      colorPrimary: '#476C5E',
+      colorPrimaryHover: '#365749',
+      colorPrimaryActive: '#294438',
+      colorText: '#252525',
       colorTextLightSolid: '#FFFFFF',
-      controlOutline: '#9F356C',
+      controlOutline: '#555555',
     }))
     expect(resolveThemeConfig('dark', 'compact').token).toEqual(expect.objectContaining({
-      colorBgBase: '#151114',
-      colorPrimary: '#D57BA6',
-      colorPrimaryHover: '#E8AAC7',
-      colorPrimaryActive: '#BF4F87',
-      colorText: '#F4EDF1',
-      colorTextLightSolid: '#27101E',
-      controlOutline: '#F0A4C9',
+      colorBgBase: '#161616',
+      colorPrimary: '#A3C5B3',
+      colorPrimaryHover: '#BBD0C1',
+      colorPrimaryActive: '#80A48F',
+      colorText: '#EEEEEE',
+      colorTextLightSolid: '#18281F',
+      controlOutline: '#C0C0C0',
     }))
   })
 
   it('keeps the CSS brand roles aligned with the Ant theme', () => {
-    expect(designTokens).toContain('--brand-fill: #8A285D;')
-    expect(designTokens).toContain('--brand-fill-hover: #6C204B;')
-    expect(designTokens).toContain('--brand-foreground: #8A285D;')
+    expect(designTokens).toContain('--brand-fill: #476C5E;')
+    expect(designTokens).toContain('--brand-fill-hover: #365749;')
+    expect(designTokens).toContain('--brand-foreground: #476C5E;')
     expect(designTokens).toContain('--on-brand: #FFFFFF;')
-    expect(designTokens).toContain('--sider-bg: #3F1830;')
+    expect(designTokens).toContain('--sider-bg: #F7F7F7;')
   })
 })

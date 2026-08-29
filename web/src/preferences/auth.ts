@@ -4,18 +4,13 @@ import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
 import type { ResolvedThemeMode } from '@/preferences/app'
 import { webThemes } from '@/preferences/theme-tokens'
 
-export interface AuthParticlePalette {
-  line: string
-  particle: string
-}
-
 export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
   const tokens = webThemes[mode]
   return {
     algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
     token: {
-      borderRadius: 10,
-      borderRadiusLG: 14,
+      borderRadius: 8,
+      borderRadiusLG: 12,
       colorBgContainer: tokens.surface,
       colorBgElevated: tokens.surfaceRaised,
       colorBgLayout: tokens.canvas,
@@ -34,16 +29,17 @@ export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
       colorText: tokens.text,
       colorTextLightSolid: tokens.onBrand,
       colorTextSecondary: tokens.textMuted,
+      colorTextPlaceholder: tokens.textMuted,
       colorWarning: tokens.warning,
       controlHeight: 36,
       controlOutline: tokens.focus,
-      fontFamily: 'Inter, "PingFang SC", "Segoe UI", system-ui, sans-serif',
+      fontFamily: 'var(--font-sans)',
       fontSize: 14,
       wireframe: false,
     },
     components: {
       Alert: {
-        borderRadiusLG: 10,
+        borderRadiusLG: 8,
       },
       Button: {
         controlHeight: 36,
@@ -84,13 +80,5 @@ export function resolveAuthCssVariables(mode: ResolvedThemeMode): Record<string,
     '--auth-surface-raised': tokens.surfaceRaised,
     '--auth-text': tokens.text,
     '--auth-text-muted': tokens.textMuted,
-  }
-}
-
-export function resolveAuthParticlePalette(mode: ResolvedThemeMode): AuthParticlePalette {
-  const tokens = webThemes[mode]
-  return {
-    line: tokens.authParticleLine,
-    particle: tokens.authParticle,
   }
 }

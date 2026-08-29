@@ -62,6 +62,7 @@ const fixtures = {
   logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
   logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),
   systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
+  systemDiagnostics: await readFixture('fixtures/web-api/ok.system-diagnostics.yaml'),
   updateStatus: await readFixture('fixtures/web-api/ok.update-status.yaml'),
   updateCheck: await readFixture('fixtures/web-api/ok.update-check.yaml'),
   systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
@@ -79,6 +80,7 @@ const fixtures = {
   pluginInstallLocalArtifact: await readFixture('fixtures/web-api/ok.plugins-install-local-artifact.yaml'),
   pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
   pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
+  pluginStoreList: await readFixture('fixtures/web-api/ok.plugin-store-list.yaml'),
   pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
   pluginDetailManagementUI: await readFixture('fixtures/web-api/ok.plugin-detail-response.management-ui.yaml'),
   pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
@@ -733,6 +735,9 @@ function toPluginSummary(plugin) {
   if (plugin.author) {
     summary.author = plugin.author
   }
+  if (plugin.icon) {
+    summary.icon = plugin.icon
+  }
   return summary
 }
 
@@ -1383,6 +1388,14 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/api/system/diagnostics' && request.method === 'GET') {
+    if (!requireAuth(request, response)) {
+      return
+    }
+    json(response, fixtures.systemDiagnostics.response.status, fixtures.systemDiagnostics.response.body)
+    return
+  }
+
   if (pathname === '/api/governance/blacklist' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -1993,6 +2006,31 @@ const server = http.createServer(async (request, response) => {
     }
 
     json(response, 200, structuredClone(detail))
+    return
+  }
+
+  const iconMatch = pathname.match(/^\/api\/plugins\/([^/]+)\/icon$/)
+  if (iconMatch && request.method === 'GET') {
+    if (!requireAuth(request, response)) return
+    const plugin = state.plugins[decodeURIComponent(iconMatch[1])]
+    if (!plugin?.icon) {
+      json(response, 404, errorEnvelope('platform.resource_missing', 'icon unavailable', 'req_icon_missing'))
+      return
+    }
+    const bytes = await readFile(path.join(repoRoot, 'examples/plugins/hello-go/assets/icon.svg'))
+    response.writeHead(200, {
+      'Content-Type': 'image/svg+xml',
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    })
+    response.end(bytes)
+    return
+  }
+
+  if (pathname === '/api/plugin-store/plugins' && request.method === 'GET') {
+    if (!requireAuth(request, response)) return
+    json(response, 200, fixtures.pluginStoreList.response.body)
     return
   }
 

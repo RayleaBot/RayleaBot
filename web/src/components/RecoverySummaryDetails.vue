@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { CheckOutlined, ExclamationOutlined, CloseOutlined } from '@ant-design/icons-vue'
 
 import { getRecoveryStatusLabel } from '@/lib/display'
 import { formatRelativeTime } from '@/lib/format'
@@ -67,12 +68,11 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
 </script>
 
 <template>
-  <div class="events-section">
-    <div class="issue-alert-card" :class="{ 'issue-alert-card--warning': recoverySummary.status !== 'compatible' }">
+  <div class="events-section recovery-summary">
+    <div class="recovery-summary__status" :class="`recovery-summary__status--${recoverySummary.status}`">
+      <component :is="recoverySummary.status === 'compatible' ? CheckOutlined : recoverySummary.status === 'blocked' ? CloseOutlined : ExclamationOutlined" class="recovery-summary__status-icon" aria-hidden="true" />
       <div class="issue-alert-card__header">
-        <a-tag :color="recoverySummary.status === 'blocked' ? 'error' : recoverySummary.status === 'compatible' ? 'success' : 'warning'">
-          {{ recoveryStatusLabel }}
-        </a-tag>
+        <strong class="recovery-summary__status-label">{{ recoveryStatusLabel }}</strong>
         <span class="issue-alert-card__summary">
           {{ recoverySummary.operation }} · {{ recoverySummary.phase }}
         </span>
@@ -206,8 +206,8 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
       </ul>
     </div>
 
-    <div v-if="recoveryAuditEntries.length" class="recovery-summary__section">
-      <small class="recovery-summary__section-label">{{ t('display.recoveryHistory') }}</small>
+    <details v-if="recoveryAuditEntries.length" class="recovery-summary__section recovery-summary__history">
+      <summary>{{ t('display.recoveryHistory') }} · {{ recoveryAuditEntries.length }}</summary>
       <div
         v-for="entry in recoveryAuditEntries"
         :key="`${entry.task_id}-${entry.created_at}`"
@@ -215,7 +215,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
         class="issue-alert-card"
       >
         <div class="issue-alert-card__header">
-          <a-tag color="blue">{{ entry.operator_id }}</a-tag>
+          <a-tag>{{ entry.operator_id }}</a-tag>
           <span class="issue-alert-card__summary">{{ formatRelativeTime(entry.created_at) }}</span>
         </div>
         <div class="issue-alert-card__remediation">{{ entry.note || t('display.empty') }}</div>
@@ -225,7 +225,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
           </li>
         </ul>
       </div>
-    </div>
+    </details>
     <div v-else class="readiness-note">
       <small style="color: var(--muted);">{{ t('dashboard.recoveryAuditEmpty') }}</small>
     </div>
@@ -233,172 +233,37 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
 </template>
 
 <style scoped lang="scss">
-.readiness-note {
-  margin-top: 14px;
-  padding: 12px 16px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  line-height: 1.5;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.recovery-summary__toolbar,
-.recovery-summary__section {
-  display: grid;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.recovery-summary__toolbar {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.recovery-summary__section-label {
-  color: var(--muted);
-  display: block;
-  font-size: 13px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.recovery-summary__filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: var(--surface-soft);
-  padding: 4px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  width: fit-content;
-}
-
-.recovery-summary__filters :deep(.ant-btn) {
-  border-radius: var(--radius-sm);
-  font-weight: 500;
-  font-size: 13px;
-  box-shadow: none;
-
-  &:not(.ant-btn-primary) {
-    background: transparent;
-    border-color: transparent;
-    color: var(--muted);
-
-    &:hover {
-      background: var(--surface-soft);
-      color: var(--text);
-    }
-  }
-}
-
-.recovery-summary__checkbox {
-  margin-top: 12px;
-  padding: 4px 8px;
-  background: var(--surface-soft);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
-.recovery-summary__list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--muted);
-  display: grid;
-  gap: 6px;
-  font-size: 0.86rem;
-  line-height: 1.5;
-
-  li {
-    position: relative;
-    list-style: none;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: -14px;
-      top: 8px;
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: var(--brand-fill);
-      opacity: 0.8;
-    }
-  }
-}
-
-.recovery-summary__list--compact {
-  margin-top: 8px;
-}
-
-.issue-alert-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-  box-shadow: var(--shadow-xs);
-  position: relative;
-  overflow: hidden;
-  transition: border-color 150ms ease, background-color 150ms ease;
-  margin-bottom: 12px;
-
-  &:hover {
-    border-color: var(--border-accent);
-  }
-}
-
-.issue-alert-card--warning {
-  border-color: color-mix(in srgb, var(--warning) 30%, var(--border));
-  background: color-mix(in srgb, var(--warning) 4%, var(--surface-soft));
-
-  &::before {
-    background: var(--warning);
-  }
-
-  &:hover {
-    border-color: var(--warning);
-  }
-}
-
-.issue-alert-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.issue-alert-card__summary {
-  flex: 1;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--text);
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  &--link {
-    text-align: left;
-    padding: 0;
-    height: auto;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--accent);
-
-    &:hover {
-      color: var(--brand-fill-hover) !important;
-      text-decoration: underline;
-    }
-  }
-}
-
-.issue-alert-card__remediation {
-  font-size: 0.84rem;
-  color: var(--muted);
-  line-height: 1.5;
-  padding-left: 2px;
+.recovery-summary { gap: 12px; min-width: 0; }
+.recovery-summary__status { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 4px 0 14px; border-bottom: 1px solid var(--border); }
+.recovery-summary__status-icon { grid-row: 1 / span 2; width: 28px; height: 32px; display: grid; place-items: center; background: transparent; color: var(--success); font-size: 26px; }
+.recovery-summary__status--blocked .recovery-summary__status-icon { color: var(--danger); background: transparent; }
+.recovery-summary__status--degraded .recovery-summary__status-icon { color: var(--warning); background: transparent; }
+.recovery-summary__status-label { color: var(--success); font-size: 20px; font-weight: 600; }
+.recovery-summary__status--degraded .recovery-summary__status-label { color: var(--warning); }
+.recovery-summary__status--blocked .recovery-summary__status-label { color: var(--danger); }
+.recovery-summary__status .issue-alert-card__summary { font-size: 12px; color: var(--muted); text-align: right; font-weight: 400; }
+.recovery-summary__status .issue-alert-card__remediation { grid-column: 2; margin: 0; }
+.readiness-note { padding: 4px 0; color: var(--muted); line-height: 1.5; font-size: 13px; }
+.recovery-summary__toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.recovery-summary__section { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+.recovery-summary__section-label { color: var(--muted); font-size: 13px; font-weight: 500; }
+.recovery-summary__filters { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--surface-soft); border-radius: 8px; }
+.recovery-summary__filters :deep(.ant-btn) { box-shadow: none; font-size: 12px; min-height: 28px; }
+.recovery-summary__filters :deep(.ant-btn:not(.ant-btn-primary)) { background: transparent; border-color: transparent; color: var(--muted); }
+.recovery-summary__checkbox { margin-top: 8px; }
+.recovery-summary__list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; display: grid; gap: 4px; }
+.recovery-summary__list--compact { margin-top: 6px; }
+.recovery-summary__history { display: block; }
+.recovery-summary__history summary { cursor: pointer; padding: 8px 0; color: var(--muted); font-size: 13px; }
+.recovery-summary__history summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.issue-alert-card { min-width: 0; padding: 0 0 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
+.issue-alert-card__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
+.issue-alert-card__header :deep(.ant-tag) { white-space: normal; overflow-wrap: anywhere; margin: 0; }
+.issue-alert-card__summary { flex: 1; font-weight: 500; font-size: 14px; color: var(--text); min-width: 80px; overflow-wrap: anywhere; }
+.issue-alert-card__summary--link { text-align: left; padding: 0; height: auto; color: var(--brand-foreground); }
+.issue-alert-card__remediation { margin-top: 6px; font-size: 13px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 640px), (pointer: coarse) {
+ .recovery-summary__filters :deep(.ant-btn), .recovery-summary__history summary { min-height: 44px; }
+ .recovery-summary__status .issue-alert-card__summary { flex-basis: 100%; text-align: left; }
 }
 </style>

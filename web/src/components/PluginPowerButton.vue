@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { LoadingOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons-vue'
 
 const props = withDefaults(defineProps<{
   checked: boolean
   loading?: boolean
   disabled?: boolean
   compact?: boolean
+  iconOnly?: boolean
   dataTestid?: string
   checkedLabel?: string
   uncheckedLabel?: string
@@ -13,6 +15,7 @@ const props = withDefaults(defineProps<{
   loading: false,
   disabled: false,
   compact: false,
+  iconOnly: false,
   checkedLabel: '启动',
   uncheckedLabel: '停用',
 })
@@ -48,6 +51,7 @@ function handleClick(event: MouseEvent) {
     class="plugin-holo-button"
     :class="[
       compact && 'plugin-holo-button--compact',
+      iconOnly && 'plugin-holo-button--icon',
       checked && 'is-checked',
       loading && 'is-loading',
       disabled && 'is-disabled',
@@ -57,9 +61,11 @@ function handleClick(event: MouseEvent) {
     :aria-busy="loading ? 'true' : undefined"
     :aria-checked="checked ? 'true' : 'false'"
     :aria-label="ariaLabel"
+    :title="iconOnly ? ariaLabel : undefined"
     @click="handleClick"
   >
-    <span class="plugin-holo-button__track" aria-hidden="true">
+    <component :is="loading ? LoadingOutlined : checked ? StopOutlined : PlayCircleOutlined" v-if="iconOnly" aria-hidden="true" />
+    <span v-else class="plugin-holo-button__track" aria-hidden="true">
       <span class="plugin-holo-button__thumb">
         <span class="plugin-holo-button__thumb-inner" />
       </span>
@@ -253,6 +259,40 @@ function handleClick(event: MouseEvent) {
   }
 }
 
+.plugin-holo-button--icon {
+  --button-width: 36px;
+  --button-height: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  background: var(--surface);
+  font-size: 18px;
+  transition: color 140ms ease, background-color 140ms ease, transform 140ms ease;
+}
+
+.plugin-holo-button--icon:not(.is-checked) { color: var(--brand-foreground); }
+.plugin-holo-button--icon:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
+.plugin-holo-button--icon.is-checked:hover:not(:disabled) { color: var(--text-danger); }
+.plugin-holo-button--icon:active:not(:disabled) { transform: scale(.94); }
+.plugin-holo-button--icon.is-loading :deep(.anticon) { animation: spinner 800ms linear infinite; }
+
+@media (max-width: 639px), (pointer: coarse) {
+  .plugin-holo-button {
+    min-height: 44px;
+  }
+
+  .plugin-holo-button--icon { --button-width: 44px; --button-height: 44px; }
+
+  .plugin-holo-button__track {
+    top: 50%;
+    bottom: auto;
+    height: var(--button-height);
+    transform: translateY(-50%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .plugin-holo-button,
   .plugin-holo-button__track,
@@ -264,5 +304,7 @@ function handleClick(event: MouseEvent) {
   .plugin-holo-button.is-loading .plugin-holo-button__thumb-inner {
     animation: none;
   }
+
+  .plugin-holo-button--icon.is-loading :deep(.anticon) { animation: none; }
 }
 </style>

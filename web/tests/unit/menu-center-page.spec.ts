@@ -235,6 +235,9 @@ describe('MenuCenterView', () => {
     await prefixSelect.vm.$emit('update:value', ['#', '*'])
     await nextTick()
 
+    configStore.document = JSON.parse(JSON.stringify(configStore.document))
+    await flushPromises()
+
     expect(wrapper.text()).toContain('#menu')
     expect(wrapper.text()).not.toContain('*Weather菜单')
     expect(rootPreviewPayload(wrapper)).toMatchObject({

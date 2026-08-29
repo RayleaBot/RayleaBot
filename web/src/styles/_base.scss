@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+:root {
+  --font-sans: var(--font-display);
+}
+
 html,
 body,
 #app {
@@ -15,6 +19,37 @@ body,
 
 body {
   min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+.ant-card-head-title,
+.app-card__title-text,
+.admin-layout__brand-copy,
+.admin-layout__mobile-brand,
+.auth-layout__brand {
+  font-family: var(--font-display);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+input,
+textarea {
+  caret-color: var(--brand-foreground);
+}
+
+.monospace,
+table,
+time {
+  font-variant-numeric: tabular-nums;
 }
 
 a {

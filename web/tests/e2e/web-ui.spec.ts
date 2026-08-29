@@ -52,6 +52,11 @@ async function login(page: import('@playwright/test').Page) {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 }
 
+async function expectPluginCenterPage(page: import('@playwright/test').Page, name: string) {
+  await expect(page.getByTestId('plugin-center-navigation').getByRole('link', { name, exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { name, level: 1, exact: true })).toBeAttached()
+}
+
 function pluginRows(page: import('@playwright/test').Page) {
   return page.locator('.plugin-grid-card:visible')
 }
@@ -386,7 +391,7 @@ test('protected deep links return to the target after login', async ({ page, req
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
   await page.getByRole('button', { name: /登\s*录/ }).click()
 
-  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '插件列表')
   await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
 })
 
@@ -403,6 +408,13 @@ test('authentication surface keeps theme controls and credentials reachable on a
   await expectDocumentWithinViewport(page)
 
   await themeToggle.focus()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: '跟随系统' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('menuitem', { name: '跟随系统' })).toBeHidden()
+  await expect(themeToggle).toBeFocused()
+
+  await themeToggle.focus()
   await page.keyboard.press('Enter')
   await page.getByRole('menuitem', { name: '暗色' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
@@ -415,28 +427,28 @@ test('authentication surface keeps theme controls and credentials reachable on a
   await expectDocumentWithinViewport(page)
 })
 
-test('authentication particle field responds to a fine pointer without moving the task surface', async ({ page, request }) => {
+test('authentication stays stable during pointer interaction and reduced motion', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/login')
 
-  const particleField = page.getByTestId('auth-particle-field')
   const surface = page.locator('.auth-layout__surface')
+  await page.getByLabel('管理员密钥').waitFor()
+  await surface.evaluate(async element => {
+    await Promise.all(element.getAnimations().map(animation => animation.finished))
+  })
   const surfaceBefore = await surface.boundingBox()
   expect(surfaceBefore).not.toBeNull()
 
-  await expect(particleField).toHaveAttribute('data-auth-particle-state', 'running')
-  await expect.poll(() => particleField.evaluate((element) => (
-    Number((element as HTMLCanvasElement).dataset.authParticleCount)
-  ))).toBeGreaterThanOrEqual(80)
   await page.mouse.move(120, 140)
-  await expect(particleField).toHaveAttribute('data-auth-pointer-active', 'true')
 
   const surfaceAfter = await surface.boundingBox()
   expect(surfaceAfter).toEqual(surfaceBefore)
 
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await expect(particleField).toHaveAttribute('data-auth-particle-state', 'static')
+  await page.getByLabel('管理员密钥').fill('fixture-only-secret')
+  await page.getByRole('button', { name: /登\s*录/ }).click()
+  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 })
 
 test('setup-required deep links return to the target after initialization', async ({ page, request }) => {
@@ -448,8 +460,27 @@ test('setup-required deep links return to the target after initialization', asyn
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
   await page.getByRole('button', { name: '创建并进入管理界面' }).click()
 
-  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '插件列表')
   await expect(page).toHaveURL(/\/plugins\?token=launcher_token_fixture_0001$/)
+})
+
+test('plugin cards load declared icons and keep a logo fallback after image failure', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await page.goto('/plugins')
+  const weather = pluginRows(page).filter({ has: page.getByTestId('plugin-enable-button-weather') })
+  const image = weather.locator('.plugin-icon img')
+  await expect(image).toBeVisible()
+  await expect.poll(() => image.evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  const noIcon = pluginRows(page).filter({ has: page.getByTestId('plugin-enable-button-example-config-panel') })
+  await expect(noIcon.locator('.plugin-icon .raylea-mark')).toBeVisible()
+
+  await page.route('**/api/plugins/weather/icon', route => route.fulfill({ status: 404, contentType: 'application/json', body: '{}' }))
+  await page.reload()
+  await expect(weather.locator('.plugin-icon .raylea-mark')).toBeVisible()
+  await expect(weather.locator('.plugin-icon img')).toHaveCount(0)
+  await weather.getByRole('button', { name: '查看概要', exact: true }).click()
+  await expect(page.locator('.ant-drawer-content')).toContainText('weather')
 })
 
 test('plugin management flow covers install, manifest detail and console recovery', async ({ page, request }) => {
@@ -457,10 +488,10 @@ test('plugin management flow covers install, manifest detail and console recover
   await login(page)
 
   await page.goto('/plugins')
-  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '插件列表')
   await expect(pluginRows(page).first()).toBeVisible()
-  await expect(page.locator('.plugins-grid')).toContainText('example-config-panel')
-  await expect(page.locator('.plugins-grid')).toContainText('weather')
+  await expect(page.locator('.plugins-grid').getByRole('button', { name: 'Example Config Panel', exact: true })).toBeVisible()
+  await expect(page.locator('.plugins-grid').getByRole('button', { name: 'Weather', exact: true })).toBeVisible()
 
   await page.getByRole('button', { name: '安装插件' }).click()
   const installDialog = page.getByRole('dialog', { name: '安装插件' })
@@ -478,7 +509,7 @@ test('plugin management flow covers install, manifest detail and console recover
   await installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和能力/ }).check()
   await installDialog.getByRole('button', { name: '开始安装' }).click()
 
-  await expect(page.locator('#app-main').getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '插件列表')
   await expect(page.getByText('安装任务已提交，可在实时日志查看结果').first()).toBeVisible()
   await page.goto('/logs?source=tasks')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -715,7 +746,10 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   const frameSource = new URL((await page.getByTestId('plugin-management-ui-frame').getAttribute('src'))!)
   expect(frameSource.hostname).toMatch(/^p-[a-f0-9]{16}\.plugins\.localhost$/)
   expect(frameSource.origin).not.toBe(new URL(page.url()).origin)
-  const isolatedAPIResponse = await request.get(`${frameSource.origin}/api/config`)
+  // Chromium resolves *.localhost to loopback; Node may use the host DNS resolver.
+  const isolatedAPIResponse = await request.get(`${backendUrl}/api/config`, {
+    headers: { Host: frameSource.host },
+  })
   expect(isolatedAPIResponse.status()).toBe(404)
   expect(isolatedAPIResponse.headers()['access-control-allow-origin']).toBeUndefined()
   expect(isolatedAPIResponse.headers()['set-cookie']).toBeUndefined()
@@ -1236,8 +1270,8 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
   ])
   await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' })).toHaveCount(0)
 
-  await navigateThroughMenu(page, '插件列表', '功能与插件')
-  await expect(page.getByRole('heading', { name: '插件列表', level: 1 })).toBeVisible()
+  await navigateThroughMenu(page, '插件中心')
+  await expectPluginCenterPage(page, '插件列表')
 
   await request.post(`${backendUrl}/__test/push-log`, {
     data: {
@@ -1435,7 +1469,7 @@ test('rate limits page edits chat and outbound limits', async ({ page, request }
   await expect(page.getByText('群命令速率限制')).toHaveCount(0)
 
   await page.goto('/plugins/settings')
-  await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '插件设置')
   await expect(page.getByText('插件消息速率限制')).toHaveCount(0)
 })
 
@@ -1443,8 +1477,9 @@ test('plugin settings page edits plugin global config', async ({ page, request }
   await resetBackend(request, true)
   await login(page)
 
-  await navigateThroughMenu(page, '插件设置', '功能与插件')
-  await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
+  await navigateThroughMenu(page, '插件中心')
+  await page.getByTestId('plugin-center-navigation').getByRole('link', { name: '插件设置' }).click()
+  await expectPluginCenterPage(page, '插件设置')
   await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
 
   const commandPrefixesInput = page.getByTestId('plugin-settings-command-prefixes').locator('input')
@@ -1610,6 +1645,14 @@ test('menu center preview loads the bundled chat menu font', async ({ page, requ
     const commandKeepsMonoFont = commandFamily && /^["']?JetBrains Mono/.test(commandFamily)
     return loadedFontFaces > 0 && targetsUseNotoSans && permissionKeepsSystemFont && commandKeepsMonoFont
   })).toBe(true)
+
+  await page.setViewportSize({ width: 393, height: 852 })
+  await page.locator('.menu-center-tabs').getByRole('tab').first().click()
+  await expect.poll(() => rootPreviewFrame.evaluate((frame) => {
+    const host = frame.closest('.native-template-preview')?.getBoundingClientRect()
+    const preview = frame.getBoundingClientRect()
+    return Boolean(host && preview.width > 0 && preview.left >= host.left && preview.right <= host.right + 1)
+  })).toBe(true)
 })
 
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
@@ -1715,9 +1758,9 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await page.getByRole('button', { name: '当前插件指令' }).click()
   await expect.poll(() => page.url()).toContain('/commands')
   await expect(page.url()).toContain('plugin_id=weather')
-  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '指令中心')
   await expect(page.locator('.commands-data-table')).toContainText('weather')
-  await expect((await readTabLabels(page)).filter((label) => label === '指令中心')).toHaveLength(1)
+  await expect((await readTabLabels(page)).filter((label) => label === '插件中心')).toHaveLength(1)
 
   await request.post(`${backendUrl}/__test/push-task`, {
     data: {
@@ -1967,7 +2010,7 @@ test('command center shows all declared commands and filters by plugin selection
   await login(page)
 
   await page.goto('/commands')
-  await expect(page.locator('#app-main').getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '指令中心')
   const commandsTable = page.locator('.commands-data-table')
 
   await expect(page.getByTestId('commands-open-permission-policy')).toBeVisible()
@@ -1993,11 +2036,75 @@ test('command center shows all declared commands and filters by plugin selection
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
 })
 
+test('plugin center switches original routes while retaining drafts and independent details', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await navigateThroughMenu(page, '插件中心')
+  const navigation = page.getByTestId('plugin-center-navigation')
+  const destinations = [
+    ['菜单中心', '/menu-center'], ['插件商店', '/plugins/store'], ['插件列表', '/plugins'],
+    ['插件设置', '/plugins/settings'], ['指令中心', '/commands'],
+  ]
+  await navigation.getByRole('link', { name: '插件设置' }).click()
+  const limit = page.getByLabel('插件工作目录软上限（MB）')
+  await limit.fill('257')
+  for (const [name, path] of destinations) {
+    await navigation.getByRole('link', { name, exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`${path}$`))
+    await expectPluginCenterPage(page, name)
+    await expect(navigation.locator('[aria-current="page"]')).toHaveText(name)
+    await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '插件中心'])
+  }
+  await page.goBack()
+  await expect(page).toHaveURL(/\/plugins\/settings$/)
+  await expect(limit).toHaveValue('257')
+  await expect(page.getByTestId('plugin-settings-unsaved-status')).toBeVisible()
+
+  await page.goto('/commands?plugin_id=weather')
+  await expect(navigation.locator('[aria-current="page"]')).toHaveAttribute('href', '/commands?plugin_id=weather')
+  await navigateThroughMenu(page, '权限策略', '治理')
+  await page.locator('.admin-layout__tabbar [data-tab-path="/plugins"]').click()
+  await expect(page).toHaveURL(/\/commands\?plugin_id=weather$/)
+  await page.goto('/plugins/weather?panel=overview')
+  await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
+  await expect(navigation).toHaveCount(0)
+  await openTabContextMenu(page, '插件中心')
+  await clickTabContextAction(page, '关闭当前标签')
+  await expect(page).toHaveURL(/\/plugins\/weather\?panel=overview$/)
+  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '权限策略', 'weather'])
+  await page.locator('.admin-layout__nav-trigger.desktop-only').click()
+  await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(0)
+  await page.locator('.admin-layout__sider .ant-menu-submenu').filter({ hasText: '账号与连接' }).locator('.ant-menu-submenu-title').hover()
+  await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(1)
+  await page.locator('.ant-menu-submenu-popup:visible').getByText('三方账号', { exact: true }).click()
+  await expect(page).toHaveURL(/\/third-party-accounts$/)
+  await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(0)
+})
+
+test('legacy plugin tabs merge on reload and the current deep link wins', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await page.evaluate(() => {
+    const tab = (name: string, path: string) => ({ name, path, fullPath: path, title: name, keepAlive: true })
+    window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
+      version: 3, preferences: { rememberTabs: true },
+      tabs: [tab('logs', '/logs'), tab('commands', '/commands'), tab('plugin-detail', '/plugins/weather'), tab('plugin-settings', '/plugins/settings')],
+    }))
+  })
+  await page.goto('/plugins/settings?section=runtime')
+  await expectPluginCenterPage(page, '插件设置')
+  await expect.poll(() => page.locator('.admin-layout__tabbar [data-tab-path]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-tab-path')))).toEqual(['/', '/logs', '/plugins', '/plugins/weather'])
+  await expect(page.locator('.admin-layout__sider .ant-menu-item-selected')).toHaveText('插件中心')
+  await page.reload()
+  await expect(page.getByTestId('plugin-center-navigation').locator('[aria-current="page"]')).toHaveAttribute('href', '/plugins/settings?section=runtime')
+  expect(await readActiveTabLabel(page)).toBe('插件中心')
+})
+
 test('breadcrumb and tabbar track leaf pages instead of hidden route groups', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
-  await expect(page.locator('.admin-layout__header-breadcrumb')).toHaveCount(0)
+  await expect(page.locator('.admin-layout__breadcrumb-current')).toHaveText('系统状态')
 
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
@@ -2012,18 +2119,19 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '治理' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/commands')
-  await expect(page.getByRole('heading', { name: '指令中心', level: 1 })).toBeVisible()
+  await expectPluginCenterPage(page, '指令中心')
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '指令中心']))
-  expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'commands']))
-  expect(await readActiveTabLabel(page)).toBe('指令中心')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '功能与插件' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(5)
+  expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '插件中心']))
+  expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'plugins']))
+  expect(await readActiveTabLabel(page)).toBe('插件中心')
+  await expect(page.locator('.admin-layout__sider .ant-menu-item-selected')).toHaveText('插件中心')
+  await expect(page.getByTestId('plugin-center-navigation').getByRole('link')).toHaveCount(5)
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   tabLabels = await readTabLabels(page)
-  expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '指令中心', '实时日志']))
-  expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'commands', 'logs']))
+  expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '插件中心', '实时日志']))
+  expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'plugins', 'logs']))
   expect(await readActiveTabLabel(page)).toBe('实时日志')
 
   await page.goto('/protocols')
@@ -2094,8 +2202,8 @@ test('tab context menu closes tabs relative to the clicked tab', async ({ page, 
   await clickTabContextAction(page, '关闭所有标签')
   await expect(page).toHaveURL(/\/$/)
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  expect(await readTabLabels(page)).toEqual([])
-  expect(await readActiveTabLabel(page)).toBe('')
+  expect(await readTabLabels(page)).toEqual(['系统状态'])
+  expect(await readActiveTabLabel(page)).toBe('系统状态')
 })
 
 test('login keeps the protected shell after reload', async ({ page, request }) => {
@@ -2399,7 +2507,7 @@ test('fallback pages cover missing routes and server offline recovery', async ({
   await expect(page.getByRole('heading', { name: '哎呀！未找到页面' })).toBeVisible()
 
   await page.goto('/commands')
-  await expect(page.getByRole('heading', { name: '指令中心' })).toBeVisible()
+  await expectPluginCenterPage(page, '指令中心')
 
   await setBackendNetworkOffline(request)
   await page.goto('/access-lists')
@@ -2429,29 +2537,67 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await login(page)
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  const mobilePluginGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '功能与插件' }).first()
-  const mobilePluginListItem = mobilePluginGroup.locator('.ant-menu-item').filter({ hasText: '插件列表' }).first()
-  if (!await mobilePluginListItem.isVisible().catch(() => false)) {
-    await mobilePluginGroup.locator('.ant-menu-submenu-title').click()
-    await expect(mobilePluginListItem).toBeVisible()
-  }
-  await mobilePluginListItem.click()
+  await page.locator('.ant-drawer-content .ant-menu-item').filter({ hasText: '插件中心' }).click()
   await expect(pluginRows(page).first()).toBeVisible()
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  const mobilePluginSettingsGroup = page.locator('.ant-drawer-content .ant-menu-submenu').filter({ hasText: '功能与插件' }).first()
-  const mobilePluginSettingsItem = mobilePluginSettingsGroup.locator('.ant-menu-item').filter({ hasText: '插件设置' }).first()
-  if (!await mobilePluginSettingsItem.isVisible().catch(() => false)) {
-    await mobilePluginSettingsGroup.locator('.ant-menu-submenu-title').click()
-    await expect(mobilePluginSettingsItem).toBeVisible()
-  }
-  await mobilePluginSettingsItem.click()
-  await expect(page.getByRole('heading', { name: '插件设置', level: 1 })).toBeVisible()
+  await page.locator('.ant-drawer-content .ant-menu-item').filter({ hasText: '插件中心' }).click()
+  await expect(page.locator('.ant-drawer-content:visible')).toHaveCount(0)
+
+  await page.getByTestId('plugin-center-navigation').getByRole('link', { name: '插件设置' }).click()
+  await expectPluginCenterPage(page, '插件设置')
 
   await page.goto('/logs?log_id=log_adapter_live_0001')
   await expect(logRows(page).filter({ hasText: 'ignored OneBot API response with unsupported echo' }).first()).toBeVisible()
   await expect(page.locator('.log-detail-drawer:visible')).toContainText('api response echo must be a non-empty string')
   await expect(logDetailWindow(page)).toHaveCount(0)
+})
+
+test('mobile settings keeps save and draft feedback reachable at the end of the form', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 393, height: 852 })
+  await login(page)
+  await page.goto('/plugins/settings')
+
+  const limit = page.getByLabel('插件工作目录软上限（MB）')
+  await limit.fill('257')
+  await page.locator('.admin-layout__content').evaluate(element => { element.scrollTop = element.scrollHeight })
+  const save = page.getByTestId('plugin-settings-save')
+  await expect(save).toBeInViewport({ ratio: 1 })
+  await expect(page.getByTestId('plugin-settings-unsaved-status')).toBeInViewport()
+
+  await Promise.all([
+    page.waitForResponse(response => response.request().method() === 'PUT' && response.url().endsWith('/api/config')),
+    save.click(),
+  ])
+  await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
+  await expect(page.getByTestId('plugin-settings-save-status')).toBeInViewport()
+  await page.reload()
+  await expect(limit).toHaveValue('257')
+})
+
+test('mobile history filters preserve the query and return focus to the reading workspace', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.setViewportSize({ width: 360, height: 800 })
+  await login(page)
+  await page.goto('/logs/history')
+
+  const toggle = page.getByRole('button', { name: '筛选条件', exact: true })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await toggle.click()
+  await page.getByRole('button', { name: '最近半年', exact: true }).click()
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(toggle).toBeFocused()
+  await expect(logRows(page).first()).toBeVisible()
+  const appliedUrl = page.url()
+  const readingArea = page.locator('.logs-feed-card .data-viewport')
+  await expect.poll(async () => (await readingArea.boundingBox())?.height ?? 0).toBeGreaterThan(400)
+
+  await toggle.press('Enter')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await toggle.press('Enter')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  expect(page.url()).toBe(appliedUrl)
 })
 
 test('critical workspaces fit supported viewports and keep shell navigation keyboard reachable', async ({ page, request }) => {

@@ -98,7 +98,7 @@ describe('motion runtime', () => {
 
     expect(animateMock).toHaveBeenCalledWith(
       element,
-      expect.objectContaining({ opacity: [0, 1] }),
+      expect.objectContaining({ opacity: [0.88, 1] }),
       expect.objectContaining({ duration: 0.2 }),
     )
     expect(done).toHaveBeenCalledOnce()

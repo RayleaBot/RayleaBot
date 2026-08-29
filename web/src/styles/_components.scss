@@ -51,10 +51,10 @@
 .app-page__title-slot-wrapper h1 {
   margin: 0;
   color: var(--text);
-  font-size: 24px;
-  font-weight: 680;
+  font-size: var(--font-size-display);
+  font-weight: 600;
   line-height: 1.25;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.015em;
 }
 
 .app-page__title-slot-wrapper {
@@ -121,7 +121,7 @@
 
 .admin-layout .ant-card .ant-card-head,
 .auth-layout .ant-card .ant-card-head {
-  min-height: 48px;
+  min-height: 44px;
   padding-inline: 16px;
   border-bottom: 1px solid var(--border);
 }
@@ -167,7 +167,7 @@
 }
 
 .app-data-table .ant-table-tbody > tr > td {
-  padding: 12px 14px;
+  padding: 10px 14px;
   vertical-align: top;
   border-bottom-color: var(--border);
 }
@@ -388,7 +388,30 @@
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ant-btn:active:not(:disabled):not(.ant-btn-loading) { transform: translateY(1px); }
+
+@supports (backdrop-filter: blur(12px)) {
+  .ant-dropdown-menu,
+  .ant-select-dropdown,
+  .ant-modal-content,
+  .ant-drawer-content {
+    background: color-mix(in srgb, var(--surface-raised) 90%, transparent) !important;
+    backdrop-filter: blur(12px);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
+  .ant-dropdown-menu,
+  .ant-select-dropdown,
+  .ant-modal-content,
+  .ant-drawer-content {
+    background: var(--surface-raised) !important;
+    backdrop-filter: none;
+  }
 }
 
 button:focus-visible,
@@ -418,7 +441,7 @@ html::view-transition-new(root),
 }
 
 .admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade']::view-transition-new(root) {
-  animation: raylea-view-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: raylea-route-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .admin-layout__content[data-view-transition-kind='route'][data-motion-profile='fade-slide']::view-transition-old(root) {
@@ -459,7 +482,7 @@ html[data-view-transition-kind='theme']::view-transition-new(root) {
 }
 
 @keyframes raylea-view-slide-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: .88; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -477,4 +500,15 @@ html[data-view-transition-kind='theme']::view-transition-new(root) {
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
   }
+}
+
+/* Status colors stay semantic across both Ant themes. */
+.ant-tag-blue, .ant-tag-processing { color: var(--brand-foreground); background: var(--brand-soft); border-color: transparent; }
+.ant-tag-success { color: var(--success); background: var(--success-soft); border-color: transparent; }
+.ant-tag-warning, .ant-tag-orange { color: var(--warning); background: var(--warning-soft); border-color: transparent; }
+.ant-tag-error, .ant-tag-red { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
+
+@keyframes raylea-route-enter {
+  from { opacity: .88; }
+  to { opacity: 1; }
 }

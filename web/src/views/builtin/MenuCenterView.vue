@@ -153,7 +153,8 @@ const hasUnsavedChanges = computed(() => {
     || JSON.stringify(draftPrefixes.value) !== JSON.stringify(normalizeTokens(source.builtin_features?.menu?.prefixes))
 })
 
-watch(configDocument, (value) => {
+watch(configDocument, (value, previous) => {
+  if (value && previous && JSON.stringify(value) === JSON.stringify(previous)) return
   draftCommands.value = normalizeTokens(value?.builtin_features?.menu?.commands, defaultMenuCommands)
   draftPrefixes.value = normalizeTokens(value?.builtin_features?.menu?.prefixes)
 }, { immediate: true })
@@ -419,22 +420,7 @@ async function save() {
 </script>
 
 <template>
-  <AppPage :title="t('builtinFeatures.menuCenter.title')" :description="t('builtinFeatures.menuCenter.subtitle')" full-height>
-    <template #extra>
-      <div class="menu-center-actions">
-        <a-button
-          type="primary"
-          :disabled="!hasUnsavedChanges"
-          :loading="saving"
-          data-testid="menu-center-save"
-          @click="save"
-        >
-          <template #icon><SaveOutlined /></template>
-          {{ t('builtinFeatures.menuCenter.save') }}
-        </a-button>
-      </div>
-    </template>
-
+  <AppPage :title="t('builtinFeatures.menuCenter.title')" :show-header="false" full-height>
     <RetryPanel
       v-if="pageError && !configDocument"
       :title="t('errors.common.loadFailed')"
@@ -445,13 +431,6 @@ async function save() {
 
     <div v-else class="menu-center-layout">
       <div class="menu-center-float-panel">
-        <div class="menu-center-float-panel__header">
-          <span class="menu-center-float-panel__title">{{ t('builtinFeatures.menuCenter.title') }}</span>
-          <a-tag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
-            {{ t('builtinFeatures.menuCenter.unsaved') }}
-          </a-tag>
-        </div>
-
         <div class="menu-center-float-panel__body">
           <div class="menu-center-float-panel__field">
             <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.commands.label') }}</label>
@@ -479,6 +458,21 @@ async function save() {
               {{ t('builtinFeatures.menuCenter.prefixes.inherited', { prefixes: inheritedPrefixLabel }) }}
             </div>
           </div>
+        </div>
+        <div class="menu-center-actions">
+          <a-tag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
+            {{ t('builtinFeatures.menuCenter.unsaved') }}
+          </a-tag>
+          <a-button
+            type="primary"
+            :disabled="!hasUnsavedChanges"
+            :loading="saving"
+            data-testid="menu-center-save"
+            @click="save"
+          >
+            <template #icon><SaveOutlined /></template>
+            {{ t('builtinFeatures.menuCenter.save') }}
+          </a-button>
         </div>
       </div>
 
@@ -535,7 +529,15 @@ async function save() {
 .menu-center-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
+  margin-top: var(--space-md);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--border);
+}
+
+.menu-center-actions .ant-btn {
+  margin-inline-start: auto;
 }
 
 .menu-center-layout {
@@ -558,27 +560,12 @@ async function save() {
 
 .menu-center-float-panel {
   width: 100%;
+  align-self: start;
   padding: var(--space-md);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--surface-strong);
   box-shadow: none;
-}
-
-.menu-center-float-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--border);
-}
-
-.menu-center-float-panel__title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
 }
 
 .menu-center-unsaved-tag {
@@ -626,6 +613,10 @@ async function save() {
   align-items: center;
   min-height: 0;
   padding-top: var(--menu-center-preview-top-space);
+}
+
+.menu-preview-area :deep(.native-template-preview__frame) {
+  transform-origin: left top;
 }
 
 .menu-center-tabs {

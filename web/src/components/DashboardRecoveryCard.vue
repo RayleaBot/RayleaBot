@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { t } from '@/i18n'
+import { ReloadOutlined, DatabaseOutlined } from '@ant-design/icons-vue'
 import type {
   RecoveryCompatibilitySkippedPlugin,
   RecoveryCompatibilitySummary,
@@ -35,27 +36,10 @@ defineEmits<{
       </div>
     </template>
 
-    <a-empty v-if="!recoverySummary" :description="t('display.empty')" />
+    <p v-if="!recoverySummary" class="dashboard-recovery-card__empty">暂无恢复记录</p>
 
     <div v-else class="events-section">
-      <div class="table-actions" style="justify-content: flex-start; margin-bottom: 12px;">
-        <a-button
-          data-testid="recovery-recheck-button"
-          size="small"
-          :loading="recoveryRecheckPending"
-          @click="$emit('recheck')"
-        >
-          {{ t('dashboard.recoveryRecheck') }}
-        </a-button>
-        <a-button
-          data-testid="runtime-bootstrap-button"
-          size="small"
-          :loading="runtimeBootstrapPending"
-          @click="$emit('bootstrap')"
-        >
-          {{ t('dashboard.runtimeBootstrap') }}
-        </a-button>
-      </div>
+
 
       <RecoverySummaryDetails
         v-model:selected-recovery-review-ids="selectedRecoveryReviewIds"
@@ -96,43 +80,40 @@ defineEmits<{
           </div>
         </template>
       </RecoverySummaryDetails>
+      <div class="dashboard-recovery-actions">
+        <a-button
+          data-testid="recovery-recheck-button"
+          size="small"
+          :loading="recoveryRecheckPending"
+          @click="$emit('recheck')"
+        >
+          <template #icon><ReloadOutlined v-if="!recoveryRecheckPending" /></template>
+          {{ t('dashboard.recoveryRecheck') }}
+        </a-button>
+        <a-button
+          data-testid="runtime-bootstrap-button"
+          size="small"
+          :loading="runtimeBootstrapPending"
+          @click="$emit('bootstrap')"
+        >
+          <template #icon><DatabaseOutlined v-if="!runtimeBootstrapPending" /></template>
+          {{ t('dashboard.runtimeBootstrap') }}
+        </a-button>
+      </div>
     </div>
   </a-card>
 </template>
 
 <style scoped lang="scss">
-.dashboard-recovery-card {
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-  box-shadow: none;
-}
-
-.dashboard-recovery-card :deep(.ant-card-body) {
-  padding: var(--space-lg);
-}
-
-.card-header {
-  span {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--text);
-  }
-}
-
-.readiness-note {
-  margin-top: 14px;
-  padding: 12px 16px;
-  border-radius: var(--radius-lg);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  line-height: 1.5;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.table-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.dashboard-recovery-card__empty { margin: 0; padding: 12px 0; color: var(--muted); font-size: 13px; }
+.dashboard-recovery-card { border: 1px solid var(--border); background: var(--surface); box-shadow: none; min-width: 0; }
+.dashboard-recovery-card :deep(.ant-card-body) { padding: 16px 20px; }
+.card-header span { font-size: 16px; font-weight: 600; color: var(--text); }
+.readiness-note { padding: 4px 0; color: var(--muted); line-height: 1.5; }
+.dashboard-recovery-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
+.table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+ .dashboard-recovery-card :deep(.ant-card-body) { padding: 14px; }
+ .dashboard-recovery-actions { grid-template-columns: 1fr; gap: 8px; }
 }
 </style>

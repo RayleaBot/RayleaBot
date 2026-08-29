@@ -875,7 +875,7 @@ onUnmounted(() => {
   :deep(.ant-segmented-item-selected) {
     background: var(--surface);
     color: var(--text-accent);
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
   }
 }
 
@@ -887,7 +887,7 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .plugin-detail-hero__identity {
@@ -927,7 +927,7 @@ onUnmounted(() => {
   overflow: hidden;
   color: var(--text);
   font-size: 1.15rem;
-  font-weight: 750;
+  font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;

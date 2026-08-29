@@ -5,6 +5,8 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
+  MinusCircleOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons-vue'
 
 import AppCard from '@/components/AppCard.vue'
@@ -96,10 +98,10 @@ watch(
 
 function getCheckIcon(status: typeof healthStatusType.value) {
   const map = {
-    danger: '❌',
-    muted: '—',
-    success: '✅',
-    warning: '⚠',
+    danger: CloseCircleOutlined,
+    muted: MinusCircleOutlined,
+    success: CheckCircleOutlined,
+    warning: ExclamationCircleOutlined,
   } as const
   return map[status]
 }
@@ -116,11 +118,11 @@ function getEventSeverity(payload: Record<string, unknown>) {
   return typeof severity === 'string' ? severity : undefined
 }
 
-function getEventSeverityColor(severity?: string): 'blue' | 'red' | 'orange' | 'green' | 'gray' {
-  if (severity === 'error' || severity === 'danger') return 'red'
-  if (severity === 'warning') return 'orange'
-  if (severity === 'success') return 'green'
-  return 'blue'
+function getEventSeverityColor(severity?: string) {
+  if (severity === 'error' || severity === 'danger') return 'var(--danger)'
+  if (severity === 'warning') return 'var(--warning)'
+  if (severity === 'success') return 'var(--success)'
+  return 'var(--brand-foreground)'
 }
 
 function getEventSeverityIcon(severity?: string) {
@@ -240,7 +242,10 @@ useToastFeedback(protocolIssueToast)
       :runtime-meta-text="t('dashboard.dbSchemaVersion', { version: system?.db_schema_version ?? t('display.empty') })"
     />
 
+    <ConnectionStatusStrip />
+
     <div class="dashboard-main-grid">
+      <div class="dashboard-primary-column">
       <AppCard
         borderless
         class="dashboard-activity-card"
@@ -298,7 +303,7 @@ useToastFeedback(protocolIssueToast)
                 :class="['readiness-check', `readiness-check--${item.status}`]"
               >
                 <div class="readiness-check__header">
-                  <span class="readiness-check__icon" role="img" :aria-label="`检查状态：${item.status}`">{{ getCheckIcon(item.status) }}</span>
+                  <component :is="getCheckIcon(item.status)" class="readiness-check__icon" role="img" :aria-label="`检查状态：${item.status}`" />
                   <span class="readiness-check__name">{{ item.key }}</span>
                 </div>
                 <div class="readiness-check__value">{{ item.value }}</div>
@@ -352,7 +357,7 @@ useToastFeedback(protocolIssueToast)
                 :class="['diagnostics-subsystem', `diagnostics-subsystem--${item.status}`]"
               >
                 <div class="diagnostics-subsystem__header">
-                  <span class="diagnostics-subsystem__icon" role="img" :aria-label="`子系统状态：${item.status}`">{{ getCheckIcon(item.status) }}</span>
+                  <component :is="getCheckIcon(item.status)" class="diagnostics-subsystem__icon" role="img" :aria-label="`子系统状态：${item.status}`" />
                   <span class="diagnostics-subsystem__label">{{ item.label }}</span>
                 </div>
                 <a-tag :color="getStatusTagColor(item.status)" class="diagnostics-subsystem__tag">
@@ -411,11 +416,30 @@ useToastFeedback(protocolIssueToast)
         @open-plugin="openRecoveryPlugin"
         @confirm="confirmRecoverySelection"
       />
-    </div>
+      </div>
 
-    <div class="dashboard-bottom-grid">
-      <ConnectionStatusStrip
-      />
+      <aside class="dashboard-support-column">
+      <AppCard
+        :title="t('dashboard.runtimeInfo')"
+        borderless
+        class="dashboard-runtime-card"
+      >
+        <div class="dashboard-runtime-body">
+          <DatabaseOutlined class="dashboard-panel-icon" aria-hidden="true" />
+          <div class="dashboard-runtime-grid">
+          <div class="dashboard-runtime-item">
+            <span>{{ t('dashboard.service') }}</span>
+            <strong>{{ systemValueText }}</strong>
+            <small v-if="systemDetailText !== systemValueText">{{ systemDetailText }}</small>
+          </div>
+          <div class="dashboard-runtime-item">
+            <span>{{ t('dashboard.adapter') }}</span>
+            <strong :class="`text-${adapterStatusType}`">{{ adapterValueText }}</strong>
+            <small v-if="adapterDetailText !== adapterValueText">{{ adapterDetailText }}</small>
+          </div>
+          </div>
+        </div>
+      </AppCard>
 
       <DashboardToolsPanel
         :backup-pending="backupPending"
@@ -426,536 +450,80 @@ useToastFeedback(protocolIssueToast)
 
       <DashboardUpdateCard />
 
-      <AppCard
-        :title="t('dashboard.runtimeInfo')"
-        borderless
-        class="dashboard-runtime-card"
-      >
-        <div class="dashboard-runtime-grid">
-          <div class="dashboard-runtime-item">
-            <span>{{ t('dashboard.service') }}</span>
-            <strong>{{ systemValueText }}</strong>
-            <small>{{ systemDetailText }}</small>
-          </div>
-          <div class="dashboard-runtime-item">
-            <span>{{ t('dashboard.adapter') }}</span>
-            <strong :class="`text-${adapterStatusType}`">{{ adapterValueText }}</strong>
-            <small>{{ adapterDetailText }}</small>
-          </div>
-        </div>
-      </AppCard>
+      </aside>
     </div>
   </AppPage>
 </template>
 
 <style scoped lang="scss">
-.dashboard-main-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
-  gap: var(--space-lg);
-  margin-bottom: var(--space-lg);
-}
-
-.dashboard-bottom-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  background: var(--surface-strong);
-}
-
-.dashboard-bottom-grid :deep(.ant-card) {
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-}
-
-.dashboard-bottom-grid :deep(.ant-card:nth-child(even)) {
-  border-inline-start: 1px solid var(--border);
-}
-
-.dashboard-bottom-grid :deep(.ant-card:nth-child(n + 3)) {
-  border-top: 1px solid var(--border);
-}
-
-.dashboard-activity-card {
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-  box-shadow: var(--shadow-xs);
-}
-
-.dashboard-activity-card :deep(.ant-card-body) {
-  padding: var(--space-lg);
-  padding-top: 6px;
-}
-
-.dashboard-activity-card :deep(.ant-tabs-nav) {
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.dashboard-activity-card :deep(.ant-tabs-tab) {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--muted);
-  transition: color 150ms ease;
-
-  &:hover {
-    color: var(--accent);
-  }
-}
-
-.dashboard-activity-card :deep(.ant-tabs-tab-active) {
-  font-weight: 700;
-
-  .ant-tabs-tab-btn {
-    color: var(--accent) !important;
-  }
-}
-
-.dashboard-reason-codes {
-  margin-top: 14px;
-  padding: 6px 12px;
-  background: var(--surface-soft);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-
-  small {
-    color: var(--muted);
-    font-weight: 500;
-  }
-}
-
-.dashboard-runtime-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-md);
-}
-
-@media (max-width: 720px) {
-  .dashboard-runtime-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.events-timeline-wrapper--collapsed {
-  max-height: 330px;
-  overflow: hidden;
-  position: relative;
-}
-
-.events-timeline-wrapper--collapsed::after {
-  display: none;
-}
-
-.events-toggle {
-  margin-top: 14px;
-  text-align: center;
-}
-
-.events-timeline {
-  padding-top: 6px;
-}
-
-.events-timeline :deep(.ant-timeline-item-tail) {
-  inset-inline-start: 13px;
-  border-inline-start: 2px solid var(--border);
-}
-
-.events-timeline :deep(.ant-timeline-item-head) {
-  inset-inline-start: 4px;
-  width: 20px;
-  height: 20px;
-  background: var(--surface-strong);
-  border: 0;
-}
-
-.events-timeline__dot-icon {
-  font-size: 1.15rem;
-  line-height: 1;
-}
-
-.events-timeline__dot {
-  display: block;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--border-accent);
-  margin: 5px;
-  border: 2px solid var(--surface-strong);
-  box-shadow: 0 0 0 1px var(--border);
-}
-
-.events-timeline__item {
-  display: grid;
-  gap: var(--space-xs);
-  min-width: 0;
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  border: 1px solid transparent;
-  background: transparent;
-  transition: border-color 150ms ease, background-color 150ms ease;
-
-  &:hover {
-    background: var(--surface-soft);
-    border-color: var(--border);
-  }
-}
-
-.events-timeline__summary {
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.45;
-  color: var(--text);
-}
-
-.events-timeline__time {
-  flex-shrink: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.events-timeline__actions {
-  margin-top: 4px;
-}
-
-.readiness-checks {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-md);
-}
-
-.readiness-check {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  min-width: 0;
-  gap: 6px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-}
-
-.readiness-check--success {
-  border-color: var(--border-success);
-  background: var(--surface-success);
-}
-
-.readiness-check--warning {
-  border-color: var(--border-warning);
-  background: var(--surface-warning);
-}
-
-.readiness-check--danger {
-  border-color: var(--border-danger);
-  background: var(--surface-danger);
-}
-
-.readiness-check__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.readiness-check__icon {
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.readiness-check__name {
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--text);
-}
-
-.readiness-check__value {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 500;
-  line-height: 1.4;
-}
-
-.diagnostics-subsystem-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-md);
-}
-
-.diagnostics-subsystem {
-  display: grid;
-  min-width: 0;
-  gap: 8px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-  box-shadow: none;
-}
-
-.diagnostics-subsystem--success {
-  border-color: var(--border-success);
-  background: var(--surface-success);
-}
-
-.diagnostics-subsystem--warning {
-  border-color: var(--border-warning);
-  background: var(--surface-warning);
-}
-
-.diagnostics-subsystem--danger {
-  border-color: var(--border-danger);
-  background: var(--surface-danger);
-}
-
-.diagnostics-subsystem__header {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 8px;
-}
-
-.diagnostics-subsystem__icon {
-  flex: 0 0 auto;
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.diagnostics-subsystem__label {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.diagnostics-subsystem__tag {
-  width: fit-content;
-  max-width: 100%;
-  white-space: normal;
-}
-
-.diagnostics-subsystem__detail {
-  min-width: 0;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.diagnostics-issues {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.diagnostics-empty-issues {
-  margin-top: 12px;
-}
-
-.diagnostics-issue-card {
-  display: grid;
-  min-width: 0;
-  gap: 12px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-  box-shadow: none;
-}
-
-.diagnostics-issue-card--success {
-  border-color: color-mix(in srgb, var(--success) 28%, var(--border));
-}
-
-.diagnostics-issue-card--warning {
-  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
-  background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
-}
-
-.diagnostics-issue-card--danger {
-  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
-  background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
-}
-
-.diagnostics-issue-card__header {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 10px;
-
-  strong {
-    min-width: 0;
-    overflow-wrap: anywhere;
-    font-size: 0.92rem;
-    line-height: 1.45;
-    color: var(--text);
-  }
-}
-
-.diagnostics-issue-card__facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 0;
-
-  div {
-    min-width: 0;
-    padding: 10px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface-strong) 80%, transparent);
-  }
-
-  dt {
-    margin-bottom: 4px;
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 800;
-  }
-
-  dd {
-    margin: 0;
-    color: var(--text);
-    font-size: 0.82rem;
-    font-weight: 500;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-  }
-}
-
-.issues-list {
-  display: grid;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.issues-list--collapsed {
-  max-height: 240px;
-  overflow: hidden;
-  position: relative;
-}
-
-.issues-list--collapsed::after {
-  display: none;
-}
-
-.issues-toggle {
-  margin-top: 14px;
-  text-align: center;
-}
-
-.issue-alert-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--danger) 5%, var(--surface-soft));
-  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
-  box-shadow: none;
-}
-
-.issue-alert-card--warning {
-  border-color: color-mix(in srgb, var(--warning) 28%, var(--border));
-  background: color-mix(in srgb, var(--warning) 5%, var(--surface-soft));
-}
-
-.issue-alert-card__header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.issue-alert-card__summary {
-  flex: 1;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--text);
-}
-
-.issue-alert-card__remediation {
-  font-size: 0.84rem;
-  color: var(--muted);
-  line-height: 1.5;
-  padding-left: 2px;
-}
-
-.dashboard-runtime-card {
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-  box-shadow: none;
-}
-
-.dashboard-runtime-item {
-  display: grid;
-  gap: 4px;
-  padding: 14px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--surface-soft);
-  box-shadow: none;
-
-  span {
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  strong {
-    font-size: 1rem;
-    font-weight: 800;
-    line-height: 1.35;
-    color: var(--text);
-  }
-
-  small {
-    color: var(--muted);
-    line-height: 1.45;
-    font-size: 13px;
-    font-weight: 500;
-  }
-}
-
-.text-success {
-  color: var(--text-success) !important;
-}
-
-.text-warning {
-  color: var(--text-warning) !important;
-}
-
-.text-danger {
-  color: var(--text-danger) !important;
-}
-
-@media (max-width: 1199px) {
-  .dashboard-main-grid,
-  .dashboard-bottom-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-bottom-grid :deep(.ant-card:nth-child(even)) {
-    border-inline-start: 0;
-  }
-
-  .dashboard-bottom-grid :deep(.ant-card + .ant-card) {
-    border-top: 1px solid var(--border);
-  }
-}
-
-@media (max-width: 720px) {
-  .diagnostics-issue-card__facts {
-    grid-template-columns: 1fr;
-  }
+.dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
+.dashboard-primary-column, .dashboard-support-column { display: grid; min-width: 0; gap: 16px; align-content: start; }
+.dashboard-activity-card { min-width: 0; align-self: stretch; }
+.dashboard-activity-card :deep(.ant-card-body) { padding: 6px 20px 16px; }
+.dashboard-activity-card :deep(.ant-tabs-nav) { margin-bottom: 10px; }
+.dashboard-activity-card :deep(.ant-tabs-tab) { font-size: 14px; color: var(--muted); }
+.dashboard-activity-card :deep(.ant-tabs-tab-active) { font-weight: 600; }
+.events-timeline { padding-top: 6px; }
+.events-timeline :deep(.ant-timeline-item) { padding-bottom: 0; }
+.events-timeline :deep(.ant-timeline-item-tail) { display: none; }
+.events-timeline :deep(.ant-timeline-item-content) { margin-inline-start: 28px; min-height: 58px; top: 0; }
+.events-timeline :deep(.ant-timeline-item-head) { inset-inline-start: 0; top: 14px; width: 16px; height: 16px; background: transparent; border: 0; display: grid; place-items: center; transform: none; }
+.events-timeline__dot-icon { font-size: 18px; line-height: 1; }
+.events-timeline__dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.events-timeline__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.events-timeline__summary { font-size: 14px; font-weight: 500; line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
+.events-timeline__time { color: var(--muted); font-size: 12px; grid-column: 1; }
+.events-timeline__actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+.events-timeline-wrapper--collapsed { max-height: 284px; overflow: hidden; }
+.events-toggle, .issues-toggle { margin-top: 8px; text-align: center; }
+.dashboard-reason-codes { margin-top: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.readiness-checks { grid-template-columns: 1fr; gap: 0; border: 0; background: transparent; border-radius: 0; }
+.readiness-check { grid-template-columns: minmax(120px, .8fr) minmax(0, 1fr); padding: 10px 0; gap: 12px; border-bottom: 1px solid var(--border); background: transparent; }
+.readiness-check__name { color: var(--text); font-weight: 500; }
+.readiness-check__value { text-align: right; color: var(--muted); }
+.readiness-check__icon, .diagnostics-subsystem__icon { font-size: 17px; }
+.diagnostics-subsystem-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
+.diagnostics-subsystem { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.diagnostics-subsystem__header { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
+.diagnostics-subsystem__label { overflow-wrap: anywhere; }
+.diagnostics-subsystem__detail { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.diagnostics-subsystem--success .diagnostics-subsystem__icon { color: var(--success); }
+.diagnostics-subsystem--warning .diagnostics-subsystem__icon { color: var(--warning); }
+.diagnostics-subsystem--danger .diagnostics-subsystem__icon { color: var(--danger); }
+.diagnostics-issues, .issues-list { display: grid; gap: 12px; margin-top: 16px; }
+.diagnostics-issue-card, .issue-alert-card { min-width: 0; padding: 12px; border-radius: 8px; border: 0; background: var(--surface-danger); color: var(--text-danger); }
+.diagnostics-issue-card--warning, .issue-alert-card--warning { background: var(--surface-warning); color: var(--text-warning); }
+.diagnostics-issue-card--success { background: var(--surface-success); }
+.diagnostics-issue-card__header, .issue-alert-card__header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.issue-alert-card__summary { font-weight: 600; }
+.issue-alert-card__remediation { margin-top: 8px; color: inherit; font-size: 13px; line-height: 1.5; }
+.diagnostics-issue-card__facts { display: grid; gap: 8px; margin: 12px 0 0; }
+.diagnostics-issue-card__facts > div { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+.diagnostics-issue-card__facts dt, .diagnostics-issue-card__facts dd { margin: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.diagnostics-issue-card__facts dt { font-weight: 500; }
+.diagnostics-empty-issues { margin-top: 12px; }
+.dashboard-runtime-body { display: flex; align-items: center; gap: 18px; }
+.dashboard-panel-icon { width: 28px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; background: transparent; color: var(--muted); font-size: 26px; }
+.dashboard-runtime-grid { display: grid; flex: 1; min-width: 0; }
+.dashboard-runtime-item { display: grid; grid-template-columns: minmax(78px, .6fr) minmax(0, 1fr); gap: 3px 12px; padding: 8px 0; min-width: 0; }
+.dashboard-runtime-item + .dashboard-runtime-item { border-top: 1px solid var(--border); }
+.dashboard-runtime-item span { grid-row: span 2; font-size: 13px; color: var(--muted); }
+.dashboard-runtime-item strong { font-size: 13px; font-weight: 500; text-align: right; overflow-wrap: anywhere; }
+.dashboard-runtime-item small { font-size: 12px; line-height: 1.4; color: var(--muted); text-align: right; overflow-wrap: anywhere; }
+.text-success { color: var(--text-success) !important; }
+.text-warning { color: var(--text-warning) !important; }
+.text-danger { color: var(--text-danger) !important; }
+@media (max-width: 1100px) {
+ .dashboard-main-grid { grid-template-columns: 1fr; }
+ .dashboard-support-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+ .dashboard-runtime-card { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+ .dashboard-support-column, .diagnostics-subsystem-grid { grid-template-columns: 1fr; }
+ .dashboard-activity-card :deep(.ant-card-body) { padding-inline: 14px; }
+ .events-timeline__item { grid-template-columns: minmax(0, 1fr); }
+ .events-timeline__actions { grid-column: 1; grid-row: auto; }
+ .events-timeline-wrapper--collapsed { max-height: 390px; }
+ .dashboard-panel-icon { width: 44px; height: 44px; font-size: 24px; }
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   BulbFilled,
   BulbOutlined,
@@ -22,6 +22,39 @@ const emit = defineEmits<{
   change: [mode: ThemeMode]
 }>()
 
+const open = ref(false)
+const trigger = ref<{ $el: HTMLButtonElement }>()
+const menu = ref<{ $el: HTMLElement }>()
+const focusMenuOnOpen = ref(false)
+
+async function closeMenu() {
+  focusMenuOnOpen.value = false
+  open.value = false
+  await nextTick()
+  trigger.value?.$el.focus()
+}
+
+function openMenu() {
+  focusMenuOnOpen.value = true
+  open.value = true
+}
+
+watch([open, menu, focusMenuOnOpen], (_, __, onCleanup) => {
+  const popup = menu.value?.$el.parentElement
+  if (!open.value || !focusMenuOnOpen.value || !popup) return
+  const focusFirstItem = () => {
+    if (!open.value || !focusMenuOnOpen.value) return
+    const item = menu.value?.$el.querySelector<HTMLElement>('[role="menuitem"]')
+    if (!item?.getClientRects().length) return
+    item.focus()
+    if (document.activeElement === item) focusMenuOnOpen.value = false
+  }
+  const observer = new MutationObserver(focusFirstItem)
+  observer.observe(popup, { attributes: true, attributeFilter: ['style', 'class'] })
+  onCleanup(() => observer.disconnect())
+  focusFirstItem()
+}, { flush: 'post' })
+
 const triggerLabel = computed(() => t('shell.themeMenuLabel', {
   mode: t(`shell.preferences.theme${props.mode === 'system' ? 'System' : props.mode === 'dark' ? 'Dark' : 'Light'}`),
 }))
@@ -41,18 +74,24 @@ const options: Array<{ icon: typeof DesktopOutlined; label: string; value: Theme
 
 function handleSelect(key: string | number) {
   if (key === 'system' || key === 'light' || key === 'dark') {
+    void closeMenu()
     emit('change', key)
   }
 }
 </script>
 
 <template>
-  <a-dropdown :trigger="['click']" placement="bottomRight">
+  <a-dropdown v-model:open="open" :trigger="['click']" placement="bottomRight">
     <a-button
+      ref="trigger"
       v-bind="$attrs"
       type="text"
+      aria-haspopup="menu"
+      :aria-expanded="open"
       :aria-label="triggerLabel"
       :data-testid="testId"
+      @keydown.esc.stop.prevent="closeMenu"
+      @keydown.down.prevent="openMenu"
     >
       <template #icon>
         <component :is="triggerIcon" />
@@ -61,9 +100,11 @@ function handleSelect(key: string | number) {
 
     <template #overlay>
       <a-menu
+        ref="menu"
         class="theme-mode-menu"
         :selected-keys="[mode]"
         @click="handleSelect($event.key)"
+        @keydown.esc.stop.prevent="closeMenu"
       >
         <a-menu-item v-for="option in options" :key="option.value">
           <span class="theme-mode-menu__item">
@@ -92,6 +133,6 @@ function handleSelect(key: string | number) {
 }
 
 .theme-mode-menu__check {
-  color: var(--accent);
+  color: var(--brand-foreground);
 }
 </style>

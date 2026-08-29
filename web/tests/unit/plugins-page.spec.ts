@@ -6,6 +6,7 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import PluginsPage from '@/views/plugins/PluginsView.vue'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import { usePluginsStore } from '@/stores/plugins'
 
 vi.mock('@/adapter/feedback', () => ({
@@ -15,13 +16,27 @@ vi.mock('@/adapter/feedback', () => ({
 }))
 
 describe('PluginsPage', () => {
+  it('loads only the protected icon URL and restores the logo after an image error', async () => {
+    const wrapper = mount(PluginIcon, { props: { pluginId: 'weather', icon: 'assets/weather.svg', version: '1.0.0' } })
+    expect(wrapper.get('img').attributes('src')).toBe('/api/plugins/weather/icon')
+    await wrapper.get('img').trigger('error')
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.find('.raylea-mark').exists()).toBe(true)
+    await wrapper.setProps({ icon: 'assets/replacement.svg' })
+    expect(wrapper.find('img').exists()).toBe(true)
+    await wrapper.setProps({ icon: undefined })
+    expect(wrapper.find('img').exists()).toBe(false)
+    expect(wrapper.find('.raylea-mark').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.mocked(notifyError).mockClear()
     vi.mocked(notifySuccess).mockClear()
   })
 
-  it('calls enable action when the chinese enable button is pressed', async () => {
+  it('calls enable action from the accessible icon toggle', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
@@ -273,24 +288,20 @@ describe('PluginsPage', () => {
 
     expect(wrapper.text()).toContain('Weather')
     expect(wrapper.text()).toContain('1.2.3')
-    expect(wrapper.text()).toContain('raylea')
+    expect(wrapper.find('.plugins-grid').text()).not.toContain('raylea')
     expect(wrapper.text()).toContain('提供当前城市天气与未来天气查询。')
-    expect(wrapper.text()).toContain('查看概要')
-    expect(wrapper.text()).toContain('查看详情')
+    expect(wrapper.find('button[aria-label="查看概要"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="查看详情"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('未验证来源')
-    expect(wrapper.text()).toContain('plugins/installed')
+    expect(wrapper.find('.plugins-grid').text()).not.toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('1 个命令冲突')
-    expect(wrapper.text()).toContain('我的运势')
-    expect(wrapper.text()).toContain('2 个别名')
+    expect(wrapper.find('.plugins-grid').text()).not.toContain('我的运势')
     expect(wrapper.text()).not.toContain('fortune')
     expect(wrapper.text()).not.toContain('显示状态')
     expect(wrapper.text()).not.toContain('discovered')
     expect(wrapper.find('.plugins-grid').exists()).toBe(true)
     expect(wrapper.find('.plugin-card__meta').exists()).toBe(true)
-    expect(wrapper.find('.plugin-cell-commands').exists()).toBe(true)
-    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
-    expect(wrapper.text()).toContain('还有 2 个')
     expect(wrapper.text()).not.toContain('订阅状态')
     expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
   })
@@ -360,7 +371,7 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugins-grid').text()).not.toContain('Verified Third Party')
   })
 
-  it('expands and collapses overflow plugin commands in the list', async () => {
+  it('keeps all plugin commands accessible from the overview icon', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
       routes: [{ path: '/', component: { template: '<div />' } }],
@@ -393,23 +404,13 @@ describe('PluginsPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
-    expect(wrapper.text()).toContain('还有 2 个')
-    expect(wrapper.text()).not.toContain('订阅恢复')
+    expect(wrapper.get('.plugins-grid').text()).not.toContain('订阅恢复')
+    await wrapper.get('button[aria-label="查看概要"]').trigger('click')
+    await flushPromises()
 
-    const expandButton = wrapper.get('.plugin-command-expander')
-    expect(expandButton.attributes('aria-expanded')).toBe('false')
-    await expandButton.trigger('click')
-
-    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(5)
-    expect(wrapper.text()).toContain('订阅恢复')
-    expect(wrapper.text()).toContain('收起')
-    expect(wrapper.get('.plugin-command-expander').attributes('aria-expanded')).toBe('true')
-
-    await wrapper.get('.plugin-command-expander').trigger('click')
-
-    expect(wrapper.findAll('.plugin-cell-commands .plugin-command-chip')).toHaveLength(3)
-    expect(wrapper.text()).not.toContain('订阅恢复')
+    expect(document.body.textContent).toContain('订阅恢复')
+    expect(document.body.textContent).toContain('订阅删除')
+    wrapper.unmount()
   })
 
 })

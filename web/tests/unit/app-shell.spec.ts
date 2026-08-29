@@ -1,5 +1,5 @@
 import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -29,7 +29,7 @@ describe('BasicLayout', () => {
               path: '',
               component: RouteView,
               redirect: { name: 'menu-center' },
-              meta: { hideInTab: true, icon: 'features', order: 2, title: '内置功能' },
+              meta: { hideInTab: true, icon: 'features', order: 2, titleKey: 'routes.features' },
               children: [
                 {
                   path: '/menu-center',
@@ -52,9 +52,15 @@ describe('BasicLayout', () => {
                   meta: { icon: 'plugins', keepAlive: true, order: 1, title: '插件列表' },
                 },
                 {
+                  path: '/plugins/store',
+                  name: 'plugin-store',
+                  component: { template: '<div>插件商店页</div>' },
+                  meta: { icon: 'plugin-store', keepAlive: true, title: '插件商店', viewKey: 'plugin-store' },
+                },
+                {
                   path: '/plugins/settings',
                   name: 'plugin-settings',
-                  component: { template: '<div>插件设置页</div>' },
+                  component: { data: () => ({ draft: '' }), template: '<div>插件设置页<input data-testid="settings-draft" v-model="draft" /></div>' },
                   meta: { icon: 'plugin-settings', keepAlive: true, order: 2, title: '插件设置', viewKey: 'plugin-settings' },
                 },
                 {
@@ -210,7 +216,7 @@ describe('BasicLayout', () => {
     const wrapper = mount(BasicLayout, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, Antd, router],
       },
     })
 
@@ -296,98 +302,23 @@ describe('BasicLayout', () => {
     document.body.innerHTML = ''
   })
 
-  it('creates leaf tabs for grouped pages and keeps the active tab in sync', async () => {
+  it('combines the five plugin pages without merging other workspace tabs', async () => {
     const { router, uiShellStore } = await mountShell('/')
-
-    expect(getTabLabels()).toEqual([])
-    expect(uiShellStore.tabs.map((item) => item.title)).toEqual(['系统状态'])
-
     await router.push('/permission-policy')
     await flushPromises()
-    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
-      { title: '系统状态', icon: 'dashboard' },
-      { title: '权限策略', icon: 'permission-policy' },
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy'])
-    expect(getActiveTabLabel()).toBe('权限策略')
-
-    await router.push('/commands')
-    await flushPromises()
-    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
-      { title: '系统状态', icon: 'dashboard' },
-      { title: '权限策略', icon: 'permission-policy' },
-      { title: '指令中心', icon: 'commands' },
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands'])
-    expect(getActiveTabLabel()).toBe('指令中心')
-
-    await router.push('/menu-center')
-    await flushPromises()
-    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
-      { title: '系统状态', icon: 'dashboard' },
-      { title: '权限策略', icon: 'permission-policy' },
-      { title: '指令中心', icon: 'commands' },
-      { title: '菜单中心', icon: 'menu-center' },
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center'])
-    expect(getActiveTabLabel()).toBe('菜单中心')
-
-    await router.push('/logs')
-    await flushPromises()
-    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
-      { title: '系统状态', icon: 'dashboard' },
-      { title: '权限策略', icon: 'permission-policy' },
-      { title: '指令中心', icon: 'commands' },
-      { title: '菜单中心', icon: 'menu-center' },
-      { title: '实时日志', icon: 'logs' },
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '实时日志'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'logs'])
-    expect(getActiveTabLabel()).toBe('实时日志')
-    expect(uiShellStore.tabs.map((item) => item.title)).not.toContain('运维')
-
-    await router.push('/logs/history')
-    await flushPromises()
-    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon }))).toEqual([
-      { title: '系统状态', icon: 'dashboard' },
-      { title: '权限策略', icon: 'permission-policy' },
-      { title: '指令中心', icon: 'commands' },
-      { title: '菜单中心', icon: 'menu-center' },
-      { title: '实时日志', icon: 'logs' },
-      { title: '历史日志', icon: 'history-logs' },
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '实时日志', '历史日志'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'logs', 'history-logs'])
-    expect(getActiveTabLabel()).toBe('历史日志')
-
-    await router.push('/render/templates/help.menu')
-    await flushPromises()
-    expect(uiShellStore.tabs.map((item) => ({ title: item.title, icon: item.icon, path: item.path, fullPath: item.fullPath }))).toEqual([
-      { title: '系统状态', icon: 'dashboard', path: '/', fullPath: '/' },
-      { title: '权限策略', icon: 'permission-policy', path: '/permission-policy', fullPath: '/permission-policy' },
-      { title: '指令中心', icon: 'commands', path: '/commands', fullPath: '/commands' },
-      { title: '菜单中心', icon: 'menu-center', path: '/menu-center', fullPath: '/menu-center' },
-      { title: '实时日志', icon: 'logs', path: '/logs', fullPath: '/logs' },
-      { title: '历史日志', icon: 'history-logs', path: '/logs/history', fullPath: '/logs/history' },
-      { title: '模板预览', icon: 'render-templates', path: '/render/templates', fullPath: '/render/templates/help.menu' },
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '实时日志', '历史日志', '模板预览'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'permission-policy', 'commands', 'menu-center', 'logs', 'history-logs', 'render-templates'])
-    expect(getActiveTabLabel()).toBe('模板预览')
-
-    await router.push('/render/templates/status.panel')
-    await flushPromises()
-    expect(uiShellStore.tabs.filter((item) => item.name === 'render-templates')).toEqual([
-      expect.objectContaining({
-        fullPath: '/render/templates/status.panel',
-        path: '/render/templates',
-        title: '模板预览',
-      }),
-    ])
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心', '菜单中心', '实时日志', '历史日志', '模板预览'])
+    for (const path of ['/commands', '/menu-center', '/plugins/store', '/plugins/settings', '/plugins']) {
+      await router.push(path)
+      await flushPromises()
+      expect(uiShellStore.tabs.map(item => item.path)).toEqual(['/', '/permission-policy', '/plugins'])
+      expect(uiShellStore.tabs.at(-1)).toMatchObject({ name: 'plugin-center', fullPath: path, icon: 'plugins' })
+      expect(getActiveTabLabel()).toBe('插件中心')
+    }
+    for (const path of ['/logs', '/logs/history', '/render/templates/help.menu', '/render/templates/status.panel']) {
+      await router.push(path)
+      await flushPromises()
+    }
+    expect(uiShellStore.tabs.map(item => item.path)).toEqual(['/', '/permission-policy', '/plugins', '/logs', '/logs/history', '/render/templates'])
+    expect(uiShellStore.tabs.at(-1)?.fullPath).toBe('/render/templates/status.panel')
     expect(getActiveTabLabel()).toBe('模板预览')
   })
 
@@ -410,6 +341,59 @@ describe('BasicLayout', () => {
     expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
   })
 
+  it('keeps one sidebar entry and switches all five original routes from the page navigation', async () => {
+    const { wrapper, router, uiShellStore } = await mountShell('/plugins')
+    uiShellStore.patchPreferences({ pageTransition: 'none' })
+    const sidebar = wrapper.get('.admin-layout__sider')
+    expect(sidebar.findAll('.ant-menu-item').filter(item => item.text() === '插件中心')).toHaveLength(1)
+    expect(sidebar.text()).not.toContain('功能与插件')
+    expect(sidebar.text()).not.toContain('插件设置')
+    const navigation = wrapper.get('[data-testid="plugin-center-navigation"]')
+    const paths = ['/menu-center', '/plugins/store', '/plugins', '/plugins/settings', '/commands']
+    expect(navigation.findAll('a').map(link => link.attributes('href'))).toEqual(paths)
+    for (const path of paths) {
+      await navigation.get(`a[href="${path}"]`).trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.path).toBe(path)
+      expect(navigation.get('[aria-current="page"]').attributes('href')).toBe(path)
+      expect(sidebar.get('.ant-menu-item-selected').text()).toBe('插件中心')
+      expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins'])
+    }
+  })
+
+  it('preserves a settings draft and returns to the last full URL through the merged tab', async () => {
+    const { wrapper, router, uiShellStore } = await mountShell('/plugins/settings')
+    uiShellStore.patchPreferences({ pageTransition: 'none' })
+    await wrapper.get('[data-testid="settings-draft"]').setValue('fixture draft')
+    await wrapper.get('.plugin-center-navigation a[href="/commands"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('.plugin-center-navigation a[href="/plugins/settings"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
+    await router.push('/plugins/settings?section=runtime#limits')
+    await flushPromises()
+    await router.push('/logs')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="plugin-center-navigation"]').exists()).toBe(false)
+    await wrapper.get('[data-tab-path="/plugins"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/settings?section=runtime#limits')
+    expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
+  })
+
+  it('closing the center keeps an active plugin detail separate', async () => {
+    const { wrapper, router, uiShellStore } = await mountShell('/plugins')
+    await router.push('/plugins/weather?panel=overview')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="plugin-center-navigation"]').exists()).toBe(false)
+    expect(wrapper.get('.admin-layout__sider .ant-menu-item-selected').text()).toBe('插件中心')
+    await openTabContextMenu('插件中心')
+    await clickContextMenuItem('关闭当前标签')
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/weather?panel=overview')
+    expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins/weather'])
+    expect(uiShellStore.effectiveCachedViewNames).not.toContain('plugin-settings')
+  })
+
   it('renders plugin settings under the plugin center group', async () => {
     const { wrapper } = await mountShell('/plugins/settings')
 
@@ -419,14 +403,14 @@ describe('BasicLayout', () => {
     expect(parentLink.text()).toBe('插件中心')
     expect(parentLink.attributes('href')).toBe('/plugins')
     expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('插件设置')
-    expect(getTabLabels()).toEqual(['系统状态', '插件设置'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugin-settings'])
-    expect(getActiveTabLabel()).toBe('插件设置')
+    expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
+    expect(getActiveTabLabel()).toBe('插件中心')
   })
 
   it('uses current route metadata instead of a stale persisted tab icon', async () => {
     const { uiShellStore } = await mountShell('/plugins/settings')
-    const settingsTab = uiShellStore.tabs.find((item) => item.path === '/plugins/settings')
+    const settingsTab = uiShellStore.tabs.find((item) => item.path === '/plugins')
 
     expect(settingsTab).toBeDefined()
     uiShellStore.upsertTab({
@@ -435,22 +419,22 @@ describe('BasicLayout', () => {
     })
     await flushPromises()
 
-    expect(uiShellStore.tabs.find((item) => item.path === '/plugins/settings')?.icon).toBe('setting')
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugin-settings'])
+    expect(uiShellStore.tabs.find((item) => item.path === '/plugins')?.icon).toBe('setting')
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
   })
 
-  it('renders menu center under the builtin features group', async () => {
+  it('renders menu center inside the shared plugin center', async () => {
     const { wrapper } = await mountShell('/menu-center')
 
     const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
     const parentLink = breadcrumb.get('.admin-layout__breadcrumb-link')
 
-    expect(parentLink.text()).toBe('内置功能')
-    expect(parentLink.attributes('href')).toBe('/menu-center')
+    expect(parentLink.text()).toBe('插件中心')
+    expect(parentLink.attributes('href')).toBe('/plugins')
     expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('菜单中心')
-    expect(getTabLabels()).toEqual(['系统状态', '菜单中心'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'menu-center'])
-    expect(getActiveTabLabel()).toBe('菜单中心')
+    expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
+    expect(getActiveTabLabel()).toBe('插件中心')
   })
 
   it('keeps a single workspace tab when only query state changes', async () => {
@@ -467,8 +451,8 @@ describe('BasicLayout', () => {
     await flushPromises()
     await router.push('/commands?plugin_id=raylea.echo')
     await flushPromises()
-    expect(uiShellStore.tabs.filter((item) => item.name === 'commands')).toHaveLength(1)
-    expect(getActiveTabLabel()).toBe('指令中心')
+    expect(uiShellStore.tabs.filter((item) => item.name === 'plugin-center')).toHaveLength(1)
+    expect(getActiveTabLabel()).toBe('插件中心')
 
     await router.push('/logs?protocol=onebot11')
     await flushPromises()
@@ -489,7 +473,7 @@ describe('BasicLayout', () => {
     const { router } = await mountShell('/')
     await openStandardTabs(router)
 
-    await openTabContextMenu('指令中心')
+    await openTabContextMenu('插件中心')
     await clickContextMenuItem('关闭当前标签')
 
     expect(router.currentRoute.value.path).toBe('/logs')
@@ -501,12 +485,12 @@ describe('BasicLayout', () => {
     const { router } = await mountShell('/')
     await openStandardTabs(router)
 
-    await openTabContextMenu('指令中心')
+    await openTabContextMenu('插件中心')
     await clickContextMenuItem('关闭其他标签')
 
     expect(router.currentRoute.value.path).toBe('/commands')
-    expect(getTabLabels()).toEqual(['系统状态', '指令中心'])
-    expect(getActiveTabLabel()).toBe('指令中心')
+    expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
+    expect(getActiveTabLabel()).toBe('插件中心')
   })
 
   it('closes tabs to the left of the right-clicked tab', async () => {
@@ -525,24 +509,24 @@ describe('BasicLayout', () => {
     const { router } = await mountShell('/')
     await openStandardTabs(router)
 
-    await openTabContextMenu('指令中心')
+    await openTabContextMenu('插件中心')
     await clickContextMenuItem('关闭右侧标签')
 
     expect(router.currentRoute.value.path).toBe('/commands')
-    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '指令中心'])
-    expect(getActiveTabLabel()).toBe('指令中心')
+    expect(getTabLabels()).toEqual(['系统状态', '权限策略', '插件中心'])
+    expect(getActiveTabLabel()).toBe('插件中心')
   })
 
   it('closes all non-affix tabs from the right-click menu', async () => {
     const { router, wrapper } = await mountShell('/')
     await openStandardTabs(router)
 
-    await openTabContextMenu('指令中心')
+    await openTabContextMenu('插件中心')
     await clickContextMenuItem('关闭所有标签')
 
     expect(router.currentRoute.value.path).toBe('/')
-    expect(getTabLabels()).toEqual([])
-    expect(wrapper.find('.admin-layout__tabbar').exists()).toBe(false)
+    expect(getTabLabels()).toEqual(['系统状态'])
+    expect(wrapper.find('.admin-layout__tabbar').exists()).toBe(true)
   })
 
   it('keeps the affix tab protected in the right-click menu', async () => {
@@ -564,7 +548,7 @@ describe('BasicLayout', () => {
     await router.push('/offline')
     await flushPromises()
 
-    expect(getTabLabels()).toEqual([])
+    expect(getTabLabels()).toEqual(['系统状态'])
     expect(uiShellStore.tabs).toEqual([
       expect.objectContaining({
         affix: true,

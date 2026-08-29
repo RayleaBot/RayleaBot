@@ -460,7 +460,7 @@ onUnmounted(() => {
             :overscan="6"
             :follow-bottom="followBottom"
             :bottom-threshold="LOG_BOTTOM_THRESHOLD"
-            :empty-label="t('display.empty')"
+            :empty-label="t('logs.current.empty')"
             :get-item-key="(item) => item.log_id"
             @reach-top="loadOlder"
             @at-bottom-change="onViewportBottomChange"
@@ -591,6 +591,11 @@ onUnmounted(() => {
 
 .logs-feed-card {
   box-shadow: none;
+}
+
+.logs-feed-card :deep(.data-viewport) {
+  border: 0;
+  border-radius: 0;
 }
 
 .logs-feed-card__body {

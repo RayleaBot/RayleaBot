@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons-vue'
 
 import { resolveMenuIcon } from '@/access/icons'
+import { createPluginCenterTab, isPluginCenterRoute, pluginCenterPath, projectPluginCenterMenu } from '@/access/plugin-center'
 import {
   buildMenuItems,
   collectNavigationItems,
@@ -29,6 +30,7 @@ import {
 } from '@/access/menu'
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import RayleaMark from '@/components/brand/RayleaMark.vue'
+import PluginCenterNavigation from '@/components/plugins/PluginCenterNavigation.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
@@ -72,7 +74,9 @@ const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 const shutdownDialogVisible = ref(false)
 const isFullscreen = ref(false)
 const reducedMotion = ref(false)
-const openMenuKeys = ref<string[]>([])
+const openMenuKeys = ref<string[]>(projectPluginCenterMenu(buildMenuItems(adminRoutes[0]?.children ?? [], '')).filter(item => item.children?.length).map(item => item.key))
+const collapsedOpenMenuKeys = ref<string[]>([])
+watch(siderCollapsed, () => { collapsedOpenMenuKeys.value = [] })
 let reducedMotionMediaQuery: MediaQueryList | null = null
 let unsubscribeRouteMotion: (() => void) | null = null
 
@@ -86,8 +90,9 @@ useToastFeedback(() => (
     : null
 ))
 
-const menuItems = computed(() => buildMenuItems(adminRoutes[0]?.children ?? [], ''))
+const menuItems = computed(() => projectPluginCenterMenu(buildMenuItems(adminRoutes[0]?.children ?? [], '')))
 const staticNavigationItems = collectNavigationItems(adminRoutes[0]?.children ?? [], '')
+  .filter(item => !(item.path === '/' && item.title === t('routes.features')))
 const navigationItems = computed(() => {
   const fromTabs = tabs.value.map((item) => ({
     icon: resolveTabItemIconName(item),
@@ -110,7 +115,7 @@ interface AppBreadcrumbItem {
   title: string
 }
 
-const siderTheme = 'dark'
+const siderTheme = computed(() => uiShellStore.resolvedThemeMode)
 const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
@@ -156,10 +161,11 @@ const breadcrumbItems = computed<AppBreadcrumbItem[]>(() => {
   const seen = new Set<string>()
   const items = route.matched
     .map((record) => {
-      const title = resolveRouteTitle(record.meta)
+      const isPluginGroup = record.meta.titleKey === 'routes.features'
+      const title = isPluginGroup ? t('routes.pluginCenter') : resolveRouteTitle(record.meta)
       return {
         key: String(record.name ?? `${record.path}:${title}`),
-        path: resolveBreadcrumbPath(record),
+        path: isPluginGroup ? pluginCenterPath : resolveBreadcrumbPath(record),
         title,
       }
     })
@@ -183,7 +189,7 @@ const breadcrumbItems = computed<AppBreadcrumbItem[]>(() => {
   }))
 })
 const hasMultiBreadcrumb = computed(() => breadcrumbItems.value.length > 1)
-const showWorkspaceTabs = computed(() => preferences.value.chromeTabbar && tabs.value.length > 1)
+const showWorkspaceTabs = computed(() => preferences.value.chromeTabbar && tabs.value.length > 0)
 
 function getRouteStageComponent(viewRoute: RouteLocationNormalizedLoaded) {
   const stageName = String(viewRoute.name ?? viewRoute.path)
@@ -288,6 +294,7 @@ function resolveLeafRouteComponent(viewRoute: RouteLocationNormalizedLoaded) {
 }
 
 function resolveTabPath(viewRoute: RouteLocationNormalizedLoaded) {
+  if (isPluginCenterRoute(viewRoute.name)) return pluginCenterPath
   return resolveRouteEntryPath(getLeafRouteMeta(viewRoute), viewRoute.path)
 }
 
@@ -349,6 +356,10 @@ function resolveCurrentWorkspaceTab(viewRoute: RouteLocationNormalizedLoaded): W
     return null
   }
 
+  if (isPluginCenterRoute(viewRoute.name)) {
+    return { tab: createPluginCenterTab(viewRoute.fullPath) }
+  }
+
   const title = resolveCurrentTabTitle(viewRoute)
   if (!title) {
     return null
@@ -401,7 +412,9 @@ function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: s
 const flattenedMenu = flattenMenu(menuItems.value)
 const menuLineage = computed(() => {
   const leafMeta = getLeafRouteMeta(route)
-  const targetPath = typeof leafMeta?.activePath === 'string' && leafMeta.activePath
+  const targetPath = isPluginCenterRoute(route.name) || route.name === 'plugin-detail'
+    ? pluginCenterPath
+    : typeof leafMeta?.activePath === 'string' && leafMeta.activePath
     ? leafMeta.activePath
     : route.path
 
@@ -423,6 +436,8 @@ watch(
 )
 
 function navigateTo(path: string) {
+  uiShellStore.setMobileMenuOpen(false)
+  collapsedOpenMenuKeys.value = []
   void navigateWithMotion(router, path, pageMotionProfile.value)
 }
 
@@ -461,7 +476,8 @@ function handlePrimaryNavigationKeydown(event: KeyboardEvent) {
 }
 
 function handleOpenChange(keys: string[]) {
-  openMenuKeys.value = keys
+  if (siderCollapsed.value) collapsedOpenMenuKeys.value = keys.slice(-1)
+  else openMenuKeys.value = keys
 }
 
 function syncFullscreenState() {
@@ -580,7 +596,7 @@ onBeforeUnmount(() => {
       :collapsed-width="64"
       :trigger="null"
       :theme="siderTheme"
-      width="224"
+      width="244"
       data-testid="app-sider"
     >
       <button
@@ -605,7 +621,7 @@ onBeforeUnmount(() => {
         <a-menu
           mode="inline"
           :inline-collapsed="siderCollapsed"
-          :open-keys="openMenuKeys"
+          :open-keys="siderCollapsed ? collapsedOpenMenuKeys : openMenuKeys"
           :selected-keys="selectedMenuKeys"
           @openChange="handleOpenChange"
         >
@@ -626,7 +642,6 @@ onBeforeUnmount(() => {
                 <span class="admin-layout__menu-label">
                   <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
                   <span>{{ child.title }}</span>
-                  <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
                 </span>
               </a-menu-item>
             </a-sub-menu>
@@ -635,7 +650,6 @@ onBeforeUnmount(() => {
               <span class="admin-layout__menu-label">
                 <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
                 <span>{{ item.title }}</span>
-                <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
               </span>
             </a-menu-item>
           </template>
@@ -647,7 +661,7 @@ onBeforeUnmount(() => {
       :open="mobileMenuOpen"
       class="admin-layout__mobile-drawer"
       placement="left"
-      width="240"
+      width="280"
       @close="uiShellStore.setMobileMenuOpen(false)"
     >
       <div class="admin-layout__mobile-brand">
@@ -679,7 +693,6 @@ onBeforeUnmount(() => {
               <span class="admin-layout__menu-label">
                 <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
                 <span>{{ child.title }}</span>
-                <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
               </span>
             </a-menu-item>
           </a-sub-menu>
@@ -688,7 +701,6 @@ onBeforeUnmount(() => {
             <span class="admin-layout__menu-label">
               <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
               <span>{{ item.title }}</span>
-              <RayleaMark class="admin-layout__menu-locator" variant="chrome" />
             </span>
           </a-menu-item>
         </template>
@@ -727,7 +739,7 @@ onBeforeUnmount(() => {
             </a-button>
 
             <div
-              v-if="hasMultiBreadcrumb"
+              v-if="breadcrumbItems.length"
               :class="[
                 'admin-layout__header-breadcrumb',
                 hasMultiBreadcrumb
@@ -769,11 +781,10 @@ onBeforeUnmount(() => {
             </div>
           </div>
 
-          <div class="admin-layout__header-right">
-            <div class="admin-layout__header-tools">
+          <div class="admin-layout__header-tools">
               <a-tooltip :title="t('shell.search')">
                 <a-button
-                  class="admin-layout__icon-button"
+                  class="admin-layout__icon-button admin-layout__search-button"
                   type="text"
                   :aria-label="t('shell.search')"
                   data-testid="header-search"
@@ -782,10 +793,12 @@ onBeforeUnmount(() => {
                   <template #icon>
                     <SearchOutlined />
                   </template>
+                  <span class="admin-layout__search-copy" aria-hidden="true">{{ t('shell.searchPlaceholder') }}</span>
                 </a-button>
               </a-tooltip>
-            </div>
+          </div>
 
+          <div class="admin-layout__header-right">
             <ThemeModeMenu
               class="admin-layout__icon-button admin-layout__theme-menu"
               :mode="uiShellStore.themeMode"
@@ -793,6 +806,33 @@ onBeforeUnmount(() => {
               test-id="theme-toggle"
               @change="setThemeModeWithMotion"
             />
+
+            <a-tooltip :title="fullscreenLabel">
+              <a-button
+                class="admin-layout__icon-button desktop-only"
+                type="text"
+                :aria-label="fullscreenLabel"
+                data-testid="header-fullscreen-direct"
+                @click="toggleFullscreen"
+              >
+                <template #icon>
+                  <FullscreenExitOutlined v-if="isFullscreen" />
+                  <FullscreenOutlined v-else />
+                </template>
+              </a-button>
+            </a-tooltip>
+
+            <a-tooltip :title="t('shell.settings')">
+              <a-button
+                class="admin-layout__icon-button desktop-only"
+                type="text"
+                :aria-label="t('shell.settings')"
+                data-testid="header-settings-direct"
+                @click="uiShellStore.openSettings()"
+              >
+                <template #icon><SettingOutlined /></template>
+              </a-button>
+            </a-tooltip>
 
             <a-dropdown :trigger="['click']" placement="bottomRight">
               <a-button
@@ -920,7 +960,8 @@ onBeforeUnmount(() => {
         </div>
       </a-layout-header>
 
-      <a-layout-content id="app-main" class="admin-layout__content" tabindex="-1">
+      <a-layout-content id="app-main" class="admin-layout__content" :class="{ 'admin-layout__content--plugin-center': isPluginCenterRoute(route.name) }" tabindex="-1">
+        <PluginCenterNavigation v-if="isPluginCenterRoute(route.name)" />
         <RouterView v-slot="{ route: currentViewRoute }">
           <Transition
             :css="false"
@@ -968,6 +1009,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+.admin-layout__content--plugin-center {
+  padding-top: 4px;
+  gap: 6px;
+}
+
 .admin-layout__brand:focus-visible,
 .admin-layout__icon-button:focus-visible,
 .admin-layout__shutdown-button:focus-visible,

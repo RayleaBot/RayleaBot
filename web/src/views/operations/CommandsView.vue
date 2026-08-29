@@ -231,15 +231,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppPage :title="t('commands.title')" :description="t('commands.subtitle')" width="detail">
-    <template #extra>
-      <div class="commands-page__actions">
-        <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
-          {{ t('commands.actions.openPermissionPolicy') }}
-        </a-button>
-      </div>
-    </template>
-
+  <AppPage :title="t('commands.title')" :show-header="false" width="detail">
     <template #toolbar>
       <div class="app-view-card commands-filter-toolbar">
         <a-form layout="vertical">
@@ -255,6 +247,9 @@ onMounted(() => {
             />
           </a-form-item>
         </a-form>
+        <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
+          {{ t('commands.actions.openPermissionPolicy') }}
+        </a-button>
       </div>
     </template>
 
@@ -403,7 +398,16 @@ onMounted(() => {
 }
 
 .commands-filter-toolbar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
   padding: 16px;
+
+  .ant-form {
+    flex: 1 1 260px;
+    min-width: 0;
+  }
 
   :deep(.ant-form-item) {
     margin-bottom: 0;
@@ -416,13 +420,6 @@ onMounted(() => {
 
 :deep(.ant-table-row:hover > td) {
   background: var(--surface-accent) !important;
-}
-
-.commands-page__actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 .card-header {

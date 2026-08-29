@@ -152,6 +152,9 @@ describe('PluginSettingsPage', () => {
     viewModel.writeField('storage.plugin_workdir_soft_limit_mb', 'number', 512)
     await flushPromises()
 
+    store.document = JSON.parse(JSON.stringify(store.document))
+    await flushPromises()
+
     expect(viewModel.hasUnsavedChanges).toBe(true)
     expect(wrapper.get('[data-testid="plugin-settings-save"]').attributes('disabled')).toBeUndefined()
 

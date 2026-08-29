@@ -41,7 +41,7 @@ defineProps<{
 .app-card {
   background: var(--surface-strong);
   border-color: var(--border);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
   transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
 }
 
