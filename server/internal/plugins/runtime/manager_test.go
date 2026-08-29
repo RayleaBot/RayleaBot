@@ -131,6 +131,25 @@ func TestManagerStartFailsOnInitAckTimeout(t *testing.T) {
 	}
 }
 
+func TestTimeoutEventKeepsCompletedSuccessErrorNil(t *testing.T) {
+	t.Parallel()
+
+	manager := testManager()
+	session := &eventSession{
+		completed: true,
+		delivery:  Delivery{RequestID: "completed"},
+	}
+	var delivery Delivery
+	var err error
+	delivery, err = manager.timeoutEvent(nil, session, codePluginEventTimeout, "plugin event response timed out", context.Canceled)
+	if err != nil {
+		t.Fatalf("completed delivery returned a non-nil error: %#v", err)
+	}
+	if delivery.RequestID != "completed" {
+		t.Fatalf("completed delivery = %#v", delivery)
+	}
+}
+
 func TestManagerStartProgressDoesNotExtendInitDeadline(t *testing.T) {
 	t.Parallel()
 

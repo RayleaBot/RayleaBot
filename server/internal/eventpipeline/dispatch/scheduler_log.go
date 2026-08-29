@@ -82,7 +82,7 @@ func schedulerFailureFields(err error, delivery pluginruntime.Delivery) (schedul
 	message := strings.TrimSpace(delivery.ErrorMessage)
 	if code == "" {
 		var runtimeErr *pluginruntime.Error
-		if errors.As(err, &runtimeErr) {
+		if errors.As(err, &runtimeErr) && runtimeErr != nil {
 			code = runtimeErr.Code
 			message = runtimeErr.Message
 		}

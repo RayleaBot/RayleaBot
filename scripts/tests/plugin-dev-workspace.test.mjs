@@ -161,6 +161,10 @@ test('plugin watcher ignores generated trees and existing directory metadata eve
   await fs.utimes(path.join(pluginPath, 'ui'), now, now)
   await fs.readFile(sourcePath)
   await fs.writeFile(path.join(outputDir, 'index.js'), 'generated\n', 'utf8')
+  const temporaryInstallDir = path.join(pluginPath, 'ui', '_tmp_1234_0123456789abcdef0123456789abcdef')
+  await fs.mkdir(temporaryInstallDir, { recursive: true })
+  await fs.writeFile(path.join(temporaryInstallDir, 'package.json'), '{}\n', 'utf8')
+  await fs.rm(temporaryInstallDir, { recursive: true, force: true })
   await new Promise((resolve) => setTimeout(resolve, 200))
   assert.deepEqual(changes, [])
 

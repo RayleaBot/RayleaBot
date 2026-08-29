@@ -147,7 +147,7 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 	return runtimeErr
 }
 
-func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, message string, err error) (Delivery, *Error) {
+func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, message string, err error) (Delivery, error) {
 	runtimeErr := errorf(code, message, err)
 	if session == nil {
 		return Delivery{}, runtimeErr

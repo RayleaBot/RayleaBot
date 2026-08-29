@@ -3,16 +3,18 @@ package dispatch
 import (
 	"bytes"
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"io"
 	"log/slog"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type fakeDeliverer struct {
@@ -47,6 +49,17 @@ func (r *recordingSchedulerRunRecorder) results() []pluginruntime.SchedulerRunRe
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return append([]pluginruntime.SchedulerRunResult(nil), r.entries...)
+}
+
+func TestSchedulerFailureFieldsHandlesTypedNilRuntimeError(t *testing.T) {
+	t.Parallel()
+
+	var runtimeErr *pluginruntime.Error
+	var err error = runtimeErr
+	outcome, code, message := schedulerFailureFields(err, pluginruntime.Delivery{})
+	if outcome != scheduler.RunOutcomeFailed || code != "" || message != "" {
+		t.Fatalf("typed nil runtime error fields = (%q, %q, %q)", outcome, code, message)
+	}
 }
 
 func (f *fakeDeliverer) Snapshot() pluginruntime.Snapshot {

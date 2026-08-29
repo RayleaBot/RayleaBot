@@ -9,6 +9,7 @@ export const PLUGIN_DEV_WATCH = 'watch'
 
 const validModes = new Set([PLUGIN_DEV_OFF, PLUGIN_DEV_SYNC, PLUGIN_DEV_WATCH])
 const ignoredDirectoryNames = new Set(['.git', '.rayleabot', 'dist', 'node_modules'])
+const ignoredDirectoryNamePatterns = [/^_tmp_\d+_[0-9a-f]+$/i]
 
 export function currentPluginPlatform(platform = process.platform, arch = process.arch) {
   switch (`${platform}/${arch}`) {
@@ -202,7 +203,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
   })
   watchers.push(watcher)
   await Promise.all(entries
-    .filter((entry) => entry.isDirectory() && !ignoredDirectoryNames.has(entry.name))
+    .filter((entry) => entry.isDirectory() && !isIgnoredDirectoryName(entry.name))
     .map((entry) => watchDirectory(
       path.join(directory, entry.name),
       plugin,
@@ -255,7 +256,12 @@ function isDirectoryMetadataAlias(sourcePath, sourceKey, watchedDirectories) {
 
 function isIgnoredPath(root, sourcePath) {
   const relative = path.relative(root, sourcePath)
-  return relative.split(path.sep).some((part) => ignoredDirectoryNames.has(part))
+  return relative.split(path.sep).some((part) => isIgnoredDirectoryName(part))
+}
+
+function isIgnoredDirectoryName(name) {
+  return ignoredDirectoryNames.has(name)
+    || ignoredDirectoryNamePatterns.some((pattern) => pattern.test(name))
 }
 
 function quoteGoWorkPath(modulePath) {
