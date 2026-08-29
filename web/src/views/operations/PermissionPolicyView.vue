@@ -12,7 +12,6 @@ import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
-import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
@@ -27,7 +26,7 @@ import { buildAccessListsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
-import type { CommandPermissionLevel, ConfigDocument } from '@/types/api'
+import type { ConfigDocument } from '@/types/api'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 
 const navigate = useMotionNavigation()
@@ -54,8 +53,7 @@ let saveStatusTimer: number | null = null
 const configSections = computed(() => getPermissionPolicyConfigSections())
 const pageBusy = computed(() => configLoading.value || commandPolicyLoading.value)
 const pageError = computed(() => configError.value || commandPolicyError.value)
-const showFatalError = computed(() => Boolean(pageError.value) && !draft.value && !commandPolicy.value)
-const superAdminCount = computed(() => document.value?.admin.super_admins.length ?? 0)
+const showFatalError = computed(() => Boolean(configError.value) && !draft.value)
 const hasUnsavedChanges = computed(() => {
   if (!draft.value || !document.value) {
     return false
@@ -97,38 +95,6 @@ const feedbackToast = computed(() => {
 watch(document, (value) => {
   draft.value = value ? cloneConfig(value) : null
 }, { immediate: true })
-
-const summaryCards = computed(() => [
-  {
-    key: 'super-admins',
-    icon: SafetyCertificateOutlined,
-    label: t('permissionPolicy.summary.superAdmins'),
-    tone: superAdminCount.value > 0 ? 'success' : 'warning' as const,
-    value: String(superAdminCount.value),
-    description: t('permissionPolicy.summary.superAdminsMeta'),
-  },
-  {
-    key: 'default-permission',
-    icon: SafetyOutlined,
-    label: t('permissionPolicy.summary.defaultPermission'),
-    tone: 'primary' as const,
-    value: getCommandPermissionLabel(commandPolicy.value?.default_level),
-    description: t('permissionPolicy.summary.defaultPermissionMeta'),
-  },
-])
-
-function getCommandPermissionLabel(level: CommandPermissionLevel | null | undefined) {
-  switch (level) {
-    case 'everyone':
-      return t('commands.permissions.everyone')
-    case 'group_admin':
-      return t('commands.permissions.groupAdmin')
-    case 'super_admin':
-      return t('commands.permissions.superAdmin')
-    default:
-      return t('display.empty')
-  }
-}
 
 function getSectionIcon(key: string) {
   switch (key) {
@@ -309,40 +275,6 @@ async function save() {
       />
 
       <template v-else>
-        <template v-if="draft || commandPolicy">
-          <div
-            class="permission-policy-summary-cards"
-            data-testid="permission-policy-summary-card"
-            :aria-label="t('permissionPolicy.sections.summary')"
-          >
-            <div
-              v-for="card in summaryCards"
-              :key="card.key"
-              class="permission-policy-summary-item"
-              :data-tone="card.tone"
-            >
-              <component :is="card.icon" class="permission-policy-summary-item__icon" />
-              <div class="permission-policy-summary-item__copy">
-                <span>{{ card.label }}</span>
-                <strong>{{ card.value }}</strong>
-                <small>{{ card.description }}</small>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <div
-          v-else
-          class="permission-policy-summary-empty"
-          data-testid="permission-policy-summary-card"
-        >
-          <AppEmptyState
-            icon="command"
-            :title="t('permissionPolicy.empty.summaryTitle')"
-            :description="t('permissionPolicy.empty.summaryDescription')"
-          />
-        </div>
-
         <section class="permission-policy-settings-section">
           <div class="permission-policy-settings-header">
             <h2>{{ t('permissionPolicy.sections.settings') }}</h2>
@@ -382,12 +314,7 @@ async function save() {
                 <div v-for="field in section.fields" :key="field.path" class="config-field-item">
                   <a-form-item>
                     <template #label>
-                      <div class="field-label-wrap">
-                        <span class="field-label-text">{{ field.label }}</span>
-                        <a-tooltip v-if="field.description" :title="field.description">
-                          <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
-                        </a-tooltip>
-                      </div>
+                      <span class="field-label-text">{{ field.label }}</span>
                     </template>
 
                     <a-select
@@ -467,62 +394,6 @@ async function save() {
   min-height: 36px;
   padding-inline: 14px;
   border-radius: var(--radius-md);
-}
-
-.permission-policy-summary-cards {
-  display: grid;
-  gap: 0;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  border-block: 1px solid var(--border);
-}
-
-.permission-policy-summary-empty {
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  background: var(--surface-strong);
-  padding: 28px;
-}
-
-.permission-policy-summary-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px 16px;
-}
-
-.permission-policy-summary-item + .permission-policy-summary-item {
-  border-inline-start: 1px solid var(--border);
-}
-
-.permission-policy-summary-item__icon {
-  color: var(--accent);
-  font-size: 20px;
-}
-
-.permission-policy-summary-item[data-tone='success'] .permission-policy-summary-item__icon {
-  color: var(--success);
-}
-
-.permission-policy-summary-item[data-tone='warning'] .permission-policy-summary-item__icon {
-  color: var(--warning);
-}
-
-.permission-policy-summary-item__copy {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.permission-policy-summary-item__copy span,
-.permission-policy-summary-item__copy small {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.permission-policy-summary-item__copy strong {
-  color: var(--text);
-  font-size: 18px;
 }
 
 .permission-policy-settings-section {
@@ -661,44 +532,10 @@ async function save() {
   font-weight: 600;
 }
 
-.field-label-wrap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .field-label-text {
   font-weight: 600;
   font-size: 0.85rem;
   color: var(--theme-text, var(--text));
-}
-
-.field-info-icon {
-  appearance: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: help;
-  font-size: 13px;
-  font-weight: bold;
-  opacity: 0.7;
-  width: 18px;
-  height: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-}
-
-.field-info-icon:hover {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.field-info-icon:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .config-number-input {
@@ -740,17 +577,7 @@ async function save() {
 }
 
 @media (max-width: 1180px) {
-  .permission-policy-summary-cards {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .permission-policy-settings-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .permission-policy-summary-cards {
     grid-template-columns: 1fr;
   }
 }

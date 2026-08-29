@@ -675,7 +675,9 @@ test('permission policy page edits command policy config', async ({ page, reques
 
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('permission-policy-summary-card').getByText('所有成员').first()).toBeVisible()
+  await expect(page.getByTestId('permission-policy-summary-card')).toHaveCount(0)
+  await expect(page.getByText('超级管理员可执行最高权限命令，并跳过黑白名单与冷却裁决。')).toBeVisible()
+  await expect(page.getByText('未单独声明权限的命令使用此级别。')).toBeVisible()
   await expect(page.getByText('配置超级管理员、默认权限级别和聊天命令速率限制。')).toHaveCount(0)
   await expect(page.getByText('策略总览')).toHaveCount(0)
   await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
@@ -699,7 +701,7 @@ test('permission policy page edits command policy config', async ({ page, reques
   await page.getByTestId('permission-policy-save').click()
   expect((await policySaveResponsePromise).status()).toBe(200)
   await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
-  await expect(page.getByTestId('permission-policy-summary-card').getByText('群管理员').first()).toBeVisible()
+  await expect(page.getByLabel('默认权限级别')).toContainText('群管理员')
 
   await page.getByTestId('permission-policy-open-access-lists').click()
   await expect.poll(() => page.url()).toContain('/access-lists')

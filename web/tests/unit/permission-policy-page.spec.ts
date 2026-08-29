@@ -120,7 +120,7 @@ describe('PermissionPolicyPage', () => {
     vi.clearAllMocks()
   })
 
-  it('loads config and command policy summary', async () => {
+  it('loads policy settings with concise field guidance', async () => {
     const router = createRouterForPage()
     await router.push('/permission-policy')
     await router.isReady()
@@ -150,12 +150,48 @@ describe('PermissionPolicyPage', () => {
     await flushPromises()
 
     expect((wrapper.vm.configSections as Array<{ fields: Array<{ path: string }> }>).flatMap((section) => section.fields).map((field) => field.path)).not.toContain('user.cooldown_reply')
+    expect(wrapper.find('[data-testid="permission-policy-summary-card"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('超级管理员可执行最高权限命令，并跳过黑白名单与冷却裁决。')
+    expect(wrapper.text()).toContain('未单独声明权限的命令使用此级别。')
     expect(wrapper.find('[data-testid="permission-policy-super-admins"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeDefined()
 
     await wrapper.get('[data-testid="permission-policy-open-access-lists"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('access-lists')
+  }, 15000)
+
+  it('shows the retry state when config is unavailable even if the policy summary loaded', async () => {
+    const router = createRouterForPage()
+    await router.push('/permission-policy')
+    await router.isReady()
+
+    const configStore = useConfigStore()
+    const governanceStore = useGovernanceStore()
+    configStore.error = '无法读取权限配置'
+    governanceStore.commandPolicy = {
+      default_level: 'everyone',
+      cooldown: {
+        user_command_rate_limit: '10/60s',
+        group_command_rate_limit: '30/60s',
+        cooldown_reply: true,
+      },
+      commands: [],
+    }
+
+    vi.spyOn(configStore, 'fetchConfig').mockRejectedValue(new Error('fixture config failure'))
+    vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
+
+    const wrapper = mount(PermissionPolicyPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('.retry-panel').exists()).toBe(true)
+    expect(wrapper.find('.permission-policy-settings-section').exists()).toBe(false)
   }, 15000)
 
   it('submits policy fields and refreshes command policy after saving', async () => {
@@ -201,12 +237,10 @@ describe('PermissionPolicyPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.vm.superAdminCount).toBe(1)
     wrapper.vm.writeSuperAdminTags(['10001', '10002'])
     wrapper.vm.writeField('permission.default_level', 'select', 'group_admin')
     await flushPromises()
 
-    expect(wrapper.vm.superAdminCount).toBe(1)
     expect(wrapper.vm.hasUnsavedChanges).toBe(true)
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeUndefined()
 
@@ -220,7 +254,6 @@ describe('PermissionPolicyPage', () => {
     expect(submitted.user.command_rate_limit).toBe('10/60s')
     expect(submitted.group.command_rate_limit).toBe('30/60s')
     expect(submitted.user.cooldown_reply).toBe(true)
-    expect(wrapper.vm.superAdminCount).toBe(2)
     expect(wrapper.vm.hasUnsavedChanges).toBe(false)
     expect(fetchPolicySpy).toHaveBeenCalledTimes(2)
     expect(notifySuccess).toHaveBeenCalledTimes(1)

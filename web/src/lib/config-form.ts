@@ -546,6 +546,7 @@ export function getPermissionPolicyConfigSections(): ConfigSectionDefinition[] {
             { label: t('config.options.permissionGroupAdmin'), value: 'group_admin' },
             { label: t('config.options.permissionSuperAdmin'), value: 'super_admin' },
           ],
+          description: t('permissionPolicy.hints.defaultLevel'),
         },
       ],
     },
