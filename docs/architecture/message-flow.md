@@ -13,6 +13,7 @@ sequenceDiagram
     participant DP as Dispatcher
     participant RT as Runtime Manager
     participant PL as Plugin
+    participant EXT as External Services / Local Tools
     participant LA as Local Action Service
     participant OUT as Outbound
 
@@ -23,6 +24,10 @@ sequenceDiagram
     BR->>DP: validated event
     DP->>RT: selected plugin lane
     RT->>PL: JSONL event
+    opt plugin-owned work
+        PL->>EXT: network I/O / temporary files / subprocess
+        EXT-->>PL: result
+    end
     PL->>RT: result / action / error
     opt local action
         RT->>LA: declared action + parameters
@@ -43,6 +48,7 @@ sequenceDiagram
 | 统一事件校验 | Bridge | formal event contract |
 | 目标与队列 | Dispatcher | manifest subscriptions、command declarations、per-plugin lanes |
 | 插件进程协议 | Runtime Manager | runtime snapshot 与 event session |
+| 插件自有工作 | Plugin | 进程内状态、进程创建的临时目录与辅助程序 |
 | 平台 action | Local Action Service | capability declarations 与领域服务 |
 | 出站限流与发送 | Outbound / Adapter | rate limit、reply target、transport snapshot |
 
@@ -65,7 +71,9 @@ Dispatcher 只向可投递的 runtime 发送事件。命令声明优先选择目
 - 满足 capability 参数和资源上限；
 - 返回正式 result 或 error envelope。
 
-Runtime Manager 不直接访问存储、HTTP、渲染、调度、治理或 OneBot provider；这些能力由 Local Action Service 统一执行。
+Runtime Manager 不直接访问宿主管理存储、配置、secret、渲染、调度、治理或 OneBot provider；插件需要这些 RayleaBot 能力时，由 Local Action Service 执行。
+
+Go 插件是管理员确认后运行的完全可信本地代码。插件可自行访问外部服务、创建临时文件并启动随 artifact 发布的辅助程序；这些操作不进入 Runtime Manager 或 Local Action Service，也不受 `http.request` 的 `http_hosts`、`storage.file` 配额或 local action 审计约束。插件负责对应操作的超时、资源上限、并发和清理。插件不能用直接 I/O 读取或修改 RayleaBot 的配置、secret、状态库、安装目录等宿主状态，也不能绕过 Dispatcher 与 Outbound 发送聊天平台消息。
 
 ## 出站语义
 
@@ -98,5 +106,5 @@ Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `ev
 - `eventpipeline/chatpolicy` 的 Ingress 是命令与聊天治理 owner；Bridge 只校验统一事件。
 - Dispatcher 是插件事件排队和出站 action 的 owner。
 - Runtime Manager 是插件进程协议 owner，不是平台能力 owner。
-- Local Action Service 是插件访问平台能力的唯一入口。
+- Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口；插件自有的外部网络、临时文件和子进程工作由插件进程负责。
 - Scheduler 与 webhook 只产生目标事件，不建立平行分发或发送通道。

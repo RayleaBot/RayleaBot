@@ -62,7 +62,8 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - Dispatcher 是插件事件排队和出站 action 的唯一执行出口。
 - Runtime Manager 只负责插件进程、JSONL 协议和生命周期。
 - Plugin Store Service 只消费签名目录并复用统一 Installer，不直接写运行目录或信任 manifest 自报身份。
-- Local Action Service 是插件访问消息、配置、secret、存储、插件目录、三方账号、调度、渲染、HTTP、治理、Webhook、OneBot 与 provider 扩展的唯一入口。
+- Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口，包括消息、配置、secret、宿主管理存储、插件目录视图、三方账号、调度、渲染、治理、Webhook、OneBot 与 provider 扩展动作。`http.request` 和 `storage.file` 的 capability、scope 与配额只约束对应的宿主 action。
+- Go 插件按完全可信的本地代码运行，可以自行访问外部服务、创建进程级临时文件并启动随 artifact 发布的辅助程序。这些插件自有操作不经过 Local Action Service；插件负责超时、资源上限、并发、清理和第三方许可证，且不得直接修改 RayleaBot 配置、状态库、安装目录或绕过正式出站消息流程。
 - Scheduler 只触发插件事件，不直接发送消息。
 - Render Service 是平台统一渲染入口，插件不维护独立浏览器链路。
 

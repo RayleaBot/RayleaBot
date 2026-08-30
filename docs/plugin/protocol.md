@@ -72,6 +72,10 @@
 
 ## Local Action RPC
 
+Local Action RPC 只描述插件调用 RayleaBot 宿主状态与聊天平台能力的协议。当前插件进程不是 OS 沙箱；插件直接访问外部服务、创建进程级临时文件或启动随 artifact 发布的辅助程序时，不生成 local action 帧，也不受本节 capability、scope 和 action 资源上限约束。
+
+插件自有 I/O 的超时、大小、并发、清理和第三方许可证由插件负责。RayleaBot 配置、secret、宿主管理存储、三方账号、调度、渲染、治理及 OneBot/provider 动作仍使用下列正式 action。
+
 当前正式 local action 集合：
 
 - `message.send`
@@ -146,7 +150,7 @@
 
 同一事件需要先发送进度提示、再继续查询或渲染时，使用非终态 `message.send` local action：Go SDK 为 `event.Actions().MessageSend(ctx, request)`。它使用独立 `request_id` 和当前事件的 `parent_request_id`；`event.SendText(...)`、`event.Send(...)`、`event.Reply(...)`、`event.Result(...)` 与 `event.Fail(...)` 用于结束当前事件且只能成功调用一次。
 
-所有 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+下列 action 都走正式 capability 校验、scope 校验和结构化错误返回。
 
 ### `render.image` 临时图片资源
 

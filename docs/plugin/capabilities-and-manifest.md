@@ -43,6 +43,8 @@
 
 `capabilities` 同时用于安装校验、兼容性判断、插件详情展示和运行时 local action 检查。插件调用未声明 capability，或超出 `capability_parameters` 边界时，平台返回 `plugin.capability_violation`。
 
+capability 描述插件调用 RayleaBot 宿主 action 和接收高敏事件的权限，不是操作系统权限或插件沙箱声明。当前 Go 插件按完全可信本地代码运行；插件自行发起的外部网络请求、进程级临时文件和子进程不经过 capability 校验。
+
 local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK helper 覆盖范围见 [Plugin SDK Docs](./sdk/README.md)。
 
 ## 插件开发者声明规则
@@ -62,8 +64,8 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 | 请求解析三方平台用户 | `thirdparty.resolve` | 需要 | `third_party_account_platforms`（当前仅 douyin） |
 | 调用 OneBot 单动作 | action kind，例如 `message.history.get`、`group.member.list` | 需要 | 无 |
 | 调用 provider 扩展动作 | provider action kind | 需要 | 无 |
-| 发起 HTTP 请求 | `http.request` | 需要 | `http_hosts` |
-| 读写插件文件 | `storage.file` | 需要 | `storage_roots` |
+| 请求宿主发起 HTTP 请求 | `http.request` | 需要 | `http_hosts` |
+| 读写宿主管理的插件文件 | `storage.file` | 需要 | `storage_roots` |
 | 暴露 Webhook 入口 | `event.expose_webhook` | 需要 | `webhooks` |
 | 只声明命令、帮助、截图、管理页等元数据 | 无 | 无 | 无 |
 
@@ -96,6 +98,14 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 - `storage_roots`：`storage.file` 可访问的插件文件根目录列表；当前唯一合法值是 `plugin_data`。平台仍执行路径穿越、符号链接和插件工作目录配额校验。
 - `third_party_account_platforms`：`thirdparty.account.read` 可读取、`thirdparty.account.validate` 可请求复检、`thirdparty.resolve` 可请求用户解析的平台列表；冻结值为 `bilibili`、`weibo`、`douyin`、`netease_music`。读取只返回已保存、已启用且非 invalid 的账号，CK 以 secret 值标记返回；复检动作只能提交账号 ID、受限异常观察和可选 HTTP 状态，最终凭据状态由 Server 校验器决定；解析动作提交昵称关键词，由 Server 用该平台的登录环境解析候选用户列表。
 - `webhooks`：`event.expose_webhook` 可暴露的路由列表。每项必填 `route`、`auth_strategy`、`header`、`secret_ref`，可选 `source_ips`。重放保护不在 manifest 中声明，而是每次注册 `event.expose_webhook` action 时通过必填 `replay_protection` 提交。
+
+## 受信插件进程能力
+
+- `http_hosts` 只约束 `http.request` 与 `render.image.resources` 由宿主执行的请求，不限制插件通过 Go 标准库直接访问外部服务。
+- `storage_roots` 和宿主存储配额只约束 `storage.file`。插件可创建进程级临时目录处理媒体或中间产物，但这些文件不属于宿主管理数据，不参与备份、恢复或卸载清理。
+- 插件可启动随 artifact 发布的辅助程序，例如媒体处理工具。辅助程序及其许可证、notices 与 SBOM 必须进入 artifact；插件负责平台适配、资源上限、超时、退出和清理。
+- 消息、配置、secret、宿主管理存储、三方账号、调度、渲染、治理以及 OneBot/provider 动作属于 RayleaBot 宿主能力，仍须声明并调用对应 capability。
+- 安装检查、目录签名与 artifact 摘要证明来源和文件完整性，不构成代码安全证明。管理员只应启用其完全信任的插件版本。
 
 ## 基础 capability
 
@@ -162,7 +172,7 @@ local action 的请求结构和返回结构见 [Protocol](./protocol.md)，SDK h
 
 ## Artifact 与发布边界
 
-- 使用 `sdk/go/pluginbuild` 正式构建器生成的平台包包含 manifest v2、artifact v1、一个 Go 后端、可选 UI/模板/数据、许可证、第三方 notices 和 SPDX SBOM。通用安装 contract 只要求满足 `plugin-artifact.schema.json`；合法的外部 artifact 不因缺少构建器附加的供应链文件而被拒绝。
+- 使用 `sdk/go/pluginbuild` 正式构建器生成的平台包包含 manifest v2、artifact v1、一个 Go 后端、可选 UI/模板/数据或辅助程序、许可证、第三方 notices 和 SPDX SBOM。通用安装 contract 只要求满足 `plugin-artifact.schema.json`；合法的外部 artifact 不因缺少构建器附加的供应链文件而被拒绝。
 - `artifact.json` 固定插件 ID、版本、目标平台和 `info.json` SHA-256，并列出除自身外所有文件的路径、角色、大小和 SHA-256。
 - 包必须且只能有一个 `backend` 文件；`management_ui.pages[].entry` 必须属于 `ui` 文件集合。ZIP 只有一个插件根目录。
 - 服务端只安装编译产物，不读取源码依赖声明、不运行安装脚本、不准备语言运行时，也不解析插件间依赖。
