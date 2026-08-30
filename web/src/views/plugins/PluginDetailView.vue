@@ -11,6 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import ManagementContextActions from '@/components/ManagementContextActions.vue'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import PluginManagementUIHost from '@/components/plugins/PluginManagementUIHost.vue'
 import PluginPowerButton from '@/components/PluginPowerButton.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
@@ -40,6 +41,7 @@ import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
+import { useUiShellStore } from '@/stores/ui-shell'
 import type { PluginDetail } from '@/types/api'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
@@ -55,9 +57,11 @@ const pluginsStore = usePluginsStore()
 const pluginConsoleStore = usePluginConsoleStore()
 const socketStore = useSocketStore()
 const configStore = useConfigStore()
+const uiShellStore = useUiShellStore()
 
 const { actionPending, current, detailLoading } = storeToRefs(pluginsStore)
 const { document: configDocument } = storeToRefs(configStore)
+const { siderCollapsed } = storeToRefs(uiShellStore)
 
 const pluginId = computed(() => String(route.params.id))
 const currentPlugin = computed(() => current.value?.id === pluginId.value ? current.value : null)
@@ -145,7 +149,6 @@ const pluginDisplayName = computed(() => (
 ))
 const pluginPageTitle = computed(() => t('plugins.detailPageTitle', { name: pluginDisplayName.value }))
 const requiresTrustAttention = computed(() => currentPlugin.value?.trust?.level === 'unverified')
-const pluginInitial = computed(() => pluginDisplayName.value.trim().slice(0, 1).toUpperCase() || 'P')
 const sourceRefText = computed(() => currentPlugin.value?.source?.package_source_ref ?? currentPlugin.value?.source?.package_source_type ?? '')
 const statusSummaryItems = computed(() => [
   {
@@ -287,13 +290,6 @@ function getPluginStateDotColor(status?: string | null) {
   return 'var(--muted)'
 }
 
-function getPluginAvatarStyle(name: string) {
-  return {
-    background: 'var(--surface-accent)',
-    color: 'var(--accent)',
-  }
-}
-
 function returnToPluginList() {
   void navigate({ name: 'plugins' })
 }
@@ -389,6 +385,7 @@ onUnmounted(() => {
           :value="activePanelKey"
           :options="panelOptions"
           class="plugin-header-segmented plugin-detail-panel-switch"
+          :class="{ 'plugin-detail-panel-switch--sidebar-owned': !siderCollapsed }"
           @change="setActivePanelKey(String($event))"
         />
       </div>
@@ -426,9 +423,13 @@ onUnmounted(() => {
       <a-skeleton :loading="detailLoading && !currentPlugin" active>
         <section class="plugin-detail-hero">
           <div class="plugin-detail-hero__identity">
-            <div class="plugin-detail-hero__avatar" :style="getPluginAvatarStyle(pluginDisplayName)" aria-hidden="true">
-              {{ pluginInitial }}
-            </div>
+            <PluginIcon
+              class="plugin-detail-hero__avatar"
+              data-testid="plugin-detail-icon"
+              :plugin-id="pluginId"
+              :icon="currentPlugin?.icon"
+              :version="currentPlugin?.version"
+            />
             <div class="plugin-detail-hero__copy">
               <div class="plugin-detail-hero__eyebrow">
                 <a-tag class="premium-badge role-badge">{{ getPluginRoleLabel(currentPlugin?.role) }}</a-tag>
@@ -815,6 +816,12 @@ onUnmounted(() => {
   flex: 0 0 auto;
 }
 
+@media (min-width: 1025px) {
+  .plugin-detail-panel-switch--sidebar-owned {
+    display: none;
+  }
+}
+
 .premium-detail-tabs {
   :deep(.ant-tabs-nav) {
     padding-inline: 18px;
@@ -937,17 +944,15 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.plugin-detail-hero__avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.plugin-detail-hero__avatar.plugin-icon {
   width: 44px;
   height: 44px;
   flex: 0 0 auto;
-  border-radius: var(--radius-md);
-  font-size: 1.25rem;
-  font-weight: 800;
-  box-shadow: var(--shadow-xs);
+}
+
+.plugin-detail-hero__avatar :deep(.raylea-mark) {
+  width: 34px;
+  height: 34px;
 }
 
 .plugin-detail-hero__copy {

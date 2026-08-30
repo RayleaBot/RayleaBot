@@ -25,6 +25,7 @@ import {
   getPluginStateLabel,
 } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
+import { buildPluginDetailLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
@@ -188,6 +189,10 @@ function openDetail(id: string) {
   void navigate({ name: 'plugin-detail', params: { id } })
 }
 
+function openManagement(id: string) {
+  void navigate(buildPluginDetailLocation(id, { panel: 'management-ui' }))
+}
+
 function openSummary(id: string) {
   summaryPluginId.value = id
   summaryDrawerVisible.value = true
@@ -332,11 +337,16 @@ async function reloadPlugin(pluginId: string) {
                       <template #icon><EyeOutlined /></template>
                     </a-button>
                   </a-tooltip>
-                  <a-tooltip :title="t('plugins.actions.detail')">
-                    <a-button class="plugin-card__icon-action" type="text" :aria-label="t('plugins.actions.detail')" @click="openDetail(item.id)">
-                      <template #icon><SettingOutlined /></template>
-                    </a-button>
-                  </a-tooltip>
+                  <a-button
+                    class="plugin-card__manage-action"
+                    type="text"
+                    :aria-label="t('plugins.actions.manage')"
+                    :data-testid="`plugin-manage-button-${item.id}`"
+                    @click="openManagement(item.id)"
+                  >
+                    <template #icon><SettingOutlined /></template>
+                    {{ t('plugins.actions.manage') }}
+                  </a-button>
                   <a-tooltip :title="t('plugins.actions.reload')">
                   <a-button
                     class="plugin-card__icon-action"
@@ -794,6 +804,21 @@ async function reloadPlugin(pluginId: string) {
 }
 
 .plugin-card__action-buttons { gap: 8px; }
+.plugin-card__manage-action.ant-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding-inline: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  box-shadow: none;
+}
+.plugin-card__manage-action.ant-btn:hover:not(:disabled) { background: var(--surface-accent); color: var(--text-accent); }
+.plugin-card__manage-action.ant-btn:active:not(:disabled) { transform: scale(.97); }
 .plugin-card__icon-action.ant-btn {
   display: inline-flex;
   align-items: center;
@@ -820,6 +845,7 @@ async function reloadPlugin(pluginId: string) {
 @media (max-width: 767px) { .plugins-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 639px), (pointer: coarse) {
  .plugin-card__name { min-height: 44px; white-space: normal; line-height: 1.4; }
+ .plugin-card__manage-action.ant-btn { min-height: 44px; }
  .plugin-card__icon-action.ant-btn { width: 44px; height: 44px; }
  .plugin-card__description { min-height: 0; }
 }

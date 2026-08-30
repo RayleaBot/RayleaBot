@@ -12,7 +12,7 @@ import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
-import type { ConfigDocument } from '@/types/api'
+import type { ConfigDocument, PluginDetail } from '@/types/api'
 
 function createFixtureConfig(prefixes: string[]): ConfigDocument {
   return {
@@ -184,6 +184,51 @@ describe('PluginDetailPage', () => {
     await nextTick()
 
     expect(wrapper.get('h1').text()).toBe('插件：Weather')
+    wrapper.unmount()
+  })
+
+  it('uses the protected plugin icon and falls back to the default mark', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/weather')
+    await router.isReady()
+
+    const configStore = useConfigStore()
+    const pluginConsoleStore = usePluginConsoleStore()
+    const pluginsStore = usePluginsStore()
+    const detail: PluginDetail = {
+      id: 'weather',
+      name: 'Weather',
+      role: 'community',
+      state: 'running',
+      version: '1.4.2',
+      icon: 'assets/weather.svg',
+      commands: [],
+      help: { groups: [] },
+      command_conflicts: [],
+    }
+    pluginsStore.current = detail
+
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(pluginConsoleStore, 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(detail)
+
+    const wrapper = mount(PluginDetailPage, {
+      global: {
+        plugins: [Antd, router],
+      },
+    })
+    await flushPromises()
+
+    const identityIcon = wrapper.get('[data-testid="plugin-detail-icon"]')
+    expect(identityIcon.get('img').attributes('src')).toBe('/api/plugins/weather/icon')
+
+    const detailWithoutIcon = { ...detail }
+    delete detailWithoutIcon.icon
+    pluginsStore.current = detailWithoutIcon
+    await nextTick()
+
+    expect(identityIcon.find('img').exists()).toBe(false)
+    expect(identityIcon.find('.raylea-mark').exists()).toBe(true)
     wrapper.unmount()
   })
 

@@ -207,7 +207,10 @@ describe('PluginsPage', () => {
   it('renders source, trust, and command conflict metadata', async () => {
     const router = createRouter({
       history: createMemoryHistory(),
-      routes: [{ path: '/', component: { template: '<div />' } }],
+      routes: [
+        { path: '/', component: { template: '<div />' } },
+        { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div>plugin detail</div>' } },
+      ],
     })
     const store = usePluginsStore()
     store.items = [
@@ -291,7 +294,7 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugins-grid').text()).not.toContain('raylea')
     expect(wrapper.text()).toContain('提供当前城市天气与未来天气查询。')
     expect(wrapper.find('button[aria-label="查看概要"]').exists()).toBe(true)
-    expect(wrapper.find('button[aria-label="查看详情"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="管理"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('未验证来源')
     expect(wrapper.find('.plugins-grid').text()).not.toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
@@ -304,6 +307,14 @@ describe('PluginsPage', () => {
     expect(wrapper.find('.plugin-card__meta').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('订阅状态')
     expect(wrapper.find('.plugin-health-notices').exists()).toBe(true)
+
+    await wrapper.get('[data-testid="plugin-manage-button-weather"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value).toMatchObject({
+      name: 'plugin-detail',
+      params: { id: 'weather' },
+      query: { panel: 'management-ui' },
+    })
   })
 
   it('keeps verified third-party plugins in the community source filter', async () => {

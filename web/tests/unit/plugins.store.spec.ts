@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { usePluginsStore } from '@/stores/plugins'
+import type { PluginDetail } from '@/types/api'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -38,6 +39,71 @@ describe('plugins store', () => {
     store.items = []
 
     expect(store.getPluginDisplayName('weather')).toBe('Weather')
+  })
+
+  it('loads the plugin list once for passive navigation consumers while explicit refresh stays available', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({
+      items: [{
+        id: 'weather',
+        name: 'Weather',
+        role: 'community',
+        state: 'running',
+        commands: [],
+        help: { groups: [] },
+      }],
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+    const store = usePluginsStore()
+
+    await Promise.all([store.ensureList(), store.ensureList()])
+    await store.ensureList()
+
+    expect(store.listLoaded).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await store.fetchList()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('caches independently requested plugin details without replacing the active detail', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({
+      plugin: {
+        id: 'weather',
+        name: 'Weather',
+        role: 'community',
+        state: 'running',
+        commands: [],
+        help: { groups: [] },
+        management_ui: {
+          pages: [{ id: 'settings', label: '天气设置', entry: 'ui/settings.html' }],
+        },
+      },
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+    const store = usePluginsStore()
+    store.current = {
+      id: 'echo',
+      name: 'Echo',
+      role: 'community',
+      state: 'running',
+      commands: [],
+      help: { groups: [] },
+    } as PluginDetail
+
+    const firstRequest = store.ensureDetail('weather')
+    const secondRequest = store.ensureDetail('weather')
+    expect(store.detailLoadingByPluginId.weather).toBe(true)
+    await Promise.all([firstRequest, secondRequest])
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(store.detailsByPluginId.weather?.management_ui?.pages[0]?.id).toBe('settings')
+    expect(store.current?.id).toBe('echo')
+    expect(store.detailLoadingByPluginId.weather).toBe(false)
+
+    await store.ensureDetail('weather')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    await store.ensureDetail('weather', { refresh: true })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
   it('updates pending action state and plugin snapshot around actions', async () => {

@@ -66,7 +66,7 @@ export const plugins = {
   },
   sourceType: '来源类型',
   settings: {
-    title: '插件设置',
+    title: '全局插件设置',
     sections: {
       command: '命令入口',
       log: '日志保护',
@@ -137,6 +137,7 @@ export const plugins = {
   },
   actions: {
     backToList: '返回插件列表',
+    manage: '管理',
     enable: '启用',
     reload: '重载',
     disable: '停用',
@@ -152,6 +153,24 @@ export const plugins = {
   panels: {
     overview: '概览',
     managementUi: '内置页面',
+  },
+  navigation: {
+    groups: {
+      management: '管理',
+      tools: '工具',
+      installed: '已安装插件',
+      openPlugins: '已打开插件',
+    },
+    filterLabel: '筛选已安装插件',
+    filterPlaceholder: '筛选插件名称或 ID',
+    listLoadFailed: '插件列表加载失败',
+    detailUnavailable: '插件页面暂不可用',
+    emptyInstalled: '暂无已安装插件',
+    emptyFilter: '没有匹配的插件',
+    expandPluginPages: '展开 {name} 的页面',
+    collapsePluginPages: '收起 {name} 的页面',
+    loadingPluginPages: '正在载入 {name} 的页面',
+    retry: '重试',
   },
   sections: {
     current: '当前状态',

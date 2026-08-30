@@ -17,7 +17,7 @@ export const routes = {
   pluginCenter: '插件中心',
   pluginStore: '插件商店',
   pluginList: '插件列表',
-  pluginSettings: '插件设置',
+  pluginSettings: '全局插件设置',
   plugins: '插件列表',
   pluginDetail: '插件详情',
   operations: '运维',

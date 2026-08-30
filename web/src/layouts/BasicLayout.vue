@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, defineComponent, h, markRaw, onBeforeUnmount, onMounted, provide, readonly, ref, resolveDynamicComponent, watch } from 'vue'
 import type { Component as VueComponent } from 'vue'
-import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteRecordRaw } from 'vue-router'
+import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteLocationRaw, type RouteRecordRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   DownOutlined,
@@ -30,7 +30,8 @@ import {
 } from '@/access/menu'
 import { notifyError, notifyInfo, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import RayleaMark from '@/components/brand/RayleaMark.vue'
-import PluginCenterNavigation from '@/components/plugins/PluginCenterNavigation.vue'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
+import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
@@ -76,6 +77,7 @@ const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 const shutdownDialogVisible = ref(false)
 const isFullscreen = ref(false)
 const reducedMotion = ref(false)
+const pluginNavigationScope = ref<'root' | 'plugin-center'>('root')
 const openMenuKeys = ref<string[]>(projectPluginCenterMenu(buildMenuItems(adminRoutes[0]?.children ?? [], '')).filter(item => item.children?.length).map(item => item.key))
 const collapsedOpenMenuKeys = ref<string[]>([])
 watch(siderCollapsed, () => { collapsedOpenMenuKeys.value = [] })
@@ -93,6 +95,26 @@ useToastFeedback(() => (
 ))
 
 const menuItems = computed(() => projectPluginCenterMenu(buildMenuItems(adminRoutes[0]?.children ?? [], '')))
+const openPluginTargets = computed(() => {
+  const seen = new Set<string>()
+  return tabs.value.flatMap((tab) => {
+    if (tab.name !== 'plugin-detail') return []
+
+    const pluginId = router.resolve(tab.fullPath).params.id
+    if (typeof pluginId !== 'string' || !pluginId || seen.has(pluginId)) return []
+    seen.add(pluginId)
+    return [{ fullPath: tab.fullPath, pluginId }]
+  })
+})
+watch(
+  () => openPluginTargets.value.length,
+  (openPluginCount) => {
+    if (openPluginCount > 0) {
+      void pluginsStore.ensureList().catch(() => undefined)
+    }
+  },
+  { immediate: true },
+)
 const staticNavigationItems = collectNavigationItems(adminRoutes[0]?.children ?? [], '')
   .filter(item => !(item.path === '/' && item.title === t('routes.features')))
 const navigationItems = computed(() => {
@@ -122,6 +144,19 @@ const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
 const pageMotionProfile = computed<PageMotionProfile>(() => preferences.value.pageTransition)
+
+watch(
+  [() => route.name, () => route.params.id],
+  ([routeName, routePluginId]) => {
+    if (routeName === 'plugin-detail' && typeof routePluginId === 'string' && routePluginId) {
+      pluginNavigationScope.value = 'plugin-center'
+      return
+    }
+
+    pluginNavigationScope.value = isPluginCenterRoute(routeName) ? 'plugin-center' : 'root'
+  },
+  { immediate: true },
+)
 
 const skipPageTransitionStage = computed(() => (
   preferences.value.pageTransition === 'none' || reducedMotion.value
@@ -291,6 +326,34 @@ function resolveTabItemIconComponent(item: ShellTabItem) {
   return resolveMenuIcon(resolveTabItemIconName(item))
 }
 
+function resolvePluginTabIdentity(item: ShellTabItem) {
+  if (item.name !== 'plugin-detail') {
+    return null
+  }
+
+  try {
+    const pluginId = router.resolve(item.fullPath).params.id
+    if (typeof pluginId !== 'string' || !pluginId) {
+      return null
+    }
+
+    const plugin = pluginsStore.detailsByPluginId[pluginId]
+      ?? pluginsStore.items.find(candidate => candidate.id === pluginId)
+    return {
+      icon: plugin?.icon,
+      pluginId,
+      version: plugin?.version,
+    }
+  } catch {
+    return null
+  }
+}
+
+function resolveTabItemIconData(item: ShellTabItem) {
+  const pluginIdentity = resolvePluginTabIdentity(item)
+  return pluginIdentity ? `plugin:${pluginIdentity.pluginId}` : resolveTabItemIconName(item)
+}
+
 function resolveLeafRouteComponent(viewRoute: RouteLocationNormalizedLoaded) {
   return getLeafMatchedRecord(viewRoute)?.components?.default ?? null
 }
@@ -454,10 +517,14 @@ watch(
   { immediate: true },
 )
 
-function navigateTo(path: string) {
+function navigateTo(path: RouteLocationRaw) {
   uiShellStore.setMobileMenuOpen(false)
   collapsedOpenMenuKeys.value = []
   void navigateWithMotion(router, path, pageMotionProfile.value)
+}
+
+function handlePluginNavigationScopeChange(scope: 'root' | 'plugin-center') {
+  pluginNavigationScope.value = scope
 }
 
 function setThemeModeWithMotion(mode: ThemeMode) {
@@ -637,42 +704,17 @@ onBeforeUnmount(() => {
         :aria-label="t('app.mainNavigation')"
         @keydown="handlePrimaryNavigationKeydown"
       >
-        <a-menu
-          mode="inline"
-          :inline-collapsed="siderCollapsed"
+        <AppSidebarNavigation
+          :collapsed="siderCollapsed"
+          :menu-items="menuItems"
           :open-keys="siderCollapsed ? collapsedOpenMenuKeys : openMenuKeys"
+          :open-plugin-targets="openPluginTargets"
+          :scope="pluginNavigationScope"
           :selected-keys="selectedMenuKeys"
-          @openChange="handleOpenChange"
-        >
-          <template v-for="item in menuItems" :key="item.key">
-            <a-sub-menu v-if="item.children?.length" :key="item.key">
-              <template #title>
-                <span class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ item.title }}</span>
-                </span>
-              </template>
-
-              <a-menu-item
-                v-for="child in item.children"
-                :key="child.key"
-                @click="navigateTo(child.path)"
-              >
-                <span class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ child.title }}</span>
-                </span>
-              </a-menu-item>
-            </a-sub-menu>
-
-            <a-menu-item v-else :key="item.key" @click="navigateTo(item.path)">
-              <span class="admin-layout__menu-label">
-                <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-                <span>{{ item.title }}</span>
-              </span>
-            </a-menu-item>
-          </template>
-        </a-menu>
+          @navigate="navigateTo"
+          @open-change="handleOpenChange"
+          @scope-change="handlePluginNavigationScopeChange"
+        />
       </nav>
     </a-layout-sider>
 
@@ -694,36 +736,17 @@ onBeforeUnmount(() => {
         :aria-label="t('app.mainNavigation')"
         @keydown="handlePrimaryNavigationKeydown"
       >
-      <a-menu mode="inline" :selected-keys="selectedMenuKeys">
-        <template v-for="item in menuItems" :key="item.key">
-          <a-sub-menu v-if="item.children?.length" :key="item.key">
-            <template #title>
-              <span class="admin-layout__menu-label">
-                <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-                <span>{{ item.title }}</span>
-              </span>
-            </template>
-
-            <a-menu-item
-              v-for="child in item.children"
-              :key="child.key"
-              @click="navigateTo(child.path)"
-            >
-              <span class="admin-layout__menu-label">
-                <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
-                <span>{{ child.title }}</span>
-              </span>
-            </a-menu-item>
-          </a-sub-menu>
-
-          <a-menu-item v-else :key="item.key" @click="navigateTo(item.path)">
-            <span class="admin-layout__menu-label">
-              <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-              <span>{{ item.title }}</span>
-            </span>
-          </a-menu-item>
-        </template>
-      </a-menu>
+        <AppSidebarNavigation
+          mobile
+          :menu-items="menuItems"
+          :open-keys="openMenuKeys"
+          :open-plugin-targets="openPluginTargets"
+          :scope="pluginNavigationScope"
+          :selected-keys="selectedMenuKeys"
+          @navigate="navigateTo"
+          @open-change="handleOpenChange"
+          @scope-change="handlePluginNavigationScopeChange"
+        />
       </nav>
     </a-drawer>
 
@@ -921,12 +944,20 @@ onBeforeUnmount(() => {
                   <a-dropdown :trigger="['contextmenu']" placement="bottomLeft">
                     <span
                       class="admin-layout__tab-label"
-                      :data-icon="resolveTabItemIconName(item) || undefined"
+                      :data-icon="resolveTabItemIconData(item) || undefined"
                       :data-tab-path="item.path"
                     >
+                      <PluginIcon
+                        v-if="resolvePluginTabIdentity(item)"
+                        class="admin-layout__tab-plugin-icon"
+                        :data-plugin-id="resolvePluginTabIdentity(item)?.pluginId"
+                        :plugin-id="resolvePluginTabIdentity(item)?.pluginId ?? ''"
+                        :icon="resolvePluginTabIdentity(item)?.icon"
+                        :version="resolvePluginTabIdentity(item)?.version"
+                      />
                       <component
                         :is="resolveTabItemIconComponent(item)"
-                        v-if="resolveTabItemIconComponent(item)"
+                        v-else-if="resolveTabItemIconComponent(item)"
                         class="admin-layout__tab-icon"
                       />
                       <span>{{ item.title }}</span>
@@ -979,8 +1010,7 @@ onBeforeUnmount(() => {
         </div>
       </a-layout-header>
 
-      <a-layout-content id="app-main" class="admin-layout__content" :class="{ 'admin-layout__content--plugin-center': isPluginCenterRoute(route.name) }" tabindex="-1">
-        <PluginCenterNavigation v-if="isPluginCenterRoute(route.name)" />
+      <a-layout-content id="app-main" class="admin-layout__content" tabindex="-1">
         <RouterView v-slot="{ route: currentViewRoute }">
           <Transition
             :css="false"
@@ -1028,11 +1058,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
-.admin-layout__content--plugin-center {
-  padding-top: 4px;
-  gap: 6px;
-}
-
 .admin-layout__brand:focus-visible,
 .admin-layout__icon-button:focus-visible,
 .admin-layout__shutdown-button:focus-visible,

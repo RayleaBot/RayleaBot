@@ -545,6 +545,16 @@
   font-size: 0.92rem;
 }
 
+.admin-layout__tabbar .admin-layout__tab-plugin-icon.plugin-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-layout__tabbar .admin-layout__tab-plugin-icon.plugin-icon .raylea-mark {
+  width: 15px;
+  height: 15px;
+}
+
 .admin-layout__tabbar-actions {
   display: inline-flex;
   align-items: center;

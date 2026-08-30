@@ -1,15 +1,17 @@
 import Antd from 'ant-design-vue'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
+import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore } from '@/stores/ui-shell'
+import type { PluginDetail } from '@/types/api'
 
 describe('BasicLayout', () => {
   function createShellRouter() {
@@ -62,7 +64,7 @@ describe('BasicLayout', () => {
                   path: '/plugins/settings',
                   name: 'plugin-settings',
                   component: { data: () => ({ draft: '' }), template: '<div>插件设置页<input data-testid="settings-draft" v-model="draft" /></div>' },
-                  meta: { icon: 'plugin-settings', keepAlive: true, order: 2, title: '插件设置', viewKey: 'plugin-settings' },
+                  meta: { icon: 'plugin-settings', keepAlive: true, order: 2, title: '全局插件设置', viewKey: 'plugin-settings' },
                 },
                 {
                   path: '/plugins/:id',
@@ -202,6 +204,7 @@ describe('BasicLayout', () => {
 
     const uiShellStore = useUiShellStore()
     uiShellStore.setThemeMode('light')
+    usePluginsStore().listLoaded = true
 
     return {
       uiShellStore,
@@ -298,6 +301,7 @@ describe('BasicLayout', () => {
   }
 
   beforeEach(() => {
+    vi.restoreAllMocks()
     window.localStorage.clear()
     setActivePinia(createPinia())
     document.body.innerHTML = ''
@@ -342,40 +346,262 @@ describe('BasicLayout', () => {
     expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
   })
 
-  it('keeps one sidebar entry and switches all five original routes from the page navigation', async () => {
+  it('drills into the plugin center and switches all five workspace routes', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/plugins')
     uiShellStore.patchPreferences({ pageTransition: 'none' })
     const sidebar = wrapper.get('.admin-layout__sider')
-    expect(sidebar.findAll('.ant-menu-item').filter(item => item.text() === '插件中心')).toHaveLength(1)
-    expect(sidebar.text()).not.toContain('功能与插件')
-    expect(sidebar.text()).not.toContain('插件设置')
-    const navigation = wrapper.get('[data-testid="plugin-center-navigation"]')
-    const paths = ['/menu-center', '/plugins/store', '/plugins', '/plugins/settings', '/commands']
-    expect(navigation.findAll('a').map(link => link.attributes('href'))).toEqual(paths)
-    for (const path of paths) {
-      await navigation.get(`a[href="${path}"]`).trigger('click')
+    const destinations = [
+      ['plugins', '/plugins'],
+      ['plugin-store', '/plugins/store'],
+      ['plugin-settings', '/plugins/settings'],
+      ['menu-center', '/menu-center'],
+      ['commands', '/commands'],
+    ] as const
+    expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
+    expect(sidebar.findAll('[data-sidebar-page]').map(item => item.attributes('data-sidebar-page'))).toEqual(destinations.map(([name]) => name))
+    for (const [name, path] of destinations) {
+      await sidebar.get(`[data-sidebar-page="${name}"]`).trigger('click')
       await flushPromises()
       expect(router.currentRoute.value.path).toBe(path)
-      expect(navigation.get('[aria-current="page"]').attributes('href')).toBe(path)
-      expect(sidebar.get('.ant-menu-item-selected').text()).toBe('插件中心')
+      expect(sidebar.get(`[data-sidebar-page="${name}"]`).classes()).toContain('ant-menu-item-selected')
       expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins'])
     }
+
+    await sidebar.get('[data-sidebar-scope-back="plugin-center"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/commands')
+    expect(sidebar.get('[data-sidebar-entry="plugin-center"]').exists()).toBe(true)
+    await sidebar.get('[data-sidebar-entry="plugin-center"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/commands')
+    expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
+  })
+
+  it('keeps plugin pages inline, restores open workspaces, and returns to root in one step', async () => {
+    const { wrapper, router, uiShellStore } = await mountShell('/plugins')
+    uiShellStore.patchPreferences({ pageTransition: 'none' })
+    const pluginsStore = usePluginsStore()
+    const detail = {
+      id: 'example-config-panel',
+      name: 'Example Config Panel',
+      role: 'community',
+      state: 'running',
+      management_ui: {
+        pages: [
+          { id: 'config', label: '配置页面', entry: 'ui/index.html' },
+          { id: 'secrets', label: '密钥设置', entry: 'ui/secrets.html' },
+        ],
+      },
+      commands: [],
+      command_conflicts: [],
+      declared_capabilities: [],
+    } as PluginDetail
+    const weatherDetail = {
+      id: 'weather',
+      name: 'Weather',
+      role: 'community',
+      state: 'disabled',
+      management_ui: {
+        pages: [{ id: 'settings', label: '天气设置', entry: 'ui/settings.html' }],
+      },
+      commands: [],
+      command_conflicts: [],
+      declared_capabilities: [],
+    } as PluginDetail
+    pluginsStore.current = detail
+    pluginsStore.detailsByPluginId = {
+      'example-config-panel': detail,
+      weather: weatherDetail,
+    }
+    pluginsStore.upsert(detail)
+    pluginsStore.upsert(weatherDetail)
+    await flushPromises()
+
+    const sidebar = wrapper.get('.admin-layout__sider')
+    expect(sidebar.findAll('[data-sidebar-plugin-id]').map(item => item.attributes('data-sidebar-plugin-id'))).toEqual([
+      'example-config-panel',
+      'weather',
+    ])
+    await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel')
+    expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
+    expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').classes()).toContain('sidebar-navigation__plugin-resource--active')
+    expect(sidebar.get('[data-sidebar-plugin-overview="example-config-panel"]').classes()).toContain('ant-menu-item-selected')
+
+    await sidebar.get('[data-sidebar-management-page="secrets"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
+    expect(sidebar.get('[data-sidebar-management-page="secrets"]').classes()).toContain('ant-menu-item-selected')
+
+    await sidebar.get('[data-sidebar-plugin-disclosure="weather"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
+    expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').attributes('aria-expanded')).toBe('true')
+    expect(sidebar.get('[data-sidebar-plugin-id="weather"]').attributes('aria-expanded')).toBe('true')
+    expect(sidebar.get('[data-sidebar-plugin-overview="weather"]').exists()).toBe(true)
+
+    await sidebar.get('[data-sidebar-scope-back="plugin-center"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
+    expect(sidebar.get('[data-sidebar-entry="plugin-center"]').exists()).toBe(true)
+
+    await router.replace('/plugins/example-config-panel?panel=management-ui&management_page=config')
+    await flushPromises()
+    expect(sidebar.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
+    await sidebar.get('[data-sidebar-entry="plugin-center"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=config')
+    expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
+
+    await sidebar.get('[data-sidebar-plugin-id="weather"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/weather')
+    expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').attributes('aria-expanded')).toBe('true')
+    expect(sidebar.get('[data-sidebar-plugin-id="weather"]').attributes('aria-expanded')).toBe('true')
+    await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=config')
+
+    uiShellStore.removeTab('/plugins/example-config-panel')
+    await sidebar.get('[data-sidebar-plugin-id="weather"]').trigger('click')
+    await flushPromises()
+    await sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel')
+  })
+
+  it('keeps the plugin-center flyout entry in the root menu when the desktop sidebar is collapsed', async () => {
+    const { wrapper, uiShellStore } = await mountShell('/plugins/weather?panel=overview')
+
+    uiShellStore.toggleSider()
+    await flushPromises()
+
+    const sidebar = wrapper.get('.admin-layout__sider')
+    expect(sidebar.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
+    const pluginCenterSubmenu = sidebar.get('.ant-menu-submenu')
+    expect(pluginCenterSubmenu.text()).toContain('插件中心')
+    expect(pluginCenterSubmenu.get('[data-sidebar-entry="plugin-center"]').exists()).toBe(true)
+    expect(wrapper.findAllComponents(AppSidebarNavigation)[0]?.props('openPluginTargets')).toEqual([
+      { fullPath: '/plugins/weather?panel=overview', pluginId: 'weather' },
+    ])
+  })
+
+  it('keeps the mobile drawer open when navigating back through sidebar levels', async () => {
+    const { wrapper, router, uiShellStore } = await mountShell('/plugins')
+    uiShellStore.setMobileMenuOpen(true)
+    await flushPromises()
+
+    const mobileCenter = document.body.querySelector<HTMLElement>('[data-mobile="true"][data-scope="plugin-center"]')
+    expect(mobileCenter).not.toBeNull()
+    mobileCenter?.querySelector<HTMLElement>('[data-sidebar-scope-back="plugin-center"]')?.click()
+    await flushPromises()
+
+    expect(uiShellStore.mobileMenuOpen).toBe(true)
+    const mobileRoot = document.body.querySelector<HTMLElement>('[data-mobile="true"][data-scope="root"]')
+    expect(mobileRoot).not.toBeNull()
+    mobileRoot?.querySelector<HTMLElement>('[data-sidebar-entry="plugin-center"]')?.click()
+    await flushPromises()
+
+    expect(router.currentRoute.value.path).toBe('/plugins')
+    expect(uiShellStore.mobileMenuOpen).toBe(true)
+    const reopenedCenter = document.body.querySelector<HTMLElement>('[data-mobile="true"][data-scope="plugin-center"]')
+    reopenedCenter?.querySelector<HTMLElement>('[data-sidebar-page="plugins"]')?.click()
+    await flushPromises()
+    expect(uiShellStore.mobileMenuOpen).toBe(false)
+  })
+
+  it('filters larger installed-plugin lists and leaves retry under explicit user control', async () => {
+    const { wrapper } = await mountShell('/plugins')
+    const pluginsStore = usePluginsStore()
+    const sidebar = wrapper.get('.admin-layout__sider')
+    expect(sidebar.text()).toContain('暂无已安装插件')
+    for (let index = 0; index < 8; index += 1) {
+      pluginsStore.upsert({
+        id: `plugin-${index}`,
+        name: index === 7 ? 'Weather Tools' : `Plugin ${index}`,
+        state: 'disabled',
+      })
+    }
+    await flushPromises()
+
+    const filter = sidebar.get('input[aria-label="筛选已安装插件"]')
+    await filter.setValue('weather')
+    expect(sidebar.findAll('[data-sidebar-plugin-id]').map(item => item.attributes('data-sidebar-plugin-id'))).toEqual(['plugin-7'])
+
+    pluginsStore.error = 'network unavailable'
+    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue()
+    await flushPromises()
+    expect(sidebar.text()).toContain('插件列表加载失败')
+    await sidebar.get('.sidebar-navigation__feedback button').trigger('click')
+    expect(fetchListSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for exact plugin pages instead of rendering guessed skeleton rows', async () => {
+    const { wrapper } = await mountShell('/plugins/missing-plugin')
+    const pluginsStore = usePluginsStore()
+    const sidebar = wrapper.get('.admin-layout__sider')
+
+    pluginsStore.detailErrorsByPluginId = { 'missing-plugin': null }
+    pluginsStore.detailLoadingByPluginId = { 'missing-plugin': true }
+    await flushPromises()
+    expect(sidebar.get('[data-sidebar-plugin-disclosure="missing-plugin"]').attributes('aria-busy')).toBe('true')
+    expect(sidebar.get('[data-sidebar-plugin-id="missing-plugin"]').attributes('aria-expanded')).toBe('false')
+    expect(sidebar.findAll('[data-sidebar-plugin-page-owner="missing-plugin"]')).toHaveLength(0)
+
+    pluginsStore.detailsByPluginId = {
+      'missing-plugin': {
+        id: 'missing-plugin',
+        name: 'Missing Plugin',
+        role: 'community',
+        state: 'disabled',
+        commands: [],
+        help: { groups: [] },
+        management_ui: {
+          pages: [
+            { id: 'config', label: '配置页面', entry: 'ui/config.html' },
+            { id: 'secrets', label: '密钥设置', entry: 'ui/secrets.html' },
+          ],
+        },
+      },
+    }
+    pluginsStore.detailLoadingByPluginId = { 'missing-plugin': false }
+    await flushPromises()
+    expect(sidebar.get('[data-sidebar-plugin-id="missing-plugin"]').attributes('aria-expanded')).toBe('true')
+    expect(sidebar.findAll('[data-sidebar-plugin-page-owner="missing-plugin"]')).toHaveLength(3)
+    expect(sidebar.get('[data-sidebar-plugin-overview="missing-plugin"]').text()).toBe('概览')
+    expect(sidebar.findAll('[data-sidebar-management-page]').map(item => item.text())).toEqual(['配置页面', '密钥设置'])
+  })
+
+  it('keeps overview and retry available after plugin page loading fails', async () => {
+    const { wrapper } = await mountShell('/plugins/missing-plugin')
+    const pluginsStore = usePluginsStore()
+    const ensureDetailSpy = vi.spyOn(pluginsStore, 'ensureDetail').mockResolvedValue(undefined)
+    const sidebar = wrapper.get('.admin-layout__sider')
+
+    pluginsStore.detailErrorsByPluginId = { 'missing-plugin': 'network unavailable' }
+    pluginsStore.detailLoadingByPluginId = { 'missing-plugin': false }
+    await flushPromises()
+    expect(sidebar.text()).toContain('插件页面暂不可用')
+    expect(sidebar.get('[data-sidebar-plugin-overview="missing-plugin"]').text()).toBe('概览')
+    await sidebar.get('.sidebar-navigation__plugin-retry').trigger('click')
+    expect(ensureDetailSpy).toHaveBeenCalledWith('missing-plugin', { refresh: true })
   })
 
   it('preserves a settings draft and returns to the last full URL through the merged tab', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/plugins/settings')
     uiShellStore.patchPreferences({ pageTransition: 'none' })
     await wrapper.get('[data-testid="settings-draft"]').setValue('fixture draft')
-    await wrapper.get('.plugin-center-navigation a[href="/commands"]').trigger('click')
+    await wrapper.get('[data-sidebar-page="commands"]').trigger('click')
     await flushPromises()
-    await wrapper.get('.plugin-center-navigation a[href="/plugins/settings"]').trigger('click')
+    await wrapper.get('[data-sidebar-page="plugin-settings"]').trigger('click')
     await flushPromises()
     expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
     await router.push('/plugins/settings?section=runtime#limits')
     await flushPromises()
     await router.push('/logs')
     await flushPromises()
-    expect(wrapper.find('[data-testid="plugin-center-navigation"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
     await wrapper.get('[data-tab-path="/plugins"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/settings?section=runtime#limits')
@@ -386,8 +612,8 @@ describe('BasicLayout', () => {
     const { wrapper, router, uiShellStore } = await mountShell('/plugins')
     await router.push('/plugins/weather?panel=overview')
     await flushPromises()
-    expect(wrapper.find('[data-testid="plugin-center-navigation"]').exists()).toBe(false)
-    expect(wrapper.get('.admin-layout__sider .ant-menu-item-selected').text()).toBe('插件中心')
+    expect(wrapper.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
+    expect(wrapper.get('[data-sidebar-plugin-overview]').classes()).toContain('ant-menu-item-selected')
     await openTabContextMenu('插件中心')
     await clickContextMenuItem('关闭当前标签')
     expect(router.currentRoute.value.fullPath).toBe('/plugins/weather?panel=overview')
@@ -403,7 +629,7 @@ describe('BasicLayout', () => {
 
     expect(parentLink.text()).toBe('插件中心')
     expect(parentLink.attributes('href')).toBe('/plugins')
-    expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('插件设置')
+    expect(breadcrumb.get('.admin-layout__breadcrumb-current').text()).toBe('全局插件设置')
     expect(getTabLabels()).toEqual(['系统状态', '插件中心'])
     expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
     expect(getActiveTabLabel()).toBe('插件中心')
@@ -560,7 +786,7 @@ describe('BasicLayout', () => {
   })
 
   it('creates a closable detail tab for plugin pages', async () => {
-    const { uiShellStore } = await mountShell('/plugins/weather')
+    const { uiShellStore, wrapper } = await mountShell('/plugins/weather')
 
     expect(uiShellStore.tabs).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -571,15 +797,30 @@ describe('BasicLayout', () => {
       }),
     ]))
     expect(getTabLabels()).toEqual(['系统状态', '插件：weather'])
-    expect(getTabIconKeys()).toEqual(['dashboard', 'plugins'])
+    expect(getTabIconKeys()).toEqual(['dashboard', 'plugin:weather'])
     expect(getActiveTabLabel()).toBe('插件：weather')
 
+    const tabIcon = wrapper.get('.admin-layout__tab-label[data-tab-path="/plugins/weather"] .plugin-icon')
+    expect(tabIcon.find('img').exists()).toBe(false)
+    expect(tabIcon.find('.raylea-mark').exists()).toBe(true)
+
     const pluginsStore = usePluginsStore()
-    pluginsStore.upsert({ id: 'weather', name: 'Weather', state: 'running' })
+    pluginsStore.upsert({
+      icon: 'assets/weather.svg',
+      id: 'weather',
+      name: 'Weather',
+      state: 'running',
+      version: '1.4.2',
+    })
     await flushPromises()
 
     expect(uiShellStore.tabs.find((item) => item.path === '/plugins/weather')?.title).toBe('插件：Weather')
     expect(getActiveTabLabel()).toBe('插件：Weather')
+    expect(tabIcon.get('img').attributes('src')).toBe('/api/plugins/weather/icon')
+
+    await tabIcon.get('img').trigger('error')
+    expect(tabIcon.find('img').exists()).toBe(false)
+    expect(tabIcon.find('.raylea-mark').exists()).toBe(true)
   })
 
   it('keeps the same plugin detail page instance when only the panel query changes', async () => {

@@ -20,11 +20,18 @@ import type {
 
 type PluginUpsert = Partial<PluginSummary> & Pick<PluginSummary, 'id' | 'state'>
 
+interface EnsurePluginDetailOptions {
+  refresh?: boolean
+}
+
 const lifecycleRefreshDelaysMs = [700, 1_500, 3_000, 5_000]
 
 export const usePluginsStore = defineStore('plugins', () => {
   const items = ref<PluginSummary[]>([])
   const current = ref<PluginDetail | null>(null)
+  const detailsByPluginId = ref<Record<string, PluginDetail>>({})
+  const detailErrorsByPluginId = ref<Record<string, string | null>>({})
+  const detailLoadingByPluginId = ref<Record<string, boolean>>({})
   const pluginNameCache = ref<Record<string, string>>({})
   const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
   const loading = ref(false)
@@ -35,8 +42,10 @@ export const usePluginsStore = defineStore('plugins', () => {
   const settingsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
   const inspectionPending = ref(false)
+  const listLoaded = ref(false)
   let detailRequestVersion = 0
   let listRequest: Promise<void> | null = null
+  const detailRequests = new Map<string, Promise<PluginDetail>>()
   const lifecycleRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const lifecycleRefreshAttempts = new Map<string, number>()
 
@@ -72,6 +81,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       try {
         const response = await apiRequest<PluginListResponse>('/api/plugins')
         items.value = response.items
+        listLoaded.value = true
         rememberPluginNames(response.items)
         reconcileLifecycleRefreshes(response.items)
       } catch (err) {
@@ -86,20 +96,83 @@ export const usePluginsStore = defineStore('plugins', () => {
     return listRequest
   }
 
+  async function ensureList() {
+    if (listLoaded.value) {
+      return
+    }
+
+    await fetchList()
+  }
+
+  function setDetailLoading(pluginId: string, loadingValue: boolean) {
+    detailLoadingByPluginId.value = {
+      ...detailLoadingByPluginId.value,
+      [pluginId]: loadingValue,
+    }
+  }
+
+  function setDetailError(pluginId: string, errorValue: string | null) {
+    detailErrorsByPluginId.value = {
+      ...detailErrorsByPluginId.value,
+      [pluginId]: errorValue,
+    }
+  }
+
+  function cachePluginDetail(plugin: PluginDetail) {
+    detailsByPluginId.value = {
+      ...detailsByPluginId.value,
+      [plugin.id]: plugin,
+    }
+    upsert(plugin)
+    updateLifecycleRefresh(plugin.id, plugin.state)
+  }
+
+  function requestPluginDetail(pluginId: string) {
+    const pendingRequest = detailRequests.get(pluginId)
+    if (pendingRequest) {
+      return pendingRequest
+    }
+
+    setDetailLoading(pluginId, true)
+    setDetailError(pluginId, null)
+    const request = (async () => {
+      try {
+        const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
+        cachePluginDetail(response.plugin)
+        return response.plugin
+      } catch (err) {
+        setDetailError(pluginId, getDisplayErrorMessage(err, 'errors.common.loadFailed'))
+        throw err
+      } finally {
+        setDetailLoading(pluginId, false)
+        detailRequests.delete(pluginId)
+      }
+    })()
+    detailRequests.set(pluginId, request)
+    return request
+  }
+
+  async function ensureDetail(pluginId: string, options: EnsurePluginDetailOptions = {}) {
+    const cachedDetail = detailsByPluginId.value[pluginId]
+    if (cachedDetail && !options.refresh) {
+      return cachedDetail
+    }
+
+    return requestPluginDetail(pluginId)
+  }
+
   async function fetchDetail(pluginId: string) {
     detailLoading.value = true
     detailRequestVersion += 1
     const requestVersion = detailRequestVersion
     try {
-      const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
+      const plugin = await requestPluginDetail(pluginId)
       if (requestVersion !== detailRequestVersion) {
-        return response.plugin
+        return plugin
       }
 
-      current.value = response.plugin
-      upsert(response.plugin)
-      updateLifecycleRefresh(pluginId, response.plugin.state)
-      return response.plugin
+      current.value = plugin
+      return plugin
     } finally {
       if (requestVersion === detailRequestVersion) {
         detailLoading.value = false
@@ -116,6 +189,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       version: plugin.version ?? previous?.version,
       description: plugin.description ?? previous?.description,
       author: plugin.author ?? previous?.author,
+      icon: plugin.icon ?? previous?.icon,
       role: plugin.role ?? previous?.role ?? 'community',
       state: plugin.state,
       state_diagnosis: plugin.state_diagnosis,
@@ -250,11 +324,10 @@ export const usePluginsStore = defineStore('plugins', () => {
       const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}/${action}`, {
         method: 'POST',
       })
+      cachePluginDetail(response.plugin)
       if (current.value?.id === pluginId) {
         current.value = response.plugin
       }
-      upsert(response.plugin)
-      updateLifecycleRefresh(pluginId, response.plugin.state)
       return response.plugin
     } finally {
       setPending(pluginId, null)
@@ -336,11 +409,15 @@ export const usePluginsStore = defineStore('plugins', () => {
   return {
     actionPending,
     current,
+    detailErrorsByPluginId,
     detailLoading,
+    detailLoadingByPluginId,
+    detailsByPluginId,
     error,
     items,
     installPending,
     inspectionPending,
+    listLoaded,
     loading,
     settingsByPluginId,
     settingsLoading,
@@ -350,6 +427,8 @@ export const usePluginsStore = defineStore('plugins', () => {
     fetchDetail,
     fetchSettings,
     fetchList,
+    ensureDetail,
+    ensureList,
     getSettings,
     getPluginDisplayName,
     installPlugin,
