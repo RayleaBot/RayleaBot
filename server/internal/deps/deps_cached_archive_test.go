@@ -64,7 +64,7 @@ func TestExtractZipReportsEntryProgress(t *testing.T) {
 
 	archivePath := filepath.Join(t.TempDir(), "runtime.zip")
 	writeZipArchive(t, archivePath, map[string]string{
-		"chromium/chrome":    "binary",
+		"chromium/chrome":     "binary",
 		"chromium/README.txt": "readme",
 	})
 	var events []extractProgress
@@ -221,7 +221,7 @@ func TestPrepareWithReportCleansStaleTempRootBeforeExtractingCachedArchive(t *te
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 4,
+  "manifest_version": 5,
   "resources": [
     {
       "id": "chromium-test",
@@ -294,7 +294,7 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
 
 	repoRoot := t.TempDir()
 	manifest := `{
-  "manifest_version": 4,
+  "manifest_version": 5,
   "resources": [
     {
       "id": "chromium-test",
@@ -358,7 +358,7 @@ func TestPrepareWithReportRemovesIncompleteStoreRootBeforeExtractingCachedArchiv
 	}
 }
 
-func TestRepoManifestContainsOnlyChromiumWithResolvableBrowserEntrypoint(t *testing.T) {
+func TestRepoManifestContainsManagedRuntimesWithResolvableEntrypoints(t *testing.T) {
 	t.Parallel()
 
 	workingDir, err := os.Getwd()
@@ -371,43 +371,33 @@ func TestRepoManifestContainsOnlyChromiumWithResolvableBrowserEntrypoint(t *test
 	if err != nil {
 		t.Fatalf("load repo manifest: %v", err)
 	}
-	for _, declared := range manifest.Resources {
-		if declared.Kind != "chromium" {
-			t.Fatalf("repo manifest contains retired resource kind %q", declared.Kind)
+	for _, kind := range []string{"chromium", "ffmpeg"} {
+		resource := manifest.FindResource(CurrentPlatform(), kind)
+		if resource == nil {
+			t.Fatalf("repo manifest does not include %s for %s", kind, CurrentPlatform())
 		}
-	}
-	resource := manifest.FindResource(CurrentPlatform(), "chromium")
-	if resource == nil {
-		t.Fatalf("repo manifest does not include Chromium for %s", CurrentPlatform())
-	}
 
-	storeRoot := StoreRoot(repoRoot, resource)
-	if _, err := os.Stat(storeRoot); err == nil {
-		entrypoints, err := resolvePreparedEntrypoints(storeRoot, resource)
-		if err != nil {
-			t.Fatalf("resolve repo Chromium entrypoint from %s failed: %v", storeRoot, err)
+		storeRoot := StoreRoot(repoRoot, resource)
+		if _, err := os.Stat(storeRoot); err == nil {
+			if _, err := resolvePreparedEntrypoints(storeRoot, resource); err != nil {
+				t.Fatalf("resolve repo %s entrypoints from %s failed: %v", kind, storeRoot, err)
+			}
+			continue
+		} else if !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("inspect repo %s store root %s: %v", kind, storeRoot, err)
 		}
-		if entrypoints["browser"] == "" {
-			t.Fatalf("resolved repo Chromium entrypoint is incomplete: %#v", entrypoints)
+
+		syntheticStoreRoot := t.TempDir()
+		for _, name := range RequiredEntrypoints(resource) {
+			candidates := resource.Entrypoints[name]
+			if len(candidates) == 0 {
+				t.Fatalf("repo manifest is missing the %s entrypoint %s", kind, name)
+			}
+			writePreparedFile(t, filepath.Join(syntheticStoreRoot, filepath.FromSlash(candidates[0])))
 		}
-		return
-	} else if !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("inspect repo Chromium store root %s: %v", storeRoot, err)
-	}
-
-	syntheticStoreRoot := t.TempDir()
-	candidates := resource.Entrypoints["browser"]
-	if len(candidates) == 0 {
-		t.Fatal("repo manifest is missing the Chromium browser entrypoint")
-	}
-	writePreparedFile(t, filepath.Join(syntheticStoreRoot, filepath.FromSlash(candidates[0])))
-
-	entrypoints, err := resolvePreparedEntrypoints(syntheticStoreRoot, resource)
-	if err != nil {
-		t.Fatalf("resolve repo Chromium entrypoint from synthetic layout failed: %v", err)
-	}
-	if entrypoints["browser"] == "" {
-		t.Fatalf("unexpected Chromium entrypoint: %q", entrypoints["browser"])
+		if _, err := resolvePreparedEntrypoints(syntheticStoreRoot, resource); err != nil {
+			t.Fatalf("resolve repo %s entrypoints from synthetic layout failed: %v", kind, err)
+		}
 	}
 }
 

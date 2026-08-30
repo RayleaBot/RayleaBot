@@ -68,6 +68,8 @@ func NewPreparedTestRuntimeRoot(t testing.TB) string {
 	root := t.TempDir()
 	WriteTestDepsManifest(t, root)
 	WriteTestRuntimeEntry(t, root, "chromium-test", "152.0.7977.42", "chrome-win64", "chrome.exe")
+	WriteTestRuntimeEntry(t, root, "ffmpeg-test", "9.0.1", "bin", "ffmpeg")
+	WriteTestRuntimeEntry(t, root, "ffmpeg-test", "9.0.1", "bin", "ffprobe")
 	WriteTestTemplate(t, root, "help.menu", 640)
 	WriteTestTemplate(t, root, "status.panel", 540)
 	return root
@@ -82,7 +84,7 @@ func WriteTestDepsManifest(t testing.TB, root string) {
 	}
 	platform := deps.CurrentPlatform()
 	manifest := `{
-  "manifest_version": 4,
+  "manifest_version": 5,
   "resources": [
     {
       "id": "chromium-test",
@@ -93,6 +95,16 @@ func WriteTestDepsManifest(t testing.TB, root string) {
       "sha256": "5093f03a401b5579da490d281aba80b687d92fe6fdfec47ee522920918d6e327",
       "archive_format": "zip",
       "entrypoints": {"browser": ["chrome-win64/chrome.exe"]}
+    },
+    {
+      "id": "ffmpeg-test",
+      "kind": "ffmpeg",
+      "version": "9.0.1",
+      "platform": "` + platform + `",
+      "sources": [{"url": "https://example.invalid/ffmpeg.zip", "kind": "upstream"}],
+      "sha256": "10b7a95b928e551fc78cac665999e1ae1f08fb738b255adb0a8d3b9c2824a9c0",
+      "archive_format": "zip",
+      "entrypoints": {"ffmpeg": ["bin/ffmpeg"], "ffprobe": ["bin/ffprobe"]}
     }
   ]
 }`

@@ -29,8 +29,11 @@ SERVER_BINARIES = {
     "linux-x64-server": "raylea-server",
 }
 
-RESOURCE_KINDS = ("chromium",)
-REQUIRED_ENTRYPOINTS = {"chromium": ("browser",)}
+RESOURCE_KINDS = ("chromium", "ffmpeg")
+REQUIRED_ENTRYPOINTS = {
+    "chromium": ("browser",),
+    "ffmpeg": ("ffmpeg", "ffprobe"),
+}
 SOURCE_KINDS = {"upstream", "mirror"}
 ARCHIVE_SUFFIXES = {
     "zip": ".zip",
@@ -246,7 +249,7 @@ def artifact_platform(artifact_id: str) -> str:
 def load_deps_manifest(root: Path) -> dict[str, object]:
     manifest_path = root / ".deps" / "manifest.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if payload.get("manifest_version") != 4:
+    if payload.get("manifest_version") != 5:
         raise RuntimeError(f"unsupported deps manifest version: {payload.get('manifest_version')}")
     return payload
 

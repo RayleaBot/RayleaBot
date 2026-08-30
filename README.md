@@ -43,7 +43,7 @@ Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌�
 
 ### 方式二：从源码启动
 
-前置条件：Go 1.26.6、Node.js 26.7.0（自带 npm 11.19.0）、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc 1.31.1、Git 2.x，以及系统 Chrome / Chromium / Edge 或已经准备完成的托管 Chromium。Node.js 26 需要先运行 `npm install --global corepack@0.35.0`。
+前置条件：Go 1.26.6、Node.js 26.7.0（自带 npm 11.19.0）、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc 1.31.1、Git 2.x，以及系统 Chrome / Chromium / Edge 或已经准备完成的托管 Chromium。FFmpeg / FFprobe 由运行环境清单准备，无需单独安装。Node.js 26 需要先运行 `npm install --global corepack@0.35.0`。
 `.tool-versions` 只固定 Go、Node.js、Python 和 pnpm；npm 随 Node.js 提供，Corepack 与 sqlc 需要单独安装并由 doctor 脚本校验。
 工具链检查：`make doctor`；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 Devcontainer 位于 `.devcontainer/`，可直接提供 server tests 所需的 Go、Node、pnpm、sqlc、Chromium 与 SQLite 环境。

@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const ManifestVersion = 4
+const ManifestVersion = 5
 
 type Manifest struct {
 	ManifestVersion int        `json:"manifest_version"`
@@ -50,14 +50,15 @@ func LoadPath(manifestPath string) (*Manifest, error) {
 		return nil, fmt.Errorf("unsupported deps manifest version %d", manifest.ManifestVersion)
 	}
 	if len(manifest.Resources) == 0 {
-		return nil, fmt.Errorf("deps manifest must declare Chromium resources")
+		return nil, fmt.Errorf("deps manifest must declare managed runtime resources")
 	}
 	for _, resource := range manifest.Resources {
-		if resource.Kind != "chromium" {
+		required := RequiredEntrypoints(&resource)
+		if len(required) == 0 {
 			return nil, fmt.Errorf("unsupported managed dependency kind %q", resource.Kind)
 		}
-		if len(resource.Entrypoints) != 1 || len(resource.Entrypoints["browser"]) == 0 {
-			return nil, fmt.Errorf("Chromium resource %q must declare only the browser entrypoint", resource.ID)
+		if len(resource.Entrypoints) != len(required) || !HasRequiredEntrypoints(&resource) {
+			return nil, fmt.Errorf("managed dependency resource %q has invalid entrypoints", resource.ID)
 		}
 	}
 	return &manifest, nil

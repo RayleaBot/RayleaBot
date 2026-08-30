@@ -97,15 +97,16 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	}
 
 	var manifest depsManifest
-	if json.Unmarshal(payload, &manifest) != nil || manifest.ManifestVersion != 4 {
+	if json.Unmarshal(payload, &manifest) != nil || manifest.ManifestVersion != 5 {
 		return []EnvironmentCheckResult{{
 			Scope: "preflight", Code: "deps.manifest_invalid", Title: "运行环境清单", Severity: "warning",
-			Summary: ".deps/manifest.json 内容无效。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复 manifest_version 4 的运行环境清单。",
+			Summary: ".deps/manifest.json 内容无效。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复 manifest_version 5 的运行环境清单。",
 		}}
 	}
 
 	platform := manifestPlatform()
 	var chromium *depsResource
+	var ffmpeg *depsResource
 	foundPlatform := false
 	for index := range manifest.Resources {
 		resource := &manifest.Resources[index]
@@ -113,6 +114,8 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 			foundPlatform = true
 			if resource.Kind == "chromium" {
 				chromium = resource
+			} else if resource.Kind == "ffmpeg" {
+				ffmpeg = resource
 			}
 		}
 	}
@@ -127,20 +130,35 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	}
 	if chromium == nil {
 		if browser := findSystemChromium(); browser != "" {
-			return append(checks, chromiumReadyCheck(browser))
+			checks = append(checks, chromiumReadyCheck(browser))
+		} else {
+			checks = append(checks, EnvironmentCheckResult{
+				Scope: "preflight", Code: "chromium.resource_missing", Title: "图片渲染 Chromium", Severity: "warning",
+				Summary: "清单中未配置 Chromium。", Remediation: "恢复 Chromium 运行时资源，或安装可用的 Chrome、Edge 或 Chromium。",
+			})
 		}
-		return append(checks, EnvironmentCheckResult{
-			Scope: "preflight", Code: "chromium.resource_missing", Title: "图片渲染 Chromium", Severity: "warning",
-			Summary: "清单中未配置 Chromium。", Remediation: "恢复 Chromium 运行时资源，或安装可用的 Chrome、Edge 或 Chromium。",
-		})
-	}
-	if !resourceMetadataComplete(*chromium) {
-		return append(checks, EnvironmentCheckResult{
+	} else if !resourceMetadataComplete(*chromium) {
+		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "chromium.metadata_incomplete", Title: "图片渲染 Chromium", Severity: "warning",
 			Summary: "Chromium 资源元数据不完整。", Remediation: "请恢复来源、校验值、压缩格式和 browser 入口。",
 		})
+	} else {
+		checks = append(checks, inspectChromiumState(root, *chromium, findSystemChromium))
 	}
-	return append(checks, inspectChromiumState(root, *chromium, findSystemChromium))
+	if ffmpeg == nil {
+		checks = append(checks, EnvironmentCheckResult{
+			Scope: "preflight", Code: "ffmpeg.resource_missing", Title: "媒体工具 FFmpeg", Severity: "warning",
+			Summary: "清单中未配置 FFmpeg。", Remediation: "请恢复当前平台的 FFmpeg / FFprobe 运行时资源。",
+		})
+	} else if !resourceMetadataComplete(*ffmpeg) {
+		checks = append(checks, EnvironmentCheckResult{
+			Scope: "preflight", Code: "ffmpeg.metadata_incomplete", Title: "媒体工具 FFmpeg", Severity: "warning",
+			Summary: "FFmpeg 资源元数据不完整。", Remediation: "请恢复来源、校验值、压缩格式和 ffmpeg / ffprobe 入口。",
+		})
+	} else {
+		checks = append(checks, inspectFFmpegState(root, *ffmpeg))
+	}
+	return checks
 }
 
 func inspectChromiumState(root string, chromium depsResource, findBrowser func() string) EnvironmentCheckResult {
@@ -173,6 +191,50 @@ func inspectChromiumState(root string, chromium depsResource, findBrowser func()
 	return EnvironmentCheckResult{
 		Scope: "preflight", Code: code, Title: "图片渲染 Chromium", Severity: "warning",
 		Summary: summary, Detail: detail, Remediation: "启动服务后由运行环境任务重新准备 Chromium。",
+	}
+}
+
+func inspectFFmpegState(root string, ffmpeg depsResource) EnvironmentCheckResult {
+	storeRoot := filepath.Join(root, ".deps", "store", ffmpeg.ID, ffmpeg.Version)
+	ready := true
+	paths := make([]string, 0, 2)
+	for _, key := range []string{"ffmpeg", "ffprobe"} {
+		found := ""
+		for _, relative := range ffmpeg.Entrypoints[key] {
+			candidate := filepath.Join(storeRoot, filepath.FromSlash(relative))
+			if validRelativeEntrypoint(relative) && regularFile(candidate) {
+				found = candidate
+				break
+			}
+		}
+		ready = ready && found != ""
+		if found != "" {
+			paths = append(paths, found)
+		}
+	}
+	if ready {
+		return EnvironmentCheckResult{Scope: "preflight", Code: "ffmpeg.ready", Title: "媒体工具 FFmpeg", Severity: "ok", Summary: "已找到 FFmpeg 与 FFprobe。", Detail: strings.Join(paths, "；")}
+	}
+	code := "ffmpeg.not_ready"
+	summary := "FFmpeg 尚未准备。"
+	detail := fmt.Sprintf("运行时目录：%s", storeRoot)
+	archivePath := filepath.Join(root, "cache", "downloads", "runtime", ffmpeg.ID+"-"+ffmpeg.Version+runtimeArchiveSuffix(ffmpeg.ArchiveFormat))
+	tempRoots := findRuntimeTempRoots(filepath.Dir(storeRoot), ffmpeg.ID, ffmpeg.Version)
+	switch {
+	case len(tempRoots) > 0 && !pathExists(storeRoot):
+		code = "ffmpeg.extract_incomplete"
+		summary = "FFmpeg 上次解压未完成。"
+		detail = fmt.Sprintf("下载位置：%s。解压位置：%s。临时目录：%s", archivePath, storeRoot, strings.Join(tempRoots, "、"))
+	case pathExists(storeRoot):
+		code = "ffmpeg.entrypoint_missing"
+		summary = "FFmpeg 已解压，但 ffmpeg 或 ffprobe 入口缺失。"
+	case regularFile(archivePath):
+		summary = "FFmpeg 已下载，尚未解压。"
+		detail = fmt.Sprintf("下载位置：%s。解压位置：%s", archivePath, storeRoot)
+	}
+	return EnvironmentCheckResult{
+		Scope: "preflight", Code: code, Title: "媒体工具 FFmpeg", Severity: "warning",
+		Summary: summary, Detail: detail, Remediation: "启动服务后由运行环境任务重新准备 FFmpeg。",
 	}
 }
 
@@ -211,7 +273,13 @@ func resourceMetadataComplete(resource depsResource) bool {
 	default:
 		return false
 	}
-	if len(resource.Sources) == 0 || len(resource.Entrypoints["browser"]) == 0 {
+	entrypointKeys := []string{"browser"}
+	if resource.Kind == "ffmpeg" {
+		entrypointKeys = []string{"ffmpeg", "ffprobe"}
+	} else if resource.Kind != "chromium" {
+		return false
+	}
+	if len(resource.Sources) == 0 {
 		return false
 	}
 	for _, source := range resource.Sources {
@@ -219,12 +287,19 @@ func resourceMetadataComplete(resource depsResource) bool {
 			return false
 		}
 	}
-	for _, candidate := range resource.Entrypoints["browser"] {
-		if validRelativeEntrypoint(candidate) {
-			return true
+	for _, key := range entrypointKeys {
+		valid := false
+		for _, candidate := range resource.Entrypoints[key] {
+			if validRelativeEntrypoint(candidate) {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func validRelativeEntrypoint(value string) bool {

@@ -97,7 +97,7 @@ export function formatReleaseVersion(currentVersion: string): string {
   return currentVersion.trim() || "开发";
 }
 
-const runtimePreparationPrefixes = ["deps.", "chromium."];
+const runtimePreparationPrefixes = ["deps.", "chromium.", "ffmpeg."];
 
 export function isRuntimePreparationIssue(code: string): boolean {
   return runtimePreparationPrefixes.some((prefix) => code.startsWith(prefix));

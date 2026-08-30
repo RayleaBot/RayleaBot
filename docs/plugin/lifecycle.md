@@ -16,6 +16,7 @@
 
 - 插件后端只支持 `runtime: "go"` 的平台预编译可执行文件。
 - 服务端不编译插件源码、不安装语言依赖，也不准备插件语言运行时。
+- 核心在启动插件前准备共享 FFmpeg 资源，并向插件进程注入 `RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH`；这些绝对路径指向当前平台已校验的托管入口，不属于插件包内容。
 - 插件包按 `windows-x64`、`linux-x64`、`macos-arm64` 分发；目标平台必须同时出现在 `info.json.platforms` 和 `artifact.json.target_platform` 中。
 - JSONL 插件协议继续使用语言无关的 v1。
 

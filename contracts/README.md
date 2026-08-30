@@ -36,7 +36,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
-  - 图片渲染与抖音扫码登录（浏览器兜底）共用 Chromium 的可信来源列表、SHA256、归档格式与相对入口
+  - 图片渲染与抖音扫码登录（浏览器兜底）共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`

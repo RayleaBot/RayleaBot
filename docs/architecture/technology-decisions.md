@@ -16,6 +16,7 @@
 | 日志 | slog |
 | 指标 | Prometheus 兼容 registry |
 | 浏览器自动化 | chromedp |
+| 媒体处理 | 核心托管的 FFmpeg / FFprobe 二进制，受信本地插件通过固定环境变量复用 |
 
 ## 决策规则
 
@@ -35,3 +36,4 @@
 | OpenAPI 实现 | 保留严格契约校验和生成类型检查；只有 handler 漂移持续发生时才评估 Server 侧 OpenAPI 代码生成。 |
 | Secret 存储 | 保留 SQLite 支持的密封 secret；当部署目标要求外部密钥托管时，再评估环境密钥、操作系统 keychain 或外部 KMS。 |
 | 架构门禁 | 保留仓库专用的结构测试和预算文件，因为它们比通用 linter 更准确地表达本仓库包边界。 |
+| 媒体处理 | 使用 `.deps/manifest.json` 固定三平台 full GPL FFmpeg / FFprobe 资源，不在各插件内重复打包，也不新增 Go 媒体编解码栈。 |

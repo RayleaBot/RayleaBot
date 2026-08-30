@@ -39,6 +39,59 @@ func TestBuildSpecUsesVerifiedGoExecutableDirectly(t *testing.T) {
 	}
 }
 
+func TestManagedRuntimeEnvironmentExposesPreparedFFmpegTools(t *testing.T) {
+	repoRoot := t.TempDir()
+	platform := artifactPlatformForTest(t)
+	resource := map[string]any{
+		"id": "ffmpeg-test", "kind": "ffmpeg", "version": "9.0.1", "platform": platform,
+		"sources":        []any{map[string]any{"url": "https://example.invalid/ffmpeg.zip", "kind": "upstream"}},
+		"sha256":         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+		"archive_format": "zip",
+		"entrypoints": map[string]any{
+			"ffmpeg": []string{"bin/ffmpeg"}, "ffprobe": []string{"bin/ffprobe"},
+		},
+	}
+	manifest := map[string]any{"manifest_version": 5, "resources": []any{resource}}
+	payload, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(repoRoot, ".deps", "manifest.json")
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, payload, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	storeRoot := filepath.Join(repoRoot, ".deps", "store", "ffmpeg-test", "9.0.1", "bin")
+	if err := os.MkdirAll(storeRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"ffmpeg", "ffprobe"} {
+		if err := os.WriteFile(filepath.Join(storeRoot, name), []byte("fixture"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	got := managedRuntimeEnvironment(repoRoot)
+	want := []string{
+		"RAYLEABOT_FFMPEG_PATH=" + filepath.Join(storeRoot, "ffmpeg"),
+		"RAYLEABOT_FFPROBE_PATH=" + filepath.Join(storeRoot, "ffprobe"),
+	}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("managed runtime environment = %#v, want %#v", got, want)
+	}
+}
+
+func artifactPlatformForTest(t *testing.T) string {
+	t.Helper()
+	platform, err := artifact.CurrentPlatform()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return platform
+}
+
 func TestBuildSpecRejectsTamperedArtifact(t *testing.T) {
 	_, snapshot := runtimeTestArtifact(t)
 	file, err := os.OpenFile(snapshot.PackageRootPath+string(filepath.Separator)+filepath.FromSlash(runtimeBackendRelative(t)), os.O_APPEND|os.O_WRONLY, 0)

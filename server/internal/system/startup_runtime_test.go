@@ -14,7 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
 
-func TestAutoPrepareRuntimeEnvironmentsPreparesOnlyChromium(t *testing.T) {
+func TestAutoPrepareRuntimeEnvironmentsPreparesManagedRuntimes(t *testing.T) {
 	originalInspect := inspectStartupRuntime
 	originalPrepare := prepareStartupRuntimeWithProgress
 	t.Cleanup(func() {
@@ -36,12 +36,16 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesOnlyChromium(t *testing.T) {
 	application.setTestSystem(nil, nil, nil, nil)
 	application.autoPrepareRuntimeEnvironments(context.Background())
 
-	if !slices.Equal(preparedKinds, []string{"chromium"}) {
-		t.Fatalf("prepared kinds = %#v, want Chromium only", preparedKinds)
+	if !slices.Equal(preparedKinds, []string{"chromium", "ffmpeg"}) {
+		t.Fatalf("prepared kinds = %#v, want Chromium and FFmpeg", preparedKinds)
 	}
 	state, ok := application.startupRuntimeState("chromium")
 	if !ok || state.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("Chromium state = %#v, want ready", state)
+	}
+	state, ok = application.startupRuntimeState("ffmpeg")
+	if !ok || state.Phase != StartupRuntimePhaseReady {
+		t.Fatalf("FFmpeg state = %#v, want ready", state)
 	}
 }
 
@@ -58,6 +62,9 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForChromiumPrepare(t *testing.T) {
 	}
 	releasePrepare := make(chan struct{})
 	prepareStartupRuntimeWithProgress = func(_ context.Context, _ string, kind string, _ deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+		if kind == "ffmpeg" {
+			return &deps.PrepareReport{Kind: kind}, nil
+		}
 		if kind != "chromium" {
 			t.Fatalf("unexpected prepare kind %q", kind)
 		}
@@ -125,10 +132,10 @@ func TestAutoPrepareRuntimeEnvironmentsLogsChromiumProgress(t *testing.T) {
 	}
 }
 
-func TestStartupRequiredRuntimeKindsEmptyWhenBrowserPathConfigured(t *testing.T) {
+func TestStartupRequiredRuntimeKindsKeepsFFmpegWhenBrowserPathConfigured(t *testing.T) {
 	application := newTestAppState(config.Config{Render: config.RenderConfig{BrowserPath: "C:\\chromium\\chrome.exe"}}, nil)
 	application.setTestSystem(nil, nil, nil, nil)
-	if got := application.services.system.startupRequiredRuntimeKinds(); len(got) != 0 {
-		t.Fatalf("startupRequiredRuntimeKinds() = %#v, want no managed resources", got)
+	if got := application.services.system.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"ffmpeg"}) {
+		t.Fatalf("startupRequiredRuntimeKinds() = %#v, want FFmpeg", got)
 	}
 }

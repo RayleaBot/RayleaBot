@@ -54,7 +54,7 @@ flowchart TB
 | 后台任务 | Task Registry | 有序持久化记录 | API/WebSocket、恢复逻辑 |
 | 调度任务 | Scheduler | SQLite job 与内存 revision | 插件定向事件 |
 | 图片渲染 | Render Service | 模板仓、artifact 与 cache metadata | Local Action、管理面 |
-| Chromium 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、抖音扫码回落、运行环境准备与系统诊断；doctor 只读取清单元数据 |
+| Chromium 与 FFmpeg 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、抖音扫码回落、受信本地插件媒体处理、运行环境准备与系统诊断；doctor 只读取清单元数据 |
 | 配置单实例锁 | File Lock / App | `<config-path>.runtime.lock` | Server 启动、配置 CLI |
 | 更新信任 | Shared update core | 编译内置仓库/公钥、最高版本与 digest 记录 | CLI、API、Launcher、updater |
 | 更新事务 | External updater | 安装根外 journal、offline backup、staging | Launcher 与恢复流程 |
@@ -116,7 +116,7 @@ flowchart LR
 | `templates/` | Render Service | 模板版本与资源 |
 | `cache/` | 各 owner | 可重建缓存，不影响正确性 |
 | `logs/` | Logging | 结构化日志、spool 与诊断输出 |
-| `.deps/` | Deps service | 图片渲染与抖音扫码浏览器回落共用的 Chromium 受控资源 |
+| `.deps/` | Deps service | Chromium 与 FFmpeg / FFprobe 受控资源 |
 | updater transaction directory | External updater | journal、offline backup、旧版与 staging |
 
 ## 部署边界
@@ -139,7 +139,7 @@ flowchart LR
 | Plugin Store Service | `server/internal/pluginmarket/` |
 | Tasks / Scheduler | `server/internal/tasks/`、`server/internal/scheduler/` |
 | Render | `server/internal/render/` |
-| Managed Chromium | `server/internal/deps/` |
+| Managed Chromium / FFmpeg | `server/internal/deps/` |
 | Process/config locks | `server/internal/filelock/` |
 | Storage / migrations | `server/internal/storage/`、`server/internal/sqlcgen/` |
 | Shared update core | `server/internal/releaseupdate/` |

@@ -48,26 +48,34 @@ class DepsManifestRuntimeTests(unittest.TestCase):
         resource["entrypoints"] = {}
         self.assertFalse(package_runtime.resource_has_complete_metadata(resource))
 
-    def test_ensure_runtime_bootstrap_prepares_chromium(self) -> None:
+    def test_ensure_runtime_bootstrap_prepares_managed_runtimes(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            archive = self._runtime_archive({"chrome-win64/chrome.exe": b"chrome"})
-            resource = self._resource(archive)
-            manifest = {"manifest_version": 4, "resources": [resource]}
+            chromium_archive = self._runtime_archive({"chrome-win64/chrome.exe": b"chrome"})
+            ffmpeg_archive = self._runtime_archive({"bin/ffmpeg.exe": b"ffmpeg", "bin/ffprobe.exe": b"ffprobe"})
+            chromium = self._resource(chromium_archive)
+            ffmpeg = self._ffmpeg_resource(ffmpeg_archive)
+            manifest = {"manifest_version": 5, "resources": [chromium, ffmpeg]}
             (root / ".deps").mkdir()
             (root / ".deps" / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+            def fake_urlopen(request, timeout=60):  # noqa: ANN001
+                url = request if isinstance(request, str) else request.full_url
+                return _FakeResponse(ffmpeg_archive if "ffmpeg" in url else chromium_archive)
 
             with mock.patch.object(
                 package_runtime.urllib.request,
                 "urlopen",
-                return_value=_FakeResponse(archive),
+                side_effect=fake_urlopen,
             ):
                 package_runtime.ensure_runtime_bootstrap(root, "windows-x64-full")
 
             self.assertTrue(
                 (root / ".deps" / "store" / "chromium-windows-x64" / "152.0.7977.42" / "chrome-win64" / "chrome.exe").exists()
             )
-            self.assertEqual(["chromium"], list(package_runtime.REQUIRED_ENTRYPOINTS))
+            self.assertTrue((root / ".deps" / "store" / "ffmpeg-windows-x64" / "9.0.1" / "bin" / "ffmpeg.exe").exists())
+            self.assertTrue((root / ".deps" / "store" / "ffmpeg-windows-x64" / "9.0.1" / "bin" / "ffprobe.exe").exists())
+            self.assertEqual(["chromium", "ffmpeg"], list(package_runtime.REQUIRED_ENTRYPOINTS))
 
     def test_download_runtime_archive_falls_back_to_next_source(self) -> None:
         with TemporaryDirectory() as tmp:
@@ -166,6 +174,19 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             "sha256": package_runtime.hashlib.sha256(archive).hexdigest(),
             "archive_format": "zip",
             "entrypoints": {"browser": ["chrome-win64/chrome.exe"]},
+        }
+
+    @staticmethod
+    def _ffmpeg_resource(archive: bytes) -> dict[str, object]:
+        return {
+            "id": "ffmpeg-windows-x64",
+            "kind": "ffmpeg",
+            "version": "9.0.1",
+            "platform": "windows-x64",
+            "sources": [{"url": "https://example.invalid/ffmpeg.zip", "kind": "upstream"}],
+            "sha256": package_runtime.hashlib.sha256(archive).hexdigest(),
+            "archive_format": "zip",
+            "entrypoints": {"ffmpeg": ["bin/ffmpeg.exe"], "ffprobe": ["bin/ffprobe.exe"]},
         }
 
     @staticmethod

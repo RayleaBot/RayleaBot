@@ -79,7 +79,7 @@ third_party_accounts:
 | `cache/` | 渲染缓存、下载缓存和临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
 | `plugins/installed/` | 用户安装插件 |
-| `.deps/` | 图片渲染与抖音扫码浏览器回落共用的 Chromium 资源与展开目录 |
+| `.deps/` | Chromium、FFmpeg / FFprobe 资源与展开目录 |
 
 ## 日志目录
 

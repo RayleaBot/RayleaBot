@@ -2589,7 +2589,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [chromium]
+          enum: [chromium, ffmpeg]
         status:
           type: string
           enum: [ready, cached, on_demand, metadata_incomplete, unavailable]
@@ -3227,7 +3227,7 @@ components:
 
     RuntimeBootstrapResource:
       type: string
-      enum: [chromium]
+      enum: [chromium, ffmpeg]
 
     RuntimeBootstrapRequest:
       type: object

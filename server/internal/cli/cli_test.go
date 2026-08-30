@@ -955,7 +955,7 @@ func TestDoctorReportFlagsIncompleteChromiumMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(repoRoot, ".deps", "manifest.json"), `{
-  "manifest_version": 4,
+  "manifest_version": 5,
   "resources": [
     {
       "id": "chromium-test",
@@ -990,7 +990,7 @@ func TestDoctorReportAcceptsCompleteChromiumMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(repoRoot, ".deps", "manifest.json"), `{
-  "manifest_version": 4,
+  "manifest_version": 5,
   "resources": [
     {
       "id": "chromium-`+platform+`",

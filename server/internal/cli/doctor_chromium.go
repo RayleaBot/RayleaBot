@@ -2,18 +2,19 @@ package cli
 
 import "github.com/RayleaBot/RayleaBot/server/internal/deps"
 
-func chromiumMetadataIssue(manifest *deps.Manifest, platform string) DoctorIssue {
-	if deps.ResourceMetadataComplete(manifest.FindResource(platform, "chromium")) {
+func managedRuntimeMetadataIssue(manifest *deps.Manifest, platform, kind string) DoctorIssue {
+	label := deps.ManagedResourceLabel(kind)
+	if deps.ResourceMetadataComplete(manifest.FindResource(platform, kind)) {
 		return DoctorIssue{
-			Code:     "deps.chromium_metadata",
+			Code:     "deps." + kind + "_metadata",
 			Severity: "ok",
-			Summary:  "图片渲染 Chromium 元数据完整。",
+			Summary:  label + " 元数据完整。",
 		}
 	}
 	return DoctorIssue{
-		Code:        "deps.chromium_metadata_incomplete",
+		Code:        "deps." + kind + "_metadata_incomplete",
 		Severity:    "warning",
-		Summary:     "图片渲染 Chromium 元数据不完整。",
-		Remediation: "请在 .deps/manifest.json 中补齐当前平台 Chromium 的来源列表、archive_format、browser 入口与 sha256。",
+		Summary:     label + " 元数据不完整。",
+		Remediation: "请在 .deps/manifest.json 中补齐当前平台" + label + "的来源列表、archive_format、入口文件与 sha256。",
 	}
 }

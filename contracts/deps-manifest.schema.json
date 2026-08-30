@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/deps-manifest.schema.json",
   "title": "RayleaBot Managed Dependencies Manifest",
-  "description": "Fixture-ready schema for .deps/manifest.json. Version 4 manages the shared Chromium resource used by image rendering and the Douyin QR-login browser fallback.",
+  "description": "Fixture-ready schema for .deps/manifest.json. Version 5 manages shared Chromium and FFmpeg runtime resources.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
   "properties": {
     "manifest_version": {
       "type": "integer",
-      "const": 4
+      "const": 5
     },
     "resources": {
       "type": "array",
@@ -95,11 +95,30 @@
         ]
       }
     },
-    "entrypoints": {
+    "chromiumEntrypoints": {
       "type": "object",
       "additionalProperties": false,
+      "required": [
+        "browser"
+      ],
       "properties": {
         "browser": {
+          "$ref": "#/$defs/entrypointCandidates"
+        }
+      }
+    },
+    "ffmpegEntrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ffmpeg",
+        "ffprobe"
+      ],
+      "properties": {
+        "ffmpeg": {
+          "$ref": "#/$defs/entrypointCandidates"
+        },
+        "ffprobe": {
           "$ref": "#/$defs/entrypointCandidates"
         }
       }
@@ -125,7 +144,8 @@
         "kind": {
           "type": "string",
           "enum": [
-            "chromium"
+            "chromium",
+            "ffmpeg"
           ]
         },
         "version": {
@@ -155,7 +175,7 @@
           ]
         },
         "entrypoints": {
-          "$ref": "#/$defs/entrypoints"
+          "type": "object"
         }
       }
     },
@@ -174,16 +194,38 @@
         {
           "properties": {
             "entrypoints": {
-              "required": [
-                "browser"
-              ]
+              "$ref": "#/$defs/chromiumEntrypoints"
+            }
+          }
+        }
+      ]
+    },
+    "ffmpegResource": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/resourceBase"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "ffmpeg"
+            },
+            "entrypoints": {
+              "$ref": "#/$defs/ffmpegEntrypoints"
             }
           }
         }
       ]
     },
     "resource": {
-      "$ref": "#/$defs/chromiumResource"
+      "oneOf": [
+        {
+          "$ref": "#/$defs/chromiumResource"
+        },
+        {
+          "$ref": "#/$defs/ffmpegResource"
+        }
+      ]
     }
   },
   "x-fixtures": [
@@ -196,6 +238,6 @@
     "fixtures/deps-manifest/invalid.entrypoint-parent-path.json",
     "fixtures/deps-manifest/invalid.duplicate-source-url.json",
     "fixtures/deps-manifest/invalid.unknown-source-kind.json",
-    "fixtures/deps-manifest/edge.multi-platform-chromium.json"
+    "fixtures/deps-manifest/edge.multi-platform-managed-runtimes.json"
   ]
 }

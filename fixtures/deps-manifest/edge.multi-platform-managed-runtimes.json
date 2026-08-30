@@ -9,13 +9,7 @@
       "sources": [
         {
           "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.42/win64/chrome-win64.zip",
-          "kind": "upstream",
-          "label": "Chrome for Testing"
-        },
-        {
-          "url": "https://npmmirror.com/mirrors/chrome-for-testing/152.0.7977.42/win64/chrome-win64.zip",
-          "kind": "mirror",
-          "label": "npmmirror"
+          "kind": "upstream"
         }
       ],
       "sha256": "5093f03a401b5579da490d281aba80b687d92fe6fdfec47ee522920918d6e327",
@@ -34,13 +28,7 @@
       "sources": [
         {
           "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.42/linux64/chrome-linux64.zip",
-          "kind": "upstream",
-          "label": "Chrome for Testing"
-        },
-        {
-          "url": "https://npmmirror.com/mirrors/chrome-for-testing/152.0.7977.42/linux64/chrome-linux64.zip",
-          "kind": "mirror",
-          "label": "npmmirror"
+          "kind": "upstream"
         }
       ],
       "sha256": "cb77f4781cad7d5e06fcc78b4476e6a6375616e7278dc313abaa9db22ed4674e",
@@ -59,13 +47,7 @@
       "sources": [
         {
           "url": "https://storage.googleapis.com/chrome-for-testing-public/152.0.7977.42/mac-arm64/chrome-mac-arm64.zip",
-          "kind": "upstream",
-          "label": "Chrome for Testing"
-        },
-        {
-          "url": "https://npmmirror.com/mirrors/chrome-for-testing/152.0.7977.42/mac-arm64/chrome-mac-arm64.zip",
-          "kind": "mirror",
-          "label": "npmmirror"
+          "kind": "upstream"
         }
       ],
       "sha256": "c9a7b6bfb57731944990ffb7cafc17ae2f2a2e25ad1f145f45584d7b799d3ce8",
@@ -84,8 +66,7 @@
       "sources": [
         {
           "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-20-13-45/ffmpeg-n9.0.1-6-g9d4ca21220-win64-gpl-9.0.zip",
-          "kind": "upstream",
-          "label": "BtbN FFmpeg Builds"
+          "kind": "upstream"
         }
       ],
       "sha256": "5bbf30d81a46e4ea3bf692da189141e88a269252518e9202b95fedec3996b93e",
@@ -107,8 +88,7 @@
       "sources": [
         {
           "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-20-13-45/ffmpeg-n9.0.1-6-g9d4ca21220-linux64-gpl-9.0.tar.xz",
-          "kind": "upstream",
-          "label": "BtbN FFmpeg Builds"
+          "kind": "upstream"
         }
       ],
       "sha256": "8d2db9b783a161e92ed905b70e1a5e449172aefac369635809bc07fe30165950",
@@ -130,8 +110,7 @@
       "sources": [
         {
           "url": "https://github.com/vanloctech/ffmpeg-macos/releases/download/ffmpeg-2026.06.11/ffmpeg-macos-arm64.tar.gz",
-          "kind": "upstream",
-          "label": "vanloctech FFmpeg macOS"
+          "kind": "upstream"
         }
       ],
       "sha256": "26f5133f88d5ab1254cc03499acef42dae2dbc574dd26e0dade8c968420127e9",
@@ -147,6 +126,6 @@
     }
   ],
   "notes": [
-    "Manifest v5 manages Chromium for rendering and full GPL FFmpeg/FFprobe tools shared by trusted local plugins."
+    "Manifest v5 manages Chromium and a full GPL FFmpeg toolchain."
   ]
 }

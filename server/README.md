@@ -174,7 +174,7 @@
   - `templates/` 模板注册、input schema 校验与缓存键生成
   - 管理面模板实时预览与插件图片渲染
   - `render.image` 可在插件声明的 HTTP 范围内预取原始图片，按内容摘要参与缓存，并以请求级临时文件交给 Chromium
-  - 模板与浏览器问题通过 startup logs、`/readyz` 和 `/api/system/diagnostics` 暴露；Launcher 合并服务端快照与本地预检结果，CLI `doctor` 只检查渲染资源相关的 deps 与 Chromium 元数据
+  - 模板、浏览器与媒体工具问题通过 startup logs、`/readyz` 和 `/api/system/diagnostics` 暴露；Launcher 合并服务端快照与本地预检结果，CLI `doctor` 检查 deps、Chromium 与 FFmpeg 元数据
 - CLI 子命令：
   - `config init` / `config normalize` / `config validate`
   - `reset-admin`

@@ -69,6 +69,12 @@ response:
         cached_archive_present: false
         prepared_store_present: true
         system_browser: false
+      - kind: ffmpeg
+        status: ready
+        metadata_complete: true
+        cached_archive_present: false
+        prepared_store_present: true
+        system_browser: false
     filesystem:
       - label: config
         path: "config/user.yaml"

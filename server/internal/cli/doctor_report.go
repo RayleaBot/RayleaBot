@@ -128,7 +128,8 @@ func BuildDoctorReport(cmd Command) DoctorReport {
 		issues = append(issues, depsManifestDoctorIssues(err)...)
 	} else {
 		issues = append(issues, depsManifestPlatformIssue(manifest, currentPlatform))
-		issues = append(issues, chromiumMetadataIssue(manifest, currentPlatform))
+		issues = append(issues, managedRuntimeMetadataIssue(manifest, currentPlatform, "chromium"))
+		issues = append(issues, managedRuntimeMetadataIssue(manifest, currentPlatform, "ffmpeg"))
 	}
 	issues = append(issues, platformDoctorIssues()...)
 

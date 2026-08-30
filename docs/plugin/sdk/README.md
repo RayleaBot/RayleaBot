@@ -27,6 +27,8 @@ err := rayleabot.Run(ctx, rayleabot.Options{
 
 SDK 为每个 local action 分配独立 request ID，并通过父事件 request ID 关联并发响应。stdout 只写 JSONL，使用串行 writer；日志写 stderr。运行时处理 `init/init_ack`、`ping/pong`、shutdown、超时、并发上限和 panic 隔离，panic 只终止当前事件并返回错误对象，不使插件进程退出。
 
+需要处理音视频的受信本地插件复用核心托管工具：`RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH` 分别提供当前平台 FFmpeg、FFprobe 的绝对路径。插件应直接执行这些路径，并在变量缺失时把媒体能力报告为不可用；不要在插件 artifact 内重复打包 FFmpeg，也不要假定系统 `PATH` 已安装对应工具。
+
 `RenderImageRequest.Resources` 接受 `RenderImageResource` 列表；每项使用 `ID`、`URL`、可选 `FallbackURLs` 与 `Referer` 描述宿主预取图片。模板通过 `data-render-resource` 引用同一 ID。该能力同时要求插件声明 `render.image`、`http.request` 以及对应 `http_hosts`，图片字节不进入 `RenderImageRequest.Data`。
 
 ## Artifact 构建器

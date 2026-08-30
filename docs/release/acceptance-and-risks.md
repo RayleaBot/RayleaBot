@@ -12,7 +12,7 @@
 | 回滚状态不可读 | offline backup、旧安装根保留、旧版 restore/doctor 和 `rollback_failed` 停机保护 |
 | 插件包伪造、篡改或宿主能力扩大 | manifest/artifact 校验、文件全集与摘要、平台/二进制格式检查、能力展示、可信代码确认和归档资源上限 |
 | 插件直接网络、文件或子进程行为 | 安装和更新前明确提示完全可信本地代码；当前没有插件 OS 强沙盒，只启用来源与代码均可信的版本 |
-| Chromium、SQLite、OneBot11 或 Go 插件进程故障 | readiness、diagnostics、结构化错误、恢复摘要和受控重试 |
+| Chromium、FFmpeg、SQLite、OneBot11 或 Go 插件进程故障 | readiness、diagnostics、结构化错误、恢复摘要和受控重试 |
 
 ## 发布验收
 

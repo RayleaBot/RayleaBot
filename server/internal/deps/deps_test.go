@@ -30,7 +30,27 @@ func TestLoadManifestRejectsLegacyVersionAndRuntimeKinds(t *testing.T) {
 	resource.Kind = "python-runtime"
 	writeDepsManifest(t, repoRoot, ManifestVersion, resource)
 	if _, err := LoadManifest(repoRoot); err == nil {
-		t.Fatal("non-Chromium managed dependency must be rejected")
+		t.Fatal("unsupported managed dependency must be rejected")
+	}
+}
+
+func TestResourceMetadataCompleteRequiresFFmpegEntrypoints(t *testing.T) {
+	t.Parallel()
+	resource := Resource{
+		ID: "ffmpeg-test", Kind: "ffmpeg", Version: "9.0.1", Platform: CurrentPlatform(),
+		Sources: []ResourceSource{{URL: "https://example.invalid/ffmpeg.zip", Kind: "upstream"}},
+		SHA256:  sha256Hex([]byte("fixture")), ArchiveFormat: "zip",
+		Entrypoints: map[string][]string{
+			"ffmpeg":  {"bin/ffmpeg"},
+			"ffprobe": {"bin/ffprobe"},
+		},
+	}
+	if !ResourceMetadataComplete(&resource) {
+		t.Fatal("complete FFmpeg metadata was rejected")
+	}
+	delete(resource.Entrypoints, "ffprobe")
+	if ResourceMetadataComplete(&resource) {
+		t.Fatal("ffprobe entrypoint is required")
 	}
 }
 
@@ -197,7 +217,7 @@ func testChromiumResource(hash string) Resource {
 	return Resource{
 		ID: "chromium-test", Kind: "chromium", Version: "147.0.0", Platform: CurrentPlatform(),
 		Sources: []ResourceSource{{URL: "https://example.invalid/chromium.zip", Kind: "upstream"}},
-		SHA256: hash, ArchiveFormat: "zip",
+		SHA256:  hash, ArchiveFormat: "zip",
 		Entrypoints: map[string][]string{"browser": {"chromium/chrome"}},
 	}
 }

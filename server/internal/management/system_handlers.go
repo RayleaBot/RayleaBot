@@ -274,13 +274,13 @@ func decodeRuntimeBootstrapRequest(r *http.Request) (runtimeBootstrapRequest, er
 
 func normalizeRuntimeBootstrapResources(requested []string) ([]string, bool) {
 	if len(requested) == 0 {
-		return []string{"chromium"}, true
+		return []string{"chromium", "ffmpeg"}, true
 	}
 	seen := map[string]struct{}{}
 	resources := make([]string, 0, len(requested))
 	for _, item := range requested {
 		switch item {
-		case "chromium":
+		case "chromium", "ffmpeg":
 		default:
 			return nil, false
 		}

@@ -64,7 +64,7 @@ v0.3 聚焦四条主线：
 - Runtime Manager 只启动经校验的 Go 可执行文件，安装器只接受平台 artifact 目录或单根目录 ZIP。
 - `sdk/go` 提供并发安全 JSONL 客户端、typed local-action helpers 与统一构建器；每个插件保留独立 `go.mod` 和薄 `tools/build`。
 - Fortune、Subscription Hub 与示例配置页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`，资源与后端同包分离存放。
-- Python/Node 插件 runtime、SDK、依赖准备器、安装脚本和旧 bridge 已删除；`.deps` v4 只保留 Chromium。
+- Python/Node 插件 runtime、SDK、依赖准备器、安装脚本和旧 bridge 已删除；`.deps` v5 管理 Chromium 与 FFmpeg / FFprobe，不提供托管语言运行时。
 - 旧插件 epoch 不做数据转换，恢复与原位升级返回 `plugin.reset_required`；管理员、OneBot、治理和审计状态不参与插件重置。
 
 ## Phase 2.6 — Independent Plugin Store / Development Workspace

@@ -1,5 +1,5 @@
 {
-  "manifest_version": 4,
+  "manifest_version": 5,
   "resources": [
     {
       "id": "chromium-linux-x64",

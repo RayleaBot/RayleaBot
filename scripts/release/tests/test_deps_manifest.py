@@ -21,12 +21,12 @@ def has_source_url(urls: list[str], host: str, path_prefix: str) -> bool:
 class DepsManifestMetadataTests(unittest.TestCase):
     def test_manifest_shape_tracks_bootstrap_ready_contract(self) -> None:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(4, manifest.get("manifest_version"))
+        self.assertEqual(5, manifest.get("manifest_version"))
         resources = manifest.get("resources", [])
-        self.assertEqual(3, len(resources))
+        self.assertEqual(6, len(resources))
         self.assertEqual({"windows-x64", "linux-x64", "macos-arm64"}, {item.get("platform") for item in resources})
         for resource in resources:
-            self.assertEqual("chromium", resource.get("kind"), resource)
+            self.assertIn(resource.get("kind"), {"chromium", "ffmpeg"}, resource)
             self.assertIn(resource.get("archive_format"), {"zip", "tar.gz", "tar.xz"}, resource)
             sources = resource.get("sources")
             self.assertIsInstance(sources, list, resource)
@@ -56,6 +56,8 @@ class DepsManifestMetadataTests(unittest.TestCase):
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         resources = manifest.get("resources", [])
         for resource in resources:
+            if resource.get("kind") != "chromium":
+                continue
             sources = resource.get("sources")
             sha256 = resource.get("sha256")
             self.assertIsInstance(sources, list, resource)
@@ -70,9 +72,21 @@ class DepsManifestMetadataTests(unittest.TestCase):
             self.assertIn(resource.get("archive_format"), {"zip", "tar.gz", "tar.xz"}, resource)
             self.assertEqual(["browser"], list(resource.get("entrypoints", {})), resource)
 
+    def test_ffmpeg_resources_have_pinned_gpl_archives_and_tools(self) -> None:
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+        resources = [item for item in manifest.get("resources", []) if item.get("kind") == "ffmpeg"]
+        self.assertEqual(3, len(resources))
+        for resource in resources:
+            self.assertRegex(resource.get("sha256", ""), SHA256_PATTERN, resource)
+            self.assertEqual({"ffmpeg", "ffprobe"}, set(resource.get("entrypoints", {})), resource)
+            urls = [source.get("url", "") for source in resource.get("sources", [])]
+            self.assertTrue(all("/releases/download/" in url and "/latest/" not in url for url in urls), resource)
+
     def test_chromium_resources_include_upstream_and_trusted_mirror(self) -> None:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
         for resource in manifest.get("resources", []):
+            if resource.get("kind") != "chromium":
+                continue
             urls = [source.get("url", "") for source in resource.get("sources", []) if isinstance(source, dict)]
             self.assertTrue(has_source_url(urls, "storage.googleapis.com", "/chrome-for-testing-public/"), resource)
             self.assertTrue(has_source_url(urls, "npmmirror.com", "/mirrors/chrome-for-testing/"), resource)

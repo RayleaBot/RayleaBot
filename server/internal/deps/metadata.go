@@ -117,6 +117,8 @@ func RequiredEntrypoints(resource *Resource) []string {
 	switch resource.Kind {
 	case "chromium":
 		return []string{"browser"}
+	case "ffmpeg":
+		return []string{"ffmpeg", "ffprobe"}
 	default:
 		return nil
 	}

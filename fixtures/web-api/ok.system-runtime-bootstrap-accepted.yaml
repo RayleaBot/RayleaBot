@@ -7,6 +7,7 @@ request:
   body:
     resources:
       - chromium
+      - ffmpeg
 response:
   status: 202
   body:

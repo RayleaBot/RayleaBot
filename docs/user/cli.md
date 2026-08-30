@@ -19,7 +19,7 @@ CLI 是本地离线恢复与运维入口，不是第二套常规在线管理面�
 | `raylea reset-admin` | 重置管理员凭据并重新进入初始化向导 |
 | `raylea backup` | 创建恢复用备份 |
 | `raylea restore <backup-path>` | 在停服窗口从指定备份包恢复配置、状态与插件目录 |
-| `raylea doctor` | 检查配置与 schema、SQLite `quick_check`、deps / Chromium 元数据、退役配置键和恢复摘要 |
+| `raylea doctor` | 检查配置与 schema、SQLite `quick_check`、deps / Chromium / FFmpeg 元数据、退役配置键和恢复摘要 |
 | `raylea cleanup` | 清理可重建缓存和临时目录 |
 
 需要覆盖默认配置位置时，把全局参数放在子命令之前：
@@ -57,6 +57,6 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 
 ## 当前环境检查重点
 
-- `doctor` 会检查配置文件可访问性与配置 schema 可用性、SQLite `quick_check`、`.deps/manifest.json` 当前平台项与 Chromium 元数据、退役插件运行时配置键，并在存在时附带恢复摘要。
+- `doctor` 会检查配置文件可访问性与配置 schema 可用性、SQLite `quick_check`、`.deps/manifest.json` 当前平台的 Chromium 与 FFmpeg 元数据、退役插件运行时配置键，并在存在时附带恢复摘要。
 - Windows 上还会读取 `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled`。禁用或无法读取时返回 warning；可通过组策略或把该 DWORD 设为 `1` 启用。注册表值可能已被进程缓存，修改后可能需要重启 Windows。
 - 长路径支持可避免 `plugins/installed/`、`.deps/store/` 和 `cache/downloads/` 下的深层 artifact 路径超过传统限制。

@@ -82,7 +82,7 @@
 - 图片渲染 Chromium 使用 `chromedp` 调用 Chromium 系浏览器可执行文件。
 - 已准备的 `.deps` Chromium 是默认托管资源；`.deps` 未准备且系统 Chrome、Chromium 或 Edge 可用时，平台会直接复用系统浏览器。
 - 模板基线目录问题通过启动日志、`/readyz`、系统 diagnostics 和管理面暴露。
-- 实际浏览器可用性通过启动检查、`/readyz`、系统 diagnostics 与 Launcher 状态暴露；CLI `doctor` 在渲染资源范围内只检查 deps 清单与 Chromium 元数据。
+- 实际浏览器可用性通过启动检查、`/readyz`、系统 diagnostics 与 Launcher 状态暴露；CLI `doctor` 检查 deps 清单、Chromium 与 FFmpeg 元数据，其中渲染服务只消费 Chromium `browser` 入口。
 - `render.browser_path` 可显式指定 Chromium 系浏览器可执行文件路径。
 - Wails 桌面 WebView 不属于图片渲染浏览器入口。
 - 运行环境资源可按需下载到 `cache/downloads/runtime/`，并展开到 `.deps/store/<resource-id>/<version>/`。

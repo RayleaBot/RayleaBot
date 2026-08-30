@@ -1300,7 +1300,7 @@ export interface components {
         };
         SystemDiagnosticsDependency: {
             /** @enum {string} */
-            kind: "chromium";
+            kind: "chromium" | "ffmpeg";
             /** @enum {string} */
             status: "ready" | "cached" | "on_demand" | "metadata_incomplete" | "unavailable";
             metadata_complete: boolean;
@@ -1574,7 +1574,7 @@ export interface components {
             task_id: string;
         };
         /** @enum {string} */
-        RuntimeBootstrapResource: "chromium";
+        RuntimeBootstrapResource: "chromium" | "ffmpeg";
         RuntimeBootstrapRequest: {
             resources?: components["schemas"]["RuntimeBootstrapResource"][];
         };

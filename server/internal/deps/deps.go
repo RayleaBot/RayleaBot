@@ -280,6 +280,8 @@ func bootstrapRemediation(kind, archivePath, storeRoot string) string {
 	switch kind {
 	case "chromium":
 		return "启动运行环境任务准备图片渲染 Chromium，或在配置中设置 render.browser_path。" + locationText
+	case "ffmpeg":
+		return "启动运行环境任务准备 FFmpeg 媒体工具。" + locationText
 	default:
 		return "启动运行环境任务准备依赖。" + locationText
 	}
@@ -289,6 +291,8 @@ func managedResourceLabel(kind string) string {
 	switch kind {
 	case "chromium":
 		return "图片渲染 Chromium"
+	case "ffmpeg":
+		return "FFmpeg 媒体工具"
 	default:
 		return "运行环境"
 	}
@@ -296,7 +300,7 @@ func managedResourceLabel(kind string) string {
 
 func managedResourceText(kind, suffix string) string {
 	label := managedResourceLabel(kind)
-	if kind == "chromium" && strings.TrimSpace(suffix) != "" {
+	if (kind == "chromium" || kind == "ffmpeg") && strings.TrimSpace(suffix) != "" {
 		return label + " " + suffix
 	}
 	return label + suffix

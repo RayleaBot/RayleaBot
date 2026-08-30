@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
@@ -96,7 +98,7 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		Runtime:              snapshot.Runtime,
 		Command:              verified.BackendPath,
 		Args:                 nil,
-		Env:                  nil,
+		Env:                  managedRuntimeEnvironment(repoRoot),
 		WorkDir:              verified.Root,
 		EntryPath:            verified.BackendPath,
 		InitTimeout:          initTimeout,
@@ -108,6 +110,29 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		IPCActionBurstWindow: burstLimit.Window,
 		IPCMessageMaxBytes:   positiveInt(runtimeConfig.IPCMessageMaxBytes, 8*1024*1024),
 	}, nil
+}
+
+func managedRuntimeEnvironment(repoRoot string) []string {
+	if strings.TrimSpace(repoRoot) == "" {
+		return nil
+	}
+	runtimeDeps := deps.NewRuntime(repoRoot)
+	bindings := []struct {
+		name       string
+		entrypoint string
+	}{
+		{name: "RAYLEABOT_FFMPEG_PATH", entrypoint: "ffmpeg"},
+		{name: "RAYLEABOT_FFPROBE_PATH", entrypoint: "ffprobe"},
+	}
+	environment := make([]string, 0, len(bindings))
+	for _, binding := range bindings {
+		path, err := runtimeDeps.ResolvePreparedEntrypoint("ffmpeg", binding.entrypoint)
+		if err != nil || strings.TrimSpace(path) == "" {
+			continue
+		}
+		environment = append(environment, binding.name+"="+path)
+	}
+	return environment
 }
 
 func effectivePluginConcurrency(manifestConcurrency int, maxPerPlugin int) int {

@@ -42,13 +42,15 @@ type StartupRuntimeState struct {
 }
 
 func startupRuntimeKinds() []string {
-	return []string{"chromium"}
+	return []string{"chromium", "ffmpeg"}
 }
 
 func managedRuntimeLabel(kind string) string {
 	switch kind {
 	case "chromium":
 		return "图片渲染 Chromium"
+	case "ffmpeg":
+		return "FFmpeg 媒体工具"
 	default:
 		return deps.ManagedResourceLabel(kind)
 	}
@@ -115,6 +117,7 @@ func (s *Service) startupRequiredRuntimeKinds() []string {
 	if strings.TrimSpace(s.config().Render.BrowserPath) == "" {
 		kinds = append(kinds, "chromium")
 	}
+	kinds = append(kinds, "ffmpeg")
 	return kinds
 }
 
@@ -141,7 +144,7 @@ func startupMetadataIssue(kind string) recovery.CompatibilityIssue {
 		Code:        "platform.resource_missing",
 		Severity:    "warning",
 		Summary:     managedRuntimeLabel(kind) + "元数据不完整。",
-		Remediation: "请补齐当前平台 Chromium 的 archive_format、entrypoints、来源列表与 sha256。",
+		Remediation: "请补齐当前平台运行时资源的 archive_format、entrypoints、来源列表与 sha256。",
 	}
 }
 
@@ -358,6 +361,8 @@ func runtimePrepareKindLabel(kind string) string {
 	switch strings.TrimSpace(kind) {
 	case "chromium":
 		return "图片渲染 Chromium"
+	case "ffmpeg":
+		return "FFmpeg 媒体工具"
 	default:
 		if kind = strings.TrimSpace(kind); kind != "" {
 			return kind
