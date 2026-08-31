@@ -5,6 +5,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   PlusOutlined,
+  QuestionCircleOutlined,
   QrcodeOutlined,
   ReloadOutlined,
   SaveOutlined,
@@ -675,18 +676,29 @@ function timeText(value?: string | null) {
       <section class="accounts-panel">
         <div class="accounts-panel__header">
           <div>
-            <h2>{{ t('builtinFeatures.thirdPartyAccounts.accountTitle') }}</h2>
+            <div class="accounts-panel__title">
+              <h2>{{ t('builtinFeatures.thirdPartyAccounts.accountTitle') }}</h2>
+              <a-popover
+                placement="bottomLeft"
+                :trigger="['hover', 'click']"
+                :overlay-style="{ maxWidth: '360px' }"
+              >
+                <template #title>{{ t('builtinFeatures.thirdPartyAccounts.credentialAuthorityTitle') }}</template>
+                <template #content>
+                  {{ t('builtinFeatures.thirdPartyAccounts.credentialAuthorityHint') }}
+                </template>
+                <button
+                  type="button"
+                  class="accounts-panel__help"
+                  :aria-label="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityAction')"
+                >
+                  <QuestionCircleOutlined aria-hidden="true" />
+                </button>
+              </a-popover>
+            </div>
             <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
           </div>
         </div>
-
-        <a-alert
-          class="credential-authority-note"
-          type="info"
-          show-icon
-          :message="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityTitle')"
-          :description="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityHint')"
-        />
 
         <div v-if="!hasAccounts && !hasEditorCards" class="accounts-empty">
           <span>{{ t('builtinFeatures.thirdPartyAccounts.noAccounts') }}</span>
@@ -995,22 +1007,36 @@ function timeText(value?: string | null) {
   gap: var(--space-md);
 }
 
-.credential-authority-note {
-  border-color: var(--border);
-  border-radius: var(--radius-md);
+.accounts-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.accounts-panel__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms ease, background-color 140ms ease;
+}
+
+.accounts-panel__help:hover,
+.accounts-panel__help:focus-visible {
+  color: var(--brand-foreground);
   background: var(--surface-soft);
 }
 
-.credential-authority-note :deep(.ant-alert-icon) {
-  color: var(--brand-foreground);
-}
-
-.credential-authority-note :deep(.ant-alert-message) {
-  color: var(--text);
-}
-
-.credential-authority-note :deep(.ant-alert-description) {
-  color: var(--muted);
+.accounts-panel__help:focus-visible {
+  outline: 2px solid var(--brand-stroke);
+  outline-offset: 2px;
 }
 
 .accounts-panel__header {

@@ -2415,6 +2415,9 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   await page.goto('/third-party-accounts')
   await expect(page.getByRole('heading', { name: '三方账号', level: 1 })).toBeVisible()
   await expect(page.locator('.source-summary-strip')).toHaveCount(0)
+  const credentialAuthorityHelp = page.getByRole('button', { name: '查看账号状态说明' })
+  await expect(credentialAuthorityHelp).toBeVisible()
+  await credentialAuthorityHelp.click()
   await expect(page.getByText('单次 HTTP 403 不会直接判定 CK 失效')).toBeVisible()
 
   const accountCard = page.locator('.account-card').filter({ hasText: '测试账号昵称' }).first()
