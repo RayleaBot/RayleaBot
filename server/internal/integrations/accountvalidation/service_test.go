@@ -273,7 +273,9 @@ func TestPluginValidationRequestRunsWhenScheduledChecksAreDisabled(t *testing.T)
 		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{State: thirdparty.CredentialInvalid, CheckedAt: &checkedAt}, nil
 	})
 	changed := make(chan struct{}, 1)
-	service := newService(store, validator, 0, nil, func() time.Time { return now }, func() {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logs, nil))
+	service := newService(store, validator, 0, logger, func() time.Time { return now }, func() {
 		select {
 		case changed <- struct{}{}:
 		default:
@@ -305,6 +307,17 @@ func TestPluginValidationRequestRunsWhenScheduledChecksAreDisabled(t *testing.T)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("Run did not stop after context cancellation")
+	}
+	logOutput := logs.String()
+	for _, expected := range []string{
+		"服务器复检完成：最终 CK 状态为失效",
+		`"observation":"session_blocked"`,
+		`"reported_http_status":432`,
+		`"final_state":"invalid"`,
+	} {
+		if !strings.Contains(logOutput, expected) {
+			t.Fatalf("plugin validation log missing %q: %s", expected, logOutput)
+		}
 	}
 }
 

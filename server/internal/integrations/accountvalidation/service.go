@@ -338,20 +338,24 @@ func (s *Service) runPluginRequests(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case request := <-s.pluginRequests:
-			_, err := s.validateAccount(ctx, request.platform, request.accountID, TriggerPlugin, request.requestedAt)
-			if err != nil && s.logger != nil && !errors.Is(err, context.Canceled) {
-				s.logger.Warn(
-					fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 后，服务器校验失败；凭据状态未被插件直接修改，请稍后重试。原因：%s", request.pluginID, request.platform, request.accountID, err.Error()),
-					"component", "third_party_account_validation",
-					"trigger", string(TriggerPlugin),
-					"plugin_id", request.pluginID,
-					"platform", request.platform,
-					"account_id", request.accountID,
-					"observation", request.observation,
-					"http_status", request.httpStatus,
-					"error_kind", "validation",
-				)
+			account, err := s.validateAccount(ctx, request.platform, request.accountID, TriggerPlugin, request.requestedAt)
+			if err != nil {
+				if s.logger != nil && !errors.Is(err, context.Canceled) {
+					s.logger.Warn(
+						fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 后，服务器校验失败；凭据状态未被插件直接修改，请稍后重试。原因：%s", request.pluginID, request.platform, request.accountID, err.Error()),
+						"component", "third_party_account_validation",
+						"trigger", string(TriggerPlugin),
+						"plugin_id", request.pluginID,
+						"platform", request.platform,
+						"account_id", request.accountID,
+						"observation", request.observation,
+						"http_status", request.httpStatus,
+						"error_kind", "validation",
+					)
+				}
+				continue
 			}
+			s.logPluginValidationResult(request, account)
 		}
 	}
 }
@@ -468,7 +472,7 @@ func (s *Service) logPluginRequest(pluginID, platform, accountID, observation st
 	if s.logger == nil {
 		return
 	}
-	message := fmt.Sprintf("插件 %s 请求复检 %s 账号 %s：观察 %s 已接收，最终凭据状态由服务器校验决定。", pluginID, platform, accountID, observation)
+	message := fmt.Sprintf("插件 %s 报告 %s 账号 %s 的平台接口异常；服务器复检已排队，完成前不会据此改写 Web 账号状态。", pluginID, platform, accountID)
 	if !accepted {
 		message = fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 未被接收；凭据状态未改变。原因：%s", pluginID, platform, accountID, strings.TrimSpace(reason))
 	}
@@ -484,4 +488,47 @@ func (s *Service) logPluginRequest(pluginID, platform, accountID, observation st
 		"accepted", accepted,
 		"reason", reason,
 	)
+}
+
+func (s *Service) logPluginValidationResult(request pluginValidationRequest, account thirdparty.Account) {
+	if s.logger == nil {
+		return
+	}
+	checkedAt := ""
+	if account.Credential.CheckedAt != nil {
+		checkedAt = account.Credential.CheckedAt.UTC().Format(time.RFC3339Nano)
+	}
+	stateLabel := "暂时无法确认"
+	if account.Credential.State == thirdparty.CredentialValid {
+		stateLabel = "有效"
+	} else if account.Credential.State == thirdparty.CredentialInvalid {
+		stateLabel = "失效"
+	}
+	message := fmt.Sprintf(
+		"插件 %s 报告 %s 账号 %s 的平台接口异常后，服务器复检完成：最终 CK 状态为%s；Web 账号状态以本次服务器检查结果为准。",
+		request.pluginID,
+		request.platform,
+		request.accountID,
+		stateLabel,
+	)
+	args := []any{
+		"component", "third_party_account_validation",
+		"trigger", string(TriggerPlugin),
+		"plugin_id", request.pluginID,
+		"platform", request.platform,
+		"account_id", request.accountID,
+		"observation", request.observation,
+		"reported_http_status", request.httpStatus,
+		"final_state", account.Credential.State,
+		"checked_at", checkedAt,
+	}
+	if account.Credential.State == thirdparty.CredentialValid {
+		s.logger.Info(message, args...)
+		return
+	}
+	if account.Credential.State == thirdparty.CredentialInvalid {
+		s.logger.Warn(message+" 请重新登录。", args...)
+		return
+	}
+	s.logger.Warn(message+" 请稍后重试。", args...)
 }
