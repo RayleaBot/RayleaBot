@@ -11,7 +11,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons-vue'
 
-import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { notifyError, notifySuccess, notifyWarning, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
@@ -271,8 +271,14 @@ function requestDeleteAccount(account: ThirdPartyAccountSummary) {
 
 async function validateAccount(account: ThirdPartyAccountSummary) {
   try {
-    await store.validateAccount(account.platform, account.account_id)
-    notifySuccess(t('builtinFeatures.thirdPartyAccounts.credentialValidated'))
+    const validated = await store.validateAccount(account.platform, account.account_id)
+    if (validated.credential.state === 'valid') {
+      notifySuccess(t('builtinFeatures.thirdPartyAccounts.credentialValidatedValid'))
+    } else if (validated.credential.state === 'invalid') {
+      notifyWarning(t('builtinFeatures.thirdPartyAccounts.credentialValidatedInvalid'))
+    } else {
+      notifyWarning(t('builtinFeatures.thirdPartyAccounts.credentialValidatedUnknown'))
+    }
   } catch (err) {
     notifyError(getDisplayErrorMessage(err))
   }
@@ -674,6 +680,14 @@ function timeText(value?: string | null) {
           </div>
         </div>
 
+        <a-alert
+          class="credential-authority-note"
+          type="info"
+          show-icon
+          :message="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityTitle')"
+          :description="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityHint')"
+        />
+
         <div v-if="!hasAccounts && !hasEditorCards" class="accounts-empty">
           <span>{{ t('builtinFeatures.thirdPartyAccounts.noAccounts') }}</span>
           <div class="accounts-empty__actions">
@@ -979,6 +993,24 @@ function timeText(value?: string | null) {
 .accounts-panel {
   display: grid;
   gap: var(--space-md);
+}
+
+.credential-authority-note {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.credential-authority-note :deep(.ant-alert-icon) {
+  color: var(--brand-foreground);
+}
+
+.credential-authority-note :deep(.ant-alert-message) {
+  color: var(--text);
+}
+
+.credential-authority-note :deep(.ant-alert-description) {
+  color: var(--muted);
 }
 
 .accounts-panel__header {

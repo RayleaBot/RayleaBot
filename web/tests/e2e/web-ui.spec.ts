@@ -2415,11 +2415,12 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   await page.goto('/third-party-accounts')
   await expect(page.getByRole('heading', { name: '三方账号', level: 1 })).toBeVisible()
   await expect(page.locator('.source-summary-strip')).toHaveCount(0)
+  await expect(page.getByText('单次 HTTP 403 不会直接判定 CK 失效')).toBeVisible()
 
   const accountCard = page.locator('.account-card').filter({ hasText: '测试账号昵称' }).first()
   await expect(accountCard).toBeVisible()
   await expect(accountCard).toContainText('UID 123456')
-  await expect(accountCard).toContainText('上次检查有效')
+  await expect(accountCard).toContainText('服务器确认有效')
   const avatarImage = accountCard.getByTestId('bilibili-account-avatar-image')
   await expect(avatarImage).toBeVisible()
   await expect(avatarImage).toHaveAttribute('src', '/api/third-party/accounts/bilibili/primary/avatar')
@@ -2467,7 +2468,7 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
   await expect(scannedInputs.nth(1)).toHaveValue('测试账号昵称')
   const savedQRCodeAccountCards = page.locator('.account-card').filter({ hasText: '账号 ID123456' })
   await expect(savedQRCodeAccountCards).toHaveCount(1)
-  await expect(scannedAccountCard).toContainText('上次检查有效')
+  await expect(scannedAccountCard).toContainText('服务器确认有效')
   const saveRequestOrder: string[] = []
   const recordSaveRequest = (request: import('@playwright/test').Request) => {
     const url = new URL(request.url())
@@ -2550,17 +2551,17 @@ test('third-party account manual check updates an expired Weibo CK', async ({ pa
 
   await page.goto('/third-party-accounts')
   const accountCard = page.locator('.account-card').filter({ hasText: '微博扫码账号' }).first()
-  await expect(accountCard).toContainText('CK 状态未知')
+  await expect(accountCard).toContainText('等待服务器确认')
   const validateButton = accountCard.getByRole('button', { name: '检查 CK' })
   await validateButton.click()
   await expect(validateButton).toHaveClass(/ant-btn-loading/)
-  await expect(accountCard).toContainText('CK 已失效')
+  await expect(accountCard).toContainText('服务器确认失效')
   await expect(accountCard).toContainText('微博账号 CK 已失效，请重新扫码')
-  await expect(page.getByText('CK 检查完成')).toBeVisible()
+  await expect(page.getByText('服务器已确认 CK 失效，请重新登录')).toBeVisible()
 
   await page.reload()
   const persistedCard = page.locator('.account-card').filter({ hasText: '微博扫码账号' }).first()
-  await expect(persistedCard).toContainText('CK 已失效')
+  await expect(persistedCard).toContainText('服务器确认失效')
 })
 
 test('third-party QR login survives a transient polling failure', async ({ page, request }) => {
