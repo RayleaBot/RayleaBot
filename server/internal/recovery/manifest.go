@@ -20,6 +20,8 @@ func BuildBackupManifest(repoRoot string, consistency string) BackupManifest {
 		ConfigSchemaVersion:   config.CurrentSchemaVersion(),
 		DBSchemaVersion:       storage.CurrentSchemaVersion(),
 		PluginManifestVersion: PluginManifestVersion,
+		PluginProtocolVersion: PluginProtocolVersion,
+		PluginArtifactVersion: PluginArtifactVersion,
 		PluginUIBridgeVersion: PluginUIBridgeVersion,
 		Consistency:           strings.TrimSpace(consistency),
 		Plugins:               loadManifestPlugins(filepath.Join(repoRoot, "plugins", "installed")),
@@ -84,13 +86,16 @@ func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 			continue
 		}
 		item := BackupManifestPlugin{
-			PluginID:          stringValue(raw["id"]),
-			ManifestVersion:   stringValue(raw["manifest_version"]),
-			Version:           stringValue(raw["version"]),
-			MinCoreVersion:    stringValue(raw["min_core_version"]),
-			DataSchemaVersion: stringValue(raw["data_schema_version"]),
-			Platforms:         stringSlice(raw["platforms"]),
-			SourceRoot:        "plugins/installed",
+			PluginID:        stringValue(raw["id"]),
+			ManifestVersion: stringValue(raw["manifest_version"]),
+			Version:         stringValue(raw["version"]),
+			MinCoreVersion:  stringValue(raw["min_core_version"]),
+			SourceRoot:      "plugins/installed",
+		}
+		if item.ManifestVersion == PluginManifestVersion {
+			item.ProtocolVersion = PluginProtocolVersion
+		} else {
+			item.ProtocolVersion = stringValue(raw["plugin_protocol_version"])
 		}
 		artifactPayload, artifactErr := os.ReadFile(filepath.Join(pluginsRoot, entry.Name(), "artifact.json"))
 		if artifactErr == nil {

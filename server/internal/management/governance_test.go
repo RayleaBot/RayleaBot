@@ -258,8 +258,8 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			Commands: []plugins.Command{
-				{Name: "forecast", Permission: "super_admin", Aliases: []string{"fc"}},
-				{Name: "current"},
+				{ID: "forecast", Name: "forecast", TriggerType: "exact", Permission: "super_admin", Aliases: []string{"fc"}},
+				{ID: "current", Name: "current", TriggerType: "exact"},
 			},
 		},
 	})
@@ -285,10 +285,10 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 	if len(payload.Commands) != 2 {
 		t.Fatalf("len(commands) = %d, want 2", len(payload.Commands))
 	}
-	if payload.Commands[0].Command != "current" || payload.Commands[0].CommandSource != "manifest" || payload.Commands[0].EffectivePermission != "group_admin" || payload.Commands[0].PermissionSource != "default_level" {
+	if payload.Commands[0].CommandID != "current" || payload.Commands[0].Command != "current" || payload.Commands[0].Trigger.Type != "exact" || payload.Commands[0].EffectivePermission != "group_admin" || payload.Commands[0].PermissionSource != "default_level" {
 		t.Fatalf("unexpected default permission projection: %#v", payload.Commands[0])
 	}
-	if payload.Commands[1].Command != "forecast" || payload.Commands[1].CommandSource != "manifest" || payload.Commands[1].EffectivePermission != "super_admin" || payload.Commands[1].DeclaredPermission == nil || *payload.Commands[1].DeclaredPermission != "super_admin" {
+	if payload.Commands[1].CommandID != "forecast" || payload.Commands[1].Command != "forecast" || payload.Commands[1].Trigger.Type != "exact" || payload.Commands[1].EffectivePermission != "super_admin" || payload.Commands[1].DeclaredPermission == nil || *payload.Commands[1].DeclaredPermission != "super_admin" {
 		t.Fatalf("unexpected declared permission projection: %#v", payload.Commands[1])
 	}
 }

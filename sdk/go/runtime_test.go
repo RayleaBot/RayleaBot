@@ -23,6 +23,175 @@ func TestRuntimeStateClearsBotIdentity(t *testing.T) {
 	}
 }
 
+func TestConfigChangedReplacesAtomicSnapshot(t *testing.T) {
+	state := &runtimeState{}
+	state.config.Store(&configSnapshot{values: map[string]any{"mode": "old"}})
+	if err := state.applyControlEvent(Event{
+		EventType: "config.changed",
+		Payload: map[string]any{
+			"config":       map[string]any{"mode": "new", "nested": map[string]any{"enabled": true}},
+			"changed_keys": []any{"mode", "nested"},
+		},
+	}); err != nil {
+		t.Fatalf("applyControlEvent: %v", err)
+	}
+
+	first := state.newEventContext("event-1", Event{})
+	if first.Config["mode"] != "new" {
+		t.Fatalf("config snapshot = %#v", first.Config)
+	}
+	first.Config["mode"] = "mutated"
+	first.Config["nested"].(map[string]any)["enabled"] = false
+	second := state.newEventContext("event-2", Event{})
+	if second.Config["mode"] != "new" || second.Config["nested"].(map[string]any)["enabled"] != true {
+		t.Fatalf("config snapshot was not isolated: %#v", second.Config)
+	}
+}
+
+func TestConfigChangedClearsSnapshotAndRejectsInvalidPayload(t *testing.T) {
+	state := &runtimeState{}
+	state.config.Store(&configSnapshot{values: map[string]any{"mode": "old"}})
+
+	if err := state.applyControlEvent(Event{
+		EventType: "config.changed",
+		Payload:   map[string]any{"config": map[string]any{}, "changed_keys": []any{"mode"}},
+	}); err != nil {
+		t.Fatalf("apply empty config: %v", err)
+	}
+	if snapshot := state.newEventContext("event-empty", Event{}).Config; len(snapshot) != 0 {
+		t.Fatalf("empty config did not clear the previous snapshot: %#v", snapshot)
+	}
+
+	tests := []Event{
+		{EventType: "config.changed", Payload: map[string]any{"changed_keys": []any{"mode"}}},
+		{EventType: "config.changed", Payload: map[string]any{"config": "invalid", "changed_keys": []any{"mode"}}},
+	}
+	for _, event := range tests {
+		if err := state.applyControlEvent(event); err == nil {
+			t.Fatalf("invalid config.changed payload was accepted: %#v", event.Payload)
+		}
+	}
+}
+
+func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T) {
+	inputReader, inputWriter := io.Pipe()
+	outputReader, outputWriter := io.Pipe()
+	defer inputReader.Close()
+	defer outputReader.Close()
+
+	type observation struct {
+		eventType string
+		config    map[string]any
+		bot       Bot
+	}
+	observations := make(chan observation, 4)
+	handler := HandlerFunc(func(_ context.Context, event *EventContext) error {
+		observations <- observation{
+			eventType: event.Event.EventType,
+			config:    event.Config,
+			bot:       event.Bot,
+		}
+		return event.Result(map[string]any{})
+	})
+
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- Run(context.Background(), Options{Stdin: inputReader, Stdout: outputWriter}, handler)
+	}()
+	encoder := json.NewEncoder(inputWriter)
+	decoder := json.NewDecoder(outputReader)
+	writeFrame(t, encoder, protocolFrame{
+		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init",
+		Bot: Bot{ID: "old-bot"}, Config: map[string]any{"mode": "initial"},
+		EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 4,
+	})
+	var frame protocolFrame
+	decodeFrame(t, decoder, &frame)
+
+	writeRuntimeEvent(t, encoder, "config-a", Event{
+		EventID: "config-a", EventType: "config.changed",
+		Payload: map[string]any{"config": map[string]any{"mode": "A"}, "changed_keys": []string{"mode"}},
+	})
+	writeRuntimeEvent(t, encoder, "config-b", Event{
+		EventID: "config-b", EventType: "config.changed",
+		Payload: map[string]any{"config": map[string]any{"mode": "B"}, "changed_keys": []string{"mode"}},
+	})
+	writeRuntimeEvent(t, encoder, "bot-new", Event{
+		EventID: "bot-new", EventType: "bot.identity.changed",
+		Target: Target{Type: "bot", ID: "new-bot"},
+	})
+	writeRuntimeEvent(t, encoder, "message", Event{EventID: "message", EventType: "message"})
+
+	for range 4 {
+		decodeFrame(t, decoder, &frame)
+		if frame.Type != "result" {
+			t.Fatalf("unexpected terminal frame: %#v", frame)
+		}
+	}
+
+	var message observation
+	for range 4 {
+		item := <-observations
+		if item.eventType == "message" {
+			message = item
+		}
+	}
+	if message.config["mode"] != "B" || message.bot.ID != "new-bot" {
+		t.Fatalf("message observed stale control state: %#v", message)
+	}
+
+	writeFrame(t, encoder, protocolFrame{Type: "shutdown", RequestID: "shutdown", Reason: "stop"})
+	if err := <-runDone; err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+}
+
+func TestRunRejectsConfigChangedWithoutSnapshotAndContinues(t *testing.T) {
+	inputReader, inputWriter := io.Pipe()
+	outputReader, outputWriter := io.Pipe()
+	defer inputReader.Close()
+	defer outputReader.Close()
+
+	handled := make(chan string, 1)
+	handler := HandlerFunc(func(_ context.Context, event *EventContext) error {
+		handled <- event.Event.EventID
+		return event.Result(map[string]any{})
+	})
+	runDone := make(chan error, 1)
+	go func() {
+		runDone <- Run(context.Background(), Options{Stdin: inputReader, Stdout: outputWriter}, handler)
+	}()
+	encoder := json.NewEncoder(inputWriter)
+	decoder := json.NewDecoder(outputReader)
+	writeFrame(t, encoder, protocolFrame{
+		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init",
+		Config: map[string]any{"mode": "initial"}, EffectivePermissions: []string{},
+		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
+	})
+	var frame protocolFrame
+	decodeFrame(t, decoder, &frame)
+
+	writeRuntimeEvent(t, encoder, "invalid-config", Event{
+		EventID: "invalid-config", EventType: "config.changed",
+		Payload: map[string]any{"changed_keys": []string{"mode"}},
+	})
+	decodeFrame(t, decoder, &frame)
+	if frame.Type != "error" || frame.Code != "plugin.protocol_violation" {
+		t.Fatalf("invalid config.changed response = %#v", frame)
+	}
+
+	writeRuntimeEvent(t, encoder, "message-after-error", Event{EventID: "message-after-error", EventType: "message"})
+	decodeFrame(t, decoder, &frame)
+	if frame.Type != "result" || <-handled != "message-after-error" {
+		t.Fatalf("runtime did not continue after protocol violation: %#v", frame)
+	}
+
+	writeFrame(t, encoder, protocolFrame{Type: "shutdown", RequestID: "shutdown", Reason: "stop"})
+	if err := <-runDone; err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+}
+
 func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testing.T) {
 	inputReader, inputWriter := io.Pipe()
 	outputReader, outputWriter := io.Pipe()
@@ -43,17 +212,17 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 	runDone := make(chan error, 1)
 	go func() {
 		runDone <- Run(context.Background(), Options{
-			PluginID:              "test-plugin",
-			Stdin:                 inputReader,
-			Stdout:                outputWriter,
-			ActionTimeout:         time.Second,
-			MaxConcurrentHandlers: 2,
+			Stdin: inputReader, Stdout: outputWriter, ActionTimeout: time.Second,
 		}, handler)
 	}()
 
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
-	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "1", Type: "init", PluginID: "test-plugin", RequestID: "init-1"})
+	writeFrame(t, encoder, protocolFrame{
+		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init-1",
+		Config: map[string]any{"enabled": true}, EffectivePermissions: []string{"storage.kv"},
+		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 2,
+	})
 	var initAck protocolFrame
 	decodeFrame(t, decoder, &initAck)
 	if initAck.Type != "init_ack" || initAck.Status != "ready" {
@@ -71,7 +240,7 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 	for index := len(actions) - 1; index >= 0; index-- {
 		value := "for-" + actions[index].ParentRequestID
 		data, _ := json.Marshal(map[string]any{"value": value})
-		writeFrame(t, encoder, protocolFrame{ProtocolVersion: "1", Type: "result", PluginID: "test-plugin", RequestID: actions[index].RequestID, Data: data})
+		writeFrame(t, encoder, protocolFrame{Type: "result", RequestID: actions[index].RequestID, Data: data})
 	}
 
 	var terminal [2]protocolFrame
@@ -89,7 +258,7 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 	if !seen["alpha:for-event-1"] || !seen["beta:for-event-2"] {
 		t.Fatalf("local actions were mis-correlated: %#v", seen)
 	}
-	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "1", Type: "shutdown", PluginID: "test-plugin", RequestID: "shutdown-1"})
+	writeFrame(t, encoder, protocolFrame{Type: "shutdown", RequestID: "shutdown-1", Reason: "stop"})
 	if err := <-runDone; err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -119,11 +288,14 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 	})
 	runDone := make(chan error, 1)
 	go func() {
-		runDone <- Run(context.Background(), Options{PluginID: "test-plugin", Stdin: inputReader, Stdout: outputWriter}, handler)
+		runDone <- Run(context.Background(), Options{Stdin: inputReader, Stdout: outputWriter}, handler)
 	}()
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
-	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "1", Type: "init", PluginID: "test-plugin", RequestID: "init"})
+	writeFrame(t, encoder, protocolFrame{
+		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init",
+		Config: map[string]any{}, EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
+	})
 	var frame protocolFrame
 	decodeFrame(t, decoder, &frame)
 	writeEvent(t, encoder, "first", "first")
@@ -144,7 +316,7 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 	if frame.Type != "error" || frame.Code != "plugin.internal_error" || strings.Contains(frame.Message, "fixture-secret") {
 		t.Fatalf("panic response leaked details or used wrong code: %#v", frame)
 	}
-	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "1", Type: "shutdown", PluginID: "test-plugin", RequestID: "shutdown"})
+	writeFrame(t, encoder, protocolFrame{Type: "shutdown", RequestID: "shutdown", Reason: "stop"})
 	if err := <-runDone; err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -153,7 +325,16 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 func writeEvent(t *testing.T, encoder *json.Encoder, requestID, eventID string) {
 	t.Helper()
 	payload, _ := json.Marshal(Event{EventID: eventID, EventType: "message", Target: Target{Type: "group", ID: "100"}})
-	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "1", Type: "event", PluginID: "test-plugin", RequestID: requestID, Event: payload})
+	writeFrame(t, encoder, protocolFrame{Type: "event", RequestID: requestID, Event: payload})
+}
+
+func writeRuntimeEvent(t *testing.T, encoder *json.Encoder, requestID string, event Event) {
+	t.Helper()
+	payload, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("marshal event: %v", err)
+	}
+	writeFrame(t, encoder, protocolFrame{Type: "event", RequestID: requestID, Event: payload})
 }
 
 func writeFrame(t *testing.T, encoder *json.Encoder, frame protocolFrame) {

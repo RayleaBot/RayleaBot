@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -166,15 +167,13 @@ func RefreshPluginManifest(
 			snapshot.PackageSourceType = existing.PackageSourceType
 			snapshot.PackageSourceRef = existing.PackageSourceRef
 		}
-		settings := plugins.CloneSettings(snapshot.DefaultConfig)
+		settings := pluginstore.MergeValues(snapshot.DefaultConfig, nil)
 		if pluginConfig != nil {
 			persisted, err := pluginConfig.ReadAll(ctx, snapshot.PluginID)
 			if err != nil {
 				return plugins.Snapshot{}, fmt.Errorf("load persisted plugin settings for %s: %w", snapshot.PluginID, err)
 			}
-			for key, value := range persisted {
-				settings[key] = plugins.CloneSettingValue(value)
-			}
+			settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 		}
 		snapshot.Commands = plugincatalog.ProjectCommands(snapshot, settings)
 		if snapshot.PluginID == pluginID {
@@ -458,7 +457,7 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, m
 		return err
 	}
 
-	spec, payload, err := c.buildStartInputsWithCapabilities(pluginID, botID, c.declaredCapabilities(snapshot))
+	spec, payload, err := c.buildStartInputs(ctx, pluginID, botID)
 	if err != nil {
 		return err
 	}
@@ -525,26 +524,10 @@ func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove boo
 	if remove {
 		c.runtimes.Delete(pluginID)
 	}
-	if c.webhooks != nil {
-		c.webhooks.DeletePlugin(pluginID)
-	}
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 }
 
 func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
-	_ = ctx
-	snapshot, ok := c.plugins.Get(pluginID)
-	if !ok {
-		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrPluginNotFound
-	}
-	return c.buildStartInputsWithCapabilities(pluginID, botID, c.declaredCapabilities(snapshot))
-}
-
-func (c *Controller) declaredCapabilities(snapshot plugins.Snapshot) []string {
-	return plugins.DedupeCapabilities(snapshot.DeclaredCapabilities)
-}
-
-func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, capabilities []string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrPluginNotFound
@@ -556,15 +539,33 @@ func (c *Controller) buildStartInputsWithCapabilities(pluginID, botID string, ca
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, err
 	}
 
+	settings := pluginstore.MergeValues(snapshot.DefaultConfig, nil)
+	if c.pluginConfig != nil {
+		persisted, readErr := c.pluginConfig.ReadAll(ctx, pluginID)
+		if readErr != nil {
+			return pluginruntime.Spec{}, pluginruntime.InitPayload{}, readErr
+		}
+		settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
+	}
 	payload := pluginruntime.InitPayload{
 		Bot: pluginruntime.BotInfo{
 			ID: strings.TrimSpace(botID),
 		},
-		Capabilities:    append([]string(nil), capabilities...),
+		Config:          settings,
+		Permissions:     pluginPermissionNames(snapshot),
 		SuperAdmins:     pluginRuntimeSuperAdmins(cfg),
 		CommandPrefixes: pluginRuntimeCommandPrefixes(cfg),
 	}
 	return spec, payload, nil
+}
+
+func pluginPermissionNames(snapshot plugins.Snapshot) []string {
+	items := make([]string, 0, len(snapshot.Permissions))
+	for name := range snapshot.Permissions {
+		items = append(items, name)
+	}
+	sort.Strings(items)
+	return items
 }
 
 func pluginRuntimeCommandPrefixes(cfg config.Config) []string {
@@ -649,7 +650,6 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 	if c.dispatcher == nil || manager == nil {
 		return
 	}
-	runtimeSnapshot := manager.Snapshot()
 	concurrency := snapshot.Concurrency
 	if concurrency < 1 {
 		concurrency = 1
@@ -657,7 +657,7 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 	if max := c.config().Runtime.MaxConcurrentTasksPerPlugin; max > 0 && concurrency > max {
 		concurrency = max
 	}
-	c.dispatcher.Register(pluginID, manager, runtimeSnapshot.Subscriptions, dispatchCommands(snapshot.Commands), concurrency)
+	c.dispatcher.Register(pluginID, manager, snapshot.Events, dispatchCommands(snapshot.Commands), concurrency)
 }
 
 func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string) {
@@ -940,9 +940,6 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 				LastErrorCode:    runtimeSnapshot.LastErrorCode,
 				LastErrorMessage: runtimeSnapshot.LastErrorMessage,
 			})
-		}
-		if c.webhooks != nil {
-			c.webhooks.DeletePlugin(pluginID)
 		}
 		if c.logger != nil {
 			c.logger.Warn(

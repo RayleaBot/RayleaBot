@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4173 --strictPort",
+    "check:indent": "node ../scripts/check-web-indentation.mjs",
     "typecheck": "vue-tsc --noEmit",
     "build": "vue-tsc --noEmit && vite build",
     "test": "node ../scripts/run-vitest.mjs run",

@@ -876,8 +876,38 @@ func TestInstallServiceRejectsLegacyRuntimeManifest(t *testing.T) {
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
-	if InstallErrorCode(err) != codePluginArtifactInvalid {
-		t.Fatalf("Inspect() error = %v, want %s", err, codePluginArtifactInvalid)
+	if InstallErrorCode(err) != "plugin.contract_unsupported" {
+		t.Fatalf("Inspect() error = %v, want plugin.contract_unsupported", err)
+	}
+}
+
+func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
+	t.Parallel()
+
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "future-core-src"), "future-core")
+	infoPath := filepath.Join(sourceDir, "info.json")
+	payload, err := os.ReadFile(infoPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(payload, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["min_core_version"] = "999.0.0"
+	encoded, _ := json.MarshalIndent(manifest, "", "  ")
+	if err := os.WriteFile(infoPath, append(encoded, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refreshInstallArtifact(t, sourceDir)
+
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	defer service.Close()
+	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
+	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
+		t.Fatalf("Inspect() error = %v, want plugin.core_version_incompatible", err)
 	}
 }
 
@@ -1040,18 +1070,16 @@ func writeInstallSourcePlugin(t *testing.T, root, pluginID string) string {
 	}
 	entry := "bin/" + pluginID
 	manifest := map[string]any{
-		"id":                      pluginID,
-		"name":                    pluginID,
-		"version":                 "0.1.0",
-		"manifest_version":        "2",
-		"plugin_protocol_version": "1",
-		"runtime":                 "go",
-		"entry":                   entry,
-		"platforms":               []string{"windows-x64", "linux-x64", "macos-arm64"},
-		"license":                 "MIT",
-		"description":             "test plugin",
-		"author":                  "raylea",
-		"capabilities":            []string{"event.subscribe"},
+		"id":               pluginID,
+		"name":             pluginID,
+		"version":          "0.1.0",
+		"manifest_version": "3",
+		"license":          "MIT",
+		"min_core_version": "0.4.0",
+		"metadata": map[string]any{
+			"description": "test plugin",
+			"author":      "raylea",
+		},
 	}
 
 	manifestBytes, err := json.MarshalIndent(manifest, "", "  ")
@@ -1089,8 +1117,7 @@ func refreshInstallArtifact(t *testing.T, root string) {
 		t.Fatal(err)
 	}
 	pluginID, _ := manifest["id"].(string)
-	pluginVersion, _ := manifest["version"].(string)
-	logicalEntry, _ := manifest["entry"].(string)
+	logicalEntry := "bin/" + pluginID
 	targetPlatform, err := artifact.CurrentPlatform()
 	if err != nil {
 		t.Fatal(err)
@@ -1121,26 +1148,13 @@ func refreshInstallArtifact(t *testing.T, root string) {
 			return err
 		}
 		digest := sha256.Sum256(content)
-		role := "data"
-		switch {
-		case relative == "info.json":
-			role = "manifest"
-		case relative == filepath.ToSlash(backendRelative):
-			role = "backend"
-		case strings.HasPrefix(relative, "templates/"):
-			role = "render_template"
-		case strings.HasPrefix(relative, "ui/") || strings.HasPrefix(relative, "web/"):
-			role = "ui"
-		}
-		files = append(files, map[string]any{"path": relative, "role": role, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])})
+		files = append(files, map[string]any{"path": relative, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])})
 		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-	manifestDigest := sha256.Sum256(manifestBytes)
 	document := map[string]any{
-		"artifact_version": "1", "plugin_id": pluginID, "plugin_version": pluginVersion, "target_platform": targetPlatform,
-		"manifest_sha256": hex.EncodeToString(manifestDigest[:]), "files": files,
+		"artifact_version": "2", "target_platform": targetPlatform, "entry": backendRelative, "files": files,
 	}
 	encoded, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
@@ -1172,24 +1186,12 @@ func copyInstallTestFile(t *testing.T, source, destination string) {
 
 func addRenderTemplateDeclarationToManifest(t *testing.T, pluginRoot, templatePath string) {
 	t.Helper()
-
-	infoPath := filepath.Join(pluginRoot, "info.json")
-	bytes, err := os.ReadFile(infoPath)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
+	templateDir := filepath.Join(pluginRoot, filepath.FromSlash(templatePath))
+	if err := os.MkdirAll(templateDir, 0o755); err != nil {
+		t.Fatalf("create template directory: %v", err)
 	}
-	var manifest map[string]any
-	if err := json.Unmarshal(bytes, &manifest); err != nil {
-		t.Fatalf("decode manifest: %v", err)
-	}
-	manifest["render_templates"] = []map[string]any{{"path": templatePath}}
-	manifest["capabilities"] = []string{"event.subscribe", "render.image"}
-	encoded, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatalf("encode manifest: %v", err)
-	}
-	if err := os.WriteFile(infoPath, encoded, 0o644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	if err := os.WriteFile(filepath.Join(templateDir, "template.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write placeholder template manifest: %v", err)
 	}
 }
 

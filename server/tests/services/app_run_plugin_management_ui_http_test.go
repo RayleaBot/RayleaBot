@@ -102,11 +102,12 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 			DesiredState:        "disabled",
 			RuntimeState:        "stopped",
 			PackageRootPath:     pluginDir,
-			ArtifactVersion:     "1",
+			ArtifactVersion:     "2",
 			ArtifactUIAvailable: true,
 			ManagementUI: &plugins.ManagementUI{
+				Entry: "ui/index.html",
 				Pages: []plugins.ManagementUIPage{
-					{ID: "config", Label: "配置页面", Entry: "ui/index.html"},
+					{ID: "config", Label: "配置页面"},
 				},
 			},
 		}}),
@@ -210,11 +211,12 @@ func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
 			DesiredState:        "disabled",
 			RuntimeState:        "stopped",
 			PackageRootPath:     pluginDir,
-			ArtifactVersion:     "1",
+			ArtifactVersion:     "2",
 			ArtifactUIAvailable: true,
 			ManagementUI: &plugins.ManagementUI{
+				Entry: "ui/index.html",
 				Pages: []plugins.ManagementUIPage{
-					{ID: "config", Label: "配置页面", Entry: "ui/index.html"},
+					{ID: "config", Label: "配置页面"},
 				},
 			},
 		}}),
@@ -307,15 +309,14 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 			"unit":             "celsius",
 			"trigger_commands": []any{"默认指令"},
 		},
-		DynamicCommands: []plugins.DynamicCommandDecl{{
-			ID:          "dynamic",
-			SettingsKey: "trigger_commands",
-			Description: "动态指令",
+		ManifestCommands: []plugins.Command{{
+			ID: "dynamic", DisplayName: "动态指令", TriggerType: "setting", SettingsKey: "trigger_commands",
+			Description: "动态指令", Usage: "/动态指令", Permission: "everyone",
 		}},
 	}})
 	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{}},
+		&stubPermissionView{permissions: map[string][]stubPermission{}},
 		repo,
 		nil,
 		nil,
@@ -362,7 +363,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 	if !ok {
 		t.Fatal("expected plugin snapshot")
 	}
-	if len(snapshot.Commands) != 1 || snapshot.Commands[0].Name != "今日签" || snapshot.Commands[0].CommandSource != plugins.CommandSourceDynamic {
+	if len(snapshot.Commands) != 1 || snapshot.Commands[0].Name != "今日签" || snapshot.Commands[0].TriggerType != "setting" {
 		t.Fatalf("unexpected refreshed commands: %#v", snapshot.Commands)
 	}
 

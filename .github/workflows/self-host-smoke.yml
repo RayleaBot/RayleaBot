@@ -126,7 +126,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/recovery-plugin
-          (cd server/tests/testutil/testdata/echo-plugin && GOWORK=off go run ./tools/build -target "${{ matrix.recovery_fixture_target }}" -out "$GITHUB_WORKSPACE/dist/recovery-plugin")
+          (cd sdk/go && GOWORK=off go run ./cmd/raylea-plugin build-go --plugin "$GITHUB_WORKSPACE/server/tests/testutil/testdata/echo-plugin" --backend ./cmd/echo --target "${{ matrix.recovery_fixture_target }}" --out "$GITHUB_WORKSPACE/dist/recovery-plugin")
 
       - name: Install web dependencies
         if: steps.filter.outputs.selected == 'true'

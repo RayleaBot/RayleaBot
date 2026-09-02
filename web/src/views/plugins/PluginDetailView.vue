@@ -20,8 +20,8 @@ import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
   getConnectionStatusLabel,
-  getPluginCapabilityLabel,
-  getPluginCapabilityRawTitle,
+  getPluginPermissionLabel,
+  getPluginPermissionRawTitle,
   getPluginRoleLabel,
   getPluginStateLabel,
 } from '@/lib/display'
@@ -93,6 +93,7 @@ const {
   readyToRenderHeavyContent,
   socketStore,
 })
+void consoleViewportRef
 const uninstallDialogVisible = ref(false)
 let detailLoadVersion = 0
 let pageActive = true
@@ -160,15 +161,13 @@ const statusSummaryItems = computed(() => [
 ])
 const heroFacts = computed(() => [
   { key: 'version', label: t('plugins.fields.version'), value: getMetadataText(currentPlugin.value?.version) },
-  { key: 'runtime', label: t('plugins.fields.runtimeFamily'), value: getMetadataText(currentPlugin.value?.runtime) },
-  { key: 'entry', label: t('plugins.fields.entry'), value: getMetadataText(currentPlugin.value?.entry) },
+  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: getMetadataText(currentPlugin.value?.min_core_version) },
   { key: 'source', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
 ])
 const packageInfoRows = computed(() => [
   { key: 'author', label: t('plugins.fields.author'), value: getMetadataText(currentPlugin.value?.author) },
   { key: 'license', label: t('plugins.fields.license'), value: getMetadataText(currentPlugin.value?.license) },
   { key: 'core', label: t('plugins.fields.minCoreVersion'), value: getMetadataText(currentPlugin.value?.min_core_version) },
-  { key: 'schema', label: t('plugins.fields.dataSchemaVersion'), value: getMetadataText(currentPlugin.value?.data_schema_version) },
 ])
 const sourceInfoRows = computed(() => [
   { key: 'root', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
@@ -178,6 +177,7 @@ const sourceInfoRows = computed(() => [
 const runtimeInfoRows = computed(() => [
   { key: 'concurrency', label: t('plugins.fields.concurrency'), value: currentPlugin.value?.concurrency ?? t('display.empty') },
 ])
+const permissionNames = computed(() => Object.keys(currentPlugin.value?.permissions ?? {}).sort())
 const detailErrorToast = computed(() => {
   if (operationError.value) {
     return {
@@ -260,10 +260,6 @@ function getMetadataText(value?: string | null) {
 
 function hasItems(value?: readonly unknown[] | null) {
   return Array.isArray(value) && value.length > 0
-}
-
-function hasObjectValue(value: unknown) {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0
 }
 
 function getJsonPreview(value: unknown) {
@@ -527,16 +523,23 @@ onUnmounted(() => {
                         </div>
                       </dl>
                       <div class="metadata-section">
-                        <strong>{{ t('plugins.fields.declaredCapabilities') }}</strong>
-                        <div v-if="hasItems(currentPlugin?.declared_capabilities)" class="tag-list">
+                        <strong>{{ t('plugins.fields.permissions') }}</strong>
+                        <div v-if="permissionNames.length" class="tag-list">
                           <a-tag
-                            v-for="capability in currentPlugin?.declared_capabilities"
-                            :key="capability"
+                            v-for="permission in permissionNames"
+                            :key="permission"
                             class="cap-tag"
-                            :title="getPluginCapabilityRawTitle(capability)"
+                            :title="getPluginPermissionRawTitle(permission)"
                           >
-                            {{ getPluginCapabilityLabel(capability) }}
+                            {{ getPluginPermissionLabel(permission) }}
                           </a-tag>
+                        </div>
+                        <p v-else class="empty-val">{{ t('display.empty') }}</p>
+                      </div>
+                      <div class="metadata-section">
+                        <strong>{{ t('plugins.fields.events') }}</strong>
+                        <div v-if="hasItems(currentPlugin?.events)" class="tag-list">
+                          <a-tag v-for="eventName in currentPlugin?.events" :key="eventName">{{ eventName }}</a-tag>
                         </div>
                         <p v-else class="empty-val">{{ t('display.empty') }}</p>
                       </div>
@@ -580,22 +583,8 @@ onUnmounted(() => {
                         </section>
 
                         <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.platforms') }}</strong>
-                          <div v-if="hasItems(currentPlugin?.platforms)" class="tag-list">
-                            <a-tag v-for="platform in currentPlugin?.platforms" :key="platform">{{ platform }}</a-tag>
-                          </div>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.capabilityParameters') }}</strong>
-                          <pre v-if="hasObjectValue(currentPlugin?.capability_parameters)" class="metadata-json">{{ getJsonPreview(currentPlugin?.capability_parameters) }}</pre>
-                          <p v-else class="empty-val">{{ t('display.empty') }}</p>
-                        </section>
-
-                        <section class="metadata-section">
-                          <strong>{{ t('plugins.fields.defaultConfig') }}</strong>
-                          <pre v-if="hasObjectValue(currentPlugin?.default_config)" class="metadata-json">{{ getJsonPreview(currentPlugin?.default_config) }}</pre>
+                          <strong>{{ t('plugins.fields.webhooks') }}</strong>
+                          <pre v-if="hasItems(currentPlugin?.webhooks)" class="metadata-json">{{ getJsonPreview(currentPlugin?.webhooks) }}</pre>
                           <p v-else class="empty-val">{{ t('display.empty') }}</p>
                         </section>
 
@@ -713,7 +702,7 @@ onUnmounted(() => {
                       :get-item-key="getConsoleFrameKey"
                       @at-bottom-change="onConsoleViewportBottomChange"
                     >
-                      <template #default="{ item: frame, index }">
+                      <template #default="{ item: frame }">
                         <article
                           class="console-terminal-line"
                         >

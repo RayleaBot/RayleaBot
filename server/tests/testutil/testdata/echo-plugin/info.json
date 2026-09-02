@@ -2,21 +2,33 @@
   "id": "raylea.echo",
   "name": "Echo Fixture",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/echo",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Compiled test fixture for runtime and recovery tests",
-  "author": "raylea",
-  "capabilities": ["event.subscribe", "message.send"],
   "commands": [
     {
+      "id": "echo",
       "name": "echo",
       "description": "Echo fixture command",
       "usage": "/echo <text>",
-      "permission": "everyone"
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "echo"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Compiled test fixture for runtime and recovery tests",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private"
+  ],
+  "permissions": {
+    "message.send": true
+  }
 }

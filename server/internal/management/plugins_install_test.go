@@ -54,11 +54,11 @@ func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
 		Author:         "example",
 		License:        "MIT",
 		SourceLabel:    "本地插件包",
-		Capabilities:   []string{"event.subscribe", "http.request"},
+		Permissions:    map[string]plugins.PermissionGrant{"http.request": {}},
 		TargetPlatform: "windows-x64",
 		Backend:        plugins.InstallBackendInspection{Entry: "bin/weather", Path: "bin/weather.exe", Size: 1024, SHA256: strings.Repeat("b", 64)},
 		UI:             plugins.InstallUIInspection{Enabled: true, Entry: "ui/index.html", FileCount: 3},
-		Artifact:       plugins.ArtifactInspection{Valid: true, Version: "1", ManifestSHA256: strings.Repeat("c", 64), FileCount: 8},
+		Artifact:       plugins.ArtifactInspection{Valid: true, Version: "2", ManifestSHA256: strings.Repeat("c", 64), FileCount: 8},
 	}}
 	handler := newInstallInspectHandler(newTestCatalog(nil), installer)
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install/inspect", strings.NewReader(`{"source_type":"local_zip","source":"C:/plugins/weather.zip"}`))

@@ -12,21 +12,8 @@ import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import { useUiShellStore } from '@/stores/ui-shell'
-import type { PluginDetail, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
-
-interface PluginManagementUIPage {
-  id: string
-  label: string
-  entry: string
-}
-
-interface BridgeMessage {
-  version: '2'
-  source: 'plugin_management_ui' | 'management_host'
-  type: string
-  request_id?: string
-  payload?: unknown
-}
+import type { PluginDetail, PluginManagementUIPage, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
+import type { BridgeMessage, BridgeType } from '@/types/plugin-management-ui.generated'
 
 interface PluginSecretsResponse {
   plugin_id: string
@@ -105,7 +92,7 @@ const fatalError = ref<string | null>(null)
 const actionError = ref<string | null>(null)
 let restartFrameWhenRuntimeReady = props.plugin.state === 'starting'
 
-const managementEntry = computed(() => props.page.entry.trim())
+const managementEntry = computed(() => props.plugin.management_ui?.entry?.trim() ?? '')
 const requiresConfirmation = computed(() => props.plugin.trust?.level === 'unverified')
 const confirmationStorageKey = computed(() => (
   `rayleabot.plugin-management-ui.confirmed:${props.plugin.id}:${props.plugin.version ?? ''}:${props.plugin.source?.package_source_ref ?? ''}`
@@ -240,9 +227,9 @@ function acceptUnverifiedSource() {
   void restartFrame()
 }
 
-function postPort(type: string, payload?: unknown, id?: string) {
+function postPort(type: BridgeType, payload?: unknown, id?: string) {
   if (!bridgePort) return false
-  const message: BridgeMessage = { version: '2', source: 'management_host', type }
+  const message: BridgeMessage = { version: '3', source: 'management_host', type }
   if (payload !== undefined) message.payload = JSON.parse(JSON.stringify(payload))
   if (id) message.request_id = id
   bridgePort.postMessage(message)
@@ -286,7 +273,7 @@ function postHostInit() {
     secrets_configured: lastSecretsConfigured,
     theme: themePayload(),
     language: document.documentElement.lang || navigator.language || 'zh-CN',
-    allowed_capabilities: [...(props.plugin.declared_capabilities ?? [])],
+    allowed_permissions: Object.keys(props.plugin.permissions),
   })
 }
 
@@ -313,7 +300,7 @@ async function initializeBridge(session: number) {
 
 function parseHandshake(value: unknown) {
   const message = toRecord(value)
-  if (!message || message.version !== '2' || message.source !== 'plugin_management_ui' || message.type !== 'page.ready') return null
+  if (!message || message.version !== '3' || message.source !== 'plugin_management_ui' || message.type !== 'page.ready') return null
   return typeof message.nonce === 'string' ? message.nonce : null
 }
 
@@ -331,14 +318,14 @@ function handleWindowMessage(event: MessageEvent) {
   bridgePort.addEventListener('message', (portEvent) => handlePortMessage(portEvent, session))
   bridgePort.start()
   iframeRef.value?.contentWindow?.postMessage({
-    version: '2', source: 'management_host', type: 'host.connect', nonce: bridgeNonce.value,
+    version: '3', source: 'management_host', type: 'host.connect', nonce: bridgeNonce.value,
   }, frameOrigin.value, [channel.port2])
   void initializeBridge(session)
 }
 
 function parsePortMessage(value: unknown): BridgeMessage | null {
   const message = toRecord(value)
-  if (!message || message.version !== '2' || message.source !== 'plugin_management_ui' || typeof message.type !== 'string') return null
+  if (!message || message.version !== '3' || message.source !== 'plugin_management_ui' || typeof message.type !== 'string') return null
   return message as unknown as BridgeMessage
 }
 
@@ -454,10 +441,10 @@ async function deleteSecrets(keys: string[], id?: string) {
   } catch (error) { postError(error, id) }
 }
 
-function hasCapabilities(capabilities: string[], id?: string) {
-  const missing = capabilities.filter((capability) => !(props.plugin.declared_capabilities ?? []).includes(capability))
+function hasPermissions(permissions: string[], id?: string) {
+  const missing = permissions.filter((permission) => !(permission in props.plugin.permissions))
   if (missing.length === 0) return true
-  postPort('error', { code: 'plugin.capability_violation', message: `插件未声明必要能力：${missing.join('、')}` }, id)
+  postPort('error', { code: 'plugin.permission_denied', message: `插件未声明必要权限：${missing.join('、')}` }, id)
   return false
 }
 
@@ -473,7 +460,7 @@ async function openRenderTemplate(templateID: string, id?: string) {
 }
 
 async function reloadProtocolTargets(id?: string) {
-  if (!hasCapabilities(['group.list', 'friend.list'], id)) return
+  if (!hasPermissions(['group.list', 'friend.list'], id)) return
   try {
     const response = await apiRequest<OneBot11ProtocolTargetsResponse>('/api/protocols/onebot11/targets')
     postPort('protocol.targets.changed', response, id)
@@ -485,8 +472,8 @@ async function resolveProtocolIdentities(value: unknown, id?: string) {
     const record = toRecord(item)
     return (record?.target_type === 'group' || record?.target_type === 'private') && typeof record.target_id === 'string' && typeof record.user_id === 'string'
   }) : []
-  const capabilities = [...(items.some((item) => item.target_type === 'group') ? ['group.member.get'] : []), ...(items.some((item) => item.target_type === 'private') ? ['user.info.get'] : [])]
-  if (!hasCapabilities(capabilities, id)) return
+  const permissions = [...(items.some((item) => item.target_type === 'group') ? ['group.member.get'] : []), ...(items.some((item) => item.target_type === 'private') ? ['user.info.get'] : [])]
+  if (!hasPermissions(permissions, id)) return
   try {
     const response = await apiRequest<OneBot11IdentityResolveResponse>('/api/protocols/onebot11/identities/resolve', { method: 'POST', body: { items } })
     postPort('protocol.identities.resolved', response, id)
@@ -511,7 +498,7 @@ watch([
   () => props.plugin.version ?? '',
   () => props.plugin.source?.package_source_ref ?? '',
   () => props.page.id,
-  () => props.page.entry,
+  () => props.plugin.management_ui?.entry ?? '',
   () => props.plugin.trust?.level ?? '',
 ], () => {
   readConfirmation()

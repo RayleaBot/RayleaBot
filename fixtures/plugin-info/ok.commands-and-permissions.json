@@ -1,0 +1,81 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "subscription-hub",
+    "name": "Subscription Hub",
+    "version": "1.0.0",
+    "manifest_version": "3",
+    "license": "MIT",
+    "min_core_version": "0.4.0",
+    "metadata": {
+      "description": "Subscription and link resolution plugin",
+      "author": "raylea"
+    },
+    "events": ["message.group", "message.private", "scheduler.trigger"],
+    "permissions": {
+      "message.send": true,
+      "http.request": true,
+      "thirdparty.account.read": {
+        "platforms": ["bilibili", "weibo", "douyin"]
+      },
+      "thirdparty.resolve": {
+        "platforms": ["douyin"]
+      }
+    },
+    "commands": [
+      {
+        "id": "subscription-status",
+        "name": "订阅状态",
+        "description": "查看订阅状态",
+        "usage": "/订阅状态",
+        "permission": "everyone",
+        "trigger": {
+          "type": "exact",
+          "names": ["订阅状态"]
+        }
+      },
+      {
+        "id": "resolver-toggle",
+        "name": "解析开关",
+        "description": "开启或关闭平台解析",
+        "usage": "/开启<平台>解析",
+        "permission": "super_admin",
+        "trigger": {
+          "type": "pattern",
+          "pattern": "^(开启|关闭)(B站|微博|抖音)解析$"
+        }
+      },
+      {
+        "id": "resolver-help",
+        "name": "解析帮助",
+        "description": "显示解析帮助",
+        "usage": "/解析帮助",
+        "permission": "everyone",
+        "trigger": {
+          "type": "setting",
+          "settings_key": "resolver_help_commands"
+        }
+      }
+    ],
+    "command_groups": [
+      {
+        "id": "resolver",
+        "title": "解析管理",
+        "commands": ["resolver-toggle", "resolver-help"]
+      },
+      {
+        "id": "subscription",
+        "title": "订阅管理",
+        "commands": ["subscription-status"]
+      }
+    ],
+    "help": {
+      "title": "订阅与解析",
+      "summary": "管理订阅推送与链接解析"
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

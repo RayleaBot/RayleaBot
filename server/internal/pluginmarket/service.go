@@ -23,18 +23,18 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginartifact "github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
+	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 )
 
 const (
 	defaultCatalogURL   = "https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json"
 	defaultSignatureURL = "https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.sig.json"
 	maxCatalogBytes     = 4 * 1024 * 1024
-	defaultCoreVersion  = "0.3.0"
 )
 
-// Set by official release builds with the same public-key registry used for
-// release metadata. Development builds deliberately keep remote refresh
-// disabled and continue to use the release-signed embedded bootstrap catalog.
+// Set by official release builds with the plugin catalog public-key registry.
+// Development builds deliberately keep remote refresh disabled and continue
+// to use the release-signed embedded bootstrap catalog.
 var embeddedTrustedKeysSpec string
 
 //go:embed bootstrap_catalog.json
@@ -77,8 +77,9 @@ func New(installed plugins.CatalogView, installer Installer, options Options) (*
 	if options.TrustedKeysSpec == "" {
 		options.TrustedKeysSpec = embeddedTrustedKeysSpec
 	}
-	if options.CoreVersion == "" || options.CoreVersion == "0.0.0-dev" {
-		options.CoreVersion = defaultCoreVersion
+	options.CoreVersion = strings.TrimSpace(options.CoreVersion)
+	if options.CoreVersion == "" {
+		return nil, errors.New("plugin store core version is required")
 	}
 	if options.HTTPClient == nil {
 		options.HTTPClient = &http.Client{Timeout: 30 * time.Second}
@@ -156,7 +157,7 @@ func (s *Service) Get(pluginID string) (DetailResult, bool) {
 	installed := installedVersions(s.installed)
 	releases := append([]Release(nil), entry.Releases...)
 	sort.Slice(releases, func(i, j int) bool {
-		return compareSemver(releases[i].Version, releases[j].Version) > 0
+		return semverutil.Compare(releases[i].Version, releases[j].Version) > 0
 	})
 	views := make([]ReleaseView, 0, len(releases))
 	for _, release := range releases {
@@ -225,7 +226,7 @@ func (s *Service) Install(ctx context.Context, request InstallRequest) (string, 
 		ResolvedSource:         asset.URL,
 		ExpectedArchiveSize:    asset.ArchiveSizeBytes,
 		ExpectedArchiveSHA256:  asset.ArchiveSHA256,
-		ExpectedManifestSHA256: asset.ManifestSHA256,
+		ExpectedManifestSHA256: release.ManifestSHA256,
 		ReplaceExisting:        s.pluginInstalled(entry.ID),
 		PublisherID:            entry.Publisher.ID,
 		PublisherName:          entry.Publisher.Name,
@@ -236,7 +237,7 @@ func (s *Service) Install(ctx context.Context, request InstallRequest) (string, 
 	if err != nil {
 		return "", err
 	}
-	if inspection.PluginID != entry.ID || inspection.Version != release.Version || inspection.Artifact.ManifestSHA256 != asset.ManifestSHA256 {
+	if inspection.PluginID != entry.ID || inspection.Version != release.Version || inspection.Artifact.ManifestSHA256 != release.ManifestSHA256 {
 		return "", errorWithCode(CodeIntegrityMismatch, ErrIntegrityMismatch)
 	}
 	installRequest.InspectionID = inspection.InspectionID
@@ -297,7 +298,7 @@ func (s *Service) projectEntry(entry Entry, installedVersion string) EntryView {
 		view.InstallState = "incompatible"
 	case installedVersion == "":
 		view.InstallState = "available"
-	case compareSemver(latest.Version, installedVersion) > 0:
+	case semverutil.Compare(latest.Version, installedVersion) > 0:
 		view.InstallState = "update_available"
 	default:
 		view.InstallState = "installed"
@@ -313,13 +314,13 @@ func (s *Service) latestInstallableRelease(releases []Release) (Release, bool) {
 	var latest Release
 	found := false
 	for _, release := range releases {
-		if release.Yanked || compareSemver(s.options.CoreVersion, release.MinCoreVersion) < 0 {
+		if release.Yanked || semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) < 0 {
 			continue
 		}
 		if _, ok := releaseAsset(release, platform); !ok {
 			continue
 		}
-		if !found || compareSemver(release.Version, latest.Version) > 0 {
+		if !found || semverutil.Compare(release.Version, latest.Version) > 0 {
 			latest = release
 			found = true
 		}
@@ -335,7 +336,7 @@ func (s *Service) projectRelease(release Release) ReleaseView {
 		Version:        release.Version,
 		PublishedAt:    publishedAt,
 		MinCoreVersion: release.MinCoreVersion,
-		Compatible:     !release.Yanked && compareSemver(s.options.CoreVersion, release.MinCoreVersion) >= 0,
+		Compatible:     !release.Yanked && semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) >= 0,
 		AssetAvailable: hasAsset,
 		Yanked:         release.Yanked,
 	}
@@ -347,12 +348,12 @@ func (s *Service) resolveRelease(entry Entry, requested string) (Release, Asset,
 		return Release{}, Asset{}, false
 	}
 	releases := append([]Release(nil), entry.Releases...)
-	sort.Slice(releases, func(i, j int) bool { return compareSemver(releases[i].Version, releases[j].Version) > 0 })
+	sort.Slice(releases, func(i, j int) bool { return semverutil.Compare(releases[i].Version, releases[j].Version) > 0 })
 	for _, release := range releases {
 		if requested != "" && release.Version != requested {
 			continue
 		}
-		if release.Yanked || compareSemver(s.options.CoreVersion, release.MinCoreVersion) < 0 {
+		if release.Yanked || semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) < 0 {
 			continue
 		}
 		asset, ok := releaseAsset(release, platform)
@@ -672,7 +673,7 @@ func latestUsableRelease(releases []Release) (Release, bool) {
 		if release.Yanked {
 			continue
 		}
-		if !found || compareSemver(release.Version, latest.Version) > 0 {
+		if !found || semverutil.Compare(release.Version, latest.Version) > 0 {
 			latest = release
 			found = true
 		}
@@ -684,7 +685,7 @@ func latestCatalogRelease(releases []Release) (Release, bool) {
 	var latest Release
 	found := false
 	for _, release := range releases {
-		if !found || compareSemver(release.Version, latest.Version) > 0 {
+		if !found || semverutil.Compare(release.Version, latest.Version) > 0 {
 			latest = release
 			found = true
 		}
@@ -699,93 +700,4 @@ func releaseAsset(release Release, platform string) (Asset, bool) {
 		}
 	}
 	return Asset{}, false
-}
-
-func compareSemver(left, right string) int {
-	leftParts, leftPrerelease := semverParts(left)
-	rightParts, rightPrerelease := semverParts(right)
-	for i := 0; i < 3; i++ {
-		if leftParts[i] < rightParts[i] {
-			return -1
-		}
-		if leftParts[i] > rightParts[i] {
-			return 1
-		}
-	}
-	return comparePrerelease(leftPrerelease, rightPrerelease)
-}
-
-func semverParts(value string) ([3]int, []string) {
-	withoutBuild := strings.SplitN(value, "+", 2)[0]
-	core, prerelease, hasPrerelease := strings.Cut(withoutBuild, "-")
-	segments := strings.Split(core, ".")
-	var parts [3]int
-	for index := range parts {
-		if index < len(segments) {
-			parts[index], _ = strconv.Atoi(segments[index])
-		}
-	}
-	if !hasPrerelease {
-		return parts, nil
-	}
-	return parts, strings.Split(prerelease, ".")
-}
-
-func comparePrerelease(left, right []string) int {
-	if len(left) == 0 && len(right) == 0 {
-		return 0
-	}
-	if len(left) == 0 {
-		return 1
-	}
-	if len(right) == 0 {
-		return -1
-	}
-	limit := min(len(left), len(right))
-	for index := 0; index < limit; index++ {
-		leftNumeric := isDecimalIdentifier(left[index])
-		rightNumeric := isDecimalIdentifier(right[index])
-		switch {
-		case leftNumeric && rightNumeric:
-			if compared := compareDecimalIdentifier(left[index], right[index]); compared != 0 {
-				return compared
-			}
-		case leftNumeric:
-			return -1
-		case rightNumeric:
-			return 1
-		default:
-			if compared := strings.Compare(left[index], right[index]); compared != 0 {
-				return compared
-			}
-		}
-	}
-	return len(left) - len(right)
-}
-
-func isDecimalIdentifier(value string) bool {
-	if value == "" {
-		return false
-	}
-	for _, character := range value {
-		if character < '0' || character > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-func compareDecimalIdentifier(left, right string) int {
-	left = strings.TrimLeft(left, "0")
-	right = strings.TrimLeft(right, "0")
-	if left == "" {
-		left = "0"
-	}
-	if right == "" {
-		right = "0"
-	}
-	if len(left) != len(right) {
-		return len(left) - len(right)
-	}
-	return strings.Compare(left, right)
 }

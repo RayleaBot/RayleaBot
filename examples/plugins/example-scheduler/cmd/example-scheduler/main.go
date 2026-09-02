@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	err := rayleabot.Run(context.Background(), rayleabot.Options{PluginID: "example-scheduler", Subscriptions: []string{"message.group", "scheduler.trigger"}}, rayleabot.HandlerFunc(handle))
+	err := rayleabot.Run(context.Background(), rayleabot.Options{}, rayleabot.HandlerFunc(handle))
 	if err != nil {
 		_, _ = os.Stderr.WriteString(err.Error() + "\n")
 		os.Exit(1)

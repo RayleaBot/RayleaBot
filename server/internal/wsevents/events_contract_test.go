@@ -43,8 +43,8 @@ func TestPluginStateEventFrameKeepsContractFieldNames(t *testing.T) {
 		State:    "running",
 		Commands: []PluginCommandItem{
 			{
-				Name:          "weather",
-				CommandSource: "manifest",
+				ID: "weather", Name: "weather", Description: "weather", Usage: "/weather",
+				Permission: "everyone", Trigger: PluginCommandTrigger{Type: "exact", Names: []string{"weather"}},
 			},
 		},
 		CommandConflicts: []string{},

@@ -1,4 +1,4 @@
-version: 2
+version: 3
 description: >
   Plugin management pages are public readonly static artifact files served from
   a plugin-specific origin. Protected management data and mutations remain on

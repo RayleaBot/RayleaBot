@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "The host reports a completed scheduler trigger request.",
   "input": {
-    "version": "2",
+    "version": "3",
     "source": "management_host",
     "type": "scheduler.triggered",
     "request_id": "req_scheduler_trigger_0001",

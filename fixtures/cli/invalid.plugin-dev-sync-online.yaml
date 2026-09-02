@@ -1,7 +1,7 @@
 contract: contracts/cli-commands.yaml#commands.plugin.subcommands.dev-sync
 case: invalid
 input:
-  command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo --plugin-id raylea.echo
+  command: raylea plugin dev-sync --artifact .tmp/plugin-dev/windows-x64/raylea.echo --source ../RayleaBotPlugins/plugin-echo
   mode: online
 expect:
   valid: false

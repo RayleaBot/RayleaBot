@@ -19,7 +19,7 @@
 ## Plugin Example Rules
 
 - `examples/plugins/` 主要服务于 manifest、plugin protocol、local actions 和管理面能力理解。
-- 示例插件的 `capabilities` 和 `capability_parameters` 要与代码主路径一致。
+- 示例插件的静态 `events`、显式 `permissions`、命令和 webhook 声明要与代码主路径一致；插件私有日志、配置、KV 和文件无需声明权限。
 - 已冻结的插件内置管理页、治理 local actions、render templates、webhook、scheduler 等能力，可以在示例中演示；未来能力不写进示例。
 - 示例插件不是生产模板、市场分发包或官方最佳实践承诺。
 
@@ -44,4 +44,4 @@
 
 - 示例说明：`examples/README.md`
 - 正式契约范围：`contracts/README.md`
-- 插件能力与协议：`docs/plugin/capabilities-and-manifest.md`、`docs/plugin/protocol.md`
+- 插件权限与协议：`docs/plugin/permissions-and-manifest.md`、`docs/plugin/protocol.md`

@@ -75,9 +75,10 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | Launcher 桌面桥接 | Wails generated bindings 暴露受限 typed API |
 | Launcher 渲染层 | React 19 + Fluent UI React v9 + Fluent Motion + WAAPI + View Transition API + Vite 单页面桌面壳，支持亮/暗双色主题 |
 | 仓库级 JS 包管理器 | `pnpm` |
-| 插件后端 | 独立 Go module + `sdk/go`；`cmd/<plugin>` 为进程入口，`internal/` 保存业务实现与嵌入资源；运行期直接启动经 artifact 校验的二进制，不编译源码或安装依赖 |
+| 插件后端 | 当前平台原生可执行文件；实现语言不限。Go 插件可使用独立 module 与 `sdk/go`，`cmd/<plugin-id>` 为推荐入口 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
-| 插件构建 | 每插件 `tools/build` 显式指定 `BackendPackage`，调用 `pluginbuild.Build` 输出单根目录 ZIP 与展开 artifact；`MappedAssets` 可将 `internal/` 资源映射到稳定 artifact 路径 |
+| 插件构建 | `raylea-plugin inspect/pack/build-go` 统一检查、通用原生打包和 Go 构建；输出 artifact v2 单根目录 ZIP 与可选展开目录 |
+| 插件商店 | 默认使用 `RayleaBot/plugin-catalog` 的 Ed25519 签名 catalog v2；目录公钥与核心更新公钥分别通过 release workflow 注入 |
 | 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和抖音扫码浏览器回落可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
 
 ## 默认命令
@@ -115,7 +116,8 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 - Go SDK：`cd sdk/go && go test ./...`
 - Vue SDK：`cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build`
-- 单插件构建：`go run ./tools/build -target <windows-x64|linux-x64|macos-arm64> -out <output>`
+- 通用打包：`raylea-plugin pack --plugin <plugin-root> --binary <native-executable> --target <windows-x64|linux-x64|macos-arm64> --out <output>`
+- Go 插件构建：`raylea-plugin build-go --plugin <plugin-root> --target <windows-x64|linux-x64|macos-arm64> --out <output>`
 - 开发工作区验证：`node --test scripts/tests/plugin-dev-workspace.test.mjs`
 - 插件矩阵由各独立插件仓库的 GitHub Actions 构建；主仓库 release 不构建业务插件。
 
@@ -127,7 +129,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `docs/engineering/` | 工程基线、CI、实施顺序、治理规则 |
 | `docs/architecture/` | 架构、状态模型、事件模型、边界说明 |
 | `docs/dev/` | 开发、调试、诊断、贡献流程 |
-| `docs/plugin/` | 插件 manifest、Capabilities、协议、生命周期 |
+| `docs/plugin/` | 插件 manifest、permissions、协议、生命周期 |
 | `docs/plugin/sdk/` | Go 插件 SDK、构建器与 Vue 管理页 SDK 说明 |
 | `docs/user/` | 用户安装、初始化、配置、运行、恢复 |
 | `docs/release/` | 版本说明、迁移说明、已知问题 |
@@ -138,7 +140,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | `launcher/` | Wails 桌面启动器工程 |
 | `plugins/installed/` | 运行期统一安装目录；只保存经 artifact 校验的商店、社区或开发插件产物，不进入版本控制 |
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
-| `sdk/vue/` | `@rayleabot/plugin-ui` bridge v2 client、composables、主题和 contract 类型 |
+| `sdk/vue/` | `@rayleabot/plugin-ui` bridge v3 client、composables、主题和 contract 类型 |
 | `.deps/` | Chromium 与 FFmpeg / FFprobe 资源清单，以及按需展开后的资源目录 |
 | `config/` | 默认配置模板与用户配置 |
 | `data/` | SQLite 状态库与运行数据 |

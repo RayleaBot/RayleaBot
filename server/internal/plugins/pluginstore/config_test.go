@@ -33,7 +33,7 @@ func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	pluginID := "weather"
 
 	created, err := repo.SeedDefaults(ctx, pluginID, map[string]any{
-		"default_city": "北京",
+		"default_city": "Beijing",
 		"unit":         "celsius",
 	})
 	if err != nil {
@@ -47,7 +47,7 @@ func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read: %v", err)
 	}
-	if values["default_city"] != "北京" || values["unit"] != "celsius" {
+	if values["default_city"] != "Beijing" || values["unit"] != "celsius" {
 		t.Fatalf("unexpected seeded values: %#v", values)
 	}
 	if _, ok := values["missing"]; ok {
@@ -55,18 +55,39 @@ func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	}
 
 	created, err = repo.SeedDefaults(ctx, pluginID, map[string]any{
-		"default_city": "上海",
+		"default_city": "Shanghai",
 		"unit":         "fahrenheit",
+		"timeout":      15,
 	})
 	if err != nil {
 		t.Fatalf("SeedDefaults second call: %v", err)
 	}
+	if !created {
+		t.Fatalf("SeedDefaults created = false when a new default key was added")
+	}
+
+	values, err = repo.Read(ctx, pluginID, []string{"default_city", "unit", "timeout"})
+	if err != nil {
+		t.Fatalf("Read after second SeedDefaults: %v", err)
+	}
+	if values["default_city"] != "Beijing" || values["unit"] != "celsius" || values["timeout"] != float64(15) {
+		t.Fatalf("unexpected values after second SeedDefaults: %#v", values)
+	}
+
+	created, err = repo.SeedDefaults(ctx, pluginID, map[string]any{
+		"default_city": "Shanghai",
+		"unit":         "fahrenheit",
+		"timeout":      30,
+	})
+	if err != nil {
+		t.Fatalf("SeedDefaults third call: %v", err)
+	}
 	if created {
-		t.Fatalf("SeedDefaults created = true on second call, want false")
+		t.Fatalf("SeedDefaults created = true when every key already exists")
 	}
 
 	written, err := repo.Write(ctx, pluginID, map[string]any{
-		"default_city": "上海",
+		"default_city": "Shanghai",
 		"unit":         "fahrenheit",
 	})
 	if err != nil {
@@ -80,7 +101,7 @@ func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Read after Write: %v", err)
 	}
-	if values["default_city"] != "上海" || values["unit"] != "fahrenheit" {
+	if values["default_city"] != "Shanghai" || values["unit"] != "fahrenheit" {
 		t.Fatalf("unexpected updated values: %#v", values)
 	}
 
@@ -88,7 +109,41 @@ func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadAll after Write: %v", err)
 	}
-	if allValues["default_city"] != "上海" || allValues["unit"] != "fahrenheit" {
+	if allValues["default_city"] != "Shanghai" || allValues["unit"] != "fahrenheit" {
 		t.Fatalf("unexpected all values: %#v", allValues)
+	}
+}
+
+func TestMergeValuesReturnsIndependentEffectiveSnapshot(t *testing.T) {
+	t.Parallel()
+
+	defaults := map[string]any{
+		"enabled": true,
+		"nested":  map[string]any{"source": "default"},
+		"items":   []any{"default"},
+	}
+	persisted := map[string]any{
+		"enabled": false,
+		"nested":  map[string]any{"source": "persisted"},
+	}
+
+	merged := MergeValues(defaults, persisted)
+	if merged["enabled"] != false {
+		t.Fatalf("persisted value did not override default: %#v", merged)
+	}
+	if merged["nested"].(map[string]any)["source"] != "persisted" {
+		t.Fatalf("persisted nested value did not override default: %#v", merged)
+	}
+	if merged["items"].([]any)[0] != "default" {
+		t.Fatalf("default-only value is missing: %#v", merged)
+	}
+
+	merged["nested"].(map[string]any)["source"] = "changed"
+	merged["items"].([]any)[0] = "changed"
+	if persisted["nested"].(map[string]any)["source"] != "persisted" {
+		t.Fatalf("MergeValues mutated persisted values: %#v", persisted)
+	}
+	if defaults["items"].([]any)[0] != "default" {
+		t.Fatalf("MergeValues mutated default values: %#v", defaults)
 	}
 }

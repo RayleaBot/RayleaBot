@@ -15,20 +15,26 @@ response:
     commands:
       - plugin_id: weather
         plugin_name: Weather
+        command_id: weather
         command: weather
         aliases:
           - tq
           - 天气
-        command_source: manifest
+        trigger:
+          type: exact
+          names: [weather, tq, 天气]
         declared_permission: group_admin
         effective_permission: group_admin
         permission_source: declared
       - plugin_id: hello-go
         plugin_name: Hello Go
+        command_id: hello
         command: hello
         aliases:
           - hi
-        command_source: manifest
+        trigger:
+          type: exact
+          names: [hello, hi]
         declared_permission: null
         effective_permission: everyone
         permission_source: default_level

@@ -19,7 +19,7 @@
 
 ## 主题兼容
 
-- 页面声明 `color-scheme: light dark`，并以 bridge v2 的 `host.init.theme` 为宿主主题来源；连接前可使用 `prefers-color-scheme` 提供无闪烁的初始主题。
+- 页面声明 `color-scheme: light dark`，并以 bridge v3 的 `host.init.theme` 为宿主主题来源；连接前可使用 `prefers-color-scheme` 提供无闪烁的初始主题。
 - 官方页面在两套主题中映射项目级画布、表面、文本、边界、brand 主操作、暖色人工关注和语义状态；页面实际采用的主题值由 SDK 与插件产物决定。
 - 第三方页面可以使用自己的品牌颜色，但文字、控件、焦点和状态必须满足 WCAG 2.2 AA，且颜色不得成为唯一信息。
 - 官方页面通过 Vue SDK 将 `host.init.theme.mode` 与允许的 token 映射到页面根节点，不读取宿主内部状态。

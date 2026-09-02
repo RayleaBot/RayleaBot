@@ -188,25 +188,57 @@ channels:
                   items:
                     type: object
                     additionalProperties: false
-                    required: [name, command_source]
+                    required: [id, name, effective_names, description, usage, permission, trigger]
                     properties:
+                      id:
+                        type: string
                       name:
                         type: string
-                      aliases:
+                      effective_names:
                         type: array
                         items:
                           type: string
+                        uniqueItems: true
                       description:
                         type: string
                       usage:
                         type: string
                       permission:
                         type: string
-                      command_source:
-                        type: string
-                        enum: [manifest, dynamic, pattern]
-                      declaration_id:
-                        type: string
+                        enum: [super_admin, group_admin, everyone]
+                      trigger:
+                        oneOf:
+                          - type: object
+                            additionalProperties: false
+                            required: [type, names]
+                            properties:
+                              type:
+                                type: string
+                                const: exact
+                              names:
+                                type: array
+                                minItems: 1
+                                uniqueItems: true
+                                items:
+                                  type: string
+                          - type: object
+                            additionalProperties: false
+                            required: [type, pattern]
+                            properties:
+                              type:
+                                type: string
+                                const: pattern
+                              pattern:
+                                type: string
+                          - type: object
+                            additionalProperties: false
+                            required: [type, settings_key]
+                            properties:
+                              type:
+                                type: string
+                                const: setting
+                              settings_key:
+                                type: string
                 command_conflicts:
                   type: array
                   items:

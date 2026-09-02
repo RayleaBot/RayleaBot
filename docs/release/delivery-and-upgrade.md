@@ -45,7 +45,7 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 
 ### Manifest v2
 
-Manifest 固定包含版本、提交、构建时间、channel、发布时间、过期时间、更新协议版本、配置/数据库/插件协议版本、`plugin_manifest_version=2`、`plugin_ui_bridge_version=2` 和 artifact 列表。每个 artifact 至少声明：
+Manifest 固定包含版本、提交、构建时间、channel、发布时间、过期时间、更新协议版本、配置/数据库/插件协议版本、`plugin_manifest_version=3`、`plugin_ui_bridge_version=3` 和 artifact 列表。每个 artifact 至少声明：
 
 - 唯一 `artifact_id`、平台和 basename 文件名；
 - SHA-256、归档大小、展开大小和文件数；
@@ -68,6 +68,13 @@ Manifest 固定包含版本、提交、构建时间、channel、发布时间、�
 - artifact 的平台、版本、协议、文件名、大小或摘要不一致。
 
 过期 manifest 只允许走手动更新。首个可信更新基线必须手动安装，无法验证 v2 元数据的客户端不能进入自动安装链路。
+
+核心更新和官方插件目录使用不同的 Ed25519 公钥注册表。release workflow 必须同时配置：
+
+- `RAYLEA_RELEASE_TRUSTED_KEYS`：验证 `release_manifest.v2.json`；
+- `RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS`：验证 `RayleaBot/plugin-catalog` 发布的 `catalog.json`。
+
+任一注册表为空时，正式 Server 构建失败。两个注册表都支持至多两个公钥并行，用于独立轮换；插件目录密钥不能签署核心更新元数据，核心更新密钥也不能签署插件目录。
 
 ## 更新检查与用户确认
 
@@ -115,7 +122,7 @@ raylea-server update verify --manifest <path> --signature <path> --artifact <pat
 - `data/**`；
 - `plugins/installed/**`。
 
-只有备份清单中的插件 manifest/bridge epoch 与当前 `2/2` 完全一致时才允许恢复或原位升级。旧插件 epoch 明确返回 `plugin.reset_required`，不能把旧插件目录或旧插件数据带入新运行时。当前 Go+Vue 断代操作见 [Plugin Go + Vue Reset](./plugin-go-vue-reset.md)。
+恢复只接受 backup manifest v3，其中插件合同版本固定为 protocol v2、manifest v3、artifact v2 和 management bridge v3。backup manifest v2 会被拒绝；v3 备份可以保留旧插件包事实和插件持久化数据，但旧 manifest v2 / artifact v1 包保持禁用，重新安装新合同包后才能运行。具体边界见 [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md)。
 
 `cache/` 和 `logs/` 不参与恢复，也不能阻止安装。回滚失败进入 `rollback_failed` 并禁止自动启动。旧版本与 offline backup 至少保留 7 天，并至少保留到下一次成功升级。
 

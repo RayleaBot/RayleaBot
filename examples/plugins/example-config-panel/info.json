@@ -2,37 +2,45 @@
   "id": "example-config-panel",
   "name": "Example Config Panel",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/example-config-panel",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Go and Vue example plugin demonstrating config.read and config.write.",
-  "author": "raylea",
   "management_ui": {
+    "entry": "ui/index.html",
     "pages": [
       {
         "id": "config",
-        "label": "配置页面",
-        "entry": "ui/index.html"
+        "label": "配置页面"
       }
     ]
   },
-  "capabilities": [
-    "event.subscribe",
-    "config.read",
-    "config.write"
-  ],
   "default_config": {
     "default_city": "北京",
     "unit": "celsius"
   },
   "commands": [
     {
+      "id": "config-panel",
       "name": "config_panel",
       "description": "Read and update plugin-local config values.",
-      "usage": "/config_panel [city]"
+      "usage": "/config_panel [city]",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "config_panel"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go and Vue example plugin demonstrating the init config snapshot and config.write.",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private",
+    "config.changed"
+  ],
+  "permissions": {}
 }

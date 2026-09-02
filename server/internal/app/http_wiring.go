@@ -69,10 +69,10 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 		Plugins:      pluginState.Plugins,
 		PluginConfig: pluginState.PluginConfig,
 		Secrets:      platformState.Secrets,
-		NotifyConfigChange: func(ctx context.Context, pluginID string) {
+		NotifyConfigChange: func(ctx context.Context, pluginID string, values map[string]any, changedKeys []string) {
 			dispatch := localaction.ConfigChangedDispatcher(eventState.Dispatcher)
 			if dispatch != nil {
-				dispatch(ctx, pluginID)
+				dispatch(ctx, pluginID, values, changedKeys)
 			}
 		},
 		RefreshCommands: localaction.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),

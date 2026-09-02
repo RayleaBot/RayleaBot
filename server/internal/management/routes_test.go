@@ -14,7 +14,6 @@ import (
 
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
-	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 )
 
 func TestRegisterManagementRoutes(t *testing.T) {
@@ -27,7 +26,9 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			managementapi.NewAuthHandlers(managementapi.AuthDeps{}),
 			managementapi.NewCoreHandlers(managementapi.CoreDeps{}),
 			managementapi.NewProtocolHandlers(nil),
-			pluginwebhook.New(pluginwebhook.Deps{}),
+			managementapi.PublicRouteFunc(func(r chi.Router) {
+				r.Post("/api/webhooks/{plugin_id}/{route}", noopHandler)
+			}),
 			pluginUI,
 		},
 		ProtectedRoutes: []managementapi.ProtectedRouteModule{

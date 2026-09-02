@@ -41,7 +41,7 @@ func TestHTTPClientAllowsPrivateHostAndDoesNotFollowRedirect(t *testing.T) {
 	response, err := client.do(context.Background(), httpClientRequest{
 		Method: "GET",
 		URL:    requestURL + "/redirect",
-	}, []string{"internal.test"})
+	})
 	if err != nil {
 		t.Fatalf("Do redirect request: %v", err)
 	}
@@ -50,30 +50,7 @@ func TestHTTPClientAllowsPrivateHostAndDoesNotFollowRedirect(t *testing.T) {
 	}
 }
 
-func TestHostAllowedByHTTPScopeMatchesDeclaredSuffix(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		host  string
-		scope []string
-		want  bool
-	}{
-		{host: "p3-pc-sign.douyinpic.com", scope: []string{"douyinpic.com"}, want: true},
-		{host: "www.douyin.com", scope: []string{"douyin.com"}, want: true},
-		{host: "douyin.com", scope: []string{"douyin.com"}, want: true},
-		{host: "api.example.test", scope: []string{"api.example.test"}, want: true},
-		{host: "evil-douyinpic.com", scope: []string{"douyinpic.com"}, want: false},
-		{host: "douyinpic.com.evil.test", scope: []string{"douyinpic.com"}, want: false},
-		{host: "images.example.test", scope: []string{"other.example.test"}, want: false},
-	}
-	for _, item := range cases {
-		if got := hostAllowedByHTTPScope(item.host, item.scope); got != item.want {
-			t.Fatalf("hostAllowedByHTTPScope(%q, %q) = %v, want %v", item.host, item.scope, got, item.want)
-		}
-	}
-}
-
-func TestHTTPClientAllowsSuffixMatchedPublicHost(t *testing.T) {
+func TestHTTPClientAllowsPublicHostWithoutManifestHostScope(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -94,7 +71,7 @@ func TestHTTPClientAllowsSuffixMatchedPublicHost(t *testing.T) {
 	response, err := client.do(context.Background(), httpClientRequest{
 		Method: "GET",
 		URL:    requestURL,
-	}, []string{"douyinpic.test"})
+	})
 	if err != nil {
 		t.Fatalf("Do suffix-matched request: %v", err)
 	}
@@ -122,9 +99,9 @@ func TestHTTPClientRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 	_, err := client.do(context.Background(), httpClientRequest{
 		Method: "GET",
 		URL:    requestURL,
-	}, []string{"internal.test"})
-	if !errors.Is(err, errHTTPScopeViolation) {
-		t.Fatalf("Do private request error = %v, want errHTTPScopeViolation", err)
+	})
+	if !errors.Is(err, errHTTPInvalidRequest) {
+		t.Fatalf("Do private request error = %v, want errHTTPInvalidRequest", err)
 	}
 }
 
@@ -144,8 +121,8 @@ func TestAuthorizeResolvedAddrsRejectsPrivateDNSResult(t *testing.T) {
 	t.Parallel()
 
 	for _, address := range []string{"10.0.0.1", "fd00::1"} {
-		if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr(address)}, false, true); !errors.Is(err, errHTTPScopeViolation) {
-			t.Fatalf("authorizeResolvedAddrs private DNS result %s error = %v, want errHTTPScopeViolation", address, err)
+		if err := authorizeResolvedAddrs([]netip.Addr{netip.MustParseAddr(address)}, false, true); !errors.Is(err, errHTTPInvalidRequest) {
+			t.Fatalf("authorizeResolvedAddrs private DNS result %s error = %v, want errHTTPInvalidRequest", address, err)
 		}
 	}
 }
@@ -167,9 +144,9 @@ func TestHTTPClientRejectsLiteralFakeIPWithoutAllowlist(t *testing.T) {
 		_, err := client.do(context.Background(), httpClientRequest{
 			Method: "GET",
 			URL:    item.url,
-		}, []string{item.host})
-		if !errors.Is(err, errHTTPScopeViolation) {
-			t.Fatalf("Do literal fake-ip request %s error = %v, want errHTTPScopeViolation", item.url, err)
+		})
+		if !errors.Is(err, errHTTPInvalidRequest) {
+			t.Fatalf("Do literal fake-ip request %s error = %v, want errHTTPInvalidRequest", item.url, err)
 		}
 	}
 }
@@ -201,7 +178,7 @@ func TestHTTPClientRetriesIdempotentStatusCodes(t *testing.T) {
 	response, err := client.do(context.Background(), httpClientRequest{
 		Method: "GET",
 		URL:    requestURL,
-	}, []string{"internal.test"})
+	})
 	if err != nil {
 		t.Fatalf("Do retry request: %v", err)
 	}
@@ -240,7 +217,7 @@ func TestHTTPClientRejectsDecodedBodyLimitWithoutRetry(t *testing.T) {
 		Method:  "GET",
 		URL:     requestURL,
 		Headers: map[string]string{"Accept-Encoding": "gzip"},
-	}, []string{"internal.test"})
+	})
 	if !errors.Is(err, errHTTPResponseTooLarge) {
 		t.Fatalf("decoded body limit error = %v, want errHTTPResponseTooLarge", err)
 	}
@@ -269,7 +246,7 @@ func TestHTTPClientAllowsHeadResponseWithLargeContentLength(t *testing.T) {
 	response, err := client.do(context.Background(), httpClientRequest{
 		Method: "HEAD",
 		URL:    requestURL,
-	}, []string{"internal.test"})
+	})
 	if err != nil {
 		t.Fatalf("Do HEAD request: %v", err)
 	}
@@ -297,7 +274,7 @@ func TestHTTPClientRejectsHeaderLimitWithoutRetry(t *testing.T) {
 		AllowPrivateHosts: []string{"internal.test"},
 	})
 
-	_, err := client.do(context.Background(), httpClientRequest{Method: "GET", URL: requestURL}, []string{"internal.test"})
+	_, err := client.do(context.Background(), httpClientRequest{Method: "GET", URL: requestURL})
 	if !errors.Is(err, errHTTPResponseTooLarge) {
 		t.Fatalf("header limit error = %v, want errHTTPResponseTooLarge", err)
 	}
@@ -321,7 +298,7 @@ func TestHTTPClientRejectsPlainHTTPForPublicHost(t *testing.T) {
 	_, err := client.do(context.Background(), httpClientRequest{
 		Method: "GET",
 		URL:    "http://api.example.test/resource",
-	}, []string{"api.example.test"})
+	})
 	if !errors.Is(err, errHTTPInvalidRequest) {
 		t.Fatalf("Do public http request error = %v, want errHTTPInvalidRequest", err)
 	}

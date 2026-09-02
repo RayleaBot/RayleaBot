@@ -282,6 +282,7 @@ func configureAppRuntimeCallbacks(application *App) {
 	systemService.RefreshRecoverySummary()
 
 	reconcileInstalledPlugin := func(ctx context.Context, pluginID string) error {
+		application.services.PluginWebhooks.SyncManifestRegistrations()
 		if err := syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
 			return err
 		}
@@ -319,6 +320,7 @@ func configureAppRuntimeCallbacks(application *App) {
 	}); ok {
 		uninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
 		uninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) {
+			application.services.PluginWebhooks.SyncManifestRegistrations()
 			if application.renderStack.Renderer != nil {
 				_ = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
 			}

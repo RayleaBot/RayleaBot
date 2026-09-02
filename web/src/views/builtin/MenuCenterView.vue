@@ -15,7 +15,6 @@ import type {
   CommandPermissionLevel,
   ConfigDocument,
   PluginCommandSummary,
-  PluginHelpItem,
   PluginSummary,
 } from '@/types/api'
 
@@ -82,32 +81,33 @@ const rootPreviewItems = computed(() => enabledPlugins.value
   })))
 
 const selectedPluginPreviewGroups = computed(() => {
-  if (!selectedPlugin.value) {
+  const plugin = selectedPlugin.value
+  if (!plugin) {
     return []
   }
 
-  const coveredCommandNames = helpCommandNames(selectedPlugin.value)
-  const visibleCommands = selectedPlugin.value.commands.filter((command) => !isCommandCoveredByHelp(command, coveredCommandNames))
-  const commandItems: Array<Record<string, unknown>> = visibleCommands.map((command) => ({
-    name: command.name,
-    ...commandPreviewFields(command),
-    description: command.description || command.name,
-    permission: effectiveCommandPermission(command),
-  }))
-  const groups: Array<{ title: string, items: Array<Record<string, unknown>> }> = commandItems.length > 0
-    ? [{ title: '命令', items: commandItems }]
-    : []
-
-  for (const group of selectedPlugin.value.help?.groups ?? []) {
-    const items = group.items.map((item) => ({
-      name: item.command || item.title,
-      ...helpCommandPreviewFields(selectedPlugin.value!, item.command, item.usage),
-      description: item.description || item.title,
-      permission: effectiveHelpItemPermission(selectedPlugin.value!, item),
-    }))
+  const commandByID = new Map(plugin.commands.map((command) => [command.id, command]))
+  const covered = new Set<string>()
+  const groups: Array<{ title: string, items: Array<Record<string, unknown>> }> = []
+  for (const group of plugin.command_groups) {
+    const items = group.commands.flatMap((commandID) => {
+      const command = commandByID.get(commandID)
+      if (!command) {
+        return []
+      }
+      covered.add(command.id)
+      return [commandPreviewItem(command)]
+    })
     if (items.length > 0) {
       groups.push({ title: group.title, items })
     }
+  }
+
+  const ungrouped = plugin.commands
+    .filter((command) => !covered.has(command.id))
+    .map(commandPreviewItem)
+  if (ungrouped.length > 0) {
+    groups.push({ title: '其他命令', items: ungrouped })
   }
 
   return groups
@@ -230,40 +230,29 @@ function displayPreviewVersion(version?: string | null) {
   return normalized && normalized !== '0.0.0-dev' ? normalized : previewDevelopmentVersion
 }
 
-function helpCommandNames(plugin: PluginSummary) {
-  const names = new Set<string>()
-  for (const group of plugin.help?.groups ?? []) {
-    for (const item of group.items) {
-      const name = normalizeMenuLookup(item.command)
-      if (name) {
-        names.add(name)
-      }
-    }
+function commandPreviewItem(command: PluginCommandSummary) {
+  return {
+    name: command.effective_names[0] || command.name,
+    ...commandPreviewFields(command),
+    description: command.description || command.name,
+    permission: effectiveCommandPermission(command),
   }
-  return names
-}
-
-function isCommandCoveredByHelp(command: PluginCommandSummary, helpCommands: Set<string>) {
-  if (helpCommands.size === 0) {
-    return false
-  }
-  const names = [command.name, command.declaration_id, ...(command.aliases ?? [])]
-  return names.some((name) => helpCommands.has(normalizeMenuLookup(name)))
 }
 
 function commandPreviewFields(command: PluginCommandSummary) {
-  if (command.command_source === 'pattern') {
+  if (command.trigger.type === 'pattern') {
     const usage = patternCommandUsage(command.usage, effectiveMenuPrefixes.value)
     return {
-      command_source: command.command_source,
+      trigger_type: command.trigger.type,
       command_prefixes: effectiveMenuPrefixes.value,
       usage,
       usage_parts: commandUsageParts(usage, 'literal'),
     }
   }
-  const usageArgs = commandUsageArgs(command.name, command.usage, effectiveMenuPrefixes.value)
+  const commandName = command.effective_names[0] || command.name
+  const usageArgs = commandUsageArgs(commandName, command.usage, effectiveMenuPrefixes.value)
   return {
-    command_source: command.command_source,
+    trigger_type: command.trigger.type,
     command_prefixes: effectiveMenuPrefixes.value,
     ...(usageArgs
       ? {
@@ -272,36 +261,6 @@ function commandPreviewFields(command: PluginCommandSummary) {
         }
       : {}),
   }
-}
-
-function helpCommandPreviewFields(plugin: PluginSummary, commandName?: string | null, usage?: string | null) {
-  const name = String(commandName ?? '').trim()
-  if (!name) {
-    return {}
-  }
-  const command = findPluginCommand(plugin, name)
-  if (command?.command_source === 'pattern') {
-    return commandPreviewFields(command)
-  }
-  const usageArgs = commandUsageArgs(name, usage, effectiveMenuPrefixes.value)
-  return {
-    ...(command ? { command_source: command.command_source } : {}),
-    command_prefixes: effectiveMenuPrefixes.value,
-    ...(usageArgs
-      ? {
-          usage_args: usageArgs,
-          usage_parts: commandUsageParts(usageArgs, 'required'),
-        }
-      : {}),
-  }
-}
-
-function findPluginCommand(plugin: PluginSummary, value: string) {
-  const target = normalizeMenuLookup(value)
-  return plugin.commands.find((command) => (
-    [command.name, command.declaration_id, ...(command.aliases ?? [])]
-      .some((candidate) => normalizeMenuLookup(candidate) === target)
-  )) ?? null
 }
 
 function effectiveCommandPermission(command: PluginCommandSummary): CommandPermissionLevel {
@@ -310,15 +269,6 @@ function effectiveCommandPermission(command: PluginCommandSummary): CommandPermi
     return normalizeCommandPermission(declaredPermission)
   }
   return normalizeCommandPermission(configDocument.value?.permission?.default_level)
-}
-
-function effectiveHelpItemPermission(plugin: PluginSummary, item: PluginHelpItem): CommandPermissionLevel {
-  const declaredPermission = String(item.permission ?? '').trim()
-  if (declaredPermission) {
-    return normalizeCommandPermission(declaredPermission)
-  }
-  const command = findPluginCommand(plugin, item.command ?? '')
-  return command ? effectiveCommandPermission(command) : 'everyone'
 }
 
 function normalizeCommandPermission(value: unknown): CommandPermissionLevel {
@@ -332,10 +282,6 @@ function normalizeCommandPermission(value: unknown): CommandPermissionLevel {
     default:
       return 'everyone'
   }
-}
-
-function normalizeMenuLookup(value?: string | null) {
-  return String(value ?? '').trim().toLowerCase()
 }
 
 function patternCommandUsage(usage: string | null | undefined, prefixes: string[]) {

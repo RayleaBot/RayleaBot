@@ -83,8 +83,8 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
-		"weather": {{PluginID: "weather", Capability: "message.history.get"}},
+	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
 	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
 	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", pluginruntime.Action{
@@ -137,8 +137,8 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
-		"weather": {{PluginID: "weather", Capability: "provider.napcat.message_emoji.like.set"}},
+	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
 	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", pluginruntime.Action{
@@ -241,8 +241,8 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	waitForRuntimeInfo(t, shell, onebot11.TransportForwardWS, "napcat", time.Second)
 
 	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
-		"weather": {{PluginID: "weather", Capability: "provider.napcat.message_emoji.like.set"}},
+	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
 	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", pluginruntime.Action{
@@ -274,7 +274,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	}
 }
 
-func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
+func TestExecuteOneBotLocalActionRejectsMissingPermission(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, nil)
@@ -287,7 +287,7 @@ func TestExecuteOneBotLocalActionRejectsMissingCapability(t *testing.T) {
 			"conversation_id":   "456",
 		},
 	})
-	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
 func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) {
@@ -302,8 +302,8 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 	}})
-	application.setTestLocalActions(&stubCapabilityView{capabilities: map[string][]stubCapability{
-		"weather": {{PluginID: "weather", Capability: "message.history.get"}},
+	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
 	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
 	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", pluginruntime.Action{

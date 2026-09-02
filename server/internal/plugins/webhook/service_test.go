@@ -25,29 +25,29 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 		dispatcher: dispatcher,
 		events:     events,
 	}
+	pluginCatalog := plugincatalog.New([]plugins.Snapshot{{
+		PluginID:          "repo-watcher",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		Webhooks: []plugins.WebhookScope{{
+			ID: "github", Route: "github", AuthStrategy: "fixed_token",
+			Header: "X-Webhook-Token", SecretRef: "webhook.github.secret",
+		}},
+	}})
 	registry := NewRegistry()
-	registry.Register(Registration{
-		PluginID:     "repo-watcher",
-		Route:        "github",
-		Methods:      []string{http.MethodPost},
-		AuthStrategy: "fixed_token",
-		Header:       "X-Webhook-Token",
-		SecretRef:    "webhook.github.secret",
-	})
+	registry.SyncSnapshots(pluginCatalog.List())
 
-	service := New(Deps{
-		Registry: registry,
-		Secrets:  &staticSecretStore{values: map[string][]byte{"webhook.github.secret": []byte("fixture-token")}},
-		Plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:          "repo-watcher",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-		}}),
-		Dispatcher:   dispatcher,
-		Runtime:      ensurer,
-		Capabilities: alwaysCapabilityView{},
+	service, err := New(Deps{
+		Registry:   registry,
+		Secrets:    &staticSecretStore{values: map[string][]byte{"webhook.github.secret": []byte("fixture-token")}},
+		Plugins:    pluginCatalog,
+		Dispatcher: dispatcher,
+		Runtime:    ensurer,
 	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
 
 	router := chi.NewRouter()
 	router.Post("/api/webhooks/{plugin_id}/{route}", service.HandleWebhook())
@@ -91,6 +91,14 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	}
 }
 
+func TestNewRequiresRuntimeDependencies(t *testing.T) {
+	t.Parallel()
+
+	if _, err := New(Deps{}); err == nil {
+		t.Fatal("New accepted missing runtime dependencies")
+	}
+}
+
 type recordingRuntimeEnsurer struct {
 	dispatcher *dispatch.Dispatcher
 	events     chan pluginruntime.Event
@@ -120,16 +128,6 @@ func (r *webhookRuntime) DeliverEvent(_ context.Context, event pluginruntime.Eve
 
 func (r *webhookRuntime) Snapshot() pluginruntime.Snapshot {
 	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
-}
-
-type alwaysCapabilityView struct{}
-
-func (alwaysCapabilityView) CapabilityDeclared(context.Context, string, string) bool {
-	return true
-}
-
-func (alwaysCapabilityView) WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool) {
-	return plugins.WebhookScope{}, true
 }
 
 type staticSecretStore struct {

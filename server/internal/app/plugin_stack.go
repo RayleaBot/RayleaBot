@@ -166,14 +166,11 @@ func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugincata
 		return nil
 	}
 	for _, snapshot := range catalog.List() {
-		settings := plugins.CloneSettings(snapshot.DefaultConfig)
 		persisted, err := repo.ReadAll(ctx, snapshot.PluginID)
 		if err != nil {
 			return fmt.Errorf("load persisted plugin settings for %s: %w", snapshot.PluginID, err)
 		}
-		for key, value := range persisted {
-			settings[key] = plugins.CloneSettingValue(value)
-		}
+		settings := pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 		catalog.RefreshCommands(snapshot.PluginID, settings)
 	}
 	return nil

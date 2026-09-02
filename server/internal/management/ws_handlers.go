@@ -254,17 +254,20 @@ func pluginStateEventCommands(commands []plugins.Command) []wsevents.PluginComma
 	}
 	items := make([]wsevents.PluginCommandItem, 0, len(commands))
 	for _, command := range commands {
-		if command.Name == "" {
+		if command.ID == "" || command.DisplayName == "" {
 			continue
 		}
 		item := wsevents.PluginCommandItem{
-			Name:          command.Name,
-			Aliases:       append([]string(nil), command.Aliases...),
-			Description:   command.Description,
-			Usage:         command.Usage,
-			Permission:    command.Permission,
-			CommandSource: pluginEventCommandSource(command.CommandSource),
-			DeclarationID: command.DeclarationID,
+			ID:             command.ID,
+			Name:           command.DisplayName,
+			EffectiveNames: plugins.EffectiveCommandNames(command.TriggerType, command.Name, command.Aliases),
+			Description:    command.Description,
+			Usage:          command.Usage,
+			Permission:     command.Permission,
+			Trigger: wsevents.PluginCommandTrigger{
+				Type: command.TriggerType, Names: append([]string(nil), command.TriggerNames...),
+				Pattern: command.MatchPattern, SettingsKey: command.SettingsKey,
+			},
 		}
 		items = append(items, item)
 	}
@@ -283,16 +286,6 @@ func pluginStateEventCommandConflicts(snapshot plugins.Snapshot, snapshots []plu
 		return []string{}
 	}
 	return conflicts[snapshot.PluginID]
-}
-
-func pluginEventCommandSource(source string) string {
-	if source == plugins.CommandSourceDynamic {
-		return plugins.CommandSourceDynamic
-	}
-	if source == plugins.CommandSourcePattern {
-		return plugins.CommandSourcePattern
-	}
-	return plugins.CommandSourceManifest
 }
 
 type logFrame struct {

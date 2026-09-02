@@ -29,13 +29,11 @@ func (d *Dispatcher) ReloadPlugin(
 	if err := newManager.Start(ctx, spec, payload); err != nil {
 		return fmt.Errorf("new runtime init failed: %w", err)
 	}
-	subscriptions := newManager.Snapshot().Subscriptions
-
 	// Atomically swap runtimes in the dispatcher.
 	d.mu.Lock()
 	oldSlot, hadOld := d.slots[pluginID]
 	// Register new slot.
-	newSlot := d.newPluginSlot(newManager, subscriptions, cmds, spec.EffectiveConcurrency)
+	newSlot := d.newPluginSlot(newManager, spec.Events, cmds, spec.EffectiveConcurrency)
 	d.slots[pluginID] = newSlot
 	go d.worker(pluginID, newSlot)
 	d.mu.Unlock()

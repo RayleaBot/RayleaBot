@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
-  "title": "RayleaBot Plugin JSONL Protocol",
-  "description": "Fixture-ready schema for the RayleaBot platform-runtime JSONL protocol. This contract freezes startup, startup progress, shared outbound segment payloads, shared local actions, frozen OneBot single-action capabilities, current provider extension actions, event dispatch, result, error, ping/pong keepalive, and shutdown semantics.",
+  "title": "RayleaBot Plugin JSONL Protocol v2",
+  "description": "Language-neutral JSONL protocol. The init frame establishes protocol version and plugin identity; subsequent frames use the established process session and carry only message-local fields.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"
@@ -39,27 +39,12 @@
     "common": {
       "type": "object",
       "required": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id"
       ],
       "properties": {
-        "protocol_version": {
-          "type": "string",
-          "const": "1"
-        },
         "type": {
           "type": "string"
-        },
-        "timestamp": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "plugin_id": {
-          "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
         },
         "request_id": {
           "type": "string",
@@ -67,26 +52,18 @@
         }
       }
     },
-    "base_capability_name": {
+    "base_permission_name": {
       "type": "string",
       "enum": [
-        "event.subscribe",
         "event.raw_payload",
         "message.send",
-        "message.reply",
-        "logger.write",
-        "storage.kv",
-        "storage.file",
         "http.request",
-        "config.read",
-        "config.write",
         "governance.blacklist.read",
         "governance.blacklist.write",
         "governance.whitelist.read",
         "governance.whitelist.write",
         "governance.command_policy.read",
         "scheduler.create",
-        "event.expose_webhook",
         "render.image",
         "plugin.list",
         "secret.read",
@@ -151,11 +128,11 @@
         "provider.luckylillia.friend_groups.get"
       ]
     },
-    "capability_name": {
+    "permission_name": {
       "type": "string",
       "anyOf": [
         {
-          "$ref": "#/$defs/base_capability_name"
+          "$ref": "#/$defs/base_permission_name"
         },
         {
           "$ref": "#/$defs/onebot_action_kind"
@@ -174,7 +151,13 @@
           "type": "object",
           "required": [
             "type",
-            "command_prefixes"
+            "protocol_version",
+            "plugin_id",
+            "config",
+            "effective_permissions",
+            "super_admins",
+            "command_prefixes",
+            "concurrency"
           ],
           "properties": {
             "type": {
@@ -197,27 +180,6 @@
                 }
               }
             },
-            "capabilities": {
-              "type": "array",
-              "items": {
-                "$ref": "#/$defs/capability_name"
-              },
-              "uniqueItems": true
-            },
-            "permissions": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "super_admins": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "uniqueItems": true
-                }
-              }
-            },
             "command_prefixes": {
               "type": "array",
               "minItems": 1,
@@ -226,6 +188,38 @@
                 "minLength": 1
               },
               "uniqueItems": true
+            },
+            "protocol_version": {
+              "type": "string",
+              "const": "2"
+            },
+            "plugin_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "config": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "effective_permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/permission_name"
+              },
+              "uniqueItems": true
+            },
+            "super_admins": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "concurrency": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
             }
           }
         }
@@ -277,14 +271,6 @@
                 "ready",
                 "error"
               ]
-            },
-            "subscriptions": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              },
-              "uniqueItems": true
             },
             "error_message": {
               "type": "string",
@@ -548,6 +534,18 @@
                           "additionalProperties": true
                         }
                       }
+                    },
+                    "config": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "changed_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
                     }
                   }
                 },
@@ -645,7 +643,9 @@
               "allOf": [
                 {
                   "if": {
-                    "required": ["event_type"],
+                    "required": [
+                      "event_type"
+                    ],
                     "properties": {
                       "event_type": {
                         "const": "webhook.received"
@@ -653,11 +653,40 @@
                     }
                   },
                   "then": {
-                    "required": ["webhook"]
+                    "required": [
+                      "webhook"
+                    ]
                   },
                   "else": {
                     "not": {
-                      "required": ["webhook"]
+                      "required": [
+                        "webhook"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "event_type"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "const": "config.changed"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "payload": {
+                        "required": [
+                          "config",
+                          "changed_keys"
+                        ]
+                      }
                     }
                   }
                 }
@@ -917,11 +946,19 @@
     "outbound_message_segment_passthrough_media": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type", "data"],
+      "required": [
+        "type",
+        "data"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["record", "video", "file", "flash_file"]
+          "enum": [
+            "record",
+            "video",
+            "file",
+            "flash_file"
+          ]
         },
         "data": {
           "type": "object",
@@ -933,11 +970,27 @@
     "outbound_message_segment_passthrough_payload": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["type"],
+      "required": [
+        "type"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake"]
+          "enum": [
+            "json",
+            "xml",
+            "markdown",
+            "music",
+            "contact",
+            "forward",
+            "node",
+            "poke",
+            "dice",
+            "rps",
+            "mface",
+            "keyboard",
+            "shake"
+          ]
         },
         "data": {
           "type": "object",
@@ -967,26 +1020,13 @@
         },
         "message": {
           "$ref": "#/$defs/outbound_message"
-        }
-      }
-    },
-    "action_message_reply_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "reply_to_event_id",
-        "message"
-      ],
-      "properties": {
+        },
         "reply_to_event_id": {
           "type": "string",
           "minLength": 1
         },
         "fallback_to_send_if_missing": {
           "type": "boolean"
-        },
-        "message": {
-          "$ref": "#/$defs/outbound_message"
         }
       }
     },
@@ -996,16 +1036,10 @@
           "$ref": "#/$defs/action_message_send"
         },
         {
-          "$ref": "#/$defs/action_message_reply"
-        },
-        {
           "$ref": "#/$defs/action_logger_write"
         },
         {
           "$ref": "#/$defs/action_storage_kv"
-        },
-        {
-          "$ref": "#/$defs/action_config_read"
         },
         {
           "$ref": "#/$defs/action_plugin_list"
@@ -1050,9 +1084,6 @@
           "$ref": "#/$defs/action_scheduler_create"
         },
         {
-          "$ref": "#/$defs/action_event_expose_webhook"
-        },
-        {
           "$ref": "#/$defs/action_render_image"
         },
         {
@@ -1074,7 +1105,11 @@
         },
         {
           "type": "object",
-          "required": ["type", "action", "data"],
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
           "properties": {
             "type": {
               "const": "action"
@@ -1101,7 +1136,11 @@
         },
         {
           "type": "object",
-          "required": ["type", "action", "data"],
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
           "properties": {
             "type": {
               "const": "action"
@@ -1148,34 +1187,6 @@
             },
             "data": {
               "$ref": "#/$defs/action_message_send_data"
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
-    },
-    "action_message_reply": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "action",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "const": "action"
-            },
-            "action": {
-              "type": "string",
-              "const": "message.reply"
-            },
-            "data": {
-              "$ref": "#/$defs/action_message_reply_data"
             }
           }
         }
@@ -1285,15 +1296,11 @@
       "additionalProperties": false,
       "required": [
         "operation",
-        "root",
         "path"
       ],
       "properties": {
         "operation": {
           "const": "read"
-        },
-        "root": {
-          "const": "plugin_data"
         },
         "path": {
           "type": "string",
@@ -1306,16 +1313,12 @@
       "additionalProperties": false,
       "required": [
         "operation",
-        "root",
         "path",
         "content_text"
       ],
       "properties": {
         "operation": {
           "const": "write"
-        },
-        "root": {
-          "const": "plugin_data"
         },
         "path": {
           "type": "string",
@@ -1331,16 +1334,12 @@
       "additionalProperties": false,
       "required": [
         "operation",
-        "root",
         "path",
         "content_base64"
       ],
       "properties": {
         "operation": {
           "const": "write"
-        },
-        "root": {
-          "const": "plugin_data"
         },
         "path": {
           "type": "string",
@@ -1356,15 +1355,11 @@
       "additionalProperties": false,
       "required": [
         "operation",
-        "root",
         "path"
       ],
       "properties": {
         "operation": {
           "const": "delete"
-        },
-        "root": {
-          "const": "plugin_data"
         },
         "path": {
           "type": "string",
@@ -1377,15 +1372,11 @@
       "additionalProperties": false,
       "required": [
         "operation",
-        "root",
         "prefix"
       ],
       "properties": {
         "operation": {
           "const": "list"
-        },
-        "root": {
-          "const": "plugin_data"
         },
         "prefix": {
           "type": "string"
@@ -1797,24 +1788,6 @@
       ],
       "unevaluatedProperties": false
     },
-    "action_config_read_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "keys"
-      ],
-      "properties": {
-        "keys": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        }
-      }
-    },
     "action_secret_read_data": {
       "type": "object",
       "additionalProperties": false,
@@ -2108,101 +2081,12 @@
         }
       }
     },
-    "action_event_expose_webhook_data": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "route",
-        "methods",
-        "auth_strategy",
-        "header",
-        "secret_ref",
-        "replay_protection"
-      ],
-      "properties": {
-        "route": {
-          "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,31})$"
-        },
-        "methods": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "enum": [
-              "POST"
-            ]
-          },
-          "uniqueItems": true
-        },
-        "auth_strategy": {
-          "type": "string",
-          "enum": [
-            "fixed_token",
-            "hmac_sha256"
-          ]
-        },
-        "header": {
-          "type": "string",
-          "minLength": 1
-        },
-        "signature_prefix": {
-          "type": "string",
-          "minLength": 1
-        },
-        "secret_ref": {
-          "type": "string",
-          "minLength": 1
-        },
-        "source_ips": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "uniqueItems": true
-        },
-        "replay_protection": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "timestamp_header",
-            "event_id_header",
-            "tolerance_seconds",
-            "enforce"
-          ],
-          "description": "Replay protection contract. The exposed webhook caller must supply a unix-epoch timestamp and a unique event id with every request. When auth_strategy is hmac_sha256, the signature input is composed as the timestamp ASCII digits, a single newline, the event id, a single newline, and the raw request body. The server rejects requests whose timestamp differs from the server clock by more than tolerance_seconds or whose (route, event_id) pair has been observed within the rolling replay window. enforce=false degrades all rejections to log-only observation and emits webhook_replay_grace_observed counts; the route still requires the timestamp and event id headers when present but falls back to a server-generated event id when missing.",
-          "properties": {
-            "timestamp_header": {
-              "type": "string",
-              "minLength": 1,
-              "default": "X-Raylea-Timestamp"
-            },
-            "event_id_header": {
-              "type": "string",
-              "minLength": 1,
-              "default": "X-Raylea-Event-Id"
-            },
-            "tolerance_seconds": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 3600,
-              "default": 300
-            },
-            "enforce": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        }
-      }
-    },
     "render_image_resource_url": {
       "type": "string",
       "minLength": 1,
       "maxLength": 4096,
       "pattern": "^https://",
-      "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; the target and every redirect must remain inside the calling plugin's declared http_hosts scope."
+      "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; the target and every redirect are revalidated against the host SSRF and private-network policy."
     },
     "render_image_resource": {
       "type": "object",
@@ -2251,7 +2135,7 @@
         "template": {
           "type": "string",
           "minLength": 1,
-          "description": "Render template reference. Plugin code may pass a package-local template short ID declared in render_templates, a system template ID, or the current plugin's formal plugin.<plugin_id>.<template_id> ID. Other plugin templates are rejected by the platform."
+          "description": "Render template reference. Plugin code may pass a package-local template short ID discovered below templates/, a system template ID, or the current plugin's formal plugin.<plugin_id>.<template_id> ID. Other plugin templates are rejected by the platform."
         },
         "theme": {
           "type": "string",
@@ -2274,7 +2158,7 @@
           "items": {
             "$ref": "#/$defs/render_image_resource"
           },
-          "description": "Optional platform-prefetched image resources. Using this field requires both render.image and http.request capabilities. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input or capability-scope violations reject the action."
+          "description": "Optional platform-prefetched image resources. Using this field requires both render.image and http.request permissions. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input or permission violations reject the action."
         },
         "data": {
           "type": "object",
@@ -2296,38 +2180,6 @@
           "description": "Catalog returns the full plugin command and help catalog. Caller returns commands and help entries visible to the parent event actor."
         }
       }
-    },
-    "action_config_read": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "action",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "const": "action"
-            },
-            "parent_request_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "action": {
-              "type": "string",
-              "const": "config.read"
-            },
-            "data": {
-              "$ref": "#/$defs/action_config_read_data"
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
     },
     "action_plugin_list": {
       "allOf": [
@@ -2713,38 +2565,6 @@
       ],
       "unevaluatedProperties": false
     },
-    "action_event_expose_webhook": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/common"
-        },
-        {
-          "type": "object",
-          "required": [
-            "type",
-            "action",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "const": "action"
-            },
-            "parent_request_id": {
-              "type": "string",
-              "minLength": 1
-            },
-            "action": {
-              "type": "string",
-              "const": "event.expose_webhook"
-            },
-            "data": {
-              "$ref": "#/$defs/action_event_expose_webhook_data"
-            }
-          }
-        }
-      ],
-      "unevaluatedProperties": false
-    },
     "action_render_image": {
       "allOf": [
         {
@@ -2785,500 +2605,69 @@
       "request_id_policy": "required_new_request",
       "required_fields": [
         "protocol_version",
-        "type",
-        "timestamp",
         "plugin_id",
-        "request_id",
-        "command_prefixes"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.init-init-ack.yaml"
-    },
-    {
-      "type": "init_progress",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_same_as_request",
-      "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id",
-        "summary"
+        "config",
+        "effective_permissions",
+        "super_admins",
+        "command_prefixes",
+        "concurrency"
       ],
-      "example_ref": "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml"
-    },
-    {
-      "type": "init_ack",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_same_as_request",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "status"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.init-init-ack.yaml"
+      "example_ref": "fixtures/plugin-protocol/ok.init.yaml"
     },
     {
       "type": "event",
       "direction": "platform->plugin",
       "request_id_policy": "required_new_request",
       "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id",
         "event"
       ],
-      "example_ref": "fixtures/plugin-protocol/ok.event-result.yaml"
+      "example_ref": "fixtures/plugin-protocol/ok.config-changed.yaml"
     },
     {
       "type": "action",
-      "action_kind": "message.send",
       "direction": "plugin->platform",
       "request_id_policy": "required_new_request_distinct_from_event",
       "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-message-send-segments.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "message.reply",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
         "request_id",
         "action",
         "data"
       ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "logger.write",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-logger-write.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "storage.kv",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-storage-kv-get.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "config.read",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-config-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "plugin.list",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-plugin-list.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "secret.read",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-secret-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "thirdparty.account.read",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-thirdparty-account-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "thirdparty.account.validate",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-thirdparty-account-validate.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "thirdparty.resolve",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-thirdparty-resolve.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "config.write",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-config-write.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "governance.blacklist.read",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "governance.blacklist.write",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "governance.whitelist.read",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-governance-whitelist-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "governance.whitelist.write",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-governance-whitelist-write-set-enabled.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "governance.command_policy.read",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-governance-command-policy-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "storage.file",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-storage-file-read.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "http.request",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-http-request.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "scheduler.create",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-scheduler-create.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "event.expose_webhook",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-event-expose-webhook.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "render.image",
-      "direction": "plugin->platform",
-      "description": "The platform resolves a package-local template short ID against the calling plugin before falling back to a system template ID. Formal plugin template IDs use plugin.<plugin_id>.<template_id> and are only renderable by the owning plugin. Optional resources are fetched through the platform HTTP trust boundary, materialized as request-scoped temporary files, and removed after Chromium finishes.",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-render-image.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "message.history.get",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-message-history-get.yaml"
-    },
-    {
-      "type": "action",
-      "action_kind": "provider.napcat.message_emoji.like.set",
-      "direction": "plugin->platform",
-      "request_id_policy": "required_new_request_distinct_from_event",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "parent_request_id",
-        "action",
-        "data"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.action-provider-napcat-message-emoji-like-set.yaml"
+      "example_ref": "fixtures/plugin-protocol/ok.message-send.yaml"
     },
     {
       "type": "result",
       "direction": "bidirectional",
       "request_id_policy": "required_same_as_request",
       "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id",
         "status",
         "data"
       ],
-      "example_ref": "fixtures/plugin-protocol/ok.event-result.yaml"
+      "example_ref": "fixtures/plugin-protocol/ok.config-changed.yaml"
     },
     {
       "type": "error",
       "direction": "bidirectional",
       "request_id_policy": "required_same_as_request",
       "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id",
         "code",
         "message"
-      ],
-      "example_ref": "fixtures/plugin-protocol/ok.event-error.yaml"
-    },
-    {
-      "type": "shutdown",
-      "direction": "platform->plugin",
-      "request_id_policy": "required_new_request",
-      "required_fields": [
-        "protocol_version",
-        "type",
-        "timestamp",
-        "plugin_id",
-        "request_id",
-        "reason"
-      ],
-      "example_ref": "fixtures/plugin-protocol/edge.shutdown-with-result.yaml"
+      ]
     },
     {
       "type": "ping",
       "direction": "platform->plugin",
       "request_id_policy": "required_new_request",
       "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.ping-pong.yaml"
@@ -3288,121 +2677,38 @@
       "direction": "plugin->platform",
       "request_id_policy": "required_same_as_request",
       "required_fields": [
-        "protocol_version",
         "type",
-        "timestamp",
-        "plugin_id",
         "request_id"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.ping-pong.yaml"
+    },
+    {
+      "type": "shutdown",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "type",
+        "request_id",
+        "reason"
+      ]
     }
   ],
   "x-fixtures": [
-    "fixtures/plugin-protocol/ok.init-init-ack.yaml",
-    "fixtures/plugin-protocol/ok.init-without-bot.yaml",
-    "fixtures/plugin-protocol/ok.event-result.yaml",
-    "fixtures/plugin-protocol/ok.event-bot-identity-changed.yaml",
-    "fixtures/plugin-protocol/ok.event-plugin-started.yaml",
-    "fixtures/plugin-protocol/ok.event-management-action.yaml",
-    "fixtures/plugin-protocol/ok.event-error.yaml",
-    "fixtures/plugin-protocol/ok.action-message-send-segments.yaml",
-    "fixtures/plugin-protocol/ok.action-message-send-mixed-segments.yaml",
-    "fixtures/plugin-protocol/ok.action-message-reply-to-event.yaml",
-    "fixtures/plugin-protocol/ok.action-logger-write.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-kv-get.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-kv-set.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-kv-delete.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-kv-list.yaml",
-    "fixtures/plugin-protocol/ok.action-config-read.yaml",
-    "fixtures/plugin-protocol/ok.action-plugin-list.yaml",
-    "fixtures/plugin-protocol/ok.action-secret-read.yaml",
-    "fixtures/plugin-protocol/ok.action-thirdparty-account-read.yaml",
-    "fixtures/plugin-protocol/ok.action-thirdparty-account-validate.yaml",
-    "fixtures/plugin-protocol/ok.action-thirdparty-resolve.yaml",
-    "fixtures/plugin-protocol/ok.action-config-write.yaml",
-    "fixtures/plugin-protocol/ok.action-governance-blacklist-read.yaml",
-    "fixtures/plugin-protocol/ok.action-governance-blacklist-write-upsert.yaml",
-    "fixtures/plugin-protocol/ok.action-governance-whitelist-read.yaml",
-    "fixtures/plugin-protocol/ok.action-governance-whitelist-write-set-enabled.yaml",
-    "fixtures/plugin-protocol/ok.action-governance-command-policy-read.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-file-read.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-file-write-text.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-file-write-base64.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-file-delete.yaml",
-    "fixtures/plugin-protocol/ok.action-storage-file-list.yaml",
-    "fixtures/plugin-protocol/ok.action-http-request.yaml",
-    "fixtures/plugin-protocol/ok.action-http-request-base64.yaml",
-    "fixtures/plugin-protocol/ok.action-scheduler-create.yaml",
-    "fixtures/plugin-protocol/ok.action-event-expose-webhook.yaml",
-    "fixtures/plugin-protocol/ok.action-event-expose-webhook-grace.yaml",
-    "fixtures/plugin-protocol/ok.event-webhook-received.yaml",
-    "fixtures/plugin-protocol/ok.action-render-image.yaml",
-    "fixtures/plugin-protocol/ok.action-render-image-resources.yaml",
-    "fixtures/plugin-protocol/ok.action-message-history-get.yaml",
-    "fixtures/plugin-protocol/ok.action-group-announcement-create.yaml",
-    "fixtures/plugin-protocol/ok.action-file-group-upload.yaml",
-    "fixtures/plugin-protocol/ok.action-reaction-set.yaml",
-    "fixtures/plugin-protocol/ok.action-provider-napcat-message-emoji-like-set.yaml",
-    "fixtures/plugin-protocol/ok.action-provider-luckylillia-friend-groups-get.yaml",
-    "fixtures/plugin-protocol/ok.action-message-send-extended-segments.yaml",
+    "fixtures/plugin-protocol/ok.init.yaml",
+    "fixtures/plugin-protocol/ok.config-changed.yaml",
+    "fixtures/plugin-protocol/edge.config-changed-empty.yaml",
+    "fixtures/plugin-protocol/ok.message-send.yaml",
+    "fixtures/plugin-protocol/ok.storage-file.yaml",
+    "fixtures/plugin-protocol/ok.http-request.yaml",
+    "fixtures/plugin-protocol/ok.governance-blacklist-read.yaml",
+    "fixtures/plugin-protocol/ok.scheduler-create.yaml",
+    "fixtures/plugin-protocol/ok.render-image.yaml",
+    "fixtures/plugin-protocol/ok.thirdparty-account-read.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
-    "fixtures/plugin-protocol/edge.init-progress-before-ack.yaml",
-    "fixtures/plugin-protocol/edge.shutdown-with-result.yaml",
-    "fixtures/plugin-protocol/edge.action-message-send-failure.yaml",
-    "fixtures/plugin-protocol/edge.action-message-reply-fallback-to-send.yaml",
-    "fixtures/plugin-protocol/edge.action-logger-write-error.yaml",
-    "fixtures/plugin-protocol/edge.action-storage-file-read-result.yaml",
-    "fixtures/plugin-protocol/edge.action-http-request-error-with-details.yaml",
-    "fixtures/plugin-protocol/edge.action-http-request-result.yaml",
-    "fixtures/plugin-protocol/edge.action-config-read-result.yaml",
-    "fixtures/plugin-protocol/edge.action-plugin-list-result.yaml",
-    "fixtures/plugin-protocol/edge.action-secret-read-result.yaml",
-    "fixtures/plugin-protocol/edge.action-config-write-result.yaml",
-    "fixtures/plugin-protocol/edge.action-scheduler-create-result.yaml",
-    "fixtures/plugin-protocol/edge.action-event-expose-webhook-result.yaml",
-    "fixtures/plugin-protocol/edge.action-render-image-result.yaml",
-    "fixtures/plugin-protocol/edge.action-render-image-resource-fallbacks.yaml",
-    "fixtures/plugin-protocol/edge.action-http-request-concurrent-parent-routing.yaml",
-    "fixtures/plugin-protocol/invalid.missing-request-id.yaml",
-    "fixtures/plugin-protocol/invalid.unsupported-action.yaml",
-    "fixtures/plugin-protocol/invalid.action-logger-write-missing-message.yaml",
-    "fixtures/plugin-protocol/invalid.action-storage-kv-missing-key.yaml",
-    "fixtures/plugin-protocol/invalid.action-config-read-empty-keys.yaml",
-    "fixtures/plugin-protocol/invalid.action-secret-read-empty-key.yaml",
-    "fixtures/plugin-protocol/invalid.action-thirdparty-account-read-missing-platform.yaml",
-    "fixtures/plugin-protocol/invalid.action-thirdparty-account-validate-observation.yaml",
-    "fixtures/plugin-protocol/invalid.action-config-write-empty-values.yaml",
-    "fixtures/plugin-protocol/invalid.action-governance-blacklist-write-missing-target.yaml",
-    "fixtures/plugin-protocol/invalid.action-governance-whitelist-write-missing-enabled.yaml",
-    "fixtures/plugin-protocol/invalid.action-storage-file-path-escape.yaml",
-    "fixtures/plugin-protocol/invalid.action-storage-file-mixed-content.yaml",
-    "fixtures/plugin-protocol/invalid.action-http-request-get-with-body.yaml",
-    "fixtures/plugin-protocol/invalid.action-http-request-invalid-method.yaml",
-    "fixtures/plugin-protocol/invalid.action-scheduler-create-missing-cron.yaml",
-    "fixtures/plugin-protocol/invalid.action-event-expose-webhook-invalid-route.yaml",
-    "fixtures/plugin-protocol/invalid.event-webhook-in-payload.yaml",
-    "fixtures/plugin-protocol/invalid.action-render-image-missing-template.yaml",
-    "fixtures/plugin-protocol/invalid.action-render-image-resource-http-url.yaml",
-    "fixtures/plugin-protocol/invalid.action-message-send-unsupported-segment.yaml",
-    "fixtures/plugin-protocol/invalid.action-message-send-missing-image-ref.yaml",
-    "fixtures/plugin-protocol/invalid.action-message-send-reply-segment-order.yaml",
-    "fixtures/plugin-protocol/invalid.action-provider-invalid-namespace.yaml",
-    "fixtures/plugin-protocol/invalid.action-provider-unsupported-action.yaml",
-    "fixtures/plugin-protocol/invalid.action-onebot-family-non-object-data.yaml",
-    "fixtures/plugin-protocol/invalid.action-http-request-missing-parent-request-id.yaml",
-    "fixtures/plugin-protocol/invalid.action-thirdparty-resolve-platform.yaml",
-    "fixtures/plugin-protocol/edge.action-logger-write-result.yaml",
-    "fixtures/plugin-protocol/edge.action-storage-kv-list-result.yaml",
-    "fixtures/plugin-protocol/edge.action-provider-luckylillia-friend-groups-get-result.yaml",
-    "fixtures/plugin-protocol/ok.event-message-with-segments.yaml",
-    "fixtures/plugin-protocol/ok.event-message-sent-group.yaml",
-    "fixtures/plugin-protocol/ok.event-notice-member-increase.yaml",
-    "fixtures/plugin-protocol/ok.event-notice-member-decrease.yaml",
-    "fixtures/plugin-protocol/ok.event-meta-heartbeat.yaml",
-    "fixtures/plugin-protocol/ok.event-meta-lifecycle.yaml",
-    "fixtures/plugin-protocol/ok.action-message-get.yaml",
-    "fixtures/plugin-protocol/ok.action-message-forward-get.yaml",
-    "fixtures/plugin-protocol/ok.action-file-get.yaml"
+    "fixtures/plugin-protocol/edge.init-without-bot.yaml",
+    "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
+    "fixtures/plugin-protocol/invalid.removed-action.yaml",
+    "fixtures/plugin-protocol/invalid.storage-root.yaml"
   ],
-  "$comment": "Frozen plugin action kinds include terminal message.send/message.reply, local-action RPC logger.write/storage.kv/config.read/plugin.list/secret.read/thirdparty.account.read/thirdparty.account.validate/thirdparty.resolve/config.write/governance.blacklist.read/governance.blacklist.write/governance.whitelist.read/governance.whitelist.write/governance.command_policy.read/storage.file/http.request/scheduler.create/event.expose_webhook/render.image, the frozen OneBot single-action surface, and the three current provider extension actions. secret.read reads the calling plugin's secret namespace only and is separate from non-sensitive config.read. thirdparty.account.read reads enabled, non-invalid third-party accounts allowed by manifest-declared platforms and returns credentials as secret values. thirdparty.account.validate reports a bounded authentication observation for an exact allowed account and only requests authoritative platform validation; it cannot submit credential state, credentials, response bodies, or free-form errors. thirdparty.resolve requests host-side third-party platform user resolution through the logged-in browser environment, currently for douyin only; the returned uid is the stable binding identifier and unique_id is a platform-mutable identifier used for display only. render.image accepts system template IDs and the calling plugin's declared package-local template short IDs; plugin template formal IDs use plugin.<plugin_id>.<template_id> and are not cross-plugin renderable. Optional render.image resources require http.request, remain inside declared http_hosts, carry no credentials or arbitrary headers, and are materialized as request-scoped temporary image files. init conveys manifest-declared capabilities, sanitized command_prefixes, permissions.super_admins, and the current bot identity when available. plugin.started is delivered after the runtime is registered successfully. bot.identity.changed carries the current bot identity after a protocol adapter becomes ready. management.action delivers plugin management UI action payloads to the owning plugin. message.* and meta.* use the shared frozen event model; local actions use distinct request_ids, may carry parent_request_id to identify the owning event session, and receive result/error frames from the platform before the plugin completes its event. Concurrent plugins must provide parent_request_id on local action frames. event.raw_payload remains a high-sensitivity event field controlled by the manifest declaration. Ping/pong remain the minimum keepalive semantics. Batching and complex streaming payloads remain out of scope."
+  "$comment": "Protocol v2 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions."
 }

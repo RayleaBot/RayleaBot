@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - protocol_version: "1"
+    plugin_id: legacy-plugin
+    timestamp: 1788192000
+    type: action
+    request_id: legacy-action-1
+    action: logger.write
+    data:
+      level: info
+      message: legacy envelope
+expect:
+  valid: false

@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	err := rayleabot.Run(context.Background(), rayleabot.Options{PluginID: "notice-logger", Subscriptions: []string{"notice.member_increase", "notice.member_decrease"}}, rayleabot.HandlerFunc(handle))
+	err := rayleabot.Run(context.Background(), rayleabot.Options{}, rayleabot.HandlerFunc(handle))
 	if err != nil {
 		_, _ = os.Stderr.WriteString(err.Error() + "\n")
 		os.Exit(1)

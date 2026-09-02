@@ -17,7 +17,7 @@ import {
   readCommandsPluginIds,
 } from '@/lib/management-links'
 import { t } from '@/i18n'
-import { mergeCommandCenterRows, type PluginCommandAvailability } from '@/lib/plugin-commands'
+import { mergeCommandCenterRows, type PluginCommandAvailability, type UnifiedCommandRow } from '@/lib/plugin-commands'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
@@ -25,7 +25,6 @@ import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type {
   CommandPermissionLevel,
   CommandPermissionSource,
-  PluginCommandSource,
   PluginCommandSummary,
   PluginSummary,
 } from '@/types/api'
@@ -116,8 +115,9 @@ function getPluginLabel(plugin: PluginSummary) {
   return `${plugin.name}（${plugin.id}）`
 }
 
-function getAliasesText(command: PluginCommandSummary | { aliases?: string[] }) {
-  return command.aliases?.length ? command.aliases.join(', ') : t('display.empty')
+function getAliasesText(command: PluginCommandSummary) {
+  const aliases = command.effective_names.slice(1)
+  return aliases.length ? aliases.join(', ') : t('display.empty')
 }
 
 function getPermissionText(command: PluginCommandSummary) {
@@ -178,15 +178,15 @@ function getPermissionSourceLabel(source: CommandPermissionSource) {
   return t(`commands.permissionSource.${source}`)
 }
 
-function getCommandSourceLabel(source: PluginCommandSource) {
+function getCommandSourceLabel(source: PluginCommandSummary['trigger']['type']) {
   return t(`commands.commandSource.${source}`)
 }
 
-function getCommandSourceColor(source: PluginCommandSource) {
+function getCommandSourceColor(source: PluginCommandSummary['trigger']['type']) {
   if (source === 'pattern') {
     return 'blue'
   }
-  return source === 'dynamic' ? 'purple' : 'default'
+  return source === 'setting' ? 'purple' : 'default'
 }
 
 function getSelectPopupContainer() {
@@ -278,7 +278,7 @@ onMounted(() => {
           :columns="commandTableColumns"
           :data-source="commandRows"
           :pagination="false"
-          :row-key="(row) => row.key"
+          :row-key="(row: UnifiedCommandRow) => row.key"
           :loading="(loading || commandPolicyLoading) && commandRows.length === 0"
           :scroll="{ x: 1260 }"
         >
@@ -302,8 +302,8 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'source'">
-              <a-tag :color="getCommandSourceColor(record.command.command_source)">
-                {{ getCommandSourceLabel(record.command.command_source) }}
+              <a-tag :color="getCommandSourceColor(record.command.trigger.type)">
+                {{ getCommandSourceLabel(record.command.trigger.type) }}
               </a-tag>
             </template>
 

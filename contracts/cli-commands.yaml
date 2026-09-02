@@ -1,4 +1,4 @@
-version: 1
+version: 2
 description: >
   RayleaBot CLI 子命令正式契约。CLI 是本地离线恢复与运维入口，
   不承担常规在线管理面职责。命令由主程序提供受控子命令，
@@ -62,13 +62,9 @@ commands:
             flag: --source
             type: path
             required: true
-          plugin-id:
-            flag: --plugin-id
-            type: string
-            required: true
         exit_codes:
           0: 开发插件已同步
-          1: 数据库锁、artifact 校验、插件 ID 或安装事务失败
+          1: 数据库锁、artifact 校验、manifest 或安装事务失败
         x-fixtures:
           - fixtures/cli/ok.plugin-dev-sync.yaml
           - fixtures/cli/invalid.plugin-dev-sync-online.yaml

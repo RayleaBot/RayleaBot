@@ -18,6 +18,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
@@ -26,7 +27,7 @@ type PluginManagementUIDeps struct {
 	Plugins            plugins.CatalogView
 	PluginConfig       pluginstore.ConfigRepository
 	Secrets            secrets.Store
-	NotifyConfigChange func(context.Context, string)
+	NotifyConfigChange func(context.Context, string, map[string]any, []string)
 	RefreshCommands    func(context.Context, string, map[string]any)
 	ActionInvoker      PluginManagementActionInvoker
 }
@@ -35,7 +36,7 @@ type PluginManagementUIHandlers struct {
 	plugins            plugins.CatalogView
 	pluginConfig       pluginstore.ConfigRepository
 	secrets            secrets.Store
-	notifyConfigChange func(context.Context, string)
+	notifyConfigChange func(context.Context, string, map[string]any, []string)
 	refreshCommands    func(context.Context, string, map[string]any)
 	actionInvoker      PluginManagementActionInvoker
 }
@@ -177,7 +178,7 @@ func (h *PluginManagementUIHandlers) servePluginUIAsset(w http.ResponseWriter, r
 	}
 	assetPath := normalizePluginUIAssetPath(r.URL.Path)
 	if assetPath == "" {
-		assetPath = strings.TrimPrefix(strings.TrimSpace(snapshot.ManagementUI.Pages[0].Entry), "ui/")
+		assetPath = strings.TrimPrefix(strings.TrimSpace(snapshot.ManagementUI.Entry), "ui/")
 	}
 	assetFile := filepath.Clean(filepath.Join(assetRoot, filepath.FromSlash(assetPath)))
 	if !isPathWithinRoot(assetRoot, assetFile) {
@@ -281,16 +282,16 @@ func (h *PluginManagementUIHandlers) resolvePluginUISnapshot(pluginID string) (p
 	if !ok || !pluginUISnapshotReady(snapshot) {
 		return plugins.Snapshot{}, false
 	}
-	if strings.TrimSpace(snapshot.PackageRootPath) == "" || len(snapshot.ManagementUI.Pages) == 0 || strings.TrimSpace(snapshot.ManagementUI.Pages[0].Entry) == "" {
+	if strings.TrimSpace(snapshot.PackageRootPath) == "" || len(snapshot.ManagementUI.Pages) == 0 || strings.TrimSpace(snapshot.ManagementUI.Entry) == "" {
 		return plugins.Snapshot{}, false
 	}
 	return snapshot, true
 }
 
 func pluginUISnapshotReady(snapshot plugins.Snapshot) bool {
-	return snapshot.Valid && snapshot.RegistrationState == "installed" && snapshot.ArtifactVersion == "1" &&
+	return snapshot.Valid && snapshot.RegistrationState == "installed" && snapshot.ArtifactVersion == artifact.Version &&
 		snapshot.ArtifactUIAvailable && snapshot.ManagementUI != nil && strings.TrimSpace(snapshot.PackageRootPath) != "" &&
-		len(snapshot.ManagementUI.Pages) > 0 && strings.HasPrefix(strings.TrimSpace(snapshot.ManagementUI.Pages[0].Entry), "ui/")
+		len(snapshot.ManagementUI.Pages) > 0 && strings.HasPrefix(strings.TrimSpace(snapshot.ManagementUI.Entry), "ui/")
 }
 
 func (h *PluginManagementUIHandlers) resolveSettingsSnapshot(w http.ResponseWriter, r *http.Request) (plugins.Snapshot, bool) {
@@ -343,7 +344,7 @@ func pluginUIAssetRoot(snapshot plugins.Snapshot) string {
 		return ""
 	}
 
-	if len(snapshot.ManagementUI.Pages) == 0 || !strings.HasPrefix(strings.TrimSpace(snapshot.ManagementUI.Pages[0].Entry), "ui/") {
+	if len(snapshot.ManagementUI.Pages) == 0 || !strings.HasPrefix(strings.TrimSpace(snapshot.ManagementUI.Entry), "ui/") {
 		return ""
 	}
 	return filepath.Clean(filepath.Join(snapshot.PackageRootPath, "ui"))

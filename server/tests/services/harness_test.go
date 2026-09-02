@@ -37,13 +37,13 @@ import (
 // same way the composition root does, but without building a full *app.App. It
 // lets service-level tests construct exactly the collaborators they exercise.
 type serviceHarness struct {
-	state        *harnessState
-	platform     appcore.PlatformState
-	pluginStack  appcore.PluginStackState
-	renderStack  harnessRenderState
-	eventStack   appcore.EventState
-	services     appcore.Services
-	capabilities localaction.CapabilityView
+	state       *harnessState
+	platform    appcore.PlatformState
+	pluginStack appcore.PluginStackState
+	renderStack harnessRenderState
+	eventStack  appcore.EventState
+	services    appcore.Services
+	permissions localaction.PermissionView
 
 	blacklistRepo  permission.BlacklistRepository
 	whitelistRepo  permission.WhitelistRepository
@@ -213,13 +213,13 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 	a.services.EventIngress = chatpolicy.NewIngress(ingressDeps)
 }
 
-func (a *serviceHarness) setTestLocalActions(capabilities localaction.CapabilityView, pluginConfigRepo pluginstore.ConfigRepository, pluginFiles *pluginstore.FileService, pluginKV pluginstore.KVRepository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *onebot11.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
+func (a *serviceHarness) setTestLocalActions(permissions localaction.PermissionView, pluginConfigRepo pluginstore.ConfigRepository, pluginFiles *pluginstore.FileService, pluginKV pluginstore.KVRepository, schedulerEngine *scheduler.Engine, dispatcher *dispatch.Dispatcher, rendererService *renderservice.Service, adapterShell *onebot11.Shell, limiter *localaction.PluginLogLimiter, webhookService *pluginwebhook.Service) {
 	if a == nil {
 		return
 	}
-	a.capabilities = capabilities
-	if a.capabilities == nil {
-		a.capabilities = a.currentCapabilityView()
+	a.permissions = permissions
+	if a.permissions == nil {
+		a.permissions = a.currentPermissionView()
 	}
 	a.pluginStack.PluginConfig = pluginConfigRepo
 	a.pluginStack.PluginFiles = pluginFiles
@@ -244,7 +244,7 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 		CurrentConfig:    func() config.Config { return a.state.Config },
 		Logger:           a.state.Logger,
 		RedactText:       a.state.redactString,
-		Capabilities:     a.capabilities,
+		Permissions:      a.permissions,
 		PluginConfig:     pluginConfigRepo,
 		PluginFiles:      pluginFiles,
 		PluginKV:         pluginKV,
@@ -256,9 +256,7 @@ func (a *serviceHarness) setTestLocalActions(capabilities localaction.Capability
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
 	})
-	if webhookService != nil {
-		a.services.LocalActions.SetWebhookGateway(webhookService)
-	}
+	_ = webhookService
 }
 
 func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispatcher *dispatch.Dispatcher, lifecycle *pluginservice.Controller, registry *pluginwebhook.Registry) {
@@ -268,19 +266,18 @@ func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispat
 	a.platform.Secrets = secretStore
 	a.eventStack.Dispatcher = dispatcher
 	a.pluginStack.Webhooks = registry
-	a.services.PluginWebhooks = pluginwebhook.New(pluginwebhook.Deps{
-		CurrentConfig: func() config.Config { return a.state.Config },
-		Logger:        a.state.Logger,
-		Registry:      registry,
-		Secrets:       secretStore,
-		Plugins:       a.pluginStack.Plugins,
-		Dispatcher:    dispatcher,
-		Runtime:       lifecycle,
-		Capabilities:  a.currentCapabilityView(),
+	service, err := pluginwebhook.New(pluginwebhook.Deps{
+		Logger:     a.state.Logger,
+		Registry:   registry,
+		Secrets:    secretStore,
+		Plugins:    a.pluginStack.Plugins,
+		Dispatcher: dispatcher,
+		Runtime:    lifecycle,
 	})
-	if a.services.LocalActions != nil {
-		a.services.LocalActions.SetWebhookGateway(a.services.PluginWebhooks)
+	if err != nil {
+		panic(err)
 	}
+	a.services.PluginWebhooks = service
 }
 
 func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
@@ -357,101 +354,64 @@ func newPluginLogLimiter(cfg config.Config) *localaction.PluginLogLimiter {
 	return localaction.NewPluginLogLimiter(cfg)
 }
 
-func (a *serviceHarness) currentCapabilityView() localaction.CapabilityView {
+func (a *serviceHarness) currentPermissionView() localaction.PermissionView {
 	if a == nil {
 		return nil
 	}
-	if a.capabilities != nil {
-		return a.capabilities
+	if a.permissions != nil {
+		return a.permissions
 	}
 	if a.pluginStack.Plugins == nil {
-		a.capabilities = &stubCapabilityView{capabilities: map[string][]stubCapability{}}
-		return a.capabilities
+		a.permissions = &stubPermissionView{permissions: map[string][]stubPermission{}}
+		return a.permissions
 	}
-	a.capabilities = plugins.NewCapabilityView(plugins.CapabilityViewDeps{Plugins: a.pluginStack.Plugins})
-	return a.capabilities
+	a.permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: a.pluginStack.Plugins})
+	return a.permissions
 }
 
-type stubCapability struct {
+type stubPermission struct {
 	PluginID   string
-	Capability string
+	Permission string
 	ScopeJSON  string
 }
 
-type stubCapabilityView struct {
-	capabilities map[string][]stubCapability
+type stubPermissionView struct {
+	permissions map[string][]stubPermission
 }
 
-func stubCapabilityViewFor(pluginID string, capabilities ...string) *stubCapabilityView {
-	view := &stubCapabilityView{capabilities: map[string][]stubCapability{}}
-	for _, capability := range capabilities {
-		view.capabilities[pluginID] = append(view.capabilities[pluginID], stubCapability{
+func stubPermissionViewFor(pluginID string, permissions ...string) *stubPermissionView {
+	view := &stubPermissionView{permissions: map[string][]stubPermission{}}
+	for _, permission := range permissions {
+		view.permissions[pluginID] = append(view.permissions[pluginID], stubPermission{
 			PluginID:   pluginID,
-			Capability: capability,
+			Permission: permission,
 		})
 	}
 	return view
 }
 
-func (v *stubCapabilityView) CapabilityDeclared(_ context.Context, pluginID string, capability string) bool {
+func (v *stubPermissionView) PermissionDeclared(_ context.Context, pluginID string, permission string) bool {
 	if v == nil {
 		return false
 	}
-	for _, item := range v.capabilities[pluginID] {
-		if item.Capability == capability {
+	for _, item := range v.permissions[pluginID] {
+		if item.Permission == permission {
 			return true
 		}
 	}
 	return false
 }
 
-func (v *stubCapabilityView) StorageRootAllowed(_ context.Context, pluginID string, root string) bool {
-	for _, item := range v.capabilities[pluginID] {
-		if item.Capability != "storage.file" {
-			continue
-		}
-		for _, declared := range parseStubScopeList(item.ScopeJSON, "storage_roots") {
-			if declared == root {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (v *stubCapabilityView) HTTPHosts(_ context.Context, pluginID string) []string {
-	for _, item := range v.capabilities[pluginID] {
-		if item.Capability == "http.request" {
-			return parseStubScopeList(item.ScopeJSON, "http_hosts")
-		}
-	}
-	return nil
-}
-
-func (v *stubCapabilityView) ThirdPartyAccountPlatforms(_ context.Context, pluginID string) []string {
-	for _, item := range v.capabilities[pluginID] {
-		if item.Capability == "thirdparty.account.read" {
+func (v *stubPermissionView) PermissionPlatforms(_ context.Context, pluginID, permission string) []string {
+	for _, item := range v.permissions[pluginID] {
+		if item.Permission == permission {
 			return parseStubScopeList(item.ScopeJSON, "third_party_account_platforms")
 		}
 	}
 	return nil
 }
 
-func (v *stubCapabilityView) WebhookParameters(_ context.Context, pluginID string, route string) (plugins.WebhookScope, bool) {
-	for _, item := range v.capabilities[pluginID] {
-		if item.Capability != "event.expose_webhook" {
-			continue
-		}
-		for _, scope := range parseStubWebhookScopes(item.ScopeJSON) {
-			if scope.Route == route {
-				return scope, true
-			}
-		}
-	}
-	return plugins.WebhookScope{}, false
-}
-
-func (v *stubCapabilityView) ListPluginSnapshots() []plugins.Snapshot {
+func (v *stubPermissionView) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }
 
@@ -473,23 +433,13 @@ func parseStubScopeList(scopeJSON string, key string) []string {
 	return values
 }
 
-func parseStubWebhookScopes(scopeJSON string) []plugins.WebhookScope {
-	var payload struct {
-		Webhooks []plugins.WebhookScope `json:"webhooks"`
-	}
-	if err := json.Unmarshal([]byte(scopeJSON), &payload); err != nil {
-		return nil
-	}
-	return payload.Webhooks
-}
-
-func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, pluginID string) {
+func (a *serviceHarness) dispatchPluginConfigChanged(ctx context.Context, pluginID string, values map[string]any, changedKeys []string) {
 	if a == nil {
 		return
 	}
 	dispatch := localaction.ConfigChangedDispatcher(a.eventStack.Dispatcher)
 	if dispatch != nil {
-		dispatch(ctx, pluginID)
+		dispatch(ctx, pluginID, values, changedKeys)
 	}
 }
 
@@ -497,7 +447,7 @@ type pluginManagementUIHTTPDeps struct {
 	plugins            *plugincatalog.Catalog
 	pluginConfig       pluginstore.ConfigRepository
 	secrets            secrets.Store
-	notifyConfigChange func(context.Context, string)
+	notifyConfigChange func(context.Context, string, map[string]any, []string)
 	refreshCommands    func(context.Context, string, map[string]any)
 }
 

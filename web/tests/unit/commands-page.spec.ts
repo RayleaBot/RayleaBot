@@ -127,14 +127,17 @@ describe('CommandsPage', () => {
         state: 'running',
         commands: [
           {
+            id: 'fortune',
             name: '我的运势',
-            aliases: ['今日运势'],
+            effective_names: ['我的运势', '今日运势'],
             description: '查看今日运势',
             usage: '我的运势',
-            command_source: 'dynamic',
-            declaration_id: 'fortune',
+            permission: 'everyone',
+            trigger: { type: 'setting', settings_key: 'fortune_command' },
           },
         ],
+        command_groups: [],
+        help: {},
         command_conflicts: [],
       },
       {
@@ -144,11 +147,17 @@ describe('CommandsPage', () => {
         state: 'disabled',
         commands: [
           {
+            id: 'echo',
             name: 'echo',
+            effective_names: ['echo'],
             description: '复读收到的内容',
-            command_source: 'manifest',
+            usage: '/echo',
+            permission: 'everyone',
+            trigger: { type: 'exact', names: ['echo'] },
           },
         ],
+        command_groups: [],
+        help: {},
         command_conflicts: [],
       },
     ]
@@ -164,10 +173,10 @@ describe('CommandsPage', () => {
         {
           plugin_id: 'raylea.fortune',
           plugin_name: '运势',
+          command_id: 'fortune',
           command: '我的运势',
           aliases: ['今日运势'],
-          command_source: 'dynamic',
-          declaration_id: 'fortune',
+          trigger: { type: 'setting', settings_key: 'fortune_command' },
           declared_permission: 'everyone',
           effective_permission: 'everyone',
           permission_source: 'declared',
@@ -175,9 +184,10 @@ describe('CommandsPage', () => {
         {
           plugin_id: 'raylea.echo',
           plugin_name: 'Echo',
+          command_id: 'echo',
           command: 'echo',
           aliases: [],
-          command_source: 'manifest',
+          trigger: { type: 'exact', names: ['echo'] },
           declared_permission: null,
           effective_permission: 'everyone',
           permission_source: 'default_level',
@@ -201,7 +211,7 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).toContain('指令列表')
     expect(wrapper.text()).not.toContain('生效命令策略')
     expect(wrapper.text()).not.toContain('插件指令')
-    expect(wrapper.text()).toContain('动态指令')
+    expect(wrapper.text()).toContain('设置指令')
     expect(wrapper.text()).toContain('所有成员')
     expect(wrapper.text()).toContain('声明权限：所有成员')
     expect(wrapper.text()).toContain('权限来源：命令声明')
@@ -262,10 +272,10 @@ describe('CommandsPage', () => {
         {
           plugin_id: 'ops.tools',
           plugin_name: 'Ops Tools',
+          command_id: 'ops',
           command: 'ops',
           aliases: ['ops-help'],
-          command_source: 'manifest',
-          declaration_id: undefined,
+          trigger: { type: 'exact', names: ['ops', 'ops-help'] },
           declared_permission: null,
           effective_permission: 'everyone',
           permission_source: 'default_level',

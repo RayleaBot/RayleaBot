@@ -10,17 +10,10 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-type CapabilityView interface {
-	CapabilityDeclared(context.Context, string, string) bool
-	StorageRootAllowed(context.Context, string, string) bool
-	HTTPHosts(context.Context, string) []string
-	ThirdPartyAccountPlatforms(context.Context, string) []string
-	WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool)
+type PermissionView interface {
+	PermissionDeclared(context.Context, string, string) bool
+	PermissionPlatforms(context.Context, string, string) []string
 	ListPluginSnapshots() []plugins.Snapshot
-}
-
-type WebhookGateway interface {
-	Expose(context.Context, string, pluginruntime.Action) (map[string]any, error)
 }
 
 type PluginConfigRepository interface {
@@ -40,7 +33,7 @@ type ConfigChangeDispatchResult struct {
 	ErrorCode string
 }
 
-type ConfigChangeDispatcher func(context.Context, string) ConfigChangeDispatchResult
+type ConfigChangeDispatcher func(context.Context, string, map[string]any, []string) ConfigChangeDispatchResult
 
 type MessageSendFunc func(context.Context, string, string, pluginruntime.Event, pluginruntime.Action) (map[string]any, error)
 

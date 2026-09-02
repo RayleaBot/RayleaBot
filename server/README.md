@@ -87,7 +87,7 @@
 - `/ws/plugins/{id}/console`
 - plugin lifecycle：
   - install / enable / disable / reload / uninstall
-  - manifest capability declaration and capability parameter checks
+  - manifest permission declaration and parameter checks
   - 签名商店目录、catalog/development 来源元数据、原子更新与失败回滚
   - 离线 `plugin dev-sync` 复用完整 artifact 安装校验
 - OneBot11 adapter：
@@ -104,7 +104,7 @@
   - `event` / `result` / `error`
   - `ping` / `pong`
   - `shutdown`
-  - local action RPC 覆盖消息、日志、存储、HTTP、配置、secret、插件目录、三方账号、治理、调度、Webhook、渲染、OneBot 与 provider 扩展能力；完整清单见 [`docs/plugin/protocol.md`](../docs/plugin/protocol.md#local-action-rpc)
+  - local action RPC 覆盖消息、日志、存储、HTTP、配置、secret、插件目录、三方账号、治理、调度、Webhook、渲染、OneBot 与 provider 扩展能力；完整清单见 [`docs/plugin/protocol.md`](../docs/plugin/protocol.md#action-rpc)
   - crash / retry backoff / recovery-required failure
 - multi-plugin runtime mainline：
   - per-plugin runtime manager
@@ -115,9 +115,9 @@
   - scheduler `scheduler.trigger`
   - zero-gap reload
 - plugin local actions：
-  - 消息、日志、插件 KV/文件、HTTP、配置与 secret、插件目录、三方账号和治理动作均经过 capability 与 scope 校验
+  - 日志、配置、插件 KV/文件在调用插件的私有命名空间内隐式可用；HTTP、消息、插件目录、三方账号和治理等跨系统动作经过 permission 与参数校验
   - 调度、Webhook、渲染、OneBot 单动作和 provider 扩展动作复用同一 request/response 与结构化错误边界
-  - `storage.file` 仅限 `plugin_data`，`http.request` 受 `http_hosts`、DNS 预检、SSRF、防私网、超时与重试策略约束
+  - `storage.file` 仅限调用插件的私有数据目录；`http.request` 不使用域名白名单，但仍执行 HTTPS、DNS 与重定向复查、SSRF/私网拦截、超时、响应体大小和重试限制
 - protocol / webhook / system services：
   - protocol snapshot aggregation and `/ws/events` protocol updates
   - plugin webhook registry, auth validation, on-demand runtime start, and `webhook.received`
@@ -138,10 +138,10 @@
   - command permission enforcement
   - cooldown enforcement
   - optional cooldown reply
-- plugin capability checks：
-  - local action declaration checks
-  - `http_hosts`、`storage_roots`、`webhooks` boundary checks
-  - `plugin.capability_violation` structured errors
+- plugin permission checks：
+  - elevated local action declaration checks
+  - permission 参数、私有命名空间和静态 webhook boundary checks
+  - `plugin.permission_denied` structured errors
 - management log persistence：
   - persisted summary storage
   - `/api/logs` historical queries

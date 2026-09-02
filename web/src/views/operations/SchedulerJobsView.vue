@@ -39,6 +39,7 @@ const {
   modalContentReady,
   showJobDetail,
 } = useSchedulerJobDetail()
+void detailCardRef
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
@@ -131,6 +132,14 @@ function getPluginInitials(pluginName: string): string {
   return cleanName.substring(0, 2).toUpperCase()
 }
 
+function schedulerRowKey(row: SchedulerJobSummary) {
+  return row.job_id
+}
+
+function schedulerRowClass(record: SchedulerJobSummary) {
+  return record.last_error ? 'row-item row-error' : 'row-item row-success'
+}
+
 // 智能 Cron 中文解析
 function parseCronToChinese(cron?: string): string {
   if (!cron) return '未配置'
@@ -209,7 +218,7 @@ async function copyToClipboard(text?: string) {
 
 // 多维过滤与排序 computed 数据集
 const filteredItems = computed(() => {
-  const _ = timeTick.value
+  timeTick.value
   let result = [...sortedItems.value]
 
   // 1. 搜索词检索
@@ -324,9 +333,9 @@ const filteredItems = computed(() => {
         :columns="tableColumns"
         :data-source="filteredItems"
         :pagination="false"
-        :row-key="(row) => row.job_id"
+        :row-key="schedulerRowKey"
         :scroll="{ x: 1570 }"
-        :row-class-name="(record) => (record.last_error ? 'row-item row-error' : 'row-item row-success')"
+        :row-class-name="schedulerRowClass"
       >
         <template #emptyText>
           {{ t('display.empty') }}
@@ -336,7 +345,7 @@ const filteredItems = computed(() => {
           <!-- 1. 插件与任务合并列 -->
           <template v-if="column.key === 'plugin'">
             <div class="scheduler-cell-plugin-task">
-              <div class="plugin-avatar" :style="getPluginAvatarStyle(record.plugin_name)">
+              <div class="plugin-avatar" :style="getPluginAvatarStyle()">
                 {{ getPluginInitials(record.plugin_name) }}
               </div>
               <div class="meta-content">

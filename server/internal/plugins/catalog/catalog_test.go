@@ -259,14 +259,12 @@ func TestRefreshCommandsPublishesAllSnapshotsForConflictRecalculation(t *testing
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			Commands: []plugins.Command{{
-				Name:          "我的运势",
-				CommandSource: plugins.CommandSourceDynamic,
-				DeclarationID: "fortune",
+				ID: "fortune", Name: "我的运势", DisplayName: "今日运势",
+				TriggerType: "setting", SettingsKey: "trigger_commands",
 			}},
-			DynamicCommands: []plugins.DynamicCommandDecl{{
-				ID:          "fortune",
-				SettingsKey: "trigger_commands",
-				Description: "查看今日运势",
+			ManifestCommands: []plugins.Command{{
+				ID: "fortune", DisplayName: "今日运势", TriggerType: "setting",
+				SettingsKey: "trigger_commands", Description: "查看今日运势",
 			}},
 			DefaultConfig: map[string]any{
 				"trigger_commands": []any{"我的运势"},
@@ -279,11 +277,11 @@ func TestRefreshCommandsPublishesAllSnapshotsForConflictRecalculation(t *testing
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			Commands: []plugins.Command{{
-				Name:          "weather",
-				CommandSource: plugins.CommandSourceManifest,
+				ID: "weather", Name: "weather", DisplayName: "天气",
+				TriggerType: "exact", TriggerNames: []string{"weather"},
 			}},
 			ManifestCommands: []plugins.Command{{
-				Name: "weather",
+				ID: "weather", DisplayName: "天气", TriggerType: "exact", TriggerNames: []string{"weather"},
 			}},
 		},
 	})

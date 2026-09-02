@@ -18,9 +18,11 @@ import (
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestResetAdminAllowsArgon2idSetupAfterReset(t *testing.T) {
@@ -110,7 +112,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
-	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"2","version":"1.0.0","platforms":["windows-x64"]}`)
+	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"2","plugin_protocol_version":"1","version":"1.0.0","platforms":["windows-x64"]}`)
 	writeFile(t, filepath.Join(pluginsDir, "artifact.json"), `{"artifact_version":"1"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -295,7 +297,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	}
 }
 
-func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
+func TestRestoreRejectsBackupManifestV2(t *testing.T) {
 	t.Parallel()
 
 	archivePath := filepath.Join(t.TempDir(), "bad.zip")
@@ -305,10 +307,19 @@ func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
 	}
 	w := zip.NewWriter(outFile)
 	manifest := recovery.BackupManifest{
-		Version:               "99",
+		Version:               "2",
 		CreatedAt:             "2025-01-01T00:00:00Z",
-		PluginManifestVersion: recovery.PluginManifestVersion,
-		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
+		CoreVersion:           "0.3.0",
+		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
+		DBSchemaVersion:       storage.CurrentSchemaVersion(),
+		PluginManifestVersion: "2",
+		PluginProtocolVersion: "1",
+		PluginArtifactVersion: "1",
+		PluginUIBridgeVersion: "2",
+		Consistency:           "offline",
+		Directories: []recovery.BackupManifestDirectory{
+			recovery.Directory("config/user.yaml", "config"),
+		},
 	}
 	data, err := json.Marshal(manifest)
 	if err != nil {
@@ -335,7 +346,7 @@ func TestRestoreRejectsInvalidManifestVersion(t *testing.T) {
 		Args:       []string{archivePath},
 	})
 	if code != 1 {
-		t.Fatalf("restore should fail with exit code 1 for unsupported version, got %d", code)
+		t.Fatalf("restore should fail with exit code 1 for backup manifest v2, got %d", code)
 	}
 }
 
@@ -356,6 +367,8 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 		ConfigSchemaVersion:   "2",
 		DBSchemaVersion:       "000006",
 		PluginManifestVersion: recovery.PluginManifestVersion,
+		PluginProtocolVersion: recovery.PluginProtocolVersion,
+		PluginArtifactVersion: recovery.PluginArtifactVersion,
 		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
 		Consistency:           "offline",
 		Directories: []recovery.BackupManifestDirectory{
@@ -459,6 +472,8 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 		ConfigSchemaVersion:   "3",
 		DBSchemaVersion:       "000004",
 		PluginManifestVersion: recovery.PluginManifestVersion,
+		PluginProtocolVersion: recovery.PluginProtocolVersion,
+		PluginArtifactVersion: recovery.PluginArtifactVersion,
 		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
 		Consistency:           "offline",
 		Directories: []recovery.BackupManifestDirectory{
@@ -622,6 +637,54 @@ func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 		if code := Run(command); code != 1 {
 			t.Fatalf("%s exit code = %d, want 1 while lifecycle lock is held", command.Name, code)
 		}
+	}
+}
+
+func TestPluginDevSyncInstallsArtifactAndDerivesPluginID(t *testing.T) {
+	repoRoot := t.TempDir()
+	configPath := filepath.Join(repoRoot, "config", "user.yaml")
+	writeFile(t, configPath, "database:\n  path: data/rayleabot.db\n")
+	artifactRoot := testutil.WriteGoPluginArtifact(t, filepath.Join(t.TempDir(), "artifact"), "development.fixture", "0.4.0")
+	sourceRoot := t.TempDir()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var stdout bytes.Buffer
+
+	code := Run(Command{
+		Name:       "plugin",
+		ConfigPath: configPath,
+		Logger:     logger,
+		Stdout:     &stdout,
+		Args:       []string{"dev-sync", "--artifact", artifactRoot, "--source", sourceRoot},
+	})
+	if code != 0 {
+		t.Fatalf("plugin dev-sync exit code = %d, output = %q", code, stdout.String())
+	}
+	if _, err := os.Stat(filepath.Join(repoRoot, "plugins", "installed", "development.fixture", "artifact.json")); err != nil {
+		t.Fatalf("installed artifact is missing: %v", err)
+	}
+
+	store, err := storage.Open(filepath.Join(repoRoot, "data", "rayleabot.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	repository, err := plugins.NewSQLiteRepository(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := repository.LoadAllPackageMetadata(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if metadata["development.fixture"].SourceType != "development" || metadata["development.fixture"].SourceRef != sourceRoot {
+		t.Fatalf("development metadata = %#v", metadata["development.fixture"])
+	}
+	desiredStates, err := repository.LoadDesiredStates(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if desiredStates["development.fixture"] != plugins.DesiredStateEnabled {
+		t.Fatalf("desired state = %q, want enabled", desiredStates["development.fixture"])
 	}
 }
 

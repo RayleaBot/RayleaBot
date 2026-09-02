@@ -8,9 +8,11 @@
 2. 停止服务。
 3. 执行 `restore`。
 4. 重新启动服务。
-5. 让平台完成迁移、兼容检查和恢复摘要生成。
+5. 让平台完成兼容检查和恢复摘要生成。
 
-同一插件 epoch 内升级默认保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；`config/default.yaml` 与其他发行基线文件由新版本替换。备份清单必须记录 `plugin_manifest_version=2` 与 `plugin_ui_bridge_version=2`；旧 epoch 的恢复或原位升级返回 `plugin.reset_required`，不会转换旧插件数据。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
+当前恢复只接受 backup manifest v3。清单固定记录 `plugin_protocol_version=2`、`plugin_manifest_version=3`、`plugin_artifact_version=2` 与 `plugin_ui_bridge_version=3`；backup manifest v2 会被拒绝，不执行隐式迁移或破坏性重置。
+
+升级默认保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；`config/default.yaml` 与其他发行基线文件由新版本替换。v3 备份可以记录旧 manifest v2 / artifact v1 插件包事实并恢复其设置、密钥、KV、文件和已发布数据，但这些旧包仍保持不受支持和禁用状态，必须重新安装 manifest v3 / artifact v2 包后才能运行。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
 
 ## 恢复摘要
 
@@ -49,5 +51,5 @@ Launcher 继续提供：
 ## 当前边界
 
 - 当前恢复摘要保留现有人工确认历史窗口，不额外建立独立长历史资源。
-- 同一 epoch 内暂时不兼容的插件可保持禁用并等待人工处理；旧插件 epoch 在恢复预检阶段整体拒绝，不能作为跳过插件带入新状态。
+- 不兼容插件可保持禁用并等待人工处理；恢复不会为了让旧包运行而改写包内容，也不会删除其持久化数据。
 - 当前正式模型不提供恢复确认撤销入口。

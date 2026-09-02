@@ -954,7 +954,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and capabilities before trust confirmation. */
+        /** Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and permissions before trust confirmation. */
         post: operations["inspectPluginInstall"];
         delete?: never;
         options?: never;
@@ -1710,8 +1710,6 @@ export interface components {
         CommandPermissionLevel: "super_admin" | "group_admin" | "everyone";
         /** @enum {string} */
         CommandPermissionSource: "declared" | "default_level";
-        /** @enum {string} */
-        PluginCommandSource: "manifest" | "dynamic" | "pattern";
         GovernanceCommandCooldown: {
             user_command_rate_limit: string;
             group_command_rate_limit: string;
@@ -1720,10 +1718,10 @@ export interface components {
         GovernanceCommandPolicyEntry: {
             plugin_id: string;
             plugin_name: string;
+            command_id: string;
             command: string;
             aliases: string[];
-            command_source: components["schemas"]["PluginCommandSource"];
-            declaration_id?: string;
+            trigger: components["schemas"]["PluginCommandTrigger"];
             declared_permission: components["schemas"]["CommandPermissionLevel"] | null;
             effective_permission: components["schemas"]["CommandPermissionLevel"];
             permission_source: components["schemas"]["CommandPermissionSource"];
@@ -1753,8 +1751,6 @@ export interface components {
         };
         /** @enum {string} */
         PluginRole: "official" | "community" | "development";
-        /** @constant */
-        PluginRuntimeFamily: "go";
         /** @enum {string} */
         PluginPlatform: "windows-x64" | "linux-x64" | "macos-arm64";
         PluginTrustSummary: {
@@ -1770,13 +1766,34 @@ export interface components {
             verified: boolean;
         };
         PluginCommandSummary: {
+            id: string;
             name: string;
-            aliases?: string[];
-            description?: string;
-            usage?: string;
-            permission?: string;
-            command_source: components["schemas"]["PluginCommandSource"];
-            declaration_id?: string;
+            effective_names: string[];
+            description: string;
+            usage: string;
+            permission: components["schemas"]["CommandPermissionLevel"];
+            trigger: components["schemas"]["PluginCommandTrigger"];
+        };
+        PluginCommandTrigger: components["schemas"]["PluginExactCommandTrigger"] | components["schemas"]["PluginPatternCommandTrigger"] | components["schemas"]["PluginSettingCommandTrigger"];
+        PluginExactCommandTrigger: {
+            /** @constant */
+            type: "exact";
+            names: string[];
+        };
+        PluginPatternCommandTrigger: {
+            /** @constant */
+            type: "pattern";
+            pattern: string;
+        };
+        PluginSettingCommandTrigger: {
+            /** @constant */
+            type: "setting";
+            settings_key: string;
+        };
+        PluginCommandGroup: {
+            id: string;
+            title: string;
+            commands: string[];
         };
         PluginSummary: {
             id: string;
@@ -1792,24 +1809,13 @@ export interface components {
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
+            command_groups: components["schemas"]["PluginCommandGroup"][];
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
-        };
-        PluginHelpItem: {
-            title: string;
-            description?: string;
-            usage?: string;
-            command?: string;
-            permission?: string;
-        };
-        PluginHelpGroup: {
-            title: string;
-            items: components["schemas"]["PluginHelpItem"][];
         };
         PluginHelp: {
             title?: string;
             summary?: string;
-            groups: components["schemas"]["PluginHelpGroup"][];
         };
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
@@ -1876,33 +1882,40 @@ export interface components {
             catalog: components["schemas"]["PluginStoreCatalogStatus"];
         };
         PluginWebhookScope: {
+            id: string;
             route: string;
             /** @enum {string} */
             auth_strategy: "fixed_token" | "hmac_sha256";
             header: string;
             secret_ref: string;
-            source_ips?: string[];
+            signature_prefix?: string;
+            source_cidrs?: string[];
+            max_body_bytes?: number;
+            replay_protection: components["schemas"]["PluginWebhookReplayProtection"];
         };
-        PluginCapabilityParameters: {
-            http_hosts?: string[];
-            storage_roots?: string[];
-            third_party_account_platforms?: components["schemas"]["ThirdPartyPlatform"][];
-            webhooks?: components["schemas"]["PluginWebhookScope"][];
+        PluginWebhookReplayProtection: {
+            timestamp_header: string;
+            event_id_header: string;
+            tolerance_seconds: number;
+            enforce: boolean;
+        };
+        PluginPermissionGrant: true | {
+            platforms: components["schemas"]["ThirdPartyPlatform"][];
+        };
+        PluginPermissions: {
+            [key: string]: components["schemas"]["PluginPermissionGrant"];
         };
         PluginScreenshot: {
             path: string;
             alt?: string;
         };
         PluginManagementUISummary: {
+            entry: string;
             pages: components["schemas"]["PluginManagementUIPage"][];
         };
         PluginManagementUIPage: {
             id: string;
             label: string;
-            entry: string;
-        };
-        PluginRenderTemplateSummary: {
-            path: string;
         };
         PluginDetail: {
             id: string;
@@ -1916,20 +1929,15 @@ export interface components {
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
+            command_groups: components["schemas"]["PluginCommandGroup"][];
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
-            runtime?: components["schemas"]["PluginRuntimeFamily"];
-            entry?: string;
             license?: string;
             min_core_version?: string;
-            data_schema_version?: string;
             concurrency?: number;
-            platforms?: components["schemas"]["PluginPlatform"][];
-            default_config?: {
-                [key: string]: unknown;
-            };
-            declared_capabilities?: string[];
-            capability_parameters?: components["schemas"]["PluginCapabilityParameters"];
+            events?: string[];
+            permissions: components["schemas"]["PluginPermissions"];
+            webhooks: components["schemas"]["PluginWebhookScope"][];
             icon?: string;
             /** Format: uri */
             repo?: string;
@@ -1938,7 +1946,6 @@ export interface components {
             keywords?: string[];
             screenshots?: components["schemas"]["PluginScreenshot"][];
             management_ui?: components["schemas"]["PluginManagementUISummary"];
-            render_templates?: components["schemas"]["PluginRenderTemplateSummary"][];
         };
         PluginDetailResponse: {
             plugin: components["schemas"]["PluginDetail"];
@@ -2077,7 +2084,7 @@ export interface components {
                 license: string;
                 source_label: string;
             };
-            capabilities: string[];
+            permissions: components["schemas"]["PluginPermissions"];
             target_platform: components["schemas"]["PluginPlatform"];
             backend: components["schemas"]["PluginInstallBackend"];
             ui: components["schemas"]["PluginInstallUI"];
@@ -2098,7 +2105,7 @@ export interface components {
             /** @constant */
             valid: true;
             /** @constant */
-            artifact_version: "1";
+            artifact_version: "2";
             manifest_sha256: string;
             file_count: number;
         };

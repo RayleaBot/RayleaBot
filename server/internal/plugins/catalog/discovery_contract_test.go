@@ -7,11 +7,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
@@ -19,293 +17,260 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
-type pluginInfoFixture struct {
-	Input  any `json:"input"`
-	Expect struct {
-		Valid bool `json:"valid"`
-	} `json:"expect"`
-}
+func TestDiscoverProjectsManifestV3(t *testing.T) {
+	t.Parallel()
 
-func writePersistentYAMLConfig(t *testing.T, databasePath string) string {
-	return testutil.WritePersistentYAMLConfig(t, databasePath)
-}
-
-func compileSchema(t *testing.T, path string) *config.Validator {
-	t.Helper()
-
-	validator, err := config.Compile(path)
-	if err != nil {
-		t.Fatalf("compile schema %s: %v", path, err)
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "plugins", "installed", "subscription-hub")
+	manifest := baseManifest("subscription-hub")
+	manifest["events"] = []string{"message.group", "message.private"}
+	manifest["permissions"] = map[string]any{
+		"message.send":            true,
+		"thirdparty.account.read": map[string]any{"platforms": []string{"bilibili", "weibo"}},
 	}
+	manifest["default_config"] = map[string]any{"help_commands": []string{"解析帮助", "链接帮助"}}
+	manifest["commands"] = []any{
+		map[string]any{
+			"id": "status", "name": "订阅状态", "description": "查看订阅状态", "usage": "/订阅状态",
+			"permission": "everyone", "trigger": map[string]any{"type": "exact", "names": []string{"订阅状态", "推送状态"}},
+		},
+		map[string]any{
+			"id": "toggle", "name": "解析开关", "description": "切换解析", "usage": "/开启B站解析",
+			"permission": "super_admin", "trigger": map[string]any{"type": "pattern", "pattern": "^(开启|关闭)(B站|微博|抖音)解析$"},
+		},
+		map[string]any{
+			"id": "help", "name": "解析帮助", "description": "查看解析帮助", "usage": "/解析帮助",
+			"permission": "everyone", "trigger": map[string]any{"type": "setting", "settings_key": "help_commands"},
+		},
+	}
+	manifest["command_groups"] = []any{
+		map[string]any{"id": "subscription", "title": "订阅管理", "commands": []string{"status"}},
+		map[string]any{"id": "resolver", "title": "解析管理", "commands": []string{"toggle", "help"}},
+	}
+	manifest["help"] = map[string]any{"title": "订阅与解析", "summary": "管理订阅推送与链接解析"}
+	writeArtifact(t, pluginRoot, manifest, nil)
 
+	snapshot := discoverOne(t, root)
+	if !snapshot.Valid || snapshot.ManifestVersion != "3" || snapshot.ArtifactVersion != "2" {
+		t.Fatalf("unexpected contract projection: %#v", snapshot)
+	}
+	if len(snapshot.Events) != 2 || len(snapshot.Permissions) != 2 || len(snapshot.CommandGroups) != 2 {
+		t.Fatalf("manifest collections were not projected: %#v", snapshot)
+	}
+	if got := snapshot.Permissions["thirdparty.account.read"].Platforms; len(got) != 2 || got[0] != "bilibili" || got[1] != "weibo" {
+		t.Fatalf("platform permission = %#v", got)
+	}
+	if len(snapshot.Commands) != 3 {
+		t.Fatalf("commands = %#v", snapshot.Commands)
+	}
+	if snapshot.Commands[0].ID != "status" || snapshot.Commands[0].Name != "订阅状态" || len(snapshot.Commands[0].Aliases) != 1 {
+		t.Fatalf("exact command projection = %#v", snapshot.Commands[0])
+	}
+	if snapshot.Commands[1].MatchPattern == "" || snapshot.Commands[2].Name != "解析帮助" || len(snapshot.Commands[2].Aliases) != 1 {
+		t.Fatalf("pattern/setting command projection = %#v", snapshot.Commands)
+	}
+	if snapshot.Help == nil || snapshot.Help.Title != "订阅与解析" || snapshot.Help.Summary == "" {
+		t.Fatalf("help = %#v", snapshot.Help)
+	}
+}
+
+func TestDiscoverProjectsSingleManagementEntryAndStaticWebhook(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "plugins", "installed", "control-panel")
+	manifest := baseManifest("control-panel")
+	manifest["events"] = []string{"webhook.received"}
+	manifest["management_ui"] = map[string]any{
+		"entry": "ui/index.html",
+		"pages": []any{
+			map[string]any{"id": "overview", "label": "概览"},
+			map[string]any{"id": "settings", "label": "设置"},
+		},
+	}
+	manifest["webhooks"] = []any{map[string]any{
+		"id": "updates", "route": "updates", "auth_strategy": "hmac_sha256",
+		"header": "X-Raylea-Signature", "secret_ref": "webhook.signing_key", "signature_prefix": "sha256=",
+		"source_cidrs": []string{"192.0.2.0/24"}, "max_body_bytes": 1048576,
+		"replay_protection": map[string]any{
+			"timestamp_header": "X-Raylea-Timestamp", "event_id_header": "X-Raylea-Event-ID",
+			"tolerance_seconds": 300, "enforce": true,
+		},
+	}}
+	writeArtifact(t, pluginRoot, manifest, map[string][]byte{"ui/index.html": []byte("<!doctype html><title>Control</title>")})
+
+	snapshot := discoverOne(t, root)
+	if snapshot.ManagementUI == nil || snapshot.ManagementUI.Entry != "ui/index.html" || len(snapshot.ManagementUI.Pages) != 2 {
+		t.Fatalf("management UI = %#v", snapshot.ManagementUI)
+	}
+	if !snapshot.ArtifactUIAvailable {
+		t.Fatalf("management entry was not recognized as an artifact UI: %#v", snapshot)
+	}
+	if len(snapshot.Webhooks) != 1 {
+		t.Fatalf("webhooks = %#v", snapshot.Webhooks)
+	}
+	webhook := snapshot.Webhooks[0]
+	if webhook.ID != "updates" || webhook.Route != "updates" || webhook.SourceCIDRs[0] != "192.0.2.0/24" || webhook.MaxBodyBytes != 1048576 {
+		t.Fatalf("webhook = %#v", webhook)
+	}
+	if !webhook.ReplayProtection.Enforce || webhook.ReplayProtection.ToleranceSeconds != 300 {
+		t.Fatalf("replay protection = %#v", webhook.ReplayProtection)
+	}
+}
+
+func TestDiscoverAutoDiscoversRenderTemplates(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "plugins", "installed", "weather-card")
+	writeArtifact(t, pluginRoot, baseManifest("weather-card"), map[string][]byte{
+		"templates/weather/template.json": []byte(`{"id":"weather","version":"1"}`),
+		"templates/weather/template.html": []byte("<html></html>"),
+	})
+
+	snapshot := discoverOne(t, root)
+	if len(snapshot.RenderTemplates) != 1 || snapshot.RenderTemplates[0].Path != "templates/weather" {
+		t.Fatalf("render templates = %#v", snapshot.RenderTemplates)
+	}
+}
+
+func TestDiscoverKeepsUnsupportedManifestVisibleAndDisabled(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "plugins", "installed", "legacy")
+	if err := os.MkdirAll(pluginRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacy := map[string]any{
+		"id": "legacy", "name": "Legacy", "version": "0.3.0", "manifest_version": "2",
+		"plugin_protocol_version": "1", "runtime": "go", "entry": "bin/legacy", "license": "MIT",
+	}
+	writeJSON(t, filepath.Join(pluginRoot, "info.json"), legacy)
+
+	snapshot := discoverOne(t, root)
+	if snapshot.Valid || snapshot.DisplayState != plugins.DisplayStateInvalidManifest || snapshot.DesiredState != plugins.DesiredStateDisabled {
+		t.Fatalf("legacy snapshot = %#v", snapshot)
+	}
+	if snapshot.PluginID != "legacy" || strings.TrimSpace(snapshot.ValidationSummary) == "" {
+		t.Fatalf("legacy identity/reason was not preserved: %#v", snapshot)
+	}
+}
+
+func TestDiscoverMarksTamperedArtifactInvalid(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	pluginRoot := filepath.Join(root, "plugins", "installed", "tampered")
+	writeArtifact(t, pluginRoot, baseManifest("tampered"), nil)
+	entry := artifactEntry(t, "tampered")
+	file, err := os.OpenFile(filepath.Join(pluginRoot, filepath.FromSlash(entry)), os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = file.Write([]byte("tampered"))
+	_ = file.Close()
+
+	snapshot := discoverOne(t, root)
+	if snapshot.Valid || snapshot.DisplayState != plugins.DisplayStateInvalidManifest || !strings.Contains(snapshot.ValidationSummary, "mismatch") {
+		t.Fatalf("tampered snapshot = %#v", snapshot)
+	}
+}
+
+func TestDiscoverConflictPathsUseStableSourceOrdering(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	for _, source := range []string{"b", "a"} {
+		writeArtifact(t, filepath.Join(root, source, "duplicate"), baseManifest("duplicate"), nil)
+	}
+	validator := compileSchema(t)
+	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
+		Validator: validator,
+		Roots: []plugincatalog.ScanRoot{
+			{Label: "b", Path: filepath.Join(root, "b")},
+			{Label: "a", Path: filepath.Join(root, "a")},
+		},
+		RepoRoot: root,
+	})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(snapshots) != 1 || len(snapshots[0].ConflictPaths) != 2 || snapshots[0].DisplayState != plugins.DisplayStateConflict {
+		t.Fatalf("conflict snapshot = %#v", snapshots)
+	}
+	if snapshots[0].ConflictPaths[0] > snapshots[0].ConflictPaths[1] {
+		t.Fatalf("conflict paths are not stable: %#v", snapshots[0].ConflictPaths)
+	}
+}
+
+func discoverOne(t *testing.T, repoRoot string) plugins.Snapshot {
+	t.Helper()
+	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
+		Validator: compileSchema(t),
+		Roots:     []plugincatalog.ScanRoot{{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")}},
+		RepoRoot:  repoRoot,
+	})
+	if err != nil {
+		t.Fatalf("Discover: %v", err)
+	}
+	if len(snapshots) != 1 {
+		t.Fatalf("snapshot count = %d, want 1: %#v", len(snapshots), snapshots)
+	}
+	return snapshots[0]
+}
+
+func compileSchema(t *testing.T) *config.Validator {
+	t.Helper()
+	validator, err := config.Compile(testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
+	if err != nil {
+		t.Fatalf("compile plugin manifest schema: %v", err)
+	}
 	return validator
 }
 
-func TestPluginDiscoveryContextUsesPluginDirectoriesOnly(t *testing.T) {
-	t.Parallel()
-
-	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
-	repoRoot := t.TempDir()
-	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
-	exampleRoot := filepath.Join(repoRoot, "examples", "plugins", "hello-go")
-	for _, dir := range []string{
-		filepath.Join(installedRoot, "fixture-installed"),
-		exampleRoot,
-	} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", dir, err)
-		}
-	}
-	if err := writePluginManifest(filepath.Join(installedRoot, "fixture-installed", "info.json"), pluginManifestWithCommand("fixture-installed", "fixture")); err != nil {
-		t.Fatalf("write installed manifest: %v", err)
-	}
-	if err := writePluginManifest(filepath.Join(exampleRoot, "info.json"), pluginManifestWithCommand("fixture-example", "example")); err != nil {
-		t.Fatalf("write example manifest: %v", err)
-	}
-
-	application, err := app.New(app.Options{
-		ConfigPath:       configPath,
-		PluginRepoRoot:   repoRoot,
-		PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
-		PluginRoots: []plugincatalog.ScanRoot{
-			{Label: "plugins/installed", Path: installedRoot},
-		},
-	})
-	if err != nil {
-		t.Fatalf("app.New failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := application.Close(); err != nil {
-			t.Fatalf("close app resources: %v", err)
-		}
-	})
-
-	if _, ok := application.Plugins().Get("fixture-installed"); !ok {
-		t.Fatal("expected plugin from the installed root to be discovered")
-	}
-	if _, ok := application.Plugins().Get("fixture-example"); ok {
-		t.Fatal("examples/plugins must not be discovered by the default application roots")
+func baseManifest(pluginID string) map[string]any {
+	return map[string]any{
+		"id": pluginID, "name": pluginID, "version": "0.4.0", "manifest_version": "3",
+		"license": "MIT", "min_core_version": "0.4.0",
+		"metadata": map[string]any{"description": "fixture plugin", "author": "raylea"},
+		"events":   []string{}, "permissions": map[string]any{},
 	}
 }
 
-func TestDefaultAppStartupDoesNotRequireContractsDirectory(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		t.Fatalf("create config dir: %v", err)
-	}
-	if err := os.WriteFile(configPath, []byte("schema_version: \"3\"\n"), 0o644); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	for _, dir := range []string{filepath.Join(repoRoot, "plugins", "installed")} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatalf("create plugin root %s: %v", dir, err)
-		}
-	}
-
-	application, err := app.New(app.Options{
-		ConfigPath: configPath,
-	})
-	if err != nil {
-		t.Fatalf("app.New without contracts directory failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := application.Close(); err != nil {
-			t.Fatalf("close app resources: %v", err)
-		}
-	})
-}
-
-func TestDiscoverInvalidManifestFromFixture(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "invalid.legacy-runtime.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "invalid-binary")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{
-			{
-				Label: "plugins/installed",
-				Path:  filepath.Join(rootDir, "plugins"),
-			},
-		},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-
-	if summary.InvalidCount != 1 {
-		t.Fatalf("unexpected invalid count: got %d want 1", summary.InvalidCount)
-	}
-	if len(snapshots) != 1 {
-		t.Fatalf("unexpected snapshot count: got %d want 1", len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if snapshot.PluginID != "legacy-python-tool" {
-		t.Fatalf("unexpected plugin_id: got %q want legacy-python-tool", snapshot.PluginID)
-	}
-	if snapshot.Valid {
-		t.Fatal("expected invalid snapshot")
-	}
-	if snapshot.DisplayState != "invalid_manifest" {
-		t.Fatalf("unexpected display_state: got %q want invalid_manifest", snapshot.DisplayState)
-	}
-	if snapshot.ValidationSummary == "" {
-		t.Fatal("expected validation summary to be populated")
-	}
-}
-
-func TestDiscoverPluginIDConflict(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-go.json"))
-
-	firstDir := filepath.Join(rootDir, "plugins", "weather-a")
-	secondDir := filepath.Join(rootDir, "plugins", "weather-b")
-	for _, dir := range []string{firstDir, secondDir} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", dir, err)
-		}
-		if err := writePluginManifest(filepath.Join(dir, "info.json"), fixture.Input); err != nil {
-			t.Fatalf("write manifest in %s: %v", dir, err)
-		}
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{
-			{
-				Label: "plugins/installed",
-				Path:  filepath.Join(rootDir, "plugins"),
-			},
-		},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-
-	if summary.ConflictCount != 1 {
-		t.Fatalf("unexpected conflict count: got %d want 1", summary.ConflictCount)
-	}
-	if len(snapshots) != 1 {
-		t.Fatalf("unexpected snapshot count: got %d want 1", len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if snapshot.PluginID != "weather" {
-		t.Fatalf("unexpected plugin_id: got %q want weather", snapshot.PluginID)
-	}
-	if snapshot.DisplayState != "conflict" {
-		t.Fatalf("unexpected display_state: got %q want conflict", snapshot.DisplayState)
-	}
-	if len(snapshot.ConflictPaths) != 2 {
-		t.Fatalf("unexpected conflict path count: got %d want 2", len(snapshot.ConflictPaths))
-	}
-	if snapshot.ValidationSummary != "多个目录中发现相同插件 ID" {
-		t.Fatalf("unexpected validation summary: %q", snapshot.ValidationSummary)
-	}
-}
-
-func loadPluginInfoFixture(t *testing.T, path string) pluginInfoFixture {
+func writeArtifact(t *testing.T, root string, manifest map[string]any, assets map[string][]byte) {
 	t.Helper()
-
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", path, err)
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
 	}
-
-	var fixture pluginInfoFixture
-	if err := json.Unmarshal(bytes, &fixture); err != nil {
-		t.Fatalf("unmarshal fixture %s: %v", path, err)
+	writeJSON(t, filepath.Join(root, "info.json"), manifest)
+	for relative, payload := range assets {
+		path := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, payload, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
-
-	return fixture
-}
-
-func writePluginManifest(path string, document any) error {
-	bytes, err := json.MarshalIndent(document, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	bytes = append(bytes, '\n')
-	if err := os.WriteFile(path, bytes, 0o644); err != nil {
-		return err
-	}
-	manifest, ok := document.(map[string]any)
-	if !ok || manifest["manifest_version"] != "2" || manifest["runtime"] != "go" {
-		return nil
-	}
-	entry, _ := manifest["entry"].(string)
 	pluginID, _ := manifest["id"].(string)
-	pluginVersion, _ := manifest["version"].(string)
-	if entry == "" || pluginID == "" || pluginVersion == "" {
-		return nil
-	}
-	targetPlatform, err := artifact.CurrentPlatform()
-	if err != nil {
-		return err
-	}
-	root := filepath.Dir(path)
-	backendRelative := entry
-	if targetPlatform == "windows-x64" {
-		backendRelative += ".exe"
-	}
-	backendPath := filepath.Join(root, filepath.FromSlash(backendRelative))
-	if err := os.MkdirAll(filepath.Dir(backendPath), 0o755); err != nil {
-		return err
+	entry := artifactEntry(t, pluginID)
+	entryPath := filepath.Join(root, filepath.FromSlash(entry))
+	if err := os.MkdirAll(filepath.Dir(entryPath), 0o755); err != nil {
+		t.Fatal(err)
 	}
 	executable, err := os.Executable()
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	if err := copyCatalogTestFile(executable, backendPath); err != nil {
-		return err
-	}
-	if management, ok := manifest["management_ui"].(map[string]any); ok {
-		if pages, ok := management["pages"].([]any); ok {
-			for _, rawPage := range pages {
-				page, _ := rawPage.(map[string]any)
-				entry, _ := page["entry"].(string)
-				if entry == "" {
-					continue
-				}
-				uiPath := filepath.Join(root, filepath.FromSlash(entry))
-				if err := os.MkdirAll(filepath.Dir(uiPath), 0o755); err != nil {
-					return err
-				}
-				if _, err := os.Stat(uiPath); os.IsNotExist(err) {
-					if err := os.WriteFile(uiPath, []byte("<!doctype html>\n"), 0o644); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	manifestDigest := sha256.Sum256(bytes)
+	copyFile(t, executable, entryPath)
+
 	files := make([]map[string]any, 0)
-	if err := filepath.WalkDir(root, func(filePath string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil || entry.IsDir() {
+	if err := filepath.WalkDir(root, func(path string, item os.DirEntry, walkErr error) error {
+		if walkErr != nil || item.IsDir() {
 			return walkErr
 		}
-		relative, err := filepath.Rel(root, filePath)
+		relative, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
@@ -313,743 +278,72 @@ func writePluginManifest(path string, document any) error {
 		if relative == "artifact.json" {
 			return nil
 		}
-		content, err := os.ReadFile(filePath)
+		payload, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		info, err := entry.Info()
+		info, err := item.Info()
 		if err != nil {
 			return err
 		}
-		digest := sha256.Sum256(content)
-		role := "data"
-		switch {
-		case relative == "info.json":
-			role = "manifest"
-		case relative == filepath.ToSlash(backendRelative):
-			role = "backend"
-		case strings.HasPrefix(relative, "web/") || strings.HasPrefix(relative, "ui/"):
-			role = "ui"
-		case strings.HasPrefix(relative, "templates/"):
-			role = "render_template"
-		}
-		files = append(files, map[string]any{"path": relative, "role": role, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])})
+		digest := sha256.Sum256(payload)
+		files = append(files, map[string]any{
+			"path": relative, "size": info.Size(), "sha256": hex.EncodeToString(digest[:]),
+		})
 		return nil
 	}); err != nil {
-		return err
+		t.Fatal(err)
 	}
-	artifactDocument := map[string]any{
-		"artifact_version": "1", "plugin_id": pluginID, "plugin_version": pluginVersion,
-		"target_platform": targetPlatform, "manifest_sha256": hex.EncodeToString(manifestDigest[:]), "files": files,
-	}
-	artifactBytes, err := json.MarshalIndent(artifactDocument, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(filepath.Join(root, "artifact.json"), append(artifactBytes, '\n'), 0o644)
+	writeJSON(t, filepath.Join(root, "artifact.json"), map[string]any{
+		"artifact_version": "2", "target_platform": currentPlatform(t), "entry": entry, "files": files,
+	})
 }
 
-func copyCatalogTestFile(source, destination string) error {
+func artifactEntry(t *testing.T, pluginID string) string {
+	t.Helper()
+	entry := "bin/" + pluginID
+	if currentPlatform(t) == "windows-x64" {
+		entry += ".exe"
+	}
+	return entry
+}
+
+func currentPlatform(t *testing.T) string {
+	t.Helper()
+	platform, err := artifact.CurrentPlatform()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return platform
+}
+
+func writeJSON(t *testing.T, path string, value any) {
+	t.Helper()
+	payload, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(payload, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func copyFile(t *testing.T, source, destination string) {
+	t.Helper()
 	input, err := os.Open(source)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
 	defer input.Close()
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
-		return err
+		t.Fatal(err)
 	}
-	_, copyErr := io.Copy(output, input)
-	closeErr := output.Close()
-	if copyErr != nil {
-		return copyErr
+	if _, err := io.Copy(output, input); err != nil {
+		_ = output.Close()
+		t.Fatal(err)
 	}
-	return closeErr
-}
-
-func TestConflictPathsUseStableSourceOrdering(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-go.json"))
-
-	for _, dir := range []string{"b", "a"} {
-		pluginDir := filepath.Join(rootDir, "plugins", dir)
-		if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-			t.Fatalf("mkdir %s: %v", pluginDir, err)
-		}
-		if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-			t.Fatalf("write manifest in %s: %v", pluginDir, err)
-		}
-	}
-
-	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{
-			{
-				Label: "plugins/installed",
-				Path:  filepath.Join(rootDir, "plugins"),
-			},
-		},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-
-	if len(snapshots) != 1 {
-		t.Fatalf("unexpected snapshot count: got %d want 1", len(snapshots))
-	}
-	if !strings.Contains(strings.Join(snapshots[0].ConflictPaths, ","), "info.json") {
-		t.Fatal("expected conflict paths to include manifest filenames")
-	}
-}
-
-func TestDiscoverInstalledSourceDefaultsToDisabledAndPreservesCommands(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
-	pluginDir := filepath.Join(installedRoot, "fixture-installed")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), pluginManifestWithCommand("fixture-installed", "fixture")); err != nil {
-		t.Fatalf("write installed manifest: %v", err)
-	}
-
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{
-			{
-				Label: "plugins/installed",
-				Path:  installedRoot,
-			},
-		},
-		RepoRoot: repoRoot,
-	})
-	if err != nil {
-		t.Fatalf("Discover installed source failed: %v", err)
-	}
-
-	catalog := plugincatalog.New(snapshots)
-	for _, tc := range []struct {
-		pluginID      string
-		commandName   string
-		source        string
-		declarationID string
-		commandCount  int
-	}{
-		{pluginID: "fixture-installed", commandName: "fixture", source: plugins.CommandSourceManifest, commandCount: 1},
-	} {
-		snapshot, ok := catalog.Get(tc.pluginID)
-		if !ok {
-			t.Fatalf("expected plugin %q to be discovered", tc.pluginID)
-		}
-		if snapshot.DesiredState != "disabled" {
-			t.Fatalf("unexpected desired_state for %s: got %q want disabled", tc.pluginID, snapshot.DesiredState)
-		}
-		if snapshot.Role != "" {
-			t.Fatalf("manifest discovery assigned trusted role for %s: %q", tc.pluginID, snapshot.Role)
-		}
-		if len(snapshot.Commands) != tc.commandCount {
-			t.Fatalf("unexpected command count for %s: got %d want %d", tc.pluginID, len(snapshot.Commands), tc.commandCount)
-		}
-		command, ok := findPluginCommand(snapshot.Commands, tc.commandName)
-		if !ok {
-			t.Fatalf("expected command %q for %s, got %#v", tc.commandName, tc.pluginID, snapshot.Commands)
-		}
-		if command.CommandSource != tc.source {
-			t.Fatalf("unexpected command source for %s: got %q want %q", tc.pluginID, command.CommandSource, tc.source)
-		}
-		if command.DeclarationID != tc.declarationID {
-			t.Fatalf("unexpected command declaration for %s: got %q want %q", tc.pluginID, command.DeclarationID, tc.declarationID)
-		}
-	}
-}
-
-func pluginManifestWithCommand(pluginID string, commandName string) map[string]any {
-	return map[string]any{
-		"id":                      pluginID,
-		"name":                    pluginID,
-		"version":                 "0.2.0",
-		"manifest_version":        "2",
-		"plugin_protocol_version": "1",
-		"runtime":                 "go",
-		"entry":                   "bin/" + pluginID,
-		"platforms":               []any{"windows-x64", "linux-x64", "macos-arm64"},
-		"license":                 "MIT",
-		"capabilities":            []any{"event.subscribe", "message.send"},
-		"commands": []any{
-			map[string]any{
-				"name":        commandName,
-				"description": "fixture command",
-				"usage":       "/" + commandName,
-				"permission":  "everyone",
-			},
-		},
-	}
-}
-
-func findPluginCommand(commands []plugins.Command, name string) (plugins.Command, bool) {
-	for _, command := range commands {
-		if command.Name == name {
-			return command, true
-		}
-	}
-	return plugins.Command{}, false
-}
-
-func TestDiscoverManifestDynamicCommands(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.plugin-with-dynamic-commands.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "fortune")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if len(snapshot.DynamicCommands) != 1 {
-		t.Fatalf("dynamic command declarations = %#v, want one", snapshot.DynamicCommands)
-	}
-	if len(snapshot.Commands) != 1 {
-		t.Fatalf("projected commands = %#v, want one", snapshot.Commands)
-	}
-	command := snapshot.Commands[0]
-	if command.Name != "我的运势" || !reflect.DeepEqual(command.Aliases, []string{"今日运势"}) {
-		t.Fatalf("unexpected projected dynamic command: %#v", command)
-	}
-	if command.CommandSource != plugins.CommandSourceDynamic || command.DeclarationID != "fortune" || command.Permission != "everyone" {
-		t.Fatalf("unexpected dynamic command metadata: %#v", command)
-	}
-}
-
-func TestDiscoverManifestCommandPatterns(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.plugin-with-command-patterns.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "game-guide")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if len(snapshot.CommandPatterns) != 1 {
-		t.Fatalf("command pattern declarations = %#v, want one", snapshot.CommandPatterns)
-	}
-	if len(snapshot.Commands) != 1 {
-		t.Fatalf("projected commands = %#v, want one", snapshot.Commands)
-	}
-	command := snapshot.Commands[0]
-	if command.Name != "角色攻略" || command.MatchPattern != "^(.+?)攻略$" {
-		t.Fatalf("unexpected projected pattern command: %#v", command)
-	}
-	if command.CommandSource != plugins.CommandSourcePattern || command.DeclarationID != "character-guide" || command.Permission != "everyone" {
-		t.Fatalf("unexpected pattern command metadata: %#v", command)
-	}
-}
-
-func TestDiscoverManifestRejectsInvalidCommandPattern(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.plugin-with-command-patterns.json"))
-	input := fixture.Input.(map[string]any)
-	patterns := input["command_patterns"].([]any)
-	patterns[0].(map[string]any)["pattern"] = "["
-
-	pluginDir := filepath.Join(rootDir, "plugins", "game-guide")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.InvalidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-	if snapshots[0].Valid || !strings.Contains(snapshots[0].ValidationSummary, "command_patterns[0].pattern is invalid") {
-		t.Fatalf("unexpected invalid pattern snapshot: %#v", snapshots[0])
-	}
-}
-
-func TestDiscoverManifestDefaultConfigFile(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.default-config-file.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "weather-file-config")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	defaultConfig := map[string]any{
-		"trigger_commands": []any{"weather", "forecast"},
-		"unit":             "metric",
-		"default_city":     "上海",
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "defaults.json"), defaultConfig); err != nil {
-		t.Fatalf("write default config: %v", err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if got := snapshot.DefaultConfig["default_city"]; got != "上海" {
-		t.Fatalf("unexpected default_config.default_city: got %#v want 上海", got)
-	}
-	if got := snapshot.DefaultConfig["unit"]; got != "celsius" {
-		t.Fatalf("unexpected default_config.unit: got %#v want celsius", got)
-	}
-	if len(snapshot.Commands) != 1 || snapshot.Commands[0].Name != "weather" || !reflect.DeepEqual(snapshot.Commands[0].Aliases, []string{"forecast"}) {
-		t.Fatalf("unexpected commands from default_config_file: %#v", snapshot.Commands)
-	}
-}
-
-func TestDiscoverManifestDefaultConfigAndRole(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.plugin-with-commands.json"))
-	input, ok := fixture.Input.(map[string]any)
-	if !ok {
-		t.Fatalf("fixture input should be an object, got %T", fixture.Input)
-	}
-	commands, ok := input["commands"].([]any)
-	if !ok || len(commands) == 0 {
-		t.Fatalf("fixture commands should be present, got %#v", input["commands"])
-	}
-	firstCommand, ok := commands[0].(map[string]any)
-	if !ok {
-		t.Fatalf("first command should be an object, got %#v", commands[0])
-	}
-	firstCommand["aliases"] = []any{"weather_cn", "tq"}
-	pluginDir := filepath.Join(rootDir, "plugins", "weather")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if snapshot.Role != "" {
-		t.Fatalf("manifest discovery assigned trusted role: %q", snapshot.Role)
-	}
-	if got := snapshot.DefaultConfig["default_city"]; got != "北京" {
-		t.Fatalf("unexpected default_config.default_city: got %#v want 北京", got)
-	}
-	if got := snapshot.DefaultConfig["unit"]; got != "celsius" {
-		t.Fatalf("unexpected default_config.unit: got %#v want celsius", got)
-	}
-}
-
-func TestDiscoverManifestManagementUI(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.management-ui.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
-	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if snapshot.ManagementUI == nil {
-		t.Fatal("expected management_ui to be populated")
-	}
-	if len(snapshot.ManagementUI.Pages) != 1 {
-		t.Fatalf("unexpected management_ui.pages length: got %d want 1", len(snapshot.ManagementUI.Pages))
-	}
-	if got := snapshot.ManagementUI.Pages[0]; got.ID != "config" || got.Label != "配置页面" || got.Entry != "web/index.html" {
-		t.Fatalf("unexpected management_ui page: %#v", got)
-	}
-	if snapshot.PackageRootPath != pluginDir {
-		t.Fatalf("unexpected package root path: got %q want %q", snapshot.PackageRootPath, pluginDir)
-	}
-}
-
-func TestDiscoverManifestManagementUIPages(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.management-ui-pages.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
-	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	pages := snapshots[0].ManagementUI.Pages
-	if len(pages) != 2 {
-		t.Fatalf("unexpected management_ui.pages length: got %d want 2", len(pages))
-	}
-	if pages[0].ID != "config" || pages[0].Entry != "web/index.html" {
-		t.Fatalf("unexpected first management page: %#v", pages[0])
-	}
-	if pages[1].ID != "secrets" || pages[1].Entry != "web/secrets.html" {
-		t.Fatalf("unexpected second management page: %#v", pages[1])
-	}
-}
-
-func TestDiscoverManifestRejectsManagementUIPageOutsideEntryDirectory(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.management-ui-pages.json"))
-	input := fixture.Input.(map[string]any)
-	managementUI := input["management_ui"].(map[string]any)
-	pages := managementUI["pages"].([]any)
-	secondPage := pages[1].(map[string]any)
-	secondPage["entry"] = "admin/secrets.html"
-
-	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
-	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.InvalidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-	if snapshots[0].Valid {
-		t.Fatal("expected invalid snapshot")
-	}
-	if !strings.Contains(snapshots[0].ValidationSummary, "must stay inside") {
-		t.Fatalf("unexpected validation summary: %q", snapshots[0].ValidationSummary)
-	}
-}
-
-func TestDiscoverManifestRejectsDuplicateManagementUIPageID(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.management-ui-pages.json"))
-	input := fixture.Input.(map[string]any)
-	managementUI := input["management_ui"].(map[string]any)
-	pages := managementUI["pages"].([]any)
-	secondPage := pages[1].(map[string]any)
-	secondPage["id"] = "config"
-
-	pluginDir := filepath.Join(rootDir, "plugins", "example-config-panel")
-	if err := os.MkdirAll(filepath.Join(pluginDir, "web"), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.InvalidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-	if snapshots[0].Valid {
-		t.Fatal("expected invalid snapshot")
-	}
-	if !strings.Contains(snapshots[0].ValidationSummary, "duplicate id") {
-		t.Fatalf("unexpected validation summary: %q", snapshots[0].ValidationSummary)
-	}
-}
-
-func TestDiscoverManifestRenderTemplates(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.render-template.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "weather-card")
-	if err := os.MkdirAll(filepath.Join(pluginDir, "templates", "card"), 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if len(snapshot.RenderTemplates) != 1 || snapshot.RenderTemplates[0].Path != "templates/card" {
-		t.Fatalf("unexpected render_templates: %#v", snapshot.RenderTemplates)
-	}
-}
-
-func TestDiscoverManifestRichMetadata(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.rich-metadata.json"))
-	pluginDir := filepath.Join(rootDir, "plugins", "weather-rich")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), fixture.Input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, summary, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if summary.ValidCount != 1 || len(snapshots) != 1 {
-		t.Fatalf("unexpected discovery summary: %#v len=%d", summary, len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if snapshot.Author != "raylea" {
-		t.Fatalf("unexpected author: got %q want raylea", snapshot.Author)
-	}
-	if snapshot.License != "MIT" {
-		t.Fatalf("unexpected license: got %q want MIT", snapshot.License)
-	}
-	if snapshot.Icon != "assets/weather.svg" {
-		t.Fatalf("unexpected icon: got %q want assets/weather.svg", snapshot.Icon)
-	}
-	if snapshot.Repo != "https://github.com/RayleaBot/plugins-weather" {
-		t.Fatalf("unexpected repo: got %q", snapshot.Repo)
-	}
-	if snapshot.Homepage != "https://plugins.rayleabot.local/weather" {
-		t.Fatalf("unexpected homepage: got %q", snapshot.Homepage)
-	}
-	if !reflect.DeepEqual(snapshot.Keywords, []string{"weather", "forecast", "climate"}) {
-		t.Fatalf("unexpected keywords: %#v", snapshot.Keywords)
-	}
-	if len(snapshot.Screenshots) != 1 || snapshot.Screenshots[0].Path != "assets/overview.svg" || snapshot.Screenshots[0].Alt != "天气总览卡片" {
-		t.Fatalf("unexpected screenshots: %#v", snapshot.Screenshots)
-	}
-	if snapshot.Concurrency != 3 {
-		t.Fatalf("unexpected concurrency: got %d want 3", snapshot.Concurrency)
-	}
-	if got := snapshot.DefaultConfig["forecast_days"]; got != float64(3) {
-		t.Fatalf("unexpected default_config.forecast_days: got %#v want 3", got)
-	}
-}
-
-func TestDiscoverManifestWebhookScopes(t *testing.T) {
-	t.Parallel()
-
-	rootDir := t.TempDir()
-	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
-	fixture := loadPluginInfoFixture(t, testutil.RepoPath(t, "fixtures", "plugin-info", "ok.minimal-go.json"))
-	input, ok := fixture.Input.(map[string]any)
-	if !ok {
-		t.Fatalf("fixture input should be an object, got %T", fixture.Input)
-	}
-	input["capabilities"] = []any{"event.subscribe", "event.expose_webhook"}
-	input["capability_parameters"] = map[string]any{
-		"webhooks": []any{
-			map[string]any{
-				"route":         "github",
-				"auth_strategy": "hmac_sha256",
-				"header":        "X-Hub-Signature-256",
-				"secret_ref":    "webhook.github.secret",
-				"source_ips":    []any{"192.0.2.0/24"},
-			},
-		},
-	}
-
-	pluginDir := filepath.Join(rootDir, "plugins", "repo-watcher")
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("mkdir %s: %v", pluginDir, err)
-	}
-	if err := writePluginManifest(filepath.Join(pluginDir, "info.json"), input); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-
-	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
-		Validator: validator,
-		Roots: []plugincatalog.ScanRoot{{
-			Label: "plugins/installed",
-			Path:  filepath.Join(rootDir, "plugins"),
-		}},
-		RepoRoot: rootDir,
-	})
-	if err != nil {
-		t.Fatalf("Discover failed: %v", err)
-	}
-	if len(snapshots) != 1 {
-		t.Fatalf("unexpected snapshot count: got %d want 1", len(snapshots))
-	}
-
-	snapshot := snapshots[0]
-	if len(snapshot.ScopeWebhooks) != 1 {
-		t.Fatalf("unexpected webhook scope count: %#v", snapshot.ScopeWebhooks)
-	}
-	scope := snapshot.ScopeWebhooks[0]
-	if scope.Route != "github" || scope.AuthStrategy != "hmac_sha256" || scope.SecretRef != "webhook.github.secret" {
-		t.Fatalf("unexpected webhook scope: %#v", scope)
-	}
-	if len(scope.SourceIPs) != 1 || scope.SourceIPs[0] != "192.0.2.0/24" {
-		t.Fatalf("unexpected webhook scope source IPs: %#v", scope.SourceIPs)
+	if err := output.Close(); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -31,7 +31,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 		return Delivery{}, runtimeErr
 	}
 
-	frame := BuildEventFrame(event, handle.Spec.PluginID, requestID, m.deps.now().Unix())
+	frame := BuildEventFrame(event, requestID)
 	if err := handle.WriteJSONLine(frame); err != nil {
 		m.removeEventSession(handle, requestID)
 		return Delivery{}, m.failRuntime(handle, codePluginInternalError, "write event frame", err)
@@ -59,13 +59,10 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	}
 }
 
-func BuildEventFrame(event Event, pluginID string, requestID string, timestamp int64) EventFrame {
+func BuildEventFrame(event Event, requestID string) EventFrame {
 	frame := EventFrame{
-		ProtocolVersion: "1",
-		Type:            "event",
-		Timestamp:       timestamp,
-		PluginID:        pluginID,
-		RequestID:       requestID,
+		Type:      "event",
+		RequestID: requestID,
 		Event: ProtocolEventFrame{
 			EventID:        event.EventID,
 			SourceProtocol: event.SourceProtocol,
@@ -145,6 +142,14 @@ func buildEventPayload(event Event) (*ProtocolPayloadFrame, bool) {
 		}
 		if v, ok := payloadMap(event.PayloadFields, "payload"); ok {
 			payload.Payload = v
+			hasPayload = true
+		}
+		if v, ok := payloadMapAllowEmpty(event.PayloadFields, "config"); ok {
+			payload.Config = &v
+			hasPayload = true
+		}
+		if v, ok := event.PayloadFields["changed_keys"].([]string); ok {
+			payload.ChangedKeys = append([]string(nil), v...)
 			hasPayload = true
 		}
 		if onebot, ok := buildProtocolOneBotPayload(event.PayloadFields); ok {
@@ -248,17 +253,27 @@ func payloadMap(values map[string]any, key string) (map[string]any, bool) {
 	return cloned, true
 }
 
+func payloadMapAllowEmpty(values map[string]any, key string) (map[string]any, bool) {
+	raw, ok := values[key].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	cloned := make(map[string]any, len(raw))
+	for mapKey, value := range raw {
+		cloned[mapKey] = value
+	}
+	return cloned, true
+}
+
 func parseEventEnvelope(line []byte, pluginID string) (FrameEnvelope, error) {
+	if err := validatePluginFrameV2(line); err != nil {
+		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a non-v2 protocol frame", err)
+	}
 	var envelope FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
 		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
-	if envelope.ProtocolVersion != "1" {
-		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
-	}
-	if envelope.PluginID == "" || envelope.PluginID != pluginID {
-		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
-	}
+	_ = pluginID
 	if envelope.RequestID == "" {
 		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}

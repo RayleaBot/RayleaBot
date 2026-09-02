@@ -20,18 +20,23 @@ const maxProtocolFrameBytes = 8 * 1024 * 1024
 
 type runtimeState struct {
 	client          *runtimeClient
+	pluginID        string
 	handler         Handler
 	logger          *slog.Logger
-	subscriptions   []string
 	semaphore       chan struct{}
 	handlers        sync.WaitGroup
 	shutdownGrace   time.Duration
 	cancel          context.CancelFunc
 	botMu           sync.RWMutex
 	bot             Bot
-	capabilities    []string
+	permissions     []string
 	superAdmins     []string
 	commandPrefixes []string
+	config          atomic.Pointer[configSnapshot]
+}
+
+type configSnapshot struct {
+	values map[string]any
 }
 
 type EventContext struct {
@@ -39,7 +44,8 @@ type EventContext struct {
 	RequestID       string
 	PluginID        string
 	Bot             Bot
-	Capabilities    []string
+	Config          map[string]any
+	Permissions     []string
 	SuperAdmins     []string
 	CommandPrefixes []string
 
@@ -50,10 +56,6 @@ type EventContext struct {
 func Run(ctx context.Context, options Options, handler Handler) error {
 	if handler == nil {
 		return errors.New("rayleabot: handler is required")
-	}
-	pluginID := strings.TrimSpace(options.PluginID)
-	if pluginID == "" {
-		return errors.New("rayleabot: options.PluginID is required")
 	}
 	in := options.Stdin
 	if in == nil {
@@ -79,21 +81,16 @@ func Run(ctx context.Context, options Options, handler Handler) error {
 	if shutdownGrace <= 0 {
 		shutdownGrace = 5 * time.Second
 	}
-	maxHandlers := options.MaxConcurrentHandlers
-	if maxHandlers <= 0 {
-		maxHandlers = 1
-	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	state := &runtimeState{
-		client:        newRuntimeClient(pluginID, out, actionTimeout),
+		client:        newRuntimeClient(out, actionTimeout),
 		handler:       handler,
 		logger:        logger,
-		subscriptions: append([]string(nil), options.Subscriptions...),
-		semaphore:     make(chan struct{}, maxHandlers),
 		shutdownGrace: shutdownGrace,
 		cancel:        cancel,
 	}
+	state.config.Store(&configSnapshot{values: map[string]any{}})
 	return state.run(runCtx, in)
 }
 
@@ -107,9 +104,6 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 			state.client.rejectPending(err)
 			return fmt.Errorf("rayleabot: decode protocol frame: %w", err)
 		}
-		if frame.ProtocolVersion != ProtocolVersion {
-			return fmt.Errorf("rayleabot: unsupported protocol version %q", frame.ProtocolVersion)
-		}
 		if state.client.routeResponse(frame) {
 			continue
 		}
@@ -118,18 +112,17 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 			if initialized {
 				return protocolError("received duplicate init")
 			}
-			if frame.PluginID != "" && frame.PluginID != state.client.pluginID {
-				return fmt.Errorf("rayleabot: init plugin id %q does not match %q", frame.PluginID, state.client.pluginID)
+			if frame.ProtocolVersion != ProtocolVersion {
+				return fmt.Errorf("rayleabot: unsupported protocol version %q", frame.ProtocolVersion)
+			}
+			if strings.TrimSpace(frame.PluginID) == "" {
+				return protocolError("init plugin_id is required")
 			}
 			state.captureInit(frame)
 			if err := state.client.writer.write(protocolFrame{
-				ProtocolVersion: ProtocolVersion,
-				Type:            "init_ack",
-				Timestamp:       time.Now().Unix(),
-				PluginID:        state.client.pluginID,
-				RequestID:       frame.RequestID,
-				Status:          "ready",
-				Subscriptions:   state.subscriptions,
+				Type:      "init_ack",
+				RequestID: frame.RequestID,
+				Status:    "ready",
 			}); err != nil {
 				return err
 			}
@@ -138,14 +131,24 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 			if !initialized {
 				return protocolError("received event before init")
 			}
-			state.startEvent(ctx, frame)
+			event, err := state.decodeEvent(frame)
+			if err != nil {
+				if writeErr := state.sendError(frame.RequestID, "plugin.protocol_violation", err.Error()); writeErr != nil {
+					return writeErr
+				}
+				continue
+			}
+			if err := state.applyControlEvent(event); err != nil {
+				if writeErr := state.sendError(frame.RequestID, "plugin.protocol_violation", err.Error()); writeErr != nil {
+					return writeErr
+				}
+				continue
+			}
+			state.startEvent(ctx, frame.RequestID, event)
 		case "ping":
 			if err := state.client.writer.write(protocolFrame{
-				ProtocolVersion: ProtocolVersion,
-				Type:            "pong",
-				Timestamp:       time.Now().Unix(),
-				PluginID:        state.client.pluginID,
-				RequestID:       frame.RequestID,
+				Type:      "pong",
+				RequestID: frame.RequestID,
 			}); err != nil {
 				return err
 			}
@@ -173,15 +176,49 @@ func (state *runtimeState) captureInit(frame protocolFrame) {
 	state.botMu.Lock()
 	defer state.botMu.Unlock()
 	state.bot = frame.Bot
-	state.capabilities = append([]string(nil), frame.Capabilities...)
-	state.superAdmins = append([]string(nil), frame.Permissions.SuperAdmins...)
+	state.pluginID = strings.TrimSpace(frame.PluginID)
+	state.permissions = append([]string(nil), frame.EffectivePermissions...)
+	state.superAdmins = append([]string(nil), frame.SuperAdmins...)
 	state.commandPrefixes = append([]string(nil), frame.CommandPrefixes...)
 	if len(state.commandPrefixes) == 0 {
 		state.commandPrefixes = []string{"/"}
 	}
+	concurrency := frame.Concurrency
+	if concurrency < 1 {
+		concurrency = 1
+	}
+	state.semaphore = make(chan struct{}, concurrency)
+	state.config.Store(&configSnapshot{values: cloneConfig(frame.Config)})
 }
 
-func (state *runtimeState) startEvent(ctx context.Context, frame protocolFrame) {
+func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
+	var event Event
+	if err := json.Unmarshal(frame.Event, &event); err != nil {
+		return Event{}, protocolError("invalid event payload")
+	}
+	event.Raw = append(json.RawMessage(nil), frame.Event...)
+	return event, nil
+}
+
+func (state *runtimeState) applyControlEvent(event Event) error {
+	switch event.EventType {
+	case "config.changed":
+		value, exists := event.Payload["config"]
+		if !exists {
+			return protocolError("config.changed payload.config is required")
+		}
+		config, ok := value.(map[string]any)
+		if !ok {
+			return protocolError("config.changed payload.config must be an object")
+		}
+		state.config.Store(&configSnapshot{values: cloneConfig(config)})
+	case "bot.identity.changed":
+		state.updateBotIdentity(event)
+	}
+	return nil
+}
+
+func (state *runtimeState) startEvent(ctx context.Context, requestID string, event Event) {
 	state.handlers.Add(1)
 	go func() {
 		defer state.handlers.Done()
@@ -191,17 +228,10 @@ func (state *runtimeState) startEvent(ctx context.Context, frame protocolFrame) 
 		case <-ctx.Done():
 			return
 		}
-		var event Event
-		if err := json.Unmarshal(frame.Event, &event); err != nil {
-			_ = state.sendError(frame.RequestID, "plugin.protocol_violation", "invalid event payload")
-			return
-		}
-		event.Raw = append(json.RawMessage(nil), frame.Event...)
-		state.updateBotIdentity(event)
-		eventContext := state.newEventContext(frame.RequestID, event)
+		eventContext := state.newEventContext(requestID, event)
 		defer func() {
 			if recovered := recover(); recovered != nil {
-				state.logger.Error("plugin event handler panic", "request_id", frame.RequestID, "panic", redact(fmt.Sprint(recovered)), "stack", string(debug.Stack()))
+				state.logger.Error("plugin event handler panic", "request_id", requestID, "panic", redact(fmt.Sprint(recovered)), "stack", string(debug.Stack()))
 				if !eventContext.terminal.Load() {
 					_ = eventContext.Fail("plugin.internal_error", "plugin event handler panicked")
 				}
@@ -209,7 +239,7 @@ func (state *runtimeState) startEvent(ctx context.Context, frame protocolFrame) 
 		}()
 		err := state.handler.Handle(ctx, eventContext)
 		if err != nil {
-			state.logger.Error("plugin event handler failed", "request_id", frame.RequestID, "err", redact(err.Error()))
+			state.logger.Error("plugin event handler failed", "request_id", requestID, "err", redact(err.Error()))
 			if !eventContext.terminal.Load() {
 				_ = eventContext.Fail("plugin.internal_error", err.Error())
 			}
@@ -249,9 +279,10 @@ func (state *runtimeState) newEventContext(requestID string, event Event) *Event
 	return &EventContext{
 		Event:           event,
 		RequestID:       requestID,
-		PluginID:        state.client.pluginID,
+		PluginID:        state.pluginID,
 		Bot:             state.bot,
-		Capabilities:    append([]string(nil), state.capabilities...),
+		Config:          cloneConfig(state.config.Load().values),
+		Permissions:     append([]string(nil), state.permissions...),
 		SuperAdmins:     append([]string(nil), state.superAdmins...),
 		CommandPrefixes: append([]string(nil), state.commandPrefixes...),
 		client:          state.client,
@@ -260,13 +291,10 @@ func (state *runtimeState) newEventContext(requestID string, event Event) *Event
 
 func (state *runtimeState) sendError(requestID, code, message string) error {
 	return state.client.writer.write(protocolFrame{
-		ProtocolVersion: ProtocolVersion,
-		Type:            "error",
-		Timestamp:       time.Now().Unix(),
-		PluginID:        state.client.pluginID,
-		RequestID:       requestID,
-		Code:            code,
-		Message:         redact(message),
+		Type:      "error",
+		RequestID: requestID,
+		Code:      code,
+		Message:   redact(message),
 	})
 }
 
@@ -296,13 +324,10 @@ func (event *EventContext) Result(data any) error {
 		return fmt.Errorf("rayleabot: marshal result: %w", err)
 	}
 	return event.client.writer.write(protocolFrame{
-		ProtocolVersion: ProtocolVersion,
-		Type:            "result",
-		Timestamp:       time.Now().Unix(),
-		PluginID:        event.PluginID,
-		RequestID:       event.RequestID,
-		Status:          "success",
-		Data:            raw,
+		Type:      "result",
+		RequestID: event.RequestID,
+		Status:    "success",
+		Data:      raw,
 	})
 }
 
@@ -311,13 +336,10 @@ func (event *EventContext) Fail(code, message string) error {
 		return errors.New("rayleabot: terminal response already sent")
 	}
 	return event.client.writer.write(protocolFrame{
-		ProtocolVersion: ProtocolVersion,
-		Type:            "error",
-		Timestamp:       time.Now().Unix(),
-		PluginID:        event.PluginID,
-		RequestID:       event.RequestID,
-		Code:            code,
-		Message:         redact(message),
+		Type:      "error",
+		RequestID: event.RequestID,
+		Code:      code,
+		Message:   redact(message),
 	})
 }
 
@@ -335,13 +357,10 @@ func (event *EventContext) Send(targetType, targetID string, segments ...Segment
 		return err
 	}
 	return event.client.writer.write(protocolFrame{
-		ProtocolVersion: ProtocolVersion,
-		Type:            "action",
-		Timestamp:       time.Now().Unix(),
-		PluginID:        event.PluginID,
-		RequestID:       event.RequestID,
-		Action:          "message.send",
-		Data:            data,
+		Type:      "action",
+		RequestID: event.RequestID,
+		Action:    "message.send",
+		Data:      data,
 	})
 }
 
@@ -358,6 +377,8 @@ func (event *EventContext) Reply(replyToEventID string, fallback bool, segments 
 		return errors.New("rayleabot: terminal response already sent")
 	}
 	payload := map[string]any{
+		"target_type":       event.Event.Target.Type,
+		"target_id":         event.Event.Target.ID,
 		"reply_to_event_id": replyToEventID,
 		"message":           map[string]any{"segments": segments},
 	}
@@ -370,16 +391,36 @@ func (event *EventContext) Reply(replyToEventID string, fallback bool, segments 
 		return err
 	}
 	return event.client.writer.write(protocolFrame{
-		ProtocolVersion: ProtocolVersion,
-		Type:            "action",
-		Timestamp:       time.Now().Unix(),
-		PluginID:        event.PluginID,
-		RequestID:       event.RequestID,
-		Action:          "message.reply",
-		Data:            data,
+		Type:      "action",
+		RequestID: event.RequestID,
+		Action:    "message.send",
+		Data:      data,
 	})
 }
 
 func (event *EventContext) Actions() *Actions {
 	return &Actions{event: event}
+}
+
+func cloneConfig(values map[string]any) map[string]any {
+	result := make(map[string]any, len(values))
+	for key, value := range values {
+		result[key] = cloneConfigValue(value)
+	}
+	return result
+}
+
+func cloneConfigValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneConfig(typed)
+	case []any:
+		items := make([]any, len(typed))
+		for index, item := range typed {
+			items[index] = cloneConfigValue(item)
+		}
+		return items
+	default:
+		return value
+	}
 }

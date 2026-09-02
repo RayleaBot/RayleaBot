@@ -12,7 +12,7 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func TestExecuteHTTPRequestUsesCapabilityedScopeAndReturnsText(t *testing.T) {
+func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,12 +35,11 @@ func TestExecuteHTTPRequestUsesCapabilityedScopeAndReturnsText(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubCapabilityView{
-			capabilities: map[string][]stubCapability{
+		&stubPermissionView{
+			permissions: map[string][]stubPermission{
 				"scope-cache": {{
 					PluginID:   "scope-cache",
-					Capability: "http.request",
-					ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
+					Permission: "http.request",
 				}},
 			},
 		},
@@ -71,7 +70,7 @@ func TestExecuteHTTPRequestUsesCapabilityedScopeAndReturnsText(t *testing.T) {
 	}
 }
 
-func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
+func TestExecuteHTTPRequestRejectsPrivateHost(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -86,12 +85,11 @@ func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubCapabilityView{
-			capabilities: map[string][]stubCapability{
+		&stubPermissionView{
+			permissions: map[string][]stubPermission{
 				"scope-cache": {{
 					PluginID:   "scope-cache",
-					Capability: "http.request",
-					ScopeJSON:  `{"http_hosts":["127.0.0.1"]}`,
+					Permission: "http.request",
 				}},
 			},
 		},
@@ -111,5 +109,5 @@ func TestExecuteHTTPRequestRejectsPrivateHostWithoutAllowlist(t *testing.T) {
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",
 	})
-	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+	assertRuntimeErrorCode(t, err, "platform.invalid_request")
 }

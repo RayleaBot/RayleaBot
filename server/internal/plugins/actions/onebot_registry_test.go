@@ -20,14 +20,16 @@ func TestOneBotActionRegistryMatchesContractsAndClientHelpers(t *testing.T) {
 	repoRoot := filepath.Join("..", "..", "..", "..")
 	protocolActions := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "onebot_action_kind")
 	protocolProviderActions := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "provider_extension_action_kind")
-	infoActions := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "onebot_action_capability_name")
-	infoProviderActions := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "provider_extension_capability_name")
+	infoPermissions := stringSet(contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "permission_name"))
 
 	registryActions, registryProviderActions := oneBotRegistryKinds()
 	assertStringSetEqual(t, "plugin protocol onebot actions", protocolActions, registryActions)
 	assertStringSetEqual(t, "plugin protocol provider actions", protocolProviderActions, registryProviderActions)
-	assertStringSetEqual(t, "plugin info onebot capabilities", infoActions, registryActions)
-	assertStringSetEqual(t, "plugin info provider capabilities", infoProviderActions, registryProviderActions)
+	for _, action := range append(append([]string{}, registryActions...), registryProviderActions...) {
+		if !infoPermissions[action] {
+			t.Fatalf("plugin info permissions do not declare OneBot action %q", action)
+		}
+	}
 
 	goSDK := string(readRepoFile(t, filepath.Join(repoRoot, "sdk", "go", "actions.go")))
 	for _, kind := range append(append([]string{}, registryActions...), registryProviderActions...) {
@@ -48,8 +50,8 @@ func TestOneBotActionRegistrySpecsAreComplete(t *testing.T) {
 		if strings.TrimSpace(spec.Kind) == "" || spec.Kind != kind {
 			t.Fatalf("registry key %q has mismatched spec kind %q", kind, spec.Kind)
 		}
-		if spec.Capability != spec.Kind {
-			t.Fatalf("registry action %q capability = %q, want same action kind", kind, spec.Capability)
+		if spec.Permission != spec.Kind {
+			t.Fatalf("registry action %q permission = %q, want same action kind", kind, spec.Permission)
 		}
 		if spec.Project == nil {
 			t.Fatalf("registry action %q missing projector", kind)
@@ -92,15 +94,22 @@ func TestGroupMemberGetBypassesAdapterCache(t *testing.T) {
 	}
 }
 
-func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
+func TestBaseActionHandlersMatchLocalActionPermissions(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := filepath.Join("..", "..", "..", "..")
-	protocolBase := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "base_capability_name")
-	infoBase := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "base_capability_name")
-	assertStringSetEqual(t, "base capabilities", protocolBase, infoBase)
+	protocolBase := contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-protocol.schema.json"), "base_permission_name")
+	infoPermissions := stringSet(contractEnum(t, filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"), "permission_name"))
+	for _, permission := range protocolBase {
+		if !infoPermissions[permission] {
+			t.Fatalf("plugin info permissions do not declare protocol permission %q", permission)
+		}
+	}
 
-	baseCapabilitySet := stringSet(protocolBase)
+	basePermissionSet := stringSet(protocolBase)
+	for _, implicit := range []string{"logger.write", "config.write", "storage.kv", "storage.file"} {
+		basePermissionSet[implicit] = true
+	}
 	metadata := actions.DefaultMetadataList()
 	handlerKinds := map[string]bool{}
 	for _, item := range metadata {
@@ -110,22 +119,18 @@ func TestBaseActionHandlersMatchLocalActionCapabilities(t *testing.T) {
 		if _, ok := actions.LookupOneBotAction(kind); ok {
 			continue
 		}
-		if !baseCapabilitySet[kind] {
-			t.Fatalf("base local action handler %q is not declared as a base capability", kind)
+		if !basePermissionSet[kind] {
+			t.Fatalf("base local action handler %q is not declared as a base permission", kind)
 		}
 	}
 
-	nonLocalCapabilities := map[string]bool{
-		"event.subscribe":   true,
-		"event.raw_payload": true,
-		"message.reply":     true,
-	}
-	for _, capability := range protocolBase {
-		if nonLocalCapabilities[capability] {
+	nonLocalPermissions := map[string]bool{"event.raw_payload": true}
+	for _, permission := range protocolBase {
+		if nonLocalPermissions[permission] {
 			continue
 		}
-		if _, ok := handlerKinds[capability]; !ok {
-			t.Fatalf("base local action %q is missing a handler", capability)
+		if _, ok := handlerKinds[permission]; !ok {
+			t.Fatalf("base local action %q is missing a handler", permission)
 		}
 	}
 }
@@ -149,8 +154,8 @@ func TestDefaultActionMetadataIsComplete(t *testing.T) {
 		if strings.TrimSpace(item.Action) == "" {
 			t.Fatal("default action metadata is missing action name")
 		}
-		if strings.TrimSpace(item.Capability) == "" {
-			t.Fatalf("%s metadata is missing capability", item.Action)
+		if strings.TrimSpace(item.Permission) == "" {
+			t.Fatalf("%s metadata is missing permission", item.Action)
 		}
 		if strings.TrimSpace(item.RequestSchema) == "" || strings.TrimSpace(item.ResponseSchema) == "" {
 			t.Fatalf("%s metadata is missing request or response schema", item.Action)

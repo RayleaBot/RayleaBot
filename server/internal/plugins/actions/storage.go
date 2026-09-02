@@ -23,7 +23,7 @@ func storageRegistrars() []registrar {
 		{
 			metadata: Metadata{
 				Action:         "storage.kv",
-				Capability:     "storage.kv",
+				Permission:     "storage.kv",
 				RequestSchema:  "plugin-protocol.action_storage_kv",
 				ResponseSchema: "plugin-protocol.local_action_result",
 				AuditFields:    []string{"plugin_id", "operation", "key", "prefix"},
@@ -38,7 +38,7 @@ func storageRegistrars() []registrar {
 		{
 			metadata: Metadata{
 				Action:         "storage.file",
-				Capability:     "storage.file",
+				Permission:     "storage.file",
 				RequestSchema:  "plugin-protocol.action_storage_file",
 				ResponseSchema: "plugin-protocol.local_action_result",
 				WritesFile:     true,
@@ -55,12 +55,6 @@ func storageRegistrars() []registrar {
 }
 
 func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "storage.kv") {
-		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "storage.kv capability is not declared",
-		}
-	}
 	if deps.PluginKV == nil {
 		return nil, &pluginruntime.Error{
 			Code:    "plugin.internal_error",
@@ -118,18 +112,6 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 }
 
 func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "storage.file") {
-		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "storage.file capability is not declared",
-		}
-	}
-	if !deps.Capabilities.StorageRootAllowed(ctx, req.PluginID, req.Action.StorageRoot) {
-		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "storage.file root is outside declared capability parameters",
-		}
-	}
 	if deps.PluginFiles == nil {
 		return nil, &pluginruntime.Error{
 			Code:    "plugin.internal_error",
@@ -147,7 +129,7 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file read failed", Err: err}
 		}
 		payload := map[string]any{
-			"root":   req.Action.StorageRoot,
+			"root":   "plugin_data",
 			"path":   req.Action.StoragePath,
 			"exists": result.Exists,
 		}
@@ -171,7 +153,7 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file write failed", Err: err}
 		}
 		result := map[string]any{
-			"root":                req.Action.StorageRoot,
+			"root":                "plugin_data",
 			"path":                req.Action.StoragePath,
 			"usage_bytes":         writeResult.UsageBytes,
 			"soft_limit_bytes":    writeResult.SoftLimitBytes,
@@ -196,7 +178,7 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file delete failed", Err: err}
 		}
 		return map[string]any{
-			"root":    req.Action.StorageRoot,
+			"root":    "plugin_data",
 			"path":    req.Action.StoragePath,
 			"deleted": deleted,
 		}, nil
@@ -209,7 +191,7 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "storage.file list failed", Err: err}
 		}
 		return map[string]any{
-			"root":   req.Action.StorageRoot,
+			"root":   "plugin_data",
 			"prefix": req.Action.StoragePrefix,
 			"paths":  paths,
 		}, nil

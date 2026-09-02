@@ -97,7 +97,7 @@ func logWriteRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:         "logger.write",
-			Capability:     "logger.write",
+			Permission:     "logger.write",
 			RequestSchema:  "plugin-protocol.action_logger_write",
 			ResponseSchema: "plugin-protocol.local_action_result",
 			AuditFields:    []string{"plugin_id", "request_id", "level"},
@@ -112,9 +112,6 @@ func logWriteRegistrar() registrar {
 }
 
 func executeLogWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "logger.write") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "logger.write capability is not declared"}
-	}
 	if deps.PluginLogLimiter != nil && !deps.PluginLogLimiter.Allow(req.PluginID) {
 		return nil, &pluginruntime.Error{Code: "platform.rate_limited", Message: "plugin log throughput exceeded the configured platform limit"}
 	}

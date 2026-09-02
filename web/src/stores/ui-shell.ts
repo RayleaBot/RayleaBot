@@ -208,7 +208,7 @@ export const useUiShellStore = defineStore('ui-shell', () => {
 
   function syncTabs(affixTabs: ShellTabItem[]) {
     const currentTabs = tabs.value.filter((item) => !item.affix)
-    const nextTabs = normalizeTabs(affixTabs).map((item) => ({
+    const nextTabs: ShellTabItem[] = normalizeTabs(affixTabs).map((item) => ({
       ...item,
       affix: true,
     }))

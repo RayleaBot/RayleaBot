@@ -2,27 +2,34 @@
   "id": "echo-go",
   "name": "Echo",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/echo-go",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Echo plugin demonstrating command parsing and message segments",
-  "author": "raylea",
-  "capabilities": [
-    "event.subscribe",
-    "message.send"
-  ],
   "commands": [
     {
+      "id": "echo",
       "name": "echo",
-      "aliases": [
-        "repeat"
-      ],
       "description": "回复收到的消息内容",
       "usage": "/echo <内容>",
-      "permission": "everyone"
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "echo",
+          "repeat"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Echo plugin demonstrating command parsing and message segments",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private"
+  ],
+  "permissions": {
+    "message.send": true
+  }
 }

@@ -2,23 +2,33 @@
   "id": "example-scheduler",
   "name": "Example Scheduler",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/example-scheduler",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Go example plugin demonstrating scheduler.create.",
-  "author": "raylea",
-  "capabilities": [
-    "event.subscribe",
-    "scheduler.create"
-  ],
   "commands": [
     {
+      "id": "schedule-daily",
       "name": "schedule_daily",
       "description": "Create a daily scheduler.trigger task.",
-      "usage": "/schedule_daily"
+      "usage": "/schedule_daily",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "schedule_daily"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go example plugin demonstrating scheduler.create.",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "scheduler.trigger"
+  ],
+  "permissions": {
+    "scheduler.create": true
+  }
 }

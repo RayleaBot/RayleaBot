@@ -134,7 +134,8 @@ func filterMachineIssues(issues []CompatibilityIssue) []CompatibilityIssue {
 }
 
 func isPluginRecoveryIssueCode(code string) bool {
-	return strings.HasPrefix(strings.TrimSpace(code), "recovery.plugin_")
+	code = strings.TrimSpace(code)
+	return code == "plugin.contract_unsupported" || strings.HasPrefix(code, "recovery.plugin_")
 }
 
 func recoveryStatus(machineIssues []CompatibilityIssue, pendingSkipped []SkippedPlugin) string {

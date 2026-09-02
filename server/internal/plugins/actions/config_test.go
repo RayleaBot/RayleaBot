@@ -8,13 +8,15 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
-func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
+func TestExecuteConfigWriteUsesImplicitPrivateNamespace(t *testing.T) {
 	t.Parallel()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
@@ -28,40 +30,34 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("NewSQLiteRepository: %v", err)
 	}
 
+	pluginCatalog := catalog.New([]plugins.Snapshot{{
+		PluginID: "weather",
+		DefaultConfig: map[string]any{
+			"default_city": "Beijing",
+			"unit":         "celsius",
+			"timeout":      15,
+		},
+	}})
+	var refreshedSettings map[string]any
 	service := actions.New(actions.Deps{
-		Capabilities: &stubCapabilityView{capabilities: map[string]bool{
-			"config.read":  true,
-			"config.write": true,
-		}},
+		Plugins:      pluginCatalog,
 		PluginConfig: repo,
+		RefreshCommands: func(_ context.Context, _ string, settings map[string]any) {
+			refreshedSettings = settings
+		},
 	})
 
 	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
-		"default_city": "北京",
+		"default_city": "Beijing",
 		"unit":         "celsius",
 	}); err != nil {
 		t.Fatalf("SeedDefaults: %v", err)
 	}
 
-	readResult, err := service.Execute(context.Background(), "weather", "req_config_1", pluginruntime.Action{
-		Kind:       "config.read",
-		ConfigKeys: []string{"default_city", "unit", "missing"},
-	}, pluginruntime.Event{})
-	if err != nil {
-		t.Fatalf("config.read failed: %v", err)
-	}
-	values, _ := readResult["values"].(map[string]any)
-	if values["default_city"] != "北京" || values["unit"] != "celsius" {
-		t.Fatalf("unexpected config.read values: %#v", values)
-	}
-	if _, ok := values["missing"]; ok {
-		t.Fatalf("missing key should not be returned: %#v", values)
-	}
-
 	writeResult, err := service.Execute(context.Background(), "weather", "req_config_2", pluginruntime.Action{
 		Kind: "config.write",
 		ConfigValues: map[string]any{
-			"default_city": "上海",
+			"default_city": "Shanghai",
 			"unit":         "fahrenheit",
 		},
 	}, pluginruntime.Event{})
@@ -73,16 +69,15 @@ func TestExecuteConfigReadWriteRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected changed_keys: %#v", writeResult["changed_keys"])
 	}
 
-	readResult, err = service.Execute(context.Background(), "weather", "req_config_3", pluginruntime.Action{
-		Kind:       "config.read",
-		ConfigKeys: []string{"default_city", "unit"},
-	}, pluginruntime.Event{})
+	values, err := repo.ReadAll(context.Background(), "weather")
 	if err != nil {
-		t.Fatalf("config.read second call failed: %v", err)
+		t.Fatalf("read stored config: %v", err)
 	}
-	values, _ = readResult["values"].(map[string]any)
-	if values["default_city"] != "上海" || values["unit"] != "fahrenheit" {
+	if values["default_city"] != "Shanghai" || values["unit"] != "fahrenheit" {
 		t.Fatalf("unexpected updated config values: %#v", values)
+	}
+	if refreshedSettings["default_city"] != "Shanghai" || refreshedSettings["unit"] != "fahrenheit" || refreshedSettings["timeout"] != 15 {
+		t.Fatalf("config.write did not refresh commands with the effective snapshot: %#v", refreshedSettings)
 	}
 }
 
@@ -98,7 +93,7 @@ func TestConfigChangedDispatcherDetachesCallerCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	result := actions.ConfigChangedDispatcher(dispatcher)(ctx, "weather")
+	result := actions.ConfigChangedDispatcher(dispatcher)(ctx, "weather", map[string]any{"city": "Beijing"}, []string{"city"})
 	if !result.Delivered {
 		t.Fatalf("config.changed delivery was not admitted: %#v", result)
 	}

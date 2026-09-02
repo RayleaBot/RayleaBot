@@ -3,7 +3,7 @@
   "case": "invalid",
   "description": "The bridge only accepts the frozen message types.",
   "input": {
-    "version": "2",
+    "version": "3",
     "source": "plugin_management_ui",
     "type": "settings.delete",
     "payload": {

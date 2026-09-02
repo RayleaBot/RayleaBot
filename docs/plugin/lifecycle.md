@@ -14,11 +14,11 @@
 
 ## 当前支持的运行时
 
-- 插件后端只支持 `runtime: "go"` 的平台预编译可执行文件。
-- 服务端不编译插件源码、不安装语言依赖，也不准备插件语言运行时。
+- 插件后端是目标平台的预编译原生可执行文件，manifest 与 artifact 不声明实现语言。
+- 服务端不编译插件源码、不安装语言依赖，也不准备插件语言运行时；Go SDK 与构建器是一等开发工具，但不是运行时约束。
 - 核心在启动插件前准备共享 FFmpeg 资源，并向插件进程注入 `RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH`；这些绝对路径指向当前平台已校验的托管入口，不属于插件包内容。
-- 插件包按 `windows-x64`、`linux-x64`、`macos-arm64` 分发；目标平台必须同时出现在 `info.json.platforms` 和 `artifact.json.target_platform` 中。
-- JSONL 插件协议继续使用语言无关的 v1。
+- 插件包按 `windows-x64`、`linux-x64`、`macos-arm64` 分发；目标平台只由 `artifact.json.target_platform` 声明。
+- JSONL 插件协议使用语言无关的 v2。
 
 ## 生命周期主线
 
@@ -33,10 +33,10 @@
 ## 安装、升级与卸载
 
 - 插件安装、卸载和重载统一走后台任务模型。
-- 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v2、artifact v1、文件全集、大小、SHA-256、平台、后端二进制格式、Unix executable bit 和 UI 入口，再原子替换目标目录。
+- 安装只接受单根目录 ZIP 或已经构建好的 artifact 目录。安装器先校验 manifest v3、artifact v2、最低 Core 版本、文件全集、大小、SHA-256、平台、后端二进制格式、Unix executable bit 和 UI 入口，再原子替换目标目录。
 - 商店安装额外冻结并校验已签名目录中的归档摘要、manifest 摘要、插件 ID、版本和发布者身份；Web 必须先取得用户对本机原生代码的显式确认。
-- manifest v1、Python/Node runtime、错误平台、篡改文件、错误二进制、缺失 UI 文件及包含额外文件的包都会被拒绝。
-- 升级重新执行完整 artifact 校验，并重新读取能力声明与能力参数。替换失败时恢复旧包、旧 package metadata、旧模板和原 desired state。
+- manifest v2、artifact v1、错误平台、篡改文件、错误二进制、缺失 UI 文件及包含额外文件的包都会被拒绝。
+- 升级重新执行完整 artifact 校验，并重新读取 permissions。替换失败时恢复旧包、旧 package metadata、旧模板和原 desired state。
 - 卸载移除插件包目录；插件业务数据按卸载接口的正式选项处理，不存在私有语言运行环境。
 
 ## 数据与目录边界
@@ -49,12 +49,12 @@
 ## 当前边界
 
 - 当前平台不支持插件间依赖解析。
-- 源码插件、安装脚本、托管语言运行时和原位升级旧插件 epoch 不在正式范围内。
-- 旧插件 epoch 的备份恢复与升级返回 `plugin.reset_required`；迁移前数据只保留在外部备份中，不进入新插件状态。
+- 源码插件、安装脚本、托管语言运行时和旧合同兼容执行不在正式范围内。
+- 旧 manifest v2 / artifact v1 包可以随 backup manifest v3 保留并恢复，但保持禁用；设置、密钥、KV、文件和已发布数据不清除，安装当前合同包后继续使用。
 
 ## 相关文档
 
-- [Capabilities and Manifest](./capabilities-and-manifest.md)
+- [Permissions and Manifest](./permissions-and-manifest.md)
 - [Protocol](./protocol.md)
 - [Plugin Store and Independent Development](./store-and-development.md)
 - [State Model](../architecture/state-model.md)

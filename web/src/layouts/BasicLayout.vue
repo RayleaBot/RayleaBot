@@ -249,7 +249,7 @@ function getRouteStageComponent(viewRoute: RouteLocationNormalizedLoaded) {
       return () => h(
         'div',
         { class: 'admin-layout__route-stage' },
-        [h(resolveDynamicComponent(stageRouteComponent))],
+        [h(resolveDynamicComponent(stageRouteComponent) as VueComponent)],
       )
     },
   }))
@@ -451,7 +451,6 @@ function resolveCurrentWorkspaceTab(viewRoute: RouteLocationNormalizedLoaded): W
 }
 
 const {
-  currentTab,
   currentTabPath,
   getTabCloseActionItems,
   handleTabAction,
@@ -483,7 +482,12 @@ watch(
   },
 )
 
-function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: string }> = []) {
+interface FlattenedMenuItem {
+  item: AppMenuItem
+  lineage: Array<{ key: string; path: string }>
+}
+
+function flattenMenu(items: AppMenuItem[], lineage: Array<{ key: string; path: string }> = []): FlattenedMenuItem[] {
   return items.flatMap((item) => {
     const currentLineage = [...lineage, { key: item.key, path: item.path }]
     const current = [{ item, lineage: currentLineage }]
@@ -573,10 +577,6 @@ function syncFullscreenState() {
   }
 
   isFullscreen.value = Boolean(document.fullscreenElement)
-}
-
-function notifyFeaturePending(feature: string) {
-  notifyInfo(t('shell.featurePending', { feature }))
 }
 
 async function toggleFullscreen() {

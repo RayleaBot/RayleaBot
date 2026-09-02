@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-governance-blacklist-read-1
+    action: governance.blacklist.read
+    data: {}
+  - type: result
+    request_id: action-governance-blacklist-read-1
+    status: success
+    data:
+      enabled: true
+      entries: []
+expect:
+  valid: true

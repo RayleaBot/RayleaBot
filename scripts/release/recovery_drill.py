@@ -204,32 +204,30 @@ def run_backup(root: Path, server_bin: Path) -> Path:
     return backup_path
 
 
-def write_legacy_plugin_epoch_backup(source: Path, destination: Path) -> Path:
+def write_backup_v2(source: Path, destination: Path) -> Path:
     destination.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(source) as reader, zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as writer:
         for entry in reader.infolist():
             payload = reader.read(entry.filename)
             if entry.filename == "backup-manifest.json":
                 manifest = json.loads(payload.decode("utf-8"))
-                manifest["plugin_manifest_version"] = "1"
-                manifest["plugin_ui_bridge_version"] = "1"
-                for plugin in manifest.get("plugins", []):
-                    if isinstance(plugin, dict):
-                        plugin["manifest_version"] = "1"
-                        plugin["artifact_version"] = "0"
+                manifest["version"] = "2"
+                manifest["plugin_manifest_version"] = "2"
+                manifest["plugin_protocol_version"] = "1"
+                manifest["plugin_artifact_version"] = "1"
+                manifest["plugin_ui_bridge_version"] = "2"
                 payload = (json.dumps(manifest, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
             writer.writestr(entry, payload)
     return destination
 
 
-def assert_plugin_epoch_restore_rejected(root: Path, server_bin: Path, backup_path: Path) -> None:
+def assert_backup_v2_restore_rejected(root: Path, server_bin: Path, backup_path: Path) -> None:
     result = run_restore_capture(root, server_bin, backup_path)
     if result.returncode == 0:
-        raise DrillError("retired plugin epoch backup was unexpectedly restored")
-    summary = read_recovery_summary(root)
-    issues = summary.get("issues", [])
-    if not any(isinstance(issue, dict) and issue.get("code") == "plugin.reset_required" for issue in issues):
-        raise DrillError(f"retired plugin epoch rejection did not report plugin.reset_required: {summary}")
+        raise DrillError("backup manifest v2 was unexpectedly restored")
+    output = result.stdout + "\n" + result.stderr
+    if "备份清单不符合正式契约" not in output:
+        raise DrillError(f"backup manifest v2 rejection did not report a contract error: {output}")
 
 
 def overwrite_runtime_state(config_path: Path, database_path: Path, plugin_info_paths: list[Path]) -> None:
@@ -764,8 +762,8 @@ def run_recovery_drill(
 
         run_doctor(release_root, server_bin)
         backup_path = run_backup(release_root, server_bin)
-        legacy_backup = write_legacy_plugin_epoch_backup(backup_path, temp_root / "legacy-plugin-epoch.zip")
-        assert_plugin_epoch_restore_rejected(release_root, server_bin, legacy_backup)
+        backup_v2 = write_backup_v2(backup_path, temp_root / "backup-v2.zip")
+        assert_backup_v2_restore_rejected(release_root, server_bin, backup_v2)
 
         overwrite_runtime_state(config_path, database_path, plugin_info_paths)
         run_restore(release_root, server_bin, backup_path)
@@ -807,7 +805,7 @@ def run_cross_version_recovery_drill(
             f"previous archive must be older than current archive for cross-version drill: {previous_version} !< {current_version}"
         )
 
-    if str(previous_build.get("plugin_manifest_version", "")) != "2" or str(previous_build.get("plugin_ui_bridge_version", "")) != "2":
+    if str(previous_build.get("plugin_manifest_version", "")) != "3" or str(previous_build.get("plugin_ui_bridge_version", "")) != "3":
         with tempfile.TemporaryDirectory(prefix="rayleabot-recovery-old-epoch-") as tmp:
             temp_root = Path(tmp)
             previous_root = unpack_archive(artifact_id, previous_archive, temp_root / "previous")
@@ -817,7 +815,7 @@ def run_cross_version_recovery_drill(
             previous_backup = run_backup(previous_root, relative_executable(previous_root, artifact_id))
             ensure_required_paths(current_root, artifact_id)
             write_user_config(current_root, choose_free_port())
-            assert_plugin_epoch_restore_rejected(
+            assert_backup_v2_restore_rejected(
                 current_root,
                 relative_executable(current_root, artifact_id),
                 previous_backup,

@@ -69,7 +69,7 @@ flowchart LR
     Browser["Browser"] -->|"cookie + CSRF + Origin"| API["Management API"]
     Tool["API client"] -->|"Bearer"| API
     Launcher["Launcher process"] -->|"control token + loopback"| Control["Local control API"]
-    Plugin["Trusted plugin process"] -->|"JSONL + declared capabilities"| Actions["Local Action Service"]
+    Plugin["Trusted plugin process"] -->|"JSONL + declared permissions"| Actions["Local Action Service"]
     Release["Release repository"] -->|"Ed25519 manifest + artifact hash"| Core["Update core"]
     Core -->|"Authenticode required for automatic Windows install"| Helper["External updater"]
 ```
@@ -79,11 +79,11 @@ flowchart LR
 | 浏览器管理 | 合法 Host/Origin、cookie 会话、unsafe method CSRF | query token、跨站请求、伪造 Host、错误 Origin |
 | 初始化 | loopback、一次性 setup token、JSON、Fetch Metadata | token 缺失/复用、跨站表单、非法 Host |
 | Launcher 控制 | loopback 直连与进程级 control token | 无凭据 shutdown、代理转发来源 |
-| 插件代码 | 用户检查来源、目标平台、artifact 摘要和能力后确认 | 未确认安装、非法包路径、摘要不一致、未声明能力 |
+| 插件代码 | 用户检查来源、目标平台、artifact 摘要和权限后确认 | 未确认安装、非法包路径、摘要不一致、未声明权限 |
 | 发布更新 | 编译内置仓库与公钥、Ed25519、摘要、重放防护 | 可修改 metadata 改信任根、过期、降级、同版换包 |
 | Windows 安装 | 发布信任校验与正式 Authenticode 均通过 | 自签名、signer 不符、任一 PE 验签失败 |
 
-第三方插件是完全可信的本地代码。Capability 是平台 API 的访问控制，不是 OS 安全沙盒。
+第三方插件是完全可信的本地代码。Permission 是平台 API 的访问控制，不是 OS 安全沙盒。
 
 ## 组件职责
 
@@ -97,7 +97,7 @@ flowchart LR
 | Dispatcher | 插件目标选择、队列和出站 action 执行 | 直接访问插件私有存储 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活和事件 session | 直接执行平台能力 |
 | Plugin Store Service | 商店 catalog 获取、签名校验、来源投影和安装委托 | 绕过统一插件安装事务或持有插件运行状态 |
-| Local Action Service | capability 与参数校验、平台能力网关 | 绕过正式 action contract |
+| Local Action Service | permission 与参数校验、平台能力网关 | 绕过正式 action contract |
 | Task Registry | admission、执行状态、有序持久化和关闭 drain | 为队列已满请求创建 pending task |
 | Scheduler | revision、到期检查和插件事件触发 | 直接发送聊天消息 |
 | Render Service | 模板校验、Chromium、artifact、资源摘要和缓存 | 插件自建并行截图链路 |

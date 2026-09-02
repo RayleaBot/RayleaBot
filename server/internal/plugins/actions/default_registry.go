@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type Metadata struct {
 	Action             string
-	Capability         string
+	Permission         string
 	RequestSchema      string
 	ResponseSchema     string
 	RequiredPermission string
@@ -63,7 +64,7 @@ func DefaultMetadataList() []Metadata {
 
 func commonErrorCodes(extra ...string) []string {
 	codes := []string{
-		"plugin.capability_violation",
+		"plugin.permission_denied",
 		"plugin.internal_error",
 		"plugin.protocol_violation",
 	}
@@ -72,7 +73,6 @@ func commonErrorCodes(extra ...string) []string {
 
 func defaultRegistrarItems() []registrar {
 	items := []registrar{
-		webhookExposeRegistrar(),
 		schedulerCreateRegistrar(),
 		secretReadRegistrar(),
 		httpRequestRegistrar(),
@@ -91,37 +91,11 @@ func defaultRegistrarItems() []registrar {
 	return items
 }
 
-func webhookExposeRegistrar() registrar {
-	return registrar{
-		metadata: Metadata{
-			Action:          "event.expose_webhook",
-			Capability:      "event.expose_webhook",
-			RequestSchema:   "plugin-protocol.action_event_expose_webhook",
-			ResponseSchema:  "plugin-protocol.local_action_result",
-			AccessesNetwork: true,
-			AuditFields:     []string{"plugin_id", "route_id"},
-			ErrorCodes:      commonErrorCodes("platform.invalid_request"),
-		},
-		factory: func(deps Deps) ActionHandler {
-			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-				return executeWebhookExpose(ctx, deps, req)
-			}
-		},
-	}
-}
-
-func executeWebhookExpose(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.WebhookGateway == nil || deps.WebhookGateway() == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "webhook gateway is not available"}
-	}
-	return deps.WebhookGateway().Expose(ctx, req.PluginID, req.Action)
-}
-
 func schedulerCreateRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:         "scheduler.create",
-			Capability:     "scheduler.create",
+			Permission:     "scheduler.create",
 			RequestSchema:  "plugin-protocol.action_scheduler_create",
 			ResponseSchema: "plugin-protocol.local_action_result",
 			AuditFields:    []string{"plugin_id", "task_id", "cron"},
@@ -136,8 +110,8 @@ func schedulerCreateRegistrar() registrar {
 }
 
 func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "scheduler.create") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "scheduler.create capability is not declared"}
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "scheduler.create") {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "scheduler.create permission is not declared"}
 	}
 	if deps.Scheduler == nil {
 		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "scheduler engine is not available"}
@@ -163,7 +137,7 @@ func secretReadRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:         "secret.read",
-			Capability:     "secret.read",
+			Permission:     "secret.read",
 			RequestSchema:  "plugin-protocol.action_secret_read",
 			ResponseSchema: "plugin-protocol.local_action_result",
 			ReadsSecret:    true,
@@ -179,8 +153,8 @@ func secretReadRegistrar() registrar {
 }
 
 func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "secret.read") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "secret.read capability is not declared"}
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "secret.read") {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "secret.read permission is not declared"}
 	}
 
 	key := strings.TrimSpace(req.Action.SecretKey)
@@ -213,23 +187,8 @@ func configRegistrars() []registrar {
 	return []registrar{
 		{
 			metadata: Metadata{
-				Action:         "config.read",
-				Capability:     "config.read",
-				RequestSchema:  "plugin-protocol.action_config_read",
-				ResponseSchema: "plugin-protocol.local_action_result",
-				AuditFields:    []string{"plugin_id", "keys"},
-				ErrorCodes:     commonErrorCodes(),
-			},
-			factory: func(deps Deps) ActionHandler {
-				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-					return executeConfigRead(ctx, deps, req)
-				}
-			},
-		},
-		{
-			metadata: Metadata{
 				Action:         "config.write",
-				Capability:     "config.write",
+				Permission:     "config.write",
 				RequestSchema:  "plugin-protocol.action_config_write",
 				ResponseSchema: "plugin-protocol.local_action_result",
 				AuditFields:    []string{"plugin_id", "changed_keys"},
@@ -244,24 +203,7 @@ func configRegistrars() []registrar {
 	}
 }
 
-func executeConfigRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "config.read") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "config.read capability is not declared"}
-	}
-	if deps.PluginConfig == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.read repository is not available"}
-	}
-	values, err := deps.PluginConfig.Read(ctx, req.PluginID, req.Action.ConfigKeys)
-	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.read failed", Err: err}
-	}
-	return map[string]any{"values": values}, nil
-}
-
 func executeConfigWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "config.write") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "config.write capability is not declared"}
-	}
 	if deps.PluginConfig == nil {
 		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write repository is not available"}
 	}
@@ -270,24 +212,29 @@ func executeConfigWrite(ctx context.Context, deps Deps, req ActionRequest) (map[
 	if err != nil {
 		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
 	}
-	if len(changedKeys) > 0 && deps.RefreshCommands != nil {
-		settings, readErr := deps.PluginConfig.ReadAll(ctx, req.PluginID)
-		if readErr != nil {
-			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
+	settings, readErr := deps.PluginConfig.ReadAll(ctx, req.PluginID)
+	if readErr != nil {
+		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
+	}
+	if deps.Plugins != nil {
+		if snapshot, ok := deps.Plugins.Get(req.PluginID); ok {
+			settings = pluginstore.MergeValues(snapshot.DefaultConfig, settings)
 		}
+	}
+	if len(changedKeys) > 0 && deps.RefreshCommands != nil {
 		deps.RefreshCommands(ctx, req.PluginID, settings)
 	}
-	dispatchConfigChanged(ctx, req.PluginID, deps.Dispatcher, deps.Logger)
+	dispatchConfigChanged(ctx, req.PluginID, settings, changedKeys, deps.Dispatcher, deps.Logger)
 	return map[string]any{"changed_keys": changedKeys}, nil
 }
 
-func dispatchConfigChanged(ctx context.Context, pluginID string, dispatcher ConfigChangeDispatcher, logger interface {
+func dispatchConfigChanged(ctx context.Context, pluginID string, config map[string]any, changedKeys []string, dispatcher ConfigChangeDispatcher, logger interface {
 	Warn(string, ...any)
 }) {
 	if dispatcher == nil {
 		return
 	}
-	result := dispatcher(ctx, pluginID)
+	result := dispatcher(ctx, pluginID, config, changedKeys)
 	if result.Delivered || logger == nil {
 		return
 	}

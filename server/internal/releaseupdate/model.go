@@ -15,8 +15,8 @@ const (
 	MaxExpandedBytes      int64 = 8 << 30
 	MaxArtifactFiles            = 100_000
 	MaxCompressionRatio         = 100
-	PluginManifestVersion       = "2"
-	PluginUIBridgeVersion       = "2"
+	PluginManifestVersion       = "3"
+	PluginUIBridgeVersion       = "3"
 )
 
 const (

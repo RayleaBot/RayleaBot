@@ -102,10 +102,7 @@ func TestRememberLocalActionIDKeepsBoundedHistory(t *testing.T) {
 func localActionFrameBytes(t *testing.T, requestID, parentRequestID string) []byte {
 	t.Helper()
 	payload, err := json.Marshal(map[string]any{
-		"protocol_version":  "1",
 		"type":              "action",
-		"timestamp":         1,
-		"plugin_id":         "limit-plugin",
 		"request_id":        requestID,
 		"parent_request_id": parentRequestID,
 		"action":            "logger.write",

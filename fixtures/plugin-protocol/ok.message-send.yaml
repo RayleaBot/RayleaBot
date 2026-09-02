@@ -1,0 +1,26 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+manifest:
+  concurrency: 2
+frames:
+  - type: action
+    request_id: action-send-1
+    parent_request_id: event-1
+    action: message.send
+    data:
+      target_type: group
+      target_id: "30001"
+      reply_to_event_id: source-event-1
+      fallback_to_send_if_missing: true
+      message:
+        segments:
+          - type: text
+            data:
+              text: hello
+  - type: result
+    request_id: action-send-1
+    status: success
+    data:
+      message_id: "40001"
+expect:
+  valid: true

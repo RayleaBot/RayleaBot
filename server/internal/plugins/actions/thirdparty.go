@@ -19,7 +19,7 @@ func thirdPartyAccountReadRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:         "thirdparty.account.read",
-			Capability:     "thirdparty.account.read",
+			Permission:     "thirdparty.account.read",
 			RequestSchema:  "plugin-protocol.action_thirdparty_account_read",
 			ResponseSchema: "plugin-protocol.local_action_result",
 			ReadsSecret:    true,
@@ -38,7 +38,7 @@ func thirdPartyAccountValidateRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:         "thirdparty.account.validate",
-			Capability:     "thirdparty.account.validate",
+			Permission:     "thirdparty.account.validate",
 			RequestSchema:  "plugin-protocol.action_thirdparty_account_validate",
 			ResponseSchema: "plugin-protocol.local_action_result",
 			AuditFields:    []string{"plugin_id", "platform", "account_id", "observation", "http_status", "accepted", "reason"},
@@ -53,16 +53,16 @@ func thirdPartyAccountValidateRegistrar() registrar {
 }
 
 func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.account.read") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read capability is not declared"}
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "thirdparty.account.read") {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.read permission is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil {
 		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read platform is invalid"}
 	}
-	if !thirdPartyAccountPlatformAllowed(deps.Capabilities.ThirdPartyAccountPlatforms(ctx, req.PluginID), platform) {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.read platform is outside declared capability parameters"}
+	if !thirdPartyAccountPlatformAllowed(deps.Permissions.PermissionPlatforms(ctx, req.PluginID, "thirdparty.account.read"), platform) {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.read platform is outside declared permission parameters"}
 	}
 	accountID := strings.TrimSpace(req.Action.ThirdPartyAccountID)
 	if accountID != "" && !thirdPartyAccountIDPattern.MatchString(accountID) {
@@ -102,16 +102,16 @@ func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequ
 }
 
 func executeThirdPartyAccountValidate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.account.validate") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.validate capability is not declared"}
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "thirdparty.account.validate") {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.validate permission is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil {
 		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate platform is invalid"}
 	}
-	if !thirdPartyAccountPlatformAllowed(deps.Capabilities.ThirdPartyAccountPlatforms(ctx, req.PluginID), platform) {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.account.validate platform is outside declared capability parameters"}
+	if !thirdPartyAccountPlatformAllowed(deps.Permissions.PermissionPlatforms(ctx, req.PluginID, "thirdparty.account.validate"), platform) {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.validate platform is outside declared permission parameters"}
 	}
 	accountID := strings.TrimSpace(req.Action.ThirdPartyAccountID)
 	if !thirdPartyAccountIDPattern.MatchString(accountID) {
@@ -140,7 +140,7 @@ func thirdPartyResolveRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:         "thirdparty.resolve",
-			Capability:     "thirdparty.resolve",
+			Permission:     "thirdparty.resolve",
 			RequestSchema:  "plugin-protocol.action_thirdparty_resolve",
 			ResponseSchema: "plugin-protocol.local_action_result",
 			ReadsSecret:    true,
@@ -156,16 +156,16 @@ func thirdPartyResolveRegistrar() registrar {
 }
 
 func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "thirdparty.resolve") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.resolve capability is not declared"}
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "thirdparty.resolve") {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.resolve permission is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil || platform != thirdparty.PlatformDouyin {
 		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve platform is invalid"}
 	}
-	if !thirdPartyAccountPlatformAllowed(deps.Capabilities.ThirdPartyAccountPlatforms(ctx, req.PluginID), platform) {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "thirdparty.resolve platform is outside declared capability parameters"}
+	if !thirdPartyAccountPlatformAllowed(deps.Permissions.PermissionPlatforms(ctx, req.PluginID, "thirdparty.resolve"), platform) {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.resolve platform is outside declared permission parameters"}
 	}
 	query := strings.TrimSpace(req.Action.ThirdPartyResolveQuery)
 	// schema maxLength 按 Unicode 码点计，这里用 rune 计数保持一致，

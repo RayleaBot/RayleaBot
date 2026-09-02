@@ -41,7 +41,6 @@ const {
   saving,
 } = storeToRefs(configStore)
 const {
-  commandPolicy,
   commandPolicyError,
   commandPolicyLoading,
 } = storeToRefs(governanceStore)

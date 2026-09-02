@@ -21,7 +21,7 @@ export const commands = {
     declaredPermission: '声明权限',
     effectivePermission: '生效权限',
     permissionSource: '权限来源',
-    source: '来源',
+    source: '触发方式',
     plugin: '所属插件',
     status: '当前状态',
   },
@@ -46,8 +46,8 @@ export const commands = {
     default_level: '默认权限',
   },
   commandSource: {
-    manifest: '固定指令',
-    dynamic: '动态指令',
+    exact: '固定指令',
+    setting: '设置指令',
     pattern: '规则指令',
   },
 } as const

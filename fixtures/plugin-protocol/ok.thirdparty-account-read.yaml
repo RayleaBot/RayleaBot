@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-thirdparty-account-read-1
+    action: thirdparty.account.read
+    data:
+      platform: bilibili
+      account_id: primary
+  - type: result
+    request_id: action-thirdparty-account-read-1
+    status: success
+    data:
+      accounts: []
+expect:
+  valid: true

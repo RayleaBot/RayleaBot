@@ -56,6 +56,7 @@ const filterDrawerVisible = ref(false)
 const searchQuery = ref('')
 const filterState = ref<'all' | 'running' | 'disabled' | 'alert'>('all')
 const filterSource = ref<'all' | 'official' | 'community'>('all')
+const inspectionPermissionNames = computed(() => Object.keys(installInspection.value?.permissions ?? {}).sort())
 
 const pageErrorToast = computed(() => (
   error.value
@@ -441,7 +442,7 @@ async function reloadPlugin(pluginId: string) {
             type="warning"
             show-icon
             message="第三方插件是完全可信的本地代码"
-            description="预编译 Go 插件进程使用当前用户权限运行。仅安装来源、平台、摘要和能力均符合预期的代码。"
+            description="原生插件进程使用当前用户权限运行。仅安装来源、平台、摘要和权限均符合预期的代码。"
           />
 
           <a-descriptions class="install-inspection" :column="1" bordered size="small">
@@ -459,16 +460,16 @@ async function reloadPlugin(pluginId: string) {
           </a-descriptions>
 
           <div class="install-inspection-list">
-            <strong>声明能力</strong>
+            <strong>声明权限</strong>
             <div>
-              <a-tag v-for="capability in installInspection.capabilities" :key="capability">{{ capability }}</a-tag>
-              <span v-if="installInspection.capabilities.length === 0">未声明能力</span>
+              <a-tag v-for="permission in inspectionPermissionNames" :key="permission">{{ permission }}</a-tag>
+              <span v-if="inspectionPermissionNames.length === 0">未声明额外权限</span>
             </div>
           </div>
 
           <a-form-item>
             <a-checkbox v-model:checked="trustedCodeConfirmed">
-              我已核对来源、目标平台、artifact 摘要和能力，并信任此代码使用本机当前用户权限运行。
+              我已核对来源、目标平台、artifact 摘要和权限，并信任此代码使用本机当前用户权限运行。
             </a-checkbox>
           </a-form-item>
         </template>

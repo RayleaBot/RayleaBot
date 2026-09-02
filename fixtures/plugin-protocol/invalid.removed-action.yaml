@@ -1,0 +1,11 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: removed-action-1
+    action: config.read
+    data:
+      keys:
+        - prefix
+expect:
+  valid: false

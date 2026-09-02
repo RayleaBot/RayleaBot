@@ -9,7 +9,7 @@
   "properties": {
     "workspace_version": {
       "type": "string",
-      "const": "1"
+      "const": "2"
     },
     "plugins": {
       "type": "array",
@@ -17,12 +17,8 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "path"],
+        "required": ["path"],
         "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
-          },
           "path": {
             "type": "string",
             "minLength": 1

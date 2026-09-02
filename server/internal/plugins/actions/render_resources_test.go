@@ -42,9 +42,8 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			}}
 		},
-		Capabilities: stubHTTPActionCapabilities{
-			capabilities: map[string]bool{"render.image": true, "http.request": true},
-			httpHosts:    []string{"127.0.0.1"},
+		Permissions: stubHTTPActionPermissions{
+			permissions: map[string]bool{"render.image": true, "http.request": true},
 		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
@@ -85,7 +84,7 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}
 }
 
-func TestPrefetchRenderImageResourcesAllowsSuffixMatchedHost(t *testing.T) {
+func TestPrefetchRenderImageResourcesAllowsConfiguredPrivateHost(t *testing.T) {
 	t.Parallel()
 
 	content := append([]byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}, []byte("fixture-suffix-host")...)
@@ -102,9 +101,8 @@ func TestPrefetchRenderImageResourcesAllowsSuffixMatchedHost(t *testing.T) {
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			}}
 		},
-		Capabilities: stubHTTPActionCapabilities{
-			capabilities: map[string]bool{"render.image": true, "http.request": true},
-			httpHosts:    []string{"0.0.1"},
+		Permissions: stubHTTPActionPermissions{
+			permissions: map[string]bool{"render.image": true, "http.request": true},
 		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
@@ -123,37 +121,36 @@ func TestPrefetchRenderImageResourcesAllowsSuffixMatchedHost(t *testing.T) {
 	}
 }
 
-func TestPrefetchRenderImageResourcesRejectsUndeclaredHost(t *testing.T) {
+func TestPrefetchRenderImageResourcesRejectsPrivateHostWithoutServerAllowlist(t *testing.T) {
 	t.Parallel()
 
 	_, cleanup, err := prefetchRenderImageResources(context.Background(), Deps{
 		CurrentConfig: func() config.Config {
 			return config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 1}}
 		},
-		Capabilities: stubHTTPActionCapabilities{
-			capabilities: map[string]bool{"render.image": true, "http.request": true},
-			httpHosts:    []string{"other.example.test"},
+		Permissions: stubHTTPActionPermissions{
+			permissions: map[string]bool{"render.image": true, "http.request": true},
 		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-scope",
 		Action: pluginruntime.Action{RenderResources: []pluginruntime.RenderImageResource{{
 			ID:  "media-0",
-			URL: "https://images.example.test/image.jpg",
+			URL: "https://127.0.0.1/image.jpg",
 		}}},
 	})
 	cleanup()
 	var runtimeErr *pluginruntime.Error
-	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.capability_violation" {
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("error = %#v", err)
 	}
 }
 
-func TestPrefetchRenderImageResourcesRevalidatesRedirectScope(t *testing.T) {
+func TestPrefetchRenderImageResourcesRevalidatesRedirectSafety(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Location", "https://other.example.test/image.jpg")
+		w.Header().Set("Location", "http://example.com/image.jpg")
 		w.WriteHeader(http.StatusFound)
 	}))
 	defer server.Close()
@@ -165,9 +162,8 @@ func TestPrefetchRenderImageResourcesRevalidatesRedirectScope(t *testing.T) {
 				AllowPrivateHosts: []string{"127.0.0.1"},
 			}}
 		},
-		Capabilities: stubHTTPActionCapabilities{
-			capabilities: map[string]bool{"render.image": true, "http.request": true},
-			httpHosts:    []string{"127.0.0.1"},
+		Permissions: stubHTTPActionPermissions{
+			permissions: map[string]bool{"render.image": true, "http.request": true},
 		},
 	}, ActionRequest{
 		PluginID:  "plugin.render",
@@ -179,7 +175,7 @@ func TestPrefetchRenderImageResourcesRevalidatesRedirectScope(t *testing.T) {
 	})
 	cleanup()
 	var runtimeErr *pluginruntime.Error
-	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.capability_violation" {
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("error = %#v", err)
 	}
 }

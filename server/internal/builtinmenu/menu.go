@@ -306,93 +306,75 @@ func firstBuiltinMenuText(values ...string) string {
 
 func buildBuiltinCommands(commands []plugins.CommandView, cfg config.Config) []map[string]any {
 	items := make([]map[string]any, 0, len(commands))
-	prefixes := builtinMenuPrefixes(cfg)
 	for _, command := range commands {
-		commandSource := normalizeBuiltinMenuCommandSource(command.CommandSource)
-		item := map[string]any{
-			"name":             command.Name,
-			"command_source":   commandSource,
-			"command_prefixes": append([]string(nil), prefixes...),
-			"description":      firstBuiltinMenuText(command.Description, command.Name),
-			"permission":       builtinMenuEffectiveCommandPermission(command.Permission, cfg),
-		}
-		if commandSource == plugins.CommandSourcePattern {
-			usage := builtinPatternCommandUsage(command.Usage, prefixes)
-			item["usage"] = usage
-			if usageParts := builtinUsageParts(usage, "literal"); len(usageParts) > 0 {
-				item["usage_parts"] = usageParts
-			}
-		} else if usageArgs := builtinCommandUsageArgs(command.Name, command.Usage, prefixes); usageArgs != "" {
-			item["usage_args"] = usageArgs
-			item["usage_parts"] = builtinUsageParts(usageArgs, "required")
-		}
-		if len(command.Aliases) > 0 {
-			item["aliases"] = append([]string(nil), command.Aliases...)
-		}
-		if strings.TrimSpace(command.DeclarationID) != "" {
-			item["declaration_id"] = strings.TrimSpace(command.DeclarationID)
-		}
-		item["permission_label"] = builtinMenuPermissionLabel(stringValueFromMap(item, "permission"))
-		items = append(items, item)
+		items = append(items, buildBuiltinCommand(command, cfg))
 	}
 	return items
 }
 
-func buildBuiltinHelp(help *plugins.HelpView, commands []plugins.CommandView, cfg config.Config) map[string]any {
+func buildBuiltinCommand(command plugins.CommandView, cfg config.Config) map[string]any {
+	prefixes := builtinMenuPrefixes(cfg)
+	commandName := firstBuiltinMenuText(command.EffectiveName, command.Name)
+	triggerType := normalizeBuiltinMenuTriggerType(command.TriggerType)
+	item := map[string]any{
+		"command_id":       command.ID,
+		"name":             commandName,
+		"title":            firstBuiltinMenuText(command.Name, commandName),
+		"trigger_type":     triggerType,
+		"command_prefixes": append([]string(nil), prefixes...),
+		"description":      firstBuiltinMenuText(command.Description, command.Name, commandName),
+		"permission":       builtinMenuEffectiveCommandPermission(command.Permission, cfg),
+	}
+	if triggerType == "pattern" {
+		usage := builtinPatternCommandUsage(command.Usage, prefixes)
+		item["usage"] = usage
+		if usageParts := builtinUsageParts(usage, "literal"); len(usageParts) > 0 {
+			item["usage_parts"] = usageParts
+		}
+	} else if usageArgs := builtinCommandUsageArgs(commandName, command.Usage, prefixes); usageArgs != "" {
+		item["usage_args"] = usageArgs
+		item["usage_parts"] = builtinUsageParts(usageArgs, "required")
+	}
+	if len(command.Aliases) > 0 {
+		item["aliases"] = append([]string(nil), command.Aliases...)
+	}
+	item["permission_label"] = builtinMenuPermissionLabel(stringValueFromMap(item, "permission"))
+	return item
+}
+
+func buildBuiltinHelp(help *plugins.HelpView, groups []plugins.CommandGroup, commands []plugins.CommandView, cfg config.Config) map[string]any {
 	result := map[string]any{}
-	if help.Title != "" {
+	if help != nil && help.Title != "" {
 		result["title"] = help.Title
 	}
-	if help.Summary != "" {
+	if help != nil && help.Summary != "" {
 		result["summary"] = help.Summary
 	}
-	commandPermissions := builtinMenuCommandPermissionSet(commands, cfg)
-	prefixes := builtinMenuPrefixes(cfg)
-	groups := make([]map[string]any, 0, len(help.Groups))
-	for _, group := range help.Groups {
-		items := make([]map[string]any, 0, len(group.Items))
-		for _, item := range group.Items {
-			commandName := strings.TrimSpace(item.Command)
-			permission := builtinMenuEffectiveHelpItemPermission(item, commandPermissions)
-			entry := map[string]any{
-				"name":        firstBuiltinMenuText(commandName, item.Title),
-				"title":       item.Title,
-				"description": firstBuiltinMenuText(item.Description, item.Title, item.Command),
-				"usage":       item.Usage,
-				"permission":  permission,
+	commandsByID := make(map[string]plugins.CommandView, len(commands))
+	for _, command := range commands {
+		commandsByID[command.ID] = command
+	}
+	menuGroups := make([]map[string]any, 0, len(groups))
+	for _, group := range groups {
+		items := make([]map[string]any, 0, len(group.Commands))
+		for _, commandID := range group.Commands {
+			command, ok := commandsByID[commandID]
+			if !ok {
+				continue
 			}
-			if commandName != "" {
-				entry["command_name"] = commandName
-				if command, ok := findBuiltinCommandView(commands, commandName); ok {
-					commandSource := normalizeBuiltinMenuCommandSource(command.CommandSource)
-					entry["command_source"] = commandSource
-					if commandSource == plugins.CommandSourcePattern {
-						usage := builtinPatternCommandUsage(command.Usage, prefixes)
-						entry["usage"] = usage
-						if usageParts := builtinUsageParts(usage, "literal"); len(usageParts) > 0 {
-							entry["usage_parts"] = usageParts
-						}
-					} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage, prefixes); usageArgs != "" {
-						entry["usage_args"] = usageArgs
-						entry["usage_parts"] = builtinUsageParts(usageArgs, "required")
-					}
-				} else if usageArgs := builtinCommandUsageArgs(commandName, item.Usage, prefixes); usageArgs != "" {
-					entry["usage_args"] = usageArgs
-					entry["usage_parts"] = builtinUsageParts(usageArgs, "required")
-				}
-			}
-			entry["permission_label"] = builtinMenuPermissionLabel(stringValueFromMap(entry, "permission"))
+			entry := buildBuiltinCommand(command, cfg)
+			entry["command_name"] = stringValueFromMap(entry, "name")
 			items = append(items, entry)
 		}
 		if len(items) > 0 {
-			groups = append(groups, map[string]any{
+			menuGroups = append(menuGroups, map[string]any{
 				"title": group.Title,
 				"items": items,
 			})
 		}
 	}
-	if len(groups) > 0 {
-		result["groups"] = groups
+	if len(menuGroups) > 0 {
+		result["groups"] = menuGroups
 	}
 	return result
 }
@@ -407,7 +389,7 @@ func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map
 				continue
 			}
 			item["command_prefixes"] = append([]string(nil), prefixes...)
-			if stringValueFromMap(item, "command_source") != plugins.CommandSourcePattern {
+			if stringValueFromMap(item, "trigger_type") != "pattern" {
 				delete(item, "usage")
 			}
 			delete(item, "command_name")
@@ -451,7 +433,7 @@ func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[
 		}
 		view := plugins.BuildSummaryView(snapshot, conflicts[snapshot.PluginID])
 		commands := visibleBuiltinCommands(view.Commands, cfg, runtimeEvent)
-		help := visibleBuiltinHelp(view.Help, view.Commands, commands, cfg, runtimeEvent)
+		help := visibleBuiltinHelp(view.Help, commands)
 		if len(commands) == 0 && help == nil {
 			continue
 		}
@@ -464,7 +446,7 @@ func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[
 			"commands":       buildBuiltinCommands(commands, cfg),
 		}
 		if help != nil {
-			item["help"] = buildBuiltinHelp(help, view.Commands, cfg)
+			item["help"] = buildBuiltinHelp(help, view.CommandGroups, commands, cfg)
 		}
 		items = append(items, item)
 	}
@@ -608,13 +590,8 @@ func builtinCommandsNotCoveredByHelp(commands []map[string]any, helpCommandNames
 }
 
 func builtinCommandCoveredByHelp(commandItem map[string]any, helpCommandNames map[string]struct{}) bool {
-	for _, value := range append([]string{
-		stringValueFromMap(commandItem, "name"),
-		stringValueFromMap(commandItem, "declaration_id"),
-	}, stringSliceFromMap(commandItem, "aliases")...) {
-		if _, ok := helpCommandNames[normalizeMenuLookup(value)]; ok {
-			return true
-		}
+	if _, ok := helpCommandNames[normalizeMenuLookup(stringValueFromMap(commandItem, "command_id"))]; ok {
+		return true
 	}
 	return false
 }
@@ -625,7 +602,10 @@ func findBuiltinCommandView(commands []plugins.CommandView, value string) (plugi
 		return plugins.CommandView{}, false
 	}
 	for _, command := range commands {
-		for _, candidate := range append([]string{command.Name, command.DeclarationID}, command.Aliases...) {
+		candidates := []string{command.ID, command.Name, command.EffectiveName}
+		candidates = append(candidates, command.TriggerNames...)
+		candidates = append(candidates, command.Aliases...)
+		for _, candidate := range candidates {
 			if normalizeMenuLookup(candidate) == value {
 				return command, true
 			}
@@ -634,14 +614,14 @@ func findBuiltinCommandView(commands []plugins.CommandView, value string) (plugi
 	return plugins.CommandView{}, false
 }
 
-func normalizeBuiltinMenuCommandSource(source string) string {
-	switch strings.TrimSpace(source) {
-	case plugins.CommandSourceDynamic:
-		return plugins.CommandSourceDynamic
-	case plugins.CommandSourcePattern:
-		return plugins.CommandSourcePattern
+func normalizeBuiltinMenuTriggerType(triggerType string) string {
+	switch strings.TrimSpace(triggerType) {
+	case "setting":
+		return "setting"
+	case "pattern":
+		return "pattern"
 	default:
-		return plugins.CommandSourceManifest
+		return "exact"
 	}
 }
 
@@ -725,7 +705,7 @@ func builtinHelpCommandNames(help map[string]any) map[string]struct{} {
 	for _, group := range groups {
 		items, _ := group["items"].([]map[string]any)
 		for _, item := range items {
-			name := normalizeMenuLookup(stringValueFromMap(item, "command_name"))
+			name := normalizeMenuLookup(stringValueFromMap(item, "command_id"))
 			if name != "" {
 				names[name] = struct{}{}
 			}
@@ -743,7 +723,7 @@ func findBuiltinMenuItem(items []map[string]any, target string) (map[string]any,
 		commands, _ := item["commands"].([]map[string]any)
 		for _, commandItem := range commands {
 			if target == normalizeMenuLookup(stringValueFromMap(commandItem, "name")) ||
-				target == normalizeMenuLookup(stringValueFromMap(commandItem, "declaration_id")) {
+				target == normalizeMenuLookup(stringValueFromMap(commandItem, "command_id")) {
 				return item, true
 			}
 			for _, alias := range stringSliceFromMap(commandItem, "aliases") {
@@ -920,47 +900,6 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.No
 	}, err)
 }
 
-func builtinMenuCommandTokenSet(commands []plugins.CommandView) map[string]struct{} {
-	tokens := make(map[string]struct{})
-	for _, command := range commands {
-		addBuiltinMenuCommandToken(tokens, command.Name)
-		addBuiltinMenuCommandToken(tokens, command.DeclarationID)
-		for _, alias := range command.Aliases {
-			addBuiltinMenuCommandToken(tokens, alias)
-		}
-	}
-	return tokens
-}
-
-func addBuiltinMenuCommandToken(tokens map[string]struct{}, value string) {
-	value = normalizeMenuLookup(value)
-	if value == "" {
-		return
-	}
-	tokens[value] = struct{}{}
-}
-
-func builtinMenuCommandPermissionSet(commands []plugins.CommandView, cfg config.Config) map[string]string {
-	permissions := make(map[string]string)
-	for _, command := range commands {
-		level := builtinMenuEffectiveCommandPermission(command.Permission, cfg)
-		setBuiltinMenuCommandPermission(permissions, command.Name, level)
-		setBuiltinMenuCommandPermission(permissions, command.DeclarationID, level)
-		for _, alias := range command.Aliases {
-			setBuiltinMenuCommandPermission(permissions, alias, level)
-		}
-	}
-	return permissions
-}
-
-func setBuiltinMenuCommandPermission(permissions map[string]string, value string, level string) {
-	value = normalizeMenuLookup(value)
-	if value == "" {
-		return
-	}
-	permissions[value] = level
-}
-
 func builtinCommandUsageArgs(commandName string, usage string, prefixes []string) string {
 	commandName = strings.TrimSpace(commandName)
 	usage = strings.TrimSpace(usage)
@@ -1008,25 +947,6 @@ func builtinMenuEffectiveCommandPermission(permissionLevel string, cfg config.Co
 	default:
 		return "everyone"
 	}
-}
-
-func builtinMenuEffectiveHelpPermission(permissionLevel string) string {
-	switch strings.TrimSpace(permissionLevel) {
-	case "super_admin", "group_admin", "everyone":
-		return strings.TrimSpace(permissionLevel)
-	default:
-		return "everyone"
-	}
-}
-
-func builtinMenuEffectiveHelpItemPermission(item plugins.HelpItemView, commandPermissions map[string]string) string {
-	if strings.TrimSpace(item.Permission) != "" {
-		return builtinMenuEffectiveHelpPermission(item.Permission)
-	}
-	if level, ok := commandPermissions[normalizeMenuLookup(item.Command)]; ok {
-		return level
-	}
-	return builtinMenuEffectiveHelpPermission(item.Permission)
 }
 
 func builtinMenuDefaultPermission(cfg config.Config) string {
@@ -1077,41 +997,9 @@ func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, e
 	return items
 }
 
-func visibleBuiltinHelp(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) *plugins.HelpView {
-	if help == nil {
+func visibleBuiltinHelp(help *plugins.HelpView, visibleCommands []plugins.CommandView) *plugins.HelpView {
+	if help == nil || len(visibleCommands) == 0 {
 		return nil
 	}
-	visibleTokens := builtinMenuCommandTokenSet(visibleCommands)
-	allTokens := builtinMenuCommandTokenSet(allCommands)
-	commandPermissions := builtinMenuCommandPermissionSet(allCommands, cfg)
-	callerRank := builtinMenuCallerPermissionRank(cfg, event)
-	filtered := &plugins.HelpView{
-		Title:   help.Title,
-		Summary: help.Summary,
-	}
-	for _, group := range help.Groups {
-		filteredGroup := plugins.HelpGroupView{Title: group.Title}
-		for _, item := range group.Items {
-			commandToken := strings.ToLower(strings.TrimSpace(item.Command))
-			if commandToken != "" {
-				if _, commandExists := allTokens[commandToken]; !commandExists {
-					continue
-				}
-				if _, commandVisible := visibleTokens[commandToken]; !commandVisible {
-					continue
-				}
-			}
-			level := builtinMenuEffectiveHelpItemPermission(item, commandPermissions)
-			if callerRank >= builtinMenuPermissionRank(level) {
-				filteredGroup.Items = append(filteredGroup.Items, item)
-			}
-		}
-		if len(filteredGroup.Items) > 0 {
-			filtered.Groups = append(filtered.Groups, filteredGroup)
-		}
-	}
-	if len(filtered.Groups) == 0 {
-		return nil
-	}
-	return filtered
+	return &plugins.HelpView{Title: help.Title, Summary: help.Summary}
 }

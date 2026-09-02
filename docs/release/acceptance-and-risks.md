@@ -25,13 +25,13 @@
 - 四种归档的 `LICENSE`、`THIRD_PARTY_NOTICES.md`、metadata、artifact smoke 和 recovery drill；
 - doctor、agent docs、文档链接和 `git diff --check`。
 
-插件负向验收必须拒绝 manifest v1、bridge v1、Python/Node runtime、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与 Python/Node 插件运行时。
+插件负向验收必须拒绝 manifest v2、protocol v1、artifact v1、bridge v2、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
 
 ## 更新安全验收
 
 更新核心必须拒绝：错误 key、错误签名、过期或重放 manifest、降级、同版本不同摘要、artifact hash/size/platform/version/signer 不匹配、路径穿越、reparse point、大小写冲突、额外根目录、zip bomb、磁盘不足和超时。
 
-事务恢复测试必须覆盖每个 journal phase、helper 启动失败、停止服务失败、健康检查失败、回滚成功和回滚失败。同一插件 epoch 内升级前后的 `config/user.yaml`、`data/**` 和 `plugins/installed/**` 必须保持一致；旧 epoch 必须以 `plugin.reset_required` 拒绝，不能静默恢复。
+事务恢复测试必须覆盖每个 journal phase、helper 启动失败、停止服务失败、健康检查失败、回滚成功和回滚失败。升级前后的 `config/user.yaml`、`data/**` 和 `plugins/installed/**` 必须保持一致；backup manifest v2 必须拒绝，backup manifest v3 中的旧插件包必须保持禁用且持久化数据完整。
 
 Windows packaged E2E 必须使用正式签名证书覆盖：
 

@@ -24,6 +24,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -315,17 +317,28 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 	}
 	verified, err := artifact.Verify(candidateDir, artifact.Options{ExpectedPlatform: targetPlatform})
 	if err != nil {
+		if errors.Is(err, artifact.ErrContractUnsupported) {
+			return plugins.InstallInspection{}, installError("plugin.contract_unsupported", err.Error(), "插件合同版本不受支持")
+		}
 		if errors.Is(err, artifact.ErrPlatformMismatch) {
 			return plugins.InstallInspection{}, installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
 		}
 		return plugins.InstallInspection{}, installError(codePluginArtifactInvalid, err.Error(), "插件 artifact 校验失败")
 	}
-	if request.ExpectedManifestSHA256 != "" && verified.Document.ManifestSHA256 != request.ExpectedManifestSHA256 {
+	if request.ExpectedManifestSHA256 != "" && verified.ManifestSHA256 != request.ExpectedManifestSHA256 {
 		return plugins.InstallInspection{}, installError("plugin.store_integrity_mismatch", "插件 manifest 摘要与商店目录不一致", "插件商店产物完整性校验失败")
 	}
 	snapshot, err := s.loadCandidateSnapshot(candidateDir)
 	if err != nil {
 		return plugins.InstallInspection{}, err
+	}
+	coreVersion := recovery.DetectCoreVersion(s.repoRoot)
+	if semverutil.Compare(coreVersion, snapshot.MinCoreVersion) < 0 {
+		return plugins.InstallInspection{}, installError(
+			"plugin.core_version_incompatible",
+			fmt.Sprintf("插件要求 RayleaBot %s 或更高版本，当前版本为 %s", snapshot.MinCoreVersion, coreVersion),
+			"插件与当前 RayleaBot 版本不兼容",
+		)
 	}
 	metadata, err := s.buildPackageMetadata(request, snapshot, candidateDir)
 	if err != nil {
@@ -348,20 +361,20 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 		Author:         snapshot.Author,
 		License:        snapshot.License,
 		SourceLabel:    installSourceLabel(request),
-		Capabilities:   append([]string(nil), snapshot.DeclaredCapabilities...),
+		Permissions:    plugins.ClonePermissions(snapshot.Permissions),
 		TargetPlatform: verified.Document.TargetPlatform,
 		Artifact: plugins.ArtifactInspection{
 			Valid:          true,
 			Version:        verified.Document.ArtifactVersion,
-			ManifestSHA256: verified.Document.ManifestSHA256,
+			ManifestSHA256: verified.ManifestSHA256,
 			FileCount:      len(verified.Document.Files),
 		},
 	}
 	for _, file := range verified.Document.Files {
-		switch file.Role {
-		case "backend":
-			inspection.Backend = plugins.InstallBackendInspection{Entry: snapshot.Entry, Path: file.Path, Size: file.Size, SHA256: file.SHA256}
-		case "ui":
+		switch {
+		case file.Path == verified.Document.Entry:
+			inspection.Backend = plugins.InstallBackendInspection{Entry: verified.Document.Entry, Path: file.Path, Size: file.Size, SHA256: file.SHA256}
+		case strings.HasPrefix(filepath.ToSlash(file.Path), "ui/"):
 			inspection.UI.FileCount++
 		}
 	}

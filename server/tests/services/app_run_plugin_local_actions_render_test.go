@@ -25,7 +25,7 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("help-menu", "render.image"),
+		stubPermissionViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -76,12 +76,12 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 	runner := &captureRenderRunner{}
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:             "help-menu",
-		Name:                 "帮助",
-		Version:              "1.0.0",
-		Valid:                true,
-		RegistrationState:    "installed",
-		DeclaredCapabilities: []string{"render.image"},
+		PluginID:          "help-menu",
+		Name:              "帮助",
+		Version:           "1.0.0",
+		Valid:             true,
+		RegistrationState: "installed",
+		Permissions:       map[string]plugins.PermissionGrant{"render.image": {}},
 	}})
 	application.setTestLocalActions(
 		nil,
@@ -142,7 +142,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
-		stubCapabilityViewFor("weather-card", "render.image"),
+		stubPermissionViewFor("weather-card", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -209,7 +209,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = catalog
 	application.setTestLocalActions(
-		stubCapabilityViewFor("other-plugin", "render.image"),
+		stubPermissionViewFor("other-plugin", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -230,7 +230,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 			"title": "天气卡片",
 		},
 	})
-	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
 func testPluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
@@ -259,7 +259,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 	}
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("other-plugin", "render.image"),
+		stubPermissionViewFor("other-plugin", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -280,7 +280,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 			"title": "天气卡片",
 		},
 	})
-	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
 func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
@@ -298,7 +298,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("help-menu", "render.image"),
+		stubPermissionViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -385,7 +385,7 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 	}
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("help-menu", "render.image"),
+		stubPermissionViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -465,7 +465,7 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("help-menu", "render.image"),
+		stubPermissionViewFor("help-menu", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -533,7 +533,7 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("status-panel", "render.image"),
+		stubPermissionViewFor("status-panel", "render.image"),
 		nil,
 		nil,
 		nil,
@@ -658,7 +658,7 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 	runner := &captureRenderRunner{}
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		stubCapabilityViewFor("plain-card", "render.image"),
+		stubPermissionViewFor("plain-card", "render.image"),
 		nil,
 		nil,
 		nil,

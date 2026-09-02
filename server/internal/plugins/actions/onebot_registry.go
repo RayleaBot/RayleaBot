@@ -9,7 +9,7 @@ import (
 
 type OneBotActionSpec struct {
 	Kind          string
-	Capability    string
+	Permission    string
 	Provider      string
 	APIName       string
 	Validate      func(map[string]any) error
@@ -28,7 +28,7 @@ func oneBotRegistrars() []registrar {
 		registrars = append(registrars, registrar{
 			metadata: Metadata{
 				Action:         kind,
-				Capability:     spec.Capability,
+				Permission:     spec.Permission,
 				RequestSchema:  "plugin-protocol.onebot_action",
 				ResponseSchema: "plugin-protocol.local_action_result",
 				AuditFields:    []string{"plugin_id", "action", "provider"},
@@ -39,7 +39,7 @@ func oneBotRegistrars() []registrar {
 					return executeOneBotAction(ctx, oneBotActionRequest{
 						PluginID:     req.PluginID,
 						Action:       req.Action,
-						Capabilities: deps.Capabilities,
+						Permissions: deps.Permissions,
 						Adapter:      deps.Adapter,
 					})
 				}
@@ -96,7 +96,7 @@ var oneBotActionProjectors = map[string]func(map[string]any) (string, map[string
 func oneBotActionSpecFromProtocol(baseSpec onebot11.ActionSpec) OneBotActionSpec {
 	spec := OneBotActionSpec{
 		Kind:          baseSpec.Kind,
-		Capability:    baseSpec.Capability,
+		Permission:    baseSpec.Permission,
 		Provider:      baseSpec.Provider,
 		APIName:       baseSpec.APIName,
 		CollectionKey: baseSpec.CollectionKey,
@@ -117,8 +117,8 @@ func oneBotActionSpecFromProtocol(baseSpec onebot11.ActionSpec) OneBotActionSpec
 }
 
 func normalizeOneBotActionSpec(spec OneBotActionSpec) OneBotActionSpec {
-	if spec.Capability == "" {
-		spec.Capability = spec.Kind
+	if spec.Permission == "" {
+		spec.Permission = spec.Kind
 	}
 	if spec.Result == nil {
 		spec.Result = func(result any) map[string]any {
@@ -161,7 +161,7 @@ type oneBotCodedError interface {
 type oneBotActionRequest struct {
 	PluginID     string
 	Action       pluginruntime.Action
-	Capabilities CapabilityView
+	Permissions PermissionView
 	Adapter      OneBotAdapter
 }
 
@@ -174,10 +174,10 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 		}
 	}
 
-	if req.Capabilities == nil || !req.Capabilities.CapabilityDeclared(ctx, req.PluginID, spec.Capability) {
+	if req.Permissions == nil || !req.Permissions.PermissionDeclared(ctx, req.PluginID, spec.Permission) {
 		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: spec.Capability + " capability is not declared",
+			Code:    "plugin.permission_denied",
+			Message: spec.Permission + " permission is not declared",
 		}
 	}
 

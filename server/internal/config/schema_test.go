@@ -48,10 +48,10 @@ func TestPluginProtocolInitFixturesValidate(t *testing.T) {
 		t.Fatalf("Compile(plugin-protocol.schema.json) error = %v", err)
 	}
 	for _, name := range []string{
-		"ok.init-init-ack.yaml",
-		"ok.init-without-bot.yaml",
-		"ok.event-management-action.yaml",
-		"ok.action-thirdparty-account-read.yaml",
+		"ok.init.yaml",
+		"edge.init-without-bot.yaml",
+		"ok.config-changed.yaml",
+		"ok.http-request.yaml",
 	} {
 		name := name
 		t.Run(name, func(t *testing.T) {
@@ -166,53 +166,31 @@ func TestFormalSchemaFixturesKeepRelativePathConstraints(t *testing.T) {
 				repoRoot,
 				"fixtures",
 				"plugin-info",
-				"ok.minimal-go.json",
+				"ok.minimal-native.json",
 			),
 			expectValid: true,
 		},
 		{
-			name:       "plugin info parent path fixture",
+			name:       "plugin info legacy contract fixture",
 			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
 			fixturePath: filepath.Join(
 				repoRoot,
 				"fixtures",
 				"plugin-info",
-				"invalid.icon-parent-path.json",
+				"invalid.legacy-v2.json",
 			),
 			expectValid: false,
 		},
 		{
-			name:       "plugin render template valid fixture",
+			name:       "plugin management UI path fixture",
 			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
 			fixturePath: filepath.Join(
 				repoRoot,
 				"fixtures",
 				"plugin-info",
-				"ok.render-template.json",
+				"ok.management-ui-and-webhook.json",
 			),
 			expectValid: true,
-		},
-		{
-			name:       "plugin render template parent path fixture",
-			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
-			fixturePath: filepath.Join(
-				repoRoot,
-				"fixtures",
-				"plugin-info",
-				"invalid.render-template-parent-path.json",
-			),
-			expectValid: false,
-		},
-		{
-			name:       "plugin render template absolute path fixture",
-			schemaPath: filepath.Join(repoRoot, "contracts", "plugin-info.schema.json"),
-			fixturePath: filepath.Join(
-				repoRoot,
-				"fixtures",
-				"plugin-info",
-				"invalid.render-template-absolute-path.json",
-			),
-			expectValid: false,
 		},
 		{
 			name:       "deps manifest valid fixture",

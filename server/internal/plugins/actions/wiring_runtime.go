@@ -33,7 +33,7 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispat
 	if dispatcher == nil {
 		return nil
 	}
-	return func(ctx context.Context, pluginID string) ConfigChangeDispatchResult {
+	return func(ctx context.Context, pluginID string, config map[string]any, changedKeys []string) ConfigChangeDispatchResult {
 		if !dispatcher.HasDeliverablePlugin(pluginID) {
 			return ConfigChangeDispatchResult{Delivered: true}
 		}
@@ -51,6 +51,10 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispat
 				Type: "plugin",
 				ID:   pluginID,
 				Name: pluginID,
+			},
+			PayloadFields: map[string]any{
+				"config":       plugins.CloneMap(config),
+				"changed_keys": append([]string(nil), changedKeys...),
 			},
 		})
 		return ConfigChangeDispatchResult{

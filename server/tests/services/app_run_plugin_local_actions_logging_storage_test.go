@@ -6,7 +6,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -14,6 +13,7 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 	"log/slog"
 	"path/filepath"
 	"strings"
@@ -34,8 +34,8 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		return text
 	}
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{
-			"notice-logger": {{PluginID: "notice-logger", Capability: "logger.write"}},
+		&stubPermissionView{permissions: map[string][]stubPermission{
+			"notice-logger": {{PluginID: "notice-logger", Permission: "logger.write"}},
 		}},
 		nil,
 		nil,
@@ -85,11 +85,11 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		},
 	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubCapabilityView{
-			capabilities: map[string][]stubCapability{
+		&stubPermissionView{
+			permissions: map[string][]stubPermission{
 				"notice-logger": {{
 					PluginID:   "notice-logger",
-					Capability: "storage.kv",
+					Permission: "storage.kv",
 				}},
 			},
 		},
@@ -171,8 +171,8 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{
-			"weather": {{PluginID: "weather", Capability: "config.write"}},
+		&stubPermissionView{permissions: map[string][]stubPermission{
+			"weather": {{PluginID: "weather", Permission: "config.write"}},
 		}},
 		repo,
 		nil,
@@ -206,7 +206,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	}
 }
 
-func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
+func TestExecuteGovernanceActionsRejectMissingPermission(t *testing.T) {
 	t.Parallel()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
@@ -220,7 +220,7 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{}},
+		&stubPermissionView{permissions: map[string][]stubPermission{}},
 		nil,
 		nil,
 		nil,
@@ -235,7 +235,7 @@ func TestExecuteGovernanceActionsRejectMissingCapability(t *testing.T) {
 	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", pluginruntime.Action{
 		Kind: "governance.blacklist.read",
 	})
-	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
 func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
@@ -257,26 +257,24 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
-		DeclaredCapabilities: []string{
-			"governance.blacklist.read",
-			"governance.blacklist.write",
-			"governance.whitelist.read",
-			"governance.whitelist.write",
-			"governance.command_policy.read",
+		Permissions: map[string]plugins.PermissionGrant{
+			"governance.blacklist.read": {}, "governance.blacklist.write": {},
+			"governance.whitelist.read": {}, "governance.whitelist.write": {},
+			"governance.command_policy.read": {},
 		},
 		Commands: []plugins.Command{
-			{Name: "forecast", Permission: "group_admin", Aliases: []string{"fc"}, CommandSource: plugins.CommandSourceManifest},
-			{Name: "current", CommandSource: plugins.CommandSourceManifest},
+			{ID: "forecast", Name: "forecast", DisplayName: "forecast", TriggerType: "exact", TriggerNames: []string{"forecast", "fc"}, Permission: "group_admin", Aliases: []string{"fc"}},
+			{ID: "current", Name: "current", DisplayName: "current", TriggerType: "exact", TriggerNames: []string{"current"}},
 		},
 	}})
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{
+		&stubPermissionView{permissions: map[string][]stubPermission{
 			"governance-helper": {
-				{PluginID: "governance-helper", Capability: "governance.blacklist.read"},
-				{PluginID: "governance-helper", Capability: "governance.blacklist.write"},
-				{PluginID: "governance-helper", Capability: "governance.whitelist.read"},
-				{PluginID: "governance-helper", Capability: "governance.whitelist.write"},
-				{PluginID: "governance-helper", Capability: "governance.command_policy.read"},
+				{PluginID: "governance-helper", Permission: "governance.blacklist.read"},
+				{PluginID: "governance-helper", Permission: "governance.blacklist.write"},
+				{PluginID: "governance-helper", Permission: "governance.whitelist.read"},
+				{PluginID: "governance-helper", Permission: "governance.whitelist.write"},
+				{PluginID: "governance-helper", Permission: "governance.command_policy.read"},
 			},
 		}},
 		nil,
@@ -359,8 +357,8 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected command policy: %#v", commandPolicy)
 	}
 	for _, command := range commands {
-		if command.CommandSource != "manifest" {
-			t.Fatalf("unexpected command source in policy: %#v", command)
+		if command.CommandID == "" || command.Trigger.Type != "exact" {
+			t.Fatalf("unexpected command identity in policy: %#v", command)
 		}
 	}
 
@@ -388,8 +386,8 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{
-			"governance-helper": {{PluginID: "governance-helper", Capability: "governance.blacklist.write"}},
+		&stubPermissionView{permissions: map[string][]stubPermission{
+			"governance-helper": {{PluginID: "governance-helper", Permission: "governance.blacklist.write"}},
 		}},
 		nil,
 		nil,
@@ -450,11 +448,11 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(buffer, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:             "weather",
-		Name:                 "天气插件",
-		Valid:                true,
-		RegistrationState:    "installed",
-		DeclaredCapabilities: []string{"scheduler.create"},
+		PluginID:          "weather",
+		Name:              "天气插件",
+		Valid:             true,
+		RegistrationState: "installed",
+		Permissions:       map[string]plugins.PermissionGrant{"scheduler.create": {}},
 	}})
 	application.setTestLocalActions(
 		nil,

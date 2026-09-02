@@ -1,6 +1,6 @@
 # Plugin Management UI
 
-插件管理页是插件 artifact 中独立于 Go 后端的静态 Web 资源。正式契约以 `contracts/plugin-info.schema.json`、`contracts/plugin-management-ui.yaml`、`contracts/plugin-management-ui-bridge.schema.json` 与 `contracts/web-api.openapi.yaml` 为准。
+插件管理页是插件 artifact 中独立于原生后端的静态 Web 资源。正式契约以 `contracts/plugin-info.schema.json`、`contracts/plugin-management-ui.yaml`、`contracts/plugin-management-ui-bridge.schema.json` 与 `contracts/web-api.openapi.yaml` 为准。
 
 ## 构建与文件结构
 
@@ -13,18 +13,18 @@
 ```json
 {
   "management_ui": {
+    "entry": "ui/index.html",
     "pages": [
       {
         "id": "config",
-        "label": "配置页面",
-        "entry": "ui/index.html"
+        "label": "配置页面"
       }
     ]
   }
 }
 ```
 
-`pages[].id` 是稳定页签标识，`label` 是宿主标题，`entry` 必须是 artifact 内已登记为 UI 文件的相对 HTML 路径。
+`management_ui.entry` 是所有页面共用、且必须进入 artifact 文件清单的相对 HTML 路径。`pages[].id` 是稳定页面标识，`label` 是宿主标题；页面 ID 由 bridge 上下文传递。
 
 ## 独立插件域
 
@@ -35,20 +35,20 @@
 - 插件域没有 `/api` 路由，不开放管理端 CORS，不提供目录枚举，也不允许路径越界。
 - 响应应用严格 CSP：脚本、样式、图片和字体只允许 artifact 自身所需来源，`connect-src 'none'`，`frame-ancestors` 只允许管理面 origin。
 
-## Bridge v2
+## Bridge v3
 
 首次加载只允许两条 window 消息：
 
 1. iframe 发送带一次性 nonce 的 `page.ready`。
 2. 宿主同时校验 `event.source`、精确 origin 和 nonce，创建 `MessageChannel`，通过 `host.connect` 转交一个端口。
 
-端口转交后，所有 `host.init`、设置、密钥、调度器、模板、协议目标和插件动作消息都只通过绑定端口传输。重复 nonce、错误窗口、错误 origin、bridge v1 或继续使用 window 消息都不会获得宿主能力。
+端口转交后，所有 `host.init`、设置、密钥、调度器、模板、协议目标和插件动作消息都只通过绑定端口传输。重复 nonce、错误窗口、错误 origin、旧 bridge 或继续使用 window 消息都不会获得宿主能力。
 
 `host.init` 只包含：
 
 - 插件 ID、名称、版本和当前页面；
 - 当前设置与 secret 是否已配置的布尔映射；
-- 主题、语言和允许能力。
+- 主题、语言和生效权限。
 
 `ui.resize` 可请求内容高度，宿主最终限制在 320–1600px。
 
@@ -64,20 +64,20 @@
 | `secrets.set` | `PUT /api/plugins/{plugin_id}/secrets` | 覆盖选定密钥，不回显明文 |
 | `secrets.delete` | `DELETE /api/plugins/{plugin_id}/secrets` | 显式删除选定密钥 |
 
-已保存的密钥明文不会出现在 GET 响应、`host.init`、后续 bridge 消息或网络回包中。运行中的 Go 插件仍可在声明 `secret.read` 后通过 local action 读取自身命名空间中的单个值。
+已保存的密钥明文不会出现在 GET 响应、`host.init`、后续 bridge 消息或网络回包中。运行中的插件仍可在声明 `secret.read` 后通过 local action 读取自身命名空间中的单个值。
 
 ## 其他受控能力
 
 - `scheduler.trigger` 请求宿主触发当前插件的任务。
 - `render_template.open` 请求宿主跳转到正式模板工作区。
 - `protocol.targets.reload` 与 `protocol.identities.resolve` 请求宿主读取受保护的 OneBot 目标信息。
-- `plugin.action.invoke` 把页面动作发送给所属 Go 插件；宿主不代替插件执行业务逻辑。
+- `plugin.action.invoke` 把页面动作发送给所属插件；宿主不代替插件执行业务逻辑。
 - `trust.level = unverified` 的来源在首次打开、版本变化或来源变化后需要重新确认。
 
 插件 UI 永远不获得管理 token、Pinia store、通用管理 API、任意跨插件数据或跨 origin 网络访问能力。
 
 ## 相关文档
 
-- [Capabilities and Manifest](./capabilities-and-manifest.md)
+- [Permissions and Manifest](./permissions-and-manifest.md)
 - [SDK](./sdk/README.md)
 - [Management Surface](../user/management-surface.md)

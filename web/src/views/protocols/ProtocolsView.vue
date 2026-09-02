@@ -49,14 +49,8 @@ const activeTransportState = computed(() => {
   const preferred = snapshot.value.transport_status.find((item) => active.has(item.transport))
   return preferred?.state
 })
-const protocolStatusLabel = computed(() => (
-  activeTransportState.value
-    ? getAdapterStateLabel(activeTransportState.value)
-    : getReadinessStatusLabel(snapshot.value?.readiness_status)
-))
 const protocolStatusType = computed(() => getStatusType(activeTransportState.value ?? snapshot.value?.readiness_status))
 const readinessLabel = computed(() => getReadinessStatusLabel(snapshot.value?.readiness_status))
-const readinessType = computed(() => getStatusType(snapshot.value?.readiness_status))
 const protocolSummary = computed(() => snapshot.value?.summary ?? t('display.empty'))
 const pageError = computed(() => configError.value || protocolsError.value)
 const feedbackToast = computed(() => {
@@ -99,15 +93,6 @@ function getTransportLabel(transport?: string) {
   return transportLabelMap[transport as keyof typeof transportLabelMap] ?? transport
 }
 
-function joinTransportLabels(transports?: readonly string[]) {
-  if (!transports?.length) {
-    return t('display.empty')
-  }
-  return transports.map((transport) => getTransportLabel(transport)).join(' / ')
-}
-
-const configuredTransportsText = computed(() => joinTransportLabels(snapshot.value?.configured_transports))
-const activeTransportText = computed(() => joinTransportLabels(snapshot.value?.active_transports))
 const transportStatusItems = computed(() => (
   snapshot.value?.transport_status.map((item) => ({
     ...item,
@@ -394,7 +379,7 @@ const adapterConfigFields = computed(() => {
               :columns="tableColumns"
               :data-source="transportConfigs"
               :pagination="false"
-              :row-key="(row) => row.key"
+              :row-key="(row: { key: string }) => row.key"
               :scroll="{ x: 1320 }"
             >
               <template #bodyCell="{ column, record }">
@@ -411,7 +396,7 @@ const adapterConfigFields = computed(() => {
                     <a-switch
                       :checked="Boolean(readField(record.enabledPath, 'boolean'))"
                       :aria-label="record.name"
-                      @update:checked="(value) => updateTransportEnabled(record, value)"
+                      @update:checked="(value: boolean) => updateTransportEnabled(record, value)"
                     />
                   </div>
                 </template>
@@ -488,7 +473,7 @@ const adapterConfigFields = computed(() => {
                       :placeholder="record.urlHint"
                       :aria-label="record.urlLabel"
                       class="refined-table-input"
-                      @update:value="(value) => writeField(record.urlPath, 'text', value)"
+                      @update:value="(value: string) => writeField(record.urlPath, 'text', value)"
                     />
 
                     <div v-if="getLiveTransportIssues(record.type).length > 0" class="inline-error-alert" role="alert">
@@ -507,7 +492,7 @@ const adapterConfigFields = computed(() => {
                       placeholder="Access Token"
                       :aria-label="record.tokenLabel"
                       class="refined-table-input"
-                      @update:value="(value) => writeField(record.tokenPath, 'text', value)"
+                      @update:value="(value: string) => writeField(record.tokenPath, 'text', value)"
                     />
                   </div>
                 </template>
@@ -550,7 +535,7 @@ const adapterConfigFields = computed(() => {
                       :min="0"
                       :step="1"
                       class="refined-number-input"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="(value: number | null) => writeField(field.path, field.type, value)"
                     />
 
                     <a-input
@@ -558,7 +543,7 @@ const adapterConfigFields = computed(() => {
                       :value="String(readField(field.path, field.type) ?? '')"
                       :aria-label="field.label"
                       class="refined-input"
-                      @update:value="(value) => writeField(field.path, field.type, value)"
+                      @update:value="(value: string) => writeField(field.path, field.type, value)"
                     />
                   </a-form-item>
                 </div>

@@ -1,0 +1,40 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "control-panel",
+    "name": "Control Panel",
+    "version": "1.0.0",
+    "manifest_version": "3",
+    "license": "MIT",
+    "min_core_version": "0.4.0",
+    "events": ["webhook.received"],
+    "management_ui": {
+      "entry": "ui/index.html",
+      "pages": [
+        { "id": "overview", "label": "概览" },
+        { "id": "settings", "label": "设置" }
+      ]
+    },
+    "webhooks": [
+      {
+        "id": "updates",
+        "route": "updates",
+        "auth_strategy": "hmac_sha256",
+        "header": "X-Raylea-Signature",
+        "secret_ref": "webhook.signing_key",
+        "signature_prefix": "sha256=",
+        "max_body_bytes": 1048576,
+        "replay_protection": {
+          "timestamp_header": "X-Raylea-Timestamp",
+          "event_id_header": "X-Raylea-Event-ID",
+          "tolerance_seconds": 300,
+          "enforce": true
+        }
+      }
+    ]
+  },
+  "expect": {
+    "valid": true
+  }
+}

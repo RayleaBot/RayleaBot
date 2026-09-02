@@ -21,7 +21,8 @@ type BotInfo struct {
 
 type InitPayload struct {
 	Bot             BotInfo
-	Capabilities    []string
+	Config          map[string]any
+	Permissions     []string
 	SuperAdmins     []string
 	CommandPrefixes []string
 }
@@ -36,6 +37,7 @@ type Spec struct {
 	Env                  []string
 	WorkDir              string
 	EntryPath            string
+	Events               []string
 	InitTimeout          time.Duration
 	EventTimeout         time.Duration
 	ShutdownGrace        time.Duration
@@ -61,7 +63,7 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	if snapshot.DisplayState == "conflict" {
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin manifest is conflicted and cannot be started", nil)
 	}
-	if snapshot.Runtime != "go" || snapshot.Entry == "" || snapshot.ManifestPath == "" {
+	if snapshot.ManifestPath == "" {
 		return Spec{}, errorf(codePlatformInvalidRequest, "plugin manifest is missing runtime startup fields", nil)
 	}
 	packageRoot := snapshot.PackageRootPath
@@ -76,12 +78,15 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	}
 	verified, err := artifact.Verify(packageRoot, artifact.Options{ExpectedPlatform: targetPlatform})
 	if err != nil {
+		if errors.Is(err, artifact.ErrContractUnsupported) {
+			return Spec{}, errorf("plugin.contract_unsupported", "plugin contract version is unsupported", err)
+		}
 		if errors.Is(err, artifact.ErrPlatformMismatch) {
 			return Spec{}, errorf(codePluginPlatformMismatch, "plugin artifact targets a different platform", err)
 		}
 		return Spec{}, errorf(codePluginArtifactInvalid, "plugin artifact validation failed", err)
 	}
-	if verified.Manifest.ID != snapshot.PluginID || verified.Manifest.Entry != snapshot.Entry {
+	if verified.Manifest.ID != snapshot.PluginID {
 		return Spec{}, errorf(codePluginArtifactInvalid, "plugin artifact does not match the catalog snapshot", nil)
 	}
 
@@ -95,12 +100,13 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 		PluginID:             snapshot.PluginID,
 		PluginName:           snapshot.Name,
 		RepoRoot:             repoRoot,
-		Runtime:              snapshot.Runtime,
+		Runtime:              "native",
 		Command:              verified.BackendPath,
 		Args:                 nil,
 		Env:                  managedRuntimeEnvironment(repoRoot),
 		WorkDir:              verified.Root,
 		EntryPath:            verified.BackendPath,
+		Events:               append([]string(nil), snapshot.Events...),
 		InitTimeout:          initTimeout,
 		EventTimeout:         durationFromSeconds(runtimeConfig.PluginEventTimeoutSeconds, 5),
 		ShutdownGrace:        durationFromSeconds(runtimeConfig.ShutdownGraceSeconds, 5),

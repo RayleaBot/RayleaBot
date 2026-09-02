@@ -266,7 +266,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 		ownerPluginID, _, ok := ParseFormalID(requested)
 		if !ok || pluginID == "" || ownerPluginID != pluginID {
 			return "", &Error{
-				Code:    "plugin.capability_violation",
+				Code:    "plugin.permission_denied",
 				Message: "plugin render template belongs to another plugin",
 			}
 		}
@@ -279,7 +279,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 		}
 		if detail.Source.Type == "plugin" && detail.Source.PluginID != pluginID {
 			return "", &Error{
-				Code:    "plugin.capability_violation",
+				Code:    "plugin.permission_denied",
 				Message: "plugin render template belongs to another plugin",
 			}
 		}

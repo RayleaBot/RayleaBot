@@ -26,40 +26,46 @@ type CatalogStore interface {
 }
 
 type Command struct {
-	Name          string
-	Aliases       []string
-	MatchPattern  string
-	Description   string
-	Usage         string
-	Permission    string
-	CommandSource string
-	DeclarationID string
+	ID           string
+	Name         string
+	DisplayName  string
+	Aliases      []string
+	TriggerType  string
+	TriggerNames []string
+	MatchPattern string
+	SettingsKey  string
+	Description  string
+	Usage        string
+	Permission   string
 }
 
-type CommandPatternDecl struct {
-	ID          string
-	Name        string
-	Pattern     string
-	Description string
-	Usage       string
-	Permission  string
+type CommandGroup struct {
+	ID       string
+	Title    string
+	Commands []string
 }
 
-type DynamicCommandDecl struct {
-	ID          string
-	SettingsKey string
-	Description string
-	UsageArgs   string
-	Permission  string
+type PermissionGrant struct {
+	Platforms []string `json:"platforms,omitempty"`
 }
 
 type WebhookScope struct {
-	Route           string   `json:"route"`
-	AuthStrategy    string   `json:"auth_strategy"`
-	Header          string   `json:"header"`
-	SecretRef       string   `json:"secret_ref"`
-	SignaturePrefix string   `json:"signature_prefix,omitempty"`
-	SourceIPs       []string `json:"source_ips,omitempty"`
+	ID               string                  `json:"id"`
+	Route            string                  `json:"route"`
+	AuthStrategy     string                  `json:"auth_strategy"`
+	Header           string                  `json:"header"`
+	SecretRef        string                  `json:"secret_ref"`
+	SignaturePrefix  string                  `json:"signature_prefix,omitempty"`
+	SourceCIDRs      []string                `json:"source_cidrs,omitempty"`
+	MaxBodyBytes     int                     `json:"max_body_bytes,omitempty"`
+	ReplayProtection WebhookReplayProtection `json:"replay_protection"`
+}
+
+type WebhookReplayProtection struct {
+	TimestampHeader  string `json:"timestamp_header"`
+	EventIDHeader    string `json:"event_id_header"`
+	ToleranceSeconds int    `json:"tolerance_seconds"`
+	Enforce          bool   `json:"enforce"`
 }
 
 type Screenshot struct {
@@ -68,13 +74,13 @@ type Screenshot struct {
 }
 
 type ManagementUI struct {
+	Entry string             `json:"entry"`
 	Pages []ManagementUIPage `json:"pages"`
 }
 
 type ManagementUIPage struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
-	Entry string `json:"entry"`
 }
 
 type RenderTemplate struct {
@@ -84,20 +90,6 @@ type RenderTemplate struct {
 type Help struct {
 	Title   string
 	Summary string
-	Groups  []HelpGroup
-}
-
-type HelpGroup struct {
-	Title string
-	Items []HelpItem
-}
-
-type HelpItem struct {
-	Title       string
-	Description string
-	Usage       string
-	Command     string
-	Permission  string
 }
 
 type Snapshot struct {
@@ -108,13 +100,12 @@ type Snapshot struct {
 	Author                   string
 	License                  string
 	ManifestVersion          string
-	PluginProtocolVersion    string
 	MinCoreVersion           string
-	DataSchemaVersion        string
 	Concurrency              int
-	Platforms                []string
-	Runtime                  string
-	Entry                    string
+	Events                   []string
+	Permissions              map[string]PermissionGrant
+	Webhooks                 []WebhookScope
+	CommandGroups            []CommandGroup
 	Description              string
 	Icon                     string
 	Repo                     string
@@ -149,15 +140,8 @@ type Snapshot struct {
 	DisplayState             string
 	DeadLetter               *DeadLetterSnapshot
 	ConflictPaths            []string
-	DeclaredCapabilities     []string
-	ScopeHTTPHosts           []string
-	ScopeStorageRoots        []string
-	ScopeThirdPartyAccounts  []string
-	ScopeWebhooks            []WebhookScope
 	Commands                 []Command
 	ManifestCommands         []Command
-	CommandPatterns          []CommandPatternDecl
-	DynamicCommands          []DynamicCommandDecl
 }
 
 // DeadLetterSnapshot captures the context recorded when a plugin runtime
@@ -251,7 +235,7 @@ type InstallInspection struct {
 	Author         string
 	License        string
 	SourceLabel    string
-	Capabilities   []string
+	Permissions    map[string]PermissionGrant
 	TargetPlatform string
 	Backend        InstallBackendInspection
 	UI             InstallUIInspection
@@ -280,18 +264,23 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.DefaultConfig = cloneMap(snapshot.DefaultConfig)
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
-	cloned.Platforms = append([]string(nil), snapshot.Platforms...)
+	cloned.Events = append([]string(nil), snapshot.Events...)
 	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
-	cloned.DeclaredCapabilities = append([]string(nil), snapshot.DeclaredCapabilities...)
-	cloned.ScopeHTTPHosts = append([]string(nil), snapshot.ScopeHTTPHosts...)
-	cloned.ScopeStorageRoots = append([]string(nil), snapshot.ScopeStorageRoots...)
-	cloned.ScopeThirdPartyAccounts = append([]string(nil), snapshot.ScopeThirdPartyAccounts...)
-	if len(snapshot.ScopeWebhooks) > 0 {
-		cloned.ScopeWebhooks = make([]WebhookScope, 0, len(snapshot.ScopeWebhooks))
-		for _, scope := range snapshot.ScopeWebhooks {
-			copied := scope
-			copied.SourceIPs = append([]string(nil), scope.SourceIPs...)
-			cloned.ScopeWebhooks = append(cloned.ScopeWebhooks, copied)
+	if len(snapshot.Permissions) > 0 {
+		cloned.Permissions = make(map[string]PermissionGrant, len(snapshot.Permissions))
+		for name, grant := range snapshot.Permissions {
+			grant.Platforms = append([]string(nil), grant.Platforms...)
+			cloned.Permissions[name] = grant
+		}
+	}
+	if len(snapshot.Webhooks) > 0 {
+		cloned.Webhooks = cloneWebhookScopes(snapshot.Webhooks)
+	}
+	if len(snapshot.CommandGroups) > 0 {
+		cloned.CommandGroups = make([]CommandGroup, 0, len(snapshot.CommandGroups))
+		for _, group := range snapshot.CommandGroups {
+			group.Commands = append([]string(nil), group.Commands...)
+			cloned.CommandGroups = append(cloned.CommandGroups, group)
 		}
 	}
 	if len(snapshot.Screenshots) > 0 {
@@ -321,12 +310,6 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	if len(snapshot.ManifestCommands) > 0 {
 		cloned.ManifestCommands = cloneCommands(snapshot.ManifestCommands)
 	}
-	if len(snapshot.CommandPatterns) > 0 {
-		cloned.CommandPatterns = append([]CommandPatternDecl(nil), snapshot.CommandPatterns...)
-	}
-	if len(snapshot.DynamicCommands) > 0 {
-		cloned.DynamicCommands = append([]DynamicCommandDecl(nil), snapshot.DynamicCommands...)
-	}
 	return cloned
 }
 
@@ -338,6 +321,18 @@ func CloneSettings(values map[string]any) map[string]any {
 	cloned := cloneMap(values)
 	if cloned == nil {
 		return map[string]any{}
+	}
+	return cloned
+}
+
+func ClonePermissions(values map[string]PermissionGrant) map[string]PermissionGrant {
+	if len(values) == 0 {
+		return map[string]PermissionGrant{}
+	}
+	cloned := make(map[string]PermissionGrant, len(values))
+	for name, grant := range values {
+		grant.Platforms = append([]string(nil), grant.Platforms...)
+		cloned[name] = grant
 	}
 	return cloned
 }
@@ -372,16 +367,6 @@ func cloneHelp(help *Help) *Help {
 		return nil
 	}
 	cloned := *help
-	if len(help.Groups) > 0 {
-		cloned.Groups = make([]HelpGroup, 0, len(help.Groups))
-		for _, group := range help.Groups {
-			copied := group
-			if len(group.Items) > 0 {
-				copied.Items = append([]HelpItem(nil), group.Items...)
-			}
-			cloned.Groups = append(cloned.Groups, copied)
-		}
-	}
 	return &cloned
 }
 
@@ -393,9 +378,20 @@ func cloneCommands(commands []Command) []Command {
 	for _, cmd := range commands {
 		copied := cmd
 		copied.Aliases = append([]string(nil), cmd.Aliases...)
+		copied.TriggerNames = append([]string(nil), cmd.TriggerNames...)
 		cloned = append(cloned, copied)
 	}
 	return cloned
+}
+
+func cloneWebhookScopes(scopes []WebhookScope) []WebhookScope {
+	items := make([]WebhookScope, 0, len(scopes))
+	for _, scope := range scopes {
+		copied := scope
+		copied.SourceCIDRs = append([]string(nil), scope.SourceCIDRs...)
+		items = append(items, copied)
+	}
+	return items
 }
 
 func cloneMap(values map[string]any) map[string]any {

@@ -16,7 +16,7 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 }
 
 // ExecuteOutboundAction sends one plugin message action through the shared
-// capability, rate-limit, metrics, and outbound logging path.
+// permission, rate-limit, metrics, and outbound logging path.
 func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string, requestID string, event pluginruntime.Event, action pluginruntime.Action) (outbound.SendResult, error) {
 	if d == nil || d.sender == nil {
 		return outbound.SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
@@ -43,10 +43,10 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		Segments:   toOutboundSegments(action.MessageSegments),
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
-	if !d.capabilityDeclared(ctx, pluginID, action.Kind) {
+	if !d.permissionDeclared(ctx, pluginID, action.Kind) {
 		err := &onebot11.Error{
-			Code:    "plugin.capability_violation",
-			Message: action.Kind + " capability is not declared",
+			Code:    "plugin.permission_denied",
+			Message: action.Kind + " permission is not declared",
 		}
 		result := outbound.SendResult{
 			DeliveryKind: action.Kind,
@@ -133,14 +133,14 @@ func (d *Dispatcher) recordOutboundSend(request outbound.MessageLimitRequest, er
 	}
 }
 
-func (d *Dispatcher) capabilityDeclared(ctx context.Context, pluginID string, capability string) bool {
+func (d *Dispatcher) permissionDeclared(ctx context.Context, pluginID string, permission string) bool {
 	d.mu.RLock()
-	checker := d.capabilityChecker
+	checker := d.permissionChecker
 	d.mu.RUnlock()
 	if checker == nil {
-		return true
+		return false
 	}
-	return checker(ctx, pluginID, capability)
+	return checker(ctx, pluginID, permission)
 }
 
 func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
@@ -243,8 +243,8 @@ func outboundOutcome(err error) string {
 	var adapterErr *onebot11.Error
 	if errors.As(err, &adapterErr) {
 		switch adapterErr.Code {
-		case "plugin.capability_violation":
-			return "capability_violation"
+		case "plugin.permission_denied":
+			return "permission_denied"
 		case "adapter.reply_target_missing":
 			return "reply_target_missing"
 		}

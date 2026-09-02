@@ -31,6 +31,9 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 		if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
 			return plugins.Snapshot{}, plugins.ErrStateConflict
 		}
+		if c.webhooks != nil {
+			c.webhooks.SyncSnapshots(c.plugins.List())
+		}
 	}
 
 	if c.syncRenderTemplates != nil {

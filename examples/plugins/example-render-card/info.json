@@ -2,29 +2,34 @@
   "id": "example-render-card",
   "name": "Example Render Card",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/example-render-card",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Go example plugin demonstrating render.image.",
-  "author": "raylea",
-  "capabilities": [
-    "event.subscribe",
-    "message.send",
-    "render.image"
-  ],
-  "render_templates": [
-    {
-      "path": "templates/card"
-    }
-  ],
   "commands": [
     {
+      "id": "render-card",
       "name": "render_card",
       "description": "Render a simple help card image.",
-      "usage": "/render_card"
+      "usage": "/render_card",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "render_card"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go example plugin demonstrating render.image.",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private"
+  ],
+  "permissions": {
+    "message.send": true,
+    "render.image": true
+  }
 }

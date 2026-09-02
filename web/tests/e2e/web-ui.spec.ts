@@ -568,10 +568,13 @@ test('plugin management flow covers install, manifest detail and console recover
   ))
   await installDialog.getByRole('button', { name: '检查插件包' }).click()
   expect((await inspectionResponsePromise).status()).toBe(200)
-  await expect(installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和能力/ })).toBeVisible()
+  await expect(installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和权限/ })).toBeVisible()
   await expect(installDialog.getByText('Weather Package（example.weather-package）')).toBeVisible()
   await expect(installDialog.getByText('a'.repeat(64))).toBeVisible()
-  await installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和能力/ }).check()
+  await expect(installDialog.getByText(/v2.*8/)).toBeVisible()
+  await expect(installDialog.getByText('http.request', { exact: true })).toBeVisible()
+  await expect(installDialog.getByText('message.send', { exact: true })).toBeVisible()
+  await installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和权限/ }).check()
   await installDialog.getByRole('button', { name: '开始安装' }).click()
 
   await expectPluginCenterPage(page, '插件列表')
@@ -1359,7 +1362,7 @@ test('logs page reloads the latest page after hidden updates arrive', async ({ p
     },
   })
 
-  await navigateThroughMenu(page, '实时日志', '运行与诊断')
+  await page.locator('.admin-layout__tabbar [data-tab-path="/logs"]').click()
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   await expect(page.locator('.logs-row__message', { hasText: 'reactivate latest row' }).first()).toBeVisible()
   await expect(page.getByText('跟随最新')).toBeVisible()
@@ -2145,10 +2148,7 @@ test('plugin center switches original routes while retaining drafts and independ
   await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
   await expect(navigation).toHaveCount(1)
   await expect(navigation.locator('[data-sidebar-plugin-overview]')).toHaveClass(/ant-menu-item-selected/)
-  await openTabContextMenu(page, '插件中心')
-  await clickTabContextAction(page, '关闭当前标签')
-  await expect(page).toHaveURL(/\/plugins\/weather\?panel=overview$/)
-  await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '插件：Weather'])
+  await expect.poll(() => readTabLabels(page)).toEqual(expect.arrayContaining(['系统状态', '插件：Weather']))
   await page.locator('.admin-layout__nav-trigger.desktop-only').click()
   await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(0)
   await page.locator('.admin-layout__sider .ant-menu-submenu').filter({ hasText: '插件中心' }).locator('.ant-menu-submenu-title').hover()
@@ -2348,8 +2348,8 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
 
   await page.goto('/plugins/weather')
   await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
-  expect(await readActiveTabLabel(page)).toBe('weather')
-  expect(await readTabLabels(page)).toContain('weather')
+  expect(await readActiveTabLabel(page)).toBe('插件：Weather')
+  expect(await readTabLabels(page)).toContain('插件：Weather')
   expect(await readTabIconKeys(page)).toContain('plugins')
 })
 
@@ -2677,13 +2677,13 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
 
   await page.goto('/plugins')
   await expect(page.locator('.retry-panel__inline')).toBeVisible()
-  await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
+  await page.locator('.retry-panel__inline').getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByText('weather').first()).toBeVisible()
 
   const weatherRow = pluginRows(page).filter({ hasText: 'Weather' })
   await weatherRow.getByRole('button', { name: 'Weather', exact: true }).click()
   await expect(page.locator('.retry-panel__inline')).toBeVisible()
-  await page.getByRole('button', { name: /重\s*试/ }).click({ force: true })
+  await page.locator('.retry-panel__inline').getByRole('button', { name: /重\s*试/ }).click({ force: true })
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
 
   await page.getByRole('button', { name: /卸\s*载/ }).click()

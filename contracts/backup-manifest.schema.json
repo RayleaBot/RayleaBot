@@ -12,6 +12,8 @@
     "config_schema_version",
     "db_schema_version",
     "plugin_manifest_version",
+    "plugin_protocol_version",
+    "plugin_artifact_version",
     "plugin_ui_bridge_version",
     "consistency",
     "directories"
@@ -19,7 +21,7 @@
   "properties": {
     "version": {
       "type": "string",
-      "const": "2"
+      "const": "3"
     },
     "created_at": {
       "type": "string",
@@ -38,11 +40,19 @@
     },
     "plugin_manifest_version": {
       "type": "string",
+      "const": "3"
+    },
+    "plugin_protocol_version": {
+      "type": "string",
+      "const": "2"
+    },
+    "plugin_artifact_version": {
+      "type": "string",
       "const": "2"
     },
     "plugin_ui_bridge_version": {
       "type": "string",
-      "const": "2"
+      "const": "3"
     },
     "consistency": {
       "type": "string",
@@ -87,7 +97,7 @@
     "plugin": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["plugin_id", "manifest_version", "artifact_version"],
+      "required": ["plugin_id", "manifest_version", "protocol_version", "artifact_version"],
       "properties": {
         "plugin_id": {
           "type": "string",
@@ -95,29 +105,24 @@
         },
         "manifest_version": {
           "type": "string",
-          "const": "2"
+          "enum": ["2", "3"],
+          "description": "Actual manifest version found in the archived package, including preserved unsupported v2 packages."
+        },
+        "protocol_version": {
+          "type": "string",
+          "enum": ["1", "2"],
+          "description": "Actual protocol version found in the archived package."
         },
         "artifact_version": {
           "type": "string",
-          "const": "1"
+          "enum": ["1", "2"],
+          "description": "Actual artifact version found in the archived package."
         },
         "version": {
           "$ref": "#/$defs/semver"
         },
         "min_core_version": {
           "$ref": "#/$defs/semver"
-        },
-        "data_schema_version": {
-          "type": "string",
-          "minLength": 1
-        },
-        "platforms": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "enum": ["windows-x64", "linux-x64", "macos-arm64"]
-          },
-          "uniqueItems": true
         },
         "source_root": {
           "type": "string",
@@ -128,6 +133,7 @@
   },
   "x-fixtures": [
     "fixtures/backup-manifest/ok.minimal.json",
+    "fixtures/backup-manifest/invalid.legacy-v2.json",
     "fixtures/backup-manifest/invalid.missing-schema-versions.json",
     "fixtures/backup-manifest/edge.incompatible-plugin-inventory.json"
   ]

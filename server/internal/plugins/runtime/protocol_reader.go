@@ -2,9 +2,23 @@ package runtime
 
 import (
 	"bufio"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
+
+func validatePluginFrameV2(line []byte) error {
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(line, &object); err != nil {
+		return err
+	}
+	for _, removed := range []string{"protocol_version", "plugin_id", "timestamp", "subscriptions"} {
+		if _, exists := object[removed]; exists {
+			return fmt.Errorf("removed protocol v1 field %q is not allowed", removed)
+		}
+	}
+	return nil
+}
 
 var errProtocolFrameTooLarge = errors.New("plugin IPC frame exceeds configured size limit")
 

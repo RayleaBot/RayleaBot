@@ -1,703 +1,240 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-info.schema.json",
-  "title": "RayleaBot Plugin Manifest",
-  "description": "Fixture-ready schema for plugin info.json. This file is the only formal source for install-time validation, compatibility gating, declared capabilities, capability parameters, and migration boundary metadata.",
+  "title": "RayleaBot Plugin Manifest v3",
+  "description": "The formal manifest contract for language-neutral native RayleaBot plugins.",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "id",
-    "name",
-    "version",
-    "manifest_version",
-    "plugin_protocol_version",
-    "runtime",
-    "entry",
-    "platforms",
-    "license"
-  ],
+  "required": ["id", "name", "version", "manifest_version", "license", "min_core_version"],
   "properties": {
-    "id": {
-      "type": "string",
-      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$",
-      "description": "Stable plugin identifier used by install validation, task tracing, and plugin data paths."
-    },
-    "name": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Display name shown in management surfaces."
-    },
-    "version": {
-      "$ref": "#/$defs/semver",
-      "description": "Plugin package version."
-    },
-    "manifest_version": {
-      "type": "string",
-      "const": "2",
-      "description": "Manifest structure version for prebuilt Go plugin artifacts."
-    },
-    "plugin_protocol_version": {
-      "type": "string",
-      "const": "1",
-      "description": "Plugin JSONL protocol version required by this package."
-    },
-    "runtime": {
-      "type": "string",
-      "const": "go",
-      "description": "The only supported plugin backend runtime."
-    },
-    "entry": {
-      "type": "string",
-      "minLength": 1,
-      "pattern": "^bin/[A-Za-z0-9_-]+$",
-      "description": "Extensionless package-relative backend path. Windows resolves the executable by appending .exe."
-    },
-    "license": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Open-source license identifier retained as required manifest metadata."
-    },
-    "description": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Short plugin summary."
-    },
-    "author": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Single author identifier."
-    },
-    "min_core_version": {
-      "$ref": "#/$defs/semver",
-      "description": "Minimum supported RayleaBot core version."
-    },
-    "data_schema_version": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Plugin-private data schema version used to decide migration windows and automatic re-enable eligibility."
-    },
-    "concurrency": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "Optional plugin event concurrency opt-in. When omitted, the platform treats the plugin as serial with concurrency 1."
-    },
-    "platforms": {
+    "id": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$", "description": "Stable plugin identifier assigned to the process by the host during init." },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "$ref": "#/$defs/semver" },
+    "manifest_version": { "type": "string", "const": "3" },
+    "license": { "type": "string", "minLength": 1 },
+    "min_core_version": { "$ref": "#/$defs/semver" },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "concurrency": { "type": "integer", "minimum": 1, "maximum": 128, "default": 1 },
+    "events": {
       "type": "array",
-      "description": "Required platform compatibility set. A platform-specific artifact must target one declared value.",
-      "minItems": 1,
-      "items": {
-        "type": "string",
-        "enum": [
-          "windows-x64",
-          "linux-x64",
-          "macos-arm64"
-        ]
-      },
-      "uniqueItems": true
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/event_name" },
+      "uniqueItems": true,
+      "description": "Static event subscriptions. An omitted or empty list receives no ordinary event fan-out."
     },
-    "icon": {
-      "$ref": "#/$defs/package_relative_path",
-      "description": "Optional relative asset path for the plugin icon inside the package root."
-    },
-    "repo": {
-      "$ref": "#/$defs/https_url",
-      "description": "Optional HTTPS repository URL for management-side source display."
-    },
-    "homepage": {
-      "$ref": "#/$defs/https_url",
-      "description": "Optional HTTPS homepage URL for management-side reference links."
-    },
-    "keywords": {
-      "type": "array",
-      "description": "Optional management-side discovery keywords.",
-      "items": {
-        "type": "string",
-        "minLength": 1
-      },
-      "uniqueItems": true
-    },
-    "screenshots": {
-      "type": "array",
-      "description": "Optional management-side preview assets inside the plugin package.",
-      "items": {
-        "$ref": "#/$defs/screenshot_asset"
-      },
-      "uniqueItems": true
-    },
-    "management_ui": {
-      "type": "object",
-      "description": "Optional plugin-local management page entries shown inside the protected plugin detail workbench.",
-      "additionalProperties": false,
-      "required": [
-        "pages"
-      ],
-      "properties": {
-        "pages": {
-          "type": "array",
-          "description": "Management pages shown as plugin detail workbench tabs. Page entries must be package-relative HTML files inside the same management UI asset directory.",
-          "items": {
-            "$ref": "#/$defs/management_ui_page"
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        }
-      }
-    },
-    "render_templates": {
-      "type": "array",
-      "description": "Optional package-local render template directories. Each directory uses the managed render template layout with template.json, template.html, styles.css, optional input.schema.json, optional preview.json, and optional assets/.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "path"
-        ],
-        "properties": {
-          "path": {
-            "$ref": "#/$defs/package_relative_path",
-            "description": "Package-relative directory containing one render template."
-          }
-        }
-      },
-      "uniqueItems": true
-    },
-    "help": {
-      "$ref": "#/$defs/plugin_help",
-      "description": "Optional plugin-authored help menu metadata. The platform filters help items with the same caller permission rules used for commands."
-    },
-    "capabilities": {
-      "type": "array",
-      "description": "Platform capabilities the plugin intends to use. Formal values cover event subscription and raw payload access, shared local actions, frozen OneBot single-action capabilities, and the current provider extension actions.",
-      "items": {
-        "$ref": "#/$defs/capability_name"
-      },
-      "uniqueItems": true
-    },
-    "capability_parameters": {
-      "type": "object",
-      "description": "Optional parameters for declared capabilities that need bounded runtime inputs.",
-      "additionalProperties": false,
-      "properties": {
-        "http_hosts": {
-          "type": "array",
-          "description": "Outbound HTTP host scopes accepted by the http.request capability. Each entry matches the exact host and its dot-delimited subdomains, but not lookalike suffixes.",
-          "items": {
-            "$ref": "#/$defs/host_name"
-          },
-          "uniqueItems": true
-        },
-        "storage_roots": {
-          "type": "array",
-          "description": "Storage roots accepted by storage.file. v0.1 only freezes plugin_data.",
-          "items": {
-            "type": "string",
-            "enum": [
-              "plugin_data"
-            ]
-          },
-          "uniqueItems": true
-        },
-        "webhooks": {
-          "type": "array",
-          "description": "Webhook route declarations used with event.expose_webhook.",
-          "items": {
-            "$ref": "#/$defs/webhook_scope"
-          },
-          "uniqueItems": true
-        },
-        "third_party_account_platforms": {
-          "type": "array",
-          "description": "Third-party account platforms accepted by thirdparty.account.read, thirdparty.account.validate and thirdparty.resolve. thirdparty.resolve currently only accepts douyin.",
-          "items": {
-            "type": "string",
-            "enum": [
-              "bilibili",
-              "weibo",
-              "douyin",
-              "netease_music"
-            ]
-          },
-          "uniqueItems": true
-        }
-      }
-    },
-    "default_config": {
-      "type": "object",
-      "description": "Optional initial non-sensitive plugin config written into the plugin namespace on first enable only.",
-      "additionalProperties": true
-    },
-    "default_config_file": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/package_relative_path"
-        },
-        {
-          "type": "string",
-          "pattern": "\\.json$"
-        }
-      ],
-      "description": "Optional package-relative JSON object file used as initial non-sensitive plugin config on first enable."
-    },
-    "commands": {
-      "type": "array",
-      "description": "Declared command list for command parser directed delivery and help generation.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["name"],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^\\S+$",
-            "description": "UTF-8 command name matched after stripping the configured command prefix. Whitespace is not allowed."
-          },
-          "aliases": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1,
-              "pattern": "^\\S+$"
-            },
-            "uniqueItems": true,
-            "description": "Alternative UTF-8 command names that route to the same handler. Whitespace is not allowed."
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Short command description for help output."
-          },
-          "usage": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Usage pattern for help output. After the command name, angle brackets and unbracketed text mark required arguments, while square brackets mark optional arguments (e.g., '/weather <city> [--days=N]')."
-          },
-          "permission": {
-            "type": "string",
-            "enum": ["super_admin", "group_admin", "everyone"],
-            "description": "Minimum chat-side permission level required to invoke this command. When omitted, the platform uses permission.default_level."
-          }
-        }
-      }
-    },
-    "command_patterns": {
-      "type": "array",
-      "description": "Declared regular expression command rules matched after stripping the configured command prefix. Use this for families of commands such as '<character>攻略' instead of enumerating every alias.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "name", "pattern", "description", "usage"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[a-z0-9_-]+$",
-            "description": "Stable declaration identifier used by management and permission policy lookup."
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Short display name for the command family. It is not itself an exact trigger when pattern is present."
-          },
-          "pattern": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Go regexp pattern matched against the parsed command name without the global prefix."
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Short command description for help output."
-          },
-          "usage": {
-            "type": "string",
-            "minLength": 1,
-            "description": "User-facing usage pattern for help output. Angle brackets mark required arguments, square brackets mark optional arguments, and unbracketed text is literal command text."
-          },
-          "permission": {
-            "type": "string",
-            "enum": ["super_admin", "group_admin", "everyone"],
-            "description": "Minimum chat-side permission level required to invoke matched commands. When omitted, the platform uses permission.default_level."
-          }
-        }
-      }
-    },
-    "dynamic_commands": {
-      "type": "array",
-      "description": "Declared plugin settings fields that project runtime command names for command parser directed delivery, policy, conflict detection, and help generation.",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["id", "settings_key", "description"],
-        "properties": {
-          "id": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[a-z0-9_-]+$",
-            "description": "Stable declaration identifier used by management and help lookup. It is not a command trigger unless the setting value also contains it."
-          },
-          "settings_key": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-            "description": "Top-level plugin settings key whose string or string array value provides command names without global prefixes."
-          },
-          "description": {
-            "type": "string",
-            "minLength": 1,
-            "description": "Short command description for help output."
-          },
-          "usage_args": {
-            "type": "string",
-            "description": "Optional argument pattern appended after the projected command name for help output. Angle brackets and unbracketed text mark required arguments, while square brackets mark optional arguments."
-          },
-          "permission": {
-            "type": "string",
-            "enum": ["super_admin", "group_admin", "everyone"],
-            "description": "Minimum chat-side permission level required to invoke projected commands. When omitted, the platform uses permission.default_level."
-          }
-        }
-      }
-    }
+    "permissions": { "$ref": "#/$defs/permissions" },
+    "default_config": { "type": "object", "additionalProperties": true },
+    "commands": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/command" } },
+    "command_groups": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/command_group" } },
+    "help": { "$ref": "#/$defs/help" },
+    "management_ui": { "$ref": "#/$defs/management_ui" },
+    "webhooks": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/webhook" } }
   },
   "$defs": {
-    "permission_level": {
-      "type": "string",
-      "enum": [
-        "super_admin",
-        "group_admin",
-        "everyone"
-      ]
-    },
-    "plugin_help": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
-        "summary": {
-          "type": "string",
-          "minLength": 1
-        },
-        "groups": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/plugin_help_group"
-          }
-        }
-      }
-    },
-    "plugin_help_group": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "title",
-        "items"
-      ],
-      "properties": {
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/plugin_help_item"
-          },
-          "minItems": 1
-        }
-      }
-    },
-    "plugin_help_item": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "title"
-      ],
-      "properties": {
-        "title": {
-          "type": "string",
-          "minLength": 1
-        },
-        "description": {
-          "type": "string",
-          "minLength": 1
-        },
-        "usage": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Usage pattern for help output. For command-linked items, angle brackets and unbracketed text after the command name mark required arguments, while square brackets mark optional arguments."
-        },
-        "command": {
-          "type": "string",
-          "minLength": 1
-        },
-        "permission": {
-          "$ref": "#/$defs/permission_level"
-        }
-      }
-    },
-    "semver": {
-      "type": "string",
-      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
-    },
-    "https_url": {
-      "type": "string",
-      "format": "uri",
-      "pattern": "^https://.+$"
-    },
+    "semver": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+    "https_url": { "type": "string", "format": "uri", "pattern": "^https://.+$" },
     "package_relative_path": {
       "allOf": [
-        {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9._/-]+$"
-        },
-        {
-          "not": {
-            "pattern": "^/"
-          }
-        },
-        {
-          "not": {
-            "pattern": "(^|/)\\.\\.(/|$)"
-          }
-        }
+        { "type": "string", "pattern": "^[A-Za-z0-9._/-]+$" },
+        { "not": { "pattern": "^/" } },
+        { "not": { "pattern": "(^|/)\\.\\.(/|$)" } }
       ]
     },
-    "base_capability_name": {
-      "type": "string",
-      "enum": [
-        "event.subscribe",
-        "event.raw_payload",
-        "message.send",
-        "message.reply",
-        "logger.write",
-        "storage.kv",
-        "storage.file",
-        "http.request",
-        "config.read",
-        "config.write",
-        "governance.blacklist.read",
-        "governance.blacklist.write",
-        "governance.whitelist.read",
-        "governance.whitelist.write",
-        "governance.command_policy.read",
-        "scheduler.create",
-        "event.expose_webhook",
-        "render.image",
-        "plugin.list",
-        "secret.read",
-        "thirdparty.account.read",
-        "thirdparty.account.validate",
-        "thirdparty.resolve"
-      ]
-    },
-    "onebot_action_capability_name": {
-      "type": "string",
-      "enum": [
-        "message.get",
-        "message.delete",
-        "message.history.get",
-        "message.forward.get",
-        "message.forward.send",
-        "message.read.mark",
-        "friend.request.handle",
-        "friend.list",
-        "friend.remark.set",
-        "user.info.get",
-        "user.like.send",
-        "group.list",
-        "group.info.get",
-        "group.member.get",
-        "group.member.list",
-        "group.request.handle",
-        "group.leave",
-        "group.admin.set",
-        "group.ban.set",
-        "group.card.set",
-        "group.title.set",
-        "group.name.set",
-        "group.announcement.list",
-        "group.announcement.create",
-        "group.announcement.delete",
-        "group.essence.list",
-        "group.essence.set",
-        "group.essence.unset",
-        "group.honor.get",
-        "group.todo.set",
-        "file.get",
-        "file.download",
-        "file.group.upload",
-        "file.private.upload",
-        "file.group.url.get",
-        "file.private.url.get",
-        "file.group.fs.info",
-        "file.group.fs.list",
-        "file.group.fs.mkdir",
-        "file.group.fs.delete",
-        "reaction.set",
-        "reaction.list",
-        "poke.send"
-      ]
-    },
-    "provider_extension_capability_name": {
-      "type": "string",
-      "enum": [
-        "provider.napcat.message_emoji.like.set",
-        "provider.napcat.group.sign.set",
-        "provider.luckylillia.friend_groups.get"
-      ]
-    },
-    "capability_name": {
-      "type": "string",
-      "anyOf": [
-        {
-          "$ref": "#/$defs/base_capability_name"
-        },
-        {
-          "$ref": "#/$defs/onebot_action_capability_name"
-        },
-        {
-          "$ref": "#/$defs/provider_extension_capability_name"
-        }
-      ]
-    },
-    "host_name": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9.-]+$"
-    },
-    "secret_ref": {
-      "type": "string",
-      "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
-    },
-    "cidr_or_ip": {
-      "type": "string",
-      "minLength": 1
-    },
-    "webhook_scope": {
+    "metadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "route",
-        "auth_strategy",
-        "header",
-        "secret_ref"
-      ],
       "properties": {
-        "route": {
-          "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,31})$",
-          "description": "Controlled short route segment without slashes, dot-dot, or query strings."
-        },
-        "auth_strategy": {
-          "type": "string",
-          "enum": [
-            "fixed_token",
-            "hmac_sha256"
+        "description": { "type": "string", "minLength": 1 },
+        "author": { "type": "string", "minLength": 1 },
+        "icon": { "$ref": "#/$defs/package_relative_path" },
+        "repo": { "$ref": "#/$defs/https_url" },
+        "homepage": { "$ref": "#/$defs/https_url" },
+        "keywords": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+        "screenshots": { "type": "array", "items": { "$ref": "#/$defs/screenshot" } }
+      }
+    },
+    "screenshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "alt"],
+      "properties": {
+        "path": { "$ref": "#/$defs/package_relative_path" },
+        "alt": { "type": "string", "minLength": 1 }
+      }
+    },
+    "event_name": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)+$" },
+    "permission_name": {
+      "type": "string",
+      "enum": [
+        "event.raw_payload", "message.send", "http.request",
+        "governance.blacklist.read", "governance.blacklist.write",
+        "governance.whitelist.read", "governance.whitelist.write",
+        "governance.command_policy.read", "scheduler.create", "render.image",
+        "plugin.list", "secret.read", "thirdparty.account.read",
+        "thirdparty.account.validate", "thirdparty.resolve", "message.get",
+        "message.delete", "message.history.get", "message.forward.get",
+        "message.forward.send", "message.read.mark", "friend.request.handle",
+        "friend.list", "friend.remark.set", "user.info.get", "user.like.send",
+        "group.list", "group.info.get", "group.member.get", "group.member.list",
+        "group.request.handle", "group.leave", "group.admin.set", "group.ban.set",
+        "group.card.set", "group.title.set", "group.name.set",
+        "group.announcement.list", "group.announcement.create", "group.announcement.delete",
+        "group.essence.list", "group.essence.set", "group.essence.unset",
+        "group.honor.get", "group.todo.set", "file.get", "file.download",
+        "file.group.upload", "file.private.upload", "file.group.url.get",
+        "file.private.url.get", "file.group.fs.info", "file.group.fs.list",
+        "file.group.fs.mkdir", "file.group.fs.delete", "reaction.set",
+        "reaction.list", "poke.send", "provider.napcat.message_emoji.like.set",
+        "provider.napcat.group.sign.set", "provider.luckylillia.friend_groups.get"
+      ]
+    },
+    "permissions": {
+      "type": "object",
+      "description": "Explicit elevated host permissions. Plugin-private logging, configuration, KV and file access are implicit and namespace-isolated.",
+      "propertyNames": { "$ref": "#/$defs/permission_name" },
+      "additionalProperties": { "const": true },
+      "properties": {
+        "thirdparty.account.read": { "$ref": "#/$defs/platform_permission" },
+        "thirdparty.account.validate": { "$ref": "#/$defs/platform_permission" },
+        "thirdparty.resolve": { "$ref": "#/$defs/resolve_permission" }
+      }
+    },
+    "platform_permission": {
+      "oneOf": [
+        { "const": true },
+        {
+          "type": "object", "additionalProperties": false, "required": ["platforms"],
+          "properties": {
+            "platforms": {
+              "type": "array", "minItems": 1, "uniqueItems": true,
+              "items": { "type": "string", "enum": ["bilibili", "weibo", "douyin", "netease_music"] }
+            }
+          }
+        }
+      ]
+    },
+    "resolve_permission": {
+      "oneOf": [
+        { "const": true },
+        {
+          "type": "object", "additionalProperties": false, "required": ["platforms"],
+          "properties": {
+            "platforms": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "const": "douyin" } }
+          }
+        }
+      ]
+    },
+    "permission_level": { "type": "string", "enum": ["super_admin", "group_admin", "everyone"] },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description", "usage", "trigger"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stable_id" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "usage": { "type": "string", "minLength": 1 },
+        "permission": { "$ref": "#/$defs/permission_level" },
+        "trigger": {
+          "oneOf": [
+            { "$ref": "#/$defs/exact_trigger" },
+            { "$ref": "#/$defs/pattern_trigger" },
+            { "$ref": "#/$defs/setting_trigger" }
           ]
-        },
-        "header": {
-          "type": "string",
-          "minLength": 1
-        },
-        "secret_ref": {
-          "$ref": "#/$defs/secret_ref"
-        },
-        "source_ips": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/cidr_or_ip"
-          },
-          "uniqueItems": true
         }
       }
     },
-    "screenshot_asset": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "path"
-      ],
+    "stable_id": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$" },
+    "exact_trigger": {
+      "type": "object", "additionalProperties": false, "required": ["type", "names"],
       "properties": {
-        "path": {
-          "$ref": "#/$defs/package_relative_path"
-        },
-        "alt": {
-          "type": "string",
-          "minLength": 1
-        }
+        "type": { "const": "exact" },
+        "names": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "pattern": "^\\S+$" } }
       }
     },
-    "management_ui_page": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "label",
-        "entry"
-      ],
+    "pattern_trigger": {
+      "type": "object", "additionalProperties": false, "required": ["type", "pattern"],
       "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$",
-          "description": "Stable management page identifier used by the host workbench tab."
-        },
-        "label": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Workbench tab label."
-        },
+        "type": { "const": "pattern" },
+        "pattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "setting_trigger": {
+      "type": "object", "additionalProperties": false, "required": ["type", "settings_key"],
+      "properties": {
+        "type": { "const": "setting" },
+        "settings_key": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+      }
+    },
+    "command_group": {
+      "type": "object", "additionalProperties": false, "required": ["id", "title", "commands"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stable_id" },
+        "title": { "type": "string", "minLength": 1 },
+        "commands": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/stable_id" } }
+      }
+    },
+    "help": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "management_ui": {
+      "type": "object", "additionalProperties": false, "required": ["entry", "pages"],
+      "properties": {
         "entry": {
           "allOf": [
-            {
-              "$ref": "#/$defs/package_relative_path"
-            },
-            {
-              "type": "string",
-              "pattern": "\\.html$"
+            { "$ref": "#/$defs/package_relative_path" },
+            { "type": "string", "pattern": "\\.html$" }
+          ]
+        },
+        "pages": {
+          "type": "array", "minItems": 1, "maxItems": 32,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["id", "label"],
+            "properties": {
+              "id": { "$ref": "#/$defs/stable_id" },
+              "label": { "type": "string", "minLength": 1 }
             }
-          ],
-          "description": "Package-relative HTML entry file for this management page."
+          }
+        }
+      }
+    },
+    "webhook": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "route", "auth_strategy", "header", "secret_ref", "replay_protection"],
+      "properties": {
+        "id": { "$ref": "#/$defs/stable_id" },
+        "route": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9_-]{0,31})$" },
+        "auth_strategy": { "type": "string", "enum": ["fixed_token", "hmac_sha256"] },
+        "header": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
+        "secret_ref": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$" },
+        "signature_prefix": { "type": "string" },
+        "source_cidrs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+        "max_body_bytes": { "type": "integer", "minimum": 1, "maximum": 10485760 },
+        "replay_protection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["timestamp_header", "event_id_header", "tolerance_seconds", "enforce"],
+          "properties": {
+            "timestamp_header": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
+            "event_id_header": { "type": "string", "pattern": "^[A-Za-z0-9-]+$" },
+            "tolerance_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+            "enforce": { "type": "boolean" }
+          }
         }
       }
     }
   },
   "x-fixtures": [
-    "fixtures/plugin-info/ok.minimal-go.json",
-    "fixtures/plugin-info/ok.thirdparty-account-validation.json",
-    "fixtures/plugin-info/ok.wider-and-provider-capabilities.json",
-    "fixtures/plugin-info/ok.governance-capabilities.json",
-    "fixtures/plugin-info/invalid.legacy-runtime.json",
-    "fixtures/plugin-info/edge.capability-parameters-and-migration.json",
-    "fixtures/plugin-info/ok.plugin-with-commands.json",
-    "fixtures/plugin-info/ok.plugin-with-command-patterns.json",
-    "fixtures/plugin-info/ok.plugin-with-dynamic-commands.json",
-    "fixtures/plugin-info/ok.default-config-file.json",
-    "fixtures/plugin-info/ok.concurrency-opt-in.json",
-    "fixtures/plugin-info/ok.rich-metadata.json",
-    "fixtures/plugin-info/ok.management-ui.json",
-    "fixtures/plugin-info/ok.management-ui-pages.json",
-    "fixtures/plugin-info/ok.render-template.json",
-    "fixtures/plugin-info/ok.plugin-with-help.json",
-    "fixtures/plugin-info/invalid.concurrency-zero.json",
-    "fixtures/plugin-info/invalid.help-item-empty-title.json",
-    "fixtures/plugin-info/invalid.unknown-capability.json",
-    "fixtures/plugin-info/invalid.unknown-provider-capability.json",
-    "fixtures/plugin-info/invalid.icon-absolute-path.json",
-    "fixtures/plugin-info/invalid.icon-parent-path.json",
-    "fixtures/plugin-info/invalid.management-ui-entry-field.json",
-    "fixtures/plugin-info/invalid.management-ui-label-field.json",
-    "fixtures/plugin-info/invalid.management-ui-page-parent-path.json",
-    "fixtures/plugin-info/invalid.management-ui-page-non-html-entry.json",
-    "fixtures/plugin-info/invalid.render-template-absolute-path.json",
-    "fixtures/plugin-info/invalid.render-template-manifest.json",
-    "fixtures/plugin-info/invalid.render-template-missing-directory.json",
-    "fixtures/plugin-info/invalid.render-template-parent-path.json",
-    "fixtures/plugin-info/invalid.metadata-insecure-urls.json",
-    "fixtures/plugin-info/invalid.screenshots-invalid-shape.json",
-    "fixtures/plugin-info/invalid.legacy-system-dependencies.json"
-  ],
-  "$comment": "Manifest v2 describes one prebuilt Go plugin package. Source-language dependencies, install scripts, and managed language runtimes are intentionally outside the contract; artifact.json supplies the platform-specific file inventory and integrity boundary."
+    "fixtures/plugin-info/ok.minimal-native.json",
+    "fixtures/plugin-info/ok.commands-and-permissions.json",
+    "fixtures/plugin-info/ok.management-ui-and-webhook.json",
+    "fixtures/plugin-info/edge.empty-events-and-permissions.json",
+    "fixtures/plugin-info/invalid.legacy-v2.json",
+    "fixtures/plugin-info/invalid.command-group-reference.json"
+  ]
 }

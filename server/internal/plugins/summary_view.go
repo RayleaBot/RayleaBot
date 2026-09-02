@@ -6,32 +6,22 @@ import (
 )
 
 type CommandView struct {
+	ID            string
 	Name          string
+	EffectiveName string
 	Aliases       []string
 	Description   string
 	Usage         string
 	Permission    string
-	CommandSource string
-	DeclarationID string
+	TriggerType   string
+	TriggerNames  []string
+	MatchPattern  string
+	SettingsKey   string
 }
 
 type HelpView struct {
 	Title   string
 	Summary string
-	Groups  []HelpGroupView
-}
-
-type HelpGroupView struct {
-	Title string
-	Items []HelpItemView
-}
-
-type HelpItemView struct {
-	Title       string
-	Description string
-	Usage       string
-	Command     string
-	Permission  string
 }
 
 type SourceView struct {
@@ -59,6 +49,7 @@ type SummaryView struct {
 	Source           SourceView
 	Trust            TrustView
 	Commands         []CommandView
+	CommandGroups    []CommandGroup
 	Help             *HelpView
 	CommandConflicts []string
 }
@@ -79,6 +70,7 @@ func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
 		Source:           buildSourceView(snapshot),
 		Trust:            buildTrustView(role, snapshot),
 		Commands:         buildCommandViews(snapshot),
+		CommandGroups:    cloneCommandGroups(snapshot.CommandGroups),
 		Help:             buildHelpView(snapshot),
 		CommandConflicts: normalizeConflictViews(conflicts),
 	}
@@ -137,27 +129,32 @@ func buildCommandViews(snapshot Snapshot) []CommandView {
 	items := make([]CommandView, 0, len(snapshot.Commands))
 	for _, command := range snapshot.Commands {
 		items = append(items, CommandView{
-			Name:          command.Name,
+			ID:            strings.TrimSpace(command.ID),
+			Name:          strings.TrimSpace(command.DisplayName),
+			EffectiveName: strings.TrimSpace(command.Name),
 			Aliases:       normalizeStringViews(command.Aliases),
 			Description:   strings.TrimSpace(command.Description),
 			Usage:         strings.TrimSpace(command.Usage),
 			Permission:    strings.TrimSpace(command.Permission),
-			CommandSource: normalizeCommandSourceView(command.CommandSource),
-			DeclarationID: strings.TrimSpace(command.DeclarationID),
+			TriggerType:   strings.TrimSpace(command.TriggerType),
+			TriggerNames:  normalizeStringViews(command.TriggerNames),
+			MatchPattern:  strings.TrimSpace(command.MatchPattern),
+			SettingsKey:   strings.TrimSpace(command.SettingsKey),
 		})
 	}
 	return items
 }
 
-func normalizeCommandSourceView(source string) string {
-	switch strings.TrimSpace(source) {
-	case CommandSourceDynamic:
-		return CommandSourceDynamic
-	case CommandSourcePattern:
-		return CommandSourcePattern
-	default:
-		return CommandSourceManifest
+func cloneCommandGroups(groups []CommandGroup) []CommandGroup {
+	if len(groups) == 0 {
+		return []CommandGroup{}
 	}
+	result := make([]CommandGroup, 0, len(groups))
+	for _, group := range groups {
+		group.Commands = append([]string(nil), group.Commands...)
+		result = append(result, group)
+	}
+	return result
 }
 
 func buildHelpView(snapshot Snapshot) *HelpView {
@@ -169,30 +166,7 @@ func buildHelpView(snapshot Snapshot) *HelpView {
 		Title:   strings.TrimSpace(snapshot.Help.Title),
 		Summary: strings.TrimSpace(snapshot.Help.Summary),
 	}
-	for _, group := range snapshot.Help.Groups {
-		title := strings.TrimSpace(group.Title)
-		if title == "" {
-			continue
-		}
-		viewGroup := HelpGroupView{Title: title}
-		for _, item := range group.Items {
-			itemTitle := strings.TrimSpace(item.Title)
-			if itemTitle == "" {
-				continue
-			}
-			viewGroup.Items = append(viewGroup.Items, HelpItemView{
-				Title:       itemTitle,
-				Description: strings.TrimSpace(item.Description),
-				Usage:       strings.TrimSpace(item.Usage),
-				Command:     strings.TrimSpace(item.Command),
-				Permission:  strings.TrimSpace(item.Permission),
-			})
-		}
-		if len(viewGroup.Items) > 0 {
-			help.Groups = append(help.Groups, viewGroup)
-		}
-	}
-	if help.Title == "" && help.Summary == "" && len(help.Groups) == 0 {
+	if help.Title == "" && help.Summary == "" {
 		return nil
 	}
 	return help
@@ -200,6 +174,17 @@ func buildHelpView(snapshot Snapshot) *HelpView {
 
 func BuildHelpView(snapshot Snapshot) *HelpView {
 	return buildHelpView(snapshot)
+}
+
+func EffectiveCommandNames(triggerType, name string, aliases []string) []string {
+	if strings.TrimSpace(triggerType) == "pattern" {
+		return []string{}
+	}
+	items := make([]string, 0, 1+len(aliases))
+	if name = strings.TrimSpace(name); name != "" {
+		items = append(items, name)
+	}
+	return append(items, aliases...)
 }
 
 func normalizeStringViews(values []string) []string {

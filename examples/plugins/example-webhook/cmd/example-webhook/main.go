@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	err := rayleabot.Run(context.Background(), rayleabot.Options{PluginID: "example-webhook", Subscriptions: []string{"message.group", "webhook.received"}}, rayleabot.HandlerFunc(handle))
+	err := rayleabot.Run(context.Background(), rayleabot.Options{}, rayleabot.HandlerFunc(handle))
 	if err != nil {
 		_, _ = os.Stderr.WriteString(err.Error() + "\n")
 		os.Exit(1)
@@ -23,15 +23,9 @@ func handle(ctx context.Context, event *rayleabot.EventContext) error {
 			keys = append(keys, key)
 		}
 		sort.Strings(keys)
-		_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "Webhook route " + event.Event.Target.ID + " was received and accepted for processing.", Fields: map[string]any{"route": event.Event.Target.ID}})
+		route := event.Event.Webhook.Route
+		_, _ = event.Actions().LoggerWrite(ctx, rayleabot.LoggerWriteRequest{Level: "info", Message: "Webhook route " + route + " was received and accepted for processing.", Fields: map[string]any{"route": route}})
 		return event.Result(map[string]any{"handled": true, "raw_payload_keys": keys})
 	}
-	if event.Event.Command() != "webhook_register" {
-		return event.Result(map[string]any{"handled": false})
-	}
-	result, err := event.Actions().ExposeWebhook(ctx, rayleabot.ExposeWebhookRequest{Route: "github", SecretRef: "webhook.github.secret", AuthStrategy: "hmac_sha256", Header: "X-Hub-Signature-256", SignaturePrefix: "sha256="})
-	if err != nil {
-		return err
-	}
-	return event.Result(map[string]any{"webhook": result})
+	return event.Result(map[string]any{"handled": false})
 }

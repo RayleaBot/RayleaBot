@@ -146,17 +146,10 @@ func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
 				{
 					PluginID:          "weather-pro",
 					Version:           "1.4.0",
+					ManifestVersion:   PluginManifestVersion,
+					ArtifactVersion:   PluginArtifactVersion,
 					MinCoreVersion:    "0.3.0",
 					ManifestPath:      "plugins/installed/weather-pro/info.json",
-					SourceRoot:        "plugins/installed",
-					RegistrationState: "installed",
-					DesiredState:      "enabled",
-				},
-				{
-					PluginID:          "arm-only",
-					Version:           "1.0.0",
-					Platforms:         []string{"linux-arm64"},
-					ManifestPath:      "plugins/installed/arm-only/info.json",
 					SourceRoot:        "plugins/installed",
 					RegistrationState: "installed",
 					DesiredState:      "enabled",
@@ -168,7 +161,7 @@ func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
 	if summary.Status != "degraded" {
 		t.Fatalf("expected degraded summary, got %#v", summary)
 	}
-	if got, want := len(summary.SkippedPlugins), 2; got != want {
+	if got, want := len(summary.SkippedPlugins), 1; got != want {
 		t.Fatalf("unexpected skipped plugin count: got %d want %d", got, want)
 	}
 	for _, skipped := range summary.SkippedPlugins {
@@ -178,7 +171,6 @@ func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
 	}
 	expectedActions := []string{
 		"升级程序或重新安装兼容版本插件。",
-		"安装支持当前平台的插件包。",
 		"处理被跳过插件的兼容性问题后，再在管理面中手动重新启用。",
 	}
 	if !slices.Equal(summary.ManualActions, expectedActions) {
@@ -192,7 +184,7 @@ func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
 	if !slices.Equal(summary.NextSteps, expectedSteps) {
 		t.Fatalf("unexpected plugin next steps: %#v", summary.NextSteps)
 	}
-	if !slices.Equal(repo.saves, []string{"weather-pro:disabled", "arm-only:disabled"}) {
+	if !slices.Equal(repo.saves, []string{"weather-pro:disabled"}) {
 		t.Fatalf("unexpected desired state writes: %#v", repo.saves)
 	}
 }
@@ -230,6 +222,8 @@ func TestFinalizeMergesRuntimeAndPluginGuidanceWithoutDuplicates(t *testing.T) {
 				{
 					PluginID:          "weather-pro",
 					Version:           "1.4.0",
+					ManifestVersion:   PluginManifestVersion,
+					ArtifactVersion:   PluginArtifactVersion,
 					MinCoreVersion:    "0.3.0",
 					ManifestPath:      "plugins/installed/weather-pro/info.json",
 					SourceRoot:        "plugins/installed",
@@ -260,6 +254,8 @@ func TestFinalizePreservesConfirmedReviewStateAcrossRecheck(t *testing.T) {
 				{
 					PluginID:          "weather-pro",
 					Version:           "1.4.0",
+					ManifestVersion:   PluginManifestVersion,
+					ArtifactVersion:   PluginArtifactVersion,
 					MinCoreVersion:    "0.3.0",
 					ManifestPath:      "plugins/installed/weather-pro/info.json",
 					SourceRoot:        "plugins/installed",
@@ -292,6 +288,8 @@ func TestFinalizePreservesConfirmedReviewStateAcrossRecheck(t *testing.T) {
 				{
 					PluginID:          "weather-pro",
 					Version:           "1.4.0",
+					ManifestVersion:   PluginManifestVersion,
+					ArtifactVersion:   PluginArtifactVersion,
 					MinCoreVersion:    "0.3.0",
 					ManifestPath:      "plugins/installed/weather-pro/info.json",
 					SourceRoot:        "plugins/installed",
@@ -331,6 +329,8 @@ func TestFinalizeResetsReviewWhenPluginVersionChanges(t *testing.T) {
 				{
 					PluginID:          "weather-pro",
 					Version:           "1.4.0",
+					ManifestVersion:   PluginManifestVersion,
+					ArtifactVersion:   PluginArtifactVersion,
 					MinCoreVersion:    "0.3.0",
 					ManifestPath:      "plugins/installed/weather-pro/info.json",
 					SourceRoot:        "plugins/installed",
@@ -353,6 +353,8 @@ func TestFinalizeResetsReviewWhenPluginVersionChanges(t *testing.T) {
 				{
 					PluginID:          "weather-pro",
 					Version:           "1.5.0",
+					ManifestVersion:   PluginManifestVersion,
+					ArtifactVersion:   PluginArtifactVersion,
 					MinCoreVersion:    "0.3.0",
 					ManifestPath:      "plugins/installed/weather-pro/info.json",
 					SourceRoot:        "plugins/installed",
@@ -472,35 +474,38 @@ func TestSchemaVersionComparisonUsesComparableFamiliesOnly(t *testing.T) {
 	}
 }
 
-func TestEvaluateRestoreRejectsRetiredPluginEpoch(t *testing.T) {
+func TestEvaluateRestoreRejectsBackupV2ButAllowsOldPluginsInsideBackupV3(t *testing.T) {
 	t.Parallel()
 
-	cases := []BackupManifest{
-		{
-			Version:               BackupManifestVersion,
-			PluginManifestVersion: "1",
-			PluginUIBridgeVersion: "1",
-		},
-		{
-			Version:               BackupManifestVersion,
-			PluginManifestVersion: PluginManifestVersion,
-			PluginUIBridgeVersion: PluginUIBridgeVersion,
-			Plugins: []BackupManifestPlugin{{
-				PluginID:        "legacy-python",
-				ManifestVersion: "1",
-				ArtifactVersion: "0",
-			}},
-		},
+	oldBackup := BackupManifest{
+		Version: "2", PluginManifestVersion: "2", PluginProtocolVersion: "1",
+		PluginArtifactVersion: "1", PluginUIBridgeVersion: "2",
+	}
+	summary := EvaluateRestore(oldBackup, t.TempDir())
+	if summary.Status != "blocked" || summary.RequiresPostStartChecks || len(summary.Issues) == 0 || summary.Issues[0].Code != "plugin.contract_unsupported" {
+		t.Fatalf("backup v2 summary = %#v", summary)
 	}
 
-	for _, manifest := range cases {
-		summary := EvaluateRestore(manifest, t.TempDir())
-		if summary.Status != "blocked" || summary.RequiresPostStartChecks {
-			t.Fatalf("retired plugin epoch summary = %#v", summary)
+	backupV3 := BackupManifest{
+		Version: BackupManifestVersion, PluginManifestVersion: PluginManifestVersion,
+		PluginProtocolVersion: PluginProtocolVersion, PluginArtifactVersion: PluginArtifactVersion,
+		PluginUIBridgeVersion: PluginUIBridgeVersion,
+		Plugins: []BackupManifestPlugin{{
+			PluginID: "legacy-python", ManifestVersion: "2", ProtocolVersion: "1", ArtifactVersion: "1",
+		}},
+	}
+	summary = EvaluateRestore(backupV3, t.TempDir())
+	if summary.Status == "blocked" || !summary.RequiresPostStartChecks {
+		t.Fatalf("backup v3 with old plugin should remain restorable: %#v", summary)
+	}
+	foundWarning := false
+	for _, issue := range summary.Issues {
+		if issue.Code == "plugin.contract_unsupported" && issue.Severity == "warning" {
+			foundWarning = true
 		}
-		if len(summary.Issues) == 0 || summary.Issues[0].Code != "plugin.reset_required" {
-			t.Fatalf("retired plugin epoch issues = %#v", summary.Issues)
-		}
+	}
+	if !foundWarning {
+		t.Fatalf("old plugin warning is missing: %#v", summary.Issues)
 	}
 }
 

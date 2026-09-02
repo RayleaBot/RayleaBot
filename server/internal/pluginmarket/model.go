@@ -83,6 +83,7 @@ type Release struct {
 	Version        string  `json:"version"`
 	PublishedAt    string  `json:"published_at"`
 	MinCoreVersion string  `json:"min_core_version"`
+	ManifestSHA256 string  `json:"manifest_sha256"`
 	Yanked         bool    `json:"yanked"`
 	Assets         []Asset `json:"assets"`
 }
@@ -92,7 +93,6 @@ type Asset struct {
 	URL              string `json:"url"`
 	ArchiveSizeBytes int64  `json:"archive_size_bytes"`
 	ArchiveSHA256    string `json:"archive_sha256"`
-	ManifestSHA256   string `json:"manifest_sha256"`
 }
 
 type SignatureEnvelope struct {

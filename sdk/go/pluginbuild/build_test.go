@@ -20,9 +20,8 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
-		"id": "test-plugin", "name": "Test", "version": "0.2.0", "manifest_version": "2",
-		"plugin_protocol_version": "1", "runtime": "go", "entry": "bin/test-plugin",
-		"platforms": []string{platform}, "license": "MIT",
+		"id": "test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "3",
+		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
@@ -42,15 +41,15 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 	if err := json.Unmarshal(content, &artifact); err != nil {
 		t.Fatal(err)
 	}
-	roles := map[string]int{}
+	paths := map[string]bool{}
 	for _, file := range artifact.Files {
-		roles[file.Role]++
+		paths[file.Path] = true
 		if file.Path == "artifact.json" {
 			t.Fatal("artifact.json must not inventory itself")
 		}
 	}
-	if roles["backend"] != 1 || roles["manifest"] != 1 || roles["license"] != 1 || roles["notice"] != 1 || roles["sbom"] != 1 {
-		t.Fatalf("unexpected role inventory: %#v", roles)
+	if artifact.ArtifactVersion != "2" || artifact.Entry == "" || !paths["info.json"] || !paths[artifact.Entry] || !paths["LICENSE"] || !paths["THIRD_PARTY_NOTICES.md"] || !paths["sbom.spdx.json"] {
+		t.Fatalf("unexpected artifact inventory: %#v", artifact)
 	}
 	archive, err := zip.OpenReader(result.ArchivePath)
 	if err != nil {
@@ -74,22 +73,124 @@ func TestBuildAcceptsCommandBelowCmd(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
-		"id": "test-plugin", "name": "Test", "version": "0.2.0", "manifest_version": "2",
-		"plugin_protocol_version": "1", "runtime": "go", "entry": "bin/test-plugin",
-		"platforms": []string{platform}, "license": "MIT",
+		"id": "raylea.test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "3",
+		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
 
 	result, err := Build(context.Background(), Config{
 		PluginDir: pluginDir, OutputDir: filepath.Join(pluginDir, "out"), TargetPlatform: platform,
-		BackendPackage: "./cmd/test-plugin",
 	})
 	if err != nil {
 		t.Fatalf("Build() error = %v", err)
 	}
 	if _, err := os.Stat(result.ArchivePath); err != nil {
 		t.Fatalf("artifact archive: %v", err)
+	}
+}
+
+func TestBuildProducesAllSupportedTargetArtifacts(t *testing.T) {
+	pluginDir := t.TempDir()
+	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/cross-platform-plugin\n\ngo 1.26.6\n")
+	writeTestFile(t, filepath.Join(pluginDir, "cmd", "cross-platform-plugin", "main.go"), "package main\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
+	manifest := map[string]any{
+		"id": "cross-platform-plugin", "name": "Cross Platform", "version": "0.4.0", "manifest_version": "3",
+		"min_core_version": "0.4.0", "license": "MIT",
+	}
+	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
+
+	for _, platform := range []string{"windows-x64", "linux-x64", "macos-arm64"} {
+		t.Run(platform, func(t *testing.T) {
+			result, err := Build(context.Background(), Config{
+				PluginDir: pluginDir, OutputDir: filepath.Join(t.TempDir(), "out"), TargetPlatform: platform,
+				KeepExpandedArtifact: true,
+			})
+			if err != nil {
+				t.Fatalf("Build(%s) error = %v", platform, err)
+			}
+			inspection, err := Inspect(result.ArtifactDir, platform)
+			if err != nil {
+				t.Fatalf("Inspect(%s) error = %v", platform, err)
+			}
+			if inspection.TargetPlatform != platform || inspection.PluginID != "cross-platform-plugin" || result.ArchiveSHA256 == "" {
+				t.Fatalf("unexpected %s artifact: result=%#v inspection=%#v", platform, result, inspection)
+			}
+			archive, err := zip.OpenReader(result.ArchivePath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer archive.Close()
+			entryName := filepath.ToSlash(filepath.Join("cross-platform-plugin", inspection.Entry))
+			foundEntry := false
+			for _, file := range archive.File {
+				if filepath.ToSlash(file.Name) == entryName {
+					foundEntry = true
+					if file.Mode().Perm() != 0o755 {
+						t.Fatalf("%s archive entry mode = %o, want 755", platform, file.Mode().Perm())
+					}
+				}
+			}
+			if !foundEntry {
+				t.Fatalf("%s archive entry %s is missing", platform, entryName)
+			}
+		})
+	}
+}
+
+func TestPackAndInspectAlreadyBuiltNativeExecutable(t *testing.T) {
+	pluginDir := t.TempDir()
+	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
+	manifest := map[string]any{
+		"id": "native-plugin", "name": "Native", "version": "0.4.0", "manifest_version": "3",
+		"min_core_version": "0.4.0", "license": "MIT",
+	}
+	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	platform := testPlatform(t)
+	result, err := Pack(context.Background(), PackConfig{
+		PluginDir: pluginDir, Executable: executable, OutputDir: filepath.Join(pluginDir, "out"),
+		TargetPlatform: platform, KeepExpandedArtifact: true,
+	})
+	if err != nil {
+		t.Fatalf("Pack() error = %v", err)
+	}
+	inspection, err := Inspect(result.ArtifactDir, platform)
+	if err != nil {
+		t.Fatalf("Inspect() error = %v", err)
+	}
+	if inspection.PluginID != "native-plugin" || inspection.Entry == "" || inspection.FileCount < 3 {
+		t.Fatalf("unexpected inspection: %#v", inspection)
+	}
+}
+
+func TestInspectProjectAcceptsManifestV3AndRejectsLegacyManifest(t *testing.T) {
+	pluginDir := t.TempDir()
+	manifest := map[string]any{
+		"id": "project-plugin", "name": "Project", "version": "0.4.0", "manifest_version": "3",
+		"min_core_version": "0.4.0", "license": "MIT",
+	}
+	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
+	inspection, err := InspectProject(pluginDir)
+	if err != nil {
+		t.Fatalf("InspectProject() error = %v", err)
+	}
+	if inspection.PluginID != "project-plugin" || inspection.ManifestVersion != "3" {
+		t.Fatalf("unexpected project inspection: %#v", inspection)
+	}
+
+	manifest["manifest_version"] = "2"
+	manifestBytes, _ = json.MarshalIndent(manifest, "", "  ")
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")
+	if _, err := InspectProject(pluginDir); err == nil {
+		t.Fatal("InspectProject() accepted manifest v2")
 	}
 }
 
@@ -129,9 +230,8 @@ func TestBuildWorkspaceSBOMKeepsDeclaredSDKVersion(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
-		"id": "workspace-plugin", "name": "Workspace", "version": "0.2.0", "manifest_version": "2",
-		"plugin_protocol_version": "1", "runtime": "go", "entry": "bin/workspace-plugin",
-		"platforms": []string{platform}, "license": "MIT",
+		"id": "workspace-plugin", "name": "Workspace", "version": "0.4.0", "manifest_version": "3",
+		"min_core_version": "0.4.0", "license": "MIT",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	writeTestFile(t, filepath.Join(pluginDir, "info.json"), string(manifestBytes)+"\n")

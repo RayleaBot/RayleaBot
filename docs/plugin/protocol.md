@@ -1,237 +1,146 @@
-# Plugin Protocol
+# Plugin Protocol v2
 
-本页说明 RayleaBot 插件与平台之间的正式通信方式和消息语义。
+RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/plugin-protocol.schema.json` 为准。
 
-正式 schema 以 `contracts/plugin-protocol.schema.json` 为准。
+## 传输约束
 
-## 通信形态
+- `stdout` 只输出一行一个 JSON 协议帧。
+- `stderr` 用于插件调试输出，由宿主接入插件 console。
+- 单帧大小、待处理 action 数、action 突发率、事件超时和关闭宽限由宿主配置限制。
+- 插件后端只需要是当前平台原生可执行文件，协议不依赖实现语言。
 
-- 插件进程与平台通过 JSONL 协议通信。
-- `stdout` 保留给协议帧，普通文本不得混入。
-- `stderr` 用于调试输出和故障摘要，由平台接入插件 console。
+## 生命周期
 
-## 生命周期握手
-
-| 方向 | 消息 | 作用 |
+| 方向 | 帧 | 作用 |
 | --- | --- | --- |
-| server -> plugin | `init` | 传递配置快照、声明能力和启动上下文 |
-| plugin -> server | `init_progress` | 可选启动进度上报 |
-| plugin -> server | `init_ack` | 宣告握手完成并进入可运行态 |
-| server -> plugin | `shutdown` | 要求插件按受控窗口退出 |
+| Server → plugin | `init` | 建立协议版本、插件身份和初始上下文 |
+| plugin → Server | `init_progress` | 可选启动进度 |
+| plugin → Server | `init_ack` | 宣告可运行 |
+| Server → plugin | `ping` | 保活请求 |
+| plugin → Server | `pong` | 保活响应 |
+| Server → plugin | `shutdown` | 受控退出 |
 
-- 启动后平台会发送 `ping`，插件返回 `pong` 做保活。
-- 插件异常退出会进入崩溃恢复路径，而不是默默消失。
-- `init.command_prefixes` 提供当前生效的命令前缀列表，至少包含一项。
-- `init.capabilities` 提供插件 manifest 中声明的平台能力集合。
-- `init.bot` 在 OneBot 身份可用时提供当前 bot 身份；协议身份不可用时该字段缺省。
-- `init.permissions.super_admins` 提供当前平台超级管理员账号 ID 列表。
+只有 `init` 携带 `protocol_version: "2"` 和 `plugin_id`。后续帧不得重复协议版本、插件 ID、envelope 时间戳或事件订阅。
 
-## 事件与结果
+`init` 同时提供：
 
-| 消息 | 说明 |
-| --- | --- |
-| `event` | 平台向插件投递统一事件 |
-| `result` | 插件对事件或 action 的成功响应 |
-| `error` | 插件对事件或 action 的失败响应 |
-| `action` | 插件发起本地 action 请求；平台返回 `result` 或 `error` |
+- 完整配置快照 `config`。
+- 生效权限 `effective_permissions`。
+- 可用时的 Bot 身份。
+- 超级管理员列表和命令前缀。
+- 生效并发度。
 
-- 事件投递使用独立 `request_id`。
-- 本地 action 使用自己的 `request_id`，并通过 `parent_request_id` 归属到对应事件。
-- manifest 省略 `concurrency` 时，插件按串行事件处理；显式声明后，不同 `event.target` 可并发，同一 `event.target` 保持顺序。
-- 并发插件发起本地 action 时必须提供 `parent_request_id`。
-- 事件方向和 action 方向共用 `result` / `error` 语义。
-- `error` 固定返回 `code`、`message`，可选 `details` 用于补充结构化失败上下文。
+SDK 从 init 建立插件 ID、并发限制和原子配置快照，插件不手工配置这些值。
 
-### 事件字段
+## 事件
 
-- 当前正式 `event_type` 集合包括：
-  - 平台事件：`plugin.started`、`scheduler.trigger`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed`
-  - OneBot 消息事件：`message.private`、`message.group`、`message_sent.private`、`message_sent.group`
-  - OneBot notice 事件：`notice.member_increase`、`notice.member_decrease`、`notice.group_admin`、`notice.group_ban`、`notice.group_recall`、`notice.group_upload`、`notice.group_card`、`notice.group_title`、`notice.group_essence`、`notice.friend_add`、`notice.friend_recall`、`notice.flash_file`、`notice.poke`、`notice.poke_recall`、`notice.profile_like`、`notice.input_status`、`notice.group_message_emoji_like`
-  - OneBot request 事件：`request.friend`、`request.group`
-  - OneBot meta 事件：`meta.heartbeat`、`meta.lifecycle`
-- `event.message.plain_text` 提供统一纯文本摘要。
-- `event.message.segments` 保留结构化消息段。
-- `event.message.segments[].type` 正式类型为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`。
-- `event.payload.message_id` 表示单条消息编号。
-- `event.target.id` 与 `event.payload.onebot.group_id` / `event.payload.onebot.user_id` 一起用于定位会话。
-- `event.payload.onebot` 保留 OneBot11 原生字段，包括 `post_type`、`message_type`、`group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`message_format`、`font`、`sender`、`meta_event_type`、`interval` 和 `status`。
-- `webhook.received` 的来源元数据位于 `event.webhook`；`route` 与服务端接收时间 `received_at` 必填，客户端时间 `client_timestamp` 与事件编号 `client_event_id` 在调用方提供时出现。
-- `message_sent.private` 与 `message_sent.group` 作为独立事件类型进入插件协议，不并入普通 `message.*`。
-- `meta.*` 事件使用系统会话：`conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
-- `bot.identity.changed` 使用 `target.type=bot`、`target.id=<self_id>`，并在 `event.payload.onebot.self_id` 中提供同一身份。
+manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表示不接收普通 fan-out；定向控制事件仍按宿主生命周期语义投递。
 
-### 身份不可用期间的出站语义
+`event` 帧携带统一事件。插件必须用同一 `request_id` 返回一个且仅一个终态 `result` 或 `error`。
 
-- `init.bot` 缺失或 `bot.identity.changed` 携带空 `self_id` 时，平台视该插件的 OneBot 身份为不可用：
-  - `message.send`、`message.reply`、`message.delete`、`reaction.set` 及任何依赖 `self_id` 的 `onebot.*` action 会被平台拒绝；拒绝以正式协议 `error` 帧返回，`error.code=adapter.connection_lost` 或对应 adapter 错误码。
-  - 不依赖身份的 local action（`config.*`、`storage.*`、`logger.write`、`http.request`、`render.image` 等）保持可用。
-- 插件代码应订阅 `bot.identity.changed` 并在身份重新可用时刷新本地缓存的会话上下文。
-- Go 插件通过 `EventContext.Bot` 读取当前身份，并订阅 `bot.identity.changed` 更新自身状态。身份为空时应直接结束当前 handler，不能忙等或阻塞其他事件。
-- 平台不会自动回放身份不可用期间被拒绝的 action；插件需要在 `bot.identity.changed` 中决定是否重试。
+重要平台事件：
 
-## Local Action RPC
+- `plugin.started`
+- `scheduler.trigger`
+- `management.action`
+- `config.changed`
+- `webhook.received`
+- `bot.identity.changed`
 
-Local Action RPC 只描述插件调用 RayleaBot 宿主状态与聊天平台能力的协议。当前插件进程不是 OS 沙箱；插件直接访问外部服务、创建进程级临时文件或启动随 artifact 发布的辅助程序时，不生成 local action 帧，也不受本节 capability、scope 和 action 资源上限约束。
+OneBot 消息、notice、request 与 meta 事件继续使用正式 `event_type` 枚举。消息文本位于 `event.message.plain_text`，结构化段位于 `event.message.segments`，平台原生字段位于 `event.payload.onebot`。
 
-插件自有 I/O 的超时、大小、并发、清理和第三方许可证由插件负责。RayleaBot 配置、secret、宿主管理存储、三方账号、调度、渲染、治理及 OneBot/provider 动作仍使用下列正式 action。
+### 配置变更
 
-当前正式 local action 集合：
+`config.changed` 提供：
+
+- `config`：变更后的完整配置快照。
+- `changed_keys`：本次变化的顶层键。
+
+SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.Config` 都是隔离副本，插件修改该 map 不影响后续事件。
+
+### 身份变更
+
+`init.bot` 缺失或 `bot.identity.changed` 提供空身份时，依赖 OneBot 连接的动作会返回 adapter 类错误。宿主不自动重放失败动作；插件可在身份恢复事件中决定是否重试。
+
+## Action RPC
+
+插件用 `action` 帧调用宿主能力；action 使用独立 `request_id`，并通过 `parent_request_id` 归属当前事件。宿主返回 `result` 或 `error`。
+
+同一事件可以有多个并发 action，但插件必须等待它们完成后再发送事件终态。
+
+### 隐式插件私有动作
+
+以下动作不要求 manifest 权限：
+
+- `logger.write`
+- `config.write`
+- `storage.kv`
+- `storage.file`
+
+宿主使用 init 建立的插件身份选择命名空间。`storage.file` 请求只传相对 `path`，不能选择文件根或其他插件空间。配置读取不使用 action；插件读取当前 `EventContext.Config`。
+
+### 显式权限动作
+
+常用动作：
 
 - `message.send`
-- `message.reply`
-- `logger.write`：`message` 是管理日志列表直接展示的脱敏完整叙述，需要独立说明操作对象与结果；warn/error 在信息已知时同时说明原因、影响和恢复方向。`fields` 只保留过滤与详情诊断所需的结构化补充，不能作为理解 `message` 的前提
-- `storage.kv`：单值受 `storage.kv_value_max_bytes` 限制，所有插件的 KV 合计受 `storage.kv_total_limit_mb` 硬上限限制
-- `storage.file`：单文件受 `storage.file_max_bytes` 硬上限限制；写入结果返回 `usage_bytes`、`soft_limit_bytes`、`soft_limit_exceeded` 与 `cleanup_recommended`，超过每插件工作目录软限制时仍完成写入
 - `http.request`
-- `config.read`
 - `plugin.list`
-- `config.write`
-- `secret.read`：只读取调用插件自己的 secret 命名空间内的单个值
-- `thirdparty.account.read`：只读取 manifest 允许平台中已保存、已启用且非 invalid 的三方账号；CK 以 secret 值返回
-- `thirdparty.account.validate`：对 manifest 允许平台中的精确账号提交 `auth_rejected` 或 `session_blocked` 观察，请求 Server 执行权威 CK 复检；插件不能直接提交 `valid`、`invalid` 或 `unknown` 状态
-- `thirdparty.resolve`：提交平台与昵称关键词（1–64 字符，平台去除首尾空白），请求 Server 用该平台的登录环境（浏览器会话与设备信誉）解析候选用户；可选附带账号 `cookie`（分号分隔的 `name=value` 头，敏感凭据，不落日志、不返回响应）供平台登录环境恢复会话；成功返回 `data.profiles`（每项含 `uid`、`unique_id`、`nickname`、`avatar_url`；`uid` 为稳定绑定标识，`unique_id` 为平台可修改标识仅用于展示）与 `data.exact`（是否存在昵称完全匹配的候选），无结果时 `data.profiles` 为空数组
-- `governance.blacklist.read`
-- `governance.blacklist.write`
-- `governance.whitelist.read`
-- `governance.whitelist.write`
+- `secret.read`
+- `thirdparty.account.read`
+- `thirdparty.account.validate`
+- `thirdparty.resolve`
+- `governance.blacklist.read` / `write`
+- `governance.whitelist.read` / `write`
 - `governance.command_policy.read`
-- `scheduler.create`：`task_id` 是插件内幂等任务名；`cron` 使用五段 cron；`event_type` 固定为 `scheduler.trigger`；`payload` 会随触发事件进入插件；`log_label` 可选，用于管理日志中的中文任务说明。
-- `event.expose_webhook`
-- `render.image`：可选 `resources` 由平台在 `http.request` 信任边界内预取为临时图片资源，再交给 Chromium 渲染
-- OneBot family actions:
-  - `message.get`
-  - `message.delete`
-  - `message.history.get`
-  - `message.forward.get`
-  - `message.forward.send`
-  - `message.read.mark`
-  - `friend.request.handle`
-  - `friend.list`
-  - `friend.remark.set`
-  - `user.info.get`
-  - `user.like.send`
-  - `group.list`
-  - `group.info.get`
-  - `group.member.get`
-  - `group.member.list`
-  - `group.request.handle`
-  - `group.leave`
-  - `group.admin.set`
-  - `group.ban.set`
-  - `group.card.set`
-  - `group.title.set`
-  - `group.name.set`
-  - `group.announcement.list`
-  - `group.announcement.create`
-  - `group.announcement.delete`
-  - `group.essence.list`
-  - `group.essence.set`
-  - `group.essence.unset`
-  - `group.honor.get`
-  - `group.todo.set`
-  - `file.get`
-  - `file.download`
-  - `file.group.upload`
-  - `file.private.upload`
-  - `file.group.url.get`
-  - `file.private.url.get`
-  - `file.group.fs.info`
-  - `file.group.fs.list`
-  - `file.group.fs.mkdir`
-  - `file.group.fs.delete`
-  - `reaction.set`
-  - `reaction.list`
-  - `poke.send`
-- Provider extension actions:
-  - `provider.napcat.message_emoji.like.set`
-  - `provider.napcat.group.sign.set`
-  - `provider.luckylillia.friend_groups.get`
+- `scheduler.create`
+- `render.image`
+- OneBot family actions
+- provider 扩展动作
 
-同一事件需要先发送进度提示、再继续查询或渲染时，使用非终态 `message.send` local action：Go SDK 为 `event.Actions().MessageSend(ctx, request)`。它使用独立 `request_id` 和当前事件的 `parent_request_id`；`event.SendText(...)`、`event.Send(...)`、`event.Reply(...)`、`event.Result(...)` 与 `event.Fail(...)` 用于结束当前事件且只能成功调用一次。
+动作未在 manifest `permissions` 声明，或请求平台超出权限范围时，宿主返回 `plugin.permission_denied`。
 
-下列 action 都走正式 capability 校验、scope 校验和结构化错误返回。
+### 消息发送与回复
 
-### `render.image` 临时图片资源
+插件只发送 `message.send` action：
 
-`render.image.data.resources` 是可选的请求级图片资源列表。每项包含唯一 `id`、主 `url`、最多四个有序 `fallback_urls` 和可选 `referer`；模板通过 `<img data-render-resource="资源 ID">` 引用资源。资源 URL 和 Referer 只接受 HTTPS，URL 用户信息与 fragment 被拒绝。
+- 普通发送提供目标和 segments。
+- 回复当前事件时提供 `reply_to_event_id`。
+- 回复指定消息时使用首个 `reply` segment 或相应回复字段。
 
-使用 `resources` 的插件必须同时声明 `render.image` 与 `http.request`，资源目标和重定向目标必须位于 manifest 的 `http_hosts`。声明的主机名匹配该主机及其子域。平台不会从插件接收 Cookie、Authorization 或任意下载请求头，只附带固定图片请求头和资源声明中的 Referer。JPEG、PNG、GIF 与 WebP 可作为渲染资源；单项响应上限为 16 MiB，每次渲染保留资源总量上限为 96 MiB，最多 16 项，全部资源共享 30 秒处理期限。
+宿主内部可以根据适配器能力投影为回复或普通发送；协议仅暴露 `message.send` action。
 
-平台按 `url`、`fallback_urls` 的顺序解析资源。不可用或内容校验失败的资源保持未解析，模板原有 `src` 或 `data-fallback` 继续生效；格式错误、能力缺失、超出 `http_hosts` 或最终总量超限会拒绝 action。已接受图片保持原始字节，不进入 `data` 的 JSON/base64 大小预算。平台计算内容摘要并将其纳入截图缓存键，在 Chromium 完成或失败后删除请求级临时文件。
+### HTTP
 
-`message.send`、`message.reply`、OneBot family actions 与 provider extension actions 需要可用的 OneBot adapter 连接；连接不可用时返回 adapter 类错误，插件进程保持运行。
+`http.request` 需要显式权限，但不声明主机白名单。宿主仍执行 HTTPS、DNS、重定向复查、SSRF/私网拦截、超时和响应体限制。
 
-OneBot 单动作 capability 名称与 action kind 保持一致，provider capability 只包含上面三项正式扩展动作。
+`render.image.resources` 复用同一 HTTP 安全边界，并叠加图片格式、单项大小、总量、数量和处理期限限制。
 
-- `plugin.list` 返回当前已发现插件的只读目录，包括插件状态、命令列表和命令冲突信息。`data.visibility` 默认为 `catalog`，返回完整目录；`caller` 按父事件调用者权限返回可见指令。
-- `governance.blacklist.read` 与 `governance.whitelist.read` 返回当前治理快照。
-- `governance.blacklist.write` 支持单条黑名单 `upsert` 与 `delete`。
-- `governance.whitelist.write` 支持白名单开关 `set_enabled`，以及单条白名单 `upsert` 与 `delete`。
-- `governance.command_policy.read` 返回当前生效的默认权限、冷却配置和命令级权限投影。
+### Webhook
 
-### Webhook 暴露参数
+Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook 的 action。请求通过宿主鉴权与重放检查后以 `webhook.received` 投递。
 
-`event.expose_webhook` 的 `data` 必填 `route`、`methods`、`auth_strategy`、`header`、`secret_ref` 和 `replay_protection`；`methods` 当前只能包含 `POST`。`signature_prefix` 与 `source_ips` 可选。
+### 三方账号
 
-`replay_protection` 必填：
+- `thirdparty.account.read` 只返回已保存、启用且可用的账号凭据。
+- `thirdparty.account.validate` 只提交受限异常观察，由 Server 决定凭据状态。
+- `thirdparty.resolve` 当前用抖音登录环境解析用户候选。
 
-| 字段 | 含义 |
-| --- | --- |
-| `timestamp_header` | 调用方时间戳请求头名称 |
-| `event_id_header` | 调用方唯一事件 ID 请求头名称 |
-| `tolerance_seconds` | 允许的时间偏差，范围 1 到 3600 秒 |
-| `enforce` | `true` 时拒绝超时或重复事件；`false` 时仅记录观察 |
+## 终态和错误
 
-缺少上述字段属于协议违规。manifest 的 `capability_parameters.webhooks` 只限定允许注册的路由、鉴权头、secret 引用和来源地址，不承载重放窗口。
+`error` 固定包含 `code` 和 `message`，可选 `details`。插件 handler panic、重复终态、未知 action、移除字段或错误 envelope 都会被投影为正式插件错误并记录脱敏诊断。
 
-注册完成后，外部调用方使用 `POST /api/webhooks/{plugin_id}/{route}`。Server 完成声明鉴权、来源地址和重放检查后，把请求投递为所属插件的 `webhook.received` 事件。
+Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` 和 `event.Fail` 终态 helper，以及 `event.Actions()` 非终态 action helper。每个事件只能成功发送一次终态。
 
-- 同一事件内允许多个 local action 同时在途。
-- 插件在本地 action 尚未完成时返回事件级 `result` 或 `error`，属于协议违规。
-- 处理器需要满足可重入要求，避免把会话外状态写成单线程假设。
+## 并发与顺序
 
-## 出站消息结构
-
-当前正式消息段类型：
-
-- `text`
-- `image`
-- `at`
-- `at_all`
-- `face`
-- `reply`
-- `record`
-- `video`
-- `file`
-- `flash_file`
-- `json`
-- `xml`
-- `markdown`
-- `music`
-- `contact`
-- `forward`
-- `node`
-- `poke`
-- `dice`
-- `rps`
-- `mface`
-- `keyboard`
-- `shake`
-
-平台负责把 shared `message.segments` 投影到当前适配器支持的消息格式。
-
-`record`、`video`、`file` 与 `flash_file` 属于媒体分支，必须携带非空 `data`；其余 passthrough 类型属于 payload 分支，`data` 可省略。两个分支按 `type` 互斥。
-
-管理面兼容矩阵通过 `GET /api/protocols/onebot11/compatibility` 提供正式读取面，固定覆盖 `events`、`message_segments`、`read_capabilities` 和 `provider_extensions` 四类能力。
-
-## 当前边界
-
-- 当前协议不包含批量消息、复杂流式回传、额外调试流或未冻结 action。
-- 协议扩展先更新 contract，再更新 SDK、fixtures、示例和运行时实现。
+- 生效并发度为 `min(manifest.concurrency, runtime.max_concurrent_tasks_per_plugin)`，最小为 `1`。
+- 同插件、同 `event.target.type + ":" + event.target.id` 保持顺序。
+- 不同会话可以并发。
+- 无稳定 target 的事件进入独立 fallback lane。
 
 ## 相关文档
 
 - [Event Model](../architecture/event-model.md)
-- [Capabilities and Manifest](./capabilities-and-manifest.md)
-- [Plugin SDK Docs](./sdk/README.md)
+- [Plugin Manifest and Permissions](./permissions-and-manifest.md)
+- [Plugin SDK](./sdk/README.md)

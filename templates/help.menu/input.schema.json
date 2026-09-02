@@ -96,9 +96,9 @@
           "usage": {
             "type": "string"
           },
-          "command_source": {
+          "trigger_type": {
             "type": "string",
-            "enum": ["manifest", "dynamic", "pattern"]
+            "enum": ["exact", "setting", "pattern"]
           },
           "usage_args": {
             "type": "string"
@@ -157,9 +157,9 @@
                 "usage": {
                   "type": "string"
                 },
-                "command_source": {
+                "trigger_type": {
                   "type": "string",
-                  "enum": ["manifest", "dynamic", "pattern"]
+                  "enum": ["exact", "setting", "pattern"]
                 },
                 "usage_args": {
                   "type": "string"

@@ -22,17 +22,14 @@ var (
 
 type testArtifactFile struct {
 	Path   string `json:"path"`
-	Role   string `json:"role"`
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
 }
 
 type testArtifactDocument struct {
 	ArtifactVersion string             `json:"artifact_version"`
-	PluginID        string             `json:"plugin_id"`
-	PluginVersion   string             `json:"plugin_version"`
 	TargetPlatform  string             `json:"target_platform"`
-	ManifestSHA256  string             `json:"manifest_sha256"`
+	Entry           string             `json:"entry"`
 	Files           []testArtifactFile `json:"files"`
 }
 
@@ -83,14 +80,12 @@ func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 		t.Fatalf("stat Go plugin fixture binary: %v", err)
 	}
 	document := testArtifactDocument{
-		ArtifactVersion: "1",
-		PluginID:        "raylea.echo",
-		PluginVersion:   "0.2.0",
+		ArtifactVersion: "2",
 		TargetPlatform:  currentPluginPlatform(t),
-		ManifestSHA256:  digestBytes(echoManifest),
+		Entry:           backendRelative,
 		Files: []testArtifactFile{
-			{Path: "info.json", Role: "manifest", Size: int64(len(echoManifest)), SHA256: digestBytes(echoManifest)},
-			{Path: backendRelative, Role: "backend", Size: backendInfo.Size(), SHA256: digestFile(t, backendPath)},
+			{Path: "info.json", Size: int64(len(echoManifest)), SHA256: digestBytes(echoManifest)},
+			{Path: backendRelative, Size: backendInfo.Size(), SHA256: digestFile(t, backendPath)},
 		},
 	}
 	payload, err := json.MarshalIndent(document, "", "  ")
@@ -111,11 +106,9 @@ func WriteGoPluginArtifact(t testing.TB, root, pluginID, version string) string 
 	ensureEchoFixture(t)
 	manifestDocument := map[string]any{
 		"id": pluginID, "name": pluginID, "version": version,
-		"manifest_version": "2", "plugin_protocol_version": "1",
-		"runtime": "go", "entry": "bin/plugin",
-		"platforms": []string{"windows-x64", "linux-x64", "macos-arm64"},
-		"license":   "MIT", "description": "Go artifact fixture", "author": "raylea",
-		"capabilities": []string{"event.subscribe"},
+		"manifest_version": "3", "min_core_version": "0.4.0",
+		"license": "MIT", "metadata": map[string]any{"description": "Native artifact fixture", "author": "raylea"},
+		"events": []string{}, "permissions": map[string]any{},
 	}
 	manifest, err := json.MarshalIndent(manifestDocument, "", "  ")
 	if err != nil {
@@ -138,11 +131,10 @@ func WriteGoPluginArtifact(t testing.TB, root, pluginID, version string) string 
 		t.Fatalf("stat installable Go plugin binary: %v", err)
 	}
 	document := testArtifactDocument{
-		ArtifactVersion: "1", PluginID: pluginID, PluginVersion: version,
-		TargetPlatform: currentPluginPlatform(t), ManifestSHA256: digestBytes(manifest),
+		ArtifactVersion: "2", TargetPlatform: currentPluginPlatform(t), Entry: backendRelative,
 		Files: []testArtifactFile{
-			{Path: "info.json", Role: "manifest", Size: int64(len(manifest)), SHA256: digestBytes(manifest)},
-			{Path: backendRelative, Role: "backend", Size: backendInfo.Size(), SHA256: digestFile(t, backendPath)},
+			{Path: "info.json", Size: int64(len(manifest)), SHA256: digestBytes(manifest)},
+			{Path: backendRelative, Size: backendInfo.Size(), SHA256: digestFile(t, backendPath)},
 		},
 	}
 	payload, err := json.MarshalIndent(document, "", "  ")

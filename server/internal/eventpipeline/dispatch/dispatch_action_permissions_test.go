@@ -2,23 +2,64 @@ package dispatch
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"log/slog"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T) {
+func allowAllPermissions(dispatcher *Dispatcher) {
+	dispatcher.SetPermissionChecker(func(context.Context, string, string) bool { return true })
+}
+
+func TestDispatchActionExecutionRejectsWhenPermissionCheckerIsMissing(t *testing.T) {
 	t.Parallel()
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{}
 	d := New(logger, sender, nil, 16)
-	d.SetCapabilityChecker(func(_ context.Context, pluginID, capability string) bool {
+	defer d.Close()
+
+	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+		RequestID: "req_runtime_delivery_missing_checker",
+		Action: &pluginruntime.Action{
+			Kind:       "message.send",
+			TargetType: "group",
+			TargetID:   "200",
+			MessageSegments: []pluginruntime.ActionSegment{{
+				Type: "text",
+				Data: map[string]any{"text": "should be denied"},
+			}},
+		},
+	}}
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
+	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+
+	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
+		return summary.RequestID == "req_runtime_delivery_missing_checker"
+	})
+	if summary.Details["error_code"] != "plugin.permission_denied" {
+		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
+	}
+	sender.mu.Lock()
+	defer sender.mu.Unlock()
+	if len(sender.messages) != 0 || len(sender.replies) != 0 {
+		t.Fatalf("missing checker allowed outbound send: messages=%#v replies=%#v", sender.messages, sender.replies)
+	}
+}
+
+func TestDispatchActionExecutionRejectsMissingMessageSendPermission(t *testing.T) {
+	t.Parallel()
+
+	logger, stream := newDispatchTestLogger()
+	sender := &fakeSender{}
+	d := New(logger, sender, nil, 16)
+	d.SetPermissionChecker(func(_ context.Context, pluginID, permission string) bool {
 		return false
 	})
 	defer d.Close()
@@ -35,14 +76,14 @@ func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_permission_send"
 	})
-	if summary.Details["error_code"] != "plugin.capability_violation" {
+	if summary.Details["error_code"] != "plugin.permission_denied" {
 		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
 	}
 
@@ -56,7 +97,7 @@ func TestDispatchActionExecutionRejectsMissingMessageSendCapability(t *testing.T
 	}
 }
 
-func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.T) {
+func TestDispatchActionExecutionRejectsMissingMessageReplyPermission(t *testing.T) {
 	t.Parallel()
 
 	logger, stream := newDispatchTestLogger()
@@ -68,7 +109,7 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.
 			TargetID:   "200",
 		},
 	}, 16)
-	d.SetCapabilityChecker(func(_ context.Context, pluginID, capability string) bool {
+	d.SetPermissionChecker(func(_ context.Context, pluginID, permission string) bool {
 		return false
 	})
 	defer d.Close()
@@ -84,14 +125,14 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyCapability(t *testing.
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_permission_reply"
 	})
-	if summary.Details["error_code"] != "plugin.capability_violation" {
+	if summary.Details["error_code"] != "plugin.permission_denied" {
 		t.Fatalf("unexpected error code: %#v", summary.Details["error_code"])
 	}
 
@@ -113,6 +154,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 		sendResult: onebot11.SendMessageResult{MessageID: "send-100"},
 	}
 	d := New(logger, sender, nil, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
@@ -127,7 +169,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
@@ -177,6 +219,7 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 		sendErr: &onebot11.Error{Code: "adapter.send_failed", Message: "send rejected by upstream"},
 	}
 	d := New(logger, sender, nil, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
@@ -191,7 +234,7 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
@@ -233,6 +276,7 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 		},
 	}
 	d := New(logger, sender, resolver, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
@@ -247,7 +291,7 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 
@@ -285,6 +329,7 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 		sendResult: onebot11.SendMessageResult{MessageID: "send-300"},
 	}
 	d := New(logger, sender, nil, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
@@ -299,7 +344,7 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
 
@@ -365,7 +410,7 @@ func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
 		blockCh:  make(chan struct{}),
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
-	d.Register("blocker", blocker, nil, nil, 1)
+	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
 
 	pub := &recordingRuntimePublisher{}
 	d.SetRuntimePublisher(pub)
@@ -480,6 +525,7 @@ func (m *recordingDispatchMetrics) ObserveOutboundDuration(adapter string, durat
 func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	metrics := newRecordingDispatchMetrics()
@@ -496,7 +542,7 @@ func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("metric-plugin", rt, nil, nil, 1)
+	d.Register("metric-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
 	time.Sleep(100 * time.Millisecond)

@@ -18,7 +18,10 @@ const schemas = [
   'plugin-store-signature.schema.json',
 ]
 const pluginUIBridgeSchema = 'plugin-management-ui-bridge.schema.json'
-const pluginUITypesTarget = 'sdk/vue/src/contract.generated.ts'
+const pluginUITypesTargets = [
+  'sdk/vue/src/contract.generated.ts',
+  'web/src/types/plugin-management-ui.generated.ts',
+]
 
 const verifyMode = process.argv.includes('--verify')
 let failed = false
@@ -50,22 +53,24 @@ for (const name of schemas) {
 
 const bridgeSchema = JSON.parse(await fs.readFile(path.join(repoRoot, 'contracts', pluginUIBridgeSchema), 'utf8'))
 const generatedPluginUITypes = Buffer.from(generatePluginUITypes(bridgeSchema), 'utf8')
-const pluginUITypesPath = path.join(repoRoot, pluginUITypesTarget)
-if (verifyMode) {
-  let current = null
-  try {
-    current = normalizeSchemaBytes(await fs.readFile(pluginUITypesPath))
-  } catch {
-    console.error(`missing generated plugin UI types: ${pluginUITypesTarget}`)
-    failed = true
+for (const pluginUITypesTarget of pluginUITypesTargets) {
+  const pluginUITypesPath = path.join(repoRoot, pluginUITypesTarget)
+  if (verifyMode) {
+    let current = null
+    try {
+      current = normalizeSchemaBytes(await fs.readFile(pluginUITypesPath))
+    } catch {
+      console.error(`missing generated plugin UI types: ${pluginUITypesTarget}`)
+      failed = true
+    }
+    if (current && !generatedPluginUITypes.equals(current)) {
+      console.error(`generated plugin UI types are out of sync with contracts/${pluginUIBridgeSchema}; run node scripts/generate-runtime-schemas.mjs`)
+      failed = true
+    }
+  } else {
+    await fs.mkdir(path.dirname(pluginUITypesPath), { recursive: true })
+    await fs.writeFile(pluginUITypesPath, generatedPluginUITypes)
   }
-  if (current && !generatedPluginUITypes.equals(current)) {
-    console.error(`generated plugin UI types are out of sync with contracts/${pluginUIBridgeSchema}; run node scripts/generate-runtime-schemas.mjs`)
-    failed = true
-  }
-} else {
-  await fs.mkdir(path.dirname(pluginUITypesPath), { recursive: true })
-  await fs.writeFile(pluginUITypesPath, generatedPluginUITypes)
 }
 
 if (failed) {

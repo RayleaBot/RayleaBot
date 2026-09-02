@@ -29,13 +29,16 @@ func commandsEqual(left []plugins.Command, right []plugins.Command) bool {
 		return false
 	}
 	for index := range left {
-		if left[index].Name != right[index].Name ||
+		if left[index].ID != right[index].ID ||
+			left[index].Name != right[index].Name ||
+			left[index].DisplayName != right[index].DisplayName ||
 			left[index].Description != right[index].Description ||
 			left[index].Usage != right[index].Usage ||
 			left[index].Permission != right[index].Permission ||
-			left[index].CommandSource != right[index].CommandSource ||
+			left[index].TriggerType != right[index].TriggerType ||
 			left[index].MatchPattern != right[index].MatchPattern ||
-			left[index].DeclarationID != right[index].DeclarationID ||
+			left[index].SettingsKey != right[index].SettingsKey ||
+			!stringSlicesEqual(left[index].TriggerNames, right[index].TriggerNames) ||
 			!stringSlicesEqual(left[index].Aliases, right[index].Aliases) {
 			return false
 		}

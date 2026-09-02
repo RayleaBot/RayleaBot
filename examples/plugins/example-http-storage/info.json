@@ -1,0 +1,39 @@
+{
+  "id": "example-http-storage",
+  "name": "Example HTTP Storage",
+  "version": "0.2.0",
+  "manifest_version": "3",
+  "concurrency": 2,
+  "license": "MIT",
+  "default_config": {
+    "cache_file": "example-homepage.txt"
+  },
+  "commands": [
+    {
+      "id": "scope-fetch",
+      "name": "scope_fetch",
+      "description": "Fetch https://example.com/ and cache it into private plugin storage.",
+      "usage": "/scope_fetch",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "scope_fetch",
+          "scope_cache"
+        ]
+      }
+    }
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go example plugin demonstrating HTTP requests and implicit private file storage.",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private"
+  ],
+  "permissions": {
+    "http.request": true
+  }
+}

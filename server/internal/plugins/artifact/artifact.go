@@ -21,61 +21,57 @@ import (
 )
 
 const (
-	Version         = "1"
-	ManifestVersion = "2"
-	BridgeVersion   = "2"
+	Version         = "2"
+	ManifestVersion = "3"
+	ProtocolVersion = "2"
+	BridgeVersion   = "3"
 )
 
 var (
-	ErrInvalid          = errors.New("plugin artifact invalid")
-	ErrPlatformMismatch = errors.New("plugin platform mismatch")
+	ErrInvalid             = errors.New("plugin artifact invalid")
+	ErrPlatformMismatch    = errors.New("plugin platform mismatch")
+	ErrContractUnsupported = errors.New("plugin contract unsupported")
 )
 
 type File struct {
 	Path   string `json:"path"`
-	Role   string `json:"role"`
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
 }
 
 type Document struct {
 	ArtifactVersion string `json:"artifact_version"`
-	PluginID        string `json:"plugin_id"`
-	PluginVersion   string `json:"plugin_version"`
 	TargetPlatform  string `json:"target_platform"`
-	ManifestSHA256  string `json:"manifest_sha256"`
+	Entry           string `json:"entry"`
 	Files           []File `json:"files"`
 }
 
 type Manifest struct {
-	ID                    string        `json:"id"`
-	Name                  string        `json:"name"`
-	Version               string        `json:"version"`
-	ManifestVersion       string        `json:"manifest_version"`
-	PluginProtocolVersion string        `json:"plugin_protocol_version"`
-	Runtime               string        `json:"runtime"`
-	Entry                 string        `json:"entry"`
-	Platforms             []string      `json:"platforms"`
-	ManagementUI          *ManagementUI `json:"management_ui,omitempty"`
+	ID              string        `json:"id"`
+	Name            string        `json:"name"`
+	Version         string        `json:"version"`
+	ManifestVersion string        `json:"manifest_version"`
+	ManagementUI    *ManagementUI `json:"management_ui,omitempty"`
 }
 
 type ManagementUI struct {
+	Entry string           `json:"entry"`
 	Pages []ManagementPage `json:"pages"`
 }
 
 type ManagementPage struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
-	Entry string `json:"entry"`
 }
 
 type Verified struct {
-	Root        string
-	Document    Document
-	Manifest    Manifest
-	BackendPath string
-	UIAvailable bool
-	UIEntries   []string
+	Root           string
+	Document       Document
+	Manifest       Manifest
+	ManifestSHA256 string
+	BackendPath    string
+	UIAvailable    bool
+	UIEntries      []string
 }
 
 type Options struct {
@@ -109,6 +105,9 @@ func Verify(root string, options Options) (Verified, error) {
 	if err != nil {
 		return Verified{}, invalid("read artifact.json", err)
 	}
+	if version := objectString(documentValue, "artifact_version"); version != Version {
+		return Verified{}, fmt.Errorf("%w: artifact_version %q, supported %q", ErrContractUnsupported, version, Version)
+	}
 	artifactValidator, err := config.CompileJSON(config.PluginArtifactSchemaID, config.PluginArtifactSchemaJSON)
 	if err != nil {
 		return Verified{}, invalid("compile artifact schema", err)
@@ -128,6 +127,9 @@ func Verify(root string, options Options) (Verified, error) {
 	if err != nil {
 		return Verified{}, invalid("read info.json", err)
 	}
+	if version := objectString(manifestValue, "manifest_version"); version != ManifestVersion {
+		return Verified{}, fmt.Errorf("%w: manifest_version %q, supported %q", ErrContractUnsupported, version, ManifestVersion)
+	}
 	manifestValidator, err := config.CompileJSON(config.PluginInfoSchemaID, config.PluginInfoSchemaJSON)
 	if err != nil {
 		return Verified{}, invalid("compile plugin manifest schema", err)
@@ -139,19 +141,10 @@ func Verify(root string, options Options) (Verified, error) {
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return Verified{}, invalid("decode info.json", err)
 	}
-	if manifest.ManifestVersion != ManifestVersion || manifest.Runtime != "go" || manifest.PluginProtocolVersion != "1" {
+	if manifest.ManifestVersion != ManifestVersion {
 		return Verified{}, invalid("unsupported plugin manifest", nil)
 	}
-	if document.PluginID != manifest.ID || document.PluginVersion != manifest.Version {
-		return Verified{}, invalid("artifact identity does not match info.json", nil)
-	}
 	manifestDigest := sha256.Sum256(manifestBytes)
-	if document.ManifestSHA256 != hex.EncodeToString(manifestDigest[:]) {
-		return Verified{}, invalid("info.json digest does not match artifact.json", nil)
-	}
-	if !contains(manifest.Platforms, document.TargetPlatform) {
-		return Verified{}, invalid("target platform is not declared by info.json", nil)
-	}
 
 	verified, err := verifyFiles(absoluteRoot, document, manifest)
 	if err != nil {
@@ -159,15 +152,13 @@ func Verify(root string, options Options) (Verified, error) {
 	}
 	verified.Document = document
 	verified.Manifest = manifest
+	verified.ManifestSHA256 = hex.EncodeToString(manifestDigest[:])
 	verified.Root = absoluteRoot
 	return verified, nil
 }
 
 func verifyFiles(root string, document Document, manifest Manifest) (Verified, error) {
 	declared := make(map[string]File, len(document.Files))
-	roles := make(map[string]string, len(document.Files))
-	backendCount := 0
-	manifestCount := 0
 	for _, item := range document.Files {
 		path, err := safeRelativePath(item.Path)
 		if err != nil {
@@ -178,23 +169,21 @@ func verifyFiles(root string, document Document, manifest Manifest) (Verified, e
 			return Verified{}, invalid("artifact contains duplicate file paths", nil)
 		}
 		declared[key] = item
-		roles[key] = item.Role
-		switch item.Role {
-		case "backend":
-			backendCount++
-		case "manifest":
-			manifestCount++
-		}
 	}
-	if backendCount != 1 {
-		return Verified{}, invalid("artifact must declare exactly one backend file", nil)
+	if _, exists := declared["info.json"]; !exists {
+		return Verified{}, invalid("artifact must inventory info.json", nil)
 	}
-	if manifestCount != 1 || roles["info.json"] != "manifest" {
-		return Verified{}, invalid("artifact must declare info.json as its only manifest file", nil)
+	entryPath, err := safeRelativePath(document.Entry)
+	if err != nil {
+		return Verified{}, invalid("invalid artifact entry path", err)
+	}
+	entryKey := strings.ToLower(filepath.ToSlash(entryPath))
+	if _, exists := declared[entryKey]; !exists {
+		return Verified{}, invalid("artifact entry is not inventoried", nil)
 	}
 
 	actual := make(map[string]string, len(document.Files))
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -233,7 +222,6 @@ func verifyFiles(root string, document Document, manifest Manifest) (Verified, e
 		return Verified{}, invalid("artifact file inventory does not match package contents", nil)
 	}
 
-	var backendPath string
 	uiEntries := make([]string, 0)
 	for key, item := range declared {
 		relative, exists := actual[key]
@@ -255,9 +243,6 @@ func verifyFiles(root string, document Document, manifest Manifest) (Verified, e
 		if digest != item.SHA256 {
 			return Verified{}, invalid("artifact digest mismatch: "+item.Path, nil)
 		}
-		if item.Role == "backend" {
-			backendPath = path
-		}
 	}
 	for key, relative := range actual {
 		if _, exists := declared[key]; !exists {
@@ -265,22 +250,16 @@ func verifyFiles(root string, document Document, manifest Manifest) (Verified, e
 		}
 	}
 
-	expectedBackend := manifest.Entry
-	if document.TargetPlatform == "windows-x64" {
-		expectedBackend += ".exe"
-	}
-	if filepath.ToSlash(relativeTo(root, backendPath)) != expectedBackend {
-		return Verified{}, invalid("backend file does not match manifest entry", nil)
-	}
+	backendPath := filepath.Join(root, filepath.FromSlash(document.Entry))
 	if err := validateBinary(backendPath, document.TargetPlatform); err != nil {
 		return Verified{}, err
 	}
-	for _, page := range managementPages(manifest) {
-		key := strings.ToLower(filepath.ToSlash(page.Entry))
-		if roles[key] != "ui" {
-			return Verified{}, invalid("management UI entry is not declared as a UI file: "+page.Entry, nil)
+	if manifest.ManagementUI != nil {
+		key := strings.ToLower(filepath.ToSlash(manifest.ManagementUI.Entry))
+		if _, exists := declared[key]; !exists {
+			return Verified{}, invalid("management UI entry is not inventoried: "+manifest.ManagementUI.Entry, nil)
 		}
-		uiEntries = append(uiEntries, filepath.ToSlash(page.Entry))
+		uiEntries = append(uiEntries, filepath.ToSlash(manifest.ManagementUI.Entry))
 	}
 	sort.Strings(uiEntries)
 	return Verified{BackendPath: backendPath, UIAvailable: len(uiEntries) > 0, UIEntries: uiEntries}, nil
@@ -346,6 +325,12 @@ func readJSON(path string) ([]byte, any, error) {
 	return content, value, nil
 }
 
+func objectString(value any, key string) string {
+	object, _ := value.(map[string]any)
+	text, _ := object[key].(string)
+	return strings.TrimSpace(text)
+}
+
 func fileDigest(path string) (string, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -371,27 +356,6 @@ func safeRelativePath(value string) (string, error) {
 		return "", errors.New("path is not canonical")
 	}
 	return clean, nil
-}
-
-func managementPages(manifest Manifest) []ManagementPage {
-	if manifest.ManagementUI == nil {
-		return nil
-	}
-	return manifest.ManagementUI.Pages
-}
-
-func relativeTo(root, path string) string {
-	relative, _ := filepath.Rel(root, path)
-	return relative
-}
-
-func contains(values []string, expected string) bool {
-	for _, value := range values {
-		if value == expected {
-			return true
-		}
-	}
-	return false
 }
 
 func invalid(message string, err error) error {

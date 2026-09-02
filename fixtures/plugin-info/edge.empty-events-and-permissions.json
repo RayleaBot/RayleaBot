@@ -1,0 +1,21 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "edge",
+  "input": {
+    "id": "idle-native",
+    "name": "Idle Native",
+    "version": "1.0.0",
+    "manifest_version": "3",
+    "license": "MIT",
+    "min_core_version": "0.4.0",
+    "events": [],
+    "permissions": {}
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Empty events means no ordinary event fan-out.",
+      "Empty permissions still retains implicit plugin-private logging, config, KV and file access."
+    ]
+  }
+}

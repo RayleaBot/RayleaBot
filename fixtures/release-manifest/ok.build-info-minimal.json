@@ -9,8 +9,8 @@
     "built_at": "2026-03-17T10:00:00Z",
     "update_protocol_version": 2,
     "release_manifest_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
-    "plugin_manifest_version": "2",
-    "plugin_ui_bridge_version": "2"
+    "plugin_manifest_version": "3",
+    "plugin_ui_bridge_version": "3"
   },
   "expect": {
     "valid": true

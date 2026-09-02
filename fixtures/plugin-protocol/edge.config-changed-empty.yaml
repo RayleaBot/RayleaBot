@@ -1,0 +1,21 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - type: event
+    request_id: event-config-empty-1
+    event:
+      event_id: config-empty-1
+      source_protocol: system
+      source_adapter: config
+      event_type: config.changed
+      timestamp: 1788192000
+      payload:
+        config: {}
+        changed_keys:
+          - removed_key
+  - type: result
+    request_id: event-config-empty-1
+    status: success
+    data: {}
+expect:
+  valid: true

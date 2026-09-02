@@ -36,9 +36,8 @@ func TestExecuteHTTPSendsExplicitRequestAndReturnsText(t *testing.T) {
 			MaxRetries:        0,
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-	}, stubHTTPActionCapabilities{
-		capabilities: map[string]bool{"http.request": true},
-		httpHosts:    []string{"127.0.0.1"},
+	}, stubHTTPActionPermissions{
+		permissions: map[string]bool{"http.request": true},
 	})
 	if err != nil {
 		t.Fatalf("executeHTTPRequest failed: %v", err)
@@ -48,7 +47,7 @@ func TestExecuteHTTPSendsExplicitRequestAndReturnsText(t *testing.T) {
 	}
 }
 
-func TestExecuteHTTPAllowsSuffixMatchedHost(t *testing.T) {
+func TestExecuteHTTPAllowsConfiguredPrivateHost(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -68,9 +67,8 @@ func TestExecuteHTTPAllowsSuffixMatchedHost(t *testing.T) {
 			MaxRetries:        0,
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-	}, stubHTTPActionCapabilities{
-		capabilities: map[string]bool{"http.request": true},
-		httpHosts:    []string{"0.0.1"},
+	}, stubHTTPActionPermissions{
+		permissions: map[string]bool{"http.request": true},
 	})
 	if err != nil {
 		t.Fatalf("executeHTTPRequest failed: %v", err)
@@ -80,22 +78,21 @@ func TestExecuteHTTPAllowsSuffixMatchedHost(t *testing.T) {
 	}
 }
 
-func TestExecuteHTTPRejectsUndeclaredHost(t *testing.T) {
+func TestExecuteHTTPRejectsPrivateHostWithoutServerAllowlist(t *testing.T) {
 	t.Parallel()
 
 	_, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
 		HTTPMethod: "GET",
-		HTTPURL:    "https://api.example.test/v1/data",
-	}, config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}}, stubHTTPActionCapabilities{
-		capabilities: map[string]bool{"http.request": true},
-		httpHosts:    []string{"other.example.test"},
+		HTTPURL:    "https://127.0.0.1/v1/data",
+	}, config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}}, stubHTTPActionPermissions{
+		permissions: map[string]bool{"http.request": true},
 	})
 
 	var runtimeErr *pluginruntime.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
-	if runtimeErr.Code != "plugin.capability_violation" {
+	if runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("unexpected runtime error: %#v", runtimeErr)
 	}
 }
@@ -115,9 +112,8 @@ func TestExecuteHTTPMapsOversizedResponseToStableError(t *testing.T) {
 		TimeoutSeconds:       5,
 		MaxResponseBodyBytes: 4,
 		AllowPrivateHosts:    []string{"127.0.0.1"},
-	}}, stubHTTPActionCapabilities{
-		capabilities: map[string]bool{"http.request": true},
-		httpHosts:    []string{"127.0.0.1"},
+	}}, stubHTTPActionPermissions{
+		permissions: map[string]bool{"http.request": true},
 	})
 
 	var runtimeErr *pluginruntime.Error
@@ -126,31 +122,18 @@ func TestExecuteHTTPMapsOversizedResponseToStableError(t *testing.T) {
 	}
 }
 
-type stubHTTPActionCapabilities struct {
-	capabilities map[string]bool
-	httpHosts    []string
+type stubHTTPActionPermissions struct {
+	permissions map[string]bool
 }
 
-func (s stubHTTPActionCapabilities) CapabilityDeclared(_ context.Context, _ string, capability string) bool {
-	return s.capabilities[capability]
+func (s stubHTTPActionPermissions) PermissionDeclared(_ context.Context, _ string, permission string) bool {
+	return s.permissions[permission]
 }
 
-func (s stubHTTPActionCapabilities) StorageRootAllowed(context.Context, string, string) bool {
-	return false
-}
-
-func (s stubHTTPActionCapabilities) HTTPHosts(context.Context, string) []string {
-	return append([]string(nil), s.httpHosts...)
-}
-
-func (s stubHTTPActionCapabilities) ThirdPartyAccountPlatforms(context.Context, string) []string {
+func (s stubHTTPActionPermissions) PermissionPlatforms(context.Context, string, string) []string {
 	return nil
 }
 
-func (s stubHTTPActionCapabilities) WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool) {
-	return plugins.WebhookScope{}, false
-}
-
-func (s stubHTTPActionCapabilities) ListPluginSnapshots() []plugins.Snapshot {
+func (s stubHTTPActionPermissions) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }

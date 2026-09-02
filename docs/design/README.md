@@ -26,9 +26,9 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据以 [`cont
 | 设计上下文 | `documented` | `PRODUCT.md`、`DESIGN.md` 与 `.impeccable/design.json` 提供战略、视觉和扩展元数据 | loader 能同时读取产品与设计上下文，设计文件由 CI 识别为 docs |
 | Web 管理面 | `adopted` | 管理壳、认证入口和全部正式工作区已映射项目级语义；主题支持 `system`、`light`、`dark`，桌面多工作区显示页签，移动端使用抽屉导航与摘要行 | 后续变更沿用语义 token、状态色调、异常优先披露和响应式结构，并满足 Web 分面验收条件 |
 | Launcher | `adopted` | Fluent theme、CSS variables、原生窗口背景与五个工作区已采用项目级冷暖语义；`760×560` 最小窗口使用顶部紧凑导航 | 后续变更沿用语义 token、主题同步、桌面壳职责，并满足 Launcher 分面验收条件 |
-| 官方插件 | `adopted` | 独立插件仓库使用 Vue 3、TypeScript、Vite、按需 Ant Design Vue 与 `@rayleabot/plugin-ui`；产物自带运行时和样式 | 后续变更沿用 bridge v2、主题 token、焦点、状态和窄屏行为 |
+| 官方插件 | `adopted` | 独立插件仓库使用 Vue 3、TypeScript、Vite、按需 Ant Design Vue 与 `@rayleabot/plugin-ui`；产物自带运行时和样式 | 后续变更沿用 bridge v3、主题 token、焦点、状态和窄屏行为 |
 | 第三方插件 | `compatible-envelope` | 宿主负责 iframe 边界、载入状态、安全确认和错误恢复；页面不继承宿主全局样式 | 页面支持系统主题媒体查询、键盘操作、对比度和 reduced-motion，不要求使用 RayleaBot 组件 |
-| 宿主主题同步 | `adopted` | bridge v2 的 `host.init` 下发亮暗模式和允许的设计 token；SDK 将其映射到插件页面根节点 | 后续字段先进入 bridge contract，再同步 fixture、宿主、Vue SDK、官方插件和文档 |
+| 宿主主题同步 | `adopted` | bridge v3 的 `host.init` 下发亮暗模式和允许的设计 token；SDK 将其映射到插件页面根节点 | 后续字段先进入 bridge contract，再同步 fixture、宿主、Vue SDK、官方插件和文档 |
 
 `documented` 表示正式文档与机器可读上下文完整，`adopted` 表示运行时已采用并由对应分面测试约束，`compatible-envelope` 表示插件可独立实现页面，不要求使用 RayleaBot 组件。
 

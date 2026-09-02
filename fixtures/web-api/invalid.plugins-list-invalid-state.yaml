@@ -13,6 +13,8 @@ response:
         role: community
         state: paused
         commands: []
+        command_groups: []
+        help: {}
 expect:
   valid: false
   reason: state must stay within the formal PluginState enum.

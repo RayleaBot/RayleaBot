@@ -9,7 +9,7 @@ import (
 
 const pluginExitedBeforeInitMessage = "插件进程在初始化完成前退出，请查看该插件的 stderr 日志"
 
-func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) ([]string, *Error) {
+func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) *Error {
 	deadlineTimer := time.NewTimer(handle.Spec.InitTimeout)
 	defer deadlineTimer.Stop()
 
@@ -30,10 +30,10 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 		case line := <-readCh:
 			status, payload, err := m.parseInitResponse(line, handle.Spec.PluginID, requestID)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			if status == InitResponseReady {
-				return payload, nil
+				return nil
 			}
 			summary := ""
 			if len(payload) > 0 {
@@ -48,33 +48,31 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 				"summary", summary,
 			)
 		case readErr := <-readErrCh:
-			return nil, classifyProtocolReadError(handle, readErr, pluginExitedBeforeInitMessage, "read plugin init response")
+			return classifyProtocolReadError(handle, readErr, pluginExitedBeforeInitMessage, "read plugin init response")
 		case <-handle.Done():
 			waitErr, _ := handle.ExitResult()
 			if waitErr == nil {
-				return nil, errorf(codePluginInternalError, pluginExitedBeforeInitMessage, nil)
+				return errorf(codePluginInternalError, pluginExitedBeforeInitMessage, nil)
 			}
-			return nil, errorf(codePluginInternalError, pluginExitedBeforeInitMessage, waitErr)
+			return errorf(codePluginInternalError, pluginExitedBeforeInitMessage, waitErr)
 		case <-deadlineTimer.C:
-			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
+			return errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
 		case <-ctx.Done():
-			return nil, errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
+			return errorf(codePluginInitTimeout, "plugin init_ack timed out", ctx.Err())
 		}
 	}
 }
 
 func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *Error) {
+	if err := validatePluginFrameV2(line); err != nil {
+		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a non-v2 init response", err)
+	}
 	var envelope FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
 		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
 
-	if envelope.ProtocolVersion != "1" {
-		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an unsupported protocol_version", nil)
-	}
-	if envelope.PluginID == "" || envelope.PluginID != pluginID {
-		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched plugin_id", nil)
-	}
+	_ = pluginID
 	if envelope.RequestID == "" || envelope.RequestID != requestID {
 		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}
@@ -97,7 +95,7 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 			return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_ack", err)
 		}
 		if ack.Status == "ready" {
-			return InitResponseReady, append([]string(nil), ack.Subscriptions...), nil
+			return InitResponseReady, nil, nil
 		}
 		if ack.Status == "error" {
 			message := strings.TrimSpace(ack.ErrorMessage)

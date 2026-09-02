@@ -248,24 +248,14 @@ describe('PluginDetailPage', () => {
       role: 'community',
         state: 'running',
       version: '1.4.2',
-      runtime: 'go',
-      entry: 'bin/weather',
       description: '提供当前城市天气与未来天气查询。',
       author: 'raylea',
       license: 'MIT',
       min_core_version: '0.2.0',
-      data_schema_version: 'weather-v2',
       concurrency: 3,
-      platforms: ['windows-x64', 'linux-x64'],
-      default_config: {
-        unit: 'metric',
-        forecast_days: 3,
-      },
-      declared_capabilities: ['http.request', 'logger.write', 'render.image'],
-      capability_parameters: {
-        http_hosts: ['api.weather.example'],
-        storage_roots: ['plugin_data'],
-      },
+    events: ['message.group'],
+    permissions: { 'http.request': true, 'render.image': true },
+    webhooks: [],
       icon: 'assets/weather.svg',
       repo: 'https://github.com/RayleaBot/plugins-weather',
       homepage: 'https://plugins.rayleabot.local/weather',
@@ -288,15 +278,17 @@ describe('PluginDetailPage', () => {
       },
       commands: [
         {
+          id: 'fortune',
           name: '我的运势',
-          aliases: ['今日运势'],
+          effective_names: ['我的运势', '今日运势'],
           description: '查看今日运势',
           usage: '我的运势',
           permission: 'everyone',
-          command_source: 'dynamic',
-          declaration_id: 'fortune',
+      trigger: { type: 'setting', settings_key: 'fortune_command' },
         },
       ],
+    command_groups: [],
+    help: {},
       command_conflicts: [],
     }
     pluginConsoleStore.appendConsole({
@@ -347,21 +339,16 @@ describe('PluginDetailPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('1.4.2')
-    expect(wrapper.text()).toContain('go')
-    expect(wrapper.text()).toContain('bin/weather')
     expect(wrapper.text()).toContain('raylea')
     expect(wrapper.text()).toContain('MIT')
     expect(wrapper.text()).toContain('assets/weather.svg')
     expect(wrapper.text()).toContain('https://github.com/RayleaBot/plugins-weather')
     expect(wrapper.text()).toContain('https://plugins.rayleabot.local/weather')
-    expect(wrapper.text()).toContain('weather-v2')
-    expect(wrapper.text()).toContain('api.weather.example')
-    expect(wrapper.text()).toContain('forecast_days')
     expect(wrapper.text()).toContain('assets/overview.svg')
     expect(wrapper.text()).toContain('天气总览卡片')
-    expect(wrapper.find('[title="原始能力：http.request"]').exists()).toBe(true)
-    expect(wrapper.find('[title="原始能力：logger.write"]').exists()).toBe(true)
-    expect(wrapper.find('[title="原始能力：render.image"]').exists()).toBe(true)
+  expect(wrapper.find('[title="原始权限：http.request"]').exists()).toBe(true)
+  expect(wrapper.find('[title="原始权限：render.image"]').exists()).toBe(true)
+   expect(wrapper.text()).toContain('message.group')
     expect(wrapper.text()).toContain('查看今日运势')
     expect(wrapper.text()).toContain('所有成员')
     expect(wrapper.text()).toContain('#我的运势')
@@ -652,8 +639,6 @@ describe('PluginDetailPage', () => {
       role: 'community',
         state: 'disabled',
       version: '0.2.0',
-      runtime: 'go',
-      entry: 'bin/example-config-panel',
       description: 'Go example plugin demonstrating settings and secrets management.',
       source: {
         root: 'examples/plugins',
@@ -665,27 +650,25 @@ describe('PluginDetailPage', () => {
         level: 'third_party',
         label: '示例',
       },
-      default_config: {
-        default_city: '北京',
-        unit: 'celsius',
-      },
       management_ui: {
+    entry: 'ui/index.html',
         pages: [
           {
             id: 'config',
             label: '配置页面',
-            entry: 'ui/index.html',
           },
           {
             id: 'secrets',
             label: '密钥设置',
-            entry: 'ui/secrets.html',
           },
         ],
       },
       commands: [],
+    command_groups: [],
+    help: {},
       command_conflicts: [],
-      declared_capabilities: ['config.read', 'config.write'],
+    permissions: {},
+    webhooks: [],
     } as const
 
     pluginsStore.current = detail
@@ -721,7 +704,7 @@ describe('PluginDetailPage', () => {
     await router.push('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
     await flushPromises()
 
-    expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/secrets.html')
+   expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
 
     await router.push('/plugins/example-config-panel')
     await flushPromises()
@@ -745,8 +728,6 @@ describe('PluginDetailPage', () => {
       role: 'community',
         state: 'disabled',
       version: '0.2.0',
-      runtime: 'go',
-      entry: 'bin/example-config-panel',
       source: {
         root: 'examples/plugins',
         package_source_type: 'local_directory',
@@ -758,17 +739,20 @@ describe('PluginDetailPage', () => {
         label: '示例',
       },
       management_ui: {
+    entry: 'ui/index.html',
         pages: [
           {
             id: 'config',
             label: '配置页面',
-            entry: 'ui/index.html',
           },
         ],
       },
       commands: [],
+    command_groups: [],
+    help: {},
       command_conflicts: [],
-      declared_capabilities: ['config.read'],
+    permissions: {},
+    webhooks: [],
     } as const
 
     pluginsStore.current = detail
@@ -793,7 +777,6 @@ describe('PluginDetailPage', () => {
     expect(wrapper.getComponent(PluginManagementUIHost).props('page')).toEqual({
       id: 'config',
       label: '配置页面',
-      entry: 'ui/index.html',
     })
     await vi.waitFor(() => {
       expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)

@@ -26,9 +26,9 @@ func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 				"user_id":      "10001",
 			},
 		},
-	}, "weather", "req-1", 1700000001)
+	}, "req-1")
 
-	if frame.ProtocolVersion != "1" || frame.PluginID != "weather" || frame.RequestID != "req-1" {
+	if frame.Type != "event" || frame.RequestID != "req-1" {
 		t.Fatalf("unexpected frame identity: %#v", frame)
 	}
 	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
@@ -54,7 +54,7 @@ func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 				"action": "check_subscriptions",
 			},
 		},
-	}, "raylea.subscription-hub", "req-scheduler-1", 1700000001)
+	}, "req-scheduler-1")
 
 	if frame.Event.Payload == nil {
 		t.Fatal("scheduler event payload is missing")
@@ -64,6 +64,40 @@ func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 	}
 	if got := frame.Event.Payload.Payload["action"]; got != "check_subscriptions" {
 		t.Fatalf("scheduler nested payload action = %#v, want check_subscriptions", got)
+	}
+}
+
+func TestBuildEventFramePreservesEmptyConfigSnapshot(t *testing.T) {
+	t.Parallel()
+
+	frame := BuildEventFrame(Event{
+		EventID:        "config-empty-1",
+		SourceProtocol: "system",
+		SourceAdapter:  "config",
+		EventType:      "config.changed",
+		Timestamp:      1700000000,
+		PayloadFields: map[string]any{
+			"config":       map[string]any{},
+			"changed_keys": []string{"removed_key"},
+		},
+	}, "req-config-empty-1")
+
+	if frame.Event.Payload == nil || frame.Event.Payload.Config == nil || len(*frame.Event.Payload.Config) != 0 {
+		t.Fatalf("empty config snapshot was not preserved: %#v", frame.Event.Payload)
+	}
+	encoded, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatalf("marshal event frame: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(encoded, &document); err != nil {
+		t.Fatalf("unmarshal event frame: %v", err)
+	}
+	eventDocument := document["event"].(map[string]any)
+	payloadDocument := eventDocument["payload"].(map[string]any)
+	configDocument, ok := payloadDocument["config"].(map[string]any)
+	if !ok || len(configDocument) != 0 {
+		t.Fatalf("serialized config snapshot = %#v", payloadDocument["config"])
 	}
 }
 
@@ -83,7 +117,7 @@ func TestBuildEventFrameProjectsWebhookMetadataAtEventRoot(t *testing.T) {
 			ClientTimestamp: &clientTimestamp,
 			ClientEventID:   "github-delivery-1",
 		},
-	}, "repo-watcher", "request-1", 1700000002)
+	}, "request-1")
 
 	encoded, err := json.Marshal(frame)
 	if err != nil {

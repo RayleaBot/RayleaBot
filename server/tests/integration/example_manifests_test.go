@@ -16,7 +16,7 @@ func TestExamplePluginManifestsMatchContract(t *testing.T) {
 	manifestPaths := []string{
 		filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-config-panel", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-capability-parameters", "info.json"),
+		filepath.Join("..", "examples", "plugins", "example-http-storage", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-governance-control", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
 		filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
@@ -39,48 +39,44 @@ func TestExamplePluginManifestsMatchContract(t *testing.T) {
 	}
 }
 
-func TestExamplePluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) {
+func TestExamplePluginManifestsDeclareV3EventsAndPermissions(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name                     string
-		manifestPath             string
-		wantCapabilities         []string
-		wantCapabilityParameters map[string][]string
+		name            string
+		manifestPath    string
+		wantEvents      []string
+		wantPermissions []string
 	}{
 		{
-			name:             "echo go",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "message.send"},
+			name:         "echo go",
+			manifestPath: filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
+			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send"},
 		},
 		{
-			name:             "example capability parameters",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "example-capability-parameters", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "http.request", "logger.write", "storage.file"},
-			wantCapabilityParameters: map[string][]string{
-				"http_hosts":    {"example.com"},
-				"storage_roots": {"plugin_data"},
-			},
+			name:         "example HTTP storage",
+			manifestPath: filepath.Join("..", "examples", "plugins", "example-http-storage", "info.json"),
+			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"http.request"},
 		},
 		{
-			name:             "example plugin list",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "message.send", "plugin.list"},
+			name:         "example plugin list",
+			manifestPath: filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
+			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send", "plugin.list"},
 		},
 		{
-			name:             "example render card",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "message.send", "render.image"},
+			name:         "example render card",
+			manifestPath: filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
+			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send", "render.image"},
 		},
 		{
-			name:             "example webhook",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "example-webhook", "info.json"),
-			wantCapabilities: []string{"event.expose_webhook", "event.raw_payload", "event.subscribe", "logger.write"},
+			name:         "example webhook",
+			manifestPath: filepath.Join("..", "examples", "plugins", "example-webhook", "info.json"),
+			wantEvents:   []string{"webhook.received"}, wantPermissions: []string{"event.raw_payload"},
 		},
 		{
-			name:             "notice logger",
-			manifestPath:     filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
-			wantCapabilities: []string{"event.subscribe", "logger.write", "storage.kv"},
+			name:         "notice logger",
+			manifestPath: filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
+			wantEvents:   []string{"notice.member_increase", "notice.member_decrease"}, wantPermissions: []string{},
 		},
 	} {
 		tc := tc
@@ -93,25 +89,21 @@ func TestExamplePluginManifestsDeclareExpectedRuntimeCapabilities(t *testing.T) 
 				t.Fatalf("manifest should decode to object: %T", document)
 			}
 
-			gotCapabilities := sortedStringList(manifest["capabilities"])
-			if !reflect.DeepEqual(gotCapabilities, sortedStrings(tc.wantCapabilities)) {
-				t.Fatalf("capabilities mismatch for %s: got %#v want %#v", tc.manifestPath, gotCapabilities, sortedStrings(tc.wantCapabilities))
+			gotEvents := sortedStringList(manifest["events"])
+			if !reflect.DeepEqual(gotEvents, sortedStrings(tc.wantEvents)) {
+				t.Fatalf("events mismatch for %s: got %#v want %#v", tc.manifestPath, gotEvents, sortedStrings(tc.wantEvents))
 			}
-
-			if _, ok := manifest["permissions"]; ok {
-				t.Fatalf("manifest should not declare plugin permissions: %#v", manifest["permissions"])
+			permissionObject, _ := manifest["permissions"].(map[string]any)
+			gotPermissions := make([]string, 0, len(permissionObject))
+			for permission := range permissionObject {
+				gotPermissions = append(gotPermissions, permission)
 			}
-
-			if len(tc.wantCapabilityParameters) > 0 {
-				parameters, ok := manifest["capability_parameters"].(map[string]any)
-				if !ok {
-					t.Fatalf("capability_parameters should decode to object: %#v", manifest["capability_parameters"])
-				}
-				for key, want := range tc.wantCapabilityParameters {
-					got := sortedStringList(parameters[key])
-					if !reflect.DeepEqual(got, sortedStrings(want)) {
-						t.Fatalf("capability parameter %s mismatch for %s: got %#v want %#v", key, tc.manifestPath, got, sortedStrings(want))
-					}
+			if !reflect.DeepEqual(sortedStrings(gotPermissions), sortedStrings(tc.wantPermissions)) {
+				t.Fatalf("permissions mismatch for %s: got %#v want %#v", tc.manifestPath, gotPermissions, tc.wantPermissions)
+			}
+			for _, legacy := range []string{"capabilities", "capability_parameters", "http_hosts", "storage_roots", "render_templates"} {
+				if _, exists := manifest[legacy]; exists {
+					t.Fatalf("legacy field %s leaked into %s", legacy, tc.manifestPath)
 				}
 			}
 		})

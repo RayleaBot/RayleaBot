@@ -14,11 +14,11 @@
 | Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
 | Runtime Manager | 负责插件握手、保活、重载、崩溃恢复与状态同步 |
-| Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、Webhook、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#local-action-rpc) |
+| Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、Webhook、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
 | Protocol Service | 负责协议快照、OneBot 回连入口和 Webhook 协议入口 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
 | Scheduler | 负责 cron 周期任务的注册与定时触发 |
-| Capability View | 提供插件声明能力与能力参数查询 |
+| Permission View | 提供插件权限与参数查询 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
 | Logger | 负责统一结构化日志输出 |
 | Render Service | 负责模板渲染、结果缓存与 artifact 管理 |

@@ -19,7 +19,7 @@ func httpRequestRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:          "http.request",
-			Capability:      "http.request",
+			Permission:      "http.request",
 			RequestSchema:   "plugin-protocol.action_http_request",
 			ResponseSchema:  "plugin-protocol.local_action_result",
 			AccessesNetwork: true,
@@ -28,17 +28,17 @@ func httpRequestRegistrar() registrar {
 		},
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-				return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps), deps.Capabilities)
+				return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps), deps.Permissions)
 			}
 		},
 	}
 }
 
-func executeHTTPRequest(ctx context.Context, pluginID string, action pluginruntime.Action, cfg config.Config, capabilities CapabilityView) (map[string]any, error) {
-	if capabilities == nil || !capabilities.CapabilityDeclared(ctx, pluginID, "http.request") {
+func executeHTTPRequest(ctx context.Context, pluginID string, action pluginruntime.Action, cfg config.Config, permissions PermissionView) (map[string]any, error) {
+	if permissions == nil || !permissions.PermissionDeclared(ctx, pluginID, "http.request") {
 		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "http.request capability is not declared",
+			Code:    "plugin.permission_denied",
+			Message: "http.request permission is not declared",
 		}
 	}
 
@@ -48,7 +48,6 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action pluginrunti
 		MaxResponseBodyBytes: currentHTTPMaxResponseBodyBytes(cfg),
 		AllowPrivateHosts:    append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
 	})
-	scopeHosts := capabilities.HTTPHosts(ctx, pluginID)
 	headers := cloneHTTPHeaders(action.HTTPHeaders)
 
 	response, err := client.do(ctx, httpClientRequest{
@@ -57,13 +56,7 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action pluginrunti
 		Headers:       headers,
 		Body:          append([]byte(nil), action.HTTPBody...),
 		ActionTimeout: currentHTTPActionTimeout(action),
-	}, scopeHosts)
-	if err == errHTTPScopeViolation {
-		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "http.request target is outside declared capability parameters",
-		}
-	}
+	})
 	if err == errHTTPInvalidRequest {
 		return nil, &pluginruntime.Error{
 			Code:    "platform.invalid_request",

@@ -1,0 +1,20 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - protocol_version: "2"
+    plugin_id: idle-native
+    type: init
+    request_id: init-idle-1
+    config: {}
+    effective_permissions: []
+    super_admins: []
+    command_prefixes:
+      - "/"
+    concurrency: 1
+  - type: init_ack
+    request_id: init-idle-1
+    status: ready
+expect:
+  valid: true
+  notes:
+    - Bot identity may be absent while no protocol adapter is ready.

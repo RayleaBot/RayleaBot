@@ -21,21 +21,15 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		eventFrame := helperReadFrame(scanner, 4)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "action",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       "local_logger_2",
-			"action":           "logger.write",
+			"type":       "action",
+			"request_id": "local_logger_2",
+			"action":     "logger.write",
 			"data": map[string]any{
 				"level":   "warn",
 				"message": "attempt denied",
@@ -44,12 +38,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		localError := helperExpectFrameType(scanner, "local_logger_2", "error", 5)
 		localErrorDetails, _ := localError["details"].(map[string]any)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "result",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       eventFrame["request_id"],
-			"status":           "success",
+			"type":       "result",
+			"request_id": eventFrame["request_id"],
+			"status":     "success",
 			"data": map[string]any{
 				"handled":             true,
 				"local_error_code":    localError["code"],
@@ -68,21 +59,15 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
-		eventFrame := helperReadFrame(scanner, 4)
+		helperReadFrame(scanner, 4)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "action",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       "local_logger_missing_parent",
-			"action":           "logger.write",
+			"type":       "action",
+			"request_id": "local_logger_missing_parent",
+			"action":     "logger.write",
 			"data": map[string]any{
 				"level":   "info",
 				"message": "missing parent_request_id should fail",
@@ -101,20 +86,14 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		eventFrame := helperReadFrame(scanner, 4)
 		parentRequestID, _ := eventFrame["request_id"].(string)
 		writeHelperFrame(map[string]any{
-			"protocol_version":  "1",
 			"type":              "action",
-			"timestamp":         time.Now().Unix(),
-			"plugin_id":         eventFrame["plugin_id"],
 			"request_id":        "local_logger_3",
 			"parent_request_id": parentRequestID,
 			"action":            "logger.write",
@@ -124,10 +103,7 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			},
 		})
 		writeHelperFrame(map[string]any{
-			"protocol_version":  "1",
 			"type":              "action",
-			"timestamp":         time.Now().Unix(),
-			"plugin_id":         eventFrame["plugin_id"],
 			"request_id":        "local_storage_3",
 			"parent_request_id": parentRequestID,
 			"action":            "storage.kv",
@@ -151,12 +127,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(206)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "result",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       parentRequestID,
-			"status":           "success",
+			"type":       "result",
+			"request_id": parentRequestID,
+			"status":     "success",
 			"data": map[string]any{
 				"logger_started":  seen["local_logger_3"],
 				"storage_started": seen["local_storage_3"],
@@ -174,20 +147,14 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		eventFrame := helperReadFrame(scanner, 4)
 		parentRequestID, _ := eventFrame["request_id"].(string)
 		writeHelperFrame(map[string]any{
-			"protocol_version":  "1",
 			"type":              "action",
-			"timestamp":         time.Now().Unix(),
-			"plugin_id":         eventFrame["plugin_id"],
 			"request_id":        "local_logger_pending",
 			"parent_request_id": parentRequestID,
 			"action":            "logger.write",
@@ -197,12 +164,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			},
 		})
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "result",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       parentRequestID,
-			"status":           "success",
+			"type":       "result",
+			"request_id": parentRequestID,
+			"status":     "success",
 			"data": map[string]any{
 				"handled": true,
 			},
@@ -220,21 +184,15 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		eventFrame := helperReadFrame(scanner, 4)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "action",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       eventFrame["request_id"],
-			"action":           "logger.write",
+			"type":       "action",
+			"request_id": eventFrame["request_id"],
+			"action":     "logger.write",
 			"data": map[string]any{
 				"level":   "info",
 				"message": "this should fail",
@@ -251,20 +209,14 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		firstEvent := helperReadFrame(scanner, 4)
 		firstRequestID, _ := firstEvent["request_id"].(string)
 		writeHelperFrame(map[string]any{
-			"protocol_version":  "1",
 			"type":              "action",
-			"timestamp":         time.Now().Unix(),
-			"plugin_id":         firstEvent["plugin_id"],
 			"request_id":        "slow_http_1",
 			"parent_request_id": firstRequestID,
 			"action":            "http.request",
@@ -276,12 +228,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		secondEvent := helperReadFrame(scanner, 5)
 		secondRequestID, _ := secondEvent["request_id"].(string)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "result",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        secondEvent["plugin_id"],
-			"request_id":       secondRequestID,
-			"status":           "success",
+			"type":       "result",
+			"request_id": secondRequestID,
+			"status":     "success",
 			"data": map[string]any{
 				"session": "fast",
 			},
@@ -291,12 +240,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(206)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "result",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        firstEvent["plugin_id"],
-			"request_id":       firstRequestID,
-			"status":           "success",
+			"type":       "result",
+			"request_id": firstRequestID,
+			"status":     "success",
 			"data": map[string]any{
 				"session": "slow",
 			},
@@ -313,12 +259,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		if !scanner.Scan() {
 			os.Exit(4)
@@ -329,12 +272,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(5)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "action",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        eventFrame["plugin_id"],
-			"request_id":       eventFrame["request_id"],
-			"action":           "message.broadcast",
+			"type":       "action",
+			"request_id": eventFrame["request_id"],
+			"action":     "message.broadcast",
 			"data": map[string]any{
 				"text": "out of scope",
 			},
@@ -350,12 +290,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		if !scanner.Scan() {
 			os.Exit(4)
@@ -364,12 +301,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		recordFrame(recordPath, line)
 		time.Sleep(500 * time.Millisecond)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "result",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       "req_test",
-			"status":           "success",
+			"type":       "result",
+			"request_id": "req_test",
+			"status":     "success",
 			"data": map[string]any{
 				"handled": true,
 			},
@@ -387,12 +321,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
 		os.Exit(0)
@@ -409,12 +340,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		defer ticker.Stop()
 		for {
 			writeHelperFrame(map[string]any{
-				"protocol_version": "1",
-				"type":             "init_progress",
-				"timestamp":        time.Now().Unix(),
-				"plugin_id":        initFrame["plugin_id"],
-				"request_id":       initFrame["request_id"],
-				"summary":          "still booting",
+				"type":       "init_progress",
+				"request_id": initFrame["request_id"],
+				"summary":    "still booting",
 			})
 			<-ticker.C
 		}
@@ -429,21 +357,15 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		}
 		time.Sleep(runtimeTestDuration(120 * time.Millisecond))
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_progress",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"summary":          "warming up",
+			"type":       "init_progress",
+			"request_id": initFrame["request_id"],
+			"summary":    "warming up",
 		})
 		time.Sleep(runtimeTestDuration(120 * time.Millisecond))
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
@@ -469,12 +391,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(9)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
@@ -500,12 +419,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(9)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
@@ -533,12 +449,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		var initFrame map[string]any
 		_ = json.Unmarshal(line, &initFrame)
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "shutdown",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"reason":           "stop",
+			"type":       "shutdown",
+			"request_id": initFrame["request_id"],
+			"reason":     "stop",
 		})
 		// Let the runtime consume the invalid frame before the helper exits.
 		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
@@ -554,13 +467,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
-			"subscriptions":    []string{"message.group", "scheduler.trigger"},
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		for scanner.Scan() {
 			line := append([]byte(nil), scanner.Bytes()...)
@@ -584,12 +493,9 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 			os.Exit(3)
 		}
 		writeHelperFrame(map[string]any{
-			"protocol_version": "1",
-			"type":             "init_ack",
-			"timestamp":        time.Now().Unix(),
-			"plugin_id":        initFrame["plugin_id"],
-			"request_id":       initFrame["request_id"],
-			"status":           "ready",
+			"type":       "init_ack",
+			"request_id": initFrame["request_id"],
+			"status":     "ready",
 		})
 		time.Sleep(runtimeTestDuration(20 * time.Millisecond))
 		os.Exit(1) // non-zero exit = crash

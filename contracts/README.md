@@ -48,44 +48,44 @@
   - 当前已固定的管理 WebSocket envelope、事件名和 payload 约束
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed` 与 `third_party.account.changed`
 - `plugin-info.schema.json`
-  - 插件 `info.json` 的安装前静态校验、兼容性门禁、能力声明、能力参数和迁移判断边界
-  - 固定 `manifest_version: "2"`、`runtime: "go"`、`plugin_protocol_version: "1"`；`entry` 是 `bin/` 下无扩展名的逻辑路径，`platforms` 必填
-  - 当前已固定 `default_config`、`default_config_file`、`icon`、`repo`、`homepage`、`keywords`、`screenshots`、`platforms`、`management_ui`、`commands`、`dynamic_commands`、`command_patterns`、`render_templates`、`help` 与插件详情页展示所需的 metadata；官方、社区或开发身份不由 manifest 声明
-  - `capabilities` 使用正式 capability 集合，覆盖基础 local action、治理 local action、固定的 OneBot 单动作能力与 3 个正式 provider 扩展动作
-  - `capability_parameters` 表达 `http.request`、`storage.file`、`thirdparty.account.read`、`thirdparty.account.validate` 与 `event.expose_webhook` 的边界参数
+  - 插件 `info.json` v3 的安装前静态校验、最低 Core 版本、事件、权限、命令、管理页与 webhook 边界
+  - 固定 `manifest_version: "3"`；运行语言、入口和目标平台由 artifact 提供
+  - `events` 静态声明普通事件订阅；`permissions` 只声明高权限或跨系统宿主能力
+  - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-artifact.schema.json`
-  - 平台插件包内 `artifact.json` 的正式文件清单、目标平台、manifest 摘要、文件角色、大小与 SHA-256 边界
-  - `artifact.json` 不枚举自身；安装器额外要求文件全集精确匹配、且只有一个后端文件，管理页入口必须属于 UI 文件集合
+  - artifact v2 的目标平台、原生入口、精确文件大小与 SHA-256 边界
+  - `artifact.json` 不重复插件身份且不枚举自身；安装器额外要求文件全集精确匹配和入口格式正确
 - `plugin-store-catalog.schema.json`
-  - 经过签名的静态商店目录结构，固定发布者身份、版本、最低核心版本、撤回状态和三平台资产 URL、大小及摘要
+  - `RayleaBot/plugin-catalog` 发布的官方静态商店目录结构，固定发布者身份、版本、最低核心版本、撤回状态和三平台资产 URL、大小及摘要
   - 官方身份只能由已验证目录和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
 - `plugin-store-signature.schema.json`
-  - `catalog.json` 原始字节的 SHA-256 与一至两个 Ed25519 签名 envelope，支持受控双签轮换
+  - `catalog.json` 原始字节的 SHA-256 与一至两个独立商店目录 Ed25519 签名，支持受控双签轮换
 - `plugin-development-workspace.schema.json`
-  - 被 Git 忽略的本地插件工作区配置，固定插件 ID、独立仓库路径和启用状态；只服务启动前构建与离线同步
+  - workspace v2 的本地插件仓库路径和启用状态；插件 ID 从 `info.json` 推导
 - `plugin-management-ui.yaml`
   - 插件内置管理页的独立来源、只读静态资源、CSP、cookie、CORS 和管理 API 隔离边界
   - 本机模式默认派生 `p-<id-hash>.plugins.localhost`；LAN 与反向代理模式要求显式配置 `web.plugin_ui_origin_template`
 - `plugin-management-ui-bridge.schema.json`
-  - Web 宿主页与插件内置 iframe 的 bridge v2 消息结构
+  - Web 宿主页与插件内置 iframe 的 bridge v3 消息结构
   - `page.ready` / `host.connect` 只用于校验窗口、来源和一次性 nonce 并转交一个 `MessagePort`，后续消息仅允许通过绑定端口
   - secret 只暴露是否已配置，写操作仅支持覆盖与显式删除；`ui.resize` 的宿主有效范围为 320–1600px
 - `plugin-protocol.schema.json`
-  - 插件 Runtime JSONL 协议
+  - 插件 Runtime JSONL protocol v2
   - 当前固定 `init`、`init_progress`、`init_ack`、`event`、`result`、`error`、`ping`、`pong`、`shutdown`
   - `error` 帧由插件终态失败与平台 local action 失败共用，固定包含 `code`、`message`，可选 `details`
-  - `message.send`、`message.reply` 使用 shared `message.segments` payload；非终态 `message.send` 通过独立 `request_id` 和当前事件 `parent_request_id` 返回发送结果后继续处理
+  - 只有 init 携带协议版本和插件身份；后续帧使用最小 envelope
+  - `message.send` 统一发送与回复；非终态动作通过独立 `request_id` 和当前事件 `parent_request_id` 关联
   - `init.bot` 在协议身份可用时出现，`bot.identity.changed` 用于向运行中插件同步当前 bot 身份
   - 协议身份不可用时 `init.bot` 缺省或 `bot.identity.changed` 携带空身份；依赖 `self_id` 的出站 OneBot 动作返回正式 `error` 帧，不依赖身份的 local action 保持可用
-  - `logger.write`、`storage.kv`、`storage.file`、`http.request`、`config.read`、`config.write`、`plugin.list`、`secret.read`、`thirdparty.account.read`、`thirdparty.account.validate`、`thirdparty.resolve`、`governance.blacklist.read`、`governance.blacklist.write`、`governance.whitelist.read`、`governance.whitelist.write`、`governance.command_policy.read`、`scheduler.create`、`event.expose_webhook`、`render.image` 已进入正式 local action RPC surface。
+  - `logger.write`、`storage.kv`、`storage.file` 和 `config.write` 是隐式插件私有动作；HTTP、消息、secret、三方账号、治理、调度、渲染、OneBot 与 provider 动作使用显式权限。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
     - `secret.read` 只读取调用插件自己的 secret 命名空间。
     - `thirdparty.account.read` 只读取插件 manifest 声明平台的已启用有效三方账号，并把 CK 按 secret 值处理。
     - `thirdparty.account.validate` 只提交受限异常观察并请求 Server 权威复检，不接受 CK 状态、凭据、响应正文或自由文本错误。
     - `thirdparty.resolve` 请求宿主用已登录浏览器环境解析三方平台用户，当前仅支持 douyin；返回的 `uid` 是稳定绑定标识，`unique_id` 是平台可修改标识，仅用于展示。
-    - `render.image` 支持系统模板 ID、调用插件声明的模板短 ID，以及平台按 `http_hosts` 预取后交给 Chromium 的请求级临时图片资源
+    - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台经统一 HTTPS、DNS/重定向复查、SSRF/私网和资源限制预取后交给 Chromium 的请求级临时图片资源
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`plugin.started`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`

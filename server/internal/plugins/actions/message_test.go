@@ -31,11 +31,11 @@ func TestMessageSendLocalActionUsesSharedOutboundPath(t *testing.T) {
 	recorder := &messageSendRecorder{}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	dispatcher := dispatch.New(logger, recorder, nil, 16)
-	dispatcher.SetCapabilityChecker(func(context.Context, string, string) bool { return true })
+	dispatcher.SetPermissionChecker(func(context.Context, string, string) bool { return true })
 	defer dispatcher.Close()
 
 	service := actions.New(actions.Deps{
-		Capabilities:  &stubCapabilityView{capabilities: map[string]bool{"message.send": true}},
+		Permissions:  &stubPermissionView{permissions: map[string]bool{"message.send": true}},
 		MessageSender: actions.OutboundMessageSender(dispatcher),
 	})
 	action := pluginruntime.Action{

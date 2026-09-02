@@ -18,15 +18,15 @@ function translated(key: string, raw?: string) {
   return i18n.global.te(key) ? t(key) : fallback(raw)
 }
 
-export function getPluginCapabilityLabel(capability: string) {
-  const labels = i18n.global.tm('plugins.capabilityLabels') as Record<string, unknown>
-  const label = labels[capability]
+export function getPluginPermissionLabel(permission: string) {
+  const labels = i18n.global.tm('plugins.permissionLabels') as Record<string, unknown>
+  const label = labels[permission]
 
-  return typeof label === 'string' && label.trim() ? label : capability
+  return typeof label === 'string' && label.trim() ? label : permission
 }
 
-export function getPluginCapabilityRawTitle(capability: string) {
-  return t('plugins.capabilityRawTitle', { capability })
+export function getPluginPermissionRawTitle(permission: string) {
+  return t('plugins.permissionRawTitle', { permission })
 }
 
 export function getConnectionChannelLabel(channel: 'events' | 'logs' | 'pluginConsole') {

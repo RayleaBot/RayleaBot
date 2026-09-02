@@ -61,7 +61,7 @@ type pluginSlot struct {
 	eventLimit     int
 	controlLimit   int
 }
-type CapabilityChecker func(context.Context, string, string) bool
+type PermissionChecker func(context.Context, string, string) bool
 
 // DispatcherStats summarises cumulative per-dispatch outcomes so consumers
 // (the bridge runtime observability frame and the Prometheus metrics handler)
@@ -101,7 +101,7 @@ type Dispatcher struct {
 	controlQueueSize  int
 	mu                sync.RWMutex
 	slots             map[string]*pluginSlot
-	capabilityChecker CapabilityChecker
+	permissionChecker PermissionChecker
 
 	statsMu       sync.Mutex
 	delivered     uint64
@@ -140,10 +140,10 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 		dropsByReason:    make(map[string]map[string]uint64),
 	}
 }
-func (d *Dispatcher) SetCapabilityChecker(checker CapabilityChecker) {
+func (d *Dispatcher) SetPermissionChecker(checker PermissionChecker) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.capabilityChecker = checker
+	d.permissionChecker = checker
 }
 func (d *Dispatcher) SetOutboundLimiter(limiter outbound.MessageLimiter) {
 	d.mu.Lock()

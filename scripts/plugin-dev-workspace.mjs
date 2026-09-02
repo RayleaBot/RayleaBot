@@ -37,14 +37,14 @@ export async function loadPluginWorkspace(workspacePath) {
     raw = await fsp.readFile(workspacePath, 'utf8')
   } catch (error) {
     if (error?.code === 'ENOENT') {
-      return { workspaceVersion: '1', plugins: [] }
+      return { workspaceVersion: '2', plugins: [] }
     }
     throw error
   }
   const document = JSON.parse(raw)
   if (!document || typeof document !== 'object' || Array.isArray(document)
-    || document.workspace_version !== '1' || !Array.isArray(document.plugins)) {
-    throw new Error(`${workspacePath} does not satisfy plugin development workspace v1.`)
+    || document.workspace_version !== '2' || !Array.isArray(document.plugins)) {
+    throw new Error(`${workspacePath} does not satisfy plugin development workspace v2.`)
   }
   const allowedRootKeys = new Set(['workspace_version', 'plugins'])
   if (Object.keys(document).some((key) => !allowedRootKeys.has(key))) {
@@ -52,31 +52,45 @@ export async function loadPluginWorkspace(workspacePath) {
   }
   const workspaceDir = path.dirname(workspacePath)
   const seen = new Set()
-  const plugins = document.plugins.map((entry, index) => {
-    const allowedKeys = new Set(['id', 'path', 'enabled'])
+  const plugins = []
+  for (const [index, entry] of document.plugins.entries()) {
+    const allowedKeys = new Set(['path', 'enabled'])
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)
       || Object.keys(entry).some((key) => !allowedKeys.has(key))
-      || typeof entry.id !== 'string' || !/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(entry.id)
       || typeof entry.path !== 'string' || !entry.path.trim()
       || (entry.enabled !== undefined && typeof entry.enabled !== 'boolean')) {
       throw new Error(`${workspacePath} has an invalid plugins[${index}] entry.`)
     }
-    if (seen.has(entry.id)) {
-      throw new Error(`${workspacePath} declares duplicate plugin id ${entry.id}.`)
+    if (entry.enabled === false) continue
+    const pluginPath = path.resolve(workspaceDir, entry.path)
+    let manifest
+    try {
+      manifest = JSON.parse(await fsp.readFile(path.join(pluginPath, 'info.json'), 'utf8'))
+    } catch (error) {
+      throw new Error(`${workspacePath} cannot read plugins[${index}] info.json: ${error.message}`)
     }
-    seen.add(entry.id)
-    return {
-      id: entry.id,
-      path: path.resolve(workspaceDir, entry.path),
-      enabled: entry.enabled !== false,
+    const pluginID = manifest?.id
+    if (typeof pluginID !== 'string' || !/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(pluginID)) {
+      throw new Error(`${workspacePath} plugins[${index}] info.json has an invalid id.`)
     }
-  }).filter((entry) => entry.enabled)
-  return { workspaceVersion: '1', plugins }
+    if (seen.has(pluginID)) {
+      throw new Error(`${workspacePath} resolves duplicate plugin id ${pluginID}.`)
+    }
+    seen.add(pluginID)
+    plugins.push({
+      id: pluginID,
+      path: pluginPath,
+      enabled: true,
+      hasGoModule: fs.existsSync(path.join(pluginPath, 'go.mod')),
+    })
+  }
+  return { workspaceVersion: '2', plugins }
 }
 
 export async function collectWorkspaceSDKVersions(plugins) {
   const versions = new Set()
   for (const plugin of plugins) {
+    if (plugin.hasGoModule === false) continue
     const goMod = await fsp.readFile(path.join(plugin.path, 'go.mod'), 'utf8')
     const matches = goMod.matchAll(/github\.com\/RayleaBot\/RayleaBot\/sdk\/go\s+(v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)/g)
     for (const match of matches) {
@@ -126,7 +140,7 @@ export function createDevelopmentReloadQueue() {
 }
 
 export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = '1.26.6' }) {
-  const modulePaths = [sdkGoPath, ...plugins.map((plugin) => plugin.path)]
+  const modulePaths = [sdkGoPath, ...plugins.filter((plugin) => plugin.hasGoModule !== false).map((plugin) => plugin.path)]
   const uniquePaths = [...new Set(modulePaths.map((modulePath) => path.resolve(modulePath)))]
   const uses = uniquePaths.map((modulePath) => `\t${quoteGoWorkPath(modulePath)}`).join('\n')
   const replacements = [...new Set(sdkGoVersions)]
@@ -203,7 +217,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
   })
   watchers.push(watcher)
   await Promise.all(entries
-    .filter((entry) => entry.isDirectory() && !isIgnoredDirectoryName(entry.name))
+    .filter((entry) => entry.isDirectory() && !isIgnoredPath(plugin.path, path.join(directory, entry.name), plugin))
     .map((entry) => watchDirectory(
       path.join(directory, entry.name),
       plugin,
@@ -223,7 +237,7 @@ async function handlePluginWatchEvent({
   watchedDirectories,
   contentTracker,
 }) {
-  if (isIgnoredPath(plugin.path, sourcePath)) return
+  if (isIgnoredPath(plugin.path, sourcePath, plugin)) return
   const sourceKey = path.resolve(sourcePath)
   try {
     const stat = await fsp.stat(sourcePath)
@@ -236,7 +250,9 @@ async function handlePluginWatchEvent({
     const directoryAlreadyWatched = watchedDirectories.has(sourceKey)
     if (eventType === 'rename' && !directoryAlreadyWatched) {
       await watchDirectory(sourcePath, plugin, onChange, watchers, watchedDirectories, contentTracker)
-      onChange(plugin, sourcePath)
+      if (!isNonGoNativeContainer(plugin, sourcePath)) {
+        onChange(plugin, sourcePath)
+      }
     }
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
@@ -254,9 +270,24 @@ function isDirectoryMetadataAlias(sourcePath, sourceKey, watchedDirectories) {
   return watchedDirectories.has(parentKey) && path.basename(sourcePath) === path.basename(parentKey)
 }
 
-function isIgnoredPath(root, sourcePath) {
+function isIgnoredPath(root, sourcePath, plugin) {
   const relative = path.relative(root, sourcePath)
-  return relative.split(path.sep).some((part) => isIgnoredDirectoryName(part))
+  const parts = relative.split(path.sep)
+  for (let index = 0; index < parts.length; index += 1) {
+    const part = parts[index]
+    if (part === 'dist' && plugin.hasGoModule === false && index === 0) {
+      if (parts.length === 1 || parts[1] === 'native') continue
+      return true
+    }
+    if (isIgnoredDirectoryName(part)) return true
+  }
+  return false
+}
+
+function isNonGoNativeContainer(plugin, sourcePath) {
+  if (plugin.hasGoModule !== false) return false
+  const relative = path.relative(plugin.path, sourcePath)
+  return relative === 'dist' || relative === path.join('dist', 'native')
 }
 
 function isIgnoredDirectoryName(name) {

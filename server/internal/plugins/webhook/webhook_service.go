@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
@@ -33,6 +33,7 @@ type Registration struct {
 	SecretRef        string
 	SignaturePrefix  string
 	SourceIPs        []string
+	MaxBodyBytes     int
 	URL              string
 	ReplayProtection ReplayProtection
 }
@@ -42,36 +43,27 @@ type Registry struct {
 	items map[string]Registration
 }
 
-type CapabilityView interface {
-	CapabilityDeclared(context.Context, string, string) bool
-	WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool)
-}
-
 type RuntimeEnsurer interface {
 	CurrentBotID() string
 	EnsurePluginRunning(context.Context, string, string) error
 }
 
 type Deps struct {
-	CurrentConfig func() config.Config
-	Logger        *slog.Logger
-	Registry      *Registry
-	Secrets       secrets.Store
-	Plugins       plugins.CatalogView
-	Dispatcher    *dispatch.Dispatcher
-	Runtime       RuntimeEnsurer
-	Capabilities  CapabilityView
+	Logger     *slog.Logger
+	Registry   *Registry
+	Secrets    secrets.Store
+	Plugins    plugins.CatalogView
+	Dispatcher *dispatch.Dispatcher
+	Runtime    RuntimeEnsurer
 }
 
 type Service struct {
-	currentConfig func() config.Config
-	logger        *slog.Logger
-	registry      *Registry
-	secrets       secrets.Store
-	plugins       plugins.CatalogView
-	dispatcher    *dispatch.Dispatcher
-	runtime       RuntimeEnsurer
-	capabilities  CapabilityView
+	logger     *slog.Logger
+	registry   *Registry
+	secrets    secrets.Store
+	plugins    plugins.CatalogView
+	dispatcher *dispatch.Dispatcher
+	runtime    RuntimeEnsurer
 
 	dedup   *replayCache
 	now     func() time.Time
@@ -85,18 +77,53 @@ type ReplayMetricsObserver interface {
 	IncReplayObserved(outcome string)
 }
 
-func New(deps Deps) *Service {
+func New(deps Deps) (*Service, error) {
+	if deps.Registry == nil || deps.Secrets == nil || deps.Plugins == nil || deps.Dispatcher == nil || deps.Runtime == nil {
+		return nil, errors.New("plugin webhook service requires registry, secrets, plugin catalog, dispatcher, and runtime")
+	}
+	logger := deps.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &Service{
-		currentConfig: deps.CurrentConfig,
-		logger:        deps.Logger,
-		registry:      deps.Registry,
-		secrets:       deps.Secrets,
-		plugins:       deps.Plugins,
-		dispatcher:    deps.Dispatcher,
-		runtime:       deps.Runtime,
-		capabilities:  deps.Capabilities,
-		dedup:         newReplayCache(),
-		now:           time.Now,
+		logger:     logger,
+		registry:   deps.Registry,
+		secrets:    deps.Secrets,
+		plugins:    deps.Plugins,
+		dispatcher: deps.Dispatcher,
+		runtime:    deps.Runtime,
+		dedup:      newReplayCache(),
+		now:        time.Now,
+	}, nil
+}
+
+func (s *Service) SyncManifestRegistrations() {
+	s.registry.SyncSnapshots(s.plugins.List())
+}
+
+func (r *Registry) SyncSnapshots(snapshots []plugins.Snapshot) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.items = make(map[string]Registration)
+	for _, snapshot := range snapshots {
+		if !snapshot.Valid || snapshot.RegistrationState != plugins.RegistrationStateInstalled {
+			continue
+		}
+		for _, webhook := range snapshot.Webhooks {
+			registration := Registration{
+				PluginID: snapshot.PluginID, Route: webhook.Route, Methods: []string{http.MethodPost},
+				AuthStrategy: webhook.AuthStrategy, Header: webhook.Header, SecretRef: webhook.SecretRef,
+				SignaturePrefix: webhook.SignaturePrefix, SourceIPs: append([]string(nil), webhook.SourceCIDRs...),
+				MaxBodyBytes: webhook.MaxBodyBytes,
+				ReplayProtection: ReplayProtection{
+					TimestampHeader:  webhook.ReplayProtection.TimestampHeader,
+					EventIDHeader:    webhook.ReplayProtection.EventIDHeader,
+					ToleranceSeconds: webhook.ReplayProtection.ToleranceSeconds,
+					Enforce:          webhook.ReplayProtection.Enforce,
+				},
+			}
+			r.items[webhookKey(registration.PluginID, registration.Route)] = registration
+		}
 	}
 }
 
@@ -120,28 +147,11 @@ func NewRegistry() *Registry {
 	}
 }
 
-func (r *Registry) Register(item Registration) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.items[webhookKey(item.PluginID, item.Route)] = item
-}
-
 func (r *Registry) Get(pluginID, route string) (Registration, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	item, ok := r.items[webhookKey(pluginID, route)]
 	return item, ok
-}
-
-func (r *Registry) DeletePlugin(pluginID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	prefix := pluginID + "\x00"
-	for key := range r.items {
-		if strings.HasPrefix(key, prefix) {
-			delete(r.items, key)
-		}
-	}
 }
 
 func webhookKey(pluginID, route string) string {

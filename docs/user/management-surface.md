@@ -81,7 +81,7 @@
 
 - 插件在 manifest 中声明 `management_ui.pages` 后，插件中心侧栏会显示对应内置管理页入口；侧栏折叠或使用移动端时，详情页内的切换控件提供相同入口。
 - 管理页静态资源通过插件专属 origin 公共只读提供；该 origin 不接收管理 cookie、没有 `/api`、没有管理端 CORS，并应用严格 CSP。
-- iframe 通过 bridge v2 的 nonce-bound `MessageChannel` 请求宿主读取或保存设置；插件页面不能直接调用受保护接口。
+- iframe 通过 bridge v3 的 nonce-bound `MessageChannel` 请求宿主读取或保存设置；插件页面不能直接调用受保护接口。
 - 密钥界面只显示是否已配置，允许覆盖写入与显式删除，从不读取或回显已有明文。
 - 未验证来源插件首次打开内置管理页时需要手动确认；插件版本或来源变化后会重新确认。
 - 插件管理页读取和保存插件设置；插件管理动作通过 `POST /api/plugins/{plugin_id}/management/actions` 转给插件 runtime 处理。

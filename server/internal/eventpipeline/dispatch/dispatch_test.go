@@ -267,8 +267,8 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 
-	d.Register("plugin-a", rt1, nil, nil, 1)
-	d.Register("plugin-b", rt2, nil, nil, 1)
+	d.Register("plugin-a", rt1, []string{"message.group"}, nil, 1)
+	d.Register("plugin-b", rt2, []string{"message.group"}, nil, 1)
 
 	results := d.Dispatch(context.Background(), testEvent(), "")
 	if len(results) != 2 {
@@ -280,6 +280,22 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 
 	if rt1.eventCount() != 1 || rt2.eventCount() != 1 {
 		t.Errorf("expected 1 event each, got plugin-a=%d, plugin-b=%d", rt1.eventCount(), rt2.eventCount())
+	}
+}
+
+func TestDispatchDoesNotFanOutOrdinaryEventsToEmptySubscriptions(t *testing.T) {
+	t.Parallel()
+	d := New(slog.Default(), nil, nil, 16)
+	defer d.Close()
+	runtime := &fakeDeliverer{}
+	d.Register("no-events", runtime, nil, nil, 1)
+
+	if results := d.Dispatch(context.Background(), testEvent(), ""); len(results) != 0 {
+		t.Fatalf("dispatch results = %#v, want no target", results)
+	}
+	time.Sleep(20 * time.Millisecond)
+	if runtime.eventCount() != 0 {
+		t.Fatalf("empty subscription received %d events", runtime.eventCount())
 	}
 }
 
@@ -380,10 +396,10 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 
-	d.Register("weather", rt1, nil, []CommandDecl{
+	d.Register("weather", rt1, []string{"message.group"}, []CommandDecl{
 		{Name: "weather", Aliases: []string{"天气"}},
 	}, 1)
-	d.Register("echo", rt2, nil, []CommandDecl{
+	d.Register("echo", rt2, []string{"message.group"}, []CommandDecl{
 		{Name: "echo"},
 	}, 1)
 
@@ -410,7 +426,7 @@ func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	d.Register("weather", rt1, nil, []CommandDecl{
+	d.Register("weather", rt1, []string{"message.group"}, []CommandDecl{
 		{Name: "weather", Aliases: []string{"天气"}},
 	}, 1)
 
@@ -465,8 +481,8 @@ func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 
-	d.Register("plugin-a", rt1, nil, nil, 1)
-	d.Register("plugin-b", rt2, nil, nil, 1)
+	d.Register("plugin-a", rt1, []string{"message.group"}, nil, 1)
+	d.Register("plugin-b", rt2, []string{"message.group"}, nil, 1)
 
 	results := d.Dispatch(context.Background(), testEvent(), "unknown_command")
 	if len(results) != 2 {
@@ -505,8 +521,8 @@ func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
 
-	d.Register("running", rtRunning, nil, nil, 1)
-	d.Register("backoff", rtBackoff, nil, nil, 1)
+	d.Register("running", rtRunning, []string{"message.group"}, nil, 1)
+	d.Register("backoff", rtBackoff, []string{"message.group"}, nil, 1)
 
 	results := d.Dispatch(context.Background(), testEvent(), "")
 	if len(results) != 1 {
@@ -543,7 +559,7 @@ func TestDispatchQueueOverflow(t *testing.T) {
 		blockCh:  make(chan struct{}),
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
-	d.Register("blocker", blocker, nil, nil, 1)
+	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
 
 	// First dispatch fills the single-capacity queue.
 	d.Dispatch(context.Background(), testEvent(), "")
@@ -577,7 +593,7 @@ func TestDispatchQueueLimitIncludesSameLanePendingBuffer(t *testing.T) {
 		started:  make(chan pluginruntime.Event, 3),
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
-	d.Register("ordered", blocker, nil, nil, 2)
+	d.Register("ordered", blocker, []string{"message.group"}, nil, 2)
 
 	first := testEventWithTarget("same-lane")
 	if result := d.DispatchToPlugin(context.Background(), "ordered", first); result.Outcome != OutcomeDelivered {
@@ -609,7 +625,7 @@ func TestDispatchControlQueueIsIndependentAndBounded(t *testing.T) {
 		started:  make(chan pluginruntime.Event, 3),
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
-	d.Register("control", blocker, nil, nil, 1)
+	d.Register("control", blocker, []string{"message.group"}, nil, 1)
 
 	if result := d.DispatchToPlugin(context.Background(), "control", testEventWithTarget("active")); result.Outcome != OutcomeDelivered {
 		t.Fatalf("active outcome = %s", result.Outcome)
@@ -643,7 +659,7 @@ func TestDispatchDifferentTargetsRunConcurrently(t *testing.T) {
 		started:  make(chan pluginruntime.Event, 2),
 		blockCh:  make(chan struct{}),
 	}
-	d.Register("parallel", rt, nil, nil, 2)
+	d.Register("parallel", rt, []string{"message.group"}, nil, 2)
 
 	d.Dispatch(context.Background(), testEventWithTarget("200"), "")
 	d.Dispatch(context.Background(), testEventWithTarget("201"), "")
@@ -670,7 +686,7 @@ func TestDispatchSameTargetPreservesFIFO(t *testing.T) {
 		started:  make(chan pluginruntime.Event, 2),
 		blockCh:  make(chan struct{}),
 	}
-	d.Register("ordered", rt, nil, nil, 2)
+	d.Register("ordered", rt, []string{"message.group"}, nil, 2)
 
 	firstEvent := testEventWithTarget("200")
 	secondEvent := testEventWithTarget("200")
@@ -703,7 +719,7 @@ func TestDispatchDeregister(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	d.Register("test", rt, nil, nil, 1)
+	d.Register("test", rt, []string{"message.group"}, nil, 1)
 	d.Deregister("test")
 
 	results := d.Dispatch(context.Background(), testEvent(), "")
@@ -722,7 +738,7 @@ func TestDispatchDeregisterWaitsForActiveLane(t *testing.T) {
 		started:  make(chan pluginruntime.Event, 1),
 		blockCh:  make(chan struct{}),
 	}
-	d.Register("test", rt, nil, nil, 2)
+	d.Register("test", rt, []string{"message.group"}, nil, 2)
 
 	d.Dispatch(context.Background(), testEventWithTarget("200"), "")
 	waitForStartedEvent(t, rt.started)
@@ -757,7 +773,7 @@ func TestDispatchToPluginRejectsNonRunningRuntime(t *testing.T) {
 		state:    pluginruntime.StateBackoff,
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
-	d.Register("test", rt, nil, nil, 1)
+	d.Register("test", rt, []string{"message.group"}, nil, 1)
 
 	result := d.DispatchToPlugin(context.Background(), "test", testEvent())
 	if result.Outcome != OutcomeError {
@@ -782,7 +798,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 		blockCh:  make(chan struct{}),
 	}
-	d.Register("test", rt, nil, nil, 1)
+	d.Register("test", rt, []string{"message.group"}, nil, 1)
 
 	results := d.Dispatch(context.Background(), testEventWithTarget("200"), "")
 	if len(results) != 1 || results[0].Outcome != OutcomeDelivered {
@@ -806,6 +822,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 func TestDispatchActionExecution(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
@@ -819,7 +836,7 @@ func TestDispatchActionExecution(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
 	time.Sleep(100 * time.Millisecond)
@@ -841,6 +858,7 @@ func TestDispatchActionExecution(t *testing.T) {
 func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
+	allowAllPermissions(d)
 	defer d.Close()
 
 	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
@@ -854,7 +872,7 @@ func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 			},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
 	time.Sleep(100 * time.Millisecond)
@@ -881,6 +899,7 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 			TargetID:   "200",
 		},
 	}, 16)
+	allowAllPermissions(d)
 	d.SetOutboundLimiter(limiter)
 	defer d.Close()
 
@@ -894,7 +913,7 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
 	time.Sleep(100 * time.Millisecond)
@@ -914,6 +933,7 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 		err: &onebot11.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	d := New(logger, sender, nil, 16)
+	allowAllPermissions(d)
 	d.SetOutboundLimiter(limiter)
 	defer d.Close()
 
@@ -929,7 +949,7 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 			}},
 		},
 	}}
-	d.Register("action-plugin", rt, nil, nil, 1)
+	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
 

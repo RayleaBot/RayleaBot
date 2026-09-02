@@ -193,16 +193,16 @@ function renderCell(item: unknown) {
 
 function renderCommandUsage(payload: PreviewRecord) {
   const name = value(payload.name, value(payload.title))
-  const commandSource = value(payload.command_source)
+  const triggerType = value(payload.trigger_type)
   const usage = value(payload.usage)
   const usageArgs = value(payload.usage_args)
   const prefixes = stringList(payload.command_prefixes)
-  const commandName = commandSource === 'pattern' ? usage : name
+  const commandName = triggerType === 'pattern' ? usage : name
   if (!commandName || prefixes.length === 0) {
     return ''
   }
   const parts = previewUsageParts(payload.usage_parts)
-  const content = commandSource === 'pattern'
+  const content = triggerType === 'pattern'
     ? parts.length > 0
       ? renderUsageParts(parts)
       : `<span class="command-usage__name">${escapeHtml(commandName)}</span>`

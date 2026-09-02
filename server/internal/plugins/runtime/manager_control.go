@@ -48,12 +48,9 @@ func (m *Manager) Stop(ctx context.Context) error {
 	)
 
 	writeErr := handle.WriteJSONLine(ShutdownFrame{
-		ProtocolVersion: "1",
-		Type:            "shutdown",
-		Timestamp:       m.deps.now().Unix(),
-		PluginID:        handle.Spec.PluginID,
-		RequestID:       m.deps.requestID(),
-		Reason:          "stop",
+		Type:      "shutdown",
+		RequestID: m.deps.requestID(),
+		Reason:    "stop",
 	})
 	_ = handle.Stdin.Close()
 
@@ -137,11 +134,8 @@ func (m *Manager) Ping(ctx context.Context) error {
 	}
 
 	if err := handle.WriteJSONLine(PingFrame{
-		ProtocolVersion: "1",
-		Type:            "ping",
-		Timestamp:       m.deps.now().Unix(),
-		PluginID:        handle.Spec.PluginID,
-		RequestID:       requestID,
+		Type:      "ping",
+		RequestID: requestID,
 	}); err != nil {
 		m.mu.Lock()
 		delete(m.pendingPings, requestID)

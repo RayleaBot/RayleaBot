@@ -1,8 +1,6 @@
 package artifact
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -73,11 +71,11 @@ func makeTestArtifact(t *testing.T, withUI bool) string {
 	}
 	copyTestFile(t, executable, binaryPath, 0o755)
 	manifest := map[string]any{
-		"id": "artifact-test", "name": "Artifact test", "version": "0.2.0", "manifest_version": "2",
-		"plugin_protocol_version": "1", "runtime": "go", "entry": entry, "platforms": []string{platform}, "license": "MIT",
+		"id": "artifact-test", "name": "Artifact test", "version": "0.4.0", "manifest_version": "3",
+		"license": "MIT", "min_core_version": "0.4.0",
 	}
 	if withUI {
-		manifest["management_ui"] = map[string]any{"pages": []any{map[string]any{"id": "settings", "label": "Settings", "entry": "ui/index.html"}}}
+		manifest["management_ui"] = map[string]any{"entry": "ui/index.html", "pages": []any{map[string]any{"id": "settings", "label": "Settings"}}}
 		if err := os.MkdirAll(filepath.Join(root, "ui"), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -91,14 +89,13 @@ func makeTestArtifact(t *testing.T, withUI bool) string {
 		t.Fatal(err)
 	}
 	files := []File{
-		fileEntry(t, root, "info.json", "manifest"),
-		fileEntry(t, root, filepath.ToSlash(relativePath(t, root, binaryPath)), "backend"),
+		fileEntry(t, root, "info.json"),
+		fileEntry(t, root, filepath.ToSlash(relativePath(t, root, binaryPath))),
 	}
 	if withUI {
-		files = append(files, fileEntry(t, root, "ui/index.html", "ui"))
+		files = append(files, fileEntry(t, root, "ui/index.html"))
 	}
-	manifestDigest := sha256.Sum256(manifestBytes)
-	document := Document{ArtifactVersion: "1", PluginID: "artifact-test", PluginVersion: "0.2.0", TargetPlatform: platform, ManifestSHA256: hex.EncodeToString(manifestDigest[:]), Files: files}
+	document := Document{ArtifactVersion: "2", TargetPlatform: platform, Entry: filepath.ToSlash(relativePath(t, root, binaryPath)), Files: files}
 	content, _ := json.MarshalIndent(document, "", "  ")
 	if err := os.WriteFile(filepath.Join(root, "artifact.json"), append(content, '\n'), 0o644); err != nil {
 		t.Fatal(err)
@@ -106,7 +103,7 @@ func makeTestArtifact(t *testing.T, withUI bool) string {
 	return root
 }
 
-func fileEntry(t *testing.T, root, relative, role string) File {
+func fileEntry(t *testing.T, root, relative string) File {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(relative))
 	info, err := os.Stat(path)
@@ -117,7 +114,7 @@ func fileEntry(t *testing.T, root, relative, role string) File {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return File{Path: relative, Role: role, Size: info.Size(), SHA256: digest}
+	return File{Path: relative, Size: info.Size(), SHA256: digest}
 }
 
 func copyTestFile(t *testing.T, source, destination string, mode os.FileMode) {

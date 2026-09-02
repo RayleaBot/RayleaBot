@@ -315,15 +315,25 @@ codes:
     retryable: false
     applies_to: [http, task, readiness]
 
-  plugin.reset_required:
-    code: plugin.reset_required
+  plugin.core_version_incompatible:
+    code: plugin.core_version_incompatible
     domain: plugin
-    message_key: errors.plugin.reset_required
-    message: 旧插件数据纪元不受支持，需要重置
-    description: An upgrade or restore contains a pre-manifest-v2 plugin epoch; no compatibility reader or in-place data conversion is available.
+    message_key: errors.plugin.core_version_incompatible
+    message: 插件与当前 RayleaBot 版本不兼容
+    description: The plugin min_core_version is newer than the running RayleaBot core version. Every installation source applies this admission check.
     http_status: 409
     retryable: false
     applies_to: [http, task, cli, readiness]
+
+  plugin.contract_unsupported:
+    code: plugin.contract_unsupported
+    domain: plugin
+    message_key: errors.plugin.contract_unsupported
+    message: 插件合同版本不受支持
+    description: The package or backup contains an unsupported plugin manifest, protocol, artifact, catalog, management bridge, or backup contract version. The package remains installed but invalid and its settings, secrets, KV, files, and published data remain intact.
+    http_status: 409
+    retryable: false
+    applies_to: [http, task, cli, plugin_protocol, backup, restore, update, readiness]
 
   plugin.trusted_code_confirmation_required:
     code: plugin.trusted_code_confirmation_required
@@ -395,12 +405,12 @@ codes:
     retryable: true
     applies_to: [http, websocket, task]
 
-  plugin.capability_violation:
-    code: plugin.capability_violation
+  plugin.permission_denied:
+    code: plugin.permission_denied
     domain: plugin
-    message_key: errors.plugin.capability_violation
-    message: 插件访问未声明能力
-    description: The plugin used a capability that is absent from its manifest declaration or outside its declared capability parameters.
+    message_key: errors.plugin.permission_denied
+    message: 插件访问未声明权限
+    description: The plugin requested an elevated action that is absent from manifest permissions or outside its declared permission scope.
     http_status: 403
     retryable: false
     applies_to: [http, websocket, plugin_protocol, task]

@@ -57,15 +57,22 @@ type CommandCooldownResponse struct {
 }
 
 type CommandPolicyEntryResponse struct {
-	PluginID            string   `json:"plugin_id"`
-	PluginName          string   `json:"plugin_name"`
-	Command             string   `json:"command"`
-	Aliases             []string `json:"aliases"`
-	CommandSource       string   `json:"command_source"`
-	DeclarationID       string   `json:"declaration_id,omitempty"`
-	DeclaredPermission  *string  `json:"declared_permission"`
-	EffectivePermission string   `json:"effective_permission"`
-	PermissionSource    string   `json:"permission_source"`
+	PluginID            string                 `json:"plugin_id"`
+	PluginName          string                 `json:"plugin_name"`
+	CommandID           string                 `json:"command_id"`
+	Command             string                 `json:"command"`
+	Aliases             []string               `json:"aliases"`
+	Trigger             CommandTriggerResponse `json:"trigger"`
+	DeclaredPermission  *string                `json:"declared_permission"`
+	EffectivePermission string                 `json:"effective_permission"`
+	PermissionSource    string                 `json:"permission_source"`
+}
+
+type CommandTriggerResponse struct {
+	Type        string   `json:"type"`
+	Names       []string `json:"names,omitempty"`
+	Pattern     string   `json:"pattern,omitempty"`
+	SettingsKey string   `json:"settings_key,omitempty"`
 }
 
 type CommandPolicyResponse struct {

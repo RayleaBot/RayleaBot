@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 )
 
 type ActionResult map[string]any
@@ -36,10 +35,7 @@ func (actions *Actions) Call(ctx context.Context, action string, input any, outp
 		return fmt.Errorf("rayleabot: marshal %s action: %w", action, err)
 	}
 	if err := client.writer.write(protocolFrame{
-		ProtocolVersion: ProtocolVersion,
 		Type:            "action",
-		Timestamp:       time.Now().Unix(),
-		PluginID:        actions.event.PluginID,
 		RequestID:       requestID,
 		ParentRequestID: actions.event.RequestID,
 		Action:          action,
@@ -155,7 +151,6 @@ func (actions *Actions) KVList(ctx context.Context, prefix string) (ActionResult
 
 type FileRequest struct {
 	Operation     string `json:"operation"`
-	Root          string `json:"root"`
 	Path          string `json:"path,omitempty"`
 	Prefix        string `json:"prefix,omitempty"`
 	ContentText   string `json:"content_text,omitempty"`
@@ -163,23 +158,23 @@ type FileRequest struct {
 }
 
 func (actions *Actions) FileRead(ctx context.Context, path string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "read", Root: "plugin_data", Path: path})
+	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "read", Path: path})
 }
 
 func (actions *Actions) FileWriteText(ctx context.Context, path, content string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "write", Root: "plugin_data", Path: path, ContentText: content})
+	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "write", Path: path, ContentText: content})
 }
 
 func (actions *Actions) FileWriteBase64(ctx context.Context, path, content string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "write", Root: "plugin_data", Path: path, ContentBase64: content})
+	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "write", Path: path, ContentBase64: content})
 }
 
 func (actions *Actions) FileDelete(ctx context.Context, path string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "delete", Root: "plugin_data", Path: path})
+	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "delete", Path: path})
 }
 
 func (actions *Actions) FileList(ctx context.Context, prefix string) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "list", Root: "plugin_data", Prefix: prefix})
+	return actions.callResult(ctx, "storage.file", FileRequest{Operation: "list", Prefix: prefix})
 }
 
 type HTTPRequest struct {
@@ -198,19 +193,8 @@ func (actions *Actions) HTTPRequest(ctx context.Context, request HTTPRequest) (A
 	return actions.callResult(ctx, "http.request", request)
 }
 
-type ConfigReadRequest struct {
-	Keys []string `json:"keys"`
-}
-
 type ConfigWriteRequest struct {
 	Values map[string]any `json:"values"`
-}
-
-func (actions *Actions) ConfigRead(ctx context.Context, keys ...string) (ActionResult, error) {
-	if len(keys) == 0 {
-		return nil, errors.New("rayleabot: ConfigRead requires at least one key")
-	}
-	return actions.callResult(ctx, "config.read", ConfigReadRequest{Keys: keys})
 }
 
 func (actions *Actions) ConfigWrite(ctx context.Context, values map[string]any) (ActionResult, error) {
@@ -331,49 +315,6 @@ func (actions *Actions) SchedulerCreate(ctx context.Context, request SchedulerCr
 		request.EventType = "scheduler.trigger"
 	}
 	return actions.callResult(ctx, "scheduler.create", request)
-}
-
-type ReplayProtection struct {
-	TimestampHeader  string `json:"timestamp_header"`
-	EventIDHeader    string `json:"event_id_header"`
-	ToleranceSeconds int    `json:"tolerance_seconds"`
-	Enforce          bool   `json:"enforce"`
-}
-
-type ExposeWebhookRequest struct {
-	Route            string           `json:"route"`
-	Methods          []string         `json:"methods"`
-	AuthStrategy     string           `json:"auth_strategy"`
-	Header           string           `json:"header"`
-	SecretRef        string           `json:"secret_ref"`
-	SignaturePrefix  string           `json:"signature_prefix,omitempty"`
-	SourceIPs        []string         `json:"source_ips,omitempty"`
-	ReplayProtection ReplayProtection `json:"replay_protection"`
-}
-
-func (actions *Actions) ExposeWebhook(ctx context.Context, request ExposeWebhookRequest) (ActionResult, error) {
-	if request.SecretRef == "" {
-		return nil, errors.New("rayleabot: ExposeWebhook requires SecretRef")
-	}
-	if len(request.Methods) == 0 {
-		request.Methods = []string{"POST"}
-	}
-	if request.AuthStrategy == "" {
-		request.AuthStrategy = "fixed_token"
-	}
-	if request.Header == "" {
-		request.Header = "X-Webhook-Token"
-	}
-	if request.ReplayProtection.TimestampHeader == "" {
-		request.ReplayProtection.TimestampHeader = "X-Raylea-Timestamp"
-	}
-	if request.ReplayProtection.EventIDHeader == "" {
-		request.ReplayProtection.EventIDHeader = "X-Raylea-Event-Id"
-	}
-	if request.ReplayProtection.ToleranceSeconds == 0 {
-		request.ReplayProtection.ToleranceSeconds = 300
-	}
-	return actions.callResult(ctx, "event.expose_webhook", request)
 }
 
 type RenderImageRequest struct {

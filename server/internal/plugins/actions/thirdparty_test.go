@@ -16,8 +16,8 @@ func TestThirdPartyAccountReadReturnsDeclaredPlatformAccounts(t *testing.T) {
 
 	checkedAt := time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC)
 	result, err := executeThirdPartyAccountRead(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.account.read": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.account.read": true},
 			platforms:    []string{thirdparty.PlatformBilibili},
 		},
 		ThirdParty: stubThirdPartyAccountReader{
@@ -63,8 +63,8 @@ func TestThirdPartyAccountReadRejectsUndeclaredPlatform(t *testing.T) {
 	t.Parallel()
 
 	_, err := executeThirdPartyAccountRead(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.account.read": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.account.read": true},
 			platforms:    []string{thirdparty.PlatformWeibo},
 		},
 		ThirdParty: stubThirdPartyAccountReader{},
@@ -80,7 +80,7 @@ func TestThirdPartyAccountReadRejectsUndeclaredPlatform(t *testing.T) {
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
-	if runtimeErr.Code != "plugin.capability_violation" {
+	if runtimeErr.Code != "plugin.permission_denied" {
 		t.Fatalf("unexpected runtime error: %#v", runtimeErr)
 	}
 }
@@ -90,8 +90,8 @@ func TestThirdPartyAccountValidateQueuesAuthoritativeCheck(t *testing.T) {
 
 	requester := &stubThirdPartyAccountValidationRequester{}
 	result, err := executeThirdPartyAccountValidate(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.account.validate": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.account.validate": true},
 			platforms:    []string{thirdparty.PlatformWeibo},
 		},
 		AccountValidation: requester,
@@ -116,12 +116,12 @@ func TestThirdPartyAccountValidateQueuesAuthoritativeCheck(t *testing.T) {
 	}
 }
 
-func TestThirdPartyAccountValidateRequiresSeparateCapability(t *testing.T) {
+func TestThirdPartyAccountValidateRequiresSeparatePermission(t *testing.T) {
 	t.Parallel()
 
 	_, err := executeThirdPartyAccountValidate(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.account.read": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.account.read": true},
 			platforms:    []string{thirdparty.PlatformWeibo},
 		},
 		AccountValidation: &stubThirdPartyAccountValidationRequester{},
@@ -136,8 +136,8 @@ func TestThirdPartyAccountValidateRequiresSeparateCapability(t *testing.T) {
 		},
 	})
 	var runtimeErr *pluginruntime.Error
-	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.capability_violation" {
-		t.Fatalf("expected capability violation, got %#v", err)
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.permission_denied" {
+		t.Fatalf("expected permission violation, got %#v", err)
 	}
 }
 
@@ -153,8 +153,8 @@ func TestThirdPartyResolvePassesAccountCookiesToBrowserResolver(t *testing.T) {
 		exact: true,
 	}
 	result, err := executeThirdPartyResolve(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.resolve": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.resolve": true},
 			platforms:    []string{thirdparty.PlatformDouyin},
 		},
 		ThirdParty: stubThirdPartyAccountReader{
@@ -204,8 +204,8 @@ func TestThirdPartyResolveMergesRequestCookie(t *testing.T) {
 		exact:    true,
 	}
 	result, err := executeThirdPartyResolve(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.resolve": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.resolve": true},
 			platforms:    []string{thirdparty.PlatformDouyin},
 		},
 		ThirdParty: stubThirdPartyAccountReader{
@@ -249,8 +249,8 @@ func TestThirdPartyResolveRejectsUnsupportedPlatform(t *testing.T) {
 	t.Parallel()
 
 	_, err := executeThirdPartyResolve(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.resolve": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.resolve": true},
 			platforms:    []string{thirdparty.PlatformBilibili},
 		},
 		ThirdPartyResolve: &stubThirdPartyResolver{},
@@ -268,12 +268,12 @@ func TestThirdPartyResolveRejectsUnsupportedPlatform(t *testing.T) {
 	}
 }
 
-func TestThirdPartyResolveRequiresCapability(t *testing.T) {
+func TestThirdPartyResolveRequiresPermission(t *testing.T) {
 	t.Parallel()
 
 	_, err := executeThirdPartyResolve(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.account.read": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.account.read": true},
 			platforms:    []string{thirdparty.PlatformDouyin},
 		},
 		ThirdPartyResolve: &stubThirdPartyResolver{},
@@ -286,8 +286,8 @@ func TestThirdPartyResolveRequiresCapability(t *testing.T) {
 		},
 	})
 	var runtimeErr *pluginruntime.Error
-	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.capability_violation" {
-		t.Fatalf("expected capability violation, got %#v", err)
+	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.permission_denied" {
+		t.Fatalf("expected permission violation, got %#v", err)
 	}
 }
 
@@ -295,8 +295,8 @@ func TestThirdPartyResolveRejectsEmptyQuery(t *testing.T) {
 	t.Parallel()
 
 	_, err := executeThirdPartyResolve(context.Background(), Deps{
-		Capabilities: stubThirdPartyCapabilityView{
-			capabilities: map[string]bool{"thirdparty.resolve": true},
+		Permissions: stubThirdPartyPermissionView{
+			permissions: map[string]bool{"thirdparty.resolve": true},
 			platforms:    []string{thirdparty.PlatformDouyin},
 		},
 		ThirdPartyResolve: &stubThirdPartyResolver{},
@@ -314,32 +314,20 @@ func TestThirdPartyResolveRejectsEmptyQuery(t *testing.T) {
 	}
 }
 
-type stubThirdPartyCapabilityView struct {
-	capabilities map[string]bool
+type stubThirdPartyPermissionView struct {
+	permissions map[string]bool
 	platforms    []string
 }
 
-func (s stubThirdPartyCapabilityView) CapabilityDeclared(_ context.Context, _ string, capability string) bool {
-	return s.capabilities[capability]
+func (s stubThirdPartyPermissionView) PermissionDeclared(_ context.Context, _ string, permission string) bool {
+	return s.permissions[permission]
 }
 
-func (s stubThirdPartyCapabilityView) StorageRootAllowed(context.Context, string, string) bool {
-	return false
-}
-
-func (s stubThirdPartyCapabilityView) HTTPHosts(context.Context, string) []string {
-	return nil
-}
-
-func (s stubThirdPartyCapabilityView) ThirdPartyAccountPlatforms(context.Context, string) []string {
+func (s stubThirdPartyPermissionView) PermissionPlatforms(context.Context, string, string) []string {
 	return append([]string(nil), s.platforms...)
 }
 
-func (s stubThirdPartyCapabilityView) WebhookParameters(context.Context, string, string) (plugins.WebhookScope, bool) {
-	return plugins.WebhookScope{}, false
-}
-
-func (s stubThirdPartyCapabilityView) ListPluginSnapshots() []plugins.Snapshot {
+func (s stubThirdPartyPermissionView) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }
 

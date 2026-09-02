@@ -6,6 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -20,15 +21,24 @@ func boolPointer(value bool) *bool {
 	return &value
 }
 
-func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
+func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 	t.Parallel()
 
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatalf("storage.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	repo, err := pluginstore.NewKVSQLiteRepository(store)
+	if err != nil {
+		t.Fatalf("NewKVSQLiteRepository: %v", err)
+	}
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{}},
+		&stubPermissionView{permissions: map[string][]stubPermission{}},
 		nil,
 		nil,
-		nil,
+		repo,
 		nil,
 		nil,
 		nil,
@@ -37,33 +47,38 @@ func TestExecuteLocalActionRejectsMissingCapability(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", pluginruntime.Action{
+	result, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", pluginruntime.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
 	})
-	assertRuntimeErrorCode(t, err, "plugin.capability_violation")
+	if err != nil || result["exists"] != false {
+		t.Fatalf("implicit KV access result = %#v, err = %v", result, err)
+	}
 }
 
-func TestExecutePluginListUsesDeclaredCapability(t *testing.T) {
+func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 	t.Parallel()
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
-			PluginID:             "raylea.echo",
-			Name:                 "Echo",
-			SourceRoot:           "plugins/installed",
-			Valid:                true,
-			RegistrationState:    "installed",
-			DesiredState:         "enabled",
-			RuntimeState:         "running",
-			DeclaredCapabilities: []string{"plugin.list"},
+			PluginID:          "raylea.echo",
+			Name:              "Echo",
+			SourceRoot:        "plugins/installed",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Permissions:       map[string]plugins.PermissionGrant{"plugin.list": {}},
 			Commands: []plugins.Command{{
-				Name:          "echo",
-				Description:   "复读内容",
-				Usage:         "/echo <内容>",
-				CommandSource: plugins.CommandSourceManifest,
+				ID:           "echo",
+				Name:         "echo",
+				DisplayName:  "echo",
+				TriggerType:  "exact",
+				TriggerNames: []string{"echo"},
+				Description:  "复读内容",
+				Usage:        "/echo <内容>",
 			}},
 		},
 		{
@@ -74,10 +89,13 @@ func TestExecutePluginListUsesDeclaredCapability(t *testing.T) {
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
 			Commands: []plugins.Command{{
-				Name:          "tool",
-				Description:   "工具命令",
-				Usage:         "/tool",
-				CommandSource: plugins.CommandSourceManifest,
+				ID:           "tool",
+				Name:         "tool",
+				DisplayName:  "tool",
+				TriggerType:  "exact",
+				TriggerNames: []string{"tool"},
+				Description:  "工具命令",
+				Usage:        "/tool",
 			}},
 		},
 	})
@@ -112,7 +130,8 @@ func TestExecutePluginListUsesDeclaredCapability(t *testing.T) {
 	if !ok || len(echoCommands) != 1 {
 		t.Fatalf("unexpected echo commands: %#v", items[0]["commands"])
 	}
-	if echoCommands[0]["name"] != "echo" || echoCommands[0]["command_source"] != "manifest" {
+	trigger, _ := echoCommands[0]["trigger"].(map[string]any)
+	if echoCommands[0]["id"] != "echo" || echoCommands[0]["name"] != "echo" || trigger["type"] != "exact" {
 		t.Fatalf("unexpected echo command projection: %#v", echoCommands[0])
 	}
 }
@@ -210,7 +229,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 			},
 			name:           "member sees public help",
 			event:          pluginListCallerEvent("1001", "member", "group"),
-			wantHelpTitles: []string{"公开说明", "独立公开说明"},
+			wantHelpTitles: []string{"Tools"},
 		},
 		{
 			config: config.Config{
@@ -219,7 +238,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 			},
 			name:           "admin sees group admin help",
 			event:          pluginListCallerEvent("1002", "admin", "group"),
-			wantHelpTitles: []string{"公开说明", "管理说明", "独立公开说明", "独立管理说明"},
+			wantHelpTitles: []string{"Tools"},
 		},
 		{
 			config: config.Config{
@@ -228,7 +247,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 			},
 			name:           "super admin sees all help",
 			event:          pluginListCallerEvent("9001", "member", "private"),
-			wantHelpTitles: []string{"公开说明", "管理说明", "超管说明", "独立公开说明", "独立管理说明", "独立超管说明"},
+			wantHelpTitles: []string{"Tools"},
 		},
 		{
 			name: "independent help without permission defaults to everyone",
@@ -237,7 +256,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 				Permission: config.PermissionConfig{DefaultLevel: "group_admin"},
 			},
 			event:          pluginListCallerEvent("1001", "member", "group"),
-			wantHelpTitles: []string{"公开说明", "独立公开说明"},
+			wantHelpTitles: []string{"Tools"},
 		},
 	}
 
@@ -267,14 +286,14 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
 		{
-			PluginID:             "raylea.echo",
-			Name:                 "Echo",
-			SourceRoot:           "plugins/installed",
-			Valid:                true,
-			RegistrationState:    "installed",
-			DesiredState:         "enabled",
-			RuntimeState:         "running",
-			DeclaredCapabilities: []string{"plugin.list"},
+			PluginID:          "raylea.echo",
+			Name:              "Echo",
+			SourceRoot:        "plugins/installed",
+			Valid:             true,
+			RegistrationState: "installed",
+			DesiredState:      "enabled",
+			RuntimeState:      "running",
+			Permissions:       map[string]plugins.PermissionGrant{"plugin.list": {}},
 		},
 		{
 			PluginID:          "raylea.tools",
@@ -284,27 +303,16 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
 			Commands: []plugins.Command{
-				{Name: "public", Permission: "everyone", CommandSource: plugins.CommandSourceManifest},
-				{Name: "admin", Permission: "group_admin", CommandSource: plugins.CommandSourceManifest},
-				{Name: "super", Permission: "super_admin", CommandSource: plugins.CommandSourceManifest},
-				{Name: "defaulted", CommandSource: plugins.CommandSourceManifest},
+				{ID: "public", Name: "public", DisplayName: "public", TriggerType: "exact", TriggerNames: []string{"public"}, Permission: "everyone"},
+				{ID: "admin", Name: "admin", DisplayName: "admin", TriggerType: "exact", TriggerNames: []string{"admin"}, Permission: "group_admin"},
+				{ID: "super", Name: "super", DisplayName: "super", TriggerType: "exact", TriggerNames: []string{"super"}, Permission: "super_admin"},
+				{ID: "defaulted", Name: "defaulted", DisplayName: "defaulted", TriggerType: "exact", TriggerNames: []string{"defaulted"}},
 			},
 			Help: &plugins.Help{
 				Title:   "Tools",
 				Summary: "工具说明",
-				Groups: []plugins.HelpGroup{{
-					Title: "权限说明",
-					Items: []plugins.HelpItem{
-						{Title: "公开说明", Command: "public"},
-						{Title: "管理说明", Command: "admin"},
-						{Title: "超管说明", Command: "super"},
-						{Title: "未知指令说明", Command: "missing"},
-						{Title: "独立公开说明"},
-						{Title: "独立管理说明", Permission: "group_admin"},
-						{Title: "独立超管说明", Permission: "super_admin"},
-					},
-				}},
 			},
+			CommandGroups: []plugins.CommandGroup{{ID: "tools", Title: "工具", Commands: []string{"public", "admin", "super", "defaulted"}}},
 		},
 	})
 	application.setTestLocalActions(
@@ -385,21 +393,8 @@ func pluginListHelpTitlesForPlugin(t *testing.T, result map[string]any, pluginID
 		if !ok {
 			t.Fatalf("unexpected help for %s: %#v", pluginID, item["help"])
 		}
-		groups, ok := help["groups"].([]map[string]any)
-		if !ok {
-			t.Fatalf("unexpected help groups for %s: %#v", pluginID, help["groups"])
-		}
-		var titles []string
-		for _, group := range groups {
-			entries, ok := group["items"].([]map[string]any)
-			if !ok {
-				t.Fatalf("unexpected help items for %s: %#v", pluginID, group["items"])
-			}
-			for _, entry := range entries {
-				titles = append(titles, entry["title"].(string))
-			}
-		}
-		return titles
+		title, _ := help["title"].(string)
+		return []string{title}
 	}
 	t.Fatalf("plugin %s not found in result: %#v", pluginID, result)
 	return nil
@@ -434,17 +429,17 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
-		PluginID:             "subscription-hub",
-		Valid:                true,
-		RegistrationState:    "installed",
-		DeclaredCapabilities: []string{"secret.read"},
+		PluginID:          "subscription-hub",
+		Valid:             true,
+		RegistrationState: "installed",
+		Permissions:       map[string]plugins.PermissionGrant{"secret.read": {}},
 	}})
 	application.platform.Secrets = secretStore
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{
+		&stubPermissionView{permissions: map[string][]stubPermission{
 			"subscription-hub": {{
 				PluginID:   "subscription-hub",
-				Capability: "secret.read",
+				Permission: "secret.read",
 			}},
 		}},
 		nil,
@@ -486,10 +481,10 @@ func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	application.setTestLocalActions(
-		&stubCapabilityView{capabilities: map[string][]stubCapability{
+		&stubPermissionView{permissions: map[string][]stubPermission{
 			"subscription-hub": {{
 				PluginID:   "subscription-hub",
-				Capability: "secret.read",
+				Permission: "secret.read",
 			}},
 		}},
 		nil,

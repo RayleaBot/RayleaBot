@@ -1,7 +1,6 @@
 package management
 
 import (
-	"encoding/json"
 	"net/http/httptest"
 	"testing"
 
@@ -9,223 +8,58 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
-func TestListPluginsReturnsContractShape(t *testing.T) {
+func TestListPluginsReturnsUnifiedCommandShape(t *testing.T) {
 	t.Parallel()
-
-	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
+	snapshots := []plugins.Snapshot{
 		{
-			PluginID:                 "raylea.echo",
-			Valid:                    true,
-			RegistrationState:        "installed",
-			DesiredState:             "enabled",
-			RuntimeState:             "running",
-			DisplayState:             "running",
-			Name:                     "Echo",
-			Icon:                     "assets/icon.svg",
-			Description:              "Official echo command",
-			SourceRoot:               "plugins/installed",
-			PackageSourceType:        "catalog",
-			PackageSourceRef:         "official/raylea.echo@0.2.0/windows-x64",
-			PackagePublisherVerified: true,
-			Commands: []plugins.Command{
-				{Name: "echo"},
-			},
-			Help: &plugins.Help{
-				Title:   "Echo",
-				Summary: "Official echo command",
-				Groups: []plugins.HelpGroup{{
-					Title: "基础指令",
-					Items: []plugins.HelpItem{{
-						Title:       "复读内容",
-						Description: "复读收到的内容",
-						Usage:       "/echo <内容>",
-						Command:     "echo",
-						Permission:  "everyone",
-					}},
-				}},
-			},
+			PluginID: "raylea.echo", Name: "Echo", Description: "Echo command", Valid: true,
+			RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
+			PackageSourceType: "catalog", PackagePublisherVerified: true,
+			Commands:      []plugins.Command{{ID: "echo", Name: "echo", DisplayName: "Echo", TriggerType: "exact", TriggerNames: []string{"echo"}, Description: "Echo text", Usage: "/echo <text>", Permission: "everyone"}},
+			CommandGroups: []plugins.CommandGroup{{ID: "basic", Title: "Basic", Commands: []string{"echo"}}},
+			Help:          &plugins.Help{Title: "Echo", Summary: "Echo commands"},
 		},
 		{
-			PluginID:          "weather",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			DisplayState:      "running",
-			Name:              "Weather",
-			SourceRoot:        "plugins/installed",
-			PackageSourceType: "local_zip",
-			PackageSourceRef:  "C:/plugins/weather.zip",
-			Commands: []plugins.Command{
-				{
-					Name:        "weather",
-					Aliases:     []string{"天气"},
-					Description: "查询天气",
-					Usage:       "weather <城市>",
-					Permission:  "member",
-				},
-			},
-			Help: &plugins.Help{
-				Title:   "Weather",
-				Summary: "天气菜单",
-				Groups: []plugins.HelpGroup{{
-					Title: "查询",
-					Items: []plugins.HelpItem{{
-						Title:       "城市天气",
-						Description: "查询城市天气",
-						Usage:       "/weather 上海",
-						Command:     "weather",
-						Permission:  "everyone",
-					}},
-				}},
-			},
-		},
-		{
-			PluginID:          "weather-admin",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			DisplayState:      "running",
-			Name:              "Weather Admin",
-			SourceRoot:        "plugins/installed",
+			PluginID: "other", Name: "Other", Valid: true,
+			RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
 			PackageSourceType: "development",
-			PackageSourceRef:  "C:/workspace/weather-admin",
-			Commands: []plugins.Command{
-				{Name: "weather"},
-			},
+			Commands:          []plugins.Command{{ID: "other-echo", Name: "echo", DisplayName: "Other echo", TriggerType: "setting", SettingsKey: "echo_command", Description: "Other echo", Usage: "/echo", Permission: "everyone"}},
 		},
-	}))
-
-	request := httptest.NewRequest("GET", "/api/plugins", nil)
+	}
+	router := pluginRouter(t, plugincatalog.New(snapshots))
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/plugins", nil))
 	if recorder.Code != 200 {
-		t.Fatalf("unexpected status: got %d want 200", recorder.Code)
+		t.Fatalf("status = %d", recorder.Code)
 	}
-
-	var body map[string]any
-	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
-		t.Fatalf("unmarshal response: %v", err)
+	items := decodeBody(t, recorder.Body.Bytes())["items"].([]any)
+	if len(items) != 2 {
+		t.Fatalf("items = %#v", items)
 	}
-
-	items, ok := body["items"].([]any)
-	if !ok {
-		t.Fatalf("expected items array, got %#v", body["items"])
-	}
-	if len(items) != 3 {
-		t.Fatalf("unexpected item count: got %d want 3", len(items))
-	}
-
-	byID := make(map[string]map[string]any, len(items))
+	var first map[string]any
 	for _, item := range items {
-		itemMap, ok := item.(map[string]any)
-		if !ok {
-			t.Fatalf("expected item object, got %#v", item)
+		candidate := item.(map[string]any)
+		if candidate["id"] == "raylea.echo" {
+			first = candidate
+			break
 		}
-		allowed := map[string]bool{
-			"id":                true,
-			"name":              true,
-			"version":           true,
-			"description":       true,
-			"author":            true,
-			"icon":              true,
-			"role":              true,
-			"state":             true,
-			"state_diagnosis":   true,
-			"source":            true,
-			"trust":             true,
-			"commands":          true,
-			"help":              true,
-			"command_conflicts": true,
-		}
-		for key := range itemMap {
-			if !allowed[key] {
-				t.Fatalf("unexpected public field %q in list response", key)
-			}
-		}
-		byID[itemMap["id"].(string)] = itemMap
 	}
-
-	official := byID["raylea.echo"]
-	if official["icon"] != "assets/icon.svg" {
-		t.Fatalf("list icon = %v, want declared package path", official["icon"])
+	if first == nil || first["role"] != "official" || len(first["command_conflicts"].([]any)) != 1 {
+		t.Fatalf("summary = %#v", first)
 	}
-	if official["state"] != "running" {
-		t.Fatalf("raylea.echo state = %v, want running", official["state"])
+	command := first["commands"].([]any)[0].(map[string]any)
+	if command["id"] != "echo" || command["trigger"].(map[string]any)["type"] != "exact" {
+		t.Fatalf("command = %#v", command)
 	}
-	if official["role"] != "official" {
-		t.Fatalf("raylea.echo role = %v, want official", official["role"])
+	if _, exists := command["command_source"]; exists {
+		t.Fatalf("legacy command source leaked: %#v", command)
 	}
-	if conflicts := official["command_conflicts"].([]any); len(conflicts) != 0 {
-		t.Fatalf("raylea.echo command_conflicts = %#v, want []", conflicts)
+	groups := first["command_groups"].([]any)
+	if len(groups) != 1 || groups[0].(map[string]any)["id"] != "basic" {
+		t.Fatalf("command_groups = %#v", groups)
 	}
-	assertCommandList(t, official["commands"], []map[string]any{
-		{
-			"name":           "echo",
-			"command_source": "manifest",
-		},
-	})
-	assertPluginHelp(t, official["help"], "Echo", "基础指令", "复读内容")
-
-	weather := byID["weather"]
-	if weather["name"] != "Weather" {
-		t.Fatalf("weather name = %v, want Weather", weather["name"])
+	help := first["help"].(map[string]any)
+	if help["title"] != "Echo" || help["summary"] != "Echo commands" {
+		t.Fatalf("help = %#v", help)
 	}
-	if weather["role"] != "community" {
-		t.Fatalf("weather role = %v, want community", weather["role"])
-	}
-	source := weather["source"].(map[string]any)
-	if source["root"] != "plugins/installed" {
-		t.Fatalf("weather source.root = %v, want plugins/installed", source["root"])
-	}
-	if source["package_source_type"] != "local_zip" {
-		t.Fatalf("weather package_source_type = %v, want local_zip", source["package_source_type"])
-	}
-	if source["package_source_ref"] != "C:/plugins/weather.zip" {
-		t.Fatalf("weather package_source_ref = %v, want C:/plugins/weather.zip", source["package_source_ref"])
-	}
-	if source["verified"] != false {
-		t.Fatalf("weather verified = %v, want false", source["verified"])
-	}
-	trust := weather["trust"].(map[string]any)
-	if trust["level"] != "unverified" {
-		t.Fatalf("weather trust.level = %v, want unverified", trust["level"])
-	}
-	if trust["label"] != "未验证来源" {
-		t.Fatalf("weather trust.label = %v, want 未验证来源", trust["label"])
-	}
-	if conflicts := weather["command_conflicts"].([]any); len(conflicts) != 1 || conflicts[0] != "weather" {
-		t.Fatalf("weather command_conflicts = %#v, want [weather]", conflicts)
-	}
-	assertCommandList(t, weather["commands"], []map[string]any{
-		{
-			"name":           "weather",
-			"aliases":        []any{"天气"},
-			"description":    "查询天气",
-			"usage":          "weather <城市>",
-			"permission":     "member",
-			"command_source": "manifest",
-		},
-	})
-	assertPluginHelp(t, weather["help"], "Weather", "查询", "城市天气")
-
-	devPlugin := byID["weather-admin"]
-	if devPlugin["role"] != "development" {
-		t.Fatalf("weather-admin role = %v, want development", devPlugin["role"])
-	}
-	devTrust := devPlugin["trust"].(map[string]any)
-	if devTrust["level"] != "development" {
-		t.Fatalf("weather-admin trust.level = %v, want development", devTrust["level"])
-	}
-	if devTrust["label"] != "开发中" {
-		t.Fatalf("weather-admin trust.label = %v, want 开发中", devTrust["label"])
-	}
-	assertCommandList(t, devPlugin["commands"], []map[string]any{
-		{
-			"name":           "weather",
-			"command_source": "manifest",
-		},
-	})
 }

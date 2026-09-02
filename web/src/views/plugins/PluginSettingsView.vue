@@ -8,6 +8,7 @@ import {
   MessageOutlined,
   SafetyCertificateOutlined,
   SaveOutlined,
+  SettingOutlined,
   PictureOutlined,
 } from '@ant-design/icons-vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'

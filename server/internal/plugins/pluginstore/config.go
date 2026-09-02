@@ -44,20 +44,11 @@ func (r *ConfigSQLiteRepository) SeedDefaults(ctx context.Context, pluginID stri
 	if len(values) == 0 {
 		return false, nil
 	}
-
-	namespace := namespaceForPlugin(pluginID)
-	existing, err := r.readQ.CountNamespace(ctx, namespace)
+	written, err := r.writeValues(ctx, namespaceForPlugin(pluginID), values, false)
 	if err != nil {
-		return false, fmt.Errorf("count system configs for %s: %w", namespace, err)
-	}
-	if existing > 0 {
-		return false, nil
-	}
-
-	if _, err := r.writeValues(ctx, namespace, values, false); err != nil {
 		return false, err
 	}
-	return true, nil
+	return len(written) > 0, nil
 }
 
 func (r *ConfigSQLiteRepository) Read(ctx context.Context, pluginID string, keys []string) (map[string]any, error) {
@@ -140,6 +131,7 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 	q := r.writeQ.WithTx(tx)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 
+	written := make([]string, 0, len(keys))
 	for _, key := range keys {
 		raw, err := json.Marshal(values[key])
 		if err != nil {
@@ -154,21 +146,59 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 			}); err != nil {
 				return nil, fmt.Errorf("upsert system config %s: %w", key, err)
 			}
+			written = append(written, key)
 		} else {
-			if err := q.SeedConfig(ctx, sqlcgen.SeedConfigParams{
-				Namespace: namespace,
-				Key:       key,
-				ValueJson: string(raw),
-				UpdatedAt: now,
-			}); err != nil {
+			result, err := tx.ExecContext(ctx, `
+INSERT INTO system_configs (namespace, key, value_json, updated_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(namespace, key) DO NOTHING`, namespace, key, string(raw), now)
+			if err != nil {
 				return nil, fmt.Errorf("seed system config %s: %w", key, err)
+			}
+			rowsAffected, err := result.RowsAffected()
+			if err != nil {
+				return nil, fmt.Errorf("read seeded system config result for %s: %w", key, err)
+			}
+			if rowsAffected > 0 {
+				written = append(written, key)
 			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit system config tx: %w", err)
 	}
-	return keys, nil
+	return written, nil
+}
+
+func MergeValues(defaults, persisted map[string]any) map[string]any {
+	merged := cloneValues(defaults)
+	for key, value := range persisted {
+		merged[key] = cloneValue(value)
+	}
+	return merged
+}
+
+func cloneValues(values map[string]any) map[string]any {
+	cloned := make(map[string]any, len(values))
+	for key, value := range values {
+		cloned[key] = cloneValue(value)
+	}
+	return cloned
+}
+
+func cloneValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		return cloneValues(typed)
+	case []any:
+		cloned := make([]any, len(typed))
+		for index, item := range typed {
+			cloned[index] = cloneValue(item)
+		}
+		return cloned
+	default:
+		return typed
+	}
 }
 
 func scanConfigRows(rows *sql.Rows) (map[string]any, error) {

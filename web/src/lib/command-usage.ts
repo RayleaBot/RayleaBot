@@ -11,7 +11,10 @@ export function getPrimaryCommandPrefix(prefixes?: string[] | null) {
 }
 
 export function formatCommandUsage(command: PluginCommandSummary, prefix: string) {
-  const commandName = command.name.trim()
+  if (command.trigger.type === 'pattern') {
+    return command.usage.trim()
+  }
+  const commandName = command.effective_names[0]?.trim() || command.name.trim()
   if (!commandName) {
     return ''
   }
@@ -24,7 +27,7 @@ export function formatCommandUsage(command: PluginCommandSummary, prefix: string
 
   const [head, ...rest] = usage.split(/\s+/)
   const normalizedHead = head.replace(/^[^0-9A-Za-z\u4e00-\u9fa5_-]+/u, '')
-  if (normalizedHead === commandName || command.aliases?.includes(normalizedHead)) {
+  if (normalizedHead === commandName || command.effective_names.includes(normalizedHead)) {
     const tail = rest.join(' ').trim()
     return tail ? `${prefix}${normalizedHead} ${tail}` : `${prefix}${normalizedHead}`
   }

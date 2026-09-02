@@ -183,6 +183,10 @@ jobs:
           pnpm generate:types
           git diff --exit-code src/types/generated.ts src/types/websocket.generated.ts
 
+      - name: Check web indentation
+        working-directory: web
+        run: pnpm run check:indent
+
       - name: Run web typecheck
         working-directory: web
         run: pnpm run typecheck

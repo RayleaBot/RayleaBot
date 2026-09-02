@@ -7,6 +7,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 )
 
 type pluginSettingsRequest struct {
@@ -99,7 +100,7 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsPut() http.HandlerFunc 
 				h.refreshCommands(r.Context(), snapshot.PluginID, values)
 			}
 			if h.notifyConfigChange != nil {
-				h.notifyConfigChange(r.Context(), snapshot.PluginID)
+				h.notifyConfigChange(r.Context(), snapshot.PluginID, values, changedKeys)
 			}
 		}
 
@@ -112,59 +113,13 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsPut() http.HandlerFunc 
 }
 
 func (h *PluginManagementUIHandlers) effectiveSettings(ctx context.Context, snapshot plugins.Snapshot) (map[string]any, error) {
-	values := cloneSettingsMap(snapshot.DefaultConfig)
 	if h.pluginConfig == nil {
-		return ensureSettingsMap(values), nil
+		return pluginstore.MergeValues(snapshot.DefaultConfig, nil), nil
 	}
 
 	persisted, err := h.pluginConfig.ReadAll(ctx, snapshot.PluginID)
 	if err != nil {
 		return nil, err
 	}
-	for key, value := range persisted {
-		values[key] = cloneSettingsValue(value)
-	}
-	return ensureSettingsMap(values), nil
-}
-
-func cloneSettingsMap(values map[string]any) map[string]any {
-	if len(values) == 0 {
-		return map[string]any{}
-	}
-
-	cloned := make(map[string]any, len(values))
-	for key, value := range values {
-		cloned[key] = cloneSettingsValue(value)
-	}
-	return cloned
-}
-
-func cloneSettingsSlice(values []any) []any {
-	if len(values) == 0 {
-		return []any{}
-	}
-
-	cloned := make([]any, len(values))
-	for index, value := range values {
-		cloned[index] = cloneSettingsValue(value)
-	}
-	return cloned
-}
-
-func cloneSettingsValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return cloneSettingsMap(typed)
-	case []any:
-		return cloneSettingsSlice(typed)
-	default:
-		return typed
-	}
-}
-
-func ensureSettingsMap(values map[string]any) map[string]any {
-	if values == nil {
-		return map[string]any{}
-	}
-	return values
+	return pluginstore.MergeValues(snapshot.DefaultConfig, persisted), nil
 }

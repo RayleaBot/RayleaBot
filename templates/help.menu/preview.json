@@ -21,7 +21,7 @@
         {
           "name": "weather",
           "description": "查询天气",
-          "command_source": "manifest",
+          "trigger_type": "exact",
           "command_prefixes": ["/", "*"],
           "usage_args": "<城市> [天数]",
           "usage_parts": [
@@ -39,7 +39,7 @@
         {
           "name": "已适配角色列表",
           "description": "查看当前已适配攻略图的全部角色",
-          "command_source": "pattern",
+          "trigger_type": "pattern",
           "command_prefixes": ["/", "*"],
           "usage": "角色列表",
           "usage_parts": [
@@ -51,7 +51,7 @@
         {
           "name": "角色攻略",
           "description": "按角色名或别名查询攻略图",
-          "command_source": "pattern",
+          "trigger_type": "pattern",
           "command_prefixes": ["/", "*"],
           "usage": "<角色名>攻略",
           "usage_parts": [

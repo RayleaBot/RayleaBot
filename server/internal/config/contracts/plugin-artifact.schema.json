@@ -1,35 +1,27 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-artifact.schema.json",
-  "title": "RayleaBot Plugin Artifact",
-  "description": "Formal inventory for one prebuilt, platform-specific Go plugin package. artifact.json itself is excluded from files so the inventory can be signed and hashed without a self-reference.",
+  "title": "RayleaBot Plugin Artifact v2",
+  "description": "Language-neutral inventory for one prebuilt native plugin package. Plugin identity and version are read from info.json; artifact.json is excluded from its own inventory.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "artifact_version",
-    "plugin_id",
-    "plugin_version",
     "target_platform",
-    "manifest_sha256",
+    "entry",
     "files"
   ],
   "properties": {
     "artifact_version": {
       "type": "string",
-      "const": "1"
-    },
-    "plugin_id": {
-      "type": "string",
-      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
-    },
-    "plugin_version": {
-      "$ref": "#/$defs/semver"
+      "const": "2"
     },
     "target_platform": {
       "$ref": "#/$defs/platform"
     },
-    "manifest_sha256": {
-      "$ref": "#/$defs/sha256"
+    "entry": {
+      "$ref": "#/$defs/path",
+      "description": "Package-relative native executable selected for target_platform."
     },
     "files": {
       "type": "array",
@@ -40,10 +32,6 @@
     }
   },
   "$defs": {
-    "semver": {
-      "type": "string",
-      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
-    },
     "sha256": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$"
@@ -84,26 +72,12 @@
       "additionalProperties": false,
       "required": [
         "path",
-        "role",
         "size",
         "sha256"
       ],
       "properties": {
         "path": {
           "$ref": "#/$defs/path"
-        },
-        "role": {
-          "type": "string",
-          "enum": [
-            "manifest",
-            "backend",
-            "ui",
-            "render_template",
-            "data",
-            "license",
-            "notice",
-            "sbom"
-          ]
         },
         "size": {
           "type": "integer",

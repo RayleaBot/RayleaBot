@@ -15,7 +15,7 @@
 - `docs/architecture/`：架构、状态模型、统一事件模型、跨层边界。
 - `docs/design/`：视觉、交互和桌面端设计说明。
 - `docs/dev/`：开发、调试、诊断、贡献流程。
-- `docs/plugin/`：插件 manifest、capabilities、协议、SDK、插件内置管理页。
+- `docs/plugin/`：插件 manifest、permissions、协议、SDK、插件内置管理页。
 - `docs/user/`：安装、初始化、配置、管理面、恢复与排障。
 - `docs/release/`：版本说明、交付、升级、风险与已知问题。
 

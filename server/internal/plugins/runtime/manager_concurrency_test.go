@@ -146,20 +146,6 @@ func TestParseHTTPRequestActionRejectsGetWithBody(t *testing.T) {
 	assertActionErrorCode(t, err, codePluginProtocolViolation)
 }
 
-func TestParseConfigReadAction(t *testing.T) {
-	t.Parallel()
-
-	action, err := ParseLocalAction("config.read", json.RawMessage(`{
-		"keys": ["default_city", "unit"]
-	}`))
-	if err != nil {
-		t.Fatalf("parseConfigReadAction: %v", err)
-	}
-	if action.Kind != "config.read" || len(action.ConfigKeys) != 2 {
-		t.Fatalf("unexpected config.read action: %#v", action)
-	}
-}
-
 func TestParseLocalMessageSendAction(t *testing.T) {
 	t.Parallel()
 
@@ -379,59 +365,6 @@ func TestParseSchedulerCreateAction(t *testing.T) {
 	}
 	if action.SchedulerLogLabel != "每日早报" {
 		t.Fatalf("SchedulerLogLabel = %q, want 每日早报", action.SchedulerLogLabel)
-	}
-}
-
-func TestParseEventExposeWebhookAction(t *testing.T) {
-	t.Parallel()
-
-	action, err := ParseLocalAction("event.expose_webhook", json.RawMessage(`{
-		"route": "github",
-		"methods": ["POST"],
-		"auth_strategy": "hmac_sha256",
-		"header": "X-Hub-Signature-256",
-		"signature_prefix": "sha256=",
-		"secret_ref": "webhook.github.secret",
-		"source_ips": ["192.0.2.0/24"],
-		"replay_protection": {
-			"timestamp_header": "X-Raylea-Timestamp",
-			"event_id_header": "X-Raylea-Event-Id",
-			"tolerance_seconds": 300,
-			"enforce": true
-		}
-	}`))
-	if err != nil {
-		t.Fatalf("parseEventExposeWebhookAction: %v", err)
-	}
-	if action.Kind != "event.expose_webhook" || action.WebhookRoute != "github" || action.WebhookAuthStrategy != "hmac_sha256" {
-		t.Fatalf("unexpected event.expose_webhook action: %#v", action)
-	}
-	if len(action.WebhookMethods) != 1 || action.WebhookMethods[0] != "POST" {
-		t.Fatalf("unexpected webhook methods: %#v", action.WebhookMethods)
-	}
-	if action.WebhookReplayProtection == nil {
-		t.Fatalf("missing replay_protection on action")
-	}
-	if action.WebhookReplayProtection.TimestampHeader != "X-Raylea-Timestamp" ||
-		action.WebhookReplayProtection.EventIDHeader != "X-Raylea-Event-Id" ||
-		action.WebhookReplayProtection.ToleranceSeconds != 300 ||
-		!action.WebhookReplayProtection.Enforce {
-		t.Fatalf("unexpected replay_protection: %+v", action.WebhookReplayProtection)
-	}
-}
-
-func TestParseEventExposeWebhookActionRejectsMissingReplayProtection(t *testing.T) {
-	t.Parallel()
-
-	if _, err := ParseLocalAction("event.expose_webhook", json.RawMessage(`{
-		"route": "github",
-		"methods": ["POST"],
-		"auth_strategy": "hmac_sha256",
-		"header": "X-Hub-Signature-256",
-		"signature_prefix": "sha256=",
-		"secret_ref": "webhook.github.secret"
-	}`)); err == nil {
-		t.Fatalf("expected error when replay_protection is missing")
 	}
 }
 
@@ -720,7 +653,8 @@ func testInitPayload() InitPayload {
 			ID:       "bot-1",
 			Nickname: "RayleaBot",
 		},
-		Capabilities:    []string{"event.subscribe"},
+		Config:          map[string]any{"enabled": true},
+		Permissions:     []string{"message.send"},
 		SuperAdmins:     []string{"9001", "9002"},
 		CommandPrefixes: []string{"!", "/"},
 	}

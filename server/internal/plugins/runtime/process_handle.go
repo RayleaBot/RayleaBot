@@ -268,7 +268,6 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		enteredDeadLetterAt := *snapshot.EnteredDeadLetterAt
 		cloned.EnteredDeadLetterAt = &enteredDeadLetterAt
 	}
-	cloned.Subscriptions = append([]string(nil), snapshot.Subscriptions...)
 	return cloned
 }
 

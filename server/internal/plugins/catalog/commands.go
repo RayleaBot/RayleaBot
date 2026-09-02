@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
@@ -10,60 +9,46 @@ import (
 )
 
 func ProjectCommands(snapshot plugins.Snapshot, settings map[string]any) []plugins.Command {
-	items := make([]plugins.Command, 0, len(snapshot.ManifestCommands)+len(snapshot.CommandPatterns)+len(snapshot.DynamicCommands))
-	for _, command := range snapshot.ManifestCommands {
-		normalized := command
-		normalized.CommandSource = plugins.CommandSourceManifest
-		normalized.DeclarationID = ""
-		normalized.MatchPattern = ""
-		normalized.Name = strings.TrimSpace(normalized.Name)
-		normalized.Aliases = normalizeStaticCommandTokens(normalized.Aliases)
-		if normalized.Name == "" {
-			continue
+	items := make([]plugins.Command, 0, len(snapshot.ManifestCommands))
+	for _, declaration := range snapshot.ManifestCommands {
+		normalized := declaration
+		normalized.ID = strings.TrimSpace(declaration.ID)
+		normalized.DisplayName = strings.TrimSpace(declaration.DisplayName)
+		normalized.Description = strings.TrimSpace(declaration.Description)
+		normalized.Usage = strings.TrimSpace(declaration.Usage)
+		normalized.Permission = strings.TrimSpace(declaration.Permission)
+		switch declaration.TriggerType {
+		case "exact":
+			tokens := normalizeStaticCommandTokens(declaration.TriggerNames)
+			if len(tokens) == 0 {
+				continue
+			}
+			normalized.Name = tokens[0]
+			normalized.Aliases = append([]string(nil), tokens[1:]...)
+			normalized.MatchPattern = ""
+			items = append(items, normalized)
+		case "pattern":
+			pattern := strings.TrimSpace(declaration.MatchPattern)
+			if !validCommandPattern(pattern) {
+				continue
+			}
+			normalized.Name = normalized.DisplayName
+			normalized.Aliases = nil
+			normalized.MatchPattern = pattern
+			items = append(items, normalized)
+		case "setting":
+			tokens, hasSetting := commandTokensFromSetting(settings, declaration.SettingsKey)
+			if !hasSetting {
+				tokens, _ = commandTokensFromSetting(snapshot.DefaultConfig, declaration.SettingsKey)
+			}
+			if len(tokens) == 0 {
+				continue
+			}
+			normalized.Name = tokens[0]
+			normalized.Aliases = append([]string(nil), tokens[1:]...)
+			normalized.MatchPattern = ""
+			items = append(items, normalized)
 		}
-		items = append(items, normalized)
-	}
-
-	for _, declaration := range snapshot.CommandPatterns {
-		name := strings.TrimSpace(declaration.Name)
-		pattern := strings.TrimSpace(declaration.Pattern)
-		if name == "" || !validCommandPattern(pattern) {
-			continue
-		}
-		items = append(items, plugins.Command{
-			Name:          name,
-			MatchPattern:  pattern,
-			Description:   strings.TrimSpace(declaration.Description),
-			Usage:         strings.TrimSpace(declaration.Usage),
-			Permission:    strings.TrimSpace(declaration.Permission),
-			CommandSource: plugins.CommandSourcePattern,
-			DeclarationID: strings.TrimSpace(declaration.ID),
-		})
-	}
-
-	for _, declaration := range snapshot.DynamicCommands {
-		tokens, hasSetting := commandTokensFromSetting(settings, declaration.SettingsKey)
-		if !hasSetting {
-			tokens, _ = commandTokensFromSetting(snapshot.DefaultConfig, declaration.SettingsKey)
-		}
-		if len(tokens) == 0 {
-			continue
-		}
-
-		name := tokens[0]
-		usage := name
-		if usageArgs := strings.TrimSpace(declaration.UsageArgs); usageArgs != "" {
-			usage = name + " " + usageArgs
-		}
-		items = append(items, plugins.Command{
-			Name:          name,
-			Aliases:       append([]string(nil), tokens[1:]...),
-			Description:   strings.TrimSpace(declaration.Description),
-			Usage:         usage,
-			Permission:    strings.TrimSpace(declaration.Permission),
-			CommandSource: plugins.CommandSourceDynamic,
-			DeclarationID: strings.TrimSpace(declaration.ID),
-		})
 	}
 	return items
 }
@@ -74,19 +59,6 @@ func validCommandPattern(pattern string) bool {
 	}
 	_, err := regexp.Compile(pattern)
 	return err == nil
-}
-
-func validateCommandPatterns(patterns []plugins.CommandPatternDecl) error {
-	for index, declaration := range patterns {
-		pattern := strings.TrimSpace(declaration.Pattern)
-		if pattern == "" {
-			continue
-		}
-		if _, err := regexp.Compile(pattern); err != nil {
-			return fmt.Errorf("command_patterns[%d].pattern is invalid: %w", index, err)
-		}
-	}
-	return nil
 }
 
 func normalizeStaticCommandTokens(values []string) []string {

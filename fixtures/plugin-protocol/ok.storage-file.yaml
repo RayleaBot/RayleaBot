@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-file-1
+    action: storage.file
+    data:
+      operation: write
+      path: cache/state.json
+      content_text: "{}"
+  - type: result
+    request_id: action-file-1
+    status: success
+    data:
+      bytes_written: 2
+expect:
+  valid: true

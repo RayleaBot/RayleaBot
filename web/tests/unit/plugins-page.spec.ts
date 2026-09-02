@@ -15,6 +15,13 @@ vi.mock('@/adapter/feedback', () => ({
   useToastFeedback: vi.fn(),
 }))
 
+function testCommand(id: string, name: string, aliases: string[] = [], permission: 'everyone' | 'group_admin' | 'super_admin' = 'everyone') {
+  return {
+    id, name, effective_names: [name, ...aliases], description: `${name}说明`, usage: `/${name}`,
+    permission, trigger: { type: 'exact' as const, names: [name, ...aliases] },
+  }
+}
+
 describe('PluginsPage', () => {
   it('loads only the protected icon URL and restores the logo after an image error', async () => {
     const wrapper = mount(PluginIcon, { props: { pluginId: 'weather', icon: 'assets/weather.svg', version: '1.0.0' } })
@@ -233,48 +240,14 @@ describe('PluginsPage', () => {
           label: '未验证来源',
         },
         commands: [
-          {
-            name: '我的运势',
-            aliases: ['今日运势', '每日运势'],
-            description: '查看今日运势',
-            usage: '我的运势',
-            permission: 'everyone',
-            command_source: 'dynamic',
-            declaration_id: 'fortune',
-          },
-          {
-            name: '天气',
-            aliases: [],
-            description: '查询天气',
-            usage: '天气 上海',
-            permission: 'member',
-            command_source: 'manifest',
-          },
-          {
-            name: '天气后台',
-            aliases: [],
-            description: '查询天气后台信息',
-            usage: '天气后台',
-            permission: 'group_admin',
-            command_source: 'manifest',
-          },
-          {
-            name: '订阅状态',
-            aliases: [],
-            description: '查看订阅状态',
-            usage: '订阅状态',
-            permission: 'member',
-            command_source: 'manifest',
-          },
-          {
-            name: '订阅刷新',
-            aliases: [],
-            description: '刷新订阅',
-            usage: '订阅刷新',
-            permission: 'member',
-            command_source: 'manifest',
-          },
+      { ...testCommand('fortune', '我的运势', ['今日运势', '每日运势']), trigger: { type: 'setting' as const, settings_key: 'fortune_command' } },
+      testCommand('weather', '天气'),
+      testCommand('weather-admin', '天气后台', [], 'group_admin'),
+      testCommand('subscription-status', '订阅状态'),
+      testCommand('subscription-refresh', '订阅刷新'),
         ],
+    command_groups: [],
+    help: {},
         command_conflicts: ['我的运势'],
       },
     ]
@@ -395,12 +368,14 @@ describe('PluginsPage', () => {
         role: 'community',
         state: 'running',
         commands: [
-          { name: '订阅状态', command_source: 'manifest' },
-          { name: '订阅刷新', command_source: 'manifest' },
-          { name: '订阅暂停', command_source: 'manifest' },
-          { name: '订阅恢复', command_source: 'manifest' },
-          { name: '订阅删除', command_source: 'manifest' },
+      testCommand('status', '订阅状态'),
+      testCommand('refresh', '订阅刷新'),
+      testCommand('pause', '订阅暂停'),
+      testCommand('resume', '订阅恢复'),
+      testCommand('delete', '订阅删除'),
         ],
+    command_groups: [],
+    help: {},
         command_conflicts: [],
       },
     ]

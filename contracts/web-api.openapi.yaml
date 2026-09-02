@@ -1601,7 +1601,7 @@ paths:
 
   /api/plugin-store/refresh:
     post:
-      summary: Fetch and verify the configured official static catalog immediately.
+      summary: Fetch and verify the official static catalog immediately.
       operationId: refreshPluginStoreCatalog
       security:
         - BearerAuth: []
@@ -1705,7 +1705,7 @@ paths:
 
   /api/plugins/install/inspect:
     post:
-      summary: Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and capabilities before trust confirmation.
+      summary: Inspect a prebuilt plugin artifact and freeze its digest, target platform, metadata and permissions before trust confirmation.
       operationId: inspectPluginInstall
       security:
         - BearerAuth: []
@@ -3574,10 +3574,6 @@ components:
       type: string
       enum: [declared, default_level]
 
-    PluginCommandSource:
-      type: string
-      enum: [manifest, dynamic, pattern]
-
     GovernanceCommandCooldown:
       type: object
       additionalProperties: false
@@ -3595,12 +3591,15 @@ components:
     GovernanceCommandPolicyEntry:
       type: object
       additionalProperties: false
-      required: [plugin_id, plugin_name, command, aliases, command_source, declared_permission, effective_permission, permission_source]
+      required: [plugin_id, plugin_name, command_id, command, aliases, trigger, declared_permission, effective_permission, permission_source]
       properties:
         plugin_id:
           type: string
           minLength: 1
         plugin_name:
+          type: string
+          minLength: 1
+        command_id:
           type: string
           minLength: 1
         command:
@@ -3610,11 +3609,8 @@ components:
           type: array
           items:
             type: string
-        command_source:
-          $ref: '#/components/schemas/PluginCommandSource'
-        declaration_id:
-          type: string
-          minLength: 1
+        trigger:
+          $ref: '#/components/schemas/PluginCommandTrigger'
         declared_permission:
           oneOf:
             - $ref: '#/components/schemas/CommandPermissionLevel'
@@ -3682,10 +3678,6 @@ components:
       type: string
       enum: [official, community, development]
 
-    PluginRuntimeFamily:
-      type: string
-      const: go
-
     PluginPlatform:
       type: string
       enum: [windows-x64, linux-x64, macos-arm64]
@@ -3719,29 +3711,89 @@ components:
     PluginCommandSummary:
       type: object
       additionalProperties: false
-      required: [name, command_source]
+      required: [id, name, effective_names, description, usage, permission, trigger]
       properties:
+        id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$'
         name:
           type: string
-        aliases:
+        effective_names:
           type: array
           items:
             type: string
+          uniqueItems: true
         description:
           type: string
         usage:
           type: string
         permission:
+          $ref: '#/components/schemas/CommandPermissionLevel'
+        trigger:
+          $ref: '#/components/schemas/PluginCommandTrigger'
+
+    PluginCommandTrigger:
+      oneOf:
+        - $ref: '#/components/schemas/PluginExactCommandTrigger'
+        - $ref: '#/components/schemas/PluginPatternCommandTrigger'
+        - $ref: '#/components/schemas/PluginSettingCommandTrigger'
+
+    PluginExactCommandTrigger:
+      type: object
+      additionalProperties: false
+      required: [type, names]
+      properties:
+        type:
           type: string
-        command_source:
-          $ref: '#/components/schemas/PluginCommandSource'
-        declaration_id:
+          const: exact
+        names:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+
+    PluginPatternCommandTrigger:
+      type: object
+      additionalProperties: false
+      required: [type, pattern]
+      properties:
+        type:
           type: string
+          const: pattern
+        pattern:
+          type: string
+
+    PluginSettingCommandTrigger:
+      type: object
+      additionalProperties: false
+      required: [type, settings_key]
+      properties:
+        type:
+          type: string
+          const: setting
+        settings_key:
+          type: string
+
+    PluginCommandGroup:
+      type: object
+      additionalProperties: false
+      required: [id, title, commands]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        commands:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
 
     PluginSummary:
       type: object
       additionalProperties: false
-      required: [id, name, role, state, commands, help]
+      required: [id, name, role, state, commands, command_groups, help]
       properties:
         id:
           type: string
@@ -3770,53 +3822,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginCommandSummary'
+        command_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginCommandGroup'
         help:
           $ref: '#/components/schemas/PluginHelp'
         command_conflicts:
           type: array
           items:
             type: string
-    PluginHelpItem:
-      type: object
-      additionalProperties: false
-      required: [title]
-      properties:
-        title:
-          type: string
-        description:
-          type: string
-        usage:
-          type: string
-        command:
-          type: string
-        permission:
-          type: string
-
-    PluginHelpGroup:
-      type: object
-      additionalProperties: false
-      required: [title, items]
-      properties:
-        title:
-          type: string
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginHelpItem'
-
     PluginHelp:
       type: object
       additionalProperties: false
-      required: [groups]
       properties:
         title:
           type: string
         summary:
           type: string
-        groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginHelpGroup'
 
     PluginListResponse:
       type: object
@@ -3976,8 +3999,10 @@ components:
     PluginWebhookScope:
       type: object
       additionalProperties: false
-      required: [route, auth_strategy, header, secret_ref]
+      required: [id, route, auth_strategy, header, secret_ref, replay_protection]
       properties:
+        id:
+          type: string
         route:
           type: string
         auth_strategy:
@@ -3987,31 +4012,52 @@ components:
           type: string
         secret_ref:
           type: string
-        source_ips:
+        signature_prefix:
+          type: string
+        source_cidrs:
           type: array
           items:
             type: string
+        max_body_bytes:
+          type: integer
+          minimum: 1
+        replay_protection:
+          $ref: '#/components/schemas/PluginWebhookReplayProtection'
 
-    PluginCapabilityParameters:
+    PluginWebhookReplayProtection:
       type: object
       additionalProperties: false
+      required: [timestamp_header, event_id_header, tolerance_seconds, enforce]
       properties:
-        http_hosts:
-          type: array
-          items:
-            type: string
-        storage_roots:
-          type: array
-          items:
-            type: string
-        third_party_account_platforms:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyPlatform'
-        webhooks:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginWebhookScope'
+        timestamp_header:
+          type: string
+        event_id_header:
+          type: string
+        tolerance_seconds:
+          type: integer
+          minimum: 1
+        enforce:
+          type: boolean
+
+    PluginPermissionGrant:
+      oneOf:
+        - type: boolean
+          const: true
+        - type: object
+          additionalProperties: false
+          required: [platforms]
+          properties:
+            platforms:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items:
+                $ref: '#/components/schemas/ThirdPartyPlatform'
+
+    PluginPermissions:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/PluginPermissionGrant'
 
     PluginScreenshot:
       type: object
@@ -4026,8 +4072,11 @@ components:
     PluginManagementUISummary:
       type: object
       additionalProperties: false
-      required: [pages]
+      required: [entry, pages]
       properties:
+        entry:
+          type: string
+          pattern: '^[A-Za-z0-9._/-]+\.html$'
         pages:
           type: array
           minItems: 1
@@ -4037,29 +4086,18 @@ components:
     PluginManagementUIPage:
       type: object
       additionalProperties: false
-      required: [id, label, entry]
+      required: [id, label]
       properties:
         id:
           type: string
           pattern: '^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$'
         label:
           type: string
-        entry:
-          type: string
-          pattern: '^[A-Za-z0-9._/-]+\.html$'
-
-    PluginRenderTemplateSummary:
-      type: object
-      additionalProperties: false
-      required: [path]
-      properties:
-        path:
-          type: string
 
     PluginDetail:
       type: object
       additionalProperties: false
-      required: [id, name, role, state, commands, help]
+      required: [id, name, role, state, commands, command_groups, help, permissions, webhooks]
       properties:
         id:
           type: string
@@ -4085,39 +4123,33 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginCommandSummary'
+        command_groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginCommandGroup'
         help:
           $ref: '#/components/schemas/PluginHelp'
         command_conflicts:
           type: array
           items:
             type: string
-        runtime:
-          $ref: '#/components/schemas/PluginRuntimeFamily'
-        entry:
-          type: string
         license:
           type: string
         min_core_version:
           type: string
-        data_schema_version:
-          type: string
         concurrency:
           type: integer
           minimum: 1
-        platforms:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginPlatform'
-        default_config:
-          type: object
-          additionalProperties: true
-        declared_capabilities:
+        events:
           type: array
           items:
             type: string
-            pattern: '^[a-z]+\.[a-z_]+$'
-        capability_parameters:
-          $ref: '#/components/schemas/PluginCapabilityParameters'
+        permissions:
+          $ref: '#/components/schemas/PluginPermissions'
+        webhooks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginWebhookScope'
         icon:
           type: string
         repo:
@@ -4138,10 +4170,6 @@ components:
             $ref: '#/components/schemas/PluginScreenshot'
         management_ui:
           $ref: '#/components/schemas/PluginManagementUISummary'
-        render_templates:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginRenderTemplateSummary'
     PluginDetailResponse:
       type: object
       additionalProperties: false
@@ -4443,7 +4471,7 @@ components:
     PluginInstallInspectionResponse:
       type: object
       additionalProperties: false
-      required: [inspection_id, expires_at, package_sha256, source, plugin, capabilities, target_platform, backend, ui, artifact]
+      required: [inspection_id, expires_at, package_sha256, source, plugin, permissions, target_platform, backend, ui, artifact]
       properties:
         inspection_id:
           type: string
@@ -4467,10 +4495,8 @@ components:
             author: { type: string, minLength: 1 }
             license: { type: string, minLength: 1 }
             source_label: { type: string, minLength: 1 }
-        capabilities:
-          type: array
-          items: { type: string, minLength: 1 }
-          uniqueItems: true
+        permissions:
+          $ref: '#/components/schemas/PluginPermissions'
         target_platform:
           $ref: '#/components/schemas/PluginPlatform'
         backend:
@@ -4505,7 +4531,7 @@ components:
       required: [valid, artifact_version, manifest_sha256, file_count]
       properties:
         valid: { type: boolean, const: true }
-        artifact_version: { type: string, const: '1' }
+        artifact_version: { type: string, const: '2' }
         manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         file_count: { type: integer, minimum: 2 }
 

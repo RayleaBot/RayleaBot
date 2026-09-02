@@ -1,6 +1,5 @@
 import type {
   GovernanceCommandPolicyEntry,
-  PluginCommandSource,
   PluginCommandSummary,
   PluginSummary,
 } from '@/types/api'
@@ -30,15 +29,7 @@ function normalizeToken(value: string) {
 
 export function isPluginCommandConflicted(command: PluginCommandSummary, conflicts?: string[]) {
   const tokens = new Set((conflicts ?? []).map(normalizeToken).filter(Boolean))
-  if (tokens.size === 0) {
-    return false
-  }
-
-  if (tokens.has(normalizeToken(command.name))) {
-    return true
-  }
-
-  return (command.aliases ?? []).some((alias) => tokens.has(normalizeToken(alias)))
+  return command.effective_names.some((name) => tokens.has(normalizeToken(name)))
 }
 
 export function getPluginCommandAvailability(plugin: PluginSummary): PluginCommandAvailability {
@@ -46,51 +37,47 @@ export function getPluginCommandAvailability(plugin: PluginSummary): PluginComma
     case 'running':
       return 'available'
     case 'starting':
+    case 'enabled':
       return 'starting'
     case 'stopping':
       return 'switching'
-    case 'enabled':
-      return 'starting'
     case 'disabled':
       return 'disabled'
-    case 'failed':
-    case 'invalid':
     default:
       return 'not_ready'
   }
 }
 
 export function flattenPluginCommands(plugins: PluginSummary[]): CommandCenterRow[] {
-  return plugins.flatMap((plugin) => (
-    (plugin.commands ?? []).map((command) => ({
-      command,
-      plugin,
-      availability: getPluginCommandAvailability(plugin),
-      conflicted: isPluginCommandConflicted(command, plugin.command_conflicts),
-    }))
-  ))
+  return plugins.flatMap((plugin) => plugin.commands.map((command) => ({
+    command,
+    plugin,
+    availability: getPluginCommandAvailability(plugin),
+    conflicted: isPluginCommandConflicted(command, plugin.command_conflicts),
+  })))
 }
 
 export function mergeCommandCenterRows(
   plugins: PluginSummary[],
   policyCommands: GovernanceCommandPolicyEntry[],
 ): UnifiedCommandRow[] {
-  const policyIndex = createPolicyCommandIndex(policyCommands)
-  const matchedPolicyKeys = new Set<string>()
+  const policyIndex = new Map(policyCommands.map((entry) => [policyEntryKey(entry), entry]))
+  const matched = new Set<string>()
   const rows: UnifiedCommandRow[] = []
 
   for (const plugin of plugins) {
-    for (const command of plugin.commands ?? []) {
-      const policyMatch = findPolicyCommand(policyIndex, plugin.id, command)
-      if (policyMatch) {
-        matchedPolicyKeys.add(policyMatch.key)
+    for (const command of plugin.commands) {
+      const key = commandIdentity(plugin.id, command.id)
+      const policy = policyIndex.get(key) ?? null
+      if (policy) {
+        matched.add(key)
       }
       rows.push({
-        key: commandRowKey(plugin.id, command),
+        key,
         pluginId: plugin.id,
         pluginName: plugin.name,
         command,
-        policy: policyMatch?.entry ?? null,
+        policy,
         availability: getPluginCommandAvailability(plugin),
         conflicted: isPluginCommandConflicted(command, plugin.command_conflicts),
       })
@@ -99,7 +86,7 @@ export function mergeCommandCenterRows(
 
   for (const entry of policyCommands) {
     const key = policyEntryKey(entry)
-    if (matchedPolicyKeys.has(key)) {
+    if (matched.has(key)) {
       continue
     }
     rows.push({
@@ -116,60 +103,22 @@ export function mergeCommandCenterRows(
   return rows
 }
 
-function createPolicyCommandIndex(entries: GovernanceCommandPolicyEntry[]) {
-  const byDeclaration = new Map<string, { key: string, entry: GovernanceCommandPolicyEntry }>()
-  const byCommand = new Map<string, { key: string, entry: GovernanceCommandPolicyEntry }>()
-
-  for (const entry of entries) {
-    const indexed = { key: policyEntryKey(entry), entry }
-    const declarationID = entry.declaration_id?.trim()
-    if (declarationID) {
-      byDeclaration.set(`${entry.plugin_id}:${normalizeToken(declarationID)}`, indexed)
-    }
-    byCommand.set(`${entry.plugin_id}:${normalizeToken(entry.command)}`, indexed)
-  }
-
-  return { byDeclaration, byCommand }
-}
-
-function findPolicyCommand(
-  index: ReturnType<typeof createPolicyCommandIndex>,
-  pluginID: string,
-  command: PluginCommandSummary,
-) {
-  const declarationID = command.declaration_id?.trim()
-  if (declarationID) {
-    const byDeclaration = index.byDeclaration.get(`${pluginID}:${normalizeToken(declarationID)}`)
-    if (byDeclaration) {
-      return byDeclaration
-    }
-    return undefined
-  }
-
-  return index.byCommand.get(`${pluginID}:${normalizeToken(command.name)}`)
-}
-
 function policyEntryToCommand(entry: GovernanceCommandPolicyEntry): PluginCommandSummary {
   return {
+    id: entry.command_id,
     name: entry.command,
-    aliases: [...entry.aliases],
-    command_source: entry.command_source as PluginCommandSource,
-    declaration_id: entry.declaration_id,
+    effective_names: [entry.command, ...entry.aliases],
+    description: '',
+    usage: '',
+    permission: entry.declared_permission ?? entry.effective_permission,
+    trigger: entry.trigger,
   }
 }
 
-function commandRowKey(pluginID: string, command: PluginCommandSummary) {
-  const declarationID = command.declaration_id?.trim()
-  if (declarationID) {
-    return `plugin:${pluginID}:declaration:${normalizeToken(declarationID)}`
-  }
-  return `plugin:${pluginID}:command:${normalizeToken(command.name)}`
+function commandIdentity(pluginID: string, commandID: string) {
+  return `${pluginID}:${normalizeToken(commandID)}`
 }
 
 function policyEntryKey(entry: GovernanceCommandPolicyEntry) {
-  const declarationID = entry.declaration_id?.trim()
-  if (declarationID) {
-    return `${entry.plugin_id}:declaration:${normalizeToken(declarationID)}`
-  }
-  return `${entry.plugin_id}:command:${normalizeToken(entry.command)}`
+  return commandIdentity(entry.plugin_id, entry.command_id)
 }

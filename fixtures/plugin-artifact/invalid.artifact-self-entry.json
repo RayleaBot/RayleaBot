@@ -2,21 +2,17 @@
   "contract": "contracts/plugin-artifact.schema.json",
   "case": "invalid",
   "input": {
-    "artifact_version": "1",
-    "plugin_id": "bad-artifact",
-    "plugin_version": "0.2.0",
+    "artifact_version": "2",
     "target_platform": "windows-x64",
-    "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "entry": "bin/bad-artifact.exe",
     "files": [
       {
         "path": "artifact.json",
-        "role": "manifest",
         "size": 128,
         "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
       },
       {
         "path": "bin/bad-artifact.exe",
-        "role": "backend",
         "size": 2048,
         "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
       }

@@ -14,24 +14,25 @@ import (
 var sensitiveText = regexp.MustCompile(`(?i)(SESSDATA|bili_jct|access_token|refresh_token|authorization|cookie|token|secret|password)(\s*[:=]\s*)([^;,\s]+)`)
 
 type protocolFrame struct {
-	ProtocolVersion string          `json:"protocol_version"`
-	Type            string          `json:"type"`
-	Timestamp       int64           `json:"timestamp"`
-	PluginID        string          `json:"plugin_id"`
-	RequestID       string          `json:"request_id"`
-	ParentRequestID string          `json:"parent_request_id,omitempty"`
-	Status          string          `json:"status,omitempty"`
-	Action          string          `json:"action,omitempty"`
-	Code            string          `json:"code,omitempty"`
-	Message         string          `json:"message,omitempty"`
-	Details         map[string]any  `json:"details,omitempty"`
-	Data            json.RawMessage `json:"data,omitempty"`
-	Event           json.RawMessage `json:"event,omitempty"`
-	Bot             Bot             `json:"bot,omitempty"`
-	Capabilities    []string        `json:"capabilities,omitempty"`
-	Permissions     Permissions     `json:"permissions,omitempty"`
-	CommandPrefixes []string        `json:"command_prefixes,omitempty"`
-	Subscriptions   []string        `json:"subscriptions,omitempty"`
+	ProtocolVersion      string          `json:"protocol_version,omitempty"`
+	Type                 string          `json:"type"`
+	PluginID             string          `json:"plugin_id,omitempty"`
+	RequestID            string          `json:"request_id"`
+	ParentRequestID      string          `json:"parent_request_id,omitempty"`
+	Status               string          `json:"status,omitempty"`
+	Action               string          `json:"action,omitempty"`
+	Code                 string          `json:"code,omitempty"`
+	Message              string          `json:"message,omitempty"`
+	Reason               string          `json:"reason,omitempty"`
+	Details              map[string]any  `json:"details,omitempty"`
+	Data                 json.RawMessage `json:"data,omitempty"`
+	Event                json.RawMessage `json:"event,omitempty"`
+	Bot                  Bot             `json:"bot,omitempty"`
+	Config               map[string]any  `json:"config,omitempty"`
+	EffectivePermissions []string        `json:"effective_permissions,omitempty"`
+	SuperAdmins          []string        `json:"super_admins,omitempty"`
+	CommandPrefixes      []string        `json:"command_prefixes,omitempty"`
+	Concurrency          int             `json:"concurrency,omitempty"`
 }
 
 type ActionError struct {
@@ -48,7 +49,6 @@ func (err *ActionError) Error() string {
 }
 
 type runtimeClient struct {
-	pluginID      string
 	writer        jsonWriter
 	pendingMu     sync.Mutex
 	pending       map[string]chan protocolFrame
@@ -77,11 +77,10 @@ func (writer *jsonWriter) write(frame protocolFrame) error {
 	return nil
 }
 
-func newRuntimeClient(pluginID string, out interface {
+func newRuntimeClient(out interface {
 	Write([]byte) (int, error)
 }, actionTimeout time.Duration) *runtimeClient {
 	return &runtimeClient{
-		pluginID:      pluginID,
 		writer:        jsonWriter{out: out},
 		pending:       make(map[string]chan protocolFrame),
 		actionTimeout: actionTimeout,

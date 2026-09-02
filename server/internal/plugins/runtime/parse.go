@@ -10,8 +10,6 @@ func ParseTerminalAction(kind string, raw json.RawMessage) (*Action, error) {
 	switch kind {
 	case "message.send":
 		return parseMessageSendAction(raw)
-	case "message.reply":
-		return parseMessageReplyAction(raw)
 	default:
 		if isLocalActionKind(kind) || isOneBotFamilyAction(kind) || isProviderExtensionAction(kind) {
 			return nil, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
@@ -26,8 +24,6 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*Action, error) {
 		return parseLoggerWriteAction(raw)
 	case "storage.kv":
 		return parseStorageKVAction(raw)
-	case "config.read":
-		return parseConfigReadAction(raw)
 	case "plugin.list":
 		return parsePluginListAction(raw)
 	case "secret.read":
@@ -56,14 +52,10 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*Action, error) {
 		return parseHTTPRequestAction(raw)
 	case "scheduler.create":
 		return parseSchedulerCreateAction(raw)
-	case "event.expose_webhook":
-		return parseEventExposeWebhookAction(raw)
 	case "render.image":
 		return parseRenderImageAction(raw)
 	case "message.send":
 		return parseMessageSendAction(raw)
-	case "message.reply":
-		return nil, errorf(codePluginProtocolViolation, "terminal message actions must use the current event request_id", nil)
 	default:
 		switch {
 		case isOneBotFamilyAction(kind), isProviderExtensionAction(kind):
@@ -78,7 +70,6 @@ func isLocalActionKind(kind string) bool {
 	switch kind {
 	case "logger.write",
 		"storage.kv",
-		"config.read",
 		"plugin.list",
 		"secret.read",
 		"thirdparty.account.read",
@@ -93,7 +84,6 @@ func isLocalActionKind(kind string) bool {
 		"storage.file",
 		"http.request",
 		"scheduler.create",
-		"event.expose_webhook",
 		"render.image",
 		"message.send":
 		return true

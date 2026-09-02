@@ -5,13 +5,15 @@ import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type Deps struct {
 	CurrentConfig     func() config.Config
 	Logger            *slog.Logger
 	RedactText        func(string) string
-	Capabilities      CapabilityView
+	Permissions       PermissionView
+	Plugins           plugins.CatalogView
 	PluginConfig      PluginConfigRepository
 	PluginFiles       FileStore
 	PluginKV          KVRepository
@@ -27,7 +29,6 @@ type Deps struct {
 	PluginLogLimiter  *PluginLogLimiter
 	Governance        any
 	RefreshCommands   func(context.Context, string, map[string]any)
-	WebhookGateway    func() WebhookGateway
 	Registrars        []Registrar
 	ActionRegistry    *Registry
 }
@@ -39,7 +40,6 @@ type Service struct {
 
 type runtimeHooks struct {
 	refreshCommands func(context.Context, string, map[string]any)
-	webhookGateway  WebhookGateway
 }
 
 func New(deps Deps) *Service {
@@ -60,12 +60,6 @@ func New(deps Deps) *Service {
 				hooks.refreshCommands(ctx, pluginID, settings)
 			}
 		}
-		deps.WebhookGateway = func() WebhookGateway {
-			if hooks == nil {
-				return nil
-			}
-			return hooks.webhookGateway
-		}
 		service.actionRegistry = NewRegistryWithRegistrars(deps, deps.Registrars...)
 	}
 	return service
@@ -76,11 +70,4 @@ func (s *Service) SetRefreshPluginCommands(refresh func(context.Context, string,
 		s.runtimeHooks = &runtimeHooks{}
 	}
 	s.runtimeHooks.refreshCommands = refresh
-}
-
-func (s *Service) SetWebhookGateway(gateway WebhookGateway) {
-	if s.runtimeHooks == nil {
-		s.runtimeHooks = &runtimeHooks{}
-	}
-	s.runtimeHooks.webhookGateway = gateway
 }

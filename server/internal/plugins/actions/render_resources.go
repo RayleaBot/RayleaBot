@@ -47,10 +47,10 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	if len(req.Action.RenderResources) == 0 {
 		return nil, func() {}, nil
 	}
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "http.request") {
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "http.request") {
 		return nil, func() {}, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "render.image resources require the http.request capability",
+			Code:    "plugin.permission_denied",
+			Message: "render.image resources require the http.request permission",
 		}
 	}
 
@@ -71,7 +71,6 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 		MaxResponseBodyBytes: maxRenderImageResourceBytes,
 		AllowPrivateHosts:    append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
 	})
-	scopeHosts := deps.Capabilities.HTTPHosts(resourceCtx, req.PluginID)
 	results := make([]renderImageResourceFetchResult, len(req.Action.RenderResources))
 	semaphore := make(chan struct{}, renderImageResourceConcurrency)
 	var wait sync.WaitGroup
@@ -86,7 +85,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 				results[index].reason = "timeout"
 				return
 			}
-			prefetched, reason, fetchErr := fetchRenderImageResource(resourceCtx, client, scopeHosts, workspace, index, spec, 0, maxRenderImageResourceBytes)
+			prefetched, reason, fetchErr := fetchRenderImageResource(resourceCtx, client, workspace, index, spec, 0, maxRenderImageResourceBytes)
 			results[index] = renderImageResourceFetchResult{prefetched: prefetched, reason: reason, err: fetchErr}
 		}(index, spec)
 	}
@@ -105,7 +104,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 		items = append(items, *result.prefetched)
 	}
 
-	items, err = reduceRenderImageResourceSet(resourceCtx, client, scopeHosts, workspace, items)
+	items, err = reduceRenderImageResourceSet(resourceCtx, client, workspace, items)
 	if err != nil {
 		cleanup()
 		return nil, func() {}, renderImageResourceFetchError(err)
@@ -118,13 +117,13 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	return resources, cleanup, nil
 }
 
-func fetchRenderImageResource(ctx context.Context, client *httpClient, scopeHosts []string, workspace string, requestIndex int, spec pluginruntime.RenderImageResource, startCandidate int, maxAcceptedBytes int64) (*prefetchedRenderImageResource, string, error) {
+func fetchRenderImageResource(ctx context.Context, client *httpClient, workspace string, requestIndex int, spec pluginruntime.RenderImageResource, startCandidate int, maxAcceptedBytes int64) (*prefetchedRenderImageResource, string, error) {
 	candidates := append([]string{spec.URL}, spec.FallbackURLs...)
 	lastReason := "unavailable"
 	for candidateIndex := startCandidate; candidateIndex < len(candidates); candidateIndex++ {
-		resource, reason, err := downloadRenderImageResourceCandidate(ctx, client, scopeHosts, workspace, requestIndex, candidateIndex, spec.ID, candidates[candidateIndex], spec.Referer)
+		resource, reason, err := downloadRenderImageResourceCandidate(ctx, client, workspace, requestIndex, candidateIndex, spec.ID, candidates[candidateIndex], spec.Referer)
 		if err != nil {
-			if errors.Is(err, errHTTPScopeViolation) || errors.Is(err, errHTTPInvalidRequest) || reason == "filesystem" {
+			if errors.Is(err, errHTTPInvalidRequest) || reason == "filesystem" {
 				return nil, "", err
 			}
 			lastReason = reason
@@ -145,7 +144,7 @@ func fetchRenderImageResource(ctx context.Context, client *httpClient, scopeHost
 	return nil, lastReason, nil
 }
 
-func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClient, scopeHosts []string, workspace string, requestIndex, candidateIndex int, resourceID, sourceURL, referer string) (RenderImageResource, string, error) {
+func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClient, workspace string, requestIndex, candidateIndex int, resourceID, sourceURL, referer string) (RenderImageResource, string, error) {
 	currentURL := sourceURL
 	for redirectCount := 0; redirectCount <= maxRenderImageResourceRedirects; redirectCount++ {
 		downloadPath := filepath.Join(workspace, fmt.Sprintf("resource-%02d-%02d.download", requestIndex, candidateIndex))
@@ -159,11 +158,11 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 			URL:                currentURL,
 			Headers:            renderImageResourceHeaders(referer),
 			ResponseBodyWriter: io.MultiWriter(file, hash),
-		}, scopeHosts)
+		})
 		closeErr := file.Close()
 		if requestErr != nil {
 			_ = os.Remove(downloadPath)
-			if errors.Is(requestErr, errHTTPScopeViolation) || errors.Is(requestErr, errHTTPInvalidRequest) {
+			if errors.Is(requestErr, errHTTPInvalidRequest) {
 				return RenderImageResource{}, "scope", requestErr
 			}
 			if errors.Is(requestErr, errHTTPResponseTooLarge) {
@@ -216,7 +215,7 @@ func downloadRenderImageResourceCandidate(ctx context.Context, client *httpClien
 	return RenderImageResource{}, "redirect", errRenderImageResourceUnavailable
 }
 
-func reduceRenderImageResourceSet(ctx context.Context, client *httpClient, scopeHosts []string, workspace string, items []prefetchedRenderImageResource) ([]prefetchedRenderImageResource, error) {
+func reduceRenderImageResourceSet(ctx context.Context, client *httpClient, workspace string, items []prefetchedRenderImageResource) ([]prefetchedRenderImageResource, error) {
 	total := renderImageResourceTotal(items)
 	if total <= maxRenderImageResourceTotalBytes {
 		return items, nil
@@ -236,7 +235,7 @@ func reduceRenderImageResourceSet(ctx context.Context, client *httpClient, scope
 	for _, itemIndex := range order {
 		for total > maxRenderImageResourceTotalBytes {
 			current := items[itemIndex]
-			replacement, _, err := fetchRenderImageResource(ctx, client, scopeHosts, workspace, current.requestIndex, current.spec, current.candidateIndex+1, current.resource.Size-1)
+			replacement, _, err := fetchRenderImageResource(ctx, client, workspace, current.requestIndex, current.spec, current.candidateIndex+1, current.resource.Size-1)
 			if err != nil {
 				return nil, err
 			}
@@ -332,8 +331,6 @@ func headerValue(headers map[string]string, name string) string {
 
 func renderImageResourceFetchError(err error) error {
 	switch {
-	case errors.Is(err, errHTTPScopeViolation):
-		return &pluginruntime.Error{Code: "plugin.capability_violation", Message: "render.image resource target is outside declared http_hosts", Err: err}
 	case errors.Is(err, errHTTPInvalidRequest):
 		return &pluginruntime.Error{Code: "platform.invalid_request", Message: "render.image resource request is invalid", Err: err}
 	case errors.Is(err, errHTTPResponseTooLarge):

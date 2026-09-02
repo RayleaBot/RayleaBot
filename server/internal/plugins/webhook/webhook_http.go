@@ -64,7 +64,11 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			return
 		}
 
-		body, err := httpapi.ReadRequestBody(w, r, httpapi.MaxWebhookBodyBytes)
+		maxBodyBytes := httpapi.MaxWebhookBodyBytes
+		if registration.MaxBodyBytes > 0 && int64(registration.MaxBodyBytes) < maxBodyBytes {
+			maxBodyBytes = int64(registration.MaxBodyBytes)
+		}
+		body, err := httpapi.ReadRequestBody(w, r, maxBodyBytes)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
@@ -103,9 +107,9 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			}
 		}
 
-		if !s.dispatcher.HasDeliverablePlugin(pluginID) && s.runtime != nil {
+		if !s.dispatcher.HasDeliverablePlugin(pluginID) {
 			botID := strings.TrimSpace(s.runtime.CurrentBotID())
-			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil && s.logger != nil {
+			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil {
 				s.logger.Warn(
 					"插件 "+pluginID+" 在处理 Webhook 路由 "+route+" 前启动运行时失败；本次 Webhook 无法分发。原因："+err.Error(),
 					"component", "app",
@@ -133,6 +137,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			webhookMeta.ClientEventID = replayDecision.eventID
 		}
 
+		_, includeRawPayload := snapshot.Permissions["event.raw_payload"]
 		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, pluginruntime.Event{
 			EventID:        eventID,
 			SourceProtocol: "webhook",
@@ -149,7 +154,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 				Role: "remote",
 			},
 			Webhook:    webhookMeta,
-			RawPayload: s.buildWebhookRawPayload(r, route, body, s.capabilities.CapabilityDeclared(r.Context(), pluginID, "event.raw_payload")),
+			RawPayload: s.buildWebhookRawPayload(r, route, body, includeRawPayload),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
 			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
@@ -161,9 +166,6 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 }
 
 func (s *Service) validateWebhookAuth(ctx context.Context, registration Registration, presented, timestampRaw, eventID string, body []byte) bool {
-	if s.secrets == nil {
-		return false
-	}
 	secretValue, err := s.secrets.Get(ctx, registration.SecretRef)
 	if err != nil {
 		return false

@@ -387,14 +387,18 @@ describe('BasicLayout', () => {
       role: 'community',
       state: 'running',
       management_ui: {
+        entry: 'ui/index.html',
         pages: [
-          { id: 'config', label: '配置页面', entry: 'ui/index.html' },
-          { id: 'secrets', label: '密钥设置', entry: 'ui/secrets.html' },
+          { id: 'config', label: '配置页面' },
+          { id: 'secrets', label: '密钥设置' },
         ],
       },
       commands: [],
+      command_groups: [],
+      help: {},
       command_conflicts: [],
-      declared_capabilities: [],
+      permissions: {},
+      webhooks: [],
     } as PluginDetail
     const weatherDetail = {
       id: 'weather',
@@ -402,11 +406,15 @@ describe('BasicLayout', () => {
       role: 'community',
       state: 'disabled',
       management_ui: {
-        pages: [{ id: 'settings', label: '天气设置', entry: 'ui/settings.html' }],
+        entry: 'ui/index.html',
+        pages: [{ id: 'settings', label: '天气设置' }],
       },
       commands: [],
+      command_groups: [],
+      help: {},
       command_conflicts: [],
-      declared_capabilities: [],
+      permissions: {},
+      webhooks: [],
     } as PluginDetail
     pluginsStore.current = detail
     pluginsStore.detailsByPluginId = {
@@ -558,9 +566,10 @@ describe('BasicLayout', () => {
         commands: [],
         help: { groups: [] },
         management_ui: {
+          entry: 'ui/index.html',
           pages: [
-            { id: 'config', label: '配置页面', entry: 'ui/config.html' },
-            { id: 'secrets', label: '密钥设置', entry: 'ui/secrets.html' },
+            { id: 'config', label: '配置页面' },
+            { id: 'secrets', label: '密钥设置' },
           ],
         },
       },

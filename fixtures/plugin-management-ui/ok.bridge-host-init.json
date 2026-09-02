@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "After the MessageChannel handoff, the host initializes only the bounded plugin page context.",
   "input": {
-    "version": "2",
+    "version": "3",
     "source": "management_host",
     "type": "host.init",
     "payload": {
@@ -32,9 +32,8 @@
         }
       },
       "language": "zh-CN",
-      "allowed_capabilities": [
-        "config.read",
-        "config.write"
+      "allowed_permissions": [
+        "message.send"
       ]
     }
   },

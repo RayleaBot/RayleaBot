@@ -37,13 +37,15 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	if !ok || len(commandPrefixes) != 2 || commandPrefixes[0] != "!" || commandPrefixes[1] != "/" {
 		t.Fatalf("unexpected init command_prefixes: %#v", frames[0]["command_prefixes"])
 	}
-	permissions, ok := frames[0]["permissions"].(map[string]any)
-	if !ok {
-		t.Fatalf("missing init permissions: %#v", frames[0])
-	}
-	superAdmins, ok := permissions["super_admins"].([]any)
+	superAdmins, ok := frames[0]["super_admins"].([]any)
 	if !ok || len(superAdmins) != 2 || superAdmins[0] != "9001" || superAdmins[1] != "9002" {
-		t.Fatalf("unexpected init super_admins: %#v", permissions["super_admins"])
+		t.Fatalf("unexpected init super_admins: %#v", frames[0]["super_admins"])
+	}
+	if frames[0]["protocol_version"] != "2" || frames[0]["plugin_id"] != "helper-plugin" || frames[0]["concurrency"] != float64(1) {
+		t.Fatalf("unexpected init identity/concurrency: %#v", frames[0])
+	}
+	if config, ok := frames[0]["config"].(map[string]any); !ok || config["enabled"] != true {
+		t.Fatalf("unexpected init config: %#v", frames[0]["config"])
 	}
 
 	if err := manager.Stop(context.Background()); err != nil {
@@ -89,30 +91,6 @@ func TestManagerStartAllowsInitProgressBeforeReady(t *testing.T) {
 
 	if err := manager.Stop(context.Background()); err != nil {
 		t.Fatalf("stop runtime: %v", err)
-	}
-}
-
-func TestManagerStartStoresInitAckSubscriptions(t *testing.T) {
-	t.Parallel()
-
-	manager := testManager()
-	spec := helperSpec(t, "success", "")
-
-	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
-		t.Fatalf("start runtime: %v", err)
-	}
-	defer func() {
-		if err := manager.Stop(context.Background()); err != nil {
-			t.Fatalf("stop runtime: %v", err)
-		}
-	}()
-
-	snapshot := manager.Snapshot()
-	if len(snapshot.Subscriptions) != 2 {
-		t.Fatalf("unexpected subscriptions: %#v", snapshot.Subscriptions)
-	}
-	if snapshot.Subscriptions[0] != "message.group" || snapshot.Subscriptions[1] != "scheduler.trigger" {
-		t.Fatalf("unexpected subscriptions: %#v", snapshot.Subscriptions)
 	}
 }
 
@@ -306,7 +284,7 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 				},
 			},
 		},
-	}, "echo", "req_evt_onebot", 1_729_679_126)
+	}, "req_evt_onebot")
 
 	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
 		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
@@ -356,7 +334,7 @@ func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 				},
 			},
 		},
-	}, "echo", "req_evt_onebot_meta", 1_729_679_131)
+	}, "req_evt_onebot_meta")
 
 	if frame.Event.Payload == nil || frame.Event.Payload.OneBot == nil {
 		t.Fatalf("expected onebot payload, got %#v", frame.Event.Payload)
@@ -617,7 +595,7 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
-			return nil, errorf("plugin.capability_violation", "capability not declared", nil)
+			return nil, errorf("plugin.permission_denied", "permission not declared", nil)
 		},
 	})
 	spec := helperSpec(t, "event-local-action-error-then-result", "")
@@ -630,8 +608,8 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("deliver event: %v", err)
 	}
-	if got, _ := delivery.Result["local_error_code"].(string); got != "plugin.capability_violation" {
-		t.Fatalf("local_error_code = %q, want %q", got, "plugin.capability_violation")
+	if got, _ := delivery.Result["local_error_code"].(string); got != "plugin.permission_denied" {
+		t.Fatalf("local_error_code = %q, want %q", got, "plugin.permission_denied")
 	}
 	assertRuntimeRunningWithoutCrash(t, manager, crashCh)
 
@@ -666,10 +644,10 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 				t.Fatalf("unexpected local action: %#v", action)
 			}
 			return nil, &Error{
-				Code:    "plugin.capability_violation",
-				Message: "capability not declared",
+				Code:    "plugin.permission_denied",
+				Message: "permission not declared",
 				Details: map[string]any{
-					"missing_capability": "logger.write",
+					"missing_permission": "logger.write",
 					"scope":              "management.logs:write",
 				},
 			}
@@ -689,7 +667,7 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 	if !ok {
 		t.Fatalf("expected local_error_details map, got %#v", delivery.Result["local_error_details"])
 	}
-	if details["missing_capability"] != "logger.write" {
+	if details["missing_permission"] != "logger.write" {
 		t.Fatalf("unexpected local error details: %#v", details)
 	}
 

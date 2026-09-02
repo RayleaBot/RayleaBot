@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	ArtifactVersion           = "1"
-	ManifestVersion           = "2"
+	ArtifactVersion           = "2"
+	ManifestVersion           = "3"
 	pluginBuildNodeEnv        = "RAYLEA_PLUGIN_BUILD_NODE"
 	pluginBuildCorepackCLIEnv = "RAYLEA_PLUGIN_BUILD_COREPACK_CLI"
 )
@@ -55,33 +55,30 @@ type Result struct {
 }
 
 type Manifest struct {
-	ID                    string   `json:"id"`
-	Name                  string   `json:"name"`
-	Version               string   `json:"version"`
-	ManifestVersion       string   `json:"manifest_version"`
-	PluginProtocolVersion string   `json:"plugin_protocol_version"`
-	Runtime               string   `json:"runtime"`
-	Entry                 string   `json:"entry"`
-	Platforms             []string `json:"platforms"`
-	ManagementUI          *struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Version         string `json:"version"`
+	ManifestVersion string `json:"manifest_version"`
+	MinCoreVersion  string `json:"min_core_version"`
+	License         string `json:"license"`
+	ManagementUI    *struct {
+		Entry string `json:"entry"`
 		Pages []struct {
-			Entry string `json:"entry"`
+			ID    string `json:"id"`
+			Label string `json:"label"`
 		} `json:"pages"`
 	} `json:"management_ui,omitempty"`
 }
 
 type Artifact struct {
 	ArtifactVersion string         `json:"artifact_version"`
-	PluginID        string         `json:"plugin_id"`
-	PluginVersion   string         `json:"plugin_version"`
 	TargetPlatform  string         `json:"target_platform"`
-	ManifestSHA256  string         `json:"manifest_sha256"`
+	Entry           string         `json:"entry"`
 	Files           []ArtifactFile `json:"files"`
 }
 
 type ArtifactFile struct {
 	Path   string `json:"path"`
-	Role   string `json:"role"`
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
 }
@@ -122,7 +119,14 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := validateManifest(manifest, config.TargetPlatform); err != nil {
 		return Result{}, err
 	}
-	backendPackage, err := resolveBackendPackage(pluginDir, config.BackendPackage)
+	backendPackage := strings.TrimSpace(config.BackendPackage)
+	if backendPackage == "" {
+		backendPackage, err = inferBackendPackage(pluginDir, manifest.ID)
+		if err != nil {
+			return Result{}, err
+		}
+	}
+	backendPackage, err = resolveBackendPackage(pluginDir, backendPackage)
 	if err != nil {
 		return Result{}, err
 	}
@@ -158,7 +162,8 @@ func Build(ctx context.Context, config Config) (Result, error) {
 		return Result{}, fmt.Errorf("copy plugin manifest: %w", err)
 	}
 
-	binaryPath := filepath.Join(root, filepath.FromSlash(manifest.Entry)+target.EXE)
+	entry := filepath.ToSlash(filepath.Join("bin", manifest.ID+target.EXE))
+	binaryPath := filepath.Join(root, filepath.FromSlash(entry))
 	if err := runGoBuild(ctx, config, pluginDir, backendPackage, target, binaryPath); err != nil {
 		return Result{}, err
 	}
@@ -168,6 +173,9 @@ func Build(ctx context.Context, config Config) (Result, error) {
 		}
 	}
 	if err := buildUI(ctx, config, pluginDir, root); err != nil {
+		return Result{}, err
+	}
+	if err := copyStandardAssets(pluginDir, root); err != nil {
 		return Result{}, err
 	}
 	if err := copyAssets(pluginDir, root, config.Assets, config.MappedAssets); err != nil {
@@ -182,7 +190,26 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := writeSBOM(ctx, config, pluginDir, root, manifest); err != nil {
 		return Result{}, err
 	}
-	artifact, err := inventory(root, manifest, config.TargetPlatform, infoBytes)
+	return finalizeArtifact(root, staging, outputDir, manifest, entry, config.TargetPlatform, config.KeepExpandedArtifact)
+}
+
+func copyStandardAssets(pluginDir, artifactRoot string) error {
+	for _, name := range []string{"assets", "templates"} {
+		if _, err := os.Stat(filepath.Join(pluginDir, name)); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if err := copyAsset(pluginDir, artifactRoot, name, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry, platform string, keepExpanded bool) (Result, error) {
+	artifact, err := inventory(root, entry, platform)
 	if err != nil {
 		return Result{}, err
 	}
@@ -194,7 +221,7 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := os.WriteFile(filepath.Join(root, "artifact.json"), artifactBytes, 0o644); err != nil {
 		return Result{}, fmt.Errorf("write artifact manifest: %w", err)
 	}
-	archivePath := filepath.Join(outputDir, fmt.Sprintf("%s-%s-%s.zip", manifest.ID, manifest.Version, config.TargetPlatform))
+	archivePath := filepath.Join(outputDir, fmt.Sprintf("%s-%s-%s.zip", manifest.ID, manifest.Version, platform))
 	if err := writeDeterministicZIP(archivePath, staging, manifest.ID); err != nil {
 		return Result{}, err
 	}
@@ -203,8 +230,8 @@ func Build(ctx context.Context, config Config) (Result, error) {
 		return Result{}, err
 	}
 	artifactDir := ""
-	if config.KeepExpandedArtifact {
-		artifactDir = filepath.Join(outputDir, config.TargetPlatform, manifest.ID)
+	if keepExpanded {
+		artifactDir = filepath.Join(outputDir, platform, manifest.ID)
 		if err := replaceTree(root, artifactDir); err != nil {
 			return Result{}, err
 		}
@@ -212,7 +239,7 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	return Result{
 		PluginID:       manifest.ID,
 		Version:        manifest.Version,
-		TargetPlatform: config.TargetPlatform,
+		TargetPlatform: platform,
 		ArtifactDir:    artifactDir,
 		ArchivePath:    archivePath,
 		ArchiveSHA256:  archiveDigest,
@@ -220,27 +247,17 @@ func Build(ctx context.Context, config Config) (Result, error) {
 }
 
 func validateManifest(manifest Manifest, platform string) error {
-	if manifest.ID == "" || manifest.Version == "" {
-		return errors.New("pluginbuild: manifest id and version are required")
+	if manifest.ID == "" || manifest.Name == "" || manifest.Version == "" || manifest.MinCoreVersion == "" || manifest.License == "" {
+		return errors.New("pluginbuild: manifest id, name, version, license and min_core_version are required")
 	}
 	if manifest.ManifestVersion != ManifestVersion {
 		return fmt.Errorf("pluginbuild: manifest_version must be %s", ManifestVersion)
 	}
-	if manifest.PluginProtocolVersion != "1" {
-		return errors.New("pluginbuild: plugin_protocol_version must be 1")
+	if strings.TrimSpace(platform) == "" {
+		return nil
 	}
-	if manifest.Runtime != "go" {
-		return errors.New("pluginbuild: runtime must be go")
-	}
-	if manifest.Entry == "" || filepath.Ext(manifest.Entry) != "" || !strings.HasPrefix(filepath.ToSlash(manifest.Entry), "bin/") {
-		return errors.New("pluginbuild: entry must be an extensionless path below bin/")
-	}
-	for _, supported := range manifest.Platforms {
-		if supported == platform {
-			return nil
-		}
-	}
-	return fmt.Errorf("pluginbuild: target platform %s is not declared by the manifest", platform)
+	_, err := resolveTarget(platform)
+	return err
 }
 
 func resolveTarget(platform string) (target, error) {
@@ -277,6 +294,40 @@ func resolveBackendPackage(pluginDir, configured string) (string, error) {
 		return "", errors.New("pluginbuild: backend package must reference a directory")
 	}
 	return "./" + filepath.ToSlash(packagePath), nil
+}
+
+func inferBackendPackage(pluginDir, pluginID string) (string, error) {
+	cmdDir := filepath.Join(pluginDir, "cmd")
+	candidates := []string{pluginID}
+	if index := strings.LastIndex(pluginID, "."); index >= 0 && index+1 < len(pluginID) {
+		candidates = append(candidates, pluginID[index+1:])
+	}
+	for _, name := range candidates {
+		path := filepath.Join(cmdDir, name)
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return filepath.ToSlash(filepath.Join("cmd", name)), nil
+		}
+	}
+	entries, err := os.ReadDir(cmdDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ".", nil
+		}
+		return "", fmt.Errorf("pluginbuild: inspect cmd directory: %w", err)
+	}
+	directories := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			directories = append(directories, entry.Name())
+		}
+	}
+	if len(directories) == 1 {
+		return filepath.ToSlash(filepath.Join("cmd", directories[0])), nil
+	}
+	if len(directories) > 1 {
+		return "", errors.New("pluginbuild: multiple Go commands found; select one with --backend")
+	}
+	return ".", nil
 }
 
 func runGoBuild(ctx context.Context, config Config, pluginDir, backendPackage string, target target, output string) error {
@@ -476,15 +527,18 @@ func copyAssets(pluginDir, artifactRoot string, assets []string, mappedAssets []
 }
 
 func copyAsset(pluginDir, artifactRoot, sourcePath, destinationPath string) error {
-	sourceClean, err := cleanRelativePath(sourcePath)
-	if err != nil {
-		return fmt.Errorf("pluginbuild: asset source path %q: %w", sourcePath, err)
+	source := filepath.Clean(filepath.FromSlash(strings.TrimSpace(sourcePath)))
+	if !filepath.IsAbs(source) {
+		sourceClean, err := cleanRelativePath(sourcePath)
+		if err != nil {
+			return fmt.Errorf("pluginbuild: asset source path %q: %w", sourcePath, err)
+		}
+		source = filepath.Join(pluginDir, sourceClean)
 	}
 	destinationClean, err := cleanRelativePath(destinationPath)
 	if err != nil {
 		return fmt.Errorf("pluginbuild: asset destination path %q: %w", destinationPath, err)
 	}
-	source := filepath.Join(pluginDir, sourceClean)
 	if !pathWithin(pluginDir, source) {
 		return fmt.Errorf("pluginbuild: asset source path %q escapes the plugin directory", sourcePath)
 	}
@@ -526,7 +580,7 @@ func copyLicense(pluginDir, artifactRoot string) error {
 	return errors.New("pluginbuild: LICENSE not found in plugin or parent directories")
 }
 
-func inventory(root string, manifest Manifest, platform string, infoBytes []byte) (Artifact, error) {
+func inventory(root, entryPath, platform string) (Artifact, error) {
 	files := make([]ArtifactFile, 0)
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -553,7 +607,6 @@ func inventory(root string, manifest Manifest, platform string, infoBytes []byte
 		}
 		files = append(files, ArtifactFile{
 			Path:   relative,
-			Role:   fileRole(relative, manifest.Entry, platform),
 			Size:   info.Size(),
 			SHA256: digest,
 		})
@@ -563,36 +616,12 @@ func inventory(root string, manifest Manifest, platform string, infoBytes []byte
 		return Artifact{}, fmt.Errorf("pluginbuild: inventory artifact: %w", err)
 	}
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-	manifestDigest := sha256.Sum256(infoBytes)
 	return Artifact{
 		ArtifactVersion: ArtifactVersion,
-		PluginID:        manifest.ID,
-		PluginVersion:   manifest.Version,
 		TargetPlatform:  platform,
-		ManifestSHA256:  hex.EncodeToString(manifestDigest[:]),
+		Entry:           entryPath,
 		Files:           files,
 	}, nil
-}
-
-func fileRole(path, logicalEntry, platform string) string {
-	switch {
-	case path == "info.json":
-		return "manifest"
-	case path == logicalEntry || path == logicalEntry+".exe":
-		return "backend"
-	case strings.HasPrefix(path, "ui/"):
-		return "ui"
-	case strings.HasPrefix(path, "templates/"):
-		return "render_template"
-	case path == "LICENSE":
-		return "license"
-	case strings.Contains(strings.ToUpper(filepath.Base(path)), "NOTICE"):
-		return "notice"
-	case strings.HasSuffix(path, ".spdx.json"):
-		return "sbom"
-	default:
-		return "data"
-	}
 }
 
 func writeDeterministicZIP(output, stagingRoot, pluginID string) error {

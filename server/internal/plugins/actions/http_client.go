@@ -12,13 +12,10 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 )
 
 var (
 	errHTTPInvalidRequest   = errors.New("plugin http request is invalid")
-	errHTTPScopeViolation   = errors.New("plugin http request violates declared capability parameters")
 	errHTTPResponseTooLarge = errors.New("plugin http response exceeded resource limits")
 )
 
@@ -96,7 +93,7 @@ func newHTTPClient(cfg httpClientConfig) *httpClient {
 	}
 }
 
-func (c *httpClient) do(ctx context.Context, req httpClientRequest, scopeHosts []string) (httpClientResponse, error) {
+func (c *httpClient) do(ctx context.Context, req httpClientRequest) (httpClientResponse, error) {
 	if req.ResponseBodyWriter != nil && c.maxRetries != 0 {
 		return httpClientResponse{}, errHTTPInvalidRequest
 	}
@@ -109,10 +106,6 @@ func (c *httpClient) do(ctx context.Context, req httpClientRequest, scopeHosts [
 	if host == "" {
 		return httpClientResponse{}, errHTTPInvalidRequest
 	}
-	if !hostAllowedByHTTPScope(host, scopeHosts) {
-		return httpClientResponse{}, errHTTPScopeViolation
-	}
-
 	allowPrivateHost := c.hostAllowedForPrivate(host)
 	preflightIPs, err := c.lookupAddrs(ctx, host)
 	if err != nil {
@@ -230,7 +223,7 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 			lastErr = err
 		}
 		if lastErr == nil {
-			lastErr = errHTTPScopeViolation
+			lastErr = errHTTPInvalidRequest
 		}
 		return nil, lastErr
 	}
@@ -247,7 +240,7 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 		if isResponseHeaderLimitError(err) {
 			return httpClientResponse{}, false, errHTTPResponseTooLarge
 		}
-		if errors.Is(err, errHTTPScopeViolation) || errors.Is(err, errHTTPInvalidRequest) {
+		if errors.Is(err, errHTTPInvalidRequest) {
 			return httpClientResponse{}, false, err
 		}
 		retryable := isRetryableTransportError(opts.method, err)
@@ -347,7 +340,7 @@ func authorizeResolvedAddrs(ips []netip.Addr, allowPrivateHost bool, allowFakeIP
 			if allowFakeIPDNS && isFakeIPDNSAddr(ip) {
 				continue
 			}
-			return errHTTPScopeViolation
+			return errHTTPInvalidRequest
 		}
 	}
 	return nil
@@ -372,19 +365,6 @@ func toHostSet(hosts []string) map[string]struct{} {
 		items[normalized] = struct{}{}
 	}
 	return items
-}
-
-func hostAllowedByHTTPScope(host string, scopeHosts []string) bool {
-	normalizedHost := normalizeHost(host)
-	if normalizedHost == "" {
-		return false
-	}
-	for _, allowed := range scopeHosts {
-		if thirdparty.HostMatches(normalizedHost, allowed) {
-			return true
-		}
-	}
-	return false
 }
 
 func normalizeHost(host string) string {

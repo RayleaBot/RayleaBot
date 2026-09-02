@@ -1,14 +1,14 @@
 # 插件商店与独立开发
 
-本文冻结 RayleaBot 插件商店、独立插件仓库、发布产物和本地联调的正式边界。插件 manifest、artifact、商店目录、开发工作区、HTTP API 与错误码仍分别以 `contracts/` 下的正式契约为准。
+本文说明 RayleaBot 插件商店、独立插件仓库、发布产物和本地联调边界。插件 manifest、artifact、商店目录、开发工作区、HTTP API 与错误码分别以 `contracts/` 下的对应契约为准。
 
 ## 核心约束
 
-- RayleaBot 主仓库没有内置插件源码、内置插件产物或内置插件发现目录。
+- RayleaBot 主仓库没有内置业务插件源码或产物；`RayleaBot/plugin-catalog` 是默认官方商店目录仓库。
 - 所有插件统一安装到 `plugins/installed/<plugin_id>/`，商店安装、本地 artifact 安装和开发同步复用同一套校验与原子替换逻辑。
-- 生产运行期只读取预编译 Go 后端和 Vue 静态资源，不编译插件、不执行安装脚本、不安装插件依赖。
+- 生产运行期只读取当前平台的预编译原生后端和静态管理页资源，不编译插件、不执行安装脚本、不安装插件依赖。
 - 主程序发布包不携带任何业务插件。插件仓库自行测试、构建三平台 ZIP 并创建 GitHub Release。
-- 商店使用经过 Ed25519 验证的静态目录。官方身份、发布者验证状态、下载地址和摘要只来自已验证目录及安装元数据，不能由插件 manifest 自行声明。
+- 商店使用经过 Ed25519 验证的官方静态目录。官方身份、发布者验证状态、下载地址和摘要只来自已验证目录及安装元数据，不能由插件 manifest 自行声明。
 - 本地开发插件同样先构建完整 artifact，再通过离线 `plugin dev-sync` 安装；框架不增加第二套“直接运行源码目录”的运行模型。
 
 ## 仓库与所有权
@@ -16,13 +16,13 @@
 | 仓库 | 所有权与交付物 |
 | --- | --- |
 | `RayleaBot/RayleaBot` | Server、Web、Launcher、contracts、Go/Vue SDK、插件安装器和商店客户端；不发布业务插件 |
-| `RayleaBot/plugin-catalog` | `catalog.json` 与 `catalog.sig.json`；维护商店条目、版本、三平台资产及其摘要 |
+| `RayleaBot/plugin-catalog` | 默认官方商店目录；维护并发布 `catalog.json`、`catalog.sig.json`、插件条目、版本、三平台资产及其摘要 |
 | `RayleaBot/plugin-echo` | `raylea.echo` 的 Go 源码、测试、构建入口和三平台 Release |
 | `RayleaBot/plugin-fortune` | `raylea.fortune` 的 Go 后端、Vue 管理页和三平台 Release |
 | `RayleaBot/plugin-game-guide` | `raylea.game-guide` 的 Go 后端、数据、渲染模板和三平台 Release |
 | `RayleaBot/plugin-subscription-hub` | `raylea.subscription-hub` 的 Go 后端、Vue 管理页、渲染模板和三平台 Release |
 
-插件 ID 是跨仓库稳定身份。仓库名、Go module、catalog 条目、`info.json.id` 与 `artifact.json.plugin_id` 必须一致。主仓库中的 `examples/plugins/` 只用于 SDK 示例，不进入发现、商店或发布流程。
+插件 ID 是跨仓库稳定身份。catalog 条目 ID 必须与产物内 `info.json.id` 一致；artifact v2 不重复记录插件身份。主仓库中的 `examples/plugins/` 只用于 SDK 示例，不进入发现、商店或发布流程。
 
 ## 生产数据流
 
@@ -32,42 +32,42 @@ flowchart LR
   A --> R["插件 GitHub Release ZIP"]
   R --> C["plugin-catalog 记录 URL、大小与摘要"]
   C --> S["Ed25519 签名 catalog 原始字节"]
-  S --> H["RayleaBot Server 验证并投影商店 API"]
+  S --> H["RayleaBot Server 验证并提供商店 API"]
   H --> W["Web 插件商店"]
   W -->|"用户确认可信本地代码"| I["统一 Installer"]
   I --> D["plugins/installed/<plugin_id>"]
-  D --> M["Runtime Manager 启动 Go 二进制"]
-  D --> U["独立插件域读取 Vue 静态资源"]
+  D --> M["Runtime Manager 启动原生可执行文件"]
+  D --> U["独立插件域读取静态管理页资源"]
 ```
 
 Web 不直接请求 GitHub、商店目录或插件下载地址。Web 只访问 Server 的 `/api/plugin-store/**`；目录刷新、签名验证、平台选择、下载和安装均由 Server 完成。
 
-插件安装确认表示管理员信任该版本的本地原生代码。当前版本不提供插件 OS 强沙盒；插件进程具有同一系统用户授予的网络、临时文件和子进程能力。catalog 签名、归档摘要、artifact 文件清单和 manifest capability 用于确认来源、完整性与宿主 action 权限，不证明插件代码安全，也不限制插件自身的操作系统调用。
+插件安装确认表示管理员信任该版本的本地原生代码。当前版本不提供插件 OS 强沙盒；插件进程具有同一系统用户授予的网络、临时文件和子进程能力。catalog 签名、归档摘要、artifact 文件清单和 manifest permissions 用于确认来源、完整性与宿主 action 权限，不证明插件代码安全，也不限制插件自身的操作系统调用。
 
 ## 商店目录与信任
 
 ### 目录内容
 
-`plugin-store-catalog` v1 为每个插件维护：
+`plugin-store-catalog` v2 为每个插件维护：
 
 - 稳定插件 ID、名称、说明、许可证、关键词和仓库地址；
 - 发布者 ID、显示名和 `verified` 状态；
 - 可推荐状态；
-- 每个版本的发布时间、最低核心版本、撤回状态；
-- 每个平台 ZIP 的 HTTPS 地址、字节数、归档 SHA-256 和 manifest SHA-256。
+- 每个版本的发布时间、最低核心版本、manifest SHA-256 和撤回状态；
+- 每个平台 ZIP 的 HTTPS 地址、字节数和归档 SHA-256。
 
 同一插件 ID、版本或版本内平台不能重复。生产目录资产只能使用 HTTPS。当前平台没有可用资产、版本被撤回或核心版本不足时，商店展示不可安装状态。
 
 ### 签名与回退
 
 - Server 对 `catalog.json` 的原始字节计算 SHA-256，并用 `catalog.sig.json` 中的一至两个 Ed25519 签名验证相同字节。
-- 公钥注册表最多同时携带两个密钥，用于无中断轮换。目录 URL 或可变的本地配置不能替换信任根。
-- 正式发行二进制在构建时注入受信公钥；普通本地开发构建没有远程目录信任键，只展示 bootstrap catalog，并通过单元测试或显式带签名键的开发构建验证远程刷新。
+- 官方目录公钥注册表最多同时携带两个密钥，用于无中断轮换。目录 URL 固定指向 `RayleaBot/plugin-catalog`，管理配置不能替换目录或信任根。
+- 正式发行二进制通过 `RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS` 注入官方目录公钥；核心更新元数据使用独立的 `RAYLEA_RELEASE_TRUSTED_KEYS`。普通本地开发构建没有远程目录信任键，只展示 bootstrap catalog；远程刷新由单元测试或显式带目录公钥的开发构建验证。
 - 同一进程内拒绝早于最后已验证快照的 `generated_at`，也拒绝同一时间戳对应不同正文，避免刷新链路接受已知回退或歧义目录。
 - 远程刷新失败、目录无效或签名失败时，Server 在当前进程内保留最后一个已验证快照；进程重启后从应用签名覆盖的 bootstrap catalog 重新开始。
-- 应用内嵌的 bootstrap catalog 由主程序发布签名覆盖，用于首次启动和远程目录不可用时展示四个官方插件。bootstrap 条目没有 release 时显示为“尚未发布”，不会伪造可安装资产。
-- `official` 角色只授予通过已验证 catalog 安装且 `publisher_verified=true` 的包；`development` 只授予开发同步来源；其他安装来源投影为 `community`。角色用于目录分组，不代表代码信任等级。
-- 已验证 catalog 中非官方发布者的包可投影为 `community` 且信任级为 `third_party`；`local_zip`、`local_directory`、`remote_url` 来源的包同样投影为 `community`，但信任级固定为 `unverified`，安装前必须人工确认本机原生代码风险。
+- 应用内嵌的 bootstrap catalog 由主程序发布签名覆盖，用于首次启动和远程目录不可用时兜底。当前 bootstrap 可以为空；页面首次加载后仍会刷新官方远程目录。
+- `official` 角色只授予通过已验证官方目录安装且 `publisher_verified=true` 的包；`development` 只授予开发同步来源；其他安装来源显示为 `community`。角色用于目录分组，不代表代码信任等级。
+- 官方目录可以收录独立第三方仓库。目录中未标记为官方发布者的包显示为 `community`，信任级为 `third_party`；`local_zip`、`local_directory`、`remote_url` 来源的包同样显示为 `community`，但信任级固定为 `unverified`，安装前必须人工确认本机原生代码风险。
 
 插件自身的 `info.json` 不包含 `role`，不能修改官方身份、发布者信息或目录摘要。
 
@@ -86,10 +86,10 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 
 ## 安装、更新与回滚
 
-商店安装先冻结已验证目录中的插件身份、发布者身份、catalog 摘要、归档摘要和 manifest 摘要，再进入统一安装器：
+商店安装先记录已验证目录中的插件身份、发布者身份、catalog 摘要、归档摘要和 manifest 摘要，再进入统一安装器：
 
 1. 下载或读取 ZIP/展开目录，并限制体积、文件数、路径和压缩比。
-2. 校验 `plugin-info` v2、`plugin-artifact` v1、目标平台、二进制格式、Unix executable bit、UI 入口、文件全集、大小和 SHA-256。
+2. 校验 `plugin-info` v3、`plugin-artifact` v2、目标平台、二进制格式、Unix executable bit、UI 入口、文件全集、大小和 SHA-256。
 3. 对商店来源额外核对归档 SHA-256、manifest SHA-256、插件 ID 和版本。
 4. 将候选包放入同卷 staging；更新时保留旧目录和旧安装元数据。
 5. 原子替换 `plugins/installed/<plugin_id>/`，刷新 catalog、渲染模板和运行期状态。
@@ -99,7 +99,7 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 
 ## 独立插件发布
 
-每个插件仓库拥有独立 `go.mod`、`info.json`、`tools/build` 和 GitHub Actions。Go 后端入口位于 `cmd/<plugin>/`，插件实现与嵌入资源位于 `internal/`；UI、模板和构建工具保持独立顶层目录。Go SDK 使用正式 tag，例如 `sdk/go/v0.3.0`；Vue 插件在 CI 中从相同核心 SDK 引用复制 `sdk/vue`，避免 Go 与 bridge contract 版本错配。
+每个插件仓库拥有 `info.json`、原生后端源码或预构建入口以及自己的发布流程。Go 后端入口推荐位于 `cmd/<plugin-id>/`，插件实现与嵌入资源位于 `internal/`；UI 和模板保持独立顶层目录。Go SDK 使用正式 tag；Vue 插件从相同核心版本引用 `sdk/vue`，避免 protocol 与 bridge contract 版本错配。
 
 插件 PR 和主分支执行：
 
@@ -109,7 +109,7 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 
 推送 `v*` tag 后，仓库分别构建 `windows-x64`、`linux-x64` 和 `macos-arm64`，再将三个 ZIP 发布到该插件自己的 GitHub Release。核心仓库 release workflow 不 checkout、不构建、也不打包这些业务插件。
 
-插件 Release 完成后，catalog 维护者记录实际资产大小、归档 SHA-256 与各包内 `info.json` SHA-256，更新 `generated_at`，通过评审后由 catalog 工作流签名并提交 `catalog.sig.json`。目录不得引用 Actions 临时 artifact 或 GitHub 自动生成的源码压缩包。
+插件 Release 完成后，catalog 维护者记录实际资产大小、归档 SHA-256 与各包内 `info.json` SHA-256，更新 `generated_at`，通过评审后由官方目录工作流签名并提交 `catalog.sig.json`。目录不得引用 Actions 临时 artifact 或 GitHub 自动生成的源码压缩包。
 
 首次上线按以下依赖顺序完成：
 
@@ -117,7 +117,7 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 2. 创建独立插件远程仓库，配置 Actions 权限，并推送已经固定 SDK 引用的源码。
 3. 分别推送插件 `v*` tag，由插件仓库发布三平台 ZIP。
 4. 将真实 Release URL、字节数和两个摘要写入 catalog，经评审后生成签名文件。
-5. 发布包含相应受信公钥的核心版本；商店页面自动刷新后才把条目从“尚未发布”切换为可安装。
+5. 在核心发布环境配置独立的目录公钥注册表，并发布包含相应公钥的核心版本；商店页面刷新后展示可安装条目。
 
 本地同步开发不依赖上述发布顺序，也不读取 GitHub Release；只有生产分发依赖正式 SDK tag、插件 Release、签名 catalog 和包含对应公钥的核心版本。
 
@@ -129,14 +129,12 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 
 ```json
 {
-  "workspace_version": "1",
+  "workspace_version": "2",
   "plugins": [
     {
-      "id": "raylea.echo",
       "path": "../RayleaBotPlugins/plugin-echo"
     },
     {
-      "id": "raylea.fortune",
       "path": "../RayleaBotPlugins/plugin-fortune",
       "enabled": true
     }
@@ -144,7 +142,7 @@ Web 路由 `/plugins/store` 展示目录验证来源、搜索排序、仓库链�
 }
 ```
 
-路径相对工作区文件解析；`enabled: false` 的仓库不参与本次启动。插件 ID 不能重复，artifact 内的 ID 必须与工作区声明一致。可用 `RAYLEA_PLUGIN_WORKSPACE` 指向另一份本地文件。
+路径相对工作区文件解析；`enabled: false` 的仓库不参与本次启动。插件 ID 从各仓库的 `info.json` 推导并且不能重复。可用 `RAYLEA_PLUGIN_WORKSPACE` 指向另一份本地文件。
 
 ### 启动模式
 
@@ -179,21 +177,21 @@ $env:RAYLEA_PLUGIN_DEV = "sync"
 
 1. 在 `.tmp/plugin-dev/go.work` 临时连接主仓库 `sdk/go` 与所有插件 module，并按各插件 `go.mod` 声明的 SDK 版本写入临时、版本限定的 `replace`；不改写插件 `go.mod`。
 2. 若存在 Vue UI，将主仓库 `sdk/vue` 镜像到插件忽略目录 `.rayleabot/sdk/vue`，与插件的 `workspace:*` lockfile 对齐。
-3. 调用插件自己的 `go run ./tools/build -target <当前平台>`，得到与生产相同的完整 artifact。
+3. 对 Go 插件调用 `raylea-plugin build-go`；其他语言或构建系统先把预构建原生入口写入 `dist/native/<platform>/<plugin-id>[.exe]`，再由 `raylea-plugin pack` 生成与生产相同的完整 artifact。
 4. 在 Server 未运行时调用离线 CLI：
 
    ```text
-   raylea-server plugin dev-sync --artifact <expanded-artifact> --source <plugin-repo> --plugin-id <id>
+   raylea-server plugin dev-sync --artifact <expanded-artifact> --source <plugin-repo>
    ```
 
 5. CLI 打开同一状态库，执行 inspect/accept、原子替换和 package metadata 写入，将来源记录为 `development`，并把该开发插件设为启用。
 6. Server 启动后只从 `plugins/installed/` 发现和运行新产物。
 
-`watch` 模式忽略 `.git`、`.rayleabot`、`dist` 和 `node_modules`。首次启动仍同步全部启用插件；后续变更以插件 ID 为粒度去重并按 500ms 窗口合并，只构建和同步本批发生变化的插件。两个插件在同一窗口内变化时只处理这两个插件；构建期间到达的变更保留到下一批，不会被当前批次覆盖。Server 源码和插件源码同时变化时，启动器在同一批中完成 Server 构建，只停止并重启 Server 一次。
+`watch` 模式忽略 `.git`、`.rayleabot`、`node_modules` 和生成型 `dist` 内容；无 `go.mod` 插件的 `dist/native/<platform>/` 是唯一例外，用于监听预构建原生入口。首次启动同步全部启用插件；后续变更以插件 ID 为粒度去重并按 500ms 窗口合并，只构建和同步本批发生变化的插件。两个插件在同一窗口内变化时只处理这两个插件；构建期间到达的变更保留到下一批，不会被当前批次覆盖。Server 源码和插件源码同时变化时，启动器在同一批中完成 Server 构建，只停止并重启 Server 一次。
 
 构建、校验或同步失败时，候选产物不会替换现有包，启动器使用 `plugins/installed/` 中的上一个可用 artifact 恢复 Server。本地路径不会请求 GitHub、Actions 或 Release；GitHub Actions 只为插件 `v*` tag 构建正式三平台发布包。
 
-这种路径同时满足快速联调和生产一致性：开发者不必等待 GitHub Release，但每次运行的仍是经过正式 artifact 校验与安装事务的 Go + Vue 产物。
+这种路径同时满足快速联调和生产一致性：开发者不必等待 GitHub Release，但每次运行的仍是经过 artifact 校验与安装事务的原生产物。
 
 ## SDK 同步策略
 
@@ -212,7 +210,7 @@ $env:RAYLEA_PLUGIN_DEV = "sync"
 | 本地开发工作区 | `contracts/plugin-development-workspace.schema.json` |
 | 商店 HTTP 与错误码 | `contracts/web-api.openapi.yaml`、`contracts/error-codes.yaml` |
 | 开发 CLI | `contracts/cli-commands.yaml` |
-| 安装状态与来源元数据 | Server repository、正式 migration 与 catalog 投影 |
+| 安装状态与来源元数据 | Server repository、正式 migration 与 catalog 视图 |
 | 插件二进制及 UI | 独立插件 GitHub Release 中的单根目录 ZIP |
 
 评审任何相关变更时必须确认：
@@ -221,7 +219,7 @@ $env:RAYLEA_PLUGIN_DEV = "sync"
 - 默认 discovery 只有 `plugins/installed/`；
 - Web 没有绕过 Server 直连 catalog、GitHub 资产或插件 API；
 - 官方身份不能由 manifest、目录名或仓库名自行获得；
-- 商店安装仍要求用户确认，并冻结已验证目录摘要；
+- 商店安装仍要求用户确认，并记录已验证目录摘要；
 - 更新失败保留上一个可用目录、元数据、模板和 desired state；
 - 开发启动没有直接运行源码目录，也没有改写受控的 `go.mod`、lockfile 或 SDK；
 - 插件仓库发布三平台 artifact，核心发布包不含插件文件；

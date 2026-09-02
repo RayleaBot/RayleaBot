@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-render-image-1
+    action: render.image
+    data:
+      template: summary
+      output: png
+      data:
+        title: Fixture
+  - type: result
+    request_id: action-render-image-1
+    status: success
+    data:
+      artifact_id: render-fixture
+expect:
+  valid: true

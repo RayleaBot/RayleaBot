@@ -235,10 +235,14 @@ async function buildServer() {
   );
 }
 
+function nativeExecutableSuffix(platform) {
+  return platform === "windows-x64" ? ".exe" : "";
+}
+
 async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
   if (!pluginDev || pluginDev.mode === PLUGIN_DEV_OFF) {
     return {
-      workspace: { workspaceVersion: "1", plugins: [] },
+      workspace: { workspaceVersion: "2", plugins: [] },
       platform: currentPluginPlatform(),
       plugins: [],
     };
@@ -260,20 +264,30 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
 
   const pluginsToSync = selectWorkspacePlugins(workspace.plugins, pluginIDs);
   for (const plugin of pluginsToSync) {
-    const buildEntry = path.join(plugin.path, "tools", "build");
-    if (!fs.existsSync(path.join(plugin.path, "info.json")) || !fs.existsSync(buildEntry)) {
-      throw new Error(`开发插件 ${plugin.id} 缺少 info.json 或 tools/build：${plugin.path}`);
+    if (!fs.existsSync(path.join(plugin.path, "info.json"))) {
+      throw new Error(`开发插件 ${plugin.id} 缺少 info.json：${plugin.path}`);
     }
     await mirrorVueSDK({ sdkVuePath: path.join(rootDir, "sdk", "vue"), pluginPath: plugin.path });
+    const toolArgs = plugin.hasGoModule
+      ? ["build-go", "--plugin", plugin.path]
+      : [
+          "pack",
+          "--plugin",
+          plugin.path,
+          "--binary",
+          path.join(plugin.path, "dist", "native", platform, plugin.id + nativeExecutableSuffix(platform)),
+        ];
     await runCommand(`构建开发插件 ${plugin.id}`, "go", [
       "run",
-      "./tools/build",
-      "-target",
+      "./sdk/go/cmd/raylea-plugin",
+      ...toolArgs,
+      "--target",
       platform,
-      "-out",
+      "--out",
       pluginDevArtifactRoot,
+      "--expanded=true",
     ], {
-      cwd: plugin.path,
+      cwd: rootDir,
       env: {
         ...createDependencyInstallEnvironment(),
         GOWORK: pluginDevGoWorkPath,
@@ -298,8 +312,6 @@ async function installDevelopmentPlugins(preparedPlugins, serverBinaryPath) {
       expandedArtifact,
       "--source",
       plugin.path,
-      "--plugin-id",
-      plugin.id,
     ], { cwd: rootDir });
   }
 }

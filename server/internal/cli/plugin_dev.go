@@ -26,20 +26,19 @@ func runPlugin(cmd Command) int {
 	flags.SetOutput(os.Stderr)
 	artifactPath := flags.String("artifact", "", "expanded plugin artifact directory")
 	sourcePath := flags.String("source", "", "plugin source repository path")
-	pluginID := flags.String("plugin-id", "", "expected plugin id")
-	if err := flags.Parse(cmd.Args[1:]); err != nil || *artifactPath == "" || *sourcePath == "" || *pluginID == "" {
-		fmt.Fprintln(os.Stderr, "用法: raylea-server plugin dev-sync --artifact <path> --source <path> --plugin-id <id>")
+	if err := flags.Parse(cmd.Args[1:]); err != nil || *artifactPath == "" || *sourcePath == "" {
+		fmt.Fprintln(os.Stderr, "用法: raylea-server plugin dev-sync --artifact <path> --source <path>")
 		return 1
 	}
-	if err := syncDevelopmentPlugin(cmd, *artifactPath, *sourcePath, *pluginID); err != nil {
-		cmd.Logger.Error("开发插件同步失败", "plugin_id", *pluginID, "err", err.Error())
+	if err := syncDevelopmentPlugin(cmd, *artifactPath, *sourcePath); err != nil {
+		cmd.Logger.Error("开发插件同步失败", "source", *sourcePath, "err", err.Error())
 		return 1
 	}
-	fmt.Fprintf(commandStdout(cmd), "已同步开发插件 %s\n", *pluginID)
+	fmt.Fprintln(commandStdout(cmd), "已同步开发插件")
 	return 0
 }
 
-func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath, expectedPluginID string) error {
+func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	repoRoot, err := runtimepaths.ResolveRuntimeRoot(cmd.ConfigPath)
@@ -102,21 +101,18 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath, expectedPlugin
 		return err
 	}
 	defer installer.Close()
-	_, exists := catalog.Get(expectedPluginID)
 	request := plugins.InstallRequest{
 		SourceType:         "development",
 		Source:             sourcePath,
 		ResolvedSourceType: "local_directory",
 		ResolvedSource:     artifactPath,
-		ReplaceExisting:    exists,
 	}
 	inspection, err := installer.Inspect(ctx, request)
 	if err != nil {
 		return err
 	}
-	if inspection.PluginID != expectedPluginID {
-		return fmt.Errorf("artifact plugin id %s does not match workspace id %s", inspection.PluginID, expectedPluginID)
-	}
+	pluginID := inspection.PluginID
+	_, request.ReplaceExisting = catalog.Get(pluginID)
 	request.InspectionID = inspection.InspectionID
 	request.PackageSHA256 = inspection.PackageSHA256
 	request.TrustedCodeConfirmed = true
@@ -127,10 +123,10 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath, expectedPlugin
 	if err := waitForPluginInstall(ctx, registry, taskID); err != nil {
 		return err
 	}
-	if err := repository.SaveDesiredState(ctx, expectedPluginID, plugins.DesiredStateEnabled, time.Now().UTC()); err != nil {
+	if err := repository.SaveDesiredState(ctx, pluginID, plugins.DesiredStateEnabled, time.Now().UTC()); err != nil {
 		return err
 	}
-	_, _ = catalog.SetDesiredState(expectedPluginID, plugins.DesiredStateEnabled)
+	_, _ = catalog.SetDesiredState(pluginID, plugins.DesiredStateEnabled)
 	return nil
 }
 

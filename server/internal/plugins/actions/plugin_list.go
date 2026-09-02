@@ -14,10 +14,10 @@ func pluginListRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:             "plugin.list",
-			Capability:         "plugin.list",
+			Permission:         "plugin.list",
 			RequestSchema:      "plugin-protocol.action_plugin_list",
 			ResponseSchema:     "plugin-protocol.local_action_result",
-			RequiredPermission: "declared capability",
+			RequiredPermission: "declared permission",
 			AuditFields:        []string{"plugin_id", "visibility"},
 			ErrorCodes:         commonErrorCodes(),
 		},
@@ -30,14 +30,14 @@ func pluginListRegistrar() registrar {
 }
 
 func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "plugin.list") {
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "plugin.list") {
 		return nil, &pluginruntime.Error{
-			Code:    "plugin.capability_violation",
-			Message: "plugin.list capability is not declared",
+			Code:    "plugin.permission_denied",
+			Message: "plugin.list permission is not declared",
 		}
 	}
 
-	snapshots := deps.Capabilities.ListPluginSnapshots()
+	snapshots := deps.Permissions.ListPluginSnapshots()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
 	items := make([]map[string]any, 0, len(snapshots))
 	for _, snapshot := range snapshots {
@@ -47,8 +47,9 @@ func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[s
 		if req.Action.PluginListVisibility == "caller" {
 			cfg := currentConfig(deps)
 			commands = pluginListVisibleCommandsForCaller(commands, cfg, req.ParentEvent)
-			help = pluginListVisibleHelpForCaller(view.Help, view.Commands, commands, cfg, req.ParentEvent)
+			help = pluginListVisibleHelpForCaller(view.Help, commands)
 		}
+		commandGroups := pluginListVisibleCommandGroups(view.CommandGroups, commands)
 		item := map[string]any{
 			"id":                view.ID,
 			"name":              view.Name,
@@ -56,6 +57,7 @@ func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[s
 			"role":              view.Role,
 			"state":             view.State,
 			"commands":          pluginListBuildCommands(commands),
+			"command_groups":    pluginListBuildCommandGroups(commandGroups),
 			"command_conflicts": append([]string(nil), view.CommandConflicts...),
 		}
 		if view.StateDiagnosis != nil {
@@ -88,69 +90,31 @@ func pluginListVisibleCommandsForCaller(commands []plugins.CommandView, cfg conf
 	return visible
 }
 
-func pluginListVisibleHelpForCaller(help *plugins.HelpView, allCommands []plugins.CommandView, visibleCommands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) *plugins.HelpView {
-	if help == nil {
+func pluginListVisibleHelpForCaller(help *plugins.HelpView, visibleCommands []plugins.CommandView) *plugins.HelpView {
+	if help == nil || len(visibleCommands) == 0 {
 		return nil
 	}
-
-	visibleTokens := pluginListCommandTokenSet(visibleCommands)
-	allTokens := pluginListCommandTokenSet(allCommands)
-	callerRank := pluginListCallerPermissionRank(cfg, event)
-	filtered := &plugins.HelpView{
-		Title:   help.Title,
-		Summary: help.Summary,
-	}
-	for _, group := range help.Groups {
-		filteredGroup := plugins.HelpGroupView{Title: group.Title}
-		for _, item := range group.Items {
-			commandToken := strings.ToLower(strings.TrimSpace(item.Command))
-			if commandToken != "" {
-				if _, commandExists := allTokens[commandToken]; !commandExists {
-					continue
-				}
-				if _, commandVisible := visibleTokens[commandToken]; !commandVisible {
-					continue
-				}
-				filteredGroup.Items = append(filteredGroup.Items, item)
-				continue
-			}
-
-			level := pluginListEffectiveHelpPermission(item.Permission)
-			if callerRank >= pluginListPermissionRank(level) {
-				filteredGroup.Items = append(filteredGroup.Items, item)
-			}
-		}
-		if len(filteredGroup.Items) > 0 {
-			filtered.Groups = append(filtered.Groups, filteredGroup)
-		}
-	}
-	if filtered.Title == "" && filtered.Summary == "" && len(filtered.Groups) == 0 {
-		return nil
-	}
-	if len(filtered.Groups) == 0 {
-		return nil
-	}
-	return filtered
+	return &plugins.HelpView{Title: help.Title, Summary: help.Summary}
 }
 
-func pluginListCommandTokenSet(commands []plugins.CommandView) map[string]struct{} {
-	tokens := make(map[string]struct{})
+func pluginListVisibleCommandGroups(groups []plugins.CommandGroup, commands []plugins.CommandView) []plugins.CommandGroup {
+	visible := make(map[string]struct{}, len(commands))
 	for _, command := range commands {
-		addPluginListCommandToken(tokens, command.Name)
-		addPluginListCommandToken(tokens, command.DeclarationID)
-		for _, alias := range command.Aliases {
-			addPluginListCommandToken(tokens, alias)
+		visible[command.ID] = struct{}{}
+	}
+	result := make([]plugins.CommandGroup, 0, len(groups))
+	for _, group := range groups {
+		filtered := plugins.CommandGroup{ID: group.ID, Title: group.Title}
+		for _, commandID := range group.Commands {
+			if _, ok := visible[commandID]; ok {
+				filtered.Commands = append(filtered.Commands, commandID)
+			}
+		}
+		if len(filtered.Commands) > 0 {
+			result = append(result, filtered)
 		}
 	}
-	return tokens
-}
-
-func addPluginListCommandToken(tokens map[string]struct{}, value string) {
-	value = strings.ToLower(strings.TrimSpace(value))
-	if value == "" {
-		return
-	}
-	tokens[value] = struct{}{}
+	return result
 }
 
 func pluginListCallerPermissionRank(cfg config.Config, event pluginruntime.Event) int {
@@ -177,15 +141,6 @@ func pluginListEffectiveCommandPermission(permissionLevel string, cfg config.Con
 		return strings.TrimSpace(permissionLevel)
 	case "":
 		return pluginListDefaultPermission(cfg)
-	default:
-		return "everyone"
-	}
-}
-
-func pluginListEffectiveHelpPermission(permissionLevel string) string {
-	switch strings.TrimSpace(permissionLevel) {
-	case "super_admin", "group_admin", "everyone":
-		return strings.TrimSpace(permissionLevel)
 	default:
 		return "everyone"
 	}
@@ -222,25 +177,38 @@ func pluginListBuildCommands(commands []plugins.CommandView) []map[string]any {
 	items := make([]map[string]any, 0, len(commands))
 	for _, command := range commands {
 		item := map[string]any{
-			"name":           command.Name,
-			"command_source": command.CommandSource,
-		}
-		if len(command.Aliases) > 0 {
-			item["aliases"] = append([]string(nil), command.Aliases...)
-		}
-		if command.Description != "" {
-			item["description"] = command.Description
-		}
-		if command.Usage != "" {
-			item["usage"] = command.Usage
-		}
-		if command.Permission != "" {
-			item["permission"] = command.Permission
-		}
-		if command.DeclarationID != "" {
-			item["declaration_id"] = command.DeclarationID
+			"id":              command.ID,
+			"name":            command.Name,
+			"effective_names": plugins.EffectiveCommandNames(command.TriggerType, command.EffectiveName, command.Aliases),
+			"description":     command.Description,
+			"usage":           command.Usage,
+			"permission":      command.Permission,
+			"trigger":         pluginListBuildTrigger(command),
 		}
 		items = append(items, item)
+	}
+	return items
+}
+
+func pluginListBuildTrigger(command plugins.CommandView) map[string]any {
+	trigger := map[string]any{"type": command.TriggerType}
+	switch command.TriggerType {
+	case "exact":
+		trigger["names"] = append([]string(nil), command.TriggerNames...)
+	case "pattern":
+		trigger["pattern"] = command.MatchPattern
+	case "setting":
+		trigger["settings_key"] = command.SettingsKey
+	}
+	return trigger
+}
+
+func pluginListBuildCommandGroups(groups []plugins.CommandGroup) []map[string]any {
+	items := make([]map[string]any, 0, len(groups))
+	for _, group := range groups {
+		items = append(items, map[string]any{
+			"id": group.ID, "title": group.Title, "commands": append([]string(nil), group.Commands...),
+		})
 	}
 	return items
 }
@@ -252,38 +220,6 @@ func pluginListBuildHelp(help *plugins.HelpView) map[string]any {
 	}
 	if help.Summary != "" {
 		result["summary"] = help.Summary
-	}
-	groups := make([]map[string]any, 0, len(help.Groups))
-	for _, group := range help.Groups {
-		items := make([]map[string]any, 0, len(group.Items))
-		for _, item := range group.Items {
-			entry := map[string]any{
-				"title": item.Title,
-			}
-			if item.Description != "" {
-				entry["description"] = item.Description
-			}
-			if item.Usage != "" {
-				entry["usage"] = item.Usage
-			}
-			if item.Command != "" {
-				entry["command"] = item.Command
-			}
-			if item.Permission != "" {
-				entry["permission"] = item.Permission
-			}
-			items = append(items, entry)
-		}
-		if len(items) == 0 {
-			continue
-		}
-		groups = append(groups, map[string]any{
-			"title": group.Title,
-			"items": items,
-		})
-	}
-	if len(groups) > 0 {
-		result["groups"] = groups
 	}
 	return result
 }

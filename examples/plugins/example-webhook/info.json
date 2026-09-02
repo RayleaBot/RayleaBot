@@ -2,35 +2,34 @@
   "id": "example-webhook",
   "name": "Example Webhook",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/example-webhook",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Go example plugin demonstrating event.expose_webhook and gated raw payload delivery.",
-  "author": "raylea",
-  "capabilities": [
-    "event.subscribe",
-    "event.expose_webhook",
-    "event.raw_payload",
-    "logger.write"
+  "commands": [],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go example plugin demonstrating statically declared webhooks and gated raw payload delivery.",
+    "author": "raylea"
+  },
+  "events": [
+    "webhook.received"
   ],
-  "commands": [
+  "permissions": {
+    "event.raw_payload": true
+  },
+  "webhooks": [
     {
-      "name": "webhook_register",
-      "description": "Register the example GitHub webhook route.",
-      "usage": "/webhook_register"
-    }
-  ],
-  "capability_parameters": {
-    "webhooks": [
-      {
-        "route": "github",
-        "auth_strategy": "hmac_sha256",
-        "header": "X-Hub-Signature-256",
-        "secret_ref": "webhook.github.secret"
+      "id": "github",
+      "route": "github",
+      "auth_strategy": "hmac_sha256",
+      "header": "X-Hub-Signature-256",
+      "secret_ref": "webhook.github.secret",
+      "signature_prefix": "sha256=",
+      "replay_protection": {
+        "timestamp_header": "X-Webhook-Timestamp",
+        "event_id_header": "X-Webhook-Event-ID",
+        "tolerance_seconds": 300,
+        "enforce": true
       }
-    ]
-  }
+    }
+  ]
 }

@@ -63,10 +63,10 @@ func buildCommandPolicyEntries(snapshots []plugins.Snapshot, cfg config.Config) 
 			items = append(items, CommandPolicyEntryResponse{
 				PluginID:            snapshot.PluginID,
 				PluginName:          pluginDisplayName(snapshot),
+				CommandID:           strings.TrimSpace(command.ID),
 				Command:             name,
 				Aliases:             normalizedStrings(command.Aliases),
-				CommandSource:       commandSourceOrDefault(command.CommandSource),
-				DeclarationID:       strings.TrimSpace(command.DeclarationID),
+				Trigger:             commandPolicyTrigger(command),
 				DeclaredPermission:  declaredPermission,
 				EffectivePermission: effectivePermission,
 				PermissionSource:    permissionSource,
@@ -90,15 +90,18 @@ func buildCommandPolicyEntries(snapshots []plugins.Snapshot, cfg config.Config) 
 	return items
 }
 
-func commandSourceOrDefault(source string) string {
-	switch strings.TrimSpace(source) {
-	case plugins.CommandSourceDynamic:
-		return plugins.CommandSourceDynamic
-	case plugins.CommandSourcePattern:
-		return plugins.CommandSourcePattern
+func commandPolicyTrigger(command plugins.Command) CommandTriggerResponse {
+	trigger := CommandTriggerResponse{Type: strings.TrimSpace(command.TriggerType)}
+	switch trigger.Type {
+	case "pattern":
+		trigger.Pattern = strings.TrimSpace(command.MatchPattern)
+	case "setting":
+		trigger.SettingsKey = strings.TrimSpace(command.SettingsKey)
 	default:
-		return plugins.CommandSourceManifest
+		trigger.Type = "exact"
+		trigger.Names = append([]string(nil), command.TriggerNames...)
 	}
+	return trigger
 }
 
 func pluginDisplayName(snapshot plugins.Snapshot) string {

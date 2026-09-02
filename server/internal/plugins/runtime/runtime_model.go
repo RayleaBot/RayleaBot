@@ -100,7 +100,6 @@ type Snapshot struct {
 	CrashCount          int
 	NextRetryAt         *time.Time
 	EnteredDeadLetterAt *time.Time
-	Subscriptions       []string
 }
 
 type Delivery struct {
@@ -182,12 +181,9 @@ type EventWebhook struct {
 }
 
 type EventFrame struct {
-	ProtocolVersion string             `json:"protocol_version"`
-	Type            string             `json:"type"`
-	Timestamp       int64              `json:"timestamp"`
-	PluginID        string             `json:"plugin_id"`
-	RequestID       string             `json:"request_id"`
-	Event           ProtocolEventFrame `json:"event"`
+	Type      string             `json:"type"`
+	RequestID string             `json:"request_id"`
+	Event     ProtocolEventFrame `json:"event"`
 }
 
 type ProtocolEventFrame struct {
@@ -234,15 +230,17 @@ type ProtocolSegmentFrame struct {
 }
 
 type ProtocolPayloadFrame struct {
-	MessageID  string                        `json:"message_id,omitempty"`
-	Command    string                        `json:"command,omitempty"`
-	Args       []string                      `json:"args,omitempty"`
-	Action     string                        `json:"action,omitempty"`
-	Payload    map[string]any                `json:"payload,omitempty"`
-	SubType    string                        `json:"sub_type,omitempty"`
-	OperatorID string                        `json:"operator_id,omitempty"`
-	OneBot     *ProtocolOneBotPayloadFrame   `json:"onebot,omitempty"`
-	Bilibili   *ProtocolBilibiliPayloadFrame `json:"bilibili,omitempty"`
+	MessageID   string                        `json:"message_id,omitempty"`
+	Command     string                        `json:"command,omitempty"`
+	Args        []string                      `json:"args,omitempty"`
+	Action      string                        `json:"action,omitempty"`
+	Payload     map[string]any                `json:"payload,omitempty"`
+	Config      *map[string]any               `json:"config,omitempty"`
+	ChangedKeys []string                      `json:"changed_keys,omitempty"`
+	SubType     string                        `json:"sub_type,omitempty"`
+	OperatorID  string                        `json:"operator_id,omitempty"`
+	OneBot      *ProtocolOneBotPayloadFrame   `json:"onebot,omitempty"`
+	Bilibili    *ProtocolBilibiliPayloadFrame `json:"bilibili,omitempty"`
 }
 
 type ProtocolBilibiliPayloadFrame struct {
@@ -338,23 +336,21 @@ type ProtocolOneBotSenderFrame struct {
 }
 
 type PingFrame struct {
-	ProtocolVersion string `json:"protocol_version"`
-	Type            string `json:"type"`
-	Timestamp       int64  `json:"timestamp"`
-	PluginID        string `json:"plugin_id"`
-	RequestID       string `json:"request_id"`
+	Type      string `json:"type"`
+	RequestID string `json:"request_id"`
 }
 
 type InitFrame struct {
-	ProtocolVersion string            `json:"protocol_version"`
-	Type            string            `json:"type"`
-	Timestamp       int64             `json:"timestamp"`
-	PluginID        string            `json:"plugin_id"`
-	RequestID       string            `json:"request_id"`
-	Bot             *BotFrame         `json:"bot,omitempty"`
-	Capabilities    []string          `json:"capabilities,omitempty"`
-	Permissions     *PermissionsFrame `json:"permissions,omitempty"`
-	CommandPrefixes []string          `json:"command_prefixes"`
+	ProtocolVersion      string         `json:"protocol_version"`
+	Type                 string         `json:"type"`
+	PluginID             string         `json:"plugin_id"`
+	RequestID            string         `json:"request_id"`
+	Bot                  *BotFrame      `json:"bot,omitempty"`
+	Config               map[string]any `json:"config"`
+	EffectivePermissions []string       `json:"effective_permissions"`
+	SuperAdmins          []string       `json:"super_admins"`
+	CommandPrefixes      []string       `json:"command_prefixes"`
+	Concurrency          int            `json:"concurrency"`
 }
 
 type BotFrame struct {
@@ -362,42 +358,28 @@ type BotFrame struct {
 	Nickname string `json:"nickname,omitempty"`
 }
 
-type PermissionsFrame struct {
-	SuperAdmins []string `json:"super_admins,omitempty"`
-}
-
 type ShutdownFrame struct {
-	ProtocolVersion string `json:"protocol_version"`
-	Type            string `json:"type"`
-	Timestamp       int64  `json:"timestamp"`
-	PluginID        string `json:"plugin_id"`
-	RequestID       string `json:"request_id"`
-	Reason          string `json:"reason"`
+	Type      string `json:"type"`
+	RequestID string `json:"request_id"`
+	Reason    string `json:"reason"`
 }
 
 type FrameEnvelope struct {
-	ProtocolVersion string `json:"protocol_version"`
-	Type            string `json:"type"`
-	Timestamp       int64  `json:"timestamp"`
-	PluginID        string `json:"plugin_id"`
-	RequestID       string `json:"request_id"`
+	Type      string `json:"type"`
+	RequestID string `json:"request_id"`
 }
 
 type InitProgressFrame struct {
-	ProtocolVersion string `json:"protocol_version"`
-	Type            string `json:"type"`
-	Timestamp       int64  `json:"timestamp"`
-	PluginID        string `json:"plugin_id"`
-	RequestID       string `json:"request_id"`
-	Summary         string `json:"summary"`
+	Type      string `json:"type"`
+	RequestID string `json:"request_id"`
+	Summary   string `json:"summary"`
 }
 
 type InitAckFrame struct {
-	Type          string   `json:"type"`
-	RequestID     string   `json:"request_id"`
-	Status        string   `json:"status"`
-	Subscriptions []string `json:"subscriptions,omitempty"`
-	ErrorMessage  string   `json:"error_message,omitempty"`
+	Type         string `json:"type"`
+	RequestID    string `json:"request_id"`
+	Status       string `json:"status"`
+	ErrorMessage string `json:"error_message,omitempty"`
 }
 
 type ErrorFrame struct {
@@ -423,10 +405,7 @@ const (
 )
 
 type ActionFrame struct {
-	ProtocolVersion string          `json:"protocol_version"`
 	Type            string          `json:"type"`
-	Timestamp       int64           `json:"timestamp"`
-	PluginID        string          `json:"plugin_id"`
 	RequestID       string          `json:"request_id"`
 	ParentRequestID string          `json:"parent_request_id,omitempty"`
 	Action          string          `json:"action"`
@@ -438,12 +417,8 @@ type ProtocolOutboundMessageFrame struct {
 }
 
 type ProtocolActionMessageSendFrame struct {
-	TargetType string                        `json:"target_type"`
-	TargetID   string                        `json:"target_id"`
-	Message    *ProtocolOutboundMessageFrame `json:"message"`
-}
-
-type ProtocolActionMessageReplyFrame struct {
+	TargetType              string                        `json:"target_type"`
+	TargetID                string                        `json:"target_id"`
 	ReplyToEventID          *string                       `json:"reply_to_event_id"`
 	Message                 *ProtocolOutboundMessageFrame `json:"message"`
 	FallbackToSendIfMissing bool                          `json:"fallback_to_send_if_missing,omitempty"`
@@ -460,10 +435,6 @@ type ProtocolActionStorageKVFrame struct {
 	Key       *string          `json:"key,omitempty"`
 	Prefix    *string          `json:"prefix,omitempty"`
 	Value     *json.RawMessage `json:"value,omitempty"`
-}
-
-type ProtocolActionConfigReadFrame struct {
-	Keys []string `json:"keys"`
 }
 
 type ProtocolActionPluginListFrame struct {
@@ -515,7 +486,6 @@ type ProtocolActionGovernanceWhitelistWriteFrame struct {
 
 type ProtocolActionStorageFileFrame struct {
 	Operation     string  `json:"operation"`
-	Root          string  `json:"root"`
 	Path          *string `json:"path,omitempty"`
 	Prefix        *string `json:"prefix,omitempty"`
 	ContentText   *string `json:"content_text,omitempty"`
@@ -537,24 +507,6 @@ type ProtocolActionSchedulerCreateFrame struct {
 	Cron      string          `json:"cron"`
 	EventType string          `json:"event_type"`
 	Payload   json.RawMessage `json:"payload,omitempty"`
-}
-
-type ProtocolActionEventExposeWebhookFrame struct {
-	Route            string                                `json:"route"`
-	Methods          []string                              `json:"methods"`
-	AuthStrategy     string                                `json:"auth_strategy"`
-	Header           string                                `json:"header"`
-	SecretRef        string                                `json:"secret_ref"`
-	SignaturePrefix  string                                `json:"signature_prefix,omitempty"`
-	SourceIPs        []string                              `json:"source_ips,omitempty"`
-	ReplayProtection *ProtocolWebhookReplayProtectionFrame `json:"replay_protection,omitempty"`
-}
-
-type ProtocolWebhookReplayProtectionFrame struct {
-	TimestampHeader  string `json:"timestamp_header"`
-	EventIDHeader    string `json:"event_id_header"`
-	ToleranceSeconds int    `json:"tolerance_seconds"`
-	Enforce          *bool  `json:"enforce"`
 }
 
 type ProtocolActionRenderImageFrame struct {

@@ -17,7 +17,7 @@ func TestReloadPluginSwapsRuntime(t *testing.T) {
 	oldRT := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"version": "old"}}}
 	newRT := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"version": "new"}}}
 
-	d.Register("test-plugin", oldRT, nil, nil, 1)
+	d.Register("test-plugin", oldRT, []string{"message.group"}, nil, 1)
 
 	// Verify old runtime receives events.
 	d.Dispatch(context.Background(), testEvent(), "")
@@ -28,7 +28,7 @@ func TestReloadPluginSwapsRuntime(t *testing.T) {
 
 	// Reload by directly registering the new runtime (simulating what
 	// ReloadPlugin does after the new manager passes init_ack).
-	d.Register("test-plugin", newRT, nil, nil, 1)
+	d.Register("test-plugin", newRT, []string{"message.group"}, nil, 1)
 
 	// New events should go to new runtime.
 	d.Dispatch(context.Background(), testEvent(), "")

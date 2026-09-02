@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-management-ui-bridge.schema.json",
-  "title": "RayleaBot Plugin Management UI Bridge v2",
-  "description": "Bridge v2 uses page.ready and host.connect only for a nonce-bound MessageChannel handoff. Every later message travels over the transferred port; plugin secrets are represented only by configured-state booleans or write/delete commands.",
+  "title": "RayleaBot Plugin Management UI Bridge v3",
+  "description": "Bridge v3 uses page.ready and host.connect only for a nonce-bound MessageChannel handoff. Every later message travels over the transferred port; plugin secrets are represented only by configured-state booleans or write/delete commands.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,7 +12,7 @@
   ],
   "properties": {
     "version": {
-      "const": "2"
+      "const": "3"
     },
     "source": {
       "type": "string",
@@ -446,7 +446,7 @@
         "secrets_configured",
         "theme",
         "language",
-        "allowed_capabilities"
+        "allowed_permissions"
       ],
       "properties": {
         "plugin": {
@@ -469,7 +469,7 @@
           "type": "string",
           "minLength": 2
         },
-        "allowed_capabilities": {
+        "allowed_permissions": {
           "type": "array",
           "items": {
             "type": "string",
@@ -747,6 +747,7 @@
     "fixtures/plugin-management-ui/ok.bridge-protocol-identities-resolved.json",
     "fixtures/plugin-management-ui/ok.bridge-plugin-action-invoke.json",
     "fixtures/plugin-management-ui/ok.bridge-plugin-action-result.json",
+    "fixtures/plugin-management-ui/invalid.bridge-legacy-v2.json",
     "fixtures/plugin-management-ui/invalid.bridge-unknown-type.json"
   ]
 }

@@ -724,6 +724,8 @@ function toPluginSummary(plugin) {
     source: structuredClone(plugin.source),
     trust: structuredClone(plugin.trust),
     commands: structuredClone(plugin.commands ?? []),
+    command_groups: structuredClone(plugin.command_groups ?? []),
+    help: structuredClone(plugin.help ?? {}),
     command_conflicts: structuredClone(plugin.command_conflicts ?? []),
   }
   if (plugin.version) {
@@ -860,6 +862,8 @@ function mergePluginState(pluginId, patch) {
     source: structuredClone(patch.source ?? previous.source),
     trust: structuredClone(patch.trust ?? previous.trust),
     commands: structuredClone(patch.commands ?? previous.commands ?? []),
+    command_groups: structuredClone(patch.command_groups ?? previous.command_groups ?? []),
+    help: structuredClone(patch.help ?? previous.help ?? {}),
     command_conflicts: structuredClone(patch.command_conflicts ?? previous.command_conflicts ?? []),
   }
   return state.plugins[pluginId]
@@ -2097,7 +2101,10 @@ const server = http.createServer(async (request, response) => {
         license: 'MIT',
         source_label: payload.source_type === 'remote_url' ? 'example.com' : '本地插件包',
       },
-      capabilities: ['event.subscribe', 'http.request'],
+      permissions: {
+        'http.request': {},
+        'message.send': {},
+      },
       target_platform: 'windows-x64',
       backend: {
         entry: 'bin/weather',
@@ -2112,7 +2119,7 @@ const server = http.createServer(async (request, response) => {
       },
       artifact: {
         valid: true,
-        artifact_version: '1',
+        artifact_version: '2',
         manifest_sha256: 'c'.repeat(64),
         file_count: 8,
       },

@@ -15,7 +15,7 @@ func renderImageRegistrar() registrar {
 	return registrar{
 		metadata: Metadata{
 			Action:          "render.image",
-			Capability:      "render.image",
+			Permission:      "render.image",
 			RequestSchema:   "plugin-protocol.action_render_image",
 			ResponseSchema:  "plugin-protocol.local_action_result",
 			AccessesNetwork: true,
@@ -39,8 +39,8 @@ func renderImageRegistrar() registrar {
 }
 
 func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.Capabilities == nil || !deps.Capabilities.CapabilityDeclared(ctx, req.PluginID, "render.image") {
-		return nil, &pluginruntime.Error{Code: "plugin.capability_violation", Message: "render.image capability is not declared"}
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "render.image") {
+		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "render.image permission is not declared"}
 	}
 	if deps.Renderer == nil {
 		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image service is not available"}
@@ -64,7 +64,7 @@ func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[
 		Output:    req.Action.RenderOutput,
 		Data:      renderImageData(ctx, deps, req, templateID),
 		Resources: resources,
-		Plugin:    renderPluginContext(req.PluginID, deps.Capabilities),
+		Plugin:    renderPluginContext(req.PluginID, deps.Permissions),
 	})
 	if err != nil {
 		logRenderImageFailure(deps, req, "render", templateID, err)
@@ -87,7 +87,7 @@ func renderImageActionError(err error) *pluginruntime.Error {
 
 	code := renderErr.Code
 	switch code {
-	case "plugin.capability_violation",
+	case "plugin.permission_denied",
 		"platform.render_queue_full",
 		"platform.render_timeout",
 		"platform.render_input_too_large",
@@ -169,14 +169,14 @@ func currentConfig(deps Deps) config.Config {
 	return deps.CurrentConfig()
 }
 
-func renderPluginContext(pluginID string, capabilities interface {
+func renderPluginContext(pluginID string, permissions interface {
 	ListPluginSnapshots() []plugins.Snapshot
 }) RenderPluginContext {
 	context := RenderPluginContext{Name: strings.TrimSpace(pluginID)}
-	if capabilities == nil {
+	if permissions == nil {
 		return context
 	}
-	for _, snapshot := range capabilities.ListPluginSnapshots() {
+	for _, snapshot := range permissions.ListPluginSnapshots() {
 		if snapshot.PluginID != pluginID {
 			continue
 		}

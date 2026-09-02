@@ -1,0 +1,20 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-scheduler-create-1
+    action: scheduler.create
+    data:
+      task_id: daily-refresh
+      log_label: 每日刷新
+      cron: "0 8 * * *"
+      event_type: scheduler.trigger
+      payload:
+        scope: all
+  - type: result
+    request_id: action-scheduler-create-1
+    status: success
+    data:
+      job_id: fixture-job
+expect:
+  valid: true

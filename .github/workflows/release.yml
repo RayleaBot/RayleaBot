@@ -68,11 +68,13 @@ jobs:
         shell: bash
         env:
           RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
+          RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS: ${{ vars.RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS }}
         run: |
           set -euo pipefail
           test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
+          test -n "$RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS"
           mkdir -p dist/server
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
+          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS}"
           if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
             (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server.exe ./cmd/raylea-server)
             (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-updater.exe ./cmd/raylea-updater)
@@ -85,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p dist/recovery-plugin
-          (cd server/tests/testutil/testdata/echo-plugin && GOWORK=off go run ./tools/build -target "${{ matrix.recovery_fixture_target }}" -out "$GITHUB_WORKSPACE/dist/recovery-plugin")
+          (cd sdk/go && GOWORK=off go run ./cmd/raylea-plugin build-go --plugin "$GITHUB_WORKSPACE/server/tests/testutil/testdata/echo-plugin" --backend ./cmd/echo --target "${{ matrix.recovery_fixture_target }}" --out "$GITHUB_WORKSPACE/dist/recovery-plugin")
 
       - name: Install web dependencies
         working-directory: web
@@ -242,17 +244,19 @@ jobs:
       - name: Build server
         env:
           RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
+          RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS: ${{ vars.RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS }}
         run: |
           test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
+          test -n "$RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS"
           mkdir -p dist/server
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
+          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS}"
           (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server ./cmd/raylea-server)
 
       - name: Build recovery test plugin fixture
         run: |
           set -euo pipefail
           mkdir -p dist/recovery-plugin
-          (cd server/tests/testutil/testdata/echo-plugin && GOWORK=off go run ./tools/build -target linux-x64 -out "$GITHUB_WORKSPACE/dist/recovery-plugin")
+          (cd sdk/go && GOWORK=off go run ./cmd/raylea-plugin build-go --plugin "$GITHUB_WORKSPACE/server/tests/testutil/testdata/echo-plugin" --backend ./cmd/echo --target linux-x64 --out "$GITHUB_WORKSPACE/dist/recovery-plugin")
 
       - name: Install web dependencies
         working-directory: web
@@ -401,10 +405,12 @@ jobs:
         shell: bash
         env:
           RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
+          RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS: ${{ vars.RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS }}
         run: |
           set -euo pipefail
           test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
+          test -n "$RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS"
+          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS}"
           (cd server && go build -ldflags "$LDFLAGS" -o ../dist/release/raylea-server-verify ./cmd/raylea-server)
           for artifact in dist/artifacts/*; do
             dist/release/raylea-server-verify update verify \

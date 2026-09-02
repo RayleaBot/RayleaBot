@@ -1,130 +1,117 @@
 # Plugin SDK
 
-RayleaBot 插件开发由 Go 后端 SDK、artifact 构建器和 Vue 管理页 SDK 组成。插件运行期只读取已编译产物，不使用源码 SDK、语言解释器或依赖安装器。
+RayleaBot 插件运行时与实现语言无关。主仓库提供 Go 后端 SDK、通用 artifact 工具和 Vue 管理页 SDK；插件运行时只读取已编译产物。
 
 ## Go SDK
 
-`sdk/go` 是独立 Go module，公开入口为：
+`sdk/go` 是独立 Go module：
 
 ```go
-err := rayleabot.Run(ctx, rayleabot.Options{
-    PluginID:              "example.plugin",
-    Subscriptions:         []string{"message.private", "message.group"},
-    MaxConcurrentHandlers: 4,
-}, rayleabot.HandlerFunc(func(ctx context.Context, event *rayleabot.EventContext) error {
-    return event.SendText("ok")
-}))
+err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
+    func(ctx context.Context, event *rayleabot.EventContext) error {
+        if event.Bot.ID == "" {
+            return event.Result(nil)
+        }
+        return event.SendText("ok")
+    },
+))
 ```
 
-`EventContext` 提供当前事件、request ID、插件 ID、bot 身份、允许能力、超级管理员与命令前缀。每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 作为最终结果，重复发送会返回错误。
+插件 ID、并发度、权限、配置、管理员和命令前缀都来自 init。`EventContext` 提供：
+
+- 当前事件与 request ID。
+- 宿主分配的插件 ID。
+- 当前 Bot 身份。
+- 隔离的完整配置快照。
+- 生效权限、超级管理员和命令前缀。
+
+每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v2 的统一 `message.send` action。
 
 `event.Actions()` 提供 request-bound typed helpers：
 
-- 非终态消息、日志、KV、文件、HTTP、配置、插件列表与 secret；
-- 治理黑白名单、命令策略、scheduler、webhook、渲染、三方账号读取与权威复检请求；
-- 已固定的 OneBot 单动作和 provider 扩展动作；
-- `Call`：action 名称已进入正式 contract 时的通用调用入口。
+- 非终态消息、日志、KV、文件、HTTP、配置写入、插件列表和 secret。
+- 治理、scheduler、渲染和三方账号动作。
+- OneBot 单动作与 provider 扩展动作。
+- 已进入正式 contract 的通用 `Call`。
 
-SDK 为每个 local action 分配独立 request ID，并通过父事件 request ID 关联并发响应。stdout 只写 JSONL，使用串行 writer；日志写 stderr。运行时处理 `init/init_ack`、`ping/pong`、shutdown、超时、并发上限和 panic 隔离，panic 只终止当前事件并返回错误对象，不使插件进程退出。
+SDK 串行写 stdout JSONL，日志写 stderr；负责 request 关联、并发、ping/pong、关闭、panic 隔离和配置快照原子替换。
 
-需要处理音视频的受信本地插件复用核心托管工具：`RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH` 分别提供当前平台 FFmpeg、FFprobe 的绝对路径。插件应直接执行这些路径，并在变量缺失时把媒体能力报告为不可用；不要在插件 artifact 内重复打包 FFmpeg，也不要假定系统 `PATH` 已安装对应工具。
+需要音视频处理的插件使用宿主环境变量：
 
-`RenderImageRequest.Resources` 接受 `RenderImageResource` 列表；每项使用 `ID`、`URL`、可选 `FallbackURLs` 与 `Referer` 描述宿主预取图片。模板通过 `data-render-resource` 引用同一 ID。该能力同时要求插件声明 `render.image`、`http.request` 以及对应 `http_hosts`，图片字节不进入 `RenderImageRequest.Data`。
+- `RAYLEABOT_FFMPEG_PATH`
+- `RAYLEABOT_FFPROBE_PATH`
 
-## Artifact 构建器
+插件应直接执行绝对路径，在变量缺失时报告媒体能力不可用，不重复打包 FFmpeg。
 
-每个插件拥有独立 `go.mod`、`info.json` 和薄 `tools/build` 入口。后端遵循 Go 应用工程的职责分层：可执行入口放在 `cmd/<plugin>/`，不可被仓库外导入的业务实现和嵌入资源放在 `internal/`，UI、模板与发布工具各自保持顶层目录：
+## raylea-plugin
+
+统一工具位于 `sdk/go/cmd/raylea-plugin`：
+
+```text
+raylea-plugin inspect --plugin <plugin-root>
+raylea-plugin inspect --artifact <expanded-artifact> [--target <platform>]
+raylea-plugin pack --plugin <plugin-root> --binary <native-executable> --target <platform> --out <dist>
+raylea-plugin build-go --plugin <plugin-root> [--backend <main-package>] --target <platform> --out <dist>
+```
+
+`pack` 和 `build-go` 的相对 `--binary`、`--out` 与 `--include source=destination` 源路径均以 `<plugin-root>` 解析；绝对路径保持原义。由此可从任意工作目录调用统一工具，而不会把产物写到调用者的当前目录。
+
+- `inspect` 使用 `--plugin` 检查项目 manifest，或使用 `--artifact` 检查展开产物的 manifest、精确文件清单、哈希和原生入口格式。
+- `pack` 打包任意语言生成的当前目标平台原生可执行文件。
+- `build-go` 从 `cmd/<plugin-id>` 构建 Go 后端，再调用统一 pack 流程。
+
+Go 插件推荐结构：
 
 ```text
 plugin-example/
   cmd/example/main.go
   internal/plugin/...
-  internal/assets/...
   ui/...
   templates/...
-  tools/build/main.go
   go.mod
   info.json
 ```
 
-`cmd` 入口只创建进程并调用 `internal/plugin.Run`；协议处理、业务逻辑和测试不放在仓库根目录。构建入口显式选择唯一后端 package：
+每个插件直接使用统一构建器，无需维护 `tools/build` 包装器。构建器自动收集 `ui/`、模板、资源、许可证、第三方 notices 和 SPDX SBOM，并生成 artifact v2 及单根 ZIP。
 
-```go
-package main
+正式目标平台：
 
-import (
-    "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild"
-    "github.com/RayleaBot/RayleaBot/sdk/go/pluginbuild/buildcmd"
-)
-
-func main() {
-    buildcmd.Main(buildcmd.Config{
-        BackendPackage: "./cmd/example",
-        Assets: []string{"templates"},
-        MappedAssets: []pluginbuild.AssetMapping{{
-            Source: "internal/assets/default.json", Destination: "default.json",
-        }},
-    })
-}
-```
-
-同路径资源使用 `Assets` 直接复制；当嵌入资源保留在 `internal/`、而 artifact 对外路径需要保持稳定时，使用 `MappedAssets`。也可以直接调用 `pluginbuild.Build(ctx, Config)`。构建器执行：
-
-1. 校验 manifest v2 与目标平台；
-2. 校验 `BackendPackage` 位于插件根目录内，并使用 `CGO_ENABLED=0`、`-trimpath`、`-buildvcs=false` 和无 build ID 构建唯一 Go 后端；
-3. 若存在 `ui/package.json`，执行插件自己的 `pnpm build`；
-4. 收集 UI、模板、数据、`LICENSE`、第三方 notices 与 SPDX SBOM；
-5. 生成 `artifact.json`，并输出确定性单根目录 ZIP 与可选展开目录。
-
-```text
-example.plugin/
-  info.json
-  artifact.json
-  bin/example[.exe]
-  ui/index.html
-  ui/assets/...
-  templates/...
-  LICENSE
-  THIRD_PARTY_NOTICES.md
-  sbom.spdx.json
-```
-
-正式目标为 `windows-x64`、`linux-x64` 和 `macos-arm64`。`artifact.json` 枚举除自身外的每个文件，记录角色、大小和 SHA-256。ZIP 中 Unix 后端固定为 `0755`。
+- `windows-x64`
+- `linux-x64`
+- `macos-arm64`
 
 ## Vue UI SDK
 
 `sdk/vue` 提供私有 workspace package `@rayleabot/plugin-ui`：
 
-- `PluginUIBridgeClient` 完成 nonce-bound bridge v2 与 `MessageChannel` 握手；
-- `usePluginHost` 暴露初始化状态、设置、secret configured-state 和 bridge 请求；
-- `applyTheme` 把宿主主题 token 映射为插件 CSS variables；
-- `contract.generated.ts` 提供 bridge v2 类型。
+- `PluginUIBridgeClient` 完成 nonce-bound bridge v3 与 MessageChannel 握手。
+- `usePluginHost` 暴露初始化状态、配置、secret configured-state 和 bridge 请求。
+- `applyTheme` 把宿主主题 token 映射为插件 CSS variables。
+- `contract.generated.ts` 从 bridge v3 schema 生成类型。
 
-插件 UI 固定使用 Vue 3、TypeScript、Vite 与 `base: "./"`。页面只能通过 SDK 绑定的端口请求宿主能力，不能请求插件域 `/api`，也不能读取管理 cookie 或已保存密钥明文。
+插件 UI 固定使用 Vue 3、TypeScript、Vite 和 `base: "./"`。所有页面共用 `management_ui.entry`，当前页面 ID 来自 `host.init.page.id`。页面不能读取管理 cookie、请求插件域 `/api` 或获取已保存 secret 明文。
 
 ## 本地联调
 
-独立插件仓库不需要把开发版本推送到 GitHub。主仓库根目录的 `plugin-workspace.local.json` 连接参与联调的仓库；启动脚本用临时 `.tmp/plugin-dev/go.work` 把插件 module 指向当前 `sdk/go`，并在构建含 UI 的插件前把当前 `sdk/vue` 镜像到插件忽略目录 `.rayleabot/sdk/vue`。这些覆盖只存在于本机，不改写插件 `go.mod`、lockfile 或正式 SDK 版本声明。
+`plugin-workspace.local.json` 使用 workspace v2 连接本地插件仓库。插件 ID 从各仓库 `info.json` 推导；有 `go.mod` 的插件进入临时 go.work，无 Go module 的项目使用 `dist/native/<platform>/<plugin-id>[.exe]` 作为预构建原生入口。
 
-首次启动会构建并同步全部启用插件。`RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch` 同时启用后，后续变更只触发对应插件自己的 `tools/build`；同一批的多个插件各构建一次，构建期间到达的变更进入下一批。产物始终通过离线 `plugin dev-sync` 安装到 `plugins/installed/`，因此本地运行与商店安装使用相同的 artifact 校验和替换边界。GitHub Actions 仅用于正式 tag 的多平台发布。
+开发 `watch` 会监听非 Go 插件的上述预构建入口；`dist` 下的其他生成产物仍被忽略，因此统一打包输出不会触发重复构建。
+
+启动开发环境时，主仓库同步当前 Go/Vue SDK，并通过统一工具构建或打包后执行离线 `plugin dev-sync`。同步安装与商店安装共享 artifact 校验和原子替换边界。
 
 ## 验证
 
 ```bash
 (cd sdk/go && go test ./...)
-(cd sdk/vue && pnpm run typecheck && pnpm test && pnpm build)
-(cd ../RayleaBotPlugins/plugin-fortune && go run ./tools/build -target linux-x64 -out dist)
+(cd sdk/vue && pnpm run typecheck && pnpm test && pnpm run build)
+raylea-plugin build-go --plugin <plugin-root> --target linux-x64 --out dist
 ```
 
-主仓库 CI 验证 Go/Vue SDK、示例、安装器和测试 fixture。每个独立插件仓库自行执行 `go test -race ./...`、Vue typecheck/Vitest/build，并为三个正式平台构建和校验 artifact。
-
-## 许可证与发布边界
-
-核心 SDK 和示例使用主仓库 `AGPL-3.0-only` 许可证；独立插件按各自仓库的 `LICENSE` 发布。RayleaBot 应用包不包含业务插件 artifact，也不包含插件 `.go`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时。
+独立插件仓库自行运行后端测试、Vue 检查以及三个正式平台的 artifact 构建与校验。
 
 ## 相关文档
 
-- [Capabilities and Manifest](../capabilities-and-manifest.md)
-- [Protocol](../protocol.md)
+- [Plugin Manifest and Permissions](../permissions-and-manifest.md)
+- [Plugin Protocol](../protocol.md)
 - [Management UI](../management-ui.md)
 - [Plugin Store and Independent Development](../store-and-development.md)

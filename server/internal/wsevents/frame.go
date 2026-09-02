@@ -37,13 +37,20 @@ type PluginStatePayload struct {
 }
 
 type PluginCommandItem struct {
-	Name          string   `json:"name"`
-	Aliases       []string `json:"aliases,omitempty"`
-	Description   string   `json:"description,omitempty"`
-	Usage         string   `json:"usage,omitempty"`
-	Permission    string   `json:"permission,omitempty"`
-	CommandSource string   `json:"command_source"`
-	DeclarationID string   `json:"declaration_id,omitempty"`
+	ID             string               `json:"id"`
+	Name           string               `json:"name"`
+	EffectiveNames []string             `json:"effective_names"`
+	Description    string               `json:"description"`
+	Usage          string               `json:"usage"`
+	Permission     string               `json:"permission"`
+	Trigger        PluginCommandTrigger `json:"trigger"`
+}
+
+type PluginCommandTrigger struct {
+	Type        string   `json:"type"`
+	Names       []string `json:"names,omitempty"`
+	Pattern     string   `json:"pattern,omitempty"`
+	SettingsKey string   `json:"settings_key,omitempty"`
 }
 
 type GenericPayload struct {

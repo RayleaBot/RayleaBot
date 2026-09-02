@@ -2,33 +2,51 @@
   "id": "example-governance-control",
   "name": "Example Governance Control",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/example-governance-control",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Go example plugin demonstrating governance local actions.",
-  "author": "raylea",
-  "capabilities": [
-    "event.subscribe",
-    "message.send",
-    "governance.blacklist.read",
-    "governance.blacklist.write",
-    "governance.whitelist.read",
-    "governance.whitelist.write",
-    "governance.command_policy.read"
-  ],
   "commands": [
     {
+      "id": "governance-demo",
       "name": "governance_demo",
       "description": "Read governance snapshots and command policy.",
-      "usage": "/governance_demo"
+      "usage": "/governance_demo",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "governance_demo"
+        ]
+      }
     },
     {
+      "id": "governance-block",
       "name": "governance_block",
       "description": "Add one user to the blacklist for demonstration.",
-      "usage": "/governance_block <user_id>"
+      "usage": "/governance_block <user_id>",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "governance_block"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go example plugin demonstrating governance local actions.",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private"
+  ],
+  "permissions": {
+    "message.send": true,
+    "governance.blacklist.read": true,
+    "governance.blacklist.write": true,
+    "governance.whitelist.read": true,
+    "governance.whitelist.write": true,
+    "governance.command_policy.read": true
+  }
 }

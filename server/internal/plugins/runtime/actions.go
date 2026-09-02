@@ -36,7 +36,6 @@ type Action struct {
 	LogLevel                     string
 	LogMessage                   string
 	LogFields                    map[string]any
-	ConfigKeys                   []string
 	PluginListVisibility         string
 	SecretKey                    string
 	ThirdPartyAccountPlatform    string
@@ -52,7 +51,6 @@ type Action struct {
 	GovernanceReason             string
 	GovernanceEnabled            *bool
 	StorageOperation             string
-	StorageRoot                  string
 	StoragePath                  string
 	StorageKey                   string
 	StoragePrefix                string
@@ -68,14 +66,6 @@ type Action struct {
 	SchedulerCron                string
 	SchedulerEventType           string
 	SchedulerPayload             map[string]any
-	WebhookRoute                 string
-	WebhookMethods               []string
-	WebhookAuthStrategy          string
-	WebhookHeader                string
-	WebhookSecretRef             string
-	WebhookSignaturePrefix       string
-	WebhookSourceIPs             []string
-	WebhookReplayProtection      *WebhookReplayProtection
 	RenderTemplate               string
 	RenderTheme                  string
 	RenderOutput                 string
@@ -89,19 +79,6 @@ type RenderImageResource struct {
 	URL          string
 	FallbackURLs []string
 	Referer      string
-}
-
-// WebhookReplayProtection mirrors the formal replay_protection contract on
-// event.expose_webhook actions. TimestampHeader and EventIDHeader name the
-// HTTP headers carrying the client-side replay nonce; ToleranceSeconds is
-// the maximum acceptable skew against the server clock. Enforce=false
-// degrades all replay rejections to log-only observation while still
-// counting them in metrics.
-type WebhookReplayProtection struct {
-	TimestampHeader  string
-	EventIDHeader    string
-	ToleranceSeconds int
-	Enforce          bool
 }
 
 func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
@@ -127,34 +104,6 @@ func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
 		LogLevel:   level,
 		LogMessage: message,
 		LogFields:  cloneActionSegmentData(frame.Fields),
-	}, nil
-}
-
-func parseConfigReadAction(raw json.RawMessage) (*Action, error) {
-	var frame ProtocolActionConfigReadFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.read data", err)
-	}
-
-	keys := make([]string, 0, len(frame.Keys))
-	seen := make(map[string]struct{}, len(frame.Keys))
-	for _, key := range frame.Keys {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		keys = append(keys, key)
-	}
-	if len(keys) == 0 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required config.read fields", nil)
-	}
-	return &Action{
-		Kind:       "config.read",
-		ConfigKeys: keys,
 	}, nil
 }
 
@@ -367,16 +316,12 @@ func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.file data", err)
 	}
 
-	if strings.TrimSpace(frame.Root) != "plugin_data" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.file root", nil)
-	}
-
 	switch strings.TrimSpace(frame.Operation) {
 	case "read":
 		if frame.Path == nil || *frame.Path == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
 		}
-		return &Action{Kind: "storage.file", StorageOperation: "read", StorageRoot: "plugin_data", StoragePath: *frame.Path}, nil
+		return &Action{Kind: "storage.file", StorageOperation: "read", StoragePath: *frame.Path}, nil
 	case "write":
 		if frame.Path == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
@@ -388,7 +333,6 @@ func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 		return &Action{
 			Kind:             "storage.file",
 			StorageOperation: "write",
-			StorageRoot:      "plugin_data",
 			StoragePath:      *frame.Path,
 			StorageContent:   content,
 		}, nil
@@ -396,12 +340,12 @@ func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 		if frame.Path == nil || *frame.Path == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
 		}
-		return &Action{Kind: "storage.file", StorageOperation: "delete", StorageRoot: "plugin_data", StoragePath: *frame.Path}, nil
+		return &Action{Kind: "storage.file", StorageOperation: "delete", StoragePath: *frame.Path}, nil
 	case "list":
 		if frame.Prefix == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
 		}
-		return &Action{Kind: "storage.file", StorageOperation: "list", StorageRoot: "plugin_data", StoragePrefix: *frame.Prefix}, nil
+		return &Action{Kind: "storage.file", StorageOperation: "list", StoragePrefix: *frame.Prefix}, nil
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.file operation", nil)
 	}
@@ -448,98 +392,6 @@ func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
 		HTTPHeaders:        cloneHTTPActionHeaders(frame.Headers),
 		HTTPTimeoutSeconds: timeoutSeconds,
 		HTTPBody:           body,
-	}, nil
-}
-
-func parseEventExposeWebhookAction(raw json.RawMessage) (*Action, error) {
-	var frame ProtocolActionEventExposeWebhookFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed event.expose_webhook data", err)
-	}
-
-	route := strings.TrimSpace(frame.Route)
-	authStrategy := strings.TrimSpace(frame.AuthStrategy)
-	header := strings.TrimSpace(frame.Header)
-	secretRef := strings.TrimSpace(frame.SecretRef)
-	if route == "" || authStrategy == "" || header == "" || secretRef == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook fields", nil)
-	}
-	if len(frame.Methods) == 0 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook fields", nil)
-	}
-
-	methods := make([]string, 0, len(frame.Methods))
-	seenMethods := make(map[string]struct{}, len(frame.Methods))
-	for _, method := range frame.Methods {
-		method = strings.ToUpper(strings.TrimSpace(method))
-		if method != "POST" {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported event.expose_webhook method", nil)
-		}
-		if _, ok := seenMethods[method]; ok {
-			continue
-		}
-		seenMethods[method] = struct{}{}
-		methods = append(methods, method)
-	}
-	if len(methods) == 0 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook fields", nil)
-	}
-
-	switch authStrategy {
-	case "fixed_token", "hmac_sha256":
-	default:
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported event.expose_webhook auth_strategy", nil)
-	}
-	signaturePrefix := strings.TrimSpace(frame.SignaturePrefix)
-	if authStrategy == "hmac_sha256" && signaturePrefix == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook signature_prefix", nil)
-	}
-
-	sourceIPs := make([]string, 0, len(frame.SourceIPs))
-	seenSources := make(map[string]struct{}, len(frame.SourceIPs))
-	for _, value := range frame.SourceIPs {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		if _, ok := seenSources[value]; ok {
-			continue
-		}
-		seenSources[value] = struct{}{}
-		sourceIPs = append(sourceIPs, value)
-	}
-
-	if frame.ReplayProtection == nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook replay_protection", nil)
-	}
-	timestampHeader := strings.TrimSpace(frame.ReplayProtection.TimestampHeader)
-	eventIDHeader := strings.TrimSpace(frame.ReplayProtection.EventIDHeader)
-	if timestampHeader == "" || eventIDHeader == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required event.expose_webhook replay_protection headers", nil)
-	}
-	if frame.ReplayProtection.ToleranceSeconds < 1 || frame.ReplayProtection.ToleranceSeconds > 3600 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame replay_protection.tolerance_seconds is out of range", nil)
-	}
-	if frame.ReplayProtection.Enforce == nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame replay_protection.enforce must be a boolean", nil)
-	}
-	replay := &WebhookReplayProtection{
-		TimestampHeader:  timestampHeader,
-		EventIDHeader:    eventIDHeader,
-		ToleranceSeconds: frame.ReplayProtection.ToleranceSeconds,
-		Enforce:          *frame.ReplayProtection.Enforce,
-	}
-
-	return &Action{
-		Kind:                    "event.expose_webhook",
-		WebhookRoute:            route,
-		WebhookMethods:          methods,
-		WebhookAuthStrategy:     authStrategy,
-		WebhookHeader:           header,
-		WebhookSecretRef:        secretRef,
-		WebhookSignaturePrefix:  signaturePrefix,
-		WebhookSourceIPs:        sourceIPs,
-		WebhookReplayProtection: replay,
 	}, nil
 }
 
@@ -681,37 +533,26 @@ func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Action{
-		Kind:            "message.send",
-		TargetType:      targetType,
-		TargetID:        targetID,
-		MessageSegments: segments,
-	}, nil
-}
-
-func parseMessageReplyAction(raw json.RawMessage) (*Action, error) {
-	var frame ProtocolActionMessageReplyFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.reply data", err)
-	}
-
-	if frame.ReplyToEventID == nil || frame.Message == nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
-	}
-	replyToEventID := strings.TrimSpace(*frame.ReplyToEventID)
-	if replyToEventID == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required message.reply fields", nil)
-	}
-	segments, err := parseOutboundActionSegments(frame.Message.Segments)
-	if err != nil {
-		return nil, err
+	replyToEventID := stringValue(frame.ReplyToEventID)
+	kind := "message.send"
+	if replyToEventID != "" {
+		kind = "message.reply"
 	}
 	return &Action{
-		Kind:                    "message.reply",
+		Kind:                    kind,
+		TargetType:              targetType,
+		TargetID:                targetID,
 		ReplyToEventID:          replyToEventID,
 		FallbackToSendIfMissing: frame.FallbackToSendIfMissing,
 		MessageSegments:         segments,
 	}, nil
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }
 
 func parseRenderImageAction(raw json.RawMessage) (*Action, error) {

@@ -1,0 +1,14 @@
+{
+  "contract": "contracts/plugin-management-ui-bridge.schema.json",
+  "case": "invalid",
+  "description": "Bridge v2 messages are rejected after the v3 contract epoch.",
+  "input": {
+    "version": "2",
+    "source": "plugin_management_ui",
+    "type": "page.ready",
+    "nonce": "fixture_nonce_0123456789abcdef0123456789abcdef"
+  },
+  "expect": {
+    "valid": false
+  }
+}

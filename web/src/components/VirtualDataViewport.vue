@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T">
-import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useVirtualizer, type Rect, type VirtualItem, type Virtualizer } from '@tanstack/vue-virtual'
 
 interface Props<TItem> {
@@ -107,14 +107,15 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(computed(() => (
 
 const virtualItems = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
-const visibleRows = computed(() => (
-  virtualItems.value
-    .map((virtualItem) => {
-      const item = props.items[virtualItem.index]
-      return item === undefined ? null : { item, virtualItem }
-    })
-    .filter((row): row is { item: T, virtualItem: VirtualItem } => row !== null)
-))
+const visibleRows = computed<Array<{ item: T; virtualItem: VirtualItem }>>(() => {
+  const rows: Array<{ item: T; virtualItem: VirtualItem }> = []
+  for (const virtualItem of virtualItems.value) {
+    if (virtualItem.index < props.items.length) {
+      rows.push({ item: props.items[virtualItem.index] as T, virtualItem })
+    }
+  }
+  return rows
+})
 
 function normalizeMeasuredItemHeight(nextHeight: number, fallbackHeight: number) {
   if (!Number.isFinite(nextHeight) || nextHeight <= 0) {
@@ -476,7 +477,7 @@ async function syncScrollerLifecycle() {
   syncViewportState(scroller)
 }
 
-function measureRowElement(element: Element | null) {
+function measureRowElement(element: Element | ComponentPublicInstance | null) {
   if (!props.dynamicItemHeight || !(element instanceof HTMLElement)) {
     return
   }
@@ -669,7 +670,7 @@ defineExpose({
       <div class="data-viewport__canvas" :style="{ height: `${totalHeight}px` }">
         <div
           v-for="{ item, virtualItem } in visibleRows"
-          :key="virtualItem.key"
+          :key="String(virtualItem.key)"
           :data-index="virtualItem.index"
           class="data-viewport__row"
           :style="rowStyle(virtualItem)"

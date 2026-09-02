@@ -17,25 +17,20 @@ import (
 	pluginartifact "github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
 
-func TestBootstrapCatalogListsFormerBuiltinsAsUnpublishedOfficialEntries(t *testing.T) {
+func TestBootstrapCatalogIsEmptyAndVerified(t *testing.T) {
 	t.Parallel()
 
-	service, err := New(emptyCatalog{}, nil, Options{})
+	service, err := New(emptyCatalog{}, nil, Options{CoreVersion: "0.4.0"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
 
 	result := service.List(Query{Limit: 100})
-	if result.Total != 4 {
-		t.Fatalf("List().Total = %d, want 4", result.Total)
+	if result.Total != 0 || len(result.Items) != 0 {
+		t.Fatalf("List() = %#v, want empty embedded catalog", result)
 	}
 	if !result.Catalog.Verified || result.Catalog.Source != "embedded" {
 		t.Fatalf("List().Catalog = %#v, want verified embedded catalog", result.Catalog)
-	}
-	for _, item := range result.Items {
-		if !item.Publisher.Verified || !item.Recommended || item.InstallState != "unpublished" {
-			t.Fatalf("catalog item = %#v, want verified recommended unpublished entry", item)
-		}
 	}
 }
 
@@ -47,8 +42,8 @@ func TestRefreshAcceptsOnlyExactCatalogBytesSignedByTrustedKey(t *testing.T) {
 		t.Fatal(err)
 	}
 	catalogBytes := mustCatalogJSON(t, Catalog{
-		CatalogVersion: "1",
-		GeneratedAt:    "2026-08-04T00:00:00Z",
+		CatalogVersion: "2",
+		GeneratedAt:    "2026-09-02T00:00:00Z",
 		Entries:        []Entry{testEntry(t, nil)},
 	})
 	digest := sha256.Sum256(catalogBytes)
@@ -79,6 +74,7 @@ func TestRefreshAcceptsOnlyExactCatalogBytesSignedByTrustedKey(t *testing.T) {
 	defer server.Close()
 
 	service, err := New(emptyCatalog{}, nil, Options{
+		CoreVersion:     "0.4.0",
 		CatalogURL:      server.URL + "/catalog.json",
 		SignatureURL:    server.URL + "/catalog.sig.json",
 		TrustedKeysSpec: "store-test=" + base64.StdEncoding.EncodeToString(publicKey),
@@ -112,7 +108,7 @@ func TestSignatureEnvelopeRequiresUniqueSignaturesAndDeclaredPrimary(t *testing.
 		t.Fatal(err)
 	}
 	catalogBytes := mustCatalogJSON(t, Catalog{
-		CatalogVersion: "1",
+		CatalogVersion: "2",
 		GeneratedAt:    "2026-08-04T00:00:00Z",
 		Entries:        []Entry{testEntry(t, nil)},
 	})
@@ -122,6 +118,7 @@ func TestSignatureEnvelopeRequiresUniqueSignaturesAndDeclaredPrimary(t *testing.
 		Signature: base64.URLEncoding.EncodeToString(ed25519.Sign(privateKey, catalogBytes)),
 	}
 	service, err := New(emptyCatalog{}, nil, Options{
+		CoreVersion:     "0.4.0",
 		TrustedKeysSpec: "store-test=" + base64.StdEncoding.EncodeToString(publicKey),
 	})
 	if err != nil {
@@ -158,7 +155,7 @@ func TestRefreshRejectsOlderCatalogAndKeepsLastVerifiedSnapshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	catalogBytes := mustCatalogJSON(t, Catalog{
-		CatalogVersion: "1",
+		CatalogVersion: "2",
 		GeneratedAt:    "2026-08-03T23:59:59Z",
 		Entries:        []Entry{testEntry(t, nil)},
 	})
@@ -186,6 +183,7 @@ func TestRefreshRejectsOlderCatalogAndKeepsLastVerifiedSnapshot(t *testing.T) {
 	defer server.Close()
 
 	service, err := New(emptyCatalog{}, nil, Options{
+		CoreVersion:     "0.4.0",
 		CatalogURL:      server.URL + "/catalog.json",
 		SignatureURL:    server.URL + "/catalog.sig.json",
 		TrustedKeysSpec: "store-test=" + base64.StdEncoding.EncodeToString(publicKey),
@@ -213,7 +211,7 @@ func TestInstallFreezesCatalogIdentityAndDigestsIntoUnifiedInstallerRequest(t *t
 	manifestHash := strings.Repeat("a", 64)
 	archiveHash := strings.Repeat("b", 64)
 	installer := &recordingInstaller{}
-	service, err := New(emptyCatalog{}, installer, Options{})
+	service, err := New(emptyCatalog{}, installer, Options{CoreVersion: "0.4.0"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -221,13 +219,14 @@ func TestInstallFreezesCatalogIdentityAndDigestsIntoUnifiedInstallerRequest(t *t
 		Version:        "0.2.0",
 		PublishedAt:    "2026-08-04T00:00:00Z",
 		MinCoreVersion: "0.1.0",
+		ManifestSHA256: manifestHash,
 		Assets: []Asset{{
 			Platform: platform, URL: "https://downloads.example/plugin.zip", ArchiveSizeBytes: 32,
-			ArchiveSHA256: archiveHash, ManifestSHA256: manifestHash,
+			ArchiveSHA256: archiveHash,
 		}},
 	}})
 	service.snapshot = newCatalogSnapshot(Catalog{
-		CatalogVersion: "1", GeneratedAt: "2026-08-04T00:00:00Z", Entries: []Entry{entry},
+		CatalogVersion: "2", GeneratedAt: "2026-08-04T00:00:00Z", Entries: []Entry{entry},
 	}, "remote", strings.Repeat("c", 64), []string{"store-test"})
 	installer.inspection = plugins.InstallInspection{
 		InspectionID: "inspection-1", PackageSHA256: strings.Repeat("d", 64),
@@ -263,16 +262,16 @@ func TestListSelectsLatestCompatibleReleaseForCurrentPlatform(t *testing.T) {
 	}
 	entry := testEntry(t, []Release{
 		{
-			Version: "0.3.0", PublishedAt: "2026-08-04T00:00:00Z", MinCoreVersion: "0.3.0",
-			Assets: []Asset{{Platform: platform, URL: "https://downloads.example/compatible.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("a", 64), ManifestSHA256: strings.Repeat("b", 64)}},
+			Version: "0.3.0", PublishedAt: "2026-08-04T00:00:00Z", MinCoreVersion: "0.3.0", ManifestSHA256: strings.Repeat("b", 64),
+			Assets: []Asset{{Platform: platform, URL: "https://downloads.example/compatible.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("a", 64)}},
 		},
 		{
-			Version: "0.4.0", PublishedAt: "2026-08-04T01:00:00Z", MinCoreVersion: "0.4.0",
-			Assets: []Asset{{Platform: platform, URL: "https://downloads.example/future.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("c", 64), ManifestSHA256: strings.Repeat("d", 64)}},
+			Version: "0.4.0", PublishedAt: "2026-08-04T01:00:00Z", MinCoreVersion: "0.4.0", ManifestSHA256: strings.Repeat("d", 64),
+			Assets: []Asset{{Platform: platform, URL: "https://downloads.example/future.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("c", 64)}},
 		},
 	})
 	service.snapshot = newCatalogSnapshot(Catalog{
-		CatalogVersion: "1", GeneratedAt: "2026-08-04T02:00:00Z", Entries: []Entry{entry},
+		CatalogVersion: "2", GeneratedAt: "2026-08-04T02:00:00Z", Entries: []Entry{entry},
 	}, "remote", strings.Repeat("e", 64), []string{"store-test"})
 
 	result := service.List(Query{Limit: 10})
@@ -297,11 +296,11 @@ func TestListDoesNotPresentYankedOnlyEntryAsUnpublished(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := testEntry(t, []Release{{
-		Version: "0.2.0", PublishedAt: "2026-08-04T00:00:00Z", MinCoreVersion: "0.1.0", Yanked: true,
-		Assets: []Asset{{Platform: platform, URL: "https://downloads.example/yanked.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("a", 64), ManifestSHA256: strings.Repeat("b", 64)}},
+		Version: "0.2.0", PublishedAt: "2026-08-04T00:00:00Z", MinCoreVersion: "0.1.0", ManifestSHA256: strings.Repeat("b", 64), Yanked: true,
+		Assets: []Asset{{Platform: platform, URL: "https://downloads.example/yanked.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("a", 64)}},
 	}})
 	service.snapshot = newCatalogSnapshot(Catalog{
-		CatalogVersion: "1", GeneratedAt: "2026-08-04T02:00:00Z", Entries: []Entry{entry},
+		CatalogVersion: "2", GeneratedAt: "2026-08-04T02:00:00Z", Entries: []Entry{entry},
 	}, "remote", strings.Repeat("c", 64), []string{"store-test"})
 
 	result := service.List(Query{Limit: 10})
@@ -310,30 +309,11 @@ func TestListDoesNotPresentYankedOnlyEntryAsUnpublished(t *testing.T) {
 	}
 }
 
-func TestCompareSemverOrdersPrereleasesAndIgnoresBuildMetadata(t *testing.T) {
+func TestNewRequiresCoreVersion(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
-		left  string
-		right string
-		want  int
-	}{
-		{left: "1.0.0-alpha", right: "1.0.0", want: -1},
-		{left: "1.0.0-alpha.1", right: "1.0.0-alpha.beta", want: -1},
-		{left: "1.0.0-beta.11", right: "1.0.0-rc.1", want: -1},
-		{left: "1.0.0+build.2", right: "1.0.0+build.1", want: 0},
-		{left: "2.0.0", right: "1.999.999", want: 1},
-	}
-	for _, testCase := range cases {
-		got := compareSemver(testCase.left, testCase.right)
-		if got < 0 {
-			got = -1
-		} else if got > 0 {
-			got = 1
-		}
-		if got != testCase.want {
-			t.Fatalf("compareSemver(%q, %q) = %d, want %d", testCase.left, testCase.right, got, testCase.want)
-		}
+	if _, err := New(emptyCatalog{}, nil, Options{}); err == nil {
+		t.Fatal("New() accepted an empty core version")
 	}
 }
 

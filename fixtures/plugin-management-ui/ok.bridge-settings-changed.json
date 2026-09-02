@@ -3,7 +3,7 @@
   "case": "ok",
   "description": "The host returns the current non-sensitive plugin configuration.",
   "input": {
-    "version": "2",
+    "version": "3",
     "source": "management_host",
     "type": "settings.changed",
     "request_id": "req_plugin_settings_changed_0001",

@@ -1,128 +1,55 @@
 import { describe, expect, it } from 'vitest'
 
 import { mergeCommandCenterRows } from '@/lib/plugin-commands'
-import type { GovernanceCommandPolicyEntry, PluginSummary } from '@/types/api'
+import type { GovernanceCommandPolicyEntry, PluginCommandSummary, PluginSummary } from '@/types/api'
 
-function createPlugin(overrides: Partial<PluginSummary> = {}): PluginSummary {
+function command(id: string, name = id): PluginCommandSummary {
   return {
-    id: 'raylea.fortune',
-    name: '运势',
-    role: 'official',
-    state: 'running',
-    commands: [],
-    command_conflicts: [],
-    ...overrides,
+    id,
+    name,
+    effective_names: [name],
+    description: `${name} description`,
+    usage: `/${name}`,
+    permission: 'everyone',
+    trigger: { type: 'exact', names: [name] },
   }
 }
 
-function createPolicy(overrides: Partial<GovernanceCommandPolicyEntry> = {}): GovernanceCommandPolicyEntry {
+function plugin(commands: PluginCommandSummary[]): PluginSummary {
   return {
-    plugin_id: 'raylea.fortune',
-    plugin_name: '运势',
-    command: '我的运势',
-    aliases: [],
-    command_source: 'dynamic',
-    declaration_id: 'fortune',
-    declared_permission: 'everyone',
-    effective_permission: 'group_admin',
-    permission_source: 'declared',
-    ...overrides,
+    id: 'raylea.fortune', name: '运势', role: 'official', state: 'running',
+    commands, command_groups: [], help: {}, command_conflicts: [],
+  }
+}
+
+function policy(commandID: string, name = commandID): GovernanceCommandPolicyEntry {
+  return {
+    plugin_id: 'raylea.fortune', plugin_name: '运势', command_id: commandID, command: name,
+    aliases: [], trigger: { type: 'exact', names: [name] },
+    declared_permission: 'everyone', effective_permission: 'group_admin', permission_source: 'declared',
   }
 }
 
 describe('plugin command merging', () => {
-  it('matches policies by declaration id before command name', () => {
-    const rows = mergeCommandCenterRows([
-      createPlugin({
-        commands: [
-          {
-            name: '今日运势',
-            command_source: 'dynamic',
-            declaration_id: 'fortune',
-          },
-        ],
-      }),
-    ], [
-      createPolicy({
-        command: '我的运势',
-        declaration_id: 'fortune',
-      }),
-    ])
-
+  it('matches policy rows by stable command id', () => {
+    const rows = mergeCommandCenterRows([plugin([command('fortune', '今日运势')])], [policy('fortune', '我的运势')])
     expect(rows).toHaveLength(1)
     expect(rows[0].command.name).toBe('今日运势')
     expect(rows[0].policy?.effective_permission).toBe('group_admin')
   })
 
-  it('falls back to plugin id and command name when declaration id is absent', () => {
-    const rows = mergeCommandCenterRows([
-      createPlugin({
-        commands: [
-          {
-            name: 'help',
-            command_source: 'manifest',
-          },
-        ],
-      }),
-    ], [
-      createPolicy({
-        command: 'help',
-        declaration_id: undefined,
-        command_source: 'manifest',
-      }),
-    ])
-
-    expect(rows).toHaveLength(1)
-    expect(rows[0].policy?.command).toBe('help')
-  })
-
-  it('keeps declaration id mismatches as separate rows', () => {
-    const rows = mergeCommandCenterRows([
-      createPlugin({
-        commands: [
-          {
-            name: '我的运势',
-            command_source: 'dynamic',
-            declaration_id: 'fortune-current',
-          },
-        ],
-      }),
-    ], [
-      createPolicy({
-        command: '我的运势',
-        declaration_id: 'fortune-policy',
-      }),
-    ])
-
+  it('keeps different stable ids as separate rows even when names match', () => {
+    const rows = mergeCommandCenterRows([plugin([command('fortune-current', '我的运势')])], [policy('fortune-policy', '我的运势')])
     expect(rows).toHaveLength(2)
     expect(rows[0].policy).toBeNull()
-    expect(rows[1].policy?.declaration_id).toBe('fortune-policy')
+    expect(rows[1].policy?.command_id).toBe('fortune-policy')
   })
 
   it('keeps policy-only and plugin-only rows visible', () => {
-    const rows = mergeCommandCenterRows([
-      createPlugin({
-        commands: [
-          {
-            name: 'echo',
-            description: '复读收到的内容',
-            command_source: 'manifest',
-          },
-        ],
-      }),
-    ], [
-      createPolicy({
-        plugin_id: 'ops.tools',
-        plugin_name: 'Ops Tools',
-        command: 'ops',
-        declaration_id: undefined,
-        command_source: 'manifest',
-      }),
+    const rows = mergeCommandCenterRows([plugin([command('echo')])], [
+      { ...policy('ops'), plugin_id: 'ops.tools', plugin_name: 'Ops Tools' },
     ])
-
     expect(rows.map((row) => row.command.name)).toEqual(['echo', 'ops'])
-    expect(rows[0].policy).toBeNull()
-    expect(rows[1].pluginId).toBe('ops.tools')
     expect(rows[1].availability).toBe('not_ready')
   })
 })

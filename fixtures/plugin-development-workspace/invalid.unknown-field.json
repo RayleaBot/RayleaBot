@@ -1,5 +1,5 @@
 {
-  "workspace_version": "1",
+  "workspace_version": "2",
   "plugins": [],
   "build_command": "arbitrary-command"
 }

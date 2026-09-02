@@ -27,12 +27,14 @@ __pycache__/
 plugins/**/.venv/
 plugins/**/__pycache__/
 examples/plugins/**/__pycache__/
+/examples/plugins/**/*.exe
 
 # Node.js dependency and build artifacts.
 node_modules/
 plugins/**/node_modules/
 /web/node_modules/
 /web/dist/
+/sdk/vue/dist/
 /web/test-results/
 /examples/plugins/**/ui/dist/
 /.playwright-cli/

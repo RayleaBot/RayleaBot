@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	err := rayleabot.Run(context.Background(), rayleabot.Options{PluginID: "hello-go", Subscriptions: []string{"message.group"}}, rayleabot.HandlerFunc(func(_ context.Context, event *rayleabot.EventContext) error {
+	err := rayleabot.Run(context.Background(), rayleabot.Options{}, rayleabot.HandlerFunc(func(_ context.Context, event *rayleabot.EventContext) error {
 		return event.Result(map[string]any{"handled": true, "summary": "hello-go accepted " + event.Event.EventType})
 	}))
 	if err != nil {

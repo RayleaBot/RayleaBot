@@ -12,30 +12,19 @@ response:
       name: Weather
       role: community
       version: 1.4.2
-      runtime: go
-      entry: bin/weather
       description: 提供当前城市天气与未来天气查询。
       author: raylea
       license: MIT
       min_core_version: 0.2.0
-      data_schema_version: weather-v2
       concurrency: 3
-      platforms:
-        - windows-x64
-        - linux-x64
-        - macos-arm64
-      default_config:
-        unit: metric
-        forecast_days: 3
-      declared_capabilities:
-        - http.request
-        - logger.write
-        - render.image
-      capability_parameters:
-        http_hosts:
-          - api.weather.example
-        storage_roots:
-          - plugin_data
+      events:
+        - message.group
+        - message.private
+      permissions:
+        http.request: true
+        render.image: true
+        message.send: true
+      webhooks: []
       icon: assets/weather.svg
       repo: https://github.com/RayleaBot/plugins-weather
       homepage: https://plugins.rayleabot.local/weather
@@ -46,8 +35,6 @@ response:
       screenshots:
         - path: assets/overview.svg
           alt: 天气总览卡片
-      render_templates:
-        - path: templates/card
       state: running
       source:
         root: plugins/installed
@@ -58,25 +45,22 @@ response:
         level: unverified
         label: 未验证来源
       commands:
-        - name: weather
-          aliases:
-            - tq
-            - 天气
+        - id: weather
+          name: 天气查询
+          effective_names: [weather, tq, 天气]
           description: 查询天气
           usage: weather <城市>
-          permission: member
-          command_source: manifest
+          permission: everyone
+          trigger:
+            type: exact
+            names: [weather, tq, 天气]
+      command_groups:
+        - id: query
+          title: 查询
+          commands: [weather]
       help:
         title: Weather
         summary: 天气菜单
-        groups:
-          - title: 查询
-            items:
-              - title: 城市天气
-                description: 查询城市天气
-                usage: weather <城市>
-                command: weather
-                permission: everyone
       command_conflicts:
         - weather
 expect:

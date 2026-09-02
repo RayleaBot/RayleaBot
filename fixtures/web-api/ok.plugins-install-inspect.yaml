@@ -23,7 +23,8 @@ response:
       author: example
       license: MIT
       source_label: example.com
-    capabilities: [event.subscribe, http.request]
+    permissions:
+      http.request: true
     target_platform: windows-x64
     backend:
       entry: bin/example-weather
@@ -36,7 +37,7 @@ response:
       file_count: 4
     artifact:
       valid: true
-      artifact_version: '1'
+      artifact_version: '2'
       manifest_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
       file_count: 8
 expect:

@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	err := rayleabot.Run(context.Background(), rayleabot.Options{PluginID: "example-plugin-list", Subscriptions: []string{"message.group", "message.private"}}, rayleabot.HandlerFunc(handle))
+	err := rayleabot.Run(context.Background(), rayleabot.Options{}, rayleabot.HandlerFunc(handle))
 	if err != nil {
 		_, _ = os.Stderr.WriteString(err.Error() + "\n")
 		os.Exit(1)

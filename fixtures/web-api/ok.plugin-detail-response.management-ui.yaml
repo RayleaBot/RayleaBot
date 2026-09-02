@@ -12,25 +12,18 @@ response:
       name: Example Config Panel
       role: community
       version: 0.2.0
-      runtime: go
-      entry: bin/example-config-panel
-      description: Go example plugin demonstrating config.read and config.write.
+      description: Native example plugin demonstrating config snapshots and writes.
       author: raylea
       license: MIT
-      default_config:
-        default_city: 北京
-        unit: celsius
-      declared_capabilities:
-        - config.read
-        - config.write
+      permissions: {}
+      webhooks: []
       management_ui:
+        entry: ui/index.html
         pages:
           - id: config
             label: 配置页面
-            entry: ui/index.html
           - id: secrets
             label: 密钥设置
-            entry: ui/index.html
       state: disabled
       source:
         root: examples/plugins
@@ -41,12 +34,20 @@ response:
         level: third_party
         label: 示例
       commands:
-        - name: config_panel
+        - id: config-panel
+          name: 配置面板
+          effective_names: [config_panel]
           description: Read and update plugin-local config values.
           usage: /config_panel [city]
-          command_source: manifest
-      help:
-        groups: []
+          permission: everyone
+          trigger:
+            type: exact
+            names: [config_panel]
+      command_groups:
+        - id: settings
+          title: 设置
+          commands: [config-panel]
+      help: {}
       command_conflicts: []
 expect:
   valid: true

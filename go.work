@@ -4,7 +4,7 @@ use (
 	./server
 	./sdk/go
 	./examples/plugins/echo-go
-	./examples/plugins/example-capability-parameters
+	./examples/plugins/example-http-storage
 	./examples/plugins/example-config-panel
 	./examples/plugins/example-governance-control
 	./examples/plugins/example-plugin-list

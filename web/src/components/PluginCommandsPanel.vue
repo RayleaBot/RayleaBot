@@ -20,15 +20,20 @@ function getText(value?: string) {
 }
 
 function getAliasesText(command: PluginCommandSummary) {
-  return command.aliases?.length ? command.aliases.join(', ') : t('display.empty')
+  const aliases = getVisibleCommandAliases(command)
+  return aliases.length ? aliases.join(', ') : t('display.empty')
 }
 
 function getVisibleAliases(command: PluginCommandSummary) {
-  return (command.aliases ?? []).slice(0, MAX_VISIBLE_ALIASES)
+  return getVisibleCommandAliases(command).slice(0, MAX_VISIBLE_ALIASES)
 }
 
 function getHiddenAliasCount(command: PluginCommandSummary) {
-  return Math.max(0, (command.aliases?.length ?? 0) - MAX_VISIBLE_ALIASES)
+  return Math.max(0, getVisibleCommandAliases(command).length - MAX_VISIBLE_ALIASES)
+}
+
+function getVisibleCommandAliases(command: PluginCommandSummary) {
+  return command.effective_names.slice(1)
 }
 
 function getPermissionText(command: PluginCommandSummary) {
@@ -52,15 +57,15 @@ function getUsageText(command: PluginCommandSummary) {
   return formatCommandUsage(command, props.commandPrefix) || t('display.empty')
 }
 
-function getCommandSourceText(command: PluginCommandSummary) {
-  return t(`plugins.commandSourceLabel.${command.command_source}`)
+function getTriggerText(command: PluginCommandSummary) {
+  return t(`plugins.commandTriggerLabel.${command.trigger.type}`)
 }
 
-function getCommandSourceColor(command: PluginCommandSummary) {
-  if (command.command_source === 'pattern') {
+function getTriggerColor(command: PluginCommandSummary) {
+  if (command.trigger.type === 'pattern') {
     return 'blue'
   }
-  return command.command_source === 'dynamic' ? 'purple' : 'default'
+  return command.trigger.type === 'setting' ? 'purple' : 'default'
 }
 
 function isConflicted(command: PluginCommandSummary) {
@@ -74,7 +79,7 @@ function isConflicted(command: PluginCommandSummary) {
   <div v-else class="plugin-command-grid" role="list">
     <article
       v-for="command in commands"
-      :key="command.name"
+    :key="command.id"
       class="plugin-command-card"
       :class="{ 'is-conflicted': isConflicted(command) }"
       role="listitem"
@@ -87,8 +92,8 @@ function isConflicted(command: PluginCommandSummary) {
           <a-tag v-if="isConflicted(command)" color="warning">
             {{ t('plugins.commandConflictBadge') }}
           </a-tag>
-          <a-tag :color="getCommandSourceColor(command)">
-            {{ getCommandSourceText(command) }}
+      <a-tag :color="getTriggerColor(command)">
+      {{ getTriggerText(command) }}
           </a-tag>
         </div>
       </header>
@@ -100,7 +105,7 @@ function isConflicted(command: PluginCommandSummary) {
 
         <div class="plugin-command-card__section">
           <span class="section-label">{{ t('plugins.commandAliases') }}</span>
-          <div class="alias-tags" v-if="command.aliases?.length">
+      <div class="alias-tags" v-if="getVisibleCommandAliases(command).length">
             <a-tag v-for="alias in getVisibleAliases(command)" :key="alias" size="small" class="alias-tag">
               {{ alias }}
             </a-tag>

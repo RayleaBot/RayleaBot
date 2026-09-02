@@ -32,12 +32,12 @@ type pluginRuntimeDeps struct {
 type pluginRuntime struct {
 	LocalActions   *localaction.Service
 	Runtimes       *pluginruntime.Registry
-	CapabilityView *plugins.CapabilityView
+	PermissionView *plugins.PermissionView
 }
 
 func buildPluginRuntime(deps pluginRuntimeDeps) pluginRuntime {
-	capabilityView := buildPluginCapabilityView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, capabilityView, deps.Governance, deps.ThirdParty, deps.AccountValidation, deps.ThirdPartyResolve)
+	permissionView := buildPluginPermissionView(deps.Plugins, deps.Events)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.ThirdParty, deps.AccountValidation, deps.ThirdPartyResolve)
 	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
@@ -48,18 +48,18 @@ func buildPluginRuntime(deps pluginRuntimeDeps) pluginRuntime {
 	return pluginRuntime{
 		LocalActions:   localActions,
 		Runtimes:       runtimeRegistry,
-		CapabilityView: capabilityView,
+		PermissionView: permissionView,
 	}
 }
 
-func buildPluginCapabilityView(pluginStack PluginStackState, eventStack EventState) *plugins.CapabilityView {
-	capabilityView := plugins.NewCapabilityView(plugins.CapabilityViewDeps{
+func buildPluginPermissionView(pluginStack PluginStackState, eventStack EventState) *plugins.PermissionView {
+	permissionView := plugins.NewPermissionView(plugins.PermissionViewDeps{
 		Plugins: pluginStack.Plugins,
 	})
 	if eventStack.Dispatcher != nil {
-		eventStack.Dispatcher.SetCapabilityChecker(capabilityView.CapabilityDeclared)
+		eventStack.Dispatcher.SetPermissionChecker(permissionView.PermissionDeclared)
 	}
-	return capabilityView
+	return permissionView
 }
 
 func buildLocalActionService(
@@ -68,7 +68,7 @@ func buildLocalActionService(
 	pluginStack PluginStackState,
 	eventStack EventState,
 	renderer *renderservice.Service,
-	capabilityView *plugins.CapabilityView,
+	permissionView *plugins.PermissionView,
 	governanceService *governance.Service,
 	thirdParty localaction.ThirdPartyAccountReader,
 	accountValidation localaction.ThirdPartyAccountValidationRequester,
@@ -78,7 +78,8 @@ func buildLocalActionService(
 		CurrentConfig:     runtimeState.CurrentConfig,
 		Logger:            runtimeState.RuntimeLogger(),
 		RedactText:        runtimeState.RedactString,
-		Capabilities:      capabilityView,
+		Permissions:       permissionView,
+		Plugins:           pluginStack.Plugins,
 		PluginConfig:      pluginStack.PluginConfig,
 		PluginFiles:       pluginStack.PluginFiles,
 		PluginKV:          pluginStack.PluginKV,
@@ -120,9 +121,12 @@ func buildPluginServices(deps pluginServiceDeps) (pluginServices, error) {
 	if err != nil {
 		return pluginServices{}, err
 	}
-	pluginWebhooks := buildPluginWebhookGateway(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, lifecycle, deps.PluginRuntime.CapabilityView)
+	pluginWebhooks, err := buildPluginWebhookGateway(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, lifecycle)
+	if err != nil {
+		return pluginServices{}, err
+	}
 	pluginWebhooks.SetReplayMetrics(NewWebhookReplayObserver(deps.Metrics))
-	deps.PluginRuntime.LocalActions.SetWebhookGateway(pluginWebhooks)
+	pluginWebhooks.SyncManifestRegistrations()
 	return pluginServices{
 		PluginLifecycle: lifecycle,
 		PluginWebhooks:  pluginWebhooks,
@@ -175,17 +179,14 @@ func buildPluginWebhookGateway(
 	pluginStack PluginStackState,
 	eventStack EventState,
 	lifecycle *pluginservice.Controller,
-	capabilityView pluginwebhook.CapabilityView,
-) *pluginwebhook.Service {
+) (*pluginwebhook.Service, error) {
 	return pluginwebhook.New(pluginwebhook.Deps{
-		CurrentConfig: runtimeState.CurrentConfig,
-		Logger:        runtimeState.RuntimeLogger(),
-		Registry:      pluginStack.Webhooks,
-		Secrets:       platform.Secrets,
-		Plugins:       pluginStack.Plugins,
-		Dispatcher:    eventStack.Dispatcher,
-		Runtime:       lifecycle,
-		Capabilities:  capabilityView,
+		Logger:     runtimeState.RuntimeLogger(),
+		Registry:   pluginStack.Webhooks,
+		Secrets:    platform.Secrets,
+		Plugins:    pluginStack.Plugins,
+		Dispatcher: eventStack.Dispatcher,
+		Runtime:    lifecycle,
 	})
 }
 

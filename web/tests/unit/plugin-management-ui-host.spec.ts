@@ -48,7 +48,7 @@ class FakeMessageChannel {
 }
 
 function buildManagementPage() {
-  return { id: 'config', label: '配置页面', entry: 'ui/index.html' }
+  return { id: 'config', label: '配置页面' }
 }
 
 function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
@@ -66,11 +66,13 @@ function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
       verified: true,
     },
     trust: { level: 'third_party', label: '示例' },
-    default_config: { default_city: '北京', unit: 'celsius' },
-    management_ui: { pages: [buildManagementPage()] },
+    management_ui: { entry: 'ui/index.html', pages: [buildManagementPage()] },
     commands: [],
+    command_groups: [],
+    help: {},
     command_conflicts: [],
-    declared_capabilities: ['config.read', 'config.write'],
+    permissions: {},
+    webhooks: [],
     ...overrides,
   } as unknown as PluginDetail
 }
@@ -155,7 +157,7 @@ async function connectBridge(wrapper: ReturnType<typeof mountHost>) {
   expect(nonce).toMatch(/^nonce-[a-f0-9]{48}$/)
 
   dispatchWindowMessage(frameWindow, origin, {
-    version: '2',
+    version: '3',
     source: 'plugin_management_ui',
     type: 'page.ready',
     nonce,
@@ -165,7 +167,7 @@ async function connectBridge(wrapper: ReturnType<typeof mountHost>) {
   const channel = FakeMessageChannel.latest
   expect(channel).not.toBeNull()
   expect(frameWindow.postMessage).toHaveBeenCalledWith({
-    version: '2',
+    version: '3',
     source: 'management_host',
     type: 'host.connect',
     nonce,
@@ -173,7 +175,7 @@ async function connectBridge(wrapper: ReturnType<typeof mountHost>) {
   return { iframe, frameWindow, origin, channel: channel! }
 }
 
-describe('PluginManagementUIHost bridge v2', () => {
+describe('PluginManagementUIHost bridge v3', () => {
   beforeEach(() => {
     window.localStorage.clear()
     setActivePinia(createPinia())
@@ -249,7 +251,7 @@ describe('PluginManagementUIHost bridge v2', () => {
 
     const init = channel.port1.sent.at(-1) as Record<string, unknown>
     expect(init).toMatchObject({
-      version: '2',
+      version: '3',
       source: 'management_host',
       type: 'host.init',
       payload: {
@@ -257,14 +259,14 @@ describe('PluginManagementUIHost bridge v2', () => {
         page: { id: 'config', label: '配置页面' },
         config: { default_city: '上海', unit: 'fahrenheit' },
         secrets_configured: { api_token: true, optional_token: false },
-        allowed_capabilities: ['config.read', 'config.write'],
+        allowed_permissions: [],
       },
     })
     expect(JSON.stringify(init)).not.toContain('secret-value')
     expect((init.payload as Record<string, unknown>)).not.toHaveProperty('secrets')
 
     channel.port1.emit({
-      version: '2', source: 'plugin_management_ui', type: 'secrets.set', request_id: 'set-1',
+      version: '3', source: 'plugin_management_ui', type: 'secrets.set', request_id: 'set-1',
       payload: { values: { optional_token: 'secret-value' } },
     })
     await flushPromises()
@@ -280,7 +282,7 @@ describe('PluginManagementUIHost bridge v2', () => {
     expect(JSON.stringify(channel.port1.sent.at(-1))).not.toContain('secret-value')
 
     channel.port1.emit({
-      version: '2', source: 'plugin_management_ui', type: 'secrets.delete', request_id: 'delete-1',
+      version: '3', source: 'plugin_management_ui', type: 'secrets.delete', request_id: 'delete-1',
       payload: { keys: ['api_token'] },
     })
     await flushPromises()
@@ -310,12 +312,12 @@ describe('PluginManagementUIHost bridge v2', () => {
     vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(900)
     vi.spyOn(iframe, 'getBoundingClientRect').mockReturnValue({ top: 180 } as DOMRect)
     channel.port1.emit({
-      version: '2', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 5000 },
+      version: '3', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 5000 },
     })
     await flushPromises()
     expect(iframe.style.height).toBe('696px')
     channel.port1.emit({
-      version: '2', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 100 },
+      version: '3', source: 'plugin_management_ui', type: 'ui.resize', payload: { height: 100 },
     })
     await flushPromises()
     expect(iframe.style.height).toBe('320px')

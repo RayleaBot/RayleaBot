@@ -8,6 +8,7 @@ import {
   collectWorkspaceSDKVersions,
   createDevelopmentReloadQueue,
   currentPluginPlatform,
+  loadPluginWorkspace,
   PLUGIN_DEV_OFF,
   PLUGIN_DEV_SYNC,
   PLUGIN_DEV_WATCH,
@@ -30,6 +31,25 @@ test('plugin platform projection uses artifact contract names', () => {
   assert.equal(currentPluginPlatform('linux', 'x64'), 'linux-x64')
   assert.equal(currentPluginPlatform('darwin', 'arm64'), 'macos-arm64')
   assert.throws(() => currentPluginPlatform('darwin', 'x64'))
+})
+
+test('workspace v2 derives plugin ids from manifests and accepts non-Go projects', async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'rayleabot-plugin-workspace-v2-'))
+  t.after(() => fs.rm(root, { recursive: true, force: true }))
+  const nativePlugin = path.join(root, 'native-plugin')
+  await fs.mkdir(nativePlugin, { recursive: true })
+  await fs.writeFile(path.join(nativePlugin, 'info.json'), JSON.stringify({ id: 'raylea.native' }))
+  const workspacePath = path.join(root, 'workspace.json')
+  await fs.writeFile(workspacePath, JSON.stringify({
+    workspace_version: '2',
+    plugins: [{ path: './native-plugin' }],
+  }))
+
+  const workspace = await loadPluginWorkspace(workspacePath)
+  assert.equal(workspace.workspaceVersion, '2')
+  assert.deepEqual(workspace.plugins.map(({ id, hasGoModule }) => ({ id, hasGoModule })), [
+    { id: 'raylea.native', hasGoModule: false },
+  ])
 })
 
 test('development go.work includes the SDK, plugin modules and SDK replacement once', () => {
@@ -174,4 +194,37 @@ test('plugin watcher ignores generated trees and existing directory metadata eve
     await new Promise((resolve) => setTimeout(resolve, 20))
   }
   assert.ok(changes.includes(path.join('ui', 'src', 'App.vue')))
+})
+
+test('non-Go plugin watcher tracks only the conventional native binary below dist', { timeout: 5_000 }, async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-plugin-native-watch-'))
+  const pluginPath = path.join(root, 'plugin')
+  const nativeDir = path.join(pluginPath, 'dist', 'native', 'windows-x64')
+  const generatedDir = path.join(pluginPath, 'dist', 'artifacts')
+  await fs.mkdir(nativeDir, { recursive: true })
+  await fs.mkdir(generatedDir, { recursive: true })
+  const binaryPath = path.join(nativeDir, 'raylea.native.exe')
+  await fs.writeFile(binaryPath, 'version-one', 'utf8')
+  const changes = []
+  const plugin = { id: 'raylea.native', path: pluginPath, hasGoModule: false }
+  const stopWatching = await watchPluginWorkspace(
+    [plugin],
+    (_plugin, sourcePath) => changes.push(path.relative(pluginPath, sourcePath)),
+  )
+  t.after(async () => {
+    await stopWatching()
+    await fs.rm(root, { recursive: true, force: true })
+  })
+
+  await fs.writeFile(path.join(generatedDir, 'artifact.json'), '{}\n', 'utf8')
+  await new Promise((resolve) => setTimeout(resolve, 150))
+  assert.deepEqual(changes, [])
+
+  await fs.writeFile(binaryPath, 'version-two', 'utf8')
+  const expected = path.join('dist', 'native', 'windows-x64', 'raylea.native.exe')
+  const deadline = Date.now() + 2_000
+  while (!changes.includes(expected) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20))
+  }
+  assert.deepEqual(changes, [expected])
 })

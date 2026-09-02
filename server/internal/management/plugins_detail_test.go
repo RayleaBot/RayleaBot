@@ -10,177 +10,82 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func TestDetailHandler_ReturnsDeclaredCapabilitiesAndParameters(t *testing.T) {
+func TestDetailHandlerReturnsPermissions(t *testing.T) {
 	t.Parallel()
-
 	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:             "weather",
-		Name:                 "Weather",
-		Valid:                true,
-		RegistrationState:    "installed",
-		DesiredState:         "enabled",
-		RuntimeState:         "running",
-		DeclaredCapabilities: []string{"http.request", "logger.write", "storage.file"},
-		ScopeHTTPHosts:       []string{"api.weather.example"},
-		ScopeStorageRoots:    []string{"plugin_data"},
-	}})
-	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
-	}
-
-	var resp DetailResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if len(resp.Plugin.DeclaredCapabilities) != 3 {
-		t.Fatalf("declared_capabilities = %#v, want 3 items", resp.Plugin.DeclaredCapabilities)
-	}
-	if resp.Plugin.CapabilityParameters == nil {
-		t.Fatal("capability_parameters is nil")
-	}
-	if len(resp.Plugin.CapabilityParameters.HTTPHosts) != 1 || resp.Plugin.CapabilityParameters.HTTPHosts[0] != "api.weather.example" {
-		t.Fatalf("http_hosts = %#v", resp.Plugin.CapabilityParameters.HTTPHosts)
-	}
-	if len(resp.Plugin.CapabilityParameters.StorageRoots) != 1 || resp.Plugin.CapabilityParameters.StorageRoots[0] != "plugin_data" {
-		t.Fatalf("storage_roots = %#v", resp.Plugin.CapabilityParameters.StorageRoots)
-	}
-}
-
-func TestDetailHandlerReturnsHelpProjection(t *testing.T) {
-	t.Parallel()
-
-	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:          "weather",
-		Name:              "Weather",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "enabled",
-		RuntimeState:      "running",
-		Help: &plugins.Help{
-			Title:   "Weather",
-			Summary: "天气菜单",
-			Groups: []plugins.HelpGroup{{
-				Title: "查询",
-				Items: []plugins.HelpItem{{
-					Title:       "城市天气",
-					Description: "查询城市天气",
-					Usage:       "/weather 上海",
-					Command:     "weather",
-					Permission:  "everyone",
-				}},
-			}},
+		PluginID: "weather", Name: "Weather", Valid: true,
+		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
+		Permissions: map[string]plugins.PermissionGrant{
+			"http.request":            {},
+			"thirdparty.account.read": {Platforms: []string{"bilibili", "weibo"}},
 		},
 	}})
-	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	response := requestPluginDetail(t, catalog, "weather")
+	if response.Plugin.Permissions["http.request"] != true {
+		t.Fatalf("http.request permission = %#v", response.Plugin.Permissions["http.request"])
 	}
-
-	var resp DetailResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
+	grant, ok := response.Plugin.Permissions["thirdparty.account.read"].(map[string]any)
+	if !ok {
+		t.Fatalf("thirdparty permission = %#v", response.Plugin.Permissions["thirdparty.account.read"])
 	}
-	if resp.Plugin.Help.Title != "Weather" {
-		t.Fatalf("unexpected help projection: %#v", resp.Plugin.Help)
-	}
-	if len(resp.Plugin.Help.Groups) != 1 || resp.Plugin.Help.Groups[0].Title != "查询" {
-		t.Fatalf("unexpected help groups: %#v", resp.Plugin.Help.Groups)
-	}
-	if got := resp.Plugin.Help.Groups[0].Items[0]; got.Command != "weather" || got.Title != "城市天气" {
-		t.Fatalf("unexpected help item: %#v", got)
+	platforms, _ := grant["platforms"].([]any)
+	if len(platforms) != 2 || platforms[0] != "bilibili" || platforms[1] != "weibo" {
+		t.Fatalf("permission platforms = %#v", platforms)
 	}
 }
 
-func TestDetailHandler_ReturnsManagementUI(t *testing.T) {
+func TestDetailHandlerReturnsGeneratedHelpMetadata(t *testing.T) {
 	t.Parallel()
-
 	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:          "example-config-panel",
-		Name:              "Example Config Panel",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "disabled",
-		RuntimeState:      "stopped",
-		DisplayState:      "disabled",
+		PluginID: "weather", Name: "Weather", Valid: true,
+		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
+		Help: &plugins.Help{Title: "Weather", Summary: "天气命令"},
+		Commands: []plugins.Command{{
+			ID: "weather", Name: "weather", DisplayName: "天气", TriggerType: "exact", TriggerNames: []string{"weather"},
+			Description: "查询天气", Usage: "/weather 上海", Permission: "everyone",
+		}},
+		CommandGroups: []plugins.CommandGroup{{ID: "query", Title: "查询", Commands: []string{"weather"}}},
+	}})
+	response := requestPluginDetail(t, catalog, "weather")
+	if response.Plugin.Help.Title != "Weather" || response.Plugin.Help.Summary != "天气命令" {
+		t.Fatalf("help = %#v", response.Plugin.Help)
+	}
+	if len(response.Plugin.CommandGroups) != 1 || response.Plugin.CommandGroups[0].Commands[0] != "weather" {
+		t.Fatalf("command_groups = %#v", response.Plugin.CommandGroups)
+	}
+}
+
+func TestDetailHandlerReturnsSingleManagementUIEntry(t *testing.T) {
+	t.Parallel()
+	catalog := newTestCatalog([]plugins.Snapshot{{
+		PluginID: "example-config-panel", Name: "Example Config Panel", Valid: true,
+		RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped",
 		ManagementUI: &plugins.ManagementUI{
-			Pages: []plugins.ManagementUIPage{
-				{ID: "config", Label: "配置页面", Entry: "web/index.html"},
-				{ID: "secrets", Label: "密钥设置", Entry: "web/secrets.html"},
-			},
+			Entry: "ui/index.html",
+			Pages: []plugins.ManagementUIPage{{ID: "config", Label: "配置"}, {ID: "secrets", Label: "密钥"}},
 		},
 	}})
-	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	response := requestPluginDetail(t, catalog, "example-config-panel")
+	if response.Plugin.ManagementUI == nil || response.Plugin.ManagementUI.Entry != "ui/index.html" {
+		t.Fatalf("management_ui = %#v", response.Plugin.ManagementUI)
 	}
-
-	var resp DetailResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("decode: %v", err)
-	}
-	if resp.Plugin.ManagementUI == nil {
-		t.Fatal("expected management_ui in detail response")
-	}
-	if len(resp.Plugin.ManagementUI.Pages) != 2 {
-		t.Fatalf("management_ui.pages length = %d, want 2", len(resp.Plugin.ManagementUI.Pages))
-	}
-	if got := resp.Plugin.ManagementUI.Pages[1]; got.ID != "secrets" || got.Label != "密钥设置" || got.Entry != "web/secrets.html" {
-		t.Fatalf("unexpected management_ui page: %#v", got)
+	if len(response.Plugin.ManagementUI.Pages) != 2 || response.Plugin.ManagementUI.Pages[1].ID != "secrets" {
+		t.Fatalf("management_ui.pages = %#v", response.Plugin.ManagementUI.Pages)
 	}
 }
 
-func TestDetailHandler_ReturnsRenderTemplates(t *testing.T) {
-	t.Parallel()
-
-	catalog := newTestCatalog([]plugins.Snapshot{{
-		PluginID:          "weather-card",
-		Name:              "Weather Card",
-		Valid:             true,
-		RegistrationState: "installed",
-		DesiredState:      "disabled",
-		RuntimeState:      "stopped",
-		DisplayState:      "disabled",
-		RenderTemplates:   []plugins.RenderTemplate{{Path: "templates/card"}},
-	}})
+func requestPluginDetail(t *testing.T, catalog plugins.CatalogView, pluginID string) DetailResponse {
+	t.Helper()
 	router := chi.NewRouter()
 	router.Get("/api/plugins/{plugin_id}", newDetailHandler(catalog))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/plugins/weather-card", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/plugins/"+pluginID, nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
-
-	var resp DetailResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+	var response DetailResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Plugin.RenderTemplates) != 1 || resp.Plugin.RenderTemplates[0].Path != "templates/card" {
-		t.Fatalf("render_templates = %#v, want templates/card", resp.Plugin.RenderTemplates)
-	}
+	return response
 }

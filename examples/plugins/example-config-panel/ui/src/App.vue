@@ -50,7 +50,7 @@ async function deleteSecret() {
   <main>
     <p class="eyebrow">GO + VUE PLUGIN EXAMPLE</p>
     <h1>配置面板示例</h1>
-    <p class="intro">页面运行于插件独立域，只能通过 MessageChannel bridge v2 读写自身配置。</p>
+    <p class="intro">页面运行于插件独立域，只能通过 MessageChannel bridge v3 读写自身配置。</p>
     <section>
       <label><span>默认城市</span><AInput v-model:value="draft.default_city" data-testid="default-city-input" /></label>
       <label><span>温度单位</span><ASelect v-model:value="draft.unit" data-testid="unit-select"><ASelectOption value="celsius">摄氏度</ASelectOption><ASelectOption value="fahrenheit">华氏度</ASelectOption></ASelect></label>

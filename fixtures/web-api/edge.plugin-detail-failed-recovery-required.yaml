@@ -28,17 +28,24 @@ response:
       trust:
         level: unverified
         label: 未验证来源
+      permissions:
+        message.send: true
+      webhooks: []
       commands:
-        - name: weather
-          aliases:
-            - tq
-            - 天气
+        - id: weather
+          name: 天气查询
+          effective_names: [weather, tq, 天气]
           description: 查询天气
           usage: weather <城市>
-          permission: member
-          command_source: manifest
-      help:
-        groups: []
+          permission: everyone
+          trigger:
+            type: exact
+            names: [weather, tq, 天气]
+      command_groups:
+        - id: query
+          title: 查询
+          commands: [weather]
+      help: {}
       command_conflicts: []
 expect:
   valid: true

@@ -169,26 +169,20 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parent
 
 func (m *Manager) writeLocalResult(handle *Handle, parentRequestID string, requestID string, data map[string]any) *Error {
 	frame := map[string]any{
-		"protocol_version": "1",
-		"type":             "result",
-		"timestamp":        m.deps.now().Unix(),
-		"plugin_id":        handle.Spec.PluginID,
-		"request_id":       requestID,
-		"status":           "success",
-		"data":             data,
+		"type":       "result",
+		"request_id": requestID,
+		"status":     "success",
+		"data":       data,
 	}
 	return m.writeLocalResponse(handle, parentRequestID, frame)
 }
 
 func (m *Manager) writeLocalError(handle *Handle, parentRequestID string, requestID string, code string, message string, details map[string]any) *Error {
 	frame := map[string]any{
-		"protocol_version": "1",
-		"type":             "error",
-		"timestamp":        m.deps.now().Unix(),
-		"plugin_id":        handle.Spec.PluginID,
-		"request_id":       requestID,
-		"code":             code,
-		"message":          message,
+		"type":       "error",
+		"request_id": requestID,
+		"code":       code,
+		"message":    message,
 	}
 	if len(details) > 0 {
 		frame["details"] = cloneDetails(details)
@@ -239,13 +233,10 @@ func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActio
 		return nil
 	}
 	frame := map[string]any{
-		"protocol_version": "1",
-		"type":             "error",
-		"timestamp":        m.deps.now().Unix(),
-		"plugin_id":        handle.Spec.PluginID,
-		"request_id":       rejection.requestID,
-		"code":             rejection.code,
-		"message":          rejection.message,
+		"type":       "error",
+		"request_id": rejection.requestID,
+		"code":       rejection.code,
+		"message":    rejection.message,
 	}
 	if len(rejection.details) > 0 {
 		frame["details"] = cloneDetails(rejection.details)

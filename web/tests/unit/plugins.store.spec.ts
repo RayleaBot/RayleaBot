@@ -11,6 +11,11 @@ function jsonResponse(body: unknown, status = 200) {
   })
 }
 
+const weatherCommand = {
+  id: 'weather', name: 'weather', effective_names: ['weather'], description: '查询天气', usage: '/weather',
+  permission: 'everyone' as const, trigger: { type: 'exact' as const, names: ['weather'] },
+}
+
 describe('plugins store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -113,9 +118,9 @@ describe('plugins store', () => {
         name: 'weather',
         role: 'community',
         state: 'running',
-        commands: [
-          { name: 'weather', command_source: 'manifest' },
-        ],
+        commands: [weatherCommand],
+        command_groups: [],
+        help: {},
       },
     })))
 
@@ -128,7 +133,7 @@ describe('plugins store', () => {
 
     expect(store.actionPending.weather).toBeNull()
     expect(store.items[0].state).toBe('running')
-    expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
+    expect(store.items[0].commands).toEqual([weatherCommand])
   })
 
   it('refreshes transient lifecycle state after an accepted action', async () => {
@@ -177,7 +182,9 @@ describe('plugins store', () => {
       name: 'Weather',
       role: 'community',
       state: 'running',
-      commands: [{ name: 'weather', command_source: 'manifest' }],
+      commands: [weatherCommand],
+      command_groups: [],
+      help: {},
       command_conflicts: [],
     })
 
@@ -186,7 +193,7 @@ describe('plugins store', () => {
       state: 'starting',
     })
 
-    expect(store.items[0].commands).toEqual([{ name: 'weather', command_source: 'manifest' }])
+    expect(store.items[0].commands).toEqual([weatherCommand])
   })
 
   it('ignores stale plugin detail responses when a newer request is already in flight', async () => {

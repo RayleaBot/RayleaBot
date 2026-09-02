@@ -1,0 +1,12 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: storage-root-1
+    action: storage.file
+    data:
+      operation: read
+      root: plugin_data
+      path: cache/state.json
+expect:
+  valid: false

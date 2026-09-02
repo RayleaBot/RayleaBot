@@ -2,7 +2,7 @@
   "inputs": {
     "geometry": {
       "path": "design/mark.json",
-      "sha256": "ff35ea0fd0c3502d5b4f20f1cbf6aba4dd9eefcea987a89e5c0847fe7be6646d"
+      "sha256": "d5aa879d85ac6e4aadd048b5c90a4b2bb3a1e9a33a4ac1f98f2cec142cee4315"
     },
     "palette": {
       "path": "design/tokens.json",
@@ -55,8 +55,8 @@
     }
   },
   "sha256": {
-    "appicon.png": "063ce04d3083c7762fcc07f9191be40ff22f2a3fa4191abf6d03da2891b15c11",
-    "tray.png": "ee063ffefe0c4720c24733e4ac9f4d15cd60fdc2ce24e14dcbe10c5d4115977f",
+    "appicon.png": "781a20dfad486f6831b9812908e01fb09dc9dca175416505536e37f5dd94e57d",
+    "tray.png": "e3266265911f366fc4450d6ce7c6fe6498c7975971c121d8f7d9198cd108f204",
     "icon.ico": "d55ffff8852550b1bd1e83e71829e608882d6d2317f3e0583a2afcdb02b1d45a",
     "sources/appicon.svg": "844bae3fbeac2c6dede02e0a02c173c183211cf64a65c42b5840a0eb3b1f7d51",
     "sources/tray.svg": "64f70396dfcb25095e067643cd803ee98382d528b149819042b455f5dce6e4ea"

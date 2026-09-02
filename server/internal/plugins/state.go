@@ -40,10 +40,6 @@ const (
 	DisplayStateDiscovered      = "discovered"
 	DisplayStateInvalidManifest = "invalid_manifest"
 	DisplayStateConflict        = "conflict"
-
-	CommandSourceManifest = "manifest"
-	CommandSourceDynamic  = "dynamic"
-	CommandSourcePattern  = "pattern"
 )
 
 const (

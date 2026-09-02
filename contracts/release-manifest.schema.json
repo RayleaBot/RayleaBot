@@ -129,9 +129,9 @@
         "update_protocol_version": { "type": "integer", "minimum": 2 },
         "config_schema_version": { "type": "string", "minLength": 1 },
         "db_schema_version": { "type": "string", "minLength": 1 },
-        "plugin_protocol_version": { "type": "string", "minLength": 1 },
-        "plugin_manifest_version": { "const": "2" },
-        "plugin_ui_bridge_version": { "const": "2" },
+          "plugin_protocol_version": { "const": "2" },
+          "plugin_manifest_version": { "const": "3" },
+          "plugin_ui_bridge_version": { "const": "3" },
         "onebot_matrix": {
           "type": "object",
           "additionalProperties": false,
@@ -198,8 +198,8 @@
         "artifact_id": { "$ref": "#/$defs/artifactId" },
         "built_at": { "type": "string", "format": "date-time" },
         "update_protocol_version": { "type": "integer", "minimum": 2 },
-        "plugin_manifest_version": { "const": "2" },
-        "plugin_ui_bridge_version": { "const": "2" },
+          "plugin_manifest_version": { "const": "3" },
+          "plugin_ui_bridge_version": { "const": "3" },
         "release_notes_ref": { "type": "string", "format": "uri", "pattern": "^https://" },
         "release_manifest_sha256": { "$ref": "#/$defs/sha256" },
         "onebot_matrix": {

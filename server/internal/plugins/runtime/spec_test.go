@@ -28,7 +28,7 @@ func TestBuildSpecUsesVerifiedGoExecutableDirectly(t *testing.T) {
 	if len(spec.Args) != 0 || len(spec.Env) != 0 {
 		t.Fatalf("prebuilt Go plugins must start without interpreter args/env: args=%#v env=%#v", spec.Args, spec.Env)
 	}
-	if spec.WorkDir != root || spec.EntryPath != spec.Command || spec.Runtime != "go" {
+	if spec.WorkDir != root || spec.EntryPath != spec.Command || spec.Runtime != "native" {
 		t.Fatalf("unexpected runtime spec: %#v", spec)
 	}
 	if spec.InitTimeout != 2*time.Second || spec.EventTimeout != 3*time.Second || spec.ShutdownGrace != 4*time.Second || spec.EffectiveConcurrency != 2 {
@@ -104,15 +104,10 @@ func TestBuildSpecRejectsTamperedArtifact(t *testing.T) {
 	assertBuildSpecErrorCode(t, err, codePluginArtifactInvalid)
 }
 
-func TestBuildSpecRejectsLegacyRuntimeAndInvalidCatalogEntry(t *testing.T) {
+func TestBuildSpecRejectsInvalidCatalogEntry(t *testing.T) {
 	_, snapshot := runtimeTestArtifact(t)
-	snapshot.Runtime = "python"
-	_, err := BuildSpec(snapshot, "", minimalRuntimeConfig())
-	assertBuildSpecErrorCode(t, err, codePlatformInvalidRequest)
-
-	_, snapshot = runtimeTestArtifact(t)
 	snapshot.Valid = false
-	_, err = BuildSpec(snapshot, "", minimalRuntimeConfig())
+	_, err := BuildSpec(snapshot, "", minimalRuntimeConfig())
 	assertBuildSpecErrorCode(t, err, codePlatformInvalidRequest)
 }
 
@@ -138,21 +133,19 @@ func runtimeTestArtifact(t *testing.T) (string, plugins.Snapshot) {
 	}
 	copyRuntimeTestFile(t, executable, backend)
 	manifest := map[string]any{
-		"id": "runtime-test", "name": "Runtime test", "version": "0.2.0", "manifest_version": "2",
-		"plugin_protocol_version": "1", "runtime": "go", "entry": logicalEntry, "platforms": []string{platform}, "license": "MIT",
+		"id": "runtime-test", "name": "Runtime test", "version": "0.4.0", "manifest_version": "3",
+		"license": "MIT", "min_core_version": "0.4.0",
 	}
 	manifestBytes, _ := json.MarshalIndent(manifest, "", "  ")
 	manifestBytes = append(manifestBytes, '\n')
 	if err := os.WriteFile(filepath.Join(root, "info.json"), manifestBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	manifestHash := sha256.Sum256(manifestBytes)
 	document := map[string]any{
-		"artifact_version": "1", "plugin_id": "runtime-test", "plugin_version": "0.2.0", "target_platform": platform,
-		"manifest_sha256": hex.EncodeToString(manifestHash[:]),
+		"artifact_version": "2", "target_platform": platform, "entry": backendRelative,
 		"files": []any{
-			runtimeArtifactFile(t, root, "info.json", "manifest"),
-			runtimeArtifactFile(t, root, backendRelative, "backend"),
+			runtimeArtifactFile(t, root, "info.json"),
+			runtimeArtifactFile(t, root, backendRelative),
 		},
 	}
 	artifactBytes, _ := json.MarshalIndent(document, "", "  ")
@@ -160,12 +153,12 @@ func runtimeTestArtifact(t *testing.T) (string, plugins.Snapshot) {
 		t.Fatal(err)
 	}
 	return root, plugins.Snapshot{
-		PluginID: "runtime-test", Name: "Runtime test", Valid: true, Runtime: "go", Entry: logicalEntry,
+		PluginID: "runtime-test", Name: "Runtime test", Valid: true,
 		ManifestPath: filepath.Join(root, "info.json"), PackageRootPath: root, Concurrency: 4,
 	}
 }
 
-func runtimeArtifactFile(t *testing.T, root, relative, role string) map[string]any {
+func runtimeArtifactFile(t *testing.T, root, relative string) map[string]any {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(relative))
 	content, err := os.ReadFile(path)
@@ -177,7 +170,7 @@ func runtimeArtifactFile(t *testing.T, root, relative, role string) map[string]a
 		t.Fatal(err)
 	}
 	digest := sha256.Sum256(content)
-	return map[string]any{"path": filepath.ToSlash(relative), "role": role, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])}
+	return map[string]any{"path": filepath.ToSlash(relative), "size": info.Size(), "sha256": hex.EncodeToString(digest[:])}
 }
 
 func runtimeBackendRelative(t *testing.T) string {

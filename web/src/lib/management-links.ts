@@ -2,6 +2,7 @@ import type {
   LocationQuery,
   LocationQueryRaw,
   LocationQueryValue,
+  LocationQueryValueRaw,
   RouteLocationRaw,
 } from 'vue-router'
 
@@ -36,14 +37,14 @@ interface ParsedLogWorkspaceState {
   endAt: string
 }
 
-function normalizeQueryValue(value: LocationQueryValue | LocationQueryValue[] | undefined) {
+function normalizeQueryValue(value: LocationQueryValue | LocationQueryValueRaw | Array<LocationQueryValue | LocationQueryValueRaw> | undefined) {
   if (Array.isArray(value)) {
     return value
-      .map((item) => item?.trim() ?? '')
+      .map((item) => String(item ?? '').trim())
       .filter((item) => item.length > 0)
   }
 
-  const nextValue = value?.trim() ?? ''
+  const nextValue = String(value ?? '').trim()
   return nextValue ? [nextValue] : []
 }
 

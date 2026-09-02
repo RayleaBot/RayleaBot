@@ -46,10 +46,10 @@ sequenceDiagram
 | transport 与协议帧 | Adapter | connection snapshot、echo waiters、dedupe state |
 | 命令与聊天治理 | `eventpipeline/chatpolicy` | 配置与治理服务 |
 | 统一事件校验 | Bridge | formal event contract |
-| 目标与队列 | Dispatcher | manifest subscriptions、command declarations、per-plugin lanes |
+| 目标与队列 | Dispatcher | manifest events、command declarations、per-plugin lanes |
 | 插件进程协议 | Runtime Manager | runtime snapshot 与 event session |
 | 插件自有工作 | Plugin | 进程内状态、进程创建的临时目录与辅助程序 |
-| 平台 action | Local Action Service | capability declarations 与领域服务 |
+| 平台 action | Local Action Service | permissions 与领域服务 |
 | 出站限流与发送 | Outbound / Adapter | rate limit、reply target、transport snapshot |
 
 同一 `event.target` lane 保持 FIFO；不同目标可在插件并发度内并行。队列满时 Dispatcher 返回内部 `OutcomeDropped`，以 `queue_full` 原因计入观测摘要并丢弃该次投递；不会向原始入站调用方返回插件拒绝结果，也不会产生无 owner 的 pending 状态。
@@ -67,17 +67,17 @@ Dispatcher 只向可投递的 runtime 发送事件。命令声明优先选择目
 插件通过 Runtime Manager 发起 local action。每个 action 必须：
 
 - 使用独立 `request_id`，并通过 `parent_request_id` 关联当前事件；
-- 在 manifest 中声明对应 capability；
-- 满足 capability 参数和资源上限；
+- 在 manifest 中声明对应权限；插件私有日志、配置、KV 和文件动作除外；
+- 满足权限范围和资源上限；
 - 返回正式 result 或 error envelope。
 
 Runtime Manager 不直接访问宿主管理存储、配置、secret、渲染、调度、治理或 OneBot provider；插件需要这些 RayleaBot 能力时，由 Local Action Service 执行。
 
-Go 插件是管理员确认后运行的完全可信本地代码。插件可自行访问外部服务、创建临时文件并启动随 artifact 发布的辅助程序；这些操作不进入 Runtime Manager 或 Local Action Service，也不受 `http.request` 的 `http_hosts`、`storage.file` 配额或 local action 审计约束。插件负责对应操作的超时、资源上限、并发和清理。插件不能用直接 I/O 读取或修改 RayleaBot 的配置、secret、状态库、安装目录等宿主状态，也不能绕过 Dispatcher 与 Outbound 发送聊天平台消息。
+插件是管理员确认后运行的完全可信本地原生代码。插件可自行访问外部服务、创建临时文件并启动随 artifact 发布的辅助程序；这些操作不进入 Runtime Manager 或 Local Action Service，也不受宿主 `http.request`、`storage.file` 配额或 local action 审计约束。插件负责对应操作的超时、资源上限、并发和清理。插件不能用直接 I/O 读取或修改 RayleaBot 的配置、secret、状态库、安装目录等宿主状态，也不能绕过 Dispatcher 与 Outbound 发送聊天平台消息。
 
 ## 出站语义
 
-插件返回 `message.send` 或 `message.reply` 后，Dispatcher 是唯一执行出口。Outbound 按插件和目标执行 admission、限流、熔断与冷却，并为每个获准动作发起一次发送。Adapter Send 把消息段投影为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
+插件返回 `message.send` 后，Dispatcher 是唯一执行出口；回复通过同一动作的回复字段表达。Outbound 按插件和目标执行 admission、限流、熔断与冷却，并为每个获准动作发起一次发送。Adapter Send 把消息段投影为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
 
 冷却提示、内置菜单和调度消息共享同一条 Outbound 与 Adapter Send 链路。
 

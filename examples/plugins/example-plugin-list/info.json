@@ -2,24 +2,34 @@
   "id": "example-plugin-list",
   "name": "Example Plugin List",
   "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/example-plugin-list",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Go example plugin demonstrating plugin.list.",
-  "author": "raylea",
-  "capabilities": [
-    "event.subscribe",
-    "plugin.list",
-    "message.send"
-  ],
   "commands": [
     {
+      "id": "plugins-demo",
       "name": "plugins_demo",
       "description": "List loaded plugin names through plugin.list.",
-      "usage": "/plugins_demo"
+      "usage": "/plugins_demo",
+      "permission": "everyone",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "plugins_demo"
+        ]
+      }
     }
-  ]
+  ],
+  "min_core_version": "0.4.0",
+  "metadata": {
+    "description": "Go example plugin demonstrating plugin.list.",
+    "author": "raylea"
+  },
+  "events": [
+    "message.group",
+    "message.private"
+  ],
+  "permissions": {
+    "plugin.list": true,
+    "message.send": true
+  }
 }

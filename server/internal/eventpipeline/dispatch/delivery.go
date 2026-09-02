@@ -159,9 +159,9 @@ func slotIsDeliverable(slot *pluginSlot) bool {
 	return slot.runtime.Snapshot().State == pluginruntime.StateRunning
 }
 func slotAcceptsEvent(slot *pluginSlot, eventType string) bool {
-	// No subscriptions means accept all events.
+	// An empty manifest subscription list receives no ordinary fan-out.
 	if len(slot.subscriptions) == 0 {
-		return true
+		return false
 	}
 	for _, sub := range slot.subscriptions {
 		if sub == eventType || sub == "*" {

@@ -323,24 +323,46 @@ def require_fixture_outcome(path: Path, expected: bool, errors: list[str]) -> No
 
 def plugin_info_package_errors(document: dict[str, Any], manifest: Any) -> list[str]:
     package_files = document.get("package_files")
-    if package_files is None:
-        return []
-    if not isinstance(package_files, dict):
-        return ["package_files must be an object"]
     if not isinstance(manifest, dict):
         return []
 
     errors: list[str] = []
-    for template in manifest.get("render_templates", []):
-        if not isinstance(template, dict) or not isinstance(template.get("path"), str):
+    command_ids = [
+        command.get("id")
+        for command in manifest.get("commands", [])
+        if isinstance(command, dict) and isinstance(command.get("id"), str)
+    ]
+    if len(command_ids) != len(set(command_ids)):
+        errors.append("commands: command ids must be unique")
+    declared_commands = set(command_ids)
+    group_ids: list[str] = []
+    for index, group in enumerate(manifest.get("command_groups", [])):
+        if not isinstance(group, dict):
             continue
-        manifest_path = template["path"].rstrip("/") + "/template.json"
-        if manifest_path not in package_files:
-            errors.append(f"missing package file: {manifest_path}")
+        group_id = group.get("id")
+        if isinstance(group_id, str):
+            group_ids.append(group_id)
+        for command_id in group.get("commands", []):
+            if isinstance(command_id, str) and command_id not in declared_commands:
+                errors.append(f"command_groups/{index}: unknown command id: {command_id}")
+    if len(group_ids) != len(set(group_ids)):
+        errors.append("command_groups: group ids must be unique")
+
+    if package_files is None:
+        return errors
+    if not isinstance(package_files, dict):
+        return [*errors, "package_files must be an object"]
+
+    management_ui = manifest.get("management_ui")
+    if isinstance(management_ui, dict):
+        entry = management_ui.get("entry")
+        if isinstance(entry, str) and entry not in package_files:
+            errors.append(f"missing package file: {entry}")
+    for path, content in package_files.items():
+        if not isinstance(path, str) or not re.fullmatch(r"templates/[^/]+/template\.json", path):
             continue
-        content = package_files[manifest_path]
         if not isinstance(content, dict):
-            errors.append(f"invalid template manifest: {manifest_path}")
+            errors.append(f"invalid template manifest: {path}")
     return errors
 
 

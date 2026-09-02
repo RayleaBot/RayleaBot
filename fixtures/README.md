@@ -19,7 +19,7 @@
 - `plugin-info/`
   - 对应 `contracts/plugin-info.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务 schema validation、安装前静态检查、能力参数边界判断和迁移边界判断
+  - 主要服务 schema validation、安装前静态检查、permissions 与静态声明边界，以及合同版本拒绝判断
 - `plugin-protocol/`
   - 对应 `contracts/plugin-protocol.schema.json`
   - 统一采用 `frames + expect` 结构
@@ -47,7 +47,7 @@
 - `plugin-management-ui/`
   - 对应 `contracts/plugin-management-ui.yaml` 与 `contracts/plugin-management-ui-bridge.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务管理页静态来源边界与 bridge v2 消息类型、窗口和 resize 边界校验
+  - 主要服务管理页静态来源边界与 bridge v3 消息类型、窗口和 resize 边界校验
 - `plugin-store-catalog/`
   - 对应 `contracts/plugin-store-catalog.schema.json`
   - 直接存放 catalog 文档样例

@@ -66,7 +66,7 @@ node scripts/start-dev.mjs
 
 主仓库没有内置插件。需要联调独立插件时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json`。本地启动参数可复制 `.env.example` 为 `.env`；其中同时设置 `RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch` 即可持续联调。存在插件工作区但未显式设置模式时，启动脚本默认在 Server 启动前构建并同步所有启用插件。
 
-`watch` 首次启动执行一次全量同步，之后按插件 ID 合并变更并只重新构建本批发生变化的插件；构建期间到达的后续变更保留到下一批。每个插件仍由自己的 `tools/build` 生成 Go + Vue 完整 artifact，再通过离线 `plugin dev-sync` 和正式安装事务进入 `plugins/installed/`。本地联调不请求 GitHub；插件仓库的 GitHub Actions 只负责 `v*` tag 的三平台正式 Release。完整流程见[插件商店与独立开发](./docs/plugin/store-and-development.md#本地同步开发)。
+`watch` 首次启动执行一次全量同步，之后按插件 ID 合并变更并只重新构建本批发生变化的插件；构建期间到达的后续变更保留到下一批。主仓库通过统一 `raylea-plugin` 工具构建或打包完整 artifact，再通过离线 `plugin dev-sync` 和正式安装事务进入 `plugins/installed/`。本地联调不请求 GitHub；插件仓库的 GitHub Actions 只负责 `v*` tag 的三平台正式 Release。完整流程见[插件商店与独立开发](./docs/plugin/store-and-development.md#本地同步开发)。
 
 ## 使用简介
 
@@ -91,7 +91,7 @@ node scripts/start-dev.mjs
 
 ## 贡献与开发
 
-独立 Go 插件统一使用 `cmd/<plugin>` 进程入口、`internal/` 实现与嵌入资源、可选 `ui/`/`templates/` 资源以及 `tools/build` 构建入口；完整目录约定见[插件 SDK](./docs/plugin/sdk/README.md#artifact-构建器)。
+独立 Go 插件统一使用 `cmd/<plugin>` 进程入口、`internal/` 实现与嵌入资源以及可选 `ui/`/`templates/` 资源，并使用 `raylea-plugin build-go`；其他语言先生成原生入口，再使用 `raylea-plugin pack`。完整目录约定见[插件 SDK](./docs/plugin/sdk/README.md#raylea-plugin)。
 
 ```bash
 # Server
@@ -109,8 +109,8 @@ cd sdk/go && go test ./...
 # Vue 插件 UI SDK
 cd sdk/vue && pnpm install --frozen-lockfile && pnpm run typecheck && pnpm test
 
-# 在相邻的独立插件仓库构建当前平台 artifact
-cd ../RayleaBotPlugins/plugin-fortune && go run ./tools/build -target windows-x64 -out dist
+# 在主仓库调用统一工具构建相邻 Go 插件的当前平台 artifact
+go run ./sdk/go/cmd/raylea-plugin build-go --plugin ../RayleaBotPlugins/plugin-fortune --target windows-x64 --out ../RayleaBotPlugins/plugin-fortune/dist
 ```
 
 项目采用契约优先（contract-first）模式。修改任何对外接口前，请先更新 `contracts/` 中的对应契约文件，再同步实现与测试。

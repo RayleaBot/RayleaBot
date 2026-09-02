@@ -12,7 +12,7 @@ CLI 是本地离线恢复与运维入口，不是第二套常规在线管理面�
 | `raylea config init` | 创建默认配置模板并写出规范化用户配置 |
 | `raylea config normalize` | 按当前 schema 整理默认模板和用户配置 |
 | `raylea config validate` | 校验配置文件，不修改文件内容 |
-| `raylea plugin dev-sync --artifact <path> --source <path> --plugin-id <id>` | 把已构建的开发插件 artifact 同步进本地插件安装目录 |
+| `raylea plugin dev-sync --artifact <path> --source <path>` | 把已构建的开发插件 artifact 同步进本地插件安装目录；插件 ID 来自 artifact 根目录的 `info.json` |
 | `raylea version --json` | 输出当前构建版本与更新协议版本 |
 | `raylea update check --json` | 获取并验证签名发布清单，不下载或安装更新 |
 | `raylea update verify --manifest <path> --signature <path> --artifact <path>` | 离线验证发布清单、签名 envelope 与 artifact |
@@ -37,7 +37,7 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 | `config init` | 否 | 是 | 写入配置目录；服务生命周期锁被占用时拒绝执行 |
 | `config normalize` | 否 | 是 | 写入配置目录；服务生命周期锁被占用时拒绝执行 |
 | `config validate` | 是 | 是 | 只读取并校验配置文件 |
-| `plugin dev-sync --artifact <path> --source <path> --plugin-id <id>` | 否 | 是 | 三个参数均必填；需要数据库锁，在启动前或协调的重启窗口执行 |
+| `plugin dev-sync --artifact <path> --source <path>` | 否 | 是 | 两个参数均必填；需要数据库锁，在启动前或协调的重启窗口执行 |
 | `version --json` | 是 | 是 | 输出构建版本信息 |
 | `update check --json` | 是 | 否 | 需要网络访问受信发布来源 |
 | `update verify --manifest <path> --signature <path> --artifact <path>` | 是 | 是 | 三个参数均必填；离线校验更新包三件套 |

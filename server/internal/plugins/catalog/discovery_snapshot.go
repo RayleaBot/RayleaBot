@@ -3,7 +3,6 @@ package catalog
 import (
 	"fmt"
 	"log/slog"
-	"path/filepath"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -18,139 +17,81 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 		if logger != nil {
 			logger.Warn(
 				fmt.Sprintf("插件清单 JSON 解析失败，已跳过：%s（来源：%s）；该插件本次不会加载，请修正清单后重新扫描。原因：%s", logpath.Display(repoRoot, infoPath), sourceRoot, err.Error()),
-				"component", "plugins",
-				"manifest_path", logpath.Display(repoRoot, infoPath),
-				"source_root", sourceRoot,
-				"err", err.Error(),
+				"component", "plugins", "manifest_path", logpath.Display(repoRoot, infoPath), "source_root", sourceRoot, "err", err.Error(),
 			)
 		}
 		return plugins.Snapshot{}, false, nil
 	}
-
-	manifest, ok := document.(map[string]any)
+	raw, ok := document.(map[string]any)
 	if !ok {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件清单顶层结构不是对象，已跳过：%s（来源：%s）；该插件本次不会加载，请将清单顶层改为 JSON 对象后重新扫描。", logpath.Display(repoRoot, infoPath), sourceRoot),
-				"component", "plugins",
-				"manifest_path", logpath.Display(repoRoot, infoPath),
-				"source_root", sourceRoot,
+				fmt.Sprintf("插件清单顶层结构不是对象，已跳过：%s（来源：%s）；该插件本次不会加载。", logpath.Display(repoRoot, infoPath), sourceRoot),
+				"component", "plugins", "manifest_path", logpath.Display(repoRoot, infoPath), "source_root", sourceRoot,
 			)
 		}
 		return plugins.Snapshot{}, false, nil
 	}
-
-	pluginID, ok := extractStringField(manifest, "id")
-	if !ok {
+	pluginID, pluginName := manifestIdentity(raw)
+	if pluginID == "" {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件清单缺少有效 ID，已跳过：%s（来源：%s）；该插件本次不会加载，请补充有效 ID 后重新扫描。", logpath.Display(repoRoot, infoPath), sourceRoot),
-				"component", "plugins",
-				"manifest_path", logpath.Display(repoRoot, infoPath),
-				"source_root", sourceRoot,
+				fmt.Sprintf("插件清单缺少有效 ID，已跳过：%s（来源：%s）；该插件本次不会加载。", logpath.Display(repoRoot, infoPath), sourceRoot),
+				"component", "plugins", "manifest_path", logpath.Display(repoRoot, infoPath), "source_root", sourceRoot,
 			)
 		}
 		return plugins.Snapshot{}, false, nil
 	}
-
-	defaultConfig, defaultConfigErr := manifestDefaultConfig(manifest, filepath.Dir(infoPath))
-
-	snapshot := plugins.Snapshot{
-		PluginID:              pluginID,
-		Name:                  stringField(manifest, "name"),
-		Version:               stringField(manifest, "version"),
-		Author:                stringField(manifest, "author"),
-		License:               stringField(manifest, "license"),
-		ManifestVersion:       stringField(manifest, "manifest_version"),
-		PluginProtocolVersion: stringField(manifest, "plugin_protocol_version"),
-		MinCoreVersion:        stringField(manifest, "min_core_version"),
-		DataSchemaVersion:     stringField(manifest, "data_schema_version"),
-		Concurrency:           manifestConcurrency(manifest),
-		Platforms:             stringListField(manifest, "platforms"),
-		Runtime:               stringField(manifest, "runtime"),
-		Entry:                 stringField(manifest, "entry"),
-		Description:           stringField(manifest, "description"),
-		Icon:                  stringField(manifest, "icon"),
-		Repo:                  stringField(manifest, "repo"),
-		Homepage:              stringField(manifest, "homepage"),
-		Keywords:              stringListField(manifest, "keywords"),
-		Screenshots:           manifestScreenshots(manifest),
-		ManagementUI:          manifestManagementUI(manifest),
-		RenderTemplates:       manifestRenderTemplates(manifest),
-		Help:                  manifestHelp(manifest),
-		DefaultConfig:         defaultConfig,
-		ManifestPath:          logpath.Display(repoRoot, infoPath),
-		PackageRootPath:       filepath.Dir(infoPath),
-		SourceRoot:            sourceRoot,
-		SourceRoots:           []string{sourceRoot},
-		RegistrationState:     plugins.RegistrationStateInstalled,
-		DesiredState:          defaultDesiredStateForSourceRoot(sourceRoot),
-		RuntimeState:          plugins.RuntimeStateStopped,
+	invalidSnapshot := plugins.Snapshot{
+		PluginID: pluginID, Name: pluginName, ManifestPath: logpath.Display(repoRoot, infoPath),
+		SourceRoot: sourceRoot, SourceRoots: []string{sourceRoot},
+		RegistrationState: plugins.RegistrationStateInstalled,
+		DesiredState:      plugins.DesiredStateDisabled, RuntimeState: plugins.RuntimeStateStopped,
+		DisplayState: plugins.DisplayStateInvalidManifest,
 	}
-	snapshot.DeclaredCapabilities = stringListField(manifest, "capabilities")
-	snapshot.ScopeHTTPHosts = manifestCapabilityParameterList(manifest, "http_hosts")
-	snapshot.ScopeStorageRoots = manifestCapabilityParameterList(manifest, "storage_roots")
-	snapshot.ScopeThirdPartyAccounts = manifestCapabilityParameterList(manifest, "third_party_account_platforms")
-	snapshot.ScopeWebhooks = manifestWebhookParameters(manifest)
-	snapshot.ManifestCommands = manifestCommands(manifest)
-	snapshot.CommandPatterns = manifestCommandPatterns(manifest)
-	snapshot.DynamicCommands = manifestDynamicCommands(manifest)
-	snapshot.Commands = ProjectCommands(snapshot, snapshot.DefaultConfig)
-
-	if defaultConfigErr != nil {
-		snapshot.Valid = false
-		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
-		snapshot.ValidationSummary = trimSummary(defaultConfigErr.Error(), maxSummaryChars)
-		return snapshot, true, nil
-	}
-
 	if err := validator.Validate(document); err != nil {
-		snapshot.Valid = false
-		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
-		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
-		return snapshot, true, nil
+		invalidSnapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return invalidSnapshot, true, nil
 	}
-
-	if err := validateCommandPatterns(snapshot.CommandPatterns); err != nil {
-		snapshot.Valid = false
-		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
-		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
-		return snapshot, true, nil
+	manifest, err := decodeManifest(document)
+	if err != nil {
+		invalidSnapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return invalidSnapshot, true, nil
 	}
-
-	if err := validateManagementUIPages(snapshot.ManagementUI); err != nil {
-		snapshot.Valid = false
-		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
-		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
-		return snapshot, true, nil
+	if err := validateManifestSemantics(manifest); err != nil {
+		invalidSnapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return invalidSnapshot, true, nil
 	}
+	snapshot, err := projectManifest(manifest, infoPath, sourceRoot, repoRoot)
+	if err != nil {
+		invalidSnapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
+		return invalidSnapshot, true, nil
+	}
+	snapshot.ManifestPath = logpath.Display(repoRoot, infoPath)
 
 	targetPlatform, err := artifact.CurrentPlatform()
 	if err != nil {
-		snapshot.Valid = false
 		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
 		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
 		return snapshot, true, nil
 	}
 	verifiedArtifact, err := artifact.Verify(snapshot.PackageRootPath, artifact.Options{ExpectedPlatform: targetPlatform})
 	if err != nil {
-		snapshot.Valid = false
 		snapshot.DisplayState = plugins.DisplayStateInvalidManifest
 		snapshot.ValidationSummary = trimSummary(err.Error(), maxSummaryChars)
 		return snapshot, true, nil
 	}
 	snapshot.ArtifactVersion = verifiedArtifact.Document.ArtifactVersion
 	snapshot.ArtifactTargetPlatform = verifiedArtifact.Document.TargetPlatform
-	snapshot.ArtifactManifestSHA256 = verifiedArtifact.Document.ManifestSHA256
+	snapshot.ArtifactManifestSHA256 = verifiedArtifact.ManifestSHA256
 	snapshot.ArtifactFileCount = len(verifiedArtifact.Document.Files)
 	snapshot.ArtifactUIAvailable = verifiedArtifact.UIAvailable
 	for _, file := range verifiedArtifact.Document.Files {
-		if file.Role == "backend" {
+		if file.Path == verifiedArtifact.Document.Entry {
 			snapshot.ArtifactBackendSHA256 = file.SHA256
 			break
 		}
 	}
-
 	snapshot.Valid = true
 	snapshot.DisplayState = plugins.DisplayStateDiscovered
 	return snapshot, true, nil
@@ -161,6 +102,5 @@ func trimSummary(summary string, maxLen int) string {
 	if len(singleLine) <= maxLen {
 		return singleLine
 	}
-
 	return singleLine[:maxLen-3] + "..."
 }

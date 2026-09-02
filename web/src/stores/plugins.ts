@@ -196,7 +196,8 @@ export const usePluginsStore = defineStore('plugins', () => {
       source: plugin.source ?? previous?.source,
       trust: plugin.trust ?? previous?.trust,
       commands: plugin.commands ?? previous?.commands ?? [],
-      help: plugin.help ?? previous?.help ?? { groups: [] },
+    command_groups: plugin.command_groups ?? previous?.command_groups ?? [],
+    help: plugin.help ?? previous?.help ?? {},
       command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts ?? [],
     }
 

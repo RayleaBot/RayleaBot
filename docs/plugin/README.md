@@ -10,9 +10,9 @@
 | --- | --- |
 | [store-and-development.md](./store-and-development.md) | 插件商店、独立仓库发布与本地同步开发 |
 | [lifecycle.md](./lifecycle.md) | 插件来源、运行时支持、安装、重载和卸载边界 |
-| [capabilities-and-manifest.md](./capabilities-and-manifest.md) | manifest 结构、能力声明和能力参数 |
+| [permissions-and-manifest.md](./permissions-and-manifest.md) | manifest v3、事件、权限、命令与静态资源声明 |
 | [protocol.md](./protocol.md) | JSONL 协议、消息语义和 local action RPC |
-| [management-ui.md](./management-ui.md) | Vue 管理页、独立插件域与 bridge v2 |
+| [management-ui.md](./management-ui.md) | Vue 管理页、独立插件域与 bridge v3 |
 | [sdk/README.md](./sdk/README.md) | Go 插件 SDK、artifact 构建器与 Vue UI SDK |
 
 ## 当前边界

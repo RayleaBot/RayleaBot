@@ -9,10 +9,7 @@ import (
 )
 
 func main() {
-	err := rayleabot.Run(context.Background(), rayleabot.Options{
-		PluginID:      "raylea.echo",
-		Subscriptions: []string{"message.group", "message.private"},
-	}, rayleabot.HandlerFunc(func(_ context.Context, event *rayleabot.EventContext) error {
+	err := rayleabot.Run(context.Background(), rayleabot.Options{}, rayleabot.HandlerFunc(func(_ context.Context, event *rayleabot.EventContext) error {
 		if event.Event.Command() != "echo" {
 			return event.Result(map[string]any{"handled": false})
 		}

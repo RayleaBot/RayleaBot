@@ -99,7 +99,7 @@
             </div>
             <p class="description">{{ .description }}</p>
             {{ $commandName := .name }}
-            {{ if and .command_source (eq .command_source "pattern") .usage .command_prefixes }}
+            {{ if and .trigger_type (eq .trigger_type "pattern") .usage .command_prefixes }}
             <div class="command-usage" aria-label="指令示意">
               <code><span class="command-prefix-cue" aria-label="需添加上方任一前缀">前缀</span>{{- if .usage_parts -}}
                 {{- template "usage-parts" .usage_parts -}}

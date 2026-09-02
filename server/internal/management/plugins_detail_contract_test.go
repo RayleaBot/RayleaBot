@@ -1,321 +1,108 @@
 package management
 
 import (
-	"encoding/json"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
-func TestGetPluginReturnsValidSnapshot(t *testing.T) {
+func TestGetPluginReturnsV3CommandProjection(t *testing.T) {
 	t.Parallel()
-
-	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
-		{
-			PluginID:          "hello-go",
-			Name:              "Hello Go",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			DisplayState:      "discovered",
-			SourceRoot:        "plugins/installed",
-			PackageSourceType: "development",
-			PackageSourceRef:  "C:/workspace/hello-go",
-			Commands: []plugins.Command{
-				{
-					Name:        "hello",
-					Aliases:     []string{"hi"},
-					Description: "Say hello",
-					Usage:       "hello",
-					Permission:  "member",
-				},
-			},
-		},
-	}))
-
-	request := httptest.NewRequest("GET", "/api/plugins/hello-go", nil)
+	snapshot := plugins.Snapshot{
+		PluginID: "hello-go", Name: "Hello Go", Valid: true,
+		RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped",
+		SourceRoot: "plugins/installed", PackageSourceType: "development", PackageSourceRef: "C:/workspace/hello-go",
+		Commands: []plugins.Command{{
+			ID: "hello", Name: "hello", DisplayName: "Hello", Aliases: []string{"hi"},
+			TriggerType: "exact", TriggerNames: []string{"hello", "hi"},
+			Description: "Say hello", Usage: "/hello", Permission: "everyone",
+		}},
+	}
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/plugins/hello-go", nil))
 	if recorder.Code != 200 {
-		t.Fatalf("unexpected status: got %d want 200", recorder.Code)
+		t.Fatalf("status = %d", recorder.Code)
 	}
-
-	var body map[string]any
-	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
-		t.Fatalf("unmarshal response: %v", err)
+	body := decodeBody(t, recorder.Body.Bytes())
+	plugin := body["plugin"].(map[string]any)
+	commands := plugin["commands"].([]any)
+	command := commands[0].(map[string]any)
+	if command["id"] != "hello" || command["name"] != "Hello" {
+		t.Fatalf("command = %#v", command)
 	}
-
-	want := map[string]any{
-		"plugin": map[string]any{
-			"id":    "hello-go",
-			"name":  "Hello Go",
-			"role":  "development",
-			"state": "disabled",
-			"source": map[string]any{
-				"root":                "plugins/installed",
-				"package_source_type": "development",
-				"package_source_ref":  "C:/workspace/hello-go",
-				"verified":            true,
-			},
-			"trust": map[string]any{
-				"level": "development",
-				"label": "开发中",
-			},
-			"commands": []any{
-				map[string]any{
-					"name":           "hello",
-					"aliases":        []any{"hi"},
-					"description":    "Say hello",
-					"usage":          "hello",
-					"permission":     "member",
-					"command_source": "manifest",
-				},
-			},
-			"help": map[string]any{
-				"groups": []any{},
-			},
-			"command_conflicts": []any{},
-		},
+	trigger := command["trigger"].(map[string]any)
+	if trigger["type"] != "exact" || len(trigger["names"].([]any)) != 2 {
+		t.Fatalf("trigger = %#v", trigger)
 	}
-	if !reflect.DeepEqual(body, want) {
-		t.Fatalf("unexpected body: got %#v want %#v", body, want)
+	if _, exists := command["command_source"]; exists {
+		t.Fatalf("legacy command_source leaked: %#v", command)
 	}
 }
 
-func TestGetPluginReturnsRichMetadataDetail(t *testing.T) {
+func TestGetPluginReturnsRichV3Metadata(t *testing.T) {
 	t.Parallel()
-
-	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
-		{
-			PluginID:             "weather",
-			Name:                 "Weather",
-			Role:                 "user",
-			Version:              "1.4.2",
-			Runtime:              "go",
-			Entry:                "bin/weather",
-			Description:          "提供当前城市天气与未来天气查询。",
-			Author:               "raylea",
-			License:              "MIT",
-			MinCoreVersion:       "0.2.0",
-			DataSchemaVersion:    "weather-v2",
-			Concurrency:          3,
-			Platforms:            []string{"windows-x64", "linux-x64"},
-			DefaultConfig:        map[string]any{"unit": "metric", "forecast_days": 3},
-			DeclaredCapabilities: []string{"http.request", "logger.write", "render.image"},
-			ScopeHTTPHosts:       []string{"api.weather.example"},
-			ScopeStorageRoots:    []string{"plugin_data"},
-			Icon:                 "assets/weather.svg",
-			Repo:                 "https://github.com/RayleaBot/plugins-weather",
-			Homepage:             "https://plugins.rayleabot.local/weather",
-			Keywords:             []string{"weather", "forecast", "climate"},
-			Screenshots: []plugins.Screenshot{{
-				Path: "assets/overview.svg",
-				Alt:  "天气总览卡片",
-			}},
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "enabled",
-			RuntimeState:      "running",
-			DisplayState:      "running",
-			SourceRoot:        "plugins/installed",
-			PackageSourceType: "local_zip",
-			PackageSourceRef:  "C:/plugins/weather.zip",
-			Commands: []plugins.Command{{
-				Name:        "weather",
-				Aliases:     []string{"tq", "天气"},
-				Description: "查询天气",
-				Usage:       "weather <城市>",
-				Permission:  "member",
-			}},
+	snapshot := plugins.Snapshot{
+		PluginID: "weather", Name: "Weather", Version: "1.4.2", Description: "天气查询",
+		Author: "raylea", License: "MIT", MinCoreVersion: "0.4.0", Concurrency: 3,
+		Events: []string{"message.group"},
+		Permissions: map[string]plugins.PermissionGrant{
+			"http.request": {}, "thirdparty.account.read": {Platforms: []string{"bilibili"}},
 		},
-	}))
-
-	request := httptest.NewRequest("GET", "/api/plugins/weather", nil)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != 200 {
-		t.Fatalf("unexpected status: got %d want 200", recorder.Code)
+		Icon: "assets/weather.svg", Repo: "https://github.com/RayleaBot/plugins-weather",
+		Homepage: "https://plugins.rayleabot.local/weather", Keywords: []string{"weather", "forecast"},
+		Screenshots: []plugins.Screenshot{{Path: "assets/overview.svg", Alt: "天气总览"}},
+		Valid:       true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
+		SourceRoot: "plugins/installed", PackageSourceType: "local_zip", PackageSourceRef: "C:/plugins/weather.zip",
 	}
-
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/plugins/weather", nil))
 	body := decodeBody(t, recorder.Body.Bytes())
 	plugin := body["plugin"].(map[string]any)
-	if plugin["version"] != "1.4.2" {
-		t.Fatalf("unexpected version: %#v", plugin["version"])
+	if plugin["version"] != "1.4.2" || plugin["min_core_version"] != "0.4.0" || plugin["concurrency"] != float64(3) {
+		t.Fatalf("metadata = %#v", plugin)
 	}
-	if plugin["author"] != "raylea" || plugin["license"] != "MIT" {
-		t.Fatalf("unexpected author/license: %#v", plugin)
+	permissions := plugin["permissions"].(map[string]any)
+	if permissions["http.request"] != true {
+		t.Fatalf("permissions = %#v", permissions)
 	}
-	if plugin["concurrency"] != float64(3) {
-		t.Fatalf("unexpected concurrency: %#v", plugin["concurrency"])
-	}
-	if !reflect.DeepEqual(plugin["keywords"], []any{"weather", "forecast", "climate"}) {
-		t.Fatalf("unexpected keywords: %#v", plugin["keywords"])
-	}
-	capabilityParameters := plugin["capability_parameters"].(map[string]any)
-	if !reflect.DeepEqual(capabilityParameters["http_hosts"], []any{"api.weather.example"}) {
-		t.Fatalf("unexpected capability parameter http_hosts: %#v", capabilityParameters["http_hosts"])
-	}
-	if !reflect.DeepEqual(capabilityParameters["storage_roots"], []any{"plugin_data"}) {
-		t.Fatalf("unexpected capability parameter storage_roots: %#v", capabilityParameters["storage_roots"])
-	}
-	screenshots := plugin["screenshots"].([]any)
-	if len(screenshots) != 1 {
-		t.Fatalf("unexpected screenshots: %#v", screenshots)
-	}
-	screenshot := screenshots[0].(map[string]any)
-	if screenshot["path"] != "assets/overview.svg" || screenshot["alt"] != "天气总览卡片" {
-		t.Fatalf("unexpected screenshot: %#v", screenshot)
-	}
-	defaultConfig := plugin["default_config"].(map[string]any)
-	if defaultConfig["unit"] != "metric" || defaultConfig["forecast_days"] != float64(3) {
-		t.Fatalf("unexpected default_config: %#v", defaultConfig)
-	}
-	if !reflect.DeepEqual(plugin["declared_capabilities"], []any{"http.request", "logger.write", "render.image"}) {
-		t.Fatalf("unexpected declared_capabilities: %#v", plugin["declared_capabilities"])
+	if _, exists := plugin["default_config"]; exists {
+		t.Fatalf("default_config leaked: %#v", plugin)
 	}
 }
 
 func TestGetPluginReturns404WhenMissing(t *testing.T) {
 	t.Parallel()
-
 	router := pluginRouter(t, plugincatalog.New(nil))
-
-	request := httptest.NewRequest("GET", "/api/plugins/missing-plugin", nil)
 	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/plugins/missing-plugin", nil))
 	if recorder.Code != 404 {
-		t.Fatalf("unexpected status: got %d want 404", recorder.Code)
+		t.Fatalf("status = %d", recorder.Code)
 	}
-
 	body := decodeBody(t, recorder.Body.Bytes())
-	errorBody := body["error"].(map[string]any)
-	if errorBody["code"] != "platform.resource_missing" {
-		t.Fatalf("unexpected error code: %#v", errorBody["code"])
-	}
-	details := errorBody["details"].(map[string]any)
-	if details["resource_type"] != "plugin" {
-		t.Fatalf("unexpected resource_type: %#v", details["resource_type"])
+	if body["error"].(map[string]any)["code"] != "platform.resource_missing" {
+		t.Fatalf("body = %#v", body)
 	}
 }
 
-func TestInvalidPluginAppearsInListAndDetail(t *testing.T) {
+func TestInvalidAndConflictedPluginsExposeNoCommands(t *testing.T) {
 	t.Parallel()
-
-	snapshot := plugins.Snapshot{
-		PluginID:          "unsupported-binary-tool",
-		Valid:             false,
-		RegistrationState: "installed",
-		DesiredState:      "disabled",
-		RuntimeState:      "stopped",
-		DisplayState:      "invalid_manifest",
-		ManifestPath:      "plugins/installed/unsupported-binary-tool/info.json",
-		ValidationSummary: "runtime must be one of python or nodejs",
-		Commands: []plugins.Command{
-			{Name: "unsupported"},
-		},
-	}
-	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
-
-	listRequest := httptest.NewRequest("GET", "/api/plugins", nil)
-	listRecorder := httptest.NewRecorder()
-	router.ServeHTTP(listRecorder, listRequest)
-	if listRecorder.Code != 200 {
-		t.Fatalf("unexpected list status: got %d want 200", listRecorder.Code)
-	}
-	listBody := decodeBody(t, listRecorder.Body.Bytes())
-	items := listBody["items"].([]any)
-	if len(items) != 1 {
-		t.Fatalf("unexpected list count: got %d want 1", len(items))
-	}
-	item := items[0].(map[string]any)
-	if commands := item["commands"].([]any); len(commands) != 0 {
-		t.Fatalf("invalid plugin commands = %#v, want []", commands)
-	}
-
-	detailRequest := httptest.NewRequest("GET", "/api/plugins/unsupported-binary-tool", nil)
-	detailRecorder := httptest.NewRecorder()
-	router.ServeHTTP(detailRecorder, detailRequest)
-	if detailRecorder.Code != 200 {
-		t.Fatalf("unexpected detail status: got %d want 200", detailRecorder.Code)
-	}
-
-	detailBody := decodeBody(t, detailRecorder.Body.Bytes())
-	plugin := detailBody["plugin"].(map[string]any)
-	if plugin["state"] != "invalid" {
-		t.Fatalf("unexpected plugin state: %#v", plugin["state"])
-	}
-	diagnosis := plugin["state_diagnosis"].(map[string]any)
-	if diagnosis["kind"] != "invalid_manifest" {
-		t.Fatalf("unexpected diagnosis kind: %#v", diagnosis["kind"])
-	}
-}
-
-func TestConflictPluginDetailReturnsInvalidState(t *testing.T) {
-	t.Parallel()
-
-	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{
-		{
-			PluginID:          "weather",
-			Valid:             false,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			DisplayState:      "conflict",
-			ValidationSummary: "duplicate plugin_id discovered across multiple directories",
-			ConflictPaths: []string{
-				"examples/plugins/weather/info.json",
-				"plugins/installed/weather/info.json",
-			},
-			SourceRoots: []string{"examples/plugins", "plugins/installed"},
-			Commands: []plugins.Command{
-				{Name: "weather"},
-			},
-		},
-	}))
-
-	listRequest := httptest.NewRequest("GET", "/api/plugins", nil)
-	listRecorder := httptest.NewRecorder()
-	router.ServeHTTP(listRecorder, listRequest)
-
-	if listRecorder.Code != 200 {
-		t.Fatalf("unexpected list status: got %d want 200", listRecorder.Code)
-	}
-
-	listBody := decodeBody(t, listRecorder.Body.Bytes())
-	items := listBody["items"].([]any)
-	if len(items) != 1 {
-		t.Fatalf("unexpected list count: got %d want 1", len(items))
-	}
-	item := items[0].(map[string]any)
-	if commands := item["commands"].([]any); len(commands) != 0 {
-		t.Fatalf("conflict plugin commands = %#v, want []", commands)
-	}
-
-	request := httptest.NewRequest("GET", "/api/plugins/weather", nil)
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != 200 {
-		t.Fatalf("unexpected status: got %d want 200", recorder.Code)
-	}
-
-	body := decodeBody(t, recorder.Body.Bytes())
-	plugin := body["plugin"].(map[string]any)
-	if plugin["state"] != "invalid" {
-		t.Fatalf("unexpected plugin state: %#v", plugin["state"])
-	}
-	diagnosis := plugin["state_diagnosis"].(map[string]any)
-	if diagnosis["kind"] != "plugin_id_conflict" {
-		t.Fatalf("unexpected conflict kind: %#v", diagnosis["kind"])
-	}
-	if len(diagnosis["manifest_paths"].([]any)) != 2 {
-		t.Fatalf("unexpected manifest_paths length: %#v", diagnosis["manifest_paths"])
+	for _, snapshot := range []plugins.Snapshot{
+		{PluginID: "invalid", RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped", DisplayState: "invalid_manifest", ValidationSummary: "unsupported contract"},
+		{PluginID: "conflict", RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped", DisplayState: "conflict", ValidationSummary: "duplicate plugin id", ConflictPaths: []string{"a/info.json", "b/info.json"}},
+	} {
+		snapshot := snapshot
+		t.Run(snapshot.PluginID, func(t *testing.T) {
+			router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/plugins/"+snapshot.PluginID, nil))
+			plugin := decodeBody(t, recorder.Body.Bytes())["plugin"].(map[string]any)
+			if plugin["state"] != "invalid" || len(plugin["commands"].([]any)) != 0 {
+				t.Fatalf("plugin = %#v", plugin)
+			}
+		})
 	}
 }

@@ -95,29 +95,27 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 			Nickname: payload.Bot.Nickname,
 		}
 	}
-	var permissions *PermissionsFrame
-	if len(payload.SuperAdmins) > 0 {
-		permissions = &PermissionsFrame{
-			SuperAdmins: append([]string(nil), payload.SuperAdmins...),
-		}
+	initConfig := cloneDetails(payload.Config)
+	if initConfig == nil {
+		initConfig = map[string]any{}
 	}
-
 	if err := handle.WriteJSONLine(InitFrame{
-		ProtocolVersion: "1",
-		Type:            "init",
-		Timestamp:       m.deps.now().Unix(),
-		PluginID:        spec.PluginID,
-		RequestID:       requestID,
-		Bot:             bot,
-		Capabilities:    append([]string(nil), payload.Capabilities...),
-		Permissions:     permissions,
-		CommandPrefixes: append([]string(nil), payload.CommandPrefixes...),
+		ProtocolVersion:      "2",
+		Type:                 "init",
+		PluginID:             spec.PluginID,
+		RequestID:            requestID,
+		Bot:                  bot,
+		Config:               initConfig,
+		EffectivePermissions: append([]string(nil), payload.Permissions...),
+		SuperAdmins:          append([]string(nil), payload.SuperAdmins...),
+		CommandPrefixes:      append([]string(nil), payload.CommandPrefixes...),
+		Concurrency:          spec.EffectiveConcurrency,
 	}); err != nil {
 		m.cleanupFailedStart(handle, codePluginInternalError, "write init frame", err)
 		return errorf(codePluginInternalError, "write init frame", err)
 	}
 
-	subscriptions, runtimeErr := m.awaitInitAck(ctx, handle, requestID)
+	runtimeErr := m.awaitInitAck(ctx, handle, requestID)
 	if runtimeErr != nil {
 		m.cleanupFailedStart(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
 		return runtimeErr
@@ -128,7 +126,6 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		m.snap.State = StateRunning
 		m.snap.LastErrorCode = ""
 		m.snap.LastErrorMessage = ""
-		m.snap.Subscriptions = append([]string(nil), subscriptions...)
 	}
 	m.mu.Unlock()
 

@@ -20,34 +20,24 @@ import (
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
-func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
+func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 	t.Parallel()
 
 	catalog := plugincatalog.New([]plugins.Snapshot{{
-		PluginID:             "raylea.subscription-hub",
-		Name:                 "Subscription Hub",
-		Valid:                true,
-		SourceRoot:           "plugins/installed",
-		RegistrationState:    "installed",
-		DesiredState:         "enabled",
-		RuntimeState:         "running",
-		DeclaredCapabilities: []string{"http.request"},
-		ScopeHTTPHosts:       []string{"old.example"},
+		PluginID:          "raylea.subscription-hub",
+		Name:              "Subscription Hub",
+		Valid:             true,
+		SourceRoot:        "plugins/installed",
+		RegistrationState: "installed",
+		DesiredState:      "enabled",
+		RuntimeState:      "running",
+		Permissions:       map[string]plugins.PermissionGrant{"http.request": {}},
 		Commands: []plugins.Command{{
-			Name:          "订阅b站推送",
-			Usage:         "/订阅b站推送 UID",
-			CommandSource: plugins.CommandSourceManifest,
+			ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
+			Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},
+			Usage: "/订阅b站推送 UID", Permission: "super_admin",
 		}},
-		Help: &plugins.Help{
-			Title: "订阅中心",
-			Groups: []plugins.HelpGroup{{
-				Title: "订阅操作",
-				Items: []plugins.HelpItem{{
-					Title: "订阅 Bilibili 推送",
-					Usage: "/订阅b站推送 UID",
-				}},
-			}},
-		},
+		Help: &plugins.Help{Title: "订阅中心", Summary: "旧帮助摘要"},
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
 	app.setTestLifecycle(
@@ -62,35 +52,25 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 	app.services.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
 		return RefreshPluginManifest(ctx, catalog, nil, pluginID, func() ([]plugins.Snapshot, error) {
 			return []plugins.Snapshot{{
-				PluginID:             "raylea.subscription-hub",
-				Name:                 "Subscription Hub",
-				Valid:                true,
-				SourceRoot:           "plugins/installed",
-				RegistrationState:    "installed",
-				DesiredState:         "enabled",
-				RuntimeState:         "stopped",
-				DeclaredCapabilities: []string{"http.request"},
-				ScopeHTTPHosts:       []string{"api.bilibili.com", "api.live.bilibili.com"},
+				PluginID:          "raylea.subscription-hub",
+				Name:              "Subscription Hub",
+				Valid:             true,
+				SourceRoot:        "plugins/installed",
+				RegistrationState: "installed",
+				DesiredState:      "enabled",
+				RuntimeState:      "stopped",
+				Permissions:       map[string]plugins.PermissionGrant{"http.request": {}, "message.send": {}},
 				ManifestCommands: []plugins.Command{{
-					Name:          "订阅b站推送",
-					Usage:         "/订阅b站推送 UID或昵称",
-					CommandSource: plugins.CommandSourceManifest,
+					ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
+					Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},
+					Usage: "/订阅b站推送 UID或昵称", Permission: "super_admin",
 				}},
 				Commands: []plugins.Command{{
-					Name:          "订阅b站推送",
-					Usage:         "/订阅b站推送 UID或昵称",
-					CommandSource: plugins.CommandSourceManifest,
+					ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
+					Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},
+					Usage: "/订阅b站推送 UID或昵称", Permission: "super_admin",
 				}},
-				Help: &plugins.Help{
-					Title: "订阅中心",
-					Groups: []plugins.HelpGroup{{
-						Title: "订阅操作",
-						Items: []plugins.HelpItem{{
-							Title: "订阅 Bilibili 推送",
-							Usage: "/订阅b站推送 UID或昵称",
-						}},
-					}},
-				},
+				Help: &plugins.Help{Title: "订阅中心", Summary: "新帮助摘要"},
 			}}, nil
 		})
 	}
@@ -112,14 +92,11 @@ func TestReloadRefreshesManifestCommandsAndCapabilityParameters(t *testing.T) {
 	if got := snapshot.Commands[0].Usage; got != "/订阅b站推送 UID或昵称" {
 		t.Fatalf("command usage = %q, want UID或昵称", got)
 	}
-	if got := snapshot.Help.Groups[0].Items[0].Usage; got != "/订阅b站推送 UID或昵称" {
-		t.Fatalf("help usage = %q, want UID或昵称", got)
+	if got := snapshot.Help.Summary; got != "新帮助摘要" {
+		t.Fatalf("help summary = %q, want 新帮助摘要", got)
 	}
-	if !reflect.DeepEqual(snapshot.DeclaredCapabilities, []string{"http.request"}) {
-		t.Fatalf("declared_capabilities = %#v, want http.request", snapshot.DeclaredCapabilities)
-	}
-	if !reflect.DeepEqual(snapshot.ScopeHTTPHosts, []string{"api.bilibili.com", "api.live.bilibili.com"}) {
-		t.Fatalf("http hosts = %#v, want Bilibili hosts", snapshot.ScopeHTTPHosts)
+	if len(snapshot.Permissions) != 2 {
+		t.Fatalf("permissions = %#v, want http.request and message.send", snapshot.Permissions)
 	}
 }
 
@@ -268,8 +245,6 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
-		Runtime:           "go",
-		Entry:             "bin/weather-card",
 		ManifestPath:      "plugins/weather-card/info.json",
 		PackageRootPath:   pluginRoot,
 	}})
@@ -289,9 +264,9 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 
-	_, payload, err := app.services.pluginLifecycle.buildStartInputsWithCapabilities("weather-card", "", []string{"event.subscribe"})
+	_, payload, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card", "")
 	if err != nil {
-		t.Fatalf("buildStartInputsWithCapabilities: %v", err)
+		t.Fatalf("buildStartInputs: %v", err)
 	}
 	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
@@ -307,7 +282,8 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	manifestPath := filepath.Join(pluginDir, "info.json")
-	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID", "old.example")
+	writeInstallSourcePlugin(t, pluginDir, "raylea.subscription-hub")
+	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID")
 
 	validator := compilePluginValidatorForLifecycleTest(t)
 	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
@@ -326,7 +302,7 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 		t.Fatalf("SetRuntimeState: snapshot=%+v err=%v", updated, err)
 	}
 
-	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID或昵称", "api.bilibili.com")
+	writeLifecyclePluginManifest(t, manifestPath, "/订阅b站推送 UID或昵称")
 	refreshed, err := RefreshPluginManifest(context.Background(), catalog, nil, "raylea.subscription-hub", func() ([]plugins.Snapshot, error) {
 		snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 			Validator: validator,
@@ -347,8 +323,8 @@ func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {
 	if got := refreshed.Commands[0].Usage; got != "/订阅b站推送 UID或昵称" {
 		t.Fatalf("command usage = %q, want UID或昵称", got)
 	}
-	if got := refreshed.ScopeHTTPHosts; !reflect.DeepEqual(got, []string{"api.bilibili.com"}) {
-		t.Fatalf("http hosts = %#v, want api.bilibili.com", got)
+	if _, ok := refreshed.Permissions["http.request"]; !ok {
+		t.Fatalf("permissions = %#v, want http.request", refreshed.Permissions)
 	}
 }
 
@@ -366,54 +342,37 @@ func compilePluginValidatorForLifecycleTest(t *testing.T) *config.Validator {
 	return validator
 }
 
-func writeLifecyclePluginManifest(t *testing.T, path, usage, host string) {
+func writeLifecyclePluginManifest(t *testing.T, path, usage string) {
 	t.Helper()
 
 	content := `{
   "id": "raylea.subscription-hub",
   "name": "Subscription Hub",
-  "version": "0.2.0",
-  "manifest_version": "2",
-  "plugin_protocol_version": "1",
-  "runtime": "go",
-  "entry": "bin/subscription-hub",
-  "platforms": ["windows-x64", "linux-x64", "macos-arm64"],
+  "version": "0.4.0",
+  "manifest_version": "3",
   "license": "MIT",
-  "description": "Subscription hub",
-  "author": "raylea",
-	"capabilities": ["http.request"],
-	"capability_parameters": {
-	  "http_hosts": [` + quoteLifecycleJSON(host) + `]
-	},
+  "min_core_version": "0.4.0",
+  "metadata": {"description": "Subscription hub", "author": "raylea"},
+	"permissions": {"http.request": true},
   "commands": [
     {
-      "name": "订阅b站推送",
+      "id": "subscribe-bilibili",
+      "name": "订阅 Bilibili 推送",
       "description": "订阅 Bilibili 推送",
       "usage": ` + quoteLifecycleJSON(usage) + `,
-      "permission": "super_admin"
+      "permission": "super_admin",
+      "trigger": {"type": "exact", "names": ["订阅b站推送"]}
     }
   ],
   "help": {
     "title": "订阅中心",
-    "groups": [
-      {
-        "title": "订阅操作",
-        "items": [
-          {
-            "title": "订阅 Bilibili 推送",
-            "description": "指定 Bilibili 用户",
-            "usage": ` + quoteLifecycleJSON(usage) + `,
-            "command": "订阅b站推送",
-            "permission": "super_admin"
-          }
-        ]
-      }
-    ]
+    "summary": "管理订阅来源"
   }
 }`
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write manifest: %v", err)
 	}
+	refreshInstallArtifact(t, filepath.Dir(path))
 }
 
 func quoteLifecycleJSON(value string) string {

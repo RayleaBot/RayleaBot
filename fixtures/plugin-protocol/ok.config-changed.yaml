@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: event
+    request_id: event-config-1
+    event:
+      event_id: config-1
+      source_protocol: system
+      source_adapter: config
+      event_type: config.changed
+      timestamp: 1788192000
+      payload:
+        config:
+          prefix: updated
+        changed_keys:
+          - prefix
+  - type: result
+    request_id: event-config-1
+    status: success
+    data: {}
+expect:
+  valid: true

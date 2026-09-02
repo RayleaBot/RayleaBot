@@ -8,18 +8,15 @@ import (
 	"time"
 )
 
-const ProtocolVersion = "1"
+const ProtocolVersion = "2"
 
 type Options struct {
-	PluginID              string
-	Subscriptions         []string
-	Stdin                 io.Reader
-	Stdout                io.Writer
-	Stderr                io.Writer
-	Logger                *slog.Logger
-	ActionTimeout         time.Duration
-	ShutdownGrace         time.Duration
-	MaxConcurrentHandlers int
+	Stdin         io.Reader
+	Stdout        io.Writer
+	Stderr        io.Writer
+	Logger        *slog.Logger
+	ActionTimeout time.Duration
+	ShutdownGrace time.Duration
 }
 
 type Handler interface {
@@ -35,10 +32,6 @@ func (fn HandlerFunc) Handle(ctx context.Context, event *EventContext) error {
 type Bot struct {
 	ID       string `json:"id"`
 	Nickname string `json:"nickname,omitempty"`
-}
-
-type Permissions struct {
-	SuperAdmins []string `json:"super_admins,omitempty"`
 }
 
 type Actor struct {
