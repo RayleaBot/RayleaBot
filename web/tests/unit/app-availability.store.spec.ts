@@ -10,33 +10,24 @@ describe('app availability store', () => {
     vi.setSystemTime(new Date('2026-05-02T09:00:00Z'))
   })
 
-  it('marks the app offline and remembers the current workspace path', () => {
+  it('records a connection interruption without changing workspace state', () => {
     const store = useAppAvailabilityStore()
 
-    store.markOffline('http', '/commands?plugin_id=raylea.echo')
+    store.markConnectionInterrupted('http')
 
-    expect(store.isOffline).toBe(true)
-    expect(store.offlineSource).toBe('http')
-    expect(store.returnPath).toBe('/commands?plugin_id=raylea.echo')
-    expect(store.lastOfflineAt).toBe('2026-05-02T09:00:00.000Z')
+    expect(store.isConnectionInterrupted).toBe(true)
+    expect(store.connectionIssueSource).toBe('http')
+    expect(store.lastConnectionIssueAt).toBe('2026-05-02T09:00:00.000Z')
   })
 
-  it('does not use exception routes as return paths', () => {
+  it('clears the interruption state after the connection recovers', () => {
     const store = useAppAvailabilityStore()
 
-    store.markOffline('websocket', '/offline')
+    store.markConnectionInterrupted('browser')
+    store.markConnected()
 
-    expect(store.returnPath).toBeNull()
-  })
-
-  it('clears offline state and consumes the remembered return path', () => {
-    const store = useAppAvailabilityStore()
-
-    store.markOffline('browser', '/plugins')
-    store.markOnline()
-
-    expect(store.isOffline).toBe(false)
-    expect(store.consumeReturnPath()).toBe('/plugins')
-    expect(store.returnPath).toBeNull()
+    expect(store.isConnectionInterrupted).toBe(false)
+    expect(store.connectionIssueSource).toBeNull()
+    expect(store.lastConnectionIssueAt).toBeNull()
   })
 })

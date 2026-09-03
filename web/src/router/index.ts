@@ -1,10 +1,11 @@
 import { createRouter, createWebHistory, type Router, type RouterHistory, type RouteRecordRaw } from 'vue-router'
 
-import { useSessionStore } from '@/stores/session'
-import { useAppAvailabilityStore } from '@/stores/app-availability'
-import { useUiShellStore } from '@/stores/ui-shell'
+import { ApiError } from '@/lib/http'
 import { publicRoutes } from '@/router/routes/core'
 import { adminRoutes } from '@/router/routes/modules/admin'
+import { useAppAvailabilityStore } from '@/stores/app-availability'
+import { useSessionStore } from '@/stores/session'
+import { useUiShellStore } from '@/stores/ui-shell'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -12,7 +13,7 @@ declare module 'vue-router' {
     affixTab?: boolean
     affixTabOrder?: number
     entryPath?: string
-    exceptionStatus?: '403' | '404' | '500' | 'offline'
+    exceptionStatus?: '403' | '404' | '500'
     hideInBreadcrumb?: boolean
     hideInMenu?: boolean
     hideInTab?: boolean
@@ -44,6 +45,18 @@ function isRouteAssetLoadError(error: unknown) {
   return /dynamically imported module|loading chunk|unable to preload|importing a module script failed/i.test(error.message)
 }
 
+function isConnectionUnavailableError(error: unknown) {
+  if (error instanceof TypeError) {
+    return true
+  }
+
+  if (error instanceof ApiError && (error.status === 0 || error.status === 503)) {
+    return true
+  }
+
+  return error instanceof Error && /failed to fetch|network|load failed/i.test(error.message)
+}
+
 function installRouteErrorHandler(router: Router) {
   router.onError((error) => {
     const uiShellStore = useUiShellStore()
@@ -51,12 +64,7 @@ function installRouteErrorHandler(router: Router) {
 
     if (isRouteAssetLoadError(error)) {
       const availabilityStore = useAppAvailabilityStore()
-      const current = router.currentRoute.value
-      availabilityStore.markOffline('http', current.name === 'offline' ? availabilityStore.returnPath : current.fullPath)
-
-      if (current.name !== 'offline') {
-        void router.replace({ name: 'offline' }).catch(() => undefined)
-      }
+      availabilityStore.markConnectionInterrupted('http')
       return
     }
 
@@ -83,20 +91,13 @@ function installRouteGuards(router: Router) {
       uiShellStore.setRouteLoading(true)
     }
 
-    if (to.name === 'offline') {
-      return true
-    }
-
-    if (availabilityStore.isOffline) {
-      return { name: 'offline' }
-    }
-
     if (!sessionStore.isBootstrapped) {
       try {
         await sessionStore.bootstrap()
-      } catch {
-        if (availabilityStore.isOffline) {
-          return { name: 'offline' }
+      } catch (error) {
+        if (availabilityStore.isConnectionInterrupted || isConnectionUnavailableError(error)) {
+          availabilityStore.markConnectionInterrupted('http')
+          return true
         }
 
         if (to.meta.requiresAuth) {

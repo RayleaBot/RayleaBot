@@ -82,7 +82,9 @@ describe('web bootstrap', () => {
     createAppRouter.mockReturnValue({
       currentRoute: {
         value: {
+          fullPath: '/login',
           name: 'login',
+          query: {},
           meta: {},
         },
       },
@@ -104,6 +106,7 @@ describe('web bootstrap', () => {
     socketStoreFactory.mockReturnValue({
       ensureManagementSockets: vi.fn(),
       disconnectAll: vi.fn(),
+      reconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
         logs: { status: 'authenticated' },
@@ -111,10 +114,9 @@ describe('web bootstrap', () => {
     })
 
     appAvailabilityStoreFactory.mockReturnValue({
-      isOffline: false,
-      returnPath: null,
-      markOffline: vi.fn(),
-      markOnline: vi.fn(),
+      isConnectionInterrupted: false,
+      markConnected: vi.fn(),
+      markConnectionInterrupted: vi.fn(),
     })
 
     useUiShellStore.mockReturnValue({
@@ -143,19 +145,18 @@ describe('web bootstrap', () => {
     expect(sessionStore.handleSessionExpired).toHaveBeenCalledWith()
   })
 
-  it('preserves the current deep link when startup detects offline state', async () => {
+  it('keeps workspace state when startup detects a connection interruption', async () => {
     window.history.replaceState({}, '', '/plugins/settings?panel=limits#rate')
 
     await import('@/main')
 
     const startupRuntime = configureApiRuntime.mock.calls[0]?.[0]
     const availabilityStore = appAvailabilityStoreFactory.mock.results[0]?.value
-    const uiShellStore = useUiShellStore.mock.results[0]?.value
 
     startupRuntime.onNetworkUnavailable()
 
-    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
-    expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins/settings?panel=limits#rate')
+    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledWith('http')
+    expect(useUiShellStore).not.toHaveBeenCalled()
   })
 
   it('keeps authenticated startup deep links on the target page', async () => {
@@ -194,8 +195,7 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    const uiShellStore = useUiShellStore.mock.results[0]?.value
-    expect(uiShellStore.resetRestoredTabs).not.toHaveBeenCalled()
+    expect(useUiShellStore).not.toHaveBeenCalled()
     expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
   })
 
@@ -247,68 +247,41 @@ describe('web bootstrap', () => {
   })
 
   it('keeps authenticated startup exception routes in place', async () => {
-    for (const routeName of ['status', 'offline']) {
-      vi.resetModules()
-      vi.clearAllMocks()
-      createPinia.mockReturnValue({})
-      createApp.mockReturnValue({
-        use: vi.fn().mockReturnThis(),
-        mount: vi.fn(),
-      })
-      useUiShellStore.mockReturnValue({
-        resetRestoredTabs: vi.fn(),
-      })
-
-      const router = {
-        currentRoute: {
-          value: {
-            fullPath: routeName === 'status' ? '/' : '/offline',
-            name: routeName,
-            meta: { requiresAuth: routeName === 'status' },
-          },
+    const router = {
+      currentRoute: {
+        value: {
+          fullPath: '/',
+          name: 'status',
+          meta: { requiresAuth: true },
         },
-        isReady: vi.fn().mockResolvedValue(undefined),
-        push: vi.fn(),
-        replace: vi.fn(),
-      }
-      const sessionStore = {
-        token: 'fixture-token',
-        isAuthenticated: true,
-        isBootstrapped: true,
-        requiresSetup: false,
-        setupInitialized: true,
-        bootstrap: vi.fn().mockResolvedValue(undefined),
-        clearSession: vi.fn(),
-        handleSessionExpired: vi.fn(),
-      }
-
-      createAppRouter.mockReturnValue(router)
-      sessionStoreFactory.mockReturnValue(sessionStore)
-      socketStoreFactory.mockReturnValue({
-        ensureManagementSockets: vi.fn(),
-        disconnectAll: vi.fn(),
-        snapshots: {
-          events: { status: 'authenticated' },
-          logs: { status: 'authenticated' },
-        },
-      })
-      appAvailabilityStoreFactory.mockReturnValue({
-        isOffline: routeName === 'offline',
-        returnPath: null,
-        markOffline: vi.fn(),
-        markOnline: vi.fn(),
-      })
-      watch.mockImplementation((source, callback, options) => {
-        if (options?.immediate) {
-          callback(source(), undefined)
-        }
-      })
-
-      await import('@/main')
-      await flushBootstrap()
-
-      expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
+      },
+      isReady: vi.fn().mockResolvedValue(undefined),
+      push: vi.fn(),
+      replace: vi.fn(),
     }
+    const sessionStore = {
+      token: 'fixture-token',
+      isAuthenticated: true,
+      isBootstrapped: true,
+      requiresSetup: false,
+      setupInitialized: true,
+      bootstrap: vi.fn().mockResolvedValue(undefined),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+    }
+
+    createAppRouter.mockReturnValue(router)
+    sessionStoreFactory.mockReturnValue(sessionStore)
+    watch.mockImplementation((source, callback, options) => {
+      if (options?.immediate) {
+        callback(source(), undefined)
+      }
+    })
+
+    await import('@/main')
+    await flushBootstrap()
+
+    expect(router.replace).not.toHaveBeenCalledWith({ name: 'status' })
   })
 
   it('redirects protected startup routes to login with a return target', async () => {
@@ -353,7 +326,7 @@ describe('web bootstrap', () => {
     })
   })
 
-  it('opens the offline page after core websocket reconnecting persists', async () => {
+  it('does not treat one reconnecting websocket as a backend outage', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     const watchers: Array<{
@@ -385,16 +358,16 @@ describe('web bootstrap', () => {
     const socketStore = {
       ensureManagementSockets: vi.fn(),
       disconnectAll: vi.fn(),
+      reconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     }
     const availabilityStore = {
-      isOffline: false,
-      returnPath: null,
-      markOffline: vi.fn(),
-      markOnline: vi.fn(),
+      isConnectionInterrupted: false,
+      markConnected: vi.fn(),
+      markConnectionInterrupted: vi.fn(),
     }
 
     createAppRouter.mockReturnValue(router)
@@ -411,25 +384,22 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 4)
+    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 3)
     expect(websocketWatcher).toBeDefined()
 
     socketStore.snapshots.events.status = 'reconnecting'
     websocketWatcher!.callback(websocketWatcher!.source())
 
-    await vi.advanceTimersByTimeAsync(1999)
-    expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
+    await vi.advanceTimersByTimeAsync(3000)
 
-    await vi.advanceTimersByTimeAsync(1)
-    const uiShellStore = useUiShellStore.mock.results[0]?.value
-    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
-    expect(availabilityStore.markOffline).toHaveBeenCalledWith('websocket', '/commands')
-    expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
+    expect(fetch).not.toHaveBeenCalled()
+    expect(availabilityStore.markConnectionInterrupted).not.toHaveBeenCalled()
+    expect(router.replace).not.toHaveBeenCalled()
   })
 
-  it('opens the offline page when the background health probe fails', async () => {
+  it('shows the reconnect notice only after an HTTP failure is confirmed', async () => {
     vi.useFakeTimers()
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('offline', { status: 503 })))
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     const router = {
       currentRoute: {
         value: {
@@ -455,16 +425,16 @@ describe('web bootstrap', () => {
     const socketStore = {
       ensureManagementSockets: vi.fn(),
       disconnectAll: vi.fn(),
+      reconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     }
     const availabilityStore = {
-      isOffline: false,
-      returnPath: null,
-      markOffline: vi.fn(),
-      markOnline: vi.fn(),
+      isConnectionInterrupted: false,
+      markConnected: vi.fn(),
+      markConnectionInterrupted: vi.fn(),
     }
 
     createAppRouter.mockReturnValue(router)
@@ -480,17 +450,18 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    await vi.advanceTimersByTimeAsync(2499)
-    expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
+    const runtime = configureApiRuntime.mock.calls.at(-1)?.[0]
+    runtime.onNetworkUnavailable()
+
+    await vi.advanceTimersByTimeAsync(799)
+    expect(availabilityStore.markConnectionInterrupted).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(1)
-    const uiShellStore = useUiShellStore.mock.results[0]?.value
-    expect(uiShellStore.resetRestoredTabs).toHaveBeenCalled()
-    expect(availabilityStore.markOffline).toHaveBeenCalledWith('http', '/plugins')
-    expect(router.replace).toHaveBeenCalledWith({ name: 'offline' })
+    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledWith('http')
+    expect(router.replace).not.toHaveBeenCalled()
   })
 
-  it('keeps the current page when websocket reconnecting occurs but health is reachable', async () => {
+  it('keeps the current page when both websockets reconnect but health is reachable', async () => {
     vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })))
     const watchers: Array<{
@@ -522,16 +493,16 @@ describe('web bootstrap', () => {
     const socketStore = {
       ensureManagementSockets: vi.fn(),
       disconnectAll: vi.fn(),
+      reconnectAll: vi.fn(),
       snapshots: {
         events: { status: 'authenticated' },
         logs: { status: 'authenticated' },
       },
     }
     const availabilityStore = {
-      isOffline: false,
-      returnPath: null,
-      markOffline: vi.fn(),
-      markOnline: vi.fn(),
+      isConnectionInterrupted: false,
+      markConnected: vi.fn(),
+      markConnectionInterrupted: vi.fn(),
     }
 
     createAppRouter.mockReturnValue(router)
@@ -548,16 +519,63 @@ describe('web bootstrap', () => {
     await import('@/main')
     await flushBootstrap()
 
-    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 4)
+    const websocketWatcher = watchers.find((item) => Array.isArray(item.source()) && (item.source() as unknown[]).length === 3)
     expect(websocketWatcher).toBeDefined()
 
+    socketStore.snapshots.events.status = 'reconnecting'
     socketStore.snapshots.logs.status = 'reconnecting'
     websocketWatcher!.callback(websocketWatcher!.source())
 
-    await vi.advanceTimersByTimeAsync(2000)
+    await vi.advanceTimersByTimeAsync(2500)
 
-    expect(availabilityStore.markOnline).toHaveBeenCalled()
-    expect(availabilityStore.markOffline).not.toHaveBeenCalledWith('websocket', '/plugins')
-    expect(router.replace).not.toHaveBeenCalledWith({ name: 'offline' })
+    expect(availabilityStore.markConnected).toHaveBeenCalled()
+    expect(availabilityStore.markConnectionInterrupted).not.toHaveBeenCalled()
+    expect(router.replace).not.toHaveBeenCalled()
+  })
+
+  it('automatically reconnects sockets after the backend becomes reachable', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('ok', { status: 200 })))
+    const sessionStore = {
+      token: 'fixture-token',
+      isAuthenticated: true,
+      isBootstrapped: true,
+      requiresSetup: false,
+      setupInitialized: true,
+      bootstrap: vi.fn().mockResolvedValue(undefined),
+      clearSession: vi.fn(),
+      handleSessionExpired: vi.fn(),
+    }
+    const socketStore = {
+      ensureManagementSockets: vi.fn(),
+      disconnectAll: vi.fn(),
+      reconnectAll: vi.fn(),
+      snapshots: {
+        events: { status: 'reconnecting' },
+        logs: { status: 'reconnecting' },
+      },
+    }
+    const availabilityStore = {
+      isConnectionInterrupted: true,
+      markConnected: vi.fn(),
+      markConnectionInterrupted: vi.fn(),
+    }
+
+    sessionStoreFactory.mockReturnValue(sessionStore)
+    socketStoreFactory.mockReturnValue(socketStore)
+    appAvailabilityStoreFactory.mockReturnValue(availabilityStore)
+    watch.mockImplementation((source, callback, options) => {
+      if (options?.immediate) {
+        callback(source(), undefined)
+      }
+    })
+
+    await import('@/main')
+    await flushBootstrap()
+
+    await vi.advanceTimersByTimeAsync(2500)
+
+    expect(availabilityStore.markConnected).toHaveBeenCalled()
+    expect(socketStore.reconnectAll).toHaveBeenCalledOnce()
   })
 })

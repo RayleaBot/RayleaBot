@@ -2691,7 +2691,7 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
   await expect(page.getByText('缺少必要资源')).toBeVisible()
 })
 
-test('fallback pages cover missing routes and server offline recovery', async ({ page, request }) => {
+test('missing routes keep their fallback while network recovery stays in place', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -2703,11 +2703,13 @@ test('fallback pages cover missing routes and server offline recovery', async ({
 
   await setBackendNetworkOffline(request)
   await page.goto('/access-lists')
-  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toBeVisible({ timeout: 7000 })
+  await expect(page.locator('[data-testid="connection-reconnect-notice"]')).toBeVisible({ timeout: 7000 })
+  await expect(page).toHaveURL(/\/access-lists$/)
+  await expect(page.getByRole('heading', { name: '哎呀！网络错误' })).toHaveCount(0)
 
   await setBackendNetworkOnline(request)
-  await page.getByRole('button', { name: '重新检测' }).click()
-  await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+  await expect(page.locator('[data-testid="connection-reconnect-notice"]')).toBeHidden({ timeout: 7000 })
+  await expect(page).toHaveURL(/\/access-lists$/)
 })
 
 test('shutdown flow shows the draining toast', async ({ page, request }) => {

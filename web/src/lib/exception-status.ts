@@ -1,7 +1,7 @@
 import { t } from '@/i18n'
 import { ApiError } from '@/lib/http'
 
-export type ExceptionStatus = '403' | '404' | '500' | 'offline'
+export type ExceptionStatus = '403' | '404' | '500'
 
 export function resolveExceptionStatus(error: unknown, fallback: ExceptionStatus = '500'): ExceptionStatus {
   if (error instanceof ApiError) {

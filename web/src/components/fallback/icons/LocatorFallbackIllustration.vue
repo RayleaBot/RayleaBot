@@ -1,6 +1,6 @@
 <script setup lang="ts">
 defineProps<{
-  kind: 'forbidden' | 'missing' | 'offline' | 'server'
+  kind: 'forbidden' | 'missing' | 'server'
 }>()
 </script>
 
@@ -20,16 +20,10 @@ defineProps<{
       <path d="m112 112 20 20M94 83v12M94 105h.01" />
     </g>
 
-    <g v-else-if="kind === 'server'" class="fallback-locator__symbol">
+    <g v-else class="fallback-locator__symbol">
       <rect x="70" y="72" width="60" height="24" rx="6" />
       <rect x="70" y="104" width="60" height="24" rx="6" />
       <path d="M82 84h.01M82 116h.01M96 84h22M96 116h14M116 108l10 10M126 108l-10 10" />
-    </g>
-
-    <g v-else class="fallback-locator__symbol">
-      <circle cx="73" cy="100" r="9" />
-      <circle cx="127" cy="100" r="9" />
-      <path d="M82 100h36M65 67l70 66" />
     </g>
 
     <circle class="fallback-locator__point" cx="100" cy="100" r="3" />

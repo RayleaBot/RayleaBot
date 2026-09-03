@@ -10,23 +10,15 @@ import { createAppRouter } from '@/router'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
-import { useUiShellStore } from '@/stores/ui-shell'
 import 'ant-design-vue/dist/reset.css'
 import '../../design/typography.generated.css'
 import '@/styles/tailwind.css'
 import '@/styles/main.scss'
 
-const websocketOfflineDelayMs = 2000
-const websocketOfflineProbeTimeoutMs = 1500
-const backendAvailabilityProbeIntervalMs = 2500
-
-function currentBrowserPath() {
-  if (typeof window === 'undefined') {
-    return null
-  }
-
-  return `${window.location.pathname}${window.location.search}${window.location.hash}`
-}
+const websocketFailureConfirmationDelayMs = 2500
+const requestFailureConfirmationDelayMs = 800
+const backendProbeTimeoutMs = 2500
+const backendRecoveryProbeIntervalMs = 2500
 
 function readRouteRedirectTarget(value: unknown) {
   const candidate = Array.isArray(value) ? value[0] : value
@@ -46,7 +38,6 @@ function shouldNormalizeStartupRoute(fullPath: string, routeName: unknown) {
     && routeName !== 'status'
     && routeName !== 'login'
     && routeName !== 'setup'
-    && routeName !== 'offline'
 }
 
 async function syncRouteWithSession(
@@ -90,44 +81,44 @@ async function syncRouteWithSession(
 }
 
 function installAvailabilityHandlers(
-  router: ReturnType<typeof createAppRouter>,
   sessionStore: ReturnType<typeof useSessionStore>,
   socketStore: ReturnType<typeof useSocketStore>,
   availabilityStore: ReturnType<typeof useAppAvailabilityStore>,
-  uiShellStore: ReturnType<typeof useUiShellStore>,
 ) {
-  let websocketOfflineTimer: number | null = null
-  let backendAvailabilityTimer: number | null = null
-  let backendAvailabilityProbeInFlight = false
+  let requestFailureTimer: number | null = null
+  let websocketFailureTimer: number | null = null
+  let backendRecoveryTimer: number | null = null
+  let backendProbeInFlight = false
 
-  function clearWebsocketOfflineTimer() {
-    if (websocketOfflineTimer !== null) {
-      window.clearTimeout(websocketOfflineTimer)
-      websocketOfflineTimer = null
+  function clearRequestFailureTimer() {
+    if (requestFailureTimer !== null) {
+      window.clearTimeout(requestFailureTimer)
+      requestFailureTimer = null
     }
   }
 
-  function clearBackendAvailabilityTimer() {
-    if (backendAvailabilityTimer !== null) {
-      window.clearInterval(backendAvailabilityTimer)
-      backendAvailabilityTimer = null
+  function clearWebsocketFailureTimer() {
+    if (websocketFailureTimer !== null) {
+      window.clearTimeout(websocketFailureTimer)
+      websocketFailureTimer = null
     }
   }
 
-  function openOfflinePage(source: 'browser' | 'http' | 'websocket') {
-    const current = router.currentRoute.value
-    uiShellStore.resetRestoredTabs()
-    availabilityStore.markOffline(source, current.name === 'offline' ? availabilityStore.returnPath : current.fullPath)
-    clearBackendAvailabilityTimer()
+  function clearFailureTimers() {
+    clearRequestFailureTimer()
+    clearWebsocketFailureTimer()
+  }
 
-    if (current.name !== 'offline') {
-      void router.replace({ name: 'offline' })
+  function clearBackendRecoveryTimer() {
+    if (backendRecoveryTimer !== null) {
+      window.clearInterval(backendRecoveryTimer)
+      backendRecoveryTimer = null
     }
   }
 
   async function canReachBackend() {
     const controller = new AbortController()
-    const timeoutId = window.setTimeout(() => controller.abort(), websocketOfflineProbeTimeoutMs)
+    const timeoutId = window.setTimeout(() => controller.abort(), backendProbeTimeoutMs)
     try {
       const response = await fetch('/healthz', {
         cache: 'no-store',
@@ -141,43 +132,95 @@ function installAvailabilityHandlers(
     }
   }
 
-  async function probeBackendAvailability() {
-    if (
-      backendAvailabilityProbeInFlight
-      || !sessionStore.isAuthenticated
-      || availabilityStore.isOffline
-      || router.currentRoute.value.name === 'offline'
-    ) {
+  function markConnected() {
+    clearFailureTimers()
+    clearBackendRecoveryTimer()
+    availabilityStore.markConnected()
+  }
+
+  async function probeBackendRecovery() {
+    if (backendProbeInFlight || !availabilityStore.isConnectionInterrupted) {
       return
     }
 
-    backendAvailabilityProbeInFlight = true
+    backendProbeInFlight = true
     try {
       if (!(await canReachBackend())) {
-        openOfflinePage('http')
+        return
+      }
+
+      markConnected()
+      if (!sessionStore.isBootstrapped) {
+        await sessionStore.bootstrap(true).catch(() => undefined)
+      }
+      if (sessionStore.isAuthenticated) {
+        socketStore.reconnectAll()
       }
     } finally {
-      backendAvailabilityProbeInFlight = false
+      backendProbeInFlight = false
     }
   }
 
-  function ensureBackendAvailabilityTimer() {
-    if (backendAvailabilityTimer !== null) {
+  function ensureBackendRecoveryTimer() {
+    if (backendRecoveryTimer !== null) {
       return
     }
 
-    backendAvailabilityTimer = window.setInterval(() => {
-      void probeBackendAvailability()
-    }, backendAvailabilityProbeIntervalMs)
+    backendRecoveryTimer = window.setInterval(() => {
+      void probeBackendRecovery()
+    }, backendRecoveryProbeIntervalMs)
+  }
+
+  function markConnectionInterrupted(source: 'browser' | 'http' | 'websocket') {
+    clearFailureTimers()
+    availabilityStore.markConnectionInterrupted(source)
+    ensureBackendRecoveryTimer()
+  }
+
+  function scheduleConnectionFailureConfirmation(
+    source: 'http' | 'websocket',
+    delayMs: number,
+  ) {
+    if (availabilityStore.isConnectionInterrupted) {
+      ensureBackendRecoveryTimer()
+      return
+    }
+
+    const pendingTimer = source === 'http' ? requestFailureTimer : websocketFailureTimer
+    if (pendingTimer !== null) {
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      if (source === 'http') {
+        requestFailureTimer = null
+      } else {
+        websocketFailureTimer = null
+      }
+
+      if (await canReachBackend()) {
+        markConnected()
+        return
+      }
+
+      markConnectionInterrupted(source)
+    }, delayMs)
+
+    if (source === 'http') {
+      requestFailureTimer = timer
+    } else {
+      websocketFailureTimer = timer
+    }
   }
 
   configureApiRuntime({
-    onNetworkUnavailable: () => openOfflinePage('http'),
-    onReachable: () => availabilityStore.markOnline(),
+    onNetworkUnavailable: () => scheduleConnectionFailureConfirmation('http', requestFailureConfirmationDelayMs),
+    onReachable: markConnected,
   })
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('offline', () => openOfflinePage('browser'))
+    window.addEventListener('offline', () => markConnectionInterrupted('browser'))
+    window.addEventListener('online', () => void probeBackendRecovery())
   }
 
   watch(
@@ -185,56 +228,31 @@ function installAvailabilityHandlers(
       sessionStore.isAuthenticated,
       socketStore.snapshots.events.status,
       socketStore.snapshots.logs.status,
-      router.currentRoute.value.name,
     ] as const,
-    ([isAuthenticated, eventsStatus, logsStatus, routeName]) => {
-      const shouldWatchSockets = isAuthenticated && routeName !== 'offline' && !availabilityStore.isOffline
-      const hasReconnectingCoreSocket = [eventsStatus, logsStatus].some((status) => status === 'reconnecting')
+    ([isAuthenticated, eventsStatus, logsStatus]) => {
+      const coreSocketsUnavailable = [eventsStatus, logsStatus].every(
+        (status) => status === 'disconnected' || status === 'reconnecting',
+      )
 
-      if (!shouldWatchSockets || !hasReconnectingCoreSocket) {
-        clearWebsocketOfflineTimer()
+      if (!isAuthenticated || !coreSocketsUnavailable) {
+        clearWebsocketFailureTimer()
         return
       }
 
-      if (websocketOfflineTimer !== null) {
-        return
-      }
-
-      websocketOfflineTimer = window.setTimeout(async () => {
-        websocketOfflineTimer = null
-        const coreStatuses = [
-          socketStore.snapshots.events.status,
-          socketStore.snapshots.logs.status,
-        ]
-
-        if (
-          !sessionStore.isAuthenticated
-          || router.currentRoute.value.name === 'offline'
-          || !coreStatuses.some((status) => status === 'reconnecting')
-        ) {
-          return
-        }
-
-        if (await canReachBackend()) {
-          availabilityStore.markOnline()
-          return
-        }
-
-        openOfflinePage('websocket')
-      }, websocketOfflineDelayMs)
+      scheduleConnectionFailureConfirmation('websocket', websocketFailureConfirmationDelayMs)
     },
     { immediate: true },
   )
 
   watch(
-    () => [sessionStore.isAuthenticated, router.currentRoute.value.name, availabilityStore.isOffline] as const,
-    ([isAuthenticated, routeName, isOffline]) => {
-      if (isAuthenticated && routeName !== 'offline' && !isOffline) {
-        ensureBackendAvailabilityTimer()
+    () => availabilityStore.isConnectionInterrupted,
+    (isConnectionInterrupted) => {
+      if (isConnectionInterrupted) {
+        ensureBackendRecoveryTimer()
         return
       }
 
-      clearBackendAvailabilityTimer()
+      clearBackendRecoveryTimer()
     },
     { immediate: true },
   )
@@ -251,34 +269,26 @@ async function bootstrap() {
   const sessionStore = useSessionStore(pinia)
   const socketStore = useSocketStore(pinia)
   const availabilityStore = useAppAvailabilityStore(pinia)
-  const uiShellStore = useUiShellStore(pinia)
 
   configureApiRuntime({
     getCSRFToken: () => sessionStore.csrfToken,
     onCSRFToken: (token) => {
       sessionStore.csrfToken = token
     },
-    onNetworkUnavailable: () => {
-      uiShellStore.resetRestoredTabs()
-      availabilityStore.markOffline('http', currentBrowserPath())
-    },
-    onReachable: () => availabilityStore.markOnline(),
+    onNetworkUnavailable: () => availabilityStore.markConnectionInterrupted('http'),
+    onReachable: () => availabilityStore.markConnected(),
     onUnauthorized: () => sessionStore.handleSessionExpired(),
   })
 
   const router = createAppRouter()
-  installAvailabilityHandlers(router, sessionStore, socketStore, availabilityStore, uiShellStore)
+  installAvailabilityHandlers(sessionStore, socketStore, availabilityStore)
   app.use(router)
   app.mount('#app')
 
   await router.isReady()
-  if (availabilityStore.isOffline && router.currentRoute.value.name !== 'offline') {
-    await router.replace({ name: 'offline' })
-  }
   await syncRouteWithSession(router, sessionStore, socketStore)
   if (
     sessionStore.isAuthenticated
-    && !availabilityStore.isOffline
     && shouldNormalizeStartupRoute(router.currentRoute.value.fullPath, router.currentRoute.value.name)
   ) {
     await router.replace({ name: 'status' })

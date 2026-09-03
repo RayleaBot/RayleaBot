@@ -1,5 +1,6 @@
 export const app = {
   brand: 'RayleaBot',
+  connectionInterrupted: '网络连接暂时中断，正在自动重连…',
   loading: '正在加载管理界面',
   mainNavigation: '主导航',
   skipToMain: '跳到主内容',
@@ -38,7 +39,6 @@ export const routes = {
   forbidden: '403',
   notFound: '404',
   serverError: '500',
-  offline: '离线页面',
   login: '登录',
   setup: '创建管理员账号',
 } as const
@@ -136,7 +136,6 @@ export const fallback = {
   actions: {
     backHome: '返回首页',
     retry: '重试',
-    recheck: '重新检测',
   },
   status: {
     403: {
@@ -150,10 +149,6 @@ export const fallback = {
     500: {
       title: '哎呀！出错了',
       description: '抱歉，服务器遇到错误。',
-    },
-    offline: {
-      title: '哎呀！网络错误',
-      description: '抱歉，无法连接到服务，请检查网络连接并重试。',
     },
   },
 } as const

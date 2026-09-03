@@ -110,19 +110,19 @@ describe('router guards', () => {
     expect(window.localStorage.getItem('rayleabot.session_token')).toBeNull()
   })
 
-  it('lets offline state own protected navigation', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
+  it('keeps the requested page in place when session bootstrap is interrupted', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
     const availabilityStore = useAppAvailabilityStore()
-    availabilityStore.markOffline('http', '/commands')
     const router = createAppRouter(createMemoryHistory())
 
     await router.push('/commands')
     await router.isReady()
 
-    expect(router.currentRoute.value.name).toBe('offline')
+    expect(router.currentRoute.value.name).toBe('commands')
+    expect(availabilityStore.isConnectionInterrupted).toBe(true)
   })
 
-  it('opens the offline page when a route chunk cannot be loaded', async () => {
+  it('keeps the current page when a route chunk cannot be loaded', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
     const availabilityStore = useAppAvailabilityStore()
     const uiShellStore = useUiShellStore()
@@ -139,8 +139,8 @@ describe('router guards', () => {
     await Promise.resolve()
     await new Promise((resolve) => window.setTimeout(resolve, 180))
 
-    expect(availabilityStore.isOffline).toBe(true)
+    expect(availabilityStore.isConnectionInterrupted).toBe(true)
     expect(uiShellStore.routeLoading).toBe(false)
-    expect(router.currentRoute.value.name).toBe('offline')
+    expect(router.currentRoute.value.name).not.toBe('offline')
   })
 })

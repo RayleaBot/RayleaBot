@@ -29,7 +29,7 @@ function groupRoute(
 function exceptionRoute(
   path: string,
   name: string,
-  status: '403' | '404' | '500' | 'offline',
+  status: '403' | '404' | '500',
   titleKey: string,
   options: { public?: boolean; hideInTab?: boolean } = {},
 ): RouteRecordRaw {
@@ -299,7 +299,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       exceptionRoute('/403', 'forbidden', '403', 'routes.forbidden'),
       exceptionRoute('/404', 'not-found-page', '404', 'routes.notFound'),
       exceptionRoute('/500', 'server-error', '500', 'routes.serverError'),
-      exceptionRoute('/offline', 'offline', 'offline', 'routes.offline', { public: true, hideInTab: true }),
       {
         path: '/:pathMatch(.*)*',
         name: 'not-found',

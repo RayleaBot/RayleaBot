@@ -5,7 +5,6 @@ import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons-vue'
 import Icon403 from '@/components/fallback/icons/Icon403.vue'
 import Icon404 from '@/components/fallback/icons/Icon404.vue'
 import Icon500 from '@/components/fallback/icons/Icon500.vue'
-import IconOffline from '@/components/fallback/icons/IconOffline.vue'
 import { t } from '@/i18n'
 import type { ExceptionStatus } from '@/lib/exception-status'
 
@@ -41,8 +40,6 @@ const fallbackIcon = computed(() => {
       return Icon404
     case '500':
       return Icon500
-    case 'offline':
-      return IconOffline
     default:
       return null
   }
@@ -51,9 +48,7 @@ const fallbackIcon = computed(() => {
 const titleText = computed(() => props.title || t(`fallback.status.${props.status}.title`))
 const descriptionText = computed(() => props.description || t(`fallback.status.${props.status}.description`))
 const homeButtonLabel = computed(() => props.homeLabel || t('fallback.actions.backHome'))
-const retryButtonLabel = computed(() => props.retryLabel || (
-  props.status === 'offline' ? t('fallback.actions.recheck') : t('fallback.actions.retry')
-))
+const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.retry'))
 </script>
 
 <template>
