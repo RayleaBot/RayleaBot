@@ -448,10 +448,6 @@ func ParseRateLimit(raw string) (RateLimit, error) {
 }
 
 func (t *CooldownTracker) Allow(key string) bool {
-	if t == nil {
-		return true
-	}
-
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -490,10 +486,6 @@ func (t *CooldownTracker) limitForKey(key string) RateLimit {
 }
 
 func (t *CooldownTracker) Cleanup() {
-	if t == nil {
-		return
-	}
-
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

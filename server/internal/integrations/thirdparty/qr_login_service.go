@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -102,13 +101,6 @@ type qrLoginEntry struct {
 
 type QRLoginServiceOption func(*QRLoginService)
 
-type QRLoginOptions struct {
-	Transport   http.RoundTripper
-	Now         func() time.Time
-	BrowserPath string
-	BrowserArgs []string
-}
-
 func WithQRLoginAccountStore(accounts QRLoginAccountStore) QRLoginServiceOption {
 	return func(service *QRLoginService) {
 		service.accounts = accounts
@@ -133,9 +125,6 @@ func NewQRLoginService(providers map[string]QRLoginProvider, now func() time.Tim
 }
 
 func (s *QRLoginService) Create(ctx context.Context, platform string) (QRLoginCreateResult, error) {
-	if s == nil {
-		return QRLoginCreateResult{}, ErrQRLoginUnsupportedPlatform
-	}
 	platform, provider, err := s.provider(platform)
 	if err != nil {
 		return QRLoginCreateResult{}, err
@@ -185,9 +174,6 @@ func providerLoginID(provider QRLoginProvider, platform string) (string, error) 
 }
 
 func (s *QRLoginService) Poll(ctx context.Context, platform, loginID string) (QRLoginPollResult, error) {
-	if s == nil {
-		return QRLoginPollResult{}, ErrQRLoginUnsupportedPlatform
-	}
 	platform, provider, err := s.provider(platform)
 	if err != nil {
 		return QRLoginPollResult{}, err
@@ -279,9 +265,6 @@ func (s *QRLoginService) Poll(ctx context.Context, platform, loginID string) (QR
 }
 
 func (s *QRLoginService) Cancel(_ context.Context, platform, loginID string) error {
-	if s == nil {
-		return ErrQRLoginUnsupportedPlatform
-	}
 	platform, provider, err := s.provider(platform)
 	if err != nil {
 		return err
@@ -297,15 +280,11 @@ func (s *QRLoginService) Cancel(_ context.Context, platform, loginID string) err
 		return ErrQRLoginSessionNotFound
 	}
 	s.closeEntry(entry, provider, true)
-	entry.mu.Lock()
-	entry.mu.Unlock()
+	entry.waitForPollCompletion()
 	return nil
 }
 
 func (s *QRLoginService) Close() {
-	if s == nil {
-		return
-	}
 	s.mu.Lock()
 	entries := make([]*qrLoginEntry, 0, len(s.sessions))
 	for loginID, entry := range s.sessions {
@@ -344,11 +323,16 @@ func (s *QRLoginService) closeEntries(entries []*qrLoginEntry, cancelled bool) {
 		if provider := s.providers[entry.platform]; provider != nil {
 			s.closeEntry(entry, provider, cancelled)
 			if cancelled {
-				entry.mu.Lock()
-				entry.mu.Unlock()
+				entry.waitForPollCompletion()
 			}
 		}
 	}
+}
+
+// waitForPollCompletion blocks until a Poll call holding the entry lock has returned.
+func (entry *qrLoginEntry) waitForPollCompletion() {
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
 }
 
 func (s *QRLoginService) closeEntry(entry *qrLoginEntry, provider QRLoginProvider, cancelled bool) {

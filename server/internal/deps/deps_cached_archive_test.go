@@ -70,11 +70,7 @@ func TestExtractZipReportsEntryProgress(t *testing.T) {
 	var events []extractProgress
 
 	if err := ZipWithProgress(archivePath, t.TempDir(), func(event ExtractProgress) {
-		events = append(events, extractProgress{
-			ExtractedEntries: event.ExtractedEntries,
-			TotalEntries:     event.TotalEntries,
-			Progress:         event.Progress,
-		})
+		events = append(events, extractProgress(event))
 	}); err != nil {
 		t.Fatalf("extractZipWithProgress failed: %v", err)
 	}
@@ -99,11 +95,7 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 	var events []extractProgress
 
 	if err := TarGzWithProgress(archivePath, t.TempDir(), func(event ExtractProgress) {
-		events = append(events, extractProgress{
-			ExtractedEntries: event.ExtractedEntries,
-			TotalEntries:     event.TotalEntries,
-			Progress:         event.Progress,
-		})
+		events = append(events, extractProgress(event))
 	}); err != nil {
 		t.Fatalf("extractTarGzWithProgress failed: %v", err)
 	}
@@ -438,18 +430,6 @@ func hasPrepareEvent(events []PrepareProgress, stage, status, sourceURL string) 
 func sha256Hex(content []byte) string {
 	sum := sha256.Sum256(content)
 	return hex.EncodeToString(sum[:])
-}
-
-func slicesEqual(left, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
 }
 
 func writeZipArchive(t *testing.T, archivePath string, files map[string]string) {

@@ -324,7 +324,7 @@ func launchAndWaitHeartbeat(ctx context.Context, installRoot string, request rel
 		case <-deadline.C:
 			_ = command.Process.Kill()
 			_ = os.Remove(heartbeatPath)
-			return errors.New("Launcher heartbeat timed out")
+			return errors.New("launcher heartbeat timed out")
 		case <-ticker.C:
 			payload, readErr := os.ReadFile(heartbeatPath)
 			if errors.Is(readErr, os.ErrNotExist) {
@@ -339,7 +339,7 @@ func launchAndWaitHeartbeat(ctx context.Context, installRoot string, request rel
 			if json.Unmarshal(payload, &observed) != nil || observed.Token != token {
 				_ = command.Process.Kill()
 				_ = os.Remove(heartbeatPath)
-				return errors.New("Launcher heartbeat is invalid")
+				return errors.New("launcher heartbeat is invalid")
 			}
 			if observed.Status != "ready" || observed.Version != buildInfo.Version || observed.ArtifactID != buildInfo.ArtifactID || observed.LauncherPID != command.Process.Pid || observed.ServiceRunning != request.ServiceWasRunning {
 				_ = command.Process.Kill()
@@ -347,7 +347,7 @@ func launchAndWaitHeartbeat(ctx context.Context, installRoot string, request rel
 					_ = killProcess(observed.ServicePID)
 				}
 				_ = os.Remove(heartbeatPath)
-				return fmt.Errorf("Launcher postflight failed: %s", observed.Error)
+				return fmt.Errorf("launcher postflight failed: %s", observed.Error)
 			}
 			_ = os.Remove(heartbeatPath)
 			return nil

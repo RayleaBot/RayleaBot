@@ -466,21 +466,21 @@ func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginM
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsGet() http.HandlerFunc {
-	return h.PluginManagementUIHandlers.HandlePluginSettingsGet()
+	return h.HandlePluginSettingsGet()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSettingsPut() http.HandlerFunc {
-	return h.PluginManagementUIHandlers.HandlePluginSettingsPut()
+	return h.HandlePluginSettingsPut()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsGet() http.HandlerFunc {
-	return h.PluginManagementUIHandlers.HandlePluginSecretsGet()
+	return h.HandlePluginSecretsGet()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsPut() http.HandlerFunc {
-	return h.PluginManagementUIHandlers.HandlePluginSecretsPut()
+	return h.HandlePluginSecretsPut()
 }
 
 func (h *pluginManagementUIHTTPHandlers) handlePluginSecretsDelete() http.HandlerFunc {
-	return h.PluginManagementUIHandlers.HandlePluginSecretsDelete()
+	return h.HandlePluginSecretsDelete()
 }

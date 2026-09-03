@@ -114,9 +114,13 @@ func TestServiceRenderCacheKeyTracksStoredSourceDigest(t *testing.T) {
 		t.Fatalf("Render current template: %v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(templatesRoot, "help.menu", "styles.css"), []byte("body { margin: 0; }\n.fresh { color: red; }"), 0o644); err != nil {
+	stylesheetPath := filepath.Join(templatesRoot, "help.menu", "styles.css")
+	if err := os.WriteFile(stylesheetPath, []byte("body { margin: 0; }\n.fresh { color: red; }"), 0o644); err != nil {
 		t.Fatalf("write updated template Stylesheet: %v", err)
+	}
+	updatedModTime := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := os.Chtimes(stylesheetPath, updatedModTime, updatedModTime); err != nil {
+		t.Fatalf("set updated template Stylesheet mtime: %v", err)
 	}
 
 	second, err := service.Render(context.Background(), request)
@@ -241,9 +245,13 @@ func TestServiceTemplateReadsSyncChangedFiles(t *testing.T) {
 		t.Fatalf("GetTemplate before update: %v", err)
 	}
 
-	time.Sleep(10 * time.Millisecond)
-	if err := os.WriteFile(filepath.Join(templatesRoot, "help.menu", "styles.css"), []byte("body { margin: 0; }\n.synced { color: red; }"), 0o644); err != nil {
+	stylesheetPath := filepath.Join(templatesRoot, "help.menu", "styles.css")
+	if err := os.WriteFile(stylesheetPath, []byte("body { margin: 0; }\n.synced { color: red; }"), 0o644); err != nil {
 		t.Fatalf("write updated template Stylesheet: %v", err)
+	}
+	updatedModTime := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)
+	if err := os.Chtimes(stylesheetPath, updatedModTime, updatedModTime); err != nil {
+		t.Fatalf("set updated template Stylesheet mtime: %v", err)
 	}
 
 	list, err := service.ListTemplates(context.Background())

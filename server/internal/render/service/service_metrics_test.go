@@ -16,6 +16,7 @@ type recordingRenderMetrics struct {
 	durations       []renderMetricSample
 	maxQueueDepth   int
 	queueDepthCalls int
+	queueDepths     chan int
 }
 
 type renderMetricSample struct {
@@ -25,10 +26,15 @@ type renderMetricSample struct {
 
 func (m *recordingRenderMetrics) SetRenderQueueDepth(depth int) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	m.queueDepthCalls++
 	if depth > m.maxQueueDepth {
 		m.maxQueueDepth = depth
+	}
+	m.mu.Unlock()
+
+	select {
+	case m.queueDepths <- depth:
+	default:
 	}
 }
 
@@ -70,7 +76,7 @@ func TestServiceRenderRecordsMetrics(t *testing.T) {
 		}
 	})
 
-	metrics := &recordingRenderMetrics{}
+	metrics := &recordingRenderMetrics{queueDepths: make(chan int, 8)}
 	service.SetMetricsObserver(metrics)
 
 	request := Request{
@@ -92,8 +98,7 @@ func TestServiceRenderRecordsMetrics(t *testing.T) {
 		t.Fatalf("second Render: %v", err)
 	}
 
-	// SetRenderQueueDepth runs in a goroutine; give it a moment.
-	time.Sleep(50 * time.Millisecond)
+	waitForQueueDepthAtLeast(t, metrics.queueDepths, 1)
 
 	metrics.mu.Lock()
 	defer metrics.mu.Unlock()
@@ -115,5 +120,22 @@ func TestServiceRenderRecordsMetrics(t *testing.T) {
 	}
 	if metrics.maxQueueDepth < 1 {
 		t.Fatalf("maxQueueDepth = %d, want >= 1", metrics.maxQueueDepth)
+	}
+}
+
+func waitForQueueDepthAtLeast(t *testing.T, depths <-chan int, minimum int) {
+	t.Helper()
+
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case depth := <-depths:
+			if depth >= minimum {
+				return
+			}
+		case <-timer.C:
+			t.Fatalf("timed out waiting for render queue depth >= %d", minimum)
+		}
 	}
 }

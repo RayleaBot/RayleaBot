@@ -225,6 +225,7 @@ func TestExecutorRejectsFullQueueBeforeCreatingTask(t *testing.T) {
 type recordingTaskMetrics struct {
 	mu           sync.Mutex
 	observations []taskMetricObservation
+	observed     chan struct{}
 }
 
 type taskMetricObservation struct {
@@ -241,6 +242,9 @@ func (m *recordingTaskMetrics) ObserveTaskExecution(taskType, outcome string, du
 		outcome:  outcome,
 		duration: duration,
 	})
+	if m.observed != nil {
+		m.observed <- struct{}{}
+	}
 }
 
 func (m *recordingTaskMetrics) snapshot() []taskMetricObservation {
@@ -261,7 +265,7 @@ func TestExecutor_RecordsMetrics(t *testing.T) {
 	executor := NewExecutor(registry, 30*time.Second)
 	defer executor.Close()
 
-	metrics := &recordingTaskMetrics{}
+	metrics := &recordingTaskMetrics{observed: make(chan struct{}, 2)}
 	executor.SetMetricsObserver(metrics)
 
 	successID, err := executor.Submit("backup.create", "ok", func(ctx context.Context, _ ProgressReporter) (*ResultSummary, error) {
@@ -280,8 +284,13 @@ func TestExecutor_RecordsMetrics(t *testing.T) {
 	waitForFinalStatus(t, registry, successID, StatusSucceeded)
 	waitForFinalStatus(t, registry, failID, StatusFailed)
 
-	// Allow the executor goroutine to record metrics.
-	time.Sleep(20 * time.Millisecond)
+	for range 2 {
+		select {
+		case <-metrics.observed:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for task metrics")
+		}
+	}
 
 	observations := metrics.snapshot()
 	if len(observations) != 2 {

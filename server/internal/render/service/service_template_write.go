@@ -191,10 +191,6 @@ func (s *Service) mapTemplateWriteError(err error) error {
 }
 
 func (s *Service) syncTemplatesFromFiles(ctx context.Context) error {
-	if s == nil {
-		return nil
-	}
-
 	s.templateSyncMu.Lock()
 	defer s.templateSyncMu.Unlock()
 

@@ -62,13 +62,26 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	}
 	systemRoutes := managementapi.NewSystemRoutes(systemHandlers, deps.Metrics.HTTPHandler())
 	protocolHandler := managementapi.NewProtocolHandlers(services.Protocol)
-	thirdPartyHandler := managementapi.NewThirdPartyHandlers(
-		services.ThirdParty,
-		deps.ServiceBuild.ThirdPartyAccountValidator,
-		services.ThirdPartyQRLogin,
+	thirdPartyOptions := []managementapi.ThirdPartyHandlersOption{
 		managementapi.WithThirdPartyAccountValidation(services.AccountValidation),
 		managementapi.WithThirdPartyAvatarTransport(deps.HTTPTransport),
-	)
+	}
+	var thirdPartyHandler *managementapi.ThirdPartyHandlers
+	if services.ThirdPartyQRLogin == nil {
+		thirdPartyHandler = managementapi.NewThirdPartyHandlers(
+			services.ThirdParty,
+			deps.ServiceBuild.ThirdPartyAccountValidator,
+			nil,
+			thirdPartyOptions...,
+		)
+	} else {
+		thirdPartyHandler = managementapi.NewThirdPartyHandlers(
+			services.ThirdParty,
+			deps.ServiceBuild.ThirdPartyAccountValidator,
+			services.ThirdPartyQRLogin,
+			thirdPartyOptions...,
+		)
+	}
 	updateHandler := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
 	eventsWS := managementapi.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents, services.ThirdPartyEvents)
 	logsWS := managementapi.NewLogsHandler(services.Logs)

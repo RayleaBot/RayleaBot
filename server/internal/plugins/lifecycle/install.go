@@ -249,10 +249,6 @@ func taskStatusPtr(status tasks.Status) *tasks.Status {
 	return &status
 }
 
-func timePtr(value time.Time) *time.Time {
-	return &value
-}
-
 func (s *InstallService) Accept(_ context.Context, acceptance plugins.InstallAcceptance) (string, error) {
 	s.mu.Lock()
 	if s.closed {

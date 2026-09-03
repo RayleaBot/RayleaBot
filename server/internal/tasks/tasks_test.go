@@ -50,7 +50,7 @@ func TestCreate_ReturnsTaskIDWithCorrectFormat(t *testing.T) {
 		t.Fatalf("hex part of task_id has length %d, want 32", len(hexPart))
 	}
 	for _, c := range hexPart {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Fatalf("task_id hex part contains non-hex character %q", c)
 		}
 	}

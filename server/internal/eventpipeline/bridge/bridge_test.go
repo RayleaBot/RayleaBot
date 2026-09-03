@@ -230,7 +230,7 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	select {
 	case frame := <-observability:
 		t.Fatalf("unexpected observability frame for rejected command: %#v", frame)
-	case <-time.After(100 * time.Millisecond):
+	default:
 	}
 
 	snapshot := eventBridge.Snapshot()

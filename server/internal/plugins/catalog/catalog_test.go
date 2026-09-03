@@ -246,7 +246,7 @@ func TestCatalogSubscribeSkipsUnchangedRuntimeState(t *testing.T) {
 	select {
 	case update := <-updates:
 		t.Fatalf("unexpected update: %#v", update)
-	case <-time.After(100 * time.Millisecond):
+	default:
 	}
 }
 

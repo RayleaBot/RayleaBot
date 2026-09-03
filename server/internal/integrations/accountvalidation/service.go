@@ -499,9 +499,10 @@ func (s *Service) logPluginValidationResult(request pluginValidationRequest, acc
 		checkedAt = account.Credential.CheckedAt.UTC().Format(time.RFC3339Nano)
 	}
 	stateLabel := "暂时无法确认"
-	if account.Credential.State == thirdparty.CredentialValid {
+	switch account.Credential.State {
+	case thirdparty.CredentialValid:
 		stateLabel = "有效"
-	} else if account.Credential.State == thirdparty.CredentialInvalid {
+	case thirdparty.CredentialInvalid:
 		stateLabel = "失效"
 	}
 	message := fmt.Sprintf(

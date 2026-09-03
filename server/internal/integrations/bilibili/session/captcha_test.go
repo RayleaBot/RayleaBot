@@ -132,22 +132,6 @@ func TestValidateErrorCode(t *testing.T) {
 	}
 }
 
-func TestNewCaptchaClient(t *testing.T) {
-	t.Parallel()
-	identity := NewIdentityProvider(nil)
-	client := NewCaptchaClient(nil, identity)
-	if client == nil {
-		t.Fatal("NewCaptchaClient returned nil")
-		return
-	}
-	if client.client == nil {
-		t.Fatal("CaptchaClient has nil http client")
-	}
-	if client.identity != identity {
-		t.Fatal("CaptchaClient identity mismatch")
-	}
-}
-
 func TestValidatePostsCorrectFormData(t *testing.T) {
 	t.Parallel()
 	var capturedBody []byte

@@ -53,20 +53,12 @@ func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progres
 	return err
 }
 
-func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
-	return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, nil)
-}
-
 func downloadHTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(downloadProgress)) error {
 	return HTTPSFileWithProgress(ctx, rawURL, destPath, func(event DownloadProgress) {
 		if progress == nil {
 			return
 		}
-		progress(downloadProgress{
-			DownloadedBytes: event.DownloadedBytes,
-			TotalBytes:      event.TotalBytes,
-			Progress:        event.Progress,
-		})
+		progress(downloadProgress(event))
 	})
 }
 

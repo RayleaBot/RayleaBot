@@ -37,10 +37,6 @@ type PreparedSync struct {
 }
 
 func (s *Service) SyncPluginTemplates(ctx context.Context, sources []Source) error {
-	if s == nil {
-		return nil
-	}
-
 	s.templateSyncMu.Lock()
 	defer s.templateSyncMu.Unlock()
 	for _, source := range sources {
@@ -69,9 +65,6 @@ func (s *Service) SyncPluginTemplates(ctx context.Context, sources []Source) err
 }
 
 func (s *Service) RemovePluginTemplates(ctx context.Context, pluginID string) error {
-	if s == nil {
-		return nil
-	}
 	if err := s.templateRepo.RemovePluginTemplatesExcept(ctx, pluginID, nil); err != nil {
 		return err
 	}
@@ -250,9 +243,6 @@ func loadValidSeed(pluginID, dir string) (Seed, string, error) {
 }
 
 func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested string) (string, error) {
-	if s == nil {
-		return "", &Error{Code: "platform.resource_missing", Message: "render service is not available"}
-	}
 	pluginID = strings.TrimSpace(pluginID)
 	requested = strings.TrimSpace(requested)
 	if requested == "" {

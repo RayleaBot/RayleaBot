@@ -45,11 +45,7 @@ func extractWithProgress(ctx context.Context, archivePath, archiveFormat, destRo
 		if progress == nil {
 			return
 		}
-		progress(extractProgress{
-			ExtractedEntries: event.ExtractedEntries,
-			TotalEntries:     event.TotalEntries,
-			Progress:         event.Progress,
-		})
+		progress(extractProgress(event))
 	})
 }
 

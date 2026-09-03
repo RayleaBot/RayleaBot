@@ -179,18 +179,12 @@ type MetricsObserver interface {
 }
 
 func (s *Service) SetMetricsObserver(observer MetricsObserver) {
-	if s == nil {
-		return
-	}
 	s.metricsMu.Lock()
 	s.metrics = observer
 	s.metricsMu.Unlock()
 }
 
 func (s *Service) currentMetrics() MetricsObserver {
-	if s == nil {
-		return nil
-	}
 	s.metricsMu.RLock()
 	defer s.metricsMu.RUnlock()
 	return s.metrics
@@ -324,17 +318,10 @@ func NewService(options Options) (*Service, error) {
 }
 
 func (s *Service) Close() error {
-	if s == nil {
-		return nil
-	}
 	return s.worker.Close()
 }
 
 func (s *Service) RefreshBrowserPath(browserPath string) {
-	if s == nil {
-		return
-	}
-
 	trimmed := strings.TrimSpace(browserPath)
 	s.mu.Lock()
 	s.browserPath = trimmed
@@ -345,16 +332,10 @@ func (s *Service) RefreshBrowserPath(browserPath string) {
 }
 
 func (s *Service) currentRunner() Runner {
-	if s == nil {
-		return nil
-	}
 	return s.worker.CurrentRunner()
 }
 
 func (s *Service) BrowserLaunchConfig() (string, []string) {
-	if s == nil {
-		return "", nil
-	}
 	return s.browserPath, append([]string(nil), s.browserArgs...)
 }
 
@@ -420,10 +401,6 @@ func (c *runtimeConfig) deviceScalePercentValue() int {
 }
 
 func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
-	if s == nil {
-		return
-	}
-
 	s.worker.UpdateLimits(WorkerLimits{
 		QueueMaxLength:   config.QueueMaxLength,
 		QueueWaitTimeout: config.QueueWaitTimeout,

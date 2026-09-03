@@ -144,9 +144,6 @@ func ManagedSourcePaths(templateDir string, files renderrepo.TemplateFiles) []st
 }
 
 func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, relativePath string) (TemplateAsset, error) {
-	if s == nil {
-		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
-	}
 	if err := s.syncTemplatesFromFiles(ctx); err != nil {
 		return TemplateAsset{}, err
 	}

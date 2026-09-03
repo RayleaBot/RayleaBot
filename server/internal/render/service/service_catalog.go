@@ -296,23 +296,14 @@ func templateDetailFromRepo(detail renderrepo.TemplateDetail) TemplateDetail {
 }
 
 func (s *Service) rememberTemplateRoot(templateID, templateDir, resourceRoot string) {
-	if s == nil {
-		return
-	}
 	s.templateRoots.Remember(templateID, templateDir, resourceRoot)
 }
 
 func (s *Service) templateDirFor(templateID string) string {
-	if s == nil {
-		return ""
-	}
 	return s.templateRoots.TemplateDir(templateID)
 }
 
 func (s *Service) templateRootFor(templateID string) Root {
-	if s == nil {
-		return Root{}
-	}
 	return s.templateRoots.TemplateRoot(templateID)
 }
 

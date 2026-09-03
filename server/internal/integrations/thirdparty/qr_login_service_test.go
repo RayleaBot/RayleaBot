@@ -179,8 +179,9 @@ func TestServiceCancelInterruptsConcurrentPollWithoutSaving(t *testing.T) {
 			ExpiresAt: now.Add(3 * time.Minute),
 			State:     QRLoginStatePendingScan,
 		},
-		pollStarted: make(chan struct{}),
-		releasePoll: make(chan struct{}),
+		pollStarted:  make(chan struct{}),
+		releasePoll:  make(chan struct{}),
+		closeStarted: make(chan struct{}),
 	}
 	accounts := &synchronizedAccountStore{}
 	service := NewQRLoginService(map[string]QRLoginProvider{PlatformDouyin: provider}, func() time.Time { return now }, WithQRLoginAccountStore(accounts))
@@ -200,9 +201,14 @@ func TestServiceCancelInterruptsConcurrentPollWithoutSaving(t *testing.T) {
 		cancelResult <- service.Cancel(context.Background(), PlatformDouyin, created.LoginID)
 	}()
 	select {
+	case <-provider.closeStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for Cancel to close the provider session")
+	}
+	select {
 	case err := <-cancelResult:
 		t.Fatalf("Cancel returned before the in-flight poll stopped: %v", err)
-	case <-time.After(50 * time.Millisecond):
+	default:
 	}
 	provider.mu.Lock()
 	closeCalls := provider.closeCalls
@@ -328,9 +334,10 @@ type prefixedProvider struct {
 }
 
 type blockingQRProvider struct {
-	create      QRLoginSession
-	pollStarted chan struct{}
-	releasePoll chan struct{}
+	create       QRLoginSession
+	pollStarted  chan struct{}
+	releasePoll  chan struct{}
+	closeStarted chan struct{}
 
 	mu         sync.Mutex
 	pollCalls  int
@@ -363,6 +370,9 @@ func (p *blockingQRProvider) Close(QRLoginSession) {
 	p.mu.Lock()
 	p.closeCalls++
 	p.mu.Unlock()
+	if p.closeStarted != nil {
+		close(p.closeStarted)
+	}
 }
 
 func (p prefixedProvider) LoginIDPrefix() string {

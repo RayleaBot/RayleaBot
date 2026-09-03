@@ -31,9 +31,6 @@ const (
 // 因此该解析必须复用扫码登录的持久化 profile，并与登录窗口互斥；搜索
 // 不需要用户交互，使用 headless 模式避免在宿主桌面弹出窗口。
 func (b *ChromedpBrowser) ResolveUser(ctx context.Context, query string, cookieSets []map[string]string) ([]thirdparty.AccountProfile, bool, error) {
-	if b == nil {
-		return nil, false, nil
-	}
 	if strings.TrimSpace(query) == "" {
 		return nil, false, nil
 	}

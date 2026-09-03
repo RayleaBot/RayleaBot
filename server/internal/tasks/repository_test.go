@@ -469,7 +469,7 @@ func TestSQLiteRepository_EmptyDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load from empty: %v", err)
 	}
-	if loaded != nil && len(loaded) != 0 {
+	if len(loaded) != 0 {
 		t.Fatalf("expected empty slice, got %d items", len(loaded))
 	}
 }

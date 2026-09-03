@@ -909,9 +909,6 @@ func TestEngine_TickFiresDueJob(t *testing.T) {
 	engine.now = func() time.Time { return job.NextRun.Add(time.Minute) }
 	engine.tick()
 
-	// Allow async persist goroutine to complete.
-	time.Sleep(100 * time.Millisecond)
-
 	mu.Lock()
 	defer mu.Unlock()
 	if len(fired) != 1 {

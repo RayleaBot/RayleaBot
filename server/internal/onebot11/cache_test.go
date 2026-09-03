@@ -28,7 +28,13 @@ func TestIdentityCacheTTLExpiry(t *testing.T) {
 		t.Fatalf("expected cached stranger info, got ok=%v info=%+v", ok, info)
 	}
 
-	time.Sleep(60 * time.Millisecond)
+	expiredAt := time.Unix(0, 0)
+	cache.mu.Lock()
+	cache.login.expiresAt = expiredAt
+	cache.groups["g1"].expiresAt = expiredAt
+	cache.members["g1:u1"].expiresAt = expiredAt
+	cache.strangers["u2"].expiresAt = expiredAt
+	cache.mu.Unlock()
 
 	if _, ok := cache.GetLogin(); ok {
 		t.Fatal("expected login cache to be expired")

@@ -273,21 +273,6 @@ func sameHTTPOrigin(left, right *url.URL) bool {
 	return effectivePort(left) == effectivePort(right)
 }
 
-func (h *PluginManagementUIHandlers) resolvePluginUISnapshot(pluginID string) (plugins.Snapshot, bool) {
-	if h.plugins == nil {
-		return plugins.Snapshot{}, false
-	}
-
-	snapshot, ok := h.plugins.Get(strings.TrimSpace(pluginID))
-	if !ok || !pluginUISnapshotReady(snapshot) {
-		return plugins.Snapshot{}, false
-	}
-	if strings.TrimSpace(snapshot.PackageRootPath) == "" || len(snapshot.ManagementUI.Pages) == 0 || strings.TrimSpace(snapshot.ManagementUI.Entry) == "" {
-		return plugins.Snapshot{}, false
-	}
-	return snapshot, true
-}
-
 func pluginUISnapshotReady(snapshot plugins.Snapshot) bool {
 	return snapshot.Valid && snapshot.RegistrationState == "installed" && snapshot.ArtifactVersion == artifact.Version &&
 		snapshot.ArtifactUIAvailable && snapshot.ManagementUI != nil && strings.TrimSpace(snapshot.PackageRootPath) != "" &&

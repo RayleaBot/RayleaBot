@@ -13,10 +13,6 @@ import (
 )
 
 func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
-	if s == nil {
-		return Result{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
-	}
-
 	startedAt := time.Now()
 	result, err := s.renderInternal(ctx, request)
 	s.recordRenderMetric(renderOutcome(result, err), time.Since(startedAt))
@@ -24,10 +20,6 @@ func (s *Service) Render(ctx context.Context, request Request) (Result, error) {
 }
 
 func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML, error) {
-	if s == nil {
-		return PreviewHTML{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
-	}
-
 	normalized, payloadBytes, err := s.normalizeRequest(request)
 	if err != nil {
 		return PreviewHTML{}, err

@@ -53,18 +53,12 @@ func newMessageCircuitBreaker(now func() time.Time, cooldown time.Duration, thre
 }
 
 func (b *MessageCircuitBreaker) ApplyConfig(cfg config.Config) {
-	if b == nil {
-		return
-	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.cooldown = messageCircuitCooldown(cfg)
 }
 
 func (b *MessageCircuitBreaker) Allow(request MessageLimitRequest) error {
-	if b == nil {
-		return nil
-	}
 	key := circuitKey(request)
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -81,9 +75,6 @@ func (b *MessageCircuitBreaker) Allow(request MessageLimitRequest) error {
 }
 
 func (b *MessageCircuitBreaker) Record(request MessageLimitRequest, sendErr error) {
-	if b == nil {
-		return
-	}
 	key := circuitKey(request)
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -165,9 +156,6 @@ func NewMessagePolicy(cfg config.Config) *MessagePolicy {
 }
 
 func (p *MessagePolicy) ApplyConfig(cfg config.Config) {
-	if p == nil {
-		return
-	}
 	if p.Limiter != nil {
 		p.Limiter.ApplyConfig(cfg)
 	}
@@ -177,7 +165,7 @@ func (p *MessagePolicy) ApplyConfig(cfg config.Config) {
 }
 
 func (p *MessagePolicy) Wait(ctx context.Context, request MessageLimitRequest) error {
-	if p == nil || p.Limiter == nil {
+	if p.Limiter == nil {
 		return nil
 	}
 	return p.Limiter.Wait(ctx, request)

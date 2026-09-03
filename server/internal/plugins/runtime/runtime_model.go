@@ -467,8 +467,6 @@ type ProtocolActionConfigWriteFrame struct {
 	Values map[string]json.RawMessage `json:"values"`
 }
 
-type ProtocolActionGovernanceReadFrame struct{}
-
 type ProtocolActionGovernanceBlacklistWriteFrame struct {
 	Operation string  `json:"operation"`
 	EntryType *string `json:"entry_type,omitempty"`

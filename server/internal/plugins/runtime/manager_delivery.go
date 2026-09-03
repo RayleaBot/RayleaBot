@@ -88,10 +88,7 @@ func BuildEventFrame(event Event, requestID string) EventFrame {
 	if event.Message != nil && (event.Message.PlainText != "" || len(event.Message.Segments) > 0) {
 		msgFrame := &ProtocolMessageFrame{PlainText: event.Message.PlainText}
 		for _, seg := range event.Message.Segments {
-			msgFrame.Segments = append(msgFrame.Segments, ProtocolSegmentFrame{
-				Type: seg.Type,
-				Data: seg.Data,
-			})
+			msgFrame.Segments = append(msgFrame.Segments, ProtocolSegmentFrame(seg))
 		}
 		frame.Event.Message = msgFrame
 	}

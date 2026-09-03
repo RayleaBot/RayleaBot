@@ -116,36 +116,3 @@ func addOptionalFileToZip(writer *zip.Writer, sourcePath, archivePath string) er
 	}
 	return addFileToZip(writer, sourcePath, archivePath)
 }
-
-func addDirToZip(writer *zip.Writer, sourceRoot, archivePrefix string) (int, error) {
-	count := 0
-	err := filepath.WalkDir(sourceRoot, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-
-		relativePath, err := filepath.Rel(sourceRoot, path)
-		if err != nil {
-			return err
-		}
-		archivePath := filepath.ToSlash(filepath.Join(archivePrefix, relativePath))
-
-		if entry.IsDir() {
-			if len(entry.Name()) > 1 && entry.Name()[0] == '.' {
-				return filepath.SkipDir
-			}
-			if archivePath == archivePrefix {
-				return nil
-			}
-			_, err := writer.Create(archivePath + "/")
-			return err
-		}
-
-		if err := addFileToZip(writer, path, archivePath); err != nil {
-			return err
-		}
-		count++
-		return nil
-	})
-	return count, err
-}

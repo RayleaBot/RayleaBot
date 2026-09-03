@@ -51,8 +51,11 @@ func TestAllowAgainAfterWindowExpires(t *testing.T) {
 		t.Fatal("second call should be denied within window")
 	}
 
-	// Wait for window to expire.
-	time.Sleep(60 * time.Millisecond)
+	tracker.mu.Lock()
+	for index := range tracker.windows["user:u1"].timestamps {
+		tracker.windows["user:u1"].timestamps[index] = time.Unix(0, 0)
+	}
+	tracker.mu.Unlock()
 
 	if !tracker.Allow("user:u1") {
 		t.Fatal("call after window expiry should be allowed")

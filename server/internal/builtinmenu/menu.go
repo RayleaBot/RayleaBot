@@ -596,24 +596,6 @@ func builtinCommandCoveredByHelp(commandItem map[string]any, helpCommandNames ma
 	return false
 }
 
-func findBuiltinCommandView(commands []plugins.CommandView, value string) (plugins.CommandView, bool) {
-	value = normalizeMenuLookup(value)
-	if value == "" {
-		return plugins.CommandView{}, false
-	}
-	for _, command := range commands {
-		candidates := []string{command.ID, command.Name, command.EffectiveName}
-		candidates = append(candidates, command.TriggerNames...)
-		candidates = append(candidates, command.Aliases...)
-		for _, candidate := range candidates {
-			if normalizeMenuLookup(candidate) == value {
-				return command, true
-			}
-		}
-	}
-	return plugins.CommandView{}, false
-}
-
 func normalizeBuiltinMenuTriggerType(triggerType string) string {
 	switch strings.TrimSpace(triggerType) {
 	case "setting":

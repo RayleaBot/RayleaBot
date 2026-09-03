@@ -325,17 +325,10 @@ func NewWithDurations(initial time.Duration, multiplier float64, maxDelay time.D
 }
 
 func (b *Backoff) RandFloat() func() float64 {
-	if b == nil {
-		return nil
-	}
 	return b.randFloat
 }
 
 func (b *Backoff) Duration(attempt int) time.Duration {
-	if b == nil {
-		return time.Second
-	}
-
 	base := float64(b.initial)
 	maxDelay := float64(b.max)
 

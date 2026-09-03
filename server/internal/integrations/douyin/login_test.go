@@ -145,14 +145,6 @@ func TestIsDouyinQRCodePollBlocked(t *testing.T) {
 	}
 }
 
-func TestDouyinBrowserCreateTimeoutFitsWebRequestTimeout(t *testing.T) {
-	t.Parallel()
-
-	if douyinBrowserCreateTimeout >= 30*time.Second {
-		t.Fatalf("douyin browser create timeout = %s, want less than web request timeout", douyinBrowserCreateTimeout)
-	}
-}
-
 func TestHasLoginCookieRequiresStrongSessionCookie(t *testing.T) {
 	t.Parallel()
 

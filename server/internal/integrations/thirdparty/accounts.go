@@ -60,59 +60,12 @@ type UpsertRequest struct {
 }
 
 type AccountProfile struct {
-	UID       string
+	UID string
 	// UniqueID 是平台用户可见、可被用户修改的标识（如抖音号）；仅用于
 	// 展示，解析/订阅绑定必须以 UID 为准。
 	UniqueID  string
 	Nickname  string
 	AvatarURL string
-}
-
-type MonitorSnapshot struct {
-	Platform  string        `json:"platform"`
-	Items     []MonitorItem `json:"items"`
-	UpdatedAt time.Time     `json:"updated_at"`
-}
-
-type MonitorItem struct {
-	UID        string
-	Username   string
-	AvatarURL  string
-	ProfileURL string
-	Services   []string
-	Dynamic    *MonitorDynamic
-	Live       MonitorLive
-	UpdatedAt  time.Time
-}
-
-type MonitorDynamic struct {
-	LastID      string
-	Service     string
-	Title       string
-	Summary     string
-	URL         string
-	Images      []MonitorImage
-	PublishedAt *time.Time
-	ObservedAt  time.Time
-}
-
-type MonitorLive struct {
-	RoomID          string
-	RoomName        string
-	RoomURL         string
-	CoverURL        string
-	IsLive          bool
-	LiveStartedAt   *time.Time
-	LiveEndedAt     *time.Time
-	ConnectionState string
-	LastError       string
-	UpdatedAt       *time.Time
-}
-
-type MonitorImage struct {
-	URL    string
-	Width  int
-	Height int
 }
 
 // Empty reports whether the profile has no meaningful data.
@@ -172,16 +125,10 @@ func NewAccountValidator(transport http.RoundTripper, now func() time.Time) *Acc
 }
 
 func (v *AccountValidator) RegisterPlatform(platform string, checkFn func(context.Context, *http.Client, map[string]string) (AccountProfile, error)) {
-	if v == nil {
-		return
-	}
 	v.CheckFuncs[platform] = checkFn
 }
 
 func (v *AccountValidator) CheckCookie(ctx context.Context, platform, cookie string) (AccountProfile, CredentialStatus, error) {
-	if v == nil {
-		return AccountProfile{}, CredentialStatus{}, fmt.Errorf("third-party account validator is unavailable")
-	}
 	normalized, err := NormalizePlatform(platform)
 	if err != nil {
 		return AccountProfile{}, v.invalidStatus(err.Error()), err

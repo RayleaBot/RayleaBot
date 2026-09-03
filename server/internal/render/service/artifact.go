@@ -90,9 +90,6 @@ func newArtifactStore(outputRoot string) *artifactStore {
 }
 
 func (s *Service) LookupArtifact(artifactID string) (Artifact, error) {
-	if s == nil {
-		return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render service is not available"}
-	}
 	return s.artifactStore.lookup(artifactID)
 }
 

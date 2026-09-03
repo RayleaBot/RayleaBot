@@ -65,7 +65,7 @@ func validSemanticIdentifiers(value string, rejectNumericLeadingZero bool) bool 
 			return false
 		}
 		for _, character := range identifier {
-			if !((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') || character == '-') {
+			if (character < 'a' || character > 'z') && (character < 'A' || character > 'Z') && (character < '0' || character > '9') && character != '-' {
 				return false
 			}
 		}

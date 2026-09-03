@@ -51,10 +51,6 @@ func NewWorker(config WorkerConfig) *Worker {
 }
 
 func (w *Worker) Acquire(ctx context.Context) (func(), error) {
-	if w == nil {
-		return nil, &Error{Code: "platform.resource_missing", Message: "render worker is not available"}
-	}
-
 	if err := w.reserveSlot(); err != nil {
 		return nil, err
 	}
@@ -92,9 +88,6 @@ func (w *Worker) Acquire(ctx context.Context) (func(), error) {
 }
 
 func (w *Worker) RenderContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	if w == nil {
-		return ctx, func() {}
-	}
 	if timeout := w.RenderTimeout(); timeout > 0 {
 		return context.WithTimeout(ctx, timeout)
 	}
@@ -102,18 +95,12 @@ func (w *Worker) RenderContext(ctx context.Context) (context.Context, context.Ca
 }
 
 func (w *Worker) CurrentRunner() Runner {
-	if w == nil {
-		return nil
-	}
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.runner
 }
 
 func (w *Worker) UpdateLimits(limits WorkerLimits) {
-	if w == nil {
-		return
-	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if limits.QueueMaxLength > 0 {
@@ -128,27 +115,18 @@ func (w *Worker) UpdateLimits(limits WorkerLimits) {
 }
 
 func (w *Worker) QueueWaitTimeout() time.Duration {
-	if w == nil {
-		return 0
-	}
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.queueWaitTimeout
 }
 
 func (w *Worker) RenderTimeout() time.Duration {
-	if w == nil {
-		return 0
-	}
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.renderTimeout
 }
 
 func (w *Worker) Close() error {
-	if w == nil {
-		return nil
-	}
 	releaseWorkers := w.acquireAllWorkerSlots()
 	defer releaseWorkers()
 
@@ -160,10 +138,6 @@ func (w *Worker) Close() error {
 }
 
 func (w *Worker) RefreshChromiumRunner(browserPath string, browserArgs []string) bool {
-	if w == nil {
-		return false
-	}
-
 	w.mu.RLock()
 	oldRunner := w.runner
 	replaceDefaultRunner := IsChromiumRunner(oldRunner)
@@ -227,7 +201,7 @@ func (w *Worker) publishQueueDepthLocked() {
 }
 
 func (w *Worker) acquireAllWorkerSlots() func() {
-	if w == nil || w.slots == nil {
+	if w.slots == nil {
 		return func() {}
 	}
 	count := cap(w.slots)

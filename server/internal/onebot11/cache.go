@@ -197,10 +197,6 @@ type FrameInvalidation struct {
 }
 
 func (c *IdentityCache) InvalidateForEvent(event EventInvalidation) {
-	if c == nil {
-		return
-	}
-
 	groupID := strings.TrimSpace(event.ConversationID)
 	userID := strings.TrimSpace(event.SenderID)
 
@@ -252,7 +248,7 @@ func (c *IdentityCache) InvalidateForEvent(event EventInvalidation) {
 }
 
 func (c *IdentityCache) InvalidateForFrame(frame FrameInvalidation) {
-	if c == nil || strings.TrimSpace(frame.PostType) != "notice" {
+	if strings.TrimSpace(frame.PostType) != "notice" {
 		return
 	}
 
@@ -287,10 +283,6 @@ func (c *IdentityCache) InvalidateForFrame(frame FrameInvalidation) {
 }
 
 func (c *IdentityCache) InvalidateForAPICall(action string, params map[string]any) {
-	if c == nil {
-		return
-	}
-
 	groupID := strings.TrimSpace(cachePayloadString(params["group_id"]))
 	userID := strings.TrimSpace(cachePayloadString(params["user_id"]))
 

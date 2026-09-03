@@ -408,6 +408,7 @@ func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
+		started:  make(chan pluginruntime.Event, 1),
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
@@ -416,7 +417,7 @@ func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
 	d.SetRuntimePublisher(pub)
 
 	d.Dispatch(context.Background(), testEvent(), "")
-	time.Sleep(20 * time.Millisecond)
+	waitForStartedEvent(t, blocker.started)
 	d.Dispatch(context.Background(), testEvent(), "")
 	d.Dispatch(context.Background(), testEvent(), "")
 	d.FlushDispatcherWindow(10)
@@ -468,6 +469,7 @@ type recordingDispatchMetrics struct {
 	dispatcherDrops   map[string]map[string]int
 	outboundSends     map[string]map[string]int
 	outboundDurations []outboundDurationSample
+	outboundRecorded  chan struct{}
 }
 
 type outboundDurationSample struct {
@@ -480,6 +482,7 @@ func newRecordingDispatchMetrics() *recordingDispatchMetrics {
 		pipelineCounters: map[string]map[string]int{},
 		dispatcherDrops:  map[string]map[string]int{},
 		outboundSends:    map[string]map[string]int{},
+		outboundRecorded: make(chan struct{}, 1),
 	}
 }
 
@@ -503,11 +506,16 @@ func (m *recordingDispatchMetrics) IncEventPipelineStage(stage, outcome string) 
 
 func (m *recordingDispatchMetrics) IncOutboundSend(adapter, outcome string) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	if _, ok := m.outboundSends[adapter]; !ok {
 		m.outboundSends[adapter] = map[string]int{}
 	}
 	m.outboundSends[adapter][outcome]++
+	m.mu.Unlock()
+
+	select {
+	case m.outboundRecorded <- struct{}{}:
+	default:
+	}
 }
 
 func (m *recordingDispatchMetrics) ObserveOutboundDuration(adapter string, duration time.Duration) {
@@ -545,7 +553,11 @@ func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 	d.Register("metric-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
-	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-metrics.outboundRecorded:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timed out waiting for outbound metrics")
+	}
 
 	metrics.mu.Lock()
 	defer metrics.mu.Unlock()

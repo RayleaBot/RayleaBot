@@ -4,7 +4,6 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -19,6 +18,15 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 	if err := repo.Add(ctx, "user", "10001", "值班账号"); err != nil {
 		t.Fatalf("add whitelist entry: %v", err)
 	}
+	const createdAt = "2000-01-02T03:04:05Z"
+	if _, err := store.Write.ExecContext(ctx,
+		`UPDATE whitelist_entries SET created_at = ? WHERE entry_type = ? AND target_id = ?`,
+		createdAt,
+		"user",
+		"10001",
+	); err != nil {
+		t.Fatalf("set fixed whitelist created_at: %v", err)
+	}
 
 	entry, err := repo.Get(ctx, "user", "10001")
 	if err != nil {
@@ -27,9 +35,9 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 	if entry.Reason != "值班账号" {
 		t.Fatalf("reason = %q, want 值班账号", entry.Reason)
 	}
-	createdAt := entry.CreatedAt
-
-	time.Sleep(20 * time.Millisecond)
+	if entry.CreatedAt != createdAt {
+		t.Fatalf("created_at = %q, want fixed value %q", entry.CreatedAt, createdAt)
+	}
 	if err := repo.Add(ctx, "user", "10001", "轮值账号"); err != nil {
 		t.Fatalf("upsert whitelist entry: %v", err)
 	}

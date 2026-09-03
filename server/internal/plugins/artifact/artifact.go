@@ -243,7 +243,7 @@ func validateBinary(path, platform string) error {
 			return invalid("backend is not a valid PE executable", err)
 		}
 		defer file.Close()
-		if file.FileHeader.Machine != pe.IMAGE_FILE_MACHINE_AMD64 {
+		if file.Machine != pe.IMAGE_FILE_MACHINE_AMD64 {
 			return invalid("backend PE architecture must be amd64", nil)
 		}
 	case "linux-x64":

@@ -277,21 +277,6 @@ func writePluginRenderTemplate(t *testing.T, repoRoot, pluginID, templateID stri
 	}
 }
 
-func createPluginEntry(t *testing.T, repoRoot string, relativeDir string, entryName string) {
-	t.Helper()
-
-	pluginDir := filepath.Join(repoRoot, filepath.FromSlash(relativeDir))
-	if err := os.MkdirAll(pluginDir, 0o755); err != nil {
-		t.Fatalf("create plugin dir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(pluginDir, "info.json"), []byte("{}"), 0o644); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(pluginDir, entryName), []byte("placeholder"), 0o644); err != nil {
-		t.Fatalf("write entry: %v", err)
-	}
-}
-
 func waitTask(t *testing.T, registry *tasks.Registry, taskID string, want tasks.Status) tasks.Snapshot {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)

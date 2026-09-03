@@ -30,16 +30,10 @@ func NewPluginLogLimiter(cfg config.Config) *PluginLogLimiter {
 }
 
 func (l *PluginLogLimiter) ApplyConfig(cfg config.Config) {
-	if l == nil {
-		return
-	}
 	l.SetLimit(parsePluginLogRateLimit(cfg))
 }
 
 func (l *PluginLogLimiter) SetLimit(limit permission.RateLimit) {
-	if l == nil {
-		return
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.limit = limit
@@ -56,9 +50,6 @@ func (l *PluginLogLimiter) SetLimit(limit permission.RateLimit) {
 }
 
 func (l *PluginLogLimiter) Allow(pluginID string) bool {
-	if l == nil {
-		return true
-	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

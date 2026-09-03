@@ -100,6 +100,7 @@ type fakeSender struct {
 	mu          sync.Mutex
 	messages    []onebot11.OutboundMessageSend
 	replies     []onebot11.OutboundMessageReply
+	sent        chan onebot11.OutboundMessageSend
 	sendResult  onebot11.SendMessageResult
 	replyResult onebot11.SendMessageResult
 	sendErr     error
@@ -108,13 +109,19 @@ type fakeSender struct {
 
 func (f *fakeSender) SendMessage(_ context.Context, msg onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.messages = append(f.messages, msg)
 	result := f.sendResult
 	if result.MessageID == "" {
 		result.MessageID = "msg-1"
 	}
-	return result, f.sendErr
+	err := f.sendErr
+	f.mu.Unlock()
+
+	select {
+	case f.sent <- msg:
+	default:
+	}
+	return result, err
 }
 
 func (f *fakeSender) SendReply(_ context.Context, reply onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
@@ -138,14 +145,21 @@ func (f fakeReplyTargets) ResolveReplyTarget(eventID string) (outbound.ReplyTarg
 type recordingOutboundLimiter struct {
 	mu       sync.Mutex
 	requests []outbound.MessageLimitRequest
+	called   chan outbound.MessageLimitRequest
 	err      error
 }
 
 func (l *recordingOutboundLimiter) Wait(_ context.Context, request outbound.MessageLimitRequest) error {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 	l.requests = append(l.requests, request)
-	return l.err
+	err := l.err
+	l.mu.Unlock()
+
+	select {
+	case l.called <- request:
+	default:
+	}
+	return err
 }
 
 func (l *recordingOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
@@ -194,6 +208,30 @@ func waitForStartedEvent(t *testing.T, started <-chan pluginruntime.Event) plugi
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected event delivery to start")
 		return pluginruntime.Event{}
+	}
+}
+
+func waitForSentMessage(t *testing.T, sent <-chan onebot11.OutboundMessageSend) onebot11.OutboundMessageSend {
+	t.Helper()
+
+	select {
+	case message := <-sent:
+		return message
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected outbound message send")
+		return onebot11.OutboundMessageSend{}
+	}
+}
+
+func waitForLimiterRequest(t *testing.T, called <-chan outbound.MessageLimitRequest) outbound.MessageLimitRequest {
+	t.Helper()
+
+	select {
+	case request := <-called:
+		return request
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected outbound limiter request")
+		return outbound.MessageLimitRequest{}
 	}
 }
 
@@ -264,8 +302,14 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan pluginruntime.Event, 1),
+	}
+	rt2 := &fakeDeliverer{
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan pluginruntime.Event, 1),
+	}
 
 	d.Register("plugin-a", rt1, []string{"message.group"}, nil, 1)
 	d.Register("plugin-b", rt2, []string{"message.group"}, nil, 1)
@@ -275,8 +319,8 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 		t.Fatalf("expected 2 results, got %d", len(results))
 	}
 
-	// Wait for workers to process.
-	time.Sleep(100 * time.Millisecond)
+	waitForStartedEvent(t, rt1.started)
+	waitForStartedEvent(t, rt2.started)
 
 	if rt1.eventCount() != 1 || rt2.eventCount() != 1 {
 		t.Errorf("expected 1 event each, got plugin-a=%d, plugin-b=%d", rt1.eventCount(), rt2.eventCount())
@@ -293,7 +337,6 @@ func TestDispatchDoesNotFanOutOrdinaryEventsToEmptySubscriptions(t *testing.T) {
 	if results := d.Dispatch(context.Background(), testEvent(), ""); len(results) != 0 {
 		t.Fatalf("dispatch results = %#v, want no target", results)
 	}
-	time.Sleep(20 * time.Millisecond)
 	if runtime.eventCount() != 0 {
 		t.Fatalf("empty subscription received %d events", runtime.eventCount())
 	}
@@ -393,7 +436,10 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan pluginruntime.Event, 1),
+	}
 	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("weather", rt1, []string{"message.group"}, []CommandDecl{
@@ -411,7 +457,7 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 		t.Errorf("expected plugin weather, got %s", results[0].PluginID)
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	waitForStartedEvent(t, rt1.started)
 	if rt1.eventCount() != 1 {
 		t.Errorf("weather plugin should receive 1 event, got %d", rt1.eventCount())
 	}
@@ -441,7 +487,10 @@ func TestDispatchDirectedDeliveryByCommandPattern(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt := &fakeDeliverer{
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan pluginruntime.Event, 1),
+	}
 	d.Register("guide", rt, []string{"plugin.started"}, []CommandDecl{
 		{Name: "角色攻略", MatchPattern: "^(.+?)攻略$"},
 	}, 1)
@@ -451,7 +500,7 @@ func TestDispatchDirectedDeliveryByCommandPattern(t *testing.T) {
 		t.Fatalf("expected directed pattern result for guide, got %#v", results)
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	waitForStartedEvent(t, rt.started)
 	if rt.eventCount() != 1 {
 		t.Fatalf("guide plugin should receive 1 event, got %d", rt.eventCount())
 	}
@@ -515,7 +564,10 @@ func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rtRunning := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rtRunning := &fakeDeliverer{
+		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan pluginruntime.Event, 1),
+	}
 	rtBackoff := &fakeDeliverer{
 		state:    pluginruntime.StateBackoff,
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
@@ -532,7 +584,7 @@ func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 		t.Fatalf("unexpected target: got %q want %q", results[0].PluginID, "running")
 	}
 
-	time.Sleep(50 * time.Millisecond)
+	waitForStartedEvent(t, rtRunning.started)
 	if rtRunning.eventCount() != 1 {
 		t.Fatalf("running runtime should receive the event, got %d", rtRunning.eventCount())
 	}
@@ -557,14 +609,14 @@ func TestDispatchQueueOverflow(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
+		started:  make(chan pluginruntime.Event, 1),
 		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
 
 	// First dispatch fills the single-capacity queue.
 	d.Dispatch(context.Background(), testEvent(), "")
-	// Give the worker time to pick up the first item and block.
-	time.Sleep(20 * time.Millisecond)
+	waitForStartedEvent(t, blocker.started)
 	// Now the queue is empty but the worker is blocked. Fill queue again.
 	d.Dispatch(context.Background(), testEvent(), "")
 	// Third should be dropped.
@@ -783,7 +835,6 @@ func TestDispatchToPluginRejectsNonRunningRuntime(t *testing.T) {
 		t.Fatalf("unexpected error code: got %q want %q", result.ErrorCode, "platform.invalid_request")
 	}
 
-	time.Sleep(20 * time.Millisecond)
 	if rt.eventCount() != 0 {
 		t.Fatalf("non-running runtime should not receive the event, got %d", rt.eventCount())
 	}
@@ -813,14 +864,23 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 	rt.setState(pluginruntime.StateStarting)
 	close(rt.blockCh)
 
-	time.Sleep(80 * time.Millisecond)
+	drained := make(chan struct{})
+	go func() {
+		d.Deregister("test")
+		close(drained)
+	}()
+	select {
+	case <-drained:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("dispatcher lane did not drain after the active delivery was released")
+	}
 	if got := rt.eventCount(); got != 1 {
 		t.Fatalf("stopped runtime should not receive queued event, got %d events", got)
 	}
 }
 
 func TestDispatchActionExecution(t *testing.T) {
-	sender := &fakeSender{}
+	sender := &fakeSender{sent: make(chan onebot11.OutboundMessageSend, 1)}
 	d := New(slog.Default(), sender, nil, 16)
 	allowAllPermissions(d)
 	defer d.Close()
@@ -839,7 +899,7 @@ func TestDispatchActionExecution(t *testing.T) {
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
-	time.Sleep(100 * time.Millisecond)
+	waitForSentMessage(t, sender.sent)
 
 	sender.mu.Lock()
 	count := len(sender.messages)
@@ -856,7 +916,7 @@ func TestDispatchActionExecution(t *testing.T) {
 }
 
 func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
-	sender := &fakeSender{}
+	sender := &fakeSender{sent: make(chan onebot11.OutboundMessageSend, 1)}
 	d := New(slog.Default(), sender, nil, 16)
 	allowAllPermissions(d)
 	defer d.Close()
@@ -875,7 +935,7 @@ func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
-	time.Sleep(100 * time.Millisecond)
+	waitForSentMessage(t, sender.sent)
 
 	sender.mu.Lock()
 	defer sender.mu.Unlock()
@@ -891,7 +951,7 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 	t.Parallel()
 
 	sender := &fakeSender{}
-	limiter := &recordingOutboundLimiter{}
+	limiter := &recordingOutboundLimiter{called: make(chan outbound.MessageLimitRequest, 1)}
 	d := New(slog.Default(), sender, fakeReplyTargets{
 		"evt_reply_target": {
 			MessageID:  "msg-1",
@@ -916,7 +976,7 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
 	d.Dispatch(context.Background(), testEvent(), "")
-	time.Sleep(100 * time.Millisecond)
+	waitForLimiterRequest(t, limiter.called)
 
 	request := limiter.lastRequest()
 	if request.PluginID != "action-plugin" || request.TargetType != "group" || request.TargetID != "200" {

@@ -528,7 +528,7 @@ func verifyPreservedUserState(currentRoot, stagedRoot string) error {
 			return err
 		}
 		stagedInventory, err := regularTreeInventory(filepath.Join(stagedRoot, "plugins", "installed"))
-		if err != nil && !(len(currentInventory) == 0 && errors.Is(err, os.ErrNotExist)) {
+		if err != nil && (len(currentInventory) != 0 || !errors.Is(err, os.ErrNotExist)) {
 			return err
 		}
 		if strings.Join(currentInventory, "\n") != strings.Join(stagedInventory, "\n") {

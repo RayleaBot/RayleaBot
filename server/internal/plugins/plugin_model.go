@@ -269,9 +269,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	}
 	if len(snapshot.Screenshots) > 0 {
 		cloned.Screenshots = make([]Screenshot, 0, len(snapshot.Screenshots))
-		for _, screenshot := range snapshot.Screenshots {
-			cloned.Screenshots = append(cloned.Screenshots, screenshot)
-		}
+		cloned.Screenshots = append(cloned.Screenshots, snapshot.Screenshots...)
 	}
 	if snapshot.ManagementUI != nil {
 		copied := *snapshot.ManagementUI

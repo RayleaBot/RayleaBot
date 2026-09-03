@@ -213,9 +213,7 @@ func trimAuditEntries(entries []AuditEntry) []AuditEntry {
 	cloned := make([]AuditEntry, 0, len(entries))
 	for _, entry := range entries {
 		items := make([]AuditItem, 0, len(entry.Items))
-		for _, item := range entry.Items {
-			items = append(items, item)
-		}
+		items = append(items, entry.Items...)
 		cloned = append(cloned, AuditEntry{
 			TaskID:     entry.TaskID,
 			CreatedAt:  entry.CreatedAt,
@@ -279,21 +277,6 @@ func stringValue(value any) string {
 		return strings.TrimSpace(text)
 	}
 	return ""
-}
-
-func stringSlice(value any) []string {
-	raw, ok := value.([]any)
-	if !ok {
-		return nil
-	}
-	items := make([]string, 0, len(raw))
-	for _, item := range raw {
-		text := stringValue(item)
-		if text != "" {
-			items = append(items, text)
-		}
-	}
-	return items
 }
 
 func contains(items []string, want string) bool {

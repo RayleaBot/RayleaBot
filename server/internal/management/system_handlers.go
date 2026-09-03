@@ -42,11 +42,6 @@ type SchedulerMetadataService interface {
 	SchedulerTimezone() string
 }
 
-type SystemService interface {
-	CoreService
-	SchedulerMetadataService
-}
-
 type SchedulerService interface {
 	ListJobs() (schedulerJobListResponse, bool)
 	TriggerJob(context.Context, string) (schedulerJobTriggerResponse, *SystemHTTPError)

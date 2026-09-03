@@ -100,6 +100,12 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	if err != nil {
 		return serviceBuildResult{}, err
 	}
+	// 具体指针装配到接口字段前先判 nil，避免 typed nil 接口绕过
+	// 插件动作层的 ThirdPartyResolve == nil 判断。
+	var thirdPartyResolve actions.ThirdPartyResolver
+	if integrations.DouyinBrowser != nil {
+		thirdPartyResolve = integrations.DouyinBrowser
+	}
 	pluginRuntime := buildPluginRuntime(pluginRuntimeDeps{
 		Runtime:           runtimeState,
 		Platform:          platform,
@@ -110,7 +116,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		ManagementRedact:  deps.ManagementRedact,
 		ThirdParty:        integrations.ThirdParty,
 		AccountValidation: integrations.AccountValidation,
-		ThirdPartyResolve: integrations.DouyinBrowser,
+		ThirdPartyResolve: thirdPartyResolve,
 	})
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *wsevents.ServiceStatusService

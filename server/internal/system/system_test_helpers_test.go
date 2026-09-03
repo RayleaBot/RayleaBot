@@ -7,7 +7,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -84,8 +83,4 @@ func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
 
 func (a *App) startupRuntimeState(kind string) (StartupRuntimeState, bool) {
 	return a.services.system.StartupRuntimeState(kind)
-}
-
-func (a *App) setStartupRuntimeState(kind string, phase StartupRuntimePhase, issue *recovery.CompatibilityIssue) {
-	a.services.system.SetStartupRuntimeState(kind, phase, issue)
 }
