@@ -9,6 +9,19 @@ const errorMessageByKey: Record<string, string> = {
   'errors.platform.third_party_account_not_found': t('errors.platform.thirdPartyAccountNotFound'),
   'errors.platform.resource_missing': t('errors.platform.resourceMissing'),
   'errors.platform.template_not_found': t('errors.platform.templateNotFound'),
+  'errors.platform.task_queue_full': t('errors.platform.taskQueueFull'),
+  'errors.plugin.install_failed': t('errors.plugin.installFailed'),
+  'errors.plugin.install_inspection_required': t('errors.plugin.installInspectionRequired'),
+  'errors.plugin.install_inspection_expired': t('errors.plugin.installInspectionExpired'),
+  'errors.plugin.install_digest_mismatch': t('errors.plugin.installDigestMismatch'),
+  'errors.plugin.trusted_code_confirmation_required': t('errors.plugin.trustedCodeConfirmationRequired'),
+  'errors.plugin.package_resource_limit_exceeded': t('errors.plugin.packageResourceLimitExceeded'),
+  'errors.plugin.package_unsafe_entry': t('errors.plugin.packageUnsafeEntry'),
+  'errors.plugin.artifact_invalid': t('errors.plugin.artifactInvalid'),
+  'errors.plugin.platform_mismatch': t('errors.plugin.platformMismatch'),
+  'errors.plugin.store_catalog_unavailable': t('errors.plugin.storeCatalogUnavailable'),
+  'errors.plugin.store_release_unavailable': t('errors.plugin.storeReleaseUnavailable'),
+  'errors.plugin.store_integrity_mismatch': t('errors.plugin.storeIntegrityMismatch'),
 }
 
 const errorMessageByCode: Record<string, string> = {
@@ -19,10 +32,19 @@ const errorMessageByCode: Record<string, string> = {
   'platform.third_party_account_not_found': t('errors.platform.thirdPartyAccountNotFound'),
   'platform.resource_missing': t('errors.platform.resourceMissing'),
   'platform.template_not_found': t('errors.platform.templateNotFound'),
-}
-
-function hasChineseText(value: string) {
-  return /[\u3400-\u9fff]/.test(value)
+  'platform.task_queue_full': t('errors.platform.taskQueueFull'),
+  'plugin.install_failed': t('errors.plugin.installFailed'),
+  'plugin.install_inspection_required': t('errors.plugin.installInspectionRequired'),
+  'plugin.install_inspection_expired': t('errors.plugin.installInspectionExpired'),
+  'plugin.install_digest_mismatch': t('errors.plugin.installDigestMismatch'),
+  'plugin.trusted_code_confirmation_required': t('errors.plugin.trustedCodeConfirmationRequired'),
+  'plugin.package_resource_limit_exceeded': t('errors.plugin.packageResourceLimitExceeded'),
+  'plugin.package_unsafe_entry': t('errors.plugin.packageUnsafeEntry'),
+  'plugin.artifact_invalid': t('errors.plugin.artifactInvalid'),
+  'plugin.platform_mismatch': t('errors.plugin.platformMismatch'),
+  'plugin.store_catalog_unavailable': t('errors.plugin.storeCatalogUnavailable'),
+  'plugin.store_release_unavailable': t('errors.plugin.storeReleaseUnavailable'),
+  'plugin.store_integrity_mismatch': t('errors.plugin.storeIntegrityMismatch'),
 }
 
 export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.common.actionFailed') {
@@ -34,22 +56,6 @@ export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.com
     if (error.code && errorMessageByCode[error.code]) {
       return errorMessageByCode[error.code]
     }
-
-    if (typeof error.message === 'string' && hasChineseText(error.message)) {
-      return error.message
-    }
-
-    // Fallback: show the backend diagnostic error from details if available.
-    if (error.details && typeof error.details === 'object' && 'error' in error.details) {
-      const detailError = (error.details as Record<string, unknown>).error
-      if (typeof detailError === 'string' && detailError.trim()) {
-        return detailError.trim()
-      }
-    }
-  }
-
-  if (error instanceof Error && hasChineseText(error.message)) {
-    return error.message
   }
 
   return t(fallbackKey)
