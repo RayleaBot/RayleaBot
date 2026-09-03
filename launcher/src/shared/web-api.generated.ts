@@ -849,7 +849,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List plugins from the last verified static store catalog. */
+        /** List plugins from one cached plugin store source. */
         get: operations["listPluginStoreEntries"];
         put?: never;
         post?: never;
@@ -876,6 +876,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/plugin-store/plugins/{plugin_id}/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Download and inspect the selected plugin release before installation. */
+        post: operations["inspectPluginStoreEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/plugin-store/plugins/{plugin_id}/install": {
         parameters: {
             query?: never;
@@ -885,7 +902,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Install or update a plugin from a verified catalog release. */
+        /** Install a previously inspected plugin artifact. */
         post: operations["installPluginStoreEntry"];
         delete?: never;
         options?: never;
@@ -893,7 +910,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/plugin-store/refresh": {
+    "/api/plugin-store/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the official and custom plugin store sources. */
+        get: operations["listPluginStoreSources"];
+        put?: never;
+        /** Add and load a custom HTTPS plugin store source. */
+        post: operations["createPluginStoreSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugin-store/sources/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update and reload a custom plugin store source. */
+        put: operations["updatePluginStoreSource"];
+        post?: never;
+        /** Remove a custom plugin store source and its cached catalog. */
+        delete: operations["deletePluginStoreSource"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/plugin-store/sources/{source_id}/refresh": {
         parameters: {
             query?: never;
             header?: never;
@@ -902,8 +955,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fetch and verify the configured official static catalog immediately. */
-        post: operations["refreshPluginStoreCatalog"];
+        /** Refresh one plugin store source and replace its last successful cache. */
+        post: operations["refreshPluginStoreSource"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1820,20 +1873,28 @@ export interface components {
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
         };
-        PluginStoreCatalogStatus: {
-            /** @enum {string} */
-            source: "embedded" | "remote";
-            /** @constant */
-            verified: true;
+        PluginStoreSource: {
+            id: string;
+            name: string;
+            /** Format: uri */
+            url: string;
+            official: boolean;
+            cached: boolean;
             /** Format: date-time */
-            generated_at: string;
+            refreshed_at?: string;
             entry_count: number;
-            trusted_key_ids?: string[];
+        };
+        PluginStoreSourcesResponse: {
+            items: components["schemas"]["PluginStoreSource"][];
+        };
+        PluginStoreSourceInput: {
+            name: string;
+            /** Format: uri */
+            url: string;
         };
         PluginStorePublisher: {
             id: string;
             name: string;
-            verified: boolean;
         };
         PluginStoreReleaseSummary: {
             version: string;
@@ -1842,7 +1903,6 @@ export interface components {
             min_core_version: string;
             compatible: boolean;
             asset_available: boolean;
-            yanked: boolean;
         };
         PluginStoreEntry: {
             id: string;
@@ -1854,9 +1914,12 @@ export interface components {
             repository_url: string;
             /** Format: uri */
             homepage?: string;
+            /** Format: uri */
+            icon_url?: string;
             license: string;
             keywords: string[];
             recommended: boolean;
+            category?: string;
             latest_release?: components["schemas"]["PluginStoreReleaseSummary"];
             installed_version?: string;
             /** @enum {string} */
@@ -1866,20 +1929,25 @@ export interface components {
             items: components["schemas"]["PluginStoreEntry"][];
             total: number;
             next_cursor?: string;
-            catalog: components["schemas"]["PluginStoreCatalogStatus"];
+            source: components["schemas"]["PluginStoreSource"];
         };
         PluginStoreDetailResponse: {
             plugin: components["schemas"]["PluginStoreEntry"];
             releases: components["schemas"]["PluginStoreReleaseSummary"][];
-            catalog: components["schemas"]["PluginStoreCatalogStatus"];
+            source: components["schemas"]["PluginStoreSource"];
+        };
+        PluginStoreInspectionRequest: {
+            source_id: string;
+        };
+        PluginStoreInspectionResponse: {
+            inspection: components["schemas"]["PluginInstallInspectionResponse"];
+            confirmation_required: boolean;
+            confirmation_reasons: ("first_install" | "source_changed" | "permissions_expanded")[];
         };
         PluginStoreInstallRequest: {
-            version?: string;
-            /** @constant */
-            trusted_code_confirmed: true;
-        };
-        PluginStoreRefreshResponse: {
-            catalog: components["schemas"]["PluginStoreCatalogStatus"];
+            inspection_id: string;
+            package_sha256: string;
+            trusted_code_confirmed: boolean;
         };
         PluginWebhookScope: {
             id: string;
@@ -2070,12 +2138,17 @@ export interface components {
             source: string;
         };
         PluginInstallInspectionRequest: components["schemas"]["PluginInstallSource"];
+        PluginInstallSourceSummary: {
+            /** @enum {string} */
+            source_type: "local_zip" | "local_directory" | "remote_url" | "catalog";
+            source: string;
+        };
         PluginInstallInspectionResponse: {
             inspection_id: string;
             /** Format: date-time */
             expires_at: string;
             package_sha256: string;
-            source: components["schemas"]["PluginInstallSource"];
+            source: components["schemas"]["PluginInstallSourceSummary"];
             plugin: {
                 id: string;
                 name: string;
@@ -2094,7 +2167,6 @@ export interface components {
             entry: string;
             path: string;
             size: number;
-            sha256: string;
         };
         PluginInstallUI: {
             enabled: boolean;
@@ -2106,13 +2178,9 @@ export interface components {
             valid: true;
             /** @constant */
             artifact_version: "2";
-            manifest_sha256: string;
             file_count: number;
         };
         PluginInstallRequest: {
-            /** @enum {string} */
-            source_type: "local_zip" | "local_directory" | "remote_url";
-            source: string;
             inspection_id: string;
             package_sha256: string;
             /**
@@ -2642,6 +2710,7 @@ export interface components {
         SessionTransport: "cookie" | "bearer";
         LogId: string;
         PluginId: string;
+        PluginStoreSourceId: string;
         GovernanceEntryType: components["schemas"]["GovernanceEntryType"];
         GovernanceTargetId: string;
         TemplateId: string;
@@ -3991,6 +4060,7 @@ export interface operations {
     listPluginStoreEntries: {
         parameters: {
             query?: {
+                source_id?: string;
                 query?: string;
                 publisher?: string;
                 sort?: "recommended" | "name" | "updated";
@@ -4019,7 +4089,9 @@ export interface operations {
     };
     getPluginStoreEntry: {
         parameters: {
-            query?: never;
+            query?: {
+                source_id?: string;
+            };
             header?: never;
             path: {
                 plugin_id: components["parameters"]["PluginId"];
@@ -4039,6 +4111,37 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    inspectPluginStoreEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                plugin_id: components["parameters"]["PluginId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginStoreInspectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Inspected artifact, declared permissions and trust confirmation requirement. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreInspectionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
@@ -4074,7 +4177,7 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    refreshPluginStoreCatalog: {
+    listPluginStoreSources: {
         parameters: {
             query?: never;
             header?: never;
@@ -4083,16 +4186,124 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current catalog trust status after refresh. */
+            /** @description Configured plugin store sources and their cache status. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PluginStoreRefreshResponse"];
+                    "application/json": components["schemas"]["PluginStoreSourcesResponse"];
                 };
             };
             401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    createPluginStoreSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginStoreSourceInput"];
+            };
+        };
+        responses: {
+            /** @description Custom source created and loaded. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreSource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    updatePluginStoreSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: components["parameters"]["PluginStoreSourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PluginStoreSourceInput"];
+            };
+        };
+        responses: {
+            /** @description Custom source updated and loaded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreSource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    deletePluginStoreSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: components["parameters"]["PluginStoreSourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom source removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshPluginStoreSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: components["parameters"]["PluginStoreSourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Refreshed source status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginStoreSource"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             503: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
