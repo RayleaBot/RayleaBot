@@ -194,7 +194,7 @@ func Build(ctx context.Context, config Config) (Result, error) {
 }
 
 func copyStandardAssets(pluginDir, artifactRoot string) error {
-	for _, name := range []string{"assets", "templates"} {
+	for _, name := range []string{"assets", "templates", "LICENSES"} {
 		if _, err := os.Stat(filepath.Join(pluginDir, name)); err != nil {
 			if os.IsNotExist(err) {
 				continue

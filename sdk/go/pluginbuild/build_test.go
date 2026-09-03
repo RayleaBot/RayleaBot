@@ -18,6 +18,7 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nfunc main() {}\n")
 	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "test license\n")
+	writeTestFile(t, filepath.Join(pluginDir, "LICENSES", "dependency.txt"), "dependency license\n")
 	platform := testPlatform(t)
 	manifest := map[string]any{
 		"id": "test-plugin", "name": "Test", "version": "0.4.0", "manifest_version": "3",
@@ -48,7 +49,7 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 			t.Fatal("artifact.json must not inventory itself")
 		}
 	}
-	if artifact.ArtifactVersion != "2" || artifact.Entry == "" || !paths["info.json"] || !paths[artifact.Entry] || !paths["LICENSE"] || !paths["THIRD_PARTY_NOTICES.md"] || !paths["sbom.spdx.json"] {
+	if artifact.ArtifactVersion != "2" || artifact.Entry == "" || !paths["info.json"] || !paths[artifact.Entry] || !paths["LICENSE"] || !paths["LICENSES/dependency.txt"] || !paths["THIRD_PARTY_NOTICES.md"] || !paths["sbom.spdx.json"] {
 		t.Fatalf("unexpected artifact inventory: %#v", artifact)
 	}
 	archive, err := zip.OpenReader(result.ArchivePath)
