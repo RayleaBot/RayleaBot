@@ -244,7 +244,7 @@ func (b *ChromedpBrowser) logSearchPageState(ctx context.Context) {
 		return p.WithAwaitPromise(true)
 	}))
 	if err == nil {
-		b.options.Logger.Warn("抖音浏览器搜索请求失败；已记录不含页面正文的浏览器状态，用于区分验证拦截与加载故障。", "component", "douyin_resolve", "state", state)
+		b.options.Logger.Warn("抖音浏览器搜索请求失败；已记录不含页面正文的浏览器状态，用于区分验证拦截和加载失败。", "component", "douyin_resolve", "state", state)
 		return
 	}
 	b.options.Logger.Warn("抖音浏览器搜索请求失败，且页面状态诊断不可用；将尝试保存失败页面截图。原因："+err.Error(), "component", "douyin_resolve", "err", err.Error())

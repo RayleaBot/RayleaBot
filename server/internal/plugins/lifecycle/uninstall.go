@@ -242,7 +242,7 @@ func (s *UninstallService) execute(job uninstallJob) {
 
 	if s.repository != nil {
 		if err := s.repository.DeleteDesiredState(job.ctx, job.pluginID); err != nil {
-			s.logger.Warn("卸载插件 "+job.pluginID+" 时删除启用状态记录失败；卸载继续执行，但可能残留状态记录。原因："+err.Error(), "plugin_id", job.pluginID, "err", err.Error())
+			s.logger.Warn("卸载插件 "+job.pluginID+" 时删除启用状态记录失败，卸载继续执行，可能残留启用状态记录。原因："+err.Error(), "plugin_id", job.pluginID, "err", err.Error())
 		}
 	}
 

@@ -276,7 +276,7 @@ func logStartupFailure(logger *slog.Logger, repoRoot string, kind string, err er
 
 	label := runtimePrepareKindLabel(kind)
 	safeErr := logpath.Error(repoRoot, err, pathValues...)
-	logger.Warn(label+"运行环境准备失败，已跳过自动准备；依赖该运行环境的功能暂不可用。原因："+safeErr, append(fields, "err", safeErr)...)
+	logger.Warn(label+"运行环境准备失败，已跳过自动准备；相关功能暂不可用。原因："+safeErr, append(fields, "err", safeErr)...)
 }
 
 func logStartupProgress(logger *slog.Logger, repoRoot string, event deps.PrepareProgress) {

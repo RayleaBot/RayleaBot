@@ -73,7 +73,7 @@ func runUpdateCheck(cmd Command) int {
 	}
 	verifier, err := commandUpdateVerifier(cmd)
 	if err != nil {
-		cmd.Logger.Error("发布信任基线不可用", "code", releaseupdate.CodeOf(err), "err", err.Error())
+		cmd.Logger.Error("发布签名信任信息不可用", "code", releaseupdate.CodeOf(err), "err", err.Error())
 		return 1
 	}
 	checker := releaseupdate.NewChecker(verifier)
@@ -116,7 +116,7 @@ func runUpdateVerify(cmd Command) int {
 	}
 	verifier, err := commandUpdateVerifier(cmd)
 	if err != nil {
-		cmd.Logger.Error("发布信任基线不可用", "code", releaseupdate.CodeOf(err), "err", err.Error())
+		cmd.Logger.Error("发布签名信任信息不可用", "code", releaseupdate.CodeOf(err), "err", err.Error())
 		return 1
 	}
 	now := time.Now().UTC()

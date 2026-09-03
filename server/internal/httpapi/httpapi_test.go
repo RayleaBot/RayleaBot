@@ -56,7 +56,7 @@ func TestWithRequestContextRecoversPanicAndLogsStack(t *testing.T) {
 
 	if got, _ := record["msg"].(string); !strings.Contains(got, "HTTP 请求处理发生内部异常：GET /api/panic") ||
 		!strings.Contains(got, "本次请求未完成") ||
-		!strings.Contains(got, "处理程序触发未恢复异常") {
+		!strings.Contains(got, "处理程序触发未捕获异常") {
 		t.Fatalf("unexpected log message: got %#v", got)
 	}
 	if got := record["panic"]; got != "boom" {

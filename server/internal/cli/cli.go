@@ -169,7 +169,7 @@ func acquireLifecycleLock(configPath string) (*filelock.Lock, error) {
 	lock, err := filelock.Acquire(lockPath)
 	if err != nil {
 		if errors.Is(err, filelock.ErrLocked) {
-			return nil, errors.New("服务生命周期锁已被占用；请在停服窗口执行该命令")
+			return nil, errors.New("服务生命周期锁已被占用；请先停止服务再执行该命令")
 		}
 		return nil, fmt.Errorf("acquire service lifecycle lock: %w", err)
 	}
