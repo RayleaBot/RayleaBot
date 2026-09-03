@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 )
 
 func (r *SQLiteTemplateRepository) SyncTemplateRevision(ctx context.Context, revision StoredTemplateRevision, validation TemplateValidationStatus, sourceInfo TemplateSourceInfo) (bool, error) {
@@ -16,53 +18,31 @@ func (r *SQLiteTemplateRepository) SyncTemplateRevision(ctx context.Context, rev
 		_ = tx.Rollback()
 	}()
 
-	var (
-		currentRevisionID string
-		currentDigest     string
-		validationValid   bool
-		validationIssues  int
-		currentSource     TemplateSourceInfo
-		sourcePluginID    sql.NullString
-		sourceLocalID     sql.NullString
-	)
-	err = tx.QueryRowContext(ctx, `
-		SELECT s.current_revision_id, r.source_digest, s.validation_valid, s.validation_issue_count, s.source_type, s.source_plugin_id, s.source_local_id
-		FROM render_template_states s
-		INNER JOIN render_template_revisions r ON r.revision_id = s.current_revision_id
-		WHERE s.template_id = ?`, revision.TemplateID).Scan(
-		&currentRevisionID,
-		&currentDigest,
-		&validationValid,
-		&validationIssues,
-		&currentSource.Type,
-		&sourcePluginID,
-		&sourceLocalID,
-	)
-	if sourcePluginID.Valid {
-		currentSource.PluginID = sourcePluginID.String
+	q := r.writeQ.WithTx(tx)
+	state, err := q.GetRenderTemplateSyncState(ctx, revision.TemplateID)
+	currentSource := TemplateSourceInfo{Type: state.SourceType}
+	if state.SourcePluginID.Valid {
+		currentSource.PluginID = state.SourcePluginID.String
 	}
-	if sourceLocalID.Valid {
-		currentSource.LocalID = sourceLocalID.String
+	if state.SourceLocalID.Valid {
+		currentSource.LocalID = state.SourceLocalID.String
 	}
 	nextSource := normalizedTemplateSourceInfo(sourceInfo)
 	switch {
-	case err == nil && currentDigest == revision.SourceDigest:
+	case err == nil && state.SourceDigest == revision.SourceDigest:
 		if currentSource != nextSource {
 			return false, fmt.Errorf("render template %s is already registered by %s source", revision.TemplateID, currentSource.Type)
 		}
-		if validationValid != validation.Valid || validationIssues != validation.IssueCount {
-			if _, updateErr := tx.ExecContext(ctx, `
-				UPDATE render_template_states
-				SET validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?, source_type = ?, source_plugin_id = ?, source_local_id = ?
-				WHERE template_id = ?`,
-				boolToInt(validation.Valid),
-				validation.CheckedAt,
-				validation.IssueCount,
-				nextSource.Type,
-				nullableString(nextSource.PluginID),
-				nullableString(nextSource.LocalID),
-				revision.TemplateID,
-			); updateErr != nil {
+		if state.ValidationValid != int64(boolToInt(validation.Valid)) || state.ValidationIssueCount != int64(validation.IssueCount) {
+			if updateErr := q.UpdateRenderTemplateSyncMetadata(ctx, sqlcgen.UpdateRenderTemplateSyncMetadataParams{
+				ValidationValid:      int64(boolToInt(validation.Valid)),
+				ValidationCheckedAt:  validation.CheckedAt,
+				ValidationIssueCount: int64(validation.IssueCount),
+				SourceType:           nextSource.Type,
+				SourcePluginID:       nullableString(nextSource.PluginID),
+				SourceLocalID:        nullableString(nextSource.LocalID),
+				TemplateID:           revision.TemplateID,
+			}); updateErr != nil {
 				return false, fmt.Errorf("update render template validation during sync for %s: %w", revision.TemplateID, updateErr)
 			}
 		}
@@ -82,7 +62,7 @@ func (r *SQLiteTemplateRepository) SyncTemplateRevision(ctx context.Context, rev
 	if err := insertTemplateRevision(ctx, tx, revision); err != nil {
 		return false, err
 	}
-	if currentRevisionID == "" {
+	if state.CurrentRevisionID == "" {
 		if err := insertTemplateState(ctx, tx, StoredTemplateState{
 			TemplateID:           revision.TemplateID,
 			CurrentRevisionID:    revision.RevisionID,

@@ -1,5 +1,5 @@
 -- name: InsertLogSummary :exec
-INSERT INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
+INSERT OR IGNORE INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetLogSummary :one
@@ -9,4 +9,5 @@ WHERE log_id = ?
 LIMIT 1;
 
 -- name: PruneLogsBefore :exec
-DELETE FROM management_logs WHERE ts < ?;
+DELETE FROM management_logs
+WHERE julianday(ts) < julianday(CAST(sqlc.arg(cutoff) AS TEXT));

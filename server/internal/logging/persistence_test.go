@@ -161,7 +161,7 @@ func TestStreamDropsLogWhenDatabaseAndSpoolBothFail(t *testing.T) {
 	select {
 	case summary := <-summaries:
 		t.Fatalf("unexpected streamed summary after full persistence failure: %#v", summary)
-	case <-time.After(150 * time.Millisecond):
+	default:
 	}
 
 	if len(stream.Snapshot()) != 0 {

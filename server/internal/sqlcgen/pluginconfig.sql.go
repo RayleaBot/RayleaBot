@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"database/sql"
 )
 
 const countNamespace = `-- name: CountNamespace :one
@@ -20,7 +21,42 @@ func (q *Queries) CountNamespace(ctx context.Context, namespace string) (int64, 
 	return count, err
 }
 
-const seedConfig = `-- name: SeedConfig :exec
+const listConfigsByNamespace = `-- name: ListConfigsByNamespace :many
+SELECT key, value_json
+FROM system_configs
+WHERE namespace = ?
+ORDER BY key ASC
+`
+
+type ListConfigsByNamespaceRow struct {
+	Key       string
+	ValueJson string
+}
+
+func (q *Queries) ListConfigsByNamespace(ctx context.Context, namespace string) ([]ListConfigsByNamespaceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listConfigsByNamespace, namespace)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConfigsByNamespaceRow{}
+	for rows.Next() {
+		var i ListConfigsByNamespaceRow
+		if err := rows.Scan(&i.Key, &i.ValueJson); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const seedConfig = `-- name: SeedConfig :execresult
 INSERT INTO system_configs (namespace, key, value_json, updated_at)
 VALUES (?, ?, ?, ?)
 ON CONFLICT(namespace, key) DO NOTHING
@@ -33,14 +69,13 @@ type SeedConfigParams struct {
 	UpdatedAt string
 }
 
-func (q *Queries) SeedConfig(ctx context.Context, arg SeedConfigParams) error {
-	_, err := q.db.ExecContext(ctx, seedConfig,
+func (q *Queries) SeedConfig(ctx context.Context, arg SeedConfigParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, seedConfig,
 		arg.Namespace,
 		arg.Key,
 		arg.ValueJson,
 		arg.UpdatedAt,
 	)
-	return err
 }
 
 const upsertConfig = `-- name: UpsertConfig :exec

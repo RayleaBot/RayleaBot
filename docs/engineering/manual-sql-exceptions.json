@@ -6,7 +6,7 @@
       "reason": "Admin reset command deletes from a fixed allowlisted table set.",
       "owner": "server",
       "target_action": "keep_maintenance_sql",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/integrations/thirdparty/accounts.go": {
       "category": "A",
@@ -17,10 +17,10 @@
     },
     "server/internal/logging/repository.go": {
       "category": "C",
-      "reason": "Management log repository keeps static insert/detail queries with dynamic optional filters, cursor pagination, and pruning in one lifecycle-owned file.",
+      "reason": "Management log list and cursor-boundary queries compose optional filters and variable IN clauses; static insert, detail, and pruning queries use sqlc.",
       "owner": "server-observability",
-      "target_action": "split_static_queries_then_migrate_to_sqlc",
-      "revisit_after": "2026-09-01"
+      "target_action": "keep_wrapped_dynamic_query",
+      "revisit_after": "2027-09-04"
     },
     "server/internal/permission/checker.go": {
       "category": "A",
@@ -31,17 +31,17 @@
     },
     "server/internal/plugins/pluginstore/config.go": {
       "category": "C",
-      "reason": "Plugin config read query composes optional namespace and key filters.",
+      "reason": "Plugin config selective reads compose a variable key IN clause; namespace-wide reads and writes use sqlc.",
       "owner": "server-plugins",
       "target_action": "keep_wrapped_dynamic_query",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/plugins/pluginstore/kv.go": {
       "category": "C",
-      "reason": "Plugin KV list query uses escaped prefix filtering and pagination.",
+      "reason": "Plugin KV prefix listing uses SQLite LIKE ESCAPE syntax that sqlc v1.31.1 cannot parse.",
       "owner": "server-plugins",
       "target_action": "keep_wrapped_dynamic_query",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/render/repository/load.go": {
       "category": "A",
@@ -52,10 +52,10 @@
     },
     "server/internal/render/repository/repository.go": {
       "category": "C",
-      "reason": "Render template repository keeps revision save, validation update, and plugin cleanup SQL in one lifecycle-owned file; plugin cleanup composes variable plugin ID sets.",
+      "reason": "Render template cleanup composes variable template and plugin ID NOT IN clauses; static validation and delete-all queries use sqlc.",
       "owner": "server-render",
       "target_action": "keep_wrapped_dynamic_query",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/render/repository/queries.go": {
       "category": "A",
@@ -71,47 +71,40 @@
       "target_action": "migrate_to_sqlc",
       "revisit_after": "2026-10-01"
     },
-    "server/internal/render/repository/sync.go": {
-      "category": "C",
-      "reason": "Render template desired-state sync mixes transaction reads, deletes, and conditional updates.",
-      "owner": "server-render",
-      "target_action": "split_static_queries_then_migrate_to_sqlc",
-      "revisit_after": "2026-09-01"
-    },
     "server/internal/storage/integrity.go": {
       "category": "D",
       "reason": "Storage integrity uses SQLite PRAGMA quick_check.",
       "owner": "server-storage",
       "target_action": "keep_sqlite_pragma",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/storage/snapshot.go": {
       "category": "D",
       "reason": "Storage snapshot uses PRAGMA setup and VACUUM INTO maintenance SQL.",
       "owner": "server-storage",
       "target_action": "keep_sqlite_maintenance_sql",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/storage/store.go": {
       "category": "D",
       "reason": "Storage lifecycle runs WAL checkpoint maintenance.",
       "owner": "server-storage",
       "target_action": "keep_sqlite_maintenance_sql",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/storage/store_open.go": {
       "category": "D",
       "reason": "Storage open configures SQLite PRAGMA settings.",
       "owner": "server-storage",
       "target_action": "keep_sqlite_pragma",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     },
     "server/internal/storage/store_schema.go": {
       "category": "D",
       "reason": "Storage migration runner executes schema files, records migrations, and inspects SQLite schema metadata.",
       "owner": "server-storage",
       "target_action": "keep_migration_runner_sql",
-      "revisit_after": "2026-09-01"
+      "revisit_after": "2027-09-04"
     }
   }
 }

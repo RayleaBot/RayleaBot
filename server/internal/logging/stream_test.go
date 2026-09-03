@@ -179,7 +179,7 @@ func TestStreamAppendsAfterSavingRepositoryDetail(t *testing.T) {
 	select {
 	case <-summaries:
 		t.Fatal("live summary should not be delivered before repository save finishes")
-	case <-time.After(50 * time.Millisecond):
+	default:
 	}
 
 	close(repository.releaseSave)

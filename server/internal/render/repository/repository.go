@@ -7,14 +7,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 const templateManifestFilename = "template.json"
 
 type SQLiteTemplateRepository struct {
-	read  *sql.DB
-	write *sql.DB
+	read   *sql.DB
+	write  *sql.DB
+	writeQ *sqlcgen.Queries
 }
 
 type StoredTemplateState struct {
@@ -47,8 +49,9 @@ func NewSQLiteTemplateRepository(store *storage.Store) (*SQLiteTemplateRepositor
 	}
 
 	return &SQLiteTemplateRepository{
-		read:  store.Read,
-		write: store.Write,
+		read:   store.Read,
+		write:  store.Write,
+		writeQ: sqlcgen.New(store.Write),
 	}, nil
 }
 
@@ -192,15 +195,12 @@ func (r *SQLiteTemplateRepository) SaveCurrentRevision(
 }
 
 func (r *SQLiteTemplateRepository) UpdateValidationStatus(ctx context.Context, templateID string, validation TemplateValidationStatus) error {
-	result, err := r.write.ExecContext(ctx, `
-		UPDATE render_template_states
-		SET validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?
-		WHERE template_id = ?`,
-		boolToInt(validation.Valid),
-		validation.CheckedAt,
-		validation.IssueCount,
-		templateID,
-	)
+	result, err := r.writeQ.UpdateRenderTemplateValidation(ctx, sqlcgen.UpdateRenderTemplateValidationParams{
+		ValidationValid:      int64(boolToInt(validation.Valid)),
+		ValidationCheckedAt:  validation.CheckedAt,
+		ValidationIssueCount: int64(validation.IssueCount),
+		TemplateID:           templateID,
+	})
 	if err != nil {
 		return fmt.Errorf("update render template validation for %s: %w", templateID, err)
 	}
@@ -220,28 +220,34 @@ func (r *SQLiteTemplateRepository) RemovePluginTemplatesExcept(ctx context.Conte
 		return nil
 	}
 
-	args := []any{pluginID}
-	query := `DELETE FROM render_template_states WHERE source_type = 'plugin' AND source_plugin_id = ?`
-	if len(keepIDs) > 0 {
-		placeholders := make([]string, 0, len(keepIDs))
-		seen := make(map[string]struct{}, len(keepIDs))
-		for _, templateID := range keepIDs {
-			templateID = strings.TrimSpace(templateID)
-			if templateID == "" {
-				continue
-			}
-			if _, ok := seen[templateID]; ok {
-				continue
-			}
-			seen[templateID] = struct{}{}
-			placeholders = append(placeholders, "?")
-			args = append(args, templateID)
+	seen := make(map[string]struct{}, len(keepIDs))
+	normalizedKeepIDs := make([]string, 0, len(keepIDs))
+	for _, templateID := range keepIDs {
+		templateID = strings.TrimSpace(templateID)
+		if templateID == "" {
+			continue
 		}
-		if len(placeholders) > 0 {
-			query += ` AND template_id NOT IN (` + strings.Join(placeholders, ",") + `)`
+		if _, ok := seen[templateID]; ok {
+			continue
 		}
+		seen[templateID] = struct{}{}
+		normalizedKeepIDs = append(normalizedKeepIDs, templateID)
+	}
+	if len(normalizedKeepIDs) == 0 {
+		if err := r.writeQ.DeletePluginRenderTemplates(ctx, nullableString(pluginID)); err != nil {
+			return fmt.Errorf("remove stale plugin render templates for %s: %w", pluginID, err)
+		}
+		return nil
 	}
 
+	args := make([]any, 0, len(normalizedKeepIDs)+1)
+	args = append(args, pluginID)
+	placeholders := make([]string, len(normalizedKeepIDs))
+	for index, templateID := range normalizedKeepIDs {
+		placeholders[index] = "?"
+		args = append(args, templateID)
+	}
+	query := `DELETE FROM render_template_states WHERE source_type = 'plugin' AND source_plugin_id = ? AND template_id NOT IN (` + strings.Join(placeholders, ",") + `)`
 	if _, err := r.write.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("remove stale plugin render templates for %s: %w", pluginID, err)
 	}
@@ -258,7 +264,7 @@ func (r *SQLiteTemplateRepository) RemovePluginTemplatesNotIn(ctx context.Contex
 		seen[pluginID] = struct{}{}
 	}
 	if len(seen) == 0 {
-		if _, err := r.write.ExecContext(ctx, `DELETE FROM render_template_states WHERE source_type = 'plugin'`); err != nil {
+		if err := r.writeQ.DeleteAllPluginRenderTemplates(ctx); err != nil {
 			return fmt.Errorf("remove all plugin render templates: %w", err)
 		}
 		return nil

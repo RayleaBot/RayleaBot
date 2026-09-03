@@ -94,17 +94,19 @@ func (r *ConfigSQLiteRepository) Read(ctx context.Context, pluginID string, keys
 
 func (r *ConfigSQLiteRepository) ReadAll(ctx context.Context, pluginID string) (map[string]any, error) {
 	namespace := namespaceForPlugin(pluginID)
-	rows, err := r.read.QueryContext(
-		ctx,
-		`SELECT key, value_json FROM system_configs WHERE namespace = ? ORDER BY key ASC`,
-		namespace,
-	)
+	rows, err := r.readQ.ListConfigsByNamespace(ctx, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("query all system configs for %s: %w", pluginID, err)
 	}
-	defer rows.Close()
-
-	return scanConfigRows(rows)
+	values := make(map[string]any, len(rows))
+	for _, row := range rows {
+		value, err := decodeConfigValue(row.Key, row.ValueJson)
+		if err != nil {
+			return nil, err
+		}
+		values[row.Key] = value
+	}
+	return values, nil
 }
 
 func (r *ConfigSQLiteRepository) Write(ctx context.Context, pluginID string, values map[string]any) ([]string, error) {
@@ -148,10 +150,12 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 			}
 			written = append(written, key)
 		} else {
-			result, err := tx.ExecContext(ctx, `
-INSERT INTO system_configs (namespace, key, value_json, updated_at)
-VALUES (?, ?, ?, ?)
-ON CONFLICT(namespace, key) DO NOTHING`, namespace, key, string(raw), now)
+			result, err := q.SeedConfig(ctx, sqlcgen.SeedConfigParams{
+				Namespace: namespace,
+				Key:       key,
+				ValueJson: string(raw),
+				UpdatedAt: now,
+			})
 			if err != nil {
 				return nil, fmt.Errorf("seed system config %s: %w", key, err)
 			}
@@ -209,9 +213,9 @@ func scanConfigRows(rows *sql.Rows) (map[string]any, error) {
 		if err := rows.Scan(&key, &raw); err != nil {
 			return nil, fmt.Errorf("scan system config row: %w", err)
 		}
-		var value any
-		if err := json.Unmarshal([]byte(raw), &value); err != nil {
-			return nil, fmt.Errorf("decode system config %s: %w", key, err)
+		value, err := decodeConfigValue(key, raw)
+		if err != nil {
+			return nil, err
 		}
 		values[key] = value
 	}
@@ -219,6 +223,14 @@ func scanConfigRows(rows *sql.Rows) (map[string]any, error) {
 		return nil, fmt.Errorf("iterate system config rows: %w", err)
 	}
 	return values, nil
+}
+
+func decodeConfigValue(key, raw string) (any, error) {
+	var value any
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return nil, fmt.Errorf("decode system config %s: %w", key, err)
+	}
+	return value, nil
 }
 
 func sortedConfigKeys(values map[string]any) []string {

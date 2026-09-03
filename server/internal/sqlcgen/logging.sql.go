@@ -46,7 +46,7 @@ func (q *Queries) GetLogSummary(ctx context.Context, logID string) (GetLogSummar
 }
 
 const insertLogSummary = `-- name: InsertLogSummary :exec
-INSERT INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
+INSERT OR IGNORE INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
@@ -78,10 +78,11 @@ func (q *Queries) InsertLogSummary(ctx context.Context, arg InsertLogSummaryPara
 }
 
 const pruneLogsBefore = `-- name: PruneLogsBefore :exec
-DELETE FROM management_logs WHERE ts < ?
+DELETE FROM management_logs
+WHERE julianday(ts) < julianday(CAST(?1 AS TEXT))
 `
 
-func (q *Queries) PruneLogsBefore(ctx context.Context, ts string) error {
-	_, err := q.db.ExecContext(ctx, pruneLogsBefore, ts)
+func (q *Queries) PruneLogsBefore(ctx context.Context, cutoff string) error {
+	_, err := q.db.ExecContext(ctx, pruneLogsBefore, cutoff)
 	return err
 }

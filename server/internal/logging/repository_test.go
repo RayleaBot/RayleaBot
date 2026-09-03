@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -420,16 +421,15 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	if _, err := repository.write.ExecContext(ctx, `INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"log_detail_0002",
-		"2026-03-20T10:00:01Z",
-		"info",
-		"bridge",
-		"runtime bridge delivered adapter event",
-		"",
-		"",
-		`{
+	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		LogID:     "log_detail_0002",
+		Ts:        "2026-03-20T10:00:01Z",
+		Level:     "info",
+		Source:    "bridge",
+		Message:   "runtime bridge delivered adapter event",
+		PluginID:  "",
+		RequestID: "",
+		DetailsJson: `{
 			"event_timestamp":1711015202,
 			"time":1711015202,
 			"conversation_id":"2001",
@@ -442,7 +442,7 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 			"sender_role":"admin",
 			"sender":{"user_id":"3001"}
 		}`,
-	); err != nil {
+	}); err != nil {
 		t.Fatalf("insert raw detail summary: %v", err)
 	}
 
@@ -472,20 +472,19 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	if _, err := repository.write.ExecContext(ctx, `INSERT INTO management_logs (log_id, ts, level, source, message, plugin_id, request_id, details_json)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"log_detail_0003",
-		"2026-03-20T10:00:02Z",
-		"info",
-		"bridge",
-		"10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容",
-		"",
-		"",
-		`{
+	if err := repository.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		LogID:     "log_detail_0003",
+		Ts:        "2026-03-20T10:00:02Z",
+		Level:     "info",
+		Source:    "bridge",
+		Message:   "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容",
+		PluginID:  "",
+		RequestID: "",
+		DetailsJson: `{
 			"plain_text":"hello\u202eworld",
 			"sender":{"card":"测试群名片\u2066~喵"}
 		}`,
-	); err != nil {
+	}); err != nil {
 		t.Fatalf("insert raw detail summary: %v", err)
 	}
 

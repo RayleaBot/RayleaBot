@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -75,8 +76,9 @@ type Repository interface {
 }
 
 type SQLiteRepository struct {
-	read  *sql.DB
-	write *sql.DB
+	read   *sql.DB
+	readQ  *sqlcgen.Queries
+	writeQ *sqlcgen.Queries
 }
 
 func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
@@ -84,8 +86,9 @@ func NewSQLiteRepository(store *storage.Store) (*SQLiteRepository, error) {
 		return nil, errors.New("sqlite store is required")
 	}
 	return &SQLiteRepository{
-		read:  store.Read,
-		write: store.Write,
+		read:   store.Read,
+		readQ:  sqlcgen.New(store.Read),
+		writeQ: sqlcgen.New(store.Write),
 	}, nil
 }
 
@@ -96,20 +99,17 @@ func (r *SQLiteRepository) SaveSummary(ctx context.Context, summary Summary) err
 		return fmt.Errorf("encode management log details: %w", err)
 	}
 
-	if _, err := r.write.ExecContext(
-		ctx,
-		`INSERT OR IGNORE INTO management_logs (log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		summary.LogID,
-		summary.BootID,
-		summary.Timestamp,
-		strings.ToLower(strings.TrimSpace(summary.Level)),
-		strings.TrimSpace(summary.Source),
-		strings.TrimSpace(summary.Message),
-		strings.TrimSpace(summary.PluginID),
-		strings.TrimSpace(summary.RequestID),
-		detailsJSON,
-	); err != nil {
+	if err := r.writeQ.InsertLogSummary(ctx, sqlcgen.InsertLogSummaryParams{
+		LogID:       summary.LogID,
+		BootID:      summary.BootID,
+		Ts:          summary.Timestamp,
+		Level:       strings.ToLower(strings.TrimSpace(summary.Level)),
+		Source:      strings.TrimSpace(summary.Source),
+		Message:     strings.TrimSpace(summary.Message),
+		PluginID:    strings.TrimSpace(summary.PluginID),
+		RequestID:   strings.TrimSpace(summary.RequestID),
+		DetailsJson: detailsJSON,
+	}); err != nil {
 		return fmt.Errorf("insert management log summary: %w", err)
 	}
 	return nil
@@ -300,43 +300,15 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 }
 
 func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summary, error) {
-	row := r.read.QueryRowContext(
-		ctx,
-		`SELECT log_id, boot_id, ts, level, source, message, plugin_id, request_id, details_json
-		 FROM management_logs
-		 WHERE log_id = ?
-		 LIMIT 1`,
-		strings.TrimSpace(logID),
-	)
-	var item struct {
-		LogID      string
-		BootID     string
-		Timestamp  string
-		Level      string
-		Source     string
-		Message    string
-		PluginID   string
-		RequestID  string
-		DetailsRaw string
-	}
-	if err := row.Scan(
-		&item.LogID,
-		&item.BootID,
-		&item.Timestamp,
-		&item.Level,
-		&item.Source,
-		&item.Message,
-		&item.PluginID,
-		&item.RequestID,
-		&item.DetailsRaw,
-	); err != nil {
+	item, err := r.readQ.GetLogSummary(ctx, strings.TrimSpace(logID))
+	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Summary{}, ErrLogNotFound
 		}
 		return Summary{}, fmt.Errorf("query management log detail: %w", err)
 	}
 
-	details, err := DecodeJSON(item.DetailsRaw)
+	details, err := DecodeJSON(item.DetailsJson)
 	if err != nil {
 		return Summary{}, fmt.Errorf("decode management log detail %s: %w", item.LogID, err)
 	}
@@ -344,7 +316,7 @@ func (r *SQLiteRepository) GetSummary(ctx context.Context, logID string) (Summar
 	return NormalizeSummary(Summary{
 		BootID:    item.BootID,
 		LogID:     item.LogID,
-		Timestamp: item.Timestamp,
+		Timestamp: item.Ts,
 		Level:     item.Level,
 		Source:    item.Source,
 		Message:   item.Message,
@@ -359,7 +331,7 @@ func (r *SQLiteRepository) PruneOlderThan(ctx context.Context, cutoff time.Time)
 		return nil
 	}
 
-	if _, err := r.write.ExecContext(ctx, `DELETE FROM management_logs WHERE `+logTimestampExpr+` < julianday(?)`, cutoff.UTC().Format(time.RFC3339)); err != nil {
+	if err := r.writeQ.PruneLogsBefore(ctx, cutoff.UTC().Format(time.RFC3339)); err != nil {
 		return fmt.Errorf("prune management log summaries: %w", err)
 	}
 	return nil

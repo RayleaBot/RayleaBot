@@ -81,11 +81,9 @@ func normalizedTemplateSourceInfo(source TemplateSourceInfo) TemplateSourceInfo 
 	return source
 }
 
-func nullableString(value string) any {
-	if strings.TrimSpace(value) == "" {
-		return nil
-	}
-	return value
+func nullableString(value string) sql.NullString {
+	value = strings.TrimSpace(value)
+	return sql.NullString{String: value, Valid: value != ""}
 }
 
 func boolToInt(value bool) int {
