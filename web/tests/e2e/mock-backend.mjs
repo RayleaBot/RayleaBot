@@ -81,6 +81,9 @@ const fixtures = {
   pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
   pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
   pluginStoreList: await readFixture('fixtures/web-api/ok.plugin-store-list.yaml'),
+  pluginStoreSources: await readFixture('fixtures/web-api/ok.plugin-store-sources.yaml'),
+  pluginStoreInspection: await readFixture('fixtures/web-api/ok.plugin-store-inspection.yaml'),
+  pluginStoreSourceRefresh: await readFixture('fixtures/web-api/ok.plugin-store-source-refresh.yaml'),
   pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
   pluginDetailManagementUI: await readFixture('fixtures/web-api/ok.plugin-detail-response.management-ui.yaml'),
   pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
@@ -2038,6 +2041,48 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
+  if (pathname === '/api/plugin-store/sources' && request.method === 'GET') {
+    if (!requireAuth(request, response)) return
+    json(response, 200, fixtures.pluginStoreSources.response.body)
+    return
+  }
+
+  const pluginStoreInspectMatch = pathname.match(/^\/api\/plugin-store\/plugins\/([^/]+)\/inspect$/)
+  if (pluginStoreInspectMatch && request.method === 'POST') {
+    if (!requireAuth(request, response)) return
+    const payload = await parseBody(request)
+    if (payload.source_id !== 'official') {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid plugin source', 'req_plugin_store_inspect_invalid'))
+      return
+    }
+    json(response, 200, structuredClone(fixtures.pluginStoreInspection.response.body))
+    return
+  }
+
+  const pluginStoreRefreshMatch = pathname.match(/^\/api\/plugin-store\/sources\/([^/]+)\/refresh$/)
+  if (pluginStoreRefreshMatch && request.method === 'POST') {
+    if (!requireAuth(request, response)) return
+    json(response, 200, structuredClone(fixtures.pluginStoreSourceRefresh.response.body))
+    return
+  }
+
+  const pluginStoreInstallMatch = pathname.match(/^\/api\/plugin-store\/plugins\/([^/]+)\/install$/)
+  if (pluginStoreInstallMatch && request.method === 'POST') {
+    if (!requireAuth(request, response)) return
+    const payload = await parseBody(request)
+    const inspection = fixtures.pluginStoreInspection.response.body.inspection
+    if (
+      payload.inspection_id !== inspection.inspection_id
+      || payload.package_sha256 !== inspection.package_sha256
+      || payload.trusted_code_confirmed !== true
+    ) {
+      json(response, 409, errorEnvelope('plugin.install_inspection_required', 'plugin inspection is required', 'req_plugin_store_install_inspection'))
+      return
+    }
+    json(response, fixtures.pluginInstallAccepted.response.status, structuredClone(fixtures.pluginInstallAccepted.response.body))
+    return
+  }
+
   if (pathname === '/api/plugins' && request.method === 'GET') {
     if (!requireAuth(request, response)) {
       return
@@ -2110,7 +2155,6 @@ const server = http.createServer(async (request, response) => {
         entry: 'bin/weather',
         path: 'bin/weather.exe',
         size: 3145728,
-        sha256: 'b'.repeat(64),
       },
       ui: {
         enabled: true,
@@ -2120,7 +2164,6 @@ const server = http.createServer(async (request, response) => {
       artifact: {
         valid: true,
         artifact_version: '2',
-        manifest_sha256: 'c'.repeat(64),
         file_count: 8,
       },
     })
@@ -2138,8 +2181,6 @@ const server = http.createServer(async (request, response) => {
       !inspection
       || payload.trusted_code_confirmed !== true
       || payload.package_sha256 !== inspection.package_sha256
-      || payload.source_type !== inspection.source_type
-      || payload.source !== inspection.source
     ) {
       json(response, 409, errorEnvelope('plugin.install_inspection_required', 'plugin inspection is required', 'req_plugin_install_inspection'))
       return
@@ -2147,14 +2188,14 @@ const server = http.createServer(async (request, response) => {
     delete state.pluginInstallInspections[payload.inspection_id]
     let taskId = fixtures.pluginInstallAccepted.response.body.task_id
 
-    if (payload.source_type === 'remote_url') {
+    if (inspection.source_type === 'remote_url') {
       taskId = fixtures.pluginInstallRemoteUrl.response.body.task_id
-    } else if (payload.source.includes('local-artifact')) {
+    } else if (inspection.source.includes('local-artifact')) {
       taskId = fixtures.pluginInstallLocalArtifact.response.body.task_id
     }
 
-    appendTaskLog(taskId, 'plugin.install', 'pending', `install ${payload.source}`, {
-      plugin_id: payload.source_type === 'remote_url' ? undefined : 'weather',
+    appendTaskLog(taskId, 'plugin.install', 'pending', `install ${inspection.source}`, {
+      plugin_id: inspection.source_type === 'remote_url' ? undefined : 'weather',
     })
 
     json(response, 202, { task_id: taskId })

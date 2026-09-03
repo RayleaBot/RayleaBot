@@ -1,15 +1,18 @@
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
 import type {
-  PluginStoreCatalogStatus,
   PluginStoreDetailResponse,
   PluginStoreEntry,
+  PluginStoreInspectionRequest,
+  PluginStoreInspectionResponse,
   PluginStoreInstallRequest,
   PluginStoreListResponse,
-  PluginStoreRefreshResponse,
+  PluginStoreSource,
+  PluginStoreSourceInput,
+  PluginStoreSourcesResponse,
   TaskAcceptedResponse,
 } from '@/types/api'
 
@@ -17,20 +20,27 @@ export type PluginStoreSort = 'recommended' | 'name' | 'updated'
 
 export const usePluginStore = defineStore('plugin-store', () => {
   const items = ref<PluginStoreEntry[]>([])
-  const catalog = ref<PluginStoreCatalogStatus | null>(null)
+  const source = ref<PluginStoreSource | null>(null)
+  const sources = ref<PluginStoreSource[]>([])
   const total = ref(0)
   const loading = ref(false)
   const refreshing = ref(false)
+  const sourceSaving = ref(false)
   const installing = ref<Record<string, boolean>>({})
   const error = ref<string | null>(null)
 
-  const hasVerifiedCatalog = computed(() => catalog.value?.verified === true)
+  async function fetchSources() {
+    const response = await apiRequest<PluginStoreSourcesResponse>('/api/plugin-store/sources')
+    sources.value = response.items
+    return response.items
+  }
 
-  async function fetchEntries(options: { query?: string; sort?: PluginStoreSort } = {}) {
+  async function fetchEntries(options: { sourceId?: string; query?: string; sort?: PluginStoreSort } = {}) {
     loading.value = true
     error.value = null
     try {
       const params = new URLSearchParams()
+      params.set('source_id', options.sourceId?.trim() || 'official')
       const query = options.query?.trim()
       if (query) params.set('query', query)
       params.set('sort', options.sort ?? 'recommended')
@@ -38,7 +48,8 @@ export const usePluginStore = defineStore('plugin-store', () => {
       const response = await apiRequest<PluginStoreListResponse>(`/api/plugin-store/plugins?${params}`)
       items.value = response.items
       total.value = response.total
-      catalog.value = response.catalog
+      source.value = response.source
+      updateSource(response.source)
       return response
     } catch (cause) {
       error.value = getDisplayErrorMessage(cause, 'errors.common.loadFailed')
@@ -48,50 +59,118 @@ export const usePluginStore = defineStore('plugin-store', () => {
     }
   }
 
-  async function fetchDetail(pluginId: string) {
-    return await apiRequest<PluginStoreDetailResponse>(`/api/plugin-store/plugins/${encodeURIComponent(pluginId)}`)
+  async function fetchDetail(pluginId: string, sourceId = 'official') {
+    const params = new URLSearchParams({ source_id: sourceId })
+    return await apiRequest<PluginStoreDetailResponse>(`/api/plugin-store/plugins/${encodeURIComponent(pluginId)}?${params}`)
   }
 
-  async function install(pluginId: string, version?: string) {
+  async function inspect(pluginId: string, payload: PluginStoreInspectionRequest) {
     installing.value = { ...installing.value, [pluginId]: true }
     try {
-      const body: PluginStoreInstallRequest = {
-        trusted_code_confirmed: true,
-        ...(version ? { version } : {}),
-      }
+      return await apiRequest<PluginStoreInspectionResponse>(
+        `/api/plugin-store/plugins/${encodeURIComponent(pluginId)}/inspect`,
+        { method: 'POST', body: payload },
+      )
+    } catch (cause) {
+      installing.value = { ...installing.value, [pluginId]: false }
+      throw cause
+    }
+  }
+
+  async function install(pluginId: string, payload: PluginStoreInstallRequest) {
+    installing.value = { ...installing.value, [pluginId]: true }
+    try {
       return await apiRequest<TaskAcceptedResponse>(
         `/api/plugin-store/plugins/${encodeURIComponent(pluginId)}/install`,
-        { method: 'POST', body },
+        { method: 'POST', body: payload },
       )
     } finally {
       installing.value = { ...installing.value, [pluginId]: false }
     }
   }
 
-  async function refreshCatalog() {
+  function finishInspection(pluginId: string) {
+    installing.value = { ...installing.value, [pluginId]: false }
+  }
+
+  async function refreshSource(sourceId: string) {
     refreshing.value = true
     try {
-      const response = await apiRequest<PluginStoreRefreshResponse>('/api/plugin-store/refresh', { method: 'POST' })
-      catalog.value = response.catalog
-      await fetchEntries()
-      return response.catalog
+      const response = await apiRequest<PluginStoreSource>(
+        `/api/plugin-store/sources/${encodeURIComponent(sourceId)}/refresh`,
+        { method: 'POST' },
+      )
+      source.value = response
+      updateSource(response)
+      return response
     } finally {
       refreshing.value = false
     }
   }
 
+  async function createSource(input: PluginStoreSourceInput) {
+    sourceSaving.value = true
+    try {
+      const response = await apiRequest<PluginStoreSource>('/api/plugin-store/sources', { method: 'POST', body: input })
+      updateSource(response)
+      return response
+    } finally {
+      sourceSaving.value = false
+    }
+  }
+
+  async function saveSource(sourceId: string, input: PluginStoreSourceInput) {
+    sourceSaving.value = true
+    try {
+      const response = await apiRequest<PluginStoreSource>(
+        `/api/plugin-store/sources/${encodeURIComponent(sourceId)}`,
+        { method: 'PUT', body: input },
+      )
+      updateSource(response)
+      return response
+    } finally {
+      sourceSaving.value = false
+    }
+  }
+
+  async function deleteSource(sourceId: string) {
+    sourceSaving.value = true
+    try {
+      await apiRequest<void>(`/api/plugin-store/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' })
+      sources.value = sources.value.filter(item => item.id !== sourceId)
+    } finally {
+      sourceSaving.value = false
+    }
+  }
+
+  function updateSource(next: PluginStoreSource) {
+    const index = sources.value.findIndex(item => item.id === next.id)
+    if (index < 0) {
+      sources.value = [...sources.value, next]
+      return
+    }
+    sources.value = sources.value.map(item => item.id === next.id ? next : item)
+  }
+
   return {
-    catalog,
     error,
-    hasVerifiedCatalog,
     installing,
     items,
     loading,
     refreshing,
+    source,
+    sourceSaving,
+    sources,
     total,
+    createSource,
+    deleteSource,
     fetchDetail,
     fetchEntries,
+    fetchSources,
+    finishInspection,
+    inspect,
     install,
-    refreshCatalog,
+    refreshSource,
+    saveSource,
   }
 })

@@ -16,13 +16,13 @@ describe('plugin store', () => {
     vi.unstubAllGlobals()
   })
 
-  it('loads the verified catalog and forwards search and sort parameters', async () => {
+  it('loads one source and forwards source, search and sort parameters', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
       items: [{
         id: 'raylea.echo',
         name: 'Echo',
         summary: 'Echo messages',
-        publisher: { id: 'rayleabot', name: 'RayleaBot', verified: true },
+        publisher: { id: 'rayleabot', name: 'RayleaBot' },
         repository_url: 'https://github.com/RayleaBot/plugin-echo',
         license: 'MIT',
         keywords: ['echo'],
@@ -30,37 +30,45 @@ describe('plugin store', () => {
         install_state: 'unpublished',
       }],
       total: 1,
-      catalog: {
-        source: 'embedded',
-        verified: true,
-        generated_at: '2026-08-04T00:00:00Z',
+      source: {
+        id: 'official',
+        name: 'RayleaBot 官方插件',
+        url: 'https://plugins.example/catalog.json',
+        official: true,
+        cached: true,
+        refreshed_at: '2026-08-04T00:00:00Z',
         entry_count: 4,
       },
     }))
     vi.stubGlobal('fetch', fetchMock)
 
     const store = usePluginStore()
-    await store.fetchEntries({ query: ' echo ', sort: 'name' })
+    await store.fetchEntries({ sourceId: 'official', query: ' echo ', sort: 'name' })
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/plugin-store/plugins?query=echo&sort=name&limit=100',
+      '/api/plugin-store/plugins?source_id=official&query=echo&sort=name&limit=100',
       expect.any(Object),
     )
     expect(store.items.map((item) => item.id)).toEqual(['raylea.echo'])
-    expect(store.hasVerifiedCatalog).toBe(true)
+    expect(store.source?.id).toBe('official')
   })
 
-  it('requires the explicit trusted-code confirmation in every install request', async () => {
+  it('passes the accepted inspection handle to the install endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ task_id: 'task-store-install' }, 202))
     vi.stubGlobal('fetch', fetchMock)
 
     const store = usePluginStore()
-    await store.install('raylea.echo', '0.2.0')
+    await store.install('raylea.echo', {
+      inspection_id: 'i'.repeat(64),
+      package_sha256: 'a'.repeat(64),
+      trusted_code_confirmed: false,
+    })
 
     const [, request] = fetchMock.mock.calls[0]
     expect(JSON.parse(String(request.body))).toEqual({
-      version: '0.2.0',
-      trusted_code_confirmed: true,
+      inspection_id: 'i'.repeat(64),
+      package_sha256: 'a'.repeat(64),
+      trusted_code_confirmed: false,
     })
     expect(store.installing['raylea.echo']).toBe(false)
   })

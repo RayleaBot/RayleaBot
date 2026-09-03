@@ -2160,6 +2160,36 @@ test('plugin center switches original routes while retaining drafts and independ
   await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(0)
 })
 
+test('plugin store manages sources and confirms first installs', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await page.goto('/plugins/store')
+  await expectPluginCenterPage(page, '插件商店')
+
+  await expect(page.getByText('Echo', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '管理插件源' }).click()
+  const sourceDialog = page.getByRole('dialog', { name: '管理插件源' })
+  await expect(sourceDialog.getByText('RayleaBot 官方插件', { exact: true })).toBeVisible()
+  await expect(sourceDialog.getByText('社区插件', { exact: true })).toBeVisible()
+  await sourceDialog.locator('.ant-modal-close').click()
+  await expect(sourceDialog).toBeHidden()
+
+  await page.getByTestId('plugin-store-install-raylea.echo').click()
+  const confirmDialog = page.getByRole('dialog', { name: '确认安装插件' })
+  await expect(confirmDialog.getByText('message.send', { exact: true })).toBeVisible()
+  const installResponsePromise = page.waitForResponse(response => (
+    response.request().method() === 'POST'
+    && response.url().endsWith('/api/plugin-store/plugins/raylea.echo/install')
+  ))
+  await confirmDialog.getByRole('button', { name: '确认并安装' }).click()
+  expect((await installResponsePromise).status()).toBe(202)
+  await expect(page.getByText(/安装任务已提交/).first()).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByText('Echo', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('plugin-store-refresh')).toBeVisible()
+})
+
 test('plugin sidebar keeps resources visible, resumes workspaces, and returns to root once', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1440, height: 900 })

@@ -49,8 +49,6 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
         return
       }
       await pluginsStore.installPlugin({
-        source_type: installInspection.value.source.source_type,
-        source: installInspection.value.source.source,
         inspection_id: installInspection.value.inspection_id,
         package_sha256: installInspection.value.package_sha256,
         trusted_code_confirmed: true,
