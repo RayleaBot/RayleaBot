@@ -94,7 +94,7 @@ func (r *ReleaseFeed) getSnapshot(force bool, goos, goarch string) ReleaseCheckS
 	}
 	info, err := readBuildInfoForPlatform(r.basePath, goos, goarch)
 	if err != nil {
-		r.cached = r.failure("disabled", "release.trust_required", "当前安装不具备自动更新信任基线。", err.Error(), "")
+		r.cached = r.failure("disabled", "release.trust_required", "当前安装缺少自动更新所需的可信签名信息。", err.Error(), "")
 		r.cachedAt = time.Now()
 		r.checked, r.downloaded = nil, nil
 		return r.cached
@@ -169,7 +169,7 @@ func (r *ReleaseFeed) Download() ReleaseCheckSnapshot {
 	r.cached = ReleaseCheckSnapshot{
 		Status: "ready_to_install", CurrentVersion: result.CurrentVersion, LatestVersion: result.AvailableVersion,
 		Summary: fmt.Sprintf("新版本 %s 已验证并准备安装。", result.AvailableVersion),
-		Detail:  "确认安装后会停服、离线备份、事务替换，并在失败时自动回滚。", ReleasePageURL: result.ReleasePageURL, UpdateAvailable: true,
+		Detail:  "确认安装后会停服、离线备份、原子替换，并在失败时自动回滚。", ReleasePageURL: result.ReleasePageURL, UpdateAvailable: true,
 		DownloadProgress: &progress, DownloadedBytes: &downloadedBytes, TotalBytes: &downloadedBytes, ArtifactFileName: result.Artifact.FileName,
 		CanCheck: true, CanInstall: true,
 	}

@@ -22,7 +22,7 @@ const actionCopy = {
   "install-update": {
     title: "安装更新",
     lead: "确认重启并安装已验证的更新？",
-    detail: "Launcher 将先停止服务并创建离线备份，再执行事务式替换。启动后检查失败时会自动恢复上一版本。",
+    detail: "Launcher 将先停止服务并创建离线备份，再执行原子替换。启动后检查失败时会自动恢复上一版本。",
     confirm: "确认安装",
     icon: <ArrowSync20Regular />,
   },

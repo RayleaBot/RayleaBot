@@ -34,7 +34,7 @@ func ResolveServerEndpoint(configPath string) (ServerEndpoint, string) {
 	payload, err := os.ReadFile(configPath)
 	warning := ""
 	if err != nil {
-		warning = "无法读取服务监听配置，已回退到 127.0.0.1:8080。"
+		warning = "无法读取服务监听配置，已改用 127.0.0.1:8080。"
 	} else {
 		var config struct {
 			Server struct {
@@ -57,7 +57,7 @@ func ResolveServerEndpoint(configPath string) (ServerEndpoint, string) {
 				}
 			}
 		} else {
-			warning = "服务监听配置格式无效，已回退到 127.0.0.1:8080。"
+			warning = "服务监听配置格式无效，已改用 127.0.0.1:8080。"
 		}
 	}
 	return ServerEndpoint{Host: host, Port: port, BaseURL: (&url.URL{Scheme: "http", Host: net.JoinHostPort(host, strconv.Itoa(port)), Path: "/"}).String()}, warning

@@ -202,7 +202,7 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	if err != nil {
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
 			health: JSONObject{"status": "ok"}, processLifecycle: lifecycleFor(c.process.IsRunning()), processOwnership: ownershipFor(c.process.IsRunning(), true),
-			statusHint: "服务存活，但无法读取正式就绪状态。", lastLocalError: err.Error(), localRecoverySummary: recovery,
+			statusHint: "服务存活，但无法读取就绪状态。", lastLocalError: err.Error(), localRecoverySummary: recovery,
 		}))
 		return nil
 	}
