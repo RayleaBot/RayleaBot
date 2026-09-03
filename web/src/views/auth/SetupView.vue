@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { notifySuccess } from '@/adapter/feedback'
 import AuthCredentialsForm from '@/components/auth/AuthCredentialsForm.vue'
 import { toSetupErrorMessage } from '@/lib/auth-feedback'
+import { readInternalRedirectTarget } from '@/lib/route-redirect'
 import { t } from '@/i18n'
 import { useSessionStore } from '@/stores/session'
 
@@ -27,20 +28,10 @@ async function handleSubmit(payload: { identifier: string, secret: string }) {
   try {
     await sessionStore.setupAdmin(payload)
     notifySuccess(t('auth.feedback.setupSuccess'))
-    await router.push(resolvePostAuthTarget())
+    await router.push(readInternalRedirectTarget(router.currentRoute.value.query.redirect) ?? { name: 'status' })
   } catch (error) {
     submissionError.value = toSetupErrorMessage(error)
   }
-}
-
-function resolvePostAuthTarget() {
-  const redirect = router.currentRoute.value.query.redirect
-  const candidate = Array.isArray(redirect) ? redirect[0] : redirect
-  if (typeof candidate === 'string' && candidate.startsWith('/') && !candidate.startsWith('//') && !/\\/.test(candidate)) {
-    return candidate
-  }
-
-  return { name: 'status' }
 }
 </script>
 

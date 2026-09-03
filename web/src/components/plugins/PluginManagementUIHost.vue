@@ -202,11 +202,14 @@ async function restartFrame() {
   }
   const session = bridgeSession
   try {
-    pluginOrigin.value = await resolvePluginOrigin()
+    const resolvedOrigin = await resolvePluginOrigin()
     if (session !== bridgeSession) return
-    if (new URL(pluginOrigin.value).origin === window.location.origin) {
-      throw new Error('插件页面域必须与管理域不同。')
+    if (new URL(resolvedOrigin).origin === window.location.origin) {
+      pluginOrigin.value = ''
+      fatalError.value = t('plugins.managementUi.sameOrigin')
+      return
     }
+    pluginOrigin.value = resolvedOrigin
     bridgeNonce.value = randomID('nonce')
     iframeKey.value += 1
     waitingForReady.value = true

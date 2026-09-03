@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { t } from '@/i18n'
 import AccessListsPage from '@/views/operations/AccessListsView.vue'
 import { useGovernanceStore } from '@/stores/governance'
 
@@ -52,6 +53,14 @@ function toastMessages() {
       return source.value?.message
     })
     .filter((message): message is string => Boolean(message))
+}
+
+function getSelectByTestId(wrapper: ReturnType<typeof mount>, testId: string) {
+  const select = wrapper.findAllComponents({ name: 'ASelect' }).find(
+    candidate => candidate.attributes('data-testid') === testId,
+  )
+  expect(select).toBeDefined()
+  return select!
 }
 
 describe('AccessListsPage', () => {
@@ -206,8 +215,8 @@ describe('AccessListsPage', () => {
     await wrapper.get('[data-testid="access-lists-whitelist-add-btn"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.vm.isAddingWhitelist).toBe(true)
-    expect(wrapper.vm.whitelistDraft.entry_type).toBe('user')
+    expect(wrapper.get('[data-testid="access-lists-whitelist-add-btn"]').attributes('disabled')).toBeDefined()
+    expect(getSelectByTestId(wrapper, 'whitelist-draft-type').props('value')).toBe('user')
 
     await wrapper.get('[data-testid="whitelist-draft-target-id"]').setValue('30003')
     await wrapper.get('[data-testid="whitelist-draft-reason"]').setValue('临时放行')
@@ -227,14 +236,16 @@ describe('AccessListsPage', () => {
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('30003')
 
     // --- Blacklist (always visible): add via inline table edit ---
-    wrapper.vm.blacklistScopeFilter = 'group'
+    const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
+    const blacklistScopeFilter = blacklistCard.findComponent({ name: 'ASelect' })
+    await blacklistScopeFilter.vm.$emit('update:value', 'group')
     await flushPromises()
 
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.vm.isAddingBlacklist).toBe(true)
-    expect(wrapper.vm.blacklistDraft.entry_type).toBe('group')
+    expect(wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').attributes('disabled')).toBeDefined()
+    expect(getSelectByTestId(wrapper, 'blacklist-draft-type').props('value')).toBe('group')
 
     await wrapper.get('[data-testid="blacklist-draft-target-id"]').setValue('30003')
     await wrapper.get('[data-testid="blacklist-draft-reason"]').setValue('临时封禁')
@@ -390,7 +401,8 @@ describe('AccessListsPage', () => {
     await popconfirm.vm.$emit('confirm')
     await flushPromises()
 
-    expect(wrapper.vm.blacklistActionError).toBe('删除失败')
+    expect(toastMessages()).toContain(t('errors.common.actionFailed'))
+    expect(toastMessages()).not.toContain('删除失败')
 
     // Add another entry successfully; the old error should be cleared
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
@@ -403,7 +415,7 @@ describe('AccessListsPage', () => {
     await wrapper.get('[data-testid="blacklist-draft-save"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.vm.blacklistActionError).toBeNull()
+    expect(toastMessages()).not.toContain(t('errors.common.actionFailed'))
     expect(blacklistCard.text()).toContain('10002')
   }, 15000)
 
@@ -464,9 +476,9 @@ describe('AccessListsPage', () => {
     await confirmModal!.vm.$emit('ok')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('白名单已启用且当前为空')
-    expect(wrapper.text()).toContain('除超级管理员外，所有命令都会被挡下')
-    expect(toastMessages()).toContain('白名单已启用且当前为空：除超级管理员外，所有命令都会被挡下。请尽快补充条目，或先关闭白名单。')
+    const emptyWarning = wrapper.get('[data-testid="access-lists-whitelist-empty-warning"]')
+    expect(emptyWarning.text()).toContain('所有命令都会被挡下')
+    expect(toastMessages().some((message) => message.includes('所有命令都会被挡下'))).toBe(true)
   }, 15000)
 
   it('copies the target id and keeps the existing success feedback', async () => {

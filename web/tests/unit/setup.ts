@@ -1,4 +1,4 @@
-import { config } from '@vue/test-utils'
+import { config, enableAutoUnmount } from '@vue/test-utils'
 import { afterEach, beforeEach, vi } from 'vitest'
 
 class ResizeObserverMock {
@@ -14,6 +14,8 @@ config.global.directives = {
     updated() {},
   },
 }
+
+enableAutoUnmount(afterEach)
 
 beforeEach(() => {
   Object.defineProperty(window, 'ResizeObserver', {

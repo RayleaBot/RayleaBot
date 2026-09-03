@@ -3,111 +3,24 @@ import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import ConfigFieldRow from '@/components/config/ConfigFieldRow.vue'
 import ConfigPage from '@/views/system/ConfigView.vue'
-import { getConfigSections } from '@/lib/config-form'
 import { useConfigStore } from '@/stores/config'
-import type { ConfigDocument } from '@/types/api'
+import { createConfigDocumentFixture } from './config-document.fixture'
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
   useToastFeedback: vi.fn(),
 }))
 
-function createFixtureConfig(): ConfigDocument {
-  return {
-    schema_version: '2',
-    server: { host: '127.0.0.1', port: 8080 },
-    onebot: {
-      reverse_ws: { enabled: false, url: '', access_token: '' },
-      forward_ws: { enabled: false, url: '', access_token: '' },
-      http_api: { enabled: false, url: '', access_token: '' },
-      webhook: { enabled: false, url: '', access_token: '' },
-    },
-    database: { engine: 'sqlite', path: 'data/rayleabot.db' },
-    command: { prefixes: ['/'] },
-    builtin_features: {
-      menu: {
-        commands: ['help', '帮助'],
-        prefixes: [],
-      },
-    },
-    admin: {
-      super_admins: [],
-      session_ttl_days: 7,
-      sliding_renewal: true,
-      max_sessions: 3,
-      login_fail_limit: 5,
-      login_fail_window_seconds: 300,
-    },
-    permission: {
-      default_level: 'everyone',
-    },
-    render: {
-      worker_count: 1,
-      browser_args: ['--disable-gpu'],
-      browser_path: '',
-      default_output: 'png',
-      device_scale_percent: 100,
-      timeout_seconds: 30,
-      queue_wait_timeout_seconds: 15,
-      queue_max_length: 32,
-      footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
-    },
-    third_party_accounts: {
-      credential_check_interval_minutes: 360,
-      douyin_login: {
-        browser_mode: 'auto',
-        remote_debugging_url: '',
-      },
-    },
-    scheduler: {
-      timezone: '',
-    },
-    runtime: {
-      plugin_init_timeout_seconds: 30,
-      plugin_init_max_total_seconds: 300,
-      plugin_event_timeout_seconds: 60,
-      max_pending_events_per_plugin: 16,
-      max_pending_control_events_per_plugin: 4,
-      ipc_pending_actions_max: 256,
-      ipc_action_burst_limit: '100/1s',
-      stderr_rate_limit_bytes_per_second: 262144,
-      max_concurrent_tasks_per_plugin: 4,
-      crash_backoff_initial_seconds: 2,
-      crash_backoff_max_seconds: 60,
-      shutdown_grace_seconds: 10,
-      ipc_message_max_bytes: 8388608,
-    },
-    storage: { kv_value_max_bytes: 65536, kv_total_limit_mb: 16, file_max_bytes: 10485760, plugin_workdir_soft_limit_mb: 256 },
-    data: {
-      audit_logs_retention_days: 90,
-      event_records_retention_days: 7,
-      download_cache_retention_days: 15,
-    },
-    log: { level: 'info', retention_days: 7, rate_limit_per_plugin: '200/10s' },
-    message: {
-      rate_limit_per_plugin: '20/10s',
-      rate_limit_per_target: '5/5s',
-      circuit_breaker_seconds: 30,
-    },
-    user: {
-      command_rate_limit: '10/60s',
-      cooldown_reply: true,
-    },
-    group: {
-      command_rate_limit: '30/60s',
-    },
-    adapter: {
-      connect_timeout_seconds: 15,
-      reconnect_initial_seconds: 2,
-      reconnect_multiplier: 2,
-      reconnect_max_seconds: 120,
-      reconnect_jitter_ratio: 0.2,
-    },
-    http: { timeout_seconds: 10, max_retries: 2, allow_private_hosts: [] },
-    web: { exposure_mode: 'localhost_only', setup_local_only: true },
-    backup: { default_consistency: 'offline' },
-  }
+function getConfigFieldRow(wrapper: ReturnType<typeof mount>, path: string) {
+  const row = wrapper.findAllComponents(ConfigFieldRow).find(candidate => candidate.props('field').path === path)
+  expect(row).toBeDefined()
+  return row!
+}
+
+function getRenderedFieldPaths(wrapper: ReturnType<typeof mount>) {
+  return wrapper.findAllComponents(ConfigFieldRow).map(candidate => candidate.props('field').path as string)
 }
 
 describe('ConfigPage', () => {
@@ -119,7 +32,7 @@ describe('ConfigPage', () => {
 
   it('submits the edited config document', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
     store.redactedFields = []
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
@@ -158,7 +71,7 @@ describe('ConfigPage', () => {
 
   it('keeps protocol fields out of the general config page', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
 
@@ -175,19 +88,19 @@ describe('ConfigPage', () => {
     expect(wrapper.find('.config-stack').exists()).toBe(true)
     expect(wrapper.find('.config-toc').exists()).toBe(true)
     expect(wrapper.find('.config-toolbar').exists()).toBe(true)
-    expect(wrapper.findAll('.config-section').length).toBe(getConfigSections().length)
     expect(wrapper.find('.glass-panel').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('OneBot 连接')
-    expect(wrapper.text()).not.toContain('适配器')
-    expect(wrapper.text()).not.toContain('超级管理员')
-    expect(wrapper.text()).not.toContain('默认权限级别')
-    expect(wrapper.text()).not.toContain('用户命令速率限制')
-    expect(wrapper.text()).not.toContain('群命令速率限制')
+    const paths = getRenderedFieldPaths(wrapper)
+    expect(paths).not.toContain('onebot.reverse_ws.enabled')
+    expect(paths).not.toContain('adapter.connect_timeout_seconds')
+    expect(paths).not.toContain('admin.super_admins')
+    expect(paths).not.toContain('permission.default_level')
+    expect(paths).not.toContain('user.command_rate_limit')
+    expect(paths).not.toContain('group.command_rate_limit')
   })
 
   it('keeps cleared numeric fields empty instead of forcing them to 0', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
@@ -223,7 +136,7 @@ describe('ConfigPage', () => {
 
   it('edits image generation defaults from the render section', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
@@ -245,20 +158,12 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    const viewModel = wrapper.vm as unknown as {
-      writeField: (path: string, value: unknown) => void
-    }
+    const outputRow = getConfigFieldRow(wrapper, 'render.default_output')
+    const precisionRow = getConfigFieldRow(wrapper, 'render.device_scale_percent')
+    expect(precisionRow.props('field')).toMatchObject({ min: 50, max: 500, unit: '%' })
 
-    expect(wrapper.text()).toContain('默认生成格式')
-    expect(wrapper.text()).toContain('图片精度')
-    const renderFields = getConfigSections().find((section) => section.key === 'render')?.fields ?? []
-    const precisionField = renderFields.find((field) => field.path === 'render.device_scale_percent')
-    expect(precisionField?.min).toBe(50)
-    expect(precisionField?.max).toBe(500)
-    expect(precisionField?.unit).toBe('%')
-
-    viewModel.writeField('render.default_output', 'jpeg')
-    viewModel.writeField('render.device_scale_percent', 200)
+    await outputRow.vm.$emit('update:value', 'jpeg')
+    await precisionRow.vm.$emit('update:value', 200)
     await flushPromises()
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
@@ -273,7 +178,7 @@ describe('ConfigPage', () => {
 
   it('keeps apply effect details out of the page-level banner area', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
     store.applyEffects = {
       applied_now: ['log.level'],
       reloaded_now: ['onebot.forward_ws.url'],
@@ -303,7 +208,7 @@ describe('ConfigPage', () => {
 
   it('edits hot credential checks and restart-required Douyin browser settings', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
@@ -328,20 +233,16 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('三方账号')
-    expect(wrapper.text()).toContain('CK 自动检查间隔')
-    expect(wrapper.text()).toContain('抖音登录浏览器模式')
-    expect(wrapper.text()).toContain('抖音远程调试地址')
-    const fields = getConfigSections().find((section) => section.key === 'third-party-accounts')?.fields ?? []
-    expect(fields.find((field) => field.path === 'third_party_accounts.credential_check_interval_minutes')?.restartRequired).toBeFalsy()
-    expect(fields.filter((field) => field.path.includes('.douyin_login.')).every((field) => field.restartRequired)).toBe(true)
+    const checkIntervalRow = getConfigFieldRow(wrapper, 'third_party_accounts.credential_check_interval_minutes')
+    const browserModeRow = getConfigFieldRow(wrapper, 'third_party_accounts.douyin_login.browser_mode')
+    const remoteDebuggingRow = getConfigFieldRow(wrapper, 'third_party_accounts.douyin_login.remote_debugging_url')
+    expect(checkIntervalRow.props('field').restartRequired).toBeFalsy()
+    expect(browserModeRow.props('field').restartRequired).toBe(true)
+    expect(remoteDebuggingRow.props('field').restartRequired).toBe(true)
 
-    const viewModel = wrapper.vm as unknown as {
-      writeField: (path: string, value: unknown) => void
-    }
-    viewModel.writeField('third_party_accounts.credential_check_interval_minutes', 720)
-    viewModel.writeField('third_party_accounts.douyin_login.browser_mode', 'remote_cdp')
-    viewModel.writeField('third_party_accounts.douyin_login.remote_debugging_url', 'http://127.0.0.1:9222')
+    await checkIntervalRow.vm.$emit('update:value', 720)
+    await browserModeRow.vm.$emit('update:value', 'remote_cdp')
+    await remoteDebuggingRow.vm.$emit('update:value', 'http://127.0.0.1:9222')
     await flushPromises()
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
@@ -358,7 +259,7 @@ describe('ConfigPage', () => {
 
   it('keeps plugin-facing settings out of the general config page', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
 
@@ -370,17 +271,18 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('命令前缀')
-    expect(wrapper.text()).not.toContain('插件日志速率限制')
-    expect(wrapper.text()).not.toContain('插件消息速率限制')
-    expect(wrapper.text()).not.toContain('插件工作目录软上限')
-    expect(wrapper.text()).not.toContain('默认权限级别')
-    expect(wrapper.text()).not.toContain('目标消息速率限制')
+    const paths = getRenderedFieldPaths(wrapper)
+    expect(paths).not.toContain('command.prefixes')
+    expect(paths).not.toContain('log.rate_limit_per_plugin')
+    expect(paths).not.toContain('message.rate_limit_per_plugin')
+    expect(paths).not.toContain('storage.plugin_workdir_soft_limit_mb')
+    expect(paths).not.toContain('permission.default_level')
+    expect(paths).not.toContain('message.rate_limit_per_target')
   })
 
   it('edits general IPC rate limit with split inputs', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
 
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
@@ -402,13 +304,9 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    const viewModel = wrapper.vm as unknown as {
-      writeField: (path: string, value: unknown) => void
-    }
-
-    viewModel.writeField('runtime.ipc_action_burst_limit', '200/10s')
+    await getConfigFieldRow(wrapper, 'runtime.ipc_action_burst_limit').vm.$emit('update:value', '200/10s')
     await flushPromises()
-    expect(wrapper.text()).not.toContain('目标消息速率限制')
+    expect(getRenderedFieldPaths(wrapper)).not.toContain('message.rate_limit_per_target')
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
     expect(saveButton).toBeTruthy()
@@ -422,7 +320,7 @@ describe('ConfigPage', () => {
 
   it('reflects dirty state in the toolbar save button', async () => {
     const store = useConfigStore()
-    store.document = createFixtureConfig()
+    store.document = createConfigDocumentFixture()
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
 
     const wrapper = mount(ConfigPage, {
@@ -437,8 +335,7 @@ describe('ConfigPage', () => {
     expect(saveButton).toBeTruthy()
     expect((saveButton!.element as HTMLButtonElement).disabled).toBe(true)
 
-    const viewModel = wrapper.vm as unknown as { writeField: (path: string, value: unknown) => void }
-    viewModel.writeField('server.host', '0.0.0.0')
+    await getConfigFieldRow(wrapper, 'server.host').vm.$emit('update:value', '0.0.0.0')
     await flushPromises()
 
     expect((saveButton!.element as HTMLButtonElement).disabled).toBe(false)

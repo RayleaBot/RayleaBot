@@ -46,14 +46,8 @@ describe('ConfigFieldRow', () => {
       },
       'info',
     )
-    const vm = wrapper.vm as unknown as { emitSelect?: (value: unknown) => void }
-    // simulate Ant Design Vue Select change via direct emit invocation through component instance
-    const selectStub = wrapper.findComponent({ name: 'ASelect' })
-    if (selectStub.exists()) {
-      selectStub.vm.$emit('update:value', 'debug')
-    } else {
-      vm.emitSelect?.('debug')
-    }
+    const select = wrapper.getComponent({ name: 'ASelect' })
+    await select.vm.$emit('update:value', 'debug')
     expect(wrapper.emitted('update:value')?.[0]).toEqual(['debug'])
   })
 

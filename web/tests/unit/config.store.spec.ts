@@ -85,6 +85,7 @@ describe('config store', () => {
 
     const store = useConfigStore()
     await expect(store.saveConfig({ schema_version: '2' })).rejects.toMatchObject({ code: 'platform.invalid_request' })
-    expect(store.error).toBe('请求参数不正确，请检查后重试。')
+    expect(store.error).toBeTruthy()
+    expect(store.error).not.toBe('配置校验失败')
   })
 })

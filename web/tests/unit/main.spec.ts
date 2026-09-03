@@ -155,7 +155,7 @@ describe('web bootstrap', () => {
 
     startupRuntime.onNetworkUnavailable()
 
-    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledWith('http')
+    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledOnce()
     expect(useUiShellStore).not.toHaveBeenCalled()
   })
 
@@ -457,7 +457,7 @@ describe('web bootstrap', () => {
     expect(availabilityStore.markConnectionInterrupted).not.toHaveBeenCalled()
 
     await vi.advanceTimersByTimeAsync(1)
-    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledWith('http')
+    expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledOnce()
     expect(router.replace).not.toHaveBeenCalled()
   })
 

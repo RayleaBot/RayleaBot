@@ -80,7 +80,7 @@ watchEffect(() => {
   border: 1px solid color-mix(in srgb, var(--warning) 36%, var(--border));
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-warning) 94%, transparent);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+  box-shadow: var(--shadow-floating);
   color: var(--text);
   font-size: 13px;
   line-height: 1.5;

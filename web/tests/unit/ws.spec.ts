@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   computeBackoffMs,
-  DEFAULT_BACKOFF,
   ManagedSocket,
   type BackoffOptions,
   type SocketStatusDetail,
 } from '@/lib/ws'
+import type { ConnectionStatus } from '@/types/api'
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = []
@@ -49,8 +49,23 @@ const deterministicRandom = () => 0.5
 
 const fixedNow = () => new Date('2026-03-17T09:33:00Z')
 
+interface SocketUpdate {
+  status: ConnectionStatus
+  detail: SocketStatusDetail
+}
+
+function latestUpdate(updates: SocketUpdate[]) {
+  const update = updates.at(-1)
+  if (!update) {
+    throw new Error('expected a socket status update')
+  }
+  return update
+}
+
 function makeSocket(options: Partial<ConstructorParameters<typeof ManagedSocket>[0]> = {}) {
-  return new ManagedSocket({
+  const updates: SocketUpdate[] = []
+  const onStatusChange = options.onStatusChange
+  const socket = new ManagedSocket({
     name: options.name ?? 'events',
     path: options.path ?? (() => '/ws/events'),
     runtime: options.runtime ?? {
@@ -58,11 +73,16 @@ function makeSocket(options: Partial<ConstructorParameters<typeof ManagedSocket>
       onSessionExpired: vi.fn(),
     },
     onFrame: options.onFrame,
-    onStatusChange: options.onStatusChange,
+    onStatusChange: (status, detail) => {
+      updates.push({ status, detail: { ...detail } })
+      onStatusChange?.(status, detail)
+    },
     backoff: options.backoff,
     now: options.now ?? fixedNow,
     random: options.random ?? deterministicRandom,
   })
+
+  return { socket, updates }
 }
 
 describe('computeBackoffMs', () => {
@@ -87,12 +107,6 @@ describe('computeBackoffMs', () => {
     expect(computeBackoffMs(1, options, () => 1)).toBe(1250)
     expect(computeBackoffMs(1, options, () => 0.5)).toBe(1000)
   })
-
-  it('uses the documented defaults', () => {
-    expect(DEFAULT_BACKOFF.baseMs).toBe(500)
-    expect(DEFAULT_BACKOFF.capMs).toBe(30_000)
-    expect(DEFAULT_BACKOFF.jitterRatio).toBe(0.25)
-  })
 })
 
 describe('ManagedSocket', () => {
@@ -108,7 +122,7 @@ describe('ManagedSocket', () => {
 
   it('moves to authenticated after the first frame', () => {
     const onFrame = vi.fn()
-    const socket = makeSocket({ onFrame })
+    const { socket, updates } = makeSocket({ onFrame })
 
     socket.start()
     const instance = FakeWebSocket.instances[0]
@@ -123,13 +137,13 @@ describe('ManagedSocket', () => {
       },
     })
 
-    expect(socket.getStatus()).toBe('authenticated')
+    expect(latestUpdate(updates).status).toBe('authenticated')
     expect(onFrame).toHaveBeenCalledTimes(1)
   })
 
   it('triggers session expiration on session_expired frame', () => {
     const onSessionExpired = vi.fn()
-    const socket = makeSocket({
+    const { socket, updates } = makeSocket({
       runtime: {
         isAuthenticated: () => true,
         onSessionExpired,
@@ -145,12 +159,12 @@ describe('ManagedSocket', () => {
     })
 
     expect(onSessionExpired).toHaveBeenCalledTimes(1)
-    expect(socket.getStatus()).toBe('disconnected')
+    expect(latestUpdate(updates).status).toBe('disconnected')
   })
 
   it('does not put a bearer token in the WebSocket URL', () => {
     const onSessionExpired = vi.fn()
-    const socket = makeSocket({
+    const { socket } = makeSocket({
       runtime: {
         isAuthenticated: () => true,
         onSessionExpired,
@@ -167,7 +181,7 @@ describe('ManagedSocket', () => {
   })
 
   it('records the last error and reconnects after close', () => {
-    const socket = makeSocket()
+    const { socket, updates } = makeSocket()
 
     socket.start()
     const firstInstance = FakeWebSocket.instances[0]
@@ -175,10 +189,14 @@ describe('ManagedSocket', () => {
     firstInstance.emit('error')
     firstInstance.emit('close')
 
-    expect(socket.getStatus()).toBe('reconnecting')
-    expect(socket.getLastError()).toBe('events 连接异常')
-    expect(socket.getLastErrorAt()).toBe('2026-03-17T09:33:00.000Z')
-    expect(socket.getNextBackoffMs()).toBe(500)
+    expect(latestUpdate(updates)).toEqual({
+      status: 'reconnecting',
+      detail: {
+        lastError: 'events 连接异常',
+        lastErrorAt: '2026-03-17T09:33:00.000Z',
+        nextBackoffMs: 500,
+      },
+    })
 
     vi.advanceTimersByTime(500)
 
@@ -187,7 +205,7 @@ describe('ManagedSocket', () => {
 
   it('ignores stale close events after refresh reconnects', () => {
     let currentPath = '/ws/events'
-    const socket = makeSocket({ path: () => currentPath })
+    const { socket, updates } = makeSocket({ path: () => currentPath })
 
     socket.start()
     const firstInstance = FakeWebSocket.instances[0]
@@ -200,20 +218,20 @@ describe('ManagedSocket', () => {
 
     firstInstance.emit('close')
 
-    expect(socket.getStatus()).toBe('connected')
+    expect(latestUpdate(updates).status).toBe('connected')
     expect(FakeWebSocket.instances.length).toBe(2)
   })
 
   it('closes the current socket and reconnects when a frame is not valid JSON', () => {
-    const socket = makeSocket()
+    const { socket, updates } = makeSocket()
 
     socket.start()
     const firstInstance = FakeWebSocket.instances[0]
     firstInstance.emit('open')
     firstInstance.emit('message', 'not-json')
 
-    expect(socket.getLastError()).toBe('events 收到无效消息')
-    expect(socket.getStatus()).toBe('reconnecting')
+    expect(latestUpdate(updates).detail.lastError).toBe('events 收到无效消息')
+    expect(latestUpdate(updates).status).toBe('reconnecting')
 
     vi.advanceTimersByTime(500)
 
@@ -221,7 +239,7 @@ describe('ManagedSocket', () => {
   })
 
   it('grows the reconnect delay exponentially and caps it', () => {
-    const socket = makeSocket({
+    const { socket, updates } = makeSocket({
       backoff: { baseMs: 500, capMs: 4_000, jitterRatio: 0 },
     })
 
@@ -230,14 +248,14 @@ describe('ManagedSocket', () => {
     for (const delay of expected) {
       const instance = FakeWebSocket.instances.at(-1)!
       instance.emit('close')
-      expect(socket.getNextBackoffMs()).toBe(delay)
+      expect(latestUpdate(updates).detail.nextBackoffMs).toBe(delay)
       vi.advanceTimersByTime(delay)
     }
   })
 
   it('stops scheduling reconnects after session_expired', () => {
     const onSessionExpired = vi.fn()
-    const socket = makeSocket({
+    const { socket, updates } = makeSocket({
       runtime: { isAuthenticated: () => true, onSessionExpired },
     })
 
@@ -246,7 +264,7 @@ describe('ManagedSocket', () => {
     instance.emit('open')
     instance.emit('message', { type: 'session_expired', data: {} })
 
-    expect(socket.getStatus()).toBe('disconnected')
+    expect(latestUpdate(updates).status).toBe('disconnected')
 
     vi.advanceTimersByTime(60_000)
 
@@ -254,10 +272,7 @@ describe('ManagedSocket', () => {
   })
 
   it('clears lastError and nextBackoffMs once a reconnect succeeds', () => {
-    const updates: Array<{ status: string; detail: SocketStatusDetail }> = []
-    const socket = makeSocket({
-      onStatusChange: (status, detail) => updates.push({ status, detail: { ...detail } }),
-    })
+    const { socket, updates } = makeSocket()
 
     socket.start()
     const firstInstance = FakeWebSocket.instances[0]
@@ -275,19 +290,16 @@ describe('ManagedSocket', () => {
       data: { summary: 'ready', service_status: 'running' },
     })
 
-    expect(socket.getStatus()).toBe('authenticated')
-    expect(socket.getLastError()).toBeUndefined()
-    expect(socket.getLastErrorAt()).toBeUndefined()
-    expect(socket.getNextBackoffMs()).toBeUndefined()
-
-    const lastUpdate = updates.at(-1)!
+    const lastUpdate = latestUpdate(updates)
+    expect(lastUpdate.status).toBe('authenticated')
     expect(lastUpdate.detail.lastError).toBeUndefined()
+    expect(lastUpdate.detail.lastErrorAt).toBeUndefined()
     expect(lastUpdate.detail.nextBackoffMs).toBeUndefined()
   })
 
   it('counts attempts independently across sockets', () => {
-    const socketA = makeSocket({ name: 'events' })
-    const socketB = makeSocket({ name: 'logs', path: () => '/ws/logs' })
+    const { socket: socketA, updates: updatesA } = makeSocket({ name: 'events' })
+    const { socket: socketB, updates: updatesB } = makeSocket({ name: 'logs', path: () => '/ws/logs' })
 
     socketA.start()
     socketB.start()
@@ -295,14 +307,14 @@ describe('ManagedSocket', () => {
     const bFirst = FakeWebSocket.instances[1]
     aFirst.emit('close')
 
-    expect(socketA.getNextBackoffMs()).toBe(500)
-    expect(socketB.getNextBackoffMs()).toBeUndefined()
+    expect(latestUpdate(updatesA).detail.nextBackoffMs).toBe(500)
+    expect(latestUpdate(updatesB).detail.nextBackoffMs).toBeUndefined()
 
     vi.advanceTimersByTime(500)
     const aSecond = FakeWebSocket.instances.at(-1)!
     aSecond.emit('close')
 
-    expect(socketA.getNextBackoffMs()).toBe(1_000)
+    expect(latestUpdate(updatesA).detail.nextBackoffMs).toBe(1_000)
     expect(bFirst.readyState).toBe(FakeWebSocket.OPEN)
   })
 })

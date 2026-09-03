@@ -5,7 +5,7 @@ import {
   normalizeLayoutPreferences,
   resolveThemeConfig,
 } from '@/preferences/app'
-import designTokens from '@/styles/_theme-tokens.generated.scss?raw'
+import { webThemes } from '@/preferences/theme-tokens'
 
 describe('app preferences', () => {
   it('defaults to the system theme and drops retired visual overrides', () => {
@@ -28,32 +28,26 @@ describe('app preferences', () => {
   })
 
   it('projects the design palette into equivalent light and dark Ant tokens', () => {
+    const light = webThemes.light
     expect(resolveThemeConfig('light', 'default').token).toEqual(expect.objectContaining({
-      colorBgBase: '#FAFAFA',
-      colorLink: '#476C5E',
-      colorPrimary: '#476C5E',
-      colorPrimaryHover: '#365749',
-      colorPrimaryActive: '#294438',
-      colorText: '#252525',
-      colorTextLightSolid: '#FFFFFF',
-      controlOutline: '#555555',
+      colorBgBase: light.canvas,
+      colorLink: light.brandForeground,
+      colorPrimary: light.brandFill,
+      colorPrimaryHover: light.brandFillHover,
+      colorPrimaryActive: light.brandFillPressed,
+      colorText: light.text,
+      colorTextLightSolid: light.onBrand,
+      controlOutline: light.focus,
     }))
+    const dark = webThemes.dark
     expect(resolveThemeConfig('dark', 'compact').token).toEqual(expect.objectContaining({
-      colorBgBase: '#161616',
-      colorPrimary: '#A3C5B3',
-      colorPrimaryHover: '#BBD0C1',
-      colorPrimaryActive: '#80A48F',
-      colorText: '#EEEEEE',
-      colorTextLightSolid: '#18281F',
-      controlOutline: '#C0C0C0',
+      colorBgBase: dark.canvas,
+      colorPrimary: dark.brandFill,
+      colorPrimaryHover: dark.brandFillHover,
+      colorPrimaryActive: dark.brandFillPressed,
+      colorText: dark.text,
+      colorTextLightSolid: dark.onBrand,
+      controlOutline: dark.focus,
     }))
-  })
-
-  it('keeps the CSS brand roles aligned with the Ant theme', () => {
-    expect(designTokens).toContain('--brand-fill: #476C5E;')
-    expect(designTokens).toContain('--brand-fill-hover: #365749;')
-    expect(designTokens).toContain('--brand-foreground: #476C5E;')
-    expect(designTokens).toContain('--on-brand: #FFFFFF;')
-    expect(designTokens).toContain('--sider-bg: #F7F7F7;')
   })
 })

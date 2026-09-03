@@ -36,7 +36,7 @@ const {
   detailCardRef,
   detailModalTitleId,
   detailVisible,
-  modalContentReady,
+  finishJobDetailClose,
   showJobDetail,
 } = useSchedulerJobDetail()
 void detailCardRef
@@ -526,7 +526,7 @@ const filteredItems = computed(() => {
 </div>
 
     <Teleport to="body">
-      <Transition name="scheduler-detail-modal">
+      <Transition name="scheduler-detail-modal" @after-leave="finishJobDetailClose">
         <div
           v-if="detailVisible"
           class="scheduler-detail-modal__host"
@@ -559,9 +559,9 @@ const filteredItems = computed(() => {
             </header>
 
             <div class="scheduler-detail-modal__body">
-              <Transition name="scheduler-modal-content">
+              <Transition appear name="scheduler-modal-content">
                 <div
-                  v-if="currentJob && modalContentReady"
+                  v-if="currentJob"
                   key="content"
                   class="modal-console-layout"
                 >

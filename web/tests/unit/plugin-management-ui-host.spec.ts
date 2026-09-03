@@ -227,6 +227,21 @@ describe('PluginManagementUIHost bridge v3', () => {
     wrapper.unmount()
   })
 
+  it('explains how to fix a plugin page origin that matches the management origin', async () => {
+    const configStore = useConfigStore()
+    configStore.document = {
+      web: { plugin_ui_origin_template: window.location.origin },
+    } as never
+
+    const wrapper = mountHost()
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('插件页面域不能与管理域相同')
+    expect(wrapper.get('[role="alert"]').text()).toContain('插件页面域模板')
+    expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('restarts the plugin page after a runtime reload reaches running', async () => {
     const wrapper = mountHost(buildPlugin({ state: 'running' }))
     await flushPromises()

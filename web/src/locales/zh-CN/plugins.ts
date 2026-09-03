@@ -316,6 +316,7 @@ export const plugins = {
     saving: '正在保存设置',
     loadFailed: '插件页面未打开',
     loadTimeout: '插件页面未在预期时间内完成初始化，请重试。',
+    sameOrigin: '插件页面域不能与管理域相同，请修改 Web 配置中的插件页面域模板。',
     invalidBridgeMessage: '插件页面发送了无效消息，当前页面已停止交互。',
     confirmTitle: '未验证来源需要手动确认',
     confirmBody: '这个插件页面来自未验证来源。确认后可继续打开当前插件版本对应的内置管理页。',

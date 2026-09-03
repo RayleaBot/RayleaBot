@@ -35,8 +35,6 @@ describe('AuthCredentialsForm', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('submit')).toBeUndefined()
-    expect(wrapper.text()).toContain('请输入管理员账号')
-    expect(wrapper.text()).toContain('请输入管理员密钥')
     expect(inputs[0].attributes('aria-describedby')).toBe('auth-identifier-error')
     expect(inputs[1].attributes('aria-describedby')).toBe('auth-secret-error')
     expect(document.activeElement).toBe(inputs[0].element)

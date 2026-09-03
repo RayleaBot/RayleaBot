@@ -123,6 +123,7 @@ describe('router guards', () => {
   })
 
   it('keeps the current page when a route chunk cannot be loaded', async () => {
+    vi.useFakeTimers()
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: true })))
     const availabilityStore = useAppAvailabilityStore()
     const uiShellStore = useUiShellStore()
@@ -134,13 +135,17 @@ describe('router guards', () => {
       component: () => Promise.reject(new Error('Failed to fetch dynamically imported module')),
     })
 
-    await router.push('/broken-chunk').catch(() => undefined)
-    await Promise.resolve()
-    await Promise.resolve()
-    await new Promise((resolve) => window.setTimeout(resolve, 180))
+    try {
+      await router.push('/broken-chunk').catch(() => undefined)
+      await Promise.resolve()
+      await Promise.resolve()
+      await vi.advanceTimersByTimeAsync(160)
 
-    expect(availabilityStore.isConnectionInterrupted).toBe(true)
-    expect(uiShellStore.routeLoading).toBe(false)
-    expect(router.currentRoute.value.name).not.toBe('offline')
+      expect(availabilityStore.isConnectionInterrupted).toBe(true)
+      expect(uiShellStore.routeLoading).toBe(false)
+      expect(router.currentRoute.value.name).not.toBe('offline')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

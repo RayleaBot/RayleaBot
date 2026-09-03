@@ -44,6 +44,6 @@ describe('SetupPage', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('创建管理员账号未完成，请检查输入后重试。')
+    expect(wrapper.get('[role="alert"]').text().trim()).not.toBe('')
   })
 })

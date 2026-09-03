@@ -76,7 +76,6 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
   private lastErrorAt: string | undefined
   private nextBackoffMs: number | undefined
   private pathSnapshot: string | null = null
-  private status: ConnectionStatus = 'disconnected'
 
   constructor(options: ManagedSocketOptions<TFrameData>) {
     this.name = options.name
@@ -111,22 +110,6 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
     if (this.started) {
       this.connect()
     }
-  }
-
-  getStatus() {
-    return this.status
-  }
-
-  getLastError() {
-    return this.lastError
-  }
-
-  getLastErrorAt() {
-    return this.lastErrorAt
-  }
-
-  getNextBackoffMs() {
-    return this.nextBackoffMs
   }
 
   private connect() {
@@ -236,7 +219,6 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
   }
 
   private setStatus(status: ConnectionStatus) {
-    this.status = status
     if (status === 'authenticated' || status === 'connected') {
       this.lastError = undefined
       this.lastErrorAt = undefined

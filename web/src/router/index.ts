@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type Router, type RouterHistory, type RouteRecordRaw } from 'vue-router'
 
 import { ApiError } from '@/lib/http'
+import { readInternalRedirectTarget } from '@/lib/route-redirect'
 import { publicRoutes } from '@/router/routes/core'
 import { adminRoutes } from '@/router/routes/modules/admin'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
@@ -64,7 +65,7 @@ function installRouteErrorHandler(router: Router) {
 
     if (isRouteAssetLoadError(error)) {
       const availabilityStore = useAppAvailabilityStore()
-      availabilityStore.markConnectionInterrupted('http')
+      availabilityStore.markConnectionInterrupted()
       return
     }
 
@@ -96,7 +97,7 @@ function installRouteGuards(router: Router) {
         await sessionStore.bootstrap()
       } catch (error) {
         if (availabilityStore.isConnectionInterrupted || isConnectionUnavailableError(error)) {
-          availabilityStore.markConnectionInterrupted('http')
+          availabilityStore.markConnectionInterrupted()
           return true
         }
 
@@ -118,7 +119,7 @@ function installRouteGuards(router: Router) {
     }
 
     if (!sessionStore.requiresSetup && to.name === 'setup') {
-      return sessionStore.isAuthenticated ? { path: readRedirectTarget(to.query.redirect) ?? '/' } : {
+      return sessionStore.isAuthenticated ? { path: readInternalRedirectTarget(to.query.redirect) ?? '/' } : {
         name: 'login',
         query: to.query.redirect ? { redirect: to.query.redirect } : undefined,
       }
@@ -132,7 +133,7 @@ function installRouteGuards(router: Router) {
     }
 
     if (sessionStore.isAuthenticated && (to.name === 'login' || to.name === 'setup')) {
-      return { path: readRedirectTarget(to.query.redirect) ?? '/' }
+      return { path: readInternalRedirectTarget(to.query.redirect) ?? '/' }
     }
 
     return true
@@ -151,17 +152,4 @@ function installRouteGuards(router: Router) {
       loadingTimer = null
     }, 160)
   })
-}
-
-function readRedirectTarget(value: unknown) {
-  const candidate = Array.isArray(value) ? value[0] : value
-  if (typeof candidate !== 'string' || !candidate.trim()) {
-    return null
-  }
-
-  if (!candidate.startsWith('/') || candidate.startsWith('//') || /\\/.test(candidate)) {
-    return null
-  }
-
-  return candidate
 }

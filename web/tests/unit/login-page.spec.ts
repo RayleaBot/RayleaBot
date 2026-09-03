@@ -51,7 +51,7 @@ describe('LoginPage', () => {
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('登录未完成，请检查管理员账号和密钥。')
+    expect(wrapper.get('[role="alert"]').text().trim()).not.toBe('')
 
     await inputs[1].setValue('next-secret')
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)

@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { t } from '@/i18n'
 import { useLogsStore } from '@/stores/logs'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -272,8 +273,9 @@ describe('logs store', () => {
     }, 500)))
 
     const store = useLogsStore()
-    await expect(store.ensureLoaded()).rejects.toMatchObject({ message: '读取日志失败' })
-    expect(store.error).toBe('读取日志失败')
+    await expect(store.ensureLoaded()).rejects.toMatchObject({ code: 'platform.unknown' })
+    expect(store.error).toBe(t('errors.common.loadFailed'))
+    expect(store.error).not.toBe('读取日志失败')
   })
 
   it('trims live logs to the maximum limit and keeps the newest rows', () => {

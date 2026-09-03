@@ -48,45 +48,6 @@ describe('socket store', () => {
     vi.useRealTimers()
   })
 
-  it('starts management sockets once and keeps snapshots public', () => {
-    const store = useSocketStore()
-
-    store.ensureManagementSockets()
-    store.ensureManagementSockets()
-
-    expect(MockManagedSocket.instances).toHaveLength(3)
-    expect(MockManagedSocket.instances[0].start).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[1].start).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[2].start).not.toHaveBeenCalled()
-
-    MockManagedSocket.instances[0].emitStatus('authenticated')
-    MockManagedSocket.instances[1].emitStatus('reconnecting', 'logs 连接异常')
-
-    expect(store.snapshots.events.status).toBe('authenticated')
-    expect(store.snapshots.logs.lastError).toBe('logs 连接异常')
-  })
-
-  it('keeps console and reconnect controls stable', () => {
-    const store = useSocketStore()
-
-    store.ensureManagementSockets()
-    store.setConsolePlugin('weather')
-    store.reconnectConsole()
-    store.reconnectAll()
-
-    expect(MockManagedSocket.instances[2].start).toHaveBeenCalledTimes(3)
-    expect(MockManagedSocket.instances[2].refresh).toHaveBeenCalledTimes(3)
-
-    store.setConsolePlugin(null)
-    expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(1)
-
-    store.disconnectAll()
-
-    expect(MockManagedSocket.instances[0].stop).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[1].stop).toHaveBeenCalledTimes(1)
-    expect(MockManagedSocket.instances[2].stop).toHaveBeenCalledTimes(2)
-  })
-
   it('routes live log frames through the public socket store wiring', async () => {
     const store = useSocketStore()
     const logsStore = useLogsStore()

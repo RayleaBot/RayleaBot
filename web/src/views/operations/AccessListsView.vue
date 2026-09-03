@@ -459,6 +459,7 @@ onMounted(() => {
             v-if="whitelistEnabled && totalWhitelistEntries === 0"
             type="warning"
             show-icon
+            data-testid="access-lists-whitelist-empty-warning"
             :message="t('accessLists.whitelist.emptyWarningTitle')"
             :description="t('accessLists.whitelist.emptyWarningDescription')"
           />

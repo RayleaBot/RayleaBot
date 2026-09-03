@@ -4,6 +4,7 @@ import { createApp } from 'vue'
 
 import App from '@/App.vue'
 import { i18n } from '@/i18n'
+import { readInternalRedirectTarget } from '@/lib/route-redirect'
 import { installAntDesignVue } from '@/plugins/antd'
 import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
@@ -19,19 +20,6 @@ const websocketFailureConfirmationDelayMs = 2500
 const requestFailureConfirmationDelayMs = 800
 const backendProbeTimeoutMs = 2500
 const backendRecoveryProbeIntervalMs = 2500
-
-function readRouteRedirectTarget(value: unknown) {
-  const candidate = Array.isArray(value) ? value[0] : value
-  if (typeof candidate !== 'string' || !candidate.trim()) {
-    return null
-  }
-
-  if (!candidate.startsWith('/') || candidate.startsWith('//') || /\\/.test(candidate)) {
-    return null
-  }
-
-  return candidate
-}
 
 function shouldNormalizeStartupRoute(fullPath: string, routeName: unknown) {
   return (fullPath === '' || fullPath === '/')
@@ -65,7 +53,7 @@ async function syncRouteWithSession(
   if (sessionStore.isAuthenticated) {
     socketStore.ensureManagementSockets()
     if (current.name === 'login' || current.name === 'setup') {
-      await router.push(readRouteRedirectTarget(current.query.redirect) ?? { name: 'status' })
+      await router.push(readInternalRedirectTarget(current.query.redirect) ?? { name: 'status' })
     }
     return
   }
@@ -171,9 +159,9 @@ function installAvailabilityHandlers(
     }, backendRecoveryProbeIntervalMs)
   }
 
-  function markConnectionInterrupted(source: 'browser' | 'http' | 'websocket') {
+  function markConnectionInterrupted() {
     clearFailureTimers()
-    availabilityStore.markConnectionInterrupted(source)
+    availabilityStore.markConnectionInterrupted()
     ensureBackendRecoveryTimer()
   }
 
@@ -203,7 +191,7 @@ function installAvailabilityHandlers(
         return
       }
 
-      markConnectionInterrupted(source)
+      markConnectionInterrupted()
     }, delayMs)
 
     if (source === 'http') {
@@ -219,7 +207,7 @@ function installAvailabilityHandlers(
   })
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('offline', () => markConnectionInterrupted('browser'))
+    window.addEventListener('offline', markConnectionInterrupted)
     window.addEventListener('online', () => void probeBackendRecovery())
   }
 
@@ -275,7 +263,7 @@ async function bootstrap() {
     onCSRFToken: (token) => {
       sessionStore.csrfToken = token
     },
-    onNetworkUnavailable: () => availabilityStore.markConnectionInterrupted('http'),
+    onNetworkUnavailable: () => availabilityStore.markConnectionInterrupted(),
     onReachable: () => availabilityStore.markConnected(),
     onUnauthorized: () => sessionStore.handleSessionExpired(),
   })

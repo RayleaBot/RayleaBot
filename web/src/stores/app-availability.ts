@@ -1,28 +1,19 @@
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-export type ConnectionIssueSource = 'browser' | 'http' | 'websocket'
-
 export const useAppAvailabilityStore = defineStore('app-availability', () => {
-  const connectionIssueSource = ref<ConnectionIssueSource | null>(null)
-  const lastConnectionIssueAt = ref<string | null>(null)
+  const isConnectionInterrupted = ref(false)
 
-  const isConnectionInterrupted = computed(() => connectionIssueSource.value !== null)
-
-  function markConnectionInterrupted(source: ConnectionIssueSource) {
-    connectionIssueSource.value = source
-    lastConnectionIssueAt.value = new Date().toISOString()
+  function markConnectionInterrupted() {
+    isConnectionInterrupted.value = true
   }
 
   function markConnected() {
-    connectionIssueSource.value = null
-    lastConnectionIssueAt.value = null
+    isConnectionInterrupted.value = false
   }
 
   return {
-    connectionIssueSource,
     isConnectionInterrupted,
-    lastConnectionIssueAt,
     markConnected,
     markConnectionInterrupted,
   }

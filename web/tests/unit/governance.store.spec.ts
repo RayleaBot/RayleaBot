@@ -1,6 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { t } from '@/i18n'
 import { useGovernanceStore } from '@/stores/governance'
 
 function jsonResponse(body: unknown, status = 200) {
@@ -102,7 +103,8 @@ describe('governance store', () => {
     expect(result.blacklist).toBeNull()
     expect(result.whitelist?.enabled).toBe(false)
     expect(result.commandPolicy?.default_level).toBe('everyone')
-    expect(store.blacklistError).toBe('读取黑名单失败')
+    expect(store.blacklistError).toBe(t('errors.common.loadFailed'))
+    expect(store.blacklistError).not.toBe('读取黑名单失败')
     expect(store.whitelistError).toBeNull()
     expect(store.commandPolicyError).toBeNull()
     expect(store.error).toBeNull()
