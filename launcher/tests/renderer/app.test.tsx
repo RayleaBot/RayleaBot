@@ -370,8 +370,11 @@ describe("App", () => {
 
   test("restores a pending close confirmation until cancellation succeeds", async () => {
     let initialized = false;
+    let rejectCloseConfirmation: (reason: Error) => void = () => undefined;
     const closeConfirmResponse = vi.fn()
-      .mockRejectedValueOnce(new Error("desktop bridge unavailable"))
+      .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => {
+        rejectCloseConfirmation = reject;
+      }))
       .mockResolvedValue(undefined);
     installDesktopApi({
       getPlatform: vi.fn(async () => "win32-x64"),
@@ -415,10 +418,14 @@ describe("App", () => {
 
     await waitFor(() => {
       expect(closeConfirmResponse).toHaveBeenCalledWith({ action: "cancel", setAsDefault: false });
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await act(async () => {
+      rejectCloseConfirmation(new Error("desktop bridge unavailable"));
+    });
+
+    fireEvent.click(await screen.findByRole("button", { name: "取消" }));
     await waitFor(() => {
       expect(closeConfirmResponse).toHaveBeenCalledTimes(2);
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
