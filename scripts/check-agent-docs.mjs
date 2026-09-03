@@ -2,31 +2,19 @@
 // scripts/check-agent-docs.mjs
 // Checks AGENTS.md, CLAUDE.md, and .agents/skills/**/SKILL.md for structural issues.
 
-import { readFileSync, existsSync, statSync, readdirSync } from "fs";
-import { join, dirname, relative, resolve, basename } from "path";
+import { spawnSync } from "child_process";
+import { readFileSync, existsSync } from "fs";
+import { join, dirname, relative, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, "..");
 
-const EXCLUDE_DIRS = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  ".gocache",
-  "coverage",
-  ".claude",
-]);
-
 const issues = [];
 
 function addIssue(file, message) {
   issues.push(`${relative(ROOT, file)}: ${message}`);
-}
-
-function shouldExcludeDir(name) {
-  return EXCLUDE_DIRS.has(name);
 }
 
 // ── Collect target files ───────────────────────────────────────────────────
@@ -35,34 +23,42 @@ const agentsFiles = [];
 const claudeFiles = [];
 const skillFiles = [];
 
-function walk(dir) {
-  const entries = readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (!shouldExcludeDir(entry.name)) {
-        walk(join(dir, entry.name));
-      }
-    } else {
-      const fullPath = join(dir, entry.name);
-      if (entry.name === "AGENTS.md") agentsFiles.push(fullPath);
-      if (entry.name === "CLAUDE.md") claudeFiles.push(fullPath);
-      if (
-        entry.name === "SKILL.md" &&
-        relative(ROOT, dir).replace(/\\/g, "/").startsWith(".agents/skills/")
-      ) {
-        skillFiles.push(fullPath);
-      }
-    }
+function listRepositoryCandidates() {
+  const result = spawnSync(
+    "git",
+    ["-c", `safe.directory=${ROOT}`, "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    { cwd: ROOT, encoding: "utf8", windowsHide: true },
+  );
+  if (result.error) {
+    console.error(`agent-docs check could not run git ls-files: ${result.error.message}`);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    const detail = result.stderr.trim() || `exit status ${result.status}`;
+    console.error(`agent-docs check could not enumerate repository files: ${detail}`);
+    process.exit(1);
+  }
+
+  return result.stdout.split("\0").filter(Boolean).sort();
+}
+
+for (const candidate of listRepositoryCandidates()) {
+  const normalized = candidate.replace(/\\/g, "/");
+  const fullPath = resolve(ROOT, candidate);
+  if (!existsSync(fullPath)) continue;
+  if (normalized === "AGENTS.md" || normalized.endsWith("/AGENTS.md")) agentsFiles.push(fullPath);
+  if (normalized === "CLAUDE.md" || normalized.endsWith("/CLAUDE.md")) claudeFiles.push(fullPath);
+  if (normalized.startsWith(".agents/skills/") && normalized.endsWith("/SKILL.md")) {
+    skillFiles.push(fullPath);
   }
 }
 
-walk(ROOT);
-
 // ── 1. Bridge check: any top-level dir with AGENTS.md must have CLAUDE.md ──
 
-const topLevelDirs = readdirSync(ROOT, { withFileTypes: true })
-  .filter((e) => e.isDirectory() && !shouldExcludeDir(e.name))
-  .map((e) => e.name);
+const topLevelDirs = agentsFiles
+  .map((file) => relative(ROOT, file).replace(/\\/g, "/").split("/"))
+  .filter((parts) => parts.length === 2)
+  .map((parts) => parts[0]);
 
 for (const dir of topLevelDirs) {
   const hasAgents = existsSync(join(ROOT, dir, "AGENTS.md"));
@@ -129,11 +125,10 @@ function extractMarkdownSection(text, heading) {
 }
 
 const skillsDir = join(ROOT, ".agents", "skills");
-const diskSkills = existsSync(skillsDir)
-  ? readdirSync(skillsDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && existsSync(join(skillsDir, entry.name, "SKILL.md")))
-      .map((entry) => entry.name)
-  : [];
+const diskSkills = skillFiles
+  .map((file) => relative(skillsDir, file).replace(/\\/g, "/").split("/"))
+  .filter((parts) => parts.length === 2 && parts[1] === "SKILL.md")
+  .map((parts) => parts[0]);
 
 if (existsSync(rootAgents)) {
   const skillsSection = extractMarkdownSection(readFileSync(rootAgents, "utf-8"), "Skills");

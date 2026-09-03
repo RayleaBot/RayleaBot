@@ -10,7 +10,7 @@
   - 恢复与运行时：恢复确认、恢复复检和 Chromium bootstrap 请求 / 响应。
   - 三方账号：账号列表、保存、校验和扫码登录 JSON payload。
 - `plugins/`：Go SDK、能力参数、Vue 管理页和 artifact 构建示例。
-- `deps-manifest.sample.json`：Chromium deps manifest v4 示例。
+- `deps-manifest.sample.json`：Chromium deps manifest v5 示例。
 - `backup-manifest.sample.json`：恢复包 backup manifest 示例。
 
 ## 三方账号 HTTP 面

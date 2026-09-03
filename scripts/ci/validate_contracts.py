@@ -90,6 +90,11 @@ JSON_SCHEMA_FIXTURE_AREAS = {
     "plugin-store-catalog": "plugin-store-catalog.schema.json",
 }
 
+JSON_SCHEMA_EXAMPLES = {
+    "backup-manifest.schema.json": [EXAMPLES / "backup-manifest.sample.json"],
+    "deps-manifest.schema.json": [EXAMPLES / "deps-manifest.sample.json"],
+}
+
 FIXTURE_SECRET_PATTERNS = [
     ("OpenAI API key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
     ("GitHub token", re.compile(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b")),
@@ -400,6 +405,17 @@ def validate_json_schema_fixtures() -> None:
             elif area == "deps-manifest":
                 errors.extend(dependency_manifest_errors(instance))
             require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
+
+        for path in JSON_SCHEMA_EXAMPLES.get(schema_name, []):
+            instance = require_object(load_json(path), str(path.relative_to(ROOT)))
+            errors = [format_schema_error(error) for error in validator.iter_errors(instance)]
+            if area == "deps-manifest":
+                errors.extend(dependency_manifest_errors(instance))
+            if errors:
+                fail(
+                    f"{path.relative_to(ROOT)} drifted from {schema_name}: "
+                    + "; ".join(errors)
+                )
 
         if area == "deps-manifest":
             runtime_manifest_path = ROOT / ".deps" / "manifest.json"
