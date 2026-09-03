@@ -151,7 +151,7 @@ describe('PermissionPolicyPage', () => {
 
     expect((wrapper.vm.configSections as Array<{ fields: Array<{ path: string }> }>).flatMap((section) => section.fields).map((field) => field.path)).not.toContain('user.cooldown_reply')
     expect(wrapper.find('[data-testid="permission-policy-summary-card"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('超级管理员可执行最高权限命令，并跳过黑白名单与冷却裁决。')
+    expect(wrapper.text()).toContain('超级管理员可执行最高权限命令，并跳过黑白名单与冷却拦截。')
     expect(wrapper.text()).toContain('未单独声明权限的命令使用此级别。')
     expect(wrapper.find('[data-testid="permission-policy-super-admins"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeDefined()

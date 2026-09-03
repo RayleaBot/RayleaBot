@@ -17,7 +17,7 @@ export const accessLists = {
     whitelistDescription: '命中白名单的用户或群会进入命令分发，命令权限与冷却继续生效。',
     blacklistTitle: '黑名单',
     blacklistHelp: '黑名单说明',
-    blacklistDescription: '命中黑名单的用户或群会被拦截；命中白名单时，仍进入后续权限与冷却判断。',
+    blacklistDescription: '命中黑名单的用户或群会被拦截；命中白名单时，仍会继续走权限和冷却检查。',
   },
   scopes: {
     user: '用户',

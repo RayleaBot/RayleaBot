@@ -19,7 +19,7 @@ export const config = {
     appliedNow: '已即时生效',
     reloadedNow: '已重载',
     restartRequiredFields: '需重启生效',
-    empty: '当前保存没有额外影响摘要。',
+    empty: '本次保存没有其他需要说明的影响。',
   },
   sections: {
     server: '服务监听',
@@ -165,7 +165,7 @@ export const config = {
     adminLoginFailWindowSeconds: '登录失败计数的滑动窗口长度。\n默认：300',
     renderWorkerCount: '并发执行图片渲染的工作进程数；过多会大量消耗内存。\n默认：1',
     renderBrowserArgs: '传递给 Chromium 的启动参数列表，每行一项。',
-    renderBrowserPath: '图片渲染与抖音扫码浏览器回落共用的 Chromium 路径；留空时使用已准备的托管 Chromium 或系统 Chromium。',
+    renderBrowserPath: '图片渲染与抖音扫码登录（浏览器兜底）共用的 Chromium 路径；留空时使用已准备的托管 Chromium 或系统 Chromium。',
     renderDefaultOutput: '当插件未指定输出格式时使用的默认格式。',
     renderDeviceScalePercent: '渲染时模拟的设备像素比，百分比形式；越高图片越清晰但耗时更长。\n默认：100',
     renderTimeoutSeconds: '单张图片渲染超时；超时后任务被取消并记录失败。\n默认：30',

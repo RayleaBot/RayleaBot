@@ -18,7 +18,7 @@ export const permissionPolicy = {
     cooldownReply: '冷却提示',
   },
   hints: {
-    superAdmins: '输入用户 ID 后按 Enter 添加。超级管理员可执行最高权限命令，并跳过黑白名单与冷却裁决。',
+    superAdmins: '输入用户 ID 后按 Enter 添加。超级管理员可执行最高权限命令，并跳过黑白名单与冷却拦截。',
     defaultLevel: '未单独声明权限的命令使用此级别。',
     userCommandRateLimit: '同一用户在一个滑动时间窗口内最多触发多少次命令。',
     groupCommandRateLimit: '同一群在一个滑动时间窗口内合计最多触发多少次命令。',
