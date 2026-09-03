@@ -62,7 +62,7 @@
 | P7 | 全量验证与最终 review | ☑️ 已完成 | 已完成合同、生成物、服务端、SDK、Web、Launcher、统一开发工具、三平台 artifact、旧合同拒绝与数据保留、backup v3/v2、真实 dev-sync、文档和完整 diff 对照。三平台回归额外发现并修复 Windows 交叉构建 Unix artifact 时展开目录权限位误判，ZIP 入口继续强制记录 `0755`。 | 全部适用验证通过；Go `-race` 因当前 Windows Go 环境 `CGO_ENABLED=0` 不适用，常规并发与全量测试通过。最终生成物 verify、doctor、文档/agent 检查、废弃引用扫描、敏感信息定向扫描和 `git diff --check` 通过。 |
 | P8 | 官方商店目录与来源边界校正 | ☑️ 已完成 | 保留 `RayleaBot/plugin-catalog` 默认官方目录和远端插件下载流程；目录签名、公钥注入、bootstrap 与历史版本清单已移除；自定义 HTTPS 来源、缓存和必要的安装确认已接入。 | pluginmarket/lifecycle 测试、合同 self-test/strict、runtime schema verify、release YAML 解析、Server 构建、文档链接和定向 `git diff --check` 通过。 |
 | P9 | v0.4 评审修复 | ☑️ 已完成 | 7 个 major 与同轮 minor 已按 [`execution-plan-v0.4-review-fixes.md`](./execution-plan-v0.4-review-fixes.md) 完成。 | 修复计划 F1 至 F8 均已通过验证。 |
-| P10 | 插件商店收敛 | ☑️ 已完成 | catalog、artifact、来源缓存、安装确认、Web 商店和官方目录自动生成均已按 [`execution-plan-v0.4-store-simplification.md`](./execution-plan-v0.4-store-simplification.md) 收敛。商店详情后端按维护者要求保留。 | S1 至 S8 全部通过，当前无阻塞项。 |
+| P10 | 插件商店收敛 | ☑️ 已完成 | catalog、artifact、来源缓存、安装确认、Web 商店和官方目录自动生成均已按 [`execution-plan-v0.4-store-simplification.md`](./execution-plan-v0.4-store-simplification.md) 收敛。Go SDK v0.4.0 与六个官方插件的三平台 artifact v2 已发布；商店详情后端按维护者要求保留。 | S1 至 S9 全部通过，当前无阻塞项。 |
 
 ## 实施顺序与完成条件
 
@@ -163,12 +163,12 @@
 | 开发流 | workspace、sync/watch、ID 推导与无 go.mod 场景 | ☑️ 通过 | workspace v2、ID 推导、非 Go 项目、go.work 过滤、watch 队列与 Vue SDK 镜像测试通过；真实 `plugin dev-sync` 从 artifact 推导 ID、安装包、写入 development metadata 并设为启用的回归通过。 |
 | Web | `pnpm run typecheck`、`pnpm test`、`pnpm build` | ☑️ 通过 | 非增量 `vue-tsc` 通过；62 个测试文件 312 项测试、插件商店桌面与窄屏 Playwright 流程和 production build 通过。 |
 | Launcher | `pnpm run typecheck`、`pnpm test`、`pnpm build` | ☑️ 通过 | typecheck、16 个测试文件 64 项测试、Go 平台测试和完整 package build 通过；原生图标摘要已再生成并通过构建门禁。 |
-| 官方插件目录 | 来源缓存与 GitHub Release 自动同步 | ☑️ 通过 | 目录签名与目录公钥已移除；官方 catalog 从当前 Release 自动生成，Server 持久化每个来源最后成功目录；catalog、同步脚本与 workflow 均通过校验。 |
+| 官方插件目录 | 来源缓存与 GitHub Release 自动同步 | ☑️ 通过 | 目录签名与目录公钥已移除；官方 catalog 已收录六个插件的当前 Release 和三平台 artifact v2；Server 持久化每个来源最后成功目录；catalog、同步脚本与 workflow 均通过校验。 |
 | 文档与仓库 | agent docs、链接、doctor、`git diff --check` | ☑️ 通过 | agent docs、133 个 Markdown 文件链接、Server structure、固定 Node/Go/Python/pnpm 工具链 doctor、废弃引用、敏感信息定向扫描和 `git diff --check` 均通过。 |
 
 ## 验收区
 
 - 最终实现状态：v0.4 插件体系与插件商店收敛完成。
 - 未完成或阻塞项：无。商店详情后端按维护者决定暂时保留，不属于未完成项。
-- 外部插件同步：业务插件仓库不在本次范围内；官方 `plugin-catalog` 已同步。
+- 外部插件同步：六个官方插件仓库、Go SDK v0.4.0 标签和 `plugin-catalog` 均已发布并同步。
 - 维护者验收：待柒柒验收。

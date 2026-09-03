@@ -3,9 +3,9 @@
 ## 文档状态
 
 - 目标版本：v0.4
-- 执行范围：RayleaBot 主仓库与 `RayleaBotPlugins/plugin-catalog`
+- 执行范围：RayleaBot 主仓库、`RayleaBotPlugins/plugin-catalog` 与六个官方插件仓库
 - 升级方式：一次性更新当前未正式发布的 catalog v2 与 artifact v2，不保留旧形状兼容层
-- 当前状态：实现与复验完成，待维护者验收
+- 当前状态：实现、发布与复验完成，待维护者验收
 - 验收方式：本文档保留，由项目维护者逐项验收
 
 状态说明：
@@ -40,6 +40,7 @@
 | S6 | 自动生成官方 catalog | ☑️ 已完成 | `plugin-catalog` 用 `sources.json` 维护稳定信息，定时读取最新 GitHub Release、检查单根目录 artifact v2 并生成当前版本 catalog；删除签名脚本与签名文件。 | 3 项生成器单元测试、`sync_catalog.py --validate-only`、Python 编译检查、workflow YAML 解析与 catalog schema 校验通过。 |
 | S7 | 同步工程基线、架构和用户文档 | ☑️ 已完成 | 基线、实现顺序、运行架构、生命周期、SDK、权限、发布、商店与合同文档统一为来源缓存、最小 artifact 和当前 Release 语义。 | 133 个 Markdown 文件链接检查与 agent docs 检查通过。 |
 | S8 | 全量 review 与验证 | ☑️ 已完成 | 已完成主路径 review，并修复 inspection 后确认按钮保持 loading、旧测试 fixture 仍生成文件清单、accept 请求重复身份字段，以及发布脚本仍写入旧插件合同版本的问题。 | 合同 self-test/strict、Server 全仓测试与构建、SDK 全仓测试、release 测试、Web typecheck/312 项测试/build、2 项商店 E2E、catalog/workflow 校验和两个仓库 `git diff --check` 均通过。 |
+| S9 | 发布 SDK、插件 artifact 与官方目录 | ☑️ 已完成 | 发布 `sdk/go/v0.4.0`；Echo、运势、游戏攻略、订阅与解析、三角洲助手和油价查询均发布 Windows x64、Linux x64、macOS arm64 artifact v2；官方 catalog 已收录六个当前版本。三角洲助手与油价查询已建立官方公开仓库。 | 六个插件发布工作流全部成功；18 个本地产物通过单根目录、manifest、最小 artifact 与原生入口检查；catalog 同步工作流、schema 校验和六个插件主分支验证通过。 |
 
 ## 验收重点
 
@@ -53,7 +54,7 @@
 
 ## 验收结论
 
-- S1 至 S8 全部完成，无阻塞项。
+- S1 至 S9 全部完成，无阻塞项。
 - 商店详情后端按维护者决定保留，当前 Web 不提供详情页。
-- 外部业务插件仓库未修改；`plugin-catalog` 已切换为自动生成当前 Release 目录。
+- Go SDK v0.4.0 与六个官方插件的三平台 artifact v2 已发布；`plugin-catalog` 已同步当前 Release。
 - 本文档保留，等待柒柒逐项验收。
