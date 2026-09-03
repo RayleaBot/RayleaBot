@@ -646,7 +646,8 @@ func TestPluginDevSyncInstallsArtifactAndDerivesPluginID(t *testing.T) {
 	writeFile(t, configPath, "database:\n  path: data/rayleabot.db\n")
 	artifactRoot := testutil.WriteGoPluginArtifact(t, filepath.Join(t.TempDir(), "artifact"), "development.fixture", "0.4.0")
 	sourceRoot := t.TempDir()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, nil))
 	var stdout bytes.Buffer
 
 	code := Run(Command{
@@ -657,7 +658,7 @@ func TestPluginDevSyncInstallsArtifactAndDerivesPluginID(t *testing.T) {
 		Args:       []string{"dev-sync", "--artifact", artifactRoot, "--source", sourceRoot},
 	})
 	if code != 0 {
-		t.Fatalf("plugin dev-sync exit code = %d, output = %q", code, stdout.String())
+		t.Fatalf("plugin dev-sync exit code = %d, output = %q, logs = %q", code, stdout.String(), logs.String())
 	}
 	if _, err := os.Stat(filepath.Join(repoRoot, "plugins", "installed", "development.fixture", "artifact.json")); err != nil {
 		t.Fatalf("installed artifact is missing: %v", err)
@@ -667,7 +668,6 @@ func TestPluginDevSyncInstallsArtifactAndDerivesPluginID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
 	repository, err := plugins.NewSQLiteRepository(store)
 	if err != nil {
 		t.Fatal(err)
@@ -685,6 +685,36 @@ func TestPluginDevSyncInstallsArtifactAndDerivesPluginID(t *testing.T) {
 	}
 	if desiredStates["development.fixture"] != plugins.DesiredStateEnabled {
 		t.Fatalf("desired state = %q, want enabled", desiredStates["development.fixture"])
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	replacementArtifact := testutil.WriteGoPluginArtifact(t, filepath.Join(t.TempDir(), "replacement-artifact"), "development.fixture", "0.4.1")
+	stdout.Reset()
+	logs.Reset()
+	code = Run(Command{
+		Name:       "plugin",
+		ConfigPath: configPath,
+		Logger:     logger,
+		Stdout:     &stdout,
+		Args:       []string{"dev-sync", "--artifact", replacementArtifact, "--source", sourceRoot},
+	})
+	if code != 0 {
+		t.Fatalf("replacement plugin dev-sync exit code = %d, output = %q, logs = %q", code, stdout.String(), logs.String())
+	}
+	manifestBytes, err := os.ReadFile(filepath.Join(repoRoot, "plugins", "installed", "development.fixture", "info.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.Version != "0.4.1" {
+		t.Fatalf("installed replacement version = %q, want 0.4.1", manifest.Version)
 	}
 }
 

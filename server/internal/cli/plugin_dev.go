@@ -112,7 +112,13 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 		return err
 	}
 	pluginID := inspection.PluginID
-	_, request.ReplaceExisting = catalog.Get(pluginID)
+	if _, exists := catalog.Get(pluginID); exists {
+		request.ReplaceExisting = true
+		inspection, err = installer.Inspect(ctx, request)
+		if err != nil {
+			return err
+		}
+	}
 	request.InspectionID = inspection.InspectionID
 	request.PackageSHA256 = inspection.PackageSHA256
 	request.TrustedCodeConfirmed = true
