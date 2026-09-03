@@ -6,6 +6,8 @@
 
 | 文档 | 主题 |
 | --- | --- |
+| [Release Notes](./notes/README.md) | 中文版本说明的编写、检查和 GitHub Release 发布流程 |
+| [Release Notes Template](./release-notes-template.md) | 功能版与补丁版说明模板、栏目和填写规则 |
 | [Delivery and Upgrade](./delivery-and-upgrade.md) | 产物矩阵、manifest v2、Ed25519、Authenticode、自动检查、事务安装与 guided update |
 | [Acceptance and Risks](./acceptance-and-risks.md) | 风险控制、发布门禁、故障注入和真实签名 Windows E2E |
 | [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md) | manifest v3、artifact v2、数据保留与旧包禁用语义 |

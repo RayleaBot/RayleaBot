@@ -12,7 +12,23 @@ env:
   PYTHONUTF8: "1"
 
 jobs:
+  check-release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+
+      - name: Check release notes
+        shell: bash
+        run: python scripts/release/check_release_notes.py --tag "$GITHUB_REF_NAME"
+
   build-full:
+    needs: check-release-notes
     permissions:
       contents: read
     strategy:
@@ -211,6 +227,7 @@ jobs:
             dist/release/RayleaBot-v*-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}.artifact.json
 
   build-linux-server:
+    needs: check-release-notes
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -416,6 +433,8 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
+          name: RayleaBot ${{ github.ref_name }}
+          body_path: docs/release/notes/${{ github.ref_name }}.md
           files: |
             dist/downloads/windows-x64-full/*.zip
             dist/downloads/linux-x64-full/*.tar.gz
