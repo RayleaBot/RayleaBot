@@ -24,7 +24,7 @@
 }
 ```
 
-`management_ui.entry` 是所有页面共用、且必须进入 artifact 文件清单的相对 HTML 路径。`pages[].id` 是稳定页面标识，`label` 是宿主标题；页面 ID 由 bridge 上下文传递。
+`management_ui.entry` 是所有页面共用、且必须实际存在于 artifact 中的相对 HTML 路径。`pages[].id` 是稳定页面标识，`label` 是宿主标题；页面 ID 由 bridge 上下文传递。
 
 ## 独立插件域
 

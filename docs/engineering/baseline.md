@@ -78,7 +78,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | 插件后端 | 当前平台原生可执行文件；实现语言不限。Go 插件可使用独立 module 与 `sdk/go`，`cmd/<plugin-id>` 为推荐入口 |
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
 | 插件构建 | `raylea-plugin inspect/pack/build-go` 统一检查、通用原生打包和 Go 构建；输出 artifact v2 单根目录 ZIP 与可选展开目录 |
-| 插件商店 | 默认使用 `RayleaBot/plugin-catalog` 的 Ed25519 签名 catalog v2；目录公钥与核心更新公钥分别通过 release workflow 注入 |
+| 插件商店 | 默认使用 `RayleaBot/plugin-catalog` 的 catalog v2，并允许管理员添加自定义 HTTPS 来源；Server 持久化各来源最后一次成功目录 |
 | 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和抖音扫码浏览器回落可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
 
 ## 默认命令

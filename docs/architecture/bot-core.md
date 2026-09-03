@@ -43,7 +43,7 @@
 - `eventpipeline/chatpolicy` Ingress 命中前缀后，把命令名写入 `payload.command`，把参数数组写入 `payload.args`。
 - 插件可在 manifest 的 `commands` 字段中声明主命令、别名、说明、示例和权限级别。
 - 命令消息优先定向投递给声明该命令的插件；无声明时仍可按消息订阅继续 fan-out。
-- `raylea.` ID 前缀保留给已验证目录中的官方插件；社区和开发插件不得占用。
+- 默认官方插件当前使用 `raylea.` ID 前缀；插件身份仍以来源记录和 `info.json.id` 的一致性校验为准。
 - 非命令消息不受命令路由影响，继续按消息事件分发。
 
 ### 聊天权限

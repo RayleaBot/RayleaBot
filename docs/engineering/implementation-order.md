@@ -37,7 +37,7 @@
 | 持久业务状态 | Server domain service | SQLite 与正式 migration |
 | 共享运行状态 | 对应 Server service | 锁或原子快照保护的内存状态 |
 | 插件声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源与 package metadata |
-| 插件商店 | Plugin Store Service | 已验证静态目录、目录摘要与发布者身份 |
+| 插件商店 | Plugin Store Service | 来源配置、最后成功目录缓存与安装来源身份 |
 | 插件进程状态 | Runtime Manager | runtime snapshot |
 | 后台任务 | Task Registry | 有序持久化记录与终态 |
 | 更新事务 | Updater | 签名 metadata、最高版本记录与 journal |
@@ -61,7 +61,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - `eventpipeline/chatpolicy` Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
 - Dispatcher 是插件事件排队和出站 action 的唯一执行出口。
 - Runtime Manager 只负责插件进程、JSONL 协议和生命周期。
-- Plugin Store Service 只消费签名目录并复用统一 Installer，不直接写运行目录或信任 manifest 自报身份。
+- Plugin Store Service 只消费通过合同校验的官方或自定义 HTTPS 目录并复用统一 Installer，不直接写运行目录或信任 manifest 自报身份。
 - Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口，包括消息、配置、secret、宿主管理存储、插件目录视图、三方账号、调度、渲染、治理、OneBot 与 provider 扩展动作。插件私有日志、配置、KV 和文件按插件身份隐式隔离；其余高权限能力使用 manifest `permissions`。
 - 插件按完全可信的本地原生代码运行，可以自行访问外部服务、创建进程级临时文件并启动随 artifact 发布的辅助程序。这些插件自有操作不经过 Local Action Service；插件负责超时、资源上限、并发、清理和第三方许可证，且不得直接修改 RayleaBot 配置、状态库、安装目录或绕过正式出站消息流程。
 - Scheduler 只触发插件事件，不直接发送消息。

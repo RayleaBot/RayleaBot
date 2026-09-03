@@ -96,7 +96,7 @@ flowchart LR
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
 | Dispatcher | 插件目标选择、队列和出站 action 执行 | 直接访问插件私有存储 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活和事件 session | 直接执行平台能力 |
-| Plugin Store Service | 商店 catalog 获取、签名校验、来源投影和安装委托 | 绕过统一插件安装事务或持有插件运行状态 |
+| Plugin Store Service | 官方与自定义 catalog 来源、持久化缓存、来源投影和安装委托 | 绕过统一插件安装事务或持有插件运行状态 |
 | Local Action Service | permission 与参数校验、平台能力网关 | 绕过正式 action contract |
 | Task Registry | admission、执行状态、有序持久化和关闭 drain | 为队列已满请求创建 pending task |
 | Scheduler | revision、到期检查和插件事件触发 | 直接发送聊天消息 |

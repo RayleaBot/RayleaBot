@@ -31,7 +31,7 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 
 主程序 release workflow 不 checkout、不构建也不打包业务插件。正式归档中不得出现 `plugins/` 业务产物、插件 `.go`、`.py`、`.ts`、`.vue`、测试、源码 SDK、`node_modules` 或语言运行时；`.deps/manifest.json` v5 声明 Chromium 与 FFmpeg 资源。每个平台资源必须提供按顺序选择的 `sources`（`upstream` / `mirror`，可按测速结果选源）、归档格式和 SHA-256；Chromium 提供 `entrypoints.browser`，FFmpeg 资源同时提供 `entrypoints.ffmpeg` 与 `entrypoints.ffprobe`。运行环境准备完成后，核心从这些相对入口定位可执行文件。
 
-官方和社区插件都由各自仓库构建三平台单根目录 ZIP，再通过签名插件目录或本地 artifact 走统一安装流程。框架不会编译源码、安装语言依赖或执行安装脚本。release recovery drill 使用外部预编译 Go 测试 fixture 验证插件备份与恢复，该 fixture 只参与测试，不进入应用归档。
+官方和社区插件都由各自仓库构建一个或多个平台的单根目录 ZIP，再通过 HTTPS 插件目录或本地 artifact 走统一安装流程。框架不会编译源码、安装语言依赖或执行安装脚本。release recovery drill 使用外部预编译 Go 测试 fixture 验证插件备份与恢复，该 fixture 只参与测试，不进入应用归档。
 
 依赖许可证未知或缺失时，发布必须失败。运行时配置和插件 schema 内置于 server；源码仓库中的 `contracts/` 仍是正式来源。
 
@@ -69,12 +69,7 @@ Manifest 固定包含版本、提交、构建时间、channel、发布时间、�
 
 过期 manifest 只允许走手动更新。首个可信更新基线必须手动安装，无法验证 v2 元数据的客户端不能进入自动安装链路。
 
-核心更新和官方插件目录使用不同的 Ed25519 公钥注册表。release workflow 必须同时配置：
-
-- `RAYLEA_RELEASE_TRUSTED_KEYS`：验证 `release_manifest.v2.json`；
-- `RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS`：验证 `RayleaBot/plugin-catalog` 发布的 `catalog.json`。
-
-任一注册表为空时，正式 Server 构建失败。两个注册表都支持至多两个公钥并行，用于独立轮换；插件目录密钥不能签署核心更新元数据，核心更新密钥也不能签署插件目录。
+核心更新的 Ed25519 公钥注册表由 `RAYLEA_RELEASE_TRUSTED_KEYS` 注入，用于验证 `release_manifest.v2.json`。正式 Server 构建要求该注册表非空，并支持至多两个公钥并行轮换。插件目录使用 HTTPS、持久化最后成功缓存和资产归档 SHA-256，不参与核心更新签名体系。
 
 ## 更新检查与用户确认
 

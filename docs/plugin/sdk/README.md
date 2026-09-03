@@ -56,7 +56,7 @@ raylea-plugin build-go --plugin <plugin-root> [--backend <main-package>] --targe
 
 `pack` 和 `build-go` 的相对 `--binary`、`--out` 与 `--include source=destination` 源路径均以 `<plugin-root>` 解析；绝对路径保持原义。由此可从任意工作目录调用统一工具，而不会把产物写到调用者的当前目录。
 
-- `inspect` 使用 `--plugin` 检查项目 manifest，或使用 `--artifact` 检查展开产物的 manifest、精确文件清单、哈希和原生入口格式。
+- `inspect` 使用 `--plugin` 检查项目 manifest，或使用 `--artifact` 扫描展开产物并检查 manifest、目标平台和原生入口格式。
 - `pack` 打包任意语言生成的当前目标平台原生可执行文件。
 - `build-go` 从 `cmd/<plugin-id>` 构建 Go 后端，再调用统一 pack 流程。
 

@@ -46,6 +46,6 @@ dist/
 4. `watch` 模式按 500ms 窗口和插件 ID 合并变更，后续只重建本批变化的插件；构建过程中发生的新变更进入下一批。
 5. 候选构建或同步失败时保留并恢复上一个已安装 artifact。
 
-插件仓库的 GitHub Actions 只处理 `v*` tag 的三平台 Release，商店再通过签名 catalog 分发这些发布包。日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。
+插件仓库的 GitHub Actions 只处理 `v*` tag 的正式 Release，官方目录定时读取每个仓库的当前 Release 并收录实际发布的平台包。日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。
 
 独立插件仓库、本地工作区和启动模式见 [插件商店与独立开发](../plugin/store-and-development.md)。

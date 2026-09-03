@@ -88,7 +88,7 @@
 - plugin lifecycle：
   - install / enable / disable / reload / uninstall
   - manifest permission declaration and parameter checks
-  - 签名商店目录、catalog/development 来源元数据、原子更新与失败回滚
+  - 官方与自定义商店来源、持久化目录缓存、catalog/development 来源元数据、原子更新与失败回滚
   - 离线 `plugin dev-sync` 复用完整 artifact 安装校验
 - OneBot11 adapter：
   - `reverse_ws`、`forward_ws`、`http_api`、`webhook`
