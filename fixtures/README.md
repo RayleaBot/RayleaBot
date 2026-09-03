@@ -39,7 +39,7 @@
 - `plugin-artifact/`
   - 对应 `contracts/plugin-artifact.schema.json`
   - 统一采用 `input + expect` 结构
-  - 主要服务 artifact 文件清单、目标平台与完整性边界校验
+  - 主要服务 artifact 目标平台与原生入口边界校验
 - `plugin-development-workspace/`
   - 对应 `contracts/plugin-development-workspace.schema.json`
   - 直接存放工作区配置样例
@@ -51,11 +51,7 @@
 - `plugin-store-catalog/`
   - 对应 `contracts/plugin-store-catalog.schema.json`
   - 直接存放 catalog 文档样例
-  - 主要服务签名商店目录发布者身份、版本、撤回状态与平台资产摘要的契约回归
-- `plugin-store-signature/`
-  - 对应 `contracts/plugin-store-signature.schema.json`
-  - 直接存放签名 envelope 样例
-  - 主要服务 Ed25519 单签、双签轮换与 catalog 摘要绑定的契约回归
+  - 主要服务当前发布版本、最低核心版本与平台资产归档摘要的契约回归
 - `cli/`
   - 对应 `contracts/cli-commands.yaml`
   - 统一采用 `input + expect` 结构

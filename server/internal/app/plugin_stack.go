@@ -75,7 +75,12 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 		_ = pluginInstallService.Close()
 		return PluginStackState{}, errors.New("plugin installer does not expose inspection")
 	}
-	pluginStore, err := pluginmarket.New(deps.Catalog, marketInstaller, pluginmarket.Options{
+	pluginStoreRepository, err := pluginmarket.NewSQLiteRepository(deps.Platform.Storage)
+	if err != nil {
+		_ = pluginInstallService.Close()
+		return PluginStackState{}, fmt.Errorf("create plugin store repository: %w", err)
+	}
+	pluginStore, err := pluginmarket.New(ctx, deps.Catalog, marketInstaller, pluginStoreRepository, pluginmarket.Options{
 		CoreVersion: recovery.DetectCoreVersion(deps.Discovery.RepoRoot),
 	})
 	if err != nil {

@@ -40,8 +40,8 @@ func TestProperty_ErrorResponseSchemaConsistency(t *testing.T) {
 		case 0: // 400 — malformed install body
 			req = httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{invalid`))
 			req.Header.Set("Content-Type", "application/json")
-		case 1: // 400 — empty source
-			b, _ := json.Marshal(pluginInstallRequest{SourceType: "local_zip", Source: ""})
+		case 1: // 400 — missing package digest
+			b, _ := json.Marshal(pluginInstallRequest{InspectionID: strings.Repeat("i", 64), TrustedCodeConfirmed: true})
 			req = httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(b))
 			req.Header.Set("Content-Type", "application/json")
 		case 2: // 404 — non-existent plugin enable

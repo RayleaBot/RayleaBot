@@ -78,14 +78,25 @@ func TestRegisterManagementRoutes(t *testing.T) {
 
 type emptyPluginStoreService struct{}
 
-func (emptyPluginStoreService) List(pluginmarket.Query) pluginmarket.ListResult {
-	return pluginmarket.ListResult{}
+func (emptyPluginStoreService) Sources() []pluginmarket.SourceView { return nil }
+func (emptyPluginStoreService) CreateSource(context.Context, pluginmarket.SourceInput) (pluginmarket.SourceView, error) {
+	return pluginmarket.SourceView{}, nil
 }
-func (emptyPluginStoreService) Get(string) (pluginmarket.DetailResult, bool) {
+func (emptyPluginStoreService) UpdateSource(context.Context, string, pluginmarket.SourceInput) (pluginmarket.SourceView, error) {
+	return pluginmarket.SourceView{}, nil
+}
+func (emptyPluginStoreService) DeleteSource(context.Context, string) error { return nil }
+func (emptyPluginStoreService) List(pluginmarket.Query) (pluginmarket.ListResult, error) {
+	return pluginmarket.ListResult{}, nil
+}
+func (emptyPluginStoreService) Get(string, string) (pluginmarket.DetailResult, bool) {
 	return pluginmarket.DetailResult{}, false
 }
-func (emptyPluginStoreService) Refresh(context.Context) (pluginmarket.CatalogStatus, error) {
-	return pluginmarket.CatalogStatus{}, nil
+func (emptyPluginStoreService) Refresh(context.Context, string) (pluginmarket.SourceView, error) {
+	return pluginmarket.SourceView{}, nil
+}
+func (emptyPluginStoreService) Inspect(context.Context, pluginmarket.InspectionRequest) (pluginmarket.InspectionResult, error) {
+	return pluginmarket.InspectionResult{}, nil
 }
 func (emptyPluginStoreService) Install(context.Context, pluginmarket.InstallRequest) (string, error) {
 	return "", nil

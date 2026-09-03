@@ -253,27 +253,27 @@ func timePtr(value time.Time) *time.Time {
 	return &value
 }
 
-func (s *InstallService) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
+func (s *InstallService) Accept(_ context.Context, acceptance plugins.InstallAcceptance) (string, error) {
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
 		return "", context.Canceled
 	}
-	if !request.TrustedCodeConfirmed {
-		s.mu.Unlock()
-		return "", plugins.ErrTrustedCodeConfirmation
-	}
-	entry, err := s.consumeInspectionLocked(request)
+	entry, err := s.consumeInspectionLocked(acceptance)
 	if err != nil {
 		s.mu.Unlock()
 		return "", err
+	}
+	if entry.request.TrustedCodeRequired && !acceptance.TrustedCodeConfirmed {
+		s.mu.Unlock()
+		return "", plugins.ErrTrustedCodeConfirmation
 	}
 	if !s.admission.TryAcquire() {
 		s.mu.Unlock()
 		return "", tasks.ErrQueueFull
 	}
 
-	taskID, err := s.registry.Create("plugin.install", "install plugin from "+request.SourceType+": "+request.Source)
+	taskID, err := s.registry.Create("plugin.install", "install plugin from "+entry.request.SourceType+": "+entry.request.Source)
 	if err != nil {
 		s.admission.Release()
 		s.mu.Unlock()
@@ -282,8 +282,8 @@ func (s *InstallService) Accept(_ context.Context, request plugins.InstallReques
 
 	runCtx, cancel := context.WithTimeout(s.baseCtx, s.timeout)
 	s.cancels[taskID] = cancel
-	delete(s.inspections, request.InspectionID)
-	s.jobs <- installJob{taskID: taskID, request: request, inspection: entry, ctx: runCtx}
+	delete(s.inspections, acceptance.InspectionID)
+	s.jobs <- installJob{taskID: taskID, request: entry.request, inspection: entry, ctx: runCtx}
 	s.mu.Unlock()
 	return taskID, nil
 }
@@ -325,9 +325,6 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 		}
 		return plugins.InstallInspection{}, installError(codePluginArtifactInvalid, err.Error(), "插件 artifact 校验失败")
 	}
-	if request.ExpectedManifestSHA256 != "" && verified.ManifestSHA256 != request.ExpectedManifestSHA256 {
-		return plugins.InstallInspection{}, installError("plugin.store_integrity_mismatch", "插件 manifest 摘要与商店目录不一致", "插件商店产物完整性校验失败")
-	}
 	snapshot, err := s.loadCandidateSnapshot(candidateDir)
 	if err != nil {
 		return plugins.InstallInspection{}, err
@@ -364,20 +361,17 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 		Permissions:    plugins.ClonePermissions(snapshot.Permissions),
 		TargetPlatform: verified.Document.TargetPlatform,
 		Artifact: plugins.ArtifactInspection{
-			Valid:          true,
-			Version:        verified.Document.ArtifactVersion,
-			ManifestSHA256: verified.ManifestSHA256,
-			FileCount:      len(verified.Document.Files),
+			Valid:     true,
+			Version:   verified.Document.ArtifactVersion,
+			FileCount: verified.FileCount,
 		},
 	}
-	for _, file := range verified.Document.Files {
-		switch {
-		case file.Path == verified.Document.Entry:
-			inspection.Backend = plugins.InstallBackendInspection{Entry: verified.Document.Entry, Path: file.Path, Size: file.Size, SHA256: file.SHA256}
-		case strings.HasPrefix(filepath.ToSlash(file.Path), "ui/"):
-			inspection.UI.FileCount++
-		}
+	inspection.Backend = plugins.InstallBackendInspection{
+		Entry: verified.Document.Entry,
+		Path:  verified.Document.Entry,
+		Size:  verified.BackendSize,
 	}
+	inspection.UI.FileCount = verified.UIFileCount
 	inspection.UI.Enabled = verified.UIAvailable
 	if len(verified.UIEntries) > 0 {
 		inspection.UI.Entry = verified.UIEntries[0]
@@ -403,9 +397,9 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 	return inspection, nil
 }
 
-func (s *InstallService) consumeInspectionLocked(request plugins.InstallRequest) (*installInspectionEntry, error) {
-	id := strings.TrimSpace(request.InspectionID)
-	if id == "" || strings.TrimSpace(request.PackageSHA256) == "" {
+func (s *InstallService) consumeInspectionLocked(acceptance plugins.InstallAcceptance) (*installInspectionEntry, error) {
+	id := strings.TrimSpace(acceptance.InspectionID)
+	if id == "" || strings.TrimSpace(acceptance.PackageSHA256) == "" {
 		return nil, plugins.ErrInstallInspectionRequired
 	}
 	entry, ok := s.inspections[id]
@@ -417,25 +411,10 @@ func (s *InstallService) consumeInspectionLocked(request plugins.InstallRequest)
 		entry.cleanup()
 		return nil, plugins.ErrInstallInspectionExpired
 	}
-	if request.PackageSHA256 != entry.inspection.PackageSHA256 || !sameInstallRequestIdentity(request, entry.request) {
+	if acceptance.PackageSHA256 != entry.inspection.PackageSHA256 {
 		return nil, plugins.ErrInstallDigestMismatch
 	}
 	return entry, nil
-}
-
-func sameInstallRequestIdentity(left, right plugins.InstallRequest) bool {
-	return left.SourceType == right.SourceType &&
-		left.Source == right.Source &&
-		left.ResolvedSourceType == right.ResolvedSourceType &&
-		left.ResolvedSource == right.ResolvedSource &&
-		left.ExpectedArchiveSize == right.ExpectedArchiveSize &&
-		left.ExpectedArchiveSHA256 == right.ExpectedArchiveSHA256 &&
-		left.ExpectedManifestSHA256 == right.ExpectedManifestSHA256 &&
-		left.ReplaceExisting == right.ReplaceExisting &&
-		left.PublisherID == right.PublisherID &&
-		left.PublisherName == right.PublisherName &&
-		left.PublisherVerified == right.PublisherVerified &&
-		left.CatalogDigest == right.CatalogDigest
 }
 
 func (s *InstallService) cleanupExpiredInspectionsLocked(now time.Time) {
@@ -967,27 +946,17 @@ func (s *InstallService) loadCandidateSnapshot(candidateDir string) (plugins.Sna
 }
 
 func (s *InstallService) buildPackageMetadata(request plugins.InstallRequest, snapshot plugins.Snapshot, candidateDir string) (plugins.PackageMetadata, error) {
-	manifestHash, err := s.deps.hashFile(filepath.Join(candidateDir, "info.json"))
-	if err != nil {
-		return plugins.PackageMetadata{}, installError(codePluginInstallFailed, "计算插件 manifest 哈希失败", "计算插件 manifest 哈希失败")
-	}
 	packageHash, err := s.deps.hashDir(candidateDir)
 	if err != nil {
 		return plugins.PackageMetadata{}, installError(codePluginInstallFailed, "计算插件安装包哈希失败", "计算插件安装包哈希失败")
 	}
 
 	return plugins.PackageMetadata{
-		PluginID:          snapshot.PluginID,
-		SourceType:        request.SourceType,
-		SourceRef:         request.Source,
-		Version:           snapshot.Version,
-		ManifestHash:      manifestHash,
-		PackageHash:       packageHash,
-		ArchiveHash:       request.ExpectedArchiveSHA256,
-		PublisherID:       request.PublisherID,
-		PublisherName:     request.PublisherName,
-		PublisherVerified: request.PublisherVerified,
-		CatalogDigest:     request.CatalogDigest,
+		PluginID:    snapshot.PluginID,
+		SourceType:  request.SourceType,
+		SourceRef:   request.Source,
+		Version:     snapshot.Version,
+		PackageHash: packageHash,
 	}, nil
 }
 
@@ -1001,7 +970,10 @@ func newInspectionID() (string, error) {
 
 func installSourceLabel(request plugins.InstallRequest) string {
 	if request.SourceType == "catalog" {
-		return request.PublisherName
+		if strings.TrimSpace(request.SourceLabel) != "" {
+			return strings.TrimSpace(request.SourceLabel)
+		}
+		return request.Source
 	}
 	if request.SourceType == "development" {
 		return "development workspace"
@@ -1076,11 +1048,6 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			cleanup()
 			return "", "", func() {}, installError(codeInvalidRequest, "插件来源必须是压缩包文件", "插件来源必须是压缩包文件")
 		}
-		if request.ExpectedArchiveSize > 0 && info.Size() != request.ExpectedArchiveSize {
-			cleanup()
-			return "", "", func() {}, installError("plugin.store_integrity_mismatch", "插件压缩包大小与商店目录不一致", "插件商店产物完整性校验失败")
-		}
-
 		if request.ExpectedArchiveSHA256 != "" {
 			digest, hashErr := s.deps.hashFile(source)
 			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
@@ -1115,14 +1082,6 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			}
 			return "", "", func() {}, installError(codePluginInstallFailed, "下载远程插件压缩包失败", "下载远程插件压缩包失败")
 		}
-		if request.ExpectedArchiveSize > 0 {
-			info, statErr := s.deps.stat(downloadPath)
-			if statErr != nil || info.Size() != request.ExpectedArchiveSize {
-				cleanup()
-				return "", "", func() {}, installError("plugin.store_integrity_mismatch", "下载的插件大小与商店目录不一致", "插件商店产物完整性校验失败")
-			}
-		}
-
 		if request.ExpectedArchiveSHA256 != "" {
 			digest, hashErr := s.deps.hashFile(downloadPath)
 			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {

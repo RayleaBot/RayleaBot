@@ -1,343 +1,300 @@
 package pluginmarket
 
 import (
+	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginartifact "github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
 
-func TestBootstrapCatalogIsEmptyAndVerified(t *testing.T) {
-	t.Parallel()
-
-	service, err := New(emptyCatalog{}, nil, Options{CoreVersion: "0.4.0"})
-	if err != nil {
-		t.Fatalf("New() error = %v", err)
-	}
-
-	result := service.List(Query{Limit: 100})
-	if result.Total != 0 || len(result.Items) != 0 {
-		t.Fatalf("List() = %#v, want empty embedded catalog", result)
-	}
-	if !result.Catalog.Verified || result.Catalog.Source != "embedded" {
-		t.Fatalf("List().Catalog = %#v, want verified embedded catalog", result.Catalog)
-	}
-}
-
-func TestRefreshAcceptsOnlyExactCatalogBytesSignedByTrustedKey(t *testing.T) {
-	t.Parallel()
-
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+func TestServiceLoadsCachedCatalogAndKeepsItAfterRefreshFailure(t *testing.T) {
+	platform, err := pluginartifact.CurrentPlatform()
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalogBytes := mustCatalogJSON(t, Catalog{
-		CatalogVersion: "2",
-		GeneratedAt:    "2026-09-02T00:00:00Z",
-		Entries:        []Entry{testEntry(t, nil)},
-	})
-	digest := sha256.Sum256(catalogBytes)
-	envelopeBytes, err := json.Marshal(SignatureEnvelope{
-		SignatureVersion: 1,
-		Algorithm:        "ed25519",
-		CatalogSHA256:    hex.EncodeToString(digest[:]),
-		KeyID:            "store-test",
-		Signatures: []Signature{{
-			KeyID:     "store-test",
-			Signature: base64.URLEncoding.EncodeToString(ed25519.Sign(privateKey, catalogBytes)),
-		}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		switch request.URL.Path {
-		case "/catalog.json":
-			_, _ = w.Write(catalogBytes)
-		case "/catalog.sig.json":
-			_, _ = w.Write(envelopeBytes)
-		default:
-			http.NotFound(w, request)
-		}
+	payload := catalogJSON(platform, "0.4.0", "0.4.0")
+	repository := newMemoryRepository(payload)
+	service := newTestService(t, emptyCatalog{}, nil, repository, roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("offline")
 	}))
-	defer server.Close()
 
-	service, err := New(emptyCatalog{}, nil, Options{
-		CoreVersion:     "0.4.0",
-		CatalogURL:      server.URL + "/catalog.json",
-		SignatureURL:    server.URL + "/catalog.sig.json",
-		TrustedKeysSpec: "store-test=" + base64.StdEncoding.EncodeToString(publicKey),
-		HTTPClient:      server.Client(),
-	})
+	result, err := service.List(Query{SourceID: OfficialSourceID})
 	if err != nil {
-		t.Fatalf("New() error = %v", err)
+		t.Fatal(err)
 	}
-	status, err := service.Refresh(context.Background())
-	if err != nil {
+	if len(result.Items) != 1 || result.Items[0].InstallState != "available" || !result.Source.Cached {
+		t.Fatalf("unexpected cached result: %#v", result)
+	}
+	if _, err := service.Refresh(context.Background(), OfficialSourceID); ErrorCode(err) != CodeCatalogUnavailable {
 		t.Fatalf("Refresh() error = %v", err)
 	}
-	if status.Source != "remote" || !status.Verified || len(status.TrustedKeyIDs) != 1 || status.TrustedKeyIDs[0] != "store-test" {
-		t.Fatalf("Refresh() status = %#v", status)
-	}
-
-	envelopeBytes[0] ^= 1
-	if _, err := service.Refresh(context.Background()); ErrorCode(err) != CodeCatalogUnavailable {
-		t.Fatalf("tampered Refresh() error = %v, want %s", err, CodeCatalogUnavailable)
-	}
-	if service.List(Query{}).Catalog.Source != "remote" {
-		t.Fatal("failed refresh replaced the last verified catalog")
+	result, err = service.List(Query{SourceID: OfficialSourceID})
+	if err != nil || len(result.Items) != 1 {
+		t.Fatalf("failed refresh replaced cached catalog: result=%#v err=%v", result, err)
 	}
 }
 
-func TestSignatureEnvelopeRequiresUniqueSignaturesAndDeclaredPrimary(t *testing.T) {
-	t.Parallel()
-
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+func TestServiceCustomSourceLifecycle(t *testing.T) {
+	platform, err := pluginartifact.CurrentPlatform()
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalogBytes := mustCatalogJSON(t, Catalog{
-		CatalogVersion: "2",
-		GeneratedAt:    "2026-08-04T00:00:00Z",
-		Entries:        []Entry{testEntry(t, nil)},
-	})
-	digest := sha256.Sum256(catalogBytes)
-	valid := Signature{
-		KeyID:     "store-test",
-		Signature: base64.URLEncoding.EncodeToString(ed25519.Sign(privateKey, catalogBytes)),
-	}
-	service, err := New(emptyCatalog{}, nil, Options{
-		CoreVersion:     "0.4.0",
-		TrustedKeysSpec: "store-test=" + base64.StdEncoding.EncodeToString(publicKey),
-	})
+	payload := catalogJSON(platform, "0.4.0", "0.4.0")
+	repository := newMemoryRepository(nil)
+	service := newTestService(t, emptyCatalog{}, nil, repository, staticCatalogTransport(payload))
+
+	created, err := service.CreateSource(context.Background(), SourceInput{Name: "社区源", URL: "https://plugins.example/catalog.json"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if created.Official || !created.Cached || created.EntryCount != 1 {
+		t.Fatalf("created source = %#v", created)
+	}
+	updated, err := service.UpdateSource(context.Background(), created.ID, SourceInput{Name: "社区插件", URL: "https://plugins.example/v2/catalog.json"})
+	if err != nil || updated.Name != "社区插件" {
+		t.Fatalf("UpdateSource() = %#v, %v", updated, err)
+	}
+	if err := service.DeleteSource(context.Background(), created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.List(Query{SourceID: created.ID}); !errors.Is(err, ErrSourceNotFound) {
+		t.Fatalf("deleted source List() error = %v", err)
+	}
+	if err := service.DeleteSource(context.Background(), OfficialSourceID); !errors.Is(err, ErrSourceImmutable) {
+		t.Fatalf("official DeleteSource() error = %v", err)
+	}
+}
 
-	for name, envelope := range map[string]SignatureEnvelope{
-		"missing primary": {
-			SignatureVersion: 1, Algorithm: "ed25519", CatalogSHA256: hex.EncodeToString(digest[:]),
-			KeyID: "store-other", Signatures: []Signature{valid},
-		},
-		"duplicate key": {
-			SignatureVersion: 1, Algorithm: "ed25519", CatalogSHA256: hex.EncodeToString(digest[:]),
-			KeyID: "store-test", Signatures: []Signature{valid, valid},
-		},
+func TestServiceRejectsInvalidCustomSource(t *testing.T) {
+	service := newTestService(t, emptyCatalog{}, nil, newMemoryRepository(nil), staticCatalogTransport(nil))
+	for _, input := range []SourceInput{
+		{Name: "", URL: "https://plugins.example/catalog.json"},
+		{Name: "本机", URL: "https://127.0.0.1/catalog.json"},
+		{Name: "非加密", URL: "http://plugins.example/catalog.json"},
 	} {
-		t.Run(name, func(t *testing.T) {
-			envelopeBytes, marshalErr := json.Marshal(envelope)
-			if marshalErr != nil {
-				t.Fatal(marshalErr)
-			}
-			if _, verifyErr := service.verifySignature(catalogBytes, envelopeBytes); verifyErr == nil {
-				t.Fatal("verifySignature() accepted an invalid signature envelope")
-			}
-		})
-	}
-}
-
-func TestRefreshRejectsOlderCatalogAndKeepsLastVerifiedSnapshot(t *testing.T) {
-	t.Parallel()
-
-	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalogBytes := mustCatalogJSON(t, Catalog{
-		CatalogVersion: "2",
-		GeneratedAt:    "2026-08-03T23:59:59Z",
-		Entries:        []Entry{testEntry(t, nil)},
-	})
-	digest := sha256.Sum256(catalogBytes)
-	envelopeBytes, err := json.Marshal(SignatureEnvelope{
-		SignatureVersion: 1,
-		Algorithm:        "ed25519",
-		CatalogSHA256:    hex.EncodeToString(digest[:]),
-		KeyID:            "store-test",
-		Signatures: []Signature{{
-			KeyID:     "store-test",
-			Signature: base64.URLEncoding.EncodeToString(ed25519.Sign(privateKey, catalogBytes)),
-		}},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/catalog.json" {
-			_, _ = w.Write(catalogBytes)
-			return
+		if _, err := service.CreateSource(context.Background(), input); !errors.Is(err, ErrSourceInvalid) {
+			t.Fatalf("CreateSource(%#v) error = %v", input, err)
 		}
-		_, _ = w.Write(envelopeBytes)
-	}))
-	defer server.Close()
-
-	service, err := New(emptyCatalog{}, nil, Options{
-		CoreVersion:     "0.4.0",
-		CatalogURL:      server.URL + "/catalog.json",
-		SignatureURL:    server.URL + "/catalog.sig.json",
-		TrustedKeysSpec: "store-test=" + base64.StdEncoding.EncodeToString(publicKey),
-		HTTPClient:      server.Client(),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	status, refreshErr := service.Refresh(context.Background())
-	if ErrorCode(refreshErr) != CodeCatalogUnavailable {
-		t.Fatalf("Refresh() error = %v, want %s", refreshErr, CodeCatalogUnavailable)
-	}
-	if status.Source != "embedded" || service.List(Query{}).Catalog.Source != "embedded" {
-		t.Fatalf("older catalog replaced bootstrap snapshot: %#v", status)
 	}
 }
 
-func TestInstallFreezesCatalogIdentityAndDigestsIntoUnifiedInstallerRequest(t *testing.T) {
-	t.Parallel()
-
+func TestServiceInspectionRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 	platform, err := pluginartifact.CurrentPlatform()
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifestHash := strings.Repeat("a", 64)
-	archiveHash := strings.Repeat("b", 64)
-	installer := &recordingInstaller{}
-	service, err := New(emptyCatalog{}, installer, Options{CoreVersion: "0.4.0"})
+	payload := catalogJSON(platform, "0.4.0", "0.4.0")
+	repository := newMemoryRepository(payload)
+	installer := &stubInstaller{inspection: plugins.InstallInspection{
+		InspectionID:  strings.Repeat("a", 64),
+		ExpiresAt:     time.Now().Add(time.Minute),
+		PackageSHA256: strings.Repeat("b", 64),
+		PluginID:      "raylea.echo",
+		PluginName:    "Echo",
+		Version:       "0.4.0",
+		Permissions:   map[string]plugins.PermissionGrant{"message.send": {}},
+	}}
+	service := newTestService(t, emptyCatalog{}, installer, repository, staticCatalogTransport(payload))
+	first, err := service.Inspect(context.Background(), InspectionRequest{SourceID: OfficialSourceID, PluginID: "raylea.echo"})
 	if err != nil {
-		t.Fatalf("New() error = %v", err)
+		t.Fatal(err)
 	}
-	entry := testEntry(t, []Release{{
-		Version:        "0.2.0",
-		PublishedAt:    "2026-08-04T00:00:00Z",
-		MinCoreVersion: "0.1.0",
-		ManifestSHA256: manifestHash,
-		Assets: []Asset{{
-			Platform: platform, URL: "https://downloads.example/plugin.zip", ArchiveSizeBytes: 32,
-			ArchiveSHA256: archiveHash,
+	if !first.ConfirmationRequired || len(first.ConfirmationReasons) != 1 || first.ConfirmationReasons[0] != "first_install" {
+		t.Fatalf("first inspection = %#v", first)
+	}
+	if _, err := service.Install(context.Background(), InstallRequest{
+		PluginID:      "raylea.echo",
+		InspectionID:  first.Inspection.InspectionID,
+		PackageSHA256: first.Inspection.PackageSHA256,
+	}); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
+		t.Fatalf("unconfirmed install error = %v", err)
+	}
+
+	installed := fixedCatalog{snapshot: plugins.Snapshot{
+		PluginID: "raylea.echo", Version: "0.3.0", PackageSourceType: "catalog", PackageSourceRef: OfficialSourceID,
+		Permissions: map[string]plugins.PermissionGrant{"message.send": {}},
+	}}
+	installer = &stubInstaller{inspection: installer.inspection}
+	service = newTestService(t, installed, installer, repository, staticCatalogTransport(payload))
+	update, err := service.Inspect(context.Background(), InspectionRequest{SourceID: OfficialSourceID, PluginID: "raylea.echo"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if update.ConfirmationRequired {
+		t.Fatalf("same-source update unexpectedly requires confirmation: %#v", update)
+	}
+	if _, err := service.Install(context.Background(), InstallRequest{
+		PluginID:      "raylea.echo",
+		InspectionID:  update.Inspection.InspectionID,
+		PackageSHA256: update.Inspection.PackageSHA256,
+	}); err != nil {
+		t.Fatalf("same-source update failed: %v", err)
+	}
+}
+
+func TestPermissionsExpanded(t *testing.T) {
+	current := map[string]plugins.PermissionGrant{"thirdparty.account.read": {Platforms: []string{"bilibili", "weibo"}}}
+	if permissionsExpanded(current, map[string]plugins.PermissionGrant{"thirdparty.account.read": {Platforms: []string{"bilibili"}}}) {
+		t.Fatal("permission reduction was classified as expansion")
+	}
+	if !permissionsExpanded(current, map[string]plugins.PermissionGrant{"thirdparty.account.read": {Platforms: []string{"bilibili", "douyin"}}}) {
+		t.Fatal("new platform was not classified as expansion")
+	}
+	if !permissionsExpanded(current, map[string]plugins.PermissionGrant{"message.send": {}}) {
+		t.Fatal("new permission was not classified as expansion")
+	}
+}
+
+func newTestService(t *testing.T, installed plugins.CatalogView, installer Installer, repository Repository, transport http.RoundTripper) *Service {
+	t.Helper()
+	service, err := New(context.Background(), installed, installer, repository, Options{
+		CoreVersion: "0.4.0",
+		HTTPClient:  &http.Client{Transport: transport},
+		Now:         func() time.Time { return time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return service
+}
+
+func catalogJSON(platform, version, minCoreVersion string) []byte {
+	return []byte(`{
+  "catalog_version":"2",
+  "entries":[{
+    "id":"raylea.echo",
+    "name":"Echo",
+    "summary":"Echo messages",
+    "publisher":{"id":"rayleabot","name":"RayleaBot"},
+    "repository_url":"https://github.com/RayleaBot/plugin-echo",
+    "license":"MIT",
+    "keywords":["echo"],
+    "recommended":true,
+    "current_release":{
+      "version":"` + version + `",
+      "published_at":"2026-09-03T00:00:00Z",
+      "min_core_version":"` + minCoreVersion + `",
+      "assets":[{"platform":"` + platform + `","url":"https://downloads.example/echo.zip","archive_sha256":"` + strings.Repeat("a", 64) + `"}]
+    }
+  }]
+}`)
+}
+
+type memoryRepository struct {
+	mu       sync.Mutex
+	sources  map[string]Source
+	catalogs map[string]CachedCatalog
+}
+
+func newMemoryRepository(officialPayload []byte) *memoryRepository {
+	repository := &memoryRepository{
+		sources: map[string]Source{OfficialSourceID: {
+			ID: OfficialSourceID, Name: "RayleaBot 官方插件", URL: "https://plugins.example/official.json", Official: true,
 		}},
-	}})
-	service.snapshot = newCatalogSnapshot(Catalog{
-		CatalogVersion: "2", GeneratedAt: "2026-08-04T00:00:00Z", Entries: []Entry{entry},
-	}, "remote", strings.Repeat("c", 64), []string{"store-test"})
-	installer.inspection = plugins.InstallInspection{
-		InspectionID: "inspection-1", PackageSHA256: strings.Repeat("d", 64),
-		PluginID: entry.ID, Version: "0.2.0", Artifact: plugins.ArtifactInspection{ManifestSHA256: manifestHash},
+		catalogs: map[string]CachedCatalog{},
 	}
-
-	taskID, err := service.Install(context.Background(), InstallRequest{PluginID: entry.ID, TrustedCodeConfirmed: true})
-	if err != nil {
-		t.Fatalf("Install() error = %v", err)
+	if len(officialPayload) > 0 {
+		repository.catalogs[OfficialSourceID] = CachedCatalog{SourceID: OfficialSourceID, Payload: officialPayload, RefreshedAt: time.Now()}
 	}
-	if taskID != "task-store-install" {
-		t.Fatalf("Install() task id = %q", taskID)
-	}
-	request := installer.accepted
-	if request.SourceType != "catalog" || request.ResolvedSourceType != "remote_url" || request.ResolvedSource != "https://downloads.example/plugin.zip" {
-		t.Fatalf("installer source = %#v", request)
-	}
-	if request.ExpectedArchiveSize != 32 || request.ExpectedArchiveSHA256 != archiveHash || request.ExpectedManifestSHA256 != manifestHash || !request.PublisherVerified {
-		t.Fatalf("installer trust metadata = %#v", request)
-	}
+	return repository
 }
 
-func TestListSelectsLatestCompatibleReleaseForCurrentPlatform(t *testing.T) {
-	t.Parallel()
+func (r *memoryRepository) ListSources(context.Context) ([]Source, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	items := make([]Source, 0, len(r.sources))
+	for _, source := range r.sources {
+		items = append(items, source)
+	}
+	return items, nil
+}
 
-	platform, err := pluginartifact.CurrentPlatform()
-	if err != nil {
-		t.Fatal(err)
+func (r *memoryRepository) CreateSource(_ context.Context, source Source) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, existing := range r.sources {
+		if existing.URL == source.URL {
+			return errors.New("UNIQUE constraint failed")
+		}
 	}
-	service, err := New(emptyCatalog{}, nil, Options{CoreVersion: "0.3.0"})
-	if err != nil {
-		t.Fatal(err)
+	r.sources[source.ID] = source
+	return nil
+}
+
+func (r *memoryRepository) UpdateSource(_ context.Context, source Source) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.sources[source.ID]; !ok {
+		return ErrSourceNotFound
 	}
-	entry := testEntry(t, []Release{
-		{
-			Version: "0.3.0", PublishedAt: "2026-08-04T00:00:00Z", MinCoreVersion: "0.3.0", ManifestSHA256: strings.Repeat("b", 64),
-			Assets: []Asset{{Platform: platform, URL: "https://downloads.example/compatible.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("a", 64)}},
-		},
-		{
-			Version: "0.4.0", PublishedAt: "2026-08-04T01:00:00Z", MinCoreVersion: "0.4.0", ManifestSHA256: strings.Repeat("d", 64),
-			Assets: []Asset{{Platform: platform, URL: "https://downloads.example/future.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("c", 64)}},
-		},
+	r.sources[source.ID] = source
+	return nil
+}
+
+func (r *memoryRepository) DeleteSource(_ context.Context, sourceID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.sources, sourceID)
+	delete(r.catalogs, sourceID)
+	return nil
+}
+
+func (r *memoryRepository) LoadCatalogs(context.Context) ([]CachedCatalog, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	items := make([]CachedCatalog, 0, len(r.catalogs))
+	for _, catalog := range r.catalogs {
+		items = append(items, catalog)
+	}
+	return items, nil
+}
+
+func (r *memoryRepository) SaveCatalog(_ context.Context, catalog CachedCatalog) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.catalogs[catalog.SourceID] = catalog
+	return nil
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
+func staticCatalogTransport(payload []byte) http.RoundTripper {
+	return roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(payload)), Header: make(http.Header)}, nil
 	})
-	service.snapshot = newCatalogSnapshot(Catalog{
-		CatalogVersion: "2", GeneratedAt: "2026-08-04T02:00:00Z", Entries: []Entry{entry},
-	}, "remote", strings.Repeat("e", 64), []string{"store-test"})
-
-	result := service.List(Query{Limit: 10})
-	if len(result.Items) != 1 || result.Items[0].LatestRelease == nil {
-		t.Fatalf("List() = %#v", result)
-	}
-	item := result.Items[0]
-	if item.LatestRelease.Version != "0.3.0" || item.InstallState != "available" {
-		t.Fatalf("List() item = %#v, want latest compatible 0.3.0", item)
-	}
 }
 
-func TestListDoesNotPresentYankedOnlyEntryAsUnpublished(t *testing.T) {
-	t.Parallel()
-
-	platform, err := pluginartifact.CurrentPlatform()
-	if err != nil {
-		t.Fatal(err)
-	}
-	service, err := New(emptyCatalog{}, nil, Options{CoreVersion: "0.3.0"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	entry := testEntry(t, []Release{{
-		Version: "0.2.0", PublishedAt: "2026-08-04T00:00:00Z", MinCoreVersion: "0.1.0", ManifestSHA256: strings.Repeat("b", 64), Yanked: true,
-		Assets: []Asset{{Platform: platform, URL: "https://downloads.example/yanked.zip", ArchiveSizeBytes: 1, ArchiveSHA256: strings.Repeat("a", 64)}},
-	}})
-	service.snapshot = newCatalogSnapshot(Catalog{
-		CatalogVersion: "2", GeneratedAt: "2026-08-04T02:00:00Z", Entries: []Entry{entry},
-	}, "remote", strings.Repeat("c", 64), []string{"store-test"})
-
-	result := service.List(Query{Limit: 10})
-	if len(result.Items) != 1 || result.Items[0].LatestRelease == nil || !result.Items[0].LatestRelease.Yanked || result.Items[0].InstallState != "incompatible" {
-		t.Fatalf("List() = %#v, want yanked incompatible release", result)
-	}
+type stubInstaller struct {
+	inspection plugins.InstallInspection
+	accepted   plugins.InstallAcceptance
 }
 
-func TestNewRequiresCoreVersion(t *testing.T) {
-	t.Parallel()
-
-	if _, err := New(emptyCatalog{}, nil, Options{}); err == nil {
-		t.Fatal("New() accepted an empty core version")
-	}
+func (s *stubInstaller) Inspect(_ context.Context, request plugins.InstallRequest) (plugins.InstallInspection, error) {
+	inspection := s.inspection
+	inspection.SourceType = request.SourceType
+	inspection.Source = request.Source
+	return inspection, nil
 }
 
-func testEntry(t *testing.T, releases []Release) Entry {
-	t.Helper()
-	if releases == nil {
-		releases = []Release{}
-	}
-	return Entry{
-		ID: "raylea.test", Name: "Test", Summary: "Test plugin", Description: "Test plugin description",
-		Publisher:     Publisher{ID: "rayleabot", Name: "RayleaBot", Verified: true},
-		RepositoryURL: "https://github.com/RayleaBot/plugin-test", License: "MIT", Keywords: []string{"test"},
-		Recommended: true, Releases: releases,
-	}
+func (s *stubInstaller) Accept(_ context.Context, acceptance plugins.InstallAcceptance) (string, error) {
+	s.accepted = acceptance
+	return "task-1", nil
 }
 
-func mustCatalogJSON(t *testing.T, catalog Catalog) []byte {
-	t.Helper()
-	payload, err := json.Marshal(catalog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return payload
-}
+func (*stubInstaller) Cancel(string) bool { return false }
+func (*stubInstaller) Close() error       { return nil }
 
 type emptyCatalog struct{}
 
@@ -347,21 +304,12 @@ func (emptyCatalog) SetDesiredState(string, string) (plugins.Snapshot, error) {
 	return plugins.Snapshot{}, nil
 }
 
-type recordingInstaller struct {
-	inspection plugins.InstallInspection
-	inspected  plugins.InstallRequest
-	accepted   plugins.InstallRequest
-}
+type fixedCatalog struct{ snapshot plugins.Snapshot }
 
-func (i *recordingInstaller) Inspect(_ context.Context, request plugins.InstallRequest) (plugins.InstallInspection, error) {
-	i.inspected = request
-	return i.inspection, nil
+func (c fixedCatalog) List() []plugins.Snapshot { return []plugins.Snapshot{c.snapshot} }
+func (c fixedCatalog) Get(id string) (plugins.Snapshot, bool) {
+	return c.snapshot, id == c.snapshot.PluginID
 }
-
-func (i *recordingInstaller) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
-	i.accepted = request
-	return "task-store-install", nil
+func (c fixedCatalog) SetDesiredState(string, string) (plugins.Snapshot, error) {
+	return c.snapshot, nil
 }
-
-func (*recordingInstaller) Cancel(string) bool { return false }
-func (*recordingInstaller) Close() error       { return nil }

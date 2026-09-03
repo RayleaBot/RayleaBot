@@ -15,7 +15,6 @@ const schemas = [
   'plugin-info.schema.json',
   'plugin-artifact.schema.json',
   'plugin-store-catalog.schema.json',
-  'plugin-store-signature.schema.json',
 ]
 const pluginUIBridgeSchema = 'plugin-management-ui-bridge.schema.json'
 const pluginUITypesTargets = [

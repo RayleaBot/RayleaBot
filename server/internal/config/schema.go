@@ -17,8 +17,7 @@ const (
 	BackupManifestSchemaID       = "builtin://contracts/backup-manifest.schema.json"
 	PluginInfoSchemaID           = "builtin://contracts/plugin-info.schema.json"
 	PluginArtifactSchemaID       = "builtin://contracts/plugin-artifact.schema.json"
-	PluginStoreCatalogSchemaID   = "builtin://contracts/plugin-store-catalog.schema.json"
-	PluginStoreSignatureSchemaID = "builtin://contracts/plugin-store-signature.schema.json"
+	PluginStoreCatalogSchemaID = "builtin://contracts/plugin-store-catalog.schema.json"
 )
 
 // ConfigUserSchemaJSON mirrors contracts/config.user.schema.json; keep the
@@ -49,11 +48,6 @@ var PluginArtifactSchemaJSON []byte
 //
 //go:embed contracts/plugin-store-catalog.schema.json
 var PluginStoreCatalogSchemaJSON []byte
-
-// PluginStoreSignatureSchemaJSON mirrors contracts/plugin-store-signature.schema.json.
-//
-//go:embed contracts/plugin-store-signature.schema.json
-var PluginStoreSignatureSchemaJSON []byte
 
 func IsConfigUserSchemaID(name string) bool {
 	return name == "" || name == ConfigUserSchemaID

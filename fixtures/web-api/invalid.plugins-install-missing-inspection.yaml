@@ -4,9 +4,7 @@ description: Installation without an inspection id, digest, and trusted-code con
 request:
   method: POST
   path: /api/plugins/install
-  body:
-    source_type: local_zip
-    source: C:/plugins/weather.zip
+  body: {}
 response:
   status: 409
   body:

@@ -2,18 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-store-catalog.schema.json",
   "title": "RayleaBot Plugin Store Catalog",
-  "description": "Signed static catalog metadata consumed by the RayleaBot server. Catalog identity, publisher verification and artifact digests are never taken from plugin manifests.",
+  "description": "Static plugin catalog metadata consumed by the RayleaBot server. Each entry describes its current published version and available platform artifacts.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["catalog_version", "generated_at", "entries"],
+  "required": ["catalog_version", "entries"],
   "properties": {
     "catalog_version": {
       "type": "string",
       "const": "2"
-    },
-    "generated_at": {
-      "type": "string",
-      "format": "date-time"
     },
     "entries": {
       "type": "array",
@@ -48,7 +44,7 @@
     "publisher": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "name", "verified"],
+      "required": ["id", "name"],
       "properties": {
         "id": {
           "$ref": "#/$defs/plugin_id"
@@ -57,16 +53,13 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 120
-        },
-        "verified": {
-          "type": "boolean"
         }
       }
     },
     "asset": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["platform", "url", "archive_size_bytes", "archive_sha256"],
+      "required": ["platform", "url", "archive_sha256"],
       "properties": {
         "platform": {
           "$ref": "#/$defs/platform"
@@ -74,20 +67,15 @@
         "url": {
           "$ref": "#/$defs/https_url"
         },
-        "archive_size_bytes": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 268435456
-        },
         "archive_sha256": {
           "$ref": "#/$defs/sha256"
         }
       }
     },
-    "release": {
+    "current_release": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["version", "published_at", "min_core_version", "manifest_sha256", "yanked", "assets"],
+      "required": ["version", "published_at", "min_core_version", "assets"],
       "properties": {
         "version": {
           "$ref": "#/$defs/semver"
@@ -98,12 +86,6 @@
         },
         "min_core_version": {
           "$ref": "#/$defs/semver"
-        },
-        "manifest_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "yanked": {
-          "type": "boolean"
         },
         "assets": {
           "type": "array",
@@ -126,8 +108,7 @@
         "repository_url",
         "license",
         "keywords",
-        "recommended",
-        "releases"
+        "recommended"
       ],
       "properties": {
         "id": {
@@ -157,6 +138,9 @@
         "homepage": {
           "$ref": "#/$defs/https_url"
         },
+        "icon_url": {
+          "$ref": "#/$defs/https_url"
+        },
         "license": {
           "type": "string",
           "minLength": 1,
@@ -175,12 +159,13 @@
         "recommended": {
           "type": "boolean"
         },
-        "releases": {
-          "type": "array",
-          "maxItems": 100,
-          "items": {
-            "$ref": "#/$defs/release"
-          }
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "current_release": {
+          "$ref": "#/$defs/current_release"
         }
       }
     }

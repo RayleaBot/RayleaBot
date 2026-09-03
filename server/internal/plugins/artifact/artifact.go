@@ -1,20 +1,16 @@
 package artifact
 
 import (
-	"crypto/sha256"
 	"debug/elf"
 	"debug/macho"
 	"debug/pe"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -33,17 +29,10 @@ var (
 	ErrContractUnsupported = errors.New("plugin contract unsupported")
 )
 
-type File struct {
-	Path   string `json:"path"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
-}
-
 type Document struct {
 	ArtifactVersion string `json:"artifact_version"`
 	TargetPlatform  string `json:"target_platform"`
 	Entry           string `json:"entry"`
-	Files           []File `json:"files"`
 }
 
 type Manifest struct {
@@ -65,13 +54,15 @@ type ManagementPage struct {
 }
 
 type Verified struct {
-	Root           string
-	Document       Document
-	Manifest       Manifest
-	ManifestSHA256 string
-	BackendPath    string
-	UIAvailable    bool
-	UIEntries      []string
+	Root        string
+	Document    Document
+	Manifest    Manifest
+	BackendPath string
+	BackendSize int64
+	FileCount   int
+	UIAvailable bool
+	UIFileCount int
+	UIEntries   []string
 }
 
 type Options struct {
@@ -144,45 +135,24 @@ func Verify(root string, options Options) (Verified, error) {
 	if manifest.ManifestVersion != ManifestVersion {
 		return Verified{}, invalid("unsupported plugin manifest", nil)
 	}
-	manifestDigest := sha256.Sum256(manifestBytes)
-
 	verified, err := verifyFiles(absoluteRoot, document, manifest)
 	if err != nil {
 		return Verified{}, err
 	}
 	verified.Document = document
 	verified.Manifest = manifest
-	verified.ManifestSHA256 = hex.EncodeToString(manifestDigest[:])
 	verified.Root = absoluteRoot
 	return verified, nil
 }
 
 func verifyFiles(root string, document Document, manifest Manifest) (Verified, error) {
-	declared := make(map[string]File, len(document.Files))
-	for _, item := range document.Files {
-		path, err := safeRelativePath(item.Path)
-		if err != nil {
-			return Verified{}, invalid("invalid artifact file path", err)
-		}
-		key := strings.ToLower(filepath.ToSlash(path))
-		if _, exists := declared[key]; exists {
-			return Verified{}, invalid("artifact contains duplicate file paths", nil)
-		}
-		declared[key] = item
-	}
-	if _, exists := declared["info.json"]; !exists {
-		return Verified{}, invalid("artifact must inventory info.json", nil)
-	}
 	entryPath, err := safeRelativePath(document.Entry)
 	if err != nil {
 		return Verified{}, invalid("invalid artifact entry path", err)
 	}
 	entryKey := strings.ToLower(filepath.ToSlash(entryPath))
-	if _, exists := declared[entryKey]; !exists {
-		return Verified{}, invalid("artifact entry is not inventoried", nil)
-	}
 
-	actual := make(map[string]string, len(document.Files))
+	actual := make(map[string]string)
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -205,9 +175,6 @@ func verifyFiles(root string, document Document, manifest Manifest) (Verified, e
 			return err
 		}
 		relative = filepath.ToSlash(relative)
-		if relative == "artifact.json" {
-			return nil
-		}
 		key := strings.ToLower(relative)
 		if previous, exists := actual[key]; exists {
 			return fmt.Errorf("case-insensitive file collision: %s and %s", previous, relative)
@@ -218,51 +185,47 @@ func verifyFiles(root string, document Document, manifest Manifest) (Verified, e
 	if err != nil {
 		return Verified{}, invalid("inventory artifact files", err)
 	}
-	if len(actual) != len(declared) {
-		return Verified{}, invalid("artifact file inventory does not match package contents", nil)
+	if _, exists := actual["info.json"]; !exists {
+		return Verified{}, invalid("artifact must contain info.json", nil)
 	}
-
-	uiEntries := make([]string, 0)
-	for key, item := range declared {
-		relative, exists := actual[key]
-		if !exists {
-			return Verified{}, invalid("artifact inventory references a missing file: "+item.Path, nil)
-		}
-		path := filepath.Join(root, filepath.FromSlash(relative))
-		info, err := os.Stat(path)
-		if err != nil {
-			return Verified{}, invalid("stat artifact file", err)
-		}
-		if info.Size() != item.Size {
-			return Verified{}, invalid("artifact size mismatch: "+item.Path, nil)
-		}
-		digest, err := fileDigest(path)
-		if err != nil {
-			return Verified{}, invalid("hash artifact file", err)
-		}
-		if digest != item.SHA256 {
-			return Verified{}, invalid("artifact digest mismatch: "+item.Path, nil)
-		}
-	}
-	for key, relative := range actual {
-		if _, exists := declared[key]; !exists {
-			return Verified{}, invalid("artifact contains an undeclared file: "+relative, nil)
-		}
+	if _, exists := actual[entryKey]; !exists {
+		return Verified{}, invalid("artifact entry is missing", nil)
 	}
 
 	backendPath := filepath.Join(root, filepath.FromSlash(document.Entry))
 	if err := validateBinary(backendPath, document.TargetPlatform); err != nil {
 		return Verified{}, err
 	}
+	backendInfo, err := os.Stat(backendPath)
+	if err != nil {
+		return Verified{}, invalid("stat backend binary", err)
+	}
+	uiEntries := make([]string, 0, 1)
+	uiFileCount := 0
+	for key := range actual {
+		if strings.HasPrefix(key, "ui/") {
+			uiFileCount++
+		}
+	}
 	if manifest.ManagementUI != nil {
-		key := strings.ToLower(filepath.ToSlash(manifest.ManagementUI.Entry))
-		if _, exists := declared[key]; !exists {
-			return Verified{}, invalid("management UI entry is not inventoried: "+manifest.ManagementUI.Entry, nil)
+		uiPath, err := safeRelativePath(manifest.ManagementUI.Entry)
+		if err != nil {
+			return Verified{}, invalid("invalid management UI entry", err)
+		}
+		key := strings.ToLower(filepath.ToSlash(uiPath))
+		if _, exists := actual[key]; !exists {
+			return Verified{}, invalid("management UI entry is missing: "+manifest.ManagementUI.Entry, nil)
 		}
 		uiEntries = append(uiEntries, filepath.ToSlash(manifest.ManagementUI.Entry))
 	}
-	sort.Strings(uiEntries)
-	return Verified{BackendPath: backendPath, UIAvailable: len(uiEntries) > 0, UIEntries: uiEntries}, nil
+	return Verified{
+		BackendPath: backendPath,
+		BackendSize: backendInfo.Size(),
+		FileCount:   len(actual),
+		UIAvailable: len(uiEntries) > 0,
+		UIFileCount: uiFileCount,
+		UIEntries:   uiEntries,
+	}, nil
 }
 
 func validateBinary(path, platform string) error {
@@ -329,19 +292,6 @@ func objectString(value any, key string) string {
 	object, _ := value.(map[string]any)
 	text, _ := object[key].(string)
 	return strings.TrimSpace(text)
-}
-
-func fileDigest(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	hash := sha256.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func safeRelativePath(value string) (string, error) {

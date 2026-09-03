@@ -113,18 +113,25 @@ type PluginKv struct {
 }
 
 type PluginPackage struct {
-	PluginID          string
-	SourceType        string
-	SourceRef         string
-	Version           string
-	ManifestHash      string
-	PackageHash       string
-	ArchiveHash       string
-	PublisherID       string
-	PublisherName     string
-	PublisherVerified int64
-	CatalogDigest     string
-	InstalledAt       string
+	PluginID    string
+	SourceType  string
+	SourceRef   string
+	Version     string
+	PackageHash string
+	InstalledAt string
+}
+
+type PluginStoreCatalogCache struct {
+	SourceID    string
+	CatalogJson string
+	RefreshedAt string
+}
+
+type PluginStoreSource struct {
+	SourceID string
+	Name     string
+	Url      string
+	Official int64
 }
 
 type RenderTemplateRevision struct {

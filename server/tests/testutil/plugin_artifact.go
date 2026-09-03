@@ -1,8 +1,6 @@
 package testutil
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,17 +18,10 @@ var (
 	echoArtifactErr  error
 )
 
-type testArtifactFile struct {
-	Path   string `json:"path"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
-}
-
 type testArtifactDocument struct {
-	ArtifactVersion string             `json:"artifact_version"`
-	TargetPlatform  string             `json:"target_platform"`
-	Entry           string             `json:"entry"`
-	Files           []testArtifactFile `json:"files"`
+	ArtifactVersion string `json:"artifact_version"`
+	TargetPlatform  string `json:"target_platform"`
+	Entry           string `json:"entry"`
 }
 
 // WriteEchoGoPluginArtifact installs a current-platform, fully verified Go
@@ -75,18 +66,10 @@ func WriteEchoGoPluginArtifact(t testing.TB, repoRoot string) string {
 		t.Fatalf("write Go plugin fixture manifest: %v", err)
 	}
 
-	backendInfo, err := os.Stat(backendPath)
-	if err != nil {
-		t.Fatalf("stat Go plugin fixture binary: %v", err)
-	}
 	document := testArtifactDocument{
 		ArtifactVersion: "2",
 		TargetPlatform:  currentPluginPlatform(t),
 		Entry:           backendRelative,
-		Files: []testArtifactFile{
-			{Path: "info.json", Size: int64(len(echoManifest)), SHA256: digestBytes(echoManifest)},
-			{Path: backendRelative, Size: backendInfo.Size(), SHA256: digestFile(t, backendPath)},
-		},
 	}
 	payload, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
@@ -126,16 +109,8 @@ func WriteGoPluginArtifact(t testing.TB, root, pluginID, version string) string 
 	if err := os.WriteFile(filepath.Join(root, "info.json"), manifest, 0o644); err != nil {
 		t.Fatalf("write installable Go plugin manifest: %v", err)
 	}
-	backendInfo, err := os.Stat(backendPath)
-	if err != nil {
-		t.Fatalf("stat installable Go plugin binary: %v", err)
-	}
 	document := testArtifactDocument{
 		ArtifactVersion: "2", TargetPlatform: currentPluginPlatform(t), Entry: backendRelative,
-		Files: []testArtifactFile{
-			{Path: "info.json", Size: int64(len(manifest)), SHA256: digestBytes(manifest)},
-			{Path: backendRelative, Size: backendInfo.Size(), SHA256: digestFile(t, backendPath)},
-		},
 	}
 	payload, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
@@ -201,18 +176,4 @@ func copyTestArtifactFile(source, target string, mode os.FileMode) error {
 		return err
 	}
 	return os.WriteFile(target, payload, mode)
-}
-
-func digestBytes(payload []byte) string {
-	digest := sha256.Sum256(payload)
-	return hex.EncodeToString(digest[:])
-}
-
-func digestFile(t testing.TB, path string) string {
-	t.Helper()
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read artifact file for digest: %v", err)
-	}
-	return digestBytes(payload)
 }

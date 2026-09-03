@@ -104,8 +104,6 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	}
 
 	requestBody, err := json.Marshal(map[string]any{
-		"source_type":            "local_directory",
-		"source":                 sourceDir,
 		"inspection_id":          inspectionID,
 		"package_sha256":         packageSHA256,
 		"trusted_code_confirmed": true,
@@ -172,18 +170,17 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	}
 
 	var (
-		sourceType   string
-		sourceRef    string
-		version      string
-		manifestHash string
-		packageHash  string
+		sourceType  string
+		sourceRef   string
+		version     string
+		packageHash string
 	)
 	if err := application.Storage().Read.QueryRow(
-		`SELECT source_type, source_ref, version, manifest_hash, package_hash
+		`SELECT source_type, source_ref, version, package_hash
 		   FROM plugin_packages
 		  WHERE plugin_id = ?`,
 		"weather-install",
-	).Scan(&sourceType, &sourceRef, &version, &manifestHash, &packageHash); err != nil {
+	).Scan(&sourceType, &sourceRef, &version, &packageHash); err != nil {
 		t.Fatalf("query plugin_packages row: %v", err)
 	}
 	if sourceType != "local_directory" {
@@ -192,8 +189,8 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if sourceRef != sourceDir {
 		t.Fatalf("unexpected source_ref metadata: got %q want %q", sourceRef, sourceDir)
 	}
-	if version != "0.2.0" || manifestHash == "" || packageHash == "" {
-		t.Fatalf("unexpected package metadata values: version=%q manifest_hash=%q package_hash=%q", version, manifestHash, packageHash)
+	if version != "0.2.0" || packageHash == "" {
+		t.Fatalf("unexpected package metadata values: version=%q package_hash=%q", version, packageHash)
 	}
 }
 

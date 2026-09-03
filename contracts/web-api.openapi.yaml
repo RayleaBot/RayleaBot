@@ -63,10 +63,15 @@ x-fixtures:
   - fixtures/web-api/invalid.plugins-install-missing-inspection.yaml
   - fixtures/web-api/ok.plugin-store-list.yaml
   - fixtures/web-api/ok.plugin-store-detail.yaml
+  - fixtures/web-api/ok.plugin-store-sources.yaml
+  - fixtures/web-api/ok.plugin-store-source-create.yaml
+  - fixtures/web-api/ok.plugin-store-source-update.yaml
+  - fixtures/web-api/ok.plugin-store-source-delete.yaml
+  - fixtures/web-api/ok.plugin-store-source-refresh.yaml
+  - fixtures/web-api/ok.plugin-store-inspection.yaml
   - fixtures/web-api/ok.plugin-store-install-accepted.yaml
   - fixtures/web-api/edge.plugin-store-unpublished.yaml
   - fixtures/web-api/edge.plugin-store-release-unavailable.yaml
-  - fixtures/web-api/ok.plugin-store-refresh.yaml
   - fixtures/web-api/ok.plugins-list-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.yaml
   - fixtures/web-api/ok.plugin-detail-response.management-ui.yaml
@@ -1487,12 +1492,19 @@ paths:
 
   /api/plugin-store/plugins:
     get:
-      summary: List plugins from the last verified static store catalog.
+      summary: List plugins from one cached plugin store source.
       operationId: listPluginStoreEntries
       security:
         - BearerAuth: []
         - CookieAuth: []
       parameters:
+        - name: source_id
+          in: query
+          required: false
+          schema:
+            type: string
+            default: official
+            pattern: '^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$'
         - name: query
           in: query
           required: false
@@ -1549,6 +1561,13 @@ paths:
         - CookieAuth: []
       parameters:
         - $ref: '#/components/parameters/PluginId'
+        - name: source_id
+          in: query
+          required: false
+          schema:
+            type: string
+            default: official
+            pattern: '^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$'
       responses:
         '200':
           description: Plugin store detail.
@@ -1563,9 +1582,43 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/plugin-store/plugins/{plugin_id}/inspect:
+    post:
+      summary: Download and inspect the selected plugin release before installation.
+      operationId: inspectPluginStoreEntry
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginStoreInspectionRequest'
+      responses:
+        '200':
+          description: Inspected artifact, declared permissions and trust confirmation requirement.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginStoreInspectionResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
   /api/plugin-store/plugins/{plugin_id}/install:
     post:
-      summary: Install or update a plugin from a verified catalog release.
+      summary: Install a previously inspected plugin artifact.
       operationId: installPluginStoreEntry
       security:
         - BearerAuth: []
@@ -1599,22 +1652,127 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/plugin-store/refresh:
+  /api/plugin-store/sources:
+    get:
+      summary: List the official and custom plugin store sources.
+      operationId: listPluginStoreSources
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        '200':
+          description: Configured plugin store sources and their cache status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginStoreSourcesResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
     post:
-      summary: Fetch and verify the official static catalog immediately.
-      operationId: refreshPluginStoreCatalog
+      summary: Add and load a custom HTTPS plugin store source.
+      operationId: createPluginStoreSource
       security:
         - BearerAuth: []
         - CookieAuth: []
           CSRFAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginStoreSourceInput'
       responses:
-        '200':
-          description: Current catalog trust status after refresh.
+        '201':
+          description: Custom source created and loaded.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PluginStoreRefreshResponse'
+                $ref: '#/components/schemas/PluginStoreSource'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugin-store/sources/{source_id}:
+    put:
+      summary: Update and reload a custom plugin store source.
+      operationId: updatePluginStoreSource
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginStoreSourceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginStoreSourceInput'
+      responses:
+        '200':
+          description: Custom source updated and loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginStoreSource'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+    delete:
+      summary: Remove a custom plugin store source and its cached catalog.
+      operationId: deletePluginStoreSource
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginStoreSourceId'
+      responses:
+        '204':
+          description: Custom source removed.
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
+          $ref: '#/components/responses/Error'
+        '409':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/plugin-store/sources/{source_id}/refresh:
+    post:
+      summary: Refresh one plugin store source and replace its last successful cache.
+      operationId: refreshPluginStoreSource
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PluginStoreSourceId'
+      responses:
+        '200':
+          description: Refreshed source status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginStoreSource'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
         '503':
           $ref: '#/components/responses/Error'
@@ -2124,6 +2282,13 @@ components:
       schema:
         type: string
         minLength: 1
+    PluginStoreSourceId:
+      name: source_id
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$'
     GovernanceEntryType:
       name: entry_type
       in: path
@@ -3851,45 +4016,67 @@ components:
           items:
             $ref: '#/components/schemas/PluginSummary'
 
-    PluginStoreCatalogStatus:
+    PluginStoreSource:
       type: object
       additionalProperties: false
-      required: [source, verified, generated_at, entry_count]
-      properties:
-        source:
-          type: string
-          enum: [embedded, remote]
-        verified:
-          type: boolean
-          const: true
-        generated_at:
-          type: string
-          format: date-time
-        entry_count:
-          type: integer
-          minimum: 0
-        trusted_key_ids:
-          type: array
-          items:
-            type: string
-          uniqueItems: true
-
-    PluginStorePublisher:
-      type: object
-      additionalProperties: false
-      required: [id, name, verified]
+      required: [id, name, url, official, cached, entry_count]
       properties:
         id:
           type: string
         name:
           type: string
-        verified:
+        url:
+          type: string
+          format: uri
+          pattern: '^https://.+$'
+        official:
           type: boolean
+        cached:
+          type: boolean
+        refreshed_at:
+          type: string
+          format: date-time
+        entry_count:
+          type: integer
+          minimum: 0
 
+    PluginStoreSourcesResponse:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginStoreSource'
+
+    PluginStoreSourceInput:
+      type: object
+      additionalProperties: false
+      required: [name, url]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        url:
+          type: string
+          format: uri
+          pattern: '^https://.+$'
+
+    PluginStorePublisher:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
     PluginStoreReleaseSummary:
       type: object
       additionalProperties: false
-      required: [version, published_at, min_core_version, compatible, asset_available, yanked]
+      required: [version, published_at, min_core_version, compatible, asset_available]
       properties:
         version:
           type: string
@@ -3902,9 +4089,6 @@ components:
           type: boolean
         asset_available:
           type: boolean
-        yanked:
-          type: boolean
-
     PluginStoreEntry:
       type: object
       additionalProperties: false
@@ -3928,6 +4112,10 @@ components:
           type: string
           format: uri
           pattern: '^https://.+$'
+        icon_url:
+          type: string
+          format: uri
+          pattern: '^https://.+$'
         license:
           type: string
         keywords:
@@ -3936,6 +4124,8 @@ components:
             type: string
         recommended:
           type: boolean
+        category:
+          type: string
         latest_release:
           $ref: '#/components/schemas/PluginStoreReleaseSummary'
         installed_version:
@@ -3947,7 +4137,7 @@ components:
     PluginStoreListResponse:
       type: object
       additionalProperties: false
-      required: [items, total, catalog]
+      required: [items, total, source]
       properties:
         items:
           type: array
@@ -3959,13 +4149,13 @@ components:
         next_cursor:
           type: string
           pattern: '^[0-9]+$'
-        catalog:
-          $ref: '#/components/schemas/PluginStoreCatalogStatus'
+        source:
+          $ref: '#/components/schemas/PluginStoreSource'
 
     PluginStoreDetailResponse:
       type: object
       additionalProperties: false
-      required: [plugin, releases, catalog]
+      required: [plugin, releases, source]
       properties:
         plugin:
           $ref: '#/components/schemas/PluginStoreEntry'
@@ -3973,28 +4163,47 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginStoreReleaseSummary'
-        catalog:
-          $ref: '#/components/schemas/PluginStoreCatalogStatus'
+        source:
+          $ref: '#/components/schemas/PluginStoreSource'
+
+    PluginStoreInspectionRequest:
+      type: object
+      additionalProperties: false
+      required: [source_id]
+      properties:
+        source_id:
+          type: string
+          pattern: '^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$'
+
+    PluginStoreInspectionResponse:
+      type: object
+      additionalProperties: false
+      required: [inspection, confirmation_required, confirmation_reasons]
+      properties:
+        inspection:
+          $ref: '#/components/schemas/PluginInstallInspectionResponse'
+        confirmation_required:
+          type: boolean
+        confirmation_reasons:
+          type: array
+          items:
+            type: string
+            enum: [first_install, source_changed, permissions_expanded]
+          uniqueItems: true
 
     PluginStoreInstallRequest:
       type: object
       additionalProperties: false
-      required: [trusted_code_confirmed]
+      required: [inspection_id, package_sha256, trusted_code_confirmed]
       properties:
-        version:
+        inspection_id:
           type: string
-          pattern: '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$'
+          minLength: 32
+        package_sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
         trusted_code_confirmed:
           type: boolean
-          const: true
-
-    PluginStoreRefreshResponse:
-      type: object
-      additionalProperties: false
-      required: [catalog]
-      properties:
-        catalog:
-          $ref: '#/components/schemas/PluginStoreCatalogStatus'
 
     PluginWebhookScope:
       type: object
@@ -4468,6 +4677,18 @@ components:
     PluginInstallInspectionRequest:
       $ref: '#/components/schemas/PluginInstallSource'
 
+    PluginInstallSourceSummary:
+      type: object
+      additionalProperties: false
+      required: [source_type, source]
+      properties:
+        source_type:
+          type: string
+          enum: [local_zip, local_directory, remote_url, catalog]
+        source:
+          type: string
+          minLength: 1
+
     PluginInstallInspectionResponse:
       type: object
       additionalProperties: false
@@ -4483,7 +4704,7 @@ components:
           type: string
           pattern: '^[a-f0-9]{64}$'
         source:
-          $ref: '#/components/schemas/PluginInstallSource'
+          $ref: '#/components/schemas/PluginInstallSourceSummary'
         plugin:
           type: object
           additionalProperties: false
@@ -4509,12 +4730,11 @@ components:
     PluginInstallBackend:
       type: object
       additionalProperties: false
-      required: [entry, path, size, sha256]
+      required: [entry, path, size]
       properties:
         entry: { type: string, minLength: 1 }
         path: { type: string, minLength: 1 }
         size: { type: integer, minimum: 1 }
-        sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
 
     PluginInstallUI:
       type: object
@@ -4528,24 +4748,17 @@ components:
     PluginArtifactValidation:
       type: object
       additionalProperties: false
-      required: [valid, artifact_version, manifest_sha256, file_count]
+      required: [valid, artifact_version, file_count]
       properties:
         valid: { type: boolean, const: true }
         artifact_version: { type: string, const: '2' }
-        manifest_sha256: { type: string, pattern: '^[a-f0-9]{64}$' }
         file_count: { type: integer, minimum: 2 }
 
     PluginInstallRequest:
       type: object
       additionalProperties: false
-      required: [source_type, source, inspection_id, package_sha256, trusted_code_confirmed]
+      required: [inspection_id, package_sha256, trusted_code_confirmed]
       properties:
-        source_type:
-          type: string
-          enum: [local_zip, local_directory, remote_url]
-        source:
-          type: string
-          minLength: 1
         inspection_id:
           type: string
           minLength: 32

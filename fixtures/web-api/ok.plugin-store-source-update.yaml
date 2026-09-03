@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: An administrator updates a custom source and replaces its cache with the newly loaded catalog.
+request:
+  method: PUT
+  path: /api/plugin-store/sources/source-0123456789abcdef
+  body:
+    name: 社区插件镜像
+    url: https://mirror.example.com/catalog.json
+response:
+  status: 200
+  body:
+    id: source-0123456789abcdef
+    name: 社区插件镜像
+    url: https://mirror.example.com/catalog.json
+    official: false
+    cached: true
+    refreshed_at: 2026-09-03T10:05:00Z
+    entry_count: 3
+expect:
+  valid: true

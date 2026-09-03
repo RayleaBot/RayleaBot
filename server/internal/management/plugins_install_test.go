@@ -17,7 +17,7 @@ import (
 
 type queueFullInstaller struct{}
 
-func (queueFullInstaller) Accept(context.Context, plugins.InstallRequest) (string, error) {
+func (queueFullInstaller) Accept(context.Context, plugins.InstallAcceptance) (string, error) {
 	return "", tasks.ErrQueueFull
 }
 
@@ -34,7 +34,7 @@ func (installer *inspectionInstaller) Inspect(_ context.Context, request plugins
 	return installer.inspection, nil
 }
 
-func (*inspectionInstaller) Accept(context.Context, plugins.InstallRequest) (string, error) {
+func (*inspectionInstaller) Accept(context.Context, plugins.InstallAcceptance) (string, error) {
 	return "task_inspected", nil
 }
 
@@ -56,9 +56,9 @@ func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
 		SourceLabel:    "本地插件包",
 		Permissions:    map[string]plugins.PermissionGrant{"http.request": {}},
 		TargetPlatform: "windows-x64",
-		Backend:        plugins.InstallBackendInspection{Entry: "bin/weather", Path: "bin/weather.exe", Size: 1024, SHA256: strings.Repeat("b", 64)},
+		Backend:        plugins.InstallBackendInspection{Entry: "bin/weather", Path: "bin/weather.exe", Size: 1024},
 		UI:             plugins.InstallUIInspection{Enabled: true, Entry: "ui/index.html", FileCount: 3},
-		Artifact:       plugins.ArtifactInspection{Valid: true, Version: "2", ManifestSHA256: strings.Repeat("c", 64), FileCount: 8},
+		Artifact:       plugins.ArtifactInspection{Valid: true, Version: "2", FileCount: 8},
 	}}
 	handler := newInstallInspectHandler(newTestCatalog(nil), installer)
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install/inspect", strings.NewReader(`{"source_type":"local_zip","source":"C:/plugins/weather.zip"}`))
@@ -82,7 +82,7 @@ func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
 }
 
 func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
-	payload := trustedInstallRequest("local_zip", "C:/plugins/weather.zip")
+	payload := trustedInstallRequest()
 	payload.TrustedCodeConfirmed = false
 	body, _ := json.Marshal(payload)
 	handler := newInstallHandler(nil, nil, &inspectionInstaller{})
@@ -102,7 +102,7 @@ func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
 func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 	registry := tasks.NewRegistry()
 	handler := newInstallHandler(nil, registry, queueFullInstaller{})
-	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{"source_type":"local_zip","source":"plugin.zip","inspection_id":"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii","package_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","trusted_code_confirmed":true}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{"inspection_id":"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii","package_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","trusted_code_confirmed":true}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 
@@ -121,12 +121,9 @@ func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 
 func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		sourceType := rapid.SampledFrom([]string{"local_zip", "local_directory"}).Draw(t, "sourceType")
-		source := rapid.StringMatching("[a-zA-Z0-9/_\\\\.:]{1,100}").Draw(t, "source")
-
 		router, _, taskRegistry, _ := setupRouter(nil)
 
-		reqBody, _ := json.Marshal(trustedInstallRequest(sourceType, source))
+		reqBody, _ := json.Marshal(trustedInstallRequest())
 		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -165,27 +162,15 @@ func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 		router, _, taskRegistry, _ := setupRouter(nil)
 		tasksBefore := len(taskRegistry.List())
 
-		// Generate one of several invalid request variants.
-		variant := rapid.IntRange(0, 3).Draw(t, "variant")
+		variant := rapid.IntRange(0, 2).Draw(t, "variant")
 		var body string
 		switch variant {
-		case 0: // missing source_type
-			src := rapid.StringMatching("[a-zA-Z0-9/_]{1,50}").Draw(t, "source")
-			body = `{"source":"` + src + `"}`
-		case 1: // missing source
-			st := rapid.SampledFrom([]string{"local_zip", "local_directory"}).Draw(t, "sourceType")
-			body = `{"source_type":"` + st + `"}`
-		case 2: // invalid source_type
-			badType := rapid.StringMatching("[a-z]{3,15}").
-				Filter(func(s string) bool { return s != "local_zip" && s != "local_directory" }).
-				Draw(t, "badType")
-			src := rapid.StringMatching("[a-zA-Z0-9/_]{1,50}").Draw(t, "source")
-			b, _ := json.Marshal(pluginInstallRequest{SourceType: badType, Source: src})
-			body = string(b)
-		case 3: // empty source
-			st := rapid.SampledFrom([]string{"local_zip", "local_directory"}).Draw(t, "sourceType")
-			b, _ := json.Marshal(pluginInstallRequest{SourceType: st, Source: ""})
-			body = string(b)
+		case 0:
+			body = `{"package_sha256":"` + strings.Repeat("a", 64) + `","trusted_code_confirmed":true}`
+		case 1:
+			body = `{"inspection_id":"` + strings.Repeat("i", 64) + `","trusted_code_confirmed":true}`
+		case 2:
+			body = `{"inspection_id":"` + strings.Repeat("i", 64) + `","package_sha256":"` + strings.Repeat("a", 64) + `","trusted_code_confirmed":true,"source":"legacy"}`
 		}
 
 		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(body))
@@ -194,13 +179,21 @@ func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 
 		router.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusBadRequest {
-			t.Fatalf("variant=%d status = %d, want 400; body = %s", variant, rec.Code, rec.Body.String())
+		expectedStatus := http.StatusConflict
+		if variant == 2 {
+			expectedStatus = http.StatusBadRequest
+		}
+		if rec.Code != expectedStatus {
+			t.Fatalf("variant=%d status = %d, want %d; body = %s", variant, rec.Code, expectedStatus, rec.Body.String())
 		}
 
 		env := decodeErrorEnvelope(t, rec.Body.Bytes())
-		if env.Error.Code != pluginCodeInvalidRequest {
-			t.Fatalf("error.code = %q, want %q", env.Error.Code, pluginCodeInvalidRequest)
+		expectedCode := "plugin.install_inspection_required"
+		if variant == 2 {
+			expectedCode = pluginCodeInvalidRequest
+		}
+		if env.Error.Code != expectedCode {
+			t.Fatalf("error.code = %q, want %q", env.Error.Code, expectedCode)
 		}
 
 		tasksAfter := len(taskRegistry.List())
@@ -212,7 +205,7 @@ func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 func TestInstallHandler_ValidLocalZip(t *testing.T) {
 	router, _, taskRegistry, _ := setupRouter(nil)
 
-	body, _ := json.Marshal(trustedInstallRequest("local_zip", "C:/plugins/weather.zip"))
+	body, _ := json.Marshal(trustedInstallRequest())
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -247,7 +240,6 @@ func TestInstallHandlerRejectsLegacyInstallScriptField(t *testing.T) {
 	router, _, taskRegistry, _ := setupRouter(nil)
 
 	payload := map[string]any{
-		"source_type": "local_directory", "source": "C:/plugins/weather",
 		"inspection_id": strings.Repeat("i", 64), "package_sha256": strings.Repeat("a", 64),
 		"trusted_code_confirmed": true, "allow_install_scripts": true,
 	}
@@ -265,23 +257,23 @@ func TestInstallHandlerRejectsLegacyInstallScriptField(t *testing.T) {
 		t.Fatal("legacy request unexpectedly created an install task")
 	}
 }
-func TestInstallHandler_EmptySource_400(t *testing.T) {
+func TestInstallHandler_MissingDigest_409(t *testing.T) {
 	router, _, _, _ := setupRouter(nil)
 
-	body, _ := json.Marshal(pluginInstallRequest{SourceType: "local_zip", Source: ""})
+	body, _ := json.Marshal(pluginInstallRequest{InspectionID: strings.Repeat("i", 64), TrustedCodeConfirmed: true})
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400; body = %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body = %s", rec.Code, rec.Body.String())
 	}
 
 	env := decodeErrorEnvelope(t, rec.Body.Bytes())
-	if env.Error.Code != pluginCodeInvalidRequest {
-		t.Fatalf("error.code = %q, want %q", env.Error.Code, pluginCodeInvalidRequest)
+	if env.Error.Code != "plugin.install_inspection_required" {
+		t.Fatalf("error.code = %q, want plugin.install_inspection_required", env.Error.Code)
 	}
 }
 

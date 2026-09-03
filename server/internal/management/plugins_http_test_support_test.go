@@ -19,8 +19,8 @@ type testInstallCoordinator struct {
 	registry *tasks.Registry
 }
 
-func (c testInstallCoordinator) Accept(_ context.Context, request plugins.InstallRequest) (string, error) {
-	return c.registry.Create("plugin.install", "install plugin from "+request.SourceType+": "+request.Source)
+func (c testInstallCoordinator) Accept(_ context.Context, _ plugins.InstallAcceptance) (string, error) {
+	return c.registry.Create("plugin.install", "install inspected plugin")
 }
 
 func (testInstallCoordinator) Cancel(string) bool { return false }
@@ -56,10 +56,8 @@ func setupRouter(entries []plugins.Snapshot) (chi.Router, plugins.CatalogView, *
 	return router, catalog, taskRegistry, repo
 }
 
-func trustedInstallRequest(sourceType, source string) pluginInstallRequest {
+func trustedInstallRequest() pluginInstallRequest {
 	return pluginInstallRequest{
-		SourceType:           sourceType,
-		Source:               source,
 		InspectionID:         strings.Repeat("i", 64),
 		PackageSHA256:        strings.Repeat("a", 64),
 		TrustedCodeConfirmed: true,

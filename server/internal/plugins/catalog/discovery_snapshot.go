@@ -83,15 +83,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	}
 	snapshot.ArtifactVersion = verifiedArtifact.Document.ArtifactVersion
 	snapshot.ArtifactTargetPlatform = verifiedArtifact.Document.TargetPlatform
-	snapshot.ArtifactManifestSHA256 = verifiedArtifact.ManifestSHA256
-	snapshot.ArtifactFileCount = len(verifiedArtifact.Document.Files)
 	snapshot.ArtifactUIAvailable = verifiedArtifact.UIAvailable
-	for _, file := range verifiedArtifact.Document.Files {
-		if file.Path == verifiedArtifact.Document.Entry {
-			snapshot.ArtifactBackendSHA256 = file.SHA256
-			break
-		}
-	}
 	snapshot.Valid = true
 	snapshot.DisplayState = plugins.DisplayStateDiscovered
 	return snapshot, true, nil

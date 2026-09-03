@@ -91,10 +91,10 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_render_template_states_source")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 23 {
+	if len(tables) != 25 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6})
 }
 
 func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
@@ -158,7 +158,7 @@ func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
 	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6})
 	assertTableMissing(t, store.Read, "third_party_accounts_legacy")
 }
 
@@ -337,15 +337,13 @@ func TestPluginPackagesRejectInvalidSourceType(t *testing.T) {
 			source_type,
 			source_ref,
 			version,
-			manifest_hash,
 			package_hash,
 			installed_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		) VALUES (?, ?, ?, ?, ?, ?)`,
 		"weather",
 		"remote_zip",
 		"https://example.invalid/weather.zip",
 		"0.1.0",
-		"manifest",
 		"package",
 		"2026-03-20T09:00:00Z",
 	); err == nil {

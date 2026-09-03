@@ -1,0 +1,43 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: A first store installation returns the inspected package and requires explicit trust confirmation.
+request:
+  method: POST
+  path: /api/plugin-store/plugins/raylea.echo/inspect
+  body:
+    source_id: official
+response:
+  status: 200
+  body:
+    inspection:
+      inspection_id: inspection_fixture_store_echo_0001
+      expires_at: '2026-08-04T00:15:00Z'
+      package_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      source:
+        source_type: catalog
+        source: official
+      plugin:
+        id: raylea.echo
+        name: Echo
+        version: 0.2.0
+        author: raylea
+        license: MIT
+        source_label: RayleaBot 官方插件
+      permissions:
+        message.send: true
+      target_platform: windows-x64
+      backend:
+        entry: bin/raylea.echo.exe
+        path: bin/raylea.echo.exe
+        size: 3145728
+      ui:
+        enabled: false
+        file_count: 0
+      artifact:
+        valid: true
+        artifact_version: '2'
+        file_count: 4
+    confirmation_required: true
+    confirmation_reasons: [first_install]
+expect:
+  valid: true

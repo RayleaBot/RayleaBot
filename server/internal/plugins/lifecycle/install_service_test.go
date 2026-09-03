@@ -3,8 +3,6 @@ package lifecycle
 import (
 	"archive/zip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,7 +80,7 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	if repository.lastPackage.Version != "0.1.0" {
 		t.Fatalf("unexpected version metadata: got %q want 0.1.0", repository.lastPackage.Version)
 	}
-	if repository.lastPackage.ManifestHash == "" || repository.lastPackage.PackageHash == "" {
+	if repository.lastPackage.PackageHash == "" {
 		t.Fatalf("expected package metadata hashes to be populated, got %#v", repository.lastPackage)
 	}
 }
@@ -447,44 +445,29 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	}
 }
 
-func TestInstallServiceRejectsCatalogArchiveAndManifestMismatch(t *testing.T) {
+func TestInstallServiceRejectsCatalogArchiveMismatch(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "catalog-integrity-src"), "catalog-integrity-weather")
 	archivePath := filepath.Join(t.TempDir(), "catalog-integrity-weather.zip")
 	writePluginZip(t, archivePath, sourceDir)
-	archiveInfo, err := os.Stat(archivePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	archiveDigest, err := hashFileSHA256(archivePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	for _, testCase := range []struct {
 		name         string
-		expectedSize int64
 		expectedHash string
-		manifestHash string
 	}{
-		{name: "archive size", expectedSize: archiveInfo.Size() + 1, expectedHash: archiveDigest},
-		{name: "archive digest", expectedSize: archiveInfo.Size(), expectedHash: strings.Repeat("f", 64)},
-		{name: "manifest digest", expectedSize: archiveInfo.Size(), expectedHash: archiveDigest, manifestHash: strings.Repeat("e", 64)},
+		{name: "archive digest", expectedHash: strings.Repeat("f", 64)},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			registry := tasks.NewRegistry()
 			service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 			defer service.Close()
 			_, err := service.Inspect(context.Background(), plugins.InstallRequest{
-				SourceType:             "catalog",
-				Source:                 "official/catalog-integrity-weather@0.1.0/windows-x64",
-				ResolvedSourceType:     "local_zip",
-				ResolvedSource:         archivePath,
-				ExpectedArchiveSize:    testCase.expectedSize,
-				ExpectedArchiveSHA256:  testCase.expectedHash,
-				ExpectedManifestSHA256: testCase.manifestHash,
+				SourceType:            "catalog",
+				Source:                "official/catalog-integrity-weather@0.1.0/windows-x64",
+				ResolvedSourceType:    "local_zip",
+				ResolvedSource:        archivePath,
+				ExpectedArchiveSHA256: testCase.expectedHash,
 			})
 			if InstallErrorCode(err) != "plugin.store_integrity_mismatch" {
 				t.Fatalf("Inspect() error = %v, want plugin.store_integrity_mismatch", err)
@@ -524,28 +507,27 @@ func TestInstallServiceBindsAcceptanceToInspectionDigestAndTrust(t *testing.T) {
 	service, _ := newInstallTestService(t, t.TempDir(), registry, nil, &stubInstallRepository{}, installerDeps{})
 	defer service.Close()
 
-	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir}
+	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir, TrustedCodeRequired: true}
 	inspection, err := service.Inspect(context.Background(), request)
 	if err != nil {
 		t.Fatalf("Inspect failed: %v", err)
 	}
-	request.InspectionID = inspection.InspectionID
-	request.PackageSHA256 = inspection.PackageSHA256
-	if _, err := service.Accept(context.Background(), request); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
+	acceptance := plugins.InstallAcceptance{InspectionID: inspection.InspectionID, PackageSHA256: inspection.PackageSHA256}
+	if _, err := service.Accept(context.Background(), acceptance); !errors.Is(err, plugins.ErrTrustedCodeConfirmation) {
 		t.Fatalf("untrusted acceptance error = %v", err)
 	}
 
-	request.TrustedCodeConfirmed = true
-	request.PackageSHA256 = strings.Repeat("f", 64)
-	if _, err := service.Accept(context.Background(), request); !errors.Is(err, plugins.ErrInstallDigestMismatch) {
+	acceptance.TrustedCodeConfirmed = true
+	acceptance.PackageSHA256 = strings.Repeat("f", 64)
+	if _, err := service.Accept(context.Background(), acceptance); !errors.Is(err, plugins.ErrInstallDigestMismatch) {
 		t.Fatalf("digest mismatch error = %v", err)
 	}
 	if len(registry.List()) != 0 {
 		t.Fatal("rejected inspection created a task")
 	}
 
-	request.PackageSHA256 = inspection.PackageSHA256
-	if _, err := service.Accept(context.Background(), request); err != nil {
+	acceptance.PackageSHA256 = inspection.PackageSHA256
+	if _, err := service.Accept(context.Background(), acceptance); err != nil {
 		t.Fatalf("accept inspected package: %v", err)
 	}
 }
@@ -972,10 +954,11 @@ func acceptInspected(t *testing.T, service *InstallService, request plugins.Inst
 	if err != nil {
 		return "", err
 	}
-	request.InspectionID = inspection.InspectionID
-	request.PackageSHA256 = inspection.PackageSHA256
-	request.TrustedCodeConfirmed = true
-	return service.Accept(context.Background(), request)
+	return service.Accept(context.Background(), plugins.InstallAcceptance{
+		InspectionID:         inspection.InspectionID,
+		PackageSHA256:        inspection.PackageSHA256,
+		TrustedCodeConfirmed: true,
+	})
 }
 
 func (r *stubInstallRepository) LoadDesiredStates(context.Context) (map[string]string, error) {
@@ -1126,35 +1109,8 @@ func refreshInstallArtifact(t *testing.T, root string) {
 	if targetPlatform == "windows-x64" {
 		backendRelative += ".exe"
 	}
-	files := make([]map[string]any, 0)
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil || entry.IsDir() {
-			return walkErr
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		relative = filepath.ToSlash(relative)
-		if relative == "artifact.json" {
-			return nil
-		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		digest := sha256.Sum256(content)
-		files = append(files, map[string]any{"path": relative, "size": info.Size(), "sha256": hex.EncodeToString(digest[:])})
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
 	document := map[string]any{
-		"artifact_version": "2", "target_platform": targetPlatform, "entry": backendRelative, "files": files,
+		"artifact_version": "2", "target_platform": targetPlatform, "entry": backendRelative,
 	}
 	encoded, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {

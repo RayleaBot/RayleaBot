@@ -257,7 +257,7 @@ func summaryViewDisplayName(snapshot Snapshot) string {
 }
 
 func summaryViewRole(snapshot Snapshot) string {
-	if snapshot.PackageSourceType == "catalog" && snapshot.PackagePublisherVerified {
+	if snapshot.PackageSourceType == "catalog" && snapshot.PackageSourceRef == "official" {
 		return "official"
 	}
 	if snapshot.PackageSourceType == "development" {

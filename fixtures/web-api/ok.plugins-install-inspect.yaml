@@ -30,7 +30,6 @@ response:
       entry: bin/example-weather
       path: bin/example-weather.exe
       size: 3145728
-      sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     ui:
       enabled: true
       entry: ui/index.html
@@ -38,7 +37,6 @@ response:
     artifact:
       valid: true
       artifact_version: '2'
-      manifest_sha256: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
       file_count: 8
 expect:
   valid: true

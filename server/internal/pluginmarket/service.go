@@ -1,17 +1,14 @@
 package pluginmarket
 
 import (
-	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/sha256"
-	"embed"
-	"encoding/base64"
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -26,56 +23,42 @@ import (
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 )
 
-const (
-	defaultCatalogURL   = "https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json"
-	defaultSignatureURL = "https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.sig.json"
-	maxCatalogBytes     = 4 * 1024 * 1024
-)
-
-// Set by official release builds with the plugin catalog public-key registry.
-// Development builds deliberately keep remote refresh disabled and continue
-// to use the release-signed embedded bootstrap catalog.
-var embeddedTrustedKeysSpec string
-
-//go:embed bootstrap_catalog.json
-var bootstrapFS embed.FS
+const maxCatalogBytes = 4 * 1024 * 1024
 
 type Options struct {
-	CatalogURL      string
-	SignatureURL    string
-	TrustedKeysSpec string
-	CoreVersion     string
-	HTTPClient      *http.Client
-	Now             func() time.Time
+	CoreVersion string
+	HTTPClient  *http.Client
+	Now         func() time.Time
 }
 
 type catalogSnapshot struct {
+	source      Source
 	catalog     Catalog
-	status      CatalogStatus
-	digest      string
+	status      SourceView
 	entriesByID map[string]Entry
 }
 
-type Service struct {
-	mu                 sync.RWMutex
-	snapshot           catalogSnapshot
-	installed          plugins.CatalogView
-	installer          Installer
-	options            Options
-	keys               map[string]ed25519.PublicKey
-	catalogValidator   *config.Validator
-	signatureValidator *config.Validator
+type pendingInspection struct {
+	pluginID             string
+	expiresAt            time.Time
+	confirmationRequired bool
 }
 
-func New(installed plugins.CatalogView, installer Installer, options Options) (*Service, error) {
-	if options.CatalogURL == "" {
-		options.CatalogURL = defaultCatalogURL
-	}
-	if options.SignatureURL == "" {
-		options.SignatureURL = defaultSignatureURL
-	}
-	if options.TrustedKeysSpec == "" {
-		options.TrustedKeysSpec = embeddedTrustedKeysSpec
+type Service struct {
+	mu               sync.RWMutex
+	snapshots        map[string]catalogSnapshot
+	sources          map[string]Source
+	pending          map[string]pendingInspection
+	installed        plugins.CatalogView
+	installer        Installer
+	repository       Repository
+	options          Options
+	catalogValidator *config.Validator
+}
+
+func New(ctx context.Context, installed plugins.CatalogView, installer Installer, repository Repository, options Options) (*Service, error) {
+	if repository == nil {
+		return nil, errors.New("plugin store repository is required")
 	}
 	options.CoreVersion = strings.TrimSpace(options.CoreVersion)
 	if options.CoreVersion == "" {
@@ -87,42 +70,167 @@ func New(installed plugins.CatalogView, installer Installer, options Options) (*
 	if options.Now == nil {
 		options.Now = time.Now
 	}
-
-	catalogValidator, err := config.CompileJSON(config.PluginStoreCatalogSchemaID, config.PluginStoreCatalogSchemaJSON)
+	validator, err := config.CompileJSON(config.PluginStoreCatalogSchemaID, config.PluginStoreCatalogSchemaJSON)
 	if err != nil {
 		return nil, fmt.Errorf("compile plugin store catalog schema: %w", err)
 	}
-	signatureValidator, err := config.CompileJSON(config.PluginStoreSignatureSchemaID, config.PluginStoreSignatureSchemaJSON)
-	if err != nil {
-		return nil, fmt.Errorf("compile plugin store signature schema: %w", err)
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	keys, err := parseTrustedKeys(options.TrustedKeysSpec)
+	sources, err := repository.ListSources(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("parse plugin store trusted keys: %w", err)
+		return nil, err
 	}
-	bootstrapBytes, err := bootstrapFS.ReadFile("bootstrap_catalog.json")
-	if err != nil {
-		return nil, fmt.Errorf("read embedded plugin store catalog: %w", err)
+	if len(sources) == 0 {
+		return nil, errors.New("plugin store repository does not contain the official source")
 	}
 	service := &Service{
-		installed:          installed,
-		installer:          installer,
-		options:            options,
-		keys:               keys,
-		catalogValidator:   catalogValidator,
-		signatureValidator: signatureValidator,
+		snapshots:        make(map[string]catalogSnapshot, len(sources)),
+		sources:          make(map[string]Source, len(sources)),
+		pending:          make(map[string]pendingInspection),
+		installed:        installed,
+		installer:        installer,
+		repository:       repository,
+		options:          options,
+		catalogValidator: validator,
 	}
-	bootstrap, digest, err := service.decodeCatalog(bootstrapBytes)
+	for _, source := range sources {
+		service.sources[source.ID] = source
+		service.snapshots[source.ID] = emptyCatalogSnapshot(source)
+	}
+	caches, err := repository.LoadCatalogs(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("validate embedded plugin store catalog: %w", err)
+		return nil, err
 	}
-	service.snapshot = newCatalogSnapshot(bootstrap, "embedded", digest, nil)
+	for _, cached := range caches {
+		source, ok := service.sources[cached.SourceID]
+		if !ok {
+			continue
+		}
+		catalog, err := service.decodeCatalog(cached.Payload)
+		if err != nil {
+			return nil, fmt.Errorf("load cached catalog for %s: %w", source.ID, err)
+		}
+		service.snapshots[source.ID] = newCatalogSnapshot(source, catalog, cached.RefreshedAt)
+	}
+	if _, ok := service.sources[OfficialSourceID]; !ok {
+		return nil, errors.New("plugin store repository does not contain the official source")
+	}
 	return service, nil
 }
 
-func (s *Service) List(query Query) ListResult {
+func (s *Service) Sources() []SourceView {
+	s.mu.RLock()
+	items := make([]SourceView, 0, len(s.snapshots))
+	for _, snapshot := range s.snapshots {
+		items = append(items, cloneSourceView(snapshot.status))
+	}
+	s.mu.RUnlock()
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].Official != items[j].Official {
+			return items[i].Official
+		}
+		if items[i].Name != items[j].Name {
+			return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name)
+		}
+		return items[i].ID < items[j].ID
+	})
+	return items
+}
+
+func (s *Service) CreateSource(ctx context.Context, input SourceInput) (SourceView, error) {
+	name, rawURL, err := normalizeSourceInput(input)
+	if err != nil {
+		return SourceView{}, err
+	}
+	payload, catalog, err := s.fetchCatalog(ctx, rawURL)
+	if err != nil {
+		return SourceView{}, err
+	}
+	sourceID, err := newSourceID()
+	if err != nil {
+		return SourceView{}, err
+	}
+	source := Source{ID: sourceID, Name: name, URL: rawURL}
+	if err := s.repository.CreateSource(ctx, source); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return SourceView{}, ErrSourceConflict
+		}
+		return SourceView{}, err
+	}
+	refreshedAt := s.options.Now().UTC()
+	if err := s.repository.SaveCatalog(ctx, CachedCatalog{SourceID: source.ID, Payload: payload, RefreshedAt: refreshedAt}); err != nil {
+		_ = s.repository.DeleteSource(ctx, source.ID)
+		return SourceView{}, err
+	}
+	snapshot := newCatalogSnapshot(source, catalog, refreshedAt)
+	s.mu.Lock()
+	s.sources[source.ID] = source
+	s.snapshots[source.ID] = snapshot
+	s.mu.Unlock()
+	return cloneSourceView(snapshot.status), nil
+}
+
+func (s *Service) UpdateSource(ctx context.Context, sourceID string, input SourceInput) (SourceView, error) {
+	source, ok := s.source(sourceID)
+	if !ok {
+		return SourceView{}, ErrSourceNotFound
+	}
+	if source.Official {
+		return SourceView{}, ErrSourceImmutable
+	}
+	name, rawURL, err := normalizeSourceInput(input)
+	if err != nil {
+		return SourceView{}, err
+	}
+	payload, catalog, err := s.fetchCatalog(ctx, rawURL)
+	if err != nil {
+		return SourceView{}, err
+	}
+	source.Name = name
+	source.URL = rawURL
+	if err := s.repository.UpdateSource(ctx, source); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			return SourceView{}, ErrSourceConflict
+		}
+		return SourceView{}, err
+	}
+	refreshedAt := s.options.Now().UTC()
+	if err := s.repository.SaveCatalog(ctx, CachedCatalog{SourceID: source.ID, Payload: payload, RefreshedAt: refreshedAt}); err != nil {
+		return SourceView{}, err
+	}
+	snapshot := newCatalogSnapshot(source, catalog, refreshedAt)
+	s.mu.Lock()
+	s.sources[source.ID] = source
+	s.snapshots[source.ID] = snapshot
+	s.mu.Unlock()
+	return cloneSourceView(snapshot.status), nil
+}
+
+func (s *Service) DeleteSource(ctx context.Context, sourceID string) error {
+	source, ok := s.source(sourceID)
+	if !ok {
+		return ErrSourceNotFound
+	}
+	if source.Official {
+		return ErrSourceImmutable
+	}
+	if err := s.repository.DeleteSource(ctx, source.ID); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	delete(s.sources, source.ID)
+	delete(s.snapshots, source.ID)
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *Service) List(query Query) (ListResult, error) {
 	query = normalizeQuery(query)
-	snapshot := s.currentSnapshot()
+	snapshot, ok := s.snapshot(query.SourceID)
+	if !ok {
+		return ListResult{}, ErrSourceNotFound
+	}
 	installed := installedVersions(s.installed)
 	items := make([]EntryView, 0, len(snapshot.catalog.Entries))
 	for _, entry := range snapshot.catalog.Entries {
@@ -136,120 +244,190 @@ func (s *Service) List(query Query) ListResult {
 	if query.Cursor > total {
 		query.Cursor = total
 	}
-	end := query.Cursor + query.Limit
-	if end > total {
-		end = total
-	}
-	page := append([]EntryView(nil), items[query.Cursor:end]...)
+	end := min(query.Cursor+query.Limit, total)
 	next := ""
 	if end < total {
 		next = strconv.Itoa(end)
 	}
-	return ListResult{Items: page, Total: total, NextCursor: next, Catalog: snapshot.status}
+	return ListResult{
+		Items:      append([]EntryView(nil), items[query.Cursor:end]...),
+		Total:      total,
+		NextCursor: next,
+		Source:     cloneSourceView(snapshot.status),
+	}, nil
 }
 
-func (s *Service) Get(pluginID string) (DetailResult, bool) {
-	snapshot := s.currentSnapshot()
+func (s *Service) Get(sourceID, pluginID string) (DetailResult, bool) {
+	if strings.TrimSpace(sourceID) == "" {
+		sourceID = OfficialSourceID
+	}
+	snapshot, ok := s.snapshot(sourceID)
+	if !ok {
+		return DetailResult{}, false
+	}
 	entry, ok := snapshot.entriesByID[strings.TrimSpace(pluginID)]
 	if !ok {
 		return DetailResult{}, false
 	}
 	installed := installedVersions(s.installed)
-	releases := append([]Release(nil), entry.Releases...)
-	sort.Slice(releases, func(i, j int) bool {
-		return semverutil.Compare(releases[i].Version, releases[j].Version) > 0
-	})
-	views := make([]ReleaseView, 0, len(releases))
-	for _, release := range releases {
-		views = append(views, s.projectRelease(release))
+	view := s.projectEntry(entry, installed[entry.ID])
+	releases := make([]ReleaseView, 0, 1)
+	if entry.CurrentRelease != nil {
+		releases = append(releases, s.projectRelease(*entry.CurrentRelease))
 	}
-	return DetailResult{
-		Plugin:   s.projectEntry(entry, installed[entry.ID]),
-		Releases: views,
-		Catalog:  snapshot.status,
-	}, true
+	return DetailResult{Plugin: view, Releases: releases, Source: cloneSourceView(snapshot.status)}, true
 }
 
-func (s *Service) Refresh(ctx context.Context) (CatalogStatus, error) {
-	if len(s.keys) == 0 {
-		return s.currentSnapshot().status, errorWithCode(CodeCatalogUnavailable, ErrCatalogUnavailable)
+func (s *Service) Refresh(ctx context.Context, sourceID string) (SourceView, error) {
+	source, ok := s.source(sourceID)
+	if !ok {
+		return SourceView{}, ErrSourceNotFound
 	}
-	catalogBytes, err := s.fetch(ctx, s.options.CatalogURL)
+	payload, catalog, err := s.fetchCatalog(ctx, source.URL)
 	if err != nil {
-		return s.currentSnapshot().status, errorWithCode(CodeCatalogUnavailable, fmt.Errorf("fetch plugin store catalog: %w", err))
+		return SourceView{}, err
 	}
-	signatureBytes, err := s.fetch(ctx, s.options.SignatureURL)
-	if err != nil {
-		return s.currentSnapshot().status, errorWithCode(CodeCatalogUnavailable, fmt.Errorf("fetch plugin store signature: %w", err))
+	refreshedAt := s.options.Now().UTC()
+	if err := s.repository.SaveCatalog(ctx, CachedCatalog{SourceID: source.ID, Payload: payload, RefreshedAt: refreshedAt}); err != nil {
+		return SourceView{}, err
 	}
-	trustedKeyIDs, err := s.verifySignature(catalogBytes, signatureBytes)
-	if err != nil {
-		return s.currentSnapshot().status, errorWithCode(CodeCatalogUnavailable, err)
-	}
-	catalog, digest, err := s.decodeCatalog(catalogBytes)
-	if err != nil {
-		return s.currentSnapshot().status, errorWithCode(CodeCatalogUnavailable, err)
-	}
-	next := newCatalogSnapshot(catalog, "remote", digest, trustedKeyIDs)
+	snapshot := newCatalogSnapshot(source, catalog, refreshedAt)
 	s.mu.Lock()
-	if catalogSnapshotReplays(s.snapshot, next) {
-		status := s.snapshot.status
-		s.mu.Unlock()
-		return status, errorWithCode(CodeCatalogUnavailable, errors.New("plugin store catalog is older than the last verified snapshot"))
-	}
-	s.snapshot = next
+	s.snapshots[source.ID] = snapshot
 	s.mu.Unlock()
-	return next.status, nil
+	return cloneSourceView(snapshot.status), nil
 }
 
-func (s *Service) Install(ctx context.Context, request InstallRequest) (string, error) {
+func (s *Service) Inspect(ctx context.Context, request InspectionRequest) (InspectionResult, error) {
 	if s.installer == nil {
-		return "", errorWithCode(CodeCatalogUnavailable, ErrCatalogUnavailable)
+		return InspectionResult{}, errorWithCode(CodeCatalogUnavailable, ErrCatalogUnavailable)
 	}
-	if !request.TrustedCodeConfirmed {
-		return "", plugins.ErrTrustedCodeConfirmation
+	snapshot, ok := s.snapshot(request.SourceID)
+	if !ok {
+		return InspectionResult{}, ErrSourceNotFound
 	}
-	snapshot := s.currentSnapshot()
 	entry, ok := snapshot.entriesByID[strings.TrimSpace(request.PluginID)]
 	if !ok {
-		return "", ErrEntryNotFound
+		return InspectionResult{}, ErrEntryNotFound
 	}
-	release, asset, ok := s.resolveRelease(entry, request.Version)
+	release, asset, ok := s.resolveRelease(entry)
 	if !ok {
-		return "", errorWithCode(CodeReleaseUnavailable, ErrReleaseUnavailable)
+		return InspectionResult{}, errorWithCode(CodeReleaseUnavailable, ErrReleaseUnavailable)
 	}
-	locator := "official/" + entry.ID + "@" + release.Version + "/" + asset.Platform
 	installRequest := plugins.InstallRequest{
-		SourceType:             "catalog",
-		Source:                 locator,
-		ResolvedSourceType:     "remote_url",
-		ResolvedSource:         asset.URL,
-		ExpectedArchiveSize:    asset.ArchiveSizeBytes,
-		ExpectedArchiveSHA256:  asset.ArchiveSHA256,
-		ExpectedManifestSHA256: release.ManifestSHA256,
-		ReplaceExisting:        s.pluginInstalled(entry.ID),
-		PublisherID:            entry.Publisher.ID,
-		PublisherName:          entry.Publisher.Name,
-		PublisherVerified:      entry.Publisher.Verified,
-		CatalogDigest:          snapshot.digest,
+		SourceType:            "catalog",
+		Source:                snapshot.source.ID,
+		SourceLabel:           snapshot.source.Name,
+		ResolvedSourceType:    "remote_url",
+		ResolvedSource:        asset.URL,
+		ExpectedArchiveSHA256: asset.ArchiveSHA256,
+		ReplaceExisting:       s.pluginInstalled(entry.ID),
+		TrustedCodeRequired:   true,
 	}
 	inspection, err := s.installer.Inspect(ctx, installRequest)
 	if err != nil {
-		return "", err
+		return InspectionResult{}, err
 	}
-	if inspection.PluginID != entry.ID || inspection.Version != release.Version || inspection.Artifact.ManifestSHA256 != release.ManifestSHA256 {
-		return "", errorWithCode(CodeIntegrityMismatch, ErrIntegrityMismatch)
+	if inspection.PluginID != entry.ID || inspection.Version != release.Version {
+		return InspectionResult{}, errorWithCode(CodeIntegrityMismatch, ErrIntegrityMismatch)
 	}
-	installRequest.InspectionID = inspection.InspectionID
-	installRequest.PackageSHA256 = inspection.PackageSHA256
-	installRequest.TrustedCodeConfirmed = true
-	return s.installer.Accept(ctx, installRequest)
+	reasons := s.confirmationReasons(snapshot.source.ID, inspection)
+	result := InspectionResult{
+		Inspection:           inspection,
+		ConfirmationRequired: len(reasons) > 0,
+		ConfirmationReasons:  reasons,
+	}
+	s.mu.Lock()
+	s.cleanupPendingLocked(s.options.Now().UTC())
+	s.pending[inspection.InspectionID] = pendingInspection{
+		pluginID:             entry.ID,
+		expiresAt:            inspection.ExpiresAt,
+		confirmationRequired: result.ConfirmationRequired,
+	}
+	s.mu.Unlock()
+	return result, nil
 }
 
-func (s *Service) currentSnapshot() catalogSnapshot {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return cloneCatalogSnapshot(s.snapshot)
+func (s *Service) Install(ctx context.Context, request InstallRequest) (string, error) {
+	s.mu.Lock()
+	s.cleanupPendingLocked(s.options.Now().UTC())
+	pending, ok := s.pending[strings.TrimSpace(request.InspectionID)]
+	if !ok {
+		s.mu.Unlock()
+		return "", plugins.ErrInstallInspectionRequired
+	}
+	if pending.pluginID != strings.TrimSpace(request.PluginID) {
+		s.mu.Unlock()
+		return "", plugins.ErrInstallDigestMismatch
+	}
+	if pending.confirmationRequired && !request.TrustedCodeConfirmed {
+		s.mu.Unlock()
+		return "", plugins.ErrTrustedCodeConfirmation
+	}
+	s.mu.Unlock()
+	taskID, err := s.installer.Accept(ctx, plugins.InstallAcceptance{
+		InspectionID:         request.InspectionID,
+		PackageSHA256:        request.PackageSHA256,
+		TrustedCodeConfirmed: true,
+	})
+	if err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	delete(s.pending, request.InspectionID)
+	s.mu.Unlock()
+	return taskID, nil
+}
+
+func (s *Service) confirmationReasons(sourceID string, inspection plugins.InstallInspection) []string {
+	if s.installed == nil {
+		return []string{"first_install"}
+	}
+	current, ok := s.installed.Get(inspection.PluginID)
+	if !ok {
+		return []string{"first_install"}
+	}
+	reasons := make([]string, 0, 2)
+	if current.PackageSourceType != "catalog" || current.PackageSourceRef != sourceID {
+		reasons = append(reasons, "source_changed")
+	}
+	if permissionsExpanded(current.Permissions, inspection.Permissions) {
+		reasons = append(reasons, "permissions_expanded")
+	}
+	return reasons
+}
+
+func permissionsExpanded(current, next map[string]plugins.PermissionGrant) bool {
+	for name, nextGrant := range next {
+		currentGrant, ok := current[name]
+		if !ok {
+			return true
+		}
+		if len(currentGrant.Platforms) == 0 {
+			continue
+		}
+		if len(nextGrant.Platforms) == 0 {
+			return true
+		}
+		allowed := make(map[string]struct{}, len(currentGrant.Platforms))
+		for _, platform := range currentGrant.Platforms {
+			allowed[platform] = struct{}{}
+		}
+		for _, platform := range nextGrant.Platforms {
+			if _, ok := allowed[platform]; !ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (s *Service) cleanupPendingLocked(now time.Time) {
+	for id, pending := range s.pending {
+		if !pending.expiresAt.After(now) {
+			delete(s.pending, id)
+		}
+	}
 }
 
 func (s *Service) projectEntry(entry Entry, installedVersion string) EntryView {
@@ -261,44 +439,30 @@ func (s *Service) projectEntry(entry Entry, installedVersion string) EntryView {
 		Publisher:        entry.Publisher,
 		RepositoryURL:    entry.RepositoryURL,
 		Homepage:         entry.Homepage,
+		IconURL:          entry.IconURL,
 		License:          entry.License,
 		Keywords:         append([]string(nil), entry.Keywords...),
 		Recommended:      entry.Recommended,
+		Category:         entry.Category,
 		InstalledVersion: installedVersion,
 		InstallState:     "unpublished",
 	}
-	latest, hasLatest := latestUsableRelease(entry.Releases)
-	installable, hasInstallable := s.latestInstallableRelease(entry.Releases)
-	if !hasLatest && !hasInstallable {
-		if catalogLatest, ok := latestCatalogRelease(entry.Releases); ok {
-			releaseView := s.projectRelease(catalogLatest)
-			view.LatestRelease = &releaseView
-			if installedVersion != "" {
-				view.InstallState = "installed"
-			} else {
-				view.InstallState = "incompatible"
-			}
-			return view
-		}
+	if entry.CurrentRelease == nil {
 		if installedVersion != "" {
 			view.InstallState = "installed"
 		}
 		return view
 	}
-	if hasInstallable {
-		latest = installable
-		hasLatest = true
-	}
-	releaseView := s.projectRelease(latest)
+	releaseView := s.projectRelease(*entry.CurrentRelease)
 	view.LatestRelease = &releaseView
 	switch {
-	case installedVersion != "" && !hasInstallable:
+	case installedVersion != "" && (!releaseView.Compatible || !releaseView.AssetAvailable):
 		view.InstallState = "installed"
-	case !hasInstallable:
+	case !releaseView.Compatible || !releaseView.AssetAvailable:
 		view.InstallState = "incompatible"
 	case installedVersion == "":
 		view.InstallState = "available"
-	case semverutil.Compare(latest.Version, installedVersion) > 0:
+	case semverutil.Compare(entry.CurrentRelease.Version, installedVersion) > 0:
 		view.InstallState = "update_available"
 	default:
 		view.InstallState = "installed"
@@ -306,29 +470,7 @@ func (s *Service) projectEntry(entry Entry, installedVersion string) EntryView {
 	return view
 }
 
-func (s *Service) latestInstallableRelease(releases []Release) (Release, bool) {
-	platform, err := pluginartifact.CurrentPlatform()
-	if err != nil {
-		return Release{}, false
-	}
-	var latest Release
-	found := false
-	for _, release := range releases {
-		if release.Yanked || semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) < 0 {
-			continue
-		}
-		if _, ok := releaseAsset(release, platform); !ok {
-			continue
-		}
-		if !found || semverutil.Compare(release.Version, latest.Version) > 0 {
-			latest = release
-			found = true
-		}
-	}
-	return latest, found
-}
-
-func (s *Service) projectRelease(release Release) ReleaseView {
+func (s *Service) projectRelease(release CurrentRelease) ReleaseView {
 	platform, _ := pluginartifact.CurrentPlatform()
 	_, hasAsset := releaseAsset(release, platform)
 	publishedAt, _ := time.Parse(time.RFC3339, release.PublishedAt)
@@ -336,32 +478,24 @@ func (s *Service) projectRelease(release Release) ReleaseView {
 		Version:        release.Version,
 		PublishedAt:    publishedAt,
 		MinCoreVersion: release.MinCoreVersion,
-		Compatible:     !release.Yanked && semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) >= 0,
+		Compatible:     semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) >= 0,
 		AssetAvailable: hasAsset,
-		Yanked:         release.Yanked,
 	}
 }
 
-func (s *Service) resolveRelease(entry Entry, requested string) (Release, Asset, bool) {
+func (s *Service) resolveRelease(entry Entry) (CurrentRelease, Asset, bool) {
+	if entry.CurrentRelease == nil {
+		return CurrentRelease{}, Asset{}, false
+	}
+	if semverutil.Compare(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion) < 0 {
+		return CurrentRelease{}, Asset{}, false
+	}
 	platform, err := pluginartifact.CurrentPlatform()
 	if err != nil {
-		return Release{}, Asset{}, false
+		return CurrentRelease{}, Asset{}, false
 	}
-	releases := append([]Release(nil), entry.Releases...)
-	sort.Slice(releases, func(i, j int) bool { return semverutil.Compare(releases[i].Version, releases[j].Version) > 0 })
-	for _, release := range releases {
-		if requested != "" && release.Version != requested {
-			continue
-		}
-		if release.Yanked || semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) < 0 {
-			continue
-		}
-		asset, ok := releaseAsset(release, platform)
-		if ok {
-			return release, asset, true
-		}
-	}
-	return Release{}, Asset{}, false
+	asset, ok := releaseAsset(*entry.CurrentRelease, platform)
+	return *entry.CurrentRelease, asset, ok
 }
 
 func (s *Service) pluginInstalled(pluginID string) bool {
@@ -372,16 +506,57 @@ func (s *Service) pluginInstalled(pluginID string) bool {
 	return ok
 }
 
-func (s *Service) fetch(ctx context.Context, rawURL string) ([]byte, error) {
-	parsed, err := url.Parse(rawURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
-		return nil, errors.New("plugin store metadata URL must use HTTPS without userinfo")
+func (s *Service) source(sourceID string) (Source, bool) {
+	if strings.TrimSpace(sourceID) == "" {
+		sourceID = OfficialSourceID
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	s.mu.RLock()
+	source, ok := s.sources[sourceID]
+	s.mu.RUnlock()
+	return source, ok
+}
+
+func (s *Service) snapshot(sourceID string) (catalogSnapshot, bool) {
+	if strings.TrimSpace(sourceID) == "" {
+		sourceID = OfficialSourceID
+	}
+	s.mu.RLock()
+	snapshot, ok := s.snapshots[sourceID]
+	s.mu.RUnlock()
+	if !ok {
+		return catalogSnapshot{}, false
+	}
+	return cloneCatalogSnapshot(snapshot), true
+}
+
+func (s *Service) fetchCatalog(ctx context.Context, rawURL string) ([]byte, Catalog, error) {
+	payload, err := s.fetch(ctx, rawURL)
+	if err != nil {
+		return nil, Catalog{}, errorWithCode(CodeCatalogUnavailable, fmt.Errorf("fetch plugin store catalog: %w", err))
+	}
+	catalog, err := s.decodeCatalog(payload)
+	if err != nil {
+		return nil, Catalog{}, err
+	}
+	return payload, catalog, nil
+}
+
+func (s *Service) fetch(ctx context.Context, rawURL string) ([]byte, error) {
+	if err := validateSourceURL(rawURL); err != nil {
+		return nil, err
+	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return nil, err
 	}
-	response, err := s.options.HTTPClient.Do(req)
+	client := *s.options.HTTPClient
+	client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		if len(via) > 5 {
+			return errors.New("plugin store redirect limit exceeded")
+		}
+		return validateSourceURL(request.URL.String())
+	}
+	response, err := client.Do(request)
 	if err != nil {
 		return nil, err
 	}
@@ -389,127 +564,125 @@ func (s *Service) fetch(ctx context.Context, rawURL string) ([]byte, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("remote server returned HTTP %d", response.StatusCode)
 	}
-	reader := io.LimitReader(response.Body, maxCatalogBytes+1)
-	payload, err := io.ReadAll(reader)
+	payload, err := io.ReadAll(io.LimitReader(response.Body, maxCatalogBytes+1))
 	if err != nil {
 		return nil, err
 	}
 	if len(payload) > maxCatalogBytes {
-		return nil, errors.New("plugin store metadata exceeds size limit")
+		return nil, errors.New("plugin store catalog exceeds size limit")
 	}
 	return payload, nil
 }
 
-func (s *Service) decodeCatalog(payload []byte) (Catalog, string, error) {
+func (s *Service) decodeCatalog(payload []byte) (Catalog, error) {
 	var document any
 	if err := json.Unmarshal(payload, &document); err != nil {
-		return Catalog{}, "", invalidCatalog("decode plugin store catalog: %v", err)
+		return Catalog{}, invalidCatalog("decode plugin store catalog: %v", err)
 	}
 	if err := s.catalogValidator.Validate(document); err != nil {
-		return Catalog{}, "", invalidCatalog("validate plugin store catalog schema: %v", err)
+		return Catalog{}, invalidCatalog("validate plugin store catalog schema: %v", err)
 	}
 	var catalog Catalog
 	if err := decodeStrictJSON(payload, &catalog); err != nil {
-		return Catalog{}, "", invalidCatalog("decode plugin store catalog: %v", err)
+		return Catalog{}, invalidCatalog("decode plugin store catalog: %v", err)
 	}
 	if err := validateCatalog(catalog); err != nil {
-		return Catalog{}, "", invalidCatalog("validate plugin store catalog: %v", err)
+		return Catalog{}, invalidCatalog("validate plugin store catalog: %v", err)
 	}
-	digest := sha256.Sum256(payload)
-	return catalog, hex.EncodeToString(digest[:]), nil
+	return catalog, nil
 }
 
-func (s *Service) verifySignature(catalogBytes, envelopeBytes []byte) ([]string, error) {
-	var document any
-	if err := json.Unmarshal(envelopeBytes, &document); err != nil {
-		return nil, fmt.Errorf("decode plugin store signature: %w", err)
-	}
-	if err := s.signatureValidator.Validate(document); err != nil {
-		return nil, fmt.Errorf("validate plugin store signature schema: %w", err)
-	}
-	var envelope SignatureEnvelope
-	if err := decodeStrictJSON(envelopeBytes, &envelope); err != nil {
-		return nil, fmt.Errorf("decode plugin store signature: %w", err)
-	}
-	if err := validateSignatureEnvelope(envelope); err != nil {
-		return nil, fmt.Errorf("validate plugin store signature: %w", err)
-	}
-	digest := sha256.Sum256(catalogBytes)
-	if envelope.CatalogSHA256 != hex.EncodeToString(digest[:]) {
-		return nil, errors.New("plugin store signature digest does not match exact catalog bytes")
-	}
-	trusted := make([]string, 0, len(envelope.Signatures))
-	for _, signature := range envelope.Signatures {
-		key, ok := s.keys[signature.KeyID]
-		if !ok {
+func validateCatalog(catalog Catalog) error {
+	seenPlugins := make(map[string]struct{}, len(catalog.Entries))
+	for _, entry := range catalog.Entries {
+		if _, exists := seenPlugins[entry.ID]; exists {
+			return fmt.Errorf("duplicate plugin id %s", entry.ID)
+		}
+		seenPlugins[entry.ID] = struct{}{}
+		if entry.CurrentRelease == nil {
 			continue
 		}
-		decoded, err := base64.URLEncoding.DecodeString(signature.Signature)
-		if err == nil && len(decoded) == ed25519.SignatureSize && ed25519.Verify(key, catalogBytes, decoded) {
-			trusted = append(trusted, signature.KeyID)
+		seenPlatforms := make(map[string]struct{}, len(entry.CurrentRelease.Assets))
+		for _, asset := range entry.CurrentRelease.Assets {
+			if err := validateSourceURL(asset.URL); err != nil {
+				return fmt.Errorf("plugin %s has invalid asset URL: %w", entry.ID, err)
+			}
+			if _, exists := seenPlatforms[asset.Platform]; exists {
+				return fmt.Errorf("plugin %s has duplicate platform %s", entry.ID, asset.Platform)
+			}
+			seenPlatforms[asset.Platform] = struct{}{}
 		}
-	}
-	if len(trusted) == 0 {
-		return nil, errors.New("no trusted key produced a valid plugin store signature")
-	}
-	sort.Strings(trusted)
-	return trusted, nil
-}
-
-func validateSignatureEnvelope(envelope SignatureEnvelope) error {
-	if envelope.SignatureVersion != 1 || envelope.Algorithm != "ed25519" {
-		return errors.New("unsupported plugin store signature envelope")
-	}
-	seen := make(map[string]struct{}, len(envelope.Signatures))
-	primaryFound := false
-	for _, signature := range envelope.Signatures {
-		if _, duplicate := seen[signature.KeyID]; duplicate {
-			return errors.New("plugin store signature contains a duplicate key_id")
-		}
-		decoded, err := base64.URLEncoding.DecodeString(signature.Signature)
-		if err != nil || len(decoded) != ed25519.SignatureSize {
-			return errors.New("plugin store signature must contain padded base64url Ed25519 bytes")
-		}
-		seen[signature.KeyID] = struct{}{}
-		primaryFound = primaryFound || signature.KeyID == envelope.KeyID
-	}
-	if !primaryFound {
-		return errors.New("plugin store signature primary key_id is not present in signatures")
 	}
 	return nil
 }
 
-func catalogSnapshotReplays(current, next catalogSnapshot) bool {
-	if next.status.GeneratedAt.Before(current.status.GeneratedAt) {
-		return true
+func normalizeSourceInput(input SourceInput) (string, string, error) {
+	name := strings.TrimSpace(input.Name)
+	rawURL := strings.TrimSpace(input.URL)
+	if name == "" || len([]rune(name)) > 120 {
+		return "", "", fmt.Errorf("%w: name must contain 1 to 120 characters", ErrSourceInvalid)
 	}
-	return current.status.Source == "remote" &&
-		next.status.GeneratedAt.Equal(current.status.GeneratedAt) &&
-		next.digest != current.digest
+	if err := validateSourceURL(rawURL); err != nil {
+		return "", "", fmt.Errorf("%w: %v", ErrSourceInvalid, err)
+	}
+	return name, rawURL, nil
 }
 
-func newCatalogSnapshot(catalog Catalog, source, digest string, trustedKeyIDs []string) catalogSnapshot {
-	generatedAt, _ := time.Parse(time.RFC3339, catalog.GeneratedAt)
+func validateSourceURL(rawURL string) error {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
+		return errors.New("plugin store source must use HTTPS without userinfo")
+	}
+	host := strings.TrimSuffix(strings.ToLower(parsed.Hostname()), ".")
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return errors.New("plugin store source must not use a local host")
+	}
+	if ip := net.ParseIP(host); ip != nil && (ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsMulticast()) {
+		return errors.New("plugin store source must not use a local or private address")
+	}
+	return nil
+}
+
+func newSourceID() (string, error) {
+	buffer := make([]byte, 8)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return "source-" + hex.EncodeToString(buffer), nil
+}
+
+func emptyCatalogSnapshot(source Source) catalogSnapshot {
+	return catalogSnapshot{
+		source:      source,
+		catalog:     Catalog{CatalogVersion: "2", Entries: []Entry{}},
+		status:      SourceView{ID: source.ID, Name: source.Name, URL: source.URL, Official: source.Official, Cached: false, EntryCount: 0},
+		entriesByID: map[string]Entry{},
+	}
+}
+
+func newCatalogSnapshot(source Source, catalog Catalog, refreshedAt time.Time) catalogSnapshot {
 	entries := make(map[string]Entry, len(catalog.Entries))
 	for _, entry := range catalog.Entries {
 		entries[entry.ID] = cloneEntry(entry)
 	}
+	timeCopy := refreshedAt.UTC()
 	return catalogSnapshot{
+		source:      source,
 		catalog:     cloneCatalog(catalog),
-		digest:      digest,
+		status:      SourceView{ID: source.ID, Name: source.Name, URL: source.URL, Official: source.Official, Cached: true, RefreshedAt: &timeCopy, EntryCount: len(catalog.Entries)},
 		entriesByID: entries,
-		status: CatalogStatus{
-			Source:        source,
-			Verified:      true,
-			GeneratedAt:   generatedAt,
-			EntryCount:    len(catalog.Entries),
-			TrustedKeyIDs: append([]string(nil), trustedKeyIDs...),
-		},
 	}
 }
 
 func cloneCatalogSnapshot(snapshot catalogSnapshot) catalogSnapshot {
-	return newCatalogSnapshot(snapshot.catalog, snapshot.status.Source, snapshot.digest, snapshot.status.TrustedKeyIDs)
+	cloned := snapshot
+	cloned.catalog = cloneCatalog(snapshot.catalog)
+	cloned.status = cloneSourceView(snapshot.status)
+	cloned.entriesByID = make(map[string]Entry, len(snapshot.entriesByID))
+	for id, entry := range snapshot.entriesByID {
+		cloned.entriesByID[id] = cloneEntry(entry)
+	}
+	return cloned
 }
 
 func cloneCatalog(catalog Catalog) Catalog {
@@ -524,94 +697,29 @@ func cloneCatalog(catalog Catalog) Catalog {
 func cloneEntry(entry Entry) Entry {
 	cloned := entry
 	cloned.Keywords = append([]string(nil), entry.Keywords...)
-	cloned.Releases = make([]Release, 0, len(entry.Releases))
-	for _, release := range entry.Releases {
-		copyRelease := release
-		copyRelease.Assets = append([]Asset(nil), release.Assets...)
-		cloned.Releases = append(cloned.Releases, copyRelease)
+	if entry.CurrentRelease != nil {
+		release := *entry.CurrentRelease
+		release.Assets = append([]Asset(nil), entry.CurrentRelease.Assets...)
+		cloned.CurrentRelease = &release
 	}
 	return cloned
 }
 
-func validateCatalog(catalog Catalog) error {
-	seenPlugins := make(map[string]struct{}, len(catalog.Entries))
-	for _, entry := range catalog.Entries {
-		if _, exists := seenPlugins[entry.ID]; exists {
-			return fmt.Errorf("duplicate plugin id %s", entry.ID)
-		}
-		seenPlugins[entry.ID] = struct{}{}
-		seenVersions := make(map[string]struct{}, len(entry.Releases))
-		for _, release := range entry.Releases {
-			if _, exists := seenVersions[release.Version]; exists {
-				return fmt.Errorf("plugin %s has duplicate release %s", entry.ID, release.Version)
-			}
-			seenVersions[release.Version] = struct{}{}
-			seenPlatforms := make(map[string]struct{}, len(release.Assets))
-			for _, asset := range release.Assets {
-				if _, exists := seenPlatforms[asset.Platform]; exists {
-					return fmt.Errorf("plugin %s release %s has duplicate platform %s", entry.ID, release.Version, asset.Platform)
-				}
-				seenPlatforms[asset.Platform] = struct{}{}
-			}
-		}
+func cloneSourceView(view SourceView) SourceView {
+	cloned := view
+	if view.RefreshedAt != nil {
+		value := *view.RefreshedAt
+		cloned.RefreshedAt = &value
 	}
-	return nil
-}
-
-func parseTrustedKeys(spec string) (map[string]ed25519.PublicKey, error) {
-	keys := map[string]ed25519.PublicKey{}
-	for _, item := range strings.Split(strings.TrimSpace(spec), ",") {
-		item = strings.TrimSpace(item)
-		if item == "" {
-			continue
-		}
-		parts := strings.SplitN(item, "=", 2)
-		if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" {
-			return nil, errors.New("trusted key entries must use key_id=base64_public_key")
-		}
-		keyID := strings.TrimSpace(parts[0])
-		key, err := decodePublicKey(strings.TrimSpace(parts[1]))
-		if err != nil {
-			return nil, fmt.Errorf("trusted key %s: %w", keyID, err)
-		}
-		keys[keyID] = key
-	}
-	if len(keys) > 2 {
-		return nil, errors.New("plugin store supports at most two trusted keys")
-	}
-	return keys, nil
-}
-
-func decodePublicKey(value string) (ed25519.PublicKey, error) {
-	encodings := []*base64.Encoding{base64.StdEncoding, base64.RawStdEncoding, base64.URLEncoding, base64.RawURLEncoding}
-	for _, encoding := range encodings {
-		decoded, err := encoding.DecodeString(value)
-		if err == nil && len(decoded) == ed25519.PublicKeySize {
-			return ed25519.PublicKey(decoded), nil
-		}
-	}
-	return nil, errors.New("public key must be a base64-encoded Ed25519 key")
-}
-
-func decodeStrictJSON(payload []byte, target any) error {
-	decoder := json.NewDecoder(bytes.NewReader(payload))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("unexpected trailing JSON value")
-		}
-		return err
-	}
-	return nil
+	return cloned
 }
 
 func normalizeQuery(query Query) Query {
+	query.SourceID = strings.TrimSpace(query.SourceID)
+	if query.SourceID == "" {
+		query.SourceID = OfficialSourceID
+	}
 	query.Text = strings.ToLower(strings.TrimSpace(query.Text))
-	query.Publisher = strings.ToLower(strings.TrimSpace(query.Publisher))
 	if query.Sort != "name" && query.Sort != "updated" {
 		query.Sort = "recommended"
 	}
@@ -625,32 +733,35 @@ func normalizeQuery(query Query) Query {
 }
 
 func matchesQuery(entry Entry, query Query) bool {
-	if query.Publisher != "" && strings.ToLower(entry.Publisher.ID) != query.Publisher {
-		return false
-	}
 	if query.Text == "" {
 		return true
 	}
-	values := []string{entry.ID, entry.Name, entry.Summary, entry.Description, entry.Publisher.Name, strings.Join(entry.Keywords, " ")}
-	return strings.Contains(strings.ToLower(strings.Join(values, " ")), query.Text)
+	values := []string{entry.ID, entry.Name, entry.Summary, entry.Description, entry.Publisher.Name, entry.Category}
+	values = append(values, entry.Keywords...)
+	for _, value := range values {
+		if strings.Contains(strings.ToLower(value), query.Text) {
+			return true
+		}
+	}
+	return false
 }
 
 func sortEntryViews(items []EntryView, mode string) {
 	sort.SliceStable(items, func(i, j int) bool {
+		left, right := items[i], items[j]
 		switch mode {
 		case "name":
-			return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name)
+			return strings.ToLower(left.Name) < strings.ToLower(right.Name)
 		case "updated":
-			left, right := items[i].LatestRelease, items[j].LatestRelease
-			if left != nil && right != nil && !left.PublishedAt.Equal(right.PublishedAt) {
-				return left.PublishedAt.After(right.PublishedAt)
+			if left.LatestRelease != nil && right.LatestRelease != nil {
+				return left.LatestRelease.PublishedAt.After(right.LatestRelease.PublishedAt)
 			}
-			return left != nil && right == nil
+			return left.LatestRelease != nil && right.LatestRelease == nil
 		default:
-			if items[i].Recommended != items[j].Recommended {
-				return items[i].Recommended
+			if left.Recommended != right.Recommended {
+				return left.Recommended
 			}
-			return strings.ToLower(items[i].Name) < strings.ToLower(items[j].Name)
+			return strings.ToLower(left.Name) < strings.ToLower(right.Name)
 		}
 	})
 }
@@ -666,38 +777,26 @@ func installedVersions(catalog plugins.CatalogView) map[string]string {
 	return versions
 }
 
-func latestUsableRelease(releases []Release) (Release, bool) {
-	var latest Release
-	found := false
-	for _, release := range releases {
-		if release.Yanked {
-			continue
-		}
-		if !found || semverutil.Compare(release.Version, latest.Version) > 0 {
-			latest = release
-			found = true
-		}
-	}
-	return latest, found
-}
-
-func latestCatalogRelease(releases []Release) (Release, bool) {
-	var latest Release
-	found := false
-	for _, release := range releases {
-		if !found || semverutil.Compare(release.Version, latest.Version) > 0 {
-			latest = release
-			found = true
-		}
-	}
-	return latest, found
-}
-
-func releaseAsset(release Release, platform string) (Asset, bool) {
+func releaseAsset(release CurrentRelease, platform string) (Asset, bool) {
 	for _, asset := range release.Assets {
 		if asset.Platform == platform {
 			return asset, true
 		}
 	}
 	return Asset{}, false
+}
+
+func decodeStrictJSON(payload []byte, destination any) error {
+	decoder := json.NewDecoder(strings.NewReader(string(payload)))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return errors.New("JSON must contain exactly one value")
+		}
+		return err
+	}
+	return nil
 }

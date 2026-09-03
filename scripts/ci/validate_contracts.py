@@ -59,7 +59,6 @@ REQUIRED_CONTRACT_FILES = {
     "plugin-management-ui-bridge.schema.json",
     "plugin-protocol.schema.json",
     "plugin-store-catalog.schema.json",
-    "plugin-store-signature.schema.json",
     "release-manifest.schema.json",
     "cli-commands.yaml",
 }
@@ -76,7 +75,6 @@ STRICT_FIXTURE_DIRS = [
     FIXTURES / "plugin-development-workspace",
     FIXTURES / "plugin-protocol",
     FIXTURES / "plugin-store-catalog",
-    FIXTURES / "plugin-store-signature",
     FIXTURES / "release-manifest",
     FIXTURES / "cli",
 ]
@@ -90,7 +88,6 @@ JSON_SCHEMA_FIXTURE_AREAS = {
     "plugin-development-workspace": "plugin-development-workspace.schema.json",
     "release-manifest": "release-manifest.schema.json",
     "plugin-store-catalog": "plugin-store-catalog.schema.json",
-    "plugin-store-signature": "plugin-store-signature.schema.json",
 }
 
 FIXTURE_SECRET_PATTERNS = [
@@ -159,8 +156,11 @@ STRICT_OPENAPI_PATHS = {
     "/api/plugins/install/inspect",
     "/api/plugin-store/plugins",
     "/api/plugin-store/plugins/{plugin_id}",
+    "/api/plugin-store/plugins/{plugin_id}/inspect",
     "/api/plugin-store/plugins/{plugin_id}/install",
-    "/api/plugin-store/refresh",
+    "/api/plugin-store/sources",
+    "/api/plugin-store/sources/{source_id}",
+    "/api/plugin-store/sources/{source_id}/refresh",
     "/api/plugins/{plugin_id}",
     "/api/plugins/{plugin_id}/enable",
     "/api/plugins/{plugin_id}/disable",

@@ -3,7 +3,7 @@ case: ok
 description: Store detail exposes release compatibility without exposing artifact URLs to the Web client.
 request:
   method: GET
-  path: /api/plugin-store/plugins/raylea.echo
+  path: /api/plugin-store/plugins/raylea.echo?source_id=official
 response:
   status: 200
   body:
@@ -14,7 +14,6 @@ response:
       publisher:
         id: rayleabot
         name: RayleaBot
-        verified: true
       repository_url: https://github.com/RayleaBot/plugin-echo
       license: MIT
       keywords: [echo]
@@ -25,7 +24,6 @@ response:
         min_core_version: 0.1.0
         compatible: true
         asset_available: true
-        yanked: false
       install_state: available
     releases:
       - version: 0.2.0
@@ -33,12 +31,13 @@ response:
         min_core_version: 0.1.0
         compatible: true
         asset_available: true
-        yanked: false
-    catalog:
-      source: remote
-      verified: true
-      generated_at: 2026-08-04T00:00:00Z
+    source:
+      id: official
+      name: RayleaBot 官方插件
+      url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
+      official: true
+      cached: true
+      refreshed_at: 2026-08-04T00:00:00Z
       entry_count: 1
-      trusted_key_ids: [release-2026]
 expect:
   valid: true

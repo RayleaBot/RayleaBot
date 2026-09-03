@@ -119,10 +119,11 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 			return err
 		}
 	}
-	request.InspectionID = inspection.InspectionID
-	request.PackageSHA256 = inspection.PackageSHA256
-	request.TrustedCodeConfirmed = true
-	taskID, err := installer.Accept(ctx, request)
+	taskID, err := installer.Accept(ctx, plugins.InstallAcceptance{
+		InspectionID:         inspection.InspectionID,
+		PackageSHA256:        inspection.PackageSHA256,
+		TrustedCodeConfirmed: true,
+	})
 	if err != nil {
 		return err
 	}

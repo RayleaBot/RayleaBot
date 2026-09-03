@@ -1,6 +1,7 @@
 package pluginbuild
 
 import (
+	"bytes"
 	"context"
 	"debug/elf"
 	"debug/macho"
@@ -8,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -170,7 +172,7 @@ func Inspect(root, expectedPlatform string) (Inspection, error) {
 		return Inspection{}, fmt.Errorf("pluginbuild: read artifact.json: %w", err)
 	}
 	var artifact Artifact
-	if err := json.Unmarshal(artifactBytes, &artifact); err != nil {
+	if err := decodeArtifactJSON(artifactBytes, &artifact); err != nil {
 		return Inspection{}, fmt.Errorf("pluginbuild: parse artifact.json: %w", err)
 	}
 	if artifact.ArtifactVersion != ArtifactVersion {
@@ -193,29 +195,11 @@ func Inspect(root, expectedPlatform string) (Inspection, error) {
 	if err := validateManifest(manifest, artifact.TargetPlatform); err != nil {
 		return Inspection{}, err
 	}
-	declared := make(map[string]ArtifactFile, len(artifact.Files))
-	for _, item := range artifact.Files {
-		path, err := canonicalArtifactPath(item.Path)
-		if err != nil {
-			return Inspection{}, err
-		}
-		key := strings.ToLower(filepath.ToSlash(path))
-		if _, exists := declared[key]; exists {
-			return Inspection{}, fmt.Errorf("pluginbuild: duplicate artifact path %s", item.Path)
-		}
-		declared[key] = item
-	}
 	entry, err := canonicalArtifactPath(artifact.Entry)
 	if err != nil {
 		return Inspection{}, fmt.Errorf("pluginbuild: invalid artifact entry: %w", err)
 	}
-	if _, exists := declared[strings.ToLower(filepath.ToSlash(entry))]; !exists {
-		return Inspection{}, errors.New("pluginbuild: artifact entry is not inventoried")
-	}
-	if _, exists := declared["info.json"]; !exists {
-		return Inspection{}, errors.New("pluginbuild: info.json is not inventoried")
-	}
-	actual := make(map[string]string, len(declared))
+	actual := make(map[string]string)
 	err = filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -226,14 +210,18 @@ func Inspect(root, expectedPlatform string) (Inspection, error) {
 		if entry.Type()&os.ModeSymlink != 0 {
 			return fmt.Errorf("symbolic link is forbidden: %s", path)
 		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("non-regular file is forbidden: %s", path)
+		}
 		relative, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
 		relative = filepath.ToSlash(relative)
-		if relative == "artifact.json" {
-			return nil
-		}
 		key := strings.ToLower(relative)
 		if previous, exists := actual[key]; exists {
 			return fmt.Errorf("case-insensitive file collision: %s and %s", previous, relative)
@@ -244,37 +232,23 @@ func Inspect(root, expectedPlatform string) (Inspection, error) {
 	if err != nil {
 		return Inspection{}, fmt.Errorf("pluginbuild: inventory artifact: %w", err)
 	}
-	if len(actual) != len(declared) {
-		return Inspection{}, errors.New("pluginbuild: artifact inventory does not match package contents")
+	if _, exists := actual["info.json"]; !exists {
+		return Inspection{}, errors.New("pluginbuild: info.json is missing")
 	}
-	for key, item := range declared {
-		relative, exists := actual[key]
-		if !exists {
-			return Inspection{}, fmt.Errorf("pluginbuild: artifact file is missing: %s", item.Path)
-		}
-		path := filepath.Join(root, filepath.FromSlash(relative))
-		info, err := os.Stat(path)
-		if err != nil {
-			return Inspection{}, err
-		}
-		if info.Size() != item.Size {
-			return Inspection{}, fmt.Errorf("pluginbuild: artifact size mismatch: %s", item.Path)
-		}
-		digest, err := fileSHA256(path)
-		if err != nil {
-			return Inspection{}, err
-		}
-		if digest != item.SHA256 {
-			return Inspection{}, fmt.Errorf("pluginbuild: artifact digest mismatch: %s", item.Path)
-		}
+	if _, exists := actual[strings.ToLower(filepath.ToSlash(entry))]; !exists {
+		return Inspection{}, errors.New("pluginbuild: artifact entry is missing")
 	}
 	if err := validateNativeExecutable(filepath.Join(root, filepath.FromSlash(artifact.Entry)), artifact.TargetPlatform); err != nil {
 		return Inspection{}, err
 	}
 	if manifest.ManagementUI != nil {
-		key := strings.ToLower(filepath.ToSlash(manifest.ManagementUI.Entry))
-		if _, exists := declared[key]; !exists {
-			return Inspection{}, fmt.Errorf("pluginbuild: management UI entry is not inventoried: %s", manifest.ManagementUI.Entry)
+		uiEntry, err := canonicalArtifactPath(manifest.ManagementUI.Entry)
+		if err != nil {
+			return Inspection{}, fmt.Errorf("pluginbuild: invalid management UI entry: %w", err)
+		}
+		key := strings.ToLower(filepath.ToSlash(uiEntry))
+		if _, exists := actual[key]; !exists {
+			return Inspection{}, fmt.Errorf("pluginbuild: management UI entry is missing: %s", manifest.ManagementUI.Entry)
 		}
 	}
 	return Inspection{
@@ -282,8 +256,23 @@ func Inspect(root, expectedPlatform string) (Inspection, error) {
 		Version:        manifest.Version,
 		TargetPlatform: artifact.TargetPlatform,
 		Entry:          artifact.Entry,
-		FileCount:      len(artifact.Files),
+		FileCount:      len(actual),
 	}, nil
+}
+
+func decodeArtifactJSON(payload []byte, destination *Artifact) error {
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return errors.New("artifact JSON must contain exactly one value")
+		}
+		return err
+	}
+	return nil
 }
 
 func canonicalArtifactPath(value string) (string, error) {

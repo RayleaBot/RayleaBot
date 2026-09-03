@@ -36,8 +36,6 @@ type pluginTaskAcceptedResponse struct {
 }
 
 type pluginInstallRequest struct {
-	SourceType           string `json:"source_type"`
-	Source               string `json:"source"`
 	InspectionID         string `json:"inspection_id"`
 	PackageSHA256        string `json:"package_sha256"`
 	TrustedCodeConfirmed bool   `json:"trusted_code_confirmed"`
@@ -76,10 +74,9 @@ type pluginInstallInspectionResponse struct {
 }
 
 type pluginInstallBackendResponse struct {
-	Entry  string `json:"entry"`
-	Path   string `json:"path"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
+	Entry string `json:"entry"`
+	Path  string `json:"path"`
+	Size  int64  `json:"size"`
 }
 
 type pluginInstallUIResponse struct {
@@ -91,7 +88,6 @@ type pluginInstallUIResponse struct {
 type pluginArtifactValidationResponse struct {
 	Valid           bool   `json:"valid"`
 	ArtifactVersion string `json:"artifact_version"`
-	ManifestSHA256  string `json:"manifest_sha256"`
 	FileCount       int    `json:"file_count"`
 }
 
@@ -195,8 +191,9 @@ func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.Ins
 			return
 		}
 		inspection, err := inspector.Inspect(r.Context(), plugins.InstallRequest{
-			SourceType: req.SourceType,
-			Source:     req.Source,
+			SourceType:          req.SourceType,
+			Source:              req.Source,
+			TrustedCodeRequired: true,
 		})
 		if err != nil {
 			writePluginInstallError(w, r, err)
@@ -206,33 +203,36 @@ func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.Ins
 			writeError(w, r, http.StatusConflict, "plugin.install_failed", "检测到同 ID 插件", "errors.plugin.install_failed", map[string]any{"plugin_id": inspection.PluginID})
 			return
 		}
-		writeJSON(w, http.StatusOK, pluginInstallInspectionResponse{
-			InspectionID:  inspection.InspectionID,
-			ExpiresAt:     inspection.ExpiresAt,
-			PackageSHA256: inspection.PackageSHA256,
-			Source: pluginInstallSourceResponse{
-				SourceType: inspection.SourceType,
-				Source:     inspection.Source,
-			},
-			Plugin: pluginInstallInspectionPluginResponse{
-				ID:          inspection.PluginID,
-				Name:        inspection.PluginName,
-				Version:     inspection.Version,
-				Author:      inspection.Author,
-				License:     inspection.License,
-				SourceLabel: inspection.SourceLabel,
-			},
-			Permissions:    buildPermissionResponse(inspection.Permissions),
-			TargetPlatform: inspection.TargetPlatform,
-			Backend: pluginInstallBackendResponse{
-				Entry:  inspection.Backend.Entry,
-				Path:   inspection.Backend.Path,
-				Size:   inspection.Backend.Size,
-				SHA256: inspection.Backend.SHA256,
-			},
-			UI:       pluginInstallUIResponse{Enabled: inspection.UI.Enabled, Entry: inspection.UI.Entry, FileCount: inspection.UI.FileCount},
-			Artifact: pluginArtifactValidationResponse{Valid: inspection.Artifact.Valid, ArtifactVersion: inspection.Artifact.Version, ManifestSHA256: inspection.Artifact.ManifestSHA256, FileCount: inspection.Artifact.FileCount},
-		})
+		writeJSON(w, http.StatusOK, buildInstallInspectionResponse(inspection))
+	}
+}
+
+func buildInstallInspectionResponse(inspection plugins.InstallInspection) pluginInstallInspectionResponse {
+	return pluginInstallInspectionResponse{
+		InspectionID:  inspection.InspectionID,
+		ExpiresAt:     inspection.ExpiresAt,
+		PackageSHA256: inspection.PackageSHA256,
+		Source: pluginInstallSourceResponse{
+			SourceType: inspection.SourceType,
+			Source:     inspection.Source,
+		},
+		Plugin: pluginInstallInspectionPluginResponse{
+			ID:          inspection.PluginID,
+			Name:        inspection.PluginName,
+			Version:     inspection.Version,
+			Author:      inspection.Author,
+			License:     inspection.License,
+			SourceLabel: inspection.SourceLabel,
+		},
+		Permissions:    buildPermissionResponse(inspection.Permissions),
+		TargetPlatform: inspection.TargetPlatform,
+		Backend: pluginInstallBackendResponse{
+			Entry: inspection.Backend.Entry,
+			Path:  inspection.Backend.Path,
+			Size:  inspection.Backend.Size,
+		},
+		UI:       pluginInstallUIResponse{Enabled: inspection.UI.Enabled, Entry: inspection.UI.Entry, FileCount: inspection.UI.FileCount},
+		Artifact: pluginArtifactValidationResponse{Valid: inspection.Artifact.Valid, ArtifactVersion: inspection.Artifact.Version, FileCount: inspection.Artifact.FileCount},
 	}
 }
 
@@ -244,10 +244,6 @@ func newInstallHandler(catalog plugins.CatalogView, _ *tasks.Registry, installer
 			return
 		}
 
-		if !validPluginInstallSource(req.SourceType, req.Source) {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
-			return
-		}
 		if !req.TrustedCodeConfirmed {
 			writePluginInstallError(w, r, plugins.ErrTrustedCodeConfirmation)
 			return
@@ -258,9 +254,7 @@ func newInstallHandler(catalog plugins.CatalogView, _ *tasks.Registry, installer
 		}
 
 		if installer != nil {
-			taskID, err := installer.Accept(r.Context(), plugins.InstallRequest{
-				SourceType:           req.SourceType,
-				Source:               req.Source,
+			taskID, err := installer.Accept(r.Context(), plugins.InstallAcceptance{
 				InspectionID:         req.InspectionID,
 				PackageSHA256:        req.PackageSHA256,
 				TrustedCodeConfirmed: req.TrustedCodeConfirmed,
@@ -314,11 +308,11 @@ func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) 
 	case pluginservice.InstallErrorCode(err) == "plugin.package_unsafe_entry":
 		writeError(w, r, http.StatusBadRequest, "plugin.package_unsafe_entry", "插件包包含不安全条目", "errors.plugin.package_unsafe_entry", nil)
 	case pluginservice.InstallErrorCode(err) == "plugin.artifact_invalid":
-		writeError(w, r, http.StatusBadRequest, "plugin.artifact_invalid", "插件产物清单或文件完整性校验失败", "errors.plugin.artifact_invalid", nil)
+		writeError(w, r, http.StatusBadRequest, "plugin.artifact_invalid", "插件产物结构或入口校验失败", "errors.plugin.artifact_invalid", nil)
 	case pluginservice.InstallErrorCode(err) == "plugin.platform_mismatch":
 		writeError(w, r, http.StatusConflict, "plugin.platform_mismatch", "插件产物与当前平台不匹配", "errors.plugin.platform_mismatch", nil)
 	case pluginservice.InstallErrorCode(err) == "plugin.store_integrity_mismatch":
-		writeError(w, r, http.StatusConflict, "plugin.store_integrity_mismatch", "插件商店产物与签名目录不一致", "errors.plugin.store_integrity_mismatch", nil)
+		writeError(w, r, http.StatusConflict, "plugin.store_integrity_mismatch", "插件商店产物摘要与目录不一致", "errors.plugin.store_integrity_mismatch", nil)
 	case pluginservice.InstallErrorCode(err) == "platform.invalid_request" || pluginservice.InstallErrorCode(err) == "platform.resource_missing":
 		writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 	default:

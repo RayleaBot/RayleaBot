@@ -2,14 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-artifact.schema.json",
   "title": "RayleaBot Plugin Artifact v2",
-  "description": "Language-neutral inventory for one prebuilt native plugin package. Plugin identity and version are read from info.json; artifact.json is excluded from its own inventory.",
+  "description": "Language-neutral entry descriptor for one prebuilt native plugin package. Plugin identity and version are read from info.json.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "artifact_version",
     "target_platform",
-    "entry",
-    "files"
+    "entry"
   ],
   "properties": {
     "artifact_version": {
@@ -22,20 +21,9 @@
     "entry": {
       "$ref": "#/$defs/path",
       "description": "Package-relative native executable selected for target_platform."
-    },
-    "files": {
-      "type": "array",
-      "minItems": 2,
-      "items": {
-        "$ref": "#/$defs/file"
-      }
     }
   },
   "$defs": {
-    "sha256": {
-      "type": "string",
-      "pattern": "^[a-f0-9]{64}$"
-    },
     "platform": {
       "type": "string",
       "enum": [
@@ -66,27 +54,6 @@
           }
         }
       ]
-    },
-    "file": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "path",
-        "size",
-        "sha256"
-      ],
-      "properties": {
-        "path": {
-          "$ref": "#/$defs/path"
-        },
-        "size": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "sha256": {
-          "$ref": "#/$defs/sha256"
-        }
-      }
     }
   },
   "x-fixtures": [

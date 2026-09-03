@@ -1,0 +1,10 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: An administrator removes a custom source and its cached catalog.
+request:
+  method: DELETE
+  path: /api/plugin-store/sources/source-0123456789abcdef
+response:
+  status: 204
+expect:
+  valid: true

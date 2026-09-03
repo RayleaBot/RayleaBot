@@ -365,7 +365,7 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 		CreatedAt:             "2026-04-02T00:00:00Z",
 		CoreVersion:           "0.2.0",
 		ConfigSchemaVersion:   "2",
-		DBSchemaVersion:       "000006",
+		DBSchemaVersion:       "000007",
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,

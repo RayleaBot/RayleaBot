@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -92,15 +90,13 @@ func artifactPlatformForTest(t *testing.T) string {
 	return platform
 }
 
-func TestBuildSpecRejectsTamperedArtifact(t *testing.T) {
+func TestBuildSpecRejectsBrokenArtifactEntry(t *testing.T) {
 	_, snapshot := runtimeTestArtifact(t)
-	file, err := os.OpenFile(snapshot.PackageRootPath+string(filepath.Separator)+filepath.FromSlash(runtimeBackendRelative(t)), os.O_APPEND|os.O_WRONLY, 0)
-	if err != nil {
+	entryPath := snapshot.PackageRootPath + string(filepath.Separator) + filepath.FromSlash(runtimeBackendRelative(t))
+	if err := os.WriteFile(entryPath, []byte("not an executable"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = file.Write([]byte("tampered"))
-	_ = file.Close()
-	_, err = BuildSpec(snapshot, "", minimalRuntimeConfig())
+	_, err := BuildSpec(snapshot, "", minimalRuntimeConfig())
 	assertBuildSpecErrorCode(t, err, codePluginArtifactInvalid)
 }
 
@@ -143,10 +139,6 @@ func runtimeTestArtifact(t *testing.T) (string, plugins.Snapshot) {
 	}
 	document := map[string]any{
 		"artifact_version": "2", "target_platform": platform, "entry": backendRelative,
-		"files": []any{
-			runtimeArtifactFile(t, root, "info.json"),
-			runtimeArtifactFile(t, root, backendRelative),
-		},
 	}
 	artifactBytes, _ := json.MarshalIndent(document, "", "  ")
 	if err := os.WriteFile(filepath.Join(root, "artifact.json"), append(artifactBytes, '\n'), 0o644); err != nil {
@@ -156,21 +148,6 @@ func runtimeTestArtifact(t *testing.T) (string, plugins.Snapshot) {
 		PluginID: "runtime-test", Name: "Runtime test", Valid: true,
 		ManifestPath: filepath.Join(root, "info.json"), PackageRootPath: root, Concurrency: 4,
 	}
-}
-
-func runtimeArtifactFile(t *testing.T, root, relative string) map[string]any {
-	t.Helper()
-	path := filepath.Join(root, filepath.FromSlash(relative))
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest := sha256.Sum256(content)
-	return map[string]any{"path": filepath.ToSlash(relative), "size": info.Size(), "sha256": hex.EncodeToString(digest[:])}
 }
 
 func runtimeBackendRelative(t *testing.T) string {

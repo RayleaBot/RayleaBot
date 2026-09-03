@@ -4,44 +4,12 @@
   "input": {
     "artifact_version": "2",
     "target_platform": "macos-arm64",
-    "entry": "bin/fortune",
-    "files": [
-      {
-        "path": "info.json",
-        "size": 512,
-        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
-      },
-      {
-        "path": "bin/fortune",
-        "size": 4096,
-        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
-      },
-      {
-        "path": "ui/index.html",
-        "size": 256,
-        "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
-      },
-      {
-        "path": "templates/fortune/template.html",
-        "size": 128,
-        "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
-      },
-      {
-        "path": "LICENSE",
-        "size": 1024,
-        "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
-      },
-      {
-        "path": "sbom.spdx.json",
-        "size": 1024,
-        "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
-      }
-    ]
+    "entry": "bin/fortune"
   },
   "expect": {
     "valid": true,
     "notes": [
-      "The installer additionally checks that entry and info.json are both present in the exact inventory."
+      "The installer discovers and validates info.json, the native entry, UI files and templates from the extracted package."
     ]
   }
 }

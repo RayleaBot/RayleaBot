@@ -68,13 +68,11 @@ jobs:
         shell: bash
         env:
           RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
-          RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS: ${{ vars.RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS }}
         run: |
           set -euo pipefail
           test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          test -n "$RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS"
           mkdir -p dist/server
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS}"
+          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
           if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
             (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server.exe ./cmd/raylea-server)
             (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-updater.exe ./cmd/raylea-updater)
@@ -244,12 +242,10 @@ jobs:
       - name: Build server
         env:
           RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
-          RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS: ${{ vars.RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS }}
         run: |
           test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          test -n "$RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS"
           mkdir -p dist/server
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS}"
+          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
           (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server ./cmd/raylea-server)
 
       - name: Build recovery test plugin fixture
@@ -359,7 +355,7 @@ jobs:
             --git-commit "$GIT_COMMIT" \
             --config-schema-version "$CONFIG_SCHEMA_VERSION" \
             --db-schema-version "$DB_SCHEMA_VERSION" \
-            --plugin-protocol-version "1" \
+            --plugin-protocol-version "2" \
             --release-notes-ref "$RELEASE_NOTES_REF" \
             --deps-manifest .deps/manifest.json \
             --sidecar dist/downloads/windows-x64-full/RayleaBot-v${VERSION}-windows-x64-full.zip.artifact.json \
@@ -405,12 +401,10 @@ jobs:
         shell: bash
         env:
           RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
-          RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS: ${{ vars.RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS }}
         run: |
           set -euo pipefail
           test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          test -n "$RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS"
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS} -X=github.com/RayleaBot/RayleaBot/server/internal/pluginmarket.embeddedTrustedKeysSpec=${RAYLEA_PLUGIN_CATALOG_TRUSTED_KEYS}"
+          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
           (cd server && go build -ldflags "$LDFLAGS" -o ../dist/release/raylea-server-verify ./cmd/raylea-server)
           for artifact in dist/artifacts/*; do
             dist/release/raylea-server-verify update verify \

@@ -4,22 +4,10 @@
   "input": {
     "artifact_version": "2",
     "target_platform": "windows-x64",
-    "entry": "bin/bad-artifact.exe",
-    "files": [
-      {
-        "path": "artifact.json",
-        "size": 128,
-        "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
-      },
-      {
-        "path": "bin/bad-artifact.exe",
-        "size": 2048,
-        "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
-      }
-    ]
+    "entry": "artifact.json"
   },
   "expect": {
     "valid": false,
-    "reason": "artifact.json is not part of its own payload inventory."
+    "reason": "artifact.json cannot be the native backend entry."
   }
 }

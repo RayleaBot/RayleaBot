@@ -1,8 +1,6 @@
 package catalog_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -157,23 +155,20 @@ func TestDiscoverKeepsUnsupportedManifestVisibleAndDisabled(t *testing.T) {
 	}
 }
 
-func TestDiscoverMarksTamperedArtifactInvalid(t *testing.T) {
+func TestDiscoverMarksBrokenArtifactEntryInvalid(t *testing.T) {
 	t.Parallel()
 
 	root := t.TempDir()
 	pluginRoot := filepath.Join(root, "plugins", "installed", "tampered")
 	writeArtifact(t, pluginRoot, baseManifest("tampered"), nil)
 	entry := artifactEntry(t, "tampered")
-	file, err := os.OpenFile(filepath.Join(pluginRoot, filepath.FromSlash(entry)), os.O_APPEND|os.O_WRONLY, 0)
-	if err != nil {
+	if err := os.WriteFile(filepath.Join(pluginRoot, filepath.FromSlash(entry)), []byte("not an executable"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	_, _ = file.Write([]byte("tampered"))
-	_ = file.Close()
 
 	snapshot := discoverOne(t, root)
-	if snapshot.Valid || snapshot.DisplayState != plugins.DisplayStateInvalidManifest || !strings.Contains(snapshot.ValidationSummary, "mismatch") {
-		t.Fatalf("tampered snapshot = %#v", snapshot)
+	if snapshot.Valid || snapshot.DisplayState != plugins.DisplayStateInvalidManifest || strings.TrimSpace(snapshot.ValidationSummary) == "" {
+		t.Fatalf("broken snapshot = %#v", snapshot)
 	}
 }
 
@@ -265,37 +260,8 @@ func writeArtifact(t *testing.T, root string, manifest map[string]any, assets ma
 	}
 	copyFile(t, executable, entryPath)
 
-	files := make([]map[string]any, 0)
-	if err := filepath.WalkDir(root, func(path string, item os.DirEntry, walkErr error) error {
-		if walkErr != nil || item.IsDir() {
-			return walkErr
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		relative = filepath.ToSlash(relative)
-		if relative == "artifact.json" {
-			return nil
-		}
-		payload, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		info, err := item.Info()
-		if err != nil {
-			return err
-		}
-		digest := sha256.Sum256(payload)
-		files = append(files, map[string]any{
-			"path": relative, "size": info.Size(), "sha256": hex.EncodeToString(digest[:]),
-		})
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
 	writeJSON(t, filepath.Join(root, "artifact.json"), map[string]any{
-		"artifact_version": "2", "target_platform": currentPlatform(t), "entry": entry, "files": files,
+		"artifact_version": "2", "target_platform": currentPlatform(t), "entry": entry,
 	})
 }
 

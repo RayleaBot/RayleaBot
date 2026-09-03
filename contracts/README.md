@@ -6,7 +6,7 @@
 
 ### Fixture-ready 正式契约
 
-当前已有 16 份 fixture-ready formal contracts：
+当前已有 15 份 fixture-ready formal contracts：
 
 - `backup-manifest.schema.json`
 - `config.user.schema.json`
@@ -17,7 +17,6 @@
 - `plugin-info.schema.json`
 - `plugin-artifact.schema.json`
 - `plugin-store-catalog.schema.json`
-- `plugin-store-signature.schema.json`
 - `plugin-development-workspace.schema.json`
 - `plugin-management-ui.yaml`
 - `plugin-management-ui-bridge.schema.json`
@@ -55,13 +54,11 @@
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-artifact.schema.json`
-  - artifact v2 的目标平台、原生入口、精确文件大小与 SHA-256 边界
-  - `artifact.json` 不重复插件身份且不枚举自身；安装器额外要求文件全集精确匹配和入口格式正确
+  - artifact v2 的目标平台与原生入口边界
+  - `artifact.json` 不重复插件身份或文件清单；安装器扫描实际内容并检查路径、入口与二进制格式
 - `plugin-store-catalog.schema.json`
-  - `RayleaBot/plugin-catalog` 发布的官方静态商店目录结构，固定发布者身份、版本、最低核心版本、撤回状态和三平台资产 URL、大小及摘要
-  - 官方身份只能由已验证目录和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
-- `plugin-store-signature.schema.json`
-  - `catalog.json` 原始字节的 SHA-256 与一至两个独立商店目录 Ed25519 签名，支持受控双签轮换
+  - 官方或自定义静态商店目录结构，固定当前版本、最低核心版本和可用平台的资产 URL 与归档摘要
+  - 官方身份只能由默认官方来源和安装元数据授予，不能由插件 manifest、目录名或仓库名推断
 - `plugin-development-workspace.schema.json`
   - workspace v2 的本地插件仓库路径和启用状态；插件 ID 从 `info.json` 推导
 - `plugin-management-ui.yaml`
@@ -196,10 +193,13 @@
 
 #### 插件商店
 
+- `GET /api/plugin-store/sources`、`POST /api/plugin-store/sources`
+- `PUT /api/plugin-store/sources/{source_id}`、`DELETE /api/plugin-store/sources/{source_id}`
+- `POST /api/plugin-store/sources/{source_id}/refresh`
 - `GET /api/plugin-store/plugins`
 - `GET /api/plugin-store/plugins/{plugin_id}`
+- `POST /api/plugin-store/plugins/{plugin_id}/inspect`
 - `POST /api/plugin-store/plugins/{plugin_id}/install`
-- `POST /api/plugin-store/refresh`
 
 #### 三方账号
 

@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Refresh replaces one source cache after the catalog passes schema validation.
+request:
+  method: POST
+  path: /api/plugin-store/sources/official/refresh
+response:
+  status: 200
+  body:
+    id: official
+    name: RayleaBot 官方插件
+    url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
+    official: true
+    cached: true
+    refreshed_at: 2026-08-04T00:00:00Z
+    entry_count: 1
+expect:
+  valid: true

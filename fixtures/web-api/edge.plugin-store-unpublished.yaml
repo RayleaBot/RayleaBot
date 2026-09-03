@@ -14,17 +14,19 @@ response:
       publisher:
         id: rayleabot
         name: RayleaBot
-        verified: true
       repository_url: https://github.com/RayleaBot/plugin-fortune
       license: MIT
       keywords: [fortune]
       recommended: true
       install_state: unpublished
     releases: []
-    catalog:
-      source: embedded
-      verified: true
-      generated_at: 2026-08-04T00:00:00Z
+    source:
+      id: official
+      name: RayleaBot 官方插件
+      url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
+      official: true
+      cached: true
+      refreshed_at: 2026-08-04T00:00:00Z
       entry_count: 4
 expect:
   valid: true

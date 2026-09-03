@@ -5,7 +5,8 @@ request:
   method: POST
   path: /api/plugin-store/plugins/raylea.echo/install
   body:
-    version: 0.2.0
+    inspection_id: inspection_fixture_store_echo_0001
+    package_sha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     trusted_code_confirmed: true
 response:
   status: 202

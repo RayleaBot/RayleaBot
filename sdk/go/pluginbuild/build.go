@@ -71,16 +71,9 @@ type Manifest struct {
 }
 
 type Artifact struct {
-	ArtifactVersion string         `json:"artifact_version"`
-	TargetPlatform  string         `json:"target_platform"`
-	Entry           string         `json:"entry"`
-	Files           []ArtifactFile `json:"files"`
-}
-
-type ArtifactFile struct {
-	Path   string `json:"path"`
-	Size   int64  `json:"size"`
-	SHA256 string `json:"sha256"`
+	ArtifactVersion string `json:"artifact_version"`
+	TargetPlatform  string `json:"target_platform"`
+	Entry           string `json:"entry"`
 }
 
 type target struct {
@@ -580,47 +573,11 @@ func copyLicense(pluginDir, artifactRoot string) error {
 	return errors.New("pluginbuild: LICENSE not found in plugin or parent directories")
 }
 
-func inventory(root, entryPath, platform string) (Artifact, error) {
-	files := make([]ArtifactFile, 0)
-	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		relative, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		relative = filepath.ToSlash(relative)
-		if relative == "artifact.json" {
-			return nil
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		digest, err := fileSHA256(path)
-		if err != nil {
-			return err
-		}
-		files = append(files, ArtifactFile{
-			Path:   relative,
-			Size:   info.Size(),
-			SHA256: digest,
-		})
-		return nil
-	})
-	if err != nil {
-		return Artifact{}, fmt.Errorf("pluginbuild: inventory artifact: %w", err)
-	}
-	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+func inventory(_ string, entryPath, platform string) (Artifact, error) {
 	return Artifact{
 		ArtifactVersion: ArtifactVersion,
 		TargetPlatform:  platform,
 		Entry:           entryPath,
-		Files:           files,
 	}, nil
 }
 

@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
+func TestBuildProducesPlatformArtifact(t *testing.T) {
 	pluginDir := t.TempDir()
 	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/plugin\n\ngo 1.26.6\n")
 	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nfunc main() {}\n")
@@ -42,27 +42,28 @@ func TestBuildProducesAPlatformArtifactWithExactInventory(t *testing.T) {
 	if err := json.Unmarshal(content, &artifact); err != nil {
 		t.Fatal(err)
 	}
-	paths := map[string]bool{}
-	for _, file := range artifact.Files {
-		paths[file.Path] = true
-		if file.Path == "artifact.json" {
-			t.Fatal("artifact.json must not inventory itself")
-		}
-	}
-	if artifact.ArtifactVersion != "2" || artifact.Entry == "" || !paths["info.json"] || !paths[artifact.Entry] || !paths["LICENSE"] || !paths["LICENSES/dependency.txt"] || !paths["THIRD_PARTY_NOTICES.md"] || !paths["sbom.spdx.json"] {
-		t.Fatalf("unexpected artifact inventory: %#v", artifact)
+	if artifact.ArtifactVersion != "2" || artifact.Entry == "" {
+		t.Fatalf("unexpected artifact descriptor: %#v", artifact)
 	}
 	archive, err := zip.OpenReader(result.ArchivePath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer archive.Close()
+	paths := map[string]bool{}
 	for _, file := range archive.File {
+		relative := strings.TrimPrefix(filepath.ToSlash(file.Name), "test-plugin/")
+		paths[relative] = true
 		if filepath.ToSlash(file.Name) == "test-plugin/main.go" || filepath.ToSlash(file.Name) == "test-plugin/go.mod" {
 			t.Fatalf("source file leaked into artifact: %s", file.Name)
 		}
 		if filepath.ToSlash(file.Name) == "test-plugin/bin/test-plugin" && file.Mode().Perm() != 0o755 {
 			t.Fatalf("backend archive mode = %o, want 755", file.Mode().Perm())
+		}
+	}
+	for _, required := range []string{"artifact.json", "info.json", artifact.Entry, "LICENSE", "LICENSES/dependency.txt", "THIRD_PARTY_NOTICES.md", "sbom.spdx.json"} {
+		if !paths[required] {
+			t.Fatalf("artifact archive is missing %s", required)
 		}
 	}
 }
@@ -168,6 +169,16 @@ func TestPackAndInspectAlreadyBuiltNativeExecutable(t *testing.T) {
 	}
 	if inspection.PluginID != "native-plugin" || inspection.Entry == "" || inspection.FileCount < 3 {
 		t.Fatalf("unexpected inspection: %#v", inspection)
+	}
+	artifactPath := filepath.Join(result.ArtifactDir, "artifact.json")
+	artifactBytes, err := os.ReadFile(artifactPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacyArtifact := strings.Replace(string(artifactBytes), "\n}", ",\n  \"files\": []\n}", 1)
+	writeTestFile(t, artifactPath, legacyArtifact)
+	if _, err := Inspect(result.ArtifactDir, platform); err == nil {
+		t.Fatal("Inspect() accepted legacy artifact file inventory")
 	}
 }
 

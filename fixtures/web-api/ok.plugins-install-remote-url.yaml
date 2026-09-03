@@ -5,8 +5,6 @@ request:
   method: POST
   path: /api/plugins/install
   body:
-    source_type: remote_url
-    source: https://example.com/plugins/weather-1.0.0.zip
     inspection_id: inspection_fixture_weather_remote_0003
     package_sha256: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     trusted_code_confirmed: true

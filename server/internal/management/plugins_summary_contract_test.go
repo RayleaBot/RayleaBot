@@ -14,7 +14,7 @@ func TestListPluginsReturnsUnifiedCommandShape(t *testing.T) {
 		{
 			PluginID: "raylea.echo", Name: "Echo", Description: "Echo command", Valid: true,
 			RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
-			PackageSourceType: "catalog", PackagePublisherVerified: true,
+			PackageSourceType: "catalog", PackageSourceRef: "official",
 			Commands:      []plugins.Command{{ID: "echo", Name: "echo", DisplayName: "Echo", TriggerType: "exact", TriggerNames: []string{"echo"}, Description: "Echo text", Usage: "/echo <text>", Permission: "everyone"}},
 			CommandGroups: []plugins.CommandGroup{{ID: "basic", Title: "Basic", Commands: []string{"echo"}}},
 			Help:          &plugins.Help{Title: "Echo", Summary: "Echo commands"},

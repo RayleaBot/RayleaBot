@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestVerifyAcceptsCurrentPlatformAndRejectsTampering(t *testing.T) {
+func TestVerifyAcceptsCurrentPlatformAndRejectsBrokenEntry(t *testing.T) {
 	root := makeTestArtifact(t, true)
 	platform, err := CurrentPlatform()
 	if err != nil {
@@ -22,16 +22,11 @@ func TestVerifyAcceptsCurrentPlatformAndRejectsTampering(t *testing.T) {
 	if verified.Manifest.ID != "artifact-test" || !verified.UIAvailable || len(verified.UIEntries) != 1 {
 		t.Fatalf("unexpected verified artifact: %#v", verified)
 	}
-	file, err := os.OpenFile(verified.BackendPath, os.O_WRONLY|os.O_APPEND, 0)
-	if err != nil {
+	if err := os.WriteFile(verified.BackendPath, []byte("broken executable"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := file.Write([]byte("tampered")); err != nil {
-		t.Fatal(err)
-	}
-	_ = file.Close()
 	if _, err := Verify(root, Options{ExpectedPlatform: platform}); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("tampered Verify() error = %v, want ErrInvalid", err)
+		t.Fatalf("broken entry Verify() error = %v, want ErrInvalid", err)
 	}
 }
 
@@ -88,33 +83,12 @@ func makeTestArtifact(t *testing.T, withUI bool) string {
 	if err := os.WriteFile(filepath.Join(root, "info.json"), manifestBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	files := []File{
-		fileEntry(t, root, "info.json"),
-		fileEntry(t, root, filepath.ToSlash(relativePath(t, root, binaryPath))),
-	}
-	if withUI {
-		files = append(files, fileEntry(t, root, "ui/index.html"))
-	}
-	document := Document{ArtifactVersion: "2", TargetPlatform: platform, Entry: filepath.ToSlash(relativePath(t, root, binaryPath)), Files: files}
+	document := Document{ArtifactVersion: "2", TargetPlatform: platform, Entry: filepath.ToSlash(relativePath(t, root, binaryPath))}
 	content, _ := json.MarshalIndent(document, "", "  ")
 	if err := os.WriteFile(filepath.Join(root, "artifact.json"), append(content, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return root
-}
-
-func fileEntry(t *testing.T, root, relative string) File {
-	t.Helper()
-	path := filepath.Join(root, filepath.FromSlash(relative))
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	digest, err := fileDigest(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return File{Path: relative, Size: info.Size(), SHA256: digest}
 }
 
 func copyTestFile(t *testing.T, source, destination string, mode os.FileMode) {

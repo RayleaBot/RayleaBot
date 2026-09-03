@@ -93,55 +93,48 @@ type Help struct {
 }
 
 type Snapshot struct {
-	PluginID                 string
-	Name                     string
-	Role                     string
-	Version                  string
-	Author                   string
-	License                  string
-	ManifestVersion          string
-	MinCoreVersion           string
-	Concurrency              int
-	Events                   []string
-	Permissions              map[string]PermissionGrant
-	Webhooks                 []WebhookScope
-	CommandGroups            []CommandGroup
-	Description              string
-	Icon                     string
-	Repo                     string
-	Homepage                 string
-	Keywords                 []string
-	Screenshots              []Screenshot
-	ManagementUI             *ManagementUI
-	RenderTemplates          []RenderTemplate
-	Help                     *Help
-	ArtifactVersion          string
-	ArtifactTargetPlatform   string
-	ArtifactManifestSHA256   string
-	ArtifactBackendSHA256    string
-	ArtifactFileCount        int
-	ArtifactUIAvailable      bool
-	DefaultConfig            map[string]any
-	ManifestPath             string
-	PackageRootPath          string
-	SourceRoot               string
-	SourceRoots              []string
-	PackageSourceType        string
-	PackageSourceRef         string
-	PackagePublisherID       string
-	PackagePublisherName     string
-	PackagePublisherVerified bool
-	PackageCatalogDigest     string
-	Valid                    bool
-	ValidationSummary        string
-	RegistrationState        string
-	DesiredState             string
-	RuntimeState             string
-	DisplayState             string
-	DeadLetter               *DeadLetterSnapshot
-	ConflictPaths            []string
-	Commands                 []Command
-	ManifestCommands         []Command
+	PluginID               string
+	Name                   string
+	Role                   string
+	Version                string
+	Author                 string
+	License                string
+	ManifestVersion        string
+	MinCoreVersion         string
+	Concurrency            int
+	Events                 []string
+	Permissions            map[string]PermissionGrant
+	Webhooks               []WebhookScope
+	CommandGroups          []CommandGroup
+	Description            string
+	Icon                   string
+	Repo                   string
+	Homepage               string
+	Keywords               []string
+	Screenshots            []Screenshot
+	ManagementUI           *ManagementUI
+	RenderTemplates        []RenderTemplate
+	Help                   *Help
+	ArtifactVersion        string
+	ArtifactTargetPlatform string
+	ArtifactUIAvailable    bool
+	DefaultConfig          map[string]any
+	ManifestPath           string
+	PackageRootPath        string
+	SourceRoot             string
+	SourceRoots            []string
+	PackageSourceType      string
+	PackageSourceRef       string
+	Valid                  bool
+	ValidationSummary      string
+	RegistrationState      string
+	DesiredState           string
+	RuntimeState           string
+	DisplayState           string
+	DeadLetter             *DeadLetterSnapshot
+	ConflictPaths          []string
+	Commands               []Command
+	ManifestCommands       []Command
 }
 
 // DeadLetterSnapshot captures the context recorded when a plugin runtime
@@ -162,18 +155,12 @@ type DesiredStateRepository interface {
 }
 
 type PackageMetadata struct {
-	PluginID          string
-	SourceType        string
-	SourceRef         string
-	Version           string
-	ManifestHash      string
-	PackageHash       string
-	ArchiveHash       string
-	PublisherID       string
-	PublisherName     string
-	PublisherVerified bool
-	CatalogDigest     string
-	InstalledAt       time.Time
+	PluginID    string
+	SourceType  string
+	SourceRef   string
+	Version     string
+	PackageHash string
+	InstalledAt time.Time
 }
 
 type PackageRepository interface {
@@ -186,28 +173,20 @@ type PackageMetadataLoader interface {
 }
 
 type InstallRequest struct {
-	SourceType             string
-	Source                 string
-	ResolvedSourceType     string
-	ResolvedSource         string
-	ExpectedArchiveSize    int64
-	ExpectedArchiveSHA256  string
-	ExpectedManifestSHA256 string
-	ReplaceExisting        bool
-	PublisherID            string
-	PublisherName          string
-	PublisherVerified      bool
-	CatalogDigest          string
-	InspectionID           string
-	PackageSHA256          string
-	TrustedCodeConfirmed   bool
+	SourceType            string
+	Source                string
+	SourceLabel           string
+	ResolvedSourceType    string
+	ResolvedSource        string
+	ExpectedArchiveSHA256 string
+	ReplaceExisting       bool
+	TrustedCodeRequired   bool
 }
 
 type InstallBackendInspection struct {
-	Entry  string
-	Path   string
-	Size   int64
-	SHA256 string
+	Entry string
+	Path  string
+	Size  int64
 }
 
 type InstallUIInspection struct {
@@ -217,10 +196,9 @@ type InstallUIInspection struct {
 }
 
 type ArtifactInspection struct {
-	Valid          bool
-	Version        string
-	ManifestSHA256 string
-	FileCount      int
+	Valid     bool
+	Version   string
+	FileCount int
 }
 
 type InstallInspection struct {
@@ -246,8 +224,14 @@ type InstallInspector interface {
 	Inspect(context.Context, InstallRequest) (InstallInspection, error)
 }
 
+type InstallAcceptance struct {
+	InspectionID         string
+	PackageSHA256        string
+	TrustedCodeConfirmed bool
+}
+
 type InstallCoordinator interface {
-	Accept(context.Context, InstallRequest) (string, error)
+	Accept(context.Context, InstallAcceptance) (string, error)
 	Cancel(string) bool
 	Close() error
 }
@@ -352,10 +336,6 @@ func ApplyPackageMetadata(entries []Snapshot, metadata map[string]PackageMetadat
 		if pkg, ok := metadata[cloned.PluginID]; ok {
 			cloned.PackageSourceType = pkg.SourceType
 			cloned.PackageSourceRef = pkg.SourceRef
-			cloned.PackagePublisherID = pkg.PublisherID
-			cloned.PackagePublisherName = pkg.PublisherName
-			cloned.PackagePublisherVerified = pkg.PublisherVerified
-			cloned.PackageCatalogDigest = pkg.CatalogDigest
 		}
 		enriched = append(enriched, cloned)
 	}

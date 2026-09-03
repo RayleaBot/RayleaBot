@@ -299,8 +299,8 @@ codes:
     code: plugin.artifact_invalid
     domain: plugin
     message_key: errors.plugin.artifact_invalid
-    message: 插件产物清单或文件完整性校验失败
-    description: The artifact manifest, file inventory, digest, size, backend executable, or management UI entry did not satisfy the frozen plugin artifact contract.
+    message: 插件产物结构或入口校验失败
+    description: The artifact descriptor, package paths, backend executable, or management UI entry did not satisfy the frozen plugin artifact contract.
     http_status: 400
     retryable: false
     applies_to: [http, task, plugin_protocol]
@@ -350,7 +350,7 @@ codes:
     domain: plugin
     message_key: errors.plugin.store_catalog_unavailable
     message: 插件商店目录暂不可用
-    description: The remote catalog could not be fetched, parsed, or verified; the last verified catalog remains active.
+    description: The selected catalog could not be fetched, parsed, or validated; the last successful catalog remains active.
     http_status: 503
     retryable: true
     applies_to: [http, task]
@@ -360,7 +360,7 @@ codes:
     domain: plugin
     message_key: errors.plugin.store_release_unavailable
     message: 当前平台没有可安装的插件商店产物
-    description: The selected plugin version is unpublished, yanked, incompatible, or lacks a verified artifact for the current platform.
+    description: The plugin is unpublished, incompatible, or has no artifact for the current platform.
     http_status: 409
     retryable: false
     applies_to: [http, task]
@@ -369,8 +369,8 @@ codes:
     code: plugin.store_integrity_mismatch
     domain: plugin
     message_key: errors.plugin.store_integrity_mismatch
-    message: 插件商店产物与签名目录不一致
-    description: The downloaded archive or embedded plugin manifest digest does not match the exact digest frozen in the verified catalog.
+    message: 插件商店产物与目录摘要不一致
+    description: The downloaded archive does not match the SHA-256 recorded by the selected catalog.
     http_status: 409
     retryable: false
     applies_to: [http, task]

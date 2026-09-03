@@ -318,8 +318,8 @@ def stage_release_root(
         "artifact_id": artifact_id,
         "built_at": built_at,
         "update_protocol_version": 2,
-        "plugin_manifest_version": "2",
-        "plugin_ui_bridge_version": "2",
+        "plugin_manifest_version": "3",
+        "plugin_ui_bridge_version": "3",
     }
     if release_notes_ref:
         build_info["release_notes_ref"] = release_notes_ref
@@ -482,8 +482,8 @@ def build_release_metadata(
         "config_schema_version": config_schema_version,
         "db_schema_version": db_schema_version,
         "plugin_protocol_version": plugin_protocol_version,
-        "plugin_manifest_version": "2",
-        "plugin_ui_bridge_version": "2",
+        "plugin_manifest_version": "3",
+        "plugin_ui_bridge_version": "3",
         "artifacts": artifacts,
         "release_notes_ref": release_notes_ref,
     }
