@@ -1,6 +1,6 @@
 # Diagnostics
 
-本页说明 RayleaBot 当前用于开发、排障和运行诊断的正式信息面。
+本页说明 RayleaBot 当前用于开发、排障和运行诊断的正式信息入口。
 
 ## 当前正式诊断入口
 
@@ -30,7 +30,7 @@
 - 本次服务端启动日志与按时间范围筛选的历史日志
 - 命令策略拒绝记录，包含 `command_name`、`error_code`、`reason`、`policy_stage` 和匹配插件上下文
 - 脱敏后的协议消息详情、消息段、异常原因、payload preview 和 echo 类型
-- Prometheus 指标覆盖事件主链阶段、插件 runtime 状态、任务耗时、render 队列、outbound 发送、dispatcher drop、adapter dedup、bridge ignored 和 webhook replay 观测
+- Prometheus 指标覆盖事件主流程阶段、插件 runtime 状态、任务耗时、render 队列、outbound 发送、dispatcher drop、adapter dedup、bridge ignored 和 webhook replay 观测
 
 ## 管理面诊断路径
 
@@ -56,7 +56,7 @@
 - `/readyz` 反映本地控制面、初始化状态和关键资源是否就绪。
 - OneBot11 外部链路暂时不可用时，可返回 `degraded`，不与本地启动失败混淆。
 - 健康接口返回 JSON，至少包含 `status`，可附带 `reason`、`reason_codes` 和 `checks`。
-- `starting`、`running`、`stopping`、`stopped` 是管理 WebSocket `service_status` 的投影词，不是健康探针 wire 值；该投影还可使用 `degraded`、`setup_required` 和 `failed`。
+- `starting`、`running`、`stopping`、`stopped` 是管理 WebSocket `service_status` 的展示词，不是健康探针 wire 值；该展示词集还可使用 `degraded`、`setup_required` 和 `failed`。
 
 ## 诊断包内容
 
@@ -68,7 +68,7 @@
 ## 使用原则
 
 - `/api/system/diagnostics` 是 Web 仪表盘使用的聚合运行时快照；诊断导出在此基础上收集受限的运行信息和日志摘要。
-- `/readyz` 只投影关键资源就绪状态；CLI `doctor` 检查本地配置、SQLite 和依赖元数据，Launcher preflight 检查安装根、启动文件与本机环境。各入口不共享完整问题列表。
+- `/readyz` 只反映关键资源就绪状态；CLI `doctor` 检查本地配置、SQLite 和依赖元数据，Launcher preflight 检查安装根、启动文件与本机环境。各入口不共享完整问题列表。
 - 排障优先使用正式诊断入口，而不是依赖临时日志拼接。
 - 高风险问题在多个入口保持同一份 `code`、`severity`、`summary` 和 `remediation` 口径。
 - OneBot API response 的 `echo` 缺失、空值或非字符串时，诊断面记录 warning 与结构化详情；真实 JSON 解析错误、读超时和连接错误继续按断链处理。

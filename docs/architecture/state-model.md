@@ -45,10 +45,10 @@ crashed -> recovery required
 | `running` | 已完成握手并处理事件 |
 | `stopping` | 已发送 `shutdown`，等待子进程退出 |
 | `crashed` | 子进程异常退出 |
-| `backoff` | 内部等待受控重启，管理面投影为 `failed` + `retrying` |
-| recovery required | 超过自动恢复阈值，管理面投影为 `failed` + `recovery_required` |
+| `backoff` | 内部等待受控重启，管理面显示为 `failed` + `retrying` |
+| recovery required | 超过自动恢复阈值，管理面显示为 `failed` + `recovery_required` |
 
-插件启用意图持久化保存。运行时状态由 per-plugin runtime manager 维护，并通过管理面投影到用户可见状态。
+插件启用意图持久化保存。运行时状态由 per-plugin runtime manager 维护，并通过管理面映射到用户可见状态。
 
 ## 三、后台任务状态
 
@@ -126,7 +126,12 @@ running -> interrupted   # 服务重启
 | `invalid` | CK 已失效，需要重新保存或扫码 |
 | `unknown` | CK 尚未完成校验或校验结果暂不可用 |
 
-服务端是凭据状态的唯一 owner。保存或扫码、三方账号页手动检查、后台到期检查和插件异常观察触发的复检都会持久化状态与检查时间；插件只能请求复检，不能提交目标状态，Web 只消费服务端状态。明确的未登录响应进入 `invalid`，网络、限流、风控和 HTTP 432 等无法证明凭据失效的结果进入 `unknown`。`invalid` 账号不会提供给插件，重新保存、扫码或手动检查可更新状态。状态写回后，服务端通过 `third_party.account.changed` 管理事件通知 Web 重新读取账号摘要。
+- 服务端是凭据状态的唯一归属方。
+- 保存或扫码、三方账号页手动检查、后台到期检查和插件异常观察触发的复检都会持久化状态与检查时间。
+- 插件只能请求复检，不能提交目标状态，Web 只消费服务端状态。
+- 明确的未登录响应进入 `invalid`，网络、限流、风控和 HTTP 432 等无法证明凭据失效的结果进入 `unknown`。
+- `invalid` 账号不会提供给插件，重新保存、扫码或手动检查可更新状态。
+- 状态写回后，服务端通过 `third_party.account.changed` 管理事件通知 Web 重新读取账号摘要。
 
 三方账号平台：
 

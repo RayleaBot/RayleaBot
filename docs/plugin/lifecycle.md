@@ -8,7 +8,7 @@
 
 - RayleaBot 没有内置插件；默认 discovery 只扫描 `plugins/installed/`。
 - 官方、社区和开发插件都通过统一安装事务进入 `plugins/installed/<plugin_id>/`，运行目录本身不表达信任等级。
-- `examples/plugins/` 只承担 SDK 示例职责，不进入发现、商店或发布主链。
+- `examples/plugins/` 只承担 SDK 示例职责，不进入发现、商店或发布主流程。
 - 开发仓库位于主仓库之外，通过 `plugin-workspace.local.json` 构建并同步，不作为源码 discovery root。
 - 官方身份只来自已验证商店目录及持久化 package metadata，manifest 不能声明角色。
 
@@ -26,7 +26,7 @@
 - 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；OneBot 协议身份可用时通过 `init.bot` 或 `bot.identity.changed` 提供给插件。
 - 运行中通过 `ping/pong` 保活。
 - 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
-- 插件刚异常退出时投影为 `state=failed`、`state_diagnosis.kind=crashed`；进入退避等待后投影为 `state=failed`、`state_diagnosis.kind=retrying`；超过重试阈值进入 dead-letter 时投影为 `state=failed`、`state_diagnosis.kind=recovery_required`。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
+- 插件刚异常退出时映射为 `state=failed`、`state_diagnosis.kind=crashed`；进入退避等待后映射为 `state=failed`、`state_diagnosis.kind=retrying`；超过重试阈值进入 dead-letter 时映射为 `state=failed`、`state_diagnosis.kind=recovery_required`。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
 - `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动尝试：服务端重置 crash 计数并重新拉起 runtime。
 - 热重载保持正式的 start-before-stop / zero-gap reload 语义。
 
@@ -42,11 +42,11 @@
 ## 数据与目录边界
 
 - 插件包目录与插件业务数据目录严格分离。
-- `plugins/installed/` 只承载经验证的编译产物。
-- `data/plugins/<plugin_id>/` 承载插件业务数据与持久化内容。
+- `plugins/installed/` 只存放经验证的编译产物。
+- `data/plugins/<plugin_id>/` 存放插件业务数据与持久化内容。
 - 可重建缓存、下载中间产物和失败安装残留进入 `cache/` 或临时目录，不与业务数据混放。
 
-## 当前边界
+## 当前限制
 
 - 当前平台不支持插件间依赖解析。
 - 源码插件、安装脚本、托管语言运行时和旧合同兼容执行不在正式范围内。

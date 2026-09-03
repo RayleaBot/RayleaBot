@@ -2,7 +2,7 @@
 
 本文档定义长期依赖顺序和跨层边界。已交付版本的完成状态见 [`../CHANGELOGS/`](../CHANGELOGS/README.md)。
 
-## 1. 冻结正式契约
+## 1. 固定正式契约
 
 任何新增或变更的 HTTP、WebSocket、schema、错误码、事件、插件协议、CLI 或 release metadata 必须先进入 `contracts/`。
 
@@ -13,7 +13,7 @@
 - 硬上限、超时和失败终态；
 - `x-fixtures` 或等价样例引用。
 
-实现、README、fixtures 和 examples 不能反向裁决 contract。
+实现、README、fixtures 和 examples 不能反向覆盖 contract。
 
 ## 2. 建立验证样例与生成链
 
@@ -27,11 +27,11 @@
 - SDK 输入输出模型；
 - drift gate。
 
-## 3. 固定状态 owner 与持久化语义
+## 3. 固定状态归属与持久化语义
 
-在接入业务路径前明确状态的 owner、生命周期和并发语义：
+在接入业务路径前明确状态的归属、生命周期和并发语义：
 
-| 状态 | Owner | 正式来源 |
+| 状态 | 职责方 | 正式来源 |
 | --- | --- | --- |
 | 配置 | Config service | default 与 user 配置的校验后快照 |
 | 持久业务状态 | Server domain service | SQLite 与正式 migration |
@@ -42,7 +42,7 @@
 | 后台任务 | Task Registry | 有序持久化记录与终态 |
 | 更新事务 | Updater | 签名 metadata、最高版本记录与 journal |
 
-数据库结构变更必须先更新 schema/migration、queries、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态源。
+数据库结构变更必须先更新 schema/migration、queries、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态来源。
 
 ## 4. 实现服务端领域语义
 
@@ -57,7 +57,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 ## 5. 接入协议、插件和平台能力
 
-- Adapter 只负责平台协议、连接状态、事件归一化和动作投影，不直接写业务状态。
+- Adapter 只负责平台协议、连接状态、事件归一化和动作转换，不直接写业务状态。
 - `eventpipeline/chatpolicy` Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
 - Dispatcher 是插件事件排队和出站 action 的唯一执行出口。
 - Runtime Manager 只负责插件进程、JSONL 协议和生命周期。
@@ -115,10 +115,10 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 ## 独立设计边界
 
-以下方向需要新的 contract、状态一致性说明和验证矩阵，不能作为日常修补隐式进入主链：
+以下方向需要新的 contract、状态一致性说明和验证矩阵，不能作为日常修补隐式进入主流程：
 
 - 多实例与高可用；
 - 插件 OS 强沙盒；
 - 非 OneBot 多协议；
 - 新的官方插件运行时；
-- 新的客户端状态源、远程组件运行时或发布信任根。
+- 新的客户端状态来源、远程组件运行时或发布信任根。

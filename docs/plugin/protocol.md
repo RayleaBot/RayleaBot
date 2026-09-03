@@ -108,7 +108,7 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 - 回复当前事件时提供 `reply_to_event_id`。
 - 回复指定消息时使用首个 `reply` segment 或相应回复字段。
 
-宿主内部可以根据适配器能力投影为回复或普通发送；协议仅暴露 `message.send` action。
+宿主内部可以根据适配器能力转换为回复或普通发送；协议仅暴露 `message.send` action。
 
 ### HTTP
 
@@ -128,7 +128,7 @@ Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook �
 
 ## 终态和错误
 
-`error` 固定包含 `code` 和 `message`，可选 `details`。插件 handler panic、重复终态、未知 action、移除字段或错误 envelope 都会被投影为正式插件错误并记录脱敏诊断。
+`error` 固定包含 `code` 和 `message`，可选 `details`。插件 handler panic、重复终态、未知 action、移除字段或错误 envelope 都会被转换为正式插件错误并记录脱敏诊断。
 
 Go SDK 提供 `event.SendText`、`event.Send`、`event.Reply`、`event.Result` 和 `event.Fail` 终态 helper，以及 `event.Actions()` 非终态 action helper。每个事件只能成功发送一次终态。
 

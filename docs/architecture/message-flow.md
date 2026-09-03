@@ -2,7 +2,7 @@
 
 本文档说明 OneBot11 入站、插件分发、平台 action、出站发送、调度和 webhook 的正式运行链路。事件与 action 字段以 `contracts/` 为准。
 
-## 消息主链
+## 消息主流程
 
 ```mermaid
 sequenceDiagram
@@ -39,9 +39,9 @@ sequenceDiagram
     AD->>OB: WebSocket or HTTP API
 ```
 
-### Owner
+### 职责归属
 
-| 环节 | Owner | 状态源 |
+| 环节 | 职责方 | 状态来源 |
 | --- | --- | --- |
 | transport 与协议帧 | Adapter | connection snapshot、echo waiters、dedupe state |
 | 命令与聊天治理 | `eventpipeline/chatpolicy` | 配置与治理服务 |
@@ -52,11 +52,11 @@ sequenceDiagram
 | 平台 action | Local Action Service | permissions 与领域服务 |
 | 出站限流与发送 | Outbound / Adapter | rate limit、reply target、transport snapshot |
 
-同一 `event.target` lane 保持 FIFO；不同目标可在插件并发度内并行。队列满时 Dispatcher 返回内部 `OutcomeDropped`，以 `queue_full` 原因计入观测摘要并丢弃该次投递；不会向原始入站调用方返回插件拒绝结果，也不会产生无 owner 的 pending 状态。
+同一 `event.target` lane 保持 FIFO；不同目标可在插件并发度内并行。队列满时 Dispatcher 返回内部 `OutcomeDropped`，以 `queue_full` 原因计入观测摘要并丢弃该次投递；不会向原始入站调用方返回插件拒绝结果，也不会产生无归属的 pending 状态。
 
 ## 入站语义
 
-Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。`eventpipeline/chatpolicy` 的 Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却裁决。
+Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。`eventpipeline/chatpolicy` 的 Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却拦截。
 
 Bridge 只处理 OneBot11 归一化事件。无法通过正式结构校验的事件进入结构化诊断，不交给插件。
 
@@ -77,7 +77,7 @@ Runtime Manager 不直接访问宿主管理存储、配置、secret、渲染、�
 
 ## 出站语义
 
-插件返回 `message.send` 后，Dispatcher 是唯一执行出口；回复通过同一动作的回复字段表达。Outbound 按插件和目标执行 admission、限流、熔断与冷却，并为每个获准动作发起一次发送。Adapter Send 把消息段投影为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
+插件返回 `message.send` 后，Dispatcher 是唯一执行出口；回复通过同一动作的回复字段表达。Outbound 按插件和目标执行 admission、限流、熔断与冷却，并为每个获准动作发起一次发送。Adapter Send 把消息段转换为 OneBot11 `send_msg` 参数；WebSocket 可用时选择 WebSocket 并等待 echo，不可用时按配置选择 `http_api`。选定传输发送失败后返回正式错误，不自动重试。
 
 冷却提示、内置菜单和调度消息共享同一条 Outbound 与 Adapter Send 链路。
 
@@ -103,8 +103,8 @@ Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `ev
 ## 关键边界
 
 - Adapter 不写业务状态库。
-- `eventpipeline/chatpolicy` 的 Ingress 是命令与聊天治理 owner；Bridge 只校验统一事件。
-- Dispatcher 是插件事件排队和出站 action 的 owner。
-- Runtime Manager 是插件进程协议 owner，不是平台能力 owner。
+- `eventpipeline/chatpolicy` 的 Ingress 是命令与聊天治理职责方；Bridge 只校验统一事件。
+- Dispatcher 是插件事件排队和出站 action 的职责方。
+- Runtime Manager 是插件进程协议职责方，不是平台能力职责方。
 - Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口；插件自有的外部网络、临时文件和子进程工作由插件进程负责。
 - Scheduler 与 webhook 只产生目标事件，不建立平行分发或发送通道。

@@ -43,7 +43,7 @@
 | `post_type=meta_event, meta_event_type=heartbeat` | `meta.heartbeat` |
 | `post_type=meta_event, meta_event_type=lifecycle` | `meta.lifecycle` |
 
-- 生命周期与心跳既作为 adapter 连接状态信号，也作为正式 `event` 投递进入插件主链。
+- 生命周期与心跳既作为 adapter 连接状态信号，也作为正式 `event` 投递进入插件主流程。
 - 未进入正式范围的事件不会伪装成已支持能力。
 - Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
@@ -127,10 +127,12 @@ OneBot11 上报帧
 | `events` | `/ws/events` | `events.received` |
 | `plugin_console` | `/ws/plugins/{id}/console` | `plugins.console` |
 
-管理面 WebSocket 使用统一 envelope（`channel` / `type` / `timestamp` / `data`），承载日志追加、平台观测事件和插件 console；异步任务更新通过 `logs.appended` 的 `source=tasks` 日志呈现。`/ws/events` 的 `events.received` 复用同一个事件名，通过 payload 分支表达不同观测语义：
+- 管理面 WebSocket 使用统一 envelope（`channel` / `type` / `timestamp` / `data`），负责日志追加、平台观测事件和插件 console。
+- 异步任务更新通过 `logs.appended` 的 `source=tasks` 日志呈现。
+- `/ws/events` 的 `events.received` 复用同一个事件名，通过 payload 分支表达不同观测语义：
 
 - `service_status`：服务总体状态变化摘要
-- `plugin_id` + `state` + `commands` + `command_conflicts` + 可选 `state_diagnosis`：插件生命周期状态投影
+- `plugin_id` + `state` + `commands` + `command_conflicts` + 可选 `state_diagnosis`：插件生命周期状态展示
 - `connection_status`：OneBot 连接状态摘要
 - `event_type` + `summary`：通用管理事件（当前包括 `governance.changed` 与 `third_party.account.changed`）
 - `protocol` + `protocol_snapshot`：OneBot11 协议快照推送

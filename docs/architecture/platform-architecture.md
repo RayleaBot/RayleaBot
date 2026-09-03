@@ -1,6 +1,6 @@
 # Platform Architecture
 
-本文档定义 RayleaBot 的组件 owner、信任边界、状态源和跨层依赖。字段、状态、错误码和协议结构以 `contracts/` 为准。
+本文档定义 RayleaBot 的组件职责方、信任边界、状态来源和跨层依赖。字段、状态、错误码和协议结构以 `contracts/` 为准。
 
 ## 总览
 
@@ -40,9 +40,9 @@ flowchart TB
     C -. constrains .-> Server
 ```
 
-## Owner 与状态源
+## 职责归属与状态来源
 
-| 领域 | Owner | 正式状态源 | 消费者 |
+| 领域 | 职责方 | 正式状态来源 | 消费者 |
 | --- | --- | --- | --- |
 | 对外接口与发布元数据 | `contracts/` | schema、OpenAPI、WebSocket、errors、CLI、fixtures | 所有实现与文档 |
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
@@ -50,15 +50,15 @@ flowchart TB
 | 三方平台集成 | Integrations | 平台账号、资料、扫码会话与校验结果 | 三方账号服务、插件动作、管理面 |
 | 插件静态声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源 | Lifecycle、管理面 |
 | 插件商店目录 | Plugin Store Service | 已验签 catalog、来源元数据与刷新状态 | 安装流程、管理面 |
-| 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、Dispatcher、管理投影 |
+| 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、Dispatcher、管理视图 |
 | 后台任务 | Task Registry | 有序持久化记录 | API/WebSocket、恢复逻辑 |
 | 调度任务 | Scheduler | SQLite job 与内存 revision | 插件定向事件 |
 | 图片渲染 | Render Service | 模板仓、artifact 与 cache metadata | Local Action、管理面 |
-| Chromium 与 FFmpeg 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、抖音扫码回落、受信本地插件媒体处理、运行环境准备与系统诊断；doctor 只读取清单元数据 |
+| Chromium 与 FFmpeg 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、抖音扫码兜底、受信本地插件媒体处理、运行环境准备与系统诊断；doctor 只读取清单元数据 |
 | 配置单实例锁 | File Lock / App | `<config-path>.runtime.lock` | Server 启动、配置 CLI |
 | 更新信任 | Shared update core | 编译内置仓库/公钥、最高版本与 digest 记录 | CLI、API、Launcher、updater |
 | 更新事务 | External updater | 安装根外 journal、offline backup、staging | Launcher 与恢复流程 |
-| 客户端视图 | Web / Launcher | API/WebSocket 的临时投影 | 用户 |
+| 客户端视图 | Web / Launcher | API/WebSocket 的临时视图 | 用户 |
 
 Web 和 Launcher 不持有正式业务状态。缓存可丢弃，不能反向覆盖服务端。
 
@@ -91,12 +91,12 @@ flowchart LR
 | --- | --- | --- |
 | App | 服务组装、启动、关闭和领域服务协调 | 把内部对象暴露给客户端 |
 | Management handlers | transport、鉴权、参数校验、错误映射 | 业务状态机和私有字段 |
-| Adapter | OneBot11 transport、鉴权、归一化、动作投影 | 业务持久化和插件治理 |
+| Adapter | OneBot11 transport、鉴权、归一化、动作转换 | 业务持久化和插件治理 |
 | Chat Policy Ingress | `eventpipeline/chatpolicy` 中的元数据、命令解析、聊天治理、reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
 | Dispatcher | 插件目标选择、队列和出站 action 执行 | 直接访问插件私有存储 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活和事件 session | 直接执行平台能力 |
-| Plugin Store Service | 官方与自定义 catalog 来源、持久化缓存、来源投影和安装委托 | 绕过统一插件安装事务或持有插件运行状态 |
+| Plugin Store Service | 官方与自定义 catalog 来源、持久化缓存、来源视图和安装委托 | 绕过统一插件安装事务或持有插件运行状态 |
 | Local Action Service | permission 与参数校验、平台能力网关 | 绕过正式 action contract |
 | Task Registry | admission、执行状态、有序持久化和关闭 drain | 为队列已满请求创建 pending task |
 | Scheduler | revision、到期检查和插件事件触发 | 直接发送聊天消息 |
@@ -106,7 +106,7 @@ flowchart LR
 
 ## 数据与资源
 
-| 资源 | Owner | 语义 |
+| 资源 | 职责方 | 语义 |
 | --- | --- | --- |
 | `config/default.yaml`、`config/user.yaml` | Config | 校验后合并为运行快照 |
 | SQLite | Server services | auth、tasks、plugins、scheduler、logs 等正式状态 |
@@ -114,7 +114,7 @@ flowchart LR
 | `data/plugins/` | Plugin File Store | 每插件文件工作目录；artifact 升级不覆盖该目录 |
 | `plugins/installed/` | Plugin Catalog | 经校验的插件 artifact、后端二进制与包内管理页资源 |
 | `templates/` | Render Service | 模板版本与资源 |
-| `cache/` | 各 owner | 可重建缓存，不影响正确性 |
+| `cache/` | 各自归属 | 可重建缓存，不影响正确性 |
 | `logs/` | Logging | 结构化日志、spool 与诊断输出 |
 | `.deps/` | Deps service | Chromium 与 FFmpeg / FFprobe 受控资源 |
 | updater transaction directory | External updater | journal、offline backup、旧版与 staging |

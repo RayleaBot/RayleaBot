@@ -1,6 +1,6 @@
 # RayleaBot 项目章程
 
-RayleaBot 是面向个人开发者、自用机器人部署者和开源协作者的自托管聊天机器人框架。本章程定义长期产品目标、系统边界和工程原则；接口字段、状态和错误语义以 `contracts/` 为准，版本交付范围以最新 execution plan 为准。
+RayleaBot 是面向个人开发者、自用机器人部署者和开源协作者的自托管聊天机器人框架。本章程定义长期产品目标、系统边界和工程原则；接口字段、状态和错误语义以 `contracts/` 为准，版本交付范围以已归档的 `docs/CHANGELOGS/` 与现行文档为准。
 
 ## 产品使命
 
@@ -13,7 +13,7 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 - 正式发行物具有可验证的来源、完整性和恢复路径。
 - 独立插件通过签名静态目录发现，并由用户明确确认后安装到本机。
 
-## 正式边界
+## 范围与限制
 
 ### 平台范围
 
@@ -37,8 +37,8 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 
 ## 设计原则
 
-- **Contract-first**：HTTP、WebSocket、schema、错误码、事件、插件协议、CLI 和 release metadata 由 `contracts/` 裁决。
-- **Single source of truth**：Server 是在线状态源；客户端不从日志、本地缓存或重复模型推断正式状态。
+- **Contract-first**：HTTP、WebSocket、schema、错误码、事件、插件协议、CLI 和 release metadata 由 `contracts/` 决定。
+- **Single source of truth**：Server 是在线状态来源；客户端不从日志、本地缓存或重复模型推断正式状态。
 - **Thin clients**：Web 和 Launcher 只承担交互、系统集成与本机编排，不复制服务端业务逻辑。
 - **Trust boundaries are explicit**：浏览器会话、Launcher control、插件代码和发布更新各自具有独立信任根与拒绝策略。
 - **Transactional state changes**：安装、升级、恢复和调度变更必须具有原子边界、可追溯终态和失败恢复。
@@ -66,16 +66,16 @@ flowchart LR
     SRV --> DB["SQLite / Config / Data"]
 ```
 
-| 领域 | Owner | 正式状态源 |
+| 领域 | 职责方 | 正式状态来源 |
 | --- | --- | --- |
 | 对外接口与发布元数据 | `contracts/` | formal contracts 与 fixtures |
 | 在线业务与运行状态 | Server | SQLite、配置快照与受保护的内存状态 |
 | 插件声明 | Plugin Catalog | 已校验 manifest、管理页入口与安装来源 |
 | 插件进程状态 | Runtime Manager | runtime snapshot |
 | 桌面进程与安装事务 | Launcher / external updater | server 状态与 updater journal |
-| 客户端展示 | Web / Launcher | 管理 API 与 WebSocket 投影 |
+| 客户端展示 | Web / Launcher | 管理 API 与 WebSocket 视图 |
 
-平台分层、信任边界和状态 owner 见 [Architecture Docs](./architecture/README.md)。
+平台分层、信任边界和状态职责方见 [Architecture Docs](./architecture/README.md)。
 
 ## 产品质量
 
@@ -92,19 +92,19 @@ flowchart LR
 
 ## 演进规则
 
-1. 冻结 contract、错误语义和兼容边界。
+1. 固定 contract、错误语义和兼容边界。
 2. 补齐 valid/invalid fixtures、generated types 和 SDK。
 3. 实现 server 的状态、并发、资源和持久化语义。
 4. 接入 Web、Launcher、CLI 与插件运行时。
 5. 通过风险对应的测试、发布 smoke、恢复 drill 和文档验收。
 
-需要新状态源、信任根、运行时或部署模型的能力必须单独设计，不作为现有模块的隐式扩展。
+需要新的状态来源、信任根、运行时或部署模型的能力必须单独设计，不作为现有模块的隐式扩展。
 
 ## 文档入口
 
 | 目录 | 内容 |
 | --- | --- |
-| [`architecture/`](./architecture/README.md) | 组件 owner、信任边界、状态源和运行链路 |
+| [`architecture/`](./architecture/README.md) | 组件职责方、信任边界、状态来源和运行链路 |
 | [`design/`](./design/README.md) | 项目级视觉规范、Web、Launcher 与插件管理面映射 |
 | [`engineering/`](./engineering/README.md) | 工具链、实施顺序、质量门禁和存储治理 |
 | [`plugin/`](./plugin/README.md) | manifest、permissions、自定义管理页、协议、生命周期和 SDK |

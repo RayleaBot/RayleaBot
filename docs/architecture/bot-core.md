@@ -65,14 +65,14 @@
 ### Scheduler
 
 - Scheduler 使用服务主时区；未显式配置时默认跟随宿主机本地时区。
-- Scheduler 只接受五段 cron 周期表达式，不承载一次性长操作。
+- Scheduler 只接受五段 cron 周期表达式，不负责一次性长操作。
 - 周期性任务在服务离线期间不补跑，恢复后按下一个匹配时间点触发。
 - 同一插件同一 `task_id` 的调度注册按更新处理，不生成重复任务。
 - 插件被禁用、卸载或进入需要人工恢复的失败状态后，关联调度任务会暂停或移除。
 
 ### 后台任务模型
 
-- Task Registry 是有限长异步操作的 owner，负责 admission、执行状态、持久化和关闭 drain。
+- Task Registry 是有限长异步操作的职责方，负责 admission、执行状态、持久化和关闭 drain。
 - 当前后台任务固定为 `plugin.install`、`plugin.uninstall`、`plugin.reload`、`backup.create`、`restore.apply`、`recovery.recheck`、`recovery.confirm`、`runtime.bootstrap`。
 - 数据库 schema 迁移在存储启动时同步执行；模板 HTML 预览是同步接口，二者都不创建后台任务。
 - 统一任务字段包括 `task_id`、`task_type`、`status`、`progress`、`summary`、`started_at`、`finished_at`、`result` 和 `error`。

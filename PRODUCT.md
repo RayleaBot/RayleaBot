@@ -16,7 +16,7 @@ RayleaBot 为自托管聊天机器人提供清晰、可验证、可恢复的本�
 
 ## Positioning
 
-RayleaBot 以 contract 驱动的本地控制面连接 OneBot11、插件运行时、Web 管理面和桌面启动器。服务端持有正式状态，其他界面只展示可丢弃投影，使配置、诊断、长任务和恢复结果能够从同一来源核实。
+RayleaBot 以 contract 驱动的本地控制面连接 OneBot11、插件运行时、Web 管理面和桌面启动器。服务端持有正式状态，其他界面只展示可丢弃视图，使配置、诊断、长任务和恢复结果能够从同一来源核实。
 
 ## Operating Context
 
@@ -54,7 +54,7 @@ RayleaBot 由个人开发者或开源协作者部署在自有 Windows、macOS �
 - 正式接口与状态语义：`contracts/`、`docs/architecture/`
 - 视觉语言与机器 token：`DESIGN.md`、`design/tokens.json`、`.impeccable/design.json`
 - 当前实现证据：`web/src/`、`launcher/src/`、`server/internal/`
-- 产品规范不提供用户研究、客户证言、市场排名或稳定帧率承诺；性能与设备兼容性声明需要对应环境的可复现实测支持。
+- 产品规范不提供用户研究、客户证言、市场排名或稳定帧率承诺；性能与设备兼容性以对应环境的可复现实测为准。
 
 ## Product Principles
 

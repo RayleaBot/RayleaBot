@@ -4,21 +4,21 @@
 
 本文件固定 RayleaBot 的工程版本线、默认命令、目录职责和长期有效的实现选型。进入具体实现前，应按改动领域读取对应正式来源。
 
-不同领域分别裁决，不使用跨领域的全局优先级：
+不同领域分别决定，不使用跨领域的全局优先级：
 
 - 产品目标、范围、顶层架构与路线图以 `docs/RayleaBot机器人项目规划.md` 为准。
 - HTTP、WebSocket、schema、错误码、事件、CLI、插件协议与发布元数据以 `contracts/` 为准。
 - 工具链、默认命令、目录职责与固定工程选型以本文件及对应工程文件为准。
-- fixtures、examples、实现和说明文档必须跟随所属领域的正式来源，不能反向裁决正式 contract。
+- fixtures、examples、实现和说明文档必须跟随所属领域的正式来源，不能反向覆盖正式 contract。
 
-来源之间发生冲突时，先在冲突所属领域的正式来源中作出决议，再同步全部 companion；产品规划不能覆盖已经冻结的对外 contract。
+来源之间发生冲突时，先在冲突所属领域的正式来源中作出决定，再同步全部 companion；产品规划不能覆盖已经冻结的对外 contract。
 
 ## 当前工程落点
 
-- `server/` 是产品核心，承载配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
-- `web/` 承载管理控制台主链路。
-- `launcher/` 承载 Wails 桌面启动器，负责本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` v5 固定图片渲染与抖音扫码浏览器回落共用的 Chromium，以及受信本地插件共用的 FFmpeg / FFprobe 资源矩阵和可信来源列表；插件运行不依赖托管语言运行时。
+- `server/` 是产品核心，负责配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
+- `web/` 负责管理控制台主路径。
+- `launcher/` 负责 Wails 桌面启动器、本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
+- `.deps/manifest.json` v5 固定图片渲染与抖音扫码浏览器兜底共用的 Chromium，以及受信本地插件共用的 FFmpeg / FFprobe 资源矩阵和可信来源列表；插件运行不依赖托管语言运行时。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
 
@@ -64,7 +64,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | 运行指标 | `github.com/prometheus/client_golang` + 受 admin session 保护的 `/api/system/metrics` |
 | 日志 | `log/slog` |
 | 配置解析 | `gopkg.in/yaml.v3` |
-| 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主链；必须保留的手写 SQL 登记在 `docs/engineering/manual-sql-exceptions.json` |
+| 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主路径；必须保留的手写 SQL 登记在 `docs/engineering/manual-sql-exceptions.json` |
 | Web 路由 | Vue Router `5.x` |
 | Web 全局状态 | Pinia `4.x` + Vben stores 对齐组织 |
 | Web HTTP | Vben request 风格封装 + RayleaBot 鉴权 / 错误语义适配 |
@@ -79,7 +79,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
 | 插件构建 | `raylea-plugin inspect/pack/build-go` 统一检查、通用原生打包和 Go 构建；输出 artifact v2 单根目录 ZIP 与可选展开目录 |
 | 插件商店 | 默认使用 `RayleaBot/plugin-catalog` 的 catalog v2，并允许管理员添加自定义 HTTPS 来源；Server 持久化各来源最后一次成功目录 |
-| 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和抖音扫码浏览器回落可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
+| 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和抖音扫码浏览器兜底可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
 
 ## 默认命令
 
@@ -172,7 +172,7 @@ Web 管理面采用 `Ant Design Vue + Vue Vben Admin` 对齐方案作为正式�
 
 ## `contracts/` 作为正式来源
 
-以下边界的最终裁决不在 Markdown，而在 `contracts/`：
+以下边界的最终定义不在 Markdown，而在 `contracts/`：
 
 - 插件 manifest：`contracts/plugin-info.schema.json`
 - 插件 JSONL 协议：`contracts/plugin-protocol.schema.json`

@@ -42,7 +42,7 @@
 1. iframe 发送带一次性 nonce 的 `page.ready`。
 2. 宿主同时校验 `event.source`、精确 origin 和 nonce，创建 `MessageChannel`，通过 `host.connect` 转交一个端口。
 
-端口转交后，所有 `host.init`、设置、密钥、调度器、模板、协议目标和插件动作消息都只通过绑定端口传输。重复 nonce、错误窗口、错误 origin、旧 bridge 或继续使用 window 消息都不会获得宿主能力。
+端口转交后，所有 `host.init`、设置、密钥、调度器、模板、协议目标和插件动作消息都只通过绑定端口传输。重复 nonce、错误窗口、错误 origin、旧 bridge 或继续使用 window 消息都无法获得宿主能力。
 
 `host.init` 只包含：
 

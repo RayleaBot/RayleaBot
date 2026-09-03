@@ -48,7 +48,7 @@ Launcher 继续提供：
 - 安装包下载到 `cache/downloads/runtime/`，运行环境解压到 `.deps/store/<resource-id>/<version>/`。
 - 图片渲染 Chromium 可使用已准备的 `.deps` 浏览器、系统 Chrome / Chromium / Edge，或通过 `render.browser_path` 显式指定。
 
-## 当前边界
+## 当前限制
 
 - 当前恢复摘要保留现有人工确认历史窗口，不额外建立独立长历史资源。
 - 不兼容插件可保持禁用并等待人工处理；恢复不会为了让旧包运行而改写包内容，也不会删除其持久化数据。

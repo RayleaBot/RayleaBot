@@ -7,7 +7,7 @@
 - Web 管理面采用 `Ant Design Vue 4.2.6 + Vue Vben Admin 5.7.0` 对齐方案。
 - 实现范围固定在 `web/` 单应用内，不拆成官方整仓 `monorepo` 或 `turbo` 结构。
 - 对外 HTTP API、WebSocket 事件、错误码、配置 schema 和外部类型保持不变。
-- HTTP、WebSocket、会话和错误信封继续复用现有 RayleaBot 语义，不引入第二套状态源。
+- HTTP、WebSocket、会话和错误信封继续复用现有 RayleaBot 语义，不引入第二套状态来源。
 
 ## Contract Audit
 
@@ -18,14 +18,14 @@
   - `contracts/config.user.schema.json`
   - `contracts/plugin-info.schema.json`
   - `contracts/plugin-protocol.schema.json`
-- 后续若需要新的管理读取面、菜单资源或鉴权字段，继续按 contract-first 处理。
+- 后续若需要新的管理读取接口、菜单资源或鉴权字段，继续按 contract-first 处理。
 
 ## 当前工程落点
 
 - 组件层统一使用 Ant Design Vue。
 - 页面壳、菜单、页签、面包屑、主题偏好和工作区行为按 Vben 风格组织。
 - 现有业务语义保留在 `stores/`、`lib/`、`views/` 与 `components/` 内，不重定义后端 contract。
-- `AppPage` 统一标题、说明、状态、主操作、工具栏、内容宽度和全高工作区；`AppCard` 只承载真实独立表面或无阴影分区。
+- `AppPage` 统一标题、说明、状态、主操作、工具栏、内容宽度和全高工作区；`AppCard` 只包含真实独立表面或无阴影分区。
 - `AppStatusTag`、`RetryPanel`、`AppEmptyState`、`ManagementContextActions`、共享日志筛选与详情抽屉、模板预览工作区作为正式业务组件。
 - 不保留统计卡组件、彩色侧边条、全局卡片悬停和页面级自由视觉参数。
 
@@ -93,7 +93,7 @@
 - 样式系统采用 Ant Design Vue tokens、Tailwind CSS 4、SCSS 和 CSS Variables。
 - 样式入口为 `src/main.ts` 引入的 `@/styles/tailwind.css` 与 `@/styles/main.scss`；生成主题 token 经 `styles/_tokens.scss` 转发的 `theme-tokens.generated` 消费。
 - `system`、`light`、`dark` 主题通过同一语义映射生成 Ant Design tokens 与 CSS variables；系统主题变化只影响 `system` 模式。
-- 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回落为中性。
+- 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回退为中性。
 - 表单、表格、弹窗、抽屉、空态、骨架屏、标签和消息提示统一使用 Ant Design Vue 对应组件。
 - 普通业务列表在窄屏使用摘要行；只有兼容矩阵、代码和技术字段允许局部横向滚动。
 - 不保留 `element-plus`、`ElMessage` 和 `.el-*` 样式选择器。
@@ -110,7 +110,7 @@
 - 不新增平行 HTTP client、WebSocket client、状态管理或组件系统。
 - 不在前端发明 contract 外字段、状态名或错误码。
 - 不通过解析日志推断真实状态。
-- 不把 Web 改成 Launcher 的子状态源。
+- 不把 Web 改成 Launcher 的子状态来源。
 
 ## 官方参考
 

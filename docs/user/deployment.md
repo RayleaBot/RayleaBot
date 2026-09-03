@@ -26,7 +26,7 @@ Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Mi
 
 ## 运行根目录
 
-运行根承载：
+运行根目录包含：
 
 - `config/`：默认配置和用户配置；
 - `data/`：SQLite 状态库和插件业务数据；

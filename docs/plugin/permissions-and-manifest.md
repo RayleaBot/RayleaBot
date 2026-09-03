@@ -26,7 +26,7 @@
 | `management_ui` | 单一 UI 入口及页面 ID/标签 |
 | `webhooks` | 宿主启动时注册的静态 webhook |
 
-插件运行时只要求 artifact 提供当前平台原生可执行文件，不绑定实现语言。插件角色不写入 manifest；Server 根据安装来源投影 `official`、`community` 或 `development`。
+插件运行时只要求 artifact 提供当前平台原生可执行文件，不绑定实现语言。插件角色不写入 manifest；Server 根据安装来源判定为 `official`、`community` 或 `development`。
 
 ## 权限模型
 
@@ -89,7 +89,7 @@
 
 - `exact`：静态 `names`，首项是主触发词，其余项是别名。
 - `pattern`：Go regexp 规则。
-- `setting`：从 `default_config` 与保存配置的 `settings_key` 投影实际触发词。
+- `setting`：从 `default_config` 与保存配置的 `settings_key` 推导实际触发词。
 
 `command_groups[].commands` 只能引用存在的命令 ID。帮助菜单从命令和分组生成；`help` 只提供标题与摘要，不能声明没有对应命令的任意项目。
 
@@ -99,7 +99,7 @@
 
 `webhooks` 的每项声明包含稳定 `id`、路由、鉴权策略、请求头、secret 引用、正文上限和重放保护。宿主从有效 manifest 自动注册 `POST /api/webhooks/{plugin_id}/{route}`，完成来源、鉴权和重放检查后投递 `webhook.received`。
 
-插件通过 `event.raw_payload` 决定是否接收已校验请求的原始正文投影。运行时不能新增或修改 webhook 路由。
+插件通过 `event.raw_payload` 决定是否接收已校验请求的原始正文。运行时不能新增或修改 webhook 路由。
 
 ## 模板与管理页
 
