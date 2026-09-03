@@ -30,7 +30,7 @@ RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管�
 - 架构、状态模型、事件模型与跨层边界：`docs/architecture/`
 - 用户操作与管理面：`docs/user/`
 - 产品目标、范围、顶层架构与路线图：`docs/RayleaBot机器人项目规划.md`
-- 当前正式 execution plan 默认以最新版本的 `docs/execution-plan-v*.md` 为准；若用户明确指定，按指定文件执行，并在完成后回写对应文件。
+- 执行计划按需以 `docs/execution-plan-v*.md` 建立在 `docs/`，执行期按最新版本计划或用户指定文件执行；版本发布后，计划整理为 `docs/CHANGELOGS/` 归档条目。
 
 ## Read First
 

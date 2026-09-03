@@ -22,7 +22,7 @@
 ## Sync Rules
 
 - 执行计划、README、用户文档和工程文档都要与当前正式范围一致。
-- 默认使用最新 `docs/execution-plan-v*.md`；若文档自身明确指定固定版本，则按该文档规则执行。
+- 执行期按当时最新的 `docs/execution-plan-v*.md` 同步；已交付版本以 `docs/CHANGELOGS/` 归档为准。
 - 当 contract 或正式行为变化影响文档时，同轮修正对应文档，不把文档拖到后续批次。
 - 若文档与 `contracts/` 冲突，以 `contracts/` 为准并同步修正文案。
 

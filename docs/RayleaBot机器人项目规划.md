@@ -112,4 +112,4 @@ flowchart LR
 | [`release/`](./release/README.md) | 发布信任、产物、更新、回滚与验收 |
 | [`dev/`](./dev/README.md) | 仓库协作、诊断和文本资源 |
 
-当前实施状态见 [`execution-plan-v0.3.md`](./execution-plan-v0.3.md)，已发布版本记录见 [`CHANGELOGS/`](./CHANGELOGS/)。固定版本线见 [`engineering/baseline.md`](./engineering/baseline.md)。
+已发布版本记录见 [`CHANGELOGS/`](./CHANGELOGS/)。固定版本线见 [`engineering/baseline.md`](./engineering/baseline.md)。

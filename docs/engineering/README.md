@@ -29,7 +29,6 @@
 | [implementation-order.md](./implementation-order.md) | 长期依赖顺序、状态归属与跨层边界 |
 | [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
 | [web-admin-baseline.md](./web-admin-baseline.md) | Web 管理面 Ant Design Vue + Vue Vben Admin 工程基线 |
-| [`../execution-plan-v0.3.md`](../execution-plan-v0.3.md) | 当前执行计划 |
 | [`../CHANGELOGS/`](../CHANGELOGS/README.md) | 历史版本能力归档 |
 
 ## 维护规则

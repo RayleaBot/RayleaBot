@@ -1,6 +1,6 @@
 # Implementation Order
 
-本文档定义长期依赖顺序和跨层边界。版本范围与完成状态见 [`../execution-plan-v0.3.md`](../execution-plan-v0.3.md)。
+本文档定义长期依赖顺序和跨层边界。已交付版本的完成状态见 [`../CHANGELOGS/`](../CHANGELOGS/README.md)。
 
 ## 1. 冻结正式契约
 

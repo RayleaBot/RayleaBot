@@ -8,10 +8,12 @@
 | --- | --- | --- |
 | v0.1 | [v0.1.md](./v0.1.md) | 单实例基线、OneBot11 reverse WebSocket、插件运行时、管理面、渲染服务、恢复与发布基线 |
 | v0.2 | [v0.2.md](./v0.2.md) | OneBot11 完整传输能力与兼容矩阵、在线模板编辑器、Web 管理面 Vben 对齐、Launcher 收口 |
+| v0.3 | [v0.3.md](./v0.3.md) | 管理治理、插件信任与分发、Go artifact 运行时、自定义管理页、更新信任与事务安装 |
+| v0.4 | [v0.4.md](./v0.4.md) | 插件合同纪元升级（manifest v3 / protocol v2 / artifact v2 / bridge v3）、统一开发工具、插件商店收敛与来源管理 |
 
 ## 范围
 
-- 当前正式执行计划见 [`../execution-plan-v0.3.md`](../execution-plan-v0.3.md)。
+- 已交付版本的正式范围以本目录归档为准；执行期计划按需在 `docs/` 建立。
 - 工程基线、目录职责、固定版本线见 [`../engineering/baseline.md`](../engineering/baseline.md)。
 - 长期依赖顺序与实现边界见 [`../engineering/implementation-order.md`](../engineering/implementation-order.md)。
 - 对外接口、错误码、release metadata 以 `contracts/` 为准。
