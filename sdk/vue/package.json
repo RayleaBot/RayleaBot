@@ -13,7 +13,7 @@
   },
   "scripts": {
     "typecheck": "vue-tsc --noEmit",
-    "build": "tsc --emitDeclarationOnly",
+    "build": "tsc -p tsconfig.build.json",
     "test": "node ../../scripts/run-vitest.mjs run"
   },
   "peerDependencies": {
