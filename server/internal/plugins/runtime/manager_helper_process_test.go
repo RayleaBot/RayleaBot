@@ -91,6 +91,8 @@ func helperConsumeShutdown(scanner *bufio.Scanner, code int) {
 	os.Exit(0)
 }
 
+// Protocol-violation scenarios wait for the manager to close stdin or stop the
+// process, so an early exit cannot turn the violation into plugin.internal_error.
 func helperDrainAndExit(scanner *bufio.Scanner, code int) {
 	for scanner.Scan() {
 	}

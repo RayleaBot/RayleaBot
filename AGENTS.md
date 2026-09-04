@@ -1,102 +1,50 @@
 # RayleaBot Repository Guide
 
-## Project
+RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托管聊天机器人框架。
+本文件只保留仓库级约束；进入具体目录后读取就近的 `AGENTS.md`。
 
-RayleaBot 是一个面向个人开发者和 GitHub 开源协作者的自托管聊天机器人框架，包含 `server/`、`web/`、`launcher/`、`contracts/` 等子工程。
-本文件只保留仓库级、长期有效的硬规则。进入具体目录后，需要继续遵守该目录就近的 `AGENTS.md`。
+## Instruction Scope
 
-## Instruction Order
-
-- 用户当前请求定义本轮目标和交付范围。
-- `AGENTS.md` 按仓库根到当前目录逐层叠加，越近越优先；局部文件只能补充或收窄规则，不能弱化根规则。
-- Claude 通过 `CLAUDE.md` 导入 `AGENTS.md`；有局部 `AGENTS.md` 的目录提供同级 `CLAUDE.md` bridge。
-- 可复用工作流放在 `.agents/skills/`；一次性任务要求以用户当前请求为准。
+- 用户当前请求定义目标和交付范围。
+- 根到局部的 AGENTS 逐层叠加；局部规则补充或收窄根规则。
+- 每份 AGENTS 由同级 `CLAUDE.md` 导入，Claude 专属说明留在 bridge 中。
+- 项目 skill 位于 `.agents/skills/`，按任务需要使用。
 
 ## Hard Rules
 
-- Contract-first: 触及 HTTP / WebSocket / schema / errors / events / CLI / release metadata，先改 `contracts/`，再改实现。
-- Single source of truth: 状态名、错误码、事件名、字段名、配置键名只维护一套正式语义。`contracts/` 是对外边界的唯一正式来源；实现、README、fixtures、examples 都不能反向裁决它。
-- Companion updates: 涉及协议、schema、状态机、配置、数据库结构、插件安装流程、渲染输入输出、Web API、WebSocket、错误码或迁移的改动，合并前同步实现代码、contract、tests、fixtures/examples、必要的 docs。
-- Frozen stack: 不新增平行技术栈，不升级冻结版本线，除非任务明确要求并同步 baseline、lockfile、CI 与发布文档。
-- Secrets: 不在配置响应、fixtures、examples、logs、docs、测试快照中暴露真实 token、secret、凭据。
-- Shared mutable state: 运行期可被多协程/多请求读写的共享状态必须有并发保护（原子快照或锁），不得依赖"碰巧不并发"。
-- Minimal verification: 完成前运行能证明本次改动正确性的最小验证。只有 exit code 不足以证明结果时，继续检查目标产物、生成文件或运行时效果是否真实存在。
+- `contracts/` 定义对外正式语义；实现、生成物、README、fixtures 和 examples 不得反向覆盖它。
+- 新增或改变对外接口、协议、schema、状态、错误码、事件、CLI 或发布元数据的正式语义时，先更新对应契约，再同步受影响实现。修复实现以符合现有契约时，直接修实现并按风险验证。
+- 按实际影响更新实现、测试、fixtures、examples、生成物和文档，不要求无关文件制造 diff。契约变更合并前，引用的样例和必要验证必须齐备。
+- 优先搜索现有实现并复用；新依赖须说明必要性，不引入平行技术栈。不升级冻结版本线，除非任务明确要求并同步 baseline、工程文件、lockfile、CI 与发布说明。
+- 不在配置响应、fixtures、examples、日志、文档或测试快照中暴露真实凭据。
+- 可能并发读写的共享可变状态必须由原子快照或锁保护。
+- 完成前运行能证明本次改动正确性的最小验证；生成、构建和运行任务还需确认预期产物或效果。
 
 ## Source of Truth
 
-- 对外接口、schema、错误码、事件、CLI、发布元数据：`contracts/`
-- 工程基线、固定版本线、默认命令：`docs/engineering/baseline.md`
-- 长期依赖顺序与实现边界：`docs/engineering/implementation-order.md`
-- 架构、状态模型、事件模型与跨层边界：`docs/architecture/`
-- 用户操作与管理面：`docs/user/`
-- 产品目标、范围、顶层架构与路线图：`docs/RayleaBot机器人项目规划.md`
-- 执行计划按需以 `docs/execution-plan-v*.md` 建立在 `docs/`，执行期按最新版本计划或用户指定文件执行；版本发布后，计划整理为 `docs/CHANGELOGS/` 归档条目。
+- 对外接口与协议：`contracts/README.md` 及对应契约。
+- 工具链、固定版本线与默认命令：`docs/engineering/baseline.md` 和对应工程脚本。
+- 长期依赖顺序与跨层边界：`docs/engineering/implementation-order.md`、`docs/architecture/`。
+- 产品目标与范围：`docs/RayleaBot机器人项目规划.md`。
+- 用户操作与管理面：`docs/user/`。
 
-## Read First
+## Working Entrypoints
 
-- 修改服务端：`server/README.md`、`server/AGENTS.md`、相关 contracts/docs。
-- 修改 Web：`web/AGENTS.md`、`web/package.json`、相关 generated types 与 contracts。
-- 修改 Launcher：`launcher/AGENTS.md`、`launcher/package.json`、`launcher/go.mod`、`launcher/src/renderer/bindings/`、相关 generated types 与 contracts。
-- 修改 contract：`contracts/AGENTS.md`、`contracts/README.md`、对应 fixtures/examples/tests/docs。
-- 修改文档：`docs/AGENTS.md` 与 `editing-final-state-content` skill。
-- 选择依赖、框架、抽象层或复用策略：`glue-coding` skill。
-- 边界不清、跨面或复杂任务：`phase-boundary-check` skill。
-- 需要做 contract 漂移审计：`contract-audit` skill。
+- 服务端改动先读 `server/README.md`；Web 与 Launcher 改动先读各自 `package.json`，Launcher 还需读 `launcher/go.mod`。
+- 开发启动与工作区说明：`docs/dev/repo-workflow.md`。
+- 验证选择：`.agents/skills/repo-validation/SKILL.md`；既有 CI 与发布门禁见 `docs/engineering/quality-gates.md`。
 
-## Commands
+## Testing
 
-只运行能证明当前改动正确性的最小命令集；在对应子工程目录执行。Windows 上的 Bash 语法通过 `gbash -lc '<command>'` 运行，PowerShell 原生命令不使用 `cd ... &&`、`mkdir -p` 或 `$(...)`。
+- 测试对应可说明的业务、边界、错误处理、并发、兼容或历史回归风险；普通文案、样式微调、纯重命名和等价搬移不默认新增测试。
+- 在能可靠覆盖风险的最小层次断言可观察结果。允许包内测试验证内部函数的行为，避免绑定实现步骤、普通文案、无关框架行为或不稳定输入；字面值承载契约或关键分支语义时可直接断言。
 
-- Repository doctor: `make doctor`（在仓库根目录执行；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`）
-- Server build: `gbash -lc 'mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server'`
-- Server test: `go test ./...`
-- Web typecheck: `pnpm run typecheck`
-- Web test: `pnpm test`
-- Web build: `pnpm build`
-- Launcher typecheck: `pnpm run typecheck`
-- Launcher test: `pnpm test`
-- Launcher build: `pnpm build`
-- Agent docs check: `node scripts/check-agent-docs.mjs`
+## Instruction Maintenance
 
-## Skills
+- 同一规则在最接近责任方的位置维护；改动指令时复核重复、冲突、引用和检查脚本结果。
+- 重复问题优先修代码、测试或就近说明；只有跨任务反复出现且无法直接发现的稳定约束才进入 AGENTS。原因消失或已有可靠实现约束时，删除对应规则。
 
-- `contract-audit`: contract、fixture、generated type 或 API drift 检查。
-- `glue-coding`: 跨面设计、依赖选择、复用与注入策略。
-- `phase-boundary-check`: 实现边界不清或可能违反长期依赖顺序。
-- `editing-final-state-content`: 文档、注释、用户可见文本保持最终态。
-- `agent-instruction-maintenance`: 修改 AGENTS/CLAUDE/skills。
-- `repo-validation`: 选择最小验证命令（含 -race、架构测试触发条件）和 drift 检查。
-- `rayleabot-evidence-scan`: 只看证据的 bug 扫描、性能观察、skill 推荐与 automation memory 更新。
-- `impeccable`: 前端界面设计、评审与打磨流程。
+## Git and Review
 
-## Maintaining Agent Instructions
-
-- 根文件短、稳、强约束。
-- 目录专属规则放最近的 `AGENTS.md`。
-- 多步骤流程放 `.agents/skills/`。
-- 不引用不存在路径。
-- 不把当前能力清单写进 AGENTS。
-- 同一类错误、review feedback 或误读重复出现时，把修正写入最近的 `AGENTS.md` 或对应 skill。
-
-## Git and Review Hygiene
-
-- 提交信息遵守 Conventional Commits：`<type>[optional scope]: <description>`
-- 推荐 scope：`server`、`web`、`launcher`、`contracts`、`fixtures`、`docs`、`sdk`、`release`
-- 一个 commit 只表达一个逻辑变更；跨 contract / implementation / docs / CI 的混合改动，只有在它们共同冻结同一表面时才放进同一个 commit
-- subject 说明具体改动，不写进度汇报式标题
-- Windows worktree 若触发 dubious ownership，只读 Git 检查使用 `git -c safe.directory=<repo> ...`，不要为临时扫描改全局 Git 配置。
-
-## Delete Rules
-
-- 删除任何文件或目录时，禁止使用 PowerShell。
-
-## Test Rules
-
-- 新增测试必须有明确风险来源；纯重命名、文件搬迁、等价结构收拢、普通文案或样式微调不默认新增测试。
-- 测试聚焦业务行为、边界条件、错误处理、外部契约、历史 bug、复杂逻辑和高风险路径。
-- 不为覆盖率、简单渲染、getter/setter、常量、构造函数或普通文案写无断言价值的测试。
-- 文案只有在承载契约字段、错误码、状态语义或关键分支时才测试字面值；普通提示、按钮标签、日志短语不测字面值。
-- 不测试语言、标准库、框架、ORM、第三方库或 mock 本身；只验证本仓库代码如何使用它们并产生结果。
-- 优先断言外部可观察结果，不直接测试私有方法、内部 helper 调用或实现步骤。
-- 避免脆弱测试：大型快照、像素级样式、普通日志文本、普通文案、不稳定时间/网络/随机数；需要覆盖时使用稳定输入、mock 或明确业务断言。
-- 测试数据、fixtures、示例和日志必须脱敏，禁止写入真实 token、cookie、CK、密码或账号值。
+- 提交遵守 Conventional Commits：`<type>[optional scope]: <description>`，subject 说明具体变更。
+- 一个 commit 表达一个逻辑变更；保留无关工作区改动，只暂存核对过的相关文件或 hunks。

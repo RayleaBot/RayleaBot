@@ -1,57 +1,30 @@
 ---
 name: contract-audit
-description: 任务或 diff 触及本仓库的 contract、API、schema、状态、错误码、事件、插件 manifest/协议或发布元数据时使用，审计 contract 漂移和必需的配套更新。
+description: 评审契约一致性或改动可能改变对外语义时使用。核对正式约定、实现和受影响配套项；纯内部调整不默认启动全面契约审计。
 ---
 
 # Contract Audit
 
-本 skill 是可复用工作流，不定义项目真相。正式真相仍在 `contracts/`、根/局部 `AGENTS.md` 及其引用的工程文档中。
+从任务与 diff 定位受影响边界。读取就近 AGENTS，通过 `contracts/README.md` 和实际文件选择相关契约；不维护独立的契约数量或名称清单。
 
-## 适用场景
+## 判断变化
 
-- 用户要修改 API、schema、状态、错误码、事件名
-- 代码改动疑似影响 contract，但用户没有显式提到 contract
-- 你需要判断四件套是否满足
-- 你需要做 contract-focused review，而不是普通代码 review
+- 新增或改变对外语义：先确定并更新对应契约，再同步受影响实现。
+- 实现偏离现有约定：修复实现并按风险验证；不为迁就偏差放宽契约。
+- 内部调整且正式语义保持一致：无需契约 diff，也无需检查无关边界。
+- 目标语义不明确时先核对正式来源；仍缺少必要决定时向用户提出具体问题。
 
-## 输入
+## 核对影响
 
-- 任务描述或 diff 范围
-- 受影响的 16 个正式 boundary：
-  - backup-manifest、config.user、deps-manifest、error-codes
-  - web-api、websocket-events、cli-commands、release-manifest
-  - plugin-info、plugin-artifact、plugin-protocol
-  - plugin-store-catalog、plugin-store-signature、plugin-development-workspace
-  - plugin-management-ui、plugin-management-ui-bridge
+- 对照实际输入输出、状态迁移、错误含义、权限和资源边界，检查实现是否符合约定。字段能通过 schema 校验不代表运行时语义正确。
+- 追踪相关实现与消费者，检查测试、fixtures、examples 和文档是否仍表达同一语义。
+- 从生成脚本追踪输入与输出，只检查受影响的生成链；不能将桌面本机模型误当作服务端 API 契约。
+- 检查命名和兼容处理是否一致，不接受没有正式语义依据的别名或占位结构。
 
-## 工作流
+## 合并验收
 
-1. 先读根 `AGENTS.md` 和 `contracts/AGENTS.md`。
-2. 打开相关 contract 文件与 `contracts/README.md`。
-3. 对照对应的：
-   - 实现
-   - `fixtures/`
-   - `examples/`
-   - tests
-   - docs
-4. 逐项检查：
-   - 是否新增了 contract 之外的字段 / 状态 / 错误码 / 事件名
-   - 是否存在旧名新名并存
-   - 是否把尚未 fixture-ready 的内容提前写进正式 contract
-   - 是否缺少 fixture / example / test / doc 同步
-5. 输出审计结论和缺口清单。
+- 确认契约引用可解析、必要样例齐备，相关测试足以验证行为和失败分支。
+- 契约与 fixture 可以先后编辑；编辑中的待补项在合并前解决，不把 fixture-ready 当成开始编辑的前置条件。
+- 配套项按实际影响更新，不要求每类文件都有 diff。
 
-## 输出
-
-- 受影响 contract 清单
-- 命名漂移或 shape 漂移清单
-- 缺失的 fixture / example / test / doc 更新
-- 是否满足实现、契约、测试、示例四件套门禁
-- 如有需要，给出建议的最小 contract-first 修正顺序
-
-## 禁止
-
-- 把实现行为反向当成 contract 真相
-- 自动接受 speculative 字段
-- 在没有 fixtures / examples / tests 支撑时宣布 contract 已就绪
-- 跳过错误码、状态名、事件名的一致性检查
+报告具体来源、差异、影响与尚缺的配套验证。区分已确认的偏差、待决定的语义与未验证行为；不要仅凭结构校验通过宣布实现符合契约。

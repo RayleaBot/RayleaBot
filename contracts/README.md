@@ -273,5 +273,5 @@ Web 只读取状态并触发受信元数据检查，不下载或安装更新。W
 
 - 规划文档解释设计意图，对外接口以 `contracts/` 为准
 - 若 Markdown 与 `contracts/` 冲突，必须以 `contracts/` 为准，并在同一变更中修正文档说明
-- 任一涉及 HTTP API、WebSocket、plugin manifest、plugin protocol、release metadata、config schema、error codes 的改动，必须先更新这里，再更新实现代码、测试和示例
+- 新增或改变对外接口、协议、schema、状态、错误码、事件、CLI 或发布元数据的正式语义时，先更新对应契约，再同步受影响的实现、测试、样例、生成物和文档；修复实现以符合现有契约时，直接修实现并按风险验证
 - `fixtures/` 与 `examples/` 只能从这里派生，不能反向覆盖这里

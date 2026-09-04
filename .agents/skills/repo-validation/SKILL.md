@@ -1,56 +1,36 @@
 ---
 name: repo-validation
-description: 本仓库改动需要验证时使用。按受影响面选择最小命令集并运行，检查 contract/类型/fixture 漂移或缺失的生成物。
+description: 需要为本仓库改动选择或执行验证时使用。根据行为风险、依赖和生成输入确定最小充分检查，不因目录命中就运行全套工具链。
 ---
 
 # Repo Validation
 
-本 skill 是可复用工作流，不定义项目真相。仓库真相仍在 `contracts/`、根/局部 `AGENTS.md` 及其引用的工程文档中。
+先读就近 AGENTS、任务范围和实际 diff。命令与环境要求从对应工程脚本、`docs/engineering/baseline.md`、`docs/engineering/quality-gates.md` 和现行 CI 读取。
 
-## 适用场景
+## 按风险选择
 
-- 完成代码、contract、fixture 或文档修改后需要验证
-- 不确定该运行哪些测试、类型检查或构建命令
-- 需要确认生成物（generated types、sqlc 输出等）与 contract 一致
-- 需要检查 fixture 或 example 是否漂移出 contract 定义
+| 风险 | 对应验证 |
+| --- | --- |
+| 业务行为、边界或历史回归 | 优先运行相关已有测试；缺少能证明修复的断言时补最小用例 |
+| 类型、调用关系或入口变化 | 检查受影响类型或编译入口；现有测试已完成相关编译时不机械重复构建 |
+| 并发读写、订阅或 goroutine 生命周期 | 在支持环境运行相关包的 race 测试 |
+| 包搬移或跨包依赖 | 检查 `server/tests/architecture` 与受影响调用方 |
+| 契约、SQL 或其他生成输入 | 读取对应验证与生成脚本，核对受影响输出和消费者；SQL 变化检查 sqlc 漂移 |
+| 界面交互、鉴权或原生集成 | 选择能覆盖该路径的组件、浏览器或平台验证，不能只凭类型检查断言运行效果 |
+| 说明或指令文件 | 检查文档链接、指令结构与语义冲突；普通文案不默认新增测试 |
+| 检查脚本本身 | 用有效和无效输入验证可观察结果，确认现有 CI 入口会执行相关用例 |
 
-## 工作流
+## 执行范围
 
-1. 读取根 `AGENTS.md` 和受影响目录的局部 `AGENTS.md`。
-2. 识别改动面：
-   - `server/` → Go build + 受影响包的 Go test；外部行为或共享路径变化再扩到 `go test ./...`
-   - `server/` 触及并发路径（配置热更新、订阅广播、共享状态、goroutine 生命周期）→ 在支持 race 的环境对相关包追加 `go test -race`；Windows 仅在 `CGO_ENABLED=1` 且 C 编译器可用时执行，否则记录验证缺口并由 Linux CI/nightly 的 race job 覆盖
-   - `server/` 触及包结构、包搬移或跨包依赖 → 确认 `server/tests/architecture` 仍通过
-   - `web/` → pnpm typecheck + pnpm test + pnpm build
-   - `launcher/` → pnpm typecheck + pnpm test + pnpm build
-   - `contracts/` → 运行 `python scripts/ci/validate_contracts.py --self-test` 与 `python scripts/ci/validate_contracts.py --mode=strict`；检查 Web API/WebSocket 类型、Launcher API/Wails bindings、Server 嵌入 contracts/schema bytes、Vue SDK contract 类型，并运行 `node scripts/generate-runtime-schemas.mjs --verify`
-   - `sdk/go/` → `go test ./...`
-   - `sdk/vue/` → 分别运行 `pnpm run typecheck`、`pnpm test`、`pnpm build`
-   - `scripts/` → 脚本自测或相关 CI 验证
-   - `docs/` → 运行 `python scripts/check-doc-links.py`；修改 AGENTS、CLAUDE 或 `.agents/skills/` 时再运行 `node scripts/check-agent-docs.mjs`
-3. 运行最小命令集：
-   - 只在受影响的子工程目录执行对应命令。
-   - 不运行与本次改动无关的全量测试。
-   - 纯搬移、包合并、等价改名或普通文案调整用构建和现有相关测试证明，不新增测试。
-   - 运行 race 前先读取 `go env GOOS CGO_ENABLED CC`；不把 Windows `CGO_ENABLED=0` 下必然出现的 `go: -race requires cgo` 当作已执行验证。
-4. 检查生成物：
-   - 若 contract 变更，确认 generated types 已重新生成且一致。
-   - 若 SQL 变更，确认 `sqlc diff` 无漂移。
-   - 若 fixture/example 变更，确认它们仍只表达已冻结结构。
-5. 检查产物存在性：命令 exit 0 不足以证明成功；确认目标产物（server 的 dist 二进制、web/launcher 的 dist 构建产物、Wails 打包目录等）真实存在。
-6. 输出验证摘要。
+- 运行聚合脚本前检查它串联的命令及平台成本，按风险选择入口；局部界面调整不自动触发原生打包。
+- race 前确认 `go env GOOS CGO_ENABLED CC` 与所需编译器可用。环境不支持时记录缺口，不能把未运行的 CI 当作已覆盖。
+- 生成链依据真实输入选择；契约变化不等于所有生成物都要更新。已有输出也需核对内容与来源一致。
+- 文档链接检查使用 `python scripts/check-doc-links.py`；AGENTS、CLAUDE 或项目 skill 变化使用 `node scripts/check-agent-docs.mjs`。
+- 必要的跨包、集成或既有 CI 门禁仍须完成；最小验证不是跳过与改动有关的高风险路径。
 
-## 输出
+## 判断结果
 
-- 本次改动的最小验证命令清单
-- 生成物一致性结论
-- fixture / example / contract 漂移结论
-- 缺失产物或异常退出项清单
-
-## 禁止
-
-- 运行与改动无关的全量测试或构建以“保险起见”。
-- 把普通文案、文件搬迁或等价结构收拢误判成必须新增测试的行为变化。
-- 仅凭 exit code 0 就认定验证通过；必须确认产物存在。
-- 跳过 generated types、fixtures 或 sqlc 生成物的同步检查。
-- 把验证流程写成 `AGENTS.md` 中的长命令列表；验证策略应沉淀到本 skill，根文件只保留最小命令索引。
+- 测试检查目标用例是否实际执行、失败和跳过情况。
+- 生成、构建、打包检查预期文件的内容和本次执行结果；启动与运行任务检查目标效果，不仅看 exit code。
+- 失败后按原因修复并重跑相关检查；通过后仅在新改动或未解决风险需要时扩大范围。
+- 简要记录执行结果、产物一致性与未验证范围。结构或链接检查通过不能证明规则判断、运行时行为或发布产物正确。

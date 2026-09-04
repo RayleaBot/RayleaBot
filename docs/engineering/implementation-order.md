@@ -4,7 +4,7 @@
 
 ## 1. 固定正式契约
 
-任何新增或变更的 HTTP、WebSocket、schema、错误码、事件、插件协议、CLI 或 release metadata 必须先进入 `contracts/`。
+新增或改变 HTTP、WebSocket、schema、状态、错误码、事件、插件协议、CLI 或 release metadata 的正式语义时，先更新对应 `contracts/`，再实现受影响行为。实现修复若只是恢复现有契约约定，直接修实现并按风险验证。
 
 契约应同时固定：
 
@@ -19,13 +19,15 @@
 
 每个正式 surface 至少提供能证明关键行为的 valid、invalid 和边界样例。strict validator 必须按声明的 JSON Schema/OpenAPI 版本验证，并拒绝网络 `$ref`。
 
-契约变更同轮更新：
+契约变更按实际影响检查并更新：
 
 - fixtures 和 examples；
 - embedded schemas；
 - OpenAPI/WebSocket generated types；
 - SDK 输入输出模型；
 - drift gate。
+
+生成链以各自输入依赖为准；OpenAPI 的客户端类型与 Go service/model 的 Wails bindings 分别生成。契约与样例可以先后编辑，合并前引用须存在、样例和必要验证须齐备；不为未受影响的生成链制造 diff。
 
 ## 3. 固定状态归属与持久化语义
 

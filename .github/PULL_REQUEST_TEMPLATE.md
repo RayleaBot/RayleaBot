@@ -19,8 +19,8 @@
 
 - [ ] 已运行与改动面直接相关的最小验证（build / test / typecheck / lint）
 - [ ] 若改动 `AGENTS.md` / `CLAUDE.md` / `.agents/skills/`，已运行 `node scripts/check-agent-docs.mjs`
-- [ ] 若改动 `contracts/`（OpenAPI / WebSocket / schema），已同步检查并更新 `generated types` / `fixtures` / `examples`
-- [ ] 若改动对外接口或状态模型，已同步更新相关 tests 与 docs
+- [ ] 若对外正式语义变化，已先更新对应 contract，并按实际影响更新实现、生成物、fixtures、examples、tests 与 docs
+- [ ] 若修复实现以符合现有 contract，已核对约定并完成必要验证；未受影响的配套项无需改动
 
 ## 备注
 

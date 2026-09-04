@@ -1,56 +1,22 @@
 # Web Agent Guide
 
-先遵守根 `AGENTS.md`，本文件只补充 `web/` 目录特有、长期有效的规则。
+先遵守根 `AGENTS.md`；界面工程基线见 `docs/engineering/web-admin-baseline.md`，页面职责见 `docs/user/management-surface.md`。
 
-## Web Stack Rules
+## Interfaces and State
 
-- Web 管理面固定采用 `Ant Design Vue + Vue Vben Admin` 对齐方案、Vue Router、Pinia 和当前工程锁定版本。
-- HTTP 实现唯一入口是 `web/src/lib/http.ts`；`web/src/request/http.ts` 仅保留兼容 re-export。不要在兼容层写实现，也不要新增平行 HTTP client。
-- WebSocket 继续复用现有受控连接封装，不新增平行实时通信层。
-- OpenAPI 生成类型继续来自 `contracts/web-api.openapi.yaml`，输出到 `web/src/types/generated.ts`。
+- HTTP 实现入口是 `web/src/lib/http.ts`；`web/src/request/http.ts` 只做兼容 re-export。WebSocket 复用现有受控连接封装。
+- 服务端接口类型由 `contracts/web-api.openapi.yaml` 生成至 `web/src/types/generated.ts`。类型不足时先检查契约与生成配置，不手写第二套 API 定义。
+- 服务端是正式状态源；页面负责展示、编辑和受控跳转，不解析日志反推状态。写操作成功后优先回拉正式结果。
+- 查询参数驱动的工作区使用稳定 `viewKey`；管理面深链复用 `web/src/lib/management-links.ts`，避免重复页签和散写路由。
+- 保持既有组件、样式和布局壳，不新增第二套设计系统。
 
-## UI and State Rules
+## Errors
 
-- 服务端是正式状态源；前端负责展示、编辑和受控跳转，不解析日志反推真实状态。
-- 查询参数驱动的工作区继续使用稳定 `viewKey`，避免 query 变化拆出重复页签。
-- 管理面内部深链优先复用现有 helper，如 `web/src/lib/management-links.ts`，不要在页面内散写路由对象。
-- 页面写操作成功后优先回拉正式结果，不拼装本地假状态。
-- Web 只消费 generated types，不手写第二套 API 类型。若 generated types 不足，先修正 contract 或生成配置，不在 Web 侧补平行类型定义。
+- 错误分支依赖稳定 `code` 与结构化 `details`，不比对 `message`。
+- 网络、服务端和鉴权错误复用统一处理策略；同一错误码保持一致语义，不按接口路径硬编码另一套解释。
 
-## Error Handling Rules
+## Browser Verification
 
-- 错误展示依赖稳定的 `code` 和结构化 `details`，不靠 `message` 字符串做分支判断。
-- 同一错误码在不同接口中的展示行为保持一致，不根据接口路径硬编码差异化文案。
-- 网络层错误、服务端错误和鉴权错误分别使用统一处理策略，不在单个页面内重复实现。
-- 错误提示文案优先从 contract 或 docs 中复用，不随意发明新描述。
-
-## Change Rules
-
-- 新页面、新 query、状态名、错误展示或接口字段必须先与 `contracts/`、正式 docs 和现有页面语义对齐。
-- 若 OpenAPI 改动影响 Web 类型，保持 `pnpm generate:types` 后生成文件一致。
-- 保持当前样式体系、组件体系和布局壳，不引入新的前端框架或第二套设计系统。
-
-## Verification
-
-- 类型检查：`pnpm run typecheck`
-- 单元测试：`pnpm test`
-- E2E：`pnpm test:e2e`
-- 构建：`pnpm build`
-
-### Browser Verification for Protected Pages
-
-- 受保护页面包括管理面路由；浏览器验证这些页面时必须使用有效管理会话。
-- Playwright E2E 复用 `web/tests/e2e/web-ui.spec.ts` 的登录路径：打开 `/login`，管理员标识使用 `admin`，mock 后端密钥使用 `fixture-only-secret`。
-- Codex in-app Browser 手动验证受保护页面时，先打开 `/login` 完成登录，再打开目标页面。
-- 当前 URL 为 `/login?redirect=...` 时，当前截图或快照只证明会话缺失；完成登录后重新打开目标页面。
-- 使用 mock backend 时，通过正式登录接口取得会话；不要只写 `localStorage`，否则后端 token 状态不同步。
-- 使用真实后端时，只使用用户本地已有凭据，不在代码、文档、日志或提交信息中记录真实 secret、token、凭据。
-- 视觉验证不得修改 router guard、session store 或 API 鉴权。
-- 不提交临时浏览器日志、快照、trace、dev-server 日志。
-
-## Consult Before Major Changes
-
-- 工程基线与固定栈：`docs/engineering/baseline.md`
-- Web 管理面工程基线：`docs/engineering/web-admin-baseline.md`
-- 管理面页面职责：`docs/user/management-surface.md`
-- 正式接口与类型来源：`contracts/README.md`
+- 受保护页面使用有效管理会话验证，登录方法参考 `web/tests/e2e/web-ui.spec.ts` 的 helper；登录页截图不能证明目标页面正常。
+- mock 后端也通过正式登录接口建立会话，不能只写本地存储；真实后端使用已授权的本地凭据。
+- 不为视觉验证修改 router guard、session store 或 API 鉴权；临时日志、快照与 trace 不进入提交。
