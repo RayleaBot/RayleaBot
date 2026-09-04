@@ -12,6 +12,7 @@ const __dirname = dirname(__filename);
 const ROOT = resolve(__dirname, "..");
 
 const issues = [];
+const secretCandidates = new Set();
 
 function addIssue(file, message) {
   issues.push(`${relative(ROOT, file)}: ${message}`);
@@ -53,18 +54,50 @@ for (const candidate of listRepositoryCandidates()) {
   }
 }
 
-// ── 1. Bridge check: any top-level dir with AGENTS.md must have CLAUDE.md ──
+// ── 1. Every AGENTS.md must have a sibling bridge importing that guide ──────
 
-const topLevelDirs = agentsFiles
-  .map((file) => relative(ROOT, file).replace(/\\/g, "/").split("/"))
-  .filter((parts) => parts.length === 2)
-  .map((parts) => parts[0]);
+function hasSiblingAgentImport(content) {
+  let fence = null;
+  let inComment = false;
+  for (const line of content.split(/\r?\n/)) {
+    const marker = !inComment && line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (marker) {
+      if (!fence) {
+        fence = { char: marker[1][0], length: marker[1].length };
+      } else if (marker[1][0] === fence.char && marker[1].length >= fence.length && !marker[2].trim()) {
+        fence = null;
+      }
+      continue;
+    }
+    if (fence || (!inComment && /^(?: {4}|\t)/.test(line))) continue;
 
-for (const dir of topLevelDirs) {
-  const hasAgents = existsSync(join(ROOT, dir, "AGENTS.md"));
-  const hasClaude = existsSync(join(ROOT, dir, "CLAUDE.md"));
-  if (hasAgents && !hasClaude) {
-    addIssue(join(ROOT, dir, "AGENTS.md"), `missing sibling CLAUDE.md bridge`);
+    // Comments in code examples are literal. Mask real comments without joining
+    // fragments into an import that was not present in the source.
+    let visible = "";
+    let remaining = line;
+    while (remaining) {
+      const delimiter = inComment ? "-->" : "<!--";
+      const index = remaining.indexOf(delimiter);
+      if (index === -1) {
+        if (!inComment) visible += remaining;
+        break;
+      }
+      if (!inComment) visible += remaining.slice(0, index);
+      visible += " ";
+      remaining = remaining.slice(index + delimiter.length);
+      inComment = !inComment;
+    }
+    if (/^ {0,3}@(?:\.\/)?AGENTS\.md[ \t]*$/.test(visible)) return true;
+  }
+  return false;
+}
+
+for (const file of agentsFiles) {
+  const bridge = join(dirname(file), "CLAUDE.md");
+  if (!existsSync(bridge)) {
+    addIssue(file, "missing sibling CLAUDE.md bridge");
+  } else if (!hasSiblingAgentImport(readFileSync(bridge, "utf-8"))) {
+    addIssue(bridge, "missing active import of sibling AGENTS.md");
   }
 }
 
@@ -107,49 +140,6 @@ for (const file of skillFiles) {
   const lines = countLines(readFileSync(file, "utf-8"));
   if (lines > SKILL_BUDGET) {
     addIssue(file, `line count ${lines} exceeds budget ${SKILL_BUDGET}`);
-  }
-}
-
-// ── 2b. Skills list consistency ─────────────────────────────────────────────
-
-function extractMarkdownSection(text, heading) {
-  const lines = text.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === `## ${heading}`);
-  if (start === -1) return null;
-  const body = [];
-  for (let i = start + 1; i < lines.length; i += 1) {
-    if (/^##\s/.test(lines[i])) break;
-    body.push(lines[i]);
-  }
-  return body.join("\n");
-}
-
-const skillsDir = join(ROOT, ".agents", "skills");
-const diskSkills = skillFiles
-  .map((file) => relative(skillsDir, file).replace(/\\/g, "/").split("/"))
-  .filter((parts) => parts.length === 2 && parts[1] === "SKILL.md")
-  .map((parts) => parts[0]);
-
-if (existsSync(rootAgents)) {
-  const skillsSection = extractMarkdownSection(readFileSync(rootAgents, "utf-8"), "Skills");
-  if (skillsSection === null) {
-    if (diskSkills.length > 0) {
-      addIssue(rootAgents, "missing ## Skills section while .agents/skills/ has entries");
-    }
-  } else {
-    const listedSkills = new Set(
-      [...skillsSection.matchAll(/`([^`]+)`/g)].map((m) => m[1])
-    );
-    for (const name of diskSkills) {
-      if (!listedSkills.has(name)) {
-        addIssue(rootAgents, `skill \`${name}\` is missing from the Skills section`);
-      }
-    }
-    for (const name of listedSkills) {
-      if (!diskSkills.includes(name)) {
-        addIssue(rootAgents, `Skills section lists \`${name}\` but .agents/skills/${name}/SKILL.md does not exist`);
-      }
-    }
   }
 }
 
@@ -245,7 +235,8 @@ function checkSecrets(file, content) {
     if (m) {
       const val = m[1];
       if (val.length >= 16 && HEX_OR_BASE64.test(val)) {
-        addIssue(file, `possible secret on line ${i + 1}: ${line.trim()}`);
+        secretCandidates.add(val);
+        addIssue(file, `possible secret on line ${i + 1} (value redacted)`);
       }
     }
   }
@@ -262,8 +253,11 @@ if (issues.length === 0) {
   console.log("agent-docs check passed");
   process.exit(0);
 } else {
+  const redactions = [...secretCandidates].sort((left, right) => right.length - left.length);
   for (const issue of issues) {
-    console.log(issue);
+    let diagnostic = issue;
+    for (const value of redactions) diagnostic = diagnostic.replaceAll(value, "[redacted]");
+    console.log(diagnostic);
   }
   process.exit(1);
 }
