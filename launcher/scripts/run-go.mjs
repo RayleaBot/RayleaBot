@@ -1,7 +1,9 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { promisify } from "node:util";
+import { createBuildCache } from "../../scripts/dev-build-cache.mjs";
 import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
 import { createProcessInvocation } from "./process-invocation.mjs";
 
@@ -12,11 +14,11 @@ if (!wailsVersionMatch) {
   throw new Error("launcher/go.mod does not declare github.com/wailsapp/wails/v3");
 }
 export const wailsVersion = wailsVersionMatch[1];
+export const wailsModuleQuery = `github.com/wailsapp/wails/v3@${wailsVersion}`;
+const execute = promisify(execFile);
 
 export function wailsGenerateBindingsArgs(platform = process.platform) {
   const args = [
-    "run",
-    `github.com/wailsapp/wails/v3/cmd/wails3@${wailsVersion}`,
     "generate",
     "bindings",
     "-clean=true",
@@ -32,9 +34,42 @@ export const WAILS_GENERATE_BINDINGS_ARGS = wailsGenerateBindingsArgs();
 
 export async function runGo(args) {
   const invocation = createProcessInvocation("go", args);
-  const child = spawn(invocation.command, invocation.args, {
-    cwd: root,
-    env: { ...process.env, GOWORK: "off" },
+  return runProcess(invocation.command, invocation.args);
+}
+
+export async function runWails(args) {
+  const { command: go } = createProcessInvocation("go", []);
+  const options = { cwd: root, env: { ...process.env, GOWORK: "off" } };
+  const [moduleResult, toolchainResult] = await Promise.all([
+    execute(go, ["mod", "download", "-json", wailsModuleQuery], options),
+    execute(go, ["env", "-json", "GOROOT", "GOVERSION", "GOHOSTOS", "GOHOSTARCH", "CGO_ENABLED", "GOFLAGS"], options),
+  ]);
+  const module = JSON.parse(moduleResult.stdout);
+  const toolchain = JSON.parse(toolchainResult.stdout);
+  const executableSuffix = toolchain.GOHOSTOS === "windows" ? ".exe" : "";
+  const compiler = path.join(toolchain.GOROOT, "bin", "go" + executableSuffix);
+  const env = { ...options.env, GOOS: toolchain.GOHOSTOS, GOARCH: toolchain.GOHOSTARCH };
+  const cacheDirectory = path.join(root, "..", ".tmp", "dev-cache", "wails-cli");
+  const executable = path.join(cacheDirectory, "wails3" + executableSuffix);
+  await fs.promises.mkdir(cacheDirectory, { recursive: true });
+  await createBuildCache(cacheDirectory).run("wails-cli", {
+    inputs: async () => [import.meta.filename, module.GoMod, path.join(module.Dir, "go.sum")],
+    identity: { ...toolchain, module: wailsModuleQuery, sum: module.Sum },
+    outputs: [executable],
+    build: async () => {
+      const code = await runProcess(compiler, ["build", "-mod=readonly", "-buildvcs=false", "-o", executable, "./cmd/wails3"], {
+        cwd: module.Dir, env,
+      });
+      if (code !== 0) throw new Error(`Wails CLI build exited with code ${code}`);
+    },
+  });
+  return runProcess(executable, args, { env });
+}
+
+function runProcess(command, args, { cwd = root, env = { ...process.env, GOWORK: "off" } } = {}) {
+  const child = spawn(command, args, {
+    cwd,
+    env,
     stdio: "inherit",
     shell: false,
   });
@@ -46,10 +81,12 @@ export async function runGo(args) {
 
 if (path.resolve(process.argv[1] ?? "") === import.meta.filename) {
   const command = process.argv[2] ?? "";
-  const args = command === "generate:wails"
-    ? WAILS_GENERATE_BINDINGS_ARGS
-    : command.endsWith(":platform")
+  if (command === "generate:wails") {
+    process.exitCode = await runWails(WAILS_GENERATE_BINDINGS_ARGS);
+  } else {
+    const args = command.endsWith(":platform")
       ? createLauncherGoArgs(command.slice(0, -":platform".length), process.argv.slice(3))
       : process.argv.slice(2);
-  process.exitCode = await runGo(args);
+    process.exitCode = await runGo(args);
+  }
 }

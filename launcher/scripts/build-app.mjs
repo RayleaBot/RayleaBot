@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import process from "node:process";
-import { runGo, WAILS_GENERATE_BINDINGS_ARGS } from "./run-go.mjs";
+import { runWails, WAILS_GENERATE_BINDINGS_ARGS } from "./run-go.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -21,7 +21,7 @@ async function run(args) {
   }
 }
 
-const generateExitCode = await runGo(WAILS_GENERATE_BINDINGS_ARGS);
+const generateExitCode = await runWails(WAILS_GENERATE_BINDINGS_ARGS);
 if (generateExitCode !== 0) {
   throw new Error(`Wails binding generation exited with code ${generateExitCode}`);
 }

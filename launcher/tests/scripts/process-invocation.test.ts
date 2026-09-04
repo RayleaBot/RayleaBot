@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
-import { wailsGenerateBindingsArgs } from "../../scripts/run-go.mjs";
+import { wailsGenerateBindingsArgs, wailsModuleQuery } from "../../scripts/run-go.mjs";
 
 describe("launcher process invocation", () => {
   test("uses the trusted Go executable handed off by the root launcher", () => {
@@ -56,9 +56,8 @@ describe("launcher process invocation", () => {
       fs.readFileSync(path.resolve(import.meta.dirname, "../../package.json"), "utf8"),
     );
     expect(version).toBeTruthy();
-    expect(wailsGenerateBindingsArgs("win32")).toContain(
-      `github.com/wailsapp/wails/v3/cmd/wails3@${version}`,
-    );
+    expect(wailsModuleQuery).toBe(`github.com/wailsapp/wails/v3@${version}`);
+    expect(wailsGenerateBindingsArgs("win32").slice(0, 2)).toEqual(["generate", "bindings"]);
     expect(packageMetadata.dependencies["@wailsio/runtime"]).toBe(version?.slice(1));
   });
 });

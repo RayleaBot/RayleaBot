@@ -4,7 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { createProcessInvocation } from "./process-invocation.mjs";
 import { resolveMacBundleVersion } from "./package-metadata.mjs";
-import { wailsVersion } from "./run-go.mjs";
+import { runWails } from "./run-go.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const packageRoot = path.join(root, "dist", "package");
@@ -31,7 +31,8 @@ await run(process.execPath, ["scripts/build-app.mjs"]);
 if (process.platform === "win32") {
   const arch = execFileSync("go", ["env", "GOARCH"], { cwd: root, env: { ...process.env, GOWORK: "off" }, encoding: "utf8" }).trim();
   if (!["amd64", "arm64", "386"].includes(arch)) throw new Error(`Unsupported Windows architecture: ${arch}`);
-  await run("go", ["run", `github.com/wailsapp/wails/v3/cmd/wails3@${wailsVersion}`, "generate", "syso", "-manifest", "assets/windows.manifest", "-icon", "assets/icon.ico", "-arch", arch, "-out", `rsrc_windows_${arch}.syso`]);
+  const code = await runWails(["generate", "syso", "-manifest", "assets/windows.manifest", "-icon", "assets/icon.ico", "-arch", arch, "-out", `rsrc_windows_${arch}.syso`]);
+  if (code !== 0) throw new Error(`Wails resource generation exited with code ${code}`);
 }
 
 let output;
