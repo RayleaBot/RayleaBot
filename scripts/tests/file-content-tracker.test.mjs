@@ -24,6 +24,7 @@ test("distinguishes file content changes from metadata-only events", async (t) =
   assert.equal(contentReads, 1);
 
   await fs.writeFile(sourcePath, "package source\n", "utf8");
+  await fs.utimes(sourcePath, 1, 1);
   assert.equal(await tracker.hasChanged(sourcePath), false);
   assert.equal(contentReads, 2);
 

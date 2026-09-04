@@ -45,7 +45,7 @@
 
 | `RAYLEA_START_INSTALL` | 行为 |
 | --- | --- |
-| `auto` | `node_modules` 缺失或 lockfile 更新时间较新时安装依赖 |
+| `auto` | 依赖输入内容、工具链变化或安装产物缺失时安装依赖 |
 | `always` | 每次启动安装依赖 |
 | `skip` | 跳过依赖安装 |
 
@@ -58,3 +58,19 @@
 - Server 热重载输出位于 `logs/dev/server/YYYY-MM-DD.log`。
 - Web 开发服务器输出位于 `logs/dev/web/YYYY-MM-DD.log`。
 - Launcher 输出位于 `logs/dev/launcher/YYYY-MM-DD.log`。
+
+## 增量构建与环境复用
+
+重复运行启动包装器时，同一工作区、相同启动配置和脚本版本的健康 Server / Web 开发环境保持运行，Launcher 自动打开或聚焦。设置 `RAYLEA_START_RESTART=1` 可优雅停止旧环境后重新启动。未受当前工作区租约管理的 Server 不会被接管。
+
+`.tmp/dev-cache/` 保存内容摘要与构建产物，覆盖 Server、插件构建工具、插件后端、UI、展开 artifact、Launcher bindings、前端和原生程序。输入内容、工具链、平台或构建参数变化会使对应缓存失效；产物缺失或内容变化会触发修复。修改文件时间或重复启动不会单独触发编译。构建期间收到的修改会在切换运行时前重新检查。
+
+开发依赖安装显式限制当前 OS、CPU 和 Linux libc；发布构建的默认平台矩阵保持不变。Vue SDK 镜像按内容同步文件，保留已有 `node_modules`。安装依赖的判断使用 package、lockfile、workspace 配置、SDK package 与工具链内容，不依赖文件更新时间。
+
+插件后端通过当前平台的 `go list` 输入图判定变化，包含本地依赖和 `go:embed` 文件。UI 修改只重建 UI 与 artifact；manifest、未嵌入 Go 的模板和资源修改只组装 artifact。开发 artifact 使用标准展开目录，不生成 ZIP；许可证、notices 和 SBOM 仍随产物保留。
+
+监听模式覆盖 Server、插件仓库、Go / Vue SDK、Go module / workspace 文件和开发工作区清单。README、测试、CI 文件与其他平台源码不触发无关编译；Go 实际嵌入的文件按构建输入处理。工作区增删或禁用条目会更新监听集合，移除条目不会自动卸载已安装插件。插件管理页使用增量静态构建，页面刷新后读取新资源。
+
+开发插件通过仅本机可用的认证接口进入正常安装事务，Server 不执行源码发现或构建命令。未变化的安装内容跳过任务和重载；更新保留启用/停用状态。插件初始化失败恢复旧包和运行时，其他插件保持运行。Server 源码更新使用候选二进制，通过健康检查后才删除旧版本；构建或启动失败时保留可用版本。
+
+缓存为本地可再生成数据，不应提交。修改启动脚本或切换工具链后应重新运行包装器；Launcher 原生代码联调使用 `launcher-dev`，已有原生窗口不会在后台自行替换。

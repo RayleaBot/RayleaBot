@@ -135,16 +135,18 @@ Web 路由 `/plugins/store` 提供来源切换和管理、手动刷新、搜索�
 | 值 | 行为 |
 | --- | --- |
 | `off` | 不读取开发工作区 |
-| `sync` | Server 启动前构建并同步一次 |
+| `sync` | 启动时构建并同步一次 |
 | `watch` | 首次同步后监听插件变更；同时要求 `RAYLEA_SERVER_RELOAD=watch` |
 
-本地联调通过临时 `go.work` 连接主仓库 Go SDK，通过 `.rayleabot/sdk/vue` 镜像 Vue SDK，不改写插件仓库的 `go.mod` 或 lockfile。构建完成后调用：
+本地联调通过临时 `go.work` 连接主仓库 Go SDK，通过 `.rayleabot/sdk/vue` 镜像 Vue SDK，不改写插件仓库的 `go.mod` 或 lockfile。Server watcher 通过 `POST /api/development/plugins/sync` 在线同步，并查询对应安装任务。该接口要求启动时显式设置 `RAYLEA_DEV_ARTIFACT_ROOT`、直接 loopback 请求和 Launcher control token，拒绝 Origin 与转发头，artifact 路径须在指定目录内。
+
+停服环境也可以使用：
 
 ```text
 raylea-server plugin dev-sync --artifact <expanded-artifact> --source <plugin-repo>
 ```
 
-`dev-sync` 复用正式 inspect、accept、原子替换和 package metadata 流程，并把来源记录为 `development`。监听模式忽略 `.git`、`.rayleabot`、`node_modules` 与一般生成目录，按插件去重合并变更；构建失败继续使用上一个已安装产物。
+两种入口复用正式 inspect、accept、原子替换和 package metadata 流程，把来源记录为 `development`。相同来源和安装内容直接跳过，已有插件保留 desired state，新插件启用。在线同步等待插件初始化，失败时恢复旧产物与运行时。增量缓存、监听范围和环境复用说明见[本地启动](../dev/README.md#增量构建与环境复用)。
 
 ## 防偏移规则
 

@@ -42,6 +42,7 @@ describe('vite config', () => {
     const plugin = createRayleaBotDevStatus('http://127.0.0.1:8080')
 
     plugin.configureServer?.({
+      config: { root: resolvePath('fixture-web') },
       middlewares: {
         use(handler) {
           middlewares.push(handler)
@@ -70,6 +71,7 @@ describe('vite config', () => {
     expect(JSON.parse(response.body ?? '{}')).toEqual({
       app: 'RayleaBot Web',
       backendTarget: 'http://127.0.0.1:8080',
+      rootDir: resolvePath('fixture-web'),
     })
   })
 })

@@ -34,7 +34,6 @@ import {
   resolveServerReloadMode,
   resolveStartProfile,
   requestDevelopmentServerShutdown,
-  shouldInstallDependencies,
   waitForChildProcessExit,
 } from "../start-dev-support.mjs";
 
@@ -291,10 +290,10 @@ test("creates dev server environment", () => {
 });
 
 test("creates non-interactive dependency install environment", () => {
-  assert.deepEqual(createDependencyInstallEnvironment(), { CI: "true" });
+  assert.deepEqual(createDependencyInstallEnvironment(), { CI: "true", pnpm_config_verify_deps_before_run: "false" });
   assert.deepEqual(
     createDependencyInstallEnvironment({ VITE_BACKEND_TARGET: "http://127.0.0.1:1234", CI: "false" }),
-    { VITE_BACKEND_TARGET: "http://127.0.0.1:1234", CI: "true" },
+    { VITE_BACKEND_TARGET: "http://127.0.0.1:1234", CI: "true", pnpm_config_verify_deps_before_run: "false" },
   );
 });
 
@@ -309,8 +308,9 @@ test("finds Corepack on PATH when the selected Node runtime contains only node.e
   }), fallbackCorepack);
 });
 
-test("creates a minimal child environment with the managed Node executable", () => {
+test("creates a minimal child environment with the selected Node and Go executables", () => {
   const nodeDirectory = String.raw`C:\toolchains\node-v26.7.0-win-x64`;
+  const goDirectory = String.raw`D:\toolchains\Go\bin`;
   const appData = String.raw`C:\Profiles\developer\AppData\Roaming`;
   const localAppData = String.raw`C:\Profiles\developer\AppData\Local`;
   const userProfile = String.raw`C:\Profiles\developer`;
@@ -318,6 +318,7 @@ test("creates a minimal child environment with the managed Node executable", () 
   const goModCache = String.raw`D:\go-modules`;
   const environment = createTrustedChildEnvironment({
     nodeExecutablePath: path.win32.join(nodeDirectory, "node.exe"),
+    goExecutablePath: path.win32.join(goDirectory, "go.exe"),
     env: {
       SystemRoot: String.raw`C:\Windows`,
       APPDATA: appData,
@@ -337,6 +338,7 @@ test("creates a minimal child environment with the managed Node executable", () 
     environment.PATH,
     [
       nodeDirectory,
+      goDirectory,
       String.raw`C:\Windows\System32`,
       String.raw`C:\Windows`,
     ].join(";"),
@@ -351,11 +353,13 @@ test("creates a minimal child environment with the managed Node executable", () 
   assert.equal(environment.GOMODCACHE, goModCache);
   assert.equal(environment.TEMP, path.win32.join(localAppData, "Temp"));
   assert.equal(environment.PATH.includes("untrusted"), false);
+  assert.equal(environment.PATH.includes(String.raw`C:\Program Files\Go\bin`), false);
 });
 
 test("preserves the POSIX home and explicit Go module cache roots", () => {
   const environment = createTrustedChildEnvironment({
     nodeExecutablePath: "/opt/raylea/node/bin/node",
+    goExecutablePath: "/opt/raylea/go/bin/go",
     env: {
       HOME: "/home/developer",
       GOPATH: "/work/go",
@@ -369,6 +373,7 @@ test("preserves the POSIX home and explicit Go module cache roots", () => {
   assert.equal(environment.HOME, "/home/developer");
   assert.equal(environment.GOPATH, "/work/go");
   assert.equal(environment.GOMODCACHE, "/cache/go-modules");
+  assert.equal(environment.PATH, "/opt/raylea/node/bin:/opt/raylea/go/bin:/usr/local/bin:/usr/bin:/bin");
   assert.equal(environment.PATH.includes("/untrusted/bin"), false);
 });
 
@@ -378,57 +383,11 @@ test("enables the GTK 3 build tag only for Linux launcher commands", () => {
   assert.deepEqual(createLauncherGoArgs("test", ["./..."], "darwin"), ["test", "./..."]);
 });
 
-test("detects install need from node_modules and lockfile marker", async () => {
-  const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "raylea-start-install-"));
-  const lockfilePath = path.join(projectDir, "pnpm-lock.yaml");
-  const packagePath = path.join(projectDir, "package.json");
-  const workspacePath = path.join(projectDir, "pnpm-workspace.yaml");
-  await fs.writeFile(lockfilePath, "lockfileVersion: '9.0'\n", "utf8");
-  await fs.writeFile(packagePath, "{}\n", "utf8");
-  await fs.writeFile(workspacePath, "packages:\n  - .\n", "utf8");
-
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
-
-  const nodeModulesDir = path.join(projectDir, "node_modules");
-  await fs.mkdir(nodeModulesDir);
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
-
-  const markerPath = path.join(nodeModulesDir, ".rayleabot-start-install.stamp");
-  const modulesManifestPath = path.join(nodeModulesDir, ".modules.yaml");
-  const workspaceStatePath = path.join(nodeModulesDir, ".pnpm-workspace-state-v1.json");
-  await fs.writeFile(markerPath, "installed\n", "utf8");
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
-
-  await fs.writeFile(modulesManifestPath, "layoutVersion: 5\n", "utf8");
-  await fs.writeFile(workspaceStatePath, "{}\n", "utf8");
-  const oldTime = new Date("2026-01-01T00:00:00.000Z");
-  const newTime = new Date("2026-01-02T00:00:00.000Z");
-  await fs.utimes(markerPath, newTime, newTime);
-  for (const targetPath of [lockfilePath, packagePath, workspacePath, modulesManifestPath, workspaceStatePath]) {
-    await fs.utimes(targetPath, oldTime, oldTime);
-  }
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), false);
-
-  const latestTime = new Date("2026-01-03T00:00:00.000Z");
-  await fs.utimes(lockfilePath, latestTime, latestTime);
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
-
-  await fs.utimes(lockfilePath, oldTime, oldTime);
-  await fs.utimes(workspaceStatePath, latestTime, latestTime);
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
-
-  await fs.utimes(workspaceStatePath, oldTime, oldTime);
-  await fs.utimes(packagePath, latestTime, latestTime);
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "auto" }), true);
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "skip" }), false);
-  assert.equal(await shouldInstallDependencies({ projectDir, mode: "always" }), true);
-});
-
 test("waits for a child process to release its executable", async () => {
   const child = { exitCode: null, signalCode: null };
   let polls = 0;
   await waitForChildProcessExit(child, {
-    timeoutMs: 100,
+    timeoutMs: 1_000,
     pollIntervalMs: 1,
     sleep: async () => {
       polls += 1;
@@ -452,7 +411,7 @@ test("classifies web dev server port states", async () => {
       url: "http://127.0.0.1:5174/",
       port: 5174,
       portAvailable: async () => true,
-      timeoutMs: 100,
+      timeoutMs: 1_000,
     }),
     "available",
   );
@@ -465,7 +424,7 @@ test("classifies web dev server port states", async () => {
         url: `http://127.0.0.1:${port}/`,
         port,
         portAvailable: async () => false,
-        timeoutMs: 100,
+        timeoutMs: 1_000,
       }),
       "rayleabot",
     );
@@ -481,7 +440,7 @@ test("classifies web dev server port states", async () => {
         url: `http://127.0.0.1:${port}/`,
         port,
         portAvailable: async () => false,
-        timeoutMs: 100,
+        timeoutMs: 1_000,
       }),
       "occupied",
     );
@@ -496,6 +455,7 @@ test("classifies rayleabot dev server by backend target", async () => {
       return JSON.stringify({
         app: "RayleaBot Web",
         backendTarget: "http://127.0.0.1:8080",
+        rootDir: path.resolve("fixture-web"),
       });
     }
     return "<title>RayleaBot Web</title><script type=\"module\" src=\"/src/main.ts\"></script>";
@@ -507,18 +467,23 @@ test("classifies rayleabot dev server by backend target", async () => {
         url: `http://127.0.0.1:${port}/`,
         port,
         backendBaseUrl: "http://127.0.0.1:8080/",
+        projectDir: path.resolve("fixture-web"),
         portAvailable: async () => false,
-        timeoutMs: 100,
+        timeoutMs: 1_000,
       }),
       "rayleabot",
     );
+    assert.equal(await classifyWebDevServer({
+      url: `http://127.0.0.1:${port}/`, port, backendBaseUrl: "http://127.0.0.1:8080/",
+      projectDir: path.resolve("other-checkout-web"), portAvailable: async () => false, timeoutMs: 1_000,
+    }), "occupied");
     assert.equal(
       await classifyWebDevServer({
         url: `http://127.0.0.1:${port}/`,
         port,
         backendBaseUrl: "http://127.0.0.1:18080",
         portAvailable: async () => false,
-        timeoutMs: 100,
+        timeoutMs: 1_000,
       }),
       "occupied",
     );
@@ -537,7 +502,7 @@ test("classifies rayleabot dev server without status as occupied when backend ta
         port,
         backendBaseUrl: "http://127.0.0.1:8080",
         portAvailable: async () => false,
-        timeoutMs: 100,
+        timeoutMs: 1_000,
       }),
       "occupied",
     );

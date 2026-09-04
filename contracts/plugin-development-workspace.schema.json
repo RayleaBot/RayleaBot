@@ -2,7 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-development-workspace.schema.json",
   "title": "RayleaBot Plugin Development Workspace",
-  "description": "Local-only list of independent plugin repositories synchronized through the normal artifact installer before development startup.",
+  "description": "Local-only list of independent plugin repositories synchronized through the normal artifact installer during development. Watcher mode uses authenticated loopback control; removing an entry does not uninstall its artifact.",
+  "x-startup-environment": {
+    "RAYLEA_START_RESTART": "0 (default) reuses a healthy same-checkout development runtime with matching startup configuration and scripts; 1 gracefully stops it before starting again.",
+    "RAYLEA_DEV_ARTIFACT_ROOT": "Internal Server opt-in: absolute existing build directory. Enables the local development routes defined by web-api.openapi.yaml; absent by default in production. Passed only to Server, not plugin processes."
+  },
+  "x-web-development-status": "Vite GET /__rayleabot-dev/status returns app=RayleaBot Web, backendTarget and rootDir (absolute Web project root). Startup reuse requires both backendTarget and rootDir to match. This development-only Vite middleware is not a Server management API.",
   "type": "object",
   "additionalProperties": false,
   "required": ["workspace_version", "plugins"],

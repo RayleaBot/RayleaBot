@@ -21,7 +21,6 @@ const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
 const LEGACY_SERVER_RELOAD_AIR = "air";
 const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_WATCH, LEGACY_SERVER_RELOAD_AIR]);
 const WILDCARD_HOSTS = new Set(["", "*", "0.0.0.0", "::", "[::]"]);
-const INSTALL_MARKER_NAME = ".rayleabot-start-install.stamp";
 
 export function loadStartEnvironmentFile({
   rootDir,
@@ -278,6 +277,8 @@ export function parseDevelopmentServerLease(text, {
   ) {
     throw new Error("development server lease binary path is outside server/tmp");
   }
+  if (typeof value.startup_identity === "string") lease.startup_identity = value.startup_identity;
+  if (typeof value.ready === "boolean") lease.ready = value.ready;
   return lease;
 }
 
@@ -340,6 +341,7 @@ export function createDependencyInstallEnvironment(environment = {}) {
   return {
     ...environment,
     CI: "true",
+    pnpm_config_verify_deps_before_run: "false",
   };
 }
 
@@ -396,6 +398,7 @@ export function resolveCorepackCliPath({
 
 export function createTrustedChildEnvironment({
   nodeExecutablePath,
+  goExecutablePath,
   env = process.env,
   platform = process.platform,
 } = {}) {
@@ -404,16 +407,20 @@ export function createTrustedChildEnvironment({
   }
 
   const isWindows = platform === "win32";
+  const pathApi = isWindows ? path.win32 : path.posix;
   const delimiter = isWindows ? ";" : ":";
-  const pathEntries = [path.dirname(nodeExecutablePath)];
+  const pathEntries = [pathApi.dirname(nodeExecutablePath)];
+  if (goExecutablePath) {
+    pathEntries.push(pathApi.dirname(goExecutablePath));
+  }
   const childEnvironment = {};
 
   if (isWindows) {
     const systemRoot = env.SystemRoot?.trim() || env.WINDIR?.trim();
     if (systemRoot) {
-      pathEntries.push(path.join(systemRoot, "System32"), systemRoot);
+      pathEntries.push(pathApi.join(systemRoot, "System32"), systemRoot);
       childEnvironment.SystemRoot = systemRoot;
-      childEnvironment.ComSpec = path.join(systemRoot, "System32", "cmd.exe");
+      childEnvironment.ComSpec = pathApi.join(systemRoot, "System32", "cmd.exe");
     }
     childEnvironment.PATHEXT = ".COM;.EXE;.BAT;.CMD";
   } else {
@@ -450,70 +457,6 @@ export function createLauncherGoArgs(command, args = [], platform = process.plat
     : [command, ...args];
 }
 
-export async function shouldInstallDependencies({
-  projectDir,
-  lockfileName = "pnpm-lock.yaml",
-  markerName = INSTALL_MARKER_NAME,
-  mode = "auto",
-  stat = fs.stat,
-} = {}) {
-  if (mode === "always") {
-    return true;
-  }
-  if (mode === "skip") {
-    return false;
-  }
-  if (mode !== "auto") {
-    throw new Error(`Unsupported install mode: ${mode}`);
-  }
-  if (!projectDir) {
-    throw new Error("projectDir is required");
-  }
-
-  const nodeModulesPath = path.join(projectDir, "node_modules");
-  const lockfilePath = path.join(projectDir, lockfileName);
-  const markerPath = path.join(nodeModulesPath, markerName);
-  const modulesManifestPath = path.join(nodeModulesPath, ".modules.yaml");
-  const dependencyInputPaths = [
-    lockfilePath,
-    path.join(projectDir, "package.json"),
-    path.join(projectDir, "pnpm-workspace.yaml"),
-    path.join(projectDir, ".npmrc"),
-  ];
-  const dependencyStatePaths = [
-    modulesManifestPath,
-    path.join(nodeModulesPath, ".pnpm-workspace-state-v1.json"),
-  ];
-
-  const nodeModulesStat = await statOrNull(stat, nodeModulesPath);
-  if (!nodeModulesStat?.isDirectory()) {
-    return true;
-  }
-
-  const lockfileStat = await statOrNull(stat, lockfilePath);
-  if (!lockfileStat?.isFile()) {
-    return false;
-  }
-
-  const markerStat = await statOrNull(stat, markerPath);
-  if (!markerStat?.isFile()) {
-    return true;
-  }
-
-  const modulesManifestStat = await statOrNull(stat, modulesManifestPath);
-  if (!modulesManifestStat?.isFile()) {
-    return true;
-  }
-
-  for (const targetPath of [...dependencyInputPaths, ...dependencyStatePaths]) {
-    const targetStat = await statOrNull(stat, targetPath);
-    if (targetStat?.isFile() && targetStat.mtimeMs > markerStat.mtimeMs) {
-      return true;
-    }
-  }
-  return false;
-}
-
 export async function waitForChildProcessExit(child, {
   timeoutMs = 5_000,
   pollIntervalMs = 50,
@@ -530,17 +473,6 @@ export async function waitForChildProcessExit(child, {
   if (!hasExited()) {
     throw new Error("Child process did not exit before the shutdown timeout.");
   }
-}
-
-export async function markDependenciesInstalled({
-  projectDir,
-  markerName = INSTALL_MARKER_NAME,
-  writeFile = fs.writeFile,
-  mkdir = fs.mkdir,
-} = {}) {
-  const nodeModulesPath = path.join(projectDir, "node_modules");
-  await mkdir(nodeModulesPath, { recursive: true });
-  await writeFile(path.join(nodeModulesPath, markerName), `${new Date().toISOString()}\n`, "utf8");
 }
 
 export function isRayleaBotWebDevHtml(text) {
@@ -566,6 +498,7 @@ export async function classifyWebDevServer({
   backendBaseUrl,
   fetchImpl = globalThis.fetch,
   portAvailable = isTcpPortAvailable,
+  projectDir,
   timeoutMs = 1500,
 } = {}) {
   if (await portAvailable(host, port)) {
@@ -581,7 +514,7 @@ export async function classifyWebDevServer({
     if (!backendBaseUrl) {
       return "rayleabot";
     }
-    return await hasMatchingBackendTarget({ url, backendBaseUrl, fetchImpl, timeoutMs })
+    return await hasMatchingBackendTarget({ url, backendBaseUrl, projectDir, fetchImpl, timeoutMs })
       ? "rayleabot"
       : "occupied";
   } catch {
@@ -589,7 +522,7 @@ export async function classifyWebDevServer({
   }
 }
 
-async function hasMatchingBackendTarget({ url, backendBaseUrl, fetchImpl, timeoutMs }) {
+async function hasMatchingBackendTarget({ url, backendBaseUrl, projectDir, fetchImpl, timeoutMs }) {
   try {
     const statusUrl = new URL(WEB_DEV_STATUS_PATH, url).toString();
     const response = await fetchWithTimeout(fetchImpl, statusUrl, timeoutMs);
@@ -598,7 +531,8 @@ async function hasMatchingBackendTarget({ url, backendBaseUrl, fetchImpl, timeou
     }
     const payload = await response.json();
     return payload?.app === "RayleaBot Web"
-      && normalizeComparableUrl(payload?.backendTarget) === normalizeComparableUrl(backendBaseUrl);
+      && normalizeComparableUrl(payload?.backendTarget) === normalizeComparableUrl(backendBaseUrl)
+      && (!projectDir || (typeof payload.rootDir === "string" && normalizeComparablePath(payload.rootDir, process.platform) === normalizeComparablePath(projectDir, process.platform)));
   } catch {
     return false;
   }
@@ -640,17 +574,6 @@ function normalizeComparableUrl(value) {
     return trimTrailingSlash(new URL(String(value ?? "")).toString());
   } catch {
     return "";
-  }
-}
-
-async function statOrNull(stat, targetPath) {
-  try {
-    return await stat(targetPath);
-  } catch (error) {
-    if (error?.code === "ENOENT") {
-      return null;
-    }
-    throw error;
   }
 }
 

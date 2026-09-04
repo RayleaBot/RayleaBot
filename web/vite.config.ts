@@ -126,6 +126,7 @@ export function createRayleaBotDevStatus(target: string): Plugin {
         response.end(JSON.stringify({
           app: 'RayleaBot Web',
           backendTarget: target,
+          rootDir: resolvePath(server.config.root),
         }))
       })
     },

@@ -15,7 +15,6 @@ import {
   mirrorVueSDK,
   renderDevelopmentGoWork,
   resolvePluginDevMode,
-  selectWorkspacePlugins,
   watchPluginWorkspace,
 } from '../plugin-dev-workspace.mjs'
 
@@ -80,35 +79,17 @@ test('collects SDK versions declared by independent plugin modules', async (t) =
   assert.deepEqual(await collectWorkspaceSDKVersions([{ path: first }, { path: second }]), ['v0.2.0', 'v0.3.0-beta.1'])
 })
 
-test('selects only changed development plugins in workspace order', () => {
-  const plugins = [
-    { id: 'raylea.echo' },
-    { id: 'raylea.fortune' },
-    { id: 'raylea.game-guide' },
-  ]
-
-  assert.equal(selectWorkspacePlugins(plugins), plugins)
-  assert.deepEqual(
-    selectWorkspacePlugins(plugins, ['raylea.game-guide', 'raylea.echo']),
-    [plugins[0], plugins[2]],
-  )
-  assert.deepEqual(selectWorkspacePlugins(plugins, []), [])
-  assert.throws(
-    () => selectWorkspacePlugins(plugins, ['raylea.missing']),
-    /Unknown development plugin id\(s\): raylea\.missing/,
-  )
-})
-
 test('keeps plugin changes that arrive after the current reload batch is taken', () => {
   const queue = createDevelopmentReloadQueue()
-  const echo = { id: 'raylea.echo' }
-  const fortune = { id: 'raylea.fortune' }
+  const echo = { id: 'raylea.echo', path: 'echo' }
+  const fortune = { id: 'raylea.fortune', path: 'fortune' }
 
   queue.addPlugin(echo, 'echo/main.go')
   queue.addPlugin(echo, 'echo/info.json')
   queue.addServer('server/internal/plugins/runtime.go')
   assert.deepEqual(queue.take(), {
     serverSourcePath: 'server/internal/plugins/runtime.go',
+    workspaceSourcePath: 'echo/info.json',
     pluginChanges: [{ plugin: echo, sourcePath: 'echo/info.json' }],
   })
 
@@ -116,9 +97,26 @@ test('keeps plugin changes that arrive after the current reload batch is taken',
   assert.equal(queue.hasChanges(), true)
   assert.deepEqual(queue.take(), {
     serverSourcePath: '',
+    workspaceSourcePath: '',
     pluginChanges: [{ plugin: fortune, sourcePath: 'fortune/ui/src/App.vue' }],
   })
   assert.equal(queue.hasChanges(), false)
+})
+
+test('plugin identity and backend kind changes refresh the workspace without losing later edits', () => {
+  const plugin = { id: 'fixture.old-id', path: path.resolve('fixture-plugin') }
+  const queue = createDevelopmentReloadQueue()
+  for (const name of ['info.json', 'go.mod']) {
+    const source = path.join(plugin.path, name)
+    queue.addPlugin(plugin, source)
+    const batch = queue.take()
+    assert.equal(batch.workspaceSourcePath, source)
+    queue.addPlugin(plugin, path.join(plugin.path, 'main.go'))
+    assert.equal(queue.hasChanges(), true)
+    assert.equal(queue.take().workspaceSourcePath, '')
+  }
+  queue.addPlugin(plugin, path.join(plugin.path, 'assets', 'info.json'))
+  assert.equal(queue.take().workspaceSourcePath, '')
 })
 
 test('mirrors the Vue SDK without discarding installed workspace dependencies', async (t) => {
@@ -142,7 +140,7 @@ test('mirrors the Vue SDK without discarding installed workspace dependencies', 
   await assert.rejects(fs.stat(path.join(target, 'stale.txt')), { code: 'ENOENT' })
 })
 
-test('forces a clean UI install when a new Vue SDK mirror has no dependencies', async (t) => {
+test('preserves UI dependencies when the linked Vue SDK has no own node_modules', async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-plugin-vue-sdk-install-'))
   t.after(() => fs.rm(root, { recursive: true, force: true }))
   const sdkVuePath = path.join(root, 'sdk-vue')
@@ -155,7 +153,12 @@ test('forces a clean UI install when a new Vue SDK mirror has no dependencies', 
 
   await mirrorVueSDK({ sdkVuePath, pluginPath })
 
-  await assert.rejects(fs.stat(path.join(pluginPath, 'ui', 'node_modules')), { code: 'ENOENT' })
+  assert.equal(await fs.readFile(path.join(pluginPath, 'ui', 'node_modules', 'installed.txt'), 'utf8'), 'stale\n')
+  const mirrored = path.join(pluginPath, '.rayleabot', 'sdk', 'vue', 'src', 'index.ts')
+  const old = new Date('2020-01-01')
+  await fs.utimes(mirrored, old, old)
+  await mirrorVueSDK({ sdkVuePath, pluginPath })
+  assert.equal((await fs.stat(mirrored)).mtimeMs, old.getTime())
 })
 
 test('plugin watcher ignores generated trees and existing directory metadata events', { timeout: 5_000 }, async (t) => {
@@ -199,7 +202,7 @@ test('plugin watcher ignores generated trees and existing directory metadata eve
 test('non-Go plugin watcher tracks only the conventional native binary below dist', { timeout: 5_000 }, async (t) => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'raylea-plugin-native-watch-'))
   const pluginPath = path.join(root, 'plugin')
-  const nativeDir = path.join(pluginPath, 'dist', 'native', 'windows-x64')
+  const nativeDir = path.join(pluginPath, 'dist', 'native', currentPluginPlatform())
   const generatedDir = path.join(pluginPath, 'dist', 'artifacts')
   await fs.mkdir(nativeDir, { recursive: true })
   await fs.mkdir(generatedDir, { recursive: true })
@@ -221,7 +224,7 @@ test('non-Go plugin watcher tracks only the conventional native binary below dis
   assert.deepEqual(changes, [])
 
   await fs.writeFile(binaryPath, 'version-two', 'utf8')
-  const expected = path.join('dist', 'native', 'windows-x64', 'raylea.native.exe')
+  const expected = path.join('dist', 'native', currentPluginPlatform(), 'raylea.native.exe')
   const deadline = Date.now() + 2_000
   while (!changes.includes(expected) && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 20))

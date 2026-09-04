@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { createFileContentTracker } from './file-content-tracker.mjs'
+import { writeIfChanged } from './dev-build-cache.mjs'
 
 export const PLUGIN_DEV_OFF = 'off'
 export const PLUGIN_DEV_SYNC = 'sync'
@@ -43,7 +44,7 @@ export async function loadPluginWorkspace(workspacePath) {
   }
   const document = JSON.parse(raw)
   if (!document || typeof document !== 'object' || Array.isArray(document)
-    || document.workspace_version !== '2' || !Array.isArray(document.plugins)) {
+    || document.workspace_version !== '2' || !Array.isArray(document.plugins) || document.plugins.length > 64) {
     throw new Error(`${workspacePath} does not satisfy plugin development workspace v2.`)
   }
   const allowedRootKeys = new Set(['workspace_version', 'plugins'])
@@ -100,39 +101,34 @@ export async function collectWorkspaceSDKVersions(plugins) {
   return [...versions].sort()
 }
 
-export function selectWorkspacePlugins(plugins, pluginIDs) {
-  if (pluginIDs === undefined || pluginIDs === null) {
-    return plugins
-  }
-  const selectedIDs = new Set(pluginIDs)
-  const selected = plugins.filter((plugin) => selectedIDs.has(plugin.id))
-  const selectedPluginIDs = new Set(selected.map((plugin) => plugin.id))
-  const missing = [...selectedIDs].filter((pluginID) => !selectedPluginIDs.has(pluginID))
-  if (missing.length > 0) {
-    throw new Error(`Unknown development plugin id(s): ${missing.join(', ')}`)
-  }
-  return selected
-}
-
 export function createDevelopmentReloadQueue() {
   let serverSourcePath = ''
+  let workspaceSourcePath = ''
   const pluginChanges = new Map()
   return {
     addServer(sourcePath) {
       serverSourcePath = sourcePath
     },
+    addWorkspace(sourcePath) {
+      workspaceSourcePath = sourcePath
+    },
     addPlugin(plugin, sourcePath) {
+      if (['info.json', 'go.mod'].includes(path.relative(plugin.path, sourcePath))) {
+        workspaceSourcePath = sourcePath
+      }
       pluginChanges.set(plugin.id, { plugin, sourcePath })
     },
     hasChanges() {
-      return serverSourcePath !== '' || pluginChanges.size > 0
+      return serverSourcePath !== '' || workspaceSourcePath !== '' || pluginChanges.size > 0
     },
     take() {
       const batch = {
         serverSourcePath,
+        workspaceSourcePath,
         pluginChanges: [...pluginChanges.values()],
       }
       serverSourcePath = ''
+      workspaceSourcePath = ''
       pluginChanges.clear()
       return batch
     },
@@ -155,29 +151,28 @@ export async function mirrorVueSDK({ sdkVuePath, pluginPath }) {
     return
   }
   const target = path.join(pluginPath, '.rayleabot', 'sdk', 'vue')
-  const targetNodeModules = path.join(target, 'node_modules')
-  const uiNodeModules = path.join(pluginPath, 'ui', 'node_modules')
-  const resetUIInstall = fs.existsSync(uiNodeModules) && !fs.existsSync(targetNodeModules)
-  await fsp.mkdir(target, { recursive: true })
-  const targetEntries = await fsp.readdir(target, { withFileTypes: true })
-  await Promise.all(targetEntries
-    .filter((entry) => entry.name !== 'node_modules')
-    .map((entry) => fsp.rm(path.join(target, entry.name), { recursive: true, force: true })))
-  await fsp.cp(sdkVuePath, target, {
-    recursive: true,
-    filter: (source) => !['node_modules', 'dist'].includes(path.basename(source)),
-  })
-  if (resetUIInstall) {
-    await fsp.rm(uiNodeModules, { recursive: true, force: true })
+  async function sync(source, destination) {
+    await fsp.mkdir(destination, { recursive: true })
+    const entries = (await fsp.readdir(source, { withFileTypes: true }))
+      .filter((entry) => !['node_modules', 'dist', '.git'].includes(entry.name))
+    const names = new Set(entries.map((entry) => entry.name))
+    for (const entry of await fsp.readdir(destination)) {
+      if (!names.has(entry) && entry !== 'node_modules') await fsp.rm(path.join(destination, entry), { recursive: true, force: true })
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) await sync(path.join(source, entry.name), path.join(destination, entry.name))
+      else await writeIfChanged(path.join(destination, entry.name), await fsp.readFile(path.join(source, entry.name)))
+    }
   }
+  await sync(sdkVuePath, target)
 }
 
-export async function watchPluginWorkspace(plugins, onChange) {
+export async function watchPluginWorkspace(plugins, onChange, onError = (error) => console.error(error), includesInput = () => false) {
   const watchers = []
-  const watchedDirectories = new Set()
+  const watchedDirectories = new Map()
   const contentTracker = createFileContentTracker()
   for (const plugin of plugins) {
-    await watchDirectory(plugin.path, plugin, onChange, watchers, watchedDirectories, contentTracker)
+    await watchDirectory(plugin.path, { ...plugin, includesInput }, onChange, watchers, watchedDirectories, contentTracker, onError)
   }
   return async () => {
     for (const watcher of watchers) {
@@ -187,10 +182,10 @@ export async function watchPluginWorkspace(plugins, onChange) {
   }
 }
 
-async function watchDirectory(directory, plugin, onChange, watchers, watchedDirectories, contentTracker) {
+async function watchDirectory(directory, plugin, onChange, watchers, watchedDirectories, contentTracker, onError) {
   const directoryKey = path.resolve(directory)
   if (watchedDirectories.has(directoryKey)) return
-  watchedDirectories.add(directoryKey)
+  watchedDirectories.set(directoryKey, null)
   let entries
   try {
     entries = await fsp.readdir(directory, { withFileTypes: true })
@@ -200,7 +195,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
     throw error
   }
   await Promise.all(entries
-    .filter((entry) => !entry.isDirectory())
+    .filter((entry) => !entry.isDirectory() && !isIgnoredPath(plugin.path, path.join(directory, entry.name), plugin))
     .map((entry) => contentTracker.prime(path.join(directory, entry.name))))
   const watcher = fs.watch(directory, (eventType, filename) => {
     if (!filename) return
@@ -213,9 +208,12 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
       watchers,
       watchedDirectories,
       contentTracker,
-    })
+      onError,
+    }).catch(onError)
   })
   watchers.push(watcher)
+  watchedDirectories.set(directoryKey, watcher)
+  watcher.on('error', onError)
   await Promise.all(entries
     .filter((entry) => entry.isDirectory() && !isIgnoredPath(plugin.path, path.join(directory, entry.name), plugin))
     .map((entry) => watchDirectory(
@@ -225,6 +223,7 @@ async function watchDirectory(directory, plugin, onChange, watchers, watchedDire
       watchers,
       watchedDirectories,
       contentTracker,
+      onError,
     )))
 }
 
@@ -236,6 +235,7 @@ async function handlePluginWatchEvent({
   watchers,
   watchedDirectories,
   contentTracker,
+  onError,
 }) {
   if (isIgnoredPath(plugin.path, sourcePath, plugin)) return
   const sourceKey = path.resolve(sourcePath)
@@ -249,7 +249,7 @@ async function handlePluginWatchEvent({
     }
     const directoryAlreadyWatched = watchedDirectories.has(sourceKey)
     if (eventType === 'rename' && !directoryAlreadyWatched) {
-      await watchDirectory(sourcePath, plugin, onChange, watchers, watchedDirectories, contentTracker)
+      await watchDirectory(sourcePath, plugin, onChange, watchers, watchedDirectories, contentTracker, onError)
       if (!isNonGoNativeContainer(plugin, sourcePath)) {
         onChange(plugin, sourcePath)
       }
@@ -257,7 +257,15 @@ async function handlePluginWatchEvent({
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error
     if (isDirectoryMetadataAlias(sourcePath, sourceKey, watchedDirectories)) return
-    const deletedDirectory = watchedDirectories.delete(sourceKey)
+    const deletedDirectory = watchedDirectories.has(sourceKey)
+    if (deletedDirectory) {
+      for (const [directory, watcher] of watchedDirectories) {
+        if (directory === sourceKey || directory.startsWith(sourceKey + path.sep)) {
+          watcher?.close()
+          watchedDirectories.delete(directory)
+        }
+      }
+    }
     if (deletedDirectory || await contentTracker.hasChanged(sourcePath)) {
       onChange(plugin, sourcePath)
     }
@@ -273,6 +281,11 @@ function isDirectoryMetadataAlias(sourcePath, sourceKey, watchedDirectories) {
 function isIgnoredPath(root, sourcePath, plugin) {
   const relative = path.relative(root, sourcePath)
   const parts = relative.split(path.sep)
+  if (parts.some((part) => plugin.ignoredDirectories?.includes(part))) return true
+  if (plugin.includesInput?.(sourcePath)) return false
+  if (parts[0] === '.github') return true
+  if (!['assets', 'templates', 'LICENSES'].includes(parts[0]) && /(?:_test\.go|\.(?:test|spec)\.[cm]?[jt]sx?|\.md)$/i.test(relative) && !/^LICENSE|^THIRD_PARTY_NOTICES/.test(parts[0])) return true
+  if (parts[0] === 'dist' && parts[1] === 'native' && parts.length > 2 && parts[2] !== currentPluginPlatform()) return true
   for (let index = 0; index < parts.length; index += 1) {
     const part = parts[index]
     if (part === 'dist' && plugin.hasGoModule === false && index === 0) {

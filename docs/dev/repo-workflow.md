@@ -41,10 +41,10 @@ dist/
 独立 Go 插件后端采用 `cmd/<plugin>`、`internal/plugin` 与可选 `internal/assets` 目录；统一的 `raylea-plugin build-go` 从 `info.json` 推导插件 ID 和默认后端 package，也可通过参数覆盖入口并把内部资源映射到稳定 artifact 路径。其他语言或构建系统把目标平台原生可执行文件写入 `dist/native/<platform>/<plugin-id>[.exe]`，再使用 `raylea-plugin pack`。
 
 1. `plugin-workspace.local.json` 声明需要联调的仓库；该文件及 `.tmp/plugin-dev/` 均不进入版本控制。
-2. 首次启动为存在 `go.mod` 的启用插件生成临时 `go.work`，镜像当前主仓库 Vue SDK，并通过统一工具构建当前平台完整 artifact；非 Go 插件使用工作区约定的已构建产物路径。
-3. 开发启动脚本在 Server 未运行时调用 `plugin dev-sync`，经正式校验与原子安装事务写入 `plugins/installed/`；运行期仍只发现已安装产物，不直接发现源码目录。
-4. `watch` 模式按 500ms 窗口和插件 ID 合并变更，后续只重建本批变化的插件；构建过程中发生的新变更进入下一批。
-5. 候选构建或同步失败时保留并恢复上一个已安装 artifact。
+2. 为存在 `go.mod` 的启用插件生成临时 `go.work`，按内容镜像主仓库 Vue SDK，复用当前平台的后端、UI 和 artifact 缓存；非 Go 插件使用工作区约定的原生产物路径。
+3. Server watcher 模式通过本机认证开发接口在线同步，其他模式在停服状态下使用 `plugin dev-sync`。两者均经正式校验与原子安装事务写入 `plugins/installed/`，运行期不直接发现源码目录。
+4. `watch` 模式按 500ms 窗口和插件 ID 合并变更。构建期间的新修改在安装前重新检查；SDK 与工作区清单变化会更新对应依赖和监听集合。
+5. 插件更新只切换目标插件，保留 desired state；初始化失败恢复旧版本。只有 Server 自身构建输入变化才重启 Server。
 
 插件仓库的 GitHub Actions 只处理 `v*` tag 的正式 Release，官方目录定时读取每个仓库的当前 Release 并收录实际发布的平台包。日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。
 
