@@ -73,6 +73,7 @@ func pack(args []string) error {
 	target := flags.String("target", pluginbuild.CurrentPlatform(), "target platform")
 	output := flags.String("out", "dist", "artifact output directory")
 	expanded := flags.Bool("expanded", true, "keep an expanded artifact tree")
+	archive := flags.Bool("archive", true, "write a release ZIP archive")
 	includes := mappingFlags{}
 	flags.Var(&includes, "include", "additional source=destination asset mapping; may be repeated")
 	if err := flags.Parse(args); err != nil {
@@ -104,6 +105,7 @@ func pack(args []string) error {
 		TargetPlatform:       *target,
 		MappedAssets:         mappedAssets,
 		KeepExpandedArtifact: *expanded,
+		SkipArchive:          !*archive,
 	})
 	if err != nil {
 		return err
@@ -118,6 +120,9 @@ func buildGo(args []string) error {
 	target := flags.String("target", pluginbuild.CurrentPlatform(), "target platform")
 	output := flags.String("out", "dist", "artifact output directory")
 	skipUIInstall := flags.Bool("skip-ui-install", false, "require existing UI dependencies")
+	backendBinary := flags.String("backend-binary", "", "reuse a validated backend executable")
+	skipUIBuild := flags.Bool("skip-ui-build", false, "reuse ui/dist")
+	archive := flags.Bool("archive", true, "write a release ZIP archive")
 	expanded := flags.Bool("expanded", true, "keep an expanded artifact tree")
 	includes := mappingFlags{}
 	flags.Var(&includes, "include", "additional source=destination asset mapping; may be repeated")
@@ -146,6 +151,9 @@ func buildGo(args []string) error {
 		BackendPackage:       *backend,
 		MappedAssets:         mappedAssets,
 		SkipUIInstall:        *skipUIInstall,
+		BackendBinary:        resolveOptionalBinary(pluginRoot, *backendBinary),
+		SkipUIBuild:          *skipUIBuild,
+		SkipArchive:          !*archive,
 		KeepExpandedArtifact: *expanded,
 	})
 	if err != nil {
@@ -155,6 +163,13 @@ func buildGo(args []string) error {
 }
 
 type mappingFlags []pluginbuild.AssetMapping
+
+func resolveOptionalBinary(pluginRoot, binary string) string {
+	if binary == "" || filepath.IsAbs(binary) {
+		return binary
+	}
+	return filepath.Join(pluginRoot, binary)
+}
 
 func (values *mappingFlags) String() string {
 	items := make([]string, 0, len(*values))

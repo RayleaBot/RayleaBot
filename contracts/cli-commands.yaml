@@ -32,6 +32,15 @@ x-fixtures:
 
 x-design-source: docs/user/cli.md
 
+x-plugin-builder-development:
+  command: raylea-plugin build-go
+  inspect: raylea-plugin inspect --plugin includes backend_package for Go projects, resolved using the same entrypoint rules as build-go; non-Go projects omit it.
+  options:
+    backend-binary: Reuse a caller-validated current-platform backend executable instead of compiling Go.
+    skip-ui-build: Copy an existing ui/dist tree; dependency installation and UI freshness belong to the caller.
+    archive: Defaults to true. With false, expanded must be true; emit a standard expanded artifact without ZIP or archive digest. Also supported by pack.
+  rule: These options retain manifest, native executable, assets, license, notices and SBOM validation; release defaults are unchanged.
+
 commands:
   plugin:
     name: plugin

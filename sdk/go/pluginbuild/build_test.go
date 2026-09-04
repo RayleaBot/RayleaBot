@@ -92,6 +92,45 @@ func TestBuildAcceptsCommandBelowCmd(t *testing.T) {
 	}
 }
 
+func TestDevelopmentAssemblyReusesBackendAndUIWithoutArchive(t *testing.T) {
+	pluginDir := t.TempDir()
+	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module fixture.local/plugin\n\ngo 1.26.6\n")
+	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "package main\nfunc main() {}\n")
+	writeTestFile(t, filepath.Join(pluginDir, "LICENSE"), "fixture license\n")
+	writeTestFile(t, filepath.Join(pluginDir, "info.json"), `{"id":"development-fixture","name":"Fixture","version":"0.4.0","manifest_version":"3","min_core_version":"0.4.0","license":"MIT"}`)
+	first, err := Build(t.Context(), Config{PluginDir: pluginDir, OutputDir: t.TempDir(), TargetPlatform: testPlatform(t), KeepExpandedArtifact: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := Inspect(first.ArtifactDir, testPlatform(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, filepath.Join(pluginDir, "main.go"), "invalid Go: assembly must not compile this")
+	writeTestFile(t, filepath.Join(pluginDir, "ui", "package.json"), `{"name":"fixture-ui","version":"1.0.0","scripts":{"build":"exit 1"}}`)
+	writeTestFile(t, filepath.Join(pluginDir, "ui", "dist", "index.html"), "<html>fixture UI</html>")
+	output := t.TempDir()
+	result, err := Build(t.Context(), Config{PluginDir: pluginDir, OutputDir: output, TargetPlatform: testPlatform(t), KeepExpandedArtifact: true, SkipArchive: true, SkipUIBuild: true, BackendBinary: filepath.Join(first.ArtifactDir, filepath.FromSlash(inspection.Entry))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ArchivePath != "" || result.ArchiveSHA256 != "" {
+		t.Fatalf("development build created ZIP: %#v", result)
+	}
+	for _, name := range []string{"artifact.json", "ui/index.html", "LICENSE", "THIRD_PARTY_NOTICES.md", "sbom.spdx.json"} {
+		if _, err := os.Stat(filepath.Join(result.ArtifactDir, filepath.FromSlash(name))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Inspect(result.ArtifactDir, testPlatform(t)); err != nil {
+		t.Fatal(err)
+	}
+	archives, err := filepath.Glob(filepath.Join(output, "*.zip"))
+	if err != nil || len(archives) != 0 {
+		t.Fatalf("archives=%v err=%v", archives, err)
+	}
+}
+
 func TestBuildProducesAllSupportedTargetArtifacts(t *testing.T) {
 	pluginDir := t.TempDir()
 	writeTestFile(t, filepath.Join(pluginDir, "go.mod"), "module example.test/cross-platform-plugin\n\ngo 1.26.6\n")

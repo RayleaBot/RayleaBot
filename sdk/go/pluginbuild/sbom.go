@@ -158,11 +158,7 @@ func readUIDependencies(pluginDir string) ([]dependencyInfo, error) {
 	return items, nil
 }
 
-func writeSBOM(ctx context.Context, config Config, pluginDir, root string, manifest Manifest) error {
-	modules, err := goModules(ctx, config, pluginDir)
-	if err != nil {
-		return err
-	}
+func writeSBOM(pluginDir, root string, manifest Manifest, modules []moduleInfo) error {
 	uiDependencies, err := readUIDependencies(pluginDir)
 	if err != nil {
 		return err

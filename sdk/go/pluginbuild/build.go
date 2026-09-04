@@ -38,6 +38,9 @@ type Config struct {
 	PNPMCommand          string
 	SkipUIInstall        bool
 	KeepExpandedArtifact bool
+	BackendBinary        string
+	SkipUIBuild          bool
+	SkipArchive          bool
 }
 
 type AssetMapping struct {
@@ -157,8 +160,17 @@ func Build(ctx context.Context, config Config) (Result, error) {
 
 	entry := filepath.ToSlash(filepath.Join("bin", manifest.ID+target.EXE))
 	binaryPath := filepath.Join(root, filepath.FromSlash(entry))
-	if err := runGoBuild(ctx, config, pluginDir, backendPackage, target, binaryPath); err != nil {
-		return Result{}, err
+	if config.BackendBinary != "" {
+		if err := validateNativeExecutable(config.BackendBinary, config.TargetPlatform); err != nil {
+			return Result{}, err
+		}
+		if err := copyFile(config.BackendBinary, binaryPath, 0o755); err != nil {
+			return Result{}, err
+		}
+	} else {
+		if err := runGoBuild(ctx, config, pluginDir, backendPackage, target, binaryPath); err != nil {
+			return Result{}, err
+		}
 	}
 	if target.GOOS != "windows" {
 		if err := os.Chmod(binaryPath, 0o755); err != nil {
@@ -177,13 +189,17 @@ func Build(ctx context.Context, config Config) (Result, error) {
 	if err := copyLicense(pluginDir, root); err != nil {
 		return Result{}, err
 	}
-	if err := writeNotices(ctx, config, pluginDir, root); err != nil {
+	modules, err := goModules(ctx, config, pluginDir)
+	if err != nil {
 		return Result{}, err
 	}
-	if err := writeSBOM(ctx, config, pluginDir, root, manifest); err != nil {
+	if err := writeNotices(pluginDir, root, modules); err != nil {
 		return Result{}, err
 	}
-	return finalizeArtifact(root, staging, outputDir, manifest, entry, config.TargetPlatform, config.KeepExpandedArtifact)
+	if err := writeSBOM(pluginDir, root, manifest, modules); err != nil {
+		return Result{}, err
+	}
+	return finalizeArtifact(root, staging, outputDir, manifest, entry, config.TargetPlatform, config.KeepExpandedArtifact, config.SkipArchive)
 }
 
 func copyStandardAssets(pluginDir, artifactRoot string) error {
@@ -201,7 +217,10 @@ func copyStandardAssets(pluginDir, artifactRoot string) error {
 	return nil
 }
 
-func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry, platform string, keepExpanded bool) (Result, error) {
+func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry, platform string, keepExpanded, skipArchive bool) (Result, error) {
+	if skipArchive && !keepExpanded {
+		return Result{}, errors.New("pluginbuild: archive=false requires expanded=true")
+	}
 	artifact, err := inventory(root, entry, platform)
 	if err != nil {
 		return Result{}, err
@@ -214,13 +233,16 @@ func finalizeArtifact(root, staging, outputDir string, manifest Manifest, entry,
 	if err := os.WriteFile(filepath.Join(root, "artifact.json"), artifactBytes, 0o644); err != nil {
 		return Result{}, fmt.Errorf("write artifact manifest: %w", err)
 	}
-	archivePath := filepath.Join(outputDir, fmt.Sprintf("%s-%s-%s.zip", manifest.ID, manifest.Version, platform))
-	if err := writeDeterministicZIP(archivePath, staging, manifest.ID); err != nil {
-		return Result{}, err
-	}
-	archiveDigest, err := fileSHA256(archivePath)
-	if err != nil {
-		return Result{}, err
+	archivePath, archiveDigest := "", ""
+	if !skipArchive {
+		archivePath = filepath.Join(outputDir, fmt.Sprintf("%s-%s-%s.zip", manifest.ID, manifest.Version, platform))
+		if err := writeDeterministicZIP(archivePath, staging, manifest.ID); err != nil {
+			return Result{}, err
+		}
+		archiveDigest, err = fileSHA256(archivePath)
+		if err != nil {
+			return Result{}, err
+		}
 	}
 	artifactDir := ""
 	if keepExpanded {
@@ -348,6 +370,12 @@ func buildUI(ctx context.Context, config Config, pluginDir, artifactRoot string)
 			return nil
 		}
 		return fmt.Errorf("pluginbuild: inspect UI package: %w", err)
+	}
+	if config.SkipUIBuild {
+		if err := requireRegularFile(filepath.Join(uiDir, "dist", "index.html")); err != nil {
+			return err
+		}
+		return copyTree(filepath.Join(uiDir, "dist"), filepath.Join(artifactRoot, "ui"))
 	}
 	command, prefixArgs, err := resolvePNPMCommand(config)
 	if err != nil {
@@ -738,11 +766,7 @@ func pathWithin(root, candidate string) bool {
 	return relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)))
 }
 
-func writeNotices(ctx context.Context, config Config, pluginDir, root string) error {
-	modules, err := goModules(ctx, config, pluginDir)
-	if err != nil {
-		return err
-	}
+func writeNotices(pluginDir, root string, modules []moduleInfo) error {
 	var buffer bytes.Buffer
 	buffer.WriteString("# Third-party notices\n\n")
 	if len(modules) == 0 {

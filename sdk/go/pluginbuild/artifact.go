@@ -24,6 +24,7 @@ type PackConfig struct {
 	TargetPlatform       string
 	MappedAssets         []AssetMapping
 	KeepExpandedArtifact bool
+	SkipArchive          bool
 }
 
 type Inspection struct {
@@ -39,6 +40,7 @@ type ProjectInspection struct {
 	Name            string `json:"name"`
 	Version         string `json:"version"`
 	ManifestVersion string `json:"manifest_version"`
+	BackendPackage  string `json:"backend_package,omitempty"`
 }
 
 func InspectProject(pluginDir string) (ProjectInspection, error) {
@@ -57,8 +59,22 @@ func InspectProject(pluginDir string) (ProjectInspection, error) {
 	if err := validateManifest(manifest, ""); err != nil {
 		return ProjectInspection{}, err
 	}
+	backend := ""
+	if _, err := os.Stat(filepath.Join(pluginDir, "go.mod")); err == nil {
+		backend, err = inferBackendPackage(pluginDir, manifest.ID)
+		if err != nil {
+			return ProjectInspection{}, err
+		}
+		backend, err = resolveBackendPackage(pluginDir, backend)
+		if err != nil {
+			return ProjectInspection{}, err
+		}
+	} else if !os.IsNotExist(err) {
+		return ProjectInspection{}, err
+	}
 	return ProjectInspection{
 		PluginID: manifest.ID, Name: manifest.Name, Version: manifest.Version, ManifestVersion: manifest.ManifestVersion,
+		BackendPackage: backend,
 	}, nil
 }
 
@@ -130,7 +146,7 @@ func Pack(_ context.Context, config PackConfig) (Result, error) {
 	if err := copyLicense(pluginDir, root); err != nil {
 		return Result{}, err
 	}
-	return finalizeArtifact(root, staging, outputDir, manifest, entry, config.TargetPlatform, config.KeepExpandedArtifact)
+	return finalizeArtifact(root, staging, outputDir, manifest, entry, config.TargetPlatform, config.KeepExpandedArtifact, config.SkipArchive)
 }
 
 func copyPackDefaults(pluginDir, artifactRoot string) error {
