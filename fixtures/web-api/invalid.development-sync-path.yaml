@@ -1,0 +1,21 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Authenticated local development synchronization.
+request:
+  method: POST
+  path: /api/development/plugins/sync
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
+  body:
+    artifact: 'C:\outside\fixture.plugin'
+    source: 'C:\work\plugins\fixture.plugin'
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 开发 artifact 必须位于指定构建目录内
+      message_key: errors.platform.invalid_request
+      request_id: req_fixture_development_path
+expect:
+  valid: true

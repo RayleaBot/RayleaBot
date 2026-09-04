@@ -61,6 +61,7 @@ commands:
         description: >
           校验目标平台 artifact 后，以 development 来源执行安装或原子替换，
           保留失败前最后一个可用版本，并把新开发插件的 desired_state 设为 enabled。
+          已安装插件保留 desired_state；来源与实际安装内容一致时直接成功，不重装或重载。
           命令只接受标准构建器生成的展开目录，不执行 manifest 提供的命令。
         options:
           artifact:

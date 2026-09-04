@@ -4,6 +4,66 @@
  */
 
 export interface paths {
+    "/api/development/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Identify the authenticated local development runtime.
+         * @description Available only when RAYLEA_DEV_ARTIFACT_ROOT is explicitly configured at process startup. Requires direct loopback, no forwarding headers or Origin, and LauncherControlAuth. Disabled mode, remote, browser and unauthenticated requests return 403 permission.denied. The canonical artifact root identifies the checkout; no token is returned.
+         */
+        get: operations["getDevelopmentStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/development/plugins/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Synchronize one trusted local development artifact without restarting Server.
+         * @description Uses the same admission as development status. Artifact must resolve strictly below the configured artifact root after symlink resolution; source is an absolute repository path used only as installation metadata. Neither source discovery nor build commands are executed by Server. Invalid paths return 400 platform.invalid_request. The normal installer validates the current-platform artifact, atomically replaces only that plugin and reconciles its runtime. Existing desired_state is preserved; new plugins start enabled. Identical source and actual installed content return changed=false and an empty task_id. Changed artifacts return changed=true and a plugin.install task ID; poll the development task route until terminal. Enabled development plugins must finish runtime initialization before the installation succeeds. Failed replacement restores the previous package.
+         */
+        post: operations["syncDevelopmentPlugin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/development/plugins/sync/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Query a plugin installation task using local development admission.
+         * @description Uses the same admission as development status. A missing task or a task of another kind returns 404 platform.resource_missing. pending and running are transient; succeeded, failed, cancelled and interrupted are terminal. Unknown statuses are rejected. error_code is present only when the task has an error, using the formal error code registry.
+         */
+        get: operations["getDevelopmentPluginSync"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/healthz": {
         parameters: {
             query?: never;
@@ -2730,6 +2790,88 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getDevelopmentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Development runtime identity. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        artifact_root: string;
+                    };
+                };
+            };
+            403: components["responses"]["Error"];
+        };
+    };
+    syncDevelopmentPlugin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    artifact: string;
+                    source: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Unchanged package or accepted installation task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        task_id: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDevelopmentPluginSync: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Installation progress. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        task_id: string;
+                        /** @enum {string} */
+                        status: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+                        error_code?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getHealthz: {
         parameters: {
             query?: never;

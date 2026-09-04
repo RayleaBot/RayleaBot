@@ -1,0 +1,15 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Authenticated local development synchronization.
+request:
+  method: GET
+  path: /api/development/plugins/sync/task_fixture_development
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
+response:
+  status: 200
+  body:
+    task_id: task_fixture_development
+    status: succeeded
+expect:
+  valid: true

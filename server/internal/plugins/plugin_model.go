@@ -23,6 +23,7 @@ type CatalogStore interface {
 	List() []Snapshot
 	Get(string) (Snapshot, bool)
 	Replace([]Snapshot)
+	RefreshInstalled([]Snapshot, string)
 }
 
 type Command struct {

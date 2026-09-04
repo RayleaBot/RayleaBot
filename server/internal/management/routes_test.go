@@ -25,6 +25,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 		PublicRoutes: []managementapi.PublicRouteModule{
 			managementapi.NewAuthHandlers(managementapi.AuthDeps{}),
 			managementapi.NewCoreHandlers(managementapi.CoreDeps{}),
+			managementapi.DevelopmentRoutes{},
 			managementapi.NewProtocolHandlers(nil),
 			managementapi.PublicRouteFunc(func(r chi.Router) {
 				r.Post("/api/webhooks/{plugin_id}/{route}", noopHandler)

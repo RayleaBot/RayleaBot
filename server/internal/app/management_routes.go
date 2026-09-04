@@ -96,6 +96,14 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		Lifecycle:    services.PluginLifecycle,
 	}
 	pluginStoreRoutes := managementapi.PluginStoreRoutes{Service: pluginState.PluginStore}
+	developmentRoutes := managementapi.DevelopmentRoutes{
+		ArtifactRoot: deps.DevelopmentArtifactRoot,
+		Token:        managementapi.NewStaticToken(deps.LauncherControlToken),
+		Tasks:        platformState.Tasks,
+	}
+	if deps.DevelopmentArtifactRoot != "" {
+		developmentRoutes.Installer = pluginState.PluginInstaller.(managementapi.DevelopmentInstaller)
+	}
 
 	handlers := httpHandlers{
 		Auth:       authHandler,
@@ -114,6 +122,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 			PublicRoutes: []managementapi.PublicRouteModule{
 				authHandler,
 				managementHandler,
+				developmentRoutes,
 				protocolHandler,
 				services.PluginWebhooks,
 				pluginManagementUI,

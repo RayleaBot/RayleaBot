@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
@@ -20,17 +21,18 @@ import (
 )
 
 type Options struct {
-	ConfigPath            string
-	SchemaPath            string
-	SetupToken            string
-	LauncherControlToken  string
-	AuthOptions           []auth.Option
-	PluginRepoRoot        string
-	PluginSchemaPath      string
-	PluginRoots           []plugincatalog.ScanRoot
-	RenderRunner          renderservice.Runner
-	BilibiliHTTPTransport http.RoundTripper
-	BilibiliClock         func() time.Time
+	ConfigPath              string
+	SchemaPath              string
+	SetupToken              string
+	LauncherControlToken    string
+	DevelopmentArtifactRoot string
+	AuthOptions             []auth.Option
+	PluginRepoRoot          string
+	PluginSchemaPath        string
+	PluginRoots             []plugincatalog.ScanRoot
+	RenderRunner            renderservice.Runner
+	BilibiliHTTPTransport   http.RoundTripper
+	BilibiliClock           func() time.Time
 	// LogRepository overrides the SQLite-backed management log repository.
 	// Test-only seam; nil means the default repository is built.
 	LogRepository logging.Repository
@@ -77,6 +79,16 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	if err := auth.ValidateOpaqueToken(options.SetupToken); err != nil {
 		return nil, fmt.Errorf("validate setup token: %w", err)
+	}
+	if options.DevelopmentArtifactRoot != "" {
+		if !filepath.IsAbs(options.DevelopmentArtifactRoot) {
+			return nil, errors.New("development artifact root must be absolute")
+		}
+		canonical, err := filepath.EvalSymlinks(options.DevelopmentArtifactRoot)
+		if err != nil {
+			return nil, fmt.Errorf("resolve development artifact root: %w", err)
+		}
+		options.DevelopmentArtifactRoot = canonical
 	}
 	if options.LauncherControlToken == "" {
 		generated, err := auth.GenerateOpaqueToken(32)
@@ -233,17 +245,18 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	}
 	configureAppRuntimeCallbacks(application)
 	httpState := buildHTTP(httpBuildDeps{
-		Runtime:              state,
-		Platform:             platformState,
-		Plugins:              pluginState,
-		Events:               eventState,
-		Renderer:             renderState.Renderer,
-		ServiceBuild:         serviceBuild,
-		Metrics:              metricRegistry,
-		HTTPTransport:        options.BilibiliHTTPTransport,
-		RequestShutdown:      application.requestShutdown,
-		SetupToken:           options.SetupToken,
-		LauncherControlToken: options.LauncherControlToken,
+		Runtime:                 state,
+		Platform:                platformState,
+		Plugins:                 pluginState,
+		Events:                  eventState,
+		Renderer:                renderState.Renderer,
+		ServiceBuild:            serviceBuild,
+		Metrics:                 metricRegistry,
+		HTTPTransport:           options.BilibiliHTTPTransport,
+		RequestShutdown:         application.requestShutdown,
+		SetupToken:              options.SetupToken,
+		LauncherControlToken:    options.LauncherControlToken,
+		DevelopmentArtifactRoot: options.DevelopmentArtifactRoot,
 	})
 	application.process.router = httpState.Router
 	application.process.server = httpState.Server

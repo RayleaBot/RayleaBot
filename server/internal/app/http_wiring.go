@@ -18,17 +18,18 @@ import (
 )
 
 type httpBuildDeps struct {
-	Runtime              configRuntimeState
-	Platform             PlatformState
-	Plugins              PluginStackState
-	Events               EventState
-	Renderer             *renderservice.Service
-	ServiceBuild         serviceBuildResult
-	Metrics              *MetricsRegistry
-	HTTPTransport        http.RoundTripper
-	RequestShutdown      func()
-	SetupToken           string
-	LauncherControlToken string
+	Runtime                 configRuntimeState
+	Platform                PlatformState
+	Plugins                 PluginStackState
+	Events                  EventState
+	Renderer                *renderservice.Service
+	ServiceBuild            serviceBuildResult
+	Metrics                 *MetricsRegistry
+	HTTPTransport           http.RoundTripper
+	RequestShutdown         func()
+	SetupToken              string
+	LauncherControlToken    string
+	DevelopmentArtifactRoot string
 }
 
 type appHTTPState struct {

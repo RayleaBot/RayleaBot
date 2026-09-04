@@ -6,6 +6,11 @@ info:
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
 x-fixtures:
+  - fixtures/web-api/ok.development-sync.yaml
+  - fixtures/web-api/edge.development-sync-unchanged.yaml
+  - fixtures/web-api/invalid.development-sync-path.yaml
+  - fixtures/web-api/ok.development-status.yaml
+  - fixtures/web-api/ok.development-sync-task.yaml
   - fixtures/web-api/ok.plugin-icon.yaml
   - fixtures/web-api/edge.plugin-icon-unavailable.yaml
   - fixtures/web-api/invalid.plugin-icon-unauthorized.yaml
@@ -159,6 +164,103 @@ x-browser-session-policy:
   websocket: Browser WebSocket admission uses CookieAuth and exact Origin validation; query-string session tokens are forbidden.
 
 paths:
+  /api/development/status:
+    get:
+      operationId: getDevelopmentStatus
+      summary: Identify the authenticated local development runtime.
+      description: >
+        Available only when RAYLEA_DEV_ARTIFACT_ROOT is explicitly configured at process startup.
+        Requires direct loopback, no forwarding headers or Origin, and LauncherControlAuth.
+        Disabled mode, remote, browser and unauthenticated requests return 403 permission.denied.
+        The canonical artifact root identifies the checkout; no token is returned.
+      security:
+        - LauncherControlAuth: []
+      responses:
+        '200':
+          description: Development runtime identity.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [artifact_root]
+                properties:
+                  artifact_root: {type: string, minLength: 1}
+        '403':
+          $ref: '#/components/responses/Error'
+  /api/development/plugins/sync:
+    post:
+      operationId: syncDevelopmentPlugin
+      summary: Synchronize one trusted local development artifact without restarting Server.
+      description: >
+        Uses the same admission as development status. Artifact must resolve strictly below
+        the configured artifact root after symlink resolution; source is an absolute repository
+        path used only as installation metadata. Neither source discovery nor build commands
+        are executed by Server. Invalid paths return 400 platform.invalid_request.
+        The normal installer validates the current-platform artifact, atomically replaces only
+        that plugin and reconciles its runtime. Existing desired_state is preserved; new plugins
+        start enabled. Identical source and actual installed content return changed=false and
+        an empty task_id. Changed artifacts return changed=true and a plugin.install task ID;
+        poll the development task route until terminal. Enabled development plugins must finish
+        runtime initialization before the installation succeeds. Failed replacement restores the previous package.
+      security:
+        - LauncherControlAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [artifact, source]
+              properties:
+                artifact: {type: string, minLength: 1, maxLength: 4096}
+                source: {type: string, minLength: 1, maxLength: 4096}
+      responses:
+        '200':
+          description: Unchanged package or accepted installation task.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [changed, task_id]
+                properties:
+                  changed: {type: boolean}
+                  task_id: {type: string}
+        default:
+          $ref: '#/components/responses/Error'
+  /api/development/plugins/sync/{task_id}:
+    get:
+      operationId: getDevelopmentPluginSync
+      summary: Query a plugin installation task using local development admission.
+      description: >
+        Uses the same admission as development status. A missing task or a task of another
+        kind returns 404 platform.resource_missing. pending and running are transient;
+        succeeded, failed, cancelled and interrupted are terminal. Unknown statuses are rejected.
+        error_code is present only when the task has an error, using the formal error code registry.
+      security:
+        - LauncherControlAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: {type: string, minLength: 1}
+      responses:
+        '200':
+          description: Installation progress.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [task_id, status]
+                properties:
+                  task_id: {type: string, minLength: 1}
+                  status: {type: string, enum: [pending, running, succeeded, failed, cancelled, interrupted]}
+                  error_code: {type: string, minLength: 1}
+        default:
+          $ref: '#/components/responses/Error'
   /healthz:
     get:
       summary: Probe whether the RayleaBot process is alive.

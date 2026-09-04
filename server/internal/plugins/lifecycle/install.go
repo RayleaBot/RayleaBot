@@ -666,7 +666,7 @@ func (s *InstallService) renameInstallPath(ctx context.Context, source, target s
 	return errors.New("install rename attempts exhausted")
 }
 
-func (s *InstallService) refreshCatalog(ctx context.Context) error {
+func (s *InstallService) refreshCatalog(ctx context.Context, pluginID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -695,7 +695,7 @@ func (s *InstallService) refreshCatalog(ctx context.Context) error {
 		snapshots = plugins.ApplyDesiredStates(snapshots, states)
 	}
 
-	s.catalog.Replace(snapshots)
+	s.catalog.RefreshInstalled(snapshots, pluginID)
 	return nil
 }
 
@@ -872,6 +872,9 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	rollback := func() {
 		cleanupCtx := context.WithoutCancel(job.ctx)
+		if !exists && job.request.SourceType == "development" && s.repository != nil {
+			_ = s.repository.DeleteDesiredState(cleanupCtx, candidateSnapshot.PluginID)
+		}
 		_ = s.deps.removeAll(finalTarget)
 		if replacing {
 			_ = s.renameInstallPath(cleanupCtx, previousTarget, finalTarget)
@@ -883,7 +886,7 @@ func (s *InstallService) runInstall(job installJob) error {
 				_ = s.packageRepo.DeletePackageMetadata(cleanupCtx, candidateSnapshot.PluginID)
 			}
 		}
-		_ = s.refreshCatalog(cleanupCtx)
+		_ = s.refreshCatalog(cleanupCtx, candidateSnapshot.PluginID)
 		resumePrevious()
 	}
 
@@ -900,7 +903,13 @@ func (s *InstallService) runInstall(job installJob) error {
 		Summary:  stringPtr("刷新插件目录索引"),
 	})
 
-	if err := s.refreshCatalog(job.ctx); err != nil {
+	if !exists && job.request.SourceType == "development" && s.repository != nil {
+		if err := s.repository.SaveDesiredState(job.ctx, candidateSnapshot.PluginID, plugins.DesiredStateEnabled, s.deps.now().UTC()); err != nil {
+			rollback()
+			return err
+		}
+	}
+	if err := s.refreshCatalog(job.ctx, candidateSnapshot.PluginID); err != nil {
 		rollback()
 		return err
 	}

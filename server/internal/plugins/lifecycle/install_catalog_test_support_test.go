@@ -60,3 +60,19 @@ func (c *testCatalog) Replace(entries []plugins.Snapshot) {
 	c.items = items
 	c.order = order
 }
+
+func (c *testCatalog) RefreshInstalled(entries []plugins.Snapshot, pluginID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.items, pluginID)
+	for _, entry := range entries {
+		if entry.PluginID == pluginID {
+			c.items[pluginID] = plugins.CloneSnapshot(entry)
+		}
+	}
+	c.order = c.order[:0]
+	for id := range c.items {
+		c.order = append(c.order, id)
+	}
+	sort.Strings(c.order)
+}

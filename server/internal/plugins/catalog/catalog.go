@@ -91,7 +91,36 @@ func (c *Catalog) RefreshCommands(pluginID string, settings map[string]any) (plu
 }
 
 func (c *Catalog) Replace(entries []plugins.Snapshot) {
+	c.replace(entries, "")
+}
+
+// RefreshInstalled applies one installation result without resetting unrelated runtimes.
+func (c *Catalog) RefreshInstalled(entries []plugins.Snapshot, pluginID string) {
+	c.replace(entries, pluginID)
+}
+
+func (c *Catalog) replace(entries []plugins.Snapshot, installedID string) {
 	c.mu.Lock()
+	if installedID != "" {
+		selected := make([]plugins.Snapshot, 0, len(c.items)+1)
+		for _, current := range c.items {
+			if current.PluginID != installedID {
+				selected = append(selected, current)
+			}
+		}
+		for _, entry := range entries {
+			if entry.PluginID != installedID {
+				continue
+			}
+			if current, ok := c.items[installedID]; ok {
+				entry.DesiredState = current.DesiredState
+				entry.RuntimeState = current.RuntimeState
+				entry.DeadLetter = current.DeadLetter
+			}
+			selected = append(selected, entry)
+		}
+		entries = selected
+	}
 
 	items := make(map[string]plugins.Snapshot, len(entries))
 	order := make([]string, 0, len(entries))

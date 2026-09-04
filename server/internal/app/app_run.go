@@ -287,7 +287,13 @@ func configureAppRuntimeCallbacks(application *App) {
 			return err
 		}
 		if snapshot, exists := application.pluginStack.Plugins.Get(pluginID); exists && snapshot.DesiredState == plugins.DesiredStateEnabled {
-			_, _ = lifecycle.Reload(ctx, pluginID)
+			if snapshot.PackageSourceType == "development" {
+				if err := lifecycle.StartDevelopment(ctx, pluginID); err != nil {
+					return err
+				}
+			} else {
+				_, _ = lifecycle.Reload(ctx, pluginID)
+			}
 		}
 		systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
 		return nil

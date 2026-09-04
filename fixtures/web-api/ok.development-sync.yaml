@@ -1,0 +1,18 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Authenticated local development synchronization.
+request:
+  method: POST
+  path: /api/development/plugins/sync
+  headers:
+    X-Raylea-Launcher-Control: fixture-control-token-not-a-real-secret
+  body:
+    artifact: 'C:\work\RayleaBot\.tmp\plugin-dev\artifacts\windows-x64\fixture.plugin'
+    source: 'C:\work\plugins\fixture.plugin'
+response:
+  status: 200
+  body:
+    changed: true
+    task_id: task_fixture_development
+expect:
+  valid: true

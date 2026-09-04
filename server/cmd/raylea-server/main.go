@@ -24,6 +24,8 @@ import (
 func main() {
 	setupTokenFromEnv := consumeSecretEnv("RAYLEA_SETUP_TOKEN")
 	launcherControlToken := consumeSecretEnv("RAYLEA_LAUNCHER_CONTROL_TOKEN")
+	developmentArtifactRoot := os.Getenv("RAYLEA_DEV_ARTIFACT_ROOT")
+	_ = os.Unsetenv("RAYLEA_DEV_ARTIFACT_ROOT")
 	var configPath string
 	var schemaPath string
 
@@ -69,10 +71,11 @@ func main() {
 	}
 
 	application, err := app.NewWithContext(runCtx, app.Options{
-		ConfigPath:           configPath,
-		SchemaPath:           schemaPath,
-		SetupToken:           setupTokenFromEnv,
-		LauncherControlToken: launcherControlToken,
+		ConfigPath:              configPath,
+		SchemaPath:              schemaPath,
+		SetupToken:              setupTokenFromEnv,
+		LauncherControlToken:    launcherControlToken,
+		DevelopmentArtifactRoot: developmentArtifactRoot,
 	})
 	if err != nil {
 		bootstrapLogger.Error(

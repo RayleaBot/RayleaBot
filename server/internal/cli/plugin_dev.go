@@ -101,39 +101,13 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 		return err
 	}
 	defer installer.Close()
-	request := plugins.InstallRequest{
-		SourceType:         "development",
-		Source:             sourcePath,
-		ResolvedSourceType: "local_directory",
-		ResolvedSource:     artifactPath,
-	}
-	inspection, err := installer.Inspect(ctx, request)
+	taskID, changed, err := installer.SyncDevelopment(ctx, artifactPath, sourcePath)
 	if err != nil {
 		return err
 	}
-	pluginID := inspection.PluginID
-	if _, exists := catalog.Get(pluginID); exists {
-		request.ReplaceExisting = true
-		inspection, err = installer.Inspect(ctx, request)
-		if err != nil {
-			return err
-		}
+	if changed {
+		return waitForPluginInstall(ctx, registry, taskID)
 	}
-	taskID, err := installer.Accept(ctx, plugins.InstallAcceptance{
-		InspectionID:         inspection.InspectionID,
-		PackageSHA256:        inspection.PackageSHA256,
-		TrustedCodeConfirmed: true,
-	})
-	if err != nil {
-		return err
-	}
-	if err := waitForPluginInstall(ctx, registry, taskID); err != nil {
-		return err
-	}
-	if err := repository.SaveDesiredState(ctx, pluginID, plugins.DesiredStateEnabled, time.Now().UTC()); err != nil {
-		return err
-	}
-	_, _ = catalog.SetDesiredState(pluginID, plugins.DesiredStateEnabled)
 	return nil
 }
 

@@ -109,7 +109,7 @@
 
 ## OpenAPI 已固定范围
 
-`web-api.openapi.yaml#paths` 是完整 method/path 集合的唯一正式来源。以下索引按能力族镜像当前 68 个 path template；仓库没有保留在 OpenAPI 之外的管理 HTTP 路由。
+`web-api.openapi.yaml#paths` 是完整 method/path 集合的唯一正式来源。以下索引按能力族镜像当前 71 个 path template；仓库没有保留在 OpenAPI 之外的管理 HTTP 路由。
 
 ### Method / path 索引
 
@@ -126,6 +126,9 @@
 
 - `GET /api/launcher/status`
 - `POST /api/launcher/shutdown`
+- `GET /api/development/status`
+- `POST /api/development/plugins/sync`
+- `GET /api/development/plugins/sync/{task_id}`
 - `GET /api/config`、`PUT /api/config`
 
 #### 治理
