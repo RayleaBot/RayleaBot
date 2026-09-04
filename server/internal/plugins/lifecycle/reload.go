@@ -59,6 +59,12 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 
 	ctx, cancel := c.lifecycleTimeoutContext(runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
+	release, lockErr := c.acquireOperation(ctx, pluginID)
+	if lockErr != nil {
+		c.failReloadTaskForError(taskID, pluginID, lockErr, "插件重载已取消")
+		return
+	}
+	defer release()
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
@@ -70,7 +76,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	if !ok || current == nil {
 		c.updateReloadTask(taskID, 30, "启动插件运行时")
 		manager := c.runtimes.GetOrCreate(pluginID)
-		if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
+		if err := c.startRuntimeLocked(ctx, pluginID, botID, manager); err != nil {
 			c.logLifecycleWarn("start plugin runtime during reload", pluginID, err)
 			_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
@@ -83,7 +89,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	switch current.Snapshot().State {
 	case pluginruntime.StateStopped:
 		c.updateReloadTask(taskID, 30, "启动插件运行时")
-		if err := c.startRuntime(ctx, pluginID, botID, current); err != nil {
+		if err := c.startRuntimeLocked(ctx, pluginID, botID, current); err != nil {
 			c.logLifecycleWarn("start stopped plugin runtime during reload", pluginID, err)
 			_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
@@ -95,7 +101,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 		current.ResetCrashCount()
 		current.SetStopped()
 		c.updateReloadTask(taskID, 30, "重置插件运行时")
-		if err := c.startRuntime(ctx, pluginID, botID, current); err != nil {
+		if err := c.startRuntimeLocked(ctx, pluginID, botID, current); err != nil {
 			c.logLifecycleWarn("restart plugin runtime during reload", pluginID, err)
 			_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")

@@ -39,6 +39,32 @@ func (t *fakeTransport) LogUnsupportedSegment(segmentType string) {
 	t.unsupportedLogged = append(t.unsupportedLogged, segmentType)
 }
 
+func TestUnconfirmedMessageDoesNotRetryThroughHTTP(t *testing.T) {
+	transport := &fakeTransport{wsOK: true, wsErr: Errorf(ErrorCodeSendUnconfirmed, "fixture timeout", context.DeadlineExceeded)}
+	_, err := NewSender(transport).SendMessage(context.Background(), OutboundMessageSend{TargetType: "group", TargetID: "fixture-target", Segments: []OutboundMessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}})
+	var typed *Error
+	if !errors.As(err, &typed) || typed.Code != ErrorCodeSendUnconfirmed {
+		t.Fatalf("send result = %v", err)
+	}
+	if len(transport.wsRequests) != 1 || len(transport.httpRequests) != 0 {
+		t.Fatal("uncertain send retried")
+	}
+}
+
+func TestCanceledMessageNeverReachesTransport(t *testing.T) {
+	transport := &fakeTransport{}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	_, err := NewSender(transport).SendMessage(ctx, OutboundMessageSend{TargetType: "group", TargetID: "fixture-target", Segments: []OutboundMessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}})
+	var typed *Error
+	if !errors.As(err, &typed) || typed.Code != ErrorCodeSendFailed {
+		t.Fatalf("send result = %v", err)
+	}
+	if len(transport.wsRequests) != 0 || len(transport.httpRequests) != 0 {
+		t.Fatal("canceled message reached transport")
+	}
+}
+
 func TestSenderSendMessageUsesWebSocketAndLogsUnsupportedSegments(t *testing.T) {
 	transport := &fakeTransport{
 		echo: "adapter-1",

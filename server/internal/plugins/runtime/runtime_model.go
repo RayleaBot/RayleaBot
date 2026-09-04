@@ -27,6 +27,7 @@ const (
 	codePlatformResourceMissing = "platform.resource_missing"
 	codePluginInitTimeout       = "plugin.init_timeout"
 	codePluginEventTimeout      = "plugin.event_timeout"
+	codePluginEventCanceled     = "plugin.event_canceled"
 	codePluginInternalError     = "plugin.internal_error"
 	codePluginNotHandled        = "plugin.not_handled"
 	codePluginProtocolViolation = "plugin.protocol_violation"
@@ -37,11 +38,15 @@ const (
 )
 
 type Error struct {
-	Code    string
-	Message string
-	Details map[string]any
-	Err     error
+	failureReported bool
+	Code            string
+	Message         string
+	Details         map[string]any
+	Err             error
 }
+
+// FailureReported reports whether the runtime emitted the owning failure record.
+func (e *Error) FailureReported() bool { return e.failureReported }
 
 func (e *Error) Error() string {
 	if e == nil {

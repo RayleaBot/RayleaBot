@@ -1,8 +1,11 @@
 package dispatch
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -12,6 +15,7 @@ import (
 // allows different lanes to run in parallel up to slot.concurrency.
 func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 	defer close(slot.done)
+	defer slot.cancel()
 
 	type laneCompletion struct {
 		laneKey string
@@ -72,6 +76,15 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				started = true
 
 				go func(laneKey string, item dispatchItem) {
+					execCtx, cancel := context.WithCancel(item.ctx)
+					stop := context.AfterFunc(slot.ctx, cancel)
+					defer func() { stop(); cancel() }()
+					item.ctx = execCtx
+					if slot.ctx.Err() != nil {
+						d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeOther, schedulerElapsed(item.event), "plugin.event_canceled", "事件因运行时停止而取消")
+						completions <- laneCompletion{laneKey: laneKey}
+						return
+					}
 					if !slotIsDeliverable(slot) {
 						d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeFailed, schedulerElapsed(item.event), "platform.invalid_request", "plugin runtime is not deliverable")
 						d.logSchedulerCompletion(pluginID, item.event, "处理失败", schedulerElapsed(item.event), map[string]any{
@@ -84,18 +97,28 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					if err != nil {
 						duration := schedulerElapsed(item.event)
 						outcome, code, message := schedulerFailureFields(err, delivery)
-						d.logger.Warn("插件 "+pluginID+" 的事件 "+item.event.EventID+" 投递失败；该事件未完成处理。原因："+err.Error(),
-							"component", "dispatch",
-							"plugin_id", pluginID,
-							"event_id", item.event.EventID,
-							"lane_key", laneKey,
-							"err", err.Error(),
-						)
+						var runtimeErr *pluginruntime.Error
+						reported := errors.As(err, &runtimeErr) && runtimeErr != nil && runtimeErr.FailureReported()
+						if item.event.SchedulerLog == nil && !reported && code != "plugin.event_canceled" {
+							count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
+							if count > 0 {
+								d.logger.Warn("插件 "+pluginID+" 的内部事件（"+item.event.EventType+"）未完成；"+eventFailureDescription(code),
+									"component", "dispatch",
+									"plugin_id", pluginID,
+									"event_id", item.event.EventID,
+									"lane_key", laneKey,
+									"err", err.Error(),
+									"error_code", code, "request_id", delivery.RequestID, "repeat_count", count,
+								)
+							}
+						}
 						d.recordSchedulerCompletion(item.ctx, item.event, outcome, duration, code, message)
-						d.logSchedulerCompletion(pluginID, item.event, "处理失败", duration, map[string]any{
-							"error":      err.Error(),
-							"error_code": code,
-						})
+						if !reported {
+							d.logSchedulerCompletion(pluginID, item.event, "处理失败", duration, map[string]any{
+								"error":      err.Error(),
+								"error_code": code,
+							})
+						}
 						completions <- laneCompletion{laneKey: laneKey}
 						return
 					}
@@ -104,6 +127,12 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 						d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
 					}
 					d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeSuccess, schedulerElapsed(item.event), "", "")
+					d.recoverScheduler(pluginID, item.event)
+					if item.event.SchedulerLog == nil {
+						if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {
+							d.logger.Info("插件 "+pluginID+" 的内部事件处理已恢复。", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
+						}
+					}
 					completions <- laneCompletion{laneKey: laneKey}
 				}(laneKey, item)
 			}

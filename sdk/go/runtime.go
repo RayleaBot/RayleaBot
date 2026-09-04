@@ -51,6 +51,8 @@ type EventContext struct {
 
 	client   *runtimeClient
 	terminal atomic.Bool
+	actionMu sync.Mutex
+	actions  map[string]chan struct{}
 }
 
 func Run(ctx context.Context, options Options, handler Handler) error {
@@ -91,6 +93,7 @@ func Run(ctx context.Context, options Options, handler Handler) error {
 		cancel:        cancel,
 	}
 	state.config.Store(&configSnapshot{values: map[string]any{}})
+	defer state.client.rejectPending(context.Canceled)
 	return state.run(runCtx, in)
 }
 
@@ -228,6 +231,9 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 		case <-ctx.Done():
 			return
 		}
+		if ctx.Err() != nil {
+			return
+		}
 		eventContext := state.newEventContext(requestID, event)
 		defer func() {
 			if recovered := recover(); recovered != nil {
@@ -239,6 +245,10 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 		}()
 		err := state.handler.Handle(ctx, eventContext)
 		if err != nil {
+			if ctx.Err() != nil {
+				state.logger.Debug("plugin event canceled during shutdown", "request_id", requestID)
+				return
+			}
 			state.logger.Error("plugin event handler failed", "request_id", requestID, "err", redact(err.Error()))
 			if !eventContext.terminal.Load() {
 				_ = eventContext.Fail("plugin.internal_error", err.Error())
@@ -315,15 +325,11 @@ func (state *runtimeState) waitHandlers() error {
 }
 
 func (event *EventContext) Result(data any) error {
-	if !event.terminal.CompareAndSwap(false, true) {
-		return errors.New("rayleabot: terminal response already sent")
-	}
 	raw, err := json.Marshal(data)
 	if err != nil {
-		event.terminal.Store(false)
 		return fmt.Errorf("rayleabot: marshal result: %w", err)
 	}
-	return event.client.writer.write(protocolFrame{
+	return event.writeTerminal(protocolFrame{
 		Type:      "result",
 		RequestID: event.RequestID,
 		Status:    "success",
@@ -332,10 +338,7 @@ func (event *EventContext) Result(data any) error {
 }
 
 func (event *EventContext) Fail(code, message string) error {
-	if !event.terminal.CompareAndSwap(false, true) {
-		return errors.New("rayleabot: terminal response already sent")
-	}
-	return event.client.writer.write(protocolFrame{
+	return event.writeTerminal(protocolFrame{
 		Type:      "error",
 		RequestID: event.RequestID,
 		Code:      code,
@@ -344,19 +347,15 @@ func (event *EventContext) Fail(code, message string) error {
 }
 
 func (event *EventContext) Send(targetType, targetID string, segments ...Segment) error {
-	if !event.terminal.CompareAndSwap(false, true) {
-		return errors.New("rayleabot: terminal response already sent")
-	}
 	data, err := json.Marshal(map[string]any{
 		"target_type": targetType,
 		"target_id":   targetID,
 		"message":     map[string]any{"segments": segments},
 	})
 	if err != nil {
-		event.terminal.Store(false)
 		return err
 	}
-	return event.client.writer.write(protocolFrame{
+	return event.writeTerminal(protocolFrame{
 		Type:      "action",
 		RequestID: event.RequestID,
 		Action:    "message.send",
@@ -373,9 +372,6 @@ func (event *EventContext) SendText(text string) error {
 }
 
 func (event *EventContext) Reply(replyToEventID string, fallback bool, segments ...Segment) error {
-	if !event.terminal.CompareAndSwap(false, true) {
-		return errors.New("rayleabot: terminal response already sent")
-	}
 	payload := map[string]any{
 		"target_type":       event.Event.Target.Type,
 		"target_id":         event.Event.Target.ID,
@@ -387,10 +383,9 @@ func (event *EventContext) Reply(replyToEventID string, fallback bool, segments 
 	}
 	data, err := json.Marshal(payload)
 	if err != nil {
-		event.terminal.Store(false)
 		return err
 	}
-	return event.client.writer.write(protocolFrame{
+	return event.writeTerminal(protocolFrame{
 		Type:      "action",
 		RequestID: event.RequestID,
 		Action:    "message.send",

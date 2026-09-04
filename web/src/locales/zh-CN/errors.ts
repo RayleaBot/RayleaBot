@@ -1,4 +1,7 @@
 export const errors = {
+  adapter: {
+    sendUnconfirmed: '消息发送结果未确认，可能仍会送达；未自动重发。',
+  },
   common: {
     actionFailed: '操作未完成，请稍后重试。',
     loadFailed: '读取未完成，请稍后重试。',
@@ -21,6 +24,7 @@ export const errors = {
     templateRollbackTargetInvalid: '回退目标不合法，请重新选择版本。',
   },
   plugin: {
+    eventCanceled: '插件事件处理已取消；未自动重试。',
     installFailed: '插件安装失败。',
     installInspectionRequired: '请先检查插件包并确认信任。',
     installInspectionExpired: '插件包检查结果已过期，请重新检查插件包。',

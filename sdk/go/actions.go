@@ -22,17 +22,40 @@ func (actions *Actions) Call(ctx context.Context, action string, input any, outp
 	if action == "" {
 		return errors.New("rayleabot: action name is required")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	data, err := json.Marshal(input)
+	if err != nil {
+		return fmt.Errorf("rayleabot: marshal %s action: %w", action, err)
+	}
 	client := actions.event.client
 	requestID := client.nextRequestID(actions.event.RequestID)
 	response := make(chan protocolFrame, 1)
+	actions.event.actionMu.Lock()
+	if actions.event.terminal.Load() {
+		actions.event.actionMu.Unlock()
+		return errors.New("rayleabot: event is closing; no further actions are allowed")
+	}
 	client.pendingMu.Lock()
-	client.pending[requestID] = response
+	if client.closed || len(client.pending) >= pendingActionLimit {
+		client.pendingMu.Unlock()
+		actions.event.actionMu.Unlock()
+		return errors.New("rayleabot: action client is closed or pending action limit reached")
+	}
+	if actions.event.actions == nil {
+		actions.event.actions = make(map[string]chan struct{})
+	}
+	actions.event.actions[requestID] = make(chan struct{})
+	client.pending[requestID] = &pendingAction{response: response, event: actions.event}
 	client.pendingMu.Unlock()
-
-	data, err := json.Marshal(input)
-	if err != nil {
+	actions.event.actionMu.Unlock()
+	if err := ctx.Err(); err != nil {
 		client.removePending(requestID)
-		return fmt.Errorf("rayleabot: marshal %s action: %w", action, err)
+		return err
 	}
 	if err := client.writer.write(protocolFrame{
 		Type:            "action",
@@ -75,15 +98,20 @@ func (actions *Actions) Call(ctx context.Context, action string, input any, outp
 		}
 		return nil
 	case <-waitCtx.Done():
-		client.removePending(requestID)
+		// The host may still execute the action. Keep its response association
+		// until it settles or the event's bounded terminal drain retires it.
 		return fmt.Errorf("rayleabot: %s action: %w", action, waitCtx.Err())
 	}
 }
 
 func (client *runtimeClient) removePending(requestID string) {
 	client.pendingMu.Lock()
+	pending := client.pending[requestID]
 	delete(client.pending, requestID)
 	client.pendingMu.Unlock()
+	if pending != nil {
+		pending.event.finishAction(requestID)
+	}
 }
 
 func (actions *Actions) callResult(ctx context.Context, action string, input any) (ActionResult, error) {

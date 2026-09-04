@@ -6,6 +6,9 @@ import (
 )
 
 const ErrorCodeSendFailed = "adapter.send_failed"
+
+// ErrorCodeSendUnconfirmed means retrying could duplicate a dispatched message.
+const ErrorCodeSendUnconfirmed = "adapter.send_unconfirmed"
 const ErrorCodeReplyTargetMissing = "adapter.reply_target_missing"
 
 type Error struct {

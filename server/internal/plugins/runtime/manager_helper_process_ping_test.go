@@ -9,6 +9,12 @@ import (
 
 func runHelperProcessRuntimePart1(scenario string, recordPath string, scanner *bufio.Scanner) bool {
 	switch scenario {
+	case "stdin-blocked":
+		initFrame := helperReadFrame(scanner, 2)
+		writeHelperFrame(map[string]any{"type": "init_ack", "request_id": initFrame["request_id"], "status": "ready"})
+		// Remain alive without reading stdin until the parent terminates us.
+		time.Sleep(time.Minute)
+		os.Exit(0)
 	case "ping-pong":
 		if !scanner.Scan() {
 			os.Exit(2)

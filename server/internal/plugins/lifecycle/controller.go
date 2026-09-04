@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -53,6 +55,7 @@ type Deps struct {
 }
 
 type Controller struct {
+	schedulerFailures   logging.FailureTracker
 	currentConfig       func() config.Config
 	repoRoot            string
 	logger              *slog.Logger
@@ -71,6 +74,7 @@ type Controller struct {
 
 	lifecycleCtxMu sync.RWMutex
 	lifecycleCtx   context.Context
+	operations     sync.Map // plugin ID -> lifecycle operation gate
 
 	identityMu       sync.Mutex
 	identityByPlugin map[string]string
@@ -406,6 +410,14 @@ func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID, botID st
 	if c.runtimes == nil {
 		return nil
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	release, err := c.acquireOperation(ctx, pluginID)
+	if err != nil {
+		return err
+	}
+	defer release()
 
 	manager := c.runtimes.GetOrCreate(pluginID)
 	switch manager.Snapshot().State {
@@ -419,7 +431,7 @@ func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID, botID st
 	}
 
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
-	return c.startRuntime(ctx, pluginID, botID, manager)
+	return c.startRuntimeLocked(ctx, pluginID, botID, manager)
 }
 
 func (c *Controller) EnsurePluginRunning(ctx context.Context, pluginID, botID string) error {
@@ -439,7 +451,36 @@ func (c *Controller) startPluginAsync(pluginID, botID string) {
 	}
 }
 
-func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, manager *pluginruntime.Manager) error {
+func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, _ *pluginruntime.Manager) error {
+	release, err := c.acquireOperation(ctx, pluginID)
+	if err != nil {
+		return err
+	}
+	defer release()
+	manager := c.runtimes.GetOrCreate(pluginID)
+	if manager.Snapshot().State == pluginruntime.StateRunning {
+		c.registerRuntimeIfNeeded(pluginID, manager)
+		return nil
+	}
+	return c.startRuntimeLocked(ctx, pluginID, botID, manager)
+}
+
+func (c *Controller) acquireOperation(ctx context.Context, pluginID string) (func(), error) {
+	value, _ := c.operations.LoadOrStore(pluginID, make(chan struct{}, 1))
+	gate := value.(chan struct{})
+	select {
+	case gate <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			<-gate
+			return nil, err
+		}
+		return func() { <-gate }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID, botID string, manager *pluginruntime.Manager) error {
 	if manager == nil {
 		return nil
 	}
@@ -490,19 +531,39 @@ func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID
 }
 
 func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
+	// An accepted disable waits for the current operation before starting its
+	// shutdown budget. Server shutdown cancels this wait and stops all runtimes.
+	release, err := c.acquireOperation(c.lifecycleContext(), pluginID)
+	if err != nil {
+		return
+	}
+	defer release()
+	if snapshot, ok := c.plugins.Get(pluginID); ok && snapshot.DesiredState == "enabled" {
+		return
+	}
 
 	ctx, cancel := c.lifecycleTimeoutContext(5 * time.Second)
 	defer cancel()
-	c.stopPlugin(ctx, pluginID, remove)
+	c.stopPluginLocked(ctx, pluginID, remove)
 }
 
 func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove bool) {
 	if c.runtimes == nil {
 		return
 	}
+	release, err := c.acquireOperation(ctx, pluginID)
+	if err != nil {
+		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
+		return
+	}
+	defer release()
+	c.stopPluginLocked(ctx, pluginID, remove)
+}
 
+func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remove bool) {
 	c.clearBotIdentity(pluginID)
-	c.dispatcher.Deregister(pluginID)
+	c.dispatcher.CancelPlugin(pluginID)
+	defer c.dispatcher.Deregister(pluginID)
 
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
@@ -709,6 +770,10 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 	startedAt := time.Now()
 
 	snapshot, ok := c.plugins.Get(pluginID)
+	if ok && snapshot.DesiredState != "enabled" {
+		c.recordSchedulerRunResult(ctx, taskName, job.Revision, scheduler.RunOutcomeOther, time.Since(startedAt), "plugin.event_canceled", "插件已停用，本轮未执行", time.Now())
+		return
+	}
 	if !ok || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, "platform.invalid_request", "plugin is not available")
 		return
@@ -740,17 +805,30 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 	})
 	if result.Outcome != dispatch.OutcomeDelivered {
 		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, job.Revision, startedAt, result.ErrorCode, string(result.Outcome))
+	} else if count := c.schedulerFailures.Recover(pluginID + ":" + taskName); count > 0 && c.logger != nil {
+		c.logger.Info("定时任务 "+taskName+" 的插件运行时已恢复可用，本轮已进入处理队列。", "component", "scheduler", "plugin_id", pluginID, "job_id", taskName, "repeat_count", count)
 	}
 }
 
 func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, pluginName, taskName, logLabel string, revision uint64, startedAt time.Time, errorCode, errorText string) {
 	duration := time.Since(startedAt)
-	c.recordSchedulerRunResult(ctx, taskName, revision, scheduler.RunOutcomeFailed, duration, errorCode, errorText, time.Now())
+	outcome := scheduler.RunOutcomeFailed
+	if errorCode == "plugin.event_canceled" || ctx.Err() == context.Canceled {
+		outcome, errorCode, errorText = scheduler.RunOutcomeOther, "plugin.event_canceled", "本轮调度已取消"
+	}
+	c.recordSchedulerRunResult(ctx, taskName, revision, outcome, duration, errorCode, errorText, time.Now())
 	if c.logger == nil {
 		return
 	}
+	if outcome == scheduler.RunOutcomeOther {
+		return
+	}
+	count := c.schedulerFailures.Failure(pluginID+":"+taskName, errorCode, time.Now())
+	if count == 0 {
+		return
+	}
 	c.logger.Warn(
-		scheduler.DisplayMessage(pluginName, taskName, logLabel, "处理失败")+"耗时 "+scheduler.FormatDuration(duration)+"；任务未完成。原因："+errorText,
+		scheduler.DisplayMessage(pluginName, taskName, logLabel, "未执行")+"；插件暂不可用或事件未能进入队列，请检查插件状态；同类情况累计记录 "+fmt.Sprint(count)+" 次。",
 		"component", "scheduler",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -759,6 +837,7 @@ func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, p
 		"duration_ms", duration.Milliseconds(),
 		"error_code", errorCode,
 		"error", errorText,
+		"repeat_count", count,
 	)
 }
 
@@ -766,6 +845,8 @@ func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string,
 	if c.scheduler == nil {
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
 	if err := c.scheduler.RecordRunResult(ctx, scheduler.RunResult{
 		JobID:      jobID,
 		Revision:   revision,
@@ -911,15 +992,26 @@ func (c *Controller) CurrentBotID() string {
 }
 
 func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
-	if c.dispatcher != nil {
-		c.dispatcher.Deregister(pluginID)
+	release, err := c.acquireOperation(c.lifecycleContext(), pluginID)
+	if err != nil {
+		return
 	}
-	c.clearBotIdentity(pluginID)
-
+	defer release()
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
 		return
 	}
+	current := manager.Snapshot()
+	if current.State != pluginruntime.StateCrashed && current.State != pluginruntime.StateStopped {
+		return
+	}
+	if current.CrashCount > 0 {
+		crashCount = current.CrashCount
+	}
+	if c.dispatcher != nil {
+		c.dispatcher.Deregister(pluginID)
+	}
+	c.clearBotIdentity(pluginID)
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
@@ -972,14 +1064,14 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 		)
 	}
 
-	go c.backoffRestart(pluginID, delay)
+	go c.backoffRestart(pluginID, delay, manager)
 }
 
 func (c *Controller) HandleCrash(pluginID string, crashCount int, reason string) {
 	c.handleCrash(pluginID, crashCount, reason)
 }
 
-func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
+func (c *Controller) backoffRestart(pluginID string, delay time.Duration, expected *pluginruntime.Manager) {
 
 	lifecycleCtx := c.lifecycleContext()
 	timer := time.NewTimer(delay)
@@ -988,6 +1080,15 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 	case <-lifecycleCtx.Done():
 		return
 	case <-timer.C:
+	}
+	release, lockErr := c.acquireOperation(lifecycleCtx, pluginID)
+	if lockErr != nil {
+		return
+	}
+	defer release()
+	manager, ok := c.runtimes.Get(pluginID)
+	if !ok || manager != expected {
+		return
 	}
 
 	snapshot, ok := c.plugins.Get(pluginID)
@@ -999,10 +1100,6 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 		return
 	}
 
-	manager, ok := c.runtimes.Get(pluginID)
-	if !ok || manager == nil {
-		return
-	}
 	if manager.Snapshot().State != pluginruntime.StateBackoff {
 		return
 	}
@@ -1013,7 +1110,7 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration) {
 	defer cancel()
 
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
-	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
+	if err := c.startRuntimeLocked(ctx, pluginID, botID, manager); err != nil {
 		c.logLifecycleWarn("restart plugin after crash backoff", pluginID, err)
 		// startRuntime 可能在构建启动输入阶段失败（此时 Manager.Start 尚未执行），
 		// manager 会停留在 backoff 状态，之后所有触发都视为等待重试而跳过启动；

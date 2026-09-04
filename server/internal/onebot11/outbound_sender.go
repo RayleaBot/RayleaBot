@@ -68,6 +68,9 @@ func (s Sender) logUnsupportedSegments(segmentTypes []string) {
 }
 
 func (s Sender) sendSegments(ctx context.Context, targetType, targetID string, segments []OneBotMessageSegment, replyAttempt bool) (SendMessageResult, error) {
+	if err := ctx.Err(); err != nil {
+		return SendMessageResult{}, Errorf(ErrorCodeSendFailed, "发送请求已取消，消息未发出", err)
+	}
 	if s.transport == nil {
 		return SendMessageResult{}, Errorf(ErrorCodeSendFailed, "adapter transport is not connected", nil)
 	}

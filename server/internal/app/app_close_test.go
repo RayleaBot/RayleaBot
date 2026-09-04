@@ -3,16 +3,72 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
+
+type runtimeBoundDelivery struct {
+	manager *pluginruntime.Manager
+	started chan struct{}
+	result  chan pluginruntime.State
+}
+
+func (delivery *runtimeBoundDelivery) Snapshot() pluginruntime.Snapshot {
+	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
+}
+
+func (delivery *runtimeBoundDelivery) DeliverEvent(ctx context.Context, _ pluginruntime.Event) (pluginruntime.Delivery, error) {
+	close(delivery.started)
+	<-ctx.Done()
+	// An IPC write cannot finish until the owning runtime stops.
+	for delivery.manager.Snapshot().State != pluginruntime.StateStopped {
+		time.Sleep(time.Millisecond)
+	}
+	delivery.result <- delivery.manager.Snapshot().State
+	return pluginruntime.Delivery{}, ctx.Err()
+}
+
+func TestAppCloseWaitsForDeliveriesAfterStoppingRuntimes(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
+	manager := runtimes.GetOrCreate("fixture")
+	manager.SetBackoffState(time.Now())
+	delivery := &runtimeBoundDelivery{manager: manager, started: make(chan struct{}), result: make(chan pluginruntime.State, 1)}
+	dispatcher := dispatch.New(logger, nil, nil, 4)
+	dispatcher.Register("fixture", delivery, nil, nil, 1)
+	application := &App{runtimes: runtimes, eventStack: EventState{Dispatcher: dispatcher}}
+	dispatcher.DispatchToPlugin(t.Context(), "fixture", pluginruntime.Event{EventID: "fixture"})
+	<-delivery.started
+	done := make(chan error, 1)
+	go func() { done <- application.Close() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("app waited for delivery before stopping its runtime")
+	}
+	select {
+	case state := <-delivery.result:
+		if state != pluginruntime.StateStopped {
+			t.Fatalf("runtime remained %s", state)
+		}
+	default:
+		t.Fatal("app returned before delivery completed")
+	}
+}
 
 func TestNewReleasesConfigLifecycleLockAfterBuildFailure(t *testing.T) {
 	t.Parallel()

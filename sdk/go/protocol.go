@@ -51,10 +51,21 @@ func (err *ActionError) Error() string {
 type runtimeClient struct {
 	writer        jsonWriter
 	pendingMu     sync.Mutex
-	pending       map[string]chan protocolFrame
+	pending       map[string]*pendingAction
+	retired       map[string]time.Time
+	done          chan struct{}
+	closed        bool
 	nextRequest   atomic.Uint64
 	actionTimeout time.Duration
 }
+
+type pendingAction struct {
+	response chan protocolFrame
+	event    *EventContext
+}
+
+const pendingActionLimit = 4096
+const retiredActionRetention = 5 * time.Minute
 
 type jsonWriter struct {
 	mu  sync.Mutex
@@ -82,7 +93,9 @@ func newRuntimeClient(out interface {
 }, actionTimeout time.Duration) *runtimeClient {
 	return &runtimeClient{
 		writer:        jsonWriter{out: out},
-		pending:       make(map[string]chan protocolFrame),
+		pending:       make(map[string]*pendingAction),
+		retired:       make(map[string]time.Time),
+		done:          make(chan struct{}),
 		actionTimeout: actionTimeout,
 	}
 }
@@ -92,31 +105,78 @@ func (client *runtimeClient) routeResponse(frame protocolFrame) bool {
 		return false
 	}
 	client.pendingMu.Lock()
-	channel := client.pending[frame.RequestID]
-	if channel != nil {
+	pending := client.pending[frame.RequestID]
+	if pending != nil {
 		delete(client.pending, frame.RequestID)
 	}
+	client.pruneRetiredLocked()
+	_, retired := client.retired[frame.RequestID]
 	client.pendingMu.Unlock()
-	if channel == nil {
-		return false
+	if pending == nil {
+		return retired
 	}
-	channel <- frame
-	close(channel)
+	pending.event.finishAction(frame.RequestID)
+	pending.response <- frame
+	close(pending.response)
 	return true
 }
 
 func (client *runtimeClient) rejectPending(err error) {
 	client.pendingMu.Lock()
+	if !client.closed {
+		client.closed = true
+		close(client.done)
+	}
 	pending := client.pending
-	client.pending = make(map[string]chan protocolFrame)
+	client.pending = make(map[string]*pendingAction)
 	client.pendingMu.Unlock()
-	for _, channel := range pending {
-		channel <- protocolFrame{
+	for id, action := range pending {
+		action.event.finishAction(id)
+		action.response <- protocolFrame{
 			Type:    "error",
 			Code:    "plugin.shutdown",
 			Message: redact(err.Error()),
 		}
-		close(channel)
+		close(action.response)
+	}
+}
+
+func (client *runtimeClient) pruneRetiredLocked() {
+	now := time.Now()
+	for id, expires := range client.retired {
+		if !now.Before(expires) {
+			delete(client.retired, id)
+		}
+	}
+}
+
+func (client *runtimeClient) retireEvent(event *EventContext) {
+	client.pendingMu.Lock()
+	client.pruneRetiredLocked()
+	retiring := make(map[string]*pendingAction)
+	for id, action := range client.pending {
+		if action.event != event {
+			continue
+		}
+		delete(client.pending, id)
+		retiring[id] = action
+		if len(client.retired) >= pendingActionLimit {
+			var oldest string
+			var expiry time.Time
+			for key, value := range client.retired {
+				if oldest == "" || value.Before(expiry) {
+					oldest, expiry = key, value
+				}
+			}
+			delete(client.retired, oldest)
+		}
+		client.retired[id] = time.Now().Add(retiredActionRetention)
+	}
+	client.pendingMu.Unlock()
+	for id, action := range retiring {
+		event.finishAction(id)
+		action.response <- protocolFrame{Type: "error", Code: "plugin.event_canceled", Message: "事件收尾已结束，本地动作结果未确认；未自动重发"}
+		close(action.response)
 	}
 }
 

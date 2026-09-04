@@ -238,6 +238,9 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (A
 	resp, err := s.httpClient.Do(httpReq)
 	if err != nil {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIRequestFailed, err)
+		if request.Action == "send_msg" {
+			return APIResponse{}, errorf(ErrorCodeSendUnconfirmed, "发送请求未取得有效回执，无法确认消息是否送达；未自动重发", err)
+		}
 		return APIResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "OneBot HTTP API request failed", err)
 	}
 	defer resp.Body.Close()
@@ -256,6 +259,9 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (A
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&decoded); err != nil {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateReconnecting, errorCodeHTTPAPIInvalidResponse, err)
+		if request.Action == "send_msg" {
+			return APIResponse{}, errorf(ErrorCodeSendUnconfirmed, "发送回执无法解析，无法确认消息是否送达；未自动重发", err)
+		}
 		return APIResponse{}, errorf(errorCodeHTTPAPIInvalidResponse, "OneBot HTTP API response is invalid", err)
 	}
 

@@ -1,5 +1,7 @@
 package dispatch
 
+import "context"
+
 // Register adds a plugin runtime to the dispatch registry and starts its
 // delivery worker goroutine. The rt parameter must implement DeliverEvent
 // and Snapshot (both *runtime.Manager and test fakes satisfy this).
@@ -24,6 +26,28 @@ func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []strin
 	}
 }
 
+// CancelPlugin stops admission and cancels deliveries without waiting for the
+// worker. The owner can then stop the runtime before Deregister waits for I/O.
+func (d *Dispatcher) CancelPlugin(pluginID string) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	if slot, ok := d.slots[pluginID]; ok {
+		slot.closeQueues()
+		slot.cancel()
+	}
+}
+
+// CancelPending stops admission and cancels all deliveries without waiting for
+// workers. Close waits for their result recording after runtimes have stopped.
+func (d *Dispatcher) CancelPending() {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	for _, slot := range d.slots {
+		slot.closeQueues()
+		slot.cancel()
+	}
+}
+
 // Deregister removes a plugin from dispatch and stops its worker.
 func (d *Dispatcher) Deregister(pluginID string) {
 	d.mu.Lock()
@@ -36,6 +60,7 @@ func (d *Dispatcher) Deregister(pluginID string) {
 	d.mu.Unlock()
 
 	slot.closeQueues()
+	slot.cancel()
 	<-slot.done
 }
 
@@ -128,6 +153,9 @@ func (d *Dispatcher) Close() {
 
 	for _, slot := range slots {
 		slot.closeQueues()
+		slot.cancel()
+	}
+	for _, slot := range slots {
 		<-slot.done
 	}
 }
@@ -136,7 +164,10 @@ func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []Co
 	if concurrency <= 0 {
 		concurrency = 1
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	return &pluginSlot{
+		ctx:           ctx,
+		cancel:        cancel,
 		runtime:       rt,
 		subscriptions: append([]string(nil), subs...),
 		commands:      append([]CommandDecl(nil), cmds...),

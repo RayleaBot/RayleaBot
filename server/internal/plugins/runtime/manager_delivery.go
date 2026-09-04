@@ -3,10 +3,14 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 )
 
 func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, error) {
+	if err := ctx.Err(); err != nil {
+		return Delivery{}, eventContextError(err)
+	}
 	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
 		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
 	}
@@ -32,6 +36,10 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	}
 
 	frame := BuildEventFrame(event, requestID)
+	if err := ctx.Err(); err != nil {
+		failure := eventContextError(err)
+		return m.timeoutEvent(handle, session, failure.Code, failure.Message, err)
+	}
 	if err := handle.WriteJSONLine(frame); err != nil {
 		m.removeEventSession(handle, requestID)
 		return Delivery{}, m.failRuntime(handle, codePluginInternalError, "write event frame", err)
@@ -55,8 +63,16 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	case <-timer.C:
 		return m.timeoutEvent(handle, session, codePluginEventTimeout, "plugin event response timed out", nil)
 	case <-ctx.Done():
-		return m.timeoutEvent(handle, session, codePluginEventTimeout, "plugin event response timed out", ctx.Err())
+		failure := eventContextError(ctx.Err())
+		return m.timeoutEvent(handle, session, failure.Code, failure.Message, ctx.Err())
 	}
+}
+
+func eventContextError(err error) *Error {
+	if errors.Is(err, context.Canceled) {
+		return errorf(codePluginEventCanceled, "插件事件处理已取消", err)
+	}
+	return errorf(codePluginEventTimeout, "插件事件处理超过允许时限", err)
 }
 
 func BuildEventFrame(event Event, requestID string) EventFrame {

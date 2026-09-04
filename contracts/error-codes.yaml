@@ -245,6 +245,16 @@ codes:
     retryable: true
     applies_to: [plugin_protocol, websocket, task]
 
+  plugin.event_canceled:
+    code: plugin.event_canceled
+    domain: plugin
+    message_key: errors.plugin.event_canceled
+    message: 插件事件处理已取消
+    description: The event was canceled by its owner or runtime lifecycle, not by exceeding its handling duration. Previously dispatched actions may have side effects; cancellation must not trigger automatic replay. Scheduler cancellation is counted as other.
+    http_status: null
+    retryable: false
+    applies_to: [plugin_protocol, websocket, task, logs]
+
   plugin.shutdown_timeout:
     code: plugin.shutdown_timeout
     domain: plugin
@@ -626,10 +636,20 @@ codes:
     domain: adapter
     message_key: errors.adapter.send_failed
     message: 消息发送失败
-    description: The adapter failed to send a message or other supported outbound action to the protocol upstream.
+    description: The adapter rejected a message or supported outbound action, or the protocol upstream explicitly reported failure. A dispatched request without a definitive receipt uses adapter.send_unconfirmed.
     http_status: 502
     retryable: true
     applies_to: [http, websocket, plugin_protocol]
+
+  adapter.send_unconfirmed:
+    code: adapter.send_unconfirmed
+    domain: adapter
+    message_key: errors.adapter.send_unconfirmed
+    message: 消息发送结果未确认
+    description: A message request may have reached the upstream but no definitive receipt was obtained before cancellation, timeout, or connection loss. Delivery may still complete. Do not automatically resend or immediately delete referenced media files.
+    http_status: 504
+    retryable: false
+    applies_to: [http, websocket, plugin_protocol, logs]
 
   adapter.api_call_failed:
     code: adapter.api_call_failed

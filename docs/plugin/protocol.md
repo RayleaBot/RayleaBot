@@ -36,7 +36,7 @@ SDK 从 init 建立插件 ID、并发限制和原子配置快照，插件不手�
 
 manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表示不接收普通 fan-out；定向控制事件仍按宿主生命周期语义投递。
 
-`event` 帧携带统一事件。插件必须用同一 `request_id` 返回一个且仅一个终态 `result` 或 `error`。
+`event` 帧携带统一事件。宿主在进程会话中生成唯一 `request_id`；正常完成的事件用该 ID 返回一个终态 `result` 或 `error`。事件过期、运行时关闭或动作无法在收尾时限内结算时，插件停止发送该事件的后续帧，由宿主结束事件。
 
 重要平台事件：
 
@@ -67,6 +67,10 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 插件用 `action` 帧调用宿主能力；action 使用独立 `request_id`，并通过 `parent_request_id` 归属当前事件。宿主返回 `result` 或 `error`。
 
 同一事件可以有多个并发 action，但插件必须等待它们完成后再发送事件终态。
+
+取消本地等待不代表宿主动作已取消。SDK 保留已发出动作的响应关联，接收迟到响应；终态最多等待一个 `ActionTimeout`，仍有未结算动作时不发送终态。事件开始收尾后禁止新 action。真正未知或非法协议帧仍按协议违规处理。
+
+`plugin.event_canceled` 表示请求或生命周期取消，调度统计计入 `other`；`plugin.event_timeout` 表示确实超过事件处理时限。两者不能通过重放消息动作自动恢复。
 
 ### 隐式插件私有动作
 
@@ -109,6 +113,8 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 - 回复指定消息时使用首个 `reply` segment 或相应回复字段。
 
 宿主内部可以根据适配器能力转换为回复或普通发送；协议仅暴露 `message.send` action。
+
+`adapter.send_unconfirmed` 表示请求可能已发出，但尚未收到确定回执，消息可能继续送达。调用方不得自动重发，也不能立即删除适配器尚可能读取的媒体文件。明确拒绝的发送使用 `adapter.send_failed` 等相应错误码。
 
 ### HTTP
 

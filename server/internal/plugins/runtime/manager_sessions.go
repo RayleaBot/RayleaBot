@@ -47,6 +47,10 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 		cancel()
 		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for event delivery", nil)
 	}
+	if m.pendingEvents[requestID] != nil || m.pendingPings[requestID] != nil || m.eventExpiredLocked(requestID) {
+		cancel()
+		return nil, errorf(codePluginInternalError, "duplicate runtime request ID", nil)
+	}
 
 	session := &eventSession{
 		requestID:        requestID,
@@ -62,7 +66,7 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 }
 
 func (m *Manager) completeEventLocked(session *eventSession, delivery Delivery, err error) {
-	if session == nil || session.completed {
+	if session == nil || session.completed || m.pendingEvents[session.requestID] != session {
 		return
 	}
 	session.completed = true
@@ -126,22 +130,22 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 	runtimeErr := errorf(code, message, err)
 
 	m.mu.Lock()
-	if m.proc != handle {
+	if m.proc != handle || handle == nil {
 		m.mu.Unlock()
 		return runtimeErr
 	}
+	runtimeErr.failureReported = true
 	m.markStoppedLocked(code, message, err)
 	m.abortPendingLocked(runtimeErr)
 	m.mu.Unlock()
+	m.logger.Warn("插件运行时已停止，正在处理的内部事件已中断；请检查错误码和协议诊断。", "component", "runtime", "plugin_id", handle.Spec.PluginID, "error_code", code, "reason", runtimeErr.Error())
 
-	if handle != nil && handle.Cmd != nil && handle.Cmd.Process != nil {
+	if handle.Cmd != nil && handle.Cmd.Process != nil {
 		_ = handle.Cmd.Process.Kill()
 	}
-	if handle != nil {
-		select {
-		case <-handle.Done():
-		case <-time.After(500 * time.Millisecond):
-		}
+	select {
+	case <-handle.Done():
+	case <-time.After(500 * time.Millisecond):
 	}
 
 	return runtimeErr
@@ -171,7 +175,7 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 		}
 		return session.delivery, errorf(codePluginInternalError, "plugin event delivery failed", session.err)
 	}
-	if m.proc != handle {
+	if m.proc != handle || m.pendingEvents[session.requestID] != session {
 		return delivery, runtimeErr
 	}
 	m.completeEventLocked(session, delivery, runtimeErr)

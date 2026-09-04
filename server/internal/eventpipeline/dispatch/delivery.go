@@ -42,6 +42,11 @@ func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, even
 func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Event, targets []string) []DeliveryResult {
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
+		if ctx.Err() != nil {
+			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: "plugin.event_canceled"})
+			d.recordOutcome(OutcomeDropped, pluginID, "event_canceled")
+			continue
+		}
 		d.mu.RLock()
 		slot, ok := d.slots[pluginID]
 		deliverable := ok && slotIsDeliverable(slot)
@@ -57,7 +62,11 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 		}
 
 		control := isControlEvent(event.EventType)
-		item := dispatchItem{ctx: ctx, event: event, control: control}
+		var eventCtx context.Context = deliveryContext{Context: slot.ctx, values: ctx}
+		if event.EventType == "management.action" {
+			eventCtx = ctx
+		}
+		item := dispatchItem{ctx: eventCtx, event: event, control: control}
 		if slot.tryEnqueue(item) {
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
 			d.recordOutcome(OutcomeDelivered, pluginID, "")

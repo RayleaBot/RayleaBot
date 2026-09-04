@@ -10,6 +10,10 @@ import (
 )
 
 func (m *Manager) Stop(ctx context.Context) error {
+	if err := m.acquireLifecycle(ctx); err != nil {
+		return err
+	}
+	defer func() { <-m.lifecycleGate }()
 	m.mu.Lock()
 	handle := m.proc
 	if handle == nil {
@@ -47,19 +51,26 @@ func (m *Manager) Stop(ctx context.Context) error {
 		"runtime_state", string(StateStopping),
 	)
 
+	stopCtx, cancel := context.WithTimeout(ctx, handle.Spec.ShutdownGrace)
+	defer cancel()
+	// Closing stdin releases a blocked event/action write and the shutdown
+	// frame waiting behind it, so the deadline can reach process termination.
+	stopPipe := context.AfterFunc(stopCtx, func() { _ = handle.Stdin.Close() })
+	defer stopPipe()
+
 	writeErr := handle.WriteJSONLine(ShutdownFrame{
 		Type:      "shutdown",
 		RequestID: m.deps.requestID(),
 		Reason:    "stop",
 	})
 	_ = handle.Stdin.Close()
+	if stopCtx.Err() != nil {
+		return m.failRuntime(handle, codePluginShutdownTimeout, "plugin shutdown timed out", stopCtx.Err())
+	}
 
 	if writeErr != nil && !isIgnorableShutdownWriteError(writeErr) {
 		return m.failRuntime(handle, codePluginInternalError, "write shutdown frame", writeErr)
 	}
-
-	stopCtx, cancel := context.WithTimeout(ctx, handle.Spec.ShutdownGrace)
-	defer cancel()
 
 	select {
 	case <-handle.Done():
@@ -120,6 +131,9 @@ func isProcessPipeClosedError(err error) bool {
 }
 
 func (m *Manager) Ping(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return eventContextError(err)
+	}
 	m.mu.RLock()
 	handle := m.proc
 	m.mu.RUnlock()
@@ -158,6 +172,15 @@ func (m *Manager) Ping(ctx context.Context) error {
 	case <-timer.C:
 		return m.failRuntime(handle, codePluginEventTimeout, "plugin pong response timed out", nil)
 	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.Canceled) {
+			m.mu.Lock()
+			if m.proc == handle && m.pendingPings[requestID] == request {
+				m.completePingLocked(requestID, request, ctx.Err())
+				m.markEventExpiredLocked(requestID)
+			}
+			m.mu.Unlock()
+			return eventContextError(ctx.Err())
+		}
 		return m.failRuntime(handle, codePluginEventTimeout, "plugin pong response timed out", ctx.Err())
 	}
 }
@@ -175,6 +198,9 @@ func (m *Manager) registerPingRequest(handle *Handle, requestID string) (*pingRe
 	if m.snap.State != StateRunning {
 		return nil, errorf(codePlatformInvalidRequest, "plugin runtime is not ready for ping", nil)
 	}
+	if m.pendingEvents[requestID] != nil || m.pendingPings[requestID] != nil || m.eventExpiredLocked(requestID) {
+		return nil, errorf(codePluginInternalError, "duplicate runtime request ID", nil)
+	}
 
 	request := &pingRequest{done: make(chan error, 1)}
 	m.pendingPings[requestID] = request
@@ -182,7 +208,7 @@ func (m *Manager) registerPingRequest(handle *Handle, requestID string) (*pingRe
 }
 
 func (m *Manager) completePingLocked(requestID string, request *pingRequest, err error) {
-	if request == nil || request.completed {
+	if request == nil || request.completed || m.pendingPings[requestID] != request {
 		return
 	}
 	request.completed = true

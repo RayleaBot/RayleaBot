@@ -80,7 +80,8 @@ func (r *Registry) GetOrCreate(pluginID string) *Manager {
 }
 
 func (r *Registry) NewDetached() *Manager {
-
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	manager := NewManager(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
 	return manager
@@ -134,11 +135,15 @@ func (r *Registry) StopAll(ctx context.Context) error {
 	}
 	r.mu.RUnlock()
 
-	var stopErr error
-	for _, manager := range managers {
-		if err := manager.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			stopErr = errors.Join(stopErr, err)
-		}
+	stopErrors := make([]error, len(managers))
+	var stopping sync.WaitGroup
+	for index, manager := range managers {
+		stopping.Go(func() {
+			if err := manager.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				stopErrors[index] = err
+			}
+		})
 	}
-	return stopErr
+	stopping.Wait()
+	return errors.Join(stopErrors...)
 }

@@ -40,7 +40,7 @@ func TestBackoffRestartStartFailureResetsManagerToStopped(t *testing.T) {
 
 	application.setTestLifecycle(catalog, nil, runtimes, dispatcher, nil, nil, nil)
 
-	application.services.pluginLifecycle.backoffRestart("broken-artifact", 0)
+	application.services.pluginLifecycle.backoffRestart("broken-artifact", 0, manager)
 
 	if got := manager.Snapshot().State; got != pluginruntime.StateStopped {
 		t.Fatalf("manager state = %q, want %q after failed backoff restart", got, pluginruntime.StateStopped)

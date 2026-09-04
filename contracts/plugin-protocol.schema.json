@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
   "title": "RayleaBot Plugin JSONL Protocol v2",
-  "description": "Language-neutral JSONL protocol. The init frame establishes protocol version and plugin identity; subsequent frames use the established process session and carry only message-local fields.",
+  "description": "Language-neutral JSONL protocol. The init frame establishes protocol version and plugin identity; subsequent frames use the established process session and carry only message-local fields. Host request IDs are unique within a process session. Canceling a local action wait does not cancel the action on the host: the client consumes its eventual response and waits for outstanding actions before emitting an event terminal frame. If bounded draining expires, the client emits no terminal frame and lets the host expire the event. No new action may be emitted after an event starts closing.",
   "oneOf": [
     {
       "$ref": "#/$defs/init"

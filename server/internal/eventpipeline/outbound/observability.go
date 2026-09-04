@@ -94,6 +94,10 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		fields = append(fields, "error_code", errorCode)
 	}
 	fields = append(fields, "reason", reason)
+	if errorCode == onebot11.ErrorCodeSendUnconfirmed {
+		logger.Warn(sendSummary(context, targetType, targetID, plainText, false)+"；发送结果未确认，消息可能仍会送达，未自动重发。", fields...)
+		return
+	}
 	logger.Warn(
 		sendSummary(SendLogContext{
 			PluginID:    pluginID,

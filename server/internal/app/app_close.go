@@ -15,11 +15,9 @@ func (a *App) Close() error {
 		a.metricsRuntimeGaugeStop = nil
 	}
 	if a != nil && a.runtimes != nil {
-		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if err := a.runtimes.StopAll(stopCtx); err != nil {
+		if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
 		}
-		cancel()
 		a.runtimes = nil
 	}
 	if a != nil {
@@ -79,6 +77,10 @@ func (a *App) Close() error {
 }
 
 func (a *App) stopRuntimeManagers(timeout time.Duration) error {
+	if a.eventStack.Dispatcher != nil {
+		a.eventStack.Dispatcher.CancelPending()
+		defer a.eventStack.Dispatcher.Close()
+	}
 	if a.runtimes == nil {
 		return nil
 	}

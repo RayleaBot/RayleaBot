@@ -12,12 +12,16 @@ import (
 )
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
+	if err := m.acquireLifecycle(ctx); err != nil {
+		return err
+	}
+	defer func() { <-m.lifecycleGate }()
 	if len(payload.CommandPrefixes) == 0 {
 		return errorf(codePlatformInvalidRequest, "init payload command_prefixes is required", nil)
 	}
 
 	m.mu.Lock()
-	if m.proc != nil {
+	if m.proc != nil || m.snap.State == StateStarting {
 		m.mu.Unlock()
 		return errorf(codePluginInternalError, "plugin runtime is already active", nil)
 	}
@@ -227,7 +231,7 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 		return nil, m.routeTerminalFrameLocked(session, envelope, line)
 	}
 
-	if m.eventExpiredLocked(envelope.RequestID) && (envelope.Type == "result" || envelope.Type == "error") {
+	if m.eventExpiredLocked(envelope.RequestID) && (envelope.Type == "result" || envelope.Type == "error" || envelope.Type == "pong") {
 		return nil, nil
 	}
 

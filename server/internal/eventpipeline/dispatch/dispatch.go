@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -46,6 +47,8 @@ type dispatchItem struct {
 	control bool
 }
 type pluginSlot struct {
+	ctx           context.Context
+	cancel        context.CancelFunc
 	runtime       runtimeDeliverer
 	subscriptions []string
 	commands      []CommandDecl
@@ -61,6 +64,15 @@ type pluginSlot struct {
 	eventLimit     int
 	controlLimit   int
 }
+
+// deliveryContext keeps tracing values while the queue owns cancellation.
+type deliveryContext struct {
+	context.Context
+	values context.Context
+}
+
+func (ctx deliveryContext) Value(key any) any { return ctx.values.Value(key) }
+
 type PermissionChecker func(context.Context, string, string) bool
 
 // DispatcherStats summarises cumulative per-dispatch outcomes so consumers
@@ -92,6 +104,7 @@ type MetricsObserver interface {
 
 // Dispatcher manages per-plugin event queues and fan-out delivery.
 type Dispatcher struct {
+	failures          logging.FailureTracker
 	logger            *slog.Logger
 	sender            outbound.ActionSender
 	resolver          outbound.ReplyTargetResolver

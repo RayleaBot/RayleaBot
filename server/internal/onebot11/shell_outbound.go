@@ -105,6 +105,9 @@ func (t shellOutboundTransport) NextEcho() string {
 }
 
 func (t shellOutboundTransport) SendWebSocket(ctx context.Context, request SendMsgRequest) (APIResponse, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return APIResponse{}, true, errorf(ErrorCodeSendFailed, "发送请求已取消，消息未发出", err)
+	}
 	conn, _, snapshot := t.s.currentWSConn()
 	if conn == nil || snapshot.State != StateConnected {
 		return APIResponse{}, false, nil
@@ -115,17 +118,21 @@ func (t shellOutboundTransport) SendWebSocket(ctx context.Context, request SendM
 	defer t.s.dropPendingResponse(request.Echo)
 
 	t.s.sendMu.Lock()
+	if err := ctx.Err(); err != nil {
+		t.s.sendMu.Unlock()
+		return APIResponse{}, true, errorf(ErrorCodeSendFailed, "发送请求已取消，消息未发出", err)
+	}
 	writeErr := WriteJSON(ctx, conn, request)
 	t.s.sendMu.Unlock()
 	if writeErr != nil {
-		return APIResponse{}, true, errorf(ErrorCodeSendFailed, "write send_msg request", writeErr)
+		return APIResponse{}, true, errorf(ErrorCodeSendUnconfirmed, "发送连接中断，无法确认消息是否送达；未自动重发", writeErr)
 	}
 
 	select {
 	case response := <-responseCh:
 		return response, true, nil
 	case <-ctx.Done():
-		return APIResponse{}, true, errorf(ErrorCodeSendFailed, "adapter send_msg response timed out", ctx.Err())
+		return APIResponse{}, true, errorf(ErrorCodeSendUnconfirmed, "等待发送回执已结束，消息可能仍会送达；未自动重发", ctx.Err())
 	}
 }
 

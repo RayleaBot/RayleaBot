@@ -2,6 +2,8 @@ import { t } from '@/i18n'
 import { ApiError } from '@/lib/http'
 
 const errorMessageByKey: Record<string, string> = {
+  'errors.plugin.event_canceled': t('errors.plugin.eventCanceled'),
+  'errors.adapter.send_unconfirmed': t('errors.adapter.sendUnconfirmed'),
   'errors.permission.denied': t('errors.permission.denied'),
   'errors.permission.blacklisted': t('errors.permission.blacklisted'),
   'errors.permission.not_whitelisted': t('errors.permission.notWhitelisted'),
@@ -25,6 +27,8 @@ const errorMessageByKey: Record<string, string> = {
 }
 
 const errorMessageByCode: Record<string, string> = {
+  'plugin.event_canceled': t('errors.plugin.eventCanceled'),
+  'adapter.send_unconfirmed': t('errors.adapter.sendUnconfirmed'),
   'permission.denied': t('errors.permission.denied'),
   'permission.blacklisted': t('errors.permission.blacklisted'),
   'permission.not_whitelisted': t('errors.permission.notWhitelisted'),

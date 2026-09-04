@@ -3,6 +3,20 @@ case: ok
 description: Core catalog excerpt with required fields and applicability metadata.
 input:
   codes:
+    - code: plugin.event_canceled
+      message_key: errors.plugin.event_canceled
+      message: 插件事件处理已取消
+      description: Lifecycle cancellation is not a deadline failure and must not automatically replay actions.
+      http_status: null
+      retryable: false
+      applies_to: [plugin_protocol, websocket, task, logs]
+    - code: adapter.send_unconfirmed
+      message_key: errors.adapter.send_unconfirmed
+      message: 消息发送结果未确认
+      description: No definitive receipt was obtained for a potentially dispatched message. Automatic resend is unsafe.
+      http_status: 504
+      retryable: false
+      applies_to: [http, websocket, plugin_protocol, logs]
     - code: platform.task_timeout
       message_key: errors.platform.task_timeout
       message: 后台任务超时

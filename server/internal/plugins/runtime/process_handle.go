@@ -33,6 +33,8 @@ type Handle struct {
 	done    chan struct{}
 	exitMu  sync.RWMutex
 	exitErr error
+
+	exitFailureReported bool // guarded by the owning Manager.mu
 }
 
 func NewHandle(cmd *exec.Cmd, stdin io.WriteCloser, stdout *bufio.Reader, spec ProcessSpec) *Handle {
@@ -129,42 +131,41 @@ func (m *Manager) watchRunningProcess(handle *Handle) {
 
 	waitErr, _ := handle.ExitResult()
 
-	m.mu.RLock()
+	m.mu.Lock()
 	if m.proc != handle || m.snap.State != StateRunning {
-		m.mu.RUnlock()
+		m.mu.Unlock()
 		return
 	}
-	m.mu.RUnlock()
 
 	if waitErr != nil {
-		m.mu.Lock()
 		m.snap.CrashCount++
 		crashCount := m.snap.CrashCount
 		m.snap.State = StateCrashed
+		runtimeErr := errorf(codePluginInternalError, "plugin exited unexpectedly", waitErr)
+		m.reportExitFailureLocked(handle, runtimeErr)
+		m.abortPendingLocked(runtimeErr)
 		now := m.deps.now()
 		m.snap.StoppedAt = &now
 		m.snap.LastErrorCode = codePluginInternalError
 		m.snap.LastErrorMessage = "plugin exited unexpectedly"
 		pluginID := m.snap.PluginID
+		onCrash := m.opts.OnCrash
 		m.proc = nil
 		m.mu.Unlock()
 
-		m.logger.Warn(
-			fmt.Sprintf("插件%s运行时异常退出，累计崩溃 %d 次；当前事件处理已中断。原因：%s", pluginIDLabel(handle.Spec.PluginID), crashCount, waitErr.Error()),
-			"component", "runtime",
-			"plugin_id", handle.Spec.PluginID,
-			"runtime_state", string(StateCrashed),
-			"crash_count", crashCount,
-			"err", waitErr.Error(),
-		)
-
-		if m.opts.OnCrash != nil {
-			m.opts.OnCrash(pluginID, crashCount, codePluginInternalError)
+		if onCrash != nil {
+			onCrash(pluginID, crashCount, codePluginInternalError)
 		}
 		return
 	}
 
-	m.markStopped("", "", nil)
+	runtimeErr := errorf(codePluginInternalError, "plugin exited before delivery completed", nil)
+	if len(m.pendingEvents)+len(m.pendingPings) > 0 {
+		m.reportExitFailureLocked(handle, runtimeErr)
+	}
+	m.abortPendingLocked(runtimeErr)
+	m.markStoppedLocked("", "", nil)
+	m.mu.Unlock()
 	m.logger.Info(
 		"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时已退出",
 		"component", "runtime",
@@ -174,12 +175,17 @@ func (m *Manager) watchRunningProcess(handle *Handle) {
 }
 
 func (m *Manager) reconcileExitedProcess(handle *Handle, waitErr error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.proc != handle {
+		return
+	}
 	if waitErr != nil {
-		m.markStopped(codePluginInternalError, "plugin exited unexpectedly", waitErr)
+		m.markStoppedLocked(codePluginInternalError, "plugin exited unexpectedly", waitErr)
 		return
 	}
 
-	m.markStopped("", "", nil)
+	m.markStoppedLocked("", "", nil)
 }
 
 // DefaultMaxCrashRetries is the maximum number of consecutive crash-restart
