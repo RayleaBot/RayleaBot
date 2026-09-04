@@ -10,6 +10,7 @@
 | [Release Notes Template](./release-notes-template.md) | 功能版与补丁版说明模板、栏目和填写规则 |
 | [Delivery and Upgrade](./delivery-and-upgrade.md) | 产物矩阵、manifest v2、Ed25519、Authenticode、自动检查、事务安装与 guided update |
 | [Acceptance and Risks](./acceptance-and-risks.md) | 风险控制、发布门禁、故障注入和真实签名 Windows E2E |
+| [Log Runtime Repair 2026-09-04](./log-runtime-repair-2026-09-04.md) | 近期日志根因、运行修复、降噪、脱敏与本地验收结果 |
 | [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md) | manifest v3、artifact v2、数据保留与旧包禁用语义 |
 | [Windows Desktop Runtime](./windows-desktop-runtime.md) | Windows WebView2 运行时要求与联网、离线安装指引 |
 | [Linux Desktop Runtime](./linux-desktop-runtime.md) | Linux GTK 3、WebKitGTK 运行时要求与发行版安装命令 |
