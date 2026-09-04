@@ -49,7 +49,7 @@ func (r *Redactor) Redact(text string) string {
 		text = strings.ReplaceAll(text, value, placeholder)
 	}
 
-	return text
+	return SensitiveText(text)
 }
 
 func normalizeValues(values []string) []string {

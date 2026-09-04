@@ -1,11 +1,13 @@
 package runtime
 
 import (
+	"bufio"
 	"io"
 	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 const (
@@ -78,12 +80,25 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 	defer reader.Close()
 
 	limiter := newStderrLimiter(m.opts.StderrRateLimitBytesPerSec, m.deps.now)
-	buffer := make([]byte, defaultConsoleChunkBytes)
+	lines := bufio.NewReaderSize(reader, 64*1024)
+	dropping := false
 
 	for {
-		n, err := reader.Read(buffer)
-		if n > 0 {
-			allowed, truncated := limiter.allow(buffer[:n])
+		line, err := lines.ReadSlice('\n')
+		if err == bufio.ErrBufferFull {
+			if dropping {
+				continue
+			}
+			dropping = true
+			line = []byte("[系统] stderr 单行超过长度上限，已省略以避免输出不完整凭据\n")
+			err = nil
+		} else if dropping {
+			line = nil
+			dropping = false
+		}
+		if len(line) > 0 {
+			text := redact.SensitiveText(m.opts.RedactText(string(line)))
+			allowed, truncated := limiter.allow([]byte(text))
 			if len(allowed) > 0 {
 				m.appendConsoleEntry(console.Entry{
 					PluginID:  pluginID,

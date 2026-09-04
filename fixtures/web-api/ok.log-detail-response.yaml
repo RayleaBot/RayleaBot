@@ -26,7 +26,6 @@ response:
       conversation_id: "2001"
       group_name: 测试群
       message_id: "1001"
-      raw_message: hello bridge
       message_format: array
       font: 14.0
       plain_text: hello bridge

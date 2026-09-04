@@ -465,7 +465,11 @@ func (s *Service) logCycle(trigger Trigger, total, due, checked, failed int, err
 		s.logger.Warn("三方账号 CK 自动检查未能开始；账号列表读取失败，现有凭据状态未改变。原因："+err.Error(), append(args, "error_kind", "storage")...)
 		return
 	}
-	s.logger.Info(fmt.Sprintf("三方账号 CK 自动检查完成：共 %d 个账号，%d 个到期，成功检查 %d 个，失败 %d 个。", total, due, checked, failed), args...)
+	log := s.logger.Info
+	if due == 0 && checked == 0 && failed == 0 {
+		log = s.logger.Debug
+	}
+	log(fmt.Sprintf("三方账号 CK 自动检查完成：共 %d 个账号，%d 个到期，成功检查 %d 个，失败 %d 个。", total, due, checked, failed), args...)
 }
 
 func (s *Service) logPluginRequest(pluginID, platform, accountID, observation string, httpStatus int, accepted bool, reason string) {

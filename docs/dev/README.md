@@ -8,6 +8,7 @@
 | --- | --- |
 | [repo-workflow.md](./repo-workflow.md) | 仓库跟踪边界与常规忽略策略 |
 | [diagnostics.md](./diagnostics.md) | 正式诊断入口与排障文档 |
+| [logging.md](./logging.md) | 日志分类、重复故障汇总与历史 setup 凭据脱敏 |
 | [text-resources.md](./text-resources.md) | 文本资源和国际化边界 |
 
 ## 当前原则
@@ -58,6 +59,7 @@
 - Server 热重载输出位于 `logs/dev/server/YYYY-MM-DD.log`。
 - Web 开发服务器输出位于 `logs/dev/web/YYYY-MM-DD.log`。
 - Launcher 输出位于 `logs/dev/launcher/YYYY-MM-DD.log`。
+- 构建输出位于 `logs/dev/build/YYYY-MM-DD.log`；启动日志记录编排和子日志位置，不重复保存子进程全文。
 
 ## 增量构建与环境复用
 

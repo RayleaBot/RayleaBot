@@ -115,6 +115,9 @@ func compactOneBot11LogDetails(details map[string]any) map[string]any {
 	if valuesEqual(details["message_seq"], details["message_id"]) {
 		delete(details, "message_seq")
 	}
+	if valuesEqual(details["raw_message"], details["plain_text"]) {
+		delete(details, "raw_message")
+	}
 
 	return details
 }
@@ -164,11 +167,11 @@ func sanitizeValue(value any) any {
 	case []string:
 		items := make([]string, 0, len(typed))
 		for _, item := range typed {
-			items = append(items, redact.SanitizeString(item))
+			items = append(items, redact.SensitiveText(redact.SanitizeString(item)))
 		}
 		return items
 	case string:
-		return redact.SanitizeString(typed)
+		return redact.SensitiveText(redact.SanitizeString(typed))
 	default:
 		return typed
 	}
@@ -180,7 +183,7 @@ func isSensitiveKey(key string) bool {
 		return false
 	}
 
-	for _, marker := range []string{"access_token", "authorization", "cookie", "proxy_url", "secret", "token"} {
+	for _, marker := range []string{"access_token", "authorization", "cookie", "proxy_url", "secret", "token", "password", "passwd", "api_key"} {
 		if strings.Contains(key, marker) {
 			return true
 		}

@@ -6,6 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createBuildCache, createGoInputRegistry, fingerprint, treeInputs, writeIfChanged, goInputTemplate, parseGoInputs } from "./dev-build-cache.mjs";
 import { developmentRequest, synchronizeDevelopmentPlugin } from "./development-client.mjs";
+import { createRedactedOutput, redactLogLine } from "./log-redaction.mjs";
 import {
   BUILD_PROFILE,
   LAUNCHER_CONTROL_TOKEN_ENV,
@@ -90,6 +91,7 @@ const webDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "web", 
 const launcherLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "launcher", date: logDate });
 const serverDevLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "server", date: logDate });
 const startLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "start", date: logDate });
+const buildLogPath = resolveDatedLogPath({ rootDir, scope: "dev", type: "build", date: logDate });
 const longRunningChildren = new Set();
 const childOutputTails = new WeakMap();
 const childOutputTailLimit = 64 * 1024;
@@ -105,9 +107,9 @@ const goInputRegistry = createGoInputRegistry();
 const activeGoInputs = goInputRegistry.files;
 let onGoInputsChanged = () => {};
 let toolIdentity;
-const scriptInputs = ["start-dev.mjs", "dev-build-cache.mjs", "plugin-dev-workspace.mjs", "start-dev-support.mjs", "development-client.mjs", "file-content-tracker.mjs"].map((name) => path.join(scriptDir, name));
+const scriptInputs = ["start-dev.mjs", "dev-build-cache.mjs", "plugin-dev-workspace.mjs", "start-dev-support.mjs", "development-client.mjs", "file-content-tracker.mjs", "log-redaction.mjs"].map((name) => path.join(scriptDir, name));
 
-await prepareLogDirectories([webDevLogPath, launcherLogPath, serverDevLogPath, startLogPath]);
+await prepareLogDirectories([webDevLogPath, launcherLogPath, serverDevLogPath, startLogPath, buildLogPath]);
 await fsp.mkdir(childGoCacheDir, { recursive: true });
 startLog = fs.createWriteStream(startLogPath, { flags: "a" });
 
@@ -933,7 +935,8 @@ async function runCommand(label, command, args, { cwd, env = {}, logPath } = {})
 function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
   const commandText = [command, ...args].join(" ");
   writeStartLog(`$ ${commandText}\n`);
-  const childLog = logPath ? fs.createWriteStream(logPath, { flags: "a" }) : null;
+  const childLog = fs.createWriteStream(logPath ?? buildLogPath, { flags: "a" });
+  writeStartLog(`子进程日志：${relativePath(logPath ?? buildLogPath)}\n`);
   const spawnSpec = createSpawnSpec(command, args);
   const childOverrides = command === "pnpm"
     ? createDependencyInstallEnvironment(env)
@@ -941,7 +944,7 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
   const child = spawn(spawnSpec.command, spawnSpec.args, {
     cwd,
     env: createChildEnvironment(childOverrides),
-    windowsHide: false,
+    windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
@@ -950,16 +953,20 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
     outputTail = (outputTail + chunk.toString("utf8")).slice(-childOutputTailLimit);
   };
   childOutputTails.set(child, () => outputTail);
-  child.stdout.on("data", (chunk) => {
+  const stdout = createRedactedOutput((chunk) => {
     appendOutputTail(chunk);
     writeChildOutput(chunk, process.stdout, childLog);
   });
-  child.stderr.on("data", (chunk) => {
+  const stderr = createRedactedOutput((chunk) => {
     appendOutputTail(chunk);
     writeChildOutput(chunk, process.stderr, childLog);
   });
+  child.stdout.on("data", (chunk) => stdout.write(chunk));
+  child.stderr.on("data", (chunk) => stderr.write(chunk));
   longRunningChildren.add(child);
   child.once("close", () => {
+    stdout.end();
+    stderr.end();
     childLog?.end();
     longRunningChildren.delete(child);
   });
@@ -1108,7 +1115,6 @@ async function removeFileWithRetry(targetPath, attempts = 10, retryDelayMs = 100
 function writeChildOutput(chunk, output, childLog) {
   output.write(chunk);
   childLog?.write(chunk);
-  writeStartLog(chunk);
 }
 
 function log(message, level = "info") {
@@ -1123,7 +1129,7 @@ function log(message, level = "info") {
 }
 
 function writeStartLog(chunk) {
-  startLog?.write(`[${new Date().toISOString()}] ${chunk}`);
+  startLog?.write(`[${new Date().toISOString()}] ${redactLogLine(chunk)}`);
 }
 
 async function prepareLogDirectories(paths) {

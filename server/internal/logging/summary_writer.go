@@ -77,16 +77,18 @@ func (w *SummaryWriter) Write(p []byte) (int, error) {
 }
 
 func (w *SummaryWriter) normalizeLine(line []byte) []byte {
-	if w.redact == nil {
-		return line
+	redactor := func(text string) string {
+		if w.redact != nil {
+			text = w.redact(text)
+		}
+		return redact.SensitiveText(text)
 	}
-
-	if redacted, ok := redactJSONLine(line, w.redact); ok {
+	if redacted, ok := redactJSONLine(line, redactor); ok {
 		return redacted
 	}
 
 	trimmed := strings.TrimRight(string(line), "\r\n")
-	return append([]byte(w.redact(trimmed)), '\n')
+	return append([]byte(redactor(trimmed)), '\n')
 }
 
 func redactJSONLine(line []byte, redact func(string) string) ([]byte, bool) {
@@ -101,6 +103,9 @@ func redactJSONLine(line []byte, redact func(string) string) ([]byte, bool) {
 	}
 
 	redacted := redactJSONValue(body, redact)
+	if object, ok := redacted.(map[string]any); ok && protocolFromSource(toString(object["component"])) == ProtocolOneBot11 {
+		redacted = compactOneBot11LogDetails(object)
+	}
 	encoded, err := json.Marshal(redacted)
 	if err != nil {
 		return nil, false
@@ -122,7 +127,11 @@ func redactJSONValue(value any, redact func(string) string) any {
 	case map[string]any:
 		result := make(map[string]any, len(typed))
 		for key, inner := range typed {
-			result[key] = redactJSONValue(inner, redact)
+			if isSensitiveKey(key) {
+				result[key] = "[REDACTED]"
+			} else {
+				result[key] = redactJSONValue(inner, redact)
+			}
 		}
 		return result
 	default:

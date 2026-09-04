@@ -87,7 +87,7 @@ func main() {
 		)
 		os.Exit(1)
 	}
-	if independentSetupToken && isInteractiveConsole() {
+	if independentSetupToken && !application.AuthManager().IsBootstrapped() && isInteractiveConsole() {
 		_, _ = fmt.Fprintf(os.Stderr, "首次设置地址（仅显示一次）：%s\n", setupURL(application.CurrentConfig(), setupTokenFromEnv))
 	}
 
@@ -106,11 +106,6 @@ func consumeSecretEnv(name string) string {
 	value := strings.TrimSpace(os.Getenv(name))
 	_ = os.Unsetenv(name)
 	return value
-}
-
-func isInteractiveConsole() bool {
-	info, err := os.Stdin.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func setupURL(cfg config.Config, setupToken string) string {
