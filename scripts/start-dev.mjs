@@ -233,6 +233,7 @@ async function runLauncherDevProfile({ installMode, devEnvironment, serverDevEnv
   await markRuntimeReady();
   await runCommand("启动 Launcher 开发模式", "pnpm", ["run", "dev"], {
     cwd: launcherDir,
+    windowsHide: false,
     env: createLauncherToolEnvironment({
       ...devEnvironment,
       ...developmentControlEnvironment,
@@ -821,6 +822,8 @@ async function launchCachedLauncher(environment) {
   try {
     await runCommand("启动 Launcher", executable, [], {
       cwd: launcherDir, env: { ...environment, ...developmentControlEnvironment, ...(activeServerDevLeaseId || reusedRuntime ? developmentServerWatcherEnvironment : {}), GOWORK: "off" }, logPath: launcherLogPath,
+      // SW_HIDE overrides the first ShowWindow call, leaving the interactive UI invisible.
+      windowsHide: false,
     });
   } finally { await removeFileWithRetry(executable); }
 }
@@ -920,9 +923,9 @@ async function waitForWebDevServer(child, backendBaseUrl) {
   throw new Error(`Web 开发服务器未在 30 秒内就绪，日志见 ${relativePath(webDevLogPath)}。`);
 }
 
-async function runCommand(label, command, args, { cwd, env = {}, logPath } = {}) {
+async function runCommand(label, command, args, { cwd, env = {}, logPath, windowsHide = true } = {}) {
   log(`${label}...`);
-  const child = spawnManaged(command, args, { cwd, env, logPath });
+  const child = spawnManaged(command, args, { cwd, env, logPath, windowsHide });
   const exit = await waitForChild(child);
   if (exit.code !== 0) {
     const output = childOutputTails.get(child)?.() ?? "";
@@ -932,7 +935,7 @@ async function runCommand(label, command, args, { cwd, env = {}, logPath } = {})
   }
 }
 
-function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
+function spawnManaged(command, args, { cwd, env = {}, logPath, windowsHide = true } = {}) {
   const commandText = [command, ...args].join(" ");
   writeStartLog(`$ ${commandText}\n`);
   const childLog = fs.createWriteStream(logPath ?? buildLogPath, { flags: "a" });
@@ -944,7 +947,7 @@ function spawnManaged(command, args, { cwd, env = {}, logPath } = {}) {
   const child = spawn(spawnSpec.command, spawnSpec.args, {
     cwd,
     env: createChildEnvironment(childOverrides),
-    windowsHide: true,
+    windowsHide,
     stdio: ["ignore", "pipe", "pipe"],
   });
 
