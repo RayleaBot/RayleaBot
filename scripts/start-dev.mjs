@@ -320,11 +320,15 @@ async function buildDevelopmentPlugins(pluginDev, pluginIDs) {
 }
 
 async function installDevelopmentPlugins(preparedPlugins, serverBinaryPath) {
+  const configPath = path.join(rootDir, "config", "user.yaml");
+  if (preparedPlugins.plugins.length && !fs.existsSync(configPath)) {
+    await runCommand("初始化配置", serverBinaryPath, ["-config", configPath, "config", "init"], { cwd: rootDir });
+  }
   for (const plugin of preparedPlugins.plugins) {
     const expandedArtifact = path.join(pluginDevArtifactRoot, preparedPlugins.platform, plugin.id);
     await runCommand(`同步开发插件 ${plugin.id}`, serverBinaryPath, [
       "-config",
-      path.join(rootDir, "config", "user.yaml"),
+      configPath,
       "plugin",
       "dev-sync",
       "--artifact",
@@ -503,13 +507,14 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       if (serverChanged) {
         await stopServer(child);
         stopped = true;
+        if (prepared) await installDevelopmentPlugins(prepared, serverDevCandidateBinaryPath);
         await replaceServerDevBinary(serverDevCandidateBinaryPath);
         replaced = true;
         await startAndVerify();
         stopped = false;
         await fsp.rm(serverDevPreviousBinaryPath, { force: true });
       }
-      if (prepared) await synchronize(prepared);
+      if (prepared && !serverChanged) await synchronize(prepared);
       log(`开发同步完成：Server ${serverChanged ? "已重启" : "保持运行"}，耗时 ${Date.now() - started} ms。`);
     } catch (error) {
       reportError(error);
@@ -548,7 +553,14 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
         break;
       }
     }
-    // Server owns the database throughout plugin synchronization.
+    // Install before loading plugins. The offline command holds the same lifecycle
+    // lock as Server; online synchronization is reserved for a running Server.
+    for (;;) {
+      try {
+        await installDevelopmentPlugins(await buildDevelopmentPlugins(pluginDev), serverDevBinaryPath);
+        break;
+      } catch (error) { if (error.code !== "DEV_INPUT_CHANGED" || shuttingDown) throw error; }
+    }
     try { await startAndVerify(); }
     catch (error) {
       const previous = path.join(cacheDir, "server-last-good" + nativeExecutableSuffix(currentPluginPlatform()));
@@ -557,10 +569,6 @@ async function startServerWatch(backendBaseUrl, pluginDev, serverDevEnvironment)
       await fsp.copyFile(previous, serverDevBinaryPath);
       await startAndVerify();
       log("Server 候选启动失败，已恢复上一个健康版本。", "error");
-    }
-    for (;;) {
-      try { await synchronize(await buildDevelopmentPlugins(pluginDev)); break; }
-      catch (error) { if (error.code !== "DEV_INPUT_CHANGED" || shuttingDown) throw error; }
     }
     log("Server 与开发插件已就绪。");
   } finally {
