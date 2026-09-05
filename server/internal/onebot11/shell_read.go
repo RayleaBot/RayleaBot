@@ -110,7 +110,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 	normalizedEvent, ok := normalizeSupportedEvent(frame.Frame, frame.Summary.ObservedAt)
 	if !ok {
 		s.logger.Debug(
-			"OneBot 事件未进入插件桥接：事件类型 "+frame.Summary.Type,
+			"忽略消息平台通知："+frame.Summary.Type,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"transport", string(transport),
@@ -119,8 +119,8 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 		return
 	}
 	if s.isDuplicateEvent(normalizedEvent.EventID, frame.Summary.ObservedAt) {
-		s.logger.Info(
-			"OneBot 重复事件已丢弃：事件 ID "+normalizedEvent.EventID+"，类型 "+normalizedEvent.EventType,
+		s.logger.Debug(
+			"忽略消息平台重复通知",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"transport", string(transport),
@@ -142,7 +142,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 		return
 	default:
 		s.logger.Warn(
-			"OneBot 事件队列已满；事件 "+normalizedEvent.EventID+"（"+normalizedEvent.EventType+"）未进入处理流程并已丢弃。",
+			"消息平台待处理请求过多，本次请求已丢弃。",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"event_kind", normalizedEvent.Kind,
@@ -189,7 +189,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedF
 	switch {
 	case isIgnoredAPIResponse(frame):
 		s.logger.Warn(
-			"OneBot API 响应没有匹配的待处理请求，已忽略；不会影响其他请求：端点 "+s.transportEndpoint(transport)+"。原因："+frame.InvalidSummary,
+			"忽略无法匹配请求的消息平台回复："+frame.InvalidSummary,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -203,7 +203,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedF
 		return nil
 	case frame.Summary.Category == FrameCategoryInvalid:
 		s.logger.Warn(
-			"收到不合法的 OneBot 帧，已拒绝处理；对应事件或响应不会进入后续流程：端点 "+s.transportEndpoint(transport)+"。原因："+frame.InvalidSummary,
+			"消息平台发来无法识别的数据，已忽略："+frame.InvalidSummary,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -217,7 +217,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedF
 		return fmt.Errorf("invalid frame: %s", frame.InvalidSummary)
 	case isLifecycleDisable(frame.Frame):
 		s.logger.Warn(
-			"OneBot 上报生命周期 disable；适配器会结束当前就绪状态，并按连接状态决定是否重连：端点 "+s.transportEndpoint(transport),
+			"消息平台已停用，暂停收发消息。",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"frame_type", frame.Summary.Type,

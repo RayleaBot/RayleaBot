@@ -473,6 +473,16 @@ func taskLogLevel(status Status) string {
 }
 
 func taskLogMessage(snapshot Snapshot) string {
+	if summary := strings.TrimSpace(snapshot.Summary); summary != "" {
+		switch snapshot.Status {
+		case StatusPending:
+			return summary + "（等待执行）"
+		case StatusRunning:
+			return summary + "（执行中）"
+		default:
+			return summary
+		}
+	}
 	statusText := map[Status]string{
 		StatusPending:     "任务已提交",
 		StatusRunning:     "任务执行中",
@@ -485,11 +495,7 @@ func taskLogMessage(snapshot Snapshot) string {
 		statusText = "任务状态更新"
 	}
 
-	summary := strings.TrimSpace(snapshot.Summary)
-	if summary == "" {
-		return fmt.Sprintf("%s %s", statusText, snapshot.TaskType)
-	}
-	return fmt.Sprintf("%s %s：%s", statusText, snapshot.TaskType, summary)
+	return statusText
 }
 
 func taskLogDetails(snapshot Snapshot, event taskLogEvent) map[string]any {

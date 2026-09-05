@@ -72,15 +72,15 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 			d.recordOutcome(OutcomeDelivered, pluginID, "")
 		} else {
 			reason := "queue_full"
-			queueLabel := "事件"
 			if control {
 				reason = "control_queue_full"
-				queueLabel = "控制事件"
 			}
-			d.logger.Warn("插件 "+pluginID+" 的"+queueLabel+"队列已满；事件 "+event.EventID+" 未进入插件处理流程并已丢弃。",
+			d.logger.Warn("插件 "+pluginID+" 待处理任务过多，本次请求已丢弃。",
 				"component", "dispatch",
 				"plugin_id", pluginID,
 				"event_id", event.EventID,
+				"event_type", event.EventType,
+				"reason", reason,
 			)
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDropped})
 			d.recordOutcome(OutcomeDropped, pluginID, reason)

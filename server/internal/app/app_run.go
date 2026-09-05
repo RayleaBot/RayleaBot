@@ -126,7 +126,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	supervisor.GoCritical(func(context.Context) error {
 		serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
-		a.state.Logger.Info("HTTP 服务正在启动，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
+		a.state.Logger.Info("服务正在启动，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
 		if err := a.process.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
@@ -144,7 +144,7 @@ func (a *App) Run(ctx context.Context) error {
 func (a *App) shutdownFromContext() error {
 	a.process.shuttingDown.Store(true)
 	serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
-	a.state.Logger.Info("HTTP 服务正在关闭，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
+	a.state.Logger.Info("服务正在关闭", "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
 	a.platform.Scheduler.Stop()
 	if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 		return fmt.Errorf("stop runtime managers: %w", err)

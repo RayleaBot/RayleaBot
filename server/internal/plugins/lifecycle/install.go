@@ -269,7 +269,7 @@ func (s *InstallService) Accept(_ context.Context, acceptance plugins.InstallAcc
 		return "", tasks.ErrQueueFull
 	}
 
-	taskID, err := s.registry.Create("plugin.install", "install plugin from "+entry.request.SourceType+": "+entry.request.Source)
+	taskID, err := s.registry.Create("plugin.install", "安装插件“"+installPluginName(entry.snapshot)+"”")
 	if err != nil {
 		s.admission.Release()
 		s.mu.Unlock()
@@ -538,10 +538,14 @@ func (s *InstallService) execute(job installJob) {
 	}
 
 	startedAt := s.deps.now().UTC()
+	pluginName := "未知插件"
+	if job.inspection != nil {
+		pluginName = installPluginName(job.inspection.snapshot)
+	}
 	s.registry.Update(job.taskID, tasks.Update{
 		Status:    taskStatusPtr(tasks.StatusRunning),
 		Progress:  intPtr(5),
-		Summary:   stringPtr("准备安装源"),
+		Summary:   stringPtr("安装插件“" + pluginName + "”"),
 		StartedAt: &startedAt,
 	})
 
@@ -552,29 +556,37 @@ func (s *InstallService) execute(job installJob) {
 		s.registry.Update(job.taskID, tasks.Update{
 			Status:     taskStatusPtr(tasks.StatusSucceeded),
 			Progress:   intPtr(100),
-			Summary:    stringPtr("插件安装完成"),
+			Summary:    stringPtr("插件“" + pluginName + "”安装完成"),
 			FinishedAt: &now,
 			Result: &tasks.ResultSummary{
-				Summary: "插件已安装并刷新插件目录索引",
+				Summary: "插件“" + pluginName + "”安装完成",
+				Details: map[string]any{"plugin_id": job.inspection.snapshot.PluginID, "plugin_name": pluginName, "source_type": job.request.SourceType, "source_ref": job.request.Source},
 			},
 		})
 	case errors.Is(err, context.Canceled):
 		now := s.deps.now().UTC()
 		s.registry.Update(job.taskID, tasks.Update{
 			Status:     taskStatusPtr(tasks.StatusCancelled),
-			Summary:    stringPtr("插件安装已取消"),
+			Summary:    stringPtr("插件“" + pluginName + "”安装已取消"),
 			FinishedAt: &now,
 		})
 	case errors.Is(err, context.DeadlineExceeded):
-		s.failTask(job.taskID, codePlatformTaskTimeout, "插件安装超时", "插件安装超时")
+		s.failTask(job.taskID, codePlatformTaskTimeout, "插件安装超时", "插件“"+pluginName+"”安装超时")
 	default:
 		var installErr *installTaskError
 		if errors.As(err, &installErr) {
-			s.failTask(job.taskID, installErr.Code, installErr.Message, installErr.Summary)
+			s.failTask(job.taskID, installErr.Code, installErr.Message, "插件“"+pluginName+"”："+installErr.Summary)
 			return
 		}
-		s.failTask(job.taskID, codePluginInstallFailed, "插件安装失败", "插件安装失败")
+		s.failTask(job.taskID, codePluginInstallFailed, "插件安装失败", "插件“"+pluginName+"”安装失败")
 	}
+}
+
+func installPluginName(snapshot plugins.Snapshot) string {
+	if name := strings.TrimSpace(snapshot.Name); name != "" {
+		return name
+	}
+	return snapshot.PluginID
 }
 
 func installedDiscoveryRoot(discoveryRoots []plugincatalog.ScanRoot) (string, error) {
@@ -771,7 +783,7 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	s.registry.Update(job.taskID, tasks.Update{
 		Progress: intPtr(20),
-		Summary:  stringPtr("校验插件 manifest"),
+		Summary:  stringPtr("检查插件配置"),
 	})
 
 	candidateSnapshot := job.inspection.snapshot
@@ -795,7 +807,7 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	s.registry.Update(job.taskID, tasks.Update{
 		Progress: intPtr(40),
-		Summary:  stringPtr("复核插件 artifact"),
+		Summary:  stringPtr("检查插件安装包"),
 	})
 
 	targetPlatform, err := artifact.CurrentPlatform()

@@ -25,17 +25,17 @@ func bridgeEventSummary(action string, event onebot11.NormalizedEvent) string {
 	}); ok {
 		switch action {
 		case "ignored":
-			return summary + "；未匹配可处理该事件的插件，已忽略。"
+			return summary + "；没有匹配的插件。"
 		case "queued for dispatcher":
-			return summary + "；已进入插件分发队列。"
+			return summary
 		case "failed to queue for dispatcher":
-			return summary + "；进入插件分发队列失败，没有插件完成接收，请检查插件运行状态与队列容量。"
+			return summary + "；插件暂时无法接收这条消息。"
 		default:
 			return summary
 		}
 	}
 
-	base := "适配器事件"
+	base := "消息平台通知"
 	switch event.EventType {
 	case "message.group":
 		base = "群消息"
@@ -82,25 +82,25 @@ func bridgeEventSummary(action string, event onebot11.NormalizedEvent) string {
 	case "request.group":
 		base = "群请求"
 	case "meta.heartbeat":
-		base = "心跳事件"
+		base = "连接状态检查"
 	case "meta.lifecycle":
-		base = "生命周期事件"
+		base = "连接状态通知"
 	}
 
 	actionLabel := map[string]string{
 		"ignored":                        "已忽略",
-		"queued for dispatcher":          "已进入插件分发队列",
-		"failed to queue for dispatcher": "进入插件分发队列失败",
+		"queued for dispatcher":          "收到",
+		"failed to queue for dispatcher": "无法接收",
 	}[action]
 	if actionLabel == "" {
 		actionLabel = strings.TrimSpace(action)
 	}
-	summary := fmt.Sprintf("插件桥接%s：%s", actionLabel, base)
+	summary := fmt.Sprintf("%s%s", actionLabel, base)
 	if text := strings.TrimSpace(event.PlainText); text != "" {
 		summary += "：" + summarizeBridgeText(text)
 	}
 	if action == "failed to queue for dispatcher" {
-		summary += "；没有插件完成接收，请检查插件运行状态与队列容量。"
+		summary += "；请检查插件状态。"
 	}
 	return summary
 }
@@ -115,21 +115,21 @@ func commandPolicyRejectedSummary(rejection CommandPolicyRejection) string {
 
 	switch {
 	case commandName == "" && reasonSummary == "":
-		return "命令被权限策略拒绝"
+		return "命令未执行"
 	case commandName == "":
-		return fmt.Sprintf("命令被权限策略拒绝：%s", reasonSummary)
+		return fmt.Sprintf("命令未执行：%s", reasonSummary)
 	}
 
 	if pluginID := strings.TrimSpace(rejection.PluginID); pluginID != "" {
 		if reasonSummary == "" {
-			return fmt.Sprintf("插件 %s 的命令 %s 被权限策略拒绝", pluginID, commandName)
+			return fmt.Sprintf("插件 %s 的命令 %s 未执行", pluginID, commandName)
 		}
-		return fmt.Sprintf("插件 %s 的命令 %s 被权限策略拒绝：%s", pluginID, commandName, reasonSummary)
+		return fmt.Sprintf("插件 %s 的命令 %s 未执行：%s", pluginID, commandName, reasonSummary)
 	}
 	if reasonSummary == "" {
-		return fmt.Sprintf("命令 %s 被权限策略拒绝", commandName)
+		return fmt.Sprintf("命令 %s 未执行", commandName)
 	}
-	return fmt.Sprintf("命令 %s 被权限策略拒绝：%s", commandName, reasonSummary)
+	return fmt.Sprintf("命令 %s 未执行：%s", commandName, reasonSummary)
 }
 
 func commandPolicyReasonLabel(reason string) string {

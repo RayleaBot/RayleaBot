@@ -231,7 +231,7 @@ func (s *Service) syncTemplateSeed(ctx context.Context, templateID string, seed 
 	s.rememberTemplateRoot(templateID, templateDir, resourceRoot)
 	if changed && s.logger != nil {
 		s.logger.Info(
-			"渲染模板已同步："+templateID+"（版本 "+revision.RevisionID+"）",
+			"图片模板已更新："+templateID,
 			"component", "render",
 			"template_id", templateID,
 			"revision_id", revision.RevisionID,

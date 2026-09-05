@@ -34,11 +34,11 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, event pluginruntime
 	for key, value := range extra {
 		attrs = append(attrs, key, value)
 	}
-	message := schedulerCompletionMessage(ctx.PluginName, ctx.TaskName, ctx.LogLabel, status, duration)
+	message := scheduler.DisplayMessage(ctx.PluginName, ctx.TaskName, ctx.LogLabel, status)
 	if status == "处理失败" {
 		code, _ := extra["error_code"].(string)
 		if code == "plugin.event_canceled" {
-			d.logger.Debug("定时任务已取消，本轮计入其他结果；未自动重试。", attrs...)
+			d.logger.Debug("定时任务已取消。", attrs...)
 			return
 		}
 		count := d.failures.Failure("scheduler:"+pluginID+":"+ctx.TaskName, code, time.Now())
@@ -59,15 +59,15 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, event pluginruntime
 func eventFailureDescription(code string) string {
 	switch code {
 	case "plugin.event_timeout":
-		return "插件未在时限内完成本轮处理；请检查插件耗时，未自动重试。"
+		return "处理超时。"
 	case "plugin.event_canceled":
-		return "本轮处理已取消；未自动重试。"
+		return "任务已取消。"
 	case "plugin.protocol_violation":
-		return "插件通信违反协议，运行时已停止；请检查插件版本与协议详情。"
+		return "插件通信异常，已停止插件，请检查插件版本。"
 	case "platform.invalid_request":
-		return "插件运行时暂不可用，本轮未执行；请检查插件状态。"
+		return "插件暂不可用，本次未执行。"
 	default:
-		return "插件未完成本轮处理；请查看错误码及诊断详情，未自动重试。"
+		return "任务未完成，请查看错误详情。"
 	}
 }
 
@@ -77,7 +77,7 @@ func (d *Dispatcher) recoverScheduler(pluginID string, event pluginruntime.Event
 	}
 	job := event.SchedulerLog.TaskName
 	if count := d.failures.Recover("scheduler:" + pluginID + ":" + job); count > 0 {
-		d.logger.Info("定时任务 "+job+" 已恢复，当前一轮已完成。", "component", "scheduler", "plugin_id", pluginID, "job_id", job, "repeat_count", count)
+		d.logger.Info(scheduler.DisplayMessage(event.SchedulerLog.PluginName, job, event.SchedulerLog.LogLabel, "已恢复"), "component", "scheduler", "plugin_id", pluginID, "job_id", job, "repeat_count", count)
 	}
 }
 
@@ -107,7 +107,7 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event plugin
 		OccurredAt: time.Now(),
 	}); err != nil && d.logger != nil {
 		d.logger.Warn(
-			"定时任务 "+jobID+" 的运行结果保存失败；任务已执行，但历史记录可能缺失。原因："+err.Error(),
+			"定时任务 "+jobID+" 的结果保存失败，历史记录可能缺失："+err.Error(),
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),
@@ -135,8 +135,4 @@ func schedulerFailureFields(err error, delivery pluginruntime.Delivery) (schedul
 		return scheduler.RunOutcomeTimeout, code, message
 	}
 	return scheduler.RunOutcomeFailed, code, message
-}
-
-func schedulerCompletionMessage(pluginName, taskName, logLabel, status string, duration time.Duration) string {
-	return scheduler.DisplayMessage(pluginName, taskName, logLabel, status) + "耗时 " + scheduler.FormatDuration(duration)
 }

@@ -124,7 +124,7 @@ func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot strin
 		if logger != nil {
 			safeErr := logpath.Error(repoRoot, err, repoRoot)
 			logger.Warn(
-				"托管 Chromium 暂不可用；图片渲染将等待运行环境准备完成。原因："+safeErr,
+				"图片渲染暂不可用，等待浏览器准备完成："+safeErr,
 				"component", "render",
 				"code", "platform.resource_missing",
 				"err", safeErr,
@@ -136,7 +136,7 @@ func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot strin
 	if logger != nil {
 		browserDisplayPath := logpath.Display(repoRoot, managedBrowserPath)
 		logger.Info(
-			"托管 Chromium 已就绪，浏览器路径："+browserDisplayPath,
+			"图片渲染浏览器已就绪",
 			"component", "render",
 			"browser_path", browserDisplayPath,
 		)

@@ -87,13 +87,13 @@ func CreateSnapshotBestEffort(parent context.Context, store *Store, logger *slog
 	if err != nil {
 		if logger != nil {
 			safeErr := logpath.Error(repoRoot, err, store.Path, SnapshotDirForDatabase(store.Path))
-			logger.Warn("SQLite 数据库快照创建失败；本次没有生成可恢复快照，将在下个周期重试。原因："+safeErr, "component", "storage", "err", safeErr)
+			logger.Warn("数据库自动备份失败，下次重试："+safeErr, "component", "storage", "err", safeErr)
 		}
 		return
 	}
 	if logger != nil {
 		pathDisplay := logpath.Display(repoRoot, path)
-		logger.Info("SQLite 数据库快照已创建："+pathDisplay, "component", "storage", "path", pathDisplay)
+		logger.Info("数据库自动备份已完成："+pathDisplay, "component", "storage", "path", pathDisplay)
 	}
 }
 

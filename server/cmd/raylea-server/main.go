@@ -52,7 +52,7 @@ func main() {
 	configPathDisplay := logpath.Display(repoRoot, configPath)
 	schemaPathDisplay := logpath.Display(repoRoot, schemaPath)
 	bootstrapLogger.Info(
-		"RayleaBot 服务进程正在启动，配置文件："+configPathDisplay,
+		"正在启动 RayleaBot",
 		"component", "main",
 		"config_path", configPathDisplay,
 		"schema_path", schemaPathDisplay,

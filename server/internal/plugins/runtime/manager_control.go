@@ -44,8 +44,8 @@ func (m *Manager) Stop(ctx context.Context) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	m.logger.Info(
-		"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时正在停止",
+	m.logger.Debug(
+		"插件"+pluginIDLabel(handle.Spec.PluginID)+"正在停止",
 		"component", "runtime",
 		"plugin_id", handle.Spec.PluginID,
 		"runtime_state", string(StateStopping),
@@ -81,7 +81,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		}
 		m.markStopped("", "", nil)
 		m.logger.Info(
-			"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时已停止",
+			"插件"+pluginIDLabel(handle.Spec.PluginID)+"已停止",
 			"component", "runtime",
 			"plugin_id", handle.Spec.PluginID,
 			"runtime_state", string(StateStopped),

@@ -111,7 +111,7 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 					}
 
 					logger.Error(
-						fmt.Sprintf("HTTP 请求处理发生内部异常：%s %s；本次请求未完成，已向客户端返回内部错误。原因：处理程序触发未捕获异常。", r.Method, r.URL.Path),
+						fmt.Sprintf("请求处理异常：%s %s", r.Method, r.URL.Path),
 						"component", "http",
 						"request_id", requestID,
 						"method", r.Method,

@@ -10,7 +10,7 @@ func (s *Shell) run(ctx context.Context) {
 		s.clearConn(nil)
 		s.markStopped()
 		s.logger.Info(
-			"OneBot 适配器已停止",
+			"消息平台连接已关闭",
 			"component", "adapter",
 			"adapter_state", StateStopped,
 		)
@@ -27,8 +27,8 @@ func (s *Shell) run(ctx context.Context) {
 
 	snapshot := s.Snapshot()
 	if !snapshot.ForwardWS.Enabled || !snapshot.ForwardWS.Configured {
-		s.logger.Info(
-			"OneBot 主动 WebSocket 未启用或未配置，适配器保持空闲",
+		s.logger.Debug(
+			"未配置消息平台主动连接",
 			"component", "adapter",
 			"adapter_state", StateIdle,
 		)
@@ -58,7 +58,7 @@ func (s *Shell) run(ctx context.Context) {
 			reason = "连接会话意外结束"
 		}
 		s.logger.Warn(
-			"OneBot 主动 WebSocket 连接断开；事件收发暂时中断，将在 "+delay.String()+" 后重连："+sanitizeWSURL(s.forwardWSURL())+"。原因："+reason,
+			"消息平台连接断开，"+delay.String()+" 后重连："+reason,
 			"component", "adapter",
 			"adapter_state", StateReconnecting,
 			"retry_in", delay.String(),
@@ -76,8 +76,8 @@ func (s *Shell) run(ctx context.Context) {
 
 func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	s.markConnecting()
-	s.logger.Info(
-		"OneBot 主动 WebSocket 正在连接："+sanitizeWSURL(s.forwardWSURL()),
+	s.logger.Debug(
+		"正在连接消息平台",
 		"component", "adapter",
 		"adapter_state", StateConnecting,
 		"transport", string(TransportForwardWS),
@@ -93,7 +93,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 			s.markAuthFailed(err)
 			errorSummary := summarizeError(err)
 			s.logger.Error(
-				"OneBot 主动 WebSocket 鉴权失败："+sanitizeWSURL(s.forwardWSURL())+"；适配器已停止重连，请修正凭据后重启。原因："+errorSummary,
+				"消息平台连接验证失败，已停止重连，请检查连接密钥后重启："+errorSummary,
 				"component", "adapter",
 				"adapter_state", StateAuthFailed,
 				"transport", string(TransportForwardWS),
@@ -132,7 +132,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 
 	s.markConnected(ready.ObservedAt)
 	s.logger.Info(
-		"OneBot 主动 WebSocket 已连接："+sanitizeWSURL(s.forwardWSURL()),
+		"消息平台已连接",
 		"component", "adapter",
 		"adapter_state", StateConnected,
 		"transport", string(TransportForwardWS),
@@ -152,7 +152,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 	}
 	if errors.Is(err, context.DeadlineExceeded) {
 		s.logger.Warn(
-			"OneBot 主动 WebSocket 心跳超时；当前事件收发已中断，适配器将重新连接："+sanitizeWSURL(s.forwardWSURL()),
+			"消息平台连接无响应，正在重新连接。",
 			"component", "adapter",
 			"adapter_state", StateConnected,
 			"error_code", errorCodeForwardWSSessionLost,

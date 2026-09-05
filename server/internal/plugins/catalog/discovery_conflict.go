@@ -65,8 +65,8 @@ func logPluginDiscovered(logger *slog.Logger, entry plugins.Snapshot) {
 		return
 	}
 
-	logger.Info(
-		fmt.Sprintf("插件%s已发现：来源 %s，清单 %s", plugins.DisplayLabel(entry), entry.SourceRoot, entry.ManifestPath),
+	logger.Debug(
+		fmt.Sprintf("发现插件%s", plugins.DisplayLabel(entry)),
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"plugin_name", entry.Name,
@@ -81,7 +81,7 @@ func logPluginInvalid(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Warn(
-		fmt.Sprintf("插件%s清单校验失败，已阻止加载；请修正清单后重新扫描。原因：%s", plugins.DisplayLabel(entry), entry.ValidationSummary),
+		fmt.Sprintf("插件%s配置无效，无法加载：%s", plugins.DisplayLabel(entry), entry.ValidationSummary),
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"plugin_name", entry.Name,
@@ -97,7 +97,7 @@ func logPluginConflict(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Warn(
-		fmt.Sprintf("插件 ID 冲突：%s 同时出现在 %d 个目录；冲突解决前该插件不会加载，请仅保留一个安装来源。", entry.PluginID, len(entry.ConflictPaths)),
+		fmt.Sprintf("插件 %s 重复安装在 %d 个目录，无法加载；请仅保留一份。", entry.PluginID, len(entry.ConflictPaths)),
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"count", len(entry.ConflictPaths),

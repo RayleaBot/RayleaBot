@@ -97,7 +97,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	var rejectionSummary map[string]any
 	for _, raw := range items {
 		item := raw.(map[string]any)
-		if item["message"] == "插件 raylea.echo 的命令 echo 被权限策略拒绝：发送者不在白名单中" {
+		if item["source"] == "bridge" && item["level"] == "warn" && item["plugin_id"] == "raylea.echo" {
 			rejectionSummary = item
 			break
 		}

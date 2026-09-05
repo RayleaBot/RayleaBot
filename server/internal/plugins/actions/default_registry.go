@@ -239,7 +239,7 @@ func dispatchConfigChanged(ctx context.Context, pluginID string, config map[stri
 		return
 	}
 	logger.Warn(
-		"插件 "+pluginID+" 的配置变更事件未能投递到运行时；新配置可能要等插件下次启动后生效。结果："+string(result.Outcome)+"，错误码："+result.ErrorCode,
+		"插件 "+pluginID+" 未收到新配置，可能需要重启插件。",
 		"component", "app",
 		"plugin_id", pluginID,
 		"outcome", result.Outcome,

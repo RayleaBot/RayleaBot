@@ -322,7 +322,7 @@ func TestServiceInvalidTemplateFileKeepsCurrentRevision(t *testing.T) {
 	if afterSource.HTML != source.HTML {
 		t.Fatalf("invalid template file replaced current source")
 	}
-	if !strings.Contains(logs.String(), "渲染模板加载失败，已跳过目录") {
+	if !strings.Contains(logs.String(), "level=WARN") || !strings.Contains(logs.String(), "template_dir=templates/help.menu") {
 		t.Fatalf("expected invalid template warning, got %q", logs.String())
 	}
 }

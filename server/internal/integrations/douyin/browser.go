@@ -742,31 +742,30 @@ func (b *ChromedpBrowser) logCookieGaps(cookies map[string]string) {
 		}
 	}
 	if len(missing) > 0 {
-		missingText := strings.Join(missing, ", ")
-		b.options.Logger.Warn("抖音扫码登录已取得 Cookie，但缺少设备字段 "+missingText+"；登录流程继续，后续平台请求可能需要重新验证。", "component", "douyin_qrcode", "missing", strings.Join(missing, ","))
+		b.options.Logger.Warn("抖音登录信息不完整，后续请求可能需要重新验证。", "component", "douyin_qrcode", "missing", strings.Join(missing, ","))
 	}
 }
 
 func (b *ChromedpBrowser) logBrowserFallback(mode string) {
 	if b.options.Logger != nil {
-		b.options.Logger.Warn("抖音扫码登录浏览器模式 "+mode+" 不可用；本次登录将尝试其他可用模式。", "component", "douyin_qrcode", "mode", mode)
+		b.options.Logger.Warn("抖音登录浏览器启动失败，尝试其他方式。", "component", "douyin_qrcode", "mode", mode)
 	}
 }
 
 func (b *ChromedpBrowser) logBrowserStarted(mode string) {
 	if b.options.Logger != nil {
-		b.options.Logger.Info("抖音扫码登录浏览器已使用 "+mode+" 模式启动，等待用户完成登录。", "component", "douyin_qrcode", "mode", mode)
+		b.options.Logger.Info("抖音登录浏览器已启动，等待登录。", "component", "douyin_qrcode", "mode", mode)
 	}
 }
 
 func (b *ChromedpBrowser) logBrowserProfileBusy() {
 	if b.options.Logger != nil {
-		b.options.Logger.Warn("抖音扫码登录浏览器 profile 正被其他登录会话使用；本次已跳过可见模式并尝试隔离模式。", "component", "douyin_qrcode")
+		b.options.Logger.Warn("已有抖音登录窗口占用浏览器，尝试独立窗口。", "component", "douyin_qrcode")
 	}
 }
 
 func (b *ChromedpBrowser) logBrowserFailed(mode, reason string) {
 	if b.options.Logger != nil {
-		b.options.Logger.Warn("抖音扫码登录在 "+mode+" 模式下失败；本次登录未保存凭据。原因："+reason, "component", "douyin_qrcode", "mode", mode, "reason", reason)
+		b.options.Logger.Warn("抖音扫码登录失败："+reason, "component", "douyin_qrcode", "mode", mode, "reason", reason)
 	}
 }

@@ -83,14 +83,18 @@ func Discover(options DiscoverOptions) ([]plugins.Snapshot, DiscoverSummary, err
 	}
 
 	if options.Logger != nil {
+		message := fmt.Sprintf("发现 %d 个可用插件", summary.ValidCount)
+		if summary.InvalidCount > 0 {
+			message += fmt.Sprintf("，%d 个配置无效", summary.InvalidCount)
+		}
+		if summary.ConflictCount > 0 {
+			message += fmt.Sprintf("，%d 个重复安装", summary.ConflictCount)
+		}
+		if summary.SkippedCount > 0 {
+			message += fmt.Sprintf("，%d 个目录已跳过", summary.SkippedCount)
+		}
 		options.Logger.Info(
-			fmt.Sprintf(
-				"插件扫描完成：有效 %d 个，无效 %d 个，冲突 %d 个，跳过 %d 个",
-				summary.ValidCount,
-				summary.InvalidCount,
-				summary.ConflictCount,
-				summary.SkippedCount,
-			),
+			message,
 			"component", "plugins",
 			"valid_count", summary.ValidCount,
 			"invalid_count", summary.InvalidCount,

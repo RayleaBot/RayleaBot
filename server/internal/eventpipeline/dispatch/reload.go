@@ -50,7 +50,7 @@ func (d *Dispatcher) ReloadPlugin(
 			defer cancel()
 			if err := manager.Stop(stopCtx); err != nil {
 				d.logger.Warn(
-					"插件 "+pluginID+" 重载已切换到新运行时，但旧运行时停止失败；新运行时继续服务，旧进程可能需要人工清理。原因："+err.Error(),
+					"插件 "+pluginID+" 已重新加载，但旧进程未退出，请检查："+err.Error(),
 					"component", "dispatch",
 					"plugin_id", pluginID,
 					"err", err.Error(),

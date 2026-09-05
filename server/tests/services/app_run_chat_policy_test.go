@@ -232,7 +232,7 @@ func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
 	}
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "插件 weather 的命令 weather 被权限策略拒绝：发送者不在白名单中"
+		return summary.PluginID == "weather" && summary.Details["error_code"] == "permission.not_whitelisted"
 	})
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
@@ -298,7 +298,7 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 	})
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "插件 ops.tools 的命令 ops 被权限策略拒绝：用户在黑名单中"
+		return summary.PluginID == "ops.tools" && summary.Details["policy_stage"] == "blacklist"
 	})
 	if summary.Level != "warn" || summary.PluginID != "ops.tools" {
 		t.Fatalf("unexpected blacklist summary: %+v", summary)
@@ -409,7 +409,7 @@ func TestHandleAdapterEventLogsPermissionDeniedCommandRejection(t *testing.T) {
 	})
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "插件 admin 的命令 ops 被权限策略拒绝：权限等级不足"
+		return summary.PluginID == "admin" && summary.Details["error_code"] == "permission.denied"
 	})
 	if summary.Details["policy_stage"] != "permission" || summary.Details["error_code"] != "permission.denied" {
 		t.Fatalf("unexpected permission details: %#v", summary.Details)
@@ -469,7 +469,7 @@ func TestHandleAdapterEventLogsConflictingCommandRejectionWithoutPluginID(t *tes
 	})
 
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "命令 ops 被权限策略拒绝：权限等级不足"
+		return summary.Details["command_name"] == "ops" && summary.Details["error_code"] == "permission.denied"
 	})
 	if summary.PluginID != "" {
 		t.Fatalf("expected empty plugin_id for conflicting command, got %q", summary.PluginID)

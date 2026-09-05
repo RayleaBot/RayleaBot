@@ -158,7 +158,7 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["message"] == "插件 raylea.echo 的命令 echo 被权限策略拒绝：发送者不在白名单中"
+		return ok && data["source"] == "bridge" && data["level"] == "warn" && data["plugin_id"] == "raylea.echo"
 	})
 
 	data := frame["data"].(map[string]any)

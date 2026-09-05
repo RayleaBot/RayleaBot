@@ -131,7 +131,7 @@ func logRenderImageFailure(deps Deps, req ActionRequest, phase, template string,
 	if displayTemplate == "" {
 		displayTemplate = "未命名模板"
 	}
-	deps.Logger.Warn(fmt.Sprintf("插件 %s 的图片渲染在 %s 阶段失败，模板 %s 未生成图片。原因：%s", req.PluginID, phase, displayTemplate, cause), attrs...)
+	deps.Logger.Warn(fmt.Sprintf("插件 %s 生成图片失败（%s）：%s", req.PluginID, displayTemplate, cause), attrs...)
 }
 
 func deepestRenderError(err error) error {

@@ -750,7 +750,7 @@ func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string)
 		}
 	}
 	c.logger.Warn(
-		"插件"+pluginLabel+"的启动事件投递失败；插件已启动，但未收到启动通知。结果："+string(result.Outcome)+"，错误码："+result.ErrorCode,
+		"插件"+pluginLabel+"已启动，但启动通知未送达。",
 		"component", "app",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -806,7 +806,7 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 	if result.Outcome != dispatch.OutcomeDelivered {
 		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, job.Revision, startedAt, result.ErrorCode, string(result.Outcome))
 	} else if count := c.schedulerFailures.Recover(pluginID + ":" + taskName); count > 0 && c.logger != nil {
-		c.logger.Info("定时任务 "+taskName+" 的插件运行时已恢复可用，本轮已进入处理队列。", "component", "scheduler", "plugin_id", pluginID, "job_id", taskName, "repeat_count", count)
+		c.logger.Info(scheduler.DisplayMessage(pluginName, taskName, logLabel, "已恢复，等待执行"), "component", "scheduler", "plugin_id", pluginID, "job_id", taskName, "repeat_count", count)
 	}
 }
 
@@ -827,8 +827,12 @@ func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, p
 	if count == 0 {
 		return
 	}
+	message := scheduler.DisplayMessage(pluginName, taskName, logLabel, "未执行") + "；插件暂时无法接收任务，请检查插件状态。"
+	if count > 1 {
+		message += fmt.Sprintf("（期间重复 %d 次）", count)
+	}
 	c.logger.Warn(
-		scheduler.DisplayMessage(pluginName, taskName, logLabel, "未执行")+"；插件暂不可用或事件未能进入队列，请检查插件状态；同类情况累计记录 "+fmt.Sprint(count)+" 次。",
+		message,
 		"component", "scheduler",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -857,7 +861,7 @@ func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string,
 		OccurredAt: occurredAt,
 	}); err != nil && c.logger != nil {
 		c.logger.Warn(
-			"定时任务 "+jobID+" 的运行结果保存失败；任务已执行，但历史记录可能缺失。原因："+err.Error(),
+			"定时任务 "+jobID+" 的结果保存失败，历史记录可能缺失："+err.Error(),
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),
@@ -1035,7 +1039,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 		}
 		if c.logger != nil {
 			c.logger.Warn(
-				fmt.Sprintf("插件%s连续崩溃 %d 次，已进入死信状态；自动重启已停止，需要人工检查后重新启用。", plugins.DisplayLabel(snapshot), crashCount),
+				fmt.Sprintf("插件%s连续异常退出 %d 次，已停止自动重启，请检查后重新启用。", plugins.DisplayLabel(snapshot), crashCount),
 				"component", "app",
 				"plugin_id", pluginID,
 				"plugin_name", snapshot.Name,
@@ -1055,7 +1059,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 
 	if c.logger != nil {
 		c.logger.Info(
-			fmt.Sprintf("插件%s运行时崩溃，已进入退避；将在 %d 秒后尝试第 %d 次重启。", plugins.DisplayLabel(snapshot), int(delay.Seconds()), crashCount),
+			fmt.Sprintf("插件%s异常退出，%d 秒后第 %d 次重启。", plugins.DisplayLabel(snapshot), int(delay.Seconds()), crashCount),
 			"component", "app",
 			"plugin_id", pluginID,
 			"plugin_name", snapshot.Name,
@@ -1181,7 +1185,7 @@ func (c *Controller) logLifecycleWarn(message, pluginID string, err error) {
 
 	pluginLabel, pluginName := c.pluginLogLabel(pluginID)
 	c.logger.Warn(
-		"插件"+pluginLabel+lifecycleActionLabel(message)+"失败；请求未完成。原因："+err.Error(),
+		"插件"+pluginLabel+lifecycleActionLabel(message)+"失败："+err.Error(),
 		"component", "app",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -1205,25 +1209,25 @@ func (c *Controller) pluginLogLabel(pluginID string) (string, string) {
 func lifecycleActionLabel(message string) string {
 	switch strings.TrimSpace(message) {
 	case "start plugin runtime during reload":
-		return "重载时启动运行时"
+		return "重新加载时启动"
 	case "start stopped plugin runtime during reload":
-		return "重载时启动已停止的运行时"
+		return "重新加载时启动"
 	case "restart plugin runtime during reload":
-		return "重载时重启运行时"
+		return "重新加载时重启"
 	case "build runtime spec for plugin reload":
-		return "重载时生成运行时配置"
+		return "准备启动配置"
 	case "reload plugin runtime":
-		return "重载运行时"
+		return "重新加载"
 	case "restart plugin after crash backoff":
-		return "崩溃等待后重启"
+		return "自动重启"
 	case "stop plugin runtime":
-		return "停止运行时"
+		return "停止"
 	case "plugin runtime reconcile failed":
 		return "启动"
 	case "start plugin runtime after enable":
-		return "启用后启动运行时"
+		return "启用后启动"
 	case "create plugin reload task":
-		return "创建重载任务"
+		return "创建重新加载任务"
 	default:
 		if strings.TrimSpace(message) == "" {
 			return "处理"
@@ -1240,7 +1244,7 @@ func (c *Controller) createReloadTask(pluginID string, snapshot plugins.Snapshot
 	if displayName == "" {
 		displayName = pluginID
 	}
-	taskID, err := c.tasks.Create("plugin.reload", "reload plugin: "+displayName)
+	taskID, err := c.tasks.Create("plugin.reload", "重新加载插件“"+displayName+"”")
 	if err != nil {
 		c.logLifecycleWarn("create plugin reload task", pluginID, err)
 		return ""
@@ -1256,7 +1260,6 @@ func (c *Controller) startReloadTask(taskID string) {
 	c.tasks.Update(taskID, tasks.Update{
 		Status:    lifecycleTaskStatusPtr(tasks.StatusRunning),
 		Progress:  lifecycleIntPtr(5),
-		Summary:   lifecycleStringPtr("准备重载插件"),
 		StartedAt: &now,
 	})
 }
@@ -1279,10 +1282,10 @@ func (c *Controller) finishReloadTask(taskID string, pluginID string) {
 	c.tasks.Update(taskID, tasks.Update{
 		Status:     lifecycleTaskStatusPtr(tasks.StatusSucceeded),
 		Progress:   lifecycleIntPtr(100),
-		Summary:    lifecycleStringPtr("插件重载完成"),
+		Summary:    lifecycleStringPtr("插件“" + pluginID + "”已重新加载"),
 		FinishedAt: &now,
 		Result: &tasks.ResultSummary{
-			Summary: "插件运行时已重载",
+			Summary: "插件已重新加载",
 			Details: map[string]any{
 				"plugin_id": pluginID,
 			},

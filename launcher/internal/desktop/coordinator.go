@@ -274,7 +274,7 @@ func (c *Coordinator) startLocked(startupContext context.Context) error {
 		return c.refresh(operation)
 	}
 	if c.developmentWatcherActive() && !c.process.IsRunning() {
-		c.process.WriteLauncherLog(fmt.Sprintf("忽略重复启动请求：开发 watcher PID %d 正在管理 %s。", c.watcherPID, operation.endpoint.BaseURL), operation.resolvedSettings.Workdir)
+		c.process.WriteLauncherLog("服务已由开发脚本管理，无需重复启动。", operation.resolvedSettings.Workdir)
 		return c.refresh(operation)
 	}
 	if endpointListening(operation.endpoint) && !c.process.IsRunning() {

@@ -40,8 +40,8 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 				summary = payload[0]
 			}
 
-			m.logger.Info(
-				"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时初始化中："+summary,
+			m.logger.Debug(
+				"插件"+pluginIDLabel(handle.Spec.PluginID)+"启动进度："+summary,
 				"component", "runtime",
 				"plugin_id", handle.Spec.PluginID,
 				"runtime_state", string(StateStarting),

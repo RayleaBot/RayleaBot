@@ -40,7 +40,7 @@ func (s *Shell) routeAPIResponse(frame ClassifiedFrame) {
 	pending, found := s.takePendingResponse(response.Echo)
 	if !found {
 		s.logger.Warn(
-			"OneBot API 响应没有待处理请求，已忽略：echo="+response.Echo,
+			"忽略无法匹配请求的消息平台回复",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -142,7 +142,7 @@ func (t shellOutboundTransport) DoHTTPAPI(ctx context.Context, request APICallRe
 
 func (t shellOutboundTransport) LogUnsupportedSegment(segmentType string) {
 	t.s.logger.Warn(
-		"OneBot 出站消息包含不支持的 "+segmentType+" 消息段；该消息段已丢弃，其余受支持内容将继续发送。",
+		"消息中不支持的 "+segmentType+" 内容已跳过，其余内容继续发送。",
 		"component", "adapter",
 		"segment_type", segmentType,
 	)

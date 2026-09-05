@@ -102,10 +102,11 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 						if item.event.SchedulerLog == nil && !reported && code != "plugin.event_canceled" {
 							count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
 							if count > 0 {
-								d.logger.Warn("插件 "+pluginID+" 的内部事件（"+item.event.EventType+"）未完成；"+eventFailureDescription(code),
+								d.logger.Warn("插件 "+pluginID+" 处理任务失败："+eventFailureDescription(code),
 									"component", "dispatch",
 									"plugin_id", pluginID,
 									"event_id", item.event.EventID,
+									"event_type", item.event.EventType,
 									"lane_key", laneKey,
 									"err", err.Error(),
 									"error_code", code, "request_id", delivery.RequestID, "repeat_count", count,
@@ -130,7 +131,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					d.recoverScheduler(pluginID, item.event)
 					if item.event.SchedulerLog == nil {
 						if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {
-							d.logger.Info("插件 "+pluginID+" 的内部事件处理已恢复。", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
+							d.logger.Info("插件 "+pluginID+" 已恢复处理任务。", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
 						}
 					}
 					completions <- laneCompletion{laneKey: laneKey}

@@ -163,7 +163,7 @@ func main() {
 		host.SetTrayState(desktop.TrayMenuState{TrayStatusSummary: "未启动", TrayServiceAction: "start", TrayServiceActionLabel: "启动服务", CanRunTrayServiceAction: true})
 		go func() {
 			if err := service.Initialize(); err != nil {
-				log.Printf("initialize launcher service: %v", err)
+				log.Printf("启动器初始化失败：%v", err)
 			}
 		}()
 	})

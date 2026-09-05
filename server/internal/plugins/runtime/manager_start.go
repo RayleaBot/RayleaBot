@@ -83,8 +83,8 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	m.mu.Unlock()
 
 	entryPathDisplay := logpath.Display(spec.RepoRoot, spec.EntryPath)
-	m.logger.Info(
-		"插件"+runtimePluginLabel(spec)+"运行时正在启动，入口文件："+entryPathDisplay,
+	m.logger.Debug(
+		"插件"+runtimePluginLabel(spec)+"正在启动",
 		"component", "runtime",
 		"plugin_id", spec.PluginID,
 		"plugin_name", spec.PluginName,
@@ -134,7 +134,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	m.mu.Unlock()
 
 	m.logger.Info(
-		"插件"+runtimePluginLabel(spec)+"运行时已启动，入口文件："+entryPathDisplay,
+		"插件"+runtimePluginLabel(spec)+"已启动",
 		"component", "runtime",
 		"plugin_id", spec.PluginID,
 		"plugin_name", spec.PluginName,

@@ -3,6 +3,7 @@ package accountvalidation
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
@@ -80,7 +81,7 @@ func (fn credentialValidatorFunc) CheckCookie(ctx context.Context, platform, coo
 
 func TestLogValidationKeepsAmbiguousHTTP432Unknown(t *testing.T) {
 	var output bytes.Buffer
-	service := &Service{logger: slog.New(slog.NewJSONHandler(&output, nil))}
+	service := newService(nil, nil, 0, slog.New(slog.NewJSONHandler(&output, nil)), time.Now)
 	previous := thirdparty.Account{Platform: thirdparty.PlatformWeibo, AccountID: "primary", Credential: thirdparty.CredentialStatus{State: thirdparty.CredentialValid}}
 	current := previous
 	current.Credential = thirdparty.CredentialStatus{State: thirdparty.CredentialUnknown, LastError: "微博 CK 状态暂时无法确认，请稍后重试"}
@@ -88,13 +89,96 @@ func TestLogValidationKeepsAmbiguousHTTP432Unknown(t *testing.T) {
 
 	service.logValidation(TriggerScheduled, previous, current, true, err)
 	message := output.String()
-	for _, expected := range []string{"当前状态保持 unknown", "暂时无法确认", "请稍后重试"} {
+	for _, expected := range []string{`"new_state":"unknown"`, `"http_status":432`, `"level":"WARN"`, "暂时无法确认"} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("log %q does not contain %q", message, expected)
 		}
 	}
 	if strings.Contains(message, "已确认失效") {
 		t.Fatalf("ambiguous HTTP 432 was logged as invalid: %s", message)
+	}
+}
+
+func TestValidationLogsBackgroundFailuresAndRecovery(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)
+	store := &validationStoreStub{
+		accounts: []thirdparty.Account{{
+			Platform: thirdparty.PlatformWeibo, AccountID: "primary", Enabled: true, Configured: true,
+			Credential: thirdparty.CredentialStatus{State: thirdparty.CredentialValid}, UpdatedAt: now,
+		}},
+		cookies: map[string]string{"weibo:primary": "SUB=fixture;"},
+	}
+	state := thirdparty.CredentialValid
+	stale := false
+	checks := 0
+	validator := credentialValidatorFunc(func(context.Context, string, string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
+		checks++
+		if stale {
+			store.mu.Lock()
+			store.accounts[0].UpdatedAt = now.Add(time.Hour)
+			store.mu.Unlock()
+		}
+		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{State: state, CheckedAt: &now}, nil
+	})
+	var output bytes.Buffer
+	service := newService(store, validator, 0, slog.New(slog.NewJSONHandler(&output, nil)), func() time.Time { return now })
+	steps := []struct {
+		name, state, level string
+		trigger            Trigger
+		advance            time.Duration
+		repeats, recovered int
+		stale              bool
+	}{
+		{name: "unchanged background success", state: thirdparty.CredentialValid, trigger: TriggerScheduled},
+		{name: "manual result", state: thirdparty.CredentialValid, trigger: TriggerManual, level: "INFO"},
+		{name: "first failure", state: thirdparty.CredentialUnknown, trigger: TriggerPlugin, level: "WARN", repeats: 1},
+		{name: "same failure", state: thirdparty.CredentialUnknown, trigger: TriggerPlugin, advance: time.Minute},
+		{name: "periodic summary", state: thirdparty.CredentialUnknown, trigger: TriggerScheduled, advance: 5 * time.Minute, level: "WARN", repeats: 2},
+		{name: "different failure", state: thirdparty.CredentialInvalid, trigger: TriggerManual, level: "WARN", repeats: 1},
+		{name: "recovery", state: thirdparty.CredentialValid, trigger: TriggerScheduled, level: "INFO", recovered: 1},
+		{name: "repeated success", state: thirdparty.CredentialValid, trigger: TriggerScheduled},
+		{name: "stale failure", state: thirdparty.CredentialInvalid, trigger: TriggerPlugin, stale: true},
+	}
+	for _, step := range steps {
+		t.Run(step.name, func(t *testing.T) {
+			output.Reset()
+			now = now.Add(step.advance)
+			state, stale = step.state, step.stale
+			account, err := service.ValidateAccount(t.Context(), thirdparty.PlatformWeibo, "primary", step.trigger)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantState := step.state
+			if stale {
+				wantState = thirdparty.CredentialValid
+			}
+			if account.Credential.State != wantState {
+				t.Fatalf("state = %s, want %s", account.Credential.State, wantState)
+			}
+			if step.level == "" {
+				if output.Len() != 0 {
+					t.Fatalf("unexpected default log: %s", output.String())
+				}
+				return
+			}
+			var record map[string]any
+			if err := json.Unmarshal(output.Bytes(), &record); err != nil {
+				t.Fatalf("expected one result log: %v", err)
+			}
+			if record["level"] != step.level || record["new_state"] != wantState || record["account_id"] != "primary" {
+				t.Fatalf("wrong log outcome: %#v", record)
+			}
+			if step.repeats > 0 && record["repeat_count"] != float64(step.repeats) {
+				t.Fatalf("repeat count = %v, want %d", record["repeat_count"], step.repeats)
+			}
+			if step.recovered > 0 && record["recovered_count"] != float64(step.recovered) {
+				t.Fatalf("recovered count = %v, want %d", record["recovered_count"], step.recovered)
+			}
+		})
+	}
+	if checks != len(steps) {
+		t.Fatalf("logging suppression changed validation count: %d", checks)
 	}
 }
 
@@ -310,14 +394,18 @@ func TestPluginValidationRequestRunsWhenScheduledChecksAreDisabled(t *testing.T)
 	}
 	logOutput := logs.String()
 	for _, expected := range []string{
-		"服务器复检完成：最终 CK 状态为失效",
-		`"observation":"session_blocked"`,
-		`"reported_http_status":432`,
-		`"final_state":"invalid"`,
+		`"level":"WARN"`,
+		`"trigger":"plugin"`,
+		`"platform":"weibo"`,
+		`"account_id":"primary"`,
+		`"new_state":"invalid"`,
 	} {
 		if !strings.Contains(logOutput, expected) {
 			t.Fatalf("plugin validation log missing %q: %s", expected, logOutput)
 		}
+	}
+	if got := strings.Count(strings.TrimSpace(logOutput), "\n") + 1; got != 1 {
+		t.Fatalf("want one validation result log, got %d: %s", got, logOutput)
 	}
 }
 

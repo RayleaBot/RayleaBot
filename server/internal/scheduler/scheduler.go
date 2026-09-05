@@ -86,11 +86,11 @@ func DisplayLabel(values ...string) string {
 }
 
 func DisplayMessage(pluginName, taskName, logLabel, status string) string {
-	parts := []string{
-		strings.TrimSpace(pluginName),
-		strings.TrimSpace(taskName),
+	parts := make([]string, 0, 3)
+	if name := strings.TrimSpace(pluginName); name != "" {
+		parts = append(parts, name)
 	}
-	if label := strings.TrimSpace(logLabel); label != "" {
+	if label := DisplayLabel(logLabel, taskName); label != "" {
 		parts = append(parts, label)
 	}
 	parts = append(parts, strings.TrimSpace(status))
@@ -188,7 +188,7 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 		e.jobs[j.JobID] = cloneJob(j)
 	}
 
-	e.logger.Info(fmt.Sprintf("调度器已加载 %d 个定时任务", len(jobs)), "component", "scheduler", "job_count", len(jobs))
+	e.logger.Info(fmt.Sprintf("已加载 %d 个定时任务", len(jobs)), "component", "scheduler", "job_count", len(jobs))
 	return nil
 }
 
@@ -251,7 +251,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 
 	nextRun, err := nextCronTime(j.CronExpr, now, e.location)
 	if err != nil {
-		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间计算失败，已停止继续调度；请修正 cron 表达式后重新启用。原因："+err.Error(),
+		e.logger.Warn("定时任务 "+j.JobID+" 的运行时间无效，已暂停，请修改时间设置后重新启用："+err.Error(),
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),
@@ -280,7 +280,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := e.repo.UpdateJobSchedule(ctx, j); err != nil {
-		e.logger.Warn("定时任务 "+j.JobID+" 的下次运行时间保存失败；内存中的调度已更新，但服务重启后可能恢复旧时间。原因："+err.Error(),
+		e.logger.Warn("定时任务 "+j.JobID+" 的运行时间保存失败，重启后可能恢复旧设置："+err.Error(),
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),

@@ -95,7 +95,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 	}
 	fields = append(fields, "reason", reason)
 	if errorCode == onebot11.ErrorCodeSendUnconfirmed {
-		logger.Warn(sendSummary(context, targetType, targetID, plainText, false)+"；发送结果未确认，消息可能仍会送达，未自动重发。", fields...)
+		logger.Warn(sendSummary(context, targetType, targetID, plainText, false)+"；未确认是否送达，不自动重发。", fields...)
 		return
 	}
 	logger.Warn(
@@ -140,7 +140,7 @@ func sendSummary(context SendLogContext, targetType, targetID, plainText string,
 	}
 
 	if failed {
-		reason := "未知出站错误"
+		reason := "未知发送错误"
 		if len(failureReason) > 0 && strings.TrimSpace(failureReason[0]) != "" {
 			reason = strings.TrimSpace(failureReason[0])
 		}

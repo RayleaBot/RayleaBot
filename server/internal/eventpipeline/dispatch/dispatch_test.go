@@ -417,10 +417,13 @@ func TestDispatchLogsAndRecordsSchedulerFailure(t *testing.T) {
 	}
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
-		return strings.Contains(summary.Message, "【天气插件｜daily_report｜每日早报｜处理失败】耗时 ")
+		return summary.Details["job_id"] == "daily_report" && summary.Details["error_code"] == "plugin.event_timeout"
 	})
 	if summary.Source != "scheduler" || summary.PluginID != "weather" {
 		t.Fatalf("unexpected failure log: %#v", summary)
+	}
+	if summary.Level != "warn" || summary.Details["log_label"] != "每日早报" || summary.Details["duration_ms"] == nil {
+		t.Fatalf("missing failure diagnostics: %#v", summary)
 	}
 	waitForCondition(t, func() bool {
 		return recorder.count() == 1

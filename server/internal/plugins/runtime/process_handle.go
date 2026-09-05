@@ -165,9 +165,14 @@ func (m *Manager) watchRunningProcess(handle *Handle) {
 	}
 	m.abortPendingLocked(runtimeErr)
 	m.markStoppedLocked("", "", nil)
+	exitReported := handle.exitFailureReported
 	m.mu.Unlock()
-	m.logger.Info(
-		"插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时已退出",
+	log := m.logger.Info
+	if exitReported {
+		log = m.logger.Debug
+	}
+	log(
+		"插件"+pluginIDLabel(handle.Spec.PluginID)+"已退出",
 		"component", "runtime",
 		"plugin_id", handle.Spec.PluginID,
 		"runtime_state", string(StateStopped),

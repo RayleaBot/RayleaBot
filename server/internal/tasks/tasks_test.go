@@ -165,7 +165,7 @@ func TestCreateWritesTaskLogForEveryFrozenTaskType(t *testing.T) {
 	}
 
 	for _, taskType := range taskTypes {
-		if _, err := registry.Create(taskType, "summary for "+taskType); err != nil {
+		if _, err := registry.Create(taskType, "测试操作"); err != nil {
 			t.Fatalf("Create(%q) returned unexpected error: %v", taskType, err)
 		}
 	}
@@ -182,8 +182,8 @@ func TestCreateWritesTaskLogForEveryFrozenTaskType(t *testing.T) {
 		if summary.Details["task_status"] != string(StatusPending) {
 			t.Fatalf("task log status for %s = %#v, want %q", taskType, summary.Details["task_status"], StatusPending)
 		}
-		if !strings.Contains(summary.Message, taskType) {
-			t.Fatalf("task log message %q does not include task type %q", summary.Message, taskType)
+		if strings.Contains(summary.Message, taskType) {
+			t.Fatalf("machine task type leaked into operator message: %q", summary.Message)
 		}
 		seen[taskType] = true
 	}

@@ -164,8 +164,8 @@ func TestBridgeLogsUnmatchedNoticeAsDebugIgnored(t *testing.T) {
 	if summary.Level != "debug" {
 		t.Fatalf("unexpected log level: got %q want debug", summary.Level)
 	}
-	if summary.Message != "插件桥接已忽略：群消息撤回通知" {
-		t.Fatalf("unexpected log message: got %q", summary.Message)
+	if summary.Details["event_type"] != "notice.group_recall" {
+		t.Fatalf("unexpected ignored event: %#v", summary.Details)
 	}
 	if summary.Details["reason"] != "no plugin subscription accepted the event" {
 		t.Fatalf("unexpected ignore reason: %#v", summary.Details)
@@ -257,9 +257,6 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	}
 	if summary.PluginID != "raylea.echo" {
 		t.Fatalf("unexpected plugin_id: got %q want raylea.echo", summary.PluginID)
-	}
-	if summary.Message != "插件 raylea.echo 的命令 help 被权限策略拒绝：发送者不在白名单中" {
-		t.Fatalf("unexpected rejection message: got %q", summary.Message)
 	}
 	if summary.Details["command_name"] != "help" || summary.Details["policy_stage"] != "whitelist" {
 		t.Fatalf("unexpected rejection details: %#v", summary.Details)
@@ -456,7 +453,7 @@ func TestBridgeEventSummaryFormatsGroupMessageContext(t *testing.T) {
 		},
 	})
 
-	if summary != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容；已进入插件分发队列。" {
+	if summary != "10001: [测试群组(20001)][管理员]测试群名片/测试用户昵称(30001): 测试消息内容" {
 		t.Fatalf("unexpected group summary: %#v", summary)
 	}
 }
@@ -479,7 +476,7 @@ func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
 		},
 	})
 
-	if summary != "10001: 测试私聊用户(30002): 你好；已进入插件分发队列。" {
+	if summary != "10001: 测试私聊用户(30002): 你好" {
 		t.Fatalf("unexpected private summary: %#v", summary)
 	}
 }

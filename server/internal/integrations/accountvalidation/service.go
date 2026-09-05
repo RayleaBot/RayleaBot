@@ -12,6 +12,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
@@ -61,6 +62,7 @@ type Service struct {
 	accounts        accountStore
 	validator       credentialValidator
 	logger          *slog.Logger
+	logFailures     logging.FailureTracker
 	now             func() time.Time
 	intervalNanos   atomic.Int64
 	intervalChanged chan struct{}
@@ -342,7 +344,7 @@ func (s *Service) runPluginRequests(ctx context.Context) {
 			if err != nil {
 				if s.logger != nil && !errors.Is(err, context.Canceled) {
 					s.logger.Warn(
-						fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 后，服务器校验失败；凭据状态未被插件直接修改，请稍后重试。原因：%s", request.pluginID, request.platform, request.accountID, err.Error()),
+						fmt.Sprintf("%s账号 %s 复检失败：%s", platformLogLabel(request.platform), request.accountID, err.Error()),
 						"component", "third_party_account_validation",
 						"trigger", string(TriggerPlugin),
 						"plugin_id", request.pluginID,
@@ -432,9 +434,29 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 		"error_kind", errorKind,
 		"http_status", httpStatus,
 	}
+	label := fmt.Sprintf("%s账号 %s", platformLogLabel(current.Platform), current.AccountID)
+	if !applied {
+		s.logger.Debug(label+"检查结果已过期，状态未更新。", args...)
+		return
+	}
+	scope := current.Platform + ":" + current.AccountID
+	if current.Credential.State == thirdparty.CredentialValid {
+		recovered := s.logFailures.Recover(scope)
+		log := s.logger.Debug
+		if trigger == TriggerManual || previous.Credential.State != current.Credential.State || recovered > 0 {
+			log = s.logger.Info
+		}
+		log(label+"登录状态正常。", append(args, "recovered_count", recovered)...)
+		return
+	}
+	count := s.logFailures.Failure(scope, fmt.Sprintf("%s:%s:%d", current.Credential.State, errorKind, httpStatus), s.now())
+	if count == 0 && trigger != TriggerManual {
+		return
+	}
+	message := ""
 	switch current.Credential.State {
 	case thirdparty.CredentialInvalid:
-		s.logger.Warn(fmt.Sprintf("%s 账号 %s 的 CK 已确认失效；依赖该账号的请求将停止使用此凭据，请重新登录。", current.Platform, current.AccountID), args...)
+		message = label + "登录已失效，请重新登录。"
 	case thirdparty.CredentialUnknown:
 		reason := strings.TrimSpace(current.Credential.LastError)
 		if reason == "" && checkErr != nil {
@@ -443,9 +465,28 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 		if reason == "" {
 			reason = "平台未返回可确认的登录状态"
 		}
-		s.logger.Warn(fmt.Sprintf("%s 账号 %s 的 CK 状态暂时无法确认；当前状态保持 unknown，请稍后重试。原因：%s", current.Platform, current.AccountID, reason), args...)
+		message = label + "登录状态暂时无法确认：" + reason
 	default:
-		s.logger.Info(fmt.Sprintf("%s 账号 %s 的 CK 检查完成，凭据状态有效。", current.Platform, current.AccountID), args...)
+		message = label + "登录状态暂时无法确认。"
+	}
+	if count > 1 {
+		message += fmt.Sprintf("（期间重复 %d 次）", count)
+	}
+	s.logger.Warn(message, append(args, "repeat_count", max(1, count))...)
+}
+
+func platformLogLabel(platform string) string {
+	switch platform {
+	case thirdparty.PlatformBilibili:
+		return "哔哩哔哩"
+	case thirdparty.PlatformDouyin:
+		return "抖音"
+	case thirdparty.PlatformWeibo:
+		return "微博"
+	case thirdparty.PlatformNeteaseMusic:
+		return "网易云音乐"
+	default:
+		return platform
 	}
 }
 
@@ -462,25 +503,25 @@ func (s *Service) logCycle(trigger Trigger, total, due, checked, failed int, err
 		"failed", failed,
 	}
 	if err != nil {
-		s.logger.Warn("三方账号 CK 自动检查未能开始；账号列表读取失败，现有凭据状态未改变。原因："+err.Error(), append(args, "error_kind", "storage")...)
+		s.logger.Warn("账号自动检查失败，无法读取账号列表："+err.Error(), append(args, "error_kind", "storage")...)
 		return
 	}
-	log := s.logger.Info
-	if due == 0 && checked == 0 && failed == 0 {
-		log = s.logger.Debug
+	log := s.logger.Debug
+	if failed > 0 {
+		log = s.logger.Warn
 	}
-	log(fmt.Sprintf("三方账号 CK 自动检查完成：共 %d 个账号，%d 个到期，成功检查 %d 个，失败 %d 个。", total, due, checked, failed), args...)
+	log(fmt.Sprintf("账号自动检查完成：已检查 %d 个，检查失败 %d 个。", checked, failed), args...)
 }
 
 func (s *Service) logPluginRequest(pluginID, platform, accountID, observation string, httpStatus int, accepted bool, reason string) {
 	if s.logger == nil {
 		return
 	}
-	message := fmt.Sprintf("插件 %s 报告 %s 账号 %s 的平台接口异常；服务器复检已排队，完成前不会据此改写 Web 账号状态。", pluginID, platform, accountID)
+	message := fmt.Sprintf("%s账号 %s 等待复检。", platformLogLabel(platform), accountID)
 	if !accepted {
-		message = fmt.Sprintf("插件 %s 请求复检 %s 账号 %s 未被接收；凭据状态未改变。原因：%s", pluginID, platform, accountID, strings.TrimSpace(reason))
+		message = fmt.Sprintf("%s账号 %s 本次复检请求未受理。", platformLogLabel(platform), accountID)
 	}
-	s.logger.Info(
+	s.logger.Debug(
 		message,
 		"component", "third_party_account_validation",
 		"trigger", string(TriggerPlugin),
@@ -510,9 +551,8 @@ func (s *Service) logPluginValidationResult(request pluginValidationRequest, acc
 		stateLabel = "失效"
 	}
 	message := fmt.Sprintf(
-		"插件 %s 报告 %s 账号 %s 的平台接口异常后，服务器复检完成：最终 CK 状态为%s；Web 账号状态以本次服务器检查结果为准。",
-		request.pluginID,
-		request.platform,
+		"%s账号 %s 复检结束，登录状态%s。",
+		platformLogLabel(request.platform),
 		request.accountID,
 		stateLabel,
 	)
@@ -527,13 +567,5 @@ func (s *Service) logPluginValidationResult(request pluginValidationRequest, acc
 		"final_state", account.Credential.State,
 		"checked_at", checkedAt,
 	}
-	if account.Credential.State == thirdparty.CredentialValid {
-		s.logger.Info(message, args...)
-		return
-	}
-	if account.Credential.State == thirdparty.CredentialInvalid {
-		s.logger.Warn(message+" 请重新登录。", args...)
-		return
-	}
-	s.logger.Warn(message+" 请稍后重试。", args...)
+	s.logger.Debug(message, args...)
 }

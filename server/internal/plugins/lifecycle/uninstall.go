@@ -162,7 +162,7 @@ func (s *UninstallService) Accept(_ context.Context, pluginID string) (string, e
 		return "", tasks.ErrQueueFull
 	}
 
-	summary := fmt.Sprintf("uninstall plugin: %s", pluginID)
+	summary := fmt.Sprintf("卸载插件“%s”", pluginID)
 	taskID, err := s.registry.Create("plugin.uninstall", summary)
 	if err != nil {
 		s.admission.Release()
@@ -222,7 +222,7 @@ func (s *UninstallService) execute(job uninstallJob) {
 	s.registry.Update(job.taskID, tasks.Update{
 		Status:    taskStatusPtr(tasks.StatusRunning),
 		Progress:  intPtr(10),
-		Summary:   stringPtr("停止插件运行时"),
+		Summary:   stringPtr("卸载插件“" + job.pluginID + "”"),
 		StartedAt: &startedAt,
 	})
 
@@ -286,10 +286,10 @@ func (s *UninstallService) execute(job uninstallJob) {
 	s.registry.Update(job.taskID, tasks.Update{
 		Status:     taskStatusPtr(tasks.StatusSucceeded),
 		Progress:   intPtr(100),
-		Summary:    stringPtr("插件卸载完成"),
+		Summary:    stringPtr("插件“" + job.pluginID + "”已卸载"),
 		FinishedAt: &now,
 		Result: &tasks.ResultSummary{
-			Summary: "插件已卸载并刷新插件目录索引",
+			Summary: "插件已卸载",
 		},
 	})
 }

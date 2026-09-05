@@ -213,7 +213,7 @@ func runResetAdmin(cmd Command) int {
 			cmd.Logger.Error("清空管理员状态表失败："+table, "table", table, "err", err.Error())
 			return 1
 		}
-		cmd.Logger.Info("管理员状态表已清空："+table, "table", table)
+		cmd.Logger.Debug("管理员状态表已清空："+table, "table", table)
 	}
 
 	cmd.Logger.Info("管理员凭据已重置，下次启动将进入初始设置状态："+databasePathDisplay, "path", databasePathDisplay)
@@ -251,7 +251,7 @@ func runCleanup(cmd Command) int {
 				cmd.Logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay, "path", orphanPathDisplay, "err", displayLogError(repoRoot, err, orphanPath))
 				failed = true
 			} else {
-				cmd.Logger.Info("遗留插件安装目录已清理："+orphanPathDisplay, "path", orphanPathDisplay)
+				cmd.Logger.Debug("遗留插件安装目录已清理："+orphanPathDisplay, "path", orphanPathDisplay)
 				cleaned++
 			}
 		}

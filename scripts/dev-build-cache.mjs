@@ -71,7 +71,6 @@ export function createBuildCache(directory, log = () => {}) {
       catch (error) { if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error }
       const output = await outputFingerprint(outputs)
       if (stamp?.version === 1 && stamp.key === key && output && stamp.output === output) {
-        log(`${name}: cache hit`)
         return false
       }
       log(`${name}: ${stamp?.key === key ? 'output missing or changed' : 'inputs changed'}`)

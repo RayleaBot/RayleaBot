@@ -139,8 +139,8 @@ func logConfiguredServer(state configRuntimeState, renderer *renderservice.Servi
 	configPath := logpath.Display(repoRoot, summary.ConfigPath)
 	schemaPath := logpath.Display(repoRoot, summary.SchemaPath)
 	databasePath := logpath.Display(repoRoot, summary.DatabasePath)
-	state.RuntimeLogger().Info(
-		"配置已加载：配置文件 "+configPath+"，数据库 "+databasePath+"，日志级别 "+summary.LoggingLevel,
+	state.RuntimeLogger().Debug(
+		"配置已加载",
 		"component", "config",
 		"config_path", configPath,
 		"schema_path", schemaPath,
@@ -155,8 +155,8 @@ func logConfiguredServer(state configRuntimeState, renderer *renderservice.Servi
 		"onebot_endpoint", summary.OneBotEndpoint,
 	)
 	serverURL := httpapi.DisplayServerURL(listenAddr)
-	state.RuntimeLogger().Info(
-		"HTTP 服务已配置，管理地址："+serverURL,
+	state.RuntimeLogger().Debug(
+		"管理地址已配置："+serverURL,
 		"component", "app",
 		"listen_addr", listenAddr,
 		"url", serverURL,

@@ -29,8 +29,8 @@ func (s *Shell) Start(ctx context.Context) {
 	s.supervisorCtx = ctx
 	s.mu.Unlock()
 
-	s.logger.Info(
-		"OneBot 适配器正在启动，主动 WebSocket 地址："+sanitizeWSURL(s.forwardWSURL()),
+	s.logger.Debug(
+		"正在启动消息平台连接",
 		"component", "adapter",
 		"adapter_state", StateIdle,
 		"forward_ws_url", sanitizeWSURL(s.forwardWSURL()),
@@ -71,8 +71,8 @@ func (s *Shell) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	s.logger.Info(
-		"OneBot 适配器正在停止，当前状态："+string(s.Snapshot().State),
+	s.logger.Debug(
+		"正在关闭消息平台连接",
 		"component", "adapter",
 		"adapter_state", s.Snapshot().State,
 	)

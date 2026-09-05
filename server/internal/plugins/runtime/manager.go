@@ -136,7 +136,7 @@ func (m *Manager) signalPendingRequests(handle *Handle, runtimeErr *Error) {
 
 func (m *Manager) reportExitFailureLocked(handle *Handle, runtimeErr *Error) {
 	if !handle.exitFailureReported {
-		m.logger.Warn("插件"+pluginIDLabel(handle.Spec.PluginID)+"运行时通信或进程意外结束；未完成的内部请求已中断。",
+		m.logger.Warn("插件"+pluginIDLabel(handle.Spec.PluginID)+"意外退出或断开连接。",
 			"component", "runtime", "plugin_id", handle.Spec.PluginID,
 			"runtime_state", string(m.snap.State), "crash_count", m.snap.CrashCount,
 			"error_code", runtimeErr.Code, "err", runtimeErr.Error())

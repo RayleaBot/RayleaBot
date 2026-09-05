@@ -426,7 +426,7 @@ func TestShellStopClosesReverseWebSocketAfterSupervisorCancellation(t *testing.T
 	}
 
 	for _, summary := range logStream.Snapshot() {
-		if summary.Source == "adapter" && summary.Message == "OneBot 适配器已停止" {
+		if summary.Source == "adapter" && summary.Level == "info" && summary.Details["adapter_state"] == "stopped" {
 			return
 		}
 	}
