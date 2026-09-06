@@ -678,3 +678,63 @@ func newPlanningConfigDocument() map[string]any {
 		},
 	}
 }
+
+func TestSaveDocumentTreatsQQOfficialAsOptional(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+
+	// Absent block: a config that predates the adapter still saves, and the
+	// zero value reads back as disabled.
+	cfg, _, err := SaveDocument(configPath, schemaPath, newPlanningConfigDocument())
+	if err != nil {
+		t.Fatalf("SaveDocument() without qq_official error = %v", err)
+	}
+	if cfg.QQOfficial.Enabled {
+		t.Fatal("QQOfficial.Enabled = true, want false when the block is absent")
+	}
+	saved, err := LoadDocument(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("LoadDocument() error = %v", err)
+	}
+	if _, present := saved["qq_official"]; present {
+		t.Fatal("saved document gained a qq_official block that was never configured")
+	}
+
+	// Present block: values reach the typed config, and the secret stays a
+	// reference rather than a plaintext value.
+	document := newPlanningConfigDocument()
+	document["qq_official"] = map[string]any{
+		"enabled":    true,
+		"app_id":     "102209770",
+		"app_secret": "secret://qq_official/app_secret",
+		"intents":    []any{"group_and_c2c"},
+		"sandbox":    false,
+	}
+	cfg, _, err = SaveDocument(configPath, schemaPath, document)
+	if err != nil {
+		t.Fatalf("SaveDocument() with qq_official error = %v", err)
+	}
+	if !cfg.QQOfficial.Enabled || cfg.QQOfficial.AppID != "102209770" {
+		t.Fatalf("QQOfficial = %+v, want enabled with the configured app id", cfg.QQOfficial)
+	}
+	if len(cfg.QQOfficial.Intents) != 1 || cfg.QQOfficial.Intents[0] != "group_and_c2c" {
+		t.Fatalf("QQOfficial.Intents = %v, want [group_and_c2c]", cfg.QQOfficial.Intents)
+	}
+}
+
+func TestSaveDocumentRejectsPartialQQOfficialBlock(t *testing.T) {
+	t.Parallel()
+
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	document := newPlanningConfigDocument()
+	// enabled is required once the block exists; a half-written block must not
+	// silently start an adapter with defaults nobody chose.
+	document["qq_official"] = map[string]any{"app_id": "102209770"}
+
+	if _, _, err := SaveDocument(configPath, schemaPath, document); err == nil {
+		t.Fatal("SaveDocument() accepted a qq_official block missing required fields")
+	}
+}

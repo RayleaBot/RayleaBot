@@ -4,6 +4,7 @@ type Config struct {
 	SchemaVersion string                   `json:"schema_version" yaml:"schema_version"`
 	Server        ServerConfig             `json:"server" yaml:"server"`
 	OneBot        OneBotConfig             `json:"onebot" yaml:"onebot"`
+	QQOfficial    QQOfficialConfig         `json:"qq_official" yaml:"qq_official"`
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
 	Command       *CommandConfig           `json:"command" yaml:"command"`
 	Builtin       BuiltinConfig            `json:"builtin_features" yaml:"builtin_features"`
@@ -108,6 +109,16 @@ type OneBotConfig struct {
 	ForwardWS OneBotTransportConfig `json:"forward_ws" yaml:"forward_ws"`
 	HTTPAPI   OneBotTransportConfig `json:"http_api" yaml:"http_api"`
 	Webhook   OneBotTransportConfig `json:"webhook" yaml:"webhook"`
+}
+
+// QQOfficialConfig configures the QQ Open Platform adapter. The block is
+// optional in the schema: a zero value means the adapter is disabled.
+type QQOfficialConfig struct {
+	Enabled   bool     `json:"enabled" yaml:"enabled"`
+	AppID     string   `json:"app_id" yaml:"app_id"`
+	AppSecret string   `json:"app_secret" yaml:"app_secret"`
+	Intents   []string `json:"intents" yaml:"intents"`
+	Sandbox   bool     `json:"sandbox" yaml:"sandbox"`
 }
 
 type DatabaseConfig struct {
