@@ -84,6 +84,64 @@
         }
       }
     },
+    "qq_official": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace.",
+      "required": [
+        "enabled",
+        "app_id",
+        "app_secret",
+        "intents",
+        "sandbox"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "x-apply-policy": "adapter_reload"
+        },
+        "app_id": {
+          "type": "string",
+          "default": "",
+          "pattern": "^$|^[0-9]+$",
+          "description": "QQ Open Platform AppID. Not a secret; it is sent as the X-Union-Appid header and may appear in diagnostics.",
+          "x-apply-policy": "adapter_reload"
+        },
+        "app_secret": {
+          "type": "string",
+          "default": "",
+          "description": "QQ Open Platform AppSecret, exchanged for a short-lived app access token. Management API updates store plaintext values in the local secret store and persist this field as secret://qq_official/app_secret.",
+          "x-apply-policy": "secret_only",
+          "x-secret": true,
+          "x-redaction": "full"
+        },
+        "intents": {
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "description": "Event categories to subscribe to at Identify. The adapter maps these names onto the gateway bitmask; an empty list disables event subscription.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "group_and_c2c",
+              "guilds",
+              "guild_members",
+              "guild_messages",
+              "public_guild_messages",
+              "direct_message"
+            ]
+          },
+          "x-apply-policy": "adapter_reload"
+        },
+        "sandbox": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the QQ Open Platform sandbox endpoints instead of production.",
+          "x-apply-policy": "adapter_reload"
+        }
+      }
+    },
     "database": {
       "type": "object",
       "additionalProperties": false,
@@ -829,7 +887,9 @@
           "type": "string",
           "default": "",
           "anyOf": [
-            { "const": "" },
+            {
+              "const": ""
+            },
             {
               "format": "uri",
               "pattern": "^https?://[^/?#]+$"
@@ -1031,7 +1091,9 @@
     "fixtures/config/invalid.douyin-remote-cdp-non-loopback.json",
     "fixtures/config/invalid.onebot-url.json",
     "fixtures/config/edge.public-via-reverse-proxy.json",
-    "fixtures/config/ok.with-command-and-cooldown.json"
+    "fixtures/config/ok.with-command-and-cooldown.json",
+    "fixtures/config/ok.qq-official-adapter.json",
+    "fixtures/config/invalid.qq-official-intent.json"
   ],
   "x-runtime-constraints": [
     "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days",
