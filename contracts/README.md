@@ -86,7 +86,7 @@
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`plugin.started`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
-  - `event.payload.onebot` 正式暴露 `meta_event_type`、`interval`、`status`
+  - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），正式暴露 `post_type`、`meta_event_type`、`message_type`、`request_type`、`notice_type`、`sub_type`、`self_id`、`user_id`、`group_id`、`target_id`、`time`、`interval`、`message_id`、`real_id`、`message_seq`、`raw_message`、`font`、`message_format`、`sender`、`comment`、`flag`、`status`；不需要 permission，与 permission-gated 的 `event.raw_payload` 无关
   - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
 - `release-manifest.schema.json`
   - `release_manifest.v2.json`、`release_manifest.v2.sig.json` 与 `build_info.json` 的正式字段结构

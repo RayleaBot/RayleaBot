@@ -47,7 +47,9 @@
 - 未进入正式范围的事件不会伪装成已支持能力。
 - Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
-- OneBot 原生字段通过 `event.payload.onebot` 正式暴露给具备 `event.raw_payload` permission 的插件，可读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。管理面不接收该原始 payload，只消费脱敏后的观测摘要和管理日志详情。
+- OneBot 原生字段通过 `event.payload.onebot` 暴露给所有订阅插件，不需要额外 permission。它是形状固定的归一化投影（字段集由 `contracts/plugin-protocol.schema.json` 的 `payload.onebot` 闭合定义，`additionalProperties: false`），不是原始上报帧的透传，可读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。
+- `event.raw_payload` 是另一个字段，与 `payload.onebot` 无关：它承载已校验 webhook 请求的原始正文，且只在插件 manifest 声明 `event.raw_payload` permission 时出现。
+- 管理面不接收上述任一原始 payload，只消费脱敏后的观测摘要和管理日志详情。
 - `meta.*` 事件使用 `conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
 
 ### 归一化链路
