@@ -13,10 +13,10 @@ import (
 )
 
 const (
-	ConfigUserSchemaID           = "builtin://contracts/config.user.schema.json"
-	BackupManifestSchemaID       = "builtin://contracts/backup-manifest.schema.json"
-	PluginInfoSchemaID           = "builtin://contracts/plugin-info.schema.json"
-	PluginArtifactSchemaID       = "builtin://contracts/plugin-artifact.schema.json"
+	ConfigUserSchemaID         = "builtin://contracts/config.user.schema.json"
+	BackupManifestSchemaID     = "builtin://contracts/backup-manifest.schema.json"
+	PluginInfoSchemaID         = "builtin://contracts/plugin-info.schema.json"
+	PluginArtifactSchemaID     = "builtin://contracts/plugin-artifact.schema.json"
 	PluginStoreCatalogSchemaID = "builtin://contracts/plugin-store-catalog.schema.json"
 )
 

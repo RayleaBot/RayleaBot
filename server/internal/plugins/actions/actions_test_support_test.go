@@ -8,7 +8,7 @@ import (
 
 type stubPermissionView struct {
 	permissions map[string]bool
-	platforms    []string
+	platforms   []string
 }
 
 func (s *stubPermissionView) PermissionDeclared(_ context.Context, _ string, permission string) bool {

@@ -37,10 +37,10 @@ func oneBotRegistrars() []registrar {
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeOneBotAction(ctx, oneBotActionRequest{
-						PluginID:     req.PluginID,
-						Action:       req.Action,
+						PluginID:    req.PluginID,
+						Action:      req.Action,
 						Permissions: deps.Permissions,
-						Adapter:      deps.Adapter,
+						Adapter:     deps.Adapter,
 					})
 				}
 			},
@@ -159,10 +159,10 @@ type oneBotCodedError interface {
 }
 
 type oneBotActionRequest struct {
-	PluginID     string
-	Action       pluginruntime.Action
+	PluginID    string
+	Action      pluginruntime.Action
 	Permissions PermissionView
-	Adapter      OneBotAdapter
+	Adapter     OneBotAdapter
 }
 
 func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[string]any, error) {

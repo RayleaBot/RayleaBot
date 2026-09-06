@@ -18,7 +18,7 @@ func TestThirdPartyAccountReadReturnsDeclaredPlatformAccounts(t *testing.T) {
 	result, err := executeThirdPartyAccountRead(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.account.read": true},
-			platforms:    []string{thirdparty.PlatformBilibili},
+			platforms:   []string{thirdparty.PlatformBilibili},
 		},
 		ThirdParty: stubThirdPartyAccountReader{
 			accounts: []thirdparty.Account{{
@@ -65,7 +65,7 @@ func TestThirdPartyAccountReadRejectsUndeclaredPlatform(t *testing.T) {
 	_, err := executeThirdPartyAccountRead(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.account.read": true},
-			platforms:    []string{thirdparty.PlatformWeibo},
+			platforms:   []string{thirdparty.PlatformWeibo},
 		},
 		ThirdParty: stubThirdPartyAccountReader{},
 	}, ActionRequest{
@@ -92,7 +92,7 @@ func TestThirdPartyAccountValidateQueuesAuthoritativeCheck(t *testing.T) {
 	result, err := executeThirdPartyAccountValidate(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.account.validate": true},
-			platforms:    []string{thirdparty.PlatformWeibo},
+			platforms:   []string{thirdparty.PlatformWeibo},
 		},
 		AccountValidation: requester,
 	}, ActionRequest{
@@ -122,7 +122,7 @@ func TestThirdPartyAccountValidateRequiresSeparatePermission(t *testing.T) {
 	_, err := executeThirdPartyAccountValidate(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.account.read": true},
-			platforms:    []string{thirdparty.PlatformWeibo},
+			platforms:   []string{thirdparty.PlatformWeibo},
 		},
 		AccountValidation: &stubThirdPartyAccountValidationRequester{},
 	}, ActionRequest{
@@ -155,7 +155,7 @@ func TestThirdPartyResolvePassesAccountCookiesToBrowserResolver(t *testing.T) {
 	result, err := executeThirdPartyResolve(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.resolve": true},
-			platforms:    []string{thirdparty.PlatformDouyin},
+			platforms:   []string{thirdparty.PlatformDouyin},
 		},
 		ThirdParty: stubThirdPartyAccountReader{
 			accounts: []thirdparty.Account{{
@@ -206,7 +206,7 @@ func TestThirdPartyResolveMergesRequestCookie(t *testing.T) {
 	result, err := executeThirdPartyResolve(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.resolve": true},
-			platforms:    []string{thirdparty.PlatformDouyin},
+			platforms:   []string{thirdparty.PlatformDouyin},
 		},
 		ThirdParty: stubThirdPartyAccountReader{
 			accounts: []thirdparty.Account{{
@@ -251,7 +251,7 @@ func TestThirdPartyResolveRejectsUnsupportedPlatform(t *testing.T) {
 	_, err := executeThirdPartyResolve(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.resolve": true},
-			platforms:    []string{thirdparty.PlatformBilibili},
+			platforms:   []string{thirdparty.PlatformBilibili},
 		},
 		ThirdPartyResolve: &stubThirdPartyResolver{},
 	}, ActionRequest{
@@ -274,7 +274,7 @@ func TestThirdPartyResolveRequiresPermission(t *testing.T) {
 	_, err := executeThirdPartyResolve(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.account.read": true},
-			platforms:    []string{thirdparty.PlatformDouyin},
+			platforms:   []string{thirdparty.PlatformDouyin},
 		},
 		ThirdPartyResolve: &stubThirdPartyResolver{},
 	}, ActionRequest{
@@ -297,7 +297,7 @@ func TestThirdPartyResolveRejectsEmptyQuery(t *testing.T) {
 	_, err := executeThirdPartyResolve(context.Background(), Deps{
 		Permissions: stubThirdPartyPermissionView{
 			permissions: map[string]bool{"thirdparty.resolve": true},
-			platforms:    []string{thirdparty.PlatformDouyin},
+			platforms:   []string{thirdparty.PlatformDouyin},
 		},
 		ThirdPartyResolve: &stubThirdPartyResolver{},
 	}, ActionRequest{
@@ -316,7 +316,7 @@ func TestThirdPartyResolveRejectsEmptyQuery(t *testing.T) {
 
 type stubThirdPartyPermissionView struct {
 	permissions map[string]bool
-	platforms    []string
+	platforms   []string
 }
 
 func (s stubThirdPartyPermissionView) PermissionDeclared(_ context.Context, _ string, permission string) bool {
