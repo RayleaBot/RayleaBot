@@ -78,4 +78,42 @@ describe('LoginPage', () => {
 
     expect(wrapper.get('[role="status"]').text()).toContain('暂时无法确认管理界面状态，请稍后重试。')
   })
+
+  it('opens local recovery guidance without submitting and restores focus and credentials on return', async () => {
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', component: LoginPage }],
+    })
+    await router.push('/login')
+    await router.isReady()
+    const login = vi.spyOn(useSessionStore(), 'login')
+    const wrapper = mount(LoginPage, {
+      attachTo: document.body,
+      global: { plugins: [Antd, router] },
+    })
+
+    try {
+      await wrapper.get('input[name="identifier"]').setValue('operator')
+      await wrapper.get('input[name="secret"]').setValue('fixture-only-secret')
+      const trigger = wrapper.get('.auth-panel__text-action')
+      await trigger.trigger('click')
+      await flushPromises()
+
+      expect(wrapper.get('#auth-recovery-title').isVisible()).toBe(true)
+      expect(document.activeElement).toBe(wrapper.get('#auth-recovery-title').element)
+      expect(wrapper.get('form').isVisible()).toBe(false)
+      expect(login).not.toHaveBeenCalled()
+
+      await wrapper.get('[aria-labelledby="auth-recovery-title"] button').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('#auth-recovery-title').exists()).toBe(false)
+      expect(wrapper.get('form').isVisible()).toBe(true)
+      expect(document.activeElement).toBe(trigger.element)
+      expect((wrapper.get('input[name="identifier"]').element as HTMLInputElement).value).toBe('operator')
+      expect((wrapper.get('input[name="secret"]').element as HTMLInputElement).value).toBe('fixture-only-secret')
+      expect(login).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+    }
+  })
 })

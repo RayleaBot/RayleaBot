@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { h, nextTick, reactive, ref, watch } from 'vue'
-import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons-vue'
+import { ArrowRightOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons-vue'
 
-import RayleaMark from '@/components/brand/RayleaMark.vue'
+import AuthPanel from '@/components/auth/AuthPanel.vue'
 import { t } from '@/i18n'
 
 type AuthFormFeedback = {
@@ -93,16 +93,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <section class="auth-panel" aria-labelledby="auth-panel-title">
-    <header class="auth-panel__header">
-      <div class="auth-panel__brand-row">
-        <RayleaMark variant="neutral" />
-        <p class="auth-panel__brand">{{ t('app.brand') }} {{ t('auth.surface') }}</p>
-      </div>
-      <h1 id="auth-panel-title" class="auth-panel__title">{{ title }}</h1>
-      <p class="auth-panel__subtitle">{{ subtitle }}</p>
-    </header>
-
+  <AuthPanel :title="title" :subtitle="subtitle">
     <a-form
       class="auth-form"
       layout="vertical"
@@ -150,6 +141,7 @@ async function handleSubmit() {
           :autocomplete="secretAutocomplete"
           :disabled="pending"
           :icon-render="renderPasswordIcon"
+          :placeholder="t(secretAutocomplete === 'new-password' ? 'auth.newSecretPlaceholder' : 'auth.secretPlaceholder')"
           name="secret"
           aria-required="true"
           :aria-describedby="errors.secret ? 'auth-secret-error' : undefined"
@@ -174,59 +166,19 @@ async function handleSubmit() {
         type="primary"
         :aria-busy="pending || undefined"
       >
-        {{ submitLabel }}
+        <span>{{ submitLabel }}</span>
+        <ArrowRightOutlined v-if="!pending" aria-hidden="true" />
       </a-button>
     </a-form>
-  </section>
+    <template v-if="$slots.footer" #footer><slot name="footer" /></template>
+  </AuthPanel>
 </template>
 
 <style scoped lang="scss">
-.auth-panel {
-  width: 100%;
-  padding: 36px;
-  color: var(--auth-text);
-}
-
-.auth-panel__header {
-  padding: 0 44px 0 0;
-}
-
-.auth-panel__brand {
-  margin: 0;
-  color: var(--auth-brand-foreground);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.auth-panel__brand-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
-.auth-panel__title {
-  margin: 0;
-  color: var(--auth-text);
-  font-size: 22px;
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: -0.015em;
-}
-
-.auth-panel__subtitle {
-  max-width: 34ch;
-  margin: 8px 0 0;
-  color: var(--auth-text-muted);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
 .auth-form {
   display: grid;
-  gap: 18px;
-  margin-top: 24px;
+  gap: 22px;
+  margin-top: 32px;
 }
 
 .auth-form :deep(.ant-form-item) {
@@ -248,18 +200,20 @@ async function handleSubmit() {
 .auth-form :deep(.auth-form__control--identifier.ant-input),
 .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper) {
   box-sizing: border-box;
-  height: 46px;
-  min-height: 46px;
+  height: 50px;
+  min-height: 50px;
+  color: var(--auth-text);
+  font-size: 16px;
   border: 1px solid var(--auth-border-control);
-  border-radius: 10px;
+  border-radius: 16px;
   outline: none;
-  background: var(--auth-control);
+  background: var(--auth-glass-control, var(--auth-control));
   box-shadow: none;
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    outline-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .auth-form :deep(.auth-form__control--identifier.ant-input) {
@@ -273,7 +227,7 @@ async function handleSubmit() {
 .auth-form :deep(.auth-form__control--identifier.ant-input:hover),
 .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper:hover) {
   border-color: var(--auth-brand-stroke, var(--auth-brand-foreground));
-  background: var(--auth-control-hover);
+  background: var(--auth-glass-control-hover, var(--auth-control-hover));
 }
 
 .auth-form :deep(.auth-form__control--identifier.ant-input:focus),
@@ -282,10 +236,11 @@ async function handleSubmit() {
 .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper:focus-within) {
   border-width: 1px;
   border-color: var(--auth-brand-stroke, var(--auth-brand-foreground));
-  outline: 2px solid var(--auth-focus);
-  outline-offset: 2px;
-  background: var(--auth-control-hover);
-  box-shadow: none;
+  outline: none;
+  background: var(--auth-glass-control-hover, var(--auth-control-hover));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--auth-brand-foreground) 22%, transparent),
+    0 2px 8px color-mix(in srgb, var(--auth-brand-foreground) 8%, transparent);
 }
 
 .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper > .ant-input) {
@@ -353,18 +308,22 @@ async function handleSubmit() {
 }
 
 .auth-form__feedback {
-  border-radius: 10px;
+  border-radius: 16px;
 }
 
 .auth-form__submit.ant-btn {
-  height: 46px;
-  min-height: 46px;
-  margin-top: 4px;
+  height: 50px;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px;
   color: var(--auth-on-brand);
   border-color: var(--auth-brand-fill);
-  border-radius: 10px;
+  border-radius: 16px;
   background: var(--auth-brand-fill);
-  box-shadow: var(--auth-primary-shadow);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--auth-brand-fill) 50%, transparent), inset 0 1px 0 color-mix(in srgb, var(--auth-glass-edge) 35%, transparent);
   font-weight: 600;
   transition:
     color 160ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -381,9 +340,8 @@ async function handleSubmit() {
 .auth-form__submit.ant-btn:not(:disabled):focus-visible {
   border-color: var(--auth-brand-fill-hover);
   background: var(--auth-brand-fill-hover);
-  outline: 2px solid var(--auth-focus);
-  outline-offset: 2px;
-  box-shadow: none;
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-brand-foreground) 28%, transparent);
 }
 
 .auth-form__submit.ant-btn:not(:disabled):active {
@@ -393,23 +351,8 @@ async function handleSubmit() {
 }
 
 @media (max-width: 600px) {
-  .auth-panel {
-    padding: 24px;
-  }
-
-  .auth-panel__header {
-    padding: 0 44px 0 0;
-  }
-
   .auth-form {
     gap: 16px;
-    margin-top: 24px;
-  }
-
-  .auth-form :deep(.auth-form__control--identifier.ant-input),
-  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper),
-  .auth-form__submit.ant-btn {
-    min-height: 46px;
   }
 
   .auth-form :deep(.ant-input-password-icon) {
@@ -419,11 +362,6 @@ async function handleSubmit() {
 }
 
 @media (pointer: coarse) {
-  .auth-form :deep(.auth-form__control--identifier.ant-input),
-  .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper),
-  .auth-form__submit.ant-btn {
-    min-height: 46px;
-  }
   .auth-form :deep(.ant-input-password-icon) { width: 44px; height: 44px; }
 }
 
@@ -437,6 +375,12 @@ async function handleSubmit() {
 }
 
 @media (forced-colors: active) {
+  .auth-form__submit.ant-btn:not(:disabled):focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
   .auth-form :deep(.auth-form__control--identifier.ant-input),
   .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper) {
     border-color: CanvasText;
@@ -446,7 +390,9 @@ async function handleSubmit() {
   .auth-form :deep(.auth-form__control--identifier.ant-input:focus-visible),
   .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper-focused),
   .auth-form :deep(.auth-form__control--secret.ant-input-affix-wrapper:focus-within) {
-    outline-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+    box-shadow: none;
   }
 
   .auth-form :deep(.auth-form__control--identifier.ant-input-status-error),

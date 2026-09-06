@@ -19,10 +19,10 @@ describe('auth theme', () => {
       colorPrimary: tokens.brandFill,
       colorText: tokens.text,
       colorTextLightSolid: tokens.onBrand,
-      controlHeight: 46,
+      controlHeight: 50,
     })
-    expect(theme.components?.Button).toMatchObject({ controlHeight: 46 })
-    expect(theme.components?.Input).toMatchObject({ activeShadow: 'none', controlHeight: 46 })
+    expect(theme.components?.Button).toMatchObject({ controlHeight: 50 })
+    expect(theme.components?.Input).toMatchObject({ activeShadow: 'none', controlHeight: 50 })
     expect(variables['--auth-border']).toBe(tokens.border)
     expect(variables['--auth-brand-fill']).toBe(tokens.brandFill)
     expect(variables['--auth-brand-foreground']).toBe(tokens.brandForeground)
@@ -44,7 +44,7 @@ describe('auth theme', () => {
     expect(variables['--auth-text-muted']).toBe(tokens.textMuted)
     expect(variables['--auth-control']).toBe(tokens.authControl)
     expect(variables['--auth-panel-highlight']).toBe(tokens.surfaceRaised)
-    expect(theme.components?.Input).toMatchObject({ activeShadow: 'none', controlHeight: 46 })
+    expect(theme.components?.Input).toMatchObject({ activeShadow: 'none', controlHeight: 50 })
     expect(variables['--auth-panel-shadow']).toBe(tokens.shadowFloating)
   })
 })

@@ -74,7 +74,8 @@ async function readFocusedAuthControlStyle(
   visualTarget = focusTarget,
 ) {
   await focusTarget.focus()
-  return visualTarget.evaluate((element) => {
+  return visualTarget.evaluate(async (element) => {
+    await Promise.all(element.getAnimations().map(animation => animation.finished.catch(() => {})))
     const style = getComputedStyle(element)
     return {
       borderWidth: style.borderTopWidth,
@@ -93,12 +94,12 @@ async function expectConsistentAuthControlFocus(page: import('@playwright/test')
   const identifierStyle = await readFocusedAuthControlStyle(identifier)
   const secretStyle = await readFocusedAuthControlStyle(secretInput, secretWrapper)
 
-  expect(identifierStyle).toEqual({
-    borderWidth: '1px',
-    boxShadow: 'none',
-    outlineStyle: 'solid',
-    outlineWidth: '2px',
-  })
+  // The ring replaces the outline, so it has to stay visible: 3px spread in a non-transparent color.
+  const [ring] = identifierStyle.boxShadow.split(/,(?![^(]*\))/)
+  expect(ring).toContain('0px 0px 0px 3px')
+  expect(Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(ring)?.[1] ?? '1')).toBeGreaterThan(0.1)
+  expect(identifierStyle.borderWidth).toBe('1px')
+  expect(identifierStyle.outlineStyle).toBe('none')
   expect(secretStyle).toEqual(identifierStyle)
 }
 
@@ -506,6 +507,32 @@ test('authentication stays stable during pointer interaction and reduced motion'
   await page.getByLabel('管理员密钥').fill('fixture-only-secret')
   await page.getByRole('button', { name: /登\s*录/ }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
+})
+
+test('authentication lens adapts to recovery and narrow screens and yields to forced colors', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await page.goto('/login')
+  const surface = page.locator('.auth-layout__surface')
+  const lens = page.locator('.auth-layout__filters feImage')
+  await expect(lens).toHaveCount(1)
+  const loginMap = await lens.getAttribute('href')
+
+  await page.getByRole('button', { name: '忘记密钥？' }).click()
+  await expect(page.getByRole('heading', { name: '重置管理员凭据', exact: true })).toBeFocused()
+  await expect.poll(() => lens.getAttribute('href')).not.toBe(loginMap)
+  await page.setViewportSize({ width: 320, height: 568 })
+  await expectDocumentWithinViewport(page)
+  await expect.poll(async () => Number(await lens.getAttribute('width'))).toBe(await surface.evaluate(el => (el as HTMLElement).offsetWidth))
+  await page.getByRole('button', { name: '返回登录' }).click()
+  await expect(page.getByRole('button', { name: '忘记密钥？' })).toBeFocused()
+
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' })
+  await expect(surface).toHaveCSS('backdrop-filter', 'none')
+  await expect(page.locator('.auth-layout__art')).toBeHidden()
+  await page.getByRole('textbox', { name: '管理员密钥' }).focus()
+  await expect(page.locator('.auth-form__control--secret')).toHaveCSS('outline-style', 'solid')
+  await tabToLocator(page, page.locator('.auth-form__submit'))
+  await expect(page.locator('.auth-form__submit')).toHaveCSS('outline-style', 'solid')
 })
 
 test('setup-required deep links return to the target after initialization', async ({ page, request }) => {

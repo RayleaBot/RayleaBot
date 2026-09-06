@@ -45,5 +45,7 @@ async function handleSubmit(payload: { identifier: string, secret: string }) {
     secret-autocomplete="new-password"
     @change="submissionError = null"
     @submit="handleSubmit"
-  />
+  >
+    <template #footer><p>{{ t('auth.setupHint') }}</p></template>
+  </AuthCredentialsForm>
 </template>

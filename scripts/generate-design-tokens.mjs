@@ -695,7 +695,7 @@ function updateImpeccable(current) {
   ]
   document.extensions.motion = (document.extensions.motion ?? []).map((item) => (
     ['auth-particle-network', 'auth-surface-entry'].includes(item.name)
-      ? { ...item, name: 'auth-surface-entry', value: '240ms', purpose: '认证页只在进入时呈现轻量表面过渡，折叶为静态矢量，空闲时没有持续绘制循环；reduced-motion 下即时呈现。' }
+      ? { ...item, name: 'auth-surface-entry', value: '420ms', purpose: '认证面板只在进入认证布局时呈现表面过渡，切换恢复指引不重复播放，空闲时没有持续绘制循环；reduced-motion 下即时呈现。' }
       : item
   ))
   document.components = renderImpeccableComponents()

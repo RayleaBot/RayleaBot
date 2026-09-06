@@ -31,7 +31,7 @@ export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
       colorTextSecondary: tokens.textMuted,
       colorTextPlaceholder: tokens.textMuted,
       colorWarning: tokens.warning,
-      controlHeight: 46,
+      controlHeight: 50,
       controlOutline: tokens.focus,
       fontFamily: 'var(--font-sans)',
       fontSize: 14,
@@ -42,13 +42,13 @@ export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
         borderRadiusLG: 8,
       },
       Button: {
-        controlHeight: 46,
+        controlHeight: 50,
       },
       Input: {
         activeBorderColor: tokens.focus,
         activeShadow: 'none',
         hoverBorderColor: tokens.brandForeground,
-        controlHeight: 46,
+        controlHeight: 50,
       },
     },
   }

@@ -150,7 +150,7 @@ RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强�
 - 少量青瓷主操作、选中标记和几何折叶标识。
 - 自托管 Noto Sans SC 用于 Web 普通文字，Launcher 正文使用系统字体；字号、字重与间距形成克制层级。
 - 亮暗主题、键盘操作和窄屏呈现保持等价操作能力。
-- 状态、表单、列表与日志采用不透明表面，玻璃只用于浮层。
+- 管理工作区的状态、表单、列表与日志采用不透明表面；玻璃用于浮层，认证入口采用独立的 Liquid Glass 浏览器适配。
 
 本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验漂移、指定对比度与颜色边界。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
 
@@ -192,7 +192,7 @@ RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强�
 
 ### Hierarchy
 
-- **Headline**：页面标题保持紧凑（20–22px），项目主标题 token 为 22px。
+- **Headline**：管理页面标题保持紧凑（20–22px），项目主标题 token 为 22px；认证面板标题使用局部字号（28px，窄屏 26px）。
 - **Title / Section**：分区、面板与组标题（18px / 16px）。
 - **Body**：正文与标准控件（14px）。
 - **Label / Mono**：标签、表头与技术元数据（13px）。
@@ -215,19 +215,21 @@ RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强�
 
 ## Elevation & Depth
 
-实色表面、精确边界与留白提供主要层级。表单、列表、日志和常规内容保持不透明。菜单、选择器浮层、抽屉和 Dialog 可使用静态玻璃：表面色占 90%，背景模糊固定为 12px；不随指针、滚动或动画改变模糊半径。浮层阴影表达覆盖关系，两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
+实色表面、精确边界与留白提供主要层级。管理工作区的表单、列表、日志和常规内容保持不透明。菜单、选择器浮层、抽屉和 Dialog 可使用静态玻璃：表面色占 90%，背景模糊固定为 12px；不随指针、滚动或动画改变模糊半径。浮层阴影表达覆盖关系，两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
 
-不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
+认证入口参考 Apple 的 [Liquid Glass 材质](https://developer.apple.com/videos/play/wwdc2025/219/)，在静态壁纸上使用通透面板、圆角透镜折射与边缘高光。支持 SVG backdrop 的 Chromium 路径使用几何法线图驱动折射，仅附加 1.2px 模糊；WebKit 与 Gecko 使用固定 5px 模糊、112% 饱和度的透明材质降级。这是浏览器适配，具体效果遵循浏览器能力。颜色通过现有认证主题 token 的 CSS `color-mix()` 局部派生；浅色面板表面色占 9%、高光占 18%，暗色分别为 18% 与 12%，浅色辅文与底部链接局部加深以保持对比度，不改变共享品牌 token。
+
+不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，浮层与认证面板使用完整不透明表面。内容可读性与操作反馈不依赖玻璃效果。
 
 ### Named Rules
 
-**The Structural Shadow Rule.** 静态边框表面不叠加大阴影，阴影只说明真实浮层关系。
+**The Structural Shadow Rule.** 管理工作区的静态边框表面不叠加大阴影，阴影只说明真实浮层关系；认证入口的阴影用于表达玻璃面板与控件的材质层次。
 
-**The Overlay Glass Rule.** 玻璃只属于覆盖内容的浮层，表单、列表和日志使用不透明底色，并始终保留不透明降级。
+**The Overlay Glass Rule.** 管理工作区的玻璃只属于覆盖内容的浮层，表单、列表和日志使用不透明底色；认证入口按专用材质规则呈现。所有玻璃表面始终保留不透明降级。
 
 ## Shapes
 
-标准控件使用温和圆角（8px），独立任务表面与浮层采用较宽圆角（12px）；紧凑组件使用小圆角（4px / 6px），状态胶囊使用 full。认证表面的局部圆角不是通用控件标准。
+标准控件使用温和圆角（8px），独立任务表面与浮层采用较宽圆角（12px）；紧凑组件使用小圆角（4px / 6px），状态胶囊使用 full。认证面板圆角为 36px，窄屏为 28px，凭据输入和主按钮为 16px；这些局部圆角不作为通用控件标准。
 
 品牌标识为四个色面组成的几何折叶，形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
 
@@ -241,7 +243,7 @@ RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强�
 
 ### Inputs / Fields
 
-字段采用实色表面、完整控件边界和持续可见标签。错误说明关联字段，禁用状态保持可读，占位文本不承担标签职责。焦点使用专用 token，轮廓为 2px，间距为 2px；forced-colors 使用系统焦点色。
+常规业务字段采用实色表面，认证字段使用所属面板的局部玻璃材质；两者均保留完整控件边界和持续可见标签。错误说明关联字段，禁用状态保持可读，占位文本不承担标签职责。常规字段焦点使用专用 token，轮廓为 2px，间距为 2px；认证字段使用 1px 边框与紧贴边缘的 3px 柔和着色光环，不叠加分离的外轮廓。forced-colors 下均使用 2px 系统焦点轮廓。
 
 ### Navigation
 
@@ -261,7 +263,11 @@ RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强�
 
 ### Authentication
 
-登录与初始化使用单栏认证表面。背景只保留一处静态低对比折面，空闲时没有 Canvas 或持续绘制循环。认证表面只在进入时执行轻量 opacity / transform 过渡（240ms）；低高度视口允许自然滚动，reduced-motion 下即时呈现，forced-colors 隐藏背景折面。
+登录、首次初始化与凭据恢复指引共享最大宽度 448px 的居中单栏面板，保留折叶品牌、Noto Sans SC 与 Ant Design Vue。静态青瓷玻璃壁纸使用 [celadon-glass.png](web/src/assets/auth/celadon-glass.png)，图像内嵌生成提示词作为来源记录，按容器高度 140% 缩放并底部对齐。背景和面板不随指针移动；鼠标仅改变边缘高光位置，reduced-motion 下保持静态。离屏 Canvas 只在面板尺寸或圆角变化时生成几何法线图，空闲时没有持续绘制循环。
+
+凭据输入和主按钮在桌面与窄屏均为 50px 高。面板仅在进入认证布局时执行 opacity / transform 动画（420ms、最多 8px 垂直位移），切换恢复指引不重复播放；低高度视口允许自然滚动，reduced-motion 下即时呈现，forced-colors 隐藏壁纸并使用系统表面与边界。认证区域文字选区使用现有品牌填充与对应前景。
+
+“忘记密钥？”在登录面板内打开本机重置指引，返回时保留已填凭据并将焦点归还入口；重置由 Launcher 或停服后的 CLI 完成。入口、步骤与字段反馈见 [Web 认证规范](docs/design/web-management-ui.md#认证入口)。
 
 ### Motion and ownership
 
@@ -291,6 +297,6 @@ Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击�
 - Don't 使用科技蓝、霓虹边界或通用深色科技仪表盘作为品牌语言。
 - Don't 使用巨型标题、装饰性眉题、hero 指标模板或虚构数据填满页面。
 - Don't 使用无任务意义的同尺寸卡片拼贴、多层日志外框或无任务边界的嵌套卡片；独立插件集合的卡片网格属于明确保留的例外。
-- Don't 将浮层玻璃铺到表单、列表或日志，不动画化模糊半径，也不逐条动画日志。
+- Don't 将认证入口的玻璃材质扩展到管理工作区的表单、列表或日志，不动画化模糊半径，也不逐条动画日志。
 - Don't 依赖颜色单独表达状态，或用 attention 混同 warning 与 danger。
 - Don't 为视觉风格引入平行组件库、运行时主题服务或跨 iframe 样式注入。
