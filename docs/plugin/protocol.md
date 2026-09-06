@@ -47,7 +47,9 @@ manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表�
 - `webhook.received`
 - `bot.identity.changed`
 
-OneBot 消息、notice、request 与 meta 事件继续使用正式 `event_type` 枚举。消息文本位于 `event.message.plain_text`，结构化段位于 `event.message.segments`，平台原生字段位于 `event.payload.onebot`。
+OneBot 消息、notice、request 与 meta 事件继续使用正式 `event_type` 枚举。消息文本位于 `event.message.plain_text`，结构化段位于 `event.message.segments`。
+
+平台原生字段位于 `event.payload.onebot`，它是形状闭合的归一化投影而非原始上报帧透传，只在 `event.source_protocol` 为 `onebot11` 时出现；读取前先判断 `source_protocol`。`event.actor.id` 与 `event.target.id` 属于该协议的身份命名空间，并限定于接收事件的 bot 身份，不能当作跨协议的全局标识。
 
 ### 配置变更
 

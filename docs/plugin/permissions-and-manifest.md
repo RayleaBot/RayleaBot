@@ -43,8 +43,8 @@
 
 需要显式权限的能力包括：
 
-- 消息、治理、调度、渲染和插件目录等宿主动作。
-- OneBot 单动作与 provider 扩展动作。
+- 消息、治理、调度、渲染和插件目录等宿主动作。这类基础权限与聊天协议无关。
+- OneBot 单动作与 provider 扩展动作。这些名字承载 OneBot11 的语义、可用性和参数形状，不跨聊天协议可移植；provider 扩展还取决于所连的 OneBot11 实现。
 - `http.request`。
 - `secret.read`。
 - `event.raw_payload`。
