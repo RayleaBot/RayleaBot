@@ -235,74 +235,16 @@ type ProtocolSegmentFrame struct {
 }
 
 type ProtocolPayloadFrame struct {
-	MessageID   string                        `json:"message_id,omitempty"`
-	Command     string                        `json:"command,omitempty"`
-	Args        []string                      `json:"args,omitempty"`
-	Action      string                        `json:"action,omitempty"`
-	Payload     map[string]any                `json:"payload,omitempty"`
-	Config      *map[string]any               `json:"config,omitempty"`
-	ChangedKeys []string                      `json:"changed_keys,omitempty"`
-	SubType     string                        `json:"sub_type,omitempty"`
-	OperatorID  string                        `json:"operator_id,omitempty"`
-	OneBot      *ProtocolOneBotPayloadFrame   `json:"onebot,omitempty"`
-	Bilibili    *ProtocolBilibiliPayloadFrame `json:"bilibili,omitempty"`
-}
-
-type ProtocolBilibiliPayloadFrame struct {
-	Kind           string                         `json:"kind"`
-	UID            string                         `json:"uid"`
-	ID             string                         `json:"id"`
-	RoomID         string                         `json:"room_id,omitempty"`
-	Service        string                         `json:"service"`
-	Title          string                         `json:"title,omitempty"`
-	Summary        string                         `json:"summary,omitempty"`
-	SummaryHTML    string                         `json:"summary_html,omitempty"`
-	URL            string                         `json:"url"`
-	PubTS          int64                          `json:"pub_ts,omitempty"`
-	CreatedAt      string                         `json:"created_at,omitempty"`
-	Author         ProtocolBilibiliAuthorFrame    `json:"author"`
-	Images         []ProtocolBilibiliImageFrame   `json:"images,omitempty"`
-	Topic          *ProtocolBilibiliTopicFrame    `json:"topic,omitempty"`
-	Original       *ProtocolBilibiliOriginalFrame `json:"original,omitempty"`
-	LiveStatus     *int                           `json:"live_status,omitempty"`
-	LiveEvent      string                         `json:"live_event,omitempty"`
-	StatusLabel    string                         `json:"status_label,omitempty"`
-	LiveStartedAt  string                         `json:"live_started_at,omitempty"`
-	LiveDetectedAt string                         `json:"live_detected_at,omitempty"`
-	DynamicType    string                         `json:"dynamic_type,omitempty"`
-}
-
-type ProtocolBilibiliOriginalFrame struct {
-	ID          string                       `json:"id"`
-	Service     string                       `json:"service"`
-	Title       string                       `json:"title,omitempty"`
-	Summary     string                       `json:"summary,omitempty"`
-	SummaryHTML string                       `json:"summary_html,omitempty"`
-	URL         string                       `json:"url"`
-	PubTS       int64                        `json:"pub_ts,omitempty"`
-	CreatedAt   string                       `json:"created_at,omitempty"`
-	Author      ProtocolBilibiliAuthorFrame  `json:"author"`
-	Images      []ProtocolBilibiliImageFrame `json:"images,omitempty"`
-	Topic       *ProtocolBilibiliTopicFrame  `json:"topic,omitempty"`
-	DynamicType string                       `json:"dynamic_type,omitempty"`
-}
-
-type ProtocolBilibiliTopicFrame struct {
-	ID      int64  `json:"id,omitempty"`
-	Name    string `json:"name"`
-	JumpURL string `json:"jump_url,omitempty"`
-}
-
-type ProtocolBilibiliAuthorFrame struct {
-	UID    string `json:"uid"`
-	Name   string `json:"name"`
-	Avatar string `json:"avatar,omitempty"`
-}
-
-type ProtocolBilibiliImageFrame struct {
-	URL    string `json:"url"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
+	MessageID   string                      `json:"message_id,omitempty"`
+	Command     string                      `json:"command,omitempty"`
+	Args        []string                    `json:"args,omitempty"`
+	Action      string                      `json:"action,omitempty"`
+	Payload     map[string]any              `json:"payload,omitempty"`
+	Config      *map[string]any             `json:"config,omitempty"`
+	ChangedKeys []string                    `json:"changed_keys,omitempty"`
+	SubType     string                      `json:"sub_type,omitempty"`
+	OperatorID  string                      `json:"operator_id,omitempty"`
+	OneBot      *ProtocolOneBotPayloadFrame `json:"onebot,omitempty"`
 }
 
 type ProtocolOneBotPayloadFrame struct {

@@ -169,10 +169,6 @@ func buildEventPayload(event Event) (*ProtocolPayloadFrame, bool) {
 			payload.OneBot = onebot
 			hasPayload = true
 		}
-		if bilibili, ok := buildProtocolBilibiliPayload(event.PayloadFields); ok {
-			payload.Bilibili = bilibili
-			hasPayload = true
-		}
 	}
 	if !hasPayload {
 		return nil, false
@@ -224,28 +220,6 @@ func payloadInt(values map[string]any, key string) (int, bool) {
 		return int(value), true
 	case float64:
 		if value <= 0 {
-			return 0, false
-		}
-		return int(value), true
-	default:
-		return 0, false
-	}
-}
-
-func payloadIntAllowZero(values map[string]any, key string) (int, bool) {
-	switch value := values[key].(type) {
-	case int:
-		if value < 0 {
-			return 0, false
-		}
-		return value, true
-	case int64:
-		if value < 0 {
-			return 0, false
-		}
-		return int(value), true
-	case float64:
-		if value < 0 {
 			return 0, false
 		}
 		return int(value), true
