@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
@@ -64,7 +65,7 @@ func NewReplyTargetCache(limit int) *ReplyTargetCache {
 	}
 }
 
-func (c *ReplyTargetCache) Record(event onebot11.NormalizedEvent) {
+func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 
 	eventID := strings.TrimSpace(event.EventID)
 	messageID := strings.TrimSpace(event.MessageID)

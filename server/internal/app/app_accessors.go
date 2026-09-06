@@ -5,11 +5,11 @@ import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -37,7 +37,7 @@ func (a *App) Bridge() *bridge.Bridge {
 	return a.eventStack.Bridge
 }
 
-func (a *App) HandleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
+func (a *App) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) {
 	if a.services.EventIngress == nil {
 		return
 	}

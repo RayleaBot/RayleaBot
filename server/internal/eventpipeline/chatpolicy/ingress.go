@@ -5,17 +5,17 @@ import (
 	"log/slog"
 
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 )
 
 type MetadataEnricher interface {
-	EnrichEventMetadata(context.Context, onebot11.NormalizedEvent) onebot11.NormalizedEvent
+	EnrichEventMetadata(context.Context, chatevent.NormalizedEvent) chatevent.NormalizedEvent
 }
 
 type IngressDeps struct {
@@ -83,7 +83,7 @@ func (s *Ingress) UpdateConfig(cfg config.Config) {
 	}
 }
 
-func (s *Ingress) ApplyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
+func (s *Ingress) ApplyChatPolicy(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.NormalizedEvent, bool) {
 	if s.policy == nil {
 		return event, true
 	}
@@ -91,14 +91,14 @@ func (s *Ingress) ApplyChatPolicy(ctx context.Context, event onebot11.Normalized
 	return s.policy.Apply(ctx, event)
 }
 
-func (s *Ingress) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+func (s *Ingress) EnrichCommandEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	if s.policy == nil {
 		return event
 	}
 	return s.policy.EnrichCommandEvent(event)
 }
 
-func (s *Ingress) CommandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
+func (s *Ingress) CommandInfoForEvent(event chatevent.NormalizedEvent) *permission.CommandInfo {
 	if s.policy == nil {
 		return nil
 	}
@@ -122,7 +122,7 @@ func (s *Ingress) Policy() *Service {
 	return s.policy
 }
 
-func (s *Ingress) HandleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
+func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) {
 	event = s.enrichEventMetadata(ctx, event)
 	if s.replyTargets != nil {
 		s.replyTargets.Record(event)
@@ -146,7 +146,7 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event onebot11.Normali
 	}
 }
 
-func (s *Ingress) enrichEventMetadata(ctx context.Context, event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+func (s *Ingress) enrichEventMetadata(ctx context.Context, event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	if s.metadataEnricher == nil {
 		return event
 	}

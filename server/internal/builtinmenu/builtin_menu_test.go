@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
@@ -18,7 +18,7 @@ func TestBuiltinRootMenuUsesConfiguredPrefixes(t *testing.T) {
 		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
 		Commands: []plugins.Command{{ID: "fortune", Name: "fortune", DisplayName: "运势", TriggerType: "exact", TriggerNames: []string{"fortune"}, Description: "今日运势", Usage: "/fortune", Permission: "everyone"}},
 	}})})
-	payload := service.buildBuiltinMenuData(onebot11.NormalizedEvent{ConversationType: "private", ConversationID: "10002", SenderID: "10002"}, "")
+	payload := service.buildBuiltinMenuData(chatevent.NormalizedEvent{ConversationType: "private", ConversationID: "10002", SenderID: "10002"}, "")
 	if got := payload.Data["command_prefixes"]; !reflect.DeepEqual(got, []string{"#"}) {
 		t.Fatalf("prefixes = %#v", got)
 	}

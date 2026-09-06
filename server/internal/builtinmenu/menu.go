@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
@@ -71,7 +72,7 @@ func New(deps Deps) *Service {
 	}
 }
 
-func (s *Service) Handle(ctx context.Context, event onebot11.NormalizedEvent) bool {
+func (s *Service) Handle(ctx context.Context, event chatevent.NormalizedEvent) bool {
 	request := s.Match(event)
 	if !request.Matched {
 		return false
@@ -114,7 +115,7 @@ func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRend
 	})
 }
 
-func (s *Service) Match(event onebot11.NormalizedEvent) Request {
+func (s *Service) Match(event chatevent.NormalizedEvent) Request {
 	if strings.TrimSpace(event.PlainText) == "" {
 		return Request{}
 	}
@@ -398,7 +399,7 @@ func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map
 	return help
 }
 
-func (s *Service) buildBuiltinMenuData(event onebot11.NormalizedEvent, target string) builtinMenuRenderData {
+func (s *Service) buildBuiltinMenuData(event chatevent.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
 	runtimeEvent := pluginruntime.EventFromAdapter(event)
 	cfg := s.config()
@@ -418,7 +419,7 @@ func (s *Service) buildBuiltinMenuData(event onebot11.NormalizedEvent, target st
 	return builtinMenuRenderData{Data: s.withBuiltinMenuIdentity(builtinRootMenuData(items, cfg), runtimeEvent)}
 }
 
-func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[string]any {
+func (s *Service) visibleBuiltinMenuItems(event chatevent.NormalizedEvent) []map[string]any {
 	if s.plugins == nil {
 		return []map[string]any{}
 	}
@@ -705,7 +706,7 @@ func (s *Service) logBuiltinMenuError(operation, targetType, targetID, impact st
 		"component", "app", "target_type", targetType, "target_id", targetID, "operation", operation, "error", err)
 }
 
-func (s *Service) logBuiltinMenuTrigger(_ context.Context, event onebot11.NormalizedEvent, request Request) {
+func (s *Service) logBuiltinMenuTrigger(_ context.Context, event chatevent.NormalizedEvent, request Request) {
 	if s.logger == nil {
 		return
 	}
@@ -742,7 +743,7 @@ func (s *Service) logBuiltinMenuTrigger(_ context.Context, event onebot11.Normal
 	s.logger.Info(summary, fields...)
 }
 
-func (s *Service) builtinMenuTargetLabel(ctx context.Context, event onebot11.NormalizedEvent) string {
+func (s *Service) builtinMenuTargetLabel(ctx context.Context, event chatevent.NormalizedEvent) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := strings.TrimSpace(event.TargetName)
@@ -755,7 +756,7 @@ func (s *Service) builtinMenuTargetLabel(ctx context.Context, event onebot11.Nor
 	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
-func (s *Service) sendBuiltinMenuImage(ctx context.Context, event onebot11.NormalizedEvent, commandName string, imagePath string) {
+func (s *Service) sendBuiltinMenuImage(ctx context.Context, event chatevent.NormalizedEvent, commandName string, imagePath string) {
 	segments := []onebot11.OutboundMessageSegment{{
 		Type: "image",
 		Data: map[string]any{"file": imagePath},
@@ -763,7 +764,7 @@ func (s *Service) sendBuiltinMenuImage(ctx context.Context, event onebot11.Norma
 	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuText(ctx context.Context, event onebot11.NormalizedEvent, commandName string, text string) {
+func (s *Service) sendBuiltinMenuText(ctx context.Context, event chatevent.NormalizedEvent, commandName string, text string) {
 	segments := []onebot11.OutboundMessageSegment{{
 		Type: "text",
 		Data: map[string]any{"text": text},
@@ -771,7 +772,7 @@ func (s *Service) sendBuiltinMenuText(ctx context.Context, event onebot11.Normal
 	s.sendBuiltinMenuSegments(ctx, event, commandName, segments)
 }
 
-func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event onebot11.NormalizedEvent, commandName string, segments []onebot11.OutboundMessageSegment) {
+func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.NormalizedEvent, commandName string, segments []onebot11.OutboundMessageSegment) {
 	if s.sender == nil {
 		return
 	}

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -17,7 +17,7 @@ type metadataEnricherStub struct {
 	calls int
 }
 
-func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	s.calls++
 	event.TargetName = "测试群"
 	return event
@@ -48,8 +48,8 @@ func TestEventIngressEnrichesMetadataBeforeBridgeDispatch(t *testing.T) {
 	enricher := &metadataEnricherStub{}
 	application.services.EventIngress.SetMetadataEnricher(enricher)
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

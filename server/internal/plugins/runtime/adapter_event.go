@@ -3,13 +3,13 @@ package runtime
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 // EventFromAdapter projects a normalized adapter event onto the plugin runtime
 // event shape. It is the single conversion used by every delivery path, so the
 // bridge and the builtin menu cannot drift apart on target resolution.
-func EventFromAdapter(event onebot11.NormalizedEvent) Event {
+func EventFromAdapter(event chatevent.NormalizedEvent) Event {
 	runtimeEvent := Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
@@ -38,7 +38,7 @@ func EventFromAdapter(event onebot11.NormalizedEvent) Event {
 	return runtimeEvent
 }
 
-func segmentsFromAdapter(segments []onebot11.MessageSegment) []EventSegment {
+func segmentsFromAdapter(segments []chatevent.MessageSegment) []EventSegment {
 	if len(segments) == 0 {
 		return nil
 	}
@@ -54,14 +54,14 @@ func segmentsFromAdapter(segments []onebot11.MessageSegment) []EventSegment {
 
 // adapterTargetType prefers the explicit target an event names, falling back to
 // the conversation it happened in. Only meta events carry an explicit target.
-func adapterTargetType(event onebot11.NormalizedEvent) string {
+func adapterTargetType(event chatevent.NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetType) != "" {
 		return event.TargetType
 	}
 	return event.ConversationType
 }
 
-func adapterTargetID(event onebot11.NormalizedEvent) string {
+func adapterTargetID(event chatevent.NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetID) != "" {
 		return event.TargetID
 	}

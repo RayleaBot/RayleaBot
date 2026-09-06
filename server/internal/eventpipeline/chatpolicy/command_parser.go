@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func newCommandParser(cfg config.Config) *command.Parser {
@@ -44,7 +44,7 @@ func RuntimeCommandPrefixes(cfg config.Config) []string {
 	return []string{"/"}
 }
 
-func (s *Service) EnrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+func (s *Service) EnrichCommandEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	parser := s.CommandParser()
 	if parser == nil || strings.TrimSpace(event.PlainText) == "" {
 		return event

@@ -2,6 +2,7 @@ package onebot11
 
 import (
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"testing"
 )
 
@@ -169,7 +170,7 @@ func TestParseMessageArraySanitizesUnsafeStringValues(t *testing.T) {
 }
 
 func TestSegmentsToPlainText(t *testing.T) {
-	segments := []MessageSegment{
+	segments := []chatevent.MessageSegment{
 		{Type: "reply", Data: map[string]any{"message_id": "100"}},
 		{Type: "at", Data: map[string]any{"user_id": "200"}},
 		{Type: "text", Data: map[string]any{"text": " hello "}},
@@ -186,7 +187,7 @@ func TestSegmentsToPlainText(t *testing.T) {
 }
 
 func TestSegmentsToPlainTextExtendedSegments(t *testing.T) {
-	segments := []MessageSegment{
+	segments := []chatevent.MessageSegment{
 		{Type: "record", Data: map[string]any{"file": "voice.amr"}},
 		{Type: "file", Data: map[string]any{"name": "report.pdf"}},
 		{Type: "flash_file", Data: map[string]any{"name": "flash.zip"}},

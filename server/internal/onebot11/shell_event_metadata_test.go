@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -63,7 +64,7 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -147,7 +148,7 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.private",
@@ -223,7 +224,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -244,7 +245,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 		t.Fatalf("unexpected first target name: %#v", enriched.TargetName)
 	}
 
-	shell.EnrichEventMetadata(context.Background(), NormalizedEvent{
+	shell.EnrichEventMetadata(context.Background(), chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "notice.group_name",
@@ -308,7 +309,7 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -377,7 +378,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -462,7 +463,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 		sleep:          blockingSleep,
 	})
 
-	event := NormalizedEvent{
+	event := chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -486,7 +487,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 		t.Fatalf("unexpected first sender: actor=%q role=%q sender=%#v", first.ActorNickname, first.ActorRole, firstSender)
 	}
 
-	shell.EnrichEventMetadata(context.Background(), NormalizedEvent{
+	shell.EnrichEventMetadata(context.Background(), chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "notice.group_card",

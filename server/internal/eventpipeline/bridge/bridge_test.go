@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -84,7 +84,7 @@ func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 	fakeDispatcher := &recordingDispatcher{deliverable: true}
 	eventBridge := testBridge(fakeDispatcher)
 
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:      "onebot11.unsupported",
 		EventType: "message.segmented",
 	})
@@ -281,8 +281,8 @@ func TestBridgeDeliversFriendRequestEvent(t *testing.T) {
 	}
 	eventBridge := testBridge(fakeDispatcher)
 
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindRequest,
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindRequest,
 		EventID:          "onebot11-request-friend-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -323,8 +323,8 @@ func TestBridgeDeliversMetaHeartbeatEvent(t *testing.T) {
 	}
 	eventBridge := testBridge(fakeDispatcher)
 
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMeta,
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMeta,
 		EventID:          "onebot11-meta-heartbeat-1710000456",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -379,8 +379,8 @@ func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 	}
 	eventBridge := testBridge(fakeDispatcher)
 
-	outcome := eventBridge.HandleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessageSent,
+	outcome := eventBridge.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessageSent,
 		EventID:          "onebot11-message-sent-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -433,7 +433,7 @@ func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 func TestBridgeEventSummaryFormatsGroupMessageContext(t *testing.T) {
 	t.Parallel()
 
-	summary := bridgeEventSummary("queued for dispatcher", onebot11.NormalizedEvent{
+	summary := bridgeEventSummary("queued for dispatcher", chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -461,7 +461,7 @@ func TestBridgeEventSummaryFormatsGroupMessageContext(t *testing.T) {
 func TestBridgeEventSummaryFormatsPrivateMessageContext(t *testing.T) {
 	t.Parallel()
 
-	summary := bridgeEventSummary("queued for dispatcher", onebot11.NormalizedEvent{
+	summary := bridgeEventSummary("queued for dispatcher", chatevent.NormalizedEvent{
 		BotID:          "10001",
 		SourceProtocol: "onebot11",
 		EventType:      "message.private",
@@ -486,12 +486,12 @@ func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 
 	cases := []struct {
 		name  string
-		event onebot11.NormalizedEvent
+		event chatevent.NormalizedEvent
 		want  string
 	}{
 		{
 			name: "group missing group name title and card",
-			event: onebot11.NormalizedEvent{
+			event: chatevent.NormalizedEvent{
 				BotID:          "10001",
 				SourceProtocol: "onebot11",
 				EventType:      "message.group",
@@ -510,7 +510,7 @@ func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 		},
 		{
 			name: "private missing nickname",
-			event: onebot11.NormalizedEvent{
+			event: chatevent.NormalizedEvent{
 				BotID:          "10001",
 				SourceProtocol: "onebot11",
 				EventType:      "message.private",
@@ -521,7 +521,7 @@ func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 		},
 		{
 			name: "message text truncated",
-			event: onebot11.NormalizedEvent{
+			event: chatevent.NormalizedEvent{
 				BotID:          "10001",
 				SourceProtocol: "onebot11",
 				EventType:      "message.private",
@@ -558,7 +558,7 @@ func TestBridgeEventSummaryFormatsFallbackVariants(t *testing.T) {
 func TestBridgeEventLogAttrsIncludeBotIDAndGroupName(t *testing.T) {
 	t.Parallel()
 
-	attrs := bridgeEventLogAttrs(onebot11.NormalizedEvent{
+	attrs := bridgeEventLogAttrs(chatevent.NormalizedEvent{
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
 		EventType:        "message.group",
@@ -631,9 +631,9 @@ func newBridgeTestLogger() (*slog.Logger, *logging.Stream) {
 	return logger, stream
 }
 
-func supportedAdapterEvent() onebot11.NormalizedEvent {
-	return onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessageText,
+func supportedAdapterEvent() chatevent.NormalizedEvent {
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessageText,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",
@@ -667,9 +667,9 @@ func supportedAdapterEvent() onebot11.NormalizedEvent {
 	}
 }
 
-func supportedGroupRecallNoticeEvent() onebot11.NormalizedEvent {
-	return onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindNotice,
+func supportedGroupRecallNoticeEvent() chatevent.NormalizedEvent {
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindNotice,
 		EventID:          "onebot11-notice-group-recall-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

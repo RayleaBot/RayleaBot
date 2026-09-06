@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func (b *Bridge) HandleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) Outcome {
+func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) Outcome {
 	now := time.Now().UTC()
 
 	if !isSupportedEvent(event) {
@@ -66,7 +66,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event onebot11.Normaliz
 	return OutcomeError
 }
 
-func (b *Bridge) LogCommandPolicyRejected(event onebot11.NormalizedEvent, rejection CommandPolicyRejection) {
+func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejection CommandPolicyRejection) {
 
 	now := time.Now().UTC()
 	errorCode := strings.TrimSpace(rejection.ErrorCode)
@@ -144,7 +144,7 @@ func bridgeDispatchLogAttrs(results []dispatch.DeliveryResult) []any {
 	return attrs
 }
 
-func isSupportedEvent(event onebot11.NormalizedEvent) bool {
+func isSupportedEvent(event chatevent.NormalizedEvent) bool {
 	if event.EventID == "" || event.SourceProtocol != "onebot11" || event.SourceAdapter != "adapter.onebot11" {
 		return false
 	}
@@ -165,7 +165,7 @@ func isSupportedEvent(event onebot11.NormalizedEvent) bool {
 
 func isSupportedEventKind(kind string) bool {
 	switch kind {
-	case onebot11.EventKindMessageText, onebot11.EventKindMessage, onebot11.EventKindMessageSent, onebot11.EventKindNotice, onebot11.EventKindRequest, onebot11.EventKindMeta:
+	case chatevent.EventKindMessageText, chatevent.EventKindMessage, chatevent.EventKindMessageSent, chatevent.EventKindNotice, chatevent.EventKindRequest, chatevent.EventKindMeta:
 		return true
 	default:
 		return false
@@ -173,10 +173,10 @@ func isSupportedEventKind(kind string) bool {
 }
 
 func isMessageEventKind(kind string) bool {
-	return kind == onebot11.EventKindMessageText || kind == onebot11.EventKindMessage || kind == onebot11.EventKindMessageSent
+	return kind == chatevent.EventKindMessageText || kind == chatevent.EventKindMessage || kind == chatevent.EventKindMessageSent
 }
 
-func isSupportedEventType(event onebot11.NormalizedEvent) bool {
+func isSupportedEventType(event chatevent.NormalizedEvent) bool {
 	switch event.EventType {
 	case "message.group":
 		return event.ConversationType == "group"

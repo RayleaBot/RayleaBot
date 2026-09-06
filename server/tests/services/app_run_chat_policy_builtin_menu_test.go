@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"log/slog"
@@ -42,8 +42,8 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-prefix",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -88,8 +88,8 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 		}},
 	}}), nil, nil, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	_, allowed := application.applyChatPolicy(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	_, allowed := application.applyChatPolicy(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-plugin-help-policy",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -143,8 +143,8 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-plugin-menu-prefix-group",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -210,8 +210,8 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-suffix",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -255,8 +255,8 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-missing-builtin-menu-target",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -302,8 +302,8 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-plugin-command-help-suffix",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -350,8 +350,8 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 		}},
 	}}), repo, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-blacklist",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -403,8 +403,8 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-cooldown",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -458,8 +458,8 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-log-success",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",

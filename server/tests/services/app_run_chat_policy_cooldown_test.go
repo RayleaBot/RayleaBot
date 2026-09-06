@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -49,8 +50,8 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 	application.services.EventIngress.SetOutboundLimiter(limiter)
 
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-target-limit",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -118,8 +119,8 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 	}}), nil, sender, nil)
 	application.services.EventIngress.SetOutboundLimiter(limiter)
 
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-cancelled-limit",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -177,8 +178,8 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T)
 			Name: "help",
 		}},
 	}}), nil, nil, nil)
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-help-private-canonical",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -226,8 +227,8 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
 			Name: "weather",
 		}},
 	}}), nil, nil, nil)
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-group-user-canonical",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -278,8 +279,8 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 			Name: "weather",
 		}},
 	}}), nil, nil, nil)
-	firstEvent := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	firstEvent := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-group-group-canonical-1",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -333,8 +334,8 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 			Name: "weather",
 		}},
 	}}), nil, sender, nil)
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-canonical-reply-flag",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -392,8 +393,8 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 		}},
 	}}), nil, nil, nil)
 
-	memberEvent := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	memberEvent := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-ops-canonical-member",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
@@ -456,8 +457,8 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 		}},
 	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
 
-	application.handleAdapterEvent(context.Background(), onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

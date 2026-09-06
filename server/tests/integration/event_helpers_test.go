@@ -8,8 +8,8 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/coder/websocket"
 )
@@ -18,9 +18,9 @@ func dialEventsWebSocket(t *testing.T, baseURL, token string) *websocket.Conn {
 	return testutil.DialEventsWebSocket(t, baseURL, token)
 }
 
-func testBridgeEvent() onebot11.NormalizedEvent {
-	return onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessageText,
+func testBridgeEvent() chatevent.NormalizedEvent {
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessageText,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

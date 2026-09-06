@@ -1,6 +1,7 @@
 package onebot11
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ func TestNormalizeSupportedEventGroupAdminNotice(t *testing.T) {
 	if !ok {
 		t.Fatal("expected group admin notice to normalize")
 	}
-	if event.Kind != EventKindNotice {
+	if event.Kind != chatevent.EventKindNotice {
 		t.Fatalf("unexpected kind: %q", event.Kind)
 	}
 	if event.EventType != "notice.group_admin" {
@@ -50,7 +51,7 @@ func TestNormalizeSupportedEventFriendRequest(t *testing.T) {
 	if !ok {
 		t.Fatal("expected friend request to normalize")
 	}
-	if event.Kind != EventKindRequest {
+	if event.Kind != chatevent.EventKindRequest {
 		t.Fatalf("unexpected kind: %q", event.Kind)
 	}
 	if event.EventType != "request.friend" {
@@ -241,7 +242,7 @@ func TestNormalizeSupportedEventMessageSentGroup(t *testing.T) {
 	if !ok {
 		t.Fatal("expected message_sent group event to normalize")
 	}
-	if event.Kind != EventKindMessageSent {
+	if event.Kind != chatevent.EventKindMessageSent {
 		t.Fatalf("unexpected kind: %q", event.Kind)
 	}
 	if event.EventType != "message_sent.group" {
@@ -298,7 +299,7 @@ func TestNormalizeSupportedEventMetaHeartbeatProjectsSystemConversation(t *testi
 	if !ok {
 		t.Fatal("expected meta heartbeat to normalize")
 	}
-	if event.Kind != EventKindMeta {
+	if event.Kind != chatevent.EventKindMeta {
 		t.Fatalf("unexpected kind: %q", event.Kind)
 	}
 	if event.EventType != "meta.heartbeat" {

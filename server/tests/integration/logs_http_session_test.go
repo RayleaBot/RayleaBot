@@ -2,7 +2,7 @@ package integration
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,8 +62,8 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return time.Date(2026, 4, 15, 3, 0, 0, 0, time.UTC) }, "bridge-a", withPersistentBridgeDispatch())
 	_ = issueLoginToken(t, appA)
 
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessageText,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessageText,
 		EventID:          "onebot11-message-40002",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

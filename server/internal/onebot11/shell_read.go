@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"net/http"
 	"strings"
 	"time"
@@ -15,7 +16,7 @@ func classifyFrame(messageType websocket.MessageType, payload []byte, observedAt
 	return ClassifyFrame(messageType, payload, observedAt)
 }
 
-func normalizeSupportedEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeSupportedEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	return NormalizeSupportedEvent(frame, observedAt)
 }
 
@@ -151,7 +152,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 	}
 }
 
-func (s *Shell) currentEventHandler() func(context.Context, NormalizedEvent) {
+func (s *Shell) currentEventHandler() func(context.Context, chatevent.NormalizedEvent) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.eventHandler

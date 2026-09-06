@@ -2,6 +2,7 @@ package onebot11
 
 import (
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"strings"
 )
 
@@ -113,9 +114,9 @@ type APIResponse struct {
 // OutboundSegmentsToPlainText generates a human-readable preview from
 // outbound message segments using the same semantic labels as inbound logs.
 func OutboundSegmentsToPlainText(segments []OutboundMessageSegment) string {
-	normalized := make([]MessageSegment, 0, len(segments))
+	normalized := make([]chatevent.MessageSegment, 0, len(segments))
 	for _, seg := range segments {
-		normalized = append(normalized, MessageSegment{
+		normalized = append(normalized, chatevent.MessageSegment{
 			Type: strings.TrimSpace(seg.Type),
 			Data: seg.Data,
 		})

@@ -2,6 +2,7 @@ package onebot11
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"strings"
 	"time"
 )
@@ -11,7 +12,7 @@ const (
 	defaultIdentityLookupTimeout = 1500 * time.Millisecond
 )
 
-func (s *Shell) EnrichEventMetadata(ctx context.Context, event NormalizedEvent) NormalizedEvent {
+func (s *Shell) EnrichEventMetadata(ctx context.Context, event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	if strings.TrimSpace(event.SourceProtocol) != "onebot11" {
 		return event
 	}
@@ -71,7 +72,7 @@ func isMessageEventType(eventType string) bool {
 	}
 }
 
-func (s *Shell) invalidateIdentityCacheForEvent(event NormalizedEvent) {
+func (s *Shell) invalidateIdentityCacheForEvent(event chatevent.NormalizedEvent) {
 	if cache := s.currentIdentityCache(); cache != nil {
 		cache.InvalidateForEvent(EventInvalidation{
 			EventType:      event.EventType,
@@ -233,7 +234,7 @@ func groupNameFromPayload(payload map[string]any) string {
 	return payloadStringValue(onebot["group_name"])
 }
 
-func cloneNormalizedEvent(event NormalizedEvent) NormalizedEvent {
+func cloneNormalizedEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	cloned := event
 	cloned.PayloadFields = cloneEventMap(event.PayloadFields)
 	return cloned

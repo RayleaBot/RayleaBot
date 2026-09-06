@@ -8,6 +8,7 @@ import (
 	"time"
 
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
@@ -22,11 +23,11 @@ type PluginCatalog interface {
 }
 
 type MenuMatcher interface {
-	Match(onebot11.NormalizedEvent) menuext.Request
+	Match(chatevent.NormalizedEvent) menuext.Request
 }
 
 type RejectionLogger interface {
-	LogCommandPolicyRejected(onebot11.NormalizedEvent, bridge.CommandPolicyRejection)
+	LogCommandPolicyRejected(chatevent.NormalizedEvent, bridge.CommandPolicyRejection)
 }
 
 type OutboundSender interface {
@@ -150,7 +151,7 @@ func (s *Service) config() config.Config {
 	return s.currentConfig()
 }
 
-func (s *Service) Apply(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
+func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.NormalizedEvent, bool) {
 	enriched := s.EnrichCommandEvent(event)
 	checker := s.PermissionChecker()
 	if checker == nil || !shouldEvaluateChatPolicy(enriched) {
@@ -183,16 +184,16 @@ func (s *Service) Apply(ctx context.Context, event onebot11.NormalizedEvent) (on
 	return enriched, false
 }
 
-func shouldEvaluateChatPolicy(event onebot11.NormalizedEvent) bool {
+func shouldEvaluateChatPolicy(event chatevent.NormalizedEvent) bool {
 	switch event.Kind {
-	case onebot11.EventKindMessageText, onebot11.EventKindMessage, onebot11.EventKindNotice:
+	case chatevent.EventKindMessageText, chatevent.EventKindMessage, chatevent.EventKindNotice:
 		return true
 	default:
 		return false
 	}
 }
 
-func commandGroupID(event onebot11.NormalizedEvent) string {
+func commandGroupID(event chatevent.NormalizedEvent) string {
 	if event.ConversationType != "group" {
 		return ""
 	}
@@ -257,7 +258,7 @@ func ResolveConfig(cfg config.Config) ConfigSnapshot {
 	return settings
 }
 
-func (s *Service) logCommandPolicyRejection(event onebot11.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
+func (s *Service) logCommandPolicyRejection(event chatevent.NormalizedEvent, verdict permission.Verdict, commandContext *commandPolicyContext) {
 	if s.bridge == nil || commandContext == nil {
 		return
 	}

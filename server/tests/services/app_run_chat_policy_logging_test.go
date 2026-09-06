@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
@@ -53,8 +54,8 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		}},
 	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
 
-	event := onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessage,
+	event := chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-log-failure",
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",

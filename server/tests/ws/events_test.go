@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/coder/websocket"
 )
@@ -65,7 +65,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	if data["summary"] == "" {
 		t.Fatalf("expected non-empty summary")
 	}
-	if data["last_supported_event_kind"] != string(onebot11.EventKindMessageText) {
+	if data["last_supported_event_kind"] != string(chatevent.EventKindMessageText) {
 		t.Fatalf("unexpected last_supported_event_kind: got %#v", data["last_supported_event_kind"])
 	}
 	if data["last_delivery_outcome"] != string(bridge.OutcomeDelivered) {
@@ -386,9 +386,9 @@ func websocketURL(httpURL string) string {
 	return "ws://" + strings.TrimPrefix(httpURL, "http://")
 }
 
-func testBridgeEvent() onebot11.NormalizedEvent {
-	return onebot11.NormalizedEvent{
-		Kind:             onebot11.EventKindMessageText,
+func testBridgeEvent() chatevent.NormalizedEvent {
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMessageText,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",
 		SourceProtocol:   "onebot11",

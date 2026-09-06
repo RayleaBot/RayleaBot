@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 func (b *Bridge) PublishDispatcherRuntime(data DispatcherRuntimeData) {
@@ -49,7 +49,7 @@ func (b *Bridge) SetMetricsObserver(observer MetricsObserver) {
 func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {
-		lastKind = onebot11.EventKindMessageText
+		lastKind = chatevent.EventKindMessageText
 	}
 	data := ObservabilityData{
 		ObservabilityScope:  observabilityScopeBridge,

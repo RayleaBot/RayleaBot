@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 	"github.com/coder/websocket"
 )
@@ -27,44 +28,6 @@ type FrameSummary struct {
 	Type              string
 	ObservedAt        time.Time
 	HeartbeatInterval time.Duration
-}
-
-const (
-	EventKindMessageText = "onebot11.message_text"
-	EventKindMessage     = "onebot11.message"
-	EventKindMessageSent = "onebot11.message_sent"
-	EventKindNotice      = "onebot11.notice"
-	EventKindRequest     = "onebot11.request"
-	EventKindMeta        = "onebot11.meta"
-)
-
-type NormalizedEvent struct {
-	Kind             string
-	EventID          string
-	BotID            string
-	SourceProtocol   string
-	SourceAdapter    string
-	EventType        string
-	Timestamp        int64
-	ConversationType string
-	ConversationID   string
-	SenderID         string
-	TargetType       string
-	TargetID         string
-	PlainText        string
-	Segments         []MessageSegment
-	MessageID        string
-	ActorNickname    string
-	ActorRole        string
-	TargetName       string
-	PayloadFields    map[string]any
-}
-
-// MessageSegment represents a structured message segment from the OneBot11
-// protocol, normalized into a protocol-agnostic form.
-type MessageSegment struct {
-	Type string
-	Data map[string]any
 }
 
 type senderObject struct {
@@ -134,7 +97,7 @@ func PreviewFramePayload(payload []byte) any {
 	return text
 }
 
-func NormalizeSupportedEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func NormalizeSupportedEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	switch frame.PostType {
 	case "message":
 		return normalizeMessageEvent(frame, observedAt)
@@ -147,13 +110,13 @@ func NormalizeSupportedEvent(frame OneBotFrame, observedAt time.Time) (Normalize
 	case "meta_event":
 		return normalizeMetaEvent(frame, observedAt)
 	default:
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 }
 
-func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	if frame.SelfID <= 0 || frame.UserID <= 0 {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	var (
@@ -168,13 +131,13 @@ func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (NormalizedE
 		conversationID = fmt.Sprintf("%d", frame.UserID)
 	case "group":
 		if frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "request.group"
 		conversationType = "group"
 		conversationID = fmt.Sprintf("%d", frame.GroupID)
 	default:
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	timestamp := frame.Time
@@ -191,8 +154,8 @@ func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (NormalizedE
 		payloadFields["flag"] = flag
 	}
 
-	return NormalizedEvent{
-		Kind:             EventKindRequest,
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindRequest,
 		EventID:          eventID,
 		BotID:            fmt.Sprintf("%d", frame.SelfID),
 		SourceProtocol:   "onebot11",
@@ -206,9 +169,9 @@ func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (NormalizedE
 	}, true
 }
 
-func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	if frame.SelfID <= 0 {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	var eventType string
@@ -218,7 +181,7 @@ func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEven
 	case "lifecycle":
 		eventType = "meta.lifecycle"
 	default:
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	timestamp := frame.Time
@@ -232,8 +195,8 @@ func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEven
 	}
 
 	botID := fmt.Sprintf("%d", frame.SelfID)
-	return NormalizedEvent{
-		Kind:             EventKindMeta,
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindMeta,
 		EventID:          eventID,
 		BotID:            botID,
 		SourceProtocol:   "onebot11",
@@ -360,17 +323,17 @@ func summarizeError(err error) string {
 	return strings.Join(strings.Fields(err.Error()), " ")
 }
 
-func normalizeMessageEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeMessageEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	return normalizeMessageLikeEvent(frame, observedAt, false)
 }
 
-func normalizeMessageSentEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeMessageSentEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	return normalizeMessageLikeEvent(frame, observedAt, true)
 }
 
-func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent bool) (NormalizedEvent, bool) {
+func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent bool) (chatevent.NormalizedEvent, bool) {
 	if frame.SelfID <= 0 || frame.UserID <= 0 {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	var eventType string
@@ -387,7 +350,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 		conversationID = fmt.Sprintf("%d", frame.UserID)
 	case "group":
 		if frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		if sent {
 			eventType = "message_sent.group"
@@ -397,7 +360,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 		conversationType = "group"
 		conversationID = fmt.Sprintf("%d", frame.GroupID)
 	default:
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	timestamp := frame.Time
@@ -422,7 +385,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 		plainText = strings.TrimSpace(redact.SanitizeString(frame.RawMessage))
 	}
 	if plainText == "" && len(segments) == 0 {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	var actorNickname, actorRole string
@@ -441,12 +404,12 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 
 	payloadFields := buildCommonPayloadFields(frame)
 
-	return NormalizedEvent{
+	return chatevent.NormalizedEvent{
 		Kind: func() string {
 			if sent {
-				return EventKindMessageSent
+				return chatevent.EventKindMessageSent
 			}
-			return EventKindMessage
+			return chatevent.EventKindMessage
 		}(),
 		EventID:          eventID,
 		BotID:            fmt.Sprintf("%d", frame.SelfID),
@@ -466,7 +429,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 	}, true
 }
 
-func parseFrameMessage(frame OneBotFrame) []MessageSegment {
+func parseFrameMessage(frame OneBotFrame) []chatevent.MessageSegment {
 	if len(frame.Message) > 0 {
 		trimmed := strings.TrimSpace(string(frame.Message))
 		if len(trimmed) > 0 && trimmed[0] == '[' {
@@ -632,9 +595,9 @@ func messageIDString(messageID int64) string {
 	return fmt.Sprintf("%d", messageID)
 }
 
-func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	if frame.SelfID <= 0 {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	var eventType string
@@ -644,59 +607,59 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 	switch frame.NoticeType {
 	case "group_increase":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.member_increase"
 	case "group_decrease":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.member_decrease"
 	case "group_admin":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_admin"
 	case "group_ban":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_ban"
 	case "group_recall":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_recall"
 	case "group_upload":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_upload"
 	case "group_card":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_card"
 	case "group_title":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_title"
 	case "essence":
 		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.group_essence"
 	case "friend_add":
 		if frame.UserID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.friend_add"
 		conversationType = "private"
 		conversationID = fmt.Sprintf("%d", frame.UserID)
 	case "friend_recall":
 		if frame.UserID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.friend_recall"
 		conversationType = "private"
@@ -705,7 +668,7 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 		return normalizeNotifyEvent(frame, observedAt)
 	case "flash_file":
 		if frame.UserID <= 0 {
-			return NormalizedEvent{}, false
+			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.flash_file"
 		if frame.GroupID <= 0 {
@@ -713,11 +676,11 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 			conversationID = fmt.Sprintf("%d", frame.UserID)
 		}
 	default:
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	if conversationID == "0" || senderID == "0" {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	timestamp := frame.Time
@@ -732,8 +695,8 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 
 	payloadFields := buildCommonPayloadFields(frame)
 
-	return NormalizedEvent{
-		Kind:             EventKindNotice,
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindNotice,
 		EventID:          eventID,
 		BotID:            fmt.Sprintf("%d", frame.SelfID),
 		SourceProtocol:   "onebot11",
@@ -748,9 +711,9 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 	}, true
 }
 
-func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEvent, bool) {
+func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	if frame.SelfID <= 0 || frame.UserID <= 0 {
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	conversationType := "private"
@@ -775,7 +738,7 @@ func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 	case "group_msg_emoji_like":
 		eventType = "notice.group_message_emoji_like"
 	default:
-		return NormalizedEvent{}, false
+		return chatevent.NormalizedEvent{}, false
 	}
 
 	timestamp := frame.Time
@@ -789,8 +752,8 @@ func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (NormalizedEv
 		eventID = fmt.Sprintf("onebot11-notify-%s-%d", strings.ReplaceAll(frame.SubType, "_", "-"), frame.MessageID)
 	}
 
-	return NormalizedEvent{
-		Kind:             EventKindNotice,
+	return chatevent.NormalizedEvent{
+		Kind:             chatevent.EventKindNotice,
 		EventID:          eventID,
 		BotID:            fmt.Sprintf("%d", frame.SelfID),
 		SourceProtocol:   "onebot11",

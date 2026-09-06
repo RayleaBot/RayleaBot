@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
 	"net/http"
@@ -60,10 +61,10 @@ type Shell struct {
 	started          bool
 	stopping         bool
 	supervisorCtx    context.Context
-	eventHandler     func(context.Context, NormalizedEvent)
+	eventHandler     func(context.Context, chatevent.NormalizedEvent)
 	readyHandler     func(context.Context)
 	stateHandler     func(Snapshot)
-	eventQueue       chan NormalizedEvent
+	eventQueue       chan chatevent.NormalizedEvent
 	nextEcho         uint64
 	pendingResponses map[string]chan APIResponse
 	httpClient       *http.Client
@@ -119,7 +120,7 @@ func newShell(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *
 		logger:           logger,
 		deps:             deps,
 		snapshot:         newTransportSnapshot(cfg),
-		eventQueue:       make(chan NormalizedEvent, 16),
+		eventQueue:       make(chan chatevent.NormalizedEvent, 16),
 		pendingResponses: make(map[string]chan APIResponse),
 		httpClient: &http.Client{
 			Timeout: deps.connectTimeout,
@@ -133,7 +134,7 @@ func (s *Shell) Snapshot() Snapshot {
 	defer s.mu.RUnlock()
 	return cloneSnapshot(s.snapshot)
 }
-func (s *Shell) SetEventHandler(handler func(context.Context, NormalizedEvent)) {
+func (s *Shell) SetEventHandler(handler func(context.Context, chatevent.NormalizedEvent)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.eventHandler = handler

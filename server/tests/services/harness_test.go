@@ -9,6 +9,7 @@ import (
 
 	appcore "github.com/RayleaBot/RayleaBot/server/internal/app"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
@@ -292,19 +293,19 @@ func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginI
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 
-func (a *serviceHarness) commandInfoForEvent(event onebot11.NormalizedEvent) *permission.CommandInfo {
+func (a *serviceHarness) commandInfoForEvent(event chatevent.NormalizedEvent) *permission.CommandInfo {
 	return a.services.EventIngress.CommandInfoForEvent(event)
 }
 
-func (a *serviceHarness) enrichCommandEvent(event onebot11.NormalizedEvent) onebot11.NormalizedEvent {
+func (a *serviceHarness) enrichCommandEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
 	return a.services.EventIngress.EnrichCommandEvent(event)
 }
 
-func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event onebot11.NormalizedEvent) {
+func (a *serviceHarness) handleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) {
 	a.services.EventIngress.HandleAdapterEvent(ctx, event)
 }
 
-func (a *serviceHarness) applyChatPolicy(ctx context.Context, event onebot11.NormalizedEvent) (onebot11.NormalizedEvent, bool) {
+func (a *serviceHarness) applyChatPolicy(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.NormalizedEvent, bool) {
 	return a.services.EventIngress.ApplyChatPolicy(ctx, event)
 }
 

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
@@ -13,7 +14,7 @@ const (
 	CooldownReplyText = "命令触发冷却，请稍后再试。"
 )
 
-func (s *Service) sendCooldownReply(ctx context.Context, event onebot11.NormalizedEvent) {
+func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.NormalizedEvent) {
 	if s.outboundSender == nil {
 		return
 	}
@@ -117,7 +118,7 @@ func (s *Service) waitOutboundLimit(ctx context.Context, request outbound.Messag
 	return s.outboundLimiter.Wait(ctx, request)
 }
 
-func buildCooldownTargetLabel(ctx context.Context, event onebot11.NormalizedEvent, sender OutboundSender) string {
+func buildCooldownTargetLabel(ctx context.Context, event chatevent.NormalizedEvent, sender OutboundSender) string {
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	targetName := ""

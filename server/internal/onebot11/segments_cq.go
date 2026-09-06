@@ -3,13 +3,14 @@ package onebot11
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 // parseMessageArray parses a OneBot11 JSON message array into segments.
-func parseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
+func parseMessageArray(raw json.RawMessage) ([]chatevent.MessageSegment, error) {
 	var items []struct {
 		Type string         `json:"type"`
 		Data map[string]any `json:"data"`
@@ -18,9 +19,9 @@ func parseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
 		return nil, err
 	}
 
-	segments := make([]MessageSegment, 0, len(items))
+	segments := make([]chatevent.MessageSegment, 0, len(items))
 	for _, item := range items {
-		seg := MessageSegment{
+		seg := chatevent.MessageSegment{
 			Type: normalizeCQType(item.Type),
 			Data: make(map[string]any),
 		}
@@ -44,7 +45,7 @@ func parseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
 }
 
 // ParseMessageArray parses a OneBot11 JSON message array into segments.
-func ParseMessageArray(raw json.RawMessage) ([]MessageSegment, error) {
+func ParseMessageArray(raw json.RawMessage) ([]chatevent.MessageSegment, error) {
 	return parseMessageArray(raw)
 }
 
@@ -67,14 +68,14 @@ func anyToString(v any) string {
 }
 
 // parseCQString parses a OneBot11 CQ-coded message string into a slice of
-// MessageSegment values. CQ codes take the form [CQ:type,key=value,...].
+// chatevent.MessageSegment values. CQ codes take the form [CQ:type,key=value,...].
 // Text between CQ codes becomes text segments.
-func parseCQString(raw string) []MessageSegment {
+func parseCQString(raw string) []chatevent.MessageSegment {
 	if raw == "" {
 		return nil
 	}
 
-	var segments []MessageSegment
+	var segments []chatevent.MessageSegment
 	remaining := raw
 
 	for len(remaining) > 0 {
@@ -82,7 +83,7 @@ func parseCQString(raw string) []MessageSegment {
 		if idx < 0 {
 			text := redact.SanitizeString(unescapeCQ(remaining))
 			if text != "" {
-				segments = append(segments, MessageSegment{
+				segments = append(segments, chatevent.MessageSegment{
 					Type: "text",
 					Data: map[string]any{"text": text},
 				})
@@ -93,7 +94,7 @@ func parseCQString(raw string) []MessageSegment {
 		if idx > 0 {
 			text := redact.SanitizeString(unescapeCQ(remaining[:idx]))
 			if text != "" {
-				segments = append(segments, MessageSegment{
+				segments = append(segments, chatevent.MessageSegment{
 					Type: "text",
 					Data: map[string]any{"text": text},
 				})
@@ -105,7 +106,7 @@ func parseCQString(raw string) []MessageSegment {
 		if end < 0 {
 			text := redact.SanitizeString(unescapeCQ(remaining))
 			if text != "" {
-				segments = append(segments, MessageSegment{
+				segments = append(segments, chatevent.MessageSegment{
 					Type: "text",
 					Data: map[string]any{"text": text},
 				})
@@ -124,16 +125,16 @@ func parseCQString(raw string) []MessageSegment {
 }
 
 // ParseCQString parses a OneBot11 CQ-coded message string.
-func ParseCQString(raw string) []MessageSegment {
+func ParseCQString(raw string) []chatevent.MessageSegment {
 	return parseCQString(raw)
 }
 
-// parseCQCode parses the content inside [CQ:...] into a MessageSegment.
-func parseCQCode(content string) MessageSegment {
+// parseCQCode parses the content inside [CQ:...] into a chatevent.MessageSegment.
+func parseCQCode(content string) chatevent.MessageSegment {
 	parts := strings.SplitN(content, ",", 2)
 	cqType := strings.TrimSpace(parts[0])
 
-	seg := MessageSegment{
+	seg := chatevent.MessageSegment{
 		Type: normalizeCQType(cqType),
 		Data: make(map[string]any),
 	}
@@ -268,7 +269,7 @@ func unescapeCQ(s string) string {
 
 // segmentsToPlainText generates a human-readable plain text representation
 // from a slice of message segments.
-func segmentsToPlainText(segments []MessageSegment) string {
+func segmentsToPlainText(segments []chatevent.MessageSegment) string {
 	var b strings.Builder
 	for _, seg := range segments {
 		switch seg.Type {
@@ -333,7 +334,7 @@ func segmentsToPlainText(segments []MessageSegment) string {
 }
 
 // ToPlainText generates a human-readable plain text representation.
-func ToPlainText(segments []MessageSegment) string {
+func ToPlainText(segments []chatevent.MessageSegment) string {
 	return segmentsToPlainText(segments)
 }
 
