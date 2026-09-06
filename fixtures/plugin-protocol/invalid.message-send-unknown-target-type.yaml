@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: action-send-channel-1
+    action: message.send
+    data:
+      target_type: channel
+      target_id: "200"
+      message:
+        segments:
+          - type: text
+            data:
+              text: channel is not an addressable conversation kind yet
+expect:
+  valid: false

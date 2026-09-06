@@ -87,7 +87,10 @@
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`plugin.started`、`management.action`、`config.changed`、`webhook.received`、`bot.identity.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
   - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），正式暴露 `post_type`、`meta_event_type`、`message_type`、`request_type`、`notice_type`、`sub_type`、`self_id`、`user_id`、`group_id`、`target_id`、`time`、`interval`、`message_id`、`real_id`、`message_seq`、`raw_message`、`font`、`message_format`、`sender`、`comment`、`flag`、`status`；不需要 permission，与 permission-gated 的 `event.raw_payload` 无关
-  - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`
+  - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`；该集合随正式接入的适配器增长，宿主不会发出集合外的种类
+  - 会话种类词表 `conversation_target_type` 当前为 `group`、`private`。出站 `message.send` / `message.reply` 严格校验并对未知值 fail-closed；入站 `event.target.type` 有意保持开放，另含 `system`、`bot` 等宿主内部种类，插件忽略不认识的种类。两个方向的 unknown 策略不同
+  - 治理词表 `governance_entry_type`（`user`、`group`）与 `conversation_target_type` 是两套词表，`user` 不是 `private` 的别名
+  - `event.actor.id`、`event.target.id` 与 `init.super_admins` 的标识符属于 `source_protocol` 的身份命名空间，并限定于接收事件的 bot 身份；不跨协议、不跨 bot 身份可移植，不能作为全局关联键
 - `release-manifest.schema.json`
   - `release_manifest.v2.json`、`release_manifest.v2.sig.json` 与 `build_info.json` 的正式字段结构
   - Ed25519 双签轮换、artifact 摘要与资源上限、更新协议、平台模式和 Windows signer 摘要

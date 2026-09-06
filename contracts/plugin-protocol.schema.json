@@ -52,8 +52,25 @@
         }
       }
     },
+    "conversation_target_type": {
+      "type": "string",
+      "description": "Conversation kind addressable for outbound delivery. Host-owned vocabulary enumerating the conversation kinds reachable through the formally supported chat adapters; it grows only when an adapter is formally added to contracts. Plugins must not treat the current set as exhaustive, and must not derive protocol identity from it. The host validates outbound values strictly and rejects unknown values fail-closed, never coercing them.",
+      "enum": [
+        "group",
+        "private"
+      ]
+    },
+    "governance_entry_type": {
+      "type": "string",
+      "description": "Governance rule subject kind. Deliberately distinct from #/$defs/conversation_target_type: governance names a subject (a user or a group), while outbound delivery names a conversation kind (private or group). The vocabularies are not interchangeable and 'user' is not an alias of 'private'. Subject identifiers live in the active chat protocol's identity namespace and are not portable across protocols.",
+      "enum": [
+        "user",
+        "group"
+      ]
+    },
     "base_permission_name": {
       "type": "string",
+      "description": "Protocol-neutral host capabilities, available regardless of which chat adapter produced the event.",
       "enum": [
         "event.raw_payload",
         "message.send",
@@ -74,6 +91,7 @@
     },
     "onebot_action_kind": {
       "type": "string",
+      "description": "Host actions that map onto OneBot11 API calls. Their semantics, availability and argument shapes are defined by OneBot11 and are not portable to other chat protocols. Actions specific to a future protocol are introduced under their own protocol-scoped $def. Existing wire values in this set stay stable.",
       "enum": [
         "message.get",
         "message.delete",
@@ -122,6 +140,7 @@
     },
     "provider_extension_action_kind": {
       "type": "string",
+      "description": "Vendor-specific extensions above OneBot11, named provider.<vendor>.<action>. Availability depends on the connected OneBot11 implementation, not on the protocol itself.",
       "enum": [
         "provider.napcat.message_emoji.like.set",
         "provider.napcat.group.sign.set",
@@ -210,6 +229,7 @@
             },
             "super_admins": {
               "type": "array",
+              "description": "Administrator identifiers interpreted in the identity namespace of the active chat protocol. Entries are not portable across protocols.",
               "items": {
                 "type": "string",
                 "minLength": 1
@@ -312,14 +332,17 @@
                 },
                 "source_protocol": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "description": "Chat protocol that produced the event. Host-owned value; a plugin switches on it before reading any protocol-specific payload namespace."
                 },
                 "source_adapter": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "description": "Adapter instance that produced the event. Distinct from source_protocol because one protocol may be served by more than one adapter build."
                 },
                 "event_type": {
                   "type": "string",
+                  "description": "Normalized event semantic. Host-owned vocabulary: entries pair an event source with a normalized meaning, and formally adding a chat adapter adds entries. A plugin manifest may subscribe to a name it never receives, because manifest subscription is an open pattern while host emission is closed to this set.",
                   "enum": [
                     "scheduler.trigger",
                     "plugin.started",
@@ -367,7 +390,8 @@
                   "properties": {
                     "id": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "Sender identifier in the identity namespace of source_protocol, scoped to the bot identity that received the event. Not portable across protocols or across bot identities, and not usable as a global correlation key."
                     },
                     "nickname": {
                       "type": "string"
@@ -387,11 +411,13 @@
                   "properties": {
                     "type": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "Conversation kind the event originated in. Uses the #/$defs/conversation_target_type vocabulary plus host-internal kinds such as system and bot. Deliberately open inbound: a plugin ignores kinds it does not know, while outbound delivery stays strictly enumerated."
                     },
                     "id": {
                       "type": "string",
-                      "minLength": 1
+                      "minLength": 1,
+                      "description": "Conversation identifier in the identity namespace of source_protocol. Not portable across protocols or across bot identities, and not usable as a global correlation key."
                     },
                     "name": {
                       "type": "string"
@@ -436,6 +462,7 @@
                     },
                     "onebot": {
                       "type": "object",
+                      "description": "OneBot11 native fields as a closed normalized projection, not a passthrough of the raw upstream frame. Present only when source_protocol is onebot11; read it after checking source_protocol. Delivered to every subscriber and not gated by a permission, unlike the top-level raw_payload.",
                       "additionalProperties": false,
                       "properties": {
                         "post_type": {
@@ -588,7 +615,7 @@
                               "keyboard",
                               "shake"
                             ],
-                            "description": "Frozen inbound segment kind."
+                            "description": "Inbound segment kind. Host-owned vocabulary covering what the formally supported adapters can produce; the host never emits a kind outside this set. Plugins switch on the kinds they handle and ignore the rest."
                           },
                           "data": {
                             "type": "object",
@@ -1008,15 +1035,12 @@
       ],
       "properties": {
         "target_type": {
-          "type": "string",
-          "enum": [
-            "group",
-            "private"
-          ]
+          "$ref": "#/$defs/conversation_target_type"
         },
         "target_id": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "description": "Conversation identifier in the identity namespace of the active chat protocol. Not portable across protocols."
         },
         "message": {
           "$ref": "#/$defs/outbound_message"
@@ -1920,11 +1944,7 @@
           ]
         },
         "entry_type": {
-          "type": "string",
-          "enum": [
-            "user",
-            "group"
-          ]
+          "$ref": "#/$defs/governance_entry_type"
         },
         "target_id": {
           "type": "string",
@@ -1988,11 +2008,7 @@
           "type": "boolean"
         },
         "entry_type": {
-          "type": "string",
-          "enum": [
-            "user",
-            "group"
-          ]
+          "$ref": "#/$defs/governance_entry_type"
         },
         "target_id": {
           "type": "string",
@@ -2706,7 +2722,9 @@
     "fixtures/plugin-protocol/ok.thirdparty-account-read.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-without-bot.yaml",
+    "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
+    "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
     "fixtures/plugin-protocol/invalid.removed-action.yaml",
     "fixtures/plugin-protocol/invalid.storage-root.yaml"
   ],

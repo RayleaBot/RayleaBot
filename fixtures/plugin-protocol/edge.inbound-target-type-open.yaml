@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+  - type: event
+    request_id: event-meta-1
+    event:
+      event_id: meta-1
+      source_protocol: onebot11
+      source_adapter: adapter.onebot11
+      event_type: meta.heartbeat
+      timestamp: 1788192000
+      actor:
+        id: "10000"
+      target:
+        type: bot
+        id: "10000"
+  - type: result
+    request_id: event-meta-1
+    status: success
+    data: {}
+expect:
+  valid: true
