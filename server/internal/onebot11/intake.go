@@ -30,6 +30,17 @@ type FrameSummary struct {
 	HeartbeatInterval time.Duration
 }
 
+// privateConversation and groupConversation derive the unified conversation
+// identity for an event. A group event keys on its group, a private event on
+// the peer. Both are OneBot11 numeric ids rendered as strings.
+func privateConversation(userID int64) (string, string) {
+	return "private", fmt.Sprintf("%d", userID)
+}
+
+func groupConversation(groupID int64) (string, string) {
+	return "group", fmt.Sprintf("%d", groupID)
+}
+
 type senderObject struct {
 	UserID   int64  `json:"user_id"`
 	Nickname string `json:"nickname"`
@@ -127,15 +138,13 @@ func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (chatevent.N
 	switch frame.RequestType {
 	case "friend":
 		eventType = "request.friend"
-		conversationType = "private"
-		conversationID = fmt.Sprintf("%d", frame.UserID)
+		conversationType, conversationID = privateConversation(frame.UserID)
 	case "group":
 		if frame.GroupID <= 0 {
 			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "request.group"
-		conversationType = "group"
-		conversationID = fmt.Sprintf("%d", frame.GroupID)
+		conversationType, conversationID = groupConversation(frame.GroupID)
 	default:
 		return chatevent.NormalizedEvent{}, false
 	}
@@ -346,8 +355,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 		} else {
 			eventType = "message.private"
 		}
-		conversationType = "private"
-		conversationID = fmt.Sprintf("%d", frame.UserID)
+		conversationType, conversationID = privateConversation(frame.UserID)
 	case "group":
 		if frame.GroupID <= 0 {
 			return chatevent.NormalizedEvent{}, false
@@ -357,8 +365,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 		} else {
 			eventType = "message.group"
 		}
-		conversationType = "group"
-		conversationID = fmt.Sprintf("%d", frame.GroupID)
+		conversationType, conversationID = groupConversation(frame.GroupID)
 	default:
 		return chatevent.NormalizedEvent{}, false
 	}
@@ -601,8 +608,7 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 	}
 
 	var eventType string
-	conversationType := "group"
-	conversationID := fmt.Sprintf("%d", frame.GroupID)
+	conversationType, conversationID := groupConversation(frame.GroupID)
 	senderID := fmt.Sprintf("%d", frame.UserID)
 	switch frame.NoticeType {
 	case "group_increase":
@@ -655,15 +661,13 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.friend_add"
-		conversationType = "private"
-		conversationID = fmt.Sprintf("%d", frame.UserID)
+		conversationType, conversationID = privateConversation(frame.UserID)
 	case "friend_recall":
 		if frame.UserID <= 0 {
 			return chatevent.NormalizedEvent{}, false
 		}
 		eventType = "notice.friend_recall"
-		conversationType = "private"
-		conversationID = fmt.Sprintf("%d", frame.UserID)
+		conversationType, conversationID = privateConversation(frame.UserID)
 	case "notify":
 		return normalizeNotifyEvent(frame, observedAt)
 	case "flash_file":
@@ -672,8 +676,7 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 		}
 		eventType = "notice.flash_file"
 		if frame.GroupID <= 0 {
-			conversationType = "private"
-			conversationID = fmt.Sprintf("%d", frame.UserID)
+			conversationType, conversationID = privateConversation(frame.UserID)
 		}
 	default:
 		return chatevent.NormalizedEvent{}, false
@@ -716,11 +719,9 @@ func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 		return chatevent.NormalizedEvent{}, false
 	}
 
-	conversationType := "private"
-	conversationID := fmt.Sprintf("%d", frame.UserID)
+	conversationType, conversationID := privateConversation(frame.UserID)
 	if frame.GroupID > 0 {
-		conversationType = "group"
-		conversationID = fmt.Sprintf("%d", frame.GroupID)
+		conversationType, conversationID = groupConversation(frame.GroupID)
 	}
 
 	var eventType string
@@ -731,8 +732,7 @@ func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 		eventType = "notice.poke_recall"
 	case "profile_like":
 		eventType = "notice.profile_like"
-		conversationType = "private"
-		conversationID = fmt.Sprintf("%d", frame.UserID)
+		conversationType, conversationID = privateConversation(frame.UserID)
 	case "input_status":
 		eventType = "notice.input_status"
 	case "group_msg_emoji_like":
