@@ -154,6 +154,12 @@ response:
           url: ""
           access_token: "********"
           access_token_query_compat: false
+      qq_official:
+        enabled: false
+        app_id: ""
+        app_secret: ""
+        intents: []
+        sandbox: false
       database:
         engine: sqlite
         path: data/rayleabot.db

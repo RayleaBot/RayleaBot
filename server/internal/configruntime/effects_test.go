@@ -51,6 +51,7 @@ func TestConfigSchemaMetadataMarksSecrets(t *testing.T) {
 		"onebot.http_api.access_token",
 		"onebot.reverse_ws.access_token",
 		"onebot.webhook.access_token",
+		"qq_official.app_secret",
 	}
 	got := ConfigSecretFieldPaths()
 	if !slices.Equal(got, want) {

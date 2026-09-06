@@ -37,14 +37,33 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 	}
 
 	for _, path := range secretConfigPaths {
-		currentValue, _ := lookupConfigPath(current, path)
 		requestValue, exists := lookupConfigPath(cloned, path)
 		if exists && strings.TrimSpace(stringValue(requestValue)) != redactedConfigValue {
 			continue
 		}
+		// A section the request omitted entirely is one the caller is not
+		// configuring; restoring into it would materialise a half-built block
+		// that then fails that section's own required fields. Within a section
+		// the request did send, an omitted field still inherits its secret.
+		if !exists && !configSectionPresent(cloned, path) {
+			continue
+		}
+		currentValue, _ := lookupConfigPath(current, path)
 		setConfigPath(cloned, path, stringValue(currentValue))
 	}
 	return cloned
+}
+
+func configSectionPresent(document map[string]any, path []string) bool {
+	if len(path) <= 1 {
+		return document != nil
+	}
+	section, ok := lookupConfigPath(document, path[:1])
+	if !ok {
+		return false
+	}
+	_, isSection := section.(map[string]any)
+	return isSection
 }
 
 func configSecretValues(cfg internalconfig.Config) []string {
@@ -55,7 +74,13 @@ func configSecretValues(cfg internalconfig.Config) []string {
 		if !ok {
 			continue
 		}
-		values = append(values, stringValue(value))
+		// An unset secret carries no value to hide, and registering the empty
+		// string would make the redactor match everywhere.
+		secret := stringValue(value)
+		if secret == "" {
+			continue
+		}
+		values = append(values, secret)
 	}
 	return values
 }

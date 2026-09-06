@@ -7,6 +7,7 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		"schema_version":       currentSchemaVersion,
 		"server":               configServerDocument(cfg),
 		"onebot":               configOneBotDocument(cfg),
+		"qq_official":          configQQOfficialDocument(cfg),
 		"database":             configDatabaseDocument(cfg),
 		"command":              configCommandDocument(cfg),
 		"builtin_features":     configBuiltinFeaturesDocument(cfg),
@@ -125,6 +126,22 @@ func configOneBotDocument(cfg Config) map[string]any {
 		"forward_ws": oneBotTransportCompatDocument(cfg.OneBot.ForwardWS),
 		"http_api":   oneBotTransportConfigDocument(cfg.OneBot.HTTPAPI),
 		"webhook":    oneBotTransportCompatDocument(cfg.OneBot.Webhook),
+	}
+}
+
+func configQQOfficialDocument(cfg Config) map[string]any {
+	intents := cfg.QQOfficial.Intents
+	if intents == nil {
+		// The schema types intents as an array; a nil slice would marshal to
+		// null and fail validation.
+		intents = []string{}
+	}
+	return map[string]any{
+		"enabled":    cfg.QQOfficial.Enabled,
+		"app_id":     cfg.QQOfficial.AppID,
+		"app_secret": cfg.QQOfficial.AppSecret,
+		"intents":    intents,
+		"sandbox":    cfg.QQOfficial.Sandbox,
 	}
 }
 

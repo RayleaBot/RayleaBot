@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
-func TestSanitizeConfigDocumentRedactsOneBotTransportTokens(t *testing.T) {
+func TestSanitizeConfigDocumentRedactsEveryConfigSecret(t *testing.T) {
 	t.Parallel()
 
 	document := map[string]any{
@@ -20,6 +20,7 @@ func TestSanitizeConfigDocumentRedactsOneBotTransportTokens(t *testing.T) {
 			"reverse_ws": map[string]any{"access_token": "reverse-secret"},
 			"webhook":    map[string]any{"access_token": "webhook-secret"},
 		},
+		"qq_official": map[string]any{"app_secret": "qq-app-secret"},
 	}
 
 	redacted, fields := sanitizeConfigDocument(document)
@@ -28,6 +29,7 @@ func TestSanitizeConfigDocumentRedactsOneBotTransportTokens(t *testing.T) {
 		"onebot.http_api.access_token",
 		"onebot.reverse_ws.access_token",
 		"onebot.webhook.access_token",
+		"qq_official.app_secret",
 	}
 	if !reflect.DeepEqual(fields, wantFields) {
 		t.Fatalf("redacted fields = %#v, want %#v", fields, wantFields)
@@ -96,7 +98,7 @@ func TestApplyHotReloadableFieldsAddsConfigSecretsToRedactor(t *testing.T) {
 	}
 }
 
-func TestStoreConfigSecretsSealsOneBotTransportTokens(t *testing.T) {
+func TestStoreConfigSecretsSealsEveryConfigSecret(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -108,6 +110,7 @@ func TestStoreConfigSecretsSealsOneBotTransportTokens(t *testing.T) {
 			"reverse_ws": map[string]any{"access_token": "reverse-secret"},
 			"webhook":    map[string]any{"access_token": "webhook-secret"},
 		},
+		"qq_official": map[string]any{"app_secret": "qq-app-secret"},
 	}
 
 	stored, err := StoreConfigSecrets(ctx, store, document)
@@ -252,4 +255,21 @@ func (s *memorySecretStore) List(context.Context) ([]string, error) {
 		keys = append(keys, key)
 	}
 	return keys, nil
+}
+
+func TestRestoreRedactedConfigSecretsLeavesOmittedSectionsAbsent(t *testing.T) {
+	t.Parallel()
+
+	current := map[string]any{
+		"qq_official": map[string]any{"app_secret": "stored-app-secret"},
+	}
+	// The caller is not configuring the QQ adapter at all. Restoring its secret
+	// would build a qq_official block holding only app_secret, which fails the
+	// section's required fields on the very next validation.
+	request := map[string]any{"onebot": map[string]any{}}
+
+	restored := restoreRedactedConfigSecrets(request, current)
+	if _, present := restored["qq_official"]; present {
+		t.Fatalf("restored document gained an omitted section: %#v", restored["qq_official"])
+	}
 }
