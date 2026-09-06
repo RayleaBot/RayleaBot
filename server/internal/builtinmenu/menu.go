@@ -400,7 +400,7 @@ func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map
 
 func (s *Service) buildBuiltinMenuData(event onebot11.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
-	runtimeEvent := runtimeEventFromAdapter(event)
+	runtimeEvent := pluginruntime.EventFromAdapter(event)
 	cfg := s.config()
 	if target != "" {
 		if item, ok := findBuiltinMenuItem(items, target); ok {
@@ -422,7 +422,7 @@ func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[
 	if s.plugins == nil {
 		return []map[string]any{}
 	}
-	runtimeEvent := runtimeEventFromAdapter(event)
+	runtimeEvent := pluginruntime.EventFromAdapter(event)
 	cfg := s.config()
 	snapshots := s.plugins.List()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
@@ -451,38 +451,6 @@ func (s *Service) visibleBuiltinMenuItems(event onebot11.NormalizedEvent) []map[
 		items = append(items, item)
 	}
 	return items
-}
-
-func runtimeEventFromAdapter(event onebot11.NormalizedEvent) pluginruntime.Event {
-	result := pluginruntime.Event{
-		EventID:        event.EventID,
-		SourceProtocol: event.SourceProtocol,
-		SourceAdapter:  event.SourceAdapter,
-		EventType:      event.EventType,
-		Timestamp:      event.Timestamp,
-		Actor: &pluginruntime.EventActor{
-			ID:       event.SenderID,
-			Nickname: event.ActorNickname,
-			Role:     event.ActorRole,
-		},
-		Target: &pluginruntime.EventTarget{
-			Type: event.ConversationType,
-			ID:   event.ConversationID,
-			Name: event.TargetName,
-		},
-		MessageID:     event.MessageID,
-		PayloadFields: event.PayloadFields,
-	}
-	if event.PlainText != "" || len(event.Segments) > 0 {
-		result.Message = &pluginruntime.EventMessage{PlainText: event.PlainText}
-		for _, segment := range event.Segments {
-			result.Message.Segments = append(result.Message.Segments, pluginruntime.EventSegment{
-				Type: segment.Type,
-				Data: segment.Data,
-			})
-		}
-	}
-	return result
 }
 
 func (s *Service) withBuiltinMenuIdentity(data map[string]any, event pluginruntime.Event) map[string]any {
