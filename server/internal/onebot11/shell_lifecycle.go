@@ -93,6 +93,9 @@ func (s *Shell) Reload(nextCfg config.OneBotConfig, nextAdapterCfg config.Adapte
 	previousCfg := s.cfg
 	previousAdapterCfg := s.adapterCfg
 	s.mu.RUnlock()
+	if previousCfg == nextCfg && previousAdapterCfg == nextAdapterCfg {
+		return nil
+	}
 
 	if started {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

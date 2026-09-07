@@ -104,12 +104,8 @@ func TestEventWiringKeepsDisabledInstancesConfiguredButNotRunning(t *testing.T) 
 	if _, present := state.OneBotShells["off-bot"]; !present {
 		t.Fatal("a disabled OneBot instance lost the transports it had configured")
 	}
-	if _, present := state.RunningOneBot["off-bot"]; present {
-		t.Fatal("a disabled instance was started")
-	}
-	// The QQ adapter holds no transport state to show, so it builds nothing.
-	if _, present := state.QQOfficial["off-qq"]; present {
-		t.Fatal("a disabled QQ instance was built")
+	if got := state.QQOfficial["off-qq"].Status(); got.State != "stopped" {
+		t.Fatalf("disabled QQ state = %s, want stopped", got.State)
 	}
 
 	for _, id := range []string{"off-bot", "off-qq"} {

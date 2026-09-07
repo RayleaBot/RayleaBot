@@ -185,7 +185,6 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	}
 	protocolService := wsevents.NewProtocolService(runtimeState, wsevents.ProtocolServiceAdapters{
 		OneBot11:        eventStack.OneBotShells,
-		RunningOneBot11: eventStack.RunningOneBot,
 		QQOfficial:      qqStatus,
 		PrimaryOneBot11: eventStack.Adapter,
 	})

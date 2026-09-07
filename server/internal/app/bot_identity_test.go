@@ -48,10 +48,10 @@ func TestEventWiringBuildsIdentityProvidersInConfigurationOrder(t *testing.T) {
 		}},
 	})
 
-	// Only running adapters can report an identity, so a disabled instance
-	// contributes nothing to fall back through.
-	if len(state.BotIdentity.providers) != 2 {
-		t.Fatalf("built %d identity providers, want one per running adapter", len(state.BotIdentity.providers))
+	// Providers retain configuration order so an instance can be enabled later;
+	// disabled providers contribute no identity.
+	if len(state.BotIdentity.providers) != 3 {
+		t.Fatalf("built %d identity providers, want one per configured adapter", len(state.BotIdentity.providers))
 	}
 	if got := state.BotIdentity.CurrentBotID(); got != "" {
 		t.Fatalf("CurrentBotID() = %q, want empty while nothing has connected", got)

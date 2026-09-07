@@ -16,6 +16,7 @@ const (
 )
 
 var (
+	adapterInstanceIDPattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 	renderImageResourceIDPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]{0,63}$`)
 	errInvalidRenderImageResourceURL = errors.New("invalid render.image resource URL")
 )
@@ -29,6 +30,7 @@ type Action struct {
 	Kind                         string
 	RawData                      map[string]any
 	SourceProtocol               string
+	SourceAdapter                string
 	TargetType                   string
 	TargetID                     string
 	ReplyToEventID               string
@@ -521,6 +523,9 @@ func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.send data", err)
 	}
+	if frame.SourceAdapter != nil && !adapterInstanceIDPattern.MatchString(*frame.SourceAdapter) {
+		return nil, errorf(codePluginProtocolViolation, "message.send source_adapter must be a configured instance ID", nil)
+	}
 
 	targetType, targetID, err := validateActionTarget(frame.TargetType, frame.TargetID, "message.send")
 	if err != nil {
@@ -542,6 +547,7 @@ func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
 	return &Action{
 		Kind:                    kind,
 		SourceProtocol:          strings.TrimSpace(frame.SourceProtocol),
+		SourceAdapter:           stringValue(frame.SourceAdapter),
 		TargetType:              targetType,
 		TargetID:                targetID,
 		ReplyToEventID:          replyToEventID,

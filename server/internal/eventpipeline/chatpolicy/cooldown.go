@@ -27,22 +27,23 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 		err     error
 	)
 
-	switch strings.TrimSpace(event.ConversationType) {
-	case "group":
-		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
+	targetType := strings.TrimSpace(event.ConversationType)
+	switch targetType {
+	case "group", "private":
+		if messageID := strings.TrimSpace(event.MessageID); messageID != "" && (targetType == "group" || event.SourceProtocol == "qqofficial") {
 			segments := []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
 			attempt = outbound.SendAttempt{
 				ActionKind: "message.reply",
-				TargetType: "group",
+				TargetType: targetType,
 				TargetID:   strings.TrimSpace(event.ConversationID),
 				Segments:   segments,
 			}
 			result = outbound.SendResult{
 				DeliveryKind: "message.reply",
-				TargetType:   "group",
+				TargetType:   targetType,
 				TargetID:     strings.TrimSpace(event.ConversationID),
 			}
 			if limitErr := s.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
@@ -54,7 +55,9 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, chatevent.OutboundMessageReply{
-				TargetType:       "group",
+				SourceAdapter:    event.SourceAdapter,
+				SourceProtocol:   event.SourceProtocol,
+				TargetType:       targetType,
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
 				Segments:         segments,
@@ -64,8 +67,6 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 			err = sendErr
 			break
 		}
-		fallthrough
-	case "private":
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
 			segments := []chatevent.MessageSegment{{
 				Type: "text",
@@ -91,9 +92,11 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, chatevent.OutboundMessageSend{
-				TargetType: strings.TrimSpace(event.ConversationType),
-				TargetID:   targetID,
-				Segments:   segments,
+				SourceAdapter:  event.SourceAdapter,
+				SourceProtocol: event.SourceProtocol,
+				TargetType:     strings.TrimSpace(event.ConversationType),
+				TargetID:       targetID,
+				Segments:       segments,
 			})
 			cancel()
 			result.MessageID = sendResult.MessageID

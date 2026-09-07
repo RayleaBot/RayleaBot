@@ -794,7 +794,8 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 		TargetID:   targetID,
 		Segments:   segments,
 	}
-	if targetType != "group" || strings.TrimSpace(event.MessageID) == "" {
+	passiveReply := strings.TrimSpace(event.MessageID) != "" && (targetType == "group" || event.SourceProtocol == "qqofficial")
+	if !passiveReply {
 		attempt.ActionKind = "message.send"
 	}
 	logOutcome := func(result outbound.SendResult, err error) {
@@ -820,8 +821,10 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 	}
 	sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if targetType == "group" && strings.TrimSpace(event.MessageID) != "" {
+	if passiveReply {
 		result, err := s.sender.SendReply(sendCtx, chatevent.OutboundMessageReply{
+			SourceAdapter:    event.SourceAdapter,
+			SourceProtocol:   event.SourceProtocol,
 			TargetType:       targetType,
 			TargetID:         targetID,
 			ReplyToMessageID: strings.TrimSpace(event.MessageID),
@@ -837,9 +840,11 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 		return
 	}
 	result, err := s.sender.SendMessage(sendCtx, chatevent.OutboundMessageSend{
-		TargetType: targetType,
-		TargetID:   targetID,
-		Segments:   segments,
+		SourceAdapter:  event.SourceAdapter,
+		SourceProtocol: event.SourceProtocol,
+		TargetType:     targetType,
+		TargetID:       targetID,
+		Segments:       segments,
 	})
 	s.logBuiltinMenuError("消息发送", targetType, targetID, "本次菜单未送达", err)
 	logOutcome(outbound.SendResult{

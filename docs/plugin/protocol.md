@@ -110,11 +110,14 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 
 插件只发送 `message.send` action：
 
-- 普通发送提供目标和 segments。
-- 回复当前事件时提供 `reply_to_event_id`。
+- 普通发送提供目标和 segments；`source_adapter` 指定配置中的适配器实例 ID。
+- 只提供 `source_protocol` 时，该协议必须恰好有一个已启用实例；两个字段都不提供时，必须全局恰好有一个已启用实例。两个字段同时提供时，实例与协议必须匹配。
+- 回复当前事件时原样提供宿主的 `event_id` 作为 `reply_to_event_id`，宿主据此定位实例。事件 ID 是不透明标识，不应从平台消息 ID 构造或解析。
 - 回复指定消息时使用首个 `reply` segment 或相应回复字段。
 
 宿主内部可以根据适配器能力转换为回复或普通发送；协议仅暴露 `message.send` action。
+
+QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包含分发类型、消息标识和 openid 等字段；仅在 `source_protocol=qqofficial` 时读取。私聊和群聊的被动回复都引用入站消息，避免作为主动推送消耗额度。
 
 `adapter.send_unconfirmed` 表示请求可能已发出，但尚未收到确定回执，消息可能继续送达。调用方不得自动重发，也不能立即删除适配器尚可能读取的媒体文件。明确拒绝的发送使用 `adapter.send_failed` 等相应错误码。
 

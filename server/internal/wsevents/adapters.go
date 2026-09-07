@@ -47,6 +47,7 @@ type QQOfficialAdapter interface {
 	// Reload applies new settings, reporting whether anything the connection
 	// depends on changed.
 	Reload(config.QQOfficialConfig) bool
+	SetEnabled(bool)
 }
 
 var adapterProtocols = []AdapterProtocolDescriptor{

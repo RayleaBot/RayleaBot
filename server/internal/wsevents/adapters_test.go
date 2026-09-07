@@ -12,6 +12,7 @@ type stubQQStatus struct{ status qqofficial.Status }
 func (s stubQQStatus) Status() qqofficial.Status { return s.status }
 
 func (stubQQStatus) Reload(config.QQOfficialConfig) bool { return false }
+func (stubQQStatus) SetEnabled(bool)                     {}
 
 type adapterConfigSource struct{ cfg config.Config }
 

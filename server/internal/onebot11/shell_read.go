@@ -178,6 +178,7 @@ func (s *Shell) dispatchEvents(ctx context.Context) {
 			// shell stamps its own instance id on the way out.
 			if s.adapterID != "" {
 				event.SourceAdapter = s.adapterID
+				event.EventID = chatevent.ScopedEventID(s.adapterID, event.EventID)
 			}
 			handler(ctx, event)
 		}

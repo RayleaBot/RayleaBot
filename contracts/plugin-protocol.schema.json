@@ -328,7 +328,8 @@
               "properties": {
                 "event_id": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "description": "Opaque host event identifier scoped to its adapter instance. Echo this exact value as reply_to_event_id; do not derive it from a platform message ID or parse its format."
                 },
                 "source_protocol": {
                   "type": "string",
@@ -1059,7 +1060,14 @@
       "properties": {
         "source_protocol": {
           "type": "string",
-          "description": "Chat protocol that must deliver this message, matching the source_protocol of events from that adapter. Optional: a reply already knows the adapter from the event it answers, and an active push needs this only while more than one adapter is connected, since target identifiers are namespaced per protocol and cannot be told apart."
+          "description": "Optional protocol constraint for active delivery. Without source_adapter it must select exactly one enabled adapter instance. When both fields are supplied, the named instance must speak this protocol. A reply resolves its adapter from reply_to_event_id."
+        },
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Configured adapter instance ID for active delivery, matching event.source_adapter. Required to disambiguate multiple enabled instances of one protocol. Disabled, missing or protocol-mismatched instances are rejected without sending. When neither source field is supplied, delivery requires exactly one enabled instance."
         },
         "target_type": {
           "$ref": "#/$defs/conversation_target_type"
@@ -2751,6 +2759,7 @@
     "fixtures/plugin-protocol/edge.init-without-bot.yaml",
     "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
     "fixtures/plugin-protocol/ok.qq-official-group-message.yaml",
+    "fixtures/plugin-protocol/ok.message-send-adapter-instance.yaml",
     "fixtures/plugin-protocol/ok.qq-official-bot-added.yaml",
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",

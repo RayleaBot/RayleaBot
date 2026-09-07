@@ -60,3 +60,33 @@ func TestMessageSendActionCarriesTheNamedProtocol(t *testing.T) {
 		t.Fatalf("source protocol = %q, want empty when unset", action.SourceProtocol)
 	}
 }
+
+func TestMessageSendActionSelectsAndValidatesAdapterInstance(t *testing.T) {
+	for _, testCase := range []struct {
+		id    string
+		valid bool
+	}{
+		{"second-bot", true}, {"", false}, {"adapter.onebot11", false}, {" bad-id ", false},
+	} {
+		t.Run(testCase.id, func(t *testing.T) {
+			body := map[string]any{"source_adapter": testCase.id, "target_type": "group", "target_id": "301", "message": map[string]any{"segments": []any{map[string]any{"type": "text", "data": map[string]any{"text": "fixture"}}}}}
+			raw, err := json.Marshal(body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			action, err := parseMessageSendAction(raw)
+			if !testCase.valid {
+				if err == nil {
+					t.Fatal("invalid instance ID accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if action.SourceAdapter != testCase.id {
+				t.Fatalf("source adapter=%q", action.SourceAdapter)
+			}
+		})
+	}
+}

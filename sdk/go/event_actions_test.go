@@ -10,6 +10,36 @@ import (
 
 type actionFrameSink chan protocolFrame
 
+func TestMessageSendCarriesConfiguredAdapterInstance(t *testing.T) {
+	sink := make(actionFrameSink, 1)
+	client := newRuntimeClient(sink, time.Second)
+	event := &EventContext{RequestID: "event-1", client: client}
+	done := make(chan error, 1)
+	go func() {
+		_, err := event.Actions().MessageSend(context.Background(), MessageSendRequest{SourceAdapter: "second-bot", SourceProtocol: "onebot11", TargetType: "group", TargetID: "301", Message: MessageOut{Segments: []Segment{{Type: "text", Data: map[string]any{"text": "fixture"}}}}})
+		done <- err
+	}()
+	var frame protocolFrame
+	select {
+	case frame = <-sink:
+	case <-time.After(time.Second):
+		t.Fatal("action frame not emitted")
+	}
+	var data map[string]any
+	if err := json.Unmarshal(frame.Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	if data["source_adapter"] != "second-bot" || data["source_protocol"] != "onebot11" {
+		t.Fatalf("routing data=%v", data)
+	}
+	if !client.routeResponse(protocolFrame{Type: "result", RequestID: frame.RequestID}) {
+		t.Fatal("response not routed")
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (sink actionFrameSink) Write(data []byte) (int, error) {
 	var frame protocolFrame
 	if err := json.Unmarshal(data, &frame); err != nil {

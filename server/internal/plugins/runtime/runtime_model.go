@@ -235,16 +235,26 @@ type ProtocolSegmentFrame struct {
 }
 
 type ProtocolPayloadFrame struct {
-	MessageID   string                      `json:"message_id,omitempty"`
-	Command     string                      `json:"command,omitempty"`
-	Args        []string                    `json:"args,omitempty"`
-	Action      string                      `json:"action,omitempty"`
-	Payload     map[string]any              `json:"payload,omitempty"`
-	Config      *map[string]any             `json:"config,omitempty"`
-	ChangedKeys []string                    `json:"changed_keys,omitempty"`
-	SubType     string                      `json:"sub_type,omitempty"`
-	OperatorID  string                      `json:"operator_id,omitempty"`
-	OneBot      *ProtocolOneBotPayloadFrame `json:"onebot,omitempty"`
+	MessageID   string                          `json:"message_id,omitempty"`
+	Command     string                          `json:"command,omitempty"`
+	Args        []string                        `json:"args,omitempty"`
+	Action      string                          `json:"action,omitempty"`
+	Payload     map[string]any                  `json:"payload,omitempty"`
+	Config      *map[string]any                 `json:"config,omitempty"`
+	ChangedKeys []string                        `json:"changed_keys,omitempty"`
+	SubType     string                          `json:"sub_type,omitempty"`
+	OperatorID  string                          `json:"operator_id,omitempty"`
+	OneBot      *ProtocolOneBotPayloadFrame     `json:"onebot,omitempty"`
+	QQOfficial  *ProtocolQQOfficialPayloadFrame `json:"qq_official,omitempty"`
+}
+
+type ProtocolQQOfficialPayloadFrame struct {
+	DispatchType string `json:"dispatch_type,omitempty"`
+	MessageID    string `json:"message_id,omitempty"`
+	GroupOpenID  string `json:"group_openid,omitempty"`
+	UserOpenID   string `json:"user_openid,omitempty"`
+	MemberOpenID string `json:"member_openid,omitempty"`
+	MemberRole   string `json:"member_role,omitempty"`
 }
 
 type ProtocolOneBotPayloadFrame struct {
@@ -364,6 +374,7 @@ type ProtocolOutboundMessageFrame struct {
 }
 
 type ProtocolActionMessageSendFrame struct {
+	SourceAdapter           *string                       `json:"source_adapter,omitempty"`
 	SourceProtocol          string                        `json:"source_protocol,omitempty"`
 	TargetType              string                        `json:"target_type"`
 	TargetID                string                        `json:"target_id"`

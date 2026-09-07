@@ -120,6 +120,7 @@ func newShell(adapterID string, cfg config.OneBotConfig, adapterCfg config.Adapt
 	}
 
 	return &Shell{
+		adapterID:        strings.TrimSpace(adapterID),
 		cfg:              cfg,
 		adapterCfg:       adapterCfg,
 		logger:           logger,

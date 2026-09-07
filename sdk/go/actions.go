@@ -126,10 +126,11 @@ func (actions *Actions) callResult(ctx context.Context, action string, input any
 }
 
 type MessageSendRequest struct {
-	// SourceProtocol names the chat adapter that must deliver the message.
-	// A reply already knows it from the event it answers; an active push needs
-	// it only while more than one adapter is connected, because target
-	// identifiers are namespaced per protocol.
+	// SourceAdapter selects a configured instance, including when several
+	// enabled instances speak the same protocol.
+	SourceAdapter string `json:"source_adapter,omitempty"`
+	// SourceProtocol constrains the protocol of SourceAdapter. On its own it
+	// must select exactly one enabled instance; replies use their event ID.
 	SourceProtocol string     `json:"source_protocol,omitempty"`
 	TargetType     string     `json:"target_type"`
 	TargetID       string     `json:"target_id"`

@@ -25,9 +25,11 @@ func (s *ProtocolService) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
 	if s == nil || s.config == nil {
 		return OneBot11Ingress{}, false
 	}
-	// Only a running instance has an ingress: a configured-but-disabled one
-	// still appears on the management surface, but accepts no traffic.
-	shell, ok := s.runningOneBot[id]
+	instance, configured := s.config.CurrentConfig().AdapterByID(id)
+	if !configured || !instance.Enabled || instance.Type != config.AdapterTypeOneBot11 {
+		return OneBot11Ingress{}, false
+	}
+	shell, ok := s.oneBotShells[id]
 	if !ok || shell == nil {
 		return OneBot11Ingress{}, false
 	}

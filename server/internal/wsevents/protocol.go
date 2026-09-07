@@ -129,20 +129,16 @@ type ProtocolService struct {
 	// which is what the per-instance ingress needs.
 	adapter                   *onebot11.Shell
 	oneBotShells              map[string]*onebot11.Shell
-	runningOneBot             map[string]*onebot11.Shell
 	qqClients                 map[string]QQOfficialAdapter
 	oneBot11TargetReadTimeout time.Duration
 	hub                       pubsub.Hub[Frame]
 }
 
-// ProtocolServiceAdapters are the running adapters, keyed by instance id.
+// ProtocolServiceAdapters are the configured adapters, keyed by instance id.
 type ProtocolServiceAdapters struct {
-	// OneBot11 is every configured instance, which is what the management
-	// surface reports on; RunningOneBot11 is the enabled subset, which is what
-	// inbound traffic may reach.
-	OneBot11        map[string]*onebot11.Shell
-	RunningOneBot11 map[string]*onebot11.Shell
-	QQOfficial      map[string]QQOfficialAdapter
+	// OneBot11 contains every configured instance, including disabled ones.
+	OneBot11   map[string]*onebot11.Shell
+	QQOfficial map[string]QQOfficialAdapter
 	// PrimaryOneBot11 is the instance the OneBot management endpoints report on.
 	PrimaryOneBot11 *onebot11.Shell
 }
@@ -152,7 +148,6 @@ func NewProtocolService(configSource ProtocolConfigSource, adapters ProtocolServ
 		config:                    configSource,
 		adapter:                   adapters.PrimaryOneBot11,
 		oneBotShells:              adapters.OneBot11,
-		runningOneBot:             adapters.RunningOneBot11,
 		qqClients:                 adapters.QQOfficial,
 		oneBot11TargetReadTimeout: 3 * time.Second,
 	}
@@ -164,9 +159,17 @@ func NewProtocolService(configSource ProtocolConfigSource, adapters ProtocolServ
 // change to the set of adapters rather than to one adapter's settings.
 func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
 	failures := make([]error, 0, len(s.oneBotShells)+len(s.qqClients))
+	for _, instance := range cfg.Adapters {
+		if instance.Type == config.AdapterTypeOneBot11 && s.oneBotShell(instance.ID) == nil ||
+			instance.Type == config.AdapterTypeQQOfficial && s.qqClient(instance.ID) == nil {
+			// Adding an instance changes the collection and requires a restart.
+			// A subsequent settings save must retain that requirement.
+			failures = append(failures, configruntime.ErrProtocolStopped)
+		}
+	}
 
 	for id, shell := range s.oneBotShells {
-		settings, ok := cfg.OneBot11Settings(id)
+		settings, ok := cfg.OneBot11RuntimeSettings(id)
 		if !ok {
 			continue
 		}
@@ -187,6 +190,8 @@ func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
 		// The client logs the reconnect itself, where the adapter id and the
 		// new settings are both in hand.
 		client.Reload(settings)
+		instance, _ := cfg.AdapterByID(id)
+		client.SetEnabled(instance.Enabled)
 	}
 
 	// One stopped adapter keeps the caller's existing meaning: the change is

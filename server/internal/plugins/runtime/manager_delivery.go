@@ -169,11 +169,29 @@ func buildEventPayload(event Event) (*ProtocolPayloadFrame, bool) {
 			payload.OneBot = onebot
 			hasPayload = true
 		}
+		if event.SourceProtocol == "qqofficial" {
+			if raw, ok := payloadMap(event.PayloadFields, "qq_official"); ok {
+				payload.QQOfficial = &ProtocolQQOfficialPayloadFrame{
+					DispatchType: payloadText(raw, "dispatch_type"),
+					MessageID:    payloadText(raw, "message_id"),
+					GroupOpenID:  payloadText(raw, "group_openid"),
+					UserOpenID:   payloadText(raw, "user_openid"),
+					MemberOpenID: payloadText(raw, "member_openid"),
+					MemberRole:   payloadText(raw, "member_role"),
+				}
+				hasPayload = true
+			}
+		}
 	}
 	if !hasPayload {
 		return nil, false
 	}
 	return &payload, true
+}
+
+func payloadText(values map[string]any, key string) string {
+	value, _ := payloadString(values, key)
+	return value
 }
 
 func payloadString(values map[string]any, key string) (string, bool) {

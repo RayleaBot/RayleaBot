@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 )
 
@@ -15,8 +16,9 @@ import (
 // an active push may carry only a protocol, or nothing at all, which resolves
 // only while one candidate is connected.
 type adapterRouter struct {
-	senders   map[string]outbound.ActionSender
-	protocols map[string]string
+	senders       map[string]outbound.ActionSender
+	protocols     map[string]string
+	currentConfig func() config.Config
 }
 
 func newAdapterRouter(senders map[string]outbound.ActionSender, protocols map[string]string) *adapterRouter {
@@ -43,10 +45,14 @@ func (r *adapterRouter) SendReply(ctx context.Context, message chatevent.Outboun
 // delivering to the wrong one would either fail confusingly or reach an
 // unrelated conversation that happens to share an id.
 func (r *adapterRouter) resolve(sourceAdapter, sourceProtocol string) (outbound.ActionSender, error) {
+	senders := r.activeSenders()
 	if adapterID := strings.TrimSpace(sourceAdapter); adapterID != "" {
-		sender, ok := r.senders[adapterID]
+		sender, ok := senders[adapterID]
 		if !ok {
 			return nil, fmt.Errorf("outbound: adapter %q is not connected", adapterID)
+		}
+		if protocol := strings.TrimSpace(sourceProtocol); protocol != "" && r.protocols[adapterID] != protocol {
+			return nil, fmt.Errorf("outbound: adapter %q does not serve protocol %q", adapterID, protocol)
 		}
 		return sender, nil
 	}
@@ -55,7 +61,7 @@ func (r *adapterRouter) resolve(sourceAdapter, sourceProtocol string) (outbound.
 	// exactly one connected instance; with more than one, which conversation
 	// the message belongs to is genuinely unknown.
 	if protocol := strings.TrimSpace(sourceProtocol); protocol != "" {
-		candidates := r.adaptersOfProtocol(protocol)
+		candidates := r.adaptersOfProtocol(protocol, senders)
 		switch len(candidates) {
 		case 0:
 			return nil, fmt.Errorf("outbound: no connected adapter serves protocol %q", protocol)
@@ -68,17 +74,17 @@ func (r *adapterRouter) resolve(sourceAdapter, sourceProtocol string) (outbound.
 		}
 	}
 
-	if len(r.senders) == 1 {
-		for _, sender := range r.senders {
+	if len(senders) == 1 {
+		for _, sender := range senders {
 			return sender, nil
 		}
 	}
-	if len(r.senders) == 0 {
+	if len(senders) == 0 {
 		return nil, fmt.Errorf("outbound: no chat adapter is connected")
 	}
 	return nil, fmt.Errorf(
 		"outbound: message names no adapter and %d are connected (%s); reply to an event so the adapter is known",
-		len(r.senders), strings.Join(r.adapterNames(), ", "),
+		len(senders), strings.Join(r.adapterNames(senders), ", "),
 	)
 }
 
@@ -86,7 +92,7 @@ func (r *adapterRouter) resolve(sourceAdapter, sourceProtocol string) (outbound.
 // belongs to. Without it the label would be built by whichever adapter the
 // pipeline happened to hold, which for a keyed router is none of them.
 func (r *adapterRouter) ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string {
-	sender, ok := r.senders[strings.TrimSpace(adapterID)]
+	sender, ok := r.activeSenders()[strings.TrimSpace(adapterID)]
 	if !ok {
 		return ""
 	}
@@ -97,9 +103,9 @@ func (r *adapterRouter) ResolveTargetName(ctx context.Context, adapterID, target
 	return resolver.ResolveTargetName(ctx, adapterID, targetType, targetID)
 }
 
-func (r *adapterRouter) adaptersOfProtocol(protocol string) []string {
-	matched := make([]string, 0, len(r.senders))
-	for id := range r.senders {
+func (r *adapterRouter) adaptersOfProtocol(protocol string, senders map[string]outbound.ActionSender) []string {
+	matched := make([]string, 0, len(senders))
+	for id := range senders {
 		if r.protocols[id] == protocol {
 			matched = append(matched, id)
 		}
@@ -108,11 +114,25 @@ func (r *adapterRouter) adaptersOfProtocol(protocol string) []string {
 	return matched
 }
 
-func (r *adapterRouter) adapterNames() []string {
-	names := make([]string, 0, len(r.senders))
-	for name := range r.senders {
+func (r *adapterRouter) adapterNames(senders map[string]outbound.ActionSender) []string {
+	names := make([]string, 0, len(senders))
+	for name := range senders {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	return names
+}
+
+func (r *adapterRouter) activeSenders() map[string]outbound.ActionSender {
+	if r.currentConfig == nil {
+		return r.senders
+	}
+	cfg := r.currentConfig()
+	active := make(map[string]outbound.ActionSender, len(r.senders))
+	for _, instance := range cfg.Adapters {
+		if sender, ok := r.senders[instance.ID]; ok && instance.Enabled && instance.Type == r.protocols[instance.ID] {
+			active[instance.ID] = sender
+		}
+	}
+	return active
 }

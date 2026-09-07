@@ -16,18 +16,16 @@ const dispatcherRuntimeFlushInterval = 10 * time.Second
 
 type eventDeps struct {
 	Config         config.Config
+	CurrentConfig  func() config.Config
 	Logger         *slog.Logger
 	BridgeDispatch bridge.Dispatch
 }
 
 type EventState struct {
 	Adapter *onebot11.Shell
-	// OneBotShells holds every configured OneBot instance, so a disabled one
-	// still shows and edits its transports on the management surface.
-	// RunningOneBot holds the enabled subset: those are the ones that connect,
-	// accept inbound traffic and carry outbound messages.
+	// Adapter objects live for the application lifetime. Their instance switch
+	// gates transports and routing, so toggling it does not mutate these maps.
 	OneBotShells    map[string]*onebot11.Shell
-	RunningOneBot   map[string]*onebot11.Shell
 	QQOfficial      map[string]*qqofficial.Client
 	BotIdentity     botIdentitySource
 	Bridge          *bridge.Bridge
@@ -49,8 +47,15 @@ func buildEvents(deps eventDeps) EventState {
 	senders := make(map[string]outbound.ActionSender, len(deps.Config.Adapters))
 	protocols := make(map[string]string, len(deps.Config.Adapters))
 	oneBotShells := make(map[string]*onebot11.Shell, 1)
-	runningOneBot := make(map[string]*onebot11.Shell, 1)
 	qqClients := make(map[string]*qqofficial.Client, 1)
+	currentConfig := deps.CurrentConfig
+	if currentConfig == nil {
+		currentConfig = func() config.Config { return deps.Config }
+	}
+	isEnabled := func(id, protocol string) bool {
+		instance, ok := currentConfig().AdapterByID(id)
+		return ok && instance.Enabled && instance.Type == protocol
+	}
 	// Providers are appended in configuration order, which is the order the
 	// identity source falls back through.
 	var identity botIdentitySource
@@ -60,26 +65,27 @@ func buildEvents(deps eventDeps) EventState {
 		case instance.Type == config.AdapterTypeOneBot11 && instance.OneBot11 != nil:
 			// The shell is built either way so the management surface can show
 			// and edit the transports of an adapter the operator switched off.
-			shell := onebot11.New(instance.ID, *instance.OneBot11, deps.Config.Adapter, deps.Logger)
+			settings, _ := deps.Config.OneBot11RuntimeSettings(instance.ID)
+			shell := onebot11.New(instance.ID, settings, deps.Config.Adapter, deps.Logger)
 			oneBotShells[instance.ID] = shell
-			if !instance.Enabled {
-				continue
-			}
-			runningOneBot[instance.ID] = shell
 			senders[instance.ID] = shell
 			protocols[instance.ID] = instance.Type
-			identity.providers = append(identity.providers, shell.CurrentBotID)
+			identity.providers = append(identity.providers, func() string {
+				if !isEnabled(instance.ID, instance.Type) {
+					return ""
+				}
+				return shell.CurrentBotID()
+			})
 		case instance.Type == config.AdapterTypeQQOfficial && instance.QQOfficial != nil:
-			// The QQ adapter holds no transport state to display, so a disabled
-			// instance builds nothing at all.
-			if !instance.Enabled {
-				continue
-			}
 			client := qqofficial.New(instance.ID, *instance.QQOfficial, deps.Config.Adapter, deps.Logger)
+			client.SetEnabled(instance.Enabled)
 			qqClients[instance.ID] = client
 			senders[instance.ID] = client
 			protocols[instance.ID] = instance.Type
 			identity.providers = append(identity.providers, func() string {
+				if !isEnabled(instance.ID, instance.Type) {
+					return ""
+				}
 				botID, _ := client.BotIdentity()
 				return botID
 			})
@@ -96,6 +102,7 @@ func buildEvents(deps eventDeps) EventState {
 		adapterShell = onebot11.New(config.DefaultOneBot11AdapterID, config.OneBotConfig{}, deps.Config.Adapter, deps.Logger)
 	}
 	outboundSender := newAdapterRouter(senders, protocols)
+	outboundSender.currentConfig = currentConfig
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(
@@ -121,7 +128,6 @@ func buildEvents(deps eventDeps) EventState {
 	return EventState{
 		Adapter:         adapterShell,
 		OneBotShells:    oneBotShells,
-		RunningOneBot:   runningOneBot,
 		BotIdentity:     identity,
 		QQOfficial:      qqClients,
 		Bridge:          eventBridge,

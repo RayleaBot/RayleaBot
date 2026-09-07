@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: push-second-bot
+    action: message.send
+    data:
+      source_adapter: second-bot
+      source_protocol: onebot11
+      target_type: group
+      target_id: "20001"
+      message:
+        segments:
+          - type: text
+            data:
+              text: 实例推送示例
+expect:
+  valid: true

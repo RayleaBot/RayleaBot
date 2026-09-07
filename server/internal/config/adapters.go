@@ -46,6 +46,23 @@ func (c Config) OneBot11Settings(id string) (OneBotConfig, bool) {
 	return *adapter.OneBot11, true
 }
 
+// OneBot11RuntimeSettings applies the instance switch while preserving the
+// configured transport values for editing and for a later re-enable.
+func (c Config) OneBot11RuntimeSettings(id string) (OneBotConfig, bool) {
+	settings, ok := c.OneBot11Settings(id)
+	if !ok {
+		return OneBotConfig{}, false
+	}
+	instance, _ := c.AdapterByID(id)
+	if !instance.Enabled {
+		settings.ReverseWS.Enabled = false
+		settings.ForwardWS.Enabled = false
+		settings.HTTPAPI.Enabled = false
+		settings.Webhook.Enabled = false
+	}
+	return settings, true
+}
+
 // QQOfficialSettings returns the QQ settings for one instance.
 func (c Config) QQOfficialSettings(id string) (QQOfficialConfig, bool) {
 	adapter, ok := c.AdapterByID(id)
