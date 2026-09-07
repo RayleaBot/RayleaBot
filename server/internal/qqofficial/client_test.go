@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
@@ -161,5 +162,37 @@ func TestHandleDispatchStampsBotIdentityAndSkipsLifecycle(t *testing.T) {
 	})
 	if delivered != 1 {
 		t.Fatalf("delivered %d message events, want 1", delivered)
+	}
+}
+
+func TestStatusReportsLifecycleTransitions(t *testing.T) {
+	t.Parallel()
+
+	client := &Client{logger: discardLogger()}
+	// Before Start the adapter is idle, not "connected but unknown".
+	if got := client.Status(); got.State != StateIdle {
+		t.Fatalf("initial state = %q, want idle", got.State)
+	}
+
+	client.status.set(StateConnecting, "")
+	if got := client.Status(); got.State != StateConnecting || got.Summary == "" {
+		t.Fatalf("connecting status = %+v, want a connecting state with a summary", got)
+	}
+
+	client.session.startSession("s1", "bot-1", "洛箐箐")
+	client.status.set(StateConnected, "")
+	got := client.Status()
+	if got.State != StateConnected || got.BotID != "bot-1" || got.BotName != "洛箐箐" {
+		t.Fatalf("connected status = %+v, want the gateway identity", got)
+	}
+	if !strings.Contains(got.Summary, "洛箐箐") {
+		t.Fatalf("summary = %q, want it to name the connected bot", got.Summary)
+	}
+
+	// A rejected credential is distinct from a dropped connection: reconnecting
+	// will not fix it, and the operator needs to know that.
+	client.status.set(StateAuthFailed, "app access token rejected")
+	if got := client.Status(); got.State != StateAuthFailed || !strings.Contains(got.Summary, "鉴权") {
+		t.Fatalf("auth failure status = %+v, want a distinct auth failure", got)
 	}
 }

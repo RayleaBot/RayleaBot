@@ -34,6 +34,7 @@ type Client struct {
 	logger   *slog.Logger
 	backoff  *reconnect.Backoff
 	session  session
+	status   statusState
 	replies  *replySequences
 	dialer   func(context.Context, string) (wsConn, error)
 	mu       sync.RWMutex
@@ -118,6 +119,7 @@ func (c *Client) Start(ctx context.Context) {
 			default:
 			}
 
+			c.status.recordAttempt()
 			err := c.runConnection(ctx)
 			if err == nil || errors.Is(err, context.Canceled) {
 				select {
@@ -129,6 +131,7 @@ func (c *Client) Start(ctx context.Context) {
 				}
 			}
 			if err != nil {
+				c.status.set(StateReconnecting, err.Error())
 				c.logger.Warn("QQ 官方机器人连接中断，准备重连。",
 					"component", SourceAdapter, "error", err.Error())
 			}
@@ -149,6 +152,7 @@ func (c *Client) Start(ctx context.Context) {
 // Stop ends the connection loop and waits for it to unwind.
 func (c *Client) Stop(ctx context.Context) error {
 	c.stopOnce.Do(func() { close(c.stopping) })
+	c.status.set(StateStopped, "")
 	select {
 	case <-c.done:
 		return nil
@@ -159,8 +163,12 @@ func (c *Client) Stop(ctx context.Context) error {
 
 // runConnection owns exactly one gateway connection, from dial to close.
 func (c *Client) runConnection(ctx context.Context) error {
+	c.status.set(StateConnecting, "")
 	token, err := c.tokens.Token(ctx)
 	if err != nil {
+		// A rejected credential will not fix itself by reconnecting, so it is
+		// reported distinctly from a dropped connection.
+		c.status.set(StateAuthFailed, err.Error())
 		return err
 	}
 	url, err := gatewayEndpoint(ctx, c.http, c.apiBase, c.appID, token)
@@ -275,6 +283,7 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 		var ready readyData
 		if err := json.Unmarshal(frame.D, &ready); err == nil {
 			c.session.startSession(ready.SessionID, ready.User.ID, ready.User.Username)
+			c.status.set(StateConnected, "")
 			c.logger.Info("QQ 官方机器人已连接。",
 				"component", SourceAdapter, "bot_id", ready.User.ID, "bot_name", ready.User.Username)
 		}

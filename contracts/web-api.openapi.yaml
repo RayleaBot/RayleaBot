@@ -6,6 +6,7 @@ info:
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
 x-fixtures:
+  - fixtures/web-api/ok.adapters-list.yaml
   - fixtures/web-api/ok.development-sync.yaml
   - fixtures/web-api/edge.development-sync-unchanged.yaml
   - fixtures/web-api/invalid.development-sync-path.yaml
@@ -724,6 +725,24 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
+  /api/adapters:
+    get:
+      summary: 列出聊天适配器及其连接状态
+      description: >
+        返回全部正式支持的聊天适配器，包含尚未配置的类型，供管理面展示已添加的协议
+        并引导添加新协议。每个条目说明该适配器是否已配置、是否启用及当前连接状态。
+      operationId: listAdapters
+      tags:
+        - protocols
+      responses:
+        '200':
+          description: 适配器列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdaptersResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/protocols/onebot11:
     get:
       summary: Query the current OneBot11 protocol snapshot without reconstructing it from system summary fragments.
@@ -2884,6 +2903,73 @@ components:
         is_dir:
           type: boolean
 
+    AdapterProtocol:
+      type: string
+      description: >
+        正式支持的聊天适配器标识。集合随正式接入的适配器增长；管理面按此值区分协议，
+        不从会话种类或标识符格式推断来源。
+      enum:
+        - onebot11
+        - qqofficial
+    AdapterState:
+      type: string
+      description: 适配器连接状态，与聊天传输状态共用词表。
+      enum:
+        - idle
+        - listening
+        - connecting
+        - connected
+        - auth_failed
+        - reconnecting
+        - stopped
+    AdapterIdentity:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: 适配器登录后由平台确认的机器人标识，属于该协议的身份命名空间。
+        name:
+          type: string
+    AdapterDescriptor:
+      type: object
+      additionalProperties: false
+      required:
+        - protocol
+        - display_name
+        - configured
+        - enabled
+        - state
+        - summary
+      properties:
+        protocol:
+          $ref: '#/components/schemas/AdapterProtocol'
+        display_name:
+          type: string
+        configured:
+          type: boolean
+          description: 是否已填写该适配器运行所需的配置。未配置的适配器仍会返回，供管理面作为可添加项展示。
+        enabled:
+          type: boolean
+        state:
+          $ref: '#/components/schemas/AdapterState'
+        summary:
+          type: string
+        identity:
+          $ref: '#/components/schemas/AdapterIdentity'
+    AdaptersResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - adapters
+      properties:
+        adapters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdapterDescriptor'
     ProtocolProvider:
       type: string
       enum: [unknown, standard, napcat, luckylillia]

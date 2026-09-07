@@ -173,7 +173,13 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
 	})
-	protocolService := wsevents.NewProtocolService(runtimeState, eventStack.Adapter)
+	// The QQ client is optional. Assigning the concrete pointer straight into
+	// the interface would hand the service a typed nil that passes a nil check.
+	var qqStatus wsevents.QQOfficialStatusSource
+	if eventStack.QQOfficial != nil {
+		qqStatus = eventStack.QQOfficial
+	}
+	protocolService := wsevents.NewProtocolService(runtimeState, eventStack.Adapter, qqStatus)
 	return serviceBuildResult{
 		Services: Services{
 			LocalActions:      pluginRuntime.LocalActions,

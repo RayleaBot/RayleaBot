@@ -126,14 +126,16 @@ type ProtocolConfigSource interface {
 type ProtocolService struct {
 	config                    ProtocolConfigSource
 	adapter                   *onebot11.Shell
+	qqOfficial                QQOfficialStatusSource
 	oneBot11TargetReadTimeout time.Duration
 	hub                       pubsub.Hub[Frame]
 }
 
-func NewProtocolService(configSource ProtocolConfigSource, adapterShell *onebot11.Shell) *ProtocolService {
+func NewProtocolService(configSource ProtocolConfigSource, adapterShell *onebot11.Shell, qqOfficial QQOfficialStatusSource) *ProtocolService {
 	return &ProtocolService{
 		config:                    configSource,
 		adapter:                   adapterShell,
+		qqOfficial:                qqOfficial,
 		oneBot11TargetReadTimeout: 3 * time.Second,
 	}
 }

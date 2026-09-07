@@ -1,0 +1,25 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: >
+  Adapter listing shows every formally supported chat adapter. An adapter that
+  is not configured is still returned so the management surface can offer it as
+  something to add rather than hiding it.
+request:
+  method: GET
+  path: /api/adapters
+response:
+  status: 200
+  body:
+    adapters:
+      - protocol: onebot11
+        display_name: OneBot11
+        configured: true
+        enabled: true
+        state: connected
+        summary: 已连接。
+      - protocol: qqofficial
+        display_name: QQ 官方机器人
+        configured: false
+        enabled: false
+        state: idle
+        summary: 适配器未配置。

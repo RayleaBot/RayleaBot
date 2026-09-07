@@ -27,6 +27,7 @@ type ProtocolHandlers struct {
 }
 
 type protocolHTTPService interface {
+	Adapters() []wsevents.AdapterDescriptor
 	CurrentOneBot11ProtocolSnapshot() wsevents.OneBot11ProtocolSnapshot
 	CurrentOneBot11ProtocolTargets(context.Context) wsevents.OneBot11ProtocolTargets
 	ResolveOneBot11Identities(context.Context, []wsevents.OneBot11IdentityResolveItem) wsevents.OneBot11IdentityResolveResult
@@ -55,6 +56,7 @@ func (h *ProtocolHandlers) RegisterPublicRoutes(router chi.Router) {
 }
 
 func (h *ProtocolHandlers) RegisterProtectedRoutes(router chi.Router) {
+	router.Get("/api/adapters", h.HandleAdapters())
 	router.Get("/api/protocols/onebot11", h.HandleProtocolOneBot11Snapshot())
 	router.Get("/api/protocols/onebot11/targets", h.HandleProtocolOneBot11Targets())
 	router.Post("/api/protocols/onebot11/identities/resolve", h.HandleProtocolOneBot11IdentitiesResolve())
@@ -164,4 +166,21 @@ func allowOneBotIngress(r *http.Request, accessToken string, allowQueryToken boo
 		return true
 	}
 	return false
+}
+
+type adaptersResponse struct {
+	Adapters []wsevents.AdapterDescriptor `json:"adapters"`
+}
+
+// HandleAdapters lists every formally supported chat adapter, including ones
+// that are not configured, so the management surface can show what is
+// connected and offer the rest as something to add.
+func (h *ProtocolHandlers) HandleAdapters() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		adapters := h.protocol.Adapters()
+		if adapters == nil {
+			adapters = []wsevents.AdapterDescriptor{}
+		}
+		httpapi.WriteJSON(w, http.StatusOK, adaptersResponse{Adapters: adapters})
+	}
 }

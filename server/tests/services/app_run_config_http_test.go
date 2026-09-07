@@ -201,7 +201,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	app.services.Protocol = wsevents.NewProtocolService(app.state, adapterShell)
+	app.services.Protocol = wsevents.NewProtocolService(app.state, adapterShell, nil)
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
