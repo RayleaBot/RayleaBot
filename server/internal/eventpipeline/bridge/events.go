@@ -217,6 +217,10 @@ func isSupportedEventType(event chatevent.NormalizedEvent) bool {
 		return event.ConversationType == "private"
 	case "notice.poke", "notice.poke_recall", "notice.flash_file":
 		return event.ConversationType == "group" || event.ConversationType == "private"
+	case "notice.bot_added", "notice.bot_removed", "notice.push_enabled", "notice.push_disabled":
+		// The bot joining or leaving, and push being switched on or off, happen
+		// in either kind of conversation.
+		return event.ConversationType == "group" || event.ConversationType == "private"
 	case "request.friend":
 		return event.ConversationType == "private"
 	case "request.group":

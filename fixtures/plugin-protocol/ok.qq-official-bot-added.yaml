@@ -1,0 +1,27 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: event
+    request_id: event-qq-bot-added-1
+    event:
+      event_id: GROUP_ADD_ROBOT:fixture
+      source_protocol: qqofficial
+      source_adapter: adapter.qqofficial
+      event_type: notice.bot_added
+      timestamp: 1788752606
+      actor:
+        id: "0000000000000000000000000000AAAA"
+      target:
+        type: group
+        id: "1111111111111111111111111111BBBB"
+      payload:
+        qq_official:
+          dispatch_type: GROUP_ADD_ROBOT
+          group_openid: "1111111111111111111111111111BBBB"
+          member_openid: "0000000000000000000000000000AAAA"
+  - type: result
+    request_id: event-qq-bot-added-1
+    status: success
+    data: {}
+expect:
+  valid: true

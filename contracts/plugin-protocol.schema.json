@@ -374,7 +374,11 @@
                     "request.friend",
                     "request.group",
                     "meta.heartbeat",
-                    "meta.lifecycle"
+                    "meta.lifecycle",
+                    "notice.bot_added",
+                    "notice.bot_removed",
+                    "notice.push_enabled",
+                    "notice.push_disabled"
                   ]
                 },
                 "timestamp": {
@@ -2743,6 +2747,7 @@
     "fixtures/plugin-protocol/edge.init-without-bot.yaml",
     "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
     "fixtures/plugin-protocol/ok.qq-official-group-message.yaml",
+    "fixtures/plugin-protocol/ok.qq-official-bot-added.yaml",
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
     "fixtures/plugin-protocol/invalid.removed-action.yaml",

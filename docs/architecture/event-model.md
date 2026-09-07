@@ -71,8 +71,14 @@ QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协�
 | --- | --- | --- |
 | `C2C_MESSAGE_CREATE` | `message.private` | 无独立会话标识，对端 openid 即会话 |
 | `GROUP_AT_MESSAGE_CREATE` | `message.group` | `group_openid` |
+| `GROUP_ADD_ROBOT` / `FRIEND_ADD` | `notice.bot_added` | `group_openid` / 对端 openid |
+| `GROUP_DEL_ROBOT` / `FRIEND_DEL` | `notice.bot_removed` | 同上 |
+| `GROUP_MSG_RECEIVE` / `C2C_MSG_RECEIVE` | `notice.push_enabled` | 同上 |
+| `GROUP_MSG_REJECT` / `C2C_MSG_REJECT` | `notice.push_disabled` | 同上 |
 
-消息复用现有 `message.private` 与 `message.group`，不新增事件类型：语义一致，来源由 `source_protocol` 承载。尚无正式事件类型的 dispatch（`READY`、`RESUMED`、`GROUP_ADD_ROBOT` 等）不投递。
+消息复用现有 `message.private` 与 `message.group`，不新增事件类型：语义一致，来源由 `source_protocol` 承载。
+
+管理类 dispatch 归一为四个中立事件类型：平台的群与单聊两套拼写描述的是同一件事，差别只在发生于哪种会话，因此八个 dispatch 收敛为四个类型，由 `conversation_type` 区分。`notice.push_disabled` 表示该会话不再接受主动推送，插件据此停止推送比撞配额错误更早。连接生命周期 dispatch（`READY`、`RESUMED`）不投递。
 
 平台侧与 OneBot11 的实质差异：
 

@@ -2,6 +2,8 @@ package qqofficial
 
 import (
 	"testing"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 // Payload shapes below mirror live gateway captures. Identifiers, tokens and
@@ -151,5 +153,71 @@ func TestParseDispatchTimestampAcceptsBothSpellings(t *testing.T) {
 	}
 	if got := parseDispatchTimestamp([]byte(`"not a time"`)); got != 0 {
 		t.Fatalf("unparseable timestamp = %d, want 0", got)
+	}
+}
+
+func TestNormalizeMembershipDispatches(t *testing.T) {
+	t.Parallel()
+
+	// Payload shapes match the live GROUP_ADD_ROBOT capture and the platform's
+	// documented management events.
+	for _, tc := range []struct {
+		dispatch         string
+		data             string
+		wantType         string
+		wantConversation string
+		wantID           string
+	}{
+		{dispatchGroupAddRobot, `{"group_openid":"G1","op_member_openid":"U1","timestamp":1788752606}`,
+			"notice.bot_added", "group", "G1"},
+		{dispatchGroupDelRobot, `{"group_openid":"G1","op_member_openid":"U1","timestamp":1788752606}`,
+			"notice.bot_removed", "group", "G1"},
+		{dispatchGroupMsgReject, `{"group_openid":"G1","op_member_openid":"U1","timestamp":1788752606}`,
+			"notice.push_disabled", "group", "G1"},
+		{dispatchGroupMsgReceive, `{"group_openid":"G1","op_member_openid":"U1","timestamp":1788752606}`,
+			"notice.push_enabled", "group", "G1"},
+		// A single chat carries only openid: the peer is both actor and
+		// conversation.
+		{dispatchFriendAdd, `{"openid":"U1","timestamp":1788752606}`, "notice.bot_added", "private", "U1"},
+		{dispatchFriendDel, `{"openid":"U1","timestamp":1788752606}`, "notice.bot_removed", "private", "U1"},
+		{dispatchC2CMsgReject, `{"openid":"U1","timestamp":1788752606}`, "notice.push_disabled", "private", "U1"},
+		{dispatchC2CMsgReceive, `{"openid":"U1","timestamp":1788752606}`, "notice.push_enabled", "private", "U1"},
+	} {
+		event, ok := NormalizeDispatch("", tc.dispatch, []byte(tc.data))
+		if !ok {
+			t.Fatalf("%s was not normalized", tc.dispatch)
+		}
+		if event.EventType != tc.wantType {
+			t.Fatalf("%s -> %q, want %q", tc.dispatch, event.EventType, tc.wantType)
+		}
+		if event.ConversationType != tc.wantConversation || event.ConversationID != tc.wantID {
+			t.Fatalf("%s conversation = %s/%s, want %s/%s",
+				tc.dispatch, event.ConversationType, event.ConversationID, tc.wantConversation, tc.wantID)
+		}
+		if event.SenderID == "" || event.EventID == "" || event.Timestamp == 0 {
+			t.Fatalf("%s missing required fields: %+v", tc.dispatch, event)
+		}
+		// These carry no message, and must not be mistaken for one.
+		if event.PlainText != "" || len(event.Segments) != 0 {
+			t.Fatalf("%s produced message content: %+v", tc.dispatch, event)
+		}
+		if chatevent.EventFamily(event.Kind) != chatevent.FamilyNotice {
+			t.Fatalf("%s kind = %q, want the notice family", tc.dispatch, event.Kind)
+		}
+	}
+}
+
+func TestMembershipDispatchesRejectIncompletePayloads(t *testing.T) {
+	t.Parallel()
+
+	// Without a conversation or an actor the event cannot be addressed, so it
+	// must be dropped rather than delivered half-formed.
+	for _, data := range []string{`{"op_member_openid":"U1"}`, `{"group_openid":"G1"}`} {
+		if _, ok := NormalizeDispatch("", dispatchGroupAddRobot, []byte(data)); ok {
+			t.Fatalf("incomplete group payload was delivered: %s", data)
+		}
+	}
+	if _, ok := NormalizeDispatch("", dispatchFriendAdd, []byte(`{"timestamp":1}`)); ok {
+		t.Fatal("friend event without an openid was delivered")
 	}
 }

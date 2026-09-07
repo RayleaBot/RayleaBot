@@ -13,7 +13,41 @@ import (
 const (
 	dispatchC2CMessageCreate     = "C2C_MESSAGE_CREATE"
 	dispatchGroupAtMessageCreate = "GROUP_AT_MESSAGE_CREATE"
+
+	dispatchGroupAddRobot   = "GROUP_ADD_ROBOT"
+	dispatchGroupDelRobot   = "GROUP_DEL_ROBOT"
+	dispatchGroupMsgReject  = "GROUP_MSG_REJECT"
+	dispatchGroupMsgReceive = "GROUP_MSG_RECEIVE"
+	dispatchFriendAdd       = "FRIEND_ADD"
+	dispatchFriendDel       = "FRIEND_DEL"
+	dispatchC2CMsgReject    = "C2C_MSG_REJECT"
+	dispatchC2CMsgReceive   = "C2C_MSG_RECEIVE"
 )
+
+// membershipEventTypes maps the platform's eight management dispatches onto
+// four neutral event types. The group and single-chat spellings of the same
+// change differ only by which conversation they happened in.
+var membershipEventTypes = map[string]string{
+	dispatchGroupAddRobot:   "notice.bot_added",
+	dispatchGroupDelRobot:   "notice.bot_removed",
+	dispatchGroupMsgReject:  "notice.push_disabled",
+	dispatchGroupMsgReceive: "notice.push_enabled",
+	dispatchFriendAdd:       "notice.bot_added",
+	dispatchFriendDel:       "notice.bot_removed",
+	dispatchC2CMsgReject:    "notice.push_disabled",
+	dispatchC2CMsgReceive:   "notice.push_enabled",
+}
+
+// membershipDispatch reports whether a dispatch is a group membership change
+// rather than a single-chat one, which decides the conversation it belongs to.
+func membershipIsGroup(dispatchType string) bool {
+	switch dispatchType {
+	case dispatchGroupAddRobot, dispatchGroupDelRobot, dispatchGroupMsgReject, dispatchGroupMsgReceive:
+		return true
+	default:
+		return false
+	}
+}
 
 const (
 	SourceProtocol = "qqofficial"
@@ -56,6 +90,9 @@ func NormalizeDispatch(eventID, dispatchType string, data []byte) (chatevent.Nor
 	switch dispatchType {
 	case dispatchC2CMessageCreate, dispatchGroupAtMessageCreate:
 	default:
+		if _, ok := membershipEventTypes[dispatchType]; ok {
+			return normalizeMembershipDispatch(eventID, dispatchType, data)
+		}
 		return chatevent.NormalizedEvent{}, false
 	}
 
@@ -233,4 +270,67 @@ func parseDispatchTimestamp(raw json.RawMessage) int64 {
 		return parsed
 	}
 	return 0
+}
+
+type membershipDispatch struct {
+	GroupOpenID    string          `json:"group_openid"`
+	OpMemberOpenID string          `json:"op_member_openid"`
+	OpenID         string          `json:"openid"`
+	Timestamp      json.RawMessage `json:"timestamp"`
+}
+
+// normalizeMembershipDispatch handles the management events: the bot being
+// added to or removed from a conversation, and proactive push being turned on
+// or off for it. They carry no message, only who acted and where.
+func normalizeMembershipDispatch(eventID, dispatchType string, data []byte) (chatevent.NormalizedEvent, bool) {
+	var payload membershipDispatch
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return chatevent.NormalizedEvent{}, false
+	}
+
+	event := chatevent.NormalizedEvent{
+		Kind:           chatevent.EventKind(SourceProtocol, chatevent.FamilyNotice),
+		EventID:        strings.TrimSpace(eventID),
+		SourceProtocol: SourceProtocol,
+		SourceAdapter:  SourceAdapter,
+		EventType:      membershipEventTypes[dispatchType],
+		Timestamp:      parseDispatchTimestamp(payload.Timestamp),
+	}
+
+	if membershipIsGroup(dispatchType) {
+		group := strings.TrimSpace(payload.GroupOpenID)
+		actor := strings.TrimSpace(payload.OpMemberOpenID)
+		if group == "" || actor == "" {
+			return chatevent.NormalizedEvent{}, false
+		}
+		event.ConversationType = "group"
+		event.ConversationID = group
+		event.SenderID = actor
+	} else {
+		// A single chat has no conversation identifier of its own: the peer who
+		// acted is both the actor and the conversation.
+		peer := strings.TrimSpace(payload.OpenID)
+		if peer == "" {
+			return chatevent.NormalizedEvent{}, false
+		}
+		event.ConversationType = "private"
+		event.ConversationID = peer
+		event.SenderID = peer
+	}
+	if event.EventID == "" {
+		event.EventID = dispatchType + ":" + event.ConversationID
+	}
+
+	native := map[string]any{"dispatch_type": dispatchType}
+	if payload.GroupOpenID != "" {
+		native["group_openid"] = payload.GroupOpenID
+	}
+	if payload.OpMemberOpenID != "" {
+		native["member_openid"] = payload.OpMemberOpenID
+	}
+	if payload.OpenID != "" {
+		native["user_openid"] = payload.OpenID
+	}
+	event.PayloadFields = map[string]any{"qq_official": native}
+	return event, true
 }
