@@ -12,6 +12,23 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
+// Formal error codes this adapter reports, from contracts/error-codes.yaml.
+const (
+	CodeMessageQuotaExceeded  = "adapter.message_quota_exceeded"
+	CodeReplyWindowExpired    = "adapter.reply_window_expired"
+	CodeCapabilityUnsupported = "adapter.capability_unsupported"
+	CodeSendFailed            = "adapter.send_failed"
+)
+
+// SendError carries a formal code alongside the platform's own wording, so a
+// caller can branch on the code instead of matching message text.
+type SendError struct {
+	Code    string
+	Message string
+}
+
+func (e *SendError) Error() string { return e.Code + ": " + e.Message }
+
 // Message types the platform accepts on the v2 message endpoints.
 const (
 	msgTypeText     = 0
@@ -84,9 +101,15 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	text, unsupported := renderSegments(segments)
 	if strings.TrimSpace(text) == "" {
 		if unsupported != "" {
-			return chatevent.SendMessageResult{}, fmt.Errorf("qqofficial: message carries only unsupported segment kinds (%s)", unsupported)
+			return chatevent.SendMessageResult{}, &SendError{
+				Code:    CodeCapabilityUnsupported,
+				Message: fmt.Sprintf("消息只包含当前适配器无法投递的段类型（%s）。", unsupported),
+			}
 		}
-		return chatevent.SendMessageResult{}, fmt.Errorf("qqofficial: message has no deliverable content")
+		return chatevent.SendMessageResult{}, &SendError{
+			Code:    CodeCapabilityUnsupported,
+			Message: "消息没有可投递的内容。",
+		}
 	}
 
 	body := sendMessageRequest{Content: text, MsgType: msgTypeText}
@@ -124,7 +147,10 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 		if message == "" {
 			message = "platform rejected the message"
 		}
-		return chatevent.SendMessageResult{}, fmt.Errorf("qqofficial: send message failed (http %d, code %d): %s", response.StatusCode, decoded.Code, message)
+		return chatevent.SendMessageResult{}, &SendError{
+			Code:    sendErrorCode(response.StatusCode, decoded.Code, replyTo != ""),
+			Message: message,
+		}
 	}
 	return chatevent.SendMessageResult{MessageID: decoded.ID}, nil
 }
@@ -142,7 +168,10 @@ func messageEndpoint(base, targetType, targetID string) (string, error) {
 	case "private":
 		return base + "/v2/users/" + id + "/messages", nil
 	default:
-		return "", fmt.Errorf("qqofficial: unsupported conversation kind %q", targetType)
+		return "", &SendError{
+			Code:    CodeCapabilityUnsupported,
+			Message: fmt.Sprintf("当前适配器无法寻址会话种类 %q。", targetType),
+		}
 	}
 }
 
@@ -163,4 +192,22 @@ func renderSegments(segments []chatevent.MessageSegment) (string, string) {
 		}
 	}
 	return text.String(), strings.Join(dropped, ", ")
+}
+
+// sendErrorCode classifies a platform refusal so callers can tell a quota
+// refusal from an expired reply window without matching message text.
+func sendErrorCode(httpStatus, platformCode int, wasReply bool) string {
+	switch {
+	case httpStatus == 429:
+		return CodeMessageQuotaExceeded
+	case platformCode == 40034:
+		// The platform reports an exhausted active-push allowance here.
+		return CodeMessageQuotaExceeded
+	case wasReply && (httpStatus == 400 || httpStatus == 409):
+		// A refused passive reply means the inbound message is no longer
+		// answerable; retrying the same reply cannot succeed.
+		return CodeReplyWindowExpired
+	default:
+		return CodeSendFailed
+	}
 }

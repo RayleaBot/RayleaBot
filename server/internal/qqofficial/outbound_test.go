@@ -3,6 +3,7 @@ package qqofficial
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -159,5 +160,60 @@ func TestReplySequencesAreScopedPerMessage(t *testing.T) {
 	// Sequences are per inbound message, so a different message starts over.
 	if got := sequences.next("b"); got != 1 {
 		t.Fatalf("new message started at msg_seq %d, want 1", got)
+	}
+}
+
+func TestSendErrorsCarryFormalCodes(t *testing.T) {
+	t.Parallel()
+
+	text := []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "hi"}}}
+
+	// A quota refusal is retryable later; an expired reply window is not. A
+	// caller that cannot tell them apart will either retry forever or give up.
+	quota, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]any{"code": 40034, "message": "push message is limited"})
+	})
+	_, err := quota.SendMessage(context.Background(), chatevent.OutboundMessageSend{
+		TargetType: "group", TargetID: "G1", Segments: text,
+	})
+	var sendErr *SendError
+	if !errors.As(err, &sendErr) || sendErr.Code != CodeMessageQuotaExceeded {
+		t.Fatalf("quota refusal = %v, want %s", err, CodeMessageQuotaExceeded)
+	}
+	if sendErr.Message != "push message is limited" {
+		t.Fatalf("message = %q, want the platform's own wording", sendErr.Message)
+	}
+
+	window, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{"code": 40004, "message": "msg_id expired"})
+	})
+	_, err = window.SendReply(context.Background(), chatevent.OutboundMessageReply{
+		TargetType: "group", TargetID: "G1", ReplyToMessageID: "ROBOT1.0_abc", Segments: text,
+	})
+	if !errors.As(err, &sendErr) || sendErr.Code != CodeReplyWindowExpired {
+		t.Fatalf("refused reply = %v, want %s", err, CodeReplyWindowExpired)
+	}
+
+	// The same status on an active push is not a reply-window problem.
+	active, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{"code": 40004, "message": "bad request"})
+	})
+	_, err = active.SendMessage(context.Background(), chatevent.OutboundMessageSend{
+		TargetType: "group", TargetID: "G1", Segments: text,
+	})
+	if !errors.As(err, &sendErr) || sendErr.Code != CodeSendFailed {
+		t.Fatalf("refused active push = %v, want %s", err, CodeSendFailed)
+	}
+
+	unsupported, _ := newTestClient(t, okResponse)
+	_, err = unsupported.SendMessage(context.Background(), chatevent.OutboundMessageSend{
+		TargetType: "group", TargetID: "G1",
+		Segments: []chatevent.MessageSegment{{Type: "image", Data: map[string]any{"url": "https://example.invalid/a.png"}}},
+	})
+	if !errors.As(err, &sendErr) || sendErr.Code != CodeCapabilityUnsupported {
+		t.Fatalf("undeliverable segment = %v, want %s", err, CodeCapabilityUnsupported)
 	}
 }

@@ -601,6 +601,44 @@ codes:
     retryable: false
     applies_to: [http, task, cli]
 
+  adapter.message_quota_exceeded:
+    code: adapter.message_quota_exceeded
+    domain: adapter
+    message_key: errors.adapter.message_quota_exceeded
+    message: 主动推送额度已用完
+    description: >
+      The chat platform refused an actively pushed message because the bot has
+      exhausted its push quota for that conversation. Replying to a received
+      message is not subject to this limit.
+    http_status: 429
+    retryable: true
+    applies_to: [http, plugin_protocol]
+
+  adapter.reply_window_expired:
+    code: adapter.reply_window_expired
+    domain: adapter
+    message_key: errors.adapter.reply_window_expired
+    message: 消息回复时限已过
+    description: >
+      The chat platform refused a passive reply because the inbound message it
+      answers is outside the window in which replies are accepted.
+    http_status: 409
+    retryable: false
+    applies_to: [http, plugin_protocol]
+
+  adapter.capability_unsupported:
+    code: adapter.capability_unsupported
+    domain: adapter
+    message_key: errors.adapter.capability_unsupported
+    message: 当前适配器不支持该能力
+    description: >
+      The requested action is formally defined but the connected chat adapter
+      cannot perform it, such as a message segment kind the platform has no
+      equivalent for, or a conversation kind it cannot address.
+    http_status: 400
+    retryable: false
+    applies_to: [http, plugin_protocol]
+
   adapter.connection_failed:
     code: adapter.connection_failed
     domain: adapter

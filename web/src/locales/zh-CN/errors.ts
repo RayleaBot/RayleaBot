@@ -1,6 +1,9 @@
 export const errors = {
   adapter: {
     sendUnconfirmed: '消息发送结果未确认，可能仍会送达；未自动重发。',
+    messageQuotaExceeded: '主动推送额度已用完。回复收到的消息不占用该额度。',
+    replyWindowExpired: '这条消息已超过可回复的时限，无法再回复。',
+    capabilityUnsupported: '当前适配器不支持该操作或消息类型。',
   },
   common: {
     actionFailed: '操作未完成，请稍后重试。',
