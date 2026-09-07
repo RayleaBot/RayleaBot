@@ -742,7 +742,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdaptersResponse'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
   /api/protocols/onebot11:
     get:
       summary: Query the current OneBot11 protocol snapshot without reconstructing it from system summary fragments.

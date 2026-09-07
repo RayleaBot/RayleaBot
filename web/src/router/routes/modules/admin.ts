@@ -163,11 +163,22 @@ export const adminRoutes: RouteRecordRaw[] = [
         {
           path: '/protocols',
           name: 'protocols',
-          component: () => import('@/views/protocols/ProtocolsView.vue'),
+          component: () => import('@/views/protocols/AdaptersView.vue'),
           meta: {
             icon: 'protocols',
             keepAlive: true,
             order: 2,
+            requiresAuth: true,
+            titleKey: 'routes.protocols',
+          },
+        },
+        {
+          path: '/protocols/onebot11',
+          name: 'protocols-onebot11',
+          component: () => import('@/views/protocols/ProtocolsView.vue'),
+          meta: {
+            hideInMenu: true,
+            keepAlive: true,
             requiresAuth: true,
             titleKey: 'routes.protocols',
           },

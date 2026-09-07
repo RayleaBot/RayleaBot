@@ -414,6 +414,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/adapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 列出聊天适配器及其连接状态
+         * @description 返回全部正式支持的聊天适配器，包含尚未配置的类型，供管理面展示已添加的协议 并引导添加新协议。每个条目说明该适配器是否已配置、是否启用及当前连接状态。
+         */
+        get: operations["listAdapters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/protocols/onebot11": {
         parameters: {
             query?: never;
@@ -1428,6 +1448,34 @@ export interface components {
             status: "ok" | "missing" | "unreadable" | "unknown";
             is_dir: boolean;
         };
+        /**
+         * @description 正式支持的聊天适配器标识。集合随正式接入的适配器增长；管理面按此值区分协议， 不从会话种类或标识符格式推断来源。
+         * @enum {string}
+         */
+        AdapterProtocol: "onebot11" | "qqofficial";
+        /**
+         * @description 适配器连接状态，与聊天传输状态共用词表。
+         * @enum {string}
+         */
+        AdapterState: "idle" | "listening" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
+        AdapterIdentity: {
+            /** @description 适配器登录后由平台确认的机器人标识，属于该协议的身份命名空间。 */
+            id: string;
+            name: string;
+        };
+        AdapterDescriptor: {
+            protocol: components["schemas"]["AdapterProtocol"];
+            display_name: string;
+            /** @description 是否已填写该适配器运行所需的配置。未配置的适配器仍会返回，供管理面作为可添加项展示。 */
+            configured: boolean;
+            enabled: boolean;
+            state: components["schemas"]["AdapterState"];
+            summary: string;
+            identity?: components["schemas"]["AdapterIdentity"];
+        };
+        AdaptersResponse: {
+            adapters: components["schemas"]["AdapterDescriptor"][];
+        };
         /** @enum {string} */
         ProtocolProvider: "unknown" | "standard" | "napcat" | "luckylillia";
         /** @enum {string} */
@@ -2341,6 +2389,31 @@ export interface components {
                 forward_ws: components["schemas"]["onebotWsTransport"];
                 http_api: components["schemas"]["onebotHttpTransport"];
                 webhook: components["schemas"]["onebotWebhookTransport"];
+            };
+            /** @description QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace. */
+            qq_official?: {
+                /** @default false */
+                enabled: boolean;
+                /**
+                 * @description QQ Open Platform AppID. Not a secret; it is sent as the X-Union-Appid header and may appear in diagnostics.
+                 * @default
+                 */
+                app_id: string;
+                /**
+                 * @description QQ Open Platform AppSecret, exchanged for a short-lived app access token. Management API updates store plaintext values in the local secret store and persist this field as secret://qq_official/app_secret.
+                 * @default
+                 */
+                app_secret: string;
+                /**
+                 * @description Event categories to subscribe to at Identify. The adapter maps these names onto the gateway bitmask; an empty list disables event subscription.
+                 * @default []
+                 */
+                intents: ("group_and_c2c" | "guilds" | "guild_members" | "guild_messages" | "public_guild_messages" | "direct_message")[];
+                /**
+                 * @description Use the QQ Open Platform sandbox endpoints instead of production.
+                 * @default false
+                 */
+                sandbox: boolean;
             };
             database: {
                 /**
@@ -3380,6 +3453,28 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             429: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    listAdapters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 适配器列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptersResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };
