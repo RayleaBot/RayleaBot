@@ -361,7 +361,7 @@ func TestShellStopClosesReverseWebSocketAfterSupervisorCancellation(t *testing.T
 			return attr
 		},
 	}))
-	shell := newShell(config.OneBotConfig{
+	shell := newShell("onebot11", config.OneBotConfig{
 		ReverseWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws://127.0.0.1:8080/onebot/reverse",

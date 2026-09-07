@@ -219,7 +219,7 @@ func TestGetVersionInfoReturnsImplementationMetadata(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newShell(oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
+	shell := newShell("onebot11", oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
 		connectTimeout:  75 * time.Millisecond,
 		sleep:           blockingSleep,
 		skipRuntimeInfo: true,
@@ -294,7 +294,7 @@ func TestGetVersionInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := newShell(oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
+	shell := newShell("onebot11", oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
 		connectTimeout:  75 * time.Millisecond,
 		sleep:           blockingSleep,
 		skipRuntimeInfo: true,

@@ -144,18 +144,21 @@ func bridgeDispatchLogAttrs(results []dispatch.DeliveryResult) []any {
 	return attrs
 }
 
-// supportedSources lists the adapters whose events the bridge delivers. An
-// event from anything else is ignored rather than guessed at.
-var supportedSources = map[string]string{
-	"onebot11":   "adapter.onebot11",
-	"qqofficial": "adapter.qqofficial",
+// supportedProtocols lists the chat protocols whose events the bridge delivers.
+// An event from anything else is ignored rather than guessed at.
+var supportedProtocols = map[string]bool{
+	"onebot11":   true,
+	"qqofficial": true,
 }
 
 func isSupportedEvent(event chatevent.NormalizedEvent) bool {
 	if event.EventID == "" {
 		return false
 	}
-	if adapter, ok := supportedSources[event.SourceProtocol]; !ok || adapter != event.SourceAdapter {
+	// The protocol decides how the event is read; the adapter names which
+	// instance produced it, and only has to be present so a reply can be
+	// routed back to that instance.
+	if !supportedProtocols[event.SourceProtocol] || strings.TrimSpace(event.SourceAdapter) == "" {
 		return false
 	}
 	if event.Timestamp <= 0 || event.ConversationType == "" || event.ConversationID == "" || event.SenderID == "" {

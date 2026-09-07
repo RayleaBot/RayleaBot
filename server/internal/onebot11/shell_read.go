@@ -174,6 +174,11 @@ func (s *Shell) dispatchEvents(ctx context.Context) {
 			if handler == nil {
 				continue
 			}
+			// The normalizers do not know which connection they ran for, so the
+			// shell stamps its own instance id on the way out.
+			if s.adapterID != "" {
+				event.SourceAdapter = s.adapterID
+			}
 			handler(ctx, event)
 		}
 	}

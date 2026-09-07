@@ -27,6 +27,7 @@ type ReplyTarget struct {
 	MessageID      string
 	TargetType     string
 	TargetID       string
+	SourceAdapter  string
 	SourceProtocol string
 }
 
@@ -86,6 +87,7 @@ func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 				MessageID:      messageID,
 				TargetType:     targetType,
 				TargetID:       targetID,
+				SourceAdapter:  strings.TrimSpace(event.SourceAdapter),
 				SourceProtocol: strings.TrimSpace(event.SourceProtocol),
 			},
 		}
@@ -99,6 +101,7 @@ func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 			MessageID:      messageID,
 			TargetType:     targetType,
 			TargetID:       targetID,
+			SourceAdapter:  strings.TrimSpace(event.SourceAdapter),
 			SourceProtocol: strings.TrimSpace(event.SourceProtocol),
 		},
 	})
@@ -176,6 +179,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}
 
 	replyRequest := chatevent.OutboundMessageReply{
+		SourceAdapter:    replyTarget.SourceAdapter,
 		SourceProtocol:   replyTarget.SourceProtocol,
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
@@ -202,6 +206,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}
 
 	fallbackResult, fallbackErr := sender.SendMessage(ctx, chatevent.OutboundMessageSend{
+		SourceAdapter:  replyTarget.SourceAdapter,
 		SourceProtocol: replyTarget.SourceProtocol,
 		TargetType:     replyTarget.TargetType,
 		TargetID:       replyTarget.TargetID,

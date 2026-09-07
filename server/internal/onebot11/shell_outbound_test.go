@@ -218,7 +218,7 @@ func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
 		deps.backoff = reconnect.NewWithDurations(10*time.Millisecond, 1, 10*time.Millisecond, 0, func() float64 { return 0.5 })
 	}
 
-	return newShell(cfg, defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), deps)
+	return newShell("onebot11", cfg, defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), deps)
 }
 
 func oneBotForwardWS(url string) config.OneBotConfig {

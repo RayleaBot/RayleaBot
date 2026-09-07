@@ -165,7 +165,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	if !ok {
 		t.Fatal("base config has no onebot11 adapter")
 	}
-	adapterShell := onebot11.New(oneBotSettings, baseConfig.Adapter, logger)
+	adapterShell := onebot11.New(config.DefaultOneBot11AdapterID, oneBotSettings, baseConfig.Adapter, logger)
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()

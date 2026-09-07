@@ -41,6 +41,7 @@ func buildEvents(deps eventDeps) EventState {
 	// Adapters are built from the configured instances and keyed by instance id.
 	// Several instances may share a protocol, so routing keys on the id.
 	senders := make(map[string]outbound.ActionSender, len(deps.Config.Adapters))
+	protocols := make(map[string]string, len(deps.Config.Adapters))
 	oneBotShells := make(map[string]*onebot11.Shell, 1)
 	qqClients := make(map[string]*qqofficial.Client, 1)
 
@@ -52,13 +53,15 @@ func buildEvents(deps eventDeps) EventState {
 		}
 		switch {
 		case instance.Type == config.AdapterTypeOneBot11 && instance.OneBot11 != nil:
-			shell := onebot11.New(*instance.OneBot11, deps.Config.Adapter, deps.Logger)
+			shell := onebot11.New(instance.ID, *instance.OneBot11, deps.Config.Adapter, deps.Logger)
 			oneBotShells[instance.ID] = shell
 			senders[instance.ID] = shell
+			protocols[instance.ID] = instance.Type
 		case instance.Type == config.AdapterTypeQQOfficial && instance.QQOfficial != nil:
-			client := qqofficial.New(*instance.QQOfficial, deps.Config.Adapter, deps.Logger)
+			client := qqofficial.New(instance.ID, *instance.QQOfficial, deps.Config.Adapter, deps.Logger)
 			qqClients[instance.ID] = client
 			senders[instance.ID] = client
+			protocols[instance.ID] = instance.Type
 		}
 	}
 
@@ -69,9 +72,9 @@ func buildEvents(deps eventDeps) EventState {
 		adapterShell = oneBotShells[instance.ID]
 	}
 	if adapterShell == nil {
-		adapterShell = onebot11.New(config.OneBotConfig{}, deps.Config.Adapter, deps.Logger)
+		adapterShell = onebot11.New(config.DefaultOneBot11AdapterID, config.OneBotConfig{}, deps.Config.Adapter, deps.Logger)
 	}
-	outboundSender := newAdapterRouter(senders)
+	outboundSender := newAdapterRouter(senders, protocols)
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(

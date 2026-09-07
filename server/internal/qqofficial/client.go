@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,23 +26,26 @@ type EventHandler func(context.Context, chatevent.NormalizedEvent)
 // Client maintains the gateway connection: it identifies, heartbeats, resumes
 // across drops, and hands normalized events to its handler.
 type Client struct {
-	appID    string
-	sandbox  bool
-	apiBase  string
-	intents  int
-	tokens   *TokenSource
-	http     *http.Client
-	logger   *slog.Logger
-	backoff  *reconnect.Backoff
-	session  session
-	status   statusState
-	replies  *replySequences
-	dialer   func(context.Context, string) (wsConn, error)
-	mu       sync.RWMutex
-	handler  EventHandler
-	stopping chan struct{}
-	stopOnce sync.Once
-	done     chan struct{}
+	// adapterID is the configured instance this client serves; it travels on
+	// every event as source_adapter.
+	adapterID string
+	appID     string
+	sandbox   bool
+	apiBase   string
+	intents   int
+	tokens    *TokenSource
+	http      *http.Client
+	logger    *slog.Logger
+	backoff   *reconnect.Backoff
+	session   session
+	status    statusState
+	replies   *replySequences
+	dialer    func(context.Context, string) (wsConn, error)
+	mu        sync.RWMutex
+	handler   EventHandler
+	stopping  chan struct{}
+	stopOnce  sync.Once
+	done      chan struct{}
 }
 
 // wsConn is the slice of the websocket connection the client uses, so the
@@ -52,19 +56,20 @@ type wsConn interface {
 	Close(code websocket.StatusCode, reason string) error
 }
 
-func New(qq config.QQOfficialConfig, adapter config.AdapterConfig, logger *slog.Logger) *Client {
+func New(adapterID string, qq config.QQOfficialConfig, adapter config.AdapterConfig, logger *slog.Logger) *Client {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	httpClient := &http.Client{Timeout: time.Duration(max(adapter.ConnectTimeoutSeconds, 1)) * time.Second}
 	client := &Client{
-		appID:   qq.AppID,
-		sandbox: qq.Sandbox,
-		apiBase: apiBaseURL(qq.Sandbox),
-		intents: IntentMask(qq.Intents),
-		tokens:  NewTokenSource(qq.AppID, qq.AppSecret, httpClient),
-		http:    httpClient,
-		logger:  logger,
+		adapterID: strings.TrimSpace(adapterID),
+		appID:     qq.AppID,
+		sandbox:   qq.Sandbox,
+		apiBase:   apiBaseURL(qq.Sandbox),
+		intents:   IntentMask(qq.Intents),
+		tokens:    NewTokenSource(qq.AppID, qq.AppSecret, httpClient),
+		http:      httpClient,
+		logger:    logger,
 		backoff: reconnect.NewBackoff(
 			adapter.ReconnectInitialSeconds,
 			adapter.ReconnectMultiplier,
@@ -299,6 +304,11 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 	}
 	if botID, _ := c.session.bot(); botID != "" {
 		event.BotID = botID
+	}
+	// NormalizeDispatch does not know which connection it ran for, so the
+	// client stamps its own instance id on the way out.
+	if c.adapterID != "" {
+		event.SourceAdapter = c.adapterID
 	}
 	if handler := c.eventHandler(); handler != nil {
 		handler(ctx, event)

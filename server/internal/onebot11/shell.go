@@ -46,6 +46,10 @@ type shellDeps struct {
 	skipRuntimeInfo bool
 }
 type Shell struct {
+	// adapterID is the configured instance this shell serves. It travels on
+	// every event as source_adapter, so a reply reaches the connection the
+	// event came from rather than another instance of the same protocol.
+	adapterID  string
 	cfg        config.OneBotConfig
 	adapterCfg config.AdapterConfig
 	logger     *slog.Logger
@@ -83,13 +87,13 @@ type MetricsObserver interface {
 	IncEventPipelineStage(stage, outcome string)
 }
 
-func New(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger) *Shell {
-	return newShell(cfg, adapterCfg, logger, shellDeps{})
+func New(adapterID string, cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger) *Shell {
+	return newShell(adapterID, cfg, adapterCfg, logger, shellDeps{})
 }
-func NewForTest(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger, skipRuntimeInfo bool) *Shell {
-	return newShell(cfg, adapterCfg, logger, shellDeps{skipRuntimeInfo: skipRuntimeInfo})
+func NewForTest(adapterID string, cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger, skipRuntimeInfo bool) *Shell {
+	return newShell(adapterID, cfg, adapterCfg, logger, shellDeps{skipRuntimeInfo: skipRuntimeInfo})
 }
-func newShell(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger, deps shellDeps) *Shell {
+func newShell(adapterID string, cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *slog.Logger, deps shellDeps) *Shell {
 	if logger == nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}

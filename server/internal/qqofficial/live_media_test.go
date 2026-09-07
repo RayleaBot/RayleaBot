@@ -29,7 +29,7 @@ func TestLiveMediaReply(t *testing.T) {
 		t.Fatalf("QQ_LIVE_IMAGE is not readable: %v", err)
 	}
 
-	client := New(
+	client := New("qq-official",
 		config.QQOfficialConfig{
 			AppID: appID, AppSecret: appSecret,
 			Intents: []string{"group_and_c2c", "public_guild_messages"},

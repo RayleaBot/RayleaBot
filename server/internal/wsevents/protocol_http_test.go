@@ -190,7 +190,7 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	}))
 	defer server.Close()
 
-	shell := onebot11.New(config.OneBotConfig{
+	shell := onebot11.New("onebot11", config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],
@@ -299,7 +299,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	}))
 	defer server.Close()
 
-	shell := onebot11.NewForTest(config.OneBotConfig{
+	shell := onebot11.NewForTest("onebot11", config.OneBotConfig{
 		ForwardWS: config.OneBotTransportConfig{
 			Enabled: true,
 			URL:     "ws" + server.URL[len("http"):],

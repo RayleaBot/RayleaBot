@@ -20,7 +20,7 @@ func TestLiveGatewayHandshake(t *testing.T) {
 		t.Skip("set QQ_APP_ID and QQ_APP_SECRET to exercise the live gateway")
 	}
 
-	client := New(
+	client := New("qq-official",
 		config.QQOfficialConfig{
 			AppID: appID, AppSecret: appSecret,
 			Intents: []string{"group_and_c2c", "public_guild_messages"},

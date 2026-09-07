@@ -29,9 +29,9 @@ func TestAdapterRouterDeliversThroughTheOriginatingProtocol(t *testing.T) {
 
 	var sent []string
 	router := newAdapterRouter(map[string]outbound.ActionSender{
-		"onebot11":   recordingSender{name: "onebot11", sent: &sent},
-		"qqofficial": recordingSender{name: "qqofficial", sent: &sent},
-	})
+		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
+		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
+	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"})
 
 	if _, err := router.SendReply(context.Background(), chatevent.OutboundMessageReply{
 		SourceProtocol: "qqofficial", TargetType: "group", TargetID: "G1",
@@ -48,9 +48,9 @@ func TestAdapterRouterRefusesToGuessBetweenAdapters(t *testing.T) {
 
 	var sent []string
 	router := newAdapterRouter(map[string]outbound.ActionSender{
-		"onebot11":   recordingSender{name: "onebot11", sent: &sent},
-		"qqofficial": recordingSender{name: "qqofficial", sent: &sent},
-	})
+		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
+		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
+	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"})
 
 	// Target ids are namespaced per protocol, so picking one at random could
 	// reach an unrelated conversation that happens to share an id.
@@ -60,7 +60,9 @@ func TestAdapterRouterRefusesToGuessBetweenAdapters(t *testing.T) {
 	if err == nil {
 		t.Fatal("an ambiguous active push was delivered")
 	}
-	if !strings.Contains(err.Error(), "onebot11") || !strings.Contains(err.Error(), "qqofficial") {
+	// The error names the instances, because naming one is how the caller
+	// resolves the ambiguity.
+	if !strings.Contains(err.Error(), "onebot11") || !strings.Contains(err.Error(), "qq-official") {
 		t.Fatalf("error = %v, want it to name the connected adapters", err)
 	}
 	if len(sent) != 0 {
@@ -80,7 +82,7 @@ func TestAdapterRouterResolvesWhenOnlyOneAdapterIsConnected(t *testing.T) {
 	var sent []string
 	router := newAdapterRouter(map[string]outbound.ActionSender{
 		"onebot11": recordingSender{name: "onebot11", sent: &sent},
-	})
+	}, map[string]string{"onebot11": "onebot11"})
 	// The common deployment: one adapter, so an active push is unambiguous.
 	if _, err := router.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1",
@@ -97,9 +99,9 @@ func TestAdapterRouterHonoursAPluginNamedProtocol(t *testing.T) {
 
 	var sent []string
 	router := newAdapterRouter(map[string]outbound.ActionSender{
-		"onebot11":   recordingSender{name: "onebot11", sent: &sent},
-		"qqofficial": recordingSender{name: "qqofficial", sent: &sent},
-	})
+		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
+		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
+	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"})
 
 	// With two adapters connected an active push is otherwise ambiguous; naming
 	// the protocol is how a plugin resolves it.

@@ -715,22 +715,31 @@ func TestIsSupportedEventAcceptsEveryRegisteredAdapter(t *testing.T) {
 	// A second adapter reports its own protocol in the kind; the gate keys on
 	// the family, not on a hard-coded onebot spelling.
 	qq := base
-	qq.SourceProtocol, qq.SourceAdapter = "qqofficial", "adapter.qqofficial"
+	qq.SourceProtocol, qq.SourceAdapter = "qqofficial", "qq-official"
 	qq.Kind = chatevent.EventKind("qqofficial", chatevent.FamilyMessage)
 	if !isSupportedEvent(qq) {
 		t.Fatal("qqofficial event was rejected")
 	}
 
-	// An unregistered adapter is still ignored rather than guessed at, and a
-	// protocol may not claim another adapter's identity.
-	unknown := qq
-	unknown.SourceProtocol, unknown.SourceAdapter = "telegram", "adapter.telegram"
-	if isSupportedEvent(unknown) {
-		t.Fatal("an unregistered adapter was accepted")
+	// The adapter field names a configured instance, so it is the operator's
+	// choice and cannot be validated against a fixed list. Any instance of a
+	// registered protocol is accepted.
+	renamed := qq
+	renamed.SourceAdapter = "second-bot"
+	if !isSupportedEvent(renamed) {
+		t.Fatal("an event from an added instance was rejected")
 	}
-	mismatched := qq
-	mismatched.SourceAdapter = "adapter.onebot11"
-	if isSupportedEvent(mismatched) {
-		t.Fatal("a protocol/adapter mismatch was accepted")
+
+	// An unregistered protocol is still ignored rather than guessed at.
+	unknown := qq
+	unknown.SourceProtocol, unknown.SourceAdapter = "telegram", "telegram"
+	if isSupportedEvent(unknown) {
+		t.Fatal("an unregistered protocol was accepted")
+	}
+	// Without an instance a reply has nothing to route back to.
+	anonymous := qq
+	anonymous.SourceAdapter = ""
+	if isSupportedEvent(anonymous) {
+		t.Fatal("an event naming no adapter instance was accepted")
 	}
 }
