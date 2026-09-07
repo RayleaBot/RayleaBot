@@ -3,18 +3,13 @@ import type { AdapterProtocol, ConfigDocument } from '@/types/api'
 // One configured adapter instance as it appears in the config document. The
 // settings block is named by the protocol, so only the block matching `type`
 // is present on any one instance.
-export interface AdapterInstanceDocument {
-  id: string
-  type: AdapterProtocol
-  enabled: boolean
-  onebot11?: Record<string, unknown>
-  qqofficial?: Record<string, unknown>
-  [key: string]: unknown
-}
+export type AdapterInstanceDocument = ConfigDocument['adapters'][number]
+export type OneBotSettings = NonNullable<AdapterInstanceDocument['onebot11']>
+export type QQOfficialSettings = NonNullable<AdapterInstanceDocument['qqofficial']>
+export type OneBotTransport = keyof OneBotSettings
 
 export function readAdapterInstances(document: ConfigDocument | null): AdapterInstanceDocument[] {
-  const adapters = (document as Record<string, unknown> | null)?.adapters
-  return Array.isArray(adapters) ? (adapters as AdapterInstanceDocument[]) : []
+  return document?.adapters ?? []
 }
 
 export function findAdapterInstance(document: ConfigDocument | null, id: string) {
@@ -35,9 +30,9 @@ const DEFAULT_ONEBOT_WS_TRANSPORT = {
   access_token_query_compat: false,
 }
 
-// defaultAdapterSettings builds a settings block that satisfies the schema's
-// required fields, so a newly added instance saves before it is configured.
-export function defaultAdapterSettings(protocol: AdapterProtocol): Record<string, unknown> {
+export function defaultAdapterSettings(protocol: 'onebot11'): OneBotSettings
+export function defaultAdapterSettings(protocol: 'qqofficial'): QQOfficialSettings
+export function defaultAdapterSettings(protocol: AdapterProtocol): OneBotSettings | QQOfficialSettings {
   if (protocol === 'onebot11') {
     return {
       reverse_ws: { ...DEFAULT_ONEBOT_WS_TRANSPORT },
@@ -71,10 +66,8 @@ export function buildAdapterInstance(id: string, protocol: AdapterProtocol): Ada
     id,
     type: protocol,
     enabled: false,
-    [protocol]: defaultAdapterSettings(protocol),
-  } as AdapterInstanceDocument
-}
-
-export function adapterEditorRoute(protocol: AdapterProtocol, id: string) {
-  return `/protocols/${protocol}/${encodeURIComponent(id)}`
+    ...(protocol === 'onebot11'
+      ? { onebot11: defaultAdapterSettings(protocol) }
+      : { qqofficial: defaultAdapterSettings(protocol) }),
+  }
 }

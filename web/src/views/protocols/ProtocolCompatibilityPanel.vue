@@ -3,7 +3,6 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { useToastFeedback } from '@/adapter/feedback'
-import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
@@ -143,9 +142,11 @@ function providerColumnClass(provider: string) {
 </script>
 
 <template>
-  <AppPage :title="t('protocols.compatibilityTitle')" :description="t('protocols.compatibilitySubtitle')" width="detail">
+  <section aria-label="协议兼容能力">
     <div class="protocol-compatibility-page" data-testid="protocol-compatibility-page">
-      <section class="protocol-overview-band" aria-label="协议运行摘要">
+      <details class="protocol-provider-details">
+        <summary>默认 OneBot 连接端：{{ currentProviderLabel }}</summary>
+        <section class="protocol-overview-band" aria-label="默认 OneBot 运行摘要">
         <div class="protocol-overview-item">
           <span>{{ t('protocols.overviewTitle') }}</span>
           <strong>{{ currentProviderLabel }}</strong>
@@ -161,7 +162,8 @@ function providerColumnClass(provider: string) {
           <strong>{{ matrixSections.length }}</strong>
           <small>{{ t('protocols.compatibilityMatrixHint') }}</small>
         </div>
-      </section>
+        </section>
+      </details>
 
       <RetryPanel
         v-if="pageError && matrixSections.length === 0"
@@ -186,12 +188,13 @@ function providerColumnClass(provider: string) {
           />
         </div>
 
-        <div v-if="filteredMatrixSections.length > 0" class="protocol-compatibility-table-wrap">
+        <p class="protocol-compatibility-scroll-hint">横向滚动可查看各连接端的支持情况。</p>
+        <div v-if="filteredMatrixSections.length > 0" class="protocol-compatibility-table-wrap" tabindex="0" role="region" aria-label="兼容能力表，可横向滚动">
           <table class="protocol-compatibility-table">
+            <colgroup><col class="capability-column"><col class="provider-column"><col class="provider-column"><col class="provider-column"><col></colgroup>
             <thead>
               <tr>
                 <th>{{ t('protocols.compatibilityCapability') }}</th>
-                <th>{{ '分类' }}</th>
                 <th :class="providerColumnClass('standard')">Standard</th>
                 <th :class="providerColumnClass('napcat')">NapCat</th>
                 <th :class="providerColumnClass('luckylillia')">LuckyLillia</th>
@@ -207,8 +210,8 @@ function providerColumnClass(provider: string) {
                 <th scope="row" class="protocol-compatibility-table__capability">
                   <div class="protocol-compatibility-table__label">{{ item.label }}</div>
                   <code>{{ item.key }}</code>
+                  <small class="protocol-compatibility-table__category">{{ section.title }}</small>
                 </th>
-                <td class="protocol-compatibility-table__category">{{ section.title }}</td>
                 <td :class="providerColumnClass('standard')">
                   <span class="protocol-support-pill" :class="supportClass(item.support.standard)">
                     {{ formatSupport(item.support.standard) }}
@@ -235,7 +238,7 @@ function providerColumnClass(provider: string) {
         </div>
       </section>
     </div>
-  </AppPage>
+  </section>
 </template>
 
 <style lang="scss" scoped>
@@ -243,6 +246,8 @@ function providerColumnClass(provider: string) {
   display: grid;
   gap: var(--app-layout-gap);
 }
+
+.protocol-provider-details summary { cursor: pointer; color: var(--muted); padding: 4px 0 16px; }
 
 .protocol-overview-band {
   display: grid;
@@ -302,8 +307,15 @@ function providerColumnClass(provider: string) {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 980px;
+  min-width: 780px;
+  table-layout: fixed;
 }
+
+.capability-column { width: 200px; }
+.provider-column { width: 98px; }
+.protocol-compatibility-table th:first-child { position: sticky; left: 0; background: var(--surface-strong); z-index: 1; }
+.protocol-compatibility-table thead th:first-child { background: var(--surface-soft); }
+.protocol-compatibility-scroll-hint { display: none; }
 
 .protocol-compatibility-table th,
 .protocol-compatibility-table td {
@@ -336,13 +348,17 @@ function providerColumnClass(provider: string) {
 }
 
 .protocol-compatibility-table__category {
-  min-width: 120px;
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--muted);
 }
 
 .protocol-compatibility-table code {
   color: var(--app-text-secondary);
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .protocol-support-pill {
@@ -392,6 +408,7 @@ function providerColumnClass(provider: string) {
 }
 
 @media (max-width: 639px) {
+  .protocol-compatibility-scroll-hint { display: block; margin: 12px 16px; font-size: 12px; color: var(--muted); }
   .protocol-compatibility-toolbar {
     grid-template-columns: 1fr;
   }

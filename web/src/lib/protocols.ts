@@ -11,7 +11,13 @@ export function oneBot11ReverseWsPath(adapterId: string) {
 
 export function buildOneBot11ReverseWsUrl(baseUrl: string, adapterId: string) {
   const endpoint = new URL(oneBot11ReverseWsPath(adapterId), baseUrl)
-  endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:'
+  endpoint.protocol = ['https:', 'wss:'].includes(endpoint.protocol) ? 'wss:' : 'ws:'
+  return endpoint.toString()
+}
+
+export function buildOneBot11WebhookUrl(baseUrl: string, adapterId: string) {
+  const endpoint = new URL(`/api/adapters/${encodeURIComponent(adapterId)}/webhook`, baseUrl)
+  endpoint.protocol = ['https:', 'wss:'].includes(endpoint.protocol) ? 'https:' : 'http:'
   return endpoint.toString()
 }
 

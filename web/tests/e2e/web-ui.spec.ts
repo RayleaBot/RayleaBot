@@ -1758,6 +1758,115 @@ test('menu center preview loads the bundled chat menu font', async ({ page, requ
   })).toBe(true)
 })
 
+test('protocol dialogs stay centered throughout their opening animation', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await page.goto('/protocols')
+
+  async function expectCenteredOpening(selector: string, trigger: import('@playwright/test').Locator) {
+    // Observe the live transition, including the size change after config loads.
+    // A screenshot taken after the animation ends cannot detect a drifting center.
+    const motion = page.evaluate((target) => new Promise<Array<{ dx: number; dy: number; scaled: boolean }>>((resolve) => {
+      const frames: Array<{ dx: number; dy: number; scaled: boolean }> = []
+      const started = performance.now()
+      let appeared: number | undefined
+      const sample = (now: number) => {
+        const dialog = document.querySelector<HTMLElement>(target)
+        if (dialog) {
+          appeared ??= now
+          const rect = dialog.getBoundingClientRect()
+          frames.push({
+            dx: Math.abs(rect.x + rect.width / 2 - window.innerWidth / 2),
+            dy: Math.abs(rect.y + rect.height / 2 - window.innerHeight / 2),
+            scaled: rect.width < dialog.offsetWidth - 1,
+          })
+        }
+        if ((appeared !== undefined && now - appeared >= 600) || now - started > 3000) resolve(frames)
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+    }), selector)
+    await trigger.click()
+    const frames = await motion
+    expect(frames.some((frame) => frame.scaled)).toBe(true)
+    expect(Math.max(...frames.map((frame) => frame.dx))).toBeLessThanOrEqual(1)
+    expect(Math.max(...frames.map((frame) => frame.dy))).toBeLessThanOrEqual(1)
+  }
+
+  await expectCenteredOpening('.adapter-config-modal .ant-modal', page.getByTestId('adapter-add'))
+  await page.getByTestId('adapter-select-qqofficial').click()
+  await page.getByLabel('AppID', { exact: true }).fill('100000007')
+  await expectCenteredOpening('.protocol-confirm-modal .ant-modal', page.locator('.adapter-config-modal .ant-modal-close'))
+  await page.getByRole('button', { name: '放弃修改' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expectCenteredOpening('.adapter-config-modal .ant-modal', page.getByTestId('adapter-onebot11'))
+  await page.locator('.ant-modal-close').click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expectCenteredOpening('.protocol-compatibility-modal .ant-modal', page.getByRole('button', { name: '兼容矩阵', exact: true }))
+})
+
+test('protocol connection creation stays local until the completed form is saved', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await page.goto('/protocols')
+  const writes: unknown[] = []
+  page.on('request', (entry) => {
+    if (entry.method() === 'PUT' && entry.url().endsWith('/api/config')) writes.push(entry.postDataJSON())
+  })
+  await expect(page.getByTestId('adapter-select-qqofficial')).toHaveCount(0)
+  await page.getByTestId('adapter-add').click()
+  await page.getByTestId('adapter-select-qqofficial').click()
+  await expect(page.getByLabel('AppID', { exact: true })).toBeFocused()
+  await page.getByTestId('adapter-save').click()
+  await expect(page.getByText('请输入 AppSecret。')).toBeVisible()
+  expect(writes).toHaveLength(0)
+  await page.getByLabel('AppID', { exact: true }).fill('100000007')
+  await page.keyboard.press('Escape')
+  await expect(page.getByText('放弃未保存的修改？')).toBeVisible()
+  await page.getByRole('button', { name: '放弃修改' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByTestId('adapter-add')).toBeFocused()
+  expect(writes).toHaveLength(0)
+
+  await page.getByTestId('adapter-add').click()
+  await page.getByTestId('adapter-select-qqofficial').click()
+  await page.getByLabel('AppID', { exact: true }).fill('100000007')
+  await page.getByLabel('AppSecret', { exact: true }).fill('fixture-protocol-secret')
+  await page.getByTestId('adapter-save').click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByTestId('adapter-restart-notice')).toBeVisible()
+  expect(writes).toHaveLength(1)
+  await page.getByTestId('adapter-qq-official').click()
+  await expect(page.getByLabel('AppSecret', { exact: true })).toHaveValue('********')
+  await page.getByLabel('AppID', { exact: true }).fill('100000008')
+  await page.getByTestId('adapter-save').click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  expect(writes).toHaveLength(2)
+  expect((writes[1] as { adapters: Array<{ id: string; qqofficial?: { app_secret: string } }> }).adapters.find((entry) => entry.id === 'qq-official')?.qqofficial?.app_secret).toBe('********')
+})
+
+test('protocol legacy links open dialogs within one workspace and fit a narrow viewport', async ({ page, request }) => {
+  await resetBackend(request, true)
+  await login(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/protocols/onebot11/onebot11')
+  await expect(page).toHaveURL(/\/protocols\?adapter=onebot11$/)
+  await expect(page.getByRole('dialog', { name: '配置 OneBot11' })).toBeVisible()
+  await expectDocumentWithinViewport(page)
+  await expect(page.getByTestId('adapter-save')).toBeInViewport()
+  await page.locator('.ant-modal-close').click()
+  await page.goto('/protocols/compatibility')
+  await expect(page).toHaveURL(/\/protocols\?view=compatibility$/)
+  await expect(page.getByRole('dialog', { name: '协议兼容矩阵' })).toBeVisible()
+  await page.getByLabel('筛选兼容能力').fill('group.sign')
+  await expect(page.locator('.protocol-compatibility-table')).toContainText('provider.napcat.group.sign.set')
+  await expectDocumentWithinViewport(page)
+  await page.getByLabel('筛选兼容能力').fill('no-matching-capability')
+  await expect(page.getByRole('status')).toContainText('没有匹配的兼容能力')
+})
+
 test('protocol center owns OneBot settings and logs center keeps protocol filtering', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -1768,42 +1877,20 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await page.goto('/protocols')
 
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
-  await expect(page.getByText('当前正式支持协议：OneBot11')).toBeVisible()
-  await expect(page.getByText('OneBot11 主动连接已就绪')).toBeVisible()
-  await expect(page.locator('.integrated-protocol-table')).toContainText('主动连接 WebSocket')
-  await expect(page.getByTestId('protocol-unsaved-status')).toHaveCount(0)
-
-  const reverseTransportRow = page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()
-  const reverseCallbackAddress = reverseTransportRow.getByRole('textbox', { name: '协议端回连地址', exact: true })
-  await expect(reverseCallbackAddress).toHaveAttribute('readonly', '')
-  await expect(reverseCallbackAddress).toHaveValue('ws://127.0.0.1:4010/api/protocols/onebot11/reverse-ws')
-  await expect(reverseTransportRow.getByRole('button', { name: '复制回连地址', exact: true })).toBeVisible()
-  await expect(page.locator('.ant-drawer')).toHaveCount(0)
-  await page.getByText('展开更多配置项').click()
+  await expect(page.locator('.connections-grid')).toContainText('OneBot11')
+  await expect(page.getByTestId('adapter-select-onebot11')).toHaveCount(0)
+  await page.getByTestId('adapter-onebot11').click()
+  await expect(page.getByRole('dialog', { name: '配置 OneBot11' })).toBeVisible()
+  await page.getByText('高级设置', { exact: false }).click()
   await page.getByLabel('连接超时（秒）').fill('18')
-  await expect(page.getByTestId('protocol-unsaved-status')).toContainText('协议设置尚未保存')
-  const firstProtocolSaveResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'PUT'
-    && response.url().endsWith('/api/config')
-  ))
-  await page.getByTestId('protocol-save').click()
-  expect((await firstProtocolSaveResponsePromise).status()).toBe(200)
-  await expect(page.getByTestId('protocol-unsaved-status')).toHaveCount(0)
-  await expect(reverseTransportRow).toContainText('未启用')
-
-  await page.reload()
-  await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
-  await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('未启用')
-
-  await page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first().getByRole('switch', { name: '回连 WebSocket' }).click()
-  const secondProtocolSaveResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'PUT'
-    && response.url().endsWith('/api/config')
-  ))
-  await page.getByTestId('protocol-save').click()
-  expect((await secondProtocolSaveResponsePromise).status()).toBe(200)
-  await expect(page.locator('.integrated-protocol-table tr').filter({ hasText: '回连 WebSocket' }).first()).toContainText('等待 OneBot 回连')
-  await expect(page.getByRole('button', { name: '查看实时日志' })).toBeVisible()
+  const saveResponse = page.waitForResponse((response) => response.request().method() === 'PUT' && response.url().endsWith('/api/config'))
+  await page.getByTestId('adapter-save').click()
+  expect((await saveResponse).status()).toBe(200)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.getByTestId('adapter-onebot11').click()
+  await page.locator('summary').filter({ hasText: '高级设置' }).click()
+  await expect(page.getByLabel('连接超时（秒）')).toHaveValue('18')
+  await page.locator('.ant-modal-close').click()
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
@@ -1842,11 +1929,13 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect(page.locator('.ant-drawer-mask')).toHaveCount(0)
 
   await page.getByRole('button', { name: '兼容矩阵' }).click()
-  await expect.poll(() => page.url()).toContain('/protocols/compatibility')
-  await expect(page.getByRole('heading', { name: '协议兼容矩阵', level: 1 })).toBeVisible()
+  await expect.poll(() => page.url()).toContain('/protocols?view=compatibility')
+  await expect(page.getByRole('dialog', { name: '协议兼容矩阵' })).toBeVisible()
 
   await page.goto('/protocols')
-  await page.getByRole('button', { name: '查看实时日志' }).click()
+  await page.getByTestId('adapter-onebot11').click()
+  await page.locator('summary').filter({ hasText: '运行状态与诊断' }).click()
+  await page.getByRole('button', { name: '查看此协议的实时日志' }).click()
   await expect.poll(() => page.url()).toContain('/logs')
   await expect(page.url()).toContain('protocol=onebot11')
 
@@ -2903,7 +2992,7 @@ test('critical workspaces fit supported viewports and keep shell navigation keyb
       await page.goto(workspace.path)
       await expect(page.getByRole('heading', { name: workspace.heading, level: 1 })).toBeVisible()
       if (workspace.path === '/plugins') await expect(pluginRows(page).first()).toBeVisible()
-      if (workspace.path === '/protocols') await expect(page.locator('.integrated-protocol-table')).toBeVisible()
+      if (workspace.path === '/protocols') await expect(page.locator('.connections-surface')).toBeVisible()
       if (workspace.path.startsWith('/render/')) await expect(page.getByTestId('render-template-preview-result').locator('iframe')).toBeVisible()
       await expectDocumentWithinViewport(page)
     }

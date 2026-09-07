@@ -28,12 +28,11 @@ const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
 const redactedConfigValue = '********'
 const helpMenuFontAssetRoot = path.join(repoRoot, 'templates', 'help.menu', 'assets', 'fonts', 'noto-sans-sc')
-const secretConfigPaths = [
-  ['onebot', 'forward_ws', 'access_token'],
-  ['onebot', 'http_api', 'access_token'],
-  ['onebot', 'reverse_ws', 'access_token'],
-  ['onebot', 'webhook', 'access_token'],
-]
+function secretConfigPaths(config) {
+  return (config.adapters ?? []).flatMap((entry) => entry.type === 'onebot11'
+    ? ['forward_ws', 'http_api', 'reverse_ws', 'webhook'].map((transport) => ['adapters', entry.id, 'onebot11', transport, 'access_token'])
+    : [['adapters', entry.id, 'qqofficial', 'app_secret']])
+}
 const externalPreviewFontBytes = await readFile(
   path.join(helpMenuFontAssetRoot, 'k3kXo84MPvpLmixcA63oeALRLoKI.woff2'),
 )
@@ -151,6 +150,7 @@ function baseState() {
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
+    loadedAdapterIds: fixtures.configGet.response.body.config.adapters.map((entry) => entry.id),
     protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
@@ -177,7 +177,7 @@ function baseState() {
 
 function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
   const snapshot = structuredClone(currentSnapshot)
-  const onebot = config.onebot ?? {}
+  const onebot = config.adapters?.find((entry) => entry.type === 'onebot11')?.onebot11 ?? {}
   const reverseWs = onebot.reverse_ws ?? { enabled: false, url: '' }
   const forwardWs = onebot.forward_ws ?? { enabled: false, url: '' }
   const httpApi = onebot.http_api ?? { enabled: false, url: '' }
@@ -255,7 +255,7 @@ function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
 function redactConfigSecrets(config) {
   const snapshot = structuredClone(config)
   const redactedFields = []
-  for (const secretPath of secretConfigPaths) {
+  for (const secretPath of secretConfigPaths(config)) {
     const value = getPath(snapshot, secretPath)
     if (typeof value !== 'string' || value.trim() === '') {
       continue
@@ -271,7 +271,7 @@ function redactConfigSecrets(config) {
 
 function restoreRedactedConfigSecrets(payload, currentConfig) {
   const nextConfig = structuredClone(payload)
-  for (const secretPath of secretConfigPaths) {
+  for (const secretPath of secretConfigPaths(nextConfig)) {
     const submitted = getPath(nextConfig, secretPath)
     if (submitted !== undefined && String(submitted).trim() !== redactedConfigValue) {
       continue
@@ -284,6 +284,10 @@ function restoreRedactedConfigSecrets(payload, currentConfig) {
 function getPath(value, segments) {
   let current = value
   for (const segment of segments) {
+    if (Array.isArray(current)) {
+      current = current.find((entry) => entry.id === segment)
+      continue
+    }
     if (!current || typeof current !== 'object' || !(segment in current)) {
       return undefined
     }
@@ -295,6 +299,11 @@ function getPath(value, segments) {
 function setPath(value, segments, nextValue) {
   let current = value
   for (const segment of segments.slice(0, -1)) {
+    if (Array.isArray(current)) {
+      current = current.find((entry) => entry.id === segment)
+      if (!current) return
+      continue
+    }
     if (!current[segment] || typeof current[segment] !== 'object') {
       current[segment] = {}
     }
@@ -477,6 +486,7 @@ function escapeHTML(value) {
 }
 
 const configRestartRequiredFields = new Set([
+  'adapters',
   'admin.max_sessions',
   'admin.session_ttl_days',
   'admin.sliding_renewal',
@@ -505,7 +515,7 @@ function computeConfigApplyEffects(prevConfig, nextConfig) {
   }
 
   for (const path of [...new Set(changedPaths)]) {
-    if (path.startsWith('onebot.') || path.startsWith('adapter.')) {
+    if (path.startsWith('adapters.') || path.startsWith('adapter.')) {
       effects.reloaded_now.push(path)
     } else if (configRestartRequiredFields.has(path) || path.startsWith('database.') || path.startsWith('server.') || path.startsWith('web.')) {
       effects.restart_required_fields.push(path)
@@ -518,6 +528,15 @@ function computeConfigApplyEffects(prevConfig, nextConfig) {
 }
 
 function collectChangedConfigPaths(prefix, prevValue, nextValue, changedPaths) {
+  if (prefix === 'adapters' && Array.isArray(prevValue) && Array.isArray(nextValue)) {
+    const identities = (entries) => entries.map(({ id, type }) => ({ id, type }))
+    if (JSON.stringify(identities(prevValue)) !== JSON.stringify(identities(nextValue))) {
+      changedPaths.push(prefix)
+    } else {
+      nextValue.forEach((entry, index) => collectChangedConfigPaths(`adapters.${entry.id}`, prevValue[index], entry, changedPaths))
+    }
+    return
+  }
   if (isPlainObject(prevValue) && isPlainObject(nextValue)) {
     const keys = [...new Set([...Object.keys(prevValue), ...Object.keys(nextValue)])].sort()
     for (const key of keys) {
@@ -1754,6 +1773,25 @@ const server = http.createServer(async (request, response) => {
       redacted_fields: snapshot.redacted_fields,
       restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
       apply_effects: applyEffects,
+    })
+    return
+  }
+
+  if (pathname === '/api/adapters' && request.method === 'GET') {
+    if (!requireAuth(request, response)) return
+    json(response, 200, {
+      adapters: state.config.adapters.filter((entry) => state.loadedAdapterIds.includes(entry.id)).map((entry) => ({
+        id: entry.id,
+        protocol: entry.type,
+        display_name: entry.type === 'onebot11' ? 'OneBot11' : 'QQ 官方机器人',
+        enabled: entry.enabled,
+        state: entry.enabled ? 'connecting' : 'stopped',
+        summary: entry.enabled ? '正在连接协议端。' : '此连接已配置，当前未启用。',
+      })),
+      available_protocols: [
+        { protocol: 'onebot11', display_name: 'OneBot11', description: '连接 NapCat 等实现 OneBot11 的协议端。' },
+        { protocol: 'qqofficial', display_name: 'QQ 官方机器人', description: '使用 QQ 开放平台的 AppID 和 AppSecret 接入。' },
+      ],
     })
     return
   }

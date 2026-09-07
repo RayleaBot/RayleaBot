@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
 import ExceptionView from '@/views/core/ExceptionView.vue'
+import { buildProtocolCompatibilityLocation, buildProtocolsLocation } from '@/lib/management-links'
 
 function groupRoute(
   titleKey: string,
@@ -170,14 +171,13 @@ export const adminRoutes: RouteRecordRaw[] = [
             order: 2,
             requiresAuth: true,
             titleKey: 'routes.protocols',
+            viewKey: 'protocols',
           },
         },
         {
-          // Settings are addressed per adapter instance: several instances of
-          // one protocol can be configured, each with its own credentials.
           path: '/protocols/qqofficial/:adapterId',
           name: 'protocols-qqofficial',
-          component: () => import('@/views/protocols/QQOfficialView.vue'),
+          redirect: (to) => buildProtocolsLocation({ adapterId: String(to.params.adapterId) }),
           meta: {
             hideInMenu: true,
             keepAlive: true,
@@ -188,7 +188,7 @@ export const adminRoutes: RouteRecordRaw[] = [
         {
           path: '/protocols/onebot11/:adapterId',
           name: 'protocols-onebot11',
-          component: () => import('@/views/protocols/ProtocolsView.vue'),
+          redirect: (to) => buildProtocolsLocation({ adapterId: String(to.params.adapterId) }),
           meta: {
             hideInMenu: true,
             keepAlive: true,
@@ -199,11 +199,9 @@ export const adminRoutes: RouteRecordRaw[] = [
         {
           path: '/protocols/compatibility',
           name: 'protocols-compatibility',
-          component: () => import('@/views/protocols/ProtocolCompatibilityView.vue'),
+          redirect: () => buildProtocolCompatibilityLocation(),
           meta: {
-            icon: 'protocol-compatibility',
-            keepAlive: true,
-            order: 3,
+            hideInMenu: true,
             requiresAuth: true,
             titleKey: 'routes.protocolCompatibility',
           },

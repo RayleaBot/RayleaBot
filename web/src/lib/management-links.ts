@@ -229,8 +229,15 @@ export function buildPluginDetailLocation(pluginId: string, options: { panel?: P
   } satisfies RouteLocationRaw
 }
 
-export function buildProtocolsLocation() {
-  return { name: 'protocols' } satisfies RouteLocationRaw
+export function buildProtocolsLocation(options: { adapterId?: string; view?: 'add' | 'compatibility' } = {}) {
+  return {
+    name: 'protocols',
+    params: {},
+    query: createLocationQuery([
+      ['adapter', normalizeString(options.adapterId)],
+      ['view', options.view],
+    ]),
+  } satisfies RouteLocationRaw
 }
 
 export function buildProtocolRealtimeLogsLocation(protocol: NonNullable<LogFilters['protocol']> = 'onebot11') {
@@ -242,7 +249,7 @@ export function buildProtocolRealtimeLogsLocation(protocol: NonNullable<LogFilte
 }
 
 export function buildProtocolCompatibilityLocation() {
-  return { name: 'protocols-compatibility' } satisfies RouteLocationRaw
+  return buildProtocolsLocation({ view: 'compatibility' })
 }
 
 export function buildRenderTemplateLocation(templateId?: string | null) {

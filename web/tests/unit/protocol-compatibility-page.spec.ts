@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import ProtocolCompatibilityPage from '@/views/protocols/ProtocolCompatibilityView.vue'
+import ProtocolCompatibilityPage from '@/views/protocols/ProtocolCompatibilityPanel.vue'
 import { useProtocolCompatibilityStore } from '@/stores/protocol-compatibility'
 import { useProtocolsStore } from '@/stores/protocols'
 
@@ -119,7 +119,7 @@ describe('ProtocolCompatibilityPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('协议兼容矩阵')
+    expect(wrapper.text()).toContain('默认 OneBot 连接端')
     expect(wrapper.text()).toContain('NapCat')
     expect(wrapper.text()).toContain('主动连接 WebSocket')
     expect(wrapper.text()).toContain('Webhook')
