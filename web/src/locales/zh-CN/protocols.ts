@@ -17,6 +17,7 @@ export const protocols = {
   qqTitle: 'QQ 官方机器人',
   qqSubtitle: '通过 QQ 开放平台接入官方机器人。凭据保存在本机 secret store，配置文件只保留引用。',
   qqEnabled: '启用适配器',
+  adapterEnabled: '启用适配器',
   qqAppId: 'AppID',
   qqAppIdHint: 'QQ 开放平台的机器人 AppID，不是机密。',
   qqAppSecret: 'AppSecret',

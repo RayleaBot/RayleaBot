@@ -77,9 +77,9 @@ async function addAdapter(protocol: AdapterProtocolDescriptor) {
     const instances = readAdapterInstances(draft)
     ;(draft as Record<string, unknown>).adapters = [...instances, buildAdapterInstance(id, protocol.protocol)]
 
-    await configStore.saveConfig(draft)
+    const response = await configStore.saveConfig(draft)
     await adaptersStore.refresh().catch(() => undefined)
-    notifySuccess(t('protocols.addAdapterSuccess'))
+    notifySuccess(response.restart_required ? t('config.saveRestart') : t('protocols.addAdapterSuccess'))
     void router.push(adapterEditorRoute(protocol.protocol, id))
   } catch (err) {
     notifyError(getDisplayErrorMessage(err, 'errors.common.saveFailed'))

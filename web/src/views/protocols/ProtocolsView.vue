@@ -116,6 +116,10 @@ const reverseWsCallbackUrl = computed(() => buildOneBot11ReverseWsUrl(
   adapterId.value,
 ))
 const reverseWsEnabled = computed(() => Boolean(readField(settingsPath('reverse_ws.enabled'), 'boolean')))
+const instanceEnabled = computed({
+  get: () => Boolean(readField(`adapters.${adapterId.value}.enabled`, 'boolean')),
+  set: (value: boolean) => writeField(`adapters.${adapterId.value}.enabled`, 'boolean', value),
+})
 const reverseWsAddressNeedsSync = computed(() => (
   reverseWsEnabled.value
   && String(readField(settingsPath('reverse_ws.url'), 'text') ?? '').trim() !== reverseWsCallbackUrl.value
@@ -364,6 +368,10 @@ const adapterConfigFields = computed(() => {
             <h2 class="workspace-title">{{ t('protocols.workspaceTitle') }}</h2>
             <p class="workspace-subtitle">{{ t('protocols.workspaceSubtitle') }}</p>
           </div>
+          <label class="instance-toggle">
+            <span>{{ t('protocols.adapterEnabled') }}</span>
+            <a-switch v-model:checked="instanceEnabled" :disabled="!draft || saving" data-testid="onebot-instance-enabled" />
+          </label>
           <div v-if="restartRequired !== null" class="restart-indicator">
             <a-tag :color="restartRequired ? 'warning' : 'success'" class="restart-status-tag">
               {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
@@ -582,6 +590,7 @@ const adapterConfigFields = computed(() => {
 </template>
 
 <style lang="scss" scoped>
+.instance-toggle { display: flex; align-items: center; gap: 8px; }
 .protocol-settings-page {
   --success-rgb: 34, 197, 94;
   --warning-rgb: 234, 179, 8;

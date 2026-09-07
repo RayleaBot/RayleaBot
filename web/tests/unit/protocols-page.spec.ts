@@ -46,6 +46,33 @@ describe('ProtocolsPage', () => {
     })
   }
 
+  it('enables the selected instance while preserving its transport settings', async () => {
+    const configStore = useConfigStore()
+    const protocolsStore = useProtocolsStore()
+    configStore.document = createConfigDocumentFixture()
+    const instance = (configStore.document.adapters as Array<Record<string, unknown>>).find((item) => item.id === ADAPTER_ID)!
+    instance.enabled = false
+    const before = JSON.parse(JSON.stringify(instance.onebot11))
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: null } as never)
+    const save = vi.spyOn(configStore, 'saveConfig').mockResolvedValue({ restart_required: false } as never)
+    const router = createTestRouter()
+    await router.push(ADAPTER_ROUTE)
+    await router.isReady()
+    const wrapper = mount(ProtocolsPage, { global: { plugins: [Antd, router] } })
+    await flushPromises()
+    const toggle = wrapper.get('[data-testid="onebot-instance-enabled"]')
+    expect(toggle.attributes('aria-checked')).toBe('false')
+    await toggle.trigger('click')
+    await wrapper.get('[data-testid="protocol-save"]').trigger('click')
+    await flushPromises()
+    const saved = save.mock.calls[0][0].adapters as Array<Record<string, unknown>>
+    const selected = saved.find((item) => item.id === ADAPTER_ID)!
+    expect(selected.enabled).toBe(true)
+    expect(selected.onebot11).toEqual(before)
+    wrapper.unmount()
+  })
+
   it('renders protocol settings with a readable chinese status summary', async () => {
     const configStore = useConfigStore()
     const protocolsStore = useProtocolsStore()
