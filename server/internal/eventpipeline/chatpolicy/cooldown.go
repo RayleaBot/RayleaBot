@@ -137,5 +137,5 @@ func buildCooldownTargetLabel(ctx context.Context, event chatevent.NormalizedEve
 		resolver = candidate
 	}
 
-	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
+	return outbound.BuildTargetLabel(ctx, event.SourceAdapter, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }

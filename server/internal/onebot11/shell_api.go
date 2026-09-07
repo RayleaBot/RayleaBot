@@ -350,7 +350,13 @@ func (c shellAPICaller) Errorf(code, message string, err error) error {
 	return errorf(code, message, err)
 }
 
-func (s *Shell) ResolveTargetName(ctx context.Context, targetType, targetID string) string {
+// ResolveTargetName names a conversation of this adapter instance. A question
+// about another instance is not answered: the identifier belongs to that
+// adapter's namespace, and this connection's API knows nothing about it.
+func (s *Shell) ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string {
+	if adapterID != "" && s.adapterID != "" && adapterID != s.adapterID {
+		return ""
+	}
 	return ResolveTargetName(ctx, targetType, targetID, shellTargetNameResolver{s: s})
 }
 

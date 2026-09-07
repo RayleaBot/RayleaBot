@@ -82,6 +82,21 @@ func (r *adapterRouter) resolve(sourceAdapter, sourceProtocol string) (outbound.
 	)
 }
 
+// ResolveTargetName forwards the question to the adapter the conversation
+// belongs to. Without it the label would be built by whichever adapter the
+// pipeline happened to hold, which for a keyed router is none of them.
+func (r *adapterRouter) ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string {
+	sender, ok := r.senders[strings.TrimSpace(adapterID)]
+	if !ok {
+		return ""
+	}
+	resolver, ok := sender.(outbound.TargetDisplayResolver)
+	if !ok {
+		return ""
+	}
+	return resolver.ResolveTargetName(ctx, adapterID, targetType, targetID)
+}
+
 func (r *adapterRouter) adaptersOfProtocol(protocol string) []string {
 	matched := make([]string, 0, len(r.senders))
 	for id := range r.senders {

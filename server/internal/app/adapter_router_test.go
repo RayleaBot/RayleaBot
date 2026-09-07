@@ -114,3 +114,43 @@ func TestAdapterRouterHonoursAPluginNamedProtocol(t *testing.T) {
 		t.Fatalf("delivered via %v, want the named adapter", sent)
 	}
 }
+
+type namingSender struct {
+	recordingSender
+	names map[string]string
+}
+
+func (s namingSender) ResolveTargetName(_ context.Context, adapterID, targetType, targetID string) string {
+	return s.names[adapterID+"/"+targetType+":"+targetID]
+}
+
+// Outbound log lines name the conversation, and the router is what the pipeline
+// holds. Without this the label falls back to a bare id for every adapter.
+func TestAdapterRouterResolvesTargetNamesThroughTheOwningAdapter(t *testing.T) {
+	t.Parallel()
+
+	var sent []string
+	router := newAdapterRouter(map[string]outbound.ActionSender{
+		"onebot11":   namingSender{recordingSender{name: "onebot11", sent: &sent}, map[string]string{"onebot11/group:200": "测试群"}},
+		"second-bot": namingSender{recordingSender{name: "second-bot", sent: &sent}, map[string]string{"second-bot/group:200": "另一个群"}},
+	}, map[string]string{"onebot11": "onebot11", "second-bot": "onebot11"})
+
+	resolver, ok := any(router).(outbound.TargetDisplayResolver)
+	if !ok {
+		t.Fatal("the router does not answer target-name questions, so log lines lose their names")
+	}
+
+	// The same identifier means different conversations on different adapters,
+	// so the answer has to come from the one that owns it.
+	if got := resolver.ResolveTargetName(context.Background(), "onebot11", "group", "200"); got != "测试群" {
+		t.Fatalf("ResolveTargetName = %q, want the owning adapter's name", got)
+	}
+	if got := resolver.ResolveTargetName(context.Background(), "second-bot", "group", "200"); got != "另一个群" {
+		t.Fatalf("ResolveTargetName = %q, want the other adapter's name", got)
+	}
+	// An adapter that is not connected answers nothing rather than borrowing
+	// another adapter's answer.
+	if got := resolver.ResolveTargetName(context.Background(), "no-such-bot", "group", "200"); got != "" {
+		t.Fatalf("ResolveTargetName = %q, want no answer for an unknown adapter", got)
+	}
+}

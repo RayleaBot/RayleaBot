@@ -196,7 +196,7 @@ func buildOutboundTargetLabel(ctx context.Context, event pluginruntime.Event, ta
 		resolver = candidate
 	}
 
-	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
+	return outbound.BuildTargetLabel(ctx, event.SourceAdapter, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
 func toOutboundSegments(segments []pluginruntime.ActionSegment) []chatevent.MessageSegment {

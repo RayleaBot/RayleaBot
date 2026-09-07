@@ -48,8 +48,8 @@ func waitForOutboundSummary(t *testing.T, stream *logging.Stream) logging.Summar
 
 type stubTargetDisplayResolver map[string]string
 
-func (s stubTargetDisplayResolver) ResolveTargetName(_ context.Context, targetType, targetID string) string {
-	return s[targetType+":"+targetID]
+func (s stubTargetDisplayResolver) ResolveTargetName(_ context.Context, adapterID, targetType, targetID string) string {
+	return s[adapterID+"/"+targetType+":"+targetID]
 }
 
 func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
@@ -120,8 +120,8 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 func TestBuildTargetLabelPrefersEventContextForPrivateMessage(t *testing.T) {
 	t.Parallel()
 
-	label := BuildTargetLabel(context.Background(), "private", "300", "", "300", "测试用户A", stubTargetDisplayResolver{
-		"private:300": "测试用户B",
+	label := BuildTargetLabel(context.Background(), "onebot11", "private", "300", "", "300", "测试用户A", stubTargetDisplayResolver{
+		"onebot11/private:300": "测试用户B",
 	})
 	if label != "测试用户A(300)" {
 		t.Fatalf("unexpected private label: got %q want %q", label, "测试用户A(300)")
@@ -131,14 +131,14 @@ func TestBuildTargetLabelPrefersEventContextForPrivateMessage(t *testing.T) {
 func TestBuildTargetLabelUsesResolverAndFallbackFormats(t *testing.T) {
 	t.Parallel()
 
-	groupLabel := BuildTargetLabel(context.Background(), "group", "200", "", "", "", stubTargetDisplayResolver{
-		"group:200": "测试群",
+	groupLabel := BuildTargetLabel(context.Background(), "onebot11", "group", "200", "", "", "", stubTargetDisplayResolver{
+		"onebot11/group:200": "测试群",
 	})
 	if groupLabel != "[测试群(200)]" {
 		t.Fatalf("unexpected group label: got %q want %q", groupLabel, "[测试群(200)]")
 	}
 
-	privateLabel := BuildTargetLabel(context.Background(), "private", "300", "", "", "", stubTargetDisplayResolver{})
+	privateLabel := BuildTargetLabel(context.Background(), "onebot11", "private", "300", "", "", "", stubTargetDisplayResolver{})
 	if privateLabel != "私聊(300)" {
 		t.Fatalf("unexpected private fallback label: got %q want %q", privateLabel, "私聊(300)")
 	}

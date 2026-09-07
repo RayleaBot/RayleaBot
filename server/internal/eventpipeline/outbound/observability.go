@@ -150,12 +150,17 @@ func sendSummary(context SendLogContext, targetType, targetID, plainText string,
 	return subject + " -> " + targetLabel + "：" + summarizePlainText(plainText)
 }
 
+// TargetDisplayResolver names a conversation for a log line. The adapter id is
+// part of the question: target identifiers live in each adapter's own
+// namespace, so asking the wrong one either answers nothing or answers about an
+// unrelated conversation that happens to share an id.
 type TargetDisplayResolver interface {
-	ResolveTargetName(context.Context, string, string) string
+	ResolveTargetName(ctx context.Context, adapterID, targetType, targetID string) string
 }
 
 func BuildTargetLabel(
 	ctx context.Context,
+	adapterID string,
 	targetType string,
 	targetID string,
 	targetName string,
@@ -172,7 +177,7 @@ func BuildTargetLabel(
 	switch targetType {
 	case "group":
 		if targetName == "" && resolver != nil {
-			targetName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
+			targetName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, adapterID, targetType, targetID)))
 		}
 		return formatTargetLabel(targetType, targetID, targetName)
 	case "private":
@@ -181,12 +186,12 @@ func BuildTargetLabel(
 			displayName = actorNickname
 		}
 		if displayName == "" && resolver != nil {
-			displayName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
+			displayName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, adapterID, targetType, targetID)))
 		}
 		return formatTargetLabel(targetType, targetID, displayName)
 	default:
 		if targetName == "" && resolver != nil {
-			targetName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, targetType, targetID)))
+			targetName = strings.TrimSpace(redact.SanitizeString(resolver.ResolveTargetName(ctx, adapterID, targetType, targetID)))
 		}
 		return formatTargetLabel(targetType, targetID, targetName)
 	}

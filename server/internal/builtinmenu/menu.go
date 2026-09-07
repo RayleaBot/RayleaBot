@@ -752,7 +752,7 @@ func (s *Service) builtinMenuTargetLabel(ctx context.Context, event chatevent.No
 	if candidate, ok := any(s.sender).(outbound.TargetDisplayResolver); ok {
 		resolver = candidate
 	}
-	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
+	return outbound.BuildTargetLabel(ctx, event.SourceAdapter, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
 func (s *Service) sendBuiltinMenuImage(ctx context.Context, event chatevent.NormalizedEvent, commandName string, imagePath string) {
