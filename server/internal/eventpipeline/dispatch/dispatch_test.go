@@ -3,6 +3,7 @@ package dispatch
 import (
 	"bytes"
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
 	"strings"
@@ -98,16 +99,16 @@ func (f *fakeDeliverer) setState(state pluginruntime.State) {
 
 type fakeSender struct {
 	mu          sync.Mutex
-	messages    []onebot11.OutboundMessageSend
-	replies     []onebot11.OutboundMessageReply
-	sent        chan onebot11.OutboundMessageSend
-	sendResult  onebot11.SendMessageResult
-	replyResult onebot11.SendMessageResult
+	messages    []chatevent.OutboundMessageSend
+	replies     []chatevent.OutboundMessageReply
+	sent        chan chatevent.OutboundMessageSend
+	sendResult  chatevent.SendMessageResult
+	replyResult chatevent.SendMessageResult
 	sendErr     error
 	replyErr    error
 }
 
-func (f *fakeSender) SendMessage(_ context.Context, msg onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
+func (f *fakeSender) SendMessage(_ context.Context, msg chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	f.mu.Lock()
 	f.messages = append(f.messages, msg)
 	result := f.sendResult
@@ -124,7 +125,7 @@ func (f *fakeSender) SendMessage(_ context.Context, msg onebot11.OutboundMessage
 	return result, err
 }
 
-func (f *fakeSender) SendReply(_ context.Context, reply onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
+func (f *fakeSender) SendReply(_ context.Context, reply chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	f.mu.Lock()
 	f.replies = append(f.replies, reply)
 	f.mu.Unlock()
@@ -211,7 +212,7 @@ func waitForStartedEvent(t *testing.T, started <-chan pluginruntime.Event) plugi
 	}
 }
 
-func waitForSentMessage(t *testing.T, sent <-chan onebot11.OutboundMessageSend) onebot11.OutboundMessageSend {
+func waitForSentMessage(t *testing.T, sent <-chan chatevent.OutboundMessageSend) chatevent.OutboundMessageSend {
 	t.Helper()
 
 	select {
@@ -219,7 +220,7 @@ func waitForSentMessage(t *testing.T, sent <-chan onebot11.OutboundMessageSend) 
 		return message
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected outbound message send")
-		return onebot11.OutboundMessageSend{}
+		return chatevent.OutboundMessageSend{}
 	}
 }
 
@@ -883,7 +884,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 }
 
 func TestDispatchActionExecution(t *testing.T) {
-	sender := &fakeSender{sent: make(chan onebot11.OutboundMessageSend, 1)}
+	sender := &fakeSender{sent: make(chan chatevent.OutboundMessageSend, 1)}
 	d := New(slog.Default(), sender, nil, 16)
 	allowAllPermissions(d)
 	defer d.Close()
@@ -919,7 +920,7 @@ func TestDispatchActionExecution(t *testing.T) {
 }
 
 func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
-	sender := &fakeSender{sent: make(chan onebot11.OutboundMessageSend, 1)}
+	sender := &fakeSender{sent: make(chan chatevent.OutboundMessageSend, 1)}
 	d := New(slog.Default(), sender, nil, 16)
 	allowAllPermissions(d)
 	defer d.Close()

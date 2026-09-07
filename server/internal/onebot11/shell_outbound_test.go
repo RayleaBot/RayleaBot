@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/reconnect"
 	"github.com/coder/websocket"
@@ -74,10 +75,10 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	_, err := shell.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Segments: []OutboundMessageSegment{
+		Segments: []chatevent.MessageSegment{
 			{Type: "at", Data: map[string]any{"user_id": "3001"}},
 			{Type: "text", Data: map[string]any{"text": " rich outbound"}},
 			{Type: "image", Data: map[string]any{"url": "https://example.test/rich.png"}},
@@ -174,11 +175,11 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	_, err := shell.SendReply(context.Background(), OutboundMessageReply{
+	_, err := shell.SendReply(context.Background(), chatevent.OutboundMessageReply{
 		TargetType:       "group",
 		TargetID:         "2001",
 		ReplyToMessageID: "98765",
-		Segments: []OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "reply text"},
 		}},

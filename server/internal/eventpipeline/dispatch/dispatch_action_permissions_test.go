@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"log/slog"
 	"strings"
 	"sync"
@@ -151,7 +152,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: onebot11.SendMessageResult{MessageID: "send-100"},
+		sendResult: chatevent.SendMessageResult{MessageID: "send-100"},
 	}
 	d := New(logger, sender, nil, 16)
 	allowAllPermissions(d)
@@ -266,7 +267,7 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
 		replyErr:   &onebot11.Error{Code: "adapter.reply_target_missing", Message: "reply target missing"},
-		sendResult: onebot11.SendMessageResult{MessageID: "send-200"},
+		sendResult: chatevent.SendMessageResult{MessageID: "send-200"},
 	}
 	resolver := fakeReplyTargets{
 		"evt_reply_target": {
@@ -326,7 +327,7 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{
-		sendResult: onebot11.SendMessageResult{MessageID: "send-300"},
+		sendResult: chatevent.SendMessageResult{MessageID: "send-300"},
 	}
 	d := New(logger, sender, nil, 16)
 	allowAllPermissions(d)

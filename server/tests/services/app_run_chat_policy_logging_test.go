@@ -248,18 +248,18 @@ type recordingOutboundSender struct {
 	messageErr       error
 }
 
-func (s *recordingOutboundSender) SendMessage(_ context.Context, action onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
+func (s *recordingOutboundSender) SendMessage(_ context.Context, action chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	s.messageCount++
 	s.lastMessageText = firstTextSegment(action.Segments)
 	s.lastMessageImage = firstImageSegment(action.Segments)
-	return onebot11.SendMessageResult{MessageID: "msg-1"}, s.messageErr
+	return chatevent.SendMessageResult{MessageID: "msg-1"}, s.messageErr
 }
 
-func (s *recordingOutboundSender) SendReply(_ context.Context, action onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
+func (s *recordingOutboundSender) SendReply(_ context.Context, action chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	s.replyCount++
 	s.lastReplyText = firstTextSegment(action.Segments)
 	s.lastReplyImage = firstImageSegment(action.Segments)
-	return onebot11.SendMessageResult{MessageID: "msg-2"}, s.replyErr
+	return chatevent.SendMessageResult{MessageID: "msg-2"}, s.replyErr
 }
 
 type recordingAppOutboundLimiter struct {
@@ -293,7 +293,7 @@ func (l *contextAwareOutboundLimiter) Wait(ctx context.Context, _ outbound.Messa
 	return nil
 }
 
-func firstTextSegment(segments []onebot11.OutboundMessageSegment) string {
+func firstTextSegment(segments []chatevent.MessageSegment) string {
 	for _, segment := range segments {
 		if segment.Type != "text" {
 			continue
@@ -305,7 +305,7 @@ func firstTextSegment(segments []onebot11.OutboundMessageSegment) string {
 	return ""
 }
 
-func firstImageSegment(segments []onebot11.OutboundMessageSegment) string {
+func firstImageSegment(segments []chatevent.MessageSegment) string {
 	for _, segment := range segments {
 		if segment.Type != "image" {
 			continue

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/coder/websocket"
@@ -533,10 +534,10 @@ func TestShellSendMessageWritesSendMsgRequestAndReturnsMessageID(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	result, err := shell.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Segments: []OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "hello outbound"},
 		}},
@@ -659,10 +660,10 @@ func TestShellSendMessageReturnsAdapterSendFailed(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	_, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	_, err := shell.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "private",
 		TargetID:   "3001",
-		Segments: []OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "hello outbound"},
 		}},
@@ -743,11 +744,11 @@ func TestShellSendReplyWritesReplySegmentRequestAndReturnsMessageID(t *testing.T
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	result, err := shell.SendReply(context.Background(), OutboundMessageReply{
+	result, err := shell.SendReply(context.Background(), chatevent.OutboundMessageReply{
 		TargetType:       "group",
 		TargetID:         "2001",
 		ReplyToMessageID: "98765",
-		Segments: []OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "reply text"},
 		}},

@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
 	"strings"
@@ -60,7 +61,7 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 		ActionKind: "message.send",
 		TargetType: "group",
 		TargetID:   "200",
-		Segments: []onebot11.OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "cooldown reply"},
 		}},
@@ -92,7 +93,7 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 		ActionKind: "message.send",
 		TargetType: "private",
 		TargetID:   "300",
-		Segments: []onebot11.OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "cooldown reply"},
 		}},

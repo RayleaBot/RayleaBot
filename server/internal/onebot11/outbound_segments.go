@@ -1,6 +1,9 @@
 package onebot11
 
-import "strings"
+import (
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"strings"
+)
 
 func ValidateTarget(rawType, rawID, actionKind string) (string, string, error) {
 	targetType := strings.TrimSpace(rawType)
@@ -21,10 +24,10 @@ type NormalizedSegments struct {
 	UnsupportedSegment []string
 }
 
-func NormalizeSegments(actionKind string, declared []OutboundMessageSegment, replyToMessageID string) (NormalizedSegments, error) {
-	segments := make([]OutboundMessageSegment, 0, len(declared)+1)
+func NormalizeSegments(actionKind string, declared []chatevent.MessageSegment, replyToMessageID string) (NormalizedSegments, error) {
+	segments := make([]chatevent.MessageSegment, 0, len(declared)+1)
 	for _, segment := range declared {
-		segments = append(segments, OutboundMessageSegment{
+		segments = append(segments, chatevent.MessageSegment{
 			Type: segment.Type,
 			Data: cloneOutboundSegmentData(segment.Data),
 		})
@@ -33,7 +36,7 @@ func NormalizeSegments(actionKind string, declared []OutboundMessageSegment, rep
 		return NormalizedSegments{}, Errorf(ErrorCodeSendFailed, actionKind+" action is missing required fields", nil)
 	}
 	if replyToMessageID != "" {
-		reply := OutboundMessageSegment{
+		reply := chatevent.MessageSegment{
 			Type: "reply",
 			Data: map[string]any{"message_id": replyToMessageID},
 		}
@@ -59,8 +62,8 @@ func NormalizeSegments(actionKind string, declared []OutboundMessageSegment, rep
 	}, nil
 }
 
-func prependReplySegment(segments []OutboundMessageSegment, reply OutboundMessageSegment) []OutboundMessageSegment {
-	result := make([]OutboundMessageSegment, 0, len(segments)+1)
+func prependReplySegment(segments []chatevent.MessageSegment, reply chatevent.MessageSegment) []chatevent.MessageSegment {
+	result := make([]chatevent.MessageSegment, 0, len(segments)+1)
 	result = append(result, reply)
 	for _, segment := range segments {
 		if strings.TrimSpace(segment.Type) == "reply" {
@@ -71,7 +74,7 @@ func prependReplySegment(segments []OutboundMessageSegment, reply OutboundMessag
 	return result
 }
 
-func convertOutboundSegment(segment OutboundMessageSegment) (OneBotMessageSegment, bool) {
+func convertOutboundSegment(segment chatevent.MessageSegment) (OneBotMessageSegment, bool) {
 	switch strings.TrimSpace(segment.Type) {
 	case "text":
 		text, ok := outboundSegmentString(segment.Data, "text")

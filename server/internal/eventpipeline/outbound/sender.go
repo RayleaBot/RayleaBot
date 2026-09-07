@@ -19,8 +19,8 @@ const (
 )
 
 type ActionSender interface {
-	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
-	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
+	SendMessage(context.Context, chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error)
+	SendReply(context.Context, chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error)
 }
 
 type ReplyTarget struct {
@@ -141,7 +141,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 
 	switch action.Kind {
 	case "message.send":
-		result, err := sender.SendMessage(ctx, onebot11.OutboundMessageSend{
+		result, err := sender.SendMessage(ctx, chatevent.OutboundMessageSend{
 			TargetType: action.TargetType,
 			TargetID:   action.TargetID,
 			Segments:   toAdapterSegments(action.MessageSegments),
@@ -171,7 +171,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		}
 	}
 
-	replyRequest := onebot11.OutboundMessageReply{
+	replyRequest := chatevent.OutboundMessageReply{
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
 		ReplyToMessageID: replyTarget.MessageID,
@@ -196,7 +196,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		}, err
 	}
 
-	fallbackResult, fallbackErr := sender.SendMessage(ctx, onebot11.OutboundMessageSend{
+	fallbackResult, fallbackErr := sender.SendMessage(ctx, chatevent.OutboundMessageSend{
 		TargetType: replyTarget.TargetType,
 		TargetID:   replyTarget.TargetID,
 		Segments:   stripReplySegments(toAdapterSegments(action.MessageSegments)),
@@ -221,17 +221,17 @@ func resolveReplyTarget(action pluginruntime.Action, resolver ReplyTargetResolve
 	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
 }
 
-func toAdapterSegments(segments []pluginruntime.ActionSegment) []onebot11.OutboundMessageSegment {
+func toAdapterSegments(segments []pluginruntime.ActionSegment) []chatevent.MessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	items := make([]onebot11.OutboundMessageSegment, 0, len(segments))
+	items := make([]chatevent.MessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		data := make(map[string]any, len(segment.Data))
 		for key, value := range segment.Data {
 			data[key] = value
 		}
-		items = append(items, onebot11.OutboundMessageSegment{
+		items = append(items, chatevent.MessageSegment{
 			Type: segment.Type,
 			Data: data,
 		})
@@ -239,11 +239,11 @@ func toAdapterSegments(segments []pluginruntime.ActionSegment) []onebot11.Outbou
 	return items
 }
 
-func stripReplySegments(segments []onebot11.OutboundMessageSegment) []onebot11.OutboundMessageSegment {
+func stripReplySegments(segments []chatevent.MessageSegment) []chatevent.MessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	items := make([]onebot11.OutboundMessageSegment, 0, len(segments))
+	items := make([]chatevent.MessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		if strings.TrimSpace(segment.Type) == "reply" {
 			continue

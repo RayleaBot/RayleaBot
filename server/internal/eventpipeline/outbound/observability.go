@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"log/slog"
 	"strings"
 
@@ -15,7 +16,7 @@ type SendAttempt struct {
 	ActionKind string
 	TargetType string
 	TargetID   string
-	Segments   []onebot11.OutboundMessageSegment
+	Segments   []chatevent.MessageSegment
 }
 
 type SendLogContext struct {
@@ -247,7 +248,7 @@ func summarizePlainText(plainText string) string {
 	return redact.TruncateRunes(plainText, 72, "...")
 }
 
-func cloneOutboundSegments(segments []onebot11.OutboundMessageSegment) []map[string]any {
+func cloneOutboundSegments(segments []chatevent.MessageSegment) []map[string]any {
 	if len(segments) == 0 {
 		return []map[string]any{}
 	}

@@ -2,6 +2,7 @@ package onebot11
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -254,10 +255,10 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	result, err := shell.SendMessage(context.Background(), OutboundMessageSend{
+	result, err := shell.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "2001",
-		Segments: []OutboundMessageSegment{{
+		Segments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "hello after reload"},
 		}},

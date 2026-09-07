@@ -57,28 +57,6 @@ func Errorf(code, message string, err error) *Error {
 	}
 }
 
-type OutboundMessageSend struct {
-	TargetType string
-	TargetID   string
-	Segments   []OutboundMessageSegment
-}
-
-type OutboundMessageReply struct {
-	TargetType       string
-	TargetID         string
-	ReplyToMessageID string
-	Segments         []OutboundMessageSegment
-}
-
-type OutboundMessageSegment struct {
-	Type string
-	Data map[string]any
-}
-
-type SendMessageResult struct {
-	MessageID string
-}
-
 type APICallRequest struct {
 	Action string         `json:"action"`
 	Params map[string]any `json:"params,omitempty"`
@@ -113,7 +91,7 @@ type APIResponse struct {
 
 // OutboundSegmentsToPlainText generates a human-readable preview from
 // outbound message segments using the same semantic labels as inbound logs.
-func OutboundSegmentsToPlainText(segments []OutboundMessageSegment) string {
+func OutboundSegmentsToPlainText(segments []chatevent.MessageSegment) string {
 	normalized := make([]chatevent.MessageSegment, 0, len(segments))
 	for _, seg := range segments {
 		normalized = append(normalized, chatevent.MessageSegment{

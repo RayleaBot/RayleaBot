@@ -2,6 +2,7 @@ package outbound
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
@@ -9,22 +10,22 @@ import (
 )
 
 type stubSender struct {
-	sendRequest  onebot11.OutboundMessageSend
-	replyRequest onebot11.OutboundMessageReply
+	sendRequest  chatevent.OutboundMessageSend
+	replyRequest chatevent.OutboundMessageReply
 	replyErr     error
 }
 
-func (s *stubSender) SendMessage(_ context.Context, request onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
+func (s *stubSender) SendMessage(_ context.Context, request chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	s.sendRequest = request
-	return onebot11.SendMessageResult{MessageID: "send-1"}, nil
+	return chatevent.SendMessageResult{MessageID: "send-1"}, nil
 }
 
-func (s *stubSender) SendReply(_ context.Context, request onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
+func (s *stubSender) SendReply(_ context.Context, request chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	s.replyRequest = request
 	if s.replyErr != nil {
-		return onebot11.SendMessageResult{}, s.replyErr
+		return chatevent.SendMessageResult{}, s.replyErr
 	}
-	return onebot11.SendMessageResult{MessageID: "reply-1"}, nil
+	return chatevent.SendMessageResult{MessageID: "reply-1"}, nil
 }
 
 type stubReplyTargets map[string]ReplyTarget

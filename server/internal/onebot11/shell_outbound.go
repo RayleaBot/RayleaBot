@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 func errorf(code, message string, err error) *Error {
@@ -13,11 +14,11 @@ func oneBotTargetValue(targetID string) any {
 	return OneBotTargetValue(targetID)
 }
 
-func (s *Shell) SendMessage(ctx context.Context, action OutboundMessageSend) (SendMessageResult, error) {
+func (s *Shell) SendMessage(ctx context.Context, action chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	return NewSender(shellOutboundTransport{s: s}).SendMessage(ctx, action)
 }
 
-func (s *Shell) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
+func (s *Shell) SendReply(ctx context.Context, action chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	return NewSender(shellOutboundTransport{s: s}).SendReply(ctx, action)
 }
 

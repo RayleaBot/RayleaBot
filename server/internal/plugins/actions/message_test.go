@@ -2,27 +2,27 @@ package actions_test
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type messageSendRecorder struct {
-	messages []onebot11.OutboundMessageSend
+	messages []chatevent.OutboundMessageSend
 }
 
-func (r *messageSendRecorder) SendMessage(_ context.Context, message onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error) {
+func (r *messageSendRecorder) SendMessage(_ context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	r.messages = append(r.messages, message)
-	return onebot11.SendMessageResult{MessageID: "message-1"}, nil
+	return chatevent.SendMessageResult{MessageID: "message-1"}, nil
 }
 
-func (r *messageSendRecorder) SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error) {
-	return onebot11.SendMessageResult{}, nil
+func (r *messageSendRecorder) SendReply(context.Context, chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
+	return chatevent.SendMessageResult{}, nil
 }
 
 func TestMessageSendLocalActionUsesSharedOutboundPath(t *testing.T) {

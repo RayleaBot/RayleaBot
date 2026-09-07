@@ -7,7 +7,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const (
@@ -31,7 +30,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 	switch strings.TrimSpace(event.ConversationType) {
 	case "group":
 		if messageID := strings.TrimSpace(event.MessageID); messageID != "" {
-			segments := []onebot11.OutboundMessageSegment{{
+			segments := []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
@@ -54,7 +53,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 				break
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, onebot11.OutboundMessageReply{
+			sendResult, sendErr := s.outboundSender.SendReply(sendCtx, chatevent.OutboundMessageReply{
 				TargetType:       "group",
 				TargetID:         strings.TrimSpace(event.ConversationID),
 				ReplyToMessageID: messageID,
@@ -68,7 +67,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 		fallthrough
 	case "private":
 		if targetID := strings.TrimSpace(event.ConversationID); targetID != "" {
-			segments := []onebot11.OutboundMessageSegment{{
+			segments := []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
@@ -91,7 +90,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 				break
 			}
 			sendCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, onebot11.OutboundMessageSend{
+			sendResult, sendErr := s.outboundSender.SendMessage(sendCtx, chatevent.OutboundMessageSend{
 				TargetType: strings.TrimSpace(event.ConversationType),
 				TargetID:   targetID,
 				Segments:   segments,

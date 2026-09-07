@@ -47,3 +47,24 @@ const (
 	EventKindRequest     = "onebot11.request"
 	EventKindMeta        = "onebot11.meta"
 )
+
+// Outbound message shapes. An adapter receives these and renders them onto its
+// own wire format; nothing here names a protocol.
+type OutboundMessageSend struct {
+	TargetType string
+	TargetID   string
+	Segments   []MessageSegment
+}
+
+type OutboundMessageReply struct {
+	TargetType       string
+	TargetID         string
+	ReplyToMessageID string
+	Segments         []MessageSegment
+}
+
+// SendMessageResult reports the identifier the platform assigned to a message
+// the adapter just sent.
+type SendMessageResult struct {
+	MessageID string
+}

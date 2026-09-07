@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func (t *fakeTransport) LogUnsupportedSegment(segmentType string) {
 
 func TestUnconfirmedMessageDoesNotRetryThroughHTTP(t *testing.T) {
 	transport := &fakeTransport{wsOK: true, wsErr: Errorf(ErrorCodeSendUnconfirmed, "fixture timeout", context.DeadlineExceeded)}
-	_, err := NewSender(transport).SendMessage(context.Background(), OutboundMessageSend{TargetType: "group", TargetID: "fixture-target", Segments: []OutboundMessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}})
+	_, err := NewSender(transport).SendMessage(context.Background(), chatevent.OutboundMessageSend{TargetType: "group", TargetID: "fixture-target", Segments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}})
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Code != ErrorCodeSendUnconfirmed {
 		t.Fatalf("send result = %v", err)
@@ -55,7 +56,7 @@ func TestCanceledMessageNeverReachesTransport(t *testing.T) {
 	transport := &fakeTransport{}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	_, err := NewSender(transport).SendMessage(ctx, OutboundMessageSend{TargetType: "group", TargetID: "fixture-target", Segments: []OutboundMessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}})
+	_, err := NewSender(transport).SendMessage(ctx, chatevent.OutboundMessageSend{TargetType: "group", TargetID: "fixture-target", Segments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}}})
 	var typed *Error
 	if !errors.As(err, &typed) || typed.Code != ErrorCodeSendFailed {
 		t.Fatalf("send result = %v", err)
@@ -76,10 +77,10 @@ func TestSenderSendMessageUsesWebSocketAndLogsUnsupportedSegments(t *testing.T) 
 		},
 	}
 
-	result, err := NewSender(transport).SendMessage(context.Background(), OutboundMessageSend{
+	result, err := NewSender(transport).SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group",
 		TargetID:   "10001",
-		Segments: []OutboundMessageSegment{
+		Segments: []chatevent.MessageSegment{
 			{Type: "text", Data: map[string]any{"text": "hello"}},
 			{Type: "unsupported", Data: map[string]any{"value": "drop"}},
 		},
@@ -119,10 +120,10 @@ func TestSenderSendMessageFallsBackToHTTPAPI(t *testing.T) {
 		},
 	}
 
-	result, err := NewSender(transport).SendMessage(context.Background(), OutboundMessageSend{
+	result, err := NewSender(transport).SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "private",
 		TargetID:   "u-1",
-		Segments: []OutboundMessageSegment{
+		Segments: []chatevent.MessageSegment{
 			{Type: "text", Data: map[string]any{"text": "hello"}},
 		},
 	})
@@ -151,11 +152,11 @@ func TestSenderSendReplyMapsMissingTarget(t *testing.T) {
 		},
 	}
 
-	_, err := NewSender(transport).SendReply(context.Background(), OutboundMessageReply{
+	_, err := NewSender(transport).SendReply(context.Background(), chatevent.OutboundMessageReply{
 		TargetType:       "private",
 		TargetID:         "42",
 		ReplyToMessageID: "7",
-		Segments: []OutboundMessageSegment{
+		Segments: []chatevent.MessageSegment{
 			{Type: "text", Data: map[string]any{"text": "reply"}},
 		},
 	})

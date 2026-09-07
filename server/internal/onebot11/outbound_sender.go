@@ -3,6 +3,7 @@ package onebot11
 import (
 	"context"
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"strconv"
 	"strings"
 
@@ -24,34 +25,34 @@ func NewSender(transport Transport) Sender {
 	return Sender{transport: transport}
 }
 
-func (s Sender) SendMessage(ctx context.Context, action OutboundMessageSend) (SendMessageResult, error) {
+func (s Sender) SendMessage(ctx context.Context, action chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
 	targetType, targetID, err := ValidateTarget(action.TargetType, action.TargetID, "message.send")
 	if err != nil {
-		return SendMessageResult{}, err
+		return chatevent.SendMessageResult{}, err
 	}
 
 	segments, err := NormalizeSegments("message.send", action.Segments, "")
 	if err != nil {
-		return SendMessageResult{}, err
+		return chatevent.SendMessageResult{}, err
 	}
 	s.logUnsupportedSegments(segments.UnsupportedSegment)
 	return s.sendSegments(ctx, targetType, targetID, segments.Segments, false)
 }
 
-func (s Sender) SendReply(ctx context.Context, action OutboundMessageReply) (SendMessageResult, error) {
+func (s Sender) SendReply(ctx context.Context, action chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
 	targetType, targetID, err := ValidateTarget(action.TargetType, action.TargetID, "message.reply")
 	if err != nil {
-		return SendMessageResult{}, err
+		return chatevent.SendMessageResult{}, err
 	}
 
 	replyToID := strings.TrimSpace(action.ReplyToMessageID)
 	if replyToID == "" {
-		return SendMessageResult{}, Errorf(ErrorCodeSendFailed, "message.reply action is missing required fields", nil)
+		return chatevent.SendMessageResult{}, Errorf(ErrorCodeSendFailed, "message.reply action is missing required fields", nil)
 	}
 
 	segments, err := NormalizeSegments("message.reply", action.Segments, replyToID)
 	if err != nil {
-		return SendMessageResult{}, err
+		return chatevent.SendMessageResult{}, err
 	}
 	s.logUnsupportedSegments(segments.UnsupportedSegment)
 
@@ -67,12 +68,12 @@ func (s Sender) logUnsupportedSegments(segmentTypes []string) {
 	}
 }
 
-func (s Sender) sendSegments(ctx context.Context, targetType, targetID string, segments []OneBotMessageSegment, replyAttempt bool) (SendMessageResult, error) {
+func (s Sender) sendSegments(ctx context.Context, targetType, targetID string, segments []OneBotMessageSegment, replyAttempt bool) (chatevent.SendMessageResult, error) {
 	if err := ctx.Err(); err != nil {
-		return SendMessageResult{}, Errorf(ErrorCodeSendFailed, "发送请求已取消，消息未发出", err)
+		return chatevent.SendMessageResult{}, Errorf(ErrorCodeSendFailed, "发送请求已取消，消息未发出", err)
 	}
 	if s.transport == nil {
-		return SendMessageResult{}, Errorf(ErrorCodeSendFailed, "adapter transport is not connected", nil)
+		return chatevent.SendMessageResult{}, Errorf(ErrorCodeSendFailed, "adapter transport is not connected", nil)
 	}
 
 	echo := s.transport.NextEcho()
@@ -93,7 +94,7 @@ func (s Sender) sendSegments(ctx context.Context, targetType, targetID string, s
 
 	if response, ok, err := s.transport.SendWebSocket(ctx, request); ok || err != nil {
 		if err != nil {
-			return SendMessageResult{}, err
+			return chatevent.SendMessageResult{}, err
 		}
 		return ParseSendMessageResponse(response, replyAttempt)
 	}
@@ -114,7 +115,7 @@ func (s Sender) sendSegments(ctx context.Context, targetType, targetID string, s
 		Echo:   request.Echo,
 	})
 	if err != nil {
-		return SendMessageResult{}, err
+		return chatevent.SendMessageResult{}, err
 	}
 	return ParseSendMessageResponse(response, replyAttempt)
 }
@@ -161,19 +162,19 @@ func APIResponseFromFrame(frame FrameResponse) (APIResponse, bool) {
 	}, true
 }
 
-func ParseSendMessageResponse(response APIResponse, replyAttempt bool) (SendMessageResult, error) {
+func ParseSendMessageResponse(response APIResponse, replyAttempt bool) (chatevent.SendMessageResult, error) {
 	if response.Status != "ok" || response.RetCode != 0 {
 		message := "adapter send_msg failed"
 		if response.Wording != "" {
 			message = response.Wording
 		}
 		if replyAttempt && isReplyTargetMissing(message) {
-			return SendMessageResult{}, Errorf(ErrorCodeReplyTargetMissing, message, nil)
+			return chatevent.SendMessageResult{}, Errorf(ErrorCodeReplyTargetMissing, message, nil)
 		}
-		return SendMessageResult{}, Errorf(ErrorCodeSendFailed, message, nil)
+		return chatevent.SendMessageResult{}, Errorf(ErrorCodeSendFailed, message, nil)
 	}
 
-	return SendMessageResult{
+	return chatevent.SendMessageResult{
 		MessageID: extractMessageID(response.Data),
 	}, nil
 }

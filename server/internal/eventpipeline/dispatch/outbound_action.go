@@ -3,6 +3,7 @@ package dispatch
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"strings"
 	"time"
 
@@ -198,18 +199,18 @@ func buildOutboundTargetLabel(ctx context.Context, event pluginruntime.Event, ta
 	return outbound.BuildTargetLabel(ctx, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
-func toOutboundSegments(segments []pluginruntime.ActionSegment) []onebot11.OutboundMessageSegment {
+func toOutboundSegments(segments []pluginruntime.ActionSegment) []chatevent.MessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
 
-	items := make([]onebot11.OutboundMessageSegment, 0, len(segments))
+	items := make([]chatevent.MessageSegment, 0, len(segments))
 	for _, segment := range segments {
 		data := make(map[string]any, len(segment.Data))
 		for key, value := range segment.Data {
 			data[key] = value
 		}
-		items = append(items, onebot11.OutboundMessageSegment{
+		items = append(items, chatevent.MessageSegment{
 			Type: segment.Type,
 			Data: data,
 		})

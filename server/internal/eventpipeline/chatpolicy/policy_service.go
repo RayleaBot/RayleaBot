@@ -13,7 +13,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -31,8 +30,8 @@ type RejectionLogger interface {
 }
 
 type OutboundSender interface {
-	SendMessage(context.Context, onebot11.OutboundMessageSend) (onebot11.SendMessageResult, error)
-	SendReply(context.Context, onebot11.OutboundMessageReply) (onebot11.SendMessageResult, error)
+	SendMessage(context.Context, chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error)
+	SendReply(context.Context, chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error)
 }
 
 type Deps struct {
