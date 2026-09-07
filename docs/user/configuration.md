@@ -15,6 +15,8 @@
 - Launcher 检测到 `user.yaml` 缺失且 `default.yaml` 可用时，会执行配置初始化并重新检查环境，再启动服务。
 - 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
 - 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://onebot/<transport>/access_token` 引用。
+- `qq_official` 配置 QQ 开放平台官方机器人适配器，整块可选：缺省即未启用，既有配置升级不需要迁移。`app_id` 不是机密；`app_secret` 与 OneBot 访问令牌同样处理，明文写入 secret store，`user.yaml` 只保存 `secret://qq_official/app_secret` 引用。
+- `qq_official.intents` 按名称声明订阅的事件族，适配器负责映射为网关位掩码；名称集合由 schema 约束，写入未知名称会被拒绝。
 - OneBot11 访问令牌默认通过 `Authorization: Bearer` 传递。只有旧服务端或旧 webhook 客户端必须使用 URL query token 时，才将对应入口的 `access_token_query_compat` 显式设为 `true`。
 
 ## 配置文件维护

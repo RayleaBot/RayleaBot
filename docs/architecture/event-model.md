@@ -1,6 +1,6 @@
 # Event Model
 
-本文档说明 RayleaBot 当前三条正式事件流：OneBot11 归一化事件、插件协议消息和管理面 WebSocket 事件。
+本文档说明 RayleaBot 当前的正式事件流：OneBot11 与 QQ 官方机器人的归一化事件、插件协议消息和管理面 WebSocket 事件。
 
 正式 schema 见 `contracts/websocket-events.yaml`、`contracts/plugin-protocol.schema.json` 和 `contracts/web-api.openapi.yaml`。
 
@@ -63,7 +63,28 @@ OneBot11 上报帧
   -> dispatcher 执行动作
 ```
 
-## 三、插件协议消息
+## 三、QQ 官方机器人事件归一化
+
+QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协议，事件来源由 `event.source_protocol=qqofficial`、`event.source_adapter=adapter.qqofficial` 标识。
+
+| 网关 dispatch | 统一事件类型 | 会话 |
+| --- | --- | --- |
+| `C2C_MESSAGE_CREATE` | `message.private` | 无独立会话标识，对端 openid 即会话 |
+| `GROUP_AT_MESSAGE_CREATE` | `message.group` | `group_openid` |
+
+消息复用现有 `message.private` 与 `message.group`，不新增事件类型：语义一致，来源由 `source_protocol` 承载。尚无正式事件类型的 dispatch（`READY`、`RESUMED`、`GROUP_ADD_ROBOT` 等）不投递。
+
+平台侧与 OneBot11 的实质差异：
+
+- 标识符是 per-bot **openid**，不是 QQ 号；同一个人在不同机器人下标识不同，不跨协议、不跨 bot 身份可移植。
+- 群 @ 消息的 at 由平台剥离，只 @ 不带正文时 `content` 为空白；附件消息的 `content` 是客户端标记，真实媒体在 `attachments` 数组。两者都不作为消息文本。
+- 没有消息段数组，也没有 CQ 码：纯文本加平行附件列表，附件按 `content_type` 映射到既有段类型。
+- `timestamp` 有两种拼写：消息 dispatch 为 RFC3339 字符串，成员变更通知为 Unix 整数。
+- 原生字段位于 `event.payload.qq_official`，形状闭合，含 dispatch 名、消息 id 与相关 openid。
+
+出站以被动回复为主：回复需引用收到的消息 id，并按 `msg_seq` 递增；主动推送有配额限制。回复目标记录事件来源协议，因此回复自动路由到对应适配器；主动推送未指明协议时，只在单适配器运行时可解析。
+
+## 四、插件协议消息
 
 ### 生命周期消息
 
@@ -121,7 +142,7 @@ OneBot11 上报帧
 - `keyboard`
 - `shake`
 
-## 四、管理 WebSocket 事件
+## 五、管理 WebSocket 事件
 
 | 频道 | 路径 | 事件 |
 | --- | --- | --- |
