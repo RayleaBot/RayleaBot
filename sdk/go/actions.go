@@ -126,9 +126,14 @@ func (actions *Actions) callResult(ctx context.Context, action string, input any
 }
 
 type MessageSendRequest struct {
-	TargetType string     `json:"target_type"`
-	TargetID   string     `json:"target_id"`
-	Message    MessageOut `json:"message"`
+	// SourceProtocol names the chat adapter that must deliver the message.
+	// A reply already knows it from the event it answers; an active push needs
+	// it only while more than one adapter is connected, because target
+	// identifiers are namespaced per protocol.
+	SourceProtocol string     `json:"source_protocol,omitempty"`
+	TargetType     string     `json:"target_type"`
+	TargetID       string     `json:"target_id"`
+	Message        MessageOut `json:"message"`
 }
 
 type MessageOut struct {

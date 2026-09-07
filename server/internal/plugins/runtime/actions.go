@@ -28,6 +28,7 @@ type ActionSegment struct {
 type Action struct {
 	Kind                         string
 	RawData                      map[string]any
+	SourceProtocol               string
 	TargetType                   string
 	TargetID                     string
 	ReplyToEventID               string
@@ -540,6 +541,7 @@ func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
 	}
 	return &Action{
 		Kind:                    kind,
+		SourceProtocol:          strings.TrimSpace(frame.SourceProtocol),
 		TargetType:              targetType,
 		TargetID:                targetID,
 		ReplyToEventID:          replyToEventID,

@@ -1057,6 +1057,10 @@
         "message"
       ],
       "properties": {
+        "source_protocol": {
+          "type": "string",
+          "description": "Chat protocol that must deliver this message, matching the source_protocol of events from that adapter. Optional: a reply already knows the adapter from the event it answers, and an active push needs this only while more than one adapter is connected, since target identifiers are namespaced per protocol and cannot be told apart."
+        },
         "target_type": {
           "$ref": "#/$defs/conversation_target_type"
         },

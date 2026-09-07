@@ -364,6 +364,7 @@ type ProtocolOutboundMessageFrame struct {
 }
 
 type ProtocolActionMessageSendFrame struct {
+	SourceProtocol          string                        `json:"source_protocol,omitempty"`
 	TargetType              string                        `json:"target_type"`
 	TargetID                string                        `json:"target_id"`
 	ReplyToEventID          *string                       `json:"reply_to_event_id"`

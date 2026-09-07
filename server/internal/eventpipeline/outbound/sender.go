@@ -145,9 +145,10 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 	switch action.Kind {
 	case "message.send":
 		result, err := sender.SendMessage(ctx, chatevent.OutboundMessageSend{
-			TargetType: action.TargetType,
-			TargetID:   action.TargetID,
-			Segments:   toAdapterSegments(action.MessageSegments),
+			SourceProtocol: action.SourceProtocol,
+			TargetType:     action.TargetType,
+			TargetID:       action.TargetID,
+			Segments:       toAdapterSegments(action.MessageSegments),
 		})
 		return SendResult{
 			MessageID:    result.MessageID,

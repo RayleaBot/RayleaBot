@@ -91,3 +91,24 @@ func TestAdapterRouterResolvesWhenOnlyOneAdapterIsConnected(t *testing.T) {
 		t.Fatalf("delivered via %v, want the only connected adapter", sent)
 	}
 }
+
+func TestAdapterRouterHonoursAPluginNamedProtocol(t *testing.T) {
+	t.Parallel()
+
+	var sent []string
+	router := newAdapterRouter(map[string]outbound.ActionSender{
+		"onebot11":   recordingSender{name: "onebot11", sent: &sent},
+		"qqofficial": recordingSender{name: "qqofficial", sent: &sent},
+	})
+
+	// With two adapters connected an active push is otherwise ambiguous; naming
+	// the protocol is how a plugin resolves it.
+	if _, err := router.SendMessage(context.Background(), chatevent.OutboundMessageSend{
+		SourceProtocol: "qqofficial", TargetType: "group", TargetID: "G1",
+	}); err != nil {
+		t.Fatalf("SendMessage: %v", err)
+	}
+	if len(sent) != 1 || sent[0] != "qqofficial" {
+		t.Fatalf("delivered via %v, want the named adapter", sent)
+	}
+}
