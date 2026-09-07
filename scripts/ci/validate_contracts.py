@@ -157,6 +157,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/protocols/onebot11/compatibility",
     "/api/protocols/onebot11/identities/resolve",
     "/api/protocols/onebot11/targets",
+    "/api/adapters",
     "/api/adapters/{adapterID}/reverse-ws",
     "/api/adapters/{adapterID}/webhook",
     "/api/plugins",
