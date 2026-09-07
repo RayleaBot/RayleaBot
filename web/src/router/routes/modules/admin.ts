@@ -173,6 +173,17 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
         {
+          path: '/protocols/qqofficial',
+          name: 'protocols-qqofficial',
+          component: () => import('@/views/protocols/QQOfficialView.vue'),
+          meta: {
+            hideInMenu: true,
+            keepAlive: true,
+            requiresAuth: true,
+            titleKey: 'routes.protocols',
+          },
+        },
+        {
           path: '/protocols/onebot11',
           name: 'protocols-onebot11',
           component: () => import('@/views/protocols/ProtocolsView.vue'),
