@@ -36,7 +36,6 @@ type IngressDeps struct {
 
 type Ingress struct {
 	replyTargets     *outbound.ReplyTargetCache
-	outboundLimiter  outbound.MessageLimiter
 	menu             *menuext.Service
 	bridge           *bridge.Bridge
 	lifecycle        *pluginservice.Controller
@@ -51,7 +50,6 @@ func NewIngress(deps IngressDeps) *Ingress {
 	}
 	service := &Ingress{
 		replyTargets:     deps.ReplyTargets,
-		outboundLimiter:  deps.OutboundLimiter,
 		menu:             deps.Menu,
 		bridge:           deps.Bridge,
 		lifecycle:        deps.Lifecycle,
@@ -60,7 +58,6 @@ func NewIngress(deps IngressDeps) *Ingress {
 	policyDeps := Deps{
 		CurrentConfig:   currentConfig,
 		Plugins:         deps.Plugins,
-		Menu:            deps.Menu,
 		OutboundSender:  deps.OutboundSender,
 		OutboundLimiter: deps.OutboundLimiter,
 		Logger:          deps.Logger,
@@ -68,8 +65,10 @@ func NewIngress(deps IngressDeps) *Ingress {
 		WhitelistState:  deps.WhitelistState,
 		BlacklistRepo:   deps.BlacklistRepo,
 	}
-	// Assign the concrete bridge only when non-nil so the interface dep stays
-	// nil instead of holding a typed nil.
+	// Keep absent collaborators as nil interfaces.
+	if deps.Menu != nil {
+		policyDeps.Menu = deps.Menu
+	}
 	if deps.Bridge != nil {
 		policyDeps.Bridge = deps.Bridge
 	}
@@ -87,7 +86,6 @@ func (s *Ingress) ApplyChatPolicy(ctx context.Context, event chatevent.Normalize
 	if s.policy == nil {
 		return event, true
 	}
-	s.policy.SetOutboundLimiter(s.outboundLimiter)
 	return s.policy.Apply(ctx, event)
 }
 
@@ -112,7 +110,6 @@ func (s *Ingress) SetMetadataEnricher(enricher MetadataEnricher) {
 }
 
 func (s *Ingress) SetOutboundLimiter(limiter outbound.MessageLimiter) {
-	s.outboundLimiter = limiter
 	if s.policy != nil {
 		s.policy.SetOutboundLimiter(limiter)
 	}

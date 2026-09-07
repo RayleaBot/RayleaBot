@@ -184,8 +184,8 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 }
 
 func shouldEvaluateChatPolicy(event chatevent.NormalizedEvent) bool {
-	switch event.Kind {
-	case chatevent.EventKindMessageText, chatevent.EventKindMessage, chatevent.EventKindNotice:
+	switch chatevent.EventFamily(event.Kind) {
+	case chatevent.FamilyMessageText, chatevent.FamilyMessage, chatevent.FamilyNotice:
 		return true
 	default:
 		return false
