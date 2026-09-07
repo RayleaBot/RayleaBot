@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -52,7 +51,7 @@ async function mountPage(item: PluginSummary = plugin()) {
   pluginsStore.items = [item]
   vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
   vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
-  const wrapper = mount(MenuCenterView, { global: { plugins: [Antd] } })
+  const wrapper = mount(MenuCenterView, { global: { plugins: [getActivePinia()!] } })
   await flushPromises()
   return wrapper
 }
@@ -135,8 +134,8 @@ describe('MenuCenterView', () => {
       items: [expect.objectContaining({ name: '订阅与解析' })],
     })
 
-    await wrapper.getComponent('[data-testid="menu-center-commands"]').vm.$emit('update:value', ['menu', '菜单'])
-    await wrapper.getComponent('[data-testid="menu-center-prefixes"]').vm.$emit('update:value', ['#', '*'])
+    await wrapper.getComponent('[data-testid="menu-center-commands"]').vm.$emit('update:modelValue', ['menu', '菜单'])
+    await wrapper.getComponent('[data-testid="menu-center-prefixes"]').vm.$emit('update:modelValue', ['#', '*'])
     await flushPromises()
     expect(rootPreviewData(wrapper)).toMatchObject({ command_prefixes: ['#', '*'] })
     expect(wrapper.get('[data-testid="menu-center-save"]').attributes('disabled')).toBeUndefined()

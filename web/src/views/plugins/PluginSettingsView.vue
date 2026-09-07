@@ -1,16 +1,25 @@
 <script setup lang="ts">
+import AppTagsInput from '@/components/AppTagsInput.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppField from '@/components/AppField.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTextarea from '@/components/AppTextarea.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppNumberInput from '@/components/AppNumberInput.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppButton from '@/components/AppButton.vue'
 import {
-  ApiOutlined,
-  CheckCircleOutlined,
-  DatabaseOutlined,
-  ExclamationCircleOutlined,
-  FileTextOutlined,
-  MessageOutlined,
-  SafetyCertificateOutlined,
-  SaveOutlined,
-  SettingOutlined,
-  PictureOutlined,
-} from '@ant-design/icons-vue'
+  PlugZapIcon,
+  CircleCheckIcon,
+  DatabaseIcon,
+  CircleAlertIcon,
+  FileTextIcon,
+  MessageSquareIcon,
+  ShieldCheckIcon,
+  SaveIcon,
+  SettingsIcon,
+  ImageIcon,
+} from '@lucide/vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -38,6 +47,14 @@ const draft = ref<ConfigDocument | null>(null)
 const saveStatus = ref<'hot' | 'restart' | null>(null)
 let saveStatusTimer: number | null = null
 
+function readNumberField(path: string) {
+  const value = readField(path, 'number')
+  return typeof value === 'number' ? value : null
+}
+function readSelectField(path: string) {
+  const value = readField(path, 'select')
+  return typeof value === 'boolean' ? value : String(value ?? '')
+}
 const configSections = computed(() => getPluginSettingsConfigSections())
 const hasUnsavedChanges = computed(() => {
   if (!draft.value || !document.value) {
@@ -205,19 +222,19 @@ function resetFieldToDefault(field: ConfigFieldDefinition) {
 function getSectionIcon(key: string) {
   switch (key) {
     case 'command':
-      return ApiOutlined
+      return PlugZapIcon
     case 'permission':
-      return SafetyCertificateOutlined
+      return ShieldCheckIcon
     case 'log':
-      return FileTextOutlined
+      return FileTextIcon
     case 'message':
-      return MessageOutlined
+      return MessageSquareIcon
     case 'render':
-      return PictureOutlined
+      return ImageIcon
     case 'storage':
-      return DatabaseOutlined
+      return DatabaseIcon
     default:
-      return SettingOutlined
+      return SettingsIcon
   }
 }
 
@@ -262,7 +279,7 @@ async function save() {
 
     <div v-else-if="draft" class="plugin-settings-layout">
       <section class="plugin-settings-board" :aria-label="t('plugins.settings.title')">
-        <a-form layout="vertical" class="plugin-settings-form-matrix">
+        <div class="plugin-settings-form-matrix">
           <section
             v-for="section in configSections"
             :key="section.key"
@@ -279,26 +296,26 @@ async function save() {
 
             <div class="plugin-settings-setting-row__controls">
               <div v-for="field in section.fields" :key="field.path" class="plugin-settings-field-item">
-                <a-form-item>
+                <AppField :label="field.label">
                   <template #label>
                     <div class="field-label-wrap">
                       <span class="field-label-text">{{ field.label }}</span>
-                      <a-tooltip v-if="field.description" :title="field.description">
+                      <AppTooltip v-if="field.description" :title="field.description">
                         <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
-                      </a-tooltip>
+                      </AppTooltip>
                     </div>
                   </template>
 
                   <div class="plugin-settings-control-wrap" :class="{ 'plugin-settings-control-wrap--with-preview': getRateLimitPreview(field) }">
-                    <a-select
+                    <AppTagsInput
                       v-if="isCommandPrefixField(field.path)"
-                      mode="tags"
+
                       class="plugin-settings-prefix-select"
                       data-testid="plugin-settings-command-prefixes"
-                      :value="readCommandPrefixTags()"
+                      :model-value="readCommandPrefixTags()"
                       :aria-label="field.label"
                       :placeholder="t('plugins.settings.placeholders.commandPrefixes')"
-                      @update:value="writeCommandPrefixTags"
+                      @update:model-value="writeCommandPrefixTags"
                     />
 
                     <RateLimitInput
@@ -308,53 +325,53 @@ async function save() {
                       @update:value="writeField(field.path, field.type, $event)"
                     />
 
-                    <a-input
+                    <AppInput
                       v-else-if="field.type === 'text'"
-                      :value="String(readField(field.path, field.type) ?? '')"
+                      :model-value="String(readField(field.path, field.type) ?? '')"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
-                    <a-input-number
+                    <AppNumberInput nullable
                       v-else-if="field.type === 'number'"
                       class="plugin-settings-number-input"
-                      :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
+                      :model-value="readNumberField(field.path)"
                       :min="0"
                       :step="1"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
                     <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                      <a-switch
-                        :checked="Boolean(readField(field.path, field.type))"
+                      <AppSwitch
+                        :model-value="Boolean(readField(field.path, field.type))"
                         :aria-label="field.label"
-                        @update:checked="writeField(field.path, field.type, $event)"
+                        @update:model-value="writeField(field.path, field.type, $event)"
                       />
                     </div>
 
-                    <a-select
+                    <AppSelect
                       v-else-if="field.type === 'select'"
-                      :value="String(readField(field.path, field.type) ?? '')"
-                      :options="field.options"
+                      :model-value="readSelectField(field.path)"
+                      :options="field.options || []"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
-                    <a-textarea
+                    <AppTextarea
                       v-else-if="field.type === 'textarea'"
-                      :value="String(readField(field.path, field.type) ?? '')"
-                      :auto-size="{ minRows: 3, maxRows: 7 }"
+                      :model-value="String(readField(field.path, field.type) ?? '')"
+                      :rows="3" :max-rows="7"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
-                    <a-textarea
+                    <AppTextarea
                       v-else
-                      :value="String(readField(field.path, field.type) ?? '')"
-                      :auto-size="{ minRows: 3, maxRows: 7 }"
+                      :model-value="String(readField(field.path, field.type) ?? '')"
+                      :rows="3" :max-rows="7"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
                     <div v-if="getRateLimitPreview(field)" class="plugin-settings-rate-preview">
@@ -365,36 +382,36 @@ async function save() {
 
                   <div v-if="field.description" class="plugin-settings-field-note">
                     <p class="plugin-settings-field-note__text">{{ field.description }}</p>
-                    <a-button
+                    <AppButton
                       v-if="field.defaultValue !== undefined"
-                      size="small"
-                      type="link"
+                      size="sm"
+                      variant="link"
                       class="plugin-settings-reset-default"
                       data-testid="plugin-settings-reset-default"
                       @click="resetFieldToDefault(field)"
                     >
                       {{ t('plugins.settings.resetDefault') }}
-                    </a-button>
+                    </AppButton>
                   </div>
-                </a-form-item>
+                </AppField>
               </div>
             </div>
           </section>
-        </a-form>
+        </div>
       </section>
       <footer class="plugin-settings-save-bar">
         <div class="plugin-settings-status-row" aria-live="polite">
           <span v-if="hasUnsavedChanges" class="plugin-settings-status-pill plugin-settings-status-pill--dirty" data-testid="plugin-settings-unsaved-status">
-            <ExclamationCircleOutlined />{{ t('plugins.settings.status.unsaved') }}
+            <CircleAlertIcon />{{ t('plugins.settings.status.unsaved') }}
           </span>
           <span v-else-if="saveStatus" class="plugin-settings-status-pill plugin-settings-status-pill--saved" data-testid="plugin-settings-save-status">
-            <CheckCircleOutlined />{{ saveStatusLabel }}
+            <CircleCheckIcon />{{ saveStatusLabel }}
           </span>
         </div>
-        <a-button type="primary" :disabled="!canSave" :loading="saving" :aria-label="t('config.save')" data-testid="plugin-settings-save" @click="save">
-          <template #icon><SaveOutlined /></template>
+        <AppButton variant="default" :disabled="!canSave" :loading="saving" :aria-label="t('config.save')" data-testid="plugin-settings-save" @click="save">
+          <template #icon><SaveIcon /></template>
           {{ t('config.save') }}
-        </a-button>
+        </AppButton>
       </footer>
     </div>
   </AppPage>
@@ -426,10 +443,10 @@ async function save() {
   background: var(--surface);
 }
 
-.plugin-settings-save-bar .ant-btn { flex: 0 0 auto; }
+.plugin-settings-save-bar .app-button { flex: 0 0 auto; }
 @media (max-width: 639px) {
   .plugin-settings-save-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
-  .plugin-settings-save-bar .ant-btn { min-height: 44px; }
+  .plugin-settings-save-bar .app-button { min-height: 44px; }
 }
 
 .plugin-settings-board {
@@ -547,7 +564,7 @@ async function save() {
   min-width: 0;
 }
 
-.plugin-settings-field-item :deep(.ant-form-item) {
+.plugin-settings-field-item :deep(.app-field) {
   margin-bottom: 0;
 }
 
@@ -599,13 +616,13 @@ async function save() {
   width: 100%;
 }
 
-.plugin-settings-prefix-select :deep(.ant-select-selector) {
+.plugin-settings-prefix-select :deep(.app-select) {
   min-height: 40px;
   align-items: flex-start;
   padding-block: 4px;
 }
 
-.plugin-settings-prefix-select :deep(.ant-select-selection-item) {
+.plugin-settings-prefix-select :deep(.app-tags-input__item) {
   border-radius: 8px;
   background: var(--surface-soft);
   border-color: var(--border);
@@ -622,11 +639,11 @@ async function save() {
   align-items: stretch;
 }
 
-.plugin-settings-control-wrap :deep(.ant-input),
-.plugin-settings-control-wrap :deep(.ant-input-number),
-.plugin-settings-control-wrap :deep(.ant-select-selector),
-.plugin-settings-control-wrap :deep(.ant-input-affix-wrapper),
-.plugin-settings-control-wrap :deep(textarea.ant-input) {
+.plugin-settings-control-wrap :deep(.app-input),
+.plugin-settings-control-wrap :deep(.app-number-input),
+.plugin-settings-control-wrap :deep(.app-select),
+.plugin-settings-control-wrap :deep(.app-input-wrap),
+.plugin-settings-control-wrap :deep(textarea.app-textarea) {
   border-radius: var(--radius-md);
 }
 

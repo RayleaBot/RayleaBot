@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { LoadingOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons-vue'
+import { LoaderCircleIcon, CirclePlayIcon, BanIcon } from '@lucide/vue'
 
 const props = withDefaults(defineProps<{
   checked: boolean
@@ -64,7 +64,7 @@ function handleClick(event: MouseEvent) {
     :title="iconOnly ? ariaLabel : undefined"
     @click="handleClick"
   >
-    <component :is="loading ? LoadingOutlined : checked ? StopOutlined : PlayCircleOutlined" v-if="iconOnly" aria-hidden="true" />
+    <component :is="loading ? LoaderCircleIcon : checked ? BanIcon : CirclePlayIcon" v-if="iconOnly" aria-hidden="true" />
     <span v-else class="plugin-holo-button__track" aria-hidden="true">
       <span class="plugin-holo-button__thumb">
         <span class="plugin-holo-button__thumb-inner" />
@@ -276,7 +276,8 @@ function handleClick(event: MouseEvent) {
 .plugin-holo-button--icon:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
 .plugin-holo-button--icon.is-checked:hover:not(:disabled) { color: var(--text-danger); }
 .plugin-holo-button--icon:active:not(:disabled) { transform: scale(.94); }
-.plugin-holo-button--icon.is-loading :deep(.anticon) { animation: spinner 800ms linear infinite; }
+.plugin-holo-button--icon.is-loading :deep(.lucide) { animation: spinner 800ms linear infinite; }
+.plugin-holo-button--icon :deep(.lucide) { width: 18px; height: 18px; }
 
 @media (max-width: 639px), (pointer: coarse) {
   .plugin-holo-button {
@@ -305,6 +306,6 @@ function handleClick(event: MouseEvent) {
     animation: none;
   }
 
-  .plugin-holo-button--icon.is-loading :deep(.anticon) { animation: none; }
+  .plugin-holo-button--icon.is-loading :deep(.lucide) { animation: none; }
 }
 </style>

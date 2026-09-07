@@ -1,7 +1,13 @@
 <script setup lang="ts">
+import AppTagsInput from '@/components/AppTagsInput.vue'
+import AppTabs from '@/components/AppTabs.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { SaveOutlined } from '@ant-design/icons-vue'
+import { SaveIcon } from '@lucide/vue'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import NativeTemplatePreviewFrame from '@/components/NativeTemplatePreviewFrame.vue'
@@ -380,10 +386,10 @@ async function save() {
         <div class="menu-center-float-panel__body">
           <div class="menu-center-float-panel__field">
             <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.commands.label') }}</label>
-            <a-select
-              v-model:value="draftCommands"
-              mode="tags"
-              :token-separators="[',', '，', ' ']"
+            <AppTagsInput
+              v-model="draftCommands" :aria-label="t('builtinFeatures.menuCenter.commands.label')"
+
+              :separators="[',', '，', ' ']"
               :placeholder="t('builtinFeatures.menuCenter.commands.placeholder')"
               data-testid="menu-center-commands"
               class="menu-center-float-panel__select"
@@ -392,10 +398,10 @@ async function save() {
 
           <div class="menu-center-float-panel__field">
             <label class="menu-center-float-panel__label">{{ t('builtinFeatures.menuCenter.prefixes.label') }}</label>
-            <a-select
-              v-model:value="draftPrefixes"
-              mode="tags"
-              :token-separators="[',', '，', ' ']"
+            <AppTagsInput
+              v-model="draftPrefixes" :aria-label="t('builtinFeatures.menuCenter.prefixes.label')"
+
+              :separators="[',', '，', ' ']"
               :placeholder="t('builtinFeatures.menuCenter.prefixes.placeholder')"
               data-testid="menu-center-prefixes"
               class="menu-center-float-panel__select"
@@ -406,37 +412,37 @@ async function save() {
           </div>
         </div>
         <div class="menu-center-actions">
-          <a-tag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
+          <AppTag v-if="hasUnsavedChanges" class="menu-center-unsaved-tag">
             {{ t('builtinFeatures.menuCenter.unsaved') }}
-          </a-tag>
-          <a-button
-            type="primary"
+          </AppTag>
+          <AppButton
+            variant="default"
             :disabled="!hasUnsavedChanges"
             :loading="saving"
             data-testid="menu-center-save"
             @click="save"
           >
-            <template #icon><SaveOutlined /></template>
+            <template #icon><SaveIcon /></template>
             {{ t('builtinFeatures.menuCenter.save') }}
-          </a-button>
+          </AppButton>
         </div>
       </div>
 
       <div class="menu-preview-area">
-        <a-tabs v-model:activeKey="activeTab" class="menu-center-tabs">
-          <template #rightExtra>
-            <a-select
+        <AppTabs v-model="activeTab" class="menu-center-tabs" keep-alive :items="[{ value: 'root', label: t('builtinFeatures.menuCenter.preview.rootTitle') }, { value: 'plugin', label: t('builtinFeatures.menuCenter.preview.pluginTitle') }]">
+          <template #extra>
+            <AppSelect
               v-show="activeTab === 'plugin'"
-              v-model:value="selectedPluginId"
+              v-model="selectedPluginId"
               :options="pluginOptions"
               :placeholder="t('builtinFeatures.menuCenter.preview.allPlugins')"
-              class="menu-center-plugin-select"
-              size="small"
+              wrapper-class="menu-center-plugin-select"
+
               data-testid="menu-center-plugin-select"
             />
           </template>
 
-          <a-tab-pane key="root" :tab="t('builtinFeatures.menuCenter.preview.rootTitle')" force-render>
+          <template #root>
             <div class="menu-preview-card">
               <div class="menu-trigger-row">
                 <span v-for="example in rootMenuTriggerExamples" :key="example" class="menu-trigger-chip">{{ example }}</span>
@@ -447,9 +453,9 @@ async function save() {
                 data-testid="menu-center-root-preview"
               />
             </div>
-          </a-tab-pane>
+          </template>
 
-          <a-tab-pane key="plugin" :tab="t('builtinFeatures.menuCenter.preview.pluginTitle')" force-render>
+          <template #plugin>
             <div class="menu-preview-card">
               <template v-if="selectedPlugin">
                 <NativeTemplatePreviewFrame
@@ -458,14 +464,14 @@ async function save() {
                   data-testid="menu-center-plugin-preview"
                 />
               </template>
-              <a-empty
+              <AppEmptyState
                 v-else
                 :description="t('builtinFeatures.menuCenter.preview.noPlugins')"
                 class="menu-preview-empty"
               />
             </div>
-          </a-tab-pane>
-        </a-tabs>
+          </template>
+        </AppTabs>
       </div>
     </div>
   </AppPage>
@@ -482,7 +488,7 @@ async function save() {
   border-top: 1px solid var(--border);
 }
 
-.menu-center-actions .ant-btn {
+.menu-center-actions .app-button {
   margin-inline-start: auto;
 }
 
@@ -572,26 +578,26 @@ async function save() {
   width: min(100%, var(--menu-center-preview-max-width));
   min-height: 0;
 
-  :deep(.ant-tabs-content) {
+  :deep(.app-tabs__content) {
     flex: 1 1 auto;
     min-height: 0;
   }
 
-  :deep(.ant-tabs-tabpane) {
+  :deep(.app-tabs__content) {
     display: flex;
     flex-direction: column;
     min-height: 0;
   }
 
-  :deep(.ant-tabs-nav) {
+  :deep(.app-tabs__header) {
     margin-bottom: var(--space-md);
   }
 
-  :deep(.ant-tabs-tab) {
+  :deep(.app-tabs__trigger) {
     font-weight: 500;
   }
 
-  :deep(.ant-tabs-extra-content) {
+  :deep(.app-tabs__extra) {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
@@ -659,12 +665,12 @@ async function save() {
   min-height: 320px;
 }
 
-:deep(.ant-tabs-extra-content) {
-  .ant-select {
+:deep(.app-tabs__extra) {
+  .app-select-wrap {
     font-size: 0.85rem;
   }
 
-  .ant-select-selector {
+  .app-select {
     border-radius: var(--radius-sm) !important;
   }
 }
@@ -699,16 +705,16 @@ async function save() {
     margin-bottom: var(--space-sm);
   }
 
-  .menu-center-tabs :deep(.ant-tabs-nav) {
+  .menu-center-tabs :deep(.app-tabs__header) {
     flex-wrap: wrap;
     row-gap: var(--space-sm);
   }
 
-  .menu-center-tabs :deep(.ant-tabs-nav-wrap) {
+  .menu-center-tabs :deep(.app-tabs__list) {
     min-width: 0;
   }
 
-  .menu-center-tabs :deep(.ant-tabs-extra-content) {
+  .menu-center-tabs :deep(.app-tabs__extra) {
     width: 100%;
     margin-left: 0;
   }

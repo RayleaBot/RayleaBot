@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppSelect from '@/components/AppSelect.vue'
+import AppNumberInput from '@/components/AppNumberInput.vue'
 import { computed, ref, watch } from 'vue'
 
 import { t } from '@/i18n'
@@ -81,38 +83,36 @@ function emitIfValid() {
     <div class="rate-limit-input__grid">
       <label class="rate-limit-input__field">
         <span>{{ t('config.rateLimit.count') }}</span>
-        <a-input-number
+        <AppNumberInput nullable
           class="rate-limit-input__number"
-          :value="count"
+          :model-value="count"
           :min="1"
-          :precision="0"
           :step="1"
           :aria-label="`${ariaLabel} ${t('config.rateLimit.count')}`"
-          @update:value="updateCount"
+          @update:model-value="updateCount"
         />
       </label>
 
       <label class="rate-limit-input__field">
         <span>{{ t('config.rateLimit.window') }}</span>
-        <a-input-number
+        <AppNumberInput nullable
           class="rate-limit-input__number"
-          :value="windowValue"
+          :model-value="windowValue"
           :min="1"
-          :precision="0"
           :step="1"
           :aria-label="`${ariaLabel} ${t('config.rateLimit.window')}`"
-          @update:value="updateWindow"
+          @update:model-value="updateWindow"
         />
       </label>
 
       <label class="rate-limit-input__field rate-limit-input__field--unit">
         <span>{{ t('config.rateLimit.unit') }}</span>
-        <a-select
+        <AppSelect
           class="rate-limit-input__unit"
-          :value="unit"
+          :model-value="unit"
           :options="unitOptions"
           :aria-label="`${ariaLabel} ${t('config.rateLimit.unit')}`"
-          @update:value="updateUnit"
+          @update:model-value="updateUnit"
         />
       </label>
     </div>
@@ -153,13 +153,13 @@ function emitIfValid() {
   width: 100%;
 }
 
-.rate-limit-input :deep(.ant-input-number),
-.rate-limit-input :deep(.ant-select-selector) {
+.rate-limit-input :deep(.app-number-input),
+.rate-limit-input :deep(.app-select) {
   border-radius: var(--radius-md);
 }
 
-.rate-limit-input--invalid :deep(.ant-input-number),
-.rate-limit-input--invalid :deep(.ant-select-selector) {
+.rate-limit-input--invalid :deep(.app-number-input),
+.rate-limit-input--invalid :deep(.app-select) {
   border-color: var(--danger);
 }
 

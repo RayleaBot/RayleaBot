@@ -139,6 +139,7 @@ function baseState() {
     token: null,
     csrfToken: null,
     plugins: pluginMap,
+    pluginStoreSources: structuredClone(fixtures.pluginStoreSources.response.body.items),
     pluginSettings: {
       'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
     },
@@ -2081,7 +2082,43 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/api/plugin-store/sources' && request.method === 'GET') {
     if (!requireAuth(request, response)) return
-    json(response, 200, fixtures.pluginStoreSources.response.body)
+    json(response, 200, { items: state.pluginStoreSources })
+    return
+  }
+
+  const pluginStoreSourceMatch = pathname.match(/^\/api\/plugin-store\/sources\/([^/]+)$/)
+  if ((pathname === '/api/plugin-store/sources' && request.method === 'POST')
+    || (pluginStoreSourceMatch && ['PUT', 'DELETE'].includes(request.method))) {
+    if (!requireAuth(request, response)) return
+    const sourceId = pluginStoreSourceMatch ? decodeURIComponent(pluginStoreSourceMatch[1]) : null
+    const existing = sourceId ? state.pluginStoreSources.find(item => item.id === sourceId) : null
+    if (sourceId && !existing) {
+      json(response, 404, errorEnvelope('platform.not_found', 'source not found', 'req_source_missing'))
+      return
+    }
+    if (existing?.official) {
+      json(response, 409, errorEnvelope('platform.invalid_request', 'official source is immutable', 'req_source_immutable'))
+      return
+    }
+    if (request.method === 'DELETE') {
+      state.pluginStoreSources = state.pluginStoreSources.filter(item => item.id !== sourceId)
+      response.writeHead(204)
+      response.end()
+      return
+    }
+    const input = await parseBody(request)
+    if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > 120
+      || typeof input.url !== 'string' || !input.url.startsWith('https://')) {
+      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid source', 'req_source_invalid'))
+      return
+    }
+    const item = {
+      id: sourceId || 'custom-' + createHash('sha256').update(input.url).digest('hex').slice(0, 12),
+      name: input.name.trim(), url: input.url, official: false, cached: true,
+      entry_count: 0, refreshed_at: '2026-09-07T00:00:00Z',
+    }
+    state.pluginStoreSources = [...state.pluginStoreSources.filter(source => source.id !== item.id), item]
+    json(response, request.method === 'POST' ? 201 : 200, item)
     return
   }
 

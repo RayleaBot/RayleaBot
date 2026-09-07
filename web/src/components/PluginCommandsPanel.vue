@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppTag from '@/components/AppTag.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 import { formatCommandUsage } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { isPluginCommandConflicted } from '@/lib/plugin-commands'
@@ -63,9 +65,9 @@ function getTriggerText(command: PluginCommandSummary) {
 
 function getTriggerColor(command: PluginCommandSummary) {
   if (command.trigger.type === 'pattern') {
-    return 'blue'
+    return 'info'
   }
-  return command.trigger.type === 'setting' ? 'purple' : 'default'
+  return command.trigger.type === 'setting' ? 'info' : 'neutral'
 }
 
 function isConflicted(command: PluginCommandSummary) {
@@ -74,7 +76,7 @@ function isConflicted(command: PluginCommandSummary) {
 </script>
 
 <template>
-  <a-empty v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
+  <AppEmptyState v-if="commands.length === 0" :description="t('plugins.empty.commands')" />
 
   <div v-else class="plugin-command-grid" role="list">
     <article
@@ -86,15 +88,15 @@ function isConflicted(command: PluginCommandSummary) {
     >
       <header class="plugin-command-card__header">
         <div class="plugin-command-card__title-row">
-          <a-tag :color="isConflicted(command) ? 'warning' : 'success'" class="command-badge">
+          <AppTag :tone="isConflicted(command) ? 'warning' : 'success'" class="command-badge">
             {{ command.name }}
-          </a-tag>
-          <a-tag v-if="isConflicted(command)" color="warning">
+          </AppTag>
+          <AppTag v-if="isConflicted(command)" tone="warning">
             {{ t('plugins.commandConflictBadge') }}
-          </a-tag>
-      <a-tag :color="getTriggerColor(command)">
+          </AppTag>
+      <AppTag :tone="getTriggerColor(command)">
       {{ getTriggerText(command) }}
-          </a-tag>
+          </AppTag>
         </div>
       </header>
 
@@ -106,12 +108,12 @@ function isConflicted(command: PluginCommandSummary) {
         <div class="plugin-command-card__section">
           <span class="section-label">{{ t('plugins.commandAliases') }}</span>
       <div class="alias-tags" v-if="getVisibleCommandAliases(command).length">
-            <a-tag v-for="alias in getVisibleAliases(command)" :key="alias" size="small" class="alias-tag">
+            <AppTag v-for="alias in getVisibleAliases(command)" :key="alias" class="alias-tag">
               {{ alias }}
-            </a-tag>
-            <a-tag v-if="getHiddenAliasCount(command) > 0" size="small" class="alias-tag alias-tag--more">
+            </AppTag>
+            <AppTag v-if="getHiddenAliasCount(command) > 0" class="alias-tag alias-tag--more">
               {{ t('plugins.commandOverflow', { count: getHiddenAliasCount(command) }) }}
-            </a-tag>
+            </AppTag>
             <!-- Hidden text for unit test compatibility -->
             <span class="sr-only">{{ getAliasesText(command) }}</span>
           </div>

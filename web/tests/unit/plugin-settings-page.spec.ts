@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -16,7 +15,7 @@ vi.mock('@/adapter/feedback', () => ({
 }))
 
 function getCommandPrefixSelect(wrapper: ReturnType<typeof mount>) {
-  const select = wrapper.findAllComponents({ name: 'ASelect' }).find(
+  const select = wrapper.findAllComponents({ name: 'AppTagsInput' }).find(
     candidate => candidate.attributes('data-testid') === 'plugin-settings-command-prefixes',
   )
   expect(select).toBeDefined()
@@ -55,7 +54,7 @@ describe('PluginSettingsPage', () => {
 
     const wrapper = mount(PluginSettingsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -65,7 +64,7 @@ describe('PluginSettingsPage', () => {
     expect(wrapper.get('[data-testid="plugin-settings-save"]').attributes('disabled')).toBeDefined()
 
     await getCommandPrefixSelect(wrapper).vm.$emit(
-      'update:value',
+      'update:modelValue',
       ['/', '!'],
     )
     await wrapper.getComponent(RateLimitInput).vm.$emit('update:value', '300/10s')
@@ -106,7 +105,7 @@ describe('PluginSettingsPage', () => {
 
     const wrapper = mount(PluginSettingsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 

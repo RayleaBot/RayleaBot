@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AppLoadingPanel from '@/components/AppLoadingPanel.vue'
+import AppDetails from '@/components/AppDetails.vue'
+import AppDetailItem from '@/components/AppDetailItem.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useToastFeedback } from '@/adapter/feedback'
@@ -547,18 +551,18 @@ onBeforeUnmount(() => {
   <section class="plugin-management-ui-host" data-testid="plugin-management-ui-host" :aria-label="title">
     <section v-if="requiresConfirmation && !confirmed" class="plugin-management-ui-confirm" data-testid="plugin-management-ui-confirm">
       <div class="plugin-management-ui-confirm-note"><strong>{{ t('plugins.managementUi.confirmTitle') }}</strong><p>{{ t('plugins.managementUi.confirmBody') }}</p></div>
-      <a-descriptions :column="1" bordered size="small">
-        <a-descriptions-item :label="t('plugins.fields.trust')">{{ plugin.trust?.label ?? t('display.empty') }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.managementUi.entryPath')">{{ managementEntry || t('display.empty') }}</a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.sourceRef')">{{ sourceReference }}</a-descriptions-item>
-      </a-descriptions>
-      <div class="table-actions"><a-button type="primary" @click="acceptUnverifiedSource">{{ t('plugins.managementUi.confirmAction') }}</a-button></div>
+      <AppDetails>
+        <AppDetailItem :label="t('plugins.fields.trust')">{{ plugin.trust?.label ?? t('display.empty') }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.managementUi.entryPath')">{{ managementEntry || t('display.empty') }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.sourceRef')">{{ sourceReference }}</AppDetailItem>
+      </AppDetails>
+      <div class="table-actions"><AppButton variant="default" @click="acceptUnverifiedSource">{{ t('plugins.managementUi.confirmAction') }}</AppButton></div>
     </section>
 
     <RetryPanel v-else-if="fatalError" :title="t('plugins.managementUi.loadFailed')" :description="fatalError" :loading="false" variant="compact" @retry="restartFrame" />
 
     <div v-else class="plugin-management-ui-frame-shell">
-      <a-spin :spinning="busy" :tip="busyLabel">
+      <AppLoadingPanel :busy="busy" :label="busyLabel">
         <iframe
           v-if="canRenderIframe"
           :key="iframeKey"
@@ -571,7 +575,7 @@ onBeforeUnmount(() => {
           :title="title"
           @load="handleFrameLoad"
         />
-      </a-spin>
+      </AppLoadingPanel>
     </div>
   </section>
 </template>
@@ -582,7 +586,7 @@ onBeforeUnmount(() => {
 .plugin-management-ui-confirm-note { display: grid; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface-soft); }
 .plugin-management-ui-confirm-note p { margin: 0; color: var(--muted); }
 .plugin-management-ui-frame-shell,
-.plugin-management-ui-frame-shell :deep(.ant-spin-nested-loading),
-.plugin-management-ui-frame-shell :deep(.ant-spin-container) { display: flex; flex: 1 1 auto; min-height: 0; width: 100%; }
+.plugin-management-ui-frame-shell :deep(.app-loading-panel),
+.plugin-management-ui-frame-shell :deep(.app-loading-panel__content) { display: flex; flex: 1 1 auto; min-height: 0; width: 100%; }
 .plugin-management-ui-frame { width: 100%; min-height: 320px; max-height: 1600px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-strong); transition: height 160ms ease; }
 </style>

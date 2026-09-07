@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -76,7 +75,7 @@ describe('PluginStoreView', () => {
     })
     const install = vi.spyOn(store, 'install').mockResolvedValue({ task_id: 'task-store-install' })
 
-    const wrapper = mount(PluginStoreView, { global: { plugins: [Antd] } })
+    const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
     await flushPromises()
     await wrapper.get('[data-testid="plugin-store-install-raylea.echo"]').trigger('click')
     await flushPromises()
@@ -84,7 +83,7 @@ describe('PluginStoreView', () => {
     expect(install).not.toHaveBeenCalled()
     expect(store.installing['raylea.echo']).toBe(false)
     expect(document.body.textContent).toContain('message.send')
-    const okButton = document.body.querySelector('.ant-modal .ant-btn-primary') as HTMLButtonElement
+    const okButton = document.body.querySelector('[role=dialog] button[data-variant=default]') as HTMLButtonElement
     okButton.click()
     await flushPromises()
 
@@ -105,7 +104,7 @@ describe('PluginStoreView', () => {
     vi.spyOn(store, 'fetchEntries').mockResolvedValue({ items: store.items, total: 1, source: officialSource })
     const refresh = vi.spyOn(store, 'refreshSource').mockRejectedValue(new Error('offline'))
 
-    const wrapper = mount(PluginStoreView, { global: { plugins: [Antd] } })
+    const wrapper = mount(PluginStoreView, { global: { plugins: [getActivePinia()!] } })
     await flushPromises()
     expect(refresh).toHaveBeenCalledWith('official')
     expect(store.items).toEqual([echoPlugin])

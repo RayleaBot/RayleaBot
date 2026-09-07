@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 import { computed, getCurrentInstance } from 'vue'
 import type { Router } from 'vue-router'
 
@@ -58,9 +59,9 @@ function goHome() {
         <strong>{{ title }}</strong>
         <span>{{ description }}</span>
       </div>
-      <a-button type="primary" :loading="loading" @click="$emit('retry')">
+      <AppButton variant="default" :loading="loading" @click="$emit('retry')">
         {{ retryLabel ?? '重试' }}
-      </a-button>
+      </AppButton>
     </div>
   </section>
 </template>

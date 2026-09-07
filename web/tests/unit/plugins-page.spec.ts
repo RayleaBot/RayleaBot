@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
@@ -63,7 +62,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -95,7 +94,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -127,7 +126,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -165,7 +164,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -198,7 +197,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -256,7 +255,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -335,20 +334,20 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
     await flushPromises()
 
     const sourceFilter = wrapper.getComponent('.filter-select')
-    sourceFilter.vm.$emit('update:value', 'community')
+    sourceFilter.vm.$emit('update:modelValue', 'community')
     await flushPromises()
 
     expect(wrapper.find('.plugins-grid').text()).toContain('Verified Third Party')
     expect(wrapper.find('.plugins-grid').text()).not.toContain('Official Help')
 
-    sourceFilter.vm.$emit('update:value', 'official')
+    sourceFilter.vm.$emit('update:modelValue', 'official')
     await flushPromises()
 
     expect(wrapper.find('.plugins-grid').text()).toContain('Official Help')
@@ -384,7 +383,7 @@ describe('PluginsPage', () => {
 
     const wrapper = mount(PluginsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 

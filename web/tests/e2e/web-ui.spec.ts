@@ -2200,11 +2200,11 @@ test('command center shows all declared commands and filters by plugin selection
   await expect(commandsTable).toContainText('hello')
   await expect(commandsTable).toContainText('weather')
 
-  const pluginSelector = page.locator('.commands-filter-toolbar .ant-select').first()
+  const pluginSelector = page.locator('.commands-filter-toolbar').getByRole('combobox')
   await expect(pluginSelector).toBeVisible()
   await pluginSelector.click()
-  await page.keyboard.type('Weather')
-  await page.keyboard.press('Enter')
+  await page.getByRole('option', { name: /Weather/ }).click()
+  await page.keyboard.press('Escape')
 
   await expect(commandsTable).toContainText('weather')
   await expect(commandsTable).not.toContainText('hello')
@@ -2275,7 +2275,7 @@ test('plugin store manages sources and confirms first installs', async ({ page, 
   const sourceDialog = page.getByRole('dialog', { name: '管理插件源' })
   await expect(sourceDialog.getByText('RayleaBot 官方插件', { exact: true })).toBeVisible()
   await expect(sourceDialog.getByText('社区插件', { exact: true })).toBeVisible()
-  await sourceDialog.locator('.ant-modal-close').click()
+  await sourceDialog.getByRole('button', { name: '关闭弹窗' }).click()
   await expect(sourceDialog).toBeHidden()
 
   await page.getByTestId('plugin-store-install-raylea.echo').click()

@@ -1248,7 +1248,7 @@
   ],
   "narrative": {
     "northStar": "雾白·青瓷",
-    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。\n\nWeb 当前已落地 M1 产品组件基础、M2 协议中心与 M3 应用壳及认证入口。侧栏、工作区页签、搜索、偏好、主题菜单、登录和初始化表单已使用产品组件；M4 插件、治理、诊断等业务页面及 AppCard、AppStatusTag、RetryPanel 等公共业务组件仍待迁移，顶层 App 保留 Ant Design Vue provider 供这些页面使用。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。",
+    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。\n\nWeb 当前已落地 M1 产品组件基础、M2 协议中心、M3 应用壳及认证入口，以及 M4-A 插件工作区。插件列表、商店、详情、全局插件设置、菜单中心和指令中心已使用产品组件，AppCard、AppStatusTag、RetryPanel、管理上下文操作与插件管理面 Host 同步迁移。对象卡片、分区表单、控制台虚拟列表与独立 iframe 边界保持原有职责。\n\n账号、治理、日志和系统等其余工作区仍待 M4-B/C；顶层 App 的 Ant Design Vue provider 与旧样式入口保留至 M5 清理，独立插件 iframe 内部的组件库不属于 Web 宿主迁移范围。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。",
     "keyCharacteristics": [
       "灰白与炭灰画布、中性导航和连续工作区。",
       "少量青瓷主操作、选中标记和几何折叶标识。",
@@ -1293,6 +1293,11 @@
         "section": "elevation"
       },
       {
+        "name": "The Tag Delimiter Rule",
+        "body": "标签输入通过 Enter 或离开输入框确认条目，只按业务显式提供的分隔符拆分输入与粘贴。全局指令前缀保留字面逗号；菜单中心按其既有字段规则使用逗号、中文逗号和空格分隔，不把该规则扩散到其他标签字段。",
+        "section": "components"
+      },
+      {
         "name": "The Web Product Focus Rule",
         "body": "Web 基础按钮、输入框与选择器通过 Tailwind 映射消费现有语义 token；键盘焦点保留基础 2px 轮廓，并使用主题强调色边框与 3px、50% 透明度的光环，错误状态使用独立危险语义。导航、页签、分段选择与菜单使用各自的中性焦点或高亮轮廓；认证字段遵循专用样式。局部规则不替换 Launcher 或旧 Web 页面的焦点样式，强制颜色模式保留系统可见焦点。",
         "section": "components"
@@ -1315,6 +1320,11 @@
       {
         "name": "The Fold Mark Rule",
         "body": "折叶由同一几何母版生成，品牌不代替状态图标或导航文字。",
+        "section": "components"
+      },
+      {
+        "name": "The Embedded Content Rule",
+        "body": "需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。错误恢复和显式重载仍按既有 Host 生命周期执行，宿主组件迁移不扩展到独立插件页面。",
         "section": "components"
       }
     ],

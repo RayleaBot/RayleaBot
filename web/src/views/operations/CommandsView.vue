@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import AppSelect from '@/components/AppSelect.vue'
+import AppDataTable from '@/components/AppDataTable.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppField from '@/components/AppField.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -85,14 +91,14 @@ const feedbackToast = computed(() => {
 useToastFeedback(feedbackToast)
 
 const commandTableColumns = computed(() => [
-  { title: t('commands.fields.command'), key: 'command', dataIndex: 'command', width: 180 },
-  { title: t('commands.fields.aliases'), key: 'aliases', dataIndex: 'aliases', width: 180 },
-  { title: t('commands.fields.source'), key: 'source', dataIndex: 'source', width: 120 },
-  { title: t('commands.fields.description'), key: 'description', dataIndex: 'description' },
-  { title: t('commands.fields.usage'), key: 'usage', dataIndex: 'usage' },
-  { title: t('commands.fields.permission'), key: 'permission', dataIndex: 'permission', width: 180 },
-  { title: t('commands.fields.plugin'), key: 'plugin', dataIndex: 'plugin', width: 220 },
-  { title: t('commands.fields.status'), key: 'status', dataIndex: 'status', width: 120 },
+  { label: t('commands.fields.command'), key: 'command', width: 180 },
+  { label: t('commands.fields.aliases'), key: 'aliases', width: 180 },
+  { label: t('commands.fields.source'), key: 'source', width: 120 },
+  { label: t('commands.fields.description'), key: 'description' },
+  { label: t('commands.fields.usage'), key: 'usage' },
+  { label: t('commands.fields.permission'), key: 'permission', width: 180 },
+  { label: t('commands.fields.plugin'), key: 'plugin', width: 220 },
+  { label: t('commands.fields.status'), key: 'status', width: 120 },
 ])
 
 function samePluginIds(left: string[], right: string[]) {
@@ -154,10 +160,10 @@ function getStatusColor(status: PluginCommandAvailability) {
     case 'switching':
       return 'warning'
     case 'disabled':
-      return 'default'
+      return 'neutral'
     case 'not_ready':
     default:
-      return 'processing'
+      return 'info'
   }
 }
 
@@ -184,13 +190,9 @@ function getCommandSourceLabel(source: PluginCommandSummary['trigger']['type']) 
 
 function getCommandSourceColor(source: PluginCommandSummary['trigger']['type']) {
   if (source === 'pattern') {
-    return 'blue'
+    return 'info'
   }
-  return source === 'setting' ? 'purple' : 'default'
-}
-
-function getSelectPopupContainer() {
-  return document.body
+  return source === 'setting' ? 'info' : 'neutral'
 }
 
 watch(
@@ -234,22 +236,20 @@ onMounted(() => {
   <AppPage :title="t('commands.title')" :show-header="false" width="detail">
     <template #toolbar>
       <div class="app-view-card commands-filter-toolbar">
-        <a-form layout="vertical">
-          <a-form-item :label="t('commands.filters.plugins')">
-            <a-select
-              v-model:value="selectedPluginIds"
-              mode="multiple"
-              allow-clear
-              :get-popup-container="getSelectPopupContainer"
-              popup-class-name="commands-plugin-select-popup"
+        <div class="commands-filter-form">
+          <AppField :label="t('commands.filters.plugins')">
+            <AppSelect
+              v-model="selectedPluginIds"
+              multiple
+              clearable
               :options="pluginOptions"
               :placeholder="t('commands.filters.allPlugins')"
             />
-          </a-form-item>
-        </a-form>
-        <a-button type="primary" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
+          </AppField>
+        </div>
+        <AppButton variant="default" data-testid="commands-open-permission-policy" :aria-label="t('commands.actions.openPermissionPolicy')" @click="navigate(buildPermissionPolicyLocation())">
           {{ t('commands.actions.openPermissionPolicy') }}
-        </a-button>
+        </AppButton>
       </div>
     </template>
 
@@ -262,27 +262,27 @@ onMounted(() => {
     />
 
     <template v-else>
-      <a-card
-        :bordered="false"
+      <AppCard
+        borderless
         class="app-view-card commands-section-card"
       >
         <template #title>
           <div class="card-header">
             <span>{{ t('commands.sections.commandList') }}</span>
-            <a-tag color="blue">{{ commandRows.length }}</a-tag>
+            <AppTag tone="info">{{ commandRows.length }}</AppTag>
           </div>
         </template>
 
-        <a-table
+        <AppDataTable
           class="commands-data-table app-data-table"
           :columns="commandTableColumns"
-          :data-source="commandRows"
-          :pagination="false"
+          :rows="commandRows"
+
           :row-key="(row: UnifiedCommandRow) => row.key"
           :loading="(loading || commandPolicyLoading) && commandRows.length === 0"
-          :scroll="{ x: 1260 }"
+          :min-width="1260" :label="t('commands.sections.commandList')"
         >
-          <template #emptyText>
+          <template #empty>
             <AppEmptyState
               icon="command"
               :title="t('commands.empty.title')"
@@ -290,11 +290,11 @@ onMounted(() => {
             />
           </template>
 
-          <template #bodyCell="{ column, record }">
+          <template #cell="{ column, row: record }">
             <template v-if="column.key === 'command'">
-              <a-tag :color="record.conflicted ? 'warning' : 'blue'" :aria-label="`指令：${record.command.name}`">
+              <AppTag :tone="record.conflicted ? 'warning' : 'info'" :aria-label="`指令：${record.command.name}`">
                 {{ record.command.name }}
-              </a-tag>
+              </AppTag>
             </template>
 
             <template v-else-if="column.key === 'aliases'">
@@ -302,9 +302,9 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'source'">
-              <a-tag :color="getCommandSourceColor(record.command.trigger.type)">
+              <AppTag :tone="getCommandSourceColor(record.command.trigger.type)">
                 {{ getCommandSourceLabel(record.command.trigger.type) }}
-              </a-tag>
+              </AppTag>
             </template>
 
             <template v-else-if="column.key === 'description'">
@@ -337,20 +337,20 @@ onMounted(() => {
             </template>
 
             <template v-else-if="column.key === 'status'">
-              <a-tag :color="getStatusColor(record.availability)" :aria-label="`可用性：${getStatusLabel(record.availability)}`">
+              <AppTag :tone="getStatusColor(record.availability)" :aria-label="`可用性：${getStatusLabel(record.availability)}`">
                 {{ getStatusLabel(record.availability) }}
-              </a-tag>
+              </AppTag>
             </template>
           </template>
-        </a-table>
+        </AppDataTable>
 
         <div class="commands-mobile-list" aria-label="指令列表">
           <article v-for="record in commandRows" :key="record.key" class="commands-mobile-row">
             <div class="commands-mobile-row__heading">
               <strong>{{ record.command.name }}</strong>
-              <a-tag :color="getStatusColor(record.availability)">
+              <AppTag :tone="getStatusColor(record.availability)">
                 {{ getStatusLabel(record.availability) }}
-              </a-tag>
+              </AppTag>
             </div>
             <p>{{ record.command.description || t('display.empty') }}</p>
             <dl>
@@ -380,7 +380,7 @@ onMounted(() => {
             :description="t('commands.empty.description')"
           />
         </div>
-      </a-card>
+      </AppCard>
     </template>
   </AppPage>
 </template>
@@ -404,12 +404,12 @@ onMounted(() => {
   gap: 12px;
   padding: 16px;
 
-  .ant-form {
+  .commands-filter-form {
     flex: 1 1 260px;
     min-width: 0;
   }
 
-  :deep(.ant-form-item) {
+  :deep(.app-field) {
     margin-bottom: 0;
   }
 }
@@ -418,7 +418,7 @@ onMounted(() => {
   z-index: 1060;
 }
 
-:deep(.ant-table-row:hover > td) {
+:deep(.app-data-table-row:hover > td) {
   background: var(--surface-accent) !important;
 }
 

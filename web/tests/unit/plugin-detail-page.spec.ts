@@ -1,6 +1,5 @@
-import Antd from 'ant-design-vue'
 import { nextTick } from 'vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -133,9 +132,10 @@ function getViewportMetrics(wrapper: ReturnType<typeof mount>) {
 async function openConsoleTab(wrapper: ReturnType<typeof mount>) {
   const consoleTab = wrapper.findAll('[role="tab"]').find((candidate) => candidate.text().includes('实时输出'))
   expect(consoleTab).toBeTruthy()
-  await consoleTab!.trigger('click')
+  await consoleTab!.trigger('keydown', { key: 'Enter' })
   await nextTick()
   await flushPromises()
+  expect(consoleTab!.attributes('aria-selected')).toBe('true')
 }
 
 async function waitForConsoleBottomSync() {
@@ -178,7 +178,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
     await nextTick()
@@ -214,7 +214,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
     await flushPromises()
@@ -332,7 +332,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -422,7 +422,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -482,7 +482,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -556,7 +556,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -607,7 +607,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -687,7 +687,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -764,7 +764,7 @@ describe('PluginDetailPage', () => {
 
     const wrapper = mount(PluginDetailPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 

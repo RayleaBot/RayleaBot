@@ -16,7 +16,7 @@ provide(fieldContextKey, context)
 
 <template>
   <div class="app-field" :data-invalid="Boolean(error)">
-    <Label :for="context.id" class="app-field__label" :data-required="required || undefined">{{ label }}</Label>
+    <Label :for="context.id" class="app-field__label" :data-required="required || undefined"><slot name="label">{{ label }}</slot></Label>
     <slot />
     <p v-if="error || hint" :id="context.descriptionId" class="app-field__description" :class="{ 'text-danger': error }" :role="error ? 'alert' : undefined">{{ error || hint }}</p>
   </div>

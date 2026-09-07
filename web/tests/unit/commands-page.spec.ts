@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -201,7 +200,7 @@ describe('CommandsPage', () => {
 
     const wrapper = mount(CommandsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -225,8 +224,8 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).not.toContain('白名单')
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.fortune')
 
-    const select = wrapper.findComponent({ name: 'ASelect' })
-    await select.vm.$emit('update:value', ['raylea.echo'])
+    const select = wrapper.findComponent({ name: 'AppSelect' })
+    await select.vm.$emit('update:modelValue', ['raylea.echo'])
     await flushPromises()
 
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.echo')
@@ -289,7 +288,7 @@ describe('CommandsPage', () => {
 
     const wrapper = mount(CommandsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 

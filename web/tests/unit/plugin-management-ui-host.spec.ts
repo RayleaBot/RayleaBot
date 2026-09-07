@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -96,7 +95,7 @@ function configureStores() {
 function mountHost(plugin = buildPlugin()) {
   return mount(PluginManagementUIHost, {
     props: { plugin, title: '配置页面', page: buildManagementPage() },
-    global: { plugins: [Antd] },
+    global: { plugins: [getActivePinia()!] },
   })
 }
 

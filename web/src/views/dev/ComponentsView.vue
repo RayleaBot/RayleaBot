@@ -5,6 +5,7 @@ import AppInput from '@/components/AppInput.vue'
 import AppNumberInput from '@/components/AppNumberInput.vue'
 import AppField from '@/components/AppField.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import AppTagsInput from '@/components/AppTagsInput.vue'
 import AppCheckbox from '@/components/AppCheckbox.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
 import AppAlert from '@/components/AppAlert.vue'
@@ -20,6 +21,13 @@ const selected = ref('onebot11')
 const options = [{ value: 'onebot11', label: 'OneBot11' }, { value: 'qqofficial', label: 'QQ 官方机器人' }]
 const open = ref(false)
 const confirmation = ref(false)
+const typedValue = ref<string | number | boolean>(false)
+const typedOptions: Array<{ value: string | number | boolean; label: string }> = [
+  { value: false, label: '关闭（布尔）' }, { value: true, label: '开启（布尔）' },
+  { value: 'true', label: '文本 true' }, { value: 1, label: '数字 1' }, { value: '1', label: '文本 1' },
+]
+const tags = ref(['help'])
+const optionalNumber = ref<number | null>(7)
 </script>
 <template>
   <main class="component-showcase">
@@ -50,6 +58,19 @@ const confirmation = ref(false)
         <AppCheckbox v-model="enabled">接收群聊与单聊消息</AppCheckbox>
         <div class="my-4 flex items-center justify-between"><label for="showcase-enabled">启用连接</label><AppSwitch id="showcase-enabled" v-model="enabled" /></div>
         <Skeleton class="h-20 w-full" />
+      </div>
+    </section>
+    <section class="showcase-fields">
+      <div>
+        <h2>选项值与集合</h2>
+        <AppField label="保留原始类型"><AppSelect v-model="typedValue" :options="typedOptions" /></AppField>
+        <output data-testid="showcase-typed-value">{{ JSON.stringify(typedValue) }}</output>
+        <AppField label="可留空数值"><AppNumberInput v-model="optionalNumber" nullable /></AppField>
+        <output data-testid="showcase-optional-number">{{ JSON.stringify(optionalNumber) }}</output>
+      </div>
+      <div>
+        <AppField label="自由输入列表" hint="按 Enter 添加；逗号可作为单独的值。"><AppTagsInput v-model="tags" /></AppField>
+        <output data-testid="showcase-tags-value">{{ JSON.stringify(tags) }}</output>
       </div>
     </section>
     <AppDialog :open="open" title="配置连接" description="更改保存在当前草稿中。" @close="confirmation = true">

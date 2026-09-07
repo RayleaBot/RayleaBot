@@ -1,16 +1,28 @@
 <script setup lang="ts">
+import AppSelect from '@/components/AppSelect.vue'
+import AppSearchInput from '@/components/AppSearchInput.vue'
+import AppDialog from '@/components/AppDialog.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppDetails from '@/components/AppDetails.vue'
+import AppDetailItem from '@/components/AppDetailItem.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppAlert from '@/components/AppAlert.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
-  DeleteOutlined,
-  EditOutlined,
-  GithubOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-  SettingOutlined,
-  SyncOutlined,
-} from '@ant-design/icons-vue'
+  Trash2Icon,
+  PencilIcon,
+  ExternalLinkIcon,
+  PlusIcon,
+  RotateCwIcon,
+  SettingsIcon,
+  RefreshCwIcon,
+} from '@lucide/vue'
 
 import { notifyError, notifySuccess, notifyWarning } from '@/adapter/feedback'
 import AppCard from '@/components/AppCard.vue'
@@ -36,6 +48,14 @@ const confirmationOpen = ref(false)
 const selectedPlugin = ref<PluginStoreEntry | null>(null)
 const selectedInspection = ref<PluginStoreInspectionResponse | null>(null)
 const sourceManagerOpen = ref(false)
+const pendingSourceRemoval = ref<string | null>(null)
+const sourceRemoving = ref(false)
+const sourceOptions = computed(() => sources.value.map(item => ({ value: item.id, label: item.name })))
+const sortOptions = computed(() => [
+  { value: 'recommended', label: t('plugins.store.sort.recommended') },
+  { value: 'name', label: t('plugins.store.sort.name') },
+  { value: 'updated', label: t('plugins.store.sort.updated') },
+])
 const sourceEditorOpen = ref(false)
 const editingSourceId = ref<string | null>(null)
 const batchUpdating = ref(false)
@@ -129,11 +149,9 @@ async function confirmInstall() {
   }
 }
 
-function closeConfirmation() {
-  if (selectedPlugin.value) {
-    store.finishInspection(selectedPlugin.value.id)
-  }
-  confirmationOpen.value = false
+function closeConfirmation() { confirmationOpen.value = false }
+function resetConfirmation() {
+  if (selectedPlugin.value) store.finishInspection(selectedPlugin.value.id)
   selectedPlugin.value = null
   selectedInspection.value = null
 }
@@ -211,15 +229,20 @@ async function saveSource() {
 }
 
 async function removeSource(id: string) {
+  if (sourceRemoving.value) return
+  sourceRemoving.value = true
   try {
     await store.deleteSource(id)
     if (sourceId.value === id) {
       sourceId.value = 'official'
       await loadEntries()
     }
+    pendingSourceRemoval.value = null
     notifySuccess(t('plugins.store.sources.removed'))
   } catch (cause) {
     notifyError(getDisplayErrorMessage(cause))
+  } finally {
+    sourceRemoving.value = false
   }
 }
 
@@ -250,45 +273,29 @@ onMounted(() => {
   <AppPage :title="t('plugins.store.title')" :show-header="false">
     <template #toolbar>
       <div class="store-toolbar">
-        <a-input-search
-          v-model:value="query"
-          :placeholder="t('plugins.store.searchPlaceholder')"
-          allow-clear
-          class="store-search"
-          @search="loadEntries"
-        >
-          <template #prefix><SearchOutlined /></template>
-        </a-input-search>
-        <a-select v-model:value="sourceId" class="store-source" @change="changeSource">
-          <a-select-option v-for="item in sources" :key="item.id" :value="item.id">
-            {{ item.name }}
-          </a-select-option>
-        </a-select>
-        <a-select v-model:value="sort" class="store-sort" @change="loadEntries">
-          <a-select-option value="recommended">{{ t('plugins.store.sort.recommended') }}</a-select-option>
-          <a-select-option value="name">{{ t('plugins.store.sort.name') }}</a-select-option>
-          <a-select-option value="updated">{{ t('plugins.store.sort.updated') }}</a-select-option>
-        </a-select>
+        <AppSearchInput v-model="query" :placeholder="t('plugins.store.searchPlaceholder')" class="store-search" @search="loadEntries" />
+        <AppSelect v-model="sourceId" :options="sourceOptions" :aria-label="t('plugins.fields.source')" wrapper-class="store-source" @update:model-value="changeSource" />
+        <AppSelect v-model="sort" :options="sortOptions" aria-label="排序方式" wrapper-class="store-sort" @update:model-value="loadEntries" />
         <div class="store-actions">
-          <a-tag v-if="selectedSource" :color="selectedSource.official ? 'blue' : 'default'">
+          <AppTag v-if="selectedSource" :tone="selectedSource.official ? 'info' : 'neutral'">
             {{ selectedSource.official ? t('plugins.store.sources.official') : t('plugins.store.sources.custom') }}
-          </a-tag>
-          <a-tag v-if="selectedSource && !selectedSource.cached" color="warning">
+          </AppTag>
+          <AppTag v-if="selectedSource && !selectedSource.cached" tone="warning">
             {{ t('plugins.store.sources.notCached') }}
-          </a-tag>
+          </AppTag>
           <span class="store-count">{{ t('plugins.store.resultCount', { count: total }) }}</span>
-          <a-button v-if="updateablePlugins.length" :loading="batchUpdating" @click="updateAll">
-            <template #icon><SyncOutlined /></template>
+          <AppButton v-if="updateablePlugins.length" :loading="batchUpdating" @click="updateAll">
+            <template #icon><RefreshCwIcon /></template>
             {{ t('plugins.store.actions.updateAll', { count: updateablePlugins.length }) }}
-          </a-button>
-          <a-button @click="sourceManagerOpen = true">
-            <template #icon><SettingOutlined /></template>
+          </AppButton>
+          <AppButton data-testid="plugin-store-sources" @click="sourceManagerOpen = true">
+            <template #icon><SettingsIcon /></template>
             {{ t('plugins.store.sources.manage') }}
-          </a-button>
-          <a-button :loading="refreshing" data-testid="plugin-store-refresh" @click="refreshSource">
-            <template #icon><ReloadOutlined /></template>
+          </AppButton>
+          <AppButton :loading="refreshing" data-testid="plugin-store-refresh" @click="refreshSource">
+            <template #icon><RotateCwIcon /></template>
             {{ t('plugins.store.actions.refresh') }}
-          </a-button>
+          </AppButton>
         </div>
       </div>
     </template>
@@ -302,7 +309,7 @@ onMounted(() => {
     />
 
     <template v-else>
-      <a-skeleton v-if="loading" active :paragraph="{ rows: 8 }" />
+      <AppSkeleton v-if="loading" :rows="8" />
       <AppEmptyState
         v-else-if="items.length === 0"
         :title="t('plugins.store.empty.title')"
@@ -325,24 +332,24 @@ onMounted(() => {
               <div class="plugin-heading">
                 <div class="plugin-title-line">
                   <h2>{{ plugin.name }}</h2>
-                  <a-tag v-if="plugin.recommended" color="processing">{{ t('plugins.store.recommended') }}</a-tag>
-                  <a-tag v-if="plugin.category">{{ plugin.category }}</a-tag>
+                  <AppTag v-if="plugin.recommended" tone="info">{{ t('plugins.store.recommended') }}</AppTag>
+                  <AppTag v-if="plugin.category">{{ plugin.category }}</AppTag>
                 </div>
                 <span class="plugin-id">{{ plugin.id }}</span>
               </div>
             </div>
-            <a-tooltip :title="t('plugins.store.repository')">
-              <a-button
+            <AppTooltip :title="t('plugins.store.repository')">
+              <AppButton
                 :href="plugin.repository_url"
                 target="_blank"
                 rel="noopener noreferrer"
                 shape="circle"
-                type="text"
+                variant="ghost"
                 :aria-label="t('plugins.store.repository')"
               >
-                <template #icon><GithubOutlined /></template>
-              </a-button>
-            </a-tooltip>
+                <template #icon><ExternalLinkIcon /></template>
+              </AppButton>
+            </AppTooltip>
           </div>
 
           <p class="plugin-summary">{{ plugin.summary }}</p>
@@ -358,111 +365,93 @@ onMounted(() => {
               {{ t('plugins.store.installedVersion', { version: plugin.installed_version }) }}
             </span>
             <span v-else />
-            <a-button
-              type="primary"
+            <AppButton
+              variant="default"
               :disabled="!canInstall(plugin)"
               :loading="installing[plugin.id]"
               :data-testid="`plugin-store-install-${plugin.id}`"
               @click="requestInstall(plugin)"
             >
               {{ installActionLabel(plugin) }}
-            </a-button>
+            </AppButton>
           </div>
         </AppCard>
       </div>
     </template>
 
-    <a-modal
-      v-model:open="confirmationOpen"
-      :title="t('plugins.store.confirm.title')"
-      :confirm-loading="selectedPlugin ? installing[selectedPlugin.id] : false"
-      :ok-text="t('plugins.store.confirm.action')"
-      :cancel-text="t('shell.cancel')"
-      @ok="confirmInstall"
-      @cancel="closeConfirmation"
-    >
-      <a-alert
-        type="warning"
-        show-icon
-        :message="t('plugins.store.confirm.warning')"
+    <AppDialog :open="confirmationOpen" :title="t('plugins.store.confirm.title')" :busy="Boolean(selectedPlugin && installing[selectedPlugin.id])" fallback-focus="[data-testid=plugin-store-refresh]" @close="closeConfirmation" @after-close="resetConfirmation">
+      <AppAlert
+        tone="warning"
+        :title="t('plugins.store.confirm.warning')"
         :description="t('plugins.store.confirm.description', { name: selectedPlugin?.name ?? '' })"
       />
-      <a-descriptions v-if="selectedInspection" class="confirm-details" :column="1" size="small">
-        <a-descriptions-item :label="t('plugins.fields.version')">
+      <AppDetails v-if="selectedInspection" class="confirm-details">
+        <AppDetailItem :label="t('plugins.fields.version')">
           {{ selectedInspection.inspection.plugin.version }}
-        </a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.source')">
+        </AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.source')">
           {{ selectedInspection.inspection.plugin.source_label }}
-        </a-descriptions-item>
-        <a-descriptions-item :label="t('plugins.fields.permissions')">
+        </AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.permissions')">
           <div class="permission-list">
-            <a-tag v-for="permission in permissionNames" :key="permission">{{ permission }}</a-tag>
+            <AppTag v-for="permission in permissionNames" :key="permission">{{ permission }}</AppTag>
             <span v-if="permissionNames.length === 0">{{ t('plugins.store.confirm.noPermissions') }}</span>
           </div>
-        </a-descriptions-item>
-      </a-descriptions>
-    </a-modal>
+        </AppDetailItem>
+      </AppDetails>
+    <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="Boolean(selectedPlugin && installing[selectedPlugin.id])" @click="closeConfirmation">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="Boolean(selectedPlugin && installing[selectedPlugin.id])" @click="confirmInstall">{{ t('plugins.store.confirm.action') }}</AppButton></div></template>
+    </AppDialog>
 
-    <a-modal
-      v-model:open="sourceManagerOpen"
-      :title="t('plugins.store.sources.manage')"
-      :footer="null"
-      width="720px"
-    >
+    <AppDialog :open="sourceManagerOpen" :title="t('plugins.store.sources.manage')" :width="720" fallback-focus="[data-testid=plugin-store-sources]" @close="sourceManagerOpen = false">
       <div class="source-manager-header">
         <p>{{ t('plugins.store.sources.description') }}</p>
-        <a-button type="primary" @click="openNewSource">
-          <template #icon><PlusOutlined /></template>
+        <AppButton variant="default" @click="openNewSource">
+          <template #icon><PlusIcon /></template>
           {{ t('plugins.store.sources.add') }}
-        </a-button>
+        </AppButton>
       </div>
       <div class="source-list">
         <div v-for="item in sources" :key="item.id" class="source-row">
           <div class="source-copy">
             <div class="source-title">
               <strong>{{ item.name }}</strong>
-              <a-tag v-if="item.official" color="blue">{{ t('plugins.store.sources.official') }}</a-tag>
-              <a-tag v-else>{{ t('plugins.store.sources.custom') }}</a-tag>
-              <a-tag :color="item.cached ? 'success' : 'default'">
+              <AppTag v-if="item.official" tone="info">{{ t('plugins.store.sources.official') }}</AppTag>
+              <AppTag v-else>{{ t('plugins.store.sources.custom') }}</AppTag>
+              <AppTag :tone="item.cached ? 'success' : 'neutral'">
                 {{ item.cached ? t('plugins.store.sources.cached') : t('plugins.store.sources.notCached') }}
-              </a-tag>
+              </AppTag>
             </div>
             <code>{{ item.url }}</code>
           </div>
           <div v-if="!item.official" class="source-row-actions">
-            <a-button type="text" @click="openSourceEditor(item.id)">
-              <template #icon><EditOutlined /></template>
+            <AppButton variant="ghost" @click="openSourceEditor(item.id)">
+              <template #icon><PencilIcon /></template>
               {{ t('plugins.store.sources.edit') }}
-            </a-button>
-            <a-popconfirm :title="t('plugins.store.sources.removeConfirm')" @confirm="removeSource(item.id)">
-              <a-button type="text" danger>
-                <template #icon><DeleteOutlined /></template>
+            </AppButton>
+
+              <AppButton variant="destructive" @click="pendingSourceRemoval = item.id">
+                <template #icon><Trash2Icon /></template>
                 {{ t('plugins.store.sources.remove') }}
-              </a-button>
-            </a-popconfirm>
+              </AppButton>
+
           </div>
         </div>
       </div>
-    </a-modal>
 
-    <a-modal
-      v-model:open="sourceEditorOpen"
-      :title="editingSourceId ? t('plugins.store.sources.edit') : t('plugins.store.sources.add')"
-      :confirm-loading="sourceSaving"
-      :ok-text="t('plugins.store.sources.save')"
-      :cancel-text="t('shell.cancel')"
-      :ok-button-props="{ disabled: !sourceForm.name.trim() || !sourceForm.url.trim() }"
-      @ok="saveSource"
-    >
-      <a-form layout="vertical">
-        <a-form-item :label="t('plugins.store.sources.name')">
-          <a-input v-model:value="sourceForm.name" :maxlength="120" />
-        </a-form-item>
-        <a-form-item :label="t('plugins.store.sources.url')">
-          <a-input v-model:value="sourceForm.url" placeholder="https://example.com/catalog.json" />
-        </a-form-item>
-      </a-form>
-    </a-modal>
+    </AppDialog>
+
+    <AppDialog :open="sourceEditorOpen" :title="editingSourceId ? t('plugins.store.sources.edit') : t('plugins.store.sources.add')" :busy="sourceSaving" fallback-focus="[data-testid=plugin-store-sources]" @close="sourceEditorOpen = false">
+      <div>
+        <AppField :label="t('plugins.store.sources.name')">
+          <AppInput v-model="sourceForm.name" :maxlength="120" />
+        </AppField>
+        <AppField :label="t('plugins.store.sources.url')">
+          <AppInput v-model="sourceForm.url" placeholder="https://example.com/catalog.json" />
+        </AppField>
+      </div>
+    <template #footer><div class="flex justify-end gap-3"><AppButton :disabled="sourceSaving" @click="sourceEditorOpen = false">{{ t('shell.cancel') }}</AppButton><AppButton variant="default" :loading="sourceSaving" :disabled="!sourceForm.name.trim() || !sourceForm.url.trim()" @click="saveSource">{{ t('plugins.store.sources.save') }}</AppButton></div></template>
+    </AppDialog>
+    <AppConfirmDialog :open="pendingSourceRemoval !== null" :title="t('plugins.store.sources.remove')" :description="t('plugins.store.sources.removeConfirm')" :busy="sourceRemoving" danger :confirm-text="t('plugins.store.sources.remove')" @confirm="pendingSourceRemoval && removeSource(pendingSourceRemoval)" @cancel="pendingSourceRemoval = null" />
   </AppPage>
 </template>
 
@@ -486,7 +475,7 @@ onMounted(() => {
   margin-inline-start: auto;
 }
 
-.store-actions .ant-tag { margin: 0; }
+.store-actions .app-tag { margin: 0; }
 
 .store-count,
 .plugin-id,
@@ -502,7 +491,7 @@ onMounted(() => {
   gap: 16px;
 }
 
-.store-plugin-card :deep(.ant-card-body) {
+.store-plugin-card :deep(.app-card__body) {
   display: flex;
   min-height: 244px;
   flex-direction: column;
@@ -591,7 +580,7 @@ onMounted(() => {
   gap: 6px;
 }
 
-.permission-list .ant-tag { margin: 0; }
+.permission-list .app-tag { margin: 0; }
 
 .source-manager-header { margin-bottom: 16px; }
 .source-manager-header p { margin: 0; color: var(--muted); }
@@ -615,7 +604,7 @@ onMounted(() => {
   margin-bottom: 4px;
 }
 
-.source-title .ant-tag { margin: 0; }
+.source-title .app-tag { margin: 0; }
 
 .source-copy code {
   display: block;

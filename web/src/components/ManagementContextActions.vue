@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
@@ -21,14 +22,14 @@ const emit = defineEmits<{
 
 <template>
   <div v-if="actions.length" class="management-context-actions">
-    <a-button
+    <AppButton
       v-for="action in actions"
       :key="action.key"
-      :size="size ?? 'small'"
+      :size="size === 'large' ? 'lg' : size === 'middle' ? 'default' : 'sm'"
       @click="() => { emit('action'); void navigate(action.to) }"
     >
       {{ action.label }}
-    </a-button>
+    </AppButton>
   </div>
 </template>
 

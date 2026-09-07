@@ -54,7 +54,6 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
         trusted_code_confirmed: true,
       })
       installDialogVisible.value = false
-      resetInstallDialog()
       notifySuccess(t('plugins.installAccepted'))
     } catch (error) {
       installError.value = getDisplayErrorMessage(error)

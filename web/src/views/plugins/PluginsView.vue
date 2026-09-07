@@ -1,14 +1,28 @@
 <script setup lang="ts">
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppSegmented from '@/components/AppSegmented.vue'
+import AppDrawer from '@/components/AppDrawer.vue'
+import AppDialog from '@/components/AppDialog.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppDetails from '@/components/AppDetails.vue'
+import AppDetailItem from '@/components/AppDetailItem.vue'
+import AppCheckbox from '@/components/AppCheckbox.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppAlert from '@/components/AppAlert.vue'
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
-  FilterOutlined,
-  EyeOutlined,
-  SettingOutlined,
-  SearchOutlined,
-  PlusOutlined,
-  SyncOutlined,
-} from '@ant-design/icons-vue'
+  FilterIcon,
+  EyeIcon,
+  SettingsIcon,
+  SearchIcon,
+  PlusIcon,
+  RefreshCwIcon,
+} from '@lucide/vue'
 
 import AppCard from '@/components/AppCard.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
@@ -55,6 +69,17 @@ const filterDrawerVisible = ref(false)
 
 const searchQuery = ref('')
 const filterState = ref<'all' | 'running' | 'disabled' | 'alert'>('all')
+const stateOptions = computed(() => [
+  { value: 'all', label: t('plugins.filter.stateAll') },
+  { value: 'running', label: t('plugins.stats.running') },
+  { value: 'disabled', label: t('plugins.stats.disabled') },
+  { value: 'alert', label: t('plugins.stats.alert') },
+])
+const sourceOptions = computed(() => [
+  { value: 'all', label: t('plugins.filter.sourceAll') },
+  { value: 'official', label: t('plugins.filter.sourceOfficial') },
+  { value: 'community', label: t('plugins.filter.sourceCommunity') },
+])
 const filterSource = ref<'all' | 'official' | 'community'>('all')
 const inspectionPermissionNames = computed(() => Object.keys(installInspection.value?.permissions ?? {}).sort())
 
@@ -84,9 +109,9 @@ function getTrustLabel(record: (typeof sortedItems.value)[number]) {
 }
 
 function getTrustColor(record: (typeof sortedItems.value)[number]) {
-  if (isOfficialPlugin(record)) return 'default'
+  if (isOfficialPlugin(record)) return 'neutral'
   if (record.trust?.level === 'unverified') return 'warning'
-  return 'default'
+  return 'neutral'
 }
 
 function getSourceTypeLabel(type?: string) {
@@ -168,10 +193,10 @@ function getOptionalDisplayText(value?: string | null) {
 }
 
 function getTagColor(tone: HealthNoticeTone) {
-  if (tone === 'danger') return 'error'
+  if (tone === 'danger') return 'danger'
   if (tone === 'warning') return 'warning'
-  if (tone === 'info') return 'default'
-  return 'default'
+  if (tone === 'info') return 'neutral'
+  return 'neutral'
 }
 
 async function loadPlugins() {
@@ -249,47 +274,39 @@ async function reloadPlugin(pluginId: string) {
         <AppTableToolbar class="plugins-toolbar">
           <template #left>
             <div class="toolbar-filters plugins-filter-desktop">
-              <a-input
-                v-model:value="searchQuery"
+              <AppInput
+                v-model="searchQuery"
                 :placeholder="t('plugins.filter.searchPlaceholder')"
-                class="filter-search"
+                wrapper-class="filter-search"
                 allow-clear
               >
                 <template #prefix>
-                  <SearchOutlined class="search-icon" />
+                  <SearchIcon class="search-icon" />
                 </template>
-              </a-input>
+              </AppInput>
 
-              <a-radio-group v-model:value="filterState" button-style="solid" class="filter-radio-group">
-                <a-radio-button value="all">{{ t('plugins.filter.stateAll') }}</a-radio-button>
-                <a-radio-button value="running">{{ t('plugins.stats.running') }}</a-radio-button>
-                <a-radio-button value="disabled">{{ t('plugins.stats.disabled') }}</a-radio-button>
-                <a-radio-button value="alert">{{ t('plugins.stats.alert') }}</a-radio-button>
-              </a-radio-group>
+              <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
 
-              <a-select v-model:value="filterSource" class="filter-select" :dropdown-match-select-width="false">
-                <a-select-option value="all">{{ t('plugins.filter.sourceAll') }}</a-select-option>
-                <a-select-option value="official">{{ t('plugins.filter.sourceOfficial') }}</a-select-option>
-                <a-select-option value="community">{{ t('plugins.filter.sourceCommunity') }}</a-select-option>
-              </a-select>
+              <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
             </div>
           </template>
 
           <template #right>
-            <a-button class="plugins-filter-mobile-trigger" @click="filterDrawerVisible = true">
-              <template #icon><FilterOutlined /></template>
+            <AppButton class="plugins-filter-mobile-trigger" @click="filterDrawerVisible = true">
+              <template #icon><FilterIcon /></template>
               {{ t('plugins.filter.title') }}
-            </a-button>
-            <a-button type="primary" @click="installDialogVisible = true">
-              <template #icon><PlusOutlined /></template>
+            </AppButton>
+            <AppButton variant="default" @click="installDialogVisible = true">
+              <template #icon><PlusIcon /></template>
               {{ t('plugins.install') }}
-            </a-button>
+            </AppButton>
           </template>
         </AppTableToolbar>
 
         <div class="plugins-grid-container">
+          <AppSkeleton v-if="loading && sortedItems.length === 0" :rows="6" />
           <AppEmptyState
-            v-if="filteredItems.length === 0"
+            v-else-if="filteredItems.length === 0"
             icon="plugin"
             :title="t('plugins.empty.title')"
             :description="t('plugins.empty.description')"
@@ -316,51 +333,50 @@ async function reloadPlugin(pluginId: string) {
 
               <div class="plugin-card__meta">
                 <span>{{ getSourceTypeLabel(item.source?.package_source_type) }}</span>
-                <a-tag size="small" :color="getTrustColor(item)">{{ getTrustLabel(item) }}</a-tag>
+                <AppTag :tone="getTrustColor(item)">{{ getTrustLabel(item) }}</AppTag>
               </div>
 
               <div v-if="getPluginHealthNotices(item).length > 0" class="plugin-health-notices">
-                <a-tag
+                <AppTag
                   v-for="notice in getPluginHealthNotices(item)"
                   :key="notice.label"
-                  size="small"
-                  :color="getTagColor(notice.tone)"
+                  :tone="getTagColor(notice.tone)"
                   :aria-label="`健康状态：${notice.label}`"
                 >
                   {{ notice.label }}
-                </a-tag>
+                </AppTag>
               </div>
 
               <footer class="plugin-card__actions">
                 <div class="plugin-card__action-buttons">
-                  <a-tooltip :title="t('plugins.actions.summary')">
-                    <a-button class="plugin-card__icon-action" type="text" :aria-label="t('plugins.actions.summary')" @click="openSummary(item.id)">
-                      <template #icon><EyeOutlined /></template>
-                    </a-button>
-                  </a-tooltip>
-                  <a-button
+                  <AppTooltip :title="t('plugins.actions.summary')">
+                    <AppButton class="plugin-card__icon-action" variant="ghost" :aria-label="t('plugins.actions.summary')" @click="openSummary(item.id)">
+                      <template #icon><EyeIcon /></template>
+                    </AppButton>
+                  </AppTooltip>
+                  <AppButton
                     class="plugin-card__manage-action"
-                    type="text"
+                    variant="ghost"
                     :aria-label="t('plugins.actions.manage')"
                     :data-testid="`plugin-manage-button-${item.id}`"
                     @click="openManagement(item.id)"
                   >
-                    <template #icon><SettingOutlined /></template>
+                    <template #icon><SettingsIcon /></template>
                     {{ t('plugins.actions.manage') }}
-                  </a-button>
-                  <a-tooltip :title="t('plugins.actions.reload')">
-                  <a-button
+                  </AppButton>
+                  <AppTooltip :title="t('plugins.actions.reload')">
+                  <AppButton
                     class="plugin-card__icon-action"
-                    type="text"
+                    variant="ghost"
                     :aria-label="t('plugins.actions.reload')"
                     :data-testid="`plugin-reload-button-${item.id}`"
                     :loading="actionPending[item.id] === 'reload'"
                     :disabled="isReloadDisabled(item.state)"
                     @click="reloadPlugin(item.id)"
                   >
-                    <template #icon><SyncOutlined /></template>
-                  </a-button>
-                  </a-tooltip>
+                    <template #icon><RefreshCwIcon /></template>
+                  </AppButton>
+                  </AppTooltip>
                 </div>
                 <PluginPowerButton
                   icon-only
@@ -378,110 +394,89 @@ async function reloadPlugin(pluginId: string) {
       </AppCard>
     </div>
 
-    <a-drawer
-      v-model:open="filterDrawerVisible"
-      placement="bottom"
-      height="auto"
-      :title="t('plugins.filter.title')"
-      :destroy-on-close="true"
-    >
+    <AppDrawer :open="filterDrawerVisible" placement="bottom" :title="t('plugins.filter.title')" @close="filterDrawerVisible = false">
       <div class="plugins-filter-drawer">
-        <a-input
-          v-model:value="searchQuery"
+        <AppInput
+          v-model="searchQuery"
           :placeholder="t('plugins.filter.searchPlaceholder')"
           allow-clear
         >
-          <template #prefix><SearchOutlined /></template>
-        </a-input>
-        <a-radio-group v-model:value="filterState" button-style="solid">
-          <a-radio-button value="all">{{ t('plugins.filter.stateAll') }}</a-radio-button>
-          <a-radio-button value="running">{{ t('plugins.stats.running') }}</a-radio-button>
-          <a-radio-button value="disabled">{{ t('plugins.stats.disabled') }}</a-radio-button>
-          <a-radio-button value="alert">{{ t('plugins.stats.alert') }}</a-radio-button>
-        </a-radio-group>
-        <a-select v-model:value="filterSource">
-          <a-select-option value="all">{{ t('plugins.filter.sourceAll') }}</a-select-option>
-          <a-select-option value="official">{{ t('plugins.filter.sourceOfficial') }}</a-select-option>
-          <a-select-option value="community">{{ t('plugins.filter.sourceCommunity') }}</a-select-option>
-        </a-select>
-        <a-button type="primary" @click="filterDrawerVisible = false">完成</a-button>
+          <template #prefix><SearchIcon /></template>
+        </AppInput>
+        <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
+        <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
+        <AppButton variant="default" @click="filterDrawerVisible = false">完成</AppButton>
       </div>
-    </a-drawer>
+    </AppDrawer>
 
-    <a-modal
-      v-model:open="installDialogVisible"
+    <AppDialog
+      :open="installDialogVisible"
       :title="t('plugins.installDialogTitle')"
-      :confirm-loading="inspectionPending || installPending"
-      :ok-text="installInspection ? t('plugins.installSubmit') : '检查插件包'"
-      :cancel-text="t('dashboard.previewCancel')"
-      :ok-button-props="{
-        disabled: !installForm.source.trim()
-          || Boolean(installInspection && !trustedCodeConfirmed),
-      }"
-      @ok="submitInstall"
-      @cancel="resetInstallDialog"
+      :busy="inspectionPending || installPending"
+      @close="installDialogVisible = false"
+      @after-close="resetInstallDialog"
     >
-      <a-form layout="vertical">
-        <a-form-item :label="t('plugins.sourceType')">
-          <a-select
-            v-model:value="installForm.source_type"
+      <div>
+        <AppField :label="t('plugins.sourceType')">
+          <AppSelect
+            v-model="installForm.source_type"
             :options="[
               { label: t('plugins.localZip'), value: 'local_zip' },
               { label: t('plugins.localDirectory'), value: 'local_directory' },
               { label: t('plugins.remoteUrl'), value: 'remote_url' },
             ]"
           />
-        </a-form-item>
+        </AppField>
 
-        <a-form-item :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
-          <a-input v-model:value="installForm.source" />
-        </a-form-item>
+        <AppField :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
+          <AppInput v-model="installForm.source" />
+        </AppField>
 
         <template v-if="installInspection">
-          <a-alert
-            type="warning"
-            show-icon
-            message="第三方插件是完全可信的本地代码"
+          <AppAlert
+            tone="warning"
+            title="第三方插件是完全可信的本地代码"
             description="原生插件进程使用当前用户权限运行。仅安装来源、平台、摘要和权限均符合预期的代码。"
           />
 
-          <a-descriptions class="install-inspection" :column="1" bordered size="small">
-            <a-descriptions-item label="插件">{{ installInspection.plugin.name }}（{{ installInspection.plugin.id }}）</a-descriptions-item>
-            <a-descriptions-item label="版本">{{ installInspection.plugin.version }}</a-descriptions-item>
-            <a-descriptions-item label="作者">{{ installInspection.plugin.author }}</a-descriptions-item>
-            <a-descriptions-item label="许可证">{{ installInspection.plugin.license }}</a-descriptions-item>
-            <a-descriptions-item label="来源">{{ installInspection.plugin.source_label }}</a-descriptions-item>
-            <a-descriptions-item label="包摘要"><code>{{ installInspection.package_sha256 }}</code></a-descriptions-item>
-            <a-descriptions-item label="目标平台">{{ installInspection.target_platform }}</a-descriptions-item>
-            <a-descriptions-item label="后端"><code>{{ installInspection.backend.path }}</code> · {{ installInspection.backend.size }} bytes</a-descriptions-item>
-            <a-descriptions-item label="管理页面">{{ installInspection.ui.enabled ? `${installInspection.ui.entry}（${installInspection.ui.file_count} 个文件）` : '无' }}</a-descriptions-item>
-            <a-descriptions-item label="Artifact 校验">{{ installInspection.artifact.valid ? `v${installInspection.artifact.artifact_version} · ${installInspection.artifact.file_count} 个文件` : '未通过' }}</a-descriptions-item>
-            <a-descriptions-item label="有效期">{{ installInspection.expires_at }}</a-descriptions-item>
-          </a-descriptions>
+          <AppDetails class="install-inspection">
+            <AppDetailItem label="插件">{{ installInspection.plugin.name }}（{{ installInspection.plugin.id }}）</AppDetailItem>
+            <AppDetailItem label="版本">{{ installInspection.plugin.version }}</AppDetailItem>
+            <AppDetailItem label="作者">{{ installInspection.plugin.author }}</AppDetailItem>
+            <AppDetailItem label="许可证">{{ installInspection.plugin.license }}</AppDetailItem>
+            <AppDetailItem label="来源">{{ installInspection.plugin.source_label }}</AppDetailItem>
+            <AppDetailItem label="包摘要"><code>{{ installInspection.package_sha256 }}</code></AppDetailItem>
+            <AppDetailItem label="目标平台">{{ installInspection.target_platform }}</AppDetailItem>
+            <AppDetailItem label="后端"><code>{{ installInspection.backend.path }}</code> · {{ installInspection.backend.size }} bytes</AppDetailItem>
+            <AppDetailItem label="管理页面">{{ installInspection.ui.enabled ? `${installInspection.ui.entry}（${installInspection.ui.file_count} 个文件）` : '无' }}</AppDetailItem>
+            <AppDetailItem label="Artifact 校验">{{ installInspection.artifact.valid ? `v${installInspection.artifact.artifact_version} · ${installInspection.artifact.file_count} 个文件` : '未通过' }}</AppDetailItem>
+            <AppDetailItem label="有效期">{{ installInspection.expires_at }}</AppDetailItem>
+          </AppDetails>
 
           <div class="install-inspection-list">
             <strong>声明权限</strong>
             <div>
-              <a-tag v-for="permission in inspectionPermissionNames" :key="permission">{{ permission }}</a-tag>
+              <AppTag v-for="permission in inspectionPermissionNames" :key="permission">{{ permission }}</AppTag>
               <span v-if="inspectionPermissionNames.length === 0">未声明额外权限</span>
             </div>
           </div>
 
-          <a-form-item>
-            <a-checkbox v-model:checked="trustedCodeConfirmed">
+          <div class="app-field-group">
+            <AppCheckbox v-model="trustedCodeConfirmed">
               我已核对来源、目标平台、artifact 摘要和权限，并信任此代码使用本机当前用户权限运行。
-            </a-checkbox>
-          </a-form-item>
+            </AppCheckbox>
+          </div>
         </template>
-      </a-form>
-    </a-modal>
+      </div>
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <AppButton :disabled="inspectionPending || installPending" @click="installDialogVisible = false">{{ t('dashboard.previewCancel') }}</AppButton>
+          <AppButton variant="default" :loading="inspectionPending || installPending" :disabled="!installForm.source.trim() || Boolean(installInspection && !trustedCodeConfirmed)" @click="submitInstall">{{ installInspection ? t('plugins.installSubmit') : '检查插件包' }}</AppButton>
+        </div>
+      </template>
+    </AppDialog>
 
-    <a-drawer
-      v-model:open="summaryDrawerVisible"
-      :title="t('plugins.actions.summary')"
-      placement="right"
-      width="min(560px, 92vw)"
-    >
+    <AppDrawer :open="summaryDrawerVisible" :title="t('plugins.actions.summary')" :width="560" @close="summaryDrawerVisible = false">
       <template v-if="summaryPlugin">
         <div class="drawer-section drawer-section--dense">
           <div class="mono-list">
@@ -491,23 +486,23 @@ async function reloadPlugin(pluginId: string) {
         </div>
 
         <AppCard borderless class="drawer-card">
-          <a-descriptions :column="1" bordered size="small">
-            <a-descriptions-item :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.state')">{{ getPluginStateLabel(summaryPlugin.state) }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.sourceRef')">
+          <AppDetails>
+            <AppDetailItem :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.state')">{{ getPluginStateLabel(summaryPlugin.state) }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.sourceRef')">
               {{ summaryPlugin.source?.package_source_ref ?? summaryPlugin.source?.package_source_type ?? t('display.empty') }}
-            </a-descriptions-item>
-            <a-descriptions-item :label="t('plugins.fields.conflicts')">
+            </AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.conflicts')">
               <div v-if="summaryPlugin.command_conflicts?.length" class="table-actions">
-                <a-tag v-for="command in summaryPlugin.command_conflicts" :key="command" size="small" color="warning">
+                <AppTag v-for="command in summaryPlugin.command_conflicts" :key="command" tone="warning">
                   {{ command }}
-                </a-tag>
+                </AppTag>
               </div>
               <span v-else>{{ t('display.empty') }}</span>
-            </a-descriptions-item>
-          </a-descriptions>
+            </AppDetailItem>
+          </AppDetails>
         </AppCard>
 
         <AppCard :title="t('plugins.sections.commands')" borderless class="drawer-card">
@@ -517,7 +512,7 @@ async function reloadPlugin(pluginId: string) {
           />
         </AppCard>
       </template>
-    </a-drawer>
+    </AppDrawer>
   </AppPage>
 </template>
 
@@ -553,7 +548,7 @@ async function reloadPlugin(pluginId: string) {
   width: 260px;
   border-radius: 6px;
 
-  :deep(.ant-input) {
+  :deep(.app-input) {
     border-radius: 6px;
   }
   .search-icon {
@@ -561,21 +556,11 @@ async function reloadPlugin(pluginId: string) {
   }
 }
 
-.filter-radio-group {
-  :deep(.ant-radio-button-wrapper) {
-    border-radius: 0;
-    &:first-child {
-      border-radius: 6px 0 0 6px;
-    }
-    &:last-child {
-      border-radius: 0 6px 6px 0;
-    }
-  }
-}
+.filter-radio-group { flex-shrink: 0; }
 
 .filter-select {
   width: 140px;
-  :deep(.ant-select-selector) {
+  :deep(.app-select) {
     border-radius: 6px !important;
   }
 }
@@ -589,7 +574,7 @@ async function reloadPlugin(pluginId: string) {
   gap: 16px;
 }
 
-.plugins-filter-drawer :deep(.ant-radio-group) {
+.plugins-filter-drawer :deep(.app-segmented) {
   display: flex;
   flex-wrap: wrap;
 }
@@ -610,7 +595,7 @@ async function reloadPlugin(pluginId: string) {
   box-shadow: none;
 }
 
-.plugins-card :deep(.ant-card-body) {
+.plugins-card :deep(.app-card__body) {
   padding: 0;
 }
 
@@ -737,8 +722,8 @@ async function reloadPlugin(pluginId: string) {
   white-space: nowrap;
 }
 
-.plugin-card__meta :deep(.ant-tag),
-.plugin-health-notices :deep(.ant-tag) {
+.plugin-card__meta :deep(.app-tag),
+.plugin-health-notices :deep(.app-tag) {
   margin-inline-end: 0;
 }
 
@@ -805,7 +790,7 @@ async function reloadPlugin(pluginId: string) {
 }
 
 .plugin-card__action-buttons { gap: 8px; }
-.plugin-card__manage-action.ant-btn {
+.plugin-card__manage-action.app-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -818,9 +803,9 @@ async function reloadPlugin(pluginId: string) {
   font-size: 14px;
   box-shadow: none;
 }
-.plugin-card__manage-action.ant-btn:hover:not(:disabled) { background: var(--surface-accent); color: var(--text-accent); }
-.plugin-card__manage-action.ant-btn:active:not(:disabled) { transform: scale(.97); }
-.plugin-card__icon-action.ant-btn {
+.plugin-card__manage-action.app-button:hover:not(:disabled) { background: var(--surface-accent); color: var(--text-accent); }
+.plugin-card__manage-action.app-button:active:not(:disabled) { transform: scale(.97); }
+.plugin-card__icon-action.app-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -834,9 +819,9 @@ async function reloadPlugin(pluginId: string) {
   border-radius: var(--radius-md);
   box-shadow: none;
 }
-.plugin-card__icon-action.ant-btn:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
-.plugin-card__icon-action.ant-btn:active:not(:disabled) { transform: scale(.94); }
-.plugin-card__icon-action.ant-btn:disabled { color: var(--muted); opacity: .45; }
+.plugin-card__icon-action.app-button:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
+.plugin-card__icon-action.app-button:active:not(:disabled) { transform: scale(.94); }
+.plugin-card__icon-action.app-button:disabled { color: var(--muted); opacity: .45; }
 @media (min-width: 1800px) { .plugins-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 2300px) {
  .plugins-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -846,8 +831,8 @@ async function reloadPlugin(pluginId: string) {
 @media (max-width: 767px) { .plugins-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 639px), (pointer: coarse) {
  .plugin-card__name { min-height: 44px; white-space: normal; line-height: 1.4; }
- .plugin-card__manage-action.ant-btn { min-height: 44px; }
- .plugin-card__icon-action.ant-btn { width: 44px; height: 44px; }
+ .plugin-card__manage-action.app-button { min-height: 44px; }
+ .plugin-card__icon-action.app-button { width: 44px; height: 44px; }
  .plugin-card__description { min-height: 0; }
 }
 </style>

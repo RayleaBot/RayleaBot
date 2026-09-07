@@ -53,10 +53,10 @@ export function usePluginConsolePanel(options: PluginConsolePanelOptions) {
   }
 
   function getConsoleStreamColor(stream: ConsoleFrame['stream']) {
-    if (stream === 'stderr') return 'error'
+    if (stream === 'stderr') return 'danger'
     if (stream === 'system') return 'warning'
-    if (stream === 'outbound') return 'blue'
-    return 'default'
+    if (stream === 'outbound') return 'info'
+    return 'neutral'
   }
 
   function getConsoleLevelLabel(level: string) {
@@ -68,10 +68,10 @@ export function usePluginConsolePanel(options: PluginConsolePanelOptions) {
   }
 
   function getConsoleLevelColor(level: string) {
-    if (level === 'error') return 'error'
+    if (level === 'error') return 'danger'
     if (level === 'warn') return 'warning'
-    if (level === 'info') return 'blue'
-    return 'default'
+    if (level === 'info') return 'info'
+    return 'neutral'
   }
 
   function getConsoleRequestId(frame: ConsoleFrame) {
@@ -81,8 +81,8 @@ export function usePluginConsolePanel(options: PluginConsolePanelOptions) {
   function getConsoleStatusColor(status: string) {
     if (status === 'authenticated') return 'success'
     if (status === 'reconnecting' || status === 'connecting') return 'warning'
-    if (status === 'auth_failed') return 'error'
-    return 'default'
+    if (status === 'auth_failed') return 'danger'
+    return 'neutral'
   }
 
   function getConsoleSnapshotStatusColor(status: string) {

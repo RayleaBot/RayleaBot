@@ -4,7 +4,7 @@
 
 ## 工程边界
 
-- 协议中心、应用壳和认证入口使用 Reka UI 与产品自有组件；其余业务工作区按[迁移计划](../execution-plan-v1.md)逐批替换，临时保留所需的 Ant Design Vue。
+- 协议中心、应用壳、认证入口和插件工作区使用 Reka UI 与产品自有组件；账号、治理与诊断工作区按[迁移计划](../execution-plan-v1.md)逐批替换，临时保留所需的 Ant Design Vue。
 - HTTP、WebSocket、Pinia store、generated types 和路由语义保持现有正式来源。
 - `design/tokens.json` 通过生成脚本提供 CSS variables 和迁移期旧组件的主题映射，不建立第二套运行时主题服务。
 - 页面局部样式只负责业务布局和无法由组件 token 表达的最小差异。

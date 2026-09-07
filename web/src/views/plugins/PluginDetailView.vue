@@ -1,9 +1,18 @@
 <script setup lang="ts">
+import AppTabs from '@/components/AppTabs.vue'
+import AppSegmented from '@/components/AppSegmented.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppAlert from '@/components/AppAlert.vue'
 import {
-  ArrowLeftOutlined,
-  ClearOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons-vue'
+  ArrowLeftIcon,
+  EraserIcon,
+  RotateCwIcon,
+} from '@lucide/vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -271,11 +280,11 @@ function getScreenshotAlt(screenshot: NonNullable<PluginDetail['screenshots']>[n
 }
 
 function getPluginStateColor(status?: string | null) {
-  if (!status) return 'default'
-  if (status === 'failed' || status === 'error' || status === 'removed') return 'error'
+  if (!status) return 'neutral'
+  if (status === 'failed' || status === 'error' || status === 'removed') return 'danger'
   if (status === 'starting' || status === 'stopping' || status === 'enabling' || status === 'disabling' || status === 'retrying') return 'warning'
   if (status === 'installed' || status === 'enabled' || status === 'running' || status === 'discovered') return 'success'
-  return 'default'
+  return 'neutral'
 }
 
 function getPluginStateDotColor(status?: string | null) {
@@ -364,25 +373,25 @@ onUnmounted(() => {
   >
     <template #title>
       <div class="plugin-page-title-layout">
-        <a-tooltip :title="t('plugins.actions.backToList')">
-          <a-button
-            type="text"
+        <AppTooltip :title="t('plugins.actions.backToList')">
+          <AppButton
+            variant="ghost"
             class="plugin-detail-back-button"
             :aria-label="t('plugins.actions.backToList')"
             data-testid="plugin-detail-back-button"
             @click="returnToPluginList"
           >
-            <template #icon><ArrowLeftOutlined /></template>
-          </a-button>
-        </a-tooltip>
+            <template #icon><ArrowLeftIcon /></template>
+          </AppButton>
+        </AppTooltip>
         <h1>{{ pluginPageTitle }}</h1>
-        <a-segmented
+        <AppSegmented
           v-if="panelOptions.length > 1"
-          :value="activePanelKey"
+          :model-value="activePanelKey"
           :options="panelOptions"
           class="plugin-header-segmented plugin-detail-panel-switch"
           :class="{ 'plugin-detail-panel-switch--sidebar-owned': !siderCollapsed }"
-          @change="setActivePanelKey(String($event))"
+          @update:model-value="setActivePanelKey(String($event))"
         />
       </div>
     </template>
@@ -397,8 +406,8 @@ onUnmounted(() => {
           :unchecked-label="t('plugins.actions.disable')"
           @click="runAction(getToggleAction())"
         />
-        <a-button :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</a-button>
-        <a-button danger :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true">{{ t('plugins.actions.uninstall') }}</a-button>
+        <AppButton :loading="actionPending[pluginId] === 'reload'" @click="runAction('reload')">{{ t('plugins.actions.reload') }}</AppButton>
+        <AppButton :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true" variant="destructive">{{ t('plugins.actions.uninstall') }}</AppButton>
       </div>
     </template>
 
@@ -416,8 +425,8 @@ onUnmounted(() => {
       class="plugin-detail-overview"
       :class="{ 'is-output-active': activeDetailTab === 'console' }"
     >
-      <a-skeleton :loading="detailLoading && !currentPlugin" active>
-        <section class="plugin-detail-hero">
+      <AppSkeleton v-if="detailLoading && !currentPlugin" :rows="4" />
+      <section v-else class="plugin-detail-hero">
           <div class="plugin-detail-hero__identity">
             <PluginIcon
               class="plugin-detail-hero__avatar"
@@ -428,8 +437,8 @@ onUnmounted(() => {
             />
             <div class="plugin-detail-hero__copy">
               <div class="plugin-detail-hero__eyebrow">
-                <a-tag class="premium-badge role-badge">{{ getPluginRoleLabel(currentPlugin?.role) }}</a-tag>
-                <a-tag class="premium-badge trust-badge" :class="{ 'is-attention': requiresTrustAttention }">{{ currentPlugin?.trust?.label ?? t('display.empty') }}</a-tag>
+                <AppTag class="premium-badge role-badge">{{ getPluginRoleLabel(currentPlugin?.role) }}</AppTag>
+                <AppTag class="premium-badge trust-badge" :class="{ 'is-attention': requiresTrustAttention }">{{ currentPlugin?.trust?.label ?? t('display.empty') }}</AppTag>
               </div>
               <strong class="plugin-title">{{ pluginDisplayName }}</strong>
               <span class="plugin-id-sub">{{ pluginId }}</span>
@@ -447,10 +456,10 @@ onUnmounted(() => {
             <div v-for="item in statusSummaryItems" :key="item.key" class="status-chip">
               <span class="status-chip__dot" :style="{ backgroundColor: getPluginStateDotColor(item.raw) }"></span>
               <span class="status-chip__label">{{ item.label }}:</span>
-              <a-tag :color="getPluginStateColor(item.raw)" class="status-tag">
+              <AppTag :tone="getPluginStateColor(item.raw)" class="status-tag">
                 {{ item.value }}
                 <small v-if="item.raw"> · {{ item.raw }}</small>
-              </a-tag>
+              </AppTag>
             </div>
           </div>
 
@@ -460,37 +469,40 @@ onUnmounted(() => {
               <dd class="fact-value">{{ item.value }}</dd>
             </div>
           </dl>
-        </section>
-      </a-skeleton>
+      </section>
 
-      <a-alert
+      <AppAlert
         v-if="requiresTrustAttention"
         class="plugin-trust-attention"
-        type="warning"
-        show-icon
-        message="插件来源尚未验证"
+        tone="warning"
+        title="插件来源尚未验证"
         description="执行启停、重载或管理操作前，请确认插件来源、目标平台、artifact 摘要和能力声明符合预期。"
       />
 
       <div class="plugin-detail-workspace">
         <main class="plugin-detail-main-column">
-          <a-card
-            :bordered="false"
+          <AppCard
+            borderless
             class="plugin-detail-tab-card"
             :class="{ 'is-console-tab-active': activeDetailTab === 'console' }"
           >
-            <a-tabs
-              :active-key="activeDetailTab"
-              :destroy-inactive-tab-pane="false"
-              class="premium-detail-tabs"
-              @change="setActiveDetailTab($event as PluginDetailInnerTab)"
-            >
-              <a-tab-pane key="summary" force-render>
-                <template #tab>
+            <AppTabs :model-value="activeDetailTab" :items="[{ value: 'summary', label: t('plugins.sections.runtimeSummary') }, { value: 'commands', label: t('plugins.sections.commands') }, { value: 'console', label: t('plugins.sections.console') }]" keep-alive class="premium-detail-tabs" @update:model-value="setActiveDetailTab($event as PluginDetailInnerTab)"><template #tab="{ item }"><template v-if="item.value === 'summary'">
                   <span class="premium-tab-label">
                     {{ t('plugins.sections.runtimeSummary') }}
                   </span>
-                </template>
+                </template><template v-else-if="item.value === 'commands'">
+                  <span class="premium-tab-label">
+                    {{ t('plugins.sections.commands') }}
+                    <AppTag class="tab-badge">{{ currentPlugin?.commands?.length ?? 0 }}</AppTag>
+                  </span>
+                </template><template v-else-if="item.value === 'console'">
+                  <span class="premium-tab-label">
+                    {{ t('plugins.sections.console') }}
+                    <AppTag class="tab-badge">{{ consoleFrameCount }}</AppTag>
+                  </span>
+                </template></template>
+              <template #summary>
+
 
                 <section class="tab-pane-content plugin-detail-summary-panel" :aria-label="t('plugins.sections.runtimeSummary')">
                   <div class="plugin-detail-summary-stack">
@@ -525,21 +537,21 @@ onUnmounted(() => {
                       <div class="metadata-section">
                         <strong>{{ t('plugins.fields.permissions') }}</strong>
                         <div v-if="permissionNames.length" class="tag-list">
-                          <a-tag
+                          <AppTag
                             v-for="permission in permissionNames"
                             :key="permission"
                             class="cap-tag"
                             :title="getPluginPermissionRawTitle(permission)"
                           >
                             {{ getPluginPermissionLabel(permission) }}
-                          </a-tag>
+                          </AppTag>
                         </div>
                         <p v-else class="empty-val">{{ t('display.empty') }}</p>
                       </div>
                       <div class="metadata-section">
                         <strong>{{ t('plugins.fields.events') }}</strong>
                         <div v-if="hasItems(currentPlugin?.events)" class="tag-list">
-                          <a-tag v-for="eventName in currentPlugin?.events" :key="eventName">{{ eventName }}</a-tag>
+                          <AppTag v-for="eventName in currentPlugin?.events" :key="eventName">{{ eventName }}</AppTag>
                         </div>
                         <p v-else class="empty-val">{{ t('display.empty') }}</p>
                       </div>
@@ -548,7 +560,7 @@ onUnmounted(() => {
                     <details class="plugin-detail-disclosure">
                       <summary>
                         <span>{{ t('plugins.sections.details') }}</span>
-                        <a-tag class="meta-tag">{{ t('plugins.sections.metadata') }}</a-tag>
+                        <AppTag class="meta-tag">{{ t('plugins.sections.metadata') }}</AppTag>
                       </summary>
 
                       <div class="plugin-detail-detail-stack">
@@ -577,7 +589,7 @@ onUnmounted(() => {
                         <section class="metadata-section">
                           <strong>{{ t('plugins.fields.keywords') }}</strong>
                           <div v-if="hasItems(currentPlugin?.keywords)" class="tag-list">
-                            <a-tag v-for="keyword in currentPlugin?.keywords" :key="keyword">{{ keyword }}</a-tag>
+                            <AppTag v-for="keyword in currentPlugin?.keywords" :key="keyword">{{ keyword }}</AppTag>
                           </div>
                           <p v-else class="empty-val">{{ t('display.empty') }}</p>
                         </section>
@@ -602,16 +614,11 @@ onUnmounted(() => {
                     </details>
                   </div>
                 </section>
-              </a-tab-pane>
+              </template>
 
               <!-- TAB 2: Commands -->
-              <a-tab-pane key="commands" force-render>
-                <template #tab>
-                  <span class="premium-tab-label">
-                    {{ t('plugins.sections.commands') }}
-                    <a-tag size="small" :bordered="false" class="tab-badge">{{ currentPlugin?.commands?.length ?? 0 }}</a-tag>
-                  </span>
-                </template>
+              <template #commands>
+
 
                 <div class="tab-pane-content plugin-console-tab-content">
                   <PluginCommandsPanel
@@ -620,53 +627,48 @@ onUnmounted(() => {
                     :command-prefix="commandPrefix"
                   />
                 </div>
-              </a-tab-pane>
+              </template>
 
               <!-- TAB 3: Console -->
-              <a-tab-pane key="console" force-render>
-                <template #tab>
-                  <span class="premium-tab-label">
-                    {{ t('plugins.sections.console') }}
-                    <a-tag size="small" :bordered="false" class="tab-badge">{{ consoleFrameCount }}</a-tag>
-                  </span>
-                </template>
+              <template #console>
+
 
                 <div class="tab-pane-content">
                   <div class="plugin-console-header">
                     <div class="plugin-console-title">
                       <span class="console-status-indicator">
                         <span class="status-chip__dot" :style="{ backgroundColor: getConsoleSnapshotStatusColor(consoleSnapshot.status) }"></span>
-                        <a-tag :color="getConsoleStatusColor(consoleSnapshot.status)" class="console-status-tag">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</a-tag>
+                        <AppTag :tone="getConsoleStatusColor(consoleSnapshot.status)" class="console-status-tag">{{ getConnectionStatusLabel(consoleSnapshot.status) }}</AppTag>
                       </span>
                       <span class="plugin-console-count">{{ t('plugins.console.outputCount', { count: consoleFrameCount }) }}</span>
                     </div>
                     <div class="plugin-console-actions">
-                      <a-tooltip :title="t('plugins.actions.reconnectConsole')">
-                        <a-button
-                          size="small"
+                      <AppTooltip :title="t('plugins.actions.reconnectConsole')">
+                        <AppButton
+                          size="sm"
                           class="plugin-console-icon-button"
                           :aria-label="t('plugins.actions.reconnectConsole')"
                           @click="socketStore.reconnectConsole()"
                         >
                           <template #icon>
-                            <ReloadOutlined />
+                            <RotateCwIcon />
                           </template>
                           {{ t('plugins.actions.reconnectConsole') }}
-                        </a-button>
-                      </a-tooltip>
-                      <a-tooltip :title="t('plugins.actions.clearConsole')">
-                        <a-button
-                          size="small"
+                        </AppButton>
+                      </AppTooltip>
+                      <AppTooltip :title="t('plugins.actions.clearConsole')">
+                        <AppButton
+                          size="sm"
                           class="plugin-console-icon-button"
                           :disabled="consoleFrameCount === 0"
                           :aria-label="t('plugins.actions.clearConsole')"
                           @click="clearConsole"
                         >
                           <template #icon>
-                            <ClearOutlined />
+                            <EraserIcon />
                           </template>
-                        </a-button>
-                      </a-tooltip>
+                        </AppButton>
+                      </AppTooltip>
                     </div>
                   </div>
 
@@ -681,11 +683,10 @@ onUnmounted(() => {
                       <span>{{ t('plugins.empty.console') }}</span>
                     </div>
 
-                    <a-skeleton
+                    <AppSkeleton
                       v-else-if="!readyToRenderHeavyContent"
                       class="console-terminal-skeleton"
-                      active
-                      :paragraph="{ rows: 6 }"
+                      :rows="6"
                     />
 
                     <VirtualDataViewport
@@ -709,10 +710,10 @@ onUnmounted(() => {
                           <div class="console-terminal-line__meta">
                             <time :datetime="frame.timestamp">{{ formatDateTime(frame.timestamp) }}</time>
                             <div class="console-terminal-line__badges">
-                              <a-tag :color="getConsoleStreamColor(frame.stream)" class="stream-badge">{{ getConsoleStreamLabel(frame.stream) }}</a-tag>
-                              <a-tag v-if="frame.stream === 'outbound'" :color="getConsoleLevelColor(getConsoleLevel(frame))" class="level-badge">
+                              <AppTag :tone="getConsoleStreamColor(frame.stream)" class="stream-badge">{{ getConsoleStreamLabel(frame.stream) }}</AppTag>
+                              <AppTag v-if="frame.stream === 'outbound'" :tone="getConsoleLevelColor(getConsoleLevel(frame))" class="level-badge">
                                 {{ getConsoleLevelLabel(getConsoleLevel(frame)) }}
-                              </a-tag>
+                              </AppTag>
                               <span v-if="getConsoleRequestId(frame)" class="console-request-id">{{ getConsoleRequestId(frame) }}</span>
                             </div>
                           </div>
@@ -722,9 +723,9 @@ onUnmounted(() => {
                     </VirtualDataViewport>
                   </div>
                 </div>
-              </a-tab-pane>
-            </a-tabs>
-          </a-card>
+              </template>
+            </AppTabs>
+          </AppCard>
         </main>
       </div>
     </div>
@@ -736,32 +737,20 @@ onUnmounted(() => {
       :page="activeManagementPage"
     />
 
-    <a-skeleton v-else active :loading="detailLoading">
-      <a-card :bordered="false">
+    <AppCard v-else borderless :loading="detailLoading">
         <template #title>
           <div class="card-header">
             <span>{{ managementPanelTitle }}</span>
           </div>
         </template>
-      </a-card>
-    </a-skeleton>
+    </AppCard>
   </AppPage>
 
-  <a-modal
-    v-model:open="uninstallDialogVisible"
-    :title="t('plugins.uninstallConfirmTitle')"
-    :confirm-loading="actionPending[pluginId] === 'uninstall'"
-    :ok-text="t('plugins.actions.uninstallConfirm')"
-    :cancel-text="t('dashboard.previewCancel')"
-    :ok-button-props="{ danger: true }"
-    @ok="uninstallPlugin"
-  >
-    <p>{{ t('plugins.uninstallConfirmBody') }}</p>
-  </a-modal>
+  <AppConfirmDialog :open="uninstallDialogVisible" :title="t('plugins.uninstallConfirmTitle')" :description="t('plugins.uninstallConfirmBody')" :busy="actionPending[pluginId] === 'uninstall'" danger :confirm-text="t('plugins.actions.uninstallConfirm')" :cancel-text="t('dashboard.previewCancel')" @confirm="uninstallPlugin" @cancel="uninstallDialogVisible = false" />
 </template>
 
 <style scoped lang="scss">
-:deep(.ant-card) {
+:deep(.app-card) {
   box-shadow: var(--shadow-xs);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
@@ -770,7 +759,7 @@ onUnmounted(() => {
 
 /* Tab Panel Styling */
 .plugin-detail-tab-card {
-  :deep(.ant-card-body) {
+  :deep(.app-card__body) {
     padding: 0;
   }
 
@@ -780,11 +769,10 @@ onUnmounted(() => {
     min-height: 0;
     overflow: hidden;
 
-    :deep(.ant-card-body),
-    :deep(.ant-tabs),
-    :deep(.ant-tabs-content-holder),
-    :deep(.ant-tabs-content),
-    :deep(.ant-tabs-tabpane-active) {
+    :deep(.app-card__body),
+    :deep(.app-tabs),
+    :deep(.app-tabs__content),
+    :deep(.app-tabs__content[data-state=active]) {
       display: flex;
       flex: 1 1 auto;
       flex-direction: column;
@@ -812,13 +800,13 @@ onUnmounted(() => {
 }
 
 .premium-detail-tabs {
-  :deep(.ant-tabs-nav) {
+  :deep(.app-tabs__header) {
     padding-inline: 18px;
     margin-bottom: 0;
     border-bottom: 1px solid var(--border);
   }
 
-  :deep(.ant-tabs-tab) {
+  :deep(.app-tabs__trigger) {
     padding-block: 14px;
   }
 }
@@ -901,13 +889,13 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   padding: 2px;
 
-  :deep(.ant-segmented-item) {
+  :deep(.app-segmented__item) {
     border-radius: 4px;
     font-weight: 550;
     transition: border-color 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
   }
 
-  :deep(.ant-segmented-item-selected) {
+  :deep(.app-segmented__item[data-state=checked]) {
     background: var(--surface);
     color: var(--text-accent);
     box-shadow: none;
@@ -1056,7 +1044,7 @@ onUnmounted(() => {
 }
 
 /* Compact status tags inside the detail header */
-.status-tag.ant-tag {
+.status-tag.app-tag {
   font-family: var(--font-mono);
   font-size: 12px;
   padding-inline: 6px;
@@ -1073,25 +1061,25 @@ onUnmounted(() => {
     opacity: 0.8;
   }
 
-  &.ant-tag-success {
+  &.app-tag-success {
     background: color-mix(in srgb, var(--success) 10%, transparent);
     color: var(--success);
     border-color: color-mix(in srgb, var(--success) 20%, transparent);
   }
 
-  &.ant-tag-warning {
+  &.app-tag-warning {
     background: color-mix(in srgb, var(--warning) 10%, transparent);
     color: var(--warning);
     border-color: color-mix(in srgb, var(--warning) 20%, transparent);
   }
 
-  &.ant-tag-error {
+  &.app-tag-error {
     background: color-mix(in srgb, var(--danger) 10%, transparent);
     color: var(--danger);
     border-color: color-mix(in srgb, var(--danger) 20%, transparent);
   }
 
-  &.ant-tag-default {
+  &.app-tag-default {
     background: color-mix(in srgb, var(--muted) 10%, transparent);
     color: var(--muted);
     border-color: color-mix(in srgb, var(--muted) 20%, transparent);

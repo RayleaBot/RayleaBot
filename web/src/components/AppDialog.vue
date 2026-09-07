@@ -12,7 +12,7 @@ defineOptions({ inheritAttrs: false })
 const props = withDefaults(defineProps<{
   open: boolean; title: string; description?: string; width?: number; busy?: boolean
   dismissible?: boolean; role?: 'dialog' | 'alertdialog'; initialFocus?: string; fallbackFocus?: string
-  placement?: 'center' | 'left' | 'right'
+  placement?: 'center' | 'left' | 'right' | 'bottom'
 }>(), { width: 640, dismissible: true, role: 'dialog', placement: 'center' })
 const emit = defineEmits<{ close: []; afterClose: [] }>()
 const active = ref(props.open)
@@ -27,6 +27,10 @@ const contentHeight = ref<number>()
 const motionState = computed(() => {
   const preset = overlayMotion.value
   if (props.placement === 'center') return { initial: preset.initial, animate: { ...preset.animate, height: contentHeight.value || 'auto' }, exit: preset.exit }
+  if (props.placement === 'bottom') {
+    const y = preset.transition.duration === 0 ? 0 : 24
+    return { initial: { opacity: 0, y, scale: 1 }, animate: { opacity: 1, y: 0, scale: 1, height: contentHeight.value || 'auto' }, exit: { opacity: 0, y, scale: 1, transition: preset.exit.transition } }
+  }
   const x = preset.transition.duration === 0 ? 0 : props.placement === 'left' ? -24 : 24
   return { initial: { opacity: 0, x, scale: 1 }, animate: { opacity: 1, x: 0, scale: 1 }, exit: { opacity: 0, x, scale: 1, transition: preset.exit.transition } }
 })
@@ -88,7 +92,7 @@ function restoreFocus(event: Event) {
           @open-auto-focus="focusOnOpen" @close-auto-focus="restoreFocus"
         >
           <motion.section
-            v-bind="$attrs" data-slot="app-dialog" class="app-dialog" :data-placement="placement" :style="{ width: `${width}px`, ...(placement === 'center' ? {} : { height: '100dvh' }), zIndex: layer + 1 }"
+            v-bind="$attrs" data-slot="app-dialog" class="app-dialog" :data-placement="placement" :style="{ width: placement === 'bottom' ? '100vw' : `${width}px`, ...(placement === 'left' || placement === 'right' ? { height: '100dvh' } : {}), zIndex: layer + 1 }"
             :initial="motionState.initial" :animate="open ? motionState.animate : motionState.exit" :transition="overlayMotion.transition"
             @animation-complete="motionComplete"
           >
@@ -121,6 +125,7 @@ function restoreFocus(event: Event) {
 .app-dialog[data-placement=right], .app-dialog[data-placement=left] { top: 0; translate: none; max-height: 100dvh; max-width: calc(100vw - 24px); border-radius: 0; }
 .app-dialog[data-placement=right] { left: auto; right: 0; }
 .app-dialog[data-placement=left] { left: 0; }
+.app-dialog[data-placement=bottom] { top: auto; bottom: 0; left: 0; translate: none; max-width: 100vw; max-height: calc(100dvh - 24px); border-radius: 16px 16px 0 0; }
 .app-dialog:not([data-placement=center]) .app-dialog__body { flex: 1; }
 @media (max-width: 639px) {
   .app-dialog { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
