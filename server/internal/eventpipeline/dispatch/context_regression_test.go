@@ -150,7 +150,18 @@ func TestAcceptedAsyncEventOutlivesCallerCancellation(t *testing.T) {
 	}
 	close(rt.release)
 	d.Close()
-	if accepted.Err() == nil {
+	// The event context is derived from a wrapper the runtime cannot attach to
+	// its cancellation tree, so the worker propagates the slot's cancellation
+	// through context.AfterFunc. That runs in its own goroutine: closing does
+	// cancel the owned context, but not before Close returns.
+	waitForContextDone(t, accepted, time.Second)
+}
+
+func waitForContextDone(t *testing.T, ctx context.Context, timeout time.Duration) {
+	t.Helper()
+	select {
+	case <-ctx.Done():
+	case <-time.After(timeout):
 		t.Fatal("dispatcher close did not cancel owned context")
 	}
 }
