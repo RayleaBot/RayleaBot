@@ -46,6 +46,10 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *[]captured
 }
 
 func okResponse(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.URL.Path, "/files") {
+		json.NewEncoder(w).Encode(map[string]any{"file_uuid": "u-1", "file_info": "file-info-1", "ttl": 600})
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]any{"id": "sent-1"})
 }
 
@@ -123,13 +127,13 @@ func TestSendReportsSegmentsItCannotDeliver(t *testing.T) {
 	t.Parallel()
 
 	client, _ := newTestClient(t, okResponse)
-	// Media needs a separate upload step this adapter does not perform yet, so
-	// an image-only message must fail loudly rather than send nothing.
+	// The platform has media kinds for image, video and voice only; anything
+	// else must fail loudly rather than send nothing.
 	_, err := client.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1",
-		Segments: []chatevent.MessageSegment{{Type: "image", Data: map[string]any{"url": "https://example.invalid/a.png"}}},
+		Segments: []chatevent.MessageSegment{{Type: "poke", Data: map[string]any{}}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "image") {
+	if err == nil || !strings.Contains(err.Error(), "poke") {
 		t.Fatalf("error = %v, want it to name the undeliverable segment kind", err)
 	}
 }
@@ -211,7 +215,7 @@ func TestSendErrorsCarryFormalCodes(t *testing.T) {
 	unsupported, _ := newTestClient(t, okResponse)
 	_, err = unsupported.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1",
-		Segments: []chatevent.MessageSegment{{Type: "image", Data: map[string]any{"url": "https://example.invalid/a.png"}}},
+		Segments: []chatevent.MessageSegment{{Type: "poke", Data: map[string]any{}}},
 	})
 	if !errors.As(err, &sendErr) || sendErr.Code != CodeCapabilityUnsupported {
 		t.Fatalf("undeliverable segment = %v, want %s", err, CodeCapabilityUnsupported)

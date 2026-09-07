@@ -64,14 +64,14 @@ func (r *replySequences) next(messageID string) int {
 }
 
 type sendMessageRequest struct {
-	Content string `json:"content,omitempty"`
-	MsgType int    `json:"msg_type"`
-	MsgID   string `json:"msg_id,omitempty"`
-	MsgSeq  int    `json:"msg_seq,omitempty"`
-	Media   *media `json:"media,omitempty"`
+	Content string    `json:"content,omitempty"`
+	MsgType int       `json:"msg_type"`
+	MsgID   string    `json:"msg_id,omitempty"`
+	MsgSeq  int       `json:"msg_seq,omitempty"`
+	Media   *mediaRef `json:"media,omitempty"`
 }
 
-type media struct {
+type mediaRef struct {
 	FileInfo string `json:"file_info"`
 }
 
@@ -98,21 +98,47 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
-	text, unsupported := renderSegments(segments)
-	if strings.TrimSpace(text) == "" {
-		if unsupported != "" {
-			return chatevent.SendMessageResult{}, &SendError{
-				Code:    CodeCapabilityUnsupported,
-				Message: fmt.Sprintf("消息只包含当前适配器无法投递的段类型（%s）。", unsupported),
-			}
-		}
+	text, media := splitSegments(segments)
+	if strings.TrimSpace(text) == "" && len(media) == 0 {
 		return chatevent.SendMessageResult{}, &SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: "消息没有可投递的内容。",
 		}
 	}
 
-	body := sendMessageRequest{Content: text, MsgType: msgTypeText}
+	// The platform carries one media item per message, so a message mixing text
+	// and media becomes a short sequence. The first send returns the id callers
+	// use to refer to the message.
+	var result chatevent.SendMessageResult
+	if strings.TrimSpace(text) != "" {
+		sent, err := c.post(ctx, endpoint, sendMessageRequest{Content: text, MsgType: msgTypeText}, replyTo)
+		if err != nil {
+			return chatevent.SendMessageResult{}, err
+		}
+		result = sent
+	}
+	for _, segment := range media {
+		fileInfo, err := c.uploadMedia(ctx, targetType, targetID, segment)
+		if err != nil {
+			return result, err
+		}
+		sent, err := c.post(ctx, endpoint, sendMessageRequest{
+			MsgType: msgTypeMedia,
+			Media:   &mediaRef{FileInfo: fileInfo},
+		}, replyTo)
+		if err != nil {
+			return result, err
+		}
+		if result.MessageID == "" {
+			result = sent
+		}
+	}
+	return result, nil
+}
+
+// post sends one prepared message. A reply advances msg_seq so several answers
+// to the same inbound message are not rejected as duplicates.
+func (c *Client) post(ctx context.Context, endpoint string, body sendMessageRequest, replyTo string) (chatevent.SendMessageResult, error) {
 	if replyTo != "" {
 		body.MsgID = replyTo
 		body.MsgSeq = c.replies.next(replyTo)
@@ -121,7 +147,6 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
-
 	token, err := c.tokens.Token(ctx)
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
@@ -155,6 +180,24 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	return chatevent.SendMessageResult{MessageID: decoded.ID}, nil
 }
 
+// splitSegments separates the text a person wrote from the media that has to be
+// uploaded before it can be referenced.
+func splitSegments(segments []chatevent.MessageSegment) (string, []chatevent.MessageSegment) {
+	var text strings.Builder
+	media := make([]chatevent.MessageSegment, 0, len(segments))
+	for _, segment := range segments {
+		switch segment.Type {
+		case "text":
+			if value, ok := segment.Data["text"].(string); ok {
+				text.WriteString(value)
+			}
+		default:
+			media = append(media, segment)
+		}
+	}
+	return text.String(), media
+}
+
 // messageEndpoint maps a neutral conversation onto the platform's two message
 // surfaces. Group and private are the only kinds this adapter can address.
 func messageEndpoint(base, targetType, targetID string) (string, error) {
@@ -173,25 +216,6 @@ func messageEndpoint(base, targetType, targetID string) (string, error) {
 			Message: fmt.Sprintf("当前适配器无法寻址会话种类 %q。", targetType),
 		}
 	}
-}
-
-// renderSegments flattens segments into the plain text the v2 text endpoint
-// accepts, and names the kinds it had to drop. Media needs a separate upload
-// before it can be referenced, which this adapter does not do yet.
-func renderSegments(segments []chatevent.MessageSegment) (string, string) {
-	var text strings.Builder
-	dropped := make([]string, 0, len(segments))
-	for _, segment := range segments {
-		switch segment.Type {
-		case "text":
-			if value, ok := segment.Data["text"].(string); ok {
-				text.WriteString(value)
-			}
-		default:
-			dropped = append(dropped, segment.Type)
-		}
-	}
-	return text.String(), strings.Join(dropped, ", ")
 }
 
 // sendErrorCode classifies a platform refusal so callers can tell a quota
