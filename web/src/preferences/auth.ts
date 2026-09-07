@@ -1,58 +1,5 @@
-import theme from 'ant-design-vue/es/theme'
-import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
-
 import type { ResolvedThemeMode } from '@/preferences/app'
 import { webThemes } from '@/preferences/theme-tokens'
-
-export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
-  const tokens = webThemes[mode]
-  return {
-    algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
-    token: {
-      borderRadius: 10,
-      borderRadiusLG: 18,
-      colorBgContainer: tokens.surface,
-      colorBgElevated: tokens.surfaceRaised,
-      colorBgLayout: tokens.canvas,
-      colorBorder: tokens.borderControl,
-      colorBorderSecondary: tokens.border,
-      colorError: tokens.danger,
-      colorInfo: tokens.brandForeground,
-      colorLink: tokens.brandForeground,
-      colorLinkActive: tokens.brandFillPressed,
-      colorLinkHover: tokens.brandFillHover,
-      colorPrimary: tokens.brandFill,
-      colorPrimaryActive: tokens.brandFillPressed,
-      colorPrimaryHover: tokens.brandFillHover,
-      colorSplit: tokens.border,
-      colorSuccess: tokens.success,
-      colorText: tokens.text,
-      colorTextLightSolid: tokens.onBrand,
-      colorTextSecondary: tokens.textMuted,
-      colorTextPlaceholder: tokens.textMuted,
-      colorWarning: tokens.warning,
-      controlHeight: 50,
-      controlOutline: tokens.focus,
-      fontFamily: 'var(--font-sans)',
-      fontSize: 14,
-      wireframe: false,
-    },
-    components: {
-      Alert: {
-        borderRadiusLG: 8,
-      },
-      Button: {
-        controlHeight: 50,
-      },
-      Input: {
-        colorPrimary: tokens.focus,
-        controlOutline: 'transparent',
-        colorPrimaryHover: tokens.brandForeground,
-        controlHeight: 50,
-      },
-    },
-  }
-}
 
 export function resolveAuthCssVariables(mode: ResolvedThemeMode): Record<string, string> {
   const tokens = webThemes[mode]

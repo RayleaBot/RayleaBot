@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { ref, useAttrs } from 'vue'
-import { EyeIcon, EyeOffIcon } from '@lucide/vue'
+import { EyeIcon, EyeOffIcon, XIcon } from '@lucide/vue'
 import { Input } from '@/components/ui/input'
 import { useFieldContext } from './form-context'
 
 defineOptions({ inheritAttrs: false })
-const props = withDefaults(defineProps<{ type?: string }>(), { type: 'text' })
+const props = withDefaults(defineProps<{ type?: string; allowClear?: boolean; showSecretLabel?: string; hideSecretLabel?: string }>(), { type: 'text', showSecretLabel: '显示密码', hideSecretLabel: '隐藏密码' })
 const model = defineModel<string>({ default: '' })
 const attrs = useAttrs()
 const field = useFieldContext()
 const revealed = ref(false)
+const wrapper = ref<HTMLElement | null>(null)
+defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
 </script>
 
 <template>
-  <div class="app-input-wrap">
+  <div ref="wrapper" class="app-input-wrap">
     <Input
       :id="field?.id" :aria-invalid="Boolean(field?.error) || undefined"
       :aria-describedby="field?.error ? field.descriptionId : undefined"
@@ -21,12 +23,13 @@ const revealed = ref(false)
       v-bind="attrs"
       :model-value="model"
       :type="props.type === 'password' && revealed ? 'text' : props.type"
-      class="app-input" :class="{ 'pr-11': props.type === 'password' }"
+      class="app-input" :class="{ 'pr-11': props.type === 'password' || allowClear }"
       @update:model-value="model = String($event)"
     />
-    <button v-if="type === 'password'" type="button" class="app-input-reveal" :aria-label="revealed ? '隐藏密码' : '显示密码'" :aria-pressed="revealed" :disabled="Boolean(attrs.disabled)" @click="revealed = !revealed">
+    <button v-if="type === 'password'" type="button" class="app-input-reveal" :aria-label="revealed ? hideSecretLabel : showSecretLabel" :aria-pressed="revealed" :disabled="Boolean(attrs.disabled)" @click="revealed = !revealed">
       <EyeOffIcon v-if="revealed" :size="17" /><EyeIcon v-else :size="17" />
     </button>
+    <button v-else-if="allowClear && model && !attrs.disabled" type="button" class="app-input-reveal" aria-label="清除输入" @click="model = ''; wrapper?.querySelector('input')?.focus()"><XIcon :size="16" /></button>
   </div>
 </template>
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ArrowLeftOutlined, DesktopOutlined, CodeOutlined } from '@ant-design/icons-vue'
+import { ArrowLeftIcon, MonitorIcon, TerminalIcon } from '@lucide/vue'
 
 import AuthPanel from '@/components/auth/AuthPanel.vue'
 import { t } from '@/i18n'
@@ -20,11 +20,11 @@ defineExpose({ focus: () => panel.value?.focus() })
   >
     <div class="auth-recovery">
       <section class="auth-recovery__method" aria-labelledby="auth-recovery-launcher">
-        <h2 id="auth-recovery-launcher"><DesktopOutlined aria-hidden="true" />{{ t('auth.recovery.launcherTitle') }}</h2>
+        <h2 id="auth-recovery-launcher"><MonitorIcon aria-hidden="true" />{{ t('auth.recovery.launcherTitle') }}</h2>
         <p>{{ t('auth.recovery.launcherBody') }}</p>
       </section>
       <section class="auth-recovery__method" aria-labelledby="auth-recovery-cli">
-        <h2 id="auth-recovery-cli"><CodeOutlined aria-hidden="true" />{{ t('auth.recovery.cliTitle') }}</h2>
+        <h2 id="auth-recovery-cli"><TerminalIcon aria-hidden="true" />{{ t('auth.recovery.cliTitle') }}</h2>
         <p>{{ t('auth.recovery.cliBody') }}</p>
         <div class="auth-recovery__commands">
           <span class="auth-recovery__platform">{{ t('auth.recovery.cliWindows') }}</span>
@@ -39,7 +39,7 @@ defineExpose({ focus: () => panel.value?.focus() })
     </div>
     <template #footer>
       <button class="auth-panel__text-action" type="button" @click="$emit('back')">
-        <ArrowLeftOutlined aria-hidden="true" />{{ t('auth.recovery.back') }}
+        <ArrowLeftIcon aria-hidden="true" />{{ t('auth.recovery.back') }}
       </button>
     </template>
   </AuthPanel>
@@ -57,7 +57,7 @@ defineExpose({ focus: () => panel.value?.focus() })
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
-  .anticon { color: var(--auth-brand-foreground); font-size: 16px; }
+  svg { color: var(--auth-brand-foreground); width: 16px; height: 16px; }
 }
 .auth-recovery p { margin: 0; color: var(--auth-text-muted); font-size: 13px; line-height: 1.8; }
 .auth-recovery__commands {

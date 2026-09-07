@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { nextTick, computed, ref, useTemplateRef, watch } from 'vue'
-import { EnterOutlined } from '@ant-design/icons-vue'
+import { CornerDownLeftIcon as EnterOutlined } from '@lucide/vue'
+import AppDialog from '@/components/AppDialog.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
 
 import type { AppNavigationItem } from '@/access/menu'
 import { t } from '@/i18n'
@@ -147,23 +150,14 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
 </script>
 
 <template>
-  <a-modal
-    :open="open"
-    :footer="null"
-    :closable="false"
-    :mask-closable="true"
-    :width="640"
-    centered
-    class="route-search-modal"
-    data-testid="route-search-modal"
-    @cancel="close"
-  >
+  <AppDialog :open="open" :title="t('shell.search')" :width="640" initial-focus="#route-search-input" class="route-search-modal" data-testid="route-search-modal" @close="close">
     <div class="route-search-panel">
       <div class="route-search-panel__input">
-        <a-input
+        <AppInput
           ref="inputRef"
-          v-model:value="keyword"
-          size="large"
+          v-model="keyword"
+          id="route-search-input"
+          :aria-label="t('shell.searchPlaceholder')"
           :placeholder="t('shell.searchPlaceholder')"
           @keydown="handleInputKeydown"
         />
@@ -186,13 +180,13 @@ function getSearchScore(item: AppNavigationItem, normalizedKeyword: string) {
         </button>
       </div>
 
-      <a-empty v-else :description="t('shell.searchEmpty')" />
+      <AppEmptyState v-else :description="t('shell.searchEmpty')" />
 
       <div class="route-search-panel__footer">
         <span>{{ t('shell.searchShortcutHint') }}</span>
       </div>
     </div>
-  </a-modal>
+  </AppDialog>
 </template>
 
 <style scoped lang="scss">

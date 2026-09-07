@@ -3,7 +3,7 @@ import type { Router } from 'vue-router'
 
 const animateMock = vi.hoisted(() => vi.fn())
 
-vi.mock('motion/mini', () => ({ animate: animateMock }))
+vi.mock('motion-v', () => ({ animate: animateMock }))
 
 import {
   navigateWithMotion,
@@ -86,7 +86,7 @@ describe('motion runtime', () => {
     transitions.forEach((transition) => transition.resolve())
   })
 
-  it('uses Motion Mini for the route fallback and completes through its controls', async () => {
+  it('uses Motion for Vue for the route fallback and completes through its controls', async () => {
     const element = document.createElement('div')
     Object.defineProperty(element, 'animate', { configurable: true, value: vi.fn() })
     const done = vi.fn()

@@ -1,4 +1,4 @@
-import { animate } from 'motion/mini'
+import { animate } from 'motion-v'
 import { nextTick } from 'vue'
 import type { RouteLocationRaw, Router } from 'vue-router'
 

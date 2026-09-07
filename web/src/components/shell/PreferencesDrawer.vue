@@ -2,6 +2,11 @@
 import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
+import AppDrawer from '@/components/AppDrawer.vue'
+import AppTabs from '@/components/AppTabs.vue'
+import AppSegmented from '@/components/AppSegmented.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppButton from '@/components/AppButton.vue'
 import { t } from '@/i18n'
 import { applyThemeWithMotion } from '@/motion/runtime'
 import type {
@@ -59,26 +64,26 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
 </script>
 
 <template>
-  <a-drawer
+  <AppDrawer
     :open="settingsOpen"
     :title="t('shell.preferences.title')"
     :width="380"
     class="preferences-drawer"
     data-testid="preferences-drawer"
+    fallback-focus="[data-testid=header-more]"
     @close="uiShellStore.closeSettings()"
   >
-    <a-tabs v-model:activeKey="activeTab" class="preferences-drawer__tabs" size="small">
-      <a-tab-pane key="appearance" :tab="t('shell.preferences.appearance')">
+    <AppTabs v-model="activeTab" :items="[{ value: 'appearance', label: t('shell.preferences.appearance') }, { value: 'workspace', label: t('shell.preferences.workspace') }, { value: 'shortcuts', label: t('shell.preferences.shortcuts') }]" :label="t('shell.preferences.title')" class="preferences-drawer__tabs">
+      <template #appearance>
         <div class="preferences-group">
           <div class="preferences-group__heading">
             <strong>{{ t('shell.preferences.themeMode') }}</strong>
             <span>{{ t('shell.preferences.themeModeHelp') }}</span>
           </div>
-          <a-segmented
+          <AppSegmented
             :options="themeOptions"
-            :value="preferences.themeMode"
-            block
-            @change="patchPreference('themeMode', $event as ThemeMode)"
+            :model-value="preferences.themeMode" :label="t('shell.preferences.themeMode')"
+            @update:model-value="patchPreference('themeMode', $event as ThemeMode)"
           />
         </div>
 
@@ -87,11 +92,10 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
             <strong>{{ t('shell.preferences.density') }}</strong>
             <span>{{ t('shell.preferences.densityHelp') }}</span>
           </div>
-          <a-segmented
+          <AppSegmented
             :options="densityOptions"
-            :value="preferences.density"
-            block
-            @change="patchPreference('density', $event as DensityMode)"
+            :model-value="preferences.density" :label="t('shell.preferences.density')"
+            @update:model-value="patchPreference('density', $event as DensityMode)"
           />
         </div>
 
@@ -100,26 +104,24 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
             <strong>{{ t('shell.preferences.pageTransition') }}</strong>
             <span>{{ t('shell.preferences.pageTransitionHelp') }}</span>
           </div>
-          <a-segmented
+          <AppSegmented
             :options="pageTransitionOptions"
-            :value="preferences.pageTransition"
-            block
-            @change="patchPreference('pageTransition', $event as PageTransition)"
+            :model-value="preferences.pageTransition" :label="t('shell.preferences.pageTransition')"
+            @update:model-value="patchPreference('pageTransition', $event as PageTransition)"
           />
         </div>
-      </a-tab-pane>
+      </template>
 
-      <a-tab-pane key="workspace" :tab="t('shell.preferences.workspace')">
+      <template #workspace>
         <div class="preferences-group">
           <div class="preferences-group__heading">
             <strong>{{ t('shell.preferences.contentWidth') }}</strong>
             <span>{{ t('shell.preferences.contentWidthHelp') }}</span>
           </div>
-          <a-segmented
+          <AppSegmented
             :options="contentWidthOptions"
-            :value="preferences.contentWidth"
-            block
-            @change="patchPreference('contentWidth', $event as ContentWidth)"
+            :model-value="preferences.contentWidth" :label="t('shell.preferences.contentWidth')"
+            @update:model-value="patchPreference('contentWidth', $event as ContentWidth)"
           />
         </div>
 
@@ -129,7 +131,7 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
               <strong>{{ t('shell.preferences.chromeTabbar') }}</strong>
               <span>{{ t('shell.preferences.chromeTabbarHelp') }}</span>
             </div>
-            <a-switch :checked="preferences.chromeTabbar" @change="patchPreference('chromeTabbar', $event)" />
+            <AppSwitch :model-value="preferences.chromeTabbar" :aria-label="t('shell.preferences.chromeTabbar')" @update:model-value="patchPreference('chromeTabbar', $event)" />
           </div>
 
           <div class="preferences-switch">
@@ -137,31 +139,31 @@ function patchPreference<T extends keyof LayoutPreferences>(key: T, value: Layou
               <strong>{{ t('shell.preferences.rememberTabs') }}</strong>
               <span>{{ t('shell.preferences.rememberTabsHelp') }}</span>
             </div>
-            <a-switch :checked="preferences.rememberTabs" @change="patchPreference('rememberTabs', $event)" />
+            <AppSwitch :model-value="preferences.rememberTabs" :aria-label="t('shell.preferences.rememberTabs')" @update:model-value="patchPreference('rememberTabs', $event)" />
           </div>
         </div>
-      </a-tab-pane>
+      </template>
 
-      <a-tab-pane key="shortcuts" :tab="t('shell.preferences.shortcuts')">
+      <template #shortcuts>
         <div class="shortcut-list">
           <div v-for="item in shortcutItems" :key="item.combo" class="shortcut-item">
             <kbd>{{ item.combo }}</kbd>
             <span>{{ item.description }}</span>
           </div>
         </div>
-      </a-tab-pane>
-    </a-tabs>
+      </template>
+    </AppTabs>
 
     <template #footer>
-      <a-button block @click="uiShellStore.resetPreferences()">
+      <AppButton class="w-full" @click="uiShellStore.resetPreferences()">
         {{ t('shell.preferences.reset') }}
-      </a-button>
+      </AppButton>
     </template>
-  </a-drawer>
+  </AppDrawer>
 </template>
 
 <style scoped lang="scss">
-.preferences-drawer__tabs :deep(.ant-tabs-nav) {
+.preferences-drawer__tabs :deep(.app-tabs__list) {
   margin-bottom: 24px;
 }
 

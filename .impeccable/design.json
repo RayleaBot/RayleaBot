@@ -1248,7 +1248,7 @@
   ],
   "narrative": {
     "northStar": "雾白·青瓷",
-    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。\n\nWeb 当前已落地 M1 产品组件基础与 M2 协议中心试点。M3 应用壳与认证入口、M4 其余工作区仍使用 Ant Design Vue；它们继续遵守各自现行分面规范。本文的 Web 产品组件规则记录已落地试点，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。",
+    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。\n\nWeb 当前已落地 M1 产品组件基础、M2 协议中心与 M3 应用壳及认证入口。侧栏、工作区页签、搜索、偏好、主题菜单、登录和初始化表单已使用产品组件；M4 插件、治理、诊断等业务页面及 AppCard、AppStatusTag、RetryPanel 等公共业务组件仍待迁移，顶层 App 保留 Ant Design Vue provider 供这些页面使用。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。",
     "keyCharacteristics": [
       "灰白与炭灰画布、中性导航和连续工作区。",
       "少量青瓷主操作、选中标记和几何折叶标识。",
@@ -1278,6 +1278,11 @@
         "section": "typography"
       },
       {
+        "name": "The Web Overlay Stack Rule",
+        "body": "Web 弹窗与抽屉遮罩从 1200 起按打开顺序递增 20，内容位于所属遮罩上方 1 层；嵌套菜单和选择器继承所属层级再加 5，Tooltip 加 8。未嵌套菜单、选择器和 Tooltip 的基准为 1100，Toast 为 1600，使退出中的菜单留在新打开的抽屉下方。这些 Web 局部层级不改变共享基础层级或 Launcher。",
+        "section": "elevation"
+      },
+      {
         "name": "The Structural Shadow Rule",
         "body": "管理工作区的静态边框表面不叠加大阴影，阴影只说明真实浮层关系；认证入口的阴影用于表达玻璃面板与控件的材质层次。",
         "section": "elevation"
@@ -1289,12 +1294,17 @@
       },
       {
         "name": "The Web Product Focus Rule",
-        "body": "已迁移 Web 产品控件通过 Tailwind 映射消费现有语义 token；键盘焦点保留基础 2px 轮廓，并使用主题强调色边框与 3px、50% 透明度的光环，错误状态使用独立危险语义。该局部规则不替换 Launcher、旧 Web 页面或认证字段的焦点样式；强制颜色模式保留系统可见焦点。",
+        "body": "Web 基础按钮、输入框与选择器通过 Tailwind 映射消费现有语义 token；键盘焦点保留基础 2px 轮廓，并使用主题强调色边框与 3px、50% 透明度的光环，错误状态使用独立危险语义。导航、页签、分段选择与菜单使用各自的中性焦点或高亮轮廓；认证字段遵循专用样式。局部规则不替换 Launcher 或旧 Web 页面的焦点样式，强制颜色模式保留系统可见焦点。",
+        "section": "components"
+      },
+      {
+        "name": "The Sidebar Resource Rule",
+        "body": "插件资源的打开按钮与展开按钮为同一行中的兄弟控件，分别负责导航与展开管理页，具有独立的可访问名称和焦点；不嵌套可交互按钮。插件可独立展开概览和 manifest 声明的管理页，展开状态、加载反馈与失败重试围绕对应资源呈现。",
         "section": "components"
       },
       {
         "name": "The Web Dialog Lifecycle Rule",
-        "body": "Web 产品弹窗在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。",
+        "body": "Web 产品弹窗与抽屉在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。原触发项已卸载时归还到明确的备用入口，例如从菜单打开设置后返回仍有效的菜单按钮。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。",
         "section": "components"
       },
       {

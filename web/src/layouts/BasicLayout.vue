@@ -4,20 +4,28 @@ import type { Component as VueComponent } from 'vue'
 import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteLocationRaw, type RouteRecordRaw } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
-  DownOutlined,
-  FullscreenExitOutlined,
-  FullscreenOutlined,
-  LogoutOutlined,
-  MenuFoldOutlined,
-  MenuOutlined,
-  MenuUnfoldOutlined,
-  MoreOutlined,
-  PoweroffOutlined,
-  RightOutlined,
-  SearchOutlined,
-  SettingOutlined,
-  UserOutlined,
-} from '@ant-design/icons-vue'
+  XIcon,
+  ChevronDownIcon,
+  MinimizeIcon,
+  MaximizeIcon,
+  LogOutIcon,
+  PanelLeftCloseIcon,
+  MenuIcon,
+  PanelLeftOpenIcon,
+  EllipsisIcon,
+  PowerIcon,
+  ChevronRightIcon,
+  SearchIcon,
+  SettingsIcon,
+  UserIcon,
+} from '@lucide/vue'
+import { TabsRoot, TabsList, TabsTrigger } from 'reka-ui'
+import AppButton from '@/components/AppButton.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppDropdown from '@/components/AppDropdown.vue'
+import AppDropdownItem from '@/components/AppDropdownItem.vue'
+import AppDrawer from '@/components/AppDrawer.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 
 import { resolveMenuIcon } from '@/access/icons'
 import { createPluginCenterTab, isPluginCenterRoute, pluginCenterPath, projectPluginCenterMenu } from '@/access/plugin-center'
@@ -139,7 +147,6 @@ interface AppBreadcrumbItem {
   title: string
 }
 
-const siderTheme = computed(() => uiShellStore.resolvedThemeMode)
 const fullscreenLabel = computed(() => (
   isFullscreen.value ? t('shell.exitFullscreen') : t('shell.enterFullscreen')
 ))
@@ -545,7 +552,7 @@ function handlePrimaryNavigationKeydown(event: KeyboardEvent) {
     return
   }
 
-  const items = Array.from(container.querySelectorAll<HTMLElement>('[role="menuitem"], .ant-menu-submenu-title'))
+  const items = Array.from(container.querySelectorAll<HTMLElement>('[data-nav-item]'))
     .filter((item) => item.getClientRects().length > 0 && item.getAttribute('aria-disabled') !== 'true')
   if (items.length === 0) {
     return
@@ -674,17 +681,8 @@ onBeforeUnmount(() => {
 <template>
   <a class="skip-link" href="#app-main">{{ t('app.skipToMain') }}</a>
 
-  <a-layout class="admin-layout" :class="[`admin-layout--${preferences.density}`]">
-    <a-layout-sider
-      breakpoint="lg"
-      class="admin-layout__sider"
-      :collapsed="siderCollapsed"
-      :collapsed-width="64"
-      :trigger="null"
-      :theme="siderTheme"
-      width="244"
-      data-testid="app-sider"
-    >
+  <div class="admin-layout" :class="[`admin-layout--${preferences.density}`]">
+    <aside class="admin-layout__sider" :data-collapsed="siderCollapsed" data-testid="app-sider">
       <button
         type="button"
         class="admin-layout__brand"
@@ -716,13 +714,14 @@ onBeforeUnmount(() => {
           @scope-change="handlePluginNavigationScopeChange"
         />
       </nav>
-    </a-layout-sider>
+    </aside>
 
-    <a-drawer
+    <AppDrawer
       :open="mobileMenuOpen"
       class="admin-layout__mobile-drawer"
       placement="left"
-      width="280"
+      :title="t('app.mainNavigation')"
+      :width="280"
       @close="uiShellStore.setMobileMenuOpen(false)"
     >
       <div class="admin-layout__mobile-brand">
@@ -748,37 +747,37 @@ onBeforeUnmount(() => {
           @scope-change="handlePluginNavigationScopeChange"
         />
       </nav>
-    </a-drawer>
+    </AppDrawer>
 
-    <a-layout>
-      <a-layout-header class="admin-layout__header" data-testid="app-header">
+    <div class="admin-layout__workspace">
+      <header class="admin-layout__header" data-testid="app-header">
         <div class="admin-layout__progress-track">
           <div :class="['admin-layout__progress-bar', { 'is-active': routeLoading }]" />
         </div>
 
         <div class="admin-layout__header-main">
           <div class="admin-layout__header-left">
-            <a-button
+            <AppButton
               class="admin-layout__icon-button admin-layout__nav-trigger desktop-only"
-              type="text"
+              variant="ghost"
               :aria-label="t('shell.toggleSidebar')"
               @click="uiShellStore.toggleSider()"
             >
               <template #icon>
-                <MenuUnfoldOutlined v-if="siderCollapsed" />
-                <MenuFoldOutlined v-else />
+                <PanelLeftOpenIcon v-if="siderCollapsed" />
+                <PanelLeftCloseIcon v-else />
               </template>
-            </a-button>
-            <a-button
+            </AppButton>
+            <AppButton
               class="admin-layout__icon-button admin-layout__nav-trigger mobile-only"
-              type="text"
+              variant="ghost"
               :aria-label="t('shell.openMenu')"
               @click="uiShellStore.setMobileMenuOpen(true)"
             >
               <template #icon>
-                <MenuOutlined />
+                <MenuIcon />
               </template>
-            </a-button>
+            </AppButton>
 
             <div
               v-if="breadcrumbItems.length"
@@ -806,16 +805,16 @@ onBeforeUnmount(() => {
                     <MotionRouterLink
                       v-if="!item.current"
                       :to="item.path"
-                      class="ant-breadcrumb-link admin-layout__breadcrumb-link"
+                      class="admin-layout__breadcrumb-link"
                     >
                       <span class="admin-layout__breadcrumb-link-text">{{ item.title }}</span>
                     </MotionRouterLink>
-                    <span v-else class="ant-breadcrumb-link admin-layout__breadcrumb-current">
+                    <span v-else class="admin-layout__breadcrumb-current">
                       <span class="admin-layout__breadcrumb-current-text">{{ item.title }}</span>
                     </span>
 
-                    <span v-if="!item.current" class="ant-breadcrumb-separator admin-layout__breadcrumb-separator" aria-hidden="true">
-                      <RightOutlined />
+                    <span v-if="!item.current" class="admin-layout__breadcrumb-separator" aria-hidden="true">
+                      <ChevronRightIcon />
                     </span>
                   </li>
                 </ol>
@@ -824,20 +823,20 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="admin-layout__header-tools">
-              <a-tooltip :title="t('shell.search')">
-                <a-button
+              <AppTooltip :title="t('shell.search')">
+                <AppButton
                   class="admin-layout__icon-button admin-layout__search-button"
-                  type="text"
+                  variant="ghost"
                   :aria-label="t('shell.search')"
                   data-testid="header-search"
                   @click="uiShellStore.openSearch()"
                 >
                   <template #icon>
-                    <SearchOutlined />
+                    <SearchIcon />
                   </template>
                   <span class="admin-layout__search-copy" aria-hidden="true">{{ t('shell.searchPlaceholder') }}</span>
-                </a-button>
-              </a-tooltip>
+                </AppButton>
+              </AppTooltip>
           </div>
 
           <div class="admin-layout__header-right">
@@ -849,168 +848,136 @@ onBeforeUnmount(() => {
               @change="setThemeModeWithMotion"
             />
 
-            <a-tooltip :title="fullscreenLabel">
-              <a-button
+            <AppTooltip :title="fullscreenLabel">
+              <AppButton
                 class="admin-layout__icon-button desktop-only"
-                type="text"
+                variant="ghost"
                 :aria-label="fullscreenLabel"
                 data-testid="header-fullscreen-direct"
                 @click="toggleFullscreen"
               >
                 <template #icon>
-                  <FullscreenExitOutlined v-if="isFullscreen" />
-                  <FullscreenOutlined v-else />
+                  <MinimizeIcon v-if="isFullscreen" />
+                  <MaximizeIcon v-else />
                 </template>
-              </a-button>
-            </a-tooltip>
+              </AppButton>
+            </AppTooltip>
 
-            <a-tooltip :title="t('shell.settings')">
-              <a-button
+            <AppTooltip :title="t('shell.settings')">
+              <AppButton
                 class="admin-layout__icon-button desktop-only"
-                type="text"
+                variant="ghost"
                 :aria-label="t('shell.settings')"
                 data-testid="header-settings-direct"
                 @click="uiShellStore.openSettings()"
               >
-                <template #icon><SettingOutlined /></template>
-              </a-button>
-            </a-tooltip>
+                <template #icon><SettingsIcon /></template>
+              </AppButton>
+            </AppTooltip>
 
-            <a-dropdown :trigger="['click']" placement="bottomRight">
-              <a-button
+            <AppDropdown>
+              <AppButton
                 class="admin-layout__icon-button"
-                type="text"
+                variant="ghost"
                 :aria-label="t('shell.moreActions')"
                 data-testid="header-more"
               >
-                <template #icon><MoreOutlined /></template>
-              </a-button>
+                <template #icon><EllipsisIcon /></template>
+              </AppButton>
 
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item key="settings" data-testid="header-settings" @click="uiShellStore.openSettings()">
-                    <SettingOutlined />
+              <template #content>
+                <div>
+                  <AppDropdownItem key="settings" data-testid="header-settings" @select="uiShellStore.openSettings()">
+                    <SettingsIcon />
                     {{ t('shell.settings') }}
-                  </a-menu-item>
-                  <a-menu-item key="fullscreen" data-testid="header-fullscreen" @click="toggleFullscreen">
-                    <FullscreenExitOutlined v-if="isFullscreen" />
-                    <FullscreenOutlined v-else />
+                  </AppDropdownItem>
+                  <AppDropdownItem key="fullscreen" data-testid="header-fullscreen" @select="toggleFullscreen">
+                    <MinimizeIcon v-if="isFullscreen" />
+                    <MaximizeIcon v-else />
                     {{ fullscreenLabel }}
-                  </a-menu-item>
-                  <a-menu-divider />
-                  <a-menu-item key="shutdown" danger @click="shutdownDialogVisible = true">
-                    <PoweroffOutlined />
+                  </AppDropdownItem>
+                  <div class="app-menu-separator" role="separator" />
+                  <AppDropdownItem key="shutdown" danger @select="shutdownDialogVisible = true">
+                    <PowerIcon />
                     {{ t('shell.shutdown') }}
-                  </a-menu-item>
-                </a-menu>
+                  </AppDropdownItem>
+                </div>
               </template>
-            </a-dropdown>
+            </AppDropdown>
 
-            <a-dropdown placement="bottomRight">
-              <a-button class="admin-layout__account-button" :aria-label="t('shell.account')">
-                <UserOutlined />
+            <AppDropdown>
+              <AppButton class="admin-layout__account-button" :aria-label="t('shell.account')">
+                <UserIcon />
                 <span class="desktop-only">{{ t('shell.account') }}</span>
-                <DownOutlined />
-              </a-button>
+                <ChevronDownIcon />
+              </AppButton>
 
-              <template #overlay>
-                <a-menu>
-                  <a-menu-item key="logout" @click="handleLogout">
-                    <LogoutOutlined />
+              <template #content>
+                <div>
+                  <AppDropdownItem key="logout" @select="handleLogout">
+                    <LogOutIcon />
                     {{ t('shell.logout') }}
-                  </a-menu-item>
-                </a-menu>
+                  </AppDropdownItem>
+                </div>
               </template>
-            </a-dropdown>
+            </AppDropdown>
           </div>
         </div>
 
         <div v-if="showWorkspaceTabs" class="admin-layout__tabbar">
           <div class="admin-layout__tabbar-main">
-            <a-tabs
-              hide-add
-              size="small"
-              type="editable-card"
-              :active-key="currentTabPath"
-              @change="onTabChange"
-              @edit="onTabEdit"
-            >
-              <a-tab-pane
-                v-for="item in tabs"
-                :key="item.path"
-                :closable="!item.affix"
-              >
-                <template #tab>
-                  <a-dropdown :trigger="['contextmenu']" placement="bottomLeft">
-                    <span
-                      class="admin-layout__tab-label"
-                      :data-icon="resolveTabItemIconData(item) || undefined"
-                      :data-tab-path="item.path"
-                    >
-                      <PluginIcon
-                        v-if="resolvePluginTabIdentity(item)"
-                        class="admin-layout__tab-plugin-icon"
-                        :data-plugin-id="resolvePluginTabIdentity(item)?.pluginId"
-                        :plugin-id="resolvePluginTabIdentity(item)?.pluginId ?? ''"
-                        :icon="resolvePluginTabIdentity(item)?.icon"
-                        :version="resolvePluginTabIdentity(item)?.version"
-                      />
-                      <component
-                        :is="resolveTabItemIconComponent(item)"
-                        v-else-if="resolveTabItemIconComponent(item)"
-                        class="admin-layout__tab-icon"
-                      />
-                      <span>{{ item.title }}</span>
-                    </span>
-
-                    <template #overlay>
-                      <a-menu data-testid="tab-context-menu" @click="handleTabAction($event.key, item)">
-                        <a-menu-item
-                          v-for="action in getTabCloseActionItems(item)"
-                          :key="action.key"
-                          :disabled="action.disabled"
-                          :data-testid="`tab-context-${action.key}`"
-                        >
-                          {{ action.label }}
-                        </a-menu-item>
-                      </a-menu>
-                    </template>
-                  </a-dropdown>
-                </template>
-              </a-tab-pane>
-            </a-tabs>
+            <TabsRoot class="workspace-tabs" :model-value="currentTabPath" activation-mode="manual" @update:model-value="onTabChange(String($event))">
+              <TabsList class="workspace-tabs__list" aria-label="工作区页签">
+                <AppDropdown v-for="item in tabs" :key="item.path" context align="start" data-testid="tab-context-menu">
+                  <div class="workspace-tabs__item" :data-active="currentTabPath === item.path">
+                    <TabsTrigger :value="item.path" class="workspace-tabs__trigger" aria-controls="app-main">
+                      <span class="admin-layout__tab-label" :data-icon="resolveTabItemIconData(item) || undefined" :data-tab-path="item.path">
+                        <PluginIcon v-if="resolvePluginTabIdentity(item)" class="admin-layout__tab-plugin-icon" :data-plugin-id="resolvePluginTabIdentity(item)?.pluginId" :plugin-id="resolvePluginTabIdentity(item)?.pluginId ?? ''" :icon="resolvePluginTabIdentity(item)?.icon" :version="resolvePluginTabIdentity(item)?.version" />
+                        <component :is="resolveTabItemIconComponent(item)" v-else-if="resolveTabItemIconComponent(item)" class="admin-layout__tab-icon" />
+                        <span>{{ item.title }}</span>
+                      </span>
+                    </TabsTrigger>
+                    <button v-if="!item.affix" type="button" class="workspace-tabs__close" :aria-label="t('shell.tabActions.closeCurrent') + ' ' + item.title" @click.stop="onTabEdit(item.path, 'remove')"><XIcon :size="14" /></button>
+                  </div>
+                  <template #content>
+                    <AppDropdownItem v-for="action in getTabCloseActionItems(item)" :key="action.key" :disabled="action.disabled" :data-testid="`tab-context-${action.key}`" @select="handleTabAction(action.key, item)">{{ action.label }}</AppDropdownItem>
+                  </template>
+                </AppDropdown>
+              </TabsList>
+            </TabsRoot>
 
             <div class="admin-layout__tabbar-actions">
-              <a-dropdown placement="bottomRight">
-                <a-button
+              <AppDropdown>
+                <AppButton
                   class="admin-layout__icon-button"
-                  type="text"
+                  variant="ghost"
                   :aria-label="t('shell.tabActions.menu')"
                   data-testid="tabbar-actions"
                 >
                   <template #icon>
-                    <MoreOutlined />
+                    <EllipsisIcon />
                   </template>
-                </a-button>
+                </AppButton>
 
-                <template #overlay>
-                  <a-menu @click="handleTabAction($event.key)">
-                    <a-menu-item
+                <template #content>
+                  <div>
+                    <AppDropdownItem
                       v-for="item in tabActionItems"
                       :key="item.key"
                       :disabled="item.disabled"
+                      @select="handleTabAction(item.key)"
                     >
                       {{ item.label }}
-                    </a-menu-item>
-                  </a-menu>
+                    </AppDropdownItem>
+                  </div>
                 </template>
-              </a-dropdown>
+              </AppDropdown>
             </div>
           </div>
         </div>
-      </a-layout-header>
+      </header>
 
-      <a-layout-content id="app-main" class="admin-layout__content" tabindex="-1">
+      <main id="app-main" class="admin-layout__content" tabindex="-1">
         <RouterView v-slot="{ route: currentViewRoute }">
           <Transition
             :css="false"
@@ -1032,9 +999,9 @@ onBeforeUnmount(() => {
             </KeepAlive>
           </Transition>
         </RouterView>
-      </a-layout-content>
-    </a-layout>
-  </a-layout>
+      </main>
+    </div>
+  </div>
 
   <RouteSearchPanel
     :items="navigationItems"
@@ -1044,17 +1011,7 @@ onBeforeUnmount(() => {
   />
   <PreferencesDrawer />
 
-  <a-modal
-    v-model:open="shutdownDialogVisible"
-    :title="t('shell.shutdownConfirmTitle')"
-    :confirm-loading="shutdownPending"
-    :ok-button-props="{ danger: true }"
-    :ok-text="t('shell.shutdownConfirmAction')"
-    :cancel-text="t('shell.cancel')"
-    @ok="confirmShutdown"
-  >
-    <p>{{ t('shell.shutdownConfirmBody') }}</p>
-  </a-modal>
+  <AppConfirmDialog :open="shutdownDialogVisible" :title="t('shell.shutdownConfirmTitle')" :description="t('shell.shutdownConfirmBody')" :busy="shutdownPending" danger :confirm-text="t('shell.shutdownConfirmAction')" :cancel-text="t('shell.cancel')" fallback-focus="[data-testid=header-more]" @confirm="confirmShutdown" @cancel="shutdownDialogVisible = false" />
 </template>
 
 <style scoped lang="scss">

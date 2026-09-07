@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 const model = defineModel<M extends true ? T[] : T>({ required: true })
 const field = useFieldContext()
-const layer = inject(overlayLayerKey, computed(() => 1200))
+const layer = inject(overlayLayerKey, computed(() => 1100))
 defineOptions({ inheritAttrs: false })
 const selectedLabels = computed(() => Array.isArray(model.value)
   ? props.options.filter((option) => (model.value as T[]).includes(option.value)).map((option) => option.label).join('、')

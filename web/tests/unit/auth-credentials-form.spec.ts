@@ -1,4 +1,3 @@
-import Antd from 'ant-design-vue'
 import { mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -14,9 +13,6 @@ function mountForm(options?: { pending?: boolean, feedback?: { level: 'error' | 
       submitLabel: '登录',
       subtitle: '使用管理员账号和密钥进入管理工作区。',
       title: '登录',
-    },
-    global: {
-      plugins: [Antd],
     },
   })
 }
@@ -35,8 +31,8 @@ describe('AuthCredentialsForm', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.emitted('submit')).toBeUndefined()
-    expect(inputs[0].attributes('aria-describedby')).toBe('auth-identifier-error')
-    expect(inputs[1].attributes('aria-describedby')).toBe('auth-secret-error')
+    expect(inputs[0].attributes('aria-describedby')).toBe('auth-identifier-description')
+    expect(inputs[1].attributes('aria-describedby')).toBe('auth-secret-description')
     expect(document.activeElement).toBe(inputs[0].element)
   })
 
@@ -75,6 +71,6 @@ describe('AuthCredentialsForm', () => {
     expect(wrapper.get('[role="status"]').text()).toContain('暂时无法确认管理界面状态')
     expect(wrapper.findAll('input').every((input) => input.attributes('disabled') !== undefined)).toBe(true)
     expect(wrapper.get('.auth-form__submit').attributes('aria-busy')).toBe('true')
-    expect(wrapper.find('.ant-btn-loading-icon').exists()).toBe(true)
+    expect(wrapper.find('.app-spinner').exists()).toBe(true)
   })
 })

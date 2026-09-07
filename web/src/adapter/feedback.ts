@@ -1,4 +1,4 @@
-import message from 'ant-design-vue/es/message'
+import { publishToast } from '@/components/toast-state'
 import { watch, type WatchSource } from 'vue'
 
 export type ToastLevel = 'error' | 'info' | 'success' | 'warning'
@@ -10,19 +10,19 @@ interface ToastFeedback {
 }
 
 export function notifySuccess(content: string) {
-  void message.success(content)
+  publishToast('success', content)
 }
 
 export function notifyError(content: string) {
-  void message.error(content)
+  publishToast('error', content)
 }
 
 export function notifyInfo(content: string) {
-  void message.info(content)
+  publishToast('info', content)
 }
 
 export function notifyWarning(content: string) {
-  void message.warning(content)
+  publishToast('warning', content)
 }
 
 export function notifyToast(level: ToastLevel, content: string) {

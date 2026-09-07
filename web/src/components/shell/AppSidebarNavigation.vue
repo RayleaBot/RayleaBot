@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import {
-  ArrowLeftOutlined,
-  DownOutlined,
-  LoadingOutlined,
-  ReloadOutlined,
-  RightOutlined,
-  SearchOutlined,
-} from '@ant-design/icons-vue'
+import { ArrowLeftIcon, ChevronDownIcon, ChevronRightIcon, LoaderCircleIcon, RotateCwIcon } from '@lucide/vue'
+import AppDropdown from '@/components/AppDropdown.vue'
+import AppDropdownItem from '@/components/AppDropdownItem.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, type RouteLocationRaw } from 'vue-router'
@@ -356,233 +354,92 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
     ? t('plugins.navigation.collapsePluginPages', { name: plugin.name })
     : t('plugins.navigation.expandPluginPages', { name: plugin.name })
 }
+function toggleRootGroup(key: string) {
+  emit('openChange', props.openKeys.includes(key) ? props.openKeys.filter(item => item !== key) : [...props.openKeys, key])
+}
 </script>
 
 <template>
-  <div
-    ref="navigation"
-    class="sidebar-navigation"
-    :data-mobile="mobile ? 'true' : undefined"
-    :data-scope="visibleScope"
-  >
+  <div ref="navigation" class="sidebar-navigation" :data-mobile="mobile ? 'true' : undefined" :data-collapsed="collapsed" :data-scope="visibleScope">
     <Transition :name="transitionName">
       <div :key="visibleScope" class="sidebar-navigation__stage">
-        <a-menu
-          v-if="visibleScope === 'root'"
-          mode="inline"
-          :open-keys="openKeys"
-          :selected-keys="selectedKeys"
-          @openChange="emit('openChange', $event)"
-        >
+        <div v-if="visibleScope === 'root'" class="sidebar-navigation__root">
           <template v-for="item in menuItems" :key="item.key">
-            <a-sub-menu v-if="item.key === pluginCenterTabName && collapsed" :key="item.key">
-              <template #title>
-                <span class="admin-layout__menu-label" data-sidebar-entry="plugin-center">
-                  <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ item.title }}</span>
-                </span>
-              </template>
-              <a-menu-item
-                v-for="page in pluginCenterPages"
-                :key="`page:${page.name}`"
-                :data-sidebar-page="page.name"
-                @click="navigateStaticPage(page)"
-              >
-                <span class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon(page.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ t(page.titleKey) }}</span>
-                </span>
-              </a-menu-item>
-              <a-menu-item-group v-if="openPluginTargets.length" key="open-plugins">
-                <template #title>{{ t('plugins.navigation.groups.openPlugins') }}</template>
-                <a-menu-item
-                  v-for="target in openPluginTargets"
-                  :key="`open-plugin:${target.pluginId}`"
-                  :data-sidebar-open-plugin-id="target.pluginId"
-                  @click="openWorkspacePlugin(target)"
-                >
-                  <span class="admin-layout__menu-label sidebar-navigation__plugin-label">
-                    <PluginIcon
-                      class="sidebar-navigation__plugin-icon"
-                      :plugin-id="target.pluginId"
-                      :icon="getPluginSummary(target.pluginId)?.icon"
-                      :version="getPluginSummary(target.pluginId)?.version"
-                    />
-                    <span class="sidebar-navigation__plugin-copy" :title="getPluginName(target.pluginId)">
-                      {{ getPluginName(target.pluginId) }}
-                    </span>
-                  </span>
-                </a-menu-item>
-              </a-menu-item-group>
-            </a-sub-menu>
-
-            <a-sub-menu v-else-if="item.children?.length" :key="item.key">
-              <template #title>
-                <span class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ item.title }}</span>
-                </span>
-              </template>
-
-              <a-menu-item
-                v-for="child in item.children"
-                :key="child.key"
-                @click="emit('navigate', child.path)"
-              >
-                <span class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ child.title }}</span>
-                </span>
-              </a-menu-item>
-            </a-sub-menu>
-
-            <a-menu-item
-              v-else
-              :key="item.key"
-              :data-sidebar-entry="item.key === pluginCenterTabName ? 'plugin-center' : undefined"
-              @click="item.key === pluginCenterTabName ? enterPluginCenter() : emit('navigate', item.path)"
-            >
-              <span class="admin-layout__menu-label sidebar-navigation__root-label">
+            <AppDropdown v-if="collapsed && (item.children?.length || item.key === pluginCenterTabName)" side="right" align="start">
+              <button type="button" class="sidebar-navigation__item sidebar-navigation__collapsed-item" data-nav-item :aria-label="item.title" :title="item.title" :data-sidebar-entry="item.key === pluginCenterTabName ? 'plugin-center' : undefined">
                 <component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" />
-                <span>{{ item.title }}</span>
-                <RightOutlined v-if="item.key === pluginCenterTabName && !collapsed" class="sidebar-navigation__chevron" aria-hidden="true" />
-              </span>
-            </a-menu-item>
+              </button>
+              <template #content>
+                <template v-if="item.key === pluginCenterTabName">
+                  <AppDropdownItem v-for="page in pluginCenterPages" :key="page.name" :data-sidebar-page="page.name" @select="navigateStaticPage(page)"><component :is="resolveMenuIcon(page.icon)" />{{ t(page.titleKey) }}</AppDropdownItem>
+                  <div v-if="openPluginTargets.length" class="app-menu-label">{{ t('plugins.navigation.groups.openPlugins') }}</div>
+                  <AppDropdownItem v-for="target in openPluginTargets" :key="target.pluginId" :data-sidebar-open-plugin-id="target.pluginId" @select="openWorkspacePlugin(target)">
+                    <PluginIcon class="sidebar-navigation__plugin-icon" :plugin-id="target.pluginId" :icon="getPluginSummary(target.pluginId)?.icon" :version="getPluginSummary(target.pluginId)?.version" />{{ getPluginName(target.pluginId) }}
+                  </AppDropdownItem>
+                </template>
+                <AppDropdownItem v-for="child in item.children" v-else :key="child.key" @select="emit('navigate', child.path)"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" />{{ child.title }}</AppDropdownItem>
+              </template>
+            </AppDropdown>
+            <section v-else-if="item.children?.length" class="sidebar-navigation__group">
+              <button type="button" class="sidebar-navigation__group-heading" data-nav-item :aria-expanded="openKeys.includes(item.key)" @click="toggleRootGroup(item.key)">{{ item.title }}<ChevronDownIcon :class="{ 'is-collapsed': !openKeys.includes(item.key) }" :size="13" /></button>
+              <div v-if="openKeys.includes(item.key)">
+                <button v-for="child in item.children" :key="child.key" type="button" class="sidebar-navigation__item" data-nav-item :aria-current="selectedKeys.includes(child.key) ? 'page' : undefined" @click="emit('navigate', child.path)">
+                  <span class="admin-layout__menu-label"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" class="admin-layout__menu-icon" /><span>{{ child.title }}</span></span>
+                </button>
+              </div>
+            </section>
+            <button v-else type="button" class="sidebar-navigation__item" :class="{ 'sidebar-navigation__collapsed-item': collapsed }" data-nav-item :aria-label="item.title" :title="collapsed ? item.title : undefined" :aria-current="selectedKeys.includes(item.key) ? 'page' : undefined" :data-sidebar-entry="item.key === pluginCenterTabName ? 'plugin-center' : undefined" @click="item.key === pluginCenterTabName ? enterPluginCenter() : emit('navigate', item.path)">
+              <span class="admin-layout__menu-label sidebar-navigation__root-label"><component :is="resolveMenuIcon(item.icon)" v-if="resolveMenuIcon(item.icon)" class="admin-layout__menu-icon" /><span v-if="!collapsed">{{ item.title }}</span><ChevronRightIcon v-if="item.key === pluginCenterTabName && !collapsed" class="sidebar-navigation__chevron" aria-hidden="true" /></span>
+            </button>
           </template>
-        </a-menu>
-
+        </div>
         <section v-else class="sidebar-navigation__scope" data-testid="plugin-center-sidebar-navigation">
-          <button
-            type="button"
-            class="sidebar-navigation__back"
-            data-sidebar-scope-back="plugin-center"
-            @click="backToRoot"
-          >
-            <ArrowLeftOutlined aria-hidden="true" />
-            <span>{{ t('routes.pluginCenter') }}</span>
-          </button>
-
-          <a-menu mode="inline" :selected-keys="centerSelectedKeys">
-            <a-menu-item-group v-for="group in pluginCenterPageGroups" :key="group.key">
-              <template #title>{{ t(group.titleKey) }}</template>
-              <a-menu-item
-                v-for="page in pluginCenterPages.filter(item => item.group === group.key)"
-                :key="`page:${page.name}`"
-                :data-sidebar-page="page.name"
-                @click="navigateStaticPage(page)"
-              >
-                <span class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon(page.icon)" class="admin-layout__menu-icon" />
-                  <span>{{ t(page.titleKey) }}</span>
-                </span>
-              </a-menu-item>
-            </a-menu-item-group>
-
-          </a-menu>
-
-          <a-input
-            v-if="showPluginFilter"
-            v-model:value="pluginFilter"
-            allow-clear
-            class="sidebar-navigation__filter"
-            :aria-label="t('plugins.navigation.filterLabel')"
-            :placeholder="t('plugins.navigation.filterPlaceholder')"
-          >
-            <template #prefix><SearchOutlined aria-hidden="true" /></template>
-          </a-input>
-
-          <a-menu mode="inline" :selected-keys="centerSelectedKeys">
-            <a-menu-item-group key="installed-plugins">
-              <template #title>{{ t('plugins.navigation.groups.installed') }}</template>
-              <a-menu-item
-                v-for="entry in pluginNavigationEntries"
-                :key="entry.key"
-                :aria-busy="entry.kind === 'resource' && isPluginExpansionPending(entry.plugin.id) ? 'true' : undefined"
+          <button type="button" class="sidebar-navigation__back" data-sidebar-scope-back="plugin-center" data-nav-item @click="backToRoot"><ArrowLeftIcon aria-hidden="true" /><span>{{ t('routes.pluginCenter') }}</span></button>
+          <section v-for="group in pluginCenterPageGroups" :key="group.key" class="sidebar-navigation__group">
+            <h3 class="sidebar-navigation__group-title">{{ t(group.titleKey) }}</h3>
+            <button v-for="page in pluginCenterPages.filter(item => item.group === group.key)" :key="page.name" type="button" class="sidebar-navigation__item" data-nav-item :aria-current="centerSelectedKeys.includes('page:' + page.name) ? 'page' : undefined" :data-sidebar-page="page.name" @click="navigateStaticPage(page)">
+              <span class="admin-layout__menu-label"><component :is="resolveMenuIcon(page.icon)" class="admin-layout__menu-icon" /><span>{{ t(page.titleKey) }}</span></span>
+            </button>
+          </section>
+          <div v-if="showPluginFilter" class="sidebar-navigation__filter"><AppInput v-model="pluginFilter" allow-clear :aria-label="t('plugins.navigation.filterLabel')" :placeholder="t('plugins.navigation.filterPlaceholder')" /></div>
+          <section class="sidebar-navigation__group">
+            <h3 class="sidebar-navigation__group-title">{{ t('plugins.navigation.groups.installed') }}</h3>
+            <div v-for="entry in pluginNavigationEntries" :key="entry.key" class="sidebar-navigation__entry" :class="{ 'sidebar-navigation__entry--resource': entry.kind === 'resource', 'sidebar-navigation__entry--active': entry.kind === 'resource' && entry.plugin.id === activePluginId }">
+              <button type="button" class="sidebar-navigation__item" data-nav-item
                 :aria-expanded="entry.kind === 'resource' ? isPluginContentVisible(entry.plugin.id) : undefined"
+                :aria-busy="entry.kind === 'resource' && isPluginExpansionPending(entry.plugin.id) ? 'true' : undefined"
                 :aria-label="entry.kind === 'resource' ? getPluginAriaLabel(entry.plugin) : undefined"
-                :class="[
-                  entry.kind === 'resource' ? 'sidebar-navigation__plugin-resource' : 'sidebar-navigation__plugin-child',
-                  {
-                    'sidebar-navigation__plugin-resource--active': entry.kind === 'resource' && entry.plugin.id === activePluginId,
-                    'sidebar-navigation__plugin-resource--expanded': entry.kind === 'resource' && isPluginContentVisible(entry.plugin.id),
-                    'sidebar-navigation__plugin-retry': entry.kind === 'retry',
-                  },
-                ]"
+                :aria-current="centerSelectedKeys.includes(entry.key) ? 'page' : undefined"
+                :class="[entry.kind === 'resource' ? 'sidebar-navigation__plugin-resource' : 'sidebar-navigation__plugin-child', { 'sidebar-navigation__plugin-resource--active': entry.kind === 'resource' && entry.plugin.id === activePluginId }]"
                 :data-sidebar-management-page="entry.kind === 'management' ? entry.page.id : undefined"
                 :data-sidebar-plugin-id="entry.kind === 'resource' ? entry.plugin.id : undefined"
                 :data-sidebar-plugin-overview="entry.kind === 'overview' ? entry.plugin.id : undefined"
                 :data-sidebar-plugin-page-owner="entry.kind === 'resource' ? undefined : entry.plugin.id"
                 :data-sidebar-plugin-retry="entry.kind === 'retry' ? entry.plugin.id : undefined"
-                @click="activatePluginNavigationEntry(entry)"
-              >
-                <template v-if="entry.kind === 'resource'">
-                  <span class="admin-layout__menu-label sidebar-navigation__plugin-label">
-                    <PluginIcon
-                      class="sidebar-navigation__plugin-icon"
-                      :plugin-id="entry.plugin.id"
-                      :icon="entry.plugin.icon"
-                      :version="entry.plugin.version"
-                    />
-                    <span class="sidebar-navigation__plugin-copy" :title="entry.plugin.name">{{ entry.plugin.name }}</span>
-                    <span
-                      v-if="entry.plugin.state"
-                      class="sidebar-navigation__state"
-                      :data-state="entry.plugin.state"
-                      :title="getPluginStateLabel(entry.plugin.state)"
-                      aria-hidden="true"
-                    />
-                    <button
-                      type="button"
-                      class="sidebar-navigation__disclosure"
-                      :aria-busy="isPluginExpansionPending(entry.plugin.id) ? 'true' : undefined"
-                      :aria-expanded="isPluginContentVisible(entry.plugin.id)"
-                      :aria-label="getPluginDisclosureLabel(entry.plugin)"
-                      :data-sidebar-plugin-disclosure="entry.plugin.id"
-                      :title="getPluginDisclosureLabel(entry.plugin)"
-                      @click.stop="togglePluginExpansion(entry.plugin.id)"
-                    >
-                      <LoadingOutlined v-if="isPluginExpansionPending(entry.plugin.id)" class="sidebar-navigation__loading-icon" aria-hidden="true" />
-                      <DownOutlined v-else-if="isPluginContentVisible(entry.plugin.id)" aria-hidden="true" />
-                      <RightOutlined v-else aria-hidden="true" />
-                    </button>
-                  </span>
-                </template>
-                <span v-else-if="entry.kind === 'overview'" class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon('plugins')" class="admin-layout__menu-icon" />
-                  <span>{{ t('plugins.panels.overview') }}</span>
+                @click="activatePluginNavigationEntry(entry)">
+                <span v-if="entry.kind === 'resource'" class="admin-layout__menu-label sidebar-navigation__plugin-label">
+                  <PluginIcon class="sidebar-navigation__plugin-icon" :plugin-id="entry.plugin.id" :icon="entry.plugin.icon" :version="entry.plugin.version" />
+                  <span class="sidebar-navigation__plugin-copy" :title="entry.plugin.name">{{ entry.plugin.name }}</span>
+                  <span v-if="entry.plugin.state" class="sidebar-navigation__state" :data-state="entry.plugin.state" :title="getPluginStateLabel(entry.plugin.state)" aria-hidden="true" />
                 </span>
-                <span v-else-if="entry.kind === 'management'" class="admin-layout__menu-label">
-                  <component :is="resolveMenuIcon('plugin-settings')" class="admin-layout__menu-icon" />
-                  <span :title="entry.page.label">{{ entry.page.label }}</span>
-                </span>
-                <span v-else class="admin-layout__menu-label">
-                  <ReloadOutlined aria-hidden="true" />
-                  <span>{{ t('plugins.navigation.detailUnavailable') }} · {{ t('plugins.navigation.retry') }}</span>
-                </span>
-              </a-menu-item>
-            </a-menu-item-group>
-          </a-menu>
-
-          <a-skeleton v-if="loading && navigationPlugins.length === 0" class="sidebar-navigation__skeleton" active :title="false" :paragraph="{ rows: 3 }" />
-          <div v-else-if="error" class="sidebar-navigation__feedback" role="status">
-            <span>{{ t('plugins.navigation.listLoadFailed') }}</span>
-            <a-button type="link" size="small" @click="retryPluginList">
-              <template #icon><ReloadOutlined /></template>
-              {{ t('plugins.navigation.retry') }}
-            </a-button>
-          </div>
-          <div v-else-if="navigationPlugins.length === 0" class="sidebar-navigation__feedback">
-            {{ t('plugins.navigation.emptyInstalled') }}
-          </div>
-          <div v-else-if="filteredPlugins.length === 0" class="sidebar-navigation__feedback">
-            {{ t('plugins.navigation.emptyFilter') }}
-          </div>
+                <span v-else-if="entry.kind === 'overview'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugins')" class="admin-layout__menu-icon" /><span>{{ t('plugins.panels.overview') }}</span></span>
+                <span v-else-if="entry.kind === 'management'" class="admin-layout__menu-label"><component :is="resolveMenuIcon('plugin-settings')" class="admin-layout__menu-icon" /><span :title="entry.page.label">{{ entry.page.label }}</span></span>
+                <span v-else class="admin-layout__menu-label"><RotateCwIcon aria-hidden="true" /><span>{{ t('plugins.navigation.detailUnavailable') }} · {{ t('plugins.navigation.retry') }}</span></span>
+              </button>
+              <button v-if="entry.kind === 'resource'" type="button" class="sidebar-navigation__disclosure" :aria-busy="isPluginExpansionPending(entry.plugin.id) ? 'true' : undefined" :aria-expanded="isPluginContentVisible(entry.plugin.id)" :aria-label="getPluginDisclosureLabel(entry.plugin)" :data-sidebar-plugin-disclosure="entry.plugin.id" :title="getPluginDisclosureLabel(entry.plugin)" @click="togglePluginExpansion(entry.plugin.id)">
+                <LoaderCircleIcon v-if="isPluginExpansionPending(entry.plugin.id)" class="sidebar-navigation__loading-icon" aria-hidden="true" /><ChevronDownIcon v-else-if="isPluginContentVisible(entry.plugin.id)" aria-hidden="true" /><ChevronRightIcon v-else aria-hidden="true" />
+              </button>
+            </div>
+          </section>
+          <AppSkeleton v-if="loading && navigationPlugins.length === 0" class="sidebar-navigation__skeleton" :rows="3" />
+          <div v-else-if="error" class="sidebar-navigation__feedback" role="status"><span>{{ t('plugins.navigation.listLoadFailed') }}</span><AppButton variant="link" size="sm" @click="retryPluginList"><RotateCwIcon />{{ t('plugins.navigation.retry') }}</AppButton></div>
+          <div v-else-if="navigationPlugins.length === 0" class="sidebar-navigation__feedback">{{ t('plugins.navigation.emptyInstalled') }}</div>
+          <div v-else-if="filteredPlugins.length === 0" class="sidebar-navigation__feedback">{{ t('plugins.navigation.emptyFilter') }}</div>
         </section>
       </div>
     </Transition>
   </div>
 </template>
-
 <style scoped lang="scss">
 .sidebar-navigation {
   display: grid;
@@ -651,11 +508,11 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
 
 .sidebar-navigation__disclosure {
   display: inline-grid;
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   flex: 0 0 auto;
   place-items: center;
-  margin: -4px -8px -4px 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 6px;
@@ -718,17 +575,17 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
   height: 18px;
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-resource--active.ant-menu-item) {
+.sidebar-navigation :deep(.sidebar-navigation__plugin-resource--active) {
   background: var(--sider-menu-hover-bg);
   color: var(--sider-menu-active);
   font-weight: 600;
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-resource--expanded.ant-menu-item) {
+.sidebar-navigation :deep(.sidebar-navigation__plugin-resource--expanded) {
   font-weight: 600;
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-child.ant-menu-item) {
+.sidebar-navigation :deep(.sidebar-navigation__plugin-child) {
   padding-inline-start: 40px !important;
   animation: sidebar-navigation-reveal 160ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -741,7 +598,7 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
   animation: sidebar-navigation-spin 900ms linear infinite;
 }
 
-.sidebar-navigation :deep(.sidebar-navigation__plugin-retry.ant-menu-item) {
+.sidebar-navigation :deep(.sidebar-navigation__plugin-retry) {
   height: auto;
   min-height: 36px;
   line-height: 1.35;
@@ -769,25 +626,10 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
   line-height: 1.5;
 }
 
-.sidebar-navigation__feedback :deep(.ant-btn) {
+.sidebar-navigation__feedback :deep(.app-button) {
   justify-self: start;
   height: auto;
   padding: 0;
-}
-
-.sidebar-navigation :deep(.ant-menu-item-group-title) {
-  padding: 12px 16px 4px;
-  color: var(--chrome-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
-.sidebar-navigation :deep(.ant-menu-item) {
-  overflow: hidden;
-}
-
-.sidebar-navigation :deep(.ant-menu-item .ant-menu-title-content) {
-  min-width: 0;
 }
 
 @keyframes sidebar-navigation-reveal {
@@ -838,7 +680,7 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
     margin: 0 -12px 0 0;
   }
 
-  .sidebar-navigation :deep(.sidebar-navigation__plugin-resource.ant-menu-item) {
+  .sidebar-navigation :deep(.sidebar-navigation__plugin-resource) {
     height: 44px;
     line-height: 44px;
   }
@@ -852,7 +694,7 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
     transition: none;
   }
 
-  .sidebar-navigation :deep(.sidebar-navigation__plugin-child.ant-menu-item) {
+  .sidebar-navigation :deep(.sidebar-navigation__plugin-child) {
     animation: none;
   }
 
@@ -867,4 +709,26 @@ function getPluginDisclosureLabel(plugin: SidebarPluginItem) {
     transform: none;
   }
 }
+
+.sidebar-navigation__group { margin-bottom: 10px; }
+.sidebar-navigation__group-title, .sidebar-navigation__group-heading { margin: 0; padding: 12px 12px 6px; color: var(--chrome-muted); font-size: 12px; font-weight: 500; line-height: 1.4; }
+.sidebar-navigation__group-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; cursor: pointer; }
+.sidebar-navigation__group-heading .is-collapsed { rotate: -90deg; }
+.sidebar-navigation__item { display: flex; align-items: center; width: calc(100% - 8px); min-height: 40px; margin: 2px 4px; padding: 8px 10px; border-radius: 8px; color: var(--sider-menu-text); font-size: 14px; line-height: 1.4; text-align: left; cursor: pointer; }
+.sidebar-navigation__item:hover { background: var(--sider-menu-hover-bg); color: var(--sider-menu-active); }
+.sidebar-navigation__item[aria-current=page] { background: var(--sider-menu-active-bg); color: var(--sider-menu-active); font-weight: 600; }
+.sidebar-navigation__item:focus-visible, .sidebar-navigation__group-heading:focus-visible { outline: 2px solid var(--chrome-muted); outline-offset: -2px; }
+.sidebar-navigation__entry { display: flex; align-items: center; min-width: 0; }
+.sidebar-navigation__entry > .sidebar-navigation__item { flex: 1; min-width: 0; }
+.sidebar-navigation__entry--active { background: var(--sider-menu-hover-bg); border-radius: 8px; }
+.sidebar-navigation__entry--resource .sidebar-navigation__item { margin-right: 0; padding-right: 4px; }
+.sidebar-navigation__item .admin-layout__menu-label > span { overflow: hidden; text-overflow: ellipsis; }
+.sidebar-navigation__item.sidebar-navigation__plugin-child { padding-inline-start: 38px; }
+.sidebar-navigation__disclosure > svg, .sidebar-navigation__chevron { width: 16px; height: 16px; }
+.sidebar-navigation__back > svg { width: 18px; height: 18px; }
+.sidebar-navigation__item.sidebar-navigation__collapsed-item { width: 40px; height: 40px; justify-content: center; margin: 4px 0; padding: 10px; }
+.sidebar-navigation[data-collapsed=true] .admin-layout__menu-label { justify-content: center; }
+.sidebar-navigation__filter :deep(.app-input) { background: var(--sider-menu-hover-bg); color: var(--sider-menu-text); border-color: var(--sider-brand-border); font-size: 12px; }
+@media (max-width: 991px), (pointer: coarse) { .sidebar-navigation__item, .sidebar-navigation__group-heading { min-height: 44px; } }
+
 </style>

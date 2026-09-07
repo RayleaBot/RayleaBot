@@ -21,13 +21,13 @@
     display: inline-flex !important;
   }
 
-  .admin-layout .ant-btn.desktop-only,
-  .auth-layout .ant-btn.desktop-only {
+  .admin-layout .app-button.desktop-only,
+  .auth-layout .app-button.desktop-only {
     display: none !important;
   }
 
-  .admin-layout .ant-btn.mobile-only,
-  .auth-layout .ant-btn.mobile-only {
+  .admin-layout .app-button.mobile-only,
+  .auth-layout .app-button.mobile-only {
     display: inline-flex !important;
   }
 
@@ -79,7 +79,7 @@
     gap: 2px;
   }
 
-  .admin-layout__nav-trigger.ant-btn {
+  .admin-layout__nav-trigger.app-button {
     width: 44px;
     height: 44px;
     min-width: 44px;
@@ -101,16 +101,16 @@
     padding: 12px;
   }
 
-  .admin-layout__icon-button.ant-btn,
-  .admin-layout__theme-menu.ant-btn {
+  .admin-layout__icon-button.app-button,
+  .admin-layout__theme-menu.app-button {
     width: 44px;
     height: 44px;
     min-width: 44px;
     min-height: 44px;
   }
 
-  .app-page__extra .ant-btn,
-  .app-table-toolbar .ant-btn,
+  .app-page__extra .app-button,
+  .app-table-toolbar .app-button,
   .app-table-toolbar .ant-input,
   .app-table-toolbar .ant-input-affix-wrapper,
   .app-table-toolbar .ant-select-selector {
@@ -169,9 +169,9 @@
  .admin-layout__search-button .admin-layout__search-copy { display: none !important; }
 }
 @media (max-width: 639px), (pointer: coarse) {
- .admin-layout .ant-btn,
- .auth-layout .ant-btn { min-height: 44px; }
- .auth-layout .auth-layout__theme-toggle.ant-btn { width: 44px; min-width: 44px; height: 44px; }
+ .admin-layout .app-button,
+ .auth-layout .app-button { min-height: 44px; }
+ .auth-layout .auth-layout__theme-toggle.app-button { width: 44px; min-width: 44px; height: 44px; }
  .admin-layout .ant-input,
  .admin-layout .ant-input-affix-wrapper,
  .admin-layout .ant-input-number-input,

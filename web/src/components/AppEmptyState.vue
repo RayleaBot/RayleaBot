@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import AppButton from './AppButton.vue'
 
 const props = defineProps<{
   actionLabel?: string
@@ -51,9 +52,9 @@ const iconClass = computed(() => `app-empty-state__icon--${props.icon ?? 'generi
     </div>
 
     <div v-if="actionLabel" class="app-empty-state__action">
-      <a-button type="primary" @click="emit('action')">
+      <AppButton variant="default" @click="emit('action')">
         {{ actionLabel }}
-      </a-button>
+      </AppButton>
     </div>
   </div>
 </template>

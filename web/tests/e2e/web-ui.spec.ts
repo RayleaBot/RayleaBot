@@ -54,7 +54,7 @@ async function login(page: import('@playwright/test').Page) {
 
 async function expectPluginCenterPage(page: import('@playwright/test').Page, name: string) {
   await expect(
-    page.getByTestId('plugin-center-sidebar-navigation').first().locator('.ant-menu-item-selected'),
+    page.getByTestId('plugin-center-sidebar-navigation').first().locator('[aria-current=page]'),
   ).toHaveText(name)
   await expect(page.getByRole('heading', { name, level: 1, exact: true })).toBeAttached()
 }
@@ -87,12 +87,11 @@ async function readFocusedAuthControlStyle(
 }
 
 async function expectConsistentAuthControlFocus(page: import('@playwright/test').Page) {
-  const identifier = page.locator('.auth-form__control--identifier')
-  const secretWrapper = page.locator('.auth-form__control--secret')
-  const secretInput = secretWrapper.locator('input')
+  const identifier = page.getByLabel('管理员账号')
+  const secretInput = page.getByLabel('管理员密钥')
 
   const identifierStyle = await readFocusedAuthControlStyle(identifier)
-  const secretStyle = await readFocusedAuthControlStyle(secretInput, secretWrapper)
+  const secretStyle = await readFocusedAuthControlStyle(secretInput)
 
   // The ring replaces the outline, so it has to stay visible: 3px spread in a non-transparent color.
   const [ring] = identifierStyle.boxShadow.split(/,(?![^(]*\))/)
@@ -125,7 +124,7 @@ async function expectMenuKeyboardReachable(
   await page.keyboard.press('ArrowDown')
   await expect.poll(() => menu.evaluate((element) => (
     element.contains(document.activeElement)
-    && document.activeElement?.getAttribute('role') === 'menuitem'
+    && document.activeElement?.hasAttribute('data-nav-item')
   ))).toBe(true)
 }
 
@@ -203,7 +202,7 @@ async function fillRateLimit(
 }
 
 async function readTabLabels(page: import('@playwright/test').Page) {
-  return page.locator('.admin-layout__tabbar .ant-tabs-tab-btn').evaluateAll((nodes) => (
+  return page.locator('.workspace-tabs__trigger').evaluateAll((nodes) => (
     nodes
       .map((node) => node.textContent?.trim() ?? '')
       .filter(Boolean)
@@ -211,7 +210,7 @@ async function readTabLabels(page: import('@playwright/test').Page) {
 }
 
 async function readActiveTabLabel(page: import('@playwright/test').Page) {
-  return page.locator('.admin-layout__tabbar .ant-tabs-tab-active .ant-tabs-tab-btn').evaluateAll((nodes) => (
+  return page.locator('.workspace-tabs__item[data-active=true] .workspace-tabs__trigger').evaluateAll((nodes) => (
     nodes[0]?.textContent?.trim() ?? ''
   ))
 }
@@ -241,7 +240,7 @@ async function openStandardTabs(page: import('@playwright/test').Page) {
 }
 
 async function openTabContextMenu(page: import('@playwright/test').Page, tabName: string) {
-  await page.locator('.admin-layout__tabbar .ant-tabs-tab')
+  await page.locator('.workspace-tabs__item')
     .filter({ hasText: tabName })
     .locator('.admin-layout__tab-label')
     .click({ button: 'right' })
@@ -372,10 +371,10 @@ async function navigateThroughMenu(
   const sider = page.locator('.admin-layout__sider')
 
   if (group) {
-    const groupMenu = sider.locator('.ant-menu-submenu').filter({ hasText: group }).first()
-    const targetItem = groupMenu.locator('.ant-menu-item').filter({ hasText: item }).first()
+    const groupMenu = sider.locator('.sidebar-navigation__group').filter({ hasText: group }).first()
+    const targetItem = groupMenu.locator('.sidebar-navigation__item').filter({ hasText: item }).first()
     if (!await targetItem.isVisible().catch(() => false)) {
-      await groupMenu.locator('.ant-menu-submenu-title').click()
+      await groupMenu.locator('.sidebar-navigation__group-heading').click()
       await expect(targetItem).toBeVisible()
     }
 
@@ -383,7 +382,7 @@ async function navigateThroughMenu(
     return
   }
 
-  const targetItem = sider.locator('.ant-menu-item').filter({ hasText: item }).first()
+  const targetItem = sider.locator('.sidebar-navigation__item').filter({ hasText: item }).first()
   await targetItem.click()
 }
 
@@ -466,8 +465,8 @@ test('authentication controls share one focus treatment in light and dark themes
 
   await expectConsistentAuthControlFocus(page)
 
-  const identifier = page.locator('.auth-form__control--identifier')
-  const secret = page.locator('.auth-form__control--secret input')
+  const identifier = page.getByLabel('管理员账号')
+  const secret = page.getByLabel('管理员密钥')
   await identifier.fill('')
   await page.locator('.auth-form__submit').click()
   await expect(identifier).toHaveAttribute('aria-invalid', 'true')
@@ -520,7 +519,7 @@ test('authentication lens adapts to recovery and narrow screens and yields to fo
   await expect(surface).toHaveCSS('backdrop-filter', 'none')
   await expect(page.locator('.auth-layout__art')).toBeHidden()
   await page.getByRole('textbox', { name: '管理员密钥' }).focus()
-  await expect(page.locator('.auth-form__control--secret')).toHaveCSS('outline-style', 'solid')
+  await expect(page.getByLabel('管理员密钥')).toHaveCSS('outline-style', 'solid')
   await tabToLocator(page, page.locator('.auth-form__submit'))
   await expect(page.locator('.auth-form__submit')).toHaveCSS('outline-style', 'solid')
 })
@@ -802,7 +801,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   await login(page)
 
   await page.goto('/plugins/example-config-panel')
-  await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '插件：Example Config Panel', level: 1 })).toBeVisible()
   const detailNavigation = page.getByTestId('plugin-center-sidebar-navigation')
   await expect(detailNavigation).toContainText('概览')
   await expect(detailNavigation).toContainText('配置页面')
@@ -923,7 +922,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   expect(reachedPluginPageBottom).toBe(true)
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '插件：Example Config Panel', level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/panel=management-ui/)
   await expect(pluginFrame.getByTestId('settings-status')).toHaveText('配置已加载')
   await expect(pluginFrame.getByTestId('default-city-input')).toHaveValue('广州')
@@ -2234,7 +2233,7 @@ test('plugin center switches original routes while retaining drafts and independ
     await navigation.locator(`[data-sidebar-page="${routeName}"]`).click()
     await expect(page).toHaveURL(new RegExp(`${path}$`))
     await expectPluginCenterPage(page, name)
-    await expect(navigation.locator('.ant-menu-item-selected')).toHaveText(name)
+    await expect(navigation.locator('[aria-current=page]')).toHaveText(name)
     await expect.poll(() => readTabLabels(page)).toEqual(['系统状态', '插件中心'])
   }
   await page.goBack()
@@ -2243,7 +2242,7 @@ test('plugin center switches original routes while retaining drafts and independ
   await expect(page.getByTestId('plugin-settings-unsaved-status')).toBeVisible()
 
   await page.goto('/commands?plugin_id=weather')
-  await expect(navigation.locator('.ant-menu-item-selected')).toHaveText('指令中心')
+  await expect(navigation.locator('[aria-current=page]')).toHaveText('指令中心')
   await navigation.locator('[data-sidebar-scope-back="plugin-center"]').click()
   await expect(page).toHaveURL(/\/commands\?plugin_id=weather$/)
   await navigateThroughMenu(page, '权限策略', '治理')
@@ -2252,17 +2251,17 @@ test('plugin center switches original routes while retaining drafts and independ
   await page.goto('/plugins/weather?panel=overview')
   await expect(page.getByRole('heading', { name: 'weather', level: 1 })).toBeVisible()
   await expect(navigation).toHaveCount(1)
-  await expect(navigation.locator('[data-sidebar-plugin-overview]')).toHaveClass(/ant-menu-item-selected/)
+  await expect(navigation.locator('[data-sidebar-plugin-overview]')).toHaveAttribute('aria-current', 'page')
   await expect.poll(() => readTabLabels(page)).toEqual(expect.arrayContaining(['系统状态', '插件：Weather']))
   await page.locator('.admin-layout__nav-trigger.desktop-only').click()
-  await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(0)
-  await page.locator('.admin-layout__sider .ant-menu-submenu').filter({ hasText: '插件中心' }).locator('.ant-menu-submenu-title').hover()
-  const pluginCenterPopup = page.locator('.ant-menu-submenu-popup:visible')
-  await expect(pluginCenterPopup.locator('.ant-menu-item')).toHaveCount(6)
+  await expect(page.locator('.app-menu-popup:visible')).toHaveCount(0)
+  await page.locator('.admin-layout__sider [data-sidebar-entry="plugin-center"]').click()
+  const pluginCenterPopup = page.locator('.app-menu-popup:visible')
+  await expect(pluginCenterPopup.getByRole('menuitem')).toHaveCount(6)
   await expect(pluginCenterPopup.locator('[data-sidebar-open-plugin-id="weather"]')).toBeVisible()
   await pluginCenterPopup.getByText('全局插件设置', { exact: true }).click()
   await expect(page).toHaveURL(/\/plugins\/settings$/)
-  await expect(page.locator('.ant-menu-submenu-popup:visible')).toHaveCount(0)
+  await expect(page.locator('.app-menu-popup:visible')).toHaveCount(0)
 })
 
 test('plugin store manages sources and confirms first installs', async ({ page, request }) => {
@@ -2349,7 +2348,7 @@ test('plugin sidebar keeps resources visible, resumes workspaces, and returns to
   const configPanelTabIcon = page.locator('.admin-layout__tab-label[data-tab-path="/plugins/example-config-panel"] .plugin-icon')
   await expect(configPanelTabIcon.locator('img')).toHaveCount(0)
   await expect(configPanelTabIcon.locator('.raylea-mark')).toBeVisible()
-  await expect(navigation.locator('[data-sidebar-plugin-overview="example-config-panel"]')).toHaveClass(/ant-menu-item-selected/)
+  await expect(navigation.locator('[data-sidebar-plugin-overview="example-config-panel"]')).toHaveAttribute('aria-current', 'page')
   await expect(navigation.locator('[data-sidebar-management-page="config"]')).toBeVisible()
 
   await navigation.locator('[data-sidebar-management-page="config"]').click()
@@ -2387,7 +2386,7 @@ test('plugin sidebar keeps resources visible, resumes workspaces, and returns to
   await expect(navigation.locator('[data-sidebar-plugin-id="weather"]')).toHaveAttribute('aria-expanded', 'true')
   await navigation.locator('[data-sidebar-plugin-id="example-config-panel"]').click()
   await expect(page).toHaveURL(managementUrl)
-  await expect(navigation.locator('[data-sidebar-management-page="config"]')).toHaveClass(/ant-menu-item-selected/)
+  await expect(navigation.locator('[data-sidebar-management-page="config"]')).toHaveAttribute('aria-current', 'page')
 
   await filter.fill('needle')
   await expect(navigation.locator('[data-sidebar-plugin-id]')).toHaveCount(2)
@@ -2417,9 +2416,9 @@ test('legacy plugin tabs merge on reload and the current deep link wins', async 
   await page.goto('/plugins/settings?section=runtime')
   await expectPluginCenterPage(page, '全局插件设置')
   await expect.poll(() => page.locator('.admin-layout__tabbar [data-tab-path]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-tab-path')))).toEqual(['/', '/logs', '/plugins', '/plugins/weather'])
-  await expect(page.locator('.admin-layout__sider .ant-menu-item-selected')).toHaveText('全局插件设置')
+  await expect(page.locator('.admin-layout__sider .sidebar-navigation__item[aria-current=page]')).toHaveText('全局插件设置')
   await page.reload()
-  await expect(page.getByTestId('plugin-center-sidebar-navigation').locator('.ant-menu-item-selected')).toHaveText('全局插件设置')
+  await expect(page.getByTestId('plugin-center-sidebar-navigation').locator('[aria-current=page]')).toHaveText('全局插件设置')
   expect(await readActiveTabLabel(page)).toBe('插件中心')
 })
 
@@ -2439,7 +2438,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(['系统状态', '权限策略'])
   expect(await readTabIconKeys(page)).toEqual(['dashboard', 'permission-policy'])
   expect(await readActiveTabLabel(page)).toBe('权限策略')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '治理' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
+  await expect(page.locator('.admin-layout__sider .sidebar-navigation__group').filter({ hasText: '治理' }).locator('.sidebar-navigation__item .admin-layout__menu-icon')).toHaveCount(3)
 
   await page.goto('/commands')
   await expectPluginCenterPage(page, '指令中心')
@@ -2447,7 +2446,7 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(tabLabels).toEqual(expect.arrayContaining(['系统状态', '权限策略', '插件中心']))
   expect(await readTabIconKeys(page)).toEqual(expect.arrayContaining(['dashboard', 'permission-policy', 'plugins']))
   expect(await readActiveTabLabel(page)).toBe('插件中心')
-  await expect(page.locator('.admin-layout__sider .ant-menu-item-selected')).toHaveText('指令中心')
+  await expect(page.locator('.admin-layout__sider .sidebar-navigation__item[aria-current=page]')).toHaveText('指令中心')
   await expect(page.getByTestId('plugin-center-sidebar-navigation').locator('[data-sidebar-page]')).toHaveCount(5)
 
   await page.goto('/logs')
@@ -2462,15 +2461,15 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(await readActiveTabLabel(page)).toBe('协议中心')
   expect(await readTabLabels(page)).toContain('协议中心')
   expect(await readTabIconKeys(page)).toContain('protocols')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '账号与连接' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(3)
+  await expect(page.locator('.admin-layout__sider .sidebar-navigation__group').filter({ hasText: '账号与连接' }).locator('.sidebar-navigation__item .admin-layout__menu-icon')).toHaveCount(2)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
   expect(await readActiveTabLabel(page)).toBe('配置')
   expect(await readTabLabels(page)).toContain('配置')
   expect(await readTabIconKeys(page)).toContain('config')
-  await expect(page.locator('.admin-layout__sider .ant-menu-submenu-open').filter({ hasText: '系统' }).locator('.ant-menu-item .admin-layout__menu-icon')).toHaveCount(2)
-  await expect(page.locator('.admin-layout__sider .ant-menu-item-selected .admin-layout__menu-icon')).toHaveCount(1)
+  await expect(page.locator('.admin-layout__sider .sidebar-navigation__group').filter({ hasText: '系统' }).locator('.sidebar-navigation__item .admin-layout__menu-icon')).toHaveCount(2)
+  await expect(page.locator('.admin-layout__sider .sidebar-navigation__item[aria-current=page] .admin-layout__menu-icon')).toHaveCount(1)
 
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
@@ -2855,8 +2854,8 @@ test('shutdown flow shows the draining toast', async ({ page, request }) => {
   await page.getByRole('menuitem', { name: '关闭服务' }).click()
   await page.getByRole('button', { name: '确认关闭' }).click()
 
-  await expect(page.locator('.ant-message')).toContainText('停机请求已发送')
-  await expect(page.locator('.ant-message')).toContainText('服务正在停止')
+  await expect(page.locator('.app-toast-viewport')).toContainText('停机请求已发送')
+  await expect(page.locator('.app-toast-viewport')).toContainText('服务正在停止')
 })
 
 test('mobile navigation and card layouts remain usable', async ({ page, request }) => {
@@ -2866,31 +2865,31 @@ test('mobile navigation and card layouts remain usable', async ({ page, request 
   await login(page)
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  await page.locator('.ant-drawer-content:visible [data-sidebar-entry="plugin-center"]').click()
+  await page.locator('[data-slot=app-dialog][data-placement=left]:visible [data-sidebar-entry="plugin-center"]').click()
   await expect(pluginRows(page).first()).toBeVisible()
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  const mobileNavigation = page.locator('.ant-drawer-content:visible [data-mobile="true"]')
+  const mobileNavigation = page.locator('[data-slot=app-dialog][data-placement=left]:visible [data-mobile="true"]')
   await expect(mobileNavigation).toHaveAttribute('data-scope', 'plugin-center')
   await mobileNavigation.locator('[data-sidebar-scope-back="plugin-center"]').click()
-  await expect(page.locator('.ant-drawer-content:visible')).toHaveCount(1)
+  await expect(page.locator('[data-slot=app-dialog][data-placement=left]:visible')).toHaveCount(1)
   await expect(mobileNavigation).toHaveAttribute('data-scope', 'root')
   await mobileNavigation.locator('[data-sidebar-entry="plugin-center"]').click()
-  await expect(page.locator('.ant-drawer-content:visible')).toHaveCount(1)
+  await expect(page.locator('[data-slot=app-dialog][data-placement=left]:visible')).toHaveCount(1)
   await expect(mobileNavigation).toHaveAttribute('data-scope', 'plugin-center')
   await mobileNavigation.locator('[data-sidebar-page="plugins"]').click()
-  await expect(page.locator('.ant-drawer-content:visible')).toHaveCount(0)
+  await expect(page.locator('[data-slot=app-dialog][data-placement=left]:visible')).toHaveCount(0)
 
   await page.getByRole('button', { name: '打开菜单' }).click()
-  await page.locator('.ant-drawer-content:visible [data-sidebar-page="plugin-settings"]').click()
+  await page.locator('[data-slot=app-dialog][data-placement=left]:visible [data-sidebar-page="plugin-settings"]').click()
   await expectPluginCenterPage(page, '全局插件设置')
 
   await page.goto('/plugins/example-config-panel')
-  await expect(page.getByRole('heading', { name: 'example-config-panel', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '插件：Example Config Panel', level: 1 })).toBeVisible()
   await expect(page.locator('.plugin-detail-panel-switch')).toBeVisible()
   await expect(page.locator('.plugin-detail-panel-switch')).toContainText('配置页面')
   await page.getByRole('button', { name: '打开菜单' }).click()
-  const mobileDetailNavigation = page.locator('.ant-drawer-content:visible [data-mobile="true"][data-scope="plugin-center"]')
+  const mobileDetailNavigation = page.locator('[data-slot=app-dialog][data-placement=left]:visible [data-mobile="true"][data-scope="plugin-center"]')
   await expect(mobileDetailNavigation.locator('[data-sidebar-plugin-id="example-config-panel"]')).toHaveAttribute('aria-expanded', 'true')
   await expect(mobileDetailNavigation.locator('[data-sidebar-management-page="config"]')).toBeVisible()
   const mobileDetailUrl = page.url()

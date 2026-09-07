@@ -5,7 +5,7 @@ import RayleaMark from '@/components/brand/RayleaMark.vue'
 import ThemeModeMenu from '@/components/shell/ThemeModeMenu.vue'
 import { useLiquidGlass } from '@/components/auth/liquid-glass'
 import { t } from '@/i18n'
-import { resolveAuthCssVariables, resolveAuthThemeConfig } from '@/preferences/auth'
+import { resolveAuthCssVariables } from '@/preferences/auth'
 import { useUiShellStore } from '@/stores/ui-shell'
 import { applyThemeWithMotion } from '@/motion/runtime'
 import type { ThemeMode } from '@/preferences/app'
@@ -13,7 +13,6 @@ import type { ThemeMode } from '@/preferences/app'
 const uiShellStore = useUiShellStore()
 const surface = ref<HTMLElement | null>(null)
 const { filterId, displacement, moveHighlight, resetHighlight } = useLiquidGlass(surface)
-const authThemeConfig = computed(() => resolveAuthThemeConfig(uiShellStore.resolvedThemeMode))
 const authThemeStyle = computed(() => resolveAuthCssVariables(uiShellStore.resolvedThemeMode))
 
 function setThemeModeWithMotion(mode: ThemeMode) {
@@ -22,7 +21,6 @@ function setThemeModeWithMotion(mode: ThemeMode) {
 </script>
 
 <template>
-  <a-config-provider :theme="authThemeConfig">
     <main class="auth-layout" :data-auth-theme="uiShellStore.resolvedThemeMode" :style="authThemeStyle">
       <div aria-hidden="true" class="auth-layout__art" />
       <svg class="auth-layout__filters" aria-hidden="true" focusable="false">
@@ -67,7 +65,6 @@ function setThemeModeWithMotion(mode: ThemeMode) {
         <p class="auth-layout__caption">{{ t('auth.surface') }}</p>
       </div>
     </main>
-  </a-config-provider>
 </template>
 
 <style scoped lang="scss">
@@ -174,7 +171,7 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   pointer-events: none;
 }
 .auth-layout__toolbar { position: absolute; top: 16px; right: 16px; z-index: 2; }
-.auth-layout__theme-toggle.ant-btn {
+.auth-layout__theme-toggle.app-button {
   display: grid;
   place-items: center;
   width: 44px;
@@ -212,7 +209,7 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   .auth-layout { place-items: start center; padding-top: 80px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .auth-layout__surface, .auth-layout__theme-toggle.ant-btn { animation: none; transition: none; }
+  .auth-layout__surface, .auth-layout__theme-toggle.app-button { animation: none; transition: none; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .auth-layout__surface { background: var(--auth-surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -220,7 +217,7 @@ function setThemeModeWithMotion(mode: ThemeMode) {
 @media (forced-colors: active) {
   .auth-layout__art, .auth-layout__surface::before { display: none; }
   .auth-layout__surface { border-color: CanvasText; background: Canvas; box-shadow: none; backdrop-filter: none; }
-  .auth-layout__theme-toggle.ant-btn { border-color: CanvasText; }
-  .auth-layout__theme-toggle.ant-btn:focus-visible { outline-color: Highlight; }
+  .auth-layout__theme-toggle.app-button { border-color: CanvasText; }
+  .auth-layout__theme-toggle.app-button:focus-visible { outline-color: Highlight; }
 }
 </style>

@@ -2,6 +2,8 @@
 import { computed, watchEffect } from 'vue'
 import zhCN from 'ant-design-vue/es/locale/zh_CN'
 
+import AppSpinner from '@/components/AppSpinner.vue'
+import AppToastHost from '@/components/AppToastHost.vue'
 import { t } from '@/i18n'
 import { resolvePreferenceCssVariables, resolveThemeConfig } from '@/preferences/app'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
@@ -35,7 +37,7 @@ watchEffect(() => {
 
 <template>
   <a-config-provider :locale="zhCN" :theme="themeConfig">
-    <a-app :class="['app-root', `app-root--${uiShellStore.resolvedThemeMode}`, `app-root--${uiShellStore.preferences.density}`]">
+    <div :class="['app-root', `app-root--${uiShellStore.resolvedThemeMode}`, `app-root--${uiShellStore.preferences.density}`]">
       <Transition name="connection-notice">
         <div
           v-if="availabilityStore.isConnectionInterrupted"
@@ -44,7 +46,7 @@ watchEffect(() => {
           aria-live="polite"
           data-testid="connection-reconnect-notice"
         >
-          <a-spin size="small" />
+          <AppSpinner />
           <span>{{ t('app.connectionInterrupted') }}</span>
         </div>
       </Transition>
@@ -52,10 +54,11 @@ watchEffect(() => {
       <RouterView v-slot="{ Component }">
         <component :is="Component" v-if="Component" />
         <div v-else class="app-startup" role="status" aria-live="polite">
-          <a-spin :tip="t('app.loading')" />
+          <AppSpinner :tip="t('app.loading')" />
         </div>
       </RouterView>
-    </a-app>
+      <AppToastHost />
+    </div>
   </a-config-provider>
 </template>
 
@@ -87,7 +90,7 @@ watchEffect(() => {
   transform: translateX(-50%);
 }
 
-.connection-notice :deep(.ant-spin-dot-item) {
+.connection-notice :deep(.app-loading__icon) {
   background-color: var(--warning);
 }
 
