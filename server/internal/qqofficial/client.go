@@ -27,12 +27,14 @@ type EventHandler func(context.Context, chatevent.NormalizedEvent)
 type Client struct {
 	appID    string
 	sandbox  bool
+	apiBase  string
 	intents  int
 	tokens   *TokenSource
 	http     *http.Client
 	logger   *slog.Logger
 	backoff  *reconnect.Backoff
 	session  session
+	replies  *replySequences
 	dialer   func(context.Context, string) (wsConn, error)
 	mu       sync.RWMutex
 	handler  EventHandler
@@ -57,6 +59,7 @@ func New(qq config.QQOfficialConfig, adapter config.AdapterConfig, logger *slog.
 	client := &Client{
 		appID:   qq.AppID,
 		sandbox: qq.Sandbox,
+		apiBase: apiBaseURL(qq.Sandbox),
 		intents: IntentMask(qq.Intents),
 		tokens:  NewTokenSource(qq.AppID, qq.AppSecret, httpClient),
 		http:    httpClient,
@@ -68,6 +71,7 @@ func New(qq config.QQOfficialConfig, adapter config.AdapterConfig, logger *slog.
 			adapter.ReconnectJitterRatio,
 			nil,
 		),
+		replies:  newReplySequences(),
 		stopping: make(chan struct{}),
 		done:     make(chan struct{}),
 	}
@@ -159,7 +163,7 @@ func (c *Client) runConnection(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	url, err := gatewayEndpoint(ctx, c.http, apiBaseURL(c.sandbox), c.appID, token)
+	url, err := gatewayEndpoint(ctx, c.http, c.apiBase, c.appID, token)
 	if err != nil {
 		return err
 	}
