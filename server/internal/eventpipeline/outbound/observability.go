@@ -110,13 +110,16 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 }
 
 func errorDetails(err error) (string, string) {
-	var adapterErr *onebot11.Error
+	var adapterErr interface {
+		RuntimeActionCode() string
+		RuntimeActionMessage() string
+	}
 	if errors.As(err, &adapterErr) {
-		reason := strings.TrimSpace(adapterErr.Message)
+		reason := strings.TrimSpace(adapterErr.RuntimeActionMessage())
 		if reason == "" {
-			reason = strings.TrimSpace(adapterErr.Error())
+			reason = strings.TrimSpace(err.Error())
 		}
-		return strings.TrimSpace(adapterErr.Code), reason
+		return strings.TrimSpace(adapterErr.RuntimeActionCode()), reason
 	}
 
 	reason := strings.TrimSpace(err.Error())

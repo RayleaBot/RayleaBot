@@ -58,6 +58,9 @@ func (s *statusState) snapshot() (string, string, int) {
 func (c *Client) Status() Status {
 	state, lastErr, attempts := c.status.snapshot()
 	botID, botName := c.session.bot()
+	if c.requestSettings().disabled {
+		state, lastErr, botID, botName = StateStopped, "", "", ""
+	}
 	return Status{
 		State:    state,
 		Summary:  statusSummary(state, botName, lastErr),

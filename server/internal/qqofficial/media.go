@@ -59,7 +59,7 @@ func mediaFileType(segmentType string) (int, bool) {
 // reference. A remote http(s) source is handed to the platform to fetch; a
 // local one is read and sent as base64, so a self-hosted bot does not need a
 // publicly reachable address for its own rendered images.
-func (c *Client) uploadMedia(ctx context.Context, targetType, targetID string, segment chatevent.MessageSegment) (string, error) {
+func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targetType, targetID string, segment chatevent.MessageSegment) (string, error) {
 	fileType, ok := mediaFileType(segment.Type)
 	if !ok {
 		return "", &SendError{
@@ -67,7 +67,7 @@ func (c *Client) uploadMedia(ctx context.Context, targetType, targetID string, s
 			Message: fmt.Sprintf("当前适配器无法投递 %q 消息段。", segment.Type),
 		}
 	}
-	endpoint, err := mediaEndpoint(c.apiBase, targetType, targetID)
+	endpoint, err := mediaEndpoint(settings.apiBase, targetType, targetID)
 	if err != nil {
 		return "", err
 	}
@@ -94,7 +94,7 @@ func (c *Client) uploadMedia(ctx context.Context, targetType, targetID string, s
 	if err != nil {
 		return "", err
 	}
-	token, err := c.tokens.Token(ctx)
+	token, err := settings.tokens.Token(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -103,10 +103,10 @@ func (c *Client) uploadMedia(ctx context.Context, targetType, targetID string, s
 		return "", err
 	}
 	request.Header.Set("Authorization", AuthorizationHeader(token))
-	request.Header.Set("X-Union-Appid", c.appID)
+	request.Header.Set("X-Union-Appid", settings.appID)
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := c.http.Do(request)
+	response, err := settings.http.Do(request)
 	if err != nil {
 		return "", fmt.Errorf("qqofficial: upload media: %w", err)
 	}

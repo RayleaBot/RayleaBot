@@ -3,7 +3,20 @@
 // event pipeline downstream of them speaks only these types.
 package chatevent
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
+
+// ScopedEventID makes an upstream event ID unique across adapter instances.
+// The length prefix keeps arbitrary upstream IDs from colliding with the scope.
+func ScopedEventID(adapterID, eventID string) string {
+	adapterID = strings.TrimSpace(adapterID)
+	if adapterID == "" || eventID == "" {
+		return eventID
+	}
+	return strconv.Itoa(len(adapterID)) + ":" + adapterID + ":" + eventID
+}
 
 // NormalizedEvent is one inbound chat event after adapter normalization.
 // SourceProtocol and SourceAdapter name the adapter that produced it, so

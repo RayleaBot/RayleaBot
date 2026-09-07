@@ -3,6 +3,7 @@ package qqofficial
 import (
 	"context"
 	"errors"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -59,12 +60,12 @@ func (c *Client) Reload(qq config.QQOfficialConfig) bool {
 	c.apiBase = apiBaseURL(next.sandbox)
 	c.intents = IntentMask(next.intents)
 	c.tokens = NewTokenSource(next.appID, next.appSecret, c.http)
+	c.invalidateConnectionLocked()
 	c.settingsMu.Unlock()
 
 	// A resumed session carries the intents and identity of the connection that
 	// opened it, so the next attempt has to identify afresh.
-	c.session.invalidate()
-	c.dropConnection()
+	c.wakeConnectionLoop()
 	return true
 }
 
@@ -84,13 +85,52 @@ func (c *Client) setConnectionCancel(cancel context.CancelFunc) {
 	c.connCancel = cancel
 }
 
-func (c *Client) dropConnection() {
-	c.settingsMu.Lock()
-	cancel := c.connCancel
+// invalidateConnectionLocked orders cancellation and session invalidation with
+// the settings update, so a late READY cannot revive the replaced session.
+func (c *Client) invalidateConnectionLocked() {
+	c.session.invalidate()
 	c.reloading = true
+	if c.connCancel != nil {
+		c.connCancel()
+	}
+}
+
+type requestSettings struct {
+	appID    string
+	apiBase  string
+	tokens   *TokenSource
+	http     *http.Client
+	disabled bool
+}
+
+// requestSettings is held for the whole delivery, including media uploads and
+// every message in a multipart reply.
+func (c *Client) requestSettings() requestSettings {
+	c.settingsMu.RLock()
+	defer c.settingsMu.RUnlock()
+	return requestSettings{appID: c.appID, apiBase: c.apiBase, tokens: c.tokens, http: c.http, disabled: c.disabled}
+}
+
+// SetEnabled gates network activity without terminating the client's lifetime.
+func (c *Client) SetEnabled(enabled bool) {
+	c.settingsMu.Lock()
+	if c.disabled == !enabled {
+		c.settingsMu.Unlock()
+		return
+	}
+	c.disabled = !enabled
+	c.invalidateConnectionLocked()
 	c.settingsMu.Unlock()
-	if cancel != nil {
-		cancel()
+	c.wakeConnectionLoop()
+	if !enabled {
+		c.setState(StateStopped, "")
+	}
+}
+
+func (c *Client) wakeConnectionLoop() {
+	select {
+	case c.changed <- struct{}{}:
+	default:
 	}
 }
 

@@ -29,6 +29,9 @@ type SendError struct {
 
 func (e *SendError) Error() string { return e.Code + ": " + e.Message }
 
+func (e *SendError) RuntimeActionCode() string    { return e.Code }
+func (e *SendError) RuntimeActionMessage() string { return e.Message }
+
 // Message types the platform accepts on the v2 message endpoints.
 const (
 	msgTypeText     = 0
@@ -94,7 +97,11 @@ func (c *Client) SendReply(ctx context.Context, message chatevent.OutboundMessag
 }
 
 func (c *Client) deliver(ctx context.Context, targetType, targetID string, segments []chatevent.MessageSegment, replyTo string) (chatevent.SendMessageResult, error) {
-	endpoint, err := messageEndpoint(c.apiBase, targetType, targetID)
+	settings := c.requestSettings()
+	if settings.disabled {
+		return chatevent.SendMessageResult{}, &SendError{Code: CodeSendFailed, Message: "适配器未启用。"}
+	}
+	endpoint, err := messageEndpoint(settings.apiBase, targetType, targetID)
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
@@ -111,18 +118,18 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	// use to refer to the message.
 	var result chatevent.SendMessageResult
 	if strings.TrimSpace(text) != "" {
-		sent, err := c.post(ctx, endpoint, sendMessageRequest{Content: text, MsgType: msgTypeText}, replyTo)
+		sent, err := c.post(ctx, settings, endpoint, sendMessageRequest{Content: text, MsgType: msgTypeText}, replyTo)
 		if err != nil {
 			return chatevent.SendMessageResult{}, err
 		}
 		result = sent
 	}
 	for _, segment := range media {
-		fileInfo, err := c.uploadMedia(ctx, targetType, targetID, segment)
+		fileInfo, err := c.uploadMedia(ctx, settings, targetType, targetID, segment)
 		if err != nil {
 			return result, err
 		}
-		sent, err := c.post(ctx, endpoint, sendMessageRequest{
+		sent, err := c.post(ctx, settings, endpoint, sendMessageRequest{
 			MsgType: msgTypeMedia,
 			Media:   &mediaRef{FileInfo: fileInfo},
 		}, replyTo)
@@ -138,7 +145,7 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 
 // post sends one prepared message. A reply advances msg_seq so several answers
 // to the same inbound message are not rejected as duplicates.
-func (c *Client) post(ctx context.Context, endpoint string, body sendMessageRequest, replyTo string) (chatevent.SendMessageResult, error) {
+func (c *Client) post(ctx context.Context, settings requestSettings, endpoint string, body sendMessageRequest, replyTo string) (chatevent.SendMessageResult, error) {
 	if replyTo != "" {
 		body.MsgID = replyTo
 		body.MsgSeq = c.replies.next(replyTo)
@@ -147,7 +154,7 @@ func (c *Client) post(ctx context.Context, endpoint string, body sendMessageRequ
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
-	token, err := c.tokens.Token(ctx)
+	token, err := settings.tokens.Token(ctx)
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
@@ -156,10 +163,10 @@ func (c *Client) post(ctx context.Context, endpoint string, body sendMessageRequ
 		return chatevent.SendMessageResult{}, err
 	}
 	request.Header.Set("Authorization", AuthorizationHeader(token))
-	request.Header.Set("X-Union-Appid", c.appID)
+	request.Header.Set("X-Union-Appid", settings.appID)
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := c.http.Do(request)
+	response, err := settings.http.Do(request)
 	if err != nil {
 		return chatevent.SendMessageResult{}, fmt.Errorf("qqofficial: send message: %w", err)
 	}

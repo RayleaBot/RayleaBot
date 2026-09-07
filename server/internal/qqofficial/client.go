@@ -36,6 +36,9 @@ type Client struct {
 	settings   connectionSettings
 	connCancel context.CancelFunc
 	reloading  bool
+	disabled   bool
+	changed    chan struct{}
+	startOnce  sync.Once
 
 	appID        string
 	sandbox      bool
@@ -91,6 +94,7 @@ func New(adapterID string, qq config.QQOfficialConfig, adapter config.AdapterCon
 		replies:  newReplySequences(),
 		stopping: make(chan struct{}),
 		done:     make(chan struct{}),
+		changed:  make(chan struct{}, 1),
 	}
 	client.dialer = client.dialWebsocket
 	return client
@@ -162,61 +166,85 @@ func (c *Client) dialWebsocket(ctx context.Context, url string) (wsConn, error) 
 
 // Start runs the connection loop until Stop is called or ctx is cancelled.
 func (c *Client) Start(ctx context.Context) {
-	go func() {
-		defer close(c.done)
-		attempt := 0
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-c.stopping:
-				return
-			default:
-			}
-
-			c.status.recordAttempt()
-			err := c.runConnection(ctx)
-			if err == nil || errors.Is(err, context.Canceled) {
+	c.startOnce.Do(func() {
+		go func() {
+			defer close(c.done)
+			defer c.setState(StateStopped, "")
+			attempt := 0
+			for {
 				select {
-				case <-c.stopping:
-					return
 				case <-ctx.Done():
+					return
+				case <-c.stopping:
 					return
 				default:
 				}
-			}
-			if errors.Is(err, errReloadRequested) {
-				// The operator just changed the settings; making them wait out
-				// a backoff earned by an unrelated failure would read as the
-				// change not having been applied.
-				c.setState(StateConnecting, "")
-				c.logger.Info("QQ 官方机器人配置已更新，正在按新配置重连。",
-					"component", SourceAdapter, "adapter_id", c.adapterID)
-				attempt = 0
-				continue
-			}
-			if err != nil {
-				c.setState(StateReconnecting, err.Error())
-				c.logger.Warn("QQ 官方机器人连接中断，准备重连。",
-					"component", SourceAdapter, "error", err.Error())
-			}
+				if c.requestSettings().disabled {
+					c.setState(StateStopped, "")
+					select {
+					case <-ctx.Done():
+						return
+					case <-c.stopping:
+						return
+					case <-c.changed:
+						continue
+					}
+				}
 
-			delay := c.backoff.Duration(attempt)
-			attempt++
-			select {
-			case <-ctx.Done():
-				return
-			case <-c.stopping:
-				return
-			case <-time.After(delay):
+				c.status.recordAttempt()
+				err := c.runConnection(ctx)
+				if err == nil || errors.Is(err, context.Canceled) {
+					select {
+					case <-c.stopping:
+						return
+					case <-ctx.Done():
+						return
+					default:
+					}
+				}
+				if errors.Is(err, errReloadRequested) {
+					// The operator just changed the settings; making them wait out
+					// a backoff earned by an unrelated failure would read as the
+					// change not having been applied.
+					c.logger.Info("QQ 官方机器人配置已更新，正在按新配置重连。",
+						"component", SourceAdapter, "adapter_id", c.adapterID)
+					attempt = 0
+					continue
+				}
+				if err != nil {
+					if state, _, _ := c.status.snapshot(); state != StateAuthFailed {
+						c.setState(StateReconnecting, err.Error())
+					}
+					c.logger.Warn("QQ 官方机器人连接中断，准备重连。",
+						"component", SourceAdapter, "error", err.Error())
+				}
+
+				delay := c.backoff.Duration(attempt)
+				attempt++
+				select {
+				case <-ctx.Done():
+					return
+				case <-c.stopping:
+					return
+				case <-c.changed:
+					attempt = 0
+				case <-time.After(delay):
+				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
 // Stop ends the connection loop and waits for it to unwind.
 func (c *Client) Stop(ctx context.Context) error {
 	c.stopOnce.Do(func() { close(c.stopping) })
+	c.startOnce.Do(func() { close(c.done) })
+	c.settingsMu.Lock()
+	cancel := c.connCancel
+	c.settingsMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 	c.setState(StateStopped, "")
 	select {
 	case <-c.done:
@@ -227,31 +255,29 @@ func (c *Client) Stop(ctx context.Context) error {
 }
 
 // runConnection owns exactly one gateway connection, from dial to close.
-func (c *Client) runConnection(ctx context.Context) error {
-	c.setState(StateConnecting, "")
-	appID, apiBase, intents, tokens := c.currentSettings()
-	token, err := tokens.Token(ctx)
-	if err != nil {
-		// A rejected credential will not fix itself by reconnecting, so it is
-		// reported distinctly from a dropped connection.
-		c.setState(StateAuthFailed, err.Error())
-		return err
-	}
-	url, err := gatewayEndpoint(ctx, c.http, apiBase, appID, token)
-	if err != nil {
-		return err
-	}
-	conn, err := c.dialer(ctx, url)
-	if err != nil {
-		return fmt.Errorf("qqofficial: dial gateway: %w", err)
-	}
-	defer conn.Close(websocket.StatusNormalClosure, "")
-
+func (c *Client) runConnection(ctx context.Context) (runErr error) {
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	// A reload ends this connection through the same handle a stop does.
-	c.setConnectionCancel(cancel)
+	c.settingsMu.Lock()
+	if c.disabled {
+		c.settingsMu.Unlock()
+		return errReloadRequested
+	}
+	appID, apiBase, intents, tokens, httpClient := c.appID, c.apiBase, c.intents, c.tokens, c.http
+	c.connCancel = cancel
+	c.reloading = false
+	select {
+	case <-c.changed:
+	default:
+	}
+	c.settingsMu.Unlock()
 	defer c.setConnectionCancel(nil)
+	defer func() {
+		if c.takeReloading() {
+			runErr = errReloadRequested
+		}
+	}()
+	c.setState(StateConnecting, "")
 	go func() {
 		select {
 		case <-c.stopping:
@@ -259,6 +285,22 @@ func (c *Client) runConnection(ctx context.Context) error {
 		case <-connCtx.Done():
 		}
 	}()
+	token, err := tokens.Token(connCtx)
+	if err != nil {
+		// A rejected credential will not fix itself by reconnecting, so it is
+		// reported distinctly from a dropped connection.
+		c.setState(StateAuthFailed, err.Error())
+		return err
+	}
+	url, err := gatewayEndpoint(connCtx, httpClient, apiBase, appID, token)
+	if err != nil {
+		return err
+	}
+	conn, err := c.dialer(connCtx, url)
+	if err != nil {
+		return fmt.Errorf("qqofficial: dial gateway: %w", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
 
 	_, helloBytes, err := conn.Read(connCtx)
 	if err != nil {
@@ -296,13 +338,7 @@ func (c *Client) runConnection(ctx context.Context) error {
 	defer wg.Wait()
 	defer cancel()
 
-	err = c.readLoop(connCtx, conn)
-	if c.takeReloading() {
-		// The connection ended because its settings were replaced, which the
-		// loop treats as a reason to redial rather than as a failure.
-		return errReloadRequested
-	}
-	return err
+	return c.readLoop(connCtx, conn)
 }
 
 func (c *Client) heartbeat(ctx context.Context, conn wsConn, interval time.Duration) {
@@ -353,12 +389,22 @@ func (c *Client) readLoop(ctx context.Context, conn wsConn) error {
 }
 
 func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
+	if ctx.Err() != nil || c.requestSettings().disabled {
+		return
+	}
 	switch frame.T {
 	case dispatchReady:
 		var ready readyData
 		if err := json.Unmarshal(frame.D, &ready); err == nil {
+			c.settingsMu.Lock()
+			if ctx.Err() != nil || c.disabled {
+				c.settingsMu.Unlock()
+				return
+			}
 			c.session.startSession(ready.SessionID, ready.User.ID, ready.User.Username)
-			c.setState(StateConnected, "")
+			c.status.set(StateConnected, "")
+			c.settingsMu.Unlock()
+			c.notifyStateChanged()
 			c.logger.Info("QQ 官方机器人已连接。",
 				"component", SourceAdapter, "bot_id", ready.User.ID, "bot_name", ready.User.Username)
 			if handler := c.currentReadyHandler(); handler != nil {
@@ -367,6 +413,7 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 		}
 		return
 	case dispatchResumed:
+		c.setState(StateConnected, "")
 		c.logger.Info("QQ 官方机器人连接已恢复。", "component", SourceAdapter)
 		return
 	}
@@ -382,6 +429,7 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 	// client stamps its own instance id on the way out.
 	if c.adapterID != "" {
 		event.SourceAdapter = c.adapterID
+		event.EventID = chatevent.ScopedEventID(c.adapterID, event.EventID)
 	}
 	if handler := c.eventHandler(); handler != nil {
 		handler(ctx, event)

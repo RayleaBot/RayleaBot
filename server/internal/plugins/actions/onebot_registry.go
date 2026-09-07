@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
@@ -204,7 +205,8 @@ func oneBotRuntimeActionError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if adapterErr, ok := err.(oneBotCodedError); ok {
+	var adapterErr oneBotCodedError
+	if errors.As(err, &adapterErr) {
 		return &pluginruntime.Error{
 			Code:    adapterErr.RuntimeActionCode(),
 			Message: adapterErr.RuntimeActionMessage(),
