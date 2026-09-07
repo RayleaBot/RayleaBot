@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/reconnect"
 	"io"
 	"log/slog"
 	"net/http"
@@ -41,7 +42,7 @@ type shellDeps struct {
 	dial            dialFunc
 	sleep           sleepFunc
 	connectTimeout  time.Duration
-	backoff         *Backoff
+	backoff         *reconnect.Backoff
 	skipRuntimeInfo bool
 }
 type Shell struct {
@@ -105,7 +106,7 @@ func newShell(cfg config.OneBotConfig, adapterCfg config.AdapterConfig, logger *
 		deps.connectTimeout = time.Duration(maxInt(adapterCfg.ConnectTimeoutSeconds, 1)) * time.Second
 	}
 	if deps.backoff == nil {
-		deps.backoff = NewBackoff(
+		deps.backoff = reconnect.NewBackoff(
 			adapterCfg.ReconnectInitialSeconds,
 			adapterCfg.ReconnectMultiplier,
 			adapterCfg.ReconnectMaxSeconds,

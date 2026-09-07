@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/reconnect"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"io"
@@ -213,7 +214,7 @@ func newTestShell(cfg config.OneBotConfig, deps shellDeps) *Shell {
 		deps.connectTimeout = 500 * time.Millisecond
 	}
 	if deps.backoff == nil {
-		deps.backoff = NewWithDurations(10*time.Millisecond, 1, 10*time.Millisecond, 0, func() float64 { return 0.5 })
+		deps.backoff = reconnect.NewWithDurations(10*time.Millisecond, 1, 10*time.Millisecond, 0, func() float64 { return 0.5 })
 	}
 
 	return newShell(cfg, defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), deps)

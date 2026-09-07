@@ -1,4 +1,4 @@
-package onebot11
+package reconnect
 
 import (
 	"testing"
