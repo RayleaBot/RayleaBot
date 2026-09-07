@@ -703,10 +703,18 @@ function updateImpeccable(current) {
   return `${JSON.stringify(document, null, 2)}\n`
 }
 
+// Generated files are written with LF, but a checkout under core.autocrlf
+// rewrites them to CRLF. Comparing raw bytes then reports drift on every
+// Windows clone, so compare the content and leave the endings alone.
+function sameContent(left, right) {
+  const normalize = (text) => text.split('\r\n').join('\n')
+  return normalize(left) === normalize(right)
+}
+
 function stageOutput(relativePath, expectedContent) {
   const absolutePath = path.join(repositoryRoot, relativePath)
   const current = fs.existsSync(absolutePath) ? fs.readFileSync(absolutePath, 'utf8') : ''
-  if (current === expectedContent) {
+  if (sameContent(current, expectedContent)) {
     return
   }
   if (checkMode) {
