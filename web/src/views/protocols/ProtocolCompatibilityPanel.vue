@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import AppInput from '@/components/AppInput.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppAlert from '@/components/AppAlert.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { useToastFeedback } from '@/adapter/feedback'
-import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
 import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
 import { useProtocolCompatibilityStore } from '@/stores/protocol-compatibility'
@@ -165,24 +168,19 @@ function providerColumnClass(provider: string) {
         </section>
       </details>
 
-      <RetryPanel
-        v-if="pageError && matrixSections.length === 0"
-        :title="t('protocols.compatibilityTitle')"
-        :description="pageError"
-        :loading="pageLoading"
-        @retry="loadPage"
-      />
+      <AppAlert v-if="pageError && matrixSections.length === 0" :title="t('protocols.compatibilityTitle')" :description="pageError" tone="danger">
+        <template #action><AppButton :loading="pageLoading" @click="loadPage">重试</AppButton></template>
+      </AppAlert>
 
       <section v-else class="protocol-compatibility-surface">
         <div class="protocol-compatibility-toolbar">
-          <a-select
-            v-model:value="selectedCategory"
+          <AppSelect
+            v-model="selectedCategory"
             :options="categoryOptions"
             aria-label="能力分类"
           />
-          <a-input
-            v-model:value="compatibilitySearch"
-            allow-clear
+          <AppInput
+            v-model="compatibilitySearch"
             aria-label="筛选兼容能力"
             placeholder="筛选能力名称、标识或说明"
           />

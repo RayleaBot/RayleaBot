@@ -59,7 +59,7 @@ export function normalizeLayoutPreferences(
 
 export function resolveThemeConfig(
   resolvedThemeMode: ResolvedThemeMode,
-  density: DensityMode,
+  _density: DensityMode,
 ): ThemeConfig {
   const isDark = resolvedThemeMode === 'dark'
   const controlHeight = 36
@@ -114,30 +114,25 @@ export function resolveThemeConfig(
         controlHeight,
       },
       Layout: {
-        bodyBg: tokens.canvas,
-        headerBg: tokens.surface,
-        siderBg: tokens.chrome,
-        triggerBg: tokens.canvas,
+        colorBgBody: tokens.canvas,
+        colorBgHeader: tokens.surface,
+        colorBgTrigger: tokens.canvas,
       },
       Menu: {
-        darkItemBg: tokens.chrome,
-        darkItemColor: tokens.chromeMuted,
-        darkItemHoverBg: tokens.navHover,
-        darkItemSelectedBg: tokens.navSelected,
-        darkItemSelectedColor: tokens.navSelectedText,
-        darkSubMenuItemBg: tokens.chrome,
-        itemBg: 'transparent',
-        itemSelectedBg: tokens.navSelected,
-        itemSelectedColor: tokens.navSelectedText,
+        colorItemBg: 'transparent',
+        colorItemBgHover: tokens.navHover,
+        colorSubItemBg: tokens.chrome,
+        colorItemBgSelected: tokens.navSelected,
+        colorItemTextSelected: tokens.navSelectedText,
         borderRadius: 8,
       },
       Select: {
         controlHeight,
       },
       Table: {
-        headerBg: tokens.canvas,
-        headerColor: tokens.textMuted,
-        rowHoverBg: tokens.surfaceSoft,
+        colorFillAlter: tokens.canvas,
+        colorTextHeading: tokens.textMuted,
+        colorFillContent: tokens.surfaceSoft,
       },
     },
   }

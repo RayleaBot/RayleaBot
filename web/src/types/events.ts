@@ -1,4 +1,5 @@
 export type {
+  AdaptersSnapshotEventPayload,
   BridgeRuntimeObservabilityEventPayload,
   ConnectionStatusEventPayload,
   EventsPayload,

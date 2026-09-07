@@ -1,4 +1,4 @@
-import Antd, { Modal } from 'ant-design-vue'
+import { defineComponent, watch } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { DOMWrapper, flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,6 +13,14 @@ import type { ConfigDocument } from '@/types/api'
 import { createConfigDocumentFixture } from './config-document.fixture'
 
 vi.mock('@/adapter/feedback', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn(), useToastFeedback: vi.fn() }))
+const DialogStub = defineComponent({
+  props: ['open', 'title', 'role', 'busy'],
+  emits: ['close', 'afterClose'],
+  setup(props, { emit }) {
+    watch(() => props.open, (open) => { if (!open) emit('afterClose') })
+  },
+  template: '<section v-if="open" :role="role || \'dialog\'"><h2>{{ title }}</h2><button aria-label="关闭弹窗" :disabled="busy" @click="$emit(\'close\')">关闭</button><slot /><slot name="footer" /></section>',
+})
 const wrappers: VueWrapper[] = []
 const body = () => new DOMWrapper(document.body)
 const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
@@ -20,7 +28,6 @@ const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value))
 beforeEach(() => { setActivePinia(createPinia()) })
 afterEach(() => {
   wrappers.splice(0).forEach((wrapper) => wrapper.unmount())
-  Modal.destroyAll()
   document.body.innerHTML = ''
   vi.restoreAllMocks()
 })
@@ -53,7 +60,7 @@ async function setup(path = '/protocols', document = createConfigDocumentFixture
   ] })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(RouterView, { attachTo: window.document.body, global: { plugins: [Antd, router] } })
+  const wrapper = mount(RouterView, { attachTo: window.document.body, global: { plugins: [router], stubs: { AppDialog: DialogStub } } })
   wrappers.push(wrapper)
   await flushPromises()
   return { wrapper, router, save, fetch, config, adapters, updateServer: (update: (document: ConfigDocument) => void) => update(serverDocument) }
@@ -105,16 +112,23 @@ describe('protocol center dialogs', () => {
     const { save, router } = await setup()
     await choose()
     await body().get('#adapter-app-id').setValue('123')
-    const confirm = vi.spyOn(Modal, 'confirm').mockImplementation((options) => { options.onCancel?.(); return {} as never })
-    await body().get('.ant-modal-close').trigger('click')
+    await body().get('[aria-label="关闭弹窗"]').trigger('click')
     await flushPromises()
-    expect(confirm).toHaveBeenCalled()
+    expect(body().find('[role=alertdialog]').exists()).toBe(true)
+    const clickConfirmation = async (text: string) => {
+      await body().findAll('[role=alertdialog] button').find((button) => button.text() === text)!.trigger('click')
+      await flushPromises()
+    }
+    await clickConfirmation('继续编辑')
     expect(body().get('#adapter-app-id').element).toHaveProperty('value', '123')
-    await router.push('/logs')
-    expect(router.currentRoute.value.path).toBe('/protocols')
-    confirm.mockImplementation((options) => { options.onOk?.(); return {} as never })
-    await body().get('.ant-modal-close').trigger('click')
+    const navigation = router.push('/logs')
     await flushPromises()
+    await clickConfirmation('继续编辑')
+    await navigation
+    expect(router.currentRoute.value.path).toBe('/protocols')
+    await body().get('[aria-label="关闭弹窗"]').trigger('click')
+    await flushPromises()
+    await clickConfirmation('放弃修改')
     expect(router.currentRoute.value.query).toEqual({})
     expect(save).not.toHaveBeenCalled()
     expect(body().find('#adapter-app-id').exists()).toBe(false)
@@ -195,7 +209,9 @@ describe('protocol center dialogs', () => {
     doc.adapters.push(buildAdapterInstance('second', 'onebot11'))
     const { wrapper, save, updateServer } = await setup('/protocols', doc)
     updateServer((next) => { next.server.port = 9000 })
-    wrapper.findAllComponents({ name: 'APopconfirm' })[1].vm.$emit('confirm')
+    await wrapper.get('[aria-label="删除连接 second"]').trigger('click')
+    await flushPromises()
+    await body().findAll('[role=alertdialog] button').find((button) => button.text() === '删除')!.trigger('click')
     await flushPromises()
     expect(save.mock.calls[0][0].adapters.map((entry) => entry.id)).toEqual(['onebot11'])
     expect(save.mock.calls[0][0].server.port).toBe(9000)

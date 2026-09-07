@@ -17,6 +17,8 @@ allowBuilds:
   "@parcel/watcher": true
   core-js: false
   esbuild: true
+  # Select Vue 3 exports for the Reka/Floating UI compatibility dependency.
+  vue-demi: true
 
 overrides:
   esbuild: 0.28.2

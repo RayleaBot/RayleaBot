@@ -1,8 +1,18 @@
 <script setup lang="ts">
+import AppDialog from '@/components/AppDialog.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppField from '@/components/AppField.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppNumberInput from '@/components/AppNumberInput.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppCheckbox from '@/components/AppCheckbox.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppAlert from '@/components/AppAlert.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router'
-import { Modal } from 'ant-design-vue'
-import { ArrowLeftOutlined, RightOutlined } from '@ant-design/icons-vue'
+import { Skeleton } from '@/components/ui/skeleton'
+import { ArrowLeftIcon, ChevronRightIcon } from '@lucide/vue'
 
 import { t } from '@/i18n'
 import { buildAdapterInstance, findAdapterInstance, nextAdapterInstanceId, type AdapterInstanceDocument, type QQOfficialSettings } from '@/lib/adapters'
@@ -16,8 +26,8 @@ import { useProtocolsStore } from '@/stores/protocols'
 import type { AdapterProtocol, ConfigDocument, ConfigUpdateResponse } from '@/types/api'
 import OneBotConnectionFields from './OneBotConnectionFields.vue'
 
-const props = defineProps<{ adapterId?: string }>()
-const emit = defineEmits<{ close: []; saved: [response: ConfigUpdateResponse] }>()
+const props = defineProps<{ adapterId?: string; open: boolean }>()
+const emit = defineEmits<{ close: []; afterClose: []; saved: [response: ConfigUpdateResponse] }>()
 const configStore = useConfigStore()
 const adaptersStore = useAdaptersStore()
 const protocolsStore = useProtocolsStore()
@@ -109,21 +119,23 @@ watch(() => draft.value?.id, (id, previous) => {
   }
 })
 
+const confirmOpen = ref(false)
+let confirmResolve: ((value: boolean) => void) | null = null
 let closeConfirmation: Promise<boolean> | null = null
+function finishConfirmation(value: boolean) {
+  confirmOpen.value = false
+  confirmResolve?.(value)
+  confirmResolve = null
+}
+onBeforeUnmount(() => finishConfirmation(false))
 function canClose(): Promise<boolean> {
   if (allowedClose.value) return Promise.resolve(true)
   if (saving.value || configStore.saving) return Promise.resolve(false)
   if (!dirty.value) return Promise.resolve(true)
   if (closeConfirmation) return closeConfirmation
   closeConfirmation = new Promise<boolean>((resolve) => {
-    Modal.confirm({
-      centered: true,
-      wrapClassName: 'protocol-confirm-modal',
-      title: '放弃未保存的修改？',
-      content: '填写的内容还未保存，离开后将丢失。',
-      okText: '放弃修改', cancelText: '继续编辑', autoFocusButton: 'cancel',
-      onOk: () => resolve(true), onCancel: () => resolve(false),
-    })
+    confirmResolve = resolve
+    confirmOpen.value = true
   }).finally(() => { closeConfirmation = null })
   return closeConfirmation
 }
@@ -161,7 +173,7 @@ async function save() {
     error.value = '请检查标出的配置项。'
     advancedOpen.value = Boolean(fieldErrors.value.id || sharedFields.some(({ key }) => fieldErrors.value[key]))
     await nextTick()
-    formElement.value?.querySelector<HTMLElement>('.ant-form-item-has-error input, .ant-form-item-has-error [role=combobox]')?.focus()
+    formElement.value?.querySelector<HTMLElement>('[data-invalid=true] input, [data-invalid=true] [role=combobox]')?.focus()
     return
   }
   saving.value = true
@@ -189,61 +201,62 @@ async function save() {
   } finally { saving.value = false }
 }
 function openLogs() {
-  if (draft.value) void router.push(buildProtocolRealtimeLogsLocation(draft.value.type))
+  if (draft.value) void router.push(draft.value.type === 'onebot11' ? buildProtocolRealtimeLogsLocation() : { path: '/logs' })
 }
 </script>
 
 <template>
-  <a-modal :open="true" centered :title="draft ? `${isEditing ? '配置' : '添加'} ${protocolName}` : '添加连接'" :width="640" wrap-class-name="adapter-config-modal" :closable="!saving" :keyboard="!saving" :mask-closable="!saving" @cancel="requestClose">
-    <a-spin :spinning="loading">
-      <a-alert v-if="error" type="error" show-icon :message="error" class="dialog-error" role="alert">
-        <template v-if="!draft" #action><a-button size="small" :loading="loading" @click="load">重试</a-button></template>
-      </a-alert>
+  <AppDialog :open="open" :title="draft ? (isEditing ? '配置 ' : '添加 ') + protocolName : '添加连接'" :width="640" :busy="saving" fallback-focus="[data-testid=adapter-add]" @close="requestClose" @after-close="$emit('afterClose')">
+    <div v-if="loading" class="dialog-loading" role="status" aria-label="正在加载连接配置"><Skeleton class="h-5 w-2/3" /><Skeleton class="h-10 w-full" /><Skeleton class="h-5 w-1/2" /><Skeleton class="h-10 w-full" /></div>
+    <div v-else>
+      <AppAlert v-if="error" tone="danger" :title="error" class="dialog-error" role="alert">
+        <template v-if="!draft" #action><AppButton size="sm" :loading="loading" @click="load">重试</AppButton></template>
+      </AppAlert>
       <div v-if="!draft && !loading && !error" class="protocol-picker">
         <p class="dialog-description">选择接入方式，接下来填写连接配置。</p>
         <button v-for="protocol in adaptersStore.availableProtocols" :key="protocol.protocol" type="button" class="protocol-choice" :data-testid="`adapter-select-${protocol.protocol}`" @click="selectProtocol(protocol.protocol)">
           <span><strong>{{ protocol.display_name }}</strong><small>{{ protocol.description }}</small></span>
-          <RightOutlined />
+          <ChevronRightIcon />
         </button>
-        <a-empty v-if="!adaptersStore.availableProtocols.length" description="暂时没有可用协议，请刷新列表后重试。" />
+        <p v-if="!adaptersStore.availableProtocols.length" role="status">暂时没有可用协议，请刷新列表后重试。</p>
       </div>
       <form v-if="draft" ref="formElement" novalidate @submit.prevent="save">
-        <a-form layout="vertical" :disabled="saving || loading" component="div">
+        <fieldset :disabled="saving || loading" class="dialog-fields">
           <p class="dialog-description">{{ isEditing ? `连接标识：${draft.id}` : '完成配置后保存，即可在协议中心管理此连接。' }}</p>
           <template v-if="draft.qqofficial">
-            <a-form-item label="AppID" html-for="adapter-app-id" :required="draft.enabled" :help="fieldErrors.app_id" :validate-status="fieldErrors.app_id ? 'error' : undefined">
-              <a-input id="adapter-app-id" v-model:value="draft.qqofficial.app_id" placeholder="QQ 开放平台的机器人 AppID" inputmode="numeric" autocomplete="off" />
-            </a-form-item>
-            <a-form-item label="AppSecret" html-for="adapter-app-secret" :required="draft.enabled" :help="fieldErrors.app_secret" :validate-status="fieldErrors.app_secret ? 'error' : undefined">
-              <a-input-password id="adapter-app-secret" v-model:value="draft.qqofficial.app_secret" placeholder="填写机器人密钥" autocomplete="new-password" />
+            <AppField label="AppID" for="adapter-app-id" :required="draft.enabled" :error="fieldErrors.app_id">
+              <AppInput id="adapter-app-id" v-model="draft.qqofficial.app_id" placeholder="QQ 开放平台的机器人 AppID" inputmode="numeric" autocomplete="off" />
+            </AppField>
+            <AppField label="AppSecret" for="adapter-app-secret" :required="draft.enabled" :error="fieldErrors.app_secret">
+              <AppInput type="password" id="adapter-app-secret" v-model="draft.qqofficial.app_secret" placeholder="填写机器人密钥" autocomplete="new-password" />
               <p class="field-hint">{{ draft.qqofficial.app_secret === '********' ? '已保存密钥。保持现值可沿用，重新输入可替换。' : '在 QQ 开放平台的机器人管理中获取。' }}</p>
-            </a-form-item>
-            <a-form-item label="接收消息" html-for="adapter-intents">
-              <a-select id="adapter-intents" v-model:value="draft.qqofficial.intents" mode="multiple" :options="intentOptions" placeholder="选择要接收的事件" />
+            </AppField>
+            <AppField label="接收消息" for="adapter-intents">
+              <AppSelect id="adapter-intents" v-model="draft.qqofficial.intents" :multiple="true" :options="intentOptions" placeholder="选择要接收的事件" />
               <p class="field-hint">按机器人已获授权的能力选择；不选择任何事件时不会收到消息。</p>
-            </a-form-item>
+            </AppField>
           </template>
           <OneBotConnectionFields v-if="draft.onebot11" v-model="draft.onebot11" :adapter-id="draft.id" :errors="fieldErrors" />
           <div class="enable-connection">
             <div><label for="adapter-enabled">启用此连接</label><p class="field-hint">关闭后保留配置，暂停连接和消息收发。</p></div>
-            <a-switch id="adapter-enabled" v-model:checked="draft.enabled" aria-label="启用此连接" />
+            <AppSwitch id="adapter-enabled" v-model="draft.enabled" aria-label="启用此连接" />
           </div>
           <details class="dialog-disclosure" :open="advancedOpen" @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open">
             <summary>高级设置<span>连接标识{{ draft.qqofficial ? '、沙箱环境' : '、共用重连策略' }}</span></summary>
             <div class="disclosure-content">
-              <a-form-item label="连接标识" html-for="adapter-id" :help="fieldErrors.id" :validate-status="fieldErrors.id ? 'error' : undefined">
-                <a-input id="adapter-id" v-model:value="draft.id" :disabled="isEditing" :maxlength="64" />
+              <AppField label="连接标识" for="adapter-id" :error="fieldErrors.id">
+                <AppInput id="adapter-id" v-model="draft.id" :disabled="isEditing" :maxlength="64" />
                 <p class="field-hint">{{ isEditing ? '创建后固定，用于识别此连接。' : '已自动生成。标识用于区分连接，也会出现在回连地址中。' }}</p>
-              </a-form-item>
-              <a-checkbox v-if="draft.qqofficial" v-model:checked="draft.qqofficial.sandbox">使用 QQ 沙箱环境</a-checkbox>
+              </AppField>
+              <AppCheckbox v-if="draft.qqofficial" v-model="draft.qqofficial.sandbox">使用 QQ 沙箱环境</AppCheckbox>
               <p v-if="draft.qqofficial" class="field-hint">仅对沙箱名单内的账号和群生效。</p>
               <template v-if="draft.onebot11 && sharedDraft">
                 <h3>所有连接共用的重连策略</h3>
                 <p class="field-hint">这些参数同时影响所有适配器连接。</p>
                 <div class="shared-fields">
-                  <a-form-item v-for="field in sharedFields" :key="field.key" :label="field.label" :html-for="`adapter-${field.key}`" :help="fieldErrors[field.key]" :validate-status="fieldErrors[field.key] ? 'error' : undefined">
-                    <a-input-number :id="`adapter-${field.key}`" v-model:value="sharedDraft[field.key]" :min="field.min" :max="field.max" :step="field.step" />
-                  </a-form-item>
+                  <AppField v-for="field in sharedFields" :key="field.key" :label="field.label" :for="`adapter-${field.key}`" :error="fieldErrors[field.key]">
+                    <AppNumberInput :id="`adapter-${field.key}`" v-model="sharedDraft[field.key]" :min="field.min" :max="field.max" :step="field.step" />
+                  </AppField>
                 </div>
               </template>
             </div>
@@ -253,7 +266,7 @@ function openLogs() {
             <div class="disclosure-content">
               <p>{{ descriptor?.summary || '尚未读取到此连接的运行状态。' }}</p>
               <p v-if="descriptor?.identity" class="field-hint">登录身份：{{ descriptor.identity.name || descriptor.identity.id }}</p>
-              <a-alert v-if="adapterId === firstOneBot && protocolsStore.error" type="warning" show-icon :message="protocolsStore.error" />
+              <AppAlert v-if="adapterId === firstOneBot && protocolsStore.error" tone="warning" :title="protocolsStore.error" />
               <ul v-if="runtimeSnapshot" class="runtime-list">
                 <li v-for="transport in runtimeSnapshot.transport_status" :key="transport.transport">
                   <strong>{{ transport.transport }}</strong> · {{ transport.summary }}
@@ -261,25 +274,28 @@ function openLogs() {
                 </li>
                 <li v-for="issue in runtimeSnapshot.recent_transport_issues" :key="issue.code">{{ issue.code }} · {{ issue.summary }}</li>
               </ul>
-              <a-button size="small" @click="openLogs">查看此协议的实时日志</a-button>
+              <AppButton size="sm" @click="openLogs">{{ draft.type === 'onebot11' ? '查看此协议的实时日志' : '查看实时日志' }}</AppButton>
             </div>
           </details>
-        </a-form>
+        </fieldset>
       </form>
-    </a-spin>
+    </div>
     <template #footer>
       <div class="dialog-footer">
-        <a-button v-if="draft && !isEditing" type="text" :disabled="saving" @click="changeProtocol"><ArrowLeftOutlined />更换协议</a-button>
+        <AppButton v-if="draft && !isEditing" variant="ghost" :disabled="saving" @click="changeProtocol"><ArrowLeftIcon />更换协议</AppButton>
         <span v-else class="footer-spacer" />
-        <a-button :disabled="saving" @click="requestClose">取消</a-button>
-        <a-button v-if="draft" type="primary" :loading="saving" :disabled="loading || configStore.saving || (isEditing && !dirty)" data-testid="adapter-save" @click="save">{{ isEditing ? '保存修改' : '保存连接' }}</a-button>
+        <AppButton :disabled="saving" @click="requestClose">取消</AppButton>
+        <AppButton v-if="draft" variant="default" :loading="saving" :disabled="loading || configStore.saving || (isEditing && !dirty)" data-testid="adapter-save" @click="save">{{ isEditing ? '保存修改' : '保存连接' }}</AppButton>
       </div>
       <p v-if="draft && !isEditing" class="save-hint">新增连接将在服务重启后加载。</p>
     </template>
-  </a-modal>
+  </AppDialog>
+  <AppConfirmDialog :open="confirmOpen" title="放弃未保存的修改？" description="填写的内容还未保存，离开后将丢失。" confirm-text="放弃修改" cancel-text="继续编辑" danger @confirm="finishConfirmation(true)" @cancel="finishConfirmation(false)" />
 </template>
 
 <style scoped lang="scss">
+.dialog-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.dialog-loading { display: grid; gap: 20px; min-height: 300px; align-content: start; }
 .dialog-description { margin: 0 0 24px; color: var(--muted); line-height: 1.6; }
 .dialog-error { margin-bottom: 20px; }
 .protocol-picker { display: grid; gap: 12px; padding: 4px 0 16px; }
@@ -298,7 +314,6 @@ function openLogs() {
 .disclosure-content { padding-bottom: 20px; }
 .disclosure-content h3 { margin: 24px 0 0; font-size: 14px; }
 .shared-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 16px; margin-top: 16px; }
-.shared-fields .ant-input-number { width: 100%; }
 .runtime-list { padding-left: 18px; font-size: 13px; }
 .runtime-list li { margin-bottom: 12px; overflow-wrap: anywhere; }
 .runtime-list small { display: block; color: var(--muted); }
@@ -308,27 +323,5 @@ function openLogs() {
 @media (max-width: 480px) {
   .dialog-disclosure summary span { display: none; }
   .shared-fields { grid-template-columns: 1fr; }
-}
-</style>
-
-<style lang="scss">
-.adapter-config-modal .ant-modal,
-.protocol-compatibility-modal .ant-modal,
-.protocol-confirm-modal .ant-modal {
-  // Ant Design writes the click position inline; keep scaling centered as content loads.
-  transform-origin: 50% 50% !important;
-}
-
-.adapter-config-modal, .protocol-compatibility-modal {
-  .ant-modal { max-width: calc(100vw - 24px); }
-  .ant-modal-content { background: var(--surface-strong) !important; backdrop-filter: none; }
-  .ant-modal-body { max-height: calc(100dvh - 230px); overflow-y: auto; padding-right: 4px; scrollbar-gutter: stable; }
-  .ant-modal-footer { margin-top: 20px; }
-}
-@media (max-width: 639px) {
-  .adapter-config-modal, .protocol-compatibility-modal {
-    .ant-modal-content { padding: 20px 16px; }
-    .ant-modal-body { max-height: calc(100dvh - 216px); }
-  }
 }
 </style>

@@ -90,6 +90,10 @@ export type ProtocolSnapshotEventPayload = {
   protocol_snapshot: components['schemas']['OneBot11ProtocolSnapshotResponse']
 }
 
+export type AdaptersSnapshotEventPayload = {
+  adapters: components['schemas']['AdapterDescriptor'][]
+}
+
 export type EventsPayload =
   | ServiceStatusEventPayload
   | PluginStateEventPayload
@@ -98,6 +102,7 @@ export type EventsPayload =
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
   | ProtocolSnapshotEventPayload
+  | AdaptersSnapshotEventPayload
 
 export type PluginConsoleFrameData = {
   plugin_id: string

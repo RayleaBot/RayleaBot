@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
+import AppField from '@/components/AppField.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppCheckbox from '@/components/AppCheckbox.vue'
 import { computed, ref } from 'vue'
-import { CopyOutlined } from '@ant-design/icons-vue'
+import { CopyIcon } from '@lucide/vue'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
 import type { OneBotSettings, OneBotTransport } from '@/lib/adapters'
@@ -53,37 +58,37 @@ async function copyAddress(key: OneBotTransport) {
 </script>
 
 <template>
-  <a-form-item label="连接方式" html-for="adapter-transport-mode" :help="errors.transports" :validate-status="errors.transports ? 'error' : undefined">
-    <a-select id="adapter-transport-mode" :value="mode" :options="modeOptions" @update:value="selectMode" />
-  </a-form-item>
+  <AppField label="连接方式" for="adapter-transport-mode" :error="errors.transports">
+    <AppSelect id="adapter-transport-mode" :model-value="mode" :options="modeOptions" @update:model-value="selectMode" />
+  </AppField>
   <div v-if="mode === 'custom'" class="transport-choices" role="group" aria-label="启用的传输方式">
-    <a-checkbox v-for="item in transports" :key="item.key" :checked="settings[item.key].enabled" @update:checked="(value: boolean) => enableTransport(item.key, value)">
+    <AppCheckbox v-for="item in transports" :key="item.key" :model-value="settings[item.key].enabled" @update:model-value="(value: boolean) => enableTransport(item.key, value)">
       {{ item.label }}
-    </a-checkbox>
+    </AppCheckbox>
   </div>
   <section v-for="item in enabledTransports" :key="item.key" class="transport-fields" :aria-label="item.label">
     <h3 v-if="enabledTransports.length > 1 || !settings[item.key].enabled">{{ item.label }}{{ settings[item.key].enabled ? '' : '（未启用）' }}</h3>
     <p class="field-hint">{{ item.hint }}</p>
-    <a-form-item
+    <AppField
       :label="item.key === 'reverse_ws' ? '协议端回连地址' : item.key === 'webhook' ? '事件上报地址' : `${item.label} 地址`"
-      :html-for="`adapter-${item.key}-url`"
-      :help="errors[`${item.key}.url`]"
-      :validate-status="errors[`${item.key}.url`] ? 'error' : undefined"
+      :for="`adapter-${item.key}-url`"
+      :error="errors[`${item.key}.url`]"
+
     >
       <div class="address-field">
-        <a-input :id="`adapter-${item.key}-url`" :value="String(settings[item.key].url ?? '')" :placeholder="item.placeholder" @update:value="(value: string) => settings[item.key].url = value" />
-        <a-button v-if="item.key === 'reverse_ws' || item.key === 'webhook'" :aria-label="`复制${item.label}地址`" @click="copyAddress(item.key)"><CopyOutlined /></a-button>
+        <AppInput :id="`adapter-${item.key}-url`" :model-value="String(settings[item.key].url ?? '')" :placeholder="item.placeholder" @update:model-value="(value: string) => settings[item.key].url = value" />
+        <AppButton v-if="item.key === 'reverse_ws' || item.key === 'webhook'" :aria-label="`复制${item.label}地址`" @click="copyAddress(item.key)"><CopyIcon /></AppButton>
       </div>
-    </a-form-item>
-    <a-form-item label="访问令牌" :html-for="`adapter-${item.key}-token`">
-      <a-input-password :id="`adapter-${item.key}-token`" v-model:value="settings[item.key].access_token" autocomplete="new-password" placeholder="与 OneBot 客户端保持一致，可留空" />
+    </AppField>
+    <AppField label="访问令牌" :for="`adapter-${item.key}-token`">
+      <AppInput type="password" :id="`adapter-${item.key}-token`" v-model="settings[item.key].access_token" autocomplete="new-password" placeholder="与 OneBot 客户端保持一致，可留空" />
       <p class="field-hint">{{ settings[item.key].access_token === '********' ? '已保存令牌。保持现值可沿用，清空后保存将移除。' : '仅用于此传输方式，请与客户端设置一致。' }}</p>
-    </a-form-item>
+    </AppField>
     <details v-if="'access_token_query_compat' in settings[item.key]" class="transport-advanced">
       <summary>令牌兼容选项</summary>
-      <a-checkbox :checked="Boolean((settings[item.key] as OneBotSettings['reverse_ws']).access_token_query_compat)" @update:checked="(value: boolean) => (settings[item.key] as OneBotSettings['reverse_ws']).access_token_query_compat = value">
+      <AppCheckbox :model-value="Boolean((settings[item.key] as OneBotSettings['reverse_ws']).access_token_query_compat)" @update:model-value="(value: boolean) => (settings[item.key] as OneBotSettings['reverse_ws']).access_token_query_compat = value">
         允许通过 URL 查询参数传递令牌
-      </a-checkbox>
+      </AppCheckbox>
       <p class="field-hint">默认使用 Authorization 请求头。仅在客户端要求时开启。</p>
     </details>
   </section>
@@ -96,7 +101,7 @@ async function copyAddress(key: OneBotTransport) {
 .transport-fields h3 { margin: 0 0 8px; font-size: 14px; }
 .transport-choices { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 20px; }
 .address-field { display: flex; gap: 8px; }
-.address-field .ant-input { min-width: 0; }
+.address-field .app-input-wrap { min-width: 0; }
 .transport-advanced { color: var(--muted); font-size: 13px; }
 .transport-advanced summary { cursor: pointer; width: fit-content; margin-bottom: 12px; }
 </style>

@@ -89,6 +89,23 @@ class ThirdPartyNoticeTests(unittest.TestCase):
         with self.assertRaisesRegex(notices.NoticeGenerationError, "unreviewed license expression"):
             notices.normalize_license_expression("LicenseRef-Custom", "example@1.0.0")
 
+    def test_vendored_ui_attribution_is_included_in_release_notices(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(notices, "REPO_ROOT", Path(tmp)):
+            source_dir = Path(tmp) / "web" / "src" / "components" / "ui"
+            source_dir.mkdir(parents=True)
+            (source_dir / "upstream.json").write_text(
+                json.dumps({"style": "reka-nova", "retrieved": "2026-09-07", "license": "MIT"}),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(notices.NoticeGenerationError, "no LICENSE or COPYING"):
+                notices.collect_web_ui_sources()
+            (source_dir / "LICENSE.shadcn-vue").write_text(
+                "MIT License\nCopyright (c) 2023 radix-vue", encoding="utf-8",
+            )
+            rendered = notices.render_notices(notices.collect_web_ui_sources())
+            self.assertIn("shadcn-vue/reka-nova", rendered)
+            self.assertIn("Copyright (c) 2023 radix-vue", rendered)
+
     def test_license_text_removes_trailing_whitespace(self) -> None:
         self.assertEqual(
             notices.normalize_license_text("first  \r\n\r\n\tsecond\t\r\n"),

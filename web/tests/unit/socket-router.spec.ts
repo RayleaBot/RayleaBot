@@ -74,7 +74,7 @@ describe('socket frame router', () => {
     expect(dependencies.system.refreshStatus).toHaveBeenCalledTimes(1)
   })
 
-  it('routes plugin and protocol events to the narrow dependencies', () => {
+  it('routes plugin, protocol and adapter events to the narrow dependencies', () => {
     const dependencies = {
       system: {
         applyEvent: vi.fn(),
@@ -103,7 +103,8 @@ describe('socket frame router', () => {
         applySnapshot: vi.fn(),
       },
     }
-    const router = createSocketFrameRouter(dependencies)
+    const adapters = { applySnapshot: vi.fn() }
+    const router = createSocketFrameRouter({ ...dependencies, adapters })
 
     router.handleEventsFrame({
       channel: 'events',
@@ -141,7 +142,16 @@ describe('socket frame router', () => {
       },
     })
 
-    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(2)
+    const adapterSnapshot = [{
+      id: 'qq-official', protocol: 'qqofficial' as const, display_name: 'QQ 官方机器人',
+      enabled: true, state: 'connected' as const, summary: '已连接',
+    }]
+    router.handleEventsFrame({
+      channel: 'events', type: 'events.received', timestamp: '2026-04-05T08:00:03Z',
+      data: { adapters: adapterSnapshot },
+    })
+    expect(adapters.applySnapshot).toHaveBeenCalledWith(adapterSnapshot)
+    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(3)
     expect(dependencies.plugins.upsert).toHaveBeenCalledWith({
       id: 'weather',
         state: 'running',

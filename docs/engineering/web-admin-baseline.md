@@ -1,10 +1,11 @@
-# RayleaBot Web 管理面工程基线：Ant Design Vue + Vue Vben Admin
+# RayleaBot Web 管理面工程基线
 
 本文档定义 RayleaBot Web 管理面的当前正式工程边界。
 
 ## 基线结论
 
-- Web 管理面采用 `Ant Design Vue 4.2.6 + Vue Vben Admin 5.7.0` 对齐方案。
+- Web 管理面迁移至 `Reka UI 2.10.4 + shadcn-vue 自有组件源码 + Tailwind CSS 4 + Motion for Vue 2.4.2`。
+- 协议中心内部使用新产品组件。应用壳和其他工作区按[执行计划](../execution-plan-v1.md)迁移，暂保留其所需的 Ant Design Vue 4.2.6；迁移完成后删除旧运行时和样式入口。
 - 实现范围固定在 `web/` 单应用内，不拆成官方整仓 `monorepo` 或 `turbo` 结构。
 - 对外 HTTP API、WebSocket 事件、错误码、配置 schema 和外部类型保持不变。
 - HTTP、WebSocket、会话和错误信封继续复用现有 RayleaBot 语义，不引入第二套状态来源。
@@ -22,8 +23,10 @@
 
 ## 当前工程落点
 
-- 组件层统一使用 Ant Design Vue。
-- 页面壳、菜单、页签、面包屑、主题偏好和工作区行为按 Vben 风格组织。
+- 新组件源码位于 `components/ui/`，来源、摘要与许可证随源码记录；业务页面使用 `AppButton`、`AppField`、`AppSelect`、`AppDialog` 等产品封装。
+- Reka 负责交互语义与焦点，Motion 负责进入、退出和内容尺寸变化。弹窗在动画完成后释放交互节点和遮罩，位置始终由 CSS 视口居中计算。
+- `/__dev/components` 仅在开发构建注册，使用正式管理会话，不加入生产菜单或产物。
+- 页面壳、菜单、页签、面包屑、主题偏好和工作区身份继续由既有模块维护；替换控件不增加另一套业务状态。
 - 现有业务语义保留在 `stores/`、`lib/`、`views/` 与 `components/` 内，不重定义后端 contract。
 - `AppPage` 统一标题、说明、状态、主操作、工具栏、内容宽度和全高工作区；`AppCard` 只包含真实独立表面或无阴影分区。
 - `AppStatusTag`、`RetryPanel`、`AppEmptyState`、`ManagementContextActions`、共享日志筛选与详情抽屉、模板预览工作区作为正式业务组件。
@@ -90,11 +93,11 @@
 
 ## 样式与组件映射
 
-- 样式系统采用 Ant Design Vue tokens、Tailwind CSS 4、SCSS 和 CSS Variables。
+- 新组件将 Tailwind 语义别名映射至共享 CSS Variables，保留 SCSS 分区。旧页面的 Ant Design tokens 随对应工作区迁移清理。
 - 样式入口为 `src/main.ts` 引入的 `@/styles/tailwind.css` 与 `@/styles/main.scss`；生成主题 token 经 `styles/_tokens.scss` 转发的 `theme-tokens.generated` 消费。
 - `system`、`light`、`dark` 主题通过同一语义映射生成 Ant Design tokens 与 CSS variables；系统主题变化只影响 `system` 模式。
 - 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回退为中性。
-- 表单、表格、弹窗、抽屉、空态、骨架屏、标签和消息提示统一使用 Ant Design Vue 对应组件。
+- 已迁移工作区内不得混用新旧表单与关闭机制；未迁移组件的清单和替换顺序见执行计划。
 - 普通业务列表在窄屏使用摘要行；只有兼容矩阵、代码和技术字段允许局部横向滚动。
 - 不保留 `element-plus`、`ElMessage` 和 `.el-*` 样式选择器。
 

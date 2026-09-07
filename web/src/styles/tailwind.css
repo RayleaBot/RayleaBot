@@ -1,6 +1,23 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme inline {
+  --color-background: var(--surface-strong);
+  --color-foreground: var(--text);
+  --color-primary: var(--app-primary);
+  --color-primary-foreground: var(--on-brand);
+  --color-secondary: var(--surface-soft);
+  --color-secondary-foreground: var(--text);
+  --color-muted-foreground: var(--muted);
+  --color-popover: var(--surface-strong);
+  --color-popover-foreground: var(--text);
+  --color-card: var(--surface-strong);
+  --color-card-foreground: var(--text);
+  --color-accent-foreground: var(--on-brand);
+  --color-input: var(--border-strong);
+  --color-ring: var(--app-primary);
+  --color-destructive: var(--text-danger);
   /* Brand colors */
   --color-bg: var(--bg);
   --color-surface: var(--surface);

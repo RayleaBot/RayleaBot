@@ -15,6 +15,7 @@ import type { components } from './generated'
 export type OneBot11ProtocolSnapshotResponse = components['schemas']['OneBot11ProtocolSnapshotResponse']
 export type AdaptersResponse = components['schemas']['AdaptersResponse']
 export type AdapterDescriptor = components['schemas']['AdapterDescriptor']
+export type AdapterProtocolDescriptor = components['schemas']['AdapterProtocolDescriptor']
 export type AdapterProtocol = components['schemas']['AdapterProtocol']
 export type AdapterState = components['schemas']['AdapterState']
 export type OneBot11ProtocolCompatibilityResponse = components['schemas']['OneBot11ProtocolCompatibilityResponse']

@@ -154,16 +154,6 @@ function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
 }
 
-async function clickConfigTocItem(page: import('@playwright/test').Page, label: string) {
-  const desktopItem = page.locator('.config-toc').getByText(label, { exact: true })
-  if (await desktopItem.first().isVisible().catch(() => false)) {
-    await desktopItem.click()
-    return
-  }
-
-  await page.locator('.config-toc-inline').getByText(label, { exact: true }).click()
-}
-
 async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
   await page.locator(`#config-section-${sectionKey}`).scrollIntoViewIfNeeded()
 }
@@ -1667,7 +1657,6 @@ test('template preview auto-updates results without editor controls', async ({ p
   await expect(page.getByText('产物 ID')).toHaveCount(0)
   await expect(page.getByText('缓存结果')).toHaveCount(0)
 
-  const previewResult = page.getByTestId('render-template-preview-result')
   const previewFrame = page.getByTestId('render-template-preview-frame')
   await expect(previewFrame).toBeVisible()
   await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单/)
@@ -1795,16 +1784,16 @@ test('protocol dialogs stay centered throughout their opening animation', async 
     expect(Math.max(...frames.map((frame) => frame.dy))).toBeLessThanOrEqual(1)
   }
 
-  await expectCenteredOpening('.adapter-config-modal .ant-modal', page.getByTestId('adapter-add'))
+  await expectCenteredOpening('[data-slot=app-dialog][role=dialog]', page.getByTestId('adapter-add'))
   await page.getByTestId('adapter-select-qqofficial').click()
   await page.getByLabel('AppID', { exact: true }).fill('100000007')
-  await expectCenteredOpening('.protocol-confirm-modal .ant-modal', page.locator('.adapter-config-modal .ant-modal-close'))
+  await expectCenteredOpening('[data-slot=app-dialog][role=alertdialog]', page.locator('[aria-label="关闭弹窗"]'))
   await page.getByRole('button', { name: '放弃修改' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expectCenteredOpening('.adapter-config-modal .ant-modal', page.getByTestId('adapter-onebot11'))
-  await page.locator('.ant-modal-close').click()
+  await expectCenteredOpening('[data-slot=app-dialog][role=dialog]', page.getByTestId('adapter-onebot11'))
+  await page.locator('[aria-label="关闭弹窗"]').click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expectCenteredOpening('.protocol-compatibility-modal .ant-modal', page.getByRole('button', { name: '兼容矩阵', exact: true }))
+  await expectCenteredOpening('[data-slot=app-dialog][role=dialog]', page.getByRole('button', { name: '兼容矩阵', exact: true }))
 })
 
 test('protocol connection creation stays local until the completed form is saved', async ({ page, request }) => {
@@ -1856,7 +1845,7 @@ test('protocol legacy links open dialogs within one workspace and fit a narrow v
   await expect(page.getByRole('dialog', { name: '配置 OneBot11' })).toBeVisible()
   await expectDocumentWithinViewport(page)
   await expect(page.getByTestId('adapter-save')).toBeInViewport()
-  await page.locator('.ant-modal-close').click()
+  await page.locator('[aria-label="关闭弹窗"]').click()
   await page.goto('/protocols/compatibility')
   await expect(page).toHaveURL(/\/protocols\?view=compatibility$/)
   await expect(page.getByRole('dialog', { name: '协议兼容矩阵' })).toBeVisible()
@@ -1890,7 +1879,7 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await page.getByTestId('adapter-onebot11').click()
   await page.locator('summary').filter({ hasText: '高级设置' }).click()
   await expect(page.getByLabel('连接超时（秒）')).toHaveValue('18')
-  await page.locator('.ant-modal-close').click()
+  await page.locator('[aria-label="关闭弹窗"]').click()
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()

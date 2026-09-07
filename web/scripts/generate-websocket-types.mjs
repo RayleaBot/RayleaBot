@@ -85,6 +85,7 @@ function generatedSource(contract) {
   const bridgeObservabilityBranch = branchWithRequired(branches, 'result_count')
   const dispatcherObservabilityBranch = branchWithRequired(branches, 'window_seconds')
   const protocolBranch = branchWithRequired(branches, 'protocol')
+  branchWithRequired(branches, 'adapters')
 
   const consoleChannel = channelByPath(contract, '/ws/plugins/{id}/console')
   const consoleEvent = eventByName(consoleChannel, 'plugins.console')
@@ -195,6 +196,10 @@ export type ProtocolSnapshotEventPayload = {
   protocol_snapshot: components['schemas']['OneBot11ProtocolSnapshotResponse']
 }
 
+export type AdaptersSnapshotEventPayload = {
+  adapters: components['schemas']['AdapterDescriptor'][]
+}
+
 export type EventsPayload =
   | ServiceStatusEventPayload
   | PluginStateEventPayload
@@ -203,6 +208,7 @@ export type EventsPayload =
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
   | ProtocolSnapshotEventPayload
+  | AdaptersSnapshotEventPayload
 
 export type PluginConsoleFrameData = {
   plugin_id: string

@@ -332,12 +332,29 @@ def render_notices(components: list[Component]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def collect_web_ui_sources() -> list[Component]:
+    source_dir = REPO_ROOT / "web" / "src" / "components" / "ui"
+    provenance_path = source_dir / "upstream.json"
+    if not provenance_path.is_file():
+        return []
+    provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+    name = f"shadcn-vue/{provenance['style']}"
+    return [Component(
+        "source:web",
+        name,
+        provenance["retrieved"],
+        normalize_license_expression(provenance["license"], name),
+        license_documents(source_dir, name),
+    )]
+
+
 def generate() -> str:
     components = merge_components(
         [
             collect_go_components(),
             collect_node_components("web"),
             collect_node_components("launcher"),
+            collect_web_ui_sources(),
         ]
     )
     return render_notices(components)

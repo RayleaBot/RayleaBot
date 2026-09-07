@@ -45,9 +45,9 @@ export function resolveAuthThemeConfig(mode: ResolvedThemeMode): ThemeConfig {
         controlHeight: 50,
       },
       Input: {
-        activeBorderColor: tokens.focus,
-        activeShadow: 'none',
-        hoverBorderColor: tokens.brandForeground,
+        colorPrimary: tokens.focus,
+        controlOutline: 'transparent',
+        colorPrimaryHover: tokens.brandForeground,
         controlHeight: 50,
       },
     },

@@ -29,7 +29,14 @@ declare module 'vue-router' {
   }
 }
 
-export const routes: RouteRecordRaw[] = [...publicRoutes, ...adminRoutes]
+const developmentRoutes: RouteRecordRaw[] = import.meta.env.DEV ? [{
+  path: '/__dev/components',
+  name: 'dev-components',
+  component: () => import('@/views/dev/ComponentsView.vue'),
+  meta: { requiresAuth: true, hideInMenu: true, hideInTab: true, title: '组件预览' },
+}] : []
+
+export const routes: RouteRecordRaw[] = [...publicRoutes, ...developmentRoutes, ...adminRoutes]
 
 export function createAppRouter(history: RouterHistory = createWebHistory()) {
   const router = createRouter({ history, routes })
