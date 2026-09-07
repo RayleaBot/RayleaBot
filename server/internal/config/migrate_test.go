@@ -327,3 +327,45 @@ func readYAMLFile(t *testing.T, path string) map[string]any {
 	}
 	return document
 }
+
+// The shipped default template is a config document like any other. Leaving it
+// on the old schema would reintroduce the removed sections into every merge,
+// and the merged document would then fail the current schema.
+func TestLoadMigratesTheDefaultTemplateToo(t *testing.T) {
+	t.Parallel()
+
+	configDir := filepath.Join(t.TempDir(), "config")
+	configPath := filepath.Join(configDir, "user.yaml")
+	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
+	if _, _, err := Init(configPath, schemaPath); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
+
+	legacyDefault := map[string]any{
+		"schema_version": "3",
+		"server":         map[string]any{"host": "127.0.0.1", "port": 8080},
+		"onebot": map[string]any{
+			"reverse_ws": map[string]any{"enabled": false, "url": ""},
+		},
+	}
+	writeLegacyConfig(t, filepath.Join(configDir, "default.yaml"), legacyDefault)
+	writeLegacyConfig(t, configPath, map[string]any{
+		"schema_version": "3",
+		"server":         map[string]any{"host": "127.0.0.1", "port": 9090},
+		"onebot": map[string]any{
+			"forward_ws": map[string]any{"enabled": true, "url": "ws://127.0.0.1:2658"},
+		},
+	})
+
+	cfg, _, err := Load(configPath, schemaPath)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.Server.Port != 9090 {
+		t.Fatalf("Server.Port = %d, want the user value 9090", cfg.Server.Port)
+	}
+	_, settings, ok := cfg.PrimaryOneBot11()
+	if !ok || settings.ForwardWS.URL != "ws://127.0.0.1:2658" {
+		t.Fatalf("PrimaryOneBot11() = %+v, %t, want the migrated user transport", settings, ok)
+	}
+}

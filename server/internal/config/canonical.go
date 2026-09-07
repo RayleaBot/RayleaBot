@@ -137,9 +137,9 @@ func ensureDefaultTemplate(configPath string) (map[string]any, error) {
 
 	document := defaultDocument()
 	if exists {
-		canonicalDefault, err := canonicalizeDocument(rawDefault)
+		canonicalDefault, err := migrateAndCanonicalize(defaultPath, rawDefault)
 		if err != nil {
-			return nil, fmt.Errorf("normalize default config %s: %w", defaultPath, err)
+			return nil, err
 		}
 		document = mergeDocuments(document, canonicalDefault)
 	}
@@ -162,13 +162,29 @@ func readDefaultTemplate(configPath string) (map[string]any, error) {
 
 	document := defaultDocument()
 	if exists {
-		canonicalDefault, err := canonicalizeDocument(rawDefault)
+		canonicalDefault, err := migrateAndCanonicalize(defaultPath, rawDefault)
 		if err != nil {
-			return nil, fmt.Errorf("normalize default config %s: %w", defaultPath, err)
+			return nil, err
 		}
 		document = mergeDocuments(document, canonicalDefault)
 	}
 	return document, nil
+}
+
+// migrateAndCanonicalize brings the shipped default template up to the current
+// shape before it is merged. The template is a config document like any other:
+// an upgrade that leaves it behind would reintroduce the old sections into
+// every merge, and the merged document would then fail the current schema.
+func migrateAndCanonicalize(path string, raw map[string]any) (map[string]any, error) {
+	migrated, _, err := MigrateDocument(raw)
+	if err != nil {
+		return nil, fmt.Errorf("migrate default config %s: %w", path, err)
+	}
+	canonical, err := canonicalizeDocument(migrated)
+	if err != nil {
+		return nil, fmt.Errorf("normalize default config %s: %w", path, err)
+	}
+	return canonical, nil
 }
 
 func defaultTemplatePath(configPath string) string {
