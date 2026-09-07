@@ -3,7 +3,7 @@ case: invalid
 description: OneBot11 webhook ingress rejects a malformed payload.
 request:
   method: POST
-  path: /api/protocols/onebot11/webhook
+  path: /api/adapters/onebot11/webhook
   headers:
     Authorization: Bearer masked-token
   body:

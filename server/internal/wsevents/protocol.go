@@ -1,11 +1,8 @@
 package wsevents
 
 import (
-	"context"
 	"strings"
 	"time"
-
-	"github.com/coder/websocket"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
@@ -124,18 +121,31 @@ type ProtocolConfigSource interface {
 }
 
 type ProtocolService struct {
-	config                    ProtocolConfigSource
+	config ProtocolConfigSource
+	// adapter is the primary OneBot instance, which the OneBot-specific
+	// management endpoints speak about; oneBotShells holds every instance,
+	// which is what the per-instance ingress needs.
 	adapter                   *onebot11.Shell
-	qqOfficial                QQOfficialStatusSource
+	oneBotShells              map[string]*onebot11.Shell
+	qqClients                 map[string]QQOfficialStatusSource
 	oneBot11TargetReadTimeout time.Duration
 	hub                       pubsub.Hub[Frame]
 }
 
-func NewProtocolService(configSource ProtocolConfigSource, adapterShell *onebot11.Shell, qqOfficial QQOfficialStatusSource) *ProtocolService {
+// ProtocolServiceAdapters are the running adapters, keyed by instance id.
+type ProtocolServiceAdapters struct {
+	OneBot11   map[string]*onebot11.Shell
+	QQOfficial map[string]QQOfficialStatusSource
+	// PrimaryOneBot11 is the instance the OneBot management endpoints report on.
+	PrimaryOneBot11 *onebot11.Shell
+}
+
+func NewProtocolService(configSource ProtocolConfigSource, adapters ProtocolServiceAdapters) *ProtocolService {
 	return &ProtocolService{
 		config:                    configSource,
-		adapter:                   adapterShell,
-		qqOfficial:                qqOfficial,
+		adapter:                   adapters.PrimaryOneBot11,
+		oneBotShells:              adapters.OneBot11,
+		qqClients:                 adapters.QQOfficial,
 		oneBot11TargetReadTimeout: 3 * time.Second,
 	}
 }
@@ -147,7 +157,7 @@ func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
 	if s.adapter.Snapshot().State == onebot11.StateStopped {
 		return configruntime.ErrProtocolStopped
 	}
-	return s.adapter.Reload(cfg.OneBot, cfg.Adapter)
+	return s.adapter.Reload(primaryOneBotSettingsOf(cfg), cfg.Adapter)
 }
 
 func (s *ProtocolService) ProtocolSnapshotEvent() Frame {
@@ -163,78 +173,6 @@ func (s *ProtocolService) PublishSnapshot() {
 
 func (s *ProtocolService) SubscribeProtocolEvents(buffer int) (<-chan Frame, func()) {
 	return s.hub.Subscribe(buffer)
-}
-
-func (s *ProtocolService) ReverseWSIngressAvailable() bool {
-	return s != nil && s.adapter != nil
-}
-
-func (s *ProtocolService) ReverseWSIngressEnabled() bool {
-	return s.transportIngressEnabled(onebot11.TransportReverseWS)
-}
-
-func (s *ProtocolService) ReverseWSAccessToken() string {
-	if s.config == nil {
-		return ""
-	}
-	return s.config.CurrentConfig().OneBot.ReverseWS.AccessToken
-}
-
-func (s *ProtocolService) ReverseWSAccessTokenQueryCompat() bool {
-	if s.config == nil {
-		return false
-	}
-	return s.config.CurrentConfig().OneBot.ReverseWS.AccessTokenQueryCompat
-}
-
-func (s *ProtocolService) MarkReverseWSAuthFailed() {
-	if s.adapter == nil {
-		return
-	}
-	s.adapter.MarkReverseWSAuthFailed()
-}
-
-func (s *ProtocolService) AttachReverseWS(conn *websocket.Conn) {
-	if s.adapter == nil {
-		return
-	}
-	s.adapter.AttachReverseWS(conn)
-}
-
-func (s *ProtocolService) WebhookIngressAvailable() bool {
-	return s != nil && s.adapter != nil
-}
-
-func (s *ProtocolService) WebhookIngressEnabled() bool {
-	return s.transportIngressEnabled(onebot11.TransportWebhook)
-}
-
-func (s *ProtocolService) WebhookAccessToken() string {
-	if s.config == nil {
-		return ""
-	}
-	return s.config.CurrentConfig().OneBot.Webhook.AccessToken
-}
-
-func (s *ProtocolService) WebhookAccessTokenQueryCompat() bool {
-	if s.config == nil {
-		return false
-	}
-	return s.config.CurrentConfig().OneBot.Webhook.AccessTokenQueryCompat
-}
-
-func (s *ProtocolService) MarkWebhookAuthFailed() {
-	if s.adapter == nil {
-		return
-	}
-	s.adapter.MarkWebhookAuthFailed()
-}
-
-func (s *ProtocolService) AcceptWebhookPayload(ctx context.Context, payload []byte) error {
-	if s.adapter == nil {
-		return configruntime.ErrProtocolStopped
-	}
-	return s.adapter.AcceptWebhookPayload(ctx, payload)
 }
 
 func currentOneBotProvider(raw string) string {
@@ -281,4 +219,18 @@ func isDigits(raw string) bool {
 		}
 	}
 	return true
+}
+
+// primaryOneBotSettings returns the first configured OneBot adapter's settings.
+// The OneBot protocol surface predates multiple adapters and still speaks about
+// a single connection; this makes "which one" explicit rather than implied.
+func (s *ProtocolService) primaryOneBotSettings() config.OneBotConfig {
+	return primaryOneBotSettingsOf(s.config.CurrentConfig())
+}
+
+func primaryOneBotSettingsOf(cfg config.Config) config.OneBotConfig {
+	if _, settings, ok := cfg.PrimaryOneBot11(); ok {
+		return settings
+	}
+	return config.OneBotConfig{}
 }

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -163,11 +164,69 @@ func collectConfigPathChanges(prefix string, current, next any, paths *[]string)
 		return
 	}
 
+	if key, ok := ConfigCollectionKey(ConfigShapePath(prefix)); ok {
+		if collectCollectionChanges(prefix, key, current, next, paths) {
+			return
+		}
+	}
+
 	if reflect.DeepEqual(current, next) || prefix == "" {
 		return
 	}
 
 	*paths = append(*paths, prefix)
+}
+
+// collectCollectionChanges diffs a keyed collection. Which entries exist, and
+// in what order, is a change to the collection itself; what an entry holds is
+// diffed per field so each field keeps its own apply policy. It reports whether
+// both values could be read as collections.
+func collectCollectionChanges(prefix, key string, current, next any, paths *[]string) bool {
+	currentIDs, currentByID, currentOK := configCollectionEntries(current, key)
+	nextIDs, nextByID, nextOK := configCollectionEntries(next, key)
+	if !currentOK || !nextOK {
+		return false
+	}
+
+	// Order is meaningful: it decides which instance the management surface
+	// treats as primary, so a reordering is a change to the collection.
+	if !slices.Equal(currentIDs, nextIDs) {
+		*paths = append(*paths, prefix)
+	}
+	for _, id := range currentIDs {
+		nextEntry, ok := nextByID[id]
+		if !ok {
+			continue
+		}
+		collectConfigPathChanges(joinConfigPath(prefix, id), currentByID[id], nextEntry, paths)
+	}
+	return true
+}
+
+// configCollectionEntries indexes entries by identifier, keeping configuration
+// order. It refuses a list whose entries are not all identified, because those
+// entries cannot be matched across two documents.
+func configCollectionEntries(value any, key string) ([]string, map[string]any, bool) {
+	list, ok := value.([]any)
+	if !ok {
+		return nil, nil, false
+	}
+	ids := make([]string, 0, len(list))
+	byID := make(map[string]any, len(list))
+	for _, item := range list {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			return nil, nil, false
+		}
+		id, ok := entry[key].(string)
+		if !ok || strings.TrimSpace(id) == "" {
+			return nil, nil, false
+		}
+		id = strings.TrimSpace(id)
+		ids = append(ids, id)
+		byID[id] = entry
+	}
+	return ids, byID, true
 }
 
 func configDiffKeyCapacity(currentCount int, nextCount int) int {

@@ -28,9 +28,38 @@ func ConfigCollectionKey(path string) (string, bool) {
 	return key, ok
 }
 
+// ConfigFieldMetadataForPath accepts either a schema shape or a concrete
+// document path; a path naming collection entries resolves to the shape they
+// share, because entries do not carry per-entry metadata.
 func ConfigFieldMetadataForPath(path string) (ConfigFieldMetadata, bool) {
-	metadata, ok := configFieldMetadata[path]
+	if metadata, ok := configFieldMetadata[path]; ok {
+		return metadata, true
+	}
+	metadata, ok := configFieldMetadata[ConfigShapePath(path)]
 	return metadata, ok
+}
+
+// ConfigShapePath rewrites a concrete document path into the schema shape it
+// belongs to by replacing each collection entry's key with the wildcard.
+func ConfigShapePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	segments := strings.Split(path, ".")
+	shape := make([]string, 0, len(segments))
+	for index := 0; index < len(segments); index++ {
+		shape = append(shape, segments[index])
+		if _, ok := ConfigCollectionKey(strings.Join(shape, ".")); !ok {
+			continue
+		}
+		// The segment after a collection names one of its entries rather than a
+		// field, so the shape carries the wildcard in its place.
+		if index+1 < len(segments) {
+			index++
+			shape = append(shape, ConfigCollectionWildcard)
+		}
+	}
+	return strings.Join(shape, ".")
 }
 
 func ConfigFieldMetadataPaths() []string {
@@ -133,6 +162,13 @@ func (s configSchemaMetadataState) collect(path string, raw json.RawMessage) err
 		if len(node.Items) == 0 {
 			return fmt.Errorf("config collection %s declares x-collection-key without items", path)
 		}
+		if strings.TrimSpace(node.ApplyPolicy) == "" {
+			return fmt.Errorf("config collection %s missing x-apply-policy", path)
+		}
+		// Membership of the collection is a configurable fact of its own, so the
+		// collection path carries the policy for adding, removing or reordering
+		// entries while the entry fields keep theirs.
+		s.metadata[path] = ConfigFieldMetadata{ApplyPolicy: ConfigApplyPolicy(strings.TrimSpace(node.ApplyPolicy))}
 		s.collections[path] = strings.TrimSpace(node.Collection)
 		return s.collect(joinConfigPath(path, ConfigCollectionWildcard), node.Items)
 	}

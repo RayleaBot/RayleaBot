@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CopyOutlined, ExclamationCircleOutlined } from '@ant-design/icons-vue'
 import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
@@ -14,6 +15,12 @@ import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { useProtocolsStore } from '@/stores/protocols'
 import { useProtocolConfigEditor } from './useProtocolConfigEditor'
+
+const route = useRoute()
+// The page edits one OneBot instance, named by the route. Every config path and
+// the reverse-WebSocket callback URL are derived from that identifier.
+const adapterId = computed(() => String(route.params.adapterId ?? 'onebot11'))
+const settingsPath = (field: string) => `adapters.${adapterId.value}.onebot11.${field}`
 
 const configStore = useConfigStore()
 const protocolsStore = useProtocolsStore()
@@ -39,7 +46,7 @@ const {
   readField,
   save,
   writeField,
-} = useProtocolConfigEditor(configStore, protocolsStore)
+} = useProtocolConfigEditor(configStore, protocolsStore, adapterId)
 const activeTransportState = computed(() => {
   if (!snapshot.value) {
     return undefined
@@ -106,11 +113,12 @@ const transportIssues = computed(() => snapshot.value?.recent_transport_issues ?
 const protocolWorkbenchActions = computed(() => buildProtocolWorkbenchActions(snapshot.value))
 const reverseWsCallbackUrl = computed(() => buildOneBot11ReverseWsUrl(
   import.meta.env.VITE_WS_BASE_URL || window.location.origin,
+  adapterId.value,
 ))
-const reverseWsEnabled = computed(() => Boolean(readField('onebot.reverse_ws.enabled', 'boolean')))
+const reverseWsEnabled = computed(() => Boolean(readField(settingsPath('reverse_ws.enabled'), 'boolean')))
 const reverseWsAddressNeedsSync = computed(() => (
   reverseWsEnabled.value
-  && String(readField('onebot.reverse_ws.url', 'text') ?? '').trim() !== reverseWsCallbackUrl.value
+  && String(readField(settingsPath('reverse_ws.url'), 'text') ?? '').trim() !== reverseWsCallbackUrl.value
 ))
 const canSaveProtocolSettings = computed(() => (canSave.value || reverseWsAddressNeedsSync.value) && !saving.value)
 const hasUnsavedProtocolSettings = computed(() => isDirty.value || reverseWsAddressNeedsSync.value)
@@ -127,7 +135,7 @@ function updateTransportEnabled(
 
 async function saveProtocolSettings() {
   if (reverseWsEnabled.value) {
-    writeField('onebot.reverse_ws.url', 'text', reverseWsCallbackUrl.value)
+    writeField(settingsPath('reverse_ws.url'), 'text', reverseWsCallbackUrl.value)
   }
   await save()
 }
@@ -209,9 +217,9 @@ const transportConfigs = computed(() => [
     type: 'reverse_ws',
     name: t('config.sections.onebotReverseWs'),
     description: 'OneBot11 reverse_ws',
-    enabledPath: 'onebot.reverse_ws.enabled',
-    urlPath: 'onebot.reverse_ws.url',
-    tokenPath: 'onebot.reverse_ws.access_token',
+    enabledPath: settingsPath('reverse_ws.enabled'),
+    urlPath: settingsPath('reverse_ws.url'),
+    tokenPath: settingsPath('reverse_ws.access_token'),
     urlHint: t('config.hints.onebotOptional'),
     urlLabel: t('config.fields.onebotReverseWsUrl'),
     tokenLabel: t('config.fields.onebotAccessToken'),
@@ -221,9 +229,9 @@ const transportConfigs = computed(() => [
     type: 'forward_ws',
     name: t('config.sections.onebotForwardWs'),
     description: 'OneBot11 forward_ws',
-    enabledPath: 'onebot.forward_ws.enabled',
-    urlPath: 'onebot.forward_ws.url',
-    tokenPath: 'onebot.forward_ws.access_token',
+    enabledPath: settingsPath('forward_ws.enabled'),
+    urlPath: settingsPath('forward_ws.url'),
+    tokenPath: settingsPath('forward_ws.access_token'),
     urlHint: t('config.hints.onebotForwardWs'),
     urlLabel: t('config.fields.onebotForwardWsUrl'),
     tokenLabel: t('config.fields.onebotAccessToken'),
@@ -233,9 +241,9 @@ const transportConfigs = computed(() => [
     type: 'http_api',
     name: t('config.sections.onebotHttpApi'),
     description: 'OneBot11 http_api',
-    enabledPath: 'onebot.http_api.enabled',
-    urlPath: 'onebot.http_api.url',
-    tokenPath: 'onebot.http_api.access_token',
+    enabledPath: settingsPath('http_api.enabled'),
+    urlPath: settingsPath('http_api.url'),
+    tokenPath: settingsPath('http_api.access_token'),
     urlHint: t('config.hints.onebotHttpTransport'),
     urlLabel: t('config.fields.onebotHttpApiUrl'),
     tokenLabel: t('config.fields.onebotAccessToken'),
@@ -245,9 +253,9 @@ const transportConfigs = computed(() => [
     type: 'webhook',
     name: t('config.sections.onebotWebhook'),
     description: 'OneBot11 webhook',
-    enabledPath: 'onebot.webhook.enabled',
-    urlPath: 'onebot.webhook.url',
-    tokenPath: 'onebot.webhook.access_token',
+    enabledPath: settingsPath('webhook.enabled'),
+    urlPath: settingsPath('webhook.url'),
+    tokenPath: settingsPath('webhook.access_token'),
     urlHint: t('config.hints.onebotHttpTransport'),
     urlLabel: t('config.fields.onebotWebhookUrl'),
     tokenLabel: t('config.fields.onebotAccessToken'),

@@ -173,13 +173,21 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
 	})
-	// The QQ client is optional. Assigning the concrete pointer straight into
-	// the interface would hand the service a typed nil that passes a nil check.
-	var qqStatus wsevents.QQOfficialStatusSource
-	if eventStack.QQOfficial != nil {
-		qqStatus = eventStack.QQOfficial
+	// A concrete pointer assigned straight into the interface would hand the
+	// service a typed nil that passes a nil check, so only real clients enter
+	// the map the protocol surface reads.
+	qqStatus := make(map[string]wsevents.QQOfficialStatusSource, len(eventStack.QQOfficial))
+	for id, client := range eventStack.QQOfficial {
+		if client == nil {
+			continue
+		}
+		qqStatus[id] = client
 	}
-	protocolService := wsevents.NewProtocolService(runtimeState, eventStack.Adapter, qqStatus)
+	protocolService := wsevents.NewProtocolService(runtimeState, wsevents.ProtocolServiceAdapters{
+		OneBot11:        eventStack.OneBotShells,
+		QQOfficial:      qqStatus,
+		PrimaryOneBot11: eventStack.Adapter,
+	})
 	return serviceBuildResult{
 		Services: Services{
 			LocalActions:      pluginRuntime.LocalActions,

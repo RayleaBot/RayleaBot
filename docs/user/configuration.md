@@ -14,9 +14,11 @@
 - 服务启动只读取配置文件，不创建或重写 `default.yaml`、`user.yaml`。
 - Launcher 检测到 `user.yaml` 缺失且 `default.yaml` 可用时，会执行配置初始化并重新检查环境，再启动服务。
 - 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
-- 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://onebot/<transport>/access_token` 引用。
-- `qq_official` 配置 QQ 开放平台官方机器人适配器，整块可选：缺省即未启用，既有配置升级不需要迁移。`app_id` 不是机密；`app_secret` 与 OneBot 访问令牌同样处理，明文写入 secret store，`user.yaml` 只保存 `secret://qq_official/app_secret` 引用。
-- `qq_official.intents` 按名称声明订阅的事件族，适配器负责映射为网关位掩码；名称集合由 schema 约束，写入未知名称会被拒绝。
+- `adapters` 是已配置的聊天适配器实例列表，缺省为空表示不接收任何聊天流量。每个实例由 `id` 命名，`type` 决定生效的设置块（`onebot11` 或 `qqofficial`）；同一协议可以配置多个实例，各自持有自己的凭据与入站地址。
+- `id` 决定实例的对外身份：它出现在事件的 `source_adapter`、出站路由、secret store 键名以及入站地址 `/api/adapters/{id}/reverse-ws`。重命名实例等于重新标识该适配器，并改变上述地址，需要同步修改协议端的回连配置。
+- 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://adapters/<实例 id>/onebot11/<transport>/access_token` 引用。
+- QQ 开放平台官方机器人以 `type: qqofficial` 的实例接入。`app_id` 不是机密；`app_secret` 与 OneBot 访问令牌同样处理，明文写入 secret store，`user.yaml` 只保存 `secret://adapters/<实例 id>/qqofficial/app_secret` 引用。
+- `qqofficial.intents` 按名称声明订阅的事件族，适配器负责映射为网关位掩码；名称集合由 schema 约束，写入未知名称会被拒绝。
 - OneBot11 访问令牌默认通过 `Authorization: Bearer` 传递。只有旧服务端或旧 webhook 客户端必须使用 URL query token 时，才将对应入口的 `access_token_query_compat` 显式设为 `true`。
 
 ## 配置文件维护
@@ -29,6 +31,15 @@
 
 缺少配置文件或需要整理配置格式时，使用显式配置命令处理。`raylea-server` 启动路径不承担初始化或格式化职责。
 
+## 升级到 schema_version 4
+
+schema_version 4 把原来的两个单例块 `onebot` 与 `qq_official` 合并为 `adapters` 实例列表。服务在读取旧配置时自动迁移，无需手工改写：
+
+- 迁移在启动读取阶段完成。旧文件先备份到 `user.yaml` 同目录，再写回迁移后的形状；`raylea-server config validate` 只在内存中迁移，不改动文件。
+- `onebot` 成为 id 为 `onebot11` 的实例，`qq_official` 成为 id 为 `qq-official` 的实例。原 `qq_official.enabled` 上移为实例的 `enabled`；OneBot 原本没有总开关，迁移后的实例在任一传输已启用时为启用。
+- secret store 中的密钥随字段位置改名，由服务在启动装配时搬运，凭据不需要重新填写。
+- **回连地址会改变**：入站地址由 `/api/protocols/onebot11/reverse-ws` 变为 `/api/adapters/onebot11/reverse-ws`，webhook 同理。升级后需要在协议端（OneBot 实现）把回连地址改成新的 URL，否则连接会以 404 失败。管理面协议页显示的回连地址已是新地址，可直接复制。
+
 ## 配置生效方式
 
 常规字段以 schema 的四种 `x-apply-policy` 为准：
@@ -37,10 +48,12 @@
 | --- | --- | --- |
 | `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
 | `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、三方账号检查间隔、存储配额、日志、消息、用户和 HTTP 参数 | 保存后直接应用，列入 `apply_effects.applied_now` |
-| `adapter_reload` | OneBot11 连接地址、启用状态、兼容开关以及 adapter 连接和重连参数 | 保存后受控重载 adapter，列入 `apply_effects.reloaded_now` |
+| `adapter_reload` | OneBot11 连接地址、实例启用状态、兼容开关以及 adapter 连接和重连参数 | 保存后受控重载 adapter，列入 `apply_effects.reloaded_now` |
 | `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、抖音扫码浏览器、调度时区、插件运行限制、数据留存、Web、备份一致性 | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
 
-OneBot11 `access_token` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
+OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
+
+`apply_effects` 中的字段路径按实例 id 寻址，例如 `adapters.onebot11.onebot11.forward_ws.url`；改变实例的增删或顺序则记为 `adapters` 本身，属于 `restart_required`。
 
 ## 三方账号检查与抖音扫码浏览器
 

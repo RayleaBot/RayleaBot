@@ -58,7 +58,7 @@ func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptio
 		t.Fatalf("unmarshal config fixture input: %v", err)
 	}
 
-	onebot := input["onebot"].(map[string]any)
+	onebot := testutil.ConfigDocumentOneBot(t, input)
 	onebot["forward_ws"].(map[string]any)["access_token"] = accessToken
 
 	updated, err := json.Marshal(input)

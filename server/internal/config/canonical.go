@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const currentSchemaVersion = "3"
+const currentSchemaVersion = "4"
 const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
 const DefaultRenderOutput = "png"
 const DefaultRenderDeviceScalePercent = 100
@@ -23,7 +24,10 @@ func CurrentSchemaVersion() string {
 	return currentSchemaVersion
 }
 
-func loadCanonicalDocument(configPath, schemaPath string) (map[string]any, Config, error) {
+// loadCanonicalDocument reads and validates the config. persistMigration says
+// whether a document the migration changed is written back; callers that only
+// inspect the config leave the file untouched.
+func loadCanonicalDocument(configPath, schemaPath string, persistMigration bool) (map[string]any, Config, error) {
 	defaultDoc, err := readDefaultTemplate(configPath)
 	if err != nil {
 		return nil, Config{}, err
@@ -36,9 +40,26 @@ func loadCanonicalDocument(configPath, schemaPath string) (map[string]any, Confi
 
 	userDoc := map[string]any{}
 	if userExists {
-		userDoc, err = canonicalizeDocument(rawUser)
+		// Migration runs before canonicalisation and validation: a config
+		// written by an older build must reach the current shape before
+		// anything judges it against the current schema.
+		migrated, changed, err := MigrateDocument(rawUser)
+		if err != nil {
+			return nil, Config{}, fmt.Errorf("migrate config %s: %w", configPath, err)
+		}
+		if changed && persistMigration {
+			if err := backupConfigBeforeMigration(configPath); err != nil {
+				return nil, Config{}, fmt.Errorf("back up config before migration %s: %w", configPath, err)
+			}
+		}
+		userDoc, err = canonicalizeDocument(migrated)
 		if err != nil {
 			return nil, Config{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
+		}
+		if changed && persistMigration {
+			if err := writeCanonicalDocument(configPath, userDoc); err != nil {
+				return nil, Config{}, fmt.Errorf("persist migrated config %s: %w", configPath, err)
+			}
 		}
 	}
 
@@ -71,7 +92,18 @@ func normalizeCanonicalDocument(configPath, schemaPath string) (Config, Summary,
 
 	userDoc := map[string]any{}
 	if userExists {
-		userDoc, err = canonicalizeDocument(rawUser)
+		// Normalising rewrites the file anyway, so a config from an older build
+		// is migrated first rather than failing the current schema.
+		migrated, changed, err := MigrateDocument(rawUser)
+		if err != nil {
+			return Config{}, Summary{}, fmt.Errorf("migrate config %s: %w", configPath, err)
+		}
+		if changed {
+			if err := backupConfigBeforeMigration(configPath); err != nil {
+				return Config{}, Summary{}, fmt.Errorf("back up config before migration %s: %w", configPath, err)
+			}
+		}
+		userDoc, err = canonicalizeDocument(migrated)
 		if err != nil {
 			return Config{}, Summary{}, fmt.Errorf("normalize config document %s: %w", configPath, err)
 		}
@@ -300,16 +332,27 @@ func stringValue(value any) string {
 	}
 }
 
+// normalizeOneBotSection fills each OneBot adapter's transports. The settings
+// live inside the adapters list, so every instance is normalized, not just one.
 func normalizeOneBotSection(document map[string]any) {
-	onebot := section(document, "onebot")
-	if onebot == nil {
+	adapters, ok := document["adapters"].([]any)
+	if !ok {
 		return
 	}
-
-	normalizeOneBotTransport(onebot, "reverse_ws", true)
-	normalizeOneBotTransport(onebot, "forward_ws", true)
-	normalizeOneBotTransport(onebot, "http_api", false)
-	normalizeOneBotTransport(onebot, "webhook", true)
+	for _, entry := range adapters {
+		instance, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		onebot, ok := instance["onebot11"].(map[string]any)
+		if !ok {
+			continue
+		}
+		normalizeOneBotTransport(onebot, "reverse_ws", true)
+		normalizeOneBotTransport(onebot, "forward_ws", true)
+		normalizeOneBotTransport(onebot, "http_api", false)
+		normalizeOneBotTransport(onebot, "webhook", true)
+	}
 }
 
 func normalizeOneBotTransport(onebot map[string]any, key string, allowQueryCompat bool) {
@@ -353,4 +396,21 @@ func oneBotTransportCompatDocument(transport OneBotTransportConfig) map[string]a
 	document := oneBotTransportDocument(transport.Enabled, transport.URL, transport.AccessToken)
 	document["access_token_query_compat"] = transport.AccessTokenQueryCompat
 	return document
+}
+
+// backupConfigBeforeMigration keeps the pre-migration file beside the config so
+// a migration that turns out wrong is recoverable by hand. An existing backup is
+// never overwritten: the first one is the original.
+func backupConfigBeforeMigration(configPath string) error {
+	backupPath := configPath + ".pre-migration.bak"
+	if _, err := os.Stat(backupPath); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	contents, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(backupPath, contents, 0o600)
 }

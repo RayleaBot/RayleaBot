@@ -10,25 +10,13 @@ import (
 // one actual field in one document, with each wildcard replaced by the entry's
 // key. Only concrete paths address a value.
 
-// configSecretShapePaths returns every secret field shape the schema declares.
-func configSecretShapePaths() []string {
-	paths := make([]string, 0)
-	for path, metadata := range configFieldMetadata {
-		if metadata.Secret {
-			paths = append(paths, path)
-		}
-	}
-	slices.Sort(paths)
-	return paths
-}
-
 // configSecretPathsIn resolves the secret shapes against one document. A shape
 // crossing a collection expands to one path per entry, keyed by the entry's own
 // identifier rather than its position, so reordering the collection does not
 // re-key its secrets.
 func configSecretPathsIn(document map[string]any) [][]string {
 	resolved := make([][]string, 0)
-	for _, shape := range configSecretShapePaths() {
+	for _, shape := range ConfigSecretFieldPaths() {
 		resolved = append(resolved, expandSecretShape(document, strings.Split(shape, "."))...)
 	}
 	slices.SortFunc(resolved, func(left, right []string) int {
@@ -57,6 +45,15 @@ func expandSecretShape(document map[string]any, shape []string) [][]string {
 		for _, prefix := range prefixes {
 			for _, entryKey := range collectionEntryKeys(document, prefix, key) {
 				branch := append(append([]string{}, prefix...), entryKey)
+				// Entries of one collection hold different shapes: an adapter
+				// speaking one protocol has no settings block for another. A
+				// branch that cannot reach the field is not a path to it.
+				if index+1 < len(shape) {
+					probe := append(append([]string{}, branch...), shape[index+1])
+					if _, ok := lookupConfigPath(document, probe); !ok {
+						continue
+					}
+				}
 				expanded = append(expanded, branch)
 			}
 		}

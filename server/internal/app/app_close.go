@@ -98,11 +98,23 @@ func (a *App) stopAdapter(timeout time.Duration) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if a.eventStack.QQOfficial != nil {
-		if err := a.eventStack.QQOfficial.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			a.Logger().Warn("QQ 官方机器人适配器停止时出错。", "component", "adapter.qqofficial", "error", err.Error())
+	for id, client := range a.eventStack.QQOfficial {
+		if err := client.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			a.Logger().Warn("QQ 官方机器人适配器停止时出错。",
+				"component", "adapter.qqofficial", "adapter_id", id, "error", err.Error())
 		}
 	}
+	for id, shell := range a.eventStack.OneBotShells {
+		if shell == a.eventStack.Adapter {
+			continue
+		}
+		if err := shell.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			a.Logger().Warn("OneBot 适配器停止时出错。",
+				"component", "adapter.onebot11", "adapter_id", id, "error", err.Error())
+		}
+	}
+	// The primary carries the error: it is the instance the management surface
+	// reports on, so a failure to stop it is worth failing shutdown for.
 	if err := a.eventStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}

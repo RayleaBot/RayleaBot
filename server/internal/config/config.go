@@ -5,7 +5,7 @@ import "net/url"
 func Load(configPath, schemaPath string) (Config, Summary, error) {
 	var cfg Config
 
-	document, cfg, err := loadCanonicalDocument(configPath, schemaPath)
+	document, cfg, err := loadCanonicalDocument(configPath, schemaPath, true)
 	if err != nil {
 		return cfg, Summary{}, err
 	}
@@ -21,8 +21,15 @@ func Normalize(configPath, schemaPath string) (Config, Summary, error) {
 	return normalizeCanonicalDocument(configPath, schemaPath)
 }
 
+// Validate reads the config the way Load does but leaves the file alone: a
+// document written by an older build is migrated in memory to be judged against
+// the current schema, and the migrated form is not persisted.
 func Validate(configPath, schemaPath string) (Config, Summary, error) {
-	return Load(configPath, schemaPath)
+	document, cfg, err := loadCanonicalDocument(configPath, schemaPath, false)
+	if err != nil {
+		return cfg, Summary{}, err
+	}
+	return cfg, buildSummary(configPath, schemaPath, cfg, document), nil
 }
 
 type Summary struct {
@@ -40,7 +47,10 @@ type Summary struct {
 }
 
 func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
-	endpoint := firstConfiguredOneBotEndpoint(cfg.OneBot)
+	var endpoint string
+	if _, settings, ok := cfg.PrimaryOneBot11(); ok {
+		endpoint = firstConfiguredOneBotEndpoint(settings)
+	}
 	if schemaPath == "" {
 		schemaPath = ConfigUserSchemaID
 	}

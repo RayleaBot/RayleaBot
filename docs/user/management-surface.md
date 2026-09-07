@@ -30,7 +30,8 @@
 | 任务调度 | `/scheduler` | 查看插件声明的定时任务、运行状态与耗时，手动触发并查看执行日志 |
 | 实时日志 | `/logs` | 查看当前服务启动窗口内的日志、命令策略拒绝记录和增量更新 |
 | 历史日志 | `/logs/history` | 查看按时间范围筛选的历史日志和命令策略拒绝记录 |
-| 协议中心 | `/protocols` | 查看 OneBot11 协议快照、连接设置和传输异常 |
+| 协议中心 | `/protocols` | 查看已添加的适配器实例、添加或删除实例 |
+| 适配器设置 | `/protocols/onebot11/{id}`、`/protocols/qqofficial/{id}` | 查看单个实例的协议快照、连接设置和传输异常 |
 | 协议兼容矩阵 | `/protocols/compatibility` | 查看正式兼容范围与 provider 差异 |
 | 配置 | `/config` | 查看和保存通用配置 |
 | 模板预览 | `/render/templates/:templateId?` | 查看模板信息、输入结构和同步 HTML 预览结果 |

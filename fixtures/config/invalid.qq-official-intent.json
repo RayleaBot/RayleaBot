@@ -3,36 +3,57 @@
   "case": "invalid",
   "description": "Unknown intent name is rejected; the intent vocabulary is closed because the adapter maps it onto a gateway bitmask.",
   "input": {
-    "schema_version": "3",
+    "schema_version": "4",
     "server": {
       "host": "127.0.0.1",
       "port": 8080
     },
-    "onebot": {
-      "reverse_ws": {
+    "adapters": [
+      {
+        "id": "onebot11",
+        "type": "onebot11",
         "enabled": false,
-        "url": "",
-        "access_token": "",
-        "access_token_query_compat": false
+        "onebot11": {
+          "reverse_ws": {
+            "enabled": false,
+            "url": "",
+            "access_token": "",
+            "access_token_query_compat": false
+          },
+          "forward_ws": {
+            "enabled": false,
+            "url": "",
+            "access_token": "",
+            "access_token_query_compat": false
+          },
+          "http_api": {
+            "enabled": false,
+            "url": "",
+            "access_token": ""
+          },
+          "webhook": {
+            "enabled": false,
+            "url": "",
+            "access_token": "",
+            "access_token_query_compat": false
+          }
+        }
       },
-      "forward_ws": {
-        "enabled": false,
-        "url": "",
-        "access_token": "",
-        "access_token_query_compat": false
-      },
-      "http_api": {
-        "enabled": false,
-        "url": "",
-        "access_token": ""
-      },
-      "webhook": {
-        "enabled": false,
-        "url": "",
-        "access_token": "",
-        "access_token_query_compat": false
+      {
+        "id": "qq-official",
+        "type": "qqofficial",
+        "enabled": true,
+        "qqofficial": {
+          "app_id": "100000001",
+          "app_secret": "secret://adapters/qq-official/qqofficial/app_secret",
+          "intents": [
+            "group_and_c2c",
+            "not_a_real_intent"
+          ],
+          "sandbox": false
+        }
       }
-    },
+    ],
     "database": {
       "engine": "sqlite",
       "path": "data/rayleabot.db"
@@ -151,16 +172,6 @@
     },
     "backup": {
       "default_consistency": "offline"
-    },
-    "qq_official": {
-      "enabled": true,
-      "app_id": "102209770",
-      "app_secret": "secret://qq_official/app_secret",
-      "intents": [
-        "group_and_c2c",
-        "not_a_real_intent"
-      ],
-      "sandbox": false
     }
   },
   "expect": {

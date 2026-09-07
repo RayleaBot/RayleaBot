@@ -123,9 +123,51 @@ func isConfigSecretReference(value string) bool {
 }
 
 func configSecretKey(path []string) string {
-	return "config." + strings.Join(path, ".")
+	return internalconfig.SecretStoreKeyFor(path)
 }
 
 func configSecretReference(path []string) string {
-	return configSecretReferencePrefix + strings.Join(path, "/")
+	return internalconfig.SecretReferenceFor(path)
+}
+
+// MigrateConfigSecretKeys moves sealed values whose storage key changed with the
+// adapters migration. Document migration rewrote the references in the config;
+// the sealed values live in the store and have to follow, which needs the store
+// and so happens at assembly rather than during migration.
+//
+// It is idempotent: a secret already stored under its current key is left alone,
+// so running it on every start costs one lookup per secret and nothing else.
+func MigrateConfigSecretKeys(ctx context.Context, store secrets.Store, document map[string]any) error {
+	if store == nil {
+		return nil
+	}
+	for _, path := range configSecretPathsIn(document) {
+		key := configSecretKey(path)
+		if _, err := store.Get(ctx, key); err == nil {
+			continue
+		} else if !errors.Is(err, secrets.ErrNotFound) {
+			return fmt.Errorf("read config secret %s: %w", strings.Join(path, "."), err)
+		}
+		legacyPath, ok := internalconfig.LegacyConfigSecretPath(path)
+		if !ok {
+			continue
+		}
+		legacyKey := internalconfig.SecretStoreKeyFor(legacyPath)
+		stored, err := store.Get(ctx, legacyKey)
+		if errors.Is(err, secrets.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("read config secret %s: %w", strings.Join(legacyPath, "."), err)
+		}
+		if err := store.Set(ctx, key, stored); err != nil {
+			return fmt.Errorf("move config secret %s: %w", strings.Join(path, "."), err)
+		}
+		// Only drop the old copy once the new one is stored, so an interrupted
+		// start never leaves the secret in neither place.
+		if err := store.Delete(ctx, legacyKey); err != nil {
+			return fmt.Errorf("delete migrated config secret %s: %w", strings.Join(legacyPath, "."), err)
+		}
+	}
+	return nil
 }

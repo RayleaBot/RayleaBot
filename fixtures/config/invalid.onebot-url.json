@@ -3,36 +3,43 @@
   "case": "invalid",
   "description": "Invalid because onebot reverse_ws.url must use ws:// or wss://.",
   "input": {
-    "schema_version": "3",
+    "schema_version": "4",
     "server": {
       "host": "127.0.0.1",
       "port": 8080
     },
-    "onebot": {
-      "reverse_ws": {
+    "adapters": [
+      {
+        "id": "onebot11",
+        "type": "onebot11",
         "enabled": true,
-        "url": "http://127.0.0.1:6700",
-        "access_token": "",
-        "access_token_query_compat": false
-      },
-      "forward_ws": {
-        "enabled": false,
-        "url": "",
-        "access_token": "",
-        "access_token_query_compat": false
-      },
-      "http_api": {
-        "enabled": false,
-        "url": "",
-        "access_token": ""
-      },
-      "webhook": {
-        "enabled": false,
-        "url": "",
-        "access_token": "",
-        "access_token_query_compat": false
+        "onebot11": {
+          "reverse_ws": {
+            "enabled": true,
+            "url": "http://127.0.0.1:6700",
+            "access_token": "",
+            "access_token_query_compat": false
+          },
+          "forward_ws": {
+            "enabled": false,
+            "url": "",
+            "access_token": "",
+            "access_token_query_compat": false
+          },
+          "http_api": {
+            "enabled": false,
+            "url": "",
+            "access_token": ""
+          },
+          "webhook": {
+            "enabled": false,
+            "url": "",
+            "access_token": "",
+            "access_token_query_compat": false
+          }
+        }
       }
-    },
+    ],
     "database": {
       "engine": "sqlite",
       "path": "data/rayleabot.db"
@@ -153,6 +160,6 @@
   },
   "expect": {
     "valid": false,
-    "reason": "onebot.reverse_ws.url must satisfy the formal reverse WebSocket URI constraint"
+    "reason": "adapters[].onebot11.reverse_ws.url must satisfy the formal reverse WebSocket URI constraint"
   }
 }

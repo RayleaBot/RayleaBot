@@ -26,7 +26,7 @@ func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 	t.Parallel()
 
 	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		onebot := input["onebot"].(map[string]any)
+		onebot := testutil.ConfigDocumentOneBot(t, input)
 		onebot["forward_ws"].(map[string]any)["access_token"] = "forward-secret"
 		onebot["reverse_ws"].(map[string]any)["access_token"] = "reverse-secret"
 		onebot["http_api"].(map[string]any)["access_token"] = "http-secret"
@@ -64,7 +64,8 @@ func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 			t.Fatalf("config get response leaked %q: %s", secret, bodyText)
 		}
 	}
-	if got := body["config"].(map[string]any)["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"]; got != "********" {
+	responseOneBot := testutil.ConfigDocumentOneBot(t, body["config"].(map[string]any))
+	if got := responseOneBot["forward_ws"].(map[string]any)["access_token"]; got != "********" {
 		t.Fatalf("config get forward_ws.access_token = %#v, want redacted marker", got)
 	}
 }
@@ -73,7 +74,7 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	t.Parallel()
 
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
+		testutil.ConfigDocumentOneBot(t, input)["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-update-response.yaml"))
@@ -123,11 +124,11 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	if got := document["log"].(map[string]any)["level"]; got != "debug" {
 		t.Fatalf("unexpected persisted log.level: got %#v want debug", got)
 	}
-	onebot := document["onebot"].(map[string]any)
-	if got := onebot["forward_ws"].(map[string]any)["access_token"]; got != "secret://onebot/forward_ws/access_token" {
+	onebot := testutil.ConfigDocumentOneBot(t, document)
+	if got := onebot["forward_ws"].(map[string]any)["access_token"]; got != forwardTokenReference {
 		t.Fatalf("unexpected persisted forward_ws.access_token: got %#v want secret reference", got)
 	}
-	assertStoredConfigSecret(t, application, "config.onebot.forward_ws.access_token", "forward-secret")
+	assertStoredConfigSecret(t, application, forwardTokenStoreKey, "forward-secret")
 
 	if application.CurrentConfig().Server.Port != 8081 {
 		t.Fatalf("expected live config server.port to reflect saved value 8081, got %d", application.CurrentConfig().Server.Port)
@@ -135,8 +136,8 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	if application.CurrentConfig().Log.Level != "debug" {
 		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.CurrentConfig().Log.Level)
 	}
-	if application.CurrentConfig().OneBot.ForwardWS.AccessToken != "forward-secret" {
-		t.Fatalf("expected live config forward token to be resolved, got %q", application.CurrentConfig().OneBot.ForwardWS.AccessToken)
+	if got := liveOneBot(t, application).ForwardWS.AccessToken; got != "forward-secret" {
+		t.Fatalf("expected live config forward token to be resolved, got %q", got)
 	}
 }
 
@@ -144,7 +145,7 @@ func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T)
 	t.Parallel()
 
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		onebot := input["onebot"].(map[string]any)
+		onebot := testutil.ConfigDocumentOneBot(t, input)
 		onebot["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
 		onebot["reverse_ws"].(map[string]any)["access_token"] = "old-reverse-secret"
 	}, deterministicAuthOptions()...)
@@ -163,7 +164,7 @@ func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T)
 	}
 	defer getResponse.Body.Close()
 	document := decodeBody(t, readAll(t, getResponse))["config"].(map[string]any)
-	onebot := document["onebot"].(map[string]any)
+	onebot := testutil.ConfigDocumentOneBot(t, document)
 	onebot["reverse_ws"].(map[string]any)["access_token"] = ""
 	document["log"].(map[string]any)["level"] = "debug"
 
@@ -190,27 +191,27 @@ func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T)
 	if err != nil {
 		t.Fatalf("load persisted config: %v", err)
 	}
-	persistedOneBot := persisted["onebot"].(map[string]any)
-	if got := persistedOneBot["forward_ws"].(map[string]any)["access_token"]; got != "secret://onebot/forward_ws/access_token" {
+	persistedOneBot := testutil.ConfigDocumentOneBot(t, persisted)
+	if got := persistedOneBot["forward_ws"].(map[string]any)["access_token"]; got != forwardTokenReference {
 		t.Fatalf("forward token = %#v, want retained old secret", got)
 	}
 	if got := persistedOneBot["reverse_ws"].(map[string]any)["access_token"]; got != "" {
 		t.Fatalf("reverse token = %#v, want cleared secret", got)
 	}
-	assertStoredConfigSecret(t, application, "config.onebot.forward_ws.access_token", "old-forward-secret")
-	assertMissingConfigSecret(t, application, "config.onebot.reverse_ws.access_token")
+	assertStoredConfigSecret(t, application, forwardTokenStoreKey, "old-forward-secret")
+	assertMissingConfigSecret(t, application, reverseTokenStoreKey)
 }
 
 func TestAppNewResolvesOneBotSecretReferences(t *testing.T) {
 	t.Parallel()
 
 	application, _, _ := newTestAppWithOptions(t, func(input map[string]any) {
-		input["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "secret://onebot/forward_ws/access_token"
+		testutil.ConfigDocumentOneBot(t, input)["forward_ws"].(map[string]any)["access_token"] = forwardTokenReference
 	}, func(_ *internalapp.Options, configPath string) {
-		storeConfigSecretFixture(t, configPath, "config.onebot.forward_ws.access_token", "startup-secret")
+		storeConfigSecretFixture(t, configPath, forwardTokenStoreKey, "startup-secret")
 	}, deterministicAuthOptions()...)
 
-	if got := application.CurrentConfig().OneBot.ForwardWS.AccessToken; got != "startup-secret" {
+	if got := liveOneBot(t, application).ForwardWS.AccessToken; got != "startup-secret" {
 		t.Fatalf("forward access token = %q, want startup-secret", got)
 	}
 }
@@ -219,7 +220,7 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 	t.Parallel()
 
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["onebot"].(map[string]any)["forward_ws"].(map[string]any)["access_token"] = "fixture-only-secret"
+		testutil.ConfigDocumentOneBot(t, input)["forward_ws"].(map[string]any)["access_token"] = "fixture-only-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.config-update-invalid.yaml"))
@@ -270,12 +271,12 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	defer server.Close()
 
 	payload := map[string]any{
-		"schema_version": "3",
+		"schema_version": "4",
 		"server": map[string]any{
 			"host": "127.0.0.1",
 			"port": 8080,
 		},
-		"onebot": map[string]any{
+		"adapters": []any{testutil.OneBotAdapterDocument(internalconfig.DefaultOneBot11AdapterID, false, map[string]any{
 			"reverse_ws": map[string]any{
 				"enabled":      false,
 				"url":          "wss://bot.example.com/reverse",
@@ -296,7 +297,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 				"url":          "https://bot.example.com/webhook",
 				"access_token": "webhook-secret",
 			},
-		},
+		})},
 		"database": map[string]any{
 			"engine": "sqlite",
 			"path":   "data/rayleabot.db",
@@ -473,7 +474,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 		t.Fatalf("unexpected webhook snapshot: %#v", statusByTransport["webhook"])
 	}
 
-	reverseReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/reverse-ws", nil)
+	reverseReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters/onebot11/reverse-ws", nil)
 	if err != nil {
 		t.Fatalf("create reverse websocket request: %v", err)
 	}
@@ -487,7 +488,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 		t.Fatalf("unexpected reverse websocket status: got %d want 503", reverseResp.StatusCode)
 	}
 
-	webhookReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/protocols/onebot11/webhook", bytes.NewReader([]byte(`{}`)))
+	webhookReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/adapters/onebot11/webhook", bytes.NewReader([]byte(`{}`)))
 	if err != nil {
 		t.Fatalf("create webhook request: %v", err)
 	}
@@ -501,6 +502,25 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	if webhookResp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("unexpected webhook status: got %d want 503", webhookResp.StatusCode)
 	}
+}
+
+// The OneBot adapter of the config fixture keys its secrets under its own
+// instance id, so its reference and store key are spelled once here.
+var (
+	forwardTokenPath      = []string{"adapters", internalconfig.DefaultOneBot11AdapterID, "onebot11", "forward_ws", "access_token"}
+	reverseTokenPath      = []string{"adapters", internalconfig.DefaultOneBot11AdapterID, "onebot11", "reverse_ws", "access_token"}
+	forwardTokenReference = internalconfig.SecretReferenceFor(forwardTokenPath)
+	forwardTokenStoreKey  = internalconfig.SecretStoreKeyFor(forwardTokenPath)
+	reverseTokenStoreKey  = internalconfig.SecretStoreKeyFor(reverseTokenPath)
+)
+
+func liveOneBot(t *testing.T, application *internalapp.App) internalconfig.OneBotConfig {
+	t.Helper()
+	_, settings, ok := application.CurrentConfig().PrimaryOneBot11()
+	if !ok {
+		t.Fatal("live config has no onebot11 adapter")
+	}
+	return settings
 }
 
 func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), authOptions ...auth.Option) (*internalapp.App, string, string) {

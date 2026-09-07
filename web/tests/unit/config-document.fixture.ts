@@ -5,14 +5,19 @@ type ConfigureConfigDocument = (config: RuntimeConfigDocument) => void
 
 export function createConfigDocumentFixture(configure?: ConfigureConfigDocument): ConfigDocument {
   const config = {
-    schema_version: '3',
+    schema_version: '4',
     server: { host: '127.0.0.1', port: 8080 },
-    onebot: {
-      reverse_ws: { enabled: false, url: '', access_token: '', access_token_query_compat: false },
-      forward_ws: { enabled: false, url: '', access_token: '', access_token_query_compat: false },
-      http_api: { enabled: false, url: '', access_token: '' },
-      webhook: { enabled: false, url: '', access_token: '', access_token_query_compat: false },
-    },
+    adapters: [{
+      id: 'onebot11',
+      type: 'onebot11',
+      enabled: false,
+      onebot11: {
+        reverse_ws: { enabled: false, url: '', access_token: '', access_token_query_compat: false },
+        forward_ws: { enabled: false, url: '', access_token: '', access_token_query_compat: false },
+        http_api: { enabled: false, url: '', access_token: '' },
+        webhook: { enabled: false, url: '', access_token: '', access_token_query_compat: false },
+      },
+    }],
     database: { engine: 'sqlite', path: 'data/rayleabot.db' },
     command: { prefixes: ['/'] },
     builtin_features: {

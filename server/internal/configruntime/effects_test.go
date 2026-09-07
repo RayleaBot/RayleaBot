@@ -15,6 +15,13 @@ func TestConfigSchemaMetadataCoversCanonicalFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load default config: %v", err)
 	}
+	// A default install configures no adapters, so the document is given one
+	// instance of each type: the parity checked here is between the schema and
+	// the fields a document can hold, not the fields one install happens to set.
+	cfg.Adapters = []internalconfig.AdapterInstance{
+		{ID: "onebot11", Type: internalconfig.AdapterTypeOneBot11, OneBot11: &internalconfig.OneBotConfig{}},
+		{ID: "qq-official", Type: internalconfig.AdapterTypeQQOfficial, QQOfficial: &internalconfig.QQOfficialConfig{}},
+	}
 	paths := collectConfigLeafPaths(ConfigDocumentFromTyped(cfg))
 
 	var missing []string
@@ -47,11 +54,11 @@ func TestConfigSchemaMetadataMarksSecrets(t *testing.T) {
 	t.Parallel()
 
 	want := []string{
-		"onebot.forward_ws.access_token",
-		"onebot.http_api.access_token",
-		"onebot.reverse_ws.access_token",
-		"onebot.webhook.access_token",
-		"qq_official.app_secret",
+		"adapters.*.onebot11.forward_ws.access_token",
+		"adapters.*.onebot11.http_api.access_token",
+		"adapters.*.onebot11.reverse_ws.access_token",
+		"adapters.*.onebot11.webhook.access_token",
+		"adapters.*.qqofficial.app_secret",
 	}
 	got := ConfigSecretFieldPaths()
 	if !slices.Equal(got, want) {
@@ -131,7 +138,8 @@ func collectConfigLeafPaths(document map[string]any) []string {
 	var paths []string
 	collectConfigLeafPath("", document, &paths)
 	slices.Sort(paths)
-	return paths
+	// Every entry of a collection resolves to the same shape.
+	return slices.Compact(paths)
 }
 
 func collectConfigLeafPath(prefix string, value any, paths *[]string) {
@@ -146,7 +154,21 @@ func collectConfigLeafPath(prefix string, value any, paths *[]string) {
 		}
 		return
 	}
+	// A keyed collection contributes the shape its entries share, plus the
+	// collection path itself, which carries the policy for membership changes.
+	if entries, ok := value.([]any); ok && isConfigCollection(prefix) {
+		*paths = append(*paths, prefix)
+		for _, entry := range entries {
+			collectConfigLeafPath(joinConfigPath(prefix, ConfigCollectionWildcard), entry, paths)
+		}
+		return
+	}
 	if prefix != "" {
 		*paths = append(*paths, prefix)
 	}
+}
+
+func isConfigCollection(prefix string) bool {
+	_, ok := ConfigCollectionKey(ConfigShapePath(prefix))
+	return ok
 }

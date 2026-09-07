@@ -121,9 +121,17 @@ func (a *App) Run(ctx context.Context) error {
 		})
 	}
 	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
+	// Every configured instance runs; the primary is one of them, plus the
+	// stand-in shell built when no OneBot instance is configured.
 	a.eventStack.Adapter.Start(runCtx)
-	if a.eventStack.QQOfficial != nil {
-		a.eventStack.QQOfficial.Start(runCtx)
+	for _, shell := range a.eventStack.OneBotShells {
+		if shell == a.eventStack.Adapter {
+			continue
+		}
+		shell.Start(runCtx)
+	}
+	for _, client := range a.eventStack.QQOfficial {
+		client.Start(runCtx)
 	}
 	a.platform.Scheduler.Start(runCtx)
 
@@ -340,11 +348,17 @@ func configureAppRuntimeCallbacks(application *App) {
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
 	}
+	// Every adapter feeds the same ingress; the OneBot instance the management
+	// surface reports on is additionally the one driving snapshot publication.
+	for _, shell := range application.eventStack.OneBotShells {
+		shell.SetEventHandler(eventIngress.HandleAdapterEvent)
+		shell.SetReadyHandler(eventIngress.HandleAdapterReady)
+	}
+	for _, client := range application.eventStack.QQOfficial {
+		client.SetEventHandler(eventIngress.HandleAdapterEvent)
+	}
 	if application.eventStack.Adapter != nil {
 		application.eventStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
-		if application.eventStack.QQOfficial != nil {
-			application.eventStack.QQOfficial.SetEventHandler(eventIngress.HandleAdapterEvent)
-		}
 		application.eventStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
 		application.eventStack.Adapter.SetStateHandler(func(onebot11.Snapshot) {
 			systemService.PublishStatusSnapshot()

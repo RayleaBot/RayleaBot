@@ -31,7 +31,7 @@ func TestLiveMediaReply(t *testing.T) {
 
 	client := New(
 		config.QQOfficialConfig{
-			Enabled: true, AppID: appID, AppSecret: appSecret,
+			AppID: appID, AppSecret: appSecret,
 			Intents: []string{"group_and_c2c", "public_guild_messages"},
 		},
 		config.AdapterConfig{ConnectTimeoutSeconds: 15, ReconnectInitialSeconds: 2, ReconnectMultiplier: 2, ReconnectMaxSeconds: 30},

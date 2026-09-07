@@ -25,6 +25,17 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
+// oneBotAdapters wraps OneBot settings in the single adapter instance these
+// tests configure, so a case states only the transports it cares about.
+func oneBotAdapters(settings config.OneBotConfig) []config.AdapterInstance {
+	return []config.AdapterInstance{{
+		ID:       config.DefaultOneBot11AdapterID,
+		Type:     config.AdapterTypeOneBot11,
+		Enabled:  true,
+		OneBot11: &settings,
+	}}
+}
+
 func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 	t.Parallel()
 
@@ -33,24 +44,7 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			Host: "127.0.0.1",
 			Port: 8080,
 		},
-		OneBot: config.OneBotConfig{
-			ReverseWS: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			ForwardWS: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			HTTPAPI: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			Webhook: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-		},
+		Adapters: oneBotAdapters(config.OneBotConfig{}),
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/"},
 		},
@@ -88,24 +82,9 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			Host: "127.0.0.1",
 			Port: 8081,
 		},
-		OneBot: config.OneBotConfig{
-			ReverseWS: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			ForwardWS: config.OneBotTransportConfig{
-				Enabled: true,
-				URL:     "ws://127.0.0.1:2658",
-			},
-			HTTPAPI: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			Webhook: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-		},
+		Adapters: oneBotAdapters(config.OneBotConfig{
+			ForwardWS: config.OneBotTransportConfig{Enabled: true, URL: "ws://127.0.0.1:2658"},
+		}),
 		Command: &config.CommandConfig{
 			Prefixes: []string{"!"},
 		},
@@ -146,10 +125,12 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 	}) {
 		t.Fatalf("unexpected applied_now: %#v", effects.AppliedNow)
 	}
+	// A transport field keeps its own apply policy inside the adapters list:
+	// the change is addressed to one instance, not to the collection.
 	if !reflect.DeepEqual(effects.ReloadedNow, []string{
 		"adapter.connect_timeout_seconds",
-		"onebot.forward_ws.enabled",
-		"onebot.forward_ws.url",
+		"adapters.onebot11.onebot11.forward_ws.enabled",
+		"adapters.onebot11.onebot11.forward_ws.url",
 	}) {
 		t.Fatalf("unexpected reloaded_now: %#v", effects.ReloadedNow)
 	}
@@ -169,24 +150,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	baseConfig := config.Config{
-		OneBot: config.OneBotConfig{
-			ReverseWS: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			ForwardWS: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			HTTPAPI: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			Webhook: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-		},
+		Adapters: oneBotAdapters(config.OneBotConfig{}),
 		Adapter: config.AdapterConfig{
 			ConnectTimeoutSeconds:   15,
 			ReconnectInitialSeconds: 2,
@@ -197,11 +161,18 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	}
 	app := newTestAppState(baseConfig, logger)
 
-	adapterShell := onebot11.New(baseConfig.OneBot, baseConfig.Adapter, logger)
+	_, oneBotSettings, ok := baseConfig.PrimaryOneBot11()
+	if !ok {
+		t.Fatal("base config has no onebot11 adapter")
+	}
+	adapterShell := onebot11.New(oneBotSettings, baseConfig.Adapter, logger)
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	app.services.Protocol = wsevents.NewProtocolService(app.state, adapterShell, nil)
+	app.services.Protocol = wsevents.NewProtocolService(app.state, wsevents.ProtocolServiceAdapters{
+		OneBot11:        map[string]*onebot11.Shell{config.DefaultOneBot11AdapterID: adapterShell},
+		PrimaryOneBot11: adapterShell,
+	})
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -209,24 +180,9 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	})
 
 	effects := applyConfigApplyEffects(app, config.Config{
-		OneBot: config.OneBotConfig{
-			ReverseWS: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			ForwardWS: config.OneBotTransportConfig{
-				Enabled: true,
-				URL:     "ws://127.0.0.1:2658",
-			},
-			HTTPAPI: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-			Webhook: config.OneBotTransportConfig{
-				Enabled: false,
-				URL:     "",
-			},
-		},
+		Adapters: oneBotAdapters(config.OneBotConfig{
+			ForwardWS: config.OneBotTransportConfig{Enabled: true, URL: "ws://127.0.0.1:2658"},
+		}),
 		Adapter: baseConfig.Adapter,
 	})
 
@@ -234,8 +190,8 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 		t.Fatalf("reloaded_now = %#v, want [] after reload failure", effects.ReloadedNow)
 	}
 	if !reflect.DeepEqual(effects.RestartRequiredFields, []string{
-		"onebot.forward_ws.enabled",
-		"onebot.forward_ws.url",
+		"adapters.onebot11.onebot11.forward_ws.enabled",
+		"adapters.onebot11.onebot11.forward_ws.url",
 	}) {
 		t.Fatalf("unexpected restart_required_fields after reload failure: %#v", effects.RestartRequiredFields)
 	}

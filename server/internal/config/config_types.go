@@ -3,8 +3,7 @@ package config
 type Config struct {
 	SchemaVersion string                   `json:"schema_version" yaml:"schema_version"`
 	Server        ServerConfig             `json:"server" yaml:"server"`
-	OneBot        OneBotConfig             `json:"onebot" yaml:"onebot"`
-	QQOfficial    QQOfficialConfig         `json:"qq_official" yaml:"qq_official"`
+	Adapters      []AdapterInstance        `json:"adapters" yaml:"adapters"`
 	Database      DatabaseConfig           `json:"database" yaml:"database"`
 	Command       *CommandConfig           `json:"command" yaml:"command"`
 	Builtin       BuiltinConfig            `json:"builtin_features" yaml:"builtin_features"`
@@ -111,10 +110,19 @@ type OneBotConfig struct {
 	Webhook   OneBotTransportConfig `json:"webhook" yaml:"webhook"`
 }
 
-// QQOfficialConfig configures the QQ Open Platform adapter. The block is
-// optional in the schema: a zero value means the adapter is disabled.
+// AdapterInstance is one configured chat adapter. ID identifies this instance
+// across events, outbound routing and the inbound ingress routes; Type selects
+// which settings block applies. Several instances may share a type.
+type AdapterInstance struct {
+	ID         string            `json:"id" yaml:"id"`
+	Type       string            `json:"type" yaml:"type"`
+	Enabled    bool              `json:"enabled" yaml:"enabled"`
+	OneBot11   *OneBotConfig     `json:"onebot11,omitempty" yaml:"onebot11,omitempty"`
+	QQOfficial *QQOfficialConfig `json:"qqofficial,omitempty" yaml:"qqofficial,omitempty"`
+}
+
+// QQOfficialConfig configures the QQ Open Platform adapter.
 type QQOfficialConfig struct {
-	Enabled   bool     `json:"enabled" yaml:"enabled"`
 	AppID     string   `json:"app_id" yaml:"app_id"`
 	AppSecret string   `json:"app_secret" yaml:"app_secret"`
 	Intents   []string `json:"intents" yaml:"intents"`

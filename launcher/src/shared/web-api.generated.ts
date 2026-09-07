@@ -414,6 +414,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/adapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 列出聊天适配器及其连接状态
+         * @description 返回全部正式支持的聊天适配器，包含尚未配置的类型，供管理面展示已添加的协议 并引导添加新协议。每个条目说明该适配器是否已配置、是否启用及当前连接状态。
+         */
+        get: operations["listAdapters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/protocols/onebot11": {
         parameters: {
             query?: never;
@@ -482,15 +502,19 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/protocols/onebot11/reverse-ws": {
+    "/api/adapters/{adapterID}/reverse-ws": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Accept a OneBot11 reverse WebSocket callback session. */
-        get: operations["connectOneBot11ReverseWs"];
+        /**
+         * Accept a OneBot11 reverse WebSocket callback session for one adapter instance.
+         * @description 入口按适配器实例寻址：多个 OneBot 实例可以同时监听，各自使用自己的
+         *     access token。adapterID 是配置中该实例的 id；重命名实例即更改本 URL。
+         */
+        get: operations["connectAdapterReverseWs"];
         put?: never;
         post?: never;
         delete?: never;
@@ -499,7 +523,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/protocols/onebot11/webhook": {
+    "/api/adapters/{adapterID}/webhook": {
         parameters: {
             query?: never;
             header?: never;
@@ -508,8 +532,8 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Accept a OneBot11 webhook event payload. */
-        post: operations["ingestOneBot11Webhook"];
+        /** Accept a OneBot11 webhook event payload for one adapter instance. */
+        post: operations["ingestAdapterWebhook"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1428,6 +1452,47 @@ export interface components {
             status: "ok" | "missing" | "unreadable" | "unknown";
             is_dir: boolean;
         };
+        /**
+         * @description 正式支持的聊天适配器标识。集合随正式接入的适配器增长；管理面按此值区分协议， 不从会话种类或标识符格式推断来源。
+         * @enum {string}
+         */
+        AdapterProtocol: "onebot11" | "qqofficial";
+        /**
+         * @description 适配器连接状态，与聊天传输状态共用词表。
+         * @enum {string}
+         */
+        AdapterState: "idle" | "listening" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
+        AdapterIdentity: {
+            /** @description 适配器登录后由平台确认的机器人标识，属于该协议的身份命名空间。 */
+            id: string;
+            name: string;
+        };
+        AdapterDescriptor: {
+            /**
+             * @description 适配器实例标识，与配置 adapters[].id 一致。它决定出站路由、密钥存储键
+             *     和入站地址 /api/adapters/{id}/reverse-ws。
+             */
+            id: string;
+            protocol: components["schemas"]["AdapterProtocol"];
+            /** @description 管理面展示名。同一协议存在多个实例时包含实例标识以便区分。 */
+            display_name: string;
+            enabled: boolean;
+            state: components["schemas"]["AdapterState"];
+            summary: string;
+            identity?: components["schemas"]["AdapterIdentity"];
+        };
+        /** @description 可添加实例的聊天协议。 */
+        AdapterProtocolDescriptor: {
+            protocol: components["schemas"]["AdapterProtocol"];
+            display_name: string;
+            description: string;
+        };
+        AdaptersResponse: {
+            /** @description 已配置的适配器实例，按配置顺序返回；首个 OneBot 实例是管理面 OneBot 端点所描述的实例。 */
+            adapters: components["schemas"]["AdapterDescriptor"][];
+            /** @description 可添加实例的协议。集合与已配置实例无关，添加同一协议的多个实例是允许的。 */
+            available_protocols: components["schemas"]["AdapterProtocolDescriptor"][];
+        };
         /** @enum {string} */
         ProtocolProvider: "unknown" | "standard" | "napcat" | "luckylillia";
         /** @enum {string} */
@@ -2276,7 +2341,7 @@ export interface components {
             /** @default  */
             url: string | "" | unknown;
             /**
-             * @description OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token.
+             * @description OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/<transport>/access_token.
              * @default
              */
             access_token: string;
@@ -2292,7 +2357,7 @@ export interface components {
             /** @default  */
             url: string | "" | unknown;
             /**
-             * @description OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token.
+             * @description OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/http_api/access_token.
              * @default
              */
             access_token: string;
@@ -2303,7 +2368,7 @@ export interface components {
             /** @default  */
             url: string | "" | unknown;
             /**
-             * @description OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token.
+             * @description OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/webhook/access_token.
              * @default
              */
             access_token: string;
@@ -2313,7 +2378,50 @@ export interface components {
              */
             access_token_query_compat: boolean;
         };
+        onebot11AdapterSettings: {
+            reverse_ws: components["schemas"]["onebotWsTransport"];
+            forward_ws: components["schemas"]["onebotWsTransport"];
+            http_api: components["schemas"]["onebotHttpTransport"];
+            webhook: components["schemas"]["onebotWebhookTransport"];
+        };
+        /** @description QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace. */
+        qqOfficialAdapterSettings: {
+            /**
+             * @description QQ Open Platform AppID. Not a secret; it is sent as the X-Union-Appid header and may appear in diagnostics.
+             * @default
+             */
+            app_id: string;
+            /**
+             * @description QQ Open Platform AppSecret, exchanged for a short-lived app access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/qqofficial/app_secret.
+             * @default
+             */
+            app_secret: string;
+            /**
+             * @description Event categories to subscribe to at Identify. The adapter maps these names onto the gateway bitmask; an empty list disables event subscription.
+             * @default []
+             */
+            intents: ("group_and_c2c" | "guilds" | "guild_members" | "guild_messages" | "public_guild_messages" | "direct_message")[];
+            /**
+             * @description Use the QQ Open Platform sandbox endpoints instead of production.
+             * @default false
+             */
+            sandbox: boolean;
+        };
         rateLimit: string;
+        /** @description One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type. */
+        adapterInstance: {
+            /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL. */
+            id: string;
+            /**
+             * @description Chat protocol this instance speaks. It appears as event.source_protocol.
+             * @enum {string}
+             */
+            type: "onebot11" | "qqofficial";
+            /** @default false */
+            enabled: boolean;
+            onebot11?: components["schemas"]["onebot11AdapterSettings"];
+            qqofficial?: components["schemas"]["qqOfficialAdapterSettings"];
+        } & (unknown & unknown);
         /**
          * RayleaBot User Config
          * @description Fixture-ready schema for config/user.yaml. This file is the only formal source for the planning-aligned platform configuration shape.
@@ -2323,7 +2431,7 @@ export interface components {
              * @description Configuration schema version for bootstrap and validation.
              * @constant
              */
-            schema_version: "3";
+            schema_version: "4";
             server: {
                 /**
                  * @description HTTP server bind address. Use a loopback address for localhost_only and public_via_reverse_proxy, or an explicit private/LAN address for lan_enabled. Wildcard addresses are rejected. Requires restart.
@@ -2335,12 +2443,6 @@ export interface components {
                  * @default 8080
                  */
                 port: number;
-            };
-            onebot: {
-                reverse_ws: components["schemas"]["onebotWsTransport"];
-                forward_ws: components["schemas"]["onebotWsTransport"];
-                http_api: components["schemas"]["onebotHttpTransport"];
-                webhook: components["schemas"]["onebotWebhookTransport"];
             };
             database: {
                 /**
@@ -2706,6 +2808,11 @@ export interface components {
                  */
                 default_consistency: "offline" | "online";
             };
+            /**
+             * @description Configured chat adapters. An empty list means the bot accepts no chat traffic.
+             * @default []
+             */
+            adapters: components["schemas"]["adapterInstance"][];
             $defs: {
                 onebotWsTransport: {
                     /** @default false */
@@ -2713,7 +2820,7 @@ export interface components {
                     /** @default  */
                     url: string | "" | unknown;
                     /**
-                     * @description OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token.
+                     * @description OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/<transport>/access_token.
                      * @default
                      */
                     access_token: string;
@@ -2729,7 +2836,7 @@ export interface components {
                     /** @default  */
                     url: string | "" | unknown;
                     /**
-                     * @description OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token.
+                     * @description OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/http_api/access_token.
                      * @default
                      */
                     access_token: string;
@@ -2740,7 +2847,7 @@ export interface components {
                     /** @default  */
                     url: string | "" | unknown;
                     /**
-                     * @description OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token.
+                     * @description OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/webhook/access_token.
                      * @default
                      */
                     access_token: string;
@@ -2751,6 +2858,49 @@ export interface components {
                     access_token_query_compat: boolean;
                 };
                 rateLimit: string;
+                onebot11AdapterSettings: {
+                    reverse_ws: components["schemas"]["onebotWsTransport"];
+                    forward_ws: components["schemas"]["onebotWsTransport"];
+                    http_api: components["schemas"]["onebotHttpTransport"];
+                    webhook: components["schemas"]["onebotWebhookTransport"];
+                };
+                /** @description QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace. */
+                qqOfficialAdapterSettings: {
+                    /**
+                     * @description QQ Open Platform AppID. Not a secret; it is sent as the X-Union-Appid header and may appear in diagnostics.
+                     * @default
+                     */
+                    app_id: string;
+                    /**
+                     * @description QQ Open Platform AppSecret, exchanged for a short-lived app access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/qqofficial/app_secret.
+                     * @default
+                     */
+                    app_secret: string;
+                    /**
+                     * @description Event categories to subscribe to at Identify. The adapter maps these names onto the gateway bitmask; an empty list disables event subscription.
+                     * @default []
+                     */
+                    intents: ("group_and_c2c" | "guilds" | "guild_members" | "guild_messages" | "public_guild_messages" | "direct_message")[];
+                    /**
+                     * @description Use the QQ Open Platform sandbox endpoints instead of production.
+                     * @default false
+                     */
+                    sandbox: boolean;
+                };
+                /** @description One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type. */
+                adapterInstance: {
+                    /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL. */
+                    id: string;
+                    /**
+                     * @description Chat protocol this instance speaks. It appears as event.source_protocol.
+                     * @enum {string}
+                     */
+                    type: "onebot11" | "qqofficial";
+                    /** @default false */
+                    enabled: boolean;
+                    onebot11?: components["schemas"]["onebot11AdapterSettings"];
+                    qqofficial?: components["schemas"]["qqOfficialAdapterSettings"];
+                } & (unknown & unknown);
             };
         };
     };
@@ -2766,6 +2916,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
+        AdapterID: string;
         /** @description Select cookie for the browser session flow or bearer for API clients. Defaults to bearer. */
         SessionTransport: "cookie" | "bearer";
         LogId: string;
@@ -3383,6 +3535,28 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listAdapters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 适配器列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdaptersResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
     getOneBot11ProtocolSnapshot: {
         parameters: {
             query?: never;
@@ -3477,11 +3651,14 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    connectOneBot11ReverseWs: {
+    connectAdapterReverseWs: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
+                adapterID: components["parameters"]["AdapterID"];
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3497,11 +3674,14 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    ingestOneBot11Webhook: {
+    ingestAdapterWebhook: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
+                adapterID: components["parameters"]["AdapterID"];
+            };
             cookie?: never;
         };
         requestBody: {

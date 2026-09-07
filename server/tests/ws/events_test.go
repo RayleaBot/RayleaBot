@@ -11,9 +11,11 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/coder/websocket"
 )
 
@@ -137,7 +139,10 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	t.Parallel()
 
 	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		onebot := input["onebot"].(map[string]any)
+		// The instance switch is the master: a disabled instance runs no
+		// transport, so the ingress needs both turned on.
+		testutil.ConfigDocumentAdapterInstance(t, input, config.DefaultOneBot11AdapterID)["enabled"] = true
+		onebot := testutil.ConfigDocumentOneBot(t, input)
 		reverseWS := onebot["reverse_ws"].(map[string]any)
 		reverseWS["enabled"] = true
 		reverseWS["url"] = "ws://127.0.0.1:8080/onebot/reverse"
@@ -147,7 +152,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	unauthorizedReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11/reverse-ws", nil)
+	unauthorizedReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters/onebot11/reverse-ws", nil)
 	if err != nil {
 		t.Fatalf("create reverse websocket request: %v", err)
 	}

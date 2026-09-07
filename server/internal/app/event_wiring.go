@@ -22,7 +22,8 @@ type eventDeps struct {
 
 type EventState struct {
 	Adapter         *onebot11.Shell
-	QQOfficial      *qqofficial.Client
+	OneBotShells    map[string]*onebot11.Shell
+	QQOfficial      map[string]*qqofficial.Client
 	Bridge          *bridge.Bridge
 	Dispatcher      *dispatch.Dispatcher
 	ReplyTargets    *outbound.ReplyTargetCache
@@ -37,20 +38,40 @@ type outboundRuntimePolicy interface {
 }
 
 func buildEvents(deps eventDeps) EventState {
-	adapterShell := onebot11.New(deps.Config.OneBot, deps.Config.Adapter, deps.Logger)
-	senders := map[string]outbound.ActionSender{"onebot11": adapterShell}
+	// Adapters are built from the configured instances and keyed by instance id.
+	// Several instances may share a protocol, so routing keys on the id.
+	senders := make(map[string]outbound.ActionSender, len(deps.Config.Adapters))
+	oneBotShells := make(map[string]*onebot11.Shell, 1)
+	qqClients := make(map[string]*qqofficial.Client, 1)
 
-	// The QQ adapter only exists when it is configured; an absent or disabled
-	// block leaves the pipeline exactly as it was.
-	var qqClient *qqofficial.Client
-	if deps.Config.QQOfficial.Enabled {
-		qqClient = qqofficial.New(deps.Config.QQOfficial, deps.Config.Adapter, deps.Logger)
-		senders["qqofficial"] = qqClient
+	for _, instance := range deps.Config.Adapters {
+		if !instance.Enabled {
+			// A disabled instance is a choice, not a failure: nothing is built
+			// for it, so it neither connects nor accepts inbound traffic.
+			continue
+		}
+		switch {
+		case instance.Type == config.AdapterTypeOneBot11 && instance.OneBot11 != nil:
+			shell := onebot11.New(*instance.OneBot11, deps.Config.Adapter, deps.Logger)
+			oneBotShells[instance.ID] = shell
+			senders[instance.ID] = shell
+		case instance.Type == config.AdapterTypeQQOfficial && instance.QQOfficial != nil:
+			client := qqofficial.New(*instance.QQOfficial, deps.Config.Adapter, deps.Logger)
+			qqClients[instance.ID] = client
+			senders[instance.ID] = client
+		}
 	}
-	outboundSender := outbound.ActionSender(adapterShell)
-	if len(senders) > 1 {
-		outboundSender = newAdapterRouter(senders)
+
+	// The dispatcher and the OneBot protocol surface still speak about a single
+	// OneBot connection; that is the first configured one.
+	var adapterShell *onebot11.Shell
+	if instance, _, ok := deps.Config.PrimaryOneBot11(); ok {
+		adapterShell = oneBotShells[instance.ID]
 	}
+	if adapterShell == nil {
+		adapterShell = onebot11.New(config.OneBotConfig{}, deps.Config.Adapter, deps.Logger)
+	}
+	outboundSender := newAdapterRouter(senders)
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(
@@ -75,7 +96,8 @@ func buildEvents(deps eventDeps) EventState {
 
 	return EventState{
 		Adapter:         adapterShell,
-		QQOfficial:      qqClient,
+		OneBotShells:    oneBotShells,
+		QQOfficial:      qqClients,
 		Bridge:          eventBridge,
 		Dispatcher:      eventDispatcher,
 		ReplyTargets:    replyTargets,

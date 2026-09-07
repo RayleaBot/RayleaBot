@@ -9,8 +9,6 @@ import (
 
 const redactedConfigValue = "********"
 
-var secretConfigPaths = secretConfigPathSegments()
-
 func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) {
 	cloned := internalconfig.CloneDocument(document)
 	if cloned == nil {
@@ -57,11 +55,21 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 	return cloned
 }
 
+// configSectionPresent reports whether the request holds the section the secret
+// lives in. For a secret inside a collection entry that section is the entry's
+// settings block; otherwise it is the top-level section.
 func configSectionPresent(document map[string]any, path []string) bool {
-	if len(path) <= 1 {
+	sectionEnd := 1
+	for index := 1; index < len(path); index++ {
+		if _, ok := ConfigCollectionKey(ConfigShapePath(strings.Join(path[:index], "."))); ok {
+			// path[index] names an entry, so the section is the block inside it.
+			sectionEnd = index + 2
+		}
+	}
+	if sectionEnd >= len(path) {
 		return document != nil
 	}
-	section, ok := lookupConfigPath(document, path[:1])
+	section, ok := lookupConfigPath(document, path[:sectionEnd])
 	if !ok {
 		return false
 	}
@@ -87,15 +95,6 @@ func configSecretValues(cfg internalconfig.Config) []string {
 		values = append(values, secret)
 	}
 	return values
-}
-
-func secretConfigPathSegments() [][]string {
-	paths := ConfigSecretFieldPaths()
-	segments := make([][]string, 0, len(paths))
-	for _, path := range paths {
-		segments = append(segments, strings.Split(path, "."))
-	}
-	return segments
 }
 
 func lookupConfigPath(document map[string]any, path []string) (any, bool) {

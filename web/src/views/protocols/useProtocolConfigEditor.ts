@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess } from '@/adapter/feedback'
@@ -18,11 +18,12 @@ import type { ConfigDocument } from '@/types/api'
 export function useProtocolConfigEditor(
   configStore: ReturnType<typeof useConfigStore>,
   protocolsStore: ReturnType<typeof useProtocolsStore>,
+  adapterId: Ref<string>,
 ) {
   const { document, saving } = storeToRefs(configStore)
   const draft = ref<ConfigDocument | null>(null)
   const advancedExpanded = ref(false)
-  const configSections = computed(() => getProtocolConfigSections())
+  const configSections = computed(() => getProtocolConfigSections(adapterId.value))
 
   watch(document, (value) => {
     draft.value = value ? cloneConfig(value) : null

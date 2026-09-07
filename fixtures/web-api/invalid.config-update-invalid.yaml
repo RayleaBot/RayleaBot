@@ -5,30 +5,34 @@ request:
   method: PUT
   path: /api/config
   body:
-    schema_version: "3"
+    schema_version: "4"
     server:
       host: 127.0.0.1
       port: 8080
-    onebot:
-      reverse_ws:
+    adapters:
+      - id: onebot11
+        type: onebot11
         enabled: true
-        url: http://127.0.0.1:6700
-        access_token: ""
-        access_token_query_compat: false
-      forward_ws:
-        enabled: false
-        url: ""
-        access_token: ""
-        access_token_query_compat: false
-      http_api:
-        enabled: false
-        url: ""
-        access_token: ""
-      webhook:
-        enabled: false
-        url: ""
-        access_token: ""
-        access_token_query_compat: false
+        onebot11:
+          reverse_ws:
+            enabled: true
+            url: http://127.0.0.1:6700
+            access_token: ""
+            access_token_query_compat: false
+          forward_ws:
+            enabled: false
+            url: ""
+            access_token: ""
+            access_token_query_compat: false
+          http_api:
+            enabled: false
+            url: ""
+            access_token: ""
+          webhook:
+            enabled: false
+            url: ""
+            access_token: ""
+            access_token_query_compat: false
     database:
       engine: sqlite
       path: data/rayleabot.db
@@ -135,11 +139,11 @@ response:
       request_id: req_config_update_invalid
       details:
         fields:
-          - path: onebot.reverse_ws.url
-            reason: "at '/onebot/reverse_ws/url': value must be ''"
+          - path: adapters.0.onebot11.reverse_ws.url
+            reason: "at '/adapters/0/onebot11/reverse_ws/url': value must be ''"
             hint: 请填写该字段支持的 URL 格式。
-          - path: onebot.reverse_ws.url
-            reason: "at '/onebot/reverse_ws/url': 'http://127.0.0.1:6700' does not match pattern '^(ws|wss)://.+$'"
+          - path: adapters.0.onebot11.reverse_ws.url
+            reason: "at '/adapters/0/onebot11/reverse_ws/url': 'http://127.0.0.1:6700' does not match pattern '^(ws|wss)://.+$'"
             hint: 请填写该字段支持的 URL 格式。
 expect:
   valid: true

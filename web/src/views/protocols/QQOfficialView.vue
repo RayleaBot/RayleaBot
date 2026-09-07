@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
@@ -9,6 +10,10 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
+
+const route = useRoute()
+// The page edits one QQ instance, named by the route.
+const adapterId = computed(() => String(route.params.adapterId ?? 'qq-official'))
 
 const configStore = useConfigStore()
 const adaptersStore = useAdaptersStore()
@@ -35,13 +40,18 @@ onMounted(() => {
   void adaptersStore.refresh().catch(() => undefined)
 })
 
-const descriptor = computed(() => adaptersStore.adapters.find((item) => item.protocol === 'qqofficial') ?? null)
+const descriptor = computed(() => adaptersStore.adapters.find((item) => item.id === adapterId.value) ?? null)
+
+// enabled belongs to the instance; the credentials belong to its settings block.
+function instancePath(field: string) {
+  return `adapters.${adapterId.value}.${field}`
+}
 
 function read<T>(path: string, fallback: T): T {
   if (!draft.value) {
     return fallback
   }
-  const value = getValueByPath(draft.value as unknown as Record<string, unknown>, `qq_official.${path}`)
+  const value = getValueByPath(draft.value as unknown as Record<string, unknown>, instancePath(path))
   return (value ?? fallback) as T
 }
 
@@ -49,16 +59,16 @@ function write(path: string, value: unknown) {
   if (!draft.value) {
     return
   }
-  setValueByPath(draft.value as unknown as Record<string, unknown>, `qq_official.${path}`, value)
+  setValueByPath(draft.value as unknown as Record<string, unknown>, instancePath(path), value)
 }
 
 const enabled = computed({ get: () => read('enabled', false), set: (value) => write('enabled', value) })
-const appId = computed({ get: () => read('app_id', ''), set: (value) => write('app_id', value) })
-const appSecret = computed({ get: () => read('app_secret', ''), set: (value) => write('app_secret', value) })
-const sandbox = computed({ get: () => read('sandbox', false), set: (value) => write('sandbox', value) })
+const appId = computed({ get: () => read('qqofficial.app_id', ''), set: (value) => write('qqofficial.app_id', value) })
+const appSecret = computed({ get: () => read('qqofficial.app_secret', ''), set: (value) => write('qqofficial.app_secret', value) })
+const sandbox = computed({ get: () => read('qqofficial.sandbox', false), set: (value) => write('qqofficial.sandbox', value) })
 const intents = computed<string[]>({
-  get: () => read<string[]>('intents', []),
-  set: (value) => write('intents', value),
+  get: () => read<string[]>('qqofficial.intents', []),
+  set: (value) => write('qqofficial.intents', value),
 })
 
 const isDirty = computed(() => Boolean(draft.value && configDocument.value)

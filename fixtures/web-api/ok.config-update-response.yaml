@@ -5,30 +5,34 @@ request:
   method: PUT
   path: /api/config
   body:
-    schema_version: "3"
+    schema_version: "4"
     server:
       host: 127.0.0.1
       port: 8081
-    onebot:
-      reverse_ws:
+    adapters:
+      - id: onebot11
+        type: onebot11
         enabled: false
-        url: ""
-        access_token: reverse-secret
-        access_token_query_compat: false
-      forward_ws:
-        enabled: false
-        url: ""
-        access_token: forward-secret
-        access_token_query_compat: false
-      http_api:
-        enabled: false
-        url: ""
-        access_token: http-secret
-      webhook:
-        enabled: false
-        url: ""
-        access_token: webhook-secret
-        access_token_query_compat: false
+        onebot11:
+          reverse_ws:
+            enabled: false
+            url: ""
+            access_token: reverse-secret
+            access_token_query_compat: false
+          forward_ws:
+            enabled: false
+            url: ""
+            access_token: forward-secret
+            access_token_query_compat: false
+          http_api:
+            enabled: false
+            url: ""
+            access_token: http-secret
+          webhook:
+            enabled: false
+            url: ""
+            access_token: webhook-secret
+            access_token_query_compat: false
     database:
       engine: sqlite
       path: data/rayleabot.db
@@ -130,36 +134,34 @@ response:
   status: 200
   body:
     config:
-      schema_version: "3"
+      schema_version: "4"
       server:
         host: 127.0.0.1
         port: 8081
-      onebot:
-        reverse_ws:
+      adapters:
+        - id: onebot11
+          type: onebot11
           enabled: false
-          url: ""
-          access_token: "********"
-          access_token_query_compat: false
-        forward_ws:
-          enabled: false
-          url: ""
-          access_token: "********"
-          access_token_query_compat: false
-        http_api:
-          enabled: false
-          url: ""
-          access_token: "********"
-        webhook:
-          enabled: false
-          url: ""
-          access_token: "********"
-          access_token_query_compat: false
-      qq_official:
-        enabled: false
-        app_id: ""
-        app_secret: ""
-        intents: []
-        sandbox: false
+          onebot11:
+            reverse_ws:
+              enabled: false
+              url: ""
+              access_token: "********"
+              access_token_query_compat: false
+            forward_ws:
+              enabled: false
+              url: ""
+              access_token: "********"
+              access_token_query_compat: false
+            http_api:
+              enabled: false
+              url: ""
+              access_token: "********"
+            webhook:
+              enabled: false
+              url: ""
+              access_token: "********"
+              access_token_query_compat: false
       database:
         engine: sqlite
         path: data/rayleabot.db
@@ -258,20 +260,20 @@ response:
       backup:
         default_consistency: offline
     redacted_fields:
-      - onebot.forward_ws.access_token
-      - onebot.http_api.access_token
-      - onebot.reverse_ws.access_token
-      - onebot.webhook.access_token
+      - adapters.onebot11.onebot11.forward_ws.access_token
+      - adapters.onebot11.onebot11.http_api.access_token
+      - adapters.onebot11.onebot11.reverse_ws.access_token
+      - adapters.onebot11.onebot11.webhook.access_token
     restart_required: true
     apply_effects:
       applied_now:
         - builtin_features.menu.prefixes
         - log.level
       reloaded_now:
-        - onebot.forward_ws.access_token
-        - onebot.http_api.access_token
-        - onebot.reverse_ws.access_token
-        - onebot.webhook.access_token
+        - adapters.onebot11.onebot11.forward_ws.access_token
+        - adapters.onebot11.onebot11.http_api.access_token
+        - adapters.onebot11.onebot11.reverse_ws.access_token
+        - adapters.onebot11.onebot11.webhook.access_token
       restart_required_fields:
         - server.port
 expect:

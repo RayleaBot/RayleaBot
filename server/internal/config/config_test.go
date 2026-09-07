@@ -88,8 +88,8 @@ func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if cfg.Server.Port != 8080 {
 		t.Fatalf("Server.Port = %d, want 8080", cfg.Server.Port)
 	}
-	if cfg.OneBot.ForwardWS.URL != "" {
-		t.Fatalf("OneBot.ForwardWS.URL = %q, want empty by default", cfg.OneBot.ForwardWS.URL)
+	if len(cfg.Adapters) != 0 {
+		t.Fatalf("Adapters = %#v, want none by default", cfg.Adapters)
 	}
 
 	defaultPath := filepath.Join(filepath.Dir(configPath), "default.yaml")
@@ -105,8 +105,8 @@ func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
 
-	if got := nestedString(t, document, "schema_version"); got != "3" {
-		t.Fatalf("schema_version = %q, want 3", got)
+	if got := nestedString(t, document, "schema_version"); got != "4" {
+		t.Fatalf("schema_version = %q, want 4", got)
 	}
 	if _, ok := document["log"]; !ok {
 		t.Fatal("expected planning-aligned log section in persisted document")
@@ -123,14 +123,10 @@ func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	if got := nestedString(t, document, "builtin_features", "menu", "prefixes"); got != "[]" {
 		t.Fatalf("builtin_features.menu.prefixes = %q, want []", got)
 	}
-	if got := nestedString(t, document, "onebot", "reverse_ws", "url"); got != "" {
-		t.Fatalf("onebot.reverse_ws.url = %q, want empty", got)
-	}
-	if got := nestedString(t, document, "onebot", "forward_ws", "access_token"); got != "" {
-		t.Fatalf("onebot.forward_ws.access_token = %q, want empty", got)
-	}
-	if got := nestedString(t, document, "onebot", "forward_ws", "access_token_query_compat"); got != "false" {
-		t.Fatalf("onebot.forward_ws.access_token_query_compat = %q, want false", got)
+	// A fresh install configures no adapter: the bot accepts chat traffic only
+	// once the operator adds one.
+	if got := nestedString(t, document, "adapters"); got != "[]" {
+		t.Fatalf("adapters = %q, want []", got)
 	}
 	if got := nestedString(t, document, "render", "footer_template"); got != DefaultRenderFooterTemplate {
 		t.Fatalf("render.footer_template = %q, want default footer template", got)
@@ -167,7 +163,7 @@ func TestValidateDoesNotRewriteConfig(t *testing.T) {
 	configPath := filepath.Join(configDir, "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	writeYAMLDocument(t, configPath, map[string]any{
-		"schema_version": "3",
+		"schema_version": "4",
 		"server": map[string]any{
 			"port": 9090,
 		},
@@ -207,7 +203,7 @@ func TestLoadMergesDefaultAndUserOverrides(t *testing.T) {
 	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
 
 	override := map[string]any{
-		"schema_version": "3",
+		"schema_version": "4",
 		"server": map[string]any{
 			"port": 9090,
 		},
@@ -287,8 +283,8 @@ func TestSaveDocumentPersistsPlanningAlignedShape(t *testing.T) {
 	if err := yaml.Unmarshal(bytes, &saved); err != nil {
 		t.Fatalf("parse saved yaml: %v", err)
 	}
-	if got := nestedString(t, saved, "schema_version"); got != "3" {
-		t.Fatalf("schema_version = %q, want 3", got)
+	if got := nestedString(t, saved, "schema_version"); got != "4" {
+		t.Fatalf("schema_version = %q, want 4", got)
 	}
 }
 
@@ -298,27 +294,29 @@ func TestSaveDocumentAllowsBlankOneBotConnection(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = ""
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = false
-	delete(document["onebot"].(map[string]any)["forward_ws"].(map[string]any), "access_token")
+	forwardWS := planningOneBot(t, document)["forward_ws"].(map[string]any)
+	forwardWS["url"] = ""
+	forwardWS["enabled"] = false
+	delete(forwardWS, "access_token")
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
 	if err != nil {
 		t.Fatalf("SaveDocument() error = %v", err)
 	}
-	if cfg.OneBot.ForwardWS.URL != "" {
-		t.Fatalf("OneBot.ForwardWS.URL = %q, want empty", cfg.OneBot.ForwardWS.URL)
+	if got := onebotConfig(t, cfg).ForwardWS.URL; got != "" {
+		t.Fatalf("OneBot.ForwardWS.URL = %q, want empty", got)
 	}
 
 	saved, err := LoadDocument(configPath, schemaPath)
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, saved, "onebot", "forward_ws", "url"); got != "" {
-		t.Fatalf("saved onebot.forward_ws.url = %q, want empty", got)
+	savedForwardWS := adapterSettings(t, saved, DefaultOneBot11AdapterID, AdapterTypeOneBot11)["forward_ws"]
+	if got := nestedString(t, savedForwardWS.(map[string]any), "url"); got != "" {
+		t.Fatalf("saved forward_ws.url = %q, want empty", got)
 	}
-	if got := nestedString(t, saved, "onebot", "forward_ws", "access_token"); got != "" {
-		t.Fatalf("saved onebot.forward_ws.access_token = %q, want empty", got)
+	if got := nestedString(t, savedForwardWS.(map[string]any), "access_token"); got != "" {
+		t.Fatalf("saved forward_ws.access_token = %q, want empty", got)
 	}
 }
 
@@ -328,19 +326,20 @@ func TestSaveDocumentPreservesDisabledConfiguredOneBotTransports(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["enabled"] = false
-	document["onebot"].(map[string]any)["forward_ws"].(map[string]any)["url"] = "ws://127.0.0.1:2658"
-	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["enabled"] = false
-	document["onebot"].(map[string]any)["reverse_ws"].(map[string]any)["url"] = "wss://example.com/reverse"
+	onebot := planningOneBot(t, document)
+	onebot["forward_ws"].(map[string]any)["enabled"] = false
+	onebot["forward_ws"].(map[string]any)["url"] = "ws://127.0.0.1:2658"
+	onebot["reverse_ws"].(map[string]any)["enabled"] = false
+	onebot["reverse_ws"].(map[string]any)["url"] = "wss://example.com/reverse"
 
 	cfg, _, err := SaveDocument(configPath, schemaPath, document)
 	if err != nil {
 		t.Fatalf("SaveDocument() error = %v", err)
 	}
-	if cfg.OneBot.ForwardWS.Enabled {
+	if onebotConfig(t, cfg).ForwardWS.Enabled {
 		t.Fatal("OneBot.ForwardWS.Enabled = true, want false")
 	}
-	if cfg.OneBot.ReverseWS.Enabled {
+	if onebotConfig(t, cfg).ReverseWS.Enabled {
 		t.Fatal("OneBot.ReverseWS.Enabled = true, want false")
 	}
 
@@ -348,11 +347,12 @@ func TestSaveDocumentPreservesDisabledConfiguredOneBotTransports(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, saved, "onebot", "forward_ws", "enabled"); got != "false" {
-		t.Fatalf("saved onebot.forward_ws.enabled = %q, want false", got)
+	savedOneBot := adapterSettings(t, saved, DefaultOneBot11AdapterID, AdapterTypeOneBot11)
+	if got := nestedString(t, savedOneBot["forward_ws"].(map[string]any), "enabled"); got != "false" {
+		t.Fatalf("saved forward_ws.enabled = %q, want false", got)
 	}
-	if got := nestedString(t, saved, "onebot", "reverse_ws", "enabled"); got != "false" {
-		t.Fatalf("saved onebot.reverse_ws.enabled = %q, want false", got)
+	if got := nestedString(t, savedOneBot["reverse_ws"].(map[string]any), "enabled"); got != "false" {
+		t.Fatalf("saved reverse_ws.enabled = %q, want false", got)
 	}
 }
 
@@ -456,7 +456,7 @@ func TestLoadHealsNullPlanningAlignedValues(t *testing.T) {
 	defaultDoc["scheduler"].(map[string]any)["timezone"] = nil
 	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
 	writeYAMLDocument(t, configPath, map[string]any{
-		"schema_version": "3",
+		"schema_version": "4",
 		"server": map[string]any{
 			"host": "127.0.0.1",
 			"port": 8080,
@@ -486,6 +486,45 @@ func TestLoadHealsNullPlanningAlignedValues(t *testing.T) {
 	if cfg.Scheduler.Timezone != "" {
 		t.Fatalf("Scheduler.Timezone = %q, want empty", cfg.Scheduler.Timezone)
 	}
+}
+
+// planningOneBot returns the OneBot settings of the adapter the planning
+// document configures, so a test can edit one transport without restating the
+// whole adapters list.
+func planningOneBot(t *testing.T, document map[string]any) map[string]any {
+	t.Helper()
+	return adapterSettings(t, document, DefaultOneBot11AdapterID, AdapterTypeOneBot11)
+}
+
+func adapterSettings(t *testing.T, document map[string]any, id, block string) map[string]any {
+	t.Helper()
+	adapters, ok := document["adapters"].([]any)
+	if !ok {
+		t.Fatalf("document has no adapters list: %#v", document["adapters"])
+	}
+	for _, entry := range adapters {
+		instance, ok := entry.(map[string]any)
+		if !ok || instance["id"] != id {
+			continue
+		}
+		settings, ok := instance[block].(map[string]any)
+		if !ok {
+			t.Fatalf("adapter %q has no %s settings: %#v", id, block, instance)
+		}
+		return settings
+	}
+	t.Fatalf("document has no adapter %q", id)
+	return nil
+}
+
+// onebotConfig returns the settings of the one OneBot adapter a test configured.
+func onebotConfig(t *testing.T, cfg Config) OneBotConfig {
+	t.Helper()
+	_, settings, ok := cfg.PrimaryOneBot11()
+	if !ok {
+		t.Fatal("config has no onebot11 adapter")
+	}
+	return settings
 }
 
 func nestedString(t *testing.T, document map[string]any, path ...string) string {
@@ -534,36 +573,41 @@ func writeYAMLDocument(t *testing.T, path string, document map[string]any) {
 
 func newPlanningConfigDocument() map[string]any {
 	return map[string]any{
-		"schema_version": "3",
+		"schema_version": "4",
 		"server": map[string]any{
 			"host": "127.0.0.1",
 			"port": 8080,
 		},
-		"onebot": map[string]any{
-			"reverse_ws": map[string]any{
-				"enabled":                   false,
-				"url":                       "",
-				"access_token":              "",
-				"access_token_query_compat": false,
+		"adapters": []any{map[string]any{
+			"id":      DefaultOneBot11AdapterID,
+			"type":    AdapterTypeOneBot11,
+			"enabled": false,
+			"onebot11": map[string]any{
+				"reverse_ws": map[string]any{
+					"enabled":                   false,
+					"url":                       "",
+					"access_token":              "",
+					"access_token_query_compat": false,
+				},
+				"forward_ws": map[string]any{
+					"enabled":                   false,
+					"url":                       "",
+					"access_token":              "",
+					"access_token_query_compat": false,
+				},
+				"http_api": map[string]any{
+					"enabled":      false,
+					"url":          "",
+					"access_token": "",
+				},
+				"webhook": map[string]any{
+					"enabled":                   false,
+					"url":                       "",
+					"access_token":              "",
+					"access_token_query_compat": false,
+				},
 			},
-			"forward_ws": map[string]any{
-				"enabled":                   false,
-				"url":                       "",
-				"access_token":              "",
-				"access_token_query_compat": false,
-			},
-			"http_api": map[string]any{
-				"enabled":      false,
-				"url":          "",
-				"access_token": "",
-			},
-			"webhook": map[string]any{
-				"enabled":                   false,
-				"url":                       "",
-				"access_token":              "",
-				"access_token_query_compat": false,
-			},
-		},
+		}},
 		"database": map[string]any{
 			"engine": "sqlite",
 			"path":   "data/rayleabot.db",
@@ -685,42 +729,51 @@ func TestSaveDocumentTreatsQQOfficialAsOptional(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 
-	// Absent block: a config that predates the adapter still saves, and the
-	// zero value reads back as disabled.
+	// No QQ instance: a config that configures only OneBot still saves, and the
+	// QQ accessor reports nothing rather than a zero-valued adapter.
 	cfg, _, err := SaveDocument(configPath, schemaPath, newPlanningConfigDocument())
 	if err != nil {
-		t.Fatalf("SaveDocument() without qq_official error = %v", err)
+		t.Fatalf("SaveDocument() without a QQ adapter error = %v", err)
 	}
-	if cfg.QQOfficial.Enabled {
-		t.Fatal("QQOfficial.Enabled = true, want false when the block is absent")
+	if _, ok := cfg.QQOfficialSettings(DefaultQQOfficialAdapterID); ok {
+		t.Fatal("QQOfficialSettings reported settings for an adapter that was never configured")
 	}
 	saved, err := LoadDocument(configPath, schemaPath)
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if _, present := saved["qq_official"]; present {
-		t.Fatal("saved document gained a qq_official block that was never configured")
+	if adapters, ok := saved["adapters"].([]any); !ok || len(adapters) != 1 {
+		t.Fatalf("saved adapters = %#v, want only the configured OneBot adapter", saved["adapters"])
 	}
 
-	// Present block: values reach the typed config, and the secret stays a
-	// reference rather than a plaintext value.
+	// Configured instance: values reach the typed config, and the secret stays
+	// a reference rather than a plaintext value.
 	document := newPlanningConfigDocument()
-	document["qq_official"] = map[string]any{
-		"enabled":    true,
-		"app_id":     "102209770",
-		"app_secret": "secret://qq_official/app_secret",
-		"intents":    []any{"group_and_c2c"},
-		"sandbox":    false,
-	}
+	document["adapters"] = append(document["adapters"].([]any), map[string]any{
+		"id":      DefaultQQOfficialAdapterID,
+		"type":    AdapterTypeQQOfficial,
+		"enabled": true,
+		"qqofficial": map[string]any{
+			"app_id":     "100000001",
+			"app_secret": "secret://adapters/qq-official/qqofficial/app_secret",
+			"intents":    []any{"group_and_c2c"},
+			"sandbox":    false,
+		},
+	})
 	cfg, _, err = SaveDocument(configPath, schemaPath, document)
 	if err != nil {
-		t.Fatalf("SaveDocument() with qq_official error = %v", err)
+		t.Fatalf("SaveDocument() with a QQ adapter error = %v", err)
 	}
-	if !cfg.QQOfficial.Enabled || cfg.QQOfficial.AppID != "102209770" {
-		t.Fatalf("QQOfficial = %+v, want enabled with the configured app id", cfg.QQOfficial)
+	instance, ok := cfg.AdapterByID(DefaultQQOfficialAdapterID)
+	if !ok || !instance.Enabled {
+		t.Fatalf("adapter %q = %+v, want an enabled instance", DefaultQQOfficialAdapterID, instance)
 	}
-	if len(cfg.QQOfficial.Intents) != 1 || cfg.QQOfficial.Intents[0] != "group_and_c2c" {
-		t.Fatalf("QQOfficial.Intents = %v, want [group_and_c2c]", cfg.QQOfficial.Intents)
+	settings, ok := cfg.QQOfficialSettings(DefaultQQOfficialAdapterID)
+	if !ok || settings.AppID != "100000001" {
+		t.Fatalf("QQOfficialSettings = %+v, %t, want the configured app id", settings, ok)
+	}
+	if len(settings.Intents) != 1 || settings.Intents[0] != "group_and_c2c" {
+		t.Fatalf("QQOfficial.Intents = %v, want [group_and_c2c]", settings.Intents)
 	}
 }
 
@@ -730,11 +783,16 @@ func TestSaveDocumentRejectsPartialQQOfficialBlock(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
 	document := newPlanningConfigDocument()
-	// enabled is required once the block exists; a half-written block must not
-	// silently start an adapter with defaults nobody chose.
-	document["qq_official"] = map[string]any{"app_id": "102209770"}
+	// The settings block has required fields of its own; a half-written block
+	// must not silently start an adapter with defaults nobody chose.
+	document["adapters"] = append(document["adapters"].([]any), map[string]any{
+		"id":         DefaultQQOfficialAdapterID,
+		"type":       AdapterTypeQQOfficial,
+		"enabled":    true,
+		"qqofficial": map[string]any{"app_id": "100000001"},
+	})
 
 	if _, _, err := SaveDocument(configPath, schemaPath, document); err == nil {
-		t.Fatal("SaveDocument() accepted a qq_official block missing required fields")
+		t.Fatal("SaveDocument() accepted a QQ settings block missing required fields")
 	}
 }

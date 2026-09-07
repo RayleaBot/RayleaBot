@@ -27,23 +27,12 @@ type ProtocolHandlers struct {
 }
 
 type protocolHTTPService interface {
-	Adapters() []wsevents.AdapterDescriptor
+	Adapters() wsevents.AdaptersView
 	CurrentOneBot11ProtocolSnapshot() wsevents.OneBot11ProtocolSnapshot
 	CurrentOneBot11ProtocolTargets(context.Context) wsevents.OneBot11ProtocolTargets
 	ResolveOneBot11Identities(context.Context, []wsevents.OneBot11IdentityResolveItem) wsevents.OneBot11IdentityResolveResult
 	CurrentOneBot11ProtocolCompatibility() (wsevents.OneBot11ProtocolCompatibility, error)
-	ReverseWSIngressAvailable() bool
-	ReverseWSIngressEnabled() bool
-	ReverseWSAccessToken() string
-	ReverseWSAccessTokenQueryCompat() bool
-	MarkReverseWSAuthFailed()
-	AttachReverseWS(*websocket.Conn)
-	WebhookIngressAvailable() bool
-	WebhookIngressEnabled() bool
-	WebhookAccessToken() string
-	WebhookAccessTokenQueryCompat() bool
-	MarkWebhookAuthFailed()
-	AcceptWebhookPayload(context.Context, []byte) error
+	OneBot11Ingress(id string) (wsevents.OneBot11Ingress, bool)
 }
 
 func NewProtocolHandlers(protocol protocolHTTPService) *ProtocolHandlers {
@@ -51,8 +40,10 @@ func NewProtocolHandlers(protocol protocolHTTPService) *ProtocolHandlers {
 }
 
 func (h *ProtocolHandlers) RegisterPublicRoutes(router chi.Router) {
-	router.Get("/api/protocols/onebot11/reverse-ws", h.HandleProtocolOneBot11ReverseWS())
-	router.Post("/api/protocols/onebot11/webhook", h.HandleProtocolOneBot11Webhook())
+	// Ingress is addressed per adapter instance: several OneBot adapters can be
+	// listening at once, each with its own credential.
+	router.Get("/api/adapters/{adapterID}/reverse-ws", h.HandleAdapterReverseWS())
+	router.Post("/api/adapters/{adapterID}/webhook", h.HandleAdapterWebhook())
 }
 
 func (h *ProtocolHandlers) RegisterProtectedRoutes(router chi.Router) {
@@ -97,18 +88,19 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11Compatibility() http.HandlerFun
 	}
 }
 
-func (h *ProtocolHandlers) HandleProtocolOneBot11ReverseWS() http.HandlerFunc {
+func (h *ProtocolHandlers) HandleAdapterReverseWS() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !h.protocol.ReverseWSIngressAvailable() {
+		ingress, ok := h.protocol.OneBot11Ingress(chi.URLParam(r, "adapterID"))
+		if !ok {
 			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口不可用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
 			return
 		}
-		if !h.protocol.ReverseWSIngressEnabled() {
+		if !ingress.ReverseWSEnabled() {
 			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口未启用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
 			return
 		}
-		if !allowOneBotIngress(r, h.protocol.ReverseWSAccessToken(), h.protocol.ReverseWSAccessTokenQueryCompat()) {
-			h.protocol.MarkReverseWSAuthFailed()
+		if !allowOneBotIngress(r, ingress.ReverseWSAccessToken(), ingress.ReverseWSAccessTokenQueryCompat()) {
+			ingress.MarkReverseWSAuthFailed()
 			httpapi.WriteError(w, r, http.StatusUnauthorized, "adapter.transport_reverse_ws_auth_failed", "协议鉴权失败", "errors.adapter.transport_reverse_ws_auth_failed", nil)
 			return
 		}
@@ -117,22 +109,23 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11ReverseWS() http.HandlerFunc {
 		if err != nil {
 			return
 		}
-		h.protocol.AttachReverseWS(conn)
+		ingress.AttachReverseWS(conn)
 	}
 }
 
-func (h *ProtocolHandlers) HandleProtocolOneBot11Webhook() http.HandlerFunc {
+func (h *ProtocolHandlers) HandleAdapterWebhook() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !h.protocol.WebhookIngressAvailable() {
+		ingress, ok := h.protocol.OneBot11Ingress(chi.URLParam(r, "adapterID"))
+		if !ok {
 			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 不可用", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
-		if !h.protocol.WebhookIngressEnabled() {
+		if !ingress.WebhookEnabled() {
 			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 入口未启用", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
-		if !allowOneBotIngress(r, h.protocol.WebhookAccessToken(), h.protocol.WebhookAccessTokenQueryCompat()) {
-			h.protocol.MarkWebhookAuthFailed()
+		if !allowOneBotIngress(r, ingress.WebhookAccessToken(), ingress.WebhookAccessTokenQueryCompat()) {
+			ingress.MarkWebhookAuthFailed()
 			httpapi.WriteError(w, r, http.StatusUnauthorized, "adapter.transport_webhook_auth_failed", "协议鉴权失败", "errors.adapter.transport_webhook_auth_failed", nil)
 			return
 		}
@@ -142,7 +135,7 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11Webhook() http.HandlerFunc {
 			httpapi.WriteError(w, r, http.StatusBadRequest, protocolCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
-		if err := h.protocol.AcceptWebhookPayload(r.Context(), payload); err != nil {
+		if err := ingress.AcceptWebhookPayload(r.Context(), payload); err != nil {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 负载不合法", "errors.adapter.transport_webhook_invalid_payload", nil)
 			return
 		}
@@ -168,19 +161,11 @@ func allowOneBotIngress(r *http.Request, accessToken string, allowQueryToken boo
 	return false
 }
 
-type adaptersResponse struct {
-	Adapters []wsevents.AdapterDescriptor `json:"adapters"`
-}
-
-// HandleAdapters lists every formally supported chat adapter, including ones
-// that are not configured, so the management surface can show what is
-// connected and offer the rest as something to add.
+// HandleAdapters lists the configured adapter instances alongside the
+// protocols an instance can be added for, so the management surface can show
+// what is connected and offer the rest as something to add.
 func (h *ProtocolHandlers) HandleAdapters() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		adapters := h.protocol.Adapters()
-		if adapters == nil {
-			adapters = []wsevents.AdapterDescriptor{}
-		}
-		httpapi.WriteJSON(w, http.StatusOK, adaptersResponse{Adapters: adapters})
+	return func(w http.ResponseWriter, _ *http.Request) {
+		httpapi.WriteJSON(w, http.StatusOK, h.protocol.Adapters())
 	}
 }

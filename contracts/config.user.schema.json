@@ -8,7 +8,7 @@
   "required": [
     "schema_version",
     "server",
-    "onebot",
+    "adapters",
     "database",
     "command",
     "builtin_features",
@@ -32,7 +32,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "3",
+      "const": "4",
       "description": "Configuration schema version for bootstrap and validation.",
       "x-apply-policy": "read_only"
     },
@@ -57,88 +57,6 @@
           "default": 8080,
           "description": "HTTP server listen port. Default: 8080. Requires restart.",
           "x-apply-policy": "restart_required"
-        }
-      }
-    },
-    "onebot": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "reverse_ws",
-        "forward_ws",
-        "http_api",
-        "webhook"
-      ],
-      "properties": {
-        "reverse_ws": {
-          "$ref": "#/$defs/onebotWsTransport"
-        },
-        "forward_ws": {
-          "$ref": "#/$defs/onebotWsTransport"
-        },
-        "http_api": {
-          "$ref": "#/$defs/onebotHttpTransport"
-        },
-        "webhook": {
-          "$ref": "#/$defs/onebotWebhookTransport"
-        }
-      }
-    },
-    "qq_official": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace.",
-      "required": [
-        "enabled",
-        "app_id",
-        "app_secret",
-        "intents",
-        "sandbox"
-      ],
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "default": false,
-          "x-apply-policy": "adapter_reload"
-        },
-        "app_id": {
-          "type": "string",
-          "default": "",
-          "pattern": "^$|^[0-9]+$",
-          "description": "QQ Open Platform AppID. Not a secret; it is sent as the X-Union-Appid header and may appear in diagnostics.",
-          "x-apply-policy": "adapter_reload"
-        },
-        "app_secret": {
-          "type": "string",
-          "default": "",
-          "description": "QQ Open Platform AppSecret, exchanged for a short-lived app access token. Management API updates store plaintext values in the local secret store and persist this field as secret://qq_official/app_secret.",
-          "x-apply-policy": "secret_only",
-          "x-secret": true,
-          "x-redaction": "full"
-        },
-        "intents": {
-          "type": "array",
-          "default": [],
-          "uniqueItems": true,
-          "description": "Event categories to subscribe to at Identify. The adapter maps these names onto the gateway bitmask; an empty list disables event subscription.",
-          "items": {
-            "type": "string",
-            "enum": [
-              "group_and_c2c",
-              "guilds",
-              "guild_members",
-              "guild_messages",
-              "public_guild_messages",
-              "direct_message"
-            ]
-          },
-          "x-apply-policy": "adapter_reload"
-        },
-        "sandbox": {
-          "type": "boolean",
-          "default": false,
-          "description": "Use the QQ Open Platform sandbox endpoints instead of production.",
-          "x-apply-policy": "adapter_reload"
         }
       }
     },
@@ -947,6 +865,16 @@
           "x-apply-policy": "read_only"
         }
       }
+    },
+    "adapters": {
+      "type": "array",
+      "default": [],
+      "description": "Configured chat adapters. An empty list means the bot accepts no chat traffic.",
+      "x-apply-policy": "restart_required",
+      "x-collection-key": "id",
+      "items": {
+        "$ref": "#/$defs/adapterInstance"
+      }
     }
   },
   "$defs": {
@@ -982,7 +910,7 @@
         "access_token": {
           "type": "string",
           "default": "",
-          "description": "OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/<transport>/access_token.",
+          "description": "OneBot access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/<transport>/access_token.",
           "x-apply-policy": "secret_only",
           "x-secret": true,
           "x-redaction": "full"
@@ -1026,7 +954,7 @@
         "access_token": {
           "type": "string",
           "default": "",
-          "description": "OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/http_api/access_token.",
+          "description": "OneBot HTTP API access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/http_api/access_token.",
           "x-apply-policy": "secret_only",
           "x-secret": true,
           "x-redaction": "full"
@@ -1065,7 +993,7 @@
         "access_token": {
           "type": "string",
           "default": "",
-          "description": "OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://onebot/webhook/access_token.",
+          "description": "OneBot webhook access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/onebot11/webhook/access_token.",
           "x-apply-policy": "secret_only",
           "x-secret": true,
           "x-redaction": "full"
@@ -1082,6 +1010,158 @@
       "type": "string",
       "pattern": "^[1-9][0-9]*/[1-9][0-9]*(s|m|h)$",
       "x-apply-policy": "hot_reload"
+    },
+    "onebot11AdapterSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reverse_ws",
+        "forward_ws",
+        "http_api",
+        "webhook"
+      ],
+      "properties": {
+        "reverse_ws": {
+          "$ref": "#/$defs/onebotWsTransport"
+        },
+        "forward_ws": {
+          "$ref": "#/$defs/onebotWsTransport"
+        },
+        "http_api": {
+          "$ref": "#/$defs/onebotHttpTransport"
+        },
+        "webhook": {
+          "$ref": "#/$defs/onebotWebhookTransport"
+        }
+      }
+    },
+    "qqOfficialAdapterSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace.",
+      "required": [
+        "app_id",
+        "app_secret",
+        "intents",
+        "sandbox"
+      ],
+      "properties": {
+        "app_id": {
+          "type": "string",
+          "default": "",
+          "pattern": "^$|^[0-9]+$",
+          "description": "QQ Open Platform AppID. Not a secret; it is sent as the X-Union-Appid header and may appear in diagnostics.",
+          "x-apply-policy": "adapter_reload"
+        },
+        "app_secret": {
+          "type": "string",
+          "default": "",
+          "description": "QQ Open Platform AppSecret, exchanged for a short-lived app access token. Management API updates store plaintext values in the local secret store and persist this field as secret://adapters/<adapter id>/qqofficial/app_secret.",
+          "x-apply-policy": "secret_only",
+          "x-secret": true,
+          "x-redaction": "full"
+        },
+        "intents": {
+          "type": "array",
+          "default": [],
+          "uniqueItems": true,
+          "description": "Event categories to subscribe to at Identify. The adapter maps these names onto the gateway bitmask; an empty list disables event subscription.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "group_and_c2c",
+              "guilds",
+              "guild_members",
+              "guild_messages",
+              "public_guild_messages",
+              "direct_message"
+            ]
+          },
+          "x-apply-policy": "adapter_reload"
+        },
+        "sandbox": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use the QQ Open Platform sandbox endpoints instead of production.",
+          "x-apply-policy": "adapter_reload"
+        }
+      }
+    },
+    "adapterInstance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type.",
+      "required": [
+        "id",
+        "type",
+        "enabled"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL.",
+          "x-apply-policy": "restart_required"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "onebot11",
+            "qqofficial"
+          ],
+          "description": "Chat protocol this instance speaks. It appears as event.source_protocol.",
+          "x-apply-policy": "restart_required"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "x-apply-policy": "adapter_reload"
+        },
+        "onebot11": {
+          "$ref": "#/$defs/onebot11AdapterSettings"
+        },
+        "qqofficial": {
+          "$ref": "#/$defs/qqOfficialAdapterSettings"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "onebot11"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "onebot11"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "qqofficial"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "required": [
+              "qqofficial"
+            ]
+          }
+        }
+      ]
     }
   },
   "x-fixtures": [

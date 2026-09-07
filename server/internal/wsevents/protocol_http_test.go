@@ -204,7 +204,7 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	if len(requests) != 2 {
 		t.Fatalf("runtime info requests = %d, want 2", len(requests))
 	}
-	service := NewProtocolService(protocolTestConfigSource{}, shell, nil)
+	service := NewProtocolService(protocolTestConfigSource{}, ProtocolServiceAdapters{PrimaryOneBot11: shell})
 
 	snapshot := service.CurrentOneBot11ProtocolSnapshot()
 	if snapshot.Provider != "luckylillia" {
@@ -310,7 +310,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	shell.Start(ctx)
 	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
-	service := NewProtocolService(protocolTestConfigSource{}, shell, nil)
+	service := NewProtocolService(protocolTestConfigSource{}, ProtocolServiceAdapters{PrimaryOneBot11: shell})
 	service.oneBot11TargetReadTimeout = 60 * time.Millisecond
 
 	started := time.Now()
@@ -341,7 +341,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T) {
 	t.Parallel()
 
-	service := NewProtocolService(protocolTestConfigSource{}, nil, nil)
+	service := NewProtocolService(protocolTestConfigSource{}, ProtocolServiceAdapters{})
 
 	response, err := service.CurrentOneBot11ProtocolCompatibility()
 	if err != nil {

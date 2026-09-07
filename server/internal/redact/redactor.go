@@ -86,11 +86,21 @@ func normalizeValues(values []string) []string {
 }
 
 func NewManagementRedactor(cfg config.Config) *Redactor {
-	values := []string{
-		cfg.OneBot.ReverseWS.AccessToken,
-		cfg.OneBot.ForwardWS.AccessToken,
-		cfg.OneBot.HTTPAPI.AccessToken,
-		cfg.OneBot.Webhook.AccessToken,
+	// Every configured adapter contributes its secrets, so adding an instance
+	// cannot leave one of its tokens unredacted.
+	values := make([]string, 0, len(cfg.Adapters)*4)
+	for _, adapter := range cfg.Adapters {
+		if adapter.OneBot11 != nil {
+			values = append(values,
+				adapter.OneBot11.ReverseWS.AccessToken,
+				adapter.OneBot11.ForwardWS.AccessToken,
+				adapter.OneBot11.HTTPAPI.AccessToken,
+				adapter.OneBot11.Webhook.AccessToken,
+			)
+		}
+		if adapter.QQOfficial != nil {
+			values = append(values, adapter.QQOfficial.AppSecret)
+		}
 	}
 	values = append(values, sensitiveEnvironmentValues(os.Environ())...)
 	return New(values...)

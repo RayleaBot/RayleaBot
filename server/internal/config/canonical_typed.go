@@ -6,8 +6,7 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 	return map[string]any{
 		"schema_version":       currentSchemaVersion,
 		"server":               configServerDocument(cfg),
-		"onebot":               configOneBotDocument(cfg),
-		"qq_official":          configQQOfficialDocument(cfg),
+		"adapters":             configAdaptersDocument(cfg),
 		"database":             configDatabaseDocument(cfg),
 		"command":              configCommandDocument(cfg),
 		"builtin_features":     configBuiltinFeaturesDocument(cfg),
@@ -120,28 +119,45 @@ func configServerDocument(cfg Config) map[string]any {
 	}
 }
 
-func configOneBotDocument(cfg Config) map[string]any {
+func configAdaptersDocument(cfg Config) []any {
+	adapters := make([]any, 0, len(cfg.Adapters))
+	for _, adapter := range cfg.Adapters {
+		document := map[string]any{
+			"id":      adapter.ID,
+			"type":    adapter.Type,
+			"enabled": adapter.Enabled,
+		}
+		if adapter.OneBot11 != nil {
+			document["onebot11"] = oneBotSettingsDocument(*adapter.OneBot11)
+		}
+		if adapter.QQOfficial != nil {
+			document["qqofficial"] = qqOfficialSettingsDocument(*adapter.QQOfficial)
+		}
+		adapters = append(adapters, document)
+	}
+	return adapters
+}
+
+func oneBotSettingsDocument(settings OneBotConfig) map[string]any {
 	return map[string]any{
-		"reverse_ws": oneBotTransportCompatDocument(cfg.OneBot.ReverseWS),
-		"forward_ws": oneBotTransportCompatDocument(cfg.OneBot.ForwardWS),
-		"http_api":   oneBotTransportConfigDocument(cfg.OneBot.HTTPAPI),
-		"webhook":    oneBotTransportCompatDocument(cfg.OneBot.Webhook),
+		"reverse_ws": oneBotTransportCompatDocument(settings.ReverseWS),
+		"forward_ws": oneBotTransportCompatDocument(settings.ForwardWS),
+		"http_api":   oneBotTransportConfigDocument(settings.HTTPAPI),
+		"webhook":    oneBotTransportCompatDocument(settings.Webhook),
 	}
 }
 
-func configQQOfficialDocument(cfg Config) map[string]any {
-	intents := cfg.QQOfficial.Intents
+func qqOfficialSettingsDocument(settings QQOfficialConfig) map[string]any {
+	intents := settings.Intents
 	if intents == nil {
-		// The schema types intents as an array; a nil slice would marshal to
-		// null and fail validation.
+		// The schema types intents as an array; a nil slice marshals to null.
 		intents = []string{}
 	}
 	return map[string]any{
-		"enabled":    cfg.QQOfficial.Enabled,
-		"app_id":     cfg.QQOfficial.AppID,
-		"app_secret": cfg.QQOfficial.AppSecret,
+		"app_id":     settings.AppID,
+		"app_secret": settings.AppSecret,
 		"intents":    intents,
-		"sandbox":    cfg.QQOfficial.Sandbox,
+		"sandbox":    settings.Sandbox,
 	}
 }
 

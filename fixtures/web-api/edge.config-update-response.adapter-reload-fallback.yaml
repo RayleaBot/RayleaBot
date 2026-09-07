@@ -5,30 +5,34 @@ request:
   method: PUT
   path: /api/config
   body:
-    schema_version: "3"
+    schema_version: "4"
     server:
       host: 127.0.0.1
       port: 8080
-    onebot:
-      reverse_ws:
-        enabled: false
-        url: ""
-        access_token: ""
-        access_token_query_compat: false
-      forward_ws:
+    adapters:
+      - id: onebot11
+        type: onebot11
         enabled: true
-        url: ws://127.0.0.1:2658
-        access_token: ""
-        access_token_query_compat: false
-      http_api:
-        enabled: false
-        url: ""
-        access_token: ""
-      webhook:
-        enabled: false
-        url: ""
-        access_token: ""
-        access_token_query_compat: false
+        onebot11:
+          reverse_ws:
+            enabled: false
+            url: ""
+            access_token: ""
+            access_token_query_compat: false
+          forward_ws:
+            enabled: true
+            url: ws://127.0.0.1:2658
+            access_token: ""
+            access_token_query_compat: false
+          http_api:
+            enabled: false
+            url: ""
+            access_token: ""
+          webhook:
+            enabled: false
+            url: ""
+            access_token: ""
+            access_token_query_compat: false
     database:
       engine: sqlite
       path: data/rayleabot.db
@@ -129,36 +133,34 @@ response:
   status: 200
   body:
     config:
-      schema_version: "3"
+      schema_version: "4"
       server:
         host: 127.0.0.1
         port: 8080
-      onebot:
-        reverse_ws:
-          enabled: false
-          url: ""
-          access_token: ""
-          access_token_query_compat: false
-        forward_ws:
+      adapters:
+        - id: onebot11
+          type: onebot11
           enabled: true
-          url: ws://127.0.0.1:2658
-          access_token: ""
-          access_token_query_compat: false
-        http_api:
-          enabled: false
-          url: ""
-          access_token: ""
-        webhook:
-          enabled: false
-          url: ""
-          access_token: ""
-          access_token_query_compat: false
-      qq_official:
-        enabled: false
-        app_id: ""
-        app_secret: ""
-        intents: []
-        sandbox: false
+          onebot11:
+            reverse_ws:
+              enabled: false
+              url: ""
+              access_token: ""
+              access_token_query_compat: false
+            forward_ws:
+              enabled: true
+              url: ws://127.0.0.1:2658
+              access_token: ""
+              access_token_query_compat: false
+            http_api:
+              enabled: false
+              url: ""
+              access_token: ""
+            webhook:
+              enabled: false
+              url: ""
+              access_token: ""
+              access_token_query_compat: false
       database:
         engine: sqlite
         path: data/rayleabot.db
@@ -261,7 +263,7 @@ response:
       applied_now: []
       reloaded_now: []
       restart_required_fields:
-        - onebot.forward_ws.enabled
-        - onebot.forward_ws.url
+        - adapters.onebot11.onebot11.forward_ws.enabled
+        - adapters.onebot11.onebot11.forward_ws.url
 expect:
   valid: true

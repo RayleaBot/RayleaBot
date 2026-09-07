@@ -173,7 +173,9 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
         {
-          path: '/protocols/qqofficial',
+          // Settings are addressed per adapter instance: several instances of
+          // one protocol can be configured, each with its own credentials.
+          path: '/protocols/qqofficial/:adapterId',
           name: 'protocols-qqofficial',
           component: () => import('@/views/protocols/QQOfficialView.vue'),
           meta: {
@@ -184,7 +186,7 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
         {
-          path: '/protocols/onebot11',
+          path: '/protocols/onebot11/:adapterId',
           name: 'protocols-onebot11',
           component: () => import('@/views/protocols/ProtocolsView.vue'),
           meta: {

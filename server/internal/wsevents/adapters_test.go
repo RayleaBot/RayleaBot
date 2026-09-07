@@ -15,68 +15,98 @@ type adapterConfigSource struct{ cfg config.Config }
 
 func (s adapterConfigSource) CurrentConfig() config.Config { return s.cfg }
 
-func TestAdaptersListsUnconfiguredAdaptersAsAddable(t *testing.T) {
+func TestAdaptersOffersEveryProtocolWhenNothingIsConfigured(t *testing.T) {
 	t.Parallel()
 
-	// Nothing configured and no QQ client built: the adapter must still be
-	// listed, otherwise the management surface cannot offer it as something to
-	// add.
-	service := NewProtocolService(adapterConfigSource{}, nil, nil)
-	adapters := service.Adapters()
-	if len(adapters) != 2 {
-		t.Fatalf("listed %d adapters, want both formally supported ones", len(adapters))
+	// A fresh install has no adapter instances, so the listing is empty and the
+	// page has nothing to show unless the protocols are offered separately.
+	view := NewProtocolService(adapterConfigSource{}, ProtocolServiceAdapters{}).Adapters()
+	if len(view.Adapters) != 0 {
+		t.Fatalf("listed %d adapters, want none before any is added", len(view.Adapters))
 	}
+	protocols := map[string]bool{}
+	for _, protocol := range view.AvailableProtocols {
+		protocols[protocol.Protocol] = true
+		if protocol.DisplayName == "" || protocol.Description == "" {
+			t.Fatalf("protocol %q offered without a name or description", protocol.Protocol)
+		}
+	}
+	for _, want := range []string{config.AdapterTypeOneBot11, config.AdapterTypeQQOfficial} {
+		if !protocols[want] {
+			t.Fatalf("protocol %q was not offered as addable", want)
+		}
+	}
+}
 
-	byProtocol := map[string]AdapterDescriptor{}
-	for _, adapter := range adapters {
-		byProtocol[adapter.Protocol] = adapter
+func TestAdaptersReportEnabledStateAndLiveIdentityPerInstance(t *testing.T) {
+	t.Parallel()
+
+	qqAdapter := config.AdapterInstance{
+		ID:      config.DefaultQQOfficialAdapterID,
+		Type:    config.AdapterTypeQQOfficial,
+		Enabled: false,
+		QQOfficial: &config.QQOfficialConfig{
+			AppID:     "100000001",
+			AppSecret: "secret://adapters/qq-official/qqofficial/app_secret",
+		},
 	}
-	qq, ok := byProtocol["qqofficial"]
-	if !ok {
-		t.Fatal("qqofficial was omitted from the listing")
-	}
-	if qq.Configured || qq.Enabled {
-		t.Fatalf("unconfigured adapter reported configured=%v enabled=%v", qq.Configured, qq.Enabled)
-	}
-	if qq.State != qqofficial.StateIdle || qq.Summary == "" {
-		t.Fatalf("unconfigured adapter state/summary = %q/%q", qq.State, qq.Summary)
+	cfg := config.Config{Adapters: []config.AdapterInstance{qqAdapter}}
+
+	// Added but switched off: the operator needs to see that this is a choice,
+	// not a failure, and no client is running to report a state.
+	service := NewProtocolService(adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{})
+	qq := findAdapter(t, service.Adapters(), config.DefaultQQOfficialAdapterID)
+	if qq.Enabled || qq.State != qqofficial.StateIdle || qq.Summary == "" {
+		t.Fatalf("disabled adapter = %+v, want an idle disabled instance with a summary", qq)
 	}
 	if qq.Identity != nil {
 		t.Fatal("an adapter that never connected reported a bot identity")
 	}
-}
 
-func TestAdaptersDistinguishConfiguredFromEnabledAndConnected(t *testing.T) {
-	t.Parallel()
-
-	cfg := config.Config{QQOfficial: config.QQOfficialConfig{
-		AppID: "102209770", AppSecret: "secret://qq_official/app_secret", Enabled: false,
-	}}
-	// Configured but switched off: the operator needs to see that this is a
-	// choice, not a failure.
-	service := NewProtocolService(adapterConfigSource{cfg: cfg}, nil, nil)
-	qq := findAdapter(t, service.Adapters(), "qqofficial")
-	if !qq.Configured || qq.Enabled {
-		t.Fatalf("configured-but-disabled reported configured=%v enabled=%v", qq.Configured, qq.Enabled)
-	}
-
-	cfg.QQOfficial.Enabled = true
-	connected := NewProtocolService(adapterConfigSource{cfg: cfg}, nil, stubQQStatus{status: qqofficial.Status{
-		State: qqofficial.StateConnected, Summary: "已连接：洛箐箐", BotID: "bot-1", BotName: "洛箐箐",
-	}})
-	qq = findAdapter(t, connected.Adapters(), "qqofficial")
+	qqAdapter.Enabled = true
+	cfg = config.Config{Adapters: []config.AdapterInstance{qqAdapter}}
+	connected := NewProtocolService(adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{
+		QQOfficial: map[string]QQOfficialStatusSource{
+			config.DefaultQQOfficialAdapterID: stubQQStatus{status: qqofficial.Status{
+				State: qqofficial.StateConnected, Summary: "已连接：洛箐箐", BotID: "bot-1", BotName: "洛箐箐",
+			}},
+		},
+	})
+	qq = findAdapter(t, connected.Adapters(), config.DefaultQQOfficialAdapterID)
 	if qq.State != qqofficial.StateConnected || qq.Identity == nil || qq.Identity.ID != "bot-1" {
 		t.Fatalf("connected adapter = %+v, want the live state and identity", qq)
 	}
 }
 
-func findAdapter(t *testing.T, adapters []AdapterDescriptor, protocol string) AdapterDescriptor {
+func TestAdaptersKeepInstancesOfOneProtocolApart(t *testing.T) {
+	t.Parallel()
+
+	cfg := config.Config{Adapters: []config.AdapterInstance{
+		{ID: config.DefaultOneBot11AdapterID, Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}},
+		{ID: "second-bot", Type: config.AdapterTypeOneBot11, Enabled: false, OneBot11: &config.OneBotConfig{}},
+	}}
+	view := NewProtocolService(adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{}).Adapters()
+
+	if len(view.Adapters) != 2 {
+		t.Fatalf("listed %d adapters, want both instances", len(view.Adapters))
+	}
+	// Two instances of one protocol have to be distinguishable on the page, so
+	// the display name of an added instance carries its identifier.
+	if view.Adapters[0].DisplayName == view.Adapters[1].DisplayName {
+		t.Fatalf("both instances rendered as %q", view.Adapters[0].DisplayName)
+	}
+	if view.Adapters[1].ID != "second-bot" || view.Adapters[1].Enabled {
+		t.Fatalf("second instance = %+v, want the disabled added instance", view.Adapters[1])
+	}
+}
+
+func findAdapter(t *testing.T, view AdaptersView, id string) AdapterDescriptor {
 	t.Helper()
-	for _, adapter := range adapters {
-		if adapter.Protocol == protocol {
+	for _, adapter := range view.Adapters {
+		if adapter.ID == id {
 			return adapter
 		}
 	}
-	t.Fatalf("adapter %q not listed", protocol)
+	t.Fatalf("adapter %q not listed", id)
 	return AdapterDescriptor{}
 }

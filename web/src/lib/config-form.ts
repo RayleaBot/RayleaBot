@@ -618,25 +618,29 @@ export function getRateLimitConfigSections(): ConfigSectionDefinition[] {
   ]
 }
 
-export function getProtocolConfigSections(): ConfigSectionDefinition[] {
+// getProtocolConfigSections builds the transport form for one OneBot adapter
+// instance. Every path is addressed by the instance's identifier, so two
+// instances edit their own settings rather than a shared block.
+export function getProtocolConfigSections(adapterId: string): ConfigSectionDefinition[] {
+  const path = (field: string) => `adapters.${adapterId}.onebot11.${field}`
   return [
     {
-      key: 'onebot',
+      key: 'onebot-reverse-ws',
       title: t('config.sections.onebotReverseWs'),
       fields: [
         {
-          path: 'onebot.reverse_ws.enabled',
+          path: path('reverse_ws.enabled'),
           label: t('config.fields.onebotTransportEnabled'),
           type: 'boolean',
         },
         {
-          path: 'onebot.reverse_ws.url',
+          path: path('reverse_ws.url'),
           label: t('config.fields.onebotReverseWsUrl'),
           type: 'text',
           description: t('config.hints.onebotOptional'),
         },
         {
-          path: 'onebot.reverse_ws.access_token',
+          path: path('reverse_ws.access_token'),
           label: t('config.fields.onebotAccessToken'),
           type: 'text',
           description: t('config.hints.onebotTransportToken'),
@@ -644,22 +648,22 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'onebot',
+      key: 'onebot-forward-ws',
       title: t('config.sections.onebotForwardWs'),
       fields: [
         {
-          path: 'onebot.forward_ws.enabled',
+          path: path('forward_ws.enabled'),
           label: t('config.fields.onebotTransportEnabled'),
           type: 'boolean',
         },
         {
-          path: 'onebot.forward_ws.url',
+          path: path('forward_ws.url'),
           label: t('config.fields.onebotForwardWsUrl'),
           type: 'text',
           description: t('config.hints.onebotForwardWs'),
         },
         {
-          path: 'onebot.forward_ws.access_token',
+          path: path('forward_ws.access_token'),
           label: t('config.fields.onebotAccessToken'),
           type: 'text',
           description: t('config.hints.onebotTransportToken'),
@@ -667,22 +671,22 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'onebot',
+      key: 'onebot-http-api',
       title: t('config.sections.onebotHttpApi'),
       fields: [
         {
-          path: 'onebot.http_api.enabled',
+          path: path('http_api.enabled'),
           label: t('config.fields.onebotTransportEnabled'),
           type: 'boolean',
         },
         {
-          path: 'onebot.http_api.url',
+          path: path('http_api.url'),
           label: t('config.fields.onebotHttpApiUrl'),
           type: 'text',
           description: t('config.hints.onebotHttpTransport'),
         },
         {
-          path: 'onebot.http_api.access_token',
+          path: path('http_api.access_token'),
           label: t('config.fields.onebotAccessToken'),
           type: 'text',
           description: t('config.hints.onebotTransportToken'),
@@ -690,22 +694,22 @@ export function getProtocolConfigSections(): ConfigSectionDefinition[] {
       ],
     },
     {
-      key: 'onebot',
+      key: 'onebot-webhook',
       title: t('config.sections.onebotWebhook'),
       fields: [
         {
-          path: 'onebot.webhook.enabled',
+          path: path('webhook.enabled'),
           label: t('config.fields.onebotTransportEnabled'),
           type: 'boolean',
         },
         {
-          path: 'onebot.webhook.url',
+          path: path('webhook.url'),
           label: t('config.fields.onebotWebhookUrl'),
           type: 'text',
           description: t('config.hints.onebotHttpTransport'),
         },
         {
-          path: 'onebot.webhook.access_token',
+          path: path('webhook.access_token'),
           label: t('config.fields.onebotAccessToken'),
           type: 'text',
           description: t('config.hints.onebotTransportToken'),
@@ -730,14 +734,21 @@ export function cloneConfig(config: ConfigDocument) {
   return JSON.parse(JSON.stringify(config)) as ConfigDocument
 }
 
-export function getValueByPath(target: Record<string, unknown>, path: string): unknown {
-  return path.split('.').reduce<unknown>((current, segment) => {
-    if (current && typeof current === 'object') {
-      return (current as Record<string, unknown>)[segment]
-    }
+// A segment addressing a keyed collection names an entry by its own identifier
+// rather than by position, matching how the server spells config paths, so
+// reordering the list does not move a field.
+function stepIntoPath(current: unknown, segment: string): unknown {
+  if (Array.isArray(current)) {
+    return current.find((entry) => (entry as Record<string, unknown> | null)?.id === segment)
+  }
+  if (current && typeof current === 'object') {
+    return (current as Record<string, unknown>)[segment]
+  }
+  return undefined
+}
 
-    return undefined
-  }, target)
+export function getValueByPath(target: Record<string, unknown>, path: string): unknown {
+  return path.split('.').reduce<unknown>(stepIntoPath, target)
 }
 
 export function setValueByPath(target: Record<string, unknown>, path: string, value: unknown) {
@@ -747,14 +758,23 @@ export function setValueByPath(target: Record<string, unknown>, path: string, va
     return
   }
 
-  let cursor: Record<string, unknown> = target
+  let cursor: unknown = target
   for (const segment of segments) {
-    const next = cursor[segment]
-    if (!next || typeof next !== 'object') {
-      cursor[segment] = {}
+    const next = stepIntoPath(cursor, segment)
+    if (next && typeof next === 'object') {
+      cursor = next
+      continue
     }
-    cursor = cursor[segment] as Record<string, unknown>
+    if (Array.isArray(cursor)) {
+      // Never invent a collection entry: it would have no identity.
+      return
+    }
+    const created: Record<string, unknown> = {}
+    ;(cursor as Record<string, unknown>)[segment] = created
+    cursor = created
   }
 
-  cursor[last] = value
+  if (cursor && typeof cursor === 'object' && !Array.isArray(cursor)) {
+    (cursor as Record<string, unknown>)[last] = value
+  }
 }

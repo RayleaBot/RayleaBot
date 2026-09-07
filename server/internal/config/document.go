@@ -8,7 +8,9 @@ import (
 )
 
 func LoadDocument(configPath, schemaPath string) (map[string]any, error) {
-	document, _, err := loadCanonicalDocument(configPath, schemaPath)
+	// Reading the document for the management surface never rewrites the file;
+	// the server has already migrated it on startup.
+	document, _, err := loadCanonicalDocument(configPath, schemaPath, false)
 	if err != nil {
 		return nil, err
 	}

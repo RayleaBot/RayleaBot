@@ -18,8 +18,13 @@ func TestUpdateConfigDocumentUsesRequestContextForSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("init config: %v", err)
 	}
+	cfg.Adapters = []internalconfig.AdapterInstance{{
+		ID:       internalconfig.DefaultOneBot11AdapterID,
+		Type:     internalconfig.AdapterTypeOneBot11,
+		OneBot11: &internalconfig.OneBotConfig{},
+	}}
 	request := ConfigDocumentFromTyped(cfg)
-	setConfigPath(request, []string{"onebot", "forward_ws", "access_token"}, "forward-secret")
+	setConfigPath(request, onebotSecretPath(internalconfig.DefaultOneBot11AdapterID, "forward_ws"), "forward-secret")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

@@ -157,8 +157,8 @@
 - `GET /api/protocols/onebot11/targets`
 - `POST /api/protocols/onebot11/identities/resolve`
 - `GET /api/protocols/onebot11/compatibility`
-- `GET /api/protocols/onebot11/reverse-ws`
-- `POST /api/protocols/onebot11/webhook`
+- `GET /api/adapters/{adapterID}/reverse-ws`
+- `POST /api/adapters/{adapterID}/webhook`
 
 #### 恢复与运行环境准备
 

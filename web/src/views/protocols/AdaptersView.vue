@@ -1,20 +1,36 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
+import { notifyError, notifySuccess } from '@/adapter/feedback'
 import { t } from '@/i18n'
+import {
+  adapterEditorRoute,
+  buildAdapterInstance,
+  nextAdapterInstanceId,
+  readAdapterInstances,
+} from '@/lib/adapters'
+import { cloneConfig } from '@/lib/config-form'
+import { getDisplayErrorMessage } from '@/lib/error-text'
 import { useAdaptersStore } from '@/stores/adapters'
-import type { AdapterDescriptor } from '@/types/api'
+import { useConfigStore } from '@/stores/config'
+import type { AdapterDescriptor, AdapterProtocol, AdapterProtocolDescriptor } from '@/types/api'
 
 const router = useRouter()
 const adaptersStore = useAdaptersStore()
+const configStore = useConfigStore()
+const { document: configDocument, saving } = storeToRefs(configStore)
+const pendingProtocol = ref<AdapterProtocol | null>(null)
+const removingId = ref<string | null>(null)
 
 onMounted(() => {
   void adaptersStore.refresh().catch(() => undefined)
+  void configStore.fetchConfig().catch(() => undefined)
 })
 
-const added = computed(() => adaptersStore.added)
-const available = computed(() => adaptersStore.available)
+const adapters = computed(() => adaptersStore.adapters)
+const availableProtocols = computed(() => adaptersStore.availableProtocols)
 
 // A configured adapter that is switched off is not a failure, so it reads as
 // its own state rather than borrowing the connection vocabulary.
@@ -44,7 +60,52 @@ function statusLabel(adapter: AdapterDescriptor) {
 }
 
 function openAdapter(adapter: AdapterDescriptor) {
-  void router.push(`/protocols/${adapter.protocol}`)
+  void router.push(adapterEditorRoute(adapter.protocol, adapter.id))
+}
+
+// Adding an instance writes it to the config and opens its settings: the
+// instance exists from that moment, which is what gives it an identifier for
+// its ingress URL and its secrets.
+async function addAdapter(protocol: AdapterProtocolDescriptor) {
+  if (!configDocument.value || pendingProtocol.value) {
+    return
+  }
+  pendingProtocol.value = protocol.protocol
+  try {
+    const draft = cloneConfig(configDocument.value)
+    const id = nextAdapterInstanceId(draft, protocol.protocol)
+    const instances = readAdapterInstances(draft)
+    ;(draft as Record<string, unknown>).adapters = [...instances, buildAdapterInstance(id, protocol.protocol)]
+
+    await configStore.saveConfig(draft)
+    await adaptersStore.refresh().catch(() => undefined)
+    notifySuccess(t('protocols.addAdapterSuccess'))
+    void router.push(adapterEditorRoute(protocol.protocol, id))
+  } catch (err) {
+    notifyError(getDisplayErrorMessage(err, 'errors.common.saveFailed'))
+  } finally {
+    pendingProtocol.value = null
+  }
+}
+
+async function removeAdapter(adapter: AdapterDescriptor) {
+  if (!configDocument.value || removingId.value) {
+    return
+  }
+  removingId.value = adapter.id
+  try {
+    const draft = cloneConfig(configDocument.value)
+    ;(draft as Record<string, unknown>).adapters = readAdapterInstances(draft)
+      .filter((instance) => instance.id !== adapter.id)
+
+    const response = await configStore.saveConfig(draft)
+    await adaptersStore.refresh().catch(() => undefined)
+    notifySuccess(response.restart_required ? t('config.saveRestart') : t('protocols.removeAdapterSuccess'))
+  } catch (err) {
+    notifyError(getDisplayErrorMessage(err, 'errors.common.saveFailed'))
+  } finally {
+    removingId.value = null
+  }
 }
 </script>
 
@@ -67,20 +128,44 @@ function openAdapter(adapter: AdapterDescriptor) {
       <h2 id="adapters-added-title">{{ t('protocols.addedTitle') }}</h2>
       <p class="adapters__hint">{{ t('protocols.addedHint') }}</p>
 
-      <a-empty v-if="!adaptersStore.loading && added.length === 0" :description="t('protocols.addedEmpty')" />
+      <a-empty v-if="!adaptersStore.loading && adapters.length === 0" :description="t('protocols.addedEmpty')" />
 
       <ul v-else class="adapters__list">
-        <li v-for="adapter in added" :key="adapter.protocol" class="adapters__item">
-          <button type="button" class="adapters__card" :data-testid="`adapter-${adapter.protocol}`" @click="openAdapter(adapter)">
-            <span class="adapters__card-head">
-              <span class="adapters__name">{{ adapter.display_name }}</span>
-              <a-tag :color="statusTone(adapter)">{{ statusLabel(adapter) }}</a-tag>
-            </span>
-            <span class="adapters__summary">{{ adapter.summary }}</span>
-            <span v-if="adapter.identity" class="adapters__identity">
-              {{ t('protocols.adapterIdentity') }}：{{ adapter.identity.name || adapter.identity.id }}
-            </span>
-          </button>
+        <li v-for="adapter in adapters" :key="adapter.id" class="adapters__item">
+          <div class="adapters__card">
+            <button
+              type="button"
+              class="adapters__open"
+              :data-testid="`adapter-${adapter.id}`"
+              @click="openAdapter(adapter)"
+            >
+              <span class="adapters__card-head">
+                <span class="adapters__name">{{ adapter.display_name }}</span>
+                <a-tag :color="statusTone(adapter)">{{ statusLabel(adapter) }}</a-tag>
+              </span>
+              <span class="adapters__summary">{{ adapter.summary }}</span>
+              <span v-if="adapter.identity" class="adapters__identity">
+                {{ t('protocols.adapterIdentity') }}：{{ adapter.identity.name || adapter.identity.id }}
+              </span>
+            </button>
+            <a-popconfirm
+              :title="t('protocols.removeAdapterConfirm', { name: adapter.display_name })"
+              :ok-text="t('protocols.removeAdapterAction')"
+              :cancel-text="t('protocols.removeAdapterCancel')"
+              @confirm="removeAdapter(adapter)"
+            >
+              <a-button
+                danger
+                type="text"
+                size="small"
+                :loading="removingId === adapter.id"
+                :disabled="saving"
+                :data-testid="`adapter-remove-${adapter.id}`"
+              >
+                {{ t('protocols.removeAdapter') }}
+              </a-button>
+            </a-popconfirm>
+          </div>
         </li>
       </ul>
     </section>
@@ -89,16 +174,20 @@ function openAdapter(adapter: AdapterDescriptor) {
       <h2 id="adapters-available-title">{{ t('protocols.availableTitle') }}</h2>
       <p class="adapters__hint">{{ t('protocols.availableHint') }}</p>
 
-      <a-empty v-if="!adaptersStore.loading && available.length === 0" :description="t('protocols.availableEmpty')" />
-
-      <ul v-else class="adapters__list">
-        <li v-for="adapter in available" :key="adapter.protocol" class="adapters__item">
+      <ul class="adapters__list">
+        <li v-for="protocol in availableProtocols" :key="protocol.protocol" class="adapters__item">
           <div class="adapters__card adapters__card--available">
             <span class="adapters__card-head">
-              <span class="adapters__name">{{ adapter.display_name }}</span>
+              <span class="adapters__name">{{ protocol.display_name }}</span>
             </span>
-            <span class="adapters__summary">{{ adapter.summary }}</span>
-            <a-button type="primary" :data-testid="`adapter-add-${adapter.protocol}`" @click="openAdapter(adapter)">
+            <span class="adapters__summary">{{ protocol.description }}</span>
+            <a-button
+              type="primary"
+              :loading="pendingProtocol === protocol.protocol"
+              :disabled="saving || !configDocument"
+              :data-testid="`adapter-add-${protocol.protocol}`"
+              @click="addAdapter(protocol)"
+            >
               {{ t('protocols.addAdapter') }}
             </a-button>
           </div>
@@ -119,19 +208,28 @@ function openAdapter(adapter: AdapterDescriptor) {
 .adapters__card {
   display: grid;
   gap: 8px;
+  justify-items: start;
   width: 100%;
   padding: 16px;
-  text-align: left;
-  color: inherit;
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface);
+}
+.adapters__open {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  border: 0;
+  background: none;
   cursor: pointer;
   font: inherit;
-  &:hover { border-color: var(--color-brand-foreground); }
+  &:hover .adapters__name { color: var(--color-brand-foreground); }
   &:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 }
-.adapters__card--available { cursor: default; justify-items: start; &:hover { border-color: var(--color-border); } }
+.adapters__card--available { cursor: default; }
 .adapters__card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .adapters__name { font-size: 15px; font-weight: 600; }
 .adapters__summary { color: var(--color-text-muted); font-size: 13px; line-height: 1.6; }

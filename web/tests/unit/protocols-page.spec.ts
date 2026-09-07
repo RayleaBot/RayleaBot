@@ -25,11 +25,21 @@ describe('ProtocolsPage', () => {
     vi.mocked(useToastFeedback).mockClear()
   })
 
+  // The page edits one OneBot instance, named by the route.
+  const ADAPTER_ID = 'onebot11'
+  const ADAPTER_ROUTE = `/protocols/onebot11/${ADAPTER_ID}`
+
+  // savedOneBot reads the edited instance out of a saved config document.
+  function savedOneBot(saved: Record<string, unknown>) {
+    const instances = saved.adapters as Array<Record<string, unknown>>
+    return instances.find((instance) => instance.id === ADAPTER_ID)!.onebot11 as Record<string, Record<string, unknown>>
+  }
+
   function createTestRouter() {
     return createRouter({
       history: createMemoryHistory(),
       routes: [
-        { path: '/protocols', name: 'protocols', component: ProtocolsPage },
+        { path: '/protocols/onebot11/:adapterId', name: 'protocols', component: ProtocolsPage },
         { path: '/protocols/compatibility', name: 'protocols-compatibility', component: { template: '<div>compatibility</div>' } },
         { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
       ],
@@ -80,7 +90,7 @@ describe('ProtocolsPage', () => {
     vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
 
     const router = createTestRouter()
-    await router.push('/protocols')
+    await router.push(ADAPTER_ROUTE)
     await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
@@ -156,7 +166,7 @@ describe('ProtocolsPage', () => {
     vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
 
     const router = createTestRouter()
-    await router.push('/protocols')
+    await router.push(ADAPTER_ROUTE)
     await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
@@ -225,13 +235,13 @@ describe('ProtocolsPage', () => {
       restart_required: false,
       apply_effects: {
         applied_now: [],
-        reloaded_now: ['onebot.reverse_ws.url'],
+        reloaded_now: ['adapters.onebot11.onebot11.reverse_ws.url'],
         restart_required_fields: [],
       },
     })
 
     const router = createTestRouter()
-    await router.push('/protocols')
+    await router.push(ADAPTER_ROUTE)
     await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
@@ -248,7 +258,7 @@ describe('ProtocolsPage', () => {
 
     const wsUrlInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="协议端回连地址"]')
     expect(wsUrlInput.attributes('readonly')).toBeDefined()
-    expect(wsUrlInput.element.value).toBe('ws://127.0.0.1:8080/api/protocols/onebot11/reverse-ws')
+    expect(wsUrlInput.element.value).toBe('ws://127.0.0.1:8080/api/adapters/onebot11/reverse-ws')
     const reverseSwitch = reverseTransportRow!.get('[role="switch"]')
     await reverseSwitch.trigger('click')
     const tokenInput = reverseTransportRow!.get<HTMLInputElement>('input[aria-label="访问令牌"]')
@@ -263,10 +273,11 @@ describe('ProtocolsPage', () => {
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
     expect(refreshSpy).toHaveBeenCalledTimes(2)
-    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.url).toBe('ws://127.0.0.1:8080/api/protocols/onebot11/reverse-ws')
-    expect(saveSpy.mock.calls[0][0].onebot.reverse_ws.access_token).toBe('reverse-secret')
-    expect(saveSpy.mock.calls[0][0].onebot.forward_ws.access_token).toBe('')
-    expect('access_token' in saveSpy.mock.calls[0][0].onebot).toBe(false)
+    const savedSettings = savedOneBot(saveSpy.mock.calls[0][0])
+    expect(savedSettings.reverse_ws.url).toBe('ws://127.0.0.1:8080/api/adapters/onebot11/reverse-ws')
+    expect(savedSettings.reverse_ws.access_token).toBe('reverse-secret')
+    expect(savedSettings.forward_ws.access_token).toBe('')
+    expect('access_token' in savedSettings).toBe(false)
     expect(saveSpy.mock.calls[0][0].server.host).toBe('127.0.0.1')
     expect(wrapper.text()).toContain('未启用')
   })
@@ -305,7 +316,7 @@ describe('ProtocolsPage', () => {
     })
 
     const router = createTestRouter()
-    await router.push('/protocols')
+    await router.push(ADAPTER_ROUTE)
     await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
@@ -335,7 +346,7 @@ describe('ProtocolsPage', () => {
     configStore.document = createConfigDocumentFixture()
     configStore.applyEffects = {
       applied_now: [],
-      reloaded_now: ['onebot.forward_ws.url'],
+      reloaded_now: ['adapters.onebot11.onebot11.forward_ws.url'],
       restart_required_fields: ['render.browser_args'],
     }
     configStore.restartRequired = true
@@ -358,7 +369,7 @@ describe('ProtocolsPage', () => {
     vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
 
     const router = createTestRouter()
-    await router.push('/protocols')
+    await router.push(ADAPTER_ROUTE)
     await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
@@ -372,7 +383,7 @@ describe('ProtocolsPage', () => {
     expect(wrapper.text()).not.toContain('保存结果')
     expect(wrapper.text()).not.toContain('已重载')
     expect(wrapper.text()).not.toContain('需重启生效')
-    expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
+    expect(wrapper.text()).not.toContain('adapters.onebot11.onebot11.forward_ws.url')
     expect(wrapper.text()).not.toContain('render.browser_args')
     expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
   })
@@ -412,7 +423,7 @@ describe('ProtocolsPage', () => {
     })
 
     const router = createTestRouter()
-    await router.push('/protocols')
+    await router.push(ADAPTER_ROUTE)
     await router.isReady()
 
     const wrapper = mount(ProtocolsPage, {
@@ -436,6 +447,6 @@ describe('ProtocolsPage', () => {
     await saveButton!.trigger('click')
 
     expect(saveSpy).toHaveBeenCalledTimes(1)
-    expect('provider' in saveSpy.mock.calls[0][0].onebot).toBe(false)
+    expect('provider' in savedOneBot(saveSpy.mock.calls[0][0])).toBe(false)
   })
 })

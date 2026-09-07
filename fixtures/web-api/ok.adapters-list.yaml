@@ -1,9 +1,9 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
 description: >
-  Adapter listing shows every formally supported chat adapter. An adapter that
-  is not configured is still returned so the management surface can offer it as
-  something to add rather than hiding it.
+  Adapter listing returns the configured instances alongside the protocols an
+  instance can be added for, so the management surface can show what is running
+  and offer the rest as something to add.
 request:
   method: GET
   path: /api/adapters
@@ -11,15 +11,24 @@ response:
   status: 200
   body:
     adapters:
-      - protocol: onebot11
+      - id: onebot11
+        protocol: onebot11
         display_name: OneBot11
-        configured: true
         enabled: true
         state: connected
         summary: 已连接。
+      - id: second-bot
+        protocol: onebot11
+        display_name: OneBot11（second-bot）
+        enabled: false
+        state: stopped
+        summary: 适配器已配置但未启用。
+    available_protocols:
+      - protocol: onebot11
+        display_name: OneBot11
+        description: 连接实现 OneBot11 的第三方客户端，支持反向 WebSocket、正向 WebSocket、HTTP API 与 Webhook 四种传输。
       - protocol: qqofficial
         display_name: QQ 官方机器人
-        configured: false
-        enabled: false
-        state: idle
-        summary: 适配器未配置。
+        description: 连接 QQ 开放平台的官方机器人，使用 AppID 与 AppSecret 鉴权，消息标识位于该平台自己的命名空间。
+expect:
+  valid: true

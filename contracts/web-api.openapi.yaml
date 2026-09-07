@@ -30,8 +30,8 @@ x-fixtures:
   - fixtures/web-api/ok.protocol-onebot11-targets.yaml
   - fixtures/web-api/ok.protocol-onebot11-identities-resolve.yaml
   - fixtures/web-api/ok.protocol-onebot11-compatibility.yaml
-  - fixtures/web-api/ok.protocol-onebot11-reverse-ws-upgrade.yaml
-  - fixtures/web-api/ok.protocol-onebot11-webhook-accepted.yaml
+  - fixtures/web-api/ok.adapter-reverse-ws-upgrade.yaml
+  - fixtures/web-api/ok.adapter-webhook-accepted.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
   - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml
@@ -103,10 +103,10 @@ x-fixtures:
   - fixtures/web-api/invalid.session-login-bad-credentials.yaml
   - fixtures/web-api/invalid.auth-missing-token.yaml
   - fixtures/web-api/invalid.auth-invalid-bearer.yaml
-  - fixtures/web-api/invalid.protocol-onebot11-reverse-ws-auth-failed.yaml
+  - fixtures/web-api/invalid.adapter-reverse-ws-auth-failed.yaml
   - fixtures/web-api/invalid.protocol-onebot11-compatibility-invalid-support.yaml
-  - fixtures/web-api/invalid.protocol-onebot11-webhook-auth-failed.yaml
-  - fixtures/web-api/invalid.protocol-onebot11-webhook-invalid-payload.yaml
+  - fixtures/web-api/invalid.adapter-webhook-auth-failed.yaml
+  - fixtures/web-api/invalid.adapter-webhook-invalid-payload.yaml
   - fixtures/web-api/edge.protocol-onebot11-compatibility-provider-gaps.yaml
   - fixtures/web-api/invalid.launcher-status-forwarded.yaml
   - fixtures/web-api/invalid.launcher-shutdown-forwarded.yaml
@@ -832,10 +832,15 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/protocols/onebot11/reverse-ws:
+  /api/adapters/{adapterID}/reverse-ws:
     get:
-      summary: Accept a OneBot11 reverse WebSocket callback session.
-      operationId: connectOneBot11ReverseWs
+      summary: Accept a OneBot11 reverse WebSocket callback session for one adapter instance.
+      description: |
+        入口按适配器实例寻址：多个 OneBot 实例可以同时监听，各自使用自己的
+        access token。adapterID 是配置中该实例的 id；重命名实例即更改本 URL。
+      operationId: connectAdapterReverseWs
+      parameters:
+        - $ref: '#/components/parameters/AdapterID'
       responses:
         '101':
           description: Reverse WebSocket upgrade accepted.
@@ -844,10 +849,12 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/protocols/onebot11/webhook:
+  /api/adapters/{adapterID}/webhook:
     post:
-      summary: Accept a OneBot11 webhook event payload.
-      operationId: ingestOneBot11Webhook
+      summary: Accept a OneBot11 webhook event payload for one adapter instance.
+      operationId: ingestAdapterWebhook
+      parameters:
+        - $ref: '#/components/parameters/AdapterID'
       requestBody:
         required: true
         content:
@@ -2382,6 +2389,16 @@ components:
         minLength: 32
 
   parameters:
+    AdapterID:
+      name: adapterID
+      in: path
+      required: true
+      description: 适配器实例标识，与配置 adapters[].id 一致。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: '^[a-z0-9][a-z0-9-]*$'
     SessionTransport:
       name: X-Raylea-Session-Transport
       in: header
@@ -2940,20 +2957,23 @@ components:
       type: object
       additionalProperties: false
       required:
+        - id
         - protocol
         - display_name
-        - configured
         - enabled
         - state
         - summary
       properties:
+        id:
+          type: string
+          description: |
+            适配器实例标识，与配置 adapters[].id 一致。它决定出站路由、密钥存储键
+            和入站地址 /api/adapters/{id}/reverse-ws。
         protocol:
           $ref: '#/components/schemas/AdapterProtocol'
         display_name:
           type: string
-        configured:
-          type: boolean
-          description: 是否已填写该适配器运行所需的配置。未配置的适配器仍会返回，供管理面作为可添加项展示。
+          description: 管理面展示名。同一协议存在多个实例时包含实例标识以便区分。
         enabled:
           type: boolean
         state:
@@ -2962,16 +2982,39 @@ components:
           type: string
         identity:
           $ref: '#/components/schemas/AdapterIdentity'
+
+    AdapterProtocolDescriptor:
+      type: object
+      additionalProperties: false
+      description: 可添加实例的聊天协议。
+      required:
+        - protocol
+        - display_name
+        - description
+      properties:
+        protocol:
+          $ref: '#/components/schemas/AdapterProtocol'
+        display_name:
+          type: string
+        description:
+          type: string
     AdaptersResponse:
       type: object
       additionalProperties: false
       required:
         - adapters
+        - available_protocols
       properties:
         adapters:
           type: array
+          description: 已配置的适配器实例，按配置顺序返回；首个 OneBot 实例是管理面 OneBot 端点所描述的实例。
           items:
             $ref: '#/components/schemas/AdapterDescriptor'
+        available_protocols:
+          type: array
+          description: 可添加实例的协议。集合与已配置实例无关，添加同一协议的多个实例是允许的。
+          items:
+            $ref: '#/components/schemas/AdapterProtocolDescriptor'
     ProtocolProvider:
       type: string
       enum: [unknown, standard, napcat, luckylillia]

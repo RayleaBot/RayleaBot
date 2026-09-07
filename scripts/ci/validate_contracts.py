@@ -156,9 +156,9 @@ STRICT_OPENAPI_PATHS = {
     "/api/protocols/onebot11",
     "/api/protocols/onebot11/compatibility",
     "/api/protocols/onebot11/identities/resolve",
-    "/api/protocols/onebot11/reverse-ws",
     "/api/protocols/onebot11/targets",
-    "/api/protocols/onebot11/webhook",
+    "/api/adapters/{adapterID}/reverse-ws",
+    "/api/adapters/{adapterID}/webhook",
     "/api/plugins",
     "/api/plugins/install",
     "/api/plugins/install/inspect",
@@ -893,7 +893,7 @@ def validate_config_basic(config_schema: dict[str, Any]) -> None:
     if config_schema.get("type") != "object":
         fail("config.user.schema.json must define an object schema")
     properties = require_object(config_schema.get("properties"), "config schema properties")
-    for field in ["schema_version", "server", "onebot", "admin", "permission", "database"]:
+    for field in ["schema_version", "server", "adapters", "admin", "permission", "database"]:
         if field not in properties:
             fail(f"config.user.schema.json missing property: {field}")
     validate_config_field_metadata(config_schema)
