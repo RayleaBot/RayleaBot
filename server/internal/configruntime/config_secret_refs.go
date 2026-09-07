@@ -22,7 +22,7 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 		return cloned, nil
 	}
 
-	for _, path := range secretConfigPaths {
+	for _, path := range configSecretPathsIn(document) {
 		value, ok := lookupConfigPath(cloned, path)
 		if !ok {
 			continue
@@ -60,7 +60,7 @@ func StoreConfigSecrets(ctx context.Context, store secrets.Store, document map[s
 
 func ResolveConfigSecretRefs(ctx context.Context, store secrets.Store, cfg internalconfig.Config) (internalconfig.Config, error) {
 	document := ConfigDocumentFromTyped(cfg)
-	for _, path := range secretConfigPaths {
+	for _, path := range configSecretPathsIn(document) {
 		value, ok := lookupConfigPath(document, path)
 		if !ok {
 			continue

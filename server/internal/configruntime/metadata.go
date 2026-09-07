@@ -15,7 +15,18 @@ type ConfigFieldMetadata struct {
 	Redaction   string
 }
 
+// configCollectionKeys maps a collection path to the field naming its entries.
+// It is populated while the metadata is built.
+var configCollectionKeys = map[string]string{}
+
 var configFieldMetadata = mustLoadConfigFieldMetadata(config.ConfigUserSchemaJSON)
+
+// ConfigCollectionKey reports the field that names entries of the collection at
+// this path, if it is one.
+func ConfigCollectionKey(path string) (string, bool) {
+	key, ok := configCollectionKeys[path]
+	return key, ok
+}
 
 func ConfigFieldMetadataForPath(path string) (ConfigFieldMetadata, bool) {
 	metadata, ok := configFieldMetadata[path]
@@ -61,14 +72,16 @@ func loadConfigFieldMetadata(payload []byte) (map[string]ConfigFieldMetadata, er
 		return nil, fmt.Errorf("parse config schema metadata: %w", err)
 	}
 	state := configSchemaMetadataState{
-		defs:     root.Defs,
-		metadata: map[string]ConfigFieldMetadata{},
+		defs:        root.Defs,
+		metadata:    map[string]ConfigFieldMetadata{},
+		collections: map[string]string{},
 	}
 	for key, raw := range root.Properties {
 		if err := state.collect(key, raw); err != nil {
 			return nil, err
 		}
 	}
+	configCollectionKeys = state.collections
 	return state.metadata, nil
 }
 
@@ -76,14 +89,22 @@ type configSchemaNode struct {
 	Ref         string                     `json:"$ref"`
 	Defs        map[string]json.RawMessage `json:"$defs"`
 	Properties  map[string]json.RawMessage `json:"properties"`
+	Items       json.RawMessage            `json:"items"`
+	Collection  string                     `json:"x-collection-key"`
 	ApplyPolicy string                     `json:"x-apply-policy"`
 	Secret      bool                       `json:"x-secret"`
 	Redaction   string                     `json:"x-redaction"`
 }
 
+// ConfigCollectionWildcard stands for one entry of a keyed collection in a
+// metadata path. Paths containing it describe a shape; resolving them against a
+// document substitutes each entry's key.
+const ConfigCollectionWildcard = "*"
+
 type configSchemaMetadataState struct {
-	defs     map[string]json.RawMessage
-	metadata map[string]ConfigFieldMetadata
+	defs        map[string]json.RawMessage
+	metadata    map[string]ConfigFieldMetadata
+	collections map[string]string
 }
 
 func (s configSchemaMetadataState) collect(path string, raw json.RawMessage) error {
@@ -105,6 +126,15 @@ func (s configSchemaMetadataState) collect(path string, raw json.RawMessage) err
 			}
 		}
 		return nil
+	}
+	// A keyed collection contributes one shape, not one path per entry: its
+	// entries only exist in a document, so the wildcard is resolved there.
+	if strings.TrimSpace(node.Collection) != "" {
+		if len(node.Items) == 0 {
+			return fmt.Errorf("config collection %s declares x-collection-key without items", path)
+		}
+		s.collections[path] = strings.TrimSpace(node.Collection)
+		return s.collect(joinConfigPath(path, ConfigCollectionWildcard), node.Items)
 	}
 	if strings.TrimSpace(node.ApplyPolicy) == "" {
 		return fmt.Errorf("config field %s missing x-apply-policy", path)

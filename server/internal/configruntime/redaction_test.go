@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -271,5 +272,63 @@ func TestRestoreRedactedConfigSecretsLeavesOmittedSectionsAbsent(t *testing.T) {
 	restored := restoreRedactedConfigSecrets(request, current)
 	if _, present := restored["qq_official"]; present {
 		t.Fatalf("restored document gained an omitted section: %#v", restored["qq_official"])
+	}
+}
+
+func TestSecretPathsResolvePerDocumentNotPerSchema(t *testing.T) {
+	t.Parallel()
+
+	// Without a keyed collection in the schema the shapes are already concrete,
+	// so resolving them against a document returns the same set. This pins the
+	// behaviour that the rest of the secret layer now depends on.
+	document := map[string]any{
+		"onebot": map[string]any{
+			"forward_ws": map[string]any{"access_token": "forward-secret"},
+		},
+	}
+	resolved := configSecretPathsIn(document)
+	if len(resolved) == 0 {
+		t.Fatal("no secret paths resolved for a document that has one")
+	}
+	var found bool
+	for _, path := range resolved {
+		if strings.Join(path, ".") == "onebot.forward_ws.access_token" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("resolved paths = %v, want the forward_ws token", resolved)
+	}
+}
+
+func TestLookupAddressesCollectionEntriesByKey(t *testing.T) {
+	t.Parallel()
+
+	document := map[string]any{
+		"adapters": []any{
+			map[string]any{"id": "first", "settings": map[string]any{"token": "one"}},
+			map[string]any{"id": "second", "settings": map[string]any{"token": "two"}},
+		},
+	}
+	// Addressing by identifier rather than position means reordering the list
+	// does not move a secret.
+	value, ok := lookupConfigPath(document, []string{"adapters", "second", "settings", "token"})
+	if !ok || value != "two" {
+		t.Fatalf("lookup = %v (ok %v), want the second entry's token", value, ok)
+	}
+	if _, ok := lookupConfigPath(document, []string{"adapters", "missing", "settings", "token"}); ok {
+		t.Fatal("an absent entry was resolved")
+	}
+
+	setConfigPath(document, []string{"adapters", "first", "settings", "token"}, "replaced")
+	value, _ = lookupConfigPath(document, []string{"adapters", "first", "settings", "token"})
+	if value != "replaced" {
+		t.Fatalf("set then lookup = %v, want replaced", value)
+	}
+	// Writing into an entry that does not exist must not invent one: it would
+	// have no identity.
+	setConfigPath(document, []string{"adapters", "ghost", "settings", "token"}, "x")
+	if len(document["adapters"].([]any)) != 2 {
+		t.Fatal("setConfigPath invented a collection entry")
 	}
 }

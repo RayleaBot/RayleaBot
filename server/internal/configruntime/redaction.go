@@ -17,8 +17,9 @@ func sanitizeConfigDocument(document map[string]any) (map[string]any, []string) 
 		return nil, nil
 	}
 
-	redactedFields := make([]string, 0, len(secretConfigPaths))
-	for _, path := range secretConfigPaths {
+	paths := configSecretPathsIn(cloned)
+	redactedFields := make([]string, 0, len(paths))
+	for _, path := range paths {
 		value, ok := lookupConfigPath(cloned, path)
 		if !ok || strings.TrimSpace(stringValue(value)) == "" {
 			continue
@@ -36,7 +37,9 @@ func restoreRedactedConfigSecrets(request, current map[string]any) map[string]an
 		return nil
 	}
 
-	for _, path := range secretConfigPaths {
+	// Resolve against the request: an adapter the caller did not send has no
+	// secrets to restore into it.
+	for _, path := range configSecretPathsIn(cloned) {
 		requestValue, exists := lookupConfigPath(cloned, path)
 		if exists && strings.TrimSpace(stringValue(requestValue)) != redactedConfigValue {
 			continue
@@ -68,8 +71,9 @@ func configSectionPresent(document map[string]any, path []string) bool {
 
 func configSecretValues(cfg internalconfig.Config) []string {
 	document := ConfigDocumentFromTyped(cfg)
-	values := make([]string, 0, len(secretConfigPaths))
-	for _, path := range secretConfigPaths {
+	paths := configSecretPathsIn(document)
+	values := make([]string, 0, len(paths))
+	for _, path := range paths {
 		value, ok := lookupConfigPath(document, path)
 		if !ok {
 			continue
@@ -100,7 +104,17 @@ func lookupConfigPath(document map[string]any, path []string) (any, bool) {
 	}
 
 	current := any(document)
-	for _, segment := range path {
+	for index, segment := range path {
+		// A segment addressing a keyed collection names an entry by its own
+		// identifier rather than by position, so reordering does not move it.
+		if entries, ok := current.([]any); ok {
+			entry, ok := collectionEntry(entries, collectionKeyFor(path[:index]), segment)
+			if !ok {
+				return nil, false
+			}
+			current = entry
+			continue
+		}
 		currentMap, ok := current.(map[string]any)
 		if !ok {
 			return nil, false
@@ -114,21 +128,62 @@ func lookupConfigPath(document map[string]any, path []string) (any, bool) {
 	return current, true
 }
 
+// collectionKeyFor reports which field names the entries of the collection at
+// this path, defaulting to "id" when the schema declares none.
+func collectionKeyFor(path []string) string {
+	if key, ok := ConfigCollectionKey(strings.Join(path, ".")); ok {
+		return key
+	}
+	return "id"
+}
+
+func collectionEntry(entries []any, key, wanted string) (map[string]any, bool) {
+	for _, entry := range entries {
+		item, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		if id, ok := item[key].(string); ok && id == wanted {
+			return item, true
+		}
+	}
+	return nil, false
+}
+
 func setConfigPath(document map[string]any, path []string, value any) {
 	if document == nil || len(path) == 0 {
 		return
 	}
 
-	current := document
-	for _, segment := range path[:len(path)-1] {
-		next, ok := current[segment].(map[string]any)
+	current := any(document)
+	for index, segment := range path[:len(path)-1] {
+		if entries, ok := current.([]any); ok {
+			entry, ok := collectionEntry(entries, collectionKeyFor(path[:index]), segment)
+			if !ok {
+				// Never invent a collection entry: it would have no identity.
+				return
+			}
+			current = entry
+			continue
+		}
+		currentMap, ok := current.(map[string]any)
 		if !ok {
+			return
+		}
+		next, ok := currentMap[segment].(map[string]any)
+		if !ok {
+			if _, isList := currentMap[segment].([]any); isList {
+				current = currentMap[segment]
+				continue
+			}
 			next = map[string]any{}
-			current[segment] = next
+			currentMap[segment] = next
 		}
 		current = next
 	}
-	current[path[len(path)-1]] = value
+	if currentMap, ok := current.(map[string]any); ok {
+		currentMap[path[len(path)-1]] = value
+	}
 }
 
 func stringValue(value any) string {
