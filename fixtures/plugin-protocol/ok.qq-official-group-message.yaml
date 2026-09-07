@@ -1,0 +1,38 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: event
+    request_id: event-qq-group-1
+    event:
+      event_id: GROUP_AT_MESSAGE_CREATE:fixture
+      source_protocol: qqofficial
+      source_adapter: adapter.qqofficial
+      event_type: message.group
+      timestamp: 1788752625
+      actor:
+        id: "0000000000000000000000000000AAAA"
+        nickname: 群成员
+        role: owner
+      target:
+        type: group
+        id: "1111111111111111111111111111BBBB"
+      message:
+        plain_text: 你好
+        segments:
+          - type: text
+            data:
+              text: 你好
+      payload:
+        message_id: ROBOT1.0_fixture-group-message
+        qq_official:
+          dispatch_type: GROUP_AT_MESSAGE_CREATE
+          message_id: ROBOT1.0_fixture-group-message
+          group_openid: "1111111111111111111111111111BBBB"
+          member_openid: "0000000000000000000000000000AAAA"
+          member_role: owner
+  - type: result
+    request_id: event-qq-group-1
+    status: success
+    data: {}
+expect:
+  valid: true

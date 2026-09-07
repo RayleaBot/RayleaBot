@@ -460,6 +460,25 @@
                       "type": "string",
                       "description": "The user who triggered the notice event, if different from the actor."
                     },
+                    "qq_official": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "description": "QQ Open Platform native fields as a closed normalized projection. Present only when source_protocol is qqofficial; read it after checking source_protocol. Identifiers are per-bot openids and are not portable to another protocol or another bot.",
+                      "properties": {
+                        "dispatch_type": {
+                          "type": "string",
+                          "description": "Gateway dispatch name the event was normalized from, such as C2C_MESSAGE_CREATE or GROUP_AT_MESSAGE_CREATE."
+                        },
+                        "message_id": {
+                          "type": "string",
+                          "description": "Platform message identifier. It is also the handle a passive reply must quote."
+                        },
+                        "group_openid": { "type": "string" },
+                        "user_openid": { "type": "string" },
+                        "member_openid": { "type": "string" },
+                        "member_role": { "type": "string" }
+                      }
+                    },
                     "onebot": {
                       "type": "object",
                       "description": "OneBot11 native fields as a closed normalized projection, not a passthrough of the raw upstream frame. Present only when source_protocol is onebot11; read it after checking source_protocol. Delivered to every subscriber and not gated by a permission, unlike the top-level raw_payload.",
@@ -2723,6 +2742,7 @@
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-without-bot.yaml",
     "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
+    "fixtures/plugin-protocol/ok.qq-official-group-message.yaml",
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
     "fixtures/plugin-protocol/invalid.removed-action.yaml",

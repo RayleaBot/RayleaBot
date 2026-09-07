@@ -3,6 +3,8 @@
 // event pipeline downstream of them speaks only these types.
 package chatevent
 
+import "strings"
+
 // NormalizedEvent is one inbound chat event after adapter normalization.
 // SourceProtocol and SourceAdapter name the adapter that produced it, so
 // consumers never infer origin from the other fields.
@@ -35,17 +37,42 @@ type MessageSegment struct {
 	Data map[string]any
 }
 
-// Event kinds classify an event into the pipeline's coarse families. The
-// values keep their historical onebot11 prefix because they are observable on
-// the management WebSocket as last_supported_event_kind; renaming them is a
-// contract change, not a refactor.
+// Event families classify an event into the pipeline's coarse buckets,
+// independent of which adapter produced it.
 const (
-	EventKindMessageText = "onebot11.message_text"
-	EventKindMessage     = "onebot11.message"
-	EventKindMessageSent = "onebot11.message_sent"
-	EventKindNotice      = "onebot11.notice"
-	EventKindRequest     = "onebot11.request"
-	EventKindMeta        = "onebot11.meta"
+	FamilyMessageText = "message_text"
+	FamilyMessage     = "message"
+	FamilyMessageSent = "message_sent"
+	FamilyNotice      = "notice"
+	FamilyRequest     = "request"
+	FamilyMeta        = "meta"
+)
+
+// EventKind composes the kind an event reports, which is its source protocol
+// and its family. The value is observable on the management WebSocket as
+// last_supported_event_kind, so it names the protocol that actually produced
+// the event rather than assuming one.
+func EventKind(sourceProtocol, family string) string {
+	return sourceProtocol + "." + family
+}
+
+// EventFamily recovers the family from a composed kind.
+func EventFamily(kind string) string {
+	if index := strings.LastIndex(kind, "."); index >= 0 {
+		return kind[index+1:]
+	}
+	return kind
+}
+
+// OneBot11 kinds, spelled out because these exact strings are already
+// published on the management surface.
+const (
+	EventKindMessageText = "onebot11." + FamilyMessageText
+	EventKindMessage     = "onebot11." + FamilyMessage
+	EventKindMessageSent = "onebot11." + FamilyMessageSent
+	EventKindNotice      = "onebot11." + FamilyNotice
+	EventKindRequest     = "onebot11." + FamilyRequest
+	EventKindMeta        = "onebot11." + FamilyMeta
 )
 
 // Outbound message shapes. An adapter receives these and renders them onto its

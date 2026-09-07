@@ -695,3 +695,42 @@ func supportedGroupRecallNoticeEvent() chatevent.NormalizedEvent {
 		},
 	}
 }
+
+func TestIsSupportedEventAcceptsEveryRegisteredAdapter(t *testing.T) {
+	t.Parallel()
+
+	base := chatevent.NormalizedEvent{
+		EventID: "evt-1", Timestamp: 1788752625,
+		ConversationType: "group", ConversationID: "G1", SenderID: "U1",
+		EventType: "message.group", PlainText: "hi",
+	}
+
+	onebot := base
+	onebot.SourceProtocol, onebot.SourceAdapter = "onebot11", "adapter.onebot11"
+	onebot.Kind = chatevent.EventKindMessage
+	if !isSupportedEvent(onebot) {
+		t.Fatal("onebot11 event was rejected")
+	}
+
+	// A second adapter reports its own protocol in the kind; the gate keys on
+	// the family, not on a hard-coded onebot spelling.
+	qq := base
+	qq.SourceProtocol, qq.SourceAdapter = "qqofficial", "adapter.qqofficial"
+	qq.Kind = chatevent.EventKind("qqofficial", chatevent.FamilyMessage)
+	if !isSupportedEvent(qq) {
+		t.Fatal("qqofficial event was rejected")
+	}
+
+	// An unregistered adapter is still ignored rather than guessed at, and a
+	// protocol may not claim another adapter's identity.
+	unknown := qq
+	unknown.SourceProtocol, unknown.SourceAdapter = "telegram", "adapter.telegram"
+	if isSupportedEvent(unknown) {
+		t.Fatal("an unregistered adapter was accepted")
+	}
+	mismatched := qq
+	mismatched.SourceAdapter = "adapter.onebot11"
+	if isSupportedEvent(mismatched) {
+		t.Fatal("a protocol/adapter mismatch was accepted")
+	}
+}

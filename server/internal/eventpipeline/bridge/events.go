@@ -144,8 +144,18 @@ func bridgeDispatchLogAttrs(results []dispatch.DeliveryResult) []any {
 	return attrs
 }
 
+// supportedSources lists the adapters whose events the bridge delivers. An
+// event from anything else is ignored rather than guessed at.
+var supportedSources = map[string]string{
+	"onebot11":   "adapter.onebot11",
+	"qqofficial": "adapter.qqofficial",
+}
+
 func isSupportedEvent(event chatevent.NormalizedEvent) bool {
-	if event.EventID == "" || event.SourceProtocol != "onebot11" || event.SourceAdapter != "adapter.onebot11" {
+	if event.EventID == "" {
+		return false
+	}
+	if adapter, ok := supportedSources[event.SourceProtocol]; !ok || adapter != event.SourceAdapter {
 		return false
 	}
 	if event.Timestamp <= 0 || event.ConversationType == "" || event.ConversationID == "" || event.SenderID == "" {
@@ -164,8 +174,9 @@ func isSupportedEvent(event chatevent.NormalizedEvent) bool {
 }
 
 func isSupportedEventKind(kind string) bool {
-	switch kind {
-	case chatevent.EventKindMessageText, chatevent.EventKindMessage, chatevent.EventKindMessageSent, chatevent.EventKindNotice, chatevent.EventKindRequest, chatevent.EventKindMeta:
+	switch chatevent.EventFamily(kind) {
+	case chatevent.FamilyMessageText, chatevent.FamilyMessage, chatevent.FamilyMessageSent,
+		chatevent.FamilyNotice, chatevent.FamilyRequest, chatevent.FamilyMeta:
 		return true
 	default:
 		return false
@@ -173,7 +184,12 @@ func isSupportedEventKind(kind string) bool {
 }
 
 func isMessageEventKind(kind string) bool {
-	return kind == chatevent.EventKindMessageText || kind == chatevent.EventKindMessage || kind == chatevent.EventKindMessageSent
+	switch chatevent.EventFamily(kind) {
+	case chatevent.FamilyMessageText, chatevent.FamilyMessage, chatevent.FamilyMessageSent:
+		return true
+	default:
+		return false
+	}
 }
 
 func isSupportedEventType(event chatevent.NormalizedEvent) bool {

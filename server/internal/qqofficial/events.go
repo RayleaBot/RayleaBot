@@ -70,7 +70,7 @@ func NormalizeDispatch(eventID, dispatchType string, data []byte) (chatevent.Nor
 	}
 
 	event := chatevent.NormalizedEvent{
-		Kind:           chatevent.EventKindMessage,
+		Kind:           chatevent.EventKind(SourceProtocol, chatevent.FamilyMessage),
 		EventID:        strings.TrimSpace(eventID),
 		SourceProtocol: SourceProtocol,
 		SourceAdapter:  SourceAdapter,
