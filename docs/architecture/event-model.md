@@ -65,7 +65,7 @@ OneBot11 上报帧
 
 ## 三、QQ 官方机器人事件归一化
 
-QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协议，事件来源由 `event.source_protocol=qqofficial`、`event.source_adapter=adapter.qqofficial` 标识。
+QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协议，事件来源由 `event.source_protocol=qqofficial` 与 `event.source_adapter` 标识。`source_protocol` 决定如何读取事件，`source_adapter` 是产生该事件的适配器实例 id（配置中的 `adapters[].id`）；出站回复据此路由回同一条连接，因此同一协议的多个实例不会互相串消息。
 
 | 网关 dispatch | 统一事件类型 | 会话 |
 | --- | --- | --- |

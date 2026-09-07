@@ -104,7 +104,7 @@ func (a *App) stopAdapter(timeout time.Duration) error {
 				"component", "adapter.qqofficial", "adapter_id", id, "error", err.Error())
 		}
 	}
-	for id, shell := range a.eventStack.OneBotShells {
+	for id, shell := range a.eventStack.RunningOneBot {
 		if shell == a.eventStack.Adapter {
 			continue
 		}

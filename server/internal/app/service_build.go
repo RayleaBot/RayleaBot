@@ -176,7 +176,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	// A concrete pointer assigned straight into the interface would hand the
 	// service a typed nil that passes a nil check, so only real clients enter
 	// the map the protocol surface reads.
-	qqStatus := make(map[string]wsevents.QQOfficialStatusSource, len(eventStack.QQOfficial))
+	qqStatus := make(map[string]wsevents.QQOfficialAdapter, len(eventStack.QQOfficial))
 	for id, client := range eventStack.QQOfficial {
 		if client == nil {
 			continue
@@ -185,6 +185,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	}
 	protocolService := wsevents.NewProtocolService(runtimeState, wsevents.ProtocolServiceAdapters{
 		OneBot11:        eventStack.OneBotShells,
+		RunningOneBot11: eventStack.RunningOneBot,
 		QQOfficial:      qqStatus,
 		PrimaryOneBot11: eventStack.Adapter,
 	})

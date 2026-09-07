@@ -87,24 +87,37 @@ func TestEventWiringKeepsTwoInstancesOfOneProtocolApart(t *testing.T) {
 	}
 }
 
-// A disabled instance is a choice, not a failure: nothing is built for it, so
-// it neither connects nor accepts a message addressed to it.
-func TestEventWiringSkipsDisabledInstances(t *testing.T) {
+// A disabled instance is a choice, not a failure. Its transports stay visible
+// so the operator can finish configuring it, but nothing runs for it: it does
+// not connect, and it carries no outbound message.
+func TestEventWiringKeepsDisabledInstancesConfiguredButNotRunning(t *testing.T) {
 	t.Parallel()
 
 	state := buildEvents(eventDeps{
 		Logger: discardLogger(),
 		Config: config.Config{Adapters: []config.AdapterInstance{
 			{ID: "off-bot", Type: config.AdapterTypeOneBot11, Enabled: false, OneBot11: &config.OneBotConfig{}},
+			{ID: "off-qq", Type: config.AdapterTypeQQOfficial, Enabled: false,
+				QQOfficial: &config.QQOfficialConfig{AppID: "100000001", AppSecret: "fixture-secret"}},
 		}},
 	})
-	if _, present := state.OneBotShells["off-bot"]; present {
-		t.Fatal("a disabled instance was built")
+	if _, present := state.OneBotShells["off-bot"]; !present {
+		t.Fatal("a disabled OneBot instance lost the transports it had configured")
 	}
-	_, err := state.OutboundSender.SendReply(context.Background(), chatevent.OutboundMessageReply{
-		SourceAdapter: "off-bot", TargetType: "group", TargetID: "G1",
-	})
-	if err == nil || !strings.Contains(err.Error(), "not connected") {
-		t.Fatalf("send to a disabled instance = %v, want it refused as not connected", err)
+	if _, present := state.RunningOneBot["off-bot"]; present {
+		t.Fatal("a disabled instance was started")
+	}
+	// The QQ adapter holds no transport state to show, so it builds nothing.
+	if _, present := state.QQOfficial["off-qq"]; present {
+		t.Fatal("a disabled QQ instance was built")
+	}
+
+	for _, id := range []string{"off-bot", "off-qq"} {
+		_, err := state.OutboundSender.SendReply(context.Background(), chatevent.OutboundMessageReply{
+			SourceAdapter: id, TargetType: "group", TargetID: "G1",
+		})
+		if err == nil || !strings.Contains(err.Error(), "not connected") {
+			t.Fatalf("send to disabled instance %q = %v, want it refused as not connected", id, err)
+		}
 	}
 }

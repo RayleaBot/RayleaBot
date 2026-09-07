@@ -11,6 +11,8 @@ type stubQQStatus struct{ status qqofficial.Status }
 
 func (s stubQQStatus) Status() qqofficial.Status { return s.status }
 
+func (stubQQStatus) Reload(config.QQOfficialConfig) bool { return false }
+
 type adapterConfigSource struct{ cfg config.Config }
 
 func (s adapterConfigSource) CurrentConfig() config.Config { return s.cfg }
@@ -66,7 +68,7 @@ func TestAdaptersReportEnabledStateAndLiveIdentityPerInstance(t *testing.T) {
 	qqAdapter.Enabled = true
 	cfg = config.Config{Adapters: []config.AdapterInstance{qqAdapter}}
 	connected := NewProtocolService(adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{
-		QQOfficial: map[string]QQOfficialStatusSource{
+		QQOfficial: map[string]QQOfficialAdapter{
 			config.DefaultQQOfficialAdapterID: stubQQStatus{status: qqofficial.Status{
 				State: qqofficial.StateConnected, Summary: "已连接：洛箐箐", BotID: "bot-1", BotName: "洛箐箐",
 			}},

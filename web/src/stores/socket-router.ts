@@ -5,6 +5,7 @@ import type {
   WebSocketFrame,
 } from '@/types/api'
 import type {
+  AdaptersSnapshotEvent,
   PluginStateEvent,
   ProtocolSnapshotEvent,
   SocketFrameRouter,
@@ -172,6 +173,13 @@ export function createSocketFrameRouter(
 
     if (isProtocolSnapshotEvent(frame.data)) {
       dependencies.protocols.applySnapshot(frame.data.protocol_snapshot)
+      return
+    }
+
+    // The adapters listing covers every configured instance, including one
+    // whose protocol has no transport snapshot of its own.
+    if (isAdaptersSnapshotEvent(frame.data)) {
+      dependencies.adapters.applySnapshot(frame.data.adapters)
     }
   }
 
@@ -234,6 +242,10 @@ function isPluginStateEvent(payload: EventsPayload): payload is PluginStateEvent
 
 function isProtocolSnapshotEvent(payload: EventsPayload): payload is ProtocolSnapshotEvent {
   return 'protocol_snapshot' in payload
+}
+
+function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSnapshotEvent {
+  return 'adapters' in payload
 }
 
 function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {

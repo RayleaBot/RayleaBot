@@ -11,6 +11,7 @@ x-fixtures:
   - fixtures/websocket/ok.events-received-bridge-runtime-observability.json
   - fixtures/websocket/ok.events-received-dispatcher-runtime-observability.json
   - fixtures/websocket/ok.events-received-protocol-snapshot.json
+  - fixtures/websocket/ok.events-received-adapters-snapshot.json
   - fixtures/websocket/ok.events-received-service-running.json
   - fixtures/websocket/ok.events-received-service-stopping.json
   - fixtures/websocket/ok.events-received-governance-changed.json
@@ -342,6 +343,45 @@ channels:
                             type: string
                             enum: [info, warning, error]
                           summary:
+                            type: string
+            - type: object
+              additionalProperties: false
+              description: |
+                已配置适配器实例的状态快照。任一实例的连接状态变化时推送，
+                与 GET /api/adapters 的 adapters 字段同形，管理面据此更新
+                适配器列表而不轮询。
+              required: [adapters]
+              properties:
+                adapters:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [id, protocol, display_name, enabled, state, summary]
+                    properties:
+                      id:
+                        type: string
+                        description: 适配器实例标识，与配置 adapters[].id 一致。
+                      protocol:
+                        type: string
+                        enum: [onebot11, qqofficial]
+                      display_name:
+                        type: string
+                      enabled:
+                        type: boolean
+                      state:
+                        type: string
+                        enum: [idle, listening, connecting, connected, auth_failed, reconnecting, stopped]
+                      summary:
+                        type: string
+                      identity:
+                        type: object
+                        additionalProperties: false
+                        required: [id, name]
+                        properties:
+                          id:
+                            type: string
+                          name:
                             type: string
             - type: object
               additionalProperties: false

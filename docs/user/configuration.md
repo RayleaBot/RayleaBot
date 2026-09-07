@@ -19,6 +19,7 @@
 - 通过管理端保存 OneBot11 访问令牌时，明文值写入本地 secret store，`user.yaml` 只保存 `secret://adapters/<实例 id>/onebot11/<transport>/access_token` 引用。
 - QQ 开放平台官方机器人以 `type: qqofficial` 的实例接入。`app_id` 不是机密；`app_secret` 与 OneBot 访问令牌同样处理，明文写入 secret store，`user.yaml` 只保存 `secret://adapters/<实例 id>/qqofficial/app_secret` 引用。
 - `qqofficial.intents` 按名称声明订阅的事件族，适配器负责映射为网关位掩码；名称集合由 schema 约束，写入未知名称会被拒绝。
+- 实例的 `enabled` 是总开关。关闭的实例不连接、不接收入站流量、也不承载出站消息；OneBot 实例的传输配置仍可查看和修改，便于配置完再启用。
 - OneBot11 访问令牌默认通过 `Authorization: Bearer` 传递。只有旧服务端或旧 webhook 客户端必须使用 URL query token 时，才将对应入口的 `access_token_query_compat` 显式设为 `true`。
 
 ## 配置文件维护
@@ -48,12 +49,14 @@ schema_version 4 把原来的两个单例块 `onebot` 与 `qq_official` 合并�
 | --- | --- | --- |
 | `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
 | `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、三方账号检查间隔、存储配额、日志、消息、用户和 HTTP 参数 | 保存后直接应用，列入 `apply_effects.applied_now` |
-| `adapter_reload` | OneBot11 连接地址、实例启用状态、兼容开关以及 adapter 连接和重连参数 | 保存后受控重载 adapter，列入 `apply_effects.reloaded_now` |
+| `adapter_reload` | OneBot11 连接地址、兼容开关、QQ 官方机器人的 AppID / 订阅事件 / 沙箱开关，以及 adapter 连接和重连参数 | 保存后受控重载对应实例，列入 `apply_effects.reloaded_now` |
 | `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、抖音扫码浏览器、调度时区、插件运行限制、数据留存、Web、备份一致性 | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
 
 OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
 
 `apply_effects` 中的字段路径按实例 id 寻址，例如 `adapters.onebot11.onebot11.forward_ws.url`；改变实例的增删或顺序则记为 `adapters` 本身，属于 `restart_required`。
+
+重载只作用于设置发生变化的实例：其他实例的连接不受影响。QQ 官方机器人的凭据、订阅事件与沙箱开关都在建立连接时固定，因此改动这些字段会让该实例立即断开并按新配置重连（不等待重连退避），而未改动时连接原样保留。
 
 ## 三方账号检查与抖音扫码浏览器
 

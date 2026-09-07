@@ -30,5 +30,12 @@ export const useAdaptersStore = defineStore('adapters', () => {
     }
   }
 
-  return { adapters, availableProtocols, error, loading, refresh }
+  // applySnapshot takes the live listing pushed over the socket. The set of
+  // protocols one can add does not change at runtime, so only the instances
+  // are replaced.
+  function applySnapshot(next: AdapterDescriptor[]) {
+    adapters.value = next ?? []
+  }
+
+  return { adapters, availableProtocols, error, loading, refresh, applySnapshot }
 })

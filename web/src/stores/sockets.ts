@@ -6,6 +6,7 @@ import { createSocketFrameRouter } from '@/stores/socket-router'
 import { useLogsStore } from '@/stores/logs'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
+import { useAdaptersStore } from '@/stores/adapters'
 import { useProtocolsStore } from '@/stores/protocols'
 import { useSessionStore } from '@/stores/session'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
@@ -20,6 +21,7 @@ export const useSocketStore = defineStore('sockets', () => {
   const logsStore = useLogsStore()
   const governanceStore = useGovernanceStore()
   const protocolsStore = useProtocolsStore()
+  const adaptersStore = useAdaptersStore()
   const systemStore = useSystemStore()
   const thirdPartyAccountsStore = useThirdPartyAccountsStore()
 
@@ -49,6 +51,9 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     protocols: {
       applySnapshot: protocolsStore.applySnapshot,
+    },
+    adapters: {
+      applySnapshot: adaptersStore.applySnapshot,
     },
   })
 

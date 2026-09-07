@@ -124,7 +124,7 @@ func (a *App) Run(ctx context.Context) error {
 	// Every configured instance runs; the primary is one of them, plus the
 	// stand-in shell built when no OneBot instance is configured.
 	a.eventStack.Adapter.Start(runCtx)
-	for _, shell := range a.eventStack.OneBotShells {
+	for _, shell := range a.eventStack.RunningOneBot {
 		if shell == a.eventStack.Adapter {
 			continue
 		}
@@ -350,12 +350,16 @@ func configureAppRuntimeCallbacks(application *App) {
 	}
 	// Every adapter feeds the same ingress; the OneBot instance the management
 	// surface reports on is additionally the one driving snapshot publication.
-	for _, shell := range application.eventStack.OneBotShells {
+	for _, shell := range application.eventStack.RunningOneBot {
 		shell.SetEventHandler(eventIngress.HandleAdapterEvent)
 		shell.SetReadyHandler(eventIngress.HandleAdapterReady)
 	}
 	for _, client := range application.eventStack.QQOfficial {
 		client.SetEventHandler(eventIngress.HandleAdapterEvent)
+		client.SetReadyHandler(eventIngress.HandleAdapterReady)
+		// The QQ adapter has no transport snapshot of its own, so its state
+		// reaches the management surface through the adapters listing.
+		client.SetStateHandler(protocolService.PublishAdaptersSnapshot)
 	}
 	if application.eventStack.Adapter != nil {
 		application.eventStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)

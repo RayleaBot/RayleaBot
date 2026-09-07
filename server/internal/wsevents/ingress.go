@@ -25,8 +25,10 @@ func (s *ProtocolService) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
 	if s == nil || s.config == nil {
 		return OneBot11Ingress{}, false
 	}
-	shell := s.oneBotShell(id)
-	if shell == nil {
+	// Only a running instance has an ingress: a configured-but-disabled one
+	// still appears on the management surface, but accepts no traffic.
+	shell, ok := s.runningOneBot[id]
+	if !ok || shell == nil {
 		return OneBot11Ingress{}, false
 	}
 	settings, ok := s.config.CurrentConfig().OneBot11Settings(id)
@@ -101,7 +103,7 @@ func (s *ProtocolService) oneBotShell(id string) *onebot11.Shell {
 	return shell
 }
 
-func (s *ProtocolService) qqClient(id string) QQOfficialStatusSource {
+func (s *ProtocolService) qqClient(id string) QQOfficialAdapter {
 	if s == nil {
 		return nil
 	}

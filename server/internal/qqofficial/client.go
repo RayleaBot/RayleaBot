@@ -29,23 +29,33 @@ type Client struct {
 	// adapterID is the configured instance this client serves; it travels on
 	// every event as source_adapter.
 	adapterID string
-	appID     string
-	sandbox   bool
-	apiBase   string
-	intents   int
-	tokens    *TokenSource
-	http      *http.Client
-	logger    *slog.Logger
-	backoff   *reconnect.Backoff
-	session   session
-	status    statusState
-	replies   *replySequences
-	dialer    func(context.Context, string) (wsConn, error)
-	mu        sync.RWMutex
-	handler   EventHandler
-	stopping  chan struct{}
-	stopOnce  sync.Once
-	done      chan struct{}
+
+	// settingsMu guards everything a reload replaces, plus the handle that ends
+	// the connection those settings opened.
+	settingsMu sync.RWMutex
+	settings   connectionSettings
+	connCancel context.CancelFunc
+	reloading  bool
+
+	appID        string
+	sandbox      bool
+	apiBase      string
+	intents      int
+	tokens       *TokenSource
+	http         *http.Client
+	logger       *slog.Logger
+	backoff      *reconnect.Backoff
+	session      session
+	status       statusState
+	replies      *replySequences
+	dialer       func(context.Context, string) (wsConn, error)
+	mu           sync.RWMutex
+	handler      EventHandler
+	readyHandler func(context.Context)
+	stateHandler func()
+	stopping     chan struct{}
+	stopOnce     sync.Once
+	done         chan struct{}
 }
 
 // wsConn is the slice of the websocket connection the client uses, so the
@@ -63,6 +73,7 @@ func New(adapterID string, qq config.QQOfficialConfig, adapter config.AdapterCon
 	httpClient := &http.Client{Timeout: time.Duration(max(adapter.ConnectTimeoutSeconds, 1)) * time.Second}
 	client := &Client{
 		adapterID: strings.TrimSpace(adapterID),
+		settings:  connectionSettingsOf(qq),
 		appID:     qq.AppID,
 		sandbox:   qq.Sandbox,
 		apiBase:   apiBaseURL(qq.Sandbox),
@@ -83,6 +94,45 @@ func New(adapterID string, qq config.QQOfficialConfig, adapter config.AdapterCon
 	}
 	client.dialer = client.dialWebsocket
 	return client
+}
+
+// SetStateHandler registers what to run whenever the connection state changes,
+// so the management surface learns about it without polling.
+func (c *Client) SetStateHandler(handler func()) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.stateHandler = handler
+}
+
+// setState records the connection state and tells the management surface, so a
+// state change cannot be recorded without being published.
+func (c *Client) setState(state, lastErr string) {
+	c.status.set(state, lastErr)
+	c.notifyStateChanged()
+}
+
+func (c *Client) notifyStateChanged() {
+	c.mu.RLock()
+	handler := c.stateHandler
+	c.mu.RUnlock()
+	if handler != nil {
+		handler()
+	}
+}
+
+// SetReadyHandler registers what to run once the gateway confirms the login.
+// The bot identity only exists from that point, so it is what tells the host to
+// reconcile anything that depends on knowing who the bot is.
+func (c *Client) SetReadyHandler(handler func(context.Context)) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.readyHandler = handler
+}
+
+func (c *Client) currentReadyHandler() func(context.Context) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.readyHandler
 }
 
 func (c *Client) SetEventHandler(handler EventHandler) {
@@ -135,8 +185,18 @@ func (c *Client) Start(ctx context.Context) {
 				default:
 				}
 			}
+			if errors.Is(err, errReloadRequested) {
+				// The operator just changed the settings; making them wait out
+				// a backoff earned by an unrelated failure would read as the
+				// change not having been applied.
+				c.setState(StateConnecting, "")
+				c.logger.Info("QQ 官方机器人配置已更新，正在按新配置重连。",
+					"component", SourceAdapter, "adapter_id", c.adapterID)
+				attempt = 0
+				continue
+			}
 			if err != nil {
-				c.status.set(StateReconnecting, err.Error())
+				c.setState(StateReconnecting, err.Error())
 				c.logger.Warn("QQ 官方机器人连接中断，准备重连。",
 					"component", SourceAdapter, "error", err.Error())
 			}
@@ -157,7 +217,7 @@ func (c *Client) Start(ctx context.Context) {
 // Stop ends the connection loop and waits for it to unwind.
 func (c *Client) Stop(ctx context.Context) error {
 	c.stopOnce.Do(func() { close(c.stopping) })
-	c.status.set(StateStopped, "")
+	c.setState(StateStopped, "")
 	select {
 	case <-c.done:
 		return nil
@@ -168,15 +228,16 @@ func (c *Client) Stop(ctx context.Context) error {
 
 // runConnection owns exactly one gateway connection, from dial to close.
 func (c *Client) runConnection(ctx context.Context) error {
-	c.status.set(StateConnecting, "")
-	token, err := c.tokens.Token(ctx)
+	c.setState(StateConnecting, "")
+	appID, apiBase, intents, tokens := c.currentSettings()
+	token, err := tokens.Token(ctx)
 	if err != nil {
 		// A rejected credential will not fix itself by reconnecting, so it is
 		// reported distinctly from a dropped connection.
-		c.status.set(StateAuthFailed, err.Error())
+		c.setState(StateAuthFailed, err.Error())
 		return err
 	}
-	url, err := gatewayEndpoint(ctx, c.http, c.apiBase, c.appID, token)
+	url, err := gatewayEndpoint(ctx, c.http, apiBase, appID, token)
 	if err != nil {
 		return err
 	}
@@ -188,6 +249,9 @@ func (c *Client) runConnection(ctx context.Context) error {
 
 	connCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// A reload ends this connection through the same handle a stop does.
+	c.setConnectionCancel(cancel)
+	defer c.setConnectionCancel(nil)
 	go func() {
 		select {
 		case <-c.stopping:
@@ -214,7 +278,7 @@ func (c *Client) runConnection(ctx context.Context) error {
 	if resumable {
 		opening, err = resumePayload(token, sessionID, lastSeq)
 	} else {
-		opening, err = identifyPayload(token, c.intents)
+		opening, err = identifyPayload(token, intents)
 	}
 	if err != nil {
 		return err
@@ -232,7 +296,13 @@ func (c *Client) runConnection(ctx context.Context) error {
 	defer wg.Wait()
 	defer cancel()
 
-	return c.readLoop(connCtx, conn)
+	err = c.readLoop(connCtx, conn)
+	if c.takeReloading() {
+		// The connection ended because its settings were replaced, which the
+		// loop treats as a reason to redial rather than as a failure.
+		return errReloadRequested
+	}
+	return err
 }
 
 func (c *Client) heartbeat(ctx context.Context, conn wsConn, interval time.Duration) {
@@ -288,9 +358,12 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 		var ready readyData
 		if err := json.Unmarshal(frame.D, &ready); err == nil {
 			c.session.startSession(ready.SessionID, ready.User.ID, ready.User.Username)
-			c.status.set(StateConnected, "")
+			c.setState(StateConnected, "")
 			c.logger.Info("QQ 官方机器人已连接。",
 				"component", SourceAdapter, "bot_id", ready.User.ID, "bot_name", ready.User.Username)
+			if handler := c.currentReadyHandler(); handler != nil {
+				handler(ctx)
+			}
 		}
 		return
 	case dispatchResumed:

@@ -63,6 +63,14 @@ type ProtocolSnapshotPayload struct {
 	ProtocolSnapshot any    `json:"protocol_snapshot"`
 }
 
+// AdaptersSnapshotPayload carries the state of every configured adapter
+// instance. The OneBot snapshot describes one protocol in transport-level
+// detail; this one says what every adapter is doing, which is what the adapter
+// list needs and what an adapter with no transports of its own can report.
+type AdaptersSnapshotPayload struct {
+	Adapters []AdapterDescriptor `json:"adapters"`
+}
+
 func NewReceivedFrame(data any) Frame {
 	return Frame{
 		Channel:   channelEvents,

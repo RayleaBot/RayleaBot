@@ -1,6 +1,8 @@
 package wsevents
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -127,15 +129,20 @@ type ProtocolService struct {
 	// which is what the per-instance ingress needs.
 	adapter                   *onebot11.Shell
 	oneBotShells              map[string]*onebot11.Shell
-	qqClients                 map[string]QQOfficialStatusSource
+	runningOneBot             map[string]*onebot11.Shell
+	qqClients                 map[string]QQOfficialAdapter
 	oneBot11TargetReadTimeout time.Duration
 	hub                       pubsub.Hub[Frame]
 }
 
 // ProtocolServiceAdapters are the running adapters, keyed by instance id.
 type ProtocolServiceAdapters struct {
-	OneBot11   map[string]*onebot11.Shell
-	QQOfficial map[string]QQOfficialStatusSource
+	// OneBot11 is every configured instance, which is what the management
+	// surface reports on; RunningOneBot11 is the enabled subset, which is what
+	// inbound traffic may reach.
+	OneBot11        map[string]*onebot11.Shell
+	RunningOneBot11 map[string]*onebot11.Shell
+	QQOfficial      map[string]QQOfficialAdapter
 	// PrimaryOneBot11 is the instance the OneBot management endpoints report on.
 	PrimaryOneBot11 *onebot11.Shell
 }
@@ -145,19 +152,49 @@ func NewProtocolService(configSource ProtocolConfigSource, adapters ProtocolServ
 		config:                    configSource,
 		adapter:                   adapters.PrimaryOneBot11,
 		oneBotShells:              adapters.OneBot11,
+		runningOneBot:             adapters.RunningOneBot11,
 		qqClients:                 adapters.QQOfficial,
 		oneBot11TargetReadTimeout: 3 * time.Second,
 	}
 }
 
+// ApplyConfigReload applies the new configuration to every running adapter.
+// An instance whose settings did not change is left connected; one that is no
+// longer configured is left to a restart, because removing an adapter is a
+// change to the set of adapters rather than to one adapter's settings.
 func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
-	if s.adapter == nil {
-		return nil
+	failures := make([]error, 0, len(s.oneBotShells)+len(s.qqClients))
+
+	for id, shell := range s.oneBotShells {
+		settings, ok := cfg.OneBot11Settings(id)
+		if !ok {
+			continue
+		}
+		if shell.Snapshot().State == onebot11.StateStopped {
+			failures = append(failures, configruntime.ErrProtocolStopped)
+			continue
+		}
+		if err := shell.Reload(settings, cfg.Adapter); err != nil {
+			failures = append(failures, fmt.Errorf("adapter %s: %w", id, err))
+		}
 	}
-	if s.adapter.Snapshot().State == onebot11.StateStopped {
-		return configruntime.ErrProtocolStopped
+
+	for id, client := range s.qqClients {
+		settings, ok := cfg.QQOfficialSettings(id)
+		if !ok {
+			continue
+		}
+		// The client logs the reconnect itself, where the adapter id and the
+		// new settings are both in hand.
+		client.Reload(settings)
 	}
-	return s.adapter.Reload(primaryOneBotSettingsOf(cfg), cfg.Adapter)
+
+	// One stopped adapter keeps the caller's existing meaning: the change is
+	// saved but needs a restart, without a warning about a failure.
+	if len(failures) == 1 {
+		return failures[0]
+	}
+	return errors.Join(failures...)
 }
 
 func (s *ProtocolService) ProtocolSnapshotEvent() Frame {
@@ -169,6 +206,18 @@ func (s *ProtocolService) ProtocolSnapshotEvent() Frame {
 
 func (s *ProtocolService) PublishSnapshot() {
 	s.hub.Publish(s.ProtocolSnapshotEvent())
+	s.PublishAdaptersSnapshot()
+}
+
+func (s *ProtocolService) AdaptersSnapshotEvent() Frame {
+	return NewReceivedFrame(AdaptersSnapshotPayload{Adapters: s.Adapters().Adapters})
+}
+
+// PublishAdaptersSnapshot tells subscribers what every adapter is doing. An
+// adapter without transports of its own has no OneBot snapshot to publish, so
+// this is how its state reaches the management surface.
+func (s *ProtocolService) PublishAdaptersSnapshot() {
+	s.hub.Publish(s.AdaptersSnapshotEvent())
 }
 
 func (s *ProtocolService) SubscribeProtocolEvents(buffer int) (<-chan Frame, func()) {

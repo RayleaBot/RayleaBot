@@ -1,0 +1,49 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "ok",
+  "description": "适配器状态快照：任一实例连接状态变化时推送，覆盖同一协议的多个实例，以及没有传输快照可推送的 QQ 官方适配器。",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-04-09T09:00:00Z",
+    "data": {
+      "adapters": [
+        {
+          "id": "onebot11",
+          "protocol": "onebot11",
+          "display_name": "OneBot11",
+          "enabled": true,
+          "state": "connected",
+          "summary": "已连接。",
+          "identity": {
+            "id": "10001",
+            "name": ""
+          }
+        },
+        {
+          "id": "second-bot",
+          "protocol": "onebot11",
+          "display_name": "OneBot11（second-bot）",
+          "enabled": true,
+          "state": "reconnecting",
+          "summary": "等待连接。"
+        },
+        {
+          "id": "qq-official",
+          "protocol": "qqofficial",
+          "display_name": "QQ 官方机器人",
+          "enabled": true,
+          "state": "connected",
+          "summary": "已连接：洛箐箐",
+          "identity": {
+            "id": "1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B",
+            "name": "洛箐箐"
+          }
+        }
+      ]
+    }
+  },
+  "expect": {
+    "valid": true
+  }
+}

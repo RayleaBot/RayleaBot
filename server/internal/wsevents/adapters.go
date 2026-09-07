@@ -40,10 +40,13 @@ type AdaptersView struct {
 	AvailableProtocols []AdapterProtocolDescriptor `json:"available_protocols"`
 }
 
-// QQOfficialStatusSource is the slice of the QQ client this package needs, so
-// the service does not depend on the concrete adapter for a status read.
-type QQOfficialStatusSource interface {
+// QQOfficialAdapter is the slice of the QQ client this package needs, so the
+// service does not depend on the concrete adapter.
+type QQOfficialAdapter interface {
 	Status() qqofficial.Status
+	// Reload applies new settings, reporting whether anything the connection
+	// depends on changed.
+	Reload(config.QQOfficialConfig) bool
 }
 
 var adapterProtocols = []AdapterProtocolDescriptor{
