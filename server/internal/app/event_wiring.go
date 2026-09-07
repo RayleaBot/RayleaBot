@@ -9,6 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
 )
 
 const dispatcherRuntimeFlushInterval = 10 * time.Second
@@ -21,6 +22,7 @@ type eventDeps struct {
 
 type EventState struct {
 	Adapter         *onebot11.Shell
+	QQOfficial      *qqofficial.Client
 	Bridge          *bridge.Bridge
 	Dispatcher      *dispatch.Dispatcher
 	ReplyTargets    *outbound.ReplyTargetCache
@@ -36,10 +38,24 @@ type outboundRuntimePolicy interface {
 
 func buildEvents(deps eventDeps) EventState {
 	adapterShell := onebot11.New(deps.Config.OneBot, deps.Config.Adapter, deps.Logger)
+	senders := map[string]outbound.ActionSender{"onebot11": adapterShell}
+
+	// The QQ adapter only exists when it is configured; an absent or disabled
+	// block leaves the pipeline exactly as it was.
+	var qqClient *qqofficial.Client
+	if deps.Config.QQOfficial.Enabled {
+		qqClient = qqofficial.New(deps.Config.QQOfficial, deps.Config.Adapter, deps.Logger)
+		senders["qqofficial"] = qqClient
+	}
+	outboundSender := outbound.ActionSender(adapterShell)
+	if len(senders) > 1 {
+		outboundSender = newAdapterRouter(senders)
+	}
+
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(
 		deps.Logger,
-		adapterShell,
+		outboundSender,
 		replyTargets,
 		deps.Config.Runtime.MaxPendingEventsPerPlugin,
 		deps.Config.Runtime.MaxPendingControlEvents,
@@ -59,10 +75,11 @@ func buildEvents(deps eventDeps) EventState {
 
 	return EventState{
 		Adapter:         adapterShell,
+		QQOfficial:      qqClient,
 		Bridge:          eventBridge,
 		Dispatcher:      eventDispatcher,
 		ReplyTargets:    replyTargets,
-		OutboundSender:  adapterShell,
+		OutboundSender:  outboundSender,
 		OutboundLimiter: outboundPolicy,
 		OutboundPolicy:  outboundPolicy,
 	}

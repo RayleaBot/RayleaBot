@@ -78,12 +78,17 @@ const (
 // Outbound message shapes. An adapter receives these and renders them onto its
 // own wire format; nothing here names a protocol.
 type OutboundMessageSend struct {
-	TargetType string
-	TargetID   string
-	Segments   []MessageSegment
+	// SourceProtocol names the adapter that must deliver this message. It is
+	// empty when the caller did not originate from a specific protocol, which
+	// only resolves while exactly one adapter is connected.
+	SourceProtocol string
+	TargetType     string
+	TargetID       string
+	Segments       []MessageSegment
 }
 
 type OutboundMessageReply struct {
+	SourceProtocol   string
 	TargetType       string
 	TargetID         string
 	ReplyToMessageID string

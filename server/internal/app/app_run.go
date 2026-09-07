@@ -122,6 +122,9 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
 	a.eventStack.Adapter.Start(runCtx)
+	if a.eventStack.QQOfficial != nil {
+		a.eventStack.QQOfficial.Start(runCtx)
+	}
 	a.platform.Scheduler.Start(runCtx)
 
 	supervisor.GoCritical(func(context.Context) error {
@@ -339,6 +342,9 @@ func configureAppRuntimeCallbacks(application *App) {
 	}
 	if application.eventStack.Adapter != nil {
 		application.eventStack.Adapter.SetEventHandler(eventIngress.HandleAdapterEvent)
+		if application.eventStack.QQOfficial != nil {
+			application.eventStack.QQOfficial.SetEventHandler(eventIngress.HandleAdapterEvent)
+		}
 		application.eventStack.Adapter.SetReadyHandler(eventIngress.HandleAdapterReady)
 		application.eventStack.Adapter.SetStateHandler(func(onebot11.Snapshot) {
 			systemService.PublishStatusSnapshot()

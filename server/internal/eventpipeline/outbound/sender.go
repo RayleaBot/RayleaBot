@@ -24,9 +24,10 @@ type ActionSender interface {
 }
 
 type ReplyTarget struct {
-	MessageID  string
-	TargetType string
-	TargetID   string
+	MessageID      string
+	TargetType     string
+	TargetID       string
+	SourceProtocol string
 }
 
 type SendResult struct {
@@ -82,9 +83,10 @@ func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 		existing.Value = replyTargetEntry{
 			EventID: eventID,
 			Target: ReplyTarget{
-				MessageID:  messageID,
-				TargetType: targetType,
-				TargetID:   targetID,
+				MessageID:      messageID,
+				TargetType:     targetType,
+				TargetID:       targetID,
+				SourceProtocol: strings.TrimSpace(event.SourceProtocol),
 			},
 		}
 		c.order.MoveToFront(existing)
@@ -94,9 +96,10 @@ func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 	element := c.order.PushFront(replyTargetEntry{
 		EventID: eventID,
 		Target: ReplyTarget{
-			MessageID:  messageID,
-			TargetType: targetType,
-			TargetID:   targetID,
+			MessageID:      messageID,
+			TargetType:     targetType,
+			TargetID:       targetID,
+			SourceProtocol: strings.TrimSpace(event.SourceProtocol),
 		},
 	})
 	c.items[eventID] = element
@@ -172,6 +175,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}
 
 	replyRequest := chatevent.OutboundMessageReply{
+		SourceProtocol:   replyTarget.SourceProtocol,
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
 		ReplyToMessageID: replyTarget.MessageID,
@@ -197,9 +201,10 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}
 
 	fallbackResult, fallbackErr := sender.SendMessage(ctx, chatevent.OutboundMessageSend{
-		TargetType: replyTarget.TargetType,
-		TargetID:   replyTarget.TargetID,
-		Segments:   stripReplySegments(toAdapterSegments(action.MessageSegments)),
+		SourceProtocol: replyTarget.SourceProtocol,
+		TargetType:     replyTarget.TargetType,
+		TargetID:       replyTarget.TargetID,
+		Segments:       stripReplySegments(toAdapterSegments(action.MessageSegments)),
 	})
 	return SendResult{
 		MessageID:    fallbackResult.MessageID,

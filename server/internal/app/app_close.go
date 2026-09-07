@@ -98,6 +98,11 @@ func (a *App) stopAdapter(timeout time.Duration) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	if a.eventStack.QQOfficial != nil {
+		if err := a.eventStack.QQOfficial.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			a.Logger().Warn("QQ 官方机器人适配器停止时出错。", "component", "adapter.qqofficial", "error", err.Error())
+		}
+	}
 	if err := a.eventStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
