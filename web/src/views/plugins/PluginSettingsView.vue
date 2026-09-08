@@ -296,8 +296,8 @@ async function save() {
 
             <div class="plugin-settings-setting-row__controls">
               <div v-for="field in section.fields" :key="field.path" class="plugin-settings-field-item">
-                <AppField :label="field.label">
-                  <template #label>
+                <AppField :floating="['text', 'number', 'select', 'textarea', 'list'].includes(field.type) && !isCommandPrefixField(field.path)" :label="field.label">
+                  <template v-if="!(['text', 'number', 'select', 'textarea', 'list'].includes(field.type) && !isCommandPrefixField(field.path))" #label>
                     <div class="field-label-wrap">
                       <span class="field-label-text">{{ field.label }}</span>
                       <AppTooltip v-if="field.description" :title="field.description">

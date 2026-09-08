@@ -763,10 +763,10 @@ function timeText(value?: string | null) {
                 </div>
                 <div class="account-editor">
                   <div class="account-editor-grid">
-                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
+                    <AppField floating :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
                       <AppInput v-model="entry.draft.account_id" autocomplete="off" />
                     </AppField>
-                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.label')">
+                    <AppField floating :label="t('builtinFeatures.thirdPartyAccounts.label')">
                       <AppInput v-model="entry.draft.label" autocomplete="off" />
                     </AppField>
                     <AppField :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
@@ -777,7 +777,7 @@ function timeText(value?: string | null) {
                       />
                     </AppField>
                   </div>
-                  <AppField :label="t('builtinFeatures.thirdPartyAccounts.cookie')">
+                  <AppField floating :label="t('builtinFeatures.thirdPartyAccounts.cookie')">
                     <AppTextarea
                       v-model="entry.draft.cookie"
                       :rows="3" :max-rows="5"
@@ -904,10 +904,10 @@ function timeText(value?: string | null) {
 
                 <div v-else class="account-editor">
                   <div class="account-editor-grid">
-                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
+                    <AppField floating :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
                       <AppInput v-model="drafts[accountKey(account)].account_id" disabled autocomplete="off" />
                     </AppField>
-                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.label')">
+                    <AppField floating :label="t('builtinFeatures.thirdPartyAccounts.label')">
                       <AppInput v-model="drafts[accountKey(account)].label" autocomplete="off" />
                     </AppField>
                     <AppField :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
@@ -918,7 +918,7 @@ function timeText(value?: string | null) {
                       />
                     </AppField>
                   </div>
-                  <AppField :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :hint="section.cookieExtra || t('builtinFeatures.thirdPartyAccounts.keepCookie')">
+                  <AppField floating :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :hint="section.cookieExtra || t('builtinFeatures.thirdPartyAccounts.keepCookie')">
                     <AppTextarea
                       v-model="drafts[accountKey(account)].cookie"
                       :rows="3" :max-rows="5"

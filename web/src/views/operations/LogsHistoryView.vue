@@ -499,7 +499,7 @@ onBeforeUnmount(() => {
               :placeholder="t('logs.filters.all')"
             />
           </AppField>
-          <AppField :label="t('logs.filters.source')">
+          <AppField floating :label="t('logs.filters.source')">
             <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
           </AppField>
           <AppField :label="t('logs.history.startAt')">

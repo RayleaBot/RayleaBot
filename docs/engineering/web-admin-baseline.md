@@ -17,6 +17,7 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 ## 组件与页面结构
 
 - 基础组件源码位于 `components/ui/`，来源、摘要与许可证随源码记录；业务页面使用 `AppButton`、`AppField`、`AppSelect`、`AppDialog` 等产品封装。
+- 独立单值字段通过 `AppField floating` 选择浮动标签。字段上下文将该呈现方式传给 `AppInput`、`AppNumberInput`、`AppTextarea` 和 `AppSelect`，保留同一个原生 label、控件 ID、必填状态及错误／说明关联；页面不单独覆盖标签位置。复合字段、多选、开关和配置说明行保留外置标签。
 - `AppQRCode` 使用 `qrcode-generator 2.0.4` 编码登录链接，UTF-8 转换、静区与扫描图像颜色由编码边界维护；状态、刷新操作和提示使用产品组件。版权与 MIT 文本由版本化补充文件纳入发布 notices。
 - Reka 负责交互语义与焦点，Motion 负责进入、退出和内容尺寸变化。弹窗在动画完成后释放交互节点和遮罩，位置始终由 CSS 视口居中计算。
 - 左右抽屉复用弹窗的退出和焦点生命周期，保持完整视口高度；仅居中弹窗对正文高度插值。菜单和提示使用统一的语义时长，关闭菜单进入弹窗时由浮层层级保证新任务在上方。

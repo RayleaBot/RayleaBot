@@ -43,8 +43,8 @@ function clearSelection() {
 </script>
 <template>
   <div ref="control" class="app-select-wrap" :class="wrapperClass">
-    <Select :model-value="selection" :multiple="multiple" :disabled="disabled" @update:model-value="update" @update:open="$emit('open', $event)">
-      <SelectTrigger :id="id || field?.id" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined" :aria-required="field?.required || undefined" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }">
+    <Select :model-value="selection" :multiple="multiple" :disabled="disabled" :required="field?.required" @update:model-value="update" @update:open="$emit('open', $event)">
+      <SelectTrigger :id="id || field?.id" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined" :aria-required="field?.required || undefined" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels, 'app-select--floating': field?.floating }">
         <span v-if="selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
         <SelectValue v-else :placeholder="placeholder || '请选择'" />
       </SelectTrigger>
@@ -57,6 +57,8 @@ function clearSelection() {
 </template>
 <style scoped>
 .app-select { min-height: 40px; height: auto; width: 100%; padding: 9px 12px; background: var(--surface-strong); }
+.app-select--floating { min-height: 56px; padding-top: 24px; padding-bottom: 8px; padding-right: 40px; }
+.app-select--floating :deep(svg:last-child) { position: absolute; right: 12px; top: 50%; translate: 0 -50%; }
 .app-select-wrap { position: relative; min-width: 0; width: 100%; }
 .app-select--clearable { position: relative; padding-right: 72px; }
 .app-select--clearable :deep(svg:last-child) { position: absolute; right: 12px; top: 50%; translate: 0 -50%; }

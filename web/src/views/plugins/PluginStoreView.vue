@@ -442,10 +442,10 @@ onMounted(() => {
 
     <AppDialog :open="sourceEditorOpen" :title="editingSourceId ? t('plugins.store.sources.edit') : t('plugins.store.sources.add')" :busy="sourceSaving" fallback-focus="[data-testid=plugin-store-sources]" @close="sourceEditorOpen = false">
       <div>
-        <AppField :label="t('plugins.store.sources.name')">
+        <AppField floating :label="t('plugins.store.sources.name')">
           <AppInput v-model="sourceForm.name" :maxlength="120" />
         </AppField>
-        <AppField :label="t('plugins.store.sources.url')">
+        <AppField floating :label="t('plugins.store.sources.url')">
           <AppInput v-model="sourceForm.url" placeholder="https://example.com/catalog.json" />
         </AppField>
       </div>

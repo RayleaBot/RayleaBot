@@ -36,4 +36,33 @@ describe('field descriptions', () => {
     expect(wrapper.find('.app-field__description').exists()).toBe(false)
     wrapper.unmount()
   })
+
+  it.each(controls.slice(0, 4))('preserves the %s label and description inside a floating field', async (_name, component, props, selector) => {
+    const wrapper = mount(AppField, {
+      props: { label: '字段名称', floating: true, hint: '字段说明', required: true },
+      slots: { default: () => h(component, props) },
+    })
+    const control = wrapper.get(selector)
+    const label = wrapper.get('.app-field__floating-control > label')
+    expect(label.attributes('for')).toBe(control.attributes('id'))
+    expect(control.attributes('aria-describedby')).toBe(wrapper.get('.app-field__description').attributes('id'))
+    expect(control.attributes('aria-required')).toBe('true')
+    expect(wrapper.findAll('label')).toHaveLength(1)
+    await wrapper.setProps({ error: '输入无效' })
+    expect(control.attributes('aria-invalid')).toBe('true')
+    expect(control.attributes('aria-describedby')).toBe(wrapper.get('[role=alert]').attributes('id'))
+  })
+
+  it.each([
+    ['number', AppNumberInput, { modelValue: null, nullable: true, placeholder: undefined }, 'input'],
+    ['textarea', AppTextarea, { modelValue: '', placeholder: '' }, 'textarea'],
+  ] as const)('keeps the empty %s eligible for its resting label with an empty optional placeholder', (_name, component, props, selector) => {
+    const wrapper = mount(AppField, {
+      props: { label: '字段名称', floating: true },
+      slots: { default: () => h(component as Component, props) },
+    })
+    const control = wrapper.get(selector)
+    expect(control.attributes('placeholder')).toBe(' ')
+    expect((control.element as HTMLInputElement | HTMLTextAreaElement).value).toBe('')
+  })
 })

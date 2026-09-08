@@ -58,7 +58,7 @@ async function copyAddress(key: OneBotTransport) {
 </script>
 
 <template>
-  <AppField label="连接方式" for="adapter-transport-mode" :error="errors.transports">
+  <AppField floating label="连接方式" for="adapter-transport-mode" :error="errors.transports">
     <AppSelect id="adapter-transport-mode" :model-value="mode" :options="modeOptions" @update:model-value="selectMode" />
   </AppField>
   <div v-if="mode === 'custom'" class="transport-choices" role="group" aria-label="启用的传输方式">
@@ -69,7 +69,7 @@ async function copyAddress(key: OneBotTransport) {
   <section v-for="item in enabledTransports" :key="item.key" class="transport-fields" :aria-label="item.label">
     <h3 v-if="enabledTransports.length > 1 || !settings[item.key].enabled">{{ item.label }}{{ settings[item.key].enabled ? '' : '（未启用）' }}</h3>
     <p class="field-hint">{{ item.hint }}</p>
-    <AppField
+    <AppField floating
       :label="item.key === 'reverse_ws' ? '协议端回连地址' : item.key === 'webhook' ? '事件上报地址' : `${item.label} 地址`"
       :for="`adapter-${item.key}-url`"
       :error="errors[`${item.key}.url`]"
@@ -80,7 +80,7 @@ async function copyAddress(key: OneBotTransport) {
         <AppButton v-if="item.key === 'reverse_ws' || item.key === 'webhook'" :aria-label="`复制${item.label}地址`" @click="copyAddress(item.key)"><CopyIcon /></AppButton>
       </div>
     </AppField>
-    <AppField label="访问令牌" :for="`adapter-${item.key}-token`">
+    <AppField floating label="访问令牌" :for="`adapter-${item.key}-token`">
       <AppInput type="password" :id="`adapter-${item.key}-token`" v-model="settings[item.key].access_token" autocomplete="new-password" placeholder="与 OneBot 客户端保持一致，可留空" />
       <p class="field-hint">{{ settings[item.key].access_token === '********' ? '已保存令牌。保持现值可沿用，清空后保存将移除。' : '仅用于此传输方式，请与客户端设置一致。' }}</p>
     </AppField>
@@ -100,7 +100,7 @@ async function copyAddress(key: OneBotTransport) {
 .transport-fields > .field-hint { margin: 0 0 16px; }
 .transport-fields h3 { margin: 0 0 8px; font-size: 14px; }
 .transport-choices { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 20px; }
-.address-field { display: flex; gap: 8px; }
+.address-field { display: flex; align-items: center; gap: 8px; }
 .address-field .app-input-wrap { min-width: 0; }
 .transport-advanced { color: var(--muted); font-size: 13px; }
 .transport-advanced summary { cursor: pointer; width: fit-content; margin-bottom: 12px; }

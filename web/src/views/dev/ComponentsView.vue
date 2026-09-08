@@ -19,6 +19,7 @@ const value = ref('')
 const enabled = ref(true)
 const count = ref(10)
 const selected = ref('onebot11')
+const optionalSelection = ref('')
 const options = [{ value: 'onebot11', label: 'OneBot11' }, { value: 'qqofficial', label: 'QQ 官方机器人' }]
 const open = ref(false)
 const confirmation = ref(false)
@@ -47,16 +48,16 @@ const optionalNumber = ref<number | null>(7)
     <section class="showcase-fields">
       <div>
         <h2>表单</h2>
-        <AppField label="连接名称" required><AppInput v-model="value" placeholder="填写连接名称" /></AppField>
-        <AppField label="访问令牌"><AppInput v-model="value" type="password" /></AppField>
-        <AppField label="接入协议"><AppSelect v-model="selected" :options="options" /></AppField>
-        <AppField label="连接超时（秒）"><AppNumberInput v-model="count" :min="1" /></AppField>
-        <AppField label="备注"><AppTextarea v-model="value" /></AppField>
+        <AppField floating label="连接名称" required><AppInput v-model="value" placeholder="填写连接名称" /></AppField>
+        <AppField floating label="访问令牌"><AppInput v-model="value" type="password" /></AppField>
+        <AppField floating label="接入协议"><AppSelect v-model="selected" :options="options" /></AppField>
+        <AppField floating label="连接超时（秒）"><AppNumberInput v-model="count" :min="1" /></AppField>
+        <AppField floating label="备注"><AppTextarea v-model="value" /></AppField>
       </div>
       <div>
         <h2>边界状态</h2>
-        <AppField label="无效地址" error="请输入 ws:// 或 wss:// 开头的地址。"><AppInput v-model="value" /></AppField>
-        <AppField label="只读连接标识"><AppInput v-model="value" disabled placeholder="连接标识不可修改" /></AppField>
+        <AppField floating label="无效地址" error="请输入 ws:// 或 wss:// 开头的地址。"><AppInput v-model="value" /></AppField>
+        <AppField floating label="只读连接标识"><AppInput v-model="value" disabled placeholder="连接标识不可修改" /></AppField>
         <AppCheckbox v-model="enabled">接收群聊与单聊消息</AppCheckbox>
         <div class="my-4 flex items-center justify-between"><label for="showcase-enabled">启用连接</label><AppSwitch id="showcase-enabled" v-model="enabled" /></div>
         <Skeleton class="h-20 w-full" />
@@ -65,9 +66,10 @@ const optionalNumber = ref<number | null>(7)
     <section class="showcase-fields">
       <div>
         <h2>选项值与集合</h2>
-        <AppField label="保留原始类型"><AppSelect v-model="typedValue" :options="typedOptions" /></AppField>
+        <AppField floating label="保留原始类型"><AppSelect v-model="typedValue" :options="typedOptions" /></AppField>
         <output data-testid="showcase-typed-value">{{ JSON.stringify(typedValue) }}</output>
-        <AppField label="可留空数值"><AppNumberInput v-model="optionalNumber" nullable /></AppField>
+        <AppField floating label="可留空数值"><AppNumberInput v-model="optionalNumber" nullable /></AppField>
+        <AppField floating label="待选协议"><AppSelect v-model="optionalSelection" :options="options" /></AppField>
         <output data-testid="showcase-optional-number">{{ JSON.stringify(optionalNumber) }}</output>
       </div>
       <div>
@@ -76,8 +78,8 @@ const optionalNumber = ref<number | null>(7)
       </div>
     </section>
     <AppDialog :open="open" title="配置连接" description="更改保存在当前草稿中。" @close="confirmation = true">
-      <AppField label="弹窗内的协议"><AppSelect v-model="selected" :options="options" /></AppField>
-      <AppField label="弹窗内的名称"><AppInput v-model="value" /></AppField>
+      <AppField floating label="弹窗内的协议"><AppSelect v-model="selected" :options="options" /></AppField>
+      <AppField floating label="弹窗内的名称"><AppInput v-model="value" /></AppField>
       <template #footer><div class="flex justify-end gap-3"><AppButton @click="confirmation = true">取消</AppButton><AppButton variant="default" @click="open = false">完成</AppButton></div></template>
     </AppDialog>
     <AppConfirmDialog :open="confirmation" title="放弃修改？" description="当前草稿尚未保存。" confirm-text="放弃修改" cancel-text="继续编辑" danger @cancel="confirmation = false" @confirm="confirmation = false; open = false" />

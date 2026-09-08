@@ -87,10 +87,10 @@ async function handleSubmit() {
 <template>
   <AuthPanel :title="title" :subtitle="subtitle">
     <form class="auth-form" novalidate @submit.prevent="handleSubmit">
-      <AppField for="auth-identifier" :label="t('auth.identifier')" :error="errors.identifier || undefined" required>
+      <AppField floating for="auth-identifier" :label="t('auth.identifier')" :error="errors.identifier || undefined" required>
         <AppInput ref="identifierField" v-model="credentials.identifier" class="auth-form__control" autocomplete="username" :disabled="pending" name="identifier" />
       </AppField>
-      <AppField for="auth-secret" :label="t('auth.secret')" :error="errors.secret || undefined" required>
+      <AppField floating for="auth-secret" :label="t('auth.secret')" :error="errors.secret || undefined" required>
         <AppInput ref="secretField" v-model="credentials.secret" class="auth-form__control" type="password" :autocomplete="secretAutocomplete" :disabled="pending" :show-secret-label="t('auth.showSecret')" :hide-secret-label="t('auth.hideSecret')" :placeholder="t(secretAutocomplete === 'new-password' ? 'auth.newSecretPlaceholder' : 'auth.secretPlaceholder')" name="secret" />
       </AppField>
       <AppAlert v-if="feedback" class="auth-form__feedback" :title="feedback.message" :tone="feedback.level === 'error' ? 'danger' : 'warning'" />
@@ -102,17 +102,16 @@ async function handleSubmit() {
   </AuthPanel>
 </template>
 <style scoped>
-.auth-form { display: grid; gap: 22px; margin-top: 32px; }
+.auth-form { display: grid; gap: 22px; margin-top: 32px; --floating-label-color: var(--auth-text-muted); --floating-label-active-color: var(--auth-brand-foreground); --floating-label-error-color: var(--auth-danger); }
 .auth-form :deep(.app-field) { margin: 0; gap: 6px; }
-.auth-form :deep(.app-field__label) { color: var(--auth-text); font-size: 13px; font-weight: 600; line-height: 1.4; }
-.auth-form :deep(.auth-form__control) { height: 50px; min-height: 50px; padding-inline: 14px 48px; color: var(--auth-text); font-size: 16px; border: 1px solid var(--auth-border-control); border-radius: 16px; background: var(--auth-glass-control, var(--auth-control)); box-shadow: none; transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
+.auth-form :deep(.auth-form__control) { height: 56px; min-height: 56px; padding: 24px 48px 8px 12px; color: var(--auth-text); font-size: 16px; border: 1px solid var(--auth-border-control); border-radius: 16px; background: var(--auth-glass-control, var(--auth-control)); box-shadow: none; transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
 .auth-form :deep(.auth-form__control:hover), .auth-form :deep(.auth-form__control:focus) { border-color: var(--auth-brand-stroke, var(--auth-brand-foreground)); background: var(--auth-glass-control-hover, var(--auth-control-hover)); }
 .auth-form :deep(.auth-form__control:focus) { outline: none; box-shadow: inset 0 0 0 1px var(--auth-brand-stroke, var(--auth-brand-foreground)); }
 .auth-form :deep(.auth-form__control[aria-invalid=true]:focus) { box-shadow: inset 0 0 0 1px var(--auth-danger); }
 .auth-form :deep(.auth-form__control[aria-invalid=true]) { border-color: var(--auth-danger); }
 .auth-form :deep(.auth-form__control:disabled) { color: var(--auth-text-muted); border-color: var(--auth-border); background: color-mix(in srgb, var(--auth-control) 72%, var(--auth-canvas)); }
 .auth-form :deep(input:-webkit-autofill) { box-shadow: 0 0 0 1000px var(--auth-control) inset; -webkit-text-fill-color: var(--auth-text); caret-color: var(--auth-text); }
-.auth-form :deep(.app-input-reveal) { top: 3px; right: 3px; width: 44px; height: 44px; color: var(--auth-text-muted); border-radius: 12px; }
+.auth-form :deep(.app-input-reveal) { top: 6px; right: 3px; width: 44px; height: 44px; color: var(--auth-text-muted); border-radius: 12px; }
 .auth-form :deep(.app-input-reveal:hover), .auth-form :deep(.app-input-reveal:focus-visible) { color: var(--auth-brand-foreground); background: var(--auth-brand-soft); }
 .auth-form :deep(.app-field__description) { color: var(--auth-danger); }
 .auth-form__feedback { border-radius: 16px; }

@@ -267,6 +267,8 @@ Web 使用 [`AppButton`](web/src/components/AppButton.vue)：默认样式为中�
 
 Web 使用 [`AppField`](web/src/components/AppField.vue) 关联持续可见标签、控件和错误说明，字段内部间距为 8px，字段尾部间距为 24px；标签为 14px，说明为 13px。[`AppInput`](web/src/components/AppInput.vue) 与 [`AppSelect`](web/src/components/AppSelect.vue) 默认高度为 40px，粗指针下至少 44px；多选文字可换行并自然增高。密码显示开关保留可访问名称和按下状态，错误通过文字与 `aria-invalid` 一起表达；支持清空的输入框在清空后保留输入焦点。认证字段使用 Authentication 中的局部尺寸与材质。
 
+独立编辑字段通过 `AppField floating` 使用框内浮动标签，取消重复的框外标题。单行控件高度为 56px，标签在空值且未聚焦时位于框内；聚焦、已有值或自动填充时上移为 12px 标签，输入内容位于其下。说明与错误留在控件下方，密码显示按钮、前缀图标和必填语义继续保留。登录、初始化、账户修改、协议连接、三方账号、插件安装与来源编辑、全局插件设置中的普通字段，以及日志的单值筛选采用此模式。配置工作台的左右说明行、复合限流、开关、多值条目、多选筛选和原生日期时间范围保持外置标签。
+
 AppInput 的布局容器样式与内层字段样式分开，前缀图标不接收指针操作，也不替代标签。AppSelect 保留字符串、数字和布尔值的原类型，尚未包含在选项中的已选值继续显示；异步选项到达后更新显示名称。可清除的多选在清除后将焦点归还选择器。[`AppNumberInput`](web/src/components/AppNumberInput.vue) 按业务需要启用可空值，不将空白输入自动当作零；限流字段分别标注次数、时间窗和单位，窄屏使用单列。
 
 按需加载选项的筛选器同时响应获得焦点和选择器实际打开；AppSelect 提供打开事件，使鼠标打开未触发原生 focus 时仍能读取选项。日志插件筛选继续抑制重复请求，保留多值与未知插件 ID，协议选择“全部”会清除协议条件。
@@ -369,7 +371,7 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 登录、首次初始化与凭据恢复指引共享最大宽度 448px 的居中单栏面板，保留折叶品牌与 Noto Sans SC，凭据表单使用 AppField、AppInput、AppButton 和 AppAlert。静态青瓷玻璃壁纸运行时加载无损 [celadon-glass.webp](web/src/assets/auth/celadon-glass.webp)，原始 [PNG](web/src/assets/auth/celadon-glass.png) 保留内嵌生成提示词作为来源记录。壁纸覆盖视口并底部对齐。背景和面板不随指针移动；鼠标仅改变边缘高光位置，reduced-motion 下保持静态。离屏 Canvas 只在面板尺寸或圆角变化时生成几何法线图，空闲时没有持续绘制循环。
 
-凭据输入和主按钮在桌面与窄屏均为 50px 高。面板仅在进入认证布局时执行 opacity / transform 动画（420ms、最多 8px 垂直位移），切换恢复指引不重复播放；低高度视口允许自然滚动，reduced-motion 下即时呈现，forced-colors 隐藏壁纸并使用系统表面与边界。认证区域文字选区使用现有品牌填充与对应前景。
+凭据输入在桌面与窄屏均为 56px 高，主按钮保持 50px。面板仅在进入认证布局时执行 opacity / transform 动画（420ms、最多 8px 垂直位移），切换恢复指引不重复播放；低高度视口允许自然滚动，reduced-motion 下即时呈现，forced-colors 隐藏壁纸并使用系统表面与边界。认证区域文字选区使用现有品牌填充与对应前景。
 
 [`AuthCredentialsForm`](web/src/components/auth/AuthCredentialsForm.vue) 的标签、输入与错误保持关联，账号和密码使用相同控件高度与局部焦点样式。密码可见性按钮为 44px，具有可访问名称和按下状态；提交期间输入、显示开关和提交按钮均禁用，字段校验失败时聚焦首个错误输入。认证专用 CSS 变量由 [preferences/auth.ts](web/src/preferences/auth.ts) 映射，玻璃材质保持在 AuthLayout 内。
 

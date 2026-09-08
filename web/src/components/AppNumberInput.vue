@@ -2,6 +2,7 @@
 import { Input } from '@/components/ui/input'
 import { useFieldContext } from './form-context'
 
+defineOptions({ inheritAttrs: false })
 const props = defineProps<{ nullable?: Nullable & boolean }>()
 const model = defineModel<Nullable extends true ? number | null : number>({ required: true })
 const field = useFieldContext()
@@ -15,10 +16,14 @@ function update(value: string | number) {
     :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined"
     :aria-required="field?.required || undefined"
     type="number" :model-value="typeof model === 'number' && Number.isFinite(model) ? model : ''" class="app-number-input"
+    :class="{ 'app-number-input--floating': field?.floating }"
+    v-bind="$attrs"
+    :placeholder="field?.floating ? ($attrs.placeholder as string) || ' ' : $attrs.placeholder as string | undefined"
     @update:model-value="update"
   />
 </template>
 <style scoped>
 .app-number-input { height: 40px; background: var(--surface-strong); color: var(--text); }
+.app-number-input--floating { height: 56px; min-height: 56px; padding-top: 24px; padding-bottom: 8px; line-height: 22px; }
 @media (max-width: 639px), (pointer: coarse) { .app-number-input { min-height: 44px; } }
 </style>

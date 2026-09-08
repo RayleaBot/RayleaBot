@@ -224,10 +224,10 @@ function openLogs() {
         <fieldset :disabled="saving || loading" class="dialog-fields">
           <p class="dialog-description">{{ isEditing ? `连接标识：${draft.id}` : '完成配置后保存，即可在协议中心管理此连接。' }}</p>
           <template v-if="draft.qqofficial">
-            <AppField label="AppID" for="adapter-app-id" :required="draft.enabled" :error="fieldErrors.app_id">
+            <AppField floating label="AppID" for="adapter-app-id" :required="draft.enabled" :error="fieldErrors.app_id">
               <AppInput id="adapter-app-id" v-model="draft.qqofficial.app_id" placeholder="QQ 开放平台的机器人 AppID" inputmode="numeric" autocomplete="off" />
             </AppField>
-            <AppField label="AppSecret" for="adapter-app-secret" :required="draft.enabled" :error="fieldErrors.app_secret">
+            <AppField floating label="AppSecret" for="adapter-app-secret" :required="draft.enabled" :error="fieldErrors.app_secret">
               <AppInput type="password" id="adapter-app-secret" v-model="draft.qqofficial.app_secret" placeholder="填写机器人密钥" autocomplete="new-password" />
               <p class="field-hint">{{ draft.qqofficial.app_secret === '********' ? '已保存密钥。保持现值可沿用，重新输入可替换。' : '在 QQ 开放平台的机器人管理中获取。' }}</p>
             </AppField>
@@ -244,7 +244,7 @@ function openLogs() {
           <details class="dialog-disclosure" :open="advancedOpen" @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open">
             <summary>高级设置<span>连接标识{{ draft.qqofficial ? '、沙箱环境' : '、共用重连策略' }}</span></summary>
             <div class="disclosure-content">
-              <AppField label="连接标识" for="adapter-id" :error="fieldErrors.id">
+              <AppField floating label="连接标识" for="adapter-id" :error="fieldErrors.id">
                 <AppInput id="adapter-id" v-model="draft.id" :disabled="isEditing" :maxlength="64" />
                 <p class="field-hint">{{ isEditing ? '创建后固定，用于识别此连接。' : '已自动生成。标识用于区分连接，也会出现在回连地址中。' }}</p>
               </AppField>
@@ -254,7 +254,7 @@ function openLogs() {
                 <h3>所有连接共用的重连策略</h3>
                 <p class="field-hint">这些参数同时影响所有适配器连接。</p>
                 <div class="shared-fields">
-                  <AppField v-for="field in sharedFields" :key="field.key" :label="field.label" :for="`adapter-${field.key}`" :error="fieldErrors[field.key]">
+                  <AppField floating v-for="field in sharedFields" :key="field.key" :label="field.label" :for="`adapter-${field.key}`" :error="fieldErrors[field.key]">
                     <AppNumberInput :id="`adapter-${field.key}`" v-model="sharedDraft[field.key]" :min="field.min" :max="field.max" :step="field.step" />
                   </AppField>
                 </div>

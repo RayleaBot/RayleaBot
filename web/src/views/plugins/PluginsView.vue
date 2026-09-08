@@ -417,7 +417,7 @@ async function reloadPlugin(pluginId: string) {
       @after-close="resetInstallDialog"
     >
       <div>
-        <AppField :label="t('plugins.sourceType')">
+        <AppField floating :label="t('plugins.sourceType')">
           <AppSelect
             v-model="installForm.source_type"
             :options="[
@@ -428,7 +428,7 @@ async function reloadPlugin(pluginId: string) {
           />
         </AppField>
 
-        <AppField :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
+        <AppField floating :label="installForm.source_type === 'remote_url' ? t('plugins.remoteUrlLabel') : t('plugins.serverPath')">
           <AppInput v-model="installForm.source" />
         </AppField>
 

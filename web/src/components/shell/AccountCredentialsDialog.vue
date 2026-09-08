@@ -86,13 +86,13 @@ function afterClose() {
 <template>
   <AppDialog :open="open" :title="t('shell.credentials.title')" :description="t('shell.credentials.description')" :width="480" :busy="pending" :fallback-focus="fallbackFocus" initial-focus="[data-account-current-password]" data-testid="account-credentials-dialog" @close="$emit('close')" @after-close="afterClose">
     <form :id="formId" ref="form" class="account-credentials" novalidate @submit.prevent="submit">
-      <AppField :label="t('shell.credentials.currentPassword')" :error="errors.current" required>
+      <AppField floating :label="t('shell.credentials.currentPassword')" :error="errors.current" required>
         <AppInput v-model="currentSecret" type="password" autocomplete="current-password" data-account-current-password :disabled="pending || saved" @update:model-value="delete errors.current"><template #prefix><LockKeyholeIcon :size="18" /></template></AppInput>
       </AppField>
-      <AppField :label="t('shell.credentials.newPassword')" :error="errors.next" :hint="t('shell.credentials.passwordHint')" required>
+      <AppField floating :label="t('shell.credentials.newPassword')" :error="errors.next" :hint="t('shell.credentials.passwordHint')" required>
         <AppInput v-model="newSecret" type="password" autocomplete="new-password" :disabled="pending || saved" @update:model-value="delete errors.next" />
       </AppField>
-      <AppField :label="t('shell.credentials.confirmPassword')" :error="errors.confirm" required>
+      <AppField floating :label="t('shell.credentials.confirmPassword')" :error="errors.confirm" required>
         <AppInput v-model="confirmSecret" type="password" autocomplete="new-password" :disabled="pending || saved" @update:model-value="delete errors.confirm" />
       </AppField>
       <AppButton variant="ghost" class="account-credentials__disclosure" :aria-expanded="showUsername" :aria-controls="usernameId" :disabled="pending || saved" @click="showUsername = !showUsername">
@@ -101,7 +101,7 @@ function afterClose() {
       </AppButton>
       <AnimatePresence :initial="false">
         <motion.div v-if="showUsername" :id="usernameId" key="username" class="account-credentials__username" :initial="{ opacity: 0 }" :animate="{ opacity: 1 }" :exit="{ opacity: 0 }" :transition="overlayMotion.transition">
-          <AppField :label="t('shell.credentials.newUsername')" :hint="t('shell.credentials.usernameHint')" :error="errors.identifier">
+          <AppField floating :label="t('shell.credentials.newUsername')" :hint="t('shell.credentials.usernameHint')" :error="errors.identifier">
             <AppInput v-model="newIdentifier" autocomplete="username" :disabled="pending || saved" @update:model-value="delete errors.identifier" />
           </AppField>
         </motion.div>

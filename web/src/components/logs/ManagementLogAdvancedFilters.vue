@@ -47,7 +47,7 @@ onBeforeUnmount(close)
         :aria-label="t('logs.filters.more')"
         @keydown.esc="close"
       >
-        <AppField :label="t('logs.filters.protocol')">
+        <AppField floating :label="t('logs.filters.protocol')">
           <AppSelect
             v-model="protocolSelection"
             :options="protocolOptions"
@@ -65,7 +65,7 @@ onBeforeUnmount(close)
             @open="$event && $emit('pluginFocus')"
           />
         </AppField>
-        <AppField :label="t('logs.filters.requestId')">
+        <AppField floating :label="t('logs.filters.requestId')">
           <AppInput v-model="requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
         </AppField>
       </div>

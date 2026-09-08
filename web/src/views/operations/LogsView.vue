@@ -413,7 +413,7 @@ onUnmounted(() => {
               :placeholder="t('logs.filters.all')"
             />
           </AppField>
-          <AppField :label="t('logs.filters.source')">
+          <AppField floating :label="t('logs.filters.source')">
             <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
           </AppField>
           <div class="logs-toolbar__actions">

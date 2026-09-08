@@ -6,6 +6,7 @@ export interface FieldContext {
   error?: string
   hint?: string
   required?: boolean
+  floating?: boolean
 }
 export const fieldContextKey: InjectionKey<ComputedRef<FieldContext>> = Symbol('app-field')
 export function useFieldContext() { return inject(fieldContextKey, undefined) }
