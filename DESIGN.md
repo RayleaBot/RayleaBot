@@ -209,7 +209,7 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 
 ## Layout
 
-桌面 Web 使用持久导航（244px，收起后 64px）与紧凑页头（60px）；面包屑、搜索、主题、全屏和偏好入口直接可达。991px 及以下通过左侧导航抽屉提供相同入口，目标宽度为 280px；偏好从右侧抽屉打开，目标宽度为 380px。Launcher 默认窗口为 1280×720，最小为 760×560，按可用工作区与最小尺寸约束调整；窗口包含原生标题栏（44px）、带文字导航（184px）与单一主工作区。具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
+桌面 Web 使用持久导航（244px，收起后 64px）与紧凑页头（60px）；页头提供面包屑、搜索与“更多操作”，设置和全屏收纳在菜单中。主题与账户菜单位于侧栏底部，软件名后显示构建版本。991px 及以下通过左侧导航抽屉提供相同入口，目标宽度为 280px；偏好从右侧抽屉打开，目标宽度为 380px。Launcher 默认窗口为 1280×720，最小为 760×560，按可用工作区与最小尺寸约束调整；窗口包含原生标题栏（44px）、带文字导航（184px）与单一主工作区。具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
 
 间距使用前置 token 的 xs 至 xxl 标尺。独立任务可以使用完整有边界表面，同一任务内的字段、日志和数据行通过间距与分隔线组织。页面主操作位于稳定位置，状态总览保持连续横条，列表按真实内容排列。
 
@@ -380,6 +380,8 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 AppDialog 与 AppDrawer 入场为 220ms、退场为 160ms，沿用现有缓动 `cubic-bezier(0.16, 1, 0.3, 1)`。居中模式改变透明度与缩放（0.96 ↔ 1），CSS 定位负责居中，Motion 负责显隐和实测高度；左右抽屉保持缩放为 1，以透明度和最多 24px 的水平位移表现打开方向，底部面板使用最多 24px 的垂直位移。reduced-motion 或 forced-colors 下时长为零、缩放为 1、位移为零，同时保留完整关闭生命周期与焦点归还；forced-colors 下保留系统表面边界。
 
 Web 工作区优先使用只捕获主内容的 View Transition，缺少能力时由统一的 Motion for Vue 入口降级，侧栏和页头保持可交互。菜单通过自身 CSS 状态过渡显隐（160ms），Toast 沿用同组过渡（进入 200ms、退出 160ms）；这些元素不叠加第二套 Motion 动画，减少动态效果或强制颜色时即时呈现。
+
+Web 主题切换由 Motion 驱动新主题快照，从操作入口以 420ms 展开；没有入口坐标时以 280ms 淡入。账户修改复用 AppDialog 的进入、取消退出、内容高度与焦点生命周期，可选用户名按需披露。两者在减少动态效果或强制颜色模式下即时呈现。
 
 非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms、18px），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
 

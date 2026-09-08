@@ -9,14 +9,15 @@ import { resolveAuthCssVariables } from '@/preferences/auth'
 import { useUiShellStore } from '@/stores/ui-shell'
 import { applyThemeWithMotion } from '@/motion/runtime'
 import type { ThemeMode } from '@/preferences/app'
+import type { ThemeMotionOrigin } from '@/motion/runtime'
 
 const uiShellStore = useUiShellStore()
 const surface = ref<HTMLElement | null>(null)
 const { filterId, displacement, moveHighlight, resetHighlight } = useLiquidGlass(surface)
 const authThemeStyle = computed(() => resolveAuthCssVariables(uiShellStore.resolvedThemeMode))
 
-function setThemeModeWithMotion(mode: ThemeMode) {
-  applyThemeWithMotion(() => uiShellStore.setThemeMode(mode))
+function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
+  if (mode !== uiShellStore.themeMode) applyThemeWithMotion(() => uiShellStore.setThemeMode(mode), origin)
 }
 </script>
 

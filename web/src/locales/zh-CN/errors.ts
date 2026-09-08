@@ -10,6 +10,7 @@ export const errors = {
     loadFailed: '读取未完成，请稍后重试。',
   },
   permission: {
+    currentSecretInvalid: '当前密码不正确，请重新输入。',
     denied: '当前会话无权执行该操作。',
     blacklisted: '当前用户或群处于黑名单中。',
     notWhitelisted: '当前用户或群不在白名单中。',

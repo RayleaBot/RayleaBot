@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Router } from 'vue-router'
 
 const animateMock = vi.hoisted(() => vi.fn())
+const animateMiniMock = vi.hoisted(() => vi.fn())
 
-vi.mock('motion-v', () => ({ animate: animateMock }))
+vi.mock('motion-v', () => ({ animate: animateMock, animateMini: animateMiniMock }))
 
 import {
+  applyThemeWithMotion,
   navigateWithMotion,
   runRouteFallbackMotion,
 } from '@/motion/runtime'
@@ -46,6 +48,7 @@ function createRouterMock() {
 describe('motion runtime', () => {
   beforeEach(() => {
     animateMock.mockReset()
+    animateMiniMock.mockReset()
     Reflect.deleteProperty(document, 'startViewTransition')
     document.querySelector('.admin-layout__content')?.remove()
     delete document.documentElement.dataset.viewTransitionKind
@@ -124,5 +127,32 @@ describe('motion runtime', () => {
 
     expect(startViewTransition).not.toHaveBeenCalled()
     expect(router.push).toHaveBeenCalledOnce()
+  })
+
+  it('cancels the previous theme snapshot animation when another theme is selected', async () => {
+    const { startViewTransition, transitions } = installViewTransitionMock()
+    Object.defineProperty(document, 'startViewTransition', { configurable: true, value: startViewTransition })
+    const firstControls = { cancel: vi.fn() }
+    const secondControls = { cancel: vi.fn() }
+    animateMiniMock.mockReturnValueOnce(firstControls).mockReturnValueOnce(secondControls)
+    const firstUpdate = vi.fn()
+    const secondUpdate = vi.fn()
+    applyThemeWithMotion(firstUpdate, { x: 20, y: 600 })
+    await Promise.resolve()
+    applyThemeWithMotion(secondUpdate, { x: 20, y: 600 })
+    await Promise.resolve()
+    expect(firstControls.cancel).toHaveBeenCalledOnce()
+    expect(transitions[0]?.skipTransition).toHaveBeenCalledOnce()
+    expect(firstUpdate).toHaveBeenCalledOnce()
+    expect(secondUpdate).toHaveBeenCalledOnce()
+    transitions.forEach(transition => transition.resolve())
+  })
+
+  it('updates the theme immediately without snapshot animation in reduced motion', () => {
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })))
+    const update = vi.fn()
+    expect(applyThemeWithMotion(update, { x: 20, y: 600 })).toBeNull()
+    expect(update).toHaveBeenCalledOnce()
+    expect(animateMiniMock).not.toHaveBeenCalled()
   })
 })

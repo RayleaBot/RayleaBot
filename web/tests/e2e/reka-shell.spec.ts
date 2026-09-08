@@ -28,11 +28,12 @@ test('shell preferences retain values and release focus after a menu opens the d
   await expect(page.getByRole('tablist', { name: '工作区页签' })).toHaveCount(0)
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute('data-density', 'compact')
-  await page.getByTestId('header-settings-direct').click()
+  await page.getByTestId('header-more').click()
+  await page.getByTestId('header-settings').click()
   await page.getByRole('button', { name: '恢复默认设置' }).click()
   await expect(page.locator('html')).toHaveAttribute('data-density', 'default')
   await page.keyboard.press('Escape')
-  await expect(page.getByTestId('header-settings-direct')).toBeFocused()
+  await expect(page.getByTestId('header-more')).toBeFocused()
   await expect(page.getByRole('tablist', { name: '工作区页签' })).toBeVisible()
 })
 
@@ -75,7 +76,7 @@ test('collapsed sidebar menus remain keyboard accessible and keep open plugin ta
 })
 
 test('shell tooltips use a readable width independent of spacing tokens', async ({ page }) => {
-  for (const id of ['header-search', 'header-fullscreen-direct', 'header-settings-direct']) {
+  for (const id of ['header-search']) {
     await page.getByTestId(id).hover()
     const tooltip = page.locator('[data-slot=tooltip-content]')
     await expect(tooltip).toBeVisible()

@@ -13,6 +13,15 @@ const backendUnavailableHeader = 'x-rayleabot-backend-unavailable'
 const backendAvailabilityCacheMs = 500
 const devStatusPath = '/__rayleabot-dev/status'
 
+export function resolveBuildVersion(command: string, configuredVersion: string | undefined) {
+  if (command === 'serve') return 'dev'
+  const version = configuredVersion?.trim() || 'dev'
+  if (version !== 'dev' && !/^v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
+    throw new Error('RAYLEA_BUILD_VERSION must be dev or a semantic release version')
+  }
+  return version
+}
+
 export function resolveDevWebSocketBaseUrl(configuredBaseUrl: string | undefined, fallbackBaseUrl: string) {
   return configuredBaseUrl?.trim() || fallbackBaseUrl
 }
@@ -148,6 +157,7 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [createRayleaBotDevStatus(backendTarget), createBackendAvailabilityGuard(backendTarget), vue(), tailwindcss()],
     define: {
+      __RAYLEA_BUILD_VERSION__: JSON.stringify(resolveBuildVersion(command, process.env.RAYLEA_BUILD_VERSION)),
       'import.meta.env.VITE_WS_BASE_URL': JSON.stringify(clientWebSocketBaseUrl),
     },
     resolve: {

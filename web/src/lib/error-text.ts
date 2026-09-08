@@ -2,6 +2,7 @@ import { t } from '@/i18n'
 import { ApiError } from '@/lib/http'
 
 const errorMessageByKey: Record<string, string> = {
+  'errors.permission.current_secret_invalid': t('errors.permission.currentSecretInvalid'),
   'errors.plugin.event_canceled': t('errors.plugin.eventCanceled'),
   'errors.adapter.send_unconfirmed': t('errors.adapter.sendUnconfirmed'),
   'errors.permission.denied': t('errors.permission.denied'),
@@ -27,6 +28,7 @@ const errorMessageByKey: Record<string, string> = {
 }
 
 const errorMessageByCode: Record<string, string> = {
+  'permission.current_secret_invalid': t('errors.permission.currentSecretInvalid'),
   'plugin.event_canceled': t('errors.plugin.eventCanceled'),
   'adapter.send_unconfirmed': t('errors.adapter.sendUnconfirmed'),
   'permission.denied': t('errors.permission.denied'),

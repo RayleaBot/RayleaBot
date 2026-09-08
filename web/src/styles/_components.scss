@@ -372,6 +372,7 @@ html::view-transition-new(root),
 
 html[data-view-transition-kind='theme']::view-transition-old(root),
 html[data-view-transition-kind='theme']::view-transition-new(root) {
+  animation: none;
   mix-blend-mode: normal;
 }
 
@@ -382,11 +383,11 @@ html[data-view-transition-kind='theme'] *::after {
 }
 
 html[data-view-transition-kind='theme']::view-transition-old(root) {
-  animation: raylea-view-fade-out 120ms linear both;
+  z-index: 1;
 }
 
 html[data-view-transition-kind='theme']::view-transition-new(root) {
-  animation: raylea-view-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  z-index: 2;
 }
 
 @keyframes raylea-view-fade-in {

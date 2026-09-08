@@ -11,6 +11,25 @@ function jsonResponse(body: unknown) {
 }
 
 describe('session store', () => {
+  it('clears the browser session only after credentials are successfully saved', async () => {
+    setActivePinia(createPinia())
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ transport: 'cookie', csrf_token: 'fixture-only-csrf-token-with-32-characters' }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'permission.current_secret_invalid', message: 'incorrect current password' } }), { status: 403 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const store = useSessionStore()
+    await store.login({ identifier: 'admin', secret: 'old-password' })
+    await expect(store.updateCredentials({ current_secret: 'incorrect', new_secret: 'new-password' })).rejects.toThrow()
+    expect(store.isAuthenticated).toBe(true)
+    expect(store.csrfToken).toBeTruthy()
+    await store.updateCredentials({ current_secret: 'old-password', new_secret: 'new-password' })
+    expect(store.isAuthenticated).toBe(false)
+    expect(store.csrfToken).toBeNull()
+    const call = fetchMock.mock.calls[2]
+    expect(call?.[0]).toBe('/api/account/credentials')
+    expect(JSON.parse(call?.[1].body)).toEqual({ current_secret: 'old-password', new_secret: 'new-password' })
+  })
   beforeEach(() => {
     setActivePinia(createPinia())
     window.localStorage.clear()

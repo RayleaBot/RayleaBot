@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 
 import { toBootstrapStatusMessage } from '@/lib/auth-feedback'
 import { ApiError, apiRequest } from '@/lib/http'
-import type { SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
+import type { AccountCredentialsUpdateRequest, SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
 const sessionTokenStorageKey = 'rayleabot.session_token'
 
@@ -146,6 +146,11 @@ export const useSessionStore = defineStore('session', () => {
     clearSession()
   }
 
+  async function updateCredentials(payload: AccountCredentialsUpdateRequest) {
+    await apiRequest<void>('/api/account/credentials', { method: 'PUT', body: payload })
+    clearSession()
+  }
+
   function clearSession() {
     authenticated.value = false
     csrfToken.value = null
@@ -171,6 +176,7 @@ export const useSessionStore = defineStore('session', () => {
     handleSessionExpired,
     login,
     logout,
+    updateCredentials,
     setupAdmin,
   }
 })

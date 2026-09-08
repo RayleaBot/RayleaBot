@@ -136,6 +136,8 @@ function baseState() {
     .map(localizeBilibiliAccountAvatar)
   return {
     initialized: false,
+    adminIdentifier: 'admin',
+    adminSecret: 'fixture-only-secret',
     token: null,
     csrfToken: null,
     plugins: pluginMap,
@@ -1366,7 +1368,7 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/api/session/login' && request.method === 'POST') {
     const payload = await parseBody(request)
-    if (!state.initialized || payload.identifier !== 'admin' || payload.secret !== 'fixture-only-secret') {
+    if (!state.initialized || payload.identifier !== state.adminIdentifier || payload.secret !== state.adminSecret) {
       json(response, fixtures.sessionDenied.response.status, fixtures.sessionDenied.response.body)
       return
     }
@@ -1386,6 +1388,30 @@ const server = http.createServer(async (request, response) => {
       return
     }
     json(response, fixtures.sessionLogin.response.status, fixtures.sessionLogin.response.body)
+    return
+  }
+
+  if (pathname === '/api/account/credentials' && request.method === 'PUT') {
+    if (!requireAuth(request, response)) return
+    const payload = await parseBody(request)
+    if (payload.current_secret !== state.adminSecret) {
+      json(response, 403, errorEnvelope('permission.current_secret_invalid', '当前密码不正确', 'req_account_credentials_fixture'))
+      return
+    }
+    if (typeof payload.new_secret !== 'string' || Array.from(payload.new_secret).length < 8) {
+      json(response, 400, errorEnvelope('platform.invalid_request', '请求参数不合法', 'req_account_credentials_fixture'))
+      return
+    }
+    state.adminSecret = payload.new_secret
+    state.adminIdentifier = payload.new_identifier?.trim() || state.adminIdentifier
+    state.token = null
+    state.csrfToken = null
+    broadcast('events', fixtures.wsSessionExpired.frame)
+    closeAllSockets()
+    // Exercise session invalidation arriving before the pending HTTP response.
+    await new Promise(resolve => setTimeout(resolve, 50))
+    response.setHeader('Set-Cookie', 'raylea_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0')
+    noContent(response)
     return
   }
 

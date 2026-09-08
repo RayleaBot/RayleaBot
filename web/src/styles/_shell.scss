@@ -58,9 +58,13 @@
 }
 
 .admin-layout__brand-copy {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
 }
+
+.admin-layout__build-version { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 400; color: var(--sider-menu-text); opacity: .8; }
 
 .admin-layout__brand-copy strong {
   font-size: 18px;
@@ -69,7 +73,8 @@
 }
 
 .admin-layout__sider-scroll {
-  height: calc(100dvh - 60px);
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   padding: 10px 10px 16px;
 }
@@ -165,15 +170,6 @@
 .admin-layout__icon-button:hover {
   color: var(--text-accent) !important;
   background: var(--surface-accent) !important;
-}
-
-.admin-layout__theme-toggle {
-  margin-inline: 2px 4px;
-}
-
-.admin-layout__theme-menu {
-  min-width: 36px;
-  padding-inline: 0;
 }
 
 .admin-layout__nav-trigger {
@@ -363,16 +359,9 @@
   height: 28px;
 }
 
-.admin-layout__shutdown-button,
-.admin-layout__account-button {
+.admin-layout__shutdown-button {
   min-height: 30px;
   border-radius: 8px;
-}
-
-.admin-layout__account-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .admin-layout__content {
@@ -457,6 +446,7 @@
 .admin-layout__mobile-drawer { background: var(--sider-bg); color: var(--sider-menu-text); }
 .admin-layout__mobile-drawer .app-dialog__header { padding: 16px; }
 .admin-layout__mobile-drawer .app-dialog__header .app-button { color: var(--sider-menu-text); }
+.admin-layout__mobile-drawer .app-dialog__footer { padding: 0; border-top: 0; }
 .admin-layout__mobile-drawer .app-dialog__body { padding: 0 12px 16px; }
 .admin-layout__mobile-brand { margin-bottom: 16px; }
 .admin-layout__mobile-brand > .raylea-mark { width: 24px; height: 26px; }

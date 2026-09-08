@@ -1,4 +1,4 @@
-import { animate } from 'motion-v'
+import { animate, animateMini } from 'motion-v'
 import { nextTick } from 'vue'
 import type { RouteLocationRaw, Router } from 'vue-router'
 
@@ -11,12 +11,14 @@ export const motionDuration = {
 export const motionEase = [0.16, 1, 0.3, 1] as const
 
 export type PageMotionProfile = 'fade' | 'fade-slide' | 'none'
+export type ThemeMotionOrigin = { x: number; y: number } | undefined
 type ViewTransitionKind = 'route' | 'theme'
 type RouteMotionListener = (active: boolean) => void
 
 interface ActiveViewTransition {
   finish: () => void
   transition: ViewTransition
+  cancelAnimation?: () => void
 }
 
 interface ScopedViewTransitionElement extends HTMLElement {
@@ -83,6 +85,7 @@ function notifyRouteMotion(active: boolean) {
 }
 
 function finishActiveViewTransition() {
+  activeViewTransition?.cancelAnimation?.()
   activeViewTransition?.transition.skipTransition()
   activeViewTransition?.finish()
 }
@@ -92,13 +95,13 @@ function startManagedViewTransition(
   update: () => void | Promise<void>,
   profile: PageMotionProfile = 'fade',
 ): ViewTransition | null {
+  finishActiveViewTransition()
   const target = resolveViewTransitionTarget(kind)
   if (!target || prefersReducedMotion() || profile === 'none') {
     void update()
     return null
   }
 
-  finishActiveViewTransition()
   const sequence = ++viewTransitionSequence
   target.marker.dataset.viewTransitionKind = kind
   target.marker.dataset.motionProfile = profile
@@ -149,8 +152,21 @@ export function navigateWithMotion(
   return transition.updateCallbackDone.then(() => navigation ?? undefined)
 }
 
-export function applyThemeWithMotion(update: () => void): ViewTransition | null {
-  return startManagedViewTransition('theme', update)
+export function applyThemeWithMotion(update: () => void, origin?: ThemeMotionOrigin): ViewTransition | null {
+  const transition = startManagedViewTransition('theme', update)
+  if (!transition) return null
+  void transition.ready.then(() => {
+    if (activeViewTransition?.transition !== transition) return
+    const x = Math.max(0, Math.min(window.innerWidth, origin?.x ?? window.innerWidth / 2))
+    const y = Math.max(0, Math.min(window.innerHeight, origin?.y ?? window.innerHeight / 2))
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+    const options = { duration: origin ? .42 : .28, ease: motionEase, pseudoElement: '::view-transition-new(root)' }
+    const controls = animateMini(document.documentElement, origin
+      ? { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] }
+      : { opacity: [0, 1] }, options)
+    activeViewTransition.cancelAnimation = () => controls.cancel()
+  }).catch(() => undefined)
+  return transition
 }
 
 export function runRouteFallbackMotion(

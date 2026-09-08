@@ -1,8 +1,14 @@
 import { resolve as resolvePath } from 'node:path'
 
-import { createBackendProxyOptions, createRayleaBotDevStatus, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
+import { createBackendProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
 
 describe('vite config', () => {
+  it('embeds only the build-supplied version and always labels the development server dev', () => {
+    expect(resolveBuildVersion('serve', 'v2.3.4')).toBe('dev')
+    expect(resolveBuildVersion('build', undefined)).toBe('dev')
+    expect(resolveBuildVersion('build', ' v2.3.4-rc.1 ')).toBe('v2.3.4-rc.1')
+    expect(() => resolveBuildVersion('build', 'runtime-version')).toThrow('RAYLEA_BUILD_VERSION')
+  })
   it('uses the backend target when the dev WebSocket base URL is empty', () => {
     expect(resolveDevWebSocketBaseUrl(undefined, 'http://127.0.0.1:8080')).toBe('http://127.0.0.1:8080')
     expect(resolveDevWebSocketBaseUrl('   ', 'http://127.0.0.1:8080')).toBe('http://127.0.0.1:8080')

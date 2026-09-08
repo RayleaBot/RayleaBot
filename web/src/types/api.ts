@@ -12,6 +12,8 @@ export type { components } from './generated'
 
 import type { components } from './generated'
 
+export type AccountCredentialsUpdateRequest = components['schemas']['AccountCredentialsUpdateRequest']
+
 export type OneBot11ProtocolSnapshotResponse = components['schemas']['OneBot11ProtocolSnapshotResponse']
 export type AdaptersResponse = components['schemas']['AdaptersResponse']
 export type AdapterDescriptor = components['schemas']['AdapterDescriptor']

@@ -169,6 +169,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/account/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change the authenticated administrator's password and optionally their identifier.
+         * @description Requires an active management session and verification of current_secret against the current administrator password. new_identifier is trimmed; omission or a blank value preserves the identifier. The password is never trimmed. The credential update and invalidation of all existing sessions, including the caller, are atomic and durable. Existing management WebSockets receive session_expired and are closed. A successful caller must log in again. Failure preserves credentials and sessions. A stale or revoked session returns 401 permission.denied. An incorrect current password returns 403 permission.current_secret_invalid without expiring the caller's session. Attempts share the configured login failure limit and window by source IP; exhausted attempts return 429 platform.rate_limited. Invalid input returns 400 platform.invalid_request; persistence failures return 500 platform.internal_error.
+         */
+        put: operations["updateAccountCredentials"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/launcher/status": {
         parameters: {
             query?: never;
@@ -1289,6 +1309,13 @@ export interface components {
         SessionLoginRequest: {
             identifier: string;
             secret: string;
+        };
+        AccountCredentialsUpdateRequest: {
+            current_secret: string;
+            /** @description New password, measured in Unicode code points and preserved verbatim. */
+            new_secret: string;
+            /** @description Optional new administrator username; blank or omitted keeps the existing username. */
+            new_identifier?: string;
         };
         SessionLoginResponse: {
             /** @enum {string} */
@@ -3184,6 +3211,33 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
+        };
+    };
+    updateAccountCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountCredentialsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Credentials saved, all session tokens invalidated, and the browser session cookie cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            500: components["responses"]["Error"];
         };
     };
     getLauncherStatus: {

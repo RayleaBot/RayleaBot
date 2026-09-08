@@ -5,10 +5,8 @@ import { useRoute, useRouter, type RouteLocationNormalizedLoaded, type RouteLoca
 import { storeToRefs } from 'pinia'
 import {
   XIcon,
-  ChevronDownIcon,
   MinimizeIcon,
   MaximizeIcon,
-  LogOutIcon,
   PanelLeftCloseIcon,
   MenuIcon,
   PanelLeftOpenIcon,
@@ -17,7 +15,6 @@ import {
   ChevronRightIcon,
   SearchIcon,
   SettingsIcon,
-  UserIcon,
 } from '@lucide/vue'
 import { TabsRoot, TabsList, TabsTrigger } from 'reka-ui'
 import AppButton from '@/components/AppButton.vue'
@@ -43,7 +40,9 @@ import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import PreferencesDrawer from '@/components/shell/PreferencesDrawer.vue'
 import RouteSearchPanel from '@/components/shell/RouteSearchPanel.vue'
-import ThemeModeMenu from '@/components/shell/ThemeModeMenu.vue'
+import SidebarAccountMenu from '@/components/shell/SidebarAccountMenu.vue'
+import AccountCredentialsDialog from '@/components/shell/AccountCredentialsDialog.vue'
+import { buildVersionLabel } from '@/lib/build-info'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { adminRoutes } from '@/router/routes/modules/admin'
@@ -62,6 +61,7 @@ import {
   runRouteFallbackMotion,
   subscribeRouteMotion,
   type PageMotionProfile,
+  type ThemeMotionOrigin,
 } from '@/motion/runtime'
 
 const route = useRoute()
@@ -83,6 +83,8 @@ const {
 const { shutdownPending, shutdownRequested } = storeToRefs(systemStore)
 
 const shutdownDialogVisible = ref(false)
+const accountDialogVisible = ref(false)
+const accountFallbackFocus = ref('[data-testid=sidebar-account]')
 const isFullscreen = ref(false)
 const reducedMotion = ref(false)
 const pluginNavigationScope = ref<'root' | 'plugin-center'>('root')
@@ -538,8 +540,13 @@ function handlePluginNavigationScopeChange(scope: 'root' | 'plugin-center') {
   pluginNavigationScope.value = scope
 }
 
-function setThemeModeWithMotion(mode: ThemeMode) {
-  applyThemeWithMotion(() => uiShellStore.setThemeMode(mode))
+function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
+  if (mode !== uiShellStore.themeMode) applyThemeWithMotion(() => uiShellStore.setThemeMode(mode), origin)
+}
+
+function openAccountDialog(mobile = false) {
+  accountFallbackFocus.value = mobile ? '[data-testid=mobile-account]' : '[data-testid=sidebar-account]'
+  accountDialogVisible.value = true
 }
 
 function handlePrimaryNavigationKeydown(event: KeyboardEvent) {
@@ -686,13 +693,14 @@ onBeforeUnmount(() => {
       <button
         type="button"
         class="admin-layout__brand"
-        :aria-label="t('app.brand')"
-        :title="siderCollapsed ? t('app.brand') : undefined"
+        :aria-label="`${t('app.brand')}，${buildVersionLabel}`"
+        :title="siderCollapsed ? `${t('app.brand')} · ${buildVersionLabel}` : undefined"
         @click="navigateTo('/')"
       >
         <RayleaMark class="admin-layout__brand-mark" variant="chrome" />
         <span v-if="!siderCollapsed" class="admin-layout__brand-copy">
           <strong>{{ t('app.brand') }}</strong>
+          <span class="admin-layout__build-version" :title="buildVersionLabel" data-testid="build-version">{{ buildVersionLabel }}</span>
         </span>
       </button>
 
@@ -714,6 +722,7 @@ onBeforeUnmount(() => {
           @scope-change="handlePluginNavigationScopeChange"
         />
       </nav>
+      <SidebarAccountMenu :collapsed="siderCollapsed" :mode="uiShellStore.themeMode" :resolved-mode="uiShellStore.resolvedThemeMode" @manage="openAccountDialog()" @logout="handleLogout" @theme="setThemeModeWithMotion" />
     </aside>
 
     <AppDrawer
@@ -727,6 +736,7 @@ onBeforeUnmount(() => {
       <div class="admin-layout__mobile-brand">
         <RayleaMark variant="chrome" />
         <strong>{{ t('app.brand') }}</strong>
+        <span class="admin-layout__build-version" :title="buildVersionLabel">{{ buildVersionLabel }}</span>
       </div>
 
       <nav
@@ -747,6 +757,9 @@ onBeforeUnmount(() => {
           @scope-change="handlePluginNavigationScopeChange"
         />
       </nav>
+      <template #footer>
+        <SidebarAccountMenu mobile :mode="uiShellStore.themeMode" :resolved-mode="uiShellStore.resolvedThemeMode" @manage="openAccountDialog(true)" @logout="handleLogout" @theme="setThemeModeWithMotion" />
+      </template>
     </AppDrawer>
 
     <div class="admin-layout__workspace">
@@ -840,41 +853,6 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="admin-layout__header-right">
-            <ThemeModeMenu
-              class="admin-layout__icon-button admin-layout__theme-menu"
-              :mode="uiShellStore.themeMode"
-              :resolved-mode="uiShellStore.resolvedThemeMode"
-              test-id="theme-toggle"
-              @change="setThemeModeWithMotion"
-            />
-
-            <AppTooltip :title="fullscreenLabel">
-              <AppButton
-                class="admin-layout__icon-button desktop-only"
-                variant="ghost"
-                :aria-label="fullscreenLabel"
-                data-testid="header-fullscreen-direct"
-                @click="toggleFullscreen"
-              >
-                <template #icon>
-                  <MinimizeIcon v-if="isFullscreen" />
-                  <MaximizeIcon v-else />
-                </template>
-              </AppButton>
-            </AppTooltip>
-
-            <AppTooltip :title="t('shell.settings')">
-              <AppButton
-                class="admin-layout__icon-button desktop-only"
-                variant="ghost"
-                :aria-label="t('shell.settings')"
-                data-testid="header-settings-direct"
-                @click="uiShellStore.openSettings()"
-              >
-                <template #icon><SettingsIcon /></template>
-              </AppButton>
-            </AppTooltip>
-
             <AppDropdown>
               <AppButton
                 class="admin-layout__icon-button"
@@ -900,23 +878,6 @@ onBeforeUnmount(() => {
                   <AppDropdownItem key="shutdown" danger @select="shutdownDialogVisible = true">
                     <PowerIcon />
                     {{ t('shell.shutdown') }}
-                  </AppDropdownItem>
-                </div>
-              </template>
-            </AppDropdown>
-
-            <AppDropdown>
-              <AppButton class="admin-layout__account-button" :aria-label="t('shell.account')">
-                <UserIcon />
-                <span class="desktop-only">{{ t('shell.account') }}</span>
-                <ChevronDownIcon />
-              </AppButton>
-
-              <template #content>
-                <div>
-                  <AppDropdownItem key="logout" @select="handleLogout">
-                    <LogOutIcon />
-                    {{ t('shell.logout') }}
                   </AppDropdownItem>
                 </div>
               </template>
@@ -1010,6 +971,7 @@ onBeforeUnmount(() => {
     @update:open="onSearchOpenUpdate"
   />
   <PreferencesDrawer />
+  <AccountCredentialsDialog :open="accountDialogVisible" :fallback-focus="accountFallbackFocus" @close="accountDialogVisible = false" />
 
   <AppConfirmDialog :open="shutdownDialogVisible" :title="t('shell.shutdownConfirmTitle')" :description="t('shell.shutdownConfirmBody')" :busy="shutdownPending" danger :confirm-text="t('shell.shutdownConfirmAction')" :cancel-text="t('shell.cancel')" fallback-focus="[data-testid=header-more]" @confirm="confirmShutdown" @cancel="shutdownDialogVisible = false" />
 </template>
@@ -1017,8 +979,7 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 .admin-layout__brand:focus-visible,
 .admin-layout__icon-button:focus-visible,
-.admin-layout__shutdown-button:focus-visible,
-.admin-layout__account-button:focus-visible {
+.admin-layout__shutdown-button:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
@@ -1031,8 +992,7 @@ onBeforeUnmount(() => {
 @media (forced-colors: active) {
   .admin-layout__brand:focus-visible,
   .admin-layout__icon-button:focus-visible,
-  .admin-layout__shutdown-button:focus-visible,
-  .admin-layout__account-button:focus-visible {
+  .admin-layout__shutdown-button:focus-visible {
     outline-color: Highlight;
   }
 }
