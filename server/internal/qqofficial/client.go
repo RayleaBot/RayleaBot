@@ -296,6 +296,7 @@ func (c *Client) runConnection(ctx context.Context) (runErr error) {
 	if err != nil {
 		return err
 	}
+	profile := fetchBotProfile(connCtx, httpClient, apiBase, appID, token)
 	conn, err := c.dialer(connCtx, url)
 	if err != nil {
 		return fmt.Errorf("qqofficial: dial gateway: %w", err)
@@ -338,7 +339,7 @@ func (c *Client) runConnection(ctx context.Context) (runErr error) {
 	defer wg.Wait()
 	defer cancel()
 
-	return c.readLoop(connCtx, conn)
+	return c.readLoop(connCtx, conn, profile)
 }
 
 func (c *Client) heartbeat(ctx context.Context, conn wsConn, interval time.Duration) {
@@ -361,7 +362,7 @@ func (c *Client) heartbeat(ctx context.Context, conn wsConn, interval time.Durat
 	}
 }
 
-func (c *Client) readLoop(ctx context.Context, conn wsConn) error {
+func (c *Client) readLoop(ctx context.Context, conn wsConn, profile botProfile) error {
 	for {
 		_, data, err := conn.Read(ctx)
 		if err != nil {
@@ -375,7 +376,7 @@ func (c *Client) readLoop(ctx context.Context, conn wsConn) error {
 
 		switch frame.Op {
 		case opDispatch:
-			c.handleDispatch(ctx, frame)
+			c.handleDispatch(ctx, frame, profile)
 		case opInvalidSess:
 			// The session cannot be resumed; drop it so the next attempt
 			// identifies from scratch instead of looping on a dead resume.
@@ -388,7 +389,7 @@ func (c *Client) readLoop(ctx context.Context, conn wsConn) error {
 	}
 }
 
-func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
+func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame, profile botProfile) {
 	if ctx.Err() != nil || c.requestSettings().disabled {
 		return
 	}
@@ -401,7 +402,8 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 				c.settingsMu.Unlock()
 				return
 			}
-			c.session.startSession(ready.SessionID, ready.User.ID, ready.User.Username)
+			c.session.startSession(ready.SessionID, ready.User.ID, ready.User.Username, "")
+			c.session.refreshProfile(profile)
 			c.status.set(StateConnected, "")
 			c.settingsMu.Unlock()
 			c.notifyStateChanged()
@@ -413,7 +415,15 @@ func (c *Client) handleDispatch(ctx context.Context, frame gatewayFrame) {
 		}
 		return
 	case dispatchResumed:
-		c.setState(StateConnected, "")
+		c.settingsMu.Lock()
+		if ctx.Err() != nil || c.disabled {
+			c.settingsMu.Unlock()
+			return
+		}
+		c.session.refreshProfile(profile)
+		c.status.set(StateConnected, "")
+		c.settingsMu.Unlock()
+		c.notifyStateChanged()
 		c.logger.Info("QQ 官方机器人连接已恢复。", "component", SourceAdapter)
 		return
 	}

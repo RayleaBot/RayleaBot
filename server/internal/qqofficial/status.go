@@ -15,12 +15,13 @@ const (
 
 // Status is what the management surface shows for this adapter.
 type Status struct {
-	State    string
-	Summary  string
-	BotID    string
-	BotName  string
-	LastErr  string
-	Attempts int
+	State        string
+	Summary      string
+	BotID        string
+	BotName      string
+	BotAvatarURL string
+	LastErr      string
+	Attempts     int
 }
 
 type statusState struct {
@@ -56,18 +57,21 @@ func (s *statusState) snapshot() (string, string, int) {
 // Status reports the adapter's current connection state for the management
 // surface. It is safe to call before the client has started.
 func (c *Client) Status() Status {
+	c.settingsMu.RLock()
+	defer c.settingsMu.RUnlock()
 	state, lastErr, attempts := c.status.snapshot()
-	botID, botName := c.session.bot()
-	if c.requestSettings().disabled {
-		state, lastErr, botID, botName = StateStopped, "", "", ""
+	profile := c.session.profile()
+	if c.disabled {
+		state, lastErr, profile = StateStopped, "", botProfile{}
 	}
 	return Status{
-		State:    state,
-		Summary:  statusSummary(state, botName, lastErr),
-		BotID:    botID,
-		BotName:  botName,
-		LastErr:  lastErr,
-		Attempts: attempts,
+		State:        state,
+		Summary:      statusSummary(state, profile.Name, lastErr),
+		BotID:        profile.ID,
+		BotName:      profile.Name,
+		BotAvatarURL: profile.AvatarURL,
+		LastErr:      lastErr,
+		Attempts:     attempts,
 	}
 }
 

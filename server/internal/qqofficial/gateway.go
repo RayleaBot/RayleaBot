@@ -72,12 +72,13 @@ type readyData struct {
 
 // session carries what a Resume needs across a dropped connection.
 type session struct {
-	mu        sync.Mutex
-	id        string
-	lastSeq   int64
-	botID     string
-	botName   string
-	resumable bool
+	mu           sync.Mutex
+	id           string
+	lastSeq      int64
+	botID        string
+	botName      string
+	botAvatarURL string
+	resumable    bool
 }
 
 func (s *session) snapshot() (string, int64, bool) {
@@ -95,10 +96,11 @@ func (s *session) observeSeq(seq int64) {
 	s.lastSeq = seq
 }
 
-func (s *session) startSession(id, botID, botName string) {
+func (s *session) startSession(id, botID, botName, botAvatarURL string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.id, s.botID, s.botName, s.resumable = id, botID, botName, true
+	s.botAvatarURL = botAvatarURL
 }
 
 // invalidate drops resume state so the next attempt identifies afresh.
@@ -112,6 +114,32 @@ func (s *session) bot() (string, string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.botID, s.botName
+}
+
+func (s *session) profile() botProfile {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return botProfile{ID: s.botID, Name: s.botName, AvatarURL: s.botAvatarURL}
+}
+
+func (s *session) clearIdentity() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.botID, s.botName, s.botAvatarURL = "", "", ""
+}
+
+func (s *session) refreshProfile(profile botProfile) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if profile.ID == "" || profile.ID != s.botID {
+		return
+	}
+	if profile.Name != "" {
+		s.botName = profile.Name
+	}
+	if profile.AvatarURL != "" {
+		s.botAvatarURL = profile.AvatarURL
+	}
 }
 
 // gatewayEndpoint asks the OpenAPI host where to connect.

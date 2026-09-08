@@ -3,7 +3,6 @@ import AppButton from '@/components/AppButton.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppAlert from '@/components/AppAlert.vue'
-import AppBadge from '@/components/AppBadge.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -20,6 +19,7 @@ import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
 import type { AdapterDescriptor, ConfigUpdateResponse } from '@/types/api'
 import AdapterConfigDialog from './AdapterConfigDialog.vue'
+import AdapterConnectionCard from './AdapterConnectionCard.vue'
 import ProtocolCompatibilityPanel from './ProtocolCompatibilityPanel.vue'
 
 const router = useRouter()
@@ -119,17 +119,10 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
           <p>添加一个连接，填写配置后即可接入机器人。</p>
         </div>
         <ul v-else class="connections-grid">
-          <li v-for="{ config, runtime } in rows" :key="config.id" class="connection-card">
-            <div class="connection-info">
-              <div class="connection-heading"><h3>{{ runtime?.display_name || (config.type === 'qqofficial' ? 'QQ 官方机器人' : 'OneBot11') }}</h3><AppBadge :tone="badgeTone(status(runtime, config).color)">{{ status(runtime, config).label }}</AppBadge></div>
-              <p class="connection-summary">{{ runtime?.summary || '已保存配置，服务加载后将显示运行状态。' }}</p>
-              <p class="connection-identity"><code>{{ config.id }}</code><span v-if="runtime?.identity">{{ runtime.identity.name || runtime.identity.id }}</span></p>
-            </div>
-            <div class="connection-actions">
-              <AppButton :data-testid="`adapter-${config.id}`" :disabled="Boolean(removingId) || configStore.saving" @click="router.push(buildProtocolsLocation({ adapterId: config.id }))">配置</AppButton>
-              <AppButton variant="destructive" :loading="removingId === config.id" :disabled="Boolean(removingId) || configStore.saving" :aria-label="'删除连接 ' + config.id" @click="removeTarget = config">删除</AppButton>
-            </div>
-          </li>
+          <AdapterConnectionCard v-for="{ config, runtime } in rows" :key="config.id"
+            :config="config" :runtime="runtime" :status-label="status(runtime, config).label" :status-tone="badgeTone(status(runtime, config).color)"
+            :busy="Boolean(removingId) || configStore.saving" :removing="removingId === config.id"
+            @configure="router.push(buildProtocolsLocation({ adapterId: config.id }))" @remove="removeTarget = config" />
         </ul>
       </section>
     </div>
@@ -150,13 +143,6 @@ async function removeAdapter(instance: AdapterInstanceDocument) {
 .connections-toolbar span { color: var(--muted); font-size: 12px; }
 .connections-loading { padding: 24px; }
 .connections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 20px; margin: 0; padding: 0; list-style: none; }
-.connection-card { display: flex; flex-direction: column; min-width: 0; min-height: 220px; padding: 20px; border: 1px solid var(--border); border-radius: var(--app-card-radius); background: var(--surface-strong); }
-.connection-info { flex: 1; min-width: 0; }
-.connection-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.connection-heading h3 { margin: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
-.connection-summary { margin: 16px 0 12px; color: var(--muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
-.connection-identity { display: flex; flex-wrap: wrap; gap: 16px; margin: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.connection-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 .connections-empty { padding: 56px 24px; border: 1px solid var(--border); border-radius: var(--app-card-radius); background: var(--surface-strong); text-align: center; }
 .connections-empty p { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
 @media (max-width: 639px) {

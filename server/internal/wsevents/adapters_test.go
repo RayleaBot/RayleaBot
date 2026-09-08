@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
 )
 
@@ -71,12 +72,12 @@ func TestAdaptersReportEnabledStateAndLiveIdentityPerInstance(t *testing.T) {
 	connected := NewProtocolService(adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{
 		QQOfficial: map[string]QQOfficialAdapter{
 			config.DefaultQQOfficialAdapterID: stubQQStatus{status: qqofficial.Status{
-				State: qqofficial.StateConnected, Summary: "已连接：洛箐箐", BotID: "bot-1", BotName: "洛箐箐",
+				State: qqofficial.StateConnected, Summary: "已连接：洛箐箐", BotID: "bot-1", BotName: "洛箐箐", BotAvatarURL: "https://example.com/bot.png",
 			}},
 		},
 	})
 	qq = findAdapter(t, connected.Adapters(), config.DefaultQQOfficialAdapterID)
-	if qq.State != qqofficial.StateConnected || qq.Identity == nil || qq.Identity.ID != "bot-1" {
+	if qq.State != qqofficial.StateConnected || qq.Identity == nil || qq.Identity.ID != "bot-1" || qq.Identity.Name != "洛箐箐" || qq.Identity.AvatarURL != "https://example.com/bot.png" {
 		t.Fatalf("connected adapter = %+v, want the live state and identity", qq)
 	}
 }
@@ -112,4 +113,35 @@ func findAdapter(t *testing.T, view AdaptersView, id string) AdapterDescriptor {
 	}
 	t.Fatalf("adapter %q not listed", id)
 	return AdapterDescriptor{}
+}
+
+func TestOneBotIdentityUsesConfirmedAccountAndMatchingLoginInfo(t *testing.T) {
+	t.Parallel()
+	connected := func(id, name string) onebot11.TransportSnapshot {
+		return onebot11.TransportSnapshot{Enabled: true, State: onebot11.TransportStateConnected, RuntimeInfo: onebot11.TransportRuntimeInfo{UserID: id, Nickname: name}}
+	}
+	for _, tt := range []struct {
+		name     string
+		snapshot onebot11.Snapshot
+		want     *AdapterIdentity
+	}{
+		{"unknown", onebot11.Snapshot{}, nil},
+		{"webhook only", onebot11.Snapshot{BotID: "10001"}, &AdapterIdentity{ID: "10001", AvatarURL: oneBot11AvatarURL("10001")}},
+		{"HTTP login before event", onebot11.Snapshot{HTTPAPI: connected("10002", "second")}, &AdapterIdentity{ID: "10002", Name: "second", AvatarURL: oneBot11AvatarURL("10002")}},
+		{"matching login", onebot11.Snapshot{BotID: "10001", ReverseWS: connected("10001", "first")}, &AdapterIdentity{ID: "10001", Name: "first", AvatarURL: oneBot11AvatarURL("10001")}},
+		{"other transport account", onebot11.Snapshot{BotID: "10001", ReverseWS: connected("10002", "wrong"), HTTPAPI: connected("10001", "right")}, &AdapterIdentity{ID: "10001", Name: "right", AvatarURL: oneBot11AvatarURL("10001")}},
+		{"disconnected login", onebot11.Snapshot{ForwardWS: onebot11.TransportSnapshot{Enabled: true, State: onebot11.TransportStateStopped, RuntimeInfo: onebot11.TransportRuntimeInfo{UserID: "10001", Nickname: "stale"}}}, nil},
+		{"non QQ identifier", onebot11.Snapshot{BotID: "opaque-bot"}, &AdapterIdentity{ID: "opaque-bot"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := oneBot11Identity(tt.snapshot)
+			if got == nil || tt.want == nil {
+				if got != tt.want {
+					t.Fatalf("identity = %+v, want %+v", got, tt.want)
+				}
+			} else if *got != *tt.want {
+				t.Fatalf("identity = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
 }

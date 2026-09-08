@@ -89,6 +89,7 @@ func (c *Client) setConnectionCancel(cancel context.CancelFunc) {
 // the settings update, so a late READY cannot revive the replaced session.
 func (c *Client) invalidateConnectionLocked() {
 	c.session.invalidate()
+	c.session.clearIdentity()
 	c.reloading = true
 	if c.connCancel != nil {
 		c.connCancel()

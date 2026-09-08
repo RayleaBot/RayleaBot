@@ -17,6 +17,10 @@ response:
         enabled: true
         state: connected
         summary: 已连接。
+        identity:
+          id: '10001'
+          name: 示例机器人
+          avatar_url: https://q1.qlogo.cn/g?b=qq&nk=10001&s=640
       - id: second-bot
         protocol: onebot11
         display_name: OneBot11（second-bot）

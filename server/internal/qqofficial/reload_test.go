@@ -89,7 +89,7 @@ func TestReloadInvalidatesTheResumableSession(t *testing.T) {
 	client := newReloadTestClient(t, config.QQOfficialConfig{
 		AppID: "100000001", AppSecret: "first-secret", Intents: []string{"group_and_c2c"},
 	})
-	client.session.startSession("session-1", "bot-1", "洛箐箐")
+	client.session.startSession("session-1", "bot-1", "洛箐箐", "")
 	if _, _, resumable := client.session.snapshot(); !resumable {
 		t.Fatal("fixture session is not resumable")
 	}

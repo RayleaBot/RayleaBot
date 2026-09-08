@@ -105,7 +105,7 @@ func TestSessionResumesOnlyAfterReadyAndNotAfterRejection(t *testing.T) {
 		t.Fatal("a fresh session claimed to be resumable")
 	}
 
-	s.startSession("session-1", "bot-1", "bot")
+	s.startSession("session-1", "bot-1", "bot", "")
 	s.observeSeq(9)
 	id, seq, resumable := s.snapshot()
 	if !resumable || id != "session-1" || seq != 9 {
@@ -148,7 +148,7 @@ func TestHandleDispatchStampsBotIdentityAndSkipsLifecycle(t *testing.T) {
 	client.handleDispatch(context.Background(), gatewayFrame{
 		Op: opDispatch, T: dispatchReady,
 		D: json.RawMessage(`{"session_id":"s1","user":{"id":"bot-1","username":"bot"}}`),
-	})
+	}, botProfile{})
 	if delivered != 0 {
 		t.Fatal("READY was delivered as an event")
 	}
@@ -159,7 +159,7 @@ func TestHandleDispatchStampsBotIdentityAndSkipsLifecycle(t *testing.T) {
 	client.handleDispatch(context.Background(), gatewayFrame{
 		Op: opDispatch, T: dispatchC2CMessageCreate, ID: "evt-1",
 		D: json.RawMessage(c2cTextDispatch),
-	})
+	}, botProfile{})
 	if delivered != 1 {
 		t.Fatalf("delivered %d message events, want 1", delivered)
 	}
@@ -179,7 +179,7 @@ func TestStatusReportsLifecycleTransitions(t *testing.T) {
 		t.Fatalf("connecting status = %+v, want a connecting state with a summary", got)
 	}
 
-	client.session.startSession("s1", "bot-1", "洛箐箐")
+	client.session.startSession("s1", "bot-1", "洛箐箐", "")
 	client.status.set(StateConnected, "")
 	got := client.Status()
 	if got.State != StateConnected || got.BotID != "bot-1" || got.BotName != "洛箐箐" {

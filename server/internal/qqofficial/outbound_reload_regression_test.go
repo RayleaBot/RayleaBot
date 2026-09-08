@@ -128,9 +128,9 @@ func TestEnableSwitchCancelsConnectionAndCanStartAgain(t *testing.T) {
 
 func TestResumedRestoresConnectedStatus(t *testing.T) {
 	c := &Client{logger: discardLogger()}
-	c.session.startSession("session", "bot", "fixture")
+	c.session.startSession("session", "bot", "fixture", "")
 	c.setState(StateConnecting, "")
-	c.handleDispatch(context.Background(), gatewayFrame{Op: opDispatch, T: dispatchResumed})
+	c.handleDispatch(context.Background(), gatewayFrame{Op: opDispatch, T: dispatchResumed}, botProfile{})
 	if got := c.Status().State; got != StateConnected {
 		t.Fatalf("after RESUMED: state=%s, want connected", got)
 	}

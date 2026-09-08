@@ -17,7 +17,8 @@
           "summary": "已连接。",
           "identity": {
             "id": "10001",
-            "name": ""
+            "name": "示例机器人",
+            "avatar_url": "https://q1.qlogo.cn/g?b=qq&nk=10001&s=640"
           }
         },
         {
@@ -37,7 +38,8 @@
           "summary": "已连接：洛箐箐",
           "identity": {
             "id": "1E2F3A4B5C6D7E8F9A0B1C2D3E4F5A6B",
-            "name": "洛箐箐"
+            "name": "洛箐箐",
+            "avatar_url": "https://example.com/fixtures/qq-bot-avatar.png"
           }
         }
       ]

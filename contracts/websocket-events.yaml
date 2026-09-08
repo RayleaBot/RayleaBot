@@ -377,12 +377,20 @@ channels:
                       identity:
                         type: object
                         additionalProperties: false
+                        description: 已确认的机器人账号资料，与 HTTP AdapterIdentity 一致；未知身份时省略。
                         required: [id, name]
                         properties:
                           id:
                             type: string
                           name:
                             type: string
+                            description: 平台返回的用户名；暂未获取时为空字符串。
+                          avatar_url:
+                            type: string
+                            format: uri
+                            pattern: '^https://'
+                            maxLength: 2048
+                            description: 机器人头像的 HTTPS 地址；未知或不可用时省略，客户端加载失败时显示默认头像。
             - type: object
               additionalProperties: false
               required: [observability_scope, summary, delivered_count, result_count, error_count]

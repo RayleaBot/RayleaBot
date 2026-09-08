@@ -1,6 +1,8 @@
 package wsevents
 
 import (
+	"strings"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
@@ -9,8 +11,9 @@ import (
 
 // AdapterIdentity is the bot a connected adapter authenticates as.
 type AdapterIdentity struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
 // AdapterDescriptor describes one configured adapter instance for the
@@ -116,10 +119,39 @@ func (s *ProtocolService) oneBot11Descriptor(instance config.AdapterInstance) Ad
 	snapshot := shell.Snapshot()
 	descriptor.State = string(snapshot.State)
 	descriptor.Summary = oneBot11Summary(instance, snapshot)
-	if snapshot.BotID != "" {
-		descriptor.Identity = &AdapterIdentity{ID: snapshot.BotID}
-	}
+	descriptor.Identity = oneBot11Identity(snapshot)
 	return descriptor
+}
+
+func oneBot11Identity(snapshot onebot11.Snapshot) *AdapterIdentity {
+	id := strings.TrimSpace(snapshot.BotID)
+	name := ""
+	for _, transport := range []onebot11.TransportSnapshot{snapshot.ReverseWS, snapshot.ForwardWS, snapshot.HTTPAPI} {
+		if !transport.Enabled || transport.State != onebot11.TransportStateConnected {
+			continue
+		}
+		info := transport.RuntimeInfo
+		userID := strings.TrimSpace(info.UserID)
+		if userID == "" {
+			continue
+		}
+		// HTTP-only adapters can confirm their identity before receiving an event.
+		if id == "" {
+			id = userID
+		}
+		if userID == id && strings.TrimSpace(info.Nickname) != "" {
+			name = strings.TrimSpace(info.Nickname)
+			break
+		}
+	}
+	if id == "" {
+		return nil
+	}
+	identity := &AdapterIdentity{ID: id, Name: name}
+	if strings.IndexFunc(id, func(r rune) bool { return r < '0' || r > '9' }) == -1 {
+		identity.AvatarURL = oneBot11AvatarURL(id)
+	}
+	return identity
 }
 
 func (s *ProtocolService) qqOfficialDescriptor(instance config.AdapterInstance) AdapterDescriptor {
@@ -142,7 +174,7 @@ func (s *ProtocolService) qqOfficialDescriptor(instance config.AdapterInstance) 
 	descriptor.State = status.State
 	descriptor.Summary = status.Summary
 	if status.BotID != "" {
-		descriptor.Identity = &AdapterIdentity{ID: status.BotID, Name: status.BotName}
+		descriptor.Identity = &AdapterIdentity{ID: status.BotID, Name: status.BotName, AvatarURL: status.BotAvatarURL}
 	}
 	return descriptor
 }

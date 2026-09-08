@@ -78,6 +78,53 @@ async function saveForm() {
 }
 
 describe('protocol center dialogs', () => {
+  it('shows each connected account and applies identity updates to the matching card', async () => {
+    const doc = createConfigDocumentFixture()
+    doc.adapters.push(buildAdapterInstance('qq-official', 'qqofficial'))
+    const { wrapper, adapters } = await setup('/protocols', doc)
+    adapters.applySnapshot(adapters.adapters.map((adapter, index) => ({
+      ...adapter, state: 'connected', identity: index === 0
+        ? { id: '10001', name: '主账号', avatar_url: 'https://example.com/first.png' }
+        : { id: 'opaque-official-bot', name: '官方账号', avatar_url: 'https://example.com/second.png' },
+    })))
+    await flushPromises()
+    const cards = wrapper.findAll('.connection-card')
+    expect(cards[0].get('h3').text()).toBe('主账号')
+    expect(cards[0].get('.connection-number').text()).toBe('QQ10001')
+    expect(cards[0].get('img').attributes('src')).toBe('https://example.com/first.png')
+    expect(cards[1].get('h3').text()).toBe('官方账号')
+    expect(cards[1].get('.connection-number').text()).toBe('机器人 IDopaque-official-bot')
+    expect(cards[1].get('img').attributes('src')).toBe('https://example.com/second.png')
+    adapters.applySnapshot(adapters.adapters.map((adapter, index) => index === 0
+      ? { ...adapter, identity: { id: '10003', name: '更新后的账号', avatar_url: 'https://example.com/new.png' } } : adapter))
+    await flushPromises()
+    expect(cards[0].text()).not.toContain('10001')
+    expect(cards[0].get('h3').text()).toBe('更新后的账号')
+    expect(cards[1].get('h3').text()).toBe('官方账号')
+  })
+
+  it('falls back for unknown or failed avatars and retries when the identity changes', async () => {
+    const { wrapper, adapters } = await setup()
+    const card = wrapper.get('.connection-card')
+    expect(card.find('img').exists()).toBe(false)
+    expect(card.find('.connection-number').exists()).toBe(false)
+    expect(card.get('.connection-instance').text()).toContain('onebot11')
+    const runtime = adapters.adapters[0]!
+    adapters.applySnapshot([{ ...runtime, identity: { id: '10001', name: '', avatar_url: 'https://example.com/broken.png' } }])
+    await flushPromises()
+    expect(card.get('.connection-number').text()).toContain('10001')
+    await card.get('img').trigger('error')
+    expect(card.find('img').exists()).toBe(false)
+    expect(card.find('.connection-avatar svg').exists()).toBe(true)
+    adapters.applySnapshot([{ ...runtime, identity: { id: '10002', name: '新账号', avatar_url: 'https://example.com/next.png' } }])
+    await flushPromises()
+    expect(card.get('img').attributes('src')).toBe('https://example.com/next.png')
+    adapters.applySnapshot([{ ...runtime }])
+    await flushPromises()
+    expect(card.find('img').exists()).toBe(false)
+    expect(card.find('.connection-number').exists()).toBe(false)
+  })
+
   it('shows configured connections and keeps protocol choices inside the add dialog', async () => {
     const { wrapper, router, save } = await setup()
     expect(wrapper.find('[data-testid="adapter-onebot11"]').exists()).toBe(true)

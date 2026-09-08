@@ -1462,10 +1462,17 @@ export interface components {
          * @enum {string}
          */
         AdapterState: "idle" | "listening" | "connecting" | "connected" | "auth_failed" | "reconnecting" | "stopped";
+        /** @description 已确认的机器人账号资料；未知身份时省略整个 identity，不使用配置实例标识或 AppID 代替。 */
         AdapterIdentity: {
             /** @description 适配器登录后由平台确认的机器人标识，属于该协议的身份命名空间。 */
             id: string;
+            /** @description 平台返回的用户名；暂未获取时为空字符串。 */
             name: string;
+            /**
+             * Format: uri
+             * @description 机器人头像的 HTTPS 地址；OneBot11 使用已确认 QQ 号的头像地址，QQ 官方机器人使用平台账号资料。未知或不可用时省略，客户端加载失败时显示默认头像。
+             */
+            avatar_url?: string;
         };
         AdapterDescriptor: {
             /**
