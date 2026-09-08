@@ -10,23 +10,20 @@ test.beforeEach(async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 })
 
-test('field help opens on touch, closes with Escape, and returns focus', async ({ page }) => {
+test('configuration guidance stays visible and associated on touch', async ({ page }) => {
   await page.goto('/config')
-  const trigger = page.getByRole('button', { name: '监听地址 · 字段说明', exact: true })
-  const bounds = await trigger.boundingBox()
-  expect(bounds!.width).toBeGreaterThanOrEqual(44)
-  expect(bounds!.height).toBeGreaterThanOrEqual(44)
-  await trigger.tap()
-  const help = page.getByRole('dialog', { name: '监听地址 · 字段说明' })
+  const input = page.getByRole('textbox', { name: '监听地址', exact: true })
+  const descriptionId = await input.getAttribute('aria-describedby')
+  expect(descriptionId).toBeTruthy()
+  const help = page.locator(`[id="${descriptionId}"]`)
+  await expect(help).toBeVisible()
   await expect(help).toContainText('通配地址会被拒绝')
-  await page.keyboard.press('Escape')
-  await expect(help).toHaveCount(0)
-  await expect(trigger).toBeFocused()
   await expect(page.getByText(/^脱敏字段：/)).toHaveCount(0)
 })
 
 test('touch can activate the reserved area around a compact switch', async ({ page }) => {
   await page.goto('/config')
+  await page.getByRole('button', { name: /会话与高级访问/ }).tap()
   const control = page.getByRole('switch', { name: '自动续期', exact: true })
   await control.scrollIntoViewIfNeeded()
   const original = await control.getAttribute('aria-checked')

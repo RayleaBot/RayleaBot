@@ -498,6 +498,7 @@ const configRestartRequiredFields = new Set([
   'render.browser_args',
   'render.browser_path',
   'render.worker_count',
+  'scheduler.timezone',
   'server.host',
   'server.port',
   'third_party_accounts.douyin_login.browser_mode',
@@ -520,7 +521,7 @@ function computeConfigApplyEffects(prevConfig, nextConfig) {
   for (const path of [...new Set(changedPaths)]) {
     if (path.startsWith('adapters.') || path.startsWith('adapter.')) {
       effects.reloaded_now.push(path)
-    } else if (configRestartRequiredFields.has(path) || path.startsWith('database.') || path.startsWith('server.') || path.startsWith('web.')) {
+    } else if (configRestartRequiredFields.has(path) || path.startsWith('database.') || path.startsWith('server.') || path.startsWith('web.') || path.startsWith('runtime.')) {
       effects.restart_required_fields.push(path)
     } else {
       effects.applied_now.push(path)

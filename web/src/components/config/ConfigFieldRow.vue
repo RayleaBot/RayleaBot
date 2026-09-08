@@ -16,6 +16,7 @@ const props = defineProps<{
   field: ConfigFieldDefinition
   value: unknown
   disabled?: boolean
+  layout?: 'stack' | 'row'
 }>()
 
 const emit = defineEmits<{
@@ -24,8 +25,16 @@ const emit = defineEmits<{
 
 const tooltipContent = computed(() => composeFieldTooltip(props.field))
 const hasTooltip = computed(() => Boolean(tooltipContent.value))
+const placeholder = computed(() => {
+  if (props.field.placeholder) return props.field.placeholder
+  const value = props.field.defaultValue
+  if (value === null || value === undefined || typeof value === 'boolean') return undefined
+  const label = props.field.options?.find(option => option.value === value)?.label
+  return (label ?? (Array.isArray(value) ? toMultilineList(value as string[]) : String(value))) || undefined
+})
 
 const fieldId = computed(() => `config-field-${props.field.path.replace(/\./g, '-')}`)
+const descriptionId = computed(() => props.layout === 'row' && tooltipContent.value ? `${fieldId.value}-description` : undefined)
 
 const textValue = computed(() => {
   if (props.value === null || props.value === undefined) {
@@ -98,29 +107,35 @@ function handleTextareaUpdate(value: unknown) {
 </script>
 
 <template>
-  <div class="config-field">
+  <div class="config-field" :class="{ 'config-field--row': layout === 'row' }" :data-field-path="field.path">
     <div class="config-field__header">
-      <label class="config-field__label" :for="fieldId">
-        <span class="config-field__name">{{ field.label }}</span>
-        <span v-if="field.unit" class="config-field__unit">· {{ field.unit }}</span>
-      </label>
-      <AppHelp v-if="hasTooltip" :label="`${field.label} · ${t('config.fieldHelp')}`" :description="tooltipContent || ''" />
+      <div class="config-field__heading">
+        <label class="config-field__label" :for="fieldId">
+          <span class="config-field__name">{{ field.label }}</span>
+          <span v-if="field.unit && layout !== 'row'" class="config-field__unit">· {{ field.unit }}</span>
+        </label>
+        <AppHelp v-if="hasTooltip && layout !== 'row'" :label="`${field.label} · ${t('config.fieldHelp')}`" :description="tooltipContent || ''" />
+      </div>
+      <p v-if="descriptionId" :id="descriptionId" class="config-field__description">{{ tooltipContent }}</p>
     </div>
 
     <div class="config-field__control">
       <RateLimitInput
         v-if="field.type === 'rateLimit'"
         :value="textValue"
+        :placeholder="placeholder"
         :ariaLabel="field.label"
+        :aria-describedby="descriptionId"
         @update:value="emitRateLimit"
       />
       <AppInput
         v-else-if="field.type === 'text'"
         :id="fieldId"
         :model-value="textValue"
-        :placeholder="field.placeholder"
+        :placeholder="placeholder"
         :disabled="disabled"
         :aria-label="field.label"
+        :aria-describedby="descriptionId"
         @update:model-value="emitText"
       />
       <AppNumberInput nullable
@@ -128,11 +143,13 @@ function handleTextareaUpdate(value: unknown) {
         :id="fieldId"
         class="config-field__number"
         :model-value="numberValue"
+        :placeholder="placeholder"
         :min="field.min ?? 0"
         :max="field.max"
         :step="field.step ?? 1"
         :disabled="disabled"
         :aria-label="field.label"
+        :aria-describedby="descriptionId"
         @update:model-value="emitNumber"
       />
       <div v-else-if="field.type === 'boolean'" class="config-field__switch">
@@ -141,6 +158,7 @@ function handleTextareaUpdate(value: unknown) {
           :model-value="booleanValue"
           :disabled="disabled"
           :aria-label="field.label"
+          :aria-describedby="descriptionId"
           @update:model-value="emitBoolean"
         />
       </div>
@@ -149,20 +167,24 @@ function handleTextareaUpdate(value: unknown) {
         :id="fieldId"
         :model-value="selectValue"
         :options="field.options || []"
+        :placeholder="placeholder"
         :disabled="disabled"
         :aria-label="field.label"
+        :aria-describedby="descriptionId"
         @update:model-value="emitSelect"
       />
       <AppTextarea
         v-else
         :id="fieldId"
         :model-value="field.type === 'list' ? listValue : textValue"
-        :rows="4" :max-rows="8"
-        :placeholder="field.placeholder"
+        :rows="layout === 'row' ? 3 : 4" :max-rows="8"
+        :placeholder="placeholder"
         :disabled="disabled"
         :aria-label="field.label"
+        :aria-describedby="descriptionId"
         @update:model-value="handleTextareaUpdate"
       />
+      <span v-if="layout === 'row' && field.unit" class="config-field__unit-end" aria-hidden="true">{{ field.unit }}</span>
     </div>
 
     <div v-if="rateLimitPreview" class="config-field__preview">
@@ -182,6 +204,12 @@ function handleTextareaUpdate(value: unknown) {
 }
 
 .config-field__header {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.config-field__heading {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -242,5 +270,20 @@ function handleTextareaUpdate(value: unknown) {
   color: var(--text);
   font-weight: 600;
   font-family: var(--font-mono);
+}
+
+.config-field__description { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.config-field--row { grid-template-columns: minmax(0, 1fr) minmax(200px, 264px); gap: 8px 28px; padding: 18px 0; margin: 0; border-radius: 0; border-bottom: 1px solid var(--border); scroll-margin-block: 20px 120px; }
+.config-field--row:last-child { border-bottom: 0; }
+.config-field--row .config-field__label { font-size: 14px; font-weight: 500; }
+.config-field--row .config-field__control { display: flex; align-items: center; align-self: center; gap: 8px; min-width: 0; }
+.config-field--row .config-field__control > :first-child { flex: 1; width: 100%; min-width: 0; }
+.config-field--row :deep(.rate-limit-input__grid) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 76px; gap: 8px; }
+.config-field__unit-end { flex: none; color: var(--muted); font-size: 13px; }
+.config-field--row .config-field__preview { grid-column: 2; padding: 0; border: 0; background: transparent; flex-wrap: wrap; }
+:global([data-density=compact]) .config-field--row { padding-block: 12px; }
+@container config-editor (max-width: 560px) {
+  .config-field--row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .config-field--row .config-field__preview { grid-column: 1; }
 }
 </style>

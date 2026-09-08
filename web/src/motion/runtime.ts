@@ -84,7 +84,7 @@ function notifyRouteMotion(active: boolean) {
   }
 }
 
-function finishActiveViewTransition() {
+export function finishActiveViewTransition() {
   activeViewTransition?.cancelAnimation?.()
   activeViewTransition?.transition.skipTransition()
   activeViewTransition?.finish()
@@ -130,6 +130,8 @@ function startManagedViewTransition(
     await nextTick()
   })
   activeViewTransition = { finish, transition }
+  // Cancelling a navigation to show a guard also rejects the snapshot promise.
+  void transition.ready.catch(() => undefined)
   void transition.finished.catch(() => undefined).finally(finish)
   return transition
 }

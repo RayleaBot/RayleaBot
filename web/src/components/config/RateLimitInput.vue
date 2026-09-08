@@ -14,6 +14,7 @@ import {
 const props = defineProps<{
   ariaLabel: string
   value?: string | null
+  placeholder?: string
 }>()
 
 const emit = defineEmits<{
@@ -24,6 +25,7 @@ const count = ref<number | null>(null)
 const windowValue = ref<number | null>(null)
 const unit = ref<RateLimitUnit>('s')
 const invalid = ref(false)
+const defaultParts = computed(() => parseRateLimitValue(props.placeholder ?? ''))
 
 const unitOptions = computed(() => [
   { label: t('config.rateLimit.seconds'), value: 's' },
@@ -41,9 +43,12 @@ watch(() => props.value, (value) => {
     return
   }
 
-  count.value = null
-  windowValue.value = null
-  unit.value = 's'
+  // Incomplete edits live in the parent draft too, so filtering or switching
+  // categories cannot silently restore the last valid configuration.
+  const partial = /^(\d*)\/(\d*)(s|m|h)$/.exec(value?.trim() ?? '')
+  count.value = normalizePositiveInteger(partial?.[1])
+  windowValue.value = normalizePositiveInteger(partial?.[2])
+  unit.value = partial ? partial[3] as RateLimitUnit : 's'
   invalid.value = Boolean(value?.trim())
 }, { immediate: true })
 
@@ -72,9 +77,7 @@ function emitIfValid() {
   })
 
   invalid.value = !nextValue
-  if (nextValue) {
-    emit('update:value', nextValue)
-  }
+  emit('update:value', nextValue ?? `${count.value ?? ''}/${windowValue.value ?? ''}${unit.value}`)
 }
 </script>
 
@@ -86,6 +89,7 @@ function emitIfValid() {
         <AppNumberInput nullable
           class="rate-limit-input__number"
           :model-value="count"
+          :placeholder="defaultParts ? String(defaultParts.count) : undefined"
           :min="1"
           :step="1"
           :aria-label="`${ariaLabel} ${t('config.rateLimit.count')}`"
@@ -98,6 +102,7 @@ function emitIfValid() {
         <AppNumberInput nullable
           class="rate-limit-input__number"
           :model-value="windowValue"
+          :placeholder="defaultParts?.unit === unit ? String(defaultParts.windowValue) : undefined"
           :min="1"
           :step="1"
           :aria-label="`${ariaLabel} ${t('config.rateLimit.window')}`"

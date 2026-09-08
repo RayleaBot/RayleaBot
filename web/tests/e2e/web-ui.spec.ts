@@ -155,7 +155,11 @@ function logDetailWindow(page: import('@playwright/test').Page) {
 }
 
 async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
-  await page.locator(`#config-section-${sectionKey}`).scrollIntoViewIfNeeded()
+  const category = sectionKey === 'runtime' ? '运行与请求' : '账号与调度'
+  await page.getByRole('tab', { name: category }).click()
+  const advanced = page.locator('.config-advanced__trigger')
+  if (await advanced.getAttribute('data-state') === 'closed') await advanced.click()
+  await page.locator(`[data-section-key="${sectionKey}"]`).first().scrollIntoViewIfNeeded()
 }
 
 function logFilterField(page: import('@playwright/test').Page, label: string) {
@@ -1448,14 +1452,16 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
   await scrollConfigSectionIntoView(page, 'runtime')
   await fillRateLimit(page, 'IPC 突发限制', '180', '5')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
+  await expect(page.locator('#config-save-status')).toContainText('含重启后生效的更改')
 
-  await Promise.all([
+  const [saved] = await Promise.all([
     page.waitForResponse((response) => (
       response.request().method() === 'PUT'
       && response.url().endsWith('/api/config')
     )),
     page.getByRole('button', { name: '保存更改' }).click(),
   ])
+  expect((await saved.json()).apply_effects.restart_required_fields).toContain('runtime.ipc_action_burst_limit')
 
   await scrollConfigSectionIntoView(page, 'runtime')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
@@ -1470,8 +1476,8 @@ test('config page saves restart-required Douyin browser settings', async ({ page
   await scrollConfigSectionIntoView(page, 'third-party-accounts')
 
   await page.getByRole('spinbutton', { name: 'CK 自动检查间隔' }).fill('720')
-  await expect(page.locator('#config-section-third-party-accounts').getByText('自动选择', { exact: true })).toBeVisible()
-  await page.locator('#config-section-third-party-accounts').getByRole('combobox').click()
+  await expect(page.getByRole('combobox', { name: '抖音登录浏览器模式' })).toContainText('自动选择')
+  await page.getByRole('combobox', { name: '抖音登录浏览器模式' }).click()
   await page.getByRole('option', { name: '远程 CDP', exact: true }).click()
   await page.getByRole('textbox', { name: '抖音远程调试地址' }).fill('http://127.0.0.1:9222')
 
@@ -1492,7 +1498,7 @@ test('config page saves restart-required Douyin browser settings', async ({ page
   await page.reload()
   await scrollConfigSectionIntoView(page, 'third-party-accounts')
   await expect(page.getByRole('spinbutton', { name: 'CK 自动检查间隔' })).toHaveValue('720')
-  await expect(page.locator('#config-section-third-party-accounts').getByText('远程 CDP', { exact: true })).toBeVisible()
+  await expect(page.getByRole('combobox', { name: '抖音登录浏览器模式' })).toContainText('远程 CDP')
   await expect(page.getByRole('textbox', { name: '抖音远程调试地址' })).toHaveValue('http://127.0.0.1:9222')
 })
 

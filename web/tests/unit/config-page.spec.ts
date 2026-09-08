@@ -18,6 +18,15 @@ function getConfigFieldRow(wrapper: ReturnType<typeof mount>, path: string) {
   return row!
 }
 
+async function selectCategory(wrapper: ReturnType<typeof mount>, key: string, advanced = false) {
+  await wrapper.get(`[data-category="${key}"]`).trigger('mousedown', { button: 0, ctrlKey: false })
+  await flushPromises()
+  if (advanced) {
+    await wrapper.get('.config-advanced__trigger').trigger('click')
+    await flushPromises()
+  }
+}
+
 describe('ConfigPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -55,7 +64,7 @@ describe('ConfigPage', () => {
     await hostInput.setValue('0.0.0.0')
     await flushPromises()
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    const saveButton = wrapper.get('[data-testid=config-save]')
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
@@ -79,9 +88,9 @@ describe('ConfigPage', () => {
 
     expect(wrapper.find('.app-page').exists()).toBe(true)
     expect(wrapper.find('.config-page').exists()).toBe(true)
-    expect(wrapper.find('.config-stack').exists()).toBe(true)
-    expect(wrapper.find('.config-toc').exists()).toBe(true)
-    expect(wrapper.find('.config-toolbar').exists()).toBe(true)
+    expect(wrapper.findAll('[data-category]')).toHaveLength(6)
+    expect(wrapper.findAllComponents(ConfigFieldRow).some(row => row.props('field').path.startsWith('adapters.'))).toBe(false)
+    expect(wrapper.find('[aria-label="配置分类"]').exists()).toBe(true)
   })
 
   it('keeps cleared numeric fields empty instead of forcing them to 0', async () => {
@@ -112,7 +121,7 @@ describe('ConfigPage', () => {
     expect(portInput.exists()).toBe(true)
     await portInput.setValue('')
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    const saveButton = wrapper.get('[data-testid=config-save]')
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
@@ -144,6 +153,7 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
+    await selectCategory(wrapper, 'render')
     const outputRow = getConfigFieldRow(wrapper, 'render.default_output')
     const precisionRow = getConfigFieldRow(wrapper, 'render.device_scale_percent')
     expect(precisionRow.props('field')).toMatchObject({ min: 50, max: 500, unit: '%' })
@@ -152,7 +162,7 @@ describe('ConfigPage', () => {
     await precisionRow.vm.$emit('update:value', 200)
     await flushPromises()
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    const saveButton = wrapper.get('[data-testid=config-save]')
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
@@ -189,6 +199,7 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
+    await selectCategory(wrapper, 'accounts', true)
     const checkIntervalRow = getConfigFieldRow(wrapper, 'third_party_accounts.credential_check_interval_minutes')
     const browserModeRow = getConfigFieldRow(wrapper, 'third_party_accounts.douyin_login.browser_mode')
     const remoteDebuggingRow = getConfigFieldRow(wrapper, 'third_party_accounts.douyin_login.remote_debugging_url')
@@ -201,7 +212,7 @@ describe('ConfigPage', () => {
     await remoteDebuggingRow.vm.$emit('update:value', 'http://127.0.0.1:9222')
     await flushPromises()
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    const saveButton = wrapper.get('[data-testid=config-save]')
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
@@ -221,11 +232,11 @@ describe('ConfigPage', () => {
     const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
       config: store.document,
       redacted_fields: [],
-      restart_required: false,
+      restart_required: true,
       apply_effects: {
-        applied_now: ['runtime.ipc_action_burst_limit'],
+        applied_now: [],
         reloaded_now: [],
-        restart_required_fields: [],
+        restart_required_fields: ['runtime.ipc_action_burst_limit'],
       },
     })
 
@@ -237,10 +248,11 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
+    await selectCategory(wrapper, 'runtime', true)
     await getConfigFieldRow(wrapper, 'runtime.ipc_action_burst_limit').vm.$emit('update:value', '200/10s')
     await flushPromises()
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    const saveButton = wrapper.get('[data-testid=config-save]')
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
 
@@ -250,7 +262,7 @@ describe('ConfigPage', () => {
     expect(submitted.message.rate_limit_per_target).toBe('5/5s')
   })
 
-  it('reflects dirty state in the toolbar save button', async () => {
+  it('reflects dirty state in the floating save button', async () => {
     const store = useConfigStore()
     store.document = createConfigDocumentFixture()
     vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
@@ -263,13 +275,78 @@ describe('ConfigPage', () => {
 
     await flushPromises()
 
-    const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
+    const saveButton = wrapper.get('[data-testid=config-save]')
     expect(saveButton).toBeTruthy()
-    expect((saveButton!.element as HTMLButtonElement).disabled).toBe(true)
+    expect(saveButton!.attributes('aria-disabled') === 'true').toBe(true)
 
     await getConfigFieldRow(wrapper, 'server.host').vm.$emit('update:value', '0.0.0.0')
     await flushPromises()
 
-    expect((saveButton!.element as HTMLButtonElement).disabled).toBe(false)
+    expect(saveButton!.attributes('aria-disabled') === 'true').toBe(false)
+  })
+
+  it('keeps edits across category changes and searches including advanced fields', async () => {
+    const store = useConfigStore()
+    store.document = createConfigDocumentFixture()
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const wrapper = mount(ConfigPage, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+    await wrapper.get('#config-field-server-host').setValue('0.0.0.0')
+    await selectCategory(wrapper, 'render')
+    expect(wrapper.find('#config-field-render-browser_path').exists()).toBe(false)
+    await wrapper.get('#config-field-render-device_scale_percent').setValue('200')
+    await wrapper.get('[aria-label="搜索配置项"]').setValue('browser_args')
+    await flushPromises()
+    expect(getConfigFieldRow(wrapper, 'render.browser_args').exists()).toBe(true)
+    await wrapper.get('[aria-label="搜索配置项"]').setValue('不存在的配置')
+    await flushPromises()
+    expect(wrapper.text()).toContain('没有找到配置项')
+    const clear = wrapper.findAll('button').find(button => button.text() === '清除搜索')!
+    await clear.trigger('click')
+    await flushPromises()
+    expect((wrapper.get('#config-field-render-device_scale_percent').element as HTMLInputElement).value).toBe('200')
+    await selectCategory(wrapper, 'access')
+    expect((wrapper.get('#config-field-server-host').element as HTMLInputElement).value).toBe('0.0.0.0')
+    expect(wrapper.get('#config-save-status').text()).toContain('2 项未保存')
+  })
+
+  it('retains the local draft when a newer snapshot arrives and discards to that snapshot', async () => {
+    const store = useConfigStore()
+    store.document = createConfigDocumentFixture()
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const wrapper = mount(ConfigPage, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+    await wrapper.get('#config-field-server-port').setValue('22334')
+    store.document = { ...createConfigDocumentFixture(), server: { ...store.document.server, port: 22335 } }
+    await flushPromises()
+    expect((wrapper.get('#config-field-server-port').element as HTMLInputElement).value).toBe('22334')
+    expect(wrapper.text()).toContain('已在其他位置更新')
+    await wrapper.get('[aria-label=撤销修改]').trigger('click')
+    await flushPromises()
+    expect((wrapper.get('#config-field-server-port').element as HTMLInputElement).value).toBe('22335')
+    expect(wrapper.get('#config-save-status').text()).toContain('无需保存')
+  })
+
+  it('keeps a failed save editable and restores the formal response after retry', async () => {
+    const store = useConfigStore()
+    store.document = createConfigDocumentFixture()
+    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
+    const saveSpy = vi.spyOn(store, 'saveConfig').mockRejectedValueOnce(new Error('fixture failure'))
+    const wrapper = mount(ConfigPage, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+    await wrapper.get('#config-field-server-host').setValue('0.0.0.0')
+    const save = wrapper.get('[data-testid=config-save]')
+    await save.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role=alert]').exists()).toBe(true)
+    expect((wrapper.get('#config-field-server-host').element as HTMLInputElement).value).toBe('0.0.0.0')
+    expect(save.attributes('aria-disabled') === 'true').toBe(false)
+    const formal = createConfigDocumentFixture()
+    formal.server.host = '0.0.0.0'
+    saveSpy.mockResolvedValueOnce({ config: formal, redacted_fields: [], restart_required: true, apply_effects: { applied_now: [], reloaded_now: [], restart_required_fields: ['server.host'] } })
+    await save.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role=alert]').exists()).toBe(false)
+    expect(save.attributes('aria-disabled') === 'true').toBe(true)
   })
 })

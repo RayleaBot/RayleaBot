@@ -11,10 +11,47 @@ function mountField(field: ConfigFieldDefinition, value: unknown) {
 }
 
 describe('ConfigFieldRow', () => {
+  it.each([
+    ['text', '127.0.0.1', 'input', '127.0.0.1'],
+    ['number', 0, 'input', '0'],
+    ['list', ['--disable-gpu'], 'textarea', '--disable-gpu'],
+  ] as const)('shows the %s default only as a placeholder without writing it', (type, defaultValue, selector, placeholder) => {
+    const wrapper = mountField({ path: 'fixture.value', label: 'Value', type, defaultValue }, undefined)
+    const input = wrapper.get(selector)
+    expect(input.attributes('placeholder')).toBe(placeholder)
+    expect((input.element as HTMLInputElement | HTMLTextAreaElement).value).toBe('')
+    expect(wrapper.emitted('update:value')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('emits the typed value for text fields', async () => {
     const wrapper = mountField({ path: 'server.host', label: 'host', type: 'text' }, '127.0.0.1')
     await wrapper.find('input').setValue('0.0.0.0')
     expect(wrapper.emitted('update:value')?.[0]).toEqual(['0.0.0.0'])
+  })
+
+  it('shows separate default hints for an empty rate limit without filling either input', () => {
+    const wrapper = mountField({ path: 'runtime.ipc_action_burst_limit', label: 'IPC', type: 'rateLimit', defaultValue: '100/1s' }, undefined)
+    const inputs = wrapper.findAll('input')
+    expect(inputs.map(input => input.attributes('placeholder'))).toEqual(['100', '1'])
+    expect(inputs.map(input => (input.element as HTMLInputElement).value)).toEqual(['', ''])
+    expect(wrapper.emitted('update:value')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('preserves an incomplete rate-limit edit through remount and resets on discard', async () => {
+    const field = { path: 'runtime.ipc_action_burst_limit', label: 'IPC', type: 'rateLimit' as const, defaultValue: '100/1s' }
+    const wrapper = mountField(field, '100/1s')
+    await wrapper.get('input[aria-label="IPC 次数"]').setValue('')
+    const incomplete = wrapper.emitted('update:value')?.at(-1)?.[0]
+    expect(incomplete).toBe('/1s')
+    wrapper.unmount()
+    const restored = mountField(field, incomplete)
+    expect((restored.get('input[aria-label="IPC 次数"]').element as HTMLInputElement).value).toBe('')
+    expect((restored.get('input[aria-label="IPC 时间窗口"]').element as HTMLInputElement).value).toBe('1')
+    await restored.setProps({ value: '100/1s' })
+    expect((restored.get('input[aria-label="IPC 次数"]').element as HTMLInputElement).value).toBe('100')
+    restored.unmount()
   })
 
   it('emits undefined when number input is cleared', async () => {

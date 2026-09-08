@@ -44,7 +44,7 @@ function clearSelection() {
 <template>
   <div ref="control" class="app-select-wrap" :class="wrapperClass">
     <Select :model-value="selection" :multiple="multiple" :disabled="disabled" @update:model-value="update" @update:open="$emit('open', $event)">
-      <SelectTrigger :id="id || field?.id" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined" :aria-required="field?.required || undefined">
+      <SelectTrigger :id="id || field?.id" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined" :aria-required="field?.required || undefined" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }">
         <span v-if="selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
         <SelectValue v-else :placeholder="placeholder || '请选择'" />
       </SelectTrigger>

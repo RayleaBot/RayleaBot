@@ -50,6 +50,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'server.host',
+          defaultValue: '127.0.0.1',
           label: t('config.fields.serverHost'),
           type: 'text',
           description: t('config.descriptions.serverHost'),
@@ -57,6 +58,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'server.port',
+          defaultValue: 8080,
           label: t('config.fields.serverPort'),
           type: 'number',
           description: t('config.descriptions.serverPort'),
@@ -70,6 +72,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'database.engine',
+          defaultValue: 'sqlite',
           label: t('config.fields.databaseEngine'),
           type: 'text',
           description: t('config.descriptions.databaseEngine'),
@@ -77,6 +80,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'database.path',
+          defaultValue: 'data/rayleabot.db',
           label: t('config.fields.databasePath'),
           type: 'text',
           description: t('config.descriptions.databasePath'),
@@ -90,6 +94,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'admin.session_ttl_days',
+          restartRequired: true,
+          defaultValue: 7,
           label: t('config.fields.adminSessionTtlDays'),
           type: 'number',
           unit: t('config.units.day'),
@@ -97,24 +103,30 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'admin.sliding_renewal',
+          restartRequired: true,
+          defaultValue: true,
           label: t('config.fields.adminSlidingRenewal'),
           type: 'boolean',
           description: t('config.descriptions.adminSlidingRenewal'),
         },
         {
           path: 'admin.max_sessions',
+          restartRequired: true,
+          defaultValue: 3,
           label: t('config.fields.adminMaxSessions'),
           type: 'number',
           description: t('config.descriptions.adminMaxSessions'),
         },
         {
           path: 'admin.login_fail_limit',
+          defaultValue: 5,
           label: t('config.fields.adminLoginFailLimit'),
           type: 'number',
           description: t('config.descriptions.adminLoginFailLimit'),
         },
         {
           path: 'admin.login_fail_window_seconds',
+          defaultValue: 300,
           label: t('config.fields.adminLoginFailWindowSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -128,24 +140,31 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'render.worker_count',
+          restartRequired: true,
+          defaultValue: 1,
           label: t('config.fields.renderWorkerCount'),
           type: 'number',
           description: t('config.descriptions.renderWorkerCount'),
         },
         {
           path: 'render.browser_args',
+          restartRequired: true,
+          defaultValue: ['--disable-gpu'],
           label: t('config.fields.renderBrowserArgs'),
           type: 'list',
           description: t('config.descriptions.renderBrowserArgs'),
         },
         {
           path: 'render.browser_path',
+          restartRequired: true,
+          defaultValue: '',
           label: t('config.fields.renderBrowserPath'),
           type: 'text',
           description: t('config.descriptions.renderBrowserPath'),
         },
         {
           path: 'render.default_output',
+          defaultValue: 'png',
           label: t('config.fields.renderDefaultOutput'),
           type: 'select',
           description: t('config.descriptions.renderDefaultOutput'),
@@ -156,6 +175,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'render.device_scale_percent',
+          defaultValue: 100,
           label: t('config.fields.renderDeviceScalePercent'),
           type: 'number',
           unit: '%',
@@ -166,6 +186,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'render.timeout_seconds',
+          defaultValue: 30,
           label: t('config.fields.renderTimeoutSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -173,6 +194,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'render.queue_wait_timeout_seconds',
+          defaultValue: 15,
           label: t('config.fields.renderQueueWaitTimeoutSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -180,6 +202,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'render.queue_max_length',
+          defaultValue: 32,
           label: t('config.fields.renderQueueMaxLength'),
           type: 'number',
           description: t('config.descriptions.renderQueueMaxLength'),
@@ -192,6 +215,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'third_party_accounts.credential_check_interval_minutes',
+          defaultValue: 360,
           label: t('config.fields.credentialCheckIntervalMinutes'),
           type: 'number',
           unit: t('config.units.minute'),
@@ -202,6 +226,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'third_party_accounts.douyin_login.browser_mode',
+          defaultValue: 'auto',
           label: t('config.fields.douyinLoginBrowserMode'),
           type: 'select',
           description: t('config.descriptions.douyinLoginBrowserMode'),
@@ -215,6 +240,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'third_party_accounts.douyin_login.remote_debugging_url',
+          defaultValue: '',
           label: t('config.fields.douyinLoginRemoteDebuggingUrl'),
           type: 'text',
           description: t('config.descriptions.douyinLoginRemoteDebuggingUrl'),
@@ -229,6 +255,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'scheduler.timezone',
+          restartRequired: true,
+          defaultValue: '',
           label: t('config.fields.schedulerTimezone'),
           type: 'text',
           description: t('config.descriptions.schedulerTimezone'),
@@ -241,6 +269,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'runtime.plugin_init_timeout_seconds',
+          restartRequired: true,
+          defaultValue: 30,
           label: t('config.fields.runtimePluginInitTimeoutSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -248,6 +278,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.plugin_init_max_total_seconds',
+          restartRequired: true,
+          defaultValue: 300,
           label: t('config.fields.runtimePluginInitMaxTotalSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -255,6 +287,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.plugin_event_timeout_seconds',
+          restartRequired: true,
+          defaultValue: 60,
           label: t('config.fields.runtimePluginEventTimeoutSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -262,30 +296,40 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.max_pending_events_per_plugin',
+          restartRequired: true,
+          defaultValue: 16,
           label: t('config.fields.runtimeMaxPendingEventsPerPlugin'),
           type: 'number',
           description: t('config.descriptions.runtimeMaxPendingEventsPerPlugin'),
         },
         {
           path: 'runtime.max_pending_control_events_per_plugin',
+          restartRequired: true,
+          defaultValue: 4,
           label: t('config.fields.runtimeMaxPendingControlEventsPerPlugin'),
           type: 'number',
           description: t('config.descriptions.runtimeMaxPendingControlEventsPerPlugin'),
         },
         {
           path: 'runtime.ipc_pending_actions_max',
+          restartRequired: true,
+          defaultValue: 256,
           label: t('config.fields.runtimeIpcPendingActionsMax'),
           type: 'number',
           description: t('config.descriptions.runtimeIpcPendingActionsMax'),
         },
         {
           path: 'runtime.ipc_action_burst_limit',
+          restartRequired: true,
+          defaultValue: '100/1s',
           label: t('config.fields.runtimeIpcActionBurstLimit'),
           type: 'rateLimit',
           description: t('config.descriptions.runtimeIpcActionBurstLimit'),
         },
         {
           path: 'runtime.stderr_rate_limit_bytes_per_second',
+          restartRequired: true,
+          defaultValue: 262144,
           label: t('config.fields.runtimeStderrRateLimitBytesPerSecond'),
           type: 'number',
           unit: 'B/s',
@@ -293,12 +337,16 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.max_concurrent_tasks_per_plugin',
+          restartRequired: true,
+          defaultValue: 4,
           label: t('config.fields.runtimeMaxConcurrentTasksPerPlugin'),
           type: 'number',
           description: t('config.descriptions.runtimeMaxConcurrentTasksPerPlugin'),
         },
         {
           path: 'runtime.crash_backoff_initial_seconds',
+          restartRequired: true,
+          defaultValue: 2,
           label: t('config.fields.runtimeCrashBackoffInitialSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -306,6 +354,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.crash_backoff_max_seconds',
+          restartRequired: true,
+          defaultValue: 60,
           label: t('config.fields.runtimeCrashBackoffMaxSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -313,6 +363,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.shutdown_grace_seconds',
+          restartRequired: true,
+          defaultValue: 10,
           label: t('config.fields.runtimeShutdownGraceSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -320,6 +372,8 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'runtime.ipc_message_max_bytes',
+          restartRequired: true,
+          defaultValue: 8388608,
           label: t('config.fields.runtimeIpcMessageMaxBytes'),
           type: 'number',
           unit: t('config.units.byte'),
@@ -333,6 +387,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'storage.kv_value_max_bytes',
+          defaultValue: 65536,
           label: t('config.fields.storageKvValueMaxBytes'),
           type: 'number',
           unit: t('config.units.byte'),
@@ -340,6 +395,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'storage.kv_total_limit_mb',
+          defaultValue: 16,
           label: t('config.fields.storageKvTotalLimitMb'),
           type: 'number',
           unit: 'MB',
@@ -347,6 +403,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'storage.file_max_bytes',
+          defaultValue: 10485760,
           label: t('config.fields.storageFileMaxBytes'),
           type: 'number',
           unit: t('config.units.byte'),
@@ -360,6 +417,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'data.download_cache_retention_days',
+          defaultValue: 15,
           label: t('config.fields.dataDownloadCacheRetentionDays'),
           type: 'number',
           unit: t('config.units.day'),
@@ -373,6 +431,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'log.level',
+          defaultValue: 'info',
           label: t('config.fields.logLevel'),
           type: 'select',
           description: t('config.descriptions.logLevel'),
@@ -385,6 +444,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'log.retention_days',
+          defaultValue: 7,
           label: t('config.fields.logRetentionDays'),
           type: 'number',
           unit: t('config.units.day'),
@@ -398,6 +458,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'message.circuit_breaker_seconds',
+          defaultValue: 30,
           label: t('config.fields.messageCircuitBreakerSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -411,6 +472,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'http.timeout_seconds',
+          defaultValue: 10,
           label: t('config.fields.httpTimeoutSeconds'),
           type: 'number',
           unit: t('config.units.second'),
@@ -418,12 +480,14 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'http.max_retries',
+          defaultValue: 1,
           label: t('config.fields.httpMaxRetries'),
           type: 'number',
           description: t('config.descriptions.httpMaxRetries'),
         },
         {
           path: 'http.allow_private_hosts',
+          defaultValue: [],
           label: t('config.fields.httpAllowPrivateHosts'),
           type: 'list',
           description: t('config.descriptions.httpAllowPrivateHosts'),
@@ -436,6 +500,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       fields: [
         {
           path: 'web.exposure_mode',
+          defaultValue: 'localhost_only',
           label: t('config.fields.webExposureMode'),
           type: 'select',
           description: t('config.descriptions.webExposureMode'),
@@ -448,6 +513,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'web.setup_local_only',
+          defaultValue: true,
           label: t('config.fields.webSetupLocalOnly'),
           type: 'boolean',
           description: t('config.descriptions.webSetupLocalOnly'),
@@ -455,6 +521,7 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         },
         {
           path: 'web.plugin_ui_origin_template',
+          defaultValue: '',
           label: t('config.fields.webPluginUiOriginTemplate'),
           type: 'text',
           description: t('config.descriptions.webPluginUiOriginTemplate'),
