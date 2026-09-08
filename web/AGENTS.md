@@ -8,7 +8,7 @@
 - 服务端接口类型由 `contracts/web-api.openapi.yaml` 生成至 `web/src/types/generated.ts`。类型不足时先检查契约与生成配置，不手写第二套 API 定义。
 - 服务端是正式状态源；页面负责展示、编辑和受控跳转，不解析日志反推状态。写操作成功后优先回拉正式结果。
 - 查询参数驱动的工作区使用稳定 `viewKey`；管理面深链复用 `web/src/lib/management-links.ts`，避免重复页签和散写路由。
-- 使用产品组件与共享视觉 token；Reka UI 迁移边界见工程基线，不在业务页面新增另一套控件或浮层行为。
+- 使用产品组件与共享视觉 token；组件职责与浮层行为见工程基线。
 
 ## Errors
 

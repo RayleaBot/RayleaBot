@@ -87,7 +87,6 @@ node scripts/start-dev.mjs
 | [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
-| [Web 前端迁移计划](./docs/execution-plan-v1.md) | Reka UI、shadcn-vue 与 Motion for Vue 的实施阶段和验收 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
 
 ## 贡献与开发

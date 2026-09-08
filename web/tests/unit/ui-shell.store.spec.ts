@@ -74,7 +74,7 @@ describe('ui-shell store', () => {
     expect(persisted.tabs).toBeUndefined()
   })
 
-  it('merges legacy plugin tabs at their earliest position and retains independent details', () => {
+  it('merges stored plugin tabs at their earliest position and retains independent details', () => {
     const tab = (name: string, path: string) => ({ name, path, fullPath: path, title: name, keepAlive: true })
     window.localStorage.setItem('rayleabot.ui-shell', JSON.stringify({
       version: 3,

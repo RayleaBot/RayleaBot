@@ -42,13 +42,13 @@
 | Metrics | `github.com/prometheus/client_golang 1.24.1`（Prometheus 文本暴露格式） |
 | macOS CI / release runner | `macos-26` |
 
-Web 管理面按 [`web-admin-baseline.md`](./web-admin-baseline.md) 迁移至 Reka UI 与自有产品组件。正式工作区逐批切换，迁移范围和退出条件见[执行计划](../execution-plan-v1.md)。
+Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理和工程命令见 [`web-admin-baseline.md`](./web-admin-baseline.md)。
 
 ## 工具链获取
 
 - 仓库根目录的 `.tool-versions` 只固定 Go、Node.js、Python 与 pnpm，可由 mise 或 asdf 读取。npm 随 Node.js 提供；Corepack 与 sqlc 不在该文件中，由下列独立安装步骤和 doctor 校验覆盖。
 - `server/go.mod` 的 `go 1.26.6` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
-- Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Node.js 26 不再随发行包提供 Corepack，因此先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
+- Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Corepack 单独安装：先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
 - sqlc 固定为 v1.31.1，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。

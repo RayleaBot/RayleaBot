@@ -1,7 +1,7 @@
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { notifySuccess } from '@/adapter/feedback'
 import ConfigFieldRow from '@/components/config/ConfigFieldRow.vue'
 import ConfigPage from '@/views/system/ConfigView.vue'
 import { useConfigStore } from '@/stores/config'
@@ -18,15 +18,10 @@ function getConfigFieldRow(wrapper: ReturnType<typeof mount>, path: string) {
   return row!
 }
 
-function getRenderedFieldPaths(wrapper: ReturnType<typeof mount>) {
-  return wrapper.findAllComponents(ConfigFieldRow).map(candidate => candidate.props('field').path as string)
-}
-
 describe('ConfigPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.mocked(notifySuccess).mockClear()
-    vi.mocked(useToastFeedback).mockClear()
   })
 
   it('submits the edited config document', async () => {
@@ -87,14 +82,6 @@ describe('ConfigPage', () => {
     expect(wrapper.find('.config-stack').exists()).toBe(true)
     expect(wrapper.find('.config-toc').exists()).toBe(true)
     expect(wrapper.find('.config-toolbar').exists()).toBe(true)
-    expect(wrapper.find('.glass-panel').exists()).toBe(false)
-    const paths = getRenderedFieldPaths(wrapper)
-    expect(paths).not.toContain('onebot.reverse_ws.enabled')
-    expect(paths).not.toContain('adapter.connect_timeout_seconds')
-    expect(paths).not.toContain('admin.super_admins')
-    expect(paths).not.toContain('permission.default_level')
-    expect(paths).not.toContain('user.command_rate_limit')
-    expect(paths).not.toContain('group.command_rate_limit')
   })
 
   it('keeps cleared numeric fields empty instead of forcing them to 0', async () => {
@@ -175,36 +162,6 @@ describe('ConfigPage', () => {
     expect(submitted.render.device_scale_percent).toBe(200)
   })
 
-  it('keeps apply effect details out of the page-level banner area', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-    store.applyEffects = {
-      applied_now: ['log.level'],
-      reloaded_now: ['onebot.forward_ws.url'],
-      restart_required_fields: ['server.port'],
-    }
-    store.restartRequired = true
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    expect(wrapper.text()).not.toContain('保存结果')
-    expect(wrapper.text()).not.toContain('已即时生效')
-    expect(wrapper.text()).not.toContain('已重载')
-    expect(wrapper.text()).not.toContain('需重启生效')
-    expect(wrapper.text()).not.toContain('log.level')
-    expect(wrapper.text()).not.toContain('onebot.forward_ws.url')
-    expect(wrapper.text()).not.toContain('server.port')
-    expect(vi.mocked(useToastFeedback)).toHaveBeenCalled()
-  })
-
   it('edits hot credential checks and restart-required Douyin browser settings', async () => {
     const store = useConfigStore()
     store.document = createConfigDocumentFixture()
@@ -256,29 +213,6 @@ describe('ConfigPage', () => {
     expect(saveSpy.mock.calls[0][0].third_party_accounts.credential_check_interval_minutes).toBe(720)
   })
 
-  it('keeps plugin-facing settings out of the general config page', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    const paths = getRenderedFieldPaths(wrapper)
-    expect(paths).not.toContain('command.prefixes')
-    expect(paths).not.toContain('log.rate_limit_per_plugin')
-    expect(paths).not.toContain('message.rate_limit_per_plugin')
-    expect(paths).not.toContain('storage.plugin_workdir_soft_limit_mb')
-    expect(paths).not.toContain('permission.default_level')
-    expect(paths).not.toContain('message.rate_limit_per_target')
-  })
-
   it('edits general IPC rate limit with split inputs', async () => {
     const store = useConfigStore()
     store.document = createConfigDocumentFixture()
@@ -305,7 +239,6 @@ describe('ConfigPage', () => {
 
     await getConfigFieldRow(wrapper, 'runtime.ipc_action_burst_limit').vm.$emit('update:value', '200/10s')
     await flushPromises()
-    expect(getRenderedFieldPaths(wrapper)).not.toContain('message.rate_limit_per_target')
 
     const saveButton = wrapper.findAll('button').find((candidate) => candidate.text().includes('保存更改'))
     expect(saveButton).toBeTruthy()

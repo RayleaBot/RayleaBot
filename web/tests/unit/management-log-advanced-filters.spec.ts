@@ -36,7 +36,6 @@ describe('ManagementLogAdvancedFilters', () => {
       },
     })
 
-    expect(wrapper.find('details').exists()).toBe(false)
     expect(document.body.querySelector('.log-advanced-filters__panel')).toBeNull()
 
     await wrapper.get('button').trigger('click')

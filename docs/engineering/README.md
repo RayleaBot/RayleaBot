@@ -29,7 +29,6 @@
 | [implementation-order.md](./implementation-order.md) | 长期依赖顺序、状态归属与跨层边界 |
 | [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
 | [web-admin-baseline.md](./web-admin-baseline.md) | Web 管理面 Reka UI、自有组件与 Motion for Vue 工程基线 |
-| [Web 前端迁移计划 v1](../execution-plan-v1.md) | 已选定的新 UI 技术路线、迁移阶段和验收条件 |
 | [`../CHANGELOGS/`](../CHANGELOGS/README.md) | 历史版本能力归档 |
 
 ## 维护规则

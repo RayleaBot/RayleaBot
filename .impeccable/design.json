@@ -1248,7 +1248,7 @@
   ],
   "narrative": {
     "northStar": "雾白·青瓷",
-    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 产品组件迁移与旧运行时清理已完成，实现与验证记录见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。独立插件 iframe 内部的组件库继续由各插件维护，Launcher 保留自己的原生组件体系。",
+    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。\n\nWeb 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nWeb 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-baseline.md)。独立插件 iframe 内部的组件库由各插件维护，Launcher 使用自己的原生组件体系。",
     "keyCharacteristics": [
       "灰白与炭灰画布、中性导航和连续工作区。",
       "少量青瓷主操作、选中标记和几何折叶标识。",
@@ -1309,7 +1309,7 @@
       },
       {
         "name": "The Log Row Density Rule",
-        "body": "实时与历史日志的行级标签使用 AppTag 的 small 尺寸，仅将垂直内边距改为 2px，字号和其余标签保持原有规则。虚拟列表以 80px 为常规行的估算高度，并继续测量实际行高；换行正文允许自然增高，滚动锚点与底部跟随由既有虚拟列表维护。",
+        "body": "实时与历史日志的行级标签使用 AppTag 的 small 尺寸，垂直内边距为 2px。虚拟列表以 80px 为常规行的估算高度，并测量实际行高；换行正文允许自然增高，虚拟列表维护滚动锚点与底部跟随。",
         "section": "components"
       },
       {
@@ -1324,7 +1324,7 @@
       },
       {
         "name": "The Web Dialog Lifecycle Rule",
-        "body": "AppDialog 与 AppDrawer 在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。",
+        "body": "AppDialog 与 AppDrawer 在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。",
         "section": "components"
       },
       {
@@ -1339,7 +1339,7 @@
       },
       {
         "name": "The Embedded Content Rule",
-        "body": "需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。错误恢复和显式重载仍按既有 Host 生命周期执行，宿主组件迁移不扩展到独立插件页面。",
+        "body": "需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。Host 管理错误恢复和显式重载，独立插件页面管理自己的内部组件。",
         "section": "components"
       },
       {

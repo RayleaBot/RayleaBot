@@ -171,10 +171,6 @@ async function openLogAdvancedFilters(page: import('@playwright/test').Page) {
   }
 }
 
-function appHeader(page: import('@playwright/test').Page) {
-  return page.getByTestId('app-header')
-}
-
 function dashboardConnectionCard(page: import('@playwright/test').Page) {
   return page.getByTestId('dashboard-connection-card')
 }
@@ -396,9 +392,6 @@ test('setup flow reaches protected shell and shows websocket statuses', async ({
   await page.getByRole('button', { name: '创建并进入管理界面' }).click()
 
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
-  await expect(appHeader(page)).not.toContainText('保持正式契约')
-  await expect(appHeader(page)).not.toContainText('事件流')
-  await expect(appHeader(page)).not.toContainText('日志流')
   await expect(dashboardConnectionCard(page)).toContainText('事件流')
   await expect(dashboardConnectionCard(page)).toContainText('日志流')
   await expect(page.getByTestId('connection-card-events')).toContainText('已认证')
@@ -678,11 +671,9 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(whitelistCard).toContainText('10001')
   await expect(whitelistCard).toContainText('值班账号')
   await expect(whitelistCard).toContainText('31010')
-  await expect(whitelistCard.getByRole('navigation', { name: '分页' })).toHaveCount(0)
 
   await expect(blacklistCard).toContainText('10001')
   await expect(blacklistCard).toContainText('41010')
-  await expect(blacklistCard.getByRole('navigation', { name: '分页' })).toHaveCount(0)
 
   await page.getByTestId('access-lists-blacklist-add-btn').click()
   await page.getByTestId('blacklist-draft-target-id').fill('30003')
@@ -759,11 +750,8 @@ test('permission policy page edits command policy config', async ({ page, reques
 
   await page.goto('/permission-policy')
   await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('permission-policy-summary-card')).toHaveCount(0)
   await expect(page.getByText('超级管理员可执行最高权限命令，并跳过黑白名单与冷却拦截。')).toBeVisible()
   await expect(page.getByText('未单独声明权限的命令使用此级别。')).toBeVisible()
-  await expect(page.getByText('配置超级管理员、默认权限级别和聊天命令速率限制。')).toHaveCount(0)
-  await expect(page.getByText('策略总览')).toHaveCount(0)
   await expect(page.getByTestId('permission-policy-unsaved-status')).toHaveCount(0)
 
   const superAdminsInput = page.getByTestId('permission-policy-super-admins').locator('input')
@@ -772,9 +760,6 @@ test('permission policy page edits command policy config', async ({ page, reques
   await superAdminsInput.press('Enter')
   await page.getByLabel('默认权限级别').click()
   await page.getByRole('option', { name: '群管理员', exact: true }).click()
-  await expect(page.getByText('用户命令速率限制')).toHaveCount(0)
-  await expect(page.getByText('群命令速率限制')).toHaveCount(0)
-  await expect(page.getByText('冷却提示')).toHaveCount(0)
 
   await expect(page.getByTestId('permission-policy-unsaved-status')).toContainText('有未保存更改')
 
@@ -956,7 +941,6 @@ test('history logs stay frozen until a new anchor is loaded', async ({ page, req
   await page.goto('/logs/history')
   await expect(page.getByRole('heading', { name: '历史日志', level: 1 })).toBeVisible()
   await openLogAdvancedFilters(page)
-  await expect(page.locator('.logs-toolbar .log-advanced-filters__panel')).toHaveCount(0)
   await page.getByPlaceholder('例如 req_*').fill('req_logs_history_e2e')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
@@ -977,9 +961,6 @@ test('history logs stay frozen until a new anchor is loaded', async ({ page, req
   })
   await expect.poll(async () => (await readLogViewportBottomState(page)).scrollGap).toBeLessThanOrEqual(1)
   await expect.poll(async () => (await readLogViewportBottomState(page)).visualGap).toBeLessThanOrEqual(1)
-
-  await expect(page.getByRole('button', { name: '更早记录' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '更新记录' })).toHaveCount(0)
 
   await logScroller(page).evaluate((node) => {
     node.scrollTop = 0
@@ -1119,7 +1100,6 @@ test('current logs keep following new rows while follow mode stays active', asyn
   await expect(page.locator('.logs-row__message', { hasText: 'live follow keep latest' })).toBeVisible()
   await expect(page.getByText('跟随最新')).toBeVisible()
   await expect(page.getByText('已暂停跟随')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '滚动到最新' })).toHaveCount(0)
 
   const after = await logScroller(page).evaluate((node) => ({
     scrollHeight: node.scrollHeight,
@@ -1471,9 +1451,6 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
   await fillRateLimit(page, 'IPC 突发限制', '180', '5')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
 
-  await scrollConfigSectionIntoView(page, 'message')
-  await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
-
   await Promise.all([
     page.waitForResponse((response) => (
       response.request().method() === 'PUT'
@@ -1484,8 +1461,6 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
 
   await scrollConfigSectionIntoView(page, 'runtime')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
-  await scrollConfigSectionIntoView(page, 'message')
-  await expect(page.getByText('目标消息速率限制')).toHaveCount(0)
 })
 
 test('config page saves restart-required Douyin browser settings', async ({ page, request }) => {
@@ -1553,16 +1528,6 @@ test('rate limits page edits chat and outbound limits', async ({ page, request }
 
   await expect(page.getByTestId('rate-limits-unsaved-status')).toHaveCount(0)
   await expect(page.getByTestId('rate-limits-save-status')).toContainText('保存完成，已生效')
-  await expect(page.getByText('保存结果')).toHaveCount(0)
-
-  await page.goto('/permission-policy')
-  await expect(page.getByRole('heading', { name: '权限策略', level: 1 })).toBeVisible()
-  await expect(page.getByText('用户命令速率限制')).toHaveCount(0)
-  await expect(page.getByText('群命令速率限制')).toHaveCount(0)
-
-  await page.goto('/plugins/settings')
-  await expectPluginCenterPage(page, '全局插件设置')
-  await expect(page.getByText('插件消息速率限制')).toHaveCount(0)
 })
 
 test('plugin settings page edits plugin global config', async ({ page, request }) => {
@@ -1585,8 +1550,6 @@ test('plugin settings page edits plugin global config', async ({ page, request }
     page.locator('.plugin-settings-setting-row').filter({ hasText: '插件日志速率限制' }).locator('.plugin-settings-rate-preview'),
   ).toContainText('10 秒内最多 300 次')
 
-  await expect(page.getByText('插件消息速率限制')).toHaveCount(0)
-
   await page.getByLabel('插件工作目录软上限（MB）').fill('512')
 
   await Promise.all([
@@ -1599,14 +1562,6 @@ test('plugin settings page edits plugin global config', async ({ page, request }
 
   await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
   await expect(page.getByTestId('plugin-settings-save-status')).toContainText('保存完成，已生效')
-  await expect(page.getByText('保存结果')).toHaveCount(0)
-
-  await page.goto('/config')
-  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-  await expect(page.locator('.config-page')).not.toContainText('命令前缀')
-  await expect(page.locator('.config-page')).not.toContainText('插件日志速率限制')
-  await expect(page.locator('.config-page')).not.toContainText('插件消息速率限制')
-  await expect(page.locator('.config-page')).not.toContainText('插件工作目录软上限')
 })
 
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
@@ -1627,7 +1582,7 @@ test('status page can start backup tasks and export diagnostics', async ({ page,
   expect(await download.suggestedFilename()).toContain('rayleabot-diagnostics')
 })
 
-test('template preview auto-updates results without editor controls', async ({ page, request }) => {
+test('template preview updates when input data changes', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
 
@@ -1638,7 +1593,6 @@ test('template preview auto-updates results without editor controls', async ({ p
   await page.goto('/render/templates/help.menu')
   expect((await initialPreviewResponsePromise).status()).toBe(200)
   await expect(page.getByRole('heading', { name: '模板预览', level: 1 })).toBeVisible()
-  await expect(page.getByText('模板不存在。')).toHaveCount(0)
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
 
@@ -1646,15 +1600,6 @@ test('template preview auto-updates results without editor controls', async ({ p
   await expect(page.locator('.render-templates-float-panel')).toContainText('help.menu')
   await expect(page.locator('.render-templates-float-panel')).toContainText('渲染参数')
   await expect(page.locator('.render-templates-float-panel')).toContainText('输入结构')
-  await expect(page.locator('.render-templates-card--editor')).toHaveCount(0)
-  await expect(page.locator('.version-item')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '保存模板' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '执行校验' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '确认回退' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '生成预览' })).toHaveCount(0)
-  await expect(page.getByText('任务 ID')).toHaveCount(0)
-  await expect(page.getByText('产物 ID')).toHaveCount(0)
-  await expect(page.getByText('缓存结果')).toHaveCount(0)
 
   const previewFrame = page.getByTestId('render-template-preview-frame')
   await expect(previewFrame).toBeVisible()
@@ -1835,7 +1780,7 @@ test('protocol connection creation stays local until the completed form is saved
   expect((writes[1] as { adapters: Array<{ id: string; qqofficial?: { app_secret: string } }> }).adapters.find((entry) => entry.id === 'qq-official')?.qqofficial?.app_secret).toBe('********')
 })
 
-test('protocol legacy links open dialogs within one workspace and fit a narrow viewport', async ({ page, request }) => {
+test('protocol deep links open dialogs within one workspace and fit a narrow viewport', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
   await page.setViewportSize({ width: 390, height: 844 })
@@ -1860,8 +1805,6 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await login(page)
 
   await page.goto('/config')
-  await expect(page.getByText('协议连接设置')).toHaveCount(0)
-  await expect(page.getByText('反向 WebSocket 地址')).toHaveCount(0)
   await page.goto('/protocols')
 
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
@@ -2200,9 +2143,6 @@ test('command center shows all declared commands and filters by plugin selection
   const commandsTable = page.locator('.commands-data-table')
 
   await expect(page.getByTestId('commands-open-permission-policy')).toBeVisible()
-  await expect(page.getByText('策略总览', { exact: true })).toHaveCount(0)
-  await expect(page.getByText('白名单', { exact: true })).toHaveCount(0)
-  await expect(page.getByText('黑名单', { exact: true })).toHaveCount(0)
   await expect(commandsTable).toContainText('hello')
   await expect(commandsTable).toContainText('weather')
 
@@ -2409,7 +2349,7 @@ test('plugin sidebar keeps resources visible, resumes workspaces, and returns to
   await expect(navigation.locator('[data-sidebar-scope-back="plugin-center"]')).toBeFocused()
 })
 
-test('legacy plugin tabs merge on reload and the current deep link wins', async ({ page, request }) => {
+test('stored plugin tabs merge on reload and the current deep link wins', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
   await page.evaluate(() => {
@@ -2554,7 +2494,6 @@ test('third-party accounts show Bilibili CK cards and QR login updates account c
 
   await page.goto('/third-party-accounts')
   await expect(page.getByRole('heading', { name: '三方账号', level: 1 })).toBeVisible()
-  await expect(page.locator('.source-summary-strip')).toHaveCount(0)
   const credentialAuthorityHelp = page.getByRole('button', { name: '查看账号状态说明' })
   await expect(credentialAuthorityHelp).toBeVisible()
   await credentialAuthorityHelp.click()

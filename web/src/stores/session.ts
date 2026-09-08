@@ -5,11 +5,11 @@ import { toBootstrapStatusMessage } from '@/lib/auth-feedback'
 import { ApiError, apiRequest } from '@/lib/http'
 import type { SessionLoginRequest, SessionLoginResponse, SetupStatusResponse } from '@/types/api'
 
-const legacySessionStorageKey = 'rayleabot.session_token'
+const sessionTokenStorageKey = 'rayleabot.session_token'
 
-function clearLegacyBearerToken() {
+function clearStoredBearerToken() {
   if (typeof window !== 'undefined') {
-    window.localStorage.removeItem(legacySessionStorageKey)
+    window.localStorage.removeItem(sessionTokenStorageKey)
   }
 }
 
@@ -40,7 +40,7 @@ type BrowserSessionResponse = SessionLoginResponse & {
 }
 
 export const useSessionStore = defineStore('session', () => {
-  clearLegacyBearerToken()
+  clearStoredBearerToken()
 
   const authenticated = ref(false)
   const csrfToken = ref<string | null>(null)
@@ -149,7 +149,7 @@ export const useSessionStore = defineStore('session', () => {
   function clearSession() {
     authenticated.value = false
     csrfToken.value = null
-    clearLegacyBearerToken()
+    clearStoredBearerToken()
     return true
   }
 

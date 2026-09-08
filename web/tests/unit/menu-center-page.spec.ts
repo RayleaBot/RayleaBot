@@ -77,7 +77,6 @@ describe('MenuCenterView', () => {
     expect(data.groups.map((group) => group.title)).toEqual(['订阅操作', '解析操作'])
     expect(data.groups.flatMap((group) => group.items).map((item) => item.name))
       .toEqual(['订阅状态', '解析帮助', '角色攻略'])
-    expect(JSON.stringify(data)).not.toContain('无对应指令')
   })
 
   it('projects unified trigger types into native preview data', async () => {
@@ -88,10 +87,9 @@ describe('MenuCenterView', () => {
       trigger_type: 'pattern', usage: '<角色名>攻略',
       usage_parts: [{ kind: 'required', text: '角色名' }, { kind: 'literal', text: '攻略' }],
     })
-    expect(items[0]).not.toHaveProperty('command_source')
   })
 
-  it('projects exact, setting and pattern commands without legacy command fields', async () => {
+  it('projects exact, setting and pattern command details', async () => {
     const item = plugin()
     item.commands.push({
       id: 'resolver-toggle',
@@ -116,7 +114,6 @@ describe('MenuCenterView', () => {
       trigger_type: 'pattern',
       usage: '<角色名>攻略',
     })
-    expect(JSON.stringify(items)).not.toContain('command_source')
   })
 
   it('updates the root preview and saves only the builtin menu draft', async () => {

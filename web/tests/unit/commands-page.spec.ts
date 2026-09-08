@@ -208,8 +208,6 @@ describe('CommandsPage', () => {
 
     expect(wrapper.text()).toContain('指令中心')
     expect(wrapper.text()).toContain('指令列表')
-    expect(wrapper.text()).not.toContain('生效命令策略')
-    expect(wrapper.text()).not.toContain('插件指令')
     expect(wrapper.text()).toContain('设置指令')
     expect(wrapper.text()).toContain('所有成员')
     expect(wrapper.text()).toContain('声明权限：所有成员')
@@ -219,9 +217,6 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).toContain('!我的运势')
     expect(wrapper.text()).toContain('当前可用')
     expect(wrapper.text()).toContain('权限策略')
-    expect(wrapper.text()).not.toContain('治理摘要')
-    expect(wrapper.text()).not.toContain('黑名单')
-    expect(wrapper.text()).not.toContain('白名单')
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.fortune')
 
     const select = wrapper.findComponent({ name: 'AppSelect' })

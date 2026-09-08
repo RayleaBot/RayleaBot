@@ -98,7 +98,7 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('plugins')
   })
 
-  it('clears legacy bearer storage and opens setup when initialization is required', async () => {
+  it('clears local bearer storage and opens setup when initialization is required', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: false })))
     window.localStorage.setItem('rayleabot.session_token', 'stale-session-token')
     const router = createAppRouter(createMemoryHistory())

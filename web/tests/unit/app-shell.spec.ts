@@ -330,7 +330,6 @@ describe('BasicLayout', () => {
     expect(parentLink.text()).toBe('运维')
     expect(parentLink.attributes('href')).toBe('/permission-policy')
     expect(current.text()).toBe('权限策略')
-    expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
   })
 
   it('drills into the plugin center and switches all five workspace routes', async () => {

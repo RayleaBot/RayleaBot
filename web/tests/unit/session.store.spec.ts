@@ -79,7 +79,7 @@ describe('session store', () => {
     expect(request.credentials).toBe('same-origin')
   })
 
-  it('removes legacy localStorage bearer credentials on construction', () => {
+  it('removes localStorage bearer credentials on construction', () => {
     window.localStorage.setItem('rayleabot.session_token', 'persisted-token')
 
     const store = useSessionStore()

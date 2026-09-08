@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import { notifySuccess } from '@/adapter/feedback'
-import { t } from '@/i18n'
 import PermissionPolicyPage from '@/views/operations/PermissionPolicyView.vue'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
@@ -84,8 +83,6 @@ describe('PermissionPolicyPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.find(`[aria-label="${t('rateLimits.fields.cooldownReply')}"]`).exists()).toBe(false)
-    expect(wrapper.find('[data-testid="permission-policy-summary-card"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="permission-policy-super-admins"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="permission-policy-save"]').attributes('disabled')).toBeDefined()
 

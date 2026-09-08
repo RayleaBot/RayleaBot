@@ -4,40 +4,31 @@
 
 ## 基线结论
 
-- Web 管理面迁移至 `Reka UI 2.10.4 + shadcn-vue 自有组件源码 + Tailwind CSS 4 + Motion for Vue 2.4.2`。
-- 协议中心、应用壳、认证入口、插件、三方账号、治理、配置与诊断工作区统一使用产品组件；阶段验收记录见[执行计划](../execution-plan-v1.md)。Web 宿主不再依赖 Ant Design Vue、旧图标包或独立的 Motion Mini 入口。
-- 实现范围固定在 `web/` 单应用内，不拆成官方整仓 `monorepo` 或 `turbo` 结构。
-- 对外 HTTP API、WebSocket 事件、错误码、配置 schema 和外部类型保持不变。
-- HTTP、WebSocket、会话和错误信封继续复用现有 RayleaBot 语义，不引入第二套状态来源。
+- Web 管理面使用 `Reka UI 2.10.4 + shadcn-vue 自有组件源码 + Tailwind CSS 4 + Motion for Vue 2.4.2`。
+- 协议中心、应用壳、认证入口、插件、三方账号、治理、配置与诊断工作区统一使用产品组件。
+- 应用源码、测试、构建配置和依赖位于 `web/`。
+- HTTP、WebSocket、会话和错误处理由共享请求模块与 Pinia stores 提供。
 
-## Contract Audit
+## 正式语义
 
-- 当前前端基线不修改以下正式契约：
-  - `contracts/web-api.openapi.yaml`
-  - `contracts/websocket-events.yaml`
-  - `contracts/error-codes.yaml`
-  - `contracts/config.user.schema.json`
-  - `contracts/plugin-info.schema.json`
-  - `contracts/plugin-protocol.schema.json`
-- 后续若需要新的管理读取接口、菜单资源或鉴权字段，继续按 contract-first 处理。
+HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议以 [contracts](../../contracts/README.md) 为准。服务端是正式状态来源，页面通过请求结果和事件快照展示状态。
 
 ## 当前工程落点
 
-- 新组件源码位于 `components/ui/`，来源、摘要与许可证随源码记录；业务页面使用 `AppButton`、`AppField`、`AppSelect`、`AppDialog` 等产品封装。
-- `AppQRCode` 使用 `qrcode-generator 2.0.4` 编码登录链接，UTF-8 转换、静区与扫描图像颜色由编码边界维护；状态、刷新操作和提示使用产品组件。该依赖只补齐二维码能力，版权与 MIT 文本由版本化补充文件纳入发布 notices。
+- 基础组件源码位于 `components/ui/`，来源、摘要与许可证随源码记录；业务页面使用 `AppButton`、`AppField`、`AppSelect`、`AppDialog` 等产品封装。
+- `AppQRCode` 使用 `qrcode-generator 2.0.4` 编码登录链接，UTF-8 转换、静区与扫描图像颜色由编码边界维护；状态、刷新操作和提示使用产品组件。版权与 MIT 文本由版本化补充文件纳入发布 notices。
 - Reka 负责交互语义与焦点，Motion 负责进入、退出和内容尺寸变化。弹窗在动画完成后释放交互节点和遮罩，位置始终由 CSS 视口居中计算。
 - 左右抽屉复用弹窗的退出和焦点生命周期，保持完整视口高度；仅居中弹窗对正文高度插值。菜单和提示使用统一的语义时长，关闭菜单进入弹窗时由浮层层级保证新任务在上方。
-- 菜单、选择器、页签和分段选择交由 Reka 处理键盘与选中语义；页面与主题切换沿用既有导航取消策略，其降级动画从 Motion for Vue 导出入口调用。
+- 菜单、选择器、页签和分段选择交由 Reka 处理键盘与选中语义；连续导航取消正在执行的页面与主题动画，降级动画从 Motion for Vue 导出入口调用。
 - 标签输入保留业务要求的分隔符与值类型，多选允许清除当前筛选；数据表使用原生表格并在自己的区域横向滚动。需要保留控制台或 iframe 的页签显式开启常驻内容。
 - 移动插件筛选使用贴底抽屉，正文受视口高度约束；安装检查和可信代码确认在浮层退出完成后清理显示数据。
-- 桌面日志详情保留受宿主尺寸约束的非模态浮窗、拖动位置记忆和列表滚动锚点；窄屏使用右侧抽屉。展示层保留退出所需内容，选择状态和详情请求仍由既有控制器维护。
+- 桌面日志详情使用受宿主尺寸约束的非模态浮窗，支持拖动位置记忆和列表滚动锚点；窄屏使用右侧抽屉。展示层保留退出所需内容，详情控制器维护选择状态和请求。
 - 调度详情复用居中弹窗，宽表保留固定操作列。模板 iframe 在已居中的缩放容器内以左上角为原点缩放，调整视口不重新创建预览文档。
 - `/__dev/components` 仅在开发构建注册，使用正式管理会话，不加入生产菜单或产物。
-- 页面壳、菜单、页签、面包屑、主题偏好和工作区身份继续由既有模块维护；替换控件不增加另一套业务状态。
-- 现有业务语义保留在 `stores/`、`lib/`、`views/` 与 `components/` 内，不重定义后端 contract。
+- 页面壳、菜单、页签、面包屑、主题偏好和工作区身份由布局、路由与 `ui-shell` store 维护。
+- `stores/`、`lib/`、`views/` 与 `components/` 分别承担业务状态、共享逻辑、页面和组件职责。
 - `AppPage` 统一标题、说明、状态、主操作、工具栏、内容宽度和全高工作区；`AppCard` 只包含真实独立表面或无阴影分区。
 - `AppStatusTag`、`RetryPanel`、`AppEmptyState`、`ManagementContextActions`、共享日志筛选与详情抽屉、模板预览工作区作为正式业务组件。
-- 不保留统计卡组件、彩色侧边条、全局卡片悬停和页面级自由视觉参数。
 
 ## 目录与职责
 
@@ -58,14 +49,14 @@
 
 ## 请求与实时通信
 
-- HTTP 请求继续保留：
+- HTTP 请求提供：
   - 浏览器会话使用 Host-only HttpOnly cookie 与 `X-Raylea-CSRF` 请求头，CSRF 值只保存在内存
   - 请求超时
   - `401` 时清理内存会话快照并回到登录入口
   - RayleaBot error envelope 解析
   - 下载文件名解析
-- Bearer transport 保留给非浏览器客户端，Web 前端不使用，并在会话初始化时清除历史遗留的 bearer token。
-- WebSocket 继续使用受控连接模型，覆盖：
+- Bearer transport 用于非浏览器客户端；Web 会话初始化时清理本地存储中的 bearer token。
+- WebSocket 使用受控连接模型，覆盖：
   - `events`
   - `logs`
   - `pluginConsole`
@@ -78,7 +69,7 @@
 - 工作区 query 只表达当前筛选、选中项和详情抽屉状态，不制造重复页签和历史噪音。
 - 模板预览页使用 `/render/templates/:templateId?` 单页工作区，模板切换使用同一页面实例。
 - 桌面端只有在打开多个工作区时显示页签，移动端隐藏页签；页签隐藏不改变 keep-alive、搜索跳转和工作区恢复语义。
-- 偏好持久化版本为 `3`，只包含主题、密度、内容宽度、页面动效、页签和工作区记忆；自由视觉字段不属于正式持久化结构。
+- 偏好持久化版本为 `3`，包含主题、密度、内容宽度、页面动效、页签和工作区记忆。
 
 ## 当前正式页面
 
@@ -112,7 +103,6 @@
 - `pnpm build`
 - `pnpm test`
 - `pnpm test:e2e`
-- `rg -n "ant-design-vue|@ant-design|motion/mini|<a-|\.ant-" web/src web/tests` 应无旧运行时命中；独立插件 iframe 的内部工程另按插件基线维护。
 
 ## 约束
 

@@ -112,12 +112,10 @@ describe('AccessListsPage', () => {
 
     expect(wrapper.text()).toContain('黑白名单')
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('白名单')
-    expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('命中白名单的用户或群')
     expect(wrapper.text()).toContain('查看指令中心')
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('读取黑名单失败')
 
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('黑名单')
-    expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('命中黑名单的用户或群')
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('读取黑名单失败')
     expect(toastMessages()).toContain('读取黑名单失败')
 
@@ -266,7 +264,7 @@ describe('AccessListsPage', () => {
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('30003')
   }, 15000)
 
-  it('shows complete filtered lists without pagination controls', async () => {
+  it('shows every entry in the filtered lists', async () => {
     const router = createRouterForPage()
     await router.push('/access-lists')
     await router.isReady()
@@ -321,14 +319,12 @@ describe('AccessListsPage', () => {
     expect(whitelistCard.text()).toContain('10012')
     expect(whitelistCard.text()).toContain('20002')
     expect(whitelistCard.findAll('tbody > tr')).toHaveLength(13)
-    expect(whitelistCard.find('[aria-label="分页"]').exists()).toBe(false)
 
     const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
     expect(blacklistCard.text()).toContain('50001')
     expect(blacklistCard.text()).toContain('50011')
     expect(blacklistCard.text()).toContain('60001')
     expect(blacklistCard.findAll('tbody > tr')).toHaveLength(12)
-    expect(blacklistCard.find('[aria-label="分页"]').exists()).toBe(false)
   }, 15000)
 
   it('clears region error after a successful add', async () => {

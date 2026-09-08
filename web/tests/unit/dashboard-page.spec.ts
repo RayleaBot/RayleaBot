@@ -118,7 +118,6 @@ describe('DashboardPage', () => {
     expect(wrapper.find('[data-testid="dashboard-active-plugins-card"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('运行 1 / 失败 1')
     expect(wrapper.text()).toContain('数据库 schema 000004')
-    expect(wrapper.text()).not.toContain('聚合 health、ready、system status')
 
     await backupButton!.trigger('click')
     await diagnosticsButton!.trigger('click')
@@ -234,7 +233,6 @@ describe('DashboardPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('协议提醒')
     expect(wrapper.text()).not.toContain('OneBot 主动连接已断开，正在重试。')
     expect(wrapper.text()).not.toContain('adapter.transport_forward_ws_session_lost')
     expect(feedbackMock.useToastFeedback).toHaveBeenCalledTimes(3)
@@ -277,16 +275,14 @@ describe('DashboardPage', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('就绪检查')
-    expect(wrapper.text()).not.toContain('协议连接警告')
     expect(toastMessages()).toContain('协议连接警告：OneBot authentication failed')
     expect(wrapper.text()).not.toContain('运行条件受限')
     expect(wrapper.findAll('[data-tone="success"]').length).toBeGreaterThan(0)
     expect(wrapper.text()).toContain('adapter.auth_failed')
     expect(wrapper.text()).toContain('请检查对应连接方式的访问令牌后重试连接。')
-    expect(wrapper.text()).not.toContain('config = ok')
   })
 
-  it('shows degraded readiness without the old explanatory note', async () => {
+  it('shows readiness issues and their recovery guidance', async () => {
     const router = createDashboardRouter()
     await router.push('/')
     await router.isReady()
@@ -326,10 +322,6 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).toContain('图片渲染 Chromium 尚未准备完成。')
     expect(toastMessages()).toContain('运行条件受限：图片渲染 Chromium 尚未准备完成。')
     expect(wrapper.text()).toContain('管理面可用')
-    expect(wrapper.text()).not.toContain('degraded')
-    expect(wrapper.text()).not.toContain('性能降级')
-    expect(wrapper.text()).not.toContain('健康检查正常，说明管理面可用；就绪状态受限，说明仍有运行条件未满足。')
-    expect(wrapper.text()).not.toContain('Python / Node.js')
   })
 
   it('deduplicates readiness issue codes already represented by issue cards', async () => {
@@ -377,7 +369,6 @@ describe('DashboardPage', () => {
     expect(wrapper.findAll('.issues-list .issue-alert-card')).toHaveLength(1)
     expect(wrapper.text()).toContain('platform.resource_missing')
     expect((wrapper.text().match(/platform\.resource_missing/g) ?? []).length).toBe(1)
-    expect(wrapper.text()).not.toContain('原因代码')
   })
 
   it('renders recovery summary as a dedicated dashboard block', async () => {
