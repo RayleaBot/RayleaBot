@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTextarea from '@/components/AppTextarea.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppNumberInput from '@/components/AppNumberInput.vue'
+import AppInput from '@/components/AppInput.vue'
 import { computed } from 'vue'
 
 import { composeFieldTooltip, type ConfigFieldDefinition } from '@/lib/config-form'
@@ -29,6 +35,8 @@ const textValue = computed(() => {
 })
 
 const numberValue = computed(() => (typeof props.value === 'number' ? props.value : null))
+
+const selectValue = computed(() => typeof props.value === 'boolean' ? props.value : textValue.value)
 
 const booleanValue = computed(() => Boolean(props.value))
 
@@ -96,15 +104,10 @@ function handleTextareaUpdate(value: unknown) {
         <span class="config-field__name">{{ field.label }}</span>
         <span v-if="field.unit" class="config-field__unit">· {{ field.unit }}</span>
       </label>
-      <a-tooltip
-        v-if="hasTooltip"
-        placement="top"
-        :mouse-enter-delay="0.15"
-        :mouse-leave-delay="0.1"
-        :overlay-style="{ maxWidth: '320px' }"
-        :overlay-inner-style="{ whiteSpace: 'pre-line', fontSize: '12.5px', lineHeight: '1.55' }"
+      <AppTooltip
+        v-if="hasTooltip" :title="tooltipContent || ''"
       >
-        <template #title>{{ tooltipContent }}</template>
+
         <button
           type="button"
           class="config-field__info"
@@ -116,7 +119,7 @@ function handleTextareaUpdate(value: unknown) {
             <path d="M8 7.5v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
           </svg>
         </button>
-      </a-tooltip>
+      </AppTooltip>
     </div>
 
     <div class="config-field__control">
@@ -126,54 +129,54 @@ function handleTextareaUpdate(value: unknown) {
         :ariaLabel="field.label"
         @update:value="emitRateLimit"
       />
-      <a-input
+      <AppInput
         v-else-if="field.type === 'text'"
         :id="fieldId"
-        :value="textValue"
+        :model-value="textValue"
         :placeholder="field.placeholder"
         :disabled="disabled"
         :aria-label="field.label"
-        @update:value="emitText"
+        @update:model-value="emitText"
       />
-      <a-input-number
+      <AppNumberInput nullable
         v-else-if="field.type === 'number'"
         :id="fieldId"
         class="config-field__number"
-        :value="numberValue"
+        :model-value="numberValue"
         :min="field.min ?? 0"
         :max="field.max"
         :step="field.step ?? 1"
         :disabled="disabled"
         :aria-label="field.label"
-        @update:value="emitNumber"
+        @update:model-value="emitNumber"
       />
       <div v-else-if="field.type === 'boolean'" class="config-field__switch">
-        <a-switch
+        <AppSwitch
           :id="fieldId"
-          :checked="booleanValue"
+          :model-value="booleanValue"
           :disabled="disabled"
           :aria-label="field.label"
-          @update:checked="emitBoolean"
+          @update:model-value="emitBoolean"
         />
       </div>
-      <a-select
+      <AppSelect
         v-else-if="field.type === 'select'"
         :id="fieldId"
-        :value="textValue"
-        :options="field.options"
+        :model-value="selectValue"
+        :options="field.options || []"
         :disabled="disabled"
         :aria-label="field.label"
-        @update:value="emitSelect"
+        @update:model-value="emitSelect"
       />
-      <a-textarea
+      <AppTextarea
         v-else
         :id="fieldId"
-        :value="field.type === 'list' ? listValue : textValue"
-        :auto-size="{ minRows: 4, maxRows: 8 }"
+        :model-value="field.type === 'list' ? listValue : textValue"
+        :rows="4" :max-rows="8"
         :placeholder="field.placeholder"
         :disabled="disabled"
         :aria-label="field.label"
-        @update:value="handleTextareaUpdate"
+        @update:model-value="handleTextareaUpdate"
       />
     </div>
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppTag from '@/components/AppTag.vue'
 import { computed } from 'vue'
 
 import { t } from '@/i18n'
@@ -16,19 +17,19 @@ const sections = computed(() => {
   return [
     {
       key: 'applied',
-      tone: 'success',
+      tone: 'success' as const,
       title: t('config.applyEffects.appliedNow'),
       items: props.effects.applied_now ?? [],
     },
     {
       key: 'reloaded',
-      tone: 'processing',
+      tone: 'info' as const,
       title: t('config.applyEffects.reloadedNow'),
       items: props.effects.reloaded_now ?? [],
     },
     {
       key: 'restart',
-      tone: 'warning',
+      tone: 'warning' as const,
       title: t('config.applyEffects.restartRequiredFields'),
       items: props.effects.restart_required_fields ?? [],
     },
@@ -42,7 +43,7 @@ const sections = computed(() => {
       <section v-for="section in sections" :key="section.key" class="config-apply-effects__section">
         <div class="config-apply-effects__heading">
           <span>{{ section.title }}</span>
-          <a-tag :color="section.tone">{{ section.items.length }}</a-tag>
+          <AppTag :tone="section.tone">{{ section.items.length }}</AppTag>
         </div>
         <div class="config-apply-effects__items">
           <code v-for="item in section.items" :key="item" class="config-apply-effects__item">{{ item }}</code>

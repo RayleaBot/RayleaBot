@@ -28,6 +28,10 @@ REVIEWED_LICENSE_EXPRESSIONS = {
     "MPL-2.0",
 }
 LICENSE_FILE_PREFIXES = ("license", "copying", "copyright", "notice", "patents")
+# Version-specific supplements retain notices shipped only in source headers.
+LICENSE_SUPPLEMENTS = {
+    "qrcode-generator@2.0.4": REPO_ROOT / "web/licenses/qrcode-generator-2.0.4.LICENSE",
+}
 
 
 class NoticeGenerationError(RuntimeError):
@@ -107,6 +111,14 @@ def license_documents(package_dir: Path, component: str, declared_expression: st
     ]
     primary = [path for path in files if path.name.lower().startswith(("license", "copying"))]
     if not primary:
+        if component in LICENSE_SUPPLEMENTS:
+            supplement = LICENSE_SUPPLEMENTS[component]
+            if not supplement.is_file():
+                raise NoticeGenerationError(f"{component} license supplement is missing: {supplement}")
+            content = normalize_license_text(supplement.read_text(encoding="utf-8"))
+            if not content:
+                raise NoticeGenerationError(f"{component} license supplement is empty")
+            return f"[{supplement.name}]\n{content}"
         if declared_expression is None:
             raise NoticeGenerationError(f"{component} has no LICENSE or COPYING file")
         return (

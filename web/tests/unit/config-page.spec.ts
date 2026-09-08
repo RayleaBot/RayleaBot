@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
@@ -49,7 +48,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -77,7 +76,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -116,13 +115,13 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
     await flushPromises()
 
-    const portInput = wrapper.find('.config-field__number input')
+    const portInput = wrapper.find('input.config-field__number')
     expect(portInput.exists()).toBe(true)
     await portInput.setValue('')
 
@@ -152,7 +151,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -190,7 +189,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -227,7 +226,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -265,7 +264,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -298,7 +297,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -325,7 +324,7 @@ describe('ConfigPage', () => {
 
     const wrapper = mount(ConfigPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 

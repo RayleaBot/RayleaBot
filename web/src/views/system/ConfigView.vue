@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import AppTag from '@/components/AppTag.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -203,33 +206,33 @@ async function save() {
             :aria-label="isDirty ? t('config.dirtyDotLabel') : undefined"
           />
           <span class="config-toolbar__status-text">{{ saveLabel }}</span>
-          <a-tag
+          <AppTag
             v-if="restartRequired !== null"
-            :color="restartRequired ? 'warning' : 'success'"
+            :tone="restartRequired ? 'warning' : 'success'"
             class="config-toolbar__tag"
           >
             {{ restartRequired ? t('config.restartNeeded') : t('config.hotApplied') }}
-          </a-tag>
+          </AppTag>
         </div>
         <div class="config-toolbar__actions">
-          <a-button
-            type="primary"
+          <AppButton
+            variant="default"
             :disabled="!isDirty || saving"
             :loading="saving"
             :aria-label="t('config.save')"
             @click="save"
           >
             {{ t('config.save') }}
-          </a-button>
+          </AppButton>
         </div>
       </div>
 
       <div class="config-toc-inline" :aria-label="t('config.tocLabel')">
-        <a-select
-          :value="activeSectionKey"
+        <AppSelect
+          :model-value="activeSectionKey"
           :options="segmentedOptions"
           :aria-label="t('config.tocLabel')"
-          @change="onSegmentedChange"
+          @update:model-value="onSegmentedChange"
         />
       </div>
 
@@ -359,7 +362,7 @@ async function save() {
   display: none;
 }
 
-.config-toc-inline :deep(.ant-select) {
+.config-toc-inline :deep(.app-select-wrap) {
   width: 100%;
 }
 

@@ -1,4 +1,3 @@
-import Antd from 'ant-design-vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
@@ -8,7 +7,6 @@ import type { ConfigFieldDefinition } from '@/lib/config-form'
 function mountField(field: ConfigFieldDefinition, value: unknown) {
   return mount(ConfigFieldRow, {
     props: { field, value },
-    global: { plugins: [Antd] },
   })
 }
 
@@ -21,7 +19,7 @@ describe('ConfigFieldRow', () => {
 
   it('emits undefined when number input is cleared', async () => {
     const wrapper = mountField({ path: 'server.port', label: 'port', type: 'number' }, 8080)
-    const input = wrapper.find('.config-field__number input')
+    const input = wrapper.find('input.config-field__number')
     expect(input.exists()).toBe(true)
     await input.setValue('')
     expect(wrapper.emitted('update:value')?.at(-1)).toEqual([undefined])
@@ -29,7 +27,7 @@ describe('ConfigFieldRow', () => {
 
   it('emits a boolean for switch fields', async () => {
     const wrapper = mountField({ path: 'admin.sliding_renewal', label: 'sliding', type: 'boolean' }, false)
-    await wrapper.find('.ant-switch').trigger('click')
+    await wrapper.find('[role=switch]').trigger('click')
     expect(wrapper.emitted('update:value')?.[0]).toEqual([true])
   })
 
@@ -46,8 +44,8 @@ describe('ConfigFieldRow', () => {
       },
       'info',
     )
-    const select = wrapper.getComponent({ name: 'ASelect' })
-    await select.vm.$emit('update:value', 'debug')
+    const select = wrapper.getComponent({ name: 'AppSelect' })
+    await select.vm.$emit('update:modelValue', 'debug')
     expect(wrapper.emitted('update:value')?.[0]).toEqual(['debug'])
   })
 
@@ -60,6 +58,18 @@ describe('ConfigFieldRow', () => {
     expect(textarea.exists()).toBe(true)
     await textarea.setValue('10.0.0.1\n10.0.0.2')
     expect(wrapper.emitted('update:value')?.at(-1)).toEqual([['10.0.0.1', '10.0.0.2']])
+  })
+
+  it('preserves boolean option types instead of stringifying false', async () => {
+    const wrapper = mountField({ path: 'enabled', label: 'enabled', type: 'select', options: [
+      { label: '启用', value: true }, { label: '关闭', value: false },
+    ] }, false)
+    const select = wrapper.getComponent({ name: 'AppSelect' })
+    expect(select.props('modelValue')).toBe(false)
+    expect(select.text()).toContain('关闭')
+    await select.vm.$emit('update:modelValue', true)
+    expect(wrapper.emitted('update:value')?.[0]).toEqual([true])
+    wrapper.unmount()
   })
 
 })

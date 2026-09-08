@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppField from '@/components/AppField.vue'
+import AppButton from '@/components/AppButton.vue'
 import {
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
-  MessageOutlined,
-  NotificationOutlined,
-  SaveOutlined,
-  SendOutlined,
-  TeamOutlined,
-  ThunderboltOutlined,
-  UserOutlined,
-} from '@ant-design/icons-vue'
+  CircleCheckIcon,
+  CircleAlertIcon,
+  MessageSquareIcon,
+  BellIcon,
+  SaveIcon,
+  SendIcon,
+  UsersIcon,
+  ZapIcon,
+  UserIcon,
+} from '@lucide/vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -78,7 +82,7 @@ const feedbackToast = computed(() => {
 const summaryCards = computed(() => [
   {
     key: 'user-command',
-    icon: UserOutlined,
+    icon: UserIcon,
     label: t('rateLimits.summary.userCommand'),
     value: formatRateLimit(document.value?.user.command_rate_limit),
     description: t('rateLimits.summary.userCommandMeta'),
@@ -86,7 +90,7 @@ const summaryCards = computed(() => [
   },
   {
     key: 'group-command',
-    icon: TeamOutlined,
+    icon: UsersIcon,
     label: t('rateLimits.summary.groupCommand'),
     value: formatRateLimit(document.value?.group.command_rate_limit),
     description: t('rateLimits.summary.groupCommandMeta'),
@@ -94,7 +98,7 @@ const summaryCards = computed(() => [
   },
   {
     key: 'plugin-message',
-    icon: MessageOutlined,
+    icon: MessageSquareIcon,
     label: t('rateLimits.summary.pluginMessage'),
     value: formatRateLimit(document.value?.message.rate_limit_per_plugin),
     description: t('rateLimits.summary.pluginMessageMeta'),
@@ -102,7 +106,7 @@ const summaryCards = computed(() => [
   },
   {
     key: 'target-message',
-    icon: NotificationOutlined,
+    icon: BellIcon,
     label: t('rateLimits.summary.targetMessage'),
     value: formatRateLimit(document.value?.message.rate_limit_per_target),
     description: t('rateLimits.summary.targetMessageMeta'),
@@ -199,17 +203,17 @@ function writeField(path: string, type: ConfigFieldDefinition['type'], value: un
 function getSectionIcon(sectionTitle: string) {
   switch (sectionTitle) {
     case t('rateLimits.sections.userCommand'):
-      return UserOutlined
+      return UserIcon
     case t('rateLimits.sections.groupCommand'):
-      return TeamOutlined
+      return UsersIcon
     case t('rateLimits.sections.cooldownReply'):
-      return SendOutlined
+      return SendIcon
     case t('rateLimits.sections.pluginMessage'):
-      return MessageOutlined
+      return MessageSquareIcon
     case t('rateLimits.sections.targetMessage'):
-      return NotificationOutlined
+      return BellIcon
     default:
-      return ThunderboltOutlined
+      return ZapIcon
   }
 }
 
@@ -242,8 +246,8 @@ async function save() {
   <AppPage :title="t('rateLimits.title')" width="form">
     <template #extra>
       <div class="table-actions">
-        <a-button
-          type="primary"
+        <AppButton
+          variant="default"
           :disabled="!canSave"
           :loading="saving"
           :aria-label="t('config.save')"
@@ -251,10 +255,10 @@ async function save() {
           @click="save"
         >
           <template #icon>
-            <SaveOutlined />
+            <SaveIcon />
           </template>
           {{ t('config.save') }}
-        </a-button>
+        </AppButton>
       </div>
     </template>
 
@@ -279,7 +283,7 @@ async function save() {
             class="rate-limits-summary-item"
             :data-tone="card.tone"
           >
-            <component :is="card.icon" class="rate-limits-summary-item__icon" />
+            <component :is="card.icon" :size="18" class="rate-limits-summary-item__icon" />
             <div class="rate-limits-summary-item__copy">
               <span>{{ card.label }}</span>
               <strong>{{ card.value }}</strong>
@@ -292,7 +296,7 @@ async function save() {
           <div class="rate-limits-board__header">
             <div class="rate-limits-board__title">
               <span class="rate-limits-board__icon">
-                <ThunderboltOutlined />
+                <ZapIcon :size="16" />
               </span>
               <h2>{{ t('rateLimits.sections.settings') }}</h2>
             </div>
@@ -302,7 +306,7 @@ async function save() {
                 class="rate-limits-status-pill rate-limits-status-pill--dirty"
                 data-testid="rate-limits-unsaved-status"
               >
-                <ExclamationCircleOutlined />
+                <CircleAlertIcon />
                 {{ t('rateLimits.status.unsaved') }}
               </span>
               <span
@@ -310,13 +314,13 @@ async function save() {
                 class="rate-limits-status-pill rate-limits-status-pill--saved"
                 data-testid="rate-limits-save-status"
               >
-                <CheckCircleOutlined />
+                <CircleCheckIcon />
                 {{ saveStatusLabel }}
               </span>
             </div>
           </div>
 
-          <a-form layout="vertical" class="rate-limits-form-matrix">
+          <div class="rate-limits-form-matrix">
             <section
               v-for="section in configSections"
               :key="section.key"
@@ -324,7 +328,7 @@ async function save() {
             >
               <div class="rate-limits-setting-row__intro">
                 <span class="rate-limits-setting-row__icon">
-                  <component :is="getSectionIcon(section.title)" />
+                  <component :is="getSectionIcon(section.title)" :size="16" />
                 </span>
                 <div class="rate-limits-setting-row__title">
                   <h3>{{ section.title }}</h3>
@@ -333,13 +337,13 @@ async function save() {
 
               <div class="rate-limits-setting-row__controls">
                 <div v-for="field in section.fields" :key="field.path" class="rate-limits-field-item">
-                  <a-form-item>
+                  <AppField label="">
                     <template #label>
                       <div class="field-label-wrap">
                         <span class="field-label-text">{{ field.label }}</span>
-                        <a-tooltip v-if="field.description" :title="field.description">
+                        <AppTooltip v-if="field.description" :title="field.description">
                           <button type="button" class="field-info-icon" :aria-label="t('config.fieldHelp')">?</button>
-                        </a-tooltip>
+                        </AppTooltip>
                       </div>
                     </template>
 
@@ -352,10 +356,10 @@ async function save() {
                       />
 
                       <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                        <a-switch
-                          :checked="Boolean(readField(field.path, field.type))"
+                        <AppSwitch
+                          :model-value="Boolean(readField(field.path, field.type))"
                           :aria-label="field.label"
-                          @update:checked="writeField(field.path, field.type, $event)"
+                          @update:model-value="writeField(field.path, field.type, $event)"
                         />
                       </div>
 
@@ -365,11 +369,11 @@ async function save() {
                       </div>
                     </div>
 
-                  </a-form-item>
+                  </AppField>
                 </div>
               </div>
             </section>
-          </a-form>
+          </div>
         </section>
       </template>
     </div>
@@ -559,7 +563,7 @@ async function save() {
   min-width: 0;
 }
 
-.rate-limits-field-item :deep(.ant-form-item) {
+.rate-limits-field-item :deep(.app-field) {
   margin-bottom: 0;
 }
 

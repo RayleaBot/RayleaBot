@@ -197,7 +197,7 @@ async function fillRateLimit(
   await page.getByLabel(`${label} 时间窗口`).fill(windowValue)
   if (unit) {
     await page.getByLabel(`${label} 单位`).click()
-    await page.getByTitle(unit).click()
+    await page.getByRole('option', { name: unit, exact: true }).click()
   }
 }
 
@@ -698,7 +698,7 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(addedBlacklistRow).toContainText('临时封禁')
 
   await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).click()
-  await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
+  await page.getByRole('alertdialog').getByRole('button', { name: '移除', exact: true }).click()
   await expect(blacklistCard).not.toContainText('30003')
 
   await page.getByTestId('access-lists-whitelist-add-btn').click()
@@ -719,16 +719,16 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
 
   for (const targetId of ['10001', '30003']) {
     await governanceEntryCard(whitelistCard, targetId).getByRole('button', { name: '移除' }).click()
-    await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: '移除', exact: true }).click()
     await expect(whitelistCard).not.toContainText(targetId)
   }
 
   await whitelistCard.locator('.access-lists-toolbar__filter').click()
-  await page.locator('.ant-select-dropdown').getByTitle('群').click()
+  await page.getByRole('option', { name: '群', exact: true }).click()
   await expect(whitelistCard).toContainText('20002')
   await expect(whitelistCard).toContainText('核心服务群')
   await governanceEntryCard(whitelistCard, '20002').getByRole('button', { name: '移除' }).click()
-  await page.locator('.ant-popconfirm-buttons button.ant-btn-primary').click()
+  await page.getByRole('alertdialog').getByRole('button', { name: '移除', exact: true }).click()
   await expect(whitelistCard).not.toContainText('20002')
 
   for (let index = 0; index < 10; index += 1) {
@@ -741,7 +741,7 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(whitelistCard).not.toContainText('31010')
 
   await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
-  const confirmDialog = page.getByRole('dialog', { name: '确认启用空白名单' })
+  const confirmDialog = page.getByRole('alertdialog', { name: '确认启用空白名单' })
   await expect(confirmDialog).toBeVisible()
 
   await confirmDialog.getByRole('button', { name: '确认启用' }).dispatchEvent('click')
@@ -771,7 +771,7 @@ test('permission policy page edits command policy config', async ({ page, reques
   await superAdminsInput.fill('10002')
   await superAdminsInput.press('Enter')
   await page.getByLabel('默认权限级别').click()
-  await page.getByTitle('群管理员').click()
+  await page.getByRole('option', { name: '群管理员', exact: true }).click()
   await expect(page.getByText('用户命令速率限制')).toHaveCount(0)
   await expect(page.getByText('群命令速率限制')).toHaveCount(0)
   await expect(page.getByText('冷却提示')).toHaveCount(0)
@@ -1498,8 +1498,8 @@ test('config page saves restart-required Douyin browser settings', async ({ page
 
   await page.getByRole('spinbutton', { name: 'CK 自动检查间隔' }).fill('720')
   await expect(page.locator('#config-section-third-party-accounts').getByText('自动选择', { exact: true })).toBeVisible()
-  await page.locator('#config-section-third-party-accounts .ant-select-selector').click()
-  await page.locator('.ant-select-dropdown:visible').getByText('远程 CDP', { exact: true }).click()
+  await page.locator('#config-section-third-party-accounts').getByRole('combobox').click()
+  await page.getByRole('option', { name: '远程 CDP', exact: true }).click()
   await page.getByRole('textbox', { name: '抖音远程调试地址' }).fill('http://127.0.0.1:9222')
 
   const configResponsePromise = page.waitForResponse((response) => (
@@ -2691,10 +2691,10 @@ test('third-party account manual check updates an expired Weibo CK', async ({ pa
   await expect(accountCard).toContainText('等待服务器确认')
   const validateButton = accountCard.getByRole('button', { name: '检查 CK' })
   await validateButton.click()
-  await expect(validateButton).toHaveClass(/ant-btn-loading/)
+  await expect(validateButton).toHaveAttribute('aria-busy', 'true')
   await expect(accountCard).toContainText('服务器确认失效')
   await expect(accountCard).toContainText('微博账号 CK 已失效，请重新扫码')
-  await expect(page.getByText('服务器已确认 CK 失效，请重新登录')).toBeVisible()
+  await expect(page.getByText('服务器已确认 CK 失效，请重新登录', { exact: true })).toBeVisible()
 
   await page.reload()
   const persistedCard = page.locator('.account-card').filter({ hasText: '微博扫码账号' }).first()

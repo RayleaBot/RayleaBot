@@ -29,7 +29,7 @@ const selection = computed(() => Array.isArray(model.value)
   : model.value === '' && !props.options.some(option => option.value === '') ? undefined : encode(model.value as T))
 const selectedLabels = computed(() => Array.isArray(model.value)
   ? selectOptions.value.filter((option) => (model.value as T[]).includes(option.value)).map((option) => option.label).join('、')
-  : undefined)
+  : selectOptions.value.find(option => option.value === model.value)?.label)
 function update(value: unknown) {
   const decode = (key: unknown) => selectOptions.value.find(option => encode(option.value) === key)
   if (Array.isArray(value)) model.value = value.flatMap(key => { const option = decode(key); return option ? [option.value] : [] }) as M extends true ? T[] : T
@@ -44,7 +44,7 @@ function clearSelection() {
   <div ref="control" class="app-select-wrap" :class="wrapperClass">
     <Select :model-value="selection" :multiple="multiple" :disabled="disabled" @update:model-value="update">
       <SelectTrigger :id="id || field?.id" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error ? field.descriptionId : undefined">
-        <span v-if="multiple && selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
+        <span v-if="selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
         <SelectValue v-else :placeholder="placeholder || '请选择'" />
       </SelectTrigger>
       <button v-if="multiple && clearable && selectedLabels" type="button" class="app-select-clear" aria-label="清除选择" :disabled="disabled" @click="clearSelection"><XIcon :size="15" /></button>

@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -33,7 +32,7 @@ function createRouterForPage() {
 }
 
 function getDefaultLevelSelect(wrapper: ReturnType<typeof mount>) {
-  const select = wrapper.findAllComponents({ name: 'ASelect' }).find((candidate) => {
+  const select = wrapper.findAllComponents({ name: 'AppSelect' }).find((candidate) => {
     const options = candidate.props('options') as Array<{ value?: unknown }> | undefined
     return options?.some(option => option.value === 'group_admin')
   })
@@ -42,7 +41,7 @@ function getDefaultLevelSelect(wrapper: ReturnType<typeof mount>) {
 }
 
 function getSuperAdminSelect(wrapper: ReturnType<typeof mount>) {
-  const select = wrapper.findAllComponents({ name: 'ASelect' }).find(
+  const select = wrapper.findAllComponents({ name: 'AppTagsInput' }).find(
     candidate => candidate.attributes('data-testid') === 'permission-policy-super-admins',
   )
   expect(select).toBeDefined()
@@ -79,7 +78,7 @@ describe('PermissionPolicyPage', () => {
 
     const wrapper = mount(PermissionPolicyPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -118,7 +117,7 @@ describe('PermissionPolicyPage', () => {
 
     const wrapper = mount(PermissionPolicyPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -165,17 +164,17 @@ describe('PermissionPolicyPage', () => {
 
     const wrapper = mount(PermissionPolicyPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
     await flushPromises()
 
     await getSuperAdminSelect(wrapper).vm.$emit(
-      'update:value',
+      'update:modelValue',
       ['10001', '10002'],
     )
-    await getDefaultLevelSelect(wrapper).vm.$emit('update:value', 'group_admin')
+    await getDefaultLevelSelect(wrapper).vm.$emit('update:modelValue', 'group_admin')
     await flushPromises()
 
     expect(wrapper.find('[data-testid="permission-policy-unsaved-status"]').exists()).toBe(true)

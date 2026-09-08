@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -56,8 +55,8 @@ function toastMessages() {
 }
 
 function getSelectByTestId(wrapper: ReturnType<typeof mount>, testId: string) {
-  const select = wrapper.findAllComponents({ name: 'ASelect' }).find(
-    candidate => candidate.attributes('data-testid') === testId,
+  const select = wrapper.findAllComponents({ name: 'AppSelect' }).find(
+    candidate => candidate.find(`[data-testid="${testId}"]`).exists(),
   )
   expect(select).toBeDefined()
   return select!
@@ -105,7 +104,7 @@ describe('AccessListsPage', () => {
 
     const wrapper = mount(AccessListsPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -127,7 +126,7 @@ describe('AccessListsPage', () => {
     expect(router.currentRoute.value.name).toBe('commands')
   }, 15000)
 
-  it('adds and removes whitelist and blacklist entries through modal and popconfirm', async () => {
+  it('adds entries inline and removes them after confirmation', async () => {
     const router = createRouterForPage()
     await router.push('/access-lists')
     await router.isReady()
@@ -204,7 +203,7 @@ describe('AccessListsPage', () => {
     const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -216,7 +215,7 @@ describe('AccessListsPage', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="access-lists-whitelist-add-btn"]').attributes('disabled')).toBeDefined()
-    expect(getSelectByTestId(wrapper, 'whitelist-draft-type').props('value')).toBe('user')
+    expect(getSelectByTestId(wrapper, 'whitelist-draft-type').props('modelValue')).toBe('user')
 
     await wrapper.get('[data-testid="whitelist-draft-target-id"]').setValue('30003')
     await wrapper.get('[data-testid="whitelist-draft-reason"]').setValue('临时放行')
@@ -228,24 +227,25 @@ describe('AccessListsPage', () => {
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('30003')
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).toContain('临时放行')
 
-    // Remove via popconfirm confirm
-    const whitelistPopconfirm = wrapper.get('[data-testid="access-lists-whitelist-card"]').findComponent({ name: 'APopconfirm' })
-    await whitelistPopconfirm.vm.$emit('confirm')
+    // Confirm removal
+    await wrapper.get('[data-testid="access-lists-whitelist-card"] .remove-btn').trigger('click')
+    const whitelistConfirm = wrapper.findAllComponents({ name: 'AppConfirmDialog' }).find(dialog => dialog.props('open'))!
+    await whitelistConfirm.vm.$emit('confirm')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="access-lists-whitelist-card"]').text()).not.toContain('30003')
 
     // --- Blacklist (always visible): add via inline table edit ---
     const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
-    const blacklistScopeFilter = blacklistCard.findComponent({ name: 'ASelect' })
-    await blacklistScopeFilter.vm.$emit('update:value', 'group')
+    const blacklistScopeFilter = blacklistCard.findComponent({ name: 'AppSelect' })
+    await blacklistScopeFilter.vm.$emit('update:modelValue', 'group')
     await flushPromises()
 
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').attributes('disabled')).toBeDefined()
-    expect(getSelectByTestId(wrapper, 'blacklist-draft-type').props('value')).toBe('group')
+    expect(getSelectByTestId(wrapper, 'blacklist-draft-type').props('modelValue')).toBe('group')
 
     await wrapper.get('[data-testid="blacklist-draft-target-id"]').setValue('30003')
     await wrapper.get('[data-testid="blacklist-draft-reason"]').setValue('临时封禁')
@@ -257,9 +257,10 @@ describe('AccessListsPage', () => {
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('30003')
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).toContain('临时封禁')
 
-    // Remove via popconfirm confirm
-    const blacklistPopconfirm = wrapper.get('[data-testid="access-lists-blacklist-card"]').findComponent({ name: 'APopconfirm' })
-    await blacklistPopconfirm.vm.$emit('confirm')
+    // Confirm removal
+    await wrapper.get('[data-testid="access-lists-blacklist-card"] .remove-btn').trigger('click')
+    const blacklistConfirm = wrapper.findAllComponents({ name: 'AppConfirmDialog' }).find(dialog => dialog.props('open'))!
+    await blacklistConfirm.vm.$emit('confirm')
     await flushPromises()
 
     expect(wrapper.get('[data-testid="access-lists-blacklist-card"]').text()).not.toContain('30003')
@@ -309,7 +310,7 @@ describe('AccessListsPage', () => {
     const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -319,15 +320,15 @@ describe('AccessListsPage', () => {
     expect(whitelistCard.text()).toContain('10001')
     expect(whitelistCard.text()).toContain('10012')
     expect(whitelistCard.text()).toContain('20002')
-    expect(whitelistCard.findAll('.ant-table-tbody > tr')).toHaveLength(13)
-    expect(whitelistCard.find('.ant-pagination').exists()).toBe(false)
+    expect(whitelistCard.findAll('tbody > tr')).toHaveLength(13)
+    expect(whitelistCard.find('[aria-label="分页"]').exists()).toBe(false)
 
     const blacklistCard = wrapper.get('[data-testid="access-lists-blacklist-card"]')
     expect(blacklistCard.text()).toContain('50001')
     expect(blacklistCard.text()).toContain('50011')
     expect(blacklistCard.text()).toContain('60001')
-    expect(blacklistCard.findAll('.ant-table-tbody > tr')).toHaveLength(12)
-    expect(blacklistCard.find('.ant-pagination').exists()).toBe(false)
+    expect(blacklistCard.findAll('tbody > tr')).toHaveLength(12)
+    expect(blacklistCard.find('[aria-label="分页"]').exists()).toBe(false)
   }, 15000)
 
   it('clears region error after a successful add', async () => {
@@ -373,7 +374,7 @@ describe('AccessListsPage', () => {
     const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -397,12 +398,16 @@ describe('AccessListsPage', () => {
     expect(blacklistCard.text()).toContain('10001')
 
     // Now remove it; it should fail and leave an error
-    const popconfirm = blacklistCard.findComponent({ name: 'APopconfirm' })
-    await popconfirm.vm.$emit('confirm')
+    await blacklistCard.get('.remove-btn').trigger('click')
+    const confirmation = wrapper.findAllComponents({ name: 'AppConfirmDialog' }).find(dialog => dialog.props('open'))!
+    await confirmation.vm.$emit('confirm')
     await flushPromises()
 
     expect(toastMessages()).toContain(t('errors.common.actionFailed'))
     expect(toastMessages()).not.toContain('删除失败')
+
+    expect(confirmation.props('open')).toBe(true)
+    await confirmation.vm.$emit('cancel')
 
     // Add another entry successfully; the old error should be cleared
     await wrapper.get('[data-testid="access-lists-blacklist-add-btn"]').trigger('click')
@@ -457,7 +462,7 @@ describe('AccessListsPage', () => {
     const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -471,9 +476,9 @@ describe('AccessListsPage', () => {
     expect(document.body.textContent ?? '').toContain('当前没有任何白名单条目')
 
     // Emit ok on the confirm modal
-    const confirmModal = wrapper.findAllComponents({ name: 'AModal' }).find(m => m.props('open') === true)
+    const confirmModal = wrapper.findAllComponents({ name: 'AppConfirmDialog' }).find(m => m.props('open') === true)
     expect(confirmModal).toBeDefined()
-    await confirmModal!.vm.$emit('ok')
+    await confirmModal!.vm.$emit('confirm')
     await flushPromises()
 
     const emptyWarning = wrapper.get('[data-testid="access-lists-whitelist-empty-warning"]')
@@ -524,7 +529,7 @@ describe('AccessListsPage', () => {
     const wrapper = mount(AccessListsPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 

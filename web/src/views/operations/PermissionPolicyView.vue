@@ -1,13 +1,22 @@
 <script setup lang="ts">
+import AppTextarea from '@/components/AppTextarea.vue'
+import AppTagsInput from '@/components/AppTagsInput.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppNumberInput from '@/components/AppNumberInput.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import {
-  ExclamationCircleOutlined,
-  SafetyCertificateOutlined,
-  SafetyOutlined,
-  SaveOutlined,
-  CheckCircleOutlined,
-  TeamOutlined,
-  UserAddOutlined,
-} from '@ant-design/icons-vue'
+  CircleAlertIcon,
+  ShieldCheckIcon,
+  ShieldIcon,
+  SaveIcon,
+  CircleCheckIcon,
+  UsersIcon,
+  UserRoundPlusIcon,
+} from '@lucide/vue'
 import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -98,13 +107,13 @@ watch(document, (value) => {
 function getSectionIcon(key: string) {
   switch (key) {
     case 'admin':
-      return UserAddOutlined
+      return UserRoundPlusIcon
     case 'permission':
-      return SafetyOutlined
+      return ShieldIcon
     case 'group':
-      return TeamOutlined
+      return UsersIcon
     default:
-      return SafetyCertificateOutlined
+      return ShieldCheckIcon
   }
 }
 
@@ -202,6 +211,16 @@ function isSuperAdminField(path: string) {
   return path === 'admin.super_admins'
 }
 
+function readNumberField(path: string, type: ConfigFieldDefinition['type']) {
+  const value = readField(path, type)
+  return typeof value === 'number' ? value : null
+}
+
+function readSelectField(path: string, type: ConfigFieldDefinition['type']) {
+  const value = readField(path, type)
+  return typeof value === 'boolean' ? value : String(value ?? '')
+}
+
 function writeField(path: string, type: ConfigFieldDefinition['type'], value: unknown) {
   if (!draft.value) {
     return
@@ -243,24 +262,24 @@ async function save() {
   <AppPage :title="t('permissionPolicy.title')" width="form">
     <template #extra>
       <div class="table-actions permission-policy-actions">
-        <a-button data-testid="permission-policy-open-access-lists" @click="navigate(buildAccessListsLocation())">
+        <AppButton data-testid="permission-policy-open-access-lists" @click="navigate(buildAccessListsLocation())">
           <template #icon>
-            <TeamOutlined />
+            <UsersIcon />
           </template>
           {{ t('permissionPolicy.actions.openAccessLists') }}
-        </a-button>
-        <a-button
-          type="primary"
+        </AppButton>
+        <AppButton
+          variant="default"
           data-testid="permission-policy-save"
           :disabled="!canSave"
           :loading="saving"
           @click="save"
         >
           <template #icon>
-            <SaveOutlined />
+            <SaveIcon />
           </template>
           {{ t('config.save') }}
-        </a-button>
+        </AppButton>
       </div>
     </template>
 
@@ -283,7 +302,7 @@ async function save() {
                 class="permission-policy-status-pill permission-policy-status-pill--dirty"
                 data-testid="permission-policy-unsaved-status"
               >
-                <ExclamationCircleOutlined />
+                <CircleAlertIcon />
                 {{ t('permissionPolicy.status.unsaved') }}
               </span>
               <span
@@ -291,91 +310,91 @@ async function save() {
                 class="permission-policy-status-pill permission-policy-status-pill--saved"
                 data-testid="permission-policy-save-status"
               >
-                <CheckCircleOutlined />
+                <CircleCheckIcon />
                 {{ saveStatusLabel }}
               </span>
             </div>
           </div>
 
           <div v-if="draft" class="permission-policy-settings-layout">
-            <a-card v-for="section in configSections" :key="section.title" :bordered="false" class="permission-policy-config-card">
+            <AppCard v-for="section in configSections" :key="section.title" borderless class="permission-policy-config-card">
               <div class="card-header config-card-header">
                 <div class="permission-policy-config-card__title">
                   <span class="permission-policy-config-card__icon">
-                    <component :is="getSectionIcon(section.key)" />
+                    <component :is="getSectionIcon(section.key)" :size="16" />
                   </span>
                   <strong>{{ section.title }}</strong>
                 </div>
                 <span class="field-count-badge">{{ section.fields.length }} {{ t('config.fieldCount') }}</span>
               </div>
 
-              <a-form layout="vertical" class="permission-policy-settings-form">
+              <div class="permission-policy-settings-form">
                 <div v-for="field in section.fields" :key="field.path" class="config-field-item">
-                  <a-form-item>
+                  <AppField label="">
                     <template #label>
                       <span class="field-label-text">{{ field.label }}</span>
                     </template>
 
-                    <a-select
+                    <AppTagsInput
                       v-if="isSuperAdminField(field.path)"
-                      mode="tags"
+
                       class="super-admin-tag-select"
                       data-testid="permission-policy-super-admins"
-                      :value="readSuperAdminTags()"
+                      :model-value="readSuperAdminTags()"
                       :aria-label="field.label"
                       :placeholder="t('permissionPolicy.placeholders.superAdmins')"
-                      :token-separators="[',', '，', ' ', '\n']"
-                      @update:value="writeSuperAdminTags"
+                      :separators="[',', '，', ' ', '\n']"
+                      @update:model-value="writeSuperAdminTags"
                     />
 
-                    <a-input
+                    <AppInput
                       v-else-if="field.type === 'text'"
-                      :value="String(readField(field.path, field.type) ?? '')"
+                      :model-value="String(readField(field.path, field.type) ?? '')"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
-                    <a-input-number
+                    <AppNumberInput nullable
                       v-else-if="field.type === 'number'"
                       class="config-number-input"
-                      :value="typeof readField(field.path, field.type) === 'number' ? readField(field.path, field.type) : null"
+                      :model-value="readNumberField(field.path, field.type)"
                       :min="0"
                       :step="1"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
                     <div v-else-if="field.type === 'boolean'" class="switch-wrap">
-                      <a-switch
-                        :checked="Boolean(readField(field.path, field.type))"
+                      <AppSwitch
+                        :model-value="Boolean(readField(field.path, field.type))"
                         :aria-label="field.label"
-                        @update:checked="writeField(field.path, field.type, $event)"
+                        @update:model-value="writeField(field.path, field.type, $event)"
                       />
                     </div>
 
-                    <a-select
+                    <AppSelect
                       v-else-if="field.type === 'select'"
-                      :value="String(readField(field.path, field.type) ?? '')"
-                      :options="field.options"
+                      :model-value="readSelectField(field.path, field.type)"
+                      :options="field.options || []"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
-                    <a-textarea
+                    <AppTextarea
                       v-else
-                      :value="String(readField(field.path, field.type) ?? '')"
-                      :auto-size="{ minRows: 4, maxRows: 8 }"
+                      :model-value="String(readField(field.path, field.type) ?? '')"
+                      :rows="4" :max-rows="8"
                       :aria-label="field.label"
-                      @update:value="writeField(field.path, field.type, $event)"
+                      @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
                     <div v-if="field.description" class="config-field-note">
                       <p v-if="field.description" class="config-field-note__text">{{ field.description }}</p>
                     </div>
-                  </a-form-item>
+                  </AppField>
                 </div>
-              </a-form>
-            </a-card>
+              </div>
+            </AppCard>
           </div>
         </section>
       </template>
@@ -389,7 +408,7 @@ async function save() {
   gap: 22px;
 }
 
-.permission-policy-actions :deep(.ant-btn) {
+.permission-policy-actions :deep(.app-button) {
   min-height: 36px;
   padding-inline: 14px;
   border-radius: var(--radius-md);
@@ -463,7 +482,7 @@ async function save() {
   box-shadow: var(--shadow-xs);
 }
 
-.permission-policy-config-card :deep(.ant-card-body) {
+.permission-policy-config-card :deep(.app-card__body) {
   padding: 0;
 }
 
@@ -505,12 +524,12 @@ async function save() {
   padding: 14px 20px 20px;
 }
 
-.config-field-item :deep(.ant-form-item) {
+.config-field-item :deep(.app-field) {
   margin-bottom: 0;
 }
 
-.config-field-item :deep(.ant-input),
-.config-field-item :deep(.ant-select-selector) {
+.config-field-item :deep(.app-input),
+.config-field-item :deep(.app-select) {
   border-radius: var(--radius-md);
 }
 
@@ -518,13 +537,13 @@ async function save() {
   width: 100%;
 }
 
-.super-admin-tag-select :deep(.ant-select-selector) {
+.super-admin-tag-select :deep(.app-select) {
   min-height: 44px;
   align-items: flex-start;
   padding-block: 5px;
 }
 
-.super-admin-tag-select :deep(.ant-select-selection-item) {
+.super-admin-tag-select :deep(.app-tags-input__item) {
   border-radius: 8px;
   background: var(--surface-soft);
   border-color: var(--border);

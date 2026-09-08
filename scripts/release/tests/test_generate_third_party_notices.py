@@ -85,6 +85,16 @@ class ThirdPartyNoticeTests(unittest.TestCase):
                     "npm:test",
                 )
 
+    def test_source_header_copyright_is_preserved_by_required_versioned_supplement(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            package_dir = Path(tmp)
+            notice = notices.license_documents(package_dir, "qrcode-generator@2.0.4", "MIT")
+            self.assertIn("Copyright (c) 2009 Kazuhiko Arase", notice)
+            self.assertIn("Permission is hereby granted", notice)
+            with mock.patch.dict(notices.LICENSE_SUPPLEMENTS, {"qrcode-generator@2.0.4": package_dir / "missing.LICENSE"}):
+                with self.assertRaisesRegex(notices.NoticeGenerationError, "license supplement is missing"):
+                    notices.license_documents(package_dir, "qrcode-generator@2.0.4", "MIT")
+
     def test_unreviewed_license_fails_closed(self) -> None:
         with self.assertRaisesRegex(notices.NoticeGenerationError, "unreviewed license expression"):
             notices.normalize_license_expression("LicenseRef-Custom", "example@1.0.0")

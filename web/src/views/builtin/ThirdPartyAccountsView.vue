@@ -1,16 +1,26 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
+import AppTextarea from '@/components/AppTextarea.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppQRCode from '@/components/AppQRCode.vue'
+import AppPopover from '@/components/AppPopover.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppAvatar from '@/components/AppAvatar.vue'
+import { computed, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
-  DeleteOutlined,
-  EditOutlined,
-  PlusOutlined,
-  QuestionCircleOutlined,
-  QrcodeOutlined,
-  ReloadOutlined,
-  SaveOutlined,
-  UserOutlined,
-} from '@ant-design/icons-vue'
+  Trash2Icon,
+  PencilIcon,
+  PlusIcon,
+  CircleHelpIcon,
+  QrCodeIcon,
+  RotateCwIcon,
+  SaveIcon,
+  UserIcon,
+} from '@lucide/vue'
 
 import { notifyError, notifySuccess, notifyWarning, useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
@@ -92,6 +102,7 @@ const drafts = reactive<Record<string, AccountDraft>>({})
 const qrLogins = reactive<Record<string, QRLoginState>>({})
 const avatarLoadFailures = reactive<Record<string, number>>({})
 const editingAccountKey = ref<string>('')
+const deleteOpen = ref(false)
 const deleteCandidate = ref<ThirdPartyAccountSummary | null>(null)
 const draftSequence = ref(0)
 const qrPollInFlight = new Set<string>()
@@ -257,10 +268,8 @@ async function deleteAccount(account: ThirdPartyAccountSummary) {
   try {
     await store.deleteAccount(account.platform, account.account_id)
     await cancelEdit(accountKey(account))
-    deleteCandidate.value = null
+    deleteOpen.value = false
     notifySuccess(t('builtinFeatures.thirdPartyAccounts.deleted'))
-    await nextTick()
-    document.querySelector<HTMLElement>(`[data-add-platform="${account.platform}"]`)?.focus()
   } catch (err) {
     notifyError(getDisplayErrorMessage(err))
   }
@@ -268,6 +277,7 @@ async function deleteAccount(account: ThirdPartyAccountSummary) {
 
 function requestDeleteAccount(account: ThirdPartyAccountSummary) {
   deleteCandidate.value = account
+  deleteOpen.value = true
 }
 
 async function validateAccount(account: ThirdPartyAccountSummary) {
@@ -513,11 +523,11 @@ function normalizeAccountId(value: string) {
 function credentialMeta(state?: ThirdPartyCredentialState) {
   switch (state) {
     case 'valid':
-      return { color: 'green', label: t('builtinFeatures.thirdPartyAccounts.credentialValid') }
+      return { color: 'success' as const, label: t('builtinFeatures.thirdPartyAccounts.credentialValid') }
     case 'invalid':
-      return { color: 'red', label: t('builtinFeatures.thirdPartyAccounts.credentialInvalid') }
+      return { color: 'danger' as const, label: t('builtinFeatures.thirdPartyAccounts.credentialInvalid') }
     default:
-      return { color: 'default', label: t('builtinFeatures.thirdPartyAccounts.credentialUnknown') }
+      return { color: 'neutral' as const, label: t('builtinFeatures.thirdPartyAccounts.credentialUnknown') }
   }
 }
 
@@ -678,12 +688,9 @@ function timeText(value?: string | null) {
           <div>
             <div class="accounts-panel__title">
               <h2>{{ t('builtinFeatures.thirdPartyAccounts.accountTitle') }}</h2>
-              <a-popover
-                placement="bottomLeft"
-                :trigger="['hover', 'click']"
-                :overlay-style="{ maxWidth: '360px' }"
-              >
-                <template #title>{{ t('builtinFeatures.thirdPartyAccounts.credentialAuthorityTitle') }}</template>
+              <AppPopover
+               :title="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityTitle')">
+
                 <template #content>
                   {{ t('builtinFeatures.thirdPartyAccounts.credentialAuthorityHint') }}
                 </template>
@@ -692,9 +699,9 @@ function timeText(value?: string | null) {
                   class="accounts-panel__help"
                   :aria-label="t('builtinFeatures.thirdPartyAccounts.credentialAuthorityAction')"
                 >
-                  <QuestionCircleOutlined aria-hidden="true" />
+                  <CircleHelpIcon aria-hidden="true" />
                 </button>
-              </a-popover>
+              </AppPopover>
             </div>
             <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
           </div>
@@ -703,17 +710,17 @@ function timeText(value?: string | null) {
         <div v-if="!hasAccounts && !hasEditorCards" class="accounts-empty">
           <span>{{ t('builtinFeatures.thirdPartyAccounts.noAccounts') }}</span>
           <div class="accounts-empty__actions">
-            <a-button
+            <AppButton
               v-for="section in platformSections"
               :key="section.platform"
-              type="primary"
-              size="small"
+              variant="default"
+              size="sm"
               :data-add-platform="section.platform"
               @click="addDraft(section.platform)"
             >
-              <template #icon><PlusOutlined /></template>
+              <template #icon><PlusIcon /></template>
               {{ section.addLabel }}
-            </a-button>
+            </AppButton>
           </div>
         </div>
 
@@ -728,10 +735,10 @@ function timeText(value?: string | null) {
                 <h3>{{ section.label }}</h3>
                 <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: section.configuredCount, enabled: section.enabledCount }) }}</p>
               </div>
-              <a-button type="primary" size="small" :data-add-platform="section.platform" @click="addDraft(section.platform)">
-                <template #icon><PlusOutlined /></template>
+              <AppButton variant="default" size="sm" :data-add-platform="section.platform" @click="addDraft(section.platform)">
+                <template #icon><PlusIcon /></template>
                 {{ section.addLabel }}
-              </a-button>
+              </AppButton>
             </div>
 
             <div v-if="section.accounts.length === 0 && section.draftEntries.length === 0" class="accounts-empty accounts-empty--compact">
@@ -745,9 +752,9 @@ function timeText(value?: string | null) {
                 class="account-card account-card--editing"
               >
                 <div class="account-card__head">
-                  <a-avatar class="account-avatar account-avatar--draft" :size="48" data-testid="bilibili-account-avatar-fallback">
-                    <template #icon><UserOutlined /></template>
-                  </a-avatar>
+                  <AppAvatar class="account-avatar account-avatar--draft" :size="48" data-testid="bilibili-account-avatar-fallback">
+                    <template #icon><UserIcon /></template>
+                  </AppAvatar>
                   <div>
                     <span class="account-platform">{{ section.label }}</span>
                     <strong>{{ entry.draft.label || entry.draft.account_id }}</strong>
@@ -756,39 +763,39 @@ function timeText(value?: string | null) {
                 </div>
                 <div class="account-editor">
                   <div class="account-editor-grid">
-                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
-                      <a-input v-model:value="entry.draft.account_id" autocomplete="off" />
-                    </a-form-item>
-                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.label')">
-                      <a-input v-model:value="entry.draft.label" autocomplete="off" />
-                    </a-form-item>
-                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
-                      <a-switch
-                        v-model:checked="entry.draft.enabled"
+                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
+                      <AppInput v-model="entry.draft.account_id" autocomplete="off" />
+                    </AppField>
+                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.label')">
+                      <AppInput v-model="entry.draft.label" autocomplete="off" />
+                    </AppField>
+                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
+                      <AppSwitch
+                        v-model="entry.draft.enabled"
                         :checked-children="t('builtinFeatures.thirdPartyAccounts.enabled')"
                         :un-checked-children="t('builtinFeatures.thirdPartyAccounts.disabled')"
                       />
-                    </a-form-item>
+                    </AppField>
                   </div>
-                  <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')">
-                    <a-textarea
-                      v-model:value="entry.draft.cookie"
-                      :auto-size="{ minRows: 3, maxRows: 5 }"
+                  <AppField :label="t('builtinFeatures.thirdPartyAccounts.cookie')">
+                    <AppTextarea
+                      v-model="entry.draft.cookie"
+                      :rows="3" :max-rows="5"
                       autocomplete="off"
                       spellcheck="false"
                       :placeholder="section.cookiePlaceholder"
                     />
-                  </a-form-item>
+                  </AppField>
                   <div
                     v-if="section.supportsQRCode && qrLogins[entry.key]"
                     :class="['qr-panel', `qr-panel--${qrLogins[entry.key].state}`]"
                     aria-live="polite"
                   >
-                    <a-qrcode
+                    <AppQRCode
                       :value="qrLogins[entry.key].qrcodeUrl"
                       :status="qrStatus(qrLogins[entry.key])"
                       :size="168"
-                      bordered
+
                       @refresh="startQRCodeLogin(entry.key)"
                     />
                     <div>
@@ -798,18 +805,18 @@ function timeText(value?: string | null) {
                     </div>
                   </div>
                   <div class="account-editor-actions">
-                    <a-button v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[entry.key]?.loginId" @click="startQRCodeLogin(entry.key)">
-                      <template #icon><QrcodeOutlined /></template>
+                    <AppButton v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[entry.key]?.loginId" @click="startQRCodeLogin(entry.key)">
+                      <template #icon><QrCodeIcon /></template>
                       {{ qrActionText(qrLogins[entry.key]) }}
-                    </a-button>
-                    <a-button danger @click="deleteDraft(entry.key)">
-                      <template #icon><DeleteOutlined /></template>
+                    </AppButton>
+                    <AppButton @click="deleteDraft(entry.key)" variant="destructive">
+                      <template #icon><Trash2Icon /></template>
                       {{ t('builtinFeatures.thirdPartyAccounts.cancel') }}
-                    </a-button>
-                    <a-button type="primary" :loading="savingAccountId === operationKey(entry.draft.platform, normalizeAccountId(entry.draft.account_id))" @click="saveDraft(entry.key)">
-                      <template #icon><SaveOutlined /></template>
+                    </AppButton>
+                    <AppButton variant="default" :loading="savingAccountId === operationKey(entry.draft.platform, normalizeAccountId(entry.draft.account_id))" @click="saveDraft(entry.key)">
+                      <template #icon><SaveIcon /></template>
                       {{ t('builtinFeatures.thirdPartyAccounts.save') }}
-                    </a-button>
+                    </AppButton>
                   </div>
                 </div>
               </article>
@@ -820,7 +827,7 @@ function timeText(value?: string | null) {
                 :class="['account-card', { 'account-card--editing': isEditing(accountKey(account)) }]"
               >
                 <div class="account-card__head">
-                  <a-avatar class="account-avatar" :size="52">
+                  <AppAvatar class="account-avatar" :size="52">
                     <img
                       v-if="accountAvatarSrc(account)"
                       :key="avatarFailureKey(account)"
@@ -836,7 +843,7 @@ function timeText(value?: string | null) {
                     <template v-else>
                       <span data-testid="bilibili-account-avatar-fallback">{{ avatarText(account) }}</span>
                     </template>
-                  </a-avatar>
+                  </AppAvatar>
                   <div>
                     <span class="account-platform">{{ platformLabel(account.platform) }}</span>
                     <strong>{{ displayName(account) }}</strong>
@@ -845,15 +852,15 @@ function timeText(value?: string | null) {
                 </div>
 
                 <div class="account-card__badges">
-                  <a-tag :color="account.enabled ? 'blue' : 'default'">
+                  <AppTag :tone="account.enabled ? 'info' : 'neutral'">
                     {{ account.enabled ? t('builtinFeatures.thirdPartyAccounts.enabled') : t('builtinFeatures.thirdPartyAccounts.disabled') }}
-                  </a-tag>
-                  <a-tag :color="account.configured ? 'green' : 'default'">
+                  </AppTag>
+                  <AppTag :tone="account.configured ? 'success' : 'neutral'">
                     {{ account.configured ? t('builtinFeatures.thirdPartyAccounts.configured') : t('builtinFeatures.thirdPartyAccounts.notConfigured') }}
-                  </a-tag>
-                  <a-tag :color="credentialMeta(account.credential.state).color">
+                  </AppTag>
+                  <AppTag :tone="credentialMeta(account.credential.state).color">
                     {{ credentialMeta(account.credential.state).label }}
-                  </a-tag>
+                  </AppTag>
                 </div>
 
                 <dl class="account-card__facts">
@@ -876,60 +883,60 @@ function timeText(value?: string | null) {
                 </p>
 
                 <div v-if="!isEditing(accountKey(account))" class="account-card__actions">
-                  <a-button
+                  <AppButton
                     v-if="account.configured"
-                    size="small"
+                    size="sm"
                     :loading="validatingAccountIds.includes(operationKey(account.platform, account.account_id))"
                     @click="validateAccount(account)"
                   >
-                    <template #icon><ReloadOutlined /></template>
+                    <template #icon><RotateCwIcon /></template>
                     {{ t('builtinFeatures.thirdPartyAccounts.validateCredential') }}
-                  </a-button>
-                  <a-button size="small" @click="beginEdit(account)">
-                    <template #icon><EditOutlined /></template>
+                  </AppButton>
+                  <AppButton size="sm" @click="beginEdit(account)">
+                    <template #icon><PencilIcon /></template>
                     {{ t('builtinFeatures.thirdPartyAccounts.edit') }}
-                  </a-button>
-                  <a-button danger size="small" :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)">
-                    <template #icon><DeleteOutlined /></template>
+                  </AppButton>
+                  <AppButton size="sm" :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)" variant="destructive">
+                    <template #icon><Trash2Icon /></template>
                     {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
-                  </a-button>
+                  </AppButton>
                 </div>
 
                 <div v-else class="account-editor">
                   <div class="account-editor-grid">
-                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
-                      <a-input v-model:value="drafts[accountKey(account)].account_id" disabled autocomplete="off" />
-                    </a-form-item>
-                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.label')">
-                      <a-input v-model:value="drafts[accountKey(account)].label" autocomplete="off" />
-                    </a-form-item>
-                    <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
-                      <a-switch
-                        v-model:checked="drafts[accountKey(account)].enabled"
+                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.accountId')">
+                      <AppInput v-model="drafts[accountKey(account)].account_id" disabled autocomplete="off" />
+                    </AppField>
+                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.label')">
+                      <AppInput v-model="drafts[accountKey(account)].label" autocomplete="off" />
+                    </AppField>
+                    <AppField :label="t('builtinFeatures.thirdPartyAccounts.enabled')">
+                      <AppSwitch
+                        v-model="drafts[accountKey(account)].enabled"
                         :checked-children="t('builtinFeatures.thirdPartyAccounts.enabled')"
                         :un-checked-children="t('builtinFeatures.thirdPartyAccounts.disabled')"
                       />
-                    </a-form-item>
+                    </AppField>
                   </div>
-                  <a-form-item :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :extra="section.cookieExtra || t('builtinFeatures.thirdPartyAccounts.keepCookie')">
-                    <a-textarea
-                      v-model:value="drafts[accountKey(account)].cookie"
-                      :auto-size="{ minRows: 3, maxRows: 5 }"
+                  <AppField :label="t('builtinFeatures.thirdPartyAccounts.cookie')" :hint="section.cookieExtra || t('builtinFeatures.thirdPartyAccounts.keepCookie')">
+                    <AppTextarea
+                      v-model="drafts[accountKey(account)].cookie"
+                      :rows="3" :max-rows="5"
                       autocomplete="off"
                       spellcheck="false"
                       :placeholder="section.cookiePlaceholder"
                     />
-                  </a-form-item>
+                  </AppField>
                   <div
                     v-if="section.supportsQRCode && qrLogins[accountKey(account)]"
                     :class="['qr-panel', `qr-panel--${qrLogins[accountKey(account)].state}`]"
                     aria-live="polite"
                   >
-                    <a-qrcode
+                    <AppQRCode
                       :value="qrLogins[accountKey(account)].qrcodeUrl"
                       :status="qrStatus(qrLogins[accountKey(account)])"
                       :size="168"
-                      bordered
+
                       @refresh="startQRCodeLogin(accountKey(account))"
                     />
                     <div>
@@ -939,21 +946,21 @@ function timeText(value?: string | null) {
                     </div>
                   </div>
                   <div class="account-editor-actions">
-                    <a-button v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[accountKey(account)]?.loginId" @click="startQRCodeLogin(accountKey(account))">
-                      <template #icon><QrcodeOutlined /></template>
+                    <AppButton v-if="section.supportsQRCode" :loading="qrcodeCreating || qrcodePollingLoginId === qrLogins[accountKey(account)]?.loginId" @click="startQRCodeLogin(accountKey(account))">
+                      <template #icon><QrCodeIcon /></template>
                       {{ qrActionText(qrLogins[accountKey(account)]) }}
-                    </a-button>
-                    <a-button danger :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)">
-                      <template #icon><DeleteOutlined /></template>
+                    </AppButton>
+                    <AppButton :loading="deletingAccountId === operationKey(account.platform, account.account_id)" @click="requestDeleteAccount(account)" variant="destructive">
+                      <template #icon><Trash2Icon /></template>
                       {{ t('builtinFeatures.thirdPartyAccounts.delete') }}
-                    </a-button>
-                    <a-button @click="cancelEdit(accountKey(account))">
+                    </AppButton>
+                    <AppButton @click="cancelEdit(accountKey(account))">
                       {{ t('builtinFeatures.thirdPartyAccounts.cancel') }}
-                    </a-button>
-                    <a-button type="primary" :loading="savingAccountId === operationKey(account.platform, account.account_id)" @click="saveDraft(accountKey(account))">
-                      <template #icon><SaveOutlined /></template>
+                    </AppButton>
+                    <AppButton variant="default" :loading="savingAccountId === operationKey(account.platform, account.account_id)" @click="saveDraft(accountKey(account))">
+                      <template #icon><SaveIcon /></template>
                       {{ t('builtinFeatures.thirdPartyAccounts.save') }}
-                    </a-button>
+                    </AppButton>
                   </div>
                 </div>
               </article>
@@ -963,20 +970,19 @@ function timeText(value?: string | null) {
       </section>
     </div>
 
-    <a-modal
-      :open="Boolean(deleteCandidate)"
+    <AppConfirmDialog
+      :open="deleteOpen"
       :title="t('builtinFeatures.thirdPartyAccounts.deleteConfirmTitle')"
-      :ok-text="t('builtinFeatures.thirdPartyAccounts.deleteConfirmAction')"
+      :description="deleteCandidate ? t('builtinFeatures.thirdPartyAccounts.deleteConfirmBody', { account: displayName(deleteCandidate), platform: platformLabel(deleteCandidate.platform) }) : ''"
+      :confirm-text="t('builtinFeatures.thirdPartyAccounts.deleteConfirmAction')"
       :cancel-text="t('builtinFeatures.thirdPartyAccounts.cancel')"
-      :confirm-loading="Boolean(deleteCandidate && deletingAccountId === operationKey(deleteCandidate.platform, deleteCandidate.account_id))"
-      ok-type="danger"
-      @cancel="deleteCandidate = null"
-      @ok="deleteCandidate && deleteAccount(deleteCandidate)"
-    >
-      <p v-if="deleteCandidate">
-        {{ t('builtinFeatures.thirdPartyAccounts.deleteConfirmBody', { account: displayName(deleteCandidate), platform: platformLabel(deleteCandidate.platform) }) }}
-      </p>
-    </a-modal>
+      :busy="Boolean(deleteCandidate && deletingAccountId === operationKey(deleteCandidate.platform, deleteCandidate.account_id))"
+      :fallback-focus="deleteCandidate ? `[data-add-platform='${deleteCandidate.platform}']` : undefined"
+      danger
+      @cancel="deleteOpen = false"
+      @after-close="deleteCandidate = null"
+      @confirm="deleteCandidate && deleteAccount(deleteCandidate)"
+    />
   </AppPage>
 </template>
 
@@ -1205,7 +1211,7 @@ function timeText(value?: string | null) {
   color: var(--muted);
 }
 
-.account-avatar :deep(.ant-avatar-string) {
+.account-avatar :deep(.app-avatar-text) {
   inset: 0 !important;
   display: block;
   width: 100%;
@@ -1229,7 +1235,7 @@ function timeText(value?: string | null) {
   min-width: 0;
 }
 
-.account-card__badges :deep(.ant-tag) {
+.account-card__badges :deep(.app-tag) {
   margin-inline-end: 0;
 }
 
@@ -1288,22 +1294,22 @@ function timeText(value?: string | null) {
   gap: var(--space-sm);
 }
 
-.account-editor :deep(.ant-form-item) {
+.account-editor :deep(.app-field) {
   margin-bottom: 0;
   min-width: 0;
 }
 
-.account-editor :deep(.ant-form-item-control-input),
-.account-editor :deep(.ant-form-item-control-input-content),
-.account-editor :deep(.ant-input),
-.account-editor :deep(.ant-input-affix-wrapper),
-.account-editor :deep(.ant-switch),
+.account-editor :deep(.app-field-control),
+.account-editor :deep(.app-field-control),
+.account-editor :deep(.app-input),
+.account-editor :deep(.app-input-wrapper),
+.account-editor :deep(.app-switch),
 .account-editor :deep(textarea) {
   max-width: 100%;
 }
 
-.account-editor :deep(.ant-input),
-.account-editor :deep(.ant-input-affix-wrapper),
+.account-editor :deep(.app-input),
+.account-editor :deep(.app-input-wrapper),
 .account-editor :deep(textarea) {
   width: 100%;
 }
@@ -1375,12 +1381,12 @@ function timeText(value?: string | null) {
     flex-direction: column;
   }
 
-  .accounts-panel__actions :deep(.ant-btn),
-  .accounts-empty__actions :deep(.ant-btn),
-  .platform-section__header :deep(.ant-btn),
-  .account-card__actions :deep(.ant-btn),
-  .account-editor-actions :deep(.ant-btn),
-  .accounts-empty :deep(.ant-btn) {
+  .accounts-panel__actions :deep(.app-button),
+  .accounts-empty__actions :deep(.app-button),
+  .platform-section__header :deep(.app-button),
+  .account-card__actions :deep(.app-button),
+  .account-editor-actions :deep(.app-button),
+  .accounts-empty :deep(.app-button) {
     width: 100%;
   }
 }

@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -53,7 +52,7 @@ describe('RateLimitsPage', () => {
 
     const wrapper = mount(RateLimitsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -64,7 +63,7 @@ describe('RateLimitsPage', () => {
 
     await getRateLimitInput(wrapper, '10/60s').vm.$emit('update:value', '20/60s')
     await getRateLimitInput(wrapper, '30/60s').vm.$emit('update:value', '60/60s')
-    await wrapper.getComponent({ name: 'ASwitch' }).vm.$emit('update:checked', false)
+    await wrapper.getComponent({ name: 'AppSwitch' }).vm.$emit('update:modelValue', false)
     await getRateLimitInput(wrapper, '20/10s').vm.$emit('update:value', '30/10s')
     await getRateLimitInput(wrapper, '5/5s').vm.$emit('update:value', '12/1m')
     await flushPromises()

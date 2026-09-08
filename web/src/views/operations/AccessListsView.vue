@@ -1,4 +1,13 @@
 <script setup lang="ts">
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSwitch from '@/components/AppSwitch.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppDataTable from '@/components/AppDataTable.vue'
+import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
+import AppButton from '@/components/AppButton.vue'
+import AppAlert from '@/components/AppAlert.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -36,6 +45,8 @@ const whitelistActionError = ref<string | null>(null)
 const blacklistMutating = ref(false)
 const whitelistMutating = ref(false)
 const whitelistConfirmVisible = ref(false)
+const removeOpen = ref(false)
+const removeCandidate = ref<{ kind: 'whitelist' | 'blacklist'; entry: BlacklistEntry } | null>(null)
 
 // Search filters
 const whitelistSearchQuery = ref('')
@@ -162,7 +173,7 @@ const filteredWhitelistEntries = computed(() => {
 
 // Data sources including inline draft rows
 const whitelistTableData = computed(() => {
-  const list = [...filteredWhitelistEntries.value]
+  const list: (BlacklistEntry & { isDraft?: boolean })[] = [...filteredWhitelistEntries.value]
   if (isAddingWhitelist.value) {
     list.unshift({
       entry_type: whitelistDraft.entry_type,
@@ -170,13 +181,13 @@ const whitelistTableData = computed(() => {
       reason: whitelistDraft.reason,
       created_at: '',
       isDraft: true,
-    } as any)
+    })
   }
   return list
 })
 
 const blacklistTableData = computed(() => {
-  const list = [...filteredBlacklistEntries.value]
+  const list: (BlacklistEntry & { isDraft?: boolean })[] = [...filteredBlacklistEntries.value]
   if (isAddingBlacklist.value) {
     list.unshift({
       entry_type: blacklistDraft.entry_type,
@@ -184,7 +195,7 @@ const blacklistTableData = computed(() => {
       reason: blacklistDraft.reason,
       created_at: '',
       isDraft: true,
-    } as any)
+    })
   }
   return list
 })
@@ -201,11 +212,11 @@ const scopeFilterOptions = computed(() => [
 ])
 
 const tableColumns = computed(() => [
-  { title: t('accessLists.table.columns.type'), key: 'type', dataIndex: 'entry_type', width: 90, align: 'center' as const },
-  { title: t('accessLists.table.columns.targetId'), key: 'targetId', dataIndex: 'target_id', width: 180 },
-  { title: t('accessLists.table.columns.reason'), key: 'reason', dataIndex: 'reason' },
-  { title: t('accessLists.table.columns.createdAt'), key: 'createdAt', dataIndex: 'created_at', width: 170 },
-  { title: t('accessLists.table.columns.actions'), key: 'actions', width: 120, align: 'center' as const, fixed: 'right' as const },
+  { label: t('accessLists.table.columns.type'), key: 'type', width: 120, align: 'center' as const },
+  { label: t('accessLists.table.columns.targetId'), key: 'targetId', width: 180 },
+  { label: t('accessLists.table.columns.reason'), key: 'reason' },
+  { label: t('accessLists.table.columns.createdAt'), key: 'createdAt', width: 170 },
+  { label: t('accessLists.table.columns.actions'), key: 'actions', width: 120, align: 'center' as const },
 ])
 
 function getEntryTypeLabel(type: GovernanceEntryType) {
@@ -213,7 +224,7 @@ function getEntryTypeLabel(type: GovernanceEntryType) {
 }
 
 function getEntryTypeTagColor(type: GovernanceEntryType) {
-  return type === 'user' ? 'blue' : 'purple'
+  return type === 'user' ? 'info' : 'neutral'
 }
 
 async function loadAccessLists() {
@@ -237,6 +248,7 @@ async function removeBlacklistEntry(entry: BlacklistEntry) {
   blacklistActionError.value = null
   try {
     await governanceStore.removeBlacklistEntry(entry.entry_type, entry.target_id)
+    removeOpen.value = false
     notifySuccess(t('accessLists.feedback.blacklistRemoved'))
   } catch (error) {
     blacklistActionError.value = getDisplayErrorMessage(error)
@@ -250,6 +262,7 @@ async function removeWhitelistEntry(entry: BlacklistEntry) {
   whitelistActionError.value = null
   try {
     await governanceStore.removeWhitelistEntry(entry.entry_type, entry.target_id)
+    removeOpen.value = false
     notifySuccess(t('accessLists.feedback.whitelistRemoved'))
   } catch (error) {
     whitelistActionError.value = getDisplayErrorMessage(error)
@@ -409,9 +422,9 @@ onMounted(() => {
   <AppPage :title="t('accessLists.title')" :description="t('accessLists.subtitle')" width="form">
     <template #extra>
       <div class="table-actions">
-        <a-button data-testid="access-lists-open-commands" type="primary" @click="navigate(buildCommandsLocation())">
+        <AppButton data-testid="access-lists-open-commands" variant="default" @click="navigate(buildCommandsLocation())">
           {{ t('accessLists.actions.openCommands') }}
-        </a-button>
+        </AppButton>
       </div>
     </template>
 
@@ -435,46 +448,45 @@ onMounted(() => {
             <div class="access-lists-card-header__copy">
               <div class="access-lists-card-header__title-row">
                 <strong>{{ t('accessLists.cards.whitelistTitle') }}</strong>
-                <a-tooltip :title="t('accessLists.cards.whitelistDescription')">
+                <AppTooltip :title="t('accessLists.cards.whitelistDescription')">
                   <button type="button" class="access-lists-help-badge" :aria-label="t('accessLists.cards.whitelistHelp')">?</button>
-                </a-tooltip>
+                </AppTooltip>
               </div>
             </div>
             <div class="access-lists-card-header__meta">
               <span class="access-lists-card-header__count">{{ totalWhitelistEntries }}</span>
-              <a-tag :color="whitelistEnabled ? 'warning' : 'default'">
+              <AppTag :tone="whitelistEnabled ? 'warning' : 'neutral'">
                 {{ whitelistEnabled ? t('accessLists.summary.whitelistEnabled') : t('accessLists.summary.whitelistDisabled') }}
-              </a-tag>
-              <a-switch
-                :checked="whitelistEnabled"
-                :loading="whitelistMutating"
+              </AppTag>
+              <AppSwitch
+                :model-value="whitelistEnabled"
+                :disabled="whitelistMutating"
                 :aria-label="t('accessLists.summary.whitelistStatus')"
                 data-testid="access-lists-whitelist-enabled"
-                @change="handleWhitelistToggle"
+                @update:model-value="handleWhitelistToggle"
               />
             </div>
           </div>
 
-          <a-alert
+          <AppAlert
             v-if="whitelistEnabled && totalWhitelistEntries === 0"
-            type="warning"
-            show-icon
+            tone="warning"
             data-testid="access-lists-whitelist-empty-warning"
-            :message="t('accessLists.whitelist.emptyWarningTitle')"
+            :title="t('accessLists.whitelist.emptyWarningTitle')"
             :description="t('accessLists.whitelist.emptyWarningDescription')"
           />
 
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
               <div class="toolbar-left-group">
-                <a-select
-                  v-model:value="whitelistScopeFilter"
+                <AppSelect
+                  v-model="whitelistScopeFilter"
                   :options="scopeFilterOptions"
                   class="access-lists-toolbar__filter"
                   :aria-label="t('accessLists.filters.all')"
                 />
-                <a-input
-                  v-model:value="whitelistSearchQuery"
+                <AppInput
+                  v-model="whitelistSearchQuery"
                   :placeholder="t('accessLists.entryForm.searchPlaceholder')"
                   class="access-lists-toolbar__search"
                   allow-clear
@@ -486,26 +498,26 @@ onMounted(() => {
                       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                   </template>
-                </a-input>
+                </AppInput>
               </div>
               <div class="access-lists-toolbar__actions">
                 <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredWhitelistEntries.length }) }}</span>
-                <a-button type="primary" data-testid="access-lists-whitelist-add-btn" :disabled="isAddingWhitelist" @click="startAddWhitelist">
+                <AppButton variant="default" data-testid="access-lists-whitelist-add-btn" :disabled="isAddingWhitelist" @click="startAddWhitelist">
                   {{ t('accessLists.actions.addEntry') }}
-                </a-button>
+                </AppButton>
               </div>
             </div>
           </div>
 
-          <a-table
+          <AppDataTable
             class="access-lists-data-table app-data-table"
             :columns="tableColumns"
-            :data-source="whitelistTableData"
-            :pagination="false"
-            :row-key="(row: any) => row.isDraft ? 'draft-whitelist' : `${row.entry_type}-${row.target_id}`"
+            :rows="whitelistTableData"
+            :min-width="760"
+            :row-key="(row) => row.isDraft ? 'draft-whitelist' : `${row.entry_type}-${row.target_id}`"
             :loading="whitelistLoading && !whitelist"
           >
-            <template #emptyText>
+            <template #empty>
               <div class="access-lists-empty-container">
                 <div class="empty-graphic">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -519,29 +531,30 @@ onMounted(() => {
               </div>
             </template>
 
-            <template #bodyCell="{ column, record }">
+            <template #cell="{ column, row: record }">
               <template v-if="record.isDraft">
                 <template v-if="column.key === 'type'">
-                  <a-select
-                    v-model:value="whitelistDraft.entry_type"
+                  <AppSelect
+                    v-model="whitelistDraft.entry_type"
                     :options="scopeOptions"
-                    size="small"
                     style="width: 100%"
                     data-testid="whitelist-draft-type"
+                    :aria-label="t('accessLists.table.columns.type')"
                   />
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
                   <div class="inline-edit-cell">
-                    <a-input
-                      v-model:value="whitelistDraft.target_id"
+                    <AppInput
+                      v-model="whitelistDraft.target_id"
                       :placeholder="t('accessLists.entryForm.placeholderTargetId')"
-                      size="small"
-                      :status="whitelistDraftErrors.target_id ? 'error' : ''"
+                      :aria-invalid="Boolean(whitelistDraftErrors.target_id) || undefined"
+                      :aria-label="t('accessLists.table.columns.targetId')"
+                      :aria-describedby="whitelistDraftErrors.target_id ? 'whitelist-draft-target_id-error' : undefined"
                       data-testid="whitelist-draft-target-id"
                       @input="whitelistDraftErrors.target_id = ''"
                     />
-                    <div v-if="whitelistDraftErrors.target_id" class="inline-error-text">
+                    <div v-if="whitelistDraftErrors.target_id" id="whitelist-draft-target_id-error" class="inline-error-text" role="alert">
                       {{ whitelistDraftErrors.target_id }}
                     </div>
                   </div>
@@ -549,15 +562,16 @@ onMounted(() => {
 
                 <template v-else-if="column.key === 'reason'">
                   <div class="inline-edit-cell">
-                    <a-input
-                      v-model:value="whitelistDraft.reason"
+                    <AppInput
+                      v-model="whitelistDraft.reason"
                       :placeholder="t('accessLists.entryForm.placeholderReason')"
-                      size="small"
-                      :status="whitelistDraftErrors.reason ? 'error' : ''"
+                      :aria-invalid="Boolean(whitelistDraftErrors.reason) || undefined"
+                      :aria-label="t('accessLists.table.columns.reason')"
+                      :aria-describedby="whitelistDraftErrors.reason ? 'whitelist-draft-reason-error' : undefined"
                       data-testid="whitelist-draft-reason"
                       @input="whitelistDraftErrors.reason = ''"
                     />
-                    <div v-if="whitelistDraftErrors.reason" class="inline-error-text">
+                    <div v-if="whitelistDraftErrors.reason" id="whitelist-draft-reason-error" class="inline-error-text" role="alert">
                       {{ whitelistDraftErrors.reason }}
                     </div>
                   </div>
@@ -569,33 +583,33 @@ onMounted(() => {
 
                 <template v-else-if="column.key === 'actions'">
                   <div class="inline-actions">
-                    <a-button
-                      type="link"
-                      size="small"
+                    <AppButton
+                      variant="link"
+                      size="sm"
                       :loading="whitelistAdding"
                       data-testid="whitelist-draft-save"
                       @click="saveWhitelistInline"
                     >
                       {{ t('accessLists.modal.save') }}
-                    </a-button>
-                    <a-button
-                      type="link"
-                      size="small"
+                    </AppButton>
+                    <AppButton
+                      variant="link"
+                      size="sm"
                       class="text-muted-btn"
                       data-testid="whitelist-draft-cancel"
                       @click="cancelWhitelistInline"
                     >
                       {{ t('accessLists.modal.cancel') }}
-                    </a-button>
+                    </AppButton>
                   </div>
                 </template>
               </template>
 
               <template v-else>
                 <template v-if="column.key === 'type'">
-                  <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                  <AppTag :tone="getEntryTypeTagColor(record.entry_type)">
                     {{ getEntryTypeLabel(record.entry_type) }}
-                  </a-tag>
+                  </AppTag>
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
@@ -625,19 +639,11 @@ onMounted(() => {
                 </template>
 
                 <template v-else-if="column.key === 'actions'">
-                  <a-popconfirm
-                    :title="t('accessLists.confirm.removeTitle')"
-                    :description="t('accessLists.confirm.removeDescription')"
-                    @confirm="removeWhitelistEntry(record)"
-                  >
-                    <a-button type="link" danger size="small" class="remove-btn">
-                      {{ t('accessLists.entryForm.remove') }}
-                    </a-button>
-                  </a-popconfirm>
+                  <AppButton variant="destructive" size="sm" class="remove-btn" @click="removeCandidate = { kind: 'whitelist', entry: record }; removeOpen = true">{{ t('accessLists.entryForm.remove') }}</AppButton>
                 </template>
               </template>
             </template>
-          </a-table>
+          </AppDataTable>
         </div>
       </AppCard>
 
@@ -652,9 +658,9 @@ onMounted(() => {
             <div class="access-lists-card-header__copy">
               <div class="access-lists-card-header__title-row">
                 <strong>{{ t('accessLists.cards.blacklistTitle') }}</strong>
-                <a-tooltip :title="t('accessLists.cards.blacklistDescription')">
+                <AppTooltip :title="t('accessLists.cards.blacklistDescription')">
                   <button type="button" class="access-lists-help-badge" :aria-label="t('accessLists.cards.blacklistHelp')">?</button>
-                </a-tooltip>
+                </AppTooltip>
               </div>
             </div>
             <div class="access-lists-card-header__meta">
@@ -665,14 +671,14 @@ onMounted(() => {
           <div class="access-lists-toolbar">
             <div class="access-lists-toolbar__row">
               <div class="toolbar-left-group">
-                <a-select
-                  v-model:value="blacklistScopeFilter"
+                <AppSelect
+                  v-model="blacklistScopeFilter"
                   :options="scopeFilterOptions"
                   class="access-lists-toolbar__filter"
                   :aria-label="t('accessLists.filters.all')"
                 />
-                <a-input
-                  v-model:value="blacklistSearchQuery"
+                <AppInput
+                  v-model="blacklistSearchQuery"
                   :placeholder="t('accessLists.entryForm.searchPlaceholder')"
                   class="access-lists-toolbar__search"
                   allow-clear
@@ -684,26 +690,26 @@ onMounted(() => {
                       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                   </template>
-                </a-input>
+                </AppInput>
               </div>
               <div class="access-lists-toolbar__actions">
                 <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredBlacklistEntries.length }) }}</span>
-                <a-button type="primary" data-testid="access-lists-blacklist-add-btn" :disabled="isAddingBlacklist" @click="startAddBlacklist">
+                <AppButton variant="default" data-testid="access-lists-blacklist-add-btn" :disabled="isAddingBlacklist" @click="startAddBlacklist">
                   {{ t('accessLists.actions.addEntry') }}
-                </a-button>
+                </AppButton>
               </div>
             </div>
           </div>
 
-          <a-table
+          <AppDataTable
             class="access-lists-data-table app-data-table"
             :columns="tableColumns"
-            :data-source="blacklistTableData"
-            :pagination="false"
-            :row-key="(row: any) => row.isDraft ? 'draft-blacklist' : `${row.entry_type}-${row.target_id}`"
+            :rows="blacklistTableData"
+            :min-width="760"
+            :row-key="(row) => row.isDraft ? 'draft-blacklist' : `${row.entry_type}-${row.target_id}`"
             :loading="blacklistLoading && !blacklist"
           >
-            <template #emptyText>
+            <template #empty>
               <div class="access-lists-empty-container">
                 <div class="empty-graphic">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -717,29 +723,30 @@ onMounted(() => {
               </div>
             </template>
 
-            <template #bodyCell="{ column, record }">
+            <template #cell="{ column, row: record }">
               <template v-if="record.isDraft">
                 <template v-if="column.key === 'type'">
-                  <a-select
-                    v-model:value="blacklistDraft.entry_type"
+                  <AppSelect
+                    v-model="blacklistDraft.entry_type"
                     :options="scopeOptions"
-                    size="small"
                     style="width: 100%"
                     data-testid="blacklist-draft-type"
+                    :aria-label="t('accessLists.table.columns.type')"
                   />
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
                   <div class="inline-edit-cell">
-                    <a-input
-                      v-model:value="blacklistDraft.target_id"
+                    <AppInput
+                      v-model="blacklistDraft.target_id"
                       :placeholder="t('accessLists.entryForm.placeholderTargetId')"
-                      size="small"
-                      :status="blacklistDraftErrors.target_id ? 'error' : ''"
+                      :aria-invalid="Boolean(blacklistDraftErrors.target_id) || undefined"
+                      :aria-label="t('accessLists.table.columns.targetId')"
+                      :aria-describedby="blacklistDraftErrors.target_id ? 'blacklist-draft-target_id-error' : undefined"
                       data-testid="blacklist-draft-target-id"
                       @input="blacklistDraftErrors.target_id = ''"
                     />
-                    <div v-if="blacklistDraftErrors.target_id" class="inline-error-text">
+                    <div v-if="blacklistDraftErrors.target_id" id="blacklist-draft-target_id-error" class="inline-error-text" role="alert">
                       {{ blacklistDraftErrors.target_id }}
                     </div>
                   </div>
@@ -747,15 +754,16 @@ onMounted(() => {
 
                 <template v-else-if="column.key === 'reason'">
                   <div class="inline-edit-cell">
-                    <a-input
-                      v-model:value="blacklistDraft.reason"
+                    <AppInput
+                      v-model="blacklistDraft.reason"
                       :placeholder="t('accessLists.entryForm.placeholderReason')"
-                      size="small"
-                      :status="blacklistDraftErrors.reason ? 'error' : ''"
+                      :aria-invalid="Boolean(blacklistDraftErrors.reason) || undefined"
+                      :aria-label="t('accessLists.table.columns.reason')"
+                      :aria-describedby="blacklistDraftErrors.reason ? 'blacklist-draft-reason-error' : undefined"
                       data-testid="blacklist-draft-reason"
                       @input="blacklistDraftErrors.reason = ''"
                     />
-                    <div v-if="blacklistDraftErrors.reason" class="inline-error-text">
+                    <div v-if="blacklistDraftErrors.reason" id="blacklist-draft-reason-error" class="inline-error-text" role="alert">
                       {{ blacklistDraftErrors.reason }}
                     </div>
                   </div>
@@ -767,33 +775,33 @@ onMounted(() => {
 
                 <template v-else-if="column.key === 'actions'">
                   <div class="inline-actions">
-                    <a-button
-                      type="link"
-                      size="small"
+                    <AppButton
+                      variant="link"
+                      size="sm"
                       :loading="blacklistAdding"
                       data-testid="blacklist-draft-save"
                       @click="saveBlacklistInline"
                     >
                       {{ t('accessLists.modal.save') }}
-                    </a-button>
-                    <a-button
-                      type="link"
-                      size="small"
+                    </AppButton>
+                    <AppButton
+                      variant="link"
+                      size="sm"
                       class="text-muted-btn"
                       data-testid="blacklist-draft-cancel"
                       @click="cancelBlacklistInline"
                     >
                       {{ t('accessLists.modal.cancel') }}
-                    </a-button>
+                    </AppButton>
                   </div>
                 </template>
               </template>
 
               <template v-else>
                 <template v-if="column.key === 'type'">
-                  <a-tag :color="getEntryTypeTagColor(record.entry_type)">
+                  <AppTag :tone="getEntryTypeTagColor(record.entry_type)">
                     {{ getEntryTypeLabel(record.entry_type) }}
-                  </a-tag>
+                  </AppTag>
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
@@ -823,33 +831,37 @@ onMounted(() => {
                 </template>
 
                 <template v-else-if="column.key === 'actions'">
-                  <a-popconfirm
-                    :title="t('accessLists.confirm.removeTitle')"
-                    :description="t('accessLists.confirm.removeDescription')"
-                    @confirm="removeBlacklistEntry(record)"
-                  >
-                    <a-button type="link" danger size="small" class="remove-btn">
-                      {{ t('accessLists.entryForm.remove') }}
-                    </a-button>
-                  </a-popconfirm>
+                  <AppButton variant="destructive" size="sm" class="remove-btn" @click="removeCandidate = { kind: 'blacklist', entry: record }; removeOpen = true">{{ t('accessLists.entryForm.remove') }}</AppButton>
                 </template>
               </template>
             </template>
-          </a-table>
+          </AppDataTable>
         </div>
       </AppCard>
     </div>
 
-    <a-modal
-      v-model:open="whitelistConfirmVisible"
+    <AppConfirmDialog
+      :open="whitelistConfirmVisible"
       data-testid="access-lists-whitelist-confirm-modal"
       :title="t('accessLists.whitelist.enableConfirmTitle')"
-      :ok-text="t('accessLists.whitelist.enableConfirmAction')"
-      :confirm-loading="whitelistMutating"
-      @ok="confirmEmptyWhitelistEnable"
-    >
-      <p>{{ t('accessLists.whitelist.enableConfirmDescription') }}</p>
-    </a-modal>
+      :description="t('accessLists.whitelist.enableConfirmDescription')"
+      :confirm-text="t('accessLists.whitelist.enableConfirmAction')"
+      :busy="whitelistMutating"
+      @cancel="whitelistConfirmVisible = false"
+      @confirm="confirmEmptyWhitelistEnable"
+    />
+    <AppConfirmDialog
+      :open="removeOpen"
+      :title="t('accessLists.confirm.removeTitle')"
+      :description="t('accessLists.confirm.removeDescription')"
+      :confirm-text="t('accessLists.entryForm.remove')"
+      :busy="blacklistMutating || whitelistMutating"
+      :fallback-focus="removeCandidate ? `[data-testid='access-lists-${removeCandidate.kind}-add-btn']` : undefined"
+      danger
+      @cancel="removeOpen = false"
+      @after-close="removeCandidate = null"
+      @confirm="removeCandidate && (removeCandidate.kind === 'whitelist' ? removeWhitelistEntry(removeCandidate.entry) : removeBlacklistEntry(removeCandidate.entry))"
+    />
   </AppPage>
 </template>
 
@@ -994,7 +1006,7 @@ onMounted(() => {
   border: 1px solid var(--border);
 }
 
-.access-lists-data-table :deep(.ant-table-thead > tr > th) {
+.access-lists-data-table :deep(thead > tr > th) {
   background: color-mix(in srgb, var(--surface-accent) 25%, var(--surface));
   font-weight: 600;
   font-size: 0.85rem;
@@ -1002,7 +1014,7 @@ onMounted(() => {
   border-bottom: 1px solid var(--border);
 }
 
-.access-lists-data-table :deep(.ant-table-row:hover > td) {
+.access-lists-data-table :deep(tbody tr:hover > td) {
   background: var(--surface-accent) !important;
 }
 
@@ -1048,8 +1060,9 @@ onMounted(() => {
   .copy-icon-hover {
     color: var(--muted);
     opacity: 0;
-    width: 0;
-    transition: opacity 0.15s ease, width 0.15s ease;
+    width: 12px;
+    margin-left: 2px;
+    transition: opacity var(--motion-fast) var(--motion-easing);
     display: inline-flex;
     align-items: center;
   }
@@ -1060,8 +1073,6 @@ onMounted(() => {
 
     .copy-icon-hover {
       opacity: 1;
-      width: 12px;
-      margin-left: 2px;
     }
   }
 

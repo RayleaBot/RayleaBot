@@ -44,8 +44,11 @@ function measureContent() {
 }
 useResizeObserver([header, bodyContent, footer], measureContent)
 let trigger: HTMLElement | null = null
+// Owners may clear the deleted object in afterClose before Reka restores focus.
+let fallbackFocus: string | undefined
 watch(() => props.open, (open) => {
   if (open) {
+    fallbackFocus = props.fallbackFocus
     activate()
     if (!trigger || !active.value) trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
     active.value = true
@@ -73,7 +76,7 @@ function restoreFocus(event: Event) {
   void nextTick(() => {
     if (props.open) return
     const target = trigger?.isConnected && trigger !== document.body ? trigger
-      : props.fallbackFocus ? document.querySelector<HTMLElement>(props.fallbackFocus) : null
+      : fallbackFocus ? document.querySelector<HTMLElement>(fallbackFocus) : null
     target?.focus()
   })
 }
