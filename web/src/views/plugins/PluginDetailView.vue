@@ -1033,11 +1033,6 @@ onUnmounted(() => {
   border-color: var(--border-attention);
 }
 
-.plugin-trust-attention {
-  border-color: var(--border-attention);
-  background: var(--surface-attention);
-}
-
 .status-chip__label {
   color: var(--muted);
   font-weight: 550;
@@ -1419,10 +1414,8 @@ onUnmounted(() => {
   display: grid;
   gap: 4px;
   margin: 12px;
-  padding: 10px 14px;
-  border: 1px solid var(--border-warning);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface-warning) 70%, var(--surface));
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
 
   strong {
     color: var(--text);

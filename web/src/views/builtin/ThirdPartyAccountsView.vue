@@ -1266,9 +1266,7 @@ function timeText(value?: string | null) {
 
 .account-card__error {
   margin: 0;
-  padding: 7px 9px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-danger);
+  padding: 7px 0;
   color: var(--text-danger);
   font-size: 13px;
   line-height: 1.45;
@@ -1321,16 +1319,6 @@ function timeText(value?: string | null) {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-strong);
-}
-
-.qr-panel--verification_required {
-  border-color: var(--border-attention);
-  background: var(--surface-attention);
-}
-
-.qr-panel--failed {
-  border-color: var(--border-danger);
-  background: var(--surface-danger);
 }
 
 .qr-panel > div:last-child {

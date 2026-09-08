@@ -207,17 +207,10 @@
   text-align: center;
 }
 
-.issue-alert-card,
-.event-item {
-  padding: 14px 16px;
-  border: 1px solid var(--border-danger);
-  border-radius: 12px;
-  background: var(--surface-danger);
-}
-
-.issue-alert-card--warning {
-  border-color: var(--border-warning);
-  background: var(--surface-warning);
+.issue-alert-card {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
 }
 
 .issue-alert-card__header {
@@ -239,7 +232,9 @@
 }
 
 .event-item {
-  border-color: var(--border);
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
   background: var(--surface-soft);
 }
 

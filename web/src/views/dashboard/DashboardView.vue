@@ -512,9 +512,7 @@ useToastFeedback(protocolIssueToast)
 .diagnostics-subsystem--warning .diagnostics-subsystem__icon { color: var(--warning); }
 .diagnostics-subsystem--danger .diagnostics-subsystem__icon { color: var(--danger); }
 .diagnostics-issues, .issues-list { display: grid; gap: 12px; margin-top: 16px; }
-.diagnostics-issue-card, .issue-alert-card { min-width: 0; padding: 12px; border-radius: 8px; border: 0; background: var(--surface-danger); color: var(--text-danger); }
-.diagnostics-issue-card--warning, .issue-alert-card--warning { background: var(--surface-warning); color: var(--text-warning); }
-.diagnostics-issue-card--success { background: var(--surface-success); }
+.diagnostics-issue-card, .issue-alert-card { min-width: 0; padding: 12px 0; border-radius: 0; border: 0; border-bottom: 1px solid var(--border); background: transparent; color: var(--text); }
 .diagnostics-issue-card__header, .issue-alert-card__header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
 .issue-alert-card__summary { font-weight: 600; }
 .issue-alert-card__remediation { margin-top: 8px; color: inherit; font-size: 13px; line-height: 1.5; }

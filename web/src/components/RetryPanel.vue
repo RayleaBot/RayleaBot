@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppButton from '@/components/AppButton.vue'
+import { CircleAlertIcon, RotateCwIcon } from '@lucide/vue'
 import { computed, getCurrentInstance } from 'vue'
 import type { Router } from 'vue-router'
 
@@ -55,11 +56,13 @@ function goHome() {
       @retry="$emit('retry')"
     />
     <div v-else class="retry-panel__inline">
+      <CircleAlertIcon class="retry-panel__icon" :size="28" aria-hidden="true" />
       <div class="retry-panel__copy">
         <strong>{{ title }}</strong>
         <span>{{ description }}</span>
       </div>
-      <AppButton variant="default" :loading="loading" @click="$emit('retry')">
+      <AppButton :loading="loading" @click="$emit('retry')">
+        <template #icon><RotateCwIcon :size="16" /></template>
         {{ retryLabel ?? '重试' }}
       </AppButton>
     </div>
@@ -68,37 +71,35 @@ function goHome() {
 
 <style scoped lang="scss">
 .retry-panel__inline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
-  border-radius: var(--radius-md);
-  background: var(--surface-danger);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 18px;
+  min-height: 240px;
+  padding: 32px 20px;
+  text-align: center;
 }
+
+.retry-panel__icon { color: var(--muted); }
 
 .retry-panel__copy {
   display: grid;
   gap: 4px;
   min-width: 0;
+  max-width: 52ch;
 }
 
 .retry-panel__copy strong {
   color: var(--text);
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .retry-panel__copy span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 639px) {
-  .retry-panel__inline {
-    align-items: stretch;
-    flex-direction: column;
-  }
-}
 </style>

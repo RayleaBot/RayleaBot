@@ -114,7 +114,7 @@ async function handleSubmit() {
 .auth-form :deep(.app-input-reveal) { top: 6px; right: 3px; width: 44px; height: 44px; color: var(--auth-text-muted); border-radius: 12px; }
 .auth-form :deep(.app-input-reveal:hover), .auth-form :deep(.app-input-reveal:focus-visible) { color: var(--auth-brand-foreground); background: var(--auth-brand-soft); }
 .auth-form :deep(.app-field__description) { color: var(--auth-danger); }
-.auth-form__feedback { border-radius: 16px; }
+.auth-form__feedback { color: var(--auth-text); }
 .auth-form__submit { height: 50px; min-height: 50px; margin-top: 6px; color: var(--auth-on-brand); border-color: var(--auth-brand-fill); border-radius: 16px; background: var(--auth-brand-fill); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--auth-brand-fill) 50%, transparent), inset 0 1px 0 color-mix(in srgb, var(--auth-glass-edge) 35%, transparent); font-weight: 600; }
 .auth-form__submit:not(:disabled):hover { background: var(--auth-brand-fill-hover); }
 .auth-form__submit:not(:disabled):active { background: var(--auth-brand-fill-pressed); box-shadow: none; }
