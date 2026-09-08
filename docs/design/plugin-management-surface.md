@@ -12,7 +12,7 @@
 ## 技术边界
 
 - 运行期页面只读取插件包内的 HTML、CSS 和 JavaScript 静态产物，不加载宿主组件运行时或全局 store。
-- 官方页面由独立插件仓库使用 Vue 3、TypeScript、Vite、按需 Ant Design Vue 和 `@rayleabot/plugin-ui` 构建；依赖随页面产物打包，不由宿主提供共享运行时。
+- 官方页面由独立插件仓库使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui` 构建；组件依赖随页面产物打包，不由宿主提供共享运行时。
 - 第三方页面不得假设宿主 CSS custom properties、字体资源或框架组件可用。
 - 页面业务交互继续只使用正式 bridge 和受保护管理接口，不增加视觉专用旁路。
 - 宿主视觉规范不修改插件 manifest、API、状态、配置或 bridge；iframe 内部配色、字体、布局和组件实现属于独立插件产物范围。

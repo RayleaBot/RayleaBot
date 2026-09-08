@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Button as AButton, Input as AInput, Select as ASelect, SelectOption as ASelectOption } from 'ant-design-vue'
 import { usePluginHost } from '@rayleabot/plugin-ui'
 
 import { normalizeSettings } from './model'
@@ -48,22 +47,21 @@ async function deleteSecret() {
 
 <template>
   <main>
-    <p class="eyebrow">GO + VUE PLUGIN EXAMPLE</p>
     <h1>配置面板示例</h1>
     <p class="intro">页面运行于插件独立域，只能通过 MessageChannel bridge v3 读写自身配置。</p>
     <section>
-      <label><span>默认城市</span><AInput v-model:value="draft.default_city" data-testid="default-city-input" /></label>
-      <label><span>温度单位</span><ASelect v-model:value="draft.unit" data-testid="unit-select"><ASelectOption value="celsius">摄氏度</ASelectOption><ASelectOption value="fahrenheit">华氏度</ASelectOption></ASelect></label>
+      <label><span>默认城市</span><input v-model="draft.default_city" data-testid="default-city-input" /></label>
+      <label><span>温度单位</span><select v-model="draft.unit" data-testid="unit-select"><option value="celsius">摄氏度</option><option value="fahrenheit">华氏度</option></select></label>
       <pre data-testid="settings-preview">{{ draft }}</pre>
-      <footer><span data-testid="settings-status">{{ status }}</span><div><AButton @click="reload">重新读取</AButton><AButton type="primary" :disabled="!draft.default_city.trim()" data-testid="save-settings" @click="save">保存</AButton></div></footer>
+      <footer><span data-testid="settings-status" role="status">{{ status }}</span><div><button type="button" @click="reload">重新读取</button><button type="button" class="primary" :disabled="!draft.default_city.trim()" data-testid="save-settings" @click="save">保存</button></div></footer>
     </section>
     <section>
       <h2>敏感配置</h2>
-      <p data-testid="secret-status">{{ secretStatus }}</p>
-      <label><span>API 密钥</span><AInput v-model:value="secretDraft" type="password" autocomplete="new-password" data-testid="secret-input" /></label>
+      <p data-testid="secret-status" role="status">{{ secretStatus }}</p>
+      <label><span>API 密钥</span><input v-model="secretDraft" type="password" autocomplete="new-password" data-testid="secret-input" /></label>
       <footer>
         <span>{{ secretConfigured ? '当前已配置' : '当前未配置' }}</span>
-        <div><AButton danger :disabled="!secretConfigured" data-testid="delete-secret" @click="deleteSecret">删除</AButton><AButton type="primary" :disabled="!secretDraft" data-testid="save-secret" @click="saveSecret">覆盖保存</AButton></div>
+        <div><button type="button" class="danger" :disabled="!secretConfigured" data-testid="delete-secret" @click="deleteSecret">删除</button><button type="button" class="primary" :disabled="!secretDraft" data-testid="save-secret" @click="saveSecret">覆盖保存</button></div>
       </footer>
     </section>
   </main>

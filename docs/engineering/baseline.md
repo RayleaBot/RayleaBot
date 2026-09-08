@@ -35,7 +35,7 @@
 | Repository scripting | Python `3.14.7` |
 | SQL generation | sqlc `v1.31.1` |
 | Plugin backend | Go `1.26.6`，`CGO_ENABLED=0` 的平台预编译 artifact |
-| Plugin UI | Vue `3.5.41` + TypeScript `5.9.3` + Vite `8.2.1` + 按需 Ant Design Vue |
+| Plugin UI | Vue `3.5.41` + TypeScript `5.9.3` + Vite `8.2.1` + `@rayleabot/plugin-ui` |
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
 | Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-6-g9d4ca21220` full GPL build；macOS arm64 使用 vanloctech `ffmpeg-2026.06.11` |

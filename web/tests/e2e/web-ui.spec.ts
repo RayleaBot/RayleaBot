@@ -809,7 +809,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   await expect(pluginFrame.getByRole('heading', { name: '配置面板示例', level: 1 })).toBeVisible()
   await expect(pluginFrame.getByTestId('settings-status')).toHaveText('配置已加载')
   await expect(pluginFrame.getByTestId('default-city-input')).toHaveValue('上海')
-  await expect(pluginFrame.getByTestId('unit-select')).toContainText('华氏度')
+  await expect(pluginFrame.getByTestId('unit-select')).toHaveValue('fahrenheit')
   await expect(pluginFrame.getByTestId('settings-preview')).toContainText('上海')
   await expect(pluginFrame.getByTestId('settings-preview')).toContainText('fahrenheit')
   await expect(pluginFrame.locator('html')).toHaveAttribute('data-theme', /^(light|dark)$/)
@@ -838,10 +838,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已配置')
 
   await pluginFrame.getByTestId('default-city-input').fill('广州')
-  const unitSelect = pluginFrame.getByTestId('unit-select').getByRole('combobox')
-  await pluginFrame.getByTestId('unit-select').click()
-  await unitSelect.press('ArrowUp')
-  await unitSelect.press('Enter')
+  await pluginFrame.getByRole('combobox', { name: '温度单位' }).selectOption('celsius')
   await Promise.all([
     page.waitForResponse((response) => (
       response.request().method() === 'PUT'
@@ -911,7 +908,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   await expect(page).toHaveURL(/panel=management-ui/)
   await expect(pluginFrame.getByTestId('settings-status')).toHaveText('配置已加载')
   await expect(pluginFrame.getByTestId('default-city-input')).toHaveValue('广州')
-  await expect(pluginFrame.getByTestId('unit-select')).toContainText('摄氏度')
+  await expect(pluginFrame.getByTestId('unit-select')).toHaveValue('celsius')
   await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥未配置')
 
   const tabLabels = await readTabLabels(page)

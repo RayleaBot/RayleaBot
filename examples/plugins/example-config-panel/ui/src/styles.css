@@ -1,5 +1,21 @@
 main { max-width: 720px; margin: 0 auto; padding: 32px; display: grid; gap: 18px; } h1, h2 { margin: 4px 0 8px; } .intro { color: var(--raylea-color-muted); margin: 0 0 4px; }
-.eyebrow { color: var(--raylea-color-primary); font-size: 11px; font-weight: 800; letter-spacing: .14em; }
 section { padding: 22px; display: grid; gap: 18px; background: var(--raylea-color-surface); border: 1px solid var(--raylea-color-border); border-radius: var(--raylea-radius); box-shadow: var(--raylea-shadow); }
 label { display: grid; gap: 7px; font-weight: 650; } pre { padding: 14px; overflow: auto; border-radius: 10px; background: var(--raylea-color-bg); color: var(--raylea-color-muted); }
 footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--raylea-color-muted); } footer div { display: flex; gap: 8px; }
+input, select, button { min-width: 0; min-height: 36px; border: 1px solid var(--raylea-color-border); border-radius: 8px; background: var(--raylea-color-surface); color: var(--raylea-color-text); font: inherit; }
+input, select { width: 100%; padding: 7px 10px; }
+button { padding: 7px 14px; cursor: pointer; }
+button:hover:not(:disabled) { background: var(--raylea-color-bg); }
+button.primary { background: var(--raylea-color-primary); color: var(--raylea-color-surface); border-color: transparent; }
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--raylea-color-primary) 88%, var(--raylea-color-text)); }
+button.danger { color: light-dark(#b32642, #f19cac); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--raylea-color-primary); outline-offset: 2px; }
+@media (max-width: 600px), (pointer: coarse) {
+  main { padding: 16px; }
+  section { padding: 16px; }
+  input, select, button { min-height: 44px; }
+  footer { align-items: stretch; flex-direction: column; }
+  footer div { flex-wrap: wrap; }
+  footer button { flex: 1; }
+}

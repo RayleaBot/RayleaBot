@@ -4,7 +4,7 @@
 
 ## 构建与文件结构
 
-- 管理页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`；需要复杂组件时按需引入 Ant Design Vue。
+- 管理页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`；界面组件及样式由插件自行打包。
 - Vite 固定 `base: "./"`。多页面内部路由只使用 hash routing，不能依赖插件域的服务端回退。
 - 插件自己的 `pnpm build` 产出 `ui/index.html` 与哈希资源；`pluginbuild.Build` 把这些文件写入同一平台 artifact。
 - Vue 资源不嵌入 Go 二进制，服务端按 `artifact.json` 中的 `ui` 文件集合独立校验和读取。
