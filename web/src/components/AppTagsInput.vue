@@ -32,7 +32,8 @@ const delimiter = computed(() => props.separators?.length
       :id="attrs.id as string || field?.id"
       :aria-label="attrs['aria-label'] as string"
       :aria-invalid="Boolean(field?.error) || undefined"
-      :aria-describedby="field?.error ? field.descriptionId : undefined"
+      :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined"
+      :aria-required="field?.required || undefined"
       :placeholder="placeholder"
       class="app-tags-input__entry"
     />
@@ -47,6 +48,6 @@ const delimiter = computed(() => props.separators?.length
 .app-tags-input__delete:hover { background: var(--surface-accent); }
 .app-tags-input__entry { flex: 1; width: 8ch; min-width: 8ch; border: 0; outline: none; background: transparent; font-size: 14px; }
 .app-tags-input[data-disabled] { opacity: .5; }
-@media (pointer: coarse) { .app-tags-input { min-height: 44px; } .app-tags-input__delete { min-width: 44px; min-height: 44px; } }
+@media (max-width: 639px), (pointer: coarse) { .app-tags-input { min-height: 44px; } .app-tags-input__delete { min-width: 44px; min-height: 44px; } }
 @media (forced-colors: active) { .app-tags-input { border-color: CanvasText; } .app-tags-input:focus-within { outline-color: Highlight; } }
 </style>

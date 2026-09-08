@@ -409,14 +409,23 @@ html[data-view-transition-kind='theme']::view-transition-new(root) {
   to { opacity: 0; transform: translateY(-2px); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .data-viewport__scroller { transition: none; }
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .data-viewport__scroller,
+  .app-input,
+  .app-number-input,
+  .app-textarea,
+  .app-select,
+  [data-slot=checkbox] { transition: none; }
+
+  [data-slot=skeleton],
+  [data-slot=popover-content],
+  [data-slot=select-content],
+  [data-slot=tooltip-content] { animation: none; }
 
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
-    animation-duration: 0.01ms !important;
-    animation-delay: 0s !important;
+    animation: none !important;
   }
 }
 

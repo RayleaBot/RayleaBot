@@ -78,6 +78,32 @@ describe('DashboardPage', () => {
     feedbackMock.useToastFeedback.mockClear()
   })
 
+  it('keeps passed checks collapsed and offers browser preparation without a recovery record', async () => {
+    const router = createDashboardRouter()
+    await router.push('/')
+    await router.isReady()
+    const { systemStore: store } = mockDashboardRefreshes()
+    store.readiness = {
+      status: 'degraded',
+      checks: { config: 'ok', render: 'resource_missing' },
+      issues: [{ code: 'render.browser_missing', severity: 'warning', summary: '浏览器运行资源缺失', remediation: '准备运行环境后重试。' }],
+    }
+    const prepare = vi.spyOn(store, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'fixture-runtime-task' })
+    const wrapper = mount(DashboardPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+    expect(wrapper.get('details.readiness-check-group').attributes('open')).toBeUndefined()
+    expect(wrapper.get('.readiness-check-group:not(details)').text()).toContain('图片生成')
+    expect(wrapper.get('.readiness-check-group:not(details)').text()).toContain('缺少运行资源')
+    expect(wrapper.get('.readiness-technical').attributes('open')).toBeUndefined()
+    await wrapper.get('[data-testid="readiness-prepare-runtime"]').trigger('click')
+    await flushPromises()
+    expect(prepare).toHaveBeenCalledWith(['chromium'])
+    store.readiness.issues = [{ code: 'database.unavailable', severity: 'error', summary: '数据库不可用' }]
+    await flushPromises()
+    expect(wrapper.find('[data-testid="readiness-prepare-runtime"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('renders a compact status page with overview cards, tabs, and bottom workbench cards', async () => {
     const router = createDashboardRouter()
     await router.push('/')

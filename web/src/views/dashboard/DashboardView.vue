@@ -85,6 +85,11 @@ const {
   visibleReasonCodes,
 } = useDashboardPage()
 
+const readinessCheckGroups = computed(() => [
+  { key: 'issues', collapsed: false, items: checkItems.value.filter(item => item.status !== 'success') },
+  { key: 'passed', collapsed: true, items: checkItems.value.filter(item => item.status === 'success') },
+])
+
 watch(
   () => [readinessIssues.value.length, diagnosticsIssueCards.value.length] as const,
   ([readinessIssueCount, diagnosticsIssueCount]) => {
@@ -305,24 +310,22 @@ useToastFeedback(protocolIssueToast)
           </template>
 
           <template #readiness>
-            <div v-if="checkItems.length" class="readiness-checks">
-              <div
-                v-for="item in checkItems"
-                :key="item.key"
-                :class="['readiness-check', `readiness-check--${item.status}`]"
-              >
-                <div class="readiness-check__header">
-                  <component :is="getCheckIcon(item.status)" class="readiness-check__icon" role="img" :aria-label="`检查状态：${item.status}`" />
-                  <span class="readiness-check__name">{{ item.key }}</span>
+            <div class="readiness-actions"><AppButton size="sm" :loading="loading" @click="refreshState">{{ t('dashboard.refreshReadiness') }}</AppButton></div>
+            <template v-for="group in readinessCheckGroups" :key="group.key">
+              <component :is="group.collapsed ? 'details' : 'div'" v-if="group.items.length" class="readiness-check-group">
+                <summary v-if="group.collapsed">{{ t('dashboard.passedCheckCount', { count: group.items.length }) }}</summary>
+                <div class="readiness-checks">
+                  <div v-for="item in group.items" :key="item.key" :class="['readiness-check', `readiness-check--${item.status}`]">
+                    <div class="readiness-check__header">
+                      <component :is="getCheckIcon(item.status)" class="readiness-check__icon" aria-hidden="true" />
+                      <span class="readiness-check__name">{{ item.label }}</span>
+                    </div>
+                    <div class="readiness-check__value">{{ item.displayValue }}</div>
+                  </div>
                 </div>
-                <div class="readiness-check__value">{{ item.value }}</div>
-              </div>
-            </div>
-            <AppEmptyState v-else :description="t('display.empty')" />
-
-            <div v-if="visibleReasonCodes.length" class="dashboard-reason-codes">
-              <small>{{ t('dashboard.reasonCodes') }}: {{ visibleReasonCodes.join(', ') }}</small>
-            </div>
+              </component>
+            </template>
+            <AppEmptyState v-if="!checkItems.length && !readinessIssues.length" :description="t('display.empty')" />
 
             <div
               v-if="readinessIssues.length"
@@ -336,12 +339,15 @@ useToastFeedback(protocolIssueToast)
               >
                 <div class="issue-alert-card__header">
                   <AppTag :tone="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'">
-                    {{ issue.code }}
+                    {{ t(`dashboard.issueSeverity.${issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'info'}`) }}
                   </AppTag>
                   <span class="issue-alert-card__summary">{{ issue.summary }}</span>
                 </div>
                 <div v-if="issue.remediation" class="issue-alert-card__remediation">
                   {{ issue.remediation }}
+                </div>
+                <div v-if="issue.code === 'render.browser_missing'" class="issue-alert-card__actions">
+                  <AppButton size="sm" variant="default" :loading="runtimeBootstrapPending" data-testid="readiness-prepare-runtime" @click="bootstrapRuntimeResources">{{ t('dashboard.runtimeBootstrap') }}</AppButton>
                 </div>
               </div>
             </div>
@@ -356,6 +362,11 @@ useToastFeedback(protocolIssueToast)
                 {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
               </AppButton>
             </div>
+            <details v-if="visibleReasonCodes.length || readinessIssues.length" class="readiness-technical">
+              <summary>{{ t('dashboard.readinessTechnicalDetails') }}</summary>
+              <p v-if="visibleReasonCodes.length"><code>{{ visibleReasonCodes.join(', ') }}</code></p>
+              <ul v-if="readinessIssues.length"><li v-for="issue in readinessIssues" :key="issue.code"><code>{{ issue.code }}</code> · {{ issue.summary }}</li></ul>
+            </details>
           </template>
 
           <template #diagnostics>
@@ -481,8 +492,13 @@ useToastFeedback(protocolIssueToast)
 .events-timeline__actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 .events-timeline-wrapper--collapsed { max-height: 284px; overflow: hidden; }
 .events-toggle, .issues-toggle { margin-top: 8px; text-align: center; }
-.dashboard-reason-codes { margin-top: 12px; color: var(--muted); overflow-wrap: anywhere; }
 .readiness-checks { grid-template-columns: 1fr; gap: 0; border: 0; background: transparent; border-radius: 0; }
+.readiness-actions { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.readiness-check-group summary, .readiness-technical summary { padding: 12px 0; color: var(--muted); font-size: 13px; cursor: pointer; }
+.readiness-technical { margin-top: 16px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.readiness-technical p { margin: 0 0 8px; }
+.readiness-technical ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; }
+.issue-alert-card__actions { margin-top: 12px; }
 .readiness-check { grid-template-columns: minmax(120px, .8fr) minmax(0, 1fr); padding: 10px 0; gap: 12px; border-bottom: 1px solid var(--border); background: transparent; }
 .readiness-check__name { color: var(--text); font-weight: 500; }
 .readiness-check__value { text-align: right; color: var(--muted); }

@@ -133,14 +133,6 @@
 }
 
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-
   .admin-layout__progress-bar.is-active::after {
     animation: none;
   }

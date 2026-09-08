@@ -24,7 +24,7 @@ withDefaults(defineProps<{
 .app-button[data-variant=destructive] { color: var(--text-danger); }
 .app-button[data-variant=link] { color: var(--brand-foreground); }
 .app-button:disabled { cursor: not-allowed; }
-@media (pointer: coarse) { .app-button { min-height: 44px; } }
+@media (max-width: 639px), (pointer: coarse) { .app-button { min-width: 44px; min-height: 44px; } }
 .app-spinner { animation: app-spin 800ms linear infinite; }
 @keyframes app-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) { .app-spinner { animation: none; } .app-button { transition: none; } }

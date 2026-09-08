@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from '@/components/AppTooltip.vue'
+import AppHelp from '@/components/AppHelp.vue'
 import AppTextarea from '@/components/AppTextarea.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
 import AppSelect from '@/components/AppSelect.vue'
@@ -104,22 +104,7 @@ function handleTextareaUpdate(value: unknown) {
         <span class="config-field__name">{{ field.label }}</span>
         <span v-if="field.unit" class="config-field__unit">· {{ field.unit }}</span>
       </label>
-      <AppTooltip
-        v-if="hasTooltip" :title="tooltipContent || ''"
-      >
-
-        <button
-          type="button"
-          class="config-field__info"
-          :aria-label="`${field.label} · ${t('config.fieldHelp')}`"
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false">
-            <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" />
-            <circle cx="8" cy="5" r="0.85" fill="currentColor" />
-            <path d="M8 7.5v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
-          </svg>
-        </button>
-      </AppTooltip>
+      <AppHelp v-if="hasTooltip" :label="`${field.label} · ${t('config.fieldHelp')}`" :description="tooltipContent || ''" />
     </div>
 
     <div class="config-field__control">
@@ -223,35 +208,6 @@ function handleTextareaUpdate(value: unknown) {
   color: var(--muted);
   font-weight: 500;
   font-size: 13px;
-}
-
-.config-field__info {
-  appearance: none;
-  border: none;
-  padding: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: help;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  opacity: 0.65;
-  transition: color 0.15s ease, opacity 0.15s ease;
-}
-
-.config-field__info:hover {
-  color: var(--accent);
-  opacity: 1;
-}
-
-.config-field__info:focus-visible {
-  color: var(--accent);
-  opacity: 1;
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .config-field__control {

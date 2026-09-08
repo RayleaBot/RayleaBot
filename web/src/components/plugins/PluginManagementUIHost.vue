@@ -588,5 +588,5 @@ onBeforeUnmount(() => {
 .plugin-management-ui-frame-shell,
 .plugin-management-ui-frame-shell :deep(.app-loading-panel),
 .plugin-management-ui-frame-shell :deep(.app-loading-panel__content) { display: flex; flex: 1 1 auto; min-height: 0; width: 100%; }
-.plugin-management-ui-frame { width: 100%; min-height: 320px; max-height: 1600px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-strong); transition: height 160ms ease; }
+.plugin-management-ui-frame { width: 100%; min-height: 320px; max-height: 1600px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-strong); }
 </style>

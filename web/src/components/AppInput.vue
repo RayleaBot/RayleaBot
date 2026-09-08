@@ -18,7 +18,7 @@ defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
   <div ref="wrapper" class="app-input-wrap" :class="wrapperClass">
     <Input
       :id="field?.id" :aria-invalid="Boolean(field?.error) || undefined"
-      :aria-describedby="field?.error ? field.descriptionId : undefined"
+      :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined"
       :aria-required="field?.required || undefined"
       v-bind="attrs"
       :model-value="model"
@@ -40,5 +40,5 @@ defineExpose({ focus: () => wrapper.value?.querySelector('input')?.focus() })
 .app-input-prefix { position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 40px; height: 40px; color: var(--muted); pointer-events: none; }
 .app-input-reveal { position: absolute; right: 0; top: 0; display: grid; place-items: center; width: 40px; height: 40px; color: var(--muted); border-radius: 8px; }
 .app-input-reveal:hover { color: var(--text); }
-@media (pointer: coarse) { .app-input, .app-input-reveal { min-height: 44px; } }
+@media (max-width: 639px), (pointer: coarse) { .app-input, .app-input-reveal { min-height: 44px; } .app-input-reveal { width: 44px; } }
 </style>

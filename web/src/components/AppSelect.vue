@@ -44,7 +44,7 @@ function clearSelection() {
 <template>
   <div ref="control" class="app-select-wrap" :class="wrapperClass">
     <Select :model-value="selection" :multiple="multiple" :disabled="disabled" @update:model-value="update" @update:open="$emit('open', $event)">
-      <SelectTrigger :id="id || field?.id" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error ? field.descriptionId : undefined">
+      <SelectTrigger :id="id || field?.id" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined" :aria-required="field?.required || undefined">
         <span v-if="selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
         <SelectValue v-else :placeholder="placeholder || '请选择'" />
       </SelectTrigger>
@@ -63,5 +63,5 @@ function clearSelection() {
 .app-select-clear { position: absolute; right: 32px; top: 50%; translate: 0 -50%; display: grid; place-items: center; width: 32px; height: 36px; border-radius: 6px; color: var(--muted); }
 .app-select-clear:hover { color: var(--text); background: var(--surface-soft); }
 .app-select__value { text-align: left; white-space: normal; overflow-wrap: anywhere; line-height: 1.5; }
-@media (pointer: coarse) { .app-select { min-height: 44px; } .app-select--clearable { padding-right: 82px; } .app-select-clear { width: 44px; height: 44px; } }
+@media (max-width: 639px), (pointer: coarse) { .app-select { min-height: 44px; } .app-select--clearable { padding-right: 82px; } .app-select-clear { width: 44px; height: 44px; } .app-select-content :deep([role=option]) { min-height: 44px; } }
 </style>

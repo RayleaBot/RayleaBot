@@ -14,6 +14,6 @@ const model = defineModel<T>({ required: true })
 .app-segmented__item[data-state=checked] { background: var(--surface-strong); border-color: var(--border); color: var(--text); box-shadow: var(--shadow-sm); }
 .app-segmented__item:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .app-segmented__item:disabled { opacity: .5; cursor: not-allowed; }
-@media (pointer: coarse) { .app-segmented__item { min-height: 44px; } }
+@media (max-width: 639px), (pointer: coarse) { .app-segmented__item { min-width: 44px; min-height: 44px; } }
 @media (prefers-reduced-motion: reduce) { .app-segmented__item { transition: none; } }
 </style>

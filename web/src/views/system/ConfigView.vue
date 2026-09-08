@@ -16,7 +16,7 @@ import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
 const configStore = useConfigStore()
-const { document: configDocument, error, loading, redactedFields, restartRequired, saving } = storeToRefs(configStore)
+const { document: configDocument, error, loading, restartRequired, saving } = storeToRefs(configStore)
 
 const draft = ref<ConfigDocument | null>(null)
 const configSections = computed(() => getConfigSections())
@@ -47,14 +47,6 @@ const feedbackToast = computed(() => {
       key: `config-error:${error.value}`,
       level: 'error' as const,
       message: error.value,
-    }
-  }
-
-  if (redactedFields.value.length > 0) {
-    return {
-      key: `config-redacted:${redactedFields.value.join('|')}`,
-      level: 'info' as const,
-      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
     }
   }
 

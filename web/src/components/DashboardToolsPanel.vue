@@ -31,8 +31,7 @@ defineEmits<{
       <DatabaseIcon class="tools-panel__icon" aria-hidden="true" />
       <div class="table-actions">
       <AppButton
-        variant="default"
-        class="tool-button tool-button--backup"
+        class="tool-button"
         :loading="backupPending"
         @click="$emit('createBackup')"
       >
@@ -40,7 +39,7 @@ defineEmits<{
         {{ t('dashboard.createBackup') }}
       </AppButton>
       <AppButton
-        class="tool-button tool-button--diagnostics"
+        class="tool-button"
         :loading="diagnosticsPending"
         @click="$emit('exportDiagnostics')"
       >
@@ -83,31 +82,5 @@ defineEmits<{
 
 .tool-button {
   width: 100%;
-  height: 38px;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: none;
-  transition: border-color var(--motion-fast) var(--motion-easing), background-color var(--motion-fast) var(--motion-easing);
-
-  &--backup {
-    background: var(--brand-fill) !important;
-    border-color: var(--brand-fill);
-    color: var(--on-brand);
-
-    &:hover {
-      border-color: var(--brand-fill-hover);
-      background: var(--brand-fill-hover) !important;
-    }
-
-    &:active {
-      border-color: var(--brand-fill-pressed);
-      background: var(--brand-fill-pressed) !important;
-    }
-  }
-
 }
 </style>

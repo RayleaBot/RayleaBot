@@ -268,6 +268,11 @@ describe('PluginsPage', () => {
     expect(wrapper.find('button[aria-label="查看概要"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="管理"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('未验证来源')
+    expect(wrapper.findAll('.plugin-card__meta .app-tag').filter(tag => tag.text() === '未验证来源')).toHaveLength(1)
+    expect(wrapper.find('.plugin-health-notices').text()).not.toContain('未验证来源')
+    store.items[0]!.trust = undefined
+    await flushPromises()
+    expect(wrapper.find('.plugin-health-notices').text()).toContain('未验证来源')
     expect(wrapper.find('.plugins-grid').text()).not.toContain('plugins/installed')
     expect(wrapper.text()).toContain('运行中')
     expect(wrapper.text()).toContain('1 个命令冲突')

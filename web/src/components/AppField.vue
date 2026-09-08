@@ -9,6 +9,7 @@ const context = computed(() => ({
   id: props.for || generatedId,
   descriptionId: `${props.for || generatedId}-description`,
   error: props.error,
+  hint: props.hint,
   required: props.required,
 }))
 provide(fieldContextKey, context)

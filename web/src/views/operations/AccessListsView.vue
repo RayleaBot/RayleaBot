@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppTooltip from '@/components/AppTooltip.vue'
+import AppHelp from '@/components/AppHelp.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
 import AppSelect from '@/components/AppSelect.vue'
@@ -448,9 +448,7 @@ onMounted(() => {
             <div class="access-lists-card-header__copy">
               <div class="access-lists-card-header__title-row">
                 <strong>{{ t('accessLists.cards.whitelistTitle') }}</strong>
-                <AppTooltip :title="t('accessLists.cards.whitelistDescription')">
-                  <button type="button" class="access-lists-help-badge" :aria-label="t('accessLists.cards.whitelistHelp')">?</button>
-                </AppTooltip>
+                <AppHelp :label="t('accessLists.cards.whitelistHelp')" :description="t('accessLists.cards.whitelistDescription')" />
               </div>
             </div>
             <div class="access-lists-card-header__meta">
@@ -658,9 +656,7 @@ onMounted(() => {
             <div class="access-lists-card-header__copy">
               <div class="access-lists-card-header__title-row">
                 <strong>{{ t('accessLists.cards.blacklistTitle') }}</strong>
-                <AppTooltip :title="t('accessLists.cards.blacklistDescription')">
-                  <button type="button" class="access-lists-help-badge" :aria-label="t('accessLists.cards.blacklistHelp')">?</button>
-                </AppTooltip>
+                <AppHelp :label="t('accessLists.cards.blacklistHelp')" :description="t('accessLists.cards.blacklistDescription')" />
               </div>
             </div>
             <div class="access-lists-card-header__meta">
@@ -911,36 +907,6 @@ onMounted(() => {
   font-weight: 700;
   line-height: 1.2;
   color: var(--fg);
-}
-
-.access-lists-help-badge {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--muted);
-  cursor: help;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1;
-  opacity: 0.75;
-  transition: color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
-}
-
-.access-lists-help-badge:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  opacity: 1;
-}
-
-.access-lists-help-badge:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .access-lists-card-header__meta {

@@ -99,18 +99,18 @@ function isOfficialPlugin(record: (typeof sortedItems.value)[number]) {
 }
 
 function getTrustLabel(record: (typeof sortedItems.value)[number]) {
+  if (record.trust?.level === 'unverified') {
+    return record.trust.label || t('plugins.health.unverifiedSource')
+  }
   if (isOfficialPlugin(record)) {
     return t('plugins.trustLabels.official')
-  }
-  if (record.trust?.level === 'unverified') {
-    return t('plugins.trustLabels.unverified')
   }
   return record.trust?.label || t('plugins.trustLabels.thirdParty')
 }
 
 function getTrustColor(record: (typeof sortedItems.value)[number]) {
-  if (isOfficialPlugin(record)) return 'neutral'
   if (record.trust?.level === 'unverified') return 'warning'
+  if (isOfficialPlugin(record)) return 'neutral'
   return 'neutral'
 }
 
@@ -172,7 +172,7 @@ function getPluginHealthNotices(row: (typeof sortedItems.value)[number]) {
     notices.push({ label: getConflictNotice(conflicts), tone: 'warning' })
   }
 
-  if (row.source?.verified === false || row.trust?.level === 'unverified') {
+  if (row.source?.verified === false && row.trust?.level !== 'unverified') {
     notices.push({ label: t('plugins.health.unverifiedSource'), tone: 'info' })
   }
 

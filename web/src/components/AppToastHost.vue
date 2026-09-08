@@ -36,6 +36,6 @@ onBeforeUnmount(() => exitTimers.forEach(clearTimeout))
 .app-toast[data-state=closed] { animation: app-popup-exit var(--motion-fast, 160ms) ease; }
 .app-toast[data-swipe=move] { transform: translateX(var(--reka-toast-swipe-move-x)); }
 .app-toast[data-swipe=cancel] { transform: translateX(0); transition: transform var(--motion-fast, 160ms); }
-@media (pointer: coarse) { .app-toast__close { min-width: 44px; min-height: 44px; } }
+@media (max-width: 639px), (pointer: coarse) { .app-toast__close { min-width: 44px; min-height: 44px; } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) { .app-toast[data-state], .app-toast[data-swipe] { animation: none; transition: none; } }
 </style>

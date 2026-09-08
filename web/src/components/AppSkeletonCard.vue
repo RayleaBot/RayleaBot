@@ -66,7 +66,7 @@ defineProps<{
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .app-skeleton-card__title-shimmer,
   .app-skeleton-card__row {
     animation: none;

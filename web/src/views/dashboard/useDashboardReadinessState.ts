@@ -67,6 +67,8 @@ export function useDashboardReadinessState(input: ReadinessInput) {
   })
   const checkItems = computed(() => {
     const checks = input.readiness.value?.checks ?? {}
+    const knownNames = new Set(['config', 'database', 'runtime', 'render', 'adapter', 'plugins', 'scheduler'])
+    const knownStates = new Set(['ok', 'passed', 'ready', 'error', 'failed', 'unavailable', 'resource_missing', 'not_configured', 'skipped'])
     return Object.entries(checks).map(([key, value]) => {
       let status: StatusType = 'muted'
       if (value && (value === 'ok' || value === 'passed' || value === 'ready')) {
@@ -76,7 +78,11 @@ export function useDashboardReadinessState(input: ReadinessInput) {
       } else if (value) {
         status = 'warning'
       }
-      return { key, value, status }
+      return {
+        key, value, status,
+        label: knownNames.has(key) ? t(`dashboard.readinessCheckNames.${key}`) : key,
+        displayValue: typeof value === 'string' && knownStates.has(value) ? t(`dashboard.readinessCheckStates.${value}`) : String(value ?? t('display.empty')),
+      }
     })
   })
 

@@ -4,6 +4,7 @@ export interface FieldContext {
   id: string
   descriptionId: string
   error?: string
+  hint?: string
   required?: boolean
 }
 export const fieldContextKey: InjectionKey<ComputedRef<FieldContext>> = Symbol('app-field')

@@ -9,7 +9,8 @@ const field = useFieldContext()
   <Textarea
     :id="field?.id"
     :aria-invalid="Boolean(field?.error) || undefined"
-    :aria-describedby="field?.error ? field.descriptionId : undefined"
+    :aria-describedby="field?.error || field?.hint ? field.descriptionId : undefined"
+    :aria-required="field?.required || undefined"
     :model-value="model"
     :rows="rows"
     class="app-textarea"
