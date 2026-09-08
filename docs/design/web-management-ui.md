@@ -107,7 +107,7 @@
 - 登录、首次初始化与凭据恢复指引共用最大宽度 `448px` 的居中单栏面板。面板圆角为 `36px`；在 `<= 600px` 时使用 `28px` 圆角并收紧内边距，低高度视口允许页面自然滚动。
 - 认证表面沿用折叶品牌、自托管 Noto Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生：浅色面板表面色占 `9%`、高光占 `18%`，暗色分别为 `18%` 与 `12%`；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 表达统一的颜色和字体语义。
 - 页面只保留产品身份、任务标题、必要说明和凭据表单，不使用 hero 或功能宣传。
-- 认证背景使用专门生成的静态青瓷玻璃壁纸 [`celadon-glass.png`](../../web/src/assets/auth/celadon-glass.png)，PNG 内嵌生成提示词作为来源记录。壁纸以视口高度 `140%` 为最小尺寸，保证覆盖宽屏并底部对齐；窄屏调整裁切位置，暗色主题降低亮度与饱和度。背景不跟随指针，不参与表单交互。
+- 认证背景使用静态青瓷玻璃壁纸，运行时加载无损压缩的 [`celadon-glass.webp`](../../web/src/assets/auth/celadon-glass.webp)；原始 [`PNG`](../../web/src/assets/auth/celadon-glass.png) 保留内嵌生成提示词。壁纸覆盖视口并底部对齐；窄屏调整裁切位置，暗色主题降低亮度与饱和度。背景不跟随指针，不参与表单交互。
 - 材质参考 Apple 的 [Liquid Glass 介绍](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)与 [WWDC25 设计说明](https://developer.apple.com/videos/play/wwdc2025/219/)，在浏览器中实现通透面板、圆角边缘折射和反射高光，具体效果按浏览器能力适配。支持 SVG backdrop 的 Chromium 路径使用 `feDisplacementMap`，位移比例为 `36`，前置模糊仅为 `1.2px`；WebKit 与 Gecko 明确使用 `5px` blur、`112%` 饱和度的透明材质降级。
 - [`liquid-glass.ts`](../../web/src/components/auth/liquid-glass.ts) 按面板几何生成 `18px` 边缘倒角的法线图，中部保持清晰；离屏 Canvas 的最长边不超过 `720px`，只在尺寸或圆角变化时更新。ResizeObserver 与单次 requestAnimationFrame 合并尺寸更新，卸载时断开观察并取消待执行帧。鼠标移动仅更新边缘高光位置，不移动面板或重新生成法线图；空闲时没有持续绘制循环。
 - 不支持 backdrop-filter，或启用 reduced-transparency、forced-colors 时，面板使用不透明表面；forced-colors 同时隐藏壁纸与边缘高光并使用系统边界与焦点色。模糊半径不参与动画，reduced-motion 下指针高光保持静态。

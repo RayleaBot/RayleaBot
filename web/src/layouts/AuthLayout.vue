@@ -105,7 +105,7 @@ function setThemeModeWithMotion(mode: ThemeMode) {
   position: fixed;
   z-index: -1;
   inset: 0;
-  background: url('@/assets/auth/celadon-glass.png') center bottom no-repeat;
+  background: url('@/assets/auth/celadon-glass.webp') center bottom no-repeat;
   background-size: max(100vw, 210vh) auto;
   pointer-events: none;
 }
