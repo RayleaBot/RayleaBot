@@ -160,7 +160,7 @@ export function AppShellSettingsSection({
             <span className="maintenance-row__icon" aria-hidden="true"><Stop20Regular /></span>
             <div className="maintenance-row__copy">
               <strong>退出启动器</strong>
-              <span>关闭窗口和托盘入口，不影响已保存配置与服务文件。</span>
+              <span>关闭启动器窗口和托盘入口。</span>
             </div>
             <Button appearance="secondary" className="danger-outline-button" onClick={onExit} disabled={controlsDisabled}>退出启动器</Button>
           </div>

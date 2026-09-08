@@ -85,7 +85,7 @@ export const ExitConfirmDialog = React.memo(function ExitConfirmDialog({ open, o
                   <span className="exit-confirm-choice__icon" aria-hidden="true"><SignOut20Regular /></span>
                   <span className="exit-confirm-choice__copy">
                     <strong>完全退出</strong>
-                    <span>结束窗口与托盘进程，保留配置和服务文件。</span>
+                    <span>结束启动器窗口与托盘进程。</span>
                   </span>
                 </span>
               </Button>

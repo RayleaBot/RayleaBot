@@ -38,7 +38,7 @@ function createCompatibilityMatrix() {
             key: 'message.group',
             label: '群消息',
             support: { standard: 'supported', napcat: 'supported', luckylillia: 'supported' },
-            summary: '群消息事件进入插件事件主流程。',
+            summary: '支持向插件投递群消息事件。',
           },
         ],
       },

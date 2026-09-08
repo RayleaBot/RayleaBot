@@ -13,7 +13,7 @@
             "napcat": "supported",
             "luckylillia": "supported"
           },
-          "summary": "群消息事件进入正式插件事件主链。"
+          "summary": "支持向插件投递群消息事件。"
         },
         {
           "key": "meta.heartbeat",
@@ -23,7 +23,7 @@
             "napcat": "supported",
             "luckylillia": "supported"
           },
-          "summary": "心跳事件进入正式插件事件主链，同时保持传输状态信号职责。"
+          "summary": "心跳事件用于更新连接状态，并投递给插件。"
         }
       ]
     },

@@ -92,7 +92,7 @@ export const shell = {
     density: '界面密度',
     densityCompact: '紧凑',
     densityDefault: '默认',
-    densityHelp: '紧凑模式减少留白，但不缩小正文和关键操作。',
+    densityHelp: '紧凑模式减少页面留白，正文和关键操作保持相同尺寸。',
     fixedHeader: '固定头部',
     fixedHeaderHelp: '页面滚动时保持顶部工具区可见。',
     fontLg: '偏大',

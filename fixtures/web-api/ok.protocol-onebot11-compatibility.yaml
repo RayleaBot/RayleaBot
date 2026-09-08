@@ -18,35 +18,35 @@ response:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 私聊消息事件进入正式插件事件主链。
+            summary: 支持向插件投递私聊消息事件。
           - key: message.group
             label: 群消息
             support:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 群消息事件进入正式插件事件主链。
+            summary: 支持向插件投递群消息事件。
           - key: message_sent.group
             label: 群发送回执
             support:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 群发送回执事件进入正式插件事件主链。
+            summary: 支持向插件投递群发送回执事件。
           - key: request.friend
             label: 好友请求
             support:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 好友请求事件进入正式插件事件主链。
+            summary: 支持向插件投递好友请求事件。
           - key: request.group
             label: 群请求
             support:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 群请求事件进入正式插件事件主链。
+            summary: 支持向插件投递群请求事件。
           - key: notice.flash_file
             label: 闪传文件事件
             support:
@@ -60,14 +60,14 @@ response:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 心跳事件进入正式插件事件主链，同时保持传输状态信号职责。
+            summary: 心跳事件用于更新连接状态，并投递给插件。
           - key: meta.lifecycle
             label: 生命周期事件
             support:
               standard: supported
               napcat: supported
               luckylillia: supported
-            summary: 生命周期事件进入正式插件事件主链，同时保持传输状态信号职责。
+            summary: 生命周期事件用于更新连接状态，并投递给插件。
       - key: message_segments
         title: 消息段
         items:

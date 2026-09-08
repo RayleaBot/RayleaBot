@@ -58,7 +58,7 @@ export const builtinFeatures = {
     credentialValidatedInvalid: '服务器已确认 CK 失效，请重新登录',
     credentialValidatedUnknown: '服务器暂时无法确认 CK 状态，请稍后重试',
     credentialAuthorityTitle: '账号状态由服务器检查',
-    credentialAuthorityHint: '插件遇到平台接口拒绝时会请求服务器复检。单次 HTTP 403 不会直接判定 CK 失效，账号卡片展示服务器最终检查结果。',
+    credentialAuthorityHint: '平台接口拒绝请求时，插件会请求服务器复查凭据。账号状态以服务器检查结果为准。',
     credentialAuthorityAction: '查看账号状态说明',
     scanLogin: '扫码获取 CK',
     qrPendingScan: '等待扫码',

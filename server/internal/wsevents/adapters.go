@@ -59,7 +59,7 @@ var adapterProtocols = []AdapterProtocolDescriptor{
 	{
 		Protocol:    config.AdapterTypeQQOfficial,
 		DisplayName: "QQ 官方机器人",
-		Description: "连接 QQ 开放平台的官方机器人，使用 AppID 与 AppSecret 鉴权，消息标识位于该平台自己的命名空间。",
+		Description: "通过 QQ 开放平台接入官方机器人，使用 AppID 与 AppSecret 鉴权。",
 	},
 }
 
