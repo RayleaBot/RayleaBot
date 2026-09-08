@@ -13,7 +13,7 @@
 
 HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议以 [contracts](../../contracts/README.md) 为准。服务端是正式状态来源，页面通过请求结果和事件快照展示状态。
 
-## 当前工程落点
+## 组件与页面结构
 
 - 基础组件源码位于 `components/ui/`，来源、摘要与许可证随源码记录；业务页面使用 `AppButton`、`AppField`、`AppSelect`、`AppDialog` 等产品封装。
 - `AppQRCode` 使用 `qrcode-generator 2.0.4` 编码登录链接，UTF-8 转换、静区与扫描图像颜色由编码边界维护；状态、刷新操作和提示使用产品组件。版权与 MIT 文本由版本化补充文件纳入发布 notices。

@@ -44,7 +44,7 @@
 | `post_type=meta_event, meta_event_type=lifecycle` | `meta.lifecycle` |
 
 - 生命周期与心跳既作为 adapter 连接状态信号，也作为正式 `event` 投递进入插件主流程。
-- 未进入正式范围的事件不会伪装成已支持能力。
+- 支持能力清单与已定义的事件范围一致。
 - Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
 - OneBot 原生字段通过 `event.payload.onebot` 暴露给所有订阅插件，不需要额外 permission。它是形状固定的归一化投影（字段集由 `contracts/plugin-protocol.schema.json` 的 `payload.onebot` 闭合定义，`additionalProperties: false`），不是原始上报帧的透传，可读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。
@@ -78,7 +78,7 @@ QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协�
 
 消息复用现有 `message.private` 与 `message.group`，不新增事件类型：语义一致，来源由 `source_protocol` 承载。
 
-管理类 dispatch 归一为四个中立事件类型：平台的群与单聊两套拼写描述的是同一件事，差别只在发生于哪种会话，因此八个 dispatch 收敛为四个类型，由 `conversation_type` 区分。`notice.push_disabled` 表示该会话不再接受主动推送，插件据此停止推送比撞配额错误更早。连接生命周期 dispatch（`READY`、`RESUMED`）不投递。
+管理类 dispatch 归一为四个中立事件类型：平台的群与单聊两套拼写描述的是同一件事，差别只在发生于哪种会话，因此八个 dispatch 收敛为四个类型，由 `conversation_type` 区分。`notice.push_disabled` 表示该会话不再接受主动推送，插件收到该事件后停止向该会话主动推送。连接生命周期 dispatch（`READY`、`RESUMED`）不投递。
 
 平台侧与 OneBot11 的实质差异：
 

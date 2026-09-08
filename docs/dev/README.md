@@ -67,7 +67,7 @@
 
 `.tmp/dev-cache/` 保存内容摘要与构建产物，覆盖 Server、插件构建工具、插件后端、UI、展开 artifact、Launcher bindings、前端和原生程序。输入内容、工具链、平台或构建参数变化会使对应缓存失效；产物缺失或内容变化会触发修复。修改文件时间或重复启动不会单独触发编译。构建期间收到的修改会在切换运行时前重新检查。
 
-开发依赖安装显式限制当前 OS、CPU 和 Linux libc；发布构建的默认平台矩阵保持不变。Vue SDK 镜像按内容同步文件，保留已有 `node_modules`。安装依赖的判断使用 package、lockfile、workspace 配置、SDK package 与工具链内容，不依赖文件更新时间。
+开发依赖安装显式限制当前 OS、CPU 和 Linux libc。Vue SDK 镜像按内容同步文件，保留已有 `node_modules`。安装依赖的判断使用 package、lockfile、workspace 配置、SDK package 与工具链内容，不依赖文件更新时间。
 
 插件后端通过当前平台的 `go list` 输入图判定变化，包含本地依赖和 `go:embed` 文件。UI 修改只重建 UI 与 artifact；manifest、未嵌入 Go 的模板和资源修改只组装 artifact。开发 artifact 使用标准展开目录，不生成 ZIP；许可证、notices 和 SBOM 仍随产物保留。
 

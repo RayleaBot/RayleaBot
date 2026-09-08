@@ -205,8 +205,7 @@ func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest)
 		if deps.Logger != nil {
 			deps.Logger.Warn(fmt.Sprintf("插件 %s 查找 %s 用户“%s”失败：%s", req.PluginID, platform, query, err.Error()), "component", "plugin_action", "plugin_id", req.PluginID, "platform", platform, "query", query, "err", err.Error())
 		}
-		// 登录 profile 槽忙是瞬态（409，可重试）；其余上游失败统一
-		// 502，不再用「缺少必要资源」的 resource_missing 语义。
+		// 登录 profile 槽忙映射为 409，可重试；其余上游失败映射为 502。
 		if errors.Is(err, thirdparty.ErrQRLoginBrowserBusy) {
 			return nil, &pluginruntime.Error{Code: "platform.resource_busy", Message: "thirdparty.resolve browser profile is busy", Err: err}
 		}

@@ -86,7 +86,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 - 静态独立面板使用 `12px` 圆角与 `1px` 边界，不叠加大范围阴影；运行状态主任务区使用正式状态图标和语义边界，Dialog 使用浮层阴影。
 - 普通说明与字段不包裹为卡片；状态摘要不使用 hero 指标模板。
 - 选中导航使用完整背景、高对比文字和功能图标，不使用内嵌彩色侧边条。
-- 页面标题保持在 `20–22px`，分区标题为 `18px`，组标题为 `16px`，正文为 `14px`，任务标签、路径和日志为 `13px`。`12px` 用于窗口 chrome 与辅助元数据；真实主状态可以使用稍大字号，不形成巨型指标区。
+- 页面标题保持在 `20–22px`，分区标题为 `18px`，组标题为 `16px`，正文为 `14px`，任务标签、路径和日志为 `13px`。`12px` 用于窗口 chrome 与辅助元数据；运行状态主值使用 `24px`、`600` 字重和 `1.35` 行高。
 - 品牌、页面与面板标题使用共享自托管 Noto Sans SC，正文和 Fluent 控件沿用系统字体栈。字体子集及授权文件随 Launcher 构建打包。
 
 ## 动效与反馈
@@ -109,7 +109,7 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 - [`design/mark.json`](../../design/mark.json) 是折叶几何母版；[`scripts/generate-launcher-icons.mjs`](../../scripts/generate-launcher-icons.mjs) 生成 [`launcher/assets/`](../../launcher/assets/) 中的 SVG 来源、应用 PNG、托盘 PNG 与 Windows ICO。
 - 应用 PNG 为 `1024×1024`，托盘 PNG 为 `32×32`；PNG 内嵌确定性来源元数据。资产由已有几何生成，不属于 AI 生成图像。
 - Windows ICO 包含 `16/24/32/48/64/128/256px` 七种尺寸。Go 宿主消费应用与托盘 PNG，Windows EXE 通过图标资源消费 ICO，使应用、窗口、任务栏与托盘使用同一品牌母版。
-- Windows 打包使用冻结的 Wails `v3.0.0-beta.9`，在原生 Go build 前由 `build-package.mjs` 生成对应架构的 `rsrc_windows_<arch>.syso`；桌面桥、应用 identity 与正式 release metadata 语义保持原有边界，Windows manifest 使用 `asInvoker` 普通用户权限。
+- Windows 打包使用冻结的 Wails `v3.0.0-beta.9`，在原生 Go build 前由 `build-package.mjs` 生成对应架构的 `rsrc_windows_<arch>.syso`；Windows manifest 使用 `asInvoker` 普通用户权限。
 - 在仓库根目录运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要。在 Windows 上运行 `python launcher/scripts/verify-windows-icon-resources.py`，验证默认打包 EXE 中的七尺寸图像负载与源 ICO 逐字节一致；其他产物通过 `--exe <path>` 指定。资源校验与实际窗口、任务栏、托盘显示检查分别承担不同验证职责。
 
 ## 窄窗口策略

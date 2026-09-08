@@ -158,7 +158,7 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 
 本文件的 token 前置数据由 [design/tokens.json](design/tokens.json) 生成。它是机器值的唯一来源，采用 base → semantic light/dark → component 结构；[生成脚本](scripts/generate-design-tokens.mjs) 同时维护 Web、Launcher、favicon、共享字体 CSS 与 [.impeccable/design.json](.impeccable/design.json)。运行 `node scripts/generate-design-tokens.mjs` 更新生成物，运行 `node scripts/generate-design-tokens.mjs --check` 校验漂移、指定对比度与颜色边界。原生图标由独立的 [图标生成脚本](scripts/generate-launcher-icons.mjs) 维护。
 
-前置数据、共享字体 CSS 与 sidecar 均由生成器维护，不直接编辑；sidecar 的 narrative 同步本文件正文。sidecar 的通用组件预览表达共享基础，Web 产品组件的局部尺寸、焦点与浮层生命周期以本文对应规则和组件源码为准。应用局部映射在正文与分面规范中说明，不改变共享基础 token 的含义。
+前置数据、共享字体 CSS 与 sidecar 均由生成器维护，不直接编辑；sidecar 的 narrative 提取概述、关键特征、命名规则及 Do/Don't 列表。sidecar 的通用组件预览表达共享基础，Web 产品组件的局部尺寸、焦点与浮层生命周期以本文对应规则和组件源码为准。应用局部映射在正文与界面规范中说明，不改变共享基础 token 的含义。
 
 ## Colors
 
@@ -190,7 +190,7 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 
 **Display Font:** 自托管 Noto Sans SC，回退为 Microsoft YaHei UI 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 引入仓库已有 WOFF2 子集，两端随构建打包；[字体授权](templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 随两端公开资源附带。
 
-**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`，管理面与认证产品组件继承同一 CSS 字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题同样通过 CSS 变量映射。该映射不修改共享基础 token，也不影响 Launcher 或独立 iframe 的字体。
+**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`，管理面与认证产品组件继承同一 CSS 字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题同样通过 CSS 变量映射。
 
 **Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用 Noto Sans SC，不因位于 `pre` 中而改用等宽字体。
 
@@ -209,11 +209,11 @@ Web 工程职责见 [Web 管理面工程基线](docs/engineering/web-admin-basel
 
 ## Layout
 
-桌面 Web 使用持久导航（244px，收起后 64px）与紧凑页头（60px）；面包屑、搜索、主题、全屏和偏好入口直接可达。991px 及以下通过左侧导航抽屉提供相同入口，目标宽度为 280px；偏好从右侧抽屉打开，目标宽度为 380px。Launcher 默认窗口为 1280×720，最小为 760×560，按可用工作区与最小尺寸约束调整；窗口包含原生标题栏（44px）、带文字导航（184px）与单一主工作区。具体分面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
+桌面 Web 使用持久导航（244px，收起后 64px）与紧凑页头（60px）；面包屑、搜索、主题、全屏和偏好入口直接可达。991px 及以下通过左侧导航抽屉提供相同入口，目标宽度为 280px；偏好从右侧抽屉打开，目标宽度为 380px。Launcher 默认窗口为 1280×720，最小为 760×560，按可用工作区与最小尺寸约束调整；窗口包含原生标题栏（44px）、带文字导航（184px）与单一主工作区。具体界面规则见 [Web](docs/design/web-management-ui.md) 与 [Launcher](docs/design/launcher-design-system.md)。
 
 间距使用前置 token 的 xs 至 xxl 标尺。独立任务可以使用完整有边界表面，同一任务内的字段、日志和数据行通过间距与分隔线组织。页面主操作位于稳定位置，状态总览保持连续横条，列表按真实内容排列。
 
-插件集合使用一至五列的独立对象卡片网格，同排卡片等高、操作栏底部对齐，长元数据与健康提示允许内容自然增高。约 10–15 张完整卡片是 2K 桌面上的密度目标，实际数量随视口高度、内容和宽度偏好变化；不通过裁掉状态或缩小触控目标保证固定数量。断点与卡片入口见 [Web 分面规范](docs/design/web-management-ui.md)。
+插件集合使用一至五列的独立对象卡片网格，同排卡片等高、操作栏底部对齐，长元数据与健康提示允许内容自然增高。约 10–15 张完整卡片是 2K 桌面上的密度目标，实际数量随视口高度、内容和宽度偏好变化；不通过裁掉状态或缩小触控目标保证固定数量。断点与卡片入口见 [Web 界面规范](docs/design/web-management-ui.md)。
 
 插件列表的移动筛选从底部打开，搜索、状态和来源在同一面板中呈现；插件概要使用侧向抽屉，安装检查和商店安装确认使用居中弹窗。全局插件设置按业务分区排列字段；菜单中心保持编辑与预览的任务分工，保存和未保存反馈与编辑字段相邻。
 
@@ -249,7 +249,7 @@ Web 产品按钮、输入框与选择器使用现有 lg 圆角（12px），居�
 
 品牌标识为四个色面组成的几何折叶，形状以 [design/mark.json](design/mark.json) 为唯一母版。Web、Launcher 与 favicon 共享该几何；色面随品牌角色或单色环境映射。Launcher 功能图标使用 Fluent Regular，品牌标识不承担操作或状态含义。
 
-原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、托盘 PNG 和 Windows ICO 由母版确定性生成，PNG 内嵌来源元数据，不属于 AI 生成图像。ICO 包含 16、24、32、48、64、128、256px 图像。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的验证入口见 Launcher 分面规范。
+原生资产位于 [launcher/assets/](launcher/assets/)，应用 PNG、托盘 PNG 和 Windows ICO 由母版确定性生成，PNG 内嵌来源元数据，不属于 AI 生成图像。ICO 包含 16、24、32、48、64、128、256px 图像。运行 `node scripts/generate-launcher-icons.mjs --check` 校验来源与资产摘要；Windows 构建资源的验证入口见 Launcher 界面规范。
 
 ## Components
 
@@ -285,7 +285,7 @@ AppInput 的布局容器样式与内层字段样式分开，前缀图标不接�
 
 ### Tabs and segmented controls
 
-[`AppTabs`](web/src/components/AppTabs.vue) 用于抽屉内等局部分区，采用 Reka 自动激活与 44px 高的标签目标；选中项使用青瓷文字和 2px 底线，标签列表可横向滚动。[`AppSegmented`](web/src/components/AppSegmented.vue) 用于主题、密度、页面切换和内容宽度等单选偏好：中性底座承载等宽选项，选中项使用实色表面、中性边界和轻阴影，默认目标高 36px，粗指针下至少 44px。两者保留禁用和可见键盘焦点；工作区页签的手动激活规则不套用于局部偏好标签。
+[`AppTabs`](web/src/components/AppTabs.vue) 用于抽屉内等局部分区，采用 Reka 自动激活与 44px 高的标签目标；选中项使用青瓷文字和 2px 底线，标签列表可横向滚动。[`AppSegmented`](web/src/components/AppSegmented.vue) 用于主题、密度、页面切换和内容宽度等单选偏好：等宽选项排列在中性背景上，选中项使用实色表面、中性边界和轻阴影，默认目标高 36px，粗指针下至少 44px。两者保留禁用和可见键盘焦点；工作区页签的手动激活规则不套用于局部偏好标签。
 
 AppTabs 的标签可附带数量标记，标题区的额外操作承载当前分区筛选。菜单预览和插件详情控制台显式启用 keepAlive，切换时隐藏内容并保留节点；普通局部分区按实际需要决定是否常驻，不以重建预览或控制台来完成视觉切换。
 

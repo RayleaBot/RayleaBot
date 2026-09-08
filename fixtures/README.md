@@ -1,6 +1,6 @@
 # Fixtures
 
-本目录存放由 `contracts/` 派生的 golden cases，用于自动校验、契约回归和实现对照，不是演示文档目录。
+本目录存放由 `contracts/` 派生的 golden cases，用于自动校验、契约回归和实现对照。
 
 ## 当前分类
 

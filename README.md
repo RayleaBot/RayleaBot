@@ -81,7 +81,7 @@ node scripts/start-dev.mjs
 | 文档 | 说明 |
 |---|---|
 | [项目章程](./docs/RayleaBot机器人项目规划.md) | 产品使命、长期边界与工程原则 |
-| [界面设计](./docs/design/README.md) | 项目级视觉规范、分面映射与采用矩阵 |
+| [界面设计](./docs/design/README.md) | 共享视觉规范、各界面规范与采用状态 |
 | [架构总览](./docs/architecture/README.md) | 内部设计、事件模型、状态模型 |
 | [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
 | [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |

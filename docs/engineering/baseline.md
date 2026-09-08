@@ -13,7 +13,7 @@
 
 来源之间发生冲突时，先在冲突所属领域的正式来源中作出决定，再同步全部 companion；产品规划不能覆盖已经冻结的对外 contract。
 
-## 当前工程落点
+## 工程目录与职责
 
 - `server/` 是产品核心，负责配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
 - `web/` 负责管理控制台主路径。

@@ -2,7 +2,7 @@
 
 本目录包含 RayleaBot 的 Go 服务端工程。
 
-## 当前已接线能力
+## 服务端能力
 
 - `cmd/raylea-server` 入口、`-config` / `-config-schema` flags；`-config-schema` 默认使用内置配置 schema
 - 辅助命令入口：`cmd/raylea-updater` 外置更新器，执行 Windows 事务安装

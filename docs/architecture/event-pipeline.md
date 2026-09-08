@@ -28,7 +28,7 @@ flowchart LR
 ## 边界
 
 - Adapter 只负责传输解析和发送调用。
-- `eventpipeline/chatpolicy` 负责 adapter ingress、命令提取、回复目标捕获、黑白名单、权限、冷却检查和 ready 协调；不存在独立的 ingress 包。
+- `eventpipeline/chatpolicy` 负责 adapter ingress、命令提取、回复目标捕获、黑白名单、权限、冷却检查和 ready 协调。
 - `governance` 负责管理侧黑名单、白名单、命令策略变更及其事件，不负责入站策略失败。
 - Bridge 负责归一化事件校验和 bridge 层可观测性。
 - Dispatcher 负责目标选择、扇出、排队、插件命令刷新和插件 action 分发。

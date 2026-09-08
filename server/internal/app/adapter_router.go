@@ -57,9 +57,8 @@ func (r *adapterRouter) resolve(sourceAdapter, sourceProtocol string) (outbound.
 		return sender, nil
 	}
 
-	// A caller that named only a protocol is answered when that protocol has
-	// exactly one connected instance; with more than one, which conversation
-	// the message belongs to is genuinely unknown.
+	// A request with only a protocol can use exactly one connected instance.
+	// If several instances are connected, the caller must name the adapter.
 	if protocol := strings.TrimSpace(sourceProtocol); protocol != "" {
 		candidates := r.adaptersOfProtocol(protocol, senders)
 		switch len(candidates) {

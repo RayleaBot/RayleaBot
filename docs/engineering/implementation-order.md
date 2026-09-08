@@ -73,7 +73,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 ## 6. 暴露管理与本机控制入口
 
-管理 HTTP/WebSocket 在领域语义稳定后接线。Handler 只负责 transport、鉴权、参数校验和领域错误映射。
+领域语义确定后，实现管理 HTTP/WebSocket 接口。Handler 只负责 transport、鉴权、参数校验和领域错误映射。
 
 - 浏览器会话使用 Host-only HttpOnly cookie、CSRF 和 Origin 校验。
 - Bearer token 服务非浏览器客户端。
@@ -88,7 +88,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - CLI 复用 server/update 核心，提供离线、脚本化和恢复入口。
 - SDK 只暴露正式协议；生成物由 CI 检查修改、删除和新增漂移。
 
-客户端接线不能引入新的状态名、错误码、字段别名或信任根。
+客户端接入时使用契约定义的状态名、错误码、字段和信任根。
 
 ## 8. 打包、签名与恢复
 

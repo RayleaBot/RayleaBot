@@ -9,7 +9,7 @@
 - `design/tokens.json` 通过生成脚本提供 CSS variables，Tailwind 和产品组件消费相同的语义 token。
 - 页面局部样式只负责业务布局和无法由组件 token 表达的最小差异。
 - 品牌、页面与面板标题、普通正文、控件及插件卡片版本使用共享的自托管 Noto Sans SC。Web 的 `web/src/styles/_base.scss` 在 `:root` 将 `--font-sans` 局部映射到现有 `--font-display`，产品组件通过 CSS 继承字体。字体子集与授权文件随 Web 构建发布。
-- 日志消息正文使用 Noto Sans SC；日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据与 JSON 使用等宽栈。共享基础字体 token、Launcher 系统正文与独立 iframe 字体各自遵循所属分面的规范。
+- 日志消息正文使用 Noto Sans SC；日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据与 JSON 使用等宽栈。共享基础字体 token、Launcher 系统正文与独立 iframe 字体各自遵循所属界面的规范。
 - `DESIGN.md` 前置数据、`.impeccable/design.json` 与共享字体 CSS 由 `scripts/generate-design-tokens.mjs` 维护；Web 局部字体映射不要求修改共享基础 token，设计正文变化由生成器同步到 sidecar 的 narrative。
 
 ## 主题映射

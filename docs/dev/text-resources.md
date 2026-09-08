@@ -2,7 +2,7 @@
 
 本页说明 RayleaBot 当前文本资源与国际化的边界。
 
-## 当前落点
+## 文本资源归属
 
 - Web 使用 `vue-i18n` 和 `zh-CN` 资源；当前没有已交付的 `en-US` 资源集。
 - Server 的 HTTP 错误 envelope 提供稳定 `code` 与 `message_key`，Web 可据此选择本地化文案；程序分支不能依赖可读 `message`。

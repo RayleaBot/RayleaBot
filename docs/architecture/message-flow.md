@@ -105,6 +105,6 @@ Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `ev
 - Adapter 不写业务状态库。
 - `eventpipeline/chatpolicy` 的 Ingress 是命令与聊天治理职责方；Bridge 只校验统一事件。
 - Dispatcher 是插件事件排队和出站 action 的职责方。
-- Runtime Manager 是插件进程协议职责方，不是平台能力职责方。
+- Runtime Manager 管理插件进程协议。
 - Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口；插件自有的外部网络、临时文件和子进程工作由插件进程负责。
 - Scheduler 与 webhook 只产生目标事件，不建立平行分发或发送通道。

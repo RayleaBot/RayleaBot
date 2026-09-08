@@ -69,7 +69,7 @@
 
 - `/api/system/diagnostics` 是 Web 仪表盘使用的聚合运行时快照；诊断导出在此基础上收集受限的运行信息和日志摘要。
 - `/readyz` 只反映关键资源就绪状态；CLI `doctor` 检查本地配置、SQLite 和依赖元数据，Launcher preflight 检查安装根、启动文件与本机环境。各入口不共享完整问题列表。
-- 排障优先使用正式诊断入口，而不是依赖临时日志拼接。
+- 排障优先使用本页列出的诊断入口。
 - 高风险问题在多个入口保持同一份 `code`、`severity`、`summary` 和 `remediation` 口径。
 - OneBot API response 的 `echo` 缺失、空值或非字符串时，诊断面记录 warning 与结构化详情；真实 JSON 解析错误、读超时和连接错误继续按断链处理。
 

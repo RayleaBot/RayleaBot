@@ -11,7 +11,7 @@
 | 事件响应关联被覆盖 | 请求 ID 仅依赖时间戳，重复注册可覆盖已有会话 | [Runtime](../../server/internal/plugins/runtime/manager.go) 使用进程随机前缀和原子序号；事件、初始化和心跳统一生成 ID，重复注册拒绝，完成时校验会话对象及进程实例 |
 | 并发启停、重载产生状态竞争 | 启动缺少完整占位，旧进程回调可能作用于新实例 | [生命周期协调](../../server/internal/plugins/lifecycle/controller.go) 按插件串行协调启停重载，在线快速路径也持锁；退出回调与退避重启校验当前实例 |
 | 正常取消被误报事件超时 | 异步队列保留短生命周期调用者 context | [分发入口](../../server/internal/eventpipeline/dispatch/delivery.go) 入队前检查取消，接收后使用 Dispatcher 插槽生命周期；同步管理请求仍遵守调用方取消 |
-| SDK 迟到响应或提前终态触发协议错误 | 调用方停止等待被当成宿主动作结束 | [SDK 动作生命周期](../../sdk/go/event_actions.go) 保留已发送动作关联，关闭事件后禁止新动作；终态等待结算，最长使用现有 ActionTimeout；未结算则不发非法终态，迟到响应有界保留，真正未知帧仍拒绝 |
+| SDK 迟到响应或提前终态触发协议错误 | 调用方停止等待被当成宿主动作结束 | [SDK 动作生命周期](../../sdk/go/event_actions.go) 保留已发送动作关联，关闭事件后禁止新动作；终态等待结算，最长使用现有 ActionTimeout；未结算则不发非法终态，迟到响应有界保留，拒绝未知帧 |
 | 停机时任务历史缺失、同一故障多层告警 | 执行与收尾共用取消上下文，责任层不清 | [调度收尾](../../server/internal/eventpipeline/dispatch/scheduler_log.go) 使用独立 5 秒预算；[关闭顺序](../../server/internal/app/app_run.go) 在关闭数据库前停止调度并排空分发；一次运行结果只记录一次 |
 | 订阅检查超出宿主时限、检查重叠 | 随机等待、锁等待和执行预算叠加 | 独立插件 `internal/plugin/check_pipeline.go`：入口总预算 50 秒，最后 5 秒用于收尾；定时检查不重叠，手动等待可取消；任务注册单次并发执行且失败可重试 |
 | 冷却倒计时反复成为新错误 | 冷却状态混入本轮请求失败，日志按整轮而非原因节流 | 独立插件 `subscription_check.go`、`check_failures.go`：按来源、阶段、错误码及机器原因聚合；新类别首条立即可见，同类每 5 分钟汇总，确认恢复后记录次数；文案不参与聚合键 |
