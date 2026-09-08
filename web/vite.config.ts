@@ -37,6 +37,10 @@ export function resolveClientWebSocketBaseUrl(command: string, configuredBaseUrl
   return command === 'serve' ? resolveDevWebSocketBaseUrl(configuredBaseUrl, fallbackBaseUrl) : ''
 }
 
+export function resolveClientBackendTarget(command: string, target: string) {
+  return command === 'serve' ? target : ''
+}
+
 function isBackendProxyPath(requestUrl: string | undefined) {
   const pathname = new URL(requestUrl ?? '/', 'http://rayleabot.local').pathname
   return /^\/(?:api(?:\/|$)|healthz$|readyz$)/.test(pathname)
@@ -159,6 +163,7 @@ export default defineConfig(({ command }) => {
     define: {
       __RAYLEA_BUILD_VERSION__: JSON.stringify(resolveBuildVersion(command, process.env.RAYLEA_BUILD_VERSION)),
       'import.meta.env.VITE_WS_BASE_URL': JSON.stringify(clientWebSocketBaseUrl),
+      'import.meta.env.VITE_BACKEND_TARGET': JSON.stringify(resolveClientBackendTarget(command, backendTarget)),
     },
     resolve: {
       alias: {

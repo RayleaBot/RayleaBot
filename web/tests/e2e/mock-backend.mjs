@@ -10,6 +10,7 @@ import { WebSocketServer } from 'ws'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
+const webDistRoot = process.env.RAYLEA_E2E_SERVE_WEB_DIST === '1' ? path.join(repoRoot, 'web', 'dist') : null
 const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel', 'ui', 'dist')
 const exampleConfigPanelHost = `p-${createHash('sha256').update('example-config-panel').digest('hex').slice(0, 16)}.plugins.localhost:4010`
 const configuredWebOrigin = String(process.env.RAYLEA_E2E_WEB_ORIGIN ?? 'http://127.0.0.1:4173').trim()
@@ -963,6 +964,10 @@ function getContentType(filePath) {
       return 'image/svg+xml'
     case '.png':
       return 'image/png'
+    case '.webp':
+      return 'image/webp'
+    case '.woff2':
+      return 'font/woff2'
     default:
       return 'application/octet-stream'
   }
@@ -2498,6 +2503,19 @@ const server = http.createServer(async (request, response) => {
     }
     json(response, 200, pluginDetailBody(pluginId))
     return
+  }
+
+  if (webDistRoot && request.method === 'GET' && !pathname.startsWith('/api/') && !pathname.startsWith('/ws/')) {
+    const candidates = [path.resolve(webDistRoot, pathname.slice(1)), path.join(webDistRoot, 'index.html')]
+    for (const filePath of candidates) {
+      if (!isPathInside(webDistRoot, filePath)) continue
+      try {
+        const file = await readFile(filePath)
+        response.writeHead(200, { 'Content-Type': getContentType(filePath), 'Cache-Control': 'no-store' })
+        response.end(file)
+        return
+      } catch { /* Match the Server's SPA fallback, including namespaced plugin IDs. */ }
+    }
   }
 
   json(response, 404, {

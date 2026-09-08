@@ -31,6 +31,7 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 - `stores/`、`lib/`、`views/` 与 `components/` 分别承担业务状态、共享逻辑、页面和组件职责。
 - `AppPage` 统一标题、说明、状态、主操作、工具栏、内容宽度和全高工作区；`AppCard` 只包含真实独立表面或无阴影分区。
 - `AppStatusTag`、`RetryPanel`、`AppEmptyState`、`ManagementContextActions`、共享日志筛选与详情抽屉、模板预览工作区作为正式业务组件。
+- 插件页面的默认隔离地址使用当前部署端口；开发构建才读取 Vite 后端地址，生产产物不固定开发机地址。显式插件页面域模板遵循正式契约。
 
 ## 目录与职责
 
@@ -105,6 +106,7 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 - `pnpm build`
 - `pnpm test`
 - `pnpm test:e2e`
+- `pnpm test:e2e:production`：构建实际发布前端，通过同端口 HTTP 服务验证插件隔离页面、初始化与失败重试。
 
 ## 约束
 

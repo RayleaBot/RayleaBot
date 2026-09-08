@@ -36,7 +36,7 @@
 | 工作流 | 主要职责 |
 | --- | --- |
 | `ci.yml` | 变更范围识别、contracts-lite、Server、design-system、Web、Launcher、plugins、release-helper、third-party-notices、agent-docs、ci-self-check 和必需结果汇总 |
-| `nightly.yml` | strict contracts、覆盖率、Playwright E2E、安全、依赖、运行环境和 release dry-run 巡检 |
+| `nightly.yml` | strict contracts、覆盖率、开发与生产构建的 Web Playwright E2E、安全、依赖、运行环境和 release dry-run 巡检 |
 | `release.yml` | 正式产物打包、metadata 校验、packaged 协议与模板 smoke、跨版本 recovery drill、长期自托管 smoke |
 | `self-host-smoke.yml` | 按 artifact 子集复用正式打包路径，长期巡检 packaged 协议与模板 smoke、自托管运行、诊断与恢复全流程 |
 

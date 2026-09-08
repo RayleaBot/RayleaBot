@@ -1,8 +1,13 @@
 import { resolve as resolvePath } from 'node:path'
 
-import { createBackendProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
+import { createBackendProxyOptions, createRayleaBotDevStatus, resolveBuildVersion, resolveClientBackendTarget, resolveClientWebSocketBaseUrl, resolveDevWebSocketBaseUrl, resolveServerFsAllow } from '../../vite.config'
 
 describe('vite config', () => {
+  it('uses the backend target only for development plugin pages', () => {
+    expect(resolveClientBackendTarget('serve', 'http://127.0.0.1:12345')).toBe('http://127.0.0.1:12345')
+    expect(resolveClientBackendTarget('build', 'http://127.0.0.1:8080')).toBe('')
+    expect(resolveClientBackendTarget('build', 'http://127.0.0.1:4010')).toBe('')
+  })
   it('embeds only the build-supplied version and always labels the development server dev', () => {
     expect(resolveBuildVersion('serve', 'v2.3.4')).toBe('dev')
     expect(resolveBuildVersion('build', undefined)).toBe('dev')

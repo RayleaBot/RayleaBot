@@ -164,6 +164,12 @@ function closeBridge() {
   clearReadyTimer()
 }
 
+function failFrame(message: string) {
+  closeBridge()
+  waitingForReady.value = false
+  fatalError.value = message
+}
+
 function readConfirmation() {
   if (!requiresConfirmation.value) {
     confirmed.value = true
@@ -195,36 +201,36 @@ async function resolvePluginOrigin() {
 
 async function restartFrame() {
   closeBridge()
+  pluginOrigin.value = ''
+  bridgeNonce.value = ''
   fatalError.value = null
   actionError.value = null
   waitingForReady.value = false
   reportedIframeHeight.value = 640
   iframeHeight.value = 640
   if (!confirmed.value && requiresConfirmation.value) {
-    pluginOrigin.value = ''
     return
   }
   const session = bridgeSession
+  waitingForReady.value = true
+  readyTimer = setTimeout(() => {
+    if (session !== bridgeSession || !waitingForReady.value) return
+    failFrame(t('plugins.managementUi.loadTimeout'))
+  }, 10_000)
   try {
     const resolvedOrigin = await resolvePluginOrigin()
     if (session !== bridgeSession) return
     if (new URL(resolvedOrigin).origin === window.location.origin) {
       pluginOrigin.value = ''
-      fatalError.value = t('plugins.managementUi.sameOrigin')
+      failFrame(t('plugins.managementUi.sameOrigin'))
       return
     }
     pluginOrigin.value = resolvedOrigin
     bridgeNonce.value = randomID('nonce')
     iframeKey.value += 1
-    waitingForReady.value = true
-    readyTimer = setTimeout(() => {
-      if (session !== bridgeSession || bridgePort) return
-      waitingForReady.value = false
-      fatalError.value = t('plugins.managementUi.loadTimeout')
-    }, 10_000)
   } catch (error) {
     if (session !== bridgeSession) return
-    fatalError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
+    failFrame(getDisplayErrorMessage(error, 'errors.common.loadFailed'))
   }
 }
 
@@ -234,8 +240,8 @@ function acceptUnverifiedSource() {
   void restartFrame()
 }
 
-function postPort(type: BridgeType, payload?: unknown, id?: string) {
-  if (!bridgePort) return false
+function postPort(type: BridgeType, payload?: unknown, id?: string, session = bridgeSession) {
+  if (session !== bridgeSession || !bridgePort) return false
   const message: BridgeMessage = { version: '3', source: 'management_host', type }
   if (payload !== undefined) message.payload = JSON.parse(JSON.stringify(payload))
   if (id) message.request_id = id
@@ -243,7 +249,8 @@ function postPort(type: BridgeType, payload?: unknown, id?: string) {
   return true
 }
 
-function postError(error: unknown, id?: string) {
+function postError(error: unknown, id?: string, session = bridgeSession) {
+  if (session !== bridgeSession) return
   const message = getDisplayErrorMessage(error)
   actionError.value = message
   postPort('error', {
@@ -299,9 +306,8 @@ async function initializeBridge(session: number) {
     clearReadyTimer()
   } catch (error) {
     if (session !== bridgeSession) return
-    waitingForReady.value = false
-    fatalError.value = getDisplayErrorMessage(error, 'errors.common.loadFailed')
     postError(error)
+    failFrame(getDisplayErrorMessage(error, 'errors.common.loadFailed'))
   }
 }
 
@@ -313,10 +319,11 @@ function parseHandshake(value: unknown) {
 
 function handleWindowMessage(event: MessageEvent) {
   if (event.source !== iframeRef.value?.contentWindow || event.origin !== frameOrigin.value) return
+  const message = toRecord(event.data)
+  if (message?.source !== 'plugin_management_ui' || message.type !== 'page.ready' || bridgePort) return
   const nonce = parseHandshake(event.data)
-  if (nonce !== bridgeNonce.value || bridgePort) {
-    waitingForReady.value = false
-    fatalError.value = t('plugins.managementUi.invalidBridgeMessage')
+  if (nonce !== bridgeNonce.value) {
+    failFrame(t('plugins.managementUi.invalidBridgeMessage'))
     return
   }
   const channel = new MessageChannel()
@@ -405,47 +412,57 @@ function scheduleFrameHeightUpdate() {
 }
 
 async function reloadSettings(id?: string) {
+  const session = bridgeSession
   try {
     const response = await pluginsStore.fetchSettings(props.plugin.id)
+    if (session !== bridgeSession) return
     lastSettings = response.values
     postPort('settings.changed', { config: response.values }, id)
-  } catch (error) { postError(error, id) }
+  } catch (error) { postError(error, id, session) }
 }
 
 async function saveSettings(values: PluginSettingsUpdateRequest['values'], id?: string) {
+  const session = bridgeSession
   try {
     const response = await pluginsStore.updateSettings(props.plugin.id, values)
+    if (session !== bridgeSession) return
     lastSettings = response.values
     await pluginsStore.fetchDetail(props.plugin.id)
     await governanceStore.fetchCommandPolicy().catch(() => undefined)
-    postPort('settings.changed', { config: response.values }, id)
-  } catch (error) { postError(error, id) }
+    postPort('settings.changed', { config: response.values }, id, session)
+  } catch (error) { postError(error, id, session) }
 }
 
 async function reloadSecrets(id?: string) {
+  const session = bridgeSession
   try {
     const response = await apiRequest<PluginSecretsResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`)
+    if (session !== bridgeSession) return
     lastSecretsConfigured = response.configured
     postPort('secrets.status.changed', { configured: response.configured }, id)
-  } catch (error) { postError(error, id) }
+  } catch (error) { postError(error, id, session) }
 }
 
 async function setSecrets(values: Record<string, string>, id?: string) {
   if (Object.keys(values).length === 0) { postPort('error', { code: 'platform.invalid_request', message: '至少提供一个非空密钥。' }, id); return }
+  const session = bridgeSession
   try {
     const response = await apiRequest<PluginSecretsUpdateResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`, { method: 'PUT', body: { values } })
+    if (session !== bridgeSession) return
     lastSecretsConfigured = response.configured
     postPort('secrets.status.changed', { configured: response.configured }, id)
-  } catch (error) { postError(error, id) }
+  } catch (error) { postError(error, id, session) }
 }
 
 async function deleteSecrets(keys: string[], id?: string) {
   if (keys.length === 0) { postPort('error', { code: 'platform.invalid_request', message: '至少提供一个密钥名称。' }, id); return }
+  const session = bridgeSession
   try {
     const response = await apiRequest<PluginSecretsUpdateResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`, { method: 'DELETE', body: { keys } })
+    if (session !== bridgeSession) return
     lastSecretsConfigured = response.configured
     postPort('secrets.status.changed', { configured: response.configured }, id)
-  } catch (error) { postError(error, id) }
+  } catch (error) { postError(error, id, session) }
 }
 
 function hasPermissions(permissions: string[], id?: string) {
@@ -456,22 +473,25 @@ function hasPermissions(permissions: string[], id?: string) {
 }
 
 async function triggerSchedulerJob(jobID: string, id?: string) {
+  const session = bridgeSession
   try {
     const response = await apiRequest<SchedulerJobTriggerResponse>(`/api/system/scheduler/jobs/${encodeURIComponent(jobID)}/trigger`, { method: 'POST' })
-    postPort('scheduler.triggered', response, id)
-  } catch (error) { postError(error, id) }
+    postPort('scheduler.triggered', response, id, session)
+  } catch (error) { postError(error, id, session) }
 }
 
 async function openRenderTemplate(templateID: string, id?: string) {
-  try { await navigate(buildRenderTemplateLocation(templateID)) } catch (error) { postError(error, id) }
+  const session = bridgeSession
+  try { await navigate(buildRenderTemplateLocation(templateID)) } catch (error) { postError(error, id, session) }
 }
 
 async function reloadProtocolTargets(id?: string) {
   if (!hasPermissions(['group.list', 'friend.list'], id)) return
+  const session = bridgeSession
   try {
     const response = await apiRequest<OneBot11ProtocolTargetsResponse>('/api/protocols/onebot11/targets')
-    postPort('protocol.targets.changed', response, id)
-  } catch (error) { postError(error, id) }
+    postPort('protocol.targets.changed', response, id, session)
+  } catch (error) { postError(error, id, session) }
 }
 
 async function resolveProtocolIdentities(value: unknown, id?: string) {
@@ -481,18 +501,20 @@ async function resolveProtocolIdentities(value: unknown, id?: string) {
   }) : []
   const permissions = [...(items.some((item) => item.target_type === 'group') ? ['group.member.get'] : []), ...(items.some((item) => item.target_type === 'private') ? ['user.info.get'] : [])]
   if (!hasPermissions(permissions, id)) return
+  const session = bridgeSession
   try {
     const response = await apiRequest<OneBot11IdentityResolveResponse>('/api/protocols/onebot11/identities/resolve', { method: 'POST', body: { items } })
-    postPort('protocol.identities.resolved', response, id)
-  } catch (error) { postError(error, id) }
+    postPort('protocol.identities.resolved', response, id, session)
+  } catch (error) { postError(error, id, session) }
 }
 
 async function invokePluginManagementAction(action: string, payload: Record<string, unknown>, id?: string) {
   if (!/^[a-z][a-z0-9_.:-]*$/.test(action)) { postPort('error', { code: 'platform.invalid_request', message: '管理动作名称无效。' }, id); return }
+  const session = bridgeSession
   try {
     const response = await apiRequest<PluginManagementActionResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/management/actions`, { method: 'POST', body: { action, payload } })
-    postPort('plugin.action.result', { action: response.action, result: response.result }, id)
-  } catch (error) { postError(error, id) }
+    postPort('plugin.action.result', { action: response.action, result: response.result }, id, session)
+  } catch (error) { postError(error, id, session) }
 }
 
 function handleFrameLoad() {
@@ -523,7 +545,7 @@ watch(() => props.plugin.state, (state) => {
 })
 
 watch(() => uiShellStore.resolvedThemeMode, () => {
-  if (bridgePort) postHostInit()
+  if (bridgePort && !waitingForReady.value) postHostInit()
 })
 
 if (typeof window !== 'undefined') {

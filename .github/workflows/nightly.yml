@@ -134,6 +134,10 @@ jobs:
         working-directory: web
         run: pnpm build
 
+      - name: Run production web E2E
+        working-directory: web
+        run: pnpm exec playwright test --config playwright.production.config.ts
+
   launcher-full:
     runs-on: ubuntu-latest
 
