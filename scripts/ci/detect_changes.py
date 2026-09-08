@@ -22,7 +22,7 @@ OUTPUT_KEYS = (
     "ci",
 )
 
-DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", ".impeccable.md"}
+DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md"}
 DOC_AUX_FILES = {".impeccable/design.json"}
 TOOLCHAIN_ROOT_FILES = {".env.example", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
 

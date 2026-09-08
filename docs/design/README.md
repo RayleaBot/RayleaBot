@@ -39,3 +39,14 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据以 [`cont
 - 插件管理页使用包内静态 HTML、CSS 和 JavaScript 产物，不依赖宿主组件运行时；官方插件的这些产物由 Vue 3、TypeScript 和 Vite 构建。
 - 三个分面共享颜色角色、字体层级、间距、圆角、状态语义和无障碍门槛，不共享框架组件。
 - 聊天图片模板属于渲染产物，不受本产品界面规范约束。
+
+## 设计工具
+
+Impeccable 的项目上下文由根目录 `PRODUCT.md` 和 `DESIGN.md` 提供。Web 与 Launcher 各有独立的 pnpm 工作区；从仓库根设置 `IMPECCABLE_CONTEXT_DIR`，使指定应用目标的命令读取共享上下文：
+
+```powershell
+$env:IMPECCABLE_CONTEXT_DIR = (Get-Location).Path
+& '.agents/skills/impeccable/scripts/impeccable.cmd' context --target web/src
+```
+
+共享设计记录的维护在仓库根执行 `.agents/skills/impeccable/scripts/impeccable.cmd doctor --json`。设计稿、评审截图、交互会话和构建草稿在本地使用；`PRODUCT.md`、`DESIGN.md`、`design/tokens.json` 与 `.impeccable/design.json` 随仓库维护。

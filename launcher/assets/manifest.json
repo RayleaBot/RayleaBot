@@ -15,7 +15,11 @@
     },
     "generator": {
       "path": "scripts/generate-launcher-icons.mjs",
-      "sha256": "c525eee06ce47711646118e7e1a9474665126d435d785c83169c87b5411b6231"
+      "sha256": "eca1ecc8f4b265bf02594345c73763a211ee7a0afc277aa3f9d2fc7375b4e342"
+    },
+    "metadataWriter": {
+      "path": "scripts/png-provenance.mjs",
+      "sha256": "8519810e246f731c572e01ee6072ec4d0f2c10b9728b9a27c85942874dba1ef7"
     },
     "icoEncoder": {
       "module": "github.com/wailsapp/wails/v3",
@@ -55,8 +59,8 @@
     }
   },
   "sha256": {
-    "appicon.png": "781a20dfad486f6831b9812908e01fb09dc9dca175416505536e37f5dd94e57d",
-    "tray.png": "e3266265911f366fc4450d6ce7c6fe6498c7975971c121d8f7d9198cd108f204",
+    "appicon.png": "f858ebac56d9683b229e5205ecc4cac067db881a981f9c7e2421a11be0de4154",
+    "tray.png": "727c4866ff9f5c900e00e0e1c19a5d4f1d17525bf1ec80cdb9e99fdb196662e4",
     "icon.ico": "d55ffff8852550b1bd1e83e71829e608882d6d2317f3e0583a2afcdb02b1d45a",
     "sources/appicon.svg": "844bae3fbeac2c6dede02e0a02c173c183211cf64a65c42b5840a0eb3b1f7d51",
     "sources/tray.svg": "64f70396dfcb25095e067643cd803ee98382d528b149819042b455f5dce6e4ea"

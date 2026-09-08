@@ -32,6 +32,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 
 - 服务端改动先读 `server/README.md`；Web 与 Launcher 改动先读各自 `package.json`，Launcher 还需读 `launcher/go.mod`。
 - 开发启动与工作区说明：`docs/dev/repo-workflow.md`。
+- 设计工具共享上下文：指定应用目标前，按 `docs/design/README.md` 设置 `IMPECCABLE_CONTEXT_DIR`。
 - 验证选择：`.agents/skills/repo-validation/SKILL.md`；既有 CI 与发布门禁见 `docs/engineering/quality-gates.md`。
 
 ## Testing

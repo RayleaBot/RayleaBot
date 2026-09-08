@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { runGo } from "../launcher/scripts/run-go.mjs";
+import { readPngProvenance, writePngProvenance } from "./png-provenance.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const assetsRoot = path.join(root, "launcher/assets");
 const manifestPath = path.join(assetsRoot, "manifest.json");
-const metadataTool = path.join(root, ".agents/skills/impeccable/scripts/embed-prompt.mjs");
 const sizes = [16, 24, 32, 48, 64, 128, 256];
 const arguments_ = process.argv.slice(2);
 assert(arguments_.every((argument) => argument === "--check" || argument === "--help"), "Unknown option");
@@ -43,6 +42,7 @@ const inputs = {
   geometry: { path: "design/mark.json", sha256: sha256(markSource) },
   palette: { path: "design/tokens.json", roles: colors, sha256: sha256(JSON.stringify(colors)) },
   generator: { path: "scripts/generate-launcher-icons.mjs", sha256: sha256(readText("scripts/generate-launcher-icons.mjs")) },
+  metadataWriter: { path: "scripts/png-provenance.mjs", sha256: sha256(readText("scripts/png-provenance.mjs")) },
   icoEncoder: { module: "github.com/wailsapp/wails/v3", version: wailsVersion },
 };
 
@@ -76,6 +76,7 @@ const provenance = Object.fromEntries([
     palette: { path: inputs.palette.path, roles: Object.fromEntries(roles.map((role) => [role, colors[role]])) },
     vector: { path: `launcher/assets/${vector}`, sha256: sha256(sources[vector]) },
     generator: inputs.generator,
+    metadataWriter: inputs.metadataWriter,
   }, null, 2)];
 }));
 
@@ -122,7 +123,7 @@ function verify() {
   assert.deepEqual(pngDimensions("appicon.png"), { width: 1024, height: 1024 });
   assert.deepEqual(pngDimensions("tray.png"), { width: 32, height: 32 });
   for (const [file, expected] of Object.entries(provenance)) {
-    const embedded = execFileSync(process.execPath, [metadataTool, path.join(assetsRoot, file), "--read"], { encoding: "utf8" }).trimEnd();
+    const embedded = readPngProvenance(fs.readFileSync(path.join(assetsRoot, file)));
     assert.equal(embedded, expected, `${file} embedded source provenance is stale`);
   }
   assert.deepEqual(icoSizes(), sizes);
@@ -158,7 +159,8 @@ if (!arguments_.includes("--check")) {
   ]);
   assert.equal(exitCode, 0, "Wails icon generation failed");
   for (const [file, sourceProvenance] of Object.entries(provenance)) {
-    execFileSync(process.execPath, [metadataTool, path.join(assetsRoot, file), "--prompt", sourceProvenance]);
+    const assetPath = path.join(assetsRoot, file);
+    fs.writeFileSync(assetPath, writePngProvenance(fs.readFileSync(assetPath), sourceProvenance));
   }
   fs.writeFileSync(manifestPath, JSON.stringify({
     inputs,
