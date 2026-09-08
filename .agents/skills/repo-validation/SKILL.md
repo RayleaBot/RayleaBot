@@ -26,7 +26,7 @@ description: 需要为本仓库改动选择或执行验证时使用。根据行�
 - race 前确认 `go env GOOS CGO_ENABLED CC` 与所需编译器可用。环境不支持时记录缺口，不能把未运行的 CI 当作已覆盖。
 - 生成链依据真实输入选择；契约变化不等于所有生成物都要更新。已有输出也需核对内容与来源一致。
 - 文档链接检查使用 `python scripts/check-doc-links.py`；AGENTS、CLAUDE 或项目 skill 变化使用 `node scripts/check-agent-docs.mjs`。
-- 必要的跨包、集成或既有 CI 门禁仍须完成；最小验证不是跳过与改动有关的高风险路径。
+- 验证必须覆盖与改动有关的高风险路径，并完成必要的跨包、集成检查和既有 CI 门禁。
 
 ## 判断结果
 

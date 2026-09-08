@@ -1,14 +1,14 @@
 # RayleaBot Repository Guide
 
 RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托管聊天机器人框架。
-本文件只保留仓库级约束；进入具体目录后读取就近的 `AGENTS.md`。
+进入具体目录后读取就近的 `AGENTS.md`。
 
 ## Instruction Scope
 
 - 用户当前请求定义目标和交付范围。
 - 根到局部的 AGENTS 逐层叠加；局部规则补充或收窄根规则。
 - 每份 AGENTS 由同级 `CLAUDE.md` 导入，Claude 专属说明留在 bridge 中。
-- 项目 skill 位于 `.agents/skills/`，按任务需要使用。
+- 项目自有 skill 位于 `.agents/skills/`，按任务需要使用；外部安装的 skill（如 Impeccable）由上游维护，不纳入项目修改。
 
 ## Hard Rules
 
