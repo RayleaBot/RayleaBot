@@ -116,6 +116,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/setup/status",
     "/api/session/login",
     "/api/session",
+    "/api/account/credentials",
     "/api/launcher/status",
     "/api/launcher/shutdown",
     "/api/development/status",
