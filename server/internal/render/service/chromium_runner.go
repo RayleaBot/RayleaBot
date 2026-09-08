@@ -139,7 +139,9 @@ type chromiumRunner struct {
 	cancelBrowser   context.CancelFunc
 }
 
-func NewChromiumRunner(options ChromiumOptions) Runner {
+// NewChromiumRunner creates a reusable browser runner. The caller must call Close
+// to release the browser process and its temporary profile.
+func NewChromiumRunner(options ChromiumOptions) *chromiumRunner {
 	return &chromiumRunner{
 		browserPath: strings.TrimSpace(options.BrowserPath),
 		browserArgs: append([]string(nil), options.BrowserArgs...),

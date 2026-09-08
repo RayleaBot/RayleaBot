@@ -16,8 +16,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
 
 func TestServiceRenderRequestsAdaptiveDocumentHeight(t *testing.T) {
@@ -291,11 +289,9 @@ func TestServiceRenderRejectsInputTooLarge(t *testing.T) {
 }
 
 func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
-	repoRoot := filepath.Join("..", "..", "..", "..")
-	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
-	if err != nil {
-		t.Skipf("managed chromium is not prepared: %v", err)
-	}
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 
 	templatesRoot := filepath.Join(t.TempDir(), "templates")
 	assetDir := filepath.Join(templatesRoot, "asset.check", "assets")
@@ -314,8 +310,7 @@ func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
 		t.Fatalf("close asset: %v", err)
 	}
 
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
-	content, err := runner.Render(context.Background(), Document{
+	content, err := runner.Render(ctx, Document{
 		Template:   "relative.asset",
 		Output:     "png",
 		BaseURL:    BaseURL(filepath.Join(templatesRoot, "asset.check")),
@@ -359,11 +354,9 @@ func TestChromiumRunnerLoadsRelativeTemplateAssets(t *testing.T) {
 }
 
 func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
-	repoRoot := filepath.Join("..", "..", "..", "..")
-	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
-	if err != nil {
-		t.Skipf("managed chromium is not prepared: %v", err)
-	}
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 
 	resourcePath := filepath.Join(t.TempDir(), "source.png")
 	resourceFile, err := os.Create(resourcePath)
@@ -383,8 +376,7 @@ func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
 	}
 	digest := sha256.Sum256(resourceBytes)
 
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
-	content, err := runner.Render(context.Background(), Document{
+	content, err := runner.Render(ctx, Document{
 		Template: "prefetched.resource",
 		Output:   "png",
 		Width:    64,
@@ -412,11 +404,9 @@ func TestChromiumRunnerLoadsPrefetchedRenderResource(t *testing.T) {
 }
 
 func TestChromiumRunnerRestoresSourceWhenPrefetchedResourceCannotDecode(t *testing.T) {
-	repoRoot := filepath.Join("..", "..", "..", "..")
-	browserPath, err := deps.NewManager(repoRoot).ResolvePreparedEntrypoint("chromium", "browser")
-	if err != nil {
-		t.Skipf("managed chromium is not prepared: %v", err)
-	}
+	runner := newTestChromiumRunner(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+	defer cancel()
 
 	invalidContent := []byte{0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a}
 	resourcePath := filepath.Join(t.TempDir(), "invalid.png")
@@ -431,8 +421,7 @@ func TestChromiumRunnerRestoresSourceWhenPrefetchedResourceCannotDecode(t *testi
 	}
 	fallbackURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(fallback.Bytes())
 
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
-	content, err := runner.Render(context.Background(), Document{
+	content, err := runner.Render(ctx, Document{
 		Template: "prefetched.resource.fallback",
 		Output:   "png",
 		Width:    64,
