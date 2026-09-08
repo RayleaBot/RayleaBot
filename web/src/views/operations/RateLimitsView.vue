@@ -604,7 +604,7 @@ async function save() {
 
 .field-info-icon:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
 }
 
 .rate-limits-control-wrap {

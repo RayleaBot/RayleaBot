@@ -53,7 +53,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   letter-spacing: -.025em;
   text-wrap: balance;
   &:focus { outline: none; }
-  &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: 6px; border-radius: 4px; }
+  &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); border-radius: 4px; }
 }
 .auth-panel__subtitle {
   max-width: 100%;
@@ -91,7 +91,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   cursor: pointer;
   transition: background-color 160ms var(--motion-easing), color 160ms var(--motion-easing);
   &:hover { background: var(--auth-glass-control); }
-  &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: 2px; }
+  &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); }
   &:disabled { opacity: .55; cursor: wait; }
 }
 @media (max-width: 600px) {

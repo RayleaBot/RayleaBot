@@ -179,11 +179,6 @@ function handleTextareaUpdate(value: unknown) {
   padding: 6px;
   margin: -6px;
   border-radius: var(--radius-md);
-  transition: box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.config-field:focus-within {
-  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .config-field__header {

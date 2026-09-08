@@ -95,7 +95,7 @@ onBeforeUnmount(close)
 
 .log-advanced-filters__trigger:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
 }
 
 .log-advanced-filters__panel {

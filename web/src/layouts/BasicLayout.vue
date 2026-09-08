@@ -981,12 +981,12 @@ onBeforeUnmount(() => {
 .admin-layout__icon-button:focus-visible,
 .admin-layout__shutdown-button:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
 }
 
 .admin-layout__brand:focus-visible {
   outline-color: var(--chrome-muted);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
 }
 
 @media (forced-colors: active) {

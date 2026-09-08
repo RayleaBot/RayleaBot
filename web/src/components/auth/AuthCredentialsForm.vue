@@ -107,7 +107,8 @@ async function handleSubmit() {
 .auth-form :deep(.app-field__label) { color: var(--auth-text); font-size: 13px; font-weight: 600; line-height: 1.4; }
 .auth-form :deep(.auth-form__control) { height: 50px; min-height: 50px; padding-inline: 14px 48px; color: var(--auth-text); font-size: 16px; border: 1px solid var(--auth-border-control); border-radius: 16px; background: var(--auth-glass-control, var(--auth-control)); box-shadow: none; transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
 .auth-form :deep(.auth-form__control:hover), .auth-form :deep(.auth-form__control:focus) { border-color: var(--auth-brand-stroke, var(--auth-brand-foreground)); background: var(--auth-glass-control-hover, var(--auth-control-hover)); }
-.auth-form :deep(.auth-form__control:focus) { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--auth-brand-foreground) 22%, transparent), 0 2px 8px color-mix(in srgb, var(--auth-brand-foreground) 8%, transparent); }
+.auth-form :deep(.auth-form__control:focus) { outline: none; box-shadow: inset 0 0 0 1px var(--auth-brand-stroke, var(--auth-brand-foreground)); }
+.auth-form :deep(.auth-form__control[aria-invalid=true]:focus) { box-shadow: inset 0 0 0 1px var(--auth-danger); }
 .auth-form :deep(.auth-form__control[aria-invalid=true]) { border-color: var(--auth-danger); }
 .auth-form :deep(.auth-form__control:disabled) { color: var(--auth-text-muted); border-color: var(--auth-border); background: color-mix(in srgb, var(--auth-control) 72%, var(--auth-canvas)); }
 .auth-form :deep(input:-webkit-autofill) { box-shadow: 0 0 0 1000px var(--auth-control) inset; -webkit-text-fill-color: var(--auth-text); caret-color: var(--auth-text); }
@@ -118,12 +119,12 @@ async function handleSubmit() {
 .auth-form__submit { height: 50px; min-height: 50px; margin-top: 6px; color: var(--auth-on-brand); border-color: var(--auth-brand-fill); border-radius: 16px; background: var(--auth-brand-fill); box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--auth-brand-fill) 50%, transparent), inset 0 1px 0 color-mix(in srgb, var(--auth-glass-edge) 35%, transparent); font-weight: 600; }
 .auth-form__submit:not(:disabled):hover { background: var(--auth-brand-fill-hover); }
 .auth-form__submit:not(:disabled):active { background: var(--auth-brand-fill-pressed); box-shadow: none; }
-.auth-form__submit:not(:disabled):focus-visible { outline: 2px solid var(--auth-focus); outline-offset: 3px; }
+.auth-form__submit:not(:disabled):focus-visible { outline: 2px solid var(--auth-on-brand); outline-offset: var(--focus-outline-offset); }
 @media (max-width: 600px) { .auth-form { gap: 16px; } }
 @media (prefers-reduced-motion: reduce) { .auth-form :deep(.auth-form__control) { transition: none; } }
 @media (forced-colors: active) {
   .auth-form :deep(.auth-form__control) { border-color: CanvasText; }
-  .auth-form :deep(.auth-form__control:focus), .auth-form__submit:not(:disabled):focus-visible { outline: 2px solid Highlight; outline-offset: 2px; box-shadow: none; }
+  .auth-form :deep(.auth-form__control:focus), .auth-form__submit:not(:disabled):focus-visible { outline: 2px solid Highlight; outline-offset: var(--focus-outline-offset); box-shadow: none; }
   .auth-form :deep(.auth-form__control[aria-invalid=true]) { border-color: Mark; }
 }
 </style>

@@ -662,7 +662,7 @@ const filteredItems = computed(() => {
 
 <style lang="scss" scoped>
 .lucide { width: 16px; height: 16px; flex-shrink: 0; }
-.error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); }
 .scheduler-page-container {
   display: grid;
   gap: var(--space-md);

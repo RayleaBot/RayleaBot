@@ -1042,7 +1042,7 @@ function timeText(value?: string | null) {
 
 .accounts-panel__help:focus-visible {
   outline: 2px solid var(--brand-stroke);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
 }
 
 .accounts-panel__header {

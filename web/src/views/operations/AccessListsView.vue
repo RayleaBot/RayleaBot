@@ -1044,7 +1044,7 @@ onMounted(() => {
 
   &:focus-visible {
     outline: 2px solid var(--focus);
-    outline-offset: 2px;
+    outline-offset: var(--focus-outline-offset);
   }
 }
 

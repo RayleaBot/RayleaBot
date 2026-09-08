@@ -302,7 +302,7 @@ function openLogs() {
 .protocol-picker .dialog-description { margin-bottom: 8px; }
 .protocol-choice { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; padding: 20px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: var(--app-card-radius); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
 .protocol-choice:hover { background: var(--surface-soft); border-color: var(--app-primary); }
-.protocol-choice:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 3px; }
+.protocol-choice:focus-visible { outline: 2px solid var(--app-primary); outline-offset: var(--focus-outline-offset); }
 .protocol-choice strong { display: block; margin-bottom: 6px; font-size: 15px; }
 .protocol-choice small, .field-hint { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .field-hint { margin: 6px 0 0; }

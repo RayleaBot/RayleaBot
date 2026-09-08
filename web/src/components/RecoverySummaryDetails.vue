@@ -263,7 +263,7 @@ function toggleReview(id: string, checked: boolean | 'indeterminate') {
 .recovery-summary__list--compact { margin-top: 6px; }
 .recovery-summary__history { display: block; }
 .recovery-summary__history summary { cursor: pointer; padding: 8px 0; color: var(--muted); font-size: 13px; }
-.recovery-summary__history summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+.recovery-summary__history summary:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); border-radius: 4px; }
 .issue-alert-card { min-width: 0; padding: 0 0 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
 .issue-alert-card__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
 .issue-alert-card__header :deep(.app-tag) { white-space: normal; overflow-wrap: anywhere; margin: 0; }

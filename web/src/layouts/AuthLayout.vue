@@ -185,7 +185,7 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   background: transparent;
   transition: background-color 160ms var(--motion-easing), color 160ms var(--motion-easing);
   &:hover { color: var(--auth-brand-foreground); background: var(--auth-glass-control); }
-  &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: 2px; }
+  &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); }
 }
 .auth-layout__caption {
   margin: 24px 0 0;

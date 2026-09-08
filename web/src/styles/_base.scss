@@ -4,6 +4,7 @@
 
 :root {
   --font-sans: var(--font-display);
+  --focus-outline-offset: -2px;
 }
 
 html,
@@ -96,9 +97,35 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[role='checkbox']:focus-visible,
+[role='radio']:focus-visible,
+[role='switch']:focus-visible,
 [role='button']:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
+}
+
+/* Fields emphasize their existing boundary; no outward halo or second outline. */
+[data-slot='input']:focus,
+[data-slot='textarea']:focus,
+[data-slot='select-trigger']:focus-visible {
+  border-color: var(--field-focus-color, var(--brand-foreground));
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--field-focus-color, var(--brand-foreground));
+}
+
+[data-slot='input'][aria-invalid='true'],
+[data-slot='textarea'][aria-invalid='true'],
+[data-slot='select-trigger'][aria-invalid='true'] {
+  --field-focus-color: var(--text-danger);
+}
+
+[data-slot='button'][data-variant='default']:focus-visible,
+[data-slot='checkbox'][data-state='checked']:focus-visible,
+[data-slot='switch'][data-state='checked']:focus-visible {
+  outline-color: var(--on-brand);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -114,9 +141,27 @@ textarea:focus-visible,
   a:focus-visible,
   input:focus-visible,
   textarea:focus-visible,
+  select:focus-visible,
+  summary:focus-visible,
+  [role='checkbox']:focus-visible,
+  [role='radio']:focus-visible,
+  [role='switch']:focus-visible,
   [role='button']:focus-visible {
     outline-color: Highlight;
   }
+
+  [data-slot='input']:focus,
+  [data-slot='textarea']:focus,
+  [data-slot='select-trigger']:focus-visible {
+    border-color: Highlight;
+    outline: 2px solid Highlight;
+    outline-offset: var(--focus-outline-offset);
+    box-shadow: none;
+  }
+
+  [data-slot='button'][data-variant='default']:focus-visible,
+  [data-slot='checkbox'][data-state='checked']:focus-visible,
+  [data-slot='switch'][data-state='checked']:focus-visible { outline-color: Highlight; }
 }
 
 .desktop-only {

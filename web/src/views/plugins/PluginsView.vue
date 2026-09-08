@@ -671,7 +671,7 @@ async function reloadPlugin(pluginId: string) {
 
 .plugin-card__name:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline-offset: var(--focus-outline-offset);
   border-radius: 4px;
 }
 

@@ -484,7 +484,7 @@ function toggleRootGroup(key: string) {
 
 .sidebar-navigation__back:focus-visible {
   outline: 2px solid var(--chrome-muted);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
 }
 
 .sidebar-navigation__back > span:last-child {

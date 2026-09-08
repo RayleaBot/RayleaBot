@@ -93,9 +93,10 @@ async function expectConsistentAuthControlFocus(page: import('@playwright/test')
   const identifierStyle = await readFocusedAuthControlStyle(identifier)
   const secretStyle = await readFocusedAuthControlStyle(secretInput)
 
-  // The ring replaces the outline, so it has to stay visible: 3px spread in a non-transparent color.
+  // Focus stays on the field boundary without a second, outward ring.
   const [ring] = identifierStyle.boxShadow.split(/,(?![^(]*\))/)
-  expect(ring).toContain('0px 0px 0px 3px')
+  expect(ring).toContain('inset')
+  expect(ring).toContain('0px 0px 0px 1px')
   expect(Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(ring)?.[1] ?? '1')).toBeGreaterThan(0.1)
   expect(identifierStyle.borderWidth).toBe('1px')
   expect(identifierStyle.outlineStyle).toBe('none')

@@ -466,7 +466,7 @@ async function save() {
 
 .config-toc__item:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: var(--focus-outline-offset);
   border-radius: 2px;
 }
 

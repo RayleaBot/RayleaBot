@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
+import AppTextarea from '@/components/AppTextarea.vue'
 import AppNumberInput from '@/components/AppNumberInput.vue'
 import AppField from '@/components/AppField.vue'
 import AppSelect from '@/components/AppSelect.vue'
@@ -50,6 +51,7 @@ const optionalNumber = ref<number | null>(7)
         <AppField label="访问令牌"><AppInput v-model="value" type="password" /></AppField>
         <AppField label="接入协议"><AppSelect v-model="selected" :options="options" /></AppField>
         <AppField label="连接超时（秒）"><AppNumberInput v-model="count" :min="1" /></AppField>
+        <AppField label="备注"><AppTextarea v-model="value" /></AppField>
       </div>
       <div>
         <h2>边界状态</h2>
