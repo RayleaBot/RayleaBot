@@ -1,4 +1,3 @@
-import Antd from 'ant-design-vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -125,7 +124,7 @@ async function mountFloatingDrawer(options: {
       hostElement,
     },
     global: {
-      plugins: [Antd, router],
+      plugins: [router],
     },
   })
 
@@ -195,7 +194,7 @@ describe('ManagementLogDetailDrawer', () => {
     })
 
     expect(wrapper.find('.log-detail-window').exists()).toBe(true)
-    expect(wrapper.find('.ant-drawer').exists()).toBe(false)
+    expect(wrapper.find('[data-slot=app-dialog]').exists()).toBe(false)
     expect(wrapper.text()).toContain('weather')
   })
 
@@ -215,7 +214,7 @@ describe('ManagementLogDetailDrawer', () => {
       memoryKey: 'logs-current',
     })
 
-    expect(document.body.querySelector('.ant-drawer')).not.toBeNull()
+    expect(document.body.querySelector('[data-slot=app-dialog]')).not.toBeNull()
     expect(document.body.querySelector('.log-detail-window')).toBeNull()
   })
 

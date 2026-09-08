@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { CloseOutlined } from '@ant-design/icons-vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import AppDrawer from '@/components/AppDrawer.vue'
+import { XIcon } from '@lucide/vue'
+import { computed, shallowRef, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { getLogLevelLabel, getLogProtocolLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
@@ -44,6 +45,22 @@ const emit = defineEmits<{
   close: []
 }>()
 
+const retained = shallowRef({ summary: props.summary, detail: props.detail, loading: props.loading, error: props.error })
+watch(() => [props.open, props.summary, props.detail, props.loading, props.error], () => {
+  if (props.open) retained.value = { summary: props.summary, detail: props.detail, loading: props.loading, error: props.error }
+}, { immediate: true })
+const displaySummary = computed(() => props.open ? props.summary : retained.value.summary)
+const displayDetail = computed(() => props.open ? props.detail : retained.value.detail)
+const displayLoading = computed(() => props.open ? props.loading : retained.value.loading)
+const displayError = computed(() => props.open ? props.error : retained.value.error)
+let floatingTrigger: HTMLElement | null = null
+function finishClose() {
+  if (props.open) return
+  retained.value = { summary: null, detail: null, loading: false, error: null }
+  if (document.activeElement === document.body && floatingTrigger?.isConnected && floatingTrigger.getClientRects().length) floatingTrigger.focus({ preventScroll: true })
+  floatingTrigger = null
+}
+
 const panelRef = ref<HTMLElement | null>(null)
 const headerRef = ref<HTMLElement | null>(null)
 const bodyRef = ref<HTMLElement | null>(null)
@@ -57,7 +74,7 @@ const floatingPosition = ref<FloatingPosition>({
 })
 
 const titleId = computed(() => `management-log-detail-${props.memoryKey || 'window'}`)
-const selectedLogKey = computed(() => props.summary?.log_id ?? 'log-detail')
+const selectedLogKey = computed(() => displaySummary.value?.log_id ?? 'log-detail')
 const floatingWidth = computed(() => {
   const availableWidth = hostWidth.value - floatingWindowSafeInset * 2
   if (availableWidth <= 0) {
@@ -116,31 +133,31 @@ const floatingWindowStyle = computed(() => ({
   height: `${floatingHeight.value}px`,
 }))
 const summaryChips = computed<SummaryChip[]>(() => {
-  if (!props.summary) {
+  if (!displaySummary.value) {
     return []
   }
 
   const chips: SummaryChip[] = []
-  if (props.summary.level) {
-    const tone = props.summary.level === 'error'
+  if (displaySummary.value.level) {
+    const tone = displaySummary.value.level === 'error'
       ? 'error'
-      : props.summary.level === 'warn'
+      : displaySummary.value.level === 'warn'
         ? 'warn'
-        : props.summary.level === 'info'
+        : displaySummary.value.level === 'info'
           ? 'info'
           : 'debug'
 
     chips.push({
       key: 'level',
-      label: getLogLevelLabel(props.summary.level),
+      label: getLogLevelLabel(displaySummary.value.level),
       tone,
     })
   }
 
-  if (props.summary.protocol) {
+  if (displaySummary.value.protocol) {
     chips.push({
       key: 'protocol',
-      label: getLogProtocolLabel(props.summary.protocol),
+      label: getLogProtocolLabel(displaySummary.value.protocol),
       tone: 'neutral',
     })
   }
@@ -424,6 +441,7 @@ watch(
       return
     }
 
+    floatingTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null
     restoreFloatingPosition()
     await nextTick()
     panelRef.value?.focus()
@@ -475,26 +493,26 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <a-drawer
-    v-if="isOpen && !useFloatingWindow"
+  <AppDrawer
+    v-if="!useFloatingWindow"
     :open="open"
     placement="right"
-    width="min(720px, 92vw)"
+    :width="720"
     :title="t('logs.detail.title')"
     class="log-detail-drawer"
-    @close="emit('close')"
+    @close="emit('close')" @after-close="finishClose"
   >
     <ManagementLogDetailContent
-      :loading="loading"
-      :error="error"
-      :summary="summary"
-      :detail="detail"
+      :loading="displayLoading"
+      :error="displayError"
+      :summary="displaySummary"
+      :detail="displayDetail"
       :scope="scope"
       @action="emit('close')"
     />
-  </a-drawer>
+  </AppDrawer>
 
-  <Transition name="log-detail-window">
+  <Transition name="log-detail-window" @after-leave="finishClose">
     <section
       v-if="isOpen && useFloatingWindow"
       ref="panelRef"
@@ -519,9 +537,9 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="log-detail-window__heading">
-          <div class="log-detail-window__eyebrow">{{ t('logs.detail.title') }}</div>
+          <h2 :id="titleId">{{ t('logs.detail.title') }}</h2>
           <div class="log-detail-window__title-row">
-            <h2 :id="titleId">{{ summary?.source || t('display.empty') }}</h2>
+            <strong class="log-detail-window__source">{{ displaySummary?.source || t('display.empty') }}</strong>
             <div v-if="summaryChips.length" class="log-detail-window__chips">
               <span
                 v-for="chip in summaryChips"
@@ -534,7 +552,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <p class="log-detail-window__subtitle">
-            {{ summary ? formatDateTime(summary.timestamp) : t('display.empty') }}
+            {{ displaySummary ? formatDateTime(displaySummary.timestamp) : t('display.empty') }}
           </p>
         </div>
 
@@ -545,7 +563,7 @@ onBeforeUnmount(() => {
           @pointerdown.stop
           @click="emit('close')"
         >
-          <CloseOutlined />
+          <XIcon :size="18" />
         </button>
       </header>
 
@@ -553,10 +571,10 @@ onBeforeUnmount(() => {
         <Transition name="log-detail-window-content" mode="out-in">
           <div :key="selectedLogKey" class="log-detail-window__content">
             <ManagementLogDetailContent
-              :loading="loading"
-              :error="error"
-              :summary="summary"
-              :detail="detail"
+              :loading="displayLoading"
+              :error="displayError"
+              :summary="displaySummary"
+              :detail="displayDetail"
               :scope="scope"
               @action="emit('close')"
             />
@@ -568,7 +586,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss" scoped>
-.log-detail-drawer :deep(.ant-drawer-body) {
+.log-detail-drawer :deep(.app-dialog__body) {
   padding: 16px;
   background: var(--surface-strong);
 }
@@ -623,14 +641,6 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
 }
 
-.log-detail-window__eyebrow {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .log-detail-window__title-row {
   display: flex;
   align-items: center;
@@ -639,12 +649,20 @@ onBeforeUnmount(() => {
   margin-top: 4px;
 }
 
-.log-detail-window__title-row h2 {
+.log-detail-window__heading h2 {
   margin: 0;
   color: var(--text);
   font-size: 1.04rem;
   line-height: 1.25;
   letter-spacing: -0.02em;
+}
+
+.log-detail-window__source {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
 }
 
 .log-detail-window__chips {
@@ -740,7 +758,7 @@ onBeforeUnmount(() => {
 
 .log-detail-window-enter-active,
 .log-detail-window-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity var(--motion-overlay) var(--motion-easing), transform var(--motion-overlay) var(--motion-easing);
 }
 
 .log-detail-window-enter-from,
@@ -751,7 +769,7 @@ onBeforeUnmount(() => {
 
 .log-detail-window-content-enter-active,
 .log-detail-window-content-leave-active {
-  transition: opacity 0.14s ease;
+  transition: opacity var(--motion-fast) var(--motion-easing);
 }
 
 .log-detail-window-content-enter-from,

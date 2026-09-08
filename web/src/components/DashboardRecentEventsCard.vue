@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppCard from '@/components/AppCard.vue'
 import { formatRelativeTime } from '@/lib/format'
 import { t } from '@/i18n'
 
@@ -24,14 +26,14 @@ function getEventSeverityClass(severity?: string): string {
 </script>
 
 <template>
-  <a-card :bordered="false">
+  <AppCard borderless>
     <template #title>
       <div class="card-header">
         <span>{{ t('dashboard.recentEvents') }}</span>
       </div>
     </template>
 
-    <a-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
+    <AppEmptyState v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
     <div v-else class="events-section">
       <div
@@ -46,5 +48,5 @@ function getEventSeverityClass(severity?: string): string {
         >{{ formatRelativeTime(event.timestamp) }}</span>
       </div>
     </div>
-  </a-card>
+  </AppCard>
 </template>

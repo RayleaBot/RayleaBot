@@ -1,6 +1,13 @@
 <script setup lang="ts">
+import AppSelect from '@/components/AppSelect.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch } from 'vue'
-import { DownOutlined, FilterOutlined } from '@ant-design/icons-vue'
+import { ChevronDownIcon, FilterIcon } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -102,6 +109,10 @@ const pageErrorToast = computed(() => (
 
 useToastFeedback(pageErrorToast)
 
+const selectedLevels = computed({
+  get: () => filters.value.levels ?? (filters.value.level ? [filters.value.level] : []),
+  set: (levels: LogLevel[]) => { filters.value.levels = levels; filters.value.level = undefined },
+})
 const levelOptions = computed(() => ([
   { label: t('display.logLevels.debug'), value: 'debug' as LogLevel },
   { label: t('display.logLevels.info'), value: 'info' as LogLevel },
@@ -416,10 +427,10 @@ async function loadOlder() {
 }
 
 function getLevelColor(level: string) {
-  if (level === 'error') return 'error'
+  if (level === 'error') return 'danger'
   if (level === 'warn') return 'warning'
-  if (level === 'info') return 'blue'
-  return 'default'
+  if (level === 'info') return 'info'
+  return 'neutral'
 }
 
 async function openLogDetail(item: LogSummary) {
@@ -464,7 +475,7 @@ onBeforeUnmount(() => {
 <template>
   <AppPage :title="t('logs.historyTitle')" full-height>
     <template #toolbar>
-      <a-card :bordered="false" class="app-view-card logs-toolbar">
+      <AppCard borderless class="app-view-card logs-toolbar">
         <button
           ref="filterToggleRef"
           type="button"
@@ -473,35 +484,35 @@ onBeforeUnmount(() => {
           :aria-controls="filterPanelId"
           @click="filtersExpanded = !filtersExpanded"
         >
-          <FilterOutlined aria-hidden="true" />
+          <FilterIcon aria-hidden="true" />
           <span>{{ t('logs.filters.panel') }}</span>
-          <DownOutlined class="logs-filter-toggle__chevron" :class="{ 'is-expanded': filtersExpanded }" aria-hidden="true" />
+          <ChevronDownIcon class="logs-filter-toggle__chevron" :class="{ 'is-expanded': filtersExpanded }" aria-hidden="true" />
         </button>
         <div :id="filterPanelId" ref="filterPanelRef" class="logs-filter-panel" :class="{ 'is-expanded': filtersExpanded }">
-        <a-form layout="vertical" class="logs-filter-grid logs-filter-grid--history">
-          <a-form-item :label="t('logs.filters.level')">
-            <a-select
-              v-model:value="filters.levels"
-              mode="multiple"
-              allow-clear
+        <div class="logs-filter-grid logs-filter-grid--history">
+          <AppField :label="t('logs.filters.level')">
+            <AppSelect
+              v-model="selectedLevels"
+              multiple
+              clearable
               :options="levelOptions"
               :placeholder="t('logs.filters.all')"
             />
-          </a-form-item>
-          <a-form-item :label="t('logs.filters.source')">
-            <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
-          </a-form-item>
-          <a-form-item :label="t('logs.history.startAt')">
-            <a-input v-model:value="timeRangeInput.startLocal" type="datetime-local" />
-          </a-form-item>
-          <a-form-item :label="t('logs.history.endAt')">
-            <a-input v-model:value="timeRangeInput.endLocal" type="datetime-local" />
-          </a-form-item>
+          </AppField>
+          <AppField :label="t('logs.filters.source')">
+            <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
+          </AppField>
+          <AppField :label="t('logs.history.startAt')">
+            <AppInput v-model="timeRangeInput.startLocal" type="datetime-local" />
+          </AppField>
+          <AppField :label="t('logs.history.endAt')">
+            <AppInput v-model="timeRangeInput.endLocal" type="datetime-local" />
+          </AppField>
           <div class="logs-toolbar__actions">
-            <a-button @click="useRecentDay">{{ t('logs.history.lastDay') }}</a-button>
-            <a-button @click="useRecentDays(7)">{{ t('logs.history.lastWeek') }}</a-button>
-            <a-button @click="useRecentDays(30)">{{ t('logs.history.lastMonth') }}</a-button>
-            <a-button @click="useRecentDays(180)">{{ t('logs.history.lastHalfYear') }}</a-button>
+            <AppButton @click="useRecentDay">{{ t('logs.history.lastDay') }}</AppButton>
+            <AppButton @click="useRecentDays(7)">{{ t('logs.history.lastWeek') }}</AppButton>
+            <AppButton @click="useRecentDays(30)">{{ t('logs.history.lastMonth') }}</AppButton>
+            <AppButton @click="useRecentDays(180)">{{ t('logs.history.lastHalfYear') }}</AppButton>
             <ManagementLogAdvancedFilters
               v-model:protocol="filters.protocol"
               v-model:plugin-ids="filters.pluginIds"
@@ -509,11 +520,11 @@ onBeforeUnmount(() => {
               :plugin-options="pluginOptions"
               @plugin-focus="openPluginFilter"
             />
-            <a-button class="logs-toolbar__apply" type="primary" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
+            <AppButton class="logs-toolbar__apply" variant="default" @click="applyFilters">{{ t('logs.filters.apply') }}</AppButton>
           </div>
-        </a-form>
         </div>
-      </a-card>
+        </div>
+      </AppCard>
     </template>
 
     <RetryPanel
@@ -529,18 +540,17 @@ onBeforeUnmount(() => {
       ref="logsLayoutRef"
       class="logs-layout"
     >
-      <a-card :bordered="false" class="logs-feed-card">
+      <AppCard borderless class="logs-feed-card">
         <template #title>
           <div class="logs-feed-card__title">
             <span>{{ t('logs.history.streamTitle') }}</span>
-            <a-tag color="default">{{ t('logs.history.frozen') }}</a-tag>
+            <AppTag tone="neutral">{{ t('logs.history.frozen') }}</AppTag>
           </div>
         </template>
 
-        <a-skeleton
+        <AppSkeleton
           v-if="!readyToRenderHeavyContent"
-          active
-          :paragraph="{ rows: 6 }"
+          :rows="6"
         />
         <VirtualDataViewport
           v-if="readyToRenderHeavyContent"
@@ -572,9 +582,9 @@ onBeforeUnmount(() => {
 
               <div class="logs-row__main">
                 <div class="logs-row__headline">
-                  <a-tag size="small" :color="getLevelColor(item.level)">
+                  <AppTag :tone="getLevelColor(item.level)">
                     {{ getLogLevelLabel(item.level) }}
-                  </a-tag>
+                  </AppTag>
                   <span v-if="item.plugin_id" class="logs-row__sub">{{ item.plugin_id }}</span>
                   <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
                 </div>
@@ -583,10 +593,9 @@ onBeforeUnmount(() => {
             </button>
           </template>
         </VirtualDataViewport>
-      </a-card>
+      </AppCard>
 
       <ManagementLogDetailDrawer
-        v-if="detailOpen || selectedSummary"
         :open="detailOpen"
         :loading="detailLoading"
         :error="detailError"
@@ -618,7 +627,7 @@ onBeforeUnmount(() => {
   box-shadow: none;
 }
 
-.logs-toolbar :deep(.ant-card-body) {
+.logs-toolbar :deep(.app-card__body) {
   padding: 12px 14px;
 }
 
@@ -632,13 +641,13 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.logs-filter-grid :deep(.ant-form-item) {
+.logs-filter-grid :deep(.app-field) {
   flex: 1 1 190px;
   max-width: 300px;
   margin-bottom: 0;
 }
 
-.logs-filter-grid :deep(.ant-form-item:first-child) {
+.logs-filter-grid :deep(.app-field:first-child) {
   max-width: 220px;
 }
 
@@ -653,7 +662,7 @@ onBeforeUnmount(() => {
 }
 
 .logs-feed-card,
-.logs-feed-card :deep(.ant-card-body) {
+.logs-feed-card :deep(.app-card__body) {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -754,7 +763,7 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
-  .logs-toolbar :deep(.ant-card-body) { padding: 6px 12px; }
+  .logs-toolbar :deep(.app-card__body) { padding: 6px 12px; }
   .logs-filter-toggle {
     display: flex;
     align-items: center;
@@ -774,7 +783,7 @@ onBeforeUnmount(() => {
   .logs-filter-panel { display: none; }
   .logs-filter-panel.is-expanded { display: block; max-height: 55dvh; overflow: auto; padding: 8px 2px 10px; }
 
-  .logs-filter-grid :deep(.ant-form-item) {
+  .logs-filter-grid :deep(.app-field) {
     flex-basis: 100%;
     max-width: none;
   }

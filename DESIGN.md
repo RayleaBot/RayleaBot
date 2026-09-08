@@ -144,9 +144,9 @@ RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强�
 
 界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。
 
-Web 当前已落地 M1 产品组件基础、M2 协议中心、M3 应用壳及认证入口、M4-A 插件工作区，以及 M4-B 账号、治理与通用配置。插件列表、商店、详情、全局插件设置、菜单中心、指令中心、三方账号、名单、权限、限流和配置页面已使用产品组件；公共卡片、状态、重试、管理上下文操作与插件管理面 Host 同步迁移。对象卡片、分区表单、控制台虚拟列表与独立 iframe 边界保持原有职责。
+Web 当前已落地 M1 产品组件基础、M2 协议中心、M3 应用壳及认证入口、M4-A 插件工作区、M4-B 账号治理与通用配置，以及 M4-C 系统状态与诊断工作区。首页状态、恢复兼容性、实时与历史日志、调度、模板预览和公共故障页控件已迁移，与先前的插件、账号、治理和配置页面共同使用产品组件。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。
 
-M4-C 首页状态、日志、调度与模板预览等诊断工作区仍待迁移；顶层 App 的 Ant Design Vue provider 与旧样式入口继续服务剩余页面，在 M5 清理。最终完整测试和性能对照尚未完成，独立插件 iframe 内部的组件库不属于 Web 宿主迁移范围。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。
+M5 尚未开始：主入口的旧组件注册、顶层 Ant Design Vue provider、reset 与遗留样式，以及旧 Antd、图标和 Motion 直接依赖仍待清理。最终完整 Web 测试和性能对照尚未完成，独立插件 iframe 内部的组件库不属于 Web 宿主迁移范围。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。
 
 **Key Characteristics:**
 
@@ -190,7 +190,7 @@ M4-C 首页状态、日志、调度与模板预览等诊断工作区仍待迁移
 
 **Display Font:** 自托管 Noto Sans SC，回退为 Microsoft YaHei UI 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 引入仓库已有 WOFF2 子集，两端随构建打包；[字体授权](templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 随两端公开资源附带。
 
-**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`；旧业务页面的 Ant Design theme 消费 `var(--font-sans)`，已迁移的管理面与认证产品组件继承同一字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题通过 CSS 变量映射，不再设置专用 Ant Design provider。该映射不修改共享基础 token，也不影响 Launcher 或独立 iframe 的字体。
+**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`；尚未清理的顶层 Ant Design theme 消费 `var(--font-sans)`，管理面与认证产品组件继承同一字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题通过 CSS 变量映射，不再设置专用 Ant Design provider。该映射不修改共享基础 token，也不影响 Launcher 或独立 iframe 的字体。
 
 **Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用 Noto Sans SC，不因位于 `pre` 中而改用等宽字体。
 
@@ -267,6 +267,8 @@ Web 产品按钮、输入框与选择器使用现有 lg 圆角（12px），居�
 
 AppInput 的布局容器样式与内层字段样式分开，前缀图标不接收指针操作，也不替代标签。AppSelect 保留字符串、数字和布尔值的原类型，尚未包含在选项中的已选值继续显示；异步选项到达后使用当前名称，不继续缓存未知 ID。可清除的多选在清除后将焦点归还选择器。[`AppNumberInput`](web/src/components/AppNumberInput.vue) 按业务需要启用可空值，不将空白输入自动当作零；限流字段将次数、时间窗和单位分别标注，窄屏改为单列。
 
+按需加载选项的筛选器同时响应获得焦点和选择器实际打开；AppSelect 提供打开事件，使鼠标打开未触发原生 focus 时仍能读取选项。日志插件筛选继续抑制重复请求，保留多值与未知插件 ID，协议选择“全部”会清除协议条件。
+
 [`AppTextarea`](web/src/components/AppTextarea.vue) 通过行数和最大行数控制可用高度，允许纵向调整。标签输入使用 [`AppTagsInput`](web/src/components/AppTagsInput.vue)，条目可换行，每个删除入口有可访问名称；[`AppSearchInput`](web/src/components/AppSearchInput.vue) 通过 Enter 或搜索按钮显式提交查询，清空输入保留编辑焦点。
 
 **The Tag Delimiter Rule.** 标签输入通过 Enter 或离开输入框确认条目，只按业务显式提供的分隔符拆分输入与粘贴。全局指令前缀保留字面逗号；菜单中心按其既有字段规则使用逗号、中文逗号和空格分隔，不把该规则扩散到其他标签字段。
@@ -293,13 +295,15 @@ AppTabs 的标签可附带数量标记，标题区的额外操作承载当前分
 
 [`AppTooltip`](web/src/components/AppTooltip.vue) 在 450ms 延迟后提供简短补充说明，宽度随内容展开，上限为 20rem 或视口宽度减 24px 中的较小值；普通短标签不压成单字竖排，多行配置帮助保留原有换行。提示不替代触发器的可访问名称。搜索使用目标宽度为 640px 的居中弹窗，打开后聚焦输入框，结果展示页面名称与路径，支持上下选择、Enter 导航和 Escape 关闭。
 
-[`AppPopover`](web/src/components/AppPopover.vue) 通过点击打开需要停留阅读的说明，默认位于触发器下方并左对齐，宽度不超过 360px 或视口减 24px。说明使用实色表面、16px 内边距、13px 正文与可选标题，层级遵循共享 Web 浮层规则；持续可见的标签和必要字段反馈仍留在表单内。
+[`AppPopover`](web/src/components/AppPopover.vue) 通过点击打开说明或紧凑筛选表单，支持受控开关、方向、对齐和目标宽度。默认位于触发器下方并左对齐，目标宽度为 360px，实际宽度不超过视口减 24px。内容使用实色表面、16px 内边距、13px 正文与可选标题，层级遵循共享 Web 浮层规则；持续可见的标签和必要字段反馈仍留在表单内。
 
 [`AppToastHost`](web/src/components/AppToastHost.vue) 在右上方显示最多四条即时反馈，通知宽度不超过 380px，并保留窄屏边距。每条提示包含语义图标、可换行正文和手动关闭入口；普通提示停留 4.5 秒，错误提示为 7 秒，关闭后保留 160ms 退场。持续问题留在页面状态中，不依赖短暂 Toast 承载。[`AppSpinner`](web/src/components/AppSpinner.vue) 提供状态文字或辅助技术可读名称，[`AppSkeleton`](web/src/components/AppSkeleton.vue) 提供忙碌语义；reduced-motion 或 forced-colors 下停止旋转、脉冲和提示过渡。
 
 ### Chips / Status
 
 状态标签同时呈现文字或图标，不能只显示色点。标签表达状态和筛选，不替代操作按钮。关注提示、异常和空态提供原因、影响、可执行动作或必要前置条件。首页没有恢复摘要时显示“暂无恢复记录”，不能推断兼容通过；日志无匹配结果时说明为空，并提供调整筛选或等待新日志的方向。
+
+首页保留状态、就绪检查和恢复兼容性的任务分工。恢复确认按 review ID 选择对应事项，待确认数量、备注和提交入口保持相邻，未选事项时禁用确认；复查与运行时初始化使用独立操作。通用故障页复用返回首页与重试控件，重试期间保留忙碌反馈。
 
 [`AppStatusTag`](web/src/components/AppStatusTag.vue) 使用 AppBadge 的语义颜色、文字和辅助圆点表达状态；[`AppTag`](web/src/components/AppTag.vue) 关闭圆点，用于指令、分类、权限和数量等紧凑信息。别名、权限与来源不因使用同一标签外形而被解释为运行状态。
 
@@ -323,6 +327,16 @@ AppTabs 的标签可附带数量标记，标题区的额外操作承载当前分
 
 名单表格使用 760px 最小宽度，并在自己的区域横向滚动；类型列宽 120px，行内新增保留类型、目标、说明与操作。字段错误通过 `aria-invalid`、关联说明和可读错误文字一起表达。复制入口预留图标空间，以透明度反馈状态，避免复制前后改变列宽。
 
+调度任务使用原生表格，最小宽度为 1450px，右侧操作列固定在自身滚动区内；639px 及以下保留既有任务摘要列表与查看、触发入口。任务详情使用目标宽度为 800px 的居中 AppDialog，错误说明通过 AppPopover 查看，状态统计条随数据直接更新。
+
+### Logs and diagnostic detail
+
+实时与历史日志保持各自的列表、筛选和滚动职责。高级筛选通过受控说明弹层编辑协议、插件多选和请求标识，历史范围使用本地日期时间输入。清除筛选、分页、底部跟随和手动滚动沿用现有工作区状态，持续新增日志不逐条播放入场动画。
+
+[`ManagementLogDetailDrawer`](web/src/components/logs/ManagementLogDetailDrawer.vue) 在大于 960px 且宿主尺寸可用时呈现非模态桌面窗口，目标宽度为 680px，位置与拖动范围按宿主可用尺寸约束。页头使用普通二级标题“日志详情”，来源、级别、协议和时间排列在其下；正文在窗口内滚动，原日志列表继续可操作。窄屏或缺少有效宿主尺寸时使用右侧 AppDrawer，并沿用模态抽屉的退出和焦点规则。
+
+**The Log Detail Exit Rule.** 日志详情的展示层保留关闭前最后一份摘要、正文、加载或错误内容，直到桌面窗口的 after-leave 或移动抽屉的 afterClose 完成后清理；控制器继续独立管理正式选中状态与请求缓存。关闭后恢复到仍有效的日志行；非模态桌面窗口不夺走用户已转移到其他控件的焦点。
+
 ### Accounts and QR codes
 
 三方账号卡展示平台、身份、启用状态和服务器返回的凭据校验状态。编辑保留行内草稿与“凭据留空保留现值”的已有语义；扫码会话的等待、确认、验证要求或失败原因与二维码并列说明，不从“已扫码”推断凭据已通过服务器校验。[`AppAvatar`](web/src/components/AppAvatar.vue) 使用圆形裁剪与中性底色，调用方提供头像、文字或图标回退，账号名称与平台始终可见。
@@ -341,7 +355,7 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 [`AppDrawer`](web/src/components/AppDrawer.vue) 复用 AppDialog 的左侧、右侧或底部呈现。左右抽屉固定高度为 100dvh，宽度不超过视口减 24px；正文填充余下高度并独立滚动，页头与页脚保持可达。底部呈现贴齐视口底边、左右铺满，高度随实测内容变化，最大为视口高度减 24px。只有左右抽屉固定高度，居中弹窗和底部面板继续由 Motion 管理实测高度，避免不同呈现互相覆盖定位和动画样式。
 
-**The Web Dialog Lifecycle Rule.** Web 产品弹窗与抽屉在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。
+**The Web Dialog Lifecycle Rule.** AppDialog 与 AppDrawer 在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。
 
 插件安装检查与商店安装确认保留各自已有的检查信息，等待 afterClose 再清理，避免退场期间出现空内容。商店源编辑器配置有效的备用焦点入口；源删除使用居中的嵌套确认，取消只关闭确认，不写入删除操作。
 
@@ -361,9 +375,11 @@ Web 产品组件基于 Vue 3、Reka UI 2.10.4、仓库持有的 shadcn-vue / rek
 
 控件反馈采用 100–160ms 的短节奏，工作区采用 180–220ms，浮层采用 200–220ms；当前共有反馈、Web 内容切换、Launcher 工作区和浮层分别使用 160ms、200ms、220ms 和 220ms。动画主要改变 opacity / transform 或控件状态属性，服务于选择、层级切换和显隐，持续日志不逐条播放进入动画。Web 居中弹窗和底部面板另对实测内容高度进行过渡，以保持字段展开和异步内容变化时的定位关系。
 
-Web 产品弹窗与抽屉入场为 220ms、退场为 160ms，沿用现有缓动 `cubic-bezier(0.16, 1, 0.3, 1)`。居中模式改变透明度与缩放（0.96 ↔ 1），CSS 定位负责居中，Motion 负责显隐和实测高度；左右抽屉保持缩放为 1，以透明度和最多 24px 的水平位移表现打开方向，底部面板使用最多 24px 的垂直位移。reduced-motion 或 forced-colors 下时长为零、缩放为 1、位移为零，同时保留完整关闭生命周期与焦点归还；forced-colors 下保留系统表面边界。
+AppDialog 与 AppDrawer 入场为 220ms、退场为 160ms，沿用现有缓动 `cubic-bezier(0.16, 1, 0.3, 1)`。居中模式改变透明度与缩放（0.96 ↔ 1），CSS 定位负责居中，Motion 负责显隐和实测高度；左右抽屉保持缩放为 1，以透明度和最多 24px 的水平位移表现打开方向，底部面板使用最多 24px 的垂直位移。reduced-motion 或 forced-colors 下时长为零、缩放为 1、位移为零，同时保留完整关闭生命周期与焦点归还；forced-colors 下保留系统表面边界。
 
 Web 工作区优先使用只捕获主内容的 View Transition，缺少能力时由统一的 Motion for Vue 入口降级，侧栏和页头保持可交互。菜单通过自身 CSS 状态过渡显隐（160ms），Toast 沿用同组过渡（进入 200ms、退出 160ms）；这些元素不叠加第二套 Motion 动画，减少动态效果或强制颜色时即时呈现。
+
+非模态桌面日志窗口保留自身 CSS 透明度与水平位移过渡（220ms、18px），条目间的详情切换使用 160ms 淡化；它不叠加 AppDialog 的缩放和焦点锁。共享 reduced-motion 与 forced-colors 样式覆盖该窗口过渡。
 
 Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击时更新；连续切换取消旧动画并从当前可见程度继续。导航持续可交互，reduced-motion 或 forced-colors 下立即完成。Web 与 Launcher 均保留 system、light、dark 主题偏好，手动选择可持久化，不使用按时钟自动切换配置。动效时长不代表帧率或性能承诺。
 
@@ -376,6 +392,8 @@ Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击�
 **The Embedded Content Rule.** 需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。错误恢复和显式重载仍按既有 Host 生命周期执行，宿主组件迁移不扩展到独立插件页面。
 
 [`PluginManagementUIHost`](web/src/components/plugins/PluginManagementUIHost.vue) 保留现有 iframe 高度同步与 160ms CSS 高度过渡，不与 Motion 叠加；reduced-motion 和 forced-colors 由共享响应式样式将该过渡压缩为即时呈现。
+
+**The Template Preview Scale Rule.** [`TemplatePreviewFrame`](web/src/components/TemplatePreviewFrame.vue) 保留实际固定宽度的预览文档，外层按缩放后的宽度居中，内层 iframe 从左上角缩放。调整宿主或视口尺寸只更新预览布局，保留同一 iframe 文档，避免缩小后偏移裁切；模板内容、数据与资源仍由既有预览流程更新。
 
 ## Do's and Don'ts
 

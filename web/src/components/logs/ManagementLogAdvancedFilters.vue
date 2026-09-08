@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { FilterOutlined } from '@ant-design/icons-vue'
+import AppTag from '@/components/AppTag.vue'
+import AppPopover from '@/components/AppPopover.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppButton from '@/components/AppButton.vue'
+import { FilterIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onDeactivated, ref } from 'vue'
 
 import { t } from '@/i18n'
@@ -16,6 +22,8 @@ defineEmits<{
   pluginFocus: []
 }>()
 
+const protocolOptions: { value: string; label: string }[] = [{ value: '', label: t('logs.filters.all') }, { value: 'onebot11', label: 'OneBot11' }]
+const protocolSelection = computed({ get: () => protocol.value ?? '', set: (value: string) => { protocol.value = value || undefined } })
 const open = ref(false)
 const activeFilterCount = computed(() => (
   Number(Boolean(protocol.value))
@@ -32,57 +40,50 @@ onBeforeUnmount(close)
 </script>
 
 <template>
-  <a-popover
-    v-model:open="open"
-    trigger="click"
-    placement="bottomRight"
-    :destroy-tooltip-on-hide="true"
-  >
+  <AppPopover v-model:open="open" align="end" :width="390" :label="t('logs.filters.more')">
     <template #content>
-      <a-form
-        layout="vertical"
+      <div
         class="log-advanced-filters__panel"
         :aria-label="t('logs.filters.more')"
         @keydown.esc="close"
       >
-        <a-form-item :label="t('logs.filters.protocol')">
-          <a-select
-            v-model:value="protocol"
-            allow-clear
-            :options="[{ label: 'OneBot11', value: 'onebot11' }]"
+        <AppField :label="t('logs.filters.protocol')">
+          <AppSelect
+            v-model="protocolSelection"
+            :options="protocolOptions"
             :placeholder="t('logs.filters.all')"
           />
-        </a-form-item>
-        <a-form-item :label="t('logs.filters.plugin')">
-          <a-select
-            v-model:value="pluginIds"
-            mode="multiple"
-            allow-clear
+        </AppField>
+        <AppField :label="t('logs.filters.plugin')">
+          <AppSelect
+            v-model="pluginIds"
+            multiple
+            clearable
             :options="pluginOptions"
             :placeholder="t('logs.filters.all')"
             @focus="$emit('pluginFocus')"
+            @open="$event && $emit('pluginFocus')"
           />
-        </a-form-item>
-        <a-form-item :label="t('logs.filters.requestId')">
-          <a-input v-model:value="requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
-        </a-form-item>
-      </a-form>
+        </AppField>
+        <AppField :label="t('logs.filters.requestId')">
+          <AppInput v-model="requestId" :placeholder="t('logs.filters.requestPlaceholder')" />
+        </AppField>
+      </div>
     </template>
-
-    <a-badge :count="activeFilterCount" :show-zero="false" size="small">
-      <a-button
+      <AppButton
         class="log-advanced-filters__trigger"
         :class="{ 'is-active': activeFilterCount > 0 }"
         :aria-expanded="open"
         aria-haspopup="dialog"
       >
         <template #icon>
-          <FilterOutlined />
+          <FilterIcon />
         </template>
         {{ t('logs.filters.more') }}
-      </a-button>
-    </a-badge>
-  </a-popover>
+        <AppTag v-if="activeFilterCount" tone="info">{{ activeFilterCount }}</AppTag>
+      </AppButton>
+
+  </AppPopover>
 </template>
 
 <style scoped lang="scss">
@@ -98,14 +99,9 @@ onBeforeUnmount(close)
 }
 
 .log-advanced-filters__panel {
-  width: min(390px, calc(100vw - 40px));
+  display: grid;
+  gap: 12px;
+  width: 100%;
 }
 
-.log-advanced-filters__panel :deep(.ant-form-item) {
-  margin-bottom: 12px;
-}
-
-.log-advanced-filters__panel :deep(.ant-form-item:last-child) {
-  margin-bottom: 0;
-}
 </style>

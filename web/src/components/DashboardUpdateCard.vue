@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 import { computed, onMounted, ref } from 'vue'
-import { SyncOutlined, ArrowUpOutlined } from '@ant-design/icons-vue'
+import { RefreshCwIcon, ArrowUpIcon } from '@lucide/vue'
 
 import AppCard from '@/components/AppCard.vue'
 import { t } from '@/i18n'
@@ -65,16 +66,16 @@ onMounted(() => {
 <template>
   <AppCard :title="t('dashboard.update.title')" borderless class="dashboard-update-card">
     <div class="dashboard-update-card__layout">
-      <ArrowUpOutlined class="dashboard-update-card__icon" aria-hidden="true" />
+      <ArrowUpIcon class="dashboard-update-card__icon" aria-hidden="true" />
       <div class="dashboard-update-card__body" aria-live="polite">
       <div>
         <span class="dashboard-update-card__state">{{ stateLabel }}</span>
         <p>{{ detail }}</p>
       </div>
-      <a-button :loading="loading" @click="check">
-        <template #icon><SyncOutlined v-if="!loading" /></template>
+      <AppButton :loading="loading" @click="check">
+        <template #icon><RefreshCwIcon v-if="!loading" /></template>
         {{ t('dashboard.update.check') }}
-      </a-button>
+      </AppButton>
       <p v-if="error" class="dashboard-update-card__error" role="alert">{{ error }}</p>
       </div>
     </div>

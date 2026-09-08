@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import {
-  AppstoreOutlined,
-  FieldTimeOutlined,
-  HeartOutlined,
-  SafetyOutlined,
-} from '@ant-design/icons-vue'
+  BlocksIcon,
+  TimerIcon,
+  HeartIcon,
+  ShieldCheckIcon,
+} from '@lucide/vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import MotionRouterLink from '@/components/shell/MotionRouterLink.vue'
 import type { StatusType } from '@/lib/display'
 
 const iconMap = {
-  health: HeartOutlined,
-  plugins: AppstoreOutlined,
-  readiness: SafetyOutlined,
-  uptime: FieldTimeOutlined,
+  health: HeartIcon,
+  plugins: BlocksIcon,
+  readiness: ShieldCheckIcon,
+  uptime: TimerIcon,
 } as const
 
 defineProps<{

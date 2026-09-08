@@ -1,6 +1,5 @@
-import Antd from 'ant-design-vue'
 import { KeepAlive, defineComponent, h, nextTick, ref } from 'vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -184,7 +183,7 @@ describe('LogsHistoryPage', () => {
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
         stubs: {
           VirtualDataViewport: VirtualDataViewportStub,
         },
@@ -238,7 +237,7 @@ describe('LogsHistoryPage', () => {
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
         stubs: {
           VirtualDataViewport: VirtualDataViewportStub,
         },
@@ -288,7 +287,7 @@ describe('LogsHistoryPage', () => {
     const wrapper = mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
         stubs: {
           VirtualDataViewport: VirtualDataViewportStub,
         },
@@ -384,7 +383,7 @@ describe('LogsHistoryPage', () => {
     const wrapper = mount(Host, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
         stubs: {
           VirtualDataViewport: VirtualDataViewportStub,
         },
@@ -425,7 +424,7 @@ describe('LogsHistoryPage', () => {
     mount(LogsHistoryPage, {
       attachTo: document.body,
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
         stubs: {
           VirtualDataViewport: VirtualDataViewportStub,
         },

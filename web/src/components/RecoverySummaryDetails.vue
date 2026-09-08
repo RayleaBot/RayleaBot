@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import AppTag from '@/components/AppTag.vue'
+import AppCheckbox from '@/components/AppCheckbox.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, ref, watch } from 'vue'
-import { CheckOutlined, ExclamationOutlined, CloseOutlined } from '@ant-design/icons-vue'
+import { CheckIcon, CircleAlertIcon, XIcon } from '@lucide/vue'
 
 import { getRecoveryStatusLabel } from '@/lib/display'
 import { formatRelativeTime } from '@/lib/format'
@@ -65,12 +68,17 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
     selectedFilter.value = null
   }
 })
+function toggleReview(id: string, checked: boolean | 'indeterminate') {
+  selectedRecoveryReviewIds.value = checked === true
+    ? [...new Set([...selectedRecoveryReviewIds.value, id])]
+    : selectedRecoveryReviewIds.value.filter(value => value !== id)
+}
 </script>
 
 <template>
   <div class="events-section recovery-summary">
     <div class="recovery-summary__status" :class="`recovery-summary__status--${recoverySummary.status}`">
-      <component :is="recoverySummary.status === 'compatible' ? CheckOutlined : recoverySummary.status === 'blocked' ? CloseOutlined : ExclamationOutlined" class="recovery-summary__status-icon" aria-hidden="true" />
+      <component :is="recoverySummary.status === 'compatible' ? CheckIcon : recoverySummary.status === 'blocked' ? XIcon : CircleAlertIcon" class="recovery-summary__status-icon" aria-hidden="true" />
       <div class="issue-alert-card__header">
         <strong class="recovery-summary__status-label">{{ recoveryStatusLabel }}</strong>
         <span class="issue-alert-card__summary">
@@ -89,9 +97,9 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
       :class="{ 'issue-alert-card--warning': issue.severity === 'warning' }"
     >
       <div class="issue-alert-card__header">
-        <a-tag :color="issue.severity === 'error' ? 'error' : 'warning'">
+        <AppTag :tone="issue.severity === 'error' ? 'danger' : 'warning'">
           {{ issue.code }}
-        </a-tag>
+        </AppTag>
         <span class="issue-alert-card__summary">{{ issue.summary }}</span>
       </div>
       <div v-if="issue.remediation" class="issue-alert-card__remediation">
@@ -102,30 +110,30 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
     <div v-if="skippedPlugins.length" class="recovery-summary__toolbar">
       <small class="recovery-summary__section-label">{{ t('display.recoveryItems') }}</small>
       <div class="recovery-summary__filters">
-        <a-button
+        <AppButton
           data-testid="recovery-filter-all"
-          size="small"
-          :type="activeFilter === 'all' ? 'primary' : 'default'"
+          size="sm"
+          :variant="activeFilter === 'all' ? 'default' : 'ghost'"
           @click="activeFilter = 'all'"
         >
           {{ t('display.recoveryFilters.all') }}
-        </a-button>
-        <a-button
+        </AppButton>
+        <AppButton
           data-testid="recovery-filter-pending"
-          size="small"
-          :type="activeFilter === 'pending' ? 'primary' : 'default'"
+          size="sm"
+          :variant="activeFilter === 'pending' ? 'default' : 'ghost'"
           @click="activeFilter = 'pending'"
         >
           {{ t('display.recoveryFilters.pending') }}
-        </a-button>
-        <a-button
+        </AppButton>
+        <AppButton
           data-testid="recovery-filter-confirmed"
-          size="small"
-          :type="activeFilter === 'confirmed' ? 'primary' : 'default'"
+          size="sm"
+          :variant="activeFilter === 'confirmed' ? 'default' : 'ghost'"
           @click="activeFilter = 'confirmed'"
         >
           {{ t('display.recoveryFilters.confirmed') }}
-        </a-button>
+        </AppButton>
       </div>
     </div>
 
@@ -136,24 +144,24 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
       class="issue-alert-card issue-alert-card--warning"
     >
       <div class="issue-alert-card__header">
-        <a-tag :color="plugin.review_status === 'confirmed' ? 'success' : 'warning'">
+        <AppTag :tone="plugin.review_status === 'confirmed' ? 'success' : 'warning'">
           {{ plugin.reason_code }}
-        </a-tag>
-        <a-button
+        </AppTag>
+        <AppButton
           v-if="showPluginLinks"
-          type="link"
+          variant="link"
           class="issue-alert-card__summary issue-alert-card__summary--link"
           :data-testid="`recovery-plugin-link-${plugin.plugin_id}`"
           @click="$emit('openPlugin', plugin.plugin_id)"
         >
           {{ plugin.plugin_id }}
-        </a-button>
+        </AppButton>
         <span v-else class="issue-alert-card__summary">
           {{ plugin.plugin_id }}
         </span>
-        <a-tag :color="plugin.review_status === 'confirmed' ? 'success' : 'warning'">
+        <AppTag :tone="plugin.review_status === 'confirmed' ? 'success' : 'warning'">
           {{ plugin.review_status === 'confirmed' ? t('dashboard.recoveryConfirmed') : t('dashboard.recoveryPending') }}
-        </a-tag>
+        </AppTag>
       </div>
       <div class="issue-alert-card__remediation">{{ plugin.summary }}</div>
       <div v-if="plugin.manual_action" class="issue-alert-card__remediation">{{ plugin.manual_action }}</div>
@@ -166,11 +174,11 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
         :data-testid="`recovery-confirm-checkbox-${plugin.review_id}`"
         class="recovery-summary__checkbox"
       >
-        <a-checkbox-group v-model:value="selectedRecoveryReviewIds">
-          <a-checkbox :value="plugin.review_id">
+
+          <AppCheckbox :model-value="selectedRecoveryReviewIds.includes(plugin.review_id)" @update:model-value="toggleReview(plugin.review_id, $event)">
             {{ t('dashboard.recoveryConfirm') }}
-          </a-checkbox>
-        </a-checkbox-group>
+          </AppCheckbox>
+
       </div>
     </div>
 
@@ -215,7 +223,7 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
         class="issue-alert-card"
       >
         <div class="issue-alert-card__header">
-          <a-tag>{{ entry.operator_id }}</a-tag>
+          <AppTag>{{ entry.operator_id }}</AppTag>
           <span class="issue-alert-card__summary">{{ formatRelativeTime(entry.created_at) }}</span>
         </div>
         <div class="issue-alert-card__remediation">{{ entry.note || t('display.empty') }}</div>
@@ -248,8 +256,8 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
 .recovery-summary__section { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
 .recovery-summary__section-label { color: var(--muted); font-size: 13px; font-weight: 500; }
 .recovery-summary__filters { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px; background: var(--surface-soft); border-radius: 8px; }
-.recovery-summary__filters :deep(.ant-btn) { box-shadow: none; font-size: 12px; min-height: 28px; }
-.recovery-summary__filters :deep(.ant-btn:not(.ant-btn-primary)) { background: transparent; border-color: transparent; color: var(--muted); }
+.recovery-summary__filters :deep(.app-button) { box-shadow: none; font-size: 12px; min-height: 28px; }
+.recovery-summary__filters :deep(.app-button:not([data-variant=default])) { background: transparent; border-color: transparent; color: var(--muted); }
 .recovery-summary__checkbox { margin-top: 8px; }
 .recovery-summary__list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; display: grid; gap: 4px; }
 .recovery-summary__list--compact { margin-top: 6px; }
@@ -258,12 +266,12 @@ watch([skippedPlugins, pendingSkippedPlugins, confirmedSkippedPlugins], ([all, p
 .recovery-summary__history summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 .issue-alert-card { min-width: 0; padding: 0 0 12px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; box-shadow: none; }
 .issue-alert-card__header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; min-width: 0; }
-.issue-alert-card__header :deep(.ant-tag) { white-space: normal; overflow-wrap: anywhere; margin: 0; }
+.issue-alert-card__header :deep(.app-tag) { white-space: normal; overflow-wrap: anywhere; margin: 0; }
 .issue-alert-card__summary { flex: 1; font-weight: 500; font-size: 14px; color: var(--text); min-width: 80px; overflow-wrap: anywhere; }
 .issue-alert-card__summary--link { text-align: left; padding: 0; height: auto; color: var(--brand-foreground); }
 .issue-alert-card__remediation { margin-top: 6px; font-size: 13px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
 @media (max-width: 640px), (pointer: coarse) {
- .recovery-summary__filters :deep(.ant-btn), .recovery-summary__history summary { min-height: 44px; }
+ .recovery-summary__filters :deep(.app-button), .recovery-summary__history summary { min-height: 44px; }
  .recovery-summary__status .issue-alert-card__summary { flex-basis: 100%; text-align: left; }
 }
 </style>

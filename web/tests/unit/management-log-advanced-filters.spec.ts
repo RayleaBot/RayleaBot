@@ -1,12 +1,11 @@
-import Antd from 'ant-design-vue'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 
 import ManagementLogAdvancedFilters from '@/components/logs/ManagementLogAdvancedFilters.vue'
 
 const PopoverStub = defineComponent({
-  name: 'APopover',
+  name: 'AppPopover',
   props: {
     open: Boolean,
   },
@@ -23,17 +22,13 @@ const PopoverStub = defineComponent({
 })
 
 describe('ManagementLogAdvancedFilters', () => {
-  afterEach(() => {
-    document.body.innerHTML = ''
-  })
 
   it('keeps low-frequency filters out of the toolbar flow until requested', async () => {
     const wrapper = mount(ManagementLogAdvancedFilters, {
       attachTo: document.body,
       global: {
-        plugins: [Antd],
         stubs: {
-          APopover: PopoverStub,
+          AppPopover: PopoverStub,
         },
       },
       props: {
@@ -53,7 +48,6 @@ describe('ManagementLogAdvancedFilters', () => {
   it('shows how many advanced filter categories are active', () => {
     const wrapper = mount(ManagementLogAdvancedFilters, {
       global: {
-        plugins: [Antd],
       },
       props: {
         pluginOptions: [{ label: 'Weather', value: 'weather' }],
@@ -63,7 +57,7 @@ describe('ManagementLogAdvancedFilters', () => {
       },
     })
 
-    expect(wrapper.get('.ant-badge-count').text()).toBe('3')
+    expect(wrapper.get('.app-tag').text()).toBe('3')
     expect(wrapper.get('button').classes()).toContain('is-active')
   })
 })

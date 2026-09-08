@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { DownOutlined } from '@ant-design/icons-vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppTooltip from '@/components/AppTooltip.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppField from '@/components/AppField.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
+import { ChevronDownIcon } from '@lucide/vue'
 import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -76,6 +84,10 @@ const pageErrorToast = computed(() => (
     : null
 ))
 
+const selectedLevels = computed({
+  get: () => filters.value.levels ?? (filters.value.level ? [filters.value.level] : []),
+  set: (levels: LogLevel[]) => { filters.value.levels = levels; filters.value.level = undefined },
+})
 const levelOptions = computed(() => ([
   { label: t('display.logLevels.debug'), value: 'debug' as LogLevel },
   { label: t('display.logLevels.info'), value: 'info' as LogLevel },
@@ -336,10 +348,10 @@ function onViewportBottomChange(value: boolean) {
 }
 
 function getLevelColor(level: string) {
-  if (level === 'error') return 'error'
+  if (level === 'error') return 'danger'
   if (level === 'warn') return 'warning'
-  if (level === 'info') return 'blue'
-  return 'default'
+  if (level === 'info') return 'info'
+  return 'neutral'
 }
 
 async function openLogDetail(item: LogSummary) {
@@ -387,23 +399,23 @@ onUnmounted(() => {
 <template>
   <AppPage :title="t('logs.currentTitle')" full-height>
     <template #toolbar>
-      <a-card
-        :bordered="false"
+      <AppCard
+        borderless
         class="app-view-card logs-toolbar"
       >
-        <a-form layout="vertical" class="logs-filter-grid">
-          <a-form-item :label="t('logs.filters.level')">
-            <a-select
-              v-model:value="filters.levels"
-              mode="multiple"
-              allow-clear
+        <div class="logs-filter-grid">
+          <AppField :label="t('logs.filters.level')">
+            <AppSelect
+              v-model="selectedLevels"
+              multiple
+              clearable
               :options="levelOptions"
               :placeholder="t('logs.filters.all')"
             />
-          </a-form-item>
-          <a-form-item :label="t('logs.filters.source')">
-            <a-input v-model:value="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
-          </a-form-item>
+          </AppField>
+          <AppField :label="t('logs.filters.source')">
+            <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
+          </AppField>
           <div class="logs-toolbar__actions">
             <ManagementLogAdvancedFilters
               v-model:protocol="filters.protocol"
@@ -412,10 +424,10 @@ onUnmounted(() => {
               :plugin-options="pluginOptions"
               @plugin-focus="openPluginFilter"
             />
-            <a-button class="logs-toolbar__apply" type="primary" :aria-label="t('logs.filters.apply')" @click="applyFilters">{{ t('logs.filters.apply') }}</a-button>
+            <AppButton class="logs-toolbar__apply" variant="default" :aria-label="t('logs.filters.apply')" @click="applyFilters">{{ t('logs.filters.apply') }}</AppButton>
           </div>
-        </a-form>
-      </a-card>
+        </div>
+      </AppCard>
     </template>
 
     <RetryPanel
@@ -432,24 +444,23 @@ onUnmounted(() => {
       class="logs-layout"
       :class="{ 'has-detail-window': detailOpen }"
     >
-      <a-card
-        :bordered="false"
+      <AppCard
+        borderless
         class="logs-feed-card"
       >
         <template #title>
           <div class="logs-feed-card__title">
             <span>{{ t('logs.current.streamTitle') }}</span>
-            <a-tag :color="atBottom ? 'success' : 'default'">
+            <AppTag :tone="atBottom ? 'success' : 'neutral'">
               {{ atBottom ? t('logs.current.following') : t('logs.current.paused') }}
-            </a-tag>
+            </AppTag>
           </div>
         </template>
 
         <div class="logs-feed-card__body">
-          <a-skeleton
+          <AppSkeleton
             v-if="!readyToRenderHeavyContent"
-            active
-            :paragraph="{ rows: 6 }"
+            :rows="6"
           />
           <VirtualDataViewport
             v-else
@@ -483,9 +494,9 @@ onUnmounted(() => {
 
                 <div class="logs-row__main">
                   <div class="logs-row__headline">
-                    <a-tag size="small" :color="getLevelColor(item.level)">
+                    <AppTag :tone="getLevelColor(item.level)">
                       {{ getLogLevelLabel(item.level) }}
-                    </a-tag>
+                    </AppTag>
                     <span v-if="item.plugin_id" class="logs-row__sub">{{ item.plugin_id }}</span>
                     <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
                   </div>
@@ -496,29 +507,29 @@ onUnmounted(() => {
           </VirtualDataViewport>
 
           <div v-if="showJumpToLatest" class="logs-jump-latest">
-            <a-badge :count="pendingNewCount || undefined" :offset="[-2, 4]">
-              <a-tooltip
+            <div class="logs-jump-latest__control">
+              <AppTooltip
                 :title="pendingNewCount > 0 ? t('logs.current.pendingNew', { count: pendingNewCount }) : t('logs.current.jumpToLatest')"
               >
-                <a-button
-                  type="primary"
-                  shape="circle"
+                <AppButton
+                  variant="default"
+                  size="icon"
                   class="logs-jump-latest__button"
                   :aria-label="t('logs.current.jumpToLatest')"
                   @click="jumpToLatest"
                 >
                   <template #icon>
-                    <DownOutlined />
+                    <ChevronDownIcon />
                   </template>
-                </a-button>
-              </a-tooltip>
-            </a-badge>
+                  <span v-if="pendingNewCount" class="logs-jump-latest__count">{{ pendingNewCount }}</span>
+                </AppButton>
+              </AppTooltip>
+            </div>
           </div>
         </div>
-      </a-card>
+      </AppCard>
 
       <ManagementLogDetailDrawer
-        v-if="detailOpen || selectedSummary"
         :open="detailOpen"
         :loading="detailLoading"
         :error="detailError"
@@ -534,6 +545,7 @@ onUnmounted(() => {
 </template>
 
 <style lang="scss" scoped>
+.logs-jump-latest__count { position: absolute; top: -8px; right: -8px; min-width: 22px; padding: 2px 5px; border-radius: 12px; background: var(--surface-danger); color: var(--text-danger); font-size: 12px; }
 .logs-layout {
   position: relative;
   display: flex;
@@ -550,7 +562,7 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-.logs-toolbar :deep(.ant-card-body) {
+.logs-toolbar :deep(.app-card__body) {
   padding: 12px 14px;
 }
 
@@ -562,13 +574,13 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.logs-filter-grid :deep(.ant-form-item) {
+.logs-filter-grid :deep(.app-field) {
   flex: 1 1 200px;
   max-width: 320px;
   margin-bottom: 0;
 }
 
-.logs-filter-grid :deep(.ant-form-item:first-child) {
+.logs-filter-grid :deep(.app-field:first-child) {
   max-width: 220px;
 }
 
@@ -582,7 +594,7 @@ onUnmounted(() => {
 }
 
 .logs-feed-card,
-.logs-feed-card :deep(.ant-card-body) {
+.logs-feed-card :deep(.app-card__body) {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -621,7 +633,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.logs-jump-latest :deep(.ant-badge) {
+.logs-jump-latest :deep(.logs-jump-latest__control) {
   pointer-events: auto;
 }
 
@@ -713,7 +725,7 @@ onUnmounted(() => {
 }
 
 @media (max-width: 760px) {
-  .logs-filter-grid :deep(.ant-form-item) {
+  .logs-filter-grid :deep(.app-field) {
     flex-basis: 100%;
     max-width: none;
   }

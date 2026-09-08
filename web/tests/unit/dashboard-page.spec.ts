@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -103,7 +102,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -151,7 +150,7 @@ describe('DashboardPage', () => {
 
       wrapper = mount(DashboardPage, {
         global: {
-          plugins: [Antd, router],
+          plugins: [getActivePinia()!, router],
         },
       })
 
@@ -189,7 +188,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -229,7 +228,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -271,7 +270,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -317,7 +316,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -369,7 +368,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -476,7 +475,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -559,7 +558,7 @@ describe('DashboardPage', () => {
 
     const wrapper = mount(DashboardPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -569,7 +568,7 @@ describe('DashboardPage', () => {
     const confirmButton = wrapper.find('[data-testid="recovery-confirm-button"]')
     const bootstrapButton = wrapper.find('[data-testid="runtime-bootstrap-button"]')
     const pluginLink = wrapper.find('[data-testid="recovery-plugin-link-weather-pro"]')
-    const checkbox = wrapper.find('[data-testid="recovery-confirm-checkbox-review_weather_pro"] input[type="checkbox"]')
+    const checkbox = wrapper.find('[data-testid="recovery-confirm-checkbox-review_weather_pro"] [role="checkbox"]')
     const noteInput = wrapper.find('textarea')
 
     expect(recheckButton.exists()).toBe(true)
@@ -588,7 +587,7 @@ describe('DashboardPage', () => {
     await flushPromises()
     feedbackMock.notifySuccess.mockClear()
 
-    await checkbox.setValue(true)
+    await checkbox.trigger('click')
     await noteInput.setValue('已确认当前跳过状态。')
     await confirmButton.trigger('click')
     await flushPromises()

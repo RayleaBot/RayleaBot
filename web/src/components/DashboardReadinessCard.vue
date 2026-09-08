@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AppTag from '@/components/AppTag.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import type { StatusType } from '@/lib/display'
 import { t } from '@/i18n'
 
@@ -35,7 +39,7 @@ function getCheckIcon(status: StatusType): string {
 </script>
 
 <template>
-  <a-card :bordered="false">
+  <AppCard borderless>
     <template #title>
       <div class="card-header">
         <span>{{ sectionTitle }}</span>
@@ -56,7 +60,7 @@ function getCheckIcon(status: StatusType): string {
       </div>
     </div>
 
-    <a-empty v-else :description="t('display.empty')" />
+    <AppEmptyState v-else :description="t('display.empty')" />
 
     <div v-if="readinessNoteText" class="readiness-note">
       <small style="color: var(--muted);">
@@ -75,9 +79,9 @@ function getCheckIcon(status: StatusType): string {
         :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
       >
         <div class="issue-alert-card__header">
-          <a-tag :color="issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'success'">
+          <AppTag :tone="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'">
             {{ issue.code }}
-          </a-tag>
+          </AppTag>
           <span class="issue-alert-card__summary">{{ issue.summary }}</span>
         </div>
         <div v-if="issue.remediation" class="issue-alert-card__remediation">
@@ -87,11 +91,11 @@ function getCheckIcon(status: StatusType): string {
     </div>
 
     <div v-if="readinessIssues.length > 3" class="issues-toggle">
-      <a-button size="small" type="link" @click="$emit('toggle-issues')">
+      <AppButton size="sm" variant="link" @click="$emit('toggle-issues')">
         {{ issuesExpanded ? collapseIssuesText : expandIssuesText }}
-      </a-button>
+      </AppButton>
     </div>
-  </a-card>
+  </AppCard>
 </template>
 
 <style scoped lang="scss">

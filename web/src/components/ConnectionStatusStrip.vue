@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import AppBadge from '@/components/AppBadge.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -53,20 +56,20 @@ function resolveBadgeStatus(status: ConnectionStatus) {
       return 'success'
     case 'connecting':
     case 'reconnecting':
-      return 'processing'
+      return 'info'
     case 'connected':
       return 'warning'
     case 'auth_failed':
-      return 'error'
+      return 'danger'
     default:
-      return 'default'
+      return 'neutral'
   }
 }
 
 </script>
 
 <template>
-  <a-card :bordered="false" class="app-view-card connection-card" data-testid="dashboard-connection-card">
+  <AppCard borderless class="app-view-card connection-card" data-testid="dashboard-connection-card">
     <template #title>
       <div class="card-header">
         <div>
@@ -76,9 +79,9 @@ function resolveBadgeStatus(status: ConnectionStatus) {
     </template>
 
     <template #extra>
-      <a-button v-if="needsReconnect" size="small" @click="socketStore.reconnectAll()">
+      <AppButton v-if="needsReconnect" size="sm" @click="socketStore.reconnectAll()">
         {{ t('dashboard.reconnect') }}
-      </a-button>
+      </AppButton>
     </template>
 
     <div class="connection-card__grid">
@@ -91,7 +94,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
         <div class="connection-card__row">
           <span class="connection-card__label">{{ getConnectionChannelLabel(channel) }}</span>
           <span class="connection-card__badge-wrap">
-            <a-badge :status="resolveBadgeStatus(snapshot.status)" :text="getConnectionStatusLabel(snapshot.status)" />
+            <AppBadge :tone="resolveBadgeStatus(snapshot.status)">{{ getConnectionStatusLabel(snapshot.status) }}</AppBadge>
           </span>
         </div>
         <small v-if="secondary" class="connection-card__meta">{{ secondary }}</small>
@@ -99,7 +102,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
         <small v-if="errorHint" class="connection-card__meta">{{ errorHint }}</small>
       </section>
     </div>
-  </a-card>
+  </AppCard>
 </template>
 
 <style scoped lang="scss">
@@ -114,11 +117,11 @@ function resolveBadgeStatus(status: ConnectionStatus) {
   box-shadow: none;
 }
 
-.connection-card :deep(.ant-card-head) { min-height: 0; padding: 0; border: 0; }
-.connection-card :deep(.ant-card-head-title) { padding: 0; }
-.connection-card :deep(.ant-card-body) { padding: 0; }
-.connection-card :deep(.ant-card-body)::before,
-.connection-card :deep(.ant-card-body)::after { display: none; }
+.connection-card :deep(.app-card__head) { min-height: 0; padding: 0; border: 0; }
+.connection-card :deep(.app-card__title) { padding: 0; }
+.connection-card :deep(.app-card__body) { padding: 0; }
+.connection-card :deep(.app-card__body)::before,
+.connection-card :deep(.app-card__body)::after { display: none; }
 
 .card-header {
   span {

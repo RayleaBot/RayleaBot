@@ -1,7 +1,6 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { notifySuccess } from '@/adapter/feedback'
 import SchedulerJobsPage from '@/views/operations/SchedulerJobsView.vue'
@@ -65,9 +64,6 @@ describe('SchedulerJobsPage', () => {
     vi.mocked(notifySuccess).mockReset()
   })
 
-  afterEach(() => {
-    document.body.innerHTML = ''
-  })
 
   it('renders scheduler job aggregate state', async () => {
     const store = useSchedulerJobsStore()
@@ -76,7 +72,7 @@ describe('SchedulerJobsPage', () => {
 
     const wrapper = mount(SchedulerJobsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
 
@@ -96,7 +92,7 @@ describe('SchedulerJobsPage', () => {
 
     const wrapper = mount(SchedulerJobsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
     await flushPromises()
@@ -141,7 +137,7 @@ describe('SchedulerJobsPage', () => {
 
     const wrapper = mount(SchedulerJobsPage, {
       global: {
-        plugins: [Antd],
+        plugins: [getActivePinia()!],
       },
     })
     await flushPromises()

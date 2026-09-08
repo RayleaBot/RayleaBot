@@ -158,7 +158,7 @@ async function scrollConfigSectionIntoView(page: import('@playwright/test').Page
 }
 
 function logFilterField(page: import('@playwright/test').Page, label: string) {
-  return page.locator('.logs-filter-grid:visible .ant-form-item, .log-advanced-filters__panel:visible .ant-form-item')
+  return page.locator('.logs-filter-grid:visible .app-field, .log-advanced-filters__panel:visible .app-field')
     .filter({ hasText: label })
     .first()
 }
@@ -272,14 +272,14 @@ function hasRepeatedLogFilterParams(
 }
 
 async function expectRepeatedLogFilterControls(page: import('@playwright/test').Page) {
-  const levelTags = logFilterField(page, '级别').locator('.ant-select-selection-item-content')
-  await expect(levelTags.filter({ hasText: 'warn' })).toHaveCount(1)
-  await expect(levelTags.filter({ hasText: 'error' })).toHaveCount(1)
+  const levelTags = logFilterField(page, '级别').getByRole('combobox')
+  await expect(levelTags).toContainText('warn')
+  await expect(levelTags).toContainText('error')
 
   await openLogAdvancedFilters(page)
-  const pluginTags = logFilterField(page, '插件').locator('.ant-select-selection-item-content')
-  await expect(pluginTags.filter({ hasText: 'weather' })).toHaveCount(1)
-  await expect(pluginTags.filter({ hasText: 'raylea.echo' })).toHaveCount(1)
+  const pluginTags = logFilterField(page, '插件').getByRole('combobox')
+  await expect(pluginTags).toContainText('weather')
+  await expect(pluginTags).toContainText('raylea.echo')
 }
 
 async function seedRepeatedLogFilterRows(
@@ -1887,8 +1887,8 @@ test('protocol center owns OneBot settings and logs center keeps protocol filter
   await openLogAdvancedFilters(page)
   const protocolField = logFilterField(page, '协议')
   await expect(protocolField).toBeVisible()
-  await protocolField.locator('.ant-select').click()
-  await page.getByTitle('OneBot11').click()
+  await protocolField.getByRole('combobox').click()
+  await page.getByRole('option', { name: 'OneBot11', exact: true }).click()
   await page.getByRole('button', { name: '应用筛选' }).click()
 
   await expect(page.getByText('req_adapter_ignored_0001')).toBeVisible()
@@ -1914,7 +1914,7 @@ test('management links connect protocol, logs, plugin, and commands workspaces',
   await expect.poll(() => page.url()).toContain('/protocols')
   await expect(page.getByRole('heading', { name: '协议中心', level: 1 })).toBeVisible()
   await expect(logDetailWindow(page)).toBeHidden()
-  await expect(page.locator('.ant-drawer-mask')).toHaveCount(0)
+  await expect(page.locator('.app-dialog-overlay')).toHaveCount(0)
 
   await page.getByRole('button', { name: '兼容矩阵' }).click()
   await expect.poll(() => page.url()).toContain('/protocols?view=compatibility')
@@ -2053,7 +2053,7 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
       response.request().method() === 'GET'
       && response.url().endsWith('/api/plugins')
     )),
-    logFilterField(page, '插件').locator('.ant-select').click(),
+    logFilterField(page, '插件').getByRole('combobox').click(),
   ])
   expect(pluginRequests).toHaveLength(1)
   await page.keyboard.press('Escape')
@@ -2064,7 +2064,7 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
   expect(pluginRequests).toHaveLength(1)
 
   await openLogAdvancedFilters(page)
-  await logFilterField(page, '插件').locator('.ant-select').click()
+  await logFilterField(page, '插件').getByRole('combobox').click()
   await page.waitForTimeout(200)
   expect(pluginRequests).toHaveLength(1)
 })
@@ -2075,7 +2075,7 @@ test('logs page filters both history and live log appends', async ({ page, reque
 
   await page.goto('/logs')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
-  await page.locator('.logs-filter-grid .ant-form-item').filter({ hasText: '来源' }).locator('input').fill('runtime')
+  await page.locator('.logs-filter-grid .app-field').filter({ hasText: '来源' }).locator('input').fill('runtime')
   await page.getByRole('button', { name: '应用筛选' }).click()
 
   const logsTable = page.locator('.logs-feed-card')

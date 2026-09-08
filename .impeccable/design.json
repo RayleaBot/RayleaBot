@@ -1248,7 +1248,7 @@
   ],
   "narrative": {
     "northStar": "雾白·青瓷",
-    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。\n\nWeb 当前已落地 M1 产品组件基础、M2 协议中心、M3 应用壳及认证入口、M4-A 插件工作区，以及 M4-B 账号、治理与通用配置。插件列表、商店、详情、全局插件设置、菜单中心、指令中心、三方账号、名单、权限、限流和配置页面已使用产品组件；公共卡片、状态、重试、管理上下文操作与插件管理面 Host 同步迁移。对象卡片、分区表单、控制台虚拟列表与独立 iframe 边界保持原有职责。\n\nM4-C 首页状态、日志、调度与模板预览等诊断工作区仍待迁移；顶层 App 的 Ant Design Vue provider 与旧样式入口继续服务剩余页面，在 M5 清理。最终完整测试和性能对照尚未完成，独立插件 iframe 内部的组件库不属于 Web 宿主迁移范围。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。",
+    "overview": "RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。\n\n界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。\n\nWeb 当前已落地 M1 产品组件基础、M2 协议中心、M3 应用壳及认证入口、M4-A 插件工作区、M4-B 账号治理与通用配置，以及 M4-C 系统状态与诊断工作区。首页状态、恢复兼容性、实时与历史日志、调度、模板预览和公共故障页控件已迁移，与先前的插件、账号、治理和配置页面共同使用产品组件。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。\n\nM5 尚未开始：主入口的旧组件注册、顶层 Ant Design Vue provider、reset 与遗留样式，以及旧 Antd、图标和 Motion 直接依赖仍待清理。最终完整 Web 测试和性能对照尚未完成，独立插件 iframe 内部的组件库不属于 Web 宿主迁移范围。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。",
     "keyCharacteristics": [
       "灰白与炭灰画布、中性导航和连续工作区。",
       "少量青瓷主操作、选中标记和几何折叶标识。",
@@ -1308,13 +1308,18 @@
         "section": "components"
       },
       {
+        "name": "The Log Detail Exit Rule",
+        "body": "日志详情的展示层保留关闭前最后一份摘要、正文、加载或错误内容，直到桌面窗口的 after-leave 或移动抽屉的 afterClose 完成后清理；控制器继续独立管理正式选中状态与请求缓存。关闭后恢复到仍有效的日志行；非模态桌面窗口不夺走用户已转移到其他控件的焦点。",
+        "section": "components"
+      },
+      {
         "name": "The QR Scan Rule",
         "body": "二维码由 qrcode-generator 2.0.4 只负责编码，输入显式使用 UTF-8，图像保留四模块静区与固定高对比 GIF 像素。亮暗主题不重着色二维码，品牌、边框和扫码状态消费宿主主题，保证扫描信息与界面状态各自清楚。",
         "section": "components"
       },
       {
         "name": "The Web Dialog Lifecycle Rule",
-        "body": "Web 产品弹窗与抽屉在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。",
+        "body": "AppDialog 与 AppDrawer 在关闭动画完成前保留 Reka 内容、遮罩、焦点约束与原有业务内容；由 Motion 的 animationComplete 完成退场后再释放层级、触发 afterClose 并归还焦点，调用方不得随 open 变为 false 提前卸载内容。打开时保存明确的备用焦点入口；原触发项已卸载，或 afterClose 已清理删除候选对象时，仍归还到该有效入口。嵌套确认和选择器服从所属层级；确认弹窗使用 alertdialog，并将初始焦点放在取消操作。忙碌状态阻止关闭与重复提交，未保存修改通过确认弹窗处理。",
         "section": "components"
       },
       {
@@ -1330,6 +1335,11 @@
       {
         "name": "The Embedded Content Rule",
         "body": "需要连续工作的预览和控制台通过 AppTabs 的 keepAlive 保留隐藏节点；插件管理面 Host 使用 AppLoadingPanel 表达忙碌并暂时阻止内容交互，不因加载提示重建 iframe。错误恢复和显式重载仍按既有 Host 生命周期执行，宿主组件迁移不扩展到独立插件页面。",
+        "section": "components"
+      },
+      {
+        "name": "The Template Preview Scale Rule",
+        "body": "[`TemplatePreviewFrame`](web/src/components/TemplatePreviewFrame.vue) 保留实际固定宽度的预览文档，外层按缩放后的宽度居中，内层 iframe 从左上角缩放。调整宿主或视口尺寸只更新预览布局，保留同一 iframe 文档，避免缩小后偏移裁切；模板内容、数据与资源仍由既有预览流程更新。",
         "section": "components"
       }
     ],

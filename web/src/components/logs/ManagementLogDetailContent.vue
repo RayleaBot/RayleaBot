@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppSkeleton from '@/components/AppSkeleton.vue'
 import { computed } from 'vue'
 
 import { useToastFeedback } from '@/adapter/feedback'
@@ -77,7 +78,8 @@ const summaryFields = computed(() => {
 </script>
 
 <template>
-  <a-skeleton :loading="loading && !detail" active>
+  <AppSkeleton v-if="loading && !detail" :rows="5" />
+  <template v-else>
     <template v-if="summary">
       <section class="log-detail-card log-detail-card--message">
         <header class="log-detail-card__header">
@@ -116,7 +118,7 @@ const summaryFields = computed(() => {
         <pre class="log-detail-card__content log-detail-card__content--json">{{ detailJson }}</pre>
       </section>
     </template>
-  </a-skeleton>
+  </template>
 </template>
 
 <style lang="scss" scoped>

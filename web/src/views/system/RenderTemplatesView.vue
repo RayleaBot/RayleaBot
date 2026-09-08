@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppTextarea from '@/components/AppTextarea.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -560,9 +564,9 @@ onBeforeUnmount(() => {
   <AppPage :title="t('renderTemplates.title')" :description="t('renderTemplates.subtitle')" full-height>
     <template #extra>
       <div class="render-templates-actions">
-        <a-button :disabled="!activeTemplateId" @click="reloadCurrentTemplate">
+        <AppButton :disabled="!activeTemplateId" @click="reloadCurrentTemplate">
           {{ t('renderTemplates.reloadAction') }}
-        </a-button>
+        </AppButton>
       </div>
     </template>
 
@@ -585,9 +589,9 @@ onBeforeUnmount(() => {
       <aside class="render-templates-float-panel">
         <div class="render-templates-float-panel__header">
           <span class="render-templates-float-panel__title">{{ t('renderTemplates.title') }}</span>
-          <a-tag v-if="currentPreviewPending" color="blue" class="render-templates-live-tag">
+          <AppTag v-if="currentPreviewPending" tone="info" class="render-templates-live-tag">
             {{ t('renderTemplates.previewPending') }}
-          </a-tag>
+          </AppTag>
         </div>
 
         <div class="render-templates-float-panel__body">
@@ -660,8 +664,8 @@ onBeforeUnmount(() => {
             <div class="render-templates-panel-section__header">
               <span>{{ t('renderTemplates.previewData') }}</span>
             </div>
-            <a-textarea
-              v-model:value="currentPreviewDataText"
+            <AppTextarea
+              v-model="currentPreviewDataText"
               :rows="12"
               :aria-label="t('renderTemplates.previewData')"
               :placeholder="t('renderTemplates.previewDataPlaceholder')"
@@ -674,7 +678,8 @@ onBeforeUnmount(() => {
               <span>{{ t('renderTemplates.schemaPreviewTitle') }}</span>
               <small>{{ t('renderTemplates.schemaPreviewHint') }}</small>
             </div>
-            <a-skeleton :loading="workspaceLoading && !currentTemplate" active :paragraph="{ rows: 5 }">
+            <AppSkeleton v-if="workspaceLoading && !currentTemplate" :rows="5" />
+            <template v-else>
               <div v-if="displaySchemaNodes.length > 0" class="schema-tree">
                 <div
                   v-for="node in displaySchemaNodes"
@@ -692,8 +697,8 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
               </div>
-              <a-empty v-else :description="t('renderTemplates.schemaPreviewEmpty')" />
-            </a-skeleton>
+              <AppEmptyState v-else :description="t('renderTemplates.schemaPreviewEmpty')" />
+            </template>
           </section>
         </div>
       </aside>
@@ -704,9 +709,9 @@ onBeforeUnmount(() => {
             <span>{{ t('renderTemplates.previewTitle') }}</span>
             <small>{{ t('renderTemplates.previewHint') }}</small>
           </div>
-          <a-tag v-if="currentPreviewDocument" color="green">
+          <AppTag v-if="currentPreviewDocument" tone="success">
             {{ currentPreviewDocument.revision_id }}
-          </a-tag>
+          </AppTag>
         </div>
 
         <div class="render-template-preview-surface" data-testid="render-template-preview-result">
@@ -726,7 +731,7 @@ onBeforeUnmount(() => {
             data-testid="render-template-preview-local-frame"
           />
           <div v-else class="render-template-preview-empty">
-            <a-empty :description="previewEmptyDescription" />
+            <AppEmptyState :description="previewEmptyDescription" />
           </div>
         </div>
       </main>

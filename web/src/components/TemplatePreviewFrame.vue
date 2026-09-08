@@ -220,6 +220,6 @@ function applyPreviewOverflowGuard() {
   border: 0;
   background: transparent;
   transform: scale(var(--native-template-preview-scale));
-  transform-origin: center top;
+  transform-origin: left top;
 }
 </style>

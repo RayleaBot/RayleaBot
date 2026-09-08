@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import AppTextarea from '@/components/AppTextarea.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import { t } from '@/i18n'
-import { ReloadOutlined, DatabaseOutlined } from '@ant-design/icons-vue'
+import { RotateCwIcon, DatabaseIcon } from '@lucide/vue'
 import type {
   RecoveryCompatibilitySkippedPlugin,
   RecoveryCompatibilitySummary,
@@ -29,7 +32,7 @@ defineEmits<{
 </script>
 
 <template>
-  <a-card :bordered="false" class="dashboard-recovery-card">
+  <AppCard borderless class="dashboard-recovery-card">
     <template #title>
       <div class="card-header">
         <span>恢复兼容性</span>
@@ -55,23 +58,24 @@ defineEmits<{
               <span class="issue-alert-card__summary">{{ t('dashboard.recoveryConfirmSection') }}</span>
               <small style="color: var(--muted);">{{ selectedRecoveryReviewCountLabel }}</small>
             </div>
-            <a-textarea
-              v-model:value="recoveryConfirmNote"
+            <AppTextarea
+              v-model="recoveryConfirmNote"
+              :aria-label="t('dashboard.recoveryConfirmNotePlaceholder')"
               :rows="3"
               :maxlength="500"
               :placeholder="t('dashboard.recoveryConfirmNotePlaceholder')"
             />
             <div class="table-actions" style="justify-content: flex-start; margin-top: 12px;">
-              <a-button
+              <AppButton
                 data-testid="recovery-confirm-button"
-                size="small"
-                type="primary"
+                size="sm"
+                variant="default"
                 :loading="recoveryConfirmPending"
                 :disabled="selectedRecoveryReviewIds.length === 0"
                 @click="$emit('confirm')"
               >
                 {{ t('dashboard.recoveryConfirm') }}
-              </a-button>
+              </AppButton>
             </div>
           </div>
 
@@ -81,39 +85,39 @@ defineEmits<{
         </template>
       </RecoverySummaryDetails>
       <div class="dashboard-recovery-actions">
-        <a-button
+        <AppButton
           data-testid="recovery-recheck-button"
-          size="small"
+          size="sm"
           :loading="recoveryRecheckPending"
           @click="$emit('recheck')"
         >
-          <template #icon><ReloadOutlined v-if="!recoveryRecheckPending" /></template>
+          <template #icon><RotateCwIcon v-if="!recoveryRecheckPending" /></template>
           {{ t('dashboard.recoveryRecheck') }}
-        </a-button>
-        <a-button
+        </AppButton>
+        <AppButton
           data-testid="runtime-bootstrap-button"
-          size="small"
+          size="sm"
           :loading="runtimeBootstrapPending"
           @click="$emit('bootstrap')"
         >
-          <template #icon><DatabaseOutlined v-if="!runtimeBootstrapPending" /></template>
+          <template #icon><DatabaseIcon v-if="!runtimeBootstrapPending" /></template>
           {{ t('dashboard.runtimeBootstrap') }}
-        </a-button>
+        </AppButton>
       </div>
     </div>
-  </a-card>
+  </AppCard>
 </template>
 
 <style scoped lang="scss">
 .dashboard-recovery-card__empty { margin: 0; padding: 12px 0; color: var(--muted); font-size: 13px; }
 .dashboard-recovery-card { border: 1px solid var(--border); background: var(--surface); box-shadow: none; min-width: 0; }
-.dashboard-recovery-card :deep(.ant-card-body) { padding: 16px 20px; }
+.dashboard-recovery-card :deep(.app-card__body) { padding: 16px 20px; }
 .card-header span { font-size: 16px; font-weight: 600; color: var(--text); }
 .readiness-note { padding: 4px 0; color: var(--muted); line-height: 1.5; }
 .dashboard-recovery-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
 .table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 640px) {
- .dashboard-recovery-card :deep(.ant-card-body) { padding: 14px; }
+ .dashboard-recovery-card :deep(.app-card__body) { padding: 14px; }
  .dashboard-recovery-actions { grid-template-columns: 1fr; gap: 8px; }
 }
 </style>

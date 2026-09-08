@@ -1,5 +1,4 @@
-import Antd from 'ant-design-vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
@@ -189,7 +188,7 @@ async function mountPage(initialPath = '/render/templates/help.menu') {
 
   const wrapper = mount(RenderTemplatesView, {
     global: {
-      plugins: [Antd, router],
+      plugins: [getActivePinia()!, router],
     },
   })
 

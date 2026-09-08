@@ -1,6 +1,5 @@
-import Antd from 'ant-design-vue'
 import { nextTick } from 'vue'
-import { createPinia, setActivePinia } from 'pinia'
+import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
@@ -41,7 +40,7 @@ function mountRoutedView(router: Router) {
   return mount({ template: '<RouterView />' }, {
     attachTo: document.body,
     global: {
-      plugins: [Antd, router],
+      plugins: [getActivePinia()!, router],
     },
   })
 }
@@ -186,7 +185,7 @@ describe('LogsPage', () => {
 
     expect(wrapper.find('.logs-jump-latest').exists()).toBe(true)
     expect(wrapper.find('.logs-jump-latest').text()).toContain('2')
-    await wrapper.get('.logs-jump-latest .ant-btn').trigger('click')
+    await wrapper.get('.logs-jump-latest .app-button').trigger('click')
     await flushPromises()
 
     expect(acknowledgeSpy).toHaveBeenCalledTimes(1)

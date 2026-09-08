@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import AppButton from '@/components/AppButton.vue'
 import { computed } from 'vue'
-import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons-vue'
+import { ArrowLeftIcon, RotateCwIcon } from '@lucide/vue'
 
 import Icon403 from '@/components/fallback/icons/Icon403.vue'
 import Icon404 from '@/components/fallback/icons/Icon404.vue'
@@ -60,14 +61,14 @@ const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.
       <p>{{ descriptionText }}</p>
 
       <div class="vben-fallback__actions">
-        <a-button v-if="showHome" size="large" @click="emit('home')">
-          <template #icon><ArrowLeftOutlined /></template>
+        <AppButton v-if="showHome" size="lg" @click="emit('home')">
+          <template #icon><ArrowLeftIcon /></template>
           {{ homeButtonLabel }}
-        </a-button>
-        <a-button v-if="showRetry" type="primary" size="large" :loading="retryLoading" @click="emit('retry')">
-          <template #icon><ReloadOutlined /></template>
+        </AppButton>
+        <AppButton v-if="showRetry" variant="default" size="lg" :loading="retryLoading" @click="emit('retry')">
+          <template #icon><RotateCwIcon /></template>
           {{ retryButtonLabel }}
-        </a-button>
+        </AppButton>
       </div>
     </div>
   </section>
@@ -125,7 +126,7 @@ const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.
   margin-top: 6px;
 }
 
-.vben-fallback__actions :deep(.ant-btn) {
+.vben-fallback__actions :deep(.app-button) {
   min-width: 112px;
 }
 

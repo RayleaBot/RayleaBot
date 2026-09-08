@@ -10,6 +10,7 @@ const props = defineProps<{
   multiple?: M & boolean; placeholder?: string; disabled?: boolean; id?: string; clearable?: boolean; wrapperClass?: HTMLAttributes['class']
 }>()
 const model = defineModel<M extends true ? T[] : T>({ required: true })
+defineEmits<{ open: [value: boolean] }>()
 const field = useFieldContext()
 const layer = inject(overlayLayerKey, computed(() => 1100))
 const control = ref<HTMLElement | null>(null)
@@ -42,7 +43,7 @@ function clearSelection() {
 </script>
 <template>
   <div ref="control" class="app-select-wrap" :class="wrapperClass">
-    <Select :model-value="selection" :multiple="multiple" :disabled="disabled" @update:model-value="update">
+    <Select :model-value="selection" :multiple="multiple" :disabled="disabled" @update:model-value="update" @update:open="$emit('open', $event)">
       <SelectTrigger :id="id || field?.id" v-bind="$attrs" class="app-select" :class="{ 'app-select--clearable': multiple && clearable && selectedLabels }" :aria-invalid="Boolean(field?.error) || undefined" :aria-describedby="field?.error ? field.descriptionId : undefined">
         <span v-if="selectedLabels" class="app-select__value">{{ selectedLabels }}</span>
         <SelectValue v-else :placeholder="placeholder || '请选择'" />

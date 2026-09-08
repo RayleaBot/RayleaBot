@@ -1,18 +1,27 @@
 <script setup lang="ts">
+import AppPopover from '@/components/AppPopover.vue'
+import AppDialog from '@/components/AppDialog.vue'
+import AppDataTable from '@/components/AppDataTable.vue'
+import AppSelect from '@/components/AppSelect.vue'
+import AppSegmented from '@/components/AppSegmented.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppSkeleton from '@/components/AppSkeleton.vue'
+import AppInput from '@/components/AppInput.vue'
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  CloseOutlined,
-  ClockCircleOutlined,
-  EyeOutlined,
-  ThunderboltOutlined,
-  SearchOutlined,
-  MessageOutlined,
-  CopyOutlined,
-  InfoCircleOutlined,
-  CheckOutlined,
-  WarningOutlined,
-} from '@ant-design/icons-vue'
+  CircleCheckIcon,
+  CircleXIcon,
+  ClockIcon,
+  EyeIcon,
+  ZapIcon,
+  SearchIcon,
+  MessageSquareIcon,
+  CopyIcon,
+  InfoIcon,
+  CheckIcon,
+  TriangleAlertIcon,
+} from '@lucide/vue'
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
@@ -33,19 +42,16 @@ const { error, loading, sortedItems, triggeringJobId } = storeToRefs(schedulerSt
 const {
   closeJobDetail,
   currentJob,
-  detailCardRef,
-  detailModalTitleId,
   detailVisible,
   finishJobDetailClose,
   showJobDetail,
 } = useSchedulerJobDetail()
-void detailCardRef
 const searchQuery = ref('')
 const statusFilter = ref<'all' | 'success' | 'error'>('all')
 const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
 
 const timeTick = ref(0)
-let timerId: any = null
+let timerId: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
   schedulerStore.setLiveRefreshActive(true)
@@ -61,12 +67,12 @@ onUnmounted(() => {
 })
 
 const tableColumns = computed(() => [
-  { title: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', dataIndex: 'plugin_name', width: 300 },
-  { title: `${t('scheduler.fields.label')} / ${t('scheduler.fields.conversation')}`, key: 'label', dataIndex: 'log_label', width: 250 },
-  { title: `${t('scheduler.fields.cron')} / ${t('scheduler.fields.nextRun')}`, key: 'cron', dataIndex: 'cron_expr', width: 320 },
-  { title: `${t('scheduler.fields.lastRun')} / ${t('scheduler.fields.duration')}`, key: 'lastRun', dataIndex: 'last_run', width: 240 },
-  { title: `${t('scheduler.fields.stats')} / ${t('scheduler.fields.lastError')}`, key: 'stats', dataIndex: 'stats', width: 280 },
-  { title: t('scheduler.fields.actions'), key: 'actions', dataIndex: 'actions', width: 180, fixed: 'right' as const },
+  { label: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', width: 300 },
+  { label: `${t('scheduler.fields.label')} / ${t('scheduler.fields.conversation')}`, key: 'label', width: 250 },
+  { label: `${t('scheduler.fields.cron')} / ${t('scheduler.fields.nextRun')}`, key: 'cron', width: 320 },
+  { label: `${t('scheduler.fields.lastRun')} / ${t('scheduler.fields.duration')}`, key: 'lastRun', width: 240 },
+  { label: `${t('scheduler.fields.stats')} / ${t('scheduler.fields.lastError')}`, key: 'stats', width: 280 },
+  { label: t('scheduler.fields.actions'), key: 'actions', width: 180 },
 ])
 
 async function loadSchedulerJobs() {
@@ -136,9 +142,6 @@ function schedulerRowKey(row: SchedulerJobSummary) {
   return row.job_id
 }
 
-function schedulerRowClass(record: SchedulerJobSummary) {
-  return record.last_error ? 'row-item row-error' : 'row-item row-success'
-}
 
 // 智能 Cron 中文解析
 function parseCronToChinese(cron?: string): string {
@@ -270,36 +273,36 @@ const filteredItems = computed(() => {
       <!-- 任务筛选 -->
       <div class="scheduler-filter-card">
       <div class="filter-left">
-        <a-input
-          v-model:value="searchQuery"
+        <AppInput
+          v-model="searchQuery"
           placeholder="搜索插件、任务或自定义内容..."
           allow-clear
-          class="filter-search-input"
+          wrapper-class="filter-search-input" aria-label="搜索定时任务"
         >
           <template #prefix>
-            <SearchOutlined class="search-icon" />
+            <SearchIcon class="search-icon" />
           </template>
-        </a-input>
+        </AppInput>
 
-        <a-segmented
-          v-model:value="statusFilter"
+        <AppSegmented
+          v-model="statusFilter"
           :options="[
             { label: '全部', value: 'all' },
             { label: '正常运行', value: 'success' },
             { label: '异常警告', value: 'error' },
           ]"
-          class="filter-segmented"
+          class="filter-segmented" aria-label="定时任务状态"
         />
       </div>
 
       <div class="filter-right">
         <div class="sort-wrapper">
           <span class="sort-label">排序方式:</span>
-          <a-select v-model:value="sortBy" class="sort-select" :bordered="false">
-            <a-select-option value="name">按任务字母排序</a-select-option>
-            <a-select-option value="last_run">按最近执行时间</a-select-option>
-            <a-select-option value="duration">按执行耗时排序</a-select-option>
-          </a-select>
+          <AppSelect v-model="sortBy" wrapper-class="sort-select" aria-label="排序方式" :options="[
+            { value: 'name', label: '按任务字母排序' },
+            { value: 'last_run', label: '按最近执行时间' },
+            { value: 'duration', label: '按执行耗时排序' },
+          ]" />
         </div>
 
       </div>
@@ -315,9 +318,9 @@ const filteredItems = computed(() => {
       @retry="loadSchedulerJobs"
     />
 
-    <a-card v-else-if="loading && sortedItems.length === 0" class="scheduler-loading-card" :bordered="false">
-      <a-skeleton active :paragraph="{ rows: 6 }" />
-    </a-card>
+    <AppCard v-else-if="loading && sortedItems.length === 0" class="scheduler-loading-card" borderless>
+      <AppSkeleton :rows="6" />
+    </AppCard>
 
     <AppEmptyState
       v-else-if="filteredItems.length === 0"
@@ -328,20 +331,17 @@ const filteredItems = computed(() => {
 
     <!-- 任务表格 -->
     <div v-else class="table-container-wrapper">
-      <a-table
+      <AppDataTable
         class="scheduler-data-table app-data-table refactored-table"
         :columns="tableColumns"
-        :data-source="filteredItems"
-        :pagination="false"
+        :rows="filteredItems"
         :row-key="schedulerRowKey"
-        :scroll="{ x: 1570 }"
-        :row-class-name="schedulerRowClass"
-      >
-        <template #emptyText>
+       :min-width="1450" label="定时任务">
+        <template #empty>
           {{ t('display.empty') }}
         </template>
 
-        <template #bodyCell="{ column, record }">
+        <template #cell="{ column, row: record }">
           <!-- 1. 插件与任务合并列 -->
           <template v-if="column.key === 'plugin'">
             <div class="scheduler-cell-plugin-task">
@@ -371,7 +371,7 @@ const filteredItems = computed(() => {
               <div class="conv-tag-row">
                 <template v-if="conversationText(record)">
                   <span class="conv-badge">
-                    <MessageOutlined class="badge-icon" />
+                    <MessageSquareIcon class="badge-icon" />
                     <span class="badge-text">{{ conversationText(record) }}</span>
                   </span>
                 </template>
@@ -390,7 +390,7 @@ const filteredItems = computed(() => {
                 <span class="raw-cron">{{ record.cron_expr }}</span>
               </div>
               <div class="next-run-row">
-                <ClockCircleOutlined class="clock-icon" />
+                <ClockIcon class="clock-icon" />
                 <span class="next-time" :title="formatDateTime(record.next_run)">
                   {{ formatDateTime(record.next_run) }}
                 </span>
@@ -444,27 +444,27 @@ const filteredItems = computed(() => {
 
               <!-- 错误气泡 -->
               <div class="error-badge-row" v-if="record.last_error">
-                <a-popover placement="left" trigger="hover" overlay-class-name="scheduler-error-popover">
+                <AppPopover title="最近运行错误" side="left">
                   <template #content>
                     <div class="error-popover-content">
                       <div class="err-title">
-                        <WarningOutlined class="err-icon" />
+                        <TriangleAlertIcon class="err-icon" />
                         <strong>{{ record.last_error.code }}</strong>
                       </div>
                       <div class="err-msg">{{ record.last_error.message }}</div>
-                      <a-button size="small" type="link" class="copy-err-btn" @click="copyToClipboard(`${record.last_error.code}: ${record.last_error.message}`)">
-                        <template #icon><CopyOutlined /></template>
+                      <AppButton size="sm" variant="link" class="copy-err-btn" @click="copyToClipboard(`${record.last_error.code}: ${record.last_error.message}`)">
+                        <template #icon><CopyIcon /></template>
                         复制错误信息
-                      </a-button>
+                      </AppButton>
                     </div>
                   </template>
-                  <span class="error-capsule">
+                  <button type="button" class="error-capsule">
                     {{ record.last_error.code }}
-                  </span>
-                </a-popover>
+                  </button>
+                </AppPopover>
               </div>
               <div class="success-dot-row" v-else-if="record.stats.total > 0">
-                <span class="success-dot"><CheckOutlined class="ok-icon" /> 正常运行</span>
+                <span class="success-dot"><CheckIcon class="ok-icon" /> 正常运行</span>
               </div>
             </div>
           </template>
@@ -472,27 +472,27 @@ const filteredItems = computed(() => {
           <!-- 6. 操作列 -->
           <template v-else-if="column.key === 'actions'">
             <div class="scheduler-actions">
-              <a-button size="small" class="action-btn view-btn" @click="showJobDetail(record)">
+              <AppButton size="sm" class="action-btn view-btn" @click="showJobDetail(record)">
                 <template #icon>
-                  <EyeOutlined />
+                  <EyeIcon />
                 </template>
                 {{ t('scheduler.view') }}
-              </a-button>
-              <a-button
-                size="small"
+              </AppButton>
+              <AppButton
+                size="sm"
                 class="action-btn trigger-btn"
                 :loading="triggeringJobId === record.job_id"
                 @click="triggerJob(record)"
               >
                 <template #icon>
-                  <ThunderboltOutlined />
+                  <ZapIcon />
                 </template>
                 {{ t('scheduler.trigger') }}
-              </a-button>
+              </AppButton>
             </div>
           </template>
         </template>
-      </a-table>
+      </AppDataTable>
       <div class="scheduler-mobile-list" aria-label="定时任务列表">
         <article v-for="job in filteredItems" :key="job.job_id" class="scheduler-mobile-row">
           <div class="scheduler-mobile-row__heading">
@@ -500,9 +500,9 @@ const filteredItems = computed(() => {
               <strong>{{ job.plugin_name }}</strong>
               <span>{{ job.task_name }}</span>
             </div>
-            <a-tag :color="job.last_error ? 'error' : 'success'">
+            <AppTag :tone="job.last_error ? 'danger' : 'success'">
               {{ job.last_error ? job.last_error.code : '正常' }}
-            </a-tag>
+            </AppTag>
           </div>
           <dl>
             <div><dt>计划</dt><dd>{{ parseCronToChinese(job.cron_expr) }}</dd></div>
@@ -510,14 +510,14 @@ const filteredItems = computed(() => {
             <div><dt>最近耗时</dt><dd>{{ formatDurationMs(job.last_duration_ms) }}</dd></div>
           </dl>
           <div class="scheduler-mobile-row__actions">
-            <a-button @click="showJobDetail(job)">{{ t('scheduler.view') }}</a-button>
-            <a-button
-              type="primary"
+            <AppButton @click="showJobDetail(job)">{{ t('scheduler.view') }}</AppButton>
+            <AppButton
+              variant="default"
               :loading="triggeringJobId === job.job_id"
               @click="triggerJob(job)"
             >
               {{ t('scheduler.trigger') }}
-            </a-button>
+            </AppButton>
           </div>
         </article>
       </div>
@@ -525,41 +525,7 @@ const filteredItems = computed(() => {
   </div>
 </div>
 
-    <Teleport to="body">
-      <Transition name="scheduler-detail-modal" @after-leave="finishJobDetailClose">
-        <div
-          v-if="detailVisible"
-          class="scheduler-detail-modal__host"
-          role="presentation"
-          @click.self="closeJobDetail"
-          @keydown.esc.self="closeJobDetail"
-        >
-          <div
-            ref="detailCardRef"
-            class="scheduler-detail-modal__card"
-            role="dialog"
-            aria-modal="true"
-            :aria-labelledby="detailModalTitleId"
-            tabindex="-1"
-            @keydown.esc.stop="closeJobDetail"
-          >
-            <header class="scheduler-detail-modal__header">
-              <div class="modal-header-title" :id="detailModalTitleId">
-                <div class="status-dot" aria-hidden="true"></div>
-                <span>定时任务详情</span>
-              </div>
-              <button
-                type="button"
-                class="scheduler-detail-modal__close"
-                aria-label="关闭"
-                @click="closeJobDetail"
-              >
-                <CloseOutlined />
-              </button>
-            </header>
-
-            <div class="scheduler-detail-modal__body">
-              <Transition appear name="scheduler-modal-content">
+    <AppDialog :open="detailVisible" title="定时任务详情" :width="800" @close="closeJobDetail" @after-close="finishJobDetailClose">
                 <div
                   v-if="currentJob"
                   key="content"
@@ -630,22 +596,22 @@ const filteredItems = computed(() => {
                     <!-- 数据列项 -->
                     <div class="gauge-stats-list">
                       <div class="stat-item success">
-                        <CheckCircleOutlined />
+                        <CircleCheckIcon />
                         <span class="lbl">成功执行</span>
                         <span class="val">{{ currentJob.stats.success }} 次</span>
                       </div>
                       <div class="stat-item failed">
-                        <CloseCircleOutlined />
+                        <CircleXIcon />
                         <span class="lbl">失败运行</span>
                         <span class="val">{{ currentJob.stats.failed }} 次</span>
                       </div>
                       <div class="stat-item warning">
-                        <ClockCircleOutlined />
+                        <ClockIcon />
                         <span class="lbl">执行超时</span>
                         <span class="val">{{ currentJob.stats.timeout }} 次</span>
                       </div>
                       <div class="stat-item other">
-                        <InfoCircleOutlined />
+                        <InfoIcon />
                         <span class="lbl">重试次数</span>
                         <span class="val">{{ currentJob.stats.retry }} 次</span>
                       </div>
@@ -676,33 +642,27 @@ const filteredItems = computed(() => {
                   <!-- 最近运行错误报告区 -->
                   <div class="console-error-report" v-if="currentJob.last_error">
                     <div class="report-head">
-                      <WarningOutlined />
+                      <TriangleAlertIcon />
                       <span>运行故障报告</span>
                     </div>
                     <div class="report-body">
                       <div class="err-code">错误代码: <code>{{ currentJob.last_error.code }}</code></div>
                       <p class="err-msg">{{ currentJob.last_error.message }}</p>
-                      <a-button size="small" type="primary" danger class="copy-console-err-btn" @click="copyToClipboard(`${currentJob.last_error.code}: ${currentJob.last_error.message}`)">
-                        <template #icon><CopyOutlined /></template>
+                      <AppButton size="sm" class="copy-console-err-btn" @click="copyToClipboard(`${currentJob.last_error.code}: ${currentJob.last_error.message}`)" variant="destructive">
+                        <template #icon><CopyIcon /></template>
                         复制报错诊断堆栈
-                      </a-button>
+                      </AppButton>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="modal-console-skeleton" v-else key="skeleton" aria-hidden="true">
-                  <a-skeleton active :paragraph="{ rows: 8 }" />
-                </div>
-              </Transition>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    </AppDialog>
   </AppPage>
 </template>
 
 <style lang="scss" scoped>
+.lucide { width: 16px; height: 16px; flex-shrink: 0; }
+.error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .scheduler-page-container {
   display: grid;
   gap: var(--space-md);
@@ -796,51 +756,9 @@ const filteredItems = computed(() => {
   overflow: hidden;
 }
 
-.refactored-table {
-  :deep(.ant-spin-nested-loading),
-  :deep(.ant-spin-container),
-  :deep(.ant-table) {
-    background: transparent !important;
-  }
-
-  :deep(.ant-table-container) {
-    overflow: auto;
-  }
-
-  :deep(.ant-table-content) {
-    overflow: auto !important;
-  }
-
-  :deep(.ant-table-thead > tr > th) {
-    background: color-mix(in srgb, var(--text) 3%, var(--surface)) !important;
-    border-bottom: 2px solid var(--border) !important;
-    color: var(--text) !important;
-    font-weight: 600 !important;
-    font-size: 13px;
-    padding: 12px 16px;
-  }
-
-  :deep(.ant-table-tbody > tr:not(.ant-table-measure-row) > td) {
-    border-bottom: 1px solid var(--border) !important;
-    padding: 14px 16px !important;
-    background: transparent !important;
-    transition: background-color 150ms ease;
-  }
-
-  :deep(.ant-table-tbody > tr:not(.ant-table-measure-row)) {
-    position: relative;
-    transition: background-color 150ms ease;
-
-    &:hover {
-      background-color: var(--surface-accent) !important;
-
-      td {
-        background-color: var(--surface-accent) !important;
-      }
-    }
-  }
-
-}
+.refactored-table :deep(th) { font-weight: 600; color: var(--text); }
+.refactored-table :deep(th:last-child), .refactored-table :deep(td:last-child) { position: sticky; right: 0; z-index: 1; background: var(--surface-strong); border-left: 1px solid var(--border); }
+.refactored-table :deep(th:last-child) { background: var(--surface-soft); }
 
 .scheduler-mobile-list {
   display: none;
@@ -1173,19 +1091,16 @@ const filteredItems = computed(() => {
     .bar-success {
       height: 100%;
       background: var(--success);
-      transition: width 150ms ease;
     }
 
     .bar-failed {
       height: 100%;
       background: var(--danger);
-      transition: width 150ms ease;
     }
 
     .bar-other {
       height: 100%;
       background: var(--warning);
-      transition: width 150ms ease;
     }
   }
 
@@ -1301,128 +1216,6 @@ const filteredItems = computed(() => {
       border-color: var(--success) !important;
       background: var(--surface-success) !important;
     }
-  }
-}
-
-/* 任务详情弹窗 */
-.scheduler-detail-modal__host {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: color-mix(in srgb, var(--surface-inverse) 72%, transparent);
-  overscroll-behavior: contain;
-}
-
-.scheduler-detail-modal__card {
-  width: min(750px, 100%);
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-floating);
-  overflow: hidden;
-  outline: none;
-  will-change: transform, opacity;
-}
-
-.scheduler-detail-modal__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 20px 24px 12px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.scheduler-detail-modal__close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color 150ms ease, background-color 150ms ease;
-
-  &:hover {
-    color: var(--text);
-    background: color-mix(in srgb, var(--text) 5%, transparent);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.scheduler-detail-modal__body {
-  position: relative;
-  padding: 16px 24px 24px;
-  overflow: auto;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.scheduler-modal-content-enter-active,
-.scheduler-modal-content-leave-active {
-  transition: opacity 150ms ease;
-}
-
-.scheduler-modal-content-leave-active {
-  position: absolute;
-  inset: 16px 24px 24px;
-  pointer-events: none;
-}
-
-.scheduler-modal-content-enter-from,
-.scheduler-modal-content-leave-to {
-  opacity: 0;
-}
-
-.scheduler-detail-modal-enter-active,
-.scheduler-detail-modal-leave-active {
-  transition: opacity 150ms ease;
-}
-
-.scheduler-detail-modal-enter-from,
-.scheduler-detail-modal-leave-to {
-  opacity: 0;
-}
-
-.scheduler-detail-modal-enter-active .scheduler-detail-modal__card,
-.scheduler-detail-modal-leave-active .scheduler-detail-modal__card {
-  transition: opacity 150ms ease;
-}
-
-.scheduler-detail-modal-enter-from .scheduler-detail-modal__card,
-.scheduler-detail-modal-leave-to .scheduler-detail-modal__card {
-  opacity: 0;
-}
-
-.modal-header-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--text);
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    background: var(--success);
-    border-radius: 50%;
-    flex-shrink: 0;
   }
 }
 

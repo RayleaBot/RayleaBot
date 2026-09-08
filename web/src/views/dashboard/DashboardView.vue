@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import AppTabs from '@/components/AppTabs.vue'
+import AppTag from '@/components/AppTag.vue'
+import AppEmptyState from '@/components/AppEmptyState.vue'
+import AppButton from '@/components/AppButton.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  ExclamationCircleOutlined,
-  MinusCircleOutlined,
-  DatabaseOutlined,
-} from '@ant-design/icons-vue'
+  CircleCheckIcon,
+  CircleXIcon,
+  CircleAlertIcon,
+  CircleMinusIcon,
+  DatabaseIcon,
+} from '@lucide/vue'
 
 import AppCard from '@/components/AppCard.vue'
 import ConnectionStatusStrip from '@/components/ConnectionStatusStrip.vue'
@@ -25,6 +29,11 @@ import { t } from '@/i18n'
 import { useDashboardPage } from '@/views/dashboard/useDashboardPage'
 
 const activeOverviewTab = ref('events')
+const overviewTabs = computed(() => [
+  { value: 'events', label: t('dashboard.overviewEvents') },
+  { value: 'readiness', label: t('dashboard.overviewReadiness') },
+  { value: 'diagnostics', label: t('dashboard.overviewDiagnostics') },
+])
 const uptimeClock = ref(Date.now())
 const uptimeSnapshotAt = ref(Date.now())
 let uptimeTimer: ReturnType<typeof window.setInterval> | null = null
@@ -98,10 +107,10 @@ watch(
 
 function getCheckIcon(status: typeof healthStatusType.value) {
   const map = {
-    danger: CloseCircleOutlined,
-    muted: MinusCircleOutlined,
-    success: CheckCircleOutlined,
-    warning: ExclamationCircleOutlined,
+    danger: CircleXIcon,
+    muted: CircleMinusIcon,
+    success: CircleCheckIcon,
+    warning: CircleAlertIcon,
   } as const
   return map[status]
 }
@@ -109,8 +118,8 @@ function getCheckIcon(status: typeof healthStatusType.value) {
 function getStatusTagColor(status: typeof healthStatusType.value) {
   if (status === 'success') return 'success'
   if (status === 'warning') return 'warning'
-  if (status === 'danger') return 'error'
-  return 'default'
+  if (status === 'danger') return 'danger'
+  return 'neutral'
 }
 
 function getEventSeverity(payload: Record<string, unknown>) {
@@ -126,9 +135,9 @@ function getEventSeverityColor(severity?: string) {
 }
 
 function getEventSeverityIcon(severity?: string) {
-  if (severity === 'error' || severity === 'danger') return CloseCircleOutlined
-  if (severity === 'warning') return ExclamationCircleOutlined
-  if (severity === 'success') return CheckCircleOutlined
+  if (severity === 'error' || severity === 'danger') return CircleXIcon
+  if (severity === 'warning') return CircleAlertIcon
+  if (severity === 'success') return CircleCheckIcon
   return undefined
 }
 
@@ -250,22 +259,22 @@ useToastFeedback(protocolIssueToast)
         borderless
         class="dashboard-activity-card"
       >
-        <a-tabs v-model:activeKey="activeOverviewTab" size="small">
-          <a-tab-pane key="events" :tab="t('dashboard.overviewEvents')">
-            <a-empty v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
+        <AppTabs v-model="activeOverviewTab" :items="overviewTabs" label="状态概览" keep-alive>
+          <template #events>
+            <AppEmptyState v-if="recentEvents.length === 0" :description="t('dashboard.recentEventsEmpty')" />
 
             <div
               v-else
               class="events-timeline-wrapper"
               :class="{ 'events-timeline-wrapper--collapsed': !eventsExpanded && recentEvents.length > 4 }"
             >
-              <a-timeline class="events-timeline">
-                <a-timeline-item
+              <ol class="events-timeline">
+                <li
                   v-for="event in recentEvents"
                   :key="`${event.timestamp}-${event.summary}`"
-                  :color="getEventSeverityColor(getEventSeverity(event.payload))"
+                  :style="{ '--event-color': getEventSeverityColor(getEventSeverity(event.payload)) }" class="events-timeline__row"
                 >
-                  <template #dot>
+                  <span class="events-timeline__marker">
                     <component
                       :is="getEventSeverityIcon(getEventSeverity(event.payload))"
                       v-if="getEventSeverityIcon(getEventSeverity(event.payload))"
@@ -274,7 +283,7 @@ useToastFeedback(protocolIssueToast)
                       :aria-label="`事件级别：${getEventSeverity(event.payload) ?? 'info'}`"
                     />
                     <span v-else class="events-timeline__dot" role="img" aria-label="事件级别：info" />
-                  </template>
+                  </span>
                   <div class="events-timeline__item">
                     <div class="events-timeline__summary">{{ event.summary }}</div>
                     <div class="events-timeline__time" :data-absolute="event.timestamp">
@@ -285,17 +294,17 @@ useToastFeedback(protocolIssueToast)
                       class="events-timeline__actions"
                     />
                   </div>
-                </a-timeline-item>
-              </a-timeline>
+                </li>
+              </ol>
             </div>
             <div v-if="recentEvents.length > 4" class="events-toggle">
-              <a-button size="small" type="link" @click="eventsExpanded = !eventsExpanded">
+              <AppButton size="sm" variant="link" @click="eventsExpanded = !eventsExpanded">
                 {{ eventsExpanded ? t('dashboard.collapseEvents') : t('dashboard.expandEvents', { count: recentEvents.length - 4 }) }}
-              </a-button>
+              </AppButton>
             </div>
-          </a-tab-pane>
+          </template>
 
-          <a-tab-pane key="readiness" :tab="t('dashboard.overviewReadiness')">
+          <template #readiness>
             <div v-if="checkItems.length" class="readiness-checks">
               <div
                 v-for="item in checkItems"
@@ -309,7 +318,7 @@ useToastFeedback(protocolIssueToast)
                 <div class="readiness-check__value">{{ item.value }}</div>
               </div>
             </div>
-            <a-empty v-else :description="t('display.empty')" />
+            <AppEmptyState v-else :description="t('display.empty')" />
 
             <div v-if="visibleReasonCodes.length" class="dashboard-reason-codes">
               <small>{{ t('dashboard.reasonCodes') }}: {{ visibleReasonCodes.join(', ') }}</small>
@@ -326,9 +335,9 @@ useToastFeedback(protocolIssueToast)
                 :class="['issue-alert-card', { 'issue-alert-card--warning': issue.severity === 'warning' }]"
               >
                 <div class="issue-alert-card__header">
-                  <a-tag :color="issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'success'">
+                  <AppTag :tone="issue.severity === 'error' ? 'danger' : issue.severity === 'warning' ? 'warning' : 'success'">
                     {{ issue.code }}
-                  </a-tag>
+                  </AppTag>
                   <span class="issue-alert-card__summary">{{ issue.summary }}</span>
                 </div>
                 <div v-if="issue.remediation" class="issue-alert-card__remediation">
@@ -338,18 +347,18 @@ useToastFeedback(protocolIssueToast)
             </div>
 
             <div v-if="readinessIssues.length > 3" class="issues-toggle">
-              <a-button
-                size="small"
-                type="link"
+              <AppButton
+                size="sm"
+                variant="link"
                 :aria-label="issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 })"
                 @click="issuesExpanded = !issuesExpanded"
               >
                 {{ issuesExpanded ? t('dashboard.collapseIssues') : t('dashboard.expandIssues', { count: readinessIssues.length - 3 }) }}
-              </a-button>
+              </AppButton>
             </div>
-          </a-tab-pane>
+          </template>
 
-          <a-tab-pane key="diagnostics" :tab="t('dashboard.overviewDiagnostics')">
+          <template #diagnostics>
             <div v-if="diagnosticsSubsystemItems.length" class="diagnostics-subsystem-grid">
               <div
                 v-for="item in diagnosticsSubsystemItems"
@@ -360,13 +369,13 @@ useToastFeedback(protocolIssueToast)
                   <component :is="getCheckIcon(item.status)" class="diagnostics-subsystem__icon" role="img" :aria-label="`子系统状态：${item.status}`" />
                   <span class="diagnostics-subsystem__label">{{ item.label }}</span>
                 </div>
-                <a-tag :color="getStatusTagColor(item.status)" class="diagnostics-subsystem__tag">
+                <AppTag :tone="getStatusTagColor(item.status)" class="diagnostics-subsystem__tag">
                   {{ item.value }}
-                </a-tag>
+                </AppTag>
                 <div class="diagnostics-subsystem__detail">{{ item.detail }}</div>
               </div>
             </div>
-            <a-empty v-else :description="t('dashboard.diagnosticsEmpty')" />
+            <AppEmptyState v-else :description="t('dashboard.diagnosticsEmpty')" />
 
             <div v-if="diagnosticsIssueCards.length" class="diagnostics-issues">
               <div
@@ -375,9 +384,9 @@ useToastFeedback(protocolIssueToast)
                 :class="['diagnostics-issue-card', `diagnostics-issue-card--${issue.status}`]"
               >
                 <div class="diagnostics-issue-card__header">
-                  <a-tag :color="getStatusTagColor(issue.status)">
+                  <AppTag :tone="getStatusTagColor(issue.status)">
                     {{ issue.code }}
-                  </a-tag>
+                  </AppTag>
                   <strong>{{ issue.problem }}</strong>
                 </div>
                 <dl class="diagnostics-issue-card__facts">
@@ -396,9 +405,9 @@ useToastFeedback(protocolIssueToast)
                 </dl>
               </div>
             </div>
-            <a-empty v-else class="diagnostics-empty-issues" :description="t('dashboard.diagnosticsNoIssues')" />
-          </a-tab-pane>
-        </a-tabs>
+            <AppEmptyState v-else class="diagnostics-empty-issues" :description="t('dashboard.diagnosticsNoIssues')" />
+          </template>
+        </AppTabs>
       </AppCard>
 
       <DashboardRecoveryCard
@@ -425,7 +434,7 @@ useToastFeedback(protocolIssueToast)
         class="dashboard-runtime-card"
       >
         <div class="dashboard-runtime-body">
-          <DatabaseOutlined class="dashboard-panel-icon" aria-hidden="true" />
+          <DatabaseIcon class="dashboard-panel-icon" aria-hidden="true" />
           <div class="dashboard-runtime-grid">
           <div class="dashboard-runtime-item">
             <span>{{ t('dashboard.service') }}</span>
@@ -459,15 +468,11 @@ useToastFeedback(protocolIssueToast)
 .dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
 .dashboard-primary-column, .dashboard-support-column { display: grid; min-width: 0; gap: 16px; align-content: start; }
 .dashboard-activity-card { min-width: 0; align-self: stretch; }
-.dashboard-activity-card :deep(.ant-card-body) { padding: 6px 20px 16px; }
-.dashboard-activity-card :deep(.ant-tabs-nav) { margin-bottom: 10px; }
-.dashboard-activity-card :deep(.ant-tabs-tab) { font-size: 14px; color: var(--muted); }
-.dashboard-activity-card :deep(.ant-tabs-tab-active) { font-weight: 600; }
-.events-timeline { padding-top: 6px; }
-.events-timeline :deep(.ant-timeline-item) { padding-bottom: 0; }
-.events-timeline :deep(.ant-timeline-item-tail) { display: none; }
-.events-timeline :deep(.ant-timeline-item-content) { margin-inline-start: 28px; min-height: 58px; top: 0; }
-.events-timeline :deep(.ant-timeline-item-head) { inset-inline-start: 0; top: 14px; width: 16px; height: 16px; background: transparent; border: 0; display: grid; place-items: center; transform: none; }
+.dashboard-activity-card :deep(.app-card__body) { padding: 6px 20px 16px; }
+.events-timeline { padding: 6px 0 0; margin: 0; list-style: none; }
+.events-timeline__row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; }
+.events-timeline__marker { display: grid; place-items: start center; padding-top: 14px; color: var(--event-color); }
+.events-timeline__dot-icon { width: 18px; height: 18px; }
 .events-timeline__dot-icon { font-size: 18px; line-height: 1; }
 .events-timeline__dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .events-timeline__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; min-width: 0; padding: 10px 0; border-bottom: 1px solid var(--border); }
@@ -481,7 +486,7 @@ useToastFeedback(protocolIssueToast)
 .readiness-check { grid-template-columns: minmax(120px, .8fr) minmax(0, 1fr); padding: 10px 0; gap: 12px; border-bottom: 1px solid var(--border); background: transparent; }
 .readiness-check__name { color: var(--text); font-weight: 500; }
 .readiness-check__value { text-align: right; color: var(--muted); }
-.readiness-check__icon, .diagnostics-subsystem__icon { font-size: 17px; }
+.readiness-check__icon, .diagnostics-subsystem__icon { width: 17px; height: 17px; }
 .diagnostics-subsystem-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
 .diagnostics-subsystem { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; gap: 6px 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
 .diagnostics-subsystem__header { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
@@ -520,7 +525,7 @@ useToastFeedback(protocolIssueToast)
 }
 @media (max-width: 640px) {
  .dashboard-support-column, .diagnostics-subsystem-grid { grid-template-columns: 1fr; }
- .dashboard-activity-card :deep(.ant-card-body) { padding-inline: 14px; }
+ .dashboard-activity-card :deep(.app-card__body) { padding-inline: 14px; }
  .events-timeline__item { grid-template-columns: minmax(0, 1fr); }
  .events-timeline__actions { grid-column: 1; grid-row: auto; }
  .events-timeline-wrapper--collapsed { max-height: 390px; }

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import AppCard from '@/components/AppCard.vue'
+import AppButton from '@/components/AppButton.vue'
 import {
-  CloudUploadOutlined,
-  DatabaseOutlined,
-  FileZipOutlined,
-} from '@ant-design/icons-vue'
+  CloudUploadIcon,
+  DatabaseIcon,
+  FileArchiveIcon,
+} from '@lucide/vue'
 import { t } from '@/i18n'
 
 defineProps<{
@@ -18,7 +20,7 @@ defineEmits<{
 </script>
 
 <template>
-  <a-card :bordered="false" class="tools-panel">
+  <AppCard borderless class="tools-panel">
     <template #title>
       <div class="card-header">
         <span>{{ t('dashboard.tools') }}</span>
@@ -26,28 +28,28 @@ defineEmits<{
     </template>
 
     <div class="tools-panel__body">
-      <DatabaseOutlined class="tools-panel__icon" aria-hidden="true" />
+      <DatabaseIcon class="tools-panel__icon" aria-hidden="true" />
       <div class="table-actions">
-      <a-button
-        type="primary"
+      <AppButton
+        variant="default"
         class="tool-button tool-button--backup"
         :loading="backupPending"
         @click="$emit('createBackup')"
       >
-        <template #icon><CloudUploadOutlined v-if="!backupPending" /></template>
+        <template #icon><CloudUploadIcon v-if="!backupPending" /></template>
         {{ t('dashboard.createBackup') }}
-      </a-button>
-      <a-button
+      </AppButton>
+      <AppButton
         class="tool-button tool-button--diagnostics"
         :loading="diagnosticsPending"
         @click="$emit('exportDiagnostics')"
       >
-        <template #icon><FileZipOutlined v-if="!diagnosticsPending" /></template>
+        <template #icon><FileArchiveIcon v-if="!diagnosticsPending" /></template>
         {{ t('dashboard.exportDiagnostics') }}
-      </a-button>
+      </AppButton>
       </div>
     </div>
-  </a-card>
+  </AppCard>
 </template>
 
 <style scoped lang="scss">
@@ -57,7 +59,7 @@ defineEmits<{
   box-shadow: none;
 }
 
-.tools-panel :deep(.ant-card-body) {
+.tools-panel :deep(.app-card__body) {
   padding: var(--space-lg);
 }
 
