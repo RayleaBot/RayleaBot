@@ -20,6 +20,15 @@ func (q *Queries) CountBootstrap(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const deleteAllAdminSessions = `-- name: DeleteAllAdminSessions :exec
+DELETE FROM admin_sessions
+`
+
+func (q *Queries) DeleteAllAdminSessions(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllAdminSessions)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM admin_sessions WHERE session_id = ?
 `
@@ -105,6 +114,25 @@ func (q *Queries) LoadSessions(ctx context.Context) ([]AdminSession, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateBootstrapCredentials = `-- name: UpdateBootstrapCredentials :execrows
+UPDATE auth_bootstrap_state
+SET identifier = ?, secret_digest = ?
+WHERE singleton_id = 1
+`
+
+type UpdateBootstrapCredentialsParams struct {
+	Identifier   string
+	SecretDigest []byte
+}
+
+func (q *Queries) UpdateBootstrapCredentials(ctx context.Context, arg UpdateBootstrapCredentialsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, updateBootstrapCredentials, arg.Identifier, arg.SecretDigest)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateBootstrapSecretDigest = `-- name: UpdateBootstrapSecretDigest :execrows

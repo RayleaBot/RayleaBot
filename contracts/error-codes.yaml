@@ -15,6 +15,16 @@ domains:
   - release
 
 codes:
+  permission.current_secret_invalid:
+    code: permission.current_secret_invalid
+    domain: permission
+    message_key: errors.permission.current_secret_invalid
+    message: 当前密码不正确
+    description: An authenticated account credential change supplied an incorrect current password. The active session remains valid.
+    http_status: 403
+    retryable: false
+    applies_to: [http]
+
   platform.render_queue_full:
     code: platform.render_queue_full
     domain: platform

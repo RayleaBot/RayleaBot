@@ -128,6 +128,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 				pluginManagementUI,
 			},
 			ProtectedRoutes: []managementapi.ProtectedRouteModule{
+				authHandler,
 				managementHandler,
 				configHandler,
 				protocolHandler,

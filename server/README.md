@@ -15,6 +15,7 @@
   - `GET /api/setup/status`
   - `POST /api/session/login`
   - `DELETE /api/session`
+  - `PUT /api/account/credentials`：验证当前密码后修改密码和可选用户名，成功后所有旧会话失效
 - Launcher 本机接口：
   - `GET /api/launcher/status`
   - `POST /api/launcher/shutdown`

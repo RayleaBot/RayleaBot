@@ -61,10 +61,15 @@ func (h *AuthHandlers) RegisterPublicRoutes(router chi.Router) {
 	router.Post("/api/session/login", h.HandleSessionLogin())
 }
 
+func (h *AuthHandlers) RegisterProtectedRoutes(router chi.Router) {
+	router.Put("/api/account/credentials", h.HandleAccountCredentialsUpdate())
+}
+
 type authSessionService interface {
 	BootstrapWithContext(context.Context, string, string) (string, auth.Claims, error)
 	LoginWithContext(context.Context, string, string) (string, auth.Claims, error)
 	CSRFToken(auth.Claims) string
+	UpdateCredentialsWithContext(context.Context, auth.Claims, string, string, string) error
 }
 
 func (h *AuthHandlers) currentConfig() AuthConfig {
@@ -275,6 +280,11 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 				return
 			}
 
+			// Capture before validation so a concurrent credential change cannot
+			// leave a connection registered against the next credential generation.
+			if isWebSocket {
+				r = r.WithContext(context.WithValue(r.Context(), webSocketCredentialsChangedKey{}, authManager.CredentialsChanged()))
+			}
 			claims, err := authManager.ValidateWithContext(r.Context(), token)
 			if err != nil {
 				writePermissionDenied(w, r)

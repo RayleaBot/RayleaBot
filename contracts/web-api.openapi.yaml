@@ -20,6 +20,9 @@ x-fixtures:
   - fixtures/web-api/ok.setup-status.yaml
   - fixtures/web-api/ok.session-login.yaml
   - fixtures/web-api/ok.session-logout.yaml
+  - fixtures/web-api/ok.account-credentials.yaml
+  - fixtures/web-api/edge.account-credentials-keep-identifier.yaml
+  - fixtures/web-api/invalid.account-credentials-current-secret.yaml
   - fixtures/web-api/ok.launcher-status.yaml
   - fixtures/web-api/ok.launcher-shutdown.yaml
   - fixtures/web-api/ok.config-get-response.yaml
@@ -389,6 +392,46 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         default:
+          $ref: '#/components/responses/Error'
+
+  /api/account/credentials:
+    put:
+      operationId: updateAccountCredentials
+      summary: Change the authenticated administrator's password and optionally their identifier.
+      description: >
+        Requires an active management session and verification of current_secret against
+        the current administrator password. new_identifier is trimmed; omission or a blank
+        value preserves the identifier. The password is never trimmed. The credential update
+        and invalidation of all existing sessions, including the caller, are atomic and durable.
+        Existing management WebSockets receive session_expired and are closed.
+        A successful caller must log in again. Failure preserves credentials and sessions.
+        A stale or revoked session returns 401 permission.denied. An incorrect current password
+        returns 403 permission.current_secret_invalid without expiring the caller's session.
+        Attempts share the configured login failure limit and window by source IP;
+        exhausted attempts return 429 platform.rate_limited. Invalid input returns
+        400 platform.invalid_request; persistence failures return 500 platform.internal_error.
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+          CSRFAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCredentialsUpdateRequest'
+      responses:
+        '204':
+          description: Credentials saved, all session tokens invalidated, and the browser session cookie cleared.
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '500':
           $ref: '#/components/responses/Error'
 
   /api/launcher/status:
@@ -2519,6 +2562,26 @@ components:
         secret:
           type: string
           minLength: 1
+
+    AccountCredentialsUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [current_secret, new_secret]
+      properties:
+        current_secret:
+          type: string
+          minLength: 1
+          writeOnly: true
+        new_secret:
+          type: string
+          minLength: 8
+          maxLength: 1024
+          writeOnly: true
+          description: New password, measured in Unicode code points and preserved verbatim.
+        new_identifier:
+          type: string
+          maxLength: 128
+          description: Optional new administrator username; blank or omitted keeps the existing username.
 
     SessionLoginResponse:
       type: object

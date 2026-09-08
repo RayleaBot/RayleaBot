@@ -33,6 +33,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			pluginUI,
 		},
 		ProtectedRoutes: []managementapi.ProtectedRouteModule{
+			managementapi.NewAuthHandlers(managementapi.AuthDeps{}),
 			managementapi.NewCoreHandlers(managementapi.CoreDeps{}),
 			managementapi.NewConfigHandlers(nil),
 			managementapi.NewProtocolHandlers(nil),

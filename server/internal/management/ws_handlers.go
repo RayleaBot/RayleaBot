@@ -20,13 +20,37 @@ import (
 )
 
 type webSocketOriginAuthorityKey struct{}
+type webSocketCredentialsChangedKey struct{}
 
 func acceptManagementWebSocket(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
 	authority, ok := r.Context().Value(webSocketOriginAuthorityKey{}).(string)
 	if !ok || strings.TrimSpace(authority) == "" {
 		return nil, errors.New("validated websocket origin is required")
 	}
-	return websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{authority}})
+	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{OriginPatterns: []string{authority}})
+	if err != nil {
+		return nil, err
+	}
+	if changed, ok := r.Context().Value(webSocketCredentialsChangedKey{}).(<-chan struct{}); ok {
+		channel := "events"
+		if r.URL.Path == "/ws/logs" {
+			channel = "logs"
+		} else if strings.HasPrefix(r.URL.Path, "/ws/plugins/") {
+			channel = "plugin_console"
+		}
+		go func() {
+			select {
+			case <-r.Context().Done():
+				return
+			case <-changed:
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				defer cancel()
+				_ = wsjson.Write(ctx, conn, wsevents.Frame{Channel: channel, Type: "session_expired", Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Data: struct{}{}})
+				_ = conn.Close(websocket.StatusPolicyViolation, "session invalidated")
+			}
+		}()
+	}
+	return conn, nil
 }
 
 func writeWebSocketPermissionDenied(w http.ResponseWriter, r *http.Request) {

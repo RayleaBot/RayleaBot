@@ -8,12 +8,13 @@ import (
 )
 
 type StubAuthRepository struct {
-	LoadBootstrapFn   func(context.Context) (*auth.BootstrapState, error)
-	LoadSessionsFn    func(context.Context) ([]auth.Claims, error)
-	SaveBootstrapFn   func(context.Context, auth.BootstrapState, auth.Claims) error
-	UpdateBootstrapFn func(context.Context, []byte) error
-	SaveSessionFn     func(context.Context, auth.Claims) error
-	DeleteSessionsFn  func(context.Context, []string) error
+	LoadBootstrapFn     func(context.Context) (*auth.BootstrapState, error)
+	LoadSessionsFn      func(context.Context) ([]auth.Claims, error)
+	SaveBootstrapFn     func(context.Context, auth.BootstrapState, auth.Claims) error
+	UpdateBootstrapFn   func(context.Context, []byte) error
+	UpdateCredentialsFn func(context.Context, string, []byte) error
+	SaveSessionFn       func(context.Context, auth.Claims) error
+	DeleteSessionsFn    func(context.Context, []string) error
 }
 
 func (r *StubAuthRepository) LoadBootstrap(ctx context.Context) (*auth.BootstrapState, error) {
@@ -54,6 +55,13 @@ func (r *StubAuthRepository) UpdateBootstrapSecretDigest(ctx context.Context, se
 func (r *StubAuthRepository) DeleteSessions(ctx context.Context, sessionIDs []string) error {
 	if r != nil && r.DeleteSessionsFn != nil {
 		return r.DeleteSessionsFn(ctx, sessionIDs)
+	}
+	return nil
+}
+
+func (r *StubAuthRepository) UpdateCredentials(ctx context.Context, identifier string, secretDigest []byte) error {
+	if r.UpdateCredentialsFn != nil {
+		return r.UpdateCredentialsFn(ctx, identifier, secretDigest)
 	}
 	return nil
 }

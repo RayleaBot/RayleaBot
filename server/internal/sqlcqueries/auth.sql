@@ -14,6 +14,14 @@ UPDATE auth_bootstrap_state
 SET secret_digest = ?
 WHERE singleton_id = 1;
 
+-- name: UpdateBootstrapCredentials :execrows
+UPDATE auth_bootstrap_state
+SET identifier = ?, secret_digest = ?
+WHERE singleton_id = 1;
+
+-- name: DeleteAllAdminSessions :exec
+DELETE FROM admin_sessions;
+
 -- name: LoadSessions :many
 SELECT session_id, subject, issued_at, expires_at FROM admin_sessions;
 

@@ -23,6 +23,7 @@ type Repository interface {
 	LoadSessions(context.Context) ([]Claims, error)
 	SaveBootstrap(context.Context, BootstrapState, Claims) error
 	UpdateBootstrapSecretDigest(context.Context, []byte) error
+	UpdateCredentials(context.Context, string, []byte) error
 	SaveSession(context.Context, Claims) error
 	DeleteSessions(context.Context, []string) error
 }
@@ -116,6 +117,26 @@ func (r *SQLiteRepository) UpdateBootstrapSecretDigest(ctx context.Context, secr
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+func (r *SQLiteRepository) UpdateCredentials(ctx context.Context, identifier string, secretDigest []byte) error {
+	tx, err := r.write.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin credential update: %w", err)
+	}
+	defer tx.Rollback()
+	q := r.writeQ.WithTx(tx)
+	affected, err := q.UpdateBootstrapCredentials(ctx, sqlcgen.UpdateBootstrapCredentialsParams{Identifier: identifier, SecretDigest: secretDigest})
+	if err != nil {
+		return fmt.Errorf("update credentials: %w", err)
+	}
+	if affected != 1 {
+		return sql.ErrNoRows
+	}
+	if err := q.DeleteAllAdminSessions(ctx); err != nil {
+		return fmt.Errorf("revoke admin sessions: %w", err)
+	}
+	return tx.Commit()
 }
 
 func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {

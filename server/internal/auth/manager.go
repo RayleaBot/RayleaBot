@@ -56,11 +56,12 @@ type Manager struct {
 	repo               Repository
 	passwordHashParams passwordHashParams
 
-	stateMu           sync.RWMutex
-	mutationMu        sync.Mutex
-	passwordSemaphore chan struct{}
-	sessions          map[string]Claims
-	bootstrap         *bootstrapCredentials
+	stateMu            sync.RWMutex
+	mutationMu         sync.Mutex
+	passwordSemaphore  chan struct{}
+	sessions           map[string]Claims
+	bootstrap          *bootstrapCredentials
+	credentialsChanged chan struct{}
 }
 
 func WithClock(now func() time.Time) Option {
@@ -166,6 +167,7 @@ func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Ma
 		passwordHashParams: options.passwordHashParams,
 		passwordSemaphore:  make(chan struct{}, 2),
 		sessions:           make(map[string]Claims),
+		credentialsChanged: make(chan struct{}),
 	}
 
 	if manager.repo != nil {

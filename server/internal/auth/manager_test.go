@@ -530,6 +530,15 @@ func (r *memoryAuthRepository) SaveSession(_ context.Context, claims Claims) err
 	return nil
 }
 
+func (r *memoryAuthRepository) UpdateCredentials(_ context.Context, _ string, secretDigest []byte) error {
+	if r.updateErr != nil {
+		return r.updateErr
+	}
+	r.updatedDigest = append([]byte(nil), secretDigest...)
+	r.savedSessions = nil
+	return nil
+}
+
 func (r *memoryAuthRepository) DeleteSessions(context.Context, []string) error {
 	return nil
 }
