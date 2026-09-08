@@ -170,6 +170,14 @@ jobs:
         working-directory: launcher
         run: pnpm test:coverage
 
+      - name: Install launcher Playwright browser
+        working-directory: launcher
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run launcher renderer E2E
+        working-directory: launcher
+        run: pnpm test:e2e
+
       - name: Build launcher
         working-directory: launcher
         run: pnpm build

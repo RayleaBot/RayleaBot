@@ -94,7 +94,6 @@ export function AppShellView({
         activeSection={activeSection}
         isMaximized={isMaximized}
         onNavigate={onNavigate}
-        onRefresh={onRefresh}
       />
 
       <main className={`shell-main active-${activeSection}`} data-active-section={activeSection}>

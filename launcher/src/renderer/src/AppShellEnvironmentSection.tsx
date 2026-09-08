@@ -36,9 +36,16 @@ export function AppShellEnvironmentSection({
       categorizedChecks.others.push(item);
     }
   }
-  const environmentSummaryLabel = getEnvironmentSummaryLabel(snapshot.launcher.preflightChecks);
+  const checksUnavailable = snapshot.launcher.preflightChecks.length === 0;
+  const environmentSummaryLabel = checksUnavailable && snapshot.launcher.lastLocalError
+    ? "检查结果不可用"
+    : getEnvironmentSummaryLabel(snapshot.launcher.preflightChecks);
   const environmentReadiness =
-    environmentSummaryLabel === "需要处理"
+    checksUnavailable
+      ? { label: environmentSummaryLabel, detail: snapshot.launcher.lastLocalError
+        ? "未能获取环境检查结果，请重新检查。"
+        : "完成环境检查后，才能确认服务是否具备启动条件。" }
+      : environmentSummaryLabel === "需要处理"
       ? { label: environmentSummaryLabel, detail: "存在阻塞项，启动前需要先解决。" }
       : environmentSummaryLabel === "可继续，但有警告"
         ? { label: environmentSummaryLabel, detail: "核心能力可用，建议先检查告警项。" }

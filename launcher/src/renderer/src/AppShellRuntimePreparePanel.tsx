@@ -75,7 +75,7 @@ function RuntimePrepareResourceItem({ item }: { item: RuntimePrepareResourceProg
         </span>
       </div>
       <div className="runtime-prepare-progress-row">
-        <ProgressBar value={value} thickness="medium" />
+        <ProgressBar value={value} thickness="medium" aria-label={`${item.label}准备进度`} aria-valuetext={`${statusLabels[item.status] ?? item.status}，${progressText(item)}`} />
         <span className="runtime-prepare-progress-text">{progressText(item)}</span>
       </div>
       <div className="runtime-prepare-details">

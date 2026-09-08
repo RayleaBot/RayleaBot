@@ -27,13 +27,13 @@ const modeConfig: Record<LauncherThemeMode, { icon: ReactElement; label: string 
   dark: { icon: <WeatherMoon20Regular />, label: "深色" },
 };
 
-const ThemeMenuPresence = createPresenceComponent({
+const ThemeMenuPresence = createPresenceComponent<{ reduced: boolean }>(({ reduced }) => ({
   enter: {
     keyframes: [
       { opacity: 0, transform: "translateY(5px)" },
       { opacity: 1, transform: "translateY(0)" },
     ],
-    duration: launcherMotion.overlay,
+    duration: reduced ? 0 : launcherMotion.overlay,
     easing: launcherMotion.ease,
   },
   exit: {
@@ -41,10 +41,10 @@ const ThemeMenuPresence = createPresenceComponent({
       { opacity: 1, transform: "translateY(0)" },
       { opacity: 0, transform: "translateY(3px)" },
     ],
-    duration: launcherMotion.overlay,
+    duration: reduced ? 0 : launcherMotion.overlay,
     easing: launcherMotion.ease,
   },
-});
+}));
 
 export function ThemeModeMenu() {
   const { mode, setMode, syncError } = useTheme();
@@ -122,6 +122,7 @@ export function ThemeModeMenu() {
       <MenuPopover className="theme-menu-positioner">
         <ThemeMenuPresence
           appear
+          reduced={prefersReducedMotion()}
           visible={surfaceVisible}
           unmountOnExit
           onMotionFinish={handleSurfaceMotionFinish}

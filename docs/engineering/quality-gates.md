@@ -22,6 +22,7 @@
 - `pnpm run typecheck`
 - `pnpm test`
 - `pnpm build`
+- `pnpm test:e2e`：当前 Renderer 配合模拟桌面桥，覆盖窗口边界、字体加载、初始化失败和减少动态效果；真实 Wails 系统集成另行验证。
 
 ### Plugins
 
@@ -43,7 +44,7 @@
 
 - PR 默认门禁覆盖 contracts-lite、Server、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
 - `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
-- Playwright E2E 由 `nightly.yml` 自动执行；跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
+- Web 与 Launcher Renderer 的 Playwright E2E 由 `nightly.yml` 自动执行；跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
 - 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/protocols/onebot11`、`/api/protocols/onebot11/compatibility`、模板预览工作区全流程、packaged recovery drill 和长期自托管 smoke。
 - 高成本依赖审计和长时段巡检保留在 `nightly.yml` 或发布门禁，不挤占每个 PR 的默认门禁预算。
 

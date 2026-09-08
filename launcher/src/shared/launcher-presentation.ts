@@ -206,6 +206,9 @@ export function getLauncherStateLabel(state: LauncherPresentationState) {
 }
 
 export function getEnvironmentSummaryLabel(checks: EnvironmentCheckResult[]) {
+  if (checks.length === 0) {
+    return "尚未检查";
+  }
   if (checks.some(isBlockingEnvironmentIssue)) {
     return "需要处理";
   }

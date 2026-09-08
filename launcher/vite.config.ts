@@ -38,5 +38,12 @@ export default defineConfig({
     host: "127.0.0.1",
     port: 5174,
     strictPort: true,
+    fs: {
+      allow: [
+        path.resolve(import.meta.dirname),
+        path.resolve(import.meta.dirname, "../design"),
+        path.resolve(import.meta.dirname, "../templates/help.menu/assets/fonts"),
+      ],
+    },
   },
 });

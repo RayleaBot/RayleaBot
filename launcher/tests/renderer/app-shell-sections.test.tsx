@@ -40,6 +40,16 @@ const configuredSnapshot = createLauncherSnapshot({
 });
 
 describe("Launcher workspace presentation", () => {
+  test.each([
+    ["", "尚未检查"],
+    ["初始化失败。", "检查结果不可用"],
+  ])("does not report empty checks as healthy when the local error is %j", (lastLocalError, label) => {
+    render(<AppShellEnvironmentSection snapshot={createLauncherSnapshot({ launcher: { lastLocalError } })} platformLabel="win32-x64" />);
+    expect(screen.getByRole("heading", { name: label })).toBeVisible();
+    expect(screen.queryByText("可以启动")).not.toBeInTheDocument();
+    expect(screen.queryByText("当前未发现阻塞或告警项。")).not.toBeInTheDocument();
+  });
+
   test("shows issues immediately while keeping healthy environment checks collapsed", () => {
     const snapshot = createLauncherSnapshot({
       launcher: {

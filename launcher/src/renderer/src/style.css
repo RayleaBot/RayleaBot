@@ -448,7 +448,6 @@ code,
   background: var(--color-surface-raised);
   box-shadow: var(--shadow-floating);
   transform-origin: bottom left;
-  will-change: opacity, transform;
 }
 
 .theme-menu-surface .fui-MenuList {
@@ -1046,18 +1045,6 @@ code,
 .status-diagnostics-item__code,
 .status-diagnostics-check__value {
   color: var(--color-text-muted);
-}
-
-@keyframes status-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 48%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 12px color-mix(in srgb, var(--color-success) 0%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 0%, transparent);
-  }
 }
 
 .log-workspace {
@@ -2250,7 +2237,7 @@ html[data-theme="light"] :is(
   }
 
   .shell-main {
-    top: 96px;
+    top: 100px;
     left: 0;
   }
 
@@ -2270,10 +2257,6 @@ html[data-theme="light"] :is(
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
     padding: 24px;
-  }
-
-  .service-control__state h2 {
-    font-size: 26px;
   }
 
   .operation-status {
@@ -2411,14 +2394,21 @@ html[data-theme="light"] :is(
 }
 
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  .launcher-fluent-provider {
+    --durationUltraFast: 0ms;
+    --durationFaster: 0ms;
+    --durationFast: 0ms;
+    --durationNormal: 0ms;
+    --durationGentle: 0ms;
+    --durationSlow: 0ms;
+    --durationSlower: 0ms;
+    --durationUltraSlow: 0ms;
+    transition: none;
   }
+  .log-workspace, .healthy-disclosure > summary::before, .technical-disclosure > summary::before { transition: none; }
+  .launcher-loading-shell::before { animation: none; opacity: 1; transform: none; }
+  .runtime-prepare-panel .fui-ProgressBar__bar { animation: none; transition: none; }
+  html::view-transition-group(root), html::view-transition-old(root), html::view-transition-new(root) { animation: none !important; }
 }
 
 @media (forced-colors: active) {
@@ -2465,11 +2455,9 @@ code, time, .mono { font-variant-numeric: tabular-nums; }
   .section-shell { padding-inline: 20px; }
 }
 
-@media (max-width: 760px) {
-  :root { --sidebar-width: 76px; }
-  .nav-item { flex-direction: column; justify-content: center; min-height: 58px; gap: 4px; padding: 6px 2px; }
-  .nav-item__label { font-size: 12px; }
-  .sidebar-footer--compact { flex-direction: column; }
+@media (max-width: 899px), (pointer: coarse) {
+  .launcher-theme .fui-Button, .theme-menu-trigger { min-width: 44px; min-height: 44px; }
+  .theme-menu-surface .theme-menu-item { min-height: 44px; }
 }
 
 @supports (backdrop-filter: blur(12px)) {

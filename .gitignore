@@ -62,6 +62,8 @@ plugins/**/.rayleabot/
 /launcher/internal/frontend/dist/*
 !/launcher/internal/frontend/dist/.gitkeep
 /launcher/*.tsbuildinfo
+/launcher/test-results/
+/launcher/playwright-report/
 /launcher/rsrc_windows_*.syso
 
 # Environment files and local editor cruft.

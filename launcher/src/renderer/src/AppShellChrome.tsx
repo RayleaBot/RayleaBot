@@ -1,5 +1,4 @@
 import {
-  ArrowClockwise20Regular,
   Dismiss20Regular,
   Square20Regular,
   SquareMultiple20Regular,
@@ -18,7 +17,6 @@ type AppShellChromeProps = {
   activeSection: SectionId;
   isMaximized: boolean;
   onNavigate: (section: SectionId) => void;
-  onRefresh: () => void;
 };
 
 export function AppShellChrome({
@@ -26,7 +24,6 @@ export function AppShellChrome({
   activeSection,
   isMaximized,
   onNavigate,
-  onRefresh,
 }: AppShellChromeProps) {
   const presentation = deriveLauncherPresentation(snapshot);
   const stateConfig = serviceStateConfig[presentation.state];
@@ -67,15 +64,6 @@ export function AppShellChrome({
             />
           </div>
           <ThemeModeMenu />
-          <button
-            type="button"
-            className="sidebar-icon-btn"
-            onClick={onRefresh}
-            title="刷新状态"
-            aria-label="刷新启动器状态"
-          >
-            <ArrowClockwise20Regular />
-          </button>
         </div>
       </aside>
     </>
