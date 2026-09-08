@@ -185,13 +185,8 @@ export default defineConfig(({ command }) => {
               ) {
                 return 'vue-vendor'
               }
-              if (id.includes('/ant-design-vue/') || id.includes('/@ant-design/')) {
-                return 'antd-vendor'
-              }
               if (
                 id.includes('/@vueuse/')
-                || id.includes('/popmotion/')
-                || id.includes('/framesync/')
               ) {
                 return 'utils-vendor'
               }

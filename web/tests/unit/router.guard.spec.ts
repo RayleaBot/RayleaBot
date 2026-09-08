@@ -77,7 +77,7 @@ describe('router guards', () => {
     expect(routePaths.has('/governance')).toBe(false)
   })
 
-  it('registers Vben fallback routes and redirects unmatched paths to 404', async () => {
+  it('registers fallback routes and redirects unmatched paths to 404', async () => {
     vi.stubGlobal('fetch', bootstrappedFetch(true))
     const router = createAppRouter(createMemoryHistory())
 

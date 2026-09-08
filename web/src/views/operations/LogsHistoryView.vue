@@ -582,7 +582,7 @@ onBeforeUnmount(() => {
 
               <div class="logs-row__main">
                 <div class="logs-row__headline">
-                  <AppTag :tone="getLevelColor(item.level)">
+                  <AppTag size="small" :tone="getLevelColor(item.level)">
                     {{ getLogLevelLabel(item.level) }}
                   </AppTag>
                   <span v-if="item.plugin_id" class="logs-row__sub">{{ item.plugin_id }}</span>

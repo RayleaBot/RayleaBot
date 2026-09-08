@@ -108,12 +108,8 @@
     min-width: 44px;
     min-height: 44px;
   }
-
   .app-page__extra .app-button,
-  .app-table-toolbar .app-button,
-  .app-table-toolbar .ant-input,
-  .app-table-toolbar .ant-input-affix-wrapper,
-  .app-table-toolbar .ant-select-selector {
+  .app-table-toolbar .app-button {
     min-height: 44px;
   }
 
@@ -156,10 +152,6 @@
     transition: opacity 150ms ease;
   }
 
-  .app-data-table .ant-table-tbody > tr {
-    transition: background-color 150ms ease;
-  }
-
   .app-card {
     transition: border-color 150ms ease, background-color 150ms ease;
   }
@@ -172,19 +164,6 @@
  .admin-layout .app-button,
  .auth-layout .app-button { min-height: 44px; }
  .auth-layout .auth-layout__theme-toggle.app-button { width: 44px; min-width: 44px; height: 44px; }
- .admin-layout .ant-input,
- .admin-layout .ant-input-affix-wrapper,
- .admin-layout .ant-input-number-input,
- .admin-layout .ant-select-selector { min-height: 44px; }
- .admin-layout .ant-input-affix-wrapper > input.ant-input { min-height: 32px; }
- .admin-layout .ant-select-single .ant-select-selector { height: 44px; align-items: center; }
- .admin-layout .ant-select-multiple .ant-select-selector { align-items: center; }
- .admin-layout .ant-input-number-handler-wrap { display: none; }
- .admin-layout .ant-tabs-tab-btn { min-height: 44px; display: inline-flex; align-items: center; }
- .admin-layout .ant-tabs-tab { padding-block: 0; }
- .ant-drawer .ant-drawer-close { width: 44px; height: 44px; display: grid; place-items: center; margin: -8px 0; }
- .theme-mode-menu .ant-menu-item { min-height: 44px; }
- .admin-layout__mobile-drawer .ant-menu-item,
- .admin-layout__mobile-drawer .ant-menu-submenu-title { min-height: 44px; height: 44px; line-height: 44px; }
+
  .admin-layout .field-info-icon { min-width: 44px; min-height: 44px; border-color: transparent; }
 }

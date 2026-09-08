@@ -5,7 +5,7 @@
 ## 基线结论
 
 - Web 管理面迁移至 `Reka UI 2.10.4 + shadcn-vue 自有组件源码 + Tailwind CSS 4 + Motion for Vue 2.4.2`。
-- 协议中心、应用壳、认证入口、插件、三方账号、治理、配置与诊断工作区使用新产品组件。旧运行时注册、主题 provider 和样式入口在[执行计划](../execution-plan-v1.md)的 M5 阶段统一清除。
+- 协议中心、应用壳、认证入口、插件、三方账号、治理、配置与诊断工作区统一使用产品组件；阶段验收记录见[执行计划](../execution-plan-v1.md)。Web 宿主不再依赖 Ant Design Vue、旧图标包或独立的 Motion Mini 入口。
 - 实现范围固定在 `web/` 单应用内，不拆成官方整仓 `monorepo` 或 `turbo` 结构。
 - 对外 HTTP API、WebSocket 事件、错误码、配置 schema 和外部类型保持不变。
 - HTTP、WebSocket、会话和错误信封继续复用现有 RayleaBot 语义，不引入第二套状态来源。
@@ -100,20 +100,19 @@
 
 ## 样式与组件映射
 
-- 新组件将 Tailwind 语义别名映射至共享 CSS Variables，保留 SCSS 分区。旧页面的 Ant Design tokens 随对应工作区迁移清理。
+- 产品组件将 Tailwind 语义别名映射至共享 CSS Variables，保留 SCSS 分区。
 - 样式入口为 `src/main.ts` 引入的 `@/styles/tailwind.css` 与 `@/styles/main.scss`；生成主题 token 经 `styles/_tokens.scss` 转发的 `theme-tokens.generated` 消费。
-- `system`、`light`、`dark` 主题通过同一语义映射生成 Ant Design tokens 与 CSS variables；系统主题变化只影响 `system` 模式。
+- `system`、`light`、`dark` 主题消费同一套生成 CSS Variables；系统主题变化只影响 `system` 模式。
 - 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回退为中性。
-- 已迁移工作区内不得混用新旧表单与关闭机制；未迁移组件的清单和替换顺序见执行计划。
-- 普通业务列表在窄屏使用摘要行；只有兼容矩阵、代码和技术字段允许局部横向滚动。
-- 不保留 `element-plus`、`ElMessage` 和 `.el-*` 样式选择器。
+- 工作区统一使用产品表单与关闭机制，不在页面内另建一套组件或浮层行为。
+- 普通对象列表在窄屏使用摘要行；兼容矩阵、名单、代码和技术字段允许局部横向滚动，普通页面不得横向溢出。
 
 ## 验证门禁
 
 - `pnpm build`
 - `pnpm test`
 - `pnpm test:e2e`
-- `rg -l "element-plus|<el-|ElMessage" web/src web/tests/unit`
+- `rg -n "ant-design-vue|@ant-design|motion/mini|<a-|\.ant-" web/src web/tests` 应无旧运行时命中；独立插件 iframe 的内部工程另按插件基线维护。
 
 ## 约束
 
@@ -124,10 +123,6 @@
 
 ## 官方参考
 
-- [Vben Quick Start](https://doc.vben.pro/guide/introduction/quick-start.html)
-- [About Vben Admin](https://doc.vben.pro/guide/introduction/vben.html)
-- [UI Framework Switching](https://doc.vben.pro/en/guide/in-depth/ui-framework.html)
-- [Styles](https://doc.vben.pro/guide/essentials/styles.html)
-- [Directory Explanation](https://doc.vben.pro/en/guide/project/dir.html)
-- [Vben Form](https://doc.vben.pro/components/common-ui/vben-form.html)
-- [Ant Design Vue README](https://github.com/vueComponent/ant-design-vue)
+- [Reka UI](https://www.reka-ui.com/docs/overview/introduction)
+- [shadcn-vue](https://www.shadcn-vue.com/docs/introduction)
+- [Motion for Vue](https://motion.dev/docs/vue)

@@ -3,7 +3,7 @@ import AppButton from '@/components/AppButton.vue'
 import { computed, getCurrentInstance } from 'vue'
 import type { Router } from 'vue-router'
 
-import VbenFallback from '@/components/fallback/VbenFallback.vue'
+import AppFallback from '@/components/fallback/AppFallback.vue'
 import { t } from '@/i18n'
 import { resolveExceptionStatusFromText, type ExceptionStatus } from '@/lib/exception-status'
 
@@ -44,7 +44,7 @@ function goHome() {
 
 <template>
   <section class="retry-panel" role="alert">
-    <VbenFallback
+    <AppFallback
       v-if="isPageVariant"
       :status="fallbackStatus"
       :title="fallbackTitle"

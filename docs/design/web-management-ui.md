@@ -4,11 +4,11 @@
 
 ## 工程边界
 
-- 协议中心、应用壳、认证入口和插件工作区使用 Reka UI 与产品自有组件；账号、治理与诊断工作区按[迁移计划](../execution-plan-v1.md)逐批替换，临时保留所需的 Ant Design Vue。
+- 应用壳、认证入口和全部正式工作区使用 Reka UI 与产品自有组件；shadcn-vue 源码由仓库维护，迁移结果见[实施记录](./web-ui-migration.md)。
 - HTTP、WebSocket、Pinia store、generated types 和路由语义保持现有正式来源。
-- `design/tokens.json` 通过生成脚本提供 CSS variables 和迁移期旧组件的主题映射，不建立第二套运行时主题服务。
+- `design/tokens.json` 通过生成脚本提供 CSS variables，Tailwind 和产品组件消费相同的语义 token。
 - 页面局部样式只负责业务布局和无法由组件 token 表达的最小差异。
-- 品牌、页面与面板标题、普通正文、控件及插件卡片版本使用共享的自托管 Noto Sans SC。Web 的 `web/src/styles/_base.scss` 在 `:root` 将 `--font-sans` 局部映射到现有 `--font-display`，新产品组件通过 CSS 继承字体；迁移期旧组件的主题映射继续消费 `var(--font-sans)`。字体子集与授权文件随 Web 构建发布。
+- 品牌、页面与面板标题、普通正文、控件及插件卡片版本使用共享的自托管 Noto Sans SC。Web 的 `web/src/styles/_base.scss` 在 `:root` 将 `--font-sans` 局部映射到现有 `--font-display`，产品组件通过 CSS 继承字体。字体子集与授权文件随 Web 构建发布。
 - 日志消息正文使用 Noto Sans SC；日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据与 JSON 使用等宽栈。共享基础字体 token、Launcher 系统正文与独立 iframe 字体各自保持原有边界。
 - `DESIGN.md` 前置数据、`.impeccable/design.json` 与共享字体 CSS 由 `scripts/generate-design-tokens.mjs` 维护；Web 局部字体映射不要求修改共享基础 token，设计正文变化由生成器同步到 sidecar 的 narrative。
 
@@ -16,25 +16,25 @@
 
 主题偏好包含 `system`、`light` 和 `dark`。首次显示使用 `system`，显式选择保存在本地偏好中；亮暗主题提供相同的内容、状态和操作能力，不提供按时钟自动切换配置。普通画布、表面、文字、搜索框、边框和选中背景使用中性灰白或炭灰，青瓷只用于品牌、主操作和少数选中标记。
 
-| 产品语义 | Ant Design / Web 角色 | 浅色 token | 暗色 token |
+| 产品语义 | Web 角色 | 浅色 token | 暗色 token |
 | --- | --- | --- | --- |
-| 工作区画布 | `colorBgLayout`、页面背景 | `light-canvas` | `dark-canvas` |
-| 内容表面 | `colorBgContainer`、卡片与抽屉 | `light-surface` | `dark-surface` |
+| 工作区画布 | 页面背景 | `light-canvas` | `dark-canvas` |
+| 内容表面 | 卡片与抽屉 | `light-surface` | `dark-surface` |
 | 抬升表面 | 弹出层、抽屉、浮动工具 | `light-surface-raised` | `dark-surface-raised` |
-| 主文本 | `colorText` | `light-text` | `dark-text` |
-| 次文本 | `colorTextSecondary` | `light-text-muted` | `dark-text-muted` |
-| 结构边界 | `colorBorderSecondary`、内容分隔 | `light-border` | `dark-border` |
-| 控件边界 | `colorBorder`、输入轮廓 | `light-control-border` | `dark-control-border` |
-| 主操作填充 | `colorPrimary`、主按钮 | `light-primary` | `dark-primary` |
-| 品牌前景 | `colorLink`、品牌标识、少量勾选标记 | `light-brand-foreground` | `dark-brand-foreground` |
-| 焦点 | `controlOutline`、全局焦点轮廓 | `light-focus` | `dark-focus` |
+| 主文本 | 正文与标题 | `light-text` | `dark-text` |
+| 次文本 | 辅助信息 | `light-text-muted` | `dark-text-muted` |
+| 结构边界 | 内容分隔 | `light-border` | `dark-border` |
+| 控件边界 | 输入轮廓 | `light-control-border` | `dark-control-border` |
+| 主操作填充 | 主按钮 | `light-primary` | `dark-primary` |
+| 品牌前景 | 链接、品牌标识、少量勾选标记 | `light-brand-foreground` | `dark-brand-foreground` |
+| 焦点 | 全局焦点轮廓 | `light-focus` | `dark-focus` |
 | 品牌壳层 | 桌面侧栏、移动抽屉 | `light-chrome` | `dark-chrome` |
 | 普通选中项 | Menu、Dropdown 背景与文字 | `light-nav-selected`、`light-nav-selected-text` | `dark-nav-selected`、`dark-nav-selected-text` |
-| 品牌填充内容 | `colorTextLightSolid` | `on-brand` | `on-brand` |
+| 品牌填充内容 | 主按钮文字 | `on-brand` | `on-brand` |
 | 人工关注 | 页面级 attention token | `light-attention` | `dark-attention` |
-| 成功、警告、危险 | Ant Design semantic tokens | `light-success`、`light-warning`、`light-danger` | `dark-success`、`dark-warning`、`dark-danger` |
+| 成功、警告、危险 | 状态标记与反馈 | `light-success`、`light-warning`、`light-danger` | `dark-success`、`dark-warning`、`dark-danger` |
 
-人工关注色不映射为 `colorWarning`。需要人工确认的区域使用独立 token、明确标题和直接操作，警告仍使用正式语义色。
+需要人工确认的区域使用独立 attention token、明确标题和直接操作，警告使用正式 warning 语义色。
 
 ## 应用壳
 
@@ -79,7 +79,7 @@
 - 插件卡片底部提供概要、管理、重载和启停入口，每个入口具有可访问名称；“管理”使用带设置图标的文字按钮，直接打开插件声明的首个内置管理页，未声明管理页时进入概览。重载与启停保留禁用、处理中反馈，以及现有生命周期限制和确认行为。概要、重载和启停图标在桌面端使用 `36px` 点击目标，窄屏或粗指针使用 `44px`。指令与别名通过既有概要和详情查看，卡片不显示指令清单。
 - 概要使用预览眼睛，管理使用设置图标和文字，重载使用双箭头，启停使用播放／停用图形；各操作使用中性细边界按钮，启停图形随当前状态切换，图标操作通过悬停提示说明具体动作。
 - 指令与定时任务使用紧凑数据表或数据行，在移动端使用摘要行。兼容矩阵保留单一可筛选技术表。
-- 协议传输表在同一数据行展示启用状态、运行状态、连接地址、访问令牌、账号和运行信息，配置字段直接行内编辑；存在草稿时，视口中下方持续显示暖色未保存提示和保存操作。
+- 协议中心以连接卡片展示配置与运行状态；添加和配置在居中弹窗内完成，协议选择只在添加弹窗的首步显示。连接方式与凭据按所选协议渐进披露，草稿保留在弹窗中，关闭前确认放弃未保存修改。
 - 实时日志与历史日志复用筛选控件和详情工作区。桌面筛选常驻，级别与来源直接可见，协议、插件和请求 ID 收纳在带已选数量提示的紧凑筛选浮层中；筛选工具与应用操作保持同轴，日志只使用一个外框，正文保留独立纵向滚动与跟随最新行为。
 - 历史日志在 `<= 760px` 使用至少 `44px` 的筛选展开按钮，面板默认收起；展开状态通过 `aria-expanded` 表达。成功应用查询或刷新后收起面板，若焦点原在面板内则归还展开按钮；请求失败不收起。折叠不清空筛选字段、草稿或查询状态，实时日志不采用此整体折叠规则。
 - 日志详情先呈现消息正文，再以紧凑定义列表呈现元数据，随后保留关联操作与结构化 JSON；正文与技术字段按各自字体角色显示。
@@ -92,7 +92,7 @@
 - 控件反馈使用 `100–160ms` 短节奏，当前标准反馈为 `160ms`；内容与工作区使用 `180–220ms`，浮层使用 `200–220ms`。动画只承担可见反馈，不构成稳定帧率承诺。
 - 管理工作区使用元素级 View Transition，切换只捕获主内容，侧栏、页头和固定导航在动画期间保持稳定且可交互；主题切换使用根快照交叉淡化。
 - 页面偏好 `fade` 使用透明度切换，`fade-slide` 只增加最多 `6px` 的垂直位移，`none` 立即替换内容。内容切换固定为 `200ms`。
-- View Transition 不可用、浏览器历史导航或未包装导航使用 Motion Mini 的 WAAPI 降级；连续导航取消旧动画，以最新路由为准。
+- View Transition 不可用、浏览器历史导航或未包装导航使用 Motion for Vue 的 DOM animate 能力降级；连续导航取消旧动画，以最新路由为准。
 - 同一元素不叠加 View Transition、Motion 和 CSS 动画。内容切换期间保持工作区可见，日志追加不逐条播放进入动画；`prefers-reduced-motion` 或 forced-colors 下导航和主题立即完成。
 
 ## 浮层材质
@@ -104,7 +104,7 @@
 ## 认证入口
 
 - 登录、首次初始化与凭据恢复指引共用最大宽度 `448px` 的居中单栏面板。面板圆角为 `36px`；在 `<= 600px` 时使用 `28px` 圆角并收紧内边距，低高度视口允许页面自然滚动。
-- 认证表面沿用折叶品牌、自托管 Noto Sans SC 和 Web 局部 Ant Design token 映射。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生：浅色面板表面色占 `9%`、高光占 `18%`，暗色分别为 `18%` 与 `12%`；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 保持原有含义。
+- 认证表面沿用折叶品牌、自托管 Noto Sans SC 和 Web 局部语义 token。玻璃颜色由现有认证主题 token 通过 CSS `color-mix()` 派生：浅色面板表面色占 `9%`、高光占 `18%`，暗色分别为 `18%` 与 `12%`；浅色辅文与底部链接局部加深以保持对比度。亮暗主题保留相同的信息、验证和提交能力，共享品牌 token 保持原有含义。
 - 页面只保留产品身份、任务标题、必要说明和凭据表单，不使用 hero 或功能宣传。
 - 认证背景使用专门生成的静态青瓷玻璃壁纸 [`celadon-glass.png`](../../web/src/assets/auth/celadon-glass.png)，PNG 内嵌生成提示词作为来源记录。壁纸以视口高度 `140%` 为最小尺寸，保证覆盖宽屏并底部对齐；窄屏调整裁切位置，暗色主题降低亮度与饱和度。背景不跟随指针，不参与表单交互。
 - 材质参考 Apple 的 [Liquid Glass 介绍](https://www.apple.com.cn/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/)与 [WWDC25 设计说明](https://developer.apple.com/videos/play/wwdc2025/219/)，在浏览器中实现通透面板、圆角边缘折射和反射高光，具体效果按浏览器能力适配。支持 SVG backdrop 的 Chromium 路径使用 `feDisplacementMap`，位移比例为 `36`，前置模糊仅为 `1.2px`；WebKit 与 Gecko 明确使用 `5px` blur、`112%` 饱和度的透明材质降级。
@@ -159,5 +159,5 @@
 - 插件卡片状态可读，管理入口和图标操作可通过键盘辨认和触发；历史日志折叠保留筛选与焦点，全局插件设置的草稿反馈和保存入口位于同一稳定区域。
 - 管理工作区的表单、列表和日志保持不透明；浮层与认证面板玻璃具有不透明降级，管理工作区选中底色和文字保持中性。
 - 认证入口在亮暗、窄屏与低高度视口下保留字段和操作；恢复指引往返保留凭据与焦点，说明中的停服、本机重建和会话失效条件清楚可见。
-- 页面继续复用 Ant Design Vue、现有请求层、WebSocket 封装、Pinia stores 和管理深链 helper。
+- 页面使用产品组件，复用现有请求层、WebSocket 封装、Pinia stores 和管理深链 helper。
 - `prefers-reduced-motion` 下移除非必要过渡，状态变化仍能立即理解。

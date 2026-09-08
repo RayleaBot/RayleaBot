@@ -1,20 +1,15 @@
 <script setup lang="ts">
-import { computed, watchEffect } from 'vue'
-import zhCN from 'ant-design-vue/es/locale/zh_CN'
+import { watchEffect } from 'vue'
 
 import AppSpinner from '@/components/AppSpinner.vue'
 import AppToastHost from '@/components/AppToastHost.vue'
 import { t } from '@/i18n'
-import { resolvePreferenceCssVariables, resolveThemeConfig } from '@/preferences/app'
+import { resolvePreferenceCssVariables } from '@/preferences/app'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useUiShellStore } from '@/stores/ui-shell'
 
 const uiShellStore = useUiShellStore()
 const availabilityStore = useAppAvailabilityStore()
-const themeConfig = computed(() => resolveThemeConfig(
-  uiShellStore.resolvedThemeMode,
-  uiShellStore.preferences.density,
-))
 
 watchEffect(() => {
   if (typeof document === 'undefined') {
@@ -36,30 +31,28 @@ watchEffect(() => {
 </script>
 
 <template>
-  <a-config-provider :locale="zhCN" :theme="themeConfig">
-    <div :class="['app-root', `app-root--${uiShellStore.resolvedThemeMode}`, `app-root--${uiShellStore.preferences.density}`]">
-      <Transition name="connection-notice">
-        <div
-          v-if="availabilityStore.isConnectionInterrupted"
-          class="connection-notice"
-          role="status"
-          aria-live="polite"
-          data-testid="connection-reconnect-notice"
-        >
-          <AppSpinner />
-          <span>{{ t('app.connectionInterrupted') }}</span>
-        </div>
-      </Transition>
+  <div :class="['app-root', `app-root--${uiShellStore.resolvedThemeMode}`, `app-root--${uiShellStore.preferences.density}`]">
+    <Transition name="connection-notice">
+      <div
+        v-if="availabilityStore.isConnectionInterrupted"
+        class="connection-notice"
+        role="status"
+        aria-live="polite"
+        data-testid="connection-reconnect-notice"
+      >
+        <AppSpinner />
+        <span>{{ t('app.connectionInterrupted') }}</span>
+      </div>
+    </Transition>
 
-      <RouterView v-slot="{ Component }">
-        <component :is="Component" v-if="Component" />
-        <div v-else class="app-startup" role="status" aria-live="polite">
-          <AppSpinner :tip="t('app.loading')" />
-        </div>
-      </RouterView>
-      <AppToastHost />
-    </div>
-  </a-config-provider>
+    <RouterView v-slot="{ Component }">
+      <component :is="Component" v-if="Component" />
+      <div v-else class="app-startup" role="status" aria-live="polite">
+        <AppSpinner :tip="t('app.loading')" />
+      </div>
+    </RouterView>
+    <AppToastHost />
+  </div>
 </template>
 
 <style scoped lang="scss">

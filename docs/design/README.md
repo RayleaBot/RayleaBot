@@ -15,7 +15,7 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据以 [`cont
 
 | 文档 | 作用 |
 | --- | --- |
-| [Web Management UI](./web-management-ui.md) | Ant Design Vue、Vue Vben Admin 壳层与页面组合规范 |
+| [Web Management UI](./web-management-ui.md) | Reka UI、自有 shadcn-vue 组件、应用壳与页面组合规范 |
 | [Launcher Design System](./launcher-design-system.md) | Fluent UI React v9、Wails 桌面壳与本机操作规范 |
 | [Plugin Management Surface](./plugin-management-surface.md) | 官方插件页面完整规范与第三方页面兼容包络 |
 
@@ -34,7 +34,7 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据以 [`cont
 
 ## 共同边界
 
-- Web 使用 Ant Design Vue 与 Vue Vben Admin 对齐方案。
+- Web 使用 Reka UI、自有 shadcn-vue 组件、Tailwind CSS 与 Motion for Vue。
 - Launcher 使用 Fluent UI React v9，并通过生成的 Wails bindings 连接 Go 桌面宿主。
 - 插件管理页使用包内静态 HTML、CSS 和 JavaScript 产物，不依赖宿主组件运行时；官方插件的这些产物由 Vue 3、TypeScript 和 Vite 构建。
 - 三个分面共享颜色角色、字体层级、间距、圆角、状态语义和无障碍门槛，不共享框架组件。

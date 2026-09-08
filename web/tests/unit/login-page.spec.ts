@@ -1,4 +1,3 @@
-import Antd from 'ant-design-vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -41,7 +40,7 @@ describe('LoginPage', () => {
 
     const wrapper = mount(LoginPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [router],
       },
     })
 
@@ -70,7 +69,7 @@ describe('LoginPage', () => {
 
     const wrapper = mount(LoginPage, {
       global: {
-        plugins: [Antd, router],
+        plugins: [router],
       },
     })
 
@@ -89,7 +88,7 @@ describe('LoginPage', () => {
     const login = vi.spyOn(useSessionStore(), 'login')
     const wrapper = mount(LoginPage, {
       attachTo: document.body,
-      global: { plugins: [Antd, router] },
+      global: { plugins: [router] },
     })
 
     try {

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import VbenFallback from '@/components/fallback/VbenFallback.vue'
+import AppFallback from '@/components/fallback/AppFallback.vue'
 import type { ExceptionStatus } from '@/lib/exception-status'
 import { useSessionStore } from '@/stores/session'
 
@@ -29,7 +29,7 @@ async function goHome() {
 </script>
 
 <template>
-  <VbenFallback
+  <AppFallback
     :status="status"
     :show-retry="false"
     @home="goHome"

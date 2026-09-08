@@ -28,7 +28,6 @@ body {
 h1,
 h2,
 h3,
-.ant-card-head-title,
 .app-card__title-text,
 .admin-layout__brand-copy,
 .admin-layout__mobile-brand,
@@ -57,8 +56,7 @@ a {
   text-decoration: none;
 }
 
-.app-root,
-.app-root .ant-app {
+.app-root {
   min-height: 100%;
   background: transparent;
   color: var(--text);
@@ -126,15 +124,5 @@ textarea:focus-visible,
 }
 
 .mobile-only {
-  display: none !important;
-}
-
-.admin-layout .ant-btn.desktop-only,
-.auth-layout .ant-btn.desktop-only {
-  display: inline-flex !important;
-}
-
-.admin-layout .ant-btn.mobile-only,
-.auth-layout .ant-btn.mobile-only {
   display: none !important;
 }

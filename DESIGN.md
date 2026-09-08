@@ -142,11 +142,11 @@ components:
 
 RayleaBot 使用中性灰白或炭灰表面、精确分隔线和少量青瓷强调组织管理任务。导航连接连续工作区，几何折叶标识提供轻盈的品牌识别；亮暗主题保持相同的信息层级、状态语义与操作能力。
 
-界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 按工作区迁移至基于 Reka UI 的产品组件，Launcher 保持 Fluent UI。
+界面服务于配置、诊断、恢复和长期运行。紧凑标题、自然内容高度与稳定对齐让真实状态和下一步操作保持清楚；青瓷集中于品牌、主操作和少数选中标记，普通文字、静态边框、搜索框与选中背景保持中性。Web 与 Launcher 共享视觉语义；Web 使用基于 Reka UI 的产品组件，Launcher 使用 Fluent UI。
 
-Web 当前已落地 M1 产品组件基础、M2 协议中心、M3 应用壳及认证入口、M4-A 插件工作区、M4-B 账号治理与通用配置，以及 M4-C 系统状态与诊断工作区。首页状态、恢复兼容性、实时与历史日志、调度、模板预览和公共故障页控件已迁移，与先前的插件、账号、治理和配置页面共同使用产品组件。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。
+Web 正式路由统一使用 Vue 3、Reka UI、自有 shadcn-vue 组件源码、Tailwind CSS 与 Motion for Vue，覆盖应用壳、认证、协议、插件、账号、治理、配置和诊断工作区。主题、字体与密度通过共享 CSS 变量和产品组件提供，页面复用统一的交互与反馈机制。对象卡片、分区表单、虚拟列表、非模态日志窗口与独立 iframe 边界保持各自职责。
 
-M5 尚未开始：主入口的旧组件注册、顶层 Ant Design Vue provider、reset 与遗留样式，以及旧 Antd、图标和 Motion 直接依赖仍待清理。最终完整 Web 测试和性能对照尚未完成，独立插件 iframe 内部的组件库不属于 Web 宿主迁移范围。本文记录已落地范围，后续阶段按实际实现更新，迁移范围见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。
+Web 产品组件迁移与旧运行时清理已完成，实现与验证记录见 [Web UI 迁移说明](docs/design/web-ui-migration.md)。独立插件 iframe 内部的组件库继续由各插件维护，Launcher 保留自己的原生组件体系。
 
 **Key Characteristics:**
 
@@ -180,7 +180,7 @@ M5 尚未开始：主入口的旧组件注册、顶层 Ant Design Vue provider�
 
 **The Semantic Token Rule.** 运行代码只消费语义和组件 token；基础色阶仅用于建立映射。
 
-**The Neutral Ground Rule.** 普通表面、静态边框、文字、搜索框和选中背景保持中性；青瓷用于品牌、主操作和少数选中标记，已迁移 Web 产品控件的键盘焦点遵循局部焦点规则。
+**The Neutral Ground Rule.** 普通表面、静态边框、文字、搜索框和选中背景保持中性；青瓷用于品牌、主操作和少数选中标记，Web 产品控件的键盘焦点遵循局部焦点规则。
 
 **The Semantic Independence Rule.** 人工关注、成功、警告和危险保持独立，状态同时提供文字、图标或结构化标签。
 
@@ -190,7 +190,7 @@ M5 尚未开始：主入口的旧组件注册、顶层 Ant Design Vue provider�
 
 **Display Font:** 自托管 Noto Sans SC，回退为 Microsoft YaHei UI 与 sans-serif，用于品牌文字、页面标题和面板标题。共享 [typography.generated.css](design/typography.generated.css) 引入仓库已有 WOFF2 子集，两端随构建打包；[字体授权](templates/help.menu/assets/fonts/noto-sans-sc/OFL.txt) 随两端公开资源附带。
 
-**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`；尚未清理的顶层 Ant Design theme 消费 `var(--font-sans)`，管理面与认证产品组件继承同一字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题通过 CSS 变量映射，不再设置专用 Ant Design provider。该映射不修改共享基础 token，也不影响 Launcher 或独立 iframe 的字体。
+**Body Font:** 共享基础 token 保留 Segoe UI Variable Text、Segoe UI 与中文系统无衬线回退栈，Launcher 正文和标准控件使用该栈。Web 在 [`_base.scss`](web/src/styles/_base.scss) 的 `:root` 中将 `--font-sans` 局部映射到现有 `--font-display`，管理面与认证产品组件继承同一 CSS 字体映射，因此 Web 普通正文、控件与插件卡片版本使用自托管 Noto Sans SC。认证主题同样通过 CSS 变量映射。该映射不修改共享基础 token，也不影响 Launcher 或独立 iframe 的字体。
 
 **Label/Mono Font:** 标签沿用所在应用的正文栈。Web 日志行的时间、来源与技术元数据，详情中的来源、插件 ID、请求 ID，以及结构化数据、JSON 和代码使用 Cascadia Mono、Consolas、JetBrains Mono 等宽回退栈；日志消息正文使用 Noto Sans SC，不因位于 `pre` 中而改用等宽字体。
 
@@ -227,7 +227,7 @@ M5 尚未开始：主入口的旧组件注册、顶层 Ant Design Vue provider�
 
 实色表面、精确边界与留白提供主要层级。管理工作区的表单、列表、日志和常规内容保持不透明。菜单、选择器浮层、抽屉和 Dialog 可使用静态玻璃：表面色占 90%，背景模糊固定为 12px；不随指针、滚动或动画改变模糊半径。浮层阴影表达覆盖关系，两套主题的阴影与 sticky、menu、drawer、modal、toast、emergency 层级由 sidecar 记录。
 
-已迁移 Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透明的 raised surface，覆盖内容的表面消费现有浮层阴影，不增加玻璃或背景模糊。遮罩由现有语义色以 42% 占比和透明色混合，浅色使用正文色、暗色使用画布色。Tooltip 使用正文色作底、表面色作文字，保持独立的高对比提示。
+Web 产品弹窗、抽屉、菜单、说明弹层与选择器浮层使用不透明的 raised surface，覆盖内容的表面消费现有浮层阴影，不增加玻璃或背景模糊。遮罩由现有语义色以 42% 占比和透明色混合，浅色使用正文色、暗色使用画布色。Tooltip 使用正文色作底、表面色作文字，保持独立的高对比提示。
 
 **The Web Overlay Stack Rule.** Web 弹窗与抽屉遮罩从 1200 起按打开顺序递增 20，内容位于所属遮罩上方 1 层；嵌套菜单、说明弹层和选择器继承所属层级再加 5，Tooltip 加 8。未嵌套菜单、说明弹层、选择器和 Tooltip 的基准为 1100，Toast 为 1600，使退出中的菜单留在新打开的抽屉下方。这些 Web 局部层级不改变共享基础层级或 Launcher。
 
@@ -257,13 +257,13 @@ Web 产品按钮、输入框与选择器使用现有 lg 圆角（12px），居�
 
 主按钮只强调当前工作流的主要动作，使用青瓷填充、对应前景与标准控件圆角。次级操作使用中性边界或轻量背景，人工关注和危险操作各用独立语义。默认、悬停、焦点、按下、禁用和加载状态均保留明确反馈。共享基础桌面高度为 36px，窄屏或粗指针目标为 44px。Launcher 在管理面可用时以打开管理面为主操作，否则使用现有启动动作；停止保持危险次级操作及原有确认规则。
 
-已迁移 Web 使用 [`AppButton`](web/src/components/AppButton.vue)：默认样式为中性描边，主要动作显式使用青瓷填充；危险动作使用淡危险底色与危险文字。默认和图标按钮均为 40px 高，粗指针下最小高度为 44px。加载状态保留动作文字，同时禁用重复提交并显示忙碌语义；减少动态效果或强制颜色时保留静态反馈。
+Web 使用 [`AppButton`](web/src/components/AppButton.vue)：默认样式为中性描边，主要动作显式使用青瓷填充；危险动作使用淡危险底色与危险文字。默认和图标按钮均为 40px 高，粗指针下最小高度为 44px。加载状态保留动作文字，同时禁用重复提交并显示忙碌语义；减少动态效果或强制颜色时保留静态反馈。
 
 ### Inputs / Fields
 
 常规业务字段采用实色表面，认证字段使用所属面板的局部玻璃材质；两者均保留完整控件边界和持续可见标签。错误说明关联字段，禁用状态保持可读，占位文本不承担标签职责。共享基础字段焦点使用专用 token，轮廓为 2px，间距为 2px；认证字段使用 1px 边框与紧贴边缘的 3px 柔和着色光环，不叠加分离的外轮廓。forced-colors 下使用系统焦点轮廓。
 
-已迁移 Web 使用 [`AppField`](web/src/components/AppField.vue) 关联持续可见标签、控件和错误说明，字段内部间距为 8px，字段尾部间距为 24px；标签为 14px，说明为 13px。[`AppInput`](web/src/components/AppInput.vue) 与 [`AppSelect`](web/src/components/AppSelect.vue) 默认高度为 40px，粗指针下至少 44px；多选文字可换行并自然增高。密码显示开关保留可访问名称和按下状态，错误通过文字与 `aria-invalid` 一起表达；支持清空的输入框在清空后保留输入焦点。认证字段使用 Authentication 中的局部尺寸与材质。
+Web 使用 [`AppField`](web/src/components/AppField.vue) 关联持续可见标签、控件和错误说明，字段内部间距为 8px，字段尾部间距为 24px；标签为 14px，说明为 13px。[`AppInput`](web/src/components/AppInput.vue) 与 [`AppSelect`](web/src/components/AppSelect.vue) 默认高度为 40px，粗指针下至少 44px；多选文字可换行并自然增高。密码显示开关保留可访问名称和按下状态，错误通过文字与 `aria-invalid` 一起表达；支持清空的输入框在清空后保留输入焦点。认证字段使用 Authentication 中的局部尺寸与材质。
 
 AppInput 的布局容器样式与内层字段样式分开，前缀图标不接收指针操作，也不替代标签。AppSelect 保留字符串、数字和布尔值的原类型，尚未包含在选项中的已选值继续显示；异步选项到达后使用当前名称，不继续缓存未知 ID。可清除的多选在清除后将焦点归还选择器。[`AppNumberInput`](web/src/components/AppNumberInput.vue) 按业务需要启用可空值，不将空白输入自动当作零；限流字段将次数、时间窗和单位分别标注，窄屏改为单列。
 
@@ -273,7 +273,7 @@ AppInput 的布局容器样式与内层字段样式分开，前缀图标不接�
 
 **The Tag Delimiter Rule.** 标签输入通过 Enter 或离开输入框确认条目，只按业务显式提供的分隔符拆分输入与粘贴。全局指令前缀保留字面逗号；菜单中心按其既有字段规则使用逗号、中文逗号和空格分隔，不把该规则扩散到其他标签字段。
 
-**The Web Product Focus Rule.** Web 基础按钮、输入框与选择器通过 Tailwind 映射消费现有语义 token；键盘焦点保留基础 2px 轮廓，并使用主题强调色边框与 3px、50% 透明度的光环，错误状态使用独立危险语义。导航、页签、分段选择与菜单使用各自的中性焦点或高亮轮廓；认证字段遵循专用样式。局部规则不替换 Launcher 或旧 Web 页面的焦点样式，强制颜色模式保留系统可见焦点。
+**The Web Product Focus Rule.** Web 基础按钮、输入框与选择器通过 Tailwind 映射消费现有语义 token；键盘焦点保留基础 2px 轮廓，并使用主题强调色边框与 3px、50% 透明度的光环，错误状态使用独立危险语义。导航、页签、分段选择与菜单使用各自的中性焦点或高亮轮廓；认证字段遵循专用样式。局部规则不替换 Launcher 的焦点样式，强制颜色模式保留系统可见焦点。
 
 ### Navigation
 
@@ -303,7 +303,7 @@ AppTabs 的标签可附带数量标记，标题区的额外操作承载当前分
 
 状态标签同时呈现文字或图标，不能只显示色点。标签表达状态和筛选，不替代操作按钮。关注提示、异常和空态提供原因、影响、可执行动作或必要前置条件。首页没有恢复摘要时显示“暂无恢复记录”，不能推断兼容通过；日志无匹配结果时说明为空，并提供调整筛选或等待新日志的方向。
 
-首页保留状态、就绪检查和恢复兼容性的任务分工。恢复确认按 review ID 选择对应事项，待确认数量、备注和提交入口保持相邻，未选事项时禁用确认；复查与运行时初始化使用独立操作。通用故障页复用返回首页与重试控件，重试期间保留忙碌反馈。
+首页保留状态、就绪检查和恢复兼容性的任务分工。恢复确认按 review ID 选择对应事项，待确认数量、备注和提交入口保持相邻，未选事项时禁用确认；复查与运行时初始化使用独立操作。通用故障页通过 [`AppFallback`](web/src/components/fallback/AppFallback.vue) 复用返回首页与重试控件，重试期间保留忙碌反馈。
 
 [`AppStatusTag`](web/src/components/AppStatusTag.vue) 使用 AppBadge 的语义颜色、文字和辅助圆点表达状态；[`AppTag`](web/src/components/AppTag.vue) 关闭圆点，用于指令、分类、权限和数量等紧凑信息。别名、权限与来源不因使用同一标签外形而被解释为运行状态。
 
@@ -332,6 +332,8 @@ AppTabs 的标签可附带数量标记，标题区的额外操作承载当前分
 ### Logs and diagnostic detail
 
 实时与历史日志保持各自的列表、筛选和滚动职责。高级筛选通过受控说明弹层编辑协议、插件多选和请求标识，历史范围使用本地日期时间输入。清除筛选、分页、底部跟随和手动滚动沿用现有工作区状态，持续新增日志不逐条播放入场动画。
+
+**The Log Row Density Rule.** 实时与历史日志的行级标签使用 AppTag 的 small 尺寸，仅将垂直内边距改为 2px，字号和其余标签保持原有规则。虚拟列表以 80px 为常规行的估算高度，并继续测量实际行高；换行正文允许自然增高，滚动锚点与底部跟随由既有虚拟列表维护。
 
 [`ManagementLogDetailDrawer`](web/src/components/logs/ManagementLogDetailDrawer.vue) 在大于 960px 且宿主尺寸可用时呈现非模态桌面窗口，目标宽度为 680px，位置与拖动范围按宿主可用尺寸约束。页头使用普通二级标题“日志详情”，来源、级别、协议和时间排列在其下；正文在窗口内滚动，原日志列表继续可操作。窄屏或缺少有效宿主尺寸时使用右侧 AppDrawer，并沿用模态抽屉的退出和焦点规则。
 
@@ -402,7 +404,7 @@ Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击�
 - Do 用中性导航、连续工作区和精确分隔线建立稳定方位。
 - Do 将青瓷留给品牌、主操作和少数选中标记，保持普通表面与文字中性。
 - Do 保持亮暗主题的信息层级、状态含义与操作能力等价。
-- Do 使用项目 token、共享标题字体与所属应用的标准产品组件；Web 按已落地工作区遵守迁移边界。
+- Do 使用项目 token、共享标题字体与所属应用的标准产品组件，遵守 Web、Launcher 和独立插件内容的边界。
 - Do 保持可见焦点、键盘操作、触控目标、reduced-motion 与 forced-colors 支持。
 - Do 让真实数据、必要警告和用户任务决定内容高度与页面密度。
 
@@ -413,5 +415,5 @@ Launcher 工作区从可见透明度（0.88）进入，状态与内容在点击�
 - Don't 使用无任务意义的同尺寸卡片拼贴、多层日志外框或无任务边界的嵌套卡片；独立插件集合、协议连接与三方账号卡片属于明确保留的对象布局。
 - Don't 将认证入口的玻璃材质扩展到管理工作区的表单、列表或日志，不动画化模糊半径，也不逐条动画日志。
 - Don't 依赖颜色单独表达状态，或用 attention 混同 warning 与 danger。
-- Don't 在已迁移 Web 工作区新增另一套控件或浮层行为；迁移期间保留旧工作区所需依赖，不以此扩展新的平行组件体系。
+- Don't 在 Web 业务页面新增另一套控件或浮层行为；统一复用已有产品组件。
 - Don't 为视觉风格引入运行时主题服务或跨 iframe 样式注入。

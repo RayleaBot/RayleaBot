@@ -5,13 +5,11 @@ import { createApp } from 'vue'
 import App from '@/App.vue'
 import { i18n } from '@/i18n'
 import { readInternalRedirectTarget } from '@/lib/route-redirect'
-import { installAntDesignVue } from '@/plugins/antd'
 import { configureApiRuntime } from '@/request/http'
 import { createAppRouter } from '@/router'
 import { useAppAvailabilityStore } from '@/stores/app-availability'
 import { useSessionStore } from '@/stores/session'
 import { useSocketStore } from '@/stores/sockets'
-import 'ant-design-vue/dist/reset.css'
 import '../../design/typography.generated.css'
 import '@/styles/tailwind.css'
 import '@/styles/main.scss'
@@ -251,7 +249,6 @@ async function bootstrap() {
   const pinia = createPinia()
 
   app.use(pinia)
-  installAntDesignVue(app)
   app.use(i18n)
 
   const sessionStore = useSessionStore(pinia)

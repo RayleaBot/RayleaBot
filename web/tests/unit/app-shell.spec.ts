@@ -1,4 +1,3 @@
-import Antd from 'ant-design-vue'
 import { createPinia, getActivePinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -214,7 +213,7 @@ describe('BasicLayout', () => {
     const wrapper = mount(BasicLayout, {
       attachTo: document.body,
       global: {
-        plugins: [getActivePinia()!, Antd, router],
+        plugins: [getActivePinia()!, router],
       },
     })
 
@@ -228,7 +227,7 @@ describe('BasicLayout', () => {
   }
 
   function getTabLabels() {
-    const labels = Array.from(document.body.querySelectorAll('.admin-layout__tabbar .ant-tabs-tab-btn'))
+    const labels = Array.from(document.body.querySelectorAll('.admin-layout__tabbar [role=tab]'))
       .map((node) => node.textContent?.trim() ?? '')
       .filter(Boolean)
 
@@ -236,7 +235,7 @@ describe('BasicLayout', () => {
   }
 
   function getActiveTabLabel() {
-    return document.body.querySelector('.admin-layout__tabbar .ant-tabs-tab-active .ant-tabs-tab-btn')
+    return document.body.querySelector('.admin-layout__tabbar [role=tab][data-state=active]')
       ?.textContent
       ?.trim() ?? ''
   }
@@ -270,7 +269,7 @@ describe('BasicLayout', () => {
   }
 
   function getContextMenuItem(label: string) {
-    const item = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-dropdown-menu-item'))
+    const item = Array.from(document.body.querySelectorAll<HTMLElement>('.app-menu-item'))
       .filter((node) => node.textContent?.trim() === label)
       .at(-1)
     if (!item) {
@@ -290,8 +289,6 @@ describe('BasicLayout', () => {
 
   function isMenuItemDisabled(item: HTMLElement) {
     return item.getAttribute('aria-disabled') === 'true'
-      || item.classList.contains('ant-dropdown-menu-item-disabled')
-      || item.classList.contains('ant-menu-item-disabled')
   }
 
   beforeEach(() => {
@@ -326,16 +323,12 @@ describe('BasicLayout', () => {
 
     const breadcrumb = wrapper.get('[data-testid="header-breadcrumb"]')
     const parentItem = breadcrumb.get('.admin-layout__breadcrumb-item')
-    const parentOuter = parentItem.get('.ant-breadcrumb-link')
     const parentLink = parentItem.get('.admin-layout__breadcrumb-link')
     const currentItem = breadcrumb.get('.admin-layout__breadcrumb-item--current')
-    const currentOuter = currentItem.get('.ant-breadcrumb-link')
     const current = breadcrumb.get('.admin-layout__breadcrumb-current')
 
-    expect(parentOuter.exists()).toBe(true)
     expect(parentLink.text()).toBe('运维')
     expect(parentLink.attributes('href')).toBe('/permission-policy')
-    expect(currentOuter.exists()).toBe(true)
     expect(current.text()).toBe('权限策略')
     expect(wrapper.find('.admin-layout__breadcrumb-row').exists()).toBe(false)
   })
@@ -357,7 +350,7 @@ describe('BasicLayout', () => {
       await sidebar.get(`[data-sidebar-page="${name}"]`).trigger('click')
       await flushPromises()
       expect(router.currentRoute.value.path).toBe(path)
-      expect(sidebar.get(`[data-sidebar-page="${name}"]`).classes()).toContain('ant-menu-item-selected')
+      expect(sidebar.get(`[data-sidebar-page="${name}"]`).attributes('aria-current')).toBe('page')
       expect(uiShellStore.tabs.map(tab => tab.path)).toEqual(['/', '/plugins'])
     }
 
@@ -429,12 +422,12 @@ describe('BasicLayout', () => {
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel')
     expect(sidebar.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
     expect(sidebar.get('[data-sidebar-plugin-id="example-config-panel"]').classes()).toContain('sidebar-navigation__plugin-resource--active')
-    expect(sidebar.get('[data-sidebar-plugin-overview="example-config-panel"]').classes()).toContain('ant-menu-item-selected')
+    expect(sidebar.get('[data-sidebar-plugin-overview="example-config-panel"]').attributes('aria-current')).toBe('page')
 
     await sidebar.get('[data-sidebar-management-page="secrets"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
-    expect(sidebar.get('[data-sidebar-management-page="secrets"]').classes()).toContain('ant-menu-item-selected')
+    expect(sidebar.get('[data-sidebar-management-page="secrets"]').attributes('aria-current')).toBe('page')
 
     await sidebar.get('[data-sidebar-plugin-disclosure="weather"]').trigger('click')
     await flushPromises()
@@ -481,9 +474,8 @@ describe('BasicLayout', () => {
 
     const sidebar = wrapper.get('.admin-layout__sider')
     expect(sidebar.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
-    const pluginCenterSubmenu = sidebar.get('.ant-menu-submenu')
-    expect(pluginCenterSubmenu.text()).toContain('插件中心')
-    expect(pluginCenterSubmenu.get('[data-sidebar-entry="plugin-center"]').exists()).toBe(true)
+    const pluginCenterTrigger = sidebar.get('[data-sidebar-entry="plugin-center"]')
+    expect(pluginCenterTrigger.attributes('aria-label')).toBe('插件中心')
     expect(wrapper.findAllComponents(AppSidebarNavigation)[0]?.props('openPluginTargets')).toEqual([
       { fullPath: '/plugins/weather?panel=overview', pluginId: 'weather' },
     ])
@@ -587,7 +579,7 @@ describe('BasicLayout', () => {
     await flushPromises()
     expect(sidebar.text()).toContain('插件页面暂不可用')
     expect(sidebar.get('[data-sidebar-plugin-overview="missing-plugin"]').text()).toBe('概览')
-    await sidebar.get('.sidebar-navigation__plugin-retry').trigger('click')
+    await sidebar.get('[data-sidebar-plugin-retry="missing-plugin"]').trigger('click')
     expect(ensureDetailSpy).toHaveBeenCalledWith('missing-plugin', { refresh: true })
   })
 
@@ -605,7 +597,7 @@ describe('BasicLayout', () => {
     await router.push('/logs')
     await flushPromises()
     expect(wrapper.find('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(false)
-    await wrapper.get('[data-tab-path="/plugins"]').trigger('click')
+    await wrapper.get('[data-tab-path="/plugins"]').trigger('keydown', { key: 'Enter' })
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/settings?section=runtime#limits')
     expect((wrapper.get('[data-testid="settings-draft"]').element as HTMLInputElement).value).toBe('fixture draft')
@@ -616,7 +608,7 @@ describe('BasicLayout', () => {
     await router.push('/plugins/weather?panel=overview')
     await flushPromises()
     expect(wrapper.get('[data-testid="plugin-center-sidebar-navigation"]').exists()).toBe(true)
-    expect(wrapper.get('[data-sidebar-plugin-overview]').classes()).toContain('ant-menu-item-selected')
+    expect(wrapper.get('[data-sidebar-plugin-overview]').attributes('aria-current')).toBe('page')
     await openTabContextMenu('插件中心')
     await clickContextMenuItem('关闭当前标签')
     expect(router.currentRoute.value.fullPath).toBe('/plugins/weather?panel=overview')
@@ -823,15 +815,15 @@ describe('BasicLayout', () => {
   it('opens the preference drawer and applies shell settings', async () => {
     const { wrapper, uiShellStore } = await mountShell('/')
 
-    await wrapper.get('[data-testid="header-more"]').trigger('click')
+    await wrapper.get('[data-testid="header-more"]').trigger('keydown', { key: 'ArrowDown' })
     await flushPromises()
-    const settingsItem = Array.from(document.body.querySelectorAll<HTMLElement>('.ant-dropdown-menu-item')).find(
+    const settingsItem = Array.from(document.body.querySelectorAll<HTMLElement>('.app-menu-item')).find(
       (node) => node.textContent?.includes('设置'),
     )
     settingsItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     await flushPromises()
 
-    const darkOption = Array.from(document.body.querySelectorAll('.ant-segmented-item')).find(
+    const darkOption = Array.from(document.body.querySelectorAll('[role=radio]')).find(
       (node) => node.textContent?.includes('暗色'),
     )
     darkOption?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -869,10 +861,10 @@ describe('BasicLayout', () => {
   it('uses the stable template preview entry path for menu and route search', async () => {
     const { wrapper, router, uiShellStore } = await mountShell('/')
 
-    const systemGroup = wrapper.findAll('.admin-layout__sider .ant-menu-submenu').find((item) => item.text().includes('系统'))
+    const systemGroup = wrapper.findAll('.admin-layout__sider .sidebar-navigation__group').find((item) => item.text().includes('系统'))
     expect(systemGroup).toBeDefined()
 
-    const templateMenuItem = systemGroup!.findAll('.ant-menu-item').find((item) => item.text().includes('模板预览'))
+    const templateMenuItem = systemGroup!.findAll('button.sidebar-navigation__item').find((item) => item.text().includes('模板预览'))
     expect(templateMenuItem).toBeDefined()
     await templateMenuItem!.trigger('click')
     await flushPromises()

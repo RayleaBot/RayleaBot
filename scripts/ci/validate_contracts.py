@@ -1047,6 +1047,7 @@ def validate_baseline() -> None:
                 "@parcel/watcher": True,
                 "core-js": False,
                 "esbuild": True,
+                "vue-demi": True,
             },
             "overrides": {
                 "esbuild": "0.28.2",

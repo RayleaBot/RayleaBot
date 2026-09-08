@@ -553,7 +553,7 @@ test('plugin cards load declared icons and keep a logo fallback after image fail
   await expect(weather.locator('.plugin-icon .raylea-mark')).toBeVisible()
   await expect(weather.locator('.plugin-icon img')).toHaveCount(0)
   await weather.getByRole('button', { name: '查看概要', exact: true }).click()
-  await expect(page.locator('.ant-drawer-content')).toContainText('weather')
+  await expect(page.locator('[data-slot=app-dialog][data-placement=right]')).toContainText('weather')
 })
 
 test('plugin management flow covers install, manifest detail and console recovery', async ({ page, request }) => {
@@ -678,11 +678,11 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(whitelistCard).toContainText('10001')
   await expect(whitelistCard).toContainText('值班账号')
   await expect(whitelistCard).toContainText('31010')
-  await expect(whitelistCard.locator('.ant-pagination')).toHaveCount(0)
+  await expect(whitelistCard.getByRole('navigation', { name: '分页' })).toHaveCount(0)
 
   await expect(blacklistCard).toContainText('10001')
   await expect(blacklistCard).toContainText('41010')
-  await expect(blacklistCard.locator('.ant-pagination')).toHaveCount(0)
+  await expect(blacklistCard.getByRole('navigation', { name: '分页' })).toHaveCount(0)
 
   await page.getByTestId('access-lists-blacklist-add-btn').click()
   await page.getByTestId('blacklist-draft-target-id').fill('30003')
@@ -2130,6 +2130,7 @@ test('logs page filters both history and live log appends', async ({ page, reque
 })
 
 test('logs page keeps older current-session rows reachable inside the table scroller', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
   await resetBackend(request, true)
   await login(page)
 
@@ -2183,6 +2184,11 @@ test('logs page keeps older current-session rows reachable inside the table scro
   expect(metrics.hasTableBody).toBe(true)
   expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight)
   expect(metrics.scrollTop).toBeGreaterThan(0)
+
+  const scroller = page.locator('.logs-feed-card .data-viewport__scroller')
+  await scroller.evaluate((element) => { element.scrollTop = 0 })
+  await expect(page.locator('.logs-row__message').filter({ hasText: 'scroll history row 0' })).toBeVisible()
+  await expect.poll(() => scroller.evaluate((element) => element.scrollHeight)).toBe(metrics.scrollHeight)
 })
 
 test('command center shows all declared commands and filters by plugin selection', async ({ page, request }) => {
@@ -2822,7 +2828,7 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
 
   await page.getByRole('button', { name: /卸\s*载/ }).click()
   await page.getByRole('button', { name: /确认卸载/ }).click()
-  await expect(page.getByText('缺少必要资源')).toBeVisible()
+  await expect(page.locator('.app-toast__description').filter({ hasText: '缺少必要资源' })).toBeVisible()
 })
 
 test('missing routes keep their fallback while network recovery stays in place', async ({ page, request }) => {

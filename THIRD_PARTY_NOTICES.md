@@ -138,9 +138,6 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:launcher | tabster | 8.8.0 | MIT |
 | npm:launcher | tslib | 2.8.1 | 0BSD |
 | npm:launcher | use-sync-external-store | 1.6.0 | MIT |
-| npm:web | @ant-design/colors | 6.0.0 | MIT |
-| npm:web | @ant-design/icons-svg | 4.5.0 | MIT |
-| npm:web | @ant-design/icons-vue | 7.0.1 | MIT |
 | npm:web | @babel/generator | 8.0.0 | MIT |
 | npm:web | @babel/helper-string-parser | 7.29.7 | MIT |
 | npm:web | @babel/helper-string-parser | 8.0.0 | MIT |
@@ -148,12 +145,8 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | @babel/helper-validator-identifier | 8.0.4 | MIT |
 | npm:web | @babel/parser | 7.29.8 | MIT |
 | npm:web | @babel/parser | 8.0.4 | MIT |
-| npm:web | @babel/runtime | 7.29.7 | MIT |
 | npm:web | @babel/types | 7.29.8 | MIT |
 | npm:web | @babel/types | 8.0.4 | MIT |
-| npm:web | @ctrl/tinycolor | 3.6.1 | MIT |
-| npm:web | @emotion/hash | 0.9.2 | MIT |
-| npm:web | @emotion/unitless | 0.8.1 | MIT |
 | npm:web | @floating-ui/core | 1.8.0 | MIT |
 | npm:web | @floating-ui/dom | 1.8.0 | MIT |
 | npm:web | @floating-ui/utils | 0.2.12 | MIT |
@@ -189,7 +182,6 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | @rolldown/binding-win32-arm64-msvc | 1.2.4 | MIT |
 | npm:web | @rolldown/binding-win32-x64-msvc | 1.2.4 | MIT |
 | npm:web | @rolldown/pluginutils | 1.0.1 | MIT |
-| npm:web | @simonwep/pickr | 1.8.2 | MIT |
 | npm:web | @swc/helpers | 0.5.23 | Apache-2.0 |
 | npm:web | @tanstack/virtual-core | 3.17.7 | MIT |
 | npm:web | @tanstack/vue-virtual | 3.13.35 | MIT |
@@ -214,26 +206,18 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | @vueuse/metadata | 14.4.0 | MIT |
 | npm:web | @vueuse/shared | 14.4.0 | MIT |
 | npm:web | acorn | 8.18.0 | MIT |
-| npm:web | ant-design-vue | 4.2.6 | MIT |
 | npm:web | aria-hidden | 1.2.6 | MIT |
-| npm:web | array-tree-filter | 2.1.0 | MIT |
 | npm:web | ast-kit | 2.2.0 | MIT |
 | npm:web | ast-walker-scope | 0.9.0 | MIT |
-| npm:web | async-validator | 4.2.5 | MIT |
 | npm:web | birpc | 2.9.0 | MIT |
 | npm:web | chokidar | 5.0.0 | MIT |
 | npm:web | class-variance-authority | 0.7.1 | Apache-2.0 |
 | npm:web | clsx | 2.1.1 | MIT |
-| npm:web | compute-scroll-into-view | 1.0.20 | MIT |
 | npm:web | confbox | 0.1.8 | MIT |
 | npm:web | confbox | 0.2.4 | MIT |
-| npm:web | core-js | 3.50.0 | MIT |
 | npm:web | csstype | 3.2.3 | MIT |
-| npm:web | dayjs | 1.11.22 | MIT |
 | npm:web | defu | 6.1.7 | MIT |
 | npm:web | detect-libc | 2.1.2 | Apache-2.0 |
-| npm:web | dom-align | 1.12.4 | MIT |
-| npm:web | dom-scroll-into-view | 2.0.1 | MIT |
 | npm:web | entities | 7.0.1 | BSD-2-Clause |
 | npm:web | estree-walker | 2.0.2 | MIT |
 | npm:web | exsolve | 1.1.1 | MIT |
@@ -245,9 +229,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | immutable | 5.1.9 | MIT |
 | npm:web | is-extglob | 2.1.1 | MIT |
 | npm:web | is-glob | 4.0.3 | MIT |
-| npm:web | is-plain-object | 3.0.1 | MIT |
 | npm:web | jiti | 2.7.0 | MIT |
-| npm:web | js-tokens | 4.0.0 | MIT |
 | npm:web | jsesc | 3.1.0 | MIT |
 | npm:web | json5 | 2.2.3 | MIT |
 | npm:web | lightningcss | 1.33.0 | MPL-2.0 |
@@ -260,19 +242,14 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | lightningcss-win32-arm64-msvc | 1.33.0 | MPL-2.0 |
 | npm:web | lightningcss-win32-x64-msvc | 1.33.0 | MPL-2.0 |
 | npm:web | local-pkg | 1.2.1 | MIT |
-| npm:web | lodash | 4.18.1 | MIT |
-| npm:web | lodash-es | 4.18.1 | MIT |
-| npm:web | loose-envify | 1.4.0 | MIT |
 | npm:web | magic-string | 0.30.21 | MIT |
 | npm:web | magic-string-ast | 1.0.3 | MIT |
 | npm:web | mlly | 1.8.2 | MIT |
-| npm:web | motion | 13.1.0 | MIT |
 | npm:web | motion-dom | 13.0.0 | MIT |
 | npm:web | motion-utils | 13.0.0 | MIT |
 | npm:web | motion-v | 2.4.2 | MIT |
 | npm:web | muggle-string | 0.4.1 | MIT |
 | npm:web | nanoid | 3.3.18 | MIT |
-| npm:web | nanopop | 2.4.2 | MIT |
 | npm:web | node-addon-api | 7.1.1 | MIT |
 | npm:web | nostics | 1.2.0 | MIT |
 | npm:web | ohash | 2.0.12 | MIT |
@@ -288,16 +265,11 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | quansync | 0.2.11 | MIT |
 | npm:web | readdirp | 5.1.1 | MIT |
 | npm:web | reka-ui | 2.10.4 | MIT |
-| npm:web | resize-observer-polyfill | 1.5.1 | MIT |
 | npm:web | rolldown | 1.2.4 | MIT |
 | npm:web | sass | 1.102.0 | MIT |
-| npm:web | scroll-into-view-if-needed | 2.2.31 | MIT |
 | npm:web | scule | 1.3.0 | MIT |
-| npm:web | shallow-equal | 1.2.1 | MIT |
 | npm:web | source-map-js | 1.2.1 | BSD-3-Clause |
-| npm:web | stylis | 4.4.0 | MIT |
 | npm:web | tailwind-merge | 3.6.0 | MIT |
-| npm:web | throttle-debounce | 5.0.2 | MIT |
 | npm:web | tinyglobby | 0.2.17 | MIT |
 | npm:web | tslib | 2.8.1 | 0BSD |
 | npm:web | typescript | 5.9.3 | Apache-2.0 |
@@ -310,8 +282,6 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | vue-demi | 0.14.10 | MIT |
 | npm:web | vue-i18n | 11.4.8 | MIT |
 | npm:web | vue-router | 5.2.0 | MIT |
-| npm:web | vue-types | 3.0.2 | MIT |
-| npm:web | warning | 4.0.3 | MIT |
 | npm:web | webpack-virtual-modules | 0.6.2 | MIT |
 | npm:web | yaml | 2.9.0 | ISC |
 | source:web | shadcn-vue/reka-nova | 2026-09-07 | MIT |
@@ -2946,33 +2916,6 @@ Applies to: picocolors@1.1.1
     ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### MIT (06715c0d025d)
-
-Applies to: vue-types@3.0.2
-
-    [LICENSE]
-    The MIT License (MIT)
-
-    Copyright (c) 2016-2017 Marco Solazzi
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
 ### MIT (071e01eb71df)
 
 Applies to: chokidar@5.0.0
@@ -3166,132 +3109,6 @@ Applies to: @fluentui/react-spinner@9.8.5
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
-### MIT (0f70b32c85e7)
-
-Applies to: lodash@4.18.1, lodash-es@4.18.1
-
-    [LICENSE]
-    Copyright OpenJS Foundation and other contributors <https://openjsf.org/>
-
-    Based on Underscore.js, copyright Jeremy Ashkenas,
-    DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
-
-    This software consists of voluntary contributions made by many
-    individuals. For exact contribution history, see the revision history
-    available at https://github.com/lodash/lodash
-
-    The following license applies to all parts of this software except as
-    documented below:
-
-    ====
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    ====
-
-    Copyright and related rights for sample code are waived via CC0. Sample
-    code is defined as all source code displayed within the prose of the
-    documentation.
-
-    CC0: http://creativecommons.org/publicdomain/zero/1.0/
-
-    ====
-
-    Files located in the node_modules and vendor directories are externally
-    maintained libraries used by this software which have their own
-    licenses; we recommend you read them, as their terms may differ from the
-    terms above.
-
-### MIT (0f979e026fdf)
-
-Applies to: ant-design-vue@4.2.6
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2017-present ant-design-vue
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-
-    MIT LICENSE
-
-    Copyright (c) 2015-present Alipay.com, https://www.alipay.com/
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-    MIT License
-
-    Copyright (c) 2019-PRESENT Anthony Fu<https://github.com/antfu>
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
 ### MIT (112243def61c)
 
 Applies to: @vue-macros/common@3.1.4
@@ -3457,33 +3274,6 @@ Applies to: @fluentui/react-popover@9.14.6
     THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (1693e80bffac)
-
-Applies to: dayjs@1.11.22
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2018-present, iamkun
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
 
 ### MIT (16c21d1c6d17)
 
@@ -4006,21 +3796,6 @@ Applies to: @fluentui/react-tree@9.16.5
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
-### MIT (391ae64d1863)
-
-Applies to: async-validator@4.2.5, dom-align@1.12.4
-
-    [LICENSE.md]
-    The MIT License (MIT)
-
-    Copyright (c) 2014-present yiminghe
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
 ### MIT (3a8d1dff4b90)
 
 Applies to: @fluentui/react-tags@9.9.4
@@ -4050,33 +3825,6 @@ Applies to: framer-motion@13.1.0
     The MIT License (MIT)
 
     Copyright (c) 2018 Framer B.V.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### MIT (3e47a39b3ece)
-
-Applies to: @simonwep/pickr@1.8.2
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2018 - 2021 Simon Reinisch
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -4395,19 +4143,6 @@ Applies to: json5@2.2.3
     SOFTWARE.
 
     [others]: https://github.com/json5/json5/contributors
-
-### MIT (4cfa6f394d02)
-
-Applies to: @ctrl/tinycolor@3.6.1
-
-    [LICENSE]
-    Copyright (c) Scott Cooper <scttcper@gmail.com>
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### MIT (53a93a219a55)
 
@@ -4740,33 +4475,6 @@ Applies to: @fluentui/react-switch@9.7.5
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
-### MIT (6e3c21989eea)
-
-Applies to: warning@4.0.3
-
-    [LICENSE.md]
-    MIT License
-
-    Copyright (c) 2013-present, Facebook, Inc.
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
 ### MIT (6f3581ff28a6)
 
 Applies to: quansync@0.2.11
@@ -5004,60 +4712,6 @@ Applies to: @fluentui/react-shared-contexts@9.26.3
     THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (7d0a92383610)
-
-Applies to: nanopop@2.4.2
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2023 Simon Reinisch
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-### MIT (7dc2315b15b3)
-
-Applies to: loose-envify@1.4.0
-
-    [LICENSE]
-    The MIT License (MIT)
-
-    Copyright (c) 2015 Andres Suarez <zertosh@gmail.com>
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
 
 ### MIT (7ee33e1e3368)
 
@@ -7661,33 +7315,6 @@ Applies to: react@19.2.8, react-dom@19.2.8, scheduler@0.27.0, use-sync-external-
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### MIT (8bd8a121831b)
-
-Applies to: resize-observer-polyfill@1.5.1
-
-    [LICENSE]
-    The MIT License (MIT)
-
-    Copyright (c) 2016 Denis Rul
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
 ### MIT (8bf0951f70b5)
 
 Applies to: @fluentui/react-textarea@9.7.6
@@ -7872,33 +7499,6 @@ Applies to: @fluentui/react-color-picker@9.3.0
     THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (962400d670da)
-
-Applies to: compute-scroll-into-view@1.0.20, scroll-into-view-if-needed@2.2.31
-
-    [LICENSE]
-    MIT License
-
-    Copyright (c) 2022 Cody Olsen
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
 
 ### MIT (99fa4672a19d)
 
@@ -8269,7 +7869,7 @@ Applies to: nostics@1.2.0
 
 ### MIT (9be572bc4bb1)
 
-Applies to: @babel/runtime@7.29.7, @babel/generator@8.0.0, @babel/helper-string-parser@7.29.7, @babel/helper-string-parser@8.0.0, @babel/helper-validator-identifier@7.29.7, @babel/helper-validator-identifier@8.0.4, @babel/runtime@7.29.7, @babel/types@7.29.8, @babel/types@8.0.4
+Applies to: @babel/runtime@7.29.7, @babel/generator@8.0.0, @babel/helper-string-parser@7.29.7, @babel/helper-string-parser@8.0.0, @babel/helper-validator-identifier@7.29.7, @babel/helper-validator-identifier@8.0.4, @babel/types@7.29.8, @babel/types@8.0.4
 
     [LICENSE]
     MIT License
@@ -8304,32 +7904,6 @@ Applies to: fsevents@2.3.3
     -----------
 
     Copyright (C) 2010-2020 by Philipp Dunkel, Ben Noordhuis, Elan Shankar, Paul Miller
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-
-### MIT (9dd456aab661)
-
-Applies to: core-js@3.50.0
-
-    [LICENSE]
-    Copyright (c) 2013–2025 Denis Pushkarev (zloirock.ru)
-    Copyright (c) 2025–2026 CoreJS Company (core-js.io)
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -8589,33 +8163,6 @@ Applies to: @fluentui/react-infobutton@9.0.0-beta.119
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
-### MIT (ae1e45839a97)
-
-Applies to: shallow-equal@1.2.1
-
-    [LICENSE]
-    The MIT License (MIT)
-
-    Copyright © 2016 Misha Moroshko
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy of
-    this software and associated documentation files (the “Software”), to deal in
-    the Software without restriction, including without limitation the rights to
-    use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-    of the Software, and to permit persons to whom the Software is furnished to do
-    so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
 ### MIT (ae79e7722e20)
 
 Applies to: @fluentui/react-button@9.11.0
@@ -8700,33 +8247,6 @@ Applies to: @fluentui/react-checkbox@9.6.4
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
 
-### MIT (ba1d171ac5ee)
-
-Applies to: js-tokens@4.0.0
-
-    [LICENSE]
-    The MIT License (MIT)
-
-    Copyright (c) 2014, 2015, 2016, 2017, 2018 Simon Lydell
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-
 ### MIT (ba6e766fa1b9)
 
 Applies to: @floating-ui/vue@1.1.11
@@ -8753,34 +8273,6 @@ Applies to: @floating-ui/vue@1.1.11
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
-
-### MIT (bbb13d648b75)
-
-Applies to: @ant-design/colors@6.0.0
-
-    [LICENSE]
-    MIT LICENSE
-
-    Copyright (c) 2018-present Ant UED, https://xtech.antfin.com/
-
-    Permission is hereby granted, free of charge, to any person obtaining
-    a copy of this software and associated documentation files (the
-    "Software"), to deal in the Software without restriction, including
-    without limitation the rights to use, copy, modify, merge, publish,
-    distribute, sublicense, and/or sell copies of the Software, and to
-    permit persons to whom the Software is furnished to do so, subject to
-    the following conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
-    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### MIT (bbb3d3e08e9e)
 
@@ -8838,7 +8330,7 @@ Applies to: immutable@5.1.9
 
 ### MIT (c99bd3e14c7f)
 
-Applies to: @emotion/hash@0.9.2, @emotion/hash@0.9.2, @emotion/unitless@0.8.1
+Applies to: @emotion/hash@0.9.2
 
     [LICENSE]
     MIT License
@@ -9422,7 +8914,7 @@ Applies to: vue-demi@0.14.10
 
 ### MIT (dd8399dbd6c0)
 
-Applies to: @fluentui/react-icons@2.0.337, @wailsio/runtime@3.0.0-beta.9, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @ant-design/icons-svg@4.5.0, @ant-design/icons-vue@7.0.1, @rolldown/binding-darwin-arm64@1.2.4, @rolldown/binding-darwin-x64@1.2.4, @rolldown/binding-linux-arm64-gnu@1.2.4, @rolldown/binding-linux-arm64-musl@1.2.4, @rolldown/binding-linux-x64-gnu@1.2.4, @rolldown/binding-linux-x64-musl@1.2.4, @rolldown/binding-win32-arm64-msvc@1.2.4, @rolldown/binding-win32-x64-msvc@1.2.4, @vue/devtools-api@6.6.4, array-tree-filter@2.1.0, dom-scroll-into-view@2.0.1
+Applies to: @fluentui/react-icons@2.0.337, @wailsio/runtime@3.0.0-beta.9, embla-carousel@8.6.0, embla-carousel-autoplay@8.6.0, embla-carousel-fade@8.6.0, @rolldown/binding-darwin-arm64@1.2.4, @rolldown/binding-darwin-x64@1.2.4, @rolldown/binding-linux-arm64-gnu@1.2.4, @rolldown/binding-linux-arm64-musl@1.2.4, @rolldown/binding-linux-x64-gnu@1.2.4, @rolldown/binding-linux-x64-musl@1.2.4, @rolldown/binding-win32-arm64-msvc@1.2.4, @rolldown/binding-win32-x64-msvc@1.2.4, @vue/devtools-api@6.6.4
 
     [Declared license]
     MIT
@@ -9732,56 +9224,6 @@ Applies to: estree-walker@2.0.2
 
     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### MIT (ee32ec0dfcf0)
-
-Applies to: throttle-debounce@5.0.2
-
-    [LICENSE.md]
-    Copyright (c) Ivan Nikolić <http://ivannikolic.com>
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in
-    all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-    THE SOFTWARE.
-
-    ---
-
-    Copyright (c) 2010 "Cowboy" Ben Alman
-
-    Permission is hereby granted, free of charge, to any person
-    obtaining a copy of this software and associated documentation
-    files (the "Software"), to deal in the Software without
-    restriction, including without limitation the rights to use,
-    copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the
-    Software is furnished to do so, subject to the following
-    conditions:
-
-    The above copyright notice and this permission notice shall be
-    included in all copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
-    OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
-    HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-    OTHER DEALINGS IN THE SOFTWARE.
-
 ### MIT (ee5063565eb9)
 
 Applies to: github.com/go-chi/chi/v5@v5.3.1
@@ -9810,7 +9252,7 @@ Applies to: github.com/go-chi/chi/v5@v5.3.1
 
 ### MIT (f17acea5f19c)
 
-Applies to: motion@13.1.0, motion-dom@13.0.0, motion-utils@13.0.0
+Applies to: motion-dom@13.0.0, motion-utils@13.0.0
 
     [LICENSE.md]
     The MIT License (MIT)
@@ -11584,7 +11026,7 @@ Applies to: sass@1.102.0
 
 ### MIT (f51a8c22784d)
 
-Applies to: is-glob@4.0.3, is-plain-object@3.0.1
+Applies to: is-glob@4.0.3
 
     [LICENSE]
     The MIT License (MIT)
@@ -11691,7 +11133,7 @@ Applies to: tinyglobby@0.2.17
 
 ### MIT (fc042fcda8fe)
 
-Applies to: stylis@4.4.0, stylis@4.4.0
+Applies to: stylis@4.4.0
 
     [LICENSE]
     MIT License

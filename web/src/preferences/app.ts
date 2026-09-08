@@ -1,8 +1,3 @@
-import theme from 'ant-design-vue/es/theme'
-import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
-
-import { webThemes } from '@/preferences/theme-tokens'
-
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedThemeMode = 'light' | 'dark'
 export type DensityMode = 'compact' | 'default'
@@ -54,87 +49,6 @@ export function normalizeLayoutPreferences(
     pageTransition,
     rememberTabs: nextValue.rememberTabs !== false,
     themeMode,
-  }
-}
-
-export function resolveThemeConfig(
-  resolvedThemeMode: ResolvedThemeMode,
-  _density: DensityMode,
-): ThemeConfig {
-  const isDark = resolvedThemeMode === 'dark'
-  const controlHeight = 36
-  const tokens = webThemes[resolvedThemeMode]
-
-  return {
-    algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
-    token: {
-      colorBgBase: tokens.canvas,
-      colorBgContainer: tokens.surface,
-      colorBgElevated: tokens.surfaceRaised,
-      colorBgLayout: tokens.canvas,
-      colorBorder: tokens.borderControl,
-      colorBorderSecondary: tokens.border,
-      colorError: tokens.danger,
-      colorInfo: tokens.brandForeground,
-      colorLink: tokens.brandForeground,
-      colorLinkActive: tokens.brandFillPressed,
-      colorLinkHover: tokens.brandFillHover,
-      colorPrimary: tokens.brandFill,
-      colorPrimaryActive: tokens.brandFillPressed,
-      colorPrimaryHover: tokens.brandFillHover,
-      colorSuccess: tokens.success,
-      colorText: tokens.text,
-      colorTextLightSolid: tokens.onBrand,
-      colorTextSecondary: tokens.textMuted,
-      colorTextPlaceholder: tokens.textMuted,
-      colorWarning: tokens.warning,
-      controlOutline: tokens.focus,
-      borderRadius: 8,
-      borderRadiusLG: 12,
-      borderRadiusSM: 6,
-      controlHeight,
-      fontFamily: 'var(--font-sans)',
-      fontSize: 14,
-      wireframe: false,
-    },
-    components: {
-      Button: {
-        controlHeight,
-      },
-      Card: {
-        borderRadiusLG: 12,
-      },
-      Dropdown: {
-        colorPrimary: tokens.navSelectedText,
-        controlItemBgActive: tokens.navSelected,
-        controlItemBgActiveHover: tokens.navHover,
-        controlItemBgHover: tokens.navHover,
-      },
-      Input: {
-        controlHeight,
-      },
-      Layout: {
-        colorBgBody: tokens.canvas,
-        colorBgHeader: tokens.surface,
-        colorBgTrigger: tokens.canvas,
-      },
-      Menu: {
-        colorItemBg: 'transparent',
-        colorItemBgHover: tokens.navHover,
-        colorSubItemBg: tokens.chrome,
-        colorItemBgSelected: tokens.navSelected,
-        colorItemTextSelected: tokens.navSelectedText,
-        borderRadius: 8,
-      },
-      Select: {
-        controlHeight,
-      },
-      Table: {
-        colorFillAlter: tokens.canvas,
-        colorTextHeading: tokens.textMuted,
-        colorFillContent: tokens.surfaceSoft,
-      },
-    },
   }
 }
 

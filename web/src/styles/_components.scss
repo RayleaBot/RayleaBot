@@ -111,26 +111,6 @@
   min-height: 0;
 }
 
-.admin-layout .ant-card,
-.auth-layout .ant-card {
-  border: 1px solid var(--border);
-  border-radius: var(--app-card-radius);
-  background: var(--surface-strong);
-  box-shadow: none;
-}
-
-.admin-layout .ant-card .ant-card-head,
-.auth-layout .ant-card .ant-card-head {
-  min-height: 44px;
-  padding-inline: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.admin-layout .ant-card .ant-card-body,
-.auth-layout .ant-card .ant-card-body {
-  padding: 16px;
-}
-
 .app-view-card,
 .app-data-table,
 .tasks-empty-card,
@@ -147,35 +127,6 @@
 
 .app-data-table {
   overflow: hidden;
-}
-
-.app-data-table .ant-table-content > table,
-.app-data-table .ant-table-fixed-left table,
-.app-data-table .ant-table-fixed-right table {
-  border-collapse: collapse;
-}
-
-.app-data-table .ant-table-thead > tr > th {
-  padding: 11px 14px;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-soft);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.app-data-table .ant-table-tbody > tr > td {
-  padding: 10px 14px;
-  vertical-align: top;
-  border-bottom-color: var(--border);
-}
-
-.app-data-table .ant-table-tbody > tr:hover > td,
-.app-data-table .ant-table-tbody > tr.ant-table-row-selected > td,
-.app-data-table .ant-table-tbody > tr.row-highlighted > td {
-  background: var(--surface-accent) !important;
 }
 
 .content-grid {
@@ -381,39 +332,6 @@
 
 .tools-panel { background: var(--surface-strong); }
 
-.ant-btn {
-  min-height: var(--app-control-height);
-  border-radius: var(--app-border-radius);
-  transition:
-    color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.ant-btn:active:not(:disabled):not(.ant-btn-loading) { transform: translateY(1px); }
-
-@supports (backdrop-filter: blur(12px)) {
-  .ant-dropdown-menu,
-  .ant-select-dropdown,
-  .ant-modal-content,
-  .ant-drawer-content {
-    background: color-mix(in srgb, var(--surface-raised) 90%, transparent) !important;
-    backdrop-filter: blur(12px);
-  }
-}
-
-@media (prefers-reduced-transparency: reduce), (forced-colors: active) {
-  .ant-dropdown-menu,
-  .ant-select-dropdown,
-  .ant-modal-content,
-  .ant-drawer-content {
-    background: var(--surface-raised) !important;
-    backdrop-filter: none;
-  }
-}
-
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -501,12 +419,6 @@ html[data-view-transition-kind='theme']::view-transition-new(root) {
     animation-delay: 0s !important;
   }
 }
-
-/* Status colors stay semantic across both Ant themes. */
-.ant-tag-blue, .ant-tag-processing { color: var(--brand-foreground); background: var(--brand-soft); border-color: transparent; }
-.ant-tag-success { color: var(--success); background: var(--success-soft); border-color: transparent; }
-.ant-tag-warning, .ant-tag-orange { color: var(--warning); background: var(--warning-soft); border-color: transparent; }
-.ant-tag-error, .ant-tag-red { color: var(--danger); background: var(--danger-soft); border-color: transparent; }
 
 @keyframes raylea-route-enter {
   from { opacity: .88; }

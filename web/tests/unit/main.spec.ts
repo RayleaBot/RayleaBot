@@ -14,17 +14,10 @@ vi.mock('@/App.vue', () => ({
   default: {},
 }))
 
-vi.mock('ant-design-vue/dist/reset.css', () => ({}))
 vi.mock('@/styles/tailwind.css', () => ({}))
 vi.mock('@/styles/main.scss', () => ({}))
 
-vi.mock('ant-design-vue', () => ({
-  default: {},
-}))
 
-vi.mock('@/plugins/antd', () => ({
-  installAntDesignVue: vi.fn(),
-}))
 
 vi.mock('pinia', () => ({
   createPinia,
