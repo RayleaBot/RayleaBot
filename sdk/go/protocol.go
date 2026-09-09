@@ -33,6 +33,7 @@ type protocolFrame struct {
 	SuperAdmins          []string        `json:"super_admins,omitempty"`
 	CommandPrefixes      []string        `json:"command_prefixes,omitempty"`
 	Concurrency          int             `json:"concurrency,omitempty"`
+	Timezone             string          `json:"timezone,omitempty"`
 }
 
 type ActionError struct {

@@ -14,11 +14,13 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	_ "time/tzdata"
 )
 
 const maxProtocolFrameBytes = 8 * 1024 * 1024
 
 type runtimeState struct {
+	location        *time.Location
 	client          *runtimeClient
 	pluginID        string
 	handler         Handler
@@ -40,6 +42,8 @@ type configSnapshot struct {
 }
 
 type EventContext struct {
+	// Location is the effective host timezone captured for this process session.
+	Location        *time.Location
 	Event           Event
 	RequestID       string
 	PluginID        string
@@ -121,6 +125,14 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 			if strings.TrimSpace(frame.PluginID) == "" {
 				return protocolError("init plugin_id is required")
 			}
+			if strings.TrimSpace(frame.Timezone) == "" || frame.Timezone == "Local" {
+				return protocolError("init timezone must be an IANA timezone")
+			}
+			location, err := time.LoadLocation(frame.Timezone)
+			if err != nil {
+				return protocolError("init timezone is invalid")
+			}
+			state.location = location
 			state.captureInit(frame)
 			if err := state.client.writer.write(protocolFrame{
 				Type:      "init_ack",
@@ -287,6 +299,7 @@ func (state *runtimeState) newEventContext(requestID string, event Event) *Event
 	state.botMu.RLock()
 	defer state.botMu.RUnlock()
 	return &EventContext{
+		Location:        state.location,
 		Event:           event,
 		RequestID:       requestID,
 		PluginID:        state.pluginID,

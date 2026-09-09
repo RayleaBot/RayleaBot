@@ -271,6 +271,22 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if !reflect.DeepEqual(payload.SuperAdmins, []string{"10001", "10002"}) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
 	}
+	app.state.Config.Scheduler.Timezone = "America/Los_Angeles"
+	_, pending, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pending.Timezone != "Asia/Shanghai" {
+		t.Fatalf("pending setting changed plugin timezone before restart: %q", pending.Timezone)
+	}
+	app.setTestLifecycle(catalog, nil, newRuntimeRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
+	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restarted.Timezone != "America/Los_Angeles" {
+		t.Fatalf("restarted plugin timezone = %q", restarted.Timezone)
+	}
 }
 
 func TestRefreshPluginManifestReadsUpdatedManifestFile(t *testing.T) {

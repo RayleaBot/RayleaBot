@@ -20,6 +20,7 @@ type BotInfo struct {
 }
 
 type InitPayload struct {
+	Timezone        string
 	Bot             BotInfo
 	Config          map[string]any
 	Permissions     []string

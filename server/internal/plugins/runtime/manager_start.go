@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
@@ -18,6 +19,12 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	defer func() { <-m.lifecycleGate }()
 	if len(payload.CommandPrefixes) == 0 {
 		return errorf(codePlatformInvalidRequest, "init payload command_prefixes is required", nil)
+	}
+	if strings.TrimSpace(payload.Timezone) == "" || payload.Timezone == "Local" {
+		return errorf(codePlatformInvalidRequest, "init payload timezone must be an IANA timezone", nil)
+	}
+	if _, err := time.LoadLocation(payload.Timezone); err != nil {
+		return errorf(codePlatformInvalidRequest, "init payload timezone is invalid", err)
 	}
 
 	m.mu.Lock()
@@ -104,6 +111,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		initConfig = map[string]any{}
 	}
 	if err := handle.WriteJSONLine(InitFrame{
+		Timezone:             payload.Timezone,
 		ProtocolVersion:      "2",
 		Type:                 "init",
 		PluginID:             spec.PluginID,

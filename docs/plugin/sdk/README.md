@@ -24,6 +24,7 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 - 当前 Bot 身份。
 - 隔离的完整配置快照。
 - 生效权限、超级管理员和命令前缀。
+- 宿主当前生效的 `Location`；显示时间使用 `timestamp.In(event.Location)`，动作边界可通过 `event.Actions().TimeLocation()` 取得同一个时区。
 
 每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v2 的统一 `message.send` action。
 

@@ -80,6 +80,7 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	defer outputReader.Close()
 
 	type observation struct {
+		zone      string
 		eventType string
 		config    map[string]any
 		bot       Bot
@@ -87,6 +88,7 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	observations := make(chan observation, 4)
 	handler := HandlerFunc(func(_ context.Context, event *EventContext) error {
 		observations <- observation{
+			zone:      event.Actions().TimeLocation().String(),
 			eventType: event.Event.EventType,
 			config:    event.Config,
 			bot:       event.Bot,
@@ -101,7 +103,7 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init",
+		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
 		Bot: Bot{ID: "old-bot"}, Config: map[string]any{"mode": "initial"},
 		EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 4,
 	})
@@ -139,6 +141,9 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	if message.config["mode"] != "B" || message.bot.ID != "new-bot" {
 		t.Fatalf("message observed stale control state: %#v", message)
 	}
+	if message.zone != "Asia/Shanghai" {
+		t.Fatalf("host timezone = %q", message.zone)
+	}
 
 	writeFrame(t, encoder, protocolFrame{Type: "shutdown", RequestID: "shutdown", Reason: "stop"})
 	if err := <-runDone; err != nil {
@@ -164,7 +169,7 @@ func TestRunRejectsConfigChangedWithoutSnapshotAndContinues(t *testing.T) {
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init",
+		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
 		Config: map[string]any{"mode": "initial"}, EffectivePermissions: []string{},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
 	})
@@ -219,7 +224,7 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init-1",
+		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init-1",
 		Config: map[string]any{"enabled": true}, EffectivePermissions: []string{"storage.kv"},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 2,
 	})
@@ -293,7 +298,7 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", PluginID: "test-plugin", RequestID: "init",
+		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
 		Config: map[string]any{}, EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
 	})
 	var frame protocolFrame

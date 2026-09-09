@@ -29,8 +29,11 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 - 可用时的 Bot 身份。
 - 超级管理员列表和命令前缀。
 - 生效并发度。
+- 必填的 IANA 时区 `timezone`，对应宿主当前生效的时区；保存后待重启的时区不提前下发。
 
 SDK 从 init 建立插件 ID、并发限制和原子配置快照，插件不手工配置这些值。
+
+Go SDK 通过 `EventContext.Location` 和 `Actions.TimeLocation()` 提供该时区，生命周期内保持不变，不修改进程的 `time.Local`。插件展示时间使用这个位置；无时区的平台日期按平台约定解析，投递时效、超时和去重仍比较绝对时间。
 
 ## 事件
 

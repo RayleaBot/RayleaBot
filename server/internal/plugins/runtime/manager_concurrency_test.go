@@ -649,6 +649,7 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 
 func testInitPayload() InitPayload {
 	return InitPayload{
+		Timezone: "Asia/Shanghai",
 		Bot: BotInfo{
 			ID:       "bot-1",
 			Nickname: "RayleaBot",

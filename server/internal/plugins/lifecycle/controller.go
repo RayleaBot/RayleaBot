@@ -55,6 +55,7 @@ type Deps struct {
 }
 
 type Controller struct {
+	effectiveTimezone   string
 	schedulerFailures   logging.FailureTracker
 	currentConfig       func() config.Config
 	repoRoot            string
@@ -81,7 +82,14 @@ type Controller struct {
 }
 
 func NewController(deps Deps) *Controller {
+	zone := config.DefaultTimezone
+	if deps.Scheduler != nil {
+		zone = deps.Scheduler.Timezone()
+	} else if deps.CurrentConfig != nil {
+		zone = config.NormalizeTimezone(deps.CurrentConfig().Scheduler.Timezone)
+	}
 	return &Controller{
+		effectiveTimezone:   zone,
 		currentConfig:       deps.CurrentConfig,
 		repoRoot:            deps.RepoRoot,
 		logger:              deps.Logger,
@@ -609,6 +617,7 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID strin
 		settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 	}
 	payload := pluginruntime.InitPayload{
+		Timezone: c.effectiveTimezone,
 		Bot: pluginruntime.BotInfo{
 			ID: strings.TrimSpace(botID),
 		},

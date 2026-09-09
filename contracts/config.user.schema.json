@@ -402,7 +402,7 @@
         "timezone": {
           "type": "string",
           "default": "Asia/Shanghai",
-          "description": "IANA timezone identifier used for scheduled tasks, server log timestamps and management time display. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
+          "description": "IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
           "x-apply-policy": "restart_required"
         }
       }

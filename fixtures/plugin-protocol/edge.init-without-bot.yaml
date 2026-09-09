@@ -4,6 +4,7 @@ frames:
   - protocol_version: "2"
     plugin_id: idle-native
     type: init
+    timezone: Asia/Shanghai
     request_id: init-idle-1
     config: {}
     effective_permissions: []

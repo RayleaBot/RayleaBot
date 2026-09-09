@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 type ActionResult map[string]any
@@ -13,6 +14,8 @@ type ActionResult map[string]any
 type Actions struct {
 	event *EventContext
 }
+
+func (actions *Actions) TimeLocation() *time.Location { return actions.event.Location }
 
 func (actions *Actions) Call(ctx context.Context, action string, input any, output any) error {
 	if actions == nil || actions.event == nil || actions.event.client == nil {

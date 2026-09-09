@@ -298,6 +298,7 @@ type PingFrame struct {
 }
 
 type InitFrame struct {
+	Timezone             string         `json:"timezone"`
 	ProtocolVersion      string         `json:"protocol_version"`
 	Type                 string         `json:"type"`
 	PluginID             string         `json:"plugin_id"`

@@ -30,7 +30,7 @@ func TestShutdownCancellationIsNotLoggedAsHandlerFailure(t *testing.T) {
 		}))
 	}()
 	encoder, decoder := json.NewEncoder(inputWriter), json.NewDecoder(outputReader)
-	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "2", Type: "init", PluginID: "fixture", RequestID: "init", Concurrency: 1})
+	writeFrame(t, encoder, protocolFrame{ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "fixture", RequestID: "init", Concurrency: 1})
 	var ack protocolFrame
 	decodeFrame(t, decoder, &ack)
 	writeEvent(t, encoder, "fixture-event", "fixture")

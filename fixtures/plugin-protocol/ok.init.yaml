@@ -4,6 +4,7 @@ frames:
   - protocol_version: "2"
     plugin_id: raylea.echo
     type: init
+    timezone: Asia/Shanghai
     request_id: init-1
     config:
       prefix: echo

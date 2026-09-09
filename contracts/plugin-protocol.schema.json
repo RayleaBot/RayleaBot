@@ -176,11 +176,18 @@
             "effective_permissions",
             "super_admins",
             "command_prefixes",
+            "timezone",
             "concurrency"
           ],
           "properties": {
             "type": {
               "const": "init"
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "not": { "const": "Local" },
+              "description": "Effective host IANA timezone for user-visible dates. Required and fixed for this process session. A saved timezone awaiting host restart must not change it. Parse platform timestamps using their source timezone and compare instants independently of display timezone."
             },
             "bot": {
               "type": "object",
@@ -2663,6 +2670,7 @@
         "effective_permissions",
         "super_admins",
         "command_prefixes",
+        "timezone",
         "concurrency"
       ],
       "example_ref": "fixtures/plugin-protocol/ok.init.yaml"
