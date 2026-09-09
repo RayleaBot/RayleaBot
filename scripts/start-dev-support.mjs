@@ -182,7 +182,8 @@ export function createDevEnvironment({ env = process.env, backendBaseUrl, webBas
   return {
     VITE_BACKEND_TARGET: env.VITE_BACKEND_TARGET?.trim() || backendBaseUrl,
     VITE_WS_BASE_URL: env.VITE_WS_BASE_URL?.trim() || backendBaseUrl,
-    RAYLEA_WEB_UI_BASE_URL: env.RAYLEA_WEB_UI_BASE_URL?.trim() || webBaseUrl,
+    // The browser must follow the managed Vite server, independently of the API target.
+    RAYLEA_WEB_UI_BASE_URL: webBaseUrl,
   };
 }
 

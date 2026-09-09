@@ -289,6 +289,19 @@ test("creates dev server environment", () => {
   );
 });
 
+test("development browser entry follows Vite even when an inherited URL points to the backend", () => {
+  const environment = createDevEnvironment({
+    env: {
+      RAYLEA_WEB_UI_BASE_URL: "http://127.0.0.1:12345/",
+      VITE_BACKEND_TARGET: "http://127.0.0.1:23456",
+    },
+    backendBaseUrl: "http://127.0.0.1:12345",
+  });
+  assert.equal(environment.RAYLEA_WEB_UI_BASE_URL, "http://127.0.0.1:4173/");
+  assert.equal(environment.VITE_BACKEND_TARGET, "http://127.0.0.1:23456");
+  assert.equal(createServerDevelopmentEnvironment({ devEnvironment: environment }).RAYLEA_WEB_UI_BASE_URL, environment.RAYLEA_WEB_UI_BASE_URL);
+});
+
 test("creates non-interactive dependency install environment", () => {
   assert.deepEqual(createDependencyInstallEnvironment(), { CI: "true", pnpm_config_verify_deps_before_run: "false" });
   assert.deepEqual(

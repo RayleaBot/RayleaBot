@@ -27,7 +27,7 @@
 - 默认 profile 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
 - Web 开发服务器代理到 `config/user.yaml` 中的 `server.host` / `server.port`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
 - WebSocket 后端地址使用 `VITE_WS_BASE_URL`，缺省值与 `VITE_BACKEND_TARGET` 一致。
-- Launcher 打开的管理面地址使用 `RAYLEA_WEB_UI_BASE_URL`，缺省值为 `http://127.0.0.1:4173/`。
+- `web-dev` 和 `launcher-dev` 模式下，Launcher 打开的管理面固定使用脚本管理的 Vite 开发入口 `http://127.0.0.1:4173/`，支持源码热更新；`.env` 或父进程中的 `RAYLEA_WEB_UI_BASE_URL` 不覆盖该入口。`build` 模式仍打开 Server 托管的静态页面。
 
 | Profile | 用途 | 命令 |
 | --- | --- | --- |
