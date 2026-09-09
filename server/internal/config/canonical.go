@@ -333,6 +333,7 @@ func decodeTypedConfig(document map[string]any) (Config, error) {
 	if err := json.Unmarshal(jsonBytes, &cfg); err != nil {
 		return cfg, err
 	}
+	cfg.Scheduler.Timezone = NormalizeTimezone(cfg.Scheduler.Timezone)
 	return cfg, nil
 }
 

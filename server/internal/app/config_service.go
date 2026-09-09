@@ -25,6 +25,7 @@ type configRuntimeState interface {
 }
 
 type configServiceDeps struct {
+	EffectiveTimezone func() string
 	Runtime           configRuntimeState
 	Logs              *logging.Stream
 	LogRepository     logging.Repository
@@ -39,6 +40,7 @@ type configServiceDeps struct {
 
 func newConfigService(deps configServiceDeps) *configruntime.Service {
 	runtimeDeps := configruntime.Deps{
+		EffectiveTimezone: deps.EffectiveTimezone,
 		CurrentConfig: func() config.Config {
 			if deps.Runtime == nil {
 				return config.Config{}

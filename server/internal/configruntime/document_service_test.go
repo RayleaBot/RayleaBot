@@ -44,6 +44,33 @@ func TestUpdateConfigDocumentUsesRequestContextForSecrets(t *testing.T) {
 
 type contextCheckingSecretStore struct{}
 
+func TestTimezoneChangeWaitsForRestartWithoutChangingEffectiveTimezone(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
+	cfg, summary, err := internalconfig.Init(configPath, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(Deps{
+		CurrentConfig:     func() internalconfig.Config { return cfg },
+		CurrentSummary:    func() internalconfig.Summary { return summary },
+		SetConfig:         func(next internalconfig.Config) { cfg = next },
+		EffectiveTimezone: func() string { return "Asia/Shanghai" },
+		Secrets:           contextCheckingSecretStore{},
+	})
+	request := ConfigDocumentFromTyped(cfg)
+	request["scheduler"].(map[string]any)["timezone"] = "America/New_York"
+	result, err := service.UpdateConfigDocument(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.RestartRequired || result.Document.EffectiveTimezone != "Asia/Shanghai" {
+		t.Fatalf("wrong timezone apply result: %+v", result)
+	}
+	if got := service.CurrentConfigDocument(); got.EffectiveTimezone != "Asia/Shanghai" || got.Config["scheduler"].(map[string]any)["timezone"] != "America/New_York" {
+		t.Fatalf("wrong persisted/effective timezone: %+v", got)
+	}
+}
+
 func (contextCheckingSecretStore) Get(ctx context.Context, key string) ([]byte, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err

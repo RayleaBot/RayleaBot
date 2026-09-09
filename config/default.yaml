@@ -95,7 +95,7 @@ runtime:
     shutdown_grace_seconds: 10
     stderr_rate_limit_bytes_per_second: 262144
 scheduler:
-    timezone: ""
+    timezone: "Asia/Shanghai"
 schema_version: "3"
 server:
     host: 127.0.0.1

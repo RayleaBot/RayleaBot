@@ -2627,8 +2627,12 @@ components:
     ConfigSnapshotResponse:
       type: object
       additionalProperties: false
-      required: [config]
+      required: [config, effective_timezone]
       properties:
+        effective_timezone:
+          type: string
+          minLength: 1
+          description: IANA timezone currently used by the running scheduler and management time display. Remains unchanged after saving a timezone change until the server restarts. Defaults to Asia/Shanghai.
         config:
           $ref: '#/components/schemas/ConfigDocument'
         redacted_fields:
@@ -2657,8 +2661,12 @@ components:
     ConfigUpdateResponse:
       type: object
       additionalProperties: false
-      required: [config, restart_required, apply_effects]
+      required: [config, effective_timezone, restart_required, apply_effects]
       properties:
+        effective_timezone:
+          type: string
+          minLength: 1
+          description: IANA timezone currently used by the running scheduler and management time display, including while config.scheduler.timezone awaits restart.
         config:
           $ref: '#/components/schemas/ConfigDocument'
         redacted_fields:

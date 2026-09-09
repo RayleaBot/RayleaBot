@@ -401,8 +401,8 @@
       "properties": {
         "timezone": {
           "type": "string",
-          "default": "",
-          "description": "IANA timezone identifier used for scheduled tasks. Empty defaults to system timezone.",
+          "default": "Asia/Shanghai",
+          "description": "IANA timezone identifier used for scheduled tasks, server log timestamps and management time display. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
           "x-apply-policy": "restart_required"
         }
       }

@@ -19,6 +19,7 @@ describe('format helpers', () => {
     const expected = new Intl.DateTimeFormat(i18n.global.locale.value, {
       dateStyle: 'short',
       timeStyle: 'medium',
+      timeZone: 'Asia/Shanghai',
     }).format(new Date(unixSeconds * 1000))
 
     expect(formatDateTime(unixSeconds)).toBe(expected)

@@ -18,6 +18,7 @@ type Service struct {
 	updateMu           sync.Mutex
 	currentConfig      func() config.Config
 	currentSummary     func() config.Summary
+	effectiveTimezone  func() string
 	setConfig          func(config.Config)
 	setSummary         func(config.Summary)
 	logger             *slog.Logger
@@ -37,6 +38,7 @@ type Service struct {
 type Deps struct {
 	CurrentConfig      func() config.Config
 	CurrentSummary     func() config.Summary
+	EffectiveTimezone  func() string
 	SetConfig          func(config.Config)
 	SetSummary         func(config.Summary)
 	Logger             *slog.Logger
@@ -54,6 +56,14 @@ type Deps struct {
 }
 
 func NewService(deps Deps) *Service {
+	effectiveTimezone := deps.EffectiveTimezone
+	if effectiveTimezone == nil {
+		zone := config.DefaultTimezone
+		if deps.CurrentConfig != nil {
+			zone = config.NormalizeTimezone(deps.CurrentConfig().Scheduler.Timezone)
+		}
+		effectiveTimezone = func() string { return zone }
+	}
 	var protocol configProtocolReloader
 	if deps.Protocol != nil {
 		protocol = deps.Protocol
@@ -61,6 +71,7 @@ func NewService(deps Deps) *Service {
 	return &Service{
 		currentConfig:      deps.CurrentConfig,
 		currentSummary:     deps.CurrentSummary,
+		effectiveTimezone:  effectiveTimezone,
 		setConfig:          deps.SetConfig,
 		setSummary:         deps.SetSummary,
 		logger:             deps.Logger,

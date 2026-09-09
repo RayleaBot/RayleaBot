@@ -34,8 +34,9 @@ func (e ApplyEffects) RestartRequired() bool {
 }
 
 type Document struct {
-	Config         map[string]any
-	RedactedFields []string
+	Config            map[string]any
+	RedactedFields    []string
+	EffectiveTimezone string
 }
 
 type UpdateResult struct {
@@ -47,8 +48,9 @@ type UpdateResult struct {
 func (s *Service) CurrentConfigDocument() Document {
 	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(s.config()))
 	return Document{
-		Config:         document,
-		RedactedFields: redactedFields,
+		Config:            document,
+		RedactedFields:    redactedFields,
+		EffectiveTimezone: s.effectiveTimezone(),
 	}
 }
 
@@ -82,8 +84,9 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(newCfg))
 	return UpdateResult{
 		Document: Document{
-			Config:         document,
-			RedactedFields: redactedFields,
+			Config:            document,
+			RedactedFields:    redactedFields,
+			EffectiveTimezone: s.effectiveTimezone(),
 		},
 		RestartRequired: applyEffects.RestartRequired(),
 		ApplyEffects:    applyEffects,

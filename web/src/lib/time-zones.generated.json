@@ -1,0 +1,3812 @@
+{
+  "ianaVersion": "2026c",
+  "cldrVersion": "48.0.0",
+  "sources": [
+    "https://data.iana.org/time-zones/tzdb-2026c/tzdata.zi",
+    "https://data.iana.org/time-zones/tzdb-2026c/zone.tab",
+    "https://raw.githubusercontent.com/unicode-org/cldr-json/48.0.0/cldr-json/cldr-dates-full/main/zh/timeZoneNames.json",
+    "https://raw.githubusercontent.com/unicode-org/cldr-json/48.0.0/cldr-json/cldr-core/supplemental/windowsZones.json"
+  ],
+  "windowsZones": [
+    {
+      "windowsId": "Afghanistan Standard Time",
+      "id": "Asia/Kabul"
+    },
+    {
+      "windowsId": "Alaskan Standard Time",
+      "id": "America/Anchorage"
+    },
+    {
+      "windowsId": "Aleutian Standard Time",
+      "id": "America/Adak"
+    },
+    {
+      "windowsId": "Altai Standard Time",
+      "id": "Asia/Barnaul"
+    },
+    {
+      "windowsId": "Arab Standard Time",
+      "id": "Asia/Riyadh"
+    },
+    {
+      "windowsId": "Arabian Standard Time",
+      "id": "Asia/Dubai"
+    },
+    {
+      "windowsId": "Arabic Standard Time",
+      "id": "Asia/Baghdad"
+    },
+    {
+      "windowsId": "Argentina Standard Time",
+      "id": "America/Argentina/Buenos_Aires"
+    },
+    {
+      "windowsId": "Astrakhan Standard Time",
+      "id": "Europe/Astrakhan"
+    },
+    {
+      "windowsId": "Atlantic Standard Time",
+      "id": "America/Halifax"
+    },
+    {
+      "windowsId": "AUS Central Standard Time",
+      "id": "Australia/Darwin"
+    },
+    {
+      "windowsId": "Aus Central W. Standard Time",
+      "id": "Australia/Eucla"
+    },
+    {
+      "windowsId": "AUS Eastern Standard Time",
+      "id": "Australia/Sydney"
+    },
+    {
+      "windowsId": "Azerbaijan Standard Time",
+      "id": "Asia/Baku"
+    },
+    {
+      "windowsId": "Azores Standard Time",
+      "id": "Atlantic/Azores"
+    },
+    {
+      "windowsId": "Bahia Standard Time",
+      "id": "America/Bahia"
+    },
+    {
+      "windowsId": "Bangladesh Standard Time",
+      "id": "Asia/Dhaka"
+    },
+    {
+      "windowsId": "Belarus Standard Time",
+      "id": "Europe/Minsk"
+    },
+    {
+      "windowsId": "Bougainville Standard Time",
+      "id": "Pacific/Bougainville"
+    },
+    {
+      "windowsId": "Canada Central Standard Time",
+      "id": "America/Regina"
+    },
+    {
+      "windowsId": "Cape Verde Standard Time",
+      "id": "Atlantic/Cape_Verde"
+    },
+    {
+      "windowsId": "Caucasus Standard Time",
+      "id": "Asia/Yerevan"
+    },
+    {
+      "windowsId": "Cen. Australia Standard Time",
+      "id": "Australia/Adelaide"
+    },
+    {
+      "windowsId": "Central America Standard Time",
+      "id": "America/Guatemala"
+    },
+    {
+      "windowsId": "Central Asia Standard Time",
+      "id": "Asia/Bishkek"
+    },
+    {
+      "windowsId": "Central Brazilian Standard Time",
+      "id": "America/Cuiaba"
+    },
+    {
+      "windowsId": "Central Europe Standard Time",
+      "id": "Europe/Budapest"
+    },
+    {
+      "windowsId": "Central European Standard Time",
+      "id": "Europe/Warsaw"
+    },
+    {
+      "windowsId": "Central Pacific Standard Time",
+      "id": "Pacific/Guadalcanal"
+    },
+    {
+      "windowsId": "Central Standard Time",
+      "id": "America/Chicago"
+    },
+    {
+      "windowsId": "Central Standard Time (Mexico)",
+      "id": "America/Mexico_City"
+    },
+    {
+      "windowsId": "Chatham Islands Standard Time",
+      "id": "Pacific/Chatham"
+    },
+    {
+      "windowsId": "China Standard Time",
+      "id": "Asia/Shanghai"
+    },
+    {
+      "windowsId": "Cuba Standard Time",
+      "id": "America/Havana"
+    },
+    {
+      "windowsId": "Dateline Standard Time",
+      "id": "Etc/GMT+12"
+    },
+    {
+      "windowsId": "E. Africa Standard Time",
+      "id": "Africa/Nairobi"
+    },
+    {
+      "windowsId": "E. Australia Standard Time",
+      "id": "Australia/Brisbane"
+    },
+    {
+      "windowsId": "E. Europe Standard Time",
+      "id": "Europe/Chisinau"
+    },
+    {
+      "windowsId": "E. South America Standard Time",
+      "id": "America/Sao_Paulo"
+    },
+    {
+      "windowsId": "Easter Island Standard Time",
+      "id": "Pacific/Easter"
+    },
+    {
+      "windowsId": "Eastern Standard Time",
+      "id": "America/New_York"
+    },
+    {
+      "windowsId": "Eastern Standard Time (Mexico)",
+      "id": "America/Cancun"
+    },
+    {
+      "windowsId": "Egypt Standard Time",
+      "id": "Africa/Cairo"
+    },
+    {
+      "windowsId": "Ekaterinburg Standard Time",
+      "id": "Asia/Yekaterinburg"
+    },
+    {
+      "windowsId": "Fiji Standard Time",
+      "id": "Pacific/Fiji"
+    },
+    {
+      "windowsId": "FLE Standard Time",
+      "id": "Europe/Kyiv"
+    },
+    {
+      "windowsId": "Georgian Standard Time",
+      "id": "Asia/Tbilisi"
+    },
+    {
+      "windowsId": "GMT Standard Time",
+      "id": "Europe/London"
+    },
+    {
+      "windowsId": "Greenland Standard Time",
+      "id": "America/Nuuk"
+    },
+    {
+      "windowsId": "Greenwich Standard Time",
+      "id": "Atlantic/Reykjavik"
+    },
+    {
+      "windowsId": "GTB Standard Time",
+      "id": "Europe/Bucharest"
+    },
+    {
+      "windowsId": "Haiti Standard Time",
+      "id": "America/Port-au-Prince"
+    },
+    {
+      "windowsId": "Hawaiian Standard Time",
+      "id": "Pacific/Honolulu"
+    },
+    {
+      "windowsId": "India Standard Time",
+      "id": "Asia/Kolkata"
+    },
+    {
+      "windowsId": "Iran Standard Time",
+      "id": "Asia/Tehran"
+    },
+    {
+      "windowsId": "Israel Standard Time",
+      "id": "Asia/Jerusalem"
+    },
+    {
+      "windowsId": "Jordan Standard Time",
+      "id": "Asia/Amman"
+    },
+    {
+      "windowsId": "Kaliningrad Standard Time",
+      "id": "Europe/Kaliningrad"
+    },
+    {
+      "windowsId": "Korea Standard Time",
+      "id": "Asia/Seoul"
+    },
+    {
+      "windowsId": "Libya Standard Time",
+      "id": "Africa/Tripoli"
+    },
+    {
+      "windowsId": "Line Islands Standard Time",
+      "id": "Pacific/Kiritimati"
+    },
+    {
+      "windowsId": "Lord Howe Standard Time",
+      "id": "Australia/Lord_Howe"
+    },
+    {
+      "windowsId": "Magadan Standard Time",
+      "id": "Asia/Magadan"
+    },
+    {
+      "windowsId": "Magallanes Standard Time",
+      "id": "America/Punta_Arenas"
+    },
+    {
+      "windowsId": "Marquesas Standard Time",
+      "id": "Pacific/Marquesas"
+    },
+    {
+      "windowsId": "Mauritius Standard Time",
+      "id": "Indian/Mauritius"
+    },
+    {
+      "windowsId": "Middle East Standard Time",
+      "id": "Asia/Beirut"
+    },
+    {
+      "windowsId": "Montevideo Standard Time",
+      "id": "America/Montevideo"
+    },
+    {
+      "windowsId": "Morocco Standard Time",
+      "id": "Africa/Casablanca"
+    },
+    {
+      "windowsId": "Mountain Standard Time",
+      "id": "America/Denver"
+    },
+    {
+      "windowsId": "Mountain Standard Time (Mexico)",
+      "id": "America/Mazatlan"
+    },
+    {
+      "windowsId": "Myanmar Standard Time",
+      "id": "Asia/Yangon"
+    },
+    {
+      "windowsId": "N. Central Asia Standard Time",
+      "id": "Asia/Novosibirsk"
+    },
+    {
+      "windowsId": "Namibia Standard Time",
+      "id": "Africa/Windhoek"
+    },
+    {
+      "windowsId": "Nepal Standard Time",
+      "id": "Asia/Kathmandu"
+    },
+    {
+      "windowsId": "New Zealand Standard Time",
+      "id": "Pacific/Auckland"
+    },
+    {
+      "windowsId": "Newfoundland Standard Time",
+      "id": "America/St_Johns"
+    },
+    {
+      "windowsId": "Norfolk Standard Time",
+      "id": "Pacific/Norfolk"
+    },
+    {
+      "windowsId": "North Asia East Standard Time",
+      "id": "Asia/Irkutsk"
+    },
+    {
+      "windowsId": "North Asia Standard Time",
+      "id": "Asia/Krasnoyarsk"
+    },
+    {
+      "windowsId": "North Korea Standard Time",
+      "id": "Asia/Pyongyang"
+    },
+    {
+      "windowsId": "Omsk Standard Time",
+      "id": "Asia/Omsk"
+    },
+    {
+      "windowsId": "Pacific SA Standard Time",
+      "id": "America/Santiago"
+    },
+    {
+      "windowsId": "Pacific Standard Time",
+      "id": "America/Los_Angeles"
+    },
+    {
+      "windowsId": "Pacific Standard Time (Mexico)",
+      "id": "America/Tijuana"
+    },
+    {
+      "windowsId": "Pakistan Standard Time",
+      "id": "Asia/Karachi"
+    },
+    {
+      "windowsId": "Paraguay Standard Time",
+      "id": "America/Asuncion"
+    },
+    {
+      "windowsId": "Qyzylorda Standard Time",
+      "id": "Asia/Qyzylorda"
+    },
+    {
+      "windowsId": "Romance Standard Time",
+      "id": "Europe/Paris"
+    },
+    {
+      "windowsId": "Russia Time Zone 3",
+      "id": "Europe/Samara"
+    },
+    {
+      "windowsId": "Russia Time Zone 10",
+      "id": "Asia/Srednekolymsk"
+    },
+    {
+      "windowsId": "Russia Time Zone 11",
+      "id": "Asia/Kamchatka"
+    },
+    {
+      "windowsId": "Russian Standard Time",
+      "id": "Europe/Moscow"
+    },
+    {
+      "windowsId": "SA Eastern Standard Time",
+      "id": "America/Cayenne"
+    },
+    {
+      "windowsId": "SA Pacific Standard Time",
+      "id": "America/Bogota"
+    },
+    {
+      "windowsId": "SA Western Standard Time",
+      "id": "America/La_Paz"
+    },
+    {
+      "windowsId": "Saint Pierre Standard Time",
+      "id": "America/Miquelon"
+    },
+    {
+      "windowsId": "Sakhalin Standard Time",
+      "id": "Asia/Sakhalin"
+    },
+    {
+      "windowsId": "Samoa Standard Time",
+      "id": "Pacific/Apia"
+    },
+    {
+      "windowsId": "Sao Tome Standard Time",
+      "id": "Africa/Sao_Tome"
+    },
+    {
+      "windowsId": "Saratov Standard Time",
+      "id": "Europe/Saratov"
+    },
+    {
+      "windowsId": "SE Asia Standard Time",
+      "id": "Asia/Bangkok"
+    },
+    {
+      "windowsId": "Singapore Standard Time",
+      "id": "Asia/Singapore"
+    },
+    {
+      "windowsId": "South Africa Standard Time",
+      "id": "Africa/Johannesburg"
+    },
+    {
+      "windowsId": "South Sudan Standard Time",
+      "id": "Africa/Juba"
+    },
+    {
+      "windowsId": "Sri Lanka Standard Time",
+      "id": "Asia/Colombo"
+    },
+    {
+      "windowsId": "Sudan Standard Time",
+      "id": "Africa/Khartoum"
+    },
+    {
+      "windowsId": "Syria Standard Time",
+      "id": "Asia/Damascus"
+    },
+    {
+      "windowsId": "Taipei Standard Time",
+      "id": "Asia/Taipei"
+    },
+    {
+      "windowsId": "Tasmania Standard Time",
+      "id": "Australia/Hobart"
+    },
+    {
+      "windowsId": "Tocantins Standard Time",
+      "id": "America/Araguaina"
+    },
+    {
+      "windowsId": "Tokyo Standard Time",
+      "id": "Asia/Tokyo"
+    },
+    {
+      "windowsId": "Tomsk Standard Time",
+      "id": "Asia/Tomsk"
+    },
+    {
+      "windowsId": "Tonga Standard Time",
+      "id": "Pacific/Tongatapu"
+    },
+    {
+      "windowsId": "Transbaikal Standard Time",
+      "id": "Asia/Chita"
+    },
+    {
+      "windowsId": "Turkey Standard Time",
+      "id": "Europe/Istanbul"
+    },
+    {
+      "windowsId": "Turks And Caicos Standard Time",
+      "id": "America/Grand_Turk"
+    },
+    {
+      "windowsId": "Ulaanbaatar Standard Time",
+      "id": "Asia/Ulaanbaatar"
+    },
+    {
+      "windowsId": "US Eastern Standard Time",
+      "id": "America/Indiana/Indianapolis"
+    },
+    {
+      "windowsId": "US Mountain Standard Time",
+      "id": "America/Phoenix"
+    },
+    {
+      "windowsId": "UTC",
+      "id": "UTC"
+    },
+    {
+      "windowsId": "UTC-02",
+      "id": "Etc/GMT+2"
+    },
+    {
+      "windowsId": "UTC-08",
+      "id": "Etc/GMT+8"
+    },
+    {
+      "windowsId": "UTC-09",
+      "id": "Etc/GMT+9"
+    },
+    {
+      "windowsId": "UTC-11",
+      "id": "Etc/GMT+11"
+    },
+    {
+      "windowsId": "UTC+12",
+      "id": "Etc/GMT-12"
+    },
+    {
+      "windowsId": "UTC+13",
+      "id": "Etc/GMT-13"
+    },
+    {
+      "windowsId": "Venezuela Standard Time",
+      "id": "America/Caracas"
+    },
+    {
+      "windowsId": "Vladivostok Standard Time",
+      "id": "Asia/Vladivostok"
+    },
+    {
+      "windowsId": "Volgograd Standard Time",
+      "id": "Europe/Volgograd"
+    },
+    {
+      "windowsId": "W. Australia Standard Time",
+      "id": "Australia/Perth"
+    },
+    {
+      "windowsId": "W. Central Africa Standard Time",
+      "id": "Africa/Lagos"
+    },
+    {
+      "windowsId": "W. Europe Standard Time",
+      "id": "Europe/Berlin"
+    },
+    {
+      "windowsId": "W. Mongolia Standard Time",
+      "id": "Asia/Hovd"
+    },
+    {
+      "windowsId": "West Asia Standard Time",
+      "id": "Asia/Tashkent"
+    },
+    {
+      "windowsId": "West Bank Standard Time",
+      "id": "Asia/Hebron"
+    },
+    {
+      "windowsId": "West Pacific Standard Time",
+      "id": "Pacific/Port_Moresby"
+    },
+    {
+      "windowsId": "Yakutsk Standard Time",
+      "id": "Asia/Yakutsk"
+    },
+    {
+      "windowsId": "Yukon Standard Time",
+      "id": "America/Whitehorse"
+    }
+  ],
+  "zones": [
+    {
+      "id": "Africa/Abidjan",
+      "city": "阿比让",
+      "region": "科特迪瓦"
+    },
+    {
+      "id": "Africa/Accra",
+      "city": "阿克拉",
+      "region": "加纳",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Addis_Ababa",
+      "city": "亚的斯亚贝巴",
+      "region": "埃塞俄比亚",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Algiers",
+      "city": "阿尔及尔",
+      "region": "阿尔及利亚"
+    },
+    {
+      "id": "Africa/Asmara",
+      "city": "内罗毕",
+      "region": "厄立特里亚",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Asmera",
+      "city": "阿斯马拉",
+      "region": "肯尼亚",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Bamako",
+      "city": "巴马科",
+      "region": "马里",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Bangui",
+      "city": "班吉",
+      "region": "中非共和国",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Banjul",
+      "city": "班珠尔",
+      "region": "冈比亚",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Bissau",
+      "city": "比绍",
+      "region": "几内亚比绍"
+    },
+    {
+      "id": "Africa/Blantyre",
+      "city": "布兰太尔",
+      "region": "马拉维",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Brazzaville",
+      "city": "布拉柴维尔",
+      "region": "刚果（布）",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Bujumbura",
+      "city": "布琼布拉",
+      "region": "布隆迪",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Cairo",
+      "city": "开罗",
+      "region": "埃及"
+    },
+    {
+      "id": "Africa/Casablanca",
+      "city": "卡萨布兰卡",
+      "region": "摩洛哥"
+    },
+    {
+      "id": "Africa/Ceuta",
+      "city": "休达",
+      "region": "西班牙"
+    },
+    {
+      "id": "Africa/Conakry",
+      "city": "科纳克里",
+      "region": "几内亚",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Dakar",
+      "city": "达喀尔",
+      "region": "塞内加尔",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Dar_es_Salaam",
+      "city": "达累斯萨拉姆",
+      "region": "坦桑尼亚",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Djibouti",
+      "city": "吉布提",
+      "region": "吉布提",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Douala",
+      "city": "杜阿拉",
+      "region": "喀麦隆",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/El_Aaiun",
+      "city": "阿尤恩",
+      "region": "西撒哈拉"
+    },
+    {
+      "id": "Africa/Freetown",
+      "city": "弗里敦",
+      "region": "塞拉利昂",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Gaborone",
+      "city": "哈博罗内",
+      "region": "博茨瓦纳",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Harare",
+      "city": "哈拉雷",
+      "region": "津巴布韦",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Johannesburg",
+      "city": "约翰内斯堡",
+      "region": "南非"
+    },
+    {
+      "id": "Africa/Juba",
+      "city": "朱巴",
+      "region": "南苏丹"
+    },
+    {
+      "id": "Africa/Kampala",
+      "city": "坎帕拉",
+      "region": "乌干达",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Khartoum",
+      "city": "喀土穆",
+      "region": "苏丹"
+    },
+    {
+      "id": "Africa/Kigali",
+      "city": "基加利",
+      "region": "卢旺达",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Kinshasa",
+      "city": "金沙萨",
+      "region": "刚果（金）",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Lagos",
+      "city": "拉各斯",
+      "region": "尼日利亚"
+    },
+    {
+      "id": "Africa/Libreville",
+      "city": "利伯维尔",
+      "region": "加蓬",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Lome",
+      "city": "洛美",
+      "region": "多哥",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Luanda",
+      "city": "罗安达",
+      "region": "安哥拉",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Lubumbashi",
+      "city": "卢本巴希",
+      "region": "刚果（金）",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Lusaka",
+      "city": "卢萨卡",
+      "region": "赞比亚",
+      "canonical": "Africa/Maputo"
+    },
+    {
+      "id": "Africa/Malabo",
+      "city": "马拉博",
+      "region": "赤道几内亚",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Maputo",
+      "city": "马普托",
+      "region": "莫桑比克"
+    },
+    {
+      "id": "Africa/Maseru",
+      "city": "马塞卢",
+      "region": "莱索托",
+      "canonical": "Africa/Johannesburg"
+    },
+    {
+      "id": "Africa/Mbabane",
+      "city": "姆巴巴纳",
+      "region": "斯威士兰",
+      "canonical": "Africa/Johannesburg"
+    },
+    {
+      "id": "Africa/Mogadishu",
+      "city": "摩加迪沙",
+      "region": "索马里",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Africa/Monrovia",
+      "city": "蒙罗维亚",
+      "region": "利比里亚"
+    },
+    {
+      "id": "Africa/Nairobi",
+      "city": "内罗毕",
+      "region": "肯尼亚"
+    },
+    {
+      "id": "Africa/Ndjamena",
+      "city": "恩贾梅纳",
+      "region": "乍得"
+    },
+    {
+      "id": "Africa/Niamey",
+      "city": "尼亚美",
+      "region": "尼日尔",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Nouakchott",
+      "city": "努瓦克肖特",
+      "region": "毛里塔尼亚",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Ouagadougou",
+      "city": "瓦加杜古",
+      "region": "布基纳法索",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Porto-Novo",
+      "city": "波多诺伏",
+      "region": "贝宁",
+      "canonical": "Africa/Lagos"
+    },
+    {
+      "id": "Africa/Sao_Tome",
+      "city": "圣多美",
+      "region": "圣多美和普林西比"
+    },
+    {
+      "id": "Africa/Timbuktu",
+      "city": "阿比让",
+      "region": "科特迪瓦",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Africa/Tripoli",
+      "city": "的黎波里",
+      "region": "利比亚"
+    },
+    {
+      "id": "Africa/Tunis",
+      "city": "突尼斯",
+      "region": "突尼斯"
+    },
+    {
+      "id": "Africa/Windhoek",
+      "city": "温得和克",
+      "region": "纳米比亚"
+    },
+    {
+      "id": "America/Adak",
+      "city": "埃达克",
+      "region": "美国"
+    },
+    {
+      "id": "America/Anchorage",
+      "city": "安克雷奇",
+      "region": "美国"
+    },
+    {
+      "id": "America/Anguilla",
+      "city": "安圭拉",
+      "region": "安圭拉",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Antigua",
+      "city": "安提瓜",
+      "region": "安提瓜和巴布达",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Araguaina",
+      "city": "阿拉瓜伊纳",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Argentina/Buenos_Aires",
+      "city": "布宜诺斯艾利斯",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Catamarca",
+      "city": "卡塔马卡",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/ComodRivadavia",
+      "city": "卡塔马卡",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Catamarca"
+    },
+    {
+      "id": "America/Argentina/Cordoba",
+      "city": "科尔多瓦",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Jujuy",
+      "city": "胡胡伊",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/La_Rioja",
+      "city": "拉里奥哈",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Mendoza",
+      "city": "门多萨",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Rio_Gallegos",
+      "city": "里奥加耶戈斯",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Salta",
+      "city": "萨尔塔",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/San_Juan",
+      "city": "圣胡安",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/San_Luis",
+      "city": "圣路易斯",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Tucuman",
+      "city": "图库曼",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Argentina/Ushuaia",
+      "city": "乌斯怀亚",
+      "region": "阿根廷"
+    },
+    {
+      "id": "America/Aruba",
+      "city": "阿鲁巴",
+      "region": "阿鲁巴",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Asuncion",
+      "city": "亚松森",
+      "region": "巴拉圭"
+    },
+    {
+      "id": "America/Atikokan",
+      "city": "巴拿马",
+      "region": "加拿大",
+      "canonical": "America/Panama"
+    },
+    {
+      "id": "America/Atka",
+      "city": "埃达克",
+      "region": "美国",
+      "canonical": "America/Adak"
+    },
+    {
+      "id": "America/Bahia",
+      "city": "巴伊亚",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Bahia_Banderas",
+      "city": "巴伊亚班德拉斯",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Barbados",
+      "city": "巴巴多斯",
+      "region": "巴巴多斯"
+    },
+    {
+      "id": "America/Belem",
+      "city": "贝伦",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Belize",
+      "city": "伯利兹",
+      "region": "伯利兹"
+    },
+    {
+      "id": "America/Blanc-Sablon",
+      "city": "布兰克萨布隆",
+      "region": "加拿大",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Boa_Vista",
+      "city": "博阿维斯塔",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Bogota",
+      "city": "波哥大",
+      "region": "哥伦比亚"
+    },
+    {
+      "id": "America/Boise",
+      "city": "博伊西",
+      "region": "美国"
+    },
+    {
+      "id": "America/Buenos_Aires",
+      "city": "布宜诺斯艾利斯",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Buenos_Aires"
+    },
+    {
+      "id": "America/Cambridge_Bay",
+      "city": "剑桥湾",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Campo_Grande",
+      "city": "大坎普",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Cancun",
+      "city": "坎昆",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Caracas",
+      "city": "加拉加斯",
+      "region": "委内瑞拉"
+    },
+    {
+      "id": "America/Catamarca",
+      "city": "卡塔马卡",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Catamarca"
+    },
+    {
+      "id": "America/Cayenne",
+      "city": "卡宴",
+      "region": "法属圭亚那"
+    },
+    {
+      "id": "America/Cayman",
+      "city": "开曼",
+      "region": "开曼群岛",
+      "canonical": "America/Panama"
+    },
+    {
+      "id": "America/Chicago",
+      "city": "芝加哥",
+      "region": "美国"
+    },
+    {
+      "id": "America/Chihuahua",
+      "city": "奇瓦瓦",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Ciudad_Juarez",
+      "city": "华雷斯城",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Coral_Harbour",
+      "city": "阿蒂科肯",
+      "region": "巴拿马",
+      "canonical": "America/Panama"
+    },
+    {
+      "id": "America/Cordoba",
+      "city": "科尔多瓦",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Cordoba"
+    },
+    {
+      "id": "America/Costa_Rica",
+      "city": "哥斯达黎加",
+      "region": "哥斯达黎加"
+    },
+    {
+      "id": "America/Coyhaique",
+      "city": "科伊艾克",
+      "region": "智利"
+    },
+    {
+      "id": "America/Creston",
+      "city": "克雷斯顿",
+      "region": "加拿大",
+      "canonical": "America/Phoenix"
+    },
+    {
+      "id": "America/Cuiaba",
+      "city": "库亚巴",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Curacao",
+      "city": "库拉索",
+      "region": "库拉索",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Danmarkshavn",
+      "city": "丹马沙文",
+      "region": "格陵兰"
+    },
+    {
+      "id": "America/Dawson",
+      "city": "道森",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Dawson_Creek",
+      "city": "道森克里克",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Denver",
+      "city": "丹佛",
+      "region": "美国"
+    },
+    {
+      "id": "America/Detroit",
+      "city": "底特律",
+      "region": "美国"
+    },
+    {
+      "id": "America/Dominica",
+      "city": "多米尼加",
+      "region": "多米尼克",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Edmonton",
+      "city": "埃德蒙顿",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Eirunepe",
+      "city": "依伦尼贝",
+      "region": "巴西"
+    },
+    {
+      "id": "America/El_Salvador",
+      "city": "萨尔瓦多",
+      "region": "萨尔瓦多"
+    },
+    {
+      "id": "America/Ensenada",
+      "city": "蒂华纳",
+      "region": "墨西哥",
+      "canonical": "America/Tijuana"
+    },
+    {
+      "id": "America/Fort_Nelson",
+      "city": "纳尔逊堡",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Fort_Wayne",
+      "city": "印第安纳波利斯",
+      "region": "美国",
+      "canonical": "America/Indiana/Indianapolis"
+    },
+    {
+      "id": "America/Fortaleza",
+      "city": "福塔雷萨",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Glace_Bay",
+      "city": "格莱斯贝",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Godthab",
+      "city": "努克",
+      "region": "格陵兰",
+      "canonical": "America/Nuuk"
+    },
+    {
+      "id": "America/Goose_Bay",
+      "city": "古斯湾",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Grand_Turk",
+      "city": "大特克",
+      "region": "特克斯和凯科斯群岛"
+    },
+    {
+      "id": "America/Grenada",
+      "city": "格林纳达",
+      "region": "格林纳达",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Guadeloupe",
+      "city": "瓜德罗普",
+      "region": "瓜德罗普",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Guatemala",
+      "city": "危地马拉",
+      "region": "危地马拉"
+    },
+    {
+      "id": "America/Guayaquil",
+      "city": "瓜亚基尔",
+      "region": "厄瓜多尔"
+    },
+    {
+      "id": "America/Guyana",
+      "city": "圭亚那",
+      "region": "圭亚那"
+    },
+    {
+      "id": "America/Halifax",
+      "city": "哈利法克斯",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Havana",
+      "city": "哈瓦那",
+      "region": "古巴"
+    },
+    {
+      "id": "America/Hermosillo",
+      "city": "埃莫西约",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Indiana/Indianapolis",
+      "city": "印第安纳波利斯",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Knox",
+      "city": "印第安纳州诺克斯",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Marengo",
+      "city": "印第安纳州马伦戈",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Petersburg",
+      "city": "印第安纳州彼得斯堡",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Tell_City",
+      "city": "印第安纳州特尔城",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Vevay",
+      "city": "印第安纳州维维市",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Vincennes",
+      "city": "印第安纳州温森斯",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indiana/Winamac",
+      "city": "印第安纳州威纳马克",
+      "region": "美国"
+    },
+    {
+      "id": "America/Indianapolis",
+      "city": "印第安纳波利斯",
+      "region": "美国",
+      "canonical": "America/Indiana/Indianapolis"
+    },
+    {
+      "id": "America/Inuvik",
+      "city": "伊努维克",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Iqaluit",
+      "city": "伊魁特",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Jamaica",
+      "city": "牙买加",
+      "region": "牙买加"
+    },
+    {
+      "id": "America/Jujuy",
+      "city": "胡胡伊",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Jujuy"
+    },
+    {
+      "id": "America/Juneau",
+      "city": "朱诺",
+      "region": "美国"
+    },
+    {
+      "id": "America/Kentucky/Louisville",
+      "city": "路易斯维尔",
+      "region": "美国"
+    },
+    {
+      "id": "America/Kentucky/Monticello",
+      "city": "肯塔基州蒙蒂塞洛",
+      "region": "美国"
+    },
+    {
+      "id": "America/Knox_IN",
+      "city": "印第安纳州诺克斯",
+      "region": "美国",
+      "canonical": "America/Indiana/Knox"
+    },
+    {
+      "id": "America/Kralendijk",
+      "city": "克拉伦代克",
+      "region": "荷属加勒比区",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/La_Paz",
+      "city": "拉巴斯",
+      "region": "玻利维亚"
+    },
+    {
+      "id": "America/Lima",
+      "city": "利马",
+      "region": "秘鲁"
+    },
+    {
+      "id": "America/Los_Angeles",
+      "city": "洛杉矶",
+      "region": "美国"
+    },
+    {
+      "id": "America/Louisville",
+      "city": "路易斯维尔",
+      "region": "美国",
+      "canonical": "America/Kentucky/Louisville"
+    },
+    {
+      "id": "America/Lower_Princes",
+      "city": "下太子区",
+      "region": "荷属圣马丁",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Maceio",
+      "city": "马塞约",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Managua",
+      "city": "马那瓜",
+      "region": "尼加拉瓜"
+    },
+    {
+      "id": "America/Manaus",
+      "city": "马瑙斯",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Marigot",
+      "city": "马里戈特",
+      "region": "法属圣马丁",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Martinique",
+      "city": "马提尼克",
+      "region": "马提尼克"
+    },
+    {
+      "id": "America/Matamoros",
+      "city": "马塔莫罗斯",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Mazatlan",
+      "city": "马萨特兰",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Mendoza",
+      "city": "门多萨",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Mendoza"
+    },
+    {
+      "id": "America/Menominee",
+      "city": "梅诺米尼",
+      "region": "美国"
+    },
+    {
+      "id": "America/Merida",
+      "city": "梅里达",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Metlakatla",
+      "city": "梅特拉卡特拉",
+      "region": "美国"
+    },
+    {
+      "id": "America/Mexico_City",
+      "city": "墨西哥城",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Miquelon",
+      "city": "密克隆",
+      "region": "圣皮埃尔和密克隆群岛"
+    },
+    {
+      "id": "America/Moncton",
+      "city": "蒙克顿",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Monterrey",
+      "city": "蒙特雷",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Montevideo",
+      "city": "蒙得维的亚",
+      "region": "乌拉圭"
+    },
+    {
+      "id": "America/Montreal",
+      "city": "多伦多",
+      "region": "加拿大",
+      "canonical": "America/Toronto"
+    },
+    {
+      "id": "America/Montserrat",
+      "city": "蒙特塞拉特",
+      "region": "蒙特塞拉特",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Nassau",
+      "city": "拿骚",
+      "region": "巴哈马",
+      "canonical": "America/Toronto"
+    },
+    {
+      "id": "America/New_York",
+      "city": "纽约",
+      "region": "美国"
+    },
+    {
+      "id": "America/Nipigon",
+      "city": "多伦多",
+      "region": "加拿大",
+      "canonical": "America/Toronto"
+    },
+    {
+      "id": "America/Nome",
+      "city": "诺姆",
+      "region": "美国"
+    },
+    {
+      "id": "America/Noronha",
+      "city": "洛罗尼亚",
+      "region": "巴西"
+    },
+    {
+      "id": "America/North_Dakota/Beulah",
+      "city": "北达科他州比尤拉",
+      "region": "美国"
+    },
+    {
+      "id": "America/North_Dakota/Center",
+      "city": "北达科他州申特",
+      "region": "美国"
+    },
+    {
+      "id": "America/North_Dakota/New_Salem",
+      "city": "北达科他州新塞勒姆",
+      "region": "美国"
+    },
+    {
+      "id": "America/Nuuk",
+      "city": "努克",
+      "region": "格陵兰"
+    },
+    {
+      "id": "America/Ojinaga",
+      "city": "奥希纳加",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Panama",
+      "city": "巴拿马",
+      "region": "巴拿马"
+    },
+    {
+      "id": "America/Pangnirtung",
+      "city": "伊魁特",
+      "region": "加拿大",
+      "canonical": "America/Iqaluit"
+    },
+    {
+      "id": "America/Paramaribo",
+      "city": "帕拉马里博",
+      "region": "苏里南"
+    },
+    {
+      "id": "America/Phoenix",
+      "city": "凤凰城",
+      "region": "美国"
+    },
+    {
+      "id": "America/Port-au-Prince",
+      "city": "太子港",
+      "region": "海地"
+    },
+    {
+      "id": "America/Port_of_Spain",
+      "city": "西班牙港",
+      "region": "特立尼达和多巴哥",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Porto_Acre",
+      "city": "里奥布郎库",
+      "region": "巴西",
+      "canonical": "America/Rio_Branco"
+    },
+    {
+      "id": "America/Porto_Velho",
+      "city": "波多韦柳",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Puerto_Rico",
+      "city": "波多黎各",
+      "region": "波多黎各"
+    },
+    {
+      "id": "America/Punta_Arenas",
+      "city": "蓬塔阿雷纳斯",
+      "region": "智利"
+    },
+    {
+      "id": "America/Rainy_River",
+      "city": "温尼伯",
+      "region": "加拿大",
+      "canonical": "America/Winnipeg"
+    },
+    {
+      "id": "America/Rankin_Inlet",
+      "city": "兰今湾",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Recife",
+      "city": "累西腓",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Regina",
+      "city": "里贾纳",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Resolute",
+      "city": "雷索卢特",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Rio_Branco",
+      "city": "里奥布郎库",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Rosario",
+      "city": "科尔多瓦",
+      "region": "阿根廷",
+      "canonical": "America/Argentina/Cordoba"
+    },
+    {
+      "id": "America/Santa_Isabel",
+      "city": "蒂华纳",
+      "region": "墨西哥",
+      "canonical": "America/Tijuana"
+    },
+    {
+      "id": "America/Santarem",
+      "city": "圣塔伦",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Santiago",
+      "city": "圣地亚哥",
+      "region": "智利"
+    },
+    {
+      "id": "America/Santo_Domingo",
+      "city": "圣多明各",
+      "region": "多米尼加共和国"
+    },
+    {
+      "id": "America/Sao_Paulo",
+      "city": "圣保罗",
+      "region": "巴西"
+    },
+    {
+      "id": "America/Scoresbysund",
+      "city": "斯科列斯比桑德",
+      "region": "格陵兰"
+    },
+    {
+      "id": "America/Shiprock",
+      "city": "丹佛",
+      "region": "美国",
+      "canonical": "America/Denver"
+    },
+    {
+      "id": "America/Sitka",
+      "city": "锡特卡",
+      "region": "美国"
+    },
+    {
+      "id": "America/St_Barthelemy",
+      "city": "圣巴泰勒米岛",
+      "region": "圣巴泰勒米",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/St_Johns",
+      "city": "圣约翰斯",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/St_Kitts",
+      "city": "圣基茨",
+      "region": "圣基茨和尼维斯",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/St_Lucia",
+      "city": "圣卢西亚",
+      "region": "圣卢西亚",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/St_Thomas",
+      "city": "圣托马斯",
+      "region": "美属维尔京群岛",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/St_Vincent",
+      "city": "圣文森特",
+      "region": "圣文森特和格林纳丁斯",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Swift_Current",
+      "city": "斯威夫特卡伦特",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Tegucigalpa",
+      "city": "特古西加尔巴",
+      "region": "洪都拉斯"
+    },
+    {
+      "id": "America/Thule",
+      "city": "图勒",
+      "region": "格陵兰"
+    },
+    {
+      "id": "America/Thunder_Bay",
+      "city": "多伦多",
+      "region": "加拿大",
+      "canonical": "America/Toronto"
+    },
+    {
+      "id": "America/Tijuana",
+      "city": "蒂华纳",
+      "region": "墨西哥"
+    },
+    {
+      "id": "America/Toronto",
+      "city": "多伦多",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Tortola",
+      "city": "托尔托拉",
+      "region": "英属维尔京群岛",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Vancouver",
+      "city": "温哥华",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Virgin",
+      "city": "波多黎各",
+      "region": "波多黎各",
+      "canonical": "America/Puerto_Rico"
+    },
+    {
+      "id": "America/Whitehorse",
+      "city": "怀特霍斯",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Winnipeg",
+      "city": "温尼伯",
+      "region": "加拿大"
+    },
+    {
+      "id": "America/Yakutat",
+      "city": "亚库塔特",
+      "region": "美国"
+    },
+    {
+      "id": "America/Yellowknife",
+      "city": "埃德蒙顿",
+      "region": "加拿大",
+      "canonical": "America/Edmonton"
+    },
+    {
+      "id": "Antarctica/Casey",
+      "city": "卡塞",
+      "region": "南极洲"
+    },
+    {
+      "id": "Antarctica/Davis",
+      "city": "戴维斯",
+      "region": "南极洲"
+    },
+    {
+      "id": "Antarctica/DumontDUrville",
+      "city": "迪蒙·迪维尔",
+      "region": "南极洲",
+      "canonical": "Pacific/Port_Moresby"
+    },
+    {
+      "id": "Antarctica/Macquarie",
+      "city": "麦夸里岛",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Antarctica/Mawson",
+      "city": "莫森",
+      "region": "南极洲"
+    },
+    {
+      "id": "Antarctica/McMurdo",
+      "city": "麦克默多",
+      "region": "南极洲",
+      "canonical": "Pacific/Auckland"
+    },
+    {
+      "id": "Antarctica/Palmer",
+      "city": "帕尔默",
+      "region": "南极洲"
+    },
+    {
+      "id": "Antarctica/Rothera",
+      "city": "罗瑟拉",
+      "region": "南极洲"
+    },
+    {
+      "id": "Antarctica/South_Pole",
+      "city": "奥克兰",
+      "region": "新西兰",
+      "canonical": "Pacific/Auckland"
+    },
+    {
+      "id": "Antarctica/Syowa",
+      "city": "昭和",
+      "region": "南极洲",
+      "canonical": "Asia/Riyadh"
+    },
+    {
+      "id": "Antarctica/Troll",
+      "city": "特罗尔",
+      "region": "南极洲"
+    },
+    {
+      "id": "Antarctica/Vostok",
+      "city": "沃斯托克",
+      "region": "南极洲"
+    },
+    {
+      "id": "Arctic/Longyearbyen",
+      "city": "朗伊尔城",
+      "region": "斯瓦尔巴和扬马延",
+      "canonical": "Europe/Berlin"
+    },
+    {
+      "id": "Asia/Aden",
+      "city": "亚丁",
+      "region": "也门",
+      "canonical": "Asia/Riyadh"
+    },
+    {
+      "id": "Asia/Almaty",
+      "city": "阿拉木图",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Amman",
+      "city": "安曼",
+      "region": "约旦"
+    },
+    {
+      "id": "Asia/Anadyr",
+      "city": "阿纳德尔",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Aqtau",
+      "city": "阿克套",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Aqtobe",
+      "city": "阿克托别",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Ashgabat",
+      "city": "阿什哈巴德",
+      "region": "土库曼斯坦"
+    },
+    {
+      "id": "Asia/Ashkhabad",
+      "city": "阿什哈巴德",
+      "region": "土库曼斯坦",
+      "canonical": "Asia/Ashgabat"
+    },
+    {
+      "id": "Asia/Atyrau",
+      "city": "阿特劳",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Baghdad",
+      "city": "巴格达",
+      "region": "伊拉克"
+    },
+    {
+      "id": "Asia/Bahrain",
+      "city": "巴林",
+      "region": "巴林",
+      "canonical": "Asia/Qatar"
+    },
+    {
+      "id": "Asia/Baku",
+      "city": "巴库",
+      "region": "阿塞拜疆"
+    },
+    {
+      "id": "Asia/Bangkok",
+      "city": "曼谷",
+      "region": "泰国"
+    },
+    {
+      "id": "Asia/Barnaul",
+      "city": "巴尔瑙尔",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Beirut",
+      "city": "贝鲁特",
+      "region": "黎巴嫩"
+    },
+    {
+      "id": "Asia/Bishkek",
+      "city": "比什凯克",
+      "region": "吉尔吉斯斯坦"
+    },
+    {
+      "id": "Asia/Brunei",
+      "city": "文莱",
+      "region": "文莱",
+      "canonical": "Asia/Kuching"
+    },
+    {
+      "id": "Asia/Calcutta",
+      "city": "加尔各答",
+      "region": "印度",
+      "canonical": "Asia/Kolkata"
+    },
+    {
+      "id": "Asia/Chita",
+      "city": "赤塔",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Choibalsan",
+      "city": "乌兰巴托",
+      "region": "蒙古",
+      "canonical": "Asia/Ulaanbaatar"
+    },
+    {
+      "id": "Asia/Chongqing",
+      "city": "上海",
+      "region": "中国",
+      "canonical": "Asia/Shanghai"
+    },
+    {
+      "id": "Asia/Chungking",
+      "city": "上海",
+      "region": "中国",
+      "canonical": "Asia/Shanghai"
+    },
+    {
+      "id": "Asia/Colombo",
+      "city": "科伦坡",
+      "region": "斯里兰卡"
+    },
+    {
+      "id": "Asia/Dacca",
+      "city": "达卡",
+      "region": "孟加拉国",
+      "canonical": "Asia/Dhaka"
+    },
+    {
+      "id": "Asia/Damascus",
+      "city": "大马士革",
+      "region": "叙利亚"
+    },
+    {
+      "id": "Asia/Dhaka",
+      "city": "达卡",
+      "region": "孟加拉国"
+    },
+    {
+      "id": "Asia/Dili",
+      "city": "帝力",
+      "region": "东帝汶"
+    },
+    {
+      "id": "Asia/Dubai",
+      "city": "迪拜",
+      "region": "阿拉伯联合酋长国"
+    },
+    {
+      "id": "Asia/Dushanbe",
+      "city": "杜尚别",
+      "region": "塔吉克斯坦"
+    },
+    {
+      "id": "Asia/Famagusta",
+      "city": "法马古斯塔",
+      "region": "塞浦路斯"
+    },
+    {
+      "id": "Asia/Gaza",
+      "city": "加沙",
+      "region": "巴勒斯坦领土"
+    },
+    {
+      "id": "Asia/Harbin",
+      "city": "上海",
+      "region": "中国",
+      "canonical": "Asia/Shanghai"
+    },
+    {
+      "id": "Asia/Hebron",
+      "city": "希伯伦",
+      "region": "巴勒斯坦领土"
+    },
+    {
+      "id": "Asia/Ho_Chi_Minh",
+      "city": "胡志明市",
+      "region": "越南"
+    },
+    {
+      "id": "Asia/Hong_Kong",
+      "city": "香港",
+      "region": "中国香港特别行政区"
+    },
+    {
+      "id": "Asia/Hovd",
+      "city": "科布多",
+      "region": "蒙古"
+    },
+    {
+      "id": "Asia/Irkutsk",
+      "city": "伊尔库茨克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Istanbul",
+      "city": "伊斯坦布尔",
+      "region": "土耳其",
+      "canonical": "Europe/Istanbul"
+    },
+    {
+      "id": "Asia/Jakarta",
+      "city": "雅加达",
+      "region": "印度尼西亚"
+    },
+    {
+      "id": "Asia/Jayapura",
+      "city": "查亚普拉",
+      "region": "印度尼西亚"
+    },
+    {
+      "id": "Asia/Jerusalem",
+      "city": "耶路撒冷",
+      "region": "以色列"
+    },
+    {
+      "id": "Asia/Kabul",
+      "city": "喀布尔",
+      "region": "阿富汗"
+    },
+    {
+      "id": "Asia/Kamchatka",
+      "city": "堪察加",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Karachi",
+      "city": "卡拉奇",
+      "region": "巴基斯坦"
+    },
+    {
+      "id": "Asia/Kashgar",
+      "city": "乌鲁木齐",
+      "region": "中国",
+      "canonical": "Asia/Urumqi"
+    },
+    {
+      "id": "Asia/Kathmandu",
+      "city": "加德满都",
+      "region": "尼泊尔"
+    },
+    {
+      "id": "Asia/Katmandu",
+      "city": "加德满都",
+      "region": "尼泊尔",
+      "canonical": "Asia/Kathmandu"
+    },
+    {
+      "id": "Asia/Khandyga",
+      "city": "汉德加",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Kolkata",
+      "city": "加尔各答",
+      "region": "印度"
+    },
+    {
+      "id": "Asia/Krasnoyarsk",
+      "city": "克拉斯诺亚尔斯克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Kuala_Lumpur",
+      "city": "吉隆坡",
+      "region": "马来西亚",
+      "canonical": "Asia/Singapore"
+    },
+    {
+      "id": "Asia/Kuching",
+      "city": "古晋",
+      "region": "马来西亚"
+    },
+    {
+      "id": "Asia/Kuwait",
+      "city": "科威特",
+      "region": "科威特",
+      "canonical": "Asia/Riyadh"
+    },
+    {
+      "id": "Asia/Macao",
+      "city": "澳门",
+      "region": "中国澳门特别行政区",
+      "canonical": "Asia/Macau"
+    },
+    {
+      "id": "Asia/Macau",
+      "city": "澳门",
+      "region": "中国澳门特别行政区"
+    },
+    {
+      "id": "Asia/Magadan",
+      "city": "马加丹",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Makassar",
+      "city": "望加锡",
+      "region": "印度尼西亚"
+    },
+    {
+      "id": "Asia/Manila",
+      "city": "马尼拉",
+      "region": "菲律宾"
+    },
+    {
+      "id": "Asia/Muscat",
+      "city": "马斯喀特",
+      "region": "阿曼",
+      "canonical": "Asia/Dubai"
+    },
+    {
+      "id": "Asia/Nicosia",
+      "city": "尼科西亚",
+      "region": "塞浦路斯"
+    },
+    {
+      "id": "Asia/Novokuznetsk",
+      "city": "新库兹涅茨克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Novosibirsk",
+      "city": "新西伯利亚",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Omsk",
+      "city": "鄂木斯克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Oral",
+      "city": "乌拉尔",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Phnom_Penh",
+      "city": "金边",
+      "region": "柬埔寨",
+      "canonical": "Asia/Bangkok"
+    },
+    {
+      "id": "Asia/Pontianak",
+      "city": "坤甸",
+      "region": "印度尼西亚"
+    },
+    {
+      "id": "Asia/Pyongyang",
+      "city": "平壤",
+      "region": "朝鲜"
+    },
+    {
+      "id": "Asia/Qatar",
+      "city": "卡塔尔",
+      "region": "卡塔尔"
+    },
+    {
+      "id": "Asia/Qostanay",
+      "city": "库斯塔奈",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Qyzylorda",
+      "city": "克孜洛尔达",
+      "region": "哈萨克斯坦"
+    },
+    {
+      "id": "Asia/Rangoon",
+      "city": "仰光",
+      "region": "缅甸",
+      "canonical": "Asia/Yangon"
+    },
+    {
+      "id": "Asia/Riyadh",
+      "city": "利雅得",
+      "region": "沙特阿拉伯"
+    },
+    {
+      "id": "Asia/Saigon",
+      "city": "胡志明市",
+      "region": "越南",
+      "canonical": "Asia/Ho_Chi_Minh"
+    },
+    {
+      "id": "Asia/Sakhalin",
+      "city": "萨哈林",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Samarkand",
+      "city": "撒马尔罕",
+      "region": "乌兹别克斯坦"
+    },
+    {
+      "id": "Asia/Seoul",
+      "city": "首尔",
+      "region": "韩国"
+    },
+    {
+      "id": "Asia/Shanghai",
+      "city": "上海",
+      "region": "中国"
+    },
+    {
+      "id": "Asia/Singapore",
+      "city": "新加坡",
+      "region": "新加坡"
+    },
+    {
+      "id": "Asia/Srednekolymsk",
+      "city": "中科雷姆斯克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Taipei",
+      "city": "台北",
+      "region": "台湾"
+    },
+    {
+      "id": "Asia/Tashkent",
+      "city": "塔什干",
+      "region": "乌兹别克斯坦"
+    },
+    {
+      "id": "Asia/Tbilisi",
+      "city": "第比利斯",
+      "region": "格鲁吉亚"
+    },
+    {
+      "id": "Asia/Tehran",
+      "city": "德黑兰",
+      "region": "伊朗"
+    },
+    {
+      "id": "Asia/Tel_Aviv",
+      "city": "耶路撒冷",
+      "region": "以色列",
+      "canonical": "Asia/Jerusalem"
+    },
+    {
+      "id": "Asia/Thimbu",
+      "city": "廷布",
+      "region": "不丹",
+      "canonical": "Asia/Thimphu"
+    },
+    {
+      "id": "Asia/Thimphu",
+      "city": "廷布",
+      "region": "不丹"
+    },
+    {
+      "id": "Asia/Tokyo",
+      "city": "东京",
+      "region": "日本"
+    },
+    {
+      "id": "Asia/Tomsk",
+      "city": "托木斯克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Ujung_Pandang",
+      "city": "望加锡",
+      "region": "印度尼西亚",
+      "canonical": "Asia/Makassar"
+    },
+    {
+      "id": "Asia/Ulaanbaatar",
+      "city": "乌兰巴托",
+      "region": "蒙古"
+    },
+    {
+      "id": "Asia/Ulan_Bator",
+      "city": "乌兰巴托",
+      "region": "蒙古",
+      "canonical": "Asia/Ulaanbaatar"
+    },
+    {
+      "id": "Asia/Urumqi",
+      "city": "乌鲁木齐",
+      "region": "中国"
+    },
+    {
+      "id": "Asia/Ust-Nera",
+      "city": "乌斯内拉",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Vientiane",
+      "city": "万象",
+      "region": "老挝",
+      "canonical": "Asia/Bangkok"
+    },
+    {
+      "id": "Asia/Vladivostok",
+      "city": "海参崴",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Yakutsk",
+      "city": "雅库茨克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Yangon",
+      "city": "可可斯",
+      "region": "缅甸"
+    },
+    {
+      "id": "Asia/Yekaterinburg",
+      "city": "叶卡捷琳堡",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Asia/Yerevan",
+      "city": "埃里温",
+      "region": "亚美尼亚"
+    },
+    {
+      "id": "Atlantic/Azores",
+      "city": "亚速尔群岛",
+      "region": "葡萄牙"
+    },
+    {
+      "id": "Atlantic/Bermuda",
+      "city": "百慕大",
+      "region": "百慕大"
+    },
+    {
+      "id": "Atlantic/Canary",
+      "city": "加那利",
+      "region": "西班牙"
+    },
+    {
+      "id": "Atlantic/Cape_Verde",
+      "city": "佛得角",
+      "region": "佛得角"
+    },
+    {
+      "id": "Atlantic/Faeroe",
+      "city": "法罗",
+      "region": "法罗群岛",
+      "canonical": "Atlantic/Faroe"
+    },
+    {
+      "id": "Atlantic/Faroe",
+      "city": "法罗",
+      "region": "法罗群岛"
+    },
+    {
+      "id": "Atlantic/Jan_Mayen",
+      "city": "柏林",
+      "region": "德国",
+      "canonical": "Europe/Berlin"
+    },
+    {
+      "id": "Atlantic/Madeira",
+      "city": "马德拉",
+      "region": "葡萄牙"
+    },
+    {
+      "id": "Atlantic/Reykjavik",
+      "city": "雷克雅未克",
+      "region": "冰岛",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Atlantic/South_Georgia",
+      "city": "南乔治亚",
+      "region": "南乔治亚和南桑威奇群岛"
+    },
+    {
+      "id": "Atlantic/St_Helena",
+      "city": "圣赫勒拿",
+      "region": "圣赫勒拿",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Atlantic/Stanley",
+      "city": "斯坦利",
+      "region": "福克兰群岛"
+    },
+    {
+      "id": "Australia/ACT",
+      "city": "悉尼",
+      "region": "澳大利亚",
+      "canonical": "Australia/Sydney"
+    },
+    {
+      "id": "Australia/Adelaide",
+      "city": "阿德莱德",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Brisbane",
+      "city": "布里斯班",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Broken_Hill",
+      "city": "布罗肯希尔",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Canberra",
+      "city": "悉尼",
+      "region": "澳大利亚",
+      "canonical": "Australia/Sydney"
+    },
+    {
+      "id": "Australia/Currie",
+      "city": "霍巴特",
+      "region": "澳大利亚",
+      "canonical": "Australia/Hobart"
+    },
+    {
+      "id": "Australia/Darwin",
+      "city": "达尔文",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Eucla",
+      "city": "尤克拉",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Hobart",
+      "city": "霍巴特",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/LHI",
+      "city": "豪勋爵岛",
+      "region": "澳大利亚",
+      "canonical": "Australia/Lord_Howe"
+    },
+    {
+      "id": "Australia/Lindeman",
+      "city": "林德曼",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Lord_Howe",
+      "city": "豪勋爵岛",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Melbourne",
+      "city": "墨尔本",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/NSW",
+      "city": "悉尼",
+      "region": "澳大利亚",
+      "canonical": "Australia/Sydney"
+    },
+    {
+      "id": "Australia/North",
+      "city": "达尔文",
+      "region": "澳大利亚",
+      "canonical": "Australia/Darwin"
+    },
+    {
+      "id": "Australia/Perth",
+      "city": "珀斯",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Queensland",
+      "city": "布里斯班",
+      "region": "澳大利亚",
+      "canonical": "Australia/Brisbane"
+    },
+    {
+      "id": "Australia/South",
+      "city": "阿德莱德",
+      "region": "澳大利亚",
+      "canonical": "Australia/Adelaide"
+    },
+    {
+      "id": "Australia/Sydney",
+      "city": "悉尼",
+      "region": "澳大利亚"
+    },
+    {
+      "id": "Australia/Tasmania",
+      "city": "霍巴特",
+      "region": "澳大利亚",
+      "canonical": "Australia/Hobart"
+    },
+    {
+      "id": "Australia/Victoria",
+      "city": "墨尔本",
+      "region": "澳大利亚",
+      "canonical": "Australia/Melbourne"
+    },
+    {
+      "id": "Australia/West",
+      "city": "珀斯",
+      "region": "澳大利亚",
+      "canonical": "Australia/Perth"
+    },
+    {
+      "id": "Australia/Yancowinna",
+      "city": "布罗肯希尔",
+      "region": "澳大利亚",
+      "canonical": "Australia/Broken_Hill"
+    },
+    {
+      "id": "Brazil/Acre",
+      "city": "里奥布郎库",
+      "region": "巴西",
+      "canonical": "America/Rio_Branco"
+    },
+    {
+      "id": "Brazil/DeNoronha",
+      "city": "洛罗尼亚",
+      "region": "巴西",
+      "canonical": "America/Noronha"
+    },
+    {
+      "id": "Brazil/East",
+      "city": "圣保罗",
+      "region": "巴西",
+      "canonical": "America/Sao_Paulo"
+    },
+    {
+      "id": "Brazil/West",
+      "city": "马瑙斯",
+      "region": "巴西",
+      "canonical": "America/Manaus"
+    },
+    {
+      "id": "CET",
+      "city": "布鲁塞尔",
+      "region": "比利时",
+      "canonical": "Europe/Brussels"
+    },
+    {
+      "id": "CST6CDT",
+      "city": "芝加哥",
+      "region": "美国",
+      "canonical": "America/Chicago"
+    },
+    {
+      "id": "Canada/Atlantic",
+      "city": "哈利法克斯",
+      "region": "加拿大",
+      "canonical": "America/Halifax"
+    },
+    {
+      "id": "Canada/Central",
+      "city": "温尼伯",
+      "region": "加拿大",
+      "canonical": "America/Winnipeg"
+    },
+    {
+      "id": "Canada/Eastern",
+      "city": "多伦多",
+      "region": "加拿大",
+      "canonical": "America/Toronto"
+    },
+    {
+      "id": "Canada/Mountain",
+      "city": "埃德蒙顿",
+      "region": "加拿大",
+      "canonical": "America/Edmonton"
+    },
+    {
+      "id": "Canada/Newfoundland",
+      "city": "圣约翰斯",
+      "region": "加拿大",
+      "canonical": "America/St_Johns"
+    },
+    {
+      "id": "Canada/Pacific",
+      "city": "温哥华",
+      "region": "加拿大",
+      "canonical": "America/Vancouver"
+    },
+    {
+      "id": "Canada/Saskatchewan",
+      "city": "里贾纳",
+      "region": "加拿大",
+      "canonical": "America/Regina"
+    },
+    {
+      "id": "Canada/Yukon",
+      "city": "怀特霍斯",
+      "region": "加拿大",
+      "canonical": "America/Whitehorse"
+    },
+    {
+      "id": "Chile/Continental",
+      "city": "圣地亚哥",
+      "region": "智利",
+      "canonical": "America/Santiago"
+    },
+    {
+      "id": "Chile/EasterIsland",
+      "city": "复活节岛",
+      "region": "智利",
+      "canonical": "Pacific/Easter"
+    },
+    {
+      "id": "Cuba",
+      "city": "哈瓦那",
+      "region": "古巴",
+      "canonical": "America/Havana"
+    },
+    {
+      "id": "EET",
+      "city": "雅典",
+      "region": "希腊",
+      "canonical": "Europe/Athens"
+    },
+    {
+      "id": "EST",
+      "city": "巴拿马",
+      "region": "巴拿马",
+      "canonical": "America/Panama"
+    },
+    {
+      "id": "EST5EDT",
+      "city": "纽约",
+      "region": "美国",
+      "canonical": "America/New_York"
+    },
+    {
+      "id": "Egypt",
+      "city": "开罗",
+      "region": "埃及",
+      "canonical": "Africa/Cairo"
+    },
+    {
+      "id": "Eire",
+      "city": "都柏林",
+      "region": "爱尔兰",
+      "canonical": "Europe/Dublin"
+    },
+    {
+      "id": "Etc/GMT",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+0",
+      "city": "固定偏移",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "Etc/GMT+1",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+10",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+11",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+12",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+2",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+3",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+4",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+5",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+6",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+7",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+8",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT+9",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-0",
+      "city": "固定偏移",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "Etc/GMT-1",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-10",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-11",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-12",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-13",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-14",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-2",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-3",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-4",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-5",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-6",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-7",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-8",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT-9",
+      "city": "固定偏移",
+      "region": ""
+    },
+    {
+      "id": "Etc/GMT0",
+      "city": "固定偏移",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "Etc/Greenwich",
+      "city": "Greenwich",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "Etc/UCT",
+      "city": "UCT",
+      "region": "",
+      "canonical": "Etc/UTC"
+    },
+    {
+      "id": "Etc/UTC",
+      "city": "协调世界时",
+      "region": ""
+    },
+    {
+      "id": "Etc/Universal",
+      "city": "Universal",
+      "region": "",
+      "canonical": "Etc/UTC"
+    },
+    {
+      "id": "Etc/Zulu",
+      "city": "Zulu",
+      "region": "",
+      "canonical": "Etc/UTC"
+    },
+    {
+      "id": "Europe/Amsterdam",
+      "city": "阿姆斯特丹",
+      "region": "荷兰",
+      "canonical": "Europe/Brussels"
+    },
+    {
+      "id": "Europe/Andorra",
+      "city": "安道尔",
+      "region": "安道尔"
+    },
+    {
+      "id": "Europe/Astrakhan",
+      "city": "阿斯特拉罕",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Athens",
+      "city": "雅典",
+      "region": "希腊"
+    },
+    {
+      "id": "Europe/Belfast",
+      "city": "伦敦",
+      "region": "英国",
+      "canonical": "Europe/London"
+    },
+    {
+      "id": "Europe/Belgrade",
+      "city": "贝尔格莱德",
+      "region": "塞尔维亚"
+    },
+    {
+      "id": "Europe/Berlin",
+      "city": "柏林",
+      "region": "德国"
+    },
+    {
+      "id": "Europe/Bratislava",
+      "city": "布拉迪斯拉发",
+      "region": "斯洛伐克",
+      "canonical": "Europe/Prague"
+    },
+    {
+      "id": "Europe/Brussels",
+      "city": "布鲁塞尔",
+      "region": "比利时"
+    },
+    {
+      "id": "Europe/Bucharest",
+      "city": "布加勒斯特",
+      "region": "罗马尼亚"
+    },
+    {
+      "id": "Europe/Budapest",
+      "city": "布达佩斯",
+      "region": "匈牙利"
+    },
+    {
+      "id": "Europe/Busingen",
+      "city": "布辛根",
+      "region": "德国",
+      "canonical": "Europe/Zurich"
+    },
+    {
+      "id": "Europe/Chisinau",
+      "city": "基希讷乌",
+      "region": "摩尔多瓦"
+    },
+    {
+      "id": "Europe/Copenhagen",
+      "city": "哥本哈根",
+      "region": "丹麦",
+      "canonical": "Europe/Berlin"
+    },
+    {
+      "id": "Europe/Dublin",
+      "city": "都柏林",
+      "region": "爱尔兰"
+    },
+    {
+      "id": "Europe/Gibraltar",
+      "city": "直布罗陀",
+      "region": "直布罗陀"
+    },
+    {
+      "id": "Europe/Guernsey",
+      "city": "根西岛",
+      "region": "根西岛",
+      "canonical": "Europe/London"
+    },
+    {
+      "id": "Europe/Helsinki",
+      "city": "赫尔辛基",
+      "region": "芬兰"
+    },
+    {
+      "id": "Europe/Isle_of_Man",
+      "city": "马恩岛",
+      "region": "马恩岛",
+      "canonical": "Europe/London"
+    },
+    {
+      "id": "Europe/Istanbul",
+      "city": "伊斯坦布尔",
+      "region": "土耳其"
+    },
+    {
+      "id": "Europe/Jersey",
+      "city": "泽西岛",
+      "region": "泽西岛",
+      "canonical": "Europe/London"
+    },
+    {
+      "id": "Europe/Kaliningrad",
+      "city": "加里宁格勒",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Kiev",
+      "city": "基辅",
+      "region": "乌克兰",
+      "canonical": "Europe/Kyiv"
+    },
+    {
+      "id": "Europe/Kirov",
+      "city": "基洛夫",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Kyiv",
+      "city": "基辅",
+      "region": "乌克兰"
+    },
+    {
+      "id": "Europe/Lisbon",
+      "city": "里斯本",
+      "region": "葡萄牙"
+    },
+    {
+      "id": "Europe/Ljubljana",
+      "city": "卢布尔雅那",
+      "region": "斯洛文尼亚",
+      "canonical": "Europe/Belgrade"
+    },
+    {
+      "id": "Europe/London",
+      "city": "伦敦",
+      "region": "英国"
+    },
+    {
+      "id": "Europe/Luxembourg",
+      "city": "卢森堡",
+      "region": "卢森堡",
+      "canonical": "Europe/Brussels"
+    },
+    {
+      "id": "Europe/Madrid",
+      "city": "马德里",
+      "region": "西班牙"
+    },
+    {
+      "id": "Europe/Malta",
+      "city": "马耳他",
+      "region": "马耳他"
+    },
+    {
+      "id": "Europe/Mariehamn",
+      "city": "玛丽港",
+      "region": "奥兰群岛",
+      "canonical": "Europe/Helsinki"
+    },
+    {
+      "id": "Europe/Minsk",
+      "city": "明斯克",
+      "region": "白俄罗斯"
+    },
+    {
+      "id": "Europe/Monaco",
+      "city": "摩纳哥",
+      "region": "摩纳哥",
+      "canonical": "Europe/Paris"
+    },
+    {
+      "id": "Europe/Moscow",
+      "city": "莫斯科",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Nicosia",
+      "city": "尼科西亚",
+      "region": "塞浦路斯",
+      "canonical": "Asia/Nicosia"
+    },
+    {
+      "id": "Europe/Oslo",
+      "city": "奥斯陆",
+      "region": "挪威",
+      "canonical": "Europe/Berlin"
+    },
+    {
+      "id": "Europe/Paris",
+      "city": "巴黎",
+      "region": "法国"
+    },
+    {
+      "id": "Europe/Podgorica",
+      "city": "波德戈里察",
+      "region": "黑山",
+      "canonical": "Europe/Belgrade"
+    },
+    {
+      "id": "Europe/Prague",
+      "city": "布拉格",
+      "region": "捷克"
+    },
+    {
+      "id": "Europe/Riga",
+      "city": "里加",
+      "region": "拉脱维亚"
+    },
+    {
+      "id": "Europe/Rome",
+      "city": "罗马",
+      "region": "意大利"
+    },
+    {
+      "id": "Europe/Samara",
+      "city": "萨马拉",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/San_Marino",
+      "city": "圣马力诺",
+      "region": "圣马力诺",
+      "canonical": "Europe/Rome"
+    },
+    {
+      "id": "Europe/Sarajevo",
+      "city": "萨拉热窝",
+      "region": "波斯尼亚和黑塞哥维那",
+      "canonical": "Europe/Belgrade"
+    },
+    {
+      "id": "Europe/Saratov",
+      "city": "萨拉托夫",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Simferopol",
+      "city": "辛菲罗波尔",
+      "region": "乌克兰"
+    },
+    {
+      "id": "Europe/Skopje",
+      "city": "斯科普里",
+      "region": "北马其顿",
+      "canonical": "Europe/Belgrade"
+    },
+    {
+      "id": "Europe/Sofia",
+      "city": "索非亚",
+      "region": "保加利亚"
+    },
+    {
+      "id": "Europe/Stockholm",
+      "city": "斯德哥尔摩",
+      "region": "瑞典",
+      "canonical": "Europe/Berlin"
+    },
+    {
+      "id": "Europe/Tallinn",
+      "city": "塔林",
+      "region": "爱沙尼亚"
+    },
+    {
+      "id": "Europe/Tirane",
+      "city": "地拉那",
+      "region": "阿尔巴尼亚"
+    },
+    {
+      "id": "Europe/Tiraspol",
+      "city": "基希讷乌",
+      "region": "摩尔多瓦",
+      "canonical": "Europe/Chisinau"
+    },
+    {
+      "id": "Europe/Ulyanovsk",
+      "city": "乌里扬诺夫斯克",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Uzhgorod",
+      "city": "基辅",
+      "region": "乌克兰",
+      "canonical": "Europe/Kyiv"
+    },
+    {
+      "id": "Europe/Vaduz",
+      "city": "瓦杜兹",
+      "region": "列支敦士登",
+      "canonical": "Europe/Zurich"
+    },
+    {
+      "id": "Europe/Vatican",
+      "city": "梵蒂冈",
+      "region": "梵蒂冈",
+      "canonical": "Europe/Rome"
+    },
+    {
+      "id": "Europe/Vienna",
+      "city": "维也纳",
+      "region": "奥地利"
+    },
+    {
+      "id": "Europe/Vilnius",
+      "city": "维尔纽斯",
+      "region": "立陶宛"
+    },
+    {
+      "id": "Europe/Volgograd",
+      "city": "伏尔加格勒",
+      "region": "俄罗斯"
+    },
+    {
+      "id": "Europe/Warsaw",
+      "city": "华沙",
+      "region": "波兰"
+    },
+    {
+      "id": "Europe/Zagreb",
+      "city": "萨格勒布",
+      "region": "克罗地亚",
+      "canonical": "Europe/Belgrade"
+    },
+    {
+      "id": "Europe/Zaporozhye",
+      "city": "基辅",
+      "region": "乌克兰",
+      "canonical": "Europe/Kyiv"
+    },
+    {
+      "id": "Europe/Zurich",
+      "city": "苏黎世",
+      "region": "瑞士"
+    },
+    {
+      "id": "GB",
+      "city": "伦敦",
+      "region": "英国",
+      "canonical": "Europe/London"
+    },
+    {
+      "id": "GB-Eire",
+      "city": "伦敦",
+      "region": "英国",
+      "canonical": "Europe/London"
+    },
+    {
+      "id": "GMT",
+      "city": "GMT",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "GMT+0",
+      "city": "GMT+0",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "GMT-0",
+      "city": "GMT-0",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "GMT0",
+      "city": "GMT0",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "Greenwich",
+      "city": "Greenwich",
+      "region": "",
+      "canonical": "Etc/GMT"
+    },
+    {
+      "id": "HST",
+      "city": "檀香山",
+      "region": "美国",
+      "canonical": "Pacific/Honolulu"
+    },
+    {
+      "id": "Hongkong",
+      "city": "香港",
+      "region": "中国香港特别行政区",
+      "canonical": "Asia/Hong_Kong"
+    },
+    {
+      "id": "Iceland",
+      "city": "阿比让",
+      "region": "科特迪瓦",
+      "canonical": "Africa/Abidjan"
+    },
+    {
+      "id": "Indian/Antananarivo",
+      "city": "安塔那那利佛",
+      "region": "马达加斯加",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Indian/Chagos",
+      "city": "查戈斯",
+      "region": "英属印度洋领地"
+    },
+    {
+      "id": "Indian/Christmas",
+      "city": "圣诞岛",
+      "region": "圣诞岛",
+      "canonical": "Asia/Bangkok"
+    },
+    {
+      "id": "Indian/Cocos",
+      "city": "可可斯",
+      "region": "科科斯（基林）群岛",
+      "canonical": "Asia/Yangon"
+    },
+    {
+      "id": "Indian/Comoro",
+      "city": "科摩罗",
+      "region": "科摩罗",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Indian/Kerguelen",
+      "city": "凯尔盖朗",
+      "region": "法属南部领地",
+      "canonical": "Indian/Maldives"
+    },
+    {
+      "id": "Indian/Mahe",
+      "city": "马埃岛",
+      "region": "塞舌尔",
+      "canonical": "Asia/Dubai"
+    },
+    {
+      "id": "Indian/Maldives",
+      "city": "马尔代夫",
+      "region": "马尔代夫"
+    },
+    {
+      "id": "Indian/Mauritius",
+      "city": "毛里求斯",
+      "region": "毛里求斯"
+    },
+    {
+      "id": "Indian/Mayotte",
+      "city": "马约特",
+      "region": "马约特",
+      "canonical": "Africa/Nairobi"
+    },
+    {
+      "id": "Indian/Reunion",
+      "city": "留尼汪",
+      "region": "留尼汪",
+      "canonical": "Asia/Dubai"
+    },
+    {
+      "id": "Iran",
+      "city": "德黑兰",
+      "region": "伊朗",
+      "canonical": "Asia/Tehran"
+    },
+    {
+      "id": "Israel",
+      "city": "耶路撒冷",
+      "region": "以色列",
+      "canonical": "Asia/Jerusalem"
+    },
+    {
+      "id": "Jamaica",
+      "city": "牙买加",
+      "region": "牙买加",
+      "canonical": "America/Jamaica"
+    },
+    {
+      "id": "Japan",
+      "city": "东京",
+      "region": "日本",
+      "canonical": "Asia/Tokyo"
+    },
+    {
+      "id": "Kwajalein",
+      "city": "夸贾林",
+      "region": "马绍尔群岛",
+      "canonical": "Pacific/Kwajalein"
+    },
+    {
+      "id": "Libya",
+      "city": "的黎波里",
+      "region": "利比亚",
+      "canonical": "Africa/Tripoli"
+    },
+    {
+      "id": "MET",
+      "city": "布鲁塞尔",
+      "region": "比利时",
+      "canonical": "Europe/Brussels"
+    },
+    {
+      "id": "MST",
+      "city": "凤凰城",
+      "region": "美国",
+      "canonical": "America/Phoenix"
+    },
+    {
+      "id": "MST7MDT",
+      "city": "丹佛",
+      "region": "美国",
+      "canonical": "America/Denver"
+    },
+    {
+      "id": "Mexico/BajaNorte",
+      "city": "蒂华纳",
+      "region": "墨西哥",
+      "canonical": "America/Tijuana"
+    },
+    {
+      "id": "Mexico/BajaSur",
+      "city": "马萨特兰",
+      "region": "墨西哥",
+      "canonical": "America/Mazatlan"
+    },
+    {
+      "id": "Mexico/General",
+      "city": "墨西哥城",
+      "region": "墨西哥",
+      "canonical": "America/Mexico_City"
+    },
+    {
+      "id": "NZ",
+      "city": "奥克兰",
+      "region": "新西兰",
+      "canonical": "Pacific/Auckland"
+    },
+    {
+      "id": "NZ-CHAT",
+      "city": "查塔姆",
+      "region": "新西兰",
+      "canonical": "Pacific/Chatham"
+    },
+    {
+      "id": "Navajo",
+      "city": "丹佛",
+      "region": "美国",
+      "canonical": "America/Denver"
+    },
+    {
+      "id": "PRC",
+      "city": "上海",
+      "region": "中国",
+      "canonical": "Asia/Shanghai"
+    },
+    {
+      "id": "PST8PDT",
+      "city": "洛杉矶",
+      "region": "美国",
+      "canonical": "America/Los_Angeles"
+    },
+    {
+      "id": "Pacific/Apia",
+      "city": "阿皮亚",
+      "region": "萨摩亚"
+    },
+    {
+      "id": "Pacific/Auckland",
+      "city": "奥克兰",
+      "region": "新西兰"
+    },
+    {
+      "id": "Pacific/Bougainville",
+      "city": "布干维尔",
+      "region": "巴布亚新几内亚"
+    },
+    {
+      "id": "Pacific/Chatham",
+      "city": "查塔姆",
+      "region": "新西兰"
+    },
+    {
+      "id": "Pacific/Chuuk",
+      "city": "莫尔兹比港",
+      "region": "密克罗尼西亚",
+      "canonical": "Pacific/Port_Moresby"
+    },
+    {
+      "id": "Pacific/Easter",
+      "city": "复活节岛",
+      "region": "智利"
+    },
+    {
+      "id": "Pacific/Efate",
+      "city": "埃法特",
+      "region": "瓦努阿图"
+    },
+    {
+      "id": "Pacific/Enderbury",
+      "city": "坎顿岛",
+      "region": "基里巴斯",
+      "canonical": "Pacific/Kanton"
+    },
+    {
+      "id": "Pacific/Fakaofo",
+      "city": "法考福",
+      "region": "托克劳"
+    },
+    {
+      "id": "Pacific/Fiji",
+      "city": "斐济",
+      "region": "斐济"
+    },
+    {
+      "id": "Pacific/Funafuti",
+      "city": "富纳富提",
+      "region": "图瓦卢",
+      "canonical": "Pacific/Tarawa"
+    },
+    {
+      "id": "Pacific/Galapagos",
+      "city": "科隆群岛",
+      "region": "厄瓜多尔"
+    },
+    {
+      "id": "Pacific/Gambier",
+      "city": "甘比尔",
+      "region": "法属波利尼西亚"
+    },
+    {
+      "id": "Pacific/Guadalcanal",
+      "city": "瓜达尔卡纳尔",
+      "region": "所罗门群岛"
+    },
+    {
+      "id": "Pacific/Guam",
+      "city": "关岛",
+      "region": "关岛"
+    },
+    {
+      "id": "Pacific/Honolulu",
+      "city": "檀香山",
+      "region": "美国"
+    },
+    {
+      "id": "Pacific/Johnston",
+      "city": "檀香山",
+      "region": "美国",
+      "canonical": "Pacific/Honolulu"
+    },
+    {
+      "id": "Pacific/Kanton",
+      "city": "坎顿岛",
+      "region": "基里巴斯"
+    },
+    {
+      "id": "Pacific/Kiritimati",
+      "city": "基里地马地岛",
+      "region": "基里巴斯"
+    },
+    {
+      "id": "Pacific/Kosrae",
+      "city": "库赛埃",
+      "region": "密克罗尼西亚"
+    },
+    {
+      "id": "Pacific/Kwajalein",
+      "city": "夸贾林",
+      "region": "马绍尔群岛"
+    },
+    {
+      "id": "Pacific/Majuro",
+      "city": "马朱罗",
+      "region": "马绍尔群岛",
+      "canonical": "Pacific/Tarawa"
+    },
+    {
+      "id": "Pacific/Marquesas",
+      "city": "马克萨斯",
+      "region": "法属波利尼西亚"
+    },
+    {
+      "id": "Pacific/Midway",
+      "city": "中途岛",
+      "region": "美国本土外小岛屿",
+      "canonical": "Pacific/Pago_Pago"
+    },
+    {
+      "id": "Pacific/Nauru",
+      "city": "瑙鲁",
+      "region": "瑙鲁"
+    },
+    {
+      "id": "Pacific/Niue",
+      "city": "纽埃",
+      "region": "纽埃"
+    },
+    {
+      "id": "Pacific/Norfolk",
+      "city": "诺福克",
+      "region": "诺福克岛"
+    },
+    {
+      "id": "Pacific/Noumea",
+      "city": "努美阿",
+      "region": "新喀里多尼亚"
+    },
+    {
+      "id": "Pacific/Pago_Pago",
+      "city": "帕果帕果",
+      "region": "美属萨摩亚"
+    },
+    {
+      "id": "Pacific/Palau",
+      "city": "帕劳",
+      "region": "帕劳"
+    },
+    {
+      "id": "Pacific/Pitcairn",
+      "city": "皮特凯恩",
+      "region": "皮特凯恩群岛"
+    },
+    {
+      "id": "Pacific/Pohnpei",
+      "city": "瓜达尔卡纳尔",
+      "region": "密克罗尼西亚",
+      "canonical": "Pacific/Guadalcanal"
+    },
+    {
+      "id": "Pacific/Ponape",
+      "city": "波纳佩岛",
+      "region": "所罗门群岛",
+      "canonical": "Pacific/Guadalcanal"
+    },
+    {
+      "id": "Pacific/Port_Moresby",
+      "city": "莫尔兹比港",
+      "region": "巴布亚新几内亚"
+    },
+    {
+      "id": "Pacific/Rarotonga",
+      "city": "拉罗汤加",
+      "region": "库克群岛"
+    },
+    {
+      "id": "Pacific/Saipan",
+      "city": "塞班",
+      "region": "北马里亚纳群岛",
+      "canonical": "Pacific/Guam"
+    },
+    {
+      "id": "Pacific/Samoa",
+      "city": "帕果帕果",
+      "region": "美属萨摩亚",
+      "canonical": "Pacific/Pago_Pago"
+    },
+    {
+      "id": "Pacific/Tahiti",
+      "city": "塔希提",
+      "region": "法属波利尼西亚"
+    },
+    {
+      "id": "Pacific/Tarawa",
+      "city": "塔拉瓦",
+      "region": "基里巴斯"
+    },
+    {
+      "id": "Pacific/Tongatapu",
+      "city": "东加塔布",
+      "region": "汤加"
+    },
+    {
+      "id": "Pacific/Truk",
+      "city": "特鲁克群岛",
+      "region": "巴布亚新几内亚",
+      "canonical": "Pacific/Port_Moresby"
+    },
+    {
+      "id": "Pacific/Wake",
+      "city": "威克",
+      "region": "美国本土外小岛屿",
+      "canonical": "Pacific/Tarawa"
+    },
+    {
+      "id": "Pacific/Wallis",
+      "city": "瓦利斯",
+      "region": "瓦利斯和富图纳",
+      "canonical": "Pacific/Tarawa"
+    },
+    {
+      "id": "Pacific/Yap",
+      "city": "莫尔兹比港",
+      "region": "巴布亚新几内亚",
+      "canonical": "Pacific/Port_Moresby"
+    },
+    {
+      "id": "Poland",
+      "city": "华沙",
+      "region": "波兰",
+      "canonical": "Europe/Warsaw"
+    },
+    {
+      "id": "Portugal",
+      "city": "里斯本",
+      "region": "葡萄牙",
+      "canonical": "Europe/Lisbon"
+    },
+    {
+      "id": "ROC",
+      "city": "台北",
+      "region": "台湾",
+      "canonical": "Asia/Taipei"
+    },
+    {
+      "id": "ROK",
+      "city": "首尔",
+      "region": "韩国",
+      "canonical": "Asia/Seoul"
+    },
+    {
+      "id": "Singapore",
+      "city": "新加坡",
+      "region": "新加坡",
+      "canonical": "Asia/Singapore"
+    },
+    {
+      "id": "Turkey",
+      "city": "伊斯坦布尔",
+      "region": "土耳其",
+      "canonical": "Europe/Istanbul"
+    },
+    {
+      "id": "UCT",
+      "city": "UCT",
+      "region": "",
+      "canonical": "Etc/UTC"
+    },
+    {
+      "id": "US/Alaska",
+      "city": "安克雷奇",
+      "region": "美国",
+      "canonical": "America/Anchorage"
+    },
+    {
+      "id": "US/Aleutian",
+      "city": "埃达克",
+      "region": "美国",
+      "canonical": "America/Adak"
+    },
+    {
+      "id": "US/Arizona",
+      "city": "凤凰城",
+      "region": "美国",
+      "canonical": "America/Phoenix"
+    },
+    {
+      "id": "US/Central",
+      "city": "芝加哥",
+      "region": "美国",
+      "canonical": "America/Chicago"
+    },
+    {
+      "id": "US/East-Indiana",
+      "city": "印第安纳波利斯",
+      "region": "美国",
+      "canonical": "America/Indiana/Indianapolis"
+    },
+    {
+      "id": "US/Eastern",
+      "city": "纽约",
+      "region": "美国",
+      "canonical": "America/New_York"
+    },
+    {
+      "id": "US/Hawaii",
+      "city": "檀香山",
+      "region": "美国",
+      "canonical": "Pacific/Honolulu"
+    },
+    {
+      "id": "US/Indiana-Starke",
+      "city": "印第安纳州诺克斯",
+      "region": "美国",
+      "canonical": "America/Indiana/Knox"
+    },
+    {
+      "id": "US/Michigan",
+      "city": "底特律",
+      "region": "美国",
+      "canonical": "America/Detroit"
+    },
+    {
+      "id": "US/Mountain",
+      "city": "丹佛",
+      "region": "美国",
+      "canonical": "America/Denver"
+    },
+    {
+      "id": "US/Pacific",
+      "city": "洛杉矶",
+      "region": "美国",
+      "canonical": "America/Los_Angeles"
+    },
+    {
+      "id": "US/Samoa",
+      "city": "帕果帕果",
+      "region": "美属萨摩亚",
+      "canonical": "Pacific/Pago_Pago"
+    },
+    {
+      "id": "UTC",
+      "city": "协调世界时",
+      "region": "",
+      "canonical": "Etc/UTC"
+    },
+    {
+      "id": "Universal",
+      "city": "Universal",
+      "region": "",
+      "canonical": "Etc/UTC"
+    },
+    {
+      "id": "W-SU",
+      "city": "莫斯科",
+      "region": "俄罗斯",
+      "canonical": "Europe/Moscow"
+    },
+    {
+      "id": "WET",
+      "city": "里斯本",
+      "region": "葡萄牙",
+      "canonical": "Europe/Lisbon"
+    },
+    {
+      "id": "Zulu",
+      "city": "Zulu",
+      "region": "",
+      "canonical": "Etc/UTC"
+    }
+  ]
+}

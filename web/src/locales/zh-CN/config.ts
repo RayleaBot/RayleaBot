@@ -206,7 +206,7 @@ export const config = {
     credentialCheckIntervalMinutes: '服务端自动复查已启用账号 CK 的间隔。设为 0 时关闭自动检查，三方账号页的手动检查仍可使用；非零值范围为 15 到 10080。',
     douyinLoginBrowserMode: 'auto 优先连接已配置且可用的本机 CDP，再使用可见浏览器；无图形界面时使用无头浏览器。显式模式不会自动切换。',
     douyinLoginRemoteDebuggingUrl: '抖音扫码登录使用的专用浏览器 CDP 地址。仅支持无凭据的本机回环 HTTP(S) 或 WS(S) 地址；请使用独立 profile，不要连接个人默认浏览器。',
-    schedulerTimezone: '定时任务使用的时区，遵循 IANA 时区标识；留空时使用系统时区。',
+    schedulerTimezone: '定时任务、服务日志、管理界面时间及日志筛选使用的时区。默认上海（UTC+08:00），地区时区自动遵循夏令时规则。',
     runtimePluginInitTimeoutSeconds: '单个插件初始化（加载、握手）允许的最长时间。',
     runtimePluginInitMaxTotalSeconds: '所有插件累计初始化时间上限；超过后剩余插件跳过初始化。',
     runtimePluginEventTimeoutSeconds: '插件处理单个事件的最长时间；超时后事件被丢弃。',

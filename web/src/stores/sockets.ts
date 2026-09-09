@@ -1,4 +1,6 @@
 import { defineStore } from 'pinia'
+import { watch } from 'vue'
+import { useConfigStore } from '@/stores/config'
 
 import { createSocketController } from '@/stores/socket-controller'
 import { useGovernanceStore } from '@/stores/governance'
@@ -15,6 +17,7 @@ import { useThirdPartyAccountsStore } from '@/stores/third-party-accounts'
 
 export const useSocketStore = defineStore('sockets', () => {
   const sessionStore = useSessionStore()
+  const configStore = useConfigStore()
   const pluginsStore = usePluginsStore()
   const pluginConsoleStore = usePluginConsoleStore()
   const schedulerJobsStore = useSchedulerJobsStore()
@@ -63,6 +66,10 @@ export const useSocketStore = defineStore('sockets', () => {
       onSessionExpired: () => sessionStore.handleSessionExpired(),
     },
     router,
+  })
+
+  watch(() => controller.snapshots.events.status, status => {
+    if (status === 'authenticated') void configStore.refreshEffectiveTimezone().catch(() => undefined)
   })
 
   return {

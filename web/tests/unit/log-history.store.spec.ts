@@ -2,6 +2,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { localDateTimeToUtc, toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
+import { useConfigStore } from '@/stores/config'
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -19,6 +20,27 @@ describe('log history store', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('preserves the queried instants when the effective server timezone changes', () => {
+    const config = useConfigStore()
+    const store = useLogHistoryStore()
+    store.timeRangeInput = { startLocal: '2026-01-16T04:30', endLocal: '2026-01-16T05:30' }
+    const before = store.currentUtcRange()
+    config.effectiveTimezone = 'America/New_York'
+    expect(store.timeRangeInput).toEqual({ startLocal: '2026-01-15T15:30', endLocal: '2026-01-15T16:30' })
+    expect(store.currentUtcRange()).toEqual(before)
+  })
+
+  it('does not send an unbounded query for a nonexistent daylight-saving time', async () => {
+    useConfigStore().effectiveTimezone = 'America/New_York'
+    const store = useLogHistoryStore()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    store.timeRangeInput = { startLocal: '2026-03-08T02:30', endLocal: '2026-03-08T04:00' }
+    await expect(store.applyFilters()).rejects.toThrow()
+    expect(store.error).toContain('夏令时')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('anchors to the most recent day and queries history in UTC', async () => {

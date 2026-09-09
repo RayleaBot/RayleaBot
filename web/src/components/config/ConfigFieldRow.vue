@@ -5,6 +5,7 @@ import AppSwitch from '@/components/AppSwitch.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppNumberInput from '@/components/AppNumberInput.vue'
 import AppInput from '@/components/AppInput.vue'
+import TimezoneSelect from '@/components/TimezoneSelect.vue'
 import { computed } from 'vue'
 
 import { composeFieldTooltip, type ConfigFieldDefinition } from '@/lib/config-form'
@@ -120,8 +121,9 @@ function handleTextareaUpdate(value: unknown) {
     </div>
 
     <div class="config-field__control">
+      <TimezoneSelect v-if="field.type === 'timezone'" :id="fieldId" :model-value="textValue" :disabled="disabled" :aria-label="field.label" :aria-describedby="descriptionId" @update:model-value="emitText" />
       <RateLimitInput
-        v-if="field.type === 'rateLimit'"
+        v-else-if="field.type === 'rateLimit'"
         :value="textValue"
         :placeholder="placeholder"
         :ariaLabel="field.label"

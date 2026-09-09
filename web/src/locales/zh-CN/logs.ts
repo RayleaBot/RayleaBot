@@ -44,6 +44,8 @@ export const logs = {
     jumpToLatest: '滚动到最新',
   },
   history: {
+    invalidTimeZoneTime: '这个本地时间在当前时区不存在，请检查日期或避开夏令时跳过的时段。',
+    invalidTimeRange: '结束时间不能早于开始时间。',
     empty: '当前时间范围内没有符合条件的日志。可扩大时间范围或调整筛选条件。',
     streamTitle: '历史日志',
     frozen: '固定时间窗口',

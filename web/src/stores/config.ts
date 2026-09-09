@@ -3,16 +3,26 @@ import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { DEFAULT_TIME_ZONE } from '@/lib/time-zone'
 import type { ConfigApplyEffects, ConfigDocument, ConfigSnapshotResponse, ConfigUpdateResponse } from '@/types/api'
 
 export const useConfigStore = defineStore('config', () => {
   const document = ref<ConfigDocument | null>(null)
+  const effectiveTimezone = ref(DEFAULT_TIME_ZONE)
   const applyEffects = ref<ConfigApplyEffects | null>(null)
   const redactedFields = ref<string[]>([])
   const restartRequired = ref<boolean | null>(null)
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<string | null>(null)
+  let timezoneRequest: Promise<void> | null = null
+
+  function refreshEffectiveTimezone() {
+    timezoneRequest ??= apiRequest<ConfigSnapshotResponse>('/api/config').then(response => {
+      effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
+    }).finally(() => { timezoneRequest = null })
+    return timezoneRequest
+  }
 
   async function fetchConfig() {
     loading.value = true
@@ -20,6 +30,7 @@ export const useConfigStore = defineStore('config', () => {
     try {
       const response = await apiRequest<ConfigSnapshotResponse>('/api/config')
       document.value = response.config
+      effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
       applyEffects.value = null
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = null
@@ -40,6 +51,7 @@ export const useConfigStore = defineStore('config', () => {
         body: nextDocument,
       })
       document.value = response.config
+      effectiveTimezone.value = response.effective_timezone || DEFAULT_TIME_ZONE
       applyEffects.value = response.apply_effects
       redactedFields.value = response.redacted_fields ?? []
       restartRequired.value = response.restart_required
@@ -55,12 +67,14 @@ export const useConfigStore = defineStore('config', () => {
   return {
     applyEffects,
     document,
+    effectiveTimezone,
     error,
     loading,
     redactedFields,
     restartRequired,
     saving,
     fetchConfig,
+    refreshEffectiveTimezone,
     saveConfig,
   }
 })

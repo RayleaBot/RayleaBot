@@ -14,15 +14,17 @@ import (
 const codeInvalidRequest = "platform.invalid_request"
 
 type ConfigResponse struct {
-	Config         map[string]any `json:"config"`
-	RedactedFields []string       `json:"redacted_fields,omitempty"`
+	EffectiveTimezone string         `json:"effective_timezone"`
+	Config            map[string]any `json:"config"`
+	RedactedFields    []string       `json:"redacted_fields,omitempty"`
 }
 
 type ConfigUpdateResponse struct {
-	Config          map[string]any             `json:"config"`
-	RedactedFields  []string                   `json:"redacted_fields,omitempty"`
-	RestartRequired bool                       `json:"restart_required"`
-	ApplyEffects    configruntime.ApplyEffects `json:"apply_effects"`
+	EffectiveTimezone string                     `json:"effective_timezone"`
+	Config            map[string]any             `json:"config"`
+	RedactedFields    []string                   `json:"redacted_fields,omitempty"`
+	RestartRequired   bool                       `json:"restart_required"`
+	ApplyEffects      configruntime.ApplyEffects `json:"apply_effects"`
 }
 
 type ConfigService interface {
@@ -77,17 +79,19 @@ func (h *ConfigHandlers) ApplyHotReloadableFields(newCfg internalconfig.Config) 
 
 func responseFromDocument(doc configruntime.Document) ConfigResponse {
 	return ConfigResponse{
-		Config:         doc.Config,
-		RedactedFields: doc.RedactedFields,
+		EffectiveTimezone: doc.EffectiveTimezone,
+		Config:            doc.Config,
+		RedactedFields:    doc.RedactedFields,
 	}
 }
 
 func updateResponseFromResult(result configruntime.UpdateResult) ConfigUpdateResponse {
 	return ConfigUpdateResponse{
-		Config:          result.Document.Config,
-		RedactedFields:  result.Document.RedactedFields,
-		RestartRequired: result.RestartRequired,
-		ApplyEffects:    result.ApplyEffects,
+		EffectiveTimezone: result.Document.EffectiveTimezone,
+		Config:            result.Document.Config,
+		RedactedFields:    result.Document.RedactedFields,
+		RestartRequired:   result.RestartRequired,
+		ApplyEffects:      result.ApplyEffects,
 	}
 }
 

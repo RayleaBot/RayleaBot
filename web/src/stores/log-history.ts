@@ -1,8 +1,11 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { t } from '@/i18n'
+import { managementTimeZone } from '@/lib/format'
+import { timeZoneDateTimeToUtc, toTimeZoneDateTimeInput } from '@/lib/time-zone'
 import {
   buildLogListPath,
   mergeSortedLogItemsAsc,
@@ -38,6 +41,13 @@ export const useLogHistoryStore = defineStore('log-history', () => {
 
   let requestVersion = 0
 
+  watch(managementTimeZone, (next, previous) => {
+    for (const key of ['startLocal', 'endLocal'] as const) {
+      const instant = timeZoneDateTimeToUtc(timeRangeInput.value[key], previous, key === 'endLocal' ? 'end' : 'start')
+      if (instant) timeRangeInput.value[key] = toTimeZoneDateTimeInput(new Date(instant), next)
+    }
+  }, { flush: 'sync' })
+
   const pageLimit = computed(() => normalizeLogLimit(historyPageLimit, historyPageLimit))
 
   async function refreshAnchor() {
@@ -59,6 +69,15 @@ export const useLogHistoryStore = defineStore('log-history', () => {
   }
 
   async function applyFilters() {
+    const range = currentUtcRange()
+    if ((timeRangeInput.value.startLocal && !range.startAt) || (timeRangeInput.value.endLocal && !range.endAt)) {
+      error.value = t('logs.history.invalidTimeZoneTime')
+      throw new Error(error.value)
+    }
+    if (range.startAt && range.endAt && range.startAt > range.endAt) {
+      error.value = t('logs.history.invalidTimeRange')
+      throw new Error(error.value)
+    }
     customTimeRange.value = true
     items.value = []
     olderCursor.value = null
@@ -149,7 +168,7 @@ export const useLogHistoryStore = defineStore('log-history', () => {
   function currentUtcRange(): HistoryTimeRange {
     return {
       startAt: localDateTimeToUtc(timeRangeInput.value.startLocal),
-      endAt: localDateTimeToUtc(timeRangeInput.value.endLocal),
+      endAt: localDateTimeToUtc(timeRangeInput.value.endLocal, 'end'),
     }
   }
 
@@ -174,24 +193,9 @@ export const useLogHistoryStore = defineStore('log-history', () => {
 })
 
 export function toLocalDateTimeInput(value: Date) {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  const hours = String(value.getHours()).padStart(2, '0')
-  const minutes = String(value.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day}T${hours}:${minutes}`
+  return toTimeZoneDateTimeInput(value, managementTimeZone())
 }
 
-export function localDateTimeToUtc(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return ''
-  }
-
-  const parsed = new Date(trimmed)
-  if (Number.isNaN(parsed.getTime())) {
-    return ''
-  }
-
-  return parsed.toISOString().replace(/\.\d{3}Z$/, 'Z')
+export function localDateTimeToUtc(value: string, boundary: 'start' | 'end' = 'start') {
+  return timeZoneDateTimeToUtc(value, managementTimeZone(), boundary)
 }

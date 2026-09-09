@@ -84,6 +84,10 @@ type schedulerDiagnostics struct {
 	scheduler *scheduler.Engine
 }
 
+func (d schedulerDiagnostics) Timezone() string {
+	return d.scheduler.Timezone()
+}
+
 func (d schedulerDiagnostics) DiagnosticsScheduler() systemsvc.DiagnosticsScheduler {
 	result := systemsvc.DiagnosticsScheduler{}
 	if d.scheduler == nil {

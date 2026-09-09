@@ -73,7 +73,7 @@ request:
         browser_mode: auto
         remote_debugging_url: ""
     scheduler:
-      timezone: ""
+      timezone: "Asia/Shanghai"
     runtime:
       plugin_init_timeout_seconds: 30
       plugin_init_max_total_seconds: 300
@@ -133,6 +133,7 @@ request:
 response:
   status: 200
   body:
+    effective_timezone: Asia/Shanghai
     config:
       schema_version: "4"
       server:
@@ -202,7 +203,7 @@ response:
           browser_mode: auto
           remote_debugging_url: ""
       scheduler:
-        timezone: ""
+        timezone: "Asia/Shanghai"
       runtime:
         plugin_init_timeout_seconds: 30
         plugin_init_max_total_seconds: 300

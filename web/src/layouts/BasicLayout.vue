@@ -49,6 +49,7 @@ import { adminRoutes } from '@/router/routes/modules/admin'
 import { usePluginsStore } from '@/stores/plugins'
 import { useSessionStore } from '@/stores/session'
 import { useSystemStore } from '@/stores/system'
+import { useConfigStore } from '@/stores/config'
 import { useUiShellStore, type ShellTabItem } from '@/stores/ui-shell'
 import type { ThemeMode } from '@/preferences/app'
 import { PAGE_TRANSITION_STAGE_KEY, type PageTransitionStage } from '@/layouts/usePageTransitionStage'
@@ -69,6 +70,7 @@ const router = useRouter()
 const pluginsStore = usePluginsStore()
 const sessionStore = useSessionStore()
 const systemStore = useSystemStore()
+const configStore = useConfigStore()
 const uiShellStore = useUiShellStore()
 
 const {
@@ -655,6 +657,7 @@ function getRouteViewKey(viewRoute: RouteLocationNormalizedLoaded) {
 }
 
 onMounted(() => {
+  void configStore.refreshEffectiveTimezone().catch(() => undefined)
   syncFullscreenState()
   if (typeof document !== 'undefined') {
     document.addEventListener('fullscreenchange', syncFullscreenState)

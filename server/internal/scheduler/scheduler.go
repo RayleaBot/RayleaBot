@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
@@ -146,13 +147,9 @@ func New(opts Options) (*Engine, error) {
 		return nil, fmt.Errorf("scheduler logger is required")
 	}
 
-	loc := time.UTC
-	if opts.Timezone != "" {
-		parsed, err := time.LoadLocation(opts.Timezone)
-		if err != nil {
-			return nil, fmt.Errorf("load scheduler timezone %q: %w", opts.Timezone, err)
-		}
-		loc = parsed
+	loc, err := config.LoadTimezone(opts.Timezone)
+	if err != nil {
+		return nil, err
 	}
 
 	trigger := opts.Trigger
@@ -170,6 +167,10 @@ func New(opts Options) (*Engine, error) {
 	}, nil
 }
 
+func (e *Engine) Timezone() string {
+	return e.location.String()
+}
+
 // Hydrate loads persisted jobs into the in-memory map. Should be called once
 // before Start.
 func (e *Engine) Hydrate(ctx context.Context) error {
@@ -179,6 +180,24 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 	jobs, err := e.repo.LoadJobs(ctx)
 	if err != nil {
 		return fmt.Errorf("hydrate scheduler: %w", err)
+	}
+
+	now := e.now().UTC()
+	for i := range jobs {
+		job := &jobs[i]
+		if !job.Enabled || !job.NextRun.After(now) {
+			continue
+		}
+		nextRun, err := nextCronTime(job.CronExpr, now, e.location)
+		if err != nil {
+			return fmt.Errorf("restore scheduled job %s: %w", job.JobID, err)
+		}
+		if !nextRun.Equal(job.NextRun) {
+			job.NextRun = nextRun
+			if err := e.repo.UpdateJobSchedule(ctx, *job); err != nil {
+				return fmt.Errorf("restore scheduled job %s timezone: %w", job.JobID, err)
+			}
+		}
 	}
 
 	e.mu.Lock()

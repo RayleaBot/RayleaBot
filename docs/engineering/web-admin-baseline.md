@@ -99,6 +99,7 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 - `system`、`light`、`dark` 主题消费同一套生成 CSS Variables；系统主题变化只影响 `system` 模式。
 - 状态色调统一为 `neutral`、`info`、`success`、`warning`、`attention`、`danger`，未知状态回退为中性。
 - 工作区统一使用产品表单与关闭机制，不在页面内另建一套组件或浮层行为。
+- 时区选择复用 Reka Combobox 与虚拟列表。`lib/time-zone-picker.ts` 合并 CLDR 的 Windows 全局代表时区与常用城市，覆盖 UTC−12 至 UTC+14 及非整点偏移；地区的夏令时规则各自保留，按当前 UTC 偏移排序，支持中文城市、地区、IANA 标识与偏移搜索。列表使用单行选项和局部圆角细滚动条，Motion 沿锚点控制展开、收起和搜索后的高度变化；退出动画结束后卸载内容，关闭期间停止交互，遵循减少动态效果设置。已有列表之外的时区作为当前配置保留，不自动改写。完整离线目录、中文城市名和 Windows 映射由 `node scripts/update-time-zones.mjs` 从固定版本的 IANA tzdb 与 Unicode CLDR 生成，授权文本随 `web/public/licenses/time-zones.txt` 发布。管理面时间格式化与日志日期输入统一使用后端配置响应的 `effective_timezone`，不使用浏览器所在时区替代服务时区。
 - 普通对象列表在窄屏使用摘要行；兼容矩阵、名单、代码和技术字段允许局部横向滚动，普通页面不得横向溢出。
 
 ## 验证门禁

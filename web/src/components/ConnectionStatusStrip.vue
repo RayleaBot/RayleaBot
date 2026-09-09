@@ -7,6 +7,7 @@ import { storeToRefs } from 'pinia'
 
 import { getConnectionChannelLabel, getConnectionStatusLabel } from '@/lib/display'
 import { t } from '@/i18n'
+import { formatTime } from '@/lib/format'
 import { useSocketStore } from '@/stores/sockets'
 import type { ConnectionStatus } from '@/types/api'
 
@@ -19,7 +20,7 @@ function formatLastErrorAt(value: string | undefined) {
   if (!value) return ''
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
-  return parsed.toLocaleTimeString()
+  return formatTime(parsed)
 }
 
 const channelStates = computed(() =>

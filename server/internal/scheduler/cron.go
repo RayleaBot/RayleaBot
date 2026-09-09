@@ -51,17 +51,28 @@ func nextCronTime(expr string, after time.Time, loc *time.Location) (time.Time, 
 	for t.Before(limit) {
 		if !monthSet[int(t.Month())] {
 			// Advance to next month.
-			t = time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, loc)
+			next := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, loc)
+			if next.After(t) {
+				t = next
+			} else {
+				t = t.Add(time.Minute)
+			}
 			continue
 		}
 		if !domSet[t.Day()] || !dowSet[int(t.Weekday())] {
-			t = t.AddDate(0, 0, 1)
-			t = time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+			nextDay := t.AddDate(0, 0, 1)
+			next := time.Date(nextDay.Year(), nextDay.Month(), nextDay.Day(), 0, 0, 0, 0, loc)
+			if next.After(t) {
+				t = next
+			} else {
+				t = t.Add(time.Minute)
+			}
 			continue
 		}
 		if !hourSet[t.Hour()] {
-			t = t.Add(time.Hour)
-			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, loc)
+			// Advance on the UTC timeline: reconstructing an ambiguous local hour
+			// can move backwards during a daylight-saving transition.
+			t = t.Add(time.Minute)
 			continue
 		}
 		if !minuteSet[t.Minute()] {

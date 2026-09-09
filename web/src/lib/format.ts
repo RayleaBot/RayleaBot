@@ -1,6 +1,13 @@
 import { i18n } from '@/i18n'
 import { t } from '@/i18n'
 import { parseRateLimitValue } from '@/lib/rate-limit'
+import { getActivePinia } from 'pinia'
+import { useConfigStore } from '@/stores/config'
+import { DEFAULT_TIME_ZONE } from '@/lib/time-zone'
+
+export function managementTimeZone() {
+  return getActivePinia() ? useConfigStore().effectiveTimezone : DEFAULT_TIME_ZONE
+}
 
 export function formatDateTime(value?: string | number | Date | null) {
   const date = toValidDate(value)
@@ -11,7 +18,14 @@ export function formatDateTime(value?: string | number | Date | null) {
   return new Intl.DateTimeFormat(i18n.global.locale.value, {
     dateStyle: 'short',
     timeStyle: 'medium',
+    timeZone: managementTimeZone(),
   }).format(date)
+}
+
+export function formatTime(value?: string | number | Date | null) {
+  const date = toValidDate(value)
+  if (!date) return formatFallbackValue(value)
+  return new Intl.DateTimeFormat(i18n.global.locale.value, { timeStyle: 'medium', timeZone: managementTimeZone() }).format(date)
 }
 
 export function formatRelativeTime(value?: string | number | Date | null): string {

@@ -1339,6 +1339,8 @@ export interface components {
         };
         ConfigDocument: components["schemas"]["config.user.schema"];
         ConfigSnapshotResponse: {
+            /** @description IANA timezone currently used by the running scheduler and management time display. Remains unchanged after saving a timezone change until the server restarts. Defaults to Asia/Shanghai. */
+            effective_timezone: string;
             config: components["schemas"]["config.user.schema"];
             redacted_fields?: string[];
         };
@@ -1348,6 +1350,8 @@ export interface components {
             restart_required_fields: string[];
         };
         ConfigUpdateResponse: {
+            /** @description IANA timezone currently used by the running scheduler and management time display, including while config.scheduler.timezone awaits restart. */
+            effective_timezone: string;
             config: components["schemas"]["config.user.schema"];
             redacted_fields?: string[];
             /** @description Whether a server restart is required before the new config takes effect. */
@@ -2622,8 +2626,8 @@ export interface components {
             };
             scheduler: {
                 /**
-                 * @description IANA timezone identifier used for scheduled tasks. Empty defaults to system timezone.
-                 * @default
+                 * @description IANA timezone identifier used for scheduled tasks, server log timestamps and management time display. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
+                 * @default Asia/Shanghai
                  */
                 timezone: string;
             };

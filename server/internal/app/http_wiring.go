@@ -55,6 +55,7 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 	services := deps.ServiceBuild.Services
 
 	configService := newConfigService(configServiceDeps{
+		EffectiveTimezone: platformState.Scheduler.Timezone,
 		Runtime:           runtimeState,
 		Logs:              platformState.Logs,
 		LogRepository:     platformState.LogRepository,

@@ -9,7 +9,7 @@ export interface ConfigFieldOption {
 export interface ConfigFieldDefinition {
   path: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'list' | 'rateLimit'
+  type: 'text' | 'textarea' | 'number' | 'boolean' | 'select' | 'list' | 'rateLimit' | 'timezone'
   description?: string
   options?: ConfigFieldOption[]
   defaultValue?: unknown
@@ -256,9 +256,9 @@ export function getConfigSections(): ConfigSectionDefinition[] {
         {
           path: 'scheduler.timezone',
           restartRequired: true,
-          defaultValue: '',
+          defaultValue: 'Asia/Shanghai',
           label: t('config.fields.schedulerTimezone'),
-          type: 'text',
+          type: 'timezone',
           description: t('config.descriptions.schedulerTimezone'),
         },
       ],

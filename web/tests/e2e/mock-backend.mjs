@@ -154,6 +154,7 @@ function baseState() {
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
+    effectiveTimezone: 'Asia/Shanghai',
     loadedAdapterIds: fixtures.configGet.response.body.config.adapters.map((entry) => entry.id),
     protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
@@ -698,6 +699,11 @@ function resetState(payload = {}) {
   closeAllSockets()
 
   state = baseState()
+  if (typeof payload.timezone === 'string') {
+    state.effectiveTimezone = payload.timezone
+    state.config.scheduler.timezone = payload.timezone
+    for (const job of state.schedulerJobs) job.timezone = payload.timezone
+  }
   state.initialized = Boolean(payload.initialized)
   state.token = null
   state.csrfToken = null
@@ -1775,6 +1781,7 @@ const server = http.createServer(async (request, response) => {
     const snapshot = redactConfigSecrets(state.config)
     json(response, 200, {
       config: snapshot.config,
+      effective_timezone: state.effectiveTimezone,
       redacted_fields: snapshot.redacted_fields,
     })
     return
@@ -1803,6 +1810,7 @@ const server = http.createServer(async (request, response) => {
     const snapshot = redactConfigSecrets(state.config)
     json(response, 200, {
       config: snapshot.config,
+      effective_timezone: state.effectiveTimezone,
       redacted_fields: snapshot.redacted_fields,
       restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
       apply_effects: applyEffects,

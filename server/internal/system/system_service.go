@@ -49,6 +49,7 @@ type ThirdPartyDiagnosticsSource interface {
 
 type SchedulerDiagnosticsSource interface {
 	DiagnosticsScheduler() DiagnosticsScheduler
+	Timezone() string
 }
 
 type Deps struct {
@@ -211,11 +212,14 @@ func (s *Service) SchedulerPluginName(pluginID string) string {
 
 func (s *Service) SchedulerTimezone() string {
 	if s != nil {
+		if s.scheduler != nil {
+			return s.scheduler.Timezone()
+		}
 		if tz := strings.TrimSpace(s.config().Scheduler.Timezone); tz != "" {
 			return tz
 		}
 	}
-	return "UTC"
+	return config.DefaultTimezone
 }
 
 func (s *Service) StatusSnapshot() StatusSnapshot {

@@ -483,8 +483,8 @@ func TestLoadHealsNullPlanningAlignedValues(t *testing.T) {
 	if cfg.Adapter.ReconnectJitterRatio != 0.2 {
 		t.Fatalf("Adapter.ReconnectJitterRatio = %v, want 0.2", cfg.Adapter.ReconnectJitterRatio)
 	}
-	if cfg.Scheduler.Timezone != "" {
-		t.Fatalf("Scheduler.Timezone = %q, want empty", cfg.Scheduler.Timezone)
+	if cfg.Scheduler.Timezone != DefaultTimezone {
+		t.Fatalf("Scheduler.Timezone = %q, want %q", cfg.Scheduler.Timezone, DefaultTimezone)
 	}
 }
 

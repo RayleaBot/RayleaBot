@@ -18,7 +18,7 @@ import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { useToastFeedback } from '@/adapter/feedback'
 import { getLogLevelLabel } from '@/lib/display'
-import { formatDateTime } from '@/lib/format'
+import { formatDateTime, managementTimeZone } from '@/lib/format'
 import {
   areLocationQueriesEqual,
   buildLogsLocation,
@@ -502,10 +502,10 @@ onBeforeUnmount(() => {
           <AppField floating :label="t('logs.filters.source')">
             <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
           </AppField>
-          <AppField :label="t('logs.history.startAt')">
+          <AppField :label="t('logs.history.startAt')" :hint="managementTimeZone()">
             <AppInput v-model="timeRangeInput.startLocal" type="datetime-local" />
           </AppField>
-          <AppField :label="t('logs.history.endAt')">
+          <AppField :label="t('logs.history.endAt')" :hint="managementTimeZone()">
             <AppInput v-model="timeRangeInput.endLocal" type="datetime-local" />
           </AppField>
           <div class="logs-toolbar__actions">

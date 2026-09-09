@@ -8,6 +8,9 @@ import (
 )
 
 func validateRuntimeConstraints(cfg Config) error {
+	if _, err := LoadTimezone(cfg.Scheduler.Timezone); err != nil {
+		return err
+	}
 	if cfg.Admin.SessionAbsoluteTTLDays < cfg.Admin.SessionTTLDays {
 		return fmt.Errorf("admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days")
 	}
