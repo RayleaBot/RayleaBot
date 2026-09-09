@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -352,6 +353,10 @@ func TestRestoreRejectsBackupManifestV2(t *testing.T) {
 
 func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 	t.Parallel()
+	currentSchema, err := strconv.Atoi(storage.CurrentSchemaVersion())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	destDir := t.TempDir()
 	archivePath := filepath.Join(t.TempDir(), "blocked.zip")
@@ -365,7 +370,7 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 		CreatedAt:             "2026-04-02T00:00:00Z",
 		CoreVersion:           "0.2.0",
 		ConfigSchemaVersion:   "2",
-		DBSchemaVersion:       "000007",
+		DBSchemaVersion:       strconv.Itoa(currentSchema + 1),
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,

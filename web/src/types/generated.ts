@@ -1803,7 +1803,8 @@ export interface components {
         };
         RenderTemplatePreviewHTMLResponse: {
             template_id: string;
-            revision_id: string;
+            /** @description SHA-256 digest of the current template source and its assets directory. Used to invalidate preview assets; no historical revision is retained. */
+            source_digest: string;
             width: number;
             height: number;
             html: string;
@@ -1814,7 +1815,12 @@ export interface components {
             plugin_id: string | null;
             local_id: string | null;
         };
+        /** @description A currently available template. System entries must have valid source files in the active templates directory; database-only entries for removed or migrated system templates are excluded. */
         RenderTemplateSummary: {
+            /** @description Human-readable name required in template.json. Templates without a nonblank name are invalid; clients display this name directly. */
+            name: string;
+            /** @description Optional human-readable usage description from template.json. */
+            description?: string;
             id: string;
             version: string;
             width: number;
@@ -1828,6 +1834,10 @@ export interface components {
             items: components["schemas"]["RenderTemplateSummary"][];
         };
         RenderTemplateDetail: {
+            /** @description Human-readable name required in template.json. Templates without a nonblank name are invalid. */
+            name: string;
+            /** @description Optional human-readable usage description from template.json. */
+            description?: string;
             id: string;
             version: string;
             width: number;

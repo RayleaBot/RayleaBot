@@ -59,6 +59,11 @@ var schemaMigrations = []schemaMigration{
 		name:    "simplify_plugin_store",
 		file:    "migrations/000006_simplify_plugin_store.sql",
 	},
+	{
+		version: 7,
+		name:    "current_render_templates",
+		file:    "migrations/000007_current_render_templates.sql",
+	},
 }
 
 func initializeSchema(ctx context.Context, db *sql.DB) error {

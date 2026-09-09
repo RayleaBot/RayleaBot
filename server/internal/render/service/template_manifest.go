@@ -28,6 +28,14 @@ func parseTemplateManifest(expectedTemplateID string, manifestJSON map[string]an
 	if err != nil {
 		return Manifest{}, nil, err
 	}
+	name, err := readRequiredString(manifestJSON, "name")
+	if err != nil {
+		return Manifest{}, nil, err
+	}
+	description, err := readOptionalString(manifestJSON, "description", "")
+	if err != nil {
+		return Manifest{}, nil, err
+	}
 	entryHTML, err := readOptionalString(manifestJSON, "entry_html", defaultTemplateHTMLFile)
 	if err != nil {
 		return Manifest{}, nil, err
@@ -55,6 +63,8 @@ func parseTemplateManifest(expectedTemplateID string, manifestJSON map[string]an
 
 	manifest := Manifest{
 		ID:          id,
+		Name:        name,
+		Description: description,
 		Version:     version,
 		EntryHTML:   entryHTML,
 		Stylesheet:  stylesheet,
@@ -69,6 +79,7 @@ func parseTemplateManifest(expectedTemplateID string, manifestJSON map[string]an
 func manifestToJSON(manifest Manifest) map[string]any {
 	document := map[string]any{
 		"id":         manifest.ID,
+		"name":       manifest.Name,
 		"version":    manifest.Version,
 		"entry_html": manifest.EntryHTML,
 		"stylesheet": manifest.Stylesheet,
@@ -77,6 +88,9 @@ func manifestToJSON(manifest Manifest) map[string]any {
 	}
 	if manifest.InputSchema != nil {
 		document["input_schema"] = *manifest.InputSchema
+	}
+	if manifest.Description != "" {
+		document["description"] = manifest.Description
 	}
 	return document
 }

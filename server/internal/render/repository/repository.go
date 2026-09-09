@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -14,49 +15,8 @@ import (
 const templateManifestFilename = "template.json"
 
 type SQLiteTemplateRepository struct {
-	read   *sql.DB
-	write  *sql.DB
-	writeQ *sqlcgen.Queries
-}
-
-type StoredTemplateState struct {
-	TemplateID           string
-	CurrentRevisionID    string
-	UpdatedAt            string
-	ValidationValid      bool
-	ValidationCheckedAt  string
-	ValidationIssueCount int
-	Source               TemplateSourceInfo
-}
-
-type StoredTemplateRevision struct {
-	RevisionID      string
-	TemplateID      string
-	TemplateVersion string
-	Kind            string
-	Message         *string
-	SavedAt         string
-	SourceDigest    string
-	ManifestJSON    string
-	HTML            string
-	Stylesheet      string
-	InputSchemaJSON sql.NullString
-}
-
-func NewSQLiteTemplateRepository(store *storage.Store) (*SQLiteTemplateRepository, error) {
-	if store == nil || store.Read == nil || store.Write == nil {
-		return nil, errors.New("sqlite store is required")
-	}
-
-	return &SQLiteTemplateRepository{
-		read:   store.Read,
-		write:  store.Write,
-		writeQ: sqlcgen.New(store.Write),
-	}, nil
-}
-
-type TemplateDraft struct {
-	Source TemplateSource `json:"source"`
+	readQ *sqlcgen.Queries
+	write *sql.DB
 }
 
 type TemplateSource struct {
@@ -73,214 +33,184 @@ type TemplateFiles struct {
 	InputSchema *string `json:"input_schema"`
 }
 
-type TemplateValidationStatus struct {
-	Valid      bool   `json:"valid"`
-	CheckedAt  string `json:"checked_at"`
-	IssueCount int    `json:"issue_count"`
-}
-
 type TemplateSourceInfo struct {
 	Type     string `json:"type"`
 	PluginID string `json:"plugin_id,omitempty"`
 	LocalID  string `json:"local_id,omitempty"`
 }
 
-type TemplateVersion struct {
-	RevisionID      string  `json:"revision_id"`
-	TemplateVersion string  `json:"template_version"`
-	SavedAt         string  `json:"saved_at"`
-	Kind            string  `json:"kind"`
-	Message         *string `json:"message"`
-}
-
 type TemplateSummary struct {
-	ID                string `json:"id"`
-	Version           string `json:"version"`
-	Width             int    `json:"width"`
-	Height            int    `json:"height"`
-	HasInputSchema    bool   `json:"has_input_schema"`
-	CurrentRevisionID string `json:"current_revision_id"`
-	UpdatedAt         string `json:"updated_at"`
-	Source            TemplateSourceInfo
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	Version        string `json:"version"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	HasInputSchema bool   `json:"has_input_schema"`
+	SourceDigest   string `json:"source_digest"`
+	UpdatedAt      string `json:"updated_at"`
+	Source         TemplateSourceInfo
 }
 
 type TemplateDetail struct {
 	TemplateSummary
-	Files           TemplateFiles            `json:"files"`
-	CurrentRevision TemplateVersion          `json:"current_revision"`
-	LastValidation  TemplateValidationStatus `json:"last_validation"`
+	Files TemplateFiles `json:"files"`
 }
 
-type Error struct {
-	Code    string
-	Message string
-	Err     error
+type CurrentTemplate struct {
+	ID           string
+	SourceDigest string
+	UpdatedAt    string
+	Source       TemplateSource
+	Owner        TemplateSourceInfo
 }
 
-func (e *Error) Error() string {
-	if e == nil {
-		return ""
+func NewSQLiteTemplateRepository(store *storage.Store) (*SQLiteTemplateRepository, error) {
+	if store == nil || store.Read == nil || store.Write == nil {
+		return nil, errors.New("sqlite store is required")
 	}
-	if e.Message != "" {
-		return e.Message
-	}
-	if e.Err != nil {
-		return e.Err.Error()
-	}
-	return e.Code
+	return &SQLiteTemplateRepository{readQ: sqlcgen.New(store.Read), write: store.Write}, nil
 }
 
-func (e *Error) Unwrap() error {
-	if e == nil {
-		return nil
+func (r *SQLiteTemplateRepository) SyncTemplate(ctx context.Context, item CurrentTemplate) (bool, error) {
+	manifest, err := json.Marshal(item.Source.ManifestJSON)
+	if err != nil {
+		return false, err
 	}
-	return e.Err
-}
-
-type templateManifest struct {
-	ID          string
-	Version     string
-	EntryHTML   string
-	Stylesheet  string
-	InputSchema *string
-	Width       int
-	Height      int
-}
-
-func (r *SQLiteTemplateRepository) SaveCurrentRevision(
-	ctx context.Context,
-	templateID string,
-	baseRevisionID string,
-	revision StoredTemplateRevision,
-	validation TemplateValidationStatus,
-) error {
+	var schema sql.NullString
+	if item.Source.InputSchemaJSON != nil {
+		encoded, err := json.Marshal(item.Source.InputSchemaJSON)
+		if err != nil {
+			return false, err
+		}
+		schema = sql.NullString{String: string(encoded), Valid: true}
+	}
 	tx, err := r.write.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin render template save transaction: %w", err)
+		return false, err
 	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	state, err := loadTemplateStateTx(ctx, tx, templateID)
-	if err != nil {
-		return err
-	}
-	if state.CurrentRevisionID != baseRevisionID {
-		return &Error{
-			Code:    "platform.template_revision_conflict",
-			Message: "render template revision is stale",
+	defer tx.Rollback()
+	queries := sqlcgen.New(tx)
+	current, err := queries.GetRenderTemplate(ctx, item.ID)
+	if err == nil {
+		if current.SourceType != item.Owner.Type || current.SourcePluginID.String != item.Owner.PluginID || current.SourceLocalID.String != item.Owner.LocalID {
+			return false, fmt.Errorf("render template %s is already registered by another source", item.ID)
 		}
+		if current.SourceDigest == item.SourceDigest {
+			return false, tx.Commit()
+		}
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return false, err
 	}
-
-	if err := insertTemplateRevision(ctx, tx, revision); err != nil {
-		return err
-	}
-	if err := upsertTemplateState(ctx, tx, StoredTemplateState{
-		TemplateID:           templateID,
-		CurrentRevisionID:    revision.RevisionID,
-		UpdatedAt:            revision.SavedAt,
-		ValidationValid:      validation.Valid,
-		ValidationCheckedAt:  validation.CheckedAt,
-		ValidationIssueCount: validation.IssueCount,
-		Source:               state.Source,
-	}); err != nil {
-		return err
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit render template save transaction: %w", err)
-	}
-	return nil
-}
-
-func (r *SQLiteTemplateRepository) UpdateValidationStatus(ctx context.Context, templateID string, validation TemplateValidationStatus) error {
-	result, err := r.writeQ.UpdateRenderTemplateValidation(ctx, sqlcgen.UpdateRenderTemplateValidationParams{
-		ValidationValid:      int64(boolToInt(validation.Valid)),
-		ValidationCheckedAt:  validation.CheckedAt,
-		ValidationIssueCount: int64(validation.IssueCount),
-		TemplateID:           templateID,
+	err = queries.UpsertRenderTemplate(ctx, sqlcgen.UpsertRenderTemplateParams{
+		TemplateID: item.ID, SourceDigest: item.SourceDigest, UpdatedAt: item.UpdatedAt,
+		SourceType: item.Owner.Type, SourcePluginID: nullable(item.Owner.PluginID), SourceLocalID: nullable(item.Owner.LocalID),
+		ManifestJson: string(manifest), Html: item.Source.HTML, Stylesheet: item.Source.Stylesheet, InputSchemaJson: schema,
 	})
 	if err != nil {
-		return fmt.Errorf("update render template validation for %s: %w", templateID, err)
+		return false, fmt.Errorf("sync current render template %s: %w", item.ID, err)
 	}
-	rows, err := result.RowsAffected()
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func nullable(value string) sql.NullString {
+	return sql.NullString{String: value, Valid: value != ""}
+}
+
+type storedManifest struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Version     string  `json:"version"`
+	EntryHTML   string  `json:"entry_html"`
+	Stylesheet  string  `json:"stylesheet"`
+	InputSchema *string `json:"input_schema"`
+	Width       int     `json:"width"`
+	Height      int     `json:"height"`
+}
+
+func decodeDetail(row sqlcgen.RenderTemplate) (TemplateDetail, error) {
+	detail := TemplateDetail{TemplateSummary: TemplateSummary{
+		ID: row.TemplateID, SourceDigest: row.SourceDigest, UpdatedAt: row.UpdatedAt,
+		HasInputSchema: row.InputSchemaJson.Valid,
+		Source:         TemplateSourceInfo{Type: row.SourceType, PluginID: row.SourcePluginID.String, LocalID: row.SourceLocalID.String},
+	}}
+	var manifest storedManifest
+	if err := json.Unmarshal([]byte(row.ManifestJson), &manifest); err != nil {
+		return detail, err
+	}
+	if strings.TrimSpace(manifest.Name) == "" {
+		return detail, fmt.Errorf("current template %s has no name", detail.ID)
+	}
+	detail.Name, detail.Description, detail.Version = manifest.Name, manifest.Description, manifest.Version
+	detail.Width, detail.Height = manifest.Width, manifest.Height
+	detail.Files = TemplateFiles{Manifest: templateManifestFilename, HTML: manifest.EntryHTML, Stylesheet: manifest.Stylesheet, InputSchema: manifest.InputSchema}
+	return detail, nil
+}
+
+func (r *SQLiteTemplateRepository) ListTemplateSummaries(ctx context.Context) ([]TemplateSummary, error) {
+	rows, err := r.readQ.ListRenderTemplates(ctx)
 	if err != nil {
-		return fmt.Errorf("read render template validation update rows for %s: %w", templateID, err)
+		return nil, err
 	}
-	if rows == 0 {
-		return sql.ErrNoRows
+	items := make([]TemplateSummary, 0, len(rows))
+	for _, row := range rows {
+		detail, err := decodeDetail(row)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, detail.TemplateSummary)
 	}
-	return nil
+	return items, nil
 }
 
-func (r *SQLiteTemplateRepository) RemovePluginTemplatesExcept(ctx context.Context, pluginID string, keepIDs []string) error {
-	pluginID = strings.TrimSpace(pluginID)
-	if pluginID == "" {
-		return nil
+func (r *SQLiteTemplateRepository) GetTemplateDetail(ctx context.Context, id string) (TemplateDetail, error) {
+	row, err := r.readQ.GetRenderTemplate(ctx, id)
+	if err != nil {
+		return TemplateDetail{}, err
 	}
-
-	seen := make(map[string]struct{}, len(keepIDs))
-	normalizedKeepIDs := make([]string, 0, len(keepIDs))
-	for _, templateID := range keepIDs {
-		templateID = strings.TrimSpace(templateID)
-		if templateID == "" {
-			continue
-		}
-		if _, ok := seen[templateID]; ok {
-			continue
-		}
-		seen[templateID] = struct{}{}
-		normalizedKeepIDs = append(normalizedKeepIDs, templateID)
-	}
-	if len(normalizedKeepIDs) == 0 {
-		if err := r.writeQ.DeletePluginRenderTemplates(ctx, nullableString(pluginID)); err != nil {
-			return fmt.Errorf("remove stale plugin render templates for %s: %w", pluginID, err)
-		}
-		return nil
-	}
-
-	args := make([]any, 0, len(normalizedKeepIDs)+1)
-	args = append(args, pluginID)
-	placeholders := make([]string, len(normalizedKeepIDs))
-	for index, templateID := range normalizedKeepIDs {
-		placeholders[index] = "?"
-		args = append(args, templateID)
-	}
-	query := `DELETE FROM render_template_states WHERE source_type = 'plugin' AND source_plugin_id = ? AND template_id NOT IN (` + strings.Join(placeholders, ",") + `)`
-	if _, err := r.write.ExecContext(ctx, query, args...); err != nil {
-		return fmt.Errorf("remove stale plugin render templates for %s: %w", pluginID, err)
-	}
-	return nil
+	return decodeDetail(row)
 }
 
-func (r *SQLiteTemplateRepository) RemovePluginTemplatesNotIn(ctx context.Context, activePluginIDs []string) error {
-	seen := map[string]struct{}{}
-	for _, pluginID := range activePluginIDs {
-		pluginID = strings.TrimSpace(pluginID)
-		if pluginID == "" {
-			continue
-		}
-		seen[pluginID] = struct{}{}
+func (r *SQLiteTemplateRepository) GetCurrentSource(ctx context.Context, id string) (string, TemplateSource, error) {
+	var source TemplateSource
+	row, err := r.readQ.GetRenderTemplate(ctx, id)
+	if err != nil {
+		return "", source, err
 	}
-	if len(seen) == 0 {
-		if err := r.writeQ.DeleteAllPluginRenderTemplates(ctx); err != nil {
-			return fmt.Errorf("remove all plugin render templates: %w", err)
-		}
-		return nil
+	source.HTML, source.Stylesheet = row.Html, row.Stylesheet
+	if err := json.Unmarshal([]byte(row.ManifestJson), &source.ManifestJSON); err != nil {
+		return "", source, err
 	}
+	if row.InputSchemaJson.Valid {
+		if err := json.Unmarshal([]byte(row.InputSchemaJson.String), &source.InputSchemaJSON); err != nil {
+			return "", source, err
+		}
+	}
+	return row.SourceDigest, source, nil
+}
 
-	args := make([]any, 0, len(seen))
-	placeholders := make([]string, 0, len(seen))
-	for pluginID := range seen {
-		placeholders = append(placeholders, "?")
-		args = append(args, pluginID)
+func (r *SQLiteTemplateRepository) removeExcept(ctx context.Context, condition string, args []any, column string, keep []string) error {
+	query := `DELETE FROM render_templates WHERE ` + condition
+	if len(keep) > 0 {
+		query += ` AND ` + column + ` NOT IN (` + strings.TrimRight(strings.Repeat("?,", len(keep)), ",") + `)`
+		for _, value := range keep {
+			args = append(args, value)
+		}
 	}
-	if _, err := r.write.ExecContext(ctx,
-		`DELETE FROM render_template_states WHERE source_type = 'plugin' AND source_plugin_id NOT IN (`+strings.Join(placeholders, ",")+`)`,
-		args...,
-	); err != nil {
-		return fmt.Errorf("remove inactive plugin render templates: %w", err)
-	}
-	return nil
+	_, err := r.write.ExecContext(ctx, query, args...)
+	return err
+}
+
+func (r *SQLiteTemplateRepository) RemoveSystemTemplatesExcept(ctx context.Context, ids []string) error {
+	return r.removeExcept(ctx, `source_type = 'system'`, nil, "template_id", ids)
+}
+func (r *SQLiteTemplateRepository) RemovePluginTemplatesExcept(ctx context.Context, pluginID string, ids []string) error {
+	return r.removeExcept(ctx, `source_type = 'plugin' AND source_plugin_id = ?`, []any{pluginID}, "template_id", ids)
+}
+func (r *SQLiteTemplateRepository) RemovePluginTemplatesNotIn(ctx context.Context, ids []string) error {
+	return r.removeExcept(ctx, `source_type = 'plugin'`, nil, "source_plugin_id", ids)
 }

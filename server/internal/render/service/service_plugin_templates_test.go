@@ -104,7 +104,7 @@ func TestValidatePluginTemplateSourcesRejectsEscapedTemplateFiles(t *testing.T) 
 	}
 	files := map[string]string{
 		"template.json": `{
-  "id": "card",
+  "name": "测试模板", "id": "card",
   "version": "1",
   "entry_html": "../outside.HTML",
   "stylesheet": "styles.css",
@@ -140,7 +140,7 @@ func TestValidatePluginTemplateSourcesRejectsUnsafeLocalID(t *testing.T) {
 	}
 	files := map[string]string{
 		"template.json": `{
-  "id": "card/nested",
+  "name": "测试模板", "id": "card/nested",
   "version": "1",
   "entry_html": "template.HTML",
   "stylesheet": "styles.css",

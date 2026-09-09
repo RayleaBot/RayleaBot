@@ -134,30 +134,17 @@ type PluginStoreSource struct {
 	Official int64
 }
 
-type RenderTemplateRevision struct {
-	RevisionID      string
+type RenderTemplate struct {
 	TemplateID      string
-	TemplateVersion string
-	Kind            string
-	Message         sql.NullString
-	SavedAt         string
 	SourceDigest    string
+	UpdatedAt       string
+	SourceType      string
+	SourcePluginID  sql.NullString
+	SourceLocalID   sql.NullString
 	ManifestJson    string
 	Html            string
 	Stylesheet      string
 	InputSchemaJson sql.NullString
-}
-
-type RenderTemplateState struct {
-	TemplateID           string
-	CurrentRevisionID    string
-	UpdatedAt            string
-	ValidationValid      int64
-	ValidationCheckedAt  string
-	ValidationIssueCount int64
-	SourceType           string
-	SourcePluginID       sql.NullString
-	SourceLocalID        sql.NullString
 }
 
 type SchedulerJob struct {

@@ -730,7 +730,7 @@ func writePlainRenderTemplate(t *testing.T, repoRoot string) {
 	}
 	files := map[string]string{
 		"template.json": `{
-  "id": "plain.card",
+  "name": "测试模板", "id": "plain.card",
   "version": "1",
   "entry_html": "template.html",
   "stylesheet": "styles.css",
@@ -776,6 +776,7 @@ func writePluginRenderTemplate(t *testing.T, repoRoot, pluginID, templateID stri
 	files := map[string]string{
 		"template.json": `{
   "id": "` + templateID + `",
+  "name": "测试模板",
   "version": "1",
   "entry_html": "template.html",
   "stylesheet": "styles.css",

@@ -1,0 +1,26 @@
+{
+  "title": "运行状态",
+  "status": "ready",
+  "summary": "所有核心服务已就绪。",
+  "user": {
+    "nickname": "示例用户",
+    "title": "系统观察员",
+    "id": "10086"
+  },
+  "group": {
+    "name": "RayleaBot 运维群"
+  },
+  "permission": {
+    "level": "super_admin"
+  },
+  "metrics": [
+    {
+      "label": "插件",
+      "value": "已加载 8 个"
+    },
+    {
+      "label": "任务队列",
+      "value": "空闲"
+    }
+  ]
+}

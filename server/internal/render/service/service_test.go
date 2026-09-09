@@ -266,7 +266,7 @@ func TestServicePreviewHTMLReusesValidationAndSkipsRunnerAndArtifacts(t *testing
 	if err != nil {
 		t.Fatalf("PreviewHTML: %v", err)
 	}
-	if preview.TemplateID != "help.menu" || preview.RevisionID == "" {
+	if preview.TemplateID != "help.menu" || preview.SourceDigest == "" {
 		t.Fatalf("unexpected preview identity: %#v", preview)
 	}
 	if preview.Width != 960 || preview.Height != 640 {
@@ -301,7 +301,7 @@ func TestServicePreviewHTMLReusesValidationAndSkipsRunnerAndArtifacts(t *testing
 	}
 }
 
-func TestServicePreviewHTMLCachesByRevisionThemeAndData(t *testing.T) {
+func TestServicePreviewHTMLCacheTracksSourceAssetsAndData(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -347,7 +347,7 @@ func TestServicePreviewHTMLCachesByRevisionThemeAndData(t *testing.T) {
 		t.Fatalf("PreviewHTML second: %v", err)
 	}
 	if second != first {
-		t.Fatalf("same revision and data should reuse cached preview\nfirst=%#v\nsecond=%#v", first, second)
+		t.Fatalf("same source and data should reuse cached preview\nfirst=%#v\nsecond=%#v", first, second)
 	}
 
 	changedData, err := service.PreviewHTML(context.Background(), Request{
@@ -368,7 +368,7 @@ func TestServicePreviewHTMLCachesByRevisionThemeAndData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read template: %v", err)
 	}
-	content = []byte(strings.Replace(string(content), "</body>", "<p>revision marker</p></body>", 1))
+	content = []byte(strings.Replace(string(content), "</body>", "<p>updated content</p></body>", 1))
 	if err := os.WriteFile(templatePath, content, 0o644); err != nil {
 		t.Fatalf("write template: %v", err)
 	}
@@ -381,11 +381,35 @@ func TestServicePreviewHTMLCachesByRevisionThemeAndData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PreviewHTML revised: %v", err)
 	}
-	if revised.RevisionID == first.RevisionID {
-		t.Fatalf("template file change should create a new revision")
+	if revised.SourceDigest == first.SourceDigest {
+		t.Fatalf("template file change should change the source digest")
 	}
-	if !strings.Contains(revised.HTML, "revision marker") {
+	if !strings.Contains(revised.HTML, "updated content") {
 		t.Fatalf("revised html should reflect template changes: %s", revised.HTML)
+	}
+	assetPath := filepath.Join(templatesRoot, "help.menu", "assets", "badge.svg")
+	if err := os.MkdirAll(filepath.Dir(assetPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(assetPath, []byte(`<svg xmlns="http://www.w3.org/2000/svg"/>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	withAsset, err := service.PreviewHTML(context.Background(), Request{Template: "help.menu", Data: map[string]any{"title": "第一次"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if withAsset.SourceDigest == revised.SourceDigest || withAsset.HTML != revised.HTML {
+		t.Fatal("asset-only change must invalidate preview resources without changing HTML")
+	}
+	if err := os.WriteFile(assetPath, []byte(`<svg xmlns="http://www.w3.org/2000/svg"><rect width="1"/></svg>`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	updatedAsset, err := service.PreviewHTML(context.Background(), Request{Template: "help.menu", Data: map[string]any{"title": "第一次"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updatedAsset.SourceDigest == withAsset.SourceDigest {
+		t.Fatal("updated asset reused stale preview digest")
 	}
 }
 

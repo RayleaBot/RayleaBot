@@ -259,6 +259,7 @@ func writePluginRenderTemplate(t *testing.T, repoRoot, pluginID, templateID stri
 	files := map[string]string{
 		"template.json": `{
   "id": "` + templateID + `",
+  "name": "测试模板",
   "version": "1",
   "entry_html": "template.html",
   "stylesheet": "styles.css",

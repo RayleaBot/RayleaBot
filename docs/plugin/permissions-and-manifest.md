@@ -104,6 +104,7 @@
 ## 模板与管理页
 
 - 渲染模板由宿主自动发现 `templates/*/template.json`，无需 manifest 清单。
+- `template.json` 必须提供非空 `name`（模板名称），可提供 `description`（用途说明）；建议使用便于用户理解的中文。缺少名称的模板无效，不再按 ID 补名称。模板预览页直接展示声明的名称，内部 ID 仍用于路由和渲染调用。
 - `management_ui.entry` 是所有页面共用的 `ui/*.html` 入口。
 - `management_ui.pages` 只包含稳定 `id` 和展示 `label`；当前页面 ID 通过 bridge 上下文传递。
 - 插件页面使用隔离 origin、CSP、nonce 和 MessagePort；密钥只暴露 configured-state，不回显明文。

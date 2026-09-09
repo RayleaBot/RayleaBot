@@ -70,7 +70,7 @@ func TestLookupTemplateAssetRejectsRegisteredSourceFiles(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(templateDir, "assets"), 0o755); err != nil {
 		t.Fatalf("create custom template dir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(templateDir, "template.json"), []byte(`{"id":"custom.card","version":"1","entry_html":"views/card.gohtml","stylesheet":"css/card.main.css","input_schema":"schema/input.json","width":960,"height":640}`), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(templateDir, "template.json"), []byte(`{"name": "测试模板", "id":"custom.card","version":"1","entry_html":"views/card.gohtml","stylesheet":"css/card.main.css","input_schema":"schema/input.json","width":960,"height":640}`), 0o644); err != nil {
 		t.Fatalf("write Manifest: %v", err)
 	}
 	for path, content := range map[string]string{

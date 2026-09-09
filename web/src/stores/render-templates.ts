@@ -22,6 +22,11 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
   const loading = ref(false)
   const workspaceLoading = ref(false)
   const error = ref<string | null>(null)
+  let catalogLoaded = false
+  let catalogRequest = 0
+  let catalogVersion = 0
+  let workspaceRequest = 0
+  const pendingWorkspaces = new Map<string, number>()
 
   const templateMap = computed(() => Object.fromEntries(items.value.map((item) => [item.id, item])))
 
@@ -35,25 +40,39 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
   }
 
   async function fetchTemplates() {
+    const request = ++catalogRequest
     loading.value = true
     error.value = null
     try {
       const response = await apiRequest<RenderTemplateListResponse>('/api/system/render/templates')
+      if (request !== catalogRequest) return response
       items.value = sortTemplateSummaries(response.items)
+      catalogLoaded = true
+      catalogVersion += 1
+      // Preview data can change without changing the template source timestamp.
+      detailById.value = {}
+      pendingWorkspaces.clear()
+      workspaceLoading.value = false
       return response
     } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
+      if (request === catalogRequest) error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
-      loading.value = false
+      if (request === catalogRequest) loading.value = false
     }
   }
 
   async function fetchTemplateWorkspace(templateId: string) {
+    const requestCatalog = catalogVersion
+    const request = ++workspaceRequest
+    pendingWorkspaces.set(templateId, request)
+    const isCurrentRequest = () => requestCatalog === catalogVersion && pendingWorkspaces.get(templateId) === request
     workspaceLoading.value = true
     error.value = null
     try {
       const response = await apiRequest<RenderTemplateDetailResponse>(`/api/system/render/templates/${encodeURIComponent(templateId)}`)
+      // Only the latest request in the current catalog may update its workspace.
+      if (!isCurrentRequest() || (catalogLoaded && !items.value.some(item => item.id === templateId))) return response.template
       detailById.value = {
         ...detailById.value,
         [templateId]: response.template,
@@ -61,10 +80,11 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
       upsertTemplateSummary(response.template)
       return response.template
     } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
+      if (isCurrentRequest()) error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
-      workspaceLoading.value = false
+      if (pendingWorkspaces.get(templateId) === request) pendingWorkspaces.delete(templateId)
+      workspaceLoading.value = pendingWorkspaces.size > 0
     }
   }
 

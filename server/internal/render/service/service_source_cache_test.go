@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -32,17 +31,11 @@ func TestServiceSyncsTemplateFileChangesAfterRestart(t *testing.T) {
 		t.Fatalf("expected seeded templates, got %#v", list)
 	}
 
-	baseRevisionID, source, err := service.GetTemplateSource(context.Background(), "help.menu")
+	detail, err := service.GetTemplate(context.Background(), "help.menu")
 	if err != nil {
-		t.Fatalf("GetTemplateSource: %v", err)
+		t.Fatal(err)
 	}
-	source.HTML = `<section class="persisted">{{ .title }}</section>`
-
-	detail, err := service.UpdateTemplateSource(context.Background(), "help.menu", baseRevisionID, "调整模板内容", source)
-	if err != nil {
-		t.Fatalf("UpdateTemplateSource: %v", err)
-	}
-	persistedRevisionID := detail.CurrentRevision.RevisionID
+	persistedSourceDigest := detail.SourceDigest
 	cleanup()
 
 	if err := os.WriteFile(filepath.Join(templatesRoot, "help.menu", "template.HTML"), []byte(`<section class="file">{{ .title }}</section>`), 0o644); err != nil {
@@ -56,8 +49,8 @@ func TestServiceSyncsTemplateFileChangesAfterRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetTemplate after restart: %v", err)
 	}
-	if reopenedDetail.CurrentRevision.RevisionID == persistedRevisionID {
-		t.Fatalf("current revision did not track updated template file")
+	if reopenedDetail.SourceDigest == persistedSourceDigest {
+		t.Fatalf("current source digest did not track updated template file")
 	}
 
 	_, reopenedSource, err := reopened.GetTemplateSource(context.Background(), "help.menu")
@@ -274,7 +267,7 @@ func TestServiceTemplateReadsSyncChangedFiles(t *testing.T) {
 	}
 }
 
-func TestServiceInvalidTemplateFileKeepsCurrentRevision(t *testing.T) {
+func TestServiceInvalidTemplateFileInvalidatesCurrentCache(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -303,108 +296,14 @@ func TestServiceInvalidTemplateFileKeepsCurrentRevision(t *testing.T) {
 		}
 	})
 
-	before, source, err := service.GetTemplateSource(context.Background(), "help.menu")
-	if err != nil {
-		t.Fatalf("GetTemplateSource before invalid file: %v", err)
-	}
-
 	if err := os.WriteFile(filepath.Join(templatesRoot, "help.menu", "template.HTML"), []byte("{{ if }}"), 0o644); err != nil {
 		t.Fatalf("write invalid template HTML: %v", err)
 	}
 
-	after, afterSource, err := service.GetTemplateSource(context.Background(), "help.menu")
-	if err != nil {
-		t.Fatalf("GetTemplateSource after invalid file: %v", err)
-	}
-	if after != before {
-		t.Fatalf("invalid template file changed current revision: got %q want %q", after, before)
-	}
-	if afterSource.HTML != source.HTML {
-		t.Fatalf("invalid template file replaced current source")
+	if _, _, err := service.GetTemplateSource(context.Background(), "help.menu"); err == nil {
+		t.Fatal("invalid source must not fall back to stored content")
 	}
 	if !strings.Contains(logs.String(), "level=WARN") || !strings.Contains(logs.String(), "template_dir=templates/help.menu") {
 		t.Fatalf("expected invalid template warning, got %q", logs.String())
-	}
-}
-
-func TestServiceValidateTemplateRejectsInvalidManifestAndReportsCompileIssues(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := filepath.Join("..", "..", "..", "..")
-	outputRoot := filepath.Join(t.TempDir(), "render-output")
-	store := openRenderTestStore(t)
-
-	service, err := NewService(Options{
-		RepoRoot:           repoRoot,
-		OutputRoot:         outputRoot,
-		Store:              store,
-		Runner:             &fakeRunner{},
-		WorkerCount:        1,
-		QueueMaxLength:     2,
-		QueueWaitTimeout:   time.Second,
-		RenderTimeout:      time.Second,
-		MaxRenderDataBytes: 256 * 1024,
-	})
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := service.Close(); err != nil {
-			t.Fatalf("Close: %v", err)
-		}
-	})
-
-	_, source, err := service.GetTemplateSource(context.Background(), "help.menu")
-	if err != nil {
-		t.Fatalf("GetTemplateSource: %v", err)
-	}
-
-	invalidManifest := source
-	invalidManifest.ManifestJSON = map[string]any{"version": "1"}
-
-	_, err = service.ValidateTemplate(context.Background(), "help.menu", &invalidManifest)
-	if err == nil {
-		t.Fatal("expected invalid manifest error")
-	}
-
-	var renderErr *Error
-	if !errors.As(err, &renderErr) {
-		t.Fatalf("expected *Error, got %T", err)
-	}
-	if renderErr.Code != "platform.template_source_invalid" {
-		t.Fatalf("unexpected error code: got %q want %q", renderErr.Code, "platform.template_source_invalid")
-	}
-
-	invalidHTML := source
-	invalidHTML.HTML = "{{ if }}"
-
-	result, err := service.ValidateTemplate(context.Background(), "help.menu", &invalidHTML)
-	if err != nil {
-		t.Fatalf("ValidateTemplate invalid HTML: %v", err)
-	}
-	if result.Valid {
-		t.Fatalf("expected invalid html validation to fail")
-	}
-	if len(result.Issues) != 1 || result.Issues[0].Code != "html.compile_failed" {
-		t.Fatalf("unexpected validation issues: %#v", result.Issues)
-	}
-
-	detail, err := service.templateRepo.GetTemplateDetail(context.Background(), "help.menu")
-	if err != nil {
-		t.Fatalf("GetTemplateDetail: %v", err)
-	}
-	if detail.LastValidation.Valid {
-		t.Fatalf("expected last validation status to reflect failed compile")
-	}
-	if detail.LastValidation.IssueCount != 1 {
-		t.Fatalf("unexpected validation issue count: got %d want 1", detail.LastValidation.IssueCount)
-	}
-
-	syncedDetail, err := service.GetTemplate(context.Background(), "help.menu")
-	if err != nil {
-		t.Fatalf("GetTemplate after sync: %v", err)
-	}
-	if !syncedDetail.LastValidation.Valid {
-		t.Fatalf("expected valid file sync to restore validation status")
 	}
 }

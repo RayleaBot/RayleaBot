@@ -136,7 +136,7 @@ func TestRenderTemplatePreviewHTMLHandlerReturnsHTML(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode preview html response: %v", err)
 	}
-	if response.TemplateID != "help.menu" || response.RevisionID == "" {
+	if response.TemplateID != "help.menu" || response.SourceDigest == "" {
 		t.Fatalf("unexpected preview identity: %#v", response)
 	}
 	if response.Width != 960 || response.Height != 640 {

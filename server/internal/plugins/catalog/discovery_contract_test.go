@@ -122,7 +122,7 @@ func TestDiscoverAutoDiscoversRenderTemplates(t *testing.T) {
 	root := t.TempDir()
 	pluginRoot := filepath.Join(root, "plugins", "installed", "weather-card")
 	writeArtifact(t, pluginRoot, baseManifest("weather-card"), map[string][]byte{
-		"templates/weather/template.json": []byte(`{"id":"weather","version":"1"}`),
+		"templates/weather/template.json": []byte(`{"id":"weather","name":"天气卡片","version":"1"}`),
 		"templates/weather/template.html": []byte("<html></html>"),
 	})
 

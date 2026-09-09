@@ -94,7 +94,7 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
     }
   }
 
-  async function rewritePreviewDocumentResources(templateId: string, html: string, revisionId: string, signal: AbortSignal) {
+  async function rewritePreviewDocumentResources(templateId: string, html: string, sourceDigest: string, signal: AbortSignal) {
     const createdResourceKeys: string[] = []
     const resourceKeys: string[] = []
     const context: PreviewResourceRewriteContext = {
@@ -110,17 +110,17 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
     try {
       await Promise.all([
         ...Array.from(document.querySelectorAll('style')).map(async (style) => {
-          style.textContent = await rewriteCSSResources(style.textContent ?? '', '', revisionId, context)
+          style.textContent = await rewriteCSSResources(style.textContent ?? '', '', sourceDigest, context)
         }),
         ...Array.from(document.querySelectorAll<HTMLElement>('[style]')).map(async (element) => {
           const style = element.getAttribute('style') ?? ''
-          element.setAttribute('style', await rewriteCSSResources(style, '', revisionId, context))
+          element.setAttribute('style', await rewriteCSSResources(style, '', sourceDigest, context))
         }),
         ...Array.from(document.querySelectorAll<HTMLElement>('[src]')).map((element) => (
-          rewriteElementResourceAttribute(element, 'src', '', revisionId, context)
+          rewriteElementResourceAttribute(element, 'src', '', sourceDigest, context)
         )),
         ...Array.from(document.querySelectorAll<HTMLLinkElement>('link[href]')).map((link) => (
-          rewriteLinkResource(link, document, revisionId, context)
+          rewriteLinkResource(link, document, sourceDigest, context)
         )),
       ])
     } catch (error) {
@@ -139,7 +139,7 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
     element: HTMLElement,
     attribute: string,
     basePath: string,
-    revisionId: string,
+    sourceDigest: string,
     context: PreviewResourceRewriteContext,
   ) {
     const raw = element.getAttribute(attribute) ?? ''
@@ -148,14 +148,14 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
       return
     }
 
-    const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, revisionId, context)
+    const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, sourceDigest, context)
     element.setAttribute(attribute, blobUrl)
   }
 
   async function rewriteLinkResource(
     link: HTMLLinkElement,
     document: Document,
-    revisionId: string,
+    sourceDigest: string,
     context: PreviewResourceRewriteContext,
   ) {
     const rel = (link.getAttribute('rel') ?? '').toLowerCase()
@@ -166,18 +166,18 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
     }
 
     if (rel.includes('stylesheet')) {
-      const css = await downloadTemplateAssetText(resourcePath, revisionId, context)
+      const css = await downloadTemplateAssetText(resourcePath, sourceDigest, context)
       const style = document.createElement('style')
-      style.textContent = await rewriteCSSResources(css, dirname(resourcePath), revisionId, context)
+      style.textContent = await rewriteCSSResources(css, dirname(resourcePath), sourceDigest, context)
       link.replaceWith(style)
       return
     }
 
-    const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, revisionId, context)
+    const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, sourceDigest, context)
     link.setAttribute('href', blobUrl)
   }
 
-  async function rewriteCSSResources(css: string, basePath: string, revisionId: string, context: PreviewResourceRewriteContext): Promise<string> {
+  async function rewriteCSSResources(css: string, basePath: string, sourceDigest: string, context: PreviewResourceRewriteContext): Promise<string> {
     let rewritten = css
 
     rewritten = await replaceAsync(rewritten, /@import\s+(?:url\()?["']?([^"')\s;]+)["']?\)?[^;]*;?/gi, async (match, rawUrl: string) => {
@@ -185,8 +185,8 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
       if (!resourcePath) {
         return match
       }
-      const importedCSS = await downloadTemplateAssetText(resourcePath, revisionId, context)
-      return rewriteCSSResources(importedCSS, dirname(resourcePath), revisionId, context)
+      const importedCSS = await downloadTemplateAssetText(resourcePath, sourceDigest, context)
+      return rewriteCSSResources(importedCSS, dirname(resourcePath), sourceDigest, context)
     })
 
     rewritten = await replaceAsync(rewritten, /url\(\s*(["']?)([^"')]+)\1\s*\)/gi, async (match, quote: string, rawUrl: string) => {
@@ -194,15 +194,15 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
       if (!resourcePath) {
         return match
       }
-      const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, revisionId, context)
+      const blobUrl = await downloadTemplateAssetObjectURL(resourcePath, sourceDigest, context)
       return `url(${quote}${blobUrl}${quote})`
     })
 
     return rewritten
   }
 
-  async function downloadTemplateAssetText(path: string, revisionId: string, context: PreviewResourceRewriteContext) {
-    const cacheKey = `${context.templateId}:${revisionId}:${path}`
+  async function downloadTemplateAssetText(path: string, sourceDigest: string, context: PreviewResourceRewriteContext) {
+    const cacheKey = `${context.templateId}:${sourceDigest}:${path}`
     const existing = previewResourceTextCache.get(cacheKey)
     if (existing) {
       return existing.text
@@ -229,8 +229,8 @@ export function useRenderPreviewResources(renderTemplatesStore: ReturnType<typeo
     return new Response(blob).text()
   }
 
-  async function downloadTemplateAssetObjectURL(path: string, revisionId: string, context: PreviewResourceRewriteContext) {
-    const cacheKey = `${context.templateId}:${revisionId}:${path}`
+  async function downloadTemplateAssetObjectURL(path: string, sourceDigest: string, context: PreviewResourceRewriteContext) {
+    const cacheKey = `${context.templateId}:${sourceDigest}:${path}`
     const existing = previewResourceCache.get(cacheKey)
     if (existing) {
       addPreviewResourceKey(context, cacheKey)

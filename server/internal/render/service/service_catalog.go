@@ -62,15 +62,15 @@ func (s *Service) GetTemplateSource(ctx context.Context, templateID string) (str
 		return "", TemplateSource{}, err
 	}
 
-	revisionID, source, err := s.getTemplateSource(ctx, templateID)
+	sourceDigest, source, err := s.getTemplateSource(ctx, templateID)
 	if err != nil {
 		return "", TemplateSource{}, err
 	}
-	return revisionID, templateSourceFromRepo(source), nil
+	return sourceDigest, templateSourceFromRepo(source), nil
 }
 
 func (s *Service) getTemplateSource(ctx context.Context, templateID string) (string, renderrepo.TemplateSource, error) {
-	revisionID, source, err := s.templateRepo.GetCurrentSource(ctx, strings.TrimSpace(templateID))
+	sourceDigest, source, err := s.templateRepo.GetCurrentSource(ctx, strings.TrimSpace(templateID))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", renderrepo.TemplateSource{}, &Error{
@@ -80,7 +80,7 @@ func (s *Service) getTemplateSource(ctx context.Context, templateID string) (str
 		}
 		return "", renderrepo.TemplateSource{}, fmt.Errorf("get render template source %s: %w", templateID, err)
 	}
-	return revisionID, source, nil
+	return sourceDigest, source, nil
 }
 
 func (s *Service) GetTemplatePreviewData(ctx context.Context, templateID string) (map[string]any, error) {
@@ -148,89 +148,8 @@ func (s *Service) readTemplatePreviewData(templateID string) (map[string]any, er
 	return previewData, nil
 }
 
-func (s *Service) ValidateTemplate(ctx context.Context, templateID string, source *TemplateSource) (TemplateValidationResult, error) {
-	templateID = strings.TrimSpace(templateID)
-	if templateID == "" {
-		return TemplateValidationResult{}, &Error{Code: "platform.template_not_found", Message: "render template was not found"}
-	}
-
-	if exists, err := s.templateRepo.TemplateExists(ctx, templateID); err != nil {
-		return TemplateValidationResult{}, fmt.Errorf("query render template %s: %w", templateID, err)
-	} else if !exists {
-		return TemplateValidationResult{}, &Error{
-			Code:    "platform.template_not_found",
-			Message: "render template was not found",
-		}
-	}
-
-	var sourceValue renderrepo.TemplateSource
-	if source == nil {
-		_, currentSource, err := s.templateRepo.GetCurrentSource(ctx, templateID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return TemplateValidationResult{}, &Error{
-					Code:    "platform.template_not_found",
-					Message: "render template was not found",
-				}
-			}
-			return TemplateValidationResult{}, fmt.Errorf("get render template source %s: %w", templateID, err)
-		}
-		sourceValue = currentSource
-	} else {
-		sourceValue = templateSourceToRepo(*source)
-	}
-
-	bundle, err := BuildSourceBundle(templateID, sourceValue)
-	if err != nil {
-		_ = s.templateRepo.UpdateValidationStatus(ctx, templateID, newValidationStatus(false, 1))
-		return TemplateValidationResult{}, err
-	}
-
-	_, issues, err := CompileBundle(bundle)
-	if err != nil {
-		return TemplateValidationResult{}, fmt.Errorf("validate render template %s: %w", templateID, err)
-	}
-
-	status := newValidationStatus(len(issues) == 0, len(issues))
-	if err := s.templateRepo.UpdateValidationStatus(ctx, templateID, status); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return TemplateValidationResult{}, fmt.Errorf("update render template validation %s: %w", templateID, err)
-	}
-
-	return TemplateValidationResult{
-		Valid:              len(issues) == 0,
-		Issues:             issuesOrEmpty(issues),
-		NormalizedManifest: bundle.NormalizedManifest,
-	}, nil
-}
-func (s *Service) ListTemplateVersions(ctx context.Context, templateID string) ([]TemplateVersion, error) {
-	items, err := s.templateRepo.ListTemplateVersions(ctx, strings.TrimSpace(templateID))
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, &Error{
-				Code:    "platform.template_not_found",
-				Message: "render template was not found",
-			}
-		}
-		return nil, fmt.Errorf("list render template versions %s: %w", templateID, err)
-	}
-	versions := make([]TemplateVersion, 0, len(items))
-	for _, item := range items {
-		versions = append(versions, templateVersionFromRepo(item))
-	}
-	return versions, nil
-}
-
 func templateSourceFromRepo(source renderrepo.TemplateSource) TemplateSource {
 	return TemplateSource{
-		ManifestJSON:    source.ManifestJSON,
-		HTML:            source.HTML,
-		Stylesheet:      source.Stylesheet,
-		InputSchemaJSON: source.InputSchemaJSON,
-	}
-}
-
-func templateSourceToRepo(source TemplateSource) renderrepo.TemplateSource {
-	return renderrepo.TemplateSource{
 		ManifestJSON:    source.ManifestJSON,
 		HTML:            source.HTML,
 		Stylesheet:      source.Stylesheet,
@@ -247,42 +166,18 @@ func templateFilesFromRepo(files renderrepo.TemplateFiles) TemplateFiles {
 	}
 }
 
-func templateValidationStatusFromRepo(status renderrepo.TemplateValidationStatus) TemplateValidationStatus {
-	return TemplateValidationStatus{
-		Valid:      status.Valid,
-		CheckedAt:  status.CheckedAt,
-		IssueCount: status.IssueCount,
-	}
-}
-
-func templateSourceInfoFromRepo(source renderrepo.TemplateSourceInfo) TemplateSourceInfo {
-	return TemplateSourceInfo{
-		Type:     source.Type,
-		PluginID: source.PluginID,
-		LocalID:  source.LocalID,
-	}
-}
-
-func templateVersionFromRepo(version renderrepo.TemplateVersion) TemplateVersion {
-	return TemplateVersion{
-		RevisionID:      version.RevisionID,
-		TemplateVersion: version.TemplateVersion,
-		SavedAt:         version.SavedAt,
-		Kind:            version.Kind,
-		Message:         version.Message,
-	}
-}
-
 func templateSummaryFromRepo(item renderrepo.TemplateSummary) TemplateSummary {
 	return TemplateSummary{
-		ID:                item.ID,
-		Version:           item.Version,
-		Width:             item.Width,
-		Height:            item.Height,
-		HasInputSchema:    item.HasInputSchema,
-		CurrentRevisionID: item.CurrentRevisionID,
-		UpdatedAt:         item.UpdatedAt,
-		Source:            templateSourceInfoFromRepo(item.Source),
+		ID:             item.ID,
+		Name:           item.Name,
+		Description:    item.Description,
+		Version:        item.Version,
+		Width:          item.Width,
+		Height:         item.Height,
+		HasInputSchema: item.HasInputSchema,
+		SourceDigest:   item.SourceDigest,
+		UpdatedAt:      item.UpdatedAt,
+		Source:         TemplateSourceInfo{Type: item.Source.Type, PluginID: item.Source.PluginID, LocalID: item.Source.LocalID},
 	}
 }
 
@@ -290,8 +185,6 @@ func templateDetailFromRepo(detail renderrepo.TemplateDetail) TemplateDetail {
 	return TemplateDetail{
 		TemplateSummary: templateSummaryFromRepo(detail.TemplateSummary),
 		Files:           templateFilesFromRepo(detail.Files),
-		CurrentRevision: templateVersionFromRepo(detail.CurrentRevision),
-		LastValidation:  templateValidationStatusFromRepo(detail.LastValidation),
 	}
 }
 

@@ -57,6 +57,7 @@ func writeTemplateSeed(t *testing.T, templatesRoot, templateID string) string {
 	}
 	files := map[string]string{
 		"template.json": `{
+  "name": "测试模板",
   "id": "` + templateID + `",
   "version": "1",
   "entry_html": "template.html",

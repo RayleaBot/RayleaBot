@@ -43,33 +43,12 @@
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"
     },
-    "server/internal/render/repository/load.go": {
-      "category": "A",
-      "reason": "Render template load and existence queries are static, but they must migrate with the package's revision and transaction query set.",
-      "owner": "server-render",
-      "target_action": "migrate_to_sqlc",
-      "revisit_after": "2026-10-01"
-    },
     "server/internal/render/repository/repository.go": {
       "category": "C",
-      "reason": "Render template cleanup composes variable template and plugin ID NOT IN clauses; static validation and delete-all queries use sqlc.",
+      "reason": "Current template cache cleanup composes variable template and plugin ID NOT IN clauses; current template reads and writes use sqlc.",
       "owner": "server-render",
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"
-    },
-    "server/internal/render/repository/queries.go": {
-      "category": "A",
-      "reason": "Render template list and version queries are static, but they must migrate with the package's shared row projections and transaction queries.",
-      "owner": "server-render",
-      "target_action": "migrate_to_sqlc",
-      "revisit_after": "2026-10-01"
-    },
-    "server/internal/render/repository/sql.go": {
-      "category": "A",
-      "reason": "Render template transaction queries are static, but migration must keep the repository's save, revision, validation, and sync operations on one sqlc transaction boundary.",
-      "owner": "server-render",
-      "target_action": "migrate_to_sqlc",
-      "revisit_after": "2026-10-01"
     },
     "server/internal/storage/integrity.go": {
       "category": "D",

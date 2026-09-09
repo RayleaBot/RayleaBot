@@ -9,6 +9,8 @@ response:
   body:
     template:
       id: help.menu
+      name: 帮助菜单
+      description: 展示可用命令、插件分组和使用提示。
       version: '1'
       width: 960
       height: 640

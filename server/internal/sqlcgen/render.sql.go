@@ -10,118 +10,105 @@ import (
 	"database/sql"
 )
 
-const deleteAllPluginRenderTemplates = `-- name: DeleteAllPluginRenderTemplates :exec
-DELETE FROM render_template_states
-WHERE source_type = 'plugin'
+const getRenderTemplate = `-- name: GetRenderTemplate :one
+SELECT template_id, source_digest, updated_at, source_type, source_plugin_id, source_local_id, manifest_json, html, stylesheet, input_schema_json FROM render_templates WHERE template_id = ?
 `
 
-func (q *Queries) DeleteAllPluginRenderTemplates(ctx context.Context) error {
-	_, err := q.db.ExecContext(ctx, deleteAllPluginRenderTemplates)
-	return err
-}
-
-const deletePluginRenderTemplates = `-- name: DeletePluginRenderTemplates :exec
-DELETE FROM render_template_states
-WHERE source_type = 'plugin' AND source_plugin_id = ?
-`
-
-func (q *Queries) DeletePluginRenderTemplates(ctx context.Context, sourcePluginID sql.NullString) error {
-	_, err := q.db.ExecContext(ctx, deletePluginRenderTemplates, sourcePluginID)
-	return err
-}
-
-const getRenderTemplateSyncState = `-- name: GetRenderTemplateSyncState :one
-SELECT
-    s.current_revision_id,
-    r.source_digest,
-    s.validation_valid,
-    s.validation_issue_count,
-    s.source_type,
-    s.source_plugin_id,
-    s.source_local_id
-FROM render_template_states AS s
-INNER JOIN render_template_revisions AS r ON r.revision_id = s.current_revision_id
-WHERE s.template_id = ?
-`
-
-type GetRenderTemplateSyncStateRow struct {
-	CurrentRevisionID    string
-	SourceDigest         string
-	ValidationValid      int64
-	ValidationIssueCount int64
-	SourceType           string
-	SourcePluginID       sql.NullString
-	SourceLocalID        sql.NullString
-}
-
-func (q *Queries) GetRenderTemplateSyncState(ctx context.Context, templateID string) (GetRenderTemplateSyncStateRow, error) {
-	row := q.db.QueryRowContext(ctx, getRenderTemplateSyncState, templateID)
-	var i GetRenderTemplateSyncStateRow
+func (q *Queries) GetRenderTemplate(ctx context.Context, templateID string) (RenderTemplate, error) {
+	row := q.db.QueryRowContext(ctx, getRenderTemplate, templateID)
+	var i RenderTemplate
 	err := row.Scan(
-		&i.CurrentRevisionID,
+		&i.TemplateID,
 		&i.SourceDigest,
-		&i.ValidationValid,
-		&i.ValidationIssueCount,
+		&i.UpdatedAt,
 		&i.SourceType,
 		&i.SourcePluginID,
 		&i.SourceLocalID,
+		&i.ManifestJson,
+		&i.Html,
+		&i.Stylesheet,
+		&i.InputSchemaJson,
 	)
 	return i, err
 }
 
-const updateRenderTemplateSyncMetadata = `-- name: UpdateRenderTemplateSyncMetadata :exec
-UPDATE render_template_states
-SET
-    validation_valid = ?,
-    validation_checked_at = ?,
-    validation_issue_count = ?,
-    source_type = ?,
-    source_plugin_id = ?,
-    source_local_id = ?
-WHERE template_id = ?
+const listRenderTemplates = `-- name: ListRenderTemplates :many
+SELECT template_id, source_digest, updated_at, source_type, source_plugin_id, source_local_id, manifest_json, html, stylesheet, input_schema_json FROM render_templates ORDER BY template_id
 `
 
-type UpdateRenderTemplateSyncMetadataParams struct {
-	ValidationValid      int64
-	ValidationCheckedAt  string
-	ValidationIssueCount int64
-	SourceType           string
-	SourcePluginID       sql.NullString
-	SourceLocalID        sql.NullString
-	TemplateID           string
+func (q *Queries) ListRenderTemplates(ctx context.Context) ([]RenderTemplate, error) {
+	rows, err := q.db.QueryContext(ctx, listRenderTemplates)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []RenderTemplate{}
+	for rows.Next() {
+		var i RenderTemplate
+		if err := rows.Scan(
+			&i.TemplateID,
+			&i.SourceDigest,
+			&i.UpdatedAt,
+			&i.SourceType,
+			&i.SourcePluginID,
+			&i.SourceLocalID,
+			&i.ManifestJson,
+			&i.Html,
+			&i.Stylesheet,
+			&i.InputSchemaJson,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-func (q *Queries) UpdateRenderTemplateSyncMetadata(ctx context.Context, arg UpdateRenderTemplateSyncMetadataParams) error {
-	_, err := q.db.ExecContext(ctx, updateRenderTemplateSyncMetadata,
-		arg.ValidationValid,
-		arg.ValidationCheckedAt,
-		arg.ValidationIssueCount,
+const upsertRenderTemplate = `-- name: UpsertRenderTemplate :exec
+INSERT INTO render_templates (
+    template_id, source_digest, updated_at, source_type,
+    source_plugin_id, source_local_id, manifest_json, html, stylesheet, input_schema_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(template_id) DO UPDATE SET
+    source_digest = excluded.source_digest,
+    updated_at = excluded.updated_at,
+    manifest_json = excluded.manifest_json,
+    html = excluded.html,
+    stylesheet = excluded.stylesheet,
+    input_schema_json = excluded.input_schema_json
+`
+
+type UpsertRenderTemplateParams struct {
+	TemplateID      string
+	SourceDigest    string
+	UpdatedAt       string
+	SourceType      string
+	SourcePluginID  sql.NullString
+	SourceLocalID   sql.NullString
+	ManifestJson    string
+	Html            string
+	Stylesheet      string
+	InputSchemaJson sql.NullString
+}
+
+func (q *Queries) UpsertRenderTemplate(ctx context.Context, arg UpsertRenderTemplateParams) error {
+	_, err := q.db.ExecContext(ctx, upsertRenderTemplate,
+		arg.TemplateID,
+		arg.SourceDigest,
+		arg.UpdatedAt,
 		arg.SourceType,
 		arg.SourcePluginID,
 		arg.SourceLocalID,
-		arg.TemplateID,
+		arg.ManifestJson,
+		arg.Html,
+		arg.Stylesheet,
+		arg.InputSchemaJson,
 	)
 	return err
-}
-
-const updateRenderTemplateValidation = `-- name: UpdateRenderTemplateValidation :execresult
-UPDATE render_template_states
-SET validation_valid = ?, validation_checked_at = ?, validation_issue_count = ?
-WHERE template_id = ?
-`
-
-type UpdateRenderTemplateValidationParams struct {
-	ValidationValid      int64
-	ValidationCheckedAt  string
-	ValidationIssueCount int64
-	TemplateID           string
-}
-
-func (q *Queries) UpdateRenderTemplateValidation(ctx context.Context, arg UpdateRenderTemplateValidationParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, updateRenderTemplateValidation,
-		arg.ValidationValid,
-		arg.ValidationCheckedAt,
-		arg.ValidationIssueCount,
-		arg.TemplateID,
-	)
 }

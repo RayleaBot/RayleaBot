@@ -9,6 +9,7 @@ response:
   body:
     items:
       - id: plugin.raylea.fortune.card
+        name: 今日运势
         version: '1'
         width: 1124
         height: 1365
@@ -19,6 +20,7 @@ response:
           plugin_id: raylea.fortune
           local_id: card
       - id: plugin.raylea.fortune.stats
+        name: 运势统计
         version: '1'
         width: 1124
         height: 1200
@@ -29,6 +31,8 @@ response:
           plugin_id: raylea.fortune
           local_id: stats
       - id: help.menu
+        name: 帮助菜单
+        description: 展示可用命令、插件分组和使用提示。
         version: '1'
         width: 960
         height: 640
@@ -39,6 +43,7 @@ response:
           plugin_id: null
           local_id: null
       - id: status.panel
+        name: 运行状态卡片
         version: '1'
         width: 960
         height: 640
@@ -49,6 +54,8 @@ response:
           plugin_id: null
           local_id: null
       - id: plugin.weather.card
+        name: 天气卡片
+        description: 展示城市天气与温度。
         version: '1'
         width: 960
         height: 640

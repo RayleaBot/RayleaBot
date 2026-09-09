@@ -133,7 +133,7 @@ func WriteTestTemplate(t testing.TB, root, id string, height int) {
 		t.Fatalf("mkdir test template root: %v", err)
 	}
 	files := map[string]string{
-		"template.json": `{"id":"` + id + `","version":"1","entry_html":"template.html","stylesheet":"styles.css","input_schema":"input.schema.json","width":960,"height":` + fmt.Sprint(height) + `}`,
+		"template.json": `{"name":"测试模板","id":"` + id + `","version":"1","entry_html":"template.html","stylesheet":"styles.css","input_schema":"input.schema.json","width":960,"height":` + fmt.Sprint(height) + `}`,
 		"template.html": `<html><body>{{ .title }}</body></html>`,
 		"styles.css":    `body { color: #111; }`,
 		"input.schema.json": `{

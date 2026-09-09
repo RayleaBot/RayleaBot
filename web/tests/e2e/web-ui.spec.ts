@@ -1600,10 +1600,9 @@ test('template preview updates when input data changes', async ({ page, request 
   await expect(page).toHaveURL(/\/render\/templates\/help\.menu$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
 
-  await expect(page.locator('.render-templates-float-panel')).toContainText('模板 ID')
-  await expect(page.locator('.render-templates-float-panel')).toContainText('help.menu')
-  await expect(page.locator('.render-templates-float-panel')).toContainText('渲染参数')
-  await expect(page.locator('.render-templates-float-panel')).toContainText('输入结构')
+  await expect(page.locator('.template-workspace__heading')).toContainText('帮助菜单')
+  await expect(page.locator('.template-workspace__heading')).toContainText('960 px')
+  await expect(page.locator('.template-catalog')).toContainText('帮助菜单')
 
   const previewFrame = page.getByTestId('render-template-preview-frame')
   await expect(previewFrame).toBeVisible()
@@ -1613,6 +1612,7 @@ test('template preview updates when input data changes', async ({ page, request 
     response.request().method() === 'POST'
     && response.url().includes('/api/system/render/templates/help.menu/preview-html')
   ))
+  await page.getByRole('tab', { name: '示例数据', exact: true }).click()
   await page.getByLabel('输入数据 JSON').fill('{\n  "title": "帮助菜单（自动同步）"\n}')
   expect((await updatedPreviewResponsePromise).status()).toBe(200)
   await expect(previewFrame).toHaveAttribute('srcdoc', /帮助菜单（自动同步）/)
@@ -1621,12 +1621,13 @@ test('template preview updates when input data changes', async ({ page, request 
     response.request().method() === 'POST'
     && response.url().includes('/api/system/render/templates/status.panel/preview-html')
   ))
-  await page.locator('.template-nav-item').filter({ hasText: 'status.panel' }).first().click()
+  await page.getByRole('tab', { name: '效果预览', exact: true }).click()
+  await page.locator('.template-nav-item').filter({ hasText: '运行状态卡片' }).first().click()
   expect((await statusPreviewResponsePromise).status()).toBe(200)
   await expect(page).toHaveURL(/\/render\/templates\/status\.panel$/)
   expect((await readTabLabels(page)).filter((label) => label === '模板预览')).toHaveLength(1)
   await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('data-template-id', 'status.panel')
-  await expect(page.locator('.render-templates-float-panel')).toContainText('status.panel')
+  await expect(page.locator('.template-workspace__heading')).toContainText('运行状态卡片')
 })
 
 test('menu center preview loads the bundled chat menu font', async ({ page, request }) => {

@@ -175,9 +175,9 @@ func BuildCacheKey(request Request, version string, sourceDigest string, resourc
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s:%d:%s", "render-cache-v4-prefetched-resources", request.Template, version, sourceDigest, resourceDigest, renderResourcesDigest(request.Resources), request.Theme, request.Output, normalizeArtifactDeviceScalePercent(deviceScalePercent), hex.EncodeToString(sum[:12]))
 }
 
-func BuildPreviewHTMLCacheKey(request Request, revisionID string, payloadBytes []byte) string {
+func BuildPreviewHTMLCacheKey(request Request, sourceDigest string, payloadBytes []byte) string {
 	sum := sha256.Sum256(payloadBytes)
-	return fmt.Sprintf("preview-html:%s:%s:%s:%s", request.Template, revisionID, request.Theme, hex.EncodeToString(sum[:12]))
+	return fmt.Sprintf("preview-html:%s:%s:%s:%s", request.Template, sourceDigest, request.Theme, hex.EncodeToString(sum[:12]))
 }
 
 func BuildArtifactID(cacheKey string) string {
@@ -199,8 +199,8 @@ func buildCacheKey(request Request, version string, sourceDigest string, resourc
 	return BuildCacheKey(request, version, sourceDigest, resourceDigest, deviceScalePercent, payloadBytes)
 }
 
-func buildPreviewHTMLCacheKey(request Request, revisionID string, payloadBytes []byte) string {
-	return BuildPreviewHTMLCacheKey(request, revisionID, payloadBytes)
+func buildPreviewHTMLCacheKey(request Request, sourceDigest string, payloadBytes []byte) string {
+	return BuildPreviewHTMLCacheKey(request, sourceDigest, payloadBytes)
 }
 
 func Persist(outputRoot string, request Request, cacheKey string, content []byte) (Result, Artifact, error) {

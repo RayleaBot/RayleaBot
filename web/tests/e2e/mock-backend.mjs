@@ -429,6 +429,7 @@ function createRenderTemplateState() {
       detail: {
         ...item,
         input_schema_json: item.id === helpDetail.id ? structuredClone(helpDetail.input_schema_json) : null,
+        preview_data_json: item.id === helpDetail.id ? structuredClone(helpDetail.preview_data_json) : { title: item.name },
       },
     },
   ]))
@@ -441,6 +442,8 @@ function listRenderTemplates() {
     items: Object.values(state.renderTemplates.byId)
       .map((template) => ({
         id: template.detail.id,
+        name: template.detail.name,
+        description: template.detail.description,
         version: template.detail.version,
         width: template.detail.width,
         height: template.detail.height,
@@ -474,7 +477,7 @@ function renderTemplatePreviewHTMLBody(templateId, payload = {}) {
     : 960
   return {
     template_id: templateId,
-    revision_id: `rev_${templateId.replaceAll('.', '_')}_e2e`,
+    source_digest: 'a'.repeat(64),
     width: template.detail.width,
     height: template.detail.height,
     html: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><link rel="stylesheet" href="http://127.0.0.1:4010/external-preview/font.css" /><style>html,body{min-width:${width}px;margin:0}.surface{width:${width}px;min-height:360px;padding:24px;font-family:RayleaExternalPreview,sans-serif;background-image:url("http://127.0.0.1:4010/external-preview/background.png")}.external-preview-image{width:16px;height:16px}</style></head><body><main class="surface"><h1>${escapeHTML(title)}</h1><img class="external-preview-image" src="http://127.0.0.1:4010/external-preview/avatar.png" alt="外部图片"></main></body></html>`,

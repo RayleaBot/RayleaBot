@@ -30,8 +30,6 @@ const (
 	systemTemplatePlugin    = "系统模板"
 )
 
-var revisionCounter uint64
-
 type TemplateSource struct {
 	ManifestJSON    map[string]any `json:"manifest_json"`
 	HTML            string         `json:"html"`
@@ -46,42 +44,28 @@ type TemplateFiles struct {
 	InputSchema *string `json:"input_schema"`
 }
 
-type TemplateValidationStatus struct {
-	Valid      bool   `json:"valid"`
-	CheckedAt  string `json:"checked_at"`
-	IssueCount int    `json:"issue_count"`
-}
-
 type TemplateSourceInfo struct {
 	Type     string `json:"type"`
 	PluginID string `json:"plugin_id,omitempty"`
 	LocalID  string `json:"local_id,omitempty"`
 }
 
-type TemplateVersion struct {
-	RevisionID      string  `json:"revision_id"`
-	TemplateVersion string  `json:"template_version"`
-	SavedAt         string  `json:"saved_at"`
-	Kind            string  `json:"kind"`
-	Message         *string `json:"message"`
-}
-
 type TemplateSummary struct {
-	ID                string `json:"id"`
-	Version           string `json:"version"`
-	Width             int    `json:"width"`
-	Height            int    `json:"height"`
-	HasInputSchema    bool   `json:"has_input_schema"`
-	CurrentRevisionID string `json:"current_revision_id"`
-	UpdatedAt         string `json:"updated_at"`
-	Source            TemplateSourceInfo
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	Version        string `json:"version"`
+	Width          int    `json:"width"`
+	Height         int    `json:"height"`
+	HasInputSchema bool   `json:"has_input_schema"`
+	SourceDigest   string `json:"source_digest"`
+	UpdatedAt      string `json:"updated_at"`
+	Source         TemplateSourceInfo
 }
 
 type TemplateDetail struct {
 	TemplateSummary
-	Files           TemplateFiles            `json:"files"`
-	CurrentRevision TemplateVersion          `json:"current_revision"`
-	LastValidation  TemplateValidationStatus `json:"last_validation"`
+	Files TemplateFiles `json:"files"`
 }
 
 type TemplateDetailSnapshot struct {
@@ -140,11 +124,11 @@ type PluginContext struct {
 }
 
 type PreviewHTML struct {
-	TemplateID string
-	RevisionID string
-	Width      int
-	Height     int
-	HTML       string
+	TemplateID   string
+	SourceDigest string
+	Width        int
+	Height       int
+	HTML         string
 }
 
 type TemplateAsset struct {

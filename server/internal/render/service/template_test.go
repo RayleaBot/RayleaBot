@@ -7,9 +7,19 @@ import (
 	renderrepo "github.com/RayleaBot/RayleaBot/server/internal/render/repository"
 )
 
+func TestTemplateNameIsRequired(t *testing.T) {
+	for _, value := range []any{nil, "", "  ", 42} {
+		_, _, err := parseTemplateManifest("card", map[string]any{"id": "card", "name": value})
+		if err == nil {
+			t.Fatalf("accepted invalid template name %#v", value)
+		}
+	}
+}
+
 func TestSafeHTML(t *testing.T) {
 	bundle, err := BuildSourceBundle("test-safe-html", renderrepo.TemplateSource{
 		ManifestJSON: map[string]any{
+			"name":   "测试模板",
 			"id":     "test-safe-html",
 			"width":  100,
 			"height": 100,
@@ -43,6 +53,7 @@ func TestSafeHTML(t *testing.T) {
 func TestToJSON(t *testing.T) {
 	bundle, err := BuildSourceBundle("test-to-json", renderrepo.TemplateSource{
 		ManifestJSON: map[string]any{
+			"name":   "测试模板",
 			"id":     "test-to-json",
 			"width":  100,
 			"height": 100,

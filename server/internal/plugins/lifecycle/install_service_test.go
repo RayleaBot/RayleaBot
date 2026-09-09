@@ -1161,6 +1161,7 @@ func writeInstallRenderTemplate(t *testing.T, templateDir, templateID string) {
 	files := map[string]string{
 		"template.json": fmt.Sprintf(`{
   "id": %q,
+  "name": "测试模板",
   "version": "1",
   "entry_html": "template.html",
   "stylesheet": "styles.css",

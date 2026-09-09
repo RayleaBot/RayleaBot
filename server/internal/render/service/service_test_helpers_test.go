@@ -128,7 +128,7 @@ func writeRenderTemplateSeed(t *testing.T, templatesRoot, templateID string) {
 	}
 
 	manifest := fmt.Sprintf(`{
-  "id": %q,
+  "name": "测试模板", "id": %q,
   "version": "1",
   "entry_html": "template.HTML",
   "stylesheet": "styles.css",

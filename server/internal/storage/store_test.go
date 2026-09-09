@@ -50,23 +50,19 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "plugin_kv")
 	assertTableExists(t, store.Read, "system_configs")
 	assertTableExists(t, store.Read, "schema_migrations")
+	assertTableExists(t, store.Read, "render_templates")
+	assertColumnExists(t, store.Read, "render_templates", "source_digest")
+	assertIndexExists(t, store.Read, "idx_render_templates_source")
 	assertTableExists(t, store.Read, "third_party_accounts")
 	assertTableExists(t, store.Read, "bilibili_source_rooms")
 	assertTableExists(t, store.Read, "bilibili_source_seen")
 	assertTableExists(t, store.Read, "bilibili_source_dynamics")
 	assertTableExists(t, store.Read, "bilibili_source_state")
-	assertTableExists(t, store.Read, "render_template_revisions")
-	assertTableExists(t, store.Read, "render_template_states")
 	assertColumnExists(t, store.Read, "schema_migrations", "name")
 	assertColumnExists(t, store.Read, "management_logs", "log_id")
 	assertColumnExists(t, store.Read, "management_logs", "details_json")
 	assertColumnExists(t, store.Read, "management_logs", "boot_id")
 	assertColumnExists(t, store.Read, "scheduler_jobs", "log_label")
-	assertColumnExists(t, store.Read, "render_template_revisions", "source_digest")
-	assertColumnExists(t, store.Read, "render_template_states", "validation_issue_count")
-	assertColumnExists(t, store.Read, "render_template_states", "source_type")
-	assertColumnExists(t, store.Read, "render_template_states", "source_plugin_id")
-	assertColumnExists(t, store.Read, "render_template_states", "source_local_id")
 	assertColumnExists(t, store.Read, "third_party_accounts", "profile_uid")
 	assertColumnExists(t, store.Read, "third_party_accounts", "profile_nickname")
 	assertColumnExists(t, store.Read, "third_party_accounts", "profile_avatar_url")
@@ -86,15 +82,12 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_bilibili_source_rooms_state")
 	assertIndexExists(t, store.Read, "idx_bilibili_source_seen_uid")
 	assertIndexExists(t, store.Read, "idx_bilibili_source_dynamics_observed_at")
-	assertIndexExists(t, store.Read, "idx_render_template_revisions_template_saved_at")
-	assertIndexExists(t, store.Read, "idx_render_template_revisions_template_digest")
-	assertIndexExists(t, store.Read, "idx_render_template_states_source")
 
 	tables := readTables(t, store.Read)
-	if len(tables) != 25 {
+	if len(tables) != 24 {
 		t.Fatalf("unexpected table set: %#v", tables)
 	}
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7})
 }
 
 func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
@@ -158,7 +151,7 @@ func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
 	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7})
 	assertTableMissing(t, store.Read, "third_party_accounts_legacy")
 }
 

@@ -1,5 +1,7 @@
 {
   "id": "status.panel",
+  "name": "运行状态卡片",
+  "description": "展示机器人运行状态与关键指标。",
   "version": "3",
   "entry_html": "template.html",
   "stylesheet": "styles.css",

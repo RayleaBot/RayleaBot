@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,11 +31,17 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 		return PreviewHTML{}, err
 	}
 
-	compiled, revisionID, _, _, err := s.resolveCompiledTemplate(ctx, normalized)
+	compiled, sourceDigest, _, _, err := s.resolveCompiledTemplate(ctx, normalized)
 	if err != nil {
 		return PreviewHTML{}, err
 	}
-	cacheKey := buildPreviewHTMLCacheKey(normalized, revisionID, payloadBytes)
+	resourceDigest, err := ResourceDigest(s.templateDirFor(normalized.Template))
+	if err != nil {
+		return PreviewHTML{}, &Error{Code: "platform.internal_error", Message: "render template resources are unavailable", Err: err}
+	}
+	digest := sha256.Sum256([]byte(sourceDigest + ":" + resourceDigest))
+	sourceDigest = hex.EncodeToString(digest[:])
+	cacheKey := buildPreviewHTMLCacheKey(normalized, sourceDigest, payloadBytes)
 	if cached, ok := s.artifactStore.cachedPreviewHTML(cacheKey); ok {
 		return cached, nil
 	}
@@ -43,11 +51,11 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 	}
 
 	preview := PreviewHTML{
-		TemplateID: normalized.Template,
-		RevisionID: revisionID,
-		Width:      compiled.Bundle.Manifest.Width,
-		Height:     compiled.Bundle.Manifest.Height,
-		HTML:       html,
+		TemplateID:   normalized.Template,
+		SourceDigest: sourceDigest,
+		Width:        compiled.Bundle.Manifest.Width,
+		Height:       compiled.Bundle.Manifest.Height,
+		HTML:         html,
 	}
 	s.artifactStore.cachePreviewHTML(cacheKey, preview)
 	return preview, nil
@@ -129,7 +137,10 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 }
 
 func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) (*CompiledTemplate, string, string, string, error) {
-	revisionID, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
+	if _, err := s.getTemplate(ctx, request.Template); err != nil {
+		return nil, "", "", "", err
+	}
+	sourceDigest, source, err := s.templateRepo.GetCurrentSource(ctx, request.Template)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", "", "", &Error{
@@ -158,7 +169,7 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 			Message: "stored render template is invalid",
 		}
 	}
-	return compiled, revisionID, compiled.Bundle.Manifest.Version, compiled.Bundle.Digest, nil
+	return compiled, sourceDigest, compiled.Bundle.Manifest.Version, compiled.Bundle.Digest, nil
 }
 
 func wrapRenderError(err error, message string) error {

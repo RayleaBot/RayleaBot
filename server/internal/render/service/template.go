@@ -33,24 +33,16 @@ type Root struct {
 	ResourceRoot string
 }
 
-type TemplateDraft struct {
-	Source renderrepo.TemplateSource `json:"source"`
-}
-
 type TemplateValidationIssue struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 	Path    string `json:"path,omitempty"`
 }
 
-type TemplateValidationResult struct {
-	Valid              bool                      `json:"valid"`
-	Issues             []TemplateValidationIssue `json:"issues"`
-	NormalizedManifest map[string]any            `json:"normalized_manifest"`
-}
-
 type Manifest struct {
 	ID          string
+	Name        string
+	Description string
 	Version     string
 	EntryHTML   string
 	Stylesheet  string

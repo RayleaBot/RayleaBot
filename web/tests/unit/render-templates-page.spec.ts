@@ -6,6 +6,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import { useToastFeedback } from '@/adapter/feedback'
 import RenderTemplatesView from '@/views/system/RenderTemplatesView.vue'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
+import { usePluginsStore } from '@/stores/plugins'
 import helpMenuPreviewData from '../../../templates/help.menu/preview.json'
 import type {
   RenderTemplateDetail,
@@ -27,6 +28,7 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
   if (templateId === 'leaderboard.list') {
     return {
       id: 'leaderboard.list',
+      name: '排行榜',
       version: '1',
       width: 960,
       height: 420,
@@ -85,7 +87,8 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
   }
 
   return {
-    id: 'help.menu',
+    id: templateId,
+    name: templateId === 'status.panel' ? '运行状态卡片' : '帮助菜单',
     version: '1',
     width: 960,
     height: 640,
@@ -104,7 +107,7 @@ function createTemplateDetail(templateId = 'help.menu', updatedAt = '2026-04-18T
       },
       required: ['title'],
     },
-    preview_data_json: null,
+    preview_data_json: helpMenuPreviewData,
   }
 }
 
@@ -112,6 +115,7 @@ function createTemplateSummary(templateId = 'help.menu', updatedAt = '2026-04-18
   const detail = createTemplateDetail(templateId, updatedAt)
   return {
     id: detail.id,
+    name: detail.name,
     version: detail.version,
     width: detail.width,
     height: detail.height,
@@ -124,6 +128,7 @@ function createTemplateSummary(templateId = 'help.menu', updatedAt = '2026-04-18
 function createPluginTemplateSummary(): RenderTemplateSummary {
   return {
     id: 'plugin.weather-card.card',
+    name: '天气卡片',
     version: '1',
     width: 320,
     height: 240,
@@ -140,7 +145,7 @@ function createPluginTemplateSummary(): RenderTemplateSummary {
 function createPreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
   return {
     template_id: templateId,
-    revision_id: `rev_${templateId.replaceAll('.', '_')}`,
+    source_digest: 'a'.repeat(64),
     width: 960,
     height: 640,
     html: `<!doctype html><html><head><link rel="stylesheet" href="https://cdn.example.test/template-font.css"><style>@font-face{font-family:PreviewExternal;src:url("https://cdn.example.test/template-font.woff2")} .surface{min-height:320px;background-image:url("https://cdn.example.test/template-bg.png")}</style></head><body><main class="surface"><h1>${title}</h1><img src="https://cdn.example.test/avatar.png" alt=""></main></body></html>`,
@@ -161,7 +166,7 @@ function toastMessages() {
 function createLocalResourcePreviewHTML(templateId: string, title: string): RenderTemplatePreviewHTMLResponse {
   return {
     template_id: templateId,
-    revision_id: `rev_${templateId.replaceAll('.', '_')}`,
+    source_digest: 'a'.repeat(64),
     width: 960,
     height: 640,
     html: `<!doctype html><html><head><link rel="stylesheet" href="styles/base.css"><style>.surface{background-image:url("assets/shared.png")}.avatar{background:url("assets/shared.png")}</style></head><body><main class="surface"><h1>${title}</h1><img src="assets/shared.png" alt=""></main></body></html>`,
@@ -202,6 +207,7 @@ describe('RenderTemplatesView', () => {
     setActivePinia(createPinia())
     vi.useFakeTimers()
     vi.restoreAllMocks()
+    vi.spyOn(usePluginsStore(), 'fetchList').mockResolvedValue()
     vi.mocked(useToastFeedback).mockClear()
     vi.stubGlobal('fetch', vi.fn(async (path: string) => {
       return new Response(new Blob(['asset'], { type: 'text/plain' }), { status: 200 })
@@ -250,37 +256,6 @@ describe('RenderTemplatesView', () => {
     expect(frame.attributes('srcdoc')).toContain('https://cdn.example.test/avatar.png')
     expect(frame.attributes('data-preview-payload')).toContain('帮助菜单')
     expect(wrapper.get('[data-testid="render-template-preview-result"]').text()).not.toContain('等待可预览的 HTML')
-  })
-
-  it('shows local help menu preview before server HTML resolves', async () => {
-    const renderTemplatesStore = useRenderTemplatesStore()
-
-    renderTemplatesStore.items = [createTemplateSummary()]
-    renderTemplatesStore.detailById = {
-      'help.menu': createTemplateDetail(),
-    }
-
-    let resolvePreview: ((value: RenderTemplatePreviewHTMLResponse) => void) | null = null
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
-    vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
-    vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(() => (
-      new Promise((resolve) => {
-        resolvePreview = resolve
-      })
-    ))
-
-    const { wrapper } = await mountPage()
-    await flushPromises()
-
-    expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('[data-testid="native-template-preview-frame"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="render-template-preview-frame"]').exists()).toBe(false)
-
-    resolvePreview?.(createPreviewHTML('help.menu', '帮助菜单'))
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="native-template-preview-frame"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="render-template-preview-frame"]').attributes('srcdoc')).toContain('帮助菜单')
   })
 
   it('updates iframe html when JSON changes and blocks invalid JSON locally', async () => {
@@ -406,6 +381,7 @@ describe('RenderTemplatesView', () => {
   })
 
   it('groups templates by source and shows plugin ownership', async () => {
+    usePluginsStore().items = [{ id: 'weather-card', name: '天气助手' }] as never
     const renderTemplatesStore = useRenderTemplatesStore()
 
     renderTemplatesStore.items = [
@@ -425,10 +401,29 @@ describe('RenderTemplatesView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('系统模板')
-    expect(wrapper.text()).toContain('插件模板')
-    expect(wrapper.text()).toContain('plugin.weather-card.card')
-    expect(wrapper.text()).toContain('weather-card')
-    expect(wrapper.text()).toContain('card')
+    expect(wrapper.text()).toContain('天气助手')
+    expect(wrapper.text()).toContain('天气卡片')
+    expect(wrapper.findAll('.template-nav-item').map(item => item.text())).toEqual(['帮助菜单', '天气卡片'])
+    expect(wrapper.get('[title="plugin.weather-card.card"]').exists()).toBe(true)
+  })
+
+  it('releases replaced local assets when the preview is manually refreshed', async () => {
+    const store = useRenderTemplatesStore()
+    store.items = [createTemplateSummary()]
+    store.detailById = { 'help.menu': createTemplateDetail() }
+    vi.spyOn(store, 'fetchTemplates').mockResolvedValue({ items: store.items })
+    vi.spyOn(store, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
+    vi.spyOn(store, 'previewTemplateHTML').mockResolvedValue(createLocalResourcePreviewHTML('help.menu', '帮助菜单'))
+    vi.spyOn(store, 'downloadTemplateAsset').mockResolvedValue({ blob: new Blob(['asset']), filename: null })
+    const { wrapper } = await mountPage()
+    await flushPromises()
+    expect(window.URL.createObjectURL).toHaveBeenCalledTimes(1)
+    await wrapper.findAll('button').find(button => button.text() === '刷新预览')!.trigger('click')
+    await flushPromises()
+    expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:template-asset-1')
+    expect(window.URL.createObjectURL).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+    expect(window.URL.revokeObjectURL).toHaveBeenCalledWith('blob:template-asset-2')
   })
 
   it('seeds unknown templates from input schema examples before previewing', async () => {
@@ -513,7 +508,7 @@ describe('RenderTemplatesView', () => {
 
     expect(renderTemplatesStore.previewTemplateHTML).toHaveBeenCalledTimes(1)
 
-    const reloadButton = wrapper.findAll('button').find((button) => button.text().includes('重新加载当前模板'))
+    const reloadButton = wrapper.findAll('button').find((button) => button.text().includes('刷新预览'))
     expect(reloadButton).toBeTruthy()
     await reloadButton!.trigger('click')
     await flushPromises()

@@ -41,6 +41,8 @@ func (h *RenderHandlers) RegisterProtectedRoutes(router chi.Router) {
 
 type renderTemplateSummary struct {
 	ID             string               `json:"id"`
+	Name           string               `json:"name"`
+	Description    string               `json:"description,omitempty"`
 	Version        string               `json:"version"`
 	Width          int                  `json:"width"`
 	Height         int                  `json:"height"`
@@ -51,6 +53,8 @@ type renderTemplateSummary struct {
 
 type renderTemplateDetail struct {
 	ID              string               `json:"id"`
+	Name            string               `json:"name"`
+	Description     string               `json:"description,omitempty"`
 	Version         string               `json:"version"`
 	Width           int                  `json:"width"`
 	Height          int                  `json:"height"`
@@ -81,11 +85,11 @@ type renderPreviewHTMLRequest struct {
 }
 
 type renderPreviewHTMLResponse struct {
-	TemplateID string `json:"template_id"`
-	RevisionID string `json:"revision_id"`
-	Width      int    `json:"width"`
-	Height     int    `json:"height"`
-	HTML       string `json:"html"`
+	TemplateID   string `json:"template_id"`
+	SourceDigest string `json:"source_digest"`
+	Width        int    `json:"width"`
+	Height       int    `json:"height"`
+	HTML         string `json:"html"`
 }
 
 func (h *RenderHandlers) HandleSystemRenderTemplateList() http.HandlerFunc {
@@ -173,6 +177,8 @@ func (h *RenderHandlers) HandleSystemRenderTemplateAsset() http.HandlerFunc {
 func toRenderTemplateSummary(item renderservice.TemplateSummary) renderTemplateSummary {
 	return renderTemplateSummary{
 		ID:             item.ID,
+		Name:           item.Name,
+		Description:    item.Description,
 		Version:        item.Version,
 		Width:          item.Width,
 		Height:         item.Height,
@@ -185,6 +191,8 @@ func toRenderTemplateSummary(item renderservice.TemplateSummary) renderTemplateS
 func toRenderTemplateDetail(detail renderservice.TemplateDetail, source renderservice.TemplateSource, previewData map[string]any) renderTemplateDetail {
 	return renderTemplateDetail{
 		ID:              detail.ID,
+		Name:            detail.Name,
+		Description:     detail.Description,
 		Version:         detail.Version,
 		Width:           detail.Width,
 		Height:          detail.Height,
@@ -198,11 +206,11 @@ func toRenderTemplateDetail(detail renderservice.TemplateDetail, source renderse
 
 func toRenderPreviewHTMLResponse(result renderservice.PreviewHTML) renderPreviewHTMLResponse {
 	return renderPreviewHTMLResponse{
-		TemplateID: result.TemplateID,
-		RevisionID: result.RevisionID,
-		Width:      result.Width,
-		Height:     result.Height,
-		HTML:       result.HTML,
+		TemplateID:   result.TemplateID,
+		SourceDigest: result.SourceDigest,
+		Width:        result.Width,
+		Height:       result.Height,
+		HTML:         result.HTML,
 	}
 }
 
