@@ -1,0 +1,21 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: Both transport surfaces preserve committed settings application failures.
+input:
+  errors:
+    - code: plugin.settings_apply_failed
+      message: 设置已保存，运行时应用失败，请重试保存或重载插件
+      applies_to: http
+      details:
+        committed: true
+        stage: commands
+        changed_keys: [trigger_commands]
+    - code: plugin.settings_apply_failed
+      message: 设置已保存，运行时应用失败，请重试保存或重载插件
+      applies_to: plugin_protocol
+      details:
+        committed: true
+        stage: notification
+        changed_keys: [trigger_commands]
+expect:
+  valid: true

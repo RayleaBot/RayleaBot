@@ -16,12 +16,6 @@ type PermissionView interface {
 	ListPluginSnapshots() []plugins.Snapshot
 }
 
-type PluginConfigRepository interface {
-	Read(context.Context, string, []string) (map[string]any, error)
-	ReadAll(context.Context, string) (map[string]any, error)
-	Write(context.Context, string, map[string]any) ([]string, error)
-}
-
 type OneBotAdapter interface {
 	CallAPIAny(context.Context, string, map[string]any) (any, error)
 	DetectedProvider() string
@@ -43,10 +37,6 @@ type ScheduledTask struct {
 }
 
 type SchedulerCreateFunc func(context.Context, string, string, string, string, []byte) (ScheduledTask, error)
-
-type SecretReader interface {
-	ReadPluginSecret(context.Context, string) (string, bool, error)
-}
 
 type ThirdPartyAccountReader interface {
 	ListEnabled(context.Context, string) ([]thirdparty.Account, error)

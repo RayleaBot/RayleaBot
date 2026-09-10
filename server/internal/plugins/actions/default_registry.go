@@ -3,12 +3,12 @@ package actions
 import (
 	"context"
 	"encoding/json"
-	"regexp"
-	"strings"
+	"errors"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
 type registrar struct {
@@ -77,8 +77,6 @@ func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (
 	}, nil
 }
 
-var pluginSecretKeyPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$`)
-
 func secretReadRegistrar() registrar {
 	return registrar{
 		kind: "secret.read",
@@ -92,33 +90,25 @@ func secretReadRegistrar() registrar {
 
 func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "secret.read") {
-		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "secret.read permission is not declared"}
+		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "secret.read permission is not declared"}
 	}
 
-	key := strings.TrimSpace(req.Action.SecretKey)
-	if !isPluginSecretKey(key) {
-		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "secret.read key is required"}
+	key := req.Action.SecretKey
+	if !settings.ValidSecretKey(key) {
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "secret.read key is required"}
 	}
-	if deps.Secrets == nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "secret.read store is not available"}
+	if deps.Settings == nil {
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "secret.read store is not available"}
 	}
 
-	value, exists, err := deps.Secrets.ReadPluginSecret(ctx, pluginSecretStorageKey(req.PluginID, key))
+	value, exists, err := deps.Settings.ReadSecret(ctx, req.PluginID, key)
 	if err != nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "secret.read failed", Err: err}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "secret.read failed", Err: err}
 	}
 	if !exists {
 		return map[string]any{"key": key, "exists": false}, nil
 	}
 	return map[string]any{"key": key, "exists": true, "value": value}, nil
-}
-
-func pluginSecretStorageKey(pluginID, key string) string {
-	return "plugin:" + strings.TrimSpace(pluginID) + ":secret:" + strings.TrimSpace(key)
-}
-
-func isPluginSecretKey(key string) bool {
-	return pluginSecretKeyPattern.MatchString(strings.TrimSpace(key))
 }
 
 func configRegistrars() []registrar {
@@ -135,45 +125,17 @@ func configRegistrars() []registrar {
 }
 
 func executeConfigWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
-	if deps.PluginConfig == nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "config.write repository is not available"}
-	}
-
-	changedKeys, err := deps.PluginConfig.Write(ctx, req.PluginID, req.Action.ConfigValues)
+	result, err := deps.Settings.Write(ctx, req.PluginID, req.Action.ConfigValues)
 	if err != nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
-	}
-	settings, readErr := deps.PluginConfig.ReadAll(ctx, req.PluginID)
-	if readErr != nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
-	}
-	if deps.Plugins != nil {
-		if snapshot, ok := deps.Plugins.Get(req.PluginID); ok {
-			settings = pluginstore.MergeValues(snapshot.DefaultConfig, settings)
+		var applyErr *settings.ApplyError
+		if errors.As(err, &applyErr) {
+			definition, _ := errorcodes.Lookup(errorcodes.PluginSettingsApplyFailed)
+			return nil, &plugins.Error{Code: errorcodes.PluginSettingsApplyFailed, Message: definition.Message, Details: applyErr.Details(), Err: err}
 		}
+		if errors.Is(err, settings.ErrInvalidValues) {
+			return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "config.write values are invalid"}
+		}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "config.write failed", Err: err}
 	}
-	if len(changedKeys) > 0 && deps.RefreshCommands != nil {
-		deps.RefreshCommands(ctx, req.PluginID, settings)
-	}
-	dispatchConfigChanged(ctx, req.PluginID, settings, changedKeys, deps.Dispatcher, deps.Logger)
-	return map[string]any{"changed_keys": changedKeys}, nil
-}
-
-func dispatchConfigChanged(ctx context.Context, pluginID string, config map[string]any, changedKeys []string, dispatcher ConfigChangeDispatcher, logger interface {
-	Warn(string, ...any)
-}) {
-	if dispatcher == nil {
-		return
-	}
-	result := dispatcher(ctx, pluginID, config, changedKeys)
-	if result.Delivered || logger == nil {
-		return
-	}
-	logger.Warn(
-		"插件 "+pluginID+" 未收到新配置，可能需要重启插件。",
-		"component", "app",
-		"plugin_id", pluginID,
-		"outcome", result.Outcome,
-		"error_code", result.ErrorCode,
-	)
+	return map[string]any{"changed_keys": result.ChangedKeys}, nil
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -45,8 +46,16 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 	}
 	catalog := newTestCatalog([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}})
 	invoker := &requestBoundaryActionInvoker{}
+	settingsService, err := settings.New(settings.Deps{
+		Plugins: catalog, Config: configRepo, Secrets: secretStore,
+		RefreshCommands: func(context.Context, string, map[string]any) error { return nil },
+		Notify:          func(context.Context, string, map[string]any, []string) error { return nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	ui := NewPluginManagementUIHandlers(PluginManagementUIDeps{
-		Plugins: catalog, PluginConfig: configRepo, Secrets: secretStore, ActionInvoker: invoker,
+		Plugins: catalog, Settings: settingsService, ActionInvoker: invoker,
 	})
 	system := NewSystemHandlers(diagnosticsTestSystem{})
 	market := PluginStoreRoutes{Service: emptyPluginStoreService{}}

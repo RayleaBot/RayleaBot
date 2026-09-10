@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/go-chi/chi/v5"
 )
@@ -68,17 +66,9 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 		Secrets:           platformState.Secrets,
 	})
 	pluginManagementUIHandler := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{
-		Plugins:      pluginState.Plugins,
-		PluginConfig: pluginState.PluginConfig,
-		Secrets:      platformState.Secrets,
-		NotifyConfigChange: func(ctx context.Context, pluginID string, values map[string]any, changedKeys []string) {
-			dispatch := localaction.ConfigChangedDispatcher(eventState.Dispatcher)
-			if dispatch != nil {
-				dispatch(ctx, pluginID, values, changedKeys)
-			}
-		},
-		RefreshCommands: localaction.RefreshCommands(pluginState.Plugins, eventState.Dispatcher),
-		ActionInvoker:   services.PluginLifecycle,
+		Plugins:       pluginState.Plugins,
+		Settings:      services.PluginSettings,
+		ActionInvoker: services.PluginLifecycle,
 	})
 
 	managementRoutes, err := buildManagementRoutes(deps, configService, pluginManagementUIHandler)

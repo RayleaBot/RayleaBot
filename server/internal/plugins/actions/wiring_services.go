@@ -2,37 +2,9 @@ package actions
 
 import (
 	"context"
-	"errors"
 
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
-
-type secretReader struct {
-	store secrets.Store
-}
-
-func SecretReaderFromStore(store secrets.Store) SecretReader {
-	if store == nil {
-		return nil
-	}
-	return secretReader{store: store}
-}
-
-func (s secretReader) ReadPluginSecret(ctx context.Context, storageKey string) (string, bool, error) {
-	value, err := s.store.Get(ctx, storageKey)
-	if err != nil {
-		if errors.Is(err, secrets.ErrNotFound) {
-			return "", false, nil
-		}
-		return "", false, err
-	}
-	plaintext, err := secrets.OpenString(ctx, s.store, value)
-	if err != nil {
-		return "", false, err
-	}
-	return plaintext, true, nil
-}
 
 type renderer struct {
 	service *renderservice.Service

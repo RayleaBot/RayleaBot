@@ -938,7 +938,10 @@ export interface paths {
         };
         /** Query the current effective plugin-local settings snapshot. */
         get: operations["getPluginSettings"];
-        /** Save plugin-local settings values for one installed plugin. */
+        /**
+         * Save plugin-local settings values for one installed plugin.
+         * @description Atomically persists the supplied top-level overrides, including explicit values equal to manifest defaults. changed_keys contains sorted keys whose effective JSON values changed; an ordinary no-op returns an empty array and emits no config.changed event. Keys are preserved exactly. The plugin identity comes only from the route. A committed runtime-application failure returns plugin.settings_apply_failed with committed, stage and changed_keys; retrying the same values resumes pending effects.
+         */
         put: operations["updatePluginSettings"];
         post?: never;
         delete?: never;
@@ -2258,6 +2261,7 @@ export interface components {
         };
         PluginSettingsUpdateResponse: {
             plugin_id: string;
+            /** @description Sorted effective-value changes, including pending changes completed by a retry. */
             changed_keys: string[];
             values: {
                 [key: string]: unknown;
@@ -2347,9 +2351,11 @@ export interface components {
             plugin_id: string;
             configured: components["schemas"]["PluginSecretStatus"];
         };
+        /** @description All keys and values are validated before an atomic credential replacement. Equal plaintext is a no-op; credentials never enter settings events. */
         PluginSecretsUpdateRequest: {
             values: components["schemas"]["PluginSecretValues"];
         };
+        /** @description Atomically removes the requested credentials. Missing credentials are a no-op; duplicate or invalid keys reject the entire request. */
         PluginSecretsDeleteRequest: {
             keys: string[];
         };

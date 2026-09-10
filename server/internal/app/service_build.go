@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
@@ -47,6 +48,7 @@ type serviceBuildDeps struct {
 
 type Services struct {
 	LocalActions      *actions.Service
+	PluginSettings    *settings.Service
 	PluginLifecycle   *pluginservice.Controller
 	EventIngress      *chatpolicy.Ingress
 	Protocol          *wsevents.ProtocolService
@@ -106,7 +108,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	if integrations.DouyinBrowser != nil {
 		thirdPartyResolve = integrations.DouyinBrowser
 	}
-	pluginRuntime := buildPluginRuntime(pluginRuntimeDeps{
+	pluginRuntime, err := buildPluginRuntime(pluginRuntimeDeps{
 		Runtime:           runtimeState,
 		Platform:          platform,
 		Plugins:           pluginStack,
@@ -118,6 +120,9 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		AccountValidation: integrations.AccountValidation,
 		ThirdPartyResolve: thirdPartyResolve,
 	})
+	if err != nil {
+		return serviceBuildResult{}, err
+	}
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *wsevents.ServiceStatusService
 	var systemAdapter systemsvc.AdapterStateSource
@@ -202,6 +207,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	return serviceBuildResult{
 		Services: Services{
 			LocalActions:      pluginRuntime.LocalActions,
+			PluginSettings:    pluginRuntime.Settings,
 			PluginLifecycle:   pluginServices.PluginLifecycle,
 			EventIngress:      eventIngress,
 			Protocol:          protocolService,

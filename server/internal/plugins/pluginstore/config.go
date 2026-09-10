@@ -63,7 +63,6 @@ func (r *ConfigSQLiteRepository) Read(ctx context.Context, pluginID string, keys
 	seen := make(map[string]struct{}, len(keys))
 	normalized := make([]string, 0, len(keys))
 	for _, key := range keys {
-		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}
@@ -120,6 +119,9 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 	}
 
 	keys := sortedConfigKeys(values)
+	if _, exists := values[""]; overwrite && exists {
+		return nil, errors.New("config key must not be empty")
+	}
 	if len(keys) == 0 {
 		return []string{}, nil
 	}
@@ -131,6 +133,14 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 	defer func() { _ = tx.Rollback() }()
 
 	q := r.writeQ.WithTx(tx)
+	current, err := q.ListConfigsByNamespace(ctx, namespace)
+	if err != nil {
+		return nil, fmt.Errorf("read current config values: %w", err)
+	}
+	existing := make(map[string]string, len(current))
+	for _, row := range current {
+		existing[row.Key] = row.ValueJson
+	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 
 	written := make([]string, 0, len(keys))
@@ -140,6 +150,9 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 			return nil, fmt.Errorf("marshal system config %s: %w", key, err)
 		}
 		if overwrite {
+			if previous, ok := existing[key]; ok && previous == string(raw) {
+				continue
+			}
 			if err := q.UpsertConfig(ctx, sqlcgen.UpsertConfigParams{
 				Namespace: namespace,
 				Key:       key,
@@ -236,7 +249,6 @@ func decodeConfigValue(key, raw string) (any, error) {
 func sortedConfigKeys(values map[string]any) []string {
 	keys := make([]string, 0, len(values))
 	for key := range values {
-		key = strings.TrimSpace(key)
 		if key == "" {
 			continue
 		}

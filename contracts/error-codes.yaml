@@ -8,6 +8,7 @@ x-fixtures:
   - fixtures/errors/edge.applicability.yaml
   - fixtures/errors/ok.plugin-operation-failures.yaml
   - fixtures/errors/invalid.plugin-operation-state.yaml
+  - fixtures/errors/ok.plugin-settings-apply-failed.yaml
 
 domains:
   - platform
@@ -17,6 +18,37 @@ domains:
   - release
 
 codes:
+  plugin.settings_apply_failed:
+    code: plugin.settings_apply_failed
+    domain: plugin
+    message_key: errors.plugin.settings_apply_failed
+    message: 设置已保存，运行时应用失败，请重试保存或重载插件
+    description: >
+      Settings are committed, but command refresh or config.changed queue admission failed.
+      changed_keys identifies effective changes still awaiting application. Retrying the same
+      values resumes the failed stage; a successful retry reports those pending changed keys.
+      Plugin reload reads the full committed snapshot. No rollback is implied.
+    details_schema:
+      type: object
+      additionalProperties: false
+      required: [committed, stage, changed_keys]
+      properties:
+        committed:
+          const: true
+        stage:
+          type: string
+          enum: [commands, notification]
+        changed_keys:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            minLength: 1
+    http_status: 409
+    retryable: true
+    applies_to: [http, plugin_protocol]
+
   permission.unavailable:
     code: permission.unavailable
     domain: permission

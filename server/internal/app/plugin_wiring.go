@@ -11,6 +11,7 @@ import (
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
@@ -31,13 +32,27 @@ type pluginRuntimeDeps struct {
 
 type pluginRuntime struct {
 	LocalActions   *localaction.Service
+	Settings       *settings.Service
 	Runtimes       *pluginruntime.Registry
 	PermissionView *plugins.PermissionView
 }
 
-func buildPluginRuntime(deps pluginRuntimeDeps) pluginRuntime {
+func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
+	if deps.Plugins.Plugins == nil || deps.Plugins.PluginConfig == nil || deps.Platform.Secrets == nil || deps.Events.Dispatcher == nil {
+		return pluginRuntime{}, errors.New("plugin settings dependencies are required")
+	}
+	settingsService, err := settings.New(settings.Deps{
+		Plugins:         deps.Plugins.Plugins,
+		Config:          deps.Plugins.PluginConfig,
+		Secrets:         deps.Platform.Secrets,
+		RefreshCommands: localaction.RefreshCommands(deps.Plugins.Plugins, deps.Events.Dispatcher),
+		Notify:          localaction.NotifyConfigChanged(deps.Events.Dispatcher),
+	})
+	if err != nil {
+		return pluginRuntime{}, err
+	}
 	permissionView := buildPluginPermissionView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.ThirdParty, deps.AccountValidation, deps.ThirdPartyResolve)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.ThirdParty, deps.AccountValidation, deps.ThirdPartyResolve, settingsService)
 	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
@@ -47,9 +62,10 @@ func buildPluginRuntime(deps pluginRuntimeDeps) pluginRuntime {
 	)
 	return pluginRuntime{
 		LocalActions:   localActions,
+		Settings:       settingsService,
 		Runtimes:       runtimeRegistry,
 		PermissionView: permissionView,
-	}
+	}, nil
 }
 
 func buildPluginPermissionView(pluginStack PluginStackState, eventStack EventState) *plugins.PermissionView {
@@ -73,6 +89,7 @@ func buildLocalActionService(
 	thirdParty localaction.ThirdPartyAccountReader,
 	accountValidation localaction.ThirdPartyAccountValidationRequester,
 	thirdPartyResolve localaction.ThirdPartyResolver,
+	settingsService *settings.Service,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
 		CurrentConfig:        runtimeState.CurrentConfig,
@@ -80,21 +97,18 @@ func buildLocalActionService(
 		RedactText:           runtimeState.RedactString,
 		Permissions:          permissionView,
 		Plugins:              pluginStack.Plugins,
-		PluginConfig:         pluginStack.PluginConfig,
+		Settings:             settingsService,
 		PluginFiles:          pluginStack.PluginFiles,
 		PluginKV:             pluginStack.PluginKV,
-		Secrets:              localaction.SecretReaderFromStore(platform.Secrets),
 		ThirdParty:           thirdParty,
 		AccountValidation:    accountValidation,
 		ThirdPartyResolve:    thirdPartyResolve,
 		Scheduler:            localaction.Scheduler(platform.Scheduler),
-		Dispatcher:           localaction.ConfigChangedDispatcher(eventStack.Dispatcher),
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:             localaction.RendererFromService(renderer),
 		ResolveOneBotAdapter: eventStack.ResolveOneBotAdapter,
 		PluginLogLimiter:     pluginStack.PluginLogLimiter,
 		Governance:           governanceService,
-		RefreshCommands:      localaction.RefreshCommands(pluginStack.Plugins, eventStack.Dispatcher),
 	})
 }
 

@@ -138,6 +138,8 @@ const (
 	PluginPlatformMismatchMessageKey                    = "errors.plugin.platform_mismatch"
 	PluginProtocolViolation                             = "plugin.protocol_violation"
 	PluginProtocolViolationMessageKey                   = "errors.plugin.protocol_violation"
+	PluginSettingsApplyFailed                           = "plugin.settings_apply_failed"
+	PluginSettingsApplyFailedMessageKey                 = "errors.plugin.settings_apply_failed"
 	PluginShutdownTimeout                               = "plugin.shutdown_timeout"
 	PluginShutdownTimeoutMessageKey                     = "errors.plugin.shutdown_timeout"
 	PluginStopping                                      = "plugin.stopping"
@@ -281,6 +283,7 @@ var catalog = map[string]Definition{
 	PluginPermissionDenied:                    {Code: PluginPermissionDenied, HTTPStatus: 403, MessageKey: PluginPermissionDeniedMessageKey, Message: "插件访问未声明权限", Retryable: false, Surfaces: "http,websocket,plugin_protocol,task"},
 	PluginPlatformMismatch:                    {Code: PluginPlatformMismatch, HTTPStatus: 409, MessageKey: PluginPlatformMismatchMessageKey, Message: "插件产物与当前平台不匹配", Retryable: false, Surfaces: "http,task,readiness"},
 	PluginProtocolViolation:                   {Code: PluginProtocolViolation, HTTPStatus: 0, MessageKey: PluginProtocolViolationMessageKey, Message: "插件协议违规", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
+	PluginSettingsApplyFailed:                 {Code: PluginSettingsApplyFailed, HTTPStatus: 409, MessageKey: PluginSettingsApplyFailedMessageKey, Message: "设置已保存，运行时应用失败，请重试保存或重载插件", Retryable: true, Surfaces: "http,plugin_protocol"},
 	PluginShutdownTimeout:                     {Code: PluginShutdownTimeout, HTTPStatus: 0, MessageKey: PluginShutdownTimeoutMessageKey, Message: "插件优雅退出超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},
 	PluginStopping:                            {Code: PluginStopping, HTTPStatus: 0, MessageKey: PluginStoppingMessageKey, Message: "插件正在停止，不再接受新动作", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginStoreCatalogUnavailable:             {Code: PluginStoreCatalogUnavailable, HTTPStatus: 503, MessageKey: PluginStoreCatalogUnavailableMessageKey, Message: "插件商店目录暂不可用", Retryable: true, Surfaces: "http,task"},

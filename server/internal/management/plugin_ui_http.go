@@ -19,26 +19,19 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
 type PluginManagementUIDeps struct {
-	Plugins            plugins.CatalogView
-	PluginConfig       pluginstore.ConfigRepository
-	Secrets            secrets.Store
-	NotifyConfigChange func(context.Context, string, map[string]any, []string)
-	RefreshCommands    func(context.Context, string, map[string]any)
-	ActionInvoker      PluginManagementActionInvoker
+	Plugins       plugins.CatalogView
+	Settings      *settings.Service
+	ActionInvoker PluginManagementActionInvoker
 }
 
 type PluginManagementUIHandlers struct {
-	plugins            plugins.CatalogView
-	pluginConfig       pluginstore.ConfigRepository
-	secrets            secrets.Store
-	notifyConfigChange func(context.Context, string, map[string]any, []string)
-	refreshCommands    func(context.Context, string, map[string]any)
-	actionInvoker      PluginManagementActionInvoker
+	plugins       plugins.CatalogView
+	settings      *settings.Service
+	actionInvoker PluginManagementActionInvoker
 }
 
 type PluginUIOriginOptions struct {
@@ -66,12 +59,9 @@ type PluginManagementActionResponse struct {
 
 func NewPluginManagementUIHandlers(deps PluginManagementUIDeps) *PluginManagementUIHandlers {
 	return &PluginManagementUIHandlers{
-		plugins:            deps.Plugins,
-		pluginConfig:       deps.PluginConfig,
-		secrets:            deps.Secrets,
-		notifyConfigChange: deps.NotifyConfigChange,
-		refreshCommands:    deps.RefreshCommands,
-		actionInvoker:      deps.ActionInvoker,
+		plugins:       deps.Plugins,
+		settings:      deps.Settings,
+		actionInvoker: deps.ActionInvoker,
 	}
 }
 

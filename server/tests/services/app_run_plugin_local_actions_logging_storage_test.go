@@ -170,7 +170,9 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	}
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
+	t.Cleanup(dispatcher.Close)
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{PluginID: "weather", Valid: true, RegistrationState: "installed"}})
 	application.setTestLocalActions(
 		&stubPermissionView{permissions: map[string][]stubPermission{
 			"weather": {{PluginID: "weather", Permission: "config.write"}},

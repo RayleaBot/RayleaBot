@@ -341,6 +341,11 @@ export const errorCatalog = {
     "httpStatus": null,
     "retryable": false
   },
+  "plugin.settings_apply_failed": {
+    "messageKey": "errors.plugin.settings_apply_failed",
+    "httpStatus": 409,
+    "retryable": true
+  },
   "plugin.shutdown_timeout": {
     "messageKey": "errors.plugin.shutdown_timeout",
     "httpStatus": null,
@@ -524,6 +529,7 @@ export const errorMessages = {
     "permission_denied": "插件访问未声明权限",
     "platform_mismatch": "插件产物与当前平台不匹配",
     "protocol_violation": "插件协议违规",
+    "settings_apply_failed": "设置已保存，运行时应用失败，请重试保存或重载插件",
     "shutdown_timeout": "插件优雅退出超时",
     "stopping": "插件正在停止，不再接受新动作",
     "store_catalog_unavailable": "插件商店目录暂不可用",

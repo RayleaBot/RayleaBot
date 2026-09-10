@@ -1,13 +1,12 @@
 package management
 
 import (
-	"context"
+	"errors"
 	"net/http"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
 type pluginSettingsRequest struct {
@@ -51,9 +50,9 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsGet() http.HandlerFunc 
 			return
 		}
 
-		values, err := h.effectiveSettings(r.Context(), snapshot)
+		values, err := h.settings.Read(r.Context(), snapshot.PluginID)
 		if err != nil {
-			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
+			writePluginSettingsError(w, r, err)
 			return
 		}
 
@@ -70,54 +69,36 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsPut() http.HandlerFunc 
 		if !ok {
 			return
 		}
-		if h.pluginConfig == nil {
-			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
-			return
-		}
-
 		var req pluginSettingsRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || req.Values == nil {
 			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 
-		changedKeys, err := h.pluginConfig.Write(r.Context(), snapshot.PluginID, req.Values)
+		result, err := h.settings.Write(r.Context(), snapshot.PluginID, req.Values)
 		if err != nil {
-			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
+			writePluginSettingsError(w, r, err)
 			return
-		}
-
-		values, err := h.effectiveSettings(r.Context(), snapshot)
-		if err != nil {
-			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
-			return
-		}
-
-		if len(changedKeys) > 0 {
-			if h.refreshCommands != nil {
-				h.refreshCommands(r.Context(), snapshot.PluginID, values)
-			}
-			if h.notifyConfigChange != nil {
-				h.notifyConfigChange(r.Context(), snapshot.PluginID, values, changedKeys)
-			}
 		}
 
 		httpapi.WriteJSON(w, http.StatusOK, PluginSettingsUpdateResponse{
 			PluginID:    snapshot.PluginID,
-			ChangedKeys: changedKeys,
-			Values:      values,
+			ChangedKeys: result.ChangedKeys,
+			Values:      result.Values,
 		})
 	}
 }
 
-func (h *PluginManagementUIHandlers) effectiveSettings(ctx context.Context, snapshot plugins.Snapshot) (map[string]any, error) {
-	if h.pluginConfig == nil {
-		return pluginstore.MergeValues(snapshot.DefaultConfig, nil), nil
+func writePluginSettingsError(w http.ResponseWriter, r *http.Request, err error) {
+	var applyErr *settings.ApplyError
+	switch {
+	case errors.As(err, &applyErr):
+		httpapi.WriteError(w, r, errorcodes.PluginSettingsApplyFailed, applyErr.Details())
+	case errors.Is(err, settings.ErrInvalidValues):
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
+	case errors.Is(err, settings.ErrPluginNotFound):
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, nil)
+	default:
+		httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 	}
-
-	persisted, err := h.pluginConfig.ReadAll(ctx, snapshot.PluginID)
-	if err != nil {
-		return nil, err
-	}
-	return pluginstore.MergeValues(snapshot.DefaultConfig, persisted), nil
 }

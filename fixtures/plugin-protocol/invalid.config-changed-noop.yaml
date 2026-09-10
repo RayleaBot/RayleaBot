@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+description: Ordinary no-op writes do not emit empty config.changed notifications.
+frames:
+  - type: event
+    request_id: event-config-noop
+    event:
+      event_id: config-noop
+      source_protocol: system
+      source_adapter: config
+      event_type: config.changed
+      timestamp: 1788192000
+      payload:
+        config: {}
+        changed_keys: []
+expect:
+  valid: false

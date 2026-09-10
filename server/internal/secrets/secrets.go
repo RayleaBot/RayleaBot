@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -35,10 +36,17 @@ type Store interface {
 	List(ctx context.Context) ([]string, error)
 }
 
+// BatchStore commits a credential replacement or deletion as one transaction.
+type BatchStore interface {
+	Store
+	Apply(context.Context, map[string][]byte, []string) error
+}
+
 // SQLiteStore implements Store using the platform SQLite database.
 type SQLiteStore struct {
 	readQ  *sqlcgen.Queries
 	writeQ *sqlcgen.Queries
+	write  *sql.DB
 }
 
 // NewSQLiteStore creates a new SQLite-backed secret store.
@@ -49,7 +57,35 @@ func NewSQLiteStore(store *storage.Store) (*SQLiteStore, error) {
 	return &SQLiteStore{
 		readQ:  sqlcgen.New(store.Read),
 		writeQ: sqlcgen.New(store.Write),
+		write:  store.Write,
 	}, nil
+}
+
+func (s *SQLiteStore) Apply(ctx context.Context, values map[string][]byte, deleted []string) error {
+	tx, err := s.write.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin secret update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	q := s.writeQ.WithTx(tx)
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		value := values[key]
+		if err := q.UpsertSecret(ctx, sqlcgen.UpsertSecretParams{Key: key, Value: value, CreatedAt: now, UpdatedAt: now}); err != nil {
+			return fmt.Errorf("update secret batch: %w", err)
+		}
+	}
+	for _, key := range deleted {
+		if err := q.DeleteSecret(ctx, key); err != nil {
+			return fmt.Errorf("delete secret batch: %w", err)
+		}
+	}
+	return tx.Commit()
 }
 
 // Get retrieves a secret by key. Returns ErrNotFound if the key does not exist.

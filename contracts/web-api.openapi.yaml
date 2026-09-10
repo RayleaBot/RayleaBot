@@ -99,6 +99,8 @@ x-fixtures:
   - fixtures/web-api/edge.plugin-detail-failed-recovery-required.yaml
   - fixtures/web-api/ok.plugin-settings-response.yaml
   - fixtures/web-api/ok.plugin-settings-update-response.yaml
+  - fixtures/web-api/edge.plugin-settings-noop.yaml
+  - fixtures/web-api/edge.plugin-settings-apply-failed.yaml
   - fixtures/web-api/ok.plugin-secrets-response.yaml
   - fixtures/web-api/ok.plugin-secrets-update-response.yaml
   - fixtures/web-api/ok.plugin-secrets-delete-response.yaml
@@ -1613,6 +1615,13 @@ paths:
     put:
       summary: Save plugin-local settings values for one installed plugin.
       operationId: updatePluginSettings
+      description: >
+        Atomically persists the supplied top-level overrides, including explicit values equal
+        to manifest defaults. changed_keys contains sorted keys whose effective JSON values
+        changed; an ordinary no-op returns an empty array and emits no config.changed event.
+        Keys are preserved exactly. The plugin identity comes only from the route.
+        A committed runtime-application failure returns plugin.settings_apply_failed with
+        committed, stage and changed_keys; retrying the same values resumes pending effects.
       security:
         - BearerAuth: []
         - CookieAuth: []
@@ -4851,6 +4860,8 @@ components:
         values:
           type: object
           additionalProperties: true
+          propertyNames:
+            minLength: 1
 
     PluginSettingsUpdateResponse:
       type: object
@@ -4861,8 +4872,10 @@ components:
           type: string
         changed_keys:
           type: array
+          description: Sorted effective-value changes, including pending changes completed by a retry.
           items:
             type: string
+            minLength: 1
           uniqueItems: true
         values:
           type: object
@@ -5069,6 +5082,7 @@ components:
           $ref: '#/components/schemas/PluginSecretStatus'
 
     PluginSecretsUpdateRequest:
+      description: All keys and values are validated before an atomic credential replacement. Equal plaintext is a no-op; credentials never enter settings events.
       type: object
       additionalProperties: false
       required: [values]
@@ -5076,6 +5090,7 @@ components:
         values:
           $ref: '#/components/schemas/PluginSecretValues'
     PluginSecretsDeleteRequest:
+      description: Atomically removes the requested credentials. Missing credentials are a no-op; duplicate or invalid keys reject the entire request.
       type: object
       additionalProperties: false
       required: [keys]

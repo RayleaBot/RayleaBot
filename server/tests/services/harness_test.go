@@ -26,6 +26,7 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -240,17 +241,30 @@ func (a *serviceHarness) setTestLocalActions(permissions localaction.PermissionV
 		WhitelistState: a.whitelistState,
 		NotifyChanged:  a.services.GovernanceEvents.PublishChanged,
 	})
+	if pluginConfigRepo != nil || a.platform.Secrets != nil {
+		refresh := localaction.RefreshCommands(a.pluginStack.Plugins, dispatcher)
+		if refresh == nil {
+			refresh = func(context.Context, string, map[string]any) error { return nil }
+		}
+		notify := localaction.NotifyConfigChanged(dispatcher)
+		if notify == nil {
+			notify = func(context.Context, string, map[string]any, []string) error { return nil }
+		}
+		service, err := settings.New(settings.Deps{Plugins: a.pluginStack.Plugins, Config: pluginConfigRepo, Secrets: a.platform.Secrets, RefreshCommands: refresh, Notify: notify})
+		if err != nil {
+			panic(err)
+		}
+		a.services.PluginSettings = service
+	}
 	a.services.LocalActions = localaction.New(localaction.Deps{
 		CurrentConfig: func() config.Config { return a.state.Config },
 		Logger:        a.state.Logger,
 		RedactText:    a.state.redactString,
 		Permissions:   a.permissions,
-		PluginConfig:  pluginConfigRepo,
+		Settings:      a.services.PluginSettings,
 		PluginFiles:   pluginFiles,
 		PluginKV:      pluginKV,
-		Secrets:       localaction.SecretReaderFromStore(a.platform.Secrets),
 		Scheduler:     localaction.Scheduler(schedulerEngine),
-		Dispatcher:    localaction.ConfigChangedDispatcher(dispatcher),
 		Renderer:      localaction.RendererFromService(rendererService),
 		ResolveOneBotAdapter: func(string, string) (localaction.OneBotAdapter, error) {
 			if adapterShell == nil {
@@ -453,7 +467,7 @@ type pluginManagementUIHTTPDeps struct {
 	pluginConfig       pluginstore.ConfigRepository
 	secrets            secrets.Store
 	notifyConfigChange func(context.Context, string, map[string]any, []string)
-	refreshCommands    func(context.Context, string, map[string]any)
+	refreshCommands    func(context.Context, string, map[string]any) error
 }
 
 type pluginManagementUIHTTPHandlers struct {
@@ -461,12 +475,28 @@ type pluginManagementUIHTTPHandlers struct {
 }
 
 func newPluginManagementUIHTTPHandlers(deps pluginManagementUIHTTPDeps) *pluginManagementUIHTTPHandlers {
+	var service *settings.Service
+	if deps.pluginConfig != nil || deps.secrets != nil {
+		refresh := deps.refreshCommands
+		if refresh == nil {
+			refresh = func(context.Context, string, map[string]any) error { return nil }
+		}
+		var err error
+		service, err = settings.New(settings.Deps{Plugins: deps.plugins, Config: deps.pluginConfig, Secrets: deps.secrets, RefreshCommands: refresh,
+			Notify: func(ctx context.Context, id string, values map[string]any, keys []string) error {
+				if deps.notifyConfigChange != nil {
+					deps.notifyConfigChange(ctx, id, values, keys)
+				}
+				return nil
+			},
+		})
+		if err != nil {
+			panic(err)
+		}
+	}
 	return &pluginManagementUIHTTPHandlers{PluginManagementUIHandlers: managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{
-		Plugins:            deps.plugins,
-		PluginConfig:       deps.pluginConfig,
-		Secrets:            deps.secrets,
-		NotifyConfigChange: deps.notifyConfigChange,
-		RefreshCommands:    deps.refreshCommands,
+		Plugins:  deps.plugins,
+		Settings: service,
 	})}
 }
 

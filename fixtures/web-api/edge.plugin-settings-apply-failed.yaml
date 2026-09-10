@@ -1,0 +1,23 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: Committed settings with failed event admission can be retried using the same values.
+request:
+  method: PUT
+  path: /api/plugins/example-config-panel/settings
+  body:
+    values:
+      default_city: 上海
+response:
+  status: 409
+  body:
+    error:
+      code: plugin.settings_apply_failed
+      message_key: errors.plugin.settings_apply_failed
+      message: 设置已保存，运行时应用失败，请重试保存或重载插件
+      request_id: req-settings-apply-failed
+      details:
+        committed: true
+        stage: notification
+        changed_keys: [default_city]
+expect:
+  valid: true

@@ -147,3 +147,32 @@ func TestMergeValuesReturnsIndependentEffectiveSnapshot(t *testing.T) {
 		t.Fatalf("MergeValues mutated default values: %#v", defaults)
 	}
 }
+
+func TestConfigWriteNoopAndExactKeys(t *testing.T) {
+	t.Parallel()
+	repo, err := NewConfigSQLiteRepository(openTestStore(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	values := map[string]any{" spaced ": "value", "nested": map[string]any{"a": 1, "b": true}}
+	first, err := repo.Write(ctx, "weather", values)
+	if err != nil || len(first) != 2 {
+		t.Fatalf("first write: %v %v", first, err)
+	}
+	again, err := repo.Write(ctx, "weather", map[string]any{" spaced ": "value", "nested": map[string]any{"b": true, "a": float64(1)}})
+	if err != nil || len(again) != 0 {
+		t.Fatalf("same JSON reported changes: %v %v", again, err)
+	}
+	read, err := repo.Read(ctx, "weather", []string{" spaced "})
+	if err != nil || read[" spaced "] != "value" {
+		t.Fatalf("exact key lost: %#v %v", read, err)
+	}
+	if _, err := repo.Write(ctx, "weather", map[string]any{"": "invalid", "new": true}); err == nil {
+		t.Fatal("empty key accepted")
+	}
+	all, err := repo.ReadAll(ctx, "weather")
+	if err != nil || len(all) != 2 {
+		t.Fatalf("invalid write partially committed: %#v %v", all, err)
+	}
+}

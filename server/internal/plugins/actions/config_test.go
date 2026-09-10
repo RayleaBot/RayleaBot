@@ -14,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	pluginsettings "github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -40,13 +41,18 @@ func TestExecuteConfigWriteUsesImplicitPrivateNamespace(t *testing.T) {
 		},
 	}})
 	var refreshedSettings map[string]any
-	service := actions.New(actions.Deps{
-		Plugins:      pluginCatalog,
-		PluginConfig: repo,
-		RefreshCommands: func(_ context.Context, _ string, settings map[string]any) {
+	settingsService, err := pluginsettings.New(pluginsettings.Deps{
+		Plugins: pluginCatalog, Config: repo,
+		RefreshCommands: func(_ context.Context, _ string, settings map[string]any) error {
 			refreshedSettings = settings
+			return nil
 		},
+		Notify: func(context.Context, string, map[string]any, []string) error { return nil },
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := actions.New(actions.Deps{Settings: settingsService})
 
 	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
 		"default_city": "Beijing",
@@ -138,7 +144,9 @@ func TestConfigRefreshPreservesPatternDirectedDelivery(t *testing.T) {
 	event := chatevent.Event{EventID: "fixture-event", EventType: "message.group", SourceProtocol: "onebot11", SourceAdapter: "fixture", Timestamp: 1}
 	for _, refresh := range []bool{false, true} {
 		if refresh {
-			actions.RefreshCommands(pluginCatalog, dispatcher)(context.Background(), "pattern", map[string]any{})
+			if err := actions.RefreshCommands(pluginCatalog, dispatcher)(context.Background(), "pattern", map[string]any{}); err != nil {
+				t.Fatal(err)
+			}
 		}
 		results := dispatcher.Dispatch(context.Background(), event, "ping123")
 		if len(results) != 1 || results[0].PluginID != "pattern" || results[0].Outcome != dispatch.OutcomeDelivered {

@@ -66,6 +66,10 @@
 
 已保存的密钥明文不会出现在 GET 响应、`host.init`、后续 bridge 消息或网络回包中。运行中的插件仍可在声明 `secret.read` 后通过 local action 读取自身命名空间中的单个值。
 
+设置按顶层键保存覆盖值；显式保存与默认值相同的值仍会形成持久化覆盖。`changed_keys` 只包含有效 JSON 值发生变化的键，按键排序。普通同值保存返回空数组，不刷新命令、不发送 `config.changed`。密钥批量替换和删除是原子操作；同值替换和删除不存在的密钥不计入改动，密钥内容不进入设置事件。
+
+设置已保存而命令刷新或事件入队失败时，保存返回 `plugin.settings_apply_failed`，`details` 包含 `committed: true`、失败的 `stage` 和待应用的 `changed_keys`。再次保存相同值会继续处理待应用的改动，也可重载插件以读取完整已保存设置；错误不表示设置被回滚。
+
 ## 其他受控能力
 
 - `scheduler.trigger` 请求宿主触发当前插件的任务。

@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -82,20 +83,32 @@ func OutboundMessageSender(dispatcher *dispatch.Dispatcher) MessageSendFunc {
 	}
 }
 
-func RefreshCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher) func(context.Context, string, map[string]any) {
-	return func(ctx context.Context, pluginID string, settings map[string]any) {
-		refreshPluginCommands(catalog, dispatcher, pluginID, settings)
+func NotifyConfigChanged(dispatcher *dispatch.Dispatcher) func(context.Context, string, map[string]any, []string) error {
+	notify := ConfigChangedDispatcher(dispatcher)
+	if notify == nil {
+		return nil
+	}
+	return func(ctx context.Context, pluginID string, config map[string]any, keys []string) error {
+		result := notify(ctx, pluginID, config, keys)
+		if !result.Delivered {
+			return fmt.Errorf("config.changed admission failed: %s (%s)", result.Outcome, result.ErrorCode)
+		}
+		return nil
 	}
 }
 
-func refreshPluginCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher, pluginID string, settings map[string]any) {
-	if catalog == nil {
-		return
+func RefreshCommands(catalog *plugincatalog.Catalog, dispatcher *dispatch.Dispatcher) func(context.Context, string, map[string]any) error {
+	if catalog == nil || dispatcher == nil {
+		return nil
 	}
-
-	snapshot, ok := catalog.RefreshCommands(pluginID, settings)
-	if !ok || dispatcher == nil {
-		return
+	return func(_ context.Context, pluginID string, settings map[string]any) error {
+		snapshot, ok := catalog.RefreshCommands(pluginID, settings)
+		if !ok {
+			return errors.New("plugin command catalog entry is missing")
+		}
+		// Stopped plugins have no delivery slot; their next initialization receives
+		// this effective configuration and the projected commands from the catalog.
+		dispatcher.UpdateCommands(pluginID, snapshot.Commands)
+		return nil
 	}
-	dispatcher.UpdateCommands(pluginID, snapshot.Commands)
 }
