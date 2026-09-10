@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { createProcessInvocation } from "../../../scripts/process-invocation.mjs";
-import { wailsGenerateBindingsArgs, wailsModuleQuery } from "../../scripts/run-go.mjs";
+import { wailsCLIBuildArgs, wailsGenerateBindingsArgs, wailsModuleQuery } from "../../scripts/run-go.mjs";
 
 describe("launcher process invocation", () => {
   test("uses the trusted Go executable handed off by the root launcher", () => {
@@ -47,6 +47,18 @@ describe("launcher process invocation", () => {
     expect(buildFlagsIndex).toBeGreaterThan(-1);
     expect(linuxArgs[buildFlagsIndex + 1]).toBe("-tags gtk3");
     expect(wailsGenerateBindingsArgs("win32")).not.toContain("-tags gtk3");
+  });
+
+  test.each([
+    { GOHOSTOS: "linux", GOOS: "windows", tags: ["-tags", "gtk3"] },
+    { GOHOSTOS: "windows", GOOS: "linux", tags: [] },
+    { GOHOSTOS: "darwin", GOOS: "linux", tags: [] },
+  ])("builds the Wails CLI for the $GOHOSTOS host despite the $GOOS target", ({ GOHOSTOS, GOOS, tags }) => {
+    const executable = "/cache with spaces/wails3";
+    expect(wailsCLIBuildArgs({ GOHOSTOS, GOOS }, executable)).toEqual([
+      "build", "-mod=readonly", "-buildvcs=false", ...tags,
+      "-o", executable, "./cmd/wails3",
+    ]);
   });
 
   test("uses the Wails CLI version declared by go.mod", () => {

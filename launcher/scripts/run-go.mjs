@@ -32,6 +32,15 @@ export function wailsGenerateBindingsArgs(platform = process.platform) {
 
 export const WAILS_GENERATE_BINDINGS_ARGS = wailsGenerateBindingsArgs();
 
+export function wailsCLIBuildArgs(toolchain, executable) {
+  const args = ["build", "-mod=readonly", "-buildvcs=false"];
+  if (toolchain.GOHOSTOS === "linux") {
+    args.push("-tags", "gtk3");
+  }
+  args.push("-o", executable, "./cmd/wails3");
+  return args;
+}
+
 export async function runGo(args) {
   const invocation = createProcessInvocation("go", args);
   return runProcess(invocation.command, invocation.args);
@@ -51,13 +60,14 @@ export async function runWails(args) {
   const env = { ...options.env, GOOS: toolchain.GOHOSTOS, GOARCH: toolchain.GOHOSTARCH };
   const cacheDirectory = path.join(root, "..", ".tmp", "dev-cache", "wails-cli");
   const executable = path.join(cacheDirectory, "wails3" + executableSuffix);
+  const buildArgs = wailsCLIBuildArgs(toolchain, executable);
   await fs.promises.mkdir(cacheDirectory, { recursive: true });
   await createBuildCache(cacheDirectory).run("wails-cli", {
     inputs: async () => [import.meta.filename, module.GoMod, path.join(module.Dir, "go.sum")],
-    identity: { ...toolchain, module: wailsModuleQuery, sum: module.Sum },
+    identity: { ...toolchain, module: wailsModuleQuery, sum: module.Sum, buildArgs },
     outputs: [executable],
     build: async () => {
-      const code = await runProcess(compiler, ["build", "-mod=readonly", "-buildvcs=false", "-o", executable, "./cmd/wails3"], {
+      const code = await runProcess(compiler, buildArgs, {
         cwd: module.Dir, env,
       });
       if (code !== 0) throw new Error(`Wails CLI build exited with code ${code}`);
