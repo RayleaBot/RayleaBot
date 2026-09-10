@@ -41,7 +41,7 @@ if (process.platform === "win32") {
 } else if (process.platform === "darwin") {
   const packageMetadata = JSON.parse(await fs.readFile(path.join(root, "package.json"), "utf8"));
   const bundleVersion = resolveMacBundleVersion({
-    releaseTag: process.env.GITHUB_REF_NAME,
+    releaseTag: process.env.RAYLEA_BUILD_VERSION || process.env.GITHUB_REF_NAME,
     packageVersion: packageMetadata.version,
   });
   const bundleRoot = path.join(packageRoot, process.arch === "arm64" ? "mac-arm64" : "mac", "RayleaLauncher.app", "Contents");

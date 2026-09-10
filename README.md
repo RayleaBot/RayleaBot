@@ -86,7 +86,7 @@ node scripts/start-dev.mjs
 | [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
 | [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
-| [0.1.0 候选分发说明](./docs/release/notes/v0.1.0.md) | 本轮全新安装、插件接入、本版恢复与尚待完成的发布验收 |
+| [0.4.0 候选分发说明](./docs/release/notes/v0.4.0.md) | 本轮全新安装、插件接入、本版恢复与尚待完成的发布验收 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
 | [项目优化执行计划](./docs/execution-plan-v2.md) | 三份评审核实结果、实施顺序、验收与进度回写 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
