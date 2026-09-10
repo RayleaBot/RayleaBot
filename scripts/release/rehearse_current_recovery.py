@@ -70,6 +70,7 @@ def running_server(binary: Path, root: Path, port: int):
             env=environment, stdout=log, stderr=subprocess.STDOUT,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
+        errors: list[BaseException] = []
         try:
             deadline = time.monotonic() + 30
             while True:
@@ -83,16 +84,33 @@ def running_server(binary: Path, root: Path, port: int):
                         raise TimeoutError(f"Server did not become healthy: {root}")
                     time.sleep(0.1)
             yield origin
+        except BaseException as exc:
+            errors.append(exc)
         finally:
             if server.poll() is None:
                 try:
                     request(origin, "/api/launcher/shutdown", data={}, control=True)
                     server.wait(timeout=15)
-                except (OSError, subprocess.TimeoutExpired):
-                    server.kill()
-                    server.wait(timeout=5)
-    if server.returncode != 0:
-        raise RuntimeError(f"Server did not exit cleanly: {server.returncode}; inspect {root / 'server.log'}")
+                except BaseException as exc:
+                    errors.append(exc)
+                finally:
+                    if server.poll() is None:
+                        try:
+                            server.kill()
+                        except BaseException as exc:
+                            errors.append(exc)
+                        # Reap even when kill fails or the process exits concurrently.
+                        try:
+                            server.wait(timeout=5)
+                        except BaseException as exc:
+                            errors.append(exc)
+            if server.returncode is not None and server.returncode != 0:
+                errors.append(RuntimeError(
+                    f"Server did not exit cleanly: {server.returncode}; inspect {root / 'server.log'}"))
+    if len(errors) == 1:
+        raise errors[0]
+    if errors:
+        raise BaseExceptionGroup("Recovery rehearsal or Server shutdown failed", errors)
 
 
 def database_facts(path: Path) -> dict:
