@@ -43,7 +43,7 @@ type fixture struct {
 	events     chan chatevent.Event
 }
 
-func newFixture(t *testing.T, configure func(*settings.Deps)) *fixture {
+func newFixture(t *testing.T, configure func(*settings.Deps), controlQueueSize ...int) *fixture {
 	t.Helper()
 	store, err := storage.Open(filepath.Join(t.TempDir(), "settings.db"))
 	if err != nil {
@@ -65,7 +65,7 @@ func newFixture(t *testing.T, configure func(*settings.Deps)) *fixture {
 		Permissions:      map[string]plugins.PermissionGrant{"secret.read": {}},
 	}
 	cat := catalog.New([]plugins.Snapshot{entry, {PluginID: "other", Valid: true, RegistrationState: "installed"}})
-	d := dispatch.New(slog.Default(), nil, nil, 128)
+	d := dispatch.New(slog.Default(), nil, nil, 128, controlQueueSize...)
 	t.Cleanup(d.Close)
 	events := make(chan chatevent.Event, 128)
 	d.Register("weather", captureRuntime{events}, []string{"config.changed", "message.group"}, catalog.ProjectCommands(entry, entry.DefaultConfig), 1)
@@ -268,7 +268,9 @@ func TestCommittedFailureCanResumeAcrossHTTPAndAction(t *testing.T) {
 
 func TestConcurrentWritersObserveOneOrderedEffectiveSnapshot(t *testing.T) {
 	t.Parallel()
-	f := newFixture(t, nil)
+	// This case verifies write ordering; reserve admission for every concurrent write.
+	// Queue rejection and retry use the default capacity in their dedicated test.
+	f := newFixture(t, nil, 20)
 	var writes sync.WaitGroup
 	for i := range 20 {
 		writes.Go(func() {
