@@ -157,13 +157,16 @@ class SelfHostSmokeTests(unittest.TestCase):
                             {
                                 "kind": "chromium",
                                 "used_system_browser": True,
+                                "unrelated_private_detail": "must-not-be-logged",
                             }
                         ]
                     }
                 },
             }
         }
+        output = io.StringIO()
         with (
+            redirect_stdout(output),
             mock.patch.object(self_host_smoke, "remove_prepared_runtime_stores"),
             mock.patch.object(
                 self_host_smoke,
@@ -178,6 +181,10 @@ class SelfHostSmokeTests(unittest.TestCase):
                 "http://127.0.0.1:8088",
                 "session-token",
             )
+        self.assertEqual(
+            {"kind": "chromium", "acquisition_mode": "system_browser"},
+            json.loads(output.getvalue().removeprefix("runtime bootstrap selection: ")),
+        )
 
     def test_runtime_bootstrap_result_mode_accepts_downloaded_archive(self) -> None:
         mode = self_host_smoke.runtime_bootstrap_result_mode(

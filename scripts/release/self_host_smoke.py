@@ -723,6 +723,12 @@ def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, ses
         mode = runtime_bootstrap_result_mode(result)
         if mode is None:
             raise SmokeError(f"runtime bootstrap task did not report a valid acquisition mode for {kind}: {task_detail}")
+        selection = {"kind": kind, "acquisition_mode": mode}
+        if mode != "system_browser":
+            selection["store_root"] = result.get("store_root")
+            if mode != "prepared_store":
+                selection["archive_path"] = result.get("archive_path")
+        print("runtime bootstrap selection: " + json.dumps(selection), flush=True)
         if mode == "system_browser":
             continue
         store_root_path = result.get("store_root")
