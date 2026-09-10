@@ -29,11 +29,13 @@ func (s schedulerTestSystem) SchedulerPluginName(pluginID string) string {
 	return pluginID
 }
 
-func (s schedulerTestSystem) SchedulerTimezone() string {
-	if s.timezone != "" {
-		return s.timezone
+func newSchedulerTestHandlers(t *testing.T, pluginName func(string) string, engine *scheduler.Engine) *SystemHandlers {
+	t.Helper()
+	view, err := scheduler.NewView(engine, pluginName)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return "UTC"
+	return NewSchedulerHandlers(view)
 }
 
 func TestSystemSchedulerJobListHTTP(t *testing.T) {
@@ -80,7 +82,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	}
 
 	system := schedulerTestSystem{pluginNames: map[string]string{"weather": "天气插件"}, timezone: "Asia/Shanghai"}
-	handler := NewSchedulerHandlers(system, engine).HandleSystemSchedulerJobList()
+	handler := newSchedulerTestHandlers(t, system.SchedulerPluginName, engine).HandleSystemSchedulerJobList()
 	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)
 	rec := httptest.NewRecorder()
 
@@ -89,7 +91,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	var response schedulerJobListResponse
+	var response scheduler.JobList
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -131,7 +133,7 @@ func TestSystemSchedulerJobListHTTPEmpty(t *testing.T) {
 		t.Fatalf("scheduler.New: %v", err)
 	}
 
-	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobList()
+	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobList()
 	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)
 	rec := httptest.NewRecorder()
 
@@ -140,7 +142,7 @@ func TestSystemSchedulerJobListHTTPEmpty(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	var response schedulerJobListResponse
+	var response scheduler.JobList
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -181,7 +183,7 @@ func TestSystemSchedulerJobTriggerHTTP(t *testing.T) {
 		t.Fatalf("UpsertTask: %v", err)
 	}
 
-	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
+	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobTrigger()
 	router := chi.NewRouter()
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", handler)
 	req := httptest.NewRequest(http.MethodPost, "/api/system/scheduler/jobs/subscription-hub-poll/trigger", nil)
@@ -192,7 +194,7 @@ func TestSystemSchedulerJobTriggerHTTP(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	var response schedulerJobTriggerResponse
+	var response scheduler.TriggerResult
 	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
@@ -237,7 +239,7 @@ func TestSystemSchedulerJobTriggerHTTPDetachesRequestCancellation(t *testing.T) 
 		t.Fatalf("UpsertTask: %v", err)
 	}
 
-	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
+	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobTrigger()
 	router := chi.NewRouter()
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", handler)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -280,7 +282,7 @@ func TestSystemSchedulerJobTriggerHTTPMissingJob(t *testing.T) {
 		t.Fatalf("scheduler.New: %v", err)
 	}
 
-	handler := NewSchedulerHandlers(nil, engine).HandleSystemSchedulerJobTrigger()
+	handler := newSchedulerTestHandlers(t, nil, engine).HandleSystemSchedulerJobTrigger()
 	router := chi.NewRouter()
 	router.Post("/api/system/scheduler/jobs/{job_id}/trigger", handler)
 	req := httptest.NewRequest(http.MethodPost, "/api/system/scheduler/jobs/missing/trigger", nil)

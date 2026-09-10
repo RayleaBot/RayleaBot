@@ -29,6 +29,15 @@ func (q *Queries) DeleteAllAdminSessions(ctx context.Context) error {
 	return err
 }
 
+const deleteBootstrapState = `-- name: DeleteBootstrapState :exec
+DELETE FROM auth_bootstrap_state
+`
+
+func (q *Queries) DeleteBootstrapState(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteBootstrapState)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM admin_sessions WHERE session_id = ?
 `

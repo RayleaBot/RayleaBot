@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"database/sql"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
-
+	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
@@ -175,20 +174,9 @@ func runResetAdmin(cmd Command) int {
 	}
 	databasePathDisplay := displayLogPath(repoRoot, databasePath)
 
-	db, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		cmd.Logger.Error("打开数据库失败："+databasePathDisplay, "path", databasePathDisplay, "err", displayLogError(repoRoot, err, databasePath))
+	if err := auth.ResetStoredCredentials(context.Background(), databasePath); err != nil {
+		cmd.Logger.Error("重置管理员凭据失败", "path", databasePathDisplay, "err", displayLogError(repoRoot, err, databasePath))
 		return 1
-	}
-	defer func(release func() error) { _ = release() }(db.Close)
-
-	tables := []string{"admin_sessions", "auth_bootstrap_state"}
-	for _, table := range tables {
-		if _, err := db.Exec(fmt.Sprintf("DELETE FROM %s", table)); err != nil {
-			cmd.Logger.Error("清空管理员状态表失败："+table, "table", table, "err", err.Error())
-			return 1
-		}
-		cmd.Logger.Debug("管理员状态表已清空："+table, "table", table)
 	}
 
 	cmd.Logger.Info("管理员凭据已重置，下次启动将进入初始设置状态："+databasePathDisplay, "path", databasePathDisplay)

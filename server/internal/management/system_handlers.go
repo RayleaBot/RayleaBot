@@ -37,19 +37,9 @@ type CoreService interface {
 	SubmitRuntimeBootstrapTask([]string) (string, error)
 }
 
-type SchedulerMetadataService interface {
-	SchedulerPluginName(string) string
-	SchedulerTimezone() string
-}
-
 type SchedulerService interface {
-	ListJobs() (schedulerJobListResponse, bool)
-	TriggerJob(context.Context, string) (schedulerJobTriggerResponse, *SystemHTTPError)
-}
-
-type SchedulerEngineService interface {
-	Jobs() []scheduler.Job
-	Trigger(context.Context, string) (scheduler.Job, error)
+	ListJobs() scheduler.JobList
+	TriggerJob(context.Context, string) (scheduler.TriggerResult, error)
 }
 
 const (
@@ -122,17 +112,16 @@ type taskAcceptedResponse struct {
 	TaskID string `json:"task_id"`
 }
 
-func NewSystemHandlers(system CoreService, schedulerEngine ...SchedulerEngineService) *SystemHandlers {
+func NewSystemHandlers(system CoreService, schedulerServices ...SchedulerService) *SystemHandlers {
 	var schedulerValue SchedulerService
-	if len(schedulerEngine) > 0 {
-		metadata, _ := system.(SchedulerMetadataService)
-		schedulerValue = newSchedulerHTTPService(metadata, schedulerEngine[0])
+	if len(schedulerServices) > 0 {
+		schedulerValue = schedulerServices[0]
 	}
 	return &SystemHandlers{system: system, scheduler: schedulerValue}
 }
 
-func NewSchedulerHandlers(metadata SchedulerMetadataService, schedulerEngine SchedulerEngineService) *SystemHandlers {
-	return &SystemHandlers{scheduler: newSchedulerHTTPService(metadata, schedulerEngine)}
+func NewSchedulerHandlers(service SchedulerService) *SystemHandlers {
+	return &SystemHandlers{scheduler: service}
 }
 
 func NewSystemRoutes(handlers *SystemHandlers, metrics http.Handler) SystemRoutes {

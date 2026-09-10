@@ -14,6 +14,7 @@ import (
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
@@ -59,7 +60,16 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	renderHandler := managementapi.NewRenderHandlers(deps.Renderer)
 	systemHandlers := managementapi.NewSystemHandlers(services.System)
 	if platformState.Scheduler != nil {
-		systemHandlers = managementapi.NewSystemHandlers(services.System, platformState.Scheduler)
+		schedulerView, err := scheduler.NewView(platformState.Scheduler, func(pluginID string) string {
+			if snapshot, exists := pluginState.Plugins.Get(pluginID); exists {
+				return snapshot.Name
+			}
+			return ""
+		})
+		if err != nil {
+			return managementRouteState{}, err
+		}
+		systemHandlers = managementapi.NewSystemHandlers(services.System, schedulerView)
 	}
 	systemRoutes := managementapi.NewSystemRoutes(systemHandlers, deps.Metrics.HTTPHandler())
 	protocolHandler := managementapi.NewProtocolHandlers(services.Protocol)

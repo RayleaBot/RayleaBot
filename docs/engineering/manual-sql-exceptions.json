@@ -1,13 +1,6 @@
 {
   "schema_version": 2,
   "allowed_files": {
-    "server/internal/cli/cli.go": {
-      "category": "D",
-      "reason": "Admin reset command deletes from a fixed allowlisted table set.",
-      "owner": "server",
-      "target_action": "keep_maintenance_sql",
-      "revisit_after": "2027-09-04"
-    },
     "server/internal/integrations/thirdparty/accounts.go": {
       "category": "A",
       "reason": "Third-party account queries are static, but migration must preserve account row projection and secret-store lookups as one repository change.",

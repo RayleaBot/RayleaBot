@@ -35,6 +35,7 @@ func runPlugin(cmd Command) int {
 		return 1
 	}
 	if _, err := fmt.Fprintln(commandStdout(cmd), "已同步开发插件"); err != nil {
+		cmd.Logger.Error("开发插件已同步，但命令输出写入失败", "committed", true, "err", err.Error())
 		return 1
 	}
 	return 0

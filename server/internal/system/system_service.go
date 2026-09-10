@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -148,33 +147,6 @@ func (s *Service) databasePath(configPath, configuredPath string) (string, error
 
 func (s *Service) SystemStatus() string {
 	return s.systemStatus()
-}
-
-func (s *Service) SchedulerPluginName(pluginID string) string {
-	pluginName := strings.TrimSpace(pluginID)
-	if s.plugins != nil {
-		if snapshot, ok := s.plugins.Get(pluginID); ok {
-			if name := strings.TrimSpace(snapshot.Name); name != "" {
-				pluginName = name
-			}
-		}
-	}
-	if pluginName == "" {
-		return "未知插件"
-	}
-	return pluginName
-}
-
-func (s *Service) SchedulerTimezone() string {
-	if s != nil {
-		if s.scheduler != nil {
-			return s.scheduler.Timezone()
-		}
-		if tz := strings.TrimSpace(s.config().Scheduler.Timezone); tz != "" {
-			return tz
-		}
-	}
-	return config.DefaultTimezone
 }
 
 func (s *Service) StatusSnapshot() StatusSnapshot {

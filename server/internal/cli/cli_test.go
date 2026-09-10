@@ -1008,7 +1008,7 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	}
 }
 
-func TestDoctorReportFlagsIncompleteChromiumMetadata(t *testing.T) {
+func TestDoctorReportRejectsIncompleteChromiumManifest(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
@@ -1039,7 +1039,7 @@ func TestDoctorReportFlagsIncompleteChromiumMetadata(t *testing.T) {
 		ConfigPath: configPath,
 	})
 
-	assertDoctorSummary(t, report.Issues, "deps.chromium_metadata_incomplete", "图片渲染 Chromium 元数据不完整。")
+	assertDoctorSummary(t, report.Issues, "deps.manifest_invalid", "依赖清单格式无效。")
 }
 
 func TestDoctorReportAcceptsCompleteChromiumMetadata(t *testing.T) {

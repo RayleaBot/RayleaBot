@@ -1,0 +1,10 @@
+contract: contracts/cli-commands.yaml#commands.version
+case: edge
+input:
+  command: raylea version --json
+  mode: offline
+expect:
+  valid: true
+  exit_code: 1
+  notes:
+    - A failed stdout write is logged as an error and must not report success.

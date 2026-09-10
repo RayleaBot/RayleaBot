@@ -30,3 +30,6 @@ ON CONFLICT(session_id) DO UPDATE SET
 
 -- name: DeleteSession :exec
 DELETE FROM admin_sessions WHERE session_id = ?;
+
+-- name: DeleteBootstrapState :exec
+DELETE FROM auth_bootstrap_state;

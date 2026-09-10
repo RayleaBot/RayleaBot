@@ -20,6 +20,7 @@ x-fixtures:
   - fixtures/cli/ok.cleanup.offline.yaml
   - fixtures/cli/invalid.cleanup.online.yaml
   - fixtures/cli/ok.version-json.yaml
+  - fixtures/cli/edge.version-output-failed.yaml
   - fixtures/cli/ok.update-check-json.yaml
   - fixtures/cli/ok.update-verify.yaml
   - fixtures/cli/ok.plugin-dev-sync.yaml
@@ -74,7 +75,7 @@ commands:
             required: true
         exit_codes:
           0: 开发插件已同步
-          1: 数据库锁、artifact 校验、manifest 或安装事务失败
+          1: 数据库锁、artifact 校验、manifest、安装事务或结果输出失败；输出失败时日志说明安装是否已经提交
         x-fixtures:
           - fixtures/cli/ok.plugin-dev-sync.yaml
           - fixtures/cli/invalid.plugin-dev-sync-online.yaml
@@ -145,7 +146,7 @@ commands:
         const: true
     exit_codes:
       0: 版本信息已输出
-      1: 构建信息不可读
+      1: 构建信息不可读或 JSON 输出写入失败
     task_model: false
     cancellable: false
     implemented: true
@@ -211,9 +212,10 @@ commands:
       online: false
       offline: true
     description: >
-      清除 auth_bootstrap_state 与 admin_sessions，使服务下次启动时
+      在一个数据库事务中清除 auth_bootstrap_state 与 admin_sessions，使服务下次启动时
       重新进入 setup_required 状态。必须在停服窗口执行，避免与运行中
-      的 auth.Manager 竞争写入。
+      的 auth.Manager 竞争写入。数据库缺失、损坏或任一步删除失败时不重置凭据，
+      已删除的会话随事务回滚。
     exit_codes:
       0: 重置成功
       1: 数据库访问失败或锁冲突
