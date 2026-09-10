@@ -11,11 +11,11 @@
 | 多适配器 | [实例路由测试](../../server/internal/app/adapter_routing_test.go)使用两个本机 HTTP 对端，核对相同目标 ID 的选路、父事件约束、身份缓存隔离及另一实例零请求；[管理集成](../../server/tests/integration/adapters_http_test.go)覆盖集合状态和按实例鉴权的入站请求 | 已验证真实 App 与本地网络对端；未登记连接外部 OneBot 实现或 QQ 官方公网账号的验收 |
 | 插件设置与运行时 | [真实 App 组合测试](../../server/tests/integration/service_composition_test.go)贯通 HTTP 设置、原生 SDK 插件、配置通知与入站分发；runtime、lifecycle、dispatch、App、HTTP 集成和 WS 的 Windows race 通过 | 平台与源码范围以各次记录为准，不能代替最终包验证 |
 | 插件完整管理流程 | `9f49b885` Windows 实际包使用修正后的验收脚本，从空目录完成安装、启用、HTTP 设置、重载、禁用和卸载；两个原生插件进程先后退出，安装目录最终消失 | 本机功能观察窗口为 1 秒、探测间隔 1 秒，使用已下载并校验摘要的运行资源缓存；不计为正式长时或本轮重新下载验收 |
-| 图片与浏览器回收 | 同一次包验收中，原生插件通过正式 SDK 两次渲染内置 `help.menu`，产生 PNG 签名有效的 960×411 图片及可关联日志；Server 关闭后所属浏览器进程和 profile 均释放。[真实 Edge 回归](../../server/internal/render/edge_windows_test.go)另校验 PNG、CDP 实际 PID、启动取消和重复关闭 | Edge 本机回归已通过；Windows CI 的系统 Chrome 首次启动或渲染超时仍需解决，不能据本机成功注销该缺口 |
+| 图片与浏览器回收 | 同一次包验收中，原生插件通过正式 SDK 两次渲染内置 `help.menu`，产生 PNG 签名有效的 960×411 图片及可关联日志；Server 关闭后所属浏览器进程和 profile 均释放。[真实 Edge 回归](../../server/internal/render/edge_windows_test.go)另校验 PNG、CDP 实际 PID、启动取消和重复关闭 | 真实延迟字体、图片回退与双页面资源等待回归已通过；Windows 托管环境仍有 Page.captureScreenshot 超时，不能据资源就绪或本机成功注销该缺口 |
 | 安装、卸载与失败回滚 | [安装失败回归](../../server/internal/plugins/lifecycle/install_failure_test.go)、[安装事务](../../server/internal/plugins/lifecycle/install_service_test.go)及 Windows 文件占用回归覆盖真实临时文件、状态恢复、后置失败和恢复文件保留；相关 race 通过 | 故障由测试注入；不代表正式签名 Windows 自动更新的 N→N+1 回滚验收 |
 | 配置、登录与 Web | [生产浏览器配置测试](../../web/tests/production/config.real.spec.ts)等覆盖真实 Server 配置保存、认证与运行反馈；已记录 455 项 Web 单测、6 项生产浏览器用例和 14 项交互用例 | 浏览器测试、键盘/焦点与响应式回归不等同于全部平台的完整 WCAG 人工验收 |
-| 日志与调度 | [日志 HTTP 集成](../../server/tests/integration/logs_http_test.go)与历史分页测试覆盖查询和归属；[调度领域测试](../../server/internal/scheduler/scheduler_test.go)覆盖真实 SQLite、触发回调和状态，另有时区/视图回归；包验收核对插件日志与安装、卸载任务终态 | 完整产物中的原生插件定时任务触发到出站完成链路尚未单独登记 |
-| 本版初始化与恢复 | 本机空目录、默认及自定义数据库路径恢复通过；托管 Windows `80aaa1c7` 包的 recovery drill 通过，记录首次 setup、配置及插件数据保留、恢复后登录与重复启动幂等 | 使用当前 backup manifest v3 与数据库 `000001`；该包随后 self-host smoke 失败，不能记为整个产物通过 |
+| 日志与调度 | [日志 HTTP 集成](../../server/tests/integration/logs_http_test.go)及[调度领域测试](../../server/internal/scheduler/scheduler_test.go)之外，`c1f1993f` 的验收插件与脚本已在 Windows 实包从新解压目录贯通 SDK 创建任务、真实分钟 cron、原生回调日志、API 持久成功统计及卸载清理；回调来源为 `scheduler/scheduler.internal`，任务 ID 与插件 PID 一致，`success=1`，卸载后任务消失 | 此项是实际定时触发，没有调用手动 trigger API；使用 `9f49b885` 主程序和已校验资源缓存，主观察窗口为 1 秒。后续托管最终包仍需执行同一新增用例 |
+| 本版初始化与恢复 | 本机空目录、默认及自定义数据库路径恢复通过；托管 Windows `80aaa1c7` 的 recovery drill，以及第三轮 `30734d80` 的 Linux full/server、macOS full 恢复与完整 self-host 流程均通过，记录首次 setup、配置及插件数据保留、恢复后登录与重复启动幂等 | 使用当前 backup manifest v3 与数据库 `000001`；第三轮 Windows self-host 仍失败，三种归档通过不代表四包总验收完成 |
 
 完整包流程入口为 [self_host_smoke.py](../../scripts/release/self_host_smoke.py)，初始化恢复入口为 [recovery_drill.py](../../scripts/release/recovery_drill.py)。正式托管门槛保持 recovery 观察窗口 300 秒、self-host 观察窗口 600 秒、探测间隔 30 秒。
 
@@ -48,6 +48,9 @@
 | `80aaa1c7` | Windows 文件 URL 保留盘符，修复跨盘运行时资源读取失败；浏览器文档与图片 artifact 使用相同文件 URL 规则 |
 | `8e43b34f`、`44ff2dc1` | Wails CLI 本身按 Linux GTK3 标签构建；macOS Bash 保留完整打包参数。Linux Launcher 的生成、类型检查、测试和构建已在第二轮 CI 通过 |
 | `30734d80` | 插件 runtime 显式持有输出管道，退出和 Stop 在有界期限内等待最后协议帧，避免合法结果丢失或非法动作误报通用错误。旧实现确定性回归失败；修后 100 轮末帧回归、10 轮关键 race、相关六组包 race 和 runtime lint 通过 |
+| `b4a23bde`、`c1f1993f` | Windows 解包短路径移动复用现有有界目录锁重试；新增实际 cron 到原生插件回调、成功统计及卸载任务清理验收。新解包功能流程通过，105 项发布脚本测试通过（1 项平台跳过），strict 与独立插件构建通过 |
+| `733f8fa6`、`65b92247` | Windows 浏览器测试与插件进程测试分为独立步骤；浏览器启动使用调用方剩余预算，不再被独立的 20 秒 DevTools URL 等待截断，未提高 30 秒渲染上限 |
+| `898a28b7` | 资源绑定与字体/图片就绪的 Promise 显式 await；每个渲染页面独立启用 focused/active 仿真。旧实现连续三轮在 HTTP 字体/图片响应释放前返回 PNG；修后包含双页面并发资源与关闭回收的 42 次真实浏览器 race 执行通过，lint 为 0。托管截图合成超时仍单独排查 |
 
 上述修复后的最终源码与全部产物必须重新对应登记，不能沿用早期归档摘要作为最终交付证明。
 
@@ -58,8 +61,25 @@
 | [首轮 CI](https://github.com/RayleaBot/RayleaBot/actions/runs/34532245745)，`9f49b885` | Linux Server 全部门禁、Web、SDK、契约、双平台脚本检查通过；Launcher GTK 标签和 Windows render 测试失败 |
 | [第二轮 CI](https://github.com/RayleaBot/RayleaBot/actions/runs/34533310868)，`80aaa1c7` | Linux Launcher 全部通过，Windows 丢盘符用例不再失败；Linux runtime 暴露末帧/退出竞态，Windows 通用 Chromium 测试仍启动超时，整轮失败 |
 | [第二轮产物验收](https://github.com/RayleaBot/RayleaBot/actions/runs/34533311035)，`80aaa1c7` | 已核对 Windows package、archive smoke、recovery drill 通过；self-host 在首次渲染阶段因 Chromium 启动超时失败，未完成 600 秒观察。其余平台及后续构建结果由最终登记替换 |
+| [第三轮产物验收](https://github.com/RayleaBot/RayleaBot/actions/runs/34535383597)，`30734d80` | Linux full/server 与 macOS full 的原生构建、archive smoke、300 秒恢复观察和 600 秒 self-host 全部通过；Windows 在 30 秒渲染预算内未完成截图，整轮失败，assemble 被跳过 |
 | 最终 CI | 待维护者登记最终源码 SHA、run 链接及 required job 全通过结果 |
 | 最终产物验收 | 待维护者登记同一源码的四种归档、SHA-256、验证证据与实际观察窗口 |
+
+### 第三轮中间候选归档
+
+以下三份已下载归档与 `30734d800b6dc02e2a39be6f8f268e13637eefea` 的包内 metadata 一致，独立归档完整性检查通过。它们是部分平台通过的中间候选，不包含后续调度验收、启动预算和异步资源等待修复。
+
+| 归档 | SHA-256 | 本轮结果 |
+| --- | --- | --- |
+| `RayleaBot-v0.4.0-linux-x64-full.tar.gz` | `5247c93153d993b02d7a855be6bf4bc9ad1071c7931ab032a37366323afe9659` | 原生构建、archive smoke、300/600 秒门槛通过 |
+| `RayleaBot-v0.4.0-linux-x64-server.tar.gz` | `f9cb1bae8a4547750253bea71a27e23937518cddd4bc9538e89ef7f6efb90962` | 原生构建、archive smoke、300/600 秒门槛通过 |
+| `RayleaBot-v0.4.0-macos-arm64-full.tar.gz` | `7c57bf58b2ed628591589aae408c7b47e06ed891f962ed83582c77b766b3d980` | 原生构建、archive smoke、300/600 秒门槛通过；bundle 版本为 0.4.0 |
+
+本轮 Windows self-host 失败，未形成四包 assemble；聚合发布 metadata 与签名未生成，聚合签名验收未执行。记录对应交付目录中的 `candidate-status.json`、各平台 `validation.json` 和独立归档核验结果，不将三平台部分通过标成最终交付。
+
+macOS 归档内 Server 与 Launcher 的 Mach-O 含链接器 ad hoc 签名，CodeDirectory flags 为 `0x20002`，页哈希已独立核验。该候选没有 Developer ID、CMS 签名或 Team ID，未发现 app bundle 的 CodeResources 资源封印文件；公证与 Gatekeeper 验收未执行。该检查对应证据文件 `.verification/macos-signing-inspection.json` 和[macOS 原生任务](https://github.com/RayleaBot/RayleaBot/actions/runs/34535383597/job/103065868522)，不能表述为开发者身份签名或公证已通过。
+
+### 最终交付登记
 
 | 最终目标产物 | 源码提交 / SHA-256 | 原生构建与 archive smoke | 300 秒恢复 / 600 秒 self-host |
 | --- | --- | --- | --- |
@@ -75,6 +95,7 @@ Windows/macOS 本机 binary-mode govulncheck 已记录 0 个受影响符号、0 
 | 门槛 | 当前边界 | 责任与下一步 |
 | --- | --- | --- |
 | 最终 CI 与四种候选产物 | 早期 CI/产物存在明确失败；修复不能替代通过结果 | 发布维护者核对最终 run、源码 SHA、摘要、证据文件及完整观察窗口，再回写 P01/P23/P24/P26 |
-| 原生桌面平台范围 | 已有 Windows 实包 UI 补验；Linux/macOS 原生交互没有同等记录 | 发布维护者登记原生构建与实际界面范围，保持未验证交互可见 |
-| 外部聊天网络与完整调度链路 | 本地协议对端与领域回归已覆盖；外部 OneBot、QQ 官方公网及产物级调度出站未登记 | 对应接入维护者使用实际配置补验，记录平台、实例和可观察结果，不将模拟对端写成实网 |
+| 原生桌面平台范围 | 已有 Windows 实包 UI 补验及 Linux/macOS 原生构建、包流程通过记录；Linux/macOS 原生交互没有同等记录 | 发布维护者登记原生构建与实际界面范围，保持未验证交互可见 |
+| 外部聊天网络 | 本地协议对端与真实原生插件定时回调已覆盖；外部 OneBot 与 QQ 官方公网未登记 | 对应接入维护者使用实际配置补验，记录平台、实例和可观察结果，不将模拟对端写成实网 |
 | 正式 Windows 签名更新 | 无正式 Authenticode 证书及签名 packaged E2E | 保持 `guided`；证书可用后按[更新安全验收](./acceptance-and-risks.md#更新安全验收)执行，Ed25519 清单签名不替代此门槛 |
+| macOS 分发信任 | 仅有已核验的链接器 ad hoc 签名；无 Developer ID/CMS/Team ID，公证与 Gatekeeper 未验收 | 发布维护者按实际签名资源补验并记录；不把原生构建或页哈希通过等同于平台分发信任通过 |
