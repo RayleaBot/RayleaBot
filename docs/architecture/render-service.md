@@ -14,10 +14,11 @@
 
 | 包 | 职责 |
 | --- | --- |
-| `server/internal/render/service` | 对管理 API 和插件 action 暴露 facade，并负责模板 manifest、源码与资源路径、输入 schema、HTML 编译、模板同步、预览、图片渲染、artifact 读取和诊断 |
-| `server/internal/render/repository` | SQLite 中的当前模板源码缓存、源码摘要、来源归属和同步清理 |
+| `server/internal/render` | 通过 Service 提供模板 manifest、源码与资源路径、输入 schema、HTML 编译、模板同步、预览、图片渲染、artifact 读取和诊断；私有仓储管理 SQLite 当前源码缓存、摘要、来源归属与同步清理 |
 
-`management` 和插件 action 只依赖 `render/service` 的 facade，不直接访问 repository、artifact store 或模板目录细节。
+`management` 和插件 action 使用 `render.Service`，不直接访问私有仓储、artifact store 或模板目录细节。模板源码、文件和摘要在同一个包内使用统一模型。
+
+Worker 关闭时停止接收渲染请求，取消排队与正在渲染的请求，等待请求退出后关闭 runner。关闭与浏览器替换按同一生命周期锁串行执行；重复关闭返回首次关闭结果。每个直接创建 Chromium runner 的调用方负责关闭它，关闭后的 runner 不能重新启动浏览器。runner 先在两秒预算内请求浏览器正常退出，再取消 allocator 并等待进程回收；只删除自身创建的临时 profile，对短暂文件占用最多重试一秒，清理失败向调用方返回。显式配置的 user-data-dir 归配置方所有。
 
 ## 模板来源与当前源码
 

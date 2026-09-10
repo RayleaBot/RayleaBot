@@ -9,7 +9,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 const (

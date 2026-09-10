@@ -14,7 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 const (

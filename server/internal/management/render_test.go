@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
 )

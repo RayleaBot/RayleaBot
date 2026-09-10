@@ -15,7 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )

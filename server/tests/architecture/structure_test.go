@@ -108,28 +108,6 @@ func TestEventPipelineDoesNotDependOnPluginProcesses(t *testing.T) {
 	}
 }
 
-func TestRenderImplementationPackagesStayBehindServiceBoundary(t *testing.T) {
-	serverRoot := testServerRoot(t)
-	internalRoot := filepath.Join(serverRoot, "internal")
-	renderRoot := filepath.Join(internalRoot, "render")
-	protectedPrefixes := []string{
-		modulePrefix + "render/repository",
-	}
-
-	walkGoFiles(t, internalRoot, func(path string) {
-		if strings.HasSuffix(path, "_test.go") || pathWithin(path, renderRoot) {
-			return
-		}
-		for _, importPath := range fileImports(t, serverRoot, path) {
-			for _, protectedPrefix := range protectedPrefixes {
-				if importPath == protectedPrefix || strings.HasPrefix(importPath, protectedPrefix+"/") {
-					t.Errorf("%s imports render implementation package %s", relPath(t, serverRoot, path), importPath)
-				}
-			}
-		}
-	})
-}
-
 // Domain services are shared by entrypoints; they must not depend on App or CLI.
 func TestDomainPackagesDoNotImportEntrypoints(t *testing.T) {
 	serverRoot := testServerRoot(t)

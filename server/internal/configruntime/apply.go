@@ -10,7 +10,7 @@ import (
 	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 

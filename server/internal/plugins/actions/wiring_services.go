@@ -3,7 +3,7 @@ package actions
 import (
 	"context"
 
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type renderer struct {

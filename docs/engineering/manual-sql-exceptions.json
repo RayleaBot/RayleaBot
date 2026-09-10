@@ -36,7 +36,7 @@
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"
     },
-    "server/internal/render/repository/repository.go": {
+    "server/internal/render/repository.go": {
       "category": "C",
       "reason": "Current template cache cleanup composes variable template and plugin ID NOT IN clauses; current template reads and writes use sqlc.",
       "owner": "server-render",

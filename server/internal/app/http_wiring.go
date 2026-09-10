@@ -11,7 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/go-chi/chi/v5"
 )
 
