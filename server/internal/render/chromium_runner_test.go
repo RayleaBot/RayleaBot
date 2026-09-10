@@ -30,7 +30,12 @@ func newTestChromiumRunner(t *testing.T) *chromiumRunner {
 
 	logTestBrowserVersion(t, browserPath)
 	output := &testBrowserOutput{}
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath, CombinedOutput: output})
+	trace := newBrowserDiagnosticTrace()
+	runner := NewChromiumRunner(ChromiumOptions{
+		BrowserPath:    browserPath,
+		CombinedOutput: &browserDiagnosticOutput{output: output, trace: trace},
+		Debugf:         trace.debugf,
+	})
 	t.Cleanup(func() {
 		if err := runner.Close(); err != nil {
 			t.Errorf("close test Chromium runner: %v", err)
@@ -38,6 +43,7 @@ func newTestChromiumRunner(t *testing.T) *chromiumRunner {
 		if t.Failed() {
 			t.Logf("Chromium combined output after Close (last %d bytes):\n%s", testBrowserOutputLimit, output.String())
 		}
+		t.Logf("Browser diagnostic timeline (payload omitted):\n%s", trace.snapshot())
 	})
 	return runner
 }
@@ -159,7 +165,7 @@ func TestChromiumRunnerCleanupStopsBrowser(t *testing.T) {
 				if len(content) == 0 {
 					t.Fatal("expected screenshot content")
 				}
-				if output := runner.combinedOutput.(*testBrowserOutput).String(); !strings.Contains(output, "DevTools listening on") {
+				if output := runner.combinedOutput.(*browserDiagnosticOutput).output.String(); !strings.Contains(output, "DevTools listening on") {
 					t.Fatal("browser startup output was not captured")
 				}
 				browserCtx = runner.browserCtx

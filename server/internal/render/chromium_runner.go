@@ -130,12 +130,14 @@ type ChromiumOptions struct {
 	BrowserPath    string
 	BrowserArgs    []string
 	CombinedOutput io.Writer
+	Debugf         func(string, ...any)
 }
 
 type chromiumRunner struct {
 	browserPath    string
 	browserArgs    []string
 	combinedOutput io.Writer
+	debugf         func(string, ...any)
 
 	mu              sync.Mutex
 	closed          bool
@@ -155,6 +157,7 @@ func NewChromiumRunner(options ChromiumOptions) *chromiumRunner {
 		browserPath:    strings.TrimSpace(options.BrowserPath),
 		browserArgs:    append([]string(nil), options.BrowserArgs...),
 		combinedOutput: options.CombinedOutput,
+		debugf:         options.Debugf,
 	}
 }
 
@@ -286,10 +289,13 @@ func htmlWithBaseURL(html, baseURL string) string {
 }
 
 func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, error) {
+	r.tracePhase("browser-context.begin")
 	browserCtx, err := r.browserContext(ctx)
 	if err != nil {
+		r.tracePhase("browser-context.failed")
 		return nil, err
 	}
+	r.tracePhase("browser-context.ready")
 	tabCtx, cancelTab := chromedp.NewContext(browserCtx)
 
 	runCtx, cancelRun := contextWithRenderDeadline(tabCtx, ctx)
@@ -313,6 +319,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	}
 	defer cleanup()
 	defer cancelTab()
+	r.tracePhase("document.materialized")
 	bindResources, err := bindRenderResourcesExpression(resourceURLs)
 	if err != nil {
 		return nil, err
@@ -357,13 +364,22 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		return err
 	}))
 
+	r.tracePhase("tab-actions.begin")
 	if err := chromedp.Run(runCtx, actions...); err != nil {
+		r.tracePhase("tab-actions.failed")
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
 		}
 		return nil, errors.Join(err, r.resetBrowser())
 	}
+	r.tracePhase("tab-actions.complete")
 	return content, nil
+}
+
+func (r *chromiumRunner) tracePhase(phase string) {
+	if r.debugf != nil {
+		r.debugf("phase %s", phase)
+	}
 }
 
 func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, error) {
@@ -422,7 +438,11 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 	}
 	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
 	cancelAllocator = sync.OnceFunc(cancelAllocator)
-	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
+	var contextOptions []chromedp.ContextOption
+	if r.debugf != nil {
+		contextOptions = append(contextOptions, chromedp.WithDebugf(r.debugf))
+	}
+	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx, contextOptions...)
 	// Startup cancellation and cleanup can race. chromedp cancellation also
 	// waits for allocation, so invoke each wait exactly once.
 	cancelBrowser = sync.OnceFunc(cancelBrowser)
