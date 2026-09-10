@@ -483,6 +483,50 @@ class SelfHostSmokeTests(unittest.TestCase):
             with self.assertRaises(self_host_smoke.SmokeError):
                 self_host_smoke.request_plugin_state_change("http://127.0.0.1/", "fixture-token", "fixture", "reload")
 
+    def scheduler_job_response(self):
+        fixture = yaml.safe_load((ROOT / "fixtures/web-api/ok.system-scheduler-jobs-list.yaml").read_text(encoding="utf-8"))
+        body = fixture["response"]["body"]
+        job = body["items"][0]
+        job["cron_expr"] = "* * * * *"
+        job.pop("last_error")
+        job["stats"] = {"total": 1, "success": 1, "failed": 0, "timeout": 0, "retry": 0, "other": 0}
+        return body
+
+    def test_scheduler_acceptance_requires_native_callback_and_persisted_success(self):
+        response = self.scheduler_job_response()
+        rendered = {"scheduler_job_id": "daily_report", "fixture_pid": 123}
+        callback = {**rendered, "event_type": "scheduler.trigger", "source_protocol": "scheduler", "source_adapter": "scheduler.internal"}
+        with mock.patch.object(self_host_smoke, "request_json", return_value=response) as request, mock.patch.object(self_host_smoke, "wait_acceptance_probe", return_value=callback) as wait:
+            result = self_host_smoke.exercise_scheduler_acceptance("http://127.0.0.1/", "fixture-token", "weather", "probe", rendered)
+        self.assertEqual(result["success_count"], 1)
+        self.assertEqual(result["last_run"], response["items"][0]["last_run"])
+        self.assertEqual(wait.call_args.kwargs, {"field": "acceptance_scheduler_probe", "timeout_seconds": 120})
+        self.assertTrue(all("/api/system/scheduler/jobs?" in call.args[0] and call.kwargs.get("method", "GET") == "GET" for call in request.call_args_list))
+
+    def test_scheduler_acceptance_rejects_wrong_source_process_and_failure(self):
+        rendered = {"scheduler_job_id": "daily_report", "fixture_pid": 123}
+        callback = {**rendered, "event_type": "scheduler.trigger", "source_protocol": "scheduler", "source_adapter": "scheduler.internal"}
+        for changed in [{"source_adapter": "other"}, {"fixture_pid": 456}, {"scheduler_job_id": "other"}]:
+            with self.subTest(changed=changed), mock.patch.object(self_host_smoke, "request_json", return_value=self.scheduler_job_response()), mock.patch.object(self_host_smoke, "wait_acceptance_probe", return_value={**callback, **changed}):
+                with self.assertRaises(self_host_smoke.SmokeError):
+                    self_host_smoke.exercise_scheduler_acceptance("http://127.0.0.1/", "fixture-token", "weather", "probe", rendered)
+        response = self.scheduler_job_response()
+        response["items"][0]["stats"]["timeout"] = 1
+        with mock.patch.object(self_host_smoke, "request_json", return_value=response), mock.patch.object(self_host_smoke, "wait_acceptance_probe", return_value=callback):
+            with self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.exercise_scheduler_acceptance("http://127.0.0.1/", "fixture-token", "weather", "probe", rendered)
+
+    def test_scheduler_job_owner_and_uninstall_cleanup_are_verified(self):
+        response = self.scheduler_job_response()
+        with mock.patch.object(self_host_smoke, "request_json", return_value=response):
+            with self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.require_scheduler_probe_job("http://127.0.0.1/", "fixture-token", "another-plugin", "daily_report")
+            with self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.verify_scheduler_probe_removed("http://127.0.0.1/", "fixture-token", "daily_report")
+        empty = yaml.safe_load((ROOT / "fixtures/web-api/edge.system-scheduler-jobs-empty.yaml").read_text(encoding="utf-8"))["response"]["body"]
+        with mock.patch.object(self_host_smoke, "request_json", return_value=empty):
+            self_host_smoke.verify_scheduler_probe_removed("http://127.0.0.1/", "fixture-token", "daily_report")
+
     def test_smoke_workspace_preserves_primary_failure_and_evidence(self):
         with tempfile.TemporaryDirectory() as parent:
             root = Path(parent) / "owned"

@@ -27,10 +27,12 @@
   "events": [
     "message.group",
     "message.private",
-    "config.changed"
+    "config.changed",
+    "scheduler.trigger"
   ],
   "permissions": {
     "message.send": true,
-    "render.image": true
+    "render.image": true,
+    "scheduler.create": true
   }
 }

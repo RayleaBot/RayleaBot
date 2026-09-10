@@ -886,8 +886,9 @@ def wait_plugin_task(base_url: str, token: str, accepted: dict[str, object], tas
     raise SmokeError(f"{task_type} did not finish")
 
 
-def wait_acceptance_probe(base_url: str, token: str, plugin_id: str, probe: str) -> dict[str, object]:
-    deadline = time.monotonic() + 90
+def wait_acceptance_probe(base_url: str, token: str, plugin_id: str, probe: str, *,
+                          field: str = "acceptance_probe", timeout_seconds: int = 90) -> dict[str, object]:
+    deadline = time.monotonic() + timeout_seconds
     seen: set[str] = set()
     while time.monotonic() < deadline:
         query = urllib.parse.urlencode({"scope": "current_session", "source": "plugin",
@@ -900,10 +901,59 @@ def wait_acceptance_probe(base_url: str, token: str, plugin_id: str, probe: str)
             seen.add(log_id)
             detail = request_json(f"{base_url}api/logs/{log_id}", headers=bearer_headers(token))
             fields = detail.get("details", {})
-            if fields.get("acceptance_probe") == probe:
+            if fields.get(field) == probe:
                 return fields
         time.sleep(0.2)
-    raise SmokeError("native plugin did not log its completed render probe")
+    raise SmokeError(f"native plugin did not log its completed {field}")
+
+
+def scheduler_probe_jobs(base_url: str, token: str, job_id: str) -> dict[str, object]:
+    query = urllib.parse.urlencode({"query": job_id, "limit": 100})
+    return request_json(f"{base_url}api/system/scheduler/jobs?{query}", headers=bearer_headers(token))
+
+
+def require_scheduler_probe_job(base_url: str, token: str, plugin_id: str, job_id: str) -> dict[str, object]:
+    jobs = scheduler_probe_jobs(base_url, token, job_id)
+    items = jobs.get("items")
+    if jobs.get("total") != 1 or not isinstance(items, list) or len(items) != 1 or jobs.get("next_cursor"):
+        raise SmokeError("scheduler acceptance job is missing or not unique")
+    job = items[0]
+    if job.get("job_id") != job_id or job.get("plugin_id") != plugin_id:
+        raise SmokeError("scheduler acceptance job has the wrong owner or identity")
+    if job.get("cron_expr") != "* * * * *" or job.get("enabled") is not True:
+        raise SmokeError("scheduler acceptance job is not enabled on its real minute cadence")
+    return job
+
+
+def exercise_scheduler_acceptance(base_url: str, token: str, plugin_id: str, probe: str,
+                                  rendered_fields: dict[str, object]) -> dict[str, object]:
+    job_id = require_non_empty_string(rendered_fields.get("scheduler_job_id"), "scheduler acceptance job ID")
+    require_scheduler_probe_job(base_url, token, plugin_id, job_id)
+    # The formal scheduler supports five-field cron and checks due jobs every
+    # 30 seconds. Wait for its own tick; never substitute the manual trigger API.
+    fields = wait_acceptance_probe(base_url, token, plugin_id, probe,
+                                   field="acceptance_scheduler_probe", timeout_seconds=120)
+    expected = {"scheduler_job_id": job_id, "fixture_pid": rendered_fields.get("fixture_pid"),
+                "event_type": "scheduler.trigger", "source_protocol": "scheduler",
+                "source_adapter": "scheduler.internal"}
+    if any(fields.get(key) != value for key, value in expected.items()):
+        raise SmokeError("scheduled event did not retain its native process, source and job identity")
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        job = require_scheduler_probe_job(base_url, token, plugin_id, job_id)
+        stats = job.get("stats", {})
+        if job.get("last_error") or any(stats.get(key, 0) != 0 for key in ("failed", "timeout", "retry", "other")):
+            raise SmokeError("scheduled acceptance run reported an unsuccessful outcome")
+        if job.get("last_run") and type(stats.get("success")) is int and stats["success"] >= 1:
+            return {**expected, "last_run": job["last_run"], "success_count": stats["success"]}
+        time.sleep(0.2)
+    raise SmokeError("scheduled acceptance callback did not reach a persisted success outcome")
+
+
+def verify_scheduler_probe_removed(base_url: str, token: str, job_id: str) -> None:
+    jobs = scheduler_probe_jobs(base_url, token, job_id)
+    if jobs.get("total") != 0 or jobs.get("items") != [] or jobs.get("next_cursor"):
+        raise SmokeError("plugin uninstall left its scheduler acceptance job registered")
 
 
 def verify_probe_png(root: Path, fields: dict[str, object]) -> tuple[int, int]:
@@ -959,7 +1009,8 @@ def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fix
         for phase in ["initial", "reloaded"]:
             probe = f"{phase}-{uuid.uuid4().hex}"
             settings = request_json(f"{base_url}api/plugins/{plugin_id}/settings", method="PUT",
-                                    body={"values": {"fixture_acceptance": True, "acceptance_probe": probe}},
+                                    body={"values": {"fixture_acceptance": True, "acceptance_probe": probe,
+                                                     "acceptance_schedule": phase == "reloaded"}},
                                     headers=headers)
             if settings.get("values", {}).get("acceptance_probe") != probe:
                 raise SmokeError("HTTP settings did not persist the probe")
@@ -979,6 +1030,7 @@ def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fix
                 current = request_json(f"{base_url}api/plugins/{plugin_id}/settings", headers=headers)
                 if current.get("values", {}).get("acceptance_probe") != probe:
                     raise SmokeError("reload discarded saved plugin settings")
+        scheduler_probe = exercise_scheduler_acceptance(base_url, token, plugin_id, probe, fields)
         request_plugin_state_change(base_url, token, plugin_id, "disable")
         wait_plugin_state(base_url, token, plugin_id, "disabled")
         for process in processes:
@@ -989,8 +1041,11 @@ def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fix
         request_json(f"{base_url}api/plugins/{plugin_id}", headers=headers, expected_status=404)
         if installed.exists():
             raise SmokeError("successful uninstall left the installed plugin directory")
+        verify_scheduler_probe_removed(base_url, token, scheduler_probe["scheduler_job_id"])
+        scheduler_probe["removed_on_uninstall"] = True
         result = {"plugin": plugin_id, "installed": True, "settings_persisted": True, "reloaded": True,
-                  "disabled": True, "uninstalled": True, "native_processes_reaped": True, "png_probes": probes}
+                  "disabled": True, "uninstalled": True, "native_processes_reaped": True,
+                  "png_probes": probes, "scheduler_probe": scheduler_probe}
         print("plugin acceptance: " + json.dumps(result), flush=True)
         return result
     finally:
