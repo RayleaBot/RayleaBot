@@ -70,16 +70,6 @@ func AsThirdPartyError(err error) *ThirdPartyError {
 	return nil
 }
 
-func IsRiskControlError(err error) bool {
-	tpErr := AsThirdPartyError(err)
-	return tpErr != nil && tpErr.Kind == ErrorRiskControl
-}
-
-func IsRateLimitError(err error) bool {
-	tpErr := AsThirdPartyError(err)
-	return tpErr != nil && tpErr.Kind == ErrorRateLimit
-}
-
 func ClassifyHTTPStatus(status int) ErrorKind {
 	switch status {
 	case http.StatusUnauthorized, http.StatusForbidden:

@@ -289,14 +289,3 @@ func progressPercent(done, total int64) int {
 	}
 	return percent
 }
-
-func WithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(DownloadProgress)) error {
-	if downloader != nil {
-		return downloader(ctx, rawURL, destPath)
-	}
-	return HTTPSFileWithProgress(ctx, rawURL, destPath, progress)
-}
-
-func HTTPSFile(ctx context.Context, rawURL, destPath string) error {
-	return HTTPSFileWithProgress(ctx, rawURL, destPath, nil)
-}

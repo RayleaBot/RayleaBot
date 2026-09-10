@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) {
@@ -76,18 +77,6 @@ func (s *Service) getTemplateSource(ctx context.Context, templateID string) (str
 		return "", TemplateSource{}, fmt.Errorf("get render template source %s: %w", templateID, err)
 	}
 	return sourceDigest, source, nil
-}
-
-func (s *Service) GetTemplatePreviewData(ctx context.Context, templateID string) (map[string]any, error) {
-	if err := s.syncTemplatesFromFiles(ctx); err != nil {
-		return nil, err
-	}
-	templateID = strings.TrimSpace(templateID)
-	if _, err := s.getTemplate(ctx, templateID); err != nil {
-		return nil, err
-	}
-
-	return s.readTemplatePreviewData(templateID)
 }
 
 func (s *Service) GetTemplateDetailSnapshot(ctx context.Context, templateID string) (TemplateDetailSnapshot, error) {

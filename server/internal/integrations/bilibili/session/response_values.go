@@ -1,9 +1,8 @@
 package session
 
 import (
-	"crypto/sha256"
 	"encoding/json"
-	"fmt"
+
 	"io"
 	"net/url"
 	"strconv"
@@ -47,22 +46,6 @@ func stringValue(value any) string {
 	}
 }
 
-func int64Value(value any) int64 {
-	switch typed := value.(type) {
-	case int64:
-		return typed
-	case int:
-		return int64(typed)
-	case float64:
-		return int64(typed)
-	case string:
-		parsed, _ := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
-		return parsed
-	default:
-		return 0
-	}
-}
-
 func normalizeURL(value string) string {
 	text := strings.TrimSpace(value)
 	if text == "" {
@@ -90,13 +73,4 @@ func ExtractVVoucher(body []byte) string {
 		return ""
 	}
 	return strings.TrimSpace(doc.Data.VVoucher)
-}
-
-func cookieFingerprint(cookie string) string {
-	cookie = strings.TrimSpace(cookie)
-	if cookie == "" {
-		return ""
-	}
-	sum := sha256.Sum256([]byte(cookie))
-	return fmt.Sprintf("%x", sum[:])
 }

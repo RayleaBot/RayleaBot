@@ -1,6 +1,3 @@
--- name: CountNamespace :one
-SELECT COUNT(*) FROM system_configs WHERE namespace = ?;
-
 -- name: ListConfigsByNamespace :many
 SELECT key, value_json
 FROM system_configs

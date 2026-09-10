@@ -354,10 +354,6 @@ func closeProviderSession(provider QRLoginProvider, session QRLoginSession) {
 	}
 }
 
-func CloseQRLoginProviderSession(provider QRLoginProvider, session QRLoginSession) {
-	closeProviderSession(provider, session)
-}
-
 func QRLoginCreateResultFromSession(session QRLoginSession) QRLoginCreateResult {
 	return QRLoginCreateResult{
 		Platform:  session.Platform,

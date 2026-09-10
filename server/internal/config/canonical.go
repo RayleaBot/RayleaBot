@@ -7,9 +7,8 @@ import (
 	"os"
 	"strings"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
+	"gopkg.in/yaml.v3"
 )
 
 const currentSchemaVersion = contractversions.ConfigSchemaVersion
@@ -18,7 +17,6 @@ const DefaultRenderOutput = "png"
 const DefaultRenderDeviceScalePercent = 100
 const DefaultUserCommandRateLimit = "10/60s"
 const DefaultGroupCommandRateLimit = "30/60s"
-const DefaultCooldownReply = true
 
 func CurrentSchemaVersion() string {
 	return currentSchemaVersion

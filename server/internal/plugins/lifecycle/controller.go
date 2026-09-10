@@ -152,7 +152,8 @@ func (c *Controller) BindLifecycleContext(ctx context.Context) {
 	}
 }
 
-// Close ends admission and waits for accepted asynchronous lifecycle work.
+// Close ends admission and waits for all accepted asynchronous lifecycle work.
+// Runtime process shutdown remains owned by the runtime registry.
 func (c *Controller) Close() {
 	c.lifecycleCtxMu.Lock()
 	c.closed = true
@@ -573,13 +574,8 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, ma
 	return nil
 }
 
-func (c *Controller) stopAndResetPlugin(pluginID string) {
-	if err := c.stopPlugin(c.lifecycleContext(), pluginID, true); err != nil {
-		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
-	}
-}
-
-// StartInstalled waits for initialization before a package transaction commits.
+// StartInstalled waits for initialization before the installer commits a package.
+// The installer has already stopped the previous runtime and refreshed the catalog.
 func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error {
 	ctx, cancel := context.WithTimeout(ctx, runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
@@ -589,10 +585,6 @@ func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error 
 		return errors.Join(err, c.StopAndResetPluginWithContext(cleanupCtx, pluginID))
 	}
 	return nil
-}
-
-func (c *Controller) StopAndResetPlugin(pluginID string) {
-	c.stopAndResetPlugin(pluginID)
 }
 
 func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID string) error {
@@ -721,10 +713,6 @@ func pluginRuntimeSuperAdmins(cfg config.Config) []string {
 		result = append(result, value)
 	}
 	return result
-}
-
-func PluginRuntimeSuperAdmins(cfg config.Config) []string {
-	return pluginRuntimeSuperAdmins(cfg)
 }
 
 func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBots []chatevent.BotIdentity) {
@@ -925,10 +913,6 @@ func schedulerPluginDisplayName(snapshot plugins.Snapshot, pluginID string) stri
 		return pluginID
 	}
 	return "未知插件"
-}
-
-func SchedulerPluginDisplayName(snapshot plugins.Snapshot, pluginID string) string {
-	return schedulerPluginDisplayName(snapshot, pluginID)
 }
 
 func schedulerPayloadFields(job scheduler.Job) map[string]any {

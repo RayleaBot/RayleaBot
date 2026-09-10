@@ -76,6 +76,7 @@ func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 			SourceRoot:      "plugins/installed",
 		}
 		item.ProtocolVersion = PluginProtocolVersion
+
 		artifactPayload, artifactErr := os.ReadFile(filepath.Join(pluginsRoot, entry.Name(), "artifact.json"))
 		if artifactErr == nil {
 			var artifact map[string]any
@@ -91,26 +92,5 @@ func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].PluginID < items[j].PluginID
 	})
-	return items
-}
-
-func ScanRepoPaths(repoRoot, configPath, databasePath string) []BackupManifestDirectory {
-	items := make([]BackupManifestDirectory, 0, 3)
-	if configPath != "" {
-		if relative, err := filepath.Rel(repoRoot, configPath); err == nil {
-			items = append(items, Directory(relative, "config"))
-		}
-	}
-	if databasePath != "" {
-		if relative, err := filepath.Rel(repoRoot, databasePath); err == nil {
-			items = append(items, Directory(relative, "database"))
-		}
-	}
-	pluginsPath := filepath.Join(repoRoot, "plugins", "installed")
-	if info, err := os.Stat(pluginsPath); err == nil && info.IsDir() {
-		if relative, err := filepath.Rel(repoRoot, pluginsPath); err == nil {
-			items = append(items, Directory(relative, "plugins"))
-		}
-	}
 	return items
 }

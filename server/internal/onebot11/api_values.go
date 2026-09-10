@@ -27,14 +27,6 @@ func extractStringField(data map[string]any, key string) string {
 	}
 }
 
-func ExtractStringField(data map[string]any, key string) string {
-	return extractStringField(data, key)
-}
-
-func normalizeAPIList(value any) ([]any, bool) {
-	return normalizeAPIListWithKeys(value, []string{"items", "list", "data"})
-}
-
 func normalizeAPIListWithKeys(value any, keys []string) ([]any, bool) {
 	switch typed := value.(type) {
 	case []any:
@@ -52,10 +44,6 @@ func normalizeAPIListWithKeys(value any, keys []string) ([]any, bool) {
 		}
 	}
 	return nil, false
-}
-
-func NormalizeAPIList(value any) ([]any, bool) {
-	return normalizeAPIList(value)
 }
 
 func normalizeAPIResult(value any) any {
@@ -83,10 +71,6 @@ func normalizeAPIResult(value any) any {
 	default:
 		return normalizeScalarValue(typed)
 	}
-}
-
-func NormalizeAPIResult(value any) any {
-	return normalizeAPIResult(value)
 }
 
 func normalizeScalarValue(value any) any {
@@ -119,10 +103,6 @@ func extractStringValue(value any) string {
 	default:
 		return strings.TrimSpace(redact.SanitizeString(fmt.Sprint(typed)))
 	}
-}
-
-func ExtractStringValue(value any) string {
-	return extractStringValue(value)
 }
 
 func isIdentifierKey(key string) bool {

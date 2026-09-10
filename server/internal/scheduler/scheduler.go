@@ -97,13 +97,6 @@ func DisplayMessage(pluginName, taskName, logLabel, status string) string {
 	return "【" + strings.Join(parts, "｜") + "】"
 }
 
-func FormatDuration(duration time.Duration) string {
-	if duration < 0 {
-		duration = 0
-	}
-	return fmt.Sprintf("%dms", duration.Milliseconds())
-}
-
 // TriggerFunc is called when a job fires. The engine passes the job metadata
 // so the caller can route the trigger to the correct plugin runtime.
 type TriggerFunc func(ctx context.Context, job Job)

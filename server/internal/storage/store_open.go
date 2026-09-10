@@ -5,12 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 )
 
-func openWithProtection(path string, options options, lock *filelock.Lock) (*Store, error) {
+func openWithProtection(path string, lock *filelock.Lock) (*Store, error) {
 	if databaseFileExists(path) {
 		if err := QuickCheckPath(context.Background(), path); err != nil {
 			if !isSQLiteCorruptionError(err) {
@@ -22,7 +21,7 @@ func openWithProtection(path string, options options, lock *filelock.Lock) (*Sto
 		}
 	}
 
-	store, err := openConfigured(path, options, lock)
+	store, err := openConfigured(path, lock)
 	if err == nil {
 		return store, nil
 	}
@@ -30,12 +29,12 @@ func openWithProtection(path string, options options, lock *filelock.Lock) (*Sto
 		if quarantineErr := quarantineMalformedDatabase(path, err); quarantineErr != nil {
 			return nil, quarantineErr
 		}
-		return openConfigured(path, options, lock)
+		return openConfigured(path, lock)
 	}
 	return nil, err
 }
 
-func openConfigured(path string, options options, lock *filelock.Lock) (*Store, error) {
+func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 	writeDB, err := sql.Open(sqliteDriverName, path)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite write handle: %w", err)
@@ -57,10 +56,10 @@ func openConfigured(path string, options options, lock *filelock.Lock) (*Store, 
 		return nil, cause
 	}
 
-	if err := configureHandle(context.Background(), writeDB, options.busyTimeout); err != nil {
+	if err := configureHandle(context.Background(), writeDB); err != nil {
 		return cleanup(fmt.Errorf("configure sqlite write handle: %w", err))
 	}
-	if err := configureHandle(context.Background(), readDB, options.busyTimeout); err != nil {
+	if err := configureHandle(context.Background(), readDB); err != nil {
 		return cleanup(fmt.Errorf("configure sqlite read handle: %w", err))
 	}
 	if _, err := readDB.ExecContext(context.Background(), "PRAGMA query_only = ON"); err != nil {
@@ -78,7 +77,7 @@ func openConfigured(path string, options options, lock *filelock.Lock) (*Store, 
 	}, nil
 }
 
-func configureHandle(ctx context.Context, db *sql.DB, busyTimeout time.Duration) error {
+func configureHandle(ctx context.Context, db *sql.DB) error {
 	if err := db.PingContext(ctx); err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func configureHandle(ctx context.Context, db *sql.DB, busyTimeout time.Duration)
 		return fmt.Errorf("set synchronous: %w", err)
 	}
 
-	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout = %d", busyTimeout.Milliseconds())); err != nil {
+	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout = %d", defaultBusyTimeout.Milliseconds())); err != nil {
 		return fmt.Errorf("set busy_timeout: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, fmt.Sprintf("PRAGMA wal_autocheckpoint = %d", defaultWALAutoCheckpointPage)); err != nil {

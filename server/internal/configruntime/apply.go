@@ -77,7 +77,7 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 		return UpdateResult{}, err
 	}
 	var staged *stagedSecrets
-	var store secrets.Store = s.secrets
+	store := s.secrets
 	if store != nil {
 		for _, value := range configSecretValues(validated) {
 			if !isConfigSecretReference(value) {
@@ -171,7 +171,6 @@ func (s *Service) summary() internalconfig.Summary {
 type ConfigApplyPolicy string
 
 const (
-	ConfigApplyPolicyHotReload       ConfigApplyPolicy = "hot_reload"
 	ConfigApplyPolicyAdapterReload   ConfigApplyPolicy = "adapter_reload"
 	ConfigApplyPolicyRestartRequired ConfigApplyPolicy = "restart_required"
 	ConfigApplyPolicySecretOnly      ConfigApplyPolicy = "secret_only"
@@ -248,8 +247,7 @@ func collectCollectionChanges(prefix, key string, current, next any, paths *[]st
 		return false
 	}
 
-	// Order is meaningful: it decides which instance the management surface
-	// treats as primary, so a reordering is a change to the collection.
+	// Configuration order is the display order of the instance collection.
 	if !slices.Equal(currentIDs, nextIDs) {
 		*paths = append(*paths, prefix)
 	}

@@ -182,7 +182,3 @@ func weiboHasLoginCookie(cookies map[string]string) bool {
 	}
 	return false
 }
-
-func HasLoginCookie(cookies map[string]string) bool {
-	return weiboHasLoginCookie(cookies)
-}

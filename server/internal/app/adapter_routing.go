@@ -39,6 +39,8 @@ func (s EventState) EnrichEventMetadata(ctx context.Context, event chatevent.Nor
 	return event
 }
 
+// DedupDropsSnapshot reports all registered instances, including disabled ones
+// whose process-lifetime counters remain part of the aggregate.
 func (s EventState) DedupDropsSnapshot() uint64 {
 	var total uint64
 	for _, shell := range s.OneBotShells {

@@ -58,16 +58,6 @@ func LookupOneBotAction(kind string) (OneBotActionSpec, bool) {
 	return spec, ok
 }
 
-func IsOneBotLocalAction(kind string) bool {
-	spec, ok := LookupOneBotAction(kind)
-	return ok && spec.Provider == ""
-}
-
-func IsOneBotProviderExtensionAction(kind string) bool {
-	spec, ok := LookupOneBotAction(kind)
-	return ok && spec.Provider != ""
-}
-
 func buildOneBotActionRegistry() map[string]OneBotActionSpec {
 	baseSpecs := onebot11.Actions()
 	items := make(map[string]OneBotActionSpec, len(baseSpecs))

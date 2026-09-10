@@ -21,10 +21,6 @@ func cookieValues(cookie string) map[string]string {
 	return values
 }
 
-func CookieValues(cookie string) map[string]string {
-	return cookieValues(cookie)
-}
-
 func mergeCookieValues(cookie string, updates map[string]string) string {
 	if len(updates) == 0 {
 		return strings.TrimSpace(cookie)
@@ -75,8 +71,4 @@ func mergeCookieValues(cookie string, updates map[string]string) string {
 		return ""
 	}
 	return strings.Join(parts, "; ") + ";"
-}
-
-func MergeCookieValues(cookie string, updates map[string]string) string {
-	return mergeCookieValues(cookie, updates)
 }

@@ -215,7 +215,8 @@ func (s *Service) ApplyConfigReload(cfg config.Config) error {
 		client.SetEnabled(instance.Enabled)
 	}
 
-	// Preserve each adapter failure for the configuration coordinator.
+	// Preserve each adapter failure so the configuration coordinator can retain
+	// the effective settings and report fields that require a restart.
 	if len(failures) == 1 {
 		return failures[0]
 	}

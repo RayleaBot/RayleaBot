@@ -171,9 +171,6 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		}
 		return errors.Join(cause, partial.Close())
 	}
-	// A config the loader migrated points at the adapters' new secret keys, so
-	// the sealed values move before anything tries to resolve them.
-
 	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.CurrentConfig())
 	if err != nil {
 		return nil, cleanupPartialBuild(fmt.Errorf("resolve config secrets: %w", err))

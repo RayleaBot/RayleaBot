@@ -322,10 +322,6 @@ func ClonePermissions(values map[string]PermissionGrant) map[string]PermissionGr
 	return cloned
 }
 
-func CloneSettingValue(value any) any {
-	return cloneValue(value)
-}
-
 func ApplyPackageMetadata(entries []Snapshot, metadata map[string]PackageMetadata) []Snapshot {
 	if len(entries) == 0 {
 		return nil

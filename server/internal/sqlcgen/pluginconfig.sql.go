@@ -9,17 +9,6 @@ import (
 	"context"
 )
 
-const countNamespace = `-- name: CountNamespace :one
-SELECT COUNT(*) FROM system_configs WHERE namespace = ?
-`
-
-func (q *Queries) CountNamespace(ctx context.Context, namespace string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countNamespace, namespace)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const listConfigsByNamespace = `-- name: ListConfigsByNamespace :many
 SELECT key, value_json
 FROM system_configs

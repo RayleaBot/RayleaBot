@@ -107,18 +107,6 @@ func (s *Ingress) CommandInfoForEvent(event chatevent.NormalizedEvent) *permissi
 	return s.policy.CommandInfoForEvent(event)
 }
 
-func (s *Ingress) SetMetadataEnricher(enricher MetadataEnricher) {
-	if s != nil {
-		s.metadataEnricher = enricher
-	}
-}
-
-func (s *Ingress) SetOutboundLimiter(limiter outbound.MessageLimiter) {
-	if s.policy != nil {
-		s.policy.SetOutboundLimiter(limiter)
-	}
-}
-
 func (s *Ingress) Policy() *Service {
 	return s.policy
 }

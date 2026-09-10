@@ -170,9 +170,3 @@ func (r *MetricsRegistry) HTTPHandler() http.Handler {
 		ErrorHandling: promhttp.ContinueOnError,
 	})
 }
-
-// PrometheusRegistry exposes the underlying registry for callers that need to
-// register custom collectors (eg. test scaffolding).
-func (r *MetricsRegistry) PrometheusRegistry() *prometheus.Registry {
-	return r.registry
-}

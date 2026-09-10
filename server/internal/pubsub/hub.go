@@ -14,10 +14,6 @@ type Hub[T any] struct {
 	closed      bool
 }
 
-func NewHub[T any]() *Hub[T] {
-	return &Hub[T]{}
-}
-
 // Subscribe registers a subscriber with the given buffer size (minimum 1)
 // and returns the receive channel plus an idempotent unsubscribe function
 // that closes the channel.

@@ -10,15 +10,13 @@ import (
 type ErrorKind string
 
 const (
-	ErrorAuth            ErrorKind = "auth"
-	ErrorCSRF            ErrorKind = "csrf"
-	ErrorRefresh         ErrorKind = "cookie_refresh"
-	ErrorRiskControl     ErrorKind = "risk_control"
-	ErrorCaptcha         ErrorKind = "captcha"
-	ErrorRateLimit       ErrorKind = "rate_limit"
-	ErrorSignature       ErrorKind = "signature"
-	ErrorTicket          ErrorKind = "ticket"
-	ErrorDevice          ErrorKind = "device"
+	ErrorAuth ErrorKind = "auth"
+	ErrorCSRF ErrorKind = "csrf"
+
+	ErrorRiskControl ErrorKind = "risk_control"
+	ErrorCaptcha     ErrorKind = "captcha"
+	ErrorRateLimit   ErrorKind = "rate_limit"
+
 	ErrorNotFound        ErrorKind = "not_found"
 	ErrorBadRequest      ErrorKind = "bad_request"
 	ErrorServer          ErrorKind = "server"
@@ -69,10 +67,6 @@ func validateCookieForLogin(cookie string) error {
 	return nil
 }
 
-func ValidateCookieForLogin(cookie string) error {
-	return validateCookieForLogin(cookie)
-}
-
 func apiError(httpStatus, code int, message string, body []byte) error {
 	text := strings.TrimSpace(message)
 	if text == "" {
@@ -83,10 +77,6 @@ func apiError(httpStatus, code int, message string, body []byte) error {
 		kind = ErrorCaptcha
 	}
 	return &Error{Kind: kind, Code: code, HTTPStatus: httpStatus, Message: text, Body: string(body)}
-}
-
-func APIError(httpStatus, code int, message string, body []byte) error {
-	return apiError(httpStatus, code, message, body)
 }
 
 func classifyBilibiliCode(httpStatus, code int) ErrorKind {
@@ -130,10 +120,6 @@ func classifyHTTPStatus(status int) ErrorKind {
 	}
 }
 
-func ClassifyHTTPStatus(status int) ErrorKind {
-	return classifyHTTPStatus(status)
-}
-
 func asBilibiliError(err error) *Error {
 	var target *Error
 	if errors.As(err, &target) {
@@ -144,46 +130,4 @@ func asBilibiliError(err error) *Error {
 
 func AsError(err error) *Error {
 	return asBilibiliError(err)
-}
-
-func isBilibiliAuthError(err error) bool {
-	biliErr := asBilibiliError(err)
-	return biliErr != nil && biliErr.Kind == ErrorAuth
-}
-
-func IsAuthError(err error) bool {
-	return isBilibiliAuthError(err)
-}
-
-func isBilibiliRiskControlError(err error) bool {
-	biliErr := asBilibiliError(err)
-	return biliErr != nil && biliErr.Kind == ErrorRiskControl
-}
-
-func IsRiskControlError(err error) bool {
-	return isBilibiliRiskControlError(err)
-}
-
-func isBilibiliRiskControlErrorText(value string) bool {
-	text := strings.ToLower(strings.TrimSpace(value))
-	if text == "" {
-		return false
-	}
-	return strings.Contains(text, "risk_control") || strings.Contains(text, "code -352")
-}
-
-func IsRiskControlErrorText(value string) bool {
-	return isBilibiliRiskControlErrorText(value)
-}
-
-func shouldRetryWBI(err error) bool {
-	biliErr := asBilibiliError(err)
-	if biliErr == nil {
-		return false
-	}
-	return biliErr.Kind == ErrorRiskControl || biliErr.Kind == ErrorSignature || biliErr.Code == -403 || biliErr.Code == 403
-}
-
-func ShouldRetryWBI(err error) bool {
-	return shouldRetryWBI(err)
 }

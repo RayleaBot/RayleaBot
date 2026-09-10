@@ -52,18 +52,6 @@ func Bootstrap() *slog.Logger {
 	return newLogger(slog.LevelInfo)
 }
 
-func New(levelName string) (*slog.Logger, error) {
-	logger, _, _, err := NewWithStreamAndController(levelName, nil, time.UTC)
-	return logger, err
-}
-
-// NewWithStream creates a logger with a management log stream. It returns a
-// nil LevelController; use NewWithStreamAndController for dynamic level control.
-func NewWithStream(levelName string, redactText func(string) string) (*slog.Logger, *Stream, error) {
-	logger, stream, _, err := NewWithStreamAndController(levelName, redactText, time.UTC)
-	return logger, stream, err
-}
-
 // NewWithStreamAndController creates a logger with a management log stream and
 // a LevelController that allows changing the log level at runtime.
 func NewWithStreamAndController(levelName string, redactText func(string) string, location *time.Location) (*slog.Logger, *Stream, *LevelController, error) {

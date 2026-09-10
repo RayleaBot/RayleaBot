@@ -38,24 +38,6 @@ func (q *Queries) DeletePluginStoreSource(ctx context.Context, sourceID string) 
 	return result.RowsAffected()
 }
 
-const getPluginStoreSource = `-- name: GetPluginStoreSource :one
-SELECT source_id, name, url, official
-FROM plugin_store_sources
-WHERE source_id = ?
-`
-
-func (q *Queries) GetPluginStoreSource(ctx context.Context, sourceID string) (PluginStoreSource, error) {
-	row := q.db.QueryRowContext(ctx, getPluginStoreSource, sourceID)
-	var i PluginStoreSource
-	err := row.Scan(
-		&i.SourceID,
-		&i.Name,
-		&i.Url,
-		&i.Official,
-	)
-	return i, err
-}
-
 const listPluginStoreSources = `-- name: ListPluginStoreSources :many
 SELECT source_id, name, url, official
 FROM plugin_store_sources

@@ -143,10 +143,6 @@ func (s *Service) PermissionChecker() *permission.Checker {
 	return engine.checker
 }
 
-func (s *Service) SetOutboundLimiter(limiter outbound.MessageLimiter) {
-	s.outboundLimiter = limiter
-}
-
 func (s *Service) config() config.Config {
 	if s.currentConfig == nil {
 		return config.Config{}

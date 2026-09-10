@@ -125,7 +125,3 @@ func (manifest *Manifest) FindResource(platform, kind string) *Resource {
 	}
 	return nil
 }
-
-func LoadManifestPath(manifestPath string) (*Manifest, error) {
-	return LoadPath(manifestPath)
-}

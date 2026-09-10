@@ -68,9 +68,19 @@ class PluginBoundaryTests(unittest.TestCase):
                     self.assertEqual(len(errors), int(invalid), errors)
 
 
-class AdapterOwnershipTests(unittest.TestCase):
-    def test_adapter_boundaries_check_owner_and_nested_dependencies(self) -> None:
+class DomainOwnershipTests(unittest.TestCase):
+    def test_model_and_adapter_boundaries_check_owner_and_nested_dependencies(self) -> None:
         cases = [
+            ("plugins", "storage", True),
+            ("plugins/catalog", "storage", False),
+            ("plugins", "plugins/runtime/session", True),
+            ("plugins", "chatevent", False),
+            ("health", "recovery", True),
+            ("runtimepaths", "plugins/catalog", True),
+            ("runtimepaths", "config", False),
+            ("builtinmenu", "plugins/actions", True),
+            ("builtinmenu", "render", False),
+            ("render", "plugins/lifecycle", True),
             ("bot/adapters", "management/events", True),
             ("bot/adapters/nested", "configruntime", True),
             ("bot/adapters", "config", False),
@@ -84,36 +94,9 @@ class AdapterOwnershipTests(unittest.TestCase):
                 source.write_text(f'package {source.parent.name}\nimport "{structure.INTERNAL_PREFIX}{dependency}"\n', encoding="utf-8")
                 files = structure.collect_go_files(root, root / "server/internal")
                 errors: list[str] = []
+                structure.check_model_boundaries(files, errors)
                 structure.check_adapter_boundaries(files, errors)
                 self.assertEqual(len(errors), int(invalid), errors)
-
-
-
-class ModelOwnershipTests(unittest.TestCase):
-    def test_model_and_adapter_boundaries_check_owner_and_nested_dependencies(self) -> None:
-        cases = [
-            ("plugins", "storage", True),
-            ("plugins/catalog", "storage", False),
-            ("plugins", "plugins/runtime/session", True),
-            ("plugins", "chatevent", False),
-            ("health", "recovery", True),
-            ("runtimepaths", "plugins/catalog", True),
-            ("runtimepaths", "config", False),
-            ("builtinmenu", "plugins/actions", True),
-            ("builtinmenu", "render", False),
-            ("render", "plugins/lifecycle", True),
-        ]
-        for package, dependency, invalid in cases:
-            with self.subTest(package=package, dependency=dependency), tempfile.TemporaryDirectory() as directory:
-                root = Path(directory)
-                source = root / "server/internal" / package / "boundary.go"
-                source.parent.mkdir(parents=True)
-                source.write_text(f'package {source.parent.name}\nimport "{structure.INTERNAL_PREFIX}{dependency}"\n', encoding="utf-8")
-                files = structure.collect_go_files(root, root / "server/internal")
-                errors: list[str] = []
-                structure.check_model_boundaries(files, errors)
-                self.assertEqual(len(errors), int(invalid), errors)
-
 
 
 class PackageNameTests(unittest.TestCase):

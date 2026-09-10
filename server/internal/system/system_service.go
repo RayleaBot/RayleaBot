@@ -28,7 +28,7 @@ type AuthBootstrapState interface {
 	IsBootstrapped() bool
 }
 
-type AdapterStatesSource interface {
+type AdapterStateSource interface {
 	AdapterStates() []adapterservice.Status
 }
 
@@ -61,7 +61,7 @@ type Deps struct {
 	Logger              *slog.Logger
 	StartedAt           time.Time
 	Auth                AuthBootstrapState
-	Adapters            AdapterStatesSource
+	Adapters            AdapterStateSource
 	Plugins             plugins.CatalogView
 	Runtimes            RuntimeRegistry
 	Renderer            RendererState
@@ -86,7 +86,7 @@ type Service struct {
 	logger              *slog.Logger
 	startedAt           time.Time
 	auth                AuthBootstrapState
-	adapters            AdapterStatesSource
+	adapters            AdapterStateSource
 	plugins             plugins.CatalogView
 	runtimes            RuntimeRegistry
 	renderer            RendererState

@@ -374,18 +374,6 @@ func assertTableExists(t *testing.T, db *sql.DB, name string) {
 	}
 }
 
-func assertTableMissing(t *testing.T, db *sql.DB, name string) {
-	t.Helper()
-
-	var exists int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, name).Scan(&exists); err != nil {
-		t.Fatalf("query sqlite_master for %s: %v", name, err)
-	}
-	if exists != 0 {
-		t.Fatalf("expected table %s to be absent", name)
-	}
-}
-
 func assertColumnExists(t *testing.T, db *sql.DB, tableName, columnName string) {
 	t.Helper()
 

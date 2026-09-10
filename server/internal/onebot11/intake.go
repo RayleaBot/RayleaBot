@@ -308,20 +308,12 @@ func frameEcho(value any) (string, bool) {
 	return echo, true
 }
 
-func FrameEcho(value any) (string, bool) {
-	return frameEcho(value)
-}
-
 func frameStatusText(value any) string {
 	status, ok := value.(string)
 	if !ok {
 		return ""
 	}
 	return strings.TrimSpace(status)
-}
-
-func FrameStatusText(value any) string {
-	return frameStatusText(value)
 }
 
 func summarizeError(err error) string {

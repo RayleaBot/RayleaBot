@@ -22,12 +22,6 @@ const (
 	defaultWALAutoCheckpointPage = 1000
 )
 
-type Option func(*options) error
-
-type options struct {
-	busyTimeout time.Duration
-}
-
 type Store struct {
 	Path  string
 	Read  *sql.DB
@@ -35,30 +29,10 @@ type Store struct {
 	lock  *filelock.Lock
 }
 
-func WithBusyTimeout(timeout time.Duration) Option {
-	return func(opts *options) error {
-		if timeout <= 0 {
-			return errors.New("busy timeout must be positive")
-		}
-		opts.busyTimeout = timeout
-		return nil
-	}
-}
-
-func Open(path string, opts ...Option) (*Store, error) {
+func Open(path string) (*Store, error) {
 	path = filepath.Clean(path)
 	if path == "." || path == "" {
 		return nil, fmt.Errorf("sqlite path is required")
-	}
-
-	options := options{
-		busyTimeout: defaultBusyTimeout,
-	}
-
-	for _, opt := range opts {
-		if err := opt(&options); err != nil {
-			return nil, err
-		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -74,7 +48,7 @@ func Open(path string, opts ...Option) (*Store, error) {
 		return nil, fmt.Errorf("lock sqlite database: %w", err)
 	}
 
-	store, err := openWithProtection(path, options, lock)
+	store, err := openWithProtection(path, lock)
 	if err != nil {
 		_ = lock.Close()
 		return nil, err

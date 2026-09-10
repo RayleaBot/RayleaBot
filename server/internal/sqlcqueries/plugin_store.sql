@@ -3,11 +3,6 @@ SELECT source_id, name, url, official
 FROM plugin_store_sources
 ORDER BY official DESC, name ASC, source_id ASC;
 
--- name: GetPluginStoreSource :one
-SELECT source_id, name, url, official
-FROM plugin_store_sources
-WHERE source_id = ?;
-
 -- name: CreatePluginStoreSource :exec
 INSERT INTO plugin_store_sources (source_id, name, url, official)
 VALUES (?, ?, ?, 0);

@@ -23,10 +23,6 @@ func (m *Manager) IssueWithContext(ctx context.Context, subject string) (string,
 	return m.issueSerialized(ctx, subject, m.now().UTC())
 }
 
-func (m *Manager) Revoke(sessionID string) error {
-	return m.RevokeWithContext(context.Background(), sessionID)
-}
-
 func (m *Manager) RevokeWithContext(ctx context.Context, sessionID string) error {
 	ctx = normalizeContext(ctx)
 	sessionID = strings.TrimSpace(sessionID)
