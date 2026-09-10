@@ -406,7 +406,7 @@ func TestStopAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T)
 	for _, operation := range operations {
 		t.Run(operation.name, func(t *testing.T) {
 			coordinator := &Coordinator{process: NewProcessController(""), snapshot: defaultSnapshot()}
-			startupContext, finishStartup, allowed := coordinator.beginStartup()
+			startupContext, finishStartup, allowed := coordinator.startups.begin()
 			if !allowed {
 				t.Fatal("initial startup was unexpectedly blocked")
 			}
@@ -425,7 +425,7 @@ func TestStopAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T)
 				coordinator.operationMu.Unlock()
 				t.Fatal("startup was not cancelled before waiting for the operation lock")
 			}
-			if _, finishLateStartup, lateAllowed := coordinator.beginStartup(); lateAllowed {
+			if _, finishLateStartup, lateAllowed := coordinator.startups.begin(); lateAllowed {
 				finishLateStartup()
 				coordinator.operationMu.Unlock()
 				t.Fatal("a startup registered after stop or shutdown began")
@@ -436,7 +436,7 @@ func TestStopAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T)
 			case <-time.After(time.Second):
 				t.Fatal("operation did not complete after the startup lock was released")
 			}
-			_, finishLaterStartup, laterAllowed := coordinator.beginStartup()
+			_, finishLaterStartup, laterAllowed := coordinator.startups.begin()
 			if operation.name == "stop" && !laterAllowed {
 				t.Fatal("ordinary stop left future startups blocked")
 			}
@@ -453,15 +453,15 @@ func TestStopAndShutdownCancelStartupBeforeWaitingForOperationLock(t *testing.T)
 
 func TestStartupGateStaysBlockedUntilEveryStopCompletes(t *testing.T) {
 	coordinator := &Coordinator{}
-	unblockFirst := coordinator.blockStartups(false)
-	unblockSecond := coordinator.blockStartups(false)
+	unblockFirst := coordinator.startups.block(false)
+	unblockSecond := coordinator.startups.block(false)
 	unblockFirst()
-	if _, finishStartup, allowed := coordinator.beginStartup(); allowed {
+	if _, finishStartup, allowed := coordinator.startups.begin(); allowed {
 		finishStartup()
 		t.Fatal("startup gate reopened while another stop was still active")
 	}
 	unblockSecond()
-	if _, finishStartup, allowed := coordinator.beginStartup(); !allowed {
+	if _, finishStartup, allowed := coordinator.startups.begin(); !allowed {
 		t.Fatal("startup gate remained blocked after every stop completed")
 	} else {
 		finishStartup()
@@ -470,7 +470,7 @@ func TestStartupGateStaysBlockedUntilEveryStopCompletes(t *testing.T) {
 
 func TestStartReportsWhenStartupGateRejectsOperation(t *testing.T) {
 	coordinator := &Coordinator{}
-	unblock := coordinator.blockStartups(false)
+	unblock := coordinator.startups.block(false)
 	defer unblock()
 
 	if err := coordinator.Start(); !errors.Is(err, errStartupBlocked) {
@@ -486,7 +486,7 @@ func TestSaveSettingsCancelsStartupBeforeWaitingForOperationLock(t *testing.T) {
 	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: closeAsk}
 	coordinator.mu.Unlock()
 
-	startupContext, finishStartup, allowed := coordinator.beginStartup()
+	startupContext, finishStartup, allowed := coordinator.startups.begin()
 	if !allowed {
 		t.Fatal("startup was unexpectedly blocked")
 	}
