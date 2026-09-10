@@ -40,5 +40,33 @@ class ManualSQLReviewTests(unittest.TestCase):
                         self.assertEqual(len(warnings), 1)
 
 
+class PluginBoundaryTests(unittest.TestCase):
+    def test_nested_packages_cannot_bypass_boundaries(self) -> None:
+        cases = [
+            ("management", "plugins/runtime", True),
+            ("management/plugins", "plugins/runtime/session", True),
+            ("plugins/runtime", "management/events", True),
+            ("plugins/runtime/session", "management", True),
+            ("management/plugins", "plugins/catalog", False),
+            ("plugins/runtime/session", "plugins", False),
+            ("management", "plugins/runtimeview", False),
+            ("plugins/runtime", "managementview", False),
+        ]
+        for package, dependency, invalid in cases:
+            with self.subTest(package=package, dependency=dependency):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    source = root / "server/internal" / package / "boundary.go"
+                    source.parent.mkdir(parents=True)
+                    source.write_text(
+                        f'package {source.parent.name}\nimport "{structure.INTERNAL_PREFIX}{dependency}"\n',
+                        encoding="utf-8",
+                    )
+                    files = structure.collect_go_files(root, root / "server/internal")
+                    errors: list[str] = []
+                    structure.check_plugin_boundaries(files, errors)
+                    self.assertEqual(len(errors), int(invalid), errors)
+
+
 if __name__ == "__main__":
     unittest.main()

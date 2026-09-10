@@ -104,14 +104,18 @@ def check_plugin_boundaries(files: list[GoFile], errors: list[str]) -> None:
         if file.is_test:
             continue
         imports = set(file.imports)
-        if file.package_dir.startswith("internal/plugins/runtime"):
+        if within_package(file.package_dir, "internal/plugins/runtime"):
             for imported in imports:
-                if imported.startswith(INTERNAL_PREFIX + "management"):
+                if within_package(imported, INTERNAL_PREFIX + "management"):
                     errors.append(f"{file.rel} imports management projection from plugin runtime")
-        if file.package_dir == "internal/management":
+        if within_package(file.package_dir, "internal/management"):
             for imported in imports:
-                if imported.startswith(INTERNAL_PREFIX + "plugins/runtime"):
+                if within_package(imported, INTERNAL_PREFIX + "plugins/runtime"):
                     errors.append(f"{file.rel} imports plugin runtime internals from management projection")
+
+
+def within_package(path: str, root: str) -> bool:
+    return path == root or path.startswith(root + "/")
 
 
 def check_disallowed_dirs(server_internal: Path, root: Path, errors: list[str]) -> None:

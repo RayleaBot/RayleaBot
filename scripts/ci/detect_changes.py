@@ -22,9 +22,10 @@ OUTPUT_KEYS = (
     "ci",
 )
 
-DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md"}
+DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", "design-qa.md"}
 DOC_AUX_FILES = {".impeccable/design.json"}
 TOOLCHAIN_ROOT_FILES = {".env.example", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
+SERVER_STRUCTURE_INPUTS = {"docs/engineering/manual-sql-exceptions.json"}
 
 
 def normalize_path(path: str) -> str:
@@ -53,11 +54,11 @@ def diff_files(base: str | None, head: str | None) -> list[str]:
 
     candidates: list[list[str]] = []
     if base and head:
-        candidates.append(["diff", "--name-only", f"{base}...{head}"])
-        candidates.append(["diff", "--name-only", base, head])
+        candidates.append(["diff", "--no-renames", "--name-only", f"{base}...{head}"])
+        candidates.append(["diff", "--no-renames", "--name-only", base, head])
     if head:
-        candidates.append(["diff-tree", "--no-commit-id", "--name-only", "-r", head])
-    candidates.append(["diff", "--name-only", "HEAD~1", "HEAD"])
+        candidates.append(["diff-tree", "--no-renames", "--no-commit-id", "--name-only", "-r", head])
+    candidates.append(["diff", "--no-renames", "--name-only", "HEAD~1", "HEAD"])
 
     for args in candidates:
         try:
@@ -70,6 +71,8 @@ def diff_files(base: str | None, head: str | None) -> list[str]:
 
 
 def is_docs_path(path: str) -> bool:
+    if path in SERVER_STRUCTURE_INPUTS:
+        return False
     if path in DOC_ROOT_FILES or path in DOC_AUX_FILES:
         return True
     if path.startswith("docs/"):
@@ -111,7 +114,7 @@ def classify(files: list[str]) -> dict[str, bool]:
         if path.startswith("sdk/"):
             result["sdk"] = True
             matched = True
-        if path == "go.work":
+        if path in {"go.work", "go.work.sum"}:
             result["server"] = True
             result["sdk"] = True
             result["release"] = True
@@ -166,6 +169,11 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path == "scripts/check-server-structure.py":
             result["server"] = True
+        if path in SERVER_STRUCTURE_INPUTS:
+            result["server"] = True
+            result["ci"] = True
+            result["docs"] = True
+            matched = True
         if path.startswith(".devcontainer/") or path in TOOLCHAIN_ROOT_FILES:
             result["server"] = True
             result["web"] = True
@@ -215,6 +223,8 @@ def self_test() -> None:
     cases = [
         (["docs/test.md"], {"docs": True, "docs_only": True}),
         (["DESIGN.md"], {"docs": True, "docs_only": True}),
+        (["design-qa.md"], {"docs": True, "docs_only": True}),
+        (["docs/engineering/manual-sql-exceptions.json"], {"server": True, "ci": True, "docs": True, "docs_only": False}),
         ([".impeccable/design.json"], {"docs": True, "docs_only": True}),
         (["design/tokens.json"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
         (["scripts/generate-design-tokens.mjs"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
@@ -224,6 +234,7 @@ def self_test() -> None:
         (["sdk/go/run.go"], {"sdk": True, "release": False}),
         (["sdk/vue/src/index.ts"], {"sdk": True, "release": False}),
         (["go.work"], {"server": True, "sdk": True, "release": True, "ci": True}),
+        (["go.work.sum"], {"server": True, "sdk": True, "release": True, "ci": True, "docs_only": False}),
         (["plugin-workspace.example.json"], {"sdk": True, "docs_only": False}),
         (["examples/plugins/hello-go/cmd/hello-go/main.go"], {"sdk": True, "contracts": True}),
         (["launcher/main.go"], {"launcher": True, "release": True}),

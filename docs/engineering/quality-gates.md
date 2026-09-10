@@ -42,7 +42,7 @@
 
 ## 当前门禁层次
 
-- PR 默认门禁覆盖 contracts-lite、Server、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
+- PR 默认门禁覆盖 contracts-lite、Server 测试/构建/核心 lint、关键并发包 race、Windows 安装与锁回归、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
 - `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
 - Web 与 Launcher Renderer 的 Playwright E2E 由 `nightly.yml` 自动执行；跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
 - 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/protocols/onebot11`、`/api/protocols/onebot11/compatibility`、模板预览工作区全流程、packaged recovery drill 和长期自托管 smoke。
@@ -52,12 +52,14 @@
 
 | 工作流 | 平台 | PR 门禁 | 说明 |
 | --- | --- | --- | --- |
-| `ci.yml` | 主 jobs 为 `ubuntu-latest`；`ci-self-check` 为 `ubuntu-latest` + `windows-latest` | 是 | 校验 contracts、Server、Web、Launcher、SDK、设计系统、notices、agent docs、CI 脚本与必需结果汇总 |
+| `ci.yml` | 主 jobs 为 `ubuntu-latest`；`server-windows` 为 `windows-latest`；`ci-self-check` 为两平台 | 是 | 校验 contracts、Server（含核心 lint/race 与 Windows 回归）、Web、Launcher、SDK、设计系统、notices、agent docs、CI 脚本与必需结果汇总 |
 | `nightly.yml` | `ubuntu-latest` | 否 | 负责夜间长时段回归、Playwright E2E、依赖、安全和环境巡检 |
 | `release.yml` | `windows-latest`、`ubuntu-latest`、`macos-26` | Tag 门禁 | 构建四种正式 artifact，校验 checksum、release metadata、协议读取接口、模板预览、recovery drill 与交付 smoke |
 | `self-host-smoke.yml` | `windows-latest`、`ubuntu-latest`、`macos-26` | 否 | 对四种 artifact 运行长期自托管、诊断与恢复探针 |
 
 Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆盖全部 Go 包。SQL 例外的复审日期到期产生维护提示；登记缺失、字段无效、文件不存在或与实际 SQL 使用不符仍阻止结构检查。
+
+PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播和协议事件；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者，SQL 例外登记变化触发 Server 与 CI 自检。跨目录重命名同时按来源和目标路径识别影响范围。
 
 Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。前者构建真实 Server，在临时配置和 SQLite 目录验证静态路由、鉴权、配置保存、治理作用域隔离及日志详情；后者模拟插件管理页握手与加载故障。开发模式 E2E 的模拟配置和日志分页分别维护，不替代真实接口验证。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
 
