@@ -252,7 +252,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		configLifecycleLock:     configLifecycleLock,
 	}
 	configureAppRuntimeCallbacks(application)
-	httpState := buildHTTP(httpBuildDeps{
+	httpState, err := buildHTTP(httpBuildDeps{
 		Runtime:                 state,
 		Platform:                platformState,
 		Plugins:                 pluginState,
@@ -266,6 +266,10 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		LauncherControlToken:    options.LauncherControlToken,
 		DevelopmentArtifactRoot: options.DevelopmentArtifactRoot,
 	})
+	if err != nil {
+		_ = application.Close()
+		return nil, err
+	}
 	application.process.router = httpState.Router
 	application.process.server = httpState.Server
 	application.httpHandlers = httpState.Handlers

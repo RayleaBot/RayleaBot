@@ -9,11 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestPluginIconServesOnlyDeclaredImage(t *testing.T) {
@@ -96,7 +95,7 @@ func TestPluginIconRouteRequiresSession(t *testing.T) {
 	}
 	router := chi.NewRouter()
 	RegisterRoutes(router, RouteDeps{ProtectedRoutes: []ProtectedRouteModule{ProtectedRouteFunc(func(r chi.Router) {
-		RegisterPluginRoutes(r, plugincatalog.New(nil), nil, nil, nil, nil, nil)
+		registerPluginReadRoutes(r, plugincatalog.New(nil))
 	})}}, RequireAuth(manager))
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/plugins/icon-test/icon", nil))

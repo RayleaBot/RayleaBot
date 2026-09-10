@@ -8,12 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
+	"github.com/go-chi/chi/v5"
 )
 
 type httpHandlers struct {
@@ -33,7 +32,7 @@ type managementUIModule interface {
 	managementapi.ProtectedRouteModule
 }
 
-func buildManagementRoutes(deps httpBuildDeps, configService managementapi.ConfigService, pluginManagementUI managementUIModule) managementRouteState {
+func buildManagementRoutes(deps httpBuildDeps, configService managementapi.ConfigService, pluginManagementUI managementUIModule) (managementRouteState, error) {
 	runtimeState := deps.Runtime
 	platformState := deps.Platform
 	pluginState := deps.Plugins
@@ -87,13 +86,14 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	logsWS := managementapi.NewLogsHandler(services.Logs)
 	consoleWS := managementapi.NewConsoleHandler(platformState.Console, pluginState.Plugins)
 	configHandler := managementapi.NewConfigHandlers(configService)
-	pluginRoutes := managementapi.PluginRouteDeps{
-		Catalog:      pluginState.Plugins,
-		TaskRegistry: platformState.Tasks,
-		Repository:   pluginState.PluginRepository,
-		Installer:    pluginState.PluginInstaller,
-		Uninstaller:  pluginState.PluginUninstaller,
-		Lifecycle:    services.PluginLifecycle,
+	pluginRoutes, err := managementapi.NewPluginRoutes(managementapi.PluginRouteDeps{
+		Catalog:     pluginState.Plugins,
+		Installer:   pluginState.PluginInstaller,
+		Uninstaller: pluginState.PluginUninstaller,
+		Lifecycle:   services.PluginLifecycle,
+	})
+	if err != nil {
+		return managementRouteState{}, err
 	}
 	pluginStoreRoutes := managementapi.PluginStoreRoutes{Service: pluginState.PluginStore}
 	developmentRoutes := managementapi.DevelopmentRoutes{
@@ -148,7 +148,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 				pluginStoreRoutes,
 			},
 		},
-	}
+	}, nil
 }
 
 type authConfigSource struct {

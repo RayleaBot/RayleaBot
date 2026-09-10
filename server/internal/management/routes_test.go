@@ -1,4 +1,4 @@
-package management_test
+package management
 
 import (
 	"context"
@@ -9,48 +9,53 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
-
-	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 )
 
 func TestRegisterManagementRoutes(t *testing.T) {
 	router := chi.NewRouter()
-	pluginUI := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{})
+	pluginUI := NewPluginManagementUIHandlers(PluginManagementUIDeps{})
 	noopHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
 
-	managementapi.RegisterRoutes(router, managementapi.RouteDeps{
-		PublicRoutes: []managementapi.PublicRouteModule{
-			managementapi.NewAuthHandlers(managementapi.AuthDeps{}),
-			managementapi.NewCoreHandlers(managementapi.CoreDeps{}),
-			managementapi.DevelopmentRoutes{},
-			managementapi.NewProtocolHandlers(nil),
-			managementapi.PublicRouteFunc(func(r chi.Router) {
+	RegisterRoutes(router, RouteDeps{
+		PublicRoutes: []PublicRouteModule{
+			NewAuthHandlers(AuthDeps{}),
+			NewCoreHandlers(CoreDeps{}),
+			DevelopmentRoutes{},
+			NewProtocolHandlers(nil),
+			PublicRouteFunc(func(r chi.Router) {
 				r.Post("/api/webhooks/{plugin_id}/{route}", noopHandler)
 			}),
 			pluginUI,
 		},
-		ProtectedRoutes: []managementapi.ProtectedRouteModule{
-			managementapi.NewAuthHandlers(managementapi.AuthDeps{}),
-			managementapi.NewCoreHandlers(managementapi.CoreDeps{}),
-			managementapi.NewConfigHandlers(nil),
-			managementapi.NewProtocolHandlers(nil),
-			managementapi.NewGovernanceHandlersWithService(nil),
-			managementapi.NewLogHandlers(nil),
-			managementapi.NewSystemRoutes(managementapi.NewSystemHandlers(nil), noopHandler),
-			managementapi.NewRenderHandlers(nil),
-			managementapi.NewThirdPartyHandlers(nil, nil, nil),
-			managementapi.NewUpdateHandlers(nil),
+		ProtectedRoutes: []ProtectedRouteModule{
+			NewAuthHandlers(AuthDeps{}),
+			NewCoreHandlers(CoreDeps{}),
+			NewConfigHandlers(nil),
+			NewProtocolHandlers(nil),
+			NewGovernanceHandlersWithService(nil),
+			NewLogHandlers(nil),
+			NewSystemRoutes(NewSystemHandlers(nil), noopHandler),
+			NewRenderHandlers(nil),
+			NewThirdPartyHandlers(nil, nil, nil),
+			NewUpdateHandlers(nil),
 			pluginUI,
-			managementapi.ProtectedRouteFunc(func(r chi.Router) {
+			ProtectedRouteFunc(func(r chi.Router) {
 				r.Get("/ws/events", noopHandler)
 				r.Get("/ws/logs", noopHandler)
 				r.Get("/ws/plugins/{id}/console", noopHandler)
 			}),
-			managementapi.PluginRouteDeps{},
-			managementapi.PluginStoreRoutes{Service: emptyPluginStoreService{}},
+			ProtectedRouteFunc(func(r chi.Router) {
+				catalog := newTestCatalog(nil)
+				controller := &stubDesiredStateController{}
+				registerPluginReadRoutes(r, catalog)
+				registerPluginInstallRoutes(r, catalog, nil)
+				registerPluginLifecycleRoutes(r, catalog, controller, nil)
+				registerPluginDeadLetterRoutes(r, catalog, controller)
+			}),
+			PluginStoreRoutes{Service: emptyPluginStoreService{}},
 		},
 	}, func(next http.Handler) http.Handler {
 		return next

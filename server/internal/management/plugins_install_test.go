@@ -85,7 +85,7 @@ func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
 	payload := trustedInstallRequest()
 	payload.TrustedCodeConfirmed = false
 	body, _ := json.Marshal(payload)
-	handler := newInstallHandler(nil, nil, &inspectionInstaller{})
+	handler := newInstallHandler(nil, &inspectionInstaller{})
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()
 
@@ -101,7 +101,7 @@ func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
 
 func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 	registry := tasks.NewRegistry()
-	handler := newInstallHandler(nil, registry, queueFullInstaller{})
+	handler := newInstallHandler(nil, queueFullInstaller{})
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{"inspection_id":"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii","package_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","trusted_code_confirmed":true}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
@@ -121,7 +121,7 @@ func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 
 func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		router, _, taskRegistry, _ := setupRouter(nil)
+		router, taskRegistry := setupInstallRouter()
 
 		reqBody, _ := json.Marshal(trustedInstallRequest())
 		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
@@ -159,7 +159,7 @@ func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
 // Validates: Requirements 1.3, 1.4, 1.5
 func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		router, _, taskRegistry, _ := setupRouter(nil)
+		router, taskRegistry := setupInstallRouter()
 		tasksBefore := len(taskRegistry.List())
 
 		variant := rapid.IntRange(0, 2).Draw(t, "variant")
@@ -203,7 +203,7 @@ func TestProperty_InvalidInstallRequestRejected(t *testing.T) {
 	})
 }
 func TestInstallHandler_ValidLocalZip(t *testing.T) {
-	router, _, taskRegistry, _ := setupRouter(nil)
+	router, taskRegistry := setupInstallRouter()
 
 	body, _ := json.Marshal(trustedInstallRequest())
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
@@ -237,7 +237,7 @@ func TestInstallHandler_ValidLocalZip(t *testing.T) {
 }
 
 func TestInstallHandlerRejectsLegacyInstallScriptField(t *testing.T) {
-	router, _, taskRegistry, _ := setupRouter(nil)
+	router, taskRegistry := setupInstallRouter()
 
 	payload := map[string]any{
 		"inspection_id": strings.Repeat("i", 64), "package_sha256": strings.Repeat("a", 64),
@@ -258,7 +258,7 @@ func TestInstallHandlerRejectsLegacyInstallScriptField(t *testing.T) {
 	}
 }
 func TestInstallHandler_MissingDigest_409(t *testing.T) {
-	router, _, _, _ := setupRouter(nil)
+	router, _ := setupInstallRouter()
 
 	body, _ := json.Marshal(pluginInstallRequest{InspectionID: strings.Repeat("i", 64), TrustedCodeConfirmed: true})
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
@@ -279,7 +279,7 @@ func TestInstallHandler_MissingDigest_409(t *testing.T) {
 
 // TestInstallHandler_MalformedJSON_400: invalid JSON body returns 400.
 func TestInstallHandler_MalformedJSON_400(t *testing.T) {
-	router, _, _, _ := setupRouter(nil)
+	router, _ := setupInstallRouter()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{not valid json`))
 	req.Header.Set("Content-Type", "application/json")

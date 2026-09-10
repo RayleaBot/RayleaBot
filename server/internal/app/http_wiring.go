@@ -46,7 +46,7 @@ type serverDeps struct {
 	pluginUI *managementapi.PluginManagementUIHandlers
 }
 
-func buildHTTP(deps httpBuildDeps) appHTTPState {
+func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 	runtimeState := deps.Runtime
 	platformState := deps.Platform
 	pluginState := deps.Plugins
@@ -81,7 +81,10 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 		ActionInvoker:   services.PluginLifecycle,
 	})
 
-	managementRoutes := buildManagementRoutes(deps, configService, pluginManagementUIHandler)
+	managementRoutes, err := buildManagementRoutes(deps, configService, pluginManagementUIHandler)
+	if err != nil {
+		return appHTTPState{}, err
+	}
 	router, server, handlers := buildAppHTTPServer(serverDeps{
 		runtime:  runtimeState,
 		renderer: renderer,
@@ -93,7 +96,7 @@ func buildHTTP(deps httpBuildDeps) appHTTPState {
 		Router:   router,
 		Server:   server,
 		Handlers: handlers,
-	}
+	}, nil
 }
 
 func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandlers) {
