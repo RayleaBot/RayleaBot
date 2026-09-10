@@ -4,12 +4,13 @@ adapter:
     reconnect_jitter_ratio: 0.2
     reconnect_max_seconds: 120
     reconnect_multiplier: 2
+adapters: []
 admin:
     login_fail_limit: 5
     login_fail_window_seconds: 300
     max_sessions: 3
-    session_ttl_days: 7
     session_absolute_ttl_days: 30
+    session_ttl_days: 7
     sliding_renewal: true
     super_admins: []
 backup:
@@ -34,7 +35,7 @@ group:
     command_rate_limit: 30/60s
 http:
     allow_private_hosts: []
-    max_response_body_bytes: 4194304
+    max_response_body_bytes: 4.194304e+06
     max_retries: 1
     timeout_seconds: 10
 log:
@@ -45,23 +46,6 @@ message:
     circuit_breaker_seconds: 30
     rate_limit_per_plugin: 20/10s
     rate_limit_per_target: 5/5s
-onebot:
-    forward_ws:
-        access_token: ""
-        enabled: false
-        url: ""
-    http_api:
-        access_token: ""
-        enabled: false
-        url: ""
-    reverse_ws:
-        access_token: ""
-        enabled: false
-        url: ""
-    webhook:
-        access_token: ""
-        enabled: false
-        url: ""
 permission:
     default_level: everyone
 render:
@@ -75,11 +59,6 @@ render:
     queue_wait_timeout_seconds: 15
     timeout_seconds: 30
     worker_count: 1
-third_party_accounts:
-    credential_check_interval_minutes: 360
-    douyin_login:
-        browser_mode: auto
-        remote_debugging_url: ""
 runtime:
     crash_backoff_initial_seconds: 2
     crash_backoff_max_seconds: 60
@@ -95,8 +74,8 @@ runtime:
     shutdown_grace_seconds: 10
     stderr_rate_limit_bytes_per_second: 262144
 scheduler:
-    timezone: "Asia/Shanghai"
-schema_version: "3"
+    timezone: Asia/Shanghai
+schema_version: "4"
 server:
     host: 127.0.0.1
     port: 8080
@@ -105,12 +84,17 @@ storage:
     kv_total_limit_mb: 16
     kv_value_max_bytes: 65536
     plugin_workdir_soft_limit_mb: 256
+third_party_accounts:
+    credential_check_interval_minutes: 360
+    douyin_login:
+        browser_mode: auto
+        remote_debugging_url: ""
 user:
     command_rate_limit: 10/60s
     cooldown_reply: true
 web:
     exposure_mode: localhost_only
     plugin_ui_origin_template: ""
-    public_origin: ''
+    public_origin: ""
     setup_local_only: true
     trusted_proxy_cidrs: []

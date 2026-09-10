@@ -180,7 +180,7 @@ func runResetAdmin(cmd Command) int {
 		cmd.Logger.Error("打开数据库失败："+databasePathDisplay, "path", databasePathDisplay, "err", displayLogError(repoRoot, err, databasePath))
 		return 1
 	}
-	defer db.Close()
+	defer func(release func() error) { _ = release() }(db.Close)
 
 	tables := []string{"admin_sessions", "auth_bootstrap_state"}
 	for _, table := range tables {

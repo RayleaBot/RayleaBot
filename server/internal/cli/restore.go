@@ -29,7 +29,7 @@ func runRestore(cmd Command) int {
 		cmd.Logger.Error("打开备份压缩包失败："+backupPathDisplay, "path", backupPathDisplay, "err", displayLogError(repoRoot, err, backupPath))
 		return 1
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	// Validate manifest
 	var manifest recovery.BackupManifest
@@ -42,11 +42,11 @@ func runRestore(cmd Command) int {
 				return 1
 			}
 			if err := json.NewDecoder(rc).Decode(&manifest); err != nil {
-				rc.Close()
+				_ = rc.Close()
 				cmd.Logger.Error("解析备份清单失败："+backupPathDisplay, "path", backupPathDisplay, "err", displayLogError(repoRoot, err, backupPath))
 				return 1
 			}
-			rc.Close()
+			_ = rc.Close()
 			manifestFound = true
 			break
 		}
@@ -112,15 +112,16 @@ func runRestore(cmd Command) int {
 		if f.FileInfo().IsDir() {
 			if err := os.MkdirAll(targetPath, 0o755); err != nil {
 				targetPathDisplay := displayLogPath(repoRoot, targetPath)
-				cmd.Logger.Warn("创建恢复目录失败："+targetPathDisplay, "path", targetPathDisplay, "err", displayLogError(repoRoot, err, targetPath))
+				cmd.Logger.Error("创建恢复目录失败："+targetPathDisplay, "path", targetPathDisplay, "err", displayLogError(repoRoot, err, targetPath))
+				return 1
 			}
 			continue
 		}
 
 		if err := restoreFile(f, targetPath); err != nil {
 			targetPathDisplay := displayLogPath(repoRoot, targetPath)
-			cmd.Logger.Warn("恢复备份文件失败："+targetPathDisplay, "path", targetPathDisplay, "err", displayLogError(repoRoot, err, targetPath))
-			continue
+			cmd.Logger.Error("恢复备份文件失败："+targetPathDisplay, "path", targetPathDisplay, "err", displayLogError(repoRoot, err, targetPath))
+			return 1
 		}
 		restored++
 	}
@@ -190,21 +191,29 @@ func pathWithinRoot(root, candidate string) bool {
 
 func restoreFile(f *zip.File, targetPath string) error {
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return fmt.Errorf("create parent dir: %w", err)
+		return err
 	}
-
-	rc, err := f.Open()
+	reader, err := f.Open()
 	if err != nil {
 		return err
 	}
-	defer rc.Close()
-
-	out, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, f.Mode())
+	defer func() { _ = reader.Close() }()
+	file, err := os.CreateTemp(filepath.Dir(targetPath), ".restore-*")
 	if err != nil {
 		return err
 	}
-	defer out.Close()
-
-	_, err = io.Copy(out, rc)
-	return err
+	temporaryPath := file.Name()
+	defer func() { _ = os.Remove(temporaryPath) }()
+	if _, err := io.Copy(file, reader); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Chmod(f.Mode().Perm()); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporaryPath, targetPath)
 }

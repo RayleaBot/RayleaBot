@@ -34,7 +34,9 @@ func runPlugin(cmd Command) int {
 		cmd.Logger.Error("开发插件同步失败", "source", *sourcePath, "err", err.Error())
 		return 1
 	}
-	fmt.Fprintln(commandStdout(cmd), "已同步开发插件")
+	if _, err := fmt.Fprintln(commandStdout(cmd), "已同步开发插件"); err != nil {
+		return 1
+	}
 	return 0
 }
 
@@ -79,7 +81,7 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 	if err != nil {
 		return fmt.Errorf("open plugin state database; stop the server before development sync: %w", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 	repository, err := plugins.NewSQLiteRepository(store)
 	if err != nil {
 		return err
@@ -100,7 +102,7 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 	if err != nil {
 		return err
 	}
-	defer installer.Close()
+	defer func(release func() error) { _ = release() }(installer.Close)
 	taskID, changed, err := installer.SyncDevelopment(ctx, artifactPath, sourcePath)
 	if err != nil {
 		return err

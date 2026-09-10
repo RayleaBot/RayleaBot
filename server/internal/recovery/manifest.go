@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -16,7 +17,7 @@ func BuildBackupManifest(repoRoot string, consistency string) BackupManifest {
 	return BackupManifest{
 		Version:               BackupManifestVersion,
 		CreatedAt:             time.Now().UTC().Format(time.RFC3339),
-		CoreVersion:           DetectCoreVersion(repoRoot),
+		CoreVersion:           releaseupdate.InstalledVersion(repoRoot),
 		ConfigSchemaVersion:   config.CurrentSchemaVersion(),
 		DBSchemaVersion:       storage.CurrentSchemaVersion(),
 		PluginManifestVersion: PluginManifestVersion,
@@ -26,24 +27,6 @@ func BuildBackupManifest(repoRoot string, consistency string) BackupManifest {
 		Consistency:           strings.TrimSpace(consistency),
 		Plugins:               loadManifestPlugins(filepath.Join(repoRoot, "plugins", "installed")),
 	}
-}
-
-func DetectCoreVersion(repoRoot string) string {
-	buildInfoPath := filepath.Join(repoRoot, "build_info.json")
-	payload, err := os.ReadFile(buildInfoPath)
-	if err != nil {
-		return defaultCoreVersion
-	}
-	var buildInfo struct {
-		Version string `json:"version"`
-	}
-	if err := json.Unmarshal(payload, &buildInfo); err != nil {
-		return defaultCoreVersion
-	}
-	if strings.TrimSpace(buildInfo.Version) == "" {
-		return defaultCoreVersion
-	}
-	return strings.TrimSpace(buildInfo.Version)
 }
 
 func Directory(path, label string) BackupManifestDirectory {

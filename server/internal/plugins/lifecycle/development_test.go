@@ -15,6 +15,9 @@ func TestDevelopmentSyncIsIdempotentAndPreservesDisabledState(t *testing.T) {
 	registry := tasks.NewRegistry()
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, t.TempDir(), registry, nil, repository, installerDeps{})
+	if err := os.Remove(filepath.Join(service.repoRoot, "build_info.json")); err != nil {
+		t.Fatal(err)
+	}
 	defer func() {
 		if err := service.Close(); err != nil {
 			t.Error(err)

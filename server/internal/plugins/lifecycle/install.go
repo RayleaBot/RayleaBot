@@ -24,7 +24,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -325,8 +325,9 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 	if err != nil {
 		return plugins.InstallInspection{}, err
 	}
-	coreVersion := recovery.DetectCoreVersion(s.repoRoot)
-	if semverutil.Compare(coreVersion, snapshot.MinCoreVersion) < 0 {
+	coreVersion := releaseupdate.InstalledVersion(s.repoRoot)
+	unknownVersion := coreVersion == "unknown"
+	if (unknownVersion && request.SourceType != "development") || (!unknownVersion && semverutil.Compare(coreVersion, snapshot.MinCoreVersion) < 0) {
 		return plugins.InstallInspection{}, installError(
 			"plugin.core_version_incompatible",
 			fmt.Sprintf("插件要求 RayleaBot %s 或更高版本，当前版本为 %s", snapshot.MinCoreVersion, coreVersion),
@@ -711,7 +712,7 @@ func (s *InstallService) refreshCatalog(ctx context.Context, pluginID string) er
 	return nil
 }
 
-func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
+func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) (err error) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil {
 		return fmt.Errorf("invalid HTTPS URL: %s", rawURL)
@@ -734,7 +735,7 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("remote server returned HTTP %d", resp.StatusCode)
@@ -747,7 +748,7 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer func() { err = errors.Join(err, outFile.Close()) }()
 
 	limitedReader := io.LimitReader(resp.Body, maxRemoteDownloadBytes+1)
 	written, err := io.Copy(outFile, limitedReader)
@@ -1165,12 +1166,12 @@ func copyDirectory(ctx context.Context, sourceRoot, targetRoot string) error {
 	})
 }
 
-func copyFile(sourcePath, targetPath string) error {
+func copyFile(sourcePath, targetPath string) (err error) {
 	sourceFile, err := os.Open(sourcePath)
 	if err != nil {
 		return err
 	}
-	defer sourceFile.Close()
+	defer func(release func() error) { _ = release() }(sourceFile.Close)
 
 	info, err := sourceFile.Stat()
 	if err != nil {
@@ -1184,7 +1185,7 @@ func copyFile(sourcePath, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	defer targetFile.Close()
+	defer func() { err = errors.Join(err, targetFile.Close()) }()
 
 	if _, err := io.Copy(targetFile, sourceFile); err != nil {
 		return err
@@ -1197,7 +1198,7 @@ func hashFileSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -1248,10 +1249,10 @@ func hashDirectorySHA256(root string) (string, error) {
 			return "", err
 		}
 		if _, err := io.Copy(hasher, file); err != nil {
-			file.Close()
+			_ = file.Close()
 			return "", err
 		}
-		file.Close()
+		_ = file.Close()
 		if _, err := hasher.Write([]byte{0}); err != nil {
 			return "", err
 		}
@@ -1273,7 +1274,7 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 	if err != nil {
 		return "", installError(codePluginInstallFailed, "解压插件压缩包失败", "解压插件压缩包失败")
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 	if len(reader.File) > maxPluginArchiveEntries {
 		return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
 	}
@@ -1348,24 +1349,27 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 
 		targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, normalizedZipEntryMode(file))
 		if err != nil {
-			readerHandle.Close()
+			_ = readerHandle.Close()
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
 		}
 
 		written, copyErr := io.Copy(targetFile, io.LimitReader(readerHandle, maxPluginArchiveFileBytes+1))
 		if copyErr != nil {
-			targetFile.Close()
-			readerHandle.Close()
+			_ = targetFile.Close()
+			_ = readerHandle.Close()
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
 		}
 		if written > maxPluginArchiveFileBytes || uint64(written) != file.UncompressedSize64 {
-			targetFile.Close()
-			readerHandle.Close()
+			_ = targetFile.Close()
+			_ = readerHandle.Close()
 			return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
 		}
 
-		targetFile.Close()
-		readerHandle.Close()
+		closeErr := targetFile.Close()
+		_ = readerHandle.Close()
+		if closeErr != nil {
+			return "", installError(codePluginInstallFailed, "关闭解压文件失败", "写入解压文件失败")
+		}
 	}
 
 	if len(topLevels) != 1 {

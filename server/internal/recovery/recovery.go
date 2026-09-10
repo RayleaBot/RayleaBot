@@ -11,6 +11,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -22,7 +23,6 @@ const (
 	PluginUIBridgeVersion = "3"
 	PluginArtifactVersion = "2"
 	RecoverySummaryPath   = "logs/recovery-summary.json"
-	defaultCoreVersion    = "0.4.0"
 	reviewStatusPending   = "pending"
 	reviewStatusConfirmed = "confirmed"
 	maxAuditEntries       = 50
@@ -134,15 +134,16 @@ func (e *UnknownReviewIDsError) Error() string {
 }
 
 func EvaluateRestore(manifest BackupManifest, repoRoot string) CompatibilitySummary {
+	targetCoreVersion := releaseupdate.InstalledVersion(repoRoot)
 	now := time.Now().UTC().Format(time.RFC3339)
 	summary := CompatibilitySummary{
 		Status:                    "pending",
 		Phase:                     "pre_restore",
-		Operation:                 classifyOperation(manifest.CoreVersion, DetectCoreVersion(repoRoot)),
+		Operation:                 classifyOperation(manifest.CoreVersion, targetCoreVersion),
 		CreatedAt:                 now,
 		UpdatedAt:                 now,
 		SourceCoreVersion:         manifest.CoreVersion,
-		TargetCoreVersion:         DetectCoreVersion(repoRoot),
+		TargetCoreVersion:         targetCoreVersion,
 		SourceConfigSchemaVersion: manifest.ConfigSchemaVersion,
 		TargetConfigSchemaVersion: config.CurrentSchemaVersion(),
 		SourceDBSchemaVersion:     manifest.DBSchemaVersion,
@@ -180,14 +181,14 @@ func EvaluateRestore(manifest BackupManifest, repoRoot string) CompatibilitySumm
 		}
 	}
 
-	if isSchemaNewer(manifest.ConfigSchemaVersion, config.CurrentSchemaVersion()) {
+	if manifest.ConfigSchemaVersion != "unknown" && !config.CanMigrateFrom(manifest.ConfigSchemaVersion) {
 		summary.Status = "blocked"
 		summary.RequiresPostStartChecks = false
 		summary.Issues = append(summary.Issues, CompatibilityIssue{
-			Code:        "recovery.config_schema_newer_than_target",
+			Code:        "recovery.config_schema_unsupported",
 			Severity:    "error",
-			Summary:     "备份的配置 schema 版本高于当前程序支持范围。",
-			Remediation: "请使用与备份版本相同或更新的正式包执行恢复。",
+			Summary:     "当前程序没有这份备份配置的迁移路径。",
+			Remediation: "先用支持该配置版本的程序恢复并升级配置，再创建新备份。",
 		})
 	}
 	if isSchemaNewer(manifest.DBSchemaVersion, storage.CurrentSchemaVersion()) {
@@ -367,10 +368,14 @@ func confirmedReviewLookup(summary CompatibilitySummary) map[string]reviewConfir
 }
 
 func classifyOperation(sourceVersion, targetVersion string) string {
-	switch semverutil.Compare(sourceVersion, targetVersion) {
-	case -1:
+	if sourceVersion == "unknown" || targetVersion == "unknown" {
+		return "restore"
+	}
+	compared := semverutil.Compare(sourceVersion, targetVersion)
+	switch {
+	case compared < 0:
 		return "upgrade"
-	case 1:
+	case compared > 0:
 		return "rollback"
 	default:
 		return "restore"
@@ -428,7 +433,7 @@ func pluginCompatibilityIssue(plugin plugins.Snapshot, targetCoreVersion string)
 			ManifestPath: plugin.ManifestPath,
 		}
 	}
-	if strings.TrimSpace(plugin.MinCoreVersion) != "" && semverutil.Compare(plugin.MinCoreVersion, targetCoreVersion) > 0 {
+	if strings.TrimSpace(plugin.MinCoreVersion) != "" && (targetCoreVersion == "unknown" || semverutil.Compare(plugin.MinCoreVersion, targetCoreVersion) > 0) {
 		return "plugin.min_core_version", SkippedPlugin{
 			PluginID:     plugin.PluginID,
 			Version:      plugin.Version,

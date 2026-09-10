@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -115,9 +117,11 @@ func Create(ctx context.Context, options Options) (Result, error) {
 	}()
 
 	progress(options.Progress, 10, "写入配置")
-	if err := addFile(ctx, writer, configPath, "config/user.yaml"); err != nil {
+	configVersion, err := addConfigSnapshot(writer, configPath)
+	if err != nil {
 		return Result{}, fmt.Errorf("archive config: %w", err)
 	}
+	databaseVersion := "unknown"
 	directories := []recovery.BackupManifestDirectory{
 		recovery.Directory("config/user.yaml", "config"),
 	}
@@ -128,6 +132,10 @@ func Create(ctx context.Context, options Options) (Result, error) {
 			snapshotPath, snapshotErr := options.CreateSnapshot(ctx, databasePath)
 			if snapshotErr != nil {
 				return Result{}, fmt.Errorf("create database snapshot: %w", snapshotErr)
+			}
+			databaseVersion, err = storage.ReadSchemaVersion(ctx, snapshotPath)
+			if err != nil {
+				return Result{}, fmt.Errorf("read database snapshot version: %w", err)
 			}
 			if err := addFile(ctx, writer, snapshotPath, databaseArchivePath); err != nil {
 				return Result{}, fmt.Errorf("archive database snapshot: %w", err)
@@ -175,6 +183,8 @@ func Create(ctx context.Context, options Options) (Result, error) {
 
 	progress(options.Progress, 90, "写入备份清单")
 	manifest := recovery.BuildBackupManifest(repoRoot, consistency)
+	manifest.ConfigSchemaVersion = configVersion
+	manifest.DBSchemaVersion = databaseVersion
 	manifest.Directories = directories
 	if err := recovery.ValidateBackupManifest(manifest); err != nil {
 		return Result{}, fmt.Errorf("validate backup manifest: %w", err)
@@ -194,6 +204,39 @@ func Create(ctx context.Context, options Options) (Result, error) {
 	keepTemp = false
 	progress(options.Progress, 100, "备份完成")
 	return Result{ArchivePath: archivePath, Manifest: manifest}, nil
+}
+
+func addConfigSnapshot(writer *zip.Writer, path string) (string, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("backup config is not a regular file: %s", path)
+	}
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	header, err := zip.FileInfoHeader(info)
+	if err != nil {
+		return "", err
+	}
+	header.Name, header.Method = "config/user.yaml", zip.Deflate
+	entry, err := writer.CreateHeader(header)
+	if err != nil {
+		return "", err
+	}
+	if _, err := entry.Write(payload); err != nil {
+		return "", err
+	}
+	var metadata struct {
+		Version string `yaml:"schema_version"`
+	}
+	if yaml.Unmarshal(payload, &metadata) != nil || strings.TrimSpace(metadata.Version) == "" {
+		return "unknown", nil
+	}
+	return metadata.Version, nil
 }
 
 func allocateArchivePath(directory string, now time.Time) (string, error) {
@@ -238,7 +281,7 @@ func addFile(ctx context.Context, writer *zip.Writer, sourcePath, archivePath st
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer func(release func() error) { _ = release() }(source.Close)
 	header, err := zip.FileInfoHeader(info)
 	if err != nil {
 		return err

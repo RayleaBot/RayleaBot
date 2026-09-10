@@ -22,6 +22,7 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
@@ -33,7 +34,7 @@ func TestInstallServiceInstallsLocalDirectoryAndRefreshesCatalog(t *testing.T) {
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather-src"), "weather")
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
@@ -92,7 +93,7 @@ func TestInstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	repoRoot := t.TempDir()
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-src"), "callback-weather")
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	called := make(chan string, 1)
 	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
@@ -134,7 +135,7 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "callback-fail-src"), "callback-fail-weather")
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
 		if ctx == nil {
@@ -179,7 +180,7 @@ func TestInstallServiceAtomicallyReplacesInstalledPlugin(t *testing.T) {
 	repoRoot := t.TempDir()
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "replace-initial"), "replace-weather")
 	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
@@ -225,7 +226,7 @@ func TestInstallServiceRestoresLastGoodPluginAndMetadataWhenReplacementFinalizat
 	repoRoot := t.TempDir()
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rollback-initial"), "rollback-weather")
 	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
@@ -276,7 +277,7 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 	repoRoot := t.TempDir()
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rename-rollback-initial"), "rename-rollback-weather")
 	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
@@ -335,7 +336,7 @@ func TestInstallServiceRetriesTransientReplacementRename(t *testing.T) {
 	repoRoot := t.TempDir()
 	repository := &stubInstallRepository{}
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, repository, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	initial := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "retry-initial"), "retry-weather")
 	initialTask, err := acceptInspected(t, service, plugins.InstallRequest{SourceType: "local_directory", Source: initial})
@@ -425,7 +426,7 @@ func TestInstallServiceInstallsLocalZip(t *testing.T) {
 	writePluginZip(t, archivePath, sourceDir)
 
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_zip",
@@ -461,7 +462,7 @@ func TestInstallServiceRejectsCatalogArchiveMismatch(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			registry := tasks.NewRegistry()
 			service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-			defer service.Close()
+			defer func(release func() error) { _ = release() }(service.Close)
 			_, err := service.Inspect(context.Background(), plugins.InstallRequest{
 				SourceType:            "catalog",
 				Source:                "official/catalog-integrity-weather@0.1.0/windows-x64",
@@ -485,7 +486,7 @@ func TestInstallServiceMapsRemoteDownloadLimitToStableError(t *testing.T) {
 			return fmt.Errorf("%w: fixture", errPluginPackageResourceLimit)
 		},
 	})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	_, err := service.Inspect(context.Background(), plugins.InstallRequest{
 		SourceType: "remote_url",
@@ -505,7 +506,7 @@ func TestInstallServiceBindsAcceptanceToInspectionDigestAndTrust(t *testing.T) {
 	registry := tasks.NewRegistry()
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "inspect-src"), "inspect-weather")
 	service, _ := newInstallTestService(t, t.TempDir(), registry, nil, &stubInstallRepository{}, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	request := plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir, TrustedCodeRequired: true}
 	inspection, err := service.Inspect(context.Background(), request)
@@ -672,7 +673,7 @@ func TestInstallServiceRejectsInvalidRenderTemplatePackage(t *testing.T) {
 	service.SetRenderTemplateValidator(func(snapshot plugins.Snapshot) error {
 		return validateInstallRenderTemplates(snapshot)
 	})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
@@ -702,7 +703,7 @@ func TestInstallServiceInstallsRenderTemplatePackage(t *testing.T) {
 
 	service, catalog := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
@@ -736,7 +737,7 @@ func TestInstallServiceRejectsInvalidRenderTemplateManifest(t *testing.T) {
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
 	service.SetRenderTemplateValidator(validateInstallRenderTemplates)
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
@@ -770,7 +771,7 @@ func TestInstallServiceFailsDuplicatePluginID(t *testing.T) {
 	}}
 	sourceDir := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "dup-src"), "hello-go")
 	service, _ := newInstallTestService(t, repoRoot, registry, existing, &stubInstallRepository{}, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
@@ -806,7 +807,7 @@ func TestInstallServiceCancelsRunningTask(t *testing.T) {
 		<-ctx.Done()
 		return ctx.Err()
 	})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	taskID, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "local_directory",
@@ -856,7 +857,7 @@ func TestInstallServiceRejectsLegacyRuntimeManifest(t *testing.T) {
 	}
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
 	if InstallErrorCode(err) != "plugin.contract_unsupported" {
 		t.Fatalf("Inspect() error = %v, want plugin.contract_unsupported", err)
@@ -886,7 +887,7 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 	refreshInstallArtifact(t, sourceDir)
 
 	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 	_, err = service.Inspect(context.Background(), plugins.InstallRequest{SourceType: "local_directory", Source: sourceDir})
 	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
 		t.Fatalf("Inspect() error = %v, want plugin.core_version_incompatible", err)
@@ -895,6 +896,7 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 
 func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []plugins.Snapshot, repository plugins.DesiredStateRepository, deps installerDeps) (*InstallService, *testCatalog) {
 	t.Helper()
+	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
 
 	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
 	if err != nil {
@@ -929,6 +931,21 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 		t.Fatalf("newInstallService failed: %v", err)
 	}
 	return service, catalog
+}
+
+func TestInstallRejectsUnknownCoreVersion(t *testing.T) {
+	repoRoot := t.TempDir()
+	registry := tasks.NewRegistry()
+	service, _ := newInstallTestService(t, repoRoot, registry, nil, &stubInstallRepository{}, installerDeps{})
+	t.Cleanup(func() { _ = service.Close() })
+	if err := os.Remove(filepath.Join(repoRoot, "build_info.json")); err != nil {
+		t.Fatal(err)
+	}
+	source := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "weather"), "weather")
+	_, err := service.Inspect(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: source})
+	if InstallErrorCode(err) != "plugin.core_version_incompatible" {
+		t.Fatalf("unknown build accepted an installation: %v", err)
+	}
 }
 
 func installServiceTimeout() time.Duration {
@@ -1127,7 +1144,7 @@ func copyInstallTestFile(t *testing.T, source, destination string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer input.Close()
+	defer func(release func() error) { _ = release() }(input.Close)
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		t.Fatal(err)
@@ -1210,7 +1227,7 @@ func writePluginZip(t *testing.T, archivePath, sourceDir string) {
 	if err != nil {
 		t.Fatalf("create zip file: %v", err)
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 
 	writer := zip.NewWriter(file)
 

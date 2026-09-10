@@ -488,6 +488,7 @@ func TestEvaluateRestoreRejectsBackupV2ButAllowsOldPluginsInsideBackupV3(t *test
 
 	backupV3 := BackupManifest{
 		Version: BackupManifestVersion, PluginManifestVersion: PluginManifestVersion,
+		ConfigSchemaVersion:   "3",
 		PluginProtocolVersion: PluginProtocolVersion, PluginArtifactVersion: PluginArtifactVersion,
 		PluginUIBridgeVersion: PluginUIBridgeVersion,
 		Plugins: []BackupManifestPlugin{{

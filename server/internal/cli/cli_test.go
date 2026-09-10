@@ -69,7 +69,7 @@ func TestResetAdminAllowsArgon2idSetupAfterReset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reopen sqlite database: %v", err)
 	}
-	defer resetStore.Close()
+	defer func(release func() error) { _ = release() }(resetStore.Close)
 
 	resetRepository, err := auth.NewSQLiteRepository(resetStore)
 	if err != nil {
@@ -140,7 +140,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open backup archive: %v", err)
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	names := map[string]bool{}
 	nameCounts := map[string]int{}
@@ -184,10 +184,10 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 		}
 		var manifest recovery.BackupManifest
 		if err := json.NewDecoder(rc).Decode(&manifest); err != nil {
-			rc.Close()
+			_ = rc.Close()
 			t.Fatalf("decode manifest: %v", err)
 		}
-		rc.Close()
+		_ = rc.Close()
 		if manifest.Version != recovery.BackupManifestVersion {
 			t.Errorf("manifest version = %q, want %s", manifest.Version, recovery.BackupManifestVersion)
 		}
@@ -598,7 +598,7 @@ func TestConfigMutatingCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 	if err != nil {
 		t.Fatalf("acquire config lifecycle lock: %v", err)
 	}
-	defer lock.Close()
+	defer func(release func() error) { _ = release() }(lock.Close)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: ::1\n  port: 8080\n")
@@ -630,7 +630,7 @@ func TestOfflineCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 	if err != nil {
 		t.Fatalf("acquire lifecycle lock: %v", err)
 	}
-	defer lock.Close()
+	defer func(release func() error) { _ = release() }(lock.Close)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	commands := []Command{
@@ -761,7 +761,7 @@ func TestConfiguredDatabasePathDrivesResetBackupAndDoctor(t *testing.T) {
 	}
 	extracted := filepath.Join(t.TempDir(), "state.db")
 	extractZipEntry(t, reader.File, "data/rayleabot.db", extracted)
-	reader.Close()
+	_ = reader.Close()
 	if got := countPluginMarker(t, extracted); got != "custom-marker" {
 		t.Fatalf("backup marker = %q, want custom-marker", got)
 	}
@@ -829,20 +829,20 @@ func seedAuthAndPluginMarker(t *testing.T, databasePath, marker string) {
 	}
 	repository, err := auth.NewSQLiteRepository(store)
 	if err != nil {
-		store.Close()
+		_ = store.Close()
 		t.Fatalf("create auth repository: %v", err)
 	}
 	manager, err := auth.NewManager(auth.Config{SessionTTLDays: 1, MaxSessions: 2}, auth.WithRepository(repository))
 	if err != nil {
-		store.Close()
+		_ = store.Close()
 		t.Fatalf("create auth manager: %v", err)
 	}
 	if _, _, err := manager.Bootstrap("admin", "fixture-only-secret"); err != nil {
-		store.Close()
+		_ = store.Close()
 		t.Fatalf("bootstrap fixture database: %v", err)
 	}
 	if _, err := store.Write.Exec(`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES (?, 'enabled', '2026-08-23T00:00:00Z')`, marker); err != nil {
-		store.Close()
+		_ = store.Close()
 		t.Fatalf("seed plugin marker: %v", err)
 	}
 	if err := store.Close(); err != nil {
@@ -856,7 +856,7 @@ func countRows(t *testing.T, databasePath, table string) int {
 	if err != nil {
 		t.Fatalf("open database %s: %v", databasePath, err)
 	}
-	defer database.Close()
+	defer func(release func() error) { _ = release() }(database.Close)
 	var count int
 	if err := database.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil {
 		t.Fatalf("count %s rows: %v", table, err)
@@ -870,7 +870,7 @@ func countPluginMarker(t *testing.T, databasePath string) string {
 	if err != nil {
 		t.Fatalf("open extracted database: %v", err)
 	}
-	defer database.Close()
+	defer func(release func() error) { _ = release() }(database.Close)
 	var marker string
 	if err := database.QueryRow(`SELECT plugin_id FROM plugin_instances ORDER BY plugin_id LIMIT 1`).Scan(&marker); err != nil {
 		t.Fatalf("read plugin marker: %v", err)
@@ -1126,12 +1126,12 @@ func extractZipEntry(t *testing.T, files []*zip.File, name string, targetPath st
 		if err != nil {
 			t.Fatalf("open zip entry %s: %v", name, err)
 		}
-		defer reader.Close()
+		defer func(release func() error) { _ = release() }(reader.Close)
 		out, err := os.Create(targetPath)
 		if err != nil {
 			t.Fatalf("create extracted entry %s: %v", targetPath, err)
 		}
-		defer out.Close()
+		defer func(release func() error) { _ = release() }(out.Close)
 		if _, err := io.Copy(out, reader); err != nil {
 			t.Fatalf("extract zip entry %s: %v", name, err)
 		}

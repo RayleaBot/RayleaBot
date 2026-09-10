@@ -13,7 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -40,7 +40,7 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 	return DiagnosticsSnapshot{
 		GeneratedAt: now.Format(time.RFC3339),
 		Build: DiagnosticsBuild{
-			CoreVersion: recovery.DetectCoreVersion(s.repoRootPath()),
+			CoreVersion: releaseupdate.InstalledVersion(s.repoRootPath()),
 		},
 		System: DiagnosticsSystem{
 			Status:        status.Status,

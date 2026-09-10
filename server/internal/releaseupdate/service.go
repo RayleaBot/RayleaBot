@@ -61,13 +61,19 @@ func NewService(installRoot string, checker CheckProvider, currentVersion string
 	}
 }
 
-func NewEmbeddedService(installRoot string) *Service {
-	currentVersion := ""
+// InstalledVersion reads validated release metadata for status, backup and
+// compatibility checks. It does not substitute a release for a development tree.
+func InstalledVersion(installRoot string) string {
 	if payload, err := os.ReadFile(filepath.Join(installRoot, "build_info.json")); err == nil {
 		if buildInfo, decodeErr := DecodeBuildInfo(payload); decodeErr == nil {
-			currentVersion = buildInfo.Version
+			return buildInfo.Version
 		}
 	}
+	return "unknown"
+}
+
+func NewEmbeddedService(installRoot string) *Service {
+	currentVersion := InstalledVersion(installRoot)
 	verifier, err := NewEmbeddedVerifier()
 	if err != nil {
 		return NewService(installRoot, nil, currentVersion)

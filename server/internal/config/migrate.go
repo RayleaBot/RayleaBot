@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -149,9 +148,9 @@ func MigrateDocument(document map[string]any) (map[string]any, bool, error) {
 	if version == "" || version == currentSchemaVersion {
 		return document, false, nil
 	}
-	if !knownSchemaVersion(version) {
+	if !CanMigrateFrom(version) {
 		return nil, false, fmt.Errorf(
-			"config schema_version %q is not one this build can migrate; it is newer than the supported version %s",
+			"config schema_version %q has no migration to supported version %s",
 			version, currentSchemaVersion)
 	}
 
@@ -190,17 +189,17 @@ func migrationFrom(version string) (documentMigration, bool) {
 	return documentMigration{}, false
 }
 
-// knownSchemaVersion rejects a version this build has never heard of, which is
-// what a downgrade looks like: a newer build wrote the config and this one
-// cannot know what its fields mean.
-func knownSchemaVersion(version string) bool {
-	parsed, err := strconv.Atoi(version)
-	if err != nil {
-		return false
+// CanMigrateFrom uses the same implemented path as document import and restore.
+func CanMigrateFrom(version string) bool {
+	for range len(documentMigrations) + 1 {
+		if version == currentSchemaVersion {
+			return true
+		}
+		step, ok := migrationFrom(version)
+		if !ok {
+			return false
+		}
+		version = step.to
 	}
-	current, err := strconv.Atoi(currentSchemaVersion)
-	if err != nil {
-		return false
-	}
-	return parsed >= 1 && parsed <= current
+	return false
 }

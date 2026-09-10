@@ -478,7 +478,7 @@ func (s *Service) projectRelease(release CurrentRelease) ReleaseView {
 		Version:        release.Version,
 		PublishedAt:    publishedAt,
 		MinCoreVersion: release.MinCoreVersion,
-		Compatible:     semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) >= 0,
+		Compatible:     s.options.CoreVersion != "unknown" && semverutil.Compare(s.options.CoreVersion, release.MinCoreVersion) >= 0,
 		AssetAvailable: hasAsset,
 	}
 }
@@ -487,7 +487,7 @@ func (s *Service) resolveRelease(entry Entry) (CurrentRelease, Asset, bool) {
 	if entry.CurrentRelease == nil {
 		return CurrentRelease{}, Asset{}, false
 	}
-	if semverutil.Compare(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion) < 0 {
+	if s.options.CoreVersion == "unknown" || semverutil.Compare(s.options.CoreVersion, entry.CurrentRelease.MinCoreVersion) < 0 {
 		return CurrentRelease{}, Asset{}, false
 	}
 	platform, err := pluginartifact.CurrentPlatform()
@@ -560,7 +560,7 @@ func (s *Service) fetch(ctx context.Context, rawURL string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("remote server returned HTTP %d", response.StatusCode)
 	}

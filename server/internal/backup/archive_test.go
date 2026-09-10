@@ -26,7 +26,7 @@ func TestCreateBuildsSchemaValidArchiveWithPluginBusinessData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite store: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	result, err := Create(t.Context(), Options{
 		RepoRoot:       repoRoot,
@@ -47,7 +47,7 @@ func TestCreateBuildsSchemaValidArchiveWithPluginBusinessData(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open archive: %v", err)
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 	names := make(map[string]bool)
 	for _, entry := range reader.File {
 		names[entry.Name] = true
@@ -58,10 +58,10 @@ func TestCreateBuildsSchemaValidArchiveWithPluginBusinessData(t *testing.T) {
 			}
 			var manifest recovery.BackupManifest
 			if err := json.NewDecoder(stream).Decode(&manifest); err != nil {
-				stream.Close()
+				_ = stream.Close()
 				t.Fatalf("decode manifest entry: %v", err)
 			}
-			stream.Close()
+			_ = stream.Close()
 			if err := recovery.ValidateBackupManifest(manifest); err != nil {
 				t.Fatalf("archived manifest validation failed: %v", err)
 			}

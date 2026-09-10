@@ -15,7 +15,7 @@ import (
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -76,7 +76,7 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 		return PluginStackState{}, fmt.Errorf("create plugin store repository: %w", err)
 	}
 	pluginStore, err := pluginmarket.New(ctx, deps.Catalog, pluginInstallService, pluginStoreRepository, pluginmarket.Options{
-		CoreVersion: recovery.DetectCoreVersion(deps.Discovery.RepoRoot),
+		CoreVersion: releaseupdate.InstalledVersion(deps.Discovery.RepoRoot),
 	})
 	if err != nil {
 		_ = pluginInstallService.Close()
