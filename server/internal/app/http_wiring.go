@@ -149,7 +149,7 @@ func logConfiguredServer(state configRuntimeState, renderer *renderservice.Servi
 	)
 	serverURL := httpapi.DisplayServerURL(listenAddr)
 	state.RuntimeLogger().Debug(
-		"管理地址已配置："+serverURL,
+		"管理地址已配置",
 		"component", "app",
 		"listen_addr", listenAddr,
 		"url", serverURL,

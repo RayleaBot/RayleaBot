@@ -15,7 +15,7 @@ import (
 func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, maxSummaryChars int, logger *slog.Logger) ([]plugins.Snapshot, int, error) {
 	if logger != nil {
 		logger.Debug(
-			fmt.Sprintf("开始扫描插件来源：%s（目录：%s）", root.Label, logpath.Display(repoRoot, root.Path)),
+			"开始扫描插件来源",
 			"component", "plugins",
 			"source_root", root.Label,
 			"source_path", logpath.Display(repoRoot, root.Path),
@@ -27,7 +27,7 @@ func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, m
 		if os.IsNotExist(err) {
 			if logger != nil {
 				logger.Debug(
-					fmt.Sprintf("插件来源目录不存在，已跳过：%s（目录：%s）", root.Label, logpath.Display(repoRoot, root.Path)),
+					"插件来源目录不存在，已跳过",
 					"component", "plugins",
 					"source_root", root.Label,
 					"source_path", logpath.Display(repoRoot, root.Path),
@@ -61,7 +61,7 @@ func discoverRoot(root ScanRoot, validator *config.Validator, repoRoot string, m
 				skipped++
 				if logger != nil {
 					logger.Warn(
-						fmt.Sprintf("插件目录缺少 info.json，无法加载：%s", logpath.Display(repoRoot, pluginDir)),
+						"插件目录缺少 info.json，无法加载",
 						"component", "plugins",
 						"plugin_dir", logpath.Display(repoRoot, pluginDir),
 						"manifest_path", logpath.Display(repoRoot, infoPath),

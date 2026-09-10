@@ -153,7 +153,7 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 	m.abortPendingLocked(runtimeErr)
 	m.mu.Unlock()
 	if observe {
-		m.logger.Warn("插件"+pluginIDLabel(handle.Spec.PluginID)+"发生错误，正在回收进程。", "component", "runtime", "plugin_id", handle.Spec.PluginID, "error_code", code, "reason", runtimeErr.Error())
+		m.logger.Warn("插件发生错误，正在回收进程", "component", "runtime", "plugin_id", handle.Spec.PluginID, "error_code", code, "reason", runtimeErr.Error())
 	}
 
 	if handle.Stdin != nil {

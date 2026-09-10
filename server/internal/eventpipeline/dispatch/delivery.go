@@ -91,7 +91,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, 
 			if control {
 				reason = "control_queue_full"
 			}
-			d.logger.Warn("插件 "+pluginID+" 待处理任务过多，本次请求已丢弃。",
+			d.logger.Warn("插件待处理任务过多，本次请求已丢弃",
 				"component", "dispatch",
 				"plugin_id", pluginID,
 				"event_id", event.EventID,

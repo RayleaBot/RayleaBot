@@ -344,7 +344,7 @@ func (s *Service) runPluginRequests(ctx context.Context) {
 			if err != nil {
 				if s.logger != nil && !errors.Is(err, context.Canceled) {
 					s.logger.Warn(
-						fmt.Sprintf("%s账号 %s 复检失败：%s", platformLogLabel(request.platform), request.accountID, err.Error()),
+						"账号复检失败",
 						"component", "third_party_account_validation",
 						"trigger", string(TriggerPlugin),
 						"plugin_id", request.pluginID,
@@ -434,9 +434,9 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 		"error_kind", errorKind,
 		"http_status", httpStatus,
 	}
-	label := fmt.Sprintf("%s账号 %s", platformLogLabel(current.Platform), current.AccountID)
+	args = append(args, "platform_label", platformLogLabel(current.Platform))
 	if !applied {
-		s.logger.Debug(label+"检查结果已过期，状态未更新。", args...)
+		s.logger.Debug("账号检查结果已过期，状态未更新", args...)
 		return
 	}
 	scope := current.Platform + ":" + current.AccountID
@@ -446,7 +446,7 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 		if trigger == TriggerManual || previous.Credential.State != current.Credential.State || recovered > 0 {
 			log = s.logger.Info
 		}
-		log(label+"登录状态正常。", append(args, "recovered_count", recovered)...)
+		log("账号登录状态正常", append(args, "recovered_count", recovered)...)
 		return
 	}
 	count := s.logFailures.Failure(scope, fmt.Sprintf("%s:%s:%d", current.Credential.State, errorKind, httpStatus), s.now())
@@ -456,7 +456,7 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 	message := ""
 	switch current.Credential.State {
 	case thirdparty.CredentialInvalid:
-		message = label + "登录已失效，请重新登录。"
+		message = "账号登录已失效，请重新登录"
 	case thirdparty.CredentialUnknown:
 		reason := strings.TrimSpace(current.Credential.LastError)
 		if reason == "" && checkErr != nil {
@@ -465,12 +465,10 @@ func (s *Service) logValidation(trigger Trigger, previous, current thirdparty.Ac
 		if reason == "" {
 			reason = "平台未返回可确认的登录状态"
 		}
-		message = label + "登录状态暂时无法确认：" + reason
+		message = "账号登录状态暂时无法确认"
+		args = append(args, "reason", reason)
 	default:
-		message = label + "登录状态暂时无法确认。"
-	}
-	if count > 1 {
-		message += fmt.Sprintf("（期间重复 %d 次）", count)
+		message = "账号登录状态暂时无法确认"
 	}
 	s.logger.Warn(message, append(args, "repeat_count", max(1, count))...)
 }
@@ -503,23 +501,23 @@ func (s *Service) logCycle(trigger Trigger, total, due, checked, failed int, err
 		"failed", failed,
 	}
 	if err != nil {
-		s.logger.Warn("账号自动检查失败，无法读取账号列表："+err.Error(), append(args, "error_kind", "storage")...)
+		s.logger.Warn("账号自动检查失败，无法读取账号列表", append(args, "error_kind", "storage", "err", err.Error())...)
 		return
 	}
 	log := s.logger.Debug
 	if failed > 0 {
 		log = s.logger.Warn
 	}
-	log(fmt.Sprintf("账号自动检查完成：已检查 %d 个，检查失败 %d 个。", checked, failed), args...)
+	log("账号自动检查完成", args...)
 }
 
 func (s *Service) logPluginRequest(pluginID, platform, accountID, observation string, httpStatus int, accepted bool, reason string) {
 	if s.logger == nil {
 		return
 	}
-	message := fmt.Sprintf("%s账号 %s 等待复检。", platformLogLabel(platform), accountID)
+	message := "账号等待复检"
 	if !accepted {
-		message = fmt.Sprintf("%s账号 %s 本次复检请求未受理。", platformLogLabel(platform), accountID)
+		message = "账号本次复检请求未受理"
 	}
 	s.logger.Debug(
 		message,
@@ -550,12 +548,7 @@ func (s *Service) logPluginValidationResult(request pluginValidationRequest, acc
 	case thirdparty.CredentialInvalid:
 		stateLabel = "失效"
 	}
-	message := fmt.Sprintf(
-		"%s账号 %s 复检结束，登录状态%s。",
-		platformLogLabel(request.platform),
-		request.accountID,
-		stateLabel,
-	)
+	message := "账号复检结束"
 	args := []any{
 		"component", "third_party_account_validation",
 		"trigger", string(TriggerPlugin),
@@ -565,6 +558,7 @@ func (s *Service) logPluginValidationResult(request pluginValidationRequest, acc
 		"observation", request.observation,
 		"reported_http_status", request.httpStatus,
 		"final_state", account.Credential.State,
+		"state_label", stateLabel,
 		"checked_at", checkedAt,
 	}
 	s.logger.Debug(message, args...)

@@ -766,6 +766,6 @@ func (b *ChromedpBrowser) logBrowserProfileBusy() {
 
 func (b *ChromedpBrowser) logBrowserFailed(mode, reason string) {
 	if b.options.Logger != nil {
-		b.options.Logger.Warn("抖音扫码登录失败："+reason, "component", "douyin_qrcode", "mode", mode, "reason", reason)
+		b.options.Logger.Warn("抖音扫码登录失败", "component", "douyin_qrcode", "mode", mode, "reason", reason)
 	}
 }

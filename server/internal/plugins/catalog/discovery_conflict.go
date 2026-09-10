@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"fmt"
 	"log/slog"
 	"sort"
 	"strings"
@@ -66,7 +65,7 @@ func logPluginDiscovered(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Debug(
-		fmt.Sprintf("发现插件%s", plugins.DisplayLabel(entry)),
+		"发现插件",
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"plugin_name", entry.Name,
@@ -81,7 +80,7 @@ func logPluginInvalid(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Warn(
-		fmt.Sprintf("插件%s配置无效，无法加载：%s", plugins.DisplayLabel(entry), entry.ValidationSummary),
+		"插件配置无效，无法加载",
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"plugin_name", entry.Name,
@@ -97,7 +96,7 @@ func logPluginConflict(logger *slog.Logger, entry plugins.Snapshot) {
 	}
 
 	logger.Warn(
-		fmt.Sprintf("插件 %s 重复安装在 %d 个目录，无法加载；请仅保留一份。", entry.PluginID, len(entry.ConflictPaths)),
+		"插件重复安装，无法加载；请仅保留一份",
 		"component", "plugins",
 		"plugin_id", entry.PluginID,
 		"count", len(entry.ConflictPaths),

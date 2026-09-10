@@ -65,7 +65,7 @@ func (s *Service) reconcileRecoverySummary() (*recovery.CompatibilitySummary, er
 func (s *Service) ReconcileRecoverySummaryBestEffort(trigger string) {
 	if _, err := s.reconcileRecoverySummary(); err != nil && s.currentLogger() != nil {
 		s.currentLogger().Warn(
-			"恢复检查结果更新失败，首页继续显示上次结果："+err.Error(),
+			"恢复检查结果更新失败，首页继续显示上次结果",
 			"component", "app",
 			"trigger", strings.TrimSpace(trigger),
 			"err", err.Error(),

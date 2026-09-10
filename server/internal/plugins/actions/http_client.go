@@ -470,8 +470,14 @@ func isResponseHeaderLimitError(err error) bool {
 	if err == nil {
 		return false
 	}
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "response headers exceeded") || strings.Contains(message, "message too large")
+	// Go's HTTP/1, HTTP/2 and MIME size errors have no exported sentinel.
+	// Match only the fixed toolchain's transport cause, never the request URL.
+	for cause := errors.Unwrap(err); cause != nil; cause = errors.Unwrap(err) {
+		err = cause
+	}
+	message := err.Error()
+	return message == fmt.Sprintf("net/http: server response headers exceeded %d bytes; aborted", maxHTTPResponseHeaderBytes) ||
+		message == "http2: response header list larger than advertised limit" || message == "message too large"
 }
 
 func isRetryableTransportError(method string, err error) bool {

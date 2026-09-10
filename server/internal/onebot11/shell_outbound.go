@@ -143,7 +143,7 @@ func (t shellOutboundTransport) DoHTTPAPI(ctx context.Context, request APICallRe
 
 func (t shellOutboundTransport) LogUnsupportedSegment(segmentType string) {
 	t.s.logger.Warn(
-		"消息中不支持的 "+segmentType+" 内容已跳过，其余内容继续发送。",
+		"消息中不支持的内容已跳过，其余内容继续发送",
 		"component", "adapter",
 		"segment_type", segmentType,
 	)

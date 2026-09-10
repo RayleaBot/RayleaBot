@@ -792,7 +792,7 @@ func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string)
 		}
 	}
 	c.logger.Warn(
-		"插件"+pluginLabel+"已启动，但启动通知未送达。",
+		"插件已启动，但启动通知未送达", "plugin_label", pluginLabel,
 		"component", "app",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -847,7 +847,7 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 	if result.Outcome != dispatch.OutcomeDelivered {
 		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, job.Revision, startedAt, result.ErrorCode, string(result.Outcome))
 	} else if count := c.schedulerFailures.Recover(pluginID + ":" + taskName); count > 0 && c.logger != nil {
-		c.logger.Info(scheduler.DisplayMessage(pluginName, taskName, logLabel, "已恢复，等待执行"), "component", "scheduler", "plugin_id", pluginID, "job_id", taskName, "repeat_count", count)
+		c.logger.Info("定时任务已恢复，等待执行", "display_summary", scheduler.DisplayMessage(pluginName, taskName, logLabel, "已恢复，等待执行"), "component", "scheduler", "plugin_id", pluginID, "job_id", taskName, "repeat_count", count)
 	}
 }
 
@@ -873,7 +873,8 @@ func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, p
 		message += fmt.Sprintf("（期间重复 %d 次）", count)
 	}
 	c.logger.Warn(
-		message,
+		"定时任务未执行，插件暂时无法接收任务",
+		"display_summary", message,
 		"component", "scheduler",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,
@@ -902,7 +903,7 @@ func (c *Controller) recordSchedulerRunResult(ctx context.Context, jobID string,
 		OccurredAt: occurredAt,
 	}); err != nil && c.logger != nil {
 		c.logger.Warn(
-			"定时任务 "+jobID+" 的结果保存失败，历史记录可能缺失："+err.Error(),
+			"定时任务结果保存失败，历史记录可能缺失",
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),
@@ -1035,7 +1036,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 		}
 		if c.logger != nil {
 			c.logger.Warn(
-				fmt.Sprintf("插件%s连续异常退出 %d 次，已停止自动重启，请检查后重新启用。", plugins.DisplayLabel(snapshot), crashCount),
+				"插件连续异常退出，已停止自动重启，请检查后重新启用",
 				"component", "app",
 				"plugin_id", pluginID,
 				"plugin_name", snapshot.Name,
@@ -1055,7 +1056,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 
 	if c.logger != nil {
 		c.logger.Info(
-			fmt.Sprintf("插件%s异常退出，%d 秒后第 %d 次重启。", plugins.DisplayLabel(snapshot), int(delay.Seconds()), crashCount),
+			"插件异常退出，等待重启",
 			"component", "app",
 			"plugin_id", pluginID,
 			"plugin_name", snapshot.Name,
@@ -1192,7 +1193,7 @@ func (c *Controller) logLifecycleWarn(message, pluginID string, err error) {
 
 	pluginLabel, pluginName := c.pluginLogLabel(pluginID)
 	c.logger.Warn(
-		"插件"+pluginLabel+lifecycleActionLabel(message)+"失败："+err.Error(),
+		"插件生命周期操作失败", "plugin_label", pluginLabel, "operation", message, "operation_label", lifecycleActionLabel(message),
 		"component", "app",
 		"plugin_id", pluginID,
 		"plugin_name", pluginName,

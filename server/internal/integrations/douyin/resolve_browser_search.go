@@ -41,12 +41,12 @@ func (b *ChromedpBrowser) ResolveUser(ctx context.Context, query string, cookieS
 	logStage := func(stage string, fields ...any) {
 		if b.options.Logger != nil {
 			fields = append(fields, "stage_elapsed_ms", time.Since(start).Milliseconds())
-			b.options.Logger.Debug("正在查找抖音用户“"+query+"”", append([]any{"component", "douyin_resolve", "query", query, "stage", stage}, fields...)...)
+			b.options.Logger.Debug("正在查找抖音用户", append([]any{"component", "douyin_resolve", "query", query, "stage", stage}, fields...)...)
 		}
 	}
 	fail := func(stage string, err error) ([]thirdparty.AccountProfile, bool, error) {
 		if b.options.Logger != nil {
-			b.options.Logger.Warn("查找抖音用户“"+query+"”失败："+err.Error(), "component", "douyin_resolve", "query", query, "stage", stage, "stage_elapsed_ms", time.Since(start).Milliseconds(), "err", err.Error(),
+			b.options.Logger.Warn("查找抖音用户失败", "component", "douyin_resolve", "query", query, "stage", stage, "stage_elapsed_ms", time.Since(start).Milliseconds(), "err", err.Error(),
 				"browser_log", filepath.Join(os.TempDir(), "rayleabot-douyin-browser.log"))
 		}
 		return nil, false, fmt.Errorf("douyin browser search: %w", err)
@@ -195,7 +195,7 @@ func (b *ChromedpBrowser) fetchSearchDocument(ctx context.Context, query string)
 			return "", fmt.Errorf("douyin browser search: %w", ctx.Err())
 		}
 		if b.options.Logger != nil {
-			b.options.Logger.Debug(fmt.Sprintf("抖音用户搜索第 %d 次失败：%s", attempt, lastErr.Error()), "component", "douyin_resolve", "attempt", attempt, "err", lastErr.Error())
+			b.options.Logger.Debug("抖音用户搜索失败", "component", "douyin_resolve", "attempt", attempt, "err", lastErr.Error())
 		}
 	}
 	return "", fmt.Errorf("douyin browser search: %w", lastErr)
@@ -211,7 +211,7 @@ func (b *ChromedpBrowser) fetchSearchDocumentOnce(ctx context.Context, query str
 	}))
 	if err == nil {
 		if b.options.Logger != nil {
-			b.options.Logger.Debug(fmt.Sprintf("抖音搜索响应已读取，共 %d 字节。", len(body)), "component", "douyin_resolve", "bytes", len(body))
+			b.options.Logger.Debug("抖音搜索响应已读取", "component", "douyin_resolve", "bytes", len(body))
 		}
 		return body, nil
 	}
@@ -244,7 +244,7 @@ func (b *ChromedpBrowser) logSearchPageState(ctx context.Context) {
 		b.options.Logger.Debug("已记录抖音搜索页面状态", "component", "douyin_resolve", "state", state)
 		return
 	}
-	b.options.Logger.Debug("抖音搜索页面状态读取失败，尝试截图："+err.Error(), "component", "douyin_resolve", "err", err.Error())
+	b.options.Logger.Debug("抖音搜索页面状态读取失败，尝试截图", "component", "douyin_resolve", "err", err.Error())
 	shotPath := filepath.Join(os.TempDir(), "rayleabot-douyin-search-page.png")
 	shotCtx, cancelShot := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelShot()
@@ -256,10 +256,10 @@ func (b *ChromedpBrowser) logSearchPageState(ctx context.Context) {
 		return os.WriteFile(shotPath, data, 0o644)
 	}))
 	if shotErr != nil {
-		b.options.Logger.Debug("抖音搜索页面截图失败："+shotErr.Error(), "component", "douyin_resolve", "err", shotErr.Error())
+		b.options.Logger.Debug("抖音搜索页面截图失败", "component", "douyin_resolve", "err", shotErr.Error())
 		return
 	}
-	b.options.Logger.Debug("抖音搜索页面截图已保存："+shotPath, "component", "douyin_resolve", "screenshot", shotPath)
+	b.options.Logger.Debug("抖音搜索页面截图已保存", "component", "douyin_resolve", "screenshot", shotPath)
 }
 
 func douyinBrowserSearchScript(query string) string {

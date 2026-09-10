@@ -124,7 +124,7 @@ func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot strin
 		if logger != nil {
 			safeErr := logpath.Error(repoRoot, err, repoRoot)
 			logger.Warn(
-				"图片渲染暂不可用，等待浏览器准备完成："+safeErr,
+				"图片渲染暂不可用，等待浏览器准备完成",
 				"component", "render",
 				"code", errorcodes.PlatformResourceMissing,
 				"err", safeErr,

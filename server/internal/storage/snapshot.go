@@ -90,13 +90,13 @@ func CreateSnapshotBestEffort(parent context.Context, store *Store, logger *slog
 	if err != nil {
 		if logger != nil {
 			safeErr := logpath.Error(repoRoot, err, store.Path, SnapshotDirForDatabase(store.Path))
-			logger.Warn("数据库自动备份失败，下次重试："+safeErr, "component", "storage", "err", safeErr)
+			logger.Warn("数据库自动备份失败，下次重试", "component", "storage", "err", safeErr)
 		}
 		return
 	}
 	if logger != nil {
 		pathDisplay := logpath.Display(repoRoot, path)
-		logger.Info("数据库自动备份已完成："+pathDisplay, "component", "storage", "path", pathDisplay)
+		logger.Info("数据库自动备份已完成", "component", "storage", "path", pathDisplay)
 	}
 }
 

@@ -111,7 +111,7 @@ func (s *Shell) forwardSupportedEvent(ctx context.Context, transport TransportKe
 	normalizedEvent, ok := normalizeSupportedEvent(frame.Frame, frame.Summary.ObservedAt)
 	if !ok {
 		s.logger.Debug(
-			"忽略消息平台通知："+frame.Summary.Type,
+			"忽略消息平台通知",
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"transport", string(transport),
@@ -199,7 +199,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedF
 	switch {
 	case isIgnoredAPIResponse(frame):
 		s.logger.Warn(
-			"忽略无法匹配请求的消息平台回复："+frame.InvalidSummary,
+			"忽略无法匹配请求的消息平台回复", "reason", frame.InvalidSummary,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",
@@ -213,7 +213,7 @@ func (s *Shell) recordAndValidateFrame(transport TransportKey, frame ClassifiedF
 		return nil
 	case frame.Summary.Category == FrameCategoryInvalid:
 		s.logger.Warn(
-			"消息平台发来无法识别的数据，已忽略："+frame.InvalidSummary,
+			"消息平台发来无法识别的数据，已忽略", "reason", frame.InvalidSummary,
 			"component", "adapter",
 			"adapter_state", s.Snapshot().State,
 			"direction", "inbound",

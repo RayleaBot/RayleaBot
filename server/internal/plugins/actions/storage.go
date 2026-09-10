@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"fmt"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
@@ -147,7 +146,7 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 			"cleanup_recommended": writeResult.SoftLimitExceeded,
 		}
 		if writeResult.SoftLimitExceeded && deps.Logger != nil {
-			deps.Logger.Warn(fmt.Sprintf("插件 %s 的文件工作目录已使用 %d 字节，超过 %d 字节软限制；本次写入已完成，建议清理旧文件。", req.PluginID, writeResult.UsageBytes, writeResult.SoftLimitBytes),
+			deps.Logger.Warn("插件文件工作目录超过软限制；本次写入已完成，建议清理旧文件",
 				"component", "plugin_action",
 				"plugin_id", req.PluginID,
 				"usage_bytes", writeResult.UsageBytes,

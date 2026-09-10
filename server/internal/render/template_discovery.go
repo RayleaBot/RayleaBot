@@ -45,7 +45,7 @@ func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed,
 				templateDirDisplay := logpath.Display(repoRoot, templateDir)
 				safeErr := logpath.Error(repoRoot, err, templateDir)
 				logger.Warn(
-					"图片模板加载失败："+templateDirDisplay+"；"+safeErr,
+					"图片模板加载失败",
 					"component", "render",
 					"template_dir", templateDirDisplay,
 					"err", safeErr,

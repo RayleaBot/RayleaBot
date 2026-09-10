@@ -649,7 +649,7 @@ func (s *Service) logBuiltinMenuError(operation, targetType, targetID, impact st
 	if strings.TrimSpace(target) == "" {
 		target = "当前会话"
 	}
-	s.logger.Warn("内置菜单"+operation+"失败：目标 "+target+"；"+impact+"。原因："+err.Error(),
+	s.logger.Warn("内置菜单操作失败", "target_label", target, "impact", impact,
 		"component", "app", "target_type", targetType, "target_id", targetID, "operation", operation, "error", err)
 }
 

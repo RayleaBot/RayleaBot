@@ -89,7 +89,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					}
 					if !slotIsDeliverable(slot) {
 						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), errorcodes.PlatformInvalidRequest, "plugin runtime is not deliverable")
-						d.logSchedulerCompletion(pluginID, item.run, "处理失败", schedulerElapsed(item.run), map[string]any{
+						d.logSchedulerFailure(pluginID, item.run, schedulerElapsed(item.run), map[string]any{
 							"error": "plugin runtime is not deliverable",
 						})
 						completions <- laneCompletion{laneKey: laneKey}
@@ -104,7 +104,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 						if item.run == nil && !reported && code != errorcodes.PluginEventCanceled {
 							count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
 							if count > 0 {
-								d.logger.Warn("插件 "+pluginID+" 处理任务失败："+eventFailureDescription(code),
+								d.logger.Warn("插件处理任务失败", "failure_reason", eventFailureDescription(code),
 									"component", "dispatch",
 									"plugin_id", pluginID,
 									"event_id", item.event.EventID,
@@ -117,7 +117,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 						}
 						d.recordSchedulerCompletion(item.ctx, item.run, outcome, duration, code, message)
 						if !reported {
-							d.logSchedulerCompletion(pluginID, item.run, "处理失败", duration, map[string]any{
+							d.logSchedulerFailure(pluginID, item.run, duration, map[string]any{
 								"error":      err.Error(),
 								"error_code": code,
 							})
@@ -133,7 +133,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					d.recoverScheduler(pluginID, item.run)
 					if item.run == nil {
 						if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {
-							d.logger.Info("插件 "+pluginID+" 已恢复处理任务。", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
+							d.logger.Info("插件已恢复处理任务", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
 						}
 					}
 					completions <- laneCompletion{laneKey: laneKey}

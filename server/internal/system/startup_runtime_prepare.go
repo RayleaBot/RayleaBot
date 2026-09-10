@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"os"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
@@ -123,8 +122,7 @@ func (s *Service) startupRequiredRuntimeKinds() []string {
 }
 
 func startupInspectionIssue(_ string, err error) recovery.CompatibilityIssue {
-	var bootstrapErr *deps.BootstrapError
-	if errors.As(err, &bootstrapErr) && (errors.Is(bootstrapErr.Err, os.ErrNotExist) || !strings.Contains(strings.ToLower(bootstrapErr.Err.Error()), "does not include")) {
+	if !errors.Is(err, deps.ErrResourceNotDeclared) {
 		return recovery.CompatibilityIssue{
 			Code:        errorcodes.DiagnosticDepsManifestMissing,
 			Severity:    "warning",
@@ -214,7 +212,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		s.setStartupRuntimeState(kind, StartupRuntimePhasePending, nil)
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
-				"运行环境准备已请求："+label,
+				"运行环境准备已请求",
 				"component", "app",
 				"resource_kind", kind,
 				"label", label,
@@ -239,7 +237,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 		if s.currentLogger() != nil {
 			s.currentLogger().Info(
-				"运行环境准备完成："+label,
+				"运行环境准备完成",
 				"component", "app",
 				"resource_kind", kind,
 				"label", label,
@@ -277,7 +275,7 @@ func logStartupFailure(logger *slog.Logger, repoRoot string, kind string, err er
 
 	label := runtimePrepareKindLabel(kind)
 	safeErr := logpath.Error(repoRoot, err, pathValues...)
-	logger.Warn(label+"运行环境准备失败，已跳过自动准备；相关功能暂不可用。原因："+safeErr, append(fields, "err", safeErr)...)
+	logger.Warn("运行环境准备失败，已跳过自动准备；相关功能暂不可用", append(fields, "runtime_label", label, "err", safeErr)...)
 }
 
 func logStartupProgress(logger *slog.Logger, repoRoot string, event deps.PrepareProgress) {
@@ -330,7 +328,8 @@ func logStartupProgress(logger *slog.Logger, repoRoot string, event deps.Prepare
 	if event.Error != "" {
 		fields = append(fields, "err", event.Error)
 	}
-	message := runtimePrepareProgressMessage(event)
+	fields = append(fields, "display_summary", runtimePrepareProgressMessage(event))
+	message := "运行环境准备进度"
 	if event.Status == "failed" {
 		logger.Warn(message, fields...)
 		return

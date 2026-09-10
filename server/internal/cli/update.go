@@ -58,7 +58,7 @@ func runUpdate(cmd Command) int {
 	case "verify":
 		return runUpdateVerify(child)
 	default:
-		cmd.Logger.Error("未知更新子命令：" + cmd.Args[0])
+		cmd.Logger.Error("未知更新子命令", "subcommand", cmd.Args[0])
 		return 1
 	}
 }

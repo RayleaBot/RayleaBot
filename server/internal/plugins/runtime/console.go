@@ -109,7 +109,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 			}
 			if truncated {
 				m.logger.Warn(
-					"插件"+pluginIDLabel(pluginID)+"日志过多，部分内容已省略。",
+					"插件日志过多，部分内容已省略",
 					"component", "runtime",
 					"plugin_id", pluginID,
 				)
@@ -129,7 +129,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 			return
 		}
 		m.logger.Warn(
-			"插件"+pluginIDLabel(pluginID)+"日志读取失败，后续内容可能缺失："+err.Error(),
+			"插件日志读取失败，后续内容可能缺失",
 			"component", "runtime",
 			"plugin_id", pluginID,
 			"err", err.Error(),

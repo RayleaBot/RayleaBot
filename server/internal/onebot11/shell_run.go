@@ -71,7 +71,7 @@ func (s *Shell) run(ctx context.Context) {
 			reason = "连接会话意外结束"
 		}
 		s.logger.Warn(
-			"消息平台连接断开，"+delay.String()+" 后重连："+reason,
+			"消息平台连接断开，等待重连", "reason", reason,
 			"component", "adapter",
 			"adapter_state", StateReconnecting,
 			"retry_in", delay.String(),
@@ -106,7 +106,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 			s.markAuthFailed(err)
 			errorSummary := summarizeError(err)
 			s.logger.Error(
-				"消息平台连接验证失败，已停止重连，请检查连接密钥后重启："+errorSummary,
+				"消息平台连接验证失败，已停止重连，请检查连接密钥后重启",
 				"component", "adapter",
 				"adapter_state", StateAuthFailed,
 				"transport", string(TransportForwardWS),

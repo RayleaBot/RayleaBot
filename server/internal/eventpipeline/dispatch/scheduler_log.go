@@ -3,7 +3,6 @@ package dispatch
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -19,42 +18,29 @@ func schedulerElapsed(run *scheduler.RunContext) time.Duration {
 	return time.Since(run.StartedAt)
 }
 
-func (d *Dispatcher) logSchedulerCompletion(pluginID string, run *scheduler.RunContext, status string, duration time.Duration, extra map[string]any) {
+func (d *Dispatcher) logSchedulerFailure(pluginID string, run *scheduler.RunContext, duration time.Duration, extra map[string]any) {
 	if d.logger == nil || run == nil {
 		return
 	}
-	ctx := run
 	attrs := []any{
-		"component", "scheduler",
-		"plugin_id", pluginID,
-		"plugin_name", ctx.PluginName,
-		"job_id", ctx.TaskName,
-		"log_label", ctx.LogLabel,
-		"duration_ms", duration.Milliseconds(),
+		"component", "scheduler", "plugin_id", pluginID,
+		"plugin_name", run.PluginName, "job_id", run.TaskName,
+		"log_label", run.LogLabel, "duration_ms", duration.Milliseconds(),
 	}
 	for key, value := range extra {
 		attrs = append(attrs, key, value)
 	}
-	message := scheduler.DisplayMessage(ctx.PluginName, ctx.TaskName, ctx.LogLabel, status)
-	if status == "处理失败" {
-		code, _ := extra["error_code"].(string)
-		if code == errorcodes.PluginEventCanceled {
-			d.logger.Debug("定时任务已取消。", attrs...)
-			return
-		}
-		count := d.failures.Failure("scheduler:"+pluginID+":"+ctx.TaskName, code, time.Now())
-		if count == 0 {
-			return
-		}
-		attrs = append(attrs, "repeat_count", count)
-		message += "；" + eventFailureDescription(code)
-		if count > 1 {
-			message += fmt.Sprintf("；期间重复 %d 次。", count)
-		}
-		d.logger.Warn(message, attrs...)
+	code, _ := extra["error_code"].(string)
+	if code == errorcodes.PluginEventCanceled {
+		d.logger.Debug("定时任务已取消", attrs...)
 		return
 	}
-	d.logger.Info(message, attrs...)
+	count := d.failures.Failure("scheduler:"+pluginID+":"+run.TaskName, code, time.Now())
+	if count == 0 {
+		return
+	}
+	attrs = append(attrs, "repeat_count", count, "failure_reason", eventFailureDescription(code))
+	d.logger.Warn("定时任务处理失败", attrs...)
 }
 
 func eventFailureDescription(code string) string {
@@ -78,7 +64,7 @@ func (d *Dispatcher) recoverScheduler(pluginID string, run *scheduler.RunContext
 	}
 	job := run.TaskName
 	if count := d.failures.Recover("scheduler:" + pluginID + ":" + job); count > 0 {
-		d.logger.Info(scheduler.DisplayMessage(run.PluginName, job, run.LogLabel, "已恢复"), "component", "scheduler", "plugin_id", pluginID, "job_id", job, "repeat_count", count)
+		d.logger.Info("定时任务已恢复", "display_summary", scheduler.DisplayMessage(run.PluginName, job, run.LogLabel, "已恢复"), "component", "scheduler", "plugin_id", pluginID, "job_id", job, "repeat_count", count)
 	}
 }
 
@@ -108,7 +94,7 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, run *schedul
 		OccurredAt: time.Now(),
 	}); err != nil && d.logger != nil {
 		d.logger.Warn(
-			"定时任务 "+jobID+" 的结果保存失败，历史记录可能缺失："+err.Error(),
+			"定时任务结果保存失败，历史记录可能缺失",
 			"component", "scheduler",
 			"job_id", jobID,
 			"err", err.Error(),

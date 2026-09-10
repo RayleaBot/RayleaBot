@@ -43,7 +43,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 			}
 
 			m.logger.Debug(
-				"插件"+pluginIDLabel(handle.Spec.PluginID)+"启动进度："+summary,
+				"插件启动进度",
 				"component", "runtime",
 				"plugin_id", handle.Spec.PluginID,
 				"runtime_state", string(StateStarting),

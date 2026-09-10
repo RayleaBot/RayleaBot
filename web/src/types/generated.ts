@@ -1687,7 +1687,7 @@ export interface components {
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
-            /** @description Redacted operator-facing narrative that identifies the operation and outcome without opening log details. Warning and error messages include the known cause, impact, and recovery direction when available. OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context. */
+            /** @description Redacted operation and outcome text. Host operational logs use fixed message templates; dynamic identifiers, paths, causes, counts, and recovery context are carried in details. Inbound chat content and plugin-authored messages retain their own redacted text. */
             message: string;
             protocol?: components["schemas"]["LogProtocol"];
             plugin_id?: string;

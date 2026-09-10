@@ -80,7 +80,7 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, report, resource, options.Progress); ok {
 			return report, nil
 		}
-		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "manifest", "", nil, fmt.Errorf("deps manifest does not include current platform %s", CurrentPlatform()))
+		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "manifest", "", nil, fmt.Errorf("%w: platform %s", ErrResourceNotDeclared, CurrentPlatform()))
 	}
 	if !ResourceMetadataComplete(resource) {
 		if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, report, resource, options.Progress); ok {
@@ -374,7 +374,7 @@ func (m *Manager) currentResource(kind string) (*Manifest, *Resource, error) {
 	}
 	resource := manifest.FindResource(CurrentPlatform(), kind)
 	if resource == nil {
-		return manifest, nil, fmt.Errorf("deps manifest does not include %s for %s", kind, CurrentPlatform())
+		return manifest, nil, fmt.Errorf("%w: %s for %s", ErrResourceNotDeclared, kind, CurrentPlatform())
 	}
 	return manifest, resource, nil
 }

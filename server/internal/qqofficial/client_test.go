@@ -74,7 +74,9 @@ func TestOpeningFramesCarryThePlatformTokenScheme(t *testing.T) {
 			Seq       int64  `json:"seq"`
 		} `json:"d"`
 	}
-	if err := json.Unmarshal(resume, &resumeFrame); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(resume, &resumeFrame); err != nil {
+		t.Fatal(err)
+	}
 	if resumeFrame.Op != opResume || resumeFrame.D.SessionID != "session-1" || resumeFrame.D.Seq != 42 {
 		t.Fatalf("resume frame = %+v", resumeFrame.D)
 	}
@@ -86,12 +88,16 @@ func TestHeartbeatPayloadOmitsSequenceBeforeTheFirstEvent(t *testing.T) {
 	// Before any event the gateway expects a null sequence, not zero.
 	first, _ := heartbeatPayload(0)
 	var frame map[string]any
-	if err := json.Unmarshal(first, &frame); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(first, &frame); err != nil {
+		t.Fatal(err)
+	}
 	if frame["d"] != nil {
 		t.Fatalf("heartbeat d = %v, want null before the first event", frame["d"])
 	}
 	later, _ := heartbeatPayload(7)
-	if err := json.Unmarshal(later, &frame); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(later, &frame); err != nil {
+		t.Fatal(err)
+	}
 	if frame["d"] != float64(7) {
 		t.Fatalf("heartbeat d = %v, want the last sequence", frame["d"])
 	}

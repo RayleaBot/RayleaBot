@@ -110,7 +110,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		if !s.dispatcher.HasDeliverablePlugin(pluginID) {
 			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID); err != nil {
 				s.logger.Warn(
-					"插件 "+pluginID+" 启动失败，无法处理 Webhook 请求："+err.Error(),
+					"插件启动失败，无法处理 Webhook 请求",
 					"component", "app",
 					"plugin_id", pluginID,
 					"route", route,

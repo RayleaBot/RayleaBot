@@ -347,7 +347,7 @@ func logRenderImageResourceUnavailable(deps Deps, req ActionRequest, resourceID,
 	}
 	trimmedResourceID := strings.TrimSpace(resourceID)
 	trimmedReason := strings.TrimSpace(reason)
-	deps.Logger.Warn("插件 "+req.PluginID+" 的图片资源 "+trimmedResourceID+" 加载失败："+trimmedReason,
+	deps.Logger.Warn("插件图片资源加载失败",
 		"component", "render",
 		"plugin_id", req.PluginID,
 		"request_id", req.RequestID,

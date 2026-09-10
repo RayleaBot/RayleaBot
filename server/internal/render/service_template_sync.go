@@ -33,7 +33,7 @@ func (s *Service) syncTemplateSeed(ctx context.Context, id string, seed Seed, ow
 	}
 	s.rememberTemplateRoot(id, templateDir, resourceRoot)
 	if changed && s.logger != nil {
-		s.logger.Info("图片模板已更新："+id, "component", "render", "template_id", id, "source_digest", seed.Compiled.Bundle.Digest)
+		s.logger.Info("图片模板已更新", "component", "render", "template_id", id, "source_digest", seed.Compiled.Bundle.Digest)
 	}
 	return nil
 }

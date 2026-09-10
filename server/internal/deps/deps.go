@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+var ErrResourceNotDeclared = errors.New("runtime resource is not declared for the current platform")
+
 type PreparedResource struct {
 	Resource    Resource
 	Root        string

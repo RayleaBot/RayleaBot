@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -32,7 +31,7 @@ func runBackup(cmd Command) int {
 	}
 	backupPathDisplay := displayLogPath(repoRoot, result.ArchivePath)
 	cmd.Logger.Info(
-		fmt.Sprintf("备份完成：%s，目录 %d 个，插件 %d 个", backupPathDisplay, len(result.Manifest.Directories), len(result.Manifest.Plugins)),
+		"备份完成",
 		"path", backupPathDisplay,
 		"directories", len(result.Manifest.Directories),
 		"plugins", len(result.Manifest.Plugins),

@@ -144,7 +144,7 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	deps.Logs.SetRepository(logRepository, deps.Config.Log.RetentionDays)
 	deps.Tasks.SetLogSink(deps.Logs)
 	if err := deps.Logs.FlushSpool(ctx); err != nil {
-		deps.Logger.Warn("管理日志保存失败，服务继续运行："+err.Error(),
+		deps.Logger.Warn("管理日志保存失败，服务继续运行",
 			"component", "logging",
 			"err", err.Error(),
 		)

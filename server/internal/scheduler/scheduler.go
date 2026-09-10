@@ -206,7 +206,7 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 		e.jobs[j.JobID] = cloneJob(j)
 	}
 
-	e.logger.Info(fmt.Sprintf("已加载 %d 个定时任务", len(jobs)), "component", "scheduler", "job_count", len(jobs))
+	e.logger.Info("定时任务已加载", "component", "scheduler", "job_count", len(jobs))
 	return nil
 }
 
@@ -269,7 +269,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 
 	nextRun, err := nextCronTime(j.CronExpr, now, e.location)
 	if err != nil {
-		e.logger.Warn("定时任务 "+j.JobID+" 的运行时间无效，已暂停，请修改时间设置后重新启用："+err.Error(),
+		e.logger.Warn("定时任务运行时间无效，已暂停，请修改时间设置后重新启用",
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),
@@ -298,7 +298,7 @@ func (e *Engine) fireJob(j Job, now time.Time) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := e.repo.UpdateJobSchedule(ctx, j); err != nil {
-		e.logger.Warn("定时任务 "+j.JobID+" 的运行时间保存失败，重启后可能恢复旧设置："+err.Error(),
+		e.logger.Warn("定时任务运行时间保存失败，重启后可能恢复旧设置",
 			"component", "scheduler",
 			"job_id", j.JobID,
 			"err", err.Error(),

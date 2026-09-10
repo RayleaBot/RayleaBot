@@ -1,7 +1,6 @@
 package catalog
 
 import (
-	"fmt"
 	"log/slog"
 	"strings"
 
@@ -16,7 +15,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	if err != nil {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件配置格式错误，无法加载：%s（%s）；%s", logpath.Display(repoRoot, infoPath), sourceRoot, err.Error()),
+				"插件配置格式错误，无法加载",
 				"component", "plugins", "manifest_path", logpath.Display(repoRoot, infoPath), "source_root", sourceRoot, "err", err.Error(),
 			)
 		}
@@ -26,7 +25,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	if !ok {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件配置必须是 JSON 对象，无法加载：%s（%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
+				"插件配置必须是 JSON 对象，无法加载",
 				"component", "plugins", "manifest_path", logpath.Display(repoRoot, infoPath), "source_root", sourceRoot,
 			)
 		}
@@ -36,7 +35,7 @@ func LoadSnapshot(infoPath, sourceRoot, repoRoot string, validator *config.Valid
 	if pluginID == "" {
 		if logger != nil {
 			logger.Warn(
-				fmt.Sprintf("插件配置缺少有效 ID，无法加载：%s（%s）", logpath.Display(repoRoot, infoPath), sourceRoot),
+				"插件配置缺少有效 ID，无法加载",
 				"component", "plugins", "manifest_path", logpath.Display(repoRoot, infoPath), "source_root", sourceRoot,
 			)
 		}

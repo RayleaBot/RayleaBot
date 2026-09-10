@@ -153,12 +153,12 @@ func acquireLifecycleLock(configPath string) (*filelock.Lock, error) {
 func runLifecycleLocked(cmd Command, action string, run func(Command) int) int {
 	lock, err := acquireLifecycleLock(cmd.ConfigPath)
 	if err != nil {
-		cmd.Logger.Error(action+"失败：请确认服务已停止", "err", err.Error())
+		cmd.Logger.Error("离线操作失败：请确认服务已停止", "action", action, "err", err.Error())
 		return 1
 	}
 	code := run(cmd)
 	if closeErr := lock.Close(); closeErr != nil {
-		cmd.Logger.Error(action+"完成后释放生命周期锁失败", "err", closeErr.Error())
+		cmd.Logger.Error("释放生命周期锁失败", "action", action, "err", closeErr.Error())
 		return 1
 	}
 	return code
@@ -169,7 +169,7 @@ func runResetAdmin(cmd Command) int {
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 	databasePath, err := runtimepaths.DatabaseFromConfig(cmd.ConfigPath)
 	if err != nil {
-		cmd.Logger.Error("解析数据库路径失败："+configPathDisplay, "config_path", configPathDisplay, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
+		cmd.Logger.Error("解析数据库路径失败", "config_path", configPathDisplay, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 		return 1
 	}
 	databasePathDisplay := displayLogPath(repoRoot, databasePath)
@@ -179,7 +179,7 @@ func runResetAdmin(cmd Command) int {
 		return 1
 	}
 
-	cmd.Logger.Info("管理员凭据已重置，下次启动将进入初始设置状态："+databasePathDisplay, "path", databasePathDisplay)
+	cmd.Logger.Info("管理员凭据已重置，下次启动将进入初始设置状态", "path", databasePathDisplay)
 	return 0
 }
 
@@ -211,10 +211,10 @@ func runCleanup(cmd Command) int {
 			}
 			orphanPathDisplay := displayLogPath(repoRoot, orphanPath)
 			if err := os.RemoveAll(orphanPath); err != nil {
-				cmd.Logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay, "path", orphanPathDisplay, "err", displayLogError(repoRoot, err, orphanPath))
+				cmd.Logger.Warn("清理插件安装工作目录失败", "path", orphanPathDisplay, "err", displayLogError(repoRoot, err, orphanPath))
 				failed = true
 			} else {
-				cmd.Logger.Debug("遗留插件安装目录已清理："+orphanPathDisplay, "path", orphanPathDisplay)
+				cmd.Logger.Debug("插件安装工作目录已清理", "path", orphanPathDisplay)
 				cleaned++
 			}
 		}
@@ -235,7 +235,7 @@ func runCleanup(cmd Command) int {
 	cleaned += cleanedRender
 	failed = failed || renderFailed
 
-	cmd.Logger.Info(fmt.Sprintf("清理完成，共处理 %d 项", cleaned), "cleaned_items", cleaned)
+	cmd.Logger.Info("清理完成", "cleaned_items", cleaned)
 	if failed {
 		return 1
 	}
@@ -248,7 +248,7 @@ func cleanupEntriesOlderThan(cmd Command, repoRoot, root string, cutoff time.Tim
 		return 0, false
 	}
 	if err != nil {
-		cmd.Logger.Warn("读取"+label+"目录失败", "err", displayLogError(repoRoot, err, root))
+		cmd.Logger.Warn("读取清理目录失败", "directory_label", label, "err", displayLogError(repoRoot, err, root))
 		return 0, true
 	}
 	cleaned := 0
@@ -260,7 +260,7 @@ func cleanupEntriesOlderThan(cmd Command, repoRoot, root string, cutoff time.Tim
 		}
 		entryPathDisplay := displayLogPath(repoRoot, entryPath)
 		if err := os.RemoveAll(entryPath); err != nil {
-			cmd.Logger.Warn("清理"+label+"条目失败："+entryPathDisplay, "path", entryPathDisplay, "err", displayLogError(repoRoot, err, entryPath))
+			cmd.Logger.Warn("清理目录条目失败", "directory_label", label, "path", entryPathDisplay, "err", displayLogError(repoRoot, err, entryPath))
 			failed = true
 			continue
 		}
@@ -268,7 +268,7 @@ func cleanupEntriesOlderThan(cmd Command, repoRoot, root string, cutoff time.Tim
 	}
 	if cleaned > 0 {
 		rootDisplay := displayLogPath(repoRoot, root)
-		cmd.Logger.Info(fmt.Sprintf("%s已清理：%s，条目 %d 个", label, rootDisplay, cleaned), "path", rootDisplay, "entries", cleaned)
+		cmd.Logger.Info("目录清理完成", "directory_label", label, "path", rootDisplay, "entries", cleaned)
 	}
 	return cleaned, failed
 }
