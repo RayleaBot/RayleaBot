@@ -264,92 +264,10 @@ channels:
                   type: string
             - type: object
               additionalProperties: false
-              required: [protocol, protocol_snapshot]
-              properties:
-                protocol:
-                  type: string
-                  enum: [onebot11]
-                protocol_snapshot:
-                  type: object
-                  additionalProperties: false
-                  required:
-                    [protocol, provider, configured_transports, active_transports, transport_status, readiness_status, summary, recent_transport_issues]
-                  properties:
-                    protocol:
-                      type: string
-                      enum: [onebot11]
-                    provider:
-                      type: string
-                      enum: [unknown, standard, napcat, luckylillia]
-                    configured_transports:
-                      type: array
-                      items:
-                        type: string
-                        enum: [reverse_ws, forward_ws, http_api, webhook]
-                    active_transports:
-                      type: array
-                      items:
-                        type: string
-                        enum: [reverse_ws, forward_ws, http_api, webhook]
-                    transport_status:
-                      type: array
-                      items:
-                        type: object
-                        additionalProperties: false
-                        required: [transport, enabled, configured, endpoint, state, summary]
-                        properties:
-                          transport:
-                            type: string
-                            enum: [reverse_ws, forward_ws, http_api, webhook]
-                          enabled:
-                            type: boolean
-                          configured:
-                            type: boolean
-                          endpoint:
-                            type: string
-                          state:
-                            type: string
-                            enum: [idle, listening, connecting, connected, auth_failed, reconnecting, stopped]
-                          summary:
-                            type: string
-                          provider:
-                            type: string
-                            enum: [unknown, standard, napcat, luckylillia]
-                          app_name:
-                            type: string
-                          protocol_version:
-                            type: string
-                          app_version:
-                            type: string
-                          user_id:
-                            type: string
-                          nickname:
-                            type: string
-                    readiness_status:
-                      type: string
-                      enum: [ready, degraded, failed, setup_required]
-                    summary:
-                      type: string
-                    recent_transport_issues:
-                      type: array
-                      items:
-                        type: object
-                        additionalProperties: false
-                        required: [code, severity, summary]
-                        properties:
-                          code:
-                            type: string
-                          severity:
-                            type: string
-                            enum: [info, warning, error]
-                          summary:
-                            type: string
-            - type: object
-              additionalProperties: false
               description: |
                 已配置适配器实例的状态快照。任一实例的连接状态变化时推送，
                 与 GET /api/adapters 的 adapters 字段同形，管理面据此更新
-                适配器列表而不轮询。
+                适配器列表与该实例传输明细。按配置顺序排列，无实例时为 []。
               required: [adapters]
               properties:
                 adapters:
@@ -391,6 +309,81 @@ channels:
                             pattern: '^https://'
                             maxLength: 2048
                             description: 机器人头像的 HTTPS 地址；未知或不可用时省略，客户端加载失败时显示默认头像。
+                      onebot11:
+                        type: object
+                        additionalProperties: false
+                        required:
+                          [protocol, provider, configured_transports, active_transports, transport_status, readiness_status, summary, recent_transport_issues]
+                        properties:
+                          protocol:
+                            type: string
+                            enum: [onebot11]
+                          provider:
+                            type: string
+                            enum: [unknown, standard, napcat, luckylillia]
+                          configured_transports:
+                            type: array
+                            items:
+                              type: string
+                              enum: [reverse_ws, forward_ws, http_api, webhook]
+                          active_transports:
+                            type: array
+                            items:
+                              type: string
+                              enum: [reverse_ws, forward_ws, http_api, webhook]
+                          transport_status:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required: [transport, enabled, configured, endpoint, state, summary]
+                              properties:
+                                transport:
+                                  type: string
+                                  enum: [reverse_ws, forward_ws, http_api, webhook]
+                                enabled:
+                                  type: boolean
+                                configured:
+                                  type: boolean
+                                endpoint:
+                                  type: string
+                                state:
+                                  type: string
+                                  enum: [idle, listening, connecting, connected, auth_failed, reconnecting, stopped]
+                                summary:
+                                  type: string
+                                provider:
+                                  type: string
+                                  enum: [unknown, standard, napcat, luckylillia]
+                                app_name:
+                                  type: string
+                                protocol_version:
+                                  type: string
+                                app_version:
+                                  type: string
+                                user_id:
+                                  type: string
+                                nickname:
+                                  type: string
+                          readiness_status:
+                            type: string
+                            enum: [ready, degraded, failed, setup_required]
+                          summary:
+                            type: string
+                          recent_transport_issues:
+                            type: array
+                            items:
+                              type: object
+                              additionalProperties: false
+                              required: [code, severity, summary]
+                              properties:
+                                code:
+                                  type: string
+                                severity:
+                                  type: string
+                                  enum: [info, warning, error]
+                                summary:
+                                  type: string
             - type: object
               additionalProperties: false
               required: [observability_scope, summary, delivered_count, result_count, error_count]

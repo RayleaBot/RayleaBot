@@ -12,7 +12,7 @@ import (
 
 type StatusSnapshot struct {
 	Status          string
-	AdapterState    string
+	Adapters        []AdapterStatus
 	ActivePlugins   int
 	RunningPlugins  int
 	FailedPlugins   int
@@ -29,7 +29,7 @@ type DiagnosticsSnapshot struct {
 	Config          DiagnosticsConfig              `json:"config"`
 	Secrets         DiagnosticsSecrets             `json:"secrets"`
 	Database        DiagnosticsDatabase            `json:"database"`
-	Adapter         DiagnosticsAdapter             `json:"adapter"`
+	Adapters        []AdapterStatus                `json:"adapters"`
 	Plugins         DiagnosticsPlugins             `json:"plugins"`
 	Render          DiagnosticsIssueGroup          `json:"render"`
 	ThirdParty      DiagnosticsThirdParty          `json:"third_party"`
@@ -52,14 +52,14 @@ type DiagnosticsSystem struct {
 }
 
 type DiagnosticsConfig struct {
-	SchemaVersion    string `json:"schema_version"`
-	Status           string `json:"status"`
-	ApplyState       string `json:"apply_state"`
-	ConfigPath       string `json:"config_path"`
-	SchemaPath       string `json:"schema_path"`
-	DatabaseEngine   string `json:"database_engine"`
-	DatabasePath     string `json:"database_path"`
-	OneBotConfigured bool   `json:"onebot_configured"`
+	SchemaVersion  string `json:"schema_version"`
+	Status         string `json:"status"`
+	ApplyState     string `json:"apply_state"`
+	ConfigPath     string `json:"config_path"`
+	SchemaPath     string `json:"schema_path"`
+	DatabaseEngine string `json:"database_engine"`
+	DatabasePath   string `json:"database_path"`
+	AdapterCount   int    `json:"adapter_count"`
 }
 
 type DiagnosticsSecrets struct {
@@ -77,8 +77,11 @@ type DiagnosticsMigration struct {
 	AppliedAt string `json:"applied_at"`
 }
 
-type DiagnosticsAdapter struct {
-	State string `json:"state"`
+type AdapterStatus struct {
+	ID       string `json:"id"`
+	Protocol string `json:"protocol"`
+	Enabled  bool   `json:"enabled"`
+	State    string `json:"state"`
 }
 
 type DiagnosticsPlugins struct {

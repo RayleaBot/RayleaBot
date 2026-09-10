@@ -356,7 +356,7 @@ export function buildDashboardEventActions(payload: EventsPayload) {
     }] satisfies ManagementContextAction[]
   }
 
-  if ('connection_status' in payload || 'protocol_snapshot' in payload) {
+  if ('connection_status' in payload || 'adapters' in payload) {
     return [{
       key: 'protocols',
       label: t('dashboard.actions.openProtocols'),

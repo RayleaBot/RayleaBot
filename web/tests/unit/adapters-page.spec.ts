@@ -8,7 +8,6 @@ import AdaptersPage from '@/views/protocols/AdaptersView.vue'
 import { buildAdapterInstance } from '@/lib/adapters'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
-import { useProtocolsStore } from '@/stores/protocols'
 import type { ConfigDocument } from '@/types/api'
 import { createConfigDocumentFixture } from './config-document.fixture'
 
@@ -53,7 +52,6 @@ async function setup(path = '/protocols', document = createConfigDocumentFixture
     ]
     return { adapters: adapters.adapters, available_protocols: adapters.availableProtocols }
   })
-  vi.spyOn(useProtocolsStore(), 'refresh').mockResolvedValue({ snapshot: null } as never)
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/protocols', name: 'protocols', component: AdaptersPage },
     { path: '/logs', name: 'logs', component: { template: '<div>logs</div>' } },
@@ -242,13 +240,15 @@ describe('protocol center dialogs', () => {
     expect(save.mock.calls[0][0].adapters[0].enabled).toBe(true)
   })
 
-  it('does not show the primary OneBot runtime details for a different instance', async () => {
+  it('shows only the selected OneBot instance runtime details', async () => {
     const doc = createConfigDocumentFixture()
     doc.adapters.push(buildAdapterInstance('secondary', 'onebot11'))
-    const { wrapper } = await setup('/protocols?adapter=secondary', doc)
+    const { wrapper, adapters } = await setup('/protocols?adapter=secondary', doc)
+    adapters.applySnapshot(adapters.adapters.map(adapter => ({ ...adapter, onebot11: { protocol: 'onebot11', provider: 'unknown', configured_transports: [], active_transports: [], transport_status: [{ transport: 'http_api', enabled: true, configured: true, endpoint: '', state: 'connected', summary: `${adapter.id} transport status` }], readiness_status: 'ready', summary: '', recent_transport_issues: [] } })))
+    await flushPromises()
     expect(wrapper.text()).toContain('状态来自 secondary')
-    expect(body().find('.runtime-list').exists()).toBe(false)
-    expect(useProtocolsStore().refresh).not.toHaveBeenCalled()
+    expect(body().get('.runtime-list').text()).toContain('secondary transport status')
+    expect(body().get('.runtime-list').text()).not.toContain('onebot11 transport status')
   })
 
   it('removes only the chosen connection after confirmation using a fresh document', async () => {

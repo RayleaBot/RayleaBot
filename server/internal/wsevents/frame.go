@@ -58,11 +58,6 @@ type GenericPayload struct {
 	Summary   string `json:"summary"`
 }
 
-type ProtocolSnapshotPayload struct {
-	Protocol         string `json:"protocol"`
-	ProtocolSnapshot any    `json:"protocol_snapshot"`
-}
-
 // AdaptersSnapshotPayload carries the state of every configured adapter
 // instance. The OneBot snapshot describes one protocol in transport-level
 // detail; this one says what every adapter is doing, which is what the adapter

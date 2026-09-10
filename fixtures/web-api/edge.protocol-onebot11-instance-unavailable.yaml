@@ -1,0 +1,14 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: A targets query names an unavailable instance and never selects a different connection.
+request:
+  method: GET
+  path: /api/adapters/missing/onebot11/targets
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数不合法
+      message_key: errors.platform.invalid_request
+      request_id: req_instance_unavailable

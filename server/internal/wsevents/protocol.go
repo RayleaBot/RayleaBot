@@ -123,11 +123,7 @@ type ProtocolConfigSource interface {
 }
 
 type ProtocolService struct {
-	config ProtocolConfigSource
-	// adapter is the primary OneBot instance, which the OneBot-specific
-	// management endpoints speak about; oneBotShells holds every instance,
-	// which is what the per-instance ingress needs.
-	adapter                   *onebot11.Shell
+	config                    ProtocolConfigSource
 	oneBotShells              map[string]*onebot11.Shell
 	qqClients                 map[string]QQOfficialAdapter
 	oneBot11TargetReadTimeout time.Duration
@@ -139,14 +135,11 @@ type ProtocolServiceAdapters struct {
 	// OneBot11 contains every configured instance, including disabled ones.
 	OneBot11   map[string]*onebot11.Shell
 	QQOfficial map[string]QQOfficialAdapter
-	// PrimaryOneBot11 is the instance the OneBot management endpoints report on.
-	PrimaryOneBot11 *onebot11.Shell
 }
 
 func NewProtocolService(configSource ProtocolConfigSource, adapters ProtocolServiceAdapters) *ProtocolService {
 	return &ProtocolService{
 		config:                    configSource,
-		adapter:                   adapters.PrimaryOneBot11,
 		oneBotShells:              adapters.OneBot11,
 		qqClients:                 adapters.QQOfficial,
 		oneBot11TargetReadTimeout: 3 * time.Second,
@@ -202,16 +195,8 @@ func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
 	return errors.Join(failures...)
 }
 
-func (s *ProtocolService) ProtocolSnapshotEvent() Frame {
-	return NewReceivedFrame(ProtocolSnapshotPayload{
-		Protocol:         "onebot11",
-		ProtocolSnapshot: s.CurrentOneBot11ProtocolSnapshot(),
-	})
-}
-
 func (s *ProtocolService) PublishSnapshot() {
-	s.hub.Publish(s.ProtocolSnapshotEvent())
-	s.PublishAdaptersSnapshot()
+	s.hub.Publish(s.AdaptersSnapshotEvent())
 }
 
 func (s *ProtocolService) AdaptersSnapshotEvent() Frame {
@@ -221,9 +206,7 @@ func (s *ProtocolService) AdaptersSnapshotEvent() Frame {
 // PublishAdaptersSnapshot tells subscribers what every adapter is doing. An
 // adapter without transports of its own has no OneBot snapshot to publish, so
 // this is how its state reaches the management surface.
-func (s *ProtocolService) PublishAdaptersSnapshot() {
-	s.hub.Publish(s.AdaptersSnapshotEvent())
-}
+func (s *ProtocolService) PublishAdaptersSnapshot() { s.PublishSnapshot() }
 
 func (s *ProtocolService) SubscribeProtocolEvents(buffer int) (<-chan Frame, func()) {
 	return s.hub.Subscribe(buffer)

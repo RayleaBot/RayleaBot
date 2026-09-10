@@ -182,7 +182,7 @@ describe('BasicLayout', () => {
     const systemStore = useSystemStore()
     systemStore.system = {
       status: 'running',
-      adapter_state: 'connected',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
       active_plugins: 1,
       uptime_seconds: 12,
     }

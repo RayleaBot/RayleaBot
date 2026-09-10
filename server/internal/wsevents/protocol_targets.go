@@ -9,19 +9,22 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (s *ProtocolService) CurrentOneBot11ProtocolTargets(ctx context.Context) OneBot11ProtocolTargets {
+var ErrOneBotInstanceUnavailable = errors.New("指定的 OneBot11 实例不存在、未启用或不可用")
+
+func (s *ProtocolService) CurrentOneBot11ProtocolTargets(ctx context.Context, adapterID string) (OneBot11ProtocolTargets, error) {
 	response := OneBot11ProtocolTargets{
 		Protocol:     "onebot11",
 		Groups:       []OneBot11GroupTarget{},
 		PrivateUsers: []OneBot11PrivateTarget{},
 		Issues:       []OneBot11TargetIssue{},
 	}
-	if s.adapter == nil {
-		response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "protocol", Message: "OneBot11 协议不可用"})
-		return response
+	ingress, ok := s.OneBot11Ingress(adapterID)
+	if !ok {
+		return response, ErrOneBotInstanceUnavailable
 	}
+	adapter := ingress.shell
 
-	groupsResult, friendsResult := s.readOneBot11ProtocolTargets(ctx)
+	groupsResult, friendsResult := s.readOneBot11ProtocolTargets(ctx, adapter)
 	if groupsResult.err != nil {
 		response.Issues = append(response.Issues, oneBot11TargetIssue("groups", "群聊列表读取失败", groupsResult.err))
 	} else {
@@ -49,7 +52,7 @@ func (s *ProtocolService) CurrentOneBot11ProtocolTargets(ctx context.Context) On
 	}
 
 	response.Available = groupsResult.err == nil && friendsResult.err == nil
-	return response
+	return response, nil
 }
 
 type oneBot11GroupsResult struct {
@@ -62,7 +65,7 @@ type oneBot11FriendsResult struct {
 	err     error
 }
 
-func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context) (oneBot11GroupsResult, oneBot11FriendsResult) {
+func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context, adapter *onebot11.Shell) (oneBot11GroupsResult, oneBot11FriendsResult) {
 	timeout := s.oneBot11TargetTimeout()
 	groupCtx, cancelGroups := context.WithTimeout(ctx, timeout)
 	defer cancelGroups()
@@ -74,11 +77,11 @@ func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context) (oneB
 	groupDone := groupCtx.Done()
 	friendDone := friendCtx.Done()
 	go func(ch chan<- oneBot11GroupsResult) {
-		groups, err := s.adapter.ListGroups(groupCtx)
+		groups, err := adapter.ListGroups(groupCtx)
 		ch <- oneBot11GroupsResult{groups: groups, err: err}
 	}(groupsCh)
 	go func(ch chan<- oneBot11FriendsResult) {
-		friends, err := s.adapter.ListFriends(friendCtx)
+		friends, err := adapter.ListFriends(friendCtx)
 		ch <- oneBot11FriendsResult{friends: friends, err: err}
 	}(friendsCh)
 
@@ -154,15 +157,16 @@ func (s *ProtocolService) oneBot11TargetTimeout() time.Duration {
 	return 3 * time.Second
 }
 
-func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, items []OneBot11IdentityResolveItem) OneBot11IdentityResolveResult {
+func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, adapterID string, items []OneBot11IdentityResolveItem) (OneBot11IdentityResolveResult, error) {
 	response := OneBot11IdentityResolveResult{
 		Items:  []OneBot11Identity{},
 		Issues: []OneBot11TargetIssue{},
 	}
-	if s.adapter == nil {
-		response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "protocol", Message: "OneBot11 协议不可用"})
-		return response
+	ingress, ok := s.OneBot11Ingress(adapterID)
+	if !ok {
+		return response, ErrOneBotInstanceUnavailable
 	}
+	adapter := ingress.shell
 
 	seen := map[string]struct{}{}
 	for _, item := range items {
@@ -181,7 +185,7 @@ func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, items [
 
 		switch targetType {
 		case "group":
-			member, err := s.adapter.GetGroupMemberInfo(ctx, targetID, userID)
+			member, err := adapter.GetGroupMemberInfo(ctx, targetID, userID)
 			if err != nil {
 				response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "identity", Message: "群成员身份读取失败"})
 				continue
@@ -202,7 +206,7 @@ func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, items [
 				AvatarURL:     oneBot11AvatarURL(userID),
 			})
 		case "private":
-			stranger, err := s.adapter.GetStrangerInfo(ctx, userID)
+			stranger, err := adapter.GetStrangerInfo(ctx, userID)
 			if err != nil {
 				response.Issues = append(response.Issues, OneBot11TargetIssue{Scope: "identity", Message: "私聊身份读取失败"})
 				continue
@@ -220,5 +224,5 @@ func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, items [
 			})
 		}
 	}
-	return response
+	return response, nil
 }

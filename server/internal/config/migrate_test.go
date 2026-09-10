@@ -224,9 +224,10 @@ func TestLoadBacksUpAndRewritesAMigratedConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	instance, settings, ok := cfg.PrimaryOneBot11()
-	if !ok || instance.ID != DefaultOneBot11AdapterID {
-		t.Fatalf("PrimaryOneBot11() = %+v, %t, want the migrated instance", instance, ok)
+	instance, exists := cfg.AdapterByID(DefaultOneBot11AdapterID)
+	settings, ok := cfg.OneBot11Settings(DefaultOneBot11AdapterID)
+	if !ok || !exists || instance.ID != DefaultOneBot11AdapterID {
+		t.Fatalf("OneBot11Settings() = %+v, %t, want the migrated instance", instance, ok)
 	}
 	if settings.ReverseWS.URL != "wss://bot.example.com/reverse" {
 		t.Fatalf("ReverseWS.URL = %q, want the configured URL", settings.ReverseWS.URL)
@@ -364,8 +365,8 @@ func TestLoadMigratesTheDefaultTemplateToo(t *testing.T) {
 	if cfg.Server.Port != 9090 {
 		t.Fatalf("Server.Port = %d, want the user value 9090", cfg.Server.Port)
 	}
-	_, settings, ok := cfg.PrimaryOneBot11()
+	settings, ok := cfg.OneBot11Settings(DefaultOneBot11AdapterID)
 	if !ok || settings.ForwardWS.URL != "ws://127.0.0.1:2658" {
-		t.Fatalf("PrimaryOneBot11() = %+v, %t, want the migrated user transport", settings, ok)
+		t.Fatalf("OneBot11Settings() = %+v, %t, want the migrated user transport", settings, ok)
 	}
 }

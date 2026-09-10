@@ -25,7 +25,8 @@ func (s *ProtocolService) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
 	if s == nil || s.config == nil {
 		return OneBot11Ingress{}, false
 	}
-	instance, configured := s.config.CurrentConfig().AdapterByID(id)
+	cfg := s.config.CurrentConfig()
+	instance, configured := cfg.AdapterByID(id)
 	if !configured || !instance.Enabled || instance.Type != config.AdapterTypeOneBot11 {
 		return OneBot11Ingress{}, false
 	}
@@ -33,7 +34,7 @@ func (s *ProtocolService) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
 	if !ok || shell == nil {
 		return OneBot11Ingress{}, false
 	}
-	settings, ok := s.config.CurrentConfig().OneBot11Settings(id)
+	settings, ok := cfg.OneBot11Settings(id)
 	if !ok {
 		return OneBot11Ingress{}, false
 	}

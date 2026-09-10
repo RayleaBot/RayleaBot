@@ -27,8 +27,8 @@ type AuthBootstrapState interface {
 	IsBootstrapped() bool
 }
 
-type AdapterStateSource interface {
-	CurrentState() string
+type AdapterStatesSource interface {
+	AdapterStates() []AdapterStatus
 }
 
 type RuntimeRegistry interface {
@@ -60,7 +60,7 @@ type Deps struct {
 	Logger              *slog.Logger
 	StartedAt           time.Time
 	Auth                AuthBootstrapState
-	Adapter             AdapterStateSource
+	Adapters            AdapterStatesSource
 	Plugins             plugins.CatalogView
 	Runtimes            RuntimeRegistry
 	Renderer            RendererState
@@ -83,7 +83,7 @@ type Service struct {
 	logger              *slog.Logger
 	startedAt           time.Time
 	auth                AuthBootstrapState
-	adapter             AdapterStateSource
+	adapters            AdapterStatesSource
 	plugins             plugins.CatalogView
 	runtimes            RuntimeRegistry
 	renderer            RendererState
@@ -118,7 +118,7 @@ func New(deps Deps) (*Service, error) {
 		logger:              deps.Logger,
 		startedAt:           deps.StartedAt,
 		auth:                deps.Auth,
-		adapter:             deps.Adapter,
+		adapters:            deps.Adapters,
 		plugins:             deps.Plugins,
 		runtimes:            deps.Runtimes,
 		renderer:            deps.Renderer,
@@ -177,14 +177,14 @@ func (s *Service) SchedulerTimezone() string {
 }
 
 func (s *Service) StatusSnapshot() StatusSnapshot {
-	adapterState := ""
-	if s.adapter != nil {
-		adapterState = s.adapter.CurrentState()
+	adapters := []AdapterStatus{}
+	if s.adapters != nil {
+		adapters = append(adapters, s.adapters.AdapterStates()...)
 	}
 	runningPlugins, failedPlugins := s.pluginStateCounts()
 	return StatusSnapshot{
 		Status:          s.systemStatus(),
-		AdapterState:    adapterState,
+		Adapters:        adapters,
 		ActivePlugins:   s.activePluginCount(),
 		RunningPlugins:  runningPlugins,
 		FailedPlugins:   failedPlugins,

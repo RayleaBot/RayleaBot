@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: A new distribution without chat adapters has no placeholder OneBot instance.
+request:
+  method: GET
+  path: /api/adapters
+response:
+  status: 200
+  body:
+    adapters: []
+    available_protocols:
+      - protocol: onebot11
+        display_name: OneBot11
+        description: 添加 OneBot11 连接。
+      - protocol: qqofficial
+        display_name: QQ 官方机器人
+        description: 添加 QQ 官方机器人连接。
+expect:
+  valid: true

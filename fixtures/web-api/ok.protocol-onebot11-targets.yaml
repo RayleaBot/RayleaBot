@@ -3,7 +3,7 @@ case: ok
 description: OneBot11 selectable targets are separated into groups and private users.
 request:
   method: GET
-  path: /api/protocols/onebot11/targets
+  path: /api/adapters/onebot11/onebot11/targets
 response:
   status: 200
   body:

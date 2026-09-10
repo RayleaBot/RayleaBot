@@ -4,7 +4,7 @@ type DashboardRefreshInput = {
   recoveryConfirmNote: Ref<string>
   recoverySummary: ComputedRef<any>
   selectedRecoveryReviewIds: Ref<string[]>
-  protocolsStore: {
+  adaptersStore: {
     refresh: () => Promise<unknown>
   }
   systemStore: {
@@ -19,7 +19,7 @@ export function useDashboardRefresh(input: DashboardRefreshInput) {
     try {
       await input.systemStore.refreshAll()
       try {
-        await input.protocolsStore.refresh()
+        await input.adaptersStore.refresh()
       } catch {
         // protocol store error state is optional on the dashboard
       }

@@ -85,11 +85,6 @@ export type DispatcherRuntimeObservabilityEventPayload = {
   drops_by_reason?: DispatcherRuntimeDropRow[]
 }
 
-export type ProtocolSnapshotEventPayload = {
-  protocol: 'onebot11'
-  protocol_snapshot: components['schemas']['OneBot11ProtocolSnapshotResponse']
-}
-
 export type AdaptersSnapshotEventPayload = {
   adapters: components['schemas']['AdapterDescriptor'][]
 }
@@ -101,7 +96,6 @@ export type EventsPayload =
   | GenericManagementEventPayload
   | BridgeRuntimeObservabilityEventPayload
   | DispatcherRuntimeObservabilityEventPayload
-  | ProtocolSnapshotEventPayload
   | AdaptersSnapshotEventPayload
 
 export type PluginConsoleFrameData = {

@@ -116,7 +116,7 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	firstStatus := readServiceStatusReplayFrame(t, conn)
 	assertServiceStatusReplayFrame(t, firstStatus, "running")
 	first := readProtocolReplayFrame(t, conn)
-	assertProtocolReplayFrame(t, first, "protocol_snapshot")
+	assertProtocolReplayFrame(t, first, "adapters")
 }
 
 func TestEventsWebSocketReplaysServiceStatusOnConnect(t *testing.T) {
@@ -164,7 +164,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 		t.Fatalf("unexpected reverse websocket status: got %d want %d", unauthorizedResp.StatusCode, http.StatusUnauthorized)
 	}
 
-	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters", nil)
 	if err != nil {
 		t.Fatalf("create protocol snapshot request: %v", err)
 	}
@@ -183,17 +183,17 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 	readServiceStatusReplayFrame(t, conn)
 	first := readProtocolReplayFrame(t, conn)
-	assertProtocolReplayFrame(t, first, "protocol_snapshot")
+	assertProtocolReplayFrame(t, first, "adapters")
 
 	data, ok := first["data"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected websocket data object, got %#v", first["data"])
 	}
-	wsSnapshot, ok := data["protocol_snapshot"].(map[string]any)
+	wsSnapshot, ok := data["adapters"].([]any)
 	if !ok {
-		t.Fatalf("expected websocket protocol snapshot object, got %#v", data["protocol_snapshot"])
+		t.Fatalf("expected websocket protocol snapshot object, got %#v", data["adapters"])
 	}
-	if !reflect.DeepEqual(wsSnapshot, httpSnapshot) {
+	if !reflect.DeepEqual(wsSnapshot, httpSnapshot["adapters"]) {
 		t.Fatalf("unexpected websocket protocol snapshot: got %#v want %#v", wsSnapshot, httpSnapshot)
 	}
 }
@@ -417,7 +417,7 @@ func testBridgeEvent() chatevent.NormalizedEvent {
 }
 
 func readProtocolReplayFrame(t *testing.T, conn *websocket.Conn) map[string]any {
-	return readEventsReplayFrameByKey(t, conn, "protocol_snapshot")
+	return readEventsReplayFrameByKey(t, conn, "adapters")
 }
 
 func readServiceStatusReplayFrame(t *testing.T, conn *websocket.Conn) map[string]any {
@@ -465,9 +465,6 @@ func assertProtocolReplayFrame(t *testing.T, frame map[string]any, key string) {
 	data, ok := frame["data"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected data object, got %#v", frame["data"])
-	}
-	if data["protocol"] != "onebot11" {
-		t.Fatalf("unexpected protocol: %#v", data["protocol"])
 	}
 	if _, ok := data[key]; !ok {
 		t.Fatalf("expected %s in replay payload: %#v", key, data)

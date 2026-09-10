@@ -66,7 +66,7 @@ func TestSystemDiagnosticsHTTP(t *testing.T) {
 				SchemaVersion:     "000004",
 				AppliedMigrations: []systemsvc.DiagnosticsMigration{},
 			},
-			Adapter:      systemsvc.DiagnosticsAdapter{State: "connected"},
+			Adapters:     []systemsvc.AdapterStatus{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
 			Plugins:      systemsvc.DiagnosticsPlugins{},
 			Render:       systemsvc.DiagnosticsIssueGroup{Status: "ok", Issues: []health.DiagnosticIssue{}},
 			ThirdParty:   systemsvc.DiagnosticsThirdParty{Platforms: []systemsvc.DiagnosticsThirdPartyPlatform{}},

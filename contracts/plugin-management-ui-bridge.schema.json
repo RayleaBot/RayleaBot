@@ -315,6 +315,23 @@
     {
       "if": {
         "properties": {
+          "type": { "enum": ["protocol.targets.reload", "protocol.identities.resolve"] }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "required": ["adapter_id"],
+            "properties": {
+              "adapter_id": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "显式选择 OneBot11 实例；不按配置顺序推断。" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "type": {
             "enum": [
               "protocol.targets.changed",

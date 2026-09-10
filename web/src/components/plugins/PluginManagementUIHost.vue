@@ -362,8 +362,8 @@ function handlePortMessage(event: MessageEvent, session: number) {
     case 'ui.resize': resizeFrame(payload?.height); return
     case 'scheduler.trigger': void triggerSchedulerJob(String(payload?.job_id ?? ''), id); return
     case 'render_template.open': void openRenderTemplate(String(payload?.template_id ?? ''), id); return
-    case 'protocol.targets.reload': void reloadProtocolTargets(id); return
-    case 'protocol.identities.resolve': void resolveProtocolIdentities(payload?.items, id); return
+    case 'protocol.targets.reload': void reloadProtocolTargets(payload?.adapter_id, id); return
+    case 'protocol.identities.resolve': void resolveProtocolIdentities(payload?.adapter_id, payload?.items, id); return
     case 'plugin.action.invoke': void invokePluginManagementAction(String(payload?.action ?? ''), toRecord(payload?.payload) ?? {}, id); return
     default: postPort('error', { code: 'plugin.protocol_violation', message: t('plugins.managementUi.invalidBridgeMessage') }, id)
   }
@@ -486,16 +486,26 @@ async function openRenderTemplate(templateID: string, id?: string) {
   try { await navigate(buildRenderTemplateLocation(templateID)) } catch (error) { postError(error, id, session) }
 }
 
-async function reloadProtocolTargets(id?: string) {
+function protocolAdapterID(value: unknown, id?: string): string | null {
+  if (typeof value === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(value)) return value
+  postPort('error', { code: 'platform.invalid_request', message: '请选择有效的连接实例。' }, id)
+  return null
+}
+
+async function reloadProtocolTargets(value: unknown, id?: string) {
+  const adapterID = protocolAdapterID(value, id)
+  if (adapterID === null) return
   if (!hasPermissions(['group.list', 'friend.list'], id)) return
   const session = bridgeSession
   try {
-    const response = await apiRequest<OneBot11ProtocolTargetsResponse>('/api/protocols/onebot11/targets')
+    const response = await apiRequest<OneBot11ProtocolTargetsResponse>(`/api/adapters/${encodeURIComponent(adapterID)}/onebot11/targets`)
     postPort('protocol.targets.changed', response, id, session)
   } catch (error) { postError(error, id, session) }
 }
 
-async function resolveProtocolIdentities(value: unknown, id?: string) {
+async function resolveProtocolIdentities(adapter: unknown, value: unknown, id?: string) {
+  const adapterID = protocolAdapterID(adapter, id)
+  if (adapterID === null) return
   const items = Array.isArray(value) ? value.filter((item): item is OneBot11IdentityResolveItem => {
     const record = toRecord(item)
     return (record?.target_type === 'group' || record?.target_type === 'private') && typeof record.target_id === 'string' && typeof record.user_id === 'string'
@@ -504,7 +514,7 @@ async function resolveProtocolIdentities(value: unknown, id?: string) {
   if (!hasPermissions(permissions, id)) return
   const session = bridgeSession
   try {
-    const response = await apiRequest<OneBot11IdentityResolveResponse>('/api/protocols/onebot11/identities/resolve', { method: 'POST', body: { items } })
+    const response = await apiRequest<OneBot11IdentityResolveResponse>(`/api/adapters/${encodeURIComponent(adapterID)}/onebot11/identities/resolve`, { method: 'POST', body: { items } })
     postPort('protocol.identities.resolved', response, id, session)
   } catch (error) { postError(error, id, session) }
 }

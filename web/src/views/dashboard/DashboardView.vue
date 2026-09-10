@@ -60,7 +60,7 @@ const {
   loading,
   openRecoveryPlugin,
   pendingRecoveryPlugins,
-  protocolSnapshot,
+  adapters,
   readinessToastLevel,
   readinessToastMessage,
   readinessToastTitle,
@@ -147,14 +147,13 @@ function getEventSeverityIcon(severity?: string) {
 }
 
 const protocolIssue = computed(() => {
-  const snapshot = protocolSnapshot.value
-  if (!snapshot) {
-    return null
-  }
-  if (!['degraded', 'failed'].includes(snapshot.readiness_status)) {
-    return null
-  }
-  return snapshot.recent_transport_issues[0] ?? null
+  const issues = adapters.value.flatMap(adapter => {
+    const snapshot = adapter.onebot11
+    if (!adapter.enabled || !snapshot || !['degraded', 'failed'].includes(snapshot.readiness_status)) return []
+    return snapshot.recent_transport_issues.map(issue => ({ ...issue, summary: `${adapter.display_name}：${issue.summary}` }))
+  })
+  if (issues.length === 0) return null
+  return { code: issues.map(issue => issue.code).join(','), severity: issues.some(issue => issue.severity === 'error') ? 'error' : 'warning', summary: issues.map(issue => issue.summary).join('；') }
 })
 
 const readinessToast = computed(() => {

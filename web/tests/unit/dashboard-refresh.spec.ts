@@ -7,13 +7,13 @@ import { useDashboardRefresh } from '@/views/dashboard/useDashboardRefresh'
 describe('dashboard state sync', () => {
   it('loads the dashboard snapshots when the page mounts', async () => {
     const refreshAll = vi.fn().mockResolvedValue(undefined)
-    const refreshProtocols = vi.fn().mockResolvedValue(undefined)
+    const refreshAdapters = vi.fn().mockResolvedValue(undefined)
 
     const Harness = defineComponent({
       setup() {
         useDashboardRefresh({
-          protocolsStore: {
-            refresh: refreshProtocols,
+          adaptersStore: {
+            refresh: refreshAdapters,
           },
           recoveryConfirmNote: ref(''),
           recoverySummary: computed(() => null),
@@ -31,7 +31,7 @@ describe('dashboard state sync', () => {
     await Promise.resolve()
 
     expect(refreshAll).toHaveBeenCalledTimes(1)
-    expect(refreshProtocols).toHaveBeenCalledTimes(1)
+    expect(refreshAdapters).toHaveBeenCalledTimes(1)
   })
 
   it('keeps selected recovery review ids aligned with the current summary', async () => {
@@ -44,7 +44,7 @@ describe('dashboard state sync', () => {
     const Harness = defineComponent({
       setup() {
         useDashboardRefresh({
-          protocolsStore: {
+          adaptersStore: {
             refresh: vi.fn().mockResolvedValue(undefined),
           },
           recoveryConfirmNote,

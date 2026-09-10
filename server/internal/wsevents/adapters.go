@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
+	"github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 // AdapterIdentity is the bot a connected adapter authenticates as.
@@ -20,13 +20,14 @@ type AdapterIdentity struct {
 // management surface. An instance exists because the operator added it, so the
 // listing says what it is doing rather than whether it exists.
 type AdapterDescriptor struct {
-	ID          string           `json:"id"`
-	Protocol    string           `json:"protocol"`
-	DisplayName string           `json:"display_name"`
-	Enabled     bool             `json:"enabled"`
-	State       string           `json:"state"`
-	Summary     string           `json:"summary"`
-	Identity    *AdapterIdentity `json:"identity,omitempty"`
+	ID          string                    `json:"id"`
+	Protocol    string                    `json:"protocol"`
+	DisplayName string                    `json:"display_name"`
+	Enabled     bool                      `json:"enabled"`
+	State       string                    `json:"state"`
+	Summary     string                    `json:"summary"`
+	Identity    *AdapterIdentity          `json:"identity,omitempty"`
+	OneBot11    *OneBot11ProtocolSnapshot `json:"onebot11,omitempty"`
 }
 
 // AdapterProtocolDescriptor is a protocol the operator can add an instance of.
@@ -117,6 +118,8 @@ func (s *ProtocolService) oneBot11Descriptor(instance config.AdapterInstance) Ad
 		return descriptor
 	}
 	snapshot := shell.Snapshot()
+	details := oneBot11ProtocolSnapshot(snapshot)
+	descriptor.OneBot11 = &details
 	descriptor.State = string(snapshot.State)
 	descriptor.Summary = oneBot11Summary(instance, snapshot)
 	descriptor.Identity = oneBot11Identity(snapshot)
@@ -211,4 +214,14 @@ func oneBot11Summary(instance config.AdapterInstance, snapshot onebot11.Snapshot
 	default:
 		return "等待连接。"
 	}
+}
+
+// AdapterStates projects the same configured collection for status and diagnostics.
+func (s *ProtocolService) AdapterStates() []system.AdapterStatus {
+	descriptors := s.Adapters().Adapters
+	states := make([]system.AdapterStatus, 0, len(descriptors))
+	for _, descriptor := range descriptors {
+		states = append(states, system.AdapterStatus{ID: descriptor.ID, Protocol: descriptor.Protocol, Enabled: descriptor.Enabled, State: descriptor.State})
+	}
+	return states
 }

@@ -432,7 +432,7 @@ func TestLookupAddressesCollectionEntriesByKey(t *testing.T) {
 
 func mustOneBot(t *testing.T, cfg internalconfig.Config) internalconfig.OneBotConfig {
 	t.Helper()
-	_, settings, ok := cfg.PrimaryOneBot11()
+	settings, ok := cfg.OneBot11Settings(internalconfig.DefaultOneBot11AdapterID)
 	if !ok {
 		t.Fatal("resolved config has no onebot11 adapter")
 	}

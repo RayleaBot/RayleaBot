@@ -125,10 +125,20 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	}
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *wsevents.ServiceStatusService
-	var systemAdapter systemsvc.AdapterStateSource
-	if eventStack.Adapter != nil {
-		systemAdapter = eventStack.Adapter
+	// A concrete pointer assigned straight into the interface would hand the
+	// service a typed nil that passes a nil check, so only real clients enter
+	// the map the protocol surface reads.
+	qqStatus := make(map[string]wsevents.QQOfficialAdapter, len(eventStack.QQOfficial))
+	for id, client := range eventStack.QQOfficial {
+		if client == nil {
+			continue
+		}
+		qqStatus[id] = client
 	}
+	protocolService := wsevents.NewProtocolService(runtimeState, wsevents.ProtocolServiceAdapters{
+		OneBot11:   eventStack.OneBotShells,
+		QQOfficial: qqStatus,
+	})
 	var systemRenderer systemsvc.RendererState
 	if renderer != nil {
 		systemRenderer = renderer
@@ -140,7 +150,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		CurrentStartedAt: runtimeState.StartedAt,
 		Logger:           runtimeState.RuntimeLogger(),
 		Auth:             platform.Auth,
-		Adapter:          systemAdapter,
+		Adapters:         protocolService,
 		Plugins:          pluginStack.Plugins,
 		Runtimes:         runtimeRegistry,
 		Renderer:         systemRenderer,
@@ -188,21 +198,6 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		WhitelistRepo:    policyRepos.Whitelist,
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
-	})
-	// A concrete pointer assigned straight into the interface would hand the
-	// service a typed nil that passes a nil check, so only real clients enter
-	// the map the protocol surface reads.
-	qqStatus := make(map[string]wsevents.QQOfficialAdapter, len(eventStack.QQOfficial))
-	for id, client := range eventStack.QQOfficial {
-		if client == nil {
-			continue
-		}
-		qqStatus[id] = client
-	}
-	protocolService := wsevents.NewProtocolService(runtimeState, wsevents.ProtocolServiceAdapters{
-		OneBot11:        eventStack.OneBotShells,
-		QQOfficial:      qqStatus,
-		PrimaryOneBot11: eventStack.Adapter,
 	})
 	return serviceBuildResult{
 		Services: Services{

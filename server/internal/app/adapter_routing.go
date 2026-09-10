@@ -38,3 +38,11 @@ func (s EventState) EnrichEventMetadata(ctx context.Context, event chatevent.Nor
 	}
 	return event
 }
+
+func (s EventState) DedupDropsSnapshot() uint64 {
+	var total uint64
+	for _, shell := range s.OneBotShells {
+		total += shell.DedupDropsSnapshot()
+	}
+	return total
+}

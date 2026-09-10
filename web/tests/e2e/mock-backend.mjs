@@ -1,4 +1,4 @@
-import { computeProtocolSnapshotFromConfig, redactConfigSecrets, restoreRedactedConfigSecrets, computeRestartRequiredForConfig, computeConfigApplyEffects } from './mock-config.mjs'
+import { redactConfigSecrets, restoreRedactedConfigSecrets, computeRestartRequiredForConfig, computeConfigApplyEffects } from './mock-config.mjs'
 import { listLogPage } from './mock-logs.mjs'
 import http from 'node:http'
 import { createHash } from 'node:crypto'
@@ -156,7 +156,6 @@ function baseState() {
     config: structuredClone(fixtures.configGet.response.body.config),
     effectiveTimezone: 'Asia/Shanghai',
     loadedAdapterIds: fixtures.configGet.response.body.config.adapters.map((entry) => entry.id),
-    protocolSnapshot: structuredClone(fixtures.protocolSnapshot.response.body),
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
@@ -1469,14 +1468,12 @@ const server = http.createServer(async (request, response) => {
     state.config = restoreRedactedConfigSecrets(payload, state.config)
     syncGovernanceCommandPolicyFromConfig(state.config)
     const applyEffects = computeConfigApplyEffects(previousConfig, state.config)
-    state.protocolSnapshot = computeProtocolSnapshotFromConfig(state.config, state.protocolSnapshot)
     broadcast('events', {
       channel: 'events',
       type: 'events.received',
       timestamp: new Date().toISOString(),
       data: {
-        protocol: 'onebot11',
-        protocol_snapshot: structuredClone(state.protocolSnapshot),
+        adapters: adapterDescriptors(),
       },
     })
     const snapshot = redactConfigSecrets(state.config)
@@ -1493,28 +1490,12 @@ const server = http.createServer(async (request, response) => {
   if (pathname === '/api/adapters' && request.method === 'GET') {
     if (!requireAuth(request, response)) return
     json(response, 200, {
-      adapters: state.config.adapters.filter((entry) => state.loadedAdapterIds.includes(entry.id)).map((entry) => ({
-        id: entry.id,
-        protocol: entry.type,
-        display_name: entry.type === 'onebot11' ? 'OneBot11' : 'QQ 官方机器人',
-        enabled: entry.enabled,
-        state: entry.enabled ? 'connecting' : 'stopped',
-        summary: entry.enabled ? '正在连接协议端。' : '此连接已配置，当前未启用。',
-      })),
+      adapters: adapterDescriptors(),
       available_protocols: [
         { protocol: 'onebot11', display_name: 'OneBot11', description: '连接 NapCat 等实现 OneBot11 的协议端。' },
         { protocol: 'qqofficial', display_name: 'QQ 官方机器人', description: '使用 QQ 开放平台的 AppID 和 AppSecret 接入。' },
       ],
     })
-    return
-  }
-
-  if (pathname === '/api/protocols/onebot11' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, structuredClone(state.protocolSnapshot))
     return
   }
 
@@ -2259,7 +2240,7 @@ wsServer.on('connection', (socket, request) => {
       ...fixtures.wsEventsProtocolSnapshot.frame,
       data: {
         ...fixtures.wsEventsProtocolSnapshot.frame.data,
-        protocol_snapshot: structuredClone(state.protocolSnapshot),
+        adapters: adapterDescriptors(),
       },
     })), 80)
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsEvents.frame)), 120)
@@ -2305,4 +2286,16 @@ server.listen(4010, '127.0.0.1', () => {
 
 function sameScope(a, b) {
  return a.kind === b.kind && a.source_protocol === b.source_protocol && a.source_adapter === (b.source_adapter ?? '') && a.bot_id === (b.bot_id ?? '')
+}
+
+function adapterDescriptors() {
+  return state.config.adapters.map((entry) => ({
+    id: entry.id,
+    protocol: entry.type,
+    display_name: `${entry.type === 'onebot11' ? 'OneBot11' : 'QQ 官方机器人'}（${entry.id}）`,
+    enabled: entry.enabled,
+    state: !state.loadedAdapterIds.includes(entry.id) || !entry.enabled ? 'stopped' : 'connecting',
+    summary: !state.loadedAdapterIds.includes(entry.id) ? '重启后启动此连接。' : entry.enabled ? '正在连接协议端。' : '此连接已配置，当前未启用。',
+    ...(entry.type === 'onebot11' && state.loadedAdapterIds.includes(entry.id) ? { onebot11: structuredClone(fixtures.protocolSnapshot.response.body.adapters[0].onebot11) } : {}),
+  }))
 }

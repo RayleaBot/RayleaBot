@@ -15,7 +15,7 @@ func TestInstanceSwitchRestoresConfiguredIngressWithoutRestart(t *testing.T) {
 	effective, _ := cfg.OneBot11RuntimeSettings("fixture")
 	shell := onebot11.New("fixture", effective, cfg.Adapter, nil)
 	source := &adapterConfigSource{cfg: cfg}
-	service := NewProtocolService(source, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"fixture": shell}, PrimaryOneBot11: shell})
+	service := NewProtocolService(source, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"fixture": shell}})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		cancel()

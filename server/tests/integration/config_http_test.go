@@ -438,7 +438,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 		t.Fatalf("unexpected restart_required: %#v", body["restart_required"])
 	}
 
-	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters", nil)
 	if err != nil {
 		t.Fatalf("create protocol snapshot request: %v", err)
 	}
@@ -449,7 +449,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	}
 	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
 
-	snapshotBody := decodeBody(t, readAll(t, snapshotResp))
+	snapshotBody := oneBotSnapshotForAdapter(t, decodeBody(t, readAll(t, snapshotResp)), "onebot11")
 	transports, ok := snapshotBody["transport_status"].([]any)
 	if !ok {
 		t.Fatalf("unexpected transport_status: %#v", snapshotBody["transport_status"])
@@ -516,7 +516,7 @@ var (
 
 func liveOneBot(t *testing.T, application *internalapp.App) internalconfig.OneBotConfig {
 	t.Helper()
-	_, settings, ok := application.CurrentConfig().PrimaryOneBot11()
+	settings, ok := application.CurrentConfig().OneBot11Settings(internalconfig.DefaultOneBot11AdapterID)
 	if !ok {
 		t.Fatal("live config has no onebot11 adapter")
 	}

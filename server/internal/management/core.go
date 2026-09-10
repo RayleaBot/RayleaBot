@@ -72,7 +72,7 @@ type coreSetupStatusResponse struct {
 
 type CoreSystemStatusResponse struct {
 	Status          string                         `json:"status"`
-	AdapterState    string                         `json:"adapter_state"`
+	Adapters        []systemsvc.AdapterStatus      `json:"adapters"`
 	ActivePlugins   int                            `json:"active_plugins"`
 	RunningPlugins  int                            `json:"running_plugins"`
 	FailedPlugins   int                            `json:"failed_plugins"`
@@ -169,7 +169,7 @@ func (h *CoreHandlers) writeSystemStatus(w http.ResponseWriter, statusCode int) 
 func coreStatusResponseFromSnapshot(snapshot systemsvc.StatusSnapshot) CoreSystemStatusResponse {
 	return CoreSystemStatusResponse{
 		Status:          snapshot.Status,
-		AdapterState:    snapshot.AdapterState,
+		Adapters:        snapshot.Adapters,
 		ActivePlugins:   snapshot.ActivePlugins,
 		RunningPlugins:  snapshot.RunningPlugins,
 		FailedPlugins:   snapshot.FailedPlugins,

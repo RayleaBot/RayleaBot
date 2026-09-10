@@ -3,7 +3,7 @@ case: ok
 description: OneBot11 identity resolution returns refreshed subscriber display data.
 request:
   method: POST
-  path: /api/protocols/onebot11/identities/resolve
+  path: /api/adapters/onebot11/onebot11/identities/resolve
   body:
     items:
       - target_type: group

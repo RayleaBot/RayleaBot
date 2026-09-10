@@ -1,7 +1,5 @@
 package config
 
-import "net/url"
-
 func Load(configPath, schemaPath string) (Config, Summary, error) {
 	var cfg Config
 
@@ -33,69 +31,32 @@ func Validate(configPath, schemaPath string) (Config, Summary, error) {
 }
 
 type Summary struct {
-	ConfigPath       string
-	SchemaPath       string
-	ServerHost       string
-	ServerPort       int
-	DatabaseEngine   string
-	DatabasePath     string
-	WebExposureMode  string
-	LoggingLevel     string
-	SuperAdminCount  int
-	OneBotConfigured bool
-	OneBotEndpoint   string
+	ConfigPath      string
+	SchemaPath      string
+	ServerHost      string
+	ServerPort      int
+	DatabaseEngine  string
+	DatabasePath    string
+	WebExposureMode string
+	LoggingLevel    string
+	SuperAdminCount int
+	AdapterCount    int
 }
 
 func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) Summary {
-	var endpoint string
-	if _, settings, ok := cfg.PrimaryOneBot11(); ok {
-		endpoint = firstConfiguredOneBotEndpoint(settings)
-	}
 	if schemaPath == "" {
 		schemaPath = ConfigUserSchemaID
 	}
 	return Summary{
-		ConfigPath:       configPath,
-		SchemaPath:       schemaPath,
-		ServerHost:       cfg.Server.Host,
-		ServerPort:       cfg.Server.Port,
-		DatabaseEngine:   cfg.Database.Engine,
-		DatabasePath:     cfg.Database.Path,
-		WebExposureMode:  cfg.Web.ExposureMode,
-		LoggingLevel:     cfg.Log.Level,
-		SuperAdminCount:  len(cfg.Admin.SuperAdmins),
-		OneBotConfigured: endpoint != "",
-		OneBotEndpoint:   sanitizeOneBotEndpoint(endpoint),
+		ConfigPath:      configPath,
+		SchemaPath:      schemaPath,
+		ServerHost:      cfg.Server.Host,
+		ServerPort:      cfg.Server.Port,
+		DatabaseEngine:  cfg.Database.Engine,
+		DatabasePath:    cfg.Database.Path,
+		WebExposureMode: cfg.Web.ExposureMode,
+		LoggingLevel:    cfg.Log.Level,
+		SuperAdminCount: len(cfg.Admin.SuperAdmins),
+		AdapterCount:    len(cfg.Adapters),
 	}
-}
-
-func firstConfiguredOneBotEndpoint(cfg OneBotConfig) string {
-	for _, endpoint := range []string{
-		cfg.ForwardWS.URL,
-		cfg.ReverseWS.URL,
-		cfg.HTTPAPI.URL,
-		cfg.Webhook.URL,
-	} {
-		if endpoint != "" {
-			return endpoint
-		}
-	}
-	return ""
-}
-
-func sanitizeOneBotEndpoint(raw string) string {
-	if raw == "" {
-		return ""
-	}
-
-	parsed, err := url.Parse(raw)
-	if err != nil {
-		return ""
-	}
-
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return ""
-	}
-
-	return parsed.Scheme + "://" + parsed.Host
 }

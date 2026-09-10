@@ -17,7 +17,7 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 		System: coreTestSystem{
 			snapshot: systemsvc.StatusSnapshot{
 				Status:          "running",
-				AdapterState:    "connected",
+				Adapters:        []systemsvc.AdapterStatus{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
 				ActivePlugins:   2,
 				RunningPlugins:  1,
 				FailedPlugins:   1,

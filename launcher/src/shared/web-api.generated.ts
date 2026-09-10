@@ -463,7 +463,7 @@ export interface paths {
         };
         /**
          * 列出聊天适配器及其连接状态
-         * @description 返回全部正式支持的聊天适配器，包含尚未配置的类型，供管理面展示已添加的协议 并引导添加新协议。每个条目说明该适配器是否已配置、是否启用及当前连接状态。
+         * @description 返回已配置的适配器实例及其状态，按配置顺序排列，无实例时 adapters 为 []。 OneBot 实例包含独立传输摘要。available_protocols 列出可添加实例的协议。
          */
         get: operations["listAdapters"];
         put?: never;
@@ -474,31 +474,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/protocols/onebot11": {
+    "/api/adapters/{adapterID}/onebot11/targets": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Query the current OneBot11 protocol snapshot without reconstructing it from system summary fragments. */
-        get: operations["getOneBot11ProtocolSnapshot"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/protocols/onebot11/targets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List current OneBot11 group and private message targets. */
+        /**
+         * List current OneBot11 group and private message targets.
+         * @description 仅查询 adapterID 指定的实例，绝不选择其他实例。
+         *     实例不存在、已禁用、协议不匹配或尚未启动时返回 400 platform.invalid_request。
+         */
         get: operations["getOneBot11ProtocolTargets"];
         put?: never;
         post?: never;
@@ -508,7 +495,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/protocols/onebot11/identities/resolve": {
+    "/api/adapters/{adapterID}/onebot11/identities/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -517,7 +504,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resolve OneBot11 user display identities for selected targets. */
+        /**
+         * Resolve OneBot11 user display identities for selected targets.
+         * @description 仅查询 adapterID 指定的实例，绝不选择其他实例。
+         *     实例不存在、已禁用、协议不匹配或尚未启动时返回 400 platform.invalid_request。
+         */
         post: operations["resolveOneBot11ProtocolIdentities"];
         delete?: never;
         options?: never;
@@ -1387,8 +1378,9 @@ export interface components {
         SystemStatusResponse: {
             /** @enum {string} */
             status: "running" | "shutting_down";
-            adapter_state?: string;
-            /** @description Number of plugin runtimes currently active for compatibility with existing clients. */
+            /** @description 按配置顺序返回实例状态；无实例时为 []，不构造占位连接。 */
+            adapters: components["schemas"]["AdapterStatus"][];
+            /** @description Number of plugin runtimes currently active. */
             active_plugins?: number;
             /** @description Number of plugins currently in the running state. */
             running_plugins?: number;
@@ -1408,7 +1400,7 @@ export interface components {
             config: components["schemas"]["SystemDiagnosticsConfig"];
             secrets: components["schemas"]["SystemDiagnosticsSecrets"];
             database: components["schemas"]["SystemDiagnosticsDatabase"];
-            adapter: components["schemas"]["SystemDiagnosticsAdapter"];
+            adapters: components["schemas"]["AdapterStatus"][];
             plugins: components["schemas"]["SystemDiagnosticsPlugins"];
             render: components["schemas"]["SystemDiagnosticsIssueGroup"];
             third_party: components["schemas"]["SystemDiagnosticsThirdParty"];
@@ -1438,7 +1430,7 @@ export interface components {
             schema_path: string;
             database_engine: string;
             database_path: string;
-            onebot_configured: boolean;
+            adapter_count: number;
         };
         SystemDiagnosticsSecrets: {
             unresolved_refs: string[];
@@ -1452,8 +1444,11 @@ export interface components {
             name: string;
             applied_at: string;
         };
-        SystemDiagnosticsAdapter: {
-            state: string;
+        AdapterStatus: {
+            id: string;
+            protocol: components["schemas"]["AdapterProtocol"];
+            enabled: boolean;
+            state: components["schemas"]["AdapterState"];
         };
         SystemDiagnosticsPlugins: {
             total: number;
@@ -1544,6 +1539,8 @@ export interface components {
             state: components["schemas"]["AdapterState"];
             summary: string;
             identity?: components["schemas"]["AdapterIdentity"];
+            /** @description 此实例的 OneBot11 传输摘要；其他协议或尚未创建运行实例时省略。 */
+            onebot11?: components["schemas"]["OneBot11ProtocolSnapshotResponse"];
         };
         /** @description 可添加实例的聊天协议。 */
         AdapterProtocolDescriptor: {
@@ -3733,33 +3730,14 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
-    getOneBot11ProtocolSnapshot: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OneBot11 protocol snapshot. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OneBot11ProtocolSnapshotResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
     getOneBot11ProtocolTargets: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
+                adapterID: components["parameters"]["AdapterID"];
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -3773,6 +3751,7 @@ export interface operations {
                     "application/json": components["schemas"]["OneBot11ProtocolTargetsResponse"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
@@ -3781,7 +3760,10 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
+                adapterID: components["parameters"]["AdapterID"];
+            };
             cookie?: never;
         };
         requestBody: {

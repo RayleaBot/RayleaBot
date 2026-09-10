@@ -18,6 +18,8 @@ x-fixtures:
   - fixtures/web-api/ok.system-task-status.yaml
   - fixtures/web-api/edge.system-task-missing.yaml
   - fixtures/web-api/ok.adapters-list.yaml
+  - fixtures/web-api/edge.adapters-empty.yaml
+  - fixtures/web-api/edge.protocol-onebot11-instance-unavailable.yaml
   - fixtures/web-api/ok.development-sync.yaml
   - fixtures/web-api/edge.development-sync-unchanged.yaml
   - fixtures/web-api/invalid.development-sync-path.yaml
@@ -845,8 +847,8 @@ paths:
     get:
       summary: 列出聊天适配器及其连接状态
       description: >
-        返回全部正式支持的聊天适配器，包含尚未配置的类型，供管理面展示已添加的协议
-        并引导添加新协议。每个条目说明该适配器是否已配置、是否启用及当前连接状态。
+        返回已配置的适配器实例及其状态，按配置顺序排列，无实例时 adapters 为 []。
+        OneBot 实例包含独立传输摘要。available_protocols 列出可添加实例的协议。
       operationId: listAdapters
       tags:
         - protocols
@@ -861,29 +863,15 @@ paths:
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
-  /api/protocols/onebot11:
-    get:
-      summary: Query the current OneBot11 protocol snapshot without reconstructing it from system summary fragments.
-      operationId: getOneBot11ProtocolSnapshot
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-      responses:
-        '200':
-          description: OneBot11 protocol snapshot.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OneBot11ProtocolSnapshotResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/protocols/onebot11/targets:
+  /api/adapters/{adapterID}/onebot11/targets:
     get:
       summary: List current OneBot11 group and private message targets.
       operationId: getOneBot11ProtocolTargets
+      description: |
+        仅查询 adapterID 指定的实例，绝不选择其他实例。
+        实例不存在、已禁用、协议不匹配或尚未启动时返回 400 platform.invalid_request。
+      parameters:
+        - $ref: '#/components/parameters/AdapterID'
       security:
         - BearerAuth: []
         - CookieAuth: []
@@ -894,15 +882,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OneBot11ProtocolTargetsResponse'
+        '400':
+          $ref: '#/components/responses/Error'
         '401':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
 
-  /api/protocols/onebot11/identities/resolve:
+  /api/adapters/{adapterID}/onebot11/identities/resolve:
     post:
       summary: Resolve OneBot11 user display identities for selected targets.
       operationId: resolveOneBot11ProtocolIdentities
+      description: |
+        仅查询 adapterID 指定的实例，绝不选择其他实例。
+        实例不存在、已禁用、协议不匹配或尚未启动时返回 400 platform.invalid_request。
+      parameters:
+        - $ref: '#/components/parameters/AdapterID'
       security:
         - BearerAuth: []
         - CookieAuth: []
@@ -2763,17 +2758,20 @@ components:
     SystemStatusResponse:
       type: object
       additionalProperties: false
-      required: [status]
+      required: [status, adapters]
       properties:
         status:
           type: string
           enum: [running, shutting_down]
-        adapter_state:
-          type: string
+        adapters:
+          type: array
+          description: 按配置顺序返回实例状态；无实例时为 []，不构造占位连接。
+          items:
+            $ref: '#/components/schemas/AdapterStatus'
         active_plugins:
           type: integer
           minimum: 0
-          description: Number of plugin runtimes currently active for compatibility with existing clients.
+          description: Number of plugin runtimes currently active.
         running_plugins:
           type: integer
           minimum: 0
@@ -2796,7 +2794,7 @@ components:
     SystemDiagnosticsResponse:
       type: object
       additionalProperties: false
-      required: [generated_at, build, system, config, secrets, database, adapter, plugins, render, third_party, scheduler, tasks, dependencies, filesystem, recent_errors, issues]
+      required: [generated_at, build, system, config, secrets, database, adapters, plugins, render, third_party, scheduler, tasks, dependencies, filesystem, recent_errors, issues]
       properties:
         generated_at:
           type: string
@@ -2811,8 +2809,10 @@ components:
           $ref: '#/components/schemas/SystemDiagnosticsSecrets'
         database:
           $ref: '#/components/schemas/SystemDiagnosticsDatabase'
-        adapter:
-          $ref: '#/components/schemas/SystemDiagnosticsAdapter'
+        adapters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdapterStatus'
         plugins:
           $ref: '#/components/schemas/SystemDiagnosticsPlugins'
         render:
@@ -2865,7 +2865,7 @@ components:
     SystemDiagnosticsConfig:
       type: object
       additionalProperties: false
-      required: [schema_version, status, apply_state, config_path, schema_path, database_engine, database_path, onebot_configured]
+      required: [schema_version, status, apply_state, config_path, schema_path, database_engine, database_path, adapter_count]
       properties:
         schema_version:
           type: string
@@ -2883,8 +2883,9 @@ components:
           type: string
         database_path:
           type: string
-        onebot_configured:
-          type: boolean
+        adapter_count:
+          type: integer
+          minimum: 0
 
     SystemDiagnosticsSecrets:
       type: object
@@ -2920,13 +2921,20 @@ components:
         applied_at:
           type: string
 
-    SystemDiagnosticsAdapter:
+    AdapterStatus:
       type: object
       additionalProperties: false
-      required: [state]
+      required: [id, protocol, enabled, state]
       properties:
-        state:
+        id:
           type: string
+          minLength: 1
+        protocol:
+          $ref: '#/components/schemas/AdapterProtocol'
+        enabled:
+          type: boolean
+        state:
+          $ref: '#/components/schemas/AdapterState'
 
     SystemDiagnosticsPlugins:
       type: object
@@ -3142,6 +3150,9 @@ components:
           type: string
         identity:
           $ref: '#/components/schemas/AdapterIdentity'
+        onebot11:
+          description: 此实例的 OneBot11 传输摘要；其他协议或尚未创建运行实例时省略。
+          $ref: '#/components/schemas/OneBot11ProtocolSnapshotResponse'
 
     AdapterProtocolDescriptor:
       type: object

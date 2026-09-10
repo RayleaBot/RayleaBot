@@ -161,7 +161,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	}
 	app := newTestAppState(baseConfig, logger)
 
-	_, oneBotSettings, ok := baseConfig.PrimaryOneBot11()
+	oneBotSettings, ok := baseConfig.OneBot11Settings(config.DefaultOneBot11AdapterID)
 	if !ok {
 		t.Fatal("base config has no onebot11 adapter")
 	}
@@ -170,8 +170,7 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	adapterShell.Start(startCtx)
 	cancelStart()
 	app.services.Protocol = wsevents.NewProtocolService(app.state, wsevents.ProtocolServiceAdapters{
-		OneBot11:        map[string]*onebot11.Shell{config.DefaultOneBot11AdapterID: adapterShell},
-		PrimaryOneBot11: adapterShell,
+		OneBot11: map[string]*onebot11.Shell{config.DefaultOneBot11AdapterID: adapterShell},
 	})
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)

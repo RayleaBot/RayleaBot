@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import DashboardPage from '@/views/dashboard/DashboardView.vue'
-import { useProtocolsStore } from '@/stores/protocols'
+import { useAdaptersStore } from '@/stores/adapters'
 import { useSystemStore } from '@/stores/system'
 
 const feedbackMock = vi.hoisted(() => ({
@@ -50,10 +50,10 @@ function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
 
 function mockDashboardRefreshes() {
   const systemStore = useSystemStore()
-  const protocolsStore = useProtocolsStore()
+  const adaptersStore = useAdaptersStore()
   vi.spyOn(systemStore, 'refreshAll').mockResolvedValue(undefined)
-  vi.spyOn(protocolsStore, 'refresh').mockImplementation(async () => ({ snapshot: protocolsStore.snapshot }))
-  return { protocolsStore, systemStore }
+  vi.spyOn(adaptersStore, 'refresh').mockImplementation(async () => ({ adapters: adaptersStore.adapters, available_protocols: [] }))
+  return { adaptersStore, systemStore }
 }
 
 function createDashboardRouter() {
@@ -109,19 +109,19 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'ready' }
     store.system = {
       status: 'running',
-      adapter_state: 'connected',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
       active_plugins: 2,
       running_plugins: 1,
       failed_plugins: 1,
       db_schema_version: '000004',
       uptime_seconds: 120,
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
     const createBackupSpy = vi.spyOn(store as never, 'createBackup').mockResolvedValue({ task_id: 'task_backup_create_0001' })
     const exportDiagnosticsSpy = vi.spyOn(store as never, 'exportDiagnostics').mockResolvedValue(undefined)
@@ -162,16 +162,16 @@ describe('DashboardPage', () => {
       await router.push('/')
       await router.isReady()
 
-      const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+      const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
       store.health = { status: 'ok' }
       store.readiness = { status: 'ready' }
       store.system = {
         status: 'running',
-        adapter_state: 'connected',
+        adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
         active_plugins: 2,
         uptime_seconds: 120,
       }
-      protocolsStore.snapshot = createProtocolSnapshot()
+      adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
       wrapper = mount(DashboardPage, {
         global: {
@@ -200,16 +200,16 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'ready' }
     store.system = {
       status: 'running',
-      adapter_state: 'connected',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
       active_plugins: 2,
       uptime_seconds: 120,
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -230,16 +230,16 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
     store.system = {
       status: 'running',
-      adapter_state: 'reconnecting',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'reconnecting' }],
       active_plugins: 2,
       uptime_seconds: 120,
     }
-    protocolsStore.snapshot = createProtocolSnapshot({
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot({
       readiness_status: 'degraded',
       summary: 'OneBot11 传输链路部分可用',
       recent_transport_issues: [
@@ -249,7 +249,7 @@ describe('DashboardPage', () => {
           summary: 'OneBot 主动连接已断开，正在重试。',
         },
       ],
-    })
+    }) }]
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -263,7 +263,7 @@ describe('DashboardPage', () => {
     expect(wrapper.text()).not.toContain('adapter.transport_forward_ws_session_lost')
     expect(feedbackMock.useToastFeedback).toHaveBeenCalledTimes(3)
     const protocolToastSource = feedbackMock.useToastFeedback.mock.calls[2][0] as { value: { message?: string | null } | null }
-    expect(protocolToastSource.value?.message).toBe('协议提醒：OneBot 主动连接已断开，正在重试。')
+    expect(protocolToastSource.value?.message).toBe('协议提醒：OneBot11：OneBot 主动连接已断开，正在重试。')
   })
 
   it('renders readiness issues from the readiness snapshot', async () => {
@@ -271,7 +271,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
       status: 'ready',
@@ -286,11 +286,11 @@ describe('DashboardPage', () => {
     }
     store.system = {
       status: 'running',
-      adapter_state: 'auth_failed',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'auth_failed' }],
       active_plugins: 2,
       uptime_seconds: 120,
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -313,7 +313,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
       status: 'degraded',
@@ -330,11 +330,11 @@ describe('DashboardPage', () => {
     }
     store.system = {
       status: 'running',
-      adapter_state: 'idle',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'idle' }],
       active_plugins: 0,
       uptime_seconds: 17,
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -355,7 +355,7 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = {
       status: 'degraded',
@@ -378,11 +378,11 @@ describe('DashboardPage', () => {
     }
     store.system = {
       status: 'running',
-      adapter_state: 'idle',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'idle' }],
       active_plugins: 0,
       uptime_seconds: 50,
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -402,12 +402,12 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
     store.system = {
       status: 'running',
-      adapter_state: 'connected',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
       active_plugins: 2,
       uptime_seconds: 120,
       recovery_summary: {
@@ -488,7 +488,7 @@ describe('DashboardPage', () => {
         ],
       },
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -532,12 +532,12 @@ describe('DashboardPage', () => {
     await router.push('/')
     await router.isReady()
 
-    const { protocolsStore, systemStore: store } = mockDashboardRefreshes()
+    const { adaptersStore, systemStore: store } = mockDashboardRefreshes()
     store.health = { status: 'ok' }
     store.readiness = { status: 'degraded' }
     store.system = {
       status: 'running',
-      adapter_state: 'connected',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
       active_plugins: 2,
       uptime_seconds: 120,
       recovery_summary: {
@@ -568,7 +568,7 @@ describe('DashboardPage', () => {
         next_steps: ['通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
       },
     }
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
     const confirmSpy = vi.spyOn(store as never, 'confirmRecovery').mockResolvedValue({ task_id: 'task_recovery_confirm_0001' })
     const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
     const bootstrapSpy = vi.spyOn(store as never, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'task_runtime_bootstrap_0001' })

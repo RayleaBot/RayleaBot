@@ -9,7 +9,6 @@ import { useLogsStore } from '@/stores/logs'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'
 import { useAdaptersStore } from '@/stores/adapters'
-import { useProtocolsStore } from '@/stores/protocols'
 import { useSessionStore } from '@/stores/session'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import { useSystemStore } from '@/stores/system'
@@ -23,7 +22,6 @@ export const useSocketStore = defineStore('sockets', () => {
   const schedulerJobsStore = useSchedulerJobsStore()
   const logsStore = useLogsStore()
   const governanceStore = useGovernanceStore()
-  const protocolsStore = useProtocolsStore()
   const adaptersStore = useAdaptersStore()
   const systemStore = useSystemStore()
   const thirdPartyAccountsStore = useThirdPartyAccountsStore()
@@ -51,9 +49,6 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     thirdPartyAccounts: {
       refresh: thirdPartyAccountsStore.fetchAll,
-    },
-    protocols: {
-      applySnapshot: protocolsStore.applySnapshot,
     },
     adapters: {
       applySnapshot: adaptersStore.applySnapshot,

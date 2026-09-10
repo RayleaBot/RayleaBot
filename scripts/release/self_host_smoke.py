@@ -349,8 +349,16 @@ def validate_render_template_preview_html(payload: dict[str, object], template_i
 
 
 def exercise_packaged_protocol_and_template_workflows(base_url: str, session_token: str) -> tuple[str, str]:
-    protocol_snapshot = request_json(f"{base_url}api/protocols/onebot11", headers=bearer_headers(session_token))
-    validate_protocol_snapshot(protocol_snapshot)
+    adapters_snapshot = request_json(f"{base_url}api/adapters", headers=bearer_headers(session_token))
+    adapters = adapters_snapshot.get("adapters")
+    if not isinstance(adapters, list):
+        raise SmokeError("adapters snapshot must contain an array")
+    for adapter in adapters:
+        if not isinstance(adapter, dict):
+            raise SmokeError("adapter must be an object")
+        require_non_empty_string(adapter.get("id"), "adapter id")
+        if adapter.get("protocol") == "onebot11":
+            validate_protocol_snapshot(adapter.get("onebot11", {}))
 
     protocol_compatibility = request_json(
         f"{base_url}api/protocols/onebot11/compatibility",

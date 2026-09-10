@@ -7,7 +7,6 @@ import type {
 import type {
   AdaptersSnapshotEvent,
   PluginStateEvent,
-  ProtocolSnapshotEvent,
   SocketFrameRouter,
   SocketFrameRouterDependencies,
 } from '@/stores/socket-types'
@@ -171,11 +170,6 @@ export function createSocketFrameRouter(
       return
     }
 
-    if (isProtocolSnapshotEvent(frame.data)) {
-      dependencies.protocols.applySnapshot(frame.data.protocol_snapshot)
-      return
-    }
-
     // The adapters listing covers every configured instance, including one
     // whose protocol has no transport snapshot of its own.
     if (isAdaptersSnapshotEvent(frame.data)) {
@@ -240,9 +234,7 @@ function isPluginStateEvent(payload: EventsPayload): payload is PluginStateEvent
   return 'plugin_id' in payload
 }
 
-function isProtocolSnapshotEvent(payload: EventsPayload): payload is ProtocolSnapshotEvent {
-  return 'protocol_snapshot' in payload
-}
+
 
 function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSnapshotEvent {
   return 'adapters' in payload

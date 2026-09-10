@@ -3,7 +3,6 @@ import type {
   ConnectionStatus,
   EventsPayload,
   LogSummary,
-  OneBot11ProtocolSnapshotResponse,
   PluginCommandSummary,
   PluginConsoleFrameData,
   WebSocketFrame,
@@ -21,7 +20,6 @@ export interface SocketSnapshot {
 export type SocketSnapshotMap = Record<SocketChannelKey, SocketSnapshot>
 
 export type PluginStateEvent = Extract<EventsPayload, { plugin_id: string }>
-export type ProtocolSnapshotEvent = Extract<EventsPayload, { protocol_snapshot: OneBot11ProtocolSnapshotResponse }>
 export type AdaptersSnapshotEvent = Extract<EventsPayload, { adapters: unknown }>
 
 export interface PluginSocketProjection {
@@ -55,9 +53,6 @@ export interface SocketFrameRouterDependencies {
   }
   thirdPartyAccounts: {
     refresh: () => Promise<unknown>
-  }
-  protocols: {
-    applySnapshot: (snapshot: OneBot11ProtocolSnapshotResponse) => void
   }
   adapters: {
     applySnapshot: (adapters: AdaptersSnapshotEvent['adapters']) => void

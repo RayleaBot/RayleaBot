@@ -297,7 +297,7 @@ func TestAppCloseWaitsForInboundHandlerBeforeClosingDatabase(t *testing.T) {
 	database := store.Read
 	shell := onebot11.New("fixture", config.OneBotConfig{}, config.AdapterConfig{}, nil)
 	application := &App{platform: PlatformState{Storage: store}, eventStack: EventState{
-		Adapter: shell, OneBotShells: map[string]*onebot11.Shell{"fixture": shell},
+		OneBotShells: map[string]*onebot11.Shell{"fixture": shell},
 	}}
 	started := make(chan struct{})
 	cancelled := make(chan struct{})

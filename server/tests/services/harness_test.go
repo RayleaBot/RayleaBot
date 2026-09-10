@@ -205,9 +205,7 @@ func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalo
 	if eventBridge != nil {
 		ingressDeps.Bridge = eventBridge
 	}
-	if a.eventStack.Adapter != nil {
-		ingressDeps.MetadataEnricher = a.eventStack.Adapter
-	}
+	ingressDeps.MetadataEnricher = a.eventStack
 	if a.eventStack.OutboundLimiter != nil {
 		ingressDeps.OutboundLimiter = a.eventStack.OutboundLimiter
 	}
@@ -228,7 +226,10 @@ func (a *serviceHarness) setTestLocalActions(permissions localaction.PermissionV
 	a.platform.Scheduler = schedulerEngine
 	a.eventStack.Dispatcher = dispatcher
 	a.renderStack.Renderer = rendererService
-	a.eventStack.Adapter = adapterShell
+	if adapterShell != nil {
+		a.eventStack.OneBotShells = map[string]*onebot11.Shell{"onebot11": adapterShell}
+		a.eventStack.AdapterRouter = outbound.NewRouter(map[string]outbound.ActionSender{"onebot11": adapterShell}, map[string]string{"onebot11": "onebot11"}, a.state.CurrentConfig)
+	}
 	a.pluginStack.PluginLogLimiter = limiter
 	if a.services.GovernanceEvents == nil {
 		a.services.GovernanceEvents = wsevents.NewGovernanceService()

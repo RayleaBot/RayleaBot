@@ -22,7 +22,6 @@ import { buildProtocolRealtimeLogsLocation } from '@/lib/management-links'
 import { buildOneBot11ReverseWsUrl, buildOneBot11WebhookUrl } from '@/lib/protocols'
 import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
-import { useProtocolsStore } from '@/stores/protocols'
 import type { AdapterProtocol, ConfigDocument, ConfigUpdateResponse } from '@/types/api'
 import OneBotConnectionFields from './OneBotConnectionFields.vue'
 
@@ -30,7 +29,6 @@ const props = defineProps<{ adapterId?: string; open: boolean }>()
 const emit = defineEmits<{ close: []; afterClose: []; saved: [response: ConfigUpdateResponse] }>()
 const configStore = useConfigStore()
 const adaptersStore = useAdaptersStore()
-const protocolsStore = useProtocolsStore()
 const router = useRouter()
 const loading = ref(false)
 const saving = ref(false)
@@ -48,8 +46,7 @@ const isEditing = computed(() => Boolean(props.adapterId))
 const dirty = computed(() => Boolean(draft.value) && (JSON.stringify(draft.value) !== initialDraft.value || JSON.stringify(sharedDraft.value) !== initialShared.value))
 const descriptor = computed(() => adaptersStore.adapters.find((item) => item.id === props.adapterId))
 const protocolName = computed(() => draft.value?.type === 'qqofficial' ? 'QQ 官方机器人' : 'OneBot11')
-const firstOneBot = computed(() => configStore.document?.adapters.find((item) => item.type === 'onebot11')?.id)
-const runtimeSnapshot = computed(() => props.adapterId === firstOneBot.value ? protocolsStore.snapshot : null)
+const runtimeSnapshot = computed(() => descriptor.value?.onebot11 ?? null)
 const intentOptions: { value: QQOfficialSettings['intents'][number]; label: string }[] = [
   { value: 'group_and_c2c', label: t('protocols.qqIntents.groupAndC2c') },
   { value: 'public_guild_messages', label: t('protocols.qqIntents.publicGuildMessages') },
@@ -85,9 +82,7 @@ async function load() {
       baseline.value = copy(instance)
       draft.value = copy(instance)
       initialDraft.value = JSON.stringify(draft.value)
-      if (instance.type === 'onebot11' && instance.id === firstOneBot.value) {
-        void protocolsStore.refresh().catch(() => undefined)
-      }
+      void adaptersStore.refresh().catch(() => undefined)
     }
   } catch (err) {
     error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
@@ -266,7 +261,7 @@ function openLogs() {
             <div class="disclosure-content">
               <p>{{ descriptor?.summary || '尚未读取到此连接的运行状态。' }}</p>
               <p v-if="descriptor?.identity" class="field-hint">登录身份：{{ descriptor.identity.name || descriptor.identity.id }}</p>
-              <AppAlert v-if="adapterId === firstOneBot && protocolsStore.error" tone="warning" :title="protocolsStore.error" />
+              <AppAlert v-if="adaptersStore.error" tone="warning" :title="adaptersStore.error" />
               <ul v-if="runtimeSnapshot" class="runtime-list">
                 <li v-for="transport in runtimeSnapshot.transport_status" :key="transport.transport">
                   <strong>{{ transport.transport }}</strong> · {{ transport.summary }}

@@ -7,7 +7,9 @@
     "source": "plugin_management_ui",
     "type": "protocol.targets.reload",
     "request_id": "req_protocol_targets_0001",
-    "payload": {}
+    "payload": {
+      "adapter_id": "onebot11"
+    }
   },
   "expect": {
     "valid": true

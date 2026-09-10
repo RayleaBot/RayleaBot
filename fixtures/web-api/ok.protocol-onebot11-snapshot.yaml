@@ -3,49 +3,58 @@ case: ok
 description: OneBot11 protocol snapshot returns the current transport-focused status.
 request:
   method: GET
-  path: /api/protocols/onebot11
+  path: /api/adapters
 response:
   status: 200
   body:
-    protocol: onebot11
-    provider: napcat
-    configured_transports:
-      - forward_ws
-    active_transports:
-      - forward_ws
-    transport_status:
-      - transport: reverse_ws
-        enabled: false
-        configured: false
-        endpoint: ""
-        state: idle
-        summary: 未启用
-      - transport: forward_ws
+    adapters:
+      - id: onebot11
+        protocol: onebot11
+        display_name: OneBot11
         enabled: true
-        configured: true
-        endpoint: ws://127.0.0.1:8089
         state: connected
-        summary: 主动连接已建立
-        provider: napcat
-        app_name: NapCat.Onebot
-        protocol_version: v11
-        app_version: 1.0.0
-        user_id: "10001"
-        nickname: TestBot
-      - transport: http_api
-        enabled: false
-        configured: false
-        endpoint: ""
-        state: idle
-        summary: 未启用
-      - transport: webhook
-        enabled: false
-        configured: false
-        endpoint: ""
-        state: idle
-        summary: 未启用
-    readiness_status: ready
-    summary: OneBot11 主动连接已就绪
-    recent_transport_issues: []
+        summary: 已连接。
+        onebot11:
+          protocol: onebot11
+          provider: napcat
+          configured_transports:
+            - forward_ws
+          active_transports:
+            - forward_ws
+          transport_status:
+            - transport: reverse_ws
+              enabled: false
+              configured: false
+              endpoint: ""
+              state: idle
+              summary: 未启用
+            - transport: forward_ws
+              enabled: true
+              configured: true
+              endpoint: ws://127.0.0.1:8089
+              state: connected
+              summary: 主动连接已建立
+              provider: napcat
+              app_name: NapCat.Onebot
+              protocol_version: v11
+              app_version: 1.0.0
+              user_id: "10001"
+              nickname: TestBot
+            - transport: http_api
+              enabled: false
+              configured: false
+              endpoint: ""
+              state: idle
+              summary: 未启用
+            - transport: webhook
+              enabled: false
+              configured: false
+              endpoint: ""
+              state: idle
+              summary: 未启用
+          readiness_status: ready
+          summary: OneBot11 主动连接已就绪
+          recent_transport_issues: []
+    available_protocols: []
 expect:
   valid: true

@@ -186,6 +186,27 @@ describe('PluginManagementUIHost bridge v3', () => {
     configureStores()
   })
 
+  it('requires an explicit adapter for target queries and sends only that instance path', async () => {
+    const wrapper = mountHost(buildPlugin({ permissions: { 'group.list': {}, 'friend.list': {} } }))
+    await flushPromises()
+    const { channel } = await connectBridge(wrapper)
+    const fetch = vi.mocked(window.fetch)
+    fetch.mockClear()
+    channel.port1.emit({ version: '3', source: 'plugin_management_ui', type: 'protocol.targets.reload', request_id: 'missing-selector', payload: {} })
+    await flushPromises()
+    expect(fetch).not.toHaveBeenCalled()
+    expect(channel.port1.sent.at(-1)).toMatchObject({ type: 'error', request_id: 'missing-selector', payload: { code: 'platform.invalid_request' } })
+
+    fetch.mockResolvedValueOnce(new Response(JSON.stringify({ protocol: 'onebot11', available: true, groups: [], private_users: [], issues: [] }), { status: 200, headers: { 'content-type': 'application/json' } }))
+    channel.port1.emit({ version: '3', source: 'plugin_management_ui', type: 'protocol.targets.reload', request_id: 'second-selector', payload: { adapter_id: 'second' } })
+    await flushPromises()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch.mock.calls[0][0]).toBe('/api/adapters/second/onebot11/targets')
+    expect(channel.port1.sent.at(-1)).toMatchObject({ type: 'protocol.targets.changed', request_id: 'second-selector' })
+    wrapper.unmount()
+  })
+
+
   it('requires an explicit confirmation before loading an unverified plugin page', async () => {
     const pluginsStore = usePluginsStore()
     const plugin = buildPlugin({

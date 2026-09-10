@@ -74,7 +74,7 @@
 
 - `scheduler.trigger` 请求宿主触发当前插件的任务。
 - `render_template.open` 请求宿主跳转到正式模板工作区。
-- `protocol.targets.reload` 与 `protocol.identities.resolve` 请求宿主读取受保护的 OneBot 目标信息。
+- `protocol.targets.reload` 与 `protocol.identities.resolve` 在 `payload.adapter_id` 显式指定实例，请求宿主读取该实例受保护的 OneBot 目标信息；不根据配置顺序选择实例。
 - `plugin.action.invoke` 把页面动作发送给所属插件；宿主不代替插件执行业务逻辑。
 - `trust.level = unverified` 的来源在首次打开、版本变化或来源变化后需要重新确认。
 

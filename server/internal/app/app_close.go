@@ -131,16 +131,8 @@ func (a *App) stopAdapter(timeout time.Duration) error {
 		}
 	}
 	for id, shell := range a.eventStack.OneBotShells {
-		if shell == a.eventStack.Adapter {
-			continue
-		}
 		if err := shell.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
 			errs = append(errs, fmt.Errorf("stop OneBot adapter %s: %w", id, err))
-		}
-	}
-	if a.eventStack.Adapter != nil {
-		if err := a.eventStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			errs = append(errs, fmt.Errorf("stop primary adapter: %w", err))
 		}
 	}
 	return errors.Join(errs...)

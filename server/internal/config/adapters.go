@@ -71,15 +71,3 @@ func (c Config) QQOfficialSettings(id string) (QQOfficialConfig, bool) {
 	}
 	return *adapter.QQOfficial, true
 }
-
-// PrimaryOneBot11 returns the first configured OneBot adapter. Parts of the
-// management surface still speak about "the" OneBot connection; they use this
-// and are explicit that it is the first one.
-func (c Config) PrimaryOneBot11() (AdapterInstance, OneBotConfig, bool) {
-	for _, adapter := range c.AdaptersOfType(AdapterTypeOneBot11) {
-		if adapter.OneBot11 != nil {
-			return adapter, *adapter.OneBot11, true
-		}
-	}
-	return AdapterInstance{}, OneBotConfig{}, false
-}

@@ -57,3 +57,8 @@ func waitForRuntimeInfo(t *testing.T, shell *onebot11.Shell, transport onebot11.
 
 	t.Fatalf("timed out waiting for %s runtime provider %s, got %#v", transport, wantProvider, shell.Snapshot())
 }
+
+func newTestService(t *testing.T, source ProtocolConfigSource, instances ProtocolServiceAdapters) *ProtocolService {
+	t.Helper()
+	return NewProtocolService(source, instances)
+}

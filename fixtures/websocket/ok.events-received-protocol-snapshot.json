@@ -6,32 +6,45 @@
     "type": "events.received",
     "timestamp": "2026-04-09T09:00:00Z",
     "data": {
-      "protocol": "onebot11",
-      "protocol_snapshot": {
-        "protocol": "onebot11",
-        "provider": "napcat",
-        "configured_transports": ["forward_ws"],
-        "active_transports": ["forward_ws"],
-        "transport_status": [
-          {
-            "transport": "forward_ws",
-            "enabled": true,
-            "configured": true,
-            "endpoint": "ws://127.0.0.1:8089",
-            "state": "connected",
-            "summary": "主动连接已建立",
+      "adapters": [
+        {
+          "id": "onebot11",
+          "protocol": "onebot11",
+          "display_name": "OneBot11",
+          "enabled": true,
+          "state": "connected",
+          "summary": "已连接。",
+          "onebot11": {
+            "protocol": "onebot11",
             "provider": "napcat",
-            "app_name": "NapCat.Onebot",
-            "protocol_version": "v11",
-            "app_version": "1.0.0",
-            "user_id": "10001",
-            "nickname": "TestBot"
+            "configured_transports": [
+              "forward_ws"
+            ],
+            "active_transports": [
+              "forward_ws"
+            ],
+            "transport_status": [
+              {
+                "transport": "forward_ws",
+                "enabled": true,
+                "configured": true,
+                "endpoint": "ws://127.0.0.1:8089",
+                "state": "connected",
+                "summary": "主动连接已建立",
+                "provider": "napcat",
+                "app_name": "NapCat.Onebot",
+                "protocol_version": "v11",
+                "app_version": "1.0.0",
+                "user_id": "10001",
+                "nickname": "TestBot"
+              }
+            ],
+            "readiness_status": "ready",
+            "summary": "OneBot11 主动连接已就绪",
+            "recent_transport_issues": []
           }
-        ],
-        "readiness_status": "ready",
-        "summary": "OneBot11 主动连接已就绪",
-        "recent_transport_issues": []
-      }
+        }
+      ]
     }
   },
   "expect": {

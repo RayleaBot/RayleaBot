@@ -107,8 +107,8 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	if statusBody["status"] != "running" {
 		t.Fatalf("unexpected system status: %#v", statusBody["status"])
 	}
-	if _, ok := statusBody["adapter_state"].(string); !ok {
-		t.Fatalf("expected adapter_state string, got %#v", statusBody["adapter_state"])
+	if _, ok := statusBody["adapters"].([]any); !ok {
+		t.Fatalf("expected adapters array, got %#v", statusBody["adapters"])
 	}
 	if _, ok := statusBody["active_plugins"].(float64); !ok {
 		t.Fatalf("expected active_plugins number, got %#v", statusBody["active_plugins"])
@@ -186,8 +186,8 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if statusBody["status"] != "running" {
 		t.Fatalf("unexpected launcher status: %#v", statusBody["status"])
 	}
-	if _, ok := statusBody["adapter_state"].(string); !ok {
-		t.Fatalf("expected adapter_state string, got %#v", statusBody["adapter_state"])
+	if _, ok := statusBody["adapters"].([]any); !ok {
+		t.Fatalf("expected adapters array, got %#v", statusBody["adapters"])
 	}
 	if _, ok := statusBody["active_plugins"].(float64); !ok {
 		t.Fatalf("expected active_plugins number, got %#v", statusBody["active_plugins"])
@@ -552,7 +552,7 @@ func TestProtocolSnapshotHandler(t *testing.T) {
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/protocols/onebot11", nil)
+	snapshotReq, err := http.NewRequest(http.MethodGet, server.URL+"/api/adapters", nil)
 	if err != nil {
 		t.Fatalf("create protocol snapshot request: %v", err)
 	}
@@ -565,7 +565,8 @@ func TestProtocolSnapshotHandler(t *testing.T) {
 	if snapshotResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected protocol snapshot status: got %d want 200", snapshotResp.StatusCode)
 	}
-	snapshotBody := decodeBody(t, readAll(t, snapshotResp))
+	adaptersBody := decodeBody(t, readAll(t, snapshotResp))
+	snapshotBody := oneBotSnapshotForAdapter(t, adaptersBody, "onebot11")
 	if snapshotBody["protocol"] != "onebot11" {
 		t.Fatalf("unexpected protocol snapshot body: %#v", snapshotBody)
 	}

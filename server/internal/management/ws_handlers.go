@@ -93,7 +93,7 @@ type pluginEventSource interface {
 }
 
 type protocolEventSource interface {
-	ProtocolSnapshotEvent() wsevents.Frame
+	AdaptersSnapshotEvent() wsevents.Frame
 	SubscribeProtocolEvents(int) (<-chan wsevents.Frame, func())
 }
 
@@ -194,7 +194,7 @@ func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 
 	for _, frame := range []wsevents.Frame{
 		h.serviceStatus.CurrentEvent(),
-		h.protocol.ProtocolSnapshotEvent(),
+		h.protocol.AdaptersSnapshotEvent(),
 	} {
 		if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
 			return

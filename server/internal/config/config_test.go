@@ -520,7 +520,7 @@ func adapterSettings(t *testing.T, document map[string]any, id, block string) ma
 // onebotConfig returns the settings of the one OneBot adapter a test configured.
 func onebotConfig(t *testing.T, cfg Config) OneBotConfig {
 	t.Helper()
-	_, settings, ok := cfg.PrimaryOneBot11()
+	settings, ok := cfg.OneBot11Settings(DefaultOneBot11AdapterID)
 	if !ok {
 		t.Fatal("config has no onebot11 adapter")
 	}

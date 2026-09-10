@@ -14,7 +14,8 @@
           "target_id": "20001",
           "user_id": "30001"
         }
-      ]
+      ],
+      "adapter_id": "onebot11"
     }
   },
   "expect": {

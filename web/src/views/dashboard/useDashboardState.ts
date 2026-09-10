@@ -1,13 +1,13 @@
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useProtocolsStore } from '@/stores/protocols'
+import { useAdaptersStore } from '@/stores/adapters'
 import { useSystemStore } from '@/stores/system'
 import { useDashboardDerivedState } from '@/views/dashboard/useDashboardDerivedState'
 import { useDashboardRefresh } from '@/views/dashboard/useDashboardRefresh'
 
 export function useDashboardState() {
-  const protocolsStore = useProtocolsStore()
+  const adaptersStore = useAdaptersStore()
   const systemStore = useSystemStore()
   const {
     backupPending,
@@ -23,7 +23,7 @@ export function useDashboardState() {
     runtimeBootstrapPending,
     system,
   } = storeToRefs(systemStore)
-  const { snapshot: protocolSnapshot } = storeToRefs(protocolsStore)
+  const { adapters } = storeToRefs(adaptersStore)
 
   const issuesExpanded = ref(false)
   const eventsExpanded = ref(false)
@@ -38,7 +38,7 @@ export function useDashboardState() {
     system,
   })
   const refreshState = useDashboardRefresh({
-    protocolsStore,
+    adaptersStore,
     recoveryConfirmNote,
     recoverySummary: derivedState.recoverySummary,
     selectedRecoveryReviewIds,
@@ -56,8 +56,8 @@ export function useDashboardState() {
     eventsExpanded,
     issuesExpanded,
     loading,
-    protocolSnapshot,
-    protocolsStore,
+    adapters,
+    adaptersStore,
     readiness,
     recentEvents,
     recoveryConfirmNote,

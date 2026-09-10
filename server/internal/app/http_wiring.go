@@ -145,8 +145,7 @@ func logConfiguredServer(state configRuntimeState, renderer *renderservice.Servi
 		"web_exposure_mode", summary.WebExposureMode,
 		"logging_level", summary.LoggingLevel,
 		"super_admin_count", summary.SuperAdminCount,
-		"onebot_configured", summary.OneBotConfigured,
-		"onebot_endpoint", summary.OneBotEndpoint,
+		"adapter_count", summary.AdapterCount,
 	)
 	serverURL := httpapi.DisplayServerURL(listenAddr)
 	state.RuntimeLogger().Debug(

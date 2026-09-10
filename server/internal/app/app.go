@@ -286,7 +286,9 @@ func wireMetrics(platform PlatformState, events EventState, renderer *renderserv
 	registry := NewMetricsRegistry()
 	events.Bridge.SetMetricsObserver(NewBridgeObserver(registry))
 	events.Dispatcher.SetMetricsObserver(NewDispatchObserver(registry))
-	events.Adapter.SetMetricsObserver(NewAdapterObserver(registry))
+	for _, shell := range events.OneBotShells {
+		shell.SetMetricsObserver(NewAdapterObserver(registry))
+	}
 	platform.TaskExecutor.SetMetricsObserver(NewTaskObserver(registry))
 	renderer.SetMetricsObserver(NewRenderObserver(registry))
 	return registry, StartPluginStateGaugeRefresh(registry, plugins.Plugins)

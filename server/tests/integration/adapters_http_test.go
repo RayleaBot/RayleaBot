@@ -192,3 +192,23 @@ func TestAdapterWebhookIngressAuthenticatesAgainstItsOwnInstance(t *testing.T) {
 		})
 	}
 }
+
+func oneBotSnapshotForAdapter(t *testing.T, body map[string]any, id string) map[string]any {
+	t.Helper()
+	entries, ok := body["adapters"].([]any)
+	if !ok {
+		t.Fatalf("expected adapters array, got %#v", body)
+	}
+	for _, entry := range entries {
+		descriptor := entry.(map[string]any)
+		if descriptor["id"] == id {
+			snapshot, ok := descriptor["onebot11"].(map[string]any)
+			if !ok {
+				t.Fatalf("adapter %s has no OneBot snapshot: %#v", id, descriptor)
+			}
+			return snapshot
+		}
+	}
+	t.Fatalf("adapter %s missing: %#v", id, body)
+	return nil
+}

@@ -29,9 +29,8 @@ type ProtocolHandlers struct {
 
 type protocolHTTPService interface {
 	Adapters() wsevents.AdaptersView
-	CurrentOneBot11ProtocolSnapshot() wsevents.OneBot11ProtocolSnapshot
-	CurrentOneBot11ProtocolTargets(context.Context) wsevents.OneBot11ProtocolTargets
-	ResolveOneBot11Identities(context.Context, []wsevents.OneBot11IdentityResolveItem) wsevents.OneBot11IdentityResolveResult
+	CurrentOneBot11ProtocolTargets(context.Context, string) (wsevents.OneBot11ProtocolTargets, error)
+	ResolveOneBot11Identities(context.Context, string, []wsevents.OneBot11IdentityResolveItem) (wsevents.OneBot11IdentityResolveResult, error)
 	CurrentOneBot11ProtocolCompatibility() (wsevents.OneBot11ProtocolCompatibility, error)
 	OneBot11Ingress(id string) (wsevents.OneBot11Ingress, bool)
 }
@@ -49,21 +48,19 @@ func (h *ProtocolHandlers) RegisterPublicRoutes(router chi.Router) {
 
 func (h *ProtocolHandlers) RegisterProtectedRoutes(router chi.Router) {
 	router.Get("/api/adapters", h.HandleAdapters())
-	router.Get("/api/protocols/onebot11", h.HandleProtocolOneBot11Snapshot())
-	router.Get("/api/protocols/onebot11/targets", h.HandleProtocolOneBot11Targets())
-	router.Post("/api/protocols/onebot11/identities/resolve", h.HandleProtocolOneBot11IdentitiesResolve())
+	router.Get("/api/adapters/{adapterID}/onebot11/targets", h.HandleProtocolOneBot11Targets())
+	router.Post("/api/adapters/{adapterID}/onebot11/identities/resolve", h.HandleProtocolOneBot11IdentitiesResolve())
 	router.Get("/api/protocols/onebot11/compatibility", h.HandleProtocolOneBot11Compatibility())
-}
-
-func (h *ProtocolHandlers) HandleProtocolOneBot11Snapshot() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		httpapi.WriteJSON(w, http.StatusOK, h.protocol.CurrentOneBot11ProtocolSnapshot())
-	}
 }
 
 func (h *ProtocolHandlers) HandleProtocolOneBot11Targets() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		httpapi.WriteJSON(w, http.StatusOK, h.protocol.CurrentOneBot11ProtocolTargets(r.Context()))
+		response, err := h.protocol.CurrentOneBot11ProtocolTargets(r.Context(), chi.URLParam(r, "adapterID"))
+		if err != nil {
+			httpapi.WriteError(w, r, protocolCodeInvalidRequest, nil)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, response)
 	}
 }
 
@@ -74,7 +71,12 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11IdentitiesResolve() http.Handle
 			httpapi.WriteError(w, r, protocolCodeInvalidRequest, nil)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, h.protocol.ResolveOneBot11Identities(r.Context(), body.Items))
+		response, err := h.protocol.ResolveOneBot11Identities(r.Context(), chi.URLParam(r, "adapterID"), body.Items)
+		if err != nil {
+			httpapi.WriteError(w, r, protocolCodeInvalidRequest, nil)
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, response)
 	}
 }
 

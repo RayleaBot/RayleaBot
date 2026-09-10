@@ -6,82 +6,7 @@ function secretConfigPaths(config) {
     : [['adapters', entry.id, 'qqofficial', 'app_secret']])
 }
 
-function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
-  const snapshot = structuredClone(currentSnapshot)
-  const onebot = config.adapters?.find((entry) => entry.type === 'onebot11')?.onebot11 ?? {}
-  const reverseWs = onebot.reverse_ws ?? { enabled: false, url: '' }
-  const forwardWs = onebot.forward_ws ?? { enabled: false, url: '' }
-  const httpApi = onebot.http_api ?? { enabled: false, url: '' }
-  const webhook = onebot.webhook ?? { enabled: false, url: '' }
-  const transports = [
-    ['reverse_ws', reverseWs],
-    ['forward_ws', forwardWs],
-    ['http_api', httpApi],
-    ['webhook', webhook],
-  ]
 
-  snapshot.provider = 'unknown'
-  snapshot.transport_status = transports.map(([transport, entry]) => {
-    const configured = Boolean(entry.url)
-    let state = 'idle'
-    let summary = '未启用'
-
-    if (entry.enabled && configured) {
-      if (transport === 'forward_ws') {
-        state = 'connected'
-        summary = '主动连接已建立'
-      } else if (transport === 'reverse_ws') {
-        state = 'listening'
-        summary = '等待 OneBot 回连'
-      } else if (transport === 'http_api') {
-        state = 'connected'
-        summary = 'HTTP API 可用'
-      } else if (transport === 'webhook') {
-        state = 'listening'
-        summary = 'Webhook 入口可接收上报'
-      }
-    }
-
-    return {
-      transport,
-      enabled: Boolean(entry.enabled),
-      configured,
-      endpoint: entry.url ? entry.url.replace(/^(https?:\/\/[^/]+|wss?:\/\/[^/]+).*$/, '$1') : '',
-      state,
-      summary,
-    }
-  })
-  snapshot.configured_transports = transports
-    .filter(([, entry]) => Boolean(entry.url))
-    .map(([name]) => name)
-
-  if (forwardWs.enabled && forwardWs.url) {
-    snapshot.active_transports = ['forward_ws']
-    snapshot.readiness_status = 'ready'
-    snapshot.summary = 'OneBot11 主动连接已就绪'
-  } else if (reverseWs.enabled && reverseWs.url) {
-    snapshot.active_transports = ['reverse_ws']
-    snapshot.readiness_status = 'degraded'
-    snapshot.summary = 'OneBot11 等待回连'
-  } else if (httpApi.enabled && httpApi.url && webhook.enabled && webhook.url) {
-    snapshot.active_transports = ['http_api', 'webhook']
-    snapshot.readiness_status = 'ready'
-    snapshot.summary = 'OneBot11 HTTP API 与 Webhook 已就绪'
-  } else if (httpApi.enabled && httpApi.url) {
-    snapshot.active_transports = ['http_api']
-    snapshot.readiness_status = 'degraded'
-    snapshot.summary = 'OneBot11 仅 HTTP API 可用'
-  } else if (webhook.enabled && webhook.url) {
-    snapshot.active_transports = ['webhook']
-    snapshot.readiness_status = 'degraded'
-    snapshot.summary = 'OneBot11 仅 Webhook 上报可用'
-  } else {
-    snapshot.active_transports = []
-    snapshot.readiness_status = 'setup_required'
-    snapshot.summary = 'OneBot11 尚未配置连接'
-  }
-  return snapshot
-}
 
 function redactConfigSecrets(config) {
   const snapshot = structuredClone(config)
@@ -246,4 +171,4 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
-export { computeProtocolSnapshotFromConfig, redactConfigSecrets, restoreRedactedConfigSecrets, computeRestartRequiredForConfig, computeConfigApplyEffects }
+export { redactConfigSecrets, restoreRedactedConfigSecrets, computeRestartRequiredForConfig, computeConfigApplyEffects }

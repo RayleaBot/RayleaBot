@@ -3,12 +3,13 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import AppSelect from '@/components/AppSelect.vue'
 import ProtocolCompatibilityPage from '@/views/protocols/ProtocolCompatibilityPanel.vue'
 import { useProtocolCompatibilityStore } from '@/stores/protocol-compatibility'
-import { useProtocolsStore } from '@/stores/protocols'
+import { useAdaptersStore } from '@/stores/adapters'
 
-function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
-  return {
+function createAdapterSnapshots(overrides: Record<string, unknown> = {}) {
+  return [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '已连接', onebot11: {
     protocol: 'onebot11',
     provider: 'napcat',
     configured_transports: ['forward_ws', 'webhook'],
@@ -23,7 +24,7 @@ function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
     summary: 'OneBot11 主动连接已就绪',
     recent_transport_issues: [],
     ...overrides,
-  }
+  } }]
 }
 
 function createCompatibilityMatrix() {
@@ -97,13 +98,13 @@ describe('ProtocolCompatibilityPage', () => {
   }
 
   it('renders four compatibility sections and highlights the current provider column', async () => {
-    const protocolsStore = useProtocolsStore()
+    const adaptersStore = useAdaptersStore()
     const compatibilityStore = useProtocolCompatibilityStore()
 
-    protocolsStore.snapshot = createProtocolSnapshot()
+    adaptersStore.adapters = createAdapterSnapshots()
     compatibilityStore.matrix = createCompatibilityMatrix()
 
-    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+    vi.spyOn(adaptersStore, 'refresh').mockResolvedValue({ adapters: adaptersStore.adapters, available_protocols: []! })
     vi.spyOn(compatibilityStore, 'refresh').mockResolvedValue({ matrix: compatibilityStore.matrix! })
 
     const router = createTestRouter()
@@ -118,7 +119,10 @@ describe('ProtocolCompatibilityPage', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('默认 OneBot 连接端')
+    expect(wrapper.findAll('.is-current-provider')).toHaveLength(0)
+    wrapper.findAllComponents(AppSelect)[0].vm.$emit('update:modelValue', 'onebot11')
+    await flushPromises()
+    expect(wrapper.text()).toContain('OneBot11：NapCat')
     expect(wrapper.text()).toContain('NapCat')
     expect(wrapper.text()).toContain('主动连接 WebSocket')
     expect(wrapper.text()).toContain('Webhook')
@@ -132,13 +136,13 @@ describe('ProtocolCompatibilityPage', () => {
   })
 
   it('does not highlight provider columns when current provider is unknown', async () => {
-    const protocolsStore = useProtocolsStore()
+    const adaptersStore = useAdaptersStore()
     const compatibilityStore = useProtocolCompatibilityStore()
 
-    protocolsStore.snapshot = createProtocolSnapshot({ provider: 'unknown' })
+    adaptersStore.adapters = createAdapterSnapshots({ provider: 'unknown' })
     compatibilityStore.matrix = createCompatibilityMatrix()
 
-    vi.spyOn(protocolsStore, 'refresh').mockResolvedValue({ snapshot: protocolsStore.snapshot! })
+    vi.spyOn(adaptersStore, 'refresh').mockResolvedValue({ adapters: adaptersStore.adapters, available_protocols: []! })
     vi.spyOn(compatibilityStore, 'refresh').mockResolvedValue({ matrix: compatibilityStore.matrix! })
 
     const router = createTestRouter()
@@ -153,6 +157,8 @@ describe('ProtocolCompatibilityPage', () => {
 
     await flushPromises()
 
+    wrapper.findAllComponents(AppSelect)[0].vm.$emit('update:modelValue', 'onebot11')
+    await flushPromises()
     expect(wrapper.text()).toContain('未知')
     expect(wrapper.findAll('.is-current-provider')).toHaveLength(0)
   })

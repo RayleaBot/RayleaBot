@@ -246,7 +246,7 @@ export function normalizeSystemStatusPayload(value: unknown): LauncherSystemStat
   const object = expectObject(value, field);
   expectAllowedKeys(object, [
     "status",
-    "adapter_state",
+    "adapters",
     "active_plugins",
     "running_plugins",
     "failed_plugins",
@@ -257,8 +257,19 @@ export function normalizeSystemStatusPayload(value: unknown): LauncherSystemStat
   ], field);
   const result: LauncherSystemStatusSnapshot = {
     status: expectEnum(object.status, ["running", "shutting_down"] as const, `${field}.status`),
+    adapters: expectArray(object.adapters, `${field}.adapters`, (value, path) => {
+      const adapter = expectObject(value, path);
+      expectAllowedKeys(adapter, ["id", "protocol", "enabled", "state"], path);
+      const id = expectString(adapter.id, `${path}.id`);
+      if (!id) invalid(`${path}.id`);
+      return {
+        id,
+        protocol: expectEnum(adapter.protocol, ["onebot11", "qqofficial"] as const, `${path}.protocol`),
+        enabled: expectBoolean(adapter.enabled, `${path}.enabled`),
+        state: expectEnum(adapter.state, ["idle", "listening", "connecting", "connected", "auth_failed", "reconnecting", "stopped"] as const, `${path}.state`),
+      };
+    }),
   };
-  if (object.adapter_state !== undefined) result.adapter_state = expectString(object.adapter_state, `${field}.adapter_state`);
   for (const key of ["active_plugins", "running_plugins", "failed_plugins", "uptime_seconds"] as const) {
     if (object[key] !== undefined) result[key] = expectNonNegativeInteger(object[key], `${field}.${key}`);
   }

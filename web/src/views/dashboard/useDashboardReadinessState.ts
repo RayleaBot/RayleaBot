@@ -1,13 +1,13 @@
 import { computed, type Ref } from 'vue'
 
 import {
-  getAdapterStateLabel,
   getReadinessStatusLabel,
   getSystemStatusLabel,
   getStatusType,
   type StatusType,
 } from '@/lib/display'
 import { t } from '@/i18n'
+import { describeAdapterStates } from '@/lib/adapter-status'
 
 type ReadinessInput = {
   health: Ref<any>
@@ -19,15 +19,16 @@ export function useDashboardReadinessState(input: ReadinessInput) {
   const healthStatusType = computed<StatusType>(() => getStatusType(input.health.value?.status))
   const readinessStatusType = computed<StatusType>(() => getStatusType(input.readiness.value?.status))
   const systemStatusType = computed<StatusType>(() => getStatusType(input.system.value?.status))
-  const adapterStatusType = computed<StatusType>(() => getStatusType(input.system.value?.adapter_state))
+  const adapterSummary = computed(() => describeAdapterStates(input.system.value?.adapters))
+  const adapterStatusType = computed(() => adapterSummary.value.status)
   const healthValueText = computed(() => (input.health.value?.status === 'ok' ? '正常' : t('display.empty')))
   const healthDetailText = computed(() => (input.health.value?.status === 'ok' ? '管理面可用' : t('display.empty')))
   const readinessValueText = computed(() => getReadinessStatusLabel(input.readiness.value?.status))
   const readinessDetailText = computed(() => input.readiness.value?.reason || getReadinessStatusLabel(input.readiness.value?.status))
   const systemValueText = computed(() => getSystemStatusLabel(input.system.value?.status))
   const systemDetailText = computed(() => getSystemStatusLabel(input.system.value?.status))
-  const adapterValueText = computed(() => getAdapterStateLabel(input.system.value?.adapter_state))
-  const adapterDetailText = computed(() => getAdapterStateLabel(input.system.value?.adapter_state))
+  const adapterValueText = computed(() => adapterSummary.value.value)
+  const adapterDetailText = computed(() => adapterSummary.value.detail)
   const readinessIssues = computed(() => {
     const issues = input.readiness.value?.issues ?? []
     const seen = new Set<string>()

@@ -23,7 +23,6 @@ type eventDeps struct {
 }
 
 type EventState struct {
-	Adapter *onebot11.Shell
 	// Adapter objects live for the application lifetime. Their instance switch
 	// gates transports and routing, so toggling it does not mutate these maps.
 	OneBotShells    map[string]*onebot11.Shell
@@ -94,15 +93,6 @@ func buildEvents(deps eventDeps) EventState {
 		}
 	}
 
-	// The dispatcher and the OneBot protocol surface still speak about a single
-	// OneBot connection; that is the first configured one.
-	var adapterShell *onebot11.Shell
-	if instance, _, ok := deps.Config.PrimaryOneBot11(); ok {
-		adapterShell = oneBotShells[instance.ID]
-	}
-	if adapterShell == nil {
-		adapterShell = onebot11.New(config.DefaultOneBot11AdapterID, config.OneBotConfig{}, deps.Config.Adapter, deps.Logger)
-	}
 	outboundSender := outbound.NewRouter(senders, protocols, currentConfig)
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
@@ -122,13 +112,12 @@ func buildEvents(deps eventDeps) EventState {
 		bridgeDispatch = deps.BridgeDispatch
 	}
 	eventBridge := bridge.New(deps.Logger, bridgeDispatch)
-	eventBridge.SetAdapterStatsSource(adapterShell)
+	eventBridge.SetAdapterStatsSource(EventState{OneBotShells: oneBotShells})
 	eventBridge.SetDispatcherStatsSource(NewDispatcherStatsAdapter(eventDispatcher))
 	eventDispatcher.SetRuntimePublisher(NewDispatcherRuntimePublisher(eventBridge))
 	eventDispatcher.StartObservabilityFlush(dispatcherRuntimeFlushInterval)
 
 	return EventState{
-		Adapter:         adapterShell,
 		OneBotShells:    oneBotShells,
 		BotIdentity:     identity,
 		QQOfficial:      qqClients,

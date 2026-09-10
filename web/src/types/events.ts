@@ -5,6 +5,5 @@ export type {
   EventsPayload,
   GenericManagementEventPayload,
   PluginStateEventPayload,
-  ProtocolSnapshotEventPayload,
   ServiceStatusEventPayload,
 } from './websocket.generated'

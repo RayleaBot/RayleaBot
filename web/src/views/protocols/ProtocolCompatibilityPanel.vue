@@ -10,22 +10,29 @@ import { useToastFeedback } from '@/adapter/feedback'
 import { t } from '@/i18n'
 import { ONEBOT11_PROTOCOL_NAME } from '@/lib/protocols'
 import { useProtocolCompatibilityStore } from '@/stores/protocol-compatibility'
-import { useProtocolsStore } from '@/stores/protocols'
+import { useAdaptersStore } from '@/stores/adapters'
 
-const protocolsStore = useProtocolsStore()
+const adaptersStore = useAdaptersStore()
 const compatibilityStore = useProtocolCompatibilityStore()
 
 const {
   error: protocolsError,
   loading: protocolsLoading,
-  snapshot,
-} = storeToRefs(protocolsStore)
+  adapters,
+} = storeToRefs(adaptersStore)
 const {
   error: compatibilityError,
   loading: compatibilityLoading,
   matrix,
 } = storeToRefs(compatibilityStore)
 
+const selectedAdapterId = ref('')
+const adapterOptions = computed(() => [
+  { label: '选择 OneBot 连接', value: '' },
+  ...adapters.value.filter(adapter => adapter.protocol === 'onebot11').map(adapter => ({ label: adapter.display_name, value: adapter.id })),
+])
+const selectedAdapter = computed(() => adapters.value.find(adapter => adapter.id === selectedAdapterId.value))
+const snapshot = computed(() => selectedAdapter.value?.onebot11)
 const selectedCategory = ref<string>('all')
 const compatibilitySearch = ref('')
 
@@ -78,7 +85,7 @@ useToastFeedback(pageErrorToast)
 async function loadPage() {
   try {
     await Promise.all([
-      protocolsStore.refresh(),
+      adaptersStore.refresh(),
       compatibilityStore.refresh(),
     ])
   } catch {
@@ -147,9 +154,10 @@ function providerColumnClass(provider: string) {
 <template>
   <section aria-label="协议兼容能力">
     <div class="protocol-compatibility-page" data-testid="protocol-compatibility-page">
-      <details class="protocol-provider-details">
-        <summary>默认 OneBot 连接端：{{ currentProviderLabel }}</summary>
-        <section class="protocol-overview-band" aria-label="默认 OneBot 运行摘要">
+      <AppSelect v-model="selectedAdapterId" :options="adapterOptions" aria-label="查看连接实例的兼容信息" />
+      <details v-if="snapshot" class="protocol-provider-details">
+        <summary>{{ selectedAdapter?.display_name }}：{{ currentProviderLabel }}</summary>
+        <section class="protocol-overview-band" aria-label="所选 OneBot 实例运行摘要">
         <div class="protocol-overview-item">
           <span>{{ t('protocols.overviewTitle') }}</span>
           <strong>{{ currentProviderLabel }}</strong>

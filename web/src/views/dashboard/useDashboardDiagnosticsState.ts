@@ -1,6 +1,7 @@
 import { computed, type Ref } from 'vue'
 
 import { t } from '@/i18n'
+import { describeAdapterStates } from '@/lib/adapter-status'
 import type { StatusType } from '@/lib/display'
 import type { SystemDiagnosticsResponse } from '@/types/api'
 
@@ -57,6 +58,7 @@ export function useDashboardDiagnosticsState(input: DiagnosticsInput) {
       dependency => ['metadata_incomplete', 'unavailable'].includes(dependency.status),
     ).length
     const filesystemIssueCount = snapshot.filesystem.filter(path => path.status !== 'ok').length
+    const adapters = describeAdapterStates(snapshot.adapters)
 
     return [
       {
@@ -69,9 +71,9 @@ export function useDashboardDiagnosticsState(input: DiagnosticsInput) {
       {
         key: 'adapter',
         label: t('dashboard.diagnosticsSubsystems.adapter'),
-        status: statusToType(snapshot.adapter.state),
-        value: statusLabel(snapshot.adapter.state),
-        detail: snapshot.config.onebot_configured ? t('dashboard.diagnosticsOneBotConfigured') : t('dashboard.diagnosticsOneBotMissing'),
+        status: adapters.status,
+        value: adapters.value,
+        detail: adapters.detail,
       },
       {
         key: 'config',

@@ -8,59 +8,63 @@ response:
   status: 200
   body:
     status: running
-    adapter_state: connected
     active_plugins: 1
     running_plugins: 1
     failed_plugins: 0
-    db_schema_version: "000004"
+    db_schema_version: '000004'
     uptime_seconds: 3600
     health:
       status: degraded
       reason: 浏览器运行资源缺失
       reason_codes:
-        - platform.resource_missing
+      - platform.resource_missing
       checks:
         config: ok
         database: ok
         runtime: ok
         render: resource_missing
       issues:
-        - code: render.browser_missing
-          severity: warning
-          summary: 浏览器运行资源缺失
-          remediation: 运行运行时准备任务。
+      - code: render.browser_missing
+        severity: warning
+        summary: 浏览器运行资源缺失
+        remediation: 运行运行时准备任务。
     recovery_summary:
       status: compatible
       phase: post_startup
       operation: upgrade
-      created_at: 2026-04-02T08:00:00Z
-      updated_at: 2026-04-02T08:01:00Z
+      created_at: 2026-04-02 08:00:00+00:00
+      updated_at: 2026-04-02 08:01:00+00:00
       source_core_version: 0.1.0
       target_core_version: 0.2.0
-      source_config_schema_version: "2"
-      target_config_schema_version: "2"
-      source_db_schema_version: "000004"
-      target_db_schema_version: "000004"
+      source_config_schema_version: '2'
+      target_config_schema_version: '2'
+      source_db_schema_version: '000004'
+      target_db_schema_version: '000004'
       skipped_plugins:
-        - plugin_id: weather-pro
-          version: 1.4.0
+      - plugin_id: weather-pro
+        version: 1.4.0
+        reason_code: plugin.min_core_version
+        summary: 插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。
+        review_id: review_weather_pro
+        review_status: confirmed
+        reviewed_at: 2026-04-02 08:02:00+00:00
+        reviewed_by: alice
+        manual_action: 升级程序或重新安装兼容版本插件。
+      audit:
+      - task_id: task_recovery_confirm_0001
+        created_at: 2026-04-02 08:02:00+00:00
+        operator_id: alice
+        note: 已确认当前跳过状态。
+        items:
+        - review_id: review_weather_pro
+          plugin_id: weather-pro
           reason_code: plugin.min_core_version
           summary: 插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。
-          review_id: review_weather_pro
-          review_status: confirmed
-          reviewed_at: 2026-04-02T08:02:00Z
-          reviewed_by: alice
-          manual_action: 升级程序或重新安装兼容版本插件。
-      audit:
-        - task_id: task_recovery_confirm_0001
-          created_at: 2026-04-02T08:02:00Z
-          operator_id: alice
-          note: 已确认当前跳过状态。
-          items:
-            - review_id: review_weather_pro
-              plugin_id: weather-pro
-              reason_code: plugin.min_core_version
-              summary: 插件最低 core 版本要求不满足，已保留安装目录并跳过自动启用。
-              version: 1.4.0
+          version: 1.4.0
+    adapters:
+    - id: onebot11
+      protocol: onebot11
+      enabled: true
+      state: connected
 expect:
   valid: true

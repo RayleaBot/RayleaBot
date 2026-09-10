@@ -6,11 +6,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
-func (s *ProtocolService) CurrentOneBot11ProtocolSnapshot() OneBot11ProtocolSnapshot {
-	adapterSnapshot := onebot11.Snapshot{}
-	if s.adapter != nil {
-		adapterSnapshot = s.adapter.Snapshot()
-	}
+func oneBot11ProtocolSnapshot(adapterSnapshot onebot11.Snapshot) OneBot11ProtocolSnapshot {
 
 	transports := []struct {
 		key      onebot11.TransportKey

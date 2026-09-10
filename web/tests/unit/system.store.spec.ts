@@ -20,7 +20,7 @@ describe('system store', () => {
     const store = useSystemStore()
     store.system = {
       status: 'running',
-      adapter_state: 'ready',
+      adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'connected' }],
       active_plugins: 2,
       uptime_seconds: 120,
     }
@@ -44,7 +44,7 @@ describe('system store', () => {
       if (url.endsWith('/api/system/status')) {
         return jsonResponse({
           status: 'running',
-          adapter_state: 'idle',
+          adapters: [{ id: 'onebot11', protocol: 'onebot11', enabled: true, state: 'idle' }],
           active_plugins: 0,
           uptime_seconds: 3,
         })

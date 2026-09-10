@@ -204,9 +204,9 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	if len(requests) != 2 {
 		t.Fatalf("runtime info requests = %d, want 2", len(requests))
 	}
-	service := NewProtocolService(protocolTestConfigSource{}, ProtocolServiceAdapters{PrimaryOneBot11: shell})
+	service := newTestService(t, protocolTestConfigSource{config: config.Config{Adapters: []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}}}}}, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"onebot11": shell}})
 
-	snapshot := service.CurrentOneBot11ProtocolSnapshot()
+	snapshot := service.Adapters().Adapters[0].OneBot11
 	if snapshot.Provider != "luckylillia" {
 		t.Fatalf("unexpected provider: got %q want %q", snapshot.Provider, "luckylillia")
 	}
@@ -229,15 +229,11 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 		}
 	}
 
-	frame := service.ProtocolSnapshotEvent()
-	data, ok := frame.Data.(ProtocolSnapshotPayload)
-	if !ok {
-		t.Fatalf("expected protocol snapshot event payload, got %T", frame.Data)
+	data := service.Adapters()
+	if len(data.Adapters) != 1 {
+		t.Fatalf("unexpected adapters: %#v", data.Adapters)
 	}
-	if data.Protocol != "onebot11" {
-		t.Fatalf("unexpected protocol: got %q want %q", data.Protocol, "onebot11")
-	}
-	projected := data.ProtocolSnapshot
+	projected := data.Adapters[0].OneBot11
 	if !reflect.DeepEqual(projected, snapshot) {
 		t.Fatalf("unexpected event projection: got %#v want %#v", projected, snapshot)
 	}
@@ -310,11 +306,14 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	shell.Start(ctx)
 	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
-	service := NewProtocolService(protocolTestConfigSource{}, ProtocolServiceAdapters{PrimaryOneBot11: shell})
+	service := newTestService(t, protocolTestConfigSource{config: config.Config{Adapters: []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}}}}}, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"onebot11": shell}})
 	service.oneBot11TargetReadTimeout = 60 * time.Millisecond
 
 	started := time.Now()
-	response := service.CurrentOneBot11ProtocolTargets(context.Background())
+	response, err := service.CurrentOneBot11ProtocolTargets(context.Background(), "onebot11")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if elapsed := time.Since(started); elapsed > time.Second {
 		t.Fatalf("target lookup took too long: %s", elapsed)
 	}
@@ -341,7 +340,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T) {
 	t.Parallel()
 
-	service := NewProtocolService(protocolTestConfigSource{}, ProtocolServiceAdapters{})
+	service := newTestService(t, protocolTestConfigSource{}, ProtocolServiceAdapters{})
 
 	response, err := service.CurrentOneBot11ProtocolCompatibility()
 	if err != nil {
