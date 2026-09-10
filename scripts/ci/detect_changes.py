@@ -141,7 +141,7 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path.startswith(".deps/"):
             result["server"] = True
-        if path in {".github/workflows/release.yml", ".github/workflows/self-host-smoke.yml"}:
+        if path in {".github/workflows/release.yml", ".github/workflows/release-build.yml", ".github/workflows/artifact-validation.yml", ".github/workflows/self-host-smoke.yml"}:
             result["release"] = True
             matched = True
         if path.startswith(".github/workflows/") or path.startswith("scripts/ci/"):

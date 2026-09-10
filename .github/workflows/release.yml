@@ -8,442 +8,57 @@ on:
 permissions:
   contents: read
 
-env:
-  PYTHONUTF8: "1"
-
 jobs:
-  check-release-notes:
+  version:
     runs-on: ubuntu-latest
+    outputs:
+      value: ${{ steps.version.outputs.value }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14.7"
-
-      - name: Check release notes
+      - name: Resolve tag version
+        id: version
         shell: bash
-        run: python scripts/release/check_release_notes.py --tag "$GITHUB_REF_NAME"
+        run: printf 'value=%s\n' "${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-  build-full:
-    needs: check-release-notes
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-latest
-            artifact_id: windows-x64-full
-            recovery_fixture_target: windows-x64
-            server_bin: dist/server/raylea-server.exe
-            launcher_bundle: launcher/dist/package/win-unpacked
-            archive_suffix: .zip
-          - runner: ubuntu-latest
-            artifact_id: linux-x64-full
-            recovery_fixture_target: linux-x64
-            server_bin: dist/server/raylea-server
-            launcher_bundle: launcher/dist/package/linux-unpacked
-            archive_suffix: .tar.gz
-          - runner: macos-26
-            artifact_id: macos-arm64-full
-            recovery_fixture_target: macos-arm64
-            server_bin: dist/server/raylea-server
-            launcher_bundle: launcher/dist/package/mac-arm64/RayleaLauncher.app
-            archive_suffix: .tar.gz
-    runs-on: ${{ matrix.runner }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: server/go.mod
-          cache-dependency-path: server/go.sum
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: "26.7.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.22.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14.7"
-
-      - name: Install recovery rehearsal dependency
-        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
-
-      - name: Build server
-        shell: bash
-        env:
-          RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
-        run: |
-          set -euo pipefail
-          test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          mkdir -p dist/server
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
-          if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
-            (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server.exe ./cmd/raylea-server)
-            (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-updater.exe ./cmd/raylea-updater)
-          else
-            (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server ./cmd/raylea-server)
-          fi
-
-      - name: Build recovery test plugin fixture
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist/recovery-plugin
-          (cd sdk/go && GOWORK=off go run ./cmd/raylea-plugin build-go --plugin "$GITHUB_WORKSPACE/server/tests/testutil/testdata/echo-plugin" --backend ./cmd/echo --target "${{ matrix.recovery_fixture_target }}" --out "$GITHUB_WORKSPACE/dist/recovery-plugin")
-
-      - name: Install web dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Build web
-        working-directory: web
-        env:
-          RAYLEA_BUILD_VERSION: ${{ github.ref_name }}
-        run: pnpm build
-
-      - name: Setup launcher Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: launcher/go.mod
-          cache-dependency-path: launcher/go.sum
-
-      - name: Install launcher dependencies
-        working-directory: launcher
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Wails Linux build dependencies
-        if: matrix.artifact_id == 'linux-x64-full'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-
-      - name: Run launcher tests
-        working-directory: launcher
-        run: pnpm test
-
-      - name: Build launcher
-        working-directory: launcher
-        run: pnpm build
-
-      - name: Apply and verify Windows Authenticode gate
-        id: windows-signing
-        if: matrix.artifact_id == 'windows-x64-full'
-        shell: pwsh
-        env:
-          RAYLEA_WINDOWS_CERT_SHA1: ${{ secrets.RAYLEA_WINDOWS_CERT_SHA1 }}
-          RAYLEA_TIMESTAMP_URL: ${{ vars.RAYLEA_TIMESTAMP_URL }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          "signer_sha256=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue | Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName
-          if ([string]::IsNullOrWhiteSpace($signtool)) {
-            Write-Host 'signtool.exe is unavailable; Windows update remains guided.'
-            exit 0
-          }
-          $timestamp = if ([string]::IsNullOrWhiteSpace($env:RAYLEA_TIMESTAMP_URL)) { 'http://timestamp.digicert.com' } else { $env:RAYLEA_TIMESTAMP_URL }
-          $signTargets = @(
-            'dist/server/raylea-server.exe',
-            'dist/server/raylea-updater.exe',
-            'launcher/dist/package/win-unpacked/RayleaLauncher.exe'
-          )
-          if (-not [string]::IsNullOrWhiteSpace($env:RAYLEA_WINDOWS_CERT_SHA1)) {
-            foreach ($target in $signTargets) {
-              & $signtool sign /sha1 $env:RAYLEA_WINDOWS_CERT_SHA1 /fd SHA256 /tr $timestamp /td SHA256 $target
-              if ($LASTEXITCODE -ne 0) { Write-Host 'Production signing failed; Windows update remains guided.'; exit 0 }
-            }
-          } else {
-            Write-Host 'No cert-store identity is configured; checking for artifacts signed by an earlier cloud-signing step.'
-          }
-          $allPE = @($signTargets) + @(Get-ChildItem 'launcher/dist/package/win-unpacked' -Recurse -File | Where-Object { $_.Extension -in '.exe', '.dll' } | ForEach-Object FullName)
-          foreach ($target in $allPE | Sort-Object -Unique) {
-            & $signtool verify /pa /all $target
-            if ($LASTEXITCODE -ne 0) { Write-Host "PE verification failed for $target; Windows update remains guided."; exit 0 }
-          }
-          $signerDigests = @()
-          foreach ($target in $signTargets) {
-            $signature = Get-AuthenticodeSignature $target
-            if ($signature.Status -ne 'Valid' -or $null -eq $signature.SignerCertificate) { exit 0 }
-            $signerDigests += [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($signature.SignerCertificate.RawData)).ToLowerInvariant()
-          }
-          if (@($signerDigests | Sort-Object -Unique).Count -ne 1) { Write-Host 'Required PE signer identities differ; Windows update remains guided.'; exit 0 }
-          $digest = $signerDigests[0]
-          "signer_sha256=$digest" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Verify third-party notices
-        run: python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md
-
-      - name: Package full artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          GIT_COMMIT="$(git rev-parse --short HEAD)"
-          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
-          if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
-            EXTRA+=(--updater-bin dist/server/raylea-updater.exe)
-            if [ -n "${{ steps.windows-signing.outputs.signer_sha256 }}" ]; then
-              EXTRA+=(--windows-signer-sha256 "${{ steps.windows-signing.outputs.signer_sha256 }}")
-            fi
-          fi
-          python scripts/release/package_artifact.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --server-bin "${{ matrix.server_bin }}" \
-            --launcher-bundle "${{ matrix.launcher_bundle }}" \
-            --web-dist web/dist \
-            --deps-dir .deps \
-            --templates-dir templates \
-            --license-file LICENSE \
-            --third-party-notices THIRD_PARTY_NOTICES.md \
-            --output-dir dist/release \
-            --run-smoke \
-            --run-recovery-drill \
-            --recovery-plugin-fixture "dist/recovery-plugin/raylea.echo-0.2.0-${{ matrix.recovery_fixture_target }}.zip" \
-            --run-self-host-smoke \
-            --observation-window-seconds 300 \
-            --window-seconds 600 \
-            --probe-interval-seconds 30 \
-            "${EXTRA[@]}"
-
-      - name: Upload full release artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact_id }}
-          path: |
-            dist/release/RayleaBot-v*-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}
-            dist/release/RayleaBot-v*-${{ matrix.artifact_id }}${{ matrix.archive_suffix }}.artifact.json
-
-  build-linux-server:
-    needs: check-release-notes
-    permissions:
-      contents: read
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: server/go.mod
-
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: "26.7.0"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.22.0
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14.7"
-
-      - name: Install recovery rehearsal dependency
-        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
-
-      - name: Build server
-        env:
-          RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
-        run: |
-          test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          mkdir -p dist/server
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
-          (cd server && go build -ldflags "$LDFLAGS" -o ../dist/server/raylea-server ./cmd/raylea-server)
-
-      - name: Build recovery test plugin fixture
-        run: |
-          set -euo pipefail
-          mkdir -p dist/recovery-plugin
-          (cd sdk/go && GOWORK=off go run ./cmd/raylea-plugin build-go --plugin "$GITHUB_WORKSPACE/server/tests/testutil/testdata/echo-plugin" --backend ./cmd/echo --target linux-x64 --out "$GITHUB_WORKSPACE/dist/recovery-plugin")
-
-      - name: Install web dependencies
-        working-directory: web
-        run: pnpm install --frozen-lockfile
-
-      - name: Build web
-        working-directory: web
-        env:
-          RAYLEA_BUILD_VERSION: ${{ github.ref_name }}
-        run: pnpm build
-
-
-      - name: Install launcher dependencies for notice audit
-        working-directory: launcher
-        run: pnpm install --frozen-lockfile
-
-      - name: Verify third-party notices
-        run: python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md
-
-      - name: Package linux server artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          GIT_COMMIT="$(git rev-parse --short HEAD)"
-          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
-          python scripts/release/package_artifact.py \
-            --artifact-id linux-x64-server \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --server-bin dist/server/raylea-server \
-            --web-dist web/dist \
-            --deps-dir .deps \
-            --templates-dir templates \
-            --license-file LICENSE \
-            --third-party-notices THIRD_PARTY_NOTICES.md \
-            --systemd-file packaging/systemd/rayleabot.service \
-            --output-dir dist/release \
-            --run-smoke \
-            --run-recovery-drill \
-            --recovery-plugin-fixture dist/recovery-plugin/raylea.echo-0.2.0-linux-x64.zip \
-            --run-self-host-smoke \
-            --observation-window-seconds 300 \
-            --window-seconds 600 \
-            --probe-interval-seconds 30
-
-      - name: Upload linux server release artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-x64-server
-          path: |
-            dist/release/RayleaBot-v*-linux-x64-server.tar.gz
-            dist/release/RayleaBot-v*-linux-x64-server.tar.gz.artifact.json
+  build:
+    needs: version
+    uses: ./.github/workflows/release-build.yml
+    with:
+      version: ${{ needs.version.outputs.value }}
+      release_notes_ref: ${{ format('https://github.com/{0}/releases/tag/{1}', github.repository, github.ref_name) }}
+    secrets:
+      RAYLEA_RELEASE_SIGNING_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_SIGNING_KEY_PEM }}
+      RAYLEA_RELEASE_NEXT_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_NEXT_KEY_PEM }}
+      RAYLEA_WINDOWS_CERT_SHA1: ${{ secrets.RAYLEA_WINDOWS_CERT_SHA1 }}
 
   publish:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
     permissions:
       contents: write
     runs-on: ubuntu-latest
-    needs:
-      - build-full
-      - build-linux-server
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.14.7"
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: server/go.mod
-          cache-dependency-path: |
-            server/go.sum
-            launcher/go.sum
-
-      - name: Download release artifacts
+      - name: Download verified release packages
         uses: actions/download-artifact@v8
         with:
+          pattern: package-*
           path: dist/downloads
-
-      - name: Generate release metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p dist/artifacts
-          find dist/downloads -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} dist/artifacts/ \;
-          VERSION="${GITHUB_REF_NAME#v}"
-          GIT_COMMIT="$(git rev-parse --short HEAD)"
-          CONFIG_SCHEMA_VERSION="$(python -c "import json; print(json.load(open('contracts/config.user.schema.json', encoding='utf-8'))['properties']['schema_version']['const'])")"
-          DB_SCHEMA_VERSION="$(python -c "from pathlib import Path; import re; text = Path('server/internal/storage/store_schema.go').read_text(encoding='utf-8'); print(re.search(r'const currentSchemaVersion = .(\d+).', text).group(1))")"
-          RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
-          python scripts/release/release_tool.py metadata \
-            --version "$VERSION" \
-            --git-commit "$GIT_COMMIT" \
-            --config-schema-version "$CONFIG_SCHEMA_VERSION" \
-            --db-schema-version "$DB_SCHEMA_VERSION" \
-            --plugin-protocol-version "3" \
-            --release-notes-ref "$RELEASE_NOTES_REF" \
-            --deps-manifest .deps/manifest.json \
-            --sidecar dist/downloads/windows-x64-full/RayleaBot-v${VERSION}-windows-x64-full.zip.artifact.json \
-            --sidecar dist/downloads/linux-x64-full/RayleaBot-v${VERSION}-linux-x64-full.tar.gz.artifact.json \
-            --sidecar dist/downloads/macos-arm64-full/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz.artifact.json \
-            --sidecar dist/downloads/linux-x64-server/RayleaBot-v${VERSION}-linux-x64-server.tar.gz.artifact.json \
-            --output-dir dist/release
-          python scripts/release/release_tool.py verify \
-            --manifest dist/release/release_manifest.v2.json \
-            --checksums dist/release/SHA256SUMS.txt \
-            --artifact-dir dist/artifacts
-
-      - name: Sign v2 release manifest with Ed25519
-        shell: bash
-        env:
-          RAYLEA_RELEASE_SIGNING_KEY_ID: ${{ vars.RAYLEA_RELEASE_SIGNING_KEY_ID }}
-          RAYLEA_RELEASE_SIGNING_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_SIGNING_KEY_PEM }}
-          RAYLEA_RELEASE_NEXT_KEY_ID: ${{ vars.RAYLEA_RELEASE_NEXT_KEY_ID }}
-          RAYLEA_RELEASE_NEXT_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_NEXT_KEY_PEM }}
-        run: |
-          set -euo pipefail
-          test -n "$RAYLEA_RELEASE_SIGNING_KEY_ID"
-          test -n "$RAYLEA_RELEASE_SIGNING_KEY_PEM"
-          umask 077
-          PRIMARY_KEY="$RUNNER_TEMP/raylea-release-primary.pem"
-          NEXT_KEY="$RUNNER_TEMP/raylea-release-next.pem"
-          trap 'rm -f "$PRIMARY_KEY" "$NEXT_KEY"' EXIT
-          printf '%s' "$RAYLEA_RELEASE_SIGNING_KEY_PEM" > "$PRIMARY_KEY"
-          KEY_ARGS=(--key "$RAYLEA_RELEASE_SIGNING_KEY_ID=$PRIMARY_KEY")
-          if [ -n "$RAYLEA_RELEASE_NEXT_KEY_ID" ] || [ -n "$RAYLEA_RELEASE_NEXT_KEY_PEM" ]; then
-            test -n "$RAYLEA_RELEASE_NEXT_KEY_ID"
-            test -n "$RAYLEA_RELEASE_NEXT_KEY_PEM"
-            printf '%s' "$RAYLEA_RELEASE_NEXT_KEY_PEM" > "$NEXT_KEY"
-            KEY_ARGS+=(--key "$RAYLEA_RELEASE_NEXT_KEY_ID=$NEXT_KEY")
-          fi
-          python scripts/release/release_tool.py sign \
-            --manifest dist/release/release_manifest.v2.json \
-            --output dist/release/release_manifest.v2.sig.json \
-            "${KEY_ARGS[@]}"
-          (cd dist/release && sha256sum release_manifest.v2.sig.json >> SHA256SUMS.txt)
-
-      - name: Verify signature and every release artifact with the shipped trust registry
-        shell: bash
-        env:
-          RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
-        run: |
-          set -euo pipefail
-          test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
-          LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
-          (cd server && go build -ldflags "$LDFLAGS" -o ../dist/release/raylea-server-verify ./cmd/raylea-server)
-          for artifact in dist/artifacts/*; do
-            dist/release/raylea-server-verify update verify \
-              --manifest dist/release/release_manifest.v2.json \
-              --signature dist/release/release_manifest.v2.sig.json \
-              --artifact "$artifact"
-          done
-
+      - name: Download verified release metadata
+        uses: actions/download-artifact@v8
+        with:
+          name: release-metadata
+          path: dist/release
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
           name: RayleaBot ${{ github.ref_name }}
           body_path: docs/release/notes/${{ github.ref_name }}.md
           files: |
-            dist/downloads/windows-x64-full/*.zip
-            dist/downloads/linux-x64-full/*.tar.gz
-            dist/downloads/macos-arm64-full/*.tar.gz
-            dist/downloads/linux-x64-server/*.tar.gz
+            dist/downloads/package-windows-x64-full/*.zip
+            dist/downloads/package-linux-x64-full/*.tar.gz
+            dist/downloads/package-macos-arm64-full/*.tar.gz
+            dist/downloads/package-linux-x64-server/*.tar.gz
             dist/release/release_manifest.v2.json
             dist/release/release_manifest.v2.sig.json
             dist/release/SHA256SUMS.txt
