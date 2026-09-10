@@ -732,20 +732,20 @@ func (s *InstallService) refreshCatalog(ctx context.Context, pluginID string) er
 		Logger:    s.logger,
 	})
 	if err != nil {
-		return installError(codePluginInstallFailed, "刷新插件目录索引失败", "刷新插件目录索引失败")
+		return errors.Join(installError(codePluginInstallFailed, "刷新插件目录索引失败", "刷新插件目录索引失败"), err)
 	}
 
 	if packageLoader, ok := s.repository.(plugins.PackageMetadataLoader); ok {
 		packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
 		if err != nil {
-			return installError(codePluginInstallFailed, "读取插件安装元数据失败", "读取插件安装元数据失败")
+			return errors.Join(installError(codePluginInstallFailed, "读取插件安装元数据失败", "读取插件安装元数据失败"), err)
 		}
 		snapshots = plugins.ApplyPackageMetadata(snapshots, packageMetadata)
 	}
 	if s.repository != nil {
 		states, err := s.repository.LoadDesiredStates(ctx)
 		if err != nil {
-			return installError(codePluginInstallFailed, "读取插件持久化状态失败", "读取插件持久化状态失败")
+			return errors.Join(installError(codePluginInstallFailed, "读取插件持久化状态失败", "读取插件持久化状态失败"), err)
 		}
 		snapshots = plugins.ApplyDesiredStates(snapshots, states)
 	}

@@ -104,10 +104,10 @@ func runConfig(cmd Command) int {
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 	if err != nil {
-		cmd.Logger.Error("配置文件"+actionLabel+"失败："+configPathDisplay, "config_path", configPathDisplay, "action", action, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
+		cmd.Logger.Error("配置文件操作失败", "config_path", configPathDisplay, "action", action, "action_label", actionLabel, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 		return 1
 	}
-	cmd.Logger.Info("配置文件"+actionLabel+"完成："+configPathDisplay, "config_path", configPathDisplay, "action", action)
+	cmd.Logger.Info("配置文件操作完成", "config_path", configPathDisplay, "action", action, "action_label", actionLabel)
 	return 0
 }
 

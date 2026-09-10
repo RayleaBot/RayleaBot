@@ -153,9 +153,6 @@ func (s *Service) CreateSource(ctx context.Context, input SourceInput) (SourceVi
 	}
 	source := Source{ID: sourceID, Name: name, URL: rawURL}
 	if err := s.repository.CreateSource(ctx, source); err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "unique") {
-			return SourceView{}, ErrSourceConflict
-		}
 		return SourceView{}, err
 	}
 	refreshedAt := s.options.Now().UTC()
@@ -190,9 +187,6 @@ func (s *Service) UpdateSource(ctx context.Context, sourceID string, input Sourc
 	source.Name = name
 	source.URL = rawURL
 	if err := s.repository.UpdateSource(ctx, source); err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "unique") {
-			return SourceView{}, ErrSourceConflict
-		}
 		return SourceView{}, err
 	}
 	refreshedAt := s.options.Now().UTC()

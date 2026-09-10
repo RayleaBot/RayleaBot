@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -40,6 +43,9 @@ func (r *SQLiteRepository) CreateSource(ctx context.Context, source Source) erro
 		Name:     source.Name,
 		Url:      source.URL,
 	}); err != nil {
+		if isSourceURLConflict(err) {
+			return ErrSourceConflict
+		}
 		return fmt.Errorf("create plugin store source: %w", err)
 	}
 	return nil
@@ -52,12 +58,20 @@ func (r *SQLiteRepository) UpdateSource(ctx context.Context, source Source) erro
 		Url:      source.URL,
 	})
 	if err != nil {
+		if isSourceURLConflict(err) {
+			return ErrSourceConflict
+		}
 		return fmt.Errorf("update plugin store source: %w", err)
 	}
 	if updated == 0 {
 		return ErrSourceNotFound
 	}
 	return nil
+}
+
+func isSourceURLConflict(err error) bool {
+	var failure *sqlite.Error
+	return errors.As(err, &failure) && failure.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE
 }
 
 func (r *SQLiteRepository) DeleteSource(ctx context.Context, sourceID string) error {

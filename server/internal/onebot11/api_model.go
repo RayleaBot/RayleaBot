@@ -2,11 +2,14 @@ package onebot11
 
 import (
 	"context"
+	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"sort"
 )
 
 const ErrorCodeAPICallFailed = errorcodes.AdapterApiCallFailed
+
+var ErrInvalidListPayload = errors.New("adapter API returned a non-list payload")
 
 type LoginInfo struct {
 	ID       string
@@ -184,7 +187,7 @@ func (c Client) ListGroups(ctx context.Context) ([]GroupTarget, error) {
 	}
 	items, ok := normalizeAPIListWithKeys(raw, []string{"groups", "group_list", "items", "list", "data"})
 	if !ok {
-		return nil, c.caller.Errorf(ErrorCodeAPICallFailed, "get_group_list returned a non-list payload", nil)
+		return nil, c.caller.Errorf(ErrorCodeAPICallFailed, "get_group_list returned a non-list payload", ErrInvalidListPayload)
 	}
 
 	groups := make([]GroupTarget, 0, len(items))
@@ -219,7 +222,7 @@ func (c Client) ListFriends(ctx context.Context) ([]FriendTarget, error) {
 	}
 	items, ok := normalizeAPIListWithKeys(raw, []string{"friends", "private_users", "friend_list", "items", "list", "data"})
 	if !ok {
-		return nil, c.caller.Errorf(ErrorCodeAPICallFailed, "get_friend_list returned a non-list payload", nil)
+		return nil, c.caller.Errorf(ErrorCodeAPICallFailed, "get_friend_list returned a non-list payload", ErrInvalidListPayload)
 	}
 
 	friends := make([]FriendTarget, 0, len(items))

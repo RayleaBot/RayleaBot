@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
@@ -137,17 +138,14 @@ func oneBot11TargetIssueMessage(fallback string, err error) string {
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 		return strings.TrimSuffix(fallback, "失败") + "超时"
 	}
-	normalized := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(normalized, "timed out"):
-		return strings.TrimSuffix(fallback, "失败") + "超时"
-	case strings.Contains(normalized, "not connected"):
+	var adapterError *onebot11.Error
+	if errors.As(err, &adapterError) && (adapterError.Code == errorcodes.AdapterConnectionLost || adapterError.Code == errorcodes.AdapterConnectionFailed) {
 		return "OneBot 协议未连接"
-	case strings.Contains(normalized, "non-list payload"):
-		return strings.TrimSuffix(fallback, "失败") + "返回格式不支持"
-	default:
-		return fallback
 	}
+	if errors.Is(err, onebot11.ErrInvalidListPayload) {
+		return strings.TrimSuffix(fallback, "失败") + "返回格式不支持"
+	}
+	return fallback
 }
 
 func (s *Service) oneBot11TargetTimeout() time.Duration {

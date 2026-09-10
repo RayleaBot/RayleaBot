@@ -137,7 +137,7 @@ func (a *App) Run(ctx context.Context) error {
 
 	supervisor.GoCritical(func(context.Context) error {
 		serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
-		a.state.Logger.Info("服务正在启动，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
+		a.state.Logger.Info("服务正在启动", "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
 		if err := a.process.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("listen on %s: %w", a.process.server.Addr, err)
 		}
@@ -276,8 +276,7 @@ func configureAppRuntimeCallbacks(application *App) {
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
 	}
-	// Every adapter feeds the same ingress; the OneBot instance the management
-	// surface reports on is additionally the one driving snapshot publication.
+	// Every instance publishes the complete management snapshot after a state change.
 	for _, shell := range application.eventStack.OneBotShells {
 		shell.SetEventHandler(eventIngress.HandleAdapterEvent)
 		shell.SetReadyHandler(eventIngress.HandleAdapterReady)

@@ -112,7 +112,7 @@ func TestWithRequestContextLogsAccessAndObservesRequest(t *testing.T) {
 		t.Fatalf("decode access log: %v", err)
 	}
 	message, ok := record["msg"].(string)
-	if !ok || !strings.HasPrefix(message, "HTTP 请求完成：POST /api/config，状态 201，耗时 ") {
+	if !ok || message != "HTTP 请求完成" {
 		t.Fatalf("unexpected log message: got %#v", record["msg"])
 	}
 	if got := record["level"]; got != "DEBUG" {

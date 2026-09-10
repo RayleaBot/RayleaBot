@@ -110,7 +110,7 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 					}
 
 					logger.Error(
-						fmt.Sprintf("请求处理异常：%s %s", r.Method, r.URL.Path),
+						"请求处理异常",
 						"component", "http",
 						"request_id", requestID,
 						"method", r.Method,
@@ -137,8 +137,8 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 				}
 				logger.Log(
 					r.Context(),
-					accessLogLevel(r, recorder.statusCode),
-					fmt.Sprintf("HTTP 请求完成：%s %s，状态 %d，耗时 %dms", r.Method, r.URL.Path, recorder.statusCode, duration.Milliseconds()),
+					slog.LevelDebug,
+					"HTTP 请求完成",
 					"component", "http",
 					"request_id", requestID,
 					"method", r.Method,
@@ -193,10 +193,6 @@ func requestRoutePattern(r *http.Request) string {
 		return "unknown"
 	}
 	return "unmatched"
-}
-
-func accessLogLevel(_ *http.Request, _ int) slog.Level {
-	return slog.LevelDebug
 }
 
 func DisplayServerURL(listenAddr string) string {
