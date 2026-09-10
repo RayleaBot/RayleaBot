@@ -9,26 +9,26 @@ import (
 )
 
 type Deps struct {
-	CurrentConfig     func() config.Config
-	Logger            *slog.Logger
-	RedactText        func(string) string
-	Permissions       PermissionView
-	Plugins           plugins.CatalogView
-	PluginConfig      PluginConfigRepository
-	PluginFiles       FileStore
-	PluginKV          KVRepository
-	Secrets           SecretReader
-	ThirdParty        ThirdPartyAccountReader
-	AccountValidation ThirdPartyAccountValidationRequester
-	ThirdPartyResolve ThirdPartyResolver
-	Scheduler         SchedulerCreateFunc
-	Dispatcher        ConfigChangeDispatcher
-	MessageSender     MessageSendFunc
-	Renderer          Renderer
-	Adapter           OneBotAdapter
-	PluginLogLimiter  *PluginLogLimiter
-	Governance        GovernanceService
-	RefreshCommands   func(context.Context, string, map[string]any)
+	CurrentConfig        func() config.Config
+	Logger               *slog.Logger
+	RedactText           func(string) string
+	Permissions          PermissionView
+	Plugins              plugins.CatalogView
+	PluginConfig         PluginConfigRepository
+	PluginFiles          FileStore
+	PluginKV             KVRepository
+	Secrets              SecretReader
+	ThirdParty           ThirdPartyAccountReader
+	AccountValidation    ThirdPartyAccountValidationRequester
+	ThirdPartyResolve    ThirdPartyResolver
+	Scheduler            SchedulerCreateFunc
+	Dispatcher           ConfigChangeDispatcher
+	MessageSender        MessageSendFunc
+	Renderer             Renderer
+	ResolveOneBotAdapter func(sourceAdapter, sourceProtocol string) (OneBotAdapter, error)
+	PluginLogLimiter     *PluginLogLimiter
+	Governance           GovernanceService
+	RefreshCommands      func(context.Context, string, map[string]any)
 }
 
 type Service struct{ actionRegistry *Registry }

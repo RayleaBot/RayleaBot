@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: group-info-wrong-protocol
+    action: group.info.get
+    data:
+      source_adapter: second-bot
+      source_protocol: qqofficial
+      group_id: "20001"
+  - type: action
+    request_id: provider-invalid-selector
+    action: provider.napcat.group.sign.set
+    data:
+      source_adapter: 12
+      group_id: "20001"
+expect:
+  valid: false

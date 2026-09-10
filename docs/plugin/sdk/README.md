@@ -35,6 +35,8 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 - OneBot 单动作与 provider 扩展动作。
 - 已进入正式 contract 的通用 `Call`。
 
+OneBot 和 provider typed helpers 默认由宿主按当前聊天事件选择实例。定时任务等平台事件需要主动指定实例时，使用 `event.Actions().ForOneBotAdapter("second-bot").GroupInfoGet(ctx, groupID)`；返回的动作视图不会改变其他调用的实例。显式实例仍须与聊天父事件一致，多实例且没有选择信息时宿主拒绝调用。
+
 SDK 串行写 stdout JSONL，日志写 stderr；负责 request 关联、并发、ping/pong、关闭、panic 隔离和配置快照原子替换。
 
 动作调用前会检查 context 和事件终态。已发送动作在调用方停止等待后继续保留响应关联，终态等待宿主动作结算；超过 `ActionTimeout` 时不输出早于动作完成的终态，由宿主结束事件。已关闭事件不能继续调用 `event.Actions()` 发送动作。`adapter.send_unconfirmed` 和等待取消都不证明消息未发送，不能据此自动重试。

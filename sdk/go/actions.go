@@ -12,7 +12,8 @@ import (
 type ActionResult map[string]any
 
 type Actions struct {
-	event *EventContext
+	event         *EventContext
+	oneBotAdapter *string
 }
 
 func (actions *Actions) TimeLocation() *time.Location { return actions.event.Location }

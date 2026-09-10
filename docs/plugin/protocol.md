@@ -113,6 +113,12 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 动作未在 manifest `permissions` 声明，或请求平台超出权限范围时，宿主返回 `plugin.permission_denied`。
 
+### OneBot 与 provider 实例选择
+
+OneBot 和 provider 扩展动作从 OneBot 父事件继承 `source_adapter`。主动动作可以在 `data` 中指定 `source_adapter`，可选的 `source_protocol` 只允许 `onebot11`；这些字段只供宿主选路，不转发给 provider。
+
+平台内部事件不指定聊天实例。没有实例选择信息时，必须恰好有一个已启用的 OneBot11 实例。实例未知、停用、已移除、协议不匹配、选择存在歧义，或显式选择与聊天父事件冲突时，宿主返回 `plugin.protocol_violation`，不会发出 API 请求。其他聊天协议的父事件不能调用 OneBot 动作。
+
 ### 消息发送与回复
 
 插件只发送 `message.send` action：

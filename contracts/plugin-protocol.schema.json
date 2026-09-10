@@ -1202,7 +1202,21 @@
     },
     "action_onebot_family_data": {
       "type": "object",
-      "additionalProperties": true
+      "additionalProperties": true,
+      "description": "OneBot API arguments plus host-only routing selectors. OneBot and provider actions inherit source_adapter from a OneBot parent event. An explicit selector must agree with a chat parent event; a parent from another chat protocol is rejected. Platform events do not imply a chat adapter. Without an instance selector, exactly one enabled OneBot11 instance must exist. Missing, disabled, unknown, ambiguous or protocol-mismatched routes and conflicting selectors fail with plugin.protocol_violation before any API call. Selectors are removed before forwarding arguments to the provider.",
+      "properties": {
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Configured adapter instance ID, matching event.source_adapter. Required for active actions when several OneBot11 instances are enabled."
+        },
+        "source_protocol": {
+          "const": "onebot11",
+          "description": "Optional protocol constraint; OneBot and provider actions only address OneBot11 instances."
+        }
+      }
     },
     "action_onebot_family": {
       "allOf": [
@@ -1259,8 +1273,7 @@
               "$ref": "#/$defs/provider_extension_action_kind"
             },
             "data": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/$defs/action_onebot_family_data"
             }
           }
         }
@@ -2911,6 +2924,8 @@
     "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
     "fixtures/plugin-protocol/ok.qq-official-group-message.yaml",
     "fixtures/plugin-protocol/ok.message-send-adapter-instance.yaml",
+    "fixtures/plugin-protocol/ok.onebot-adapter-instance.yaml",
+    "fixtures/plugin-protocol/invalid.onebot-adapter-selector.yaml",
     "fixtures/plugin-protocol/ok.qq-official-bot-added.yaml",
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",

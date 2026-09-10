@@ -3,7 +3,9 @@ package actions
 import (
 	"context"
 	"errors"
+	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -29,10 +31,11 @@ func oneBotRegistrars() []registrar {
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeOneBotAction(ctx, oneBotActionRequest{
-						PluginID:    req.PluginID,
-						Action:      req.Action,
-						Permissions: deps.Permissions,
-						Adapter:     deps.Adapter,
+						PluginID:       req.PluginID,
+						Action:         req.Action,
+						Permissions:    deps.Permissions,
+						ParentEvent:    req.ParentEvent,
+						ResolveAdapter: deps.ResolveOneBotAdapter,
 					})
 				}
 			},
@@ -151,10 +154,11 @@ type oneBotCodedError interface {
 }
 
 type oneBotActionRequest struct {
-	PluginID    string
-	Action      plugins.Action
-	Permissions PermissionView
-	Adapter     OneBotAdapter
+	PluginID       string
+	Action         plugins.Action
+	Permissions    PermissionView
+	ParentEvent    chatevent.Event
+	ResolveAdapter func(string, string) (OneBotAdapter, error)
 }
 
 func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[string]any, error) {
@@ -173,23 +177,60 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 		}
 	}
 
-	if req.Adapter == nil {
+	sourceAdapter, err := oneBotActionSource(req.Action, req.ParentEvent)
+	if err != nil {
+		return nil, err
+	}
+	if req.ResolveAdapter == nil {
 		return nil, &plugins.Error{
-			Code:    "adapter.transport_not_implemented",
+			Code:    "plugin.protocol_violation",
 			Message: "OneBot adapter 不可用",
 		}
 	}
+	adapter, err := req.ResolveAdapter(sourceAdapter, "onebot11")
+	if err != nil {
+		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: err.Error()}
+	}
+	if adapter == nil {
+		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "OneBot adapter 不可用"}
+	}
 
-	apiAction, params, err := projectOneBotAction(req.Adapter, spec, req.Action)
+	apiAction, params, err := projectOneBotAction(adapter, spec, req.Action)
 	if err != nil {
 		return nil, err
 	}
 
-	result, callErr := req.Adapter.CallAPIAny(ctx, apiAction, params)
+	result, callErr := adapter.CallAPIAny(ctx, apiAction, params)
 	if callErr != nil {
 		return nil, oneBotRuntimeActionError(callErr)
 	}
 	return spec.Result(result), nil
+}
+
+func oneBotActionSource(action plugins.Action, parent chatevent.Event) (string, error) {
+	invalid := func(message string) (string, error) {
+		return "", &plugins.Error{Code: "plugin.protocol_violation", Message: message}
+	}
+	if action.SourceProtocol != "" && action.SourceProtocol != "onebot11" {
+		return invalid("OneBot action source_protocol must be onebot11")
+	}
+	sourceAdapter := strings.TrimSpace(action.SourceAdapter)
+	switch parent.SourceProtocol {
+	case "onebot11":
+		parentAdapter := strings.TrimSpace(parent.SourceAdapter)
+		if parentAdapter == "" {
+			return invalid("OneBot parent event is missing source_adapter")
+		}
+		if sourceAdapter != "" && sourceAdapter != parentAdapter {
+			return invalid("OneBot action source_adapter conflicts with its parent event")
+		}
+		sourceAdapter = parentAdapter
+	case "", "platform", "scheduler", "webhook", "management":
+		// Host events have no chat adapter ownership.
+	default:
+		return invalid("OneBot action cannot use a parent event from another chat protocol")
+	}
+	return sourceAdapter, nil
 }
 
 func oneBotRuntimeActionError(err error) error {

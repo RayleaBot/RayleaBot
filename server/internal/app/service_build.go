@@ -179,7 +179,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		Menu:             pluginServices.Menu,
 		Bridge:           eventStack.Bridge,
 		Lifecycle:        pluginServices.PluginLifecycle,
-		MetadataEnricher: eventStack.Adapter,
+		MetadataEnricher: eventStack,
 		WhitelistRepo:    policyRepos.Whitelist,
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,

@@ -13,7 +13,8 @@ const (
 )
 
 func (s *Shell) EnrichEventMetadata(ctx context.Context, event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
-	if strings.TrimSpace(event.SourceProtocol) != "onebot11" {
+	if strings.TrimSpace(event.SourceProtocol) != "onebot11" ||
+		(strings.TrimSpace(event.SourceAdapter) != "" && strings.TrimSpace(event.SourceAdapter) != s.adapterID) {
 		return event
 	}
 	s.invalidateIdentityCacheForEvent(event)

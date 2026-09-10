@@ -241,18 +241,23 @@ func (a *serviceHarness) setTestLocalActions(permissions localaction.PermissionV
 		NotifyChanged:  a.services.GovernanceEvents.PublishChanged,
 	})
 	a.services.LocalActions = localaction.New(localaction.Deps{
-		CurrentConfig:    func() config.Config { return a.state.Config },
-		Logger:           a.state.Logger,
-		RedactText:       a.state.redactString,
-		Permissions:      a.permissions,
-		PluginConfig:     pluginConfigRepo,
-		PluginFiles:      pluginFiles,
-		PluginKV:         pluginKV,
-		Secrets:          localaction.SecretReaderFromStore(a.platform.Secrets),
-		Scheduler:        localaction.Scheduler(schedulerEngine),
-		Dispatcher:       localaction.ConfigChangedDispatcher(dispatcher),
-		Renderer:         localaction.RendererFromService(rendererService),
-		Adapter:          adapterShell,
+		CurrentConfig: func() config.Config { return a.state.Config },
+		Logger:        a.state.Logger,
+		RedactText:    a.state.redactString,
+		Permissions:   a.permissions,
+		PluginConfig:  pluginConfigRepo,
+		PluginFiles:   pluginFiles,
+		PluginKV:      pluginKV,
+		Secrets:       localaction.SecretReaderFromStore(a.platform.Secrets),
+		Scheduler:     localaction.Scheduler(schedulerEngine),
+		Dispatcher:    localaction.ConfigChangedDispatcher(dispatcher),
+		Renderer:      localaction.RendererFromService(rendererService),
+		ResolveOneBotAdapter: func(string, string) (localaction.OneBotAdapter, error) {
+			if adapterShell == nil {
+				return nil, nil
+			}
+			return adapterShell, nil
+		},
 		PluginLogLimiter: limiter,
 		Governance:       a.services.Governance,
 	})

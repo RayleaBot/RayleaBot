@@ -2,6 +2,7 @@ package rayleabot
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 )
 
@@ -73,12 +74,42 @@ type NapCatMessageEmojiLikeSetRequest struct {
 	Enabled   bool   `json:"enabled"`
 }
 
+// ForOneBotAdapter returns an independent view whose typed OneBot and provider
+// helpers select the named instance. A chat parent event still owns its route;
+// the host rejects a selector that conflicts with that parent.
+func (actions *Actions) ForOneBotAdapter(adapterID string) *Actions {
+	if actions == nil {
+		return nil
+	}
+	return &Actions{event: actions.event, oneBotAdapter: &adapterID}
+}
+
 func (actions *Actions) oneBotResult(ctx context.Context, action OneBotAction, request any) (ActionResult, error) {
-	return actions.callResult(ctx, string(action), request)
+	return actions.routedOneBotResult(ctx, string(action), request)
 }
 
 func (actions *Actions) providerResult(ctx context.Context, action ProviderAction, request any) (ActionResult, error) {
-	return actions.callResult(ctx, string(action), request)
+	return actions.routedOneBotResult(ctx, string(action), request)
+}
+
+func (actions *Actions) routedOneBotResult(ctx context.Context, action string, request any) (ActionResult, error) {
+	if actions == nil || actions.oneBotAdapter == nil {
+		return actions.callResult(ctx, action, request)
+	}
+	data, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(data, &fields); err != nil {
+		return nil, err
+	}
+	if fields == nil {
+		fields = make(map[string]json.RawMessage)
+	}
+	fields["source_adapter"], _ = json.Marshal(*actions.oneBotAdapter)
+	fields["source_protocol"] = json.RawMessage(`"onebot11"`)
+	return actions.callResult(ctx, action, fields)
 }
 
 func (actions *Actions) MessageGet(ctx context.Context, messageID string) (ActionResult, error) {

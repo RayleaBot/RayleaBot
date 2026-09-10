@@ -27,7 +27,7 @@ func NewRouter(senders map[string]ActionSender, protocols map[string]string, cur
 }
 
 func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
-	id, err := r.resolveID(message.SourceAdapter, message.SourceProtocol)
+	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
@@ -35,17 +35,18 @@ func (r *Router) SendMessage(ctx context.Context, message chatevent.OutboundMess
 }
 
 func (r *Router) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
-	id, err := r.resolveID(message.SourceAdapter, message.SourceProtocol)
+	id, err := r.ResolveAdapterID(message.SourceAdapter, message.SourceProtocol)
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
 	}
 	return r.senders[id].SendReply(ctx, message)
 }
 
-// resolve refuses to guess. Target identifiers are namespaced per adapter, so
+// ResolveAdapterID selects one enabled instance from the live configuration.
+// Target identifiers are namespaced per adapter, so
 // delivering to the wrong one would either fail confusingly or reach an
 // unrelated conversation that happens to share an id.
-func (r *Router) resolveID(sourceAdapter, sourceProtocol string) (string, error) {
+func (r *Router) ResolveAdapterID(sourceAdapter, sourceProtocol string) (string, error) {
 	senders := r.activeSenders()
 	if adapterID := strings.TrimSpace(sourceAdapter); adapterID != "" {
 		_, ok := senders[adapterID]
@@ -143,7 +144,7 @@ func (r *Router) ResolveScope(scope chatevent.IdentityScope, identities []chatev
 	if scope.BotID != "" {
 		return scope
 	}
-	id, err := r.resolveID(scope.SourceAdapter, scope.SourceProtocol)
+	id, err := r.ResolveAdapterID(scope.SourceAdapter, scope.SourceProtocol)
 	if err != nil {
 		return scope
 	}

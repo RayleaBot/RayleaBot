@@ -33,6 +33,7 @@ type EventState struct {
 	Dispatcher      *dispatch.Dispatcher
 	ReplyTargets    *outbound.ReplyTargetCache
 	OutboundSender  outbound.ActionSender
+	AdapterRouter   *outbound.Router
 	OutboundLimiter outboundRuntimePolicy
 	OutboundPolicy  *outbound.MessagePolicy
 }
@@ -135,6 +136,7 @@ func buildEvents(deps eventDeps) EventState {
 		Dispatcher:      eventDispatcher,
 		ReplyTargets:    replyTargets,
 		OutboundSender:  outboundSender,
+		AdapterRouter:   outboundSender,
 		OutboundLimiter: outboundPolicy,
 		OutboundPolicy:  outboundPolicy,
 	}

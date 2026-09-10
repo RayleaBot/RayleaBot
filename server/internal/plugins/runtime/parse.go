@@ -117,8 +117,28 @@ func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*plugins.A
 			payload = map[string]any{}
 		}
 	}
+	sourceAdapter := ""
+	if value, present := payload["source_adapter"]; present {
+		var ok bool
+		sourceAdapter, ok = value.(string)
+		if !ok || !adapterInstanceIDPattern.MatchString(sourceAdapter) {
+			return nil, errorf(codePluginProtocolViolation, "OneBot action source_adapter must be a configured instance ID", nil)
+		}
+		delete(payload, "source_adapter")
+	}
+	sourceProtocol := ""
+	if value, present := payload["source_protocol"]; present {
+		var ok bool
+		sourceProtocol, ok = value.(string)
+		if !ok || sourceProtocol != "onebot11" {
+			return nil, errorf(codePluginProtocolViolation, "OneBot action source_protocol must be onebot11", nil)
+		}
+		delete(payload, "source_protocol")
+	}
 	return &plugins.Action{
-		Kind:    actionKind,
-		RawData: payload,
+		Kind:           actionKind,
+		RawData:        payload,
+		SourceAdapter:  sourceAdapter,
+		SourceProtocol: sourceProtocol,
 	}, nil
 }
