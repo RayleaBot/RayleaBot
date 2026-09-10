@@ -46,8 +46,8 @@ type serviceHarness struct {
 	services    appcore.Services
 	permissions localaction.PermissionView
 
-	blacklistRepo  permission.EntryRepository
-	whitelistRepo  permission.EntryRepository
+	blacklistRepo  governance.ManagementEntryRepository
+	whitelistRepo  governance.ManagementEntryRepository
 	whitelistState permission.WhitelistStateRepository
 }
 
@@ -163,11 +163,11 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.EntryRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo governance.ManagementEntryRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }
 
-func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.EntryRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.EntryRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo governance.ManagementEntryRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo governance.ManagementEntryRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}

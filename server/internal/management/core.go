@@ -79,7 +79,7 @@ type CoreSystemStatusResponse struct {
 	DBSchemaVersion string                         `json:"db_schema_version"`
 	UptimeSeconds   int64                          `json:"uptime_seconds"`
 	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
-	Health          *systemsvc.ReadinessReport     `json:"health,omitempty"`
+	Health          *systemsvc.ReadinessReport        `json:"health,omitempty"`
 }
 
 type coreShutdownResponse struct {

@@ -37,7 +37,7 @@ func assertDTOFieldsMatchOpenAPI(t *testing.T, dto reflect.Type, schemas map[str
 	t.Helper()
 
 	schema := requireContractMap(t, schemas[schemaName], schemaName)
-	properties := requireContractMap(t, schema["properties"], schemaName+".properties")
+	properties := allContractProperties(t, schema, schemas)
 	got := sortedJSONFields(dto)
 	want := sortedMapKeys(properties)
 	if !reflect.DeepEqual(got, want) {
@@ -79,4 +79,28 @@ func requireContractMap(t *testing.T, value any, label string) map[string]any {
 		t.Fatalf("%s must be an object, got %#v", label, value)
 	}
 	return typed
+}
+
+func allContractProperties(t *testing.T, schema map[string]any, schemas map[string]any) map[string]any {
+	t.Helper()
+	properties := map[string]any{}
+	if ref, ok := schema["$ref"].(string); ok {
+		name := strings.TrimPrefix(ref, "#/components/schemas/")
+		for key, value := range allContractProperties(t, requireContractMap(t, schemas[name], name), schemas) {
+			properties[key] = value
+		}
+	}
+	if parents, ok := schema["allOf"].([]any); ok {
+		for _, parent := range parents {
+			for key, value := range allContractProperties(t, requireContractMap(t, parent, "allOf"), schemas) {
+				properties[key] = value
+			}
+		}
+	}
+	if own, ok := schema["properties"].(map[string]any); ok {
+		for key, value := range own {
+			properties[key] = value
+		}
+	}
+	return properties
 }

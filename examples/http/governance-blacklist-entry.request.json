@@ -1,5 +1,11 @@
 {
   "entry_type": "user",
   "target_id": "10001",
-  "reason": "反复触发垃圾消息"
+  "reason": "反复触发垃圾消息",
+  "scope": {
+    "kind": "global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
 }

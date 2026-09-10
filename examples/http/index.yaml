@@ -1,0 +1,164 @@
+contract: contracts/web-api.openapi.yaml
+examples:
+  config-update.response.json:
+    operationId: updateConfig
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  governance-blacklist.response.json:
+    operationId: getGovernanceBlacklist
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  governance-blacklist-entry.request.json:
+    operationId: upsertGovernanceBlacklistEntry
+    direction: request
+    status: null
+    media_type: application/json
+    representation: body
+  governance-blacklist-entry.response.json:
+    operationId: upsertGovernanceBlacklistEntry
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  governance-command-policy.response.json:
+    operationId: getGovernanceCommandPolicy
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  governance-whitelist.response.json:
+    operationId: getGovernanceWhitelist
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  governance-whitelist-entry.request.json:
+    operationId: upsertGovernanceWhitelistEntry
+    direction: request
+    status: null
+    media_type: application/json
+    representation: body
+  governance-whitelist-entry.response.json:
+    operationId: upsertGovernanceWhitelistEntry
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  governance-whitelist-state.request.json:
+    operationId: updateGovernanceWhitelistState
+    direction: request
+    status: null
+    media_type: application/json
+    representation: body
+  governance-whitelist-state.response.json:
+    operationId: updateGovernanceWhitelistState
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  logs-current-session.request.json:
+    operationId: listLogs
+    direction: request
+    status: null
+    media_type: null
+    representation: request
+  logs-current-session.response.json:
+    operationId: listLogs
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  logs-history-range.request.json:
+    operationId: listLogs
+    direction: request
+    status: null
+    media_type: null
+    representation: request
+  logs-history-range.response.json:
+    operationId: listLogs
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  protocol-compatibility.response.json:
+    operationId: getOneBot11ProtocolCompatibility
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  recovery-confirm.request.json:
+    operationId: createRecoveryConfirm
+    direction: request
+    status: null
+    media_type: application/json
+    representation: body
+  recovery-confirm.accepted.json:
+    operationId: createRecoveryConfirm
+    direction: response
+    status: 202
+    media_type: application/json
+    representation: body
+  recovery-confirm.task-detail.json:
+    operationId: getSystemTaskStatus
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  recovery-recheck.accepted.json:
+    operationId: createRecoveryRecheck
+    direction: response
+    status: 202
+    media_type: application/json
+    representation: body
+  runtime-bootstrap.request.json:
+    operationId: createRuntimeBootstrap
+    direction: request
+    status: null
+    media_type: application/json
+    representation: body
+  runtime-bootstrap.accepted.json:
+    operationId: createRuntimeBootstrap
+    direction: response
+    status: 202
+    media_type: application/json
+    representation: body
+  third-party-account-upsert.request.json:
+    operationId: upsertThirdPartyAccount
+    direction: request
+    status: null
+    media_type: application/json
+    representation: body
+  third-party-account-upsert.response.json:
+    operationId: upsertThirdPartyAccount
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  third-party-account-validation.response.json:
+    operationId: validateThirdPartyAccount
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  third-party-accounts.response.json:
+    operationId: listThirdPartyAccounts
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  third-party-login-qrcode-create.response.json:
+    operationId: createThirdPartyQRCodeLogin
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body
+  third-party-login-qrcode-poll.response.json:
+    operationId: pollThirdPartyQRCodeLogin
+    direction: response
+    status: 200
+    media_type: application/json
+    representation: body

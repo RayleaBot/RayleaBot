@@ -38,7 +38,7 @@ type CoreService interface {
 }
 
 type SchedulerService interface {
-	ListJobs() scheduler.JobList
+	ListJobsPage(scheduler.JobQuery) scheduler.JobList
 	TriggerJob(context.Context, string) (scheduler.TriggerResult, error)
 }
 
@@ -57,26 +57,32 @@ type SystemHTTPError struct {
 
 func InternalSystemHTTPError() *SystemHTTPError {
 	return &SystemHTTPError{
+
 		code: systemCodeInternalError,
 	}
 }
 
 func InvalidSystemHTTPError(details map[string]any) *SystemHTTPError {
 	return &SystemHTTPError{
-		code:    systemCodeInvalidRequest,
+
+		code: systemCodeInvalidRequest,
+
 		details: details,
 	}
 }
 
 func MissingSystemResourceHTTPError(details map[string]any) *SystemHTTPError {
 	return &SystemHTTPError{
-		code:    systemCodeResourceMissing,
+
+		code: systemCodeResourceMissing,
+
 		details: details,
 	}
 }
 
 func TaskQueueFullSystemHTTPError() *SystemHTTPError {
 	return &SystemHTTPError{
+
 		code: systemCodeTaskQueueFull,
 	}
 }

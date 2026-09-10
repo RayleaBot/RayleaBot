@@ -5,7 +5,13 @@
       "entry_type": "user",
       "target_id": "10001",
       "reason": "值班账号",
-      "created_at": "2026-04-18T08:30:00Z"
+      "created_at": "2026-04-18T08:30:00Z",
+      "scope": {
+        "kind": "global",
+        "source_protocol": "onebot11",
+        "source_adapter": "",
+        "bot_id": ""
+      }
     }
   ],
   "group_entries": [
@@ -13,7 +19,15 @@
       "entry_type": "group",
       "target_id": "20002",
       "reason": "核心服务群",
-      "created_at": "2026-04-18T08:45:00Z"
+      "created_at": "2026-04-18T08:45:00Z",
+      "scope": {
+        "kind": "global",
+        "source_protocol": "onebot11",
+        "source_adapter": "",
+        "bot_id": ""
+      }
     }
-  ]
+  ],
+  "entry_count": 2,
+  "total": 2
 }

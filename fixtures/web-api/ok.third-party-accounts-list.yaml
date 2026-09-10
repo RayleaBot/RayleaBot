@@ -1,6 +1,7 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Third-party account list returns configured account summaries without secret values.
+description: Third-party account list returns configured account summaries without
+  secret values.
 request:
   method: GET
   path: /api/third-party/accounts
@@ -8,55 +9,56 @@ response:
   status: 200
   body:
     items:
-      - platform: bilibili
-        account_id: primary
-        label: 主账号
-        enabled: true
-        configured: true
-        profile:
-          uid: "123456"
-          nickname: 测试账号昵称
-          avatar_url: "https://i0.hdslb.com/bfs/face/test-account.jpg"
-        credential:
-          state: valid
-          checked_at: "2026-06-08T08:00:01Z"
-          last_error: ""
-        updated_at: "2026-06-08T08:00:00Z"
-      - platform: weibo
-        account_id: primary
-        label: 微博主账号
-        enabled: true
-        configured: true
-        profile:
-          uid: "123456"
-          nickname: 微博扫码账号
-          avatar_url: "https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg"
-        credential:
-          state: unknown
-          checked_at: "2026-06-08T08:01:01Z"
-          last_error: ""
-        updated_at: "2026-06-08T08:01:00Z"
-      - platform: douyin
-        account_id: primary
-        label: 抖音主账号
-        enabled: true
-        configured: true
-        profile: null
-        credential:
-          state: unknown
-          checked_at: "2026-06-08T08:02:01Z"
-          last_error: ""
-        updated_at: "2026-06-08T08:02:00Z"
-      - platform: netease_music
-        account_id: primary
-        label: 网易云音乐主账号
-        enabled: true
-        configured: true
-        profile: null
-        credential:
-          state: unknown
-          checked_at: "2026-06-08T08:03:01Z"
-          last_error: ""
-        updated_at: "2026-06-08T08:03:00Z"
+    - platform: bilibili
+      account_id: primary
+      label: 主账号
+      enabled: true
+      configured: true
+      profile:
+        uid: '123456'
+        nickname: 测试账号昵称
+        avatar_url: https://i0.hdslb.com/bfs/face/test-account.jpg
+      credential:
+        state: valid
+        checked_at: '2026-06-08T08:00:01Z'
+        last_error: ''
+      updated_at: '2026-06-08T08:00:00Z'
+    - platform: weibo
+      account_id: primary
+      label: 微博主账号
+      enabled: true
+      configured: true
+      profile:
+        uid: '123456'
+        nickname: 微博扫码账号
+        avatar_url: https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg
+      credential:
+        state: unknown
+        checked_at: '2026-06-08T08:01:01Z'
+        last_error: ''
+      updated_at: '2026-06-08T08:01:00Z'
+    - platform: douyin
+      account_id: primary
+      label: 抖音主账号
+      enabled: true
+      configured: true
+      profile: null
+      credential:
+        state: unknown
+        checked_at: '2026-06-08T08:02:01Z'
+        last_error: ''
+      updated_at: '2026-06-08T08:02:00Z'
+    - platform: netease_music
+      account_id: primary
+      label: 网易云音乐主账号
+      enabled: true
+      configured: true
+      profile: null
+      credential:
+        state: unknown
+        checked_at: '2026-06-08T08:03:01Z'
+        last_error: ''
+      updated_at: '2026-06-08T08:03:00Z'
+    total: 4
 expect:
   valid: true

@@ -106,3 +106,13 @@ export function getStatusType(status?: string): StatusType {
   }
   return STATUS_TYPE_MAP[status] ?? 'muted'
 }
+
+export function getPluginTrustLabel(level?: string) {
+  switch (level) {
+    case 'official': return t('plugins.trustLabels.official')
+    case 'development': return t('plugins.trustLabels.development')
+    case 'third_party': return t('plugins.trustLabels.thirdParty')
+    case 'unverified': return t('plugins.trustLabels.unverified')
+    default: return t('plugins.trustLabels.unknown')
+  }
+}

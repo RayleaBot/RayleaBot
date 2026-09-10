@@ -5,10 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
+	"github.com/go-chi/chi/v5"
 )
 
 func (h *SystemHandlers) HandleSystemSchedulerJobList() http.HandlerFunc {
@@ -17,7 +16,19 @@ func (h *SystemHandlers) HandleSystemSchedulerJobList() http.HandlerFunc {
 			WriteSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, h.scheduler.ListJobs())
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
+		status, ok := readCollectionChoice(w, r, "status", "success", "error")
+		if !ok {
+			return
+		}
+		order, ok := readCollectionChoice(w, r, "sort", "name", "last_run", "duration")
+		if !ok {
+			return
+		}
+		httpapi.WriteJSON(w, http.StatusOK, h.scheduler.ListJobsPage(scheduler.JobQuery{Query: query, Status: status, Sort: order}))
 	}
 }
 

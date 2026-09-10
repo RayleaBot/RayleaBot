@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getPluginTrustLabel } from '@/lib/display'
 import AppLoadingPanel from '@/components/AppLoadingPanel.vue'
 import AppDetails from '@/components/AppDetails.vue'
 import AppDetailItem from '@/components/AppDetailItem.vue'
@@ -585,7 +586,7 @@ onBeforeUnmount(() => {
     <section v-if="requiresConfirmation && !confirmed" class="plugin-management-ui-confirm" data-testid="plugin-management-ui-confirm">
       <div class="plugin-management-ui-confirm-note"><strong>{{ t('plugins.managementUi.confirmTitle') }}</strong><p>{{ t('plugins.managementUi.confirmBody') }}</p></div>
       <AppDetails>
-        <AppDetailItem :label="t('plugins.fields.trust')">{{ plugin.trust?.label ?? t('display.empty') }}</AppDetailItem>
+        <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(plugin.trust?.level) }}</AppDetailItem>
         <AppDetailItem :label="t('plugins.managementUi.entryPath')">{{ managementEntry || t('display.empty') }}</AppDetailItem>
         <AppDetailItem :label="t('plugins.fields.sourceRef')">{{ sourceReference }}</AppDetailItem>
       </AppDetails>

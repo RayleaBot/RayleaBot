@@ -64,8 +64,8 @@ func TestSystemDiagnosticsHTTP(t *testing.T) {
 			Config:      systemsvc.DiagnosticsConfig{SchemaVersion: "2"},
 			Secrets:     systemsvc.DiagnosticsSecrets{UnresolvedRefs: []string{}},
 			Database: systemsvc.DiagnosticsDatabase{
-				SchemaVersion: "000001",
-				InitializedAt: "2026-09-10T00:00:00Z",
+				SchemaVersion: "000004",
+				InitializedAt: "",
 			},
 			Adapters:     []adapterservice.Status{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
 			Plugins:      systemsvc.DiagnosticsPlugins{},

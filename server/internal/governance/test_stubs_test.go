@@ -3,6 +3,7 @@ package governance
 import (
 	"context"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
@@ -122,4 +123,44 @@ func (s *stubWhitelistStateRepo) Enabled(context.Context) (bool, error) {
 func (s *stubWhitelistStateRepo) SetEnabled(_ context.Context, enabled bool) error {
 	s.enabled = enabled
 	return nil
+}
+
+func (s *stubBlacklistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
+	users, err := s.List(ctx, "user")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	groups, err := s.List(ctx, "group")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	all := append(users, groups...)
+	filtered := make([]permission.Entry, 0, len(all))
+	for _, item := range all {
+		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
+			filtered = append(filtered, item)
+		}
+	}
+	items, meta := pagination.Slice(filtered, query)
+	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
+}
+
+func (s *stubWhitelistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
+	users, err := s.List(ctx, "user")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	groups, err := s.List(ctx, "group")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	all := append(users, groups...)
+	filtered := make([]permission.Entry, 0, len(all))
+	for _, item := range all {
+		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
+			filtered = append(filtered, item)
+		}
+	}
+	items, meta := pagination.Slice(filtered, query)
+	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
 }

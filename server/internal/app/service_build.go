@@ -239,8 +239,8 @@ func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginSta
 }
 
 type policyRepositories struct {
-	Blacklist      permission.EntryRepository
-	Whitelist      permission.EntryRepository
+	Blacklist      governance.ManagementEntryRepository
+	Whitelist      governance.ManagementEntryRepository
 	WhitelistState permission.WhitelistStateRepository
 }
 

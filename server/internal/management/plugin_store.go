@@ -2,7 +2,9 @@ package management
 
 import (
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -37,6 +39,7 @@ type pluginStoreInstallRequest struct {
 }
 
 type pluginStoreSourcesResponse struct {
+	pagination.Metadata
 	Items []pluginmarket.SourceView `json:"items"`
 }
 
@@ -149,8 +152,20 @@ func (routes PluginStoreRoutes) install() http.HandlerFunc {
 }
 
 func (routes PluginStoreRoutes) listSources() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, pluginStoreSourcesResponse{Items: routes.Service.Sources()})
+	return func(w http.ResponseWriter, r *http.Request) {
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
+		items := make([]pluginmarket.SourceView, 0)
+		for _, source := range routes.Service.Sources() {
+			if pagination.Matches(query.Text, source.ID, source.Name, source.URL) {
+				items = append(items, source)
+			}
+		}
+		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+		page, meta := pagination.Slice(items, query)
+		writeJSON(w, http.StatusOK, pluginStoreSourcesResponse{Metadata: meta, Items: page})
 	}
 }
 

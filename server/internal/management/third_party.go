@@ -3,6 +3,7 @@ package management
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"net/http"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ type ThirdPartyHandlers struct {
 }
 
 type thirdPartyAccountService interface {
-	List(context.Context) ([]thirdparty.Account, error)
+	ListPage(context.Context, pagination.Query) (thirdparty.AccountPage, error)
 	Upsert(context.Context, thirdparty.UpsertRequest) (thirdparty.Account, error)
 	Delete(context.Context, string, string) error
 }
@@ -53,13 +54,15 @@ type thirdPartyQRCodeLoginService interface {
 }
 
 type thirdPartyAccountsResponse struct {
+	pagination.Metadata
 	Items []thirdPartyAccountSummary `json:"items"`
 }
 
 type thirdPartyAccountUpsertRequest struct {
-	Label   *string `json:"label"`
-	Enabled *bool   `json:"enabled"`
-	Cookie  string  `json:"cookie,omitempty"`
+	CreateOnly bool    `json:"create_only,omitempty"`
+	Label      *string `json:"label"`
+	Enabled    *bool   `json:"enabled"`
+	Cookie     string  `json:"cookie,omitempty"`
 }
 
 type thirdPartyAccountUpsertResponse struct {
@@ -177,12 +180,16 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountValidate() http.HandlerFunc 
 
 func (h *ThirdPartyHandlers) HandleThirdPartyAccountList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		accounts, err := h.accounts.List(r.Context())
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
+		page, err := h.accounts.ListPage(r.Context(), query)
 		if err != nil {
 			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
-		httpapi.WriteJSON(w, http.StatusOK, thirdPartyAccountsResponse{Items: accountSummaries(accounts)})
+		httpapi.WriteJSON(w, http.StatusOK, thirdPartyAccountsResponse{Metadata: page.Metadata, Items: accountSummaries(page.Items)})
 	}
 }
 
@@ -194,12 +201,13 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountUpsert() http.HandlerFunc {
 			return
 		}
 		account, err := h.accounts.Upsert(r.Context(), thirdparty.UpsertRequest{
-			Platform:  chi.URLParam(r, "platform"),
-			AccountID: chi.URLParam(r, "account_id"),
-			Label:     *body.Label,
-			Enabled:   *body.Enabled,
-			Cookie:    body.Cookie,
-			Validate:  h.credentialValidator(chi.URLParam(r, "platform")),
+			Platform:   chi.URLParam(r, "platform"),
+			AccountID:  chi.URLParam(r, "account_id"),
+			Label:      *body.Label,
+			Enabled:    *body.Enabled,
+			Cookie:     body.Cookie,
+			CreateOnly: body.CreateOnly,
+			Validate:   h.credentialValidator(chi.URLParam(r, "platform")),
 		})
 		if err != nil {
 			writeThirdPartyAccountError(w, r, err)
@@ -233,12 +241,17 @@ func (h *ThirdPartyHandlers) credentialValidator(platform string) func(context.C
 }
 
 func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, thirdparty.ErrAccountAlreadyExists) {
+		httpapi.WriteError(w, r, errorcodes.PlatformStateConflict, nil)
+		return
+	}
 	if errors.Is(err, thirdparty.ErrInvalidAccount) {
 		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code:    errorcodes.PlatformUpstreamRequestFailed,
+		Code: errorcodes.PlatformUpstreamRequestFailed,
+
 		Details: map[string]any{"reason": "account_save_failed"},
 		Cause:   err,
 	})
@@ -339,7 +352,8 @@ func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code:    errorcodes.PlatformUpstreamRequestFailed,
+		Code: errorcodes.PlatformUpstreamRequestFailed,
+
 		Details: map[string]any{"reason": thirdPartyQRCodeLoginErrorReason(err)},
 		Cause:   err,
 	})

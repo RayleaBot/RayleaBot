@@ -2,7 +2,9 @@ package management
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -19,7 +21,8 @@ const (
 )
 
 type RenderHandlers struct {
-	renderer renderTemplateService
+	renderer   renderTemplateService
+	pluginName func(string) string
 }
 
 type renderTemplateService interface {
@@ -29,8 +32,8 @@ type renderTemplateService interface {
 	GetTemplateDetailSnapshot(context.Context, string) (renderservice.TemplateDetailSnapshot, error)
 }
 
-func NewRenderHandlers(renderer renderTemplateService) *RenderHandlers {
-	return &RenderHandlers{renderer: renderer}
+func NewRenderHandlers(renderer renderTemplateService, pluginName func(string) string) *RenderHandlers {
+	return &RenderHandlers{renderer: renderer, pluginName: pluginName}
 }
 
 func (h *RenderHandlers) RegisterProtectedRoutes(router chi.Router) {
@@ -73,6 +76,7 @@ type renderTemplateSource struct {
 }
 
 type renderListResponse struct {
+	pagination.Metadata
 	Items []renderTemplateSummary `json:"items"`
 }
 
@@ -95,13 +99,29 @@ type renderPreviewHTMLResponse struct {
 
 func (h *RenderHandlers) HandleSystemRenderTemplateList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
 		items, err := h.renderer.ListTemplates(r.Context())
 		if err != nil {
 			httpapi.WriteError(w, r, renderCodeInternalError, nil)
 			return
 		}
 
-		response := renderListResponse{
+		filtered := items[:0]
+		for _, item := range items {
+			pluginName := ""
+			if query.Text != "" && h.pluginName != nil && item.Source.PluginID != "" {
+				pluginName = h.pluginName(item.Source.PluginID)
+			}
+			if pagination.Matches(query.Text, item.ID, item.Name, item.Description, item.Source.PluginID, pluginName) {
+				filtered = append(filtered, item)
+			}
+		}
+		sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
+		items, meta := pagination.Slice(filtered, query)
+		response := renderListResponse{Metadata: meta,
 			Items: make([]renderTemplateSummary, 0, len(items)),
 		}
 		for _, item := range items {

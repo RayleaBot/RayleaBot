@@ -1,7 +1,7 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Governance whitelist snapshot returns the enable state together
-  with user and group entries.
+description: Governance whitelist snapshot returns the enable state together with
+  user and group entries.
 request:
   method: GET
   path: /api/governance/whitelist
@@ -10,20 +10,22 @@ response:
   body:
     enabled: true
     user_entries:
-      - entry_type: user
-        target_id: "10001"
-        reason: 值班账号
-        created_at: 2026-04-18T08:30:00Z
-        scope: &a1
-          source_protocol: onebot11
-          source_adapter: ""
-          bot_id: ""
-          kind: global
+    - entry_type: user
+      target_id: '10001'
+      reason: 值班账号
+      created_at: 2026-04-18 08:30:00+00:00
+      scope: &id001
+        source_protocol: onebot11
+        source_adapter: ''
+        bot_id: ''
+        kind: global
     group_entries:
-      - entry_type: group
-        target_id: "20002"
-        reason: 核心服务群
-        created_at: 2026-04-18T08:45:00Z
-        scope: *a1
+    - entry_type: group
+      target_id: '20002'
+      reason: 核心服务群
+      created_at: 2026-04-18 08:45:00+00:00
+      scope: *id001
+    entry_count: 2
+    total: 2
 expect:
   valid: true

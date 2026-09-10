@@ -25,12 +25,12 @@ response:
         compatible: true
         asset_available: true
       install_state: available
-    releases:
-      - version: 0.2.0
-        published_at: 2026-08-04T00:00:00Z
-        min_core_version: 0.1.0
-        compatible: true
-        asset_available: true
+    current_release:
+      version: 0.2.0
+      published_at: 2026-08-04T00:00:00Z
+      min_core_version: 0.1.0
+      compatible: true
+      asset_available: true
     source:
       id: official
       name: RayleaBot 官方插件

@@ -221,6 +221,7 @@ async function saveDraft(key: string) {
   try {
     await cancelQRCodeSession(key, false, true)
     await store.saveAccount(draft.platform, accountId, {
+      create_only: draft.isNew === true,
       label,
       enabled: draft.enabled,
       ...(cookie ? { cookie } : {}),

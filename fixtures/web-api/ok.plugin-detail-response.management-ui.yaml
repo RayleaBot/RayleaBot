@@ -32,7 +32,6 @@ response:
         verified: true
       trust:
         level: third_party
-        label: 示例
       commands:
         - id: config-panel
           name: 配置面板

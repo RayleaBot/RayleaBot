@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 )
 
@@ -37,11 +38,51 @@ type EntryRepository interface {
 // SQLiteAccessListRepository uses one storage model for both list policies.
 type SQLiteAccessListRepository struct {
 	read, write *sqlcgen.Queries
+	readDB      *sql.DB
 	kind        string
 }
 
 func NewSQLiteAccessListRepository(read, write *sql.DB, kind string) *SQLiteAccessListRepository {
-	return &SQLiteAccessListRepository{read: sqlcgen.New(read), write: sqlcgen.New(write), kind: kind}
+	return &SQLiteAccessListRepository{read: sqlcgen.New(read), write: sqlcgen.New(write), readDB: read, kind: kind}
+}
+
+type EntryPage struct {
+	Items      []Entry
+	Total      int
+	EntryCount int
+}
+
+func (r *SQLiteAccessListRepository) Page(ctx context.Context, query pagination.Query, entryType string) (EntryPage, error) {
+	tx, err := r.readDB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return EntryPage{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	queries := r.read.WithTx(tx)
+	countArgs := sqlcgen.AccessListCountParams{ListKind: r.kind, EntryType: entryType, SearchText: query.Text}
+	total, err := queries.AccessListCount(ctx, countArgs)
+	if err != nil {
+		return EntryPage{}, err
+	}
+	entryCount := total
+	if entryType != "" || query.Text != "" {
+		entryCount, err = queries.AccessListCount(ctx, sqlcgen.AccessListCountParams{ListKind: r.kind, EntryType: "", SearchText: ""})
+		if err != nil {
+			return EntryPage{}, err
+		}
+	}
+	rows, err := queries.AccessListPage(ctx, sqlcgen.AccessListPageParams{ListKind: r.kind, EntryType: entryType, SearchText: query.Text, PageLimit: int64(query.Limit), PageOffset: int64(query.Cursor)})
+	if err != nil {
+		return EntryPage{}, err
+	}
+	items := make([]Entry, 0, len(rows))
+	for _, entry := range rows {
+		items = append(items, fromStoredEntry(entry))
+	}
+	if err := tx.Commit(); err != nil {
+		return EntryPage{}, err
+	}
+	return EntryPage{Items: items, Total: int(total), EntryCount: int(entryCount)}, nil
 }
 
 func (r *SQLiteAccessListRepository) Contains(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {

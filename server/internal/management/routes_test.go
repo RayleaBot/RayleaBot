@@ -38,7 +38,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewGovernanceHandlersWithService(nil),
 			NewLogHandlers(nil),
 			NewSystemRoutes(NewSystemHandlers(nil), noopHandler),
-			NewRenderHandlers(nil),
+			NewRenderHandlers(nil, nil),
 			NewThirdPartyHandlers(nil, nil, nil),
 			NewUpdateHandlers(nil),
 			pluginUI,

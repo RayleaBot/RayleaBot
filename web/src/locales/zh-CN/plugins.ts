@@ -118,7 +118,7 @@ export const plugins = {
   remoteUrlLabel: 'HTTPS 地址',
   installSubmit: '开始安装',
   verified: '已验证',
-  unverified: '未验证',
+  unverified: '未验证来源',
   fields: {
     id: '插件 ID',
     plugin: '插件',
@@ -226,8 +226,10 @@ export const plugins = {
   commandCollapseAria: '收起 {name} 的插件指令',
   trustLabels: {
     official: '官方',
+    development: '开发中',
+    unknown: '来源未知',
     thirdParty: '第三方',
-    unverified: '未验证',
+    unverified: '未验证来源',
   },
   consoleUnavailable: '输出流连接暂不可用',
   console: {

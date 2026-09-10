@@ -1,5 +1,11 @@
 {
   "entry_type": "group",
   "target_id": "20002",
-  "reason": "核心服务群"
+  "reason": "核心服务群",
+  "scope": {
+    "kind": "global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
 }

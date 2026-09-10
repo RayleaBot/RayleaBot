@@ -113,81 +113,7 @@ FIXTURE_SECRET_PATTERNS = [
     ("Douyin sessionid", re.compile(r"\bsessionid=(?!fixture\b|example\b|test\b)[0-9a-f]{16,}", re.IGNORECASE)),
 ]
 
-STRICT_OPENAPI_PATHS = {
-    "/healthz",
-    "/readyz",
-    "/api/setup/admin",
-    "/api/setup/status",
-    "/api/session/login",
-    "/api/session",
-    "/api/account/credentials",
-    "/api/launcher/status",
-    "/api/launcher/shutdown",
-    "/api/development/status",
-    "/api/development/plugins/sync",
-    "/api/development/plugins/sync/{task_id}",
-    "/api/config",
-    "/api/third-party/accounts",
-    "/api/third-party/accounts/{platform}/login/qrcode",
-    "/api/third-party/accounts/{platform}/login/qrcode/{login_id}",
-    "/api/third-party/accounts/{platform}/{account_id}",
-    "/api/third-party/accounts/{platform}/{account_id}/avatar",
-    "/api/third-party/accounts/{platform}/{account_id}/validate",
-    "/api/governance/blacklist",
-    "/api/governance/blacklist/entries",
-    "/api/governance/blacklist/entries/{entry_type}/{target_id}",
-    "/api/governance/command-policy",
-    "/api/governance/whitelist",
-    "/api/governance/whitelist/entries",
-    "/api/governance/whitelist/entries/{entry_type}/{target_id}",
-    "/api/governance/whitelist/state",
-    "/api/system/status",
-    "/api/system/shutdown",
-    "/api/system/backup",
-    "/api/system/tasks/{task_id}",
-    "/api/system/metrics",
-    "/api/system/diagnostics",
-    "/api/system/recovery/recheck",
-    "/api/system/recovery/confirm",
-    "/api/system/render/templates",
-    "/api/system/render/templates/{template_id}",
-    "/api/system/render/templates/{template_id}/asset",
-    "/api/system/render/templates/{template_id}/preview-html",
-    "/api/system/runtime/bootstrap",
-    "/api/system/diagnostics/export",
-    "/api/system/scheduler/jobs",
-    "/api/system/scheduler/jobs/{job_id}/trigger",
-    "/api/logs",
-    "/api/logs/{log_id}",
-    "/api/protocols/onebot11/compatibility",
-    "/api/adapters/{adapterID}/onebot11/identities/resolve",
-    "/api/adapters/{adapterID}/onebot11/targets",
-    "/api/adapters",
-    "/api/adapters/{adapterID}/reverse-ws",
-    "/api/adapters/{adapterID}/webhook",
-    "/api/plugins",
-    "/api/plugins/install",
-    "/api/plugins/install/inspect",
-    "/api/plugin-store/plugins",
-    "/api/plugin-store/plugins/{plugin_id}",
-    "/api/plugin-store/plugins/{plugin_id}/inspect",
-    "/api/plugin-store/plugins/{plugin_id}/install",
-    "/api/plugin-store/sources",
-    "/api/plugin-store/sources/{source_id}",
-    "/api/plugin-store/sources/{source_id}/refresh",
-    "/api/plugins/{plugin_id}",
-    "/api/plugins/{plugin_id}/enable",
-    "/api/plugins/{plugin_id}/disable",
-    "/api/plugins/{plugin_id}/recover",
-    "/api/plugins/{plugin_id}/icon",
-    "/api/plugins/{plugin_id}/reload",
-    "/api/plugins/{plugin_id}/management/actions",
-    "/api/plugins/{plugin_id}/settings",
-    "/api/plugins/{plugin_id}/secrets",
-    "/api/update/status",
-    "/api/update/check",
-    "/api/webhooks/{plugin_id}/{route}",
-}
+OPENAPI_METHODS = {"get", "put", "post", "delete", "patch", "head", "options", "trace"}
 
 
 def fail(message: str) -> None:
@@ -279,6 +205,15 @@ def validate_fixture_refs(documents: list[Any]) -> None:
             fail(f"missing referenced fixture: {ref}")
         if ref_path.is_file() and ref_path.suffix in {".json", ".yaml", ".yml"}:
             load_any(ref_path)
+    referenced = {(ROOT / ref).resolve() for ref in refs}
+    unreferenced = [
+        str(path.relative_to(ROOT))
+        for path in sorted(FIXTURES.rglob("*"))
+        if path.is_file() and path.suffix in {".json", ".yaml", ".yml"}
+        and path.resolve() not in referenced
+    ]
+    if unreferenced:
+        fail(f"fixtures missing a contract reference: {unreferenced}")
 
 
 def validate_fixture_secret_scan() -> None:
@@ -456,6 +391,111 @@ def validate_plugin_protocol_fixtures() -> None:
             for index, frame in enumerate(frames):
                 if isinstance(frame, dict) and frame.get("type") == "action" and not frame.get("parent_request_id"):
                     errors.append(f"frames/{index}: concurrent plugin action requires parent_request_id")
+        require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
+
+
+def error_entry_errors(entry: Any) -> list[str]:
+    schema = {
+        "type": "object",
+        "required": ["code", "message_key", "message", "description", "http_status", "retryable", "applies_to"],
+        "properties": {
+            name: {"type": "string", "minLength": 1}
+            for name in ["code", "message_key", "message", "description"]
+        },
+    }
+    schema["properties"].update({
+        "http_status": {"type": ["integer", "null"], "minimum": 100, "maximum": 599},
+        "retryable": {"type": "boolean"},
+        "applies_to": {"type": "array", "minItems": 1, "uniqueItems": True,
+                       "items": {"type": "string", "minLength": 1}},
+    })
+    errors = [format_schema_error(error) for error in Draft202012Validator(schema).iter_errors(entry)]
+    if isinstance(entry, dict) and "details_schema" in entry:
+        try:
+            Draft202012Validator.check_schema(entry["details_schema"])
+        except Exception as exc:
+            errors.append(f"details_schema is not valid Draft 2020-12 schema: {exc}")
+    return errors
+
+
+def error_fixture_errors(document: dict[str, Any], catalog: dict[str, Any]) -> list[str]:
+    payload = document.get("input")
+    if not isinstance(payload, dict) or len(payload) != 1:
+        return ["input must contain exactly one of codes, cases, or errors"]
+    kind = next(iter(payload))
+    entries = payload[kind]
+    if kind not in {"codes", "cases", "errors"} or not isinstance(entries, list) or not entries:
+        return ["input must contain a non-empty codes, cases, or errors array"]
+    errors: list[str] = []
+    seen: set[str] = set()
+    for index, entry in enumerate(entries):
+        label = f"{kind}/{index}"
+        if not isinstance(entry, dict):
+            errors.append(f"{label}: entry must be an object")
+            continue
+        code = entry.get("code")
+        if not isinstance(code, str) or code not in catalog:
+            errors.append(f"{label}: unregistered error code {code!r}")
+            continue
+        if kind != "errors" and code in seen:
+            errors.append(f"{label}: duplicate code {code}")
+        seen.add(code)
+        declared = catalog[code]
+        if kind == "codes":
+            errors.extend(f"{label}/{error}" for error in error_entry_errors(entry))
+            for field in ["message_key", "message", "http_status", "retryable", "applies_to"]:
+                value = entry.get(field)
+                expected = declared.get(field)
+                if field == "applies_to" and isinstance(value, list) and all(isinstance(item, str) for item in value):
+                    value, expected = sorted(value), sorted(expected)
+                if value != expected:
+                    errors.append(f"{label}/{field}: differs from catalog for {code}")
+        elif kind == "cases":
+            applicability = entry.get("applies_to")
+            if not isinstance(applicability, list) or not applicability or not all(isinstance(item, str) for item in applicability):
+                errors.append(f"{label}: applies_to must be a non-empty array of strings")
+            elif len(set(applicability)) != len(applicability) or set(applicability) != set(declared["applies_to"]):
+                errors.append(f"{label}: applicability differs from catalog for {code}")
+            if not isinstance(entry.get("example_surface"), str) or not entry["example_surface"].strip():
+                errors.append(f"{label}: example_surface must describe the applicability case")
+        else:
+            if not isinstance(entry.get("message"), str) or not entry["message"].strip():
+                errors.append(f"{label}: error message must be non-empty")
+            if "message_key" in entry and entry["message_key"] != declared["message_key"]:
+                errors.append(f"{label}: message_key differs from catalog for {code}")
+            if "applies_to" in entry and entry["applies_to"] not in declared["applies_to"]:
+                errors.append(f"{label}: error does not apply to {entry['applies_to']!r}")
+            if "details" in entry:
+                schema = declared.get("details_schema")
+                if schema is None:
+                    errors.append(f"{label}: details are not declared for {code}")
+                else:
+                    errors.extend(f"{label}/details/{format_schema_error(error)}" for error in
+                                  Draft202012Validator(schema, format_checker=FormatChecker()).iter_errors(entry["details"]))
+    return errors
+
+
+def validate_error_fixtures(error_codes: dict[str, Any]) -> None:
+    catalog = require_object(error_codes.get("codes"), "error catalog codes")
+    for path in sorted((FIXTURES / "errors").iterdir()):
+        if path.suffix not in {".json", ".yaml", ".yml"}:
+            continue
+        document = require_object(load_any(path), str(path.relative_to(ROOT)))
+        if document.get("contract") != "contracts/error-codes.yaml":
+            fail(f"{path.relative_to(ROOT)}: error fixture must reference contracts/error-codes.yaml")
+        require_fixture_outcome(path, fixture_expected_valid(path, document), error_fixture_errors(document, catalog))
+
+
+def validate_bridge_fixtures(registry: Registry) -> None:
+    contract_path = CONTRACTS / "plugin-management-ui-bridge.schema.json"
+    schema = require_object(load_json(contract_path), "management bridge schema")
+    Draft202012Validator.check_schema(schema)
+    for ref in schema.get("x-fixtures", []):
+        path = ROOT / ref
+        document = require_object(load_any(path), ref)
+        if document.get("contract") != contract_path.relative_to(ROOT).as_posix():
+            fail(f"{ref}: bridge fixture must reference its schema")
+        errors = schema_errors_at_pointer(contract_path, registry, "", document.get("input"))
         require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
 
 
@@ -694,8 +734,133 @@ def response_entry(responses: dict[Any, Any], status: int) -> tuple[Any, str] | 
     return None
 
 
+def openapi_operations(web_api: dict[str, Any]) -> dict[str, tuple[str, str, dict[str, Any]]]:
+    operations = {}
+    for route, item in require_object(web_api.get("paths"), "OpenAPI paths").items():
+        for method, operation in require_object(item, f"OpenAPI route {route}").items():
+            if method not in OPENAPI_METHODS:
+                continue
+            operation = require_object(operation, f"OpenAPI {method.upper()} {route}")
+            operation_id = operation.get("operationId")
+            if not isinstance(operation_id, str) or not operation_id.strip():
+                fail(f"OpenAPI {method.upper()} {route} requires operationId")
+            if operation_id in operations:
+                fail(f"OpenAPI duplicate operationId: {operation_id}")
+            operations[operation_id] = (route, method, operation)
+    return operations
+
+
+def openapi_message_body_errors(
+    web_api: dict[str, Any], registry: Registry, operation_pointer: str,
+    operation: dict[str, Any], direction: str, message: dict[str, Any],
+) -> list[str]:
+    if direction == "request":
+        entry, pointer = resolve_local_object(web_api, operation.get("requestBody"), operation_pointer + "/requestBody")
+        if not isinstance(entry, dict):
+            return ["request body is not declared"] if "body" in message else []
+        if "body" not in message:
+            return ["required request body is missing"] if entry.get("required") else []
+    else:
+        status = message.get("status")
+        if type(status) is not int or not 100 <= status <= 599:
+            return ["response.status must be an HTTP status integer"]
+        match = response_entry(require_object(operation.get("responses"), "OpenAPI responses"), status)
+        if match is None:
+            return [f"response status {status} is not declared"]
+        response, key = match
+        entry, pointer = resolve_local_object(web_api, response, f"{operation_pointer}/responses/{pointer_escape(key)}")
+        if not isinstance(entry, dict):
+            return ["response must resolve to an object"]
+        if "body" not in message:
+            if "application/json" in entry.get("content", {}):
+                return ["JSON response body is missing"]
+            return []
+    content = entry.get("content")
+    preferred = message.get("content_type") or header_value(message.get("headers"), "content-type")
+    if preferred:
+        preferred = preferred.split(";", 1)[0].strip().lower()
+        if not isinstance(content, dict) or preferred not in content:
+            return [f"{direction} media type {preferred!r} is not declared"]
+    media_type = select_media_type(content, preferred, message["body"])
+    if media_type is None or not isinstance(content.get(media_type), dict) or "schema" not in content[media_type]:
+        return [f"{direction} body media type has no schema"]
+    schema_pointer = f"{pointer}/content/{pointer_escape(media_type)}/schema"
+    return schema_errors_at_pointer(CONTRACTS / "web-api.openapi.yaml", registry, schema_pointer, message["body"])
+
+
+def http_example_errors(
+    web_api: dict[str, Any], registry: Registry, mapping: dict[str, Any], instance: Any,
+) -> list[str]:
+    operations = openapi_operations(web_api)
+    operation_id = mapping.get("operationId")
+    if not isinstance(operation_id, str) or operation_id not in operations:
+        return [f"unknown OpenAPI operationId {operation_id!r}"]
+    route, method, operation = operations[operation_id]
+    pointer = f"/paths/{pointer_escape(route)}/{method}"
+    direction = mapping.get("direction")
+    if direction not in {"request", "response"}:
+        return ["direction must be request or response"]
+    if mapping.get("representation") == "request":
+        if direction != "request" or mapping.get("media_type") is not None or mapping.get("status") is not None:
+            return ["request representation requires request direction, null media_type and null status"]
+        if not isinstance(instance, dict) or str(instance.get("method", "")).lower() != method:
+            return ["request method differs from the mapped operation"]
+        if matching_openapi_path(web_api["paths"], str(instance.get("path", ""))) != route:
+            return ["request path differs from the mapped operation"]
+        return validate_openapi_request_parameters(
+            web_api, registry, CONTRACTS / "web-api.openapi.yaml", route, operation, pointer, instance,
+        ) + openapi_message_body_errors(web_api, registry, pointer, operation, direction, instance)
+    if mapping.get("representation") != "body":
+        return ["representation must be body or request"]
+    media_type = mapping.get("media_type")
+    if not isinstance(media_type, str) or not media_type.strip():
+        return ["body examples require an explicit media_type"]
+    if direction == "request" and mapping.get("status") is not None:
+        return ["request example status must be null"]
+    return openapi_message_body_errors(web_api, registry, pointer, operation, direction, {
+        "body": instance, "content_type": media_type, "status": mapping.get("status"),
+    })
+
+
+def validate_http_examples(web_api: dict[str, Any], registry: Registry) -> None:
+    index = require_object(load_yaml(EXAMPLES / "http" / "index.yaml"), "HTTP examples index")
+    mappings = require_object(index.get("examples"), "HTTP examples mappings")
+    files = {path.name for path in (EXAMPLES / "http").iterdir() if path.is_file() and path.suffix == ".json"}
+    if files != set(mappings):
+        fail(f"HTTP example mappings drift: missing={sorted(files - set(mappings))}; stale={sorted(set(mappings) - files)}")
+    for name, mapping in mappings.items():
+        mapping = require_object(mapping, f"HTTP example mapping {name}")
+        require_fields(mapping, ["operationId", "direction", "status", "media_type", "representation"], name)
+        errors = http_example_errors(web_api, registry, mapping, load_json(EXAMPLES / "http" / name))
+        if errors:
+            fail(f"examples/http/{name}: {errors[:3]}")
+
+
+def http_error_catalog_errors(response: dict[str, Any], catalog: dict[str, Any]) -> list[str]:
+    body = response.get("body")
+    if not isinstance(body, dict) or not isinstance(body.get("error"), dict):
+        return []
+    error = body["error"]
+    code = error.get("code")
+    if not isinstance(code, str) or code not in catalog:
+        return [f"HTTP error code is not registered: {code!r}"]
+    declared = catalog[code]
+    errors = []
+    if "http" not in declared["applies_to"]:
+        errors.append(f"{code} does not apply to HTTP")
+    if response.get("status") != declared["http_status"]:
+        errors.append(f"{code} requires HTTP {declared['http_status']}, got {response.get('status')}")
+    if error.get("message_key") != declared["message_key"]:
+        errors.append(f"{code} message_key differs from the catalog")
+    if "details" in error and "details_schema" in declared:
+        errors.extend(f"details/{format_schema_error(item)}" for item in
+                      Draft202012Validator(declared["details_schema"], format_checker=FormatChecker()).iter_errors(error["details"]))
+    return errors
+
+
 def validate_openapi_fixtures(web_api: dict[str, Any], registry: Registry) -> None:
     contract_path = CONTRACTS / "web-api.openapi.yaml"
+    catalog = require_object(load_yaml(CONTRACTS / "error-codes.yaml").get("codes"), "error catalog codes")
     paths = require_object(web_api.get("paths"), "web-api paths")
     for name, schema in require_object(web_api.get("components", {}).get("schemas"), "web-api schemas").items():
         try:
@@ -727,51 +892,13 @@ def validate_openapi_fixtures(web_api: dict[str, Any], registry: Registry) -> No
             operation_pointer,
             request,
         )
-        if "body" in request:
-            request_body, request_pointer = resolve_local_object(
-                web_api,
-                operation.get("requestBody"),
-                operation_pointer + "/requestBody",
-            )
-            if not isinstance(request_body, dict):
-                request_errors.append("request body is not declared")
-            else:
-                content = request_body.get("content")
-                media_type = select_media_type(
-                    content,
-                    header_value(request.get("headers"), "content-type"),
-                    request["body"],
-                )
-                if media_type is None or not isinstance(content.get(media_type), dict) or "schema" not in content[media_type]:
-                    request_errors.append("request body media type has no schema")
-                else:
-                    schema_pointer = f"{request_pointer}/content/{pointer_escape(media_type)}/schema"
-                    request_errors.extend(schema_errors_at_pointer(contract_path, registry, schema_pointer, request["body"]))
-
-        status = response.get("status")
-        if not isinstance(status, int):
-            fail(f"{path.relative_to(ROOT)}: response.status must be an integer")
-        responses = require_object(operation.get("responses"), f"OpenAPI responses for {contract_route}")
-        entry = response_entry(responses, status)
-        if entry is None:
-            fail(f"{path.relative_to(ROOT)}: response status {status} is not declared")
-        response_object, response_key = entry
-        response_pointer = f"{operation_pointer}/responses/{pointer_escape(response_key)}"
-        response_object, response_pointer = resolve_local_object(web_api, response_object, response_pointer)
-
-        response_errors: list[str] = []
-        if "body" in response:
-            content = response_object.get("content") if isinstance(response_object, dict) else None
-            media_type = select_media_type(
-                content,
-                response.get("content_type") or header_value(response.get("headers"), "content-type"),
-                response["body"],
-            )
-            if media_type is None or not isinstance(content.get(media_type), dict) or "schema" not in content[media_type]:
-                response_errors.append("response body media type has no schema")
-            else:
-                schema_pointer = f"{response_pointer}/content/{pointer_escape(media_type)}/schema"
-                response_errors.extend(schema_errors_at_pointer(contract_path, registry, schema_pointer, response["body"]))
+        request_errors.extend(openapi_message_body_errors(
+            web_api, registry, operation_pointer, operation, "request", request,
+        ))
+        response_errors = openapi_message_body_errors(
+            web_api, registry, operation_pointer, operation, "response", response,
+        )
+        response_errors.extend(http_error_catalog_errors(response, catalog))
 
         expected = fixture_expected_valid(path, document)
         if expected:
@@ -840,7 +967,10 @@ def validate_contract_instances(web_api: dict[str, Any], websocket_events: dict[
     registry = build_contract_registry(contract_documents)
     validate_json_schema_fixtures()
     validate_plugin_protocol_fixtures()
+    validate_bridge_fixtures(registry)
+    validate_error_fixtures(contract_documents[(CONTRACTS / "error-codes.yaml").resolve()])
     validate_openapi_fixtures(web_api, registry)
+    validate_http_examples(web_api, registry)
     validate_websocket_fixtures(websocket_events)
 
 
@@ -861,9 +991,16 @@ def validate_errors_basic(error_codes: dict[str, Any]) -> None:
     codes = require_object(error_codes.get("codes"), "error-codes codes")
     if not codes:
         fail("error-codes.yaml must declare codes")
-    required = ["code", "message_key", "message", "description", "http_status", "retryable", "applies_to"]
     for code, body in codes.items():
-        require_fields(require_object(body, f"error code {code}"), required, f"error code {code}")
+        errors = error_entry_errors(body)
+        if isinstance(body, dict) and body.get("code") != code:
+            errors.append("code must match its catalog key")
+        if errors:
+            fail(f"error code {code}: {errors[:3]}")
+    diagnostics = require_object(error_codes.get("diagnostics", {}), "diagnostic identities")
+    for code, definition in diagnostics.items():
+        if code in codes or not isinstance(definition, dict) or not isinstance(definition.get("description"), str) or not definition["description"].strip():
+            fail(f"diagnostic identity {code}: requires a description and a distinct namespace from error codes")
 
 
 def validate_websocket_basic(events: dict[str, Any]) -> None:
@@ -1133,11 +1270,34 @@ def validate_baseline() -> None:
 
 
 def validate_strict_openapi(web_api: dict[str, Any]) -> None:
-    actual_paths = set(web_api.get("paths", {}).keys())
-    if actual_paths != STRICT_OPENAPI_PATHS:
-        missing = sorted(STRICT_OPENAPI_PATHS - actual_paths)
-        extra = sorted(actual_paths - STRICT_OPENAPI_PATHS)
-        fail(f"web-api paths drift: missing={missing}; extra={extra}")
+    operations = openapi_operations(web_api)
+    covered: set[tuple[str, str]] = set()
+    for path in sorted((FIXTURES / "web-api").iterdir()):
+        if path.suffix not in {".json", ".yaml", ".yml"}:
+            continue
+        document = require_object(load_any(path), str(path.relative_to(ROOT)))
+        request = require_object(document.get("request"), f"{path.relative_to(ROOT)} request")
+        route = matching_openapi_path(web_api["paths"], str(request.get("path", "")))
+        if route is not None and fixture_expected_valid(path, document):
+            covered.add((route, str(request.get("method", "")).lower()))
+    errors = openapi_coverage_errors(operations, covered)
+    if errors:
+        fail("OpenAPI fixture coverage: " + "; ".join(errors))
+
+
+def openapi_coverage_errors(
+    operations: dict[str, tuple[str, str, dict[str, Any]]], covered: set[tuple[str, str]],
+) -> list[str]:
+    errors = []
+    for operation_id, (route, method, operation) in operations.items():
+        exemption = operation.get("x-fixture-exemption")
+        if "x-fixture-exemption" in operation and (not isinstance(exemption, str) or not exemption.strip()):
+            errors.append(f"{operation_id}: x-fixture-exemption must explain why a fixture cannot cover this operation")
+        elif (route, method) not in covered and exemption is None:
+            errors.append(f"{method.upper()} {route} ({operation_id}) has no valid fixture")
+        elif (route, method) in covered and exemption is not None:
+            errors.append(f"{operation_id}: remove stale x-fixture-exemption; a fixture already covers the operation")
+    return errors
 
 
 def validate_strict_websocket(events: dict[str, Any]) -> None:
@@ -1671,7 +1831,7 @@ def validate_strict() -> None:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=["pr", "strict"], default="pr")
-    parser.add_argument("--self-test", action="store_true", help="run internal CLI fixture semantics self-test and exit")
+    parser.add_argument("--self-test", action="store_true", help="run CLI, schema, example, and coverage validator regression tests and exit")
     return parser.parse_args(argv)
 
 
@@ -1682,6 +1842,11 @@ def main(argv: list[str] | None = None) -> int:
         if problems:
             for problem in problems:
                 print(problem)
+            return 1
+        import unittest
+
+        suite = unittest.defaultTestLoader.discover(str(ROOT / "scripts" / "tests"), pattern="test_validate_contracts.py")
+        if not unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful():
             return 1
         print("contracts validator self-test passed")
         return 0

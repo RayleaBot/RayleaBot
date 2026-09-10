@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -136,7 +137,7 @@ func (s *stubWhitelistStateRepo) SetEnabled(_ context.Context, enabled bool) err
 	return nil
 }
 
-func newGovernanceRouter(cfg config.Config, blacklist permission.EntryRepository, whitelist permission.EntryRepository, whitelistState permission.WhitelistStateRepository, catalog plugins.CatalogView) *chi.Mux {
+func newGovernanceRouter(cfg config.Config, blacklist governance.ManagementEntryRepository, whitelist governance.ManagementEntryRepository, whitelistState permission.WhitelistStateRepository, catalog plugins.CatalogView) *chi.Mux {
 	router := chi.NewRouter()
 	NewGovernanceHandlers(governance.Deps{
 		CurrentConfig:  func() config.Config { return cfg },
@@ -314,4 +315,44 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 	if payload.Commands[1].CommandID != "forecast" || payload.Commands[1].Command != "forecast" || payload.Commands[1].Trigger.Type != "exact" || payload.Commands[1].EffectivePermission != "super_admin" || payload.Commands[1].DeclaredPermission == nil || *payload.Commands[1].DeclaredPermission != "super_admin" {
 		t.Fatalf("unexpected declared permission projection: %#v", payload.Commands[1])
 	}
+}
+
+func (s *stubBlacklistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
+	users, err := s.List(ctx, "user")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	groups, err := s.List(ctx, "group")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	all := append(users, groups...)
+	filtered := make([]permission.Entry, 0, len(all))
+	for _, item := range all {
+		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
+			filtered = append(filtered, item)
+		}
+	}
+	items, meta := pagination.Slice(filtered, query)
+	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
+}
+
+func (s *stubWhitelistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
+	users, err := s.List(ctx, "user")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	groups, err := s.List(ctx, "group")
+	if err != nil {
+		return permission.EntryPage{}, err
+	}
+	all := append(users, groups...)
+	filtered := make([]permission.Entry, 0, len(all))
+	for _, item := range all {
+		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
+			filtered = append(filtered, item)
+		}
+	}
+	items, meta := pagination.Slice(filtered, query)
+	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
 }

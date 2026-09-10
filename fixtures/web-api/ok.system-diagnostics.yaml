@@ -7,26 +7,31 @@ request:
 response:
   status: 200
   body:
-    generated_at: '2026-06-25T00:00:00Z'
+    generated_at: "2026-06-25T00:00:00Z"
     build:
-      core_version: 0.1.0
+      core_version: "0.1.0"
     system:
       status: running
       uptime_seconds: 120
     config:
-      schema_version: '2'
+      schema_version: "4"
       status: loaded
       apply_state: applied
-      config_path: config/user.yaml
-      schema_path: builtin://config.user.schema.json
+      config_path: "config/user.yaml"
+      schema_path: "builtin://config.user.schema.json"
       database_engine: sqlite
-      database_path: data/rayleabot.db
+      database_path: "data/rayleabot.db"
       adapter_count: 1
     secrets:
       unresolved_refs: []
     database:
-      schema_version: '000001'
-      initialized_at: '2026-06-25T00:00:00Z'
+      schema_version: "000001"
+      initialized_at: "2026-06-25T00:00:00Z"
+    adapters:
+      - id: onebot11
+        protocol: onebot11
+        enabled: true
+        state: connected
     plugins:
       total: 2
       active: 1
@@ -41,11 +46,11 @@ response:
       configured: 1
       invalid: 0
       platforms:
-      - platform: bilibili
-        total: 1
-        enabled: 1
-        configured: 1
-        invalid: 0
+        - platform: bilibili
+          total: 1
+          enabled: 1
+          configured: 1
+          invalid: 0
     scheduler:
       total: 1
       enabled: 1
@@ -58,29 +63,24 @@ response:
       running: 0
       failed: 0
     dependencies:
-    - kind: chromium
-      status: ready
-      metadata_complete: true
-      cached_archive_present: false
-      prepared_store_present: true
-      system_browser: false
-    - kind: ffmpeg
-      status: ready
-      metadata_complete: true
-      cached_archive_present: false
-      prepared_store_present: true
-      system_browser: false
+      - kind: chromium
+        status: ready
+        metadata_complete: true
+        cached_archive_present: false
+        prepared_store_present: true
+        system_browser: false
+      - kind: ffmpeg
+        status: ready
+        metadata_complete: true
+        cached_archive_present: false
+        prepared_store_present: true
+        system_browser: false
     filesystem:
-    - label: config
-      path: config/user.yaml
-      status: ok
-      is_dir: false
+      - label: config
+        path: "config/user.yaml"
+        status: ok
+        is_dir: false
     recent_errors: []
     issues: []
-    adapters:
-    - id: onebot11
-      protocol: onebot11
-      enabled: true
-      state: connected
 expect:
   valid: true

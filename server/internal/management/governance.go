@@ -64,7 +64,11 @@ type governanceWhitelistStateUpdateRequest struct {
 
 func (h *GovernanceHandlers) handleGovernanceBlacklist() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snapshot, err := h.service.ReadBlacklist(r.Context())
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
+		snapshot, err := h.service.ReadBlacklistPage(r.Context(), query, r.URL.Query().Get("entry_type"))
 		if err != nil {
 			writeGovernanceError(w, r, err, "", "")
 			return
@@ -108,7 +112,11 @@ func (h *GovernanceHandlers) handleGovernanceBlacklistEntryDelete() http.Handler
 
 func (h *GovernanceHandlers) handleGovernanceWhitelist() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		snapshot, err := h.service.ReadWhitelist(r.Context())
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
+		snapshot, err := h.service.ReadWhitelistPage(r.Context(), query, r.URL.Query().Get("entry_type"))
 		if err != nil {
 			writeGovernanceError(w, r, err, "", "")
 			return

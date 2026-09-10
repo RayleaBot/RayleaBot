@@ -19,7 +19,6 @@ import (
 
 type schedulerTestSystem struct {
 	pluginNames map[string]string
-	timezone    string
 }
 
 func (s schedulerTestSystem) SchedulerPluginName(pluginID string) string {
@@ -81,7 +80,7 @@ func TestSystemSchedulerJobListHTTP(t *testing.T) {
 		t.Fatalf("RecordRunResult timeout: %v", err)
 	}
 
-	system := schedulerTestSystem{pluginNames: map[string]string{"weather": "天气插件"}, timezone: "Asia/Shanghai"}
+	system := schedulerTestSystem{pluginNames: map[string]string{"weather": "天气插件"}}
 	handler := newSchedulerTestHandlers(t, system.SchedulerPluginName, engine).HandleSystemSchedulerJobList()
 	req := httptest.NewRequest(http.MethodGet, "/api/system/scheduler/jobs", nil)
 	rec := httptest.NewRecorder()

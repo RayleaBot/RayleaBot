@@ -1,6 +1,7 @@
 contract: contracts/web-api.openapi.yaml
 case: edge
-description: Plugin list may expose command conflicts without changing runtime state semantics.
+description: Plugin list may expose command conflicts without changing runtime state
+  semantics.
 request:
   method: GET
   path: /api/plugins
@@ -8,63 +9,70 @@ response:
   status: 200
   body:
     items:
+    - id: weather
+      name: Weather
+      version: 1.2.3
+      role: community
+      state: running
+      source:
+        root: plugins/installed
+        package_source_type: local_directory
+        package_source_ref: C:/plugins/weather
+        verified: false
+      trust:
+        level: third_party
+      commands:
       - id: weather
-        name: Weather
-        version: "1.2.3"
-        role: community
-        state: running
-        source:
-          root: plugins/installed
-          package_source_type: local_directory
-          package_source_ref: C:/plugins/weather
-          verified: false
-        trust:
-          level: third_party
-          label: 第三方
-        commands:
-          - id: weather
-            name: 天气查询
-            effective_names: [weather, tq]
-            description: 查询天气
-            usage: weather <城市>
-            permission: everyone
-            trigger:
-              type: exact
-              names: [weather, tq]
-        command_groups:
-          - id: query
-            title: 查询
-            commands: [weather]
-        help: {}
-        command_conflicts:
+        name: 天气查询
+        effective_names:
+        - weather
+        - tq
+        description: 查询天气
+        usage: weather <城市>
+        permission: everyone
+        trigger:
+          type: exact
+          names:
           - weather
+          - tq
+      command_groups:
+      - id: query
+        title: 查询
+        commands:
+        - weather
+      help: {}
+      command_conflicts:
+      - weather
+    - id: weather-admin
+      name: Weather Admin
+      version: 0.2.0
+      role: development
+      state: running
+      source:
+        root: plugins/dev
+        verified: true
+      trust:
+        level: development
+      commands:
       - id: weather-admin
-        name: Weather Admin
-        version: "0.2.0"
-        role: development
-        state: running
-        source:
-          root: plugins/dev
-          verified: true
-        trust:
-          level: development
-          label: 开发中
+        name: 天气后台
+        effective_names:
+        - weather-admin
+        description: 查询天气后台信息
+        usage: weather --admin
+        permission: group_admin
+        trigger:
+          type: exact
+          names:
+          - weather-admin
+      command_groups:
+      - id: admin
+        title: 管理
         commands:
-          - id: weather-admin
-            name: 天气后台
-            effective_names: [weather-admin]
-            description: 查询天气后台信息
-            usage: weather --admin
-            permission: group_admin
-            trigger:
-              type: exact
-              names: [weather-admin]
-        command_groups:
-          - id: admin
-            title: 管理
-            commands: [weather-admin]
-        help: {}
-        command_conflicts:
-          - weather
+        - weather-admin
+      help: {}
+      command_conflicts:
+      - weather
+    total: 2
 expect:
   valid: true

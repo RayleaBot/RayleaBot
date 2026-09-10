@@ -57,7 +57,8 @@ func writeWebSocketPermissionDenied(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteError(
 		w,
 		r,
-		errorcodes.PermissionAuthenticationRequired,
+
+		errorcodes.PermissionDenied,
 
 		nil,
 	)
@@ -67,7 +68,8 @@ func writeWebSocketNotFound(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteError(
 		w,
 		r,
-		errorcodes.PlatformResourceMissing,
+
+		errorcodes.PlatformResourceNotFound,
 
 		nil,
 	)

@@ -838,7 +838,7 @@ export interface paths {
         };
         /**
          * Read the declared icon of an installed plugin.
-         * @description Reads only the manifest icon relative to the validated plugin package root; callers cannot select another file or an external URL. Symlinks cannot escape the package root. Only regular SVG, PNG, JPEG, GIF or WebP files up to 524288 bytes are returned. Responses are private and no-store, use nosniff, and apply a sandboxed Content-Security-Policy that blocks scripts and external resources. Missing plugins, invalid manifests, absent or unreadable icons, unsupported content and oversized files return 404 platform.resource_missing without file paths.
+         * @description Reads only the manifest icon relative to the validated plugin package root; callers cannot select another file or an external URL. Symlinks cannot escape the package root. Only regular SVG, PNG, JPEG, GIF or WebP files up to 524288 bytes are returned. Responses are private and no-store, use nosniff, and apply a sandboxed Content-Security-Policy that blocks scripts and external resources. Missing plugins, invalid manifests, absent or unreadable icons, unsupported content and oversized files return 404 platform.resource_not_found without file paths.
          */
         get: operations["getPluginIcon"];
         put?: never;
@@ -984,7 +984,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get one plugin store entry and its published release history. */
+        /** Get one plugin store entry and its currently published release. */
         get: operations["getPluginStoreEntry"];
         put?: never;
         post?: never;
@@ -1111,7 +1111,7 @@ export interface paths {
         post?: never;
         /**
          * Uninstall a plugin asynchronously.
-         * @description Accepts a valid manifest plugin ID even when the package is absent, so cleanup can be retried after committed or partial failures. Invalid identifiers are rejected before task admission.
+         * @description Idempotently remove a plugin package and finish its scheduler registrations, metadata and template cleanup. A valid plugin identifier is accepted even when absent from the catalog, allowing retry after committed file removal with incomplete cleanup. Invalid identifiers return platform.invalid_request before a task or filesystem operation is created.
          */
         delete: operations["uninstallPlugin"];
         options?: never;
@@ -1312,6 +1312,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        CollectionPage: {
+            /** @description Number of entries matching this query. */
+            total: number;
+            /** @description Next decimal offset; omitted when no more entries match. */
+            next_cursor?: string;
+        };
         ErrorEnvelope: {
             error: {
                 code: string;
@@ -1392,7 +1398,7 @@ export interface components {
             running_plugins?: number;
             /** @description Number of plugins currently in the failed state. */
             failed_plugins?: number;
-            /** @description Current database initialization schema version. */
+            /** @description Current database schema migration version. */
             db_schema_version?: string;
             uptime_seconds?: number;
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
@@ -1551,7 +1557,7 @@ export interface components {
             description: string;
         };
         AdaptersResponse: {
-            /** @description 已配置的适配器实例，按配置顺序返回；首个 OneBot 实例是管理面 OneBot 端点所描述的实例。 */
+            /** @description 已配置的适配器实例，按配置顺序返回；无实例时为 []。 */
             adapters: components["schemas"]["AdapterDescriptor"][];
             /** @description 可添加实例的协议。集合与已配置实例无关，添加同一协议的多个实例是允许的。 */
             available_protocols: components["schemas"]["AdapterProtocolDescriptor"][];
@@ -1744,6 +1750,8 @@ export interface components {
             user_message?: string;
             remediation?: string;
             internal_reason?: string;
+            /** @description 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。 */
+            runtime_resources?: ("chromium" | "ffmpeg")[];
         };
         RecoveryCompatibilityIssue: {
             code: string;
@@ -1751,6 +1759,8 @@ export interface components {
             severity: "warning" | "error";
             summary: string;
             remediation?: string;
+            /** @description 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。 */
+            runtime_resources?: ("chromium" | "ffmpeg")[];
         };
         RecoveryCompatibilitySkippedPlugin: {
             plugin_id: string;
@@ -1790,7 +1800,7 @@ export interface components {
             status: "pending" | "compatible" | "degraded" | "blocked";
             /** @enum {string} */
             phase: "pre_restore" | "post_startup";
-            /** @enum {string} */
+            /** @constant */
             operation: "restore";
             /** Format: date-time */
             created_at: string;
@@ -1811,6 +1821,7 @@ export interface components {
             next_steps?: string[];
             audit?: components["schemas"]["RecoveryCompatibilityAuditEntry"][];
         };
+        /** @description Polling reports the terminal task status and error code. Plugin install and uninstall are successful only after their required post-processing completes. Full task log details follow error-codes.yaml operation_state and failures: a committed file change or failed rollback is never reported as success. A cancellation with failed rollback remains failed, and failed rollback retains its installation working directory for recovery. */
         TaskStatusResponse: {
             task_id: string;
             /** @enum {string} */
@@ -1863,7 +1874,7 @@ export interface components {
         };
         RenderTemplateListResponse: {
             items: components["schemas"]["RenderTemplateSummary"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         RenderTemplateDetail: {
             /** @description Human-readable name required in template.json. Templates without a nonblank name are invalid. */
             name: string;
@@ -1931,7 +1942,7 @@ export interface components {
         };
         SchedulerJobListResponse: {
             items: components["schemas"]["SchedulerJobSummary"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         /** @description OneBot global rules use empty source_adapter and bot_id; instance rules require both. QQ official rules always bind both fields. Identities never cross protocols or bot namespaces. */
         GovernanceScope: {
             /** @enum {string} */
@@ -1974,9 +1985,11 @@ export interface components {
         };
         GovernanceEntryUpsertResponse: components["schemas"]["GovernanceEntry"];
         GovernanceBlacklistResponse: {
+            /** @description Total entries before entry_type/query filtering, used for access-policy empty-state decisions. */
+            entry_count: number;
             user_entries: components["schemas"]["GovernanceEntry"][];
             group_entries: components["schemas"]["GovernanceEntry"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         GovernanceWhitelistStateUpdateRequest: {
             enabled: boolean;
         };
@@ -1984,10 +1997,12 @@ export interface components {
             enabled: boolean;
         };
         GovernanceWhitelistResponse: {
+            /** @description Total entries before entry_type/query filtering, used for access-policy empty-state decisions. */
+            entry_count: number;
             enabled: boolean;
             user_entries: components["schemas"]["GovernanceEntry"][];
             group_entries: components["schemas"]["GovernanceEntry"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         /** @enum {string} */
         CommandPermissionLevel: "super_admin" | "group_admin" | "everyone";
         /** @enum {string} */
@@ -2041,7 +2056,6 @@ export interface components {
         PluginTrustSummary: {
             /** @enum {string} */
             level: "official" | "third_party" | "unverified" | "development";
-            label: string;
         };
         PluginSourceSummary: {
             root: string;
@@ -2080,7 +2094,7 @@ export interface components {
             title: string;
             commands: string[];
         };
-        PluginSummary: {
+        PluginDisplayFields: {
             id: string;
             name: string;
             version?: string;
@@ -2098,13 +2112,14 @@ export interface components {
             help: components["schemas"]["PluginHelp"];
             command_conflicts?: string[];
         };
+        PluginSummary: components["schemas"]["PluginDisplayFields"];
         PluginHelp: {
             title?: string;
             summary?: string;
         };
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         PluginStoreSource: {
             id: string;
             name: string;
@@ -2118,7 +2133,7 @@ export interface components {
         };
         PluginStoreSourcesResponse: {
             items: components["schemas"]["PluginStoreSource"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         PluginStoreSourceInput: {
             name: string;
             /** Format: uri */
@@ -2165,7 +2180,8 @@ export interface components {
         };
         PluginStoreDetailResponse: {
             plugin: components["schemas"]["PluginStoreEntry"];
-            releases: components["schemas"]["PluginStoreReleaseSummary"][];
+            /** @description 当前发布版本；尚未发布时为 null，不表达历史版本列表。 */
+            current_release: components["schemas"]["PluginStoreReleaseSummary"] | null;
             source: components["schemas"]["PluginStoreSource"];
         };
         PluginStoreInspectionRequest: {
@@ -2218,27 +2234,12 @@ export interface components {
             label: string;
         };
         PluginDetail: {
-            id: string;
-            name: string;
-            version?: string;
-            description?: string;
-            author?: string;
-            role: components["schemas"]["PluginRole"];
-            state: components["schemas"]["PluginState"];
-            state_diagnosis?: components["schemas"]["PluginStateDiagnosis"];
-            source?: components["schemas"]["PluginSourceSummary"];
-            trust?: components["schemas"]["PluginTrustSummary"];
-            commands: components["schemas"]["PluginCommandSummary"][];
-            command_groups: components["schemas"]["PluginCommandGroup"][];
-            help: components["schemas"]["PluginHelp"];
-            command_conflicts?: string[];
             license?: string;
             min_core_version?: string;
             concurrency?: number;
             events?: string[];
             permissions: components["schemas"]["PluginPermissions"];
             webhooks: components["schemas"]["PluginWebhookScope"][];
-            icon?: string;
             /** Format: uri */
             repo?: string;
             /** Format: uri */
@@ -2246,7 +2247,7 @@ export interface components {
             keywords?: string[];
             screenshots?: components["schemas"]["PluginScreenshot"][];
             management_ui?: components["schemas"]["PluginManagementUISummary"];
-        };
+        } & components["schemas"]["PluginDisplayFields"];
         PluginDetailResponse: {
             plugin: components["schemas"]["PluginDetail"];
         };
@@ -2310,8 +2311,13 @@ export interface components {
         };
         ThirdPartyAccountsResponse: {
             items: components["schemas"]["ThirdPartyAccountSummary"][];
-        };
+        } & components["schemas"]["CollectionPage"];
         ThirdPartyAccountUpsertRequest: {
+            /**
+             * @description Reject an already existing platform/account_id with 409 platform.state_conflict before changing its account or credential. Used by the new-account form, including when the existing record is on another page.
+             * @default false
+             */
+            create_only: boolean;
             label: string;
             enabled: boolean;
             cookie?: string;
@@ -3008,6 +3014,12 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+        CollectionLimit: number;
+        /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+        CollectionCursor: number;
+        /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+        CollectionQuery: string;
         /** @description 适配器实例标识，与配置 adapters[].id 一致。 */
         AdapterID: string;
         /** @description Select cookie for the browser session flow or bearer for API clients. Defaults to bearer. */
@@ -3394,7 +3406,15 @@ export interface operations {
     };
     getGovernanceBlacklist: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+                entry_type?: "user" | "group";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3472,7 +3492,15 @@ export interface operations {
     };
     getGovernanceWhitelist: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+                entry_type?: "user" | "group";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -3929,7 +3957,14 @@ export interface operations {
     };
     listRenderTemplates: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4035,7 +4070,18 @@ export interface operations {
     };
     listSchedulerJobs: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+                /** @description success selects absent last_error, including jobs that have never run; error selects a present last_error. */
+                status?: "success" | "error";
+                /** @description name orders by plugin display name then task_name; other modes descend by last_run (missing last) or duration. Ties use plugin_id then job_id. */
+                sort?: "name" | "last_run" | "duration";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4215,7 +4261,18 @@ export interface operations {
     };
     listPlugins: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+                /** @description alert selects failed/invalid state or nonempty command_conflicts. */
+                state?: "running" | "disabled" | "alert";
+                /** @description official selects trust.level official; community selects every other trust level. */
+                source?: "official" | "community";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4641,7 +4698,14 @@ export interface operations {
     };
     listPluginStoreSources: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4912,7 +4976,14 @@ export interface operations {
     };
     listThirdPartyAccounts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
+                limit?: components["parameters"]["CollectionLimit"];
+                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
+                cursor?: components["parameters"]["CollectionCursor"];
+                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
+                query?: components["parameters"]["CollectionQuery"];
+            };
             header?: never;
             path?: never;
             cookie?: never;

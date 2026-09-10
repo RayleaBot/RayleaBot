@@ -349,6 +349,7 @@ func writeAuthenticationRequired(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteError(
 		w,
 		r,
+
 		errorcodes.PermissionAuthenticationRequired,
 
 		nil,

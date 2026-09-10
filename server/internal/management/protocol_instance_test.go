@@ -55,10 +55,7 @@ func TestOneBotManagementQueriesStayWithinExplicitInstance(t *testing.T) {
 		source.config.Adapters = append(source.config.Adapters, config.AdapterInstance{ID: id, Type: "onebot11", Enabled: true, OneBot11: &settings})
 		shells[id] = onebot11.New(id, settings, config.AdapterConfig{}, nil)
 	}
-	service, err := adapterservice.NewService(source, adapterservice.Instances{OneBot11: shells})
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := newAdapterTestService(t, source, adapterservice.Instances{OneBot11: shells})
 	router := chi.NewRouter()
 	NewProtocolHandlers(service).RegisterProtectedRoutes(router)
 	query := func(method, id, suffix, body string, wantStatus int) string {

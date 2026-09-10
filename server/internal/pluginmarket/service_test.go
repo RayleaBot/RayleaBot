@@ -3,6 +3,7 @@ package pluginmarket
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -14,6 +15,39 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginartifact "github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
+
+func TestStoreDetailExposesOnlyTheCurrentRelease(t *testing.T) {
+	platform, err := pluginartifact.CurrentPlatform()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, published := range []bool{true, false} {
+		payload := catalogJSON(platform, "0.4.0", "0.4.0")
+		if !published {
+			var catalog Catalog
+			if err := json.Unmarshal(payload, &catalog); err != nil {
+				t.Fatal(err)
+			}
+			catalog.Entries[0].CurrentRelease = nil
+			payload, err = json.Marshal(catalog)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		service := newTestService(t, emptyCatalog{}, nil, newMemoryRepository(payload), staticCatalogTransport(payload))
+		detail, ok := service.Get(OfficialSourceID, "raylea.echo")
+		if !ok || (detail.CurrentRelease != nil) != published {
+			t.Fatalf("published=%v: unexpected current release: %#v", published, detail)
+		}
+		encoded, err := json.Marshal(detail)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(encoded, []byte(`"releases"`)) || !published && !bytes.Contains(encoded, []byte(`"current_release":null`)) {
+			t.Fatalf("unexpected release collection: %s", encoded)
+		}
+	}
+}
 
 func TestServiceLoadsCachedCatalogAndKeepsItAfterRefreshFailure(t *testing.T) {
 	platform, err := pluginartifact.CurrentPlatform()
@@ -222,7 +256,7 @@ func (r *memoryRepository) CreateSource(_ context.Context, source Source) error 
 	defer r.mu.Unlock()
 	for _, existing := range r.sources {
 		if existing.URL == source.URL {
-			return errors.New("UNIQUE constraint failed")
+			return ErrSourceConflict
 		}
 	}
 	r.sources[source.ID] = source

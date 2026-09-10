@@ -163,9 +163,9 @@ type ListResult struct {
 }
 
 type DetailResult struct {
-	Plugin   EntryView     `json:"plugin"`
-	Releases []ReleaseView `json:"releases"`
-	Source   SourceView    `json:"source"`
+	Plugin         EntryView    `json:"plugin"`
+	CurrentRelease *ReleaseView `json:"current_release"`
+	Source         SourceView   `json:"source"`
 }
 
 type SourceInput struct {

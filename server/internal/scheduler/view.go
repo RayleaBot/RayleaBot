@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"sort"
 	"strings"
 	"time"
 )
 
 type JobList struct {
+	pagination.Metadata
 	Items []JobSummary `json:"items"`
 }
 
@@ -84,7 +86,7 @@ func (s *View) ListJobs() JobList {
 	for _, job := range jobs {
 		items = append(items, s.jobSummary(job))
 	}
-	return JobList{Items: items}
+	return JobList{Metadata: pagination.Metadata{Total: len(items)}, Items: items}
 }
 
 func (s *View) TriggerJob(ctx context.Context, jobID string) (TriggerResult, error) {
@@ -200,4 +202,55 @@ func toSchedulerPayloadText(value any) string {
 	default:
 		return ""
 	}
+}
+
+type JobQuery struct {
+	pagination.Query
+	Status string
+	Sort   string
+}
+
+func (s *View) ListJobsPage(query JobQuery) JobList {
+	list := s.ListJobs()
+	filtered := make([]JobSummary, 0, len(list.Items))
+	for _, item := range list.Items {
+		if query.Status == "success" && item.LastError != nil || query.Status == "error" && item.LastError == nil {
+			continue
+		}
+		if pagination.Matches(query.Text, item.JobID, item.PluginID, item.PluginName, item.TaskName, item.LogLabel, item.PayloadSummary.Content) {
+			filtered = append(filtered, item)
+		}
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		left, right := filtered[i], filtered[j]
+		switch query.Sort {
+		case "last_run":
+			if left.LastRun == nil && right.LastRun != nil {
+				return false
+			}
+			if right.LastRun == nil && left.LastRun != nil {
+				return true
+			}
+			if left.LastRun != nil && right.LastRun != nil && *left.LastRun != *right.LastRun {
+				return *left.LastRun > *right.LastRun
+			}
+		case "duration":
+			if left.LastDurationMS != right.LastDurationMS {
+				return left.LastDurationMS > right.LastDurationMS
+			}
+		default:
+			if a, b := strings.ToLower(left.PluginName), strings.ToLower(right.PluginName); a != b {
+				return a < b
+			}
+			if a, b := strings.ToLower(left.TaskName), strings.ToLower(right.TaskName); a != b {
+				return a < b
+			}
+		}
+		if left.PluginID != right.PluginID {
+			return left.PluginID < right.PluginID
+		}
+		return left.JobID < right.JobID
+	})
+	items, meta := pagination.Slice(filtered, query.Query)
+	return JobList{Metadata: meta, Items: items}
 }

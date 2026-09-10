@@ -14,10 +14,18 @@
         "tq",
         "天气"
       ],
-      "command_source": "manifest",
       "declared_permission": "group_admin",
       "effective_permission": "group_admin",
-      "permission_source": "declared"
+      "permission_source": "declared",
+      "command_id": "weather",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "weather",
+          "tq",
+          "天气"
+        ]
+      }
     },
     {
       "plugin_id": "hello-go",
@@ -26,10 +34,17 @@
       "aliases": [
         "hi"
       ],
-      "command_source": "manifest",
       "declared_permission": null,
       "effective_permission": "everyone",
-      "permission_source": "default_level"
+      "permission_source": "default_level",
+      "command_id": "hello",
+      "trigger": {
+        "type": "exact",
+        "names": [
+          "hello",
+          "hi"
+        ]
+      }
     }
   ]
 }

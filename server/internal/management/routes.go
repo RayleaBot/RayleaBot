@@ -1,11 +1,10 @@
 package management
 
 import (
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type PublicRouteModule interface {

@@ -9,7 +9,7 @@ import (
 func TestAllowOneBotIngressPrefersAuthorizationHeader(t *testing.T) {
 	t.Parallel()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/protocols/onebot11/webhook", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/adapters/onebot11/webhook", nil)
 	request.Header.Set("Authorization", "Bearer test-token")
 
 	if !allowOneBotIngress(request, "test-token", false) {
@@ -20,7 +20,7 @@ func TestAllowOneBotIngressPrefersAuthorizationHeader(t *testing.T) {
 func TestAllowOneBotIngressRejectsQueryTokenUnlessCompatibilityModeEnabled(t *testing.T) {
 	t.Parallel()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/protocols/onebot11/webhook?access_token=test-token", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/adapters/onebot11/webhook?access_token=test-token", nil)
 
 	if allowOneBotIngress(request, "test-token", false) {
 		t.Fatal("expected query token to be rejected when compatibility mode is disabled")

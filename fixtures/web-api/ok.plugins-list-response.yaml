@@ -8,72 +8,84 @@ response:
   status: 200
   body:
     items:
+    - id: weather
+      name: Weather
+      version: 1.2.3
+      icon: assets/weather.svg
+      description: 提供当前城市天气与未来天气查询。
+      author: raylea
+      role: official
+      state: running
+      source:
+        root: plugins/installed/weather
+        verified: true
+      trust:
+        level: official
+      commands:
       - id: weather
-        name: Weather
-        version: "1.2.3"
-        icon: assets/weather.svg
-        description: 提供当前城市天气与未来天气查询。
-        author: raylea
-        role: official
-        state: running
-        source:
-          root: plugins/installed/weather
-          verified: true
-        trust:
-          level: official
-          label: 官方
+        name: 天气查询
+        effective_names:
+        - weather
+        - tq
+        - 天气
+        description: 查询天气
+        usage: weather <城市>
+        permission: everyone
+        trigger:
+          type: exact
+          names:
+          - weather
+          - tq
+          - 天气
+      command_groups:
+      - id: query
+        title: 查询
         commands:
-          - id: weather
-            name: 天气查询
-            effective_names: [weather, tq, 天气]
-            description: 查询天气
-            usage: weather <城市>
-            permission: everyone
-            trigger:
-              type: exact
-              names: [weather, tq, 天气]
-        command_groups:
-          - id: query
-            title: 查询
-            commands: [weather]
-        help:
-          title: 天气
-          summary: 查询城市天气。
-        command_conflicts: []
+        - weather
+      help:
+        title: 天气
+        summary: 查询城市天气。
+      command_conflicts: []
+    - id: fortune
+      name: Fortune
+      version: 0.1.0
+      description: 查看今日运势。
+      author: raylea
+      role: community
+      state: running
+      source:
+        root: plugins/installed
+        package_source_type: local_zip
+        package_source_ref: C:/plugins/weather.zip
+        verified: false
+      trust:
+        level: unverified
+      commands:
       - id: fortune
-        name: Fortune
-        version: "0.1.0"
-        description: 查看今日运势。
-        author: raylea
-        role: community
-        state: running
-        source:
-          root: plugins/installed
-          package_source_type: local_zip
-          package_source_ref: C:/plugins/weather.zip
-          verified: false
-        trust:
-          level: unverified
-          label: 未验证来源
-        commands:
-          - id: fortune
-            name: 今日运势
-            effective_names: [fortune, 运势]
-            description: 查看今日运势
-            usage: fortune
-            permission: everyone
-            trigger:
-              type: exact
-              names: [fortune, 运势]
-        command_groups:
-          - id: fortune
-            title: 运势
-            commands: [fortune]
-        help: {}
-        command_conflicts:
+        name: 今日运势
+        effective_names:
+        - fortune
+        - 运势
+        description: 查看今日运势
+        usage: fortune
+        permission: everyone
+        trigger:
+          type: exact
+          names:
           - fortune
+          - 运势
+      command_groups:
+      - id: fortune
+        title: 运势
+        commands:
+        - fortune
+      help: {}
+      command_conflicts:
+      - fortune
+    total: 2
 expect:
   valid: true
   notes:
-    - command_conflicts enables explicit fan-out conflict warnings in the Web UI.
-    - commands, command_groups and help keep declared plugin menu content visible in list and detail surfaces.
+  - command_conflicts enables explicit fan-out conflict warnings in the Web UI.
+  - commands, command_groups and help keep declared plugin menu content visible in
+    list and detail surfaces.

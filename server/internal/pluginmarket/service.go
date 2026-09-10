@@ -265,11 +265,12 @@ func (s *Service) Get(sourceID, pluginID string) (DetailResult, bool) {
 	}
 	installed := installedVersions(s.installed)
 	view := s.projectEntry(entry, installed[entry.ID])
-	releases := make([]ReleaseView, 0, 1)
+	var currentRelease *ReleaseView
 	if entry.CurrentRelease != nil {
-		releases = append(releases, s.projectRelease(*entry.CurrentRelease))
+		release := s.projectRelease(*entry.CurrentRelease)
+		currentRelease = &release
 	}
-	return DetailResult{Plugin: view, Releases: releases, Source: cloneSourceView(snapshot.status)}, true
+	return DetailResult{Plugin: view, CurrentRelease: currentRelease, Source: cloneSourceView(snapshot.status)}, true
 }
 
 func (s *Service) Refresh(ctx context.Context, sourceID string) (SourceView, error) {

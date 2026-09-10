@@ -1,6 +1,7 @@
 package management
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -37,6 +38,7 @@ type CommandGroupResponse struct {
 }
 
 type ListResponse struct {
+	pagination.Metadata
 	Items []SummaryResponse `json:"items"`
 }
 

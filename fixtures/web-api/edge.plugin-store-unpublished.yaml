@@ -19,7 +19,7 @@ response:
       keywords: [fortune]
       recommended: true
       install_state: unpublished
-    releases: []
+    current_release: null
     source:
       id: official
       name: RayleaBot 官方插件

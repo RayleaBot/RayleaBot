@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -25,8 +26,9 @@ const (
 var accountIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$`)
 
 var (
-	ErrInvalidAccount  = errors.New("invalid third-party account")
-	ErrAccountNotFound = errors.New("third-party account not found")
+	ErrAccountAlreadyExists = errors.New("third-party account already exists")
+	ErrInvalidAccount       = errors.New("invalid third-party account")
+	ErrAccountNotFound      = errors.New("third-party account not found")
 )
 
 const (
@@ -48,6 +50,7 @@ type Account struct {
 }
 
 type UpsertRequest struct {
+	CreateOnly bool
 	Platform   string
 	AccountID  string
 	Label      string
@@ -85,10 +88,11 @@ func SupportedPlatforms() []string {
 }
 
 type Service struct {
-	read    *sql.DB
-	write   *sql.DB
-	secrets secrets.Store
-	now     func() time.Time
+	read       *sql.DB
+	write      *sql.DB
+	secrets    secrets.Store
+	now        func() time.Time
+	writeGates [64]chan struct{}
 }
 
 func NewService(store *storage.Store, secretStore secrets.Store) (*Service, error) {
@@ -98,12 +102,16 @@ func NewService(store *storage.Store, secretStore secrets.Store) (*Service, erro
 	if secretStore == nil {
 		return nil, errors.New("secret store is required")
 	}
-	return &Service{
+	service := &Service{
 		read:    store.Read,
 		write:   store.Write,
 		secrets: secretStore,
 		now:     func() time.Time { return time.Now().UTC() },
-	}, nil
+	}
+	for index := range service.writeGates {
+		service.writeGates[index] = make(chan struct{}, 1)
+	}
+	return service, nil
 }
 
 func JSONStringValue(value any) string {
@@ -243,7 +251,47 @@ func (s *Service) secretConfigured(ctx context.Context, key string) bool {
 }
 
 func (s *Service) List(ctx context.Context) ([]Account, error) {
-	rows, err := s.read.QueryContext(ctx, `SELECT platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at FROM third_party_accounts ORDER BY platform ASC, account_id ASC`)
+	items, err := s.listAccounts(ctx, s.read, `SELECT platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at FROM third_party_accounts ORDER BY platform ASC, account_id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	s.configureAccounts(ctx, items)
+	return items, nil
+}
+
+type AccountPage struct {
+	Items []Account
+	pagination.Metadata
+}
+
+func (s *Service) ListPage(ctx context.Context, query pagination.Query) (AccountPage, error) {
+	tx, err := s.read.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return AccountPage{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	const predicate = `WHERE (? = '' OR instr(lower(platform || ' ' || account_id || ' ' || label || ' ' || profile_nickname), lower(?)) > 0)`
+	var total int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM third_party_accounts `+predicate, query.Text, query.Text).Scan(&total); err != nil {
+		return AccountPage{}, err
+	}
+	items, err := s.listAccounts(ctx, tx, `SELECT platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at FROM third_party_accounts `+predicate+` ORDER BY platform ASC,account_id ASC LIMIT ? OFFSET ?`, query.Text, query.Text, query.Limit, query.Cursor)
+	if err != nil {
+		return AccountPage{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return AccountPage{}, err
+	}
+	s.configureAccounts(ctx, items)
+	return AccountPage{Items: items, Metadata: pagination.Meta(query, total)}, nil
+}
+
+type accountRows interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
+func (s *Service) listAccounts(ctx context.Context, source accountRows, statement string, args ...any) ([]Account, error) {
+	rows, err := source.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list third-party accounts: %w", err)
 	}
@@ -272,7 +320,6 @@ func (s *Service) List(ctx context.Context) ([]Account, error) {
 			return nil, fmt.Errorf("scan third-party account: %w", err)
 		}
 		account.Enabled = enabled != 0
-		account.Configured = s.secretConfigured(ctx, account.SecretKey)
 		account.Credential.State = normalizeCredentialState(account.Credential.State)
 		account.Credential.CheckedAt = parseOptionalTime(credentialCheckedAt)
 		account.UpdatedAt = parseTime(updatedAt)
@@ -330,45 +377,12 @@ func (s *Service) ListEnabled(ctx context.Context, platform string) ([]Account, 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.read.QueryContext(ctx, `SELECT platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at FROM third_party_accounts WHERE platform = ? AND enabled = 1 AND credential_state != 'invalid' ORDER BY account_id ASC`, platform)
+	items, err := s.listAccounts(ctx, s.read, `SELECT platform, account_id, label, enabled, secret_key, profile_uid, profile_nickname, profile_avatar_url, credential_state, credential_checked_at, credential_last_error, updated_at FROM third_party_accounts WHERE platform = ? AND enabled = 1 AND credential_state != 'invalid' ORDER BY account_id ASC`, platform)
 	if err != nil {
-		return nil, fmt.Errorf("list enabled third-party accounts: %w", err)
+		return nil, err
 	}
-	defer func(release func() error) { _ = release() }(rows.Close)
-
-	accounts := []Account{}
-	for rows.Next() {
-		var account Account
-		var enabled int
-		var credentialCheckedAt sql.NullString
-		var updatedAt string
-		if err := rows.Scan(
-			&account.Platform,
-			&account.AccountID,
-			&account.Label,
-			&enabled,
-			&account.SecretKey,
-			&account.Profile.UID,
-			&account.Profile.Nickname,
-			&account.Profile.AvatarURL,
-			&account.Credential.State,
-			&credentialCheckedAt,
-			&account.Credential.LastError,
-			&updatedAt,
-		); err != nil {
-			return nil, fmt.Errorf("scan third-party account: %w", err)
-		}
-		account.Enabled = enabled != 0
-		account.Configured = s.secretConfigured(ctx, account.SecretKey)
-		account.Credential.State = normalizeCredentialState(account.Credential.State)
-		account.Credential.CheckedAt = parseOptionalTime(credentialCheckedAt)
-		account.UpdatedAt = parseTime(updatedAt)
-		accounts = append(accounts, account)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate third-party accounts: %w", err)
-	}
-	return accounts, nil
+	s.configureAccounts(ctx, items)
+	return items, nil
 }
 
 func (s *Service) ReadCookie(ctx context.Context, account Account) (string, error) {
@@ -383,40 +397,6 @@ func (s *Service) ReadCookie(ctx context.Context, account Account) (string, erro
 	return secrets.OpenString(ctx, s.secrets, value)
 }
 
-func (s *Service) UpdateCookie(ctx context.Context, account Account, cookie string) error {
-	platform, err := normalizePlatform(account.Platform)
-	if err != nil {
-		return err
-	}
-	accountID, err := normalizeAccountID(account.AccountID)
-	if err != nil {
-		return err
-	}
-	cookie = strings.TrimSpace(cookie)
-	if cookie == "" {
-		return secrets.ErrNotFound
-	}
-	secretKey := secretKeyFor(platform, accountID)
-	sealed, err := secrets.SealString(ctx, s.secrets, cookie)
-	if err != nil {
-		return fmt.Errorf("seal third-party account secret: %w", err)
-	}
-	if err := s.secrets.Set(ctx, secretKey, sealed); err != nil {
-		return fmt.Errorf("store third-party account secret: %w", err)
-	}
-	_, err = s.write.ExecContext(ctx,
-		`UPDATE third_party_accounts SET secret_key = ?, updated_at = ? WHERE platform = ? AND account_id = ?`,
-		secretKey,
-		s.now().UTC().Format(time.RFC3339Nano),
-		platform,
-		accountID,
-	)
-	if err != nil {
-		return fmt.Errorf("update third-party account secret: %w", err)
-	}
-	return nil
-}
-
 func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, error) {
 	platform, err := normalizePlatform(request.Platform)
 	if err != nil {
@@ -426,6 +406,21 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 	if err != nil {
 		return Account{}, err
 	}
+	release, err := s.acquireAccountWrite(ctx, platform, accountID)
+	if err != nil {
+		return Account{}, err
+	}
+	defer release()
+	if request.CreateOnly {
+		var exists bool
+		if err := s.read.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM third_party_accounts WHERE platform = ? AND account_id = ?)`, platform, accountID).Scan(&exists); err != nil {
+			return Account{}, err
+		}
+		if exists {
+			return Account{}, ErrAccountAlreadyExists
+		}
+	}
+
 	label := strings.TrimSpace(request.Label)
 	secretKey := secretKeyFor(platform, accountID)
 	now := s.now().UTC()
@@ -483,16 +478,7 @@ func (s *Service) Upsert(ctx context.Context, request UpsertRequest) (Account, e
 	); err != nil {
 		return Account{}, fmt.Errorf("upsert third-party account: %w", err)
 	}
-	accounts, err := s.List(ctx)
-	if err != nil {
-		return Account{}, err
-	}
-	for _, account := range accounts {
-		if account.Platform == platform && account.AccountID == accountID {
-			return account, nil
-		}
-	}
-	return Account{}, fmt.Errorf("read saved third-party account: %w", sql.ErrNoRows)
+	return s.Get(ctx, platform, accountID)
 }
 
 func (s *Service) Delete(ctx context.Context, platform, accountID string) error {
@@ -504,43 +490,18 @@ func (s *Service) Delete(ctx context.Context, platform, accountID string) error 
 	if err != nil {
 		return err
 	}
+	release, err := s.acquireAccountWrite(ctx, platform, accountID)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	secretKey := secretKeyFor(platform, accountID)
 	if _, err := s.write.ExecContext(ctx, `DELETE FROM third_party_accounts WHERE platform = ? AND account_id = ?`, platform, accountID); err != nil {
 		return fmt.Errorf("delete third-party account: %w", err)
 	}
 	if err := s.secrets.Delete(ctx, secretKey); err != nil {
 		return fmt.Errorf("delete third-party account secret: %w", err)
-	}
-	return nil
-}
-
-func (s *Service) UpdateCredentialStatus(ctx context.Context, platform, accountID string, profile AccountProfile, credential CredentialStatus) error {
-	platform, err := normalizePlatform(platform)
-	if err != nil {
-		return err
-	}
-	accountID, err = normalizeAccountID(accountID)
-	if err != nil {
-		return err
-	}
-	profile = profile.normalized()
-	credential = credential.normalized()
-	_, err = s.write.ExecContext(ctx,
-		`UPDATE third_party_accounts
-		 SET profile_uid = ?, profile_nickname = ?, profile_avatar_url = ?,
-		     credential_state = ?, credential_checked_at = ?, credential_last_error = ?
-		 WHERE platform = ? AND account_id = ?`,
-		profile.UID,
-		profile.Nickname,
-		profile.AvatarURL,
-		credential.State,
-		nullableTime(credential.CheckedAt),
-		credential.LastError,
-		platform,
-		accountID,
-	)
-	if err != nil {
-		return fmt.Errorf("update third-party credential status: %w", err)
 	}
 	return nil
 }
@@ -588,4 +549,27 @@ func (s *Service) UpdateCredentialStatusIfUnchanged(ctx context.Context, account
 		return Account{}, false, err
 	}
 	return current, rowsAffected == 1, nil
+}
+
+// Credential reads happen after the list transaction releases its connection.
+// They must not request a second read connection while every concurrent list
+// request can already hold one from the same bounded SQLite pool.
+func (s *Service) configureAccounts(ctx context.Context, accounts []Account) {
+	for index := range accounts {
+		accounts[index].Configured = s.secretConfigured(ctx, accounts[index].SecretKey)
+	}
+}
+
+func (s *Service) acquireAccountWrite(ctx context.Context, platform, id string) (func(), error) {
+	var hash uint32
+	for _, value := range platform + ":" + id {
+		hash = hash*31 + uint32(value)
+	}
+	gate := s.writeGates[hash%uint32(len(s.writeGates))]
+	select {
+	case gate <- struct{}{}:
+		return func() { <-gate }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }

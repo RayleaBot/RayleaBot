@@ -3,7 +3,9 @@ package management
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -141,15 +143,45 @@ func registerPluginDeadLetterRoutes(router chi.Router, catalog plugins.CatalogVi
 }
 
 func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query, ok := readCollectionQuery(w, r)
+		if !ok {
+			return
+		}
+		state, ok := readCollectionChoice(w, r, "state", "running", "disabled", "alert")
+		if !ok {
+			return
+		}
+		source, ok := readCollectionChoice(w, r, "source", "official", "community")
+		if !ok {
+			return
+		}
 		snapshots := catalog.List()
 		conflicts := plugins.DetectCommandConflicts(snapshots)
-		items := make([]SummaryResponse, 0, len(snapshots))
+		filtered := make([]plugins.Snapshot, 0, len(snapshots))
 		for _, snapshot := range snapshots {
+			summary := plugins.BuildSummary(snapshot, conflicts[snapshot.PluginID])
+			if state == "alert" && summary.State != "failed" && summary.State != "invalid" && len(summary.CommandConflicts) == 0 {
+				continue
+			}
+			if state != "" && state != "alert" && summary.State != state {
+				continue
+			}
+			official := summary.Trust.Level == "official"
+			if source == "official" && !official || source == "community" && official {
+				continue
+			}
+			if pagination.Matches(query.Text, snapshot.PluginID, snapshot.Name, snapshot.Description) {
+				filtered = append(filtered, snapshot)
+			}
+		}
+		sort.Slice(filtered, func(i, j int) bool { return filtered[i].PluginID < filtered[j].PluginID })
+		page, meta := pagination.Slice(filtered, query)
+		items := make([]SummaryResponse, 0, len(page))
+		for _, snapshot := range page {
 			items = append(items, ToSummary(snapshot, conflicts[snapshot.PluginID]))
 		}
-
-		writeJSON(w, http.StatusOK, ListResponse{Items: items})
+		writeJSON(w, http.StatusOK, ListResponse{Metadata: meta, Items: items})
 	}
 }
 
@@ -161,6 +193,7 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 			writeError(
 				w,
 				r,
+
 				pluginCodeResourceNotFound,
 
 				map[string]any{

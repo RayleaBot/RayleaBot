@@ -3,6 +3,7 @@ package management
 import (
 	"context"
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -201,4 +202,13 @@ func TestThirdPartyAccountValidateReturnsNotFoundCode(t *testing.T) {
 	if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), "platform.third_party_account_not_found") {
 		t.Fatalf("validate status = %d, want 404 account-not-found body=%s", recorder.Code, recorder.Body.String())
 	}
+}
+
+func (s *stubThirdPartyAccounts) ListPage(ctx context.Context, query pagination.Query) (thirdparty.AccountPage, error) {
+	items, err := s.List(ctx)
+	if err != nil {
+		return thirdparty.AccountPage{}, err
+	}
+	items, meta := pagination.Slice(items, query)
+	return thirdparty.AccountPage{Items: items, Metadata: meta}, nil
 }

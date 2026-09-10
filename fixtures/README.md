@@ -16,6 +16,7 @@
 - `errors/`
   - 对应 `contracts/error-codes.yaml`
   - 统一采用 `input + expect` 结构
+  - `input.codes` 校验错误目录条目的字段与正式元数据；`input.cases` 校验适用范围；`input.errors` 校验错误实例及对应 `details_schema`。每份 fixture 选择其中一种非空数组，使用 `expect.valid` 表达预期结果。
 - `plugin-info/`
   - 对应 `contracts/plugin-info.schema.json`
   - 统一采用 `input + expect` 结构
@@ -72,6 +73,7 @@
 
 - fixture 不能先于 contract 发明字段、状态名、错误码、事件名或接口。
 - fixture 必须直接引用正式 contract 路径或契约标识，不能引用实现文件。
+- 每份 fixture 必须由正式契约的 `x-fixtures` 或等价引用登记；测试直接读取或目录枚举不会代替此引用。
 - `ok` case 表示“应被接受 / 应被视为合法”。
 - `invalid` case 表示“应被拒绝 / 应被视为不合法”。
 - `edge` case 表示“仍合法，但处于关键边界、顺序窗口或退化语义”。
@@ -86,5 +88,6 @@
 ## 后续扩展规则
 
 - 新增 contract 时，在本目录提供对应样例，并通过 `x-fixtures` 或等价字段引用；二者可以先后编辑，合并前引用必须存在、样例可解析并通过必要校验。
+- OpenAPI 校验从 `paths` 枚举每个 HTTP operation，并检查有效 fixture 覆盖；确实无法提供 fixture 时，在该 operation 的 `x-fixture-exemption` 中说明具体原因。有 fixture 后删除豁免，不能只修改一份独立的路径清单。
 - 若 contract 改名、改状态、改错误码、改协议消息类型，必须同步更新对应 fixture。
 - 任何会影响行为判断的变更，都应至少补一条 `ok`、一条 `invalid` 或一条 `edge` case，不能只改契约正文。

@@ -7,13 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/go-chi/chi/v5"
 )
 
 func TestPluginStoreErrorCausesHaveDistinctHTTPMetadata(t *testing.T) {
@@ -49,10 +50,7 @@ func TestUnavailableWebhookUsesTransportUnavailable(t *testing.T) {
 			cfg.Adapters = []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &settings}}
 			shells["onebot11"] = onebot11.New("onebot11", settings, config.AdapterConfig{}, nil)
 		}
-		service, err := adapterservice.NewService(webhookConfigSource{cfg: cfg}, adapterservice.Instances{OneBot11: shells})
-		if err != nil {
-			t.Fatal(err)
-		}
+		service := newAdapterTestService(t, webhookConfigSource{cfg: cfg}, adapterservice.Instances{OneBot11: shells})
 		handler := NewProtocolHandlers(service)
 		router := chi.NewRouter()
 		handler.RegisterPublicRoutes(router)

@@ -84,7 +84,7 @@ func TestRenderTemplateDetailUsesSingleSnapshotRead(t *testing.T) {
 	t.Parallel()
 
 	renderer := &snapshotRenderService{}
-	handlers := NewRenderHandlers(renderer)
+	handlers := NewRenderHandlers(renderer, nil)
 	router := chi.NewRouter()
 	router.Get("/api/system/render/templates/{template_id}", handlers.HandleSystemRenderTemplateDetail())
 
@@ -257,7 +257,7 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 		_ = store.Close()
 		t.Fatalf("create render service: %v", err)
 	}
-	handlers := NewRenderHandlers(renderer)
+	handlers := NewRenderHandlers(renderer, nil)
 
 	router := chi.NewRouter()
 	router.Get("/api/system/render/templates", handlers.HandleSystemRenderTemplateList())

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getPluginTrustLabel } from '@/lib/display'
 import AppTabs from '@/components/AppTabs.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
@@ -182,7 +183,7 @@ const packageInfoRows = computed(() => [
 const sourceInfoRows = computed(() => [
   { key: 'root', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
   { key: 'ref', label: t('plugins.fields.sourceRef'), value: getMetadataText(sourceRefText.value) },
-  { key: 'trust', label: t('plugins.fields.trust'), value: currentPlugin.value?.trust?.label ?? t('display.empty') },
+  { key: 'trust', label: t('plugins.fields.trust'), value: getPluginTrustLabel(currentPlugin.value?.trust?.level) },
 ])
 const runtimeInfoRows = computed(() => [
   { key: 'concurrency', label: t('plugins.fields.concurrency'), value: currentPlugin.value?.concurrency ?? t('display.empty') },
@@ -448,7 +449,7 @@ onUnmounted(() => {
             <div class="plugin-detail-hero__copy">
               <div class="plugin-detail-hero__eyebrow">
                 <AppTag class="premium-badge role-badge">{{ getPluginRoleLabel(currentPlugin?.role) }}</AppTag>
-                <AppTag class="premium-badge trust-badge" :class="{ 'is-attention': requiresTrustAttention }">{{ currentPlugin?.trust?.label ?? t('display.empty') }}</AppTag>
+                <AppTag class="premium-badge trust-badge" :class="{ 'is-attention': requiresTrustAttention }">{{ getPluginTrustLabel(currentPlugin?.trust?.level) }}</AppTag>
               </div>
               <strong class="plugin-title">{{ pluginDisplayName }}</strong>
               <span class="plugin-id-sub">{{ pluginId }}</span>

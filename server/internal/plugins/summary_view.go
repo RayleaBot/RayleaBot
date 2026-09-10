@@ -33,7 +33,6 @@ type SourceView struct {
 
 type TrustView struct {
 	Level string `json:"level"`
-	Label string `json:"label"`
 }
 
 // Summary is the shared display state. Command triggers and absent-help
@@ -166,10 +165,6 @@ func buildHelpView(snapshot Snapshot) *HelpView {
 	return help
 }
 
-func BuildHelpView(snapshot Snapshot) *HelpView {
-	return buildHelpView(snapshot)
-}
-
 func EffectiveCommandNames(triggerType, name string, aliases []string) []string {
 	if strings.TrimSpace(triggerType) == "pattern" {
 		return []string{}
@@ -232,14 +227,14 @@ func isVerifiedSourceView(snapshot Snapshot) bool {
 func buildTrustView(role string, snapshot Snapshot) TrustView {
 	switch role {
 	case "official":
-		return TrustView{Level: "official", Label: "官方"}
+		return TrustView{Level: "official"}
 	case "development":
-		return TrustView{Level: "development", Label: "开发中"}
+		return TrustView{Level: "development"}
 	default:
 		if snapshot.PackageSourceType == "local_zip" || snapshot.PackageSourceType == "local_directory" || snapshot.PackageSourceType == "remote_url" {
-			return TrustView{Level: "unverified", Label: "未验证来源"}
+			return TrustView{Level: "unverified"}
 		}
-		return TrustView{Level: "third_party", Label: "第三方"}
+		return TrustView{Level: "third_party"}
 	}
 }
 

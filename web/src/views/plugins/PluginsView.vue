@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { getPluginTrustLabel } from '@/lib/display'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
@@ -100,13 +101,7 @@ function isOfficialPlugin(record: (typeof sortedItems.value)[number]) {
 }
 
 function getTrustLabel(record: (typeof sortedItems.value)[number]) {
-  if (record.trust?.level === 'unverified') {
-    return record.trust.label || t('plugins.health.unverifiedSource')
-  }
-  if (isOfficialPlugin(record)) {
-    return t('plugins.trustLabels.official')
-  }
-  return record.trust?.label || t('plugins.trustLabels.thirdParty')
+  return getPluginTrustLabel(record.trust?.level)
 }
 
 function getTrustColor(record: (typeof sortedItems.value)[number]) {
@@ -489,7 +484,7 @@ async function reloadPlugin(pluginId: string) {
         <AppCard borderless class="drawer-card">
           <AppDetails>
             <AppDetailItem :label="t('plugins.fields.role')">{{ getPluginRoleLabel(summaryPlugin.role) }}</AppDetailItem>
-            <AppDetailItem :label="t('plugins.fields.trust')">{{ summaryPlugin.trust?.label ?? t('display.empty') }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.trust')">{{ getPluginTrustLabel(summaryPlugin.trust?.level) }}</AppDetailItem>
             <AppDetailItem :label="t('plugins.fields.state')">{{ getPluginStateLabel(summaryPlugin.state) }}</AppDetailItem>
             <AppDetailItem :label="t('plugins.fields.source')">{{ summaryPlugin.source?.root ?? t('display.empty') }}</AppDetailItem>
             <AppDetailItem :label="t('plugins.fields.sourceRef')">

@@ -43,7 +43,6 @@ response:
         verified: false
       trust:
         level: unverified
-        label: 未验证来源
       commands:
         - id: weather
           name: 天气查询

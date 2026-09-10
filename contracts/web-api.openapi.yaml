@@ -81,6 +81,9 @@ x-fixtures:
   - fixtures/web-api/ok.logs-list-response.protocol-onebot11.yaml
   - fixtures/web-api/ok.logs-list-response.task.yaml
   - fixtures/web-api/ok.log-detail-response.yaml
+  - fixtures/web-api/ok.log-detail-response.outbound-onebot11.yaml
+  - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
+  - fixtures/web-api/ok.logs-list-response.protocol-onebot11.outbound-message.yaml
   - fixtures/web-api/ok.plugins-install-accepted.yaml
   - fixtures/web-api/ok.plugins-install-local-artifact.yaml
   - fixtures/web-api/ok.plugins-install-remote-url.yaml
@@ -551,6 +554,13 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
+        - name: entry_type
+          in: query
+          schema: {type: string, enum: [user, group]}
       responses:
         '200':
           description: Current user and group blacklist entries.
@@ -633,6 +643,13 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
+        - name: entry_type
+          in: query
+          schema: {type: string, enum: [user, group]}
       responses:
         '200':
           description: Current whitelist enable state and user/group whitelist entries.
@@ -1085,6 +1102,10 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
       responses:
         '200':
           description: Managed render template list.
@@ -1193,6 +1214,18 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
+        - name: status
+          in: query
+          schema: {type: string, enum: [success, error]}
+          description: success selects absent last_error, including jobs that have never run; error selects a present last_error.
+        - name: sort
+          in: query
+          schema: {type: string, enum: [name, last_run, duration], default: name}
+          description: name orders by plugin display name then task_name; other modes descend by last_run (missing last) or duration. Ties use plugin_id then job_id.
       responses:
         '200':
           description: Scheduler job summaries.
@@ -1437,6 +1470,18 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
+        - name: state
+          in: query
+          schema: {type: string, enum: [running, disabled, alert]}
+          description: alert selects failed/invalid state or nonempty command_conflicts.
+        - name: source
+          in: query
+          schema: {type: string, enum: [official, community]}
+          description: official selects trust.level official; community selects every other trust level.
       responses:
         '200':
           description: Plugin list.
@@ -1459,7 +1504,7 @@ paths:
         bytes are returned. Responses are private and no-store, use nosniff, and apply
         a sandboxed Content-Security-Policy that blocks scripts and external resources.
         Missing plugins, invalid manifests, absent or unreadable icons, unsupported
-        content and oversized files return 404 platform.resource_missing without file paths.
+        content and oversized files return 404 platform.resource_not_found without file paths.
       operationId: getPluginIcon
       security:
         - BearerAuth: []
@@ -1813,7 +1858,7 @@ paths:
 
   /api/plugin-store/plugins/{plugin_id}:
     get:
-      summary: Get one plugin store entry and its published release history.
+      summary: Get one plugin store entry and its currently published release.
       operationId: getPluginStoreEntry
       security:
         - BearerAuth: []
@@ -1918,6 +1963,10 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
       responses:
         '200':
           description: Configured plugin store sources and their cache status.
@@ -2096,7 +2145,11 @@ paths:
     delete:
       summary: Uninstall a plugin asynchronously.
       operationId: uninstallPlugin
-      description: Accepts a valid manifest plugin ID even when the package is absent, so cleanup can be retried after committed or partial failures. Invalid identifiers are rejected before task admission.
+      description: >
+        Idempotently remove a plugin package and finish its scheduler registrations, metadata and template cleanup.
+        A valid plugin identifier is accepted even when absent from the catalog, allowing
+        retry after committed file removal with incomplete cleanup. Invalid identifiers
+        return platform.invalid_request before a task or filesystem operation is created.
       security:
         - BearerAuth: []
         - CookieAuth: []
@@ -2190,6 +2243,10 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CollectionLimit'
+        - $ref: '#/components/parameters/CollectionCursor'
+        - $ref: '#/components/parameters/CollectionQuery'
       responses:
         '200':
           description: Current third-party account summaries.
@@ -2519,6 +2576,21 @@ components:
         minLength: 32
 
   parameters:
+    CollectionLimit:
+      name: limit
+      in: query
+      description: Maximum entries in this response. Changing a query starts at cursor 0.
+      schema: {type: integer, minimum: 1, maximum: 100, default: 100}
+    CollectionCursor:
+      name: cursor
+      in: query
+      description: Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot.
+      schema: {type: integer, minimum: 0, maximum: 2147483647}
+    CollectionQuery:
+      name: query
+      in: query
+      description: Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination.
+      schema: {type: string, maxLength: 200}
     AdapterID:
       name: adapterID
       in: path
@@ -2552,6 +2624,7 @@ components:
       schema:
         type: string
         minLength: 1
+        pattern: '^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$'
     PluginStoreSourceId:
       name: source_id
       in: path
@@ -2616,6 +2689,15 @@ components:
             $ref: '#/components/schemas/ErrorEnvelope'
 
   schemas:
+    CollectionPage:
+      type: object
+      required: [total]
+      properties:
+        total: {type: integer, minimum: 0, description: Number of entries matching this query.}
+        next_cursor:
+          type: string
+          pattern: '^[1-9][0-9]*$'
+          description: Next decimal offset; omitted when no more entries match.
     ErrorEnvelope:
       type: object
       additionalProperties: false
@@ -2808,7 +2890,7 @@ components:
           description: Number of plugins currently in the failed state.
         db_schema_version:
           type: string
-          description: Current database initialization schema version.
+          description: Current database schema migration version.
         uptime_seconds:
           type: integer
           minimum: 0
@@ -2933,7 +3015,6 @@ components:
         initialized_at:
           type: string
           description: Timestamp of this database's atomic initialization, or empty when its metadata is unavailable.
-
 
     AdapterStatus:
       type: object
@@ -3192,7 +3273,7 @@ components:
       properties:
         adapters:
           type: array
-          description: 已配置的适配器实例，按配置顺序返回；首个 OneBot 实例是管理面 OneBot 端点所描述的实例。
+          description: 已配置的适配器实例，按配置顺序返回；无实例时为 []。
           items:
             $ref: '#/components/schemas/AdapterDescriptor'
         available_protocols:
@@ -3646,6 +3727,14 @@ components:
           type: string
         internal_reason:
           type: string
+        runtime_resources:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。
+          items:
+            type: string
+            enum: [chromium, ffmpeg]
 
     RecoveryCompatibilityIssue:
       type: object
@@ -3661,6 +3750,14 @@ components:
           type: string
         remediation:
           type: string
+        runtime_resources:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: 可通过运行环境准备任务处理的资源；省略时客户端不推断准备目标。
+          items:
+            type: string
+            enum: [chromium, ffmpeg]
 
     RecoveryCompatibilitySkippedPlugin:
       type: object
@@ -3755,7 +3852,7 @@ components:
           enum: [pre_restore, post_startup]
         operation:
           type: string
-          enum: [restore]
+          const: restore
         created_at:
           type: string
           format: date-time
@@ -3802,6 +3899,12 @@ components:
 
     TaskStatusResponse:
       type: object
+      description: >
+        Polling reports the terminal task status and error code. Plugin install and uninstall
+        are successful only after their required post-processing completes. Full task log
+        details follow error-codes.yaml operation_state and failures: a committed file change
+        or failed rollback is never reported as success. A cancellation with failed rollback
+        remains failed, and failed rollback retains its installation working directory for recovery.
       additionalProperties: false
       required: [task_id, status]
       properties:
@@ -3922,8 +4025,10 @@ components:
           $ref: '#/components/schemas/RenderTemplateSource'
 
     RenderTemplateListResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
+      unevaluatedProperties: false
       required: [items]
       properties:
         items:
@@ -4084,8 +4189,10 @@ components:
           $ref: '#/components/schemas/SchedulerJobRunStats'
 
     SchedulerJobListResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
+      unevaluatedProperties: false
       required: [items]
       properties:
         items:
@@ -4166,10 +4273,16 @@ components:
         - $ref: '#/components/schemas/GovernanceEntry'
 
     GovernanceBlacklistResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
-      required: [user_entries, group_entries]
+      unevaluatedProperties: false
+      required: [entry_count, user_entries, group_entries]
       properties:
+        entry_count:
+          type: integer
+          minimum: 0
+          description: Total entries before entry_type/query filtering, used for access-policy empty-state decisions.
         user_entries:
           type: array
           items:
@@ -4196,10 +4309,16 @@ components:
           type: boolean
 
     GovernanceWhitelistResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
-      required: [enabled, user_entries, group_entries]
+      unevaluatedProperties: false
+      required: [entry_count, enabled, user_entries, group_entries]
       properties:
+        entry_count:
+          type: integer
+          minimum: 0
+          description: Total entries before entry_type/query filtering, used for access-policy empty-state decisions.
         enabled:
           type: boolean
         user_entries:
@@ -4331,13 +4450,11 @@ components:
     PluginTrustSummary:
       type: object
       additionalProperties: false
-      required: [level, label]
+      required: [level]
       properties:
         level:
           type: string
           enum: [official, third_party, unverified, development]
-        label:
-          type: string
 
     PluginSourceSummary:
       type: object
@@ -4436,10 +4553,16 @@ components:
             type: string
           uniqueItems: true
 
-    PluginSummary:
+    PluginDisplayFields:
       type: object
-      additionalProperties: false
-      required: [id, name, role, state, commands, command_groups, help]
+      required:
+      - id
+      - name
+      - role
+      - state
+      - commands
+      - command_groups
+      - help
       properties:
         id:
           type: string
@@ -4478,6 +4601,12 @@ components:
           type: array
           items:
             type: string
+
+    PluginSummary:
+      allOf:
+      - $ref: '#/components/schemas/PluginDisplayFields'
+      type: object
+      unevaluatedProperties: false
     PluginHelp:
       type: object
       additionalProperties: false
@@ -4488,8 +4617,10 @@ components:
           type: string
 
     PluginListResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
+      unevaluatedProperties: false
       required: [items]
       properties:
         items:
@@ -4522,8 +4653,10 @@ components:
           minimum: 0
 
     PluginStoreSourcesResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
+      unevaluatedProperties: false
       required: [items]
       properties:
         items:
@@ -4636,14 +4769,15 @@ components:
     PluginStoreDetailResponse:
       type: object
       additionalProperties: false
-      required: [plugin, releases, source]
+      required: [plugin, current_release, source]
       properties:
         plugin:
           $ref: '#/components/schemas/PluginStoreEntry'
-        releases:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginStoreReleaseSummary'
+        current_release:
+          description: 当前发布版本；尚未发布时为 null，不表达历史版本列表。
+          oneOf:
+            - $ref: '#/components/schemas/PluginStoreReleaseSummary'
+            - type: 'null'
         source:
           $ref: '#/components/schemas/PluginStoreSource'
 
@@ -4785,44 +4919,14 @@ components:
           type: string
 
     PluginDetail:
+      allOf:
+      - $ref: '#/components/schemas/PluginDisplayFields'
       type: object
-      additionalProperties: false
-      required: [id, name, role, state, commands, command_groups, help, permissions, webhooks]
+      unevaluatedProperties: false
+      required:
+      - permissions
+      - webhooks
       properties:
-        id:
-          type: string
-        name:
-          type: string
-        version:
-          type: string
-        description:
-          type: string
-        author:
-          type: string
-        role:
-          $ref: '#/components/schemas/PluginRole'
-        state:
-          $ref: '#/components/schemas/PluginState'
-        state_diagnosis:
-          $ref: '#/components/schemas/PluginStateDiagnosis'
-        source:
-          $ref: '#/components/schemas/PluginSourceSummary'
-        trust:
-          $ref: '#/components/schemas/PluginTrustSummary'
-        commands:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginCommandSummary'
-        command_groups:
-          type: array
-          items:
-            $ref: '#/components/schemas/PluginCommandGroup'
-        help:
-          $ref: '#/components/schemas/PluginHelp'
-        command_conflicts:
-          type: array
-          items:
-            type: string
         license:
           type: string
         min_core_version:
@@ -4840,16 +4944,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PluginWebhookScope'
-        icon:
-          type: string
         repo:
           type: string
           format: uri
-          pattern: '^https://.+$'
+          pattern: ^https://.+$
         homepage:
           type: string
           format: uri
-          pattern: '^https://.+$'
+          pattern: ^https://.+$
         keywords:
           type: array
           items:
@@ -4993,8 +5095,10 @@ components:
           type: string
 
     ThirdPartyAccountsResponse:
+      allOf:
+        - $ref: '#/components/schemas/CollectionPage'
       type: object
-      additionalProperties: false
+      unevaluatedProperties: false
       required: [items]
       properties:
         items:
@@ -5007,6 +5111,10 @@ components:
       additionalProperties: false
       required: [label, enabled]
       properties:
+        create_only:
+          type: boolean
+          default: false
+          description: Reject an already existing platform/account_id with 409 platform.state_conflict before changing its account or credential. Used by the new-account form, including when the existing record is on another page.
         label:
           type: string
         enabled:

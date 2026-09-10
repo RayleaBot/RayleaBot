@@ -57,7 +57,12 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	})
 	governanceHandler := managementapi.NewGovernanceHandlersWithService(services.Governance)
 	logHandler := managementapi.NewLogHandlers(services.Logs)
-	renderHandler := managementapi.NewRenderHandlers(deps.Renderer)
+	renderHandler := managementapi.NewRenderHandlers(deps.Renderer, func(id string) string {
+		if snapshot, ok := pluginState.Plugins.Get(id); ok {
+			return snapshot.Name
+		}
+		return id
+	})
 	systemHandlers := managementapi.NewSystemHandlers(services.System)
 	if platformState.Scheduler != nil {
 		schedulerView, err := scheduler.NewView(platformState.Scheduler, func(pluginID string) string {

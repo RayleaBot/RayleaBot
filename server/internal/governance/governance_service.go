@@ -23,8 +23,8 @@ var (
 type Deps struct {
 	CurrentConfig  func() config.Config
 	Plugins        plugins.CatalogView
-	BlacklistRepo  permission.EntryRepository
-	WhitelistRepo  permission.EntryRepository
+	BlacklistRepo  ManagementEntryRepository
+	WhitelistRepo  ManagementEntryRepository
 	WhitelistState permission.WhitelistStateRepository
 	NotifyChanged  func(string)
 }
@@ -86,8 +86,8 @@ type CommandPolicyResponse struct {
 type Service struct {
 	currentConfig  func() config.Config
 	plugins        plugins.CatalogView
-	blacklistRepo  permission.EntryRepository
-	whitelistRepo  permission.EntryRepository
+	blacklistRepo  ManagementEntryRepository
+	whitelistRepo  ManagementEntryRepository
 	whitelistState permission.WhitelistStateRepository
 	notifyChanged  func(string)
 }

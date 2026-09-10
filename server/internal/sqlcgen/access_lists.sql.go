@@ -69,6 +69,26 @@ func (q *Queries) AccessListContains(ctx context.Context, arg AccessListContains
 	return exists, err
 }
 
+const accessListCount = `-- name: AccessListCount :one
+SELECT COUNT(*) FROM access_list_entries
+WHERE list_kind = ?1
+AND (?2 = '' OR entry_type = ?2)
+AND (?3 = '' OR instr(lower(target_id), lower(?3)) > 0 OR instr(lower(reason), lower(?3)) > 0)
+`
+
+type AccessListCountParams struct {
+	ListKind   string
+	EntryType  interface{}
+	SearchText interface{}
+}
+
+func (q *Queries) AccessListCount(ctx context.Context, arg AccessListCountParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, accessListCount, arg.ListKind, arg.EntryType, arg.SearchText)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const accessListGet = `-- name: AccessListGet :one
 SELECT id, list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries
 WHERE list_kind = ? AND source_protocol = ? AND source_adapter = ? AND bot_id = ? AND entry_type = ? AND target_id = ?
@@ -118,6 +138,62 @@ type AccessListListParams struct {
 
 func (q *Queries) AccessListList(ctx context.Context, arg AccessListListParams) ([]AccessListEntry, error) {
 	rows, err := q.db.QueryContext(ctx, accessListList, arg.ListKind, arg.EntryType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []AccessListEntry{}
+	for rows.Next() {
+		var i AccessListEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.ListKind,
+			&i.SourceProtocol,
+			&i.SourceAdapter,
+			&i.BotID,
+			&i.EntryType,
+			&i.TargetID,
+			&i.Reason,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const accessListPage = `-- name: AccessListPage :many
+SELECT id, list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id, reason, created_at FROM access_list_entries
+WHERE list_kind = ?1
+AND (?2 = '' OR entry_type = ?2)
+AND (?3 = '' OR instr(lower(target_id), lower(?3)) > 0 OR instr(lower(reason), lower(?3)) > 0)
+ORDER BY created_at DESC, id DESC
+LIMIT ?5 OFFSET ?4
+`
+
+type AccessListPageParams struct {
+	ListKind   string
+	EntryType  interface{}
+	SearchText interface{}
+	PageOffset int64
+	PageLimit  int64
+}
+
+func (q *Queries) AccessListPage(ctx context.Context, arg AccessListPageParams) ([]AccessListEntry, error) {
+	rows, err := q.db.QueryContext(ctx, accessListPage,
+		arg.ListKind,
+		arg.EntryType,
+		arg.SearchText,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -60,7 +60,8 @@ func writeThirdPartyAccountAvatarFetchError(w http.ResponseWriter, r *http.Reque
 		reason = "avatar_content_type_unsupported"
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code:    errorcodes.PlatformUpstreamRequestFailed,
+		Code: errorcodes.PlatformUpstreamRequestFailed,
+
 		Details: map[string]any{"reason": reason},
 		Cause:   err,
 	})

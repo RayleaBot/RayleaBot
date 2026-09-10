@@ -8,13 +8,14 @@ response:
   status: 200
   body:
     items:
-      - id: weather
-        name: Weather
-        role: community
-        state: paused
-        commands: []
-        command_groups: []
-        help: {}
+    - id: weather
+      name: Weather
+      role: community
+      state: paused
+      commands: []
+      command_groups: []
+      help: {}
+    total: 1
 expect:
   valid: false
   reason: state must stay within the formal PluginState enum.

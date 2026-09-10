@@ -19,6 +19,20 @@ WHERE list_kind = ? AND source_protocol = ? AND source_adapter = ? AND bot_id = 
 -- name: AccessListList :many
 SELECT * FROM access_list_entries WHERE list_kind = ? AND entry_type = ? ORDER BY created_at DESC, id DESC;
 
+-- name: AccessListPage :many
+SELECT * FROM access_list_entries
+WHERE list_kind = sqlc.arg(list_kind)
+AND (sqlc.arg(entry_type) = '' OR entry_type = sqlc.arg(entry_type))
+AND (sqlc.arg(search_text) = '' OR instr(lower(target_id), lower(sqlc.arg(search_text))) > 0 OR instr(lower(reason), lower(sqlc.arg(search_text))) > 0)
+ORDER BY created_at DESC, id DESC
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: AccessListCount :one
+SELECT COUNT(*) FROM access_list_entries
+WHERE list_kind = sqlc.arg(list_kind)
+AND (sqlc.arg(entry_type) = '' OR entry_type = sqlc.arg(entry_type))
+AND (sqlc.arg(search_text) = '' OR instr(lower(target_id), lower(sqlc.arg(search_text))) > 0 OR instr(lower(reason), lower(sqlc.arg(search_text))) > 0);
+
 -- name: WhitelistEnabled :one
 SELECT enabled FROM whitelist_state WHERE singleton_id = 1;
 

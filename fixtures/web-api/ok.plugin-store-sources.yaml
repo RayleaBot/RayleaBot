@@ -1,6 +1,7 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Plugin store sources include the built-in official source and administrator-added sources.
+description: Plugin store sources include the built-in official source and administrator-added
+  sources.
 request:
   method: GET
   path: /api/plugin-store/sources
@@ -8,18 +9,19 @@ response:
   status: 200
   body:
     items:
-      - id: official
-        name: RayleaBot 官方插件
-        url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
-        official: true
-        cached: true
-        refreshed_at: 2026-08-04T00:00:00Z
-        entry_count: 1
-      - id: community
-        name: 社区插件
-        url: https://plugins.example.com/catalog.json
-        official: false
-        cached: false
-        entry_count: 0
+    - id: official
+      name: RayleaBot 官方插件
+      url: https://raw.githubusercontent.com/RayleaBot/plugin-catalog/main/catalog.json
+      official: true
+      cached: true
+      refreshed_at: 2026-08-04 00:00:00+00:00
+      entry_count: 1
+    - id: community
+      name: 社区插件
+      url: https://plugins.example.com/catalog.json
+      official: false
+      cached: false
+      entry_count: 0
+    total: 2
 expect:
   valid: true
