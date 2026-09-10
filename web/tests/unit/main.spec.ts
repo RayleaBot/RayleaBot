@@ -40,7 +40,7 @@ vi.mock('@/router', () => ({
   createAppRouter,
 }))
 
-vi.mock('@/request/http', () => ({
+vi.mock('@/lib/http', () => ({
   configureApiRuntime,
 }))
 

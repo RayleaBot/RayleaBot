@@ -14,42 +14,30 @@ import {
   ZapIcon,
   UserIcon,
 } from '@lucide/vue'
-import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { useToastFeedback } from '@/adapter/feedback'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
 import AppPage from '@/components/page/AppPage.vue'
+import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
-  cloneConfig,
   getRateLimitConfigSections,
-  getValueByPath,
-  setValueByPath,
   type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import { formatRateLimit, fromMultilineList, toMultilineList } from '@/lib/format'
+import { formatRateLimit,  } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
-import type { ConfigDocument } from '@/types/api'
 
 const configStore = useConfigStore()
 const { document, error, loading, redactedFields, saving } = storeToRefs(configStore)
 
-const draft = ref<ConfigDocument | null>(null)
-const saveStatus = ref<'hot' | 'restart' | null>(null)
-let saveStatusTimer: number | null = null
+const { draft, saveStatus, hasUnsavedChanges, canSave, readField, writeField, save } = useConfigDraft()
 
 const configSections = computed(() => getRateLimitConfigSections())
-const hasUnsavedChanges = computed(() => {
-  if (!draft.value || !document.value) {
-    return false
-  }
 
-  return JSON.stringify(draft.value) !== JSON.stringify(document.value)
-})
-const canSave = computed(() => hasUnsavedChanges.value && !saving.value)
 const saveStatusLabel = computed(() => {
   switch (saveStatus.value) {
     case 'restart':
@@ -114,9 +102,7 @@ const summaryCards = computed(() => [
   },
 ])
 
-watch(document, (value) => {
-  draft.value = value ? cloneConfig(value) : null
-}, { immediate: true })
+
 
 async function loadConfig() {
   try {
@@ -132,73 +118,7 @@ onMounted(() => {
 
 useToastFeedback(feedbackToast)
 
-onDeactivated(() => {
-  clearSaveStatus()
-})
 
-onBeforeUnmount(() => {
-  clearSaveStatus()
-})
-
-function clearSaveStatus() {
-  if (saveStatusTimer !== null) {
-    window.clearTimeout(saveStatusTimer)
-    saveStatusTimer = null
-  }
-  saveStatus.value = null
-}
-
-function showSaveStatus(nextRestartRequired: boolean) {
-  clearSaveStatus()
-  saveStatus.value = nextRestartRequired ? 'restart' : 'hot'
-  saveStatusTimer = window.setTimeout(() => {
-    saveStatus.value = null
-    saveStatusTimer = null
-  }, 3000)
-}
-
-function markDraftChanged() {
-  if (saveStatus.value !== null) {
-    clearSaveStatus()
-  }
-}
-
-function readField(path: string, type: ConfigFieldDefinition['type']) {
-  if (!draft.value) {
-    if (type === 'boolean') {
-      return false
-    }
-
-    return type === 'number' ? null : ''
-  }
-
-  const current = getValueByPath(draft.value as unknown as Record<string, unknown>, path)
-  if (type === 'list') {
-    return Array.isArray(current) ? toMultilineList(current as string[]) : ''
-  }
-  return current
-}
-
-function writeField(path: string, type: ConfigFieldDefinition['type'], value: unknown) {
-  if (!draft.value) {
-    return
-  }
-
-  let normalized = value
-  if (type === 'number') {
-    if (value === null || value === undefined || value === '') {
-      normalized = undefined
-    } else {
-      const nextNumber = Number(value)
-      normalized = Number.isFinite(nextNumber) ? nextNumber : undefined
-    }
-  } else if (type === 'list') {
-    normalized = fromMultilineList(String(value))
-  }
-
-  markDraftChanged()
-  setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
-}
 
 function getSectionIcon(sectionTitle: string) {
   switch (sectionTitle) {
@@ -231,15 +151,6 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
   return preview !== rawValue ? preview : null
 }
 
-async function save() {
-  if (!draft.value || !hasUnsavedChanges.value) {
-    return
-  }
-
-  const response = await configStore.saveConfig(draft.value)
-  showSaveStatus(response.restart_required)
-  notifySuccess(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
-}
 </script>
 
 <template>

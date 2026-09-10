@@ -17,25 +17,23 @@ import {
   UsersIcon,
   UserRoundPlusIcon,
 } from '@lucide/vue'
-import { computed, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
+import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
-  cloneConfig,
   getPermissionPolicyConfigSections,
   getValueByPath,
   setValueByPath,
   type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { buildAccessListsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
-import type { ConfigDocument } from '@/types/api'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 
 const navigate = useMotionNavigation()
@@ -43,7 +41,6 @@ const configStore = useConfigStore()
 const governanceStore = useGovernanceStore()
 
 const {
-  document,
   error: configError,
   loading: configLoading,
   redactedFields,
@@ -54,22 +51,13 @@ const {
   commandPolicyLoading,
 } = storeToRefs(governanceStore)
 
-const draft = ref<ConfigDocument | null>(null)
-const saveStatus = ref<'hot' | 'restart' | null>(null)
-let saveStatusTimer: number | null = null
+const { draft, saveStatus, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save: saveDraft } = useConfigDraft()
 
 const configSections = computed(() => getPermissionPolicyConfigSections())
 const pageBusy = computed(() => configLoading.value || commandPolicyLoading.value)
 const pageError = computed(() => configError.value || commandPolicyError.value)
 const showFatalError = computed(() => Boolean(configError.value) && !draft.value)
-const hasUnsavedChanges = computed(() => {
-  if (!draft.value || !document.value) {
-    return false
-  }
 
-  return JSON.stringify(draft.value) !== JSON.stringify(document.value)
-})
-const canSave = computed(() => hasUnsavedChanges.value && !saving.value)
 const saveStatusLabel = computed(() => {
   switch (saveStatus.value) {
     case 'restart':
@@ -100,9 +88,7 @@ const feedbackToast = computed(() => {
   return null
 })
 
-watch(document, (value) => {
-  draft.value = value ? cloneConfig(value) : null
-}, { immediate: true })
+
 
 function getSectionIcon(key: string) {
   switch (key) {
@@ -134,52 +120,6 @@ onMounted(() => {
 
 useToastFeedback(feedbackToast)
 
-onDeactivated(() => {
-  clearSaveStatus()
-})
-
-onBeforeUnmount(() => {
-  clearSaveStatus()
-})
-
-function clearSaveStatus() {
-  if (saveStatusTimer !== null) {
-    window.clearTimeout(saveStatusTimer)
-    saveStatusTimer = null
-  }
-  saveStatus.value = null
-}
-
-function showSaveStatus(restartRequired: boolean) {
-  clearSaveStatus()
-  saveStatus.value = restartRequired ? 'restart' : 'hot'
-  saveStatusTimer = window.setTimeout(() => {
-    saveStatus.value = null
-    saveStatusTimer = null
-  }, 3000)
-}
-
-function markDraftChanged() {
-  if (saveStatus.value !== null) {
-    clearSaveStatus()
-  }
-}
-
-function readField(path: string, type: ConfigFieldDefinition['type']) {
-  if (!draft.value) {
-    if (type === 'boolean') {
-      return false
-    }
-
-    return type === 'number' ? null : ''
-  }
-
-  const current = getValueByPath(draft.value as unknown as Record<string, unknown>, path)
-  if (type === 'list') {
-    return Array.isArray(current) ? toMultilineList(current as string[]) : ''
-  }
-  return current
-}
 
 function normalizeTagList(value: unknown) {
   const source = Array.isArray(value) ? value : [value]
@@ -221,40 +161,10 @@ function readSelectField(path: string, type: ConfigFieldDefinition['type']) {
   return typeof value === 'boolean' ? value : String(value ?? '')
 }
 
-function writeField(path: string, type: ConfigFieldDefinition['type'], value: unknown) {
-  if (!draft.value) {
-    return
-  }
-
-  let normalized = value
-  if (type === 'number') {
-    if (value === null || value === undefined || value === '') {
-      normalized = undefined
-    } else {
-      const nextNumber = Number(value)
-      normalized = Number.isFinite(nextNumber) ? nextNumber : undefined
-    }
-  } else if (type === 'list') {
-    normalized = Array.isArray(value) ? normalizeTagList(value) : fromMultilineList(String(value))
-  }
-
-  markDraftChanged()
-  setValueByPath(draft.value as unknown as Record<string, unknown>, path, normalized)
-}
 
 async function save() {
-  if (!draft.value || !hasUnsavedChanges.value) {
-    return
-  }
-
-  const response = await configStore.saveConfig(draft.value)
-  try {
-    await governanceStore.fetchCommandPolicy()
-  } catch {
-    // store state drives the page
-  }
-  showSaveStatus(response.restart_required)
-  notifySuccess(response.restart_required ? t('config.saveRestart') : t('config.saveSuccess'))
+  if (!await saveDraft()) return
+  try { await governanceStore.fetchCommandPolicy() } catch { /* store state drives the page */ }
 }
 </script>
 

@@ -6,11 +6,9 @@ export const DEFAULT_LOG_PAGE_LIMIT = 100
 export const MAX_LOG_PAGE_LIMIT = 200
 
 export interface LogFilters {
-  level?: LogLevel
   levels?: LogLevel[]
   source?: string
   protocol?: LogProtocol
-  pluginId?: string
   pluginIds?: string[]
   requestId?: string
 }
@@ -36,10 +34,10 @@ export function buildLogListPath(options: BuildLogListPathOptions) {
   params.set('scope', options.scope)
   params.set('limit', String(normalizeLogLimit(options.limit)))
 
-  const levels = normalizeFilterValues(filters.levels, filters.level)
+  const levels = normalizeFilterValues(filters.levels)
   const source = normalizeFilterValue(filters.source)
   const protocol = normalizeFilterValue(filters.protocol)
-  const pluginIds = normalizeFilterValues(filters.pluginIds, filters.pluginId)
+  const pluginIds = normalizeFilterValues(filters.pluginIds)
   const requestId = normalizeFilterValue(filters.requestId)
   const startAt = normalizeFilterValue(options.timeRange?.startAt)
   const endAt = normalizeFilterValue(options.timeRange?.endAt)
@@ -77,8 +75,8 @@ export function buildLogListPath(options: BuildLogListPathOptions) {
 }
 
 export function matchesLogFilters(log: LogSummary, filters: LogFilters) {
-  const levels = normalizeFilterValues(filters.levels, filters.level)
-  const pluginIds = normalizeFilterValues(filters.pluginIds, filters.pluginId)
+  const levels = normalizeFilterValues(filters.levels)
+  const pluginIds = normalizeFilterValues(filters.pluginIds)
 
   if (levels.length > 0 && !levels.includes(log.level)) {
     return false
@@ -229,10 +227,10 @@ function normalizeFilterValue(value: string | undefined | null) {
   return nextValue ? nextValue : ''
 }
 
-export function normalizeFilterValues(values: string[] | undefined | null, single?: string | null) {
+export function normalizeFilterValues(values: string[] | undefined | null) {
   const normalized: string[] = []
   const seen = new Set<string>()
-  for (const value of [single ?? '', ...(values ?? [])]) {
+  for (const value of (values ?? [])) {
     const nextValue = normalizeFilterValue(value)
     if (!nextValue || seen.has(nextValue)) {
       continue
@@ -255,4 +253,19 @@ function toComparableTimestamp(value: string) {
   }
 
   return 0
+}
+
+function sameFilterValues(left: string[], right: string[]) {
+  const normalizedLeft = [...left].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  const normalizedRight = [...right].sort((a, b) => a.localeCompare(b, 'zh-CN'))
+  return normalizedLeft.length === normalizedRight.length
+    && normalizedLeft.every((item, index) => item === normalizedRight[index])
+}
+
+export function sameLogFilters(left: LogFilters, right: LogFilters) {
+  return sameFilterValues(normalizeFilterValues(left.levels), normalizeFilterValues(right.levels))
+    && (left.source ?? '') === (right.source ?? '')
+    && (left.protocol ?? '') === (right.protocol ?? '')
+    && sameFilterValues(normalizeFilterValues(left.pluginIds), normalizeFilterValues(right.pluginIds))
+    && (left.requestId ?? '') === (right.requestId ?? '')
 }

@@ -6,7 +6,7 @@ import AppButton from '@/components/AppButton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppTabs from '@/components/AppTabs.vue'
 import { ChevronDownIcon, FileImageIcon, RefreshCwIcon, SearchIcon } from '@lucide/vue'
-import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, useId, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, ref, useId, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -16,19 +16,16 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { useToastFeedback } from '@/adapter/feedback'
 import TemplatePreviewFrame from '@/components/TemplatePreviewFrame.vue'
-import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import {
-  buildRenderTemplatePreviewSample,
   buildRenderTemplateSchemaNodes,
-  parseRenderTemplatePreviewData,
 } from '@/lib/render-template-editor'
 import { t } from '@/i18n'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import { usePluginsStore } from '@/stores/plugins'
 import { getRenderTemplateTypeLabel } from '@/lib/render-template-display'
 import type { RenderTemplateSummary } from '@/types/api'
-import { useRenderPreviewResources } from './useRenderPreviewResources'
+import { useTemplatePreview } from './useTemplatePreview'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,25 +46,6 @@ const { detailById, error, items, loading, workspaceLoading } = storeToRefs(rend
 
 const hasRequestedList = ref(false)
 const pageActive = ref(true)
-const previewDataByTemplate = ref<Record<string, string>>({})
-const previewErrorByTemplate = ref<Record<string, string>>({})
-const previewErrorKeyByTemplate = ref<Record<string, string>>({})
-const pendingPreviewKeyByTemplate = ref<Record<string, string>>({})
-const lastPreviewKeyByTemplate = ref<Record<string, string>>({})
-
-const previewControllers = new Map<string, AbortController>()
-const {
-  clearPreviewDocumentCaches,
-  previewDocumentByTemplate,
-  previewDocumentCache,
-  releasePreviewDocumentResources,
-  releasePreviewResourceKeys,
-  retainPreviewDocumentResources,
-  revokePreviewDocument,
-  rewritePreviewDocumentResources,
-} = useRenderPreviewResources(renderTemplatesStore)
-let autoPreviewHandle: number | null = null
-let previewRunId = 0
 
 const isTemplateRoute = computed(() => route.name === 'render-templates')
 const isActiveTemplateRoute = computed(() => pageActive.value && isTemplateRoute.value)
@@ -78,9 +56,9 @@ const activeTemplateId = computed(() => (
     : ''
 ))
 
-const currentTemplate = computed(() => (
-  activeTemplateId.value ? detailById.value[activeTemplateId.value] ?? null : null
-))
+const { currentTemplate, currentPreviewDataText, previewParseResult, currentPreviewDocument,
+  currentPreviewError, currentPreviewPending, ensurePreviewDefaults, resetPreviewData,
+  scheduleAutoPreview, resetPreviewCaches, retainPreviewDrafts, invalidateCurrentPreview } = useTemplatePreview(activeTemplateId, isActiveTemplateRoute)
 
 const groupedTemplates = computed(() => {
   const groups = new Map<string, { key: string; title: string; items: RenderTemplateSummary[] }>()
@@ -97,52 +75,9 @@ const groupedTemplates = computed(() => {
     .map(group => ({ ...group, items: [...group.items].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')) }))
 })
 
-const currentPreviewDataText = computed({
-  get() {
-    if (!activeTemplateId.value) {
-      return '{}'
-    }
-    return previewDataByTemplate.value[activeTemplateId.value] ?? '{}'
-  },
-  set(value: string) {
-    if (!activeTemplateId.value) {
-      return
-    }
-    previewDataByTemplate.value = {
-      ...previewDataByTemplate.value,
-      [activeTemplateId.value]: value,
-    }
-  },
-})
-
-const previewParseResult = computed(() => parseRenderTemplatePreviewData(currentPreviewDataText.value))
 const schemaNodes = computed(() => buildRenderTemplateSchemaNodes(currentTemplate.value?.input_schema_json ?? null))
 const displaySchemaNodes = computed(() => schemaNodes.value.filter((node) => node.depth > 0))
 
-const previewRequestKey = computed(() => {
-  if (!activeTemplateId.value || !currentTemplate.value || !previewParseResult.value.data) {
-    return ''
-  }
-
-  return JSON.stringify({
-    template: activeTemplateId.value,
-    updated_at: currentTemplate.value.updated_at,
-    theme: 'default',
-    data: previewParseResult.value.data,
-  })
-})
-
-const currentPreviewDocument = computed(() => (
-  activeTemplateId.value ? previewDocumentByTemplate.value[activeTemplateId.value] ?? null : null
-))
-
-const currentPreviewError = computed(() => (
-  activeTemplateId.value ? previewErrorByTemplate.value[activeTemplateId.value] ?? '' : ''
-))
-
-const currentPreviewPending = computed(() => (
-  Boolean(activeTemplateId.value && previewRequestKey.value && pendingPreviewKeyByTemplate.value[activeTemplateId.value] === previewRequestKey.value)
-))
 const pageErrorToast = computed(() => (
   error.value && items.value.length > 0
     ? {
@@ -214,81 +149,13 @@ function getTemplateLocalId(template: RenderTemplateSummary) {
   return template.source.local_id || ''
 }
 
-function buildDefaultPreviewData(schema: Record<string, unknown> | null = null, previewData: Record<string, unknown> | null = null) {
-  if (previewData) {
-    return JSON.stringify(previewData, null, 2)
-  }
-
-  if (schema) {
-    return JSON.stringify(buildRenderTemplatePreviewSample(schema), null, 2)
-  }
-
-  return ''
-}
-
-function ensurePreviewDefaults(templateId: string) {
-  if (!previewDataByTemplate.value[templateId]) {
-    const detail = detailById.value[templateId]
-    const previewData = buildDefaultPreviewData(detail?.input_schema_json ?? null, detail?.preview_data_json ?? null)
-    if (!previewData) {
-      return
-    }
-
-    previewDataByTemplate.value = {
-      ...previewDataByTemplate.value,
-      [templateId]: previewData,
-    }
-  }
-}
-
-function clearAutoPreviewTimer() {
-  if (autoPreviewHandle === null) {
-    return
-  }
-
-  window.clearTimeout(autoPreviewHandle)
-  autoPreviewHandle = null
-}
-
-function setPreviewError(templateId: string, requestKey: string, message: string) {
-  previewErrorByTemplate.value = {
-    ...previewErrorByTemplate.value,
-    [templateId]: message,
-  }
-  previewErrorKeyByTemplate.value = {
-    ...previewErrorKeyByTemplate.value,
-    [templateId]: requestKey,
-  }
-}
-
-function clearPreviewError(templateId: string) {
-  previewErrorByTemplate.value = {
-    ...previewErrorByTemplate.value,
-    [templateId]: '',
-  }
-  previewErrorKeyByTemplate.value = {
-    ...previewErrorKeyByTemplate.value,
-    [templateId]: '',
-  }
-}
-
 async function loadTemplateList() {
-  if (hasRequestedList.value) {
-    clearAutoPreviewTimer()
-    previewRunId += 1
-    for (const controller of previewControllers.values()) controller.abort()
-    previewControllers.clear()
-    pendingPreviewKeyByTemplate.value = {}
-    lastPreviewKeyByTemplate.value = {}
-    clearPreviewDocumentCaches()
-  }
+  if (hasRequestedList.value) resetPreviewCaches()
   hasRequestedList.value = true
   try {
     await Promise.all([renderTemplatesStore.fetchTemplates(), pluginsStore.fetchList().catch(() => undefined)])
     const currentIds = new Set(items.value.map(item => item.id))
-    previewDataByTemplate.value = Object.fromEntries(Object.entries(previewDataByTemplate.value).filter(([id]) => currentIds.has(id)))
-    previewErrorByTemplate.value = {}
-    previewErrorKeyByTemplate.value = {}
+    retainPreviewDrafts(currentIds)
   } catch {
     // store error state drives the page
   }
@@ -307,26 +174,12 @@ async function loadTemplateWorkspace(templateId: string, options: { force?: bool
   }
 }
 
-function resetPreviewData() {
-  if (!currentTemplate.value) return
-  currentPreviewDataText.value = buildDefaultPreviewData(currentTemplate.value.input_schema_json, currentTemplate.value.preview_data_json)
-}
-
 async function reloadCurrentTemplate() {
   if (!activeTemplateId.value) {
     return
   }
 
-  lastPreviewKeyByTemplate.value = {
-    ...lastPreviewKeyByTemplate.value,
-    [activeTemplateId.value]: '',
-  }
-  const cached = previewDocumentCache.get(previewRequestKey.value)
-  if (cached) {
-    previewDocumentCache.delete(previewRequestKey.value)
-    releasePreviewDocumentResources(cached)
-  }
-  revokePreviewDocument(activeTemplateId.value)
+  invalidateCurrentPreview()
   await loadTemplateWorkspace(activeTemplateId.value, { force: true })
   scheduleAutoPreview({ immediate: true })
 }
@@ -369,167 +222,8 @@ async function selectTemplate(templateId: string) {
   })
 }
 
-async function submitPreview(templateId: string, requestKey: string) {
-  if (!isActiveTemplateRoute.value || activeTemplateId.value !== templateId || !previewParseResult.value.data) {
-    return
-  }
-
-  const currentPendingKey = pendingPreviewKeyByTemplate.value[templateId]
-  if (currentPendingKey === requestKey) {
-    return
-  }
-
-  const cached = previewDocumentCache.get(requestKey)
-  if (cached) {
-    revokePreviewDocument(templateId)
-    previewDocumentByTemplate.value = {
-      ...previewDocumentByTemplate.value,
-      [templateId]: cached,
-    }
-  }
-
-  previewControllers.get(templateId)?.abort()
-  const controller = new AbortController()
-  previewControllers.set(templateId, controller)
-  const runId = ++previewRunId
-
-  pendingPreviewKeyByTemplate.value = {
-    ...pendingPreviewKeyByTemplate.value,
-    [templateId]: requestKey,
-  }
-  clearPreviewError(templateId)
-
-  try {
-    const response = await renderTemplatesStore.previewTemplateHTML(templateId, {
-      theme: 'default',
-      data: previewParseResult.value.data,
-    }, controller.signal)
-    const rewritten = await rewritePreviewDocumentResources(templateId, response.html, response.source_digest, controller.signal)
-    if (controller.signal.aborted || runId !== previewRunId || activeTemplateId.value !== templateId || previewRequestKey.value !== requestKey) {
-      releasePreviewResourceKeys(rewritten.createdResourceKeys, { force: true })
-      return
-    }
-
-    revokePreviewDocument(templateId)
-    const document = {
-      ...response,
-      cacheKey: requestKey,
-      html: rewritten.html,
-      resourceKeys: rewritten.resourceKeys,
-    }
-    retainPreviewDocumentResources(document)
-    const previousCached = previewDocumentCache.get(requestKey)
-    if (previousCached) {
-      previewDocumentCache.delete(requestKey)
-      releasePreviewDocumentResources(previousCached)
-    }
-    previewDocumentCache.set(requestKey, document)
-    previewDocumentByTemplate.value = {
-      ...previewDocumentByTemplate.value,
-      [templateId]: document,
-    }
-    lastPreviewKeyByTemplate.value = {
-      ...lastPreviewKeyByTemplate.value,
-      [templateId]: requestKey,
-    }
-  } catch (err) {
-    if (controller.signal.aborted || runId !== previewRunId || activeTemplateId.value !== templateId || previewRequestKey.value !== requestKey) {
-      return
-    }
-    setPreviewError(templateId, requestKey, getDisplayErrorMessage(err))
-  } finally {
-    if (previewControllers.get(templateId) === controller) {
-      previewControllers.delete(templateId)
-    }
-    if (pendingPreviewKeyByTemplate.value[templateId] === requestKey) {
-      pendingPreviewKeyByTemplate.value = {
-        ...pendingPreviewKeyByTemplate.value,
-        [templateId]: '',
-      }
-    }
-  }
-}
-
-function scheduleAutoPreview(options: { immediate?: boolean } = {}) {
-  clearAutoPreviewTimer()
-
-  if (!isActiveTemplateRoute.value || !activeTemplateId.value || !currentTemplate.value) {
-    return
-  }
-
-  if (previewParseResult.value.data === null) {
-    return
-  }
-
-  const requestKey = previewRequestKey.value
-  const templateId = activeTemplateId.value
-  if (previewErrorKeyByTemplate.value[templateId] && previewErrorKeyByTemplate.value[templateId] !== requestKey) {
-    clearPreviewError(templateId)
-  }
-
-  if (!requestKey || pendingPreviewKeyByTemplate.value[templateId] === requestKey) {
-    return
-  }
-
-  if (!options.immediate && lastPreviewKeyByTemplate.value[templateId] === requestKey) {
-    return
-  }
-
-  const cached = previewDocumentCache.get(requestKey)
-  if (cached) {
-    revokePreviewDocument(templateId)
-    previewDocumentByTemplate.value = {
-      ...previewDocumentByTemplate.value,
-      [templateId]: cached,
-    }
-  }
-
-  if (options.immediate) {
-    void submitPreview(templateId, requestKey)
-    return
-  }
-
-  autoPreviewHandle = window.setTimeout(() => {
-    autoPreviewHandle = null
-    if (!isActiveTemplateRoute.value || activeTemplateId.value !== templateId || previewRequestKey.value !== requestKey) {
-      return
-    }
-
-    void submitPreview(templateId, requestKey)
-  }, 350)
-}
-
 watch([items, isActiveTemplateRoute, () => route.params.templateId], () => {
   void syncRouteTemplate()
-}, { immediate: true })
-
-watch(activeTemplateId, (templateId) => {
-  if (!templateId) {
-    return
-  }
-
-  ensurePreviewDefaults(templateId)
-  if (!(templateId in previewErrorByTemplate.value)) {
-    previewErrorByTemplate.value = {
-      ...previewErrorByTemplate.value,
-      [templateId]: '',
-    }
-  }
-}, { immediate: true })
-
-watch(() => [
-  activeTemplateId.value,
-  currentTemplate.value?.updated_at ?? '',
-  currentPreviewDataText.value,
-  isActiveTemplateRoute.value,
-  pageActive.value,
-], (next, previous) => {
-  const immediate = !previous
-    || next[0] !== previous[0]
-    || next[1] !== previous[1]
-    || next[3] !== previous[3]
-    || next[4] !== previous[4]
-  scheduleAutoPreview({ immediate })
 }, { immediate: true })
 
 onMounted(() => {
@@ -542,18 +236,8 @@ onActivated(() => {
 
 onDeactivated(() => {
   pageActive.value = false
-  clearAutoPreviewTimer()
 })
 
-onBeforeUnmount(() => {
-  clearAutoPreviewTimer()
-  previewRunId += 1
-  for (const controller of previewControllers.values()) {
-    controller.abort()
-  }
-  previewControllers.clear()
-  clearPreviewDocumentCaches()
-})
 </script>
 
 <template>

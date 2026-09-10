@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AppSelect from '@/components/AppSelect.vue'
 import AppTag from '@/components/AppTag.vue'
+import AppSelect from '@/components/AppSelect.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppField from '@/components/AppField.vue'
@@ -17,20 +17,18 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { useToastFeedback } from '@/adapter/feedback'
-import { getLogLevelLabel } from '@/lib/display'
-import { formatDateTime, managementTimeZone } from '@/lib/format'
+import { managementTimeZone } from '@/lib/format'
 import {
   areLocationQueriesEqual,
   buildLogsLocation,
   readLogWorkspaceState,
 } from '@/lib/management-links'
-import { escapeUnsafeDisplayText } from '@/lib/text-safety'
 import { t } from '@/i18n'
-import { normalizeFilterValues } from '@/stores/log-state'
+import { sameLogFilters } from '@/stores/log-state'
+import { useLogFilterControls } from '@/components/logs/useLogFilterControls'
+import ManagementLogRow from '@/components/logs/ManagementLogRow.vue'
 import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
-import { usePluginsStore } from '@/stores/plugins'
-import type { LogFilters } from '@/stores/log-state'
-import type { LogLevel, LogSummary, PluginSummary } from '@/types/api'
+import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
 import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
 
@@ -39,7 +37,6 @@ const LOG_ROW_ESTIMATED_HEIGHT = 80
 const route = useRoute()
 const router = useRouter()
 const historyStore = useLogHistoryStore()
-const pluginsStore = usePluginsStore()
 const detailController = useLogDetailController()
 const {
   currentDetail,
@@ -96,7 +93,6 @@ const {
   loadingOlder,
   timeRangeInput,
 } = storeToRefs(historyStore)
-const { sortedItems: pluginItems } = storeToRefs(pluginsStore)
 const pageErrorToast = computed(() => (
   error.value
     ? {
@@ -109,67 +105,10 @@ const pageErrorToast = computed(() => (
 
 useToastFeedback(pageErrorToast)
 
-const selectedLevels = computed({
-  get: () => filters.value.levels ?? (filters.value.level ? [filters.value.level] : []),
-  set: (levels: LogLevel[]) => { filters.value.levels = levels; filters.value.level = undefined },
-})
-const levelOptions = computed(() => ([
-  { label: t('display.logLevels.debug'), value: 'debug' as LogLevel },
-  { label: t('display.logLevels.info'), value: 'info' as LogLevel },
-  { label: t('display.logLevels.warn'), value: 'warn' as LogLevel },
-  { label: t('display.logLevels.error'), value: 'error' as LogLevel },
-]))
-const selectedPluginIds = computed(() => normalizeFilterValues(filters.value.pluginIds, filters.value.pluginId))
-const pluginOptions = computed(() => {
-  const options = pluginItems.value.map((plugin) => ({
-    label: getPluginLabel(plugin),
-    value: plugin.id,
-  }))
-  const knownPluginIds = new Set(options.map((option) => option.value))
+const { selectedLevels, levelOptions, pluginOptions, openPluginFilter } = useLogFilterControls(filters)
 
-  for (const pluginId of selectedPluginIds.value) {
-    if (!knownPluginIds.has(pluginId)) {
-      options.push({ label: pluginsStore.getPluginLabel(pluginId), value: pluginId })
-    }
-  }
 
-  return options
-})
 
-function sameFilterValues(left: string[], right: string[]) {
-  const normalizedLeft = [...left].sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  const normalizedRight = [...right].sort((a, b) => a.localeCompare(b, 'zh-CN'))
-  return normalizedLeft.length === normalizedRight.length
-    && normalizedLeft.every((item, index) => item === normalizedRight[index])
-}
-
-function sameLogFilters(left: LogFilters, right: LogFilters) {
-  return sameFilterValues(normalizeFilterValues(left.levels, left.level), normalizeFilterValues(right.levels, right.level))
-    && (left.source ?? '') === (right.source ?? '')
-    && (left.protocol ?? '') === (right.protocol ?? '')
-    && sameFilterValues(normalizeFilterValues(left.pluginIds, left.pluginId), normalizeFilterValues(right.pluginIds, right.pluginId))
-    && (left.requestId ?? '') === (right.requestId ?? '')
-}
-
-function getPluginLabel(plugin: PluginSummary) {
-  return pluginsStore.getPluginLabel(plugin.id, plugin.name)
-}
-
-async function loadPluginOptions() {
-  if (pluginsStore.listLoaded) {
-    return
-  }
-
-  try {
-    await pluginsStore.fetchList()
-  } catch {
-    return
-  }
-}
-
-async function openPluginFilter() {
-  await loadPluginOptions()
-}
 
 function toLocalInput(value: string) {
   if (!value) {
@@ -344,7 +283,7 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
-  void loadPluginOptions()
+  void openPluginFilter()
   if (activatePageTask) {
     return activatePageTask
   }
@@ -427,12 +366,6 @@ async function loadOlder() {
   }
 }
 
-function getLevelColor(level: string) {
-  if (level === 'error') return 'danger'
-  if (level === 'warn') return 'warning'
-  if (level === 'info') return 'info'
-  return 'neutral'
-}
 
 async function openLogDetail(item: LogSummary) {
   cancelViewportSyncToLatest()
@@ -566,32 +499,7 @@ onBeforeUnmount(() => {
           @reach-top="loadOlder"
         >
           <template #default="{ item }">
-              <button
-                type="button"
-                class="logs-row"
-                :class="{ 'is-selected': selectedLogId === item.log_id }"
-                :aria-label="`${getLogLevelLabel(item.level)} · ${item.source} · ${formatDateTime(item.timestamp)} · ${escapeUnsafeDisplayText(item.message)}`"
-                @click="openLogDetail(item)"
-              >
-              <div class="logs-row__meta">
-                <div class="logs-row__time">{{ formatDateTime(item.timestamp) }}</div>
-                <div class="logs-row__source">
-                  <span>{{ item.source }}</span>
-                  <span v-if="item.protocol" class="logs-row__protocol">{{ item.protocol }}</span>
-                </div>
-              </div>
-
-              <div class="logs-row__main">
-                <div class="logs-row__headline">
-                  <AppTag size="small" :tone="getLevelColor(item.level)">
-                    {{ getLogLevelLabel(item.level) }}
-                  </AppTag>
-                  <span v-if="item.plugin_id" class="logs-row__sub" :title="item.plugin_id">{{ pluginsStore.getPluginDisplayName(item.plugin_id) }}</span>
-                  <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
-                </div>
-                <p class="logs-row__message">{{ escapeUnsafeDisplayText(item.message) }}</p>
-              </div>
-            </button>
+              <ManagementLogRow :item="item" :selected="selectedLogId === item.log_id" @select="openLogDetail" />
           </template>
         </VirtualDataViewport>
       </AppCard>
@@ -685,84 +593,6 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
-.logs-row {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 14px;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  padding: 14px 16px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.logs-row:hover,
-.logs-row.is-selected {
-  background: var(--surface-accent);
-}
-
-.logs-row.is-selected {
-  outline: 2px solid color-mix(in srgb, var(--accent) 34%, transparent);
-  outline-offset: -2px;
-  background: var(--surface-accent) !important;
-}
-
-.logs-row__meta,
-.logs-row__main {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.logs-row__time,
-.logs-row__source,
-.logs-row__sub {
-  font-family: var(--font-mono);
-}
-
-.logs-row__time {
-  color: var(--muted);
-  font-size: 0.82rem;
-}
-
-.logs-row__source {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.logs-row__protocol {
-  color: var(--accent);
-}
-
-.logs-row__headline {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.logs-row__sub {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.logs-row__message {
-  margin: 0;
-  color: var(--text);
-  line-height: 1.6;
-  font-size: 0.9rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  unicode-bidi: plaintext;
-}
-
 @media (max-width: 760px) {
   .logs-toolbar :deep(.app-card__body) { padding: 6px 12px; }
   .logs-filter-toggle {
@@ -800,8 +630,5 @@ onBeforeUnmount(() => {
     flex: 1 1 auto;
   }
 
-  .logs-row {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

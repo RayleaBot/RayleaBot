@@ -197,8 +197,8 @@ export function readLogWorkspaceState(query: LocationQuery, options: { history?:
 export function buildLogsLocation(options: LogsLocationOptions = {}) {
   const filters = options.filters ?? {}
   const history = Boolean(options.history)
-  const levels = normalizeFilterValues(filters.levels, filters.level)
-  const pluginIds = normalizePluginIds([filters.pluginId ?? '', ...(filters.pluginIds ?? [])])
+  const levels = normalizeFilterValues(filters.levels)
+  const pluginIds = normalizePluginIds(filters.pluginIds)
 
   return {
     name: history ? 'logs-history' : 'logs',
@@ -276,7 +276,7 @@ export function buildPluginWorkbenchActions(pluginId: string) {
       to: buildLogsLocation({
         history: true,
         filters: {
-          pluginId,
+          pluginIds: [pluginId],
         },
       }),
     },
