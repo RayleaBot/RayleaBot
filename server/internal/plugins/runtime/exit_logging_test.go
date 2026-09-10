@@ -59,9 +59,11 @@ func TestInterruptedEventExitIsReportedOnce(t *testing.T) {
 					manager.watchRunningProcess(handle)
 				} else {
 					handle.SetExit(exitErr)
-					manager.watchRunningProcess(handle)
+					watchDone := make(chan struct{})
+					go func() { manager.watchRunningProcess(handle); close(watchDone) }()
 					_ = stdoutWriter.Close()
 					<-readDone
+					<-watchDone
 				}
 				err := <-finished
 				assertRuntimeErrorCode(t, err, codePluginInternalError)

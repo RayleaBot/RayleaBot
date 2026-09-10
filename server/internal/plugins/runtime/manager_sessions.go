@@ -162,6 +162,7 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 	if handle.Cmd != nil && handle.Cmd.Process != nil {
 		_ = handle.Cmd.Process.Kill()
 	}
+	handle.closeStdout()
 	select {
 	case <-handle.Done():
 		m.finishFailedProcess(handle, runtimeErr)

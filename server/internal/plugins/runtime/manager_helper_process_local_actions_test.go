@@ -249,7 +249,7 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		})
 		helperConsumeShutdown(scanner, 7)
 		os.Exit(0)
-	case "event-unsupported-action":
+	case "event-unsupported-action", "event-last-result-exit":
 		if !scanner.Scan() {
 			os.Exit(2)
 		}
@@ -270,6 +270,13 @@ func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *b
 		var eventFrame map[string]any
 		if err := json.Unmarshal(line, &eventFrame); err != nil {
 			os.Exit(5)
+		}
+		if scenario == "event-last-result-exit" {
+			writeHelperFrame(map[string]any{
+				"type": "result", "request_id": eventFrame["request_id"], "status": "success",
+				"data": map[string]any{"value": "last"},
+			})
+			os.Exit(0)
 		}
 		writeHelperFrame(map[string]any{
 			"type":       "action",

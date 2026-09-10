@@ -9,6 +9,10 @@ import (
 
 func runHelperProcessRuntimePart1(scenario string, recordPath string, scanner *bufio.Scanner) bool {
 	switch scenario {
+	case "init-invalid-last-frame":
+		initFrame := helperReadFrame(scanner, 2)
+		writeHelperFrame(map[string]any{"type": "init_ack", "request_id": initFrame["request_id"], "status": "invalid"})
+		os.Exit(0)
 	case "stdin-blocked":
 		initFrame := helperReadFrame(scanner, 2)
 		writeHelperFrame(map[string]any{"type": "init_ack", "request_id": initFrame["request_id"], "status": "ready"})

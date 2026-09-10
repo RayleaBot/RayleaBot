@@ -26,8 +26,13 @@ func (m *Manager) Stop(ctx context.Context) error {
 		return nil
 	}
 	if waitErr, exited := handle.ExitResult(); exited {
-		failure := handle.terminationError
 		m.mu.Unlock()
+		if err := handle.awaitProtocolDrain(ctx); err != nil {
+			return m.failRuntime(handle, codePluginShutdownTimeout, "plugin output drain timed out", err)
+		}
+		m.mu.RLock()
+		failure := handle.terminationError
+		m.mu.RUnlock()
 		if failure != nil {
 			m.finishFailedProcess(handle, failure)
 		} else {
@@ -44,6 +49,9 @@ func (m *Manager) Stop(ctx context.Context) error {
 		defer cancel()
 		select {
 		case <-handle.Done():
+			if err := handle.awaitProtocolDrain(cleanupCtx); err != nil {
+				return m.failRuntime(handle, codePluginShutdownTimeout, "plugin output drain timed out", err)
+			}
 			m.finishFailedProcess(handle, failure)
 			return nil
 		case <-cleanupCtx.Done():
@@ -96,6 +104,16 @@ func (m *Manager) Stop(ctx context.Context) error {
 
 	select {
 	case <-handle.Done():
+		if err := handle.awaitProtocolDrain(stopCtx); err != nil {
+			return m.failRuntime(handle, codePluginShutdownTimeout, "plugin output drain timed out", err)
+		}
+		m.mu.RLock()
+		failure := handle.terminationError
+		m.mu.RUnlock()
+		if failure != nil {
+			m.finishFailedProcess(handle, failure)
+			return nil
+		}
 		waitErr, _ := handle.ExitResult()
 		if waitErr != nil {
 			m.markStopped(codePluginInternalError, "plugin exited with error during shutdown", waitErr)

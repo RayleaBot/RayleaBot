@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -36,6 +37,11 @@ type Handle struct {
 	done    chan struct{}
 	exitMu  sync.RWMutex
 	exitErr error
+	// Output pipes and completion signals belong to this process generation.
+	stdout       io.ReadCloser
+	stderr       io.ReadCloser
+	protocolDone chan struct{}
+	stderrDone   chan struct{}
 
 	exitFailureReported bool           // guarded by the owning Manager.mu
 	terminationObserved bool           // guarded by the owning Manager.mu
@@ -44,13 +50,17 @@ type Handle struct {
 }
 
 func NewHandle(cmd *exec.Cmd, stdin io.WriteCloser, stdout *bufio.Reader, spec ProcessSpec) *Handle {
-	return &Handle{
+	handle := &Handle{
 		Cmd:    cmd,
 		Stdin:  stdin,
 		Stdout: stdout,
 		Spec:   spec,
 		done:   make(chan struct{}),
 	}
+	if stdout != nil {
+		handle.protocolDone = make(chan struct{})
+	}
+	return handle
 }
 
 func (h *Handle) Done() <-chan struct{} {
@@ -86,6 +96,40 @@ func (h *Handle) Watch() {
 		return
 	}
 	h.SetExit(h.Cmd.Wait())
+	if h.stderrDone != nil {
+		select {
+		case <-h.stderrDone:
+		case <-time.After(h.drainTimeout()):
+			_ = h.stderr.Close()
+		}
+	}
+}
+
+func (h *Handle) drainTimeout() time.Duration {
+	return max(h.Spec.ShutdownGrace, time.Second)
+}
+
+func (h *Handle) closeStdout() {
+	if h.stdout != nil {
+		_ = h.stdout.Close()
+	}
+}
+
+// A descendant can inherit stdout after the plugin itself exits. Bound that
+// drain by the shutdown budget, then release the owned reader to unblock it.
+func (h *Handle) awaitProtocolDrain(ctx context.Context) error {
+	if h.protocolDone == nil {
+		return nil
+	}
+	drainCtx, cancel := context.WithTimeout(ctx, h.drainTimeout())
+	defer cancel()
+	select {
+	case <-h.protocolDone:
+		return nil
+	case <-drainCtx.Done():
+		h.closeStdout()
+		return drainCtx.Err()
+	}
 }
 
 func (h *Handle) WriteJSONLine(value any) error {
@@ -138,6 +182,7 @@ func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 
 func (m *Manager) watchRunningProcess(handle *Handle) {
 	<-handle.Done()
+	_ = handle.awaitProtocolDrain(context.Background())
 
 	waitErr, _ := handle.ExitResult()
 

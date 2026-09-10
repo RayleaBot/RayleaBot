@@ -63,27 +63,68 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		m.markStopped(codePluginInternalError, "open plugin stdin", err)
 		return errorf(codePluginInternalError, "open plugin stdin", err)
 	}
+	started := false
+	defer func() {
+		if !started {
+			_ = stdin.Close()
+			if childInput, ok := cmd.Stdin.(*os.File); ok {
+				_ = childInput.Close()
+			}
+		}
+	}()
 
-	stdout, err := cmd.StdoutPipe()
+	// Own the output readers: exec.Cmd.Wait closes StdoutPipe/StderrPipe
+	// before protocol consumers necessarily inspect the child's final frames.
+	stdout, stdoutWriter, err := os.Pipe()
 	if err != nil {
 		m.markStopped(codePluginInternalError, "open plugin stdout", err)
 		return errorf(codePluginInternalError, "open plugin stdout", err)
 	}
+	defer func() {
+		_ = stdoutWriter.Close()
+		if !started {
+			_ = stdout.Close()
+		}
+	}()
+	cmd.Stdout = stdoutWriter
 
-	stderr, err := cmd.StderrPipe()
+	stderr, stderrWriter, err := os.Pipe()
 	if err != nil {
 		m.markStopped(codePluginInternalError, "open plugin stderr", err)
 		return errorf(codePluginInternalError, "open plugin stderr", err)
 	}
+	defer func() {
+		_ = stderrWriter.Close()
+		if !started {
+			_ = stderr.Close()
+		}
+	}()
+	cmd.Stderr = stderrWriter
 
 	if err := cmd.Start(); err != nil {
 		m.markStopped(codePluginInternalError, "start plugin process", err)
 		return errorf(codePluginInternalError, "start plugin process", err)
 	}
-
-	go m.captureStderr(spec.PluginID, stderr)
+	started = true
+	// Only the child keeps write ends, so normal process exit produces EOF.
+	_ = stdoutWriter.Close()
+	_ = stderrWriter.Close()
 
 	handle := NewHandle(cmd, stdin, bufio.NewReader(stdout), processSpec(spec))
+	runtimeReading := false
+	defer func() {
+		if !runtimeReading {
+			handle.closeStdout()
+			close(handle.protocolDone)
+		}
+	}()
+	handle.stdout = stdout
+	handle.stderr = stderr
+	handle.stderrDone = make(chan struct{})
+	go func() {
+		defer close(handle.stderrDone)
+		m.captureStderr(spec.PluginID, stderr)
+	}()
 	go handle.Watch()
 
 	m.mu.Lock()
@@ -154,6 +195,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", entryPathDisplay,
 	)
 
+	runtimeReading = true
 	go m.readRuntimeFrames(handle)
 	go m.watchRunningProcess(handle)
 
@@ -182,6 +224,12 @@ func durationOrFallback(value, fallback time.Duration) time.Duration {
 }
 
 func (m *Manager) readRuntimeFrames(handle *Handle) {
+	defer func() {
+		handle.closeStdout()
+		if handle.protocolDone != nil {
+			close(handle.protocolDone)
+		}
+	}()
 	for {
 		line, err := readProtocolLine(handle.Stdout, handle.Spec.IPCMessageMaxBytes)
 		if err != nil {

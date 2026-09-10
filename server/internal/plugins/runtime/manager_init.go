@@ -51,12 +51,6 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 			)
 		case readErr := <-readErrCh:
 			return classifyProtocolReadError(handle, readErr, pluginExitedBeforeInitMessage, "read plugin init response")
-		case <-handle.Done():
-			waitErr, _ := handle.ExitResult()
-			if waitErr == nil {
-				return errorf(codePluginInternalError, pluginExitedBeforeInitMessage, nil)
-			}
-			return errorf(codePluginInternalError, pluginExitedBeforeInitMessage, waitErr)
 		case <-deadlineTimer.C:
 			return errorf(codePluginInitTimeout, "plugin init_ack timed out", nil)
 		case <-ctx.Done():
