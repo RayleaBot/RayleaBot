@@ -3,7 +3,6 @@ package integration
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -17,8 +16,8 @@ func TestSessionLoginReturnsSessionToken(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.session-login.yaml"))
 
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
@@ -56,8 +55,8 @@ func TestSessionLoginRejectsBadCredentials(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
 
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
@@ -85,8 +84,8 @@ func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {
 		input["admin"].(map[string]any)["max_sessions"] = 1
 	}, deterministicAuthOptions()...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.session-login-max-sessions.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.session-login-max-sessions.yaml"))
 
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
@@ -135,7 +134,7 @@ func TestSessionLoginRejectsMalformedRequest(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
 		t.Fatalf("unexpected bootstrap status: got %d want %d", setup.Code, setupFixture.Response.Status)
@@ -164,10 +163,10 @@ func TestSessionLoginRateLimitsAfterRepeatedFailuresFromSameSourceIP(t *testing.
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
-	rateLimitedFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.session-login-rate-limited.yaml"))
-	okLoginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.session-login-bad-credentials.yaml"))
+	rateLimitedFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.session-login-rate-limited.yaml"))
+	okLoginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.session-login.yaml"))
 
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
@@ -201,7 +200,7 @@ func TestSessionLoginRejectsOversizedBody(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
 		t.Fatalf("unexpected bootstrap status: got %d want %d", setup.Code, setupFixture.Response.Status)
@@ -233,8 +232,8 @@ func TestSessionLoginUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 		},
 	}))...)
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.session-login.yaml"))
 
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {

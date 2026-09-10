@@ -119,40 +119,38 @@ func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 	}
 }
 
-func TestProperty_InstallCreatesQueryableTask(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		router, taskRegistry := setupInstallRouter()
+func TestInstallCreatesQueryableTask(t *testing.T) {
+	router, taskRegistry := setupInstallRouter()
 
-		reqBody, _ := json.Marshal(trustedInstallRequest())
-		req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
-		req.Header.Set("Content-Type", "application/json")
-		rec := httptest.NewRecorder()
+	reqBody, _ := json.Marshal(trustedInstallRequest())
+	req := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
 
-		router.ServeHTTP(rec, req)
+	router.ServeHTTP(rec, req)
 
-		if rec.Code != http.StatusAccepted {
-			t.Fatalf("status = %d, want 202; body = %s", rec.Code, rec.Body.String())
-		}
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202; body = %s", rec.Code, rec.Body.String())
+	}
 
-		var resp pluginTaskAcceptedResponse
-		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-			t.Fatalf("decode response: %v", err)
-		}
-		if resp.TaskID == "" {
-			t.Fatal("task_id is empty")
-		}
+	var resp pluginTaskAcceptedResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.TaskID == "" {
+		t.Fatal("task_id is empty")
+	}
 
-		snap, ok := taskRegistry.Get(resp.TaskID)
-		if !ok {
-			t.Fatalf("task %q not found in registry", resp.TaskID)
-		}
-		if snap.TaskType != "plugin.install" {
-			t.Fatalf("task_type = %q, want %q", snap.TaskType, "plugin.install")
-		}
-		if snap.Status != tasks.StatusPending {
-			t.Fatalf("status = %q, want %q", snap.Status, tasks.StatusPending)
-		}
-	})
+	snap, ok := taskRegistry.Get(resp.TaskID)
+	if !ok {
+		t.Fatalf("task %q not found in registry", resp.TaskID)
+	}
+	if snap.TaskType != "plugin.install" {
+		t.Fatalf("task_type = %q, want %q", snap.TaskType, "plugin.install")
+	}
+	if snap.Status != tasks.StatusPending {
+		t.Fatalf("status = %q, want %q", snap.Status, tasks.StatusPending)
+	}
 }
 
 // Feature: plugin-write-api, Property 2: 无效安装请求被拒绝

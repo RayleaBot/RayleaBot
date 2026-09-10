@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -79,7 +80,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 func issueExistingBootstrapLoginToken(t *testing.T, application interface{ Handler() http.Handler }) string {
 	t.Helper()
 
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.session-login.yaml"))
 	login := performJSONRequest(t, application, loginFixture.Request.Method, loginFixture.Request.Path, loginFixture.Request.Body)
 	if login.Code != loginFixture.Response.Status {
 		t.Fatalf("unexpected login status: got %d want %d", login.Code, loginFixture.Response.Status)

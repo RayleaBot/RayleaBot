@@ -33,7 +33,7 @@ func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 		onebot["webhook"].(map[string]any)["access_token"] = "webhook-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-get-response.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.config-get-response.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -77,7 +77,7 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 		testutil.ConfigDocumentOneBot(t, input)["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.config-update-response.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.config-update-response.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -223,7 +223,7 @@ func TestConfigPutRejectsInvalidConfig(t *testing.T) {
 		testutil.ConfigDocumentOneBot(t, input)["forward_ws"].(map[string]any)["access_token"] = "fixture-only-secret"
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.config-update-invalid.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.config-update-invalid.yaml"))
 	before, err := internalconfig.LoadDocument(configPath, schemaPath)
 	if err != nil {
 		t.Fatalf("load baseline config: %v", err)
@@ -594,7 +594,7 @@ func newTestAppWithOptions(
 ) (*internalapp.App, string, string) {
 	t.Helper()
 
-	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+	fixture := loadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
 
 	var input map[string]any
 	if err := json.Unmarshal(fixture.Input, &input); err != nil {
@@ -610,7 +610,7 @@ func newTestAppWithOptions(
 	}
 
 	configPath := writeYAMLConfig(t, updated)
-	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
+	schemaPath := testutil.RepoPath(t, "contracts", "config.user.schema.json")
 	repoRoot := newPreparedTestRuntimeRoot(t)
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 
@@ -620,7 +620,7 @@ func newTestAppWithOptions(
 		SetupToken:           testutil.TestSetupToken,
 		LauncherControlToken: testutil.TestLauncherControlToken,
 		PluginRepoRoot:       repoRoot,
-		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/installed", Path: installedRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},

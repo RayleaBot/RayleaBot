@@ -24,9 +24,9 @@ func TestDevelopmentSyncStartsOnlyTargetAndRollsBackFailedInitialization(t *test
 	}
 	application, err := app.New(app.Options{
 		ConfigPath: writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db")),
-		SchemaPath: filepath.Join("..", "contracts", "config.user.schema.json"),
+		SchemaPath: testutil.RepoPath(t, "contracts", "config.user.schema.json"),
 		SetupToken: testutil.TestSetupToken, LauncherControlToken: testutil.TestLauncherControlToken,
-		PluginRepoRoot: root, PluginSchemaPath: filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginRepoRoot: root, PluginSchemaPath: testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots:             []plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installed}},
 		DevelopmentArtifactRoot: artifacts,
 	})

@@ -245,7 +245,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 
 // Feature: http-auth-middleware, Property 3: 请求标识符唯一性
 // Validates: Requirements 4.5
-func TestPropertyRequestIDUniqueness(t *testing.T) {
+func TestRequestIDUniqueness(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
@@ -253,33 +253,31 @@ func TestPropertyRequestIDUniqueness(t *testing.T) {
 
 	// Collect request_ids from multiple rejection responses and verify uniqueness.
 	const batchSize = 50
-	rapid.Check(t, func(t *rapid.T) {
-		handler, _, _ := dummyHandler()
-		wrapped := middleware(handler)
+	handler, _, _ := dummyHandler()
+	wrapped := middleware(handler)
 
-		seen := make(map[string]struct{}, batchSize)
-		for i := 0; i < batchSize; i++ {
-			req := httptest.NewRequest(http.MethodGet, "/api/plugins", nil)
-			// No Authorization header → guaranteed rejection.
-			rec := httptest.NewRecorder()
-			wrapped.ServeHTTP(rec, req)
+	seen := make(map[string]struct{}, batchSize)
+	for i := 0; i < batchSize; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/api/plugins", nil)
+		// No Authorization header → guaranteed rejection.
+		rec := httptest.NewRecorder()
+		wrapped.ServeHTTP(rec, req)
 
-			if rec.Code != http.StatusUnauthorized {
-				t.Fatalf("expected 401, got %d", rec.Code)
-			}
-
-			errorObj := parseErrorEnvelope(t, rec.Body.Bytes())
-			reqID, ok := errorObj["request_id"].(string)
-			if !ok {
-				t.Fatalf("request_id not a string: %v", errorObj["request_id"])
-			}
-
-			if _, exists := seen[reqID]; exists {
-				t.Fatalf("duplicate request_id: %s", reqID)
-			}
-			seen[reqID] = struct{}{}
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401, got %d", rec.Code)
 		}
-	})
+
+		errorObj := parseErrorEnvelope(t, rec.Body.Bytes())
+		reqID, ok := errorObj["request_id"].(string)
+		if !ok {
+			t.Fatalf("request_id not a string: %v", errorObj["request_id"])
+		}
+
+		if _, exists := seen[reqID]; exists {
+			t.Fatalf("duplicate request_id: %s", reqID)
+		}
+		seen[reqID] = struct{}{}
+	}
 }
 
 // Feature: http-auth-middleware, Property 4: 有效 Token 的 Claims 上下文传递

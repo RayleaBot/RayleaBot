@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -24,7 +23,7 @@ func TestSetupAdminReturnsSessionToken(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
 	if recorder.Code != fixture.Response.Status {
@@ -56,7 +55,7 @@ func TestSetupAdminRejectsMalformedRequest(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.setup-admin-bad-request.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.setup-admin-bad-request.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
 	if recorder.Code != fixture.Response.Status {
@@ -76,8 +75,8 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	okFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	edgeFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
+	okFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	edgeFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
 
 	first := performJSONRequest(t, application, okFixture.Request.Method, okFixture.Request.Path, okFixture.Request.Body)
 	if first.Code != okFixture.Response.Status {
@@ -102,7 +101,7 @@ func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t, deterministicAuthOptions()...)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequestWithRemoteAddr(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "198.51.100.20:3210")
 	if recorder.Code != http.StatusForbidden {
@@ -128,7 +127,7 @@ func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 			return errors.New("disk full")
 		},
 	}))...)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 	recorder := performJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
 	if recorder.Code != http.StatusInternalServerError {
@@ -149,7 +148,7 @@ func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {
 func loadWebAPIFixtureDocument(t *testing.T, path string) webAPIFixtureDocument {
 	t.Helper()
 
-	normalizedPath := filepath.Clean(filepath.FromSlash(strings.ReplaceAll(path, "\\", "/")))
+	normalizedPath := testutil.ResolveRepoPath(path)
 	bytes, err := os.ReadFile(normalizedPath)
 	if err != nil {
 		t.Fatalf("read fixture %s: %v", normalizedPath, err)

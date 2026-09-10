@@ -34,9 +34,9 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 		return current
 	}, "persist-a", withPersistentBridgeDispatch())
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	edgeFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	edgeFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.setup-admin-already-initialized.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.session-login.yaml"))
 
 	setup := performJSONRequest(t, appA, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
@@ -77,8 +77,8 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 		return current
 	}, "ws-a", withPersistentBridgeDispatch())
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	loginFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.session-login.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	loginFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.session-login.yaml"))
 
 	setup := performJSONRequest(t, appA, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
@@ -211,11 +211,11 @@ func newPersistentTestApp(t *testing.T, configPath string, now func() time.Time,
 	repoRoot := newPreparedTestRuntimeRoot(t)
 	options := app.Options{
 		ConfigPath:           configPath,
-		SchemaPath:           filepath.Join("..", "contracts", "config.user.schema.json"),
+		SchemaPath:           testutil.RepoPath(t, "contracts", "config.user.schema.json"),
 		SetupToken:           testutil.TestSetupToken,
 		LauncherControlToken: testutil.TestLauncherControlToken,
 		PluginRepoRoot:       repoRoot,
-		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},
@@ -279,7 +279,7 @@ func (s *persistentDispatchStub) Dispatch(context.Context, chatevent.Event, stri
 func writePersistentYAMLConfig(t *testing.T, databasePath string) string {
 	t.Helper()
 
-	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+	fixture := loadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
 
 	var input map[string]any
 	if err := json.Unmarshal(fixture.Input, &input); err != nil {

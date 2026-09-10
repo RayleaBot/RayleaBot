@@ -72,7 +72,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 	t.Parallel()
 
-	rawFixture, err := os.ReadFile(filepath.Join("..", "fixtures", "websocket", "ok.logs-appended.outbound-onebot11.json"))
+	rawFixture, err := os.ReadFile(testutil.RepoPath(t, "fixtures", "websocket", "ok.logs-appended.outbound-onebot11.json"))
 	if err != nil {
 		t.Fatalf("read websocket outbound fixture: %v", err)
 	}
@@ -430,7 +430,7 @@ func waitForNoLogSubscribers(t *testing.T, stream *logging.Stream) {
 func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptions ...auth.Option) *app.App {
 	t.Helper()
 
-	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+	fixture := loadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
 
 	var input map[string]any
 	if err := json.Unmarshal(fixture.Input, &input); err != nil {
@@ -446,7 +446,7 @@ func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptio
 	}
 
 	configPath := writeYAMLConfig(t, updated)
-	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
+	schemaPath := testutil.RepoPath(t, "contracts", "config.user.schema.json")
 
 	application, err := app.New(app.Options{
 		ConfigPath:           configPath,

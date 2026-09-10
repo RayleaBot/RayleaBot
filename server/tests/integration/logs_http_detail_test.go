@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -22,7 +23,7 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.log-detail-response.outbound-onebot11.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.log-detail-response.outbound-onebot11.yaml"))
 
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_outbound_delivered_0001",
@@ -151,7 +152,7 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.log-detail-not-found.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.log-detail-not-found.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 

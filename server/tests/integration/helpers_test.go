@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
@@ -14,13 +13,6 @@ const (
 	testManagementAuthority = testutil.TestManagementAuthority
 	testManagementOrigin    = testutil.TestManagementOrigin
 )
-
-func TestMain(m *testing.M) {
-	if err := os.Chdir(testutil.ResolveRepoPath("server")); err != nil {
-		panic(err)
-	}
-	os.Exit(m.Run())
-}
 
 func decodeBody(t *testing.T, raw []byte) map[string]any {
 	return testutil.DecodeBody(t, raw)

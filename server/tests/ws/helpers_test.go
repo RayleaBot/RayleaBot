@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -19,13 +18,6 @@ const (
 	testManagementAuthority = testutil.TestManagementAuthority
 	testManagementOrigin    = testutil.TestManagementOrigin
 )
-
-func TestMain(m *testing.M) {
-	if err := os.Chdir(testutil.ResolveRepoPath("server")); err != nil {
-		panic(err)
-	}
-	os.Exit(m.Run())
-}
 
 func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	application, _, _ := newTestAppWithOptions(t, nil, nil, authOptions...)
@@ -48,7 +40,7 @@ func newTestAppWithOptions(
 ) (*app.App, string, string) {
 	t.Helper()
 
-	fixture := testutil.LoadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+	fixture := testutil.LoadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
 
 	var input map[string]any
 	if err := json.Unmarshal(fixture.Input, &input); err != nil {

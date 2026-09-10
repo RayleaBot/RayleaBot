@@ -24,7 +24,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	repoRoot := t.TempDir()
 	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
-	pluginSchemaPath := filepath.Join("..", "contracts", "plugin-info.schema.json")
+	pluginSchemaPath := testutil.RepoPath(t, "contracts", "plugin-info.schema.json")
 	examplesRoot := filepath.Join(repoRoot, "examples", "plugins")
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 
@@ -37,7 +37,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	sessionCounter := 0
 	application, err := app.New(app.Options{
 		ConfigPath:           configPath,
-		SchemaPath:           filepath.Join("..", "contracts", "config.user.schema.json"),
+		SchemaPath:           testutil.RepoPath(t, "contracts", "config.user.schema.json"),
 		SetupToken:           testutil.TestSetupToken,
 		LauncherControlToken: testutil.TestLauncherControlToken,
 		PluginRepoRoot:       repoRoot,

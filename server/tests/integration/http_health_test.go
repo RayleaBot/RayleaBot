@@ -31,7 +31,7 @@ func TestHealthzResponseMatchesFixture(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	fixture := loadWebAPIFixture(t, filepath.Join("..", "fixtures", "web-api", "ok.healthz-response.yaml"))
+	fixture := loadWebAPIFixture(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.healthz-response.yaml"))
 
 	request := httptest.NewRequest("GET", "/healthz", nil)
 	recorder := httptest.NewRecorder()
@@ -54,7 +54,7 @@ func TestHealthzResponseMatchesFixture(t *testing.T) {
 func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 	t.Parallel()
 
-	fixture := loadWebAPIFixture(t, filepath.Join("..", "fixtures", "web-api", "edge.readyz-degraded-response.yaml"))
+	fixture := loadWebAPIFixture(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.readyz-degraded-response.yaml"))
 	checks := map[string]string{}
 	for key, value := range fixture.Response.Body["checks"].(map[string]any) {
 		checks[key] = value.(string)
@@ -188,7 +188,7 @@ func TestReadyzReportsSetupRequiredBeforeBootstrap(t *testing.T) {
 	t.Parallel()
 
 	application := newTestApp(t)
-	fixture := loadWebAPIFixture(t, filepath.Join("..", "fixtures", "web-api", "edge.readyz-setup-required-response.yaml"))
+	fixture := loadWebAPIFixture(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.readyz-setup-required-response.yaml"))
 	request := httptest.NewRequest("GET", "/readyz", nil)
 	recorder := httptest.NewRecorder()
 
@@ -211,9 +211,9 @@ func TestReadyzReportsSetupRequiredBeforeBootstrap(t *testing.T) {
 func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 	t.Helper()
 
-	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+	fixture := loadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
 	configPath := writeYAMLConfig(t, fixture.Input)
-	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
+	schemaPath := testutil.RepoPath(t, "contracts", "config.user.schema.json")
 	repoRoot := newPreparedTestRuntimeRoot(t)
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 
@@ -223,7 +223,7 @@ func newTestApp(t *testing.T, authOptions ...auth.Option) *app.App {
 		SetupToken:           testutil.TestSetupToken,
 		LauncherControlToken: testutil.TestLauncherControlToken,
 		PluginRepoRoot:       repoRoot,
-		PluginSchemaPath:     filepath.Join("..", "contracts", "plugin-info.schema.json"),
+		PluginSchemaPath:     testutil.RepoPath(t, "contracts", "plugin-info.schema.json"),
 		PluginRoots: []plugincatalog.ScanRoot{
 			{Label: "plugins/installed", Path: installedRoot},
 			{Label: "plugins/installed", Path: filepath.Join(filepath.Dir(configPath), "..", "plugins", "installed")},

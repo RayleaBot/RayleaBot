@@ -1,16 +1,16 @@
 package integration
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -188,7 +188,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 		t.Fatalf("unexpected whitelist delete status: got %d want 204", deleteResp.StatusCode)
 	}
 
-	if _, err := entryRepo.Get(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
+	if _, err := entryRepo.Get(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
 		t.Fatalf("group whitelist entry should be removed, got err=%v", err)
 	}
 }
@@ -304,7 +304,7 @@ func TestGovernanceCommandPolicyHandler(t *testing.T) {
 func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-backup-accepted.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.system-backup-accepted.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -373,7 +373,7 @@ func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-diagnostics-export.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.system-diagnostics-export.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 

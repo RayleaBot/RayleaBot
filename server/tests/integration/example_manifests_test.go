@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -12,18 +13,18 @@ import (
 func TestExamplePluginManifestsMatchContract(t *testing.T) {
 	t.Parallel()
 
-	validator := compileSchema(t, filepath.Join("..", "contracts", "plugin-info.schema.json"))
+	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
 	manifestPaths := []string{
-		filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-config-panel", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-http-storage", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-governance-control", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-scheduler", "info.json"),
-		filepath.Join("..", "examples", "plugins", "example-webhook", "info.json"),
-		filepath.Join("..", "examples", "plugins", "hello-go", "info.json"),
-		filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "echo-go", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-config-panel", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-http-storage", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-governance-control", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-plugin-list", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-render-card", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-scheduler", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "example-webhook", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "hello-go", "info.json"),
+		testutil.RepoPath(t, "examples", "plugins", "notice-logger", "info.json"),
 	}
 
 	for _, manifestPath := range manifestPaths {
@@ -50,32 +51,32 @@ func TestExamplePluginManifestsDeclareV3EventsAndPermissions(t *testing.T) {
 	}{
 		{
 			name:         "echo go",
-			manifestPath: filepath.Join("..", "examples", "plugins", "echo-go", "info.json"),
+			manifestPath: testutil.RepoPath(t, "examples", "plugins", "echo-go", "info.json"),
 			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send"},
 		},
 		{
 			name:         "example HTTP storage",
-			manifestPath: filepath.Join("..", "examples", "plugins", "example-http-storage", "info.json"),
+			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-http-storage", "info.json"),
 			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"http.request"},
 		},
 		{
 			name:         "example plugin list",
-			manifestPath: filepath.Join("..", "examples", "plugins", "example-plugin-list", "info.json"),
+			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-plugin-list", "info.json"),
 			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send", "plugin.list"},
 		},
 		{
 			name:         "example render card",
-			manifestPath: filepath.Join("..", "examples", "plugins", "example-render-card", "info.json"),
+			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-render-card", "info.json"),
 			wantEvents:   []string{"message.group", "message.private"}, wantPermissions: []string{"message.send", "render.image"},
 		},
 		{
 			name:         "example webhook",
-			manifestPath: filepath.Join("..", "examples", "plugins", "example-webhook", "info.json"),
+			manifestPath: testutil.RepoPath(t, "examples", "plugins", "example-webhook", "info.json"),
 			wantEvents:   []string{"webhook.received"}, wantPermissions: []string{"event.raw_payload"},
 		},
 		{
 			name:         "notice logger",
-			manifestPath: filepath.Join("..", "examples", "plugins", "notice-logger", "info.json"),
+			manifestPath: testutil.RepoPath(t, "examples", "plugins", "notice-logger", "info.json"),
 			wantEvents:   []string{"notice.member_increase", "notice.member_decrease"}, wantPermissions: []string{},
 		},
 	} {

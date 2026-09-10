@@ -3,8 +3,8 @@ package integration
 import (
 	"encoding/json"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -17,7 +17,7 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.history-range.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.logs-list-response.history-range.yaml"))
 
 	for _, summary := range []logging.Summary{
 		{
@@ -146,7 +146,7 @@ func TestLogsListRejectsInvalidScope(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-invalid-scope.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.logs-list-invalid-scope.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -173,7 +173,7 @@ func TestLogsListRejectsStartAfterEnd(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-start-after-end.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.logs-list-start-after-end.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -200,7 +200,7 @@ func TestLogsListRejectsCurrentSessionTimeRange(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-current-session-with-time-range.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.logs-list-current-session-with-time-range.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
@@ -427,7 +427,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.log-detail-response.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.log-detail-response.yaml"))
 
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_bridge_0001",

@@ -2,8 +2,8 @@ package integration
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -16,7 +16,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.logs-list-response.yaml"))
 
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_warn_0001",
@@ -118,7 +118,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.multi-filter.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.logs-list-response.multi-filter.yaml"))
 
 	for _, summary := range []logging.Summary{
 		{
@@ -190,7 +190,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.protocol-onebot11.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.logs-list-response.protocol-onebot11.yaml"))
 
 	for _, summary := range []logging.Summary{
 		{
@@ -257,7 +257,7 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.logs-list-response.protocol-onebot11.outbound-message.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.logs-list-response.protocol-onebot11.outbound-message.yaml"))
 
 	for _, summary := range []logging.Summary{
 		{
@@ -320,7 +320,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.logs-empty-response.yaml"))
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_empty_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
@@ -360,7 +360,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 		input["log"].(map[string]any)["retention_days"] = 365
 	}, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "edge.logs-empty-response.protocol-onebot11.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.logs-empty-response.protocol-onebot11.yaml"))
 	application.Logs().Append(logging.Summary{
 		LogID:     "log_runtime_0002",
 		Timestamp: "2026-03-20T10:00:00Z",
@@ -428,7 +428,7 @@ func TestLogsListRejectsLimitAboveFormalMaximum(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "invalid.logs-list-limit-too-large.yaml"))
+	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.logs-list-limit-too-large.yaml"))
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 

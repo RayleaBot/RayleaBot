@@ -39,7 +39,7 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		t.Parallel()
 
 		application := newTestApp(t, deterministicAuthOptions()...)
-		fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
+		fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
 
 		recorder := performOpenAPIJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "")
 		if recorder.Code != fixture.Response.Status {
@@ -129,7 +129,7 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		}
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/system/render/templates/{template_id}", detail.Code, decodeBody(t, detail.Body.Bytes()))
 
-		fixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-render-template-preview-html.yaml"))
+		fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.system-render-template-preview-html.yaml"))
 		assertRequestMatchesOpenAPI(t, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body)
 		preview := performOpenAPIJSONRequest(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, token)
 		if preview.Code != fixture.Response.Status {
@@ -170,7 +170,7 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 			options.BilibiliClock = func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }
 		}, deterministicAuthOptions()...)
 		token := issueLoginToken(t, application)
-		upsertFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.third-party-account-upsert.yaml"))
+		upsertFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.third-party-account-upsert.yaml"))
 
 		assertRequestMatchesOpenAPI(t, upsertFixture.Request.Method, upsertFixture.Request.Path, upsertFixture.Request.Body)
 		upsert := performOpenAPIJSONRequest(t, application, upsertFixture.Request.Method, upsertFixture.Request.Path, upsertFixture.Request.Body, token)
@@ -191,7 +191,7 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 func TestWebAPIRequestFixturesMatchOpenAPI(t *testing.T) {
 	t.Parallel()
 
-	paths, err := filepath.Glob(filepath.Join("..", "fixtures", "web-api", "*.yaml"))
+	paths, err := filepath.Glob(testutil.RepoPath(t, "fixtures", "web-api", "*.yaml"))
 	if err != nil {
 		t.Fatalf("glob web-api fixtures: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestOpenAPIFixtureRegistryCoversOperations(t *testing.T) {
 		if !ok || strings.TrimSpace(ref) == "" {
 			t.Fatalf("OpenAPI x-fixtures contains invalid entry %#v", rawRef)
 		}
-		fixturePath := filepath.Join("..", filepath.FromSlash(ref))
+		fixturePath := testutil.RepoPath(t, filepath.FromSlash(ref))
 		if _, err := os.Stat(fixturePath); err != nil {
 			t.Fatalf("OpenAPI x-fixtures entry %s is not readable: %v", ref, err)
 		}
@@ -441,7 +441,7 @@ func sortedMapKeys(values map[string]any) []string {
 func loadOpenAPIContractDocument(t *testing.T) map[string]any {
 	t.Helper()
 
-	bytes, err := os.ReadFile(filepath.Join("..", "contracts", "web-api.openapi.yaml"))
+	bytes, err := os.ReadFile(testutil.RepoPath(t, "contracts", "web-api.openapi.yaml"))
 	if err != nil {
 		t.Fatalf("read OpenAPI contract: %v", err)
 	}
@@ -525,7 +525,7 @@ func rewriteOpenAPIValue(value any) any {
 
 func contractFileURI(reference string) string {
 	path, fragment, _ := strings.Cut(reference, "#")
-	abs, err := filepath.Abs(filepath.Join("..", "contracts", filepath.FromSlash(path)))
+	abs, err := filepath.Abs(testutil.ResolveRepoPath(filepath.Join("contracts", filepath.FromSlash(path))))
 	if err != nil {
 		return reference
 	}

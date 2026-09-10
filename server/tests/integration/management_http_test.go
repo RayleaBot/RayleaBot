@@ -9,7 +9,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -29,8 +28,8 @@ func TestSetupStatusReportsBootstrapState(t *testing.T) {
 		t.Fatalf("expected initialized=false before bootstrap, got %#v", beforeBody["initialized"])
 	}
 
-	setupFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-admin.yaml"))
-	afterFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.setup-status.yaml"))
+	setupFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
+	afterFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-status.yaml"))
 	setup := performJSONRequest(t, application, setupFixture.Request.Method, setupFixture.Request.Path, setupFixture.Request.Body)
 	if setup.Code != setupFixture.Response.Status {
 		t.Fatalf("unexpected bootstrap status: got %d want %d", setup.Code, setupFixture.Response.Status)
@@ -127,7 +126,7 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 		t.Fatalf("expected uptime_seconds number, got %#v", statusBody["uptime_seconds"])
 	}
 
-	shutdownFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.system-shutdown.yaml"))
+	shutdownFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.system-shutdown.yaml"))
 	shutdownReq, err := http.NewRequest(http.MethodPost, server.URL+shutdownFixture.Request.Path, nil)
 	if err != nil {
 		t.Fatalf("create system shutdown request: %v", err)
@@ -169,7 +168,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	statusFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.launcher-status.yaml"))
+	statusFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.launcher-status.yaml"))
 	statusReq, err := http.NewRequest(statusFixture.Request.Method, server.URL+statusFixture.Request.Path, nil)
 	if err != nil {
 		t.Fatalf("create launcher status request: %v", err)
@@ -206,7 +205,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 		t.Fatalf("expected uptime_seconds number, got %#v", statusBody["uptime_seconds"])
 	}
 
-	shutdownFixture := loadWebAPIFixtureDocument(t, filepath.Join("..", "fixtures", "web-api", "ok.launcher-shutdown.yaml"))
+	shutdownFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.launcher-shutdown.yaml"))
 	shutdownReq, err := http.NewRequest(shutdownFixture.Request.Method, server.URL+shutdownFixture.Request.Path, nil)
 	if err != nil {
 		t.Fatalf("create launcher shutdown request: %v", err)

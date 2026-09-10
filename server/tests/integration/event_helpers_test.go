@@ -2,7 +2,6 @@ package integration
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -51,7 +50,7 @@ func waitForObservabilitySubscriber(t *testing.T, eventBridge *bridge.Bridge) {
 func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptions ...auth.Option) *app.App {
 	t.Helper()
 
-	fixture := loadConfigFixture(t, filepath.Join("..", "fixtures", "config", "ok.minimal.json"))
+	fixture := loadConfigFixture(t, testutil.RepoPath(t, "fixtures", "config", "ok.minimal.json"))
 
 	var input map[string]any
 	if err := json.Unmarshal(fixture.Input, &input); err != nil {
@@ -67,7 +66,7 @@ func newTestAppWithOneBotAccessToken(t *testing.T, accessToken string, authOptio
 	}
 
 	configPath := writeYAMLConfig(t, updated)
-	schemaPath := filepath.Join("..", "contracts", "config.user.schema.json")
+	schemaPath := testutil.RepoPath(t, "contracts", "config.user.schema.json")
 
 	application, err := app.New(app.Options{
 		ConfigPath:           configPath,
