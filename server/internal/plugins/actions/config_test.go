@@ -120,3 +120,28 @@ func (r *configChangeRuntime) DeliverEvent(ctx context.Context, event pluginrunt
 func (r *configChangeRuntime) Snapshot() pluginruntime.Snapshot {
 	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
 }
+
+func TestConfigRefreshPreservesPatternDirectedDelivery(t *testing.T) {
+	t.Parallel()
+	dispatcher := dispatch.New(slog.Default(), nil, nil, 8)
+	t.Cleanup(dispatcher.Close)
+	declaration := plugins.Command{ID: "pattern", DisplayName: "查询", TriggerType: "pattern", MatchPattern: "^ping[0-9]+$"}
+	pluginCatalog := catalog.New([]plugins.Snapshot{{
+		PluginID: "pattern", Valid: true, RegistrationState: "installed", DesiredState: "enabled",
+		ManifestCommands: []plugins.Command{declaration},
+	}})
+	snapshot, _ := pluginCatalog.Get("pattern")
+	commands := catalog.ProjectCommands(snapshot, nil)
+	dispatcher.Register("pattern", &configChangeRuntime{contextErrors: make(chan error, 4)}, []string{"message.group"}, dispatch.CommandsFromPlugin(commands), 1)
+	dispatcher.Register("observer", &configChangeRuntime{contextErrors: make(chan error, 4)}, []string{"message.group"}, nil, 1)
+	event := pluginruntime.Event{EventID: "fixture-event", EventType: "message.group", SourceProtocol: "onebot11", SourceAdapter: "fixture", Timestamp: 1}
+	for _, refresh := range []bool{false, true} {
+		if refresh {
+			actions.RefreshCommands(pluginCatalog, dispatcher)(context.Background(), "pattern", map[string]any{})
+		}
+		results := dispatcher.Dispatch(context.Background(), event, "ping123")
+		if len(results) != 1 || results[0].PluginID != "pattern" || results[0].Outcome != dispatch.OutcomeDelivered {
+			t.Fatalf("refresh=%v: expected directed delivery to pattern, got %#v", refresh, results)
+		}
+	}
+}

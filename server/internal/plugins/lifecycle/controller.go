@@ -727,7 +727,7 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 	if max := c.config().Runtime.MaxConcurrentTasksPerPlugin; max > 0 && concurrency > max {
 		concurrency = max
 	}
-	c.dispatcher.Register(pluginID, manager, snapshot.Events, dispatchCommands(snapshot.Commands), concurrency)
+	c.dispatcher.Register(pluginID, manager, snapshot.Events, dispatch.CommandsFromPlugin(snapshot.Commands), concurrency)
 }
 
 func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string) {
@@ -1138,22 +1138,6 @@ func persistPluginDesiredState(ctx context.Context, repo plugins.DesiredStateRep
 		return nil
 	}
 	return repo.SaveDesiredState(ctx, pluginID, desiredState, time.Now().UTC())
-}
-
-func dispatchCommands(commands []plugins.Command) []dispatch.CommandDecl {
-	items := make([]dispatch.CommandDecl, 0, len(commands))
-	for _, command := range commands {
-		if strings.TrimSpace(command.Name) == "" {
-			continue
-		}
-		items = append(items, dispatch.CommandDecl{
-			Name:         command.Name,
-			Aliases:      append([]string(nil), command.Aliases...),
-			MatchPattern: command.MatchPattern,
-			Permission:   command.Permission,
-		})
-	}
-	return items
 }
 
 func runtimeInitTimeout(cfg config.RuntimeConfig) time.Duration {

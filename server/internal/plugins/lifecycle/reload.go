@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
@@ -125,7 +126,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 
 	newManager := c.runtimes.NewDetached()
 	c.updateReloadTask(taskID, 60, "重载插件运行时")
-	if err := c.dispatcher.ReloadPlugin(ctx, pluginID, current, newManager, spec, payload, dispatchCommands(snapshot.Commands)); err != nil {
+	if err := c.dispatcher.ReloadPlugin(ctx, pluginID, current, newManager, spec, payload, dispatch.CommandsFromPlugin(snapshot.Commands)); err != nil {
 		c.logLifecycleWarn("reload plugin runtime", pluginID, err)
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
