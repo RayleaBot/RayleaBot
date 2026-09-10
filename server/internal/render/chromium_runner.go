@@ -11,8 +11,10 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -140,6 +142,7 @@ type chromiumRunner struct {
 	profileDir      string
 	allocatorCtx    context.Context
 	cancelAllocator context.CancelFunc
+	command         *exec.Cmd
 	browserCtx      context.Context
 	cancelBrowser   context.CancelFunc
 }
@@ -393,6 +396,16 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 		allocatorOptions = append(allocatorOptions, chromedp.ExecPath(r.browserPath))
 	}
 	allocatorOptions = append(allocatorOptions, allocatorFlags(r.browserArgs)...)
+	allocatorOptions = append(allocatorOptions, chromedp.ModifyCmdFunc(func(command *exec.Cmd) {
+		prepareBrowserCommand(command)
+		r.command = command
+	}))
+	if runtime.GOOS == "windows" && strings.EqualFold(filepath.Base(r.browserPath), "msedge.exe") {
+		// Edge's compatibility launcher exits after starting another browser,
+		// closing the DevTools output pipe and escaping allocator ownership.
+		// Keep the actual browser in the process that the allocator starts.
+		allocatorOptions = append(allocatorOptions, chromedp.Flag("edge-skip-compat-layer-relaunch", true))
+	}
 
 	// Own only profiles created here. An explicit user-data-dir belongs to the
 	// operator and must never be removed by the runner.
@@ -410,7 +423,11 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 		allocatorOptions = append(allocatorOptions, chromedp.UserDataDir(profileDir))
 	}
 	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
+	cancelAllocator = sync.OnceFunc(cancelAllocator)
 	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
+	// Startup cancellation and cleanup can race. chromedp cancellation also
+	// waits for allocation, so invoke each wait exactly once.
+	cancelBrowser = sync.OnceFunc(cancelBrowser)
 	r.allocatorCtx = allocatorCtx
 	r.cancelAllocator = cancelAllocator
 	r.browserCtx = browserCtx
@@ -469,6 +486,22 @@ func (r *chromiumRunner) closeLocked() error {
 	if r.cancelAllocator != nil {
 		r.cancelAllocator()
 	}
+	if r.allocatorCtx != nil {
+		// Startup's watcher may already have cancelled before Allocate registered
+		// its waiter. Run has returned here; wait again for any registered owner.
+		chromedp.FromContext(r.allocatorCtx).Allocator.Wait()
+	}
+	if r.command != nil && r.command.Process != nil && r.command.ProcessState == nil {
+		// Allocate can return on cancellation immediately after Start, before
+		// registering cmd.Wait. Reap that process only after the allocator barrier.
+		if err := r.command.Wait(); err != nil {
+			var exited *exec.ExitError
+			if !errors.As(err, &exited) {
+				closeErr = errors.Join(closeErr, fmt.Errorf("reap browser process: %w", err))
+			}
+		}
+	}
+	r.command = nil
 	r.allocatorCtx = nil
 	r.cancelAllocator = nil
 	r.browserCtx = nil

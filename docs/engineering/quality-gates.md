@@ -42,7 +42,7 @@
 
 ## 当前门禁层次
 
-- PR 默认门禁覆盖 contracts-lite、Server 测试/构建/核心 lint、关键并发包 race、Windows 安装与锁回归、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
+- PR 默认门禁覆盖 contracts-lite、Server 测试/构建/核心 lint、关键并发包 race、Windows 安装、锁与浏览器进程回归、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
 - `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
 - Web 与 Launcher Renderer 的 Playwright E2E 由 `nightly.yml` 自动执行；本版恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
 - 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/adapters`、`/api/protocols/onebot11/compatibility`、模板预览工作区全流程、packaged recovery drill 和长期自托管 smoke。
