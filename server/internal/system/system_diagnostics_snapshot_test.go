@@ -1,10 +1,31 @@
 package system
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 )
+
+func TestRuntimeResourceSelectionSurvivesReadinessProjectionWithoutAliasing(t *testing.T) {
+	t.Parallel()
+	issue := startupFailureIssue("ffmpeg", errors.New("Chromium text is irrelevant to the selected resource"))
+	if len(issue.RuntimeResources) != 1 || issue.RuntimeResources[0] != "ffmpeg" {
+		t.Fatalf("startup issue selected wrong resource: %#v", issue)
+	}
+	s := &Service{}
+	s.setStartupRuntimeState("ffmpeg", StartupRuntimePhaseFailed, &issue)
+	issue.RuntimeResources[0] = "chromium"
+	state, ok := s.startupRuntimeState("ffmpeg")
+	if !ok || state.Issue.RuntimeResources[0] != "ffmpeg" {
+		t.Fatalf("caller mutation changed runtime state: %#v", state)
+	}
+	state.Issue.RuntimeResources[0] = "chromium"
+	state, _ = s.startupRuntimeState("ffmpeg")
+	if state.Issue.RuntimeResources[0] != "ffmpeg" {
+		t.Fatal("snapshot shared the stored resource slice")
+	}
+}
 
 func TestDiagnosticsIssuesExposeUserAndInternalFields(t *testing.T) {
 	t.Parallel()

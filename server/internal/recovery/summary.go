@@ -233,10 +233,11 @@ func cloneIssues(issues []CompatibilityIssue) []CompatibilityIssue {
 	cloned := make([]CompatibilityIssue, 0, len(issues))
 	for _, issue := range issues {
 		cloned = append(cloned, CompatibilityIssue{
-			Code:        issue.Code,
-			Severity:    issue.Severity,
-			Summary:     issue.Summary,
-			Remediation: issue.Remediation,
+			Code:             issue.Code,
+			Severity:         issue.Severity,
+			Summary:          issue.Summary,
+			Remediation:      issue.Remediation,
+			RuntimeResources: append([]string(nil), issue.RuntimeResources...),
 		})
 	}
 	return cloned

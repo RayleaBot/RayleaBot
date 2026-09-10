@@ -60,10 +60,11 @@ type BackupManifestDirectory struct {
 }
 
 type CompatibilityIssue struct {
-	Code        string `json:"code"`
-	Severity    string `json:"severity"`
-	Summary     string `json:"summary"`
-	Remediation string `json:"remediation,omitempty"`
+	RuntimeResources []string `json:"runtime_resources,omitempty"`
+	Code             string   `json:"code"`
+	Severity         string   `json:"severity"`
+	Summary          string   `json:"summary"`
+	Remediation      string   `json:"remediation,omitempty"`
 }
 
 type SkippedPlugin struct {

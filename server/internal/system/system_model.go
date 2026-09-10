@@ -223,10 +223,11 @@ func recoveryIssuesToHealth(issues []recovery.CompatibilityIssue) []health.Diagn
 	items := make([]health.DiagnosticIssue, 0, len(issues))
 	for _, issue := range issues {
 		items = append(items, health.DiagnosticIssue{
-			Code:        issue.Code,
-			Severity:    issue.Severity,
-			Summary:     issue.Summary,
-			Remediation: issue.Remediation,
+			Code:             issue.Code,
+			Severity:         issue.Severity,
+			Summary:          issue.Summary,
+			Remediation:      issue.Remediation,
+			RuntimeResources: append([]string(nil), issue.RuntimeResources...),
 		})
 	}
 	return items

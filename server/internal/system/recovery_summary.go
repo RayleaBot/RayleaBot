@@ -96,10 +96,11 @@ func (s *Service) renderDiagnostics() []recovery.CompatibilityIssue {
 	items := make([]recovery.CompatibilityIssue, 0, len(diagnostics))
 	for _, issue := range diagnostics {
 		items = append(items, recovery.CompatibilityIssue{
-			Code:        issue.Code,
-			Severity:    issue.Severity,
-			Summary:     issue.Summary,
-			Remediation: issue.Remediation,
+			Code:             issue.Code,
+			Severity:         issue.Severity,
+			Summary:          issue.Summary,
+			Remediation:      issue.Remediation,
+			RuntimeResources: append([]string(nil), issue.RuntimeResources...),
 		})
 	}
 	return items

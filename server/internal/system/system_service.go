@@ -214,7 +214,7 @@ func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {
 		return nil
 	}
 	copied := *s.recoverySummary
-	copied.Issues = append([]recovery.CompatibilityIssue(nil), s.recoverySummary.Issues...)
+	copied.Issues = copyRecoveryIssues(s.recoverySummary.Issues)
 	copied.ManualActions = append([]string(nil), s.recoverySummary.ManualActions...)
 	copied.NextSteps = append([]string(nil), s.recoverySummary.NextSteps...)
 	copied.SkippedPlugins = append([]recovery.SkippedPlugin(nil), s.recoverySummary.SkippedPlugins...)
@@ -230,7 +230,7 @@ func (s *Service) setRecoverySummary(summary *recovery.CompatibilitySummary) {
 		return
 	}
 	copied := *summary
-	copied.Issues = append([]recovery.CompatibilityIssue(nil), summary.Issues...)
+	copied.Issues = copyRecoveryIssues(summary.Issues)
 	copied.ManualActions = append([]string(nil), summary.ManualActions...)
 	copied.NextSteps = append([]string(nil), summary.NextSteps...)
 	copied.SkippedPlugins = append([]recovery.SkippedPlugin(nil), summary.SkippedPlugins...)
@@ -242,3 +242,11 @@ var _ interface {
 	SystemStatus() string
 	CurrentReadiness() ReadinessReport
 } = (*Service)(nil)
+
+func copyRecoveryIssues(issues []recovery.CompatibilityIssue) []recovery.CompatibilityIssue {
+	copied := append([]recovery.CompatibilityIssue(nil), issues...)
+	for i := range copied {
+		copied[i].RuntimeResources = append([]string(nil), issues[i].RuntimeResources...)
+	}
+	return copied
+}

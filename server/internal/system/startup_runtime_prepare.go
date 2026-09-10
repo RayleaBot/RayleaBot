@@ -86,6 +86,7 @@ func (s *Service) setStartupRuntimeState(kind string, phase StartupRuntimePhase,
 	var issueCopy *recovery.CompatibilityIssue
 	if issue != nil {
 		copied := *issue
+		copied.RuntimeResources = append([]string(nil), issue.RuntimeResources...)
 		issueCopy = &copied
 	}
 	s.startupRuntimes[kind] = StartupRuntimeState{
@@ -101,6 +102,11 @@ func (s *Service) startupRuntimeState(kind string) (StartupRuntimeState, bool) {
 		return StartupRuntimeState{}, false
 	}
 	state, ok := s.startupRuntimes[kind]
+	if state.Issue != nil {
+		copied := *state.Issue
+		copied.RuntimeResources = append([]string(nil), state.Issue.RuntimeResources...)
+		state.Issue = &copied
+	}
 	return state, ok
 }
 
@@ -121,38 +127,42 @@ func (s *Service) startupRequiredRuntimeKinds() []string {
 	return kinds
 }
 
-func startupInspectionIssue(_ string, err error) recovery.CompatibilityIssue {
+func startupInspectionIssue(kind string, err error) recovery.CompatibilityIssue {
 	if !errors.Is(err, deps.ErrResourceNotDeclared) {
 		return recovery.CompatibilityIssue{
-			Code:        errorcodes.DiagnosticDepsManifestMissing,
-			Severity:    "warning",
-			Summary:     "运行环境清单缺失或无效。",
-			Remediation: "请恢复有效的 .deps/manifest.json。",
+			RuntimeResources: []string{kind},
+			Code:             errorcodes.DiagnosticDepsManifestMissing,
+			Severity:         "warning",
+			Summary:          "运行环境清单缺失或无效。",
+			Remediation:      "请恢复有效的 .deps/manifest.json。",
 		}
 	}
 	return recovery.CompatibilityIssue{
-		Code:        errorcodes.DiagnosticDepsManifestPlatformMissing,
-		Severity:    "warning",
-		Summary:     "运行环境清单缺少当前平台资源。",
-		Remediation: "请恢复当前平台的 .deps 资源清单。",
+		RuntimeResources: []string{kind},
+		Code:             errorcodes.DiagnosticDepsManifestPlatformMissing,
+		Severity:         "warning",
+		Summary:          "运行环境清单缺少当前平台资源。",
+		Remediation:      "请恢复当前平台的 .deps 资源清单。",
 	}
 }
 
 func startupMetadataIssue(kind string) recovery.CompatibilityIssue {
 	return recovery.CompatibilityIssue{
-		Code:        errorcodes.PlatformResourceMissing,
-		Severity:    "warning",
-		Summary:     managedRuntimeLabel(kind) + "元数据不完整。",
-		Remediation: "请补齐当前平台运行时资源的 archive_format、entrypoints、来源列表与 sha256。",
+		RuntimeResources: []string{kind},
+		Code:             errorcodes.PlatformResourceMissing,
+		Severity:         "warning",
+		Summary:          managedRuntimeLabel(kind) + "元数据不完整。",
+		Remediation:      "请补齐当前平台运行时资源的 archive_format、entrypoints、来源列表与 sha256。",
 	}
 }
 
 func startupFailureIssue(kind string, err error) recovery.CompatibilityIssue {
 	issue := recovery.CompatibilityIssue{
-		Code:        errorcodes.PlatformResourceMissing,
-		Severity:    "warning",
-		Summary:     deps.ManagedResourceLabel(kind) + "准备失败。",
-		Remediation: deps.BootstrapRemediation(kind, "", ""),
+		RuntimeResources: []string{kind},
+		Code:             errorcodes.PlatformResourceMissing,
+		Severity:         "warning",
+		Summary:          deps.ManagedResourceLabel(kind) + "准备失败。",
+		Remediation:      deps.BootstrapRemediation(kind, "", ""),
 	}
 
 	var bootstrapErr *deps.BootstrapError

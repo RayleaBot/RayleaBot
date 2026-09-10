@@ -8,9 +8,64 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 )
+
+func TestBrowserConfigurationReadsDuringRefresh(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	service := &Service{
+		repoRoot: root, templatesRoot: filepath.Join(root, "missing-templates"),
+		browserPath: "first", browserArgs: []string{"--fixture"},
+		worker: NewWorker(WorkerConfig{Runner: &fakeRunner{}}),
+	}
+	t.Cleanup(func() {
+		if err := service.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var workers sync.WaitGroup
+	workers.Go(func() {
+		for range 200 {
+			service.RefreshBrowserPath("second")
+			service.RefreshBrowserPath("first")
+		}
+	})
+	workers.Go(func() {
+		for range 200 {
+			browser, arguments := service.BrowserLaunchConfig()
+			if browser != "first" && browser != "second" || len(arguments) != 1 || arguments[0] != "--fixture" {
+				t.Errorf("invalid browser configuration: %q %#v", browser, arguments)
+			}
+			arguments[0] = "caller mutation"
+			for _, issue := range service.Diagnostics() {
+				if len(issue.RuntimeResources) != 0 {
+					t.Error("configured browser was reported as missing during refresh")
+				}
+			}
+		}
+	})
+	workers.Wait()
+}
+
+func TestDiagnosticsOnlyOffersRuntimePreparationForBrowserResources(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	service := &Service{repoRoot: root, templatesRoot: filepath.Join(root, "missing-templates"), inspectRuntime: func(string) (*deps.BootstrapInspection, error) { return nil, errors.New("no test browser") }}
+	issues := service.Diagnostics()
+	if len(issues) != 2 || len(issues[0].RuntimeResources) != 0 || len(issues[1].RuntimeResources) != 1 || issues[1].RuntimeResources[0] != "chromium" {
+		t.Fatalf("template and browser diagnostics must expose different preparation actions: %#v", issues)
+	}
+	service.browserPath = "configured-browser"
+	issues = service.Diagnostics()
+	if len(issues) != 1 || len(issues[0].RuntimeResources) != 0 {
+		t.Fatalf("template failure must not suggest a browser download: %#v", issues)
+	}
+}
 
 func TestNewServiceSkipsInvalidTemplateDirectories(t *testing.T) {
 	t.Parallel()
@@ -140,6 +195,7 @@ func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) 
 		}),
 	}
 	oldRunner := service.currentRunner()
+	t.Cleanup(func() { _ = service.Close() })
 
 	service.RefreshBrowserPath("new-browser")
 
