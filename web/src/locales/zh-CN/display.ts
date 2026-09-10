@@ -34,6 +34,7 @@ export const display = {
     error: 'error',
   },
   logProtocols: {
+    qqofficial: 'QQ 官方',
     onebot11: 'OneBot11',
   },
   systemStatuses: {

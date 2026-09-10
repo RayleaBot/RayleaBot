@@ -74,6 +74,9 @@ func New(adapterID string, qq config.QQOfficialConfig, adapter config.AdapterCon
 		logger = slog.Default()
 	}
 	httpClient := &http.Client{Timeout: time.Duration(max(adapter.ConnectTimeoutSeconds, 1)) * time.Second}
+	if logger != nil {
+		logger = logger.With("source_adapter", adapterID, "source_protocol", "qqofficial")
+	}
 	client := &Client{
 		adapterID: strings.TrimSpace(adapterID),
 		settings:  connectionSettingsOf(qq),

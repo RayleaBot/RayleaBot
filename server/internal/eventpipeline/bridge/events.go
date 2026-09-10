@@ -14,7 +14,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 
 	if !isSupportedEvent(event) {
 		b.recordIgnored(event, now)
-		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 		attrs = append(attrs, "reason", "event shape or source is outside the supported adapter contract")
 		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
 		return OutcomeIgnored
@@ -22,7 +22,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 
 	if b.dispatcher == nil || !b.dispatcher.HasDeliverablePlugins() {
 		b.recordIgnored(event, now)
-		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 		attrs = append(attrs, "reason", "no deliverable plugin runtime is registered")
 		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
 		return OutcomeIgnored
@@ -34,7 +34,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 	results := b.dispatcher.Dispatch(ctx, runtimeEvent, commandName)
 	if len(results) == 0 {
 		b.recordIgnored(event, now)
-		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 		attrs = append(attrs, "reason", "no plugin subscription accepted the event")
 		if commandName != "" {
 			attrs = append(attrs, "command_name", commandName)
@@ -45,7 +45,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 
 	if bridgeDispatchDelivered(results) {
 		b.recordDelivered(event, now)
-		attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+		attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 		attrs = append(attrs, bridgeDispatchLogAttrs(results)...)
 		if commandName != "" {
 			attrs = append(attrs, "command_name", commandName)
@@ -55,7 +55,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 	}
 
 	b.recordError(event, now, codePluginInternalError, "eligible plugin runtimes did not accept the event")
-	attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+	attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 	attrs = append(attrs, bridgeDispatchLogAttrs(results)...)
 	attrs = append(attrs, "error_code", codePluginInternalError)
 	if commandName != "" {
@@ -72,7 +72,7 @@ func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejec
 	reason := strings.TrimSpace(rejection.Reason)
 	b.recordRejected(event, now, errorCode, reason)
 
-	attrs := append([]any{"component", "bridge"}, bridgeEventLogAttrs(event)...)
+	attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 	if pluginID := strings.TrimSpace(rejection.PluginID); pluginID != "" {
 		attrs = append(attrs, "plugin_id", pluginID)
 	}

@@ -237,7 +237,7 @@ func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
 	}
-	if summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
+	if summary.Source != "bridge.onebot11" || summary.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected log source/protocol: %+v", summary)
 	}
 	if summary.PluginID != "weather" {

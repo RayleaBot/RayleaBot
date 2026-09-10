@@ -767,7 +767,7 @@ export interface paths {
         };
         /**
          * Expose runtime metrics in Prometheus exposition format.
-         * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4).
+         * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4). Outbound metric adapter labels identify protocols (onebot11, qqofficial, or unknown), never instance IDs. Outbound outcomes are delivered, permission_denied, reply_target_missing, rate_limited, timeout, canceled, not_connected, unconfirmed, or failed. Instance attribution belongs in structured source_adapter/source_protocol log fields. Each admitted send records one duration and outcome.
          */
         get: operations["getSystemMetrics"];
         put?: never;
@@ -1676,7 +1676,7 @@ export interface components {
         /** @enum {string} */
         LogLevel: "debug" | "info" | "warn" | "error";
         /** @enum {string} */
-        LogProtocol: "onebot11";
+        LogProtocol: "onebot11" | "qqofficial";
         /**
          * @default history
          * @enum {string}
@@ -1687,7 +1687,7 @@ export interface components {
             timestamp: string;
             level: components["schemas"]["LogLevel"];
             source: string;
-            /** @description Redacted operator-facing narrative that identifies the operation and outcome without opening log details. Warning and error messages include the known cause, impact, and recovery direction when available. OneBot11 bridge inbound message summaries may include bot, conversation, sender, and message preview context. */
+            /** @description Redacted operation and outcome text. Host operational logs use fixed message templates; dynamic identifiers, paths, causes, counts, and recovery context are carried in details. Inbound chat content and plugin-authored messages retain their own redacted text. */
             message: string;
             protocol?: components["schemas"]["LogProtocol"];
             plugin_id?: string;

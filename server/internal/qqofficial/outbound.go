@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -21,18 +22,6 @@ const (
 	CodeSendFailed            = errorcodes.AdapterSendFailed
 	CodeSendUnconfirmed       = errorcodes.AdapterSendUnconfirmed
 )
-
-// SendError carries a formal code alongside the platform's own wording, so a
-// caller can branch on the code instead of matching message text.
-type SendError struct {
-	Code    string
-	Message string
-}
-
-func (e *SendError) Error() string { return e.Code + ": " + e.Message }
-
-func (e *SendError) RuntimeActionCode() string    { return e.Code }
-func (e *SendError) RuntimeActionMessage() string { return e.Message }
 
 // Message types the platform accepts on the v2 message endpoints.
 const (
@@ -89,19 +78,35 @@ type sendMessageResponse struct {
 // SendMessage delivers a message the plugin originated. The platform treats
 // these as active pushes, which are quota limited per conversation.
 func (c *Client) SendMessage(ctx context.Context, message chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
-	return c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, "")
+	result, err := c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, "")
+	result.SourceAdapter, result.SourceProtocol = c.adapterID, "qqofficial"
+	return result, err
 }
 
 // SendReply answers a specific inbound message. Passive replies do not consume
 // the active push quota, so this is the path the platform expects a bot to use.
 func (c *Client) SendReply(ctx context.Context, message chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
-	return c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, message.ReplyToMessageID)
+	result, err := c.deliver(ctx, message.TargetType, message.TargetID, message.Segments, message.ReplyToMessageID)
+	result.SourceAdapter, result.SourceProtocol = c.adapterID, "qqofficial"
+	return result, err
 }
 
-func (c *Client) deliver(ctx context.Context, targetType, targetID string, segments []chatevent.MessageSegment, replyTo string) (chatevent.SendMessageResult, error) {
+func (c *Client) deliver(ctx context.Context, targetType, targetID string, segments []chatevent.MessageSegment, replyTo string) (result chatevent.SendMessageResult, err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		var classified *chatevent.SendError
+		if !errors.As(err, &classified) {
+			err = &chatevent.SendError{Code: CodeSendFailed, Message: "消息发送失败。", Err: err}
+		}
+	}()
+	if err := ctx.Err(); err != nil {
+		return result, err
+	}
 	settings := c.requestSettings()
 	if settings.disabled {
-		return chatevent.SendMessageResult{}, &SendError{Code: CodeSendFailed, Message: "适配器未启用。"}
+		return chatevent.SendMessageResult{}, &chatevent.SendError{Code: errorcodes.AdapterTransportUnavailable, Message: "适配器未启用。"}
 	}
 	endpoint, err := messageEndpoint(settings.apiBase, targetType, targetID)
 	if err != nil {
@@ -109,7 +114,7 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	}
 	text, media := splitSegments(segments)
 	if strings.TrimSpace(text) == "" && len(media) == 0 {
-		return chatevent.SendMessageResult{}, &SendError{
+		return chatevent.SendMessageResult{}, &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: "消息没有可投递的内容。",
 		}
@@ -118,7 +123,6 @@ func (c *Client) deliver(ctx context.Context, targetType, targetID string, segme
 	// The platform carries one media item per message, so a message mixing text
 	// and media becomes a short sequence. The first send returns the id callers
 	// use to refer to the message.
-	var result chatevent.SendMessageResult
 	if strings.TrimSpace(text) != "" {
 		sent, err := c.post(ctx, settings, endpoint, sendMessageRequest{Content: text, MsgType: msgTypeText}, replyTo)
 		if err != nil {
@@ -167,10 +171,13 @@ func (c *Client) post(ctx context.Context, settings requestSettings, endpoint st
 	request.Header.Set("Authorization", AuthorizationHeader(token))
 	request.Header.Set("X-Union-Appid", settings.appID)
 	request.Header.Set("Content-Type", "application/json")
+	if err := ctx.Err(); err != nil {
+		return chatevent.SendMessageResult{}, err
+	}
 
 	response, err := settings.http.Do(request)
 	if err != nil {
-		return chatevent.SendMessageResult{}, fmt.Errorf("qqofficial: send message: %w", err)
+		return chatevent.SendMessageResult{}, &chatevent.SendError{Code: CodeSendUnconfirmed, Message: "消息已提交但未收到有效回执，未自动重发。", Err: err}
 	}
 	defer func(release func() error) { _ = release() }(response.Body.Close)
 
@@ -181,13 +188,13 @@ func (c *Client) post(ctx context.Context, settings requestSettings, endpoint st
 		if message == "" {
 			message = "platform rejected the message"
 		}
-		return chatevent.SendMessageResult{}, &SendError{
+		return chatevent.SendMessageResult{}, &chatevent.SendError{
 			Code:    sendErrorCode(response.StatusCode, decoded.Code, replyTo != ""),
 			Message: message,
 		}
 	}
 	if decodeErr != nil || strings.TrimSpace(decoded.ID) == "" {
-		return chatevent.SendMessageResult{}, &SendError{Code: CodeSendUnconfirmed, Message: "平台未返回有效消息回执，无法确认消息是否送达；未自动重发。"}
+		return chatevent.SendMessageResult{}, &chatevent.SendError{Code: CodeSendUnconfirmed, Message: "平台未返回有效消息回执，无法确认消息是否送达；未自动重发。"}
 	}
 	return chatevent.SendMessageResult{MessageID: decoded.ID}, nil
 }
@@ -223,7 +230,7 @@ func messageEndpoint(base, targetType, targetID string) (string, error) {
 	case "private":
 		return base + "/v2/users/" + id + "/messages", nil
 	default:
-		return "", &SendError{
+		return "", &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: fmt.Sprintf("当前适配器无法寻址会话种类 %q。", targetType),
 		}
@@ -239,6 +246,8 @@ func sendErrorCode(httpStatus, platformCode int, wasReply bool) string {
 	case platformCode == 40034:
 		// The platform reports an exhausted active-push allowance here.
 		return CodeMessageQuotaExceeded
+	case httpStatus == http.StatusUnauthorized || httpStatus == http.StatusForbidden:
+		return errorcodes.AdapterAuthFailed
 	case wasReply && (httpStatus == 400 || httpStatus == 409):
 		// A refused passive reply means the inbound message is no longer
 		// answerable; retrying the same reply cannot succeed.

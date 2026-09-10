@@ -8,7 +8,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const (
@@ -76,7 +75,7 @@ func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitReque
 }
 
 func rateLimitedError() error {
-	return &onebot11.Error{
+	return &chatevent.SendError{
 		Code:    errorcodes.PlatformRateLimited,
 		Message: "outbound message rate limit exceeded",
 	}

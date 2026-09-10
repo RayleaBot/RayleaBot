@@ -9,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const (
@@ -33,10 +32,12 @@ type ReplyTarget struct {
 }
 
 type SendResult struct {
-	MessageID    string
-	DeliveryKind string
-	TargetType   string
-	TargetID     string
+	SourceAdapter  string
+	SourceProtocol string
+	MessageID      string
+	DeliveryKind   string
+	TargetType     string
+	TargetID       string
 }
 
 type ReplyTargetResolver interface {
@@ -142,7 +143,7 @@ func (c *ReplyTargetCache) ResolveReplyTarget(eventID string) (ReplyTarget, bool
 
 func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin chatevent.Event, action chatevent.MessageCommand) (SendResult, error) {
 	if sender == nil {
-		return SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
+		return SendResult{DeliveryKind: action.Kind}, &chatevent.SendError{
 			Code:    codeAdapterSendFailed,
 			Message: "adapter outbound sender is not available",
 		}
@@ -158,15 +159,17 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 			Segments:       toAdapterSegments(action.MessageSegments),
 		})
 		return SendResult{
-			MessageID:    result.MessageID,
-			DeliveryKind: "message.send",
-			TargetType:   action.TargetType,
-			TargetID:     action.TargetID,
+			MessageID:      result.MessageID,
+			SourceAdapter:  result.SourceAdapter,
+			SourceProtocol: result.SourceProtocol,
+			DeliveryKind:   "message.send",
+			TargetType:     action.TargetType,
+			TargetID:       action.TargetID,
 		}, err
 	case "message.reply":
 		return sendReplyAction(ctx, sender, resolver, origin, action)
 	default:
-		return SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
+		return SendResult{DeliveryKind: action.Kind}, &chatevent.SendError{
 			Code:    codePluginProtocolViolation,
 			Message: "received unsupported outbound action kind",
 		}
@@ -176,7 +179,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ chatevent.Event, action chatevent.MessageCommand) (SendResult, error) {
 	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
-		return SendResult{DeliveryKind: "message.reply"}, &onebot11.Error{
+		return SendResult{DeliveryKind: "message.reply"}, &chatevent.SendError{
 			Code:    codeAdapterReplyTargetMissing,
 			Message: "reply target is not available in the current event window",
 		}
@@ -193,19 +196,23 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	result, err := sender.SendReply(ctx, replyRequest)
 	if err == nil {
 		return SendResult{
-			MessageID:    result.MessageID,
-			DeliveryKind: "message.reply",
-			TargetType:   replyTarget.TargetType,
-			TargetID:     replyTarget.TargetID,
+			MessageID:      result.MessageID,
+			SourceAdapter:  result.SourceAdapter,
+			SourceProtocol: result.SourceProtocol,
+			DeliveryKind:   "message.reply",
+			TargetType:     replyTarget.TargetType,
+			TargetID:       replyTarget.TargetID,
 		}, nil
 	}
 
-	var adapterErr *onebot11.Error
+	var adapterErr *chatevent.SendError
 	if !action.FallbackToSendIfMissing || !errors.As(err, &adapterErr) || adapterErr.Code != codeAdapterReplyTargetMissing {
 		return SendResult{
-			DeliveryKind: "message.reply",
-			TargetType:   replyTarget.TargetType,
-			TargetID:     replyTarget.TargetID,
+			DeliveryKind:   "message.reply",
+			SourceAdapter:  replyTarget.SourceAdapter,
+			SourceProtocol: replyTarget.SourceProtocol,
+			TargetType:     replyTarget.TargetType,
+			TargetID:       replyTarget.TargetID,
 		}, err
 	}
 
@@ -217,10 +224,12 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		Segments:       stripReplySegments(toAdapterSegments(action.MessageSegments)),
 	})
 	return SendResult{
-		MessageID:    fallbackResult.MessageID,
-		DeliveryKind: "message.send",
-		TargetType:   replyTarget.TargetType,
-		TargetID:     replyTarget.TargetID,
+		MessageID:      fallbackResult.MessageID,
+		SourceAdapter:  fallbackResult.SourceAdapter,
+		SourceProtocol: fallbackResult.SourceProtocol,
+		DeliveryKind:   "message.send",
+		TargetType:     replyTarget.TargetType,
+		TargetID:       replyTarget.TargetID,
 	}, fallbackErr
 }
 

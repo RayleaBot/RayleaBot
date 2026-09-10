@@ -2,11 +2,21 @@ package outbound
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
+
+func TestUnconfirmedReplyNeverFallsBackToAnotherSend(t *testing.T) {
+	failure := &chatevent.SendError{Code: errorcodes.AdapterSendUnconfirmed, Message: "receipt unavailable", Err: context.DeadlineExceeded}
+	sender := &stubSender{replyErr: failure}
+	_, err := SendAction(context.Background(), sender, stubReplyTargets{"event": {MessageID: "message", TargetType: "group", TargetID: "target", SourceProtocol: "qqofficial", SourceAdapter: "qq"}}, chatevent.Event{}, chatevent.MessageCommand{Kind: "message.reply", ReplyToEventID: "event", FallbackToSendIfMissing: true})
+	if !errors.Is(err, failure) || sender.sendRequest.TargetID != "" {
+		t.Fatalf("uncertain reply was retried: %#v %v", sender.sendRequest, err)
+	}
+}
 
 type stubSender struct {
 	sendRequest  chatevent.OutboundMessageSend
@@ -64,7 +74,7 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 	t.Parallel()
 
 	sender := &stubSender{
-		replyErr: &onebot11.Error{Code: codeAdapterReplyTargetMissing, Message: "missing"},
+		replyErr: &chatevent.SendError{Code: codeAdapterReplyTargetMissing, Message: "missing"},
 	}
 	resolver := stubReplyTargets{
 		"evt_1": {

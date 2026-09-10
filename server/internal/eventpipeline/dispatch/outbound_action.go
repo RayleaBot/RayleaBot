@@ -2,14 +2,12 @@ package dispatch
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event chatevent.Event, action chatevent.MessageCommand) {
@@ -20,8 +18,8 @@ func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, request
 // permission, rate-limit, metrics, and outbound logging path.
 func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string, requestID string, event chatevent.Event, action chatevent.MessageCommand) (outbound.SendResult, error) {
 	if d == nil || d.sender == nil {
-		return outbound.SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
-			Code:    onebot11.ErrorCodeSendFailed,
+		return outbound.SendResult{DeliveryKind: action.Kind}, &chatevent.SendError{
+			Code:    errorcodes.AdapterSendFailed,
 			Message: "adapter outbound sender is not available",
 		}
 	}
@@ -38,14 +36,16 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		}
 	}
 	attempt := outbound.SendAttempt{
-		ActionKind: action.Kind,
-		TargetType: targetType,
-		TargetID:   targetID,
-		Segments:   toOutboundSegments(action.MessageSegments),
+		ActionKind:     action.Kind,
+		SourceAdapter:  action.SourceAdapter,
+		SourceProtocol: action.SourceProtocol,
+		TargetType:     targetType,
+		TargetID:       targetID,
+		Segments:       toOutboundSegments(action.MessageSegments),
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
 	if !d.permissionDeclared(ctx, pluginID, action.Kind) {
-		err := &onebot11.Error{
+		err := &chatevent.SendError{
 			Code:    errorcodes.PluginPermissionDenied,
 			Message: action.Kind + " permission is not declared",
 		}
@@ -76,6 +76,9 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		TargetID:   limitTargetID,
 	}
 	admission, err := d.beginOutboundSend(ctx, limitRequest)
+	if admission.Scope.SourceAdapter != "" {
+		attempt.SourceAdapter, attempt.SourceProtocol = admission.Scope.SourceAdapter, admission.Scope.SourceProtocol
+	}
 	if err != nil {
 		result := outbound.SendResult{
 			DeliveryKind: action.Kind,
@@ -193,37 +196,17 @@ func toOutboundSegments(segments []chatevent.MessageSegment) []chatevent.Message
 	return items
 }
 
-// recordOutboundMetric routes a single outbound send outcome into the
-// dispatcher MetricsObserver. The adapter label is the OneBot11 shell;
-// outbound currently routes through a single shared adapter, so the label
-// stays bounded and predictable.
+// recordOutboundMetric records a protocol label from the resolved sender.
 func (d *Dispatcher) recordOutboundMetric(action chatevent.MessageCommand, result outbound.SendResult, err error, duration time.Duration) {
 	observer := d.currentMetrics()
 	if observer == nil {
 		return
 	}
-	adapterLabel := outboundAdapterLabel(action)
-	observer.ObserveOutboundDuration(adapterLabel, duration)
-	observer.IncOutboundSend(adapterLabel, outboundOutcome(err))
-	_ = result
-}
-
-func outboundAdapterLabel(_ chatevent.MessageCommand) string {
-	return "onebot11"
-}
-
-func outboundOutcome(err error) string {
-	if err == nil {
-		return "delivered"
+	protocol := result.SourceProtocol
+	if protocol == "" {
+		protocol = action.SourceProtocol
 	}
-	var adapterErr *onebot11.Error
-	if errors.As(err, &adapterErr) {
-		switch adapterErr.Code {
-		case errorcodes.PluginPermissionDenied:
-			return "permission_denied"
-		case errorcodes.AdapterReplyTargetMissing:
-			return "reply_target_missing"
-		}
-	}
-	return "failed"
+	label := chatevent.ProtocolLabel(protocol)
+	observer.ObserveOutboundDuration(label, duration)
+	observer.IncOutboundSend(label, chatevent.SendOutcome(err))
 }

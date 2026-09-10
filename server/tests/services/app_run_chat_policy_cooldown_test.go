@@ -495,7 +495,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Message == "10001: [测试群(20001)]群名片/普通昵称(10002): /help"
 	})
-	if summary.Level != "info" || summary.Source != "bridge" || summary.Protocol != logging.ProtocolOneBot11 {
+	if summary.Level != "info" || summary.Source != "bridge.onebot11" || summary.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected builtin menu trigger log: %+v", summary)
 	}
 	if summary.Details["event_id"] != "evt-builtin-menu" || summary.Details["command_name"] != "help" {

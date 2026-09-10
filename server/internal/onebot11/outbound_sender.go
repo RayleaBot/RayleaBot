@@ -25,7 +25,8 @@ func NewSender(transport Transport) Sender {
 	return Sender{transport: transport}
 }
 
-func (s Sender) SendMessage(ctx context.Context, action chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
+func (s Sender) SendMessage(ctx context.Context, action chatevent.OutboundMessageSend) (result chatevent.SendMessageResult, err error) {
+	defer func() { err = neutralSendError(err) }()
 	targetType, targetID, err := ValidateTarget(action.TargetType, action.TargetID, "message.send")
 	if err != nil {
 		return chatevent.SendMessageResult{}, err
@@ -39,7 +40,8 @@ func (s Sender) SendMessage(ctx context.Context, action chatevent.OutboundMessag
 	return s.sendSegments(ctx, targetType, targetID, segments.Segments, false)
 }
 
-func (s Sender) SendReply(ctx context.Context, action chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
+func (s Sender) SendReply(ctx context.Context, action chatevent.OutboundMessageReply) (result chatevent.SendMessageResult, err error) {
+	defer func() { err = neutralSendError(err) }()
 	targetType, targetID, err := ValidateTarget(action.TargetType, action.TargetID, "message.reply")
 	if err != nil {
 		return chatevent.SendMessageResult{}, err

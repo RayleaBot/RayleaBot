@@ -121,6 +121,25 @@ func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
 	}
 }
 
+func TestSQLiteRepositoryKeepsQQOfficialLogsSeparateFromOneBot(t *testing.T) {
+	repository := openLoggingRepository(t)
+	for _, source := range []string{"adapter.qqofficial", "bridge.qqofficial", "adapter.onebot11", "bridge.onebot11"} {
+		if err := repository.SaveSummary(context.Background(), Summary{Timestamp: "2026-09-10T00:00:00Z", Level: "info", Source: source, Message: "fixture", Details: map[string]any{"source_adapter": "unique-instance"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	items, err := repository.ListSummaries(context.Background(), Query{Protocol: ProtocolQQOfficial, Limit: 10})
+	if err != nil || len(items) != 2 {
+		t.Fatalf("QQ log filter: %#v %v", items, err)
+	}
+	for _, item := range items {
+		detail, err := repository.GetSummary(context.Background(), item.LogID)
+		if err != nil || item.Protocol != ProtocolQQOfficial || detail.Details["source_adapter"] != "unique-instance" {
+			t.Fatalf("attribution: %#v", item)
+		}
+	}
+}
+
 func TestSQLiteRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
 	t.Parallel()
 

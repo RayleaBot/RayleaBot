@@ -15,6 +15,8 @@ info:
     fields in closed objects, and oversized bodies return HTTP 400 with
     platform.invalid_request after the route's authentication checks.
 x-fixtures:
+  - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
+  - fixtures/web-api/ok.log-detail-response.outbound-onebot11.yaml
   - fixtures/web-api/ok.system-task-status.yaml
   - fixtures/web-api/edge.system-task-missing.yaml
   - fixtures/web-api/ok.adapters-list.yaml
@@ -1276,6 +1278,12 @@ paths:
         replay protection. Label cardinality is bounded by static enumerations
         and the set of registered plugins. Scrape with the standard Prometheus
         exposition parser (text/plain; version=0.0.4).
+        Outbound metric adapter labels identify protocols (onebot11,
+        qqofficial, or unknown), never instance IDs. Outbound outcomes are
+        delivered, permission_denied, reply_target_missing, rate_limited,
+        timeout, canceled, not_connected, unconfirmed, or failed. Instance
+        attribution belongs in structured source_adapter/source_protocol log
+        fields. Each admitted send records one duration and outcome.
       operationId: getSystemMetrics
       security:
         - BearerAuth: []
@@ -3495,7 +3503,7 @@ components:
 
     LogProtocol:
       type: string
-      enum: [onebot11]
+      enum: [onebot11, qqofficial]
 
     LogScope:
       type: string

@@ -62,7 +62,7 @@ func TestSendRejectsMissingOrMalformedReceipts(t *testing.T) {
 			result, err := client.SendMessage(t.Context(), chatevent.OutboundMessageSend{
 				TargetType: "private", TargetID: "openid", Segments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}},
 			})
-			var failure *SendError
+			var failure *chatevent.SendError
 			if !errors.As(err, &failure) || failure.Code != CodeSendUnconfirmed || result.MessageID != "" {
 				t.Fatalf("malformed receipt accepted: result=%+v err=%v", result, err)
 			}
@@ -201,7 +201,7 @@ func TestSendErrorsCarryFormalCodes(t *testing.T) {
 	_, err := quota.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1", Segments: text,
 	})
-	var sendErr *SendError
+	var sendErr *chatevent.SendError
 	if !errors.As(err, &sendErr) || sendErr.Code != CodeMessageQuotaExceeded {
 		t.Fatalf("quota refusal = %v, want %s", err, CodeMessageQuotaExceeded)
 	}

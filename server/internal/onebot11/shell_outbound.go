@@ -15,11 +15,15 @@ func oneBotTargetValue(targetID string) any {
 }
 
 func (s *Shell) SendMessage(ctx context.Context, action chatevent.OutboundMessageSend) (chatevent.SendMessageResult, error) {
-	return NewSender(shellOutboundTransport{s: s}).SendMessage(ctx, action)
+	result, err := NewSender(shellOutboundTransport{s: s}).SendMessage(ctx, action)
+	result.SourceAdapter, result.SourceProtocol = s.adapterID, "onebot11"
+	return result, err
 }
 
 func (s *Shell) SendReply(ctx context.Context, action chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error) {
-	return NewSender(shellOutboundTransport{s: s}).SendReply(ctx, action)
+	result, err := NewSender(shellOutboundTransport{s: s}).SendReply(ctx, action)
+	result.SourceAdapter, result.SourceProtocol = s.adapterID, "onebot11"
+	return result, err
 }
 
 func (s *Shell) routeAPIResponse(frame ClassifiedFrame) {

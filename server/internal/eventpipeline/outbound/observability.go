@@ -8,15 +8,17 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
 )
 
 type SendAttempt struct {
-	ActionKind string
-	TargetType string
-	TargetID   string
-	Segments   []chatevent.MessageSegment
+	SourceAdapter  string
+	SourceProtocol string
+	ActionKind     string
+	TargetType     string
+	TargetID       string
+	Segments       []chatevent.MessageSegment
 }
 
 type SendLogContext struct {
@@ -46,7 +48,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		deliveryKind = strings.TrimSpace(attempt.ActionKind)
 	}
 
-	plainText := strings.TrimSpace(onebot11.OutboundSegmentsToPlainText(attempt.Segments))
+	plainText := strings.TrimSpace(chatevent.PlainText(attempt.Segments))
 	if plainText == "" {
 		plainText = "[empty message]"
 	}
@@ -55,8 +57,20 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 	requestID := strings.TrimSpace(context.RequestID)
 	commandName := strings.TrimSpace(context.CommandName)
 
+	protocol := result.SourceProtocol
+	if protocol == "" {
+		protocol = attempt.SourceProtocol
+	}
+	adapter := result.SourceAdapter
+	if adapter == "" {
+		adapter = attempt.SourceAdapter
+	}
 	fields := []any{
-		"component", "adapter.onebot11",
+		"component", "adapter." + chatevent.ProtocolLabel(protocol),
+		"source_protocol", protocol,
+		"source_adapter", adapter,
+		"target_label", strings.TrimSpace(context.TargetLabel),
+		"outcome", chatevent.SendOutcome(err),
 		"direction", "outbound",
 		"action_kind", strings.TrimSpace(attempt.ActionKind),
 		"delivery_kind", deliveryKind,
@@ -79,14 +93,7 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		if messageID := strings.TrimSpace(result.MessageID); messageID != "" {
 			fields = append(fields, "message_id", messageID)
 		}
-		logger.Info(
-			sendSummary(SendLogContext{
-				PluginID:    pluginID,
-				CommandName: commandName,
-				TargetLabel: strings.TrimSpace(context.TargetLabel),
-			}, targetType, targetID, plainText, false),
-			fields...,
-		)
+		logger.Info("消息已发送", fields...)
 		return
 	}
 
@@ -95,18 +102,11 @@ func LogSendOutcome(logger *slog.Logger, context SendLogContext, attempt SendAtt
 		fields = append(fields, "error_code", errorCode)
 	}
 	fields = append(fields, "reason", reason)
-	if errorCode == onebot11.ErrorCodeSendUnconfirmed {
-		logger.Warn(sendSummary(context, targetType, targetID, plainText, false)+"；未确认是否送达，不自动重发。", fields...)
+	if errorCode == errorcodes.AdapterSendUnconfirmed {
+		logger.Warn("消息发送状态未确认，不自动重发", fields...)
 		return
 	}
-	logger.Warn(
-		sendSummary(SendLogContext{
-			PluginID:    pluginID,
-			CommandName: commandName,
-			TargetLabel: strings.TrimSpace(context.TargetLabel),
-		}, targetType, targetID, plainText, true, reason),
-		fields...,
-	)
+	logger.Warn("消息发送失败", fields...)
 }
 
 func errorDetails(err error) (string, string) {
@@ -127,30 +127,6 @@ func errorDetails(err error) (string, string) {
 		reason = "unknown outbound error"
 	}
 	return "", reason
-}
-
-func sendSummary(context SendLogContext, targetType, targetID, plainText string, failed bool, failureReason ...string) string {
-	subject := "系统"
-	if pluginID := strings.TrimSpace(context.PluginID); pluginID != "" {
-		subject = pluginID
-		if commandName := strings.TrimSpace(context.CommandName); commandName != "" {
-			subject += "/" + commandName
-		}
-	}
-
-	targetLabel := strings.TrimSpace(context.TargetLabel)
-	if targetLabel == "" {
-		targetLabel = formatTargetLabel(targetType, targetID, "")
-	}
-
-	if failed {
-		reason := "未知发送错误"
-		if len(failureReason) > 0 && strings.TrimSpace(failureReason[0]) != "" {
-			reason = strings.TrimSpace(failureReason[0])
-		}
-		return subject + " -> " + targetLabel + " 发送失败，本条消息未送达：" + summarizePlainText(plainText) + "；原因：" + reason
-	}
-	return subject + " -> " + targetLabel + "：" + summarizePlainText(plainText)
 }
 
 // TargetDisplayResolver names a conversation for a log line. The adapter id is
@@ -246,14 +222,6 @@ func formatTargetLabel(targetType string, targetID string, displayName string) s
 		}
 		return "未知目标"
 	}
-}
-
-func summarizePlainText(plainText string) string {
-	plainText = strings.TrimSpace(plainText)
-	if plainText == "" {
-		return "[空消息]"
-	}
-	return redact.TruncateRunes(plainText, 72, "...")
 }
 
 func cloneOutboundSegments(segments []chatevent.MessageSegment) []map[string]any {

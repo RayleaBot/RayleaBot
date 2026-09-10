@@ -154,7 +154,7 @@ func TestUploadRejectsMediaItCannotRead(t *testing.T) {
 	t.Parallel()
 
 	client, _, _ := newMediaClient(t)
-	var sendErr *SendError
+	var sendErr *chatevent.SendError
 	_, err := client.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1",
 		Segments: []chatevent.MessageSegment{{Type: "image", Data: map[string]any{"file": "file:///no/such/image.png"}}},

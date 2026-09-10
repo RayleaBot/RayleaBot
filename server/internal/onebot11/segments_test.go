@@ -179,7 +179,7 @@ func TestSegmentsToPlainText(t *testing.T) {
 		{Type: "at_all", Data: map[string]any{}},
 		{Type: "unknown_type", Data: map[string]any{}},
 	}
-	result := segmentsToPlainText(segments)
+	result := chatevent.PlainText(segments)
 	expected := "@200 hello [图片][表情]@全体成员[未支持消息]"
 	if result != expected {
 		t.Errorf("expected %q, got %q", expected, result)
@@ -194,7 +194,7 @@ func TestSegmentsToPlainTextExtendedSegments(t *testing.T) {
 		{Type: "poke", Data: map[string]any{}},
 		{Type: "keyboard", Data: map[string]any{}},
 	}
-	result := segmentsToPlainText(segments)
+	result := chatevent.PlainText(segments)
 	expected := "[语音][文件:report.pdf][闪传文件:flash.zip][戳一戳][按键面板]"
 	if result != expected {
 		t.Errorf("expected %q, got %q", expected, result)
@@ -202,7 +202,7 @@ func TestSegmentsToPlainTextExtendedSegments(t *testing.T) {
 }
 
 func TestSegmentsToPlainTextEmpty(t *testing.T) {
-	result := segmentsToPlainText(nil)
+	result := chatevent.PlainText(nil)
 	if result != "" {
 		t.Errorf("expected empty, got %q", result)
 	}

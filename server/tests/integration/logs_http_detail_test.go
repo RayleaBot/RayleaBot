@@ -30,18 +30,22 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 		Timestamp: "2026-04-10T09:18:00Z",
 		Level:     "info",
 		Source:    "adapter.onebot11",
-		Message:   "weather/echo -> [测试群(2001)]：hello world",
+		Message:   "消息已发送",
 		PluginID:  "weather",
 		RequestID: "req_runtime_delivery_0001",
 		Details: map[string]any{
-			"direction":     "outbound",
-			"action_kind":   "message.send",
-			"delivery_kind": "message.send",
-			"command_name":  "echo",
-			"target_type":   "group",
-			"target_id":     "2001",
-			"plain_text":    "hello world",
-			"message_id":    "40001",
+			"source_adapter":  "bot-one",
+			"source_protocol": "onebot11",
+			"target_label":    "[测试群(2001)]",
+			"outcome":         "delivered",
+			"direction":       "outbound",
+			"action_kind":     "message.send",
+			"delivery_kind":   "message.send",
+			"command_name":    "echo",
+			"target_type":     "group",
+			"target_id":       "2001",
+			"plain_text":      "hello world",
+			"message_id":      "40001",
 			"segments": []any{
 				map[string]any{
 					"type": "text",
@@ -98,7 +102,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	var rejectionSummary map[string]any
 	for _, raw := range items {
 		item := raw.(map[string]any)
-		if item["source"] == "bridge" && item["level"] == "warn" && item["plugin_id"] == "raylea.echo" {
+		if item["source"] == "bridge.onebot11" && item["level"] == "warn" && item["plugin_id"] == "raylea.echo" {
 			rejectionSummary = item
 			break
 		}
@@ -106,7 +110,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	if rejectionSummary == nil {
 		t.Fatalf("expected command policy rejection in log list, got %#v", items)
 	}
-	if rejectionSummary["source"] != "bridge" || rejectionSummary["protocol"] != "onebot11" {
+	if rejectionSummary["source"] != "bridge.onebot11" || rejectionSummary["protocol"] != "onebot11" {
 		t.Fatalf("unexpected command rejection summary: %#v", rejectionSummary)
 	}
 	if rejectionSummary["plugin_id"] != "raylea.echo" {

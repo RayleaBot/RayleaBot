@@ -767,7 +767,7 @@ export interface paths {
         };
         /**
          * Expose runtime metrics in Prometheus exposition format.
-         * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4).
+         * @description Returns counters, gauges, and histograms covering the event pipeline (adapter / bridge / dispatcher / runtime), task execution, render queue, outbound send, plugin runtime state, dispatcher drops, and webhook replay protection. Label cardinality is bounded by static enumerations and the set of registered plugins. Scrape with the standard Prometheus exposition parser (text/plain; version=0.0.4). Outbound metric adapter labels identify protocols (onebot11, qqofficial, or unknown), never instance IDs. Outbound outcomes are delivered, permission_denied, reply_target_missing, rate_limited, timeout, canceled, not_connected, unconfirmed, or failed. Instance attribution belongs in structured source_adapter/source_protocol log fields. Each admitted send records one duration and outcome.
          */
         get: operations["getSystemMetrics"];
         put?: never;
@@ -1676,7 +1676,7 @@ export interface components {
         /** @enum {string} */
         LogLevel: "debug" | "info" | "warn" | "error";
         /** @enum {string} */
-        LogProtocol: "onebot11";
+        LogProtocol: "onebot11" | "qqofficial";
         /**
          * @default history
          * @enum {string}

@@ -387,7 +387,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 	}
 
 	segments := parseFrameMessage(frame)
-	plainText := strings.TrimSpace(ToPlainText(segments))
+	plainText := strings.TrimSpace(chatevent.PlainText(segments))
 	if plainText == "" {
 		plainText = strings.TrimSpace(redact.SanitizeString(frame.RawMessage))
 	}

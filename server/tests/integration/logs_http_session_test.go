@@ -109,7 +109,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	serverB := newManagementTestServer(t, appB.Handler())
 	defer serverB.Close()
 
-	bridgeBody := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?source=bridge&limit=20")
+	bridgeBody := doLogsListRequest(t, serverB.URL, tokenB, "/api/logs?source=bridge.onebot11&limit=20")
 	bridgeItems := bridgeBody["items"].([]any)
 	if len(bridgeItems) == 0 {
 		t.Fatalf("expected persisted bridge logs after restart, got none")
@@ -118,7 +118,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	var bridgeItem map[string]any
 	for _, raw := range bridgeItems {
 		item := raw.(map[string]any)
-		if item["source"] == "bridge" {
+		if item["source"] == "bridge.onebot11" {
 			bridgeItem = item
 			break
 		}
@@ -135,7 +135,7 @@ func TestLogsListReadsPersistedBridgeMessageAcrossRestart(t *testing.T) {
 	foundBridge := false
 	for _, raw := range protocolItems {
 		item := raw.(map[string]any)
-		if item["source"] == "bridge" && strings.Contains(item["message"].(string), "10001: [测试群组(20001)][管理员]") {
+		if item["source"] == "bridge.onebot11" && strings.Contains(item["message"].(string), "10001: [测试群组(20001)][管理员]") {
 			foundBridge = true
 			break
 		}

@@ -13,13 +13,13 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 )
 
 func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
@@ -294,7 +294,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	blacklistWrite, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_upsert", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
-		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
+		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 		GovernanceReason:    "spam",
@@ -332,7 +332,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_upsert", plugins.Action{
 		Kind:                "governance.whitelist.write",
 		GovernanceOperation: "upsert",
-		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
+		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
 		GovernanceEntryType: "group",
 		GovernanceTargetID:  "2001",
 		GovernanceReason:    "approved",
@@ -370,7 +370,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "delete",
-		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
+		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 	}); err != nil {
@@ -412,7 +412,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
-		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
+		GovernanceScope:     chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 		GovernanceReason:    "spam",

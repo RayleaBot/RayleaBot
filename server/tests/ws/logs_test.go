@@ -158,11 +158,11 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
-		return ok && data["source"] == "bridge" && data["level"] == "warn" && data["plugin_id"] == "raylea.echo"
+		return ok && data["source"] == "bridge.onebot11" && data["level"] == "warn" && data["plugin_id"] == "raylea.echo"
 	})
 
 	data := frame["data"].(map[string]any)
-	if data["source"] != "bridge" || data["protocol"] != "onebot11" {
+	if data["source"] != "bridge.onebot11" || data["protocol"] != "onebot11" {
 		t.Fatalf("unexpected command rejection websocket summary: %#v", data)
 	}
 	if data["plugin_id"] != "raylea.echo" {

@@ -3,10 +3,10 @@ package outbound
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"testing"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func TestMessageCircuitBreakerOpensHalfOpensAndRecoversPerTarget(t *testing.T) {
@@ -16,7 +16,7 @@ func TestMessageCircuitBreakerOpensHalfOpensAndRecoversPerTarget(t *testing.T) {
 	breaker := newMessageCircuitBreaker(func() time.Time { return now }, 30*time.Second, 3)
 	target := MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "100"}
 	otherTarget := MessageLimitRequest{PluginID: "weather", TargetType: "group", TargetID: "200"}
-	sendErr := &onebot11.Error{Code: onebot11.ErrorCodeSendFailed, Message: "fixture failure"}
+	sendErr := &chatevent.SendError{Code: errorcodes.AdapterSendFailed, Message: "fixture failure"}
 
 	for attempt := 0; attempt < 2; attempt++ {
 		breaker.Record(target, sendErr)
@@ -64,7 +64,7 @@ func TestMessageCircuitBreakerFailedProbeReopensCooldown(t *testing.T) {
 	now := time.Date(2026, 8, 23, 8, 0, 0, 0, time.UTC)
 	breaker := newMessageCircuitBreaker(func() time.Time { return now }, 10*time.Second, 1)
 	target := MessageLimitRequest{TargetType: "private", TargetID: "100"}
-	sendErr := &onebot11.Error{Code: onebot11.ErrorCodeSendFailed, Message: "fixture failure"}
+	sendErr := &chatevent.SendError{Code: errorcodes.AdapterSendFailed, Message: "fixture failure"}
 	breaker.Record(target, sendErr)
 	now = now.Add(10 * time.Second)
 	if err := breaker.Allow(target); err != nil {
@@ -78,8 +78,8 @@ func TestMessageCircuitBreakerFailedProbeReopensCooldown(t *testing.T) {
 
 func assertCircuitOpen(t *testing.T, err error) {
 	t.Helper()
-	var adapterErr *onebot11.Error
-	if !errors.As(err, &adapterErr) || adapterErr.Code != onebot11.ErrorCodeSendFailed {
+	var adapterErr *chatevent.SendError
+	if !errors.As(err, &adapterErr) || adapterErr.Code != errorcodes.AdapterSendFailed {
 		t.Fatalf("error = %#v, want adapter.send_failed circuit-open error", err)
 	}
 }

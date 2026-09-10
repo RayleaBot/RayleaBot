@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
@@ -88,9 +87,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	}
 
 	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return strings.Contains(summary.Message, "系统 -> [测试群(20001)]") &&
-			strings.Contains(summary.Message, "本条消息未送达") &&
-			strings.Contains(summary.Message, "cooldown reply blocked")
+		return summary.Message == "消息发送失败" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["reason"] == "cooldown reply blocked"
 	})
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
@@ -197,10 +194,10 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if app.services.EventIngress.Policy().CommandParser().Parse("/ping").IsCommand {
 		t.Fatal("old command prefix should no longer be active")
 	}
-	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
+	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
 		t.Fatalf("new super admin should bypass command checks: %#v", verdict)
 	}
-	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
+	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
 	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirSoftLimitMB != 64 {

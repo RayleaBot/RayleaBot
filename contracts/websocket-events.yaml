@@ -5,6 +5,7 @@ description: >
   management surface.
 x-fixtures:
   - fixtures/websocket/ok.logs-appended.json
+  - fixtures/websocket/ok.logs-appended.outbound-onebot11.json
   - fixtures/websocket/ok.logs-appended.task.json
   - fixtures/websocket/ok.logs-appended.protocol-onebot11.json
   - fixtures/websocket/ok.plugins-console-stderr.json

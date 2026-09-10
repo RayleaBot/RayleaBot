@@ -126,7 +126,7 @@ func newShell(adapterID string, cfg config.OneBotConfig, adapterCfg config.Adapt
 		adapterID:        strings.TrimSpace(adapterID),
 		cfg:              cfg,
 		adapterCfg:       adapterCfg,
-		logger:           logger,
+		logger:           logger.With("source_adapter", strings.TrimSpace(adapterID), "source_protocol", "onebot11"),
 		deps:             deps,
 		snapshot:         newTransportSnapshot(cfg),
 		eventQueue:       make(chan chatevent.NormalizedEvent, 16),

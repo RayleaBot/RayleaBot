@@ -3,13 +3,13 @@ package outbound
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const (
@@ -113,8 +113,8 @@ func ignoreCircuitResult(err error) bool {
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return true
 	}
-	var adapterErr *onebot11.Error
-	return errors.As(err, &adapterErr) && adapterErr.Code == onebot11.ErrorCodeReplyTargetMissing
+	var adapterErr *chatevent.SendError
+	return errors.As(err, &adapterErr) && adapterErr.Code == errorcodes.AdapterReplyTargetMissing
 }
 
 func circuitKey(request MessageLimitRequest) string {
@@ -130,8 +130,8 @@ func circuitKey(request MessageLimitRequest) string {
 }
 
 func circuitOpenError() error {
-	return &onebot11.Error{
-		Code:    onebot11.ErrorCodeSendFailed,
+	return &chatevent.SendError{
+		Code:    errorcodes.AdapterSendFailed,
 		Message: "outbound message circuit breaker is open",
 	}
 }
@@ -184,10 +184,10 @@ func (p *MessagePolicy) resolve(request MessageLimitRequest) MessageLimitRequest
 func (p *MessagePolicy) Begin(ctx context.Context, request MessageLimitRequest) (MessageAdmission, error) {
 	request = p.resolve(request)
 	if err := p.Limiter.Wait(ctx, request); err != nil {
-		return MessageAdmission{}, err
+		return MessageAdmission{Scope: request.Scope}, err
 	}
 	if err := p.Breaker.Allow(request); err != nil {
-		return MessageAdmission{}, err
+		return MessageAdmission{Scope: request.Scope}, err
 	}
 	return MessageAdmission{Scope: request.Scope, Record: func(err error) { p.Breaker.Record(request, err) }}, nil
 }

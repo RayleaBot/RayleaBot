@@ -5,12 +5,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func newObservabilityTestLogger() (*slog.Logger, *logging.Stream) {
@@ -73,7 +71,7 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 	}, nil)
 
 	summary := waitForOutboundSummary(t, stream)
-	if summary.Message != "系统 -> [200]：cooldown reply" {
+	if summary.Message != "消息已发送" || summary.Details["plain_text"] != "cooldown reply" || summary.Details["target_id"] != "200" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.PluginID != "" {
@@ -101,15 +99,13 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 		DeliveryKind: "message.send",
 		TargetType:   "private",
 		TargetID:     "300",
-	}, &onebot11.Error{
+	}, &chatevent.SendError{
 		Code:    "adapter.send_failed",
 		Message: "send rejected by upstream",
 	})
 
 	summary := waitForOutboundSummary(t, stream)
-	if !strings.Contains(summary.Message, "系统 -> 私聊(300)") ||
-		!strings.Contains(summary.Message, "本条消息未送达") ||
-		!strings.Contains(summary.Message, "send rejected by upstream") {
+	if summary.Message != "消息发送失败" || summary.Details["reason"] != "send rejected by upstream" || summary.Details["target_id"] != "300" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.Details["error_code"] != "adapter.send_failed" {

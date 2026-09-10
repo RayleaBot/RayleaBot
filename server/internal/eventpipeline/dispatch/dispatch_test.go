@@ -13,7 +13,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
@@ -984,7 +983,7 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 	logger, stream := newDispatchTestLogger()
 	sender := &fakeSender{}
 	limiter := &recordingOutboundLimiter{
-		err: &onebot11.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+		err: &chatevent.SendError{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	d := New(logger, sender, nil, 16)
 	allowAllPermissions(d)

@@ -484,7 +484,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
 		return summary.PluginID == "weather" && summary.Details["error_code"] == "platform.user_rate_limited"
 	})
-	if summary.Level != "warn" || summary.Source != "bridge" {
+	if summary.Level != "warn" || summary.Source != "bridge.onebot11" {
 		t.Fatalf("unexpected cooldown rejection summary: %+v", summary)
 	}
 	if summary.Details["policy_stage"] != "cooldown" || summary.Details["error_code"] != "platform.user_rate_limited" {
@@ -492,7 +492,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 
 	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "系统 -> [测试群(20001)]：命令触发冷却，请稍后再试。"
+		return summary.Message == "消息已发送" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["plain_text"] == "命令触发冷却，请稍后再试。"
 	})
 	if summary.Source != "adapter.onebot11" {
 		t.Fatalf("unexpected log source: got %q want adapter.onebot11", summary.Source)

@@ -677,8 +677,10 @@ func (s *Service) logBuiltinMenuTrigger(_ context.Context, event chatevent.Norma
 		summary = "收到内置菜单命令：" + command
 	}
 	fields := []any{
-		"component", "bridge",
-		"protocol", logging.ProtocolOneBot11,
+		"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol),
+		"source_protocol", event.SourceProtocol,
+		"source_adapter", event.SourceAdapter,
+		"protocol", event.SourceProtocol,
 		"event_id", strings.TrimSpace(event.EventID),
 		"command_name", strings.TrimSpace(request.Command),
 		"target_type", strings.TrimSpace(event.ConversationType),
@@ -737,10 +739,12 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 	label := s.builtinMenuTargetLabel(ctx, event)
 	commandName = strings.TrimSpace(commandName)
 	attempt := outbound.SendAttempt{
-		ActionKind: "message.reply",
-		TargetType: targetType,
-		TargetID:   targetID,
-		Segments:   segments,
+		SourceAdapter:  event.SourceAdapter,
+		SourceProtocol: event.SourceProtocol,
+		ActionKind:     "message.reply",
+		TargetType:     targetType,
+		TargetID:       targetID,
+		Segments:       segments,
 	}
 	passiveReply := strings.TrimSpace(event.MessageID) != "" && (targetType == "group" || event.SourceProtocol == "qqofficial")
 	if !passiveReply {

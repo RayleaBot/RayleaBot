@@ -118,7 +118,9 @@ func schedulerFailureFields(err error, delivery plugins.Delivery) (scheduler.Run
 	if code == errorcodes.PluginEventCanceled || errors.Is(err, context.Canceled) {
 		return scheduler.RunOutcomeOther, errorcodes.PluginEventCanceled, "事件因请求取消或运行时停止而结束"
 	}
-	if strings.Contains(strings.ToLower(code), "timeout") {
+	switch code {
+	case errorcodes.PlatformRenderTimeout, errorcodes.PlatformTaskTimeout,
+		errorcodes.PluginInitTimeout, errorcodes.PluginEventTimeout, errorcodes.PluginShutdownTimeout:
 		return scheduler.RunOutcomeTimeout, code, message
 	}
 	return scheduler.RunOutcomeFailed, code, message

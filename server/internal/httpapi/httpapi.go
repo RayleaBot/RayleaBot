@@ -12,11 +12,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+
 	"github.com/go-chi/chi/v5"
 )
 
@@ -122,6 +124,7 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 					WriteError(
 						recorder,
 						r,
+
 						errorcodes.PlatformInternalError,
 
 						nil,
@@ -195,20 +198,25 @@ func requestRoutePattern(r *http.Request) string {
 	return "unmatched"
 }
 
+// DisplayServerURL converts a local listener authority to a browser address.
+// It does not choose the bind address or a reverse proxy's public origin.
 func DisplayServerURL(listenAddr string) string {
 	host, port, err := net.SplitHostPort(strings.TrimSpace(listenAddr))
 	if err != nil {
-		addr := strings.TrimSpace(listenAddr)
-		if addr == "" {
-			return "http://127.0.0.1"
-		}
-		return "http://" + addr
+		host = strings.TrimSpace(listenAddr)
 	}
+	host = strings.Trim(strings.TrimSpace(host), "[]")
 	switch host {
-	case "", "0.0.0.0", "::", "[::]":
+	case "", "0.0.0.0", "::", "*":
 		host = "127.0.0.1"
 	}
-	return "http://" + net.JoinHostPort(host, port)
+	authority := host
+	if err == nil {
+		authority = net.JoinHostPort(host, port)
+	} else if strings.Contains(host, ":") {
+		authority = "[" + host + "]"
+	}
+	return (&url.URL{Scheme: "http", Host: authority}).String()
 }
 
 func RequestIDFromContext(ctx context.Context) string {

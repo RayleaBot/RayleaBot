@@ -8,7 +8,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 func TestOutboundQuotaAndCircuitUseResolvedBotNamespace(t *testing.T) {
@@ -126,7 +125,7 @@ func TestMessageRateLimiterReturnsPlatformRateLimitedAfterWaitLimit(t *testing.T
 	if err == nil {
 		t.Fatal("second Wait() error = nil, want platform.rate_limited")
 	}
-	var adapterErr *onebot11.Error
+	var adapterErr *chatevent.SendError
 	if !errors.As(err, &adapterErr) || adapterErr.Code != "platform.rate_limited" {
 		t.Fatalf("error = %#v, want platform.rate_limited", err)
 	}

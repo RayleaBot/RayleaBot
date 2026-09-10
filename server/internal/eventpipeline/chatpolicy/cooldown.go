@@ -36,10 +36,12 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
 			attempt = outbound.SendAttempt{
-				ActionKind: "message.reply",
-				TargetType: targetType,
-				TargetID:   strings.TrimSpace(event.ConversationID),
-				Segments:   segments,
+				SourceAdapter:  event.SourceAdapter,
+				SourceProtocol: event.SourceProtocol,
+				ActionKind:     "message.reply",
+				TargetType:     targetType,
+				TargetID:       strings.TrimSpace(event.ConversationID),
+				Segments:       segments,
 			}
 			result = outbound.SendResult{
 				DeliveryKind: "message.reply",
@@ -74,10 +76,12 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 				Data: map[string]any{"text": CooldownReplyText},
 			}}
 			attempt = outbound.SendAttempt{
-				ActionKind: "message.send",
-				TargetType: strings.TrimSpace(event.ConversationType),
-				TargetID:   targetID,
-				Segments:   segments,
+				SourceAdapter:  event.SourceAdapter,
+				SourceProtocol: event.SourceProtocol,
+				ActionKind:     "message.send",
+				TargetType:     strings.TrimSpace(event.ConversationType),
+				TargetID:       targetID,
+				Segments:       segments,
 			}
 			result = outbound.SendResult{
 				DeliveryKind: "message.send",

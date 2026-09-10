@@ -62,7 +62,7 @@ func mediaFileType(segmentType string) (int, bool) {
 func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targetType, targetID string, segment chatevent.MessageSegment) (string, error) {
 	fileType, ok := mediaFileType(segment.Type)
 	if !ok {
-		return "", &SendError{
+		return "", &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: fmt.Sprintf("当前适配器无法投递 %q 消息段。", segment.Type),
 		}
@@ -76,7 +76,7 @@ func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targ
 	source := mediaSource(segment)
 	switch {
 	case source == "":
-		return "", &SendError{
+		return "", &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: fmt.Sprintf("%q 消息段没有可用的地址或文件。", segment.Type),
 		}
@@ -119,7 +119,7 @@ func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targ
 		if message == "" {
 			message = "平台拒绝了媒体上传。"
 		}
-		return "", &SendError{
+		return "", &chatevent.SendError{
 			Code:    sendErrorCode(response.StatusCode, decoded.Code, false),
 			Message: message,
 		}
@@ -132,7 +132,7 @@ func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targ
 func mediaEndpoint(base, targetType, targetID string) (string, error) {
 	id := strings.TrimSpace(targetID)
 	if id == "" {
-		return "", &SendError{Code: CodeCapabilityUnsupported, Message: "媒体目标缺少标识。"}
+		return "", &chatevent.SendError{Code: CodeCapabilityUnsupported, Message: "媒体目标缺少标识。"}
 	}
 	switch strings.TrimSpace(targetType) {
 	case "group":
@@ -140,7 +140,7 @@ func mediaEndpoint(base, targetType, targetID string) (string, error) {
 	case "private":
 		return base + "/v2/users/" + id + "/files", nil
 	default:
-		return "", &SendError{
+		return "", &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: fmt.Sprintf("当前适配器无法向会话种类 %q 上传媒体。", targetType),
 		}
@@ -167,7 +167,7 @@ func readLocalMedia(source string) ([]byte, error) {
 	if strings.HasPrefix(source, "file://") {
 		parsed, err := url.Parse(source)
 		if err != nil {
-			return nil, &SendError{Code: CodeCapabilityUnsupported, Message: "媒体地址无法解析。"}
+			return nil, &chatevent.SendError{Code: CodeCapabilityUnsupported, Message: "媒体地址无法解析。"}
 		}
 		path = parsed.Path
 		// A Windows path arrives as /C:/... after URL parsing.
@@ -177,17 +177,17 @@ func readLocalMedia(source string) ([]byte, error) {
 	}
 	info, err := os.Stat(filepath.FromSlash(path))
 	if err != nil {
-		return nil, &SendError{Code: CodeCapabilityUnsupported, Message: "找不到要发送的媒体文件。"}
+		return nil, &chatevent.SendError{Code: CodeCapabilityUnsupported, Message: "找不到要发送的媒体文件。"}
 	}
 	if info.Size() > maxMediaBytes {
-		return nil, &SendError{
+		return nil, &chatevent.SendError{
 			Code:    CodeCapabilityUnsupported,
 			Message: fmt.Sprintf("媒体文件超过 %d MiB 上限。", maxMediaBytes>>20),
 		}
 	}
 	data, err := os.ReadFile(filepath.FromSlash(path))
 	if err != nil {
-		return nil, &SendError{Code: CodeCapabilityUnsupported, Message: "无法读取要发送的媒体文件。"}
+		return nil, &chatevent.SendError{Code: CodeCapabilityUnsupported, Message: "无法读取要发送的媒体文件。"}
 	}
 	return data, nil
 }

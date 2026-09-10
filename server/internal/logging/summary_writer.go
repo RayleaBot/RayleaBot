@@ -13,6 +13,7 @@ import (
 )
 
 const ProtocolOneBot11 = "onebot11"
+const ProtocolQQOfficial = "qqofficial"
 
 type OneBotInboundMessageSummaryInput struct {
 	SourceProtocol   string
@@ -228,7 +229,7 @@ func normalizeSummaryTimestamp(raw string) string {
 
 func IsSupportedProtocol(protocol string) bool {
 	switch strings.TrimSpace(protocol) {
-	case ProtocolOneBot11:
+	case ProtocolOneBot11, ProtocolQQOfficial:
 		return true
 	default:
 		return false
@@ -237,8 +238,10 @@ func IsSupportedProtocol(protocol string) bool {
 
 func protocolFromSource(source string) string {
 	switch strings.TrimSpace(source) {
-	case "adapter", "adapter.onebot11", "bridge":
+	case "adapter", "adapter.onebot11", "bridge", "bridge.onebot11":
 		return ProtocolOneBot11
+	case "adapter.qqofficial", "bridge.qqofficial":
+		return ProtocolQQOfficial
 	default:
 		return ""
 	}
@@ -247,7 +250,9 @@ func protocolFromSource(source string) string {
 func SourcesForProtocol(protocol string) []string {
 	switch strings.TrimSpace(protocol) {
 	case ProtocolOneBot11:
-		return []string{"adapter", "adapter.onebot11", "bridge"}
+		return []string{"adapter", "adapter.onebot11", "bridge", "bridge.onebot11"}
+	case ProtocolQQOfficial:
+		return []string{"adapter.qqofficial", "bridge.qqofficial"}
 	default:
 		return nil
 	}

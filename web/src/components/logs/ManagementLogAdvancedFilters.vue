@@ -22,7 +22,7 @@ defineEmits<{
   pluginFocus: []
 }>()
 
-const protocolOptions: { value: string; label: string }[] = [{ value: '', label: t('logs.filters.all') }, { value: 'onebot11', label: 'OneBot11' }]
+const protocolOptions: { value: string; label: string }[] = [{ value: '', label: t('logs.filters.all') }, { value: 'onebot11', label: 'OneBot11' }, { value: 'qqofficial', label: t('display.logProtocols.qqofficial') }]
 const protocolSelection = computed({ get: () => protocol.value ?? '', set: (value: string) => { protocol.value = value || undefined } })
 const open = ref(false)
 const activeFilterCount = computed(() => (
