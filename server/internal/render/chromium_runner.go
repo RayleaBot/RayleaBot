@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,13 +160,6 @@ func IsChromiumRunner(runner Runner) bool {
 	return ok
 }
 
-func browserFileURL(path string) string {
-	return (&url.URL{
-		Scheme: "file",
-		Path:   filepath.ToSlash(path),
-	}).String()
-}
-
 func writeTemporaryRenderDocument(html, baseURL string, resources []RenderResource) (string, map[string]string, func(), error) {
 	dir, err := os.MkdirTemp("", "rayleabot-render-*")
 	if err != nil {
@@ -188,7 +180,7 @@ func writeTemporaryRenderDocument(html, baseURL string, resources []RenderResour
 		cleanup()
 		return "", nil, nil, err
 	}
-	return browserFileURL(documentPath), resourceURLs, cleanup, nil
+	return fileURL(documentPath), resourceURLs, cleanup, nil
 }
 
 func materializeRenderResources(renderDir string, resources []RenderResource) (map[string]string, error) {
@@ -209,7 +201,7 @@ func materializeRenderResources(renderDir string, resources []RenderResource) (m
 		if err := copyVerifiedRenderResource(resource, destination); err != nil {
 			return nil, err
 		}
-		result[resource.ID] = browserFileURL(destination)
+		result[resource.ID] = fileURL(destination)
 	}
 	return result, nil
 }

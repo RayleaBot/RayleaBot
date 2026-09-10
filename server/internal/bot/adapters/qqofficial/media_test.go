@@ -62,7 +62,11 @@ func TestSendUploadsLocalMediaAsBase64(t *testing.T) {
 	if err := os.WriteFile(path, payload, 0o600); err != nil {
 		t.Fatalf("write fixture image: %v", err)
 	}
-	fileURL := (&url.URL{Scheme: "file", Path: filepath.ToSlash(path)}).String()
+	urlPath := filepath.ToSlash(path)
+	if !strings.HasPrefix(urlPath, "/") {
+		urlPath = "/" + urlPath
+	}
+	fileURL := (&url.URL{Scheme: "file", Path: urlPath}).String()
 
 	client, uploads, sends := newMediaClient(t)
 	if _, err := client.SendMessage(context.Background(), chatevent.OutboundMessageSend{

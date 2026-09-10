@@ -357,10 +357,13 @@ func outputMIME(output string) string {
 }
 
 func fileURL(path string) string {
-	return (&url.URL{
-		Scheme: "file",
-		Path:   filepath.ToSlash(path),
-	}).String()
+	path = filepath.ToSlash(path)
+	// A drive letter is part of the URL path, not its authority. Without
+	// the leading slash C:/... becomes file://C:/... and loses its volume.
+	if filepath.VolumeName(path) != "" && !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return (&url.URL{Scheme: "file", Path: path}).String()
 }
 
 func artifactPathWithinRoot(root, candidate string) bool {

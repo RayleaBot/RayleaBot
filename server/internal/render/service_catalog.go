@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -242,10 +241,7 @@ func BaseURL(templateDir string) string {
 	if !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
-	return (&url.URL{
-		Scheme: "file",
-		Path:   path,
-	}).String()
+	return fileURL(path)
 }
 
 func templateDirWithinRoot(root string, templateID string) (string, bool) {
