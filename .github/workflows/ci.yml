@@ -181,9 +181,14 @@ jobs:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
 
-      - name: Test Windows installation, locking and browser ownership
+      - name: Test Windows installation and locking
         working-directory: server
-        run: go test -v ./internal/plugins/lifecycle ./internal/releaseupdate ./internal/platform/filelock ./internal/render -count=1
+        run: go test -v ./internal/plugins/lifecycle ./internal/releaseupdate ./internal/platform/filelock -count=1
+
+      - name: Test Windows browser ownership
+        if: ${{ !cancelled() }}
+        working-directory: server
+        run: go test -v ./internal/render -count=1
 
   design-system:
     if: needs.changes.outputs.web == 'true' || needs.changes.outputs.launcher == 'true' || needs.changes.outputs.docs == 'true' || needs.changes.outputs.ci == 'true'
