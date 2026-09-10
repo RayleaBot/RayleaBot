@@ -5,6 +5,11 @@ import { flushPromises } from '@vue/test-utils'
 import { usePluginStore } from '@/stores/plugin-store'
 
 function jsonResponse(body: unknown, status = 200) {
+  if (body && typeof body === 'object') {
+    const value = body as Record<string, unknown>
+    if (Array.isArray(value.items)) body = { total: value.items.length, ...value }
+    if (Array.isArray(value.user_entries) && Array.isArray(value.group_entries)) body = { total: value.user_entries.length + value.group_entries.length, entry_count: value.user_entries.length + value.group_entries.length, ...value }
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },

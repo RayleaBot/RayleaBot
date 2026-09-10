@@ -1,8 +1,10 @@
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
-import { apiRequest } from '@/lib/http'
+import { ApiError, apiRequest } from '@/lib/http'
+import { collectionURL, createCollectionPager, mergeCollectionItems, type CollectionQuery } from '@/lib/collection-pager'
+import { createRefreshScheduler } from '@/lib/refresh-scheduler'
 import { waitForTask } from '@/lib/tasks'
 import type {
   PluginDetail,
@@ -35,15 +37,12 @@ export const usePluginsStore = defineStore('plugins', () => {
   const detailLoadingByPluginId = ref<Record<string, boolean>>({})
   const pluginNameCache = ref<Record<string, string>>({})
   const settingsByPluginId = ref<Record<string, Record<string, unknown>>>({})
-  const loading = ref(false)
   const detailLoading = ref(false)
-  const error = ref<string | null>(null)
   const actionPending = ref<Record<string, string | null>>({})
   const settingsLoading = ref<Record<string, boolean>>({})
   const settingsSaving = ref<Record<string, boolean>>({})
   const installPending = ref(false)
   const inspectionPending = ref(false)
-  const listLoaded = ref(false)
   const iconRevision = ref(0)
   const detailGenerations = new Map<string, number>()
   let detailRequestVersion = 0
@@ -51,6 +50,31 @@ export const usePluginsStore = defineStore('plugins', () => {
   const detailRequests = new Map<string, Promise<PluginDetail>>()
   const lifecycleRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const lifecycleRefreshAttempts = new Map<string, number>()
+
+  const knownByPluginId = ref<Record<string, PluginSummary>>({})
+  const knownItems = computed(() => Object.values(knownByPluginId.value).sort((left, right) => left.id.localeCompare(right.id)))
+  const pager = createCollectionPager<PluginListResponse>({
+    request: (query, cursor, signal) => apiRequest(collectionURL('/api/plugins', query, cursor), { signal }),
+    apply: (response, append) => {
+      items.value = append ? mergeCollectionItems(items.value, response.items, item => item.id) : response.items
+      if (!append) iconRevision.value += 1
+      rememberPluginNames(response.items)
+      for (const plugin of response.items) {
+        knownByPluginId.value[plugin.id] = plugin
+        invalidatePendingDetail(plugin.id)
+        // A page is not proof that any other plugin disappeared.
+        if (detailsByPluginId.value[plugin.id]) {
+          const next = { ...detailsByPluginId.value }; delete next[plugin.id]; detailsByPluginId.value = next
+        }
+        if (current.value?.id === plugin.id) void fetchDetail(plugin.id).catch(() => undefined)
+        updateLifecycleRefresh(plugin.id, plugin.state)
+      }
+    },
+  })
+  const { total, nextCursor, loading, loadingMore, error, loaded: listLoaded } = pager
+  const listRefresh = createRefreshScheduler(signal => fetchList(undefined, signal))
+  function cancelDataSourceRefresh() { listRefresh.cancel(); pager.cancel() }
+  onScopeDispose(() => { listRefresh.cancel(); for (const id of lifecycleRefreshTimers.keys()) clearLifecycleRefresh(id) })
 
   const sortedItems = computed(() => [...items.value].sort((left, right) => left.id.localeCompare(right.id)))
 
@@ -69,8 +93,22 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
+  function rememberSummaries(plugins: PluginSummary[]) {
+    rememberPluginNames(plugins)
+    for (const plugin of plugins) { knownByPluginId.value[plugin.id] = plugin; syncDetailSummary(plugin) }
+  }
+
+  function removeKnownPlugin(pluginId: string) {
+    invalidatePendingDetail(pluginId)
+    const details = { ...detailsByPluginId.value }; delete details[pluginId]; detailsByPluginId.value = details
+    const known = { ...knownByPluginId.value }; delete known[pluginId]; knownByPluginId.value = known
+    items.value = items.value.filter(item => item.id !== pluginId)
+    if (current.value?.id === pluginId) current.value = null
+    clearLifecycleRefresh(pluginId)
+  }
+
   function getPluginDisplayName(pluginId: string, fallback?: string) {
-    return items.value.find(item => item.id === pluginId)?.name?.trim() || fallback?.trim() || pluginNameCache.value[pluginId] || pluginId
+    return items.value.find(item => item.id === pluginId)?.name?.trim() || fallback?.trim() || detailsByPluginId.value[pluginId]?.name?.trim() || pluginNameCache.value[pluginId] || pluginId
   }
 
   function getPluginLabel(pluginId: string, fallback?: string) {
@@ -102,41 +140,14 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function fetchList() {
-    if (listRequest) {
-      return listRequest
-    }
-
-    loading.value = true
-    error.value = null
-    listRequest = (async () => {
-      try {
-        const response = await apiRequest<PluginListResponse>('/api/plugins')
-        items.value = response.items
-        iconRevision.value += 1
-        const ids = new Set(response.items.map(item => item.id))
-        for (const id of new Set([...ids, ...Object.keys(detailsByPluginId.value), ...detailRequests.keys()])) {
-          invalidatePendingDetail(id)
-        }
-        // Development packages can change detail metadata without a version bump.
-        detailsByPluginId.value = {}
-        const currentId = current.value?.id
-        current.value = null
-        listLoaded.value = true
-        rememberPluginNames(response.items)
-        reconcileLifecycleRefreshes(response.items)
-        if (currentId && ids.has(currentId)) void fetchDetail(currentId).catch(() => undefined)
-      } catch (err) {
-        error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-        throw err
-      } finally {
-        loading.value = false
-        listRequest = null
-      }
-    })()
-
-    return listRequest
+  async function fetchList(query?: CollectionQuery, signal?: AbortSignal): Promise<void> {
+    if (listRequest && query === undefined && !signal) return listRequest
+    const request = pager.load(query, signal).then(() => undefined)
+    listRequest = request
+    try { await request } finally { if (listRequest === request) listRequest = null }
   }
+
+  async function loadMore() { await pager.loadMore() }
 
   async function ensureList() {
     if (listLoaded.value) {
@@ -191,14 +202,16 @@ export const usePluginsStore = defineStore('plugins', () => {
       try {
         const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
         if (generation !== (detailGenerations.get(pluginId) ?? 0)) {
-          if (listLoaded.value && !items.value.some(item => item.id === pluginId)) throw new Error('插件已不可用')
           if (detailRequests.get(pluginId) === request) detailRequests.delete(pluginId)
           return requestPluginDetail(pluginId)
         }
         cachePluginDetail(response.plugin)
         return response.plugin
       } catch (err) {
-        if (generation === (detailGenerations.get(pluginId) ?? 0)) setDetailError(pluginId, getDisplayErrorMessage(err, 'errors.common.loadFailed'))
+        if (generation === (detailGenerations.get(pluginId) ?? 0)) {
+          if (err instanceof ApiError && err.status === 404) removeKnownPlugin(pluginId)
+          setDetailError(pluginId, getDisplayErrorMessage(err, 'errors.common.loadFailed'))
+        }
         throw err
       } finally {
         if (detailRequests.get(pluginId) === request) {
@@ -242,7 +255,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   function upsert(plugin: PluginUpsert, fullSnapshot = false) {
     invalidatePendingDetail(plugin.id)
     const index = items.value.findIndex((item) => item.id === plugin.id)
-    const previous = fullSnapshot ? null : index === -1 ? current.value?.id === plugin.id ? current.value : null : items.value[index]
+    const previous = fullSnapshot ? null : knownByPluginId.value[plugin.id] ?? detailsByPluginId.value[plugin.id] ?? (current.value?.id === plugin.id ? current.value : undefined) ?? items.value[index]
     const nextPlugin: PluginSummary = {
       id: plugin.id,
       name: plugin.name ?? previous?.name ?? plugin.id,
@@ -261,13 +274,13 @@ export const usePluginsStore = defineStore('plugins', () => {
       command_conflicts: plugin.command_conflicts ?? previous?.command_conflicts ?? [],
     }
 
-    if (index === -1) {
-      items.value = [...items.value, nextPlugin]
-    } else {
+    knownByPluginId.value = { ...knownByPluginId.value, [plugin.id]: nextPlugin }
+    if (index !== -1) {
       items.value = items.value.map((item, itemIndex) => (itemIndex === index ? nextPlugin : item))
     }
 
     syncDetailSummary(nextPlugin)
+    if (!fullSnapshot && listLoaded.value) listRefresh.schedule()
 
     rememberPluginNames([nextPlugin])
 
@@ -294,7 +307,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   }
 
   function getKnownPluginState(pluginId: string) {
-    return items.value.find((item) => item.id === pluginId)?.state ?? (
+    return knownByPluginId.value[pluginId]?.state ?? items.value.find((item) => item.id === pluginId)?.state ?? (
       current.value?.id === pluginId ? current.value.state : undefined
     )
   }
@@ -305,7 +318,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       return
     }
 
-    await fetchList()
+    await ensureDetail(pluginId, { refresh: true })
   }
 
   function updateLifecycleRefresh(pluginId: string, state?: PluginState | string) {
@@ -332,25 +345,6 @@ export const usePluginsStore = defineStore('plugins', () => {
           updateLifecycleRefresh(pluginId, getKnownPluginState(pluginId))
         })
     }, lifecycleRefreshDelaysMs[attempt]))
-  }
-
-  function reconcileLifecycleRefreshes(nextItems: PluginSummary[]) {
-    const seenPluginIds = new Set<string>()
-
-    for (const item of nextItems) {
-      seenPluginIds.add(item.id)
-      updateLifecycleRefresh(item.id, item.state)
-    }
-
-    const trackedPluginIds = new Set([
-      ...lifecycleRefreshTimers.keys(),
-      ...lifecycleRefreshAttempts.keys(),
-    ])
-    for (const pluginId of trackedPluginIds) {
-      if (!seenPluginIds.has(pluginId) && current.value?.id !== pluginId) {
-        clearLifecycleRefresh(pluginId)
-      }
-    }
   }
 
   function setPending(pluginId: string, action: string | null) {
@@ -412,7 +406,7 @@ export const usePluginsStore = defineStore('plugins', () => {
         method: 'DELETE',
       })
       onAccepted?.()
-      try { await waitForTask(accepted.task_id) } finally { await refreshList().catch(() => undefined) }
+      try { await waitForTask(accepted.task_id); removeKnownPlugin(pluginId) } finally { await refreshList().catch(() => undefined) }
       return accepted
     } finally {
       setPending(pluginId, null)
@@ -470,6 +464,7 @@ export const usePluginsStore = defineStore('plugins', () => {
 
   return {
     actionPending,
+    total, nextCursor, loadingMore, loadMore, knownItems, rememberSummaries, cancelDataSourceRefresh,
     current,
     detailErrorsByPluginId,
     detailLoading,

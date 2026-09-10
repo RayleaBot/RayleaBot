@@ -21,6 +21,7 @@ export const builtinFeatures = {
       allPlugins: '全部插件',
       commandLine: '触发命令',
       noPlugins: '当前没有可预览的启用插件。',
+      partial: '预览包含已加载的运行中插件；加载更多可补全总菜单。',
       noPluginHelp: '当前插件没有菜单项。',
       permission: {
         everyone: '所有成员',

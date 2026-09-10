@@ -1,103 +1,50 @@
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { collectionURL, createCollectionPager, mergeCollectionItems, type CollectionQuery } from '@/lib/collection-pager'
+import { createRefreshScheduler } from '@/lib/refresh-scheduler'
 import type { SchedulerJobListResponse, SchedulerJobSummary, SchedulerJobTriggerResponse } from '@/types/api'
 
 export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
   const items = ref<SchedulerJobSummary[]>([])
-  const loading = ref(false)
   const triggeringJobId = ref<string | null>(null)
-  const error = ref<string | null>(null)
   const liveRefreshActive = ref(false)
 
-  const liveRefreshDebounceMs = 120
-  let liveRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
-  let liveRefreshInFlight = false
-  let liveRefreshQueued = false
+  let lastRequest: Promise<void> | null = null
+  const liveRefresh = createRefreshScheduler(async signal => {
+    if (lastRequest) await lastRequest.catch(() => undefined)
+    signal.throwIfAborted()
+    if (liveRefreshActive.value) await fetchList(signal)
+  })
+  onScopeDispose(cancelDataSourceRefresh)
 
-  const sortedItems = computed(() => (
-    [...items.value].sort((left, right) => {
-      if (left.plugin_name === right.plugin_name) {
-        return left.task_name.localeCompare(right.task_name)
-      }
-      return left.plugin_name.localeCompare(right.plugin_name)
-    })
-  ))
-
-  async function fetchList() {
-    loading.value = true
-    error.value = null
-    try {
-      const response = await apiRequest<SchedulerJobListResponse>('/api/system/scheduler/jobs')
-      items.value = response.items
-    } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      throw err
-    } finally {
-      loading.value = false
-      if (liveRefreshQueued && liveRefreshActive.value && !liveRefreshInFlight) {
-        liveRefreshQueued = false
-        scheduleDataSourceRefresh()
-      }
-    }
+  const pager = createCollectionPager<SchedulerJobListResponse>({
+    request: (query, cursor, signal) => apiRequest(collectionURL('/api/system/scheduler/jobs', query, cursor), { signal }),
+    apply: (response, append) => { items.value = append ? mergeCollectionItems(items.value, response.items, item => item.job_id) : response.items },
+  })
+  const { total, nextCursor, loading, loadingMore, error } = pager
+  const sortedItems = computed(() => items.value)
+  async function fetchList(signal?: AbortSignal, query?: CollectionQuery) {
+    const pending = pager.load(query, signal).then(() => undefined)
+    lastRequest = pending
+    try { await pending } finally { if (lastRequest === pending) lastRequest = null }
   }
-
-  async function runDataSourceRefresh() {
-    if (!liveRefreshActive.value) {
-      return
-    }
-    if (loading.value) {
-      liveRefreshQueued = true
-      return
-    }
-    if (liveRefreshInFlight) {
-      liveRefreshQueued = true
-      return
-    }
-
-    liveRefreshInFlight = true
-    try {
-      await fetchList()
-    } catch {
-      return
-    } finally {
-      liveRefreshInFlight = false
-      if (liveRefreshQueued) {
-        liveRefreshQueued = false
-        scheduleDataSourceRefresh()
-      }
-    }
-  }
+  function search(query: CollectionQuery) { return fetchList(undefined, query) }
+  function loadMore() { return pager.loadMore() }
 
   function scheduleDataSourceRefresh() {
-    if (!liveRefreshActive.value) {
-      return
-    }
-    if (liveRefreshInFlight) {
-      liveRefreshQueued = true
-      return
-    }
-    if (liveRefreshHandle !== null) {
-      return
-    }
+    if (liveRefreshActive.value) liveRefresh.schedule()
+  }
 
-    liveRefreshHandle = window.setTimeout(() => {
-      liveRefreshHandle = null
-      void runDataSourceRefresh()
-    }, liveRefreshDebounceMs)
+  function cancelDataSourceRefresh() {
+    liveRefresh.cancel()
+    pager.cancel()
   }
 
   function setLiveRefreshActive(active: boolean) {
     liveRefreshActive.value = active
-    if (!active && liveRefreshHandle !== null) {
-      window.clearTimeout(liveRefreshHandle)
-      liveRefreshHandle = null
-    }
-    if (!active) {
-      liveRefreshQueued = false
-    }
+    if (!active) cancelDataSourceRefresh()
   }
 
   async function trigger(jobId: string) {
@@ -114,6 +61,7 @@ export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
   }
 
   return {
+    total, nextCursor, loadingMore, loadMore, search,
     error,
     items,
     loading,
@@ -121,6 +69,7 @@ export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
     triggeringJobId,
     fetchList,
     scheduleDataSourceRefresh,
+    cancelDataSourceRefresh,
     setLiveRefreshActive,
     trigger,
   }

@@ -1,4 +1,4 @@
-import { redactConfigSecrets, restoreRedactedConfigSecrets, computeRestartRequiredForConfig, computeConfigApplyEffects } from './mock-config.mjs'
+import { redactConfigSecrets } from './mock-config.mjs'
 import { listLogPage } from './mock-logs.mjs'
 import http from 'node:http'
 import { createHash } from 'node:crypto'
@@ -87,7 +87,7 @@ const fixtures = {
   pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
   pluginSettingsUpdate: await readFixture('fixtures/web-api/ok.plugin-settings-update-response.yaml'),
   pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
-  invalidUninstallID: await readFixture('fixtures/web-api/invalid.plugins-uninstall-id.yaml'),
+  invalidUninstallId: await readFixture('fixtures/web-api/invalid.plugins-uninstall-id.yaml'),
   governanceBlacklist: await readFixture('fixtures/web-api/ok.governance-blacklist-response.yaml'),
   governanceBlacklistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml'),
   governanceWhitelist: await readFixture('fixtures/web-api/ok.governance-whitelist-response.yaml'),
@@ -154,8 +154,9 @@ function baseState() {
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
+    configRevision: fixtures.configGet.response.body.revision,
+    configApplyEffects: { applied_now: [], reloaded_now: [], restart_required_fields: [] },
     effectiveTimezone: 'Asia/Shanghai',
-    configRevision: 1,
     loadedAdapterIds: fixtures.configGet.response.body.config.adapters.map((entry) => entry.id),
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
@@ -386,6 +387,22 @@ function createLogDetailMap() {
 
 let state = baseState()
 
+function collectionPage(items, params, text = item => JSON.stringify(item), filter = () => true, compare = (a, b) => String(a.id).localeCompare(String(b.id))) {
+  const query = (params.get('query') || '').trim().toLowerCase()
+  const selected = items.filter(item => filter(item) && (!query || text(item).toLowerCase().includes(query))).sort(compare)
+  const offset = Number(params.get('cursor') || 0)
+  const limit = Math.min(100, Number(params.get('limit') || 100))
+  const page = selected.slice(offset, offset + limit)
+  return { items: structuredClone(page), total: selected.length, ...(offset + page.length < selected.length ? { next_cursor: String(offset + page.length) } : {}) }
+}
+
+function governancePage(value, params) {
+  const all = [...value.user_entries, ...value.group_entries]
+  const page = collectionPage(all, params, entry => [entry.target_id, entry.reason].join(' '), entry => !params.get('entry_type') || entry.entry_type === params.get('entry_type'), (a,b) => b.created_at.localeCompare(a.created_at) || b.target_id.localeCompare(a.target_id))
+  const { items, ...metadata } = page
+  return { ...value, ...metadata, entry_count: all.length, user_entries: items.filter(item => item.entry_type === 'user'), group_entries: items.filter(item => item.entry_type === 'group') }
+}
+
 function json(response, status, body) {
   response.writeHead(status, { 'Content-Type': 'application/json' })
   response.end(JSON.stringify(body))
@@ -492,6 +509,7 @@ function resetState(payload = {}) {
     for (const job of state.schedulerJobs) job.timezone = payload.timezone
   }
   state.initialized = Boolean(payload.initialized)
+  if (payload.config_apply_effects) state.configApplyEffects = structuredClone(payload.config_apply_effects)
   state.token = null
   state.csrfToken = null
   state.failures = {
@@ -1121,7 +1139,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, fixtures.systemStatus.response.status, state.systemStatus)
+    json(response, fixtures.systemStatus.response.status, { ...state.systemStatus, adapters: adapterDescriptors().map(({ id, protocol, enabled, state }) => ({ id, protocol, enabled, state })) })
     return
   }
 
@@ -1138,7 +1156,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, structuredClone(state.governanceBlacklist))
+    json(response, 200, governancePage(state.governanceBlacklist, searchParams))
     return
   }
 
@@ -1247,7 +1265,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, structuredClone(state.governanceWhitelist))
+    json(response, 200, governancePage(state.governanceWhitelist, searchParams))
     return
   }
 
@@ -1356,7 +1374,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, listRenderTemplates())
+    json(response, 200, collectionPage(listRenderTemplates().items, searchParams, item => [item.id, item.name, item.description, item.source?.plugin_id, state.plugins[item.source?.plugin_id]?.name].join(' ')))
     return
   }
 
@@ -1421,7 +1439,12 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, { items: structuredClone(state.schedulerJobs) })
+    json(response, 200, collectionPage(state.schedulerJobs, searchParams, item => [item.job_id,item.plugin_id,item.plugin_name,item.task_name,item.log_label,item.payload_summary?.content].join(' '), item => searchParams.get('status') === 'error' ? Boolean(item.last_error) : searchParams.get('status') === 'success' ? !item.last_error : true, (a,b) => {
+      const fallback = a.plugin_id.localeCompare(b.plugin_id) || a.job_id.localeCompare(b.job_id)
+      if (searchParams.get('sort') === 'last_run') return Date.parse(b.last_run || '1970-01-01') - Date.parse(a.last_run || '1970-01-01') || fallback
+      if (searchParams.get('sort') === 'duration') return (b.last_duration_ms || 0) - (a.last_duration_ms || 0) || fallback
+      return a.plugin_name.localeCompare(b.plugin_name) || a.task_name.localeCompare(b.task_name) || fallback
+    }))
     return
   }
 
@@ -1466,11 +1489,10 @@ const server = http.createServer(async (request, response) => {
     }
 
     const payload = await parseBody(request)
-    const previousConfig = structuredClone(state.config)
-    state.config = restoreRedactedConfigSecrets(payload, state.config)
+    state.config = structuredClone(payload)
     state.configRevision += 1
     syncGovernanceCommandPolicyFromConfig(state.config)
-    const applyEffects = computeConfigApplyEffects(previousConfig, state.config)
+    const applyEffects = structuredClone(state.configApplyEffects)
     broadcast('events', {
       channel: 'events',
       type: 'events.received',
@@ -1483,9 +1505,9 @@ const server = http.createServer(async (request, response) => {
     json(response, 200, {
       config: snapshot.config,
       effective_timezone: state.effectiveTimezone,
-      revision: state.configRevision,
       redacted_fields: snapshot.redacted_fields,
-      restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
+      restart_required: applyEffects.restart_required_fields.length > 0,
+      revision: state.configRevision,
       apply_effects: applyEffects,
     })
     return
@@ -1517,7 +1539,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, { items: structuredClone(state.thirdPartyAccounts) })
+    json(response, 200, collectionPage(state.thirdPartyAccounts, searchParams, item => [item.platform,item.account_id,item.label,item.profile?.nickname].join(' '), () => true, (a,b) => a.platform.localeCompare(b.platform) || a.account_id.localeCompare(b.account_id)))
     return
   }
 
@@ -1550,6 +1572,7 @@ const server = http.createServer(async (request, response) => {
     }
 
     const previous = state.thirdPartyAccounts.find((item) => item.platform === platform && item.account_id === accountId)
+    if (payload.create_only && previous) { json(response, 409, errorEnvelope('platform.state_conflict', '账号已存在', 'req_account_exists')); return }
     const fixtureAccount = platform === 'bilibili'
       ? structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account)
       : null
@@ -1781,7 +1804,7 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/api/plugin-store/sources' && request.method === 'GET') {
     if (!requireAuth(request, response)) return
-    json(response, 200, { items: state.pluginStoreSources })
+    json(response, 200, collectionPage(state.pluginStoreSources, searchParams, item => [item.id,item.name,item.url].join(' ')))
     return
   }
 
@@ -1880,7 +1903,14 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, pluginListBody())
+    json(response, 200, collectionPage(pluginListBody().items, searchParams, item => [item.id,item.name,item.description].join(' '), item => {
+      const status = searchParams.get('state'); const source = searchParams.get('source')
+      if (status === 'alert' && item.state !== 'failed' && item.state !== 'invalid' && !item.command_conflicts?.length) return false
+      if ((status === 'running' || status === 'disabled') && item.state !== status) return false
+      if (source === 'official' && item.trust?.level !== 'official') return false
+      if (source === 'community' && item.trust?.level === 'official') return false
+      return true
+    }))
     return
   }
 
@@ -2161,11 +2191,11 @@ const server = http.createServer(async (request, response) => {
 
     const pluginId = pathname.split('/')[3]
     if (!/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(pluginId)) {
-      json(response, fixtures.invalidUninstallID.response.status, fixtures.invalidUninstallID.response.body)
+      json(response, fixtures.invalidUninstallId.response.status, fixtures.invalidUninstallId.response.body)
       return
     }
     if (takeFailureFlag('failUninstallOnce')) {
-      json(response, 409, errorEnvelope('plugin.uninstall_failed', '插件卸载失败', 'req_plugin_uninstall_failed'))
+      json(response, 500, errorEnvelope('platform.internal_error', 'uninstall acceptance failed', 'req_plugin_uninstall_failed'))
       return
     }
 
@@ -2243,7 +2273,6 @@ wsServer.on('connection', (socket, request) => {
     setTimeout(() => socket.send(JSON.stringify({
       ...fixtures.wsEventsProtocolSnapshot.frame,
       data: {
-        ...fixtures.wsEventsProtocolSnapshot.frame.data,
         adapters: adapterDescriptors(),
       },
     })), 80)

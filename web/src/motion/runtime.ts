@@ -40,11 +40,6 @@ export function prefersReducedMotion(): boolean {
     && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce), (forced-colors: active)').matches)
 }
 
-export function supportsViewTransitions(): boolean {
-  return typeof document !== 'undefined'
-    && typeof document.startViewTransition === 'function'
-}
-
 function resolveViewTransitionTarget(kind: ViewTransitionKind): ViewTransitionTarget | null {
   if (typeof document === 'undefined') {
     return null

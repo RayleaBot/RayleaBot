@@ -10,6 +10,8 @@ export const commands = {
   },
   empty: {
     title: '暂无指令',
+    partialTitle: '已加载的插件没有指令',
+    partialDescription: '继续加载或按插件搜索，查看其他插件的指令。',
     description: '当前没有可展示的插件指令。',
   },
   fields: {

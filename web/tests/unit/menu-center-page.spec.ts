@@ -4,15 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import NativeTemplatePreviewFrame, { calculateNativePreviewLayout } from '@/components/NativeTemplatePreviewFrame.vue'
 import MenuCenterView from '@/views/builtin/MenuCenterView.vue'
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
+import PluginPicker from '@/components/plugins/PluginPicker.vue'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
+import { apiRequest } from '@/lib/http'
 import type { ConfigDocument, PluginSummary } from '@/types/api'
 
 vi.mock('@/adapter/feedback', () => ({ notifySuccess: vi.fn(), useToastFeedback: vi.fn() }))
 
+vi.mock('@/lib/http', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/http')>(), apiRequest: vi.fn() }))
+
 function config(): ConfigDocument {
   return {
-    schema_version: '2', command: { prefixes: ['/', '*'] },
+    schema_version: '4', command: { prefixes: ['/', '*'] },
     builtin_features: { menu: { commands: ['help', '帮助'], prefixes: [] } },
     permission: { default_level: 'everyone' },
   } as ConfigDocument
@@ -50,7 +55,8 @@ async function mountPage(item: PluginSummary = plugin()) {
   configStore.document = config()
   pluginsStore.items = [item]
   vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
-  vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue(undefined)
+  pluginsStore.rememberSummaries([item])
+  vi.mocked(apiRequest).mockResolvedValue({ items: [item], total: 1 })
   const wrapper = mount(MenuCenterView, { global: { plugins: [getActivePinia()!] } })
   await flushPromises()
   return wrapper
@@ -70,6 +76,32 @@ describe('MenuCenterView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.restoreAllMocks()
+  })
+
+  it('marks partial root previews and retains an independently selected off-page plugin', async () => {
+    const first = plugin()
+    const later = { ...plugin(), id: 'later-plugin', name: '后页插件' }
+    const configStore = useConfigStore()
+    configStore.document = config()
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    vi.mocked(apiRequest).mockImplementation(async path => {
+      if (path === '/api/plugins/later-plugin') return { plugin: { ...later, permissions: {}, webhooks: [] } } as never
+      if (path.includes('cursor=1')) return { items: [later], total: 2 } as never
+      return { items: [first], total: 2, next_cursor: '1' } as never
+    })
+    const wrapper = mount(MenuCenterView, { global: { plugins: [getActivePinia()!] } })
+    await flushPromises()
+    expect(rootPreviewData(wrapper).items).toHaveLength(1)
+    expect(wrapper.text()).toContain('预览包含已加载的运行中插件')
+    await wrapper.getComponent(PluginPicker).vm.$emit('update:modelValue', later.id)
+    await flushPromises()
+    expect(usePluginsStore().getPluginDisplayName(later.id)).toBe('后页插件')
+    expect(rootPreviewData(wrapper).items).toHaveLength(1)
+    await wrapper.getComponent(AppCollectionPagination).vm.$emit('more')
+    await flushPromises()
+    expect(rootPreviewData(wrapper).items).toHaveLength(2)
+    expect(wrapper.getComponent(PluginPicker).props('modelValue')).toBe(later.id)
+    expect(wrapper.text()).not.toContain('预览包含已加载的运行中插件')
   })
 
   it('builds menu groups only from real command ids', async () => {

@@ -10,7 +10,6 @@ import { t } from '@/i18n'
 import type {
   EventsPayload,
   LogSummary,
-  OneBot11ProtocolSnapshotResponse,
 } from '@/types/api'
 import { normalizeFilterValues, type LogScope, type LogFilters } from '@/stores/log-state'
 
@@ -279,44 +278,6 @@ export function buildPluginWorkbenchActions(pluginId: string) {
           pluginIds: [pluginId],
         },
       }),
-    },
-  ] satisfies ManagementContextAction[]
-}
-
-export function buildProtocolWorkbenchActions(snapshot?: OneBot11ProtocolSnapshotResponse | null) {
-  if (!snapshot) {
-    return [] as ManagementContextAction[]
-  }
-
-  return [
-    {
-      key: 'protocol-compatibility',
-      label: t('protocols.actions.openCompatibility'),
-      to: buildProtocolCompatibilityLocation(),
-    },
-    {
-      key: 'protocol-realtime-logs',
-      label: t('protocols.actions.openRealtimeLogs'),
-      to: buildProtocolRealtimeLogsLocation(),
-    },
-  ] satisfies ManagementContextAction[]
-}
-
-export function buildDashboardProtocolActions(snapshot?: OneBot11ProtocolSnapshotResponse | null) {
-  if (!snapshot) {
-    return [] as ManagementContextAction[]
-  }
-
-  return [
-    {
-      key: 'protocols',
-      label: t('dashboard.actions.openProtocols'),
-      to: buildProtocolsLocation(),
-    },
-    {
-      key: 'protocol-realtime-logs',
-      label: t('dashboard.actions.openRealtimeLogs'),
-      to: buildProtocolRealtimeLogsLocation(),
     },
   ] satisfies ManagementContextAction[]
 }

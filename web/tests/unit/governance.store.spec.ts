@@ -5,6 +5,11 @@ import { t } from '@/i18n'
 import { useGovernanceStore } from '@/stores/governance'
 
 function jsonResponse(body: unknown, status = 200) {
+  if (body && typeof body === 'object') {
+    const value = body as Record<string, unknown>
+    if (Array.isArray(value.items)) body = { total: value.items.length, ...value }
+    if (Array.isArray(value.user_entries) && Array.isArray(value.group_entries)) body = { total: value.user_entries.length + value.group_entries.length, entry_count: value.user_entries.length + value.group_entries.length, ...value }
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -103,7 +108,7 @@ describe('governance store', () => {
     expect(result.blacklist).toBeNull()
     expect(result.whitelist?.enabled).toBe(false)
     expect(result.commandPolicy?.default_level).toBe('everyone')
-    expect(store.blacklistError).toBe(t('errors.common.loadFailed'))
+    expect(store.blacklistError).toBe(t('errors.platform.internal_error'))
     expect(store.blacklistError).not.toBe('读取黑名单失败')
     expect(store.whitelistError).toBeNull()
     expect(store.commandPolicyError).toBeNull()

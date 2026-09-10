@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppTag from '@/components/AppTag.vue'
-import AppSelect from '@/components/AppSelect.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppField from '@/components/AppField.vue'
@@ -12,7 +11,7 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
-import ManagementLogAdvancedFilters from '@/components/logs/ManagementLogAdvancedFilters.vue'
+import ManagementLogFilters from '@/components/logs/ManagementLogFilters.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -25,12 +24,11 @@ import {
 } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { sameLogFilters } from '@/stores/log-state'
-import { useLogFilterControls } from '@/components/logs/useLogFilterControls'
 import ManagementLogRow from '@/components/logs/ManagementLogRow.vue'
 import { toLocalDateTimeInput, useLogHistoryStore } from '@/stores/log-history'
 import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
-import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
+import { useHeavyContentGate } from '@/layouts/usePageTransitionStage'
 
 const LOG_ROW_ESTIMATED_HEIGHT = 80
 
@@ -61,27 +59,13 @@ const viewportRef = ref<{
 } | null>(null)
 const autoFollowBottom = ref(false)
 const routeSyncing = ref(false)
-const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
+const { readyToRenderHeavyContent, waitUntilReady } = useHeavyContentGate()
 const latestViewportBottomEpsilon = 1
 const latestViewportSyncMaxAttempts = 6
 const latestViewportStablePasses = 2
 let latestViewportSyncToken = 0
 let activatePageTask: Promise<void> | null = null
 
-function whenReadyToRenderHeavyContent(): Promise<void> {
-  if (readyToRenderHeavyContent.value) {
-    return Promise.resolve()
-  }
-
-  return new Promise<void>((resolve) => {
-    const stop = watch(readyToRenderHeavyContent, (value) => {
-      if (value) {
-        stop()
-        resolve()
-      }
-    })
-  })
-}
 
 const {
   error,
@@ -105,7 +89,6 @@ const pageErrorToast = computed(() => (
 
 useToastFeedback(pageErrorToast)
 
-const { selectedLevels, levelOptions, pluginOptions, openPluginFilter } = useLogFilterControls(filters)
 
 
 
@@ -169,7 +152,7 @@ async function syncViewportAfterRender() {
   let stablePasses = 0
 
   try {
-    await whenReadyToRenderHeavyContent()
+    if (!await waitUntilReady()) return
 
     for (let attempt = 0; attempt < latestViewportSyncMaxAttempts; attempt += 1) {
       await nextTick()
@@ -283,7 +266,6 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
-  void openPluginFilter()
   if (activatePageTask) {
     return activatePageTask
   }
@@ -423,40 +405,22 @@ onBeforeUnmount(() => {
           <ChevronDownIcon class="logs-filter-toggle__chevron" :class="{ 'is-expanded': filtersExpanded }" aria-hidden="true" />
         </button>
         <div :id="filterPanelId" ref="filterPanelRef" class="logs-filter-panel" :class="{ 'is-expanded': filtersExpanded }">
-        <div class="logs-filter-grid logs-filter-grid--history">
-          <AppField :label="t('logs.filters.level')">
-            <AppSelect
-              v-model="selectedLevels"
-              multiple
-              clearable
-              :options="levelOptions"
-              :placeholder="t('logs.filters.all')"
-            />
-          </AppField>
-          <AppField floating :label="t('logs.filters.source')">
-            <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
-          </AppField>
+        <ManagementLogFilters v-model="filters" history @apply="applyFilters">
+          <template #fields>
           <AppField :label="t('logs.history.startAt')" :hint="managementTimeZone()">
             <AppInput v-model="timeRangeInput.startLocal" type="datetime-local" />
           </AppField>
           <AppField :label="t('logs.history.endAt')" :hint="managementTimeZone()">
             <AppInput v-model="timeRangeInput.endLocal" type="datetime-local" />
           </AppField>
-          <div class="logs-toolbar__actions">
+          </template>
+          <template #actions>
             <AppButton @click="useRecentDay">{{ t('logs.history.lastDay') }}</AppButton>
             <AppButton @click="useRecentDays(7)">{{ t('logs.history.lastWeek') }}</AppButton>
             <AppButton @click="useRecentDays(30)">{{ t('logs.history.lastMonth') }}</AppButton>
             <AppButton @click="useRecentDays(180)">{{ t('logs.history.lastHalfYear') }}</AppButton>
-            <ManagementLogAdvancedFilters
-              v-model:protocol="filters.protocol"
-              v-model:plugin-ids="filters.pluginIds"
-              v-model:request-id="filters.requestId"
-              :plugin-options="pluginOptions"
-              @plugin-focus="openPluginFilter"
-            />
-            <AppButton class="logs-toolbar__apply" variant="default" @click="applyFilters">{{ t('logs.filters.apply') }}</AppButton>
-          </div>
-        </div>
+          </template>
+        </ManagementLogFilters>
         </div>
       </AppCard>
     </template>
@@ -542,33 +506,9 @@ onBeforeUnmount(() => {
 
 .logs-filter-toggle { display: none; }
 
-.logs-filter-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: end;
-  width: 100%;
-}
 
-.logs-filter-grid :deep(.app-field) {
-  flex: 1 1 190px;
-  max-width: 300px;
-  margin-bottom: 0;
-}
 
-.logs-filter-grid :deep(.app-field:first-child) {
-  max-width: 220px;
-}
 
-.logs-toolbar__actions {
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin-inline-start: auto;
-}
 
 .logs-feed-card,
 .logs-feed-card :deep(.app-card__body) {
@@ -614,21 +554,8 @@ onBeforeUnmount(() => {
   .logs-filter-panel { display: none; }
   .logs-filter-panel.is-expanded { display: block; max-height: 55dvh; overflow: auto; padding: 8px 2px 10px; }
 
-  .logs-filter-grid :deep(.app-field) {
-    flex-basis: 100%;
-    max-width: none;
-  }
 
-  .logs-toolbar__actions {
-    flex: 1 1 100%;
-    align-items: stretch;
-    justify-content: flex-start;
-    margin-inline-start: 0;
-  }
 
-  .logs-toolbar__apply {
-    flex: 1 1 auto;
-  }
 
 }
 </style>

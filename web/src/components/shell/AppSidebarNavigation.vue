@@ -27,6 +27,7 @@ import {
 } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
+import { usePluginCollection } from '@/lib/use-plugin-collection'
 import type { PluginDetail, PluginState, PluginSummary } from '@/types/api'
 
 type NavigationScope = 'root' | 'plugin-center'
@@ -77,14 +78,17 @@ const {
   detailErrorsByPluginId,
   detailLoadingByPluginId,
   detailsByPluginId,
-  error,
-  loading,
-  sortedItems,
 } = storeToRefs(pluginsStore)
 
+const pluginCollection = usePluginCollection()
+const { items: sortedItems, error, loading, total, nextCursor, loadingMore } = pluginCollection
 const navigation = ref<HTMLElement | null>(null)
 const pluginFilter = ref('')
 const expandedPluginIds = shallowRef(new Set<string>())
+const visitedPluginIds = shallowRef(new Set<string>())
+watch(() => Object.keys(detailsByPluginId.value), ids => {
+  visitedPluginIds.value = new Set([...visitedPluginIds.value, ...ids])
+}, { immediate: true })
 const transitionDirection = ref<'forward' | 'back'>('forward')
 
 const visibleScope = computed<NavigationScope>(() => props.collapsed ? 'root' : props.scope)
@@ -107,7 +111,7 @@ const centerSelectedKeys = computed(() => {
   return page ? [`plugin-page:${activePluginId.value}:management:${page}`] : []
 })
 const activePlugin = computed(() => current.value?.id === activePluginId.value ? current.value : null)
-const activePluginSummary = computed(() => sortedItems.value.find(plugin => plugin.id === activePluginId.value))
+const activePluginSummary = computed(() => pluginsStore.knownItems.find(plugin => plugin.id === activePluginId.value))
 const activePluginName = computed(() => (
   activePlugin.value?.name?.trim()
   || activePluginSummary.value?.name?.trim()
@@ -125,7 +129,9 @@ const openPluginTargetById = computed(() => new Map(
   openPluginTargets.value.map(target => [target.pluginId, target.fullPath]),
 ))
 const navigationPlugins = computed<SidebarPluginItem[]>(() => {
-  const items: SidebarPluginItem[] = sortedItems.value.map(plugin => ({
+  const visited = pluginsStore.knownItems.filter(plugin => visitedPluginIds.value.has(plugin.id))
+  const remembered = new Map([...sortedItems.value, ...visited, ...Object.values(detailsByPluginId.value)].map(plugin => [plugin.id, plugin]))
+  const items: SidebarPluginItem[] = [...remembered.values()].map(plugin => ({
     icon: plugin.icon,
     id: plugin.id,
     name: plugin.name,
@@ -133,6 +139,12 @@ const navigationPlugins = computed<SidebarPluginItem[]>(() => {
     version: plugin.version,
   }))
 
+  for (const target of openPluginTargets.value) {
+    if (!items.some(plugin => plugin.id === target.pluginId)) {
+      const known = pluginsStore.knownItems.find(plugin => plugin.id === target.pluginId)
+      items.push(known ?? { id: target.pluginId, name: pluginsStore.getPluginDisplayName(target.pluginId) })
+    }
+  }
   if (activePluginId.value && !items.some(plugin => plugin.id === activePluginId.value)) {
     items.push({
       icon: activePlugin.value?.icon,
@@ -145,16 +157,11 @@ const navigationPlugins = computed<SidebarPluginItem[]>(() => {
 
   return items.sort((left, right) => left.id.localeCompare(right.id))
 })
-const showPluginFilter = computed(() => sortedItems.value.length >= 8)
+const showPluginFilter = computed(() => total.value >= 8 || Boolean(pluginFilter.value))
 const filteredPlugins = computed(() => {
-  const query = pluginFilter.value.trim().toLocaleLowerCase()
-  if (!query) return navigationPlugins.value
-
-  return navigationPlugins.value.filter((plugin) => (
-    plugin.id === activePluginId.value
-    || plugin.id.toLocaleLowerCase().includes(query)
-    || plugin.name.toLocaleLowerCase().includes(query)
-  ))
+  if (!pluginFilter.value.trim()) return navigationPlugins.value
+  const matchingIds = new Set(sortedItems.value.map(plugin => plugin.id))
+  return navigationPlugins.value.filter(plugin => plugin.id === activePluginId.value || matchingIds.has(plugin.id))
 })
 const pluginNavigationEntries = computed<SidebarPluginNavigationEntry[]>(() => (
   filteredPlugins.value.flatMap((plugin) => {
@@ -193,11 +200,17 @@ watch(
   () => props.scope,
   (scope) => {
     if (scope === 'plugin-center') {
-      void pluginsStore.ensureList().catch(() => undefined)
+      void pluginCollection.load({ query: pluginFilter.value }).catch(() => undefined)
     }
   },
   { immediate: true },
 )
+
+watch(pluginFilter, (query, _, cleanup) => {
+  pluginCollection.cancel()
+  const timer = setTimeout(() => { void pluginCollection.load({ query }).catch(() => undefined) }, 250)
+  cleanup(() => clearTimeout(timer))
+})
 
 watch(
   activePluginId,
@@ -306,7 +319,7 @@ function openWorkspacePlugin(target: OpenPluginTarget) {
 }
 
 function retryPluginList() {
-  void pluginsStore.fetchList().catch(() => undefined)
+  void pluginCollection.load({ query: pluginFilter.value }).catch(() => undefined)
 }
 
 function retryPluginDetail(pluginId: string) {
@@ -431,6 +444,7 @@ function toggleRootGroup(key: string) {
               </button>
             </div>
           </section>
+          <AppButton v-if="nextCursor" :loading="loading || loadingMore" :disabled="loading || loadingMore" @click="pluginCollection.loadMore().catch(() => undefined)">{{ t('plugins.store.loadMore') }}</AppButton>
           <AppSkeleton v-if="loading && navigationPlugins.length === 0" class="sidebar-navigation__skeleton" :rows="3" />
           <div v-else-if="error" class="sidebar-navigation__feedback" role="status"><span>{{ t('plugins.navigation.listLoadFailed') }}</span><AppButton variant="link" size="sm" @click="retryPluginList"><RotateCwIcon />{{ t('plugins.navigation.retry') }}</AppButton></div>
           <div v-else-if="navigationPlugins.length === 0" class="sidebar-navigation__feedback">{{ t('plugins.navigation.emptyInstalled') }}</div>

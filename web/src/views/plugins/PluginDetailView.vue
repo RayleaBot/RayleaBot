@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { getPluginTrustLabel } from '@/lib/display'
 import AppTabs from '@/components/AppTabs.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
@@ -48,6 +47,7 @@ import {
 } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
+import { getPluginTrustLabel } from '@/lib/display'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'

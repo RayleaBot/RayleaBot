@@ -19,14 +19,9 @@ export function useDashboardRecoveryState(input: RecoveryInput) {
   const recoveryBootstrapResources = computed<RuntimeBootstrapResource[]>(() => {
     const resources = new Set<RuntimeBootstrapResource>()
     for (const issue of [...(recoverySummary.value?.issues ?? []), ...input.readinessIssues.value]) {
-      const code = issue.code ?? ''
-      const summary = issue.summary ?? ''
-      if (code === 'platform.resource_missing' || code.includes('chromium') || summary.includes('Chromium')) {
-        resources.add('chromium')
+      for (const resource of issue.runtime_resources ?? []) {
+        if (resource === 'chromium' || resource === 'ffmpeg') resources.add(resource)
       }
-    }
-    if (resources.size === 0) {
-      resources.add('chromium')
     }
     return [...resources]
   })

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppSearchInput from '@/components/AppSearchInput.vue'
 import AppDialog from '@/components/AppDialog.vue'
@@ -43,9 +44,11 @@ import type {
 
 const store = usePluginStore()
 const pluginsStore = usePluginsStore()
-const { error, installing, items, loading, loadingMore, nextCursor, refreshing, source, sourceSaving, sources, total } = storeToRefs(store)
+const { error, installing, items, loading, loadingMore, nextCursor, refreshing, source, sourceSaving, sources, total, sourcesTotal, sourcesNextCursor, sourcesLoadingMore, sourcesLoading, sourcesError } = storeToRefs(store)
 
 const query = ref('')
+const sourceQuery = ref('')
+watch(sourceQuery, () => { void store.fetchSources({ query: sourceQuery.value }).catch(() => undefined) })
 const sort = ref<PluginStoreSort>('recommended')
 const sourceId = ref('official')
 const confirmationOpen = ref(false)
@@ -54,7 +57,7 @@ const selectedInspection = ref<PluginStoreInspectionResponse | null>(null)
 const sourceManagerOpen = ref(false)
 const pendingSourceRemoval = ref<string | null>(null)
 const sourceRemoving = ref(false)
-const sourceOptions = computed(() => sources.value.map(item => ({ value: item.id, label: item.name })))
+const sourceOptions = computed(() => [...new Map([...sources.value, ...(source.value ? [source.value] : [])].map(item => [item.id, { value: item.id, label: item.name }])).values()])
 const sortOptions = computed(() => [
   { value: 'recommended', label: t('plugins.store.sort.recommended') },
   { value: 'name', label: t('plugins.store.sort.name') },
@@ -82,7 +85,7 @@ async function loadEntries() {
 
 async function loadInitialEntries() {
   try {
-    await store.fetchSources()
+    await store.fetchSources({ query: sourceQuery.value })
   } catch (cause) {
     notifyError(getDisplayErrorMessage(cause))
   }
@@ -418,6 +421,8 @@ onMounted(() => {
           {{ t('plugins.store.sources.add') }}
         </AppButton>
       </div>
+      <AppInput v-model="sourceQuery" :maxlength="200" aria-label="搜索插件来源" placeholder="搜索来源名称、标识或网址" allow-clear />
+      <p v-if="sourcesError" role="alert">{{ sourcesError }}</p>
       <div class="source-list">
         <div v-for="item in sources" :key="item.id" class="source-row">
           <div class="source-copy">
@@ -431,7 +436,9 @@ onMounted(() => {
             </div>
             <code>{{ item.url }}</code>
           </div>
-          <div v-if="!item.official" class="source-row-actions">
+          <div class="source-row-actions">
+            <AppButton @click="sourceId = item.id; sourceManagerOpen = false; changeSource()">选择来源</AppButton>
+            <template v-if="!item.official">
             <AppButton variant="ghost" @click="openSourceEditor(item.id)">
               <template #icon><PencilIcon /></template>
               {{ t('plugins.store.sources.edit') }}
@@ -442,9 +449,11 @@ onMounted(() => {
                 {{ t('plugins.store.sources.remove') }}
               </AppButton>
 
+            </template>
           </div>
         </div>
       </div>
+      <AppCollectionPagination :loaded="sources.length" :total="sourcesTotal" :next-cursor="sourcesNextCursor" :loading="sourcesLoadingMore || sourcesLoading" @more="store.loadMoreSources().catch(() => undefined)" />
 
     </AppDialog>
 

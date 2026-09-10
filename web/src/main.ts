@@ -75,6 +75,8 @@ function installAvailabilityHandlers(
   let websocketFailureTimer: number | null = null
   let backendRecoveryTimer: number | null = null
   let backendProbeInFlight = false
+  let disposed = false
+  const probes = new Set<AbortController>()
 
   function clearRequestFailureTimer() {
     if (requestFailureTimer !== null) {
@@ -104,6 +106,7 @@ function installAvailabilityHandlers(
 
   async function canReachBackend() {
     const controller = new AbortController()
+    probes.add(controller)
     const timeoutId = window.setTimeout(() => controller.abort(), backendProbeTimeoutMs)
     try {
       const response = await fetch('/healthz', {
@@ -115,17 +118,19 @@ function installAvailabilityHandlers(
       return false
     } finally {
       window.clearTimeout(timeoutId)
+      probes.delete(controller)
     }
   }
 
   function markConnected() {
+    if (disposed) return
     clearFailureTimers()
     clearBackendRecoveryTimer()
     availabilityStore.markConnected()
   }
 
   async function probeBackendRecovery() {
-    if (backendProbeInFlight || !availabilityStore.isConnectionInterrupted) {
+    if (disposed || backendProbeInFlight || !availabilityStore.isConnectionInterrupted) {
       return
     }
 
@@ -135,6 +140,7 @@ function installAvailabilityHandlers(
         return
       }
 
+      if (disposed) return
       markConnected()
       if (!sessionStore.isBootstrapped) {
         await sessionStore.bootstrap(true).catch(() => undefined)
@@ -158,6 +164,7 @@ function installAvailabilityHandlers(
   }
 
   function markConnectionInterrupted() {
+    if (disposed) return
     clearFailureTimers()
     availabilityStore.markConnectionInterrupted()
     ensureBackendRecoveryTimer()
@@ -167,6 +174,7 @@ function installAvailabilityHandlers(
     source: 'http' | 'websocket',
     delayMs: number,
   ) {
+    if (disposed) return
     if (availabilityStore.isConnectionInterrupted) {
       ensureBackendRecoveryTimer()
       return
@@ -199,17 +207,15 @@ function installAvailabilityHandlers(
     }
   }
 
-  configureApiRuntime({
-    onNetworkUnavailable: () => scheduleConnectionFailureConfirmation('http', requestFailureConfirmationDelayMs),
-    onReachable: markConnected,
-  })
 
+
+  const onOnline = () => { void probeBackendRecovery() }
   if (typeof window !== 'undefined') {
     window.addEventListener('offline', markConnectionInterrupted)
-    window.addEventListener('online', () => void probeBackendRecovery())
+    window.addEventListener('online', onOnline)
   }
 
-  watch(
+  const stopSocketsWatch = watch(
     () => [
       sessionStore.isAuthenticated,
       socketStore.snapshots.events.status,
@@ -230,7 +236,7 @@ function installAvailabilityHandlers(
     { immediate: true },
   )
 
-  watch(
+  const stopAvailabilityWatch = watch(
     () => availabilityStore.isConnectionInterrupted,
     (isConnectionInterrupted) => {
       if (isConnectionInterrupted) {
@@ -242,6 +248,23 @@ function installAvailabilityHandlers(
     },
     { immediate: true },
   )
+  return {
+    callbacks: {
+      onNetworkUnavailable: () => scheduleConnectionFailureConfirmation('http', requestFailureConfirmationDelayMs),
+      onReachable: markConnected,
+    },
+    dispose() {
+      disposed = true
+      clearFailureTimers()
+      clearBackendRecoveryTimer()
+      for (const controller of probes) controller.abort()
+      probes.clear()
+      stopSocketsWatch()
+      stopAvailabilityWatch()
+      window.removeEventListener('offline', markConnectionInterrupted)
+      window.removeEventListener('online', onOnline)
+    },
+  }
 }
 
 async function bootstrap() {
@@ -255,18 +278,19 @@ async function bootstrap() {
   const socketStore = useSocketStore(pinia)
   const availabilityStore = useAppAvailabilityStore(pinia)
 
+  const availabilityHandlers = installAvailabilityHandlers(sessionStore, socketStore, availabilityStore)
+  app.onUnmount(availabilityHandlers.dispose)
+  import.meta.hot?.dispose(availabilityHandlers.dispose)
   configureApiRuntime({
+    ...availabilityHandlers.callbacks,
     getCSRFToken: () => sessionStore.csrfToken,
     onCSRFToken: (token) => {
       sessionStore.csrfToken = token
     },
-    onNetworkUnavailable: () => availabilityStore.markConnectionInterrupted(),
-    onReachable: () => availabilityStore.markConnected(),
     onUnauthorized: () => sessionStore.handleSessionExpired(),
   })
 
   const router = createAppRouter()
-  installAvailabilityHandlers(sessionStore, socketStore, availabilityStore)
   app.use(router)
   app.mount('#app')
 
@@ -279,10 +303,12 @@ async function bootstrap() {
     await router.replace({ name: 'status' })
   }
 
-  watch(
+  const stopSessionWatch = watch(
     () => [sessionStore.isBootstrapped, sessionStore.isAuthenticated, sessionStore.requiresSetup] as const,
     () => syncRouteWithSession(router, sessionStore, socketStore),
   )
+  app.onUnmount(stopSessionWatch)
+  import.meta.hot?.dispose(stopSessionWatch)
 }
 
 void bootstrap()

@@ -73,6 +73,7 @@ const {
   recoveryConfirmPending,
   recoveryRecheckPending,
   recoveryStatusLabel,
+  recoveryBootstrapResources,
   recoverySummary,
   refreshState,
   recheckRecoverySummary,
@@ -345,8 +346,8 @@ useToastFeedback(protocolIssueToast)
                 <div v-if="issue.remediation" class="issue-alert-card__remediation">
                   {{ issue.remediation }}
                 </div>
-                <div v-if="issue.code === 'render.browser_missing'" class="issue-alert-card__actions">
-                  <AppButton size="sm" variant="default" :loading="runtimeBootstrapPending" data-testid="readiness-prepare-runtime" @click="bootstrapRuntimeResources">{{ t('dashboard.runtimeBootstrap') }}</AppButton>
+                <div v-if="issue.runtime_resources?.length" class="issue-alert-card__actions">
+                  <AppButton size="sm" variant="default" :loading="runtimeBootstrapPending" data-testid="readiness-prepare-runtime" @click="bootstrapRuntimeResources(issue.runtime_resources)">{{ t('dashboard.runtimeBootstrap') }}</AppButton>
                 </div>
               </div>
             </div>
@@ -430,8 +431,9 @@ useToastFeedback(protocolIssueToast)
         :recovery-recheck-pending="recoveryRecheckPending"
         :recovery-confirm-pending="recoveryConfirmPending"
         :runtime-bootstrap-pending="runtimeBootstrapPending"
+        :can-bootstrap="recoveryBootstrapResources.length > 0"
         @recheck="recheckRecoverySummary"
-        @bootstrap="bootstrapRuntimeResources"
+        @bootstrap="bootstrapRuntimeResources()"
         @open-plugin="openRecoveryPlugin"
         @confirm="confirmRecoverySelection"
       />

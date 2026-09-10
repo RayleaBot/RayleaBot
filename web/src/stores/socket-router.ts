@@ -1,3 +1,4 @@
+import { createRefreshScheduler } from '@/lib/refresh-scheduler'
 import type {
   EventsPayload,
   LogSummary,
@@ -16,145 +17,36 @@ const statusRefreshDebounceMs = 120
 export function createSocketFrameRouter(
   dependencies: SocketFrameRouterDependencies,
 ): SocketFrameRouter {
-  let statusRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
-  let statusRefreshInFlight = false
-  let governanceRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
-  let governanceRefreshInFlight = false
-  let governanceRefreshQueued = false
-  let thirdPartyAccountRefreshHandle: ReturnType<typeof window.setTimeout> | null = null
-  let thirdPartyAccountRefreshInFlight = false
-  let thirdPartyAccountRefreshQueued = false
+  const statusRefresh = createRefreshScheduler(dependencies.system.refreshStatus, statusRefreshDebounceMs)
+  const governanceRefresh = createRefreshScheduler(dependencies.governance.refresh, statusRefreshDebounceMs)
+  const thirdPartyRefresh = createRefreshScheduler(dependencies.thirdPartyAccounts.refresh, statusRefreshDebounceMs)
   let pendingLiveLogs: LogSummary[] = []
   let flushLiveLogsScheduled = false
 
   function clearPendingStatusRefresh() {
-    if (statusRefreshHandle !== null) {
-      window.clearTimeout(statusRefreshHandle)
-      statusRefreshHandle = null
-    }
-    if (governanceRefreshHandle !== null) {
-      window.clearTimeout(governanceRefreshHandle)
-      governanceRefreshHandle = null
-    }
-    if (thirdPartyAccountRefreshHandle !== null) {
-      window.clearTimeout(thirdPartyAccountRefreshHandle)
-      thirdPartyAccountRefreshHandle = null
-    }
-  }
-
-  async function runStatusRefresh() {
-    if (statusRefreshInFlight) {
-      return
-    }
-
-    statusRefreshInFlight = true
-    try {
-      await dependencies.system.refreshStatus()
-    } catch {
-      // dashboard keeps the last good snapshot until the next reconnect signal
-    } finally {
-      statusRefreshInFlight = false
-    }
-  }
-
-  function scheduleStatusRefresh() {
-    if (statusRefreshHandle !== null || statusRefreshInFlight) {
-      return
-    }
-
-    statusRefreshHandle = window.setTimeout(() => {
-      statusRefreshHandle = null
-      void runStatusRefresh()
-    }, statusRefreshDebounceMs)
-  }
-
-  async function runGovernanceRefresh() {
-    if (governanceRefreshInFlight) {
-      governanceRefreshQueued = true
-      return
-    }
-
-    governanceRefreshInFlight = true
-    try {
-      await dependencies.governance.refresh()
-    } catch {
-      // governance pages keep the last successful snapshot until the next update
-    } finally {
-      governanceRefreshInFlight = false
-      if (governanceRefreshQueued) {
-        governanceRefreshQueued = false
-        scheduleGovernanceRefresh()
-      }
-    }
-  }
-
-  function scheduleGovernanceRefresh() {
-    if (governanceRefreshInFlight) {
-      governanceRefreshQueued = true
-      return
-    }
-
-    if (governanceRefreshHandle !== null) {
-      return
-    }
-
-    governanceRefreshHandle = window.setTimeout(() => {
-      governanceRefreshHandle = null
-      void runGovernanceRefresh()
-    }, statusRefreshDebounceMs)
-  }
-
-  async function runThirdPartyAccountRefresh() {
-    if (thirdPartyAccountRefreshInFlight) {
-      thirdPartyAccountRefreshQueued = true
-      return
-    }
-
-    thirdPartyAccountRefreshInFlight = true
-    try {
-      await dependencies.thirdPartyAccounts.refresh()
-    } catch {
-      // account pages keep the last successful snapshot until the next update
-    } finally {
-      thirdPartyAccountRefreshInFlight = false
-      if (thirdPartyAccountRefreshQueued) {
-        thirdPartyAccountRefreshQueued = false
-        scheduleThirdPartyAccountRefresh()
-      }
-    }
-  }
-
-  function scheduleThirdPartyAccountRefresh() {
-    if (thirdPartyAccountRefreshInFlight) {
-      thirdPartyAccountRefreshQueued = true
-      return
-    }
-
-    if (thirdPartyAccountRefreshHandle !== null) {
-      return
-    }
-
-    thirdPartyAccountRefreshHandle = window.setTimeout(() => {
-      thirdPartyAccountRefreshHandle = null
-      void runThirdPartyAccountRefresh()
-    }, statusRefreshDebounceMs)
+    statusRefresh.cancel()
+    governanceRefresh.cancel()
+    thirdPartyRefresh.cancel()
+    dependencies.schedulerJobs.cancelPendingRefresh?.()
+    dependencies.plugins.cancelPendingRefresh?.()
+    pendingLiveLogs = []
   }
 
   function handleEventsFrame(frame: WebSocketFrame<EventsPayload>) {
     dependencies.system.applyEvent(frame.timestamp, frame.data)
 
     if (isServiceStatusEvent(frame.data)) {
-      scheduleStatusRefresh()
+      statusRefresh.schedule()
       return
     }
 
     if (isGovernanceChangedEvent(frame.data)) {
-      scheduleGovernanceRefresh()
+      governanceRefresh.schedule()
       return
     }
 
     if (isThirdPartyAccountChangedEvent(frame.data)) {
-      scheduleThirdPartyAccountRefresh()
+      thirdPartyRefresh.schedule()
       return
     }
 
@@ -174,6 +66,7 @@ export function createSocketFrameRouter(
     // whose protocol has no transport snapshot of its own.
     if (isAdaptersSnapshotEvent(frame.data)) {
       dependencies.adapters.applySnapshot(frame.data.adapters)
+      statusRefresh.schedule()
     }
   }
 
@@ -233,8 +126,6 @@ function isServiceStatusEvent(payload: EventsPayload): payload is Extract<Events
 function isPluginStateEvent(payload: EventsPayload): payload is PluginStateEvent {
   return 'plugin_id' in payload
 }
-
-
 
 function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSnapshotEvent {
   return 'adapters' in payload

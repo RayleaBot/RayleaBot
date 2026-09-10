@@ -3,6 +3,8 @@ import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { collectionURL, createCollectionPager, mergeCollectionItems, type CollectionQuery } from '@/lib/collection-pager'
+import { governanceEntryKey } from '@/lib/governance-scope'
 import type {
   GovernanceBlacklistResponse,
   GovernanceCommandPolicyResponse,
@@ -17,72 +19,67 @@ export const useGovernanceStore = defineStore('governance', () => {
   const whitelist = ref<GovernanceWhitelistResponse | null>(null)
   const commandPolicy = ref<GovernanceCommandPolicyResponse | null>(null)
   const loading = ref(false)
-  const blacklistLoading = ref(false)
-  const whitelistLoading = ref(false)
   const commandPolicyLoading = ref(false)
   const error = ref<string | null>(null)
-  const blacklistError = ref<string | null>(null)
-  const whitelistError = ref<string | null>(null)
   const commandPolicyError = ref<string | null>(null)
+
+  let commandPolicyRequestID = 0
+  let refreshRequestID = 0
 
   const hasData = computed(() => Boolean(blacklist.value || whitelist.value || commandPolicy.value))
 
-  async function fetchBlacklist() {
-    blacklistLoading.value = true
-    blacklistError.value = null
-    try {
-      const response = await apiRequest<GovernanceBlacklistResponse>('/api/governance/blacklist')
-      blacklist.value = response
-      return response
-    } catch (err) {
-      blacklistError.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      throw err
-    } finally {
-      blacklistLoading.value = false
-    }
-  }
+  const blacklistPager = createCollectionPager<GovernanceBlacklistResponse>({
+    request: (query, cursor, signal) => apiRequest(collectionURL('/api/governance/blacklist', query, cursor), { signal }),
+    apply: (response, append) => { blacklist.value = { ...response,
+      user_entries: append ? mergeCollectionItems(blacklist.value?.user_entries ?? [], response.user_entries, governanceEntryKey) : response.user_entries,
+      group_entries: append ? mergeCollectionItems(blacklist.value?.group_entries ?? [], response.group_entries, governanceEntryKey) : response.group_entries,
+    } },
+  })
+  const whitelistPager = createCollectionPager<GovernanceWhitelistResponse>({
+    request: (query, cursor, signal) => apiRequest(collectionURL('/api/governance/whitelist', query, cursor), { signal }),
+    apply: (response, append) => { whitelist.value = { ...response,
+      user_entries: append ? mergeCollectionItems(whitelist.value?.user_entries ?? [], response.user_entries, governanceEntryKey) : response.user_entries,
+      group_entries: append ? mergeCollectionItems(whitelist.value?.group_entries ?? [], response.group_entries, governanceEntryKey) : response.group_entries,
+    } },
+  })
+  const { loading: blacklistLoading, error: blacklistError, loadingMore: blacklistLoadingMore } = blacklistPager
+  const { loading: whitelistLoading, error: whitelistError, loadingMore: whitelistLoadingMore } = whitelistPager
+  function fetchBlacklist(signal?: AbortSignal, query?: CollectionQuery) { return blacklistPager.load(query, signal) }
+  function fetchWhitelist(signal?: AbortSignal, query?: CollectionQuery) { return whitelistPager.load(query, signal) }
+  function loadMoreBlacklist() { return blacklistPager.loadMore() }
+  function loadMoreWhitelist() { return whitelistPager.loadMore() }
 
-  async function fetchWhitelist() {
-    whitelistLoading.value = true
-    whitelistError.value = null
-    try {
-      const response = await apiRequest<GovernanceWhitelistResponse>('/api/governance/whitelist')
-      whitelist.value = response
-      return response
-    } catch (err) {
-      whitelistError.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      throw err
-    } finally {
-      whitelistLoading.value = false
-    }
-  }
-
-  async function fetchCommandPolicy() {
+  async function fetchCommandPolicy(signal?: AbortSignal) {
+    const requestID = ++commandPolicyRequestID
     commandPolicyLoading.value = true
     commandPolicyError.value = null
     try {
-      const response = await apiRequest<GovernanceCommandPolicyResponse>('/api/governance/command-policy')
-      commandPolicy.value = response
+      const response = await apiRequest<GovernanceCommandPolicyResponse>('/api/governance/command-policy', { signal })
+      signal?.throwIfAborted()
+      if (requestID === commandPolicyRequestID) commandPolicy.value = response
       return response
     } catch (err) {
-      commandPolicyError.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
+      if (!signal?.aborted && requestID === commandPolicyRequestID) commandPolicyError.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       throw err
     } finally {
-      commandPolicyLoading.value = false
+      if (requestID === commandPolicyRequestID) commandPolicyLoading.value = false
     }
   }
 
-  async function refresh() {
+  async function refresh(signal?: AbortSignal) {
+    const requestID = ++refreshRequestID
     loading.value = true
     error.value = null
 
     const [blacklistResult, whitelistResult, commandPolicyResult] = await Promise.allSettled([
-      fetchBlacklist(),
-      fetchWhitelist(),
-      fetchCommandPolicy(),
+      fetchBlacklist(signal),
+      fetchWhitelist(signal),
+      fetchCommandPolicy(signal),
     ])
 
-    loading.value = false
+    if (requestID === refreshRequestID) loading.value = false
+    signal?.throwIfAborted()
+    if (requestID !== refreshRequestID) return
 
     if (
       blacklistResult.status === 'rejected'
@@ -187,6 +184,7 @@ export const useGovernanceStore = defineStore('governance', () => {
   }
 
   return {
+    blacklistLoadingMore, whitelistLoadingMore, loadMoreBlacklist, loadMoreWhitelist,
     blacklist,
     whitelist,
     commandPolicy,

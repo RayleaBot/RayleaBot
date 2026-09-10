@@ -1,6 +1,6 @@
 import { computed, type Ref } from 'vue'
 
-import { t } from '@/i18n'
+import { i18n, t } from '@/i18n'
 import { describeAdapterStates } from '@/lib/adapter-status'
 import type { StatusType } from '@/lib/display'
 import type { SystemDiagnosticsResponse } from '@/types/api'
@@ -32,7 +32,9 @@ function issueSeverityToType(severity: DiagnosticsIssue['severity']): StatusType
 }
 
 function statusLabel(status?: string) {
-  return status ? t(`dashboard.diagnosticsStatus.${status}`) : t('display.empty')
+  if (!status) return t('display.empty')
+  const key = `dashboard.diagnosticsStatus.${status}`
+  return i18n.global.te(key) ? t(key) : status
 }
 
 function issueCountDetail(count: number) {

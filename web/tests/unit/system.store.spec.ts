@@ -82,4 +82,22 @@ describe('system store', () => {
 
     expect(store.recentEvents).toHaveLength(0)
   })
+
+  it('does not overwrite newer status with an older completed request', async () => {
+    const responses: Array<(response: Response) => void> = []
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { responses.push(resolve) })))
+    const store = useSystemStore()
+    const first = store.refreshStatus()
+    const second = store.refreshStatus()
+    const finish = (offset: number, uptime: number) => {
+      responses[offset](jsonResponse({ status: 'ready' }))
+      responses[offset + 1](jsonResponse({ status: 'running', adapters: [], uptime_seconds: uptime }))
+      responses[offset + 2](jsonResponse({ generated_at: String(uptime), issues: [] }))
+    }
+    finish(3, 2)
+    await second
+    finish(0, 1)
+    await first
+    expect(store.system?.uptime_seconds).toBe(2)
+  })
 })

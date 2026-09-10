@@ -1,8 +1,8 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { collectionURL, createCollectionPager, mergeCollectionItems, type CollectionQuery } from '@/lib/collection-pager'
 import type {
   ThirdPartyAccountSummary,
   ThirdPartyAccountValidationResponse,
@@ -26,13 +26,11 @@ export const thirdPartyPlatformLabels: Record<ThirdPartyPlatform, string> = {
 
 export const useThirdPartyAccountsStore = defineStore('third-party-accounts', () => {
   const accounts = ref<ThirdPartyAccountSummary[]>([])
-  const loading = ref(false)
   const savingAccountId = ref<string | null>(null)
   const deletingAccountId = ref<string | null>(null)
   const validatingAccountIds = ref<string[]>([])
   const qrcodeCreating = ref(false)
   const qrcodePollingLoginId = ref<string | null>(null)
-  const error = ref<string | null>(null)
 
   const bilibiliAccounts = computed(() => accounts.value
     .filter((account) => account.platform === 'bilibili')
@@ -44,19 +42,14 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
       .sort((left, right) => left.account_id.localeCompare(right.account_id)),
   ])) as Record<ThirdPartyPlatform, ThirdPartyAccountSummary[]>)
 
-  async function fetchAll() {
-    loading.value = true
-    error.value = null
-    try {
-      const accountsResponse = await apiRequest<ThirdPartyAccountsResponse>('/api/third-party/accounts')
-      accounts.value = accountsResponse.items
-    } catch (err) {
-      error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
-      throw err
-    } finally {
-      loading.value = false
-    }
-  }
+  const pager = createCollectionPager<ThirdPartyAccountsResponse>({
+    request: (query, cursor, signal) => apiRequest(collectionURL('/api/third-party/accounts', query, cursor), { signal }),
+    apply: (response, append) => { accounts.value = append ? mergeCollectionItems(accounts.value, response.items, item => accountOperationKey(item.platform, item.account_id)) : response.items },
+  })
+  const { total, nextCursor, loading, loadingMore, error } = pager
+  async function fetchAll(signal?: AbortSignal, query?: CollectionQuery) { await pager.load(query, signal) }
+  function search(query: CollectionQuery) { return fetchAll(undefined, query) }
+  function loadMore() { return pager.loadMore() }
 
   async function saveAccount(platform: ThirdPartyPlatform, accountId: string, payload: ThirdPartyAccountUpsertRequest) {
     savingAccountId.value = accountOperationKey(platform, accountId)
@@ -66,6 +59,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
         { method: 'PUT', body: payload },
       )
       upsertAccount(response.account)
+      await fetchAll()
       return response.account
     } finally {
       savingAccountId.value = null
@@ -99,7 +93,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
       await apiRequest<void>(`/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}`, {
         method: 'DELETE',
       })
-      accounts.value = accounts.value.filter((account) => account.platform !== platform || account.account_id !== accountId)
+      await fetchAll()
     } finally {
       deletingAccountId.value = null
     }
@@ -146,6 +140,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
       return
     }
     upsertAccount(account)
+    await fetchAll()
   }
 
   function upsertAccount(account: ThirdPartyAccountSummary) {
@@ -162,6 +157,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   }
 
   return {
+    total, nextCursor, loadingMore, loadMore, search,
     accounts,
     accountsByPlatform,
     bilibiliAccounts,

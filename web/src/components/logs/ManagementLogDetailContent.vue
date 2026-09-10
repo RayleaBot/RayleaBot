@@ -10,6 +10,7 @@ import { buildLogContextActions } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
 import { usePluginsStore } from '@/stores/plugins'
+import { usePluginDisplayName } from '@/lib/use-plugin-display-name'
 import type { LogScope } from '@/stores/log-state'
 import type { LogDetailResponse, LogSummary } from '@/types/api'
 
@@ -25,6 +26,7 @@ const emit = defineEmits<{
   action: []
 }>()
 const pluginsStore = usePluginsStore()
+usePluginDisplayName(() => props.summary?.plugin_id)
 
 const detailJson = computed(() => safeJsonStringify(props.detail?.details ?? {}))
 const contextActions = computed(() => (

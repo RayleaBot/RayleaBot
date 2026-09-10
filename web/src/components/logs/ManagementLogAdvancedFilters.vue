@@ -2,6 +2,7 @@
 import AppTag from '@/components/AppTag.vue'
 import AppPopover from '@/components/AppPopover.vue'
 import AppSelect from '@/components/AppSelect.vue'
+import PluginPicker from '@/components/plugins/PluginPicker.vue'
 import AppInput from '@/components/AppInput.vue'
 import AppField from '@/components/AppField.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -13,14 +14,6 @@ import { t } from '@/i18n'
 const protocol = defineModel<string | undefined>('protocol')
 const pluginIds = defineModel<string[]>('pluginIds', { default: () => [] })
 const requestId = defineModel<string>('requestId', { default: '' })
-
-defineProps<{
-  pluginOptions: Array<{ label: string; value: string }>
-}>()
-
-defineEmits<{
-  pluginFocus: []
-}>()
 
 const protocolOptions: { value: string; label: string }[] = [{ value: '', label: t('logs.filters.all') }, { value: 'onebot11', label: 'OneBot11' }, { value: 'qqofficial', label: t('display.logProtocols.qqofficial') }]
 const protocolSelection = computed({ get: () => protocol.value ?? '', set: (value: string) => { protocol.value = value || undefined } })
@@ -55,14 +48,10 @@ onBeforeUnmount(close)
           />
         </AppField>
         <AppField :label="t('logs.filters.plugin')">
-          <AppSelect
+          <PluginPicker
             v-model="pluginIds"
             multiple
-            clearable
-            :options="pluginOptions"
             :placeholder="t('logs.filters.all')"
-            @focus="$emit('pluginFocus')"
-            @open="$event && $emit('pluginFocus')"
           />
         </AppField>
         <AppField floating :label="t('logs.filters.requestId')">

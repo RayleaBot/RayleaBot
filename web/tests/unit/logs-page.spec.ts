@@ -329,7 +329,7 @@ describe('LogsPage', () => {
     expect(activeSpy).toHaveBeenCalledWith(false)
   })
 
-  it('loads plugin names on mount even after a partial state event', async () => {
+  it('does not load a global plugin list for an empty log view', async () => {
     const router = createTestRouter()
     await router.push('/logs')
     await router.isReady()
@@ -346,7 +346,7 @@ describe('LogsPage', () => {
     mountRoutedView(router)
 
     await flushPromises()
-    expect(fetchListSpy).toHaveBeenCalledTimes(1)
-    expect(pluginsStore.getPluginDisplayName('weather')).toBe('天气插件')
+    expect(fetchListSpy).not.toHaveBeenCalled()
+    expect(pluginsStore.getPluginDisplayName('weather')).toBe('Weather')
   })
 })

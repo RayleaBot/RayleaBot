@@ -65,7 +65,7 @@ function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
       package_source_ref: 'examples/plugins/example-config-panel.zip',
       verified: true,
     },
-    trust: { level: 'third_party', label: '示例' },
+    trust: { level: 'third_party' },
     management_ui: { entry: 'ui/index.html', pages: [buildManagementPage()] },
     commands: [],
     command_groups: [],
@@ -206,11 +206,10 @@ describe('PluginManagementUIHost bridge v3', () => {
     wrapper.unmount()
   })
 
-
   it('requires an explicit confirmation before loading an unverified plugin page', async () => {
     const pluginsStore = usePluginsStore()
     const plugin = buildPlugin({
-      trust: { level: 'unverified', label: '未验证来源' },
+      trust: { level: 'unverified' },
       source: {
         root: 'examples/plugins',
         package_source_type: 'local_zip',

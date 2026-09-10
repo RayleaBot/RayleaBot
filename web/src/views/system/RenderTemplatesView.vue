@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
+import { ApiError } from '@/lib/http'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppTextarea from '@/components/AppTextarea.vue'
 import AppTag from '@/components/AppTag.vue'
@@ -42,7 +44,7 @@ const workspaceTabs = computed(() => [
   { value: 'data', label: t('renderTemplates.sampleTab') },
   { value: 'info', label: t('renderTemplates.infoTab') },
 ])
-const { detailById, error, items, loading, workspaceLoading } = storeToRefs(renderTemplatesStore)
+const { detailById, error, items, loading, workspaceLoading, total, nextCursor, loadingMore } = storeToRefs(renderTemplatesStore)
 
 const hasRequestedList = ref(false)
 const pageActive = ref(true)
@@ -58,15 +60,12 @@ const activeTemplateId = computed(() => (
 
 const { currentTemplate, currentPreviewDataText, previewParseResult, currentPreviewDocument,
   currentPreviewError, currentPreviewPending, ensurePreviewDefaults, resetPreviewData,
-  scheduleAutoPreview, resetPreviewCaches, retainPreviewDrafts, invalidateCurrentPreview } = useTemplatePreview(activeTemplateId, isActiveTemplateRoute)
+  scheduleAutoPreview, resetPreviewCaches, invalidateCurrentPreview } = useTemplatePreview(activeTemplateId, isActiveTemplateRoute)
 
 const groupedTemplates = computed(() => {
   const groups = new Map<string, { key: string; title: string; items: RenderTemplateSummary[] }>()
-  const terms = search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean)
   for (const template of items.value) {
     const title = getTemplateSourceLabel(template)
-    const text = [template.name, title, template.id, template.description].join(' ').toLocaleLowerCase()
-    if (!terms.every(term => text.includes(term))) continue
     const key = template.source.type === 'system' ? 'system' : template.source.plugin_id || 'plugin'
     if (!groups.has(key)) groups.set(key, { key, title, items: [] })
     groups.get(key)!.items.push(template)
@@ -150,12 +149,12 @@ function getTemplateLocalId(template: RenderTemplateSummary) {
 }
 
 async function loadTemplateList() {
-  if (hasRequestedList.value) resetPreviewCaches()
+  const refreshing = hasRequestedList.value
+  if (refreshing) resetPreviewCaches()
   hasRequestedList.value = true
   try {
-    await Promise.all([renderTemplatesStore.fetchTemplates(), pluginsStore.fetchList().catch(() => undefined)])
-    const currentIds = new Set(items.value.map(item => item.id))
-    retainPreviewDrafts(currentIds)
+    await Promise.all([renderTemplatesStore.fetchTemplates({ query: search.value }), pluginsStore.ensureList().catch(() => undefined)])
+    if (refreshing && activeTemplateId.value && !items.value.some(item => item.id === activeTemplateId.value)) await loadTemplateWorkspace(activeTemplateId.value, { force: true })
   } catch {
     // store error state drives the page
   }
@@ -164,13 +163,14 @@ async function loadTemplateList() {
 async function loadTemplateWorkspace(templateId: string, options: { force?: boolean } = {}) {
   if (!options.force && detailById.value[templateId]) {
     renderTemplatesStore.clearError()
-    return
+    return true
   }
 
   try {
     await renderTemplatesStore.fetchTemplateWorkspace(templateId)
-  } catch {
-    // store error state drives the page
+    return true
+  } catch (cause) {
+    return cause instanceof ApiError && cause.status === 404 ? false : null
   }
 }
 
@@ -185,24 +185,25 @@ async function reloadCurrentTemplate() {
 }
 
 async function syncRouteTemplate() {
-  if (!isActiveTemplateRoute.value || items.value.length === 0) {
-    return
+  if (!isActiveTemplateRoute.value) return
+  if (activeTemplateId.value) {
+    const exists = await loadTemplateWorkspace(activeTemplateId.value)
+    if (exists !== false) { ensurePreviewDefaults(activeTemplateId.value); return }
+    removedTemplateNotice.value = true
   }
-
-  if (!activeTemplateId.value || !items.value.some(item => item.id === activeTemplateId.value)) {
-    removedTemplateNotice.value = Boolean(activeTemplateId.value)
-    await router.replace({
-      name: 'render-templates',
-      params: {
-        templateId: items.value.find(item => item.id === 'help.menu')?.id || items.value[0].id,
-      },
-    })
-    return
-  }
-
-  await loadTemplateWorkspace(activeTemplateId.value)
-  ensurePreviewDefaults(activeTemplateId.value)
+  const fallback = items.value.find(item => item.id === 'help.menu')?.id || items.value[0]?.id
+  if (fallback && fallback !== activeTemplateId.value) await router.replace({ name: 'render-templates', params: { templateId: fallback } })
 }
+
+watch(search, () => { void renderTemplatesStore.fetchTemplates({ query: search.value }).catch(() => undefined) })
+
+watch([items, currentTemplate], () => {
+  const visible = [...items.value, ...(currentTemplate.value ? [currentTemplate.value] : [])]
+  const owners = new Set(visible.map(item => item.source.plugin_id).filter((id): id is string => Boolean(id)))
+  for (const id of owners) {
+    if (pluginsStore.getPluginDisplayName(id) === id) void pluginsStore.ensureDetail(id).catch(() => undefined)
+  }
+})
 
 async function selectTemplate(templateId: string) {
   if (compact.value) {
@@ -246,14 +247,14 @@ onDeactivated(() => {
       <AppButton :disabled="loading" @click="loadTemplateList"><RefreshCwIcon :size="16" />{{ t('renderTemplates.refreshList') }}</AppButton>
     </template>
     <RetryPanel v-if="error && items.length === 0" :title="t('renderTemplates.title')" :description="error" :loading="loading" @retry="loadTemplateList" />
-    <AppEmptyState v-else-if="!loading && hasRequestedList && items.length === 0" icon="box" :title="t('renderTemplates.noTemplates')" :description="t('renderTemplates.catalogHint')" />
+    <AppEmptyState v-else-if="!loading && hasRequestedList && items.length === 0 && !search && !activeTemplateId" icon="box" :title="t('renderTemplates.noTemplates')" :description="t('renderTemplates.catalogHint')" />
     <div v-else class="render-templates-shell">
       <aside class="template-catalog" :aria-label="t('renderTemplates.templateList')">
         <AppButton v-if="compact" class="template-catalog__toggle" :aria-label="t('renderTemplates.chooseTemplate')" :aria-expanded="catalogOpen" :aria-controls="catalogId" @click="catalogOpen = !catalogOpen">
           <span>{{ currentTemplate ? currentTemplate.name : t('renderTemplates.chooseTemplate') }}</span><ChevronDownIcon :size="16" :class="{ 'is-open': catalogOpen }" />
         </AppButton>
         <div :id="catalogId" v-show="!compact || catalogOpen" class="template-catalog__content">
-          <div class="template-catalog__search"><SearchIcon :size="16" aria-hidden="true" /><AppInput v-model="search" type="search" :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')" /></div>
+          <div class="template-catalog__search"><SearchIcon :size="16" aria-hidden="true" /><AppInput v-model="search" :maxlength="200" type="search" :aria-label="t('renderTemplates.search')" :placeholder="t('renderTemplates.search')" /></div>
           <p class="template-catalog__hint">{{ t('renderTemplates.catalogHint') }}<span>{{ items.length }}</span></p>
           <div class="template-catalog__list">
             <AppSkeleton v-if="loading && !items.length" :rows="6" />
@@ -265,6 +266,7 @@ onDeactivated(() => {
               </button>
             </section>
             <div v-if="!loading && !groupedTemplates.length" class="template-catalog__empty"><p>{{ t('renderTemplates.noMatches') }}</p><AppButton variant="ghost" @click="search = ''">{{ t('renderTemplates.clearSearch') }}</AppButton></div>
+            <AppCollectionPagination :loaded="items.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="renderTemplatesStore.loadMore().catch(() => undefined)" />
           </div>
         </div>
       </aside>

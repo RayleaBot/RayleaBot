@@ -7,10 +7,13 @@ import BasicLayout from '@/layouts/BasicLayout.vue'
 import RouteView from '@/layouts/RouteView.vue'
 import AppSidebarNavigation from '@/components/shell/AppSidebarNavigation.vue'
 import { usePluginsStore } from '@/stores/plugins'
+import { apiRequest } from '@/lib/http'
 import { useSocketStore } from '@/stores/sockets'
 import { useSystemStore } from '@/stores/system'
 import { useUiShellStore } from '@/stores/ui-shell'
 import type { PluginDetail } from '@/types/api'
+
+vi.mock('@/lib/http', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/http')>(), apiRequest: vi.fn() }))
 
 describe('BasicLayout', () => {
   function createShellRouter() {
@@ -296,6 +299,19 @@ describe('BasicLayout', () => {
     window.localStorage.clear()
     setActivePinia(createPinia())
     document.body.innerHTML = ''
+    vi.mocked(apiRequest).mockImplementation(async (path) => {
+      const url = new URL(path, 'http://fixture')
+      const plugins = usePluginsStore()
+      if (url.pathname.startsWith('/api/plugins/')) {
+        const id = url.pathname.slice('/api/plugins/'.length)
+        const detail = plugins.detailsByPluginId[id] ?? plugins.knownItems.find(item => item.id === id)
+        return { plugin: { ...detail, permissions: {}, webhooks: [] } } as never
+      }
+      const all = plugins.knownItems
+      const query = url.searchParams.get('query')?.toLowerCase() ?? ''
+      const items = all.filter(plugin => `${plugin.id} ${plugin.name}`.toLowerCase().includes(query))
+      return { items, total: items.length } as never
+    })
   })
 
   it('combines the five plugin pages without merging other workspace tabs', async () => {
@@ -402,6 +418,11 @@ describe('BasicLayout', () => {
       permissions: {},
       webhooks: [],
     } as PluginDetail
+    vi.mocked(apiRequest).mockImplementation(async path => {
+      const url = new URL(path, 'http://fixture')
+      if (url.pathname === '/api/plugins') return { items: [detail, weatherDetail], total: 2 } as never
+      return { plugin: url.pathname.endsWith('/weather') ? weatherDetail : detail } as never
+    })
     pluginsStore.current = detail
     pluginsStore.detailsByPluginId = {
       'example-config-panel': detail,
@@ -428,6 +449,8 @@ describe('BasicLayout', () => {
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
     expect(sidebar.get('[data-sidebar-management-page="secrets"]').attributes('aria-current')).toBe('page')
 
+    await pluginsStore.fetchList({})
+    await flushPromises()
     await sidebar.get('[data-sidebar-plugin-disclosure="weather"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.fullPath).toBe('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
@@ -504,30 +527,23 @@ describe('BasicLayout', () => {
     expect(uiShellStore.mobileMenuOpen).toBe(false)
   })
 
-  it('filters larger installed-plugin lists and leaves retry under explicit user control', async () => {
-    const { wrapper } = await mountShell('/plugins')
+  it('searches installed plugins remotely and leaves retry under explicit user control', async () => {
     const pluginsStore = usePluginsStore()
-    const sidebar = wrapper.get('.admin-layout__sider')
-    expect(sidebar.text()).toContain('暂无已安装插件')
     for (let index = 0; index < 8; index += 1) {
-      pluginsStore.upsert({
-        id: `plugin-${index}`,
-        name: index === 7 ? 'Weather Tools' : `Plugin ${index}`,
-        state: 'disabled',
-      })
+      pluginsStore.upsert({ id: `plugin-${index}`, name: index === 7 ? 'Weather Tools' : `Plugin ${index}`, state: 'disabled' })
     }
-    await flushPromises()
-
+    const { wrapper } = await mountShell('/plugins')
+    const sidebar = wrapper.get('.admin-layout__sider')
     const filter = sidebar.get('input[aria-label="筛选已安装插件"]')
+    vi.mocked(apiRequest).mockRejectedValueOnce(new Error('network unavailable'))
     await filter.setValue('weather')
-    expect(sidebar.findAll('[data-sidebar-plugin-id]').map(item => item.attributes('data-sidebar-plugin-id'))).toEqual(['plugin-7'])
-
-    pluginsStore.error = 'network unavailable'
-    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList').mockResolvedValue()
-    await flushPromises()
-    expect(sidebar.text()).toContain('插件列表加载失败')
+    await vi.waitFor(() => expect(sidebar.text()).toContain('插件列表加载失败'))
+    const previousCalls = vi.mocked(apiRequest).mock.calls.length
     await sidebar.get('.sidebar-navigation__feedback button').trigger('click')
-    expect(fetchListSpy).toHaveBeenCalledTimes(1)
+    await flushPromises()
+    expect(apiRequest).toHaveBeenCalledTimes(previousCalls + 1)
+    expect(sidebar.findAll('[data-sidebar-plugin-id]').map(item => item.attributes('data-sidebar-plugin-id'))).toEqual(['plugin-7'])
+    expect(vi.mocked(apiRequest).mock.calls.at(-1)?.[0]).toContain('query=weather')
   })
 
   it('waits for exact plugin pages instead of rendering guessed skeleton rows', async () => {

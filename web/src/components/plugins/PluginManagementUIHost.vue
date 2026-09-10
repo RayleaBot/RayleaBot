@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { getPluginTrustLabel } from '@/lib/display'
 import AppLoadingPanel from '@/components/AppLoadingPanel.vue'
 import AppDetails from '@/components/AppDetails.vue'
 import AppDetailItem from '@/components/AppDetailItem.vue'
@@ -9,6 +8,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useToastFeedback } from '@/adapter/feedback'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { t } from '@/i18n'
+import { getPluginTrustLabel } from '@/lib/display'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { ApiError, apiRequest } from '@/lib/http'
 import { buildRenderTemplateLocation } from '@/lib/management-links'
@@ -17,62 +17,16 @@ import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import { useUiShellStore } from '@/stores/ui-shell'
+import type { components, PluginDetail, PluginManagementUIPage, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
 import { PLUGIN_UI_BRIDGE_VERSION } from '@/types/plugin-management-ui.generated'
-import type { PluginDetail, PluginManagementUIPage, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
-import type { BridgeMessage, BridgeType } from '@/types/plugin-management-ui.generated'
+import type { BridgeMessage, BridgeType, HostInitPayload } from '@/types/plugin-management-ui.generated'
 
-interface PluginSecretsResponse {
-  plugin_id: string
-  configured: Record<string, boolean>
-}
-
-interface PluginSecretsUpdateResponse extends PluginSecretsResponse {
-  changed_keys: string[]
-}
-
-interface OneBot11TargetIssue {
-  scope: 'protocol' | 'groups' | 'private_users' | 'identity'
-  message: string
-}
-
-interface OneBot11GroupTarget {
-  target_type: 'group'
-  target_id: string
-  target_name: string
-  avatar_url?: string
-}
-
-interface OneBot11PrivateTarget {
-  target_type: 'private'
-  target_id: string
-  nickname: string
-  avatar_url?: string
-}
-
-interface OneBot11ProtocolTargetsResponse {
-  protocol: 'onebot11'
-  available: boolean
-  groups: OneBot11GroupTarget[]
-  private_users: OneBot11PrivateTarget[]
-  issues: OneBot11TargetIssue[]
-}
-
-interface OneBot11IdentityResolveItem {
-  target_type: 'group' | 'private'
-  target_id: string
-  user_id: string
-}
-
-interface OneBot11IdentityResolveResponse {
-  items: Array<Record<string, unknown>>
-  issues: OneBot11TargetIssue[]
-}
-
-interface PluginManagementActionResponse {
-  plugin_id: string
-  action: string
-  result: Record<string, unknown>
-}
+type PluginSecretsResponse = components['schemas']['PluginSecretsResponse']
+type PluginSecretsUpdateResponse = components['schemas']['PluginSecretsUpdateResponse']
+type OneBot11ProtocolTargetsResponse = components['schemas']['OneBot11ProtocolTargetsResponse']
+type OneBot11IdentityResolveItem = components['schemas']['OneBot11IdentityResolveItem']
+type OneBot11IdentityResolveResponse = components['schemas']['OneBot11IdentityResolveResponse']
+type PluginManagementActionResponse = components['schemas']['PluginManagementActionResponse']
 
 const props = defineProps<{
   plugin: PluginDetail
@@ -261,7 +215,7 @@ function postError(error: unknown, id?: string, session = bridgeSession) {
   }, id)
 }
 
-function themePayload() {
+function themePayload(): HostInitPayload['theme'] {
   const styles = getComputedStyle(document.documentElement)
   return {
     mode: uiShellStore.resolvedThemeMode,
@@ -277,7 +231,7 @@ function themePayload() {
 }
 
 function postHostInit() {
-  postPort('host.init', {
+  const payload: HostInitPayload = {
     plugin: {
       id: props.plugin.id,
       name: props.plugin.name ?? props.plugin.id,
@@ -290,7 +244,8 @@ function postHostInit() {
     theme: themePayload(),
     language: document.documentElement.lang || navigator.language || 'zh-CN',
     allowed_permissions: Object.keys(props.plugin.permissions),
-  })
+  }
+  postPort('host.init', payload)
 }
 
 async function initializeBridge(session: number) {

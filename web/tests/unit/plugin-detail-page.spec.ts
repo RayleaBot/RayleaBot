@@ -168,7 +168,7 @@ describe('PluginDetailPage', () => {
       id: 'weather', name: 'Weather', role: 'community', state: 'failed',
       state_diagnosis: { kind: 'initialization_failed', last_error_code: 'plugin.init_timeout', last_error_message: 'raw backend wording', recoverable: false },
       source: { root: 'plugins/installed', package_source_type: 'local_directory', package_source_ref: 'fixture', verified: false },
-      trust: { level: 'unverified', label: '未验证来源' }, permissions: {}, webhooks: [], commands: [], command_groups: [], help: {}, command_conflicts: [],
+      trust: { level: 'unverified' }, permissions: {}, webhooks: [], commands: [], command_groups: [], help: {}, command_conflicts: [],
     }
     vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(undefined)
     vi.spyOn(useConfigStore(), 'fetchConfig').mockResolvedValue(undefined)

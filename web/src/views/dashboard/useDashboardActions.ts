@@ -64,9 +64,10 @@ export function useDashboardActions(state: DashboardActionState) {
     }
   }
 
-  async function bootstrapRuntimeResources() {
+  async function bootstrapRuntimeResources(resources = state.recoveryBootstrapResources.value) {
+    if (resources.length === 0) return
     try {
-      await state.systemStore.bootstrapManagedRuntime(state.recoveryBootstrapResources.value)
+      await state.systemStore.bootstrapManagedRuntime(resources)
       notifySuccess(t('dashboard.runtimeBootstrapAccepted'))
     } catch (error) {
       notifyError(getDisplayErrorMessage(error))

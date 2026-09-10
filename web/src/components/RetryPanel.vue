@@ -5,8 +5,7 @@ import { computed, getCurrentInstance } from 'vue'
 import type { Router } from 'vue-router'
 
 import AppFallback from '@/components/fallback/AppFallback.vue'
-import { t } from '@/i18n'
-import { resolveExceptionStatusFromText, type ExceptionStatus } from '@/lib/exception-status'
+import { resolveExceptionStatus, type ExceptionStatus } from '@/lib/exception-status'
 
 const props = defineProps<{
   title: string
@@ -14,6 +13,7 @@ const props = defineProps<{
   loading?: boolean
   retryLabel?: string
   status?: ExceptionStatus
+  error?: unknown
   variant?: 'compact' | 'page'
 }>()
 
@@ -24,19 +24,7 @@ defineEmits<{
 const instance = getCurrentInstance()
 const router = instance?.appContext.config.globalProperties.$router as Router | undefined
 const isPageVariant = computed(() => props.variant === 'page')
-const fallbackStatus = computed(() => props.status ?? resolveExceptionStatusFromText(props.description))
-const usesNativeFallbackCopy = computed(() => {
-  const genericCopy = new Set([
-    t('errors.common.actionFailed'),
-    t('errors.common.loadFailed'),
-    t('errors.permission.denied'),
-    t('errors.platform.notFound'),
-  ])
-
-  return genericCopy.has(props.title) || genericCopy.has(props.description)
-})
-const fallbackTitle = computed(() => (usesNativeFallbackCopy.value ? undefined : props.title))
-const fallbackDescription = computed(() => (usesNativeFallbackCopy.value ? undefined : props.description))
+const fallbackStatus = computed(() => props.status ?? resolveExceptionStatus(props.error))
 
 function goHome() {
   void router?.push({ name: 'status' })
@@ -48,8 +36,8 @@ function goHome() {
     <AppFallback
       v-if="isPageVariant"
       :status="fallbackStatus"
-      :title="fallbackTitle"
-      :description="fallbackDescription"
+      :title="title"
+      :description="description"
       :retry-label="retryLabel"
       :retry-loading="loading"
       @home="goHome"

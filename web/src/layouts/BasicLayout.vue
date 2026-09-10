@@ -349,7 +349,7 @@ function resolvePluginTabIdentity(item: ShellTabItem) {
     }
 
     const plugin = pluginsStore.detailsByPluginId[pluginId]
-      ?? pluginsStore.items.find(candidate => candidate.id === pluginId)
+      ?? pluginsStore.knownItems.find(candidate => candidate.id === pluginId)
     return {
       icon: plugin?.icon,
       pluginId,

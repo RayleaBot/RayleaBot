@@ -32,51 +32,47 @@ export const useSystemStore = defineStore('system', () => {
   const error = ref<string | null>(null)
   const recentEvents = ref<Array<{ timestamp: string; summary: string; payload: EventsPayload }>>([])
 
+  let snapshotRequestID = 0
+  let interactiveLoads = 0
+
   const isHealthy = computed(() => health.value?.status === 'ok')
 
-  async function requestReadinessStatus() {
+  async function requestReadinessStatus(signal?: AbortSignal) {
     return await apiRequest<ReadinessStatusResponse>('/readyz', {
       auth: false,
       acceptStatuses: [503],
+      signal,
     })
   }
 
-  async function refreshSnapshot(options: { includeHealth: boolean; interactive: boolean }) {
+  async function refreshSnapshot(options: { includeHealth: boolean; interactive: boolean; signal?: AbortSignal }) {
+    const requestID = ++snapshotRequestID
     if (options.interactive) {
+      interactiveLoads++
       loading.value = true
       error.value = null
     }
     try {
-      const requests = [
-        requestReadinessStatus(),
-        apiRequest<SystemStatusResponse>('/api/system/status'),
-        apiRequest<SystemDiagnosticsResponse>('/api/system/diagnostics'),
-      ] as const
-
-      if (options.includeHealth) {
-        const [nextHealth, nextReadiness, nextSystem, nextDiagnostics] = await Promise.all([
-          apiRequest<LivenessStatusResponse>('/healthz', { auth: false }),
-          ...requests,
-        ])
-        health.value = nextHealth
-        readiness.value = nextSystem.health ?? nextReadiness
-        system.value = nextSystem
-        diagnostics.value = nextDiagnostics
-        return
-      }
-
-      const [nextReadiness, nextSystem, nextDiagnostics] = await Promise.all(requests)
+      const [nextReadiness, nextSystem, nextDiagnostics, nextHealth] = await Promise.all([
+        requestReadinessStatus(options.signal),
+        apiRequest<SystemStatusResponse>('/api/system/status', { signal: options.signal }),
+        apiRequest<SystemDiagnosticsResponse>('/api/system/diagnostics', { signal: options.signal }),
+        options.includeHealth ? apiRequest<LivenessStatusResponse>('/healthz', { auth: false, signal: options.signal }) : null,
+      ])
+      options.signal?.throwIfAborted()
+      if (requestID !== snapshotRequestID) return
+      if (nextHealth) health.value = nextHealth
       readiness.value = nextSystem.health ?? nextReadiness
       system.value = nextSystem
       diagnostics.value = nextDiagnostics
     } catch (err) {
-      if (options.interactive) {
+      if (options.interactive && !options.signal?.aborted && requestID === snapshotRequestID) {
         error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
       }
       throw err
     } finally {
       if (options.interactive) {
-        loading.value = false
+        loading.value = --interactiveLoads > 0
       }
     }
   }
@@ -85,8 +81,8 @@ export const useSystemStore = defineStore('system', () => {
     await refreshSnapshot({ includeHealth: true, interactive: true })
   }
 
-  async function refreshStatus() {
-    await refreshSnapshot({ includeHealth: false, interactive: false })
+  async function refreshStatus(signal?: AbortSignal) {
+    await refreshSnapshot({ includeHealth: false, interactive: false, signal })
   }
 
   function applyEvent(timestamp: string, payload: EventsPayload) {

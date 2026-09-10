@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { getPluginTrustLabel } from '@/lib/display'
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
 import AppSelect from '@/components/AppSelect.vue'
 import AppSegmented from '@/components/AppSegmented.vue'
@@ -14,7 +14,7 @@ import AppDetailItem from '@/components/AppDetailItem.vue'
 import AppCheckbox from '@/components/AppCheckbox.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   FilterIcon,
@@ -43,6 +43,7 @@ import {
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { buildPluginDetailLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
+import { getPluginTrustLabel } from '@/lib/display'
 import { usePluginsStore } from '@/stores/plugins'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import { usePluginInstallFlow } from './usePluginInstallFlow'
@@ -56,7 +57,7 @@ interface PluginHealthNotice {
 
 const navigate = useMotionNavigation()
 const pluginsStore = usePluginsStore()
-const { actionPending, error, inspectionPending, installPending, loading, sortedItems } = storeToRefs(pluginsStore)
+const { actionPending, error, inspectionPending, installPending, loading, sortedItems, total, nextCursor, loadingMore } = storeToRefs(pluginsStore)
 const {
   installDialogVisible,
   installForm,
@@ -97,7 +98,7 @@ const pageErrorToast = computed(() => (
 useToastFeedback(pageErrorToast)
 
 function isOfficialPlugin(record: (typeof sortedItems.value)[number]) {
-  return record.trust?.level === 'official' || record.role === 'official'
+  return record.trust?.level === 'official'
 }
 
 function getTrustLabel(record: (typeof sortedItems.value)[number]) {
@@ -119,40 +120,9 @@ function getSourceTypeLabel(type?: string) {
   return type || t('display.empty')
 }
 
-const filteredItems = computed(() => {
-  return sortedItems.value.filter((item) => {
-    // 1. Search Query
-    if (searchQuery.value) {
-      const q = searchQuery.value.toLowerCase().trim()
-      const matchName = item.name?.toLowerCase().includes(q)
-      const matchId = item.id?.toLowerCase().includes(q)
-      const matchDesc = item.description?.toLowerCase().includes(q)
-      if (!matchName && !matchId && !matchDesc) return false
-    }
-
-    // 2. Filter State
-    if (filterState.value === 'running') {
-      if (item.state !== 'running') return false
-    } else if (filterState.value === 'disabled') {
-      if (item.state !== 'disabled') return false
-    } else if (filterState.value === 'alert') {
-      const hasConflicts = (item.command_conflicts?.length ?? 0) > 0
-      const hasIssue = item.state === 'failed' || item.state === 'invalid'
-      if (!hasConflicts && !hasIssue) return false
-    }
-
-    // 3. Filter Source
-    if (filterSource.value === 'official') {
-      const isOfficial = isOfficialPlugin(item)
-      if (!isOfficial) return false
-    } else if (filterSource.value === 'community') {
-      const isOfficial = isOfficialPlugin(item)
-      if (isOfficial) return false
-    }
-
-    return true
-  })
-})
+const filteredItems = computed(() => sortedItems.value)
+const listQuery = computed(() => ({ query: searchQuery.value, state: filterState.value === 'all' ? undefined : filterState.value, source: filterSource.value === 'all' ? undefined : filterSource.value }))
+watch(listQuery, () => { void loadPlugins() })
 
 const summaryPlugin = computed(() => sortedItems.value.find((item) => item.id === summaryPluginId.value) ?? null)
 
@@ -197,7 +167,7 @@ function getTagColor(tone: HealthNoticeTone) {
 
 async function loadPlugins() {
   try {
-    await pluginsStore.fetchList()
+    await pluginsStore.fetchList(listQuery.value)
   } catch {
     // store error state drives the page
   }
@@ -271,7 +241,7 @@ async function reloadPlugin(pluginId: string) {
           <template #left>
             <div class="toolbar-filters plugins-filter-desktop">
               <AppInput
-                v-model="searchQuery"
+                v-model="searchQuery" :maxlength="200"
                 :placeholder="t('plugins.filter.searchPlaceholder')"
                 wrapper-class="filter-search"
                 allow-clear
@@ -387,13 +357,14 @@ async function reloadPlugin(pluginId: string) {
             </article>
           </div>
         </div>
+        <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="pluginsStore.loadMore().catch(() => undefined)" />
       </AppCard>
     </div>
 
     <AppDrawer :open="filterDrawerVisible" placement="bottom" :title="t('plugins.filter.title')" @close="filterDrawerVisible = false">
       <div class="plugins-filter-drawer">
         <AppInput
-          v-model="searchQuery"
+          v-model="searchQuery" :maxlength="200"
           :placeholder="t('plugins.filter.searchPlaceholder')"
           allow-clear
         >

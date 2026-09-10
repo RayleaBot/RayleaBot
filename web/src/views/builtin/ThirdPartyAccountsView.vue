@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import { useAccountQRLogins, type QRLoginState } from './useAccountQRLogins'
 import { useAccountAvatars } from './useAccountAvatars'
 import AppTextarea from '@/components/AppTextarea.vue'
@@ -11,7 +12,7 @@ import AppField from '@/components/AppField.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAvatar from '@/components/AppAvatar.vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   Trash2Icon,
@@ -71,6 +72,7 @@ interface PlatformSection {
 
 const store = useThirdPartyAccountsStore()
 const {
+  total, nextCursor, loadingMore,
   accounts,
   accountsByPlatform,
   deletingAccountId,
@@ -81,6 +83,9 @@ const {
   savingAccountId,
   validatingAccountIds,
 } = storeToRefs(store)
+
+const searchQuery = ref('')
+watch(searchQuery, () => { void store.search({ query: searchQuery.value }).catch(() => undefined) })
 
 const drafts = reactive<Record<string, AccountDraft>>({})
 
@@ -143,7 +148,7 @@ onMounted(() => { void loadPage() })
 
 async function loadPage() {
   try {
-    await store.fetchAll()
+    await store.fetchAll(undefined, { query: searchQuery.value })
   } catch {
     // store error state drives the page
   }
@@ -308,6 +313,7 @@ function nextAccountId(platform: ThirdPartyPlatform) {
       .filter((entry) => entry.draft.platform === platform)
       .map((entry) => normalizeAccountId(entry.draft.account_id)),
   ])
+  if (store.nextCursor || searchQuery.value.trim()) return `${platform}-${crypto.randomUUID().slice(0, 8)}`
   if (!used.has('primary')) {
     return 'primary'
   }
@@ -455,6 +461,7 @@ function timeText(value?: string | null) {
 
 <template>
   <AppPage :title="t('builtinFeatures.thirdPartyAccounts.title')" :description="t('builtinFeatures.thirdPartyAccounts.subtitle')" width="detail">
+    <AppInput v-model="searchQuery" :maxlength="200" aria-label="搜索账号" placeholder="搜索平台、账号、标签或昵称" allow-clear />
     <RetryPanel
       v-if="fatalError"
       :title="t('errors.common.loadFailed')"
@@ -484,7 +491,7 @@ function timeText(value?: string | null) {
                 </button>
               </AppPopover>
             </div>
-            <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
+            <p>已加载账号：{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: configuredAccountCount, enabled: enabledAccountCount }) }}</p>
           </div>
         </div>
 
@@ -514,7 +521,7 @@ function timeText(value?: string | null) {
             <div class="platform-section__header">
               <div>
                 <h3>{{ section.label }}</h3>
-                <p>{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: section.configuredCount, enabled: section.enabledCount }) }}</p>
+                <p>已加载账号：{{ t('builtinFeatures.thirdPartyAccounts.accountSummary', { configured: section.configuredCount, enabled: section.enabledCount }) }}</p>
               </div>
               <AppButton variant="default" size="sm" :data-add-platform="section.platform" @click="addDraft(section.platform)">
                 <template #icon><PlusIcon /></template>
@@ -764,6 +771,7 @@ function timeText(value?: string | null) {
       @after-close="deleteCandidate = null"
       @confirm="deleteCandidate && deleteAccount(deleteCandidate)"
     />
+    <AppCollectionPagination :loaded="accounts.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="store.loadMore().catch(() => undefined)" />
   </AppPage>
 </template>
 

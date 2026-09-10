@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppPopover from '@/components/AppPopover.vue'
 import AppDialog from '@/components/AppDialog.vue'
 import AppDataTable from '@/components/AppDataTable.vue'
@@ -22,7 +23,7 @@ import {
   CheckIcon,
   TriangleAlertIcon,
 } from '@lucide/vue'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifyError, notifySuccess } from '@/adapter/feedback'
@@ -42,7 +43,7 @@ const schedulerStore = useSchedulerJobsStore()
 const pluginsStore = usePluginsStore()
 const pluginMap = computed(() => new Map(pluginsStore.items.map(plugin => [plugin.id, plugin])))
 function pluginName(job: SchedulerJobSummary) { return pluginsStore.getPluginDisplayName(job.plugin_id, job.plugin_name) }
-const { error, loading, sortedItems, triggeringJobId } = storeToRefs(schedulerStore)
+const { error, loading, sortedItems, triggeringJobId, total, nextCursor, loadingMore } = storeToRefs(schedulerStore)
 
 const {
   closeJobDetail,
@@ -58,19 +59,25 @@ const sortBy = ref<'name' | 'last_run' | 'duration'>('name')
 const timeTick = ref(0)
 let timerId: ReturnType<typeof setInterval> | null = null
 
-onMounted(() => {
+function activatePage() {
+  if (timerId) return
   void pluginsStore.ensureList().catch(() => undefined)
   schedulerStore.setLiveRefreshActive(true)
   void loadSchedulerJobs()
   timerId = setInterval(() => {
     timeTick.value++
   }, 10000)
-})
+}
 
-onUnmounted(() => {
+function deactivatePage() {
   schedulerStore.setLiveRefreshActive(false)
   if (timerId) clearInterval(timerId)
-})
+  timerId = null
+}
+onMounted(activatePage)
+onActivated(activatePage)
+onDeactivated(deactivatePage)
+onUnmounted(deactivatePage)
 
 const tableColumns = computed(() => [
   { label: `${t('scheduler.fields.plugin')} / ${t('scheduler.fields.task')}`, key: 'plugin', width: 300 },
@@ -83,7 +90,7 @@ const tableColumns = computed(() => [
 
 async function loadSchedulerJobs() {
   try {
-    await schedulerStore.fetchList()
+    await schedulerStore.search({ query: searchQuery.value, status: statusFilter.value === 'all' ? undefined : statusFilter.value, sort: sortBy.value })
   } catch {
     // store error state drives the page
   }
@@ -212,52 +219,8 @@ async function copyToClipboard(text?: string) {
   }
 }
 
-// 多维过滤与排序 computed 数据集
-const filteredItems = computed(() => {
-  timeTick.value
-  let result = [...sortedItems.value]
-
-  // 1. 搜索词检索
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase().trim()
-    result = result.filter(
-      (item) =>
-        pluginName(item).toLowerCase().includes(q) ||
-        item.plugin_id.toLowerCase().includes(q) ||
-        item.task_name.toLowerCase().includes(q) ||
-        item.job_id.toLowerCase().includes(q) ||
-        (item.log_label && item.log_label.toLowerCase().includes(q)) ||
-        (item.payload_summary.content && item.payload_summary.content.toLowerCase().includes(q))
-    )
-  }
-
-  // 2. 状态胶囊筛选
-  if (statusFilter.value === 'success') {
-    result = result.filter((item) => !item.last_error)
-  } else if (statusFilter.value === 'error') {
-    result = result.filter((item) => !!item.last_error)
-  }
-
-  // 3. 多维排序
-  if (sortBy.value === 'name') {
-    result.sort((left, right) => {
-      if (pluginName(left) === pluginName(right)) {
-        return left.task_name.localeCompare(right.task_name)
-      }
-      return pluginName(left).localeCompare(pluginName(right))
-    })
-  } else if (sortBy.value === 'last_run') {
-    result.sort((left, right) => {
-      const tLeft = left.last_run ? new Date(left.last_run).getTime() : 0
-      const tRight = right.last_run ? new Date(right.last_run).getTime() : 0
-      return tRight - tLeft
-    })
-  } else if (sortBy.value === 'duration') {
-    result.sort((left, right) => (right.last_duration_ms || 0) - (left.last_duration_ms || 0))
-  }
-
-  return result
-})
+const filteredItems = computed(() => { timeTick.value; return sortedItems.value })
+watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
 </script>
 
 <template>
@@ -267,7 +230,7 @@ const filteredItems = computed(() => {
       <div class="scheduler-filter-card">
       <div class="filter-left">
         <AppInput
-          v-model="searchQuery"
+          v-model="searchQuery" :maxlength="200"
           placeholder="搜索插件、任务或自定义内容..."
           allow-clear
           wrapper-class="filter-search-input" aria-label="搜索定时任务"
@@ -515,6 +478,8 @@ const filteredItems = computed(() => {
     </div>
   </div>
 </div>
+
+    <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="schedulerStore.loadMore().catch(() => undefined)" />
 
     <AppDialog :open="detailVisible" title="定时任务详情" :width="800" @close="closeJobDetail" @after-close="finishJobDetailClose">
                 <div

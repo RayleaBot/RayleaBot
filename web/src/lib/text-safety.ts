@@ -6,14 +6,6 @@ export function escapeUnsafeDisplayText(value: string) {
   ))
 }
 
-export function toSafeDisplayText(value: unknown) {
-  if (value === null || value === undefined) {
-    return ''
-  }
-
-  return escapeUnsafeDisplayText(String(value))
-}
-
 export function safeJsonStringify(value: unknown) {
   try {
     return escapeUnsafeDisplayText(JSON.stringify(value ?? {}, null, 2))

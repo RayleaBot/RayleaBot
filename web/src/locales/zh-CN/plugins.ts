@@ -1,6 +1,12 @@
 export const plugins = {
   initializationFailed: '插件初始化失败',
   initializationFailureDescription: '{reason}。修正问题后可重新加载插件。',
+  picker: {
+    title: '选择插件',
+    search: '搜索插件名称或 ID',
+    empty: '本页没有匹配的插件，可调整搜索或继续加载。',
+    clear: '清除选择',
+  },
   store: {
     title: '插件商店',
     searchPlaceholder: '搜索插件名称、ID、发布者或关键词',

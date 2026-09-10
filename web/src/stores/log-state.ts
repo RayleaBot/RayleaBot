@@ -117,16 +117,6 @@ export function sortLogItemsAsc(items: LogSummary[]) {
   })
 }
 
-export function mergeLogItemsAsc(existingItems: LogSummary[], nextItems: LogSummary[]) {
-  const merged = new Map<string, LogSummary>()
-
-  for (const item of [...existingItems, ...nextItems]) {
-    merged.set(getLogIdentityKey(item), item)
-  }
-
-  return sortLogItemsAsc(Array.from(merged.values()))
-}
-
 export function mergeSortedLogItemsAsc(existingItems: LogSummary[], nextItems: LogSummary[]) {
   if (existingItems.length === 0) {
     return sortLogItemsAsc(nextItems)

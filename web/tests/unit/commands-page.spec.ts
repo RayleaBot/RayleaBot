@@ -4,14 +4,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import CommandsPage from '@/views/operations/CommandsView.vue'
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
+import { apiRequest } from '@/lib/http'
 import type { ConfigDocument } from '@/types/api'
+
+vi.mock('@/lib/http', async importOriginal => ({ ...await importOriginal<typeof import('@/lib/http')>(), apiRequest: vi.fn() }))
 
 function createFixtureConfig(prefixes: string[]): ConfigDocument {
   return {
-    schema_version: '2',
+    schema_version: '4',
     server: { host: '127.0.0.1', port: 8080 },
     onebot: {
       reverse_ws: { enabled: false, url: '', access_token: '' },
@@ -98,6 +102,42 @@ describe('CommandsPage', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     document.body.innerHTML = ''
+  })
+
+  it('does not classify unloaded plugin commands as unavailable and opens an off-page deep link', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes: [
+      { path: '/commands', name: 'commands', component: CommandsPage },
+      { path: '/plugins/:id', name: 'plugin-detail', component: { template: '<div />' } },
+    ] })
+    await router.push('/commands')
+    await router.isReady()
+    const configStore = useConfigStore()
+    configStore.document = createFixtureConfig(['/'])
+    vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
+    const governance = useGovernanceStore()
+    governance.commandPolicy = { default_level: 'everyone', cooldown: { user_command_rate_limit: '10/60s', group_command_rate_limit: '30/60s', cooldown_reply: true }, commands: [] }
+    vi.spyOn(governance, 'fetchCommandPolicy').mockResolvedValue(governance.commandPolicy)
+    const makePlugin = (id: string) => ({ id, name: id, role: 'community', state: 'running', commands: [{ id, name: id, effective_names: [id], description: id + ' description', usage: id, permission: 'everyone', trigger: { type: 'exact', names: [id] } }], command_groups: [], command_conflicts: [], help: {} })
+    const first = makePlugin('first-command')
+    const later = makePlugin('later-command')
+    governance.commandPolicy.commands = [{ plugin_id: later.id, plugin_name: later.name, command_id: later.id, command: later.id, aliases: [], trigger: { type: 'exact', names: [later.id] }, declared_permission: 'everyone', effective_permission: 'everyone', permission_source: 'declared' }]
+    vi.mocked(apiRequest).mockImplementation(async path => {
+      if (path === '/api/plugins/later-command') return { plugin: { ...later, permissions: {}, webhooks: [] } } as never
+      if (path.includes('cursor=1')) return { items: [later], total: 2 } as never
+      return { items: [first], total: 2, next_cursor: '1' } as never
+    })
+    const wrapper = mount(CommandsPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('first-command description')
+    expect(wrapper.text()).not.toContain('later-command')
+    expect(wrapper.getComponent(AppCollectionPagination).props('nextCursor')).toBe('1')
+    expect(vi.mocked(apiRequest).mock.calls.some(call => call[0].includes('cursor='))).toBe(false)
+    await router.push('/commands?plugin_id=later-command')
+    await flushPromises()
+    expect(wrapper.text()).toContain('later-command description')
+    expect(wrapper.text()).toContain('当前可用')
+    expect(vi.mocked(apiRequest).mock.calls.some(call => call[0] === '/api/plugins/later-command')).toBe(true)
+    expect(vi.mocked(apiRequest).mock.calls.some(call => call[0].includes('cursor='))).toBe(false)
   })
 
   it('renders a filtered command list with command and policy details', async () => {
@@ -191,7 +231,8 @@ describe('CommandsPage', () => {
       ],
     }
 
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    store.rememberSummaries(store.items)
+    vi.mocked(apiRequest).mockResolvedValue({ items: store.items, total: store.items.length })
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
 
@@ -216,7 +257,7 @@ describe('CommandsPage', () => {
     expect(wrapper.text()).toContain('权限策略')
     expect(router.currentRoute.value.fullPath).toContain('plugin_id=raylea.fortune')
 
-    const select = wrapper.findComponent({ name: 'AppSelect' })
+    const select = wrapper.findComponent({ name: 'PluginPicker' })
     await select.vm.$emit('update:modelValue', ['raylea.echo'])
     await flushPromises()
 
@@ -274,7 +315,8 @@ describe('CommandsPage', () => {
       ],
     }
 
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    store.rememberSummaries(store.items)
+    vi.mocked(apiRequest).mockResolvedValue({ items: store.items, total: store.items.length })
     vi.spyOn(configStore, 'fetchConfig').mockResolvedValue(undefined)
     vi.spyOn(governanceStore, 'fetchCommandPolicy').mockResolvedValue(governanceStore.commandPolicy)
 

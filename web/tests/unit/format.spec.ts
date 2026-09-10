@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { formatDateTime, formatRateLimit, formatRelativeTime } from '@/lib/format'
+import { formatDateTime, formatDurationSeconds, formatRateLimit, formatRelativeTime } from '@/lib/format'
 import { i18n } from '@/i18n'
 
 afterEach(() => {
@@ -39,6 +39,15 @@ describe('format helpers', () => {
 
     expect(formatRelativeTime(scientificUnixSeconds)).toBe('30 秒前')
     expect(formatRelativeTime(thirtySecondsAgo)).toBe('30 秒前')
+  })
+
+  it('distinguishes future instants and rejects invalid durations', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-10T03:30:00Z'))
+    expect(formatRelativeTime(Date.now() + 90_000)).toBe('1 分钟后')
+    expect(formatRelativeTime(Date.now() - 90_000)).toBe('1 分钟前')
+    for (const value of [Number.NaN, Number.POSITIVE_INFINITY, -1]) expect(formatDurationSeconds(value)).toBe('—')
+    expect(formatDurationSeconds(0)).toBe('0 秒')
   })
 
   it('formats rate limits into readable chinese text', () => {

@@ -98,16 +98,14 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('plugins')
   })
 
-  it('clears local bearer storage and opens setup when initialization is required', async () => {
+  it('opens setup when initialization is required', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ initialized: false })))
-    window.localStorage.setItem('rayleabot.session_token', 'stale-session-token')
     const router = createAppRouter(createMemoryHistory())
 
     await router.push('/')
     await router.isReady()
 
     expect(router.currentRoute.value.name).toBe('setup')
-    expect(window.localStorage.getItem('rayleabot.session_token')).toBeNull()
   })
 
   it('keeps the requested page in place when session bootstrap is interrupted', async () => {

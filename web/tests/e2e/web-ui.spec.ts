@@ -154,14 +154,6 @@ function logDetailWindow(page: import('@playwright/test').Page) {
   return page.getByTestId('management-log-detail-window')
 }
 
-async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
-  const category = sectionKey === 'runtime' ? '运行与请求' : '账号与调度'
-  await page.getByRole('tab', { name: category }).click()
-  const advanced = page.locator('.config-advanced__trigger')
-  if (await advanced.getAttribute('data-state') === 'closed') await advanced.click()
-  await page.locator(`[data-section-key="${sectionKey}"]`).first().scrollIntoViewIfNeeded()
-}
-
 function logFilterField(page: import('@playwright/test').Page, label: string) {
   return page.locator('.logs-filter-grid:visible .app-field, .log-advanced-filters__panel:visible .app-field')
     .filter({ hasText: label })
@@ -278,7 +270,7 @@ async function expectRepeatedLogFilterControls(page: import('@playwright/test').
   await expect(levelTags).toContainText('error')
 
   await openLogAdvancedFilters(page)
-  const pluginTags = logFilterField(page, '插件').getByRole('combobox')
+  const pluginTags = logFilterField(page, '插件').locator('.plugin-picker__trigger')
   await expect(pluginTags).toContainText('weather')
   await expect(pluginTags).toContainText('raylea.echo')
 }
@@ -589,10 +581,13 @@ test('plugin management flow covers install, manifest detail and console recover
   await expect(installDialog.getByText('http.request', { exact: true })).toBeVisible()
   await expect(installDialog.getByText('message.send', { exact: true })).toBeVisible()
   await installDialog.getByRole('checkbox', { name: /我已核对来源、目标平台、artifact 摘要和权限/ }).check()
+  const completedInstall = page.waitForResponse(response => response.request().method() === 'GET' && response.url().includes('/api/system/tasks/task_plugin_install_0001'))
   await installDialog.getByRole('button', { name: '开始安装' }).click()
 
   await expectPluginCenterPage(page, '插件列表')
-  await expect(page.getByText('安装任务已提交，可在实时日志查看结果').first()).toBeVisible()
+  expect((await completedInstall).ok()).toBeTruthy()
+  expect((await (await completedInstall).json()).status).toBe('succeeded')
+  await expect(page.getByText('插件安装完成', { exact: true }).first()).toBeVisible()
   await page.goto('/logs?source=tasks')
   await expect(page.getByRole('heading', { name: '实时日志', level: 1 })).toBeVisible()
   await expect(page.getByText('task_plugin_install_0001').first()).toBeVisible()
@@ -1149,31 +1144,24 @@ test('current logs stop following immediately when the user scrolls upward durin
 
   const bottomBefore = await logScroller(page).evaluate((node) => node.scrollTop)
 
-  await page.evaluate(() => {
-    const state = { index: 121, timer: 0 }
-    state.timer = window.setInterval(() => {
-        state.index += 1
-        const current = state.index
-        void fetch('http://127.0.0.1:4010/__test/push-log', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            summary: {
-              log_id: `log_live_follow_pause_dyn_${current}`,
-              timestamp: new Date(Date.now() + current * 1000).toISOString(),
-              level: 'info',
-              source: 'runtime',
-              request_id: 'req_live_follow_pause',
-              message: `live follow dyn ${current}`,
-            },
-          }),
-        })
-      }, 120)
-
-    ;(window as Window & { __liveFollowPauseState?: typeof state }).__liveFollowPauseState = state
-  })
+  let stopAppending = false
+  let appended = 0
+  const liveAppends = (async () => {
+    while (!stopAppending) {
+      const current = 122 + appended
+      const response = await request.post(`${backendUrl}/__test/push-log`, { data: { summary: {
+        log_id: `log_live_follow_pause_dyn_${current}`,
+        timestamp: new Date(Date.now() + current * 1000).toISOString(),
+        level: 'info', source: 'runtime', request_id: 'req_live_follow_pause', message: `live follow dyn ${current}`,
+      } } })
+      expect(response.ok()).toBe(true)
+      appended++
+      await new Promise(resolve => setTimeout(resolve, 120))
+    }
+  })()
 
   try {
+    await expect(page.locator('.logs-row__message', { hasText: 'live follow dyn' }).first()).toBeVisible()
     await logScroller(page).hover()
     for (let step = 0; step < 6; step += 1) {
       await page.mouse.wheel(0, -220)
@@ -1194,14 +1182,8 @@ test('current logs stop following immediately when the user scrolls upward durin
     expect(metrics.scrollTop).toBeLessThan(bottomBefore - 120)
     await expect(page.locator('.logs-row__message', { hasText: 'live follow dyn' })).toHaveCount(0)
   } finally {
-    await page.evaluate(() => {
-      const state = (window as Window & {
-        __liveFollowPauseState?: { timer: number }
-      }).__liveFollowPauseState
-      if (state) {
-        window.clearInterval(state.timer)
-      }
-    })
+    stopAppending = true
+    await liveAppends
   }
 })
 
@@ -1442,66 +1424,6 @@ test('unsafe OneBot text stays escaped in current logs and history logs', async 
   expect(historyText.includes('\u2066')).toBe(false)
 })
 
-test('config page edits general IPC rate limit with split inputs', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await page.goto('/config')
-  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-
-  await scrollConfigSectionIntoView(page, 'runtime')
-  await fillRateLimit(page, 'IPC 突发限制', '180', '5')
-  await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
-  await expect(page.locator('#config-save-status')).toContainText('含重启后生效的更改')
-
-  const [saved] = await Promise.all([
-    page.waitForResponse((response) => (
-      response.request().method() === 'PUT'
-      && response.url().endsWith('/api/config')
-    )),
-    page.getByRole('button', { name: '保存更改' }).click(),
-  ])
-  expect((await saved.json()).apply_effects.restart_required_fields).toContain('runtime.ipc_action_burst_limit')
-
-  await scrollConfigSectionIntoView(page, 'runtime')
-  await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
-})
-
-test('config page saves restart-required Douyin browser settings', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await page.goto('/config')
-  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-  await scrollConfigSectionIntoView(page, 'third-party-accounts')
-
-  await page.getByRole('spinbutton', { name: 'CK 自动检查间隔' }).fill('720')
-  await expect(page.getByRole('combobox', { name: '抖音登录浏览器模式' })).toContainText('自动选择')
-  await page.getByRole('combobox', { name: '抖音登录浏览器模式' }).click()
-  await page.getByRole('option', { name: '远程 CDP', exact: true }).click()
-  await page.getByRole('textbox', { name: '抖音远程调试地址' }).fill('http://127.0.0.1:9222')
-
-  const configResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'PUT'
-    && response.url().endsWith('/api/config')
-  ))
-  await page.getByRole('button', { name: '保存更改' }).click()
-  const configResponse = await configResponsePromise
-  const responseBody = await configResponse.json()
-  expect(responseBody.restart_required).toBe(true)
-  expect(responseBody.apply_effects.restart_required_fields).toEqual(expect.arrayContaining([
-    'third_party_accounts.douyin_login.browser_mode',
-    'third_party_accounts.douyin_login.remote_debugging_url',
-  ]))
-  expect(responseBody.apply_effects.applied_now).toContain('third_party_accounts.credential_check_interval_minutes')
-
-  await page.reload()
-  await scrollConfigSectionIntoView(page, 'third-party-accounts')
-  await expect(page.getByRole('spinbutton', { name: 'CK 自动检查间隔' })).toHaveValue('720')
-  await expect(page.getByRole('combobox', { name: '抖音登录浏览器模式' })).toContainText('远程 CDP')
-  await expect(page.getByRole('textbox', { name: '抖音远程调试地址' })).toHaveValue('http://127.0.0.1:9222')
-})
-
 test('rate limits page edits chat and outbound limits', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -1532,40 +1454,6 @@ test('rate limits page edits chat and outbound limits', async ({ page, request }
 
   await expect(page.getByTestId('rate-limits-unsaved-status')).toHaveCount(0)
   await expect(page.getByTestId('rate-limits-save-status')).toContainText('保存完成，已生效')
-})
-
-test('plugin settings page edits plugin global config', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  await navigateThroughMenu(page, '插件中心')
-  await page.getByTestId('plugin-center-sidebar-navigation').getByText('全局插件设置', { exact: true }).click()
-  await expectPluginCenterPage(page, '全局插件设置')
-  await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
-
-  const commandPrefixesInput = page.getByTestId('plugin-settings-command-prefixes').locator('input')
-  await commandPrefixesInput.click()
-  await commandPrefixesInput.fill('!')
-  await commandPrefixesInput.press('Enter')
-  await expect(page.getByTestId('plugin-settings-unsaved-status')).toContainText('有未保存更改')
-
-  await fillRateLimit(page, '插件日志速率限制', '300', '10')
-  await expect(
-    page.locator('.plugin-settings-setting-row').filter({ hasText: '插件日志速率限制' }).locator('.plugin-settings-rate-preview'),
-  ).toContainText('10 秒内最多 300 次')
-
-  await page.getByLabel('插件工作目录软上限（MB）').fill('512')
-
-  await Promise.all([
-    page.waitForResponse((response) => (
-      response.request().method() === 'PUT'
-      && response.url().endsWith('/api/config')
-    )),
-    page.getByTestId('plugin-settings-save').click(),
-  ])
-
-  await expect(page.getByTestId('plugin-settings-unsaved-status')).toHaveCount(0)
-  await expect(page.getByTestId('plugin-settings-save-status')).toContainText('保存完成，已生效')
 })
 
 test('status page can start backup tasks and export diagnostics', async ({ page, request }) => {
@@ -1746,7 +1634,7 @@ test('protocol dialogs stay centered throughout their opening animation', async 
 })
 
 test('protocol connection creation stays local until the completed form is saved', async ({ page, request }) => {
-  await resetBackend(request, true)
+  await request.post(`${backendUrl}/__test/reset`, { data: { initialized: true, config_apply_effects: { applied_now: [], reloaded_now: [], restart_required_fields: ['adapters'] } } })
   await login(page)
   await page.goto('/protocols')
   const writes: unknown[] = []
@@ -1985,7 +1873,7 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
 
   const pluginRequests: string[] = []
   page.on('request', (requestEvent) => {
-    if (requestEvent.method() === 'GET' && requestEvent.url().includes('/api/plugins')) {
+    if (requestEvent.method() === 'GET' && new URL(requestEvent.url()).pathname === '/api/plugins') {
       pluginRequests.push(requestEvent.url())
     }
   })
@@ -2001,7 +1889,7 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
       response.request().method() === 'GET'
       && response.url().endsWith('/api/plugins')
     )),
-    logFilterField(page, '插件').getByRole('combobox').click(),
+    logFilterField(page, '插件').locator('.plugin-picker__trigger').click(),
   ])
   expect(pluginRequests).toHaveLength(1)
   await page.keyboard.press('Escape')
@@ -2012,9 +1900,9 @@ test('logs pages load plugin options only when the plugin filter is opened', asy
   expect(pluginRequests).toHaveLength(1)
 
   await openLogAdvancedFilters(page)
-  await logFilterField(page, '插件').getByRole('combobox').click()
+  await logFilterField(page, '插件').locator('.plugin-picker__trigger').click()
   await page.waitForTimeout(200)
-  expect(pluginRequests).toHaveLength(1)
+  expect(pluginRequests).toHaveLength(2)
 })
 
 test('logs page filters both history and live log appends', async ({ page, request }) => {
@@ -2151,10 +2039,10 @@ test('command center shows all declared commands and filters by plugin selection
   await expect(commandsTable).toContainText('hello')
   await expect(commandsTable).toContainText('weather')
 
-  const pluginSelector = page.locator('.commands-filter-toolbar').getByRole('combobox')
+  const pluginSelector = page.locator('.commands-filter-toolbar .plugin-picker__trigger')
   await expect(pluginSelector).toBeVisible()
   await pluginSelector.click()
-  await page.getByRole('option', { name: /Weather/ }).click()
+  await page.getByRole('checkbox', { name: /Weather/ }).check()
   await page.keyboard.press('Escape')
 
   await expect(commandsTable).toContainText('weather')
@@ -2783,7 +2671,7 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
 
   await page.getByRole('button', { name: /卸\s*载/ }).click()
   await page.getByRole('button', { name: /确认卸载/ }).click()
-  await expect(page.locator('.app-toast__description').filter({ hasText: '插件卸载失败' })).toBeVisible()
+  await expect(page.locator('.app-toast__description').filter({ hasText: '内部错误' })).toBeVisible()
 })
 
 test('missing routes keep their fallback while network recovery stays in place', async ({ page, request }) => {

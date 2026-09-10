@@ -33,10 +33,11 @@ export interface PluginSocketProjection {
 export interface SocketFrameRouterDependencies {
   system: {
     applyEvent: (timestamp: string, payload: EventsPayload) => void
-    refreshStatus: () => Promise<unknown>
+    refreshStatus: (signal?: AbortSignal) => Promise<unknown>
   }
   plugins: {
     upsert: (plugin: PluginSocketProjection) => void
+    cancelPendingRefresh?: () => void
   }
   pluginConsole: {
     appendOutboundLog: (log: LogSummary) => void
@@ -44,15 +45,16 @@ export interface SocketFrameRouterDependencies {
   }
   schedulerJobs: {
     scheduleDataSourceRefresh: () => void
+    cancelPendingRefresh?: () => void
   }
   logs: {
     appendBatch: (logs: LogSummary[]) => unknown
   }
   governance: {
-    refresh: () => Promise<unknown>
+    refresh: (signal?: AbortSignal) => Promise<unknown>
   }
   thirdPartyAccounts: {
-    refresh: () => Promise<unknown>
+    refresh: (signal?: AbortSignal) => Promise<unknown>
   }
   adapters: {
     applySnapshot: (adapters: AdaptersSnapshotEvent['adapters']) => void

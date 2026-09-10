@@ -4,6 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 
 function jsonResponse(body: unknown, status = 200) {
+  if (body && typeof body === 'object') {
+    const value = body as Record<string, unknown>
+    if (Array.isArray(value.items)) body = { total: value.items.length, ...value }
+    if (Array.isArray(value.user_entries) && Array.isArray(value.group_entries)) body = { total: value.user_entries.length + value.group_entries.length, entry_count: value.user_entries.length + value.group_entries.length, ...value }
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -40,7 +45,7 @@ describe('render templates store', () => {
     setActivePinia(createPinia())
   })
 
-  it('sorts template summaries by updated_at descending', async () => {
+  it('sorts template summaries by the contract ID order', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(jsonResponse({
@@ -83,7 +88,7 @@ describe('render templates store', () => {
     expect(store.items.map((item) => item.id)).toEqual(['help.menu', 'status.panel'])
   })
 
-  it('loads one preview workspace detail and upserts the summary list', async () => {
+  it('loads a deep-linked detail without inserting it into an unrelated catalog page', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(jsonResponse({ template: templateDetail() })),
@@ -110,7 +115,7 @@ describe('render templates store', () => {
     await store.fetchTemplateWorkspace('help.menu')
 
     expect(store.detailById['help.menu']?.input_schema_json).toEqual(templateDetail().input_schema_json)
-    expect(store.items.map((item) => item.id)).toEqual(['help.menu', 'status.panel'])
+    expect(store.items.map((item) => item.id)).toEqual(['status.panel'])
   })
 
   it('keeps refreshed content when an old detail request completes later', async () => {
@@ -142,7 +147,7 @@ describe('render templates store', () => {
     resolveOld(jsonResponse({ template: templateDetail() }))
     await pending
     expect(store.detailById['help.menu']).toEqual(current)
-    expect(store.items[0]?.updated_at).toBe(current.updated_at)
+    expect(store.items).toEqual([])
     expect(store.workspaceLoading).toBe(false)
   })
 

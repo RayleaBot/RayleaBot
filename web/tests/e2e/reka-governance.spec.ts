@@ -16,7 +16,7 @@ test('saving an existing account without a cookie preserves its credential', asy
   await card.getByRole('textbox', { name: '备注', exact: true }).fill('更改显示名称')
   const saved = page.waitForRequest(request => request.method() === 'PUT' && request.url().endsWith('/api/third-party/accounts/bilibili/primary'))
   await card.getByRole('button', { name: '保存', exact: true }).click()
-  expect((await saved).postDataJSON()).toEqual({ label: '更改显示名称', enabled: true })
+  expect((await saved).postDataJSON()).toEqual({ create_only: false, label: '更改显示名称', enabled: true })
   await expect(card).not.toHaveClass(/account-card--editing/)
   await expect(card).toContainText('已配置')
 })

@@ -3,12 +3,12 @@ import AppTag from '@/components/AppTag.vue'
 import { getLogLevelLabel } from '@/lib/display'
 import { formatDateTime } from '@/lib/format'
 import { escapeUnsafeDisplayText } from '@/lib/text-safety'
-import { usePluginsStore } from '@/stores/plugins'
+import { usePluginDisplayName } from '@/lib/use-plugin-display-name'
 import type { LogSummary } from '@/types/api'
 
-defineProps<{ item: LogSummary; selected: boolean }>()
+const props = defineProps<{ item: LogSummary; selected: boolean }>()
 defineEmits<{ select: [item: LogSummary] }>()
-const pluginsStore = usePluginsStore()
+const pluginName = usePluginDisplayName(() => props.item.plugin_id)
 function getLevelColor(level: string) {
   if (level === 'error') return 'danger'
   if (level === 'warn') return 'warning'
@@ -38,7 +38,7 @@ function getLevelColor(level: string) {
         <AppTag size="small" :tone="getLevelColor(item.level)">
           {{ getLogLevelLabel(item.level) }}
         </AppTag>
-        <span v-if="item.plugin_id" class="logs-row__sub" :title="item.plugin_id">{{ pluginsStore.getPluginDisplayName(item.plugin_id) }}</span>
+        <span v-if="item.plugin_id" class="logs-row__sub" :title="item.plugin_id">{{ pluginName }}</span>
         <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
       </div>
       <p class="logs-row__message">{{ escapeUnsafeDisplayText(item.message) }}</p>

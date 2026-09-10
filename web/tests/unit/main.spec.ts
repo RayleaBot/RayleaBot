@@ -70,6 +70,7 @@ describe('web bootstrap', () => {
     createApp.mockReturnValue({
       use: vi.fn().mockReturnThis(),
       mount: vi.fn(),
+      onUnmount: vi.fn(),
     })
 
     createAppRouter.mockReturnValue({
@@ -139,6 +140,8 @@ describe('web bootstrap', () => {
   })
 
   it('keeps workspace state when startup detects a connection interruption', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
     window.history.replaceState({}, '', '/plugins/settings?panel=limits#rate')
 
     await import('@/main')
@@ -147,6 +150,8 @@ describe('web bootstrap', () => {
     const availabilityStore = appAvailabilityStoreFactory.mock.results[0]?.value
 
     startupRuntime.onNetworkUnavailable()
+    expect(availabilityStore.markConnectionInterrupted).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(800)
 
     expect(availabilityStore.markConnectionInterrupted).toHaveBeenCalledOnce()
     expect(useUiShellStore).not.toHaveBeenCalled()
@@ -201,6 +206,7 @@ describe('web bootstrap', () => {
     const app = {
       use: vi.fn().mockReturnThis(),
       mount: vi.fn(),
+      onUnmount: vi.fn(),
     }
     const router = {
       currentRoute: {

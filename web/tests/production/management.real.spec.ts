@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './real-server.fixture'
 
-test('real Server serves the built UI, authenticates and persists a configuration edit', async ({ page, request, baseURL }) => {
+test('real Server serves the built UI, authenticates and persists a configuration edit', async ({ page, request, baseURL, server }) => {
   const shell = await request.get('/plugins/example-config-panel')
   expect(shell.status()).toBe(200)
   expect(shell.headers()['content-type']).toContain('text/html')
@@ -10,7 +10,7 @@ test('real Server serves the built UI, authenticates and persists a configuratio
   expect((await request.get('/api/config')).status()).toBe(401)
 
   const setup = await request.post('/api/setup/admin', {
-    headers: { Origin: baseURL!, 'X-Raylea-Setup-Token': 'A'.repeat(43), 'X-Raylea-Session-Transport': 'bearer' },
+    headers: { Origin: baseURL!, 'X-Raylea-Setup-Token': server.setupToken, 'X-Raylea-Session-Transport': 'bearer' },
     data: { identifier: 'admin', secret: 'fixture-only-secret' },
   })
   expect(setup.status()).toBe(200)
@@ -68,16 +68,4 @@ test('real Server serves the built UI, authenticates and persists a configuratio
   await expect(page.locator('.logs-row').first()).toBeVisible()
   await page.locator('.logs-row').first().click()
   await expect(page.getByRole('dialog')).toBeVisible()
-})
-
-// Shut the fixture down through its real lifecycle before Playwright terminates
-// the webServer wrapper, allowing Windows to remove the temporary SQLite files.
-test.afterAll(async ({ baseURL }) => {
-  const response = await fetch(`${baseURL}/api/launcher/shutdown`, {
-    method: 'POST', headers: { 'X-Raylea-Launcher-Control': 'B'.repeat(43) }, signal: AbortSignal.timeout(5000),
-  })
-  expect(response.status).toBe(202)
-  await expect.poll(async () => {
-    try { await fetch(`${baseURL}/healthz`, { signal: AbortSignal.timeout(1000) }); return true } catch { return false }
-  }).toBe(false)
 })

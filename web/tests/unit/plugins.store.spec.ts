@@ -5,6 +5,11 @@ import { usePluginsStore } from '@/stores/plugins'
 import type { PluginDetail } from '@/types/api'
 
 function jsonResponse(body: unknown, status = 200) {
+  if (body && typeof body === 'object') {
+    const value = body as Record<string, unknown>
+    if (Array.isArray(value.items)) body = { total: value.items.length, ...value }
+    if (Array.isArray(value.user_entries) && Array.isArray(value.group_entries)) body = { total: value.user_entries.length + value.group_entries.length, entry_count: value.user_entries.length + value.group_entries.length, ...value }
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -32,7 +37,7 @@ describe('plugins store', () => {
     store.upsert({ id: 'zeta', name: 'Zeta', state: 'disabled' })
     store.upsert({ id: 'alpha', name: 'Alpha', state: 'disabled' })
 
-    expect(store.sortedItems.map((item) => item.id)).toEqual(['alpha', 'zeta'])
+    expect(store.knownItems.map((item) => item.id)).toEqual(['alpha', 'zeta'])
     expect(store.getPluginDisplayName('alpha')).toBe('Alpha')
     expect(store.getPluginDisplayName('unknown')).toBe('unknown')
   })
@@ -198,8 +203,8 @@ describe('plugins store', () => {
     await promise
 
     expect(store.actionPending.weather).toBeNull()
-    expect(store.items[0].state).toBe('running')
-    expect(store.items[0].commands).toEqual([weatherCommand])
+    expect(store.knownItems[0].state).toBe('running')
+    expect(store.knownItems[0].commands).toEqual([weatherCommand])
   })
 
   it('refreshes transient lifecycle state after an accepted action', async () => {
@@ -215,15 +220,13 @@ describe('plugins store', () => {
         },
       }))
       .mockResolvedValueOnce(jsonResponse({
-        items: [
-          {
+        plugin: {
             id: 'weather',
             name: 'weather',
             role: 'community',
             state: 'disabled',
             commands: [],
           },
-        ],
       }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -231,13 +234,13 @@ describe('plugins store', () => {
     store.upsert({ id: 'weather', state: 'running' })
 
     await store.executeAction('weather', 'disable')
-    expect(store.items[0].state).toBe('stopping')
+    expect(store.knownItems[0].state).toBe('stopping')
 
     await vi.advanceTimersByTimeAsync(700)
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/plugins')
-    expect(store.items[0].state).toBe('disabled')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/plugins/weather')
+    expect(store.knownItems[0].state).toBe('disabled')
   })
 
   it('preserves existing commands when a runtime event only updates states', () => {
@@ -259,7 +262,7 @@ describe('plugins store', () => {
       state: 'starting',
     })
 
-    expect(store.items[0].commands).toEqual([weatherCommand])
+    expect(store.knownItems[0].commands).toEqual([weatherCommand])
   })
 
   it('ignores stale plugin detail responses when a newer request is already in flight', async () => {

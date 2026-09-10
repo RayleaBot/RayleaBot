@@ -74,14 +74,6 @@ export function getRecoveryStatusLabel(status?: RecoveryCompatibilitySummary['st
   return status ? translated(`display.recoveryStatuses.${status}`, status) : t('display.empty')
 }
 
-export function getBooleanLabel(value?: boolean) {
-  if (value === undefined) {
-    return t('display.empty')
-  }
-
-  return value ? '是' : '否'
-}
-
 export type StatusType = 'success' | 'warning' | 'danger' | 'muted'
 
 const STATUS_TYPE_MAP: Record<string, StatusType> = {

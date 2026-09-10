@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import AppSelect from '@/components/AppSelect.vue'
+import PluginPicker from '@/components/plugins/PluginPicker.vue'
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppDataTable from '@/components/AppDataTable.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppField from '@/components/AppField.vue'
@@ -27,12 +28,12 @@ import { mergeCommandCenterRows, type PluginCommandAvailability, type UnifiedCom
 import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
+import { usePluginCollection } from '@/lib/use-plugin-collection'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type {
   CommandPermissionLevel,
   CommandPermissionSource,
   PluginCommandSummary,
-  PluginSummary,
 } from '@/types/api'
 
 const route = useRoute()
@@ -42,38 +43,44 @@ const pluginsStore = usePluginsStore()
 const configStore = useConfigStore()
 const governanceStore = useGovernanceStore()
 
-const { error, items, loading } = storeToRefs(pluginsStore)
+const pluginCollection = usePluginCollection()
+const { error, items, loading, total, nextCursor, loadingMore, loaded } = pluginCollection
 const { document: configDocument } = storeToRefs(configStore)
 const { commandPolicy, commandPolicyError, commandPolicyLoading } = storeToRefs(governanceStore)
 
 const selectedPluginIds = ref<string[]>([])
+const selectedLoading = computed(() => selectedPluginIds.value.some(id => pluginsStore.detailLoadingByPluginId[id]))
+const selectedPlugins = computed(() => {
+  const known = new Map([...items.value, ...pluginsStore.knownItems].map(plugin => [plugin.id, plugin]))
+  return selectedPluginIds.value.flatMap(id => known.has(id) ? [known.get(id)!] : [])
+})
 
 const commandPrefix = computed(() => getPrimaryCommandPrefix(configDocument.value?.command?.prefixes))
 const pluginsWithCommands = computed(() => (
-  [...items.value]
+  [...(selectedPluginIds.value.length ? selectedPlugins.value : items.value)]
     .filter((plugin) => (plugin.commands?.length ?? 0) > 0)
     .sort((left, right) => compareByLabel(left.name, right.name) || compareByLabel(left.id, right.id))
 ))
-const pluginOptions = computed(() => pluginsWithCommands.value.map((plugin) => ({
-  label: getPluginLabel(plugin),
-  value: plugin.id,
-})))
-
 const commandRows = computed(() => {
   const selectedIds = new Set(selectedPluginIds.value)
-  return mergeCommandCenterRows(pluginsWithCommands.value, commandPolicy.value?.commands ?? [])
+  const visibleIds = new Set(pluginsWithCommands.value.map(plugin => plugin.id))
+  const policies = (commandPolicy.value?.commands ?? []).filter(entry => selectedIds.size
+    ? selectedIds.has(entry.plugin_id)
+    : visibleIds.has(entry.plugin_id) || (loaded.value && !nextCursor.value))
+  return mergeCommandCenterRows(pluginsWithCommands.value, policies)
     .filter((row) => selectedIds.size === 0 || selectedIds.has(row.pluginId))
     .sort((left, right) => compareByLabel(left.command.name, right.command.name) || compareByLabel(left.pluginId, right.pluginId))
 })
 
-const pageErrorMessage = computed(() => error.value ?? commandPolicyError.value)
+const pluginLoadError = computed(() => error.value ?? selectedPluginIds.value.map(id => pluginsStore.detailErrorsByPluginId[id]).find(Boolean) ?? null)
+const pageErrorMessage = computed(() => pluginLoadError.value ?? commandPolicyError.value)
 const showFatalError = computed(() => Boolean(pageErrorMessage.value) && commandRows.value.length === 0)
 const feedbackToast = computed(() => {
-  if (error.value && commandRows.value.length > 0) {
+  if (pluginLoadError.value && commandRows.value.length > 0) {
     return {
-      key: `commands-error:${error.value}`,
+      key: `commands-error:${pluginLoadError.value}`,
       level: 'error' as const,
-      message: error.value,
+      message: pluginLoadError.value,
     }
   }
 
@@ -107,7 +114,7 @@ function samePluginIds(left: string[], right: string[]) {
 
 async function loadCommands() {
   await Promise.allSettled([
-    pluginsStore.fetchList(),
+    pluginCollection.load({}),
     configStore.fetchConfig(),
     governanceStore.fetchCommandPolicy(),
   ])
@@ -115,10 +122,6 @@ async function loadCommands() {
 
 function compareByLabel(left: string, right: string) {
   return left.localeCompare(right, 'zh-CN')
-}
-
-function getPluginLabel(plugin: PluginSummary) {
-  return `${plugin.name}（${plugin.id}）`
 }
 
 function getAliasesText(command: PluginCommandSummary) {
@@ -213,6 +216,9 @@ watch(
 watch(
   selectedPluginIds,
   async (nextPluginIds) => {
+    for (const id of nextPluginIds) {
+      if (!pluginsStore.knownItems.some(plugin => plugin.id === id)) void pluginsStore.ensureDetail(id).catch(() => undefined)
+    }
     if (route.name !== 'commands') {
       return
     }
@@ -224,7 +230,7 @@ watch(
 
     await router.replace(target)
   },
-  { deep: true },
+  { deep: true, immediate: true },
 )
 
 onMounted(() => {
@@ -238,11 +244,9 @@ onMounted(() => {
       <div class="app-view-card commands-filter-toolbar">
         <div class="commands-filter-form">
           <AppField :label="t('commands.filters.plugins')">
-            <AppSelect
+            <PluginPicker
               v-model="selectedPluginIds"
               multiple
-              clearable
-              :options="pluginOptions"
               :placeholder="t('commands.filters.allPlugins')"
             />
           </AppField>
@@ -257,7 +261,7 @@ onMounted(() => {
       v-if="showFatalError"
       :title="t('errors.common.loadFailed')"
       :description="pageErrorMessage ?? t('errors.common.loadFailed')"
-      :loading="loading || commandPolicyLoading"
+      :loading="loading || selectedLoading || commandPolicyLoading"
       @retry="loadCommands()"
     />
 
@@ -273,20 +277,26 @@ onMounted(() => {
           </div>
         </template>
 
+        <AppCollectionPagination
+          v-if="selectedPluginIds.length === 0"
+          :loaded="items.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading"
+          @more="pluginCollection.loadMore().catch(() => undefined)"
+        />
+
         <AppDataTable
           class="commands-data-table app-data-table"
           :columns="commandTableColumns"
           :rows="commandRows"
 
           :row-key="(row: UnifiedCommandRow) => row.key"
-          :loading="(loading || commandPolicyLoading) && commandRows.length === 0"
+          :loading="(loading || selectedLoading || commandPolicyLoading) && commandRows.length === 0"
           :min-width="1260" :label="t('commands.sections.commandList')"
         >
           <template #empty>
             <AppEmptyState
               icon="command"
-              :title="t('commands.empty.title')"
-              :description="t('commands.empty.description')"
+              :title="nextCursor && !selectedPluginIds.length ? t('commands.empty.partialTitle') : t('commands.empty.title')"
+              :description="nextCursor && !selectedPluginIds.length ? t('commands.empty.partialDescription') : t('commands.empty.description')"
             />
           </template>
 
@@ -376,8 +386,8 @@ onMounted(() => {
           <AppEmptyState
             v-if="commandRows.length === 0"
             icon="command"
-            :title="t('commands.empty.title')"
-            :description="t('commands.empty.description')"
+            :title="nextCursor && !selectedPluginIds.length ? t('commands.empty.partialTitle') : t('commands.empty.title')"
+            :description="nextCursor && !selectedPluginIds.length ? t('commands.empty.partialDescription') : t('commands.empty.description')"
           />
         </div>
       </AppCard>

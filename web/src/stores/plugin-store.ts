@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { collectionURL, createCollectionPager, mergeCollectionItems, type CollectionQuery } from '@/lib/collection-pager'
 import { waitForTask } from '@/lib/tasks'
 import { usePluginsStore } from '@/stores/plugins'
 import type {
@@ -40,11 +41,13 @@ export const usePluginStore = defineStore('plugin-store', () => {
   const controllers = new Set<AbortController>()
   onScopeDispose(() => { for (const controller of controllers) controller.abort() })
 
-  async function fetchSources() {
-    const response = await apiRequest<PluginStoreSourcesResponse>('/api/plugin-store/sources')
-    sources.value = response.items
-    return response.items
-  }
+  const sourcesPager = createCollectionPager<PluginStoreSourcesResponse>({
+    request: (query, cursor, signal) => apiRequest(collectionURL('/api/plugin-store/sources', query, cursor), { signal }),
+    apply: (response, append) => { sources.value = append ? mergeCollectionItems(sources.value, response.items, item => item.id) : response.items },
+  })
+  const { total: sourcesTotal, nextCursor: sourcesNextCursor, loading: sourcesLoading, loadingMore: sourcesLoadingMore, error: sourcesError } = sourcesPager
+  async function fetchSources(query?: CollectionQuery) { await sourcesPager.load(query); return sources.value }
+  function loadMoreSources() { return sourcesPager.loadMore() }
 
   async function fetchEntries(options: EntryQuery = {}, append = false) {
     if (append && (!nextCursor.value || loading.value || loadingMore.value)) return
@@ -155,6 +158,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
       )
       source.value = response
       updateSource(response)
+      await fetchSources()
       return response
     } finally {
       refreshing.value = false
@@ -166,6 +170,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
     try {
       const response = await apiRequest<PluginStoreSource>('/api/plugin-store/sources', { method: 'POST', body: input })
       updateSource(response)
+      await fetchSources()
       return response
     } finally {
       sourceSaving.value = false
@@ -180,6 +185,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
         { method: 'PUT', body: input },
       )
       updateSource(response)
+      await fetchSources()
       return response
     } finally {
       sourceSaving.value = false
@@ -190,7 +196,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
     sourceSaving.value = true
     try {
       await apiRequest<void>(`/api/plugin-store/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' })
-      sources.value = sources.value.filter(item => item.id !== sourceId)
+      await fetchSources()
     } finally {
       sourceSaving.value = false
     }
@@ -199,13 +205,13 @@ export const usePluginStore = defineStore('plugin-store', () => {
   function updateSource(next: PluginStoreSource) {
     const index = sources.value.findIndex(item => item.id === next.id)
     if (index < 0) {
-      sources.value = [...sources.value, next]
       return
     }
     sources.value = sources.value.map(item => item.id === next.id ? next : item)
   }
 
   return {
+    sourcesTotal, sourcesNextCursor, sourcesLoading, sourcesLoadingMore, sourcesError, loadMoreSources,
     error,
     installing,
     items,

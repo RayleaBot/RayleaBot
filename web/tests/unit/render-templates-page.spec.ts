@@ -207,7 +207,7 @@ describe('RenderTemplatesView', () => {
     setActivePinia(createPinia())
     vi.useFakeTimers()
     vi.restoreAllMocks()
-    vi.spyOn(usePluginsStore(), 'fetchList').mockResolvedValue()
+    vi.spyOn(usePluginsStore(), 'ensureList').mockResolvedValue()
     vi.mocked(useToastFeedback).mockClear()
     vi.stubGlobal('fetch', vi.fn(async (path: string) => {
       return new Response(new Blob(['asset'], { type: 'text/plain' }), { status: 200 })
@@ -231,7 +231,7 @@ describe('RenderTemplatesView', () => {
       'help.menu': createTemplateDetail(),
     }
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
     vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
       createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
@@ -266,7 +266,7 @@ describe('RenderTemplatesView', () => {
       'help.menu': createTemplateDetail(),
     }
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
     vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockImplementation(async (templateId, payload) => (
       createPreviewHTML(templateId, String(payload.data.title ?? 'preview'))
@@ -313,7 +313,7 @@ describe('RenderTemplatesView', () => {
       'status.panel': status,
     }
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async (templateId) => (
       templateId === 'status.panel' ? status : help
     ))
@@ -346,7 +346,7 @@ describe('RenderTemplatesView', () => {
       'help.menu': createTemplateDetail(),
     }
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
     vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createLocalResourcePreviewHTML('help.menu', '帮助菜单'))
     const downloadSpy = vi.spyOn(renderTemplatesStore, 'downloadTemplateAsset').mockImplementation(async (_templateId, path) => {
@@ -392,7 +392,7 @@ describe('RenderTemplatesView', () => {
       'help.menu': createTemplateDetail(),
     }
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockResolvedValue(createTemplateDetail())
     vi.spyOn(renderTemplatesStore, 'previewTemplateHTML').mockResolvedValue(createPreviewHTML('help.menu', '帮助菜单'))
 
@@ -431,7 +431,7 @@ describe('RenderTemplatesView', () => {
 
     renderTemplatesStore.items = [createTemplateSummary('leaderboard.list', '2026-05-03T01:01:04Z')]
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async () => {
       const detail = createTemplateDetail('leaderboard.list', '2026-05-03T01:01:04Z')
       renderTemplatesStore.detailById = {
@@ -489,7 +489,7 @@ describe('RenderTemplatesView', () => {
       'help.menu': createTemplateDetail(),
     }
 
-    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items })
+    vi.spyOn(renderTemplatesStore, 'fetchTemplates').mockResolvedValue({ items: renderTemplatesStore.items, total: renderTemplatesStore.items.length })
     vi.spyOn(renderTemplatesStore, 'fetchTemplateWorkspace').mockImplementation(async () => {
       const detail = createTemplateDetail('help.menu', '2026-04-18T10:35:00Z')
       renderTemplatesStore.detailById = {

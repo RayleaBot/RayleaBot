@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import AppTagsInput from '@/components/AppTagsInput.vue'
 import AppTabs from '@/components/AppTabs.vue'
-import AppSelect from '@/components/AppSelect.vue'
+import PluginPicker from '@/components/plugins/PluginPicker.vue'
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppEmptyState from '@/components/AppEmptyState.vue'
 import AppButton from '@/components/AppButton.vue'
@@ -17,6 +18,7 @@ import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import { usePluginsStore } from '@/stores/plugins'
+import { usePluginCollection } from '@/lib/use-plugin-collection'
 import type {
   CommandPermissionLevel,
   ConfigDocument,
@@ -39,7 +41,8 @@ interface CommandUsagePart {
 const configStore = useConfigStore()
 const pluginsStore = usePluginsStore()
 const { document: configDocument, error: configError, loading: configLoading, saving } = storeToRefs(configStore)
-const { error: pluginsError, loading: pluginsLoading, sortedItems } = storeToRefs(pluginsStore)
+const pluginCollection = usePluginCollection()
+const { error: pluginsError, loading: pluginsLoading, items: sortedItems, total, nextCursor, loadingMore } = pluginCollection
 
 const draftCommands = ref<string[]>([])
 const draftPrefixes = ref<string[]>([])
@@ -70,15 +73,10 @@ const enabledPlugins = computed(() => sortedItems.value
   .sort((left, right) => compareLabel(left.name, right.name) || compareLabel(left.id, right.id)))
 
 const selectedPlugin = computed(() => (
-  enabledPlugins.value.find((plugin) => plugin.id === selectedPluginId.value)
-    ?? enabledPlugins.value[0]
+  pluginsStore.knownItems.find((plugin) => plugin.id === selectedPluginId.value && plugin.state === 'running')
+    ?? enabledPlugins.value.find((plugin) => plugin.id === selectedPluginId.value)
     ?? null
 ))
-
-const pluginOptions = computed(() => enabledPlugins.value.map((plugin) => ({
-  label: `${plugin.name}（${plugin.id}）`,
-  value: plugin.id,
-})))
 
 const rootPreviewItems = computed(() => enabledPlugins.value
   .map((plugin) => ({
@@ -166,13 +164,7 @@ watch(configDocument, (value, previous) => {
 }, { immediate: true })
 
 watch(enabledPlugins, (plugins) => {
-  if (!plugins.length) {
-    selectedPluginId.value = ''
-    return
-  }
-  if (!plugins.some((plugin) => plugin.id === selectedPluginId.value)) {
-    selectedPluginId.value = plugins[0].id
-  }
+  if (!selectedPluginId.value && plugins.length) selectedPluginId.value = plugins[0].id
 }, { immediate: true })
 
 onMounted(() => {
@@ -182,7 +174,7 @@ onMounted(() => {
 async function loadPage() {
   await Promise.allSettled([
     configStore.fetchConfig(),
-    pluginsStore.fetchList(),
+    pluginCollection.load({}),
   ])
 }
 
@@ -431,12 +423,13 @@ async function save() {
       <div class="menu-preview-area">
         <AppTabs v-model="activeTab" class="menu-center-tabs" keep-alive :items="[{ value: 'root', label: t('builtinFeatures.menuCenter.preview.rootTitle') }, { value: 'plugin', label: t('builtinFeatures.menuCenter.preview.pluginTitle') }]">
           <template #extra>
-            <AppSelect
+            <PluginPicker
               v-show="activeTab === 'plugin'"
               v-model="selectedPluginId"
-              :options="pluginOptions"
+              running-only
+              :label="t('builtinFeatures.menuCenter.preview.selectedPlugin')"
               :placeholder="t('builtinFeatures.menuCenter.preview.allPlugins')"
-              wrapper-class="menu-center-plugin-select"
+              class="menu-center-plugin-select"
 
               data-testid="menu-center-plugin-select"
             />
@@ -444,6 +437,8 @@ async function save() {
 
           <template #root>
             <div class="menu-preview-card">
+              <p v-if="nextCursor" role="status">{{ t('builtinFeatures.menuCenter.preview.partial') }}</p>
+              <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="pluginsLoading || loadingMore" @more="pluginCollection.loadMore().catch(() => undefined)" />
               <div class="menu-trigger-row">
                 <span v-for="example in rootMenuTriggerExamples" :key="example" class="menu-trigger-chip">{{ example }}</span>
               </div>

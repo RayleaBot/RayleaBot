@@ -335,7 +335,11 @@ describe('PluginsPage', () => {
       },
     ]
 
-    vi.spyOn(store, 'fetchList').mockResolvedValue(undefined)
+    const available = [...store.items]
+    vi.spyOn(store, 'fetchList').mockImplementation(async query => {
+      store.items = available.filter(item => !query?.source || (query.source === 'official' ? item.trust?.level === 'official' : item.trust?.level !== 'official'))
+      store.total = store.items.length
+    })
 
     const wrapper = mount(PluginsPage, {
       global: {
@@ -349,6 +353,7 @@ describe('PluginsPage', () => {
     sourceFilter.vm.$emit('update:modelValue', 'community')
     await flushPromises()
 
+    expect(store.fetchList).toHaveBeenLastCalledWith(expect.objectContaining({ source: 'community' }))
     expect(wrapper.find('.plugins-grid').text()).toContain('Verified Third Party')
     expect(wrapper.find('.plugins-grid').text()).not.toContain('Official Help')
 

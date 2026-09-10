@@ -30,9 +30,10 @@ function toastMessages() {
     .filter((message): message is string => Boolean(message))
 }
 
-function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
-  return {
+function createAdapterSnapshots(overrides: Record<string, unknown> = {}) {
+  return [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '已连接', onebot11: {
     protocol: 'onebot11',
+    provider: 'napcat',
     configured_transports: ['forward_ws'],
     active_transports: ['forward_ws'],
     transport_status: [
@@ -45,7 +46,7 @@ function createProtocolSnapshot(overrides: Record<string, unknown> = {}) {
     summary: 'OneBot11 主动连接已就绪',
     recent_transport_issues: [],
     ...overrides,
-  }
+  } }]
 }
 
 function mockDashboardRefreshes() {
@@ -86,7 +87,7 @@ describe('DashboardPage', () => {
     store.readiness = {
       status: 'degraded',
       checks: { config: 'ok', render: 'resource_missing' },
-      issues: [{ code: 'render.browser_missing', severity: 'warning', summary: '浏览器运行资源缺失', remediation: '准备运行环境后重试。' }],
+      issues: [{ code: 'platform.resource_missing', runtime_resources: ['chromium'], severity: 'warning', summary: '浏览器运行资源缺失', remediation: '准备运行环境后重试。' }],
     }
     const prepare = vi.spyOn(store, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'fixture-runtime-task' })
     const wrapper = mount(DashboardPage, { global: { plugins: [getActivePinia()!, router] } })
@@ -121,7 +122,7 @@ describe('DashboardPage', () => {
       db_schema_version: '000001',
       uptime_seconds: 120,
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
 
     const createBackupSpy = vi.spyOn(store as never, 'createBackup').mockResolvedValue({ task_id: 'task_backup_create_0001' })
     const exportDiagnosticsSpy = vi.spyOn(store as never, 'exportDiagnostics').mockResolvedValue(undefined)
@@ -171,7 +172,7 @@ describe('DashboardPage', () => {
         active_plugins: 2,
         uptime_seconds: 120,
       }
-      adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+      adaptersStore.adapters = createAdapterSnapshots()
 
       wrapper = mount(DashboardPage, {
         global: {
@@ -209,7 +210,7 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       uptime_seconds: 120,
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -239,7 +240,7 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       uptime_seconds: 120,
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot({
+    adaptersStore.adapters = createAdapterSnapshots({
       readiness_status: 'degraded',
       summary: 'OneBot11 传输链路部分可用',
       recent_transport_issues: [
@@ -249,7 +250,7 @@ describe('DashboardPage', () => {
           summary: 'OneBot 主动连接已断开，正在重试。',
         },
       ],
-    }) }]
+    })
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -290,7 +291,7 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       uptime_seconds: 120,
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -322,6 +323,7 @@ describe('DashboardPage', () => {
       issues: [
         {
           code: 'platform.resource_missing',
+          runtime_resources: ['chromium'],
           severity: 'warning',
           summary: '图片渲染 Chromium 尚未准备完成。',
           remediation: '请先准备图片渲染 Chromium。',
@@ -334,7 +336,7 @@ describe('DashboardPage', () => {
       active_plugins: 0,
       uptime_seconds: 17,
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -364,12 +366,14 @@ describe('DashboardPage', () => {
       issues: [
         {
           code: 'platform.resource_missing',
+          runtime_resources: ['chromium'],
           severity: 'warning',
           summary: '图片渲染 Chromium 尚未准备完成',
           remediation: '请先准备图片渲染 Chromium，或在配置中显式设置浏览器路径。',
         },
         {
           code: 'platform.resource_missing',
+          runtime_resources: ['chromium'],
           severity: 'warning',
           summary: '图片渲染 Chromium 尚未准备完成',
           remediation: '请先准备图片渲染 Chromium，或在配置中显式设置浏览器路径。',
@@ -382,7 +386,7 @@ describe('DashboardPage', () => {
       active_plugins: 0,
       uptime_seconds: 50,
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -488,7 +492,7 @@ describe('DashboardPage', () => {
         ],
       },
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
 
     const wrapper = mount(DashboardPage, {
       global: {
@@ -549,6 +553,7 @@ describe('DashboardPage', () => {
         issues: [
           {
             code: 'platform.resource_missing',
+          runtime_resources: ['chromium'],
             severity: 'warning',
             summary: '图片渲染 Chromium 尚未准备完成。',
             remediation: '请先准备图片渲染 Chromium。',
@@ -568,7 +573,7 @@ describe('DashboardPage', () => {
         next_steps: ['通过管理面、Launcher 或 diagnostics 复核 recovery_summary。'],
       },
     }
-    adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
+    adaptersStore.adapters = createAdapterSnapshots()
     const confirmSpy = vi.spyOn(store as never, 'confirmRecovery').mockResolvedValue({ task_id: 'task_recovery_confirm_0001' })
     const recheckSpy = vi.spyOn(store as never, 'recheckRecovery').mockResolvedValue({ task_id: 'task_recovery_recheck_0001' })
     const bootstrapSpy = vi.spyOn(store as never, 'bootstrapManagedRuntime').mockResolvedValue({ task_id: 'task_runtime_bootstrap_0001' })

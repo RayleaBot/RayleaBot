@@ -1,3 +1,4 @@
+import { createPinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
@@ -27,12 +28,12 @@ describe('ManagementLogAdvancedFilters', () => {
     const wrapper = mount(ManagementLogAdvancedFilters, {
       attachTo: document.body,
       global: {
+        plugins: [createPinia()],
         stubs: {
           AppPopover: PopoverStub,
         },
       },
       props: {
-        pluginOptions: [{ label: 'Weather', value: 'weather' }],
       },
     })
 
@@ -47,9 +48,9 @@ describe('ManagementLogAdvancedFilters', () => {
   it('shows how many advanced filter categories are active', () => {
     const wrapper = mount(ManagementLogAdvancedFilters, {
       global: {
+        plugins: [createPinia()],
       },
       props: {
-        pluginOptions: [{ label: 'Weather', value: 'weather' }],
         protocol: 'onebot11',
         pluginIds: ['weather'],
         requestId: 'req_1',

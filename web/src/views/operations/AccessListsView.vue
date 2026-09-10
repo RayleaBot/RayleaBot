@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import AppCollectionPagination from '@/components/AppCollectionPagination.vue'
 import GovernanceScopeEditor from '@/components/governance/GovernanceScopeEditor.vue'
-import { oneBotGlobalScope, governanceEntryKey, governanceScopeLabel } from '@/lib/governance-scope'
+import { governanceEntryKey, governanceScopeLabel } from '@/lib/governance-scope'
 import AppHelp from '@/components/AppHelp.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
@@ -10,7 +11,7 @@ import AppDataTable from '@/components/AppDataTable.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
 import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
@@ -21,6 +22,7 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { buildCommandsLocation } from '@/lib/management-links'
 import { t } from '@/i18n'
+import { useAccessListEditor } from './useAccessListEditor'
 import { useGovernanceStore } from '@/stores/governance'
 import { useMotionNavigation } from '@/motion/useMotionNavigation'
 import type {
@@ -32,6 +34,7 @@ const navigate = useMotionNavigation()
 const governanceStore = useGovernanceStore()
 
 const {
+  blacklistLoadingMore, whitelistLoadingMore,
   blacklist,
   blacklistError,
   blacklistLoading,
@@ -42,63 +45,49 @@ const {
 
 const pageLoading = ref(false)
 const pageLoadError = ref<string | null>(null)
-const blacklistActionError = ref<string | null>(null)
-const whitelistActionError = ref<string | null>(null)
-const blacklistMutating = ref(false)
-const whitelistMutating = ref(false)
 const whitelistConfirmVisible = ref(false)
 const removeOpen = ref(false)
 const removeCandidate = ref<{ kind: 'whitelist' | 'blacklist'; entry: BlacklistEntry } | null>(null)
 
-// Search filters
-const whitelistSearchQuery = ref('')
-const blacklistSearchQuery = ref('')
-
-// Inline Whitelist adding state
-const isAddingWhitelist = ref(false)
-const whitelistAdding = ref(false)
-const whitelistDraft = reactive({
-  scope: oneBotGlobalScope(),
-  entry_type: 'user' as GovernanceEntryType,
-  target_id: '',
-  reason: '',
-})
-const whitelistDraftErrors = reactive({
-  scope: '',
-  target_id: '',
-  reason: '',
+const {
+  searchQuery: blacklistSearchQuery, scopeFilter: blacklistScopeFilter, isAdding: isAddingBlacklist,
+  adding: blacklistAdding, mutating: blacklistMutating, actionError: blacklistActionError,
+  draft: blacklistDraft, draftErrors: blacklistDraftErrors, filteredEntries: filteredBlacklistEntries,
+  tableData: blacklistTableData, startAdd: startAddBlacklist, cancel: cancelBlacklistInline,
+  save: saveBlacklistInline, remove: removeBlacklistEntry,
+} = useAccessListEditor({
+  kind: 'blacklist',
+  entries: computed(() => [...(blacklist.value?.user_entries ?? []), ...(blacklist.value?.group_entries ?? [])]),
+  add: governanceStore.addBlacklistEntry,
+  remove: entry => governanceStore.removeBlacklistEntry(entry.entry_type, entry.target_id, entry.scope),
+  removed: () => { removeOpen.value = false },
 })
 
-// Inline Blacklist adding state
-const isAddingBlacklist = ref(false)
-const blacklistAdding = ref(false)
-const blacklistDraft = reactive({
-  scope: oneBotGlobalScope(),
-  entry_type: 'user' as GovernanceEntryType,
-  target_id: '',
-  reason: '',
-})
-const blacklistDraftErrors = reactive({
-  scope: '',
-  target_id: '',
-  reason: '',
+const {
+  searchQuery: whitelistSearchQuery, scopeFilter: whitelistScopeFilter, isAdding: isAddingWhitelist,
+  adding: whitelistAdding, mutating: whitelistMutating, actionError: whitelistActionError,
+  draft: whitelistDraft, draftErrors: whitelistDraftErrors, filteredEntries: filteredWhitelistEntries,
+  tableData: whitelistTableData, startAdd: startAddWhitelist, cancel: cancelWhitelistInline,
+  save: saveWhitelistInline, remove: removeWhitelistEntry,
+} = useAccessListEditor({
+  kind: 'whitelist',
+  entries: computed(() => [...(whitelist.value?.user_entries ?? []), ...(whitelist.value?.group_entries ?? [])]),
+  add: governanceStore.addWhitelistEntry,
+  remove: entry => governanceStore.removeWhitelistEntry(entry.entry_type, entry.target_id, entry.scope),
+  removed: () => { removeOpen.value = false },
 })
 
-const blacklistScopeFilter = ref<'all' | 'user' | 'group'>('all')
-const whitelistScopeFilter = ref<'all' | 'user' | 'group'>('all')
+watch([blacklistSearchQuery, blacklistScopeFilter], () => { void governanceStore.fetchBlacklist(undefined, { query: blacklistSearchQuery.value, entry_type: blacklistScopeFilter.value === 'all' ? undefined : blacklistScopeFilter.value }).catch(() => undefined) })
+watch([whitelistSearchQuery, whitelistScopeFilter], () => { void governanceStore.fetchWhitelist(undefined, { query: whitelistSearchQuery.value, entry_type: whitelistScopeFilter.value === 'all' ? undefined : whitelistScopeFilter.value }).catch(() => undefined) })
 
 const hasAccessListData = computed(() => Boolean(blacklist.value || whitelist.value))
 const pageBusy = computed(() => pageLoading.value || blacklistLoading.value || whitelistLoading.value)
 const pageErrorMessage = computed(() => pageLoadError.value ?? blacklistError.value ?? whitelistError.value)
 const showFatalError = computed(() => Boolean(pageErrorMessage.value) && !hasAccessListData.value)
 
-const userBlacklistEntries = computed(() => blacklist.value?.user_entries ?? [])
-const groupBlacklistEntries = computed(() => blacklist.value?.group_entries ?? [])
-const totalBlacklistEntries = computed(() => userBlacklistEntries.value.length + groupBlacklistEntries.value.length)
+const totalBlacklistEntries = computed(() => blacklist.value?.entry_count ?? 0)
 
-const userWhitelistEntries = computed(() => whitelist.value?.user_entries ?? [])
-const groupWhitelistEntries = computed(() => whitelist.value?.group_entries ?? [])
-const totalWhitelistEntries = computed(() => userWhitelistEntries.value.length + groupWhitelistEntries.value.length)
+const totalWhitelistEntries = computed(() => whitelist.value?.entry_count ?? 0)
 const whitelistEnabled = computed(() => whitelist.value?.enabled ?? false)
 const showWhitelistEmptyWarning = computed(() => whitelistEnabled.value && totalWhitelistEntries.value === 0)
 
@@ -136,78 +125,6 @@ useToastFeedback(whitelistRegionErrorToast)
 useToastFeedback(blacklistRegionErrorToast)
 useToastFeedback(whitelistEmptyToast)
 
-function sortEntries(entries: BlacklistEntry[]) {
-  return [...entries].sort((a, b) => {
-    if (!a.created_at || !b.created_at) return 0
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  })
-}
-
-const filteredBlacklistEntries = computed(() => {
-  let entries = blacklistScopeFilter.value === 'all'
-    ? [...userBlacklistEntries.value, ...groupBlacklistEntries.value]
-    : blacklistScopeFilter.value === 'user'
-      ? userBlacklistEntries.value
-      : groupBlacklistEntries.value
-
-  if (blacklistSearchQuery.value.trim()) {
-    const query = blacklistSearchQuery.value.trim().toLowerCase()
-    entries = entries.filter(e =>
-      e.target_id.toLowerCase().includes(query) ||
-      (e.reason && e.reason.toLowerCase().includes(query))
-    )
-  }
-  return sortEntries(entries)
-})
-
-const filteredWhitelistEntries = computed(() => {
-  let entries = whitelistScopeFilter.value === 'all'
-    ? [...userWhitelistEntries.value, ...groupWhitelistEntries.value]
-    : whitelistScopeFilter.value === 'user'
-      ? userWhitelistEntries.value
-      : groupWhitelistEntries.value
-
-  if (whitelistSearchQuery.value.trim()) {
-    const query = whitelistSearchQuery.value.trim().toLowerCase()
-    entries = entries.filter(e =>
-      e.target_id.toLowerCase().includes(query) ||
-      (e.reason && e.reason.toLowerCase().includes(query))
-    )
-  }
-  return sortEntries(entries)
-})
-
-// Data sources including inline draft rows
-const whitelistTableData = computed(() => {
-  const list: (BlacklistEntry & { isDraft?: boolean })[] = [...filteredWhitelistEntries.value]
-  if (isAddingWhitelist.value) {
-    list.unshift({
-      scope: { ...whitelistDraft.scope },
-      entry_type: whitelistDraft.entry_type,
-      target_id: '__whitelist_draft__',
-      reason: whitelistDraft.reason,
-      created_at: '',
-      isDraft: true,
-    })
-  }
-  return list
-})
-
-const blacklistTableData = computed(() => {
-  const list: (BlacklistEntry & { isDraft?: boolean })[] = [...filteredBlacklistEntries.value]
-  if (isAddingBlacklist.value) {
-    list.unshift({
-      scope: { ...blacklistDraft.scope },
-      entry_type: blacklistDraft.entry_type,
-      target_id: '__blacklist_draft__',
-      reason: blacklistDraft.reason,
-      created_at: '',
-      isDraft: true,
-    })
-  }
-  return list
-})
-
 const scopeOptions = computed(() => [
   { label: t('accessLists.scopes.user'), value: 'user' },
   { label: t('accessLists.scopes.group'), value: 'group' },
@@ -241,42 +158,14 @@ async function loadAccessLists() {
   pageLoadError.value = null
 
   const [blacklistResult, whitelistResult] = await Promise.allSettled([
-    governanceStore.fetchBlacklist(),
-    governanceStore.fetchWhitelist(),
+    governanceStore.fetchBlacklist(undefined, { query: blacklistSearchQuery.value, entry_type: blacklistScopeFilter.value === 'all' ? undefined : blacklistScopeFilter.value }),
+    governanceStore.fetchWhitelist(undefined, { query: whitelistSearchQuery.value, entry_type: whitelistScopeFilter.value === 'all' ? undefined : whitelistScopeFilter.value }),
   ])
 
   pageLoading.value = false
 
   if (blacklistResult.status === 'rejected' && whitelistResult.status === 'rejected') {
     pageLoadError.value = blacklistError.value ?? whitelistError.value ?? t('errors.common.loadFailed')
-  }
-}
-
-async function removeBlacklistEntry(entry: BlacklistEntry) {
-  blacklistMutating.value = true
-  blacklistActionError.value = null
-  try {
-    await governanceStore.removeBlacklistEntry(entry.entry_type, entry.target_id, entry.scope)
-    removeOpen.value = false
-    notifySuccess(t('accessLists.feedback.blacklistRemoved'))
-  } catch (error) {
-    blacklistActionError.value = getDisplayErrorMessage(error)
-  } finally {
-    blacklistMutating.value = false
-  }
-}
-
-async function removeWhitelistEntry(entry: BlacklistEntry) {
-  whitelistMutating.value = true
-  whitelistActionError.value = null
-  try {
-    await governanceStore.removeWhitelistEntry(entry.entry_type, entry.target_id, entry.scope)
-    removeOpen.value = false
-    notifySuccess(t('accessLists.feedback.whitelistRemoved'))
-  } catch (error) {
-    whitelistActionError.value = getDisplayErrorMessage(error)
-  } finally {
-    whitelistMutating.value = false
   }
 }
 
@@ -305,124 +194,6 @@ function handleWhitelistToggle(checked: boolean) {
 async function confirmEmptyWhitelistEnable() {
   whitelistConfirmVisible.value = false
   await applyWhitelistEnabled(true)
-}
-
-// Inline Whitelist controls
-function startAddWhitelist() {
-  isAddingWhitelist.value = true
-  const scopeFilter = whitelistScopeFilter.value
-  whitelistDraft.entry_type = scopeFilter === 'all' ? 'user' : scopeFilter
-  whitelistDraft.target_id = ''
-  whitelistDraft.reason = ''
-  whitelistDraftErrors.target_id = ''
-  whitelistDraftErrors.reason = ''
-}
-
-function cancelWhitelistInline() {
-  isAddingWhitelist.value = false
-  whitelistDraft.target_id = ''
-  whitelistDraft.reason = ''
-  whitelistDraftErrors.target_id = ''
-  whitelistDraftErrors.reason = ''
-}
-
-async function saveWhitelistInline() {
-  const targetId = whitelistDraft.target_id.trim()
-  const reason = whitelistDraft.reason.trim()
-
-  let hasError = false
-  whitelistDraftErrors.scope = ''
-  if (whitelistDraft.scope.kind === 'instance' && (!whitelistDraft.scope.source_adapter.trim() || !whitelistDraft.scope.bot_id.trim())) {
-    whitelistDraftErrors.scope = t('accessLists.namespace.required')
-    hasError = true
-  }
-  if (!targetId) {
-    whitelistDraftErrors.target_id = t('accessLists.validation.entryRequired')
-    hasError = true
-  }
-  if (!reason) {
-    whitelistDraftErrors.reason = t('accessLists.validation.entryRequired')
-    hasError = true
-  }
-
-  if (hasError) return
-
-  whitelistAdding.value = true
-  whitelistActionError.value = null
-
-  try {
-    await governanceStore.addWhitelistEntry({
-      scope: { ...whitelistDraft.scope },
-      entry_type: whitelistDraft.entry_type,
-      target_id: targetId,
-      reason,
-    })
-    cancelWhitelistInline()
-    notifySuccess(t('accessLists.feedback.whitelistSaved'))
-  } catch (error) {
-    whitelistActionError.value = getDisplayErrorMessage(error)
-  } finally {
-    whitelistAdding.value = false
-  }
-}
-
-// Inline Blacklist controls
-function startAddBlacklist() {
-  isAddingBlacklist.value = true
-  const scopeFilter = blacklistScopeFilter.value
-  blacklistDraft.entry_type = scopeFilter === 'all' ? 'user' : scopeFilter
-  blacklistDraft.target_id = ''
-  blacklistDraft.reason = ''
-  blacklistDraftErrors.target_id = ''
-  blacklistDraftErrors.reason = ''
-}
-
-function cancelBlacklistInline() {
-  isAddingBlacklist.value = false
-  blacklistDraft.target_id = ''
-  blacklistDraft.reason = ''
-  blacklistDraftErrors.target_id = ''
-  blacklistDraftErrors.reason = ''
-}
-
-async function saveBlacklistInline() {
-  const targetId = blacklistDraft.target_id.trim()
-  const reason = blacklistDraft.reason.trim()
-
-  let hasError = false
-  blacklistDraftErrors.scope = ''
-  if (blacklistDraft.scope.kind === 'instance' && (!blacklistDraft.scope.source_adapter.trim() || !blacklistDraft.scope.bot_id.trim())) {
-    blacklistDraftErrors.scope = t('accessLists.namespace.required')
-    hasError = true
-  }
-  if (!targetId) {
-    blacklistDraftErrors.target_id = t('accessLists.validation.entryRequired')
-    hasError = true
-  }
-  if (!reason) {
-    blacklistDraftErrors.reason = t('accessLists.validation.entryRequired')
-    hasError = true
-  }
-
-  if (hasError) return
-
-  blacklistAdding.value = true
-  blacklistActionError.value = null
-
-  try {
-    await governanceStore.addBlacklistEntry({
-      scope: { ...blacklistDraft.scope },
-      entry_type: blacklistDraft.entry_type,
-      target_id: targetId,
-      reason,
-    })
-    cancelBlacklistInline()
-    notifySuccess(t('accessLists.feedback.blacklistSaved'))
-  } catch (error) {
-    blacklistActionError.value = getDisplayErrorMessage(error)
-  } finally {
-    blacklistAdding.value = false
-  }
 }
 
 async function copyTargetId(targetId: string) {
@@ -505,7 +276,7 @@ onMounted(() => {
                   :aria-label="t('accessLists.filters.all')"
                 />
                 <AppInput
-                  v-model="whitelistSearchQuery"
+                  v-model="whitelistSearchQuery" :maxlength="200"
                   :placeholder="t('accessLists.entryForm.searchPlaceholder')"
                   class="access-lists-toolbar__search"
                   allow-clear
@@ -520,7 +291,7 @@ onMounted(() => {
                 </AppInput>
               </div>
               <div class="access-lists-toolbar__actions">
-                <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredWhitelistEntries.length }) }}</span>
+                <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: whitelist?.total ?? 0 }) }}</span>
                 <AppButton variant="default" data-testid="access-lists-whitelist-add-btn" :disabled="isAddingWhitelist" @click="startAddWhitelist">
                   {{ t('accessLists.actions.addEntry') }}
                 </AppButton>
@@ -672,6 +443,7 @@ onMounted(() => {
               </template>
             </template>
           </AppDataTable>
+          <AppCollectionPagination :loaded="filteredWhitelistEntries.length" :total="whitelist?.total ?? 0" :next-cursor="whitelist?.next_cursor" :loading="whitelistLoadingMore || whitelistLoading" @more="governanceStore.loadMoreWhitelist().catch(() => undefined)" />
         </div>
       </AppCard>
 
@@ -704,7 +476,7 @@ onMounted(() => {
                   :aria-label="t('accessLists.filters.all')"
                 />
                 <AppInput
-                  v-model="blacklistSearchQuery"
+                  v-model="blacklistSearchQuery" :maxlength="200"
                   :placeholder="t('accessLists.entryForm.searchPlaceholder')"
                   class="access-lists-toolbar__search"
                   allow-clear
@@ -719,7 +491,7 @@ onMounted(() => {
                 </AppInput>
               </div>
               <div class="access-lists-toolbar__actions">
-                <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: filteredBlacklistEntries.length }) }}</span>
+                <span class="access-lists-toolbar__count">{{ t('accessLists.table.total', { total: blacklist?.total ?? 0 }) }}</span>
                 <AppButton variant="default" data-testid="access-lists-blacklist-add-btn" :disabled="isAddingBlacklist" @click="startAddBlacklist">
                   {{ t('accessLists.actions.addEntry') }}
                 </AppButton>
@@ -871,6 +643,7 @@ onMounted(() => {
               </template>
             </template>
           </AppDataTable>
+          <AppCollectionPagination :loaded="filteredBlacklistEntries.length" :total="blacklist?.total ?? 0" :next-cursor="blacklist?.next_cursor" :loading="blacklistLoadingMore || blacklistLoading" @more="governanceStore.loadMoreBlacklist().catch(() => undefined)" />
         </div>
       </AppCard>
     </div>

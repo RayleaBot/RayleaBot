@@ -98,15 +98,6 @@ describe('session store', () => {
     expect(request.credentials).toBe('same-origin')
   })
 
-  it('removes localStorage bearer credentials on construction', () => {
-    window.localStorage.setItem('rayleabot.session_token', 'persisted-token')
-
-    const store = useSessionStore()
-
-    expect(store.isAuthenticated).toBe(false)
-    expect(window.localStorage.getItem('rayleabot.session_token')).toBeNull()
-  })
-
   it('clears in-memory cookie session state on expiration', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
       transport: 'cookie',

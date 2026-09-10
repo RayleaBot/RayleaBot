@@ -37,7 +37,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -74,7 +74,7 @@ describe('socket frame router', () => {
     expect(dependencies.system.refreshStatus).toHaveBeenCalledTimes(1)
   })
 
-  it('routes plugin and adapter events to the narrow dependencies', () => {
+  it('routes plugin, protocol and adapter events to the narrow dependencies', () => {
     const dependencies = {
       system: {
         applyEvent: vi.fn(),
@@ -99,7 +99,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -115,7 +115,31 @@ describe('socket frame router', () => {
         state: 'running',
       },
     })
-
+    router.handleEventsFrame({
+      channel: 'events',
+      type: 'events.received',
+      timestamp: '2026-04-05T08:00:02Z',
+      data: {
+        adapters: [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '已连接', onebot11: {
+          protocol: 'onebot11',
+          configured_transports: ['reverse_ws'],
+          active_transports: ['reverse_ws'],
+          transport_status: [
+            {
+              transport: 'reverse_ws',
+              enabled: true,
+              configured: true,
+              endpoint: 'ws://127.0.0.1:8080/ws',
+              state: 'connected',
+              summary: '已连接',
+            },
+          ],
+          readiness_status: 'ready',
+          summary: 'OneBot11 已就绪',
+          recent_transport_issues: [],
+        } }],
+      },
+    })
 
     const adapterSnapshot = [{
       id: 'qq-official', protocol: 'qqofficial' as const, display_name: 'QQ 官方机器人',
@@ -126,12 +150,13 @@ describe('socket frame router', () => {
       data: { adapters: adapterSnapshot },
     })
     expect(adapters.applySnapshot).toHaveBeenCalledWith(adapterSnapshot)
-    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(2)
+    expect(dependencies.system.applyEvent).toHaveBeenCalledTimes(3)
     expect(dependencies.plugins.upsert).toHaveBeenCalledWith({
       id: 'weather',
         state: 'running',
     })
     expect(dependencies.schedulerJobs.scheduleDataSourceRefresh).toHaveBeenCalledTimes(1)
+    expect(adapters.applySnapshot).toHaveBeenCalledTimes(2)
   })
 
   it('routes log and console frames without changing payload semantics', async () => {
@@ -159,7 +184,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -242,7 +267,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -302,7 +327,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -364,7 +389,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -426,7 +451,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }
@@ -474,7 +499,7 @@ describe('socket frame router', () => {
       thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      protocols: {
+      adapters: {
         applySnapshot: vi.fn(),
       },
     }

@@ -36,25 +36,26 @@ export function formatRelativeTime(value?: string | number | Date | null): strin
 
   const now = Date.now()
   const diffMs = now - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
+  const direction = diffMs < 0 ? '后' : '前'
+  const diffSec = Math.floor(Math.abs(diffMs) / 1000)
   const diffMin = Math.floor(diffSec / 60)
   const diffHour = Math.floor(diffMin / 60)
   const diffDay = Math.floor(diffHour / 24)
 
   if (diffSec < 60) {
-    return `${diffSec} 秒前`
+    return `${diffSec} 秒${direction}`
   }
   if (diffMin < 60) {
-    return `${diffMin} 分钟前`
+    return `${diffMin} 分钟${direction}`
   }
   if (diffHour < 24) {
-    return `${diffHour} 小时前`
+    return `${diffHour} 小时${direction}`
   }
-  return `${diffDay} 天前`
+  return `${diffDay} 天${direction}`
 }
 
 export function formatDurationSeconds(seconds?: number) {
-  if (!seconds && seconds !== 0) {
+  if (seconds === undefined || !Number.isFinite(seconds) || seconds < 0) {
     return t('display.empty')
   }
 

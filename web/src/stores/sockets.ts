@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { watch } from 'vue'
+import { onScopeDispose, watch } from 'vue'
 import { useConfigStore } from '@/stores/config'
 
 import { createSocketController } from '@/stores/socket-controller'
@@ -33,6 +33,7 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     plugins: {
       upsert: pluginsStore.upsert,
+      cancelPendingRefresh: pluginsStore.cancelDataSourceRefresh,
     },
     pluginConsole: {
       appendOutboundLog: pluginConsoleStore.appendOutboundLog,
@@ -40,6 +41,7 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     schedulerJobs: {
       scheduleDataSourceRefresh: schedulerJobsStore.scheduleDataSourceRefresh,
+      cancelPendingRefresh: schedulerJobsStore.cancelDataSourceRefresh,
     },
     logs: {
       appendBatch: logsStore.appendBatch,
@@ -66,6 +68,8 @@ export const useSocketStore = defineStore('sockets', () => {
   watch(() => controller.snapshots.events.status, status => {
     if (status === 'authenticated') void configStore.refreshEffectiveTimezone().catch(() => undefined)
   })
+
+  onScopeDispose(controller.disconnectAll)
 
   return {
     snapshots: controller.snapshots,

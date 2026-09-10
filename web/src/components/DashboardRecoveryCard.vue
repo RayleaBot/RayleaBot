@@ -21,6 +21,7 @@ defineProps<{
   recoveryRecheckPending: boolean
   recoveryConfirmPending: boolean
   runtimeBootstrapPending: boolean
+  canBootstrap: boolean
 }>()
 
 defineEmits<{
@@ -95,6 +96,7 @@ defineEmits<{
           {{ t('dashboard.recoveryRecheck') }}
         </AppButton>
         <AppButton
+          v-if="canBootstrap"
           data-testid="runtime-bootstrap-button"
           size="sm"
           :loading="runtimeBootstrapPending"

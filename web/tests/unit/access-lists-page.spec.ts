@@ -537,4 +537,19 @@ describe('AccessListsPage', () => {
     expect(writeText).toHaveBeenCalledWith('91001')
     expect(notifySuccess).toHaveBeenCalledTimes(1)
   }, 15000)
+  it('does not call a filtered empty whitelist an empty rule table', async () => {
+    const router = createRouterForPage()
+    await router.push('/access-lists')
+    await router.isReady()
+    const store = useGovernanceStore()
+    store.blacklist = { user_entries: [], group_entries: [], total: 0, entry_count: 0 }
+    store.whitelist = { enabled: true, user_entries: [], group_entries: [], total: 0, entry_count: 250 }
+    mockAccessListFetches(store)
+    const wrapper = mount(AccessListsPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="access-lists-whitelist-card"] .access-lists-card-header__count').text()).toBe('250')
+    expect(toastMessages().some(message => message.includes(t('accessLists.whitelist.emptyWarningTitle')))).toBe(false)
+    wrapper.unmount()
+  })
+
 })

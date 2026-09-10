@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import AppTag from '@/components/AppTag.vue'
-import AppSelect from '@/components/AppSelect.vue'
 import AppTooltip from '@/components/AppTooltip.vue'
 import AppSkeleton from '@/components/AppSkeleton.vue'
-import AppInput from '@/components/AppInput.vue'
-import AppField from '@/components/AppField.vue'
 import AppCard from '@/components/AppCard.vue'
 import AppButton from '@/components/AppButton.vue'
 import { ChevronDownIcon } from '@lucide/vue'
@@ -13,7 +10,7 @@ import { storeToRefs } from 'pinia'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
-import ManagementLogAdvancedFilters from '@/components/logs/ManagementLogAdvancedFilters.vue'
+import ManagementLogFilters from '@/components/logs/ManagementLogFilters.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import AppPage from '@/components/page/AppPage.vue'
@@ -25,13 +22,12 @@ import {
 } from '@/lib/management-links'
 import { t } from '@/i18n'
 import { sameLogFilters } from '@/stores/log-state'
-import { useLogFilterControls } from '@/components/logs/useLogFilterControls'
 import ManagementLogRow from '@/components/logs/ManagementLogRow.vue'
 import { useLogsStore } from '@/stores/logs'
 import { useUiShellStore } from '@/stores/ui-shell'
 import type { LogSummary } from '@/types/api'
 import { useLogDetailController } from '@/views/operations/useLogDetailController'
-import { useReadyToRenderHeavyContent } from '@/layouts/usePageTransitionStage'
+import { useHeavyContentGate } from '@/layouts/usePageTransitionStage'
 
 const LOG_ROW_ESTIMATED_HEIGHT = 80
 const LOG_BOTTOM_THRESHOLD = 24
@@ -79,10 +75,9 @@ const pageErrorToast = computed(() => (
     : null
 ))
 
-const { selectedLevels, levelOptions, pluginOptions, openPluginFilter } = useLogFilterControls(filters)
 
 
-const readyToRenderHeavyContent = useReadyToRenderHeavyContent()
+const { readyToRenderHeavyContent, waitUntilReady } = useHeavyContentGate()
 const followBottom = computed(() => atBottom.value)
 const showJumpToLatest = computed(() => (
   readyToRenderHeavyContent.value
@@ -93,20 +88,6 @@ const showJumpToLatest = computed(() => (
 
 useToastFeedback(pageErrorToast)
 
-function whenReadyToRenderHeavyContent(): Promise<void> {
-  if (readyToRenderHeavyContent.value) {
-    return Promise.resolve()
-  }
-
-  return new Promise<void>((resolve) => {
-    const stop = watch(readyToRenderHeavyContent, (value) => {
-      if (value) {
-        stop()
-        resolve()
-      }
-    })
-  })
-}
 
 
 
@@ -144,7 +125,7 @@ async function scrollRealtimeLogsToLatest() {
   logsStore.acknowledgePendingNew()
 
   try {
-    await whenReadyToRenderHeavyContent()
+    if (!await waitUntilReady()) return
     await nextTick()
     viewportRef.value?.scrollToBottom()
     await waitForAnimationFrame()
@@ -225,7 +206,6 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
-  void openPluginFilter()
   if (activatePageTask) {
     return activatePageTask
   }
@@ -336,30 +316,7 @@ onUnmounted(() => {
         borderless
         class="app-view-card logs-toolbar"
       >
-        <div class="logs-filter-grid">
-          <AppField :label="t('logs.filters.level')">
-            <AppSelect
-              v-model="selectedLevels"
-              multiple
-              clearable
-              :options="levelOptions"
-              :placeholder="t('logs.filters.all')"
-            />
-          </AppField>
-          <AppField floating :label="t('logs.filters.source')">
-            <AppInput v-model="filters.source" :placeholder="t('logs.filters.sourcePlaceholder')" />
-          </AppField>
-          <div class="logs-toolbar__actions">
-            <ManagementLogAdvancedFilters
-              v-model:protocol="filters.protocol"
-              v-model:plugin-ids="filters.pluginIds"
-              v-model:request-id="filters.requestId"
-              :plugin-options="pluginOptions"
-              @plugin-focus="openPluginFilter"
-            />
-            <AppButton class="logs-toolbar__apply" variant="default" :aria-label="t('logs.filters.apply')" @click="applyFilters">{{ t('logs.filters.apply') }}</AppButton>
-          </div>
-        </div>
+        <ManagementLogFilters v-model="filters" @apply="applyFilters" />
       </AppCard>
     </template>
 
@@ -474,32 +431,9 @@ onUnmounted(() => {
   padding: 12px 14px;
 }
 
-.logs-filter-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: end;
-  width: 100%;
-}
 
-.logs-filter-grid :deep(.app-field) {
-  flex: 1 1 200px;
-  max-width: 320px;
-  margin-bottom: 0;
-}
 
-.logs-filter-grid :deep(.app-field:first-child) {
-  max-width: 220px;
-}
 
-.logs-toolbar__actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 8px;
-  justify-content: flex-end;
-  align-items: center;
-  margin-inline-start: auto;
-}
 
 .logs-feed-card,
 .logs-feed-card :deep(.app-card__body) {
@@ -550,21 +484,8 @@ onUnmounted(() => {
 }
 
 @media (max-width: 760px) {
-  .logs-filter-grid :deep(.app-field) {
-    flex-basis: 100%;
-    max-width: none;
-  }
 
-  .logs-toolbar__actions {
-    flex: 1 1 100%;
-    align-items: stretch;
-    justify-content: flex-start;
-    margin-inline-start: 0;
-  }
 
-  .logs-toolbar__apply {
-    flex: 1 1 auto;
-  }
 
   .logs-jump-latest {
     right: 14px;

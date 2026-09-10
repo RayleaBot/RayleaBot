@@ -6,13 +6,6 @@ import type {
 
 export type PluginCommandAvailability = 'available' | 'starting' | 'switching' | 'not_ready' | 'disabled'
 
-export interface CommandCenterRow {
-  command: PluginCommandSummary
-  plugin: PluginSummary
-  availability: PluginCommandAvailability
-  conflicted: boolean
-}
-
 export interface UnifiedCommandRow {
   key: string
   pluginId: string
@@ -46,15 +39,6 @@ export function getPluginCommandAvailability(plugin: PluginSummary): PluginComma
     default:
       return 'not_ready'
   }
-}
-
-export function flattenPluginCommands(plugins: PluginSummary[]): CommandCenterRow[] {
-  return plugins.flatMap((plugin) => plugin.commands.map((command) => ({
-    command,
-    plugin,
-    availability: getPluginCommandAvailability(plugin),
-    conflicted: isPluginCommandConflicted(command, plugin.command_conflicts),
-  })))
 }
 
 export function mergeCommandCenterRows(
