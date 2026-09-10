@@ -16,39 +16,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+
+from artifact_matrix import ARTIFACT_MATRIX
 from contract_versions_generated import PLUGIN_MANIFEST_VERSION, PLUGIN_UI_BRIDGE_VERSION, UPDATE_PROTOCOL_VERSION
 
-
-ARTIFACT_MATRIX = {
-    "windows-x64-full": {
-        "platform": "windows-x64",
-        "support_level": "first_class",
-        "smoke_profile": "windows_full_smoke",
-        "extension": ".zip",
-        "launcher_required": True,
-    },
-    "linux-x64-full": {
-        "platform": "linux-x64",
-        "support_level": "first_class",
-        "smoke_profile": "linux_full_smoke",
-        "extension": ".tar.gz",
-        "launcher_required": True,
-    },
-    "macos-arm64-full": {
-        "platform": "macos-arm64",
-        "support_level": "first_class",
-        "smoke_profile": "macos_full_smoke",
-        "extension": ".tar.gz",
-        "launcher_required": True,
-    },
-    "linux-x64-server": {
-        "platform": "linux-x64",
-        "support_level": "first_class",
-        "smoke_profile": "linux_server_smoke",
-        "extension": ".tar.gz",
-        "launcher_required": False,
-    },
-}
 
 FORBIDDEN_TOP_LEVEL_PATHS = {
     ".github",

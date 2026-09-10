@@ -1,311 +1,63 @@
-import subprocess
-import sys
-import tarfile
-import time
-import unittest
 import json
-import hashlib
-import urllib.error
+import sys
+import unittest
 import zipfile
-from tempfile import TemporaryDirectory
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
 
 import recovery_drill
-from package_runtime import FORBIDDEN_DIRECTORY_NAMES, FORBIDDEN_TOP_LEVEL_PATHS, read_process_output, start_captured_process
+from artifact_matrix import REQUIRED_PATHS
 
 
 class RecoveryDrillTests(unittest.TestCase):
-    def test_seed_installed_plugins_uses_external_verified_artifact(self) -> None:
-        with TemporaryDirectory() as tmp:
-            temp = Path(tmp)
-            source = temp / "source" / recovery_drill.SAMPLE_PLUGIN_ID
-            (source / "bin").mkdir(parents=True)
-            info = b'{"id":"raylea.echo","manifest_version":"2"}\n'
-            backend = b"fixture-backend"
-            (source / "info.json").write_bytes(info)
-            (source / "bin" / "echo").write_bytes(backend)
-            files = []
-            for relative, role in (("info.json", "manifest"), ("bin/echo", "backend")):
-                payload = (source / relative).read_bytes()
-                files.append(
-                    {
-                        "path": relative,
-                        "role": role,
-                        "size": len(payload),
-                        "sha256": hashlib.sha256(payload).hexdigest(),
-                    }
-                )
-            (source / "artifact.json").write_text(
-                json.dumps(
-                    {
-                        "artifact_version": "1",
-                        "plugin_id": recovery_drill.SAMPLE_PLUGIN_ID,
-                        "plugin_version": "0.2.0",
-                        "target_platform": "linux-x64",
-                        "manifest_sha256": hashlib.sha256(info).hexdigest(),
-                        "files": files,
-                    }
-                ),
-                encoding="utf-8",
-            )
-            fixture = temp / "fixture.zip"
-            with zipfile.ZipFile(fixture, "w") as archive:
-                for path in source.rglob("*"):
-                    if path.is_file():
-                        archive.write(path, path.relative_to(source.parent).as_posix())
+    def write_archive(self, root, *, omit=None):
+        archive = root / "current.zip"
+        with zipfile.ZipFile(archive, "w") as bundle:
+            for path in REQUIRED_PATHS["windows-x64-full"]:
+                if path != omit:
+                    bundle.writestr("distribution/" + path, "fixture")
+        return archive
 
-            root = temp / "runtime"
-            paths = recovery_drill.seed_installed_plugins(root, fixture)
-
-            self.assertEqual(root / "plugins" / "installed" / "raylea.echo" / "info.json", paths[0])
-            self.assertEqual(backend, (root / "plugins" / "installed" / "raylea.echo" / "bin" / "echo").read_bytes())
-
-    def test_required_paths_exclude_contracts_and_include_runtime_files(self) -> None:
-        required = recovery_drill.REQUIRED_PATHS["windows-x64-full"]
-
-        self.assertIn("RayleaLauncher.exe", required)
-        self.assertNotIn("launcher/RayleaLauncher.exe", required)
-        self.assertNotIn("launcher/resources/app.asar", required)
-        self.assertIn("raylea-updater.exe", required)
-        self.assertIn("LICENSE", required)
-        self.assertIn("THIRD_PARTY_NOTICES.md", required)
-        self.assertNotIn("contracts/config.user.schema.json", required)
-        self.assertNotIn("contracts/plugin-info.schema.json", required)
-        self.assertIn("web/dist/index.html", required)
-        self.assertIn("LINUX-RUNTIME.md", recovery_drill.REQUIRED_PATHS["linux-x64-full"])
-
-    def test_release_runtime_forbidden_paths_cover_development_materials(self) -> None:
-        self.assertIn("contracts", FORBIDDEN_TOP_LEVEL_PATHS)
-        self.assertIn("docs", FORBIDDEN_TOP_LEVEL_PATHS)
-        self.assertIn("fixtures", FORBIDDEN_TOP_LEVEL_PATHS)
-        self.assertIn("plugins", FORBIDDEN_TOP_LEVEL_PATHS)
-        self.assertIn("tests", FORBIDDEN_DIRECTORY_NAMES)
-        self.assertIn("node_modules", FORBIDDEN_DIRECTORY_NAMES)
-
-    def test_read_server_output_stops_running_process_before_collecting_logs(self) -> None:
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "-c",
-                "import sys, time; print('ready', flush=True); sys.stderr.write('still-running\\n'); sys.stderr.flush(); time.sleep(60)",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        try:
-            time.sleep(0.2)
-            output = recovery_drill.read_server_output(process)
-        finally:
-            if process.poll() is None:
-                process.kill()
-                process.wait(timeout=5)
-
-        self.assertIsNotNone(process.poll())
-        self.assertIn("ready", output)
-        self.assertIn("still-running", output)
-
-    def test_captured_process_drains_output_while_process_is_running(self) -> None:
-        with TemporaryDirectory() as tmp:
-            process = start_captured_process(
-                [
-                    sys.executable,
-                    "-c",
-                    "import sys; sys.stdout.write('x' * 200000); sys.stderr.write('done\\n')",
-                ],
-                cwd=Path(tmp),
-            )
-            process.wait(timeout=10)
-            output = read_process_output(process)
-
-        self.assertIn("done", output)
-        self.assertGreater(len(output), 100000)
-
-    def test_select_previous_release_requires_release_manifest_asset(self) -> None:
-        releases = [
-            {
-                "tag_name": "v0.2.0",
-                "draft": False,
-                "prerelease": False,
-                "assets": [{"name": "release_manifest.v2.json"}],
-            },
-            {
-                "tag_name": "v0.1.0",
-                "draft": False,
-                "prerelease": False,
-                "assets": [{"name": "some-other-asset"}],
-            },
-        ]
-
-        selected = recovery_drill.select_previous_release(releases, "0.3.0")
-
-        self.assertIsNotNone(selected)
-        self.assertEqual("v0.2.0", selected["tag_name"])
-
-    def test_compare_versions_ignores_prerelease_suffixes(self) -> None:
-        self.assertLess(recovery_drill.compare_versions("1.2.3", "2.0.0"), 0)
-        self.assertEqual(0, recovery_drill.compare_versions("1.2.3-smoke", "1.2.3"))
-        self.assertGreater(recovery_drill.compare_versions("9999.0.0-smoke", "1.2.3"), 0)
-
-    def test_download_previous_archive_skips_when_release_api_is_inaccessible(self) -> None:
-        with TemporaryDirectory() as tmp:
-            download_dir = Path(tmp)
-            error = urllib.error.HTTPError(
-                recovery_drill.release_api_url("RayleaBot/RayleaBot"),
-                404,
-                "Not Found",
-                hdrs=None,
-                fp=None,
-            )
-            with mock.patch("recovery_drill.urllib.request.urlopen", side_effect=error):
-                with self.assertRaises(recovery_drill.DrillBootstrapSkip) as ctx:
-                    recovery_drill.download_previous_archive(
-                        "RayleaBot/RayleaBot",
-                        "0.3.0",
-                        "windows-x64-full",
-                        download_dir,
-                    )
-
-        self.assertIn("release api is not accessible", str(ctx.exception))
-
-    def test_read_build_info_from_zip_archive(self) -> None:
-        with TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            archive_path = tmp_path / "sample.zip"
-            with zipfile.ZipFile(archive_path, "w") as zf:
-                zf.writestr(
-                    "RayleaBot-v1.2.3-windows-x64-full/build_info.json",
-                    '{"version":"1.2.3","artifact_id":"windows-x64-full"}',
-                )
-
-            build_info = recovery_drill.read_build_info_from_archive("windows-x64-full", archive_path)
-
-        self.assertEqual("1.2.3", build_info["version"])
-        self.assertEqual("windows-x64-full", build_info["artifact_id"])
-
-    def test_read_build_info_from_tar_archive(self) -> None:
-        with TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            archive_path = tmp_path / "sample.tar.gz"
-            payload_path = tmp_path / "build_info.json"
-            payload_path.write_text('{"version":"1.2.3","artifact_id":"linux-x64-server"}', encoding="utf-8")
-            with tarfile.open(archive_path, "w:gz") as tf:
-                tf.add(payload_path, arcname="RayleaBot-v1.2.3-linux-x64-server/build_info.json")
-
-            build_info = recovery_drill.read_build_info_from_archive("linux-x64-server", archive_path)
-
-        self.assertEqual("1.2.3", build_info["version"])
-        self.assertEqual("linux-x64-server", build_info["artifact_id"])
-
-    def test_assert_recovery_summary_requires_guidance_for_degraded_summaries(self) -> None:
-        with self.assertRaises(recovery_drill.DrillError):
-            recovery_drill.assert_recovery_summary(
-                {
-                    "operation": "upgrade",
-                    "phase": "post_startup",
-                    "status": "degraded",
-                    "requires_post_start_checks": False,
-                    "issues": [],
-                    "skipped_plugins": [{"plugin_id": recovery_drill.INCOMPATIBLE_PLUGIN_ID}],
-                    "manual_actions": [],
-                    "next_steps": [],
-                },
-                expected_operation="upgrade",
-                expected_phase="post_startup",
-                expected_statuses={"degraded"},
-                requires_post_start_checks=False,
-                require_skipped_plugin=True,
-                require_guidance=True,
-            )
-
-    def test_assert_recovery_summary_rejects_guidance_for_compatible_summaries(self) -> None:
-        with self.assertRaises(recovery_drill.DrillError):
-            recovery_drill.assert_recovery_summary(
-                {
-                    "operation": "restore",
-                    "phase": "post_startup",
-                    "status": "compatible",
-                    "requires_post_start_checks": False,
-                    "issues": [],
-                    "skipped_plugins": [],
-                    "manual_actions": ["unexpected action"],
-                    "next_steps": ["unexpected step"],
-                },
-                expected_operation="restore",
-                expected_phase="post_startup",
-                expected_statuses={"compatible"},
-                requires_post_start_checks=False,
-                require_guidance=False,
-            )
-
-    def test_run_recovery_recheck_after_fix_requests_recheck_and_accepts_compatible_summary(self) -> None:
+    def test_current_archive_reuses_fresh_recovery_and_keeps_evidence(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            summary_path = root / "logs" / "recovery-summary.json"
-            summary_path.parent.mkdir(parents=True, exist_ok=True)
-            summary_path.write_text(
-                json.dumps(
-                    {
-                        "status": "compatible",
-                        "phase": "post_startup",
-                        "operation": "restore",
-                        "issues": [],
-                        "skipped_plugins": [],
-                        "manual_actions": [],
-                        "next_steps": [],
-                    }
-                ),
-                encoding="utf-8",
-            )
-            process = mock.Mock()
-            process.poll.return_value = None
+            archive = self.write_archive(root)
+            fixture = root / "plugin.zip"
+            fixture.write_bytes(b"plugin fixture")
+            output = root / "evidence"
+            with mock.patch("recovery_drill.rehearse", return_value={"restored_login": True}) as run:
+                result = recovery_drill.run_recovery_drill("windows-x64-full", archive, fixture,
+                                                          output_dir=output, observation_window_seconds=3)
+            binary, destination = run.call_args.args
+            self.assertTrue(binary.is_file())
+            self.assertEqual(destination, output / "rehearsal")
+            self.assertEqual(run.call_args.kwargs["plugin_fixture"], fixture.resolve())
+            self.assertEqual(run.call_args.kwargs["observation_window_seconds"], 3)
+            self.assertEqual(json.loads((output / "result.json").read_text()), result)
+            self.assertTrue(result["recovery"]["restored_login"])
 
-            with (
-                mock.patch("recovery_drill.self_host_smoke.start_server", return_value=process),
-                mock.patch("recovery_drill.self_host_smoke.wait_for_management_state"),
-                mock.patch("recovery_drill.self_host_smoke.login", return_value="session-token"),
-                mock.patch("recovery_drill.self_host_smoke.create_recovery_recheck_task", return_value="task_recovery_recheck_0001"),
-                mock.patch(
-                    "recovery_drill.self_host_smoke.poll_task",
-                    return_value={
-                        "task": {
-                            "task_id": "task_recovery_recheck_0001",
-                            "task_type": "recovery.recheck",
-                            "status": "succeeded",
-                            "result": {
-                                "summary": "rechecked",
-                                "details": {
-                                    "recovery_summary": {
-                                        "status": "compatible",
-                                        "phase": "post_startup",
-                                        "operation": "restore",
-                                        "issues": [],
-                                        "skipped_plugins": [],
-                                        "manual_actions": [],
-                                        "next_steps": [],
-                                        "requires_post_start_checks": False,
-                                    }
-                                },
-                            },
-                        }
-                    },
-                ),
-                mock.patch("recovery_drill.observe_recovery_window") as observe_mock,
-                mock.patch("recovery_drill.stop_process"),
-            ):
-                recovery_drill.run_recovery_recheck_after_fix(
-                    root,
-                    Path("raylea-server"),
-                    8080,
-                    expected_operation="restore",
-                    observation_window_seconds=60,
-                )
+    def test_missing_packaged_binary_prevents_rehearsal(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = self.write_archive(root, omit="raylea-server.exe")
+            fixture = root / "plugin.zip"
+            fixture.write_bytes(b"fixture")
+            with mock.patch("recovery_drill.rehearse") as run, self.assertRaises(RuntimeError):
+                recovery_drill.run_recovery_drill("windows-x64-full", archive, fixture, output_dir=root / "evidence")
+            run.assert_not_called()
 
-        observe_mock.assert_called_once()
+    def test_existing_evidence_directory_is_not_overwritten(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = self.write_archive(root)
+            fixture = root / "plugin.zip"
+            fixture.write_bytes(b"fixture")
+            with self.assertRaises(FileExistsError):
+                recovery_drill.run_recovery_drill("windows-x64-full", archive, fixture, output_dir=root)
 
 
 if __name__ == "__main__":

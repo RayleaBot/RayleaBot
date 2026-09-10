@@ -169,7 +169,7 @@ class ReleaseToolTests(unittest.TestCase):
                 version="0.1.0",
                 git_commit="abcdef1",
                 built_at="2026-03-24T10:00:00Z",
-                config_schema_version="2",
+                config_schema_version="4",
                 db_schema_version="000001",
                 plugin_protocol_version="3",
                 release_notes_ref="https://example.invalid/releases/v0.1.0",

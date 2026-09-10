@@ -107,6 +107,9 @@ jobs:
         with:
           python-version: "3.14.7"
 
+      - name: Install recovery rehearsal dependency
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
+
       - name: Build server
         if: steps.filter.outputs.selected == 'true'
         shell: bash
@@ -181,7 +184,6 @@ jobs:
             --web-dist web/dist
             --deps-dir .deps
             --templates-dir templates
-            --default-config config/default.yaml
             --output-dir dist/release
             --run-smoke
             --run-recovery-drill

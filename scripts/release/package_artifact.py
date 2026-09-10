@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 
 
+from artifact_matrix import ARTIFACT_MATRIX
+
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -18,7 +20,7 @@ def run(args: list[str]) -> None:
 
 
 def archive_suffix(artifact_id: str) -> str:
-    return ".zip" if artifact_id == "windows-x64-full" else ".tar.gz"
+    return ARTIFACT_MATRIX[artifact_id]["extension"]
 
 
 def archive_path(output_dir: Path, version: str, artifact_id: str) -> Path:
@@ -27,7 +29,7 @@ def archive_path(output_dir: Path, version: str, artifact_id: str) -> Path:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--artifact-id", required=True)
+    parser.add_argument("--artifact-id", required=True, choices=sorted(ARTIFACT_MATRIX))
     parser.add_argument("--version", required=True)
     parser.add_argument("--git-commit", required=True)
     parser.add_argument("--release-notes-ref", required=True)
@@ -42,12 +44,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--license-file", default="LICENSE")
     parser.add_argument("--third-party-notices", default="THIRD_PARTY_NOTICES.md")
     parser.add_argument("--windows-signer-sha256", default="")
-    parser.add_argument("--repository", default="")
     parser.add_argument("--run-smoke", action="store_true")
     parser.add_argument("--run-recovery-drill", action="store_true")
     parser.add_argument("--recovery-plugin-fixture", default="")
     parser.add_argument("--run-self-host-smoke", action="store_true")
-    parser.add_argument("--recovery-download-dir", "--download-dir", dest="recovery_download_dir", default="")
     parser.add_argument("--observation-window-seconds", default="")
     parser.add_argument("--window-seconds", default="")
     parser.add_argument("--probe-interval-seconds", default="")
@@ -121,12 +121,6 @@ def main(argv: list[str] | None = None) -> int:
             "--plugin-fixture",
             args.recovery_plugin_fixture,
         ]
-        if args.repository:
-            recovery_args.extend(["--repository", args.repository])
-        if args.version:
-            recovery_args.extend(["--current-version", args.version])
-        if args.recovery_download_dir:
-            recovery_args.extend(["--download-dir", args.recovery_download_dir])
         if args.observation_window_seconds:
             recovery_args.extend(["--observation-window-seconds", args.observation_window_seconds])
         run(recovery_args)

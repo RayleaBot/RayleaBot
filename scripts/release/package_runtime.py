@@ -7,10 +7,8 @@ import fnmatch
 import hashlib
 import json
 import os
-import re
 import signal
 import sys
-from urllib.parse import urlsplit
 import socket
 import subprocess
 import shutil
@@ -19,21 +17,19 @@ import tempfile
 import threading
 import time
 import urllib.request
+from urllib.parse import urlsplit
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TextIO
+
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from deps_manifest import validate_manifest
+from archive_io import extract_archive, copy_bounded, MAX_ARCHIVE_BYTES
 from jsonschema import ValidationError
 
+from artifact_matrix import ARTIFACT_MATRIX, REQUIRED_PATHS, SERVER_BINARIES
 
-SERVER_BINARIES = {
-    "windows-x64-full": "raylea-server.exe",
-    "linux-x64-full": "raylea-server",
-    "macos-arm64-full": "raylea-server",
-    "linux-x64-server": "raylea-server",
-}
 
 RESOURCE_KINDS = ("chromium", "ffmpeg")
 REQUIRED_ENTRYPOINTS = {
@@ -49,56 +45,6 @@ ARCHIVE_SUFFIXES = {
 SOURCE_PROBE_BYTES = 1024 * 1024
 SOURCE_PROBE_TIMEOUT_SECONDS = 8
 SOURCE_PROBE_CLOSE_RATIO = 0.10
-
-REQUIRED_PATHS = {
-    "windows-x64-full": {
-        "raylea-server.exe",
-        "raylea-updater.exe",
-        "RayleaLauncher.exe",
-        "WINDOWS-RUNTIME.md",
-        "build_info.json",
-        "LICENSE",
-        "THIRD_PARTY_NOTICES.md",
-        "web/dist/index.html",
-        ".deps/manifest.json",
-        "templates/help.menu/template.json",
-        "templates/status.panel/template.json",
-    },
-    "linux-x64-full": {
-        "raylea-server",
-        "RayleaLauncher",
-        "LINUX-RUNTIME.md",
-        "build_info.json",
-        "LICENSE",
-        "THIRD_PARTY_NOTICES.md",
-        "web/dist/index.html",
-        ".deps/manifest.json",
-        "templates/help.menu/template.json",
-        "templates/status.panel/template.json",
-    },
-    "macos-arm64-full": {
-        "raylea-server",
-        "RayleaLauncher.app/Contents/MacOS/RayleaLauncher",
-        "build_info.json",
-        "LICENSE",
-        "THIRD_PARTY_NOTICES.md",
-        "web/dist/index.html",
-        ".deps/manifest.json",
-        "templates/help.menu/template.json",
-        "templates/status.panel/template.json",
-    },
-    "linux-x64-server": {
-        "raylea-server",
-        "build_info.json",
-        "LICENSE",
-        "THIRD_PARTY_NOTICES.md",
-        "web/dist/index.html",
-        ".deps/manifest.json",
-        "systemd/rayleabot.service",
-        "templates/help.menu/template.json",
-        "templates/status.panel/template.json",
-    },
-}
 
 FORBIDDEN_TOP_LEVEL_PATHS = {
     ".github",
@@ -144,19 +90,36 @@ FORBIDDEN_FILE_PATTERNS = (
 )
 
 
+def archive_root_name(names: list[str]) -> str:
+    roots: set[str] = set()
+    seen: set[str] = set()
+    for name in names:
+        normalized = name.replace("\\", "/").rstrip("/")
+        path = PurePosixPath(normalized)
+        if not normalized or path.is_absolute() or any(part in {"", ".", ".."} or ":" in part for part in normalized.split("/")):
+            raise RuntimeError(f"unsafe release archive entry: {name}")
+        if normalized in seen:
+            raise RuntimeError(f"duplicate release archive entry: {name}")
+        seen.add(normalized)
+        roots.add(path.parts[0])
+    if len(roots) != 1:
+        raise RuntimeError("release archive must contain exactly one root directory")
+    return next(iter(roots))
+
+
 def unpack_archive(artifact_id: str, archive_path: Path, destination: Path) -> Path:
     destination.mkdir(parents=True, exist_ok=True)
-    if artifact_id == "windows-x64-full":
+    if ARTIFACT_MATRIX[artifact_id]["archive_type"] == "zip":
         with zipfile.ZipFile(archive_path) as zf:
-            zf.extractall(destination)
             names = [name for name in zf.namelist() if name]
+            root_name = archive_root_name(names)
+
     else:
         with tarfile.open(archive_path, "r:gz") as tf:
-            tf.extractall(destination)
             names = [member.name for member in tf.getmembers() if member.name]
-    if not names:
-        raise RuntimeError("archive is empty")
-    root_name = Path(names[0]).parts[0]
+            root_name = archive_root_name(names)
+
+    extract_archive(archive_path, destination, allow_links=True)
     root = destination / root_name
     if not root.is_dir():
         raise RuntimeError(f"release root not found after extraction: {root}")
@@ -412,9 +375,19 @@ def download_runtime_archive(root: Path, resource: dict[str, object]) -> Path:
         attempted.append(url)
         temp_path.unlink(missing_ok=True)
         try:
-            with urllib.request.urlopen(url, timeout=60) as response:
-                temp_path.write_bytes(response.read())
+            with urllib.request.urlopen(url, timeout=60) as response, temp_path.open("xb") as output:
+                if hasattr(response, "geturl") and urlsplit(response.geturl()).scheme != "https":
+                    raise RuntimeError("runtime download redirected outside HTTPS")
+                expected = int(response.headers.get("Content-Length", -1)) if hasattr(response, "headers") else -1
+                if expected > MAX_ARCHIVE_BYTES:
+                    raise RuntimeError("runtime archive exceeds download size limit")
+                copied = copy_bounded(response, output, MAX_ARCHIVE_BYTES)
+                if expected >= 0 and copied != expected:
+                    raise RuntimeError("runtime download size mismatch")
+                output.flush()
+                os.fsync(output.fileno())
         except Exception as exc:  # noqa: BLE001
+            temp_path.unlink(missing_ok=True)
             final_error = RuntimeError(f"download runtime archive failed from {url}: {exc}")
             continue
         if sha256_file(temp_path) != str(resource["sha256"]).lower():
@@ -526,16 +499,24 @@ def extract_runtime_archive(root: Path, resource: dict[str, object], archive_pat
     cleanup_stale_runtime_temp_roots(target_root.parent, resource)
     with tempfile.TemporaryDirectory(prefix=f"{resource['id']}-", dir=target_root.parent) as tmp:
         temp_root = Path(tmp)
-        archive_format = str(resource["archive_format"])
-        if archive_format == "zip":
-            with zipfile.ZipFile(archive_path) as zf:
-                zf.extractall(temp_root)
-        else:
-            with tarfile.open(archive_path, "r:*") as tf:
-                tf.extractall(temp_root)
+        extract_archive(archive_path, temp_root, allow_links=True)
+        for key in REQUIRED_ENTRYPOINTS[str(resource["kind"])]:
+            if not any((temp_root / value).is_file() for value in resource["entrypoints"][key]):
+                raise RuntimeError(f"runtime archive is missing required entrypoint: {key}")
+        previous = None
         if target_root.exists():
-            shutil.rmtree(target_root, ignore_errors=True)
-        replace_directory_with_retry(temp_root, target_root)
+            backup_root = Path(tempfile.mkdtemp(prefix=f".{resource['id']}-previous-", dir=target_root.parent))
+            previous = backup_root / "store"
+            replace_directory_with_retry(target_root, previous)
+        try:
+            replace_directory_with_retry(temp_root, target_root)
+        except Exception:
+            if previous is not None:
+                replace_directory_with_retry(previous, target_root)
+                previous.parent.rmdir()
+            raise
+        if previous is not None:
+            shutil.rmtree(previous.parent)
 
 
 def replace_directory_with_retry(source: Path, target: Path, *, timeout_seconds: float = 5) -> None:

@@ -80,6 +80,9 @@ jobs:
         with:
           python-version: "3.14.7"
 
+      - name: Install recovery rehearsal dependency
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
+
       - name: Build server
         shell: bash
         env:
@@ -189,7 +192,6 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           GIT_COMMIT="$(git rev-parse --short HEAD)"
           RELEASE_NOTES_REF="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
-          EXTRA=(--repository "$GITHUB_REPOSITORY")
           if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
             EXTRA+=(--updater-bin dist/server/raylea-updater.exe)
             if [ -n "${{ steps.windows-signing.outputs.signer_sha256 }}" ]; then
@@ -213,7 +215,6 @@ jobs:
             --run-recovery-drill \
             --recovery-plugin-fixture "dist/recovery-plugin/raylea.echo-0.2.0-${{ matrix.recovery_fixture_target }}.zip" \
             --run-self-host-smoke \
-            --download-dir dist/release/recovery-bootstrap \
             --observation-window-seconds 300 \
             --window-seconds 600 \
             --probe-interval-seconds 30 \
@@ -256,6 +257,9 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.14.7"
+
+      - name: Install recovery rehearsal dependency
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
       - name: Build server
         env:
@@ -314,8 +318,6 @@ jobs:
             --run-recovery-drill \
             --recovery-plugin-fixture dist/recovery-plugin/raylea.echo-0.2.0-linux-x64.zip \
             --run-self-host-smoke \
-            --repository "$GITHUB_REPOSITORY" \
-            --download-dir dist/release/recovery-bootstrap \
             --observation-window-seconds 300 \
             --window-seconds 600 \
             --probe-interval-seconds 30

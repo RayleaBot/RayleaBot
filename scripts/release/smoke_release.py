@@ -11,6 +11,7 @@ from package_runtime import (
     RESOURCE_KINDS,
     REQUIRED_PATHS,
     artifact_platform,
+    archive_root_name,
     ensure_no_forbidden_paths,
     find_platform_resource,
     load_deps_manifest,
@@ -19,68 +20,12 @@ from package_runtime import (
 )
 
 
+from artifact_matrix import ARTIFACT_MATRIX
+
 EXPECTED = {
-    "windows-x64-full": {
-        "archive_type": "zip",
-        "entries": {
-            "raylea-server.exe",
-            "raylea-updater.exe",
-            "RayleaLauncher.exe",
-            "WINDOWS-RUNTIME.md",
-            "build_info.json",
-            "LICENSE",
-            "THIRD_PARTY_NOTICES.md",
-            "templates/help.menu/template.json",
-            "templates/status.panel/template.json",
-            "web/dist/index.html",
-            ".deps/manifest.json",
-        },
-    },
-    "linux-x64-full": {
-        "archive_type": "tar.gz",
-        "entries": {
-            "raylea-server",
-            "RayleaLauncher",
-            "build_info.json",
-            "LICENSE",
-            "THIRD_PARTY_NOTICES.md",
-            "templates/help.menu/template.json",
-            "templates/status.panel/template.json",
-            "web/dist/index.html",
-            ".deps/manifest.json",
-        },
-    },
-    "macos-arm64-full": {
-        "archive_type": "tar.gz",
-        "entries": {
-            "raylea-server",
-            "RayleaLauncher.app/Contents/MacOS/RayleaLauncher",
-            "build_info.json",
-            "LICENSE",
-            "THIRD_PARTY_NOTICES.md",
-            "templates/help.menu/template.json",
-            "templates/status.panel/template.json",
-            "web/dist/index.html",
-            ".deps/manifest.json",
-        },
-    },
-    "linux-x64-server": {
-        "archive_type": "tar.gz",
-        "entries": {
-            "raylea-server",
-            "build_info.json",
-            "LICENSE",
-            "THIRD_PARTY_NOTICES.md",
-            "systemd/rayleabot.service",
-            "templates/help.menu/template.json",
-            "templates/status.panel/template.json",
-            "web/dist/index.html",
-            ".deps/manifest.json",
-        },
-    },
+    artifact_id: {"archive_type": definition["archive_type"], "entries": REQUIRED_PATHS[artifact_id]}
+    for artifact_id, definition in ARTIFACT_MATRIX.items()
 }
-for artifact_id, definition in EXPECTED.items():
-    definition["entries"].update(REQUIRED_PATHS[artifact_id])
 
 
 def list_entries(artifact_id: str, archive_path: Path) -> set[str]:
@@ -92,7 +37,7 @@ def list_entries(artifact_id: str, archive_path: Path) -> set[str]:
         with tarfile.open(archive_path, "r:gz") as tf:
             names = [member.name for member in tf.getmembers() if member.isfile()]
 
-    root_prefix = Path(names[0]).parts[0]
+    root_prefix = archive_root_name(names)
     result: set[str] = set()
     for name in names:
         relative = Path(name).relative_to(root_prefix)

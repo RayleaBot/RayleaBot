@@ -152,7 +152,7 @@ def classify(files: list[str]) -> dict[str, bool]:
             for area in ("server", "launcher", "web", "release", "ci"):
                 result[area] = True
             matched = True
-        if path == "scripts/deps_manifest.py":
+        if path in {"scripts/deps_manifest.py", "scripts/archive_io.py"}:
             for area in ("server", "launcher", "contracts", "release", "ci"):
                 result[area] = True
             matched = True
@@ -272,6 +272,7 @@ def self_test() -> None:
         (["launcher/internal/desktop/contracts/deps-manifest.schema.json"], {"launcher": True, "contracts": True}),
     ])
     cases.append((["scripts/process-invocation.mjs"], {"server": True, "launcher": True, "release": True, "ci": True}))
+    cases.append((["scripts/archive_io.py"], {"server": True, "launcher": True, "release": True, "ci": True}))
     for files, expected in cases:
         result = classify(files)
         for key, value in expected.items():
