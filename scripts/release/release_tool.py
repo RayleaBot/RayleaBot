@@ -9,6 +9,7 @@ import fnmatch
 import re
 import shutil
 import subprocess
+import sys
 import tarfile
 import tempfile
 import zipfile
@@ -16,6 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from archive_io import extract_archive
 
 from artifact_matrix import ARTIFACT_MATRIX
 from contract_versions_generated import PLUGIN_MANIFEST_VERSION, PLUGIN_UI_BRIDGE_VERSION, UPDATE_PROTOCOL_VERSION
@@ -93,6 +96,21 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def packaged_deps_manifest_sha256(archive: Path) -> str:
+    # Reuse the bounded extractor so links, duplicate paths, unsupported file
+    # types and compressed-stream integrity cannot bypass the metadata check.
+    with tempfile.TemporaryDirectory(prefix="rbmeta-") as temporary:
+        staging = Path(temporary)
+        names = extract_archive(archive, staging)
+        roots = {name.split("/", 1)[0] for name in names}
+        if len(roots) != 1:
+            raise ValueError("release archive must contain exactly one root directory")
+        manifest = staging / roots.pop() / ".deps" / "manifest.json"
+        if not manifest.is_file():
+            raise ValueError("release archive is missing .deps/manifest.json")
+        return sha256_file(manifest)
 
 
 def ensure_clean_dir(path: Path) -> None:
@@ -385,7 +403,6 @@ def build_release_metadata(
     db_schema_version: str,
     plugin_protocol_version: str,
     release_notes_ref: str,
-    deps_manifest: Path,
     sidecars: list[ArtifactSidecar],
     output_dir: Path,
     channel: str = "stable",
@@ -399,7 +416,6 @@ def build_release_metadata(
     expiration = parse_release_time(expires_at) if expires_at else publication + timedelta(days=7)
     if expiration <= publication:
         raise ValueError("release manifest expiration must be later than publication")
-    deps_manifest_sha256 = sha256_file(deps_manifest)
     artifacts = []
     checksum_lines = []
     for sidecar in sorted(sidecars, key=lambda item: item.artifact_id):
@@ -433,7 +449,7 @@ def build_release_metadata(
                 "update_mode": sidecar.update_mode,
                 "min_updater_protocol_version": 2,
                 "support_level": sidecar.support_level,
-                "deps_manifest_sha256": deps_manifest_sha256,
+                "deps_manifest_sha256": packaged_deps_manifest_sha256(archive),
                 "smoke_profile": sidecar.smoke_profile,
             }
         )
@@ -509,6 +525,8 @@ def verify_release_bundle(manifest_path: Path, checksums_path: Path, artifact_di
             raise SystemExit(f"SHA256SUMS.txt mismatch: {file_name}")
         if path.stat().st_size != artifact["archive_size_bytes"]:
             raise SystemExit(f"artifact size mismatch: {file_name}")
+        if packaged_deps_manifest_sha256(path) != artifact["deps_manifest_sha256"]:
+            raise SystemExit(f"packaged deps manifest sha256 mismatch: {file_name}")
 
 
 def sign_release_manifest(
@@ -592,7 +610,6 @@ def cmd_metadata(args: argparse.Namespace) -> int:
         db_schema_version=args.db_schema_version,
         plugin_protocol_version=args.plugin_protocol_version,
         release_notes_ref=args.release_notes_ref,
-        deps_manifest=Path(args.deps_manifest),
         sidecars=sidecars,
         output_dir=Path(args.output_dir),
         channel=args.channel,
@@ -656,7 +673,6 @@ def build_parser() -> argparse.ArgumentParser:
     metadata.add_argument("--channel", default="stable", choices=["stable", "beta"])
     metadata.add_argument("--published-at")
     metadata.add_argument("--expires-at")
-    metadata.add_argument("--deps-manifest", required=True)
     metadata.add_argument("--sidecar", action="append", required=True)
     metadata.add_argument("--output-dir", required=True)
     metadata.set_defaults(func=cmd_metadata)

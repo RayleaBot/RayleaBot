@@ -1,6 +1,7 @@
 import json
 import hashlib
 import base64
+import io
 import shutil
 import subprocess
 import sys
@@ -9,6 +10,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
@@ -17,6 +19,100 @@ import release_tool
 
 
 class ReleaseToolTests(unittest.TestCase):
+    def archive_with_deps(self, root: Path, artifact_id: str, payload: bytes):
+        definition = release_tool.ARTIFACT_MATRIX[artifact_id]
+        archive = root / f"RayleaBot-v0.4.0-{artifact_id}{definition['extension']}"
+        entries = {"release/.deps/manifest.json": payload, "release/raylea-server": b"core"}
+        if definition["archive_type"] == "zip":
+            with zipfile.ZipFile(archive, "w") as bundle:
+                for name, content in entries.items():
+                    bundle.writestr(name, content)
+        else:
+            with tarfile.open(archive, "w:gz") as bundle:
+                for name, content in entries.items():
+                    member = tarfile.TarInfo(name)
+                    member.size = len(content)
+                    bundle.addfile(member, io.BytesIO(content))
+        return release_tool.ArtifactSidecar(
+            artifact_id=artifact_id, archive_path=archive, file_name=archive.name,
+            platform=definition["platform"], support_level=definition["support_level"],
+            smoke_profile=definition["smoke_profile"], expanded_size_bytes=sum(map(len, entries.values())),
+            file_count=len(entries), update_mode="guided", windows_signer_sha256=None,
+        )
+
+    def metadata_for(self, root: Path, sidecars):
+        return release_tool.build_release_metadata(
+            version="0.4.0", git_commit="abcdef1", built_at="2026-09-10T00:00:00Z",
+            config_schema_version="4", db_schema_version="000001", plugin_protocol_version="3",
+            release_notes_ref="https://example.invalid/releases/v0.4.0",
+            sidecars=sidecars, output_dir=root / "metadata",
+        )
+
+    def test_metadata_hashes_each_archives_raw_deps_bytes(self) -> None:
+        lf = b'{\n  "manifest_version": 5,\n  "resources": []\n}\n'
+        crlf = lf.replace(b"\n", b"\r\n")
+        self.assertEqual(json.loads(lf), json.loads(crlf))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sidecars = [self.archive_with_deps(root, "linux-x64-server", lf),
+                        self.archive_with_deps(root, "windows-x64-full", crlf)]
+            manifest, checksums = self.metadata_for(root, sidecars)
+            hashes = {entry["artifact_id"]: entry["deps_manifest_sha256"]
+                      for entry in json.loads(manifest.read_text())["artifacts"]}
+            self.assertEqual(hashes["linux-x64-server"], hashlib.sha256(lf).hexdigest())
+            self.assertEqual(hashes["windows-x64-full"], hashlib.sha256(crlf).hexdigest())
+            self.assertNotEqual(hashes["linux-x64-server"], hashes["windows-x64-full"])
+            release_tool.verify_release_bundle(manifest, checksums, root)
+
+    @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
+    def test_valid_signature_cannot_hide_wrong_packaged_deps_digest(self) -> None:
+        lf = b'{\n"manifest_version":5,"resources":[]\n}\n'
+        crlf = lf.replace(b"\n", b"\r\n")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sidecar = self.archive_with_deps(root, "windows-x64-full", crlf)
+            manifest, checksums = self.metadata_for(root, [sidecar])
+            data = json.loads(manifest.read_text())
+            data["artifacts"][0]["deps_manifest_sha256"] = hashlib.sha256(lf).hexdigest()
+            manifest.write_text(json.dumps(data), encoding="utf-8")
+            checksums.write_text(
+                f"{release_tool.sha256_file(sidecar.archive_path)}  {sidecar.file_name}\n"
+                f"{release_tool.sha256_file(manifest)}  {manifest.name}\n", encoding="utf-8")
+            key, public_key = root / "test.pem", root / "test.pub.pem"
+            subprocess.run(["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(key)],
+                           check=True, capture_output=True)
+            signature = root / "signature.json"
+            release_tool.sign_release_manifest(manifest, signature, [("fixture-only", key)])
+            signed = json.loads(signature.read_text())
+            self.assertEqual(signed["manifest_sha256"], release_tool.sha256_file(manifest))
+            raw_signature = root / "signature.bin"
+            raw_signature.write_bytes(base64.urlsafe_b64decode(signed["signatures"][0]["signature"]))
+            subprocess.run(["openssl", "pkey", "-in", str(key), "-pubout", "-out", str(public_key)],
+                           check=True, capture_output=True)
+            subprocess.run(["openssl", "pkeyutl", "-verify", "-rawin", "-pubin", "-inkey", str(public_key),
+                            "-in", str(manifest), "-sigfile", str(raw_signature)], check=True, capture_output=True)
+            with self.assertRaisesRegex(SystemExit, "packaged deps manifest sha256 mismatch"):
+                release_tool.verify_release_bundle(manifest, checksums, root)
+
+    def test_packaged_deps_read_preserves_shared_archive_boundaries(self) -> None:
+        for artifact_id in ("windows-x64-full", "linux-x64-server"):
+            with self.subTest(artifact_id=artifact_id), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                sidecar = self.archive_with_deps(root, artifact_id, b"{}")
+                with mock.patch("archive_io.MAX_FILE_BYTES", 1), self.assertRaisesRegex(ValueError, "size limit"):
+                    release_tool.packaged_deps_manifest_sha256(sidecar.archive_path)
+                if artifact_id == "windows-x64-full":
+                    with zipfile.ZipFile(sidecar.archive_path, "a") as bundle:
+                        bundle.writestr("another-root/file", b"x")
+                else:
+                    with tarfile.open(sidecar.archive_path, "w:gz") as bundle:
+                        member = tarfile.TarInfo("release/.deps/manifest.json")
+                        member.type = tarfile.SYMTYPE
+                        member.linkname = "../../outside.json"
+                        bundle.addfile(member)
+                with self.assertRaises(ValueError):
+                    release_tool.packaged_deps_manifest_sha256(sidecar.archive_path)
+
     @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
     def test_sign_release_manifest_emits_exact_dual_signed_ed25519_envelope(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -173,7 +269,6 @@ class ReleaseToolTests(unittest.TestCase):
                 db_schema_version="000001",
                 plugin_protocol_version="3",
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
-                deps_manifest=deps / "manifest.json",
                 sidecars=[sidecar],
                 output_dir=output / "release",
             )
