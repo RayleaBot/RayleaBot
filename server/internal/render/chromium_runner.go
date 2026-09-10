@@ -420,6 +420,11 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 		r.profileDir = profileDir
 		allocatorOptions = append(allocatorOptions, chromedp.UserDataDir(profileDir))
 	}
+	if deadline, ok := ctx.Deadline(); ok {
+		// Browser startup shares the caller's render budget. Do not truncate
+		// it with chromedp's independent 20-second DevTools URL timeout.
+		allocatorOptions = append(allocatorOptions, chromedp.WSURLReadTimeout(time.Until(deadline)))
+	}
 	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(context.Background(), allocatorOptions...)
 	cancelAllocator = sync.OnceFunc(cancelAllocator)
 	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
