@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type thirdPartyDiagnostics struct {

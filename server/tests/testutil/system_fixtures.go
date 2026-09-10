@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 

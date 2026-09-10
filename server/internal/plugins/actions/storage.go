@@ -8,7 +8,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
 const (

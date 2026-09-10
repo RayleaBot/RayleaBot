@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/go-chi/chi/v5"
 )

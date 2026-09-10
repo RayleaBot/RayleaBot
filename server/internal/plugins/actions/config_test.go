@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginsettings "github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 

@@ -23,11 +23,11 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
-	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 

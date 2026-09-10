@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )

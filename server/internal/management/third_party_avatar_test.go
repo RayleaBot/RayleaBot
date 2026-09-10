@@ -10,8 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 )
 
 type avatarRoundTripFunc func(*http.Request) (*http.Response, error)

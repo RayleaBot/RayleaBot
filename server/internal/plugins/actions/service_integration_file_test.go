@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
 func TestExecuteStorageFileRoundTripUsesImplicitPrivateNamespace(t *testing.T) {

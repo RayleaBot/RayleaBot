@@ -1,6 +1,6 @@
 package events
 
-import "github.com/RayleaBot/RayleaBot/server/internal/pubsub"
+import "github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 
 type ThirdPartyAccountService struct {
 	hub pubsub.Hub[Frame]

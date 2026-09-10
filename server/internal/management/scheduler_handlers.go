@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/go-chi/chi/v5"
 )

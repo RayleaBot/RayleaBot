@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 )
 
 func DiscoverSeeds(repoRoot, root string, logger *slog.Logger) (map[string]Seed, error) {

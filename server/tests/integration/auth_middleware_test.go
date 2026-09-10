@@ -12,8 +12,8 @@ import (
 	"github.com/coder/websocket"
 	"pgregory.net/rapid"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 )
 
 // newPropertyAuthManager creates a deterministic auth.Manager for property tests.

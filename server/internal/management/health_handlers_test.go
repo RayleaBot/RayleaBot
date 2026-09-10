@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 )
 
 func TestNewReadinessHandlerProjectsHTTPStatus(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
-	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
+	"github.com/RayleaBot/RayleaBot/server/tests/testenv"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 

@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/diagnostics"
+	"github.com/RayleaBot/RayleaBot/server/internal/operations/diagnostics"
 )
 
 func runDoctor(cmd Command) int {

@@ -1,7 +1,7 @@
 package management
 
 import (
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"

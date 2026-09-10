@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/console"
-	"github.com/RayleaBot/RayleaBot/server/internal/redact"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/redact"
 )
 
 const (

@@ -13,11 +13,11 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
 func TestAppCompositionSharesSettingsAcrossHTTPRuntimeAndIngress(t *testing.T) {

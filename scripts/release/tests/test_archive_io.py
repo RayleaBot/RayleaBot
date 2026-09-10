@@ -1,4 +1,5 @@
 import io
+import lzma
 import sys
 import tarfile
 import unittest
@@ -46,8 +47,9 @@ class ArchiveBoundaryTests(unittest.TestCase):
             self.assertEqual((target / "file").read_bytes(), b"old")
 
     def test_xz_dictionary_limit_matches_server_policy(self):
-        fixture = ROOT / "server/internal/deps/testdata/archives/dictionary-limit.tar.xz"
-        with TemporaryDirectory() as tmp, self.assertRaises(Exception):
+        fixture = ROOT / "server/internal/platform/deps/testdata/archives/dictionary-limit.tar.xz"
+        self.assertTrue(fixture.is_file(), fixture)
+        with TemporaryDirectory() as tmp, self.assertRaises(lzma.LZMAError):
             extract_archive(fixture, Path(tmp), allow_links=True)
 
     def test_gzip_crc_and_xz_checksums_are_verified(self):

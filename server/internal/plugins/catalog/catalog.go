@@ -4,8 +4,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 type Catalog struct {

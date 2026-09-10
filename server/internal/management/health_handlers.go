@@ -3,7 +3,7 @@ package management
 import (
 	"net/http"
 
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 )
 
 func NewReadinessHandler(getReport func() systemsvc.ReadinessReport) http.HandlerFunc {

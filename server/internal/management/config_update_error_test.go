@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
+	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 

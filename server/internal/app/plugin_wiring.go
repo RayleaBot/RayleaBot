@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 
-	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/governance"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
@@ -14,7 +15,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type pluginRuntimeDeps struct {

@@ -13,12 +13,12 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 

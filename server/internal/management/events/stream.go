@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 

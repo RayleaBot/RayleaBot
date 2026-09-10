@@ -4,13 +4,13 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
 )
 
 const dispatcherRuntimeFlushInterval = 10 * time.Second

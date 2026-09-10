@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 )
 
 func TestProjectServiceStatus(t *testing.T) {

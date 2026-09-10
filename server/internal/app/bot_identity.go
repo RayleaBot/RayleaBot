@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
 // botIdentityProvider is one adapter's view of who it is logged in as.

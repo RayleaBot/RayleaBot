@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 )
 
 func TestDiscoverSkipsInternalRuntimeDirectoriesWithoutWarnings(t *testing.T) {

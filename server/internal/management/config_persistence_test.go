@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 type failingConfigPersistence struct{ ConfigService }

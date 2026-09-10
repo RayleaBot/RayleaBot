@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
 )
 
 func TestManagerCapturesRedactedConsoleFrames(t *testing.T) {

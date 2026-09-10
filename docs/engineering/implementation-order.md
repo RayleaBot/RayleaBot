@@ -60,7 +60,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 ## 5. 接入协议、插件和平台能力
 
 - Adapter 只负责平台协议、连接状态、事件归一化和动作转换，不直接写业务状态。
-- `eventpipeline/chatpolicy` Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
+- `bot/pipeline/chatpolicy` Ingress 负责命令解析和聊天治理；Bridge 负责统一事件结构校验。
 - Dispatcher 是插件事件排队和出站 action 的唯一执行出口。
 - Runtime Manager 只负责插件进程、JSONL 协议和生命周期。
 - Plugin Store Service 只消费通过合同校验的官方或自定义 HTTPS 目录并复用统一 Installer，不直接写运行目录或信任 manifest 自报身份。

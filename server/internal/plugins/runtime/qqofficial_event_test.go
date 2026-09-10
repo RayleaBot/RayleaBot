@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
 func TestQQNativePayloadReachesPluginFrame(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 type streamSources struct {

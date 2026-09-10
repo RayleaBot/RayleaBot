@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
-	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
 type Command struct {

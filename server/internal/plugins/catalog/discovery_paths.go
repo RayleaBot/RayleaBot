@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 )
 
 type DiscoverySpec struct {

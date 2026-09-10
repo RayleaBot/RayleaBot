@@ -331,7 +331,7 @@ def generate():
     ) + "\n"
     outputs[ROOT / "scripts/release/contract_versions_generated.py"] = python.encode("utf-8")
     vectors = (ROOT / "scripts/testdata/redaction.json").read_bytes().replace(b"\r\n", b"\n")
-    for target in ["server/internal/redact/testdata/redaction.generated.json", "sdk/go/testdata/redaction.generated.json"]:
+    for target in ["server/internal/platform/redact/testdata/redaction.generated.json", "sdk/go/testdata/redaction.generated.json"]:
         outputs[ROOT / target] = vectors
     text = HEADER + "\npackage pluginbuild\n\nconst (\n" + "\n".join(
         f" {name} = {json.dumps(versions[source])}" for name, source in {
@@ -350,7 +350,7 @@ def sync_owned_data(outputs, verify):
     for directory in [
         "server/internal/pluginwire", "sdk/go/internal/pluginwire",
         "server/internal/pluginwire/testdata", "sdk/go/internal/pluginwire/testdata",
-        "server/internal/redact/testdata", "sdk/go/testdata",
+        "server/internal/platform/redact/testdata", "sdk/go/testdata",
     ]:
         for pattern in ("*.schema.json", "*.generated.json"):
             for path in (ROOT / directory).glob(pattern):

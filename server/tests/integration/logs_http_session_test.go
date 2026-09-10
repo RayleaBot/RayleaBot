@@ -2,7 +2,7 @@ package integration
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"path/filepath"
 	"strings"
 	"testing"

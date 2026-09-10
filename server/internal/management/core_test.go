@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 )
 
 func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {

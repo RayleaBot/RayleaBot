@@ -19,7 +19,7 @@
 ## Concurrency and Assembly
 
 - 配置热更新的读-改-写必须串行化；策略派生对象整体替换，避免热更新写路径与事件读路径共享未保护字段。
-- 订阅与广播复用 `server/internal/pubsub` 的 Hub。
+- 订阅与广播复用 `server/internal/platform/pubsub` 的 Hub。
 - 必选依赖缺失在装配层返回 error；不在业务方法中通过接收者 nil 检查静默降级或假成功。
 - 可选协作者装配到接口字段前检查具体指针，避免 typed nil 绕过空值判断。
 

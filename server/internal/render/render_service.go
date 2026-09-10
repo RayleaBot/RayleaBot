@@ -11,9 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 

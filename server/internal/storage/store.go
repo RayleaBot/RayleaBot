@@ -11,7 +11,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 )
 

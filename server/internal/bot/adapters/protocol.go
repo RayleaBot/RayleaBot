@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 )
 
 type ProtocolIssue struct {

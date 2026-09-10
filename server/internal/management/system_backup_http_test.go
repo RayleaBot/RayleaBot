@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"github.com/RayleaBot/RayleaBot/server/internal/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )

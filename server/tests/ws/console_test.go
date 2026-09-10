@@ -8,7 +8,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
 )
 
 func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {

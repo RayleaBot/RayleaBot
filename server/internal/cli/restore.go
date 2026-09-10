@@ -3,9 +3,9 @@ package cli
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 )
 
 func runRestore(cmd Command) int {

@@ -11,9 +11,9 @@ import (
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 )
 
 const (
@@ -79,7 +79,7 @@ type CoreSystemStatusResponse struct {
 	DBSchemaVersion string                         `json:"db_schema_version"`
 	UptimeSeconds   int64                          `json:"uptime_seconds"`
 	RecoverySummary *recovery.CompatibilitySummary `json:"recovery_summary,omitempty"`
-	Health          *systemsvc.ReadinessReport        `json:"health,omitempty"`
+	Health          *systemsvc.ReadinessReport     `json:"health,omitempty"`
 }
 
 type coreShutdownResponse struct {

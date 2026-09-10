@@ -27,7 +27,7 @@ let failed = false
 
 const schemaCopies = [
   ...schemas.map(name => ({ name, target: `${targetDir}/${name}` })),
-  { name: 'deps-manifest.schema.json', target: 'server/internal/deps/contracts/deps-manifest.schema.json' },
+  { name: 'deps-manifest.schema.json', target: 'server/internal/platform/deps/contracts/deps-manifest.schema.json' },
   { name: 'deps-manifest.schema.json', target: 'launcher/internal/desktop/contracts/deps-manifest.schema.json' },
 ]
 

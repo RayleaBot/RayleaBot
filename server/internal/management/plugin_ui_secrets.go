@@ -2,7 +2,7 @@ package management
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"net/http"
 )
 

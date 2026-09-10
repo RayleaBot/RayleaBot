@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 )
 
 type StubAuthRepository struct {

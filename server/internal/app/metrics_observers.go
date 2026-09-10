@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )

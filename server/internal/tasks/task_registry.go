@@ -10,8 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 )
 
 type Status string

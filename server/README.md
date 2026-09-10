@@ -12,11 +12,11 @@
 
 接口、错误码、配置和插件协议以 [`contracts/`](../contracts/README.md) 为准；完整 HTTP 操作见 [OpenAPI](../contracts/web-api.openapi.yaml)。使用说明见[管理面职责](../docs/user/management-surface.md)和 [CLI](../docs/user/cli.md)。
 
-诊断检查位于 `internal/diagnostics`，由 CLI 与在线导出共用；CLI 不定义在线领域服务的业务逻辑。插件启停由 lifecycle 控制器执行，HTTP handler 只校验传输和映射结果。
+诊断检查位于 `internal/operations/diagnostics`，由 CLI 与在线导出共用；CLI 不定义在线领域服务的业务逻辑。插件启停由 lifecycle 控制器执行，HTTP handler 只校验传输和映射结果。
 
-调度作业摘要、排序、执行时区与载荷展示由 `internal/scheduler` 构建。离线恢复的隔离预检与文件事务归 `internal/recovery`，管理员凭据重置事务归 `internal/auth`；CLI 负责参数、锁、输出与退出码。
+调度作业摘要、排序、执行时区与载荷展示由 `internal/scheduler` 构建。离线恢复的隔离预检与文件事务归 `internal/operations/recovery`，管理员凭据重置事务归 `internal/platform/auth`；CLI 负责参数、锁、输出与退出码。
 
-聊天事件、消息段和出站消息命令归 `internal/chatevent`；插件声明与执行结果归 `internal/plugins`；调度运行记录归 `internal/scheduler`。Dispatcher 通过投递接口使用运行时，适配器路由位于 `internal/eventpipeline/outbound`。只有 lifecycle 管理进程重载和旧实例回收，JSONL 帧留在 `plugins/runtime`。
+聊天事件、消息段和出站消息命令归 `internal/bot/chatevent`；插件声明与执行结果归 `internal/plugins`；调度运行记录归 `internal/scheduler`。Dispatcher 通过投递接口使用运行时，适配器路由位于 `internal/bot/pipeline/outbound`。只有 lifecycle 管理进程重载和旧实例回收，JSONL 帧留在 `plugins/runtime`。
 
 ## 当前边界
 

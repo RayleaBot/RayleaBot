@@ -24,7 +24,7 @@
 
 - 所有对外边界以 `contracts/` 为准。
 - Server 是在线的状态来源；Web 与 Launcher 只保存临时视图。
-- Adapter、`eventpipeline/chatpolicy` Ingress、Bridge、Dispatcher、Runtime Manager 和 Local Action Service 各有单一职责。
+- Adapter、`bot/pipeline/chatpolicy` Ingress、Bridge、Dispatcher、Runtime Manager 和 Local Action Service 各有单一职责。
 - 插件代码信任、浏览器会话、Launcher control 和发布更新是独立信任边界。
 - Tasks、Scheduler 和 updater 各自只有唯一的写入路径，并把最终状态持久化。
 - 客户端、插件和文档不得自行定义与 server 或 `contracts/` 冲突的语义。

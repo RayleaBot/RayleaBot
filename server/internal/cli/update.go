@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
 func runVersion(cmd Command) int {

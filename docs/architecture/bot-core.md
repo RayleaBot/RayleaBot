@@ -9,7 +9,7 @@
 | 模块 | 作用 |
 | --- | --- |
 | App | 负责服务组装、运行控制、关闭和统一路由输出 |
-| Chat Policy Ingress | 位于 `eventpipeline/chatpolicy`，负责 adapter 事件入口、命令提取、聊天权限、cooldown reply 和 adapter ready 协调 |
+| Chat Policy Ingress | 位于 `bot/pipeline/chatpolicy`，负责 adapter 事件入口、命令提取、聊天权限、cooldown reply 和 adapter ready 协调 |
 | Bridge | 负责 adapter 事件校验、统一事件转换和桥接层观测 |
 | Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
@@ -24,7 +24,7 @@
 | Logger | 负责统一结构化日志输出 |
 | Render Service | 负责模板渲染、结果缓存与 artifact 管理 |
 
-共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`health` 仅保存中性诊断问题，包含恢复摘要的 readiness 由 `system` 组合，HTTP 状态映射由 `management` 处理。`runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。
+共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`platform/health` 仅保存中性诊断问题，包含恢复摘要的 readiness 由 `operations/system` 组合，HTTP 状态映射由 `management` 处理。`platform/runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。
 
 ## 事件分发规则
 
@@ -32,7 +32,7 @@
 
 管理事件流原子获取初始快照与订阅，避免初始状态后出现旧排队状态。每个订阅者收到独立快照，慢消费者保留最新状态；连接退出时解除全部订阅。App 关闭时先结束管理事件流并等待传输关闭，再由适配器服务统一停止所有实例，领域服务不反向依赖管理层。
 
-- `eventpipeline/chatpolicy` Ingress 在进入 Bridge 前完成命令提取、黑名单、权限级别和冷却限流检查。
+- `bot/pipeline/chatpolicy` Ingress 在进入 Bridge 前完成命令提取、黑名单、权限级别和冷却限流检查。
 - 订阅以统一 `event_type` 为中心，当前支持精确匹配和 `*` 全量订阅。
 - 多个插件命中同一事件时默认 fan-out 分发，不提供停止传播、优先级抢占或“首个处理者获胜”。
 - 同一插件的事件先进入 per-plugin queue，再按 `event.target` 切分 lane。
@@ -47,7 +47,7 @@
 ### 命令解析
 
 - 命令前缀来自 `config/user.yaml` 的 `command.prefixes`。
-- `eventpipeline/chatpolicy` Ingress 命中前缀后，把命令名写入 `payload.command`，把参数数组写入 `payload.args`。
+- `bot/pipeline/chatpolicy` Ingress 命中前缀后，把命令名写入 `payload.command`，把参数数组写入 `payload.args`。
 - 插件可在 manifest 的 `commands` 字段中声明主命令、别名、说明、示例和权限级别。
 - 命令消息优先定向投递给声明该命令的插件；无声明时仍可按消息订阅继续 fan-out。
 - 默认官方插件当前使用 `raylea.` ID 前缀；插件身份仍以来源记录和 `info.json.id` 的一致性校验为准。

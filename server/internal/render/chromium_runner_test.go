@@ -15,7 +15,7 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 )
 
 func newTestChromiumRunner(t *testing.T) *chromiumRunner {

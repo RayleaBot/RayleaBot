@@ -44,7 +44,7 @@ sequenceDiagram
 | 环节 | 职责方 | 状态来源 |
 | --- | --- | --- |
 | transport 与协议帧 | Adapter | 各实例的连接快照、请求关联、序列与去重状态 |
-| 命令与聊天治理 | `eventpipeline/chatpolicy` | 配置与治理服务 |
+| 命令与聊天治理 | `bot/pipeline/chatpolicy` | 配置与治理服务 |
 | 统一事件校验 | Bridge | formal event contract |
 | 目标与队列 | Dispatcher | manifest events、command declarations、per-plugin lanes |
 | 插件进程协议 | Runtime Manager | runtime snapshot 与 event session |
@@ -56,7 +56,7 @@ sequenceDiagram
 
 ## 入站语义
 
-Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。`eventpipeline/chatpolicy` 的 Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却拦截。
+Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。`bot/pipeline/chatpolicy` 的 Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却拦截。
 
 Bridge 处理受支持适配器的归一化事件。无法通过正式结构校验的事件进入结构化诊断，不交给插件。
 
@@ -103,7 +103,7 @@ Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `ev
 ## 关键边界
 
 - Adapter 不写业务状态库。
-- `eventpipeline/chatpolicy` 的 Ingress 是命令与聊天治理职责方；Bridge 只校验统一事件。
+- `bot/pipeline/chatpolicy` 的 Ingress 是命令与聊天治理职责方；Bridge 只校验统一事件。
 - Dispatcher 是插件事件排队和出站 action 的职责方。
 - Runtime Manager 管理插件进程协议。
 - Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口；插件自有的外部网络、临时文件和子进程工作由插件进程负责。

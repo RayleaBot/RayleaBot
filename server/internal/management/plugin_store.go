@@ -11,10 +11,10 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
+	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 

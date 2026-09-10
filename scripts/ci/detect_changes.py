@@ -122,9 +122,9 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path.startswith(("server/internal/pluginwire/", "sdk/go/internal/pluginwire/", "server/internal/contractversions/", "launcher/internal/contractversions/")) or path in {
             "sdk/go/pluginbuild/versions.generated.go", "scripts/release/contract_versions_generated.py",
-            "sdk/go/testdata/redaction.generated.json", "server/internal/redact/testdata/redaction.generated.json",
+            "sdk/go/testdata/redaction.generated.json", "server/internal/platform/redact/testdata/redaction.generated.json",
             "sdk/vue/src/contract.generated.ts", "web/src/types/plugin-management-ui.generated.ts",
-            "server/internal/deps/contracts/deps-manifest.schema.json",
+            "server/internal/platform/deps/contracts/deps-manifest.schema.json",
             "launcher/internal/desktop/contracts/deps-manifest.schema.json",
             "launcher/internal/desktop/server_models.generated.go", "launcher/src/shared/web-api.generated.ts",
             "launcher/internal/desktop/api-contracts/responses.generated.json",
@@ -270,7 +270,8 @@ def self_test() -> None:
     ]
     cases.extend([
         (["scripts/deps_manifest.py"], {"server": True, "launcher": True, "contracts": True, "release": True, "ci": True}),
-        (["server/internal/deps/contracts/deps-manifest.schema.json"], {"server": True, "contracts": True}),
+        (["server/internal/platform/deps/contracts/deps-manifest.schema.json"], {"server": True, "contracts": True}),
+        (["server/internal/platform/redact/testdata/redaction.generated.json"], {"server": True, "contracts": True}),
         (["launcher/internal/desktop/contracts/deps-manifest.schema.json"], {"launcher": True, "contracts": True}),
         (["launcher/internal/desktop/server_models.generated.go"], {"launcher": True, "contracts": True}),
         (["launcher/internal/desktop/api-contracts/responses.generated.json"], {"launcher": True, "contracts": True}),

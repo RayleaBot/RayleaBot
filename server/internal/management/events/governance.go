@@ -3,7 +3,7 @@ package events
 import (
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 )
 
 type GovernanceService struct {

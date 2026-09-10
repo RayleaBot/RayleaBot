@@ -8,21 +8,21 @@
       "target_action": "migrate_to_sqlc",
       "revisit_after": "2026-10-01"
     },
-    "server/internal/logging/repository.go": {
+    "server/internal/platform/logging/repository.go": {
       "category": "C",
       "reason": "Management log list and cursor-boundary queries compose optional filters and variable IN clauses; static insert, detail, and pruning queries use sqlc.",
       "owner": "server-observability",
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"
     },
-    "server/internal/plugins/pluginstore/config.go": {
+    "server/internal/plugins/storage/config.go": {
       "category": "C",
       "reason": "Plugin config selective reads compose a variable key IN clause; namespace-wide reads and writes use sqlc.",
       "owner": "server-plugins",
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"
     },
-    "server/internal/plugins/pluginstore/kv.go": {
+    "server/internal/plugins/storage/kv.go": {
       "category": "C",
       "reason": "Plugin KV prefix listing uses SQLite LIKE ESCAPE syntax that sqlc v1.31.1 cannot parse.",
       "owner": "server-plugins",

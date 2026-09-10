@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
 // Action contains decoded host capability arguments. Message delivery receives

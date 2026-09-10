@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 )
 
 var secretKeyPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$`)

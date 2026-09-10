@@ -10,9 +10,9 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
 var (

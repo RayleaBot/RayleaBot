@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 )
 
 func openWithProtection(path string, lock *filelock.Lock) (*Store, error) {

@@ -2,7 +2,7 @@ package integration
 
 import (
 	"encoding/json"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"reflect"

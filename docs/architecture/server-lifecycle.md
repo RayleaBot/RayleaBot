@@ -29,10 +29,10 @@ flowchart TD
 
 | 资源 | 主要路径 | 职责 |
 | --- | --- | --- |
-| 配置 | `internal/configruntime` | 读取、更新、脱敏和 apply policy |
+| 配置 | `internal/config/runtime` | 读取、更新、脱敏和 apply policy |
 | 存储 | `internal/storage` | SQLite 当前结构初始化和仓储 |
 | 插件 | `internal/plugins/lifecycle`、`internal/plugins/runtime` | 插件启停、重载、进程协议和状态 |
-| 事件 | `internal/eventpipeline` | 入站、桥接、分发和出站 |
+| 事件 | `internal/bot/pipeline` | 入站、桥接、分发和出站 |
 | 渲染 | `internal/render` | 模板、队列、浏览器和 artifact |
 | 管理入口 | `internal/management` | HTTP handlers 和 WebSocket events |
 

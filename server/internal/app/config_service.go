@@ -4,13 +4,13 @@ import (
 	"log/slog"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
 type configRuntimeState interface {

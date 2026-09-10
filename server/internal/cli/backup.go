@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	backupsvc "github.com/RayleaBot/RayleaBot/server/internal/backup"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	backupsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/backup"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 

@@ -2,16 +2,15 @@ package management
 
 import (
 	"context"
+	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/go-chi/chi/v5"
+	"gopkg.in/yaml.v3"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
-	"github.com/go-chi/chi/v5"
-	"gopkg.in/yaml.v3"
 )
 
 func TestRegisterManagementRoutes(t *testing.T) {

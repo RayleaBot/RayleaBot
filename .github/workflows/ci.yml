@@ -142,10 +142,10 @@ jobs:
           CGO_ENABLED: "1"
         run: >-
           go test -race
-          ./internal/app ./internal/configruntime ./internal/eventpipeline/...
+          ./internal/app ./internal/config/runtime ./internal/bot/pipeline/...
           ./internal/plugins/catalog ./internal/plugins/runtime ./internal/plugins/lifecycle
-          ./internal/plugins/actions ./internal/plugins/webhook ./internal/management ./internal/system ./internal/render
-          ./internal/pubsub ./internal/bot/adapters ./internal/management/events ./internal/onebot11 ./internal/storage
+          ./internal/plugins/actions ./internal/plugins/webhook ./internal/management ./internal/operations/system ./internal/render
+          ./internal/platform/pubsub ./internal/bot/adapters ./internal/management/events ./internal/bot/adapters/onebot11 ./internal/storage
 
       - name: Run core Go lint
         uses: golangci/golangci-lint-action@v9
@@ -183,7 +183,7 @@ jobs:
 
       - name: Test Windows installation and locking
         working-directory: server
-        run: go test ./internal/plugins/lifecycle ./internal/releaseupdate ./internal/filelock -count=1
+        run: go test ./internal/plugins/lifecycle ./internal/releaseupdate ./internal/platform/filelock -count=1
 
   design-system:
     if: needs.changes.outputs.web == 'true' || needs.changes.outputs.launcher == 'true' || needs.changes.outputs.docs == 'true' || needs.changes.outputs.ci == 'true'

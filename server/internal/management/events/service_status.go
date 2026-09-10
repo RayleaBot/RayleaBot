@@ -4,8 +4,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 )
 
 type ServiceStatusProvider interface {

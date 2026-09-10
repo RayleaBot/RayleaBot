@@ -125,7 +125,7 @@ def check_adapter_boundaries(files: list[GoFile], errors: list[str]) -> None:
         if file.is_test or not within_package(file.package_dir, "internal/bot/adapters"):
             continue
         for imported in file.imports:
-            if any(within_package(imported, INTERNAL_PREFIX + name) for name in ("management", "configruntime", "system", "app")):
+            if any(within_package(imported, INTERNAL_PREFIX + name) for name in ("management", "config/runtime", "operations/system", "app")):
                 errors.append(f"{file.rel} imports {imported}; adapter domain must own its state and reload errors")
 
 
@@ -136,11 +136,11 @@ def check_model_boundaries(files: list[GoFile], errors: list[str]) -> None:
         forbidden: tuple[str, ...] = ()
         if file.package_dir == "internal/plugins":
             forbidden = ("storage", "sqlcgen", "plugins/catalog", "plugins/lifecycle", "plugins/runtime", "plugins/actions", "management")
-        elif within_package(file.package_dir, "internal/health"):
+        elif within_package(file.package_dir, "internal/platform/health"):
             forbidden = ("",)
-        elif within_package(file.package_dir, "internal/runtimepaths"):
-            forbidden = ("plugins", "recovery", "system", "management", "app")
-        elif within_package(file.package_dir, "internal/builtinmenu") or within_package(file.package_dir, "internal/render"):
+        elif within_package(file.package_dir, "internal/platform/runtimepaths"):
+            forbidden = ("plugins", "operations/recovery", "operations/system", "management", "app")
+        elif within_package(file.package_dir, "internal/bot/menu") or within_package(file.package_dir, "internal/render"):
             forbidden = ("plugins/actions", "plugins/lifecycle", "plugins/runtime")
         for imported in file.imports:
             if any(imported.startswith(INTERNAL_PREFIX) if name == "" else within_package(imported, INTERNAL_PREFIX + name) for name in forbidden):

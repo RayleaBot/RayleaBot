@@ -1,0 +1,316 @@
+package system
+
+import (
+	"context"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
+	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
+)
+
+func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
+	now := time.Now().UTC()
+	status := s.StatusSnapshot()
+	readiness := s.CurrentReadiness()
+	summary := s.summary()
+
+	database, databaseIssues := s.diagnosticsDatabase(ctx)
+	render := s.diagnosticsRender()
+	thirdParty, thirdPartyIssues := s.diagnosticsThirdParty(ctx)
+	dependencies, dependencyIssues := s.diagnosticsDependencies()
+	filesystem := s.diagnosticsFilesystem(summary)
+	recentErrors, logIssues := s.diagnosticsRecentErrors(ctx)
+
+	issues := append([]health.DiagnosticIssue{}, readiness.Issues...)
+	issues = append(issues, render.Issues...)
+	issues = append(issues, databaseIssues...)
+	issues = append(issues, thirdPartyIssues...)
+	issues = append(issues, dependencyIssues...)
+	issues = append(issues, logIssues...)
+
+	return DiagnosticsSnapshot{
+		GeneratedAt: now.Format(time.RFC3339),
+		Build: DiagnosticsBuild{
+			CoreVersion: releaseupdate.InstalledVersion(s.repoRootPath()),
+		},
+		System: DiagnosticsSystem{
+			Status:        status.Status,
+			UptimeSeconds: status.UptimeSeconds,
+		},
+		Config: DiagnosticsConfig{
+			SchemaVersion:  config.CurrentSchemaVersion(),
+			Status:         "loaded",
+			ApplyState:     "applied",
+			ConfigPath:     summary.ConfigPath,
+			SchemaPath:     summary.SchemaPath,
+			DatabaseEngine: summary.DatabaseEngine,
+			DatabasePath:   summary.DatabasePath,
+			AdapterCount:   summary.AdapterCount,
+		},
+		Secrets: DiagnosticsSecrets{
+			UnresolvedRefs: []string{},
+		},
+		Database: database,
+		Adapters: status.Adapters,
+		Plugins: DiagnosticsPlugins{
+			Total:   s.pluginCount(),
+			Active:  status.ActivePlugins,
+			Running: status.RunningPlugins,
+			Failed:  status.FailedPlugins,
+		},
+		Render:          render,
+		ThirdParty:      thirdParty,
+		Scheduler:       s.diagnosticsScheduler(),
+		Tasks:           s.diagnosticsTasks(),
+		Dependencies:    dependencies,
+		Filesystem:      filesystem,
+		RecentErrors:    recentErrors,
+		Issues:          dedupeDiagnosticIssues(issues),
+		RecoverySummary: status.RecoverySummary,
+	}
+}
+
+func (s *Service) pluginCount() int {
+	if s.plugins == nil {
+		return 0
+	}
+	return len(s.plugins.List())
+}
+
+func (s *Service) diagnosticsDatabase(ctx context.Context) (DiagnosticsDatabase, []health.DiagnosticIssue) {
+	result := DiagnosticsDatabase{
+		SchemaVersion: s.dbSchemaVersion(),
+	}
+	if s.storage == nil || s.storage.Read == nil {
+		return result, []health.DiagnosticIssue{{
+			Code:        errorcodes.DiagnosticStorageSchemaMetadataUnavailable,
+			Severity:    "warning",
+			Summary:     "数据库初始化元数据不可用",
+			Remediation: "请确认数据库已打开，并检查服务启动日志中的 SQLite 初始化错误。",
+		}}
+	}
+
+	metadata, err := s.storage.SchemaMetadata(ctx)
+	if err != nil {
+		return result, []health.DiagnosticIssue{{
+			Code:        errorcodes.DiagnosticStorageSchemaMetadataUnavailable,
+			Severity:    "warning",
+			Summary:     "数据库初始化元数据不可读",
+			Remediation: "请检查 SQLite 文件权限和 schema_metadata 表是否完整。",
+		}}
+	}
+
+	result.SchemaVersion = metadata.Version
+	result.InitializedAt = metadata.InitializedAt
+	return result, nil
+}
+
+func (s *Service) diagnosticsRender() DiagnosticsIssueGroup {
+	issues := recoveryIssuesToHealth(s.renderDiagnostics())
+	status := "ok"
+	if len(issues) > 0 {
+		status = "degraded"
+	}
+	return DiagnosticsIssueGroup{
+		Status: status,
+		Issues: nonNilIssues(issues),
+	}
+}
+
+func (s *Service) diagnosticsThirdParty(ctx context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue) {
+	if s.thirdParty == nil {
+		return DiagnosticsThirdParty{Platforms: []DiagnosticsThirdPartyPlatform{}}, nil
+	}
+	return s.thirdParty.DiagnosticsThirdParty(ctx)
+}
+
+func (s *Service) diagnosticsScheduler() DiagnosticsScheduler {
+	if s.scheduler == nil {
+		return DiagnosticsScheduler{}
+	}
+	return s.scheduler.DiagnosticsScheduler()
+}
+
+func (s *Service) diagnosticsTasks() DiagnosticsTaskSummary {
+	result := DiagnosticsTaskSummary{}
+	if s.taskExecutor == nil {
+		return result
+	}
+	for _, task := range s.taskExecutor.List() {
+		switch task.Status {
+		case tasks.StatusPending:
+			result.Pending++
+		case tasks.StatusRunning:
+			result.Running++
+		case tasks.StatusFailed, tasks.StatusInterrupted:
+			result.Failed++
+		}
+	}
+	return result
+}
+
+func (s *Service) diagnosticsDependencies() ([]DiagnosticsDependency, []health.DiagnosticIssue) {
+	if strings.TrimSpace(s.repoRootPath()) == "" {
+		return []DiagnosticsDependency{}, nil
+	}
+	diagnostics := deps.NewDiagnostics(s.repoRootPath())
+	kinds := startupRuntimeKinds()
+	items := make([]DiagnosticsDependency, 0, len(kinds))
+	issues := []health.DiagnosticIssue{}
+	for _, kind := range kinds {
+		item := DiagnosticsDependency{Kind: kind, Status: "unavailable"}
+		inspection, err := diagnostics.InspectRuntime(kind)
+		if err != nil {
+			var bootstrapErr *deps.BootstrapError
+			remediation := "请检查 .deps/manifest.json 和本机依赖缓存。"
+			summary := deps.ManagedResourceLabel(kind) + "不可用"
+			if errors.As(err, &bootstrapErr) {
+				remediation = bootstrapErr.Remediation
+				summary = bootstrapErr.Message
+			}
+			issues = append(issues, health.DiagnosticIssue{
+				Code:        "dependency." + kind,
+				Severity:    "warning",
+				Summary:     summary,
+				Remediation: remediation,
+			})
+			items = append(items, item)
+			continue
+		}
+		item.MetadataComplete = inspection.MetadataComplete
+		item.CachedArchivePresent = inspection.CachedArchivePresent
+		item.PreparedStorePresent = inspection.PreparedStorePresent
+		item.SystemBrowser = strings.TrimSpace(inspection.SystemBrowserPath) != ""
+		item.Status = dependencyStatus(inspection)
+		items = append(items, item)
+	}
+	return items, issues
+}
+
+func dependencyStatus(inspection *deps.BootstrapInspection) string {
+	if inspection == nil {
+		return "unavailable"
+	}
+	if !inspection.MetadataComplete {
+		return "metadata_incomplete"
+	}
+	if inspection.PreparedStorePresent || strings.TrimSpace(inspection.SystemBrowserPath) != "" {
+		return "ready"
+	}
+	if inspection.CachedArchivePresent {
+		return "cached"
+	}
+	return "on_demand"
+}
+
+func (s *Service) diagnosticsFilesystem(summary config.Summary) []DiagnosticsPathPermission {
+	paths := []DiagnosticsPathPermission{
+		pathPermission("repo_root", s.repoRootPath()),
+		pathPermission("config", summary.ConfigPath),
+	}
+	if databasePath, err := s.databasePath(summary.ConfigPath, s.config().Database.Path); err == nil {
+		paths = append(paths, pathPermission("database", databasePath))
+		paths = append(paths, pathPermission("logs", filepath.Dir(logging.SpoolPathForDatabase(databasePath))))
+	}
+	paths = append(paths, pathPermission("plugins", filepath.Join(s.repoRootPath(), "plugins")))
+	return paths
+}
+
+func pathPermission(label, path string) DiagnosticsPathPermission {
+	item := DiagnosticsPathPermission{
+		Label:  label,
+		Path:   path,
+		Status: "unknown",
+	}
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return item
+	}
+	info, err := os.Stat(path)
+	if err == nil {
+		item.Status = "ok"
+		item.IsDir = info.IsDir()
+		return item
+	}
+	if os.IsNotExist(err) {
+		item.Status = "missing"
+		return item
+	}
+	item.Status = "unreadable"
+	return item
+}
+
+func (s *Service) diagnosticsRecentErrors(ctx context.Context) ([]logging.Summary, []health.DiagnosticIssue) {
+	if s.logRepository == nil {
+		return []logging.Summary{}, nil
+	}
+	items, err := s.logRepository.ListSummaries(ctx, logging.Query{Levels: []string{"error"}, Limit: 20})
+	if err != nil {
+		return []logging.Summary{}, []health.DiagnosticIssue{{
+			Code:        errorcodes.DiagnosticLoggingRecentErrorsUnavailable,
+			Severity:    "warning",
+			Summary:     "近期错误日志不可读",
+			Remediation: "请检查管理日志数据库表和日志保留配置。",
+		}}
+	}
+	if items == nil {
+		items = []logging.Summary{}
+	}
+	return items, nil
+}
+
+func nonNilIssues(items []health.DiagnosticIssue) []health.DiagnosticIssue {
+	if items == nil {
+		return []health.DiagnosticIssue{}
+	}
+	result := make([]health.DiagnosticIssue, 0, len(items))
+	for _, item := range items {
+		result = append(result, normalizeDiagnosticIssue(item))
+	}
+	return result
+}
+
+func normalizeDiagnosticIssue(item health.DiagnosticIssue) health.DiagnosticIssue {
+	if strings.TrimSpace(item.UserMessage) == "" {
+		item.UserMessage = item.Summary
+	}
+	if strings.TrimSpace(item.InternalReason) == "" {
+		item.InternalReason = item.Code
+	}
+	return item
+}
+
+func dedupeDiagnosticIssues(items []health.DiagnosticIssue) []health.DiagnosticIssue {
+	if len(items) == 0 {
+		return []health.DiagnosticIssue{}
+	}
+	seen := map[string]struct{}{}
+	result := make([]health.DiagnosticIssue, 0, len(items))
+	for _, item := range items {
+		if strings.TrimSpace(item.Code) == "" || strings.TrimSpace(item.Summary) == "" {
+			continue
+		}
+		key := item.Code + "\x00" + item.Summary
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		if strings.TrimSpace(item.Severity) == "" {
+			item.Severity = "warning"
+		}
+		result = append(result, normalizeDiagnosticIssue(item))
+	}
+	if result == nil {
+		return []health.DiagnosticIssue{}
+	}
+	return result
+}

@@ -10,15 +10,15 @@
 | --- | --- | --- |
 | 事件响应关联被覆盖 | 请求 ID 仅依赖时间戳，重复注册可覆盖已有会话 | [Runtime](../../server/internal/plugins/runtime/manager.go) 使用进程随机前缀和原子序号；事件、初始化和心跳统一生成 ID，重复注册拒绝，完成时校验会话对象及进程实例 |
 | 并发启停、重载产生状态竞争 | 启动缺少完整占位，旧进程回调可能作用于新实例 | [生命周期协调](../../server/internal/plugins/lifecycle/controller.go) 按插件串行协调启停重载，在线快速路径也持锁；退出回调与退避重启校验当前实例 |
-| 正常取消被误报事件超时 | 异步队列保留短生命周期调用者 context | [分发入口](../../server/internal/eventpipeline/dispatch/delivery.go) 入队前检查取消，接收后使用 Dispatcher 插槽生命周期；同步管理请求仍遵守调用方取消 |
+| 正常取消被误报事件超时 | 异步队列保留短生命周期调用者 context | [分发入口](../../server/internal/bot/pipeline/dispatch/delivery.go) 入队前检查取消，接收后使用 Dispatcher 插槽生命周期；同步管理请求仍遵守调用方取消 |
 | SDK 迟到响应或提前终态触发协议错误 | 调用方停止等待被当成宿主动作结束 | [SDK 动作生命周期](../../sdk/go/event_actions.go) 保留已发送动作关联，关闭事件后禁止新动作；终态等待结算，最长使用现有 ActionTimeout；未结算则不发非法终态，迟到响应有界保留，拒绝未知帧 |
-| 停机时任务历史缺失、同一故障多层告警 | 执行与收尾共用取消上下文，责任层不清 | [调度收尾](../../server/internal/eventpipeline/dispatch/scheduler_log.go) 使用独立 5 秒预算；[关闭顺序](../../server/internal/app/app_run.go) 在关闭数据库前停止调度并排空分发；一次运行结果只记录一次 |
+| 停机时任务历史缺失、同一故障多层告警 | 执行与收尾共用取消上下文，责任层不清 | [调度收尾](../../server/internal/bot/pipeline/dispatch/scheduler_log.go) 使用独立 5 秒预算；[关闭顺序](../../server/internal/app/app_run.go) 在关闭数据库前停止调度并排空分发；一次运行结果只记录一次 |
 | 订阅检查超出宿主时限、检查重叠 | 随机等待、锁等待和执行预算叠加 | 独立插件 `internal/plugin/check_pipeline.go`：入口总预算 50 秒，最后 5 秒用于收尾；定时检查不重叠，手动等待可取消；任务注册单次并发执行且失败可重试 |
 | 冷却倒计时反复成为新错误 | 冷却状态混入本轮请求失败，日志按整轮而非原因节流 | 独立插件 `subscription_check.go`、`check_failures.go`：按来源、阶段、错误码及机器原因聚合；新类别首条立即可见，同类每 5 分钟汇总，确认恢复后记录次数；文案不参与聚合键 |
-| 发送回执超时被误称确定失败 | 请求已发出，但缺失确定回执 | [OneBot 出站](../../server/internal/onebot11/shell_outbound.go) 使用 `adapter.send_unconfirmed`；调用前已取消不会发送，明确拒绝仍使用已有错误码，结果未知不自动重试 |
+| 发送回执超时被误称确定失败 | 请求已发出，但缺失确定回执 | [OneBot 出站](../../server/internal/bot/adapters/onebot11/shell_outbound.go) 使用 `adapter.send_unconfirmed`；调用前已取消不会发送，明确拒绝仍使用已有错误码，结果未知不自动重试 |
 | 媒体文件提前释放、未知结果重复发送 | 清理绑定函数返回，而非发送结算 | 独立插件 `media_retention.go`、`deferred_media.go`：原路径保留 24 小时，租约持久化，仍占 8 个任务配额；重启读取保留记录但不重放；仅明确未发送的限流拒绝允许重试，部分批次不整批重发 |
 | 普通订阅未知结果在下轮重发 | 本地未收到成功结果便没有去重记录 | 发送前保存现有 seen 去重保护；未知结果保留，明确未发送才移除；不在事件结束后追加宿主通知 |
-| 重复字段和启动日志镜像膨胀 | 规范字段与同值镜像重复保存，子进程全文又写入启动日志 | [日志规范化](../../server/internal/logging/details.go) 去除同值镜像，逐条收发保留；相同 `raw_message` 省略，不同内容仍保留；[开发启动器](../../scripts/start-dev.mjs) 只在启动日志记录编排、命令与子日志位置 |
+| 重复字段和启动日志镜像膨胀 | 规范字段与同值镜像重复保存，子进程全文又写入启动日志 | [日志规范化](../../server/internal/platform/logging/details.go) 去除同值镜像，逐条收发保留；相同 `raw_message` 省略，不同内容仍保留；[开发启动器](../../scripts/start-dev.mjs) 只在启动日志记录编排、命令与子日志位置 |
 | setup 凭据落盘 | 非交互 stderr 仍输出首次设置地址 | [Server 入口](../../server/cmd/raylea-server/main.go) 仅在确需初始化且连接真实终端时显示；完整行跨块解码后脱敏，覆盖 stderr、管理详情及 JSON 文本前缀；媒体 URL 的访问密钥也纳入今后脱敏 |
 
 请求 ID 覆盖是已确认的源码缺陷，但不能据此断言每条历史协议错误都由它引起。历史编译错误与已经正确实现的 `render_footer` 问题没有重复修改。

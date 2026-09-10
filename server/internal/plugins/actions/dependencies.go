@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
 type PermissionView interface {

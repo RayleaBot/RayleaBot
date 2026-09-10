@@ -3,9 +3,9 @@ package actions
 import (
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
 )
 
 func TestQQErrorSurvivesPluginRPCBoundary(t *testing.T) {

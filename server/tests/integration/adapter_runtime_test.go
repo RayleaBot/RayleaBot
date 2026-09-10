@@ -5,16 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
+	"github.com/coder/websocket"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
-	"github.com/coder/websocket"
 )
 
 func TestRunDoesNotConnectDisabledPrimaryOneBot(t *testing.T) {

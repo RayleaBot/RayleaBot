@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 )
 
 type testAuthConfigSource struct {

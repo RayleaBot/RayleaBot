@@ -92,7 +92,7 @@ flowchart LR
 | App | 服务组装、启动、关闭和领域服务协调 | 把内部对象暴露给客户端 |
 | Management handlers | transport、鉴权、参数校验、错误映射 | 业务状态机和私有字段 |
 | Adapter | OneBot11 transport、鉴权、归一化、动作转换 | 业务持久化和插件治理 |
-| Chat Policy Ingress | `eventpipeline/chatpolicy` 中的元数据、命令解析、聊天治理、reply target | 插件进程管理或治理数据突变 |
+| Chat Policy Ingress | `bot/pipeline/chatpolicy` 中的元数据、命令解析、聊天治理、reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
 | Dispatcher | 插件目标选择、队列和出站 action 执行 | 直接访问插件私有存储 |
 | Runtime Manager | 插件子进程、JSONL、握手、保活和事件 session | 直接执行平台能力 |
@@ -131,19 +131,19 @@ flowchart LR
 | --- | --- |
 | App 与 HTTP wiring | `server/internal/app/` |
 | Management handlers | `server/internal/management/` |
-| Auth | `server/internal/auth/` |
-| OneBot11 adapter | `server/internal/onebot11/` |
-| Event pipeline | `server/internal/eventpipeline/` |
+| Auth | `server/internal/platform/auth/` |
+| OneBot11 adapter | `server/internal/bot/adapters/onebot11/` |
+| Event pipeline | `server/internal/bot/pipeline/` |
 | Third-party integrations | `server/internal/integrations/` |
 | Plugin catalog/lifecycle/runtime/actions | `server/internal/plugins/` |
-| Plugin Store Service | `server/internal/pluginmarket/` |
+| Plugin Store Service | `server/internal/plugins/market/` |
 | Tasks / Scheduler | `server/internal/tasks/`、`server/internal/scheduler/` |
 | Render | `server/internal/render/` |
-| Managed Chromium / FFmpeg | `server/internal/deps/` |
-| Process/config locks | `server/internal/filelock/` |
+| Managed Chromium / FFmpeg | `server/internal/platform/deps/` |
+| Process/config locks | `server/internal/platform/filelock/` |
 | Storage / migrations | `server/internal/storage/`、`server/internal/sqlcgen/` |
 | Shared update core | `server/internal/releaseupdate/` |
-| 共享诊断 | `server/internal/diagnostics/` |
+| 共享诊断 | `server/internal/operations/diagnostics/` |
 | CLI | `server/internal/cli/` |
 | Launcher | `launcher/` |
 

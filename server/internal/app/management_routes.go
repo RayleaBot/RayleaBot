@@ -13,9 +13,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type httpHandlers struct {

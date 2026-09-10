@@ -41,7 +41,7 @@ func TestAdapterServiceOwnsDomainStateWithoutManagementOrReloadCoordinator(t *te
 			return
 		}
 		for _, imported := range fileImports(t, serverRoot, path) {
-			for _, forbidden := range []string{"management", "configruntime", "system", "app"} {
+			for _, forbidden := range []string{"management", "config/runtime", "operations/system", "app"} {
 				root := modulePrefix + forbidden
 				if imported == root || strings.HasPrefix(imported, root+"/") {
 					t.Errorf("%s imports %s; adapter state and reload errors belong to the adapter domain", relPath(t, serverRoot, path), imported)
@@ -66,7 +66,10 @@ func TestSharedModelsDoNotTransitivelyDependOnStorageOrExecution(t *testing.T) {
 		owner := modulePrefix + filepath.ToSlash(rel)
 		imports[owner] = append(imports[owner], fileImports(t, serverRoot, path)...)
 	})
-	for _, model := range []string{"plugins", "health"} {
+	for _, model := range []string{"plugins", "platform/health"} {
+		if _, scanned := imports[modulePrefix+model]; !scanned {
+			t.Fatalf("shared model package was not scanned: %s", model)
+		}
 		seen := make(map[string]bool)
 		var visit func(string, string)
 		visit = func(owner, chain string) {
@@ -94,7 +97,7 @@ func TestSharedModelsDoNotTransitivelyDependOnStorageOrExecution(t *testing.T) {
 
 func TestEventPipelineDoesNotDependOnPluginProcesses(t *testing.T) {
 	serverRoot := testServerRoot(t)
-	for _, name := range []string{"chatevent", "eventpipeline", "plugins/actions", "scheduler"} {
+	for _, name := range []string{"bot/chatevent", "bot/pipeline", "plugins/actions", "scheduler"} {
 		walkGoFiles(t, filepath.Join(serverRoot, "internal", name), func(path string) {
 			if strings.HasSuffix(path, "_test.go") {
 				return
@@ -162,6 +165,7 @@ func testServerRoot(t *testing.T) string {
 
 func walkGoFiles(t *testing.T, root string, visit func(string)) {
 	t.Helper()
+	count := 0
 
 	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -176,11 +180,15 @@ func walkGoFiles(t *testing.T, root string, visit func(string)) {
 			}
 		}
 		if strings.HasSuffix(entry.Name(), ".go") {
+			count++
 			visit(path)
 		}
 		return nil
 	}); err != nil {
 		t.Fatalf("walk %s: %v", root, err)
+	}
+	if count == 0 {
+		t.Fatalf("no Go files scanned under %s", root)
 	}
 }
 

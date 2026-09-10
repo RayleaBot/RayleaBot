@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
-	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 

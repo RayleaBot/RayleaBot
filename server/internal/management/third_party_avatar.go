@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/go-chi/chi/v5"
 )
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
 func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {

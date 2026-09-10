@@ -5,8 +5,8 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 // OneBot11Ingress is the inbound surface of one configured OneBot adapter. The

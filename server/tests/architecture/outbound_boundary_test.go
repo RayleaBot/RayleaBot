@@ -8,7 +8,7 @@ import (
 
 func TestNeutralOutboundDoesNotImportProtocolImplementations(t *testing.T) {
 	root := testServerRoot(t)
-	for _, name := range []string{"chatevent", "eventpipeline/outbound", "eventpipeline/dispatch"} {
+	for _, name := range []string{"bot/chatevent", "bot/pipeline/outbound", "bot/pipeline/dispatch"} {
 		files := 0
 		walkGoFiles(t, filepath.Join(root, "internal", filepath.FromSlash(name)), func(path string) {
 			if strings.HasSuffix(path, "_test.go") {
@@ -16,7 +16,7 @@ func TestNeutralOutboundDoesNotImportProtocolImplementations(t *testing.T) {
 			}
 			files++
 			for _, imported := range fileImports(t, root, path) {
-				if imported == modulePrefix+"onebot11" || imported == modulePrefix+"qqofficial" {
+				if imported == modulePrefix+"bot/adapters/onebot11" || imported == modulePrefix+"bot/adapters/qqofficial" {
 					t.Errorf("%s imports protocol implementation %s", relPath(t, root, path), imported)
 				}
 			}

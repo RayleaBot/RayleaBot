@@ -1,7 +1,7 @@
 package management
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/go-chi/chi/v5"
 	"net/http"
 )
