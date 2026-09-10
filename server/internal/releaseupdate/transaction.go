@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"math"
 	"os"
 	"path/filepath"
@@ -301,7 +302,7 @@ func normalizeInstallRequest(request InstallRequest) (InstallRequest, error) {
 	if err != nil {
 		return request, err
 	}
-	if samePath(request.InstallRoot, request.TransactionRoot) || pathInside(request.InstallRoot, request.TransactionRoot) {
+	if samePath(request.InstallRoot, request.TransactionRoot) || fsguard.WithinRoot(request.InstallRoot, request.TransactionRoot) {
 		return request, errors.New("transaction directory must be outside the installation root")
 	}
 	installParent := filepath.Dir(request.InstallRoot)

@@ -14,8 +14,8 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 const (
@@ -295,17 +295,14 @@ func objectString(value any, key string) string {
 }
 
 func safeRelativePath(value string) (string, error) {
-	if value == "" || filepath.IsAbs(value) || filepath.VolumeName(value) != "" {
-		return "", errors.New("path must be relative")
+	clean, err := fsguard.ArchivePath(value, true)
+	if err != nil {
+		return "", err
 	}
-	clean := filepath.Clean(filepath.FromSlash(value))
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		return "", errors.New("path escapes artifact root")
-	}
-	if filepath.ToSlash(clean) != value {
+	if clean != value {
 		return "", errors.New("path is not canonical")
 	}
-	return clean, nil
+	return filepath.FromSlash(clean), nil
 }
 
 func invalid(message string, err error) error {

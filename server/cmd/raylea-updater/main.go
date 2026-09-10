@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"io"
 	"os"
 	"os/exec"
@@ -107,11 +108,11 @@ func runInstall(ctx context.Context, verifier *releaseupdate.Verifier, args []st
 	if err != nil {
 		return err
 	}
-	if pathInside(request.InstallRoot, executable) {
+	if fsguard.WithinRoot(request.InstallRoot, executable) {
 		return errors.New("raylea-updater must run from outside the installation root")
 	}
 	for _, inputPath := range []string{request.ManifestPath, request.SignaturePath, request.ArtifactPath, executable} {
-		if !pathInside(request.TransactionRoot, inputPath) {
+		if !fsguard.WithinRoot(request.TransactionRoot, inputPath) {
 			return fmt.Errorf("transaction input %q is outside the transaction directory", inputPath)
 		}
 	}
@@ -200,7 +201,7 @@ func runRecover(ctx context.Context, verifier *releaseupdate.Verifier, args []st
 	if err != nil {
 		return err
 	}
-	if !pathInside(*transactionRoot, executable) {
+	if !fsguard.WithinRoot(*transactionRoot, executable) {
 		return errors.New("recovery helper must run from the transaction directory")
 	}
 	operations := defaultInstallOperations()
@@ -398,16 +399,6 @@ func copyFile(source, destination string) error {
 		return err
 	}
 	return output.Close()
-}
-
-func pathInside(root, candidate string) bool {
-	absoluteRoot, rootErr := filepath.Abs(root)
-	absoluteCandidate, candidateErr := filepath.Abs(candidate)
-	if rootErr != nil || candidateErr != nil {
-		return false
-	}
-	relative, err := filepath.Rel(absoluteRoot, absoluteCandidate)
-	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
 
 func isTransactionSibling(installRoot, transactionRoot string) bool {

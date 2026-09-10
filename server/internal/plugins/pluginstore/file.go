@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 var (
@@ -297,11 +299,7 @@ func normalizeRelativePath(raw string, allowEmpty bool) (string, error) {
 }
 
 func ensureWithinRoot(root, target string) error {
-	relativePath, err := filepath.Rel(root, target)
-	if err != nil {
-		return ErrFileInvalidPath
-	}
-	if relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+	if !fsguard.WithinRoot(root, target) {
 		return ErrFileInvalidPath
 	}
 	return nil

@@ -2,20 +2,15 @@ package releaseupdate
 
 import (
 	"archive/zip"
+	"context"
 	"errors"
 	"fmt"
-	"io"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 )
-
-var windowsReservedNames = map[string]struct{}{
-	"CON": {}, "PRN": {}, "AUX": {}, "NUL": {},
-	"COM1": {}, "COM2": {}, "COM3": {}, "COM4": {}, "COM5": {}, "COM6": {}, "COM7": {}, "COM8": {}, "COM9": {},
-	"LPT1": {}, "LPT2": {}, "LPT3": {}, "LPT4": {}, "LPT5": {}, "LPT6": {}, "LPT7": {}, "LPT8": {}, "LPT9": {},
-}
 
 func ExtractWindowsArtifact(archivePath, destinationRoot string, verified VerifiedManifest, artifact Artifact) (string, error) {
 	if artifact.ArtifactID != "windows-x64-full" || artifact.Platform != "windows-x64" {
@@ -88,7 +83,7 @@ func ExtractWindowsArtifact(archivePath, destinationRoot string, verified Verifi
 			return "", errorWithCode(CodeArtifactInvalid, "localize artifact path", fmt.Errorf("invalid path %q", entry.Name))
 		}
 		targetPath := filepath.Join(destinationRoot, localized)
-		if !pathInside(destinationRoot, targetPath) {
+		if !fsguard.WithinRoot(destinationRoot, targetPath) {
 			return "", errorWithCode(CodeArtifactInvalid, "extract artifact", fmt.Errorf("path %q escaped staging root", entry.Name))
 		}
 		if entry.FileInfo().IsDir() {
@@ -113,20 +108,11 @@ func ExtractWindowsArtifact(archivePath, destinationRoot string, verified Verifi
 }
 
 func validateWindowsZIPEntry(entry *zip.File) (string, string, error) {
-	rawName := strings.TrimSpace(entry.Name)
-	if rawName == "" || strings.ContainsRune(rawName, '\x00') || strings.Contains(rawName, "\\") || strings.HasPrefix(rawName, "/") {
-		return "", "", fmt.Errorf("unsafe ZIP entry path %q", entry.Name)
-	}
-	cleanName := strings.TrimSuffix(path.Clean(rawName), "/")
-	if cleanName == "" || cleanName == "." || !slashPathIsLocal(cleanName) {
-		return "", "", fmt.Errorf("unsafe ZIP entry path %q", entry.Name)
+	cleanName, err := fsguard.ArchivePath(entry.Name, true)
+	if err != nil {
+		return "", "", fmt.Errorf("unsafe ZIP entry path %q: %w", entry.Name, err)
 	}
 	segments := strings.Split(cleanName, "/")
-	for _, segment := range segments {
-		if !safeWindowsPathSegment(segment) {
-			return "", "", fmt.Errorf("unsafe Windows path segment %q", segment)
-		}
-	}
 	mode := entry.Mode()
 	if mode&os.ModeType != 0 && !mode.IsDir() {
 		return "", "", fmt.Errorf("ZIP entry %q is not a regular file or directory", cleanName)
@@ -135,35 +121,6 @@ func validateWindowsZIPEntry(entry *zip.File) (string, string, error) {
 		return "", "", fmt.Errorf("ZIP entry %q is a reparse point", cleanName)
 	}
 	return cleanName, segments[0], nil
-}
-
-func safeWindowsPathSegment(segment string) bool {
-	if segment == "" || segment == "." || segment == ".." || strings.ContainsAny(segment, `<>:"|?*`) || strings.HasSuffix(segment, " ") || strings.HasSuffix(segment, ".") {
-		return false
-	}
-	for _, character := range segment {
-		if character < 0x20 {
-			return false
-		}
-	}
-	base := segment
-	if dot := strings.IndexByte(base, '.'); dot >= 0 {
-		base = base[:dot]
-	}
-	_, reserved := windowsReservedNames[strings.ToUpper(base)]
-	return !reserved
-}
-
-func slashPathIsLocal(value string) bool {
-	if value == "" || value == "." || strings.HasPrefix(value, "/") {
-		return false
-	}
-	for _, segment := range strings.Split(value, "/") {
-		if segment == "" || segment == "." || segment == ".." {
-			return false
-		}
-	}
-	return true
 }
 
 func extractZIPFile(entry *zip.File, targetPath string) error {
@@ -176,19 +133,7 @@ func extractZIPFile(entry *zip.File, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	limited := io.LimitReader(source, int64(entry.UncompressedSize64)+1)
-	written, copyErr := io.Copy(target, limited)
-	closeErr := target.Close()
-	if copyErr != nil {
-		return copyErr
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if written != int64(entry.UncompressedSize64) {
-		return fmt.Errorf("entry %q expanded to %d bytes, expected %d", entry.Name, written, entry.UncompressedSize64)
-	}
-	return nil
+	return errors.Join(fsguard.CopyExact(context.Background(), target, source, int64(entry.UncompressedSize64)), target.Close())
 }
 
 func validateExtractedBuildInfo(payloadRoot string, verified VerifiedManifest, artifact Artifact) error {
@@ -235,14 +180,4 @@ func ensurePathHasNoSymlink(candidate string) error {
 		}
 		current = parent
 	}
-}
-
-func pathInside(root, candidate string) bool {
-	absoluteRoot, rootErr := filepath.Abs(root)
-	absoluteCandidate, candidateErr := filepath.Abs(candidate)
-	if rootErr != nil || candidateErr != nil {
-		return false
-	}
-	relative, err := filepath.Rel(absoluteRoot, absoluteCandidate)
-	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }

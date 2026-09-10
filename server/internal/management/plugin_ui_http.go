@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"net/http"
 	"net/url"
 	"os"
@@ -116,7 +117,8 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 		result, err := actionInvoker.InvokeManagementAction(r.Context(), pluginID, action, request.Payload)
 		if err != nil {
 			httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-				Code:  errorcodes.PluginManagementActionFailed,
+				Code: errorcodes.PluginManagementActionFailed,
+
 				Cause: err,
 			})
 			return
@@ -166,7 +168,7 @@ func (h *PluginManagementUIHandlers) servePluginUIAsset(w http.ResponseWriter, r
 		assetPath = strings.TrimPrefix(strings.TrimSpace(snapshot.ManagementUI.Entry), "ui/")
 	}
 	assetFile := filepath.Clean(filepath.Join(assetRoot, filepath.FromSlash(assetPath)))
-	if !isPathWithinRoot(assetRoot, assetFile) {
+	if !fsguard.WithinRoot(assetRoot, assetFile) {
 		http.NotFound(w, r)
 		return
 	}
@@ -326,14 +328,6 @@ func normalizePluginUIAssetPath(assetPath string) string {
 		return ""
 	}
 	return strings.TrimPrefix(cleaned, "/")
-}
-
-func isPathWithinRoot(root, candidate string) bool {
-	relativePath, err := filepath.Rel(root, candidate)
-	if err != nil {
-		return false
-	}
-	return relativePath == "." || (!strings.HasPrefix(relativePath, "..") && relativePath != "")
 }
 
 func writePluginUIHeaders(w http.ResponseWriter, assetPath string, adminOrigins []string) {

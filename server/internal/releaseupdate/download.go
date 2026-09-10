@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"io"
 	"net/http"
 	"os"
@@ -123,39 +124,16 @@ func (d *Downloader) Download(ctx context.Context, check CheckResult, destinatio
 	}()
 
 	hash := sha256.New()
-	buffer := make([]byte, 1024*1024)
 	var downloaded int64
-	for {
-		readCount, readErr := response.Body.Read(buffer)
-		if readCount > 0 {
-			if !idleTimer.Stop() {
-				select {
-				case <-idleContext.Done():
-				default:
-				}
-			}
-			idleTimer.Reset(idleTimeout)
-			downloaded += int64(readCount)
-			if downloaded > check.Artifact.ArchiveSizeBytes || downloaded > MaxArchiveBytes {
-				return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "download artifact", errors.New("artifact exceeds the signed size"))
-			}
-			if _, err := partial.Write(buffer[:readCount]); err != nil {
-				return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "write partial artifact", err)
-			}
-			_, _ = hash.Write(buffer[:readCount])
-			if progress != nil {
-				progress(DownloadProgress{DownloadedBytes: downloaded, TotalBytes: check.Artifact.ArchiveSizeBytes})
-			}
+	writer := artifactDownloadWriter{writer: io.MultiWriter(partial, hash), onWrite: func(count int) {
+		idleTimer.Reset(idleTimeout)
+		downloaded += int64(count)
+		if progress != nil {
+			progress(DownloadProgress{DownloadedBytes: downloaded, TotalBytes: check.Artifact.ArchiveSizeBytes})
 		}
-		if errors.Is(readErr, io.EOF) {
-			break
-		}
-		if readErr != nil {
-			return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "read artifact response", readErr)
-		}
-	}
-	if downloaded != check.Artifact.ArchiveSizeBytes {
-		return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "verify artifact size", fmt.Errorf("expected %d bytes, received %d", check.Artifact.ArchiveSizeBytes, downloaded))
+	}}
+	if err := fsguard.CopyExact(idleContext, writer, response.Body, check.Artifact.ArchiveSizeBytes); err != nil {
+		return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "read artifact response", err)
 	}
 	if digest := hex.EncodeToString(hash.Sum(nil)); digest != check.Artifact.SHA256 {
 		return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "verify artifact digest", errors.New("artifact SHA256 does not match the signed manifest"))
@@ -186,12 +164,27 @@ func VerifyArtifactFile(artifactPath string, artifact Artifact) error {
 		return errorWithCode(CodeArtifactInvalid, "open artifact", err)
 	}
 	defer func(release func() error) { _ = release() }(file.Close)
-	hash := sha256.New()
-	if _, err := io.Copy(hash, io.LimitReader(file, MaxArchiveBytes+1)); err != nil {
+	digest, err := fsguard.SHA256(context.Background(), file, MaxArchiveBytes)
+	if err != nil {
 		return errorWithCode(CodeArtifactInvalid, "hash artifact", err)
 	}
-	if digest := hex.EncodeToString(hash.Sum(nil)); digest != artifact.SHA256 {
+	if digest != artifact.SHA256 {
 		return errorWithCode(CodeArtifactInvalid, "verify artifact digest", errors.New("artifact SHA256 does not match the signed manifest"))
 	}
 	return nil
+}
+
+// Written bytes reset the idle budget and report bounded progress; the signed
+// size and digest remain the downloader's policy.
+type artifactDownloadWriter struct {
+	writer  io.Writer
+	onWrite func(int)
+}
+
+func (w artifactDownloadWriter) Write(p []byte) (int, error) {
+	n, err := w.writer.Write(p)
+	if n > 0 {
+		w.onWrite(n)
+	}
+	return n, err
 }

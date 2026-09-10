@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -30,14 +32,14 @@ import (
 )
 
 const (
-	codeInvalidRequest         = "platform.invalid_request"
-	codePlatformTaskTimeout    = "platform.task_timeout"
-	codePluginInstallFailed    = "plugin.install_failed"
-	codePackageResourceLimit   = "plugin.package_resource_limit_exceeded"
-	codePackageUnsafeEntry     = "plugin.package_unsafe_entry"
-	codeResourceMissing        = "platform.resource_missing"
-	codePluginArtifactInvalid  = "plugin.artifact_invalid"
-	codePluginPlatformMismatch = "plugin.platform_mismatch"
+	codeInvalidRequest         = errorcodes.PlatformInvalidRequest
+	codePlatformTaskTimeout    = errorcodes.PlatformTaskTimeout
+	codePluginInstallFailed    = errorcodes.PluginInstallFailed
+	codePackageResourceLimit   = errorcodes.PluginPackageResourceLimitExceeded
+	codePackageUnsafeEntry     = errorcodes.PluginPackageUnsafeEntry
+	codeResourceMissing        = errorcodes.PlatformResourceMissing
+	codePluginArtifactInvalid  = errorcodes.PluginArtifactInvalid
+	codePluginPlatformMismatch = errorcodes.PluginPlatformMismatch
 
 	maxRemoteDownloadBytes      = 256 * 1024 * 1024
 	maxPluginArchiveEntries     = 10_000
@@ -342,7 +344,7 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 	verified, err := artifact.Verify(candidateDir, artifact.Options{ExpectedPlatform: targetPlatform})
 	if err != nil {
 		if errors.Is(err, artifact.ErrContractUnsupported) {
-			return plugins.InstallInspection{}, installError("plugin.contract_unsupported", err.Error(), "插件合同版本不受支持")
+			return plugins.InstallInspection{}, installError(errorcodes.PluginContractUnsupported, err.Error(), "插件合同版本不受支持")
 		}
 		if errors.Is(err, artifact.ErrPlatformMismatch) {
 			return plugins.InstallInspection{}, installError(codePluginPlatformMismatch, err.Error(), "插件包与当前平台不匹配")
@@ -357,7 +359,7 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 	unknownVersion := coreVersion == "unknown"
 	if (unknownVersion && request.SourceType != "development") || (!unknownVersion && semverutil.Compare(coreVersion, snapshot.MinCoreVersion) < 0) {
 		return plugins.InstallInspection{}, installError(
-			"plugin.core_version_incompatible",
+			errorcodes.PluginCoreVersionIncompatible,
 			fmt.Sprintf("插件要求 RayleaBot %s 或更高版本，当前版本为 %s", snapshot.MinCoreVersion, coreVersion),
 			"插件与当前 RayleaBot 版本不兼容",
 		)
@@ -1153,7 +1155,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			digest, hashErr := s.deps.hashFile(source)
 			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
 				cleanup()
-				return "", "", func() {}, installError("plugin.store_integrity_mismatch", "插件压缩包摘要与商店目录不一致", "插件商店产物完整性校验失败")
+				return "", "", func() {}, installError(errorcodes.PluginStoreIntegrityMismatch, "插件压缩包摘要与商店目录不一致", "插件商店产物完整性校验失败")
 			}
 		}
 		candidate, err := s.deps.extractZip(ctx, source, tempRoot)
@@ -1187,7 +1189,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			digest, hashErr := s.deps.hashFile(downloadPath)
 			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
 				cleanup()
-				return "", "", func() {}, installError("plugin.store_integrity_mismatch", "下载的插件摘要与商店目录不一致", "插件商店产物完整性校验失败")
+				return "", "", func() {}, installError(errorcodes.PluginStoreIntegrityMismatch, "下载的插件摘要与商店目录不一致", "插件商店产物完整性校验失败")
 			}
 		}
 		candidate, err := s.deps.extractZip(ctx, downloadPath, tempRoot)
@@ -1376,8 +1378,8 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 			return "", err
 		}
 
-		cleanName := filepath.Clean(file.Name)
-		if cleanName == "." || filepath.IsAbs(cleanName) || filepath.VolumeName(cleanName) != "" || strings.Contains(cleanName, ":") || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) {
+		cleanName, pathErr := fsguard.ArchivePath(file.Name, true)
+		if pathErr != nil {
 			return "", installError(codePackageUnsafeEntry, "插件包包含不安全文件", "插件包包含不安全文件")
 		}
 		canonicalName := strings.ToLower(filepath.ToSlash(cleanName))
@@ -1430,28 +1432,15 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 			return "", installError(codePluginInstallFailed, "读取压缩包条目失败", "读取压缩包条目失败")
 		}
 
-		targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, normalizedZipEntryMode(file))
+		targetFile, err := os.OpenFile(targetPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, normalizedZipEntryMode(file))
 		if err != nil {
 			_ = readerHandle.Close()
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
 		}
 
-		written, copyErr := io.Copy(targetFile, io.LimitReader(readerHandle, maxPluginArchiveFileBytes+1))
-		if copyErr != nil {
-			_ = targetFile.Close()
-			_ = readerHandle.Close()
+		copyErr := fsguard.CopyExact(ctx, targetFile, readerHandle, int64(file.UncompressedSize64))
+		if err := errors.Join(copyErr, targetFile.Close(), readerHandle.Close()); err != nil {
 			return "", installError(codePluginInstallFailed, "写入解压文件失败", "写入解压文件失败")
-		}
-		if written > maxPluginArchiveFileBytes || uint64(written) != file.UncompressedSize64 {
-			_ = targetFile.Close()
-			_ = readerHandle.Close()
-			return "", installError(codePackageResourceLimit, "插件包超过资源限制", "插件包超过资源限制")
-		}
-
-		closeErr := targetFile.Close()
-		_ = readerHandle.Close()
-		if closeErr != nil {
-			return "", installError(codePluginInstallFailed, "关闭解压文件失败", "写入解压文件失败")
 		}
 	}
 
