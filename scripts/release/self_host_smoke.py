@@ -919,6 +919,14 @@ def verify_probe_png(root: Path, fields: dict[str, object]) -> tuple[int, int]:
     return width, height
 
 
+def request_plugin_state_change(base_url: str, token: str, plugin_id: str, action: str) -> None:
+    detail = request_json(f"{base_url}api/plugins/{plugin_id}/{action}", method="POST", body={},
+                          headers=bearer_headers(token), expected_status=200)
+    plugin = detail.get("plugin")
+    if not isinstance(plugin, dict) or plugin.get("id") != plugin_id:
+        raise SmokeError(f"plugin {action} did not return its current detail")
+
+
 def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fixture: Path,
                                server_pid: int, temporary_root: Path,
                                browser_owners: list[BrowserOwnership]) -> dict[str, object]:
@@ -937,7 +945,7 @@ def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fix
     installed = root / "plugins/installed" / plugin_id
     if not (installed / "info.json").is_file():
         raise SmokeError("successful install did not publish the plugin directory")
-    request_json(f"{base_url}api/plugins/{plugin_id}/enable", method="POST", body={}, headers=headers)
+    request_plugin_state_change(base_url, token, plugin_id, "enable")
     wait_plugin_state(base_url, token, plugin_id, "running")
     processes: list[ProcessWitness] = []
     probes = []
@@ -959,15 +967,13 @@ def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fix
                            "height": height, "plugin_pid": process.pid})
             if phase == "initial":
                 browser_owners.append(BrowserOwnership(server_pid, temporary_root))
-                accepted = request_json(f"{base_url}api/plugins/{plugin_id}/reload", method="POST", body={},
-                                        headers=headers, expected_status=202)
-                wait_plugin_task(base_url, token, accepted, "plugin.reload")
+                request_plugin_state_change(base_url, token, plugin_id, "reload")
                 process.wait_exit()
                 wait_plugin_state(base_url, token, plugin_id, "running")
                 current = request_json(f"{base_url}api/plugins/{plugin_id}/settings", headers=headers)
                 if current.get("values", {}).get("acceptance_probe") != probe:
                     raise SmokeError("reload discarded saved plugin settings")
-        request_json(f"{base_url}api/plugins/{plugin_id}/disable", method="POST", body={}, headers=headers)
+        request_plugin_state_change(base_url, token, plugin_id, "disable")
         wait_plugin_state(base_url, token, plugin_id, "disabled")
         for process in processes:
             process.wait_exit()

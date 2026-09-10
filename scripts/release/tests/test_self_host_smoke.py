@@ -458,6 +458,24 @@ class SelfHostSmokeTests(unittest.TestCase):
             self_host_smoke.wait_plugin_task("http://127.0.0.1/", "fixture-token", {"task_id": "task_fixture"}, "plugin.install")
             self.assertEqual(log.call_args.kwargs["expected_task_type"], "plugin.install")
 
+    def test_plugin_lifecycle_transitions_follow_formal_detail_responses(self):
+        for action, name in [
+            ("enable", "ok.plugins-enable-response.yaml"),
+            ("reload", "ok.plugins-reload-response.yaml"),
+            ("disable", "edge.plugins-disable-response.yaml"),
+        ]:
+            fixture = yaml.safe_load((ROOT / "fixtures/web-api" / name).read_text(encoding="utf-8"))
+            plugin_id = fixture["response"]["body"]["plugin"]["id"]
+            with self.subTest(action=action), mock.patch.object(self_host_smoke, "request_json", return_value=fixture["response"]["body"]) as request:
+                self_host_smoke.request_plugin_state_change("http://127.0.0.1/", "fixture-token", plugin_id, action)
+                self.assertEqual(request.call_args.kwargs["expected_status"], fixture["response"]["status"])
+                self.assertEqual(request.call_args.args[0], "http://127.0.0.1" + fixture["request"]["path"])
+
+    def test_plugin_reload_rejects_a_task_response(self):
+        with mock.patch.object(self_host_smoke, "request_json", return_value={"task_id": "task_wrong_shape"}):
+            with self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.request_plugin_state_change("http://127.0.0.1/", "fixture-token", "fixture", "reload")
+
     def test_smoke_workspace_preserves_primary_failure_and_evidence(self):
         with tempfile.TemporaryDirectory() as parent:
             root = Path(parent) / "owned"
