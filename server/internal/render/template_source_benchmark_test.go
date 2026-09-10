@@ -103,7 +103,7 @@ func TestResourceDigestInvalidationBypassesFingerprintCache(t *testing.T) {
 }
 
 func BenchmarkResourceDigestHelpMenu(b *testing.B) {
-	templateDir := filepath.Join("..", "..", "..", "..", "templates", "help.menu")
+	templateDir := filepath.Join("..", "..", "..", "templates", "help.menu")
 	if _, err := os.Stat(templateDir); err != nil {
 		b.Fatalf("stat benchmark template: %v", err)
 	}
@@ -126,7 +126,7 @@ func BenchmarkResourceDigestHelpMenu(b *testing.B) {
 }
 
 func BenchmarkResourceDigestHelpMenuCold(b *testing.B) {
-	templateDir := filepath.Join("..", "..", "..", "..", "templates", "help.menu")
+	templateDir := filepath.Join("..", "..", "..", "templates", "help.menu")
 	b.ReportAllocs()
 	for range b.N {
 		InvalidateResourceDigest(templateDir)
@@ -137,7 +137,7 @@ func BenchmarkResourceDigestHelpMenuCold(b *testing.B) {
 }
 
 func BenchmarkResourceDigestHelpMenuUncached(b *testing.B) {
-	templateDir := filepath.Join("..", "..", "..", "..", "templates", "help.menu")
+	templateDir := filepath.Join("..", "..", "..", "templates", "help.menu")
 	b.ReportAllocs()
 	for range b.N {
 		if _, err := uncachedResourceDigest(templateDir); err != nil {

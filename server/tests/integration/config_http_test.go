@@ -76,6 +76,7 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	application, configPath, schemaPath := newTestAppWithConfigMutation(t, func(input map[string]any) {
 		testutil.ConfigDocumentOneBot(t, input)["forward_ws"].(map[string]any)["access_token"] = "old-forward-secret"
 	}, deterministicAuthOptions()...)
+	initialPort := application.CurrentConfig().Server.Port
 	token := issueLoginToken(t, application)
 	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.config-update-response.yaml"))
 	server := newManagementTestServer(t, application.Handler())
@@ -130,8 +131,8 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	}
 	assertStoredConfigSecret(t, application, forwardTokenStoreKey, "forward-secret")
 
-	if application.CurrentConfig().Server.Port != 8080 {
-		t.Fatalf("expected restart-only server.port to retain its effective value 8080, got %d", application.CurrentConfig().Server.Port)
+	if application.CurrentConfig().Server.Port != initialPort {
+		t.Fatalf("restart-only server.port changed before restart: got %d want %d", application.CurrentConfig().Server.Port, initialPort)
 	}
 	if application.CurrentConfig().Log.Level != "debug" {
 		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.CurrentConfig().Log.Level)
