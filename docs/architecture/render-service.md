@@ -1,6 +1,6 @@
 # Render Service
 
-本页说明 RayleaBot 当前的渲染服务，包括模板来源、版本仓、同步 HTML 预览、图片渲染、缓存键和管理面能力。
+本页说明 RayleaBot 当前的渲染服务，包括模板来源、当前源码缓存、同步 HTML 预览、图片渲染、缓存键和管理面能力。
 
 正式接口、错误码和 payload 结构以 `contracts/` 为准。
 
@@ -15,30 +15,32 @@
 | 包 | 职责 |
 | --- | --- |
 | `server/internal/render/service` | 对管理 API 和插件 action 暴露 facade，并负责模板 manifest、源码与资源路径、输入 schema、HTML 编译、模板同步、预览、图片渲染、artifact 读取和诊断 |
-| `server/internal/render/repository` | SQLite 中的模板状态、revision、校验状态和插件模板同步 |
+| `server/internal/render/repository` | SQLite 中的当前模板源码缓存、源码摘要、来源归属和同步清理 |
 
 `management` 和插件 action 只依赖 `render/service` 的 facade，不直接访问 repository、artifact store 或模板目录细节。
 
-## 模板来源与版本真相
+## 模板来源与当前源码
 
-- 仓库 `templates/` 提供受控模板文件来源。
-- SQLite 保存模板当前版本、历史 revision、最后校验摘要和当前 revision 指针。
-- 模板列表、模板详情和渲染请求会同步有效文件模板到 SQLite。
-- 文件源码摘要变化会写入新的当前 revision；`template.json` 的 `version` 用于模板版本展示字段。
-- 模板目录异常会进入 warning 日志；必需模板不可用时会进入诊断提示，SQLite 中的当前有效版本保持可用。
+- 系统模板来自当前启用的 `templates/` 目录；插件模板来自插件包内自动发现的 `templates/*/template.json`。
+- 模板文件是内容真相。`template.json` 必须提供非空 `name`，可提供 `description`；`version` 用于版本展示和图片缓存键。
+- 模板列表、模板详情、同步 HTML 预览和图片渲染请求会先同步有效系统模板文件到 SQLite；插件模板通过插件目录声明同步。
+- 同步时按模板 ID 更新当前源码缓存，并清理已移除或无效的模板条目；详情、预览和渲染只使用当前可用模板。
+- 模板加载异常会进入 warning 日志，必需模板不可用时会进入诊断提示。
 
 ## 模板存储与校验
 
 - 平台在模板入库与启动加载过程中统一执行模板结构、HTML 编译和输入 schema 校验。
-- 管理面读取当前模板快照时，只暴露模板基础信息和 `input_schema_json`。
-- SQLite 内的当前版本、历史 revision 与校验摘要作为运行时模板真相与缓存依据。
+- SQLite 的 `render_templates` 表按模板 ID 缓存一份当前源码，包括 manifest、HTML、样式表、输入 schema、来源归属、更新时间和 `source_digest`。源码摘要变化时覆盖当前记录，摘要不变时保留原更新时间。
+- 数据库 `source_digest` 是规范化 manifest、HTML、样式表和输入 schema 的 SHA-256 摘要；运行时读取当前源码缓存并编译模板。
+- 管理面模板详情返回名称、说明、版本、尺寸、来源等基础信息，以及 `input_schema_json` 和 `preview_data_json`。示例数据从模板目录的 `preview.json` 读取，缺省时返回 `null`。
 
 ## 预览能力
 
-- 模板预览工作区使用同步 HTML 预览当前模板版本。
-- 模板预览工作区在模板或输入数据变化后请求当前 HTML 文档。
-- 模板预览工作区通过受控模板资源接口读取字体、图片和 CSS 等本地资源。
-- 重新加载当前模板会刷新模板详情，并触发有效文件模板同步。
+- 模板预览工作区读取模板详情中的输入 schema 和示例数据，在模板或输入数据变化后请求同步 HTML 预览；修改输入 JSON 只影响当前预览。
+- 预览响应的 `source_digest` 合并当前源码摘要与模板 `assets/` 目录的资源摘要，供页面识别当前内容。
+- 页面通过受控模板资源接口读取字体、图片和 CSS 等本地资源，以模板 ID、预览 `source_digest` 和资源路径组织缓存，并将资源引用改写后交给 iframe 展示。
+- 刷新目录会清理旧详情、预览文档和资源缓存，移除失效条目；过期请求不得恢复旧详情或覆盖当前预览。
+- 重新加载当前模板会刷新模板详情、释放被替换预览的资源并重新请求 HTML；服务端读取时同步有效系统模板文件。
 - 渲染截图会按页面内容高度生成图片，模板 manifest 的 `height` 作为初始测量高度。
 - 相同模板输入会按缓存键复用已生成 artifact。
 
@@ -62,7 +64,7 @@
 ### 输出
 
 - 插件侧消费 `image_path` 与受控 artifact 信息。
-- 管理侧模板同步 HTML 预览返回当前模板 revision、尺寸和 HTML 文档。
+- 管理侧模板同步 HTML 预览返回 `template_id`、`source_digest`、尺寸和 HTML 文档。
 - `render.default_output` 控制请求未指定输出格式时的默认格式，取值为 `png` 或 `jpeg`。
 - 请求显式指定 `png` 或 `jpeg` 时，以请求值为准。
 - `render.device_scale_percent` 控制图片渲染 Chromium 截图倍率，`100` 对应 `deviceScaleFactor=1.0`，`200` 对应 `2.0`，取值范围为 `50` 到 `500`。
@@ -73,8 +75,9 @@
 - 插件侧图片渲染请求进入有界队列，由受控 worker 执行。
 - 管理面同步 HTML 预览直接返回结果，不创建后台任务。
 - 队列长度、并发数、排队超时和执行超时由平台统一控制。
-- 缓存键和 artifact identity 包含模板版本、源码摘要、主题、输出格式、截图倍率和输入数据摘要。
-- 模板源码摘要变化时，即使展示版本号不变，也会生成新的缓存键。
+- 图片缓存键和 artifact identity 包含模板 ID、版本字段、源码与资源摘要、请求级图片资源摘要、主题、输出格式、截图倍率和输入数据摘要。
+- 同步 HTML 预览缓存键包含模板 ID、预览 `source_digest`、主题和输入数据摘要。
+- 模板源码或 `assets/` 资源摘要变化时，即使展示版本号不变，也会生成新的缓存键。
 - 渲染失败不会拖垮插件进程；错误摘要进入任务结果、日志和诊断面。
 
 ## 资源边界
@@ -90,7 +93,7 @@
 ## 管理面能力
 
 - 系统分组提供 `/render/templates/:templateId?` 模板预览工作区。
-- 页面内显示模板列表、模板基础信息、输入结构、输入 JSON 和实时 HTML 预览。
+- 模板目录按插件名称分组，直接显示模板声明的名称；效果预览、示例数据和模板说明分别展示，可恢复默认示例数据。
 - 本地 JSON 解析错误和同步预览错误会在同一页面内直接展示。
 
 ## 当前限制
