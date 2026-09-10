@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -29,7 +30,7 @@ func httpRequestRegistrar() registrar {
 func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Action, cfg config.Config, permissions PermissionView) (map[string]any, error) {
 	if permissions == nil || !permissions.PermissionDeclared(ctx, pluginID, "http.request") {
 		return nil, &plugins.Error{
-			Code:    "plugin.permission_denied",
+			Code:    errorcodes.PluginPermissionDenied,
 			Message: "http.request permission is not declared",
 		}
 	}
@@ -51,20 +52,20 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Act
 	})
 	if err == errHTTPInvalidRequest {
 		return nil, &plugins.Error{
-			Code:    "platform.invalid_request",
+			Code:    errorcodes.PlatformInvalidRequest,
 			Message: "http.request request is invalid",
 		}
 	}
 	if err == errHTTPResponseTooLarge {
 		return nil, &plugins.Error{
-			Code:    "platform.upstream_response_too_large",
+			Code:    errorcodes.PlatformUpstreamResponseTooLarge,
 			Message: "http.request response exceeded resource limits",
 			Err:     err,
 		}
 	}
 	if err != nil {
 		return nil, &plugins.Error{
-			Code:    "plugin.internal_error",
+			Code:    errorcodes.PluginInternalError,
 			Message: "http.request failed",
 			Err:     err,
 		}

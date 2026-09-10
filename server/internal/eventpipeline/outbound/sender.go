@@ -8,13 +8,14 @@ import (
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
 const (
-	codeAdapterReplyTargetMissing = "adapter.reply_target_missing"
-	codeAdapterSendFailed         = "adapter.send_failed"
-	codePluginProtocolViolation   = "plugin.protocol_violation"
+	codeAdapterReplyTargetMissing = errorcodes.AdapterReplyTargetMissing
+	codeAdapterSendFailed         = errorcodes.AdapterSendFailed
+	codePluginProtocolViolation   = errorcodes.PluginProtocolViolation
 )
 
 type ActionSender interface {

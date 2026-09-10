@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
@@ -37,7 +38,7 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, run *scheduler.RunC
 	message := scheduler.DisplayMessage(ctx.PluginName, ctx.TaskName, ctx.LogLabel, status)
 	if status == "处理失败" {
 		code, _ := extra["error_code"].(string)
-		if code == "plugin.event_canceled" {
+		if code == errorcodes.PluginEventCanceled {
 			d.logger.Debug("定时任务已取消。", attrs...)
 			return
 		}
@@ -58,13 +59,13 @@ func (d *Dispatcher) logSchedulerCompletion(pluginID string, run *scheduler.RunC
 
 func eventFailureDescription(code string) string {
 	switch code {
-	case "plugin.event_timeout":
+	case errorcodes.PluginEventTimeout:
 		return "处理超时。"
-	case "plugin.event_canceled":
+	case errorcodes.PluginEventCanceled:
 		return "任务已取消。"
-	case "plugin.protocol_violation":
+	case errorcodes.PluginProtocolViolation:
 		return "插件通信异常，已停止插件，请检查插件版本。"
-	case "platform.invalid_request":
+	case errorcodes.PlatformInvalidRequest:
 		return "插件暂不可用，本次未执行。"
 	default:
 		return "任务未完成，请查看错误详情。"
@@ -128,8 +129,8 @@ func schedulerFailureFields(err error, delivery plugins.Delivery) (scheduler.Run
 	if message == "" && err != nil {
 		message = err.Error()
 	}
-	if code == "plugin.event_canceled" || errors.Is(err, context.Canceled) {
-		return scheduler.RunOutcomeOther, "plugin.event_canceled", "事件因请求取消或运行时停止而结束"
+	if code == errorcodes.PluginEventCanceled || errors.Is(err, context.Canceled) {
+		return scheduler.RunOutcomeOther, errorcodes.PluginEventCanceled, "事件因请求取消或运行时停止而结束"
 	}
 	if strings.Contains(strings.ToLower(code), "timeout") {
 		return scheduler.RunOutcomeTimeout, code, message

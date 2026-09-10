@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -186,9 +187,9 @@ func renderOutcome(result Result, err error) string {
 		var renderErr *Error
 		if errors.As(err, &renderErr) {
 			switch renderErr.Code {
-			case "platform.render_queue_full":
+			case errorcodes.PlatformRenderQueueFull:
 				return "queue_full"
-			case "platform.render_timeout":
+			case errorcodes.PlatformRenderTimeout:
 				return "timeout"
 			}
 		}
@@ -414,21 +415,21 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 	switch {
 	case os.IsNotExist(err):
 		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
+			Code:        errorcodes.PlatformResourceMissing,
 			Severity:    "warning",
 			Summary:     "模板资源目录缺失",
 			Remediation: "请恢复仓库中的 templates 目录。",
 		})
 	case err != nil:
 		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
+			Code:        errorcodes.PlatformResourceMissing,
 			Severity:    "warning",
 			Summary:     "模板资源目录不可读",
 			Remediation: "请确认 templates 目录存在且当前进程有读取权限。",
 		})
 	case !info.IsDir():
 		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
+			Code:        errorcodes.PlatformResourceMissing,
 			Severity:    "warning",
 			Summary:     "模板资源目录结构无效",
 			Remediation: "请恢复仓库中的 templates 目录结构。",
@@ -437,7 +438,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		Seeds, err := DiscoverSeeds(s.repoRoot, s.templatesRoot, s.logger)
 		if err != nil {
 			issues = append(issues, health.DiagnosticIssue{
-				Code:        "platform.resource_missing",
+				Code:        errorcodes.PlatformResourceMissing,
 				Severity:    "warning",
 				Summary:     "模板资源目录不可读",
 				Remediation: "请确认 templates 目录存在且当前进程有读取权限。",
@@ -450,7 +451,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 				continue
 			}
 			issues = append(issues, health.DiagnosticIssue{
-				Code:        "platform.resource_missing",
+				Code:        errorcodes.PlatformResourceMissing,
 				Severity:    "warning",
 				Summary:     fmt.Sprintf("渲染模板 %s 缺失", templateID),
 				Remediation: "请恢复仓库中的正式模板资源。",
@@ -468,7 +469,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		var bootstrapErr *deps.BootstrapError
 		if errors.As(err, &bootstrapErr) {
 			issues = append(issues, health.DiagnosticIssue{
-				Code:        "platform.resource_missing",
+				Code:        errorcodes.PlatformResourceMissing,
 				Severity:    "warning",
 				Summary:     bootstrapErr.Message,
 				Remediation: bootstrapErr.Remediation,
@@ -476,7 +477,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 			return issues
 		}
 		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
+			Code:        errorcodes.PlatformResourceMissing,
 			Severity:    "warning",
 			Summary:     "图片渲染 Chromium 资源清单不可用。",
 			Remediation: "请恢复 .deps/manifest.json，或在配置中显式设置 render.browser_path。",
@@ -485,7 +486,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 	}
 	if !inspection.MetadataComplete {
 		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
+			Code:        errorcodes.PlatformResourceMissing,
 			Severity:    "warning",
 			Summary:     deps.BootstrapSummary("chromium", inspection),
 			Remediation: "请恢复当前平台图片渲染 Chromium 资源的 archive_format、entrypoints、来源列表与 sha256，或在配置中显式设置 render.browser_path。",
@@ -497,7 +498,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 	}
 	if inspection.CachedArchivePresent {
 		issues = append(issues, health.DiagnosticIssue{
-			Code:        "platform.resource_missing",
+			Code:        errorcodes.PlatformResourceMissing,
 			Severity:    "warning",
 			Summary:     "图片渲染 Chromium 已下载，但未解压。",
 			Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),
@@ -505,7 +506,7 @@ func (s *Service) Diagnostics() []health.DiagnosticIssue {
 		return issues
 	}
 	issues = append(issues, health.DiagnosticIssue{
-		Code:        "platform.resource_missing",
+		Code:        errorcodes.PlatformResourceMissing,
 		Severity:    "warning",
 		Summary:     "图片渲染 Chromium 未准备。",
 		Remediation: deps.BootstrapRemediation("chromium", inspection.ArchivePath, inspection.StoreRoot),

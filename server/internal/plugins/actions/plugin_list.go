@@ -7,6 +7,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -24,7 +25,7 @@ func pluginListRegistrar() registrar {
 func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "plugin.list") {
 		return nil, &plugins.Error{
-			Code:    "plugin.permission_denied",
+			Code:    errorcodes.PluginPermissionDenied,
 			Message: "plugin.list permission is not declared",
 		}
 	}

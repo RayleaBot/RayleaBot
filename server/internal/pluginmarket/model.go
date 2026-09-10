@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const (
 	OfficialSourceID       = "official"
-	CodeCatalogUnavailable = "plugin.store_catalog_unavailable"
-	CodeReleaseUnavailable = "plugin.store_release_unavailable"
-	CodeIntegrityMismatch  = "plugin.store_integrity_mismatch"
+	CodeCatalogUnavailable = errorcodes.PluginStoreCatalogUnavailable
+	CodeReleaseUnavailable = errorcodes.PluginStoreReleaseUnavailable
+	CodeIntegrityMismatch  = errorcodes.PluginStoreIntegrityMismatch
 )
 
 var (

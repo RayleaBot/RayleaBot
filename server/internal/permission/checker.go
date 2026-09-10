@@ -10,6 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 type Verdict struct {
@@ -78,7 +79,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 				return unavailableVerdict(err)
 			}
 			if !matched {
-				return Verdict{Allowed: false, Reason: "发送者不在白名单中", ErrorCode: "permission.not_whitelisted"}
+				return Verdict{Allowed: false, Reason: "发送者不在白名单中", ErrorCode: errorcodes.PermissionNotWhitelisted}
 			}
 			skipBlacklist = true
 		}
@@ -91,7 +92,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 			return unavailableVerdict(err)
 		}
 		if blocked {
-			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeUser}
+			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: errorcodes.PermissionBlacklisted, Scope: ScopeUser}
 		}
 		if groupID != "" {
 			blocked, err := c.blacklistRepo.Contains(ctx, scope, "group", groupID)
@@ -99,7 +100,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 				return unavailableVerdict(err)
 			}
 			if blocked {
-				return Verdict{Allowed: false, Reason: "群在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeGroup}
+				return Verdict{Allowed: false, Reason: "群在黑名单中", ErrorCode: errorcodes.PermissionBlacklisted, Scope: ScopeGroup}
 			}
 		}
 	}
@@ -107,7 +108,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 	// 3. Command permission level check.
 	if cmd != nil && cmd.Permission != "" && cmd.Permission != "everyone" {
 		if !hasPermissionLevel(actorRole, cmd.Permission) {
-			return Verdict{Allowed: false, Reason: "权限等级不足", ErrorCode: "permission.denied"}
+			return Verdict{Allowed: false, Reason: "权限等级不足", ErrorCode: errorcodes.PermissionDenied}
 		}
 	}
 
@@ -115,12 +116,12 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 	if c.cooldown != nil && cmd != nil {
 		userKey := "user:" + scope.Key("user", actorID)
 		if !c.cooldown.Allow(userKey) {
-			return Verdict{Allowed: false, Reason: "用户命令触发频率限制", ErrorCode: "platform.user_rate_limited", Scope: ScopeUser}
+			return Verdict{Allowed: false, Reason: "用户命令触发频率限制", ErrorCode: errorcodes.PlatformUserRateLimited, Scope: ScopeUser}
 		}
 		if groupID != "" {
 			groupKey := "group:" + scope.Key("group", groupID)
 			if !c.cooldown.Allow(groupKey) {
-				return Verdict{Allowed: false, Reason: "群命令触发频率限制", ErrorCode: "platform.rate_limited", Scope: ScopeGroup}
+				return Verdict{Allowed: false, Reason: "群命令触发频率限制", ErrorCode: errorcodes.PlatformRateLimited, Scope: ScopeGroup}
 			}
 		}
 	}
@@ -129,7 +130,7 @@ func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, acto
 }
 
 func unavailableVerdict(err error) Verdict {
-	return Verdict{Reason: "暂时无法确认权限，本次操作未执行", ErrorCode: "permission.unavailable", Err: err}
+	return Verdict{Reason: "暂时无法确认权限，本次操作未执行", ErrorCode: errorcodes.PermissionUnavailable, Err: err}
 }
 
 func (c *Checker) matchesWhitelist(ctx context.Context, scope chatevent.IdentityScope, actorID, groupID string) (bool, error) {

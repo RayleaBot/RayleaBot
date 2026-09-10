@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
@@ -191,8 +192,8 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 	if timestampRaw == "" || eventID == "" {
 		if cfg.Enforce {
 			decision.reject = true
-			decision.code = "plugin.webhook_replay_rejected"
-			decision.messageKey = "errors.plugin.webhook_replay_rejected"
+			decision.code = errorcodes.PluginWebhookReplayRejected
+			decision.messageKey = errorcodes.PluginWebhookReplayRejectedMessageKey
 			s.recordReplayMetric("rejected")
 		} else {
 			s.recordReplayMetric("grace_observed")
@@ -204,8 +205,8 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 	if parseErr != nil {
 		if cfg.Enforce {
 			decision.reject = true
-			decision.code = "plugin.webhook_timestamp_skew"
-			decision.messageKey = "errors.plugin.webhook_timestamp_skew"
+			decision.code = errorcodes.PluginWebhookTimestampSkew
+			decision.messageKey = errorcodes.PluginWebhookTimestampSkewMessageKey
 			s.recordReplayMetric("skew")
 		} else {
 			s.recordReplayMetric("grace_observed")
@@ -222,8 +223,8 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 	if now-timestamp > tolerance || timestamp-now > tolerance {
 		if cfg.Enforce {
 			decision.reject = true
-			decision.code = "plugin.webhook_timestamp_skew"
-			decision.messageKey = "errors.plugin.webhook_timestamp_skew"
+			decision.code = errorcodes.PluginWebhookTimestampSkew
+			decision.messageKey = errorcodes.PluginWebhookTimestampSkewMessageKey
 			s.recordReplayMetric("skew")
 		} else {
 			s.recordReplayMetric("grace_observed")
@@ -238,8 +239,8 @@ func (s *Service) evaluateReplayProtection(pluginID, route string, cfg ReplayPro
 	if s.dedup.peek(dedupKey, s.now(), ttl) {
 		if cfg.Enforce {
 			decision.reject = true
-			decision.code = "plugin.webhook_replay_rejected"
-			decision.messageKey = "errors.plugin.webhook_replay_rejected"
+			decision.code = errorcodes.PluginWebhookReplayRejected
+			decision.messageKey = errorcodes.PluginWebhookReplayRejectedMessageKey
 			s.recordReplayMetric("rejected")
 		} else {
 			s.recordReplayMetric("grace_observed")

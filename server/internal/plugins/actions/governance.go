@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -44,11 +45,11 @@ type GovernanceService interface {
 
 func requireGovernancePermission(ctx context.Context, deps Deps, req ActionRequest, permission string) (GovernanceService, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, permission) {
-		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: permission + " permission is not declared"}
+		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: permission + " permission is not declared"}
 	}
 	service := deps.Governance
 	if service == nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "governance service is not available"}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "governance service is not available"}
 	}
 	return service, nil
 }
@@ -56,11 +57,11 @@ func requireGovernancePermission(ctx context.Context, deps Deps, req ActionReque
 func mapGovernanceRuntimeError(message string, err error) error {
 	switch {
 	case errors.Is(err, permission.ErrGovernanceEntryNotFound):
-		return &plugins.Error{Code: "platform.resource_missing", Message: message, Err: err}
+		return &plugins.Error{Code: errorcodes.PlatformResourceMissing, Message: message, Err: err}
 	case errors.Is(err, governance.ErrInvalidRequest):
-		return &plugins.Error{Code: "plugin.protocol_violation", Message: message, Err: err}
+		return &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: message, Err: err}
 	default:
-		return &plugins.Error{Code: "plugin.internal_error", Message: message, Err: err}
+		return &plugins.Error{Code: errorcodes.PluginInternalError, Message: message, Err: err}
 	}
 }
 
@@ -94,7 +95,7 @@ func blacklistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 		}
 		return map[string]any{"deleted": true}, nil
 	default:
-		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "governance.blacklist.write uses unsupported operation"}
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "governance.blacklist.write uses unsupported operation"}
 	}
 }
 
@@ -118,7 +119,7 @@ func whitelistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 	switch req.Action.GovernanceOperation {
 	case "set_enabled":
 		if req.Action.GovernanceEnabled == nil {
-			return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write is missing enabled"}
+			return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "governance.whitelist.write is missing enabled"}
 		}
 		response, err := service.SetWhitelistEnabled(ctx, *req.Action.GovernanceEnabled)
 		if err != nil {
@@ -137,7 +138,7 @@ func whitelistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 		}
 		return map[string]any{"deleted": true}, nil
 	default:
-		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write uses unsupported operation"}
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "governance.whitelist.write uses unsupported operation"}
 	}
 }
 

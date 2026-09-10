@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
@@ -165,14 +166,14 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 	spec, ok := LookupOneBotAction(req.Action.Kind)
 	if !ok {
 		return nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "received unsupported local action kind",
 		}
 	}
 
 	if req.Permissions == nil || !req.Permissions.PermissionDeclared(ctx, req.PluginID, spec.Permission) {
 		return nil, &plugins.Error{
-			Code:    "plugin.permission_denied",
+			Code:    errorcodes.PluginPermissionDenied,
 			Message: spec.Permission + " permission is not declared",
 		}
 	}
@@ -183,16 +184,16 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 	}
 	if req.ResolveAdapter == nil {
 		return nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "OneBot adapter 不可用",
 		}
 	}
 	adapter, err := req.ResolveAdapter(sourceAdapter, "onebot11")
 	if err != nil {
-		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: err.Error()}
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: err.Error()}
 	}
 	if adapter == nil {
-		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "OneBot adapter 不可用"}
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "OneBot adapter 不可用"}
 	}
 
 	apiAction, params, err := projectOneBotAction(adapter, spec, req.Action)
@@ -209,7 +210,7 @@ func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[stri
 
 func oneBotActionSource(action plugins.Action, parent chatevent.Event) (string, error) {
 	invalid := func(message string) (string, error) {
-		return "", &plugins.Error{Code: "plugin.protocol_violation", Message: message}
+		return "", &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: message}
 	}
 	if action.SourceProtocol != "" && action.SourceProtocol != "onebot11" {
 		return invalid("OneBot action source_protocol must be onebot11")
@@ -245,7 +246,7 @@ func oneBotRuntimeActionError(err error) error {
 		}
 	}
 	return &plugins.Error{
-		Code:    "adapter.transport_not_implemented",
+		Code:    errorcodes.AdapterTransportNotImplemented,
 		Message: err.Error(),
 	}
 }
@@ -258,7 +259,7 @@ func projectOneBotAction(adapter OneBotAdapter, spec OneBotActionSpec, action pl
 	provider := adapter.DetectedProvider()
 	if provider != spec.Provider {
 		return "", nil, &plugins.Error{
-			Code:    "adapter.provider_extension_not_supported",
+			Code:    errorcodes.AdapterProviderExtensionNotSupported,
 			Message: "当前 provider 不支持该扩展动作",
 		}
 	}

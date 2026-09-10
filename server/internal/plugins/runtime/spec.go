@@ -10,6 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
@@ -75,7 +76,7 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	verified, err := artifact.Verify(packageRoot, artifact.Options{ExpectedPlatform: targetPlatform})
 	if err != nil {
 		if errors.Is(err, artifact.ErrContractUnsupported) {
-			return Spec{}, errorf("plugin.contract_unsupported", "plugin contract version is unsupported", err)
+			return Spec{}, errorf(errorcodes.PluginContractUnsupported, "plugin contract version is unsupported", err)
 		}
 		if errors.Is(err, artifact.ErrPlatformMismatch) {
 			return Spec{}, errorf(codePluginPlatformMismatch, "plugin artifact targets a different platform", err)

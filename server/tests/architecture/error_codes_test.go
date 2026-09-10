@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,6 +18,7 @@ type errorCodeCatalog struct {
 	Codes map[string]struct {
 		Code string `yaml:"code"`
 	} `yaml:"codes"`
+	Diagnostics map[string]struct{ Description string } `yaml:"diagnostics"`
 }
 
 type reportedErrorCode struct {
@@ -25,10 +27,9 @@ type reportedErrorCode struct {
 	code string
 }
 
-func TestManagementErrorCodesAreDeclaredInContract(t *testing.T) {
+func TestHTTPErrorCodesAreDeclaredForTheirTransport(t *testing.T) {
 	serverRoot := testServerRoot(t)
-	declaredCodes := loadDeclaredErrorCodes(t, serverRoot)
-	managementRoot := filepath.Join(serverRoot, "internal", "management")
+	managementRoot := filepath.Join(serverRoot, "internal")
 	packageConstants := managementPackageStringConstants(t, serverRoot, managementRoot)
 
 	walkGoFiles(t, managementRoot, func(path string) {
@@ -43,10 +44,41 @@ func TestManagementErrorCodesAreDeclaredInContract(t *testing.T) {
 		}
 		constants := packageConstants[filepath.Dir(path)]
 		for _, reported := range managementReportedErrorCodes(fileSet, parsed, path, constants) {
-			if _, ok := declaredCodes[reported.code]; !ok {
-				t.Errorf("%s:%d reports error code %q, but contracts/error-codes.yaml does not declare it", relPath(t, serverRoot, reported.path), reported.line, reported.code)
+			if _, ok := errorcodes.HTTP(reported.code); !ok {
+				t.Errorf("%s:%d reports code %q outside its declared HTTP scope", relPath(t, serverRoot, reported.path), reported.line, reported.code)
 			}
 		}
+	})
+}
+
+func TestStructuredErrorAndDiagnosticCodesAreRegistered(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	root := filepath.Join(serverRoot, "internal")
+	declared := loadDeclaredErrorCodes(t, serverRoot)
+	constants := managementPackageStringConstants(t, serverRoot, root)
+	walkGoFiles(t, root, func(path string) {
+		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
+			return
+		}
+		set := token.NewFileSet()
+		file, err := parser.ParseFile(set, path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(node ast.Node) bool {
+			field, ok := node.(*ast.KeyValueExpr)
+			if !ok || (selectorIdentName(field.Key) != "Code" && selectorIdentName(field.Key) != "ErrorCode") {
+				return true
+			}
+			code, ok := errorCodeExpressionValue(field.Value, constants[filepath.Dir(path)])
+			if !ok || !strings.Contains(code, ".") {
+				return true
+			}
+			if _, ok := declared[code]; !ok {
+				t.Errorf("%s:%d uses unregistered error/diagnostic code %q", relPath(t, serverRoot, path), set.Position(field.Pos()).Line, code)
+			}
+			return true
+		})
 	})
 }
 
@@ -72,6 +104,9 @@ func loadDeclaredErrorCodes(t *testing.T, serverRoot string) map[string]struct{}
 		}
 		codes[code] = struct{}{}
 	}
+	for code := range catalog.Diagnostics {
+		codes[code] = struct{}{}
+	}
 	return codes
 }
 
@@ -79,6 +114,25 @@ func managementPackageStringConstants(t *testing.T, serverRoot, managementRoot s
 	t.Helper()
 
 	packageConstants := map[string]map[string]string{}
+	generated := map[string]string{}
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(serverRoot, "internal", "errorcodes", "catalog.generated.go"), nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, decl := range file.Decls {
+		group, ok := decl.(*ast.GenDecl)
+		if !ok || group.Tok != token.CONST {
+			continue
+		}
+		for _, spec := range group.Specs {
+			values := spec.(*ast.ValueSpec)
+			for i, value := range values.Values {
+				if text, ok := stringLiteralValue(value); ok {
+					generated["errorcodes."+values.Names[i].Name] = text
+				}
+			}
+		}
+	}
 	walkGoFiles(t, managementRoot, func(path string) {
 		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
 			return
@@ -92,6 +146,9 @@ func managementPackageStringConstants(t *testing.T, serverRoot, managementRoot s
 		constants := packageConstants[dir]
 		if constants == nil {
 			constants = map[string]string{}
+			for name, code := range generated {
+				constants[name] = code
+			}
 			packageConstants[dir] = constants
 		}
 		for _, decl := range parsed.Decls {
@@ -108,7 +165,7 @@ func managementPackageStringConstants(t *testing.T, serverRoot, managementRoot s
 					if index >= len(valueSpec.Values) {
 						continue
 					}
-					value, ok := stringLiteralValue(valueSpec.Values[index])
+					value, ok := errorCodeExpressionValue(valueSpec.Values[index], constants)
 					if ok {
 						constants[name.Name] = value
 					}
@@ -195,6 +252,10 @@ func keyedStringCodes(fileSet *token.FileSet, path string, literal *ast.Composit
 func errorCodeExpressionValue(expr ast.Expr, constants map[string]string) (string, bool) {
 	if value, ok := stringLiteralValue(expr); ok {
 		return value, true
+	}
+	if selector, ok := expr.(*ast.SelectorExpr); ok {
+		value, ok := constants[selectorIdentName(selector.X)+"."+selector.Sel.Name]
+		return value, ok
 	}
 	ident, ok := expr.(*ast.Ident)
 	if !ok {

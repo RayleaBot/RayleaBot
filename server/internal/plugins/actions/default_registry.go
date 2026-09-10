@@ -57,19 +57,19 @@ func schedulerCreateRegistrar() registrar {
 
 func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "scheduler.create") {
-		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "scheduler.create permission is not declared"}
+		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "scheduler.create permission is not declared"}
 	}
 	if deps.Scheduler == nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "scheduler engine is not available"}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "scheduler engine is not available"}
 	}
 
 	payloadBytes, err := json.Marshal(req.Action.SchedulerPayload)
 	if err != nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "scheduler.create payload is invalid", Err: err}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "scheduler.create payload is invalid", Err: err}
 	}
 	job, err := deps.Scheduler(ctx, req.PluginID, req.Action.SchedulerTaskID, req.Action.SchedulerLogLabel, req.Action.SchedulerCron, payloadBytes)
 	if err != nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "scheduler.create failed", Err: err}
 	}
 	return map[string]any{
 		"task_id":  job.JobID,

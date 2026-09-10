@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
 const (
-	codePlatformInvalidRequest   = "platform.invalid_request"
-	codePluginInternalError      = "plugin.internal_error"
+	codePlatformInvalidRequest   = errorcodes.PlatformInvalidRequest
+	codePluginInternalError      = errorcodes.PluginInternalError
 	eventsChannel                = "events"
 	eventsTypeReceived           = "events.received"
 	observabilityScopeBridge     = "bridge_runtime"

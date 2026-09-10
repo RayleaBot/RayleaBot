@@ -798,10 +798,10 @@ codes:
     domain: adapter
     message_key: errors.adapter.connection_failed
     message: 协议连接建立失败
-    description: The reverse WebSocket handshake or first-packet wait failed before the adapter became connected.
+    description: The upstream protocol connection or initial handshake failed before the adapter became connected.
     http_status: 503
     retryable: true
-    applies_to: [http, websocket, readiness]
+    applies_to: [http, websocket, readiness, plugin_protocol]
 
   adapter.connection_lost:
     code: adapter.connection_lost
@@ -818,10 +818,10 @@ codes:
     domain: adapter
     message_key: errors.adapter.auth_failed
     message: 协议鉴权失败
-    description: The upstream reverse WebSocket handshake was rejected with authentication failure.
+    description: The upstream protocol handshake or API request was rejected with authentication or authorization failure.
     http_status: 401
     retryable: false
-    applies_to: [http, websocket, readiness]
+    applies_to: [http, websocket, readiness, plugin_protocol]
 
   adapter.send_failed:
     code: adapter.send_failed
@@ -971,7 +971,7 @@ codes:
     description: The addressed adapter transport is disabled or stopped and cannot accept requests. The payload itself has not been classified as invalid.
     http_status: 503
     retryable: false
-    applies_to: [http, websocket, logs]
+    applies_to: [http, websocket, logs, plugin_protocol]
 
   adapter.transport_not_implemented:
     code: adapter.transport_not_implemented

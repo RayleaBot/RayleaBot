@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-const codeInvalidRequest = "platform.invalid_request"
+const codeInvalidRequest = errorcodes.PlatformInvalidRequest
 
 func (s *Service) SubmitRecoveryRecheckTask() (string, *Error) {
 	if s.taskExecutor == nil {

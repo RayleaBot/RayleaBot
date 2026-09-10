@@ -3,6 +3,7 @@ package recovery
 import (
 	"encoding/json"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -135,7 +136,7 @@ func filterMachineIssues(issues []CompatibilityIssue) []CompatibilityIssue {
 
 func isPluginRecoveryIssueCode(code string) bool {
 	code = strings.TrimSpace(code)
-	return code == "plugin.contract_unsupported" || strings.HasPrefix(code, "recovery.plugin_")
+	return code == errorcodes.PluginContractUnsupported || strings.HasPrefix(code, "recovery.plugin_")
 }
 
 func recoveryStatus(machineIssues []CompatibilityIssue, pendingSkipped []SkippedPlugin) string {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -125,7 +126,7 @@ func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot strin
 			logger.Warn(
 				"图片渲染暂不可用，等待浏览器准备完成："+safeErr,
 				"component", "render",
-				"code", "platform.resource_missing",
+				"code", errorcodes.PlatformResourceMissing,
 				"err", safeErr,
 			)
 		}

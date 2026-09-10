@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -44,5 +45,5 @@ func (s *Service) Execute(ctx context.Context, pluginID, requestID string, actio
 	if handled {
 		return result, err
 	}
-	return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "received unsupported local action kind"}
+	return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "received unsupported local action kind"}
 }

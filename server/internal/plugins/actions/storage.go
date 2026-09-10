@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 )
@@ -42,7 +43,7 @@ func storageRegistrars() []registrar {
 func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.PluginKV == nil {
 		return nil, &plugins.Error{
-			Code:    "plugin.internal_error",
+			Code:    errorcodes.PluginInternalError,
 			Message: "storage.kv repository is not available",
 		}
 	}
@@ -51,7 +52,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 	case "get":
 		value, exists, err := deps.PluginKV.Get(ctx, req.PluginID, req.Action.StorageKey)
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.kv get failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv get failed", Err: err}
 		}
 		result := map[string]any{
 			"key":    req.Action.StorageKey,
@@ -64,16 +65,16 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 	case "set":
 		err := deps.PluginKV.Set(ctx, req.PluginID, req.Action.StorageKey, req.Action.StorageValue, currentKVLimits(currentConfig(deps)))
 		if errors.Is(err, pluginstore.ErrKVValueTooLarge) || errors.Is(err, pluginstore.ErrKVQuotaExceeded) {
-			return nil, &plugins.Error{Code: "platform.value_too_large", Message: "storage.kv value exceeds configured platform limit"}
+			return nil, &plugins.Error{Code: errorcodes.PlatformValueTooLarge, Message: "storage.kv value exceeds configured platform limit"}
 		}
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.kv set failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv set failed", Err: err}
 		}
 		return map[string]any{}, nil
 	case "delete":
 		deleted, err := deps.PluginKV.Delete(ctx, req.PluginID, req.Action.StorageKey)
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.kv delete failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv delete failed", Err: err}
 		}
 		return map[string]any{
 			"key":     req.Action.StorageKey,
@@ -82,7 +83,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 	case "list":
 		keys, err := deps.PluginKV.List(ctx, req.PluginID, req.Action.StoragePrefix)
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.kv list failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv list failed", Err: err}
 		}
 		return map[string]any{
 			"prefix": req.Action.StoragePrefix,
@@ -90,7 +91,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 		}, nil
 	default:
 		return nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "received unsupported storage.kv operation",
 		}
 	}
@@ -99,7 +100,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.PluginFiles == nil {
 		return nil, &plugins.Error{
-			Code:    "plugin.internal_error",
+			Code:    errorcodes.PluginInternalError,
 			Message: "storage.file service is not available",
 		}
 	}
@@ -108,10 +109,10 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 	case "read":
 		result, err := deps.PluginFiles.Read(req.PluginID, req.Action.StoragePath)
 		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
 		}
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.file read failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file read failed", Err: err}
 		}
 		payload := map[string]any{
 			"root":   "plugin_data",
@@ -129,13 +130,13 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 	case "write":
 		writeResult, err := deps.PluginFiles.WriteWithResult(req.PluginID, req.Action.StoragePath, req.Action.StorageContent, currentFileLimits(currentConfig(deps)))
 		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
 		}
 		if errors.Is(err, pluginstore.ErrFileTooLarge) {
-			return nil, &plugins.Error{Code: "platform.value_too_large", Message: "storage.file write exceeds configured platform limit"}
+			return nil, &plugins.Error{Code: errorcodes.PlatformValueTooLarge, Message: "storage.file write exceeds configured platform limit"}
 		}
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.file write failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file write failed", Err: err}
 		}
 		result := map[string]any{
 			"root":                "plugin_data",
@@ -157,10 +158,10 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 	case "delete":
 		deleted, err := deps.PluginFiles.Delete(req.PluginID, req.Action.StoragePath)
 		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
 		}
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.file delete failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file delete failed", Err: err}
 		}
 		return map[string]any{
 			"root":    "plugin_data",
@@ -170,10 +171,10 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 	case "list":
 		paths, err := deps.PluginFiles.List(req.PluginID, req.Action.StoragePrefix)
 		if errors.Is(err, pluginstore.ErrFileInvalidPath) {
-			return nil, &plugins.Error{Code: "platform.invalid_request", Message: "storage.file path is invalid"}
+			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.file path is invalid"}
 		}
 		if err != nil {
-			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "storage.file list failed", Err: err}
+			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.file list failed", Err: err}
 		}
 		return map[string]any{
 			"root":   "plugin_data",
@@ -182,7 +183,7 @@ func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[
 		}, nil
 	default:
 		return nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "received unsupported storage.file operation",
 		}
 	}

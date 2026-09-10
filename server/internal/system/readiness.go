@@ -3,6 +3,7 @@ package system
 import (
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 )
 
@@ -16,7 +17,7 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 			},
 			Issues: []health.DiagnosticIssue{
 				{
-					Code:        "auth.unavailable",
+					Code:        errorcodes.DiagnosticAuthUnavailable,
 					Severity:    "error",
 					Summary:     "Management auth service is unavailable",
 					Remediation: "请检查服务日志，确认认证服务已完成初始化。",
@@ -34,7 +35,7 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 			},
 			Issues: []health.DiagnosticIssue{
 				{
-					Code:        "setup.required",
+					Code:        errorcodes.DiagnosticSetupRequired,
 					Severity:    "error",
 					Summary:     "Initial admin setup is required",
 					Remediation: "请先完成管理员初始化，然后再使用管理入口。",
@@ -82,7 +83,7 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 		}
 		report.Status = "degraded"
 		report.Reason = reason
-		report.ReasonCodes = []string{"platform.resource_missing"}
+		report.ReasonCodes = []string{errorcodes.PlatformResourceMissing}
 	}
 	return normalizeReadinessReport(report)
 }

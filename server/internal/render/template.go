@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 const (
@@ -75,12 +76,12 @@ func ResolveAssetPath(root Root, relativePath string) (string, error) {
 	resourceRoot := strings.TrimSpace(root.ResourceRoot)
 	relativePath = strings.TrimSpace(relativePath)
 	if templateDir == "" || resourceRoot == "" || relativePath == "" || filepath.IsAbs(filepath.FromSlash(relativePath)) {
-		return "", &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 
 	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
 	if cleanRelative == "." {
-		return "", &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 
 	absoluteTemplateDir, err := filepath.Abs(templateDir)
@@ -93,7 +94,7 @@ func ResolveAssetPath(root Root, relativePath string) (string, error) {
 	}
 	candidate := filepath.Join(absoluteTemplateDir, cleanRelative)
 	if !pathWithinRoot(absoluteResourceRoot, candidate) {
-		return "", &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 	return candidate, nil
 }
@@ -142,7 +143,7 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 	templateID = strings.TrimSpace(templateID)
 	relativePath = strings.TrimSpace(relativePath)
 	if relativePath == "" {
-		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 	if _, err := s.GetTemplate(ctx, templateID); err != nil {
 		return TemplateAsset{}, err
@@ -150,7 +151,7 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 
 	root := s.templateRootFor(templateID)
 	if root.TemplateDir == "" || root.ResourceRoot == "" {
-		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 	assetPath, err := ResolveAssetPath(root, relativePath)
 	if err != nil {
@@ -161,17 +162,17 @@ func (s *Service) LookupTemplateAsset(ctx context.Context, templateID string, re
 		return TemplateAsset{}, err
 	}
 	if isSourcePath {
-		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 	info, err := os.Stat(assetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found", Err: err}
+			return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found", Err: err}
 		}
 		return TemplateAsset{}, fmt.Errorf("inspect render template asset %s: %w", assetPath, err)
 	}
 	if info.IsDir() {
-		return TemplateAsset{}, &Error{Code: "platform.resource_missing", Message: "render template asset was not found"}
+		return TemplateAsset{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 
 	return TemplateAsset{Path: assetPath}, nil

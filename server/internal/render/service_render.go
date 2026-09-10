@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,7 +38,7 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 	}
 	resourceDigest, err := ResourceDigest(s.templateDirFor(normalized.Template))
 	if err != nil {
-		return PreviewHTML{}, &Error{Code: "platform.internal_error", Message: "render template resources are unavailable", Err: err}
+		return PreviewHTML{}, &Error{Code: errorcodes.PlatformInternalError, Message: "render template resources are unavailable", Err: err}
 	}
 	digest := sha256.Sum256([]byte(sourceDigest + ":" + resourceDigest))
 	sourceDigest = hex.EncodeToString(digest[:])
@@ -79,7 +80,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	templateDir := s.templateDirFor(normalized.Template)
 	resourceDigest, err := ResourceDigest(templateDir)
 	if err != nil {
-		return Result{}, &Error{Code: "platform.internal_error", Message: "render template resources are unavailable", Err: err}
+		return Result{}, &Error{Code: errorcodes.PlatformInternalError, Message: "render template resources are unavailable", Err: err}
 	}
 	deviceScalePercent := settings.deviceScalePercent
 	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, deviceScalePercent, payloadBytes)
@@ -109,7 +110,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 
 	runner := s.currentRunner()
 	if runner == nil {
-		return Result{}, &Error{Code: "platform.resource_missing", Message: "render runner is not available"}
+		return Result{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render runner is not available"}
 	}
 	content, err := runner.Render(renderCtx, Document{
 		Template:          normalized.Template,
@@ -145,7 +146,7 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, "", "", "", &Error{
-				Code:    "platform.template_not_found",
+				Code:    errorcodes.PlatformTemplateNotFound,
 				Message: "render template was not found",
 			}
 		}
@@ -155,7 +156,7 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 	bundle, err := BuildSourceBundle(request.Template, source)
 	if err != nil {
 		return nil, "", "", "", &Error{
-			Code:    "platform.internal_error",
+			Code:    errorcodes.PlatformInternalError,
 			Message: "stored render template is invalid",
 			Err:     err,
 		}
@@ -166,7 +167,7 @@ func (s *Service) resolveCompiledTemplate(ctx context.Context, request Request) 
 	}
 	if len(issues) > 0 {
 		return nil, "", "", "", &Error{
-			Code:    "platform.internal_error",
+			Code:    errorcodes.PlatformInternalError,
 			Message: "stored render template is invalid",
 		}
 	}
@@ -179,7 +180,7 @@ func wrapRenderError(err error, message string) error {
 		return renderErr
 	}
 	return &Error{
-		Code:    "platform.internal_error",
+		Code:    errorcodes.PlatformInternalError,
 		Message: message,
 		Err:     err,
 	}
@@ -225,7 +226,7 @@ func (s *Service) normalizeRequestWithSettings(request Request, settings renderS
 	request.Output = strings.ToLower(strings.TrimSpace(request.Output))
 
 	if request.Template == "" {
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render template is required"}
+		return Request{}, nil, &Error{Code: errorcodes.PlatformInvalidRequest, Message: "render template is required"}
 	}
 	if request.Theme == "" {
 		request.Theme = "default"
@@ -236,14 +237,14 @@ func (s *Service) normalizeRequestWithSettings(request Request, settings renderS
 	case "png":
 	case "jpeg":
 	default:
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render output must be png or jpeg"}
+		return Request{}, nil, &Error{Code: errorcodes.PlatformInvalidRequest, Message: "render output must be png or jpeg"}
 	}
 	if request.Data == nil {
 		request.Data = map[string]any{}
 	}
 	resources, err := normalizeRenderResources(request.Resources)
 	if err != nil {
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render resources are invalid", Err: err}
+		return Request{}, nil, &Error{Code: errorcodes.PlatformInvalidRequest, Message: "render resources are invalid", Err: err}
 	}
 	request.Resources = resources
 	request.Data = cloneRenderData(request.Data)
@@ -251,11 +252,11 @@ func (s *Service) normalizeRequestWithSettings(request Request, settings renderS
 
 	payloadBytes, err := json.Marshal(request.Data)
 	if err != nil {
-		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render data is not serializable", Err: err}
+		return Request{}, nil, &Error{Code: errorcodes.PlatformInvalidRequest, Message: "render data is not serializable", Err: err}
 	}
 	if len(payloadBytes) > settings.maxRenderDataBytes {
 		return Request{}, nil, &Error{
-			Code:    "platform.render_input_too_large",
+			Code:    errorcodes.PlatformRenderInputTooLarge,
 			Message: "render input exceeds the configured size limit",
 		}
 	}

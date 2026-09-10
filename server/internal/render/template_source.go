@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,7 +19,7 @@ func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (Source
 	manifest, normalizedManifest, err := parseTemplateManifest(expectedTemplateID, source.ManifestJSON)
 	if err != nil {
 		return SourceBundle{}, &Error{
-			Code:    "platform.template_source_invalid",
+			Code:    errorcodes.DiagnosticPlatformTemplateSourceInvalid,
 			Message: "render template source is invalid",
 			Err:     err,
 		}
@@ -27,7 +28,7 @@ func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (Source
 	inputSchemaJSON, err := normalizeOptionalJSONObject(source.InputSchemaJSON, "input_schema_json")
 	if err != nil {
 		return SourceBundle{}, &Error{
-			Code:    "platform.template_source_invalid",
+			Code:    errorcodes.DiagnosticPlatformTemplateSourceInvalid,
 			Message: "render template source is invalid",
 			Err:     err,
 		}
@@ -40,7 +41,7 @@ func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (Source
 	}
 	if manifest.InputSchema != nil && inputSchemaJSON == nil {
 		return SourceBundle{}, &Error{
-			Code:    "platform.template_source_invalid",
+			Code:    errorcodes.DiagnosticPlatformTemplateSourceInvalid,
 			Message: "render template source is invalid",
 			Err:     fmt.Errorf("manifest declares input_schema but input_schema_json is null"),
 		}

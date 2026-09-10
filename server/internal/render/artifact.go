@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -300,14 +301,14 @@ func Load(outputRoot string) (map[string]Result, map[string]Artifact, error) {
 
 func Lookup(outputRoot string, artifactID string) (Artifact, error) {
 	if !artifactIDPattern.MatchString(strings.TrimSpace(artifactID)) {
-		return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render artifact was not found"}
+		return Artifact{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render artifact was not found"}
 	}
 
 	recordPath := filepath.Join(outputRoot, artifactID+".json")
 	recordBytes, err := os.ReadFile(recordPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render artifact was not found", Err: err}
+			return Artifact{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render artifact was not found", Err: err}
 		}
 		return Artifact{}, fmt.Errorf("read render artifact record %s: %w", recordPath, err)
 	}
@@ -319,11 +320,11 @@ func Lookup(outputRoot string, artifactID string) (Artifact, error) {
 
 	artifactPath := filepath.Join(outputRoot, filepath.Base(record.Filename))
 	if !artifactPathWithinRoot(outputRoot, artifactPath) {
-		return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render artifact path is invalid"}
+		return Artifact{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render artifact path is invalid"}
 	}
 	if _, err := os.Stat(artifactPath); err != nil {
 		if os.IsNotExist(err) {
-			return Artifact{}, &Error{Code: "platform.resource_missing", Message: "render artifact was not found", Err: err}
+			return Artifact{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render artifact was not found", Err: err}
 		}
 		return Artifact{}, fmt.Errorf("inspect render artifact %s: %w", artifactPath, err)
 	}

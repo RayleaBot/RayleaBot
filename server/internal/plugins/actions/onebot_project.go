@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -38,21 +39,21 @@ func normalizeParams(raw map[string]any) (map[string]any, error) {
 func requiredString(data map[string]any, key string) (string, error) {
 	if len(data) == 0 {
 		return "", &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
 	value, ok := data[key]
 	if !ok {
 		return "", &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
 	text := strings.TrimSpace(fmt.Sprint(value))
 	if text == "" || text == "<nil>" {
 		return "", &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
@@ -141,7 +142,7 @@ func projectMessageHistoryGet(raw map[string]any) (string, map[string]any, error
 		return "get_friend_msg_history", historyParams, nil
 	default:
 		return "", nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "onebot action missing conversation_type",
 		}
 	}
@@ -190,7 +191,7 @@ func projectMessageForwardSend(raw map[string]any) (string, map[string]any, erro
 		return "send_private_forward_msg", params, nil
 	default:
 		return "", nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "onebot action missing target_type",
 		}
 	}
@@ -215,7 +216,7 @@ func projectMessageReadMark(raw map[string]any) (string, map[string]any, error) 
 		return "mark_private_msg_as_read", map[string]any{"user_id": apiValue(targetID)}, nil
 	default:
 		return "", nil, &plugins.Error{
-			Code:    "plugin.protocol_violation",
+			Code:    errorcodes.PluginProtocolViolation,
 			Message: "onebot action missing conversation_type",
 		}
 	}

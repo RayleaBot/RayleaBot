@@ -11,6 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -185,7 +186,7 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 	if commandContext != nil {
 		s.logCommandPolicyRejection(enriched, verdict, commandContext)
 	}
-	if (verdict.ErrorCode == "platform.user_rate_limited" || verdict.ErrorCode == "platform.rate_limited") && cooldownReplyEnabled(s.config()) {
+	if (verdict.ErrorCode == errorcodes.PlatformUserRateLimited || verdict.ErrorCode == errorcodes.PlatformRateLimited) && cooldownReplyEnabled(s.config()) {
 		s.sendCooldownReply(ctx, enriched)
 	}
 	return enriched, false
@@ -283,13 +284,13 @@ func (s *Service) logCommandPolicyRejection(event chatevent.NormalizedEvent, ver
 
 func commandPolicyStage(errorCode string) string {
 	switch strings.TrimSpace(errorCode) {
-	case "permission.not_whitelisted":
+	case errorcodes.PermissionNotWhitelisted:
 		return "whitelist"
-	case "permission.blacklisted":
+	case errorcodes.PermissionBlacklisted:
 		return "blacklist"
-	case "permission.denied", "permission.unavailable":
+	case errorcodes.PermissionDenied, errorcodes.PermissionUnavailable:
 		return "permission"
-	case "platform.user_rate_limited", "platform.rate_limited":
+	case errorcodes.PlatformUserRateLimited, errorcodes.PlatformRateLimited:
 		return "cooldown"
 	default:
 		return ""
@@ -298,18 +299,18 @@ func commandPolicyStage(errorCode string) string {
 
 func commandPolicyReasonSummary(verdict permission.Verdict) string {
 	switch strings.TrimSpace(verdict.ErrorCode) {
-	case "permission.not_whitelisted":
+	case errorcodes.PermissionNotWhitelisted:
 		return "发送者不在白名单中"
-	case "permission.blacklisted":
+	case errorcodes.PermissionBlacklisted:
 		if verdict.Scope == permission.ScopeGroup {
 			return "群在黑名单中"
 		}
 		return "用户在黑名单中"
-	case "permission.denied":
+	case errorcodes.PermissionDenied:
 		return "权限等级不足"
-	case "platform.user_rate_limited":
+	case errorcodes.PlatformUserRateLimited:
 		return "用户命令触发频率限制"
-	case "platform.rate_limited":
+	case errorcodes.PlatformRateLimited:
 		return "群命令触发频率限制"
 	default:
 		return strings.TrimSpace(verdict.Reason)

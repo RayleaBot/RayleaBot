@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
-const codeResourceMissing = "platform.resource_missing"
+const codeResourceMissing = errorcodes.PlatformResourceMissing
 
 var errSystemTaskUnavailable = errors.New("system task service unavailable")
 

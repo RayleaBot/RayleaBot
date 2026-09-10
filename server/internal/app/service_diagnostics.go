@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -32,7 +33,7 @@ func (d thirdPartyDiagnostics) DiagnosticsThirdParty(ctx context.Context) (syste
 	if err != nil {
 		result.Platforms = sortedThirdPartyPlatforms(platforms)
 		return result, []health.DiagnosticIssue{{
-			Code:        "third_party.accounts_unavailable",
+			Code:        errorcodes.DiagnosticThirdPartyAccountsUnavailable,
 			Severity:    "warning",
 			Summary:     "第三方账号状态不可读",
 			Remediation: "请检查数据库连接和 third_party_accounts 表状态。",

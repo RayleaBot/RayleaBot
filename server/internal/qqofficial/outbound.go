@@ -10,15 +10,16 @@ import (
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 // Formal error codes this adapter reports, from contracts/error-codes.yaml.
 const (
-	CodeMessageQuotaExceeded  = "adapter.message_quota_exceeded"
-	CodeReplyWindowExpired    = "adapter.reply_window_expired"
-	CodeCapabilityUnsupported = "adapter.capability_unsupported"
-	CodeSendFailed            = "adapter.send_failed"
-	CodeSendUnconfirmed       = "adapter.send_unconfirmed"
+	CodeMessageQuotaExceeded  = errorcodes.AdapterMessageQuotaExceeded
+	CodeReplyWindowExpired    = errorcodes.AdapterReplyWindowExpired
+	CodeCapabilityUnsupported = errorcodes.AdapterCapabilityUnsupported
+	CodeSendFailed            = errorcodes.AdapterSendFailed
+	CodeSendUnconfirmed       = errorcodes.AdapterSendUnconfirmed
 )
 
 // SendError carries a formal code alongside the platform's own wording, so a

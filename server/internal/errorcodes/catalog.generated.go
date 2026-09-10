@@ -216,9 +216,9 @@ const (
 
 var catalog = map[string]Definition{
 	AdapterApiCallFailed:                      {Code: AdapterApiCallFailed, HTTPStatus: 502, MessageKey: AdapterApiCallFailedMessageKey, Message: "协议 API 调用失败", Retryable: true, Surfaces: "http,websocket,plugin_protocol"},
-	AdapterAuthFailed:                         {Code: AdapterAuthFailed, HTTPStatus: 401, MessageKey: AdapterAuthFailedMessageKey, Message: "协议鉴权失败", Retryable: false, Surfaces: "http,websocket,readiness"},
+	AdapterAuthFailed:                         {Code: AdapterAuthFailed, HTTPStatus: 401, MessageKey: AdapterAuthFailedMessageKey, Message: "协议鉴权失败", Retryable: false, Surfaces: "http,websocket,readiness,plugin_protocol"},
 	AdapterCapabilityUnsupported:              {Code: AdapterCapabilityUnsupported, HTTPStatus: 400, MessageKey: AdapterCapabilityUnsupportedMessageKey, Message: "当前适配器不支持该能力", Retryable: false, Surfaces: "http,plugin_protocol"},
-	AdapterConnectionFailed:                   {Code: AdapterConnectionFailed, HTTPStatus: 503, MessageKey: AdapterConnectionFailedMessageKey, Message: "协议连接建立失败", Retryable: true, Surfaces: "http,websocket,readiness"},
+	AdapterConnectionFailed:                   {Code: AdapterConnectionFailed, HTTPStatus: 503, MessageKey: AdapterConnectionFailedMessageKey, Message: "协议连接建立失败", Retryable: true, Surfaces: "http,websocket,readiness,plugin_protocol"},
 	AdapterConnectionLost:                     {Code: AdapterConnectionLost, HTTPStatus: 503, MessageKey: AdapterConnectionLostMessageKey, Message: "协议连接已断开", Retryable: true, Surfaces: "http,websocket,plugin_protocol,readiness"},
 	AdapterMatrixProjectionFailed:             {Code: AdapterMatrixProjectionFailed, HTTPStatus: 500, MessageKey: AdapterMatrixProjectionFailedMessageKey, Message: "协议兼容矩阵生成失败", Retryable: true, Surfaces: "http,websocket"},
 	AdapterMessageQuotaExceeded:               {Code: AdapterMessageQuotaExceeded, HTTPStatus: 429, MessageKey: AdapterMessageQuotaExceededMessageKey, Message: "主动推送额度已用完", Retryable: true, Surfaces: "http,plugin_protocol"},
@@ -235,7 +235,7 @@ var catalog = map[string]Definition{
 	AdapterTransportNotImplemented:            {Code: AdapterTransportNotImplemented, HTTPStatus: 501, MessageKey: AdapterTransportNotImplementedMessageKey, Message: "当前协议传输模式尚未实现", Retryable: false, Surfaces: "http,websocket,readiness,plugin_protocol"},
 	AdapterTransportReverseWsAuthFailed:       {Code: AdapterTransportReverseWsAuthFailed, HTTPStatus: 401, MessageKey: AdapterTransportReverseWsAuthFailedMessageKey, Message: "OneBot 回连鉴权失败", Retryable: false, Surfaces: "http,websocket,readiness"},
 	AdapterTransportReverseWsUpgradeFailed:    {Code: AdapterTransportReverseWsUpgradeFailed, HTTPStatus: 503, MessageKey: AdapterTransportReverseWsUpgradeFailedMessageKey, Message: "OneBot 回连升级失败", Retryable: true, Surfaces: "http,websocket,readiness"},
-	AdapterTransportUnavailable:               {Code: AdapterTransportUnavailable, HTTPStatus: 503, MessageKey: AdapterTransportUnavailableMessageKey, Message: "适配器传输当前不可用", Retryable: false, Surfaces: "http,websocket,logs"},
+	AdapterTransportUnavailable:               {Code: AdapterTransportUnavailable, HTTPStatus: 503, MessageKey: AdapterTransportUnavailableMessageKey, Message: "适配器传输当前不可用", Retryable: false, Surfaces: "http,websocket,logs,plugin_protocol"},
 	AdapterTransportWebhookAuthFailed:         {Code: AdapterTransportWebhookAuthFailed, HTTPStatus: 401, MessageKey: AdapterTransportWebhookAuthFailedMessageKey, Message: "OneBot Webhook 鉴权失败", Retryable: false, Surfaces: "http,websocket,readiness"},
 	AdapterTransportWebhookDuplicateEvent:     {Code: AdapterTransportWebhookDuplicateEvent, HTTPStatus: 202, MessageKey: AdapterTransportWebhookDuplicateEventMessageKey, Message: "OneBot Webhook 重复事件已丢弃", Retryable: false, Surfaces: "http,websocket,logs"},
 	AdapterTransportWebhookInvalidPayload:     {Code: AdapterTransportWebhookInvalidPayload, HTTPStatus: 400, MessageKey: AdapterTransportWebhookInvalidPayloadMessageKey, Message: "OneBot Webhook 负载不合法", Retryable: false, Surfaces: "http,websocket,readiness"},

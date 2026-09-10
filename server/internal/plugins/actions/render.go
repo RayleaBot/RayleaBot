@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
@@ -24,10 +25,10 @@ func renderImageRegistrar() registrar {
 
 func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "render.image") {
-		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "render.image permission is not declared"}
+		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "render.image permission is not declared"}
 	}
 	if deps.Renderer == nil {
-		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "render.image service is not available"}
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image service is not available"}
 	}
 
 	templateID, err := deps.Renderer.ResolvePluginTemplate(ctx, req.PluginID, req.Action.RenderTemplate)
@@ -66,18 +67,18 @@ func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[
 func renderImageActionError(err error) *plugins.Error {
 	var renderErr *RenderTemplateError
 	if !errors.As(err, &renderErr) {
-		return &plugins.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
+		return &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image failed", Err: err}
 	}
 
 	code := renderErr.Code
 	switch code {
-	case "plugin.permission_denied",
-		"platform.render_queue_full",
-		"platform.render_timeout",
-		"platform.render_input_too_large",
-		"platform.internal_error":
+	case errorcodes.PluginPermissionDenied,
+		errorcodes.PlatformRenderQueueFull,
+		errorcodes.PlatformRenderTimeout,
+		errorcodes.PlatformRenderInputTooLarge,
+		errorcodes.PlatformInternalError:
 	default:
-		code = "plugin.internal_error"
+		code = errorcodes.PluginInternalError
 	}
 	message := strings.TrimSpace(renderErr.Message)
 	if message == "" {

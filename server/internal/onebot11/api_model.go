@@ -2,10 +2,11 @@ package onebot11
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"sort"
 )
 
-const ErrorCodeAPICallFailed = "adapter.api_call_failed"
+const ErrorCodeAPICallFailed = errorcodes.AdapterApiCallFailed
 
 type LoginInfo struct {
 	ID       string

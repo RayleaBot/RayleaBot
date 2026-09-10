@@ -7,6 +7,7 @@ import (
 	"html/template"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 const templatePayloadExtraFields = 4
@@ -28,7 +29,7 @@ func CompileBundle(bundle SourceBundle) (*CompiledTemplate, []TemplateValidation
 	compiledHTML, err := template.New(bundle.Manifest.ID).Funcs(funcs).Parse(bundle.Source.HTML)
 	if err != nil {
 		return nil, []TemplateValidationIssue{{
-			Code:    "html.compile_failed",
+			Code:    errorcodes.DiagnosticHtmlCompileFailed,
 			Message: err.Error(),
 			Path:    "html",
 		}}, nil
@@ -39,7 +40,7 @@ func CompileBundle(bundle SourceBundle) (*CompiledTemplate, []TemplateValidation
 		validator, err = config.CompileDocument("render-template://"+bundle.Manifest.ID+"/input.Schema.json", bundle.Source.InputSchemaJSON)
 		if err != nil {
 			return nil, []TemplateValidationIssue{{
-				Code:    "input_schema.compile_failed",
+				Code:    errorcodes.DiagnosticInputSchemaCompileFailed,
 				Message: err.Error(),
 				Path:    "input_schema_json",
 			}}, nil
@@ -62,7 +63,7 @@ func (t *CompiledTemplate) RenderHTML(theme string, data map[string]any) (string
 	normalized, err := normalizeTemplateData(data)
 	if err != nil {
 		return "", &Error{
-			Code:    "platform.invalid_request",
+			Code:    errorcodes.PlatformInvalidRequest,
 			Message: "render input is not serializable",
 			Err:     err,
 		}
@@ -71,7 +72,7 @@ func (t *CompiledTemplate) RenderHTML(theme string, data map[string]any) (string
 	if t.Schema != nil {
 		if err := t.Schema.Validate(normalized); err != nil {
 			return "", &Error{
-				Code:    "platform.invalid_request",
+				Code:    errorcodes.PlatformInvalidRequest,
 				Message: "render input does not match the template schema",
 				Err:     err,
 			}
@@ -81,7 +82,7 @@ func (t *CompiledTemplate) RenderHTML(theme string, data map[string]any) (string
 	payloadCapacity, err := templatePayloadCapacity(len(normalized))
 	if err != nil {
 		return "", &Error{
-			Code:    "platform.invalid_request",
+			Code:    errorcodes.PlatformInvalidRequest,
 			Message: "render input contains too many fields",
 			Err:     err,
 		}

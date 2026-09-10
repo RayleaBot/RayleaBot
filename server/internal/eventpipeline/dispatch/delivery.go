@@ -43,7 +43,7 @@ func (d *Dispatcher) dispatchOne(ctx context.Context, pluginID string, event cha
 		return DeliveryResult{
 			PluginID:  pluginID,
 			Outcome:   OutcomeError,
-			ErrorCode: "platform.invalid_request",
+			ErrorCode: errorcodes.PlatformInvalidRequest,
 		}
 	}
 	return results[0]
@@ -52,7 +52,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, 
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
 		if ctx.Err() != nil {
-			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: "plugin.event_canceled"})
+			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: errorcodes.PluginEventCanceled})
 			d.recordOutcome(OutcomeDropped, pluginID, "event_canceled")
 			continue
 		}
@@ -64,7 +64,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, 
 			results = append(results, DeliveryResult{
 				PluginID:  pluginID,
 				Outcome:   OutcomeError,
-				ErrorCode: "platform.invalid_request",
+				ErrorCode: errorcodes.PlatformInvalidRequest,
 			})
 			d.recordOutcome(OutcomeDropped, pluginID, "plugin_not_running")
 			continue

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -42,7 +43,7 @@ func (s *Service) getTemplate(ctx context.Context, templateID string) (TemplateD
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return TemplateDetail{}, &Error{
-				Code:    "platform.template_not_found",
+				Code:    errorcodes.PlatformTemplateNotFound,
 				Message: "render template was not found",
 			}
 		}
@@ -68,7 +69,7 @@ func (s *Service) getTemplateSource(ctx context.Context, templateID string) (str
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", TemplateSource{}, &Error{
-				Code:    "platform.template_not_found",
+				Code:    errorcodes.PlatformTemplateNotFound,
 				Message: "render template was not found",
 			}
 		}
@@ -118,7 +119,7 @@ func (s *Service) readTemplatePreviewData(templateID string) (map[string]any, er
 	previewPath, err := TemplateFilePath(templateDir, DefaultPreviewData)
 	if err != nil {
 		return nil, &Error{
-			Code:    "platform.resource_missing",
+			Code:    errorcodes.PlatformResourceMissing,
 			Message: "render template preview data was not found",
 			Err:     err,
 		}
@@ -134,7 +135,7 @@ func (s *Service) readTemplatePreviewData(templateID string) (map[string]any, er
 	var previewData map[string]any
 	if err := json.Unmarshal(content, &previewData); err != nil {
 		return nil, &Error{
-			Code:    "platform.template_source_invalid",
+			Code:    errorcodes.DiagnosticPlatformTemplateSourceInvalid,
 			Message: "render template preview data is invalid",
 			Err:     err,
 		}

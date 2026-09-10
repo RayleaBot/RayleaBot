@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -20,13 +21,13 @@ func messageSendRegistrar() registrar {
 func executeMessageSend(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "message.send") {
 		return nil, &plugins.Error{
-			Code:    "plugin.permission_denied",
+			Code:    errorcodes.PluginPermissionDenied,
 			Message: "message.send permission is not declared",
 		}
 	}
 	if deps.MessageSender == nil {
 		return nil, &plugins.Error{
-			Code:    "plugin.internal_error",
+			Code:    errorcodes.PluginInternalError,
 			Message: "message.send outbound sender is not available",
 		}
 	}

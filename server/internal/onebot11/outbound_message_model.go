@@ -3,14 +3,15 @@ package onebot11
 import (
 	"fmt"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"strings"
 )
 
-const ErrorCodeSendFailed = "adapter.send_failed"
+const ErrorCodeSendFailed = errorcodes.AdapterSendFailed
 
 // ErrorCodeSendUnconfirmed means retrying could duplicate a dispatched message.
-const ErrorCodeSendUnconfirmed = "adapter.send_unconfirmed"
-const ErrorCodeReplyTargetMissing = "adapter.reply_target_missing"
+const ErrorCodeSendUnconfirmed = errorcodes.AdapterSendUnconfirmed
+const ErrorCodeReplyTargetMissing = errorcodes.AdapterReplyTargetMissing
 
 type Error struct {
 	Code    string

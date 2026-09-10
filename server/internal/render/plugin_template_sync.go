@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -244,7 +245,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 	pluginID = strings.TrimSpace(pluginID)
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
-		return "", &Error{Code: "platform.invalid_request", Message: "render template is required"}
+		return "", &Error{Code: errorcodes.PlatformInvalidRequest, Message: "render template is required"}
 	}
 	if err := s.syncTemplatesFromFiles(ctx); err != nil {
 		return "", err
@@ -254,7 +255,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 		ownerPluginID, _, ok := ParseFormalID(requested)
 		if !ok || pluginID == "" || ownerPluginID != pluginID {
 			return "", &Error{
-				Code:    "plugin.permission_denied",
+				Code:    errorcodes.PluginPermissionDenied,
 				Message: "plugin render template belongs to another plugin",
 			}
 		}
@@ -267,7 +268,7 @@ func (s *Service) ResolvePluginTemplate(ctx context.Context, pluginID, requested
 		}
 		if detail.Source.Type == "plugin" && detail.Source.PluginID != pluginID {
 			return "", &Error{
-				Code:    "plugin.permission_denied",
+				Code:    errorcodes.PluginPermissionDenied,
 				Message: "plugin render template belongs to another plugin",
 			}
 		}

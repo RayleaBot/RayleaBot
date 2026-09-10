@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	backupsvc "github.com/RayleaBot/RayleaBot/server/internal/backup"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -35,7 +36,7 @@ func (s *Service) createBackupArchive(ctx context.Context, progress tasks.Progre
 
 	databasePath, err := s.databasePath(s.summary().ConfigPath, s.config().Database.Path)
 	if err != nil {
-		return "", &tasks.TaskError{Code: "plugin.internal_error", Message: "解析数据库路径失败"}
+		return "", &tasks.TaskError{Code: errorcodes.PluginInternalError, Message: "解析数据库路径失败"}
 	}
 	result, err := backupsvc.Create(ctx, backupsvc.Options{
 		RepoRoot:       repoRoot,
@@ -46,7 +47,7 @@ func (s *Service) createBackupArchive(ctx context.Context, progress tasks.Progre
 		Progress:       progress.Update,
 	})
 	if err != nil {
-		return "", &tasks.TaskError{Code: "plugin.internal_error", Message: "创建在线备份失败"}
+		return "", &tasks.TaskError{Code: errorcodes.PluginInternalError, Message: "创建在线备份失败"}
 	}
 	return result.ArchivePath, nil
 }

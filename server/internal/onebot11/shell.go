@@ -16,21 +16,22 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 const (
-	errorCodeAuthFailed             = "adapter.auth_failed"
-	errorCodeConnectionFail         = "adapter.connection_failed"
-	errorCodeConnectionLost         = "adapter.connection_lost"
-	errorCodeForwardWSConnectFail   = "adapter.transport_forward_ws_connection_failed"
-	errorCodeForwardWSSessionLost   = "adapter.transport_forward_ws_session_lost"
-	errorCodeReverseWSAuthFailed    = "adapter.transport_reverse_ws_auth_failed"
-	errorCodeHTTPAPIRequestFailed   = "adapter.transport_http_api_request_failed"
-	errorCodeHTTPAPIAuthFailed      = "adapter.transport_http_api_auth_failed"
-	errorCodeHTTPAPIInvalidResponse = "adapter.transport_http_api_invalid_response"
-	errorCodeWebhookAuthFailed      = "adapter.transport_webhook_auth_failed"
-	errorCodeWebhookInvalidPayload  = "adapter.transport_webhook_invalid_payload"
-	errorCodeWebhookDuplicateEvent  = "adapter.transport_webhook_duplicate_event"
+	errorCodeAuthFailed             = errorcodes.AdapterAuthFailed
+	errorCodeConnectionFail         = errorcodes.AdapterConnectionFailed
+	errorCodeConnectionLost         = errorcodes.AdapterConnectionLost
+	errorCodeForwardWSConnectFail   = errorcodes.AdapterTransportForwardWsConnectionFailed
+	errorCodeForwardWSSessionLost   = errorcodes.AdapterTransportForwardWsSessionLost
+	errorCodeReverseWSAuthFailed    = errorcodes.AdapterTransportReverseWsAuthFailed
+	errorCodeHTTPAPIRequestFailed   = errorcodes.AdapterTransportHttpApiRequestFailed
+	errorCodeHTTPAPIAuthFailed      = errorcodes.AdapterTransportHttpApiAuthFailed
+	errorCodeHTTPAPIInvalidResponse = errorcodes.AdapterTransportHttpApiInvalidResponse
+	errorCodeWebhookAuthFailed      = errorcodes.AdapterTransportWebhookAuthFailed
+	errorCodeWebhookInvalidPayload  = errorcodes.AdapterTransportWebhookInvalidPayload
+	errorCodeWebhookDuplicateEvent  = errorcodes.AdapterTransportWebhookDuplicateEvent
 	defaultConnectedReadTimeout     = 2 * time.Minute
 	recentEventDedupRetention       = 2 * time.Minute
 )

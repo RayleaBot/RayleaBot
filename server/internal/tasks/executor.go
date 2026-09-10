@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"sync"
 	"time"
 )
@@ -228,9 +229,9 @@ func (e *Executor) execute(job executorJob) {
 				},
 			})
 		} else {
-			code := "platform.internal_error"
+			code := errorcodes.PlatformInternalError
 			if job.ctx.Err() != nil {
-				code = "platform.task_timeout"
+				code = errorcodes.PlatformTaskTimeout
 			}
 			e.registry.Update(job.taskID, Update{
 				Status:     statusPtr(StatusFailed),

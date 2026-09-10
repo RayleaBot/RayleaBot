@@ -813,16 +813,16 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if ok && snapshot.DesiredState != "enabled" {
-		c.recordSchedulerRunResult(ctx, taskName, job.Revision, scheduler.RunOutcomeOther, time.Since(startedAt), "plugin.event_canceled", "插件已停用，本轮未执行", time.Now())
+		c.recordSchedulerRunResult(ctx, taskName, job.Revision, scheduler.RunOutcomeOther, time.Since(startedAt), errorcodes.PluginEventCanceled, "插件已停用，本轮未执行", time.Now())
 		return
 	}
 	if !ok || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
-		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, "platform.invalid_request", "plugin is not available")
+		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, errorcodes.PlatformInvalidRequest, "plugin is not available")
 		return
 	}
 
 	if err := c.ensurePluginRunning(ctx, pluginID); err != nil {
-		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, "plugin.internal_error", err.Error())
+		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, errorcodes.PluginInternalError, err.Error())
 		return
 	}
 
@@ -854,8 +854,8 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 func (c *Controller) logSchedulerTriggerFailure(ctx context.Context, pluginID, pluginName, taskName, logLabel string, revision uint64, startedAt time.Time, errorCode, errorText string) {
 	duration := time.Since(startedAt)
 	outcome := scheduler.RunOutcomeFailed
-	if errorCode == "plugin.event_canceled" || ctx.Err() == context.Canceled {
-		outcome, errorCode, errorText = scheduler.RunOutcomeOther, "plugin.event_canceled", "本轮调度已取消"
+	if errorCode == errorcodes.PluginEventCanceled || ctx.Err() == context.Canceled {
+		outcome, errorCode, errorText = scheduler.RunOutcomeOther, errorcodes.PluginEventCanceled, "本轮调度已取消"
 	}
 	c.recordSchedulerRunResult(ctx, taskName, revision, outcome, duration, errorCode, errorText, time.Now())
 	if c.logger == nil {

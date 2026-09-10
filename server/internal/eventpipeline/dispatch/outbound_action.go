@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
@@ -45,7 +46,7 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
 	if !d.permissionDeclared(ctx, pluginID, action.Kind) {
 		err := &onebot11.Error{
-			Code:    "plugin.permission_denied",
+			Code:    errorcodes.PluginPermissionDenied,
 			Message: action.Kind + " permission is not declared",
 		}
 		result := outbound.SendResult{
@@ -218,9 +219,9 @@ func outboundOutcome(err error) string {
 	var adapterErr *onebot11.Error
 	if errors.As(err, &adapterErr) {
 		switch adapterErr.Code {
-		case "plugin.permission_denied":
+		case errorcodes.PluginPermissionDenied:
 			return "permission_denied"
-		case "adapter.reply_target_missing":
+		case errorcodes.AdapterReplyTargetMissing:
 			return "reply_target_missing"
 		}
 	}

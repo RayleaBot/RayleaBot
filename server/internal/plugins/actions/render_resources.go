@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -49,14 +50,14 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	}
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "http.request") {
 		return nil, func() {}, &plugins.Error{
-			Code:    "plugin.permission_denied",
+			Code:    errorcodes.PluginPermissionDenied,
 			Message: "render.image resources require the http.request permission",
 		}
 	}
 
 	workspace, err := os.MkdirTemp("", "rayleabot-render-resources-*")
 	if err != nil {
-		return nil, func() {}, &plugins.Error{Code: "plugin.internal_error", Message: "render.image resource workspace is unavailable", Err: err}
+		return nil, func() {}, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image resource workspace is unavailable", Err: err}
 	}
 	cleanup := func() {
 		_ = os.RemoveAll(workspace)
@@ -332,11 +333,11 @@ func headerValue(headers map[string]string, name string) string {
 func renderImageResourceFetchError(err error) error {
 	switch {
 	case errors.Is(err, errHTTPInvalidRequest):
-		return &plugins.Error{Code: "platform.invalid_request", Message: "render.image resource request is invalid", Err: err}
+		return &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "render.image resource request is invalid", Err: err}
 	case errors.Is(err, errHTTPResponseTooLarge):
-		return &plugins.Error{Code: "platform.upstream_response_too_large", Message: "render.image resources exceed the request limit", Err: err}
+		return &plugins.Error{Code: errorcodes.PlatformUpstreamResponseTooLarge, Message: "render.image resources exceed the request limit", Err: err}
 	default:
-		return &plugins.Error{Code: "plugin.internal_error", Message: "render.image resource prefetch failed", Err: err}
+		return &plugins.Error{Code: errorcodes.PluginInternalError, Message: "render.image resource prefetch failed", Err: err}
 	}
 }
 

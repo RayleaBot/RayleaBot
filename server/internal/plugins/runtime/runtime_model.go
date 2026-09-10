@@ -6,6 +6,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -22,19 +23,19 @@ const (
 )
 
 const (
-	codePlatformInvalidRequest  = "platform.invalid_request"
-	codePlatformRateLimited     = "platform.rate_limited"
-	codePlatformResourceMissing = "platform.resource_missing"
-	codePluginInitTimeout       = "plugin.init_timeout"
-	codePluginEventTimeout      = "plugin.event_timeout"
-	codePluginEventCanceled     = "plugin.event_canceled"
-	codePluginInternalError     = "plugin.internal_error"
-	codePluginNotHandled        = "plugin.not_handled"
-	codePluginProtocolViolation = "plugin.protocol_violation"
-	codePluginShutdownTimeout   = "plugin.shutdown_timeout"
-	codePluginStopping          = "plugin.stopping"
-	codePluginArtifactInvalid   = "plugin.artifact_invalid"
-	codePluginPlatformMismatch  = "plugin.platform_mismatch"
+	codePlatformInvalidRequest  = errorcodes.PlatformInvalidRequest
+	codePlatformRateLimited     = errorcodes.PlatformRateLimited
+	codePlatformResourceMissing = errorcodes.PlatformResourceMissing
+	codePluginInitTimeout       = errorcodes.PluginInitTimeout
+	codePluginEventTimeout      = errorcodes.PluginEventTimeout
+	codePluginEventCanceled     = errorcodes.PluginEventCanceled
+	codePluginInternalError     = errorcodes.PluginInternalError
+	codePluginNotHandled        = errorcodes.PluginNotHandled
+	codePluginProtocolViolation = errorcodes.PluginProtocolViolation
+	codePluginShutdownTimeout   = errorcodes.PluginShutdownTimeout
+	codePluginStopping          = errorcodes.PluginStopping
+	codePluginArtifactInvalid   = errorcodes.PluginArtifactInvalid
+	codePluginPlatformMismatch  = errorcodes.PluginPlatformMismatch
 )
 
 func errorf(code, message string, err error) *plugins.Error {

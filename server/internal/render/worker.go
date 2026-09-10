@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"sync"
 	"time"
 )
@@ -92,7 +93,7 @@ func (w *Worker) Acquire(ctx context.Context) (func(), error) {
 		cancel()
 		release()
 		return nil, &Error{
-			Code:    "platform.render_timeout",
+			Code:    errorcodes.PlatformRenderTimeout,
 			Message: "render queue wait timed out",
 			Err:     queueCtx.Err(),
 		}
@@ -194,7 +195,7 @@ func (w *Worker) reserveSlot() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.closed {
-		return &Error{Code: "platform.resource_missing", Message: "render worker is closed", Err: context.Canceled}
+		return &Error{Code: errorcodes.PlatformResourceMissing, Message: "render worker is closed", Err: context.Canceled}
 	}
 
 	limit := w.workerCount + w.queueMaxLength
@@ -204,7 +205,7 @@ func (w *Worker) reserveSlot() error {
 	if w.activeRequests >= limit {
 		w.publishQueueDepthLocked()
 		return &Error{
-			Code:    "platform.render_queue_full",
+			Code:    errorcodes.PlatformRenderQueueFull,
 			Message: "render queue is full",
 		}
 	}
@@ -250,7 +251,7 @@ func (w *Worker) acquireAllWorkerSlots() func() {
 func WrapRenderError(ctx context.Context, err error) error {
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
 		return &Error{
-			Code:    "platform.render_timeout",
+			Code:    errorcodes.PlatformRenderTimeout,
 			Message: "render execution timed out",
 			Err:     err,
 		}

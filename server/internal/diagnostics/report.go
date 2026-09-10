@@ -9,6 +9,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
@@ -52,14 +53,14 @@ func Build(ctx context.Context, options Options) Report {
 
 	if _, err := os.Stat(options.ConfigPath); err != nil {
 		issues = append(issues, Issue{
-			Code:        "config.not_accessible",
+			Code:        errorcodes.DiagnosticConfigNotAccessible,
 			Severity:    "error",
 			Summary:     "配置文件不可访问：" + configPathDisplay,
 			Remediation: "请确认配置文件路径正确且可读。",
 		})
 	} else {
 		issues = append(issues, Issue{
-			Code:     "config.ok",
+			Code:     errorcodes.DiagnosticConfigOk,
 			Severity: "ok",
 			Summary:  "配置文件可访问：" + configPathDisplay,
 		})
@@ -68,14 +69,14 @@ func Build(ctx context.Context, options Options) Report {
 
 	if err := validateConfigSchema(options.SchemaPath); err != nil {
 		issues = append(issues, Issue{
-			Code:        "schema.invalid",
+			Code:        errorcodes.DiagnosticSchemaInvalid,
 			Severity:    "error",
 			Summary:     "配置校验规则不可用：" + displaySchemaPath(repoRoot, options.SchemaPath),
 			Remediation: "请确认配置校验规则可用。",
 		})
 	} else {
 		issues = append(issues, Issue{
-			Code:     "schema.ok",
+			Code:     errorcodes.DiagnosticSchemaOk,
 			Severity: "ok",
 			Summary:  "配置校验规则可用：" + displaySchemaPath(repoRoot, options.SchemaPath),
 		})
@@ -84,7 +85,7 @@ func Build(ctx context.Context, options Options) Report {
 	databasePath, err := runtimepaths.DatabaseFromConfig(options.ConfigPath)
 	if err != nil {
 		issues = append(issues, Issue{
-			Code:        "database.path_unresolvable",
+			Code:        errorcodes.DiagnosticDatabasePathUnresolvable,
 			Severity:    "error",
 			Summary:     "无法从配置文件解析数据库路径：" + configPathDisplay,
 			Remediation: "请确认配置文件路径正确。",
@@ -93,14 +94,14 @@ func Build(ctx context.Context, options Options) Report {
 		databasePathDisplay := logpath.Display(repoRoot, databasePath)
 		if err := storage.QuickCheckPath(ctx, databasePath); err != nil {
 			issues = append(issues, Issue{
-				Code:        "database.ping_failed",
+				Code:        errorcodes.DiagnosticDatabasePingFailed,
 				Severity:    "error",
 				Summary:     "数据库完整性检查失败：" + databasePathDisplay,
 				Remediation: "数据库可能损坏。请查看 data/quarantine/ 与 data/sqlite-snapshots/。",
 			})
 		} else {
 			issues = append(issues, Issue{
-				Code:     "database.ok",
+				Code:     errorcodes.DiagnosticDatabaseOk,
 				Severity: "ok",
 				Summary:  "数据库可访问：" + databasePathDisplay,
 			})
@@ -152,7 +153,7 @@ func retiredPluginRuntimeConfigIssues(configPath string) []Issue {
 		return nil
 	}
 	return []Issue{{
-		Code:        "config.retired_plugin_runtime_keys",
+		Code:        errorcodes.DiagnosticConfigRetiredPluginRuntimeKeys,
 		Severity:    "error",
 		Summary:     "配置仍包含已退役的 Python/Node.js 插件运行时键：" + strings.Join(retired, "、"),
 		Remediation: "删除这些键；Go 插件 artifact 不使用语言运行时或依赖安装配置。",
@@ -162,14 +163,14 @@ func retiredPluginRuntimeConfigIssues(configPath string) []Issue {
 func depsManifestIssues(err error) []Issue {
 	if os.IsNotExist(err) {
 		return []Issue{{
-			Code:        "deps.manifest_missing",
+			Code:        errorcodes.DiagnosticDepsManifestMissing,
 			Severity:    "warning",
 			Summary:     "依赖清单缺失。",
 			Remediation: "请恢复 .deps/manifest.json。",
 		}}
 	}
 	return []Issue{{
-		Code:        "deps.manifest_invalid",
+		Code:        errorcodes.DiagnosticDepsManifestInvalid,
 		Severity:    "warning",
 		Summary:     "依赖清单格式无效。",
 		Remediation: "请重新生成 .deps/manifest.json。",
@@ -179,13 +180,13 @@ func depsManifestIssues(err error) []Issue {
 func depsManifestPlatformIssue(manifest *deps.Manifest, platform string) Issue {
 	if manifest.HasPlatform(platform) {
 		return Issue{
-			Code:     "deps.manifest",
+			Code:     errorcodes.DiagnosticDepsManifest,
 			Severity: "ok",
 			Summary:  "依赖清单已包含当前平台资源。",
 		}
 	}
 	return Issue{
-		Code:        "deps.manifest_platform_missing",
+		Code:        errorcodes.DiagnosticDepsManifestPlatformMissing,
 		Severity:    "warning",
 		Summary:     "依赖清单缺少当前平台资源。",
 		Remediation: "请为当前平台重新生成或恢复 .deps/manifest.json。",

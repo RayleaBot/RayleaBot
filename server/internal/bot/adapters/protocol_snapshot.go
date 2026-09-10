@@ -3,6 +3,7 @@ package adapters
 import (
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
 
@@ -90,9 +91,9 @@ func transportIssueSummary(transport onebot11.TransportKey, snapshot onebot11.Tr
 			return "OneBot 主动连接已断开，正在重试。"
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
-		case "adapter.transport_forward_ws_session_lost", "adapter.connection_lost":
+		case errorcodes.AdapterTransportForwardWsSessionLost, errorcodes.AdapterConnectionLost:
 			return "OneBot 主动连接已断开，正在重试。"
-		case "adapter.transport_forward_ws_connection_failed":
+		case errorcodes.AdapterTransportForwardWsConnectionFailed:
 			return "OneBot 主动连接失败，请检查地址与网络。"
 		}
 		return "OneBot 主动连接出现异常。"
@@ -104,9 +105,9 @@ func transportIssueSummary(transport onebot11.TransportKey, snapshot onebot11.Tr
 			return "OneBot 回连链路已恢复。"
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
-		case "adapter.transport_reverse_ws_auth_failed":
+		case errorcodes.AdapterTransportReverseWsAuthFailed:
 			return "OneBot 回连鉴权失败，请检查访问令牌。"
-		case "adapter.connection_lost":
+		case errorcodes.AdapterConnectionLost:
 			return "OneBot 回连会话已断开，请让 OneBot 重新回连。"
 		}
 		return "OneBot 回连链路出现异常。"
@@ -118,11 +119,11 @@ func transportIssueSummary(transport onebot11.TransportKey, snapshot onebot11.Tr
 			return "OneBot HTTP API 已恢复可用。"
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
-		case "adapter.transport_http_api_auth_failed":
+		case errorcodes.AdapterTransportHttpApiAuthFailed:
 			return "OneBot HTTP API 鉴权失败，请检查访问令牌。"
-		case "adapter.transport_http_api_invalid_response":
+		case errorcodes.AdapterTransportHttpApiInvalidResponse:
 			return "OneBot HTTP API 返回无效响应。"
-		case "adapter.transport_http_api_request_failed", "adapter.connection_lost":
+		case errorcodes.AdapterTransportHttpApiRequestFailed, errorcodes.AdapterConnectionLost:
 			return "OneBot HTTP API 请求失败，请检查地址与网络。"
 		}
 		return "OneBot HTTP API 出现异常。"
@@ -136,11 +137,11 @@ func transportIssueSummary(transport onebot11.TransportKey, snapshot onebot11.Tr
 			}
 		}
 		switch strings.TrimSpace(snapshot.LastErrorCode) {
-		case "adapter.transport_webhook_auth_failed":
+		case errorcodes.AdapterTransportWebhookAuthFailed:
 			return "OneBot Webhook 鉴权失败，请检查访问令牌。"
-		case "adapter.transport_webhook_invalid_payload":
+		case errorcodes.AdapterTransportWebhookInvalidPayload:
 			return "OneBot Webhook 上报格式无效。"
-		case "adapter.transport_webhook_duplicate_event":
+		case errorcodes.AdapterTransportWebhookDuplicateEvent:
 			return "OneBot Webhook 收到重复事件，已自动忽略。"
 		}
 		return "OneBot Webhook 入口出现异常。"

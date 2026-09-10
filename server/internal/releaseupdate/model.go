@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
 
 const (
@@ -22,16 +23,16 @@ const (
 )
 
 const (
-	CodeTrustRequired         = "release.trust_required"
-	CodeManifestInvalid       = "release.manifest_invalid"
-	CodeSignatureInvalid      = "release.signature_invalid"
-	CodeManifestExpired       = "release.manifest_expired"
-	CodeReplayRejected        = "release.replay_rejected"
-	CodeArtifactInvalid       = "release.artifact_invalid"
-	CodeUpdateNotSupported    = "release.update_not_supported"
-	CodeDiskSpaceInsufficient = "release.disk_space_insufficient"
-	CodeInstallFailed         = "release.install_failed"
-	CodeRollbackFailed        = "release.rollback_failed"
+	CodeTrustRequired         = errorcodes.ReleaseTrustRequired
+	CodeManifestInvalid       = errorcodes.ReleaseManifestInvalid
+	CodeSignatureInvalid      = errorcodes.ReleaseSignatureInvalid
+	CodeManifestExpired       = errorcodes.ReleaseManifestExpired
+	CodeReplayRejected        = errorcodes.ReleaseReplayRejected
+	CodeArtifactInvalid       = errorcodes.ReleaseArtifactInvalid
+	CodeUpdateNotSupported    = errorcodes.ReleaseUpdateNotSupported
+	CodeDiskSpaceInsufficient = errorcodes.ReleaseDiskSpaceInsufficient
+	CodeInstallFailed         = errorcodes.ReleaseInstallFailed
+	CodeRollbackFailed        = errorcodes.ReleaseRollbackFailed
 )
 
 type Error struct {

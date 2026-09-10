@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
@@ -82,12 +83,12 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					defer func() { stop(); cancel() }()
 					item.ctx = execCtx
 					if slot.ctx.Err() != nil {
-						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), "plugin.event_canceled", "事件因运行时停止而取消")
+						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), errorcodes.PluginEventCanceled, "事件因运行时停止而取消")
 						completions <- laneCompletion{laneKey: laneKey}
 						return
 					}
 					if !slotIsDeliverable(slot) {
-						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), "platform.invalid_request", "plugin runtime is not deliverable")
+						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), errorcodes.PlatformInvalidRequest, "plugin runtime is not deliverable")
 						d.logSchedulerCompletion(pluginID, item.run, "处理失败", schedulerElapsed(item.run), map[string]any{
 							"error": "plugin runtime is not deliverable",
 						})
@@ -100,7 +101,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 						outcome, code, message := schedulerFailureFields(err, delivery)
 						var runtimeErr *plugins.Error
 						reported := errors.As(err, &runtimeErr) && runtimeErr != nil && runtimeErr.FailureReported()
-						if item.run == nil && !reported && code != "plugin.event_canceled" {
+						if item.run == nil && !reported && code != errorcodes.PluginEventCanceled {
 							count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
 							if count > 0 {
 								d.logger.Warn("插件 "+pluginID+" 处理任务失败："+eventFailureDescription(code),
