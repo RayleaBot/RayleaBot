@@ -3,7 +3,6 @@
 package desktop
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -73,8 +72,8 @@ func processExitReason(state *os.ProcessState) string {
 func terminateProcessTree(pid int) error {
 	command := exec.Command("taskkill", "/PID", strconv.Itoa(pid), "/T", "/F")
 	configureChildProcess(command)
-	output, err := command.CombinedOutput()
-	if err != nil && !bytes.Contains(bytes.ToLower(output), []byte("not found")) {
+	err := command.Run()
+	if err != nil && processAlive(pid) {
 		return fmt.Errorf("终止进程树: %w", err)
 	}
 	return nil
@@ -126,7 +125,7 @@ func stopEndpointProcess(endpoint ServerEndpoint) (bool, error) {
 	if !strings.EqualFold(name, "raylea-server.exe") && !strings.EqualFold(name, "raylea-server") {
 		return false, nil
 	}
-	if err := terminateProcessTree(pid); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := terminateProcessTree(pid); err != nil {
 		return false, err
 	}
 	return true, nil

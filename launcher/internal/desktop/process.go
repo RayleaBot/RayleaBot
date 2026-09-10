@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -287,22 +288,26 @@ func (p *ProcessController) ForceKill() error {
 	if command == nil || command.Process == nil {
 		return nil
 	}
-	if err := terminateProcessTree(command.Process.Pid); err != nil {
-		p.recordDiagnostic(err.Error())
-		return err
-	}
-	deadline := time.Now().Add(2 * time.Second)
+	treeErr := terminateProcessTree(command.Process.Pid)
+	deadline := time.Now().Add(processKillWait)
 	for p.IsRunning() && time.Now().Before(deadline) {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(processExitPoll)
 	}
 	if p.IsRunning() {
-		return command.Process.Kill()
+		killErr := command.Process.Kill()
+		deadline := time.Now().Add(processKillWait)
+		for p.IsRunning() && time.Now().Before(deadline) {
+			time.Sleep(processExitPoll)
+		}
+		if p.IsRunning() {
+			return errors.Join(&BoundaryError{Code: "launcher.process_stop_failed", Message: "无法确认服务进程已停止。"}, treeErr, killErr)
+		}
 	}
 	return nil
 }
 
 func (p *ProcessController) RunOffline(settings LauncherResolvedSettings, args ...string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), offlineOperationTimeout)
 	defer cancel()
 	commandArgs := append([]string{"-config", settings.ConfigPath}, args...)
 	command := exec.CommandContext(ctx, settings.ServerExecutablePath, commandArgs...)

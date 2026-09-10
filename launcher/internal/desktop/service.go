@@ -48,9 +48,9 @@ func (s *Service) ServiceShutdown() error {
 	coordinator, host, err := s.dependencies()
 	if err == nil {
 		host.ResolveExternalServiceStop(false)
-		coordinator.Shutdown()
+		return coordinator.Shutdown()
 	}
-	return nil
+	return err
 }
 
 func (s *Service) GetPlatform() string {
@@ -371,7 +371,16 @@ func (s *Service) requestExit() {
 	s.mu.Unlock()
 	host.ResolveExternalServiceStop(false)
 	go func() {
-		coordinator.Shutdown()
+		if err := coordinator.Shutdown(); err != nil {
+			snapshot := coordinator.Snapshot()
+			snapshot.Launcher.LastLocalError = err.Error()
+			snapshot.Launcher.StatusHint = "服务进程未停止，启动器保持打开。"
+			coordinator.publish(snapshot)
+			s.mu.Lock()
+			s.exiting = false
+			s.mu.Unlock()
+			return
+		}
 		host.Quit()
 	}()
 }

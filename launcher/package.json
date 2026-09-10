@@ -14,7 +14,7 @@
     "clean": "node scripts/clean.mjs",
     "dev": "node scripts/dev.mjs",
     "generate:wails": "node scripts/run-go.mjs generate:wails",
-    "generate:types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/shared/web-api.generated.ts",
+    "generate:types": "python ../scripts/generate-launcher-api.py && openapi-typescript api-subset.generated.json -o src/shared/web-api.generated.ts",
     "test": "node ../scripts/run-vitest.mjs run && node scripts/run-go.mjs test:platform ./...",
     "test:coverage": "node ../scripts/run-vitest.mjs run --coverage && node scripts/run-go.mjs test:platform -cover ./...",
     "test:e2e": "playwright test",

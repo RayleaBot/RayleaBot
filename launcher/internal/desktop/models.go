@@ -1,10 +1,5 @@
 package desktop
 
-// JSON document payloads below are defined by contracts/web-api.openapi.yaml.
-// Keeping them opaque here prevents the launcher from creating a second copy of
-// the server contract while preserving the exact response sent to the renderer.
-type JSONObject map[string]any
-
 type LauncherAdvancedOverrides struct {
 	ServerExecutablePath string `json:"serverExecutablePath,omitempty"`
 	ConfigPath           string `json:"configPath,omitempty"`
@@ -100,27 +95,27 @@ type RuntimePrepareSnapshot struct {
 }
 
 type LauncherServerSnapshot struct {
-	Health       any `json:"health"`
-	Readiness    any `json:"readiness"`
-	SystemStatus any `json:"systemStatus"`
+	Health       *ServerLivenessStatusResponse  `json:"health"`
+	Readiness    *ServerReadinessStatusResponse `json:"readiness"`
+	SystemStatus *ServerSystemStatusResponse    `json:"systemStatus"`
 }
 
 type LauncherLocalSnapshot struct {
-	ProcessID            *int64                   `json:"processId"`
-	ProcessLifecycle     string                   `json:"processLifecycle"`
-	ProcessOwnership     string                   `json:"processOwnership"`
-	EnvironmentChecks    []EnvironmentCheckResult `json:"environmentChecks"`
-	PreflightChecks      []EnvironmentCheckResult `json:"preflightChecks"`
-	AdvisoryChecks       []EnvironmentCheckResult `json:"advisoryChecks"`
-	RecentStderr         []string                 `json:"recentStderr"`
-	RuntimePrepare       *RuntimePrepareSnapshot  `json:"runtimePrepare"`
-	ReleaseCheck         ReleaseCheckSnapshot     `json:"releaseCheck"`
-	LastLocalError       string                   `json:"lastLocalError"`
-	StatusHint           string                   `json:"statusHint"`
-	Settings             LauncherSettings         `json:"settings"`
-	ResolvedSettings     LauncherResolvedSettings `json:"resolvedSettings"`
-	Endpoint             ServerEndpoint           `json:"endpoint"`
-	LocalRecoverySummary any                      `json:"localRecoverySummary"`
+	ProcessID            *int64                              `json:"processId"`
+	ProcessLifecycle     string                              `json:"processLifecycle"`
+	ProcessOwnership     string                              `json:"processOwnership"`
+	EnvironmentChecks    []EnvironmentCheckResult            `json:"environmentChecks"`
+	PreflightChecks      []EnvironmentCheckResult            `json:"preflightChecks"`
+	AdvisoryChecks       []EnvironmentCheckResult            `json:"advisoryChecks"`
+	RecentStderr         []string                            `json:"recentStderr"`
+	RuntimePrepare       *RuntimePrepareSnapshot             `json:"runtimePrepare"`
+	ReleaseCheck         ReleaseCheckSnapshot                `json:"releaseCheck"`
+	LastLocalError       string                              `json:"lastLocalError"`
+	StatusHint           string                              `json:"statusHint"`
+	Settings             LauncherSettings                    `json:"settings"`
+	ResolvedSettings     LauncherResolvedSettings            `json:"resolvedSettings"`
+	Endpoint             ServerEndpoint                      `json:"endpoint"`
+	LocalRecoverySummary *ServerRecoveryCompatibilitySummary `json:"localRecoverySummary"`
 }
 
 type LauncherSnapshot struct {

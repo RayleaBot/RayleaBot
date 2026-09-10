@@ -50,7 +50,7 @@ func TestOpenWebUIUsesDevelopmentEntryAndPreservesNavigation(t *testing.T) {
 				snapshot: defaultSnapshot(),
 			}
 			if tc.setup {
-				coordinator.snapshot.Server.Readiness = JSONObject{"status": "setup_required"}
+				coordinator.snapshot.Server.Readiness = &ServerReadinessStatusResponse{Status: "setup_required"}
 			}
 			if err := coordinator.OpenWebUI(tc.target); err != nil {
 				t.Fatal(err)

@@ -58,7 +58,7 @@ func CompleteUpdateHeartbeat(installRoot string, request *UpdateHeartbeatRequest
 			failure = err.Error()
 		} else {
 			snapshot := coordinator.Snapshot()
-			if coordinator.process.ProcessID() == nil || snapshot.Launcher.ProcessLifecycle != "running" || objectStatusFromAny(snapshot.Server.Health) != "ok" || readinessStatus(snapshot.Server.Readiness) != "ready" {
+			if coordinator.process.ProcessID() == nil || snapshot.Launcher.ProcessLifecycle != "running" || snapshot.Server.Health == nil || snapshot.Server.Health.Status != "ok" || readinessStatus(snapshot.Server.Readiness) != "ready" {
 				failure = "服务未通过 healthz 和 readyz 检查。"
 			}
 		}
@@ -154,16 +154,4 @@ func validUpdateToken(value string) bool {
 
 func terminalUpdateState(value string) bool {
 	return value == "succeeded" || value == "rolled_back" || value == "rollback_failed"
-}
-
-func objectStatusFromAny(value any) string {
-	switch payload := value.(type) {
-	case JSONObject:
-		return objectStatus(payload)
-	case map[string]any:
-		status, _ := payload["status"].(string)
-		return strings.TrimSpace(status)
-	default:
-		return ""
-	}
 }

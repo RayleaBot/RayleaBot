@@ -18,5 +18,18 @@ export type {
     ReleaseCheckSnapshot,
     RuntimePrepareResourceProgress,
     RuntimePrepareSnapshot,
-    ServerEndpoint
+    ServerAdapterProtocol,
+    ServerAdapterState,
+    ServerAdapterStatus,
+    ServerDiagnosticIssue,
+    ServerEndpoint,
+    ServerLivenessStatusResponse,
+    ServerReadinessStatusResponse,
+    ServerReadinessStatusResponseChecks,
+    ServerRecoveryCompatibilityAuditEntry,
+    ServerRecoveryCompatibilityAuditItem,
+    ServerRecoveryCompatibilityIssue,
+    ServerRecoveryCompatibilitySkippedPlugin,
+    ServerRecoveryCompatibilitySummary,
+    ServerSystemStatusResponse
 } from "./models.js";

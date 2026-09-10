@@ -56,22 +56,22 @@ func (h *testServiceHost) ResolveExternalServiceStop(confirmed bool) {
 func (*testServiceHost) HasPendingExternalServiceStop() bool { return false }
 func (*testServiceHost) Quit()                               {}
 
-func TestReadinessAndRecoveryAcceptOpaqueContractObjects(t *testing.T) {
-	readiness := JSONObject{"status": "degraded", "recovery_summary": JSONObject{"status": "blocked"}}
-	status := JSONObject{"status": "ready", "recovery_summary": JSONObject{"status": "compatible"}}
+func TestReadinessAndRecoveryUseTypedContractModels(t *testing.T) {
+	readiness := &ServerReadinessStatusResponse{Status: "degraded", RecoverySummary: &ServerRecoveryCompatibilitySummary{Status: "blocked"}}
+	status := &ServerSystemStatusResponse{Status: "running", RecoverySummary: &ServerRecoveryCompatibilitySummary{Status: "compatible"}}
 	if readinessStatus(readiness) != "degraded" {
 		t.Fatalf("readinessStatus() = %q", readinessStatus(readiness))
 	}
-	recovery, ok := recoveryFromPayload(status, readiness, nil).(JSONObject)
-	if !ok || recovery["status"] != "compatible" {
+	recovery := recoveryFromPayload(status, readiness, nil)
+	if recovery == nil || recovery.Status != "compatible" {
 		t.Fatalf("recoveryFromPayload() = %#v", recovery)
 	}
 }
 
 func TestTrayStateTracksServiceLifecycle(t *testing.T) {
 	snapshot := defaultSnapshot()
-	snapshot.Server.Health = JSONObject{"status": "ok"}
-	snapshot.Server.Readiness = JSONObject{"status": "ready"}
+	snapshot.Server.Health = &ServerLivenessStatusResponse{Status: "ok"}
+	snapshot.Server.Readiness = &ServerReadinessStatusResponse{Status: "ready"}
 	snapshot.Launcher.ProcessLifecycle = "running"
 	snapshot.Launcher.ProcessOwnership = "launcher_managed"
 	state := trayState(snapshot)
@@ -172,10 +172,7 @@ func TestLifecyclePublishPreservesConcurrentReleaseState(t *testing.T) {
 func TestSnapshotCopiesNestedMutableState(t *testing.T) {
 	progress := 25.0
 	snapshot := defaultSnapshot()
-	snapshot.Server.Readiness = JSONObject{
-		"status": "degraded",
-		"issues": []any{map[string]any{"code": "runtime.not_ready"}},
-	}
+	snapshot.Server.Readiness = &ServerReadinessStatusResponse{Status: "degraded", Issues: []ServerDiagnosticIssue{{Code: "runtime.not_ready"}}}
 	snapshot.Launcher.Settings.AdvancedOverrides = &LauncherAdvancedOverrides{Workdir: "custom"}
 	snapshot.Launcher.RuntimePrepare = &RuntimePrepareSnapshot{
 		Resources: []RuntimePrepareResourceProgress{{Kind: "chromium", Progress: &progress}},
@@ -183,8 +180,8 @@ func TestSnapshotCopiesNestedMutableState(t *testing.T) {
 	coordinator := &Coordinator{snapshot: snapshot}
 
 	clone := coordinator.Snapshot()
-	clone.Server.Readiness.(JSONObject)["status"] = "ready"
-	clone.Server.Readiness.(JSONObject)["issues"].([]any)[0].(map[string]any)["code"] = "changed"
+	clone.Server.Readiness.Status = "ready"
+	clone.Server.Readiness.Issues[0].Code = "changed"
 	clone.Launcher.Settings.AdvancedOverrides.Workdir = "changed"
 	*clone.Launcher.RuntimePrepare.Resources[0].Progress = 100
 
@@ -284,6 +281,7 @@ func TestExternalShutdownFailureRemainsVisibleAndDoesNotForceKill(t *testing.T) 
 		switch request.URL.Path {
 		case "/healthz":
 			response.WriteHeader(http.StatusOK)
+			_, _ = response.Write([]byte(`{"status":"ok"}`))
 		case "/readyz":
 			response.Header().Set("Content-Type", "application/json")
 			_, _ = response.Write([]byte(`{"status":"ready"}`))

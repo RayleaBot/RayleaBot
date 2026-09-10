@@ -9,12 +9,6 @@ import type {
   LauncherSnapshot,
 } from "../../shared/launcher-models";
 import type { LauncherThemeMode } from "../../shared/launcher-theme";
-import {
-  normalizeHealthPayload,
-  normalizeReadinessPayload,
-  normalizeRecoverySummaryPayload,
-  normalizeSystemStatusPayload,
-} from "../../shared/server-payload-validation";
 
 function asDesktopSettings(settings: LauncherSettings): desktopModels.LauncherSettings {
   return {
@@ -99,11 +93,9 @@ export function normalizeWailsSnapshot(snapshot: desktopModels.LauncherSnapshot)
       }
     : null;
 
-  const server: LauncherSnapshot["server"] = {
-    health: normalizeHealthPayload(snapshot.server.health),
-    readiness: normalizeReadinessPayload(snapshot.server.readiness),
-    systemStatus: normalizeSystemStatusPayload(snapshot.server.systemStatus),
-  };
+  // Go validates the formal schema before exposing these typed Wails models.
+  // Wails represents enum strings and optional pointers more broadly than OpenAPI.
+  const server = snapshot.server as LauncherSnapshot["server"];
   const launcher: LauncherSnapshot["launcher"] = {
     processId: snapshot.launcher.processId,
     processLifecycle: expectEnumValue(snapshot.launcher.processLifecycle, ["stopped", "starting", "running", "stopping"] as const, "launcher.processLifecycle"),
@@ -162,7 +154,7 @@ export function normalizeWailsSnapshot(snapshot: desktopModels.LauncherSnapshot)
       port: snapshot.launcher.endpoint.port,
       baseUrl: snapshot.launcher.endpoint.baseUrl,
     },
-    localRecoverySummary: normalizeRecoverySummaryPayload(snapshot.launcher.localRecoverySummary),
+    localRecoverySummary: snapshot.launcher.localRecoverySummary as LauncherSnapshot["launcher"]["localRecoverySummary"],
   };
 
   return { server, launcher };

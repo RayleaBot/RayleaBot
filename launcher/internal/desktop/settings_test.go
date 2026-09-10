@@ -2,6 +2,7 @@ package desktop
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -35,22 +36,22 @@ func TestSettingsStoreCreatesNormalizedPortableSettings(t *testing.T) {
 	}
 }
 
-func TestSettingsStoreRepairsMalformedSettings(t *testing.T) {
-	root := createDevelopmentInstall(t)
-	settingsPath := filepath.Join(root, "data", "launcher.json")
-	writeTestFile(t, settingsPath, "{not-json")
-
-	settings, err := NewSettingsStore(root).Load()
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if settings.CloseBehavior != closeAsk || !samePath(settings.InstallationRoot, root) {
-		t.Fatalf("repaired settings = %#v", settings)
-	}
-	var persisted LauncherSettings
-	payload, _ := os.ReadFile(settingsPath)
-	if err := json.Unmarshal(payload, &persisted); err != nil {
-		t.Fatalf("repaired file is not JSON: %v", err)
+func TestSettingsStorePreservesMalformedSettings(t *testing.T) {
+	for _, original := range []string{"{not-json", "null", `{"closeBehavior":"unsupported"}`, `{"unknown":true}`, `{} {}`} {
+		t.Run(original, func(t *testing.T) {
+			root := createDevelopmentInstall(t)
+			settingsPath := filepath.Join(root, "data", "launcher.json")
+			writeTestFile(t, settingsPath, original)
+			_, err := NewSettingsStore(root).Load()
+			var boundary *BoundaryError
+			if !errors.As(err, &boundary) || boundary.Code != "launcher.settings_invalid" {
+				t.Fatalf("Load error = %v", err)
+			}
+			payload, readErr := os.ReadFile(settingsPath)
+			if readErr != nil || string(payload) != original {
+				t.Fatalf("damaged settings changed: %q %v", payload, readErr)
+			}
+		})
 	}
 }
 
@@ -74,7 +75,7 @@ func TestResolveLauncherSettingsPrefersBuiltServer(t *testing.T) {
 
 func TestDiscoverBasePathPrefersExecutableInstallationOverWorkingDirectory(t *testing.T) {
 	executableRoot := t.TempDir()
-	writeTestFile(t, filepath.Join(executableRoot, "build_info.json"), "{}")
+	writeTestFile(t, filepath.Join(executableRoot, "build_info.json"), `{ "version": "0.1.0", "artifact_id": "windows-x64-full" }`)
 	writeTestFile(t, filepath.Join(executableRoot, ".deps", "manifest.json"), "{\"manifest_version\":4}\n")
 	workingRoot := createDevelopmentInstall(t)
 	executable := filepath.Join(executableRoot, "RayleaLauncher")

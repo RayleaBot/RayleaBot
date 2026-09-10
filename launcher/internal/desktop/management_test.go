@@ -48,12 +48,13 @@ func TestManagementClientUsesFormalLauncherControlHeader(t *testing.T) {
 			if request.Header.Get("X-Raylea-Launcher-Control") != token {
 				t.Errorf("status control header = %q", request.Header.Get("X-Raylea-Launcher-Control"))
 			}
-			fmt.Fprint(writer, `{"status":"ready"}`)
+			fmt.Fprint(writer, `{"status":"running","adapters":[]}`)
 		case "/api/launcher/shutdown":
 			if request.Method != http.MethodPost || request.Header.Get("X-Raylea-Launcher-Control") != token {
 				t.Errorf("shutdown request = %s token=%q", request.Method, request.Header.Get("X-Raylea-Launcher-Control"))
 			}
-			writer.WriteHeader(http.StatusNoContent)
+			writer.WriteHeader(http.StatusAccepted)
+			fmt.Fprint(writer, `{"accepted":true}`)
 		default:
 			http.NotFound(writer, request)
 		}
@@ -66,11 +67,11 @@ func TestManagementClientUsesFormalLauncherControlHeader(t *testing.T) {
 		t.Fatal("IsHealthy() = false")
 	}
 	readiness, err := client.GetReadiness(context.Background(), endpoint)
-	if err != nil || objectStatus(readiness) != "setup_required" {
+	if err != nil || readiness.Status != "setup_required" {
 		t.Fatalf("GetReadiness() = %#v, %v", readiness, err)
 	}
 	status, err := client.GetLauncherStatus(context.Background(), endpoint)
-	if err != nil || objectStatus(status) != "ready" {
+	if err != nil || status.Status != "running" {
 		t.Fatalf("GetLauncherStatus() = %#v, %v", status, err)
 	}
 	if err := client.Shutdown(context.Background(), endpoint); err != nil {

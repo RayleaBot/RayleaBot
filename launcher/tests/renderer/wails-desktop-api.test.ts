@@ -50,7 +50,7 @@ describe("Wails desktop snapshot bridge", () => {
     snapshot.launcher.localRecoverySummary = {
       status: "compatible",
       phase: "post_startup",
-      operation: 'restore',
+      operation: "restore",
       created_at: "2026-08-18T00:00:00Z",
       updated_at: "2026-08-18T00:00:01Z",
     };
@@ -63,31 +63,4 @@ describe("Wails desktop snapshot bridge", () => {
     expect(normalized.launcher.localRecoverySummary?.operation).toBe("restore");
   });
 
-  test("preserves every adapter instance and validates the collection", () => {
-    const snapshot = createLauncherSnapshot() as unknown as desktopModels.LauncherSnapshot;
-    const adapters = [
-      { id: "second", protocol: "qqofficial", enabled: false, state: "stopped" },
-      { id: "first", protocol: "onebot11", enabled: true, state: "connected" },
-    ];
-    snapshot.server.systemStatus = { status: "running", adapters };
-    expect(normalizeWailsSnapshot(snapshot).server.systemStatus?.adapters).toEqual(adapters);
-    snapshot.server.systemStatus = { status: "running", adapters: [] };
-    expect(normalizeWailsSnapshot(snapshot).server.systemStatus?.adapters).toEqual([]);
-    snapshot.server.systemStatus = { status: "running" };
-    expect(() => normalizeWailsSnapshot(snapshot)).toThrow("server.systemStatus.adapters");
-    snapshot.server.systemStatus = { status: "running", adapters: [{ ...adapters[0], protocol: "unknown" }] };
-    expect(() => normalizeWailsSnapshot(snapshot)).toThrow("server.systemStatus.adapters[0].protocol");
-  });
-
-  test.each([
-    ["health", (snapshot: desktopModels.LauncherSnapshot) => { snapshot.server.health = { status: "ready" }; }, "server.health.status"],
-    ["readiness", (snapshot: desktopModels.LauncherSnapshot) => { snapshot.server.readiness = { status: "unknown" }; }, "server.readiness.status"],
-    ["system status", (snapshot: desktopModels.LauncherSnapshot) => { snapshot.server.systemStatus = { status: "running", adapters: [], active_plugins: -1 }; }, "server.systemStatus.active_plugins"],
-    ["recovery summary", (snapshot: desktopModels.LauncherSnapshot) => { snapshot.launcher.localRecoverySummary = { status: "compatible" }; }, "launcher.localRecoverySummary.phase"],
-  ])("rejects invalid %s payloads", (_name, mutate, field) => {
-    const snapshot = createLauncherSnapshot() as unknown as desktopModels.LauncherSnapshot;
-    mutate(snapshot);
-
-    expect(() => normalizeWailsSnapshot(snapshot)).toThrow(`Invalid server payload field: ${field}`);
-  });
 });

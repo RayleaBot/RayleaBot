@@ -1,9 +1,11 @@
 package desktop
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -66,19 +68,24 @@ func (s *SettingsStore) Load() (LauncherSettings, error) {
 		return defaults, fmt.Errorf("读取启动器设置: %w", err)
 	}
 
-	var loaded LauncherSettings
-	if err := json.Unmarshal(payload, &loaded); err != nil {
-		if saveErr := s.Save(defaults); saveErr != nil {
-			return defaults, fmt.Errorf("修复启动器设置: %w", saveErr)
-		}
-		return defaults, nil
+	var loaded *LauncherSettings
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	decodeErr := decoder.Decode(&loaded)
+	if decodeErr == nil && loaded == nil {
+		decodeErr = errors.New("settings must be an object")
 	}
-	normalized, err := normalizeSettings(loaded, defaults.InstallationRoot)
-	if err != nil {
-		if saveErr := s.Save(defaults); saveErr != nil {
-			return defaults, fmt.Errorf("修复启动器设置: %w", saveErr)
+	if decodeErr == nil {
+		if err := decoder.Decode(new(any)); err != io.EOF {
+			decodeErr = errors.New("settings must contain exactly one object")
 		}
-		return defaults, nil
+	}
+	if decodeErr != nil {
+		return defaults, &BoundaryError{Code: "launcher.settings_invalid", Message: "启动器设置文件损坏，原文件已保留。请检查 data/launcher.json。", Cause: decodeErr}
+	}
+	normalized, err := normalizeSettings(*loaded, defaults.InstallationRoot)
+	if err != nil {
+		return defaults, &BoundaryError{Code: "launcher.settings_invalid", Message: "启动器设置包含无效值，原文件已保留。请检查 data/launcher.json。", Cause: err}
 	}
 	if !hasInstallationMarkers(normalized.InstallationRoot) && hasInstallationMarkers(defaults.InstallationRoot) {
 		normalized.InstallationRoot = defaults.InstallationRoot

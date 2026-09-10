@@ -44,7 +44,12 @@ func (c *Coordinator) refresh(operation operationContext) error {
 }
 
 func (c *Coordinator) refreshWithInspection(operation operationContext, inspection EnvironmentInspection) error {
-	recovery := readRecoverySummary(c.process.LogDirectory())
+	recovery, recoveryErr := readRecoverySummary(c.process.LogDirectory())
+	if recoveryErr != nil {
+		check := EnvironmentCheckResult{Scope: "advisory", Code: "launcher.recovery_summary_invalid", Title: "本机恢复摘要", Severity: "warning", Summary: recoveryErr.Error(), Remediation: "检查 logs/recovery-summary.json；服务可用后以服务端摘要为准。"}
+		inspection.AdvisoryChecks = append(inspection.AdvisoryChecks, check)
+		inspection.Checks = append(inspection.Checks, check)
+	}
 	if inspection.HasBlockingIssues || inspection.CanBootstrapUserConfig {
 		lifecycle := "stopped"
 		ownership := "none"
@@ -64,7 +69,7 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), refreshRequestBudget)
 	defer cancel()
 	healthy := c.management.IsHealthy(ctx, operation.endpoint)
 	if !healthy {
@@ -88,26 +93,30 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	readiness, err := c.management.GetReadiness(ctx, operation.endpoint)
 	if err != nil {
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-			health: JSONObject{"status": "ok"}, processLifecycle: lifecycleFor(c.process.IsRunning()), processOwnership: ownershipFor(c.process.IsRunning(), true),
+			health: &ServerLivenessStatusResponse{Status: "ok"}, processLifecycle: lifecycleFor(c.process.IsRunning()), processOwnership: ownershipFor(c.process.IsRunning(), true),
 			statusHint: "服务存活，但无法读取就绪状态。", lastLocalError: err.Error(), localRecoverySummary: recovery,
 		}))
 		return nil
 	}
-	var systemStatus any
-	if status := objectStatus(readiness); status == "ready" || status == "degraded" {
+	var systemStatus *ServerSystemStatusResponse
+	statusError := ""
+	if status := readiness.Status; status == "ready" || status == "degraded" {
 		if value, statusErr := c.management.GetLauncherStatus(ctx, operation.endpoint); statusErr == nil {
 			systemStatus = value
+		} else {
+			statusError = statusErr.Error()
 		}
 	}
 	recovery = recoveryFromPayload(systemStatus, readiness, recovery)
 	lifecycle := lifecycleFor(c.process.IsRunning())
-	if statusObject, ok := systemStatus.(JSONObject); ok && objectStatus(statusObject) == "shutting_down" {
+	if systemStatus != nil && systemStatus.Status == "shutting_down" {
 		lifecycle = "stopping"
 	}
 	c.process.ClearRuntimePrepare()
 	c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-		health: JSONObject{"status": "ok"}, readiness: readiness, systemStatus: systemStatus,
+		health: &ServerLivenessStatusResponse{Status: "ok"}, readiness: readiness, systemStatus: systemStatus,
 		processLifecycle: lifecycle, processOwnership: ownershipFor(c.process.IsRunning(), true), localRecoverySummary: recovery,
+		lastLocalError: statusError,
 	}))
 	return nil
 }
@@ -151,7 +160,7 @@ func (c *Coordinator) startLocked(startupContext context.Context) error {
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{processLifecycle: "stopped", processOwnership: "none", statusHint: environmentIssueDetail(inspection)}))
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(startupContext, 6*time.Second)
+	ctx, cancel := context.WithTimeout(startupContext, startHealthProbeBudget)
 	healthy := c.management.IsHealthy(ctx, operation.endpoint)
 	cancel()
 	if startupContext.Err() != nil {
@@ -181,9 +190,9 @@ func (c *Coordinator) startLocked(startupContext context.Context) error {
 		processLifecycle: "starting", processOwnership: "launcher_managed", statusHint: "正在准备运行环境并等待服务就绪。", runtimePrepare: c.process.RuntimePrepare(),
 	}))
 
-	deadline := time.Now().Add(15 * time.Minute)
+	deadline := time.Now().Add(startupReadinessBudget)
 	failedSince := time.Time{}
-	var lastFailed JSONObject
+	var lastFailed *ServerReadinessStatusResponse
 	for time.Now().Before(deadline) {
 		if startupContext.Err() != nil {
 			return nil
@@ -203,17 +212,17 @@ func (c *Coordinator) startLocked(startupContext context.Context) error {
 			c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{processLifecycle: "stopped", processOwnership: "none", statusHint: "服务进程在启动阶段提前退出。", lastLocalError: lastError}))
 			return nil
 		}
-		ctx, cancel := context.WithTimeout(startupContext, 3*time.Second)
+		ctx, cancel := context.WithTimeout(startupContext, startupProbeTimeout)
 		if c.management.IsHealthy(ctx, operation.endpoint) {
 			if readiness, readErr := c.management.GetReadiness(ctx, operation.endpoint); readErr == nil {
-				if objectStatus(readiness) == "failed" {
+				if readiness.Status == "failed" {
 					lastFailed = readiness
 					if failedSince.IsZero() {
 						failedSince = time.Now()
 					}
-					if time.Since(failedSince) < 10*time.Second {
+					if time.Since(failedSince) < startupFailureStabilization {
 						cancel()
-						if !waitForStartup(startupContext, 500*time.Millisecond) {
+						if !waitForStartup(startupContext, startupPollInterval) {
 							return nil
 						}
 						continue
@@ -232,7 +241,7 @@ func (c *Coordinator) startLocked(startupContext context.Context) error {
 				processLifecycle: "starting", processOwnership: "launcher_managed", statusHint: firstNonEmpty(progress.Summary, "正在准备运行环境并等待服务就绪。"), runtimePrepare: progress,
 			}))
 		}
-		if !waitForStartup(startupContext, 500*time.Millisecond) {
+		if !waitForStartup(startupContext, startupPollInterval) {
 			return nil
 		}
 	}
@@ -306,9 +315,9 @@ func (c *Coordinator) stopLocked(confirmExternal bool) error {
 	}
 	if ownership == "external" {
 		c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-			health: JSONObject{"status": "ok"}, processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止现有服务。",
+			health: &ServerLivenessStatusResponse{Status: "ok"}, processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止现有服务。",
 		}))
-		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
 		shutdownErr := c.management.Shutdown(ctx, operation.endpoint)
 		cancel()
 		if shutdownErr == nil {
@@ -322,30 +331,28 @@ func (c *Coordinator) stopLocked(confirmExternal bool) error {
 		return nil
 	}
 	c.publish(c.buildSnapshot(operation, inspection, snapshotOptions{
-		health: func() any {
+		health: func() *ServerLivenessStatusResponse {
 			if healthy {
-				return JSONObject{"status": "ok"}
+				return &ServerLivenessStatusResponse{Status: "ok"}
 			}
 			return nil
 		}(),
 		processLifecycle: "stopping", processOwnership: ownership, statusHint: "正在停止服务。",
 	}))
-	if healthy {
-		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
-		err = c.management.Shutdown(ctx, operation.endpoint)
-		cancel()
-	}
 	if managed {
-		deadline := time.Now().Add(5 * time.Second)
-		for c.process.IsRunning() && time.Now().Before(deadline) {
-			time.Sleep(100 * time.Millisecond)
-		}
-		if c.process.IsRunning() {
-			if killErr := c.process.ForceKill(); killErr != nil {
-				return killErr
+		err := stopManagedProcess(c.process, func() error {
+			if !healthy {
+				return nil
 			}
+			ctx, cancel := context.WithTimeout(context.Background(), shutdownRequestTimeout)
+			defer cancel()
+			return c.management.Shutdown(ctx, operation.endpoint)
+		}, stopGracePeriod)
+		if err != nil {
+			return err
 		}
 	}
+
 	return c.refresh(operation)
 }
 
@@ -393,18 +400,18 @@ func (c *Coordinator) ResetAdmin() error {
 	if err := c.startLocked(startupContext); err != nil {
 		return err
 	}
-	deadline := time.Now().Add(30 * time.Second)
+	deadline := time.Now().Add(resetAdminReadinessBudget)
 	for time.Now().Before(deadline) {
 		if startupContext.Err() != nil {
 			return nil
 		}
-		ctx, cancel := context.WithTimeout(startupContext, 3*time.Second)
+		ctx, cancel := context.WithTimeout(startupContext, resetAdminProbeTimeout)
 		readiness, readErr := c.management.GetReadiness(ctx, operation.endpoint)
 		cancel()
-		if readErr == nil && objectStatus(readiness) == "setup_required" {
+		if readErr == nil && readiness.Status == "setup_required" {
 			return c.OpenWebUI("")
 		}
-		if !waitForStartup(startupContext, 500*time.Millisecond) {
+		if !waitForStartup(startupContext, startupPollInterval) {
 			return nil
 		}
 	}
@@ -423,7 +430,7 @@ func waitForStartup(ctx context.Context, duration time.Duration) bool {
 }
 
 func (c *Coordinator) quickHealthy(endpoint ServerEndpoint) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), quickHealthProbeTimeout)
 	defer cancel()
 	return c.management.IsHealthy(ctx, endpoint)
 }
@@ -433,7 +440,7 @@ func (c *Coordinator) developmentWatcherActive() bool {
 }
 
 func endpointListening(endpoint ServerEndpoint) bool {
-	connection, err := net.DialTimeout("tcp", net.JoinHostPort(endpoint.Host, strconv.Itoa(endpoint.Port)), 400*time.Millisecond)
+	connection, err := net.DialTimeout("tcp", net.JoinHostPort(endpoint.Host, strconv.Itoa(endpoint.Port)), endpointConnectTimeout)
 	if err != nil {
 		return false
 	}

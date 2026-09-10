@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 )
 
 const repositoryURL = "https://github.com/RayleaBot/RayleaBot"
@@ -27,14 +26,14 @@ type operationContext struct {
 }
 
 type snapshotOptions struct {
-	health               any
-	readiness            any
-	systemStatus         any
+	health               *ServerLivenessStatusResponse
+	readiness            *ServerReadinessStatusResponse
+	systemStatus         *ServerSystemStatusResponse
 	processLifecycle     string
 	processOwnership     string
 	lastLocalError       string
 	statusHint           string
-	localRecoverySummary any
+	localRecoverySummary *ServerRecoveryCompatibilitySummary
 	runtimePrepare       *RuntimePrepareSnapshot
 }
 
@@ -112,7 +111,7 @@ func (c *Coordinator) Snapshot() LauncherSnapshot {
 	return cloneSnapshot(c.snapshot)
 }
 
-func (c *Coordinator) Shutdown() {
+func (c *Coordinator) Shutdown() error {
 	c.startups.block(true)
 	c.initMu.Lock()
 	if stop := c.monitorStop; stop != nil {
@@ -123,21 +122,21 @@ func (c *Coordinator) Shutdown() {
 	c.operationMu.Lock()
 	defer c.operationMu.Unlock()
 	if !c.process.IsRunning() {
-		return
+		return nil
 	}
-	operation, err := c.operationContext()
-	if err == nil && c.quickHealthy(operation.endpoint) {
-		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-		_ = c.management.Shutdown(ctx, operation.endpoint)
-		cancel()
-	}
-	deadline := time.Now().Add(4 * time.Second)
-	for c.process.IsRunning() && time.Now().Before(deadline) {
-		time.Sleep(100 * time.Millisecond)
-	}
-	if c.process.IsRunning() {
-		_ = c.process.ForceKill()
-	}
+	operation, operationErr := c.operationContext()
+	return stopManagedProcess(c.process, func() error {
+		if operationErr != nil {
+			return operationErr
+		}
+		if !c.quickHealthy(operation.endpoint) {
+			return nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownGracePeriod)
+		defer cancel()
+		return c.management.Shutdown(ctx, operation.endpoint)
+	}, shutdownGracePeriod)
+
 }
 
 func (c *Coordinator) operationContext() (operationContext, error) {

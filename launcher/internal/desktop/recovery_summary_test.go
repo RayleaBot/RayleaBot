@@ -2,11 +2,11 @@ package desktop
 
 import "testing"
 
-func TestParseRecoverySummaryValidatesAndSanitizesContractShape(t *testing.T) {
+func TestParseRecoverySummaryPreservesValidatedContractShape(t *testing.T) {
 	summary := parseRecoverySummary([]byte(`{
 		"status":"degraded",
 		"phase":"post_startup",
-		"operation":"upgrade",
+		"operation":"restore",
 		"created_at":"2026-08-17T10:00:00Z",
 		"updated_at":"2026-08-17T10:01:00Z",
 		"requires_post_start_checks":true,
@@ -19,21 +19,16 @@ func TestParseRecoverySummaryValidatesAndSanitizesContractShape(t *testing.T) {
 	if summary == nil {
 		t.Fatal("parseRecoverySummary() rejected a valid contract payload")
 	}
-	if summary["status"] != "degraded" || summary["phase"] != "post_startup" || summary["operation"] != "upgrade" {
-		t.Fatalf("summary identity fields = %#v", summary)
+	if summary.Status != "degraded" || summary.Phase != "post_startup" || summary.Operation != "restore" {
+		t.Fatalf("summary identity = %#v", summary)
 	}
-	manualActions, ok := summary["manual_actions"].([]any)
-	if !ok || len(manualActions) != 1 || manualActions[0] != "Review plugin" {
-		t.Fatalf("manual_actions = %#v", summary["manual_actions"])
+	if len(summary.ManualActions) != 2 || summary.ManualActions[0] != " Review plugin " {
+		t.Fatalf("valid payload text was changed: %#v", summary.ManualActions)
 	}
-	issues, ok := summary["issues"].([]any)
-	if !ok || len(issues) != 1 {
-		t.Fatalf("issues = %#v", summary["issues"])
+	if len(summary.Issues) != 1 || summary.Issues[0].Summary != " Review required " {
+		t.Fatalf("issues = %#v", summary.Issues)
 	}
-	issue, ok := issues[0].(map[string]any)
-	if !ok || issue["summary"] != "Review required" || issue["remediation"] != "Review the plugin" {
-		t.Fatalf("normalized issue = %#v", issues[0])
-	}
+
 }
 
 func TestParseRecoverySummaryRejectsContractDrift(t *testing.T) {
@@ -41,7 +36,8 @@ func TestParseRecoverySummaryRejectsContractDrift(t *testing.T) {
 		"missing required phase": `{"status":"compatible","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z"}`,
 		"unknown property":       `{"status":"compatible","phase":"pre_restore","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z","legacy_status":"ok"}`,
 		"invalid date time":      `{"status":"compatible","phase":"pre_restore","operation":"restore","created_at":"yesterday","updated_at":"2026-08-17T10:01:00Z"}`,
-		"invalid nested enum":    `{"status":"blocked","phase":"pre_restore","operation":"rollback","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z","issues":[{"code":"broken","severity":"fatal","summary":"Broken"}]}`,
+		"invalid nested enum":    `{"status":"blocked","phase":"pre_restore","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z","issues":[{"code":"broken","severity":"fatal","summary":"Broken"}]}`,
+		"removed operation":      `{"status":"compatible","phase":"pre_restore","operation":"upgrade","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z"}`,
 		"missing audit note":     `{"status":"compatible","phase":"post_startup","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z","audit":[{"task_id":"task-1","created_at":"2026-08-17T10:02:00Z","operator_id":"admin","items":[]}]}`,
 		"null optional field":    `{"status":"compatible","phase":"pre_restore","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z","issues":null}`,
 	}

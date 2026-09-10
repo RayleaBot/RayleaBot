@@ -35,7 +35,6 @@ const environmentScopeLabels: Record<EnvironmentCheckScope, string> = {
 
 const diagnosticCheckNameLabels: Record<string, string> = {
   adapter: "消息连接",
-  bilibili_source: "Bilibili 来源",
   config: "配置",
   database: "数据库",
   dependencies: "运行依赖",

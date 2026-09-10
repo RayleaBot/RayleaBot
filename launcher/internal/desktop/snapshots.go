@@ -1,6 +1,7 @@
 package desktop
 
 import (
+	"encoding/json"
 	"strings"
 )
 
@@ -16,9 +17,9 @@ func defaultSnapshot() LauncherSnapshot {
 
 func cloneSnapshot(snapshot LauncherSnapshot) LauncherSnapshot {
 	clone := snapshot
-	clone.Server.Health = cloneJSONValue(snapshot.Server.Health)
-	clone.Server.Readiness = cloneJSONValue(snapshot.Server.Readiness)
-	clone.Server.SystemStatus = cloneJSONValue(snapshot.Server.SystemStatus)
+	clone.Server.Health = cloneResponse(snapshot.Server.Health)
+	clone.Server.Readiness = cloneResponse(snapshot.Server.Readiness)
+	clone.Server.SystemStatus = cloneResponse(snapshot.Server.SystemStatus)
 	clone.Launcher.ProcessID = clonePointer(snapshot.Launcher.ProcessID)
 	clone.Launcher.EnvironmentChecks = cloneSlice(snapshot.Launcher.EnvironmentChecks)
 	clone.Launcher.PreflightChecks = cloneSlice(snapshot.Launcher.PreflightChecks)
@@ -27,7 +28,7 @@ func cloneSnapshot(snapshot LauncherSnapshot) LauncherSnapshot {
 	clone.Launcher.RuntimePrepare = cloneRuntimePrepare(snapshot.Launcher.RuntimePrepare)
 	clone.Launcher.ReleaseCheck = cloneReleaseCheck(snapshot.Launcher.ReleaseCheck)
 	clone.Launcher.Settings = cloneSettings(snapshot.Launcher.Settings)
-	clone.Launcher.LocalRecoverySummary = cloneJSONValue(snapshot.Launcher.LocalRecoverySummary)
+	clone.Launcher.LocalRecoverySummary = cloneResponse(snapshot.Launcher.LocalRecoverySummary)
 	return clone
 }
 
@@ -65,29 +66,19 @@ func cloneReleaseCheck(snapshot ReleaseCheckSnapshot) ReleaseCheckSnapshot {
 	return clone
 }
 
-func cloneJSONValue(value any) any {
-	switch current := value.(type) {
-	case JSONObject:
-		clone := make(JSONObject, len(current))
-		for key, item := range current {
-			clone[key] = cloneJSONValue(item)
-		}
-		return clone
-	case map[string]any:
-		clone := make(map[string]any, len(current))
-		for key, item := range current {
-			clone[key] = cloneJSONValue(item)
-		}
-		return clone
-	case []any:
-		clone := make([]any, len(current))
-		for index, item := range current {
-			clone[index] = cloneJSONValue(item)
-		}
-		return clone
-	default:
-		return current
+func cloneResponse[T any](value *T) *T {
+	if value == nil {
+		return nil
 	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	var result T
+	if err := json.Unmarshal(data, &result); err != nil {
+		panic(err)
+	}
+	return &result
 }
 
 func cloneSlice[T any](values []T) []T {
@@ -140,7 +131,7 @@ func lifecycleFor(running bool) string {
 }
 
 func serviceAvailable(snapshot LauncherSnapshot) bool {
-	if objectStatusFromAny(snapshot.Server.Health) != "ok" {
+	if snapshot.Server.Health == nil || snapshot.Server.Health.Status != "ok" {
 		return false
 	}
 	switch readinessStatus(snapshot.Server.Readiness) {
@@ -161,32 +152,19 @@ func ownershipFor(managed, reachable bool) string {
 	return "none"
 }
 
-func readinessStatus(value any) string {
-	switch payload := value.(type) {
-	case JSONObject:
-		status, _ := payload["status"].(string)
-		return status
-	case map[string]any:
-		status, _ := payload["status"].(string)
-		return status
-	default:
+func readinessStatus(value *ServerReadinessStatusResponse) string {
+	if value == nil {
 		return ""
 	}
+	return value.Status
 }
 
-func recoveryFromPayload(systemStatus any, readiness JSONObject, fallback any) any {
-	switch payload := systemStatus.(type) {
-	case JSONObject:
-		if payload["recovery_summary"] != nil {
-			return payload["recovery_summary"]
-		}
-	case map[string]any:
-		if payload["recovery_summary"] != nil {
-			return payload["recovery_summary"]
-		}
+func recoveryFromPayload(systemStatus *ServerSystemStatusResponse, readiness *ServerReadinessStatusResponse, fallback *ServerRecoveryCompatibilitySummary) *ServerRecoveryCompatibilitySummary {
+	if systemStatus != nil && systemStatus.RecoverySummary != nil {
+		return systemStatus.RecoverySummary
 	}
-	if readiness["recovery_summary"] != nil {
-		return readiness["recovery_summary"]
+	if readiness != nil && readiness.RecoverySummary != nil {
+		return readiness.RecoverySummary
 	}
 	return fallback
 }

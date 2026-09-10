@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -23,7 +22,7 @@ type ManagementClient struct {
 
 func NewManagementClient(getControlToken func() string) *ManagementClient {
 	return &ManagementClient{
-		client:          &http.Client{Timeout: 5 * time.Second},
+		client:          &http.Client{Timeout: managementRequestTimeout},
 		getControlToken: getControlToken,
 	}
 }
@@ -77,10 +76,14 @@ func (m *ManagementClient) IsHealthy(ctx context.Context, endpoint ServerEndpoin
 		return false
 	}
 	defer response.Body.Close()
-	return response.StatusCode >= 200 && response.StatusCode < 300
+	if response.StatusCode != http.StatusOK {
+		return false
+	}
+	_, err = decodeServerResponse[ServerLivenessStatusResponse](response.Body, "LivenessStatusResponse")
+	return err == nil
 }
 
-func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndpoint) (JSONObject, error) {
+func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndpoint) (*ServerReadinessStatusResponse, error) {
 	response, err := m.request(ctx, http.MethodGet, endpoint, "readyz", false)
 	if err != nil {
 		return nil, err
@@ -89,19 +92,19 @@ func (m *ManagementClient) GetReadiness(ctx context.Context, endpoint ServerEndp
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusServiceUnavailable {
 		return nil, responseError(response)
 	}
-	return decodeObject(response.Body)
+	return decodeServerResponse[ServerReadinessStatusResponse](response.Body, "ReadinessStatusResponse")
 }
 
-func (m *ManagementClient) GetLauncherStatus(ctx context.Context, endpoint ServerEndpoint) (JSONObject, error) {
+func (m *ManagementClient) GetLauncherStatus(ctx context.Context, endpoint ServerEndpoint) (*ServerSystemStatusResponse, error) {
 	response, err := m.request(ctx, http.MethodGet, endpoint, "api/launcher/status", true)
 	if err != nil {
 		return nil, err
 	}
 	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
+	if response.StatusCode != http.StatusOK {
 		return nil, responseError(response)
 	}
-	return decodeObject(response.Body)
+	return decodeServerResponse[ServerSystemStatusResponse](response.Body, "SystemStatusResponse")
 }
 
 func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint) error {
@@ -110,8 +113,15 @@ func (m *ManagementClient) Shutdown(ctx context.Context, endpoint ServerEndpoint
 		return err
 	}
 	defer response.Body.Close()
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
+	if response.StatusCode != http.StatusAccepted {
 		return responseError(response)
+	}
+	payload, err := decodeServerResponse[ServerSystemShutdownResponse](response.Body, "SystemShutdownResponse")
+	if err != nil {
+		return err
+	}
+	if !payload.Accepted {
+		return &BoundaryError{Code: "launcher.shutdown_rejected", Message: "服务未接受关闭请求。"}
 	}
 	return nil
 }
@@ -137,14 +147,6 @@ func (m *ManagementClient) request(ctx context.Context, method string, endpoint 
 	return m.client.Do(request)
 }
 
-func decodeObject(reader io.Reader) (JSONObject, error) {
-	var payload JSONObject
-	if err := json.NewDecoder(io.LimitReader(reader, 4<<20)).Decode(&payload); err != nil {
-		return nil, err
-	}
-	return payload, nil
-}
-
 func responseError(response *http.Response) error {
 	payload, _ := io.ReadAll(io.LimitReader(response.Body, 64<<10))
 	var envelope struct {
@@ -161,9 +163,4 @@ func responseError(response *http.Response) error {
 		detail = response.Status
 	}
 	return fmt.Errorf("管理接口返回 %s: %s", response.Status, detail)
-}
-
-func objectStatus(payload JSONObject) string {
-	status, _ := payload["status"].(string)
-	return strings.TrimSpace(status)
 }
