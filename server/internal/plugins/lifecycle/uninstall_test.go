@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -113,11 +114,12 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	defer func(release func() error) { _ = release() }(service.Close)
 
 	called := make(chan string, 1)
-	service.SetAfterSuccess(func(ctx context.Context, pluginID string) {
+	service.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
 		if ctx == nil {
 			t.Fatal("expected uninstall callback context")
 		}
 		called <- pluginID
+		return nil
 	})
 
 	taskID, err := service.Accept(context.Background(), "weather-remove")
@@ -142,4 +144,102 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(installedRoot, "weather-remove")); !os.IsNotExist(err) {
 		t.Fatalf("expected installed plugin directory to be removed, got err=%v", err)
 	}
+}
+
+func TestUninstallAggregatesIndependentCleanupFailuresAfterRemoval(t *testing.T) {
+	t.Parallel()
+	desiredErr := errors.New("test-secret-desired-state")
+	metadataErr := errors.New("test-secret-metadata")
+	callbackErr := errors.New("test-secret-templates")
+	repoRoot := t.TempDir()
+	registry := tasks.NewRegistry()
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
+	writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather"), "weather")
+	validator, err := config.Compile(filepath.Join("..", "..", "..", "..", "contracts", "plugin-info.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := &failingUninstallRepository{desiredErr: desiredErr, metadataErr: metadataErr}
+	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), repository, validator, repoRoot,
+		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = service.Close() })
+	service.SetAfterSuccess(func(context.Context, string) error { return callbackErr })
+	// The error chain retains every cause, including independent cleanup work.
+	err = service.runUninstall(uninstallJob{ctx: t.Context(), pluginID: "weather"})
+	if !errors.Is(err, desiredErr) || !errors.Is(err, metadataErr) || !errors.Is(err, callbackErr) {
+		t.Fatalf("cleanup causes lost: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(installedRoot, "weather")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("package not removed: %v", err)
+	}
+	// Retry an already absent package and expose safe, actionable task details.
+	taskID, err := service.Accept(t.Context(), "weather")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertOperationFailure(t, waitForTaskCompletion(t, registry, taskID), "committed", []string{"desired_state", "metadata", "finalize"})
+}
+
+func TestUninstallStopsBeforeDestructiveWorkWhenRuntimeStopFails(t *testing.T) {
+	t.Parallel()
+	repoRoot := t.TempDir()
+	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
+	writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather"), "weather")
+	registry := tasks.NewRegistry()
+	repository := &stubInstallRepository{}
+	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), repository, nil, repoRoot,
+		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}},
+		func(context.Context, string) error { return errors.New("test-secret-process-stop") })
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = service.Close() })
+	taskID, err := service.Accept(t.Context(), "weather")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertOperationFailure(t, waitForTaskCompletion(t, registry, taskID), "unchanged", []string{"stop"})
+	if _, err := os.Stat(filepath.Join(installedRoot, "weather", "info.json")); err != nil {
+		t.Fatalf("package was removed after failed stop: %v", err)
+	}
+	if repository.deletedPackage != "" {
+		t.Fatal("metadata was removed after failed stop")
+	}
+}
+
+type failingUninstallRepository struct {
+	stubInstallRepository
+	desiredErr  error
+	metadataErr error
+}
+
+func TestUninstallRejectsInvalidIdentifierBeforeCreatingTask(t *testing.T) {
+	t.Parallel()
+	registry := tasks.NewRegistry()
+	repoRoot := t.TempDir()
+	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), nil, nil, repoRoot,
+		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")}}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = service.Close() })
+	for _, id := range []string{"", ".", "..", "../outside", `..\outside`, "C:\\outside", "/outside", "UPPER", "trailing.", strings.Repeat("x", 65)} {
+		if _, err := service.Accept(t.Context(), id); !errors.Is(err, plugins.ErrInvalidPluginID) {
+			t.Errorf("Accept(%q) = %v, want invalid identifier", id, err)
+		}
+	}
+	if len(registry.List()) != 0 {
+		t.Fatal("invalid identifiers created uninstall tasks")
+	}
+}
+
+func (r *failingUninstallRepository) DeleteDesiredState(context.Context, string) error {
+	return r.desiredErr
+}
+
+func (r *failingUninstallRepository) DeletePackageMetadata(context.Context, string) error {
+	return r.metadataErr
 }

@@ -2783,7 +2783,7 @@ test('error recovery covers retry and uninstall failure', async ({ page, request
 
   await page.getByRole('button', { name: /卸\s*载/ }).click()
   await page.getByRole('button', { name: /确认卸载/ }).click()
-  await expect(page.locator('.app-toast__description').filter({ hasText: '缺少必要资源' })).toBeVisible()
+  await expect(page.locator('.app-toast__description').filter({ hasText: '插件卸载失败' })).toBeVisible()
 })
 
 test('missing routes keep their fallback while network recovery stays in place', async ({ page, request }) => {

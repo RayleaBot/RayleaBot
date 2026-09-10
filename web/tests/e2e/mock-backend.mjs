@@ -87,7 +87,7 @@ const fixtures = {
   pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
   pluginSettingsUpdate: await readFixture('fixtures/web-api/ok.plugin-settings-update-response.yaml'),
   pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
-  invalidUninstallNotFound: await readFixture('fixtures/web-api/invalid.plugins-uninstall-not-found.yaml'),
+  invalidUninstallID: await readFixture('fixtures/web-api/invalid.plugins-uninstall-id.yaml'),
   governanceBlacklist: await readFixture('fixtures/web-api/ok.governance-blacklist-response.yaml'),
   governanceBlacklistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml'),
   governanceWhitelist: await readFixture('fixtures/web-api/ok.governance-whitelist-response.yaml'),
@@ -2175,8 +2175,12 @@ const server = http.createServer(async (request, response) => {
     }
 
     const pluginId = pathname.split('/')[3]
-    if (takeFailureFlag('failUninstallOnce') || !state.plugins[pluginId]) {
-      json(response, fixtures.invalidUninstallNotFound.response.status, fixtures.invalidUninstallNotFound.response.body)
+    if (!/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(pluginId)) {
+      json(response, fixtures.invalidUninstallID.response.status, fixtures.invalidUninstallID.response.body)
+      return
+    }
+    if (takeFailureFlag('failUninstallOnce')) {
+      json(response, 409, errorEnvelope('plugin.uninstall_failed', '插件卸载失败', 'req_plugin_uninstall_failed'))
       return
     }
 

@@ -1115,7 +1115,10 @@ export interface paths {
         get: operations["getPlugin"];
         put?: never;
         post?: never;
-        /** Uninstall a plugin asynchronously. */
+        /**
+         * Uninstall a plugin asynchronously.
+         * @description Accepts a valid manifest plugin ID even when the package is absent, so cleanup can be retried after committed or partial failures. Invalid identifiers are rejected before task admission.
+         */
         delete: operations["uninstallPlugin"];
         options?: never;
         head?: never;
@@ -4870,8 +4873,8 @@ export interface operations {
                     "application/json": components["schemas"]["TaskAcceptedResponse"];
                 };
             };
+            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             429: components["responses"]["Error"];
             default: components["responses"]["Error"];

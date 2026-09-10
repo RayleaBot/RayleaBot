@@ -237,7 +237,7 @@ type InstallCoordinator interface {
 	Close() error
 }
 
-type StopPluginFunc func(context.Context, string)
+type StopPluginFunc func(context.Context, string) error
 
 type UninstallCoordinator interface {
 	Accept(ctx context.Context, pluginID string) (string, error)

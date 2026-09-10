@@ -64,7 +64,6 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 	if err := hydratePluginCatalog(ctx, deps.Catalog, pluginRepository, pluginConfigRepository); err != nil {
 		return PluginStackState{}, err
 	}
-	runtimepaths.CleanupOrphanedInstallDirs(deps.Logger, deps.Discovery.Roots)
 
 	pluginInstallService, pluginUninstallService, err := buildPluginMutationServices(deps, pluginRepository)
 	if err != nil {

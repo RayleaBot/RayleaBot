@@ -2,7 +2,9 @@ package integration
 
 import (
 	"context"
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"net/http"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -90,4 +92,24 @@ func issueExistingBootstrapLoginToken(t *testing.T, application interface{ Handl
 	}
 
 	return token
+}
+
+func TestAppInitializationPreservesFailedInstallRecoveryFiles(t *testing.T) {
+	var recoveryFile string
+	application, _, _ := newTestAppWithOptions(t, nil, func(options *internalapp.Options, _ string) {
+		recoveryFile = filepath.Join(options.PluginRoots[0].Path, ".plugin-install-recovery", "previous", "fixture.txt")
+		if err := os.MkdirAll(filepath.Dir(recoveryFile), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(recoveryFile, []byte("original plugin files"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if err := application.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(recoveryFile)
+	if err != nil || string(data) != "original plugin files" {
+		t.Fatalf("initialization removed failed rollback evidence: %q %v", data, err)
+	}
 }

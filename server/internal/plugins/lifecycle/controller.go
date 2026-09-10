@@ -507,18 +507,20 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, ma
 }
 
 func (c *Controller) stopAndResetPlugin(pluginID string) {
-	c.stopPlugin(c.lifecycleContext(), pluginID, true)
+	if err := c.stopPlugin(c.lifecycleContext(), pluginID, true); err != nil {
+		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
+	}
 }
 
 func (c *Controller) StopAndResetPlugin(pluginID string) {
 	c.stopAndResetPlugin(pluginID)
 }
 
-func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID string) {
+func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	c.stopPlugin(ctx, pluginID, true)
+	return c.stopPlugin(ctx, pluginID, true)
 }
 
 func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
@@ -535,23 +537,24 @@ func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
 
 	ctx, cancel := c.lifecycleTimeoutContext(5 * time.Second)
 	defer cancel()
-	c.stopPluginLocked(ctx, pluginID, remove)
+	if err := c.stopPluginLocked(ctx, pluginID, remove); err != nil {
+		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
+	}
 }
 
-func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove bool) {
+func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove bool) error {
 	if c.runtimes == nil {
-		return
+		return nil
 	}
 	release, err := c.acquireOperation(ctx, pluginID)
 	if err != nil {
-		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
-		return
+		return err
 	}
 	defer release()
-	c.stopPluginLocked(ctx, pluginID, remove)
+	return c.stopPluginLocked(ctx, pluginID, remove)
 }
 
-func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remove bool) {
+func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remove bool) error {
 	c.clearBotIdentity(pluginID)
 	c.dispatcher.CancelPlugin(pluginID)
 	defer c.dispatcher.Deregister(pluginID)
@@ -559,7 +562,7 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
-		return
+		return nil
 	}
 
 	switch manager.Snapshot().State {
@@ -567,8 +570,8 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 		manager.ResetCrashCount()
 		manager.SetStopped()
 	default:
-		if err := manager.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			c.logLifecycleWarn("stop plugin runtime", pluginID, err)
+		if err := manager.Stop(ctx); err != nil {
+			return err
 		}
 		manager.ResetCrashCount()
 	}
@@ -577,6 +580,7 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 		c.runtimes.Delete(pluginID)
 	}
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+	return nil
 }
 
 func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {

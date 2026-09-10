@@ -1,0 +1,16 @@
+contract: contracts/web-api.openapi.yaml
+case: invalid
+description: Uninstall rejects an identifier outside the manifest ID grammar before queuing work.
+request:
+  method: DELETE
+  path: /api/plugins/invalid!
+response:
+  status: 400
+  body:
+    error:
+      code: platform.invalid_request
+      message: 请求参数无效
+      message_key: errors.platform.invalid_request
+      request_id: req_001
+expect:
+  valid: true

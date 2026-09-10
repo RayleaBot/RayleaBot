@@ -169,7 +169,8 @@ x-fixtures:
   - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
-  - fixtures/web-api/invalid.plugins-uninstall-not-found.yaml
+  - fixtures/web-api/invalid.plugins-uninstall-id.yaml
+  - fixtures/web-api/ok.plugins-uninstall-absent.yaml
   - fixtures/web-api/edge.governance-entry-delete-not-found.yaml
 
 x-browser-session-policy:
@@ -2079,6 +2080,7 @@ paths:
     delete:
       summary: Uninstall a plugin asynchronously.
       operationId: uninstallPlugin
+      description: Accepts a valid manifest plugin ID even when the package is absent, so cleanup can be retried after committed or partial failures. Invalid identifiers are rejected before task admission.
       security:
         - BearerAuth: []
         - CookieAuth: []
@@ -2094,7 +2096,7 @@ paths:
                 $ref: '#/components/schemas/TaskAcceptedResponse'
         '401':
           $ref: '#/components/responses/Error'
-        '404':
+        '400':
           $ref: '#/components/responses/Error'
         '409':
           $ref: '#/components/responses/Error'

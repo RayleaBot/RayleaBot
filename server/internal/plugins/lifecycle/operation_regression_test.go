@@ -65,7 +65,7 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 	if err := manager.Start(t.Context(), pluginruntime.Spec{
 		PluginID: "fixture", Command: executable, Args: []string{"-test.run=^TestLifecycleShutdownProcess$"},
 		Env: []string{"RAYLEABOT_LIFECYCLE_SHUTDOWN_FIXTURE=1"}, WorkDir: t.TempDir(),
-		InitTimeout: 3 * time.Second, EventTimeout: time.Second, ShutdownGrace: time.Second,
+		InitTimeout: 3 * time.Second, EventTimeout: time.Second, ShutdownGrace: 3 * time.Second,
 	}, pluginruntime.InitPayload{Timezone: "Asia/Shanghai", CommandPrefixes: []string{"/"}}); err != nil {
 		t.Fatal(err)
 	}

@@ -284,31 +284,27 @@ func configureAppRuntimeCallbacks(application *App) {
 			return err
 		}
 		if snapshot, exists := application.pluginStack.Plugins.Get(pluginID); exists && snapshot.DesiredState == plugins.DesiredStateEnabled {
-			if snapshot.PackageSourceType == "development" {
-				if err := lifecycle.StartDevelopment(ctx, pluginID); err != nil {
-					return err
-				}
-			} else {
-				_, _ = lifecycle.Reload(ctx, pluginID)
+			if err := lifecycle.StartInstalled(ctx, pluginID); err != nil {
+				return err
 			}
 		}
 		systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
 		return nil
 	}
 	application.pluginStack.PluginInstaller.SetAfterSuccess(reconcileInstalledPlugin)
-	application.pluginStack.PluginInstaller.SetAfterRollback(func(ctx context.Context, pluginID string) {
-		_ = reconcileInstalledPlugin(ctx, pluginID)
-	})
+	application.pluginStack.PluginInstaller.SetAfterRollback(reconcileInstalledPlugin)
 	application.pluginStack.PluginInstaller.SetBeforeReplace(lifecycle.StopAndResetPluginWithContext)
 	application.pluginStack.PluginInstaller.SetRenderTemplateValidator(validatePluginRenderTemplates)
 	application.pluginStack.PluginUninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
-	application.pluginStack.PluginUninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) {
+	application.pluginStack.PluginUninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
 		application.services.PluginWebhooks.SyncManifestRegistrations()
+		var cleanupErr error
 		if application.renderStack.Renderer != nil {
-			_ = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
+			cleanupErr = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
 		}
-		_ = syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins)
+		cleanupErr = errors.Join(cleanupErr, syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins))
 		systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
+		return cleanupErr
 	})
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)

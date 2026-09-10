@@ -11,9 +11,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 )
 
-// StartDevelopment waits for initialization before the installer commits a replacement.
+// StartInstalled waits for initialization before the installer commits a replacement.
 // The installer has already stopped the previous runtime and refreshed the catalog.
-func (c *Controller) StartDevelopment(ctx context.Context, pluginID string) error {
+func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error {
 	ctx, cancel := context.WithTimeout(ctx, runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 	snapshot, exists := c.plugins.Get(pluginID)
@@ -32,8 +32,7 @@ func (c *Controller) StartDevelopment(ctx context.Context, pluginID string) erro
 	if err := c.startRuntime(ctx, pluginID); err != nil {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cleanupCancel()
-		c.StopAndResetPluginWithContext(cleanupCtx, pluginID)
-		return err
+		return errors.Join(err, c.StopAndResetPluginWithContext(cleanupCtx, pluginID))
 	}
 	return nil
 }

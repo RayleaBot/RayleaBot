@@ -1,0 +1,12 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: An absent package still admits cleanup retry after a previous partial uninstall.
+request:
+  method: DELETE
+  path: /api/plugins/previously-removed
+response:
+  status: 202
+  body:
+    task_id: task_plugin_uninstall_retry_0001
+expect:
+  valid: true

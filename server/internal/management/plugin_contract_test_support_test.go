@@ -26,7 +26,7 @@ func pluginRouterWithController(t *testing.T, catalog *plugincatalog.Catalog, co
 	if controller != nil {
 		registerPluginLifecycleRoutes(router, catalog, controller, uninstaller)
 	} else {
-		router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
+		router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(uninstaller))
 	}
 	return router
 }

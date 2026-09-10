@@ -194,7 +194,7 @@ func TestInstallServiceAtomicallyReplacesInstalledPlugin(t *testing.T) {
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "replace-next"), "replace-weather")
 	setInstallSourcePluginVersion(t, replacement, "0.2.0")
 	stopped := make(chan string, 1)
-	service.SetBeforeReplace(func(_ context.Context, pluginID string) { stopped <- pluginID })
+	service.SetBeforeReplace(func(_ context.Context, pluginID string) error { stopped <- pluginID; return nil })
 	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
@@ -241,7 +241,7 @@ func TestInstallServiceRestoresLastGoodPluginAndMetadataWhenReplacementFinalizat
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rollback-next"), "rollback-weather")
 	setInstallSourcePluginVersion(t, replacement, "0.2.0")
 	rolledBack := make(chan string, 1)
-	service.SetAfterRollback(func(_ context.Context, pluginID string) { rolledBack <- pluginID })
+	service.SetAfterRollback(func(_ context.Context, pluginID string) error { rolledBack <- pluginID; return nil })
 	service.SetAfterSuccess(func(context.Context, string) error { return errors.New("template finalization failed") })
 	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
@@ -290,8 +290,8 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 
 	stopped := make(chan string, 1)
 	resumed := make(chan string, 1)
-	service.SetBeforeReplace(func(_ context.Context, pluginID string) { stopped <- pluginID })
-	service.SetAfterRollback(func(_ context.Context, pluginID string) { resumed <- pluginID })
+	service.SetBeforeReplace(func(_ context.Context, pluginID string) error { stopped <- pluginID; return nil })
+	service.SetAfterRollback(func(_ context.Context, pluginID string) error { resumed <- pluginID; return nil })
 	service.deps.waitRename = func(context.Context) error { return nil }
 	service.deps.rename = func(source, target string) error {
 		if filepath.Base(source) == "candidate" && filepath.Base(target) == "rename-rollback-weather" {

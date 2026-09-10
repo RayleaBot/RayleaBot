@@ -92,7 +92,7 @@ type InstallService struct {
 	deps        installerDeps
 
 	afterSuccess            func(context.Context, string) error
-	afterRollback           func(context.Context, string)
+	afterRollback           func(context.Context, string) error
 	beforeReplace           plugins.StopPluginFunc
 	validateRenderTemplates func(plugins.Snapshot) error
 	wg                      sync.WaitGroup
@@ -218,8 +218,12 @@ func InstallErrorCode(err error) string {
 	return ""
 }
 
-func (s *InstallService) failTask(taskID, code, message, summary string) {
+func (s *InstallService) failTask(taskID, code, message, summary string, details ...map[string]any) {
 	now := s.deps.now().UTC()
+	var errorDetails map[string]any
+	if len(details) > 0 {
+		errorDetails = details[0]
+	}
 	s.registry.Update(taskID, tasks.Update{
 		Status:     taskStatusPtr(tasks.StatusFailed),
 		Summary:    stringPtr(summary),
@@ -227,14 +231,19 @@ func (s *InstallService) failTask(taskID, code, message, summary string) {
 		Error: &tasks.ErrorSummary{
 			Code:    code,
 			Message: message,
+			Details: errorDetails,
 		},
 	})
 }
 
 func (s *InstallService) dropCancel(taskID string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	cancel := s.cancels[taskID]
 	delete(s.cancels, taskID)
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func stringPtr(value string) *string {
@@ -462,7 +471,7 @@ func (s *InstallService) SetBeforeReplace(fn plugins.StopPluginFunc) {
 	s.beforeReplace = fn
 }
 
-func (s *InstallService) SetAfterRollback(fn func(context.Context, string)) {
+func (s *InstallService) SetAfterRollback(fn func(context.Context, string) error) {
 	s.afterRollback = fn
 }
 
@@ -526,15 +535,18 @@ func (s *InstallService) run() {
 
 func (s *InstallService) execute(job installJob) {
 	defer s.dropCancel(job.taskID)
-	if job.inspection != nil {
-		defer job.inspection.cleanup()
-	}
 
 	snapshot, ok := s.registry.Get(job.taskID)
 	if !ok {
+		if job.inspection != nil {
+			job.inspection.cleanup()
+		}
 		return
 	}
 	if snapshot.Status == tasks.StatusCancelled {
+		if job.inspection != nil {
+			job.inspection.cleanup()
+		}
 		return
 	}
 
@@ -551,6 +563,28 @@ func (s *InstallService) execute(job installJob) {
 	})
 
 	err := s.runInstall(job)
+	var operationErr *operationError
+	errors.As(err, &operationErr)
+	// A failed rollback may leave the only good package in workingRoot/previous.
+	// Its owner must retain the directory until recovery, not remove it on return.
+	if job.inspection != nil && (operationErr == nil || operationErr.state != "rollback_failed") {
+		if cleanupErr := s.deps.removeAll(job.inspection.workingRoot); cleanupErr != nil {
+			if operationErr == nil {
+				state := "unchanged"
+				if err == nil {
+					state = "committed"
+				}
+				operationErr = &operationError{state: state}
+				operationErr.add("install", err)
+			}
+			operationErr.add("cleanup", cleanupErr)
+			err = operationErr
+		}
+	}
+	if operationErr != nil && (operationErr.state == "rollback_failed" || operationErr.state == "committed" || len(operationErr.failures) > 1 || (!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded))) {
+		s.failTask(job.taskID, codePluginInstallFailed, operationErr.message(), "插件“"+pluginName+"”："+operationErr.message(), operationErr.details())
+		return
+	}
 	switch {
 	case err == nil:
 		now := s.deps.now().UTC()
@@ -854,60 +888,103 @@ func (s *InstallService) runInstall(job installJob) error {
 		}
 		previousMetadata, hadPreviousMetadata = all[candidateSnapshot.PluginID]
 	}
-	resumePrevious := func() {
+	resumePrevious := func(ctx context.Context) error {
 		if s.afterRollback != nil {
-			s.afterRollback(context.WithoutCancel(job.ctx), candidateSnapshot.PluginID)
+			return s.afterRollback(ctx, candidateSnapshot.PluginID)
 		}
+		return nil
 	}
 	if replacing {
 		if s.beforeReplace != nil {
-			s.beforeReplace(job.ctx, candidateSnapshot.PluginID)
+			if err := s.beforeReplace(job.ctx, candidateSnapshot.PluginID); err != nil {
+				failure := &operationError{state: "unchanged"}
+				failure.add("stop", err)
+				return failure
+			}
 		}
 		if err := s.renameInstallPath(job.ctx, finalTarget, previousTarget); err != nil {
-			resumePrevious()
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
+			failure := &operationError{state: "rolled_back"}
+			failure.add("backup", err)
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(job.ctx), s.timeout)
+			defer cancel()
+			if resumeErr := resumePrevious(cleanupCtx); resumeErr != nil {
+				failure.state = "rollback_failed"
+				failure.add("rollback_finalize", resumeErr)
 			}
-			return installError(codePluginInstallFailed, "备份当前插件版本失败", "插件更新未写入")
+			return failure
 		}
 	}
 
 	if err := s.renameInstallPath(job.ctx, candidateDir, finalTarget); err != nil {
+		failure := &operationError{state: "unchanged"}
+		failure.add("install", err)
 		if replacing {
-			_ = s.renameInstallPath(context.WithoutCancel(job.ctx), previousTarget, finalTarget)
-			resumePrevious()
+			failure.state = "rolled_back"
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(job.ctx), s.timeout)
+			defer cancel()
+			if restoreErr := s.renameInstallPath(cleanupCtx, previousTarget, finalTarget); restoreErr != nil {
+				failure.add("rollback_files", restoreErr)
+			} else {
+				failure.add("rollback_finalize", resumePrevious(cleanupCtx))
+			}
+			if len(failure.failures) > 1 {
+				failure.state = "rollback_failed"
+			}
 		}
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return err
-		}
-		return installError(codePluginInstallFailed, "写入插件安装目录失败", "写入插件安装目录失败")
+		return failure
 	}
 
-	rollback := func() {
-		cleanupCtx := context.WithoutCancel(job.ctx)
-		if !exists && job.request.SourceType == "development" && s.repository != nil {
-			_ = s.repository.DeleteDesiredState(cleanupCtx, candidateSnapshot.PluginID)
+	rollback := func(stage string, cause error) error {
+		failure := &operationError{state: "rolled_back"}
+		failure.add(stage, cause)
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(job.ctx), s.timeout)
+		defer cancel()
+		// A failed initializer can still own a process. Stop it before touching
+		// its executable; stop failure retains both packages for recovery.
+		if s.beforeReplace != nil {
+			if stopErr := s.beforeReplace(cleanupCtx, candidateSnapshot.PluginID); stopErr != nil {
+				failure.state = "rollback_failed"
+				failure.add("rollback_stop", stopErr)
+				return failure
+			}
 		}
-		_ = s.deps.removeAll(finalTarget)
-		if replacing {
-			_ = s.renameInstallPath(cleanupCtx, previousTarget, finalTarget)
+		if !exists && job.request.SourceType == "development" && s.repository != nil {
+			failure.add("rollback_desired_state", s.repository.DeleteDesiredState(cleanupCtx, candidateSnapshot.PluginID))
+		}
+		filesRestored := true
+		if removeErr := s.deps.removeAll(finalTarget); removeErr != nil {
+			failure.add("rollback_files", removeErr)
+			filesRestored = false
+		} else if replacing {
+			if restoreErr := s.renameInstallPath(cleanupCtx, previousTarget, finalTarget); restoreErr != nil {
+				failure.add("rollback_files", restoreErr)
+				filesRestored = false
+			}
 		}
 		if s.packageRepo != nil {
 			if hadPreviousMetadata {
-				_ = s.packageRepo.SavePackageMetadata(cleanupCtx, previousMetadata)
+				failure.add("rollback_metadata", s.packageRepo.SavePackageMetadata(cleanupCtx, previousMetadata))
 			} else {
-				_ = s.packageRepo.DeletePackageMetadata(cleanupCtx, candidateSnapshot.PluginID)
+				failure.add("rollback_metadata", s.packageRepo.DeletePackageMetadata(cleanupCtx, candidateSnapshot.PluginID))
 			}
 		}
-		_ = s.refreshCatalog(cleanupCtx, candidateSnapshot.PluginID)
-		resumePrevious()
+		catalogErr := s.refreshCatalog(cleanupCtx, candidateSnapshot.PluginID)
+		failure.add("rollback_catalog", catalogErr)
+		// Never restart the candidate or use a stale catalog when restoration
+		// failed. The failed task retains recovery material instead.
+		if filesRestored && catalogErr == nil {
+			failure.add("rollback_finalize", resumePrevious(cleanupCtx))
+		}
+		if len(failure.failures) > 1 {
+			failure.state = "rollback_failed"
+		}
+		return failure
 	}
 
 	if s.packageRepo != nil {
 		metadata.InstalledAt = s.deps.now().UTC()
 		if err := s.packageRepo.SavePackageMetadata(job.ctx, metadata); err != nil {
-			rollback()
-			return installError(codePluginInstallFailed, "写入插件安装元数据失败", "写入插件安装元数据失败")
+			return rollback("metadata", err)
 		}
 	}
 
@@ -918,13 +995,11 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	if !exists && job.request.SourceType == "development" && s.repository != nil {
 		if err := s.repository.SaveDesiredState(job.ctx, candidateSnapshot.PluginID, plugins.DesiredStateEnabled, s.deps.now().UTC()); err != nil {
-			rollback()
-			return err
+			return rollback("desired_state", err)
 		}
 	}
 	if err := s.refreshCatalog(job.ctx, candidateSnapshot.PluginID); err != nil {
-		rollback()
-		return err
+		return rollback("catalog", err)
 	}
 
 	s.registry.Update(job.taskID, tasks.Update{
@@ -934,11 +1009,7 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	if s.afterSuccess != nil {
 		if err := s.afterSuccess(job.ctx, candidateSnapshot.PluginID); err != nil {
-			rollback()
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return err
-			}
-			return installError(codePluginInstallFailed, err.Error(), "插件安装后处理失败")
+			return rollback("finalize", err)
 		}
 	}
 

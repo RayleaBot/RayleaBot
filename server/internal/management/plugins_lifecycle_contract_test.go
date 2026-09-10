@@ -98,25 +98,42 @@ func TestUninstallPluginReturnsTaskAccepted(t *testing.T) {
 	}
 }
 
-func TestUninstallPluginRejectsNotFound(t *testing.T) {
+func TestUninstallPluginAcceptsAbsentPackageCleanupRetry(t *testing.T) {
 	t.Parallel()
 
 	catalog := plugincatalog.New(nil)
-	uninstaller := &stubUninstallCoordinator{taskID: "should-not-reach"}
+	uninstaller := &stubUninstallCoordinator{taskID: "cleanup-retry"}
 	router := pluginRouterWithController(t, catalog, nil, uninstaller)
 
 	request := httptest.NewRequest("DELETE", "/api/plugins/nonexistent", nil)
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 
-	if recorder.Code != 404 {
-		t.Fatalf("unexpected status: got %d want 404", recorder.Code)
+	if recorder.Code != 202 {
+		t.Fatalf("unexpected status: got %d want 202", recorder.Code)
 	}
-
 	body := decodeBody(t, recorder.Body.Bytes())
-	errorBody := body["error"].(map[string]any)
-	if errorBody["code"] != "platform.resource_not_found" {
-		t.Fatalf("unexpected error code: %v", errorBody["code"])
+	if body["task_id"] != "cleanup-retry" || uninstaller.pluginID != "nonexistent" {
+		t.Fatalf("cleanup retry was not accepted: %#v", body)
+	}
+}
+
+func TestUninstallPluginRejectsUnsafeIdentifierBeforeAcceptance(t *testing.T) {
+	t.Parallel()
+	for _, id := range []string{"..", "invalid!", ".hidden", "trailing.", "UPPER"} {
+		t.Run(id, func(t *testing.T) {
+			uninstaller := &stubUninstallCoordinator{taskID: "must-not-run"}
+			router := pluginRouterWithController(t, plugincatalog.New(nil), nil, uninstaller)
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, httptest.NewRequest("DELETE", "/api/plugins/"+id, nil))
+			if recorder.Code != 400 || uninstaller.pluginID != "" {
+				t.Fatalf("unsafe ID admitted: status=%d plugin=%q", recorder.Code, uninstaller.pluginID)
+			}
+			body := decodeBody(t, recorder.Body.Bytes())
+			if body["error"].(map[string]any)["code"] != "platform.invalid_request" {
+				t.Fatalf("invalid identifier response = %#v", body)
+			}
+		})
 	}
 }
 

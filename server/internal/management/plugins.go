@@ -133,7 +133,7 @@ func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogVie
 	router.Post("/api/plugins/{plugin_id}/enable", newEnableHandler(catalog, controller))
 	router.Post("/api/plugins/{plugin_id}/disable", newDisableHandler(catalog, controller))
 	router.Post("/api/plugins/{plugin_id}/reload", newReloadHandler(catalog, controller))
-	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(catalog, uninstaller))
+	router.Delete("/api/plugins/{plugin_id}", newUninstallHandler(uninstaller))
 }
 
 func registerPluginDeadLetterRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController) {
@@ -362,12 +362,11 @@ func writePluginDetailResponse(w http.ResponseWriter, catalog plugins.CatalogVie
 	writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
 }
 
-func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoordinator) http.HandlerFunc {
+func newUninstallHandler(coordinator UninstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
-		_, ok := catalog.Get(pluginID)
-		if !ok {
-			writeError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		if !plugins.ValidPluginID(pluginID) {
+			writeError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		if coordinator == nil {
@@ -376,6 +375,10 @@ func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoord
 		}
 		taskID, err := coordinator.Accept(r.Context(), pluginID)
 		if err != nil {
+			if errors.Is(err, plugins.ErrInvalidPluginID) {
+				writeError(w, r, errorcodes.PlatformInvalidRequest, nil)
+				return
+			}
 			if errors.Is(err, tasks.ErrQueueFull) {
 				writeError(w, r, errorcodes.PlatformTaskQueueFull, nil)
 				return

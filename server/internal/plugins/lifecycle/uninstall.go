@@ -43,7 +43,7 @@ type UninstallService struct {
 	cancels map[string]context.CancelFunc
 	deps    uninstallerDeps
 
-	afterSuccess func(context.Context, string)
+	afterSuccess func(context.Context, string) error
 }
 
 type uninstallerDeps struct {
@@ -128,11 +128,11 @@ func (s *UninstallService) SetStopPlugin(fn plugins.StopPluginFunc) {
 	s.stopPlugin = fn
 }
 
-func (s *UninstallService) SetAfterSuccess(fn func(context.Context, string)) {
+func (s *UninstallService) SetAfterSuccess(fn func(context.Context, string) error) {
 	s.afterSuccess = fn
 }
 
-func (s *UninstallService) failTask(taskID, code, message, summary string) {
+func (s *UninstallService) failTask(taskID, code, message, summary string, details map[string]any) {
 	now := s.deps.now().UTC()
 	s.registry.Update(taskID, tasks.Update{
 		Status:     taskStatusPtr(tasks.StatusFailed),
@@ -141,17 +141,25 @@ func (s *UninstallService) failTask(taskID, code, message, summary string) {
 		Error: &tasks.ErrorSummary{
 			Code:    code,
 			Message: message,
+			Details: details,
 		},
 	})
 }
 
 func (s *UninstallService) dropCancel(taskID string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	cancel := s.cancels[taskID]
 	delete(s.cancels, taskID)
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (s *UninstallService) Accept(_ context.Context, pluginID string) (string, error) {
+	if !plugins.ValidPluginID(pluginID) {
+		return "", plugins.ErrInvalidPluginID
+	}
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
@@ -225,61 +233,14 @@ func (s *UninstallService) execute(job uninstallJob) {
 		Summary:   stringPtr("卸载插件“" + job.pluginID + "”"),
 		StartedAt: &startedAt,
 	})
-
-	if s.stopPlugin != nil {
-		s.stopPlugin(job.ctx, job.pluginID)
-	}
-
-	if err := job.ctx.Err(); err != nil {
-		s.failTask(job.taskID, codePluginUninstallFailed, "插件卸载已取消", "插件卸载已取消")
-		return
-	}
-
-	s.registry.Update(job.taskID, tasks.Update{
-		Progress: intPtr(30),
-		Summary:  stringPtr("清理数据库记录"),
-	})
-
-	if s.repository != nil {
-		if err := s.repository.DeleteDesiredState(job.ctx, job.pluginID); err != nil {
-			s.logger.Warn("卸载插件 "+job.pluginID+" 时删除启用状态记录失败，卸载继续执行，可能残留启用状态记录。原因："+err.Error(), "plugin_id", job.pluginID, "err", err.Error())
+	if err := s.runUninstall(job); err != nil {
+		var failure *operationError
+		if errors.As(err, &failure) {
+			s.failTask(job.taskID, codePluginUninstallFailed, failure.message(), failure.message(), failure.details())
+		} else {
+			s.failTask(job.taskID, codePluginUninstallFailed, "插件卸载失败", "插件卸载失败", nil)
 		}
-	}
-
-	if s.packageRepo != nil {
-		if err := s.packageRepo.DeletePackageMetadata(job.ctx, job.pluginID); err != nil {
-			s.logger.Warn("卸载插件 "+job.pluginID+" 时删除安装包元数据失败；卸载继续执行，但插件列表可能暂时保留旧版本信息。原因："+err.Error(), "plugin_id", job.pluginID, "err", err.Error())
-		}
-	}
-
-	s.registry.Update(job.taskID, tasks.Update{
-		Progress: intPtr(50),
-		Summary:  stringPtr("删除插件安装目录"),
-	})
-
-	pluginDir := filepath.Join(s.installedRoot, job.pluginID)
-	if _, err := s.deps.stat(pluginDir); err == nil {
-		if err := s.deps.removeAll(pluginDir); err != nil {
-			s.failTask(job.taskID, codePluginUninstallFailed, "删除插件安装目录失败", "删除插件安装目录失败")
-			return
-		}
-	}
-
-	s.registry.Update(job.taskID, tasks.Update{
-		Progress: intPtr(80),
-		Summary:  stringPtr("刷新插件目录索引"),
-	})
-
-	if err := s.refreshCatalog(job.ctx); err != nil {
-		s.failTask(job.taskID, codePluginUninstallFailed, "刷新插件目录索引失败", "刷新插件目录索引失败")
 		return
-	}
-	if err := job.ctx.Err(); err != nil {
-		s.failTask(job.taskID, codePluginUninstallFailed, "插件卸载已取消", "插件卸载已取消")
-		return
-	}
-	if s.afterSuccess != nil {
-		s.afterSuccess(job.ctx, job.pluginID)
 	}
 
 	now := s.deps.now().UTC()
@@ -292,6 +253,73 @@ func (s *UninstallService) execute(job uninstallJob) {
 			Summary: "插件已卸载",
 		},
 	})
+}
+
+func (s *UninstallService) runUninstall(job uninstallJob) error {
+	failure := &operationError{state: "unchanged"}
+	if err := job.ctx.Err(); err != nil {
+		failure.add("stop", err)
+		return failure
+	}
+
+	if s.stopPlugin != nil {
+		if err := s.stopPlugin(job.ctx, job.pluginID); err != nil {
+			failure.add("stop", err)
+			return failure
+		}
+	}
+
+	if err := job.ctx.Err(); err != nil {
+		failure.add("stop", err)
+		return failure
+	}
+
+	s.registry.Update(job.taskID, tasks.Update{
+		Progress: intPtr(30),
+		Summary:  stringPtr("删除插件安装目录"),
+	})
+
+	pluginDir := filepath.Join(s.installedRoot, job.pluginID)
+	if _, err := s.deps.stat(pluginDir); err == nil {
+		if err := s.deps.removeAll(pluginDir); err != nil {
+			failure.state = "partial"
+			failure.add("remove", err)
+			return failure
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		failure.add("remove", err)
+		return failure
+	}
+
+	// File removal is irreversible. Complete independent cleanup with its own
+	// budget and report every failure without pretending the package returned.
+	failure.state = "committed"
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(job.ctx), 5*time.Minute)
+	defer cancel()
+	s.registry.Update(job.taskID, tasks.Update{
+		Progress: intPtr(50),
+		Summary:  stringPtr("清理数据库记录"),
+	})
+	if s.repository != nil {
+		failure.add("desired_state", s.repository.DeleteDesiredState(cleanupCtx, job.pluginID))
+	}
+	if s.packageRepo != nil {
+		failure.add("metadata", s.packageRepo.DeletePackageMetadata(cleanupCtx, job.pluginID))
+	}
+
+	s.registry.Update(job.taskID, tasks.Update{
+		Progress: intPtr(80),
+		Summary:  stringPtr("刷新插件目录索引"),
+	})
+
+	failure.add("catalog", s.refreshCatalog(cleanupCtx))
+	if s.afterSuccess != nil {
+		failure.add("finalize", s.afterSuccess(cleanupCtx, job.pluginID))
+	}
+	if failure.cause != nil {
+		return failure
+	}
+	return nil
 }
 
 func (s *UninstallService) refreshCatalog(ctx context.Context) error {
