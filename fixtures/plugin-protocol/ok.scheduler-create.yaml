@@ -15,6 +15,7 @@ frames:
     request_id: action-scheduler-create-1
     status: success
     data:
-      job_id: fixture-job
+      task_id: daily-refresh
+      next_run: '2026-09-11T00:00:00Z'
 expect:
   valid: true
