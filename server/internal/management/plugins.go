@@ -2,9 +2,7 @@ package management
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -185,7 +183,7 @@ func buildPluginDetailResponse(catalog plugins.CatalogView, snapshot plugins.Sna
 func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallInspectionRequest
-		if err := decodeStrictJSON(r, &req); err != nil || !validPluginInstallSource(req.SourceType, req.Source) {
+		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || !validPluginInstallSource(req.SourceType, req.Source) {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -243,7 +241,7 @@ func buildInstallInspectionResponse(inspection plugins.InstallInspection) plugin
 func newInstallHandler(catalog plugins.CatalogView, installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
-		if err := decodeStrictJSON(r, &req); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -278,21 +276,6 @@ func newInstallHandler(catalog plugins.CatalogView, installer plugins.InstallCoo
 
 func validPluginInstallSource(sourceType, source string) bool {
 	return (sourceType == "local_zip" || sourceType == "local_directory" || sourceType == "remote_url") && strings.TrimSpace(source) != ""
-}
-
-func decodeStrictJSON(r *http.Request, destination any) error {
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		if err == nil {
-			return errors.New("request body must contain exactly one JSON value")
-		}
-		return err
-	}
-	return nil
 }
 
 func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) {

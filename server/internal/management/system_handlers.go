@@ -2,7 +2,6 @@ package management
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -219,7 +218,7 @@ func (h *SystemHandlers) HandleSystemRuntimeBootstrap() http.HandlerFunc {
 			return
 		}
 
-		req, err := decodeRuntimeBootstrapRequest(r)
+		req, err := decodeRuntimeBootstrapRequest(w, r)
 		if err != nil {
 			httpapi.WriteError(w, r, http.StatusBadRequest, systemCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
@@ -249,20 +248,9 @@ type runtimeBootstrapRequest struct {
 	Resources []string `json:"resources,omitempty"`
 }
 
-func decodeRuntimeBootstrapRequest(r *http.Request) (runtimeBootstrapRequest, error) {
-	if r == nil || r.Body == nil {
-		return runtimeBootstrapRequest{}, nil
-	}
+func decodeRuntimeBootstrapRequest(w http.ResponseWriter, r *http.Request) (runtimeBootstrapRequest, error) {
 	var req runtimeBootstrapRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return runtimeBootstrapRequest{}, err
-		}
-		if err == io.EOF {
-			return runtimeBootstrapRequest{}, nil
-		}
+	if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil && !errors.Is(err, io.EOF) {
 		return runtimeBootstrapRequest{}, err
 	}
 	return req, nil

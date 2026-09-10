@@ -5,6 +5,15 @@ info:
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
+    Management JSON request bodies, excluding adapter webhooks, must contain
+    exactly one JSON object. Unknown fields follow each schema's
+    additionalProperties rule; plugin settings values and management action
+    payloads retain their arbitrary nested JSON values. The body limit is
+    1048576 bytes, including whitespace, except development plugin sync which
+    is limited to 16384 bytes. Empty bodies are accepted only when requestBody
+    is optional. Invalid JSON, non-object values, trailing content, unknown
+    fields in closed objects, and oversized bodies return HTTP 400 with
+    platform.invalid_request after the route's authentication checks.
 x-fixtures:
   - fixtures/web-api/ok.system-task-status.yaml
   - fixtures/web-api/edge.system-task-missing.yaml

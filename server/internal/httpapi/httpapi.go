@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -283,10 +284,30 @@ func WriteJSON(w http.ResponseWriter, statusCode int, body any) {
 }
 
 func DecodeStrictJSON(w http.ResponseWriter, r *http.Request, target any, maxBytes int64) error {
+	if r == nil || r.Body == nil {
+		return io.EOF
+	}
 	reader := http.MaxBytesReader(w, r.Body, maxBytes)
 	defer func(release func() error) { _ = release() }(reader.Close)
 
-	decoder := json.NewDecoder(reader)
+	buffered := bufio.NewReader(reader)
+	for {
+		first, err := buffered.ReadByte()
+		if err != nil {
+			return err
+		}
+		if first == ' ' || first == '\t' || first == '\r' || first == '\n' {
+			continue
+		}
+		if first != '{' {
+			return errors.New("request body must contain a JSON object")
+		}
+		if err := buffered.UnreadByte(); err != nil {
+			return err
+		}
+		break
+	}
+	decoder := json.NewDecoder(buffered)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return err

@@ -2,7 +2,6 @@ package management
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
@@ -76,9 +75,7 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsPut() http.HandlerFunc 
 		}
 
 		var req pluginSettingsRequest
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil || req.Values == nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || req.Values == nil {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}

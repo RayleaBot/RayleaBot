@@ -1,10 +1,6 @@
 package management
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"io"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -43,8 +39,8 @@ func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 			return
 		}
 
-		req, err := decodeRecoveryConfirmRequest(r)
-		if err != nil {
+		var req recoveryConfirmRequest
+		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			httpapi.WriteError(w, r, http.StatusBadRequest, systemCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -74,22 +70,6 @@ func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 
 		httpapi.WriteJSON(w, http.StatusAccepted, taskAcceptedResponse{TaskID: taskID})
 	}
-}
-
-func decodeRecoveryConfirmRequest(r *http.Request) (recoveryConfirmRequest, error) {
-	if r == nil || r.Body == nil {
-		return recoveryConfirmRequest{}, io.EOF
-	}
-	var req recoveryConfirmRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return recoveryConfirmRequest{}, err
-		}
-		return recoveryConfirmRequest{}, err
-	}
-	return req, nil
 }
 
 func normalizeRecoveryConfirmRequest(req recoveryConfirmRequest) ([]string, string, bool) {

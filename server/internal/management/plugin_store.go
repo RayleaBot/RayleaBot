@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
@@ -105,7 +106,7 @@ func (routes PluginStoreRoutes) detail() http.HandlerFunc {
 func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInspectionRequest
-		if err := decodeStrictJSON(r, &request); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -128,7 +129,7 @@ func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
 func (routes PluginStoreRoutes) install() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInstallRequest
-		if err := decodeStrictJSON(r, &request); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -155,7 +156,7 @@ func (routes PluginStoreRoutes) listSources() http.HandlerFunc {
 func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input pluginmarket.SourceInput
-		if err := decodeStrictJSON(r, &input); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -171,7 +172,7 @@ func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 func (routes PluginStoreRoutes) updateSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input pluginmarket.SourceInput
-		if err := decodeStrictJSON(r, &input); err != nil {
+		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}

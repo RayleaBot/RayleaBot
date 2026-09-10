@@ -97,7 +97,7 @@
 | [ ] | P01 | P0/S | CI 输入分类与基线 | — | 待验收 | 分类/结构/Windows/lint 本地通过；Linux race 待 CI |
 | [ ] | P02 | P0/M | 监督器与资源关闭 | P01 | 进行中 | 首错、完整关闭与快照任务回收 |
 | [ ] | P03 | P0/M | 多实例路由与事件补全 | P01 | 进行中 | 动作 selector 与元数据路由；集合摘要后续 |
-| [ ] | P04 | P0/M | 安装失败传播与 HTTP 输入边界 | P01 | 进行中 | 先实施 HTTP 子任务 |
+| [ ] | P04 | P0/M | 安装失败传播与 HTTP 输入边界 | P01 | 进行中 | HTTP 子任务完成；安装后置/回滚待实施 |
 | [ ] | P05 | P1/L | 错误码与结构化失败语义 | P01 | 未开始 | — |
 | [ ] | P06 | P1/L | 契约、样例与校验覆盖 | P01 | 未开始 | — |
 | [ ] | P07 | P1/L | 错误目录、协议与版本生成链 | P05、P06 | 未开始 | — |
@@ -521,7 +521,8 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-09-10 | 输入评审归档 | 完成 | `2c358c93` | 三份评审，修正后端文档相对链接 | 文档链接通过；提交路径仅三份 | 无实现改动 |
 | 2026-09-10 | v2 核实与编制 | 完成 | `77d7a482` | 采用尚未分发或全新分发前提；统一方案、台账与验收 | 见 §6.1 | 实施状态见 §3 |
-| 2026-09-10 | P01 分类、结构与 PR 门禁 | 待验收 | 本提交 | 补 go.work.sum/SQL 登记分类；重命名两端均触发；结构规则覆盖子包；PR 增 lint、核心 race 和 Windows 必需 job | Python scripts/tests：19 项，16 通过、3 项 POSIX 测试按平台跳过；分类自测/结构/architecture 通过；核心 lint 0 issues；Windows lifecycle/releaseupdate/filelock 通过；CI YAML/needs 与文档链接通过 | 本机 windows、CGO_ENABLED=0 且无 C 编译器；Linux race/托管 CI 尚未运行 |
+| 2026-09-10 | P01 分类、结构与 PR 门禁 | 待验收 | `235b2870` | 补 go.work.sum/SQL 登记分类；重命名两端均触发；结构规则覆盖子包；PR 增 lint、核心 race 和 Windows 必需 job | Python scripts/tests：19 项，16 通过、3 项 POSIX 测试按平台跳过；分类自测/结构/architecture 通过；核心 lint 0 issues；Windows lifecycle/releaseupdate/filelock 通过；CI YAML/needs 与文档链接通过 | Windows 默认 CGO_ENABLED=0；已定位独立 gcc，race 另行验证；托管 CI 尚未运行 |
+| 2026-09-10 | P04.HTTP 管理请求体边界 | 完成 | 本提交 | 13 入口统一限额/单对象解码；development 16 KiB，其余 1 MiB；可选空体与动态 JSON 保持正式语义 | management/httpapi 包测试；services 的 PluginSettings/Secrets/Management 定向测试；13×13 输入回归；strict 通过；Web/Launcher OpenAPI 临时生成与原文件哈希一致 | P04 安装后置和回滚传播尚未实施 |
 
 P01 依赖基线：`go list` 枚举 Server 66 个包，其中 internal 59 个；app/management 直接依赖 internal 包分别为 45/27。生成链仍为 runtime-schema/bridge、OpenAPI/WS、Wails bindings、sqlc；P01 未改变生成输入。上述数量仅记录当前结构，不作为整改目标。
 

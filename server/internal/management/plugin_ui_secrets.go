@@ -2,7 +2,6 @@ package management
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"regexp"
 	"sort"
@@ -44,9 +43,7 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsPut() http.HandlerFunc {
 			return
 		}
 		var req pluginSecretsRequest
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil || len(req.Values) == 0 {
+		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || len(req.Values) == 0 {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}
@@ -88,9 +85,7 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsDelete() http.HandlerFun
 			return
 		}
 		var req pluginSecretsDeleteRequest
-		decoder := json.NewDecoder(r.Body)
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil || len(req.Keys) == 0 {
+		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || len(req.Keys) == 0 {
 			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 			return
 		}

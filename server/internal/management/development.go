@@ -2,8 +2,6 @@ package management
 
 import (
 	"context"
-	"encoding/json"
-	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -50,14 +48,11 @@ func (h DevelopmentRoutes) sync(w http.ResponseWriter, r *http.Request) {
 		Artifact string `json:"artifact"`
 		Source   string `json:"source"`
 	}
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&input); err != nil {
+	if err := httpapi.DecodeStrictJSON(w, r, &input, 16*1024); err != nil {
 		h.invalid(w, r)
 		return
 	}
-	var extra any
-	if decoder.Decode(&extra) != io.EOF || !filepath.IsAbs(input.Source) || len(input.Source) > 4096 || len(input.Artifact) > 4096 || !filepath.IsAbs(input.Artifact) {
+	if !filepath.IsAbs(input.Source) || len(input.Source) > 4096 || len(input.Artifact) > 4096 || !filepath.IsAbs(input.Artifact) {
 		h.invalid(w, r)
 		return
 	}
