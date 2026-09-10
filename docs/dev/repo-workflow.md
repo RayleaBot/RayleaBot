@@ -51,3 +51,9 @@ dist/
 源码运行缺少有效 `build_info.json` 时，诊断和备份记录 core 版本为 `unknown`。开发同步仍检查 artifact、平台和协议握手，但无法确认最低 core 版本；普通安装和商店安装要求可验证的安装版本，不把开发目录当作固定发布版本。
 
 独立插件仓库、本地工作区和启动模式见 [插件商店与独立开发](../plugin/store-and-development.md)。
+
+## 显式开发工具路径
+
+POSIX 启动入口允许 `RAYLEA_NODE_EXECUTABLE=/absolute/path/to/node ./start.sh`；路径必须是可执行的绝对文件路径，仍检查 `.tool-versions` 中的固定版本。含空格路径在赋值时加引号。无效显式路径会报错，不改用 PATH 中的其他版本。
+
+Server 与 Launcher 开发脚本共用 `scripts/process-invocation.mjs` 解析 Go：优先 `RAYLEA_GO_EXECUTABLE` 的绝对路径，再查 PATH，Windows 再查 Program Files 下的 Go。启动参数与子进程退出码继续传回调用方。

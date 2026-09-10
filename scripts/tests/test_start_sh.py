@@ -117,5 +117,31 @@ class StartShTests(unittest.TestCase):
             self.assertFalse(calls_path.exists())
 
 
+    def test_explicit_node_path_with_spaces_overrides_path(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="raylea node path ") as tmpdir:
+            workspace = Path(tmpdir)
+            self._prepare_workspace(workspace)
+            bin_dir, calls_path = self._write_fake_node(workspace)
+            env = os.environ.copy()
+            env["RAYLEA_NODE_EXECUTABLE"] = str(bin_dir / "node")
+            result = subprocess.run(["sh", "start.sh", "--dry-run"], cwd=workspace, env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, msg=result.stdout + result.stderr)
+            self.assertIn("ARGS=scripts/start-dev.mjs --dry-run", calls_path.read_text(encoding="utf-8"))
+
+    def test_invalid_explicit_node_does_not_silently_use_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            self._prepare_workspace(workspace)
+            bin_dir, calls_path = self._write_fake_node(workspace)
+            for value in ("relative/node", str(workspace / "missing node"), str(bin_dir)):
+                env = os.environ.copy()
+                env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
+                env["RAYLEA_NODE_EXECUTABLE"] = value
+                result = subprocess.run(["sh", "start.sh"], cwd=workspace, env=env, capture_output=True, text=True, timeout=30)
+                self.assertEqual(result.returncode, 1, msg=result.stdout + result.stderr)
+                self.assertIn("RAYLEA_NODE_EXECUTABLE", result.stderr)
+                self.assertFalse(calls_path.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

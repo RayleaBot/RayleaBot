@@ -1,7 +1,8 @@
+import { LAUNCHER_CONTROL_TOKEN_HEADER } from "./start-dev-support.mjs";
 export async function developmentRequest(baseURL, token, route, body, { fetchImpl = fetch, timeoutMs = 55_000 } = {}) {
   const response = await fetchImpl(new URL(route, `${baseURL.replace(/\/$/, '')}/`), {
     method: body === undefined ? 'GET' : 'POST',
-    headers: { 'X-Raylea-Launcher-Control': token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    headers: { [LAUNCHER_CONTROL_TOKEN_HEADER]: token, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
     redirect: 'error',

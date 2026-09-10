@@ -1,3 +1,4 @@
+import { LAUNCHER_CONTROL_TOKEN_HEADER } from "./start-dev-support.mjs";
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
@@ -52,7 +53,7 @@ async function stop() {
   if (stopped || child.exitCode !== null || child.signalCode !== null) return;
   stopped = true;
   try {
-    const response = await fetch(`${base}/api/launcher/shutdown`, { method: "POST", headers: { "X-Raylea-Launcher-Control": controlToken }, signal: AbortSignal.timeout(5000) });
+    const response = await fetch(`${base}/api/launcher/shutdown`, { method: "POST", headers: { [LAUNCHER_CONTROL_TOKEN_HEADER]: controlToken }, signal: AbortSignal.timeout(5000) });
     report.shutdownStatus = response.status;
   } catch { report.shutdownStatus = "unavailable"; }
   const result = await Promise.race([exited, sleep(10000).then(() => null)]);

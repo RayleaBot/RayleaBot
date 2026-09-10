@@ -46,7 +46,8 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 ## 工具链获取
 
-- 仓库根目录的 `.tool-versions` 只固定 Go、Node.js、Python 与 pnpm，可由 mise 或 asdf 读取。npm 随 Node.js 提供；Corepack 与 sqlc 不在该文件中，由下列独立安装步骤和 doctor 校验覆盖。
+- 仓库根目录的 `.tool-versions` 只固定 Go、Node.js、Python 与 pnpm，可由 mise 或 asdf 读取。npm 随 Node.js 提供；Corepack 与 sqlc 不在该文件中，由下列独立安装步骤和 doctor 校验覆盖。 doctor 从该文件读取四个版本，并核对各 Go module 与 JS package 的版本声明。
+- `python scripts/check-toolchain.py --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 保持完整冻结工具链门禁，版本错误仍失败。
 - `server/go.mod` 的 `go 1.26.6` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 - Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Corepack 单独安装：先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
 - sqlc 固定为 v1.31.1，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`。
@@ -142,7 +143,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | `sdk/go/` | Go 插件 JSONL 客户端、typed local-action helpers 与 artifact 构建器 |
 | `sdk/vue/` | `@rayleabot/plugin-ui` bridge v3 client、composables、主题和 contract 类型 |
 | `.deps/` | Chromium 与 FFmpeg / FFprobe 资源清单，以及按需展开后的资源目录 |
-| `config/` | 默认配置模板与用户配置 |
+| `config/` | 用户配置 |
 | `data/` | SQLite 状态库与运行数据 |
 | `cache/` | 渲染缓存、下载缓存、插件临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |

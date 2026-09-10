@@ -19,7 +19,7 @@ export function createProcessInvocation(command, args, options = {}) {
   return { command, args };
 }
 
-function resolveGoExecutablePath({ platform, env, fileExists }) {
+export function resolveGoExecutablePath({ platform = process.platform, env = process.env, fileExists = fs.existsSync } = {}) {
   const pathApi = platform === "win32" ? path.win32 : path.posix;
   const configuredExecutable = stripQuotes(String(env[GO_EXECUTABLE_ENV] ?? "").trim());
   if (configuredExecutable) {

@@ -3,7 +3,10 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import json
+import tempfile
 import unittest
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +85,50 @@ class CheckToolchainTests(unittest.TestCase):
 
         self.assertEqual(result.status, "ok")
         self.assertEqual(result.detail, "3.14.7")
+
+
+    def test_selected_server_task_does_not_require_frontend_tools(self) -> None:
+        module = load_module()
+        good = module.CheckResult("Go", "ok", module.REQUIRED_GO_VERSION)
+        with mock.patch.object(module, "check_go", return_value=good) as go, mock.patch.object(module, "check_node", side_effect=AssertionError("frontend tool was required")):
+            results = module.run_checks(include_runtime=False, task="server")
+        go.assert_called_once()
+        self.assertFalse(any(result.failed for result in results))
+
+    def test_tool_versions_reject_unpinned_or_duplicate_tools(self) -> None:
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            valid = (REPO_ROOT / ".tool-versions").read_text(encoding="utf-8")
+            for content in (valid + "\ngolang 1.26.6\n", valid.replace("nodejs 26.7.0", "nodejs latest")):
+                (root / ".tool-versions").write_text(content, encoding="utf-8")
+                with self.assertRaises(ValueError):
+                    module.read_tool_versions(root)
+
+    def test_ecosystem_version_drift_is_an_error(self) -> None:
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name in ("server", "launcher", "sdk/go"):
+                target = root / name / "go.mod"
+                target.parent.mkdir(parents=True)
+                target.write_text(f"module fixture\n\ngo {module.TOOL_VERSIONS['golang']}\n", encoding="utf-8")
+            (root / "server/go.mod").write_text("module fixture\n\ngo 1.0.0\n", encoding="utf-8")
+            result = module.check_version_files(("go",), root)
+            self.assertTrue(result.failed)
+            self.assertIn("server", result.detail)
+            for name in ("web", "launcher", "sdk/vue"):
+                target = root / name / "package.json"
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps({"engines": {"node": module.TOOL_VERSIONS["nodejs"]}, "packageManager": "pnpm@1.0.0"}), encoding="utf-8")
+            self.assertTrue(module.check_version_files(("node", "pnpm"), root).failed)
+
+    def test_doctor_finds_macos_app_bundle_without_path_entry(self) -> None:
+        module = load_module()
+        with mock.patch.object(module.platform, "system", return_value="Darwin"), mock.patch.object(module.shutil, "which", return_value=None), mock.patch.object(module.Path, "is_file", return_value=True), mock.patch.object(module.os, "access", return_value=True):
+            result = module.check_chromium()
+        self.assertEqual(result.status, "ok")
+        self.assertIn("Google Chrome.app", result.detail)
 
 
 if __name__ == "__main__":

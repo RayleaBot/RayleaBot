@@ -1,3 +1,4 @@
+import { resolveGoExecutablePath } from "./process-invocation.mjs";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
@@ -1005,28 +1006,6 @@ function createSpawnSpec(command, args) {
     return { command, args };
   }
   throw new Error(`Unsupported child command: ${command}`);
-}
-
-function resolveGoExecutablePath() {
-  const executableName = process.platform === "win32" ? "go.exe" : "go";
-  const candidates = String(process.env.PATH ?? "")
-    .split(path.delimiter)
-    .map((directory) => directory.trim().replace(/^"|"$/g, ""))
-    .filter(Boolean)
-    .map((directory) => path.join(directory, executableName));
-
-  if (process.platform === "win32") {
-    const programFiles = process.env.ProgramFiles?.trim();
-    if (programFiles) {
-      candidates.push(path.join(programFiles, "Go", "bin", executableName));
-    }
-  }
-
-  const executablePath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!executablePath) {
-    throw new Error("Go executable was not found. Run python scripts/check-toolchain.py for installation guidance.");
-  }
-  return executablePath;
 }
 
 function waitForChild(child) {

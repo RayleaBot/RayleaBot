@@ -149,8 +149,7 @@ const SHELL_CHARS = /[|&;<>$(){}[\]`\\]/;
 const URL_PROTOCOL = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 const GLOB_CHARS = /[*?]/;
 const CONFIG_KEY = /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/;
-const KNOWN_COMMANDS = /^(pnpm|npm|go|node|python|git|npx|yarn|tsc|vite|eslint|prettier|sqlc|mkdir|cd|echo|export|unset|env|cat|ls|rm|cp|mv|touch|chmod|chown|curl|wget|ssh|scp|docker|kubectl|make|cmake|gcc|g\+\+|clang|rustc|cargo|pip|pipenv|poetry|conda|java|javac|gradle|mvn|dotnet|php|composer|ruby|gem|bundle|rake|perl|lua|julia|dart|flutter|deno|bun|esbuild|rollup|webpack|parcel|turbo|nx|jest|vitest|mocha|ava|tap|playwright|cypress|pytest|unittest|nose|tox|nox|flake8|black|isort|mypy|pylint|bandit|gofmt|golint|staticcheck|govulncheck|revive|errcheck|ineffassign|misspell|structcheck|varcheck|deadcode|gocyclo|gocognit|interfacer|unconvert|unparam|safesql|lll|wsl|gci|goimports|gofumpt|golines|gomnd|nestif|nilerr|noctx|nolintlint|paralleltest|prealloc|promlinter|rowserrcheck|sqlclosecheck|stylecheck|tagliatelle|tenv|testpackage|thelper|tparallel|whitespace|wrapcheck|wsl)\b/;
-const EXTENSIONS = /\.(md|txt|json|yaml|yml|toml|sql|go|ts|tsx|js|jsx|mjs|cjs|py|rs|java|kt|scala|rb|php|cs|cpp|c|h|hpp|swift|dart|lua|sh|bat|cmd|ps1|dockerfile|ini|cfg|conf|xml|html|css|scss|sass|less|vue|svelte|svg|png|jpg|jpeg|gif|webp|ico|pdf|zip|tar|gz|bz2|7z|wasm|so|dll|dylib|exe|bin|log|patch|diff|graphql|proto|thrift|avro|parquet|orc|csv|tsv|xls|xlsx|doc|docx|ppt|pptx|mp3|mp4|wav|ogg|webm|mkv|avi|mov|flv|wmv|mpg|mpeg|m4v|m4a|aac|flac|alac|wma|aiff|opus|mid|midi|ac3|dts|eac3|mlp|thd|wavpack|ape|tta|ofs|ofs2|ofs3|spx|speex|celt|silk|amr|awb|evrc|evrcb|evrcwb|evrcnw|smv|qcelp|vmr|g722|g7221|g7222|g726|g729|ilbc|lpc10|codec2|opus|vorbis|theora|vp8|vp9|av1|h264|h265|hevc|mpeg2|mpeg4|avc|svc|mvc|jvt|jct|itu|iso|iec|itu-t|itu-r|ietf|w3c|ecma|ansi|ieee|iso|iec|jis|gb|astm|din|bs|en|csn|gost|ost|r|gost-r|tr|tu|sn|csn|pn|une|uni|nf|nf-en|nf-p|xp|fd|fdp|fdr|fda|fdt|fdx|fdz|fda|fdp|fdr|fds|fdt|fdv|fdw|fdx|fdy|fdz)$/i;
+const KNOWN_COMMANDS = /^(?:pnpm|npm|corepack|go|node|python|git|npx|sqlc|make|mkdir|cd|echo|export|unset|env|cat|ls|rm|cp|mv|touch|chmod|curl|wget|docker|bash|sh|pwsh|gofmt|golangci-lint|uv|mise|asdf)\s/;
 // Skip web routes like /plugins, /plugins/:id, /login?redirect=...
 const WEB_ROUTE = /^\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_:-]*$/;
 // Skip env var assignments like KEY=value
@@ -196,8 +195,6 @@ function extractBacktickPaths(content) {
       // Skip standalone filenames without directory separator
       // (likely script/tool names referenced by name, not relative paths)
       if (!raw.includes("/") && !raw.includes("\\")) continue;
-      // Skip pure words without extension or path separator
-      if (!raw.includes("/") && !raw.includes("\\") && !EXTENSIONS.test(raw)) continue;
       paths.push(raw);
     }
   }

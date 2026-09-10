@@ -2,7 +2,7 @@ import { spawn, execFileSync } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { createProcessInvocation } from "./process-invocation.mjs";
+import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
 import { resolveMacBundleVersion } from "./package-metadata.mjs";
 import { runWails } from "./run-go.mjs";
 

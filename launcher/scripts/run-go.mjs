@@ -5,7 +5,7 @@ import process from "node:process";
 import { promisify } from "node:util";
 import { createBuildCache } from "../../scripts/dev-build-cache.mjs";
 import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
-import { createProcessInvocation } from "./process-invocation.mjs";
+import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const goModuleText = fs.readFileSync(path.join(root, "go.mod"), "utf8");

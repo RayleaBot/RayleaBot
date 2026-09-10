@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
+import { createProcessInvocation } from "../../../scripts/process-invocation.mjs";
 import { wailsGenerateBindingsArgs, wailsModuleQuery } from "../../scripts/run-go.mjs";
 
 describe("launcher process invocation", () => {

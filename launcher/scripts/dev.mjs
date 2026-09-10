@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { createLauncherGoArgs } from "../../scripts/start-dev-support.mjs";
 import { normalizeChildExitCode, terminateDevProcessTree } from "./dev-support.mjs";
-import { createProcessInvocation } from "./process-invocation.mjs";
+import { createProcessInvocation } from "../../scripts/process-invocation.mjs";
 import { runWails, WAILS_GENERATE_BINDINGS_ARGS } from "./run-go.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");

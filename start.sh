@@ -17,7 +17,19 @@ if [ -z "$NODE_VERSION" ]; then
   exit 1
 fi
 
-NODE_BIN=$(command -v node 2>/dev/null || true)
+NODE_BIN=${RAYLEA_NODE_EXECUTABLE:-}
+if [ -n "$NODE_BIN" ]; then
+  case "$NODE_BIN" in
+    /*) ;;
+    *) echo "[RayleaBot] RAYLEA_NODE_EXECUTABLE must be an absolute path." >&2; exit 1 ;;
+  esac
+  if [ ! -f "$NODE_BIN" ] || [ ! -x "$NODE_BIN" ]; then
+    echo "[RayleaBot] RAYLEA_NODE_EXECUTABLE is not an executable file: $NODE_BIN" >&2
+    exit 1
+  fi
+else
+  NODE_BIN=$(command -v node 2>/dev/null || true)
+fi
 if [ -z "$NODE_BIN" ]; then
   echo "[RayleaBot] Startup failed: Node.js $NODE_VERSION was not found." >&2
   echo "[RayleaBot] Run python scripts/check-toolchain.py for installation guidance." >&2

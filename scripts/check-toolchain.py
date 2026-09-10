@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -15,19 +16,35 @@ from dataclasses import dataclass
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-REQUIRED_GO_VERSION = "go1.26.6"
-REQUIRED_NODE_VERSION = "v26.7.0"
+def read_tool_versions(root: Path) -> dict[str, str]:
+    versions: dict[str, str] = {}
+    for line in (root / ".tool-versions").read_text(encoding="utf-8").splitlines():
+        fields = line.split("#", 1)[0].split()
+        if not fields:
+            continue
+        if len(fields) != 2 or fields[0] in versions:
+            raise ValueError(".tool-versions requires one fixed version per tool")
+        versions[fields[0]] = fields[1]
+    for name in ("golang", "nodejs", "python", "pnpm"):
+        if not re.fullmatch(r"\d+\.\d+\.\d+", versions.get(name, "")):
+            raise ValueError(f".tool-versions must pin {name} to an exact version")
+    return versions
+
+
+TOOL_VERSIONS = read_tool_versions(REPO_ROOT)
+REQUIRED_GO_VERSION = "go" + TOOL_VERSIONS["golang"]
+REQUIRED_NODE_VERSION = "v" + TOOL_VERSIONS["nodejs"]
 REQUIRED_NPM_VERSION = "11.19.0"
 REQUIRED_COREPACK_VERSION = "0.35.0"
-REQUIRED_PNPM_VERSION = "11.22.0"
-REQUIRED_PYTHON_VERSION = "3.14.7"
+REQUIRED_PNPM_VERSION = TOOL_VERSIONS["pnpm"]
+REQUIRED_PYTHON_VERSION = TOOL_VERSIONS["python"]
 REQUIRED_SQLC_VERSION = "v1.31.1"
 
 GO_INSTALL_URL = "https://go.dev/dl/"
-NODE_INSTALL_URL = "https://nodejs.org/dist/v26.7.0/"
-PYTHON_INSTALL_URL = "https://www.python.org/downloads/release/python-3147/"
-COREPACK_INSTALL = "npm install --global corepack@0.35.0"
-SQLC_INSTALL = "go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1"
+NODE_INSTALL_URL = f"https://nodejs.org/dist/{REQUIRED_NODE_VERSION}/"
+PYTHON_INSTALL_URL = f"https://www.python.org/downloads/release/python-{REQUIRED_PYTHON_VERSION.replace('.', '')}/"
+COREPACK_INSTALL = f"npm install --global corepack@{REQUIRED_COREPACK_VERSION}"
+SQLC_INSTALL = f"go install github.com/sqlc-dev/sqlc/cmd/sqlc@{REQUIRED_SQLC_VERSION}"
 
 
 @dataclass(frozen=True)
@@ -85,11 +102,11 @@ def check_go() -> CheckResult:
             f"Go is not on PATH; required {REQUIRED_GO_VERSION}.",
             "\n".join(
                 [
-                    "Install Go 1.26.6 before running server tests.",
+                    f"Install Go {TOOL_VERSIONS['golang']} before running server tests.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.26.6",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.26.6.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz",
-                    "Offline: copy the matching go1.26.6 archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
+                    f"Windows: winget install GoLang.Go --version {TOOL_VERSIONS['golang']}",
+                    f"Linux x64 online: curl -LO https://go.dev/dl/{REQUIRED_GO_VERSION}.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf {REQUIRED_GO_VERSION}.linux-amd64.tar.gz",
+                    f"Offline: copy the matching {REQUIRED_GO_VERSION} archive into the runner image and put its bin directory on PATH; set GOTOOLCHAIN=local for a local-only failure.",
                 ]
             ),
         )
@@ -112,9 +129,9 @@ def check_go() -> CheckResult:
                 [
                     "Install the exact Go patch version used by server/go.mod.",
                     f"Download: {GO_INSTALL_URL}",
-                    "Windows: winget install GoLang.Go --version 1.26.6",
-                    "Linux x64 online: curl -LO https://go.dev/dl/go1.26.6.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go1.26.6.linux-amd64.tar.gz",
-                    "Offline: preinstall go1.26.6 in the image or workstation and set GOTOOLCHAIN=local before running tests.",
+                    f"Windows: winget install GoLang.Go --version {TOOL_VERSIONS['golang']}",
+                    f"Linux x64 online: curl -LO https://go.dev/dl/{REQUIRED_GO_VERSION}.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf {REQUIRED_GO_VERSION}.linux-amd64.tar.gz",
+                    f"Offline: preinstall {REQUIRED_GO_VERSION} in the image or workstation and set GOTOOLCHAIN=local before running tests.",
                 ]
             ),
         )
@@ -127,7 +144,7 @@ def check_node() -> CheckResult:
             "Node.js",
             "error",
             f"Node.js is not on PATH; required {REQUIRED_NODE_VERSION}.",
-            f"Install Node.js 26.7.0 from {NODE_INSTALL_URL}; offline images must preinstall it before running Web or Launcher tests.",
+            f"Install Node.js {TOOL_VERSIONS['nodejs']} from {NODE_INSTALL_URL}; offline images must preinstall it before running Web or Launcher tests.",
         )
 
     result = run_command(["node", "--version"])
@@ -144,7 +161,7 @@ def check_node() -> CheckResult:
             "Node.js",
             "error",
             f"Found {actual}; required {REQUIRED_NODE_VERSION}.",
-            f"Install Node.js 26.7.0 from {NODE_INSTALL_URL}, then install Corepack with `{COREPACK_INSTALL}`.",
+            f"Install Node.js {TOOL_VERSIONS['nodejs']} from {NODE_INSTALL_URL}, then install Corepack with `{COREPACK_INSTALL}`.",
         )
     return CheckResult("Node.js", "ok", actual)
 
@@ -155,7 +172,7 @@ def check_npm() -> CheckResult:
             "npm",
             "error",
             f"npm is not on PATH; required {REQUIRED_NPM_VERSION}.",
-            f"Install Node.js 26.7.0 from {NODE_INSTALL_URL}; its distribution includes npm {REQUIRED_NPM_VERSION}.",
+            f"Install Node.js {TOOL_VERSIONS['nodejs']} from {NODE_INSTALL_URL}; its distribution includes npm {REQUIRED_NPM_VERSION}.",
         )
 
     result = run_command(["npm", "--version"])
@@ -172,7 +189,7 @@ def check_npm() -> CheckResult:
             "npm",
             "error",
             f"Found {actual}; required {REQUIRED_NPM_VERSION}.",
-            f"Reinstall Node.js 26.7.0 from {NODE_INSTALL_URL}, or run `npm install --global npm@{REQUIRED_NPM_VERSION}`.",
+            f"Reinstall Node.js {TOOL_VERSIONS['nodejs']} from {NODE_INSTALL_URL}, or run `npm install --global npm@{REQUIRED_NPM_VERSION}`.",
         )
     return CheckResult("npm", "ok", actual)
 
@@ -315,6 +332,13 @@ def check_chromium() -> CheckResult:
         if path:
             return CheckResult("Chromium", "ok", f"system browser: {path}")
 
+    if platform.system() == "Darwin":
+        for applications in (Path("/Applications"), Path.home() / "Applications"):
+            for bundle, executable in (("Google Chrome", "Google Chrome"), ("Microsoft Edge", "Microsoft Edge"), ("Chromium", "Chromium")):
+                candidate = applications / f"{bundle}.app" / "Contents" / "MacOS" / executable
+                if candidate.is_file() and os.access(candidate, os.X_OK):
+                    return CheckResult("Chromium", "ok", f"system browser: {candidate}")
+
     for path in managed_chromium_paths():
         if path.exists():
             return CheckResult("Chromium", "ok", f"managed browser: {path}")
@@ -399,8 +423,45 @@ def check_runtime_paths() -> list[CheckResult]:
     return [check_chromium(), check_database_permissions()]
 
 
-def run_checks(include_runtime: bool) -> list[CheckResult]:
-    results = [check_go(), check_node(), check_npm(), check_corepack(), check_pnpm(), check_python(), check_sqlc()]
+TASK_TOOLS = {
+    "all": ("go", "node", "npm", "corepack", "pnpm", "python", "sqlc"),
+    "server": ("go",),
+    "web": ("node", "npm", "corepack", "pnpm"),
+    "launcher": ("go", "node", "npm", "corepack", "pnpm"),
+    "contracts": ("go", "node", "python"),
+    "sql": ("sqlc",),
+    "runtime": (),
+}
+
+
+def check_version_files(tool_names: tuple[str, ...], root: Path = REPO_ROOT) -> CheckResult:
+    errors: list[str] = []
+    if "go" in tool_names:
+        modules = [root / name / "go.mod" for name in ("server", "launcher", "sdk/go")]
+        modules.extend(sorted((root / "examples/plugins").glob("*/go.mod")))
+        for path in modules:
+            match = re.search(r"^go\s+(\S+)\s*$", path.read_text(encoding="utf-8"), re.MULTILINE)
+            if not match or match[1] != TOOL_VERSIONS["golang"]:
+                errors.append(f"{path.relative_to(root)}: expected go {TOOL_VERSIONS['golang']}")
+    if "node" in tool_names or "pnpm" in tool_names:
+        packages = [root / name / "package.json" for name in ("web", "launcher", "sdk/vue")]
+        packages.extend(sorted((root / "examples/plugins").glob("*/web/package.json")))
+        for path in packages:
+            document = json.loads(path.read_text(encoding="utf-8"))
+            engines = document.get("engines", {})
+            if "node" in engines and engines["node"] != TOOL_VERSIONS["nodejs"]:
+                errors.append(f"{path.relative_to(root)}: engines.node differs from .tool-versions")
+            if "pnpm" in engines and engines["pnpm"] != REQUIRED_PNPM_VERSION:
+                errors.append(f"{path.relative_to(root)}: engines.pnpm differs from .tool-versions")
+            if "packageManager" in document and document["packageManager"] != f"pnpm@{REQUIRED_PNPM_VERSION}":
+                errors.append(f"{path.relative_to(root)}: packageManager differs from .tool-versions")
+    return CheckResult("Version declarations", "error" if errors else "ok", "; ".join(errors) if errors else "selected ecosystem files match .tool-versions")
+
+
+def run_checks(include_runtime: bool, task: str = "all") -> list[CheckResult]:
+    selected = TASK_TOOLS[task]
+    checks = {"go": check_go, "node": check_node, "npm": check_npm, "corepack": check_corepack, "pnpm": check_pnpm, "python": check_python, "sqlc": check_sqlc}
+    results = [check_version_files(selected), *(checks[name]() for name in selected)]
     if include_runtime:
         results.extend(check_runtime_paths())
     return results
@@ -417,6 +478,7 @@ def print_results(results: list[CheckResult]) -> None:
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check RayleaBot development toolchain.")
+    parser.add_argument("--task", choices=TASK_TOOLS, default="all", help="Check tools needed for the selected task; default checks the complete frozen toolchain.")
     parser.add_argument(
         "--toolchain-only",
         action="store_true",
@@ -427,7 +489,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    results = run_checks(include_runtime=not args.toolchain_only)
+    try:
+        results = run_checks(include_runtime=not args.toolchain_only and args.task in {"all", "server", "launcher", "runtime"}, task=args.task)
+    except (OSError, ValueError) as exc:
+        print(f"[error] Unable to read version declarations: {exc}", file=sys.stderr)
+        return 1
     print_results(results)
     return 1 if any(result.failed for result in results) else 0
 
