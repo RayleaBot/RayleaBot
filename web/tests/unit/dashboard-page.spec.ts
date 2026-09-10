@@ -118,7 +118,7 @@ describe('DashboardPage', () => {
       active_plugins: 2,
       running_plugins: 1,
       failed_plugins: 1,
-      db_schema_version: '000004',
+      db_schema_version: '000001',
       uptime_seconds: 120,
     }
     adaptersStore.adapters = [{ id: 'onebot11', protocol: 'onebot11', display_name: 'OneBot11', enabled: true, state: 'connected', summary: '', onebot11: createProtocolSnapshot() }]
@@ -143,7 +143,7 @@ describe('DashboardPage', () => {
     expect(wrapper.find('[data-testid="dashboard-overview-grid"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="dashboard-active-plugins-card"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('运行 1 / 失败 1')
-    expect(wrapper.text()).toContain('数据库 schema 000004')
+    expect(wrapper.text()).toContain('数据库 schema 000001')
 
     await backupButton!.trigger('click')
     await diagnosticsButton!.trigger('click')
@@ -413,13 +413,13 @@ describe('DashboardPage', () => {
       recovery_summary: {
         status: 'degraded',
         phase: 'post_startup',
-        operation: 'upgrade',
+        operation: 'restore',
         created_at: '2026-04-02T08:00:00Z',
         updated_at: '2026-04-02T08:01:00Z',
         source_core_version: '0.1.0',
         target_core_version: '0.2.0',
-        source_config_schema_version: '2',
-        target_config_schema_version: '2',
+        source_config_schema_version: "4",
+        target_config_schema_version: "4",
         source_db_schema_version: '0014',
         target_db_schema_version: '0014',
         issues: [
@@ -543,7 +543,7 @@ describe('DashboardPage', () => {
       recovery_summary: {
         status: 'degraded',
         phase: 'post_startup',
-        operation: 'upgrade',
+        operation: 'restore',
         created_at: '2026-04-02T08:00:00Z',
         updated_at: '2026-04-02T08:01:00Z',
         issues: [

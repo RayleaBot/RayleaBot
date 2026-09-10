@@ -121,41 +121,18 @@ func checkpointAndTruncate(ctx context.Context, db *sql.DB) error {
 	return err
 }
 
-func CurrentSchemaVersion() string {
-	return fmt.Sprintf("%06d", latestSchemaMigrationVersion())
+type SchemaMetadata struct {
+	Version       string
+	InitializedAt string
 }
 
-func latestSchemaMigrationVersion() int {
-	latest := 0
-	for _, migration := range schemaMigrations {
-		if migration.version > latest {
-			latest = migration.version
-		}
-	}
-	return latest
-}
-
-type AppliedMigration struct {
-	Version   int
-	Name      string
-	AppliedAt string
-}
-
-func (s *Store) ListAppliedMigrations(ctx context.Context) ([]AppliedMigration, error) {
+func (s *Store) SchemaMetadata(ctx context.Context) (SchemaMetadata, error) {
 	if s.Read == nil {
-		return nil, errors.New("sqlite store is required")
+		return SchemaMetadata{}, errors.New("sqlite store is required")
 	}
-	rows, err := sqlcgen.New(s.Read).ListSchemaMigrations(ctx)
+	row, err := sqlcgen.New(s.Read).ReadSchemaMetadata(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("list schema migrations: %w", err)
+		return SchemaMetadata{}, fmt.Errorf("read schema metadata: %w", err)
 	}
-	items := make([]AppliedMigration, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, AppliedMigration{
-			Version:   int(row.Version),
-			Name:      row.Name,
-			AppliedAt: row.AppliedAt,
-		})
-	}
-	return items, nil
+	return SchemaMetadata{Version: row.Version, InitializedAt: row.InitializedAt}, nil
 }

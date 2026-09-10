@@ -9,29 +9,18 @@ import (
 	"context"
 )
 
-const listSchemaMigrations = `-- name: ListSchemaMigrations :many
-SELECT version, name, applied_at FROM schema_migrations ORDER BY version
+const readSchemaMetadata = `-- name: ReadSchemaMetadata :one
+SELECT version, initialized_at FROM schema_metadata WHERE singleton_id = 1
 `
 
-func (q *Queries) ListSchemaMigrations(ctx context.Context) ([]SchemaMigration, error) {
-	rows, err := q.db.QueryContext(ctx, listSchemaMigrations)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []SchemaMigration{}
-	for rows.Next() {
-		var i SchemaMigration
-		if err := rows.Scan(&i.Version, &i.Name, &i.AppliedAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type ReadSchemaMetadataRow struct {
+	Version       string
+	InitializedAt string
+}
+
+func (q *Queries) ReadSchemaMetadata(ctx context.Context) (ReadSchemaMetadataRow, error) {
+	row := q.db.QueryRowContext(ctx, readSchemaMetadata)
+	var i ReadSchemaMetadataRow
+	err := row.Scan(&i.Version, &i.InitializedAt)
+	return i, err
 }

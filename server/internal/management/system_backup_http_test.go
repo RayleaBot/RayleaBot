@@ -26,7 +26,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	databasePath := filepath.Join(repoRoot, "data", "rayleabot.db")
-	writeBackupTestFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeBackupTestFile(t, configPath, "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 
 	store, err := storage.Open(databasePath)
 	if err != nil {

@@ -57,7 +57,7 @@ func TestHandleSystemRecoveryRecheckAcceptsTaskAndPersistsCompatibleSummary(t *t
 	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
 		Status:            "degraded",
 		Phase:             "post_startup",
-		Operation:         "upgrade",
+		Operation:         "restore",
 		CreatedAt:         "2026-04-03T08:00:00Z",
 		UpdatedAt:         "2026-04-03T08:00:01Z",
 		TargetCoreVersion: "0.2.0",
@@ -195,7 +195,7 @@ func TestHandleSystemRecoveryConfirmRejectsUnknownReviewID(t *testing.T) {
 	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
 		Status:    "degraded",
 		Phase:     "post_startup",
-		Operation: "upgrade",
+		Operation: "restore",
 		CreatedAt: "2026-04-04T08:00:00Z",
 		UpdatedAt: "2026-04-04T08:00:00Z",
 		SkippedPlugins: []recovery.SkippedPlugin{{

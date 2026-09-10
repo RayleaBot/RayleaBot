@@ -3,7 +3,6 @@ package system
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
@@ -88,35 +88,29 @@ func (s *Service) pluginCount() int {
 
 func (s *Service) diagnosticsDatabase(ctx context.Context) (DiagnosticsDatabase, []health.DiagnosticIssue) {
 	result := DiagnosticsDatabase{
-		SchemaVersion:     s.dbSchemaVersion(),
-		AppliedMigrations: []DiagnosticsMigration{},
+		SchemaVersion: s.dbSchemaVersion(),
 	}
 	if s.storage == nil || s.storage.Read == nil {
 		return result, []health.DiagnosticIssue{{
-			Code:        "storage.schema_migrations_unavailable",
+			Code:        errorcodes.DiagnosticStorageSchemaMetadataUnavailable,
 			Severity:    "warning",
-			Summary:     "数据库迁移记录不可用",
+			Summary:     "数据库初始化元数据不可用",
 			Remediation: "请确认数据库已打开，并检查服务启动日志中的 SQLite 初始化错误。",
 		}}
 	}
 
-	migrations, err := s.storage.ListAppliedMigrations(ctx)
+	metadata, err := s.storage.SchemaMetadata(ctx)
 	if err != nil {
 		return result, []health.DiagnosticIssue{{
-			Code:        "storage.schema_migrations_unavailable",
+			Code:        errorcodes.DiagnosticStorageSchemaMetadataUnavailable,
 			Severity:    "warning",
-			Summary:     "数据库迁移记录不可读",
-			Remediation: "请检查 SQLite 文件权限和 schema_migrations 表是否完整。",
+			Summary:     "数据库初始化元数据不可读",
+			Remediation: "请检查 SQLite 文件权限和 schema_metadata 表是否完整。",
 		}}
 	}
 
-	for _, migration := range migrations {
-		result.AppliedMigrations = append(result.AppliedMigrations, DiagnosticsMigration{
-			Version:   fmt.Sprintf("%06d", migration.Version),
-			Name:      migration.Name,
-			AppliedAt: migration.AppliedAt,
-		})
-	}
+	result.SchemaVersion = metadata.Version
+	result.InitializedAt = metadata.InitializedAt
 	return result, nil
 }
 
@@ -262,7 +256,7 @@ func (s *Service) diagnosticsRecentErrors(ctx context.Context) ([]logging.Summar
 	items, err := s.logRepository.ListSummaries(ctx, logging.Query{Levels: []string{"error"}, Limit: 20})
 	if err != nil {
 		return []logging.Summary{}, []health.DiagnosticIssue{{
-			Code:        "logging.recent_errors_unavailable",
+			Code:        errorcodes.DiagnosticLoggingRecentErrorsUnavailable,
 			Severity:    "warning",
 			Summary:     "近期错误日志不可读",
 			Remediation: "请检查管理日志数据库表和日志保留配置。",

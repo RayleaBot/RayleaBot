@@ -275,11 +275,11 @@ jobs:
           mkdir -p dist/server
           (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
 
-      - name: Install migration rehearsal dependency
+      - name: Install recovery rehearsal dependencies
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
-      - name: Rehearse legacy data recovery
-        run: python scripts/release/rehearse_data_migration.py --server dist/server/raylea-server --output dist/data-migration-rehearsal
+      - name: Rehearse current-format recovery
+        run: python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal
 
       - name: Install web dependencies
         working-directory: web

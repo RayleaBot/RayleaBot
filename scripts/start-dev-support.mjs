@@ -18,8 +18,7 @@ export const DEVELOPMENT_SERVER_LEASE_VERSION = 1;
 
 const VALID_PROFILES = new Set([WEB_DEV_PROFILE, BUILD_PROFILE, LAUNCHER_DEV_PROFILE]);
 const VALID_INSTALL_MODES = new Set(["auto", "always", "skip"]);
-const LEGACY_SERVER_RELOAD_AIR = "air";
-const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_WATCH, LEGACY_SERVER_RELOAD_AIR]);
+const VALID_SERVER_RELOAD_MODES = new Set(["", SERVER_RELOAD_WATCH]);
 const WILDCARD_HOSTS = new Set(["", "*", "0.0.0.0", "::", "[::]"]);
 
 export function loadStartEnvironmentFile({
@@ -86,7 +85,7 @@ export function resolveServerReloadMode(env = process.env) {
   if (!VALID_SERVER_RELOAD_MODES.has(mode)) {
     throw new Error(`Unsupported RAYLEA_SERVER_RELOAD: ${env.RAYLEA_SERVER_RELOAD}`);
   }
-  return mode === LEGACY_SERVER_RELOAD_AIR ? SERVER_RELOAD_WATCH : mode;
+  return mode;
 }
 
 export function createDevelopmentServerWatcherEnvironment({

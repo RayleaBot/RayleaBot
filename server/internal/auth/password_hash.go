@@ -3,7 +3,6 @@ package auth
 import (
 	"crypto/hmac"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -91,25 +90,8 @@ func (p passwordHashParams) validForVerification() bool {
 		p.OutputBytes == passwordHashOutputBytes
 }
 
-type secretVerification struct {
-	OK     bool
-	Legacy bool
-}
-
-func verifySecret(secret string, stored []byte) secretVerification {
-	if isArgon2idSecret(stored) {
-		return secretVerification{OK: verifyArgon2idSecret(secret, stored)}
-	}
-
-	if len(stored) == sha256.Size && hmac.Equal(legacyDigestSecret(secret), stored) {
-		return secretVerification{OK: true, Legacy: true}
-	}
-
-	return secretVerification{}
-}
-
-func isArgon2idSecret(stored []byte) bool {
-	return strings.HasPrefix(string(stored), passwordHashPrefix+":")
+func verifySecret(secret string, stored []byte) bool {
+	return verifyArgon2idSecret(secret, stored)
 }
 
 func verifyArgon2idSecret(secret string, stored []byte) bool {
@@ -184,9 +166,4 @@ func parseUintParam(part, name string, bitSize int) (uint64, bool) {
 	}
 	value, err := strconv.ParseUint(strings.TrimPrefix(part, prefix), 10, bitSize)
 	return value, err == nil
-}
-
-func legacyDigestSecret(secret string) []byte {
-	sum := sha256.Sum256([]byte(secret))
-	return sum[:]
 }

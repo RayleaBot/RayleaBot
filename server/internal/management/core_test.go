@@ -22,7 +22,7 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 				ActivePlugins:   2,
 				RunningPlugins:  1,
 				FailedPlugins:   1,
-				DBSchemaVersion: "000004",
+				DBSchemaVersion: "000001",
 				UptimeSeconds:   60,
 				Health: &systemsvc.ReadinessReport{
 					Status: "degraded",
@@ -48,7 +48,7 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if response.ActivePlugins != 2 || response.RunningPlugins != 1 || response.FailedPlugins != 1 || response.DBSchemaVersion != "000004" {
+	if response.ActivePlugins != 2 || response.RunningPlugins != 1 || response.FailedPlugins != 1 || response.DBSchemaVersion != "000001" {
 		t.Fatalf("unexpected system status response: %#v", response)
 	}
 	if response.Health == nil || response.Health.Status != "degraded" || response.Health.Checks["render"] != "resource_missing" {

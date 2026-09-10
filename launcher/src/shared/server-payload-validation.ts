@@ -179,7 +179,7 @@ function normalizeRecoverySummary(value: unknown, field: string): RecoveryCompat
   const result: RecoveryCompatibilitySummary = {
     status: expectEnum(object.status, ["pending", "compatible", "degraded", "blocked"] as const, `${field}.status`),
     phase: expectEnum(object.phase, ["pre_restore", "post_startup"] as const, `${field}.phase`),
-    operation: expectEnum(object.operation, ["restore", "upgrade", "rollback"] as const, `${field}.operation`),
+    operation: expectEnum(object.operation, ["restore"] as const, `${field}.operation`),
     created_at: expectString(object.created_at, `${field}.created_at`),
     updated_at: expectString(object.updated_at, `${field}.updated_at`),
   };

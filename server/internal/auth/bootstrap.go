@@ -122,16 +122,9 @@ func (m *Manager) LoginWithContext(ctx context.Context, identifier, secret strin
 	if err != nil {
 		return "", Claims{}, err
 	}
-	verification := verifySecret(secret, secretDigest)
-	var upgradedDigest []byte
-	if verification.OK && verification.Legacy {
-		upgradedDigest, err = hashSecret(secret, m.passwordHashParams)
-	}
+	verified := verifySecret(secret, secretDigest)
 	release()
-	if err != nil {
-		return "", Claims{}, err
-	}
-	if !verification.OK {
+	if !verified {
 		return "", Claims{}, ErrInvalidCredentials
 	}
 
@@ -143,16 +136,6 @@ func (m *Manager) LoginWithContext(ctx context.Context, identifier, secret strin
 	m.stateMu.RUnlock()
 	if !unchanged {
 		return "", Claims{}, ErrInvalidCredentials
-	}
-	if len(upgradedDigest) > 0 {
-		if m.repo != nil {
-			if err := m.repo.UpdateBootstrapSecretDigest(ctx, upgradedDigest); err != nil {
-				return "", Claims{}, fmt.Errorf("upgrade bootstrap secret digest: %w", err)
-			}
-		}
-		m.stateMu.Lock()
-		m.bootstrap.SecretDigest = append([]byte(nil), upgradedDigest...)
-		m.stateMu.Unlock()
 	}
 
 	return m.issueSerialized(ctx, identifier, m.now().UTC())

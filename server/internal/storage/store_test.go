@@ -48,16 +48,12 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "management_logs")
 	assertTableExists(t, store.Read, "plugin_kv")
 	assertTableExists(t, store.Read, "system_configs")
-	assertTableExists(t, store.Read, "schema_migrations")
+	assertTableExists(t, store.Read, "schema_metadata")
 	assertTableExists(t, store.Read, "render_templates")
 	assertColumnExists(t, store.Read, "render_templates", "source_digest")
 	assertIndexExists(t, store.Read, "idx_render_templates_source")
 	assertTableExists(t, store.Read, "third_party_accounts")
-	assertTableExists(t, store.Read, "bilibili_source_rooms")
-	assertTableExists(t, store.Read, "bilibili_source_seen")
-	assertTableExists(t, store.Read, "bilibili_source_dynamics")
-	assertTableExists(t, store.Read, "bilibili_source_state")
-	assertColumnExists(t, store.Read, "schema_migrations", "name")
+	assertColumnExists(t, store.Read, "schema_metadata", "initialized_at")
 	assertColumnExists(t, store.Read, "management_logs", "log_id")
 	assertColumnExists(t, store.Read, "management_logs", "details_json")
 	assertColumnExists(t, store.Read, "management_logs", "boot_id")
@@ -71,18 +67,13 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "last_used_at")
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
-	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
 	assertIndexExists(t, store.Read, "idx_management_logs_source")
 	assertIndexExists(t, store.Read, "idx_plugin_kv_plugin_id")
 	assertIndexExists(t, store.Read, "idx_system_configs_namespace")
 	assertIndexExists(t, store.Read, "idx_third_party_accounts_platform")
-	assertIndexExists(t, store.Read, "idx_bilibili_source_rooms_state")
-	assertIndexExists(t, store.Read, "idx_bilibili_source_seen_uid")
-	assertIndexExists(t, store.Read, "idx_bilibili_source_dynamics_observed_at")
 
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7, 8})
 }
 
 func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
@@ -90,10 +81,24 @@ func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
 	store := mustOpenStore(t, databasePath)
+	metadata, err := store.SchemaMetadata(t.Context())
+	if err != nil || metadata.Version != CurrentSchemaVersion() || metadata.InitializedAt == "" {
+		t.Fatalf("initialization metadata = %#v, error = %v", metadata, err)
+	}
+	if _, err := store.Write.Exec(`INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at) VALUES ('fixture', 'cursor', '42', 2, '2026-09-10T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
 	_ = store.Close()
 
 	second := mustOpenStore(t, databasePath)
 	defer func(release func() error) { _ = release() }(second.Close)
+	if got, err := second.SchemaMetadata(t.Context()); err != nil || got != metadata {
+		t.Fatalf("reopen changed initialization metadata: %#v %v", got, err)
+	}
+	var value string
+	if err := second.Read.QueryRow(`SELECT value_json FROM plugin_kv WHERE plugin_id = 'fixture' AND key = 'cursor'`).Scan(&value); err != nil || value != "42" {
+		t.Fatalf("reopen changed business data: %q %v", value, err)
+	}
 
 	var bootstrapCount int
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM auth_bootstrap_state`).Scan(&bootstrapCount); err != nil {
@@ -120,34 +125,6 @@ func TestThirdPartyAccountsAcceptSupportedPlatforms(t *testing.T) {
 			t.Fatalf("insert %s third-party account: %v", platform, err)
 		}
 	}
-}
-
-func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
-	t.Parallel()
-
-	databasePath := filepath.Join(t.TempDir(), "state.db")
-	createLegacySchemaDatabase(t, databasePath)
-
-	store := mustOpenStore(t, databasePath)
-	defer func(release func() error) { _ = release() }(store.Close)
-
-	var label string
-	if err := store.Read.QueryRow(`SELECT label FROM third_party_accounts WHERE platform = 'bilibili' AND account_id = 'primary'`).Scan(&label); err != nil {
-		t.Fatalf("read migrated bilibili account: %v", err)
-	}
-	if label != "主账号" {
-		t.Fatalf("migrated label = %q, want 主账号", label)
-	}
-	if _, err := store.Write.Exec(
-		`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, updated_at) VALUES ('weibo', 'primary', '微博主账号', 1, 'third_party:weibo:primary:cookie', '2026-06-08T08:01:00Z')`,
-	); err != nil {
-		t.Fatalf("insert weibo account after migration: %v", err)
-	}
-	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
-	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
-	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7, 8})
-	assertTableMissing(t, store.Read, "third_party_accounts_legacy")
 }
 
 func TestOpenQuarantinesMalformedDatabaseAndCreatesFreshStore(t *testing.T) {
@@ -446,42 +423,6 @@ func assertIndexExists(t *testing.T, db *sql.DB, indexName string) {
 	}
 	if exists != 1 {
 		t.Fatalf("expected index %s to exist", indexName)
-	}
-}
-
-func assertMigrationsApplied(t *testing.T, db *sql.DB, versions []int) {
-	t.Helper()
-
-	rows, err := db.Query(`SELECT version, name FROM schema_migrations ORDER BY version`)
-	if err != nil {
-		t.Fatalf("query schema_migrations: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(rows.Close)
-
-	var got []int
-	names := map[int]string{}
-	for rows.Next() {
-		var version int
-		var name string
-		if err := rows.Scan(&version, &name); err != nil {
-			t.Fatalf("scan schema_migrations row: %v", err)
-		}
-		got = append(got, version)
-		names[version] = name
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate schema_migrations rows: %v", err)
-	}
-	if len(got) != len(versions) {
-		t.Fatalf("schema_migrations versions = %#v, want %#v", got, versions)
-	}
-	for i := range versions {
-		if got[i] != versions[i] {
-			t.Fatalf("schema_migrations versions = %#v, want %#v", got, versions)
-		}
-		if strings.TrimSpace(names[versions[i]]) == "" {
-			t.Fatalf("schema_migrations version %d has empty name", versions[i])
-		}
 	}
 }
 

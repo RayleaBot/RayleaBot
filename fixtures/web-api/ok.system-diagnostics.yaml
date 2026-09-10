@@ -25,11 +25,8 @@ response:
     secrets:
       unresolved_refs: []
     database:
-      schema_version: '000004'
-      applied_migrations:
-      - version: '000001'
-        name: base
-        applied_at: '2026-06-25T00:00:00Z'
+      schema_version: '000001'
+      initialized_at: '2026-06-25T00:00:00Z'
     plugins:
       total: 2
       active: 1

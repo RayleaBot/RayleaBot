@@ -68,14 +68,8 @@ type DiagnosticsSecrets struct {
 }
 
 type DiagnosticsDatabase struct {
-	SchemaVersion     string                 `json:"schema_version"`
-	AppliedMigrations []DiagnosticsMigration `json:"applied_migrations"`
-}
-
-type DiagnosticsMigration struct {
-	Version   string `json:"version"`
-	Name      string `json:"name"`
-	AppliedAt string `json:"applied_at"`
+	SchemaVersion string `json:"schema_version"`
+	InitializedAt string `json:"initialized_at"`
 }
 
 type DiagnosticsPlugins struct {

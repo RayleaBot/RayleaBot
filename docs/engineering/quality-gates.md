@@ -63,12 +63,12 @@ PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Cat
 
 Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。前者构建真实 Server，在临时配置和 SQLite 目录验证静态路由、鉴权、配置保存、治理作用域隔离及日志详情；后者模拟插件管理页握手与加载故障。开发模式 E2E 的模拟配置和日志分页分别维护，不替代真实接口验证。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
 
-Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_data_migration.py --server dist/server/raylea-server --output dist/data-migration-rehearsal`。输出目录必须不存在，保存合成旧数据、恢复包、进程日志和结果 JSON；验证 v3 配置、v7 SQLite、旧密码摘要和治理条目经过真实备份、恢复、启动与登录后的结果。正式签名产物仍执行 release 工作流的跨版本 recovery drill。
+Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、备份包、进程日志和结果 JSON；验证空目录初始化、当前配置与数据库、本版备份恢复、登录和重复启动幂等性。
 
 ## 验证原则
 
 - 正式语义变化先更新契约；实现、测试、fixtures、examples、生成物和文档按实际影响同步。实现修复以现有契约为准，不要求无关文件制造 diff。
 - 基线版本以工程文件和 `docs/engineering/baseline.md` 为准，CI 不单独维护另一套漂移版本号。
-- 事件、插件协议、配置、错误码和迁移相关 Golden Fixtures 进入正式门禁，不只停留在文档说明。
+- 事件、插件协议、配置、错误码和当前恢复格式相关 Golden Fixtures 进入正式门禁，不只停留在文档说明。
 - 轻量门禁负责可合并性，发布门禁负责可交付性。
 - 恢复、运行环境准备和交付矩阵验证进入正式工作流，不只停留在文档说明。

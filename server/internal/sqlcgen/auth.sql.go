@@ -135,20 +135,6 @@ func (q *Queries) UpdateBootstrapCredentials(ctx context.Context, arg UpdateBoot
 	return result.RowsAffected()
 }
 
-const updateBootstrapSecretDigest = `-- name: UpdateBootstrapSecretDigest :execrows
-UPDATE auth_bootstrap_state
-SET secret_digest = ?
-WHERE singleton_id = 1
-`
-
-func (q *Queries) UpdateBootstrapSecretDigest(ctx context.Context, secretDigest []byte) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateBootstrapSecretDigest, secretDigest)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
-}
-
 const upsertSession = `-- name: UpsertSession :exec
 INSERT INTO admin_sessions (session_id, subject, issued_at, expires_at)
 VALUES (?, ?, ?, ?)

@@ -2,8 +2,8 @@
   "version": "3",
   "created_at": "2026-04-02T08:00:00Z",
   "core_version": "0.2.0",
-  "config_schema_version": "3",
-  "db_schema_version": "000004",
+  "config_schema_version": "4",
+  "db_schema_version": "000001",
   "consistency": "online",
   "plugins": [
     {
@@ -11,9 +11,9 @@
       "version": "1.4.0",
       "min_core_version": "0.3.0",
       "source_root": "plugins/installed",
-      "manifest_version": "2",
-      "protocol_version": "1",
-      "artifact_version": "1"
+      "manifest_version": "3",
+      "protocol_version": "3",
+      "artifact_version": "2"
     }
   ],
   "directories": [

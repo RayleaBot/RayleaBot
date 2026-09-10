@@ -32,7 +32,7 @@ func (m *Manager) UpdateCredentialsWithContext(ctx context.Context, claims Claim
 	if err != nil {
 		return err
 	}
-	if !verifySecret(currentSecret, digest).OK {
+	if !verifySecret(currentSecret, digest) {
 		release()
 		return ErrInvalidCredentials
 	}

@@ -36,7 +36,7 @@
 | 状态 | 职责方 | 正式来源 |
 | --- | --- | --- |
 | 配置 | Config service | default 与 user 配置的校验后快照 |
-| 持久业务状态 | Server domain service | SQLite 与正式 migration |
+| 持久业务状态 | Server domain service | SQLite 与当前初始化结构 |
 | 共享运行状态 | 对应 Server service | 锁或原子快照保护的内存状态 |
 | 插件声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源与 package metadata |
 | 插件商店 | Plugin Store Service | 来源配置、最后成功目录缓存与安装来源身份 |
@@ -44,7 +44,7 @@
 | 后台任务 | Task Registry | 有序持久化记录与终态 |
 | 更新事务 | Updater | 签名 metadata、最高版本记录与 journal |
 
-数据库结构变更必须先更新 schema/migration、queries、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态来源。
+数据库结构变更必须先更新 当前 schema、queries、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态来源。
 
 ## 4. 实现服务端领域语义
 

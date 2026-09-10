@@ -13,8 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -121,7 +120,7 @@ func Create(ctx context.Context, options Options) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("archive config: %w", err)
 	}
-	databaseVersion := "unknown"
+	databaseVersion := "absent"
 	directories := []recovery.BackupManifestDirectory{
 		recovery.Directory("config/user.yaml", "config"),
 	}
@@ -214,7 +213,11 @@ func addConfigSnapshot(writer *zip.Writer, path string) (string, error) {
 	if !info.Mode().IsRegular() {
 		return "", fmt.Errorf("backup config is not a regular file: %s", path)
 	}
-	payload, err := os.ReadFile(path)
+	document, err := config.LoadDocument(path, "")
+	if err != nil {
+		return "", err
+	}
+	payload, err := config.MarshalDocument(document)
 	if err != nil {
 		return "", err
 	}
@@ -230,13 +233,11 @@ func addConfigSnapshot(writer *zip.Writer, path string) (string, error) {
 	if _, err := entry.Write(payload); err != nil {
 		return "", err
 	}
-	var metadata struct {
-		Version string `yaml:"schema_version"`
+	version, _ := document["schema_version"].(string)
+	if version != config.CurrentSchemaVersion() {
+		return "", fmt.Errorf("archived configuration must declare the current schema version")
 	}
-	if yaml.Unmarshal(payload, &metadata) != nil || strings.TrimSpace(metadata.Version) == "" {
-		return "unknown", nil
-	}
-	return metadata.Version, nil
+	return version, nil
 }
 
 func allocateArchivePath(directory string, now time.Time) (string, error) {

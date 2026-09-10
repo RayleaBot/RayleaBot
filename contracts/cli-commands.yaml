@@ -247,13 +247,15 @@ commands:
 
   restore:
     name: restore
-    summary: 从受支持的恢复包恢复数据。
+    summary: 从本版恢复包恢复数据。
     availability:
       online: false
       offline: true
     description: >
-      在停服窗口下从受支持的恢复包恢复 config/、data/ 与
-      plugins/installed/。restore 会先读取 backup-manifest.json，
+      在停服窗口下从当前格式恢复包恢复 config/、data/ 与
+      plugins/installed/，目标可以为空目录。配置格式为 4，数据库结构为 000001；未含数据库时记录 absent。
+      数据库目标取自归档配置；相对路径保留，绝对来源路径重定位为目标目录内 data/rayleabot.db。
+      restore 会先校验 backup-manifest.json，
       生成统一 recovery_summary 并在 `logs/recovery-summary.json`
       中落盘。硬不兼容时恢复在解包前失败；通过预检时继续恢复，
       并把后续启动期资源 / 插件兼容检查标记为待完成。

@@ -276,7 +276,7 @@ B 是 C/F 的依赖准备；A 的门禁路径更新与每批代码迁移同提�
 | [server/sqlc.yaml](../server/sqlc.yaml) | 本方案保留输入/输出路径；若后续另搬，必须 generate/diff 一起处理 |
 | [runtime schema 生成器](../scripts/generate-runtime-schemas.mjs)、[config embed](../server/internal/config/schema.go) | config 根及其 contracts 目录保留，不能随 runtime 子包误搬 |
 | [发布工作流](../.github/workflows/release.yml) | releaseupdate 的三处 `-X` 信任根注入、storage schema 版本提取；本方案保持这些路径 |
-| [恢复演练](../scripts/release/rehearse_data_migration.py) | migrations 定位、真实 Server 备份/恢复调用 |
+| 评审时的 `scripts/release/rehearse_data_migration.py` | migrations 定位、真实 Server 备份/恢复调用 |
 | [Server Guide](../server/AGENTS.md)、架构代码地图 | pubsub、SQL 生成链、render、协议与事件的实际路径，跟随每批结果更新 |
 
 数据库 SQL、schema 或 migrations 内容不因 Go import 迁移而改变。若只是路径移动，也不能顺便提升 schema version、改 migration 编号或修改已发布 migration。

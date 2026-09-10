@@ -2800,7 +2800,7 @@ components:
           description: Number of plugins currently in the failed state.
         db_schema_version:
           type: string
-          description: Current database schema migration version.
+          description: Current database initialization schema version.
         uptime_seconds:
           type: integer
           minimum: 0
@@ -2918,26 +2918,14 @@ components:
     SystemDiagnosticsDatabase:
       type: object
       additionalProperties: false
-      required: [schema_version, applied_migrations]
+      required: [schema_version, initialized_at]
       properties:
         schema_version:
           type: string
-        applied_migrations:
-          type: array
-          items:
-            $ref: '#/components/schemas/SystemDiagnosticsMigration'
+        initialized_at:
+          type: string
+          description: Timestamp of this database's atomic initialization, or empty when its metadata is unavailable.
 
-    SystemDiagnosticsMigration:
-      type: object
-      additionalProperties: false
-      required: [version, name, applied_at]
-      properties:
-        version:
-          type: string
-        name:
-          type: string
-        applied_at:
-          type: string
 
     AdapterStatus:
       type: object
@@ -3759,7 +3747,7 @@ components:
           enum: [pre_restore, post_startup]
         operation:
           type: string
-          enum: [restore, upgrade, rollback]
+          enum: [restore]
         created_at:
           type: string
           format: date-time

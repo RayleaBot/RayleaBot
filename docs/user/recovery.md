@@ -10,15 +10,16 @@
 4. 重新启动服务。
 5. 让平台完成兼容检查和恢复摘要生成。
 
-当前恢复只接受 backup manifest v3。清单固定记录 `plugin_protocol_version=3`、`plugin_manifest_version=3`、`plugin_artifact_version=2` 与 `plugin_ui_bridge_version=3`；backup manifest v2 会被拒绝，不执行隐式迁移或破坏性重置。
+本版备份使用 backup manifest v3，记录当前配置格式 `4`、数据库结构 `000001`，以及插件 manifest/protocol `3`、artifact `2`、UI bridge `3`。配置、SQLite 快照、插件业务数据和安装包一起恢复；未包含数据库时清单记录 `absent`，首次启动按当前结构初始化。
 
-升级默认保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；内嵌默认值与发行文件随新版本更新。v3 备份可以记录旧 manifest v2 / artifact v1 插件包事实并恢复其设置、密钥、KV、文件和已发布数据，但这些旧包仍保持不受支持和禁用状态，必须重新安装 manifest v3 / artifact v2 包后才能运行。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
+`restore` 可写入空安装目录。停止目标服务并保留所需备份后，执行 `raylea-server -config <目标目录>/config/user.yaml restore <备份文件>`。恢复使用归档配置中的相对数据库路径；绝对来源路径会重定位为目标目录内的 `data/rayleabot.db`，并同步更新恢复后的配置。
+
 
 ## 恢复摘要
 
 - 恢复预检和启动后兼容检查共享 `logs/recovery-summary.json`。
 - CLI、Web 管理面、Launcher 和 diagnostics 导出读取同一份恢复摘要。
-- 摘要会标示当前属于 `restore`、`upgrade` 或 `rollback`，并列出跳过插件、人工处理建议、下一步和确认历史。
+- 摘要的操作类型为 `restore`，并列出跳过插件、人工处理建议、下一步和确认历史。
 - `degraded` 状态下会保留人工处理建议；`compatible` 状态下不保留人工处理建议。
 
 ## 人工处理与确认
@@ -51,5 +52,5 @@ Launcher 继续提供：
 ## 当前限制
 
 - 当前恢复摘要保留现有人工确认历史窗口，不额外建立独立长历史资源。
-- 不兼容插件可保持禁用并等待人工处理；恢复不会为了让旧包运行而改写包内容，也不会删除其持久化数据。
+- 未通过当前运行要求检查的插件保持禁用，并在恢复摘要中列出处理建议。
 - 当前正式模型不提供恢复确认撤销入口。

@@ -14,10 +14,8 @@ Go SDK 保留 `EventContext.Bot` 作为事件来源身份的便利视图，并�
 
 ## 数据与备份
 
-现有配置与 SQLite 数据不会因协议升级而被删除。已安装的旧插件需重建或替换，不能假定旧二进制能完成新握手。
+本次按全新分发初始化配置与数据库。配置格式为 `4`，SQLite 从当前 `schema.sql` 创建结构，管理员密码使用 Argon2id；具体边界见[平台运行时](../architecture/platform-runtime.md#数据初始化与本版恢复)。
 
-配置支持 v3 自动迁移至 v4；SQLite 第 8 号迁移将旧黑白名单归入 OneBot 全局作用域，保留内容与白名单开关。旧 QQ 官方条目需要管理员重新绑定实例及 bot。密码摘要在成功登录时升级，配置 secret 随已定义的字段迁移搬运；具体边界见[平台运行时](../architecture/platform-runtime.md#数据迁移边界)。
-
-新备份清单记录 `plugin_protocol_version=3`；记录旧协议纪元的备份不能直接在当前版本恢复。需要使用旧备份时，先在对应旧版本中恢复，再按现有数据目录升级宿主并重建插件。切换前保留原备份和旧程序，完成新版本启动及插件验证后创建新备份。
+本版备份清单记录 `plugin_protocol_version=3`，归档配置、SQLite 快照、插件安装包与业务数据。恢复到空目录后，核对初始化元数据、管理员登录和插件业务状态；操作见[恢复说明](../user/recovery.md)。
 
 正式字段与错误以[插件协议](../../contracts/plugin-protocol.schema.json)、[备份清单](../../contracts/backup-manifest.schema.json)和[发布元数据](../../contracts/release-manifest.schema.json)为准。

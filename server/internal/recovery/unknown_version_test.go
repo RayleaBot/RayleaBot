@@ -1,21 +1,10 @@
 package recovery
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
-
-func TestRestoreRejectsOldConfigWithoutAnImplementedMigration(t *testing.T) {
-	root := t.TempDir()
-	manifest := BuildBackupManifest(root, "offline")
-	manifest.ConfigSchemaVersion = "2"
-	summary := EvaluateRestore(manifest, root)
-	if summary.Status != "blocked" || !slices.ContainsFunc(summary.Issues, func(issue CompatibilityIssue) bool { return issue.Code == "recovery.config_schema_unsupported" }) {
-		t.Fatalf("unmigratable config passed preflight: %+v", summary)
-	}
-}
 
 func TestBackupAndRestoreKeepUnknownBuildVersionExplicit(t *testing.T) {
 	root := t.TempDir()

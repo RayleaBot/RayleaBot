@@ -1392,7 +1392,7 @@ export interface components {
             running_plugins?: number;
             /** @description Number of plugins currently in the failed state. */
             failed_plugins?: number;
-            /** @description Current database schema migration version. */
+            /** @description Current database initialization schema version. */
             db_schema_version?: string;
             uptime_seconds?: number;
             recovery_summary?: components["schemas"]["RecoveryCompatibilitySummary"];
@@ -1443,12 +1443,8 @@ export interface components {
         };
         SystemDiagnosticsDatabase: {
             schema_version: string;
-            applied_migrations: components["schemas"]["SystemDiagnosticsMigration"][];
-        };
-        SystemDiagnosticsMigration: {
-            version: string;
-            name: string;
-            applied_at: string;
+            /** @description Timestamp of this database's atomic initialization, or empty when its metadata is unavailable. */
+            initialized_at: string;
         };
         AdapterStatus: {
             id: string;
@@ -1795,7 +1791,7 @@ export interface components {
             /** @enum {string} */
             phase: "pre_restore" | "post_startup";
             /** @enum {string} */
-            operation: "restore" | "upgrade" | "rollback";
+            operation: "restore";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

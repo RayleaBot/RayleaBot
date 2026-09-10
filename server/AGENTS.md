@@ -27,4 +27,4 @@
 
 - 测试替身通过构造期注入，不为测试给 App 或服务新增运行期 setter。
 - 包内单测验证包内行为；装配、跨包流程、WebSocket 与包依赖测试沿用 `server/tests/` 的对应目录，共享替身放 `server/tests/testutil`。按风险分层，避免重复覆盖。
-- 修改 `server/internal/storage/migrations/*.sql` 或 `server/internal/sqlcqueries/*.sql` 时，运行 `sqlc generate`，提交 `server/internal/sqlcgen/` 生成结果，并用 `sqlc diff` 确认无漂移。
+- 修改 `server/internal/storage/schema.sql` 或 `server/internal/sqlcqueries/*.sql` 时，运行 `sqlc generate`，提交 `server/internal/sqlcgen/` 生成结果，并用 `sqlc diff` 确认无漂移。

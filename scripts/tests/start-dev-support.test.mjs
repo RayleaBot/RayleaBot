@@ -104,8 +104,7 @@ test("resolves install mode", () => {
 test("resolves server reload mode", () => {
   assert.equal(resolveServerReloadMode({}), "");
   assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "watch" }), SERVER_RELOAD_WATCH);
-  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "air" }), SERVER_RELOAD_WATCH);
-  assert.equal(resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: " AIR " }), SERVER_RELOAD_WATCH);
+  assert.throws(() => resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "air" }), /Unsupported/);
   assert.throws(() => resolveServerReloadMode({ RAYLEA_SERVER_RELOAD: "plugin" }), /Unsupported/);
 });
 

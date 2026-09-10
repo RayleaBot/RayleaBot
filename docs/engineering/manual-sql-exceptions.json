@@ -73,9 +73,9 @@
     },
     "server/internal/storage/store_schema.go": {
       "category": "D",
-      "reason": "Storage migration runner executes schema files, records migrations, and inspects SQLite schema metadata.",
+      "reason": "Storage initialization executes the current schema atomically and records and reads its initialization metadata.",
       "owner": "server-storage",
-      "target_action": "keep_migration_runner_sql",
+      "target_action": "keep_schema_initialization_sql",
       "revisit_after": "2027-09-04"
     }
   }

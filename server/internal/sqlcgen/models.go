@@ -35,60 +35,6 @@ type AuthBootstrapState struct {
 	InitializedAt string
 }
 
-type BilibiliSourceConfig struct {
-	ID                     int64
-	UaRotationEnabled      int64
-	FingerprintEnabled     int64
-	DmImgEnabled           int64
-	CaptchaRecoveryEnabled int64
-	ProxyGlobalEnabled     int64
-	UpdatedAt              string
-}
-
-type BilibiliSourceDynamic struct {
-	Uid         string
-	DynamicID   string
-	Service     string
-	Title       string
-	Summary     string
-	Url         string
-	Username    string
-	AvatarUrl   string
-	ImagesJson  string
-	PublishedAt int64
-	ObservedAt  string
-	UpdatedAt   string
-}
-
-type BilibiliSourceRoom struct {
-	Uid             string
-	RoomID          string
-	Name            string
-	Face            string
-	CoverUrl        string
-	LiveStatus      int64
-	LiveStartedAt   int64
-	LiveEventID     string
-	ConnectionState string
-	LastEventAt     sql.NullString
-	LastError       string
-	UpdatedAt       string
-}
-
-type BilibiliSourceSeen struct {
-	EventKey   string
-	Uid        string
-	EventType  string
-	SourceID   string
-	ObservedAt string
-}
-
-type BilibiliSourceState struct {
-	Key       string
-	ValueJson string
-	UpdatedAt string
-}
-
 type ManagementLog struct {
 	ID          int64
 	LogID       string
@@ -173,10 +119,10 @@ type SchedulerJob struct {
 	OtherCount       int64
 }
 
-type SchemaMigration struct {
-	Version   int64
-	Name      string
-	AppliedAt string
+type SchemaMetadatum struct {
+	SingletonID   int64
+	Version       string
+	InitializedAt string
 }
 
 type SecretStore struct {

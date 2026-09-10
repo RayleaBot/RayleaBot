@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"strings"
@@ -351,75 +350,6 @@ func TestLoginRejectsInvalidCredentials(t *testing.T) {
 	}
 }
 
-func TestLoginMigratesLegacySHA256Digest(t *testing.T) {
-	t.Parallel()
-
-	signingKey := []byte("0123456789abcdef0123456789abcdef")
-	legacyDigest := legacyDigestSecret("fixture-only-secret")
-	repository := &memoryAuthRepository{
-		bootstrap: &BootstrapState{
-			Identifier:    "admin",
-			SecretDigest:  legacyDigest,
-			SigningKey:    signingKey,
-			InitializedAt: time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC),
-		},
-	}
-	manager := newRepositoryBackedTestManager(t, repository)
-
-	token, claims, err := manager.Login("admin", "fixture-only-secret")
-	if err != nil {
-		t.Fatalf("Login failed: %v", err)
-	}
-	if token == "" {
-		t.Fatalf("expected session token")
-	}
-	if claims.Subject != "admin" {
-		t.Fatalf("unexpected subject: got %q want admin", claims.Subject)
-	}
-	if len(repository.savedSessions) != 1 {
-		t.Fatalf("expected session to be saved after migration, got %d", len(repository.savedSessions))
-	}
-	if bytes.Equal(repository.updatedDigest, legacyDigest) {
-		t.Fatalf("expected repository digest to be upgraded")
-	}
-	if !strings.HasPrefix(string(repository.updatedDigest), "raylea-pwd:v2:argon2id:") {
-		t.Fatalf("expected repository digest to use argon2id, got %q", string(repository.updatedDigest))
-	}
-	if !bytes.Equal(manager.bootstrap.SecretDigest, repository.updatedDigest) {
-		t.Fatalf("expected in-memory bootstrap digest to match repository update")
-	}
-}
-
-func TestLoginDoesNotIssueSessionWhenLegacyMigrationFails(t *testing.T) {
-	t.Parallel()
-
-	legacyDigest := legacyDigestSecret("fixture-only-secret")
-	repository := &memoryAuthRepository{
-		bootstrap: &BootstrapState{
-			Identifier:    "admin",
-			SecretDigest:  legacyDigest,
-			SigningKey:    []byte("0123456789abcdef0123456789abcdef"),
-			InitializedAt: time.Date(2026, 3, 19, 10, 0, 0, 0, time.UTC),
-		},
-		updateErr: errors.New("write failed"),
-	}
-	manager := newRepositoryBackedTestManager(t, repository)
-
-	token, _, err := manager.Login("admin", "fixture-only-secret")
-	if err == nil {
-		t.Fatalf("expected Login to fail")
-	}
-	if token != "" {
-		t.Fatalf("expected no session token")
-	}
-	if len(repository.savedSessions) != 0 {
-		t.Fatalf("expected no session to be saved, got %d", len(repository.savedSessions))
-	}
-	if !bytes.Equal(manager.bootstrap.SecretDigest, legacyDigest) {
-		t.Fatalf("expected in-memory legacy digest to remain unchanged")
-	}
-}
-
 func TestLoginRejectsMalformedArgon2idDigest(t *testing.T) {
 	t.Parallel()
 
@@ -514,14 +444,6 @@ func (r *memoryAuthRepository) LoadSessions(context.Context) ([]Claims, error) {
 }
 
 func (r *memoryAuthRepository) SaveBootstrap(context.Context, BootstrapState, Claims) error {
-	return nil
-}
-
-func (r *memoryAuthRepository) UpdateBootstrapSecretDigest(_ context.Context, secretDigest []byte) error {
-	if r.updateErr != nil {
-		return r.updateErr
-	}
-	r.updatedDigest = append([]byte(nil), secretDigest...)
 	return nil
 }
 

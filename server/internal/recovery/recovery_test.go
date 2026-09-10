@@ -3,7 +3,6 @@ package recovery
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"slices"
 	"testing"
 	"time"
@@ -446,68 +445,6 @@ func TestConfirmSkippedPluginsRejectsUnknownReviewID(t *testing.T) {
 	var unknownErr *UnknownReviewIDsError
 	if err == nil || !slices.Equal(unknownErrIDs(err, &unknownErr), []string{"review_missing"}) {
 		t.Fatalf("expected unknown review id error, got %v", err)
-	}
-}
-
-func TestSchemaVersionComparisonUsesComparableFamiliesOnly(t *testing.T) {
-	t.Parallel()
-
-	cases := []struct {
-		name   string
-		source string
-		target string
-		want   bool
-	}{
-		{name: "numeric newer", source: "15", target: "14", want: true},
-		{name: "numeric older", source: "14", target: "15", want: false},
-		{name: "base newer", source: "base-2026-07", target: "base-2026-06", want: true},
-		{name: "base equal", source: "base-2026-06", target: "base-2026-06", want: false},
-		{name: "numeric source cannot outrank base target", source: "9999", target: "base-2026-06", want: false},
-		{name: "base source cannot outrank numeric target", source: "base-2026-06", target: "9999", want: false},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isSchemaNewer(tc.source, tc.target); got != tc.want {
-				t.Fatalf("isSchemaNewer(%q, %q) = %v, want %v", tc.source, tc.target, got, tc.want)
-			}
-		})
-	}
-}
-
-func TestEvaluateRestoreRejectsBackupV2ButAllowsOldPluginsInsideBackupV3(t *testing.T) {
-	t.Parallel()
-
-	oldBackup := BackupManifest{
-		Version: "2", PluginManifestVersion: "2", PluginProtocolVersion: "1",
-		PluginArtifactVersion: "1", PluginUIBridgeVersion: "2",
-	}
-	summary := EvaluateRestore(oldBackup, t.TempDir())
-	if summary.Status != "blocked" || summary.RequiresPostStartChecks || len(summary.Issues) == 0 || summary.Issues[0].Code != "plugin.contract_unsupported" {
-		t.Fatalf("backup v2 summary = %#v", summary)
-	}
-
-	backupV3 := BackupManifest{
-		Version: BackupManifestVersion, PluginManifestVersion: PluginManifestVersion,
-		ConfigSchemaVersion:   config.CurrentSchemaVersion(),
-		PluginProtocolVersion: PluginProtocolVersion, PluginArtifactVersion: PluginArtifactVersion,
-		PluginUIBridgeVersion: PluginUIBridgeVersion,
-		Plugins: []BackupManifestPlugin{{
-			PluginID: "legacy-python", ManifestVersion: "2", ProtocolVersion: "1", ArtifactVersion: "1",
-		}},
-	}
-	summary = EvaluateRestore(backupV3, t.TempDir())
-	if summary.Status == "blocked" || !summary.RequiresPostStartChecks {
-		t.Fatalf("backup v3 with old plugin should remain restorable: %#v", summary)
-	}
-	foundWarning := false
-	for _, issue := range summary.Issues {
-		if issue.Code == "plugin.contract_unsupported" && issue.Severity == "warning" {
-			foundWarning = true
-		}
-	}
-	if !foundWarning {
-		t.Fatalf("old plugin warning is missing: %#v", summary.Issues)
 	}
 }
 

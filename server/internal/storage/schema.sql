@@ -1,7 +1,7 @@
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version INTEGER PRIMARY KEY,
-    name TEXT NOT NULL,
-    applied_at TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS schema_metadata (
+    singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
+    version TEXT NOT NULL,
+    initialized_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS auth_bootstrap_state (
@@ -180,69 +180,6 @@ CREATE TABLE IF NOT EXISTS third_party_accounts (
 
 CREATE INDEX IF NOT EXISTS idx_third_party_accounts_platform
     ON third_party_accounts (platform);
-
-CREATE TABLE IF NOT EXISTS bilibili_source_config (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    ua_rotation_enabled INTEGER NOT NULL DEFAULT 1 CHECK (ua_rotation_enabled IN (0, 1)),
-    fingerprint_enabled INTEGER NOT NULL DEFAULT 1 CHECK (fingerprint_enabled IN (0, 1)),
-    dm_img_enabled INTEGER NOT NULL DEFAULT 1 CHECK (dm_img_enabled IN (0, 1)),
-    captcha_recovery_enabled INTEGER NOT NULL DEFAULT 0 CHECK (captcha_recovery_enabled IN (0, 1)),
-    proxy_global_enabled INTEGER NOT NULL DEFAULT 0 CHECK (proxy_global_enabled IN (0, 1)),
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS bilibili_source_rooms (
-    uid TEXT PRIMARY KEY,
-    room_id TEXT NOT NULL DEFAULT '',
-    name TEXT NOT NULL DEFAULT '',
-    face TEXT NOT NULL DEFAULT '',
-    cover_url TEXT NOT NULL DEFAULT '',
-    live_status INTEGER NOT NULL DEFAULT 0 CHECK (live_status IN (0, 1)),
-    live_started_at INTEGER NOT NULL DEFAULT 0,
-    live_event_id TEXT NOT NULL DEFAULT '',
-    connection_state TEXT NOT NULL DEFAULT 'idle' CHECK (connection_state IN ('idle', 'connecting', 'connected', 'degraded', 'failed')),
-    last_event_at TEXT,
-    last_error TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_bilibili_source_rooms_state
-    ON bilibili_source_rooms (connection_state);
-
-CREATE TABLE IF NOT EXISTS bilibili_source_seen (
-    event_key TEXT PRIMARY KEY,
-    uid TEXT NOT NULL,
-    event_type TEXT NOT NULL CHECK (event_type IN ('bilibili.live.started', 'bilibili.live.ended', 'bilibili.dynamic.published')),
-    source_id TEXT NOT NULL,
-    observed_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_bilibili_source_seen_uid
-    ON bilibili_source_seen (uid, observed_at DESC);
-
-CREATE TABLE IF NOT EXISTS bilibili_source_dynamics (
-    uid TEXT PRIMARY KEY,
-    dynamic_id TEXT NOT NULL,
-    service TEXT NOT NULL CHECK (service IN ('video', 'image_text', 'article', 'repost')),
-    title TEXT NOT NULL DEFAULT '',
-    summary TEXT NOT NULL DEFAULT '',
-    url TEXT NOT NULL DEFAULT '',
-    username TEXT NOT NULL DEFAULT '',
-    avatar_url TEXT NOT NULL DEFAULT '',
-    images_json TEXT NOT NULL DEFAULT '[]',
-    published_at INTEGER NOT NULL DEFAULT 0,
-    observed_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_bilibili_source_dynamics_observed_at
-    ON bilibili_source_dynamics (observed_at DESC);
-
-CREATE TABLE IF NOT EXISTS bilibili_source_state (
-    key TEXT PRIMARY KEY,
-    value_json TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
 
 CREATE TABLE IF NOT EXISTS render_templates (
     template_id TEXT PRIMARY KEY,

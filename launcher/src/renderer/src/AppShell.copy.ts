@@ -73,8 +73,6 @@ const recoveryStatusLabels: Record<RecoveryCompatibilitySummary["status"], strin
 
 const recoveryOperationLabels: Record<RecoveryCompatibilitySummary["operation"], string> = {
   restore: "恢复",
-  upgrade: "升级",
-  rollback: "回滚",
 };
 
 const recoveryPhaseLabels: Record<RecoveryCompatibilitySummary["phase"], string> = {

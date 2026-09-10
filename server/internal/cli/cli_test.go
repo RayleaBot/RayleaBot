@@ -33,7 +33,7 @@ func TestResetAdminAllowsArgon2idSetupAfterReset(t *testing.T) {
 	root := t.TempDir()
 	configPath := filepath.Join(root, "config", "user.yaml")
 	databasePath := filepath.Join(root, "data", "rayleabot.db")
-	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 
 	store, err := storage.Open(databasePath)
 	if err != nil {
@@ -112,12 +112,12 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 		}
 	}
 
-	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
+	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  host: 127.0.0.1\n  port: 9600\n")
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
-	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"2","plugin_protocol_version":"1","version":"1.0.0","platforms":["windows-x64"]}`)
-	writeFile(t, filepath.Join(pluginsDir, "artifact.json"), `{"artifact_version":"1"}`)
+	writeFile(t, filepath.Join(pluginsDir, "info.json"), `{"id":"hello-go","manifest_version":"3","version":"1.0.0","platforms":["windows-x64"]}`)
+	writeFile(t, filepath.Join(pluginsDir, "artifact.json"), `{"artifact_version":"2"}`)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	code := runBackup(Command{
@@ -237,7 +237,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  listen: 127.0.0.1:9600\n")
+	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  host: 127.0.0.1\n  port: 9600\n")
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
@@ -354,7 +354,7 @@ func TestRestoreRejectsBackupManifestV2(t *testing.T) {
 	}
 }
 
-func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
+func TestRestoreRejectsDifferentDatabaseFormatBeforeExtraction(t *testing.T) {
 	t.Parallel()
 	currentSchema, err := strconv.Atoi(storage.CurrentSchemaVersion())
 	if err != nil {
@@ -372,7 +372,7 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 		Version:               recovery.BackupManifestVersion,
 		CreatedAt:             "2026-04-02T00:00:00Z",
 		CoreVersion:           "0.2.0",
-		ConfigSchemaVersion:   "2",
+		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
 		DBSchemaVersion:       strconv.Itoa(currentSchema + 1),
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
@@ -424,8 +424,8 @@ func TestRestoreBlocksNewerDatabaseSchemaBeforeExtraction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load recovery summary: %v", err)
 	}
-	if summary == nil || summary.Status != "blocked" {
-		t.Fatalf("restore should persist blocked recovery summary, got %#v", summary)
+	if summary != nil {
+		t.Fatalf("invalid manifest must not create recovery state, got %#v", summary)
 	}
 }
 
@@ -478,7 +478,7 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 		CreatedAt:             "2025-01-01T00:00:00Z",
 		CoreVersion:           "0.2.0",
 		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
-		DBSchemaVersion:       "000004",
+		DBSchemaVersion:       "absent",
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,
@@ -934,7 +934,7 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	databasePath := filepath.Join(repoRoot, "data", "rayleabot.db")
-	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 	createTestSQLiteDatabase(t, databasePath)
 
 	healthy := diagnostics.Build(context.Background(), diagnostics.Options{
@@ -986,13 +986,13 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(configPath, []byte("schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n"), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte("schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
 		Status:    "degraded",
 		Phase:     "post_startup",
-		Operation: "upgrade",
+		Operation: "restore",
 		CreatedAt: "2026-04-02T00:00:00Z",
 		UpdatedAt: "2026-04-02T00:01:00Z",
 	}); err != nil {

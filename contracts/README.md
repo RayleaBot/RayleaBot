@@ -35,7 +35,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
   - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序，恢复操作标为 `restore`，仍检查 schema 与协议版本；有最低 core 版本要求的插件须确认兼容后才能自动启用或通过商店安装。
   - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台、权限与协议握手检查。普通安装和商店安装不使用此例外。
-  - 配置与数据库 schema 版本从实际归档内容读取，无法确认时记录 `unknown`。恢复预检按已实现的配置迁移路径验收，当前支持 v3 → v4 与 v4；已知但无迁移路径的配置以 `recovery.config_schema_unsupported` 阻止恢复。`unknown` 保留启动后人工检查，不能据此认定迁移兼容。
+  - 配置与数据库 schema 版本从实际归档内容读取：当前配置为 `4`，数据库为 `000001`；没有归档数据库时明确记录 `absent`。恢复只处理当前格式，初始化元数据、配置与业务数据在本版备份恢复中保持一致。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与抖音扫码登录（浏览器兜底）共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口

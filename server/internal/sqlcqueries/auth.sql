@@ -9,11 +9,6 @@ SELECT COUNT(*) FROM auth_bootstrap_state WHERE singleton_id = 1;
 INSERT INTO auth_bootstrap_state (singleton_id, identifier, secret_digest, signing_key, initialized_at)
 VALUES (1, ?, ?, ?, ?);
 
--- name: UpdateBootstrapSecretDigest :execrows
-UPDATE auth_bootstrap_state
-SET secret_digest = ?
-WHERE singleton_id = 1;
-
 -- name: UpdateBootstrapCredentials :execrows
 UPDATE auth_bootstrap_state
 SET identifier = ?, secret_digest = ?

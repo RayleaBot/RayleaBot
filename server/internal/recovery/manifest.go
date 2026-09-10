@@ -75,11 +75,7 @@ func loadManifestPlugins(pluginsRoot string) []BackupManifestPlugin {
 			MinCoreVersion:  stringValue(raw["min_core_version"]),
 			SourceRoot:      "plugins/installed",
 		}
-		if item.ManifestVersion == PluginManifestVersion {
-			item.ProtocolVersion = PluginProtocolVersion
-		} else {
-			item.ProtocolVersion = stringValue(raw["plugin_protocol_version"])
-		}
+		item.ProtocolVersion = PluginProtocolVersion
 		artifactPayload, artifactErr := os.ReadFile(filepath.Join(pluginsRoot, entry.Name(), "artifact.json"))
 		if artifactErr == nil {
 			var artifact map[string]any

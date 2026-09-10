@@ -1,2 +1,2 @@
--- name: ListSchemaMigrations :many
-SELECT version, name, applied_at FROM schema_migrations ORDER BY version;
+-- name: ReadSchemaMetadata :one
+SELECT version, initialized_at FROM schema_metadata WHERE singleton_id = 1;

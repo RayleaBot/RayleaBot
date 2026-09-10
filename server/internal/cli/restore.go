@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	"gopkg.in/yaml.v3"
 )
 
 func runRestore(cmd Command) int {
@@ -82,8 +83,9 @@ func runRestore(cmd Command) int {
 		}
 	}
 	databasePath := ""
+	var restoredConfig map[string]any
 	if len(databaseEntries) > 0 {
-		databasePath, err = runtimepaths.DatabaseFromConfig(cmd.ConfigPath)
+		restoredConfig, databasePath, err = archivedRestoreConfiguration(reader.File, cmd.ConfigPath, cmd.SchemaPath)
 		if err != nil {
 			cmd.Logger.Error("解析恢复目标数据库路径失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 			return 1
@@ -118,7 +120,13 @@ func runRestore(cmd Command) int {
 			continue
 		}
 
-		if err := restoreFile(f, targetPath); err != nil {
+		var writeErr error
+		if f.Name == "config/user.yaml" && restoredConfig != nil {
+			_, _, writeErr = config.SaveDocument(cmd.ConfigPath, cmd.SchemaPath, restoredConfig)
+		} else {
+			writeErr = restoreFile(f, targetPath)
+		}
+		if err := writeErr; err != nil {
 			targetPathDisplay := displayLogPath(repoRoot, targetPath)
 			cmd.Logger.Error("恢复备份文件失败："+targetPathDisplay, "path", targetPathDisplay, "err", displayLogError(repoRoot, err, targetPath))
 			return 1
@@ -216,4 +224,59 @@ func restoreFile(f *zip.File, targetPath string) error {
 		return err
 	}
 	return os.Rename(temporaryPath, targetPath)
+}
+
+// The archived configuration supplies the database destination even when the
+// restore target has never been initialized.
+func archivedRestoreConfiguration(entries []*zip.File, configPath, schemaPath string) (map[string]any, string, error) {
+	for _, entry := range entries {
+		if entry.Name != "config/user.yaml" {
+			continue
+		}
+		reader, err := entry.Open()
+		if err != nil {
+			return nil, "", err
+		}
+		payload, readErr := io.ReadAll(io.LimitReader(reader, 1024*1024+1))
+		closeErr := reader.Close()
+		if readErr != nil {
+			return nil, "", readErr
+		}
+		if closeErr != nil {
+			return nil, "", closeErr
+		}
+		if len(payload) > 1024*1024 {
+			return nil, "", fmt.Errorf("archived config exceeds size limit")
+		}
+		var document map[string]any
+		if err := yaml.Unmarshal(payload, &document); err != nil {
+			return nil, "", err
+		}
+		typed, _, document, err := config.NormalizeDocument(configPath, schemaPath, document)
+		if err != nil {
+			return nil, "", err
+		}
+		name := strings.ReplaceAll(strings.TrimSpace(typed.Database.Path), "\\", "/")
+		if strings.HasPrefix(name, "/") || (len(name) > 1 && name[1] == ':') {
+			name = "data/rayleabot.db"
+		}
+		if !slashPathIsLocal(name) || strings.Contains(name, ":") {
+			return nil, "", fmt.Errorf("archived database path is not a portable relative path")
+		}
+		first, _, nested := strings.Cut(name, "/")
+		if !nested || strings.HasPrefix(first, ".") {
+			return nil, "", fmt.Errorf("archived database must be inside a runtime data directory")
+		}
+		switch strings.ToLower(first) {
+		case "config", "plugins", "logs", "cache", "backups", "templates", "web", ".deps":
+			return nil, "", fmt.Errorf("archived database path targets a protected directory")
+		}
+		document["database"].(map[string]any)["path"] = name
+		databasePath, valid := restoreTargetPath(filepath.Dir(filepath.Dir(configPath)), name)
+		if !valid {
+			return nil, "", fmt.Errorf("archived database path is not local")
+		}
+		return document, databasePath, nil
+	}
+	return nil, "", fmt.Errorf("backup database requires an archived configuration")
 }

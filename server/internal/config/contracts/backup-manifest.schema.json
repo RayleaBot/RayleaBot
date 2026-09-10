@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/backup-manifest.schema.json",
   "title": "RayleaBot Backup Manifest",
-  "description": "Formal schema for backup-manifest.json. This file freezes the packaged recovery preflight surface used by backup, restore, launcher fallback, and cross-version recovery drills.",
+  "description": "Formal schema for current-format backup-manifest.json used by backup, restore, launcher fallback and fresh-install recovery drills.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -40,13 +40,16 @@
     },
     "config_schema_version": {
       "type": "string",
-      "minLength": 1,
-      "description": "Schema version read from the archived config bytes or SQLite snapshot, respectively. Unknown or absent version metadata is represented by unknown; the running binary version must not be substituted."
+      "const": "4",
+      "description": "Current schema version read from the archived user configuration."
     },
     "db_schema_version": {
       "type": "string",
-      "minLength": 1,
-      "description": "Schema version read from the archived config bytes or SQLite snapshot, respectively. Unknown or absent version metadata is represented by unknown; the running binary version must not be substituted."
+      "enum": [
+        "000001",
+        "absent"
+      ],
+      "description": "Current schema version read from the archived SQLite initialization metadata; absent means no database was included."
     },
     "plugin_manifest_version": {
       "type": "string",
@@ -93,7 +96,7 @@
     },
     "directory": {
       "type": "object",
-      "description": "A restorable archive root. config contains the effective user configuration, database identifies the canonical SQLite snapshot, data contains non-database runtime and plugin business data, and plugins contains installed plugin artifacts.",
+      "description": "A restorable archive root. config contains the effective user configuration, database identifies the canonical SQLite snapshot, data contains non-database runtime and plugin business data, and plugins contains installed plugin artifacts. Database restoration uses the archived effective configuration: portable relative paths are retained inside the target root; absolute source paths become data/rayleabot.db. Unsafe relative paths are rejected.",
       "additionalProperties": false,
       "required": [
         "label",
@@ -131,28 +134,15 @@
         },
         "manifest_version": {
           "type": "string",
-          "enum": [
-            "2",
-            "3"
-          ],
-          "description": "Actual manifest version found in the archived package, including preserved unsupported v2 packages."
+          "const": "3"
         },
         "protocol_version": {
           "type": "string",
-          "enum": [
-            "1",
-            "2",
-            "3"
-          ],
-          "description": "Actual protocol version found in the archived package."
+          "const": "3"
         },
         "artifact_version": {
           "type": "string",
-          "enum": [
-            "1",
-            "2"
-          ],
-          "description": "Actual artifact version found in the archived package."
+          "const": "2"
         },
         "version": {
           "$ref": "#/$defs/semver"
@@ -171,8 +161,9 @@
   },
   "x-fixtures": [
     "fixtures/backup-manifest/ok.minimal.json",
-    "fixtures/backup-manifest/invalid.legacy-v2.json",
+    "fixtures/backup-manifest/ok.unknown-core-version.json",
+    "fixtures/backup-manifest/edge.config-only.json",
     "fixtures/backup-manifest/invalid.missing-schema-versions.json",
-    "fixtures/backup-manifest/edge.incompatible-plugin-inventory.json"
+    "fixtures/backup-manifest/edge.plugin-inventory.json"
   ]
 }

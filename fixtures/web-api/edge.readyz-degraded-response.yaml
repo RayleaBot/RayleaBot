@@ -24,15 +24,15 @@ response:
     recovery_summary:
       status: degraded
       phase: post_startup
-      operation: upgrade
+      operation: restore
       created_at: 2026-04-02T08:00:00Z
       updated_at: 2026-04-02T08:01:00Z
       source_core_version: 0.1.0
       target_core_version: 0.2.0
-      source_config_schema_version: "2"
-      target_config_schema_version: "2"
-      source_db_schema_version: "000004"
-      target_db_schema_version: "000004"
+      source_config_schema_version: "4"
+      target_config_schema_version: "4"
+      source_db_schema_version: "000001"
+      target_db_schema_version: "000001"
       issues:
         - code: recovery.plugin_min_core_version
           severity: warning

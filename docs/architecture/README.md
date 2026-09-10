@@ -17,7 +17,7 @@
 | [Bot Core](./bot-core.md) | 命令、治理、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板、Chromium、artifact 与资源摘要 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复和 Launcher 控制 |
-| [Storage Migrations](./storage-migrations.md) | SQLite schema 与 migration 不变量 |
+| [数据库初始化](../engineering/storage-initialization.md) | SQLite 当前结构、初始化与验证 |
 | [Technology Decisions](./technology-decisions.md) | 正式技术栈和依赖替换准则 |
 
 ## 架构不变量

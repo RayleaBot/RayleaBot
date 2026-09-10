@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"crypto/sha256"
 	"strings"
 	"testing"
 )
@@ -38,20 +37,11 @@ func TestVerifySecretAcceptsArgon2idAndRejectsWrongSecret(t *testing.T) {
 		t.Fatalf("hashSecret failed: %v", err)
 	}
 
-	if verification := verifySecret("fixture-only-secret", encoded); !verification.OK || verification.Legacy {
-		t.Fatalf("expected argon2id secret to verify without legacy flag, got %+v", verification)
+	if verification := verifySecret("fixture-only-secret", encoded); !verification {
+		t.Fatalf("expected argon2id secret to verify, got %+v", verification)
 	}
-	if verification := verifySecret("wrong-secret", encoded); verification.OK {
+	if verification := verifySecret("wrong-secret", encoded); verification {
 		t.Fatalf("expected wrong secret to be rejected")
-	}
-}
-
-func TestVerifySecretAcceptsLegacySHA256(t *testing.T) {
-	sum := sha256.Sum256([]byte("fixture-only-secret"))
-	verification := verifySecret("fixture-only-secret", sum[:])
-
-	if !verification.OK || !verification.Legacy {
-		t.Fatalf("expected legacy SHA-256 secret to verify with legacy flag, got %+v", verification)
 	}
 }
 
@@ -64,7 +54,7 @@ func TestVerifySecretRejectsMalformedArgon2id(t *testing.T) {
 	}
 
 	for _, candidate := range cases {
-		if verification := verifySecret("fixture-only-secret", candidate); verification.OK {
+		if verification := verifySecret("fixture-only-secret", candidate); verification {
 			t.Fatalf("expected malformed hash %q to be rejected", string(candidate))
 		}
 	}
