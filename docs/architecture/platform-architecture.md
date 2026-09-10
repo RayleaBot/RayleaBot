@@ -23,7 +23,7 @@ flowchart TB
         OUT["Outbound / Adapter Send"]
     end
 
-    OB["OneBot11"] --> PIPE
+    OB["OneBot11 / QQ Official"] --> PIPE
     HOOK["Plugin webhook caller"] --> PR
     W --> API
     L --> API
@@ -46,7 +46,7 @@ flowchart TB
 | --- | --- | --- | --- |
 | 对外接口与发布元数据 | `contracts/` | schema、OpenAPI、WebSocket、errors、CLI、fixtures | 所有实现与文档 |
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
-| OneBot11 连接与事件 | Adapter / Event Pipeline | adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
+| 聊天适配器连接与事件 | Adapter / Event Pipeline | 按实例隔离的 adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
 | 三方平台集成 | Integrations | 平台账号、资料、扫码会话与校验结果 | 三方账号服务、插件动作、管理面 |
 | 插件静态声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源 | Lifecycle、管理面 |
 | 插件商店目录 | Plugin Store Service | HTTPS 来源的已校验 catalog、来源元数据与刷新状态 | 安装流程、管理面 |

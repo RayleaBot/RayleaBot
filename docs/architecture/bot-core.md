@@ -14,7 +14,7 @@
 | Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
 | Runtime Manager | 负责插件进程会话、握手、保活、事件投递与终态收集 |
-| Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、Webhook、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
+| Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
 | Adapter Service | 位于 `bot/adapters`，持有所有适配器实例，负责启停、配置 reload、领域快照、协议查询、OneBot 回连与 Webhook 协议入口 |
 | Management Events | 位于 `management/events`，负责管理 Frame、初始快照、事件投影和连接订阅生命周期 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
@@ -75,7 +75,7 @@
 
 ### Scheduler
 
-- Scheduler 使用 `scheduler.timezone` 的 IANA 时区，默认 `Asia/Shanghai`（UTC+08:00），旧配置留空时采用同一默认值。管理面展示与日志筛选使用配置接口返回的 `effective_timezone`；保存新时区后，服务重启前仍使用当前生效值。重启时按新时区重算未来任务，积压任务保留恢复行为。
+- Scheduler 使用 `scheduler.timezone` 的 IANA 时区，默认 `Asia/Shanghai`（UTC+08:00）。管理面展示与日志筛选使用配置接口返回的 `effective_timezone`；保存新时区后，服务重启前仍使用当前生效值。重启时按新时区重算未来任务，积压任务保留恢复行为。
 - Scheduler 只接受五段 cron 周期表达式，不负责一次性长操作。
 - 周期性任务在服务离线期间不补跑，恢复后按下一个匹配时间点触发。
 - 同一插件同一 `task_id` 的调度注册按更新处理，不生成重复任务。
@@ -85,7 +85,7 @@
 
 - Task Registry 是有限长异步操作的职责方，负责 admission、执行状态、持久化和关闭 drain。
 - 当前后台任务固定为 `plugin.install`、`plugin.uninstall`、`plugin.reload`、`backup.create`、`restore.apply`、`recovery.recheck`、`recovery.confirm`、`runtime.bootstrap`。
-- 数据库 schema 迁移在存储启动时同步执行；模板 HTML 预览是同步接口，二者都不创建后台任务。
+- 数据库结构初始化在存储启动时同步执行；模板 HTML 预览是同步接口，二者都不创建后台任务。
 - 统一任务字段包括 `task_id`、`task_type`、`status`、`progress`、`summary`、`started_at`、`finished_at`、`result` 和 `error`。
 - Web UI、CLI、日志和管理 WebSocket 复用同一套任务状态，不为不同长操作发明独立状态模型。
 - 可取消与不可取消的长操作边界由任务类型决定；不可逆阶段不接受假性的“取消中”状态。
@@ -93,9 +93,9 @@
 ## 启动与 Ready 语义
 
 - App 负责配置加载、平台服务组装、插件服务组装、HTTP 路由注册和关闭协调。
-- 启动检查覆盖迁移、运行时资源、渲染资源、初始化判定、插件注册与调度恢复，以及 Adapter 建链。
-- 配置、迁移、关键资源检查失败时，服务不会进入 `running`。
-- 处于 `setup_required` 时，平台不会加载插件、建立 OneBot11 连接或启动调度。
+- 启动检查覆盖数据库结构、运行时资源、渲染资源、初始化判定、插件注册与调度恢复，以及 Adapter 建链。
+- 配置或数据库结构校验失败会阻止构造完成；运行资源缺失由 readiness 和 diagnostics 表达，并提供准备或修复入口。
+- `setup_required` 表示管理员尚未初始化，管理面引导完成初始化并建立会话；它不表示适配器、插件与调度已经暂停。这些组件依各自配置和生命周期运行。
 - 本地管理控制面和关键资源正常时，服务即可进入可管理状态；外部协议链路暂时不可用时，可进入 `degraded`。
 - Ready 判断以本地控制面、关键资源和初始化状态为主，不用 `degraded` 掩盖本地启动失败。
 

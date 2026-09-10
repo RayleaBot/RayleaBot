@@ -96,30 +96,30 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] | P01 | P0/S | CI 输入分类与基线 | — | 待验收 | 分类/结构/Windows/core race/Linux 目标 lint 通过；托管 CI 待运行 |
 | [x] | P02 | P0/M | 监督器与资源关闭 | P01 | 完成 | 首错、幂等清理、快照/回调等待和构造失败回收均已验证 |
-| [ ] | P03 | P0/M | 多实例路由与事件补全 | P01 | 进行中 | 动作/元数据子任务完成；集合摘要与占位 Shell 后续 |
-| [ ] | P04 | P0/M | 安装失败传播与 HTTP 输入边界 | P01 | 进行中 | HTTP 子任务完成；安装后置/回滚待实施 |
-| [ ] | P05 | P1/L | 错误码与结构化失败语义 | P01 | 未开始 | — |
-| [ ] | P06 | P1/L | 契约、样例与校验覆盖 | P01 | 未开始 | — |
-| [ ] | P07 | P1/L | 错误目录、协议与版本生成链 | P05、P06 | 未开始 | — |
-| [ ] | P08 | P1/L | 默认配置、类型化与热更新 | P05、P06 | 未开始 | — |
-| [ ] | P09 | P1/M | 数据初始化基线与历史代码清理 | P06、P08 | 未开始 | — |
-| [ ] | P10 | P1/L | 文件路径与归档原语 | P04、P06 | 未开始 | — |
-| [ ] | P11 | P1/M | 资源清单与下载一致性 | P06、P10 | 未开始 | — |
-| [ ] | P12 | P1/M | 插件 settings 业务统一 | P05、P06 | 未开始 | — |
-| [ ] | P13 | P1/L | 插件状态、生命周期与装配 | P02、P04、P12 | 未开始 | — |
-| [ ] | P14 | P1/L | 适配器服务与管理事件分离 | P03、P08 | 未开始 | — |
-| [ ] | P15 | P1/M | 中立出站与观测归属 | P03、P05 | 未开始 | — |
-| [ ] | P16 | P2/M | 模型、视图与辅助依赖收回 | P12、P13 | 未开始 | — |
-| [ ] | P17 | P2/M | Render 合包与资源回收 | P16 | 未开始 | — |
-| [ ] | P18 | P2/M | 运维、调度与 CLI 业务归属 | P09、P16 | 未开始 | — |
+| [x] | P03 | P0/M | 多实例路由与事件补全 | P01 | 完成 | 5b96a922 / 7b425610；多实例动作、集合HTTP/WS及Web/Launcher消费者；独立提交的integration/ws/services/race、strict、客户端类型与浏览器流程通过 |
+| [x] | P04 | P0/M | 安装失败传播与 HTTP 输入边界 | P01 | 完成 | e2b1af8b / 4828d190；HTTP边界、安装后置/回滚与卸载失败传播；实际子进程、集成与输入回归通过 |
+| [x] | P05 | P1/L | 错误码与结构化失败语义 | P01 | 完成 | ae6c8133 / bd7dfed9 / 3d81d35e / 7fa257fc / 96d37866；正式目录、typed error、固定日志模板和有界协议观测；Server全测、真实超限HTTP、错误负例与race通过 |
+| [x] | P06 | P1/L | 契约、样例与校验覆盖 | P01 | 完成 | 1f93f424；七类有界集合、trust/current_release、共享schema、样例索引与严格验证；数据库单连接/并发创建race、33客户端回归与两端类型检查通过 |
+| [x] | P07 | P1/L | 错误目录、协议与版本生成链 | P05、P06 | 完成 | f452f662；同源wire/版本、实际收发校验、独立SDK/10示例构建与runtime/SDK race通过 |
+| [x] | P08 | P1/L | 默认配置、类型化与热更新 | P05、P06 | 完成 | aea98f54 / c8f5834f；schema默认、单user.yaml、配置/secret补偿、revision、desired/effective与render单次快照；配置/secret/render race及集成通过 |
+| [x] | P09 | P1/M | 数据初始化基线与历史代码清理 | P06、P08 | 完成 | 67113c74；目标schema初始化与旧密码/迁移删除；空目录、当前格式恢复及默认/相对/绝对DB重启验证通过 |
+| [x] | P10 | P1/L | 文件路径与归档原语 | P04、P06 | 完成 | 8e20a123 / 349eb9d4 / 78ea5106 / f2ae35d3 / 57d6bf78；公共限额/路径原语和全部消费者；Windows真实事务回滚、junction边界、race及Python75项验证通过 |
+| [x] | P11 | P1/M | 资源清单与下载一致性 | P06、P10 | 完成 | 349eb9d4 / 2ad2b91e；三端清单共享样例、下载边界与缓存发布；Server/Launcher及Python80测试通过（1 OpenSSL环境skip） |
+| [x] | P12 | P1/M | 插件 settings 业务统一 | P05、P06 | 完成 | 50e97879 / f9e2d3b；共享settings、有效差异/已提交失败重试、secret事务及可变键隔离；普通/race/真实App回归通过 |
+| [x] | P13 | P1/L | 插件状态、生命周期与装配 | P02、P04、P12 | 完成 | f9e2d3b / 3af889f0；操作gate、初始化一致性/drain及真实App关闭后Catalog投影；生命周期/真实App/race通过 |
+| [x] | P14 | P1/L | 适配器服务与管理事件分离 | P03、P08 | 完成 | af732b55；适配器owner与管理事件分离、原子快照订阅、主动关闭WS及收回订阅；领域/race/integration通过 |
+| [x] | P15 | P1/M | 中立出站与观测归属 | P03、P05 | 完成 | 7b0f6cab / 96d37866；实际协议/实例归属、中立发送错误和有限指标；出站race、HTTP/WS及Web日志回归通过 |
+| [x] | P16 | P2/M | 模型、视图与辅助依赖收回 | P12、P13 | 完成 | 29b33492；仓储/readiness/路径发现/身份/共享Summary归位；架构正反例、相关race与真实App通过 |
+| [x] | P17 | P2/M | Render 合包与资源回收 | P16 | 完成 | 657d8153；Render统一模型、关闭取消/维护互斥、显式临时profile归属；真实Chrome清理5轮及自有/用户profile回归、render/app race通过 |
+| [x] | P18 | P2/M | 运维、调度与 CLI 业务归属 | P09、P16 | 完成 | 4be30685 / 78ea5106；恢复、凭据重置和调度业务归领域；锁/失败回滚、CLI输出与自定义DB实际恢复通过 |
 | [ ] | P19 | P2/L | 后端目录分组迁移 | P08、P10–P18 | 未开始 | — |
-| [ ] | P20 | P1/L | 测试体系替代与离线回归 | P01；随各行为包推进 | 未开始 | — |
-| [ ] | P21 | P2/M | 死代码、重复 helper 与集成精简 | 相关行为包、P20 | 未开始 | — |
-| [ ] | P22 | P1/L | Web 状态、错误、请求与真实 E2E | P05–P08、P12 | 未开始 | — |
-| [ ] | P23 | P1/L | Launcher 类型边界与失败可见性 | P05、P06、P11 | 未开始 | — |
-| [ ] | P24 | P2/M | 工具链、开发与发布脚本收敛 | P07–P11 | 未开始 | — |
-| [ ] | P25 | P2/M | 文档、文案、资产与说明归属 | 已完成任务随轮更新 | 未开始 | — |
-| [ ] | P26 | P1/L | 全新分发验收与交付准备 | P01–P25 | 未开始 | — |
+| [x] | P20 | P1/L | 测试体系替代与离线回归 | P01；随各行为包推进 | 完成 | 89266728 / f0f52802 / 3af889f0 / 749908a3；80用例唯一迁移、真实App闭环、构造注入与可控关闭预算；相关11包race、全Server及结构负例通过 |
+| [x] | P21 | P2/M | 死代码、重复 helper 与集成精简 | 相关行为包、P20 | 完成 | 3964fa4f；无调用集成链/helper/SQL删除；保留有证据的账号/QR/授权边界；隔离Server全测、SQL、结构与Linux目标lint通过 |
+| [x] | P22 | P1/L | Web 状态、错误、请求与真实 E2E | P05–P08、P12 | 完成 | ea75eb9e / 33d7caad / 73b00af2；共享请求/刷新、结构化诊断、分页消费与真实E2E；455单测、构建、6生产浏览器及14交互用例通过 |
+| [ ] | P23 | P1/L | Launcher 类型边界与失败可见性 | P05、P06、P11 | 待验收 | fa97b713；正式API模型与坏文件/关闭边界，62 JS/Go普通与Windows race/4 Renderer E2E/native build通过；原生UI与Linux/macOS构建随P26 |
+| [ ] | P24 | P2/M | 工具链、开发与发布脚本收敛 | P07–P11 | 待验收 | 2a6cd692 / 57d6bf78；Go/Node入口、doctor任务profile、发布矩阵/限额及当前恢复演练；脚本正反例/Windows Git Bash通过，原生POSIX随P26托管CI验收 |
+| [x] | P25 | P2/M | 文档、文案、资产与说明归属 | 已完成任务随轮更新 | 完成 | 本次文档归档；当前入口与契约一致、历史设计记录分离、孤儿预览删除、来源/字体核查；143文档链接/指令/设计生成与1023中文字形离线验证通过 |
+| [ ] | P26 | P1/L | 全新分发验收与交付准备 | P01–P25 | 进行中 | 目标0.1.0候选；原生验收工作流与Windows UI准备中；不创建发布tag，正式Windows证书缺失保持guided |
 
 执行波次：
 
@@ -527,6 +527,31 @@
 | 2026-09-10 | P03.ROUTING 动作与元数据实例隔离 | 完成 | `5b96a922` | 协议/SDK 明确实例选择；复用 Router，按父事件约束选路；provider 前剥离 selector；元数据与缓存按实例隔离 | app/actions/runtime/onebot11/outbound/architecture 包及 services OneBot/Provider 测试通过；SDK GOWORK=off 全包通过；strict、生成/verify、文档链接通过；双实例 HTTP 与 LLOneBot/NapCat provider 门禁回归通过；相关核心 race 通过 | 单实例 HTTP/WS/system 摘要及占位 Shell 仍待 P03 后续子任务 |
 | 2026-09-10 | P02 监督器与完整关闭 | 完成 | `7607bac1` | 任务独立启动并保留首错；并发 Close 仅清理一次、失败继续；快照/适配器回调结束后回收依赖；平台与渲染构造失败完整清理 | App/OneBot 全包 race、存储/渲染关闭定向 race、真实 App 监听失败/构造失败/适配器启停定向 integration race 通过；vet/lint 通过；Server `go test ./...` 全部通过；最终 Linux 目标 lint 0 issues；OneBot/存储纳入 PR race | 无响应取消的回调以明确超时失败返回，不宣称无残留；托管 CI、Web/Launcher E2E 与发布打包未运行 |
 
+
+| 2026-09-10 | P05 规范错误目录与HTTP出口 | 完成（子任务） | `ae6c8133`、`4f8ee72a` | 正式目录生成Go/TS；HTTP只传code/details，未声明或非HTTP错误降级；认证401/资源404/冲突409/上游502/停用503一致 | 独立提交树中HTTP/management/app/webhook/architecture、integration/services/WS、Web错误17项、strict与生成verify通过 | 领域typed error与日志模板继续归档；不代表P05整包完成 |
+| 2026-09-10 | P03 集合状态 / P04 安装事务 | 待验收 | 工作区，待分组提交 | 移除主实例/占位Shell；按adapter_id查询与集合事件；安装后置失败、停止失败、卸载清理与回滚失败保留真实终态 | 双实例HTTP/WS及相关Go/race；Web/Launcher类型与组件；安装失败/回滚/真实子进程回归通过 | 最终全仓生成与组合验证随后续包推进 |
+| 2026-09-10 | P08 配置 / P09 初始化 | 待验收 | 工作区，待分组提交 | schema默认+user.yaml；删除旧迁移与密码分支；schema_metadata单一基线；配置保存与运行快照分离；热更新失败返回failed_groups | SQLite/auth/config/configruntime/backup/recovery/CLI相关测试与race、sqlc无漂移；真实Server+当前SDK插件备份恢复并重启两次，见本机tmp/rayleabot-p24-current-1789052470322729600/recovery/result.json | 样本使用隔离临时数据；四平台正式签名产物尚未验收 |
+| 2026-09-10 | P10 归档 / P11 清单与下载 | 进行中 | 工作区，待分组提交 | 路径与受限复制公共原语；托管资源不再调用外部tar；Server/Launcher/Python使用同一schema及共享正反例；下载不发布中断/超限缓存 | ZIP/tar.gz/tar.xz越界、重复、校验尾部、取消、旧文件保护、XZ字典限额回归；deps/releaseupdate/fsguard Windows race通过；三端共享manifest样例通过 | XZ增加纯Go固定版本github.com/xi2/xz，替代不可逐条限制的外部解压，64MiB字典上限；Launcher增加同款jsonschema/v6执行正式schema；依赖声明及license随产物更新 |
+| 2026-09-10 | P18 离线恢复 / 管理员重置 / 调度视图 | 待验收 | 工作区，待分组提交 | recovery负责隔离预检、os.Root边界及文件事务；auth负责锁与凭据事务；scheduler负责展示与时区；CLI/HTTP保持边界 | 实际Server自定义相对DB和绝对DB便携重定位恢复通过，tmp/rayleabot-p10-custom-20260910-082722/result.json；源DB摘要不变；Windows实际junction越界回归通过 | 标准symlink测试需Windows权限已明确跳过，junction已真实执行；最终组合race在协议生成完成后执行 |
+| 2026-09-10 | P22 Web及真实Server测试 | 待验收 | 工作区，待分组提交 | HTTP共享取消/超时；合并刷新及退出取消；结构化runtime_resources；删除trust.label/收敛current_release；真实E2E替代配置/凭据mock推导 | 全量76文件443单测、typecheck/build、12+5浏览器交互及4真实Server用例通过；修复日志注入CORS假通过；render共享browserPath读写race回归通过 | 最终SDK/设置服务改变后复验受影响入口；对照表见docs/engineering/web-testing.md |
+
+| 2026-09-10 | P03/P04/P07/P08/P12/P14/P16/P17 独立归档 | 完成 | 见 §3 对应提交 | 行为先独立编译验收，再排列职责收回提交；Render真实profile锁住回归发现后补有界关闭与错误保留 | 各隔离提交普通/race/契约/生成/客户端类型、真实插件与Chromium验证通过 | P19路径迁移及P26整体分发另行验收 |
+| 2026-09-10 | P10托管资源 / P11三端清单 | 完成（子任务） | `349eb9d4`、`2ad2b91e` | 限额下载、ZIP/tar.gz/tar.xz逐项受控展开；共享清单schema/负例；P10其余恢复/安装/更新消费者继续归档 | deps普通/race、Launcher desktop、runtime-schema verify、strict与Python80测通过；1 OpenSSL环境skip | 完整产物的真实资源安装见P26 |
+| 2026-09-10 | P20 离线与隔离测试 | 完成（子任务） | `89266728`、`f0f52802` | 网易云真实client注入/凭据判定修复；独立AES/RSA向量、扫码状态；绝对fixture路径；真实Windows sharing violation重试与App缺模板降级；无生成器包装改单测 | 独立树integration/ws、网易云/thirdparty、Windows rename race通过 | 80个services用例与全局钩子替代继续归档 |
+| 2026-09-10 | P21 连接池实验 | 无需实施（共享池） | 待归档 | 实际客户端1.21–2.13ms/请求、每请求1连接；普通池0.22–0.39ms/请求但无安全等价证明，保留隔离策略 | DNS预检后变私网、不同客户端私网授权不串用回归通过；完整环境与命令见cleanup-decisions.md | 不能将网络下界对照当成已验收的共享客户端 |
+
+
+| 2026-09-10 | P05/P15 错误及观测收口 | 完成 | `bd7dfed9`、`3d81d35e`、`7fa257fc`、`96d37866` | AST错误目录审计、typed unique/list/runtime错误、固定host日志及实际出站协议归属 | 隔离Server全测、真实1MiB HTTP响应头超限与误导文本负例、出站相关race/集成/WS通过 | 聊天及插件输出仍保留自身内容；标准库未导出sentinel的头限额边界有明确例外记录 |
+| 2026-09-10 | P06 集合与正式样例 | 完成 | `1f93f424` | 七类分页与筛选、来源信任枚举、current_release、共享schema；HTTP样例全索引；create_only避免并发覆盖凭据 | strict及17自测；受影响9个Go测试入口；governance/permission/thirdparty/scheduler race；Web33项和两端typecheck；sqlc diff通过 | 验收发现ListEnabled漏失效凭据过滤，提交中已恢复并补正常/失效/禁用三类回归 |
+| 2026-09-10 | P22 请求、诊断与完整管理页面 | 完成 | `ea75eb9e`、`33d7caad`、`73b00af2` | 请求与下载共享取消内核；RuntimeResources不依赖文案；页面按需加载、刷新防旧响应、共享日志/治理控制器 | 78文件455单测及build；4真实Server+2隔离iframe；14分页/筛选/键盘焦点/账号交互；system/render/recovery/management race通过 | 旧账号请求断言补create_only:false后定向3项重验通过；原生Launcher另属P23/P26 |
+| 2026-09-10 | P09/P10/P18/P24 收口 | 完成（本机部分） | `67113c74`、`4be30685`、`78ea5106`、`f2ae35d3`、`2a6cd692`、`57d6bf78` | 当前格式初始化恢复、受限归档、领域运维服务、工具链入口和统一分发矩阵 | 空目录与自定义DB实际恢复；Windows事务回滚/race；Python75项、开发工具及Git Bash显式路径正反例 | 原生Linux/macOS及四种0.1.0产物仍由P26完成；不把交叉编译或测试版本包记为正式分发验收 |
+
+
+| 2026-09-10 | P13/P20 真实装配与测试归属 | 完成 | `3af889f0`、`749908a3` | services的80项行为迁入领域，App真实插件闭环、关闭后投影、实例测试依赖与可控退出预算；配置错误/单次渲染快照补覆盖 | 迁移名称与断言核对；11包race、重放后app/system/render race、全Server、结构正反例与真实App通过；渲染benchmark修正相对模板入口并实际运行 | 替代映射见test-replacement-evidence.md；预发目录搬移后再次组合验证 |
+| 2026-09-10 | P21 无消费者代码清理 | 完成 | `3964fa4f` | 删除旧订阅Session/WBI/验证码执行/指纹和查询链、无调用包装与SQL；保留有效凭据错误判定 | 隔离Server全包通过、sqlc diff无漂移；Linux目标5类lint 0 issues；结构、文档及授权DNS回归通过 | 不实施无安全等价证明的共享HTTP池 |
+| 2026-09-10 | P23 Launcher 边界与关闭 | 待验收 | `fa97b713` | Go正式API模型与schema校验、Wails绑定闭包、坏文件保留、关闭降级与最终错误 | 62 JS、全Go普通/Windows race、4 Renderer E2E、typecheck/native Windows build、生成器/绑定漂移通过；Linux/macOS业务包交叉构建通过 | 原生窗口/托盘、Linux/macOS原生包仍由P26完成，不能用Renderer mock替代 |
+| 2026-09-10 | P25 当前文档与资源来源 | 完成 | 本次文档提交 | JSONL v3/多适配器/语言中立artifact/HTTPS摘要/停服CLI与当前初始化说明；历史design-qa归档、未引用排行榜预览删除；0.1.0候选说明与索引 | 143份文档链接、agent-docs、设计token/Launcher图标、排行榜真实渲染；101份字体来源授权及1023中文离线字形检查通过，无网络或系统字体回退 | 当前源字形样本不代表全部Unicode；候选说明不宣称公开分发或最终平台验收完成 |
+
 P01 依赖基线：`go list` 枚举 Server 66 个包，其中 internal 59 个；app/management 直接依赖 internal 包分别为 45/27。生成链仍为 runtime-schema/bridge、OpenAPI/WS、Wails bindings、sqlc；P01 未改变生成输入。上述数量仅记录当前结构，不作为整改目标。
 
 单项回写模板：
@@ -546,4 +571,4 @@ ID / 子任务：
 
 项目完成条件：P01–P26 均完成或有证据判为无需实施；有效缺陷有回归保障；真实输入输出与契约一致；空目录初始化及本版备份恢复可用；资源无已知泄漏；SDK/客户端/全新分发产物闭环；文档与台账同步。不得以行数下降、测试减少或静态检查全绿替代这些结果。
 
-当前无需新的实施取舍。具体发布版本号、可用正式签名环境及独立插件构建接入安排在 P26 前落实；性能试验等技术选择按各任务证据决定，只有出现新的产品语义或资源约束才再次询问维护者。
+当前无需新的实施取舍。P26 本轮目标版本确定为 `0.1.0`；维护者已授权代理自行选择验收环境，实际可用签名/原生环境在验收记录中核实；独立插件构建接入按本仓库边界执行；性能试验等技术选择按各任务证据决定，只有出现新的产品语义或资源约束才再次询问维护者。

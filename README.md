@@ -6,13 +6,13 @@
 [![Node.js](https://img.shields.io/badge/Node.js-26+-339933?logo=nodedotjs)](https://nodejs.org)
 [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?logo=vuedotjs)](https://vuejs.org)
 
-面向个人开发者和开源协作者的自托管聊天机器人框架。基于 OneBot11 协议接入 QQ，提供插件扩展、Web 管理控制台和桌面启动器，所有数据只保存在本地。
+面向个人开发者和开源协作者的自托管聊天机器人框架。通过 OneBot11 或 QQ 官方机器人适配器接入聊天平台，提供插件扩展、Web 管理控制台和桌面启动器，运行状态与凭据由本机管理。
 
 ## 核心特性
 
 - **自托管**：服务端、插件、管理面板全部运行在本地，无需云端控制面板。
-- **OneBot11 传输**：支持 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种连接方式。
-- **Go 插件**：插件后端使用预编译 Go 可执行文件，通过语言无关的 JSONL v1 协议与服务端通信；插件管理页是运行在独立插件域中的 Vue 静态页面。
+- **多适配器实例**：支持 OneBot11 和 QQ 官方机器人，同一协议可配置多个实例。OneBot11 提供 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook` 四种连接方式；身份、凭据和消息路由按实例隔离。
+- **原生插件**：插件后端使用当前平台的预编译原生可执行文件，实现语言不限，通过 JSONL v3 协议与服务端通信。Go SDK 和构建器提供一等开发支持；插件管理页由包内静态资源组成，官方页面使用 Vue 并运行在独立插件域。
 - **三方账号**：支持 Bilibili、微博、抖音和网易云音乐账号的 CK 保存、扫码登录、资料与凭据校验；订阅与内容监控由独立插件 `raylea.subscription-hub` 提供。
 - **Web 管理控制台**：仪表盘、插件列表与商店、三方账号、菜单中心、指令中心、权限与限流、任务调度、日志检索和模板预览。
 - **桌面启动器**：基于 Wails，支持 Windows / macOS / Linux，提供一键启动、环境预检、进程编排和原生系统托盘。
@@ -66,12 +66,12 @@ node scripts/start-dev.mjs
 
 主仓库没有内置插件。需要联调独立插件时，复制 `plugin-workspace.example.json` 为 `plugin-workspace.local.json`。本地启动参数可复制 `.env.example` 为 `.env`；其中同时设置 `RAYLEA_PLUGIN_DEV=watch` 与 `RAYLEA_SERVER_RELOAD=watch` 即可持续联调。存在插件工作区但未显式设置模式时，启动脚本默认在 Server 启动前构建并同步所有启用插件。
 
-`watch` 首次启动执行一次全量同步，之后按插件 ID 合并变更并只重新构建本批发生变化的插件；构建期间到达的后续变更保留到下一批。主仓库通过统一 `raylea-plugin` 工具构建或打包完整 artifact，再通过离线 `plugin dev-sync` 和正式安装事务进入 `plugins/installed/`。本地联调不请求 GitHub；插件仓库的 GitHub Actions 只负责 `v*` tag 的三平台正式 Release。完整流程见[插件商店与独立开发](./docs/plugin/store-and-development.md#本地同步开发)。
+`watch` 首次启动执行一次全量同步，之后按插件 ID 合并变更并只重新构建本批发生变化的插件；构建期间到达的后续变更保留到下一批。主仓库通过统一 `raylea-plugin` 工具构建或打包完整 artifact，开发同步复用正式安装事务进入 `plugins/installed/`，运行中的服务通过受控开发接口完成同步。本地联调不请求 GitHub；插件仓库的 GitHub Actions 只负责 `v*` tag 的三平台正式 Release。完整流程见[插件商店与独立开发](./docs/plugin/store-and-development.md#本地同步开发)。
 
 ## 使用简介
 
 - 管理面板默认只在本机开放，远程访问需在配置中显式开启，并建议通过 HTTPS 反向代理。
-- 通过 OneBot11 协议适配器接入 QQ 后，即可在聊天窗口与机器人交互。
+- 在协议中心添加 OneBot11 或 QQ 官方机器人实例并完成连接配置后，即可在相应聊天窗口与机器人交互。
 - 插件商店展示官方和自定义 HTTPS 目录中的条目，并保留各来源最后一次成功读取的缓存；安装前会展示插件身份、权限和本机原生代码确认要求。
 - 所有插件统一安装在运行根目录的 `plugins/installed/`，只接受与当前平台匹配、通过 artifact 结构与原生入口校验的目录或单根目录 ZIP。
 - 管理员可在管理面板中配置权限策略、黑白名单、命令前缀、任务调度等。
@@ -86,6 +86,7 @@ node scripts/start-dev.mjs
 | [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
 | [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
+| [0.1.0 候选分发说明](./docs/release/notes/v0.1.0.md) | 本轮全新安装、插件接入、本版恢复与尚待完成的发布验收 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
 | [项目优化执行计划](./docs/execution-plan-v2.md) | 三份评审核实结果、实施顺序、验收与进度回写 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |

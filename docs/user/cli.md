@@ -5,24 +5,24 @@
 CLI 提供本地离线恢复与运维命令。命令统一记为
 `raylea <subcommand>`；实际二进制名为 `raylea-server`。
 
-`reset-admin` 由 auth 在同一事务中删除凭据与会话；CLI 负责参数、生命周期锁、输出和退出码。数据库访问失败时不会部分清除管理员状态。
+恢复由 recovery 领域服务完成预检、便携路径处理和文件事务；`reset-admin` 由 auth 在同一事务中删除凭据与会话。CLI 负责参数、生命周期锁、输出和退出码，数据库访问失败时不会部分清除管理员状态。
 
 ## 当前正式命令
 
 | 命令 | 作用 |
 | --- | --- |
-| `raylea config init` | 创建默认配置模板并写出规范化用户配置 |
-| `raylea config normalize` | 按当前 schema 整理默认模板和用户配置 |
+| `raylea config init` | 按内嵌默认值创建或规范化用户配置 |
+| `raylea config normalize` | 按当前 schema 整理用户配置 |
 | `raylea config validate` | 校验配置文件，不修改文件内容 |
 | `raylea plugin dev-sync --artifact <path> --source <path>` | 把已构建的开发插件 artifact 同步进本地插件安装目录；插件 ID 来自 artifact 根目录的 `info.json` |
 | `raylea version --json` | 输出当前构建版本与更新协议版本 |
 | `raylea update check --json` | 获取并验证签名发布清单，不下载或安装更新 |
 | `raylea update verify --manifest <path> --signature <path> --artifact <path>` | 离线验证发布清单、签名 envelope 与 artifact |
 | `raylea reset-admin` | 重置管理员凭据并重新进入初始化向导 |
-| `raylea backup` | 创建恢复用备份 |
+| `raylea backup` | 在停服窗口创建恢复用备份 |
 | `raylea restore <backup-path>` | 在停服窗口从指定备份包恢复配置、状态与插件目录 |
 | `raylea doctor` | 检查配置与 schema、SQLite `quick_check`、deps / Chromium / FFmpeg 元数据、退役配置键和恢复摘要 |
-| `raylea cleanup` | 清理可重建缓存和临时目录 |
+| `raylea cleanup` | 在停服窗口清理可重建缓存和临时目录 |
 
 需要覆盖默认配置位置时，把全局参数放在子命令之前：
 
@@ -44,10 +44,10 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 | `update check --json` | 是 | 否 | 需要网络访问受信发布来源 |
 | `update verify --manifest <path> --signature <path> --artifact <path>` | 是 | 是 | 三个参数均必填；离线校验更新包三件套 |
 | `reset-admin` | 否 | 是 | 必须在停服窗口执行 |
-| `backup` | 是 | 是 | 在线可导出，强一致性场景建议停服执行 |
+| `backup` | 否 | 是 | 获取服务生命周期锁后创建离线备份；在线备份使用管理 API 的 `backup.create` 任务 |
 | `restore <backup-path>` | 否 | 是 | 备份路径必填，恢复导入必须在停服状态执行 |
 | `doctor` | 是 | 是 | 可在线或停服执行 |
-| `cleanup` | 是 | 是 | 只能清理可重建内容 |
+| `cleanup` | 否 | 是 | 获取服务生命周期锁后清理可重建内容，避免删除正在使用的临时资源 |
 
 ## 当前职责边界
 
@@ -56,6 +56,7 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 - 配置命令只维护本地配置文件，不替代 Web 管理面的在线配置编辑。
 - Launcher 如需触发恢复、检查或备份能力，应优先复用 CLI 或共享后端逻辑。
 - `cleanup` 不触碰状态库、插件业务数据和用户配置。
+- `backup`、`restore`、`cleanup`、`reset-admin` 和离线插件同步都要求目标配置对应的服务已停止；锁被占用时命令失败并返回非零退出码。
 
 ## 当前环境检查重点
 

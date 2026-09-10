@@ -4,10 +4,10 @@
 
 ## 构建与文件结构
 
-- 管理页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`；界面组件及样式由插件自行打包。
+- 官方管理页使用 Vue 3、TypeScript、Vite 和 `@rayleabot/plugin-ui`；界面组件及样式由插件自行打包。第三方页面可采用其他静态 Web 技术，但仍需满足管理页与 bridge 契约。
 - Vite 固定 `base: "./"`。多页面内部路由只使用 hash routing，不能依赖插件域的服务端回退。
 - 插件自己的 `pnpm build` 产出 `ui/index.html` 与哈希资源；`pluginbuild.Build` 把这些文件写入同一平台 artifact。
-- Vue 资源不嵌入 Go 二进制，服务端按 `artifact.json` 中的 `ui` 文件集合独立校验和读取。
+- UI 资源独立于原生后端入口；服务端按 `info.json.management_ui.entry` 校验入口，并从实际 artifact 目录读取静态文件。`artifact.json` v2 只描述目标平台和原生入口。
 - contract 驱动的消息渲染模板继续位于 `templates/`，不使用 Vue。
 
 ```json

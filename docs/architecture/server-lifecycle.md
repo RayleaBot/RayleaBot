@@ -30,7 +30,7 @@ flowchart TD
 | 资源 | 主要路径 | 职责 |
 | --- | --- | --- |
 | 配置 | `internal/configruntime` | 读取、更新、脱敏和 apply policy |
-| 存储 | `internal/storage` | SQLite schema、迁移和仓储 |
+| 存储 | `internal/storage` | SQLite 当前结构初始化和仓储 |
 | 插件 | `internal/plugins/lifecycle`、`internal/plugins/runtime` | 插件启停、重载、进程协议和状态 |
 | 事件 | `internal/eventpipeline` | 入站、桥接、分发和出站 |
 | 渲染 | `internal/render` | 模板、队列、浏览器和 artifact |
@@ -57,5 +57,7 @@ flowchart TD
 运行监督器独立启动任务，首个任务错误触发取消；HTTP 正常退出或取消竞争不会覆盖该错误。关闭先等待监督任务和数据库快照结束，再释放持久化资源。
 
 `App.Close` 并发或重复调用只执行一次，所有调用者获得相同的聚合结果。单个资源关闭失败仍继续清理其他资源，SQLite 和配置生命周期锁最后释放。
+
+插件事件 drain 超时仍会进入独立的进程回收预算。回收后，Catalog 按各 Manager 的实际快照更新运行状态与错误；持有活进程句柄的失败实例不会被一次停止尝试误标为已停止。
 
 OneBot 成功停止时，入站处理、ready 回调、运行信息请求和反向连接会话均已退出。忽略取消的回调会导致 Stop 按 deadline 返回等待错误；该生命周期在回调实际退出前保持占用，不能启动第二个事件派发器。超时关闭不视为成功。

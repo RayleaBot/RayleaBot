@@ -24,12 +24,12 @@
 - 插件安装不依赖 `internal/deps`；插件 runtime 只运行已校验的 Go artifact，并可消费核心提供的媒体工具入口。
 - 用户可见的准备失败应保留 `BootstrapError` 的 stage、source、路径和 remediation，并用现有摘要 helper 生成一致文案。
 
-## 归档与下载边界
+## Input and Archive Limits
 
-托管资源使用流式 HTTPS 下载，最多 2 GiB，保留取消、总超时、空闲超时和 SHA-256 校验；临时文件在失败后回收。归档逐项在 os.Root 内展开，最多 100,000 条目、单文件 2 GiB、累计 8 GiB；拒绝越界、重复路径和特殊文件。macOS framework 所需的内部相对链接在普通文件之后创建，再校验最终解析范围。
+Server、Launcher 和发布脚本在使用清单前校验同一份 `contracts/deps-manifest.schema.json`，并运行 `fixtures/deps-manifest/` 中的共享正反例。所有来源与入口候选都必须有效，资源 ID、平台/种类组合及同资源来源 URL 均不得重复。
 
-XZ 使用纯 Go `github.com/xi2/xz` 固定版本 `v0.0.0-20171230120015-48954b6210f8`，替代外部 tar，以执行逐条路径检查、取消和 64 MiB 字典上限。第三方声明保留上游 LICENSE 的 public-domain 声明。插件包和发行更新的更严格策略仍由各自服务执行。
+托管资源下载最多 2 GiB，仅接受 HTTPS，禁止携带 URL 凭据及降级重定向。流式下载保留取消、总超时和空闲超时，失败删除临时文件；正式缓存只在 SHA-256 校验成功后发布。发布更新继续使用签名清单中的精确大小、可信下载地址及磁盘预检策略。
 
-## 清单验证
+ZIP、tar.gz、tar.xz 在私有临时目录内逐项展开：最多 100,000 条目、单文件 2 GiB、累计 8 GiB；拒绝越界、重复路径和特殊设备文件，保留执行位。macOS Chromium framework 所需的归档内相对链接在普通文件写入结束后建立，并再次验证完整解析仍位于根内。插件包和正式更新保留各自更严格的文件数、大小、压缩比和签名策略。
 
-Server、Launcher 与发布 Python 工具共享 deps-manifest schema 和正反 fixtures。全部来源/入口候选必须有效；拒绝重复资源 ID、平台与种类组合和同资源重复来源 URL。Launcher 使用已有 Server 技术栈的 jsonschema/v6 执行正式 schema，不再维护另一份字段校验规则。
+XZ 使用纯 Go `github.com/xi2/xz` 固定版本 `v0.0.0-20171230120015-48954b6210f8`，替代外部 `tar`，使取消、逐条路径检查和字典上限可执行。解码字典最多 64 MiB；发布 Python 解码器另为解码状态保留 2 MiB。第三方声明收录上游 LICENSE 的 public-domain 声明。

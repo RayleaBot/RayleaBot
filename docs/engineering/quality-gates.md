@@ -37,14 +37,14 @@
 | --- | --- |
 | `ci.yml` | 变更范围识别、contracts-lite、Server、design-system、Web、Launcher、plugins、release-helper、third-party-notices、agent-docs、ci-self-check 和必需结果汇总 |
 | `nightly.yml` | strict contracts、覆盖率、开发与生产构建的 Web Playwright E2E、安全、依赖、运行环境和 release dry-run 巡检 |
-| `release.yml` | 正式产物打包、metadata 校验、packaged 协议与模板 smoke、跨版本 recovery drill、长期自托管 smoke |
+| `release.yml` | 正式产物打包、metadata 校验、packaged 协议与模板 smoke、本版 recovery drill、长期自托管 smoke |
 | `self-host-smoke.yml` | 按 artifact 子集复用正式打包路径，长期巡检 packaged 协议与模板 smoke、自托管运行、诊断与恢复全流程 |
 
 ## 当前门禁层次
 
 - PR 默认门禁覆盖 contracts-lite、Server 测试/构建/核心 lint、关键并发包 race、Windows 安装与锁回归、Web 与 Launcher typecheck/test/build、Go/Vue 插件 SDK、示例、design-system、third-party-notices、agent-docs、CI 自检和必需结果汇总。
 - `contracts/**`、`fixtures/**`、`examples/**`、`sdk/**` 与 `plugins/**` 变更会触发 `ci.yml` 对应 job，同步执行 Web 与 Launcher 的 OpenAPI 生成类型漂移检查。
-- Web 与 Launcher Renderer 的 Playwright E2E 由 `nightly.yml` 自动执行；跨版本恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
+- Web 与 Launcher Renderer 的 Playwright E2E 由 `nightly.yml` 自动执行；本版恢复和更长时长自托管巡检进入 release 或手动高成本回归层。
 - 发布门禁覆盖正式产物矩阵、release metadata、checksum、packaged `/api/adapters`、`/api/protocols/onebot11/compatibility`、模板预览工作区全流程、packaged recovery drill 和长期自托管 smoke。
 - 高成本依赖审计和长时段巡检保留在 `nightly.yml` 或发布门禁，不挤占每个 PR 的默认门禁预算。
 
@@ -61,14 +61,14 @@ Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆
 
 PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者，SQL 例外登记变化触发 Server 与 CI 自检。跨目录重命名同时按来源和目标路径识别影响范围。
 
-Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。前者构建真实 Server，在临时配置和 SQLite 目录验证静态路由、鉴权、配置保存、治理作用域隔离及日志详情；后者模拟插件管理页握手与加载故障。开发模式 E2E 的模拟配置和日志分页分别维护，不替代真实接口验证。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
+Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。真实 Server 用例独立使用临时目录、SQLite 和动态端口，覆盖静态路由、鉴权、配置与插件全局设置、治理作用域、调度列表和日志详情。模拟入口保留受控网络、iframe、消息节奏与展示数据；配置应用策略不在 JS 中重算。覆盖范围和运行方式见 [Web 端到端验证](./web-testing.md)。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
 
-Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、备份包、进程日志和结果 JSON；验证空目录初始化、当前配置与数据库、本版备份恢复、登录和重复启动幂等性。
+Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、恢复包、进程日志和结果 JSON；验证空目录初始化、当前格式备份、恢复到空目录、登录、配置与插件数据一致性，以及重复启动幂等。
 
 ## 验证原则
 
 - 正式语义变化先更新契约；实现、测试、fixtures、examples、生成物和文档按实际影响同步。实现修复以现有契约为准，不要求无关文件制造 diff。
 - 基线版本以工程文件和 `docs/engineering/baseline.md` 为准，CI 不单独维护另一套漂移版本号。
-- 事件、插件协议、配置、错误码和当前恢复格式相关 Golden Fixtures 进入正式门禁，不只停留在文档说明。
+- 事件、插件协议、配置、错误码和初始化相关 Golden Fixtures 进入正式门禁，不只停留在文档说明。
 - 轻量门禁负责可合并性，发布门禁负责可交付性。
 - 恢复、运行环境准备和交付矩阵验证进入正式工作流，不只停留在文档说明。

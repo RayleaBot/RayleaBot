@@ -32,7 +32,7 @@
 
 | 领域 | 当前方向 |
 | --- | --- |
-| 数据库迁移工具 | 在漂移测试持续有效的前提下，保留当前 schema 快照与 legacy migration runner；只通过小规模 spike 评估 goose、golang-migrate 或 Atlas。 |
+| 数据库初始化 | 从 `server/internal/storage/schema.sql` 在事务内初始化当前结构，以 `schema_metadata` 记录版本；复用同版本数据库，不引入历史迁移执行器或额外迁移框架。 |
 | OpenAPI 实现 | 保留严格契约校验和生成类型检查；只有 handler 漂移持续发生时才评估 Server 侧 OpenAPI 代码生成。 |
 | Secret 存储 | 保留 SQLite 支持的密封 secret；当部署目标要求外部密钥托管时，再评估环境密钥、操作系统 keychain 或外部 KMS。 |
 | 架构门禁 | 保留仓库专用的结构测试和预算文件，因为它们比通用 linter 更准确地表达本仓库包边界。 |

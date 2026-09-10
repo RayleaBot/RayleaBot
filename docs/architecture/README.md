@@ -7,9 +7,9 @@
 | 文档 | 主题 |
 | --- | --- |
 | [Platform Architecture](./platform-architecture.md) | 组件职责归属、信任边界、状态来源、部署边界和代码地图 |
-| [Message Flow](./message-flow.md) | OneBot11 入站、插件分发、local action、出站、调度与 webhook |
+| [Message Flow](./message-flow.md) | 聊天适配器入站、插件分发、local action、出站、调度与 webhook |
 | [Event Pipeline](./event-pipeline.md) | adapter、chatpolicy ingress、bridge、dispatch、runtime 与 outbound |
-| [Event Model](./event-model.md) | OneBot11 事件、插件协议消息和管理 WebSocket 事件 |
+| [Event Model](./event-model.md) | OneBot11、QQ 官方事件、插件协议消息和管理 WebSocket 事件 |
 | [State Model](./state-model.md) | 插件 runtime、任务和连接状态 |
 | [Server Lifecycle](./server-lifecycle.md) | 启动、运行、关闭和依赖组装 |
 | [Management API](./management-api.md) | 管理 API、鉴权、错误和 contract 同步 |

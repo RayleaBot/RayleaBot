@@ -1,22 +1,14 @@
-# Plugin Contract v3 Upgrade
+# Plugin Contract v3
 
-RayleaBot 当前插件合同由 manifest v3、protocol v3、artifact v2 和 management bridge v3 组成。升级是一次性破坏性合同升级：运行时不兼容 manifest v2、protocol v1/v2、artifact v1 或 bridge v2，也不保留旧合同解析分支。
+RayleaBot 当前插件合同由 manifest v3、protocol v3、artifact v2 和 management bridge v3 组成。本次按全新分发建立运行目录、当前配置与数据库结构。
 
-## 升级行为
+## 安装与持久化
 
-- 主程序升级保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`。
-- 插件设置、密钥、KV、文件和已发布数据不会因合同升级被清除。
-- 旧 manifest v2 / artifact v1 包会被识别为不受支持并保持禁用，不会被转换或执行。
-- 重新安装 manifest v3 / artifact v2 包后，插件继续使用同一插件 ID 对应的持久化数据。
-- 主程序不会编译插件源码、安装语言依赖或执行插件安装脚本。
-
-本次升级不提供破坏性 reset 脚本，也不要求先清空插件目录。需要回退主程序时，仍应使用升级前保存在安装根之外的完整备份。
+插件包通过统一 artifact 校验和可信代码确认后安装。插件设置、密钥、KV、文件和已发布数据按插件 ID 隔离，插件运行使用当前宿主协议。原生可执行文件由插件作者构建，宿主负责校验、启停和资源回收。
 
 ## 备份与恢复
 
-当前只接受 backup manifest v3。清单记录 protocol v3、manifest v3、artifact v2 和 management bridge v3；backup manifest v2 直接拒绝。
-
-v3 备份允许记录旧插件包事实并恢复其持久化数据。恢复不会使旧包变为可运行状态，也不会为了兼容旧包修改包内容。管理员应安装当前合同包，再重新启用插件。
+本版备份使用 backup manifest v3，清单记录当前配置、数据库和插件合同版本。恢复到空目录后，平台检查运行资源与插件状态；管理员登录、插件设置、密钥、KV 和文件按归档内容恢复。完整步骤见[恢复说明](../user/recovery.md)。
 
 ## 新插件包
 

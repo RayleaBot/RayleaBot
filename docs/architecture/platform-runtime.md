@@ -4,9 +4,10 @@
 
 ## 配置与运行目录
 
-- 平台使用 内嵌 schema 默认值与 `config/user.yaml` 生成有效配置。
+- 平台使用内嵌 schema 默认值与 `config/user.yaml` 生成有效配置。
 - 运行根目录围绕 `config/`、`data/`、`cache/`、`logs/`、`plugins/installed/` 和 `.deps/` 组织。
 - Launcher 本地设置位于 `data/launcher.json`，用于安装根选择、关闭行为和本地覆盖项，不替代 `config/user.yaml`。
+- Launcher 设置文件或本机恢复摘要损坏时保留原文件并报告诊断；不以默认设置覆盖损坏数据。
 - 配置读取、schema 校验、热更新快照和 `restart_required` 语义由服务端统一决定。
 - 服务启动先获取 `<config-path>.runtime.lock`；同一配置文件已有运行实例时 fail-fast。锁在构建失败或服务关闭完成时释放，离线 `config init` / `config normalize` 在锁被占用时拒绝写入。
 - 插件不能直接读写 `config/user.yaml`，配置读写必须通过正式能力入口。
@@ -30,7 +31,7 @@
 
 SQLite 从 `server/internal/storage/schema.sql` 在事务内一次创建当前结构，并在 `schema_metadata` 保存唯一版本与初始化时间。重复启动复用同一结构与元数据，不重新初始化业务记录。配置版本为 `4`，数据库结构版本为 `000001`，管理员密码使用带随机盐的 Argon2id 格式。
 
-恢复包从实际归档配置和 SQLite 快照读取当前格式版本；未包含数据库时清单明确记录 `absent`。恢复使用归档配置决定数据库落点，相对路径在目标根目录内保留，绝对来源路径重定位为 `data/rayleabot.db`。启动后检查资源与插件状态，并生成恢复摘要。
+恢复包从归档配置和 SQLite 快照读取当前格式版本；未包含数据库时清单明确记录 `absent`。recovery 服务在隔离目录校验完整归档、有效配置与数据库，按配置确定便携数据库落点，再以文件事务写入数据和恢复摘要。目标访问使用受限根目录句柄并拒绝符号链接；失败倒序回滚，回滚失败保留原文件。CLI 只承担命令边界与生命周期锁。启动后统一检查资源与插件状态，保留可操作的恢复摘要。
 
 `scripts/release/rehearse_current_recovery.py` 使用真实 Server 在新建目录中初始化、创建管理员与插件业务数据，执行备份，再恢复到另一个空目录。演练核对配置、数据库、插件文件、恢复后的登录和重复启动结果；输出包含过程日志与结果 JSON。
 
@@ -38,6 +39,7 @@ SQLite 从 `server/internal/storage/schema.sql` 在事务内一次创建当前�
 
 - 服务端是正式状态来源，`healthz`、`readyz`、`setup/status`、`launcher/status` 和 `launcher/shutdown` 保持正式契约。
 - Launcher 通过受控进程编排启动 `raylea-server`，并直接调用本机 launcher surface。
+- `scripts/generate-launcher-api.py` 从 OpenAPI 的存活、就绪、系统状态、恢复摘要与关闭响应生成 Go 模型及递归 schema 引用闭包。Go HTTP 边界验证必填、枚举、范围和未知字段后才生成 Wails 快照；Renderer 不再维护另一套服务响应校验。Launcher 的 OpenAPI TypeScript 产物只包含同一引用闭包，不进入运行时 bundle。
 - `desktop.Coordinator` 组装进程、设置、更新与监控；`startupGate` 独立持有启动许可、取消句柄和停止阻塞计数。快照组装与发布共享同一受保护状态，更新结果不会被一次较早的服务探测覆盖。
 - Launcher 快照分成两组数据：
   - `server`：`health`、`readiness`、`systemStatus`
@@ -46,6 +48,7 @@ SQLite 从 `server/internal/storage/schema.sql` 在事务内一次创建当前�
 - 若本机已经存在健康服务，但并非 Launcher 当前持有的子进程，Launcher 会明确标示为“检测到现有服务”。
 - 启动失败摘要来自健康探测、stderr 和日志尾部，不要求用户自行拼接多处信息。
 - 本机直连服务的优雅停机走 `/api/launcher/shutdown`，再回退到操作系统级回收；非本机服务只支持连接检查和打开 Web。
+- 退出启动器只回收自己管理的进程；外部服务的停止需独立确认。优雅停机失败而强杀成功时按最终已停止处理；进程仍残留时汇总失败并保持窗口，重复关闭不重发已完成的请求。Windows 按实际进程退出状态判断回收结果，不解析系统命令的本地化文案。
 - Web 与 Launcher 都直接访问服务端，不通过对方代理状态或管理请求。
 - Launcher 打开 Web 时只打开管理面 URL；Web 管理面通过初始化和登录接口建立会话。
 

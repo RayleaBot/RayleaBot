@@ -56,7 +56,7 @@ Windows 自动安装仅适用于 `windows-x64-full`，并要求 Ed25519 manifest
 
 ### Linux 与 macOS
 
-Linux 和 macOS 使用 guided update：验证签名与 artifact，生成 offline backup，停止服务，替换程序文件，运行 doctor 和健康检查。失败时使用升级前包与备份恢复。
+Linux 和 macOS 使用 guided update：验证签名与 artifact，停止服务，执行 CLI 创建 offline backup，替换程序文件，运行 doctor 和健康检查。失败时使用升级前包与该次事务保留的备份恢复。
 
 Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整包不内嵌这些发行版组件。启动前按包内 `LINUX-RUNTIME.md` 或 [Linux Desktop Runtime](../release/linux-desktop-runtime.md) 安装所需系统包；无桌面环境时使用 `linux-x64-server`。
 

@@ -39,6 +39,7 @@
 
 `apply_effects.failed_groups` 表示已经保存但运行时应用失败的配置组，相关字段同时列入需重启项。适配器应用失败会尝试恢复原设置；完成恢复或重启前应检查连接状态。`effective_timezone` 始终表示当前运行时区。
 
+
 常规字段以 schema 的四种 `x-apply-policy` 为准：
 
 | 策略 | 典型内容 | 保存后的效果 |
@@ -76,7 +77,7 @@ third_party_accounts:
 
 ## 配置提醒
 
-- `scheduler.timezone` 默认上海（`Asia/Shanghai`，UTC+08:00）；旧配置留空也采用该默认值。配置页参考 Windows 提供地区时区与常用城市，覆盖 UTC−12 至 UTC+14，以及半小时、四十五分钟偏移，支持按城市、地区、IANA 标识或 UTC 偏移搜索。历史别名与重复技术条目不默认展示，已有配置使用其他有效时区时仍原样保留。显示的偏移按当前日期计算，地区时区遵循夏令时规则。
+- `scheduler.timezone` 默认上海（`Asia/Shanghai`，UTC+08:00），缺省时使用 schema 默认值。配置页参考 Windows 提供地区时区与常用城市，覆盖 UTC−12 至 UTC+14，以及半小时、四十五分钟偏移，支持按城市、地区、IANA 标识或 UTC 偏移搜索。历史别名与重复技术条目不默认展示，已有配置使用其他有效时区时仍原样保留。显示的偏移按当前日期计算，地区时区遵循夏令时规则。
 - 时区影响定时任务、服务日志、管理面时间展示和历史日志筛选。保存后重启服务生效，重启前前后端继续使用当前时区；后台存储与 API 时间戳保持 UTC，服务日志按配置时区输出并携带偏移。历史日志日期输入遇到夏令时跳过的时间会提示修正，回拨时段的范围起止覆盖两次出现的时间。
 - 自定义浏览器场景可使用 `render.browser_path` 指向 Chrome、Chromium 或 Edge 可执行文件路径。
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
@@ -114,7 +115,7 @@ third_party_accounts:
 
 - 正式配置读写入口是 Web 管理面和受控后端逻辑。
 - 通用配置页负责协议连接设置之外的配置项。
-- 协议中心负责 OneBot11 provider、reverse WebSocket 回连地址、forward WebSocket 主动连接地址、HTTP API 地址、webhook 回调地址、各连接方式访问令牌和 adapter 重连参数，保存继续使用统一配置入口。
+- 协议中心按实例管理 OneBot11 与 QQ 官方机器人。OneBot11 设置包括 provider、四种传输地址与令牌；QQ 官方设置包括 AppID、密钥、订阅事件与沙箱开关。保存使用统一配置入口，受控重载与需要重启的变更由服务端区分。
 - 日志中心位于一级菜单下，提供 `/logs` 与 `/logs/history` 两个正式日志页面。
 - 字段级热更新与 `restart_required` 由服务端统一判断。
 - 插件配置读写必须通过正式插件能力，不直接改写平台用户配置文件。

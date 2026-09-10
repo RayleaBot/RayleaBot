@@ -18,6 +18,7 @@ HTTP、WebSocket、schema、错误码、插件协议和发布元数据以 [`cont
 | [Web Management UI](./web-management-ui.md) | Reka UI、自有 shadcn-vue 组件、应用壳与页面组合规范 |
 | [Launcher Design System](./launcher-design-system.md) | Fluent UI React v9、Wails 桌面壳与本机操作规范 |
 | [Plugin Management Surface](./plugin-management-surface.md) | 官方插件页面完整规范与第三方页面兼容要求 |
+| [静态资源来源与用途](./assets.md) | 图片、图标与字体的来源、运行引用和离线检查边界 |
 
 ## 采用矩阵
 
@@ -50,3 +51,7 @@ $env:IMPECCABLE_CONTEXT_DIR = (Get-Location).Path
 ```
 
 共享设计记录的维护在仓库根执行 `.agents/skills/impeccable/scripts/impeccable.cmd doctor --json`。设计稿、评审截图、交互会话和构建草稿在本地使用；`PRODUCT.md`、`DESIGN.md`、`design/tokens.json` 与 `.impeccable/design.json` 随仓库维护。
+
+## 历史记录
+
+[2026-09-05 配置工作台验证](./history/configuration-workbench-2026-09-05.md) 保留当时的结论和测试范围，与当前规范及本轮验收分开。

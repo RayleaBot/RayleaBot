@@ -19,7 +19,7 @@
 
 - server 二进制与 Launcher 桌面入口；Windows 完整包另含事务安装使用的 `raylea-updater.exe`；
 - `web/dist` 与核心 `templates/`；
-- 内嵌配置默认值与 `.deps/manifest.json`；
+- `.deps/manifest.json`（用户配置由服务端内嵌默认值初始化）；
 - `build_info.json`；
 - 根仓库 `LICENSE` 与生成、审阅后的 `THIRD_PARTY_NOTICES.md`。
 
@@ -117,7 +117,7 @@ raylea-server update verify --manifest <path> --signature <path> --artifact <pat
 - `data/**`；
 - `plugins/installed/**`。
 
-恢复只接受 backup manifest v3，其中插件合同版本固定为 protocol v3、manifest v3、artifact v2 和 management bridge v3。backup manifest v2 会被拒绝；v3 备份可以保留旧插件包事实和插件持久化数据，但旧 manifest v2 / artifact v1 包保持禁用，重新安装新合同包后才能运行。具体边界见 [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md)。
+本版恢复使用 backup manifest v3，配置与数据库格式固定为当前 `4` / `000001`，插件合同固定为 protocol v3、manifest v3、artifact v2 和 management bridge v3。归档配置、SQLite 快照、插件包与业务数据共同恢复；操作与验证见[恢复说明](../user/recovery.md)。
 
 `cache/` 和 `logs/` 不参与恢复，也不能阻止安装。回滚失败进入 `rollback_failed` 并禁止自动启动。旧版本与 offline backup 至少保留 7 天，并至少保留到下一次成功升级。
 

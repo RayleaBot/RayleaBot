@@ -11,23 +11,23 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 - 插件通过版本化协议访问受控平台能力；
 - Web、Launcher 和 CLI 共享服务端状态与错误模型；
 - 正式发行物具有可验证的来源、完整性和恢复路径。
-- 独立插件通过签名静态目录发现，并由用户明确确认后安装到本机。
+- 独立插件通过 HTTPS 静态目录发现，安装时校验归档摘要，并按来源与权限变化要求用户确认可信代码。
 
 ## 范围与限制
 
 ### 平台范围
 
-- OneBot11 是当前唯一已交付的正式聊天协议，覆盖 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`。
-- QQ 官方机器人（QQ 开放平台）是已确定的第二个正式适配器。它提供合规接入路径，降低对非官方 OneBot 实现的单点依赖。事件、会话、身份与出站能力的差异按契约显式表达，不通过在 OneBot11 语义上打补丁实现。
+- 当前正式聊天协议包括 OneBot11 与 QQ 官方机器人（QQ 开放平台），支持同一 Server 中的多适配器实例。OneBot11 覆盖 `reverse_ws`、`forward_ws`、`http_api` 和 `webhook`。
+- QQ 官方机器人提供开放平台接入路径。事件、会话、身份与出站能力的差异按契约显式表达，实例之间保持身份和路由隔离。
 - 聊天协议接入按适配器组织：归一化事件形状与管理面语义由 `contracts/` 定义，适配器只负责各自的线上格式。
 - Server 负责事件、状态、插件、任务、调度、渲染、治理、日志和恢复。
-- 预编译 Go 可执行文件是唯一正式插件后端；Vue 静态产物是插件管理页的正式实现形态，运行期不编译源码或安装依赖。
+- 插件后端是当前平台的预编译原生可执行文件，实现语言不限；官方插件使用 Go SDK，官方管理页使用 Vue 静态产物。服务运行期不编译源码或安装依赖。
 - Web 是主要在线管理面；Launcher 负责本机进程编排、预检、更新检查和 Windows 事务安装；CLI 负责离线或脚本化运维。
 - SQLite 是单实例状态库；用户配置、持久状态、缓存、日志、模板和插件目录具有明确职责。
 
 ### 非目标
 
-- 多实例、分布式和高可用部署；
+- 多 Server 实例、分布式和高可用部署；
 - 发布者自助上架、评分评论、付费分发或账号型插件市场；
 - 插件间依赖解析；
 - 插件 OS 强沙盒或对不可信本地代码的隔离承诺；
@@ -54,13 +54,14 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 ```mermaid
 flowchart LR
     OB["OneBot11"] --> AD["Adapter / Event Ingress"]
-    QQ["QQ 官方机器人"] -.planned.-> AD
+    QQ["QQ 官方机器人"] --> AD
     AD --> DP["Dispatcher"]
     DP <--> RT["Plugin Runtime"]
     RT --> LA["Local Action Service"]
     LA --> CAP["Storage / Scheduler / Render / HTTP / Governance"]
     DP --> OUT["Outbound / Adapter Send"]
     OUT --> OB
+    OUT --> QQ
 
     WEB["Web"] --> API["Management API / WebSocket"]
     LCH["Launcher"] --> API

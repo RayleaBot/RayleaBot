@@ -57,8 +57,9 @@ Worker 关闭时停止接收渲染请求，取消排队与正在渲染的请求�
 
 - 插件侧 `render.image` 提交模板业务数据。
 - 模板 `input.schema.json` 顶层声明 `user` 与 `permission` 时，平台会根据父事件为渲染数据补充身份字段。
-- `user` 包含用户 ID、昵称、群头衔和 QQ 头像地址；昵称在群聊中优先使用群名片。
+- `user` 包含父事件的用户 ID 与昵称。OneBot11 事件可补充群头衔和 QQ 头像地址，群聊昵称优先使用群名片；其他协议保留自身身份，不套用 QQ 账号信息。
 - `permission.level` 使用 `super_admin`、`owner`、`admin`、`member`。
+- OneBot11 账号按配置识别超级管理员；其他协议的同值 ID 不继承该身份。身份投影由渲染领域提供，菜单与插件动作共用它。
 - 群聊事件带有已归一化群名时，渲染数据包含 `group.name`；私聊事件没有 `group`。
 - 管理面模板同步 HTML 预览使用页面提交的 JSON 生成 iframe 文档。
 

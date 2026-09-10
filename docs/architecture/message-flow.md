@@ -6,7 +6,7 @@
 
 ```mermaid
 sequenceDiagram
-    participant OB as OneBot11
+    participant OB as OneBot11 / QQ Official
     participant AD as Adapter
     participant IN as Chat Policy Ingress
     participant BR as Bridge
@@ -35,15 +35,15 @@ sequenceDiagram
     end
     RT->>DP: outbound action
     DP->>OUT: admitted send
-    OUT->>AD: OneBot action
-    AD->>OB: WebSocket or HTTP API
+    OUT->>AD: routed protocol send
+    AD->>OB: protocol WebSocket / HTTP API
 ```
 
 ### 职责归属
 
 | 环节 | 职责方 | 状态来源 |
 | --- | --- | --- |
-| transport 与协议帧 | Adapter | connection snapshot、echo waiters、dedupe state |
+| transport 与协议帧 | Adapter | 各实例的连接快照、请求关联、序列与去重状态 |
 | 命令与聊天治理 | `eventpipeline/chatpolicy` | 配置与治理服务 |
 | 统一事件校验 | Bridge | formal event contract |
 | 目标与队列 | Dispatcher | manifest events、command declarations、per-plugin lanes |

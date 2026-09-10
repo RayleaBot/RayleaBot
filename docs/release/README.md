@@ -10,9 +10,8 @@
 | [Release Notes Template](./release-notes-template.md) | 功能版与补丁版说明模板、栏目和填写规则 |
 | [Delivery and Upgrade](./delivery-and-upgrade.md) | 产物矩阵、manifest v2、Ed25519、Authenticode、自动检查、事务安装与 guided update |
 | [Acceptance and Risks](./acceptance-and-risks.md) | 风险控制、发布门禁、故障注入和真实签名 Windows E2E |
-| [Log Runtime Repair 2026-09-04](./log-runtime-repair-2026-09-04.md) | 近期日志根因、运行修复、降噪、脱敏与本地验收结果 |
 | [Plugin Protocol v3 Upgrade](./plugin-protocol-v3-upgrade.md) | 多适配器身份快照、SDK 重建与备份协议边界 |
-| [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md) | manifest v3、artifact v2、数据保留与旧包禁用语义 |
+| [Plugin Contract v3](./plugin-contract-v3-upgrade.md) | 本版插件合同、原生 artifact、安装与恢复边界 |
 | [Windows Desktop Runtime](./windows-desktop-runtime.md) | Windows WebView2 运行时要求与联网、离线安装指引 |
 | [Linux Desktop Runtime](./linux-desktop-runtime.md) | Linux GTK 3、WebKitGTK 运行时要求与发行版安装命令 |
 
@@ -24,3 +23,7 @@
 - 固定工具链与发布基线：[`docs/engineering/baseline.md`](../engineering/baseline.md)
 
 在正式 Authenticode 证书和真实签名 Windows packaged E2E 通过之前，`windows-x64-full` 的更新方式固定为 `guided`（引导更新）。
+
+## 历史排障记录
+
+[2026-09-04 日志运行修复](./log-runtime-repair-2026-09-04.md) 保留当时的问题、处理与验证边界，不作为当前操作流程或本轮验收证据。
