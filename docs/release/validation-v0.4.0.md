@@ -1,6 +1,6 @@
 # 0.4.0 候选版验收记录
 
-本页记录全新分发候选版的实际验证范围与剩余门槛，供交付核对使用。版本为 `0.4.0`，尚未公开分发；Windows 保持 `guided`。P01、P23、P24、P26 仍待最终结果登记，不能据此认定全部优化或正式发布验收完成。
+本页记录全新分发候选版的实际验证范围与剩余门槛，供交付核对使用。版本为 `0.4.0`，尚未公开分发；Windows 保持 `guided`。完整 CI 已通过，P23、P24、P26 仍待最终产物与原生 UI 结果登记。
 
 验收标准见[验收与风险](./acceptance-and-risks.md)，工作包状态见[执行计划](../execution-plan-v2.md)。最终交付必须将源码提交、归档摘要、原生平台与验证结果对应起来；以下早期候选包的通过记录不自动转移到后续构建。
 
@@ -62,7 +62,7 @@
 | [第二轮 CI](https://github.com/RayleaBot/RayleaBot/actions/runs/34533310868)，`80aaa1c7` | Linux Launcher 全部通过，Windows 丢盘符用例不再失败；Linux runtime 暴露末帧/退出竞态，Windows 通用 Chromium 测试仍启动超时，整轮失败 |
 | [第二轮产物验收](https://github.com/RayleaBot/RayleaBot/actions/runs/34533311035)，`80aaa1c7` | 已核对 Windows package、archive smoke、recovery drill 通过；self-host 在首次渲染阶段因 Chromium 启动超时失败，未完成 600 秒观察。其余平台及后续构建结果由最终登记替换 |
 | [第三轮产物验收](https://github.com/RayleaBot/RayleaBot/actions/runs/34535383597)，`30734d80` | Linux full/server 与 macOS full 的原生构建、archive smoke、300 秒恢复观察和 600 秒 self-host 全部通过；Windows 在 30 秒渲染预算内未完成截图，整轮失败，assemble 被跳过 |
-| 最终 CI | 待维护者登记最终源码 SHA、run 链接及 required job 全通过结果 |
+| [最终实现 CI](https://github.com/RayleaBot/RayleaBot/actions/runs/34539781821)，`5b2fa9d8` | 所有 required job 通过，包括 Linux Server 全量测试、核心 race、lint，以及 Windows 浏览器、Web、Launcher、SDK、契约、生成和脚本门禁 |
 | 最终产物验收 | 待维护者登记同一源码的四种归档、SHA-256、验证证据与实际观察窗口 |
 
 ### 第三轮中间候选归档
@@ -81,6 +81,8 @@ macOS 归档内 Server 与 Launcher 的 Mach-O 含链接器 ad hoc 签名，Code
 
 ### 最终交付登记
 
+生产实现冻结于 `5b2fa9d85212a2129784d07088f4d844cefe09ed`。后续 `d5493776` 只修正定时动作成功样例及两份生成测试向量，没有改变生产编译输入；生成校验、strict 和 Server/独立 SDK 协议向量测试通过。另在该生产实现上补跑现有窄屏、减少动画、高对比度和键盘用例，5 项全部通过。
+
 | 最终目标产物 | 源码提交 / SHA-256 | 原生构建与 archive smoke | 300 秒恢复 / 600 秒 self-host |
 | --- | --- | --- | --- |
 | `windows-x64-full` | 待登记 | 待最终结果 | 待最终结果 |
@@ -94,7 +96,7 @@ Windows/macOS 本机 binary-mode govulncheck 已记录 0 个受影响符号、0 
 
 | 门槛 | 当前边界 | 责任与下一步 |
 | --- | --- | --- |
-| 最终 CI 与四种候选产物 | 早期 CI/产物存在明确失败；修复不能替代通过结果 | 发布维护者核对最终 run、源码 SHA、摘要、证据文件及完整观察窗口，再回写 P01/P23/P24/P26 |
+| 四种候选产物 | 最终实现 CI 已通过，四包实际流程仍在执行 | 验收执行者核对产物 run、源码 SHA、摘要、证据文件及完整观察窗口，再回写 P23/P24/P26 |
 | 原生桌面平台范围 | 已有 Windows 实包 UI 补验及 Linux/macOS 原生构建、包流程通过记录；Linux/macOS 原生交互没有同等记录 | 发布维护者登记原生构建与实际界面范围，保持未验证交互可见 |
 | 外部聊天网络 | 本地协议对端与真实原生插件定时回调已覆盖；外部 OneBot 与 QQ 官方公网未登记 | 对应接入维护者使用实际配置补验，记录平台、实例和可观察结果，不将模拟对端写成实网 |
 | 正式 Windows 签名更新 | 无正式 Authenticode 证书及签名 packaged E2E | 保持 `guided`；证书可用后按[更新安全验收](./acceptance-and-risks.md#更新安全验收)执行，Ed25519 清单签名不替代此门槛 |

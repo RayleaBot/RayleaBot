@@ -94,7 +94,7 @@
 
 | 完成 | ID | 优先级/规模 | 工作包 | 前置 | 状态 | 提交 / 验证 / 阻塞 |
 | --- | --- | --- | --- | --- | --- | --- |
-| [ ] | P01 | P0/S | CI 输入分类与基线 | — | 待验收 | 分类/结构/core race/Linux lint及托管双平台脚本检查已通过；runtime末帧修复已入主线；Windows浏览器截图问题继续由P26复验，见[候选验收记录](release/validation-v0.4.0.md) |
+| [x] | P01 | P0/S | CI 输入分类与基线 | — | 完成 | `5b2fa9d8` 的[完整CI](https://github.com/RayleaBot/RayleaBot/actions/runs/34539781821)全部通过：分类、生成、契约、全量Server、核心race、Linux lint、Windows浏览器及双平台脚本门禁 |
 | [x] | P02 | P0/M | 监督器与资源关闭 | P01 | 完成 | 首错、幂等清理、快照/回调等待和构造失败回收均已验证 |
 | [x] | P03 | P0/M | 多实例路由与事件补全 | P01 | 完成 | 5b96a922 / 7b425610；多实例动作、集合HTTP/WS及Web/Launcher消费者；独立提交的integration/ws/services/race、strict、客户端类型与浏览器流程通过 |
 | [x] | P04 | P0/M | 安装失败传播与 HTTP 输入边界 | P01 | 完成 | e2b1af8b / 4828d190；HTTP边界、安装后置/回滚与卸载失败传播；实际子进程、集成与输入回归通过 |
