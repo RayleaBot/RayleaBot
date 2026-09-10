@@ -54,7 +54,7 @@ func (q *SpoolQueue) QuarantinePath() string {
 	return q.quarantinePath
 }
 
-func (q *SpoolQueue) Append(summary Summary) error {
+func (q *SpoolQueue) Append(summary Summary) (err error) {
 	if q.path == "" {
 		return errors.New("management log spool path is not configured")
 	}
@@ -77,7 +77,7 @@ func (q *SpoolQueue) Append(summary Summary) error {
 	if err != nil {
 		return fmt.Errorf("open spool file: %w", err)
 	}
-	defer file.Close()
+	defer func() { err = errors.Join(err, file.Close()) }()
 
 	if _, err := file.Write(payload); err != nil {
 		return fmt.Errorf("append spool record: %w", err)
@@ -173,7 +173,7 @@ func (q *SpoolQueue) readLines() ([][]byte, error) {
 		}
 		return nil, fmt.Errorf("open spool file: %w", err)
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
@@ -220,7 +220,7 @@ func (q *SpoolQueue) rewrite(lines [][]byte) error {
 	return nil
 }
 
-func (q *SpoolQueue) appendQuarantine(line []byte) error {
+func (q *SpoolQueue) appendQuarantine(line []byte) (err error) {
 	if q.quarantinePath == "" {
 		return errors.New("management log quarantine path is not configured")
 	}
@@ -233,7 +233,7 @@ func (q *SpoolQueue) appendQuarantine(line []byte) error {
 	if err != nil {
 		return fmt.Errorf("open quarantine file: %w", err)
 	}
-	defer file.Close()
+	defer func() { err = errors.Join(err, file.Close()) }()
 
 	if _, err := file.Write(append(bytes.TrimSpace(line), '\n')); err != nil {
 		return fmt.Errorf("append quarantine line: %w", err)

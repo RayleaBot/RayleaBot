@@ -128,7 +128,7 @@ func probeSource(ctx context.Context, source ResourceSource, index int) probeRes
 	if err != nil {
 		return result
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusPartialContent {
 		return result
 	}

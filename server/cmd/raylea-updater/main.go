@@ -384,7 +384,7 @@ func copyFile(source, destination string) error {
 	if err != nil {
 		return err
 	}
-	defer input.Close()
+	defer func(release func() error) { _ = release() }(input.Close)
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err

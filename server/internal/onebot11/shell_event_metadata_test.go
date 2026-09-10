@@ -20,7 +20,7 @@ func TestEnrichEventMetadataHydratesGroupContextAndUsesCache(t *testing.T) {
 	var memberInfoCalls atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func(release func() error) { _ = release() }(r.Body.Close)
 
 		var request APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -117,7 +117,7 @@ func TestEnrichEventMetadataHydratesPrivateNicknameAndUsesCache(t *testing.T) {
 	var strangerInfoCalls atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func(release func() error) { _ = release() }(r.Body.Close)
 
 		var request APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -192,7 +192,7 @@ func TestEnrichEventMetadataRefreshesGroupNameAfterNotice(t *testing.T) {
 	var groupInfoCalls atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func(release func() error) { _ = release() }(r.Body.Close)
 
 		var request APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -277,7 +277,7 @@ func TestIdentityCacheRefreshesGroupNameAfterRawNoticeFrame(t *testing.T) {
 	var groupInfoCalls atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func(release func() error) { _ = release() }(r.Body.Close)
 
 		var request APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -347,7 +347,7 @@ func TestEnrichEventMetadataUsesMessageGroupNameOverCachedLookup(t *testing.T) {
 	var groupInfoCalls atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func(release func() error) { _ = release() }(r.Body.Close)
 
 		var request APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
@@ -428,7 +428,7 @@ func TestEnrichEventMetadataRefreshesMemberInfoAfterCardNotice(t *testing.T) {
 	var memberInfoCalls atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
+		defer func(release func() error) { _ = release() }(r.Body.Close)
 
 		var request APICallRequest
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {

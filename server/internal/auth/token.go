@@ -119,7 +119,7 @@ func (m *Manager) CSRFToken(claims Claims) string {
 	mac.Write([]byte{0})
 	mac.Write([]byte(claims.Subject))
 	mac.Write([]byte{0})
-	fmt.Fprintf(mac, "%d", claims.IssuedAt.UTC().Unix())
+	_, _ = fmt.Fprintf(mac, "%d", claims.IssuedAt.UTC().Unix())
 	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 

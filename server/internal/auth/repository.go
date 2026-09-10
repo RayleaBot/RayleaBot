@@ -124,7 +124,7 @@ func (r *SQLiteRepository) UpdateCredentials(ctx context.Context, identifier str
 	if err != nil {
 		return fmt.Errorf("begin credential update: %w", err)
 	}
-	defer tx.Rollback()
+	defer func(release func() error) { _ = release() }(tx.Rollback)
 	q := r.writeQ.WithTx(tx)
 	affected, err := q.UpdateBootstrapCredentials(ctx, sqlcgen.UpdateBootstrapCredentialsParams{Identifier: identifier, SecretDigest: secretDigest})
 	if err != nil {

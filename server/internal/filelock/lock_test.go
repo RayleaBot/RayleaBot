@@ -16,7 +16,7 @@ func TestAcquirePreventsOverlappingLocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("acquire first lock: %v", err)
 	}
-	defer first.Close()
+	defer func(release func() error) { _ = release() }(first.Close)
 
 	if _, err := Acquire(path); !errors.Is(err, ErrLocked) {
 		t.Fatalf("second acquire error = %v, want ErrLocked", err)
@@ -40,7 +40,7 @@ func TestAcquirePreventsCrossProcessLock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("acquire parent lock: %v", err)
 	}
-	defer lock.Close()
+	defer func(release func() error) { _ = release() }(lock.Close)
 
 	command := exec.Command(os.Args[0], "-test.run=^TestAcquireInChildProcess$")
 	command.Env = append(os.Environ(), childLockPathEnv+"="+path)

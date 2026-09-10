@@ -86,7 +86,7 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 
 	conn, response, err := s.dial(ctx)
 	if response != nil && response.Body != nil {
-		defer response.Body.Close()
+		defer func(release func() error) { _ = release() }(response.Body.Close)
 	}
 	if err != nil {
 		if isAuthFailure(response) {

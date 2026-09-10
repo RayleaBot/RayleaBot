@@ -67,7 +67,7 @@ func TestCredentialChangePersistsAndRevokesAcrossRestart(t *testing.T) {
 				t.Fatal(err)
 			}
 			restored, closeRestored := newPersistentManager(t, db, cfg, now, "after")
-			defer closeRestored()
+			defer func(release func() error) { _ = release() }(closeRestored)
 			for _, oldToken := range []string{token, other} {
 				if _, err := restored.Validate(oldToken); !errors.Is(err, ErrInvalidToken) {
 					t.Fatalf("revoked token restored: %v", err)
@@ -141,7 +141,7 @@ func TestCredentialChangeRollsBackWhenSessionDeletionFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	restored, closeRestored := newPersistentManager(t, db, cfg, now, "after")
-	defer closeRestored()
+	defer func(release func() error) { _ = release() }(closeRestored)
 	if _, err := restored.Validate(token); err != nil {
 		t.Fatalf("persisted session lost on rollback: %v", err)
 	}

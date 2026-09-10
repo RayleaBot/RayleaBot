@@ -13,7 +13,7 @@ func TestExecutor_SubmitAndSucceed(t *testing.T) {
 
 	registry := NewRegistry()
 	executor := NewExecutor(registry, 30*time.Second)
-	defer executor.Close()
+	defer func(release func() error) { _ = release() }(executor.Close)
 
 	taskID, err := executor.Submit("backup.create", "test backup", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
 		p.Update(50, "halfway")
@@ -59,7 +59,7 @@ func TestExecutor_SubmitAndFail(t *testing.T) {
 
 	registry := NewRegistry()
 	executor := NewExecutor(registry, 30*time.Second)
-	defer executor.Close()
+	defer func(release func() error) { _ = release() }(executor.Close)
 
 	taskID, err := executor.Submit("plugin.reload", "test reload", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
 		return nil, &TaskError{Code: "plugin.internal_error", Message: "runtime conflict"}
@@ -94,7 +94,7 @@ func TestExecutor_SubmitGenericError(t *testing.T) {
 
 	registry := NewRegistry()
 	executor := NewExecutor(registry, 30*time.Second)
-	defer executor.Close()
+	defer func(release func() error) { _ = release() }(executor.Close)
 
 	taskID, err := executor.Submit("restore.apply", "test restore", func(ctx context.Context, p ProgressReporter) (*ResultSummary, error) {
 		return nil, errors.New("disk full")
@@ -126,7 +126,7 @@ func TestExecutor_Cancel(t *testing.T) {
 
 	registry := NewRegistry()
 	executor := NewExecutor(registry, 30*time.Second)
-	defer executor.Close()
+	defer func(release func() error) { _ = release() }(executor.Close)
 
 	started := make(chan struct{})
 	blocked := make(chan struct{})
@@ -263,7 +263,7 @@ func TestExecutor_RecordsMetrics(t *testing.T) {
 
 	registry := NewRegistry()
 	executor := NewExecutor(registry, 30*time.Second)
-	defer executor.Close()
+	defer func(release func() error) { _ = release() }(executor.Close)
 
 	metrics := &recordingTaskMetrics{observed: make(chan struct{}, 2)}
 	executor.SetMetricsObserver(metrics)

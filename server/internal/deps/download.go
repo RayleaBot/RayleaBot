@@ -27,7 +27,7 @@ func HTTPSFile(ctx context.Context, rawURL, destPath string) error {
 	return HTTPSFileWithProgress(ctx, rawURL, destPath, nil)
 }
 
-func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(DownloadProgress)) error {
+func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(DownloadProgress)) (err error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progres
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status %d", response.StatusCode)
 	}
@@ -44,7 +44,7 @@ func HTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progres
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { err = errors.Join(err, file.Close()) }()
 	_, err = io.Copy(file, &progressReader{
 		reader: response.Body,
 		total:  response.ContentLength,

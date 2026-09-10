@@ -19,7 +19,7 @@ func waitForProcessExit(ctx context.Context, processID int) error {
 		}
 		return err
 	}
-	defer windows.CloseHandle(handle)
+	defer func() { _ = windows.CloseHandle(handle) }()
 	for {
 		status, err := windows.WaitForSingleObject(handle, 250)
 		if err != nil {
@@ -45,6 +45,6 @@ func killProcess(processID int) error {
 	if err != nil {
 		return err
 	}
-	defer windows.CloseHandle(process)
+	defer func() { _ = windows.CloseHandle(process) }()
 	return windows.TerminateProcess(process, 1)
 }

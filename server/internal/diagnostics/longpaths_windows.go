@@ -11,7 +11,7 @@ func platformIssues() []Issue {
 	if err != nil {
 		return []Issue{longPathsIssue(0, err)}
 	}
-	defer key.Close()
+	defer func(release func() error) { _ = release() }(key.Close)
 
 	value, _, err := key.GetIntegerValue("LongPathsEnabled")
 	return []Issue{longPathsIssue(value, err)}

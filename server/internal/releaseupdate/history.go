@@ -101,7 +101,7 @@ func withHistoryLock(historyPath string, operation func() error) error {
 		if err == nil {
 			_, _ = fmt.Fprintf(lock, "%d\n", os.Getpid())
 			_ = lock.Close()
-			defer os.Remove(lockPath)
+			defer func() { _ = os.Remove(lockPath) }()
 			return operation()
 		}
 		if !errors.Is(err, os.ErrExist) {
@@ -132,7 +132,7 @@ func saveJSONAtomically(path string, value any, mode os.FileMode) error {
 		return err
 	}
 	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
+	defer func() { _ = os.Remove(temporaryPath) }()
 	if err := temporary.Chmod(mode); err != nil {
 		_ = temporary.Close()
 		return err

@@ -97,7 +97,7 @@ func copyTestFile(t *testing.T, source, destination string, mode os.FileMode) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer input.Close()
+	defer func(release func() error) { _ = release() }(input.Close)
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
 	if err != nil {
 		t.Fatal(err)

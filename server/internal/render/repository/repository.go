@@ -89,7 +89,7 @@ func (r *SQLiteTemplateRepository) SyncTemplate(ctx context.Context, item Curren
 	if err != nil {
 		return false, err
 	}
-	defer tx.Rollback()
+	defer func(release func() error) { _ = release() }(tx.Rollback)
 	queries := sqlcgen.New(tx)
 	current, err := queries.GetRenderTemplate(ctx, item.ID)
 	if err == nil {

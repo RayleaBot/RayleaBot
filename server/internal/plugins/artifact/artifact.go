@@ -242,7 +242,7 @@ func validateBinary(path, platform string) error {
 		if err != nil {
 			return invalid("backend is not a valid PE executable", err)
 		}
-		defer file.Close()
+		defer func(release func() error) { _ = release() }(file.Close)
 		if file.Machine != pe.IMAGE_FILE_MACHINE_AMD64 {
 			return invalid("backend PE architecture must be amd64", nil)
 		}
@@ -254,7 +254,7 @@ func validateBinary(path, platform string) error {
 		if err != nil {
 			return invalid("backend is not a valid ELF executable", err)
 		}
-		defer file.Close()
+		defer func(release func() error) { _ = release() }(file.Close)
 		if file.Machine != elf.EM_X86_64 {
 			return invalid("backend ELF architecture must be x86_64", nil)
 		}
@@ -266,7 +266,7 @@ func validateBinary(path, platform string) error {
 		if err != nil {
 			return invalid("backend is not a valid Mach-O executable", err)
 		}
-		defer file.Close()
+		defer func(release func() error) { _ = release() }(file.Close)
 		if file.Cpu != macho.CpuArm64 {
 			return invalid("backend Mach-O architecture must be arm64", nil)
 		}

@@ -58,7 +58,7 @@ func ZipWithProgress(archivePath, destRoot string, progress func(ExtractProgress
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	totalEntries := len(reader.File)
 	for index, file := range reader.File {
@@ -81,16 +81,15 @@ func ZipWithProgress(archivePath, destRoot string, progress func(ExtractProgress
 		}
 		out, err := os.OpenFile(targetPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode())
 		if err != nil {
-			in.Close()
+			_ = in.Close()
 			return err
 		}
-		if _, err := io.Copy(out, in); err != nil {
-			out.Close()
-			in.Close()
+		_, copyErr := io.Copy(out, in)
+		closeErr := out.Close()
+		_ = in.Close()
+		if err := errors.Join(copyErr, closeErr); err != nil {
 			return err
 		}
-		out.Close()
-		in.Close()
 		if progress != nil {
 			progress(ExtractProgress{
 				ExtractedEntries: index + 1,
@@ -118,12 +117,12 @@ func TarGzWithProgress(archivePath, destRoot string, progress func(ExtractProgre
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gzr.Close()
+	defer func(release func() error) { _ = release() }(gzr.Close)
 
 	totalEntries, err := CountTarGzEntries(archivePath)
 	if err != nil {
@@ -163,11 +162,10 @@ func TarGzWithProgress(archivePath, destRoot string, progress func(ExtractProgre
 			if err != nil {
 				return err
 			}
-			if _, err := io.Copy(out, reader); err != nil {
-				out.Close()
+			_, copyErr := io.Copy(out, reader)
+			if err := errors.Join(copyErr, out.Close()); err != nil {
 				return err
 			}
-			out.Close()
 		}
 		extractedEntries++
 		if progress != nil {
@@ -185,12 +183,12 @@ func CountTarGzEntries(archivePath string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return 0, err
 	}
-	defer gzr.Close()
+	defer func(release func() error) { _ = release() }(gzr.Close)
 	reader := tar.NewReader(gzr)
 	total := 0
 	for {

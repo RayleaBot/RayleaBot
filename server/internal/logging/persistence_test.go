@@ -32,7 +32,7 @@ func TestSpoolQueueFlushesRecordsAndQuarantinesBadLines(t *testing.T) {
 	if _, err := file.Write([]byte("{not-json}\n")); err != nil {
 		t.Fatalf("append bad spool line: %v", err)
 	}
-	file.Close()
+	_ = file.Close()
 
 	if err := queue.Append(Summary{
 		LogID:     "log_spool_0002",

@@ -284,7 +284,7 @@ func WriteJSON(w http.ResponseWriter, statusCode int, body any) {
 
 func DecodeStrictJSON(w http.ResponseWriter, r *http.Request, target any, maxBytes int64) error {
 	reader := http.MaxBytesReader(w, r.Body, maxBytes)
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	decoder := json.NewDecoder(reader)
 	decoder.DisallowUnknownFields()
@@ -305,7 +305,7 @@ func DecodeStrictJSON(w http.ResponseWriter, r *http.Request, target any, maxByt
 
 func ReadRequestBody(w http.ResponseWriter, r *http.Request, maxBytes int64) ([]byte, error) {
 	reader := http.MaxBytesReader(w, r.Body, maxBytes)
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	return io.ReadAll(reader)
 }

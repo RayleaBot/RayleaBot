@@ -102,7 +102,7 @@ func (d *Downloader) Download(ctx context.Context, check CheckResult, destinatio
 	if err != nil {
 		return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "download artifact", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		return DownloadedBundle{}, errorWithCode(CodeArtifactInvalid, "download artifact", fmt.Errorf("artifact returned HTTP %d", response.StatusCode))
 	}
@@ -185,7 +185,7 @@ func VerifyArtifactFile(artifactPath string, artifact Artifact) error {
 	if err != nil {
 		return errorWithCode(CodeArtifactInvalid, "open artifact", err)
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 	hash := sha256.New()
 	if _, err := io.Copy(hash, io.LimitReader(file, MaxArchiveBytes+1)); err != nil {
 		return errorWithCode(CodeArtifactInvalid, "hash artifact", err)

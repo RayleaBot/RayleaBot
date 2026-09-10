@@ -211,7 +211,7 @@ func copyVerifiedRenderResource(resource RenderResource, destination string) err
 	if err != nil {
 		return fmt.Errorf("open render resource %q: %w", resource.ID, err)
 	}
-	defer source.Close()
+	defer func(release func() error) { _ = release() }(source.Close)
 
 	target, err := os.OpenFile(destination, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {

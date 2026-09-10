@@ -155,7 +155,7 @@ func (r *KVSQLiteRepository) List(ctx context.Context, pluginID, prefix string) 
 	if err != nil {
 		return nil, fmt.Errorf("list plugin kv keys: %w", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	var keys []string
 	for rows.Next() {

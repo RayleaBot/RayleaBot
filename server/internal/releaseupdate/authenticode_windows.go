@@ -118,8 +118,8 @@ func signerCertificateSHA256(filePathUTF16 *uint16) (string, error) {
 	); err != nil {
 		return "", err
 	}
-	defer windows.CertCloseStore(store, 0)
-	defer cryptMsgClose.Call(uintptr(message))
+	defer func() { _ = windows.CertCloseStore(store, 0) }()
+	defer func() { _, _, _ = cryptMsgClose.Call(uintptr(message)) }()
 
 	var signerInfoSize uint32
 	result, _, callErr := cryptMsgGetParam.Call(uintptr(message), cmsgSignerInfoParam, 0, 0, uintptr(unsafe.Pointer(&signerInfoSize)))
@@ -147,7 +147,7 @@ func signerCertificateSHA256(filePathUTF16 *uint16) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer windows.CertFreeCertificateContext(certificate)
+	defer func() { _ = windows.CertFreeCertificateContext(certificate) }()
 	if certificate.Length == 0 || certificate.EncodedCert == nil {
 		return "", errors.New("signer certificate is empty")
 	}

@@ -35,7 +35,7 @@ func ExtractWindowsArtifact(archivePath, destinationRoot string, verified Verifi
 	if err != nil {
 		return "", errorWithCode(CodeArtifactInvalid, "open artifact ZIP", err)
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 	if len(reader.File) == 0 || len(reader.File) > MaxArtifactFiles+1 {
 		return "", errorWithCode(CodeArtifactInvalid, "inspect artifact ZIP", errors.New("ZIP entry count is outside the allowed range"))
 	}
@@ -171,7 +171,7 @@ func extractZIPFile(entry *zip.File, targetPath string) error {
 	if err != nil {
 		return err
 	}
-	defer source.Close()
+	defer func(release func() error) { _ = release() }(source.Close)
 	target, err := os.OpenFile(targetPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err

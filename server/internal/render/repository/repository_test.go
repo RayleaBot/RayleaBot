@@ -13,7 +13,7 @@ func TestCurrentTemplateCacheReplacesContentAndPreservesOwnership(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 	repo, err := NewSQLiteTemplateRepository(store)
 	if err != nil {
 		t.Fatal(err)

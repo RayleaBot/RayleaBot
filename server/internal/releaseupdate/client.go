@@ -166,7 +166,7 @@ func (c *Checker) fetchMetadata(ctx context.Context, rawURL string) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("release metadata returned HTTP %d", response.StatusCode)
 	}
@@ -199,7 +199,7 @@ func saveBytesAtomically(path string, payload []byte, mode os.FileMode) error {
 		return err
 	}
 	temporaryPath := temporary.Name()
-	defer os.Remove(temporaryPath)
+	defer func() { _ = os.Remove(temporaryPath) }()
 	if err := temporary.Chmod(mode); err != nil {
 		_ = temporary.Close()
 		return err

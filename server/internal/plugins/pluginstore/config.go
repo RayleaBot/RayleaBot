@@ -87,7 +87,7 @@ func (r *ConfigSQLiteRepository) Read(ctx context.Context, pluginID string, keys
 	if err != nil {
 		return nil, fmt.Errorf("query system configs for %s: %w", pluginID, err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	return scanConfigRows(rows)
 }

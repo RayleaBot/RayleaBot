@@ -21,7 +21,7 @@ func VerifyFileSHA256(path string, want string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -123,7 +123,7 @@ func ensurePreparedResourceWithProgress(
 	if err != nil {
 		return fmt.Errorf("create deps temp root: %w", err)
 	}
-	defer os.RemoveAll(tempRoot)
+	defer func() { _ = os.RemoveAll(tempRoot) }()
 
 	emitPrepareProgress(reporter, PrepareProgress{
 		Stage:   "extract",

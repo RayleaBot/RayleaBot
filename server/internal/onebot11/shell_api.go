@@ -243,7 +243,7 @@ func (s *Shell) doHTTPAPIRequest(ctx context.Context, request APICallRequest) (A
 		}
 		return APIResponse{}, errorf(errorCodeHTTPAPIRequestFailed, "OneBot HTTP API request failed", err)
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		s.markTransportFailure(TransportHTTPAPI, TransportStateAuthFailed, errorCodeHTTPAPIAuthFailed, fmt.Errorf("status %d", resp.StatusCode))

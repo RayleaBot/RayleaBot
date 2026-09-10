@@ -150,7 +150,7 @@ func (r *SQLiteRepository) ListSummaries(ctx context.Context, query Query) ([]Su
 	if err != nil {
 		return nil, fmt.Errorf("query management log summaries: %w", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	items := make([]Summary, 0, limit)
 	for rows.Next() {
@@ -236,7 +236,7 @@ func (r *SQLiteRepository) ListPage(ctx context.Context, query PageQuery) (PageR
 	if err != nil {
 		return PageResult{}, fmt.Errorf("query management log page: %w", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	entries := make([]pagedSummary, 0, limit+1)
 	for rows.Next() {

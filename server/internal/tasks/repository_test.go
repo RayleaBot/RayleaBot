@@ -337,7 +337,7 @@ func TestRegistryHydrateInterruptsInProgressTasks(t *testing.T) {
 	if err := registry.Hydrate(ctx); err != nil {
 		t.Fatalf("hydrate: %v", err)
 	}
-	defer registry.Close()
+	defer func(release func() error) { _ = release() }(registry.Close)
 
 	for _, taskID := range []string{"task_pending", "task_running"} {
 		snapshot, ok := registry.Get(taskID)
@@ -398,7 +398,7 @@ func TestRegistryCreateWaitsForFirstPersistence(t *testing.T) {
 	}
 	registry := NewRegistry()
 	registry.SetRepository(repo)
-	defer registry.Close()
+	defer func(release func() error) { _ = release() }(registry.Close)
 
 	returned := make(chan error, 1)
 	go func() {
@@ -458,7 +458,7 @@ func TestSQLiteRepository_EmptyDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	repo, err := NewSQLiteRepository(store)
 	if err != nil {
