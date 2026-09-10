@@ -2,9 +2,74 @@ package permission
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
+
+type failingBlacklistRepo struct {
+	BlacklistRepository
+	entryType string
+}
+
+func (r failingBlacklistRepo) IsBlacklisted(ctx context.Context, kind, id string) (bool, error) {
+	if kind == r.entryType {
+		return false, context.DeadlineExceeded
+	}
+	return r.BlacklistRepository.IsBlacklisted(ctx, kind, id)
+}
+
+type failingWhitelistRepo struct {
+	WhitelistRepository
+	entryType string
+}
+
+func (r failingWhitelistRepo) IsWhitelisted(ctx context.Context, kind, id string) (bool, error) {
+	if kind == r.entryType {
+		return false, context.DeadlineExceeded
+	}
+	return r.WhitelistRepository.IsWhitelisted(ctx, kind, id)
+}
+
+type failingWhitelistState struct{ WhitelistStateRepository }
+
+func (failingWhitelistState) Enabled(context.Context) (bool, error) {
+	return false, context.DeadlineExceeded
+}
+
+func TestGovernanceReadFailuresDenyWithoutConsumingCooldown(t *testing.T) {
+	t.Parallel()
+	for _, stage := range []string{"whitelist-state", "whitelist-user", "whitelist-group", "blacklist-user", "blacklist-group"} {
+		t.Run(stage, func(t *testing.T) {
+			var blacklist BlacklistRepository = newStubBlacklistRepo()
+			var whitelist WhitelistRepository = newStubWhitelistRepo()
+			var state WhitelistStateRepository = &stubWhitelistStateRepo{enabled: true}
+			switch stage {
+			case "whitelist-state":
+				state = failingWhitelistState{state}
+			case "whitelist-user":
+				whitelist = failingWhitelistRepo{whitelist, "user"}
+			case "whitelist-group":
+				whitelist = failingWhitelistRepo{whitelist, "group"}
+			case "blacklist-user":
+				state = &stubWhitelistStateRepo{}
+				blacklist = failingBlacklistRepo{blacklist, "user"}
+			case "blacklist-group":
+				state = &stubWhitelistStateRepo{}
+				blacklist = failingBlacklistRepo{blacklist, "group"}
+			}
+			cooldown := NewCooldownTracker(RateLimit{Count: 1, Window: time.Minute}, RateLimit{Count: 1, Window: time.Minute})
+			checker := NewChecker(CheckerConfig{}, whitelist, state, blacklist, cooldown)
+			verdict := checker.Check(context.Background(), "user", "member", "group", &CommandInfo{Permission: "everyone"})
+			if verdict.Allowed || verdict.ErrorCode != "permission.unavailable" || !errors.Is(verdict.Err, context.DeadlineExceeded) {
+				t.Fatalf("unexpected failure verdict: %#v", verdict)
+			}
+			if !cooldown.Allow("user:user") || !cooldown.Allow("group:group") {
+				t.Fatal("failed admission consumed cooldown")
+			}
+		})
+	}
+}
 
 type stubBlacklistRepo struct {
 	blocked map[string]map[string]bool

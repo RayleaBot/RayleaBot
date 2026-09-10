@@ -16,6 +16,7 @@ type Verdict struct {
 	Allowed   bool
 	Reason    string
 	ErrorCode string
+	Err       error
 	// Scope identifies which target a blacklist/rate-limit rejection applies
 	// to: "user" or "group". Empty for verdicts without a target scope.
 	Scope string
@@ -67,8 +68,16 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 
 	skipBlacklist := false
 	if cmd != nil && c.whitelistStateRepo != nil {
-		if enabled, err := c.whitelistStateRepo.Enabled(ctx); err == nil && enabled {
-			if !c.matchesWhitelist(ctx, actorID, groupID) {
+		enabled, err := c.whitelistStateRepo.Enabled(ctx)
+		if err != nil {
+			return unavailableVerdict(err)
+		}
+		if enabled {
+			matched, err := c.matchesWhitelist(ctx, actorID, groupID)
+			if err != nil {
+				return unavailableVerdict(err)
+			}
+			if !matched {
 				return Verdict{Allowed: false, Reason: "发送者不在白名单中", ErrorCode: "permission.not_whitelisted"}
 			}
 			skipBlacklist = true
@@ -77,11 +86,19 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 
 	// 2. Blacklist check.
 	if !skipBlacklist && c.blacklistRepo != nil {
-		if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "user", actorID); blocked {
+		blocked, err := c.blacklistRepo.IsBlacklisted(ctx, "user", actorID)
+		if err != nil {
+			return unavailableVerdict(err)
+		}
+		if blocked {
 			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeUser}
 		}
 		if groupID != "" {
-			if blocked, _ := c.blacklistRepo.IsBlacklisted(ctx, "group", groupID); blocked {
+			blocked, err := c.blacklistRepo.IsBlacklisted(ctx, "group", groupID)
+			if err != nil {
+				return unavailableVerdict(err)
+			}
+			if blocked {
 				return Verdict{Allowed: false, Reason: "群在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeGroup}
 			}
 		}
@@ -111,22 +128,25 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 	return Verdict{Allowed: true}
 }
 
-func (c *Checker) matchesWhitelist(ctx context.Context, actorID, groupID string) bool {
+func unavailableVerdict(err error) Verdict {
+	return Verdict{Reason: "暂时无法确认权限，本次操作未执行", ErrorCode: "permission.unavailable", Err: err}
+}
+
+func (c *Checker) matchesWhitelist(ctx context.Context, actorID, groupID string) (bool, error) {
 	if c.whitelistRepo == nil {
-		return false
+		return false, errors.New("whitelist repository is unavailable")
 	}
 
 	matchedUser, err := c.whitelistRepo.IsWhitelisted(ctx, "user", actorID)
-	if err == nil && matchedUser {
-		return true
+	if err != nil || matchedUser {
+		return matchedUser, err
 	}
 
 	if groupID == "" {
-		return false
+		return false, nil
 	}
 
-	matchedGroup, err := c.whitelistRepo.IsWhitelisted(ctx, "group", groupID)
-	return err == nil && matchedGroup
+	return c.whitelistRepo.IsWhitelisted(ctx, "group", groupID)
 }
 
 // hasPermissionLevel checks if actorRole meets the required permission level.

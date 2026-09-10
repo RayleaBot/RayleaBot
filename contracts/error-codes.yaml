@@ -1,7 +1,7 @@
 version: 1
 description: >
   Fixture-ready error catalog. This file is the only formal source for
-  v0.1 HTTP, task, WebSocket, plugin-protocol, logs, CLI, and readiness error codes.
+  HTTP, task, WebSocket, plugin-protocol, logs, CLI, and readiness error codes.
 x-fixtures:
   - fixtures/errors/ok.core-catalog.yaml
   - fixtures/errors/invalid.missing-required-fields.yaml
@@ -15,6 +15,16 @@ domains:
   - release
 
 codes:
+  permission.unavailable:
+    code: permission.unavailable
+    domain: permission
+    message_key: errors.permission.unavailable
+    message: 暂时无法确认权限，本次操作未执行
+    description: A required blacklist, whitelist, or whitelist-state read failed. Chat admission is denied without consuming cooldown or executing a command. An explicitly configured super administrator retains the documented bypass.
+    http_status: null
+    retryable: true
+    applies_to: [logs]
+
   permission.current_secret_invalid:
     code: permission.current_secret_invalid
     domain: permission

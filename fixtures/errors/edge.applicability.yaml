@@ -3,6 +3,9 @@ case: edge
 description: Applicability boundary examples for task timeout and plugin permission errors.
 input:
   cases:
+    - code: permission.unavailable
+      applies_to: [logs]
+      example_surface: chat admission denied after a governance storage read failed
     - code: platform.task_timeout
       applies_to: [http, websocket, task]
       example_surface: asynchronous task execution

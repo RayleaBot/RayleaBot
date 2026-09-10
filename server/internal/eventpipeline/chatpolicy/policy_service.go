@@ -72,6 +72,9 @@ type Service struct {
 }
 
 func New(deps Deps) *Service {
+	if deps.Logger == nil {
+		deps.Logger = slog.Default()
+	}
 	service := &Service{
 		currentConfig:   deps.CurrentConfig,
 		plugins:         deps.Plugins,
@@ -172,6 +175,10 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 	)
 	if verdict.Allowed {
 		return enriched, true
+	}
+	if verdict.Err != nil {
+		s.logger.ErrorContext(ctx, "权限数据读取失败，本次事件未执行", "error_code", verdict.ErrorCode, "err", verdict.Err,
+			"event_id", enriched.EventID, "source_adapter", enriched.SourceAdapter)
 	}
 
 	if commandContext != nil {
@@ -279,7 +286,7 @@ func commandPolicyStage(errorCode string) string {
 		return "whitelist"
 	case "permission.blacklisted":
 		return "blacklist"
-	case "permission.denied":
+	case "permission.denied", "permission.unavailable":
 		return "permission"
 	case "platform.user_rate_limited", "platform.rate_limited":
 		return "cooldown"
