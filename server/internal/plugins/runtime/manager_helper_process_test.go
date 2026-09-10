@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestHelperProcessRuntime(t *testing.T) {
 	if os.Getenv("RAYLEABOT_RUNTIME_HELPER") != "1" {
 		return
+	}
+	if os.Getenv("RAYLEABOT_RUNTIME_SCENARIO") == "init-stdin-blocked" {
+		time.Sleep(time.Minute)
+		os.Exit(0)
 	}
 
 	runHelperProcessRuntime(

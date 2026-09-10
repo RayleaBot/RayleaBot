@@ -14,6 +14,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -31,10 +32,16 @@ type RuntimeRegistry interface {
 	NewDetached() *pluginruntime.Manager
 	Replace(pluginID string, manager *pluginruntime.Manager) *pluginruntime.Manager
 	Delete(pluginID string) *pluginruntime.Manager
+	ReleaseRetired(*pluginruntime.Manager)
 }
 
 type BotIdentitySource interface {
 	BotIdentities() []chatevent.BotIdentity
+}
+
+type Settings interface {
+	Read(context.Context, string) (map[string]any, error)
+	Activate(context.Context, string, map[string]any, func() error) error
 }
 
 type Deps struct {
@@ -46,13 +53,14 @@ type Deps struct {
 	Runtimes            RuntimeRegistry
 	Dispatcher          *dispatch.Dispatcher
 	Scheduler           *scheduler.Engine
-	PluginConfig        pluginstore.ConfigRepository
+	Settings            Settings
 	Identities          BotIdentitySource
 	Webhooks            *pluginwebhook.Registry
 	Tasks               *tasks.Registry
 	OnRecoveryChange    func(string)
 	RefreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	SyncRenderTemplates func(context.Context) error
+	Operations          *OperationGate
 }
 
 type Controller struct {
@@ -66,7 +74,7 @@ type Controller struct {
 	runtimes            RuntimeRegistry
 	dispatcher          *dispatch.Dispatcher
 	scheduler           *scheduler.Engine
-	pluginConfig        pluginstore.ConfigRepository
+	settings            Settings
 	identities          BotIdentitySource
 	webhooks            *pluginwebhook.Registry
 	tasks               *tasks.Registry
@@ -74,17 +82,23 @@ type Controller struct {
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error
 
-	lifecycleCtxMu sync.RWMutex
-	lifecycleCtx   context.Context
-	operations     sync.Map // plugin ID -> lifecycle operation gate
+	lifecycleCtxMu  sync.RWMutex
+	lifecycleCtx    context.Context
+	lifecycleCancel context.CancelFunc
+	closed          bool
+	workers         sync.WaitGroup
+	operations      *OperationGate
 
 	identityMu       sync.Mutex
 	identityByPlugin map[string][]chatevent.BotIdentity
 }
 
 func NewController(deps Deps) (*Controller, error) {
-	if deps.CurrentConfig == nil || deps.Plugins == nil || deps.Runtimes == nil || deps.Dispatcher == nil {
+	if deps.CurrentConfig == nil || deps.Plugins == nil || deps.Runtimes == nil || deps.Dispatcher == nil || deps.Settings == nil {
 		return nil, errors.New("plugin lifecycle requires config, catalog, runtimes and dispatcher")
+	}
+	if deps.Operations == nil {
+		return nil, errors.New("plugin lifecycle operation gate is required")
 	}
 	var zone string
 	if deps.Scheduler != nil {
@@ -92,7 +106,10 @@ func NewController(deps Deps) (*Controller, error) {
 	} else {
 		zone = config.NormalizeTimezone(deps.CurrentConfig().Scheduler.Timezone)
 	}
+	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
 	return &Controller{
+		lifecycleCtx:        lifecycleCtx,
+		lifecycleCancel:     lifecycleCancel,
 		effectiveTimezone:   zone,
 		currentConfig:       deps.CurrentConfig,
 		repoRoot:            deps.RepoRoot,
@@ -102,13 +119,14 @@ func NewController(deps Deps) (*Controller, error) {
 		runtimes:            deps.Runtimes,
 		dispatcher:          deps.Dispatcher,
 		scheduler:           deps.Scheduler,
-		pluginConfig:        deps.PluginConfig,
+		settings:            deps.Settings,
 		identities:          deps.Identities,
 		webhooks:            deps.Webhooks,
 		tasks:               deps.Tasks,
 		onRecoveryChange:    deps.OnRecoveryChange,
 		refreshManifest:     deps.RefreshManifest,
 		syncRenderTemplates: deps.SyncRenderTemplates,
+		operations:          deps.Operations,
 	}, nil
 }
 
@@ -117,8 +135,35 @@ func (c *Controller) BindLifecycleContext(ctx context.Context) {
 		ctx = context.Background()
 	}
 	c.lifecycleCtxMu.Lock()
-	c.lifecycleCtx = ctx
+	previousCancel := c.lifecycleCancel
+	c.lifecycleCtx, c.lifecycleCancel = context.WithCancel(ctx)
+	if c.closed {
+		c.lifecycleCancel()
+	}
 	c.lifecycleCtxMu.Unlock()
+	if previousCancel != nil {
+		previousCancel()
+	}
+}
+
+// Close ends admission and waits for accepted asynchronous lifecycle work.
+func (c *Controller) Close() {
+	c.lifecycleCtxMu.Lock()
+	c.closed = true
+	c.lifecycleCancel()
+	c.lifecycleCtxMu.Unlock()
+	c.workers.Wait()
+}
+
+func (c *Controller) launch(work func()) bool {
+	c.lifecycleCtxMu.Lock()
+	defer c.lifecycleCtxMu.Unlock()
+	if c.closed || c.lifecycleCtx.Err() != nil {
+		return false
+	}
+	c.workers.Add(1)
+	go func() { defer c.workers.Done(); work() }()
+	return true
 }
 
 func (c *Controller) lifecycleContext() context.Context {
@@ -165,61 +210,37 @@ func RefreshPluginManifest(
 	if err != nil {
 		return plugins.Snapshot{}, err
 	}
-	currentByID := make(map[string]plugins.Snapshot)
-	for _, snapshot := range catalog.List() {
-		currentByID[snapshot.PluginID] = snapshot
-	}
-	nextEntries := make([]plugins.Snapshot, 0, len(discovered))
-	var refreshed plugins.Snapshot
-	found := false
 	for _, snapshot := range discovered {
-		if existing, ok := currentByID[snapshot.PluginID]; ok {
-			snapshot.DesiredState = existing.DesiredState
-			snapshot.RuntimeState = existing.RuntimeState
-			snapshot.DeadLetter = existing.DeadLetter
-			snapshot.PackageSourceType = existing.PackageSourceType
-			snapshot.PackageSourceRef = existing.PackageSourceRef
-		}
-		settings := pluginstore.MergeValues(snapshot.DefaultConfig, nil)
-		if pluginConfig != nil {
-			persisted, err := pluginConfig.ReadAll(ctx, snapshot.PluginID)
-			if err != nil {
-				return plugins.Snapshot{}, fmt.Errorf("load persisted plugin settings for %s: %w", snapshot.PluginID, err)
-			}
-			settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
-		}
-		snapshot.Commands = plugincatalog.ProjectCommands(snapshot, settings)
-		if snapshot.PluginID == pluginID {
-			refreshed = snapshot
-			found = true
-		}
-		nextEntries = append(nextEntries, snapshot)
-	}
-	if !found {
-		return plugins.Snapshot{}, plugins.ErrPluginNotFound
-	}
-
-	for _, currentSnapshot := range catalog.List() {
-		if currentSnapshot.PluginID == pluginID {
+		if snapshot.PluginID != pluginID {
 			continue
 		}
-		known := false
-		for _, next := range nextEntries {
-			if next.PluginID == currentSnapshot.PluginID {
-				known = true
-				break
+		snapshot.PackageSourceType = current.PackageSourceType
+		snapshot.PackageSourceRef = current.PackageSourceRef
+		effective := pluginstore.MergeValues(snapshot.DefaultConfig, nil)
+		if pluginConfig != nil {
+			persisted, err := pluginConfig.ReadAll(ctx, pluginID)
+			if err != nil {
+				return plugins.Snapshot{}, fmt.Errorf("load persisted plugin settings for %s: %w", pluginID, err)
 			}
+			effective = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 		}
-		if !known {
-			nextEntries = append(nextEntries, currentSnapshot)
+		snapshot.Commands = plugincatalog.ProjectCommands(snapshot, effective)
+		catalog.RefreshInstalled([]plugins.Snapshot{snapshot}, pluginID)
+		updated, ok := catalog.Get(pluginID)
+		if !ok {
+			return plugins.Snapshot{}, plugins.ErrPluginNotFound
 		}
+		return updated, nil
 	}
-
-	catalog.Replace(nextEntries)
-	return refreshed, nil
+	return plugins.Snapshot{}, plugins.ErrPluginNotFound
 }
 
 func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+	release, lockErr := c.acquireOperation(ctx, pluginID)
+	if lockErr != nil {
+		return plugins.Snapshot{}, lockErr
+	}
+	defer release()
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -240,14 +261,23 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 
 	if runtimeSnapshot, runtimeErr := c.plugins.SetRuntimeState(updated.PluginID, string(pluginruntime.StateStarting)); runtimeErr == nil {
 		updated = runtimeSnapshot
+	} else {
+		return updated, runtimeErr
 	}
-	go c.startPluginAsync(updated.PluginID)
+	if !c.launch(func() { c.startPluginAsync(updated.PluginID) }) {
+		return updated, context.Canceled
+	}
 	c.reconcileRecoverySummaryBestEffort("plugin.enable")
 
 	return updated, nil
 }
 
 func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+	release, lockErr := c.acquireOperation(ctx, pluginID)
+	if lockErr != nil {
+		return plugins.Snapshot{}, lockErr
+	}
+	defer release()
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -271,8 +301,12 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 		case pluginruntime.StateStarting, pluginruntime.StateRunning, pluginruntime.StateStopping:
 			if stoppingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopping)); runtimeErr == nil {
 				updated = stoppingSnapshot
+			} else {
+				return updated, runtimeErr
 			}
-			go c.stopPluginAsync(pluginID, true)
+			if !c.launch(func() { c.stopPluginAsync(pluginID, true) }) {
+				return updated, context.Canceled
+			}
 		default:
 			c.dispatcher.Deregister(pluginID)
 			c.runtimes.Delete(pluginID)
@@ -280,6 +314,8 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 			manager.SetStopped()
 			if stoppedSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped)); runtimeErr == nil {
 				updated = stoppedSnapshot
+			} else {
+				return updated, runtimeErr
 			}
 		}
 	}
@@ -289,6 +325,11 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 }
 
 func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
+	release, lockErr := c.acquireOperation(ctx, pluginID)
+	if lockErr != nil {
+		return plugins.Snapshot{}, lockErr
+	}
+	defer release()
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -320,6 +361,8 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 		}
 		if reEnabled, setErr := c.plugins.SetDesiredState(pluginID, "enabled"); setErr == nil {
 			updated = reEnabled
+		} else {
+			return updated, setErr
 		}
 	}
 
@@ -328,9 +371,13 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 
 	if startingSnapshot, runtimeErr := c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting)); runtimeErr == nil {
 		updated = startingSnapshot
+	} else {
+		return updated, runtimeErr
 	}
 
-	go c.startPluginAsync(updated.PluginID)
+	if !c.launch(func() { c.startPluginAsync(updated.PluginID) }) {
+		return updated, context.Canceled
+	}
 	c.reconcileRecoverySummaryBestEffort("plugin.dead_letter_recover")
 	return updated, nil
 }
@@ -415,16 +462,22 @@ func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID string) e
 	manager := c.runtimes.GetOrCreate(pluginID)
 	switch manager.Snapshot().State {
 	case pluginruntime.StateRunning:
-		c.registerRuntimeIfNeeded(pluginID, manager)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
+		if err := c.registerRuntimeIfNeeded(pluginID, manager); err != nil {
+			return err
+		}
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateRunning))
 		return nil
 	case pluginruntime.StateStarting, pluginruntime.StateStopping, pluginruntime.StateBackoff, pluginruntime.StateCrashed, pluginruntime.StateDeadLetter:
 		return nil
 	default:
 	}
 
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
-	return c.startRuntimeLocked(ctx, pluginID, manager)
+	c.publishRuntimeState(pluginID, string(pluginruntime.StateStarting))
+	err = c.startRuntimeLocked(ctx, pluginID, manager)
+	if err != nil {
+		c.publishRuntimeFailure(pluginID, err)
+	}
+	return err
 }
 
 func (c *Controller) EnsurePluginRunning(ctx context.Context, pluginID string) error {
@@ -438,7 +491,7 @@ func (c *Controller) startPluginAsync(pluginID string) {
 
 	if err := c.startRuntime(ctx, pluginID); err != nil {
 		c.logLifecycleWarn("start plugin runtime after enable", pluginID, err)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		c.publishRuntimeFailure(pluginID, err)
 	}
 }
 
@@ -450,25 +503,29 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID string) error {
 	defer release()
 	manager := c.runtimes.GetOrCreate(pluginID)
 	if manager.Snapshot().State == pluginruntime.StateRunning {
-		c.registerRuntimeIfNeeded(pluginID, manager)
-		return nil
+		return c.registerRuntimeIfNeeded(pluginID, manager)
 	}
 	return c.startRuntimeLocked(ctx, pluginID, manager)
 }
 
 func (c *Controller) acquireOperation(ctx context.Context, pluginID string) (func(), error) {
-	value, _ := c.operations.LoadOrStore(pluginID, make(chan struct{}, 1))
-	gate := value.(chan struct{})
-	select {
-	case gate <- struct{}{}:
-		if err := ctx.Err(); err != nil {
-			<-gate
-			return nil, err
-		}
-		return func() { <-gate }, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	c.lifecycleCtxMu.RLock()
+	closed := c.closed
+	c.lifecycleCtxMu.RUnlock()
+	if closed {
+		return nil, context.Canceled
 	}
+	_, release, err := c.operations.Acquire(ctx, pluginID)
+	if err == nil {
+		c.lifecycleCtxMu.RLock()
+		closed = c.closed
+		c.lifecycleCtxMu.RUnlock()
+		if closed {
+			release()
+			return nil, context.Canceled
+		}
+	}
+	return release, err
 }
 
 func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, manager *pluginruntime.Manager) error {
@@ -481,12 +538,8 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, ma
 		return plugins.ErrPluginNotFound
 	}
 	if snapshot.DesiredState != "enabled" {
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
 		return nil
-	}
-
-	if err := c.seedPluginDefaultConfig(ctx, snapshot); err != nil {
-		return err
 	}
 
 	spec, payload, err := c.buildStartInputs(ctx, pluginID)
@@ -500,8 +553,16 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, ma
 	}
 
 	manager.ResetCrashCount()
-	c.registerRuntime(pluginID, snapshot, manager)
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
+	if err := c.settings.Activate(ctx, pluginID, payload.Config, func() error {
+		latest, _ := c.plugins.Get(pluginID)
+		return c.registerRuntime(pluginID, latest, manager)
+	}); err != nil {
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), max(spec.ShutdownGrace, time.Second))
+		defer cancel()
+		c.dispatcher.Deregister(pluginID)
+		return errors.Join(err, manager.Stop(cleanupCtx))
+	}
+	c.publishRuntimeState(pluginID, string(pluginruntime.StateRunning))
 	c.afterRuntimeRegistered(ctx, pluginID, payload.Bots)
 	return nil
 }
@@ -510,6 +571,18 @@ func (c *Controller) stopAndResetPlugin(pluginID string) {
 	if err := c.stopPlugin(c.lifecycleContext(), pluginID, true); err != nil {
 		c.logLifecycleWarn("stop plugin runtime", pluginID, err)
 	}
+}
+
+// StartInstalled waits for initialization before a package transaction commits.
+func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error {
+	ctx, cancel := context.WithTimeout(ctx, runtimeInitTimeout(c.config().Runtime))
+	defer cancel()
+	if err := c.startRuntime(ctx, pluginID); err != nil {
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cleanupCancel()
+		return errors.Join(err, c.StopAndResetPluginWithContext(cleanupCtx, pluginID))
+	}
+	return nil
 }
 
 func (c *Controller) StopAndResetPlugin(pluginID string) {
@@ -556,13 +629,16 @@ func (c *Controller) stopPlugin(ctx context.Context, pluginID string, remove boo
 
 func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remove bool) error {
 	c.clearBotIdentity(pluginID)
-	c.dispatcher.CancelPlugin(pluginID)
+	var drainErr error
+	if drain := c.dispatcher.DrainPlugin(pluginID); drain != nil {
+		drainErr = drain.Wait(ctx)
+	}
 	defer c.dispatcher.Deregister(pluginID)
 
 	manager, ok := c.runtimes.Get(pluginID)
 	if !ok || manager == nil {
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
-		return nil
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		return drainErr
 	}
 
 	switch manager.Snapshot().State {
@@ -570,8 +646,12 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 		manager.ResetCrashCount()
 		manager.SetStopped()
 	default:
-		if err := manager.Stop(ctx); err != nil {
-			return err
+		stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer cancelStop()
+		if err := manager.Stop(stopCtx); err != nil {
+			// Keep ownership of a runtime whose shutdown failed so later cleanup
+			// can retry; an installer must not remove a possibly live executable.
+			return errors.Join(drainErr, err)
 		}
 		manager.ResetCrashCount()
 	}
@@ -579,8 +659,8 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 	if remove {
 		c.runtimes.Delete(pluginID)
 	}
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
-	return nil
+	c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
+	return drainErr
 }
 
 func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
@@ -595,13 +675,9 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, err
 	}
 
-	settings := pluginstore.MergeValues(snapshot.DefaultConfig, nil)
-	if c.pluginConfig != nil {
-		persisted, readErr := c.pluginConfig.ReadAll(ctx, pluginID)
-		if readErr != nil {
-			return pluginruntime.Spec{}, pluginruntime.InitPayload{}, readErr
-		}
-		settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
+	settings, err := c.settings.Read(ctx, pluginID)
+	if err != nil {
+		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, err
 	}
 	payload := pluginruntime.InitPayload{
 		Timezone:        c.effectiveTimezone,
@@ -656,23 +732,23 @@ func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string
 	c.SyncBotIdentities(ctx)
 }
 
-func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginruntime.Manager) {
+func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginruntime.Manager) error {
 	if manager == nil {
-		return
+		return plugins.ErrPluginNotFound
 	}
 	if c.dispatcher.HasDeliverablePlugin(pluginID) {
-		return
+		return nil
 	}
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
-		return
+		return plugins.ErrPluginNotFound
 	}
-	c.registerRuntime(pluginID, snapshot, manager)
+	return c.registerRuntime(pluginID, snapshot, manager)
 }
 
-func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *pluginruntime.Manager) {
+func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *pluginruntime.Manager) error {
 	if manager == nil {
-		return
+		return plugins.ErrPluginNotFound
 	}
 	concurrency := snapshot.Concurrency
 	if concurrency < 1 {
@@ -681,7 +757,10 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 	if max := c.config().Runtime.MaxConcurrentTasksPerPlugin; max > 0 && concurrency > max {
 		concurrency = max
 	}
-	c.dispatcher.Register(pluginID, manager, snapshot.Events, snapshot.Commands, concurrency)
+	if !c.dispatcher.Register(pluginID, manager, snapshot.Events, snapshot.Commands, concurrency) {
+		return dispatch.ErrClosed
+	}
+	return nil
 }
 
 func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string) {
@@ -935,7 +1014,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok || snapshot.DesiredState != "enabled" {
 		manager.SetStopped()
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
 		return
 	}
 
@@ -943,14 +1022,16 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 	if crashCount >= maxRetries {
 		manager.SetDeadLetterState()
 		runtimeSnapshot := manager.Snapshot()
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateDeadLetter))
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateDeadLetter))
 		if c.plugins != nil && runtimeSnapshot.EnteredDeadLetterAt != nil {
-			_, _ = c.plugins.SetDeadLetterSnapshot(pluginID, plugins.DeadLetterSnapshot{
+			if _, err := c.plugins.SetDeadLetterSnapshot(pluginID, plugins.DeadLetterSnapshot{
 				EnteredAt:        *runtimeSnapshot.EnteredDeadLetterAt,
 				CrashCount:       runtimeSnapshot.CrashCount,
 				LastErrorCode:    runtimeSnapshot.LastErrorCode,
 				LastErrorMessage: runtimeSnapshot.LastErrorMessage,
-			})
+			}); err != nil {
+				c.logLifecycleWarn("publish plugin dead letter state", pluginID, err)
+			}
 		}
 		if c.logger != nil {
 			c.logger.Warn(
@@ -970,7 +1051,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 	nextRetry := time.Now().Add(delay)
 
 	manager.SetBackoffState(nextRetry)
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateBackoff))
+	c.publishRuntimeState(pluginID, string(pluginruntime.StateBackoff))
 
 	if c.logger != nil {
 		c.logger.Info(
@@ -983,7 +1064,7 @@ func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
 		)
 	}
 
-	go c.backoffRestart(pluginID, delay, manager)
+	c.launch(func() { c.backoffRestart(pluginID, delay, manager) })
 }
 
 func (c *Controller) HandleCrash(pluginID string, crashCount int, reason string) {
@@ -1015,7 +1096,7 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration, expect
 		if manager, ok := c.runtimes.Get(pluginID); ok && manager != nil {
 			manager.SetStopped()
 		}
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
 		return
 	}
 
@@ -1026,14 +1107,14 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration, expect
 	ctx, cancel := context.WithTimeout(lifecycleCtx, runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
-	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
+	c.publishRuntimeState(pluginID, string(pluginruntime.StateStarting))
 	if err := c.startRuntimeLocked(ctx, pluginID, manager); err != nil {
 		c.logLifecycleWarn("restart plugin after crash backoff", pluginID, err)
 		// startRuntime 可能在构建启动输入阶段失败（此时 Manager.Start 尚未执行），
 		// manager 会停留在 backoff 状态，之后所有触发都视为等待重试而跳过启动；
 		// 重置为 stopped，让下一次 scheduler 触发或管理操作能再次尝试。
 		manager.SetStopped()
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		c.publishRuntimeState(pluginID, string(pluginruntime.StateStopped))
 	}
 }
 
@@ -1060,19 +1141,48 @@ func runtimeInitBudget(cfg config.RuntimeConfig) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-func (c *Controller) seedPluginDefaultConfig(ctx context.Context, snapshot plugins.Snapshot) error {
-	if c.pluginConfig == nil || len(snapshot.DefaultConfig) == 0 {
-		return nil
-	}
-	_, err := c.pluginConfig.SeedDefaults(ctx, snapshot.PluginID, snapshot.DefaultConfig)
-	return err
-}
-
 func (c *Controller) reconcileRecoverySummaryBestEffort(trigger string) {
 	if c.onRecoveryChange == nil {
 		return
 	}
 	c.onRecoveryChange(trigger)
+}
+
+func (c *Controller) publishRuntimeState(pluginID, state string) {
+	code, message := "", ""
+	if state == string(pluginruntime.StateStopped) {
+		if manager, ok := c.runtimes.Get(pluginID); ok && manager != nil {
+			actual := manager.Snapshot()
+			code, message = actual.LastErrorCode, actual.LastErrorMessage
+			switch actual.State {
+			case pluginruntime.StateStarting, pluginruntime.StateRunning, pluginruntime.StateStopping:
+				state = string(actual.State)
+			}
+		}
+	}
+	if _, err := c.plugins.SetRuntimeResult(pluginID, state, code, message); err != nil {
+		c.logLifecycleWarn("publish plugin runtime state", pluginID, err)
+	}
+}
+
+func (c *Controller) publishRuntimeFailure(pluginID string, cause error) {
+	state := string(pluginruntime.StateStopped)
+	if manager, ok := c.runtimes.Get(pluginID); ok && manager != nil {
+		state = string(manager.Snapshot().State)
+	}
+	code := errorcodes.PluginInternalError
+	var runtimeErr *plugins.Error
+	if errors.As(cause, &runtimeErr) {
+		code = runtimeErr.Code
+	}
+	definition, ok := errorcodes.Lookup(code)
+	message := "插件初始化失败"
+	if ok {
+		message = definition.Message
+	}
+	if _, err := c.plugins.SetRuntimeResult(pluginID, state, code, message); err != nil {
+		c.logLifecycleWarn("publish plugin initialization failure", pluginID, err)
+	}
 }
 
 func (c *Controller) logLifecycleWarn(message, pluginID string, err error) {
@@ -1190,17 +1300,21 @@ func (c *Controller) finishReloadTask(taskID string, pluginID string) {
 	})
 }
 
-func (c *Controller) failReloadTask(taskID string, pluginID string, code string, message string) {
+func (c *Controller) failReloadTask(taskID string, pluginID string, code string, message string, details ...map[string]any) {
 	if c.tasks == nil || strings.TrimSpace(taskID) == "" {
 		return
 	}
 	if strings.TrimSpace(code) == "" {
-		code = "plugin.internal_error"
+		code = errorcodes.PluginInternalError
 	}
 	if strings.TrimSpace(message) == "" {
 		message = "插件重载失败"
 	}
 	now := time.Now().UTC()
+	errorDetails := map[string]any{"plugin_id": pluginID}
+	if len(details) > 0 {
+		errorDetails = details[0]
+	}
 	c.tasks.Update(taskID, tasks.Update{
 		Status:     lifecycleTaskStatusPtr(tasks.StatusFailed),
 		Summary:    lifecycleStringPtr(message),
@@ -1208,9 +1322,7 @@ func (c *Controller) failReloadTask(taskID string, pluginID string, code string,
 		Error: &tasks.ErrorSummary{
 			Code:    code,
 			Message: message,
-			Details: map[string]any{
-				"plugin_id": pluginID,
-			},
+			Details: errorDetails,
 		},
 	})
 }

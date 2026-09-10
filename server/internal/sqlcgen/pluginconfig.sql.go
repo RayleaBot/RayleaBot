@@ -7,7 +7,6 @@ package sqlcgen
 
 import (
 	"context"
-	"database/sql"
 )
 
 const countNamespace = `-- name: CountNamespace :one
@@ -54,28 +53,6 @@ func (q *Queries) ListConfigsByNamespace(ctx context.Context, namespace string) 
 		return nil, err
 	}
 	return items, nil
-}
-
-const seedConfig = `-- name: SeedConfig :execresult
-INSERT INTO system_configs (namespace, key, value_json, updated_at)
-VALUES (?, ?, ?, ?)
-ON CONFLICT(namespace, key) DO NOTHING
-`
-
-type SeedConfigParams struct {
-	Namespace string
-	Key       string
-	ValueJson string
-	UpdatedAt string
-}
-
-func (q *Queries) SeedConfig(ctx context.Context, arg SeedConfigParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, seedConfig,
-		arg.Namespace,
-		arg.Key,
-		arg.ValueJson,
-		arg.UpdatedAt,
-	)
 }
 
 const upsertConfig = `-- name: UpsertConfig :exec

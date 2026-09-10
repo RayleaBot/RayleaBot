@@ -4,38 +4,10 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 )
-
-// StartInstalled waits for initialization before the installer commits a replacement.
-// The installer has already stopped the previous runtime and refreshed the catalog.
-func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error {
-	ctx, cancel := context.WithTimeout(ctx, runtimeInitTimeout(c.config().Runtime))
-	defer cancel()
-	snapshot, exists := c.plugins.Get(pluginID)
-	if !exists {
-		return plugins.ErrPluginNotFound
-	}
-	settings := pluginstore.MergeValues(snapshot.DefaultConfig, nil)
-	if c.pluginConfig != nil {
-		persisted, err := c.pluginConfig.ReadAll(ctx, pluginID)
-		if err != nil {
-			return err
-		}
-		settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
-	}
-	c.plugins.RefreshCommands(pluginID, settings)
-	if err := c.startRuntime(ctx, pluginID); err != nil {
-		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		defer cleanupCancel()
-		return errors.Join(err, c.StopAndResetPluginWithContext(cleanupCtx, pluginID))
-	}
-	return nil
-}
 
 // SyncDevelopment admits a standard artifact through the existing installation queue.
 // Unchanged packages do not create a task or alter the plugin's desired/runtime state.

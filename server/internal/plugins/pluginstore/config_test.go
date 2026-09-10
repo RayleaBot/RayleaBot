@@ -21,7 +21,7 @@ func openTestStore(t *testing.T) *storage.Store {
 	return store
 }
 
-func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
+func TestConfigSQLiteRepositoryReadAndWrite(t *testing.T) {
 	t.Parallel()
 
 	repo, err := NewConfigSQLiteRepository(openTestStore(t))
@@ -32,58 +32,15 @@ func TestConfigSQLiteRepositorySeedDefaultsAndReadWrite(t *testing.T) {
 	ctx := context.Background()
 	pluginID := "weather"
 
-	created, err := repo.SeedDefaults(ctx, pluginID, map[string]any{
-		"default_city": "Beijing",
-		"unit":         "celsius",
-	})
-	if err != nil {
-		t.Fatalf("SeedDefaults: %v", err)
+	if _, err := repo.Write(ctx, pluginID, map[string]any{"default_city": "Beijing", "unit": "celsius"}); err != nil {
+		t.Fatal(err)
 	}
-	if !created {
-		t.Fatalf("SeedDefaults created = false, want true")
-	}
-
 	values, err := repo.Read(ctx, pluginID, []string{"default_city", "unit", "missing"})
-	if err != nil {
-		t.Fatalf("Read: %v", err)
+	if err != nil || values["default_city"] != "Beijing" || values["unit"] != "celsius" {
+		t.Fatalf("read stored settings: %#v %v", values, err)
 	}
-	if values["default_city"] != "Beijing" || values["unit"] != "celsius" {
-		t.Fatalf("unexpected seeded values: %#v", values)
-	}
-	if _, ok := values["missing"]; ok {
-		t.Fatalf("missing key should not be returned: %#v", values)
-	}
-
-	created, err = repo.SeedDefaults(ctx, pluginID, map[string]any{
-		"default_city": "Shanghai",
-		"unit":         "fahrenheit",
-		"timeout":      15,
-	})
-	if err != nil {
-		t.Fatalf("SeedDefaults second call: %v", err)
-	}
-	if !created {
-		t.Fatalf("SeedDefaults created = false when a new default key was added")
-	}
-
-	values, err = repo.Read(ctx, pluginID, []string{"default_city", "unit", "timeout"})
-	if err != nil {
-		t.Fatalf("Read after second SeedDefaults: %v", err)
-	}
-	if values["default_city"] != "Beijing" || values["unit"] != "celsius" || values["timeout"] != float64(15) {
-		t.Fatalf("unexpected values after second SeedDefaults: %#v", values)
-	}
-
-	created, err = repo.SeedDefaults(ctx, pluginID, map[string]any{
-		"default_city": "Shanghai",
-		"unit":         "fahrenheit",
-		"timeout":      30,
-	})
-	if err != nil {
-		t.Fatalf("SeedDefaults third call: %v", err)
-	}
-	if created {
-		t.Fatalf("SeedDefaults created = true when every key already exists")
+	if _, exists := values["missing"]; exists {
+		t.Fatal("missing key unexpectedly returned")
 	}
 
 	written, err := repo.Write(ctx, pluginID, map[string]any{

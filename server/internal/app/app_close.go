@@ -39,6 +39,21 @@ func (a *App) closeResources() error {
 		a.metricsRuntimeGaugeStop()
 		a.metricsRuntimeGaugeStop = nil
 	}
+	if a.pluginStack.PluginInstaller != nil {
+		if err := a.pluginStack.PluginInstaller.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
+		}
+		a.pluginStack.PluginInstaller = nil
+	}
+	if a.pluginStack.PluginUninstaller != nil {
+		if err := a.pluginStack.PluginUninstaller.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
+		}
+		a.pluginStack.PluginUninstaller = nil
+	}
+	if a.services.PluginLifecycle != nil {
+		a.services.PluginLifecycle.Close()
+	}
 	if a.runtimes != nil {
 		if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
@@ -49,12 +64,7 @@ func (a *App) closeResources() error {
 		errs = append(errs, fmt.Errorf("stop adapters: %w", err))
 	}
 	a.eventStack.Close()
-	if a.pluginStack.PluginInstaller != nil {
-		if err := a.pluginStack.PluginInstaller.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
-		}
-		a.pluginStack.PluginInstaller = nil
-	}
+
 	if a.services.ThirdPartyQRLogin != nil {
 		a.services.ThirdPartyQRLogin.Close()
 		a.services.ThirdPartyQRLogin = nil
@@ -65,12 +75,7 @@ func (a *App) closeResources() error {
 		}
 		a.platform.TaskExecutor = nil
 	}
-	if a.pluginStack.PluginUninstaller != nil {
-		if err := a.pluginStack.PluginUninstaller.Close(); err != nil {
-			errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
-		}
-		a.pluginStack.PluginUninstaller = nil
-	}
+
 	if a.platform.Tasks != nil {
 		if err := a.platform.Tasks.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("flush task registry: %w", err))
@@ -101,19 +106,19 @@ func (a *App) closeResources() error {
 }
 
 func (a *App) stopRuntimeManagers(timeout time.Duration) error {
+	var drainErr error
 	if a.eventStack.Dispatcher != nil {
-		a.eventStack.Dispatcher.CancelPending()
+		drainCtx, cancelDrain := context.WithTimeout(context.Background(), timeout)
+		drainErr = a.eventStack.Dispatcher.DrainAll(drainCtx)
+		cancelDrain()
 		defer a.eventStack.Dispatcher.Close()
 	}
 	if a.runtimes == nil {
-		return nil
+		return drainErr
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	if err := a.runtimes.StopAll(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		return err
-	}
-	return nil
+	return errors.Join(drainErr, a.runtimes.StopAll(ctx))
 }
 
 func (a *App) stopAdapter(timeout time.Duration) error {

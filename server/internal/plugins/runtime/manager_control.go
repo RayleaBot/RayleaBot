@@ -26,9 +26,29 @@ func (m *Manager) Stop(ctx context.Context) error {
 		return nil
 	}
 	if waitErr, exited := handle.ExitResult(); exited {
+		failure := handle.terminationError
 		m.mu.Unlock()
-		m.reconcileExitedProcess(handle, waitErr)
+		if failure != nil {
+			m.finishFailedProcess(handle, failure)
+		} else {
+			m.reconcileExitedProcess(handle, waitErr)
+		}
 		return nil
+	}
+	if failure := handle.terminationError; failure != nil {
+		handle.failureRestart = false
+		m.mu.Unlock()
+		// Another operation already reported the failure and owns termination.
+		// Stop waits for that cleanup without replacing its cause with a pipe error.
+		cleanupCtx, cancel := context.WithTimeout(ctx, max(handle.Spec.ShutdownGrace, time.Second))
+		defer cancel()
+		select {
+		case <-handle.Done():
+			m.finishFailedProcess(handle, failure)
+			return nil
+		case <-cleanupCtx.Done():
+			return m.failRuntime(handle, codePluginShutdownTimeout, "plugin shutdown timed out", cleanupCtx.Err())
+		}
 	}
 	m.snap.State = StateStopping
 	m.mu.Unlock()

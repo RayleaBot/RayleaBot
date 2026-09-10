@@ -138,20 +138,61 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 		return runtimeErr
 	}
 	runtimeErr.MarkFailureReported()
-	m.markStoppedLocked(code, message, err)
+	observe := !handle.terminationObserved
+	if observe {
+		handle.failureRestart = m.snap.State == StateRunning && m.opts.OnCrash != nil
+		if handle.failureRestart {
+			m.snap.CrashCount++
+		}
+		handle.terminationError = runtimeErr
+		m.snap.LastErrorCode = code
+		m.snap.LastErrorMessage = runtimeErr.Error()
+	}
+	m.snap.State = StateStopping
+	handle.terminationObserved = true
 	m.abortPendingLocked(runtimeErr)
 	m.mu.Unlock()
-	m.logger.Warn("插件"+pluginIDLabel(handle.Spec.PluginID)+"发生错误，已停止。", "component", "runtime", "plugin_id", handle.Spec.PluginID, "error_code", code, "reason", runtimeErr.Error())
+	if observe {
+		m.logger.Warn("插件"+pluginIDLabel(handle.Spec.PluginID)+"发生错误，正在回收进程。", "component", "runtime", "plugin_id", handle.Spec.PluginID, "error_code", code, "reason", runtimeErr.Error())
+	}
 
+	if handle.Stdin != nil {
+		_ = handle.Stdin.Close()
+	}
 	if handle.Cmd != nil && handle.Cmd.Process != nil {
 		_ = handle.Cmd.Process.Kill()
 	}
 	select {
 	case <-handle.Done():
+		m.finishFailedProcess(handle, runtimeErr)
 	case <-time.After(500 * time.Millisecond):
+		if observe {
+			go func() { <-handle.Done(); m.finishFailedProcess(handle, runtimeErr) }()
+		}
 	}
 
 	return runtimeErr
+}
+
+func (m *Manager) finishFailedProcess(handle *Handle, runtimeErr *plugins.Error) {
+	m.mu.Lock()
+	var onCrash CrashCallback
+	var pluginID string
+	var count int
+	if m.proc == handle {
+		if handle.terminationError != nil {
+			runtimeErr = handle.terminationError
+		}
+		m.markStoppedLocked(runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
+		if handle.failureRestart {
+			m.snap.State = StateCrashed
+			onCrash, pluginID, count = m.opts.OnCrash, m.snap.PluginID, m.snap.CrashCount
+		}
+	}
+	m.mu.Unlock()
+	if onCrash != nil {
+		go onCrash(pluginID, count, runtimeErr.Code)
+	}
 }
 
 func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, message string, err error) (plugins.Delivery, error) {

@@ -11,12 +11,15 @@ flowchart TD
   platform --> pluginstate["internal/app plugin stack"]
   pluginstate --> render["internal/app render wiring"]
   render --> services["internal/app service wiring"]
-  services --> httpwire["internal/app HTTP wiring"]
+  services --> mutations["plugin install / uninstall / store"]
+  mutations --> httpwire["internal/app HTTP wiring"]
   httpwire --> run["App.Run"]
   run --> server["net/http.Server"]
 ```
 
 `internal/app` 是组合根。它负责把配置、存储、日志、插件、渲染、事件管线和管理 HTTP 入口组装起来。业务规则留在各自领域包内，组合根只持有模块对外接口。
+
+插件仓储和 Catalog 先于运行时业务服务创建；settings、Runtime Registry、Lifecycle 和管理事件建立后，再构造安装、卸载与插件商店。包事务的停止、初始化、回滚及模板检查回调在构造时注入，任务开始前依赖已完整。
 
 `App.New` 在构建任何运行期服务前获取 `<config-path>.runtime.lock`。锁已被同配置的另一实例持有时启动立即失败；构建中途失败或 `App.Close` 完成时释放该锁。
 
@@ -41,9 +44,12 @@ flowchart TD
   close --> http["cancel run context · shutdown HTTP"]
   http --> workers["wait supervised tasks and snapshots"]
   workers --> scheduler["stop scheduler"]
-  scheduler --> plugins["stop runtime managers"]
+  scheduler --> mutations["close installer and uninstaller transactions"]
+  mutations --> lifecycle["close lifecycle admission · join accepted work"]
+  lifecycle --> drain["drain accepted plugin events within budget"]
+  drain --> plugins["stop current and retired runtime managers"]
   plugins --> adapter["stop all adapter instances and callbacks"]
-  adapter --> services["events · installer · QR sessions · tasks · render · logs"]
+  adapter --> services["events · QR sessions · tasks · render · logs"]
   services --> storage["close storage"]
   storage --> lock["release config lifecycle lock"]
 ```

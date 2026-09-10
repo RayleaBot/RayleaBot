@@ -1,4 +1,6 @@
 export const plugins = {
+  initializationFailed: '插件初始化失败',
+  initializationFailureDescription: '{reason}。修正问题后可重新加载插件。',
   store: {
     title: '插件商店',
     searchPlaceholder: '搜索插件名称、ID、发布者或关键词',

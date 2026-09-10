@@ -98,7 +98,7 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 	snapshots = plugins.ApplyDesiredStates(snapshots, desiredStates)
 	catalog := plugincatalog.New(snapshots)
 	registry := tasks.NewRegistry()
-	installer, err := pluginservice.NewInstallService(cmd.Logger, registry, catalog, repository, validator, repoRoot, discovery, 15*time.Minute)
+	installer, err := pluginservice.NewInstallService(cmd.Logger, registry, catalog, repository, validator, repoRoot, discovery, 15*time.Minute, pluginservice.InstallOptions{Operations: pluginservice.NewOperationGate()})
 	if err != nil {
 		return err
 	}

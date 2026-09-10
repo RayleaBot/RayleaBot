@@ -1,0 +1,36 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: An enabled plugin whose initialization failed exposes a failed state and stable error identity.
+request:
+  method: GET
+  path: /api/plugins/weather
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      name: Weather
+      role: community
+      state: failed
+      state_diagnosis:
+        kind: initialization_failed
+        summary: 插件初始化失败
+        last_error_code: plugin.init_timeout
+        last_error_message: 插件初始化超时
+        recoverable: false
+      source:
+        root: plugins/installed
+        package_source_type: local_directory
+        package_source_ref: C:/plugins/weather
+        verified: false
+      trust:
+        level: unverified
+        label: 未验证来源
+      permissions: {}
+      webhooks: []
+      commands: []
+      command_groups: []
+      help: {}
+      command_conflicts: []
+expect:
+  valid: true

@@ -15,9 +15,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	pluginsettings "github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -81,7 +83,6 @@ func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog,
 		DesiredStateRepo: desiredRepo,
 		Runtimes:         runtimes,
 		Dispatcher:       dispatcher,
-		PluginConfig:     pluginConfigRepo,
 		Webhooks:         webhooks,
 		Tasks:            a.platform.Tasks,
 	}
@@ -90,7 +91,7 @@ func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog,
 	if adapterShell != nil {
 		deps.Identities = testAdapterIdentities{shell: adapterShell}
 	}
-	a.services.pluginLifecycle = newTestController(t, deps)
+	a.services.pluginLifecycle = newTestController(t, deps, pluginConfigRepo)
 }
 
 type testRuntimeRegistry struct {
@@ -311,8 +312,11 @@ func (r *capturingRuntime) ReadyForEvents() bool {
 	return r.Snapshot().State == pluginruntime.StateRunning
 }
 
-func newTestController(t *testing.T, deps Deps) *Controller {
+func newTestController(t *testing.T, deps Deps, repositories ...pluginstore.ConfigRepository) *Controller {
 	t.Helper()
+	if deps.Operations == nil {
+		deps.Operations = NewOperationGate()
+	}
 	if deps.CurrentConfig == nil {
 		deps.CurrentConfig = func() config.Config { return config.Config{} }
 	}
@@ -325,11 +329,34 @@ func newTestController(t *testing.T, deps Deps) *Controller {
 	if deps.Dispatcher == nil {
 		deps.Dispatcher = dispatch.New(slog.Default(), nil, nil, 16)
 	}
+	if deps.Settings == nil {
+		var repo pluginsettings.Repository = emptySettingsRepository{}
+		if len(repositories) > 0 && repositories[0] != nil {
+			repo = repositories[0]
+		}
+		service, err := pluginsettings.New(pluginsettings.Deps{Plugins: deps.Plugins, Config: repo, RefreshCommands: actions.RefreshCommands(deps.Plugins, deps.Dispatcher), Notify: actions.NotifyConfigChanged(deps.Dispatcher)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		deps.Settings = service
+	}
 	controller, err := NewController(deps)
 	if err != nil {
 		t.Fatal(err)
 	}
 	controller.BindLifecycleContext(t.Context())
 	t.Cleanup(deps.Dispatcher.Close)
+	t.Cleanup(controller.Close)
 	return controller
+}
+
+func (r *testRuntimeRegistry) ReleaseRetired(*pluginruntime.Manager) {}
+
+type emptySettingsRepository struct{}
+
+func (emptySettingsRepository) ReadAll(context.Context, string) (map[string]any, error) {
+	return map[string]any{}, nil
+}
+func (emptySettingsRepository) Write(context.Context, string, map[string]any) ([]string, error) {
+	panic("read-only lifecycle fixture settings")
 }

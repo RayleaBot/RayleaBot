@@ -68,6 +68,11 @@ func (c *Catalog) ApplyDesiredStates(states map[string]string) {
 }
 
 func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (plugins.Snapshot, error) {
+	return c.SetRuntimeResult(pluginID, runtimeState, "", "")
+}
+
+// SetRuntimeResult atomically publishes the lifecycle projection of one runtime.
+func (c *Catalog) SetRuntimeResult(pluginID, runtimeState, errorCode, errorMessage string) (plugins.Snapshot, error) {
 	c.mu.Lock()
 
 	entry, ok := c.items[pluginID]
@@ -78,6 +83,8 @@ func (c *Catalog) SetRuntimeState(pluginID string, runtimeState string) (plugins
 
 	current := entry
 	entry.RuntimeState = runtimeState
+	entry.RuntimeErrorCode = errorCode
+	entry.RuntimeErrorMessage = errorMessage
 	if runtimeState != "dead_letter" {
 		entry.DeadLetter = nil
 	}

@@ -54,11 +54,11 @@ func TestExecuteConfigWriteUsesImplicitPrivateNamespace(t *testing.T) {
 	}
 	service := actions.New(actions.Deps{Settings: settingsService})
 
-	if _, err := repo.SeedDefaults(context.Background(), "weather", map[string]any{
+	if _, err := repo.Write(context.Background(), "weather", map[string]any{
 		"default_city": "Beijing",
 		"unit":         "celsius",
 	}); err != nil {
-		t.Fatalf("SeedDefaults: %v", err)
+		t.Fatalf("Write fixture: %v", err)
 	}
 
 	writeResult, err := service.Execute(context.Background(), "weather", "req_config_2", plugins.Action{

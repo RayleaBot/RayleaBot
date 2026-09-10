@@ -22,7 +22,10 @@ func TestSwapRoutesNewEventsWhileDrainingAcceptedEvents(t *testing.T) {
 		}
 	}
 	<-old.started
-	retired := d.SwapPlugin("fixture", next, nil, nil, 1)
+	retired, err := d.SwapPlugin("fixture", next, nil, nil, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if result := d.DispatchToPlugin(t.Context(), "fixture", testEvent()); result.Outcome != OutcomeDelivered {
 		t.Fatal(result)
 	}
@@ -49,7 +52,10 @@ func TestSwapDrainCancellationReleasesOldDelivery(t *testing.T) {
 	d.Register("fixture", old, nil, nil, 1)
 	d.DispatchToPlugin(t.Context(), "fixture", testEvent())
 	<-old.started
-	retired := d.SwapPlugin("fixture", &fakeDeliverer{}, nil, nil, 1)
+	retired, err := d.SwapPlugin("fixture", &fakeDeliverer{}, nil, nil, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	if err := retired.Wait(ctx); !errors.Is(err, context.Canceled) {

@@ -65,7 +65,9 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 	if err := manager.Start(t.Context(), pluginruntime.Spec{
 		PluginID: "fixture", Command: executable, Args: []string{"-test.run=^TestLifecycleShutdownProcess$"},
 		Env: []string{"RAYLEABOT_LIFECYCLE_SHUTDOWN_FIXTURE=1"}, WorkDir: t.TempDir(),
+		// The race runtime delays process exit by one second after os.Exit.
 		InitTimeout: 3 * time.Second, EventTimeout: time.Second, ShutdownGrace: 3 * time.Second,
+		EffectiveConcurrency: 1,
 	}, pluginruntime.InitPayload{Timezone: "Asia/Shanghai", CommandPrefixes: []string{"/"}}); err != nil {
 		t.Fatal(err)
 	}
@@ -87,12 +89,19 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 			release()
 		}
 	}()
-	if _, err := controller.Disable(t.Context(), "fixture"); err != nil {
-		t.Fatal(err)
-	}
+	disabled := make(chan error, 1)
+	go func() { _, err := controller.Disable(t.Context(), "fixture"); disabled <- err }()
 	time.Sleep(5250 * time.Millisecond)
+	select {
+	case err := <-disabled:
+		t.Fatalf("disable crossed a live plugin transaction: %v", err)
+	default:
+	}
 	release()
 	release = nil
+	if err := <-disabled; err != nil {
+		t.Fatal(err)
+	}
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		_, exists := runtimes.Get("fixture")

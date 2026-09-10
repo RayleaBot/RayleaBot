@@ -23,7 +23,7 @@
       "description": "Static event subscriptions. An omitted or empty list receives no ordinary event fan-out."
     },
     "permissions": { "$ref": "#/$defs/permissions" },
-    "default_config": { "type": "object", "additionalProperties": true },
+    "default_config": { "type": "object", "additionalProperties": true, "description": "Defaults are merged with explicit persisted overrides when reading settings and creating init snapshots. Starting or reloading a plugin does not persist defaults. Unsaved keys follow manifest default changes; explicitly saved values, including values equal to a prior default, remain overrides." },
     "commands": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/command" } },
     "command_groups": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/command_group" } },
     "help": { "$ref": "#/$defs/help" },

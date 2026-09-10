@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"sync/atomic"
@@ -41,7 +42,11 @@ func TestShutdownCountsQueuedSchedulerRunsAsCanceled(t *testing.T) {
 	d.DispatchScheduledEvent(t.Context(), "fixture", event, run)
 	<-rt.started
 	d.DispatchScheduledEvent(t.Context(), "fixture", event, run)
-	d.CancelPending()
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := d.DrainAll(cancelled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled drain: %v", err)
+	}
 	d.Close()
 	if len(recorder.results) != 2 {
 		t.Fatalf("recorded runs = %d, want 2", len(recorder.results))

@@ -9,11 +9,16 @@ import (
 // Register adds a plugin runtime to the dispatch registry and starts its
 // delivery worker goroutine. The rt parameter must implement DeliverEvent
 // and Snapshot (both *runtime.Manager and test fakes satisfy this).
-func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int) {
+func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int) bool {
 	d.mu.Lock()
+	if d.closed {
+		d.mu.Unlock()
+		return false
+	}
 	old, replacing := d.slots[pluginID]
 	if replacing {
 		delete(d.slots, pluginID)
+		d.retireSlotLocked(old)
 	}
 	if concurrency <= 0 {
 		concurrency = 1
@@ -26,30 +31,16 @@ func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []strin
 
 	if replacing {
 		old.closeQueues()
-		<-old.done
+		old.cancel()
 	}
+	return true
 }
 
-// CancelPlugin stops admission and cancels deliveries without waiting for the
-// worker. The owner can then stop the runtime before Deregister waits for I/O.
-func (d *Dispatcher) CancelPlugin(pluginID string) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	if slot, ok := d.slots[pluginID]; ok {
-		slot.closeQueues()
-		slot.cancel()
-	}
-}
+func (d *Dispatcher) IsClosed() bool { d.mu.RLock(); defer d.mu.RUnlock(); return d.closed }
 
-// CancelPending stops admission and cancels all deliveries without waiting for
-// workers. Close waits for their result recording after runtimes have stopped.
-func (d *Dispatcher) CancelPending() {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-	for _, slot := range d.slots {
-		slot.closeQueues()
-		slot.cancel()
-	}
+func (d *Dispatcher) retireSlotLocked(slot *pluginSlot) {
+	d.retired[slot] = struct{}{}
+	go func() { <-slot.done; d.mu.Lock(); delete(d.retired, slot); d.mu.Unlock() }()
 }
 
 // Deregister removes a plugin from dispatch and stops its worker.
@@ -148,18 +139,23 @@ func (d *Dispatcher) Close() {
 	}
 
 	d.mu.Lock()
-	slots := make(map[string]*pluginSlot, len(d.slots))
-	for id, slot := range d.slots {
-		slots[id] = slot
+	d.closed = true
+	slots := make(map[*pluginSlot]struct{}, len(d.slots)+len(d.retired))
+	for _, slot := range d.slots {
+		slots[slot] = struct{}{}
+	}
+	for slot := range d.retired {
+		slots[slot] = struct{}{}
 	}
 	d.slots = make(map[string]*pluginSlot)
+	d.retired = make(map[*pluginSlot]struct{})
 	d.mu.Unlock()
 
-	for _, slot := range slots {
+	for slot := range slots {
 		slot.closeQueues()
 		slot.cancel()
 	}
-	for _, slot := range slots {
+	for slot := range slots {
 		<-slot.done
 	}
 }
@@ -205,6 +201,12 @@ func (s *pluginSlot) tryEnqueue(item dispatchItem) bool {
 	s.pendingEvents++
 	s.eventQueue <- item
 	return true
+}
+
+func (s *pluginSlot) isAccepting() bool {
+	s.queueMu.Lock()
+	defer s.queueMu.Unlock()
+	return s.accepting
 }
 
 func (s *pluginSlot) markStarted(item dispatchItem) {

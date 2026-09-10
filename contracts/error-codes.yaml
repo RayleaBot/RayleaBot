@@ -47,7 +47,7 @@ codes:
             minLength: 1
     http_status: 409
     retryable: true
-    applies_to: [http, plugin_protocol]
+    applies_to: [http, plugin_protocol, task]
 
   permission.unavailable:
     code: permission.unavailable

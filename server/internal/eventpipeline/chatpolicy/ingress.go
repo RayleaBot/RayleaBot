@@ -11,11 +11,15 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 )
 
 type MetadataEnricher interface {
 	EnrichEventMetadata(context.Context, chatevent.NormalizedEvent) chatevent.NormalizedEvent
+}
+
+type Lifecycle interface {
+	SyncBotIdentities(context.Context)
+	HandleAdapterReady(context.Context)
 }
 
 type IngressDeps struct {
@@ -27,7 +31,7 @@ type IngressDeps struct {
 	OutboundLimiter  outbound.MessageLimiter
 	Menu             *menuext.Service
 	Bridge           *bridge.Bridge
-	Lifecycle        *pluginservice.Controller
+	Lifecycle        Lifecycle
 	MetadataEnricher MetadataEnricher
 	WhitelistRepo    permission.EntryRepository
 	WhitelistState   permission.WhitelistStateRepository
@@ -38,7 +42,7 @@ type Ingress struct {
 	replyTargets     *outbound.ReplyTargetCache
 	menu             *menuext.Service
 	bridge           *bridge.Bridge
-	lifecycle        *pluginservice.Controller
+	lifecycle        Lifecycle
 	metadataEnricher MetadataEnricher
 	policy           *Service
 }

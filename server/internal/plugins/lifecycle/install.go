@@ -53,6 +53,7 @@ const (
 var errPluginPackageResourceLimit = errors.New("plugin package resource limit exceeded")
 
 type installerDeps struct {
+	options      InstallOptions
 	now          func() time.Time
 	copyDir      func(context.Context, string, string) error
 	extractZip   func(context.Context, string, string) (string, error)
@@ -69,6 +70,7 @@ type installerDeps struct {
 }
 
 type InstallService struct {
+	operations     *OperationGate
 	logger         *slog.Logger
 	registry       *tasks.Registry
 	catalog        plugins.CatalogStore
@@ -98,6 +100,14 @@ type InstallService struct {
 	wg                      sync.WaitGroup
 }
 
+type InstallOptions struct {
+	Operations              *OperationGate
+	AfterSuccess            func(context.Context, string) error
+	AfterRollback           func(context.Context, string) error
+	BeforeReplace           plugins.StopPluginFunc
+	ValidateRenderTemplates func(plugins.Snapshot) error
+}
+
 type installJob struct {
 	taskID     string
 	request    plugins.InstallRequest
@@ -124,8 +134,12 @@ func NewInstallService(
 	repoRoot string,
 	discoveryRoots []plugincatalog.ScanRoot,
 	timeout time.Duration,
+	options InstallOptions,
 ) (*InstallService, error) {
-	return newInstallService(logger, registry, catalog, repository, validator, repoRoot, discoveryRoots, timeout, installerDeps{})
+	if options.Operations == nil {
+		return nil, errors.New("plugin install operation gate is required")
+	}
+	return newInstallService(logger, registry, catalog, repository, validator, repoRoot, discoveryRoots, timeout, installerDeps{options: options})
 }
 
 func newInstallService(
@@ -168,23 +182,28 @@ func newInstallService(
 
 	baseCtx, baseCancel := context.WithCancel(context.Background())
 	service := &InstallService{
-		logger:         logger,
-		registry:       registry,
-		catalog:        catalog,
-		repository:     repository,
-		packageRepo:    packageRepo,
-		validator:      validator,
-		repoRoot:       repoRoot,
-		discoveryRoots: append([]plugincatalog.ScanRoot(nil), discoveryRoots...),
-		installedRoot:  installedRoot,
-		timeout:        timeout,
-		jobs:           make(chan installJob, 32),
-		admission:      tasks.NewQueueAdmission(32),
-		baseCtx:        baseCtx,
-		baseCancel:     baseCancel,
-		cancels:        map[string]context.CancelFunc{},
-		inspections:    map[string]*installInspectionEntry{},
-		deps:           deps,
+		operations:              deps.options.Operations,
+		afterSuccess:            deps.options.AfterSuccess,
+		afterRollback:           deps.options.AfterRollback,
+		beforeReplace:           deps.options.BeforeReplace,
+		validateRenderTemplates: deps.options.ValidateRenderTemplates,
+		logger:                  logger,
+		registry:                registry,
+		catalog:                 catalog,
+		repository:              repository,
+		packageRepo:             packageRepo,
+		validator:               validator,
+		repoRoot:                repoRoot,
+		discoveryRoots:          append([]plugincatalog.ScanRoot(nil), discoveryRoots...),
+		installedRoot:           installedRoot,
+		timeout:                 timeout,
+		jobs:                    make(chan installJob, 32),
+		admission:               tasks.NewQueueAdmission(32),
+		baseCtx:                 baseCtx,
+		baseCancel:              baseCancel,
+		cancels:                 map[string]context.CancelFunc{},
+		inspections:             map[string]*installInspectionEntry{},
+		deps:                    deps,
 	}
 
 	service.wg.Add(1)
@@ -463,22 +482,6 @@ func (s *InstallService) Cancel(taskID string) bool {
 	return true
 }
 
-func (s *InstallService) SetAfterSuccess(fn func(context.Context, string) error) {
-	s.afterSuccess = fn
-}
-
-func (s *InstallService) SetBeforeReplace(fn plugins.StopPluginFunc) {
-	s.beforeReplace = fn
-}
-
-func (s *InstallService) SetAfterRollback(fn func(context.Context, string) error) {
-	s.afterRollback = fn
-}
-
-func (s *InstallService) SetRenderTemplateValidator(fn func(plugins.Snapshot) error) {
-	s.validateRenderTemplates = fn
-}
-
 func (s *InstallService) Close() error {
 	if s == nil {
 		return nil
@@ -634,6 +637,9 @@ func installedDiscoveryRoot(discoveryRoots []plugincatalog.ScanRoot) (string, er
 }
 
 func withDefaultInstallerDeps(_ string, deps installerDeps) installerDeps {
+	if deps.options.Operations == nil {
+		deps.options.Operations = NewOperationGate()
+	}
 	if deps.now == nil {
 		deps.now = time.Now
 	}
@@ -823,6 +829,12 @@ func (s *InstallService) runInstall(job installJob) error {
 
 	candidateSnapshot := job.inspection.snapshot
 	metadata := job.inspection.metadata
+	operationCtx, release, err := s.operations.Acquire(job.ctx, candidateSnapshot.PluginID)
+	if err != nil {
+		return err
+	}
+	defer release()
+	job.ctx = operationCtx
 	existingSnapshot, exists := s.catalog.Get(candidateSnapshot.PluginID)
 	if exists && !job.request.ReplaceExisting {
 		return installError(codePluginInstallFailed, "检测到同 ID 插件，安装被拒绝", "检测到同 ID 插件")

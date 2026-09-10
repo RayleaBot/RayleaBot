@@ -12,10 +12,10 @@
 | --- | --- |
 | `disabled` | 插件未启用，运行时未启动 |
 | `enabled` | 插件已启用，等待运行时启动或当前未运行 |
-| `starting` | 插件运行时正在启动 |
+| `starting` | 插件运行时正在创建或握手，可能尚无进程句柄 |
 | `running` | 插件运行时已完成握手并可处理事件 |
 | `stopping` | 插件运行时正在停止 |
-| `failed` | 插件运行时崩溃、等待自动重试或需要人工恢复 |
+| `failed` | 插件初始化失败、运行时崩溃、等待自动重试或需要人工恢复 |
 | `invalid` | 插件 manifest 无效或插件 ID 冲突 |
 
 `state_diagnosis` 提供异常状态的细节：
@@ -24,6 +24,7 @@
 | --- | --- |
 | `invalid_manifest` | manifest 校验失败 |
 | `plugin_id_conflict` | 多个插件目录声明相同插件 ID |
+| `initialization_failed` | 已启用插件未完成初始化，包含正式错误码；修正问题后可重载 |
 | `crashed` | 运行时异常退出 |
 | `retrying` | 运行时等待受控重启 |
 | `recovery_required` | 运行时超过自动恢复阈值，可通过 `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动 |
@@ -34,19 +35,20 @@
 
 ```plain
 stopped -> starting -> running -> stopping -> stopped
-running / starting -> crashed -> retry wait -> starting
-crashed -> recovery required
+starting -> stopping -> stopped (initialization error retained)
+running -> stopping -> crashed -> backoff -> starting
+crashed -> dead_letter
 ```
 
 | 状态 | 含义 |
 | --- | --- |
-| `stopped` | 子进程未运行或已正常退出 |
-| `starting` | 子进程已启动，等待握手完成 |
+| `stopped` | 子进程未运行或已确认退出，可能携带初始化错误 |
+| `starting` | 正在创建子进程或等待握手完成 |
 | `running` | 已完成握手并处理事件 |
-| `stopping` | 已发送 `shutdown`，等待子进程退出 |
+| `stopping` | 正在停止或回收失败进程，退出尚未确认，仍持有进程句柄 |
 | `crashed` | 子进程异常退出 |
 | `backoff` | 内部等待受控重启，管理面显示为 `failed` + `retrying` |
-| recovery required | 超过自动恢复阈值，管理面显示为 `failed` + `recovery_required` |
+| `dead_letter` | 超过自动恢复阈值，管理面显示为 `failed` + `recovery_required` |
 
 插件启用意图持久化保存。运行时状态由 per-plugin runtime manager 维护，并通过管理面映射到用户可见状态。
 

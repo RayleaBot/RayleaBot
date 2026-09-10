@@ -499,3 +499,80 @@ func TestRealNotificationQueueFullReturnsCommittedFailureAndRetries(t *testing.T
 		t.Fatal("retry failed to deliver committed settings")
 	}
 }
+
+func TestActivationReplaysWritesCommittedDuringInitialization(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, nil)
+	initial, err := f.service.Read(t.Context(), "weather")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.dispatcher.Deregister("weather")
+	if _, err := f.service.Write(t.Context(), "weather", map[string]any{"count": 99}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Activate(t.Context(), "weather", initial, func() error {
+		if !f.dispatcher.Register("weather", captureRuntime{f.events}, []string{"config.changed"}, nil, 1) {
+			return dispatch.ErrClosed
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	event := f.nextEvent(t)
+	if !reflect.DeepEqual(event.PayloadFields["changed_keys"], []string{"count"}) || event.PayloadFields["config"].(map[string]any)["count"] != float64(99) {
+		t.Fatalf("initialization missed committed update: %#v", event.PayloadFields)
+	}
+}
+
+func TestActivationWithLatestSnapshotCompletesPendingEffects(t *testing.T) {
+	t.Parallel()
+	var notifications atomic.Int64
+	f := newFixture(t, func(deps *settings.Deps) {
+		deps.Notify = func(context.Context, string, map[string]any, []string) error {
+			notifications.Add(1)
+			return errors.New("fixture admission failure")
+		}
+	})
+	if _, err := f.service.Write(t.Context(), "weather", map[string]any{"count": 99}); err == nil {
+		t.Fatal("expected committed failure")
+	}
+	latest, err := f.service.Read(t.Context(), "weather")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.service.Activate(t.Context(), "weather", latest, func() error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	result, err := f.service.Write(t.Context(), "weather", map[string]any{"count": 99})
+	if err != nil || len(result.ChangedKeys) != 0 || notifications.Load() != 1 {
+		t.Fatalf("reload retained obsolete pending effects: %#v %v", result, err)
+	}
+}
+
+func TestActivationFailureDoesNotExposeMutablePendingKeys(t *testing.T) {
+	t.Parallel()
+	f := newFixture(t, func(deps *settings.Deps) {
+		deps.Notify = func(context.Context, string, map[string]any, []string) error {
+			return errors.New("fixture notification failure")
+		}
+	})
+	initialized, err := f.service.Read(t.Context(), "weather")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.repo.Write(t.Context(), "weather", map[string]any{"count": 9}); err != nil {
+		t.Fatal(err)
+	}
+	err = f.service.Activate(t.Context(), "weather", initialized, func() error { return nil })
+	var activationErr *settings.ApplyError
+	if !errors.As(err, &activationErr) {
+		t.Fatalf("activation error: %v", err)
+	}
+	activationErr.ChangedKeys[0] = "mutated_by_caller"
+	_, err = f.service.Write(t.Context(), "weather", map[string]any{"count": 9})
+	var retryErr *settings.ApplyError
+	if !errors.As(err, &retryErr) || !reflect.DeepEqual(retryErr.ChangedKeys, []string{"count"}) {
+		t.Fatalf("external error mutation changed pending effects: %#v %v", retryErr, err)
+	}
+}

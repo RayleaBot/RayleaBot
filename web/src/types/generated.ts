@@ -2014,11 +2014,14 @@ export interface components {
             cooldown: components["schemas"]["GovernanceCommandCooldown"];
             commands: components["schemas"]["GovernanceCommandPolicyEntry"][];
         };
-        /** @enum {string} */
+        /**
+         * @description Starting includes runtime creation before a process handle exists. Stopping includes failed shutdown until process exit is confirmed; a still-owned live process is never projected as stopped or disabled.
+         * @enum {string}
+         */
         PluginState: "disabled" | "enabled" | "starting" | "running" | "stopping" | "failed" | "invalid";
         PluginStateDiagnosis: {
             /** @enum {string} */
-            kind: "invalid_manifest" | "plugin_id_conflict" | "crashed" | "retrying" | "recovery_required";
+            kind: "invalid_manifest" | "plugin_id_conflict" | "initialization_failed" | "crashed" | "retrying" | "recovery_required";
             summary?: string;
             manifest_path?: string;
             manifest_paths?: string[];

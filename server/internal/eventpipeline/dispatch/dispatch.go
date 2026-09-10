@@ -113,6 +113,8 @@ type Dispatcher struct {
 	controlQueueSize  int
 	mu                sync.RWMutex
 	slots             map[string]*pluginSlot
+	retired           map[*pluginSlot]struct{}
+	closed            bool
 	permissionChecker PermissionChecker
 
 	statsMu       sync.Mutex
@@ -149,6 +151,7 @@ func New(logger *slog.Logger, sender outbound.ActionSender, resolver outbound.Re
 		queueSize:        queueSize,
 		controlQueueSize: controlSize,
 		slots:            make(map[string]*pluginSlot),
+		retired:          make(map[*pluginSlot]struct{}),
 		dropsByReason:    make(map[string]map[string]uint64),
 	}
 }

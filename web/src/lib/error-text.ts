@@ -10,6 +10,10 @@ function translateErrorCode(code: string | undefined) {
   return i18n.global.te(localeKey) ? t(localeKey) : undefined
 }
 
+export function getErrorCodeMessage(code: string | undefined, fallbackKey = 'errors.common.actionFailed') {
+  return translateErrorCode(code) ?? t(fallbackKey)
+}
+
 export function getDisplayErrorMessage(error: unknown, fallbackKey = 'errors.common.actionFailed') {
   if (error instanceof ApiError) {
     if (error.code === 'client.request_cancelled') return t('errors.common.requestCancelled')

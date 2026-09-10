@@ -15,6 +15,35 @@ type observedProcessInput struct {
 	once    sync.Once
 }
 
+func TestInitializationTimeoutInterruptsBlockedOSPipe(t *testing.T) {
+	manager := testManager()
+	t.Cleanup(func() {
+		manager.mu.RLock()
+		handle := manager.proc
+		manager.mu.RUnlock()
+		if handle != nil {
+			_ = handle.Stdin.Close()
+			_ = handle.Cmd.Process.Kill()
+			<-handle.Done()
+		}
+	})
+	spec := helperSpec(t, "init-stdin-blocked", "")
+	spec.InitTimeout = runtimeTestDuration(100 * time.Millisecond)
+	payload := testInitPayload()
+	payload.Config = map[string]any{"large": strings.Repeat("x", 1024*1024)}
+	finished := make(chan error, 1)
+	go func() { finished <- manager.Start(t.Context(), spec, payload) }()
+	select {
+	case err := <-finished:
+		assertRuntimeErrorCode(t, err, codePluginInitTimeout)
+	case <-time.After(runtimeTestDuration(3 * time.Second)):
+		t.Fatal("initialization blocked outside its deadline")
+	}
+	if !manager.cleanupComplete() {
+		t.Fatal("timed out initialization retained a live process")
+	}
+}
+
 func (input *observedProcessInput) Write(data []byte) (int, error) {
 	input.once.Do(func() { close(input.started) })
 	return input.WriteCloser.Write(data)

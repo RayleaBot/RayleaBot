@@ -94,6 +94,12 @@ func (m *Manager) Snapshot() Snapshot {
 	return cloneSnapshot(m.snap)
 }
 
+func (m *Manager) cleanupComplete() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.proc == nil && m.snap.State != StateStarting && m.snap.State != StateStopping
+}
+
 func (m *Manager) abortPendingLocked(runtimeErr *plugins.Error) {
 	for requestID, session := range m.pendingEvents {
 		if session.completed {

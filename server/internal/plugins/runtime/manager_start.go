@@ -106,6 +106,10 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	if initConfig == nil {
 		initConfig = map[string]any{}
 	}
+	initCtx, cancelInit := context.WithTimeout(ctx, durationOrFallback(spec.InitTimeout, 10*time.Second))
+	defer cancelInit()
+	stopInitPipe := context.AfterFunc(initCtx, func() { _ = handle.Stdin.Close() })
+	defer stopInitPipe()
 	if err := handle.WriteJSONLine(InitFrame{
 		Timezone:             payload.Timezone,
 		ProtocolVersion:      pluginwire.ProtocolVersion,
@@ -119,11 +123,15 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		CommandPrefixes:      append([]string(nil), payload.CommandPrefixes...),
 		Concurrency:          spec.EffectiveConcurrency,
 	}); err != nil {
+		if initCtx.Err() != nil {
+			m.cleanupFailedStart(handle, codePluginInitTimeout, "plugin initialization timed out", initCtx.Err())
+			return errorf(codePluginInitTimeout, "plugin initialization timed out", initCtx.Err())
+		}
 		m.cleanupFailedStart(handle, codePluginInternalError, "write init frame", err)
 		return errorf(codePluginInternalError, "write init frame", err)
 	}
 
-	runtimeErr := m.awaitInitAck(ctx, handle, requestID)
+	runtimeErr := m.awaitInitAck(initCtx, handle, requestID)
 	if runtimeErr != nil {
 		m.cleanupFailedStart(handle, runtimeErr.Code, runtimeErr.Message, runtimeErr.Err)
 		return runtimeErr

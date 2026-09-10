@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
 )
 
@@ -36,7 +37,10 @@ type Handle struct {
 	exitMu  sync.RWMutex
 	exitErr error
 
-	exitFailureReported bool // guarded by the owning Manager.mu
+	exitFailureReported bool           // guarded by the owning Manager.mu
+	terminationObserved bool           // guarded by the owning Manager.mu
+	terminationError    *plugins.Error // guarded by the owning Manager.mu
+	failureRestart      bool           // guarded by the owning Manager.mu
 }
 
 func NewHandle(cmd *exec.Cmd, stdin io.WriteCloser, stdout *bufio.Reader, spec ProcessSpec) *Handle {
@@ -229,16 +233,7 @@ func CrashBackoff(crashCount, initialSeconds, maxSeconds int) time.Duration {
 }
 
 func (m *Manager) cleanupFailedStart(handle *Handle, code, message string, err error) {
-	if handle != nil && handle.Cmd != nil && handle.Cmd.Process != nil {
-		_ = handle.Cmd.Process.Kill()
-	}
-	if handle != nil {
-		select {
-		case <-handle.Done():
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
-	m.markStopped(code, message, err)
+	_ = m.failRuntime(handle, code, message, err)
 }
 
 func (m *Manager) markStopped(code, message string, err error) {
@@ -249,6 +244,12 @@ func (m *Manager) markStopped(code, message string, err error) {
 }
 
 func (m *Manager) markStoppedLocked(code, message string, err error) {
+	if m.proc != nil {
+		if _, exited := m.proc.ExitResult(); !exited {
+			m.snap.State = StateStopping
+			return
+		}
+	}
 	stoppedAt := m.deps.now()
 	m.proc = nil
 	m.snap.State = StateStopped
@@ -336,6 +337,9 @@ func (m *Manager) SetOnCrash(cb CrashCallback) {
 func (m *Manager) SetStopped() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.proc != nil || m.snap.State == StateStarting || m.snap.State == StateStopping {
+		return
+	}
 	now := m.deps.now()
 	m.snap.State = StateStopped
 	m.snap.StoppedAt = &now

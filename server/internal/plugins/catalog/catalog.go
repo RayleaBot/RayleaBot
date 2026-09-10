@@ -115,6 +115,8 @@ func (c *Catalog) replace(entries []plugins.Snapshot, installedID string) {
 			if current, ok := c.items[installedID]; ok {
 				entry.DesiredState = current.DesiredState
 				entry.RuntimeState = current.RuntimeState
+				entry.RuntimeErrorCode = current.RuntimeErrorCode
+				entry.RuntimeErrorMessage = current.RuntimeErrorMessage
 				entry.DeadLetter = current.DeadLetter
 			}
 			selected = append(selected, entry)

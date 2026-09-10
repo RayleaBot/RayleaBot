@@ -6,6 +6,8 @@ func pluginStateChanged(current plugins.Snapshot, next plugins.Snapshot) bool {
 	return current.RegistrationState != next.RegistrationState ||
 		current.DesiredState != next.DesiredState ||
 		current.RuntimeState != next.RuntimeState ||
+		current.RuntimeErrorCode != next.RuntimeErrorCode ||
+		current.RuntimeErrorMessage != next.RuntimeErrorMessage ||
 		current.DisplayState != next.DisplayState ||
 		!deadLetterEqual(current.DeadLetter, next.DeadLetter) ||
 		!commandsEqual(current.Commands, next.Commands)

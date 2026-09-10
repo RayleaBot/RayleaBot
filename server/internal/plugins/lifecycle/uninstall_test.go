@@ -32,7 +32,7 @@ func TestUninstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), &stubInstallRepository{}, validator, repoRoot, []plugincatalog.ScanRoot{
 		{Label: "examples/plugins", Path: examplesRoot},
 		{Label: "plugins/installed", Path: installedRoot},
-	}, nil)
+	}, UninstallOptions{Operations: NewOperationGate()})
 	if err != nil {
 		t.Fatalf("new uninstall service: %v", err)
 	}
@@ -106,7 +106,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 			{Label: "examples/plugins", Path: examplesRoot},
 			{Label: "plugins/installed", Path: installedRoot},
 		},
-		nil,
+		UninstallOptions{Operations: NewOperationGate()},
 	)
 	if err != nil {
 		t.Fatalf("NewUninstallService failed: %v", err)
@@ -161,7 +161,7 @@ func TestUninstallAggregatesIndependentCleanupFailuresAfterRemoval(t *testing.T)
 	}
 	repository := &failingUninstallRepository{desiredErr: desiredErr, metadataErr: metadataErr}
 	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), repository, validator, repoRoot,
-		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}}, nil)
+		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}}, UninstallOptions{Operations: NewOperationGate()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +192,7 @@ func TestUninstallStopsBeforeDestructiveWorkWhenRuntimeStopFails(t *testing.T) {
 	repository := &stubInstallRepository{}
 	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), repository, nil, repoRoot,
 		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}},
-		func(context.Context, string) error { return errors.New("test-secret-process-stop") })
+		UninstallOptions{Operations: NewOperationGate(), StopPlugin: func(context.Context, string) error { return errors.New("test-secret-process-stop") }})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +221,7 @@ func TestUninstallRejectsInvalidIdentifierBeforeCreatingTask(t *testing.T) {
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
 	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), nil, nil, repoRoot,
-		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")}}, nil)
+		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")}}, UninstallOptions{Operations: NewOperationGate()})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -32,6 +33,7 @@ type pluginStackDeps struct {
 }
 
 type PluginStackState struct {
+	Operations        *pluginservice.OperationGate
 	Plugins           *plugincatalog.Catalog
 	PluginInstaller   *pluginservice.InstallService
 	PluginStore       pluginmarket.ServiceAPI
@@ -65,35 +67,16 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 		return PluginStackState{}, err
 	}
 
-	pluginInstallService, pluginUninstallService, err := buildPluginMutationServices(deps, pluginRepository)
-	if err != nil {
-		return PluginStackState{}, err
-	}
-	pluginStoreRepository, err := pluginmarket.NewSQLiteRepository(deps.Platform.Storage)
-	if err != nil {
-		_ = pluginInstallService.Close()
-		return PluginStackState{}, fmt.Errorf("create plugin store repository: %w", err)
-	}
-	pluginStore, err := pluginmarket.New(ctx, deps.Catalog, pluginInstallService, pluginStoreRepository, pluginmarket.Options{
-		CoreVersion: releaseupdate.InstalledVersion(deps.Discovery.RepoRoot),
-	})
-	if err != nil {
-		_ = pluginInstallService.Close()
-		return PluginStackState{}, fmt.Errorf("create plugin store: %w", err)
-	}
-
 	return PluginStackState{
-		Plugins:           deps.Catalog,
-		PluginInstaller:   pluginInstallService,
-		PluginStore:       pluginStore,
-		PluginUninstaller: pluginUninstallService,
-		PluginRepository:  pluginRepository,
-		PluginConfig:      pluginConfigRepository,
-		PluginFiles:       pluginFileService,
-		PluginKV:          pluginKVRepository,
-		Webhooks:          webhookRegistry,
-		PluginLogLimiter:  localaction.NewPluginLogLimiter(deps.Config),
-		RefreshManifest:   buildManifestRefresh(deps, pluginRepository, pluginConfigRepository),
+		Operations:       pluginservice.NewOperationGate(),
+		Plugins:          deps.Catalog,
+		PluginRepository: pluginRepository,
+		PluginConfig:     pluginConfigRepository,
+		PluginFiles:      pluginFileService,
+		PluginKV:         pluginKVRepository,
+		Webhooks:         webhookRegistry,
+		PluginLogLimiter: localaction.NewPluginLogLimiter(deps.Config),
+		RefreshManifest:  buildManifestRefresh(deps, pluginRepository, pluginConfigRepository),
 	}, nil
 }
 
@@ -170,7 +153,24 @@ func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugincata
 	return nil
 }
 
-func buildPluginMutationServices(deps pluginStackDeps, pluginRepository *plugins.SQLiteRepository) (*pluginservice.InstallService, *pluginservice.UninstallService, error) {
+func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, services Services, renderer *renderservice.Service) error {
+	pluginRepository := state.PluginRepository
+	if state.Operations == nil || services.PluginLifecycle == nil || services.System == nil || services.PluginWebhooks == nil {
+		return errors.New("plugin mutations require the constructed lifecycle and services")
+	}
+	reconcileInstalled := func(ctx context.Context, pluginID string) error {
+		services.PluginWebhooks.SyncManifestRegistrations()
+		if err := syncCatalogRenderTemplates(ctx, renderer, state.Plugins); err != nil {
+			return err
+		}
+		if snapshot, exists := state.Plugins.Get(pluginID); exists && snapshot.DesiredState == plugins.DesiredStateEnabled {
+			if err := services.PluginLifecycle.StartInstalled(ctx, pluginID); err != nil {
+				return err
+			}
+		}
+		services.System.ReconcileRecoverySummaryBestEffort("plugin.install")
+		return nil
+	}
 	pluginInstallService, err := pluginservice.NewInstallService(
 		deps.Logger,
 		deps.Tasks,
@@ -180,10 +180,13 @@ func buildPluginMutationServices(deps pluginStackDeps, pluginRepository *plugins
 		deps.Discovery.RepoRoot,
 		deps.Discovery.Roots,
 		0,
+		pluginservice.InstallOptions{Operations: state.Operations, BeforeReplace: services.PluginLifecycle.StopAndResetPluginWithContext,
+			AfterSuccess: reconcileInstalled, AfterRollback: reconcileInstalled, ValidateRenderTemplates: validatePluginRenderTemplates},
 	)
 	if err != nil {
-		return nil, nil, fmt.Errorf("create plugin install service: %w", err)
+		return fmt.Errorf("create plugin install service: %w", err)
 	}
+	state.PluginInstaller = pluginInstallService
 	pluginUninstallService, err := pluginservice.NewUninstallService(
 		deps.Logger,
 		deps.Tasks,
@@ -192,11 +195,29 @@ func buildPluginMutationServices(deps pluginStackDeps, pluginRepository *plugins
 		deps.Validator,
 		deps.Discovery.RepoRoot,
 		deps.Discovery.Roots,
-		nil,
+		pluginservice.UninstallOptions{Operations: state.Operations, StopPlugin: services.PluginLifecycle.StopAndResetPluginWithContext,
+			AfterSuccess: func(ctx context.Context, pluginID string) error {
+				services.PluginWebhooks.SyncManifestRegistrations()
+				var cleanupErr error
+				if deps.Platform.Scheduler != nil {
+					cleanupErr = deps.Platform.Scheduler.UnregisterByPlugin(ctx, pluginID)
+				}
+				if renderer != nil {
+					cleanupErr = errors.Join(cleanupErr, renderer.RemovePluginTemplates(ctx, pluginID))
+				}
+				cleanupErr = errors.Join(cleanupErr, syncCatalogRenderTemplates(ctx, renderer, state.Plugins))
+				services.System.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
+				return cleanupErr
+			}},
 	)
 	if err != nil {
-		closeErr := pluginInstallService.Close()
-		return nil, nil, errors.Join(fmt.Errorf("create plugin uninstall service: %w", err), closeErr)
+		return fmt.Errorf("create plugin uninstall service: %w", err)
 	}
-	return pluginInstallService, pluginUninstallService, nil
+	state.PluginUninstaller = pluginUninstallService
+	pluginStoreRepository, err := pluginmarket.NewSQLiteRepository(deps.Platform.Storage)
+	if err != nil {
+		return fmt.Errorf("create plugin store repository: %w", err)
+	}
+	state.PluginStore, err = pluginmarket.New(deps.Context, state.Plugins, state.PluginInstaller, pluginStoreRepository, pluginmarket.Options{CoreVersion: releaseupdate.InstalledVersion(deps.Discovery.RepoRoot)})
+	return err
 }

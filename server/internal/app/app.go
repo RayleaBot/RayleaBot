@@ -156,6 +156,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		pluginState           PluginStackState
 		renderState           appRenderState
 		eventState            EventState
+		serviceBuild          serviceBuildResult
 		stopRuntimeStateGauge func()
 	)
 	cleanupPartialBuild := func(cause error) error {
@@ -164,6 +165,8 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 			pluginStack:             pluginState,
 			renderStack:             renderState,
 			eventStack:              eventState,
+			services:                serviceBuild.Services,
+			runtimes:                serviceBuild.Runtimes,
 			metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 		}
 		return errors.Join(cause, partial.Close())
@@ -181,7 +184,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	buildState.core.SetConfig(resolvedConfig)
 	buildState.core.AddRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
 
-	pluginState, err = buildPluginStack(pluginStackDeps{
+	pluginDeps := pluginStackDeps{
 		Context:   ctx,
 		Config:    resolvedConfig,
 		Logger:    buildState.core.Logger,
@@ -190,7 +193,8 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Catalog:   buildState.pluginCatalog,
 		Tasks:     buildState.taskRegistry,
 		Platform:  platformState,
-	})
+	}
+	pluginState, err = buildPluginStack(pluginDeps)
 	if err != nil {
 		return nil, cleanupPartialBuild(err)
 	}
@@ -217,7 +221,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 
 	state := buildState.core
 	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
-	serviceBuild, err := buildServices(serviceBuildDeps{
+	serviceBuild, err = buildServices(serviceBuildDeps{
 		Runtime:               state,
 		Platform:              platformState,
 		Plugins:               pluginState,
@@ -237,6 +241,9 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		return nil, cleanupPartialBuild(fmt.Errorf("plugin lifecycle service is required"))
 	}
 	schedulerLifecycle = serviceBuild.Services.PluginLifecycle
+	if err := buildPluginMutationServices(pluginDeps, &pluginState, serviceBuild.Services, renderState.Renderer); err != nil {
+		return nil, cleanupPartialBuild(err)
+	}
 
 	application := &App{
 		state:                   state,

@@ -181,3 +181,43 @@ func mergeKeys(left, right []string) []string {
 	sort.Strings(result)
 	return result
 }
+
+// Activate serializes publication with settings writes and resumes changes made during initialization.
+func (s *Service) Activate(ctx context.Context, pluginID string, initialized map[string]any, publish func() error) error {
+	if s == nil || s.deps.Config == nil || publish == nil {
+		return ErrUnavailable
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current, err := s.read(ctx, pluginID)
+	if err != nil {
+		return err
+	}
+	if err := s.deps.RefreshCommands(ctx, pluginID, pluginstore.MergeValues(current, nil)); err != nil {
+		return err
+	}
+	if err := publish(); err != nil {
+		return err
+	}
+	changed := make([]string, 0)
+	for key, value := range current {
+		previous, exists := initialized[key]
+		if !exists || !equalJSON(value, previous) {
+			changed = append(changed, key)
+		}
+	}
+	for key := range initialized {
+		if _, exists := current[key]; !exists {
+			changed = append(changed, key)
+		}
+	}
+	sort.Strings(changed)
+	if len(changed) > 0 {
+		s.pending[pluginID] = pendingEffects{keys: changed}
+		if err := s.deps.Notify(ctx, pluginID, pluginstore.MergeValues(current, nil), append([]string{}, changed...)); err != nil {
+			return &ApplyError{Stage: "notification", ChangedKeys: append([]string{}, changed...), Cause: err}
+		}
+	}
+	delete(s.pending, pluginID)
+	return nil
+}

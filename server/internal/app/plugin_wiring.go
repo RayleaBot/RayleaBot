@@ -161,13 +161,14 @@ func buildPluginLifecycle(deps pluginServiceDeps) (*pluginservice.Controller, er
 		Runtimes:            deps.PluginRuntime.Runtimes,
 		Dispatcher:          deps.Events.Dispatcher,
 		Scheduler:           deps.Platform.Scheduler,
-		PluginConfig:        deps.Plugins.PluginConfig,
+		Settings:            deps.PluginRuntime.Settings,
 		Identities:          deps.Events.BotIdentity,
 		Webhooks:            deps.Plugins.Webhooks,
 		Tasks:               deps.Platform.Tasks,
 		OnRecoveryChange:    deps.System.ReconcileRecoverySummaryBestEffort,
 		RefreshManifest:     deps.Plugins.RefreshManifest,
 		SyncRenderTemplates: pluginRenderTemplateSync(deps),
+		Operations:          deps.Plugins.Operations,
 	})
 }
 

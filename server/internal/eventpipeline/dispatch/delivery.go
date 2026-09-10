@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -81,6 +82,11 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, 
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
 			d.recordOutcome(OutcomeDelivered, pluginID, "")
 		} else {
+			if !slot.isAccepting() {
+				results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: errorcodes.PluginStopping})
+				d.recordOutcome(OutcomeDropped, pluginID, "plugin_stopping")
+				continue
+			}
 			reason := "queue_full"
 			if control {
 				reason = "control_queue_full"
@@ -92,7 +98,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, 
 				"event_type", event.EventType,
 				"reason", reason,
 			)
-			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDropped})
+			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDropped, ErrorCode: errorcodes.PlatformRateLimited})
 			d.recordOutcome(OutcomeDropped, pluginID, reason)
 		}
 	}

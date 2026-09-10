@@ -162,6 +162,32 @@ describe('PluginDetailPage', () => {
     setActivePinia(createPinia())
   })
 
+  it('shows initialization failures by code and clears them after runtime recovery', async () => {
+    const router = createPluginRouter()
+    await router.push('/plugins/weather')
+    await router.isReady()
+    const pluginsStore = usePluginsStore()
+    pluginsStore.current = {
+      id: 'weather', name: 'Weather', role: 'community', state: 'failed',
+      state_diagnosis: { kind: 'initialization_failed', last_error_code: 'plugin.init_timeout', last_error_message: 'raw backend wording', recoverable: false },
+      source: { root: 'plugins/installed', package_source_type: 'local_directory', package_source_ref: 'fixture', verified: false },
+      trust: { level: 'unverified', label: '未验证来源' }, permissions: {}, webhooks: [], commands: [], command_groups: [], help: {}, command_conflicts: [],
+    }
+    vi.spyOn(pluginsStore, 'fetchDetail').mockResolvedValue(undefined)
+    vi.spyOn(useConfigStore(), 'fetchConfig').mockResolvedValue(undefined)
+    vi.spyOn(usePluginConsoleStore(), 'fetchOutboundConsoleHistory').mockResolvedValue([])
+    const wrapper = mount(PluginDetailPage, { global: { plugins: [getActivePinia()!, router] } })
+    await flushPromises()
+    const failure = wrapper.get('[data-testid="plugin-initialization-failure"]')
+    expect(failure.text()).toContain('插件初始化失败')
+    expect(failure.text()).toContain('插件初始化超时')
+    expect(failure.text()).not.toContain('raw backend wording')
+    pluginsStore.upsert({ id: 'weather', state: 'running' })
+    await nextTick()
+    expect(wrapper.find('[data-testid="plugin-initialization-failure"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
   it('uses the session-cached plugin name while detail data is loading', async () => {
     const router = createPluginRouter()
     await router.push('/plugins/weather')

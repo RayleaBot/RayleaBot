@@ -21,6 +21,7 @@ const (
 )
 
 type UninstallService struct {
+	operations     *OperationGate
 	logger         *slog.Logger
 	registry       *tasks.Registry
 	catalog        plugins.CatalogStore
@@ -58,6 +59,12 @@ type uninstallJob struct {
 	ctx      context.Context
 }
 
+type UninstallOptions struct {
+	Operations   *OperationGate
+	StopPlugin   plugins.StopPluginFunc
+	AfterSuccess func(context.Context, string) error
+}
+
 func NewUninstallService(
 	logger *slog.Logger,
 	registry *tasks.Registry,
@@ -66,8 +73,11 @@ func NewUninstallService(
 	validator *config.Validator,
 	repoRoot string,
 	discoveryRoots []plugincatalog.ScanRoot,
-	stopPlugin plugins.StopPluginFunc,
+	options UninstallOptions,
 ) (*UninstallService, error) {
+	if options.Operations == nil {
+		return nil, errors.New("plugin uninstall operation gate is required")
+	}
 	if registry == nil {
 		return nil, errors.New("task registry is required")
 	}
@@ -106,7 +116,9 @@ func NewUninstallService(
 		repoRoot:       repoRoot,
 		discoveryRoots: append([]plugincatalog.ScanRoot(nil), discoveryRoots...),
 		installedRoot:  installedRoot,
-		stopPlugin:     stopPlugin,
+		operations:     options.Operations,
+		stopPlugin:     options.StopPlugin,
+		afterSuccess:   options.AfterSuccess,
 		baseCtx:        baseCtx,
 		baseCancel:     baseCancel,
 		jobs:           make(chan uninstallJob, 32),
@@ -122,14 +134,6 @@ func NewUninstallService(
 	service.wg.Add(1)
 	go service.run()
 	return service, nil
-}
-
-func (s *UninstallService) SetStopPlugin(fn plugins.StopPluginFunc) {
-	s.stopPlugin = fn
-}
-
-func (s *UninstallService) SetAfterSuccess(fn func(context.Context, string) error) {
-	s.afterSuccess = fn
 }
 
 func (s *UninstallService) failTask(taskID, code, message, summary string, details map[string]any) {
@@ -257,6 +261,13 @@ func (s *UninstallService) execute(job uninstallJob) {
 
 func (s *UninstallService) runUninstall(job uninstallJob) error {
 	failure := &operationError{state: "unchanged"}
+	operationCtx, release, err := s.operations.Acquire(job.ctx, job.pluginID)
+	if err != nil {
+		failure.add("stop", err)
+		return failure
+	}
+	defer release()
+	job.ctx = operationCtx
 	if err := job.ctx.Err(); err != nil {
 		failure.add("stop", err)
 		return failure
@@ -312,7 +323,7 @@ func (s *UninstallService) runUninstall(job uninstallJob) error {
 		Summary:  stringPtr("刷新插件目录索引"),
 	})
 
-	failure.add("catalog", s.refreshCatalog(cleanupCtx))
+	failure.add("catalog", s.refreshCatalog(cleanupCtx, job.pluginID))
 	if s.afterSuccess != nil {
 		failure.add("finalize", s.afterSuccess(cleanupCtx, job.pluginID))
 	}
@@ -322,7 +333,7 @@ func (s *UninstallService) runUninstall(job uninstallJob) error {
 	return nil
 }
 
-func (s *UninstallService) refreshCatalog(ctx context.Context) error {
+func (s *UninstallService) refreshCatalog(ctx context.Context, pluginID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -351,6 +362,6 @@ func (s *UninstallService) refreshCatalog(ctx context.Context) error {
 		snapshots = plugins.ApplyDesiredStates(snapshots, states)
 	}
 
-	s.catalog.Replace(snapshots)
+	s.catalog.RefreshInstalled(snapshots, pluginID)
 	return nil
 }

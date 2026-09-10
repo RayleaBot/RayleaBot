@@ -34,6 +34,9 @@ func ConfigChangedDispatcher(dispatcher *dispatch.Dispatcher) ConfigChangeDispat
 		return nil
 	}
 	return func(ctx context.Context, pluginID string, config map[string]any, changedKeys []string) ConfigChangeDispatchResult {
+		if dispatcher.IsClosed() {
+			return ConfigChangeDispatchResult{Outcome: "closed"}
+		}
 		if !dispatcher.HasDeliverablePlugin(pluginID) {
 			return ConfigChangeDispatchResult{Delivered: true}
 		}

@@ -16,6 +16,7 @@ type Registry struct {
 	mu      sync.RWMutex
 	onCrash CrashCallback
 	items   map[string]*Manager
+	retired map[*Manager]struct{}
 }
 
 func NewRegistry(logger *slog.Logger, options Options) *Registry {
@@ -26,6 +27,7 @@ func NewRegistry(logger *slog.Logger, options Options) *Registry {
 		logger:  logger,
 		options: options,
 		items:   make(map[string]*Manager),
+		retired: make(map[*Manager]struct{}),
 	}
 }
 
@@ -80,10 +82,11 @@ func (r *Registry) GetOrCreate(pluginID string) *Manager {
 }
 
 func (r *Registry) NewDetached() *Manager {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	manager := NewManager(r.logger, r.options)
 	manager.SetOnCrash(r.onCrash)
+	r.retired[manager] = struct{}{}
 	return manager
 }
 
@@ -97,6 +100,10 @@ func (r *Registry) Replace(pluginID string, manager *Manager) *Manager {
 
 	manager.SetOnCrash(r.onCrash)
 	previous := r.items[pluginID]
+	delete(r.retired, manager)
+	if previous != nil && previous != manager {
+		r.retired[previous] = struct{}{}
+	}
 	r.items[pluginID] = manager
 	return previous
 }
@@ -108,7 +115,23 @@ func (r *Registry) Delete(pluginID string) *Manager {
 
 	manager := r.items[pluginID]
 	delete(r.items, pluginID)
+	if manager != nil && !manager.cleanupComplete() {
+		r.retired[manager] = struct{}{}
+	}
 	return manager
+}
+
+// ReleaseRetired forgets a replaced or unpublished runtime only after its
+// process ownership is empty. Failed cleanup stays reachable by StopAll.
+func (r *Registry) ReleaseRetired(manager *Manager) {
+	if manager == nil {
+		return
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if manager.cleanupComplete() {
+		delete(r.retired, manager)
+	}
 }
 
 func (r *Registry) ActiveCount() int {
@@ -129,8 +152,11 @@ func (r *Registry) ActiveCount() int {
 func (r *Registry) StopAll(ctx context.Context) error {
 
 	r.mu.RLock()
-	managers := make([]*Manager, 0, len(r.items))
+	managers := make([]*Manager, 0, len(r.items)+len(r.retired))
 	for _, manager := range r.items {
+		managers = append(managers, manager)
+	}
+	for manager := range r.retired {
 		managers = append(managers, manager)
 	}
 	r.mu.RUnlock()
@@ -139,9 +165,10 @@ func (r *Registry) StopAll(ctx context.Context) error {
 	var stopping sync.WaitGroup
 	for index, manager := range managers {
 		stopping.Go(func() {
-			if err := manager.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			if err := manager.Stop(ctx); err != nil {
 				stopErrors[index] = err
 			}
+			r.ReleaseRetired(manager)
 		})
 	}
 	stopping.Wait()

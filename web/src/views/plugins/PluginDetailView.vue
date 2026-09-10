@@ -35,7 +35,7 @@ import {
   getPluginRoleLabel,
   getPluginStateLabel,
 } from '@/lib/display'
-import { getDisplayErrorMessage } from '@/lib/error-text'
+import { getDisplayErrorMessage, getErrorCodeMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import {
   areLocationQueriesEqual,
@@ -412,6 +412,14 @@ onUnmounted(() => {
         <AppButton :loading="actionPending[pluginId] === 'uninstall'" @click="uninstallDialogVisible = true" variant="destructive">{{ t('plugins.actions.uninstall') }}</AppButton>
       </div>
     </template>
+
+    <AppAlert
+      v-if="currentPlugin?.state_diagnosis?.kind === 'initialization_failed'"
+      tone="danger"
+      data-testid="plugin-initialization-failure"
+      :title="t('plugins.initializationFailed')"
+      :description="t('plugins.initializationFailureDescription', { reason: getErrorCodeMessage(currentPlugin.state_diagnosis.last_error_code) })"
+    />
 
     <RetryPanel
       v-if="loadError && !current"

@@ -46,7 +46,7 @@ func (delivery *runtimeBoundDelivery) DeliverEvent(ctx context.Context, _ chatev
 	return plugins.Delivery{}, ctx.Err()
 }
 
-func TestAppCloseWaitsForDeliveriesAfterStoppingRuntimes(t *testing.T) {
+func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("fixture")
@@ -58,14 +58,14 @@ func TestAppCloseWaitsForDeliveriesAfterStoppingRuntimes(t *testing.T) {
 	dispatcher.DispatchToPlugin(t.Context(), "fixture", chatevent.Event{EventID: "fixture"})
 	<-delivery.started
 	done := make(chan error, 1)
-	go func() { done <- application.Close() }()
+	go func() { done <- application.stopRuntimeManagers(50 * time.Millisecond) }()
 	select {
 	case err := <-done:
-		if err != nil {
-			t.Fatal(err)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("drain timeout was lost: %v", err)
 		}
 	case <-time.After(3 * time.Second):
-		t.Fatal("app waited for delivery before stopping its runtime")
+		t.Fatal("expired drain prevented independent runtime cleanup")
 	}
 	select {
 	case state := <-delivery.result:

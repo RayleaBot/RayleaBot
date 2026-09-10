@@ -31,11 +31,12 @@ const (
 	PluginStateFailed   = "failed"
 	PluginStateInvalid  = "invalid"
 
-	StateDiagnosisInvalidManifest  = "invalid_manifest"
-	StateDiagnosisPluginIDConflict = "plugin_id_conflict"
-	StateDiagnosisCrashed          = "crashed"
-	StateDiagnosisRetrying         = "retrying"
-	StateDiagnosisRecoveryRequired = "recovery_required"
+	StateDiagnosisInvalidManifest      = "invalid_manifest"
+	StateDiagnosisPluginIDConflict     = "plugin_id_conflict"
+	StateDiagnosisCrashed              = "crashed"
+	StateDiagnosisRetrying             = "retrying"
+	StateDiagnosisRecoveryRequired     = "recovery_required"
+	StateDiagnosisInitializationFailed = "initialization_failed"
 
 	DisplayStateDiscovered      = "discovered"
 	DisplayStateInvalidManifest = "invalid_manifest"
@@ -156,6 +157,9 @@ func ProjectState(snapshot Snapshot) (string, *StateDiagnosis) {
 	}
 
 	if snapshot.DesiredState == DesiredStateEnabled {
+		if snapshot.RuntimeState == RuntimeStateStopped && snapshot.RuntimeErrorCode != "" {
+			return PluginStateFailed, &StateDiagnosis{Kind: StateDiagnosisInitializationFailed, Summary: "插件初始化失败", LastErrorCode: snapshot.RuntimeErrorCode, LastErrorMessage: snapshot.RuntimeErrorMessage, Recoverable: false}
+		}
 		return PluginStateEnabled, nil
 	}
 	return PluginStateDisabled, nil

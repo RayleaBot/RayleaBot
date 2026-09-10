@@ -14,7 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -278,34 +277,6 @@ func configureAppRuntimeCallbacks(application *App) {
 	systemService.BindShutdownFlag(&application.process.shuttingDown)
 	systemService.RefreshRecoverySummary()
 
-	reconcileInstalledPlugin := func(ctx context.Context, pluginID string) error {
-		application.services.PluginWebhooks.SyncManifestRegistrations()
-		if err := syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins); err != nil {
-			return err
-		}
-		if snapshot, exists := application.pluginStack.Plugins.Get(pluginID); exists && snapshot.DesiredState == plugins.DesiredStateEnabled {
-			if err := lifecycle.StartInstalled(ctx, pluginID); err != nil {
-				return err
-			}
-		}
-		systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
-		return nil
-	}
-	application.pluginStack.PluginInstaller.SetAfterSuccess(reconcileInstalledPlugin)
-	application.pluginStack.PluginInstaller.SetAfterRollback(reconcileInstalledPlugin)
-	application.pluginStack.PluginInstaller.SetBeforeReplace(lifecycle.StopAndResetPluginWithContext)
-	application.pluginStack.PluginInstaller.SetRenderTemplateValidator(validatePluginRenderTemplates)
-	application.pluginStack.PluginUninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
-	application.pluginStack.PluginUninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) error {
-		application.services.PluginWebhooks.SyncManifestRegistrations()
-		var cleanupErr error
-		if application.renderStack.Renderer != nil {
-			cleanupErr = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
-		}
-		cleanupErr = errors.Join(cleanupErr, syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins))
-		systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
-		return cleanupErr
-	})
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
 	}

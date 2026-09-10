@@ -131,6 +131,8 @@ type Snapshot struct {
 	RegistrationState      string
 	DesiredState           string
 	RuntimeState           string
+	RuntimeErrorCode       string
+	RuntimeErrorMessage    string
 	DisplayState           string
 	DeadLetter             *DeadLetterSnapshot
 	ConflictPaths          []string

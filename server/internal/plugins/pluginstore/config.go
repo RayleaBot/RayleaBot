@@ -15,7 +15,6 @@ import (
 )
 
 type ConfigRepository interface {
-	SeedDefaults(ctx context.Context, pluginID string, values map[string]any) (bool, error)
 	Read(ctx context.Context, pluginID string, keys []string) (map[string]any, error)
 	ReadAll(ctx context.Context, pluginID string) (map[string]any, error)
 	Write(ctx context.Context, pluginID string, values map[string]any) ([]string, error)
@@ -38,17 +37,6 @@ func NewConfigSQLiteRepository(store *storage.Store) (*ConfigSQLiteRepository, e
 		read:   store.Read,
 		write:  store.Write,
 	}, nil
-}
-
-func (r *ConfigSQLiteRepository) SeedDefaults(ctx context.Context, pluginID string, values map[string]any) (bool, error) {
-	if len(values) == 0 {
-		return false, nil
-	}
-	written, err := r.writeValues(ctx, namespaceForPlugin(pluginID), values, false)
-	if err != nil {
-		return false, err
-	}
-	return len(written) > 0, nil
 }
 
 func (r *ConfigSQLiteRepository) Read(ctx context.Context, pluginID string, keys []string) (map[string]any, error) {
@@ -110,18 +98,15 @@ func (r *ConfigSQLiteRepository) ReadAll(ctx context.Context, pluginID string) (
 
 func (r *ConfigSQLiteRepository) Write(ctx context.Context, pluginID string, values map[string]any) ([]string, error) {
 	namespace := namespaceForPlugin(pluginID)
-	return r.writeValues(ctx, namespace, values, true)
+	return r.writeValues(ctx, namespace, values)
 }
 
-func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace string, values map[string]any, overwrite bool) ([]string, error) {
+func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace string, values map[string]any) ([]string, error) {
 	if len(values) == 0 {
 		return []string{}, nil
 	}
 
 	keys := sortedConfigKeys(values)
-	if _, exists := values[""]; overwrite && exists {
-		return nil, errors.New("config key must not be empty")
-	}
 	if len(keys) == 0 {
 		return []string{}, nil
 	}
@@ -145,41 +130,20 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 
 	written := make([]string, 0, len(keys))
 	for _, key := range keys {
+		if key == "" {
+			return nil, errors.New("config key must not be empty")
+		}
 		raw, err := json.Marshal(values[key])
 		if err != nil {
 			return nil, fmt.Errorf("marshal system config %s: %w", key, err)
 		}
-		if overwrite {
-			if previous, ok := existing[key]; ok && previous == string(raw) {
-				continue
-			}
-			if err := q.UpsertConfig(ctx, sqlcgen.UpsertConfigParams{
-				Namespace: namespace,
-				Key:       key,
-				ValueJson: string(raw),
-				UpdatedAt: now,
-			}); err != nil {
-				return nil, fmt.Errorf("upsert system config %s: %w", key, err)
-			}
-			written = append(written, key)
-		} else {
-			result, err := q.SeedConfig(ctx, sqlcgen.SeedConfigParams{
-				Namespace: namespace,
-				Key:       key,
-				ValueJson: string(raw),
-				UpdatedAt: now,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("seed system config %s: %w", key, err)
-			}
-			rowsAffected, err := result.RowsAffected()
-			if err != nil {
-				return nil, fmt.Errorf("read seeded system config result for %s: %w", key, err)
-			}
-			if rowsAffected > 0 {
-				written = append(written, key)
-			}
+		if previous, ok := existing[key]; ok && previous == string(raw) {
+			continue
 		}
+		if err := q.UpsertConfig(ctx, sqlcgen.UpsertConfigParams{Namespace: namespace, Key: key, ValueJson: string(raw), UpdatedAt: now}); err != nil {
+			return nil, fmt.Errorf("upsert system config %s: %w", key, err)
+		}
+		written = append(written, key)
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("commit system config tx: %w", err)
@@ -249,9 +213,6 @@ func decodeConfigValue(key, raw string) (any, error) {
 func sortedConfigKeys(values map[string]any) []string {
 	keys := make([]string, 0, len(values))
 	for key := range values {
-		if key == "" {
-			continue
-		}
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
