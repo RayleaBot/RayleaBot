@@ -20,6 +20,7 @@ import (
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
+	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 )
 
@@ -320,16 +321,22 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 
 	var content []byte
 	var measuredHeight float64
+	awaitPromise := func(params *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
+		return params.WithAwaitPromise(true)
+	}
 
 	actions := []chromedp.Action{
+		// Keep asset decoding active per target, independently of which
+		// concurrent render tab is in the browser's foreground.
+		emulation.SetFocusEmulationEnabled(true),
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false),
 		chromedp.Navigate(renderURL),
 		chromedp.WaitReady("body"),
 	}
 	if bindResources != "" {
-		actions = append(actions, chromedp.Evaluate(bindResources, nil))
+		actions = append(actions, chromedp.Evaluate(bindResources, nil, awaitPromise))
 	}
-	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil))
+	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil, awaitPromise))
 	if doc.AutoHeight {
 		actions = append(actions,
 			chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight),
