@@ -6,9 +6,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 )
 
-func (s *Service) CurrentReadiness() health.ReadinessReport {
+func (s *Service) CurrentReadiness() ReadinessReport {
 	if s.auth == nil {
-		return normalizeReadinessReport(health.ReadinessReport{
+		return normalizeReadinessReport(ReadinessReport{
 			Status: "failed",
 			Reason: "Management auth service is unavailable",
 			Checks: map[string]string{
@@ -26,7 +26,7 @@ func (s *Service) CurrentReadiness() health.ReadinessReport {
 		})
 	}
 	if !s.auth.IsBootstrapped() {
-		return normalizeReadinessReport(health.ReadinessReport{
+		return normalizeReadinessReport(ReadinessReport{
 			Status: "setup_required",
 			Reason: "Initial admin setup is required",
 			Checks: map[string]string{
@@ -43,7 +43,7 @@ func (s *Service) CurrentReadiness() health.ReadinessReport {
 			RecoverySummary: s.recoverySummarySnapshot(),
 		})
 	}
-	report := health.ReadinessReport{
+	report := ReadinessReport{
 		Status: "ready",
 		Checks: map[string]string{
 			"config":   "ok",
@@ -87,7 +87,7 @@ func (s *Service) CurrentReadiness() health.ReadinessReport {
 	return normalizeReadinessReport(report)
 }
 
-func normalizeReadinessReport(report health.ReadinessReport) health.ReadinessReport {
+func normalizeReadinessReport(report ReadinessReport) ReadinessReport {
 	if report.Status != "degraded" && report.Status != "failed" {
 		return report
 	}

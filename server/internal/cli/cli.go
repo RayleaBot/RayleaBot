@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
+	_ "modernc.org/sqlite"
+
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	_ "modernc.org/sqlite"
 )
 
 type Command struct {
@@ -102,7 +102,7 @@ func runConfig(cmd Command) int {
 		return 1
 	}
 	actionLabel := configActionLabel(action)
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 	if err != nil {
 		cmd.Logger.Error("配置文件"+actionLabel+"失败："+configPathDisplay, "config_path", configPathDisplay, "action", action, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
@@ -166,7 +166,7 @@ func runLifecycleLocked(cmd Command, action string, run func(Command) int) int {
 }
 
 func runResetAdmin(cmd Command) int {
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
 	databasePath, err := runtimepaths.DatabaseFromConfig(cmd.ConfigPath)
 	if err != nil {
@@ -196,7 +196,7 @@ func runResetAdmin(cmd Command) int {
 }
 
 func runCleanup(cmd Command) int {
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	cfg, _, err := internalconfig.Load(cmd.ConfigPath, cmd.SchemaPath)
 	if err != nil {
 		cmd.Logger.Error("读取清理保留策略失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))

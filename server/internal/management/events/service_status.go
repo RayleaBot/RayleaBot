@@ -4,13 +4,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type ServiceStatusProvider interface {
 	SystemStatus() string
-	CurrentReadiness() health.ReadinessReport
+	CurrentReadiness() systemsvc.ReadinessReport
 }
 
 type ServiceStatusService struct {
@@ -39,7 +39,7 @@ func (s *ServiceStatusService) currentServiceStatusPayload() ServiceStatusPayloa
 	return ServiceStatusPayloadFrom(s.system.SystemStatus(), readiness)
 }
 
-func ServiceStatusPayloadFrom(systemStatus string, readiness health.ReadinessReport) ServiceStatusPayload {
+func ServiceStatusPayloadFrom(systemStatus string, readiness systemsvc.ReadinessReport) ServiceStatusPayload {
 	status := ProjectServiceStatus(systemStatus, readiness.Status)
 	payload := ServiceStatusPayload{
 		ServiceStatus: status,

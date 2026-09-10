@@ -63,3 +63,35 @@ func TestListPluginsReturnsUnifiedCommandShape(t *testing.T) {
 		t.Fatalf("help = %#v", help)
 	}
 }
+
+func TestPluginSummaryAndDetailKeepEmptyWireCollections(t *testing.T) {
+	snapshot := plugins.Snapshot{PluginID: "fixture", Valid: true, RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped"}
+	router := pluginRouter(t, plugincatalog.New([]plugins.Snapshot{snapshot}))
+	for _, path := range []string{"/api/plugins", "/api/plugins/fixture"} {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest("GET", path, nil))
+		if recorder.Code != 200 {
+			t.Fatalf("%s: status %d", path, recorder.Code)
+		}
+		body := decodeBody(t, recorder.Body.Bytes())
+		var value map[string]any
+		if path == "/api/plugins" {
+			value = body["items"].([]any)[0].(map[string]any)
+		} else {
+			value = body["plugin"].(map[string]any)
+		}
+		for _, field := range []string{"commands", "command_groups", "command_conflicts"} {
+			if array, ok := value[field].([]any); !ok || len(array) != 0 {
+				t.Fatalf("%s %s did not serialize an empty array: %#v", path, field, value[field])
+			}
+		}
+		if help, ok := value["help"].(map[string]any); !ok || len(help) != 0 {
+			t.Fatalf("absent help did not serialize an empty object: %#v", value["help"])
+		}
+		for _, field := range []string{"Summary", "SummaryResponse", "SummaryView"} {
+			if _, exists := value[field]; exists {
+				t.Fatalf("internal model wrapper leaked: %s", field)
+			}
+		}
+	}
+}

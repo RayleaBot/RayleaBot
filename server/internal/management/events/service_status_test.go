@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 func TestProjectServiceStatus(t *testing.T) {
@@ -41,13 +41,13 @@ func TestServiceStatusPayload(t *testing.T) {
 	cases := []struct {
 		name      string
 		system    string
-		readiness health.ReadinessReport
+		readiness systemsvc.ReadinessReport
 		want      ServiceStatusPayload
 	}{
 		{
 			name:   "running payload uses stable running summary",
 			system: "running",
-			readiness: health.ReadinessReport{
+			readiness: systemsvc.ReadinessReport{
 				Status: "ready",
 			},
 			want: ServiceStatusPayload{
@@ -58,7 +58,7 @@ func TestServiceStatusPayload(t *testing.T) {
 		{
 			name:   "degraded payload keeps readiness reason and codes",
 			system: "running",
-			readiness: health.ReadinessReport{
+			readiness: systemsvc.ReadinessReport{
 				Status:      "degraded",
 				Reason:      "OneBot 正在建立连接",
 				ReasonCodes: []string{"adapter.connection_pending"},
@@ -73,7 +73,7 @@ func TestServiceStatusPayload(t *testing.T) {
 		{
 			name:   "shutdown payload projects stopping summary",
 			system: "shutting_down",
-			readiness: health.ReadinessReport{
+			readiness: systemsvc.ReadinessReport{
 				Status: "ready",
 			},
 			want: ServiceStatusPayload{

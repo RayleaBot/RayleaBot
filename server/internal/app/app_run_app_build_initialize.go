@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/redact"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -19,7 +17,7 @@ type appBuildState struct {
 	logStream        *logging.Stream
 	taskRegistry     *tasks.Registry
 	taskExecutor     *tasks.Executor
-	discoverySpec    runtimepaths.PluginDiscoverySpec
+	discoverySpec    plugincatalog.DiscoverySpec
 	pluginValidator  *config.Validator
 	pluginCatalog    *plugincatalog.Catalog
 	managementRedact func(string) string
@@ -41,7 +39,7 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 		return appBuildState{}, err
 	}
 
-	discoverySpec, err := runtimepaths.ResolvePluginDiscovery(runtimepaths.PluginDiscoveryOptions{
+	discoverySpec, err := plugincatalog.ResolveDiscovery(plugincatalog.DiscoveryOptions{
 		ConfigPath:       options.ConfigPath,
 		PluginRepoRoot:   options.PluginRepoRoot,
 		PluginSchemaPath: options.PluginSchemaPath,

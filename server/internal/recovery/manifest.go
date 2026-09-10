@@ -118,7 +118,3 @@ func ScanRepoPaths(repoRoot, configPath, databasePath string) []BackupManifestDi
 	}
 	return items
 }
-
-func RepoRootFromConfigPath(configPath string) string {
-	return filepath.Dir(filepath.Dir(configPath))
-}

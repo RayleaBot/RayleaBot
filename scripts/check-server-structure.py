@@ -42,6 +42,7 @@ def main() -> int:
 
     check_plugin_boundaries(files, errors)
     check_adapter_boundaries(files, errors)
+    check_model_boundaries(files, errors)
     check_disallowed_dirs(server_internal, root, errors)
     check_package_names(files, warnings)
     check_process_exit_calls(files, errors)
@@ -126,6 +127,24 @@ def check_adapter_boundaries(files: list[GoFile], errors: list[str]) -> None:
         for imported in file.imports:
             if any(within_package(imported, INTERNAL_PREFIX + name) for name in ("management", "configruntime", "system", "app")):
                 errors.append(f"{file.rel} imports {imported}; adapter domain must own its state and reload errors")
+
+
+def check_model_boundaries(files: list[GoFile], errors: list[str]) -> None:
+    for file in files:
+        if file.is_test:
+            continue
+        forbidden: tuple[str, ...] = ()
+        if file.package_dir == "internal/plugins":
+            forbidden = ("storage", "sqlcgen", "plugins/catalog", "plugins/lifecycle", "plugins/runtime", "plugins/actions", "management")
+        elif within_package(file.package_dir, "internal/health"):
+            forbidden = ("",)
+        elif within_package(file.package_dir, "internal/runtimepaths"):
+            forbidden = ("plugins", "recovery", "system", "management", "app")
+        elif within_package(file.package_dir, "internal/builtinmenu") or within_package(file.package_dir, "internal/render"):
+            forbidden = ("plugins/actions", "plugins/lifecycle", "plugins/runtime")
+        for imported in file.imports:
+            if any(imported.startswith(INTERNAL_PREFIX) if name == "" else within_package(imported, INTERNAL_PREFIX + name) for name in forbidden):
+                errors.append(f"{file.rel} imports {imported}; model or helper package depends on an implementation owner")
 
 
 def check_disallowed_dirs(server_internal: Path, root: Path, errors: list[str]) -> None:

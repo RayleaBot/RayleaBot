@@ -176,10 +176,14 @@ func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginSt
 	if eventStack.OutboundSender == nil {
 		return nil, errors.New("builtin menu requires an outbound sender")
 	}
+	var menuRenderer menuext.Renderer
+	if renderer != nil {
+		menuRenderer = renderer
+	}
 	return menuext.New(menuext.Deps{
 		CurrentConfig: runtimeState.CurrentConfig,
 		Plugins:       pluginStack.Plugins,
-		Renderer:      renderer,
+		Renderer:      menuRenderer,
 		Sender:        eventStack.OutboundSender,
 		WaitOutbound: func(ctx context.Context, request outbound.MessageLimitRequest) error {
 			if eventStack.OutboundLimiter == nil {

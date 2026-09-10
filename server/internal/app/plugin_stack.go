@@ -17,7 +17,6 @@ import (
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -25,7 +24,7 @@ type pluginStackDeps struct {
 	Context   context.Context
 	Config    config.Config
 	Logger    *slog.Logger
-	Discovery runtimepaths.PluginDiscoverySpec
+	Discovery plugincatalog.DiscoverySpec
 	Validator *config.Validator
 	Catalog   *plugincatalog.Catalog
 	Tasks     *tasks.Registry
@@ -105,8 +104,8 @@ func buildManifestRefresh(
 	}
 }
 
-func buildPluginRepositories(platform PlatformState) (*plugins.SQLiteRepository, pluginstore.KVRepository, pluginstore.ConfigRepository, error) {
-	pluginRepository, err := plugins.NewSQLiteRepository(platform.Storage)
+func buildPluginRepositories(platform PlatformState) (*plugincatalog.SQLiteRepository, pluginstore.KVRepository, pluginstore.ConfigRepository, error) {
+	pluginRepository, err := plugincatalog.NewSQLiteRepository(platform.Storage)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("create plugin repository: %w", err)
 	}
@@ -121,7 +120,7 @@ func buildPluginRepositories(platform PlatformState) (*plugins.SQLiteRepository,
 	return pluginRepository, pluginKVRepository, pluginConfigRepository, nil
 }
 
-func hydratePluginCatalog(ctx context.Context, catalog *plugincatalog.Catalog, pluginRepository *plugins.SQLiteRepository, pluginConfigRepository pluginstore.ConfigRepository) error {
+func hydratePluginCatalog(ctx context.Context, catalog *plugincatalog.Catalog, pluginRepository *plugincatalog.SQLiteRepository, pluginConfigRepository pluginstore.ConfigRepository) error {
 	desiredStates, err := pluginRepository.LoadDesiredStates(ctx)
 	if err != nil {
 		return fmt.Errorf("load persisted plugin desired_state: %w", err)

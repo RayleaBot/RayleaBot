@@ -1,4 +1,4 @@
-package plugins
+package catalog
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -57,7 +58,7 @@ func (r *SQLiteRepository) DeleteDesiredState(ctx context.Context, pluginID stri
 	return nil
 }
 
-func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg PackageMetadata) error {
+func (r *SQLiteRepository) SavePackageMetadata(ctx context.Context, pkg plugins.PackageMetadata) error {
 	if err := r.writeQ.SavePackageMetadata(ctx, sqlcgen.SavePackageMetadataParams{
 		PluginID:    pkg.PluginID,
 		SourceType:  pkg.SourceType,
@@ -78,16 +79,16 @@ func (r *SQLiteRepository) DeletePackageMetadata(ctx context.Context, pluginID s
 	return nil
 }
 
-func (r *SQLiteRepository) LoadAllPackageMetadata(ctx context.Context) (map[string]PackageMetadata, error) {
+func (r *SQLiteRepository) LoadAllPackageMetadata(ctx context.Context) (map[string]plugins.PackageMetadata, error) {
 	rows, err := r.readQ.LoadAllPackageMetadata(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("query plugin package metadata: %w", err)
 	}
 
-	metadata := make(map[string]PackageMetadata, len(rows))
+	metadata := make(map[string]plugins.PackageMetadata, len(rows))
 	for _, row := range rows {
 		installedAt, _ := time.Parse(time.RFC3339Nano, row.InstalledAt)
-		metadata[row.PluginID] = PackageMetadata{
+		metadata[row.PluginID] = plugins.PackageMetadata{
 			PluginID:    row.PluginID,
 			SourceType:  row.SourceType,
 			SourceRef:   row.SourceRef,

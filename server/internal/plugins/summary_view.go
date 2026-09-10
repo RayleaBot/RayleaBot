@@ -20,60 +20,54 @@ type CommandView struct {
 }
 
 type HelpView struct {
-	Title   string
-	Summary string
+	Title   string `json:"title,omitempty"`
+	Summary string `json:"summary,omitempty"`
 }
 
 type SourceView struct {
-	Root              string
-	PackageSourceType string
-	PackageSourceRef  string
-	Verified          bool
+	Root              string `json:"root"`
+	PackageSourceType string `json:"package_source_type,omitempty"`
+	PackageSourceRef  string `json:"package_source_ref,omitempty"`
+	Verified          bool   `json:"verified"`
 }
 
 type TrustView struct {
-	Level string
-	Label string
+	Level string `json:"level"`
+	Label string `json:"label"`
+}
+
+// Summary is the shared display state. Command triggers and absent-help
+// serialization are projected by each public boundary.
+type Summary struct {
+	ID               string          `json:"id"`
+	Name             string          `json:"name"`
+	Version          string          `json:"version,omitempty"`
+	Description      string          `json:"description,omitempty"`
+	Author           string          `json:"author,omitempty"`
+	Icon             string          `json:"icon,omitempty"`
+	Role             string          `json:"role"`
+	State            string          `json:"state"`
+	StateDiagnosis   *StateDiagnosis `json:"state_diagnosis,omitempty"`
+	Source           SourceView      `json:"source"`
+	Trust            TrustView       `json:"trust"`
+	CommandConflicts []string        `json:"command_conflicts"`
 }
 
 type SummaryView struct {
-	ID               string
-	Name             string
-	Version          string
-	Description      string
-	Author           string
-	Icon             string
-	Role             string
-	State            string
-	StateDiagnosis   *StateDiagnosis
-	Source           SourceView
-	Trust            TrustView
-	Commands         []CommandView
-	CommandGroups    []CommandGroup
-	Help             *HelpView
-	CommandConflicts []string
+	Summary
+	Commands      []CommandView
+	CommandGroups []CommandGroup
+	Help          *HelpView
+}
+
+func BuildSummary(snapshot Snapshot, conflicts []string) Summary {
+	role := summaryViewRole(snapshot)
+	state, diagnosis := ProjectState(snapshot)
+	return Summary{ID: snapshot.PluginID, Name: summaryViewDisplayName(snapshot), Version: strings.TrimSpace(snapshot.Version), Description: strings.TrimSpace(snapshot.Description), Author: strings.TrimSpace(snapshot.Author), Icon: strings.TrimSpace(snapshot.Icon), Role: role, State: state, StateDiagnosis: diagnosis, Source: buildSourceView(snapshot), Trust: buildTrustView(role, snapshot), CommandConflicts: normalizeConflictViews(conflicts)}
 }
 
 func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {
-	role := summaryViewRole(snapshot)
-	state, diagnosis := ProjectState(snapshot)
-	return SummaryView{
-		ID:               snapshot.PluginID,
-		Name:             summaryViewDisplayName(snapshot),
-		Version:          strings.TrimSpace(snapshot.Version),
-		Description:      strings.TrimSpace(snapshot.Description),
-		Author:           strings.TrimSpace(snapshot.Author),
-		Icon:             strings.TrimSpace(snapshot.Icon),
-		Role:             role,
-		State:            state,
-		StateDiagnosis:   diagnosis,
-		Source:           buildSourceView(snapshot),
-		Trust:            buildTrustView(role, snapshot),
-		Commands:         buildCommandViews(snapshot),
-		CommandGroups:    cloneCommandGroups(snapshot.CommandGroups),
-		Help:             buildHelpView(snapshot),
-		CommandConflicts: normalizeConflictViews(conflicts),
-	}
+	return SummaryView{Summary: BuildSummary(snapshot, conflicts), Commands: buildCommandViews(snapshot), CommandGroups: cloneCommandGroups(snapshot.CommandGroups), Help: buildHelpView(snapshot)}
 }
 
 func DetectCommandConflicts(snapshots []Snapshot) map[string][]string {

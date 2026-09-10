@@ -34,32 +34,18 @@ type ManagementUIPageResponse struct {
 }
 
 type DetailPluginResponse struct {
-	ID               string                  `json:"id"`
-	Name             string                  `json:"name"`
-	Role             string                  `json:"role"`
-	Version          string                  `json:"version,omitempty"`
-	Description      string                  `json:"description,omitempty"`
-	Author           string                  `json:"author,omitempty"`
-	License          string                  `json:"license,omitempty"`
-	MinCoreVersion   string                  `json:"min_core_version,omitempty"`
-	Concurrency      int                     `json:"concurrency,omitempty"`
-	Events           []string                `json:"events,omitempty"`
-	Permissions      map[string]any          `json:"permissions"`
-	Webhooks         []WebhookScopeResponse  `json:"webhooks"`
-	Icon             string                  `json:"icon,omitempty"`
-	Repo             string                  `json:"repo,omitempty"`
-	Homepage         string                  `json:"homepage,omitempty"`
-	Keywords         []string                `json:"keywords,omitempty"`
-	Screenshots      []ScreenshotResponse    `json:"screenshots,omitempty"`
-	ManagementUI     *ManagementUIResponse   `json:"management_ui,omitempty"`
-	State            string                  `json:"state"`
-	StateDiagnosis   *plugins.StateDiagnosis `json:"state_diagnosis,omitempty"`
-	Source           SourceResponse          `json:"source"`
-	Trust            TrustResponse           `json:"trust"`
-	Commands         []CommandResponse       `json:"commands"`
-	CommandGroups    []CommandGroupResponse  `json:"command_groups"`
-	Help             HelpResponse            `json:"help"`
-	CommandConflicts []string                `json:"command_conflicts"`
+	SummaryResponse
+	License        string                 `json:"license,omitempty"`
+	MinCoreVersion string                 `json:"min_core_version,omitempty"`
+	Concurrency    int                    `json:"concurrency,omitempty"`
+	Events         []string               `json:"events,omitempty"`
+	Permissions    map[string]any         `json:"permissions"`
+	Webhooks       []WebhookScopeResponse `json:"webhooks"`
+	Repo           string                 `json:"repo,omitempty"`
+	Homepage       string                 `json:"homepage,omitempty"`
+	Keywords       []string               `json:"keywords,omitempty"`
+	Screenshots    []ScreenshotResponse   `json:"screenshots,omitempty"`
+	ManagementUI   *ManagementUIResponse  `json:"management_ui,omitempty"`
 }
 
 type DetailResponse struct {
@@ -145,32 +131,18 @@ func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailR
 	summary := BuildSummary(catalog, snapshot)
 	return DetailResponse{
 		Plugin: DetailPluginResponse{
-			ID:               summary.ID,
-			Name:             summary.Name,
-			Role:             summary.Role,
-			Version:          strings.TrimSpace(snapshot.Version),
-			Description:      strings.TrimSpace(snapshot.Description),
-			Author:           strings.TrimSpace(snapshot.Author),
-			License:          strings.TrimSpace(snapshot.License),
-			MinCoreVersion:   strings.TrimSpace(snapshot.MinCoreVersion),
-			Concurrency:      snapshot.Concurrency,
-			Events:           NormalizeStringList(snapshot.Events),
-			Permissions:      buildPluginPermissions(snapshot),
-			Webhooks:         buildPluginWebhooks(snapshot),
-			Icon:             strings.TrimSpace(snapshot.Icon),
-			Repo:             strings.TrimSpace(snapshot.Repo),
-			Homepage:         strings.TrimSpace(snapshot.Homepage),
-			Keywords:         NormalizeStringList(snapshot.Keywords),
-			Screenshots:      buildPluginScreenshots(snapshot),
-			ManagementUI:     buildPluginManagementUI(snapshot),
-			State:            summary.State,
-			StateDiagnosis:   summary.StateDiagnosis,
-			Source:           summary.Source,
-			Trust:            summary.Trust,
-			Commands:         summary.Commands,
-			CommandGroups:    summary.CommandGroups,
-			Help:             summary.Help,
-			CommandConflicts: summary.CommandConflicts,
+			SummaryResponse: summary,
+			License:         strings.TrimSpace(snapshot.License),
+			MinCoreVersion:  strings.TrimSpace(snapshot.MinCoreVersion),
+			Concurrency:     snapshot.Concurrency,
+			Events:          NormalizeStringList(snapshot.Events),
+			Permissions:     buildPluginPermissions(snapshot),
+			Webhooks:        buildPluginWebhooks(snapshot),
+			Repo:            strings.TrimSpace(snapshot.Repo),
+			Homepage:        strings.TrimSpace(snapshot.Homepage),
+			Keywords:        NormalizeStringList(snapshot.Keywords),
+			Screenshots:     buildPluginScreenshots(snapshot),
+			ManagementUI:    buildPluginManagementUI(snapshot),
 		},
 	}
 }

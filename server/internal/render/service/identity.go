@@ -1,4 +1,4 @@
-package actions
+package service
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type RenderIdentity struct {
@@ -15,10 +14,13 @@ type RenderIdentity struct {
 	Permission map[string]any
 }
 
-func RenderIdentityData(cfg config.Config, event chatevent.Event) RenderIdentity {
+func RenderIdentityData(superAdmins []string, event chatevent.Event) RenderIdentity {
 	actor := event.Actor
 	target := event.Target
-	onebot := objectValue(event.PayloadFields["onebot"])
+	onebot := map[string]any{}
+	if event.SourceProtocol == "onebot11" {
+		onebot = objectValue(event.PayloadFields["onebot"])
+	}
 	sender := objectValue(onebot["sender"])
 
 	var actorID, actorNickname, actorRole string
@@ -50,14 +52,16 @@ func RenderIdentityData(cfg config.Config, event chatevent.Event) RenderIdentity
 	}
 	if userID != "" {
 		user["id"] = userID
-		user["avatar_url"] = "https://q1.qlogo.cn/g?b=qq&nk=" + url.QueryEscape(userID) + "&s=100"
+		if event.SourceProtocol == "onebot11" {
+			user["avatar_url"] = "https://q1.qlogo.cn/g?b=qq&nk=" + url.QueryEscape(userID) + "&s=100"
+		}
 	}
 	if title := firstText(sender["title"]); title != "" {
 		user["title"] = title
 	}
 
 	level := normalizePermissionLevel(firstText(actorRole, sender["role"]))
-	if userID != "" && renderIdentityUserIsSuperAdmin(cfg, userID) {
+	if event.SourceProtocol == "onebot11" && userID != "" && renderIdentityUserIsSuperAdmin(superAdmins, userID) {
 		level = "super_admin"
 	}
 
@@ -87,8 +91,8 @@ func CloneRenderData(data map[string]any) map[string]any {
 	return cloned
 }
 
-func renderIdentityUserIsSuperAdmin(cfg config.Config, userID string) bool {
-	for _, candidate := range cfg.Admin.SuperAdmins {
+func renderIdentityUserIsSuperAdmin(superAdmins []string, userID string) bool {
+	for _, candidate := range superAdmins {
 		if strings.TrimSpace(candidate) == userID {
 			return true
 		}

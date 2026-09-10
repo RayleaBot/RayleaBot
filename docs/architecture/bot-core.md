@@ -24,6 +24,8 @@
 | Logger | 负责统一结构化日志输出 |
 | Render Service | 负责模板渲染、结果缓存与 artifact 管理 |
 
+共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`health` 仅保存中性诊断问题，包含恢复摘要的 readiness 由 `system` 组合，HTTP 状态映射由 `management` 处理。`runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。
+
 ## 事件分发规则
 
 适配器服务发布不含管理 Frame 的领域快照，HTTP、系统诊断与管理事件流使用同一实例集合及配置顺序。reload 停止错误由适配器领域定义，配置服务仅消费执行结果并保留需要重启的字段。

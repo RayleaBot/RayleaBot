@@ -8,12 +8,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
-	"github.com/go-chi/chi/v5"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type httpHandlers struct {
@@ -123,7 +124,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		RequireAuth: managementapi.RequireAuthWithConfig(platformState.Auth, authConfig),
 		RouterDeps: managementapi.RouteDeps{
 			RepoRoot: runtimeState.RepoRoot(),
-			Readiness: func() health.ReadinessReport {
+			Readiness: func() systemsvc.ReadinessReport {
 				return systemHandlers.CurrentReadiness()
 			},
 			PublicRoutes: []managementapi.PublicRouteModule{

@@ -196,7 +196,7 @@ func (s *Service) StatusSnapshot() StatusSnapshot {
 	}
 }
 
-func readinessReportPtr(report health.ReadinessReport) *health.ReadinessReport {
+func readinessReportPtr(report ReadinessReport) *ReadinessReport {
 	return &report
 }
 
@@ -268,5 +268,5 @@ func (s *Service) setRecoverySummary(summary *recovery.CompatibilitySummary) {
 
 var _ interface {
 	SystemStatus() string
-	CurrentReadiness() health.ReadinessReport
+	CurrentReadiness() ReadinessReport
 } = (*Service)(nil)

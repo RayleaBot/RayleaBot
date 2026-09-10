@@ -5,13 +5,14 @@ import (
 	"os"
 	"strings"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"gopkg.in/yaml.v3"
 )
 
 type Options struct{ ConfigPath, SchemaPath string }
@@ -46,7 +47,7 @@ func displaySchemaPath(repoRoot, schemaPath string) string {
 
 func Build(ctx context.Context, options Options) Report {
 	issues := make([]Issue, 0, 10)
-	repoRoot := recovery.RepoRootFromConfigPath(options.ConfigPath)
+	repoRoot := runtimepaths.RootFromConfigPath(options.ConfigPath)
 	configPathDisplay := logpath.Display(repoRoot, options.ConfigPath)
 
 	if _, err := os.Stat(options.ConfigPath); err != nil {

@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
@@ -28,7 +27,7 @@ type SystemHandlers struct {
 
 type CoreService interface {
 	GetTaskStatus(string) (systemsvc.TaskStatus, bool)
-	CurrentReadiness() health.ReadinessReport
+	CurrentReadiness() systemsvc.ReadinessReport
 	DiagnosticsSnapshot(context.Context) systemsvc.DiagnosticsSnapshot
 	BuildDiagnosticsArchive(context.Context) ([]byte, error)
 	SubmitSystemBackupTask() (string, error)
@@ -140,9 +139,9 @@ func NewSystemRoutes(handlers *SystemHandlers, metrics http.Handler) SystemRoute
 	return SystemRoutes{Handlers: handlers, Metrics: metrics}
 }
 
-func (h *SystemHandlers) CurrentReadiness() health.ReadinessReport {
+func (h *SystemHandlers) CurrentReadiness() systemsvc.ReadinessReport {
 	if h.system == nil {
-		return health.ReadinessReport{Status: "failed", Reason: "system service unavailable"}
+		return systemsvc.ReadinessReport{Status: "failed", Reason: "system service unavailable"}
 	}
 	return h.system.CurrentReadiness()
 }

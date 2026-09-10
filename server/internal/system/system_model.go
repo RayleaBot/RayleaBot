@@ -20,7 +20,7 @@ type StatusSnapshot struct {
 	DBSchemaVersion string
 	UptimeSeconds   int64
 	RecoverySummary *recovery.CompatibilitySummary
-	Health          *health.ReadinessReport
+	Health          *ReadinessReport
 }
 
 type DiagnosticsSnapshot struct {

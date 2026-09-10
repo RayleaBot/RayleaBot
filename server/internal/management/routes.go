@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
 
 type PublicRouteModule interface {
@@ -34,7 +34,7 @@ func (fn ProtectedRouteFunc) RegisterProtectedRoutes(r chi.Router) {
 
 type RouteDeps struct {
 	RepoRoot        string
-	Readiness       func() health.ReadinessReport
+	Readiness       func() systemsvc.ReadinessReport
 	PublicRoutes    []PublicRouteModule
 	ProtectedRoutes []ProtectedRouteModule
 }
@@ -49,8 +49,8 @@ func RegisterRoutes(r chi.Router, deps RouteDeps, requireAuth func(http.Handler)
 }
 
 func registerPublicRoutes(r chi.Router, deps RouteDeps) {
-	r.Get("/healthz", health.NewLivenessHandler())
-	r.Get("/readyz", health.NewReadinessHandler(deps.Readiness))
+	r.Get("/healthz", NewLivenessHandler())
+	r.Get("/readyz", NewReadinessHandler(deps.Readiness))
 	for _, module := range deps.PublicRoutes {
 		if module != nil {
 			module.RegisterPublicRoutes(r)

@@ -22,6 +22,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/diagnostics"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -675,7 +676,7 @@ func TestPluginDevSyncInstallsArtifactAndDerivesPluginID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository, err := plugins.NewSQLiteRepository(store)
+	repository, err := plugincatalog.NewSQLiteRepository(store)
 	if err != nil {
 		t.Fatal(err)
 	}

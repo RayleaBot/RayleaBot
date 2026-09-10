@@ -18,7 +18,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
 func main() {
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	bootstrapLogger := logging.Bootstrap()
-	repoRoot := recovery.RepoRootFromConfigPath(configPath)
+	repoRoot := runtimepaths.RootFromConfigPath(configPath)
 	configPathDisplay := logpath.Display(repoRoot, configPath)
 	schemaPathDisplay := logpath.Display(repoRoot, schemaPath)
 	bootstrapLogger.Info(

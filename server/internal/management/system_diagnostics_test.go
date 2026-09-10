@@ -21,8 +21,8 @@ func (s diagnosticsTestSystem) GetTaskStatus(string) (systemsvc.TaskStatus, bool
 	return systemsvc.TaskStatus{}, false
 }
 
-func (s diagnosticsTestSystem) CurrentReadiness() health.ReadinessReport {
-	return health.ReadinessReport{Status: "ready"}
+func (s diagnosticsTestSystem) CurrentReadiness() systemsvc.ReadinessReport {
+	return systemsvc.ReadinessReport{Status: "ready"}
 }
 
 func (s diagnosticsTestSystem) DiagnosticsSnapshot(context.Context) systemsvc.DiagnosticsSnapshot {

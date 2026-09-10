@@ -2,15 +2,16 @@ package integration
 
 import (
 	"context"
-	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
@@ -21,7 +22,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 
 	appA := newPersistentTestApp(t, configPath, func() time.Time { return current }, "plugin-a")
 	_ = issueLoginToken(t, appA)
-	repositoryA, err := plugins.NewSQLiteRepository(appA.Storage())
+	repositoryA, err := plugincatalog.NewSQLiteRepository(appA.Storage())
 	if err != nil {
 		t.Fatalf("create plugin repository: %v", err)
 	}
@@ -32,7 +33,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 
 	appB := newPersistentTestApp(t, configPath, func() time.Time { return current }, "plugin-b")
 	defer closePersistentTestApp(t, appB)
-	repositoryB, err := plugins.NewSQLiteRepository(appB.Storage())
+	repositoryB, err := plugincatalog.NewSQLiteRepository(appB.Storage())
 	if err != nil {
 		t.Fatalf("reopen plugin repository: %v", err)
 	}

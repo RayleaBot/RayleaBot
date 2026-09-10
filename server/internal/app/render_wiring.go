@@ -15,7 +15,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -23,7 +22,7 @@ type renderDeps struct {
 	Context   context.Context
 	Config    config.Config
 	Logger    *slog.Logger
-	Discovery runtimepaths.PluginDiscoverySpec
+	Discovery plugincatalog.DiscoverySpec
 	Store     *storage.Store
 	Catalog   *plugincatalog.Catalog
 	Runner    renderservice.Runner

@@ -15,6 +15,7 @@ import (
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
@@ -40,7 +41,7 @@ type serviceBuildDeps struct {
 	Events                EventState
 	Renderer              *renderservice.Service
 	Metrics               *MetricsRegistry
-	Discovery             runtimepaths.PluginDiscoverySpec
+	Discovery             plugincatalog.DiscoverySpec
 	PluginValidator       *config.Validator
 	ManagementRedact      func(string) string
 	BilibiliHTTPTransport http.RoundTripper

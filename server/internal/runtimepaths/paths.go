@@ -2,21 +2,8 @@ package runtimepaths
 
 import (
 	"fmt"
-	"log/slog"
-	"os"
 	"path/filepath"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
-
-type PluginDiscoverySpec struct {
-	RepoRoot         string
-	PluginSchemaPath string
-	Roots            []plugincatalog.ScanRoot
-}
 
 func ResolveDatabasePath(configPath, databasePath string) (string, error) {
 	if filepath.IsAbs(databasePath) {
@@ -40,7 +27,7 @@ func ResolveRuntimeRoot(configPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve runtime root from %s: %w", configPath, err)
 	}
-	return recovery.RepoRootFromConfigPath(absoluteConfigPath), nil
+	return RootFromConfigPath(absoluteConfigPath), nil
 }
 
 func ResolveConfigLifecycleLockPath(configPath string) (string, error) {
@@ -51,85 +38,6 @@ func ResolveConfigLifecycleLockPath(configPath string) (string, error) {
 	return filepath.Clean(absoluteConfigPath) + ".runtime.lock", nil
 }
 
-type PluginDiscoveryOptions struct {
-	ConfigPath       string
-	PluginRepoRoot   string
-	PluginSchemaPath string
-	PluginRoots      []plugincatalog.ScanRoot
-}
-
-func ResolvePluginDiscovery(options PluginDiscoveryOptions) (PluginDiscoverySpec, error) {
-	if len(options.PluginRoots) > 0 || options.PluginRepoRoot != "" || options.PluginSchemaPath != "" {
-		if options.PluginRepoRoot == "" || options.PluginSchemaPath == "" || len(options.PluginRoots) == 0 {
-			return PluginDiscoverySpec{}, fmt.Errorf("plugin discovery override requires repo root, schema path, and roots")
-		}
-		return PluginDiscoverySpec{
-			RepoRoot:         options.PluginRepoRoot,
-			PluginSchemaPath: options.PluginSchemaPath,
-			Roots:            append([]plugincatalog.ScanRoot(nil), options.PluginRoots...),
-		}, nil
-	}
-
-	repoRoot, pluginSchemaPath, roots, err := PluginDiscoveryContext(options.ConfigPath)
-	if err != nil {
-		return PluginDiscoverySpec{}, err
-	}
-	return PluginDiscoverySpec{
-		RepoRoot:         repoRoot,
-		PluginSchemaPath: pluginSchemaPath,
-		Roots:            roots,
-	}, nil
-}
-
-func PluginDiscoveryContext(configPath string) (string, string, []plugincatalog.ScanRoot, error) {
-	repoRoot, err := ResolveRuntimeRoot(configPath)
-	if err != nil {
-		return "", "", nil, err
-	}
-	pluginSchemaPath := config.PluginInfoSchemaID
-
-	roots := []plugincatalog.ScanRoot{
-		{
-			Label: "plugins/installed",
-			Path:  filepath.Join(repoRoot, "plugins", "installed"),
-		},
-	}
-
-	return repoRoot, pluginSchemaPath, roots, nil
-}
-
-func CleanupOrphanedInstallDirs(logger *slog.Logger, roots []plugincatalog.ScanRoot) {
-	for _, root := range roots {
-		if root.Label != "plugins/installed" {
-			continue
-		}
-		entries, err := os.ReadDir(root.Path)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if !entry.IsDir() {
-				continue
-			}
-			name := entry.Name()
-			if len(name) > len(".plugin-install-") && name[:len(".plugin-install-")] == ".plugin-install-" {
-				orphanPath := filepath.Join(root.Path, name)
-				repoRoot := filepath.Dir(filepath.Dir(root.Path))
-				orphanPathDisplay := logpath.Display(repoRoot, orphanPath)
-				if err := os.RemoveAll(orphanPath); err != nil {
-					safeErr := logpath.Error(repoRoot, err, orphanPath)
-					logger.Warn("清理遗留插件安装目录失败："+orphanPathDisplay+"；目录仍保留，服务将继续启动。原因："+safeErr,
-						"component", "app",
-						"path", orphanPathDisplay,
-						"err", safeErr,
-					)
-				} else {
-					logger.Info("已清理遗留插件安装目录："+orphanPathDisplay,
-						"component", "app",
-						"path", orphanPathDisplay,
-					)
-				}
-			}
-		}
-	}
+func RootFromConfigPath(configPath string) string {
+	return filepath.Dir(filepath.Dir(configPath))
 }

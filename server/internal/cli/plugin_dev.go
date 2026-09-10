@@ -82,7 +82,7 @@ func syncDevelopmentPlugin(cmd Command, artifactPath, sourcePath string) error {
 		return fmt.Errorf("open plugin state database; stop the server before development sync: %w", err)
 	}
 	defer func(release func() error) { _ = release() }(store.Close)
-	repository, err := plugins.NewSQLiteRepository(store)
+	repository, err := plugincatalog.NewSQLiteRepository(store)
 	if err != nil {
 		return err
 	}

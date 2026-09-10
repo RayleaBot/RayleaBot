@@ -51,6 +51,47 @@ func TestAdapterServiceOwnsDomainStateWithoutManagementOrReloadCoordinator(t *te
 	})
 }
 
+func TestSharedModelsDoNotTransitivelyDependOnStorageOrExecution(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	internalRoot := filepath.Join(serverRoot, "internal")
+	imports := make(map[string][]string)
+	walkGoFiles(t, internalRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		rel, err := filepath.Rel(internalRoot, filepath.Dir(path))
+		if err != nil {
+			t.Fatal(err)
+		}
+		owner := modulePrefix + filepath.ToSlash(rel)
+		imports[owner] = append(imports[owner], fileImports(t, serverRoot, path)...)
+	})
+	for _, model := range []string{"plugins", "health"} {
+		seen := make(map[string]bool)
+		var visit func(string, string)
+		visit = func(owner, chain string) {
+			if seen[owner] {
+				return
+			}
+			seen[owner] = true
+			for _, imported := range imports[owner] {
+				if !strings.HasPrefix(imported, modulePrefix) {
+					continue
+				}
+				next := chain + " -> " + strings.TrimPrefix(imported, modulePrefix)
+				for _, forbidden := range []string{"storage", "sqlcgen", "plugins/catalog", "plugins/lifecycle", "plugins/runtime", "plugins/actions", "management"} {
+					path := modulePrefix + forbidden
+					if imported == path || strings.HasPrefix(imported, path+"/") {
+						t.Errorf("shared model dependency crosses implementation boundary: %s", next)
+					}
+				}
+				visit(imported, next)
+			}
+		}
+		visit(modulePrefix+model, model)
+	}
+}
+
 func TestEventPipelineDoesNotDependOnPluginProcesses(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	for _, name := range []string{"chatevent", "eventpipeline", "plugins/actions", "scheduler"} {

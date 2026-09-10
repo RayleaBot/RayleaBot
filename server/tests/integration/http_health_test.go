@@ -15,8 +15,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
+	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
@@ -76,7 +78,7 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 		}
 	}
 
-	report := health.ReadinessReport{
+	report := systemsvc.ReadinessReport{
 		Status:      fixture.Response.Body["status"].(string),
 		Reason:      fixture.Response.Body["reason"].(string),
 		ReasonCodes: toStringSlice(fixture.Response.Body["reason_codes"].([]any)),
@@ -162,7 +164,7 @@ func TestReadinessHandlerEncodesDegradedFixtureShape(t *testing.T) {
 		}
 	}
 
-	handler := health.NewReadinessHandler(func() health.ReadinessReport {
+	handler := managementapi.NewReadinessHandler(func() systemsvc.ReadinessReport {
 		return report
 	})
 

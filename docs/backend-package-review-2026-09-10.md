@@ -60,7 +60,7 @@ HTTP handler 直接执行配置写入、默认值合并、命令刷新和变更�
 
 ### 3.3 优先：聊天入口通过具体协作者依赖整个插件执行栈
 
-内置菜单仅为 `RenderIdentityData` 导入 `plugins/actions`；Ingress 直接持有 `*lifecycle.Controller`，由此传递依赖进程 runtime。证据：[menu.go:17、406](../server/internal/builtinmenu/menu.go)、[render_identity.go:8–18](../server/internal/plugins/actions/render_identity.go)、[ingress.go:14、30](../server/internal/eventpipeline/chatpolicy/ingress.go)。
+内置菜单仅为 `RenderIdentityData` 导入 `plugins/actions`；Ingress 直接持有 `*lifecycle.Controller`，由此传递依赖进程 runtime。证据：[menu.go:17、406](../server/internal/builtinmenu/menu.go)、[render_identity.go:8–18](../server/internal/render/service/identity.go)、[ingress.go:14、30](../server/internal/eventpipeline/chatpolicy/ingress.go)。
 
 整改：身份渲染投影移入现有 render 入口包，menu 和 actions 均调用它；其输入已有 chatevent/config，不需要依赖插件实现。Ingress 只声明实际使用的身份协调方法，由 App 注入 lifecycle 实现。保留 bridge、dispatch、outbound 的独立边界，不把整条事件链合成一个大包。
 
@@ -76,7 +76,7 @@ dispatch/outbound 使用 OneBot 错误类型表达通用出站失败；QQ 官方
 
 | 当前依赖 | 证据与影响 | 调整 |
 | --- | --- | --- |
-| `plugins → storage/sqlcgen` | [repository.go:9–18](../server/internal/plugins/repository.go)；根包被 16 个生产包直接消费，模型消费者同时依赖 SQLite 实现 | 根保留模型和仓储接口，SQLite 实现移到已存在的 `plugins/catalog/repository.go`；不新增只放一个实现的 state 包 |
+| `plugins → storage/sqlcgen` | [repository.go:9–18](../server/internal/plugins/catalog/repository.go)；根包被 16 个生产包直接消费，模型消费者同时依赖 SQLite 实现 | 根保留模型和仓储接口，SQLite 实现移到已存在的 `plugins/catalog/repository.go`；不新增只放一个实现的 state 包 |
 | `render/service → health → recovery → plugins` | [health.go:7–20](../server/internal/health/health.go)、[render_service.go:433](../server/internal/render/service/render_service.go)；渲染只是使用 DiagnosticIssue，却继承恢复领域和 HTTP handler 所在包 | `platform/health` 只保留中性的 DiagnosticIssue；ReadinessReport 归 `operations/system`，HTTP health handlers 归 management |
 | `runtimepaths → catalog/recovery` | [paths.go:9–19、38–43、101](../server/internal/runtimepaths/paths.go)；路径包还负责插件扫描参数和清理安装残留 | 路径推导归 `platform/runtimepaths`；插件发现参数归 catalog，安装临时目录清理归 lifecycle；根路径推导由单一公共实现提供 |
 | `configruntime → plugins/actions` | [deps.go:30](../server/internal/configruntime/deps.go)；只为持有 PluginLogLimiter 具体类型 | 改为消费方的 `ApplyConfig(config.Config)` 接口；运行配置仍与基础 config 分包 |

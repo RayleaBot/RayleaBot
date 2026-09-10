@@ -7,21 +7,10 @@ import (
 )
 
 type SummaryResponse struct {
-	ID               string                  `json:"id"`
-	Name             string                  `json:"name"`
-	Version          string                  `json:"version,omitempty"`
-	Description      string                  `json:"description,omitempty"`
-	Author           string                  `json:"author,omitempty"`
-	Icon             string                  `json:"icon,omitempty"`
-	Role             string                  `json:"role"`
-	State            string                  `json:"state"`
-	StateDiagnosis   *plugins.StateDiagnosis `json:"state_diagnosis,omitempty"`
-	Source           SourceResponse          `json:"source"`
-	Trust            TrustResponse           `json:"trust"`
-	Commands         []CommandResponse       `json:"commands"`
-	CommandGroups    []CommandGroupResponse  `json:"command_groups"`
-	Help             HelpResponse            `json:"help"`
-	CommandConflicts []string                `json:"command_conflicts"`
+	plugins.Summary
+	Commands      []CommandResponse      `json:"commands"`
+	CommandGroups []CommandGroupResponse `json:"command_groups"`
+	Help          plugins.HelpView       `json:"help"`
 }
 
 type CommandResponse struct {
@@ -47,23 +36,6 @@ type CommandGroupResponse struct {
 	Commands []string `json:"commands"`
 }
 
-type SourceResponse struct {
-	Root              string `json:"root"`
-	PackageSourceType string `json:"package_source_type,omitempty"`
-	PackageSourceRef  string `json:"package_source_ref,omitempty"`
-	Verified          bool   `json:"verified"`
-}
-
-type TrustResponse struct {
-	Level string `json:"level"`
-	Label string `json:"label"`
-}
-
-type HelpResponse struct {
-	Title   string `json:"title,omitempty"`
-	Summary string `json:"summary,omitempty"`
-}
-
 type ListResponse struct {
 	Items []SummaryResponse `json:"items"`
 }
@@ -79,21 +51,10 @@ func BuildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot) Summar
 func ToSummary(snapshot plugins.Snapshot, conflicts []string) SummaryResponse {
 	view := plugins.BuildSummaryView(snapshot, conflicts)
 	return SummaryResponse{
-		ID:               view.ID,
-		Name:             view.Name,
-		Version:          view.Version,
-		Description:      view.Description,
-		Author:           view.Author,
-		Icon:             view.Icon,
-		Role:             view.Role,
-		State:            view.State,
-		StateDiagnosis:   view.StateDiagnosis,
-		Source:           SourceResponse(view.Source),
-		Trust:            TrustResponse(view.Trust),
-		Commands:         toCommandResponses(view.Commands),
-		CommandGroups:    toCommandGroupResponses(view.CommandGroups),
-		Help:             toHelpResponse(view.Help),
-		CommandConflicts: view.CommandConflicts,
+		Summary:       view.Summary,
+		Commands:      toCommandResponses(view.Commands),
+		CommandGroups: toCommandGroupResponses(view.CommandGroups),
+		Help:          toHelpResponse(view.Help),
 	}
 }
 
@@ -126,14 +87,11 @@ func toCommandGroupResponses(groups []plugins.CommandGroup) []CommandGroupRespon
 	return items
 }
 
-func toHelpResponse(help *plugins.HelpView) HelpResponse {
+func toHelpResponse(help *plugins.HelpView) plugins.HelpView {
 	if help == nil {
-		return HelpResponse{}
+		return plugins.HelpView{}
 	}
-	return HelpResponse{
-		Title:   help.Title,
-		Summary: help.Summary,
-	}
+	return *help
 }
 
 func NormalizeStringList(values []string) []string {

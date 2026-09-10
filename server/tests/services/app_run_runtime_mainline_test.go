@@ -6,15 +6,15 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
 func TestPluginDiscoveryContextUsesOnlyInstalledRoot(t *testing.T) {
 	t.Parallel()
 
-	_, _, roots, err := runtimepaths.PluginDiscoveryContext(filepath.Join("..", "..", "..", "contracts", "config.user.schema.json"))
+	_, _, roots, err := plugincatalog.DiscoveryContext(filepath.Join("..", "..", "..", "contracts", "config.user.schema.json"))
 	if err != nil {
-		t.Fatalf("runtimepaths.PluginDiscoveryContext failed: %v", err)
+		t.Fatalf("plugincatalog.DiscoveryContext failed: %v", err)
 	}
 	if len(roots) != 1 || roots[0].Label != "plugins/installed" {
 		t.Fatalf("expected only installed root, got %#v", roots)

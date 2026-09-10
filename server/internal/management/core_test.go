@@ -24,7 +24,7 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 				FailedPlugins:   1,
 				DBSchemaVersion: "000004",
 				UptimeSeconds:   60,
-				Health: &health.ReadinessReport{
+				Health: &systemsvc.ReadinessReport{
 					Status: "degraded",
 					Checks: map[string]string{"database": "ok", "render": "resource_missing"},
 					Issues: []health.DiagnosticIssue{{

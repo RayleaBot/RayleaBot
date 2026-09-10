@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
 func runVersion(cmd Command) int {
@@ -21,7 +21,7 @@ func runVersion(cmd Command) int {
 		cmd.Logger.Error("版本命令参数无效，用法 raylea version --json")
 		return 1
 	}
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	payload, err := os.ReadFile(filepath.Join(repoRoot, "build_info.json"))
 	if err != nil {
 		cmd.Logger.Error("读取构建信息失败", "err", err.Error())
@@ -83,7 +83,7 @@ func runUpdateCheck(cmd Command) int {
 	if cmd.Now != nil {
 		checker.Now = cmd.Now
 	}
-	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
+	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	result, err := checker.Check(ctx, repoRoot)

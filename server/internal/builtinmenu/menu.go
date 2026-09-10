@@ -14,7 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
@@ -28,10 +27,14 @@ type Sender interface {
 	SendReply(context.Context, chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error)
 }
 
+type Renderer interface {
+	Render(context.Context, renderservice.Request) (renderservice.Result, error)
+}
+
 type Deps struct {
 	CurrentConfig func() config.Config
 	Plugins       plugins.CatalogView
-	Renderer      *renderservice.Service
+	Renderer      Renderer
 	Sender        Sender
 	WaitOutbound  func(context.Context, outbound.MessageLimitRequest) error
 	Logger        *slog.Logger
@@ -40,7 +43,7 @@ type Deps struct {
 type Service struct {
 	currentConfig func() config.Config
 	plugins       plugins.CatalogView
-	renderer      *renderservice.Service
+	renderer      Renderer
 	sender        Sender
 	waitOutbound  func(context.Context, outbound.MessageLimitRequest) error
 	logger        *slog.Logger
@@ -403,7 +406,7 @@ func (s *Service) withBuiltinMenuIdentity(data map[string]any, event chatevent.E
 		data = map[string]any{}
 	}
 	cfg := s.config()
-	identity := localaction.RenderIdentityData(cfg, event)
+	identity := renderservice.RenderIdentityData(cfg.Admin.SuperAdmins, event)
 	data["user"] = identity.User
 	data["permission"] = identity.Permission
 	if identity.Group != nil {
