@@ -126,6 +126,8 @@ def classify(files: list[str]) -> dict[str, bool]:
             "sdk/vue/src/contract.generated.ts", "web/src/types/plugin-management-ui.generated.ts",
             "server/internal/deps/contracts/deps-manifest.schema.json",
             "launcher/internal/desktop/contracts/deps-manifest.schema.json",
+            "launcher/internal/desktop/server_models.generated.go", "launcher/src/shared/web-api.generated.ts",
+            "launcher/internal/desktop/api-contracts/responses.generated.json",
         }:
             result["contracts"] = True
             matched = True
@@ -156,7 +158,7 @@ def classify(files: list[str]) -> dict[str, bool]:
             for area in ("server", "launcher", "contracts", "release", "ci"):
                 result[area] = True
             matched = True
-        if path in {"scripts/generate-runtime-schemas.mjs", "scripts/generate-plugin-wire.py", "scripts/generated_outputs.py"} or path.startswith("scripts/templates/") or path == "scripts/testdata/redaction.json":
+        if path in {"scripts/generate-runtime-schemas.mjs", "scripts/generate-plugin-wire.py", "scripts/generate-launcher-api.py", "scripts/generated_outputs.py"} or path.startswith("scripts/templates/") or path == "scripts/testdata/redaction.json":
             for area in ("server", "sdk", "web", "launcher", "contracts", "release", "ci"):
                 result[area] = True
             matched = True
@@ -270,6 +272,10 @@ def self_test() -> None:
         (["scripts/deps_manifest.py"], {"server": True, "launcher": True, "contracts": True, "release": True, "ci": True}),
         (["server/internal/deps/contracts/deps-manifest.schema.json"], {"server": True, "contracts": True}),
         (["launcher/internal/desktop/contracts/deps-manifest.schema.json"], {"launcher": True, "contracts": True}),
+        (["launcher/internal/desktop/server_models.generated.go"], {"launcher": True, "contracts": True}),
+        (["launcher/internal/desktop/api-contracts/responses.generated.json"], {"launcher": True, "contracts": True}),
+        (["launcher/src/shared/web-api.generated.ts"], {"launcher": True, "contracts": True}),
+        (["scripts/generate-launcher-api.py"], {"server": True, "sdk": True, "web": True, "launcher": True, "contracts": True, "release": True, "ci": True}),
     ])
     cases.append((["scripts/process-invocation.mjs"], {"server": True, "launcher": True, "release": True, "ci": True}))
     cases.append((["scripts/archive_io.py"], {"server": True, "launcher": True, "release": True, "ci": True}))
