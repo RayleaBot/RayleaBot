@@ -95,6 +95,39 @@ func TestServiceCloseClosesRunner(t *testing.T) {
 	}
 }
 
+func TestNewServiceClosesRunnerWhenInitializationFails(t *testing.T) {
+	for _, testCase := range []struct {
+		name            string
+		invalidTemplate bool
+	}{
+		{name: "template discovery", invalidTemplate: true},
+		{name: "artifact loading"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := t.TempDir()
+			output := t.TempDir()
+			if testCase.invalidTemplate {
+				if err := os.WriteFile(filepath.Join(root, "templates"), []byte("not a directory"), 0o600); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := os.WriteFile(filepath.Join(output, "corrupt.json"), []byte("{"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			runner := &fakeCloseableRunner{}
+			service, err := NewService(Options{
+				RepoRoot: root, OutputRoot: output, Store: openRenderTestStore(t), Runner: runner,
+			})
+			if err == nil {
+				_ = service.Close()
+				t.Fatal("expected initialization failure")
+			}
+			if runner.closeCount() != 1 {
+				t.Fatalf("runner close count = %d, want 1 after construction failure", runner.closeCount())
+			}
+		})
+	}
+}
+
 func TestRefreshBrowserPathReplacesAndClosesDefaultChromiumRunner(t *testing.T) {
 	t.Parallel()
 

@@ -6,18 +6,21 @@
 
 ```mermaid
 flowchart TD
-  cmd["cmd/raylea-server"] --> run["internal/app.Run"]
-  run --> platform["internal/app platform wiring"]
+  cmd["cmd/raylea-server"] --> build["app.NewWithContext"]
+  build --> platform["internal/app platform wiring"]
   platform --> pluginstate["internal/app plugin stack"]
   pluginstate --> render["internal/app render wiring"]
   render --> services["internal/app service wiring"]
   services --> httpwire["internal/app HTTP wiring"]
-  httpwire --> server["net/http.Server"]
+  httpwire --> run["App.Run"]
+  run --> server["net/http.Server"]
 ```
 
 `internal/app` 是组合根。它负责把配置、存储、日志、插件、渲染、事件管线和管理 HTTP 入口组装起来。业务规则留在各自领域包内，组合根只持有模块对外接口。
 
 `App.New` 在构建任何运行期服务前获取 `<config-path>.runtime.lock`。锁已被同配置的另一实例持有时启动立即失败；构建中途失败或 `App.Close` 完成时释放该锁。
+
+构造失败按资源依赖逆序清理。平台先停止任务执行、持久化和日志刷新，再关闭 SQLite；渲染服务初始化失败也会释放已创建的 worker 与 runner。构造错误和清理错误一并返回。
 
 ## 运行态资源
 
@@ -34,14 +37,19 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  signal["context cancelled / shutdown request"] --> scheduler["stop scheduler"]
+  signal["task failure / cancellation / shutdown request"] --> close["App.Close"]
+  close --> http["cancel run context · shutdown HTTP"]
+  http --> workers["wait supervised tasks and snapshots"]
+  workers --> scheduler["stop scheduler"]
   scheduler --> plugins["stop runtime managers"]
-  plugins --> adapter["stop adapter"]
-  adapter --> http["shutdown HTTP server"]
-  http --> close["App.Close"]
-  close --> services["events · installer · QR sessions · tasks · render · logs"]
+  plugins --> adapter["stop all adapter instances and callbacks"]
+  adapter --> services["events · installer · QR sessions · tasks · render · logs"]
   services --> storage["close storage"]
   storage --> lock["release config lifecycle lock"]
 ```
 
-`App.Close` 还会关闭事件栈、插件安装与卸载服务、剩余三方扫码会话、任务 executor 与 registry、渲染和日志。持久化资源和配置生命周期锁最后释放。新的长期运行资源需要接入同一关闭链路，避免关闭完成后继续无界运行。
+运行监督器独立启动任务，首个任务错误触发取消；HTTP 正常退出或取消竞争不会覆盖该错误。关闭先等待监督任务和数据库快照结束，再释放持久化资源。
+
+`App.Close` 并发或重复调用只执行一次，所有调用者获得相同的聚合结果。单个资源关闭失败仍继续清理其他资源，SQLite 和配置生命周期锁最后释放。
+
+OneBot 成功停止时，入站处理、ready 回调、运行信息请求和反向连接会话均已退出。忽略取消的回调会导致 Stop 按 deadline 返回等待错误；该生命周期在回调实际退出前保持占用，不能启动第二个事件派发器。超时关闭不视为成功。

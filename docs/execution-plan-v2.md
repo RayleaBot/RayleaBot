@@ -95,7 +95,7 @@
 | 完成 | ID | 优先级/规模 | 工作包 | 前置 | 状态 | 提交 / 验证 / 阻塞 |
 | --- | --- | --- | --- | --- | --- | --- |
 | [ ] | P01 | P0/S | CI 输入分类与基线 | — | 待验收 | 分类/结构/Windows/core race/Linux 目标 lint 通过；托管 CI 待运行 |
-| [ ] | P02 | P0/M | 监督器与资源关闭 | P01 | 进行中 | 首错、完整关闭与快照任务回收 |
+| [x] | P02 | P0/M | 监督器与资源关闭 | P01 | 完成 | 首错、幂等清理、快照/回调等待和构造失败回收均已验证 |
 | [ ] | P03 | P0/M | 多实例路由与事件补全 | P01 | 进行中 | 动作/元数据子任务完成；集合摘要与占位 Shell 后续 |
 | [ ] | P04 | P0/M | 安装失败传播与 HTTP 输入边界 | P01 | 进行中 | HTTP 子任务完成；安装后置/回滚待实施 |
 | [ ] | P05 | P1/L | 错误码与结构化失败语义 | P01 | 未开始 | — |
@@ -524,7 +524,8 @@
 | 2026-09-10 | P01 分类、结构与 PR 门禁 | 待验收 | `235b2870` | 补 go.work.sum/SQL 登记分类；重命名两端均触发；结构规则覆盖子包；PR 增 lint、核心 race 和 Windows 必需 job | Python scripts/tests：19 项，16 通过、3 项 POSIX 测试按平台跳过；分类自测/结构/architecture 通过；核心 lint 0 issues；Windows lifecycle/releaseupdate/filelock 通过；CI YAML/needs 与文档链接通过 | Windows 默认 CGO_ENABLED=0；已定位独立 gcc，race 另行验证；托管 CI 尚未运行 |
 | 2026-09-10 | P04.HTTP 管理请求体边界 | 完成 | `e2b1af8b` | 13 入口统一限额/单对象解码；development 16 KiB，其余 1 MiB；可选空体与动态 JSON 保持正式语义 | management/httpapi 包测试；services 的 PluginSettings/Secrets/Management 定向测试；13×13 输入回归；strict 通过；Web/Launcher OpenAPI 临时生成与原文件哈希一致 | P04 安装后置和回滚传播尚未实施 |
 | 2026-09-10 | P01 Linux lint 与核心 race 补验 | 待验收 | `f0c76de8` | 修复非 Windows Authenticode 错误串触发的 ST1005 | `GOOS=linux GOARCH=amd64 CGO_ENABLED=0` 下 CI 同参数 lint 0 issues；Windows 用独立 gcc、CGO_ENABLED=1 跑 CI 核心包 race 全部通过 | 托管 Linux/Windows workflow 未实际运行 |
-| 2026-09-10 | P03.ROUTING 动作与元数据实例隔离 | 完成 | 本提交 | 协议/SDK 明确实例选择；复用 Router，按父事件约束选路；provider 前剥离 selector；元数据与缓存按实例隔离 | app/actions/runtime/onebot11/outbound/architecture 包及 services OneBot/Provider 测试通过；SDK GOWORK=off 全包通过；strict、生成/verify、文档链接通过；双实例 HTTP 与 LLOneBot/NapCat provider 门禁回归通过；相关核心 race 通过 | 单实例 HTTP/WS/system 摘要及占位 Shell 仍待 P03 后续子任务 |
+| 2026-09-10 | P03.ROUTING 动作与元数据实例隔离 | 完成 | `5b96a922` | 协议/SDK 明确实例选择；复用 Router，按父事件约束选路；provider 前剥离 selector；元数据与缓存按实例隔离 | app/actions/runtime/onebot11/outbound/architecture 包及 services OneBot/Provider 测试通过；SDK GOWORK=off 全包通过；strict、生成/verify、文档链接通过；双实例 HTTP 与 LLOneBot/NapCat provider 门禁回归通过；相关核心 race 通过 | 单实例 HTTP/WS/system 摘要及占位 Shell 仍待 P03 后续子任务 |
+| 2026-09-10 | P02 监督器与完整关闭 | 完成 | 本提交 | 任务独立启动并保留首错；并发 Close 仅清理一次、失败继续；快照/适配器回调结束后回收依赖；平台与渲染构造失败完整清理 | App/OneBot 全包 race、存储/渲染关闭定向 race、真实 App 监听失败/构造失败/适配器启停定向 integration race 通过；vet/lint 通过；Server `go test ./...` 全部通过；最终 Linux 目标 lint 0 issues | 无响应取消的回调以明确超时失败返回，不宣称无残留；托管 CI、Web/Launcher E2E 与发布打包未运行 |
 
 P01 依赖基线：`go list` 枚举 Server 66 个包，其中 internal 59 个；app/management 直接依赖 internal 包分别为 45/27。生成链仍为 runtime-schema/bridge、OpenAPI/WS、Wails bindings、sqlc；P01 未改变生成输入。上述数量仅记录当前结构，不作为整改目标。
 

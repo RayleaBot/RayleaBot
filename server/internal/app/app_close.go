@@ -9,63 +9,89 @@ import (
 )
 
 func (a *App) Close() error {
+	if a == nil {
+		return nil
+	}
+	a.process.closeOnce.Do(func() {
+		a.process.closeErr = a.closeResources()
+	})
+	return a.process.closeErr
+}
+
+func (a *App) closeResources() error {
 	var errs []error
-	if a != nil && a.metricsRuntimeGaugeStop != nil {
+	a.requestShutdown()
+	if err := a.shutdownHTTPServer(5 * time.Second); err != nil {
+		errs = append(errs, fmt.Errorf("shutdown http server: %w", err))
+	}
+	a.process.runCancelMu.Lock()
+	wait := a.process.runWait
+	a.process.runCancelMu.Unlock()
+	if wait != nil {
+		if err := wait(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if a.platform.Scheduler != nil {
+		a.platform.Scheduler.Stop()
+	}
+	if a.metricsRuntimeGaugeStop != nil {
 		a.metricsRuntimeGaugeStop()
 		a.metricsRuntimeGaugeStop = nil
 	}
-	if a != nil && a.runtimes != nil {
+	if a.runtimes != nil {
 		if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
 		}
 		a.runtimes = nil
 	}
-	if a != nil {
-		a.eventStack.Close()
+	if err := a.stopAdapter(5 * time.Second); err != nil {
+		errs = append(errs, fmt.Errorf("stop adapters: %w", err))
 	}
-	if a != nil && a.pluginStack.PluginInstaller != nil {
+	a.eventStack.Close()
+	if a.pluginStack.PluginInstaller != nil {
 		if err := a.pluginStack.PluginInstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
 		}
 		a.pluginStack.PluginInstaller = nil
 	}
-	if a != nil && a.services.ThirdPartyQRLogin != nil {
+	if a.services.ThirdPartyQRLogin != nil {
 		a.services.ThirdPartyQRLogin.Close()
 		a.services.ThirdPartyQRLogin = nil
 	}
-	if a != nil && a.platform.TaskExecutor != nil {
+	if a.platform.TaskExecutor != nil {
 		if err := a.platform.TaskExecutor.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close task executor: %w", err))
 		}
 		a.platform.TaskExecutor = nil
 	}
-	if a != nil && a.pluginStack.PluginUninstaller != nil {
+	if a.pluginStack.PluginUninstaller != nil {
 		if err := a.pluginStack.PluginUninstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
 		}
 		a.pluginStack.PluginUninstaller = nil
 	}
-	if a != nil && a.platform.Tasks != nil {
+	if a.platform.Tasks != nil {
 		if err := a.platform.Tasks.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("flush task registry: %w", err))
 		}
 		a.platform.Tasks = nil
 	}
-	if a != nil && a.renderStack.Renderer != nil {
+	if a.renderStack.Renderer != nil {
 		if err := a.renderStack.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close render service: %w", err))
 		}
 	}
-	if a != nil && a.platform.Logs != nil {
+	if a.platform.Logs != nil {
 		a.platform.Logs.Close()
 	}
-	if a != nil && a.platform.Storage != nil {
+	if a.platform.Storage != nil {
 		if err := a.platform.Storage.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close sqlite store: %w", err))
 		}
 		a.platform.Storage = nil
 	}
-	if a != nil && a.configLifecycleLock != nil {
+	if a.configLifecycleLock != nil {
 		if err := a.configLifecycleLock.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("release config lifecycle lock: %w", err))
 		}
@@ -91,15 +117,12 @@ func (a *App) stopRuntimeManagers(timeout time.Duration) error {
 }
 
 func (a *App) stopAdapter(timeout time.Duration) error {
-	if a.eventStack.Adapter == nil {
-		return nil
-	}
+	var errs []error
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	for id, client := range a.eventStack.QQOfficial {
 		if err := client.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			a.Logger().Warn("QQ 官方机器人适配器停止时出错。",
-				"component", "adapter.qqofficial", "adapter_id", id, "error", err.Error())
+			errs = append(errs, fmt.Errorf("stop QQ official adapter %s: %w", id, err))
 		}
 	}
 	for id, shell := range a.eventStack.OneBotShells {
@@ -107,16 +130,15 @@ func (a *App) stopAdapter(timeout time.Duration) error {
 			continue
 		}
 		if err := shell.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			a.Logger().Warn("OneBot 适配器停止时出错。",
-				"component", "adapter.onebot11", "adapter_id", id, "error", err.Error())
+			errs = append(errs, fmt.Errorf("stop OneBot adapter %s: %w", id, err))
 		}
 	}
-	// The primary carries the error: it is the instance the management surface
-	// reports on, so a failure to stop it is worth failing shutdown for.
-	if err := a.eventStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		return err
+	if a.eventStack.Adapter != nil {
+		if err := a.eventStack.Adapter.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			errs = append(errs, fmt.Errorf("stop primary adapter: %w", err))
+		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (a *App) shutdownHTTPServer(timeout time.Duration) error {
@@ -126,7 +148,7 @@ func (a *App) shutdownHTTPServer(timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	if err := a.process.server.Shutdown(ctx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		return err
+		return errors.Join(err, a.process.server.Close())
 	}
 	return nil
 }

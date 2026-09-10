@@ -292,10 +292,10 @@ func NewService(options Options) (*Service, error) {
 	})
 
 	if err := service.syncTemplatesFromFiles(context.Background()); err != nil {
-		return nil, err
+		return nil, errors.Join(err, service.Close())
 	}
 	if err := service.artifactStore.load(); err != nil {
-		return nil, err
+		return nil, errors.Join(err, service.Close())
 	}
 
 	return service, nil

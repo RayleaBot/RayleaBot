@@ -170,6 +170,9 @@ func (s *Shell) dispatchEvents(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case event := <-s.eventQueue:
+			if ctx.Err() != nil {
+				return
+			}
 			handler := s.currentEventHandler()
 			if handler == nil {
 				continue

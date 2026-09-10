@@ -7,6 +7,18 @@ import (
 
 func (s *Shell) run(ctx context.Context) {
 	defer func() {
+		s.mu.Lock()
+		s.stopping = true
+		cancel := s.cancel
+		reverseConn := s.reverseConn
+		s.mu.Unlock()
+		cancel()
+		if reverseConn != nil {
+			_ = reverseConn.CloseNow()
+		}
+		// Stop may time out, but this lifecycle stays active until every callback
+		// exits, preventing a reload from starting a second event dispatcher.
+		s.workers.Wait()
 		s.clearConn(nil)
 		s.markStopped()
 		s.logger.Info(
@@ -21,6 +33,7 @@ func (s *Shell) run(ctx context.Context) {
 		}
 		s.started = false
 		s.cancel = nil
+		s.runCtx = nil
 		s.done = nil
 		s.mu.Unlock()
 	}()
@@ -138,9 +151,9 @@ func (s *Shell) runAttempt(ctx context.Context) (bool, bool) {
 		"transport", string(TransportForwardWS),
 		"ws_url", sanitizeWSURL(s.forwardWSURL()),
 	)
-	go s.refreshRuntimeInfo(ctx, TransportForwardWS)
+	s.startWorker(func(ctx context.Context) { s.refreshRuntimeInfo(ctx, TransportForwardWS) })
 	if handler := s.currentReadyHandler(); handler != nil {
-		go handler(ctx)
+		s.startWorker(handler)
 	}
 
 	err = s.readLoop(ctx, TransportForwardWS, conn)

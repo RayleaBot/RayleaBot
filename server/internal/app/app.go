@@ -145,7 +145,12 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		SchedulerTrigger: schedulerTrigger,
 	})
 	if err != nil {
-		return nil, err
+		partial := &App{platform: PlatformState{
+			TaskExecutor: buildState.taskExecutor,
+			Tasks:        buildState.taskRegistry,
+			Logs:         buildState.logStream,
+		}}
+		return nil, errors.Join(err, partial.Close())
 	}
 	var (
 		pluginState           PluginStackState
@@ -153,7 +158,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		eventState            EventState
 		stopRuntimeStateGauge func()
 	)
-	cleanupPartialBuild := func() {
+	cleanupPartialBuild := func(cause error) error {
 		partial := &App{
 			platform:                platformState,
 			pluginStack:             pluginState,
@@ -161,19 +166,17 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 			eventStack:              eventState,
 			metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 		}
-		_ = partial.Close()
+		return errors.Join(cause, partial.Close())
 	}
 	// A config the loader migrated points at the adapters' new secret keys, so
 	// the sealed values move before anything tries to resolve them.
 	if err := configruntime.MigrateConfigSecretKeys(ctx, platformState.Secrets,
 		configruntime.ConfigDocumentFromTyped(buildState.core.CurrentConfig())); err != nil {
-		cleanupPartialBuild()
-		return nil, fmt.Errorf("migrate config secret keys: %w", err)
+		return nil, cleanupPartialBuild(fmt.Errorf("migrate config secret keys: %w", err))
 	}
 	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.CurrentConfig())
 	if err != nil {
-		cleanupPartialBuild()
-		return nil, fmt.Errorf("resolve config secrets: %w", err)
+		return nil, cleanupPartialBuild(fmt.Errorf("resolve config secrets: %w", err))
 	}
 	buildState.core.SetConfig(resolvedConfig)
 	buildState.core.AddRedactionValues(configruntime.ConfigSecretValues(resolvedConfig)...)
@@ -189,8 +192,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Platform:  platformState,
 	})
 	if err != nil {
-		cleanupPartialBuild()
-		return nil, err
+		return nil, cleanupPartialBuild(err)
 	}
 
 	renderState, err = buildRender(renderDeps{
@@ -203,8 +205,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Runner:    options.RenderRunner,
 	})
 	if err != nil {
-		cleanupPartialBuild()
-		return nil, err
+		return nil, cleanupPartialBuild(err)
 	}
 
 	eventState = buildEvents(eventDeps{
@@ -230,12 +231,10 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		BilibiliClock:         options.BilibiliClock,
 	})
 	if err != nil {
-		cleanupPartialBuild()
-		return nil, err
+		return nil, cleanupPartialBuild(err)
 	}
 	if serviceBuild.Services.PluginLifecycle == nil {
-		cleanupPartialBuild()
-		return nil, fmt.Errorf("plugin lifecycle service is required")
+		return nil, cleanupPartialBuild(fmt.Errorf("plugin lifecycle service is required"))
 	}
 	schedulerLifecycle = serviceBuild.Services.PluginLifecycle
 
@@ -267,8 +266,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		DevelopmentArtifactRoot: options.DevelopmentArtifactRoot,
 	})
 	if err != nil {
-		_ = application.Close()
-		return nil, err
+		return nil, errors.Join(err, application.Close())
 	}
 	application.process.router = httpState.Router
 	application.process.server = httpState.Server

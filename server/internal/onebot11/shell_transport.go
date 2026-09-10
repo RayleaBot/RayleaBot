@@ -63,8 +63,8 @@ func (s *Shell) markTransportPrimed() {
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)
-	if s.snapshot.HTTPAPI.Enabled && s.snapshot.HTTPAPI.Configured {
-		go s.refreshRuntimeInfo(context.Background(), TransportHTTPAPI)
+	if snapshot.HTTPAPI.Enabled && snapshot.HTTPAPI.Configured {
+		s.startWorker(func(ctx context.Context) { s.refreshRuntimeInfo(ctx, TransportHTTPAPI) })
 	}
 }
 

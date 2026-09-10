@@ -24,7 +24,9 @@ type appProcessState struct {
 	shuttingDown atomic.Bool
 	runCancelMu  sync.Mutex
 	runCancel    context.CancelFunc
-	shutdownOnce sync.Once
+	runWait      func() error
+	closeOnce    sync.Once
+	closeErr     error
 }
 
 type appRuntimeState struct {
@@ -93,8 +95,12 @@ func (s *appRuntimeState) AddRedactionValues(values ...string) {
 
 func (a *App) Run(ctx context.Context) error {
 	supervisor := newRunSupervisor(ctx)
+	defer supervisor.Cancel()
 	runCtx := supervisor.Context()
-	a.setRunCancel(supervisor.Cancel)
+	started := make(chan struct{})
+	if !a.setRunSupervisor(supervisor, started) {
+		return errors.New("application is already closing")
+	}
 	defer a.clearRunCancel()
 
 	if a.services.PluginLifecycle != nil {
@@ -102,17 +108,17 @@ func (a *App) Run(ctx context.Context) error {
 	}
 	if a.services.AccountValidation != nil {
 		supervisor.Go(func(ctx context.Context) error {
-			return a.services.AccountValidation.Run(ctx)
+			if err := a.services.AccountValidation.Run(ctx); err != nil {
+				return fmt.Errorf("run account validation: %w", err)
+			}
+			return nil
 		})
 	}
 
 	a.services.System.AutoPrepareRuntimeEnvironments(runCtx)
 	if err := runCtx.Err(); err != nil {
-		closeErr := a.Close()
-		if closeErr != nil {
-			return errors.Join(err, closeErr)
-		}
-		return err
+		close(started)
+		return a.Close()
 	}
 	if a.services.PluginLifecycle != nil {
 		supervisor.Go(func(ctx context.Context) error {
@@ -120,7 +126,10 @@ func (a *App) Run(ctx context.Context) error {
 			return nil
 		})
 	}
-	storage.StartSnapshotLoop(runCtx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
+	supervisor.Go(func(ctx context.Context) error {
+		storage.RunSnapshotLoop(ctx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
+		return nil
+	})
 	// Disabled instances run no transports; keeping the supervisor alive lets
 	// the instance switch take effect without restarting the application.
 	for _, shell := range a.eventStack.OneBotShells {
@@ -135,78 +144,48 @@ func (a *App) Run(ctx context.Context) error {
 		serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
 		a.state.Logger.Info("服务正在启动，管理地址："+serverURL, "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
 		if err := a.process.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return err
+			return fmt.Errorf("listen on %s: %w", a.process.server.Addr, err)
 		}
 		return nil
 	})
 
-	select {
-	case <-runCtx.Done():
-		return a.shutdownFromContext()
-	case err := <-supervisor.Errors():
-		return a.shutdownAfterServerExit(err)
-	}
-}
-
-func (a *App) shutdownFromContext() error {
-	a.process.shuttingDown.Store(true)
+	close(started)
+	<-runCtx.Done()
 	serverURL := httpapi.DisplayServerURL(a.process.server.Addr)
 	a.state.Logger.Info("服务正在关闭", "component", "app", "listen_addr", a.process.server.Addr, "url", serverURL)
-	a.platform.Scheduler.Stop()
-	if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
-		return fmt.Errorf("stop runtime managers: %w", err)
-	}
-	if err := a.stopAdapter(5 * time.Second); err != nil {
-		return fmt.Errorf("stop adapter shell: %w", err)
-	}
-	if err := a.shutdownHTTPServer(5 * time.Second); err != nil {
-		return err
-	}
 	return a.Close()
 }
 
-func (a *App) shutdownAfterServerExit(serverErr error) error {
-	a.platform.Scheduler.Stop()
-	if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
-		return fmt.Errorf("stop runtime managers after http server error: %w", err)
-	}
-	if err := a.stopAdapter(5 * time.Second); err != nil {
-		return fmt.Errorf("stop adapter shell after http server error: %w", err)
-	}
-
-	closeErr := a.Close()
-	if serverErr != nil {
-		if closeErr != nil {
-			return errors.Join(fmt.Errorf("listen on %s: %w", a.process.server.Addr, serverErr), closeErr)
-		}
-		return fmt.Errorf("listen on %s: %w", a.process.server.Addr, serverErr)
-	}
-	return closeErr
-}
-
-func (a *App) setRunCancel(cancel context.CancelFunc) {
+func (a *App) setRunSupervisor(supervisor *runSupervisor, started <-chan struct{}) bool {
 	a.process.runCancelMu.Lock()
 	defer a.process.runCancelMu.Unlock()
-	a.process.runCancel = cancel
+	if a.process.shuttingDown.Load() || a.process.runCancel != nil {
+		return false
+	}
+	a.process.runCancel = supervisor.Cancel
+	a.process.runWait = func() error {
+		// No tasks may be added after Run has finished starting its services.
+		<-started
+		return supervisor.Wait()
+	}
+	return true
 }
 
 func (a *App) clearRunCancel() {
 	a.process.runCancelMu.Lock()
 	defer a.process.runCancelMu.Unlock()
 	a.process.runCancel = nil
+	a.process.runWait = nil
 }
 
 func (a *App) requestShutdown() {
-
 	a.process.shuttingDown.Store(true)
-	a.process.shutdownOnce.Do(func() {
-		a.process.runCancelMu.Lock()
-		cancel := a.process.runCancel
-		a.process.runCancelMu.Unlock()
-		if cancel != nil {
-			cancel()
-		}
-	})
+	a.process.runCancelMu.Lock()
+	cancel := a.process.runCancel
+	a.process.runCancelMu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
 }
 
 func (a *App) Handler() http.Handler {
@@ -214,10 +193,11 @@ func (a *App) Handler() http.Handler {
 }
 
 type runSupervisor struct {
-	ctx    context.Context
-	cancel context.CancelFunc
-	errCh  chan error
-	once   sync.Once
+	ctx     context.Context
+	cancel  context.CancelFunc
+	errCh   chan error
+	errOnce sync.Once
+	workers sync.WaitGroup
 }
 
 func newRunSupervisor(parent context.Context) *runSupervisor {
@@ -241,7 +221,9 @@ func (s *runSupervisor) Go(run func(context.Context) error) {
 	if run == nil {
 		return
 	}
+	s.workers.Add(1)
 	go func() {
+		defer s.workers.Done()
 		if err := run(s.ctx); err != nil {
 			s.report(err)
 		}
@@ -252,24 +234,32 @@ func (s *runSupervisor) GoCritical(run func(context.Context) error) {
 	if run == nil {
 		return
 	}
+	s.workers.Add(1)
 	go func() {
-		s.once.Do(func() {
-			s.errCh <- run(s.ctx)
-		})
+		defer s.workers.Done()
+		s.report(run(s.ctx))
+		s.Cancel()
 	}()
 }
 
 func (s *runSupervisor) report(err error) {
-	if err == nil {
+	if err == nil || (s.ctx.Err() != nil && errors.Is(err, s.ctx.Err())) {
 		return
 	}
-	s.once.Do(func() {
+	s.errOnce.Do(func() {
 		s.errCh <- err
 	})
+	s.Cancel()
 }
 
-func (s *runSupervisor) Errors() <-chan error {
-	return s.errCh
+func (s *runSupervisor) Wait() error {
+	s.workers.Wait()
+	select {
+	case err := <-s.errCh:
+		return err
+	default:
+		return nil
+	}
 }
 
 func (s *appRuntimeState) redactString(value string) string {

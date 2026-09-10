@@ -62,6 +62,8 @@ type Shell struct {
 	reverseConn      *websocket.Conn
 	reverseDone      chan struct{}
 	cancel           context.CancelFunc
+	runCtx           context.Context
+	workers          sync.WaitGroup
 	done             chan struct{}
 	started          bool
 	stopping         bool

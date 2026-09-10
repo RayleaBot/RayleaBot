@@ -22,6 +22,7 @@ func (s *Shell) Start(ctx context.Context) {
 
 	runCtx, cancel := context.WithCancel(ctx)
 	s.cancel = cancel
+	s.runCtx = runCtx
 	s.done = make(chan struct{})
 	s.started = true
 	s.stopping = false
@@ -37,8 +38,23 @@ func (s *Shell) Start(ctx context.Context) {
 
 	s.markTransportPrimed()
 
-	go s.dispatchEvents(runCtx)
+	s.startWorker(s.dispatchEvents)
 	go s.run(runCtx)
+}
+
+func (s *Shell) startWorker(run func(context.Context)) {
+	s.mu.Lock()
+	if !s.started || s.stopping {
+		s.mu.Unlock()
+		return
+	}
+	ctx := s.runCtx
+	s.workers.Add(1)
+	s.mu.Unlock()
+	go func() {
+		defer s.workers.Done()
+		run(ctx)
+	}()
 }
 
 func (s *Shell) Stop(ctx context.Context) error {
@@ -193,17 +209,21 @@ func (s *Shell) AttachReverseWS(conn *websocket.Conn) {
 	}
 	s.reverseConn = conn
 	s.reverseDone = done
+	ctx := s.runCtx
+	s.workers.Add(1)
 	s.mu.Unlock()
 
 	if previous != nil {
 		_ = previous.CloseNow()
 	}
 
-	go s.handleReverseSession(conn, done)
+	go func() {
+		defer s.workers.Done()
+		s.handleReverseSession(ctx, conn, done)
+	}()
 }
 
-func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
-	ctx := context.Background()
+func (s *Shell) handleReverseSession(ctx context.Context, conn *websocket.Conn, done chan struct{}) {
 	defer func() {
 		defer close(done)
 		_ = conn.CloseNow()
@@ -255,10 +275,10 @@ func (s *Shell) handleReverseSession(conn *websocket.Conn, done chan struct{}) {
 	handler := s.stateHandler
 	s.mu.Unlock()
 	s.emitStateSnapshot(handler, snapshot)
-	go s.refreshRuntimeInfo(ctx, TransportReverseWS)
+	s.startWorker(func(ctx context.Context) { s.refreshRuntimeInfo(ctx, TransportReverseWS) })
 
 	if readyHandler := s.currentReadyHandler(); readyHandler != nil {
-		go readyHandler(ctx)
+		s.startWorker(readyHandler)
 	}
 
 	if err := s.readLoop(ctx, TransportReverseWS, conn); err != nil && ctx.Err() == nil && !s.isStopping() {

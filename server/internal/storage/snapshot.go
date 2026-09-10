@@ -56,24 +56,27 @@ func (s *Store) CreateSnapshot(ctx context.Context) (string, error) {
 	return createSnapshot(ctx, s.Write, s.Path, defaultSnapshotRetention)
 }
 
-func StartSnapshotLoop(ctx context.Context, store *Store, logger *slog.Logger, repoRoot string) {
+// RunSnapshotLoop runs until cancellation. Its owner must wait for it before
+// closing store so that an in-flight snapshot can release the database handles.
+func RunSnapshotLoop(ctx context.Context, store *Store, logger *slog.Logger, repoRoot string) {
 	if store == nil {
 		return
 	}
 
-	go func() {
-		CreateSnapshotBestEffort(ctx, store, logger, repoRoot)
-		ticker := time.NewTicker(SnapshotInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				CreateSnapshotBestEffort(ctx, store, logger, repoRoot)
-			}
+	if ctx.Err() != nil {
+		return
+	}
+	CreateSnapshotBestEffort(ctx, store, logger, repoRoot)
+	ticker := time.NewTicker(SnapshotInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			CreateSnapshotBestEffort(ctx, store, logger, repoRoot)
 		}
-	}()
+	}
 }
 
 func CreateSnapshotBestEffort(parent context.Context, store *Store, logger *slog.Logger, repoRoot string) {

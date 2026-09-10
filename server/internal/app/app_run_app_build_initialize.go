@@ -41,8 +41,6 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 		return appBuildState{}, err
 	}
 
-	taskRegistry := tasks.NewRegistry()
-	taskExecutor := tasks.NewExecutor(taskRegistry, 5*time.Minute)
 	discoverySpec, err := runtimepaths.ResolvePluginDiscovery(runtimepaths.PluginDiscoveryOptions{
 		ConfigPath:       options.ConfigPath,
 		PluginRepoRoot:   options.PluginRepoRoot,
@@ -76,6 +74,8 @@ func initializeAppBuild(options Options) (appBuildState, error) {
 	}
 	core.SetConfig(cfg)
 	core.SetSummary(summary)
+	taskRegistry := tasks.NewRegistry()
+	taskExecutor := tasks.NewExecutor(taskRegistry, 5*time.Minute)
 
 	return appBuildState{
 		core:             core,

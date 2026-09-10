@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -63,12 +64,17 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 		return PlatformState{}, fmt.Errorf("open sqlite store: %w", err)
 	}
 
-	var cleanups []func()
-	cleanups = append(cleanups, func() { _ = storageStore.Close() })
+	var cleanups []func() error
+	cleanups = append(cleanups, storageStore.Close)
+	// These workers may already hold repositories backed by storageStore when
+	// later assembly fails. Release them before the database cleanup runs.
+	cleanups = append(cleanups, func() error { deps.Logs.Close(); return nil })
+	cleanups = append(cleanups, deps.Tasks.Close)
+	cleanups = append(cleanups, deps.TaskExecutor.Close)
 
 	abort := func(cause error) (PlatformState, error) {
 		for i := len(cleanups) - 1; i >= 0; i-- {
-			cleanups[i]()
+			cause = errors.Join(cause, cleanups[i]())
 		}
 		return PlatformState{}, cause
 	}
@@ -161,7 +167,7 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	if err != nil {
 		return abort(fmt.Errorf("create scheduler engine: %w", err))
 	}
-	cleanups = append(cleanups, func() { schedulerEngine.Stop() })
+	cleanups = append(cleanups, func() error { schedulerEngine.Stop(); return nil })
 	if err := schedulerEngine.Hydrate(ctx); err != nil {
 		return abort(fmt.Errorf("hydrate scheduler: %w", err))
 	}
