@@ -57,6 +57,12 @@
 | `release.yml` | `windows-latest`、`ubuntu-latest`、`macos-26` | Tag 门禁 | 构建四种正式 artifact，校验 checksum、release metadata、协议读取接口、模板预览、recovery drill 与交付 smoke |
 | `self-host-smoke.yml` | `windows-latest`、`ubuntu-latest`、`macos-26` | 否 | 对四种 artifact 运行长期自托管、诊断与恢复探针 |
 
+Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆盖全部 Go 包。SQL 例外的复审日期到期产生维护提示；登记缺失、字段无效、文件不存在或与实际 SQL 使用不符仍阻止结构检查。
+
+Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。前者构建真实 Server，在临时配置和 SQLite 目录验证静态路由、鉴权、配置保存、治理作用域隔离及日志详情；后者模拟插件管理页握手与加载故障。开发模式 E2E 的模拟配置和日志分页分别维护，不替代真实接口验证。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
+
+Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_data_migration.py --server dist/server/raylea-server --output dist/data-migration-rehearsal`。输出目录必须不存在，保存合成旧数据、恢复包、进程日志和结果 JSON；验证 v3 配置、v7 SQLite、旧密码摘要和治理条目经过真实备份、恢复、启动与登录后的结果。正式签名产物仍执行 release 工作流的跨版本 recovery drill。
+
 ## 验证原则
 
 - 正式语义变化先更新契约；实现、测试、fixtures、examples、生成物和文档按实际影响同步。实现修复以现有契约为准，不要求无关文件制造 diff。

@@ -33,6 +33,9 @@
 - `backup-manifest.schema.json`
   - `backup-manifest.json` 的正式机器可校验结构
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
+  - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序，恢复操作标为 `restore`，仍检查 schema 与协议版本；有最低 core 版本要求的插件须确认兼容后才能自动启用或通过商店安装。
+  - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台、权限与协议握手检查。普通安装和商店安装不使用此例外。
+  - 配置与数据库 schema 版本从实际归档内容读取，无法确认时记录 `unknown`。恢复预检按已实现的配置迁移路径验收，当前支持 v3 → v4 与 v4；已知但无迁移路径的配置以 `recovery.config_schema_unsupported` 阻止恢复。`unknown` 保留启动后人工检查，不能据此认定迁移兼容。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与抖音扫码登录（浏览器兜底）共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
@@ -43,6 +46,7 @@
   - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、插件商店、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、third-party accounts、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及受信更新状态与检查入口
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
+  - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。
 - `websocket-events.yaml`
   - 当前已固定的管理 WebSocket envelope、事件名和 payload 约束
   - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed` 与 `third_party.account.changed`
@@ -90,7 +94,8 @@
   - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`；该集合随正式接入的适配器增长，宿主不会发出集合外的种类
   - 会话种类词表 `conversation_target_type` 当前为 `group`、`private`。出站 `message.send` / `message.reply` 严格校验并对未知值 fail-closed；入站 `event.target.type` 有意保持开放，另含 `system`、`bot` 等宿主内部种类，插件忽略不认识的种类。两个方向的 unknown 策略不同
   - 治理词表 `governance_entry_type`（`user`、`group`）与 `conversation_target_type` 是两套词表，`user` 不是 `private` 的别名
-  - `event.actor.id`、`event.target.id` 与 `init.super_admins` 的标识符属于 `source_protocol` 的身份命名空间，并限定于接收事件的 bot 身份；不跨协议、不跨 bot 身份可移植，不能作为全局关联键
+  - `governance.blacklist.write` 与 `governance.whitelist.write` 的条目增删要求与管理 API 相同的 `scope`；`set_enabled` 仅修改服务级白名单开关。
+  - `event.actor.id` 与 `event.target.id` 属于 `source_protocol` 的身份命名空间，并限定于接收事件的 bot 身份；不能作为跨协议、跨 bot 的全局关联键。`init.super_admins` 固定为 `admin.super_admins` 的 OneBot11 QQ 账号列表，不授予 QQ 官方 openid 管理权限。
 - `release-manifest.schema.json`
   - `release_manifest.v2.json`、`release_manifest.v2.sig.json` 与 `build_info.json` 的正式字段结构
   - Ed25519 双签轮换、artifact 摘要与资源上限、更新协议、平台模式和 Windows signer 摘要

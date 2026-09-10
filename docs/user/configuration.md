@@ -6,12 +6,12 @@
 
 ## 配置文件模型
 
-- 当前用户配置固定为 `schema_version: "3"`，不兼容解析旧插件运行时键。
+- 当前用户配置固定为 `schema_version: "4"`，不兼容解析旧插件运行时键。
 - `config/default.yaml` 提供发行包默认基线。
 - `config/user.yaml` 保存用户自定义配置。
 - `data/launcher.json` 保存 Launcher 的本机设置，例如安装根选择、关闭行为和本地覆盖项。
 - 服务运行时按内置 schema 默认值、`default.yaml`、`user.yaml` 生成有效配置。
-- 服务启动只读取配置文件，不创建或重写 `default.yaml`、`user.yaml`。
+- 常规启动只读取配置；遇到支持的旧版用户配置时，先备份原文件，再持久化迁移结果。缺少文件时使用显式初始化命令。
 - Launcher 检测到 `user.yaml` 缺失且 `default.yaml` 可用时，会执行配置初始化并重新检查环境，再启动服务。
 - 日志和诊断输出会过滤 `Authorization`、`access_token`、`token` 等敏感键。
 - `adapters` 是已配置的聊天适配器实例列表，缺省为空表示不接收任何聊天流量。每个实例由 `id` 命名，`type` 决定生效的设置块（`onebot11` 或 `qqofficial`）；同一协议可以配置多个实例，各自持有自己的凭据与入站地址。
@@ -34,7 +34,7 @@
 
 ## 升级到 schema_version 4
 
-schema_version 4 把原来的两个单例块 `onebot` 与 `qq_official` 合并为 `adapters` 实例列表。服务在读取旧配置时自动迁移，无需手工改写：
+schema_version 4 把 v3 的两个单例块 `onebot` 与 `qq_official` 合并为 `adapters` 实例列表。服务读取 v3 时自动迁移；其他已标版本的旧配置没有自动迁移路径，需要先按当前 schema 整理：
 
 - 迁移在启动读取阶段完成。旧文件先备份到 `user.yaml` 同目录，再写回迁移后的形状；`raylea-server config validate` 只在内存中迁移，不改动文件。
 - `onebot` 成为 id 为 `onebot11` 的实例，`qq_official` 成为 id 为 `qq-official` 的实例。原 `qq_official.enabled` 上移为实例的 `enabled`；OneBot 原本没有总开关，迁移后的实例在任一传输已启用时为启用。

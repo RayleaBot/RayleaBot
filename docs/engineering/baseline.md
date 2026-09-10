@@ -67,7 +67,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | 数据访问 | `database/sql` + repository / service 分层 + `internal/sqlcqueries` → `internal/sqlcgen` 的 sqlc 生成主路径；必须保留的手写 SQL 登记在 `docs/engineering/manual-sql-exceptions.json` |
 | Web 路由 | Vue Router `5.x` |
 | Web 全局状态 | Pinia `4.x`，由各领域 store 维护管理状态 |
-| Web HTTP | `lib/http.ts` 统一维护 RayleaBot 鉴权、错误与下载语义；`request/http.ts` 保留兼容导出 |
+| Web HTTP | `lib/http.ts` 统一维护 RayleaBot 鉴权、错误与下载语义 |
 | Web 实时通信 | 原生 `WebSocket` + 受控连接封装 |
 | Web 样式 | 共享设计 token + 自有 shadcn-vue 组件 + Tailwind CSS `4.x` + Vue SFC SCSS / CSS Variables |
 | Web 动效 | Motion for Vue 管理产品浮层、内容变化与导航降级动画；页面和主题继续使用受控 View Transition API，CSS transition 承担简单控件状态 |

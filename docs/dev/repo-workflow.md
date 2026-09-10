@@ -48,4 +48,6 @@ dist/
 
 插件仓库的 GitHub Actions 只处理 `v*` tag 的正式 Release，官方目录定时读取每个仓库的当前 Release 并收录实际发布的平台包。日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。
 
+源码运行缺少有效 `build_info.json` 时，诊断和备份记录 core 版本为 `unknown`。开发同步仍检查 artifact、平台和协议握手，但无法确认最低 core 版本；普通安装和商店安装要求可验证的安装版本，不把开发目录当作固定发布版本。
+
 独立插件仓库、本地工作区和启动模式见 [插件商店与独立开发](../plugin/store-and-development.md)。

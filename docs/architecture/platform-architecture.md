@@ -50,7 +50,7 @@ flowchart TB
 | 三方平台集成 | Integrations | 平台账号、资料、扫码会话与校验结果 | 三方账号服务、插件动作、管理面 |
 | 插件静态声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源 | Lifecycle、管理面 |
 | 插件商店目录 | Plugin Store Service | HTTPS 来源的已校验 catalog、来源元数据与刷新状态 | 安装流程、管理面 |
-| 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、Dispatcher、管理视图 |
+| 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、管理视图；Dispatcher 只读取投递就绪状态 |
 | 后台任务 | Task Registry | 有序持久化记录 | API/WebSocket、恢复逻辑 |
 | 调度任务 | Scheduler | SQLite job 与内存 revision | 插件定向事件 |
 | 图片渲染 | Render Service | 模板仓、artifact 与 cache metadata | Local Action、管理面 |

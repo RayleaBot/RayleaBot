@@ -13,7 +13,7 @@
 | Bridge | 负责 adapter 事件校验、统一事件转换和桥接层观测 |
 | Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
-| Runtime Manager | 负责插件握手、保活、重载、崩溃恢复与状态同步 |
+| Runtime Manager | 负责插件进程会话、握手、保活、事件投递与终态收集 |
 | Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、Webhook、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
 | Protocol Service | 负责协议快照、OneBot 回连入口和 Webhook 协议入口 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
@@ -54,11 +54,15 @@
 | `group_admin` | 群主、群管理员和超级管理员可用 |
 | `everyone` | 所有用户可用 |
 
-- 超级管理员列表来自 `admin.super_admins`。
+- 超级管理员列表来自 `admin.super_admins`，仅匹配 OneBot11 QQ 账号；QQ 官方 openid 即使字符串相同也不会继承权限。
 - 群管理员角色由事件归一化阶段补齐到 `actor.role`。
 - 用户黑名单和群黑名单会在事件分发前生效。
 - 超级管理员保留最终人工干预通道，不受聊天侧黑名单拦截。
 - 平台内建用户侧冷却限流；权限不通过时可返回受控短提示。
+
+黑白名单共用 `permission.EntryRepository` 和 SQLite `access_list_entries`，由 `list_kind` 区分两类名单。条目按协议、adapter、bot、类型和目标 ID 唯一定位；OneBot 全局条目不指定 adapter / bot，实例条目精确匹配二者。白名单开关仍是服务级命令准入开关，开启后未匹配任何白名单规则的命令被拒绝。
+
+入站用户与群冷却按完整事件身份隔离。外发目标配额与熔断先解析实际 adapter / bot，再与会话类型及目标 ID 组成键；回复保留原事件的 bot 身份。插件外发配额继续按插件累计，约束插件在所有连接上的总发送量。
 
 ## 调度与后台任务
 

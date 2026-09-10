@@ -1,7 +1,5 @@
 # Engineering Docs
 
-当前清理进度与后续批次见[仓库清理执行计划](../execution-plan-v1.md)。
-
 本目录说明 RayleaBot 的工程治理：固定版本线、目录职责、实施顺序和质量门禁。
 
 ## 工程目录模型

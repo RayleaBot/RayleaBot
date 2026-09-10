@@ -27,7 +27,7 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 - 完整配置快照 `config`。
 - 生效权限 `effective_permissions`。
 - 身份列表 `bots`，元素包含 `source_adapter`、`source_protocol`、`id` 与可选 `nickname`；没有已知身份时为 `[]`。
-- 超级管理员列表和命令前缀。
+- OneBot11 QQ 超级管理员列表和命令前缀；列表不适用于 QQ 官方 openid。
 - 生效并发度。
 - 必填的 IANA 时区 `timezone`，对应宿主当前生效的时区；保存后待重启的时区不提前下发。
 
@@ -127,6 +127,15 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包含分发类型、消息标识和 openid 等字段；仅在 `source_protocol=qqofficial` 时读取。私聊和群聊的被动回复都引用入站消息，避免作为主动推送消耗额度。
 
 `adapter.send_unconfirmed` 表示请求可能已发出，但尚未收到确定回执，消息可能继续送达。调用方不得自动重发，也不能立即删除适配器尚可能读取的媒体文件。明确拒绝的发送使用 `adapter.send_failed` 等相应错误码。
+
+### 黑白名单
+
+`governance.blacklist.write` 与 `governance.whitelist.write` 的增删操作必须提供 `scope`，与管理 API 共用相同规则：
+
+- OneBot 全局规则为 `{"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""}`。
+- 实例规则使用 `kind: "instance"`，填写 `source_protocol`、`source_adapter` 和 `bot_id`。Go SDK 可从 `EventContext.Bot` 取得实例身份，使用 `GovernanceScope` 传入写请求；身份未知时不能猜测 bot ID。
+- 读取返回所有作用域的条目；删除需要原样提供目标条目的 scope，相同目标在其他作用域的规则不受影响。
+- 白名单 `set_enabled` 不要求 scope，它修改服务级开关。
 
 ### HTTP
 

@@ -26,11 +26,14 @@ stateDiagram-v2
 
 `internal/plugins/lifecycle` 负责 desired state、runtime state、重载和崩溃恢复。`internal/plugins/runtime` 负责单个插件进程的握手、ping、事件 session 和本地 action RPC。
 
+重载先完成新进程握手，再替换 Dispatcher 的投递目标。新事件进入新队列，生命周期操作等待旧队列排空后停止旧进程；排空超时会取消旧投递，并用独立的关闭时间预算回收进程。新进程初始化失败时继续使用旧实例。
+
 ## 事件与本地 action
 
 ```mermaid
 flowchart TD
-  dispatcher["eventpipeline/dispatch"] --> runtime["plugins/runtime"]
+  dispatcher["eventpipeline/dispatch"] --> delivery["DeliverEvent / ReadyForEvents"]
+  runtime["plugins/runtime"] -. implements .-> delivery
   runtime --> plugin["plugin subprocess"]
   plugin --> localaction["plugins/actions"]
   localaction --> service["message / storage / config / secret / plugin / thirdparty / governance / render / scheduler / protocol"]
@@ -41,6 +44,8 @@ flowchart TD
 本地 action 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口。完整 action 清单由[插件协议](../plugin/protocol.md#action-rpc)维护；新增宿主 action 应通过 `plugins/actions` 的模块注册接入，声明权限和参数校验，避免插件 runtime 直接 import 管理层或业务实现细节。
 
 插件 stdout 专用于 JSONL 协议，stderr 进入受控插件日志。Runtime Manager 保持请求关联、超时、并发、重启、ping/pong、一次终态响应和 shutdown grace 语义。
+
+`chatevent.Event`、`MessageSegment` 和 `MessageCommand` 不包含进程帧或调度回调。调度器把 `RunContext` 与事件分别交给 Dispatcher；运行记录不会被序列化给插件。宿主动作解码结果由 `plugins.Action` 承载，消息出口只接收 `chatevent.MessageCommand`。
 
 ## 信任与进程能力
 

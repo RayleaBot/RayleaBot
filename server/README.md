@@ -14,6 +14,8 @@
 
 诊断检查位于 `internal/diagnostics`，由 CLI 与在线导出共用；CLI 不定义在线领域服务的业务逻辑。插件启停由 lifecycle 控制器执行，HTTP handler 只校验传输和映射结果。
 
+聊天事件、消息段和出站消息命令归 `internal/chatevent`；插件声明与执行结果归 `internal/plugins`；调度运行记录归 `internal/scheduler`。Dispatcher 通过投递接口使用运行时，适配器路由位于 `internal/eventpipeline/outbound`。只有 lifecycle 管理进程重载和旧实例回收，JSONL 帧留在 `plugins/runtime`。
+
 ## 当前边界
 
 - 单实例 Server 与 SQLite；聊天连接按 `adapters` 实例管理，支持 OneBot11 与 QQ 官方协议
