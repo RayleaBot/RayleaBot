@@ -87,6 +87,7 @@ node scripts/start-dev.mjs
 | [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
+| [项目优化执行计划](./docs/execution-plan-v2.md) | 三份评审核实结果、实施顺序、验收与进度回写 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
 
 ## 贡献与开发
