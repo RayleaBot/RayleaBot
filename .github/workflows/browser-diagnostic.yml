@@ -23,7 +23,7 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
-      - name: First browser on fresh runner - original 20s startup and 30s request budgets
+      - name: Real help.menu first on fresh runner - unchanged 30s request budget
         working-directory: server
         shell: pwsh
         run: |
@@ -33,12 +33,12 @@ jobs:
           }
           go test -v -count=1 -timeout=4m @packages 2>&1 | Tee-Object -FilePath ../browser-cold.log
           exit $LASTEXITCODE
-      - name: Follow-up cleanup test on the same warmed OS
+      - name: Follow-up real help.menu on the same warmed OS
         if: always()
         working-directory: server
         shell: pwsh
         run: |
-          go test -v -count=1 -timeout=2m -run '^TestChromiumRunnerCleanupStopsBrowser$' ./internal/render 2>&1 | Tee-Object -FilePath ../browser-warmed.log
+          go test -v -count=1 -timeout=2m -run '^TestDiagnosticRealHelpMenuColdThenSecondRender$' ./internal/render 2>&1 | Tee-Object -FilePath ../browser-warmed.log
           exit $LASTEXITCODE
       - name: Preserve experiment logs including failed tests
         if: always()
