@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [focus-first-vm, focus-second-vm]
+        mode: [capture-first-vm, capture-second-vm]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

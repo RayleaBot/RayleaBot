@@ -141,6 +141,7 @@ type chromiumRunner struct {
 	browserArgs    []string
 	combinedOutput io.Writer
 	debugf         func(string, ...any)
+	captureGate    chan struct{}
 
 	mu              sync.Mutex
 	closed          bool
@@ -161,6 +162,7 @@ func NewChromiumRunner(options ChromiumOptions) *chromiumRunner {
 		browserArgs:    append([]string(nil), options.BrowserArgs...),
 		combinedOutput: options.CombinedOutput,
 		debugf:         options.Debugf,
+		captureGate:    make(chan struct{}, 1),
 	}
 }
 
@@ -366,6 +368,18 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		)
 	}
 	actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
+		select {
+		case r.captureGate <- struct{}{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		defer func() { <-r.captureGate }()
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := page.BringToFront().Do(ctx); err != nil {
+			return err
+		}
 		params := page.CaptureScreenshot()
 		if doc.Output == "jpeg" {
 			params = params.WithFormat(page.CaptureScreenshotFormatJpeg).WithQuality(90)
