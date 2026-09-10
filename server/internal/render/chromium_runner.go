@@ -137,6 +137,7 @@ type chromiumRunner struct {
 	browserPath    string
 	browserArgs    []string
 	combinedOutput io.Writer
+	captureGate    chan struct{}
 
 	mu              sync.Mutex
 	closed          bool
@@ -156,6 +157,7 @@ func NewChromiumRunner(options ChromiumOptions) *chromiumRunner {
 		browserPath:    strings.TrimSpace(options.BrowserPath),
 		browserArgs:    append([]string(nil), options.BrowserArgs...),
 		combinedOutput: options.CombinedOutput,
+		captureGate:    make(chan struct{}, 1),
 	}
 }
 
@@ -353,14 +355,8 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		)
 	}
 	actions = append(actions, chromedp.ActionFunc(func(ctx context.Context) error {
-		params := page.CaptureScreenshot()
-		if doc.Output == "jpeg" {
-			params = params.WithFormat(page.CaptureScreenshotFormatJpeg).WithQuality(90)
-		} else {
-			params = params.WithFormat(page.CaptureScreenshotFormatPng)
-		}
 		var err error
-		content, err = params.Do(ctx)
+		content, err = r.captureScreenshot(ctx, doc.Output)
 		return err
 	}))
 
@@ -371,6 +367,30 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		return nil, errors.Join(err, r.resetBrowser())
 	}
 	return content, nil
+}
+
+func (r *chromiumRunner) captureScreenshot(ctx context.Context, output string) ([]byte, error) {
+	// Hidden tabs can stall surface capture even with focus emulation. Keep
+	// activation and capture together while other tabs load assets in parallel.
+	select {
+	case r.captureGate <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-r.captureGate }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := page.BringToFront().Do(ctx); err != nil {
+		return nil, err
+	}
+	params := page.CaptureScreenshot()
+	if output == "jpeg" {
+		params = params.WithFormat(page.CaptureScreenshotFormatJpeg).WithQuality(90)
+	} else {
+		params = params.WithFormat(page.CaptureScreenshotFormatPng)
+	}
+	return params.Do(ctx)
 }
 
 func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, error) {
