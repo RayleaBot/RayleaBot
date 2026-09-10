@@ -9,6 +9,7 @@ import { formatDateTime } from '@/lib/format'
 import { buildLogContextActions } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
+import { usePluginsStore } from '@/stores/plugins'
 import type { LogScope } from '@/stores/log-state'
 import type { LogDetailResponse, LogSummary } from '@/types/api'
 
@@ -23,6 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   action: []
 }>()
+const pluginsStore = usePluginsStore()
 
 const detailJson = computed(() => safeJsonStringify(props.detail?.details ?? {}))
 const contextActions = computed(() => (
@@ -65,8 +67,7 @@ const summaryFields = computed(() => {
     },
     {
       label: t('logs.fields.plugin'),
-      value: props.summary.plugin_id || t('display.empty'),
-      mono: true,
+      value: props.summary.plugin_id ? pluginsStore.getPluginLabel(props.summary.plugin_id) : t('display.empty'),
     },
     {
       label: t('logs.fields.requestId'),

@@ -1,8 +1,10 @@
-import { ref } from 'vue'
+import { onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { waitForTask } from '@/lib/tasks'
+import { usePluginsStore } from '@/stores/plugins'
 import type {
   PluginStoreDetailResponse,
   PluginStoreEntry,
@@ -17,6 +19,7 @@ import type {
 } from '@/types/api'
 
 export type PluginStoreSort = 'recommended' | 'name' | 'updated'
+type EntryQuery = { sourceId?: string; query?: string; sort?: PluginStoreSort }
 
 export const usePluginStore = defineStore('plugin-store', () => {
   const items = ref<PluginStoreEntry[]>([])
@@ -24,10 +27,18 @@ export const usePluginStore = defineStore('plugin-store', () => {
   const sources = ref<PluginStoreSource[]>([])
   const total = ref(0)
   const loading = ref(false)
+  const loadingMore = ref(false)
+  const nextCursor = ref('')
+  const iconRevision = ref(0)
   const refreshing = ref(false)
   const sourceSaving = ref(false)
   const installing = ref<Record<string, boolean>>({})
   const error = ref<string | null>(null)
+  let lastQuery: EntryQuery | null = null
+  let entriesRequest = 0
+  const installRequests = new Map<string, Promise<TaskAcceptedResponse>>()
+  const controllers = new Set<AbortController>()
+  onScopeDispose(() => { for (const controller of controllers) controller.abort() })
 
   async function fetchSources() {
     const response = await apiRequest<PluginStoreSourcesResponse>('/api/plugin-store/sources')
@@ -35,8 +46,22 @@ export const usePluginStore = defineStore('plugin-store', () => {
     return response.items
   }
 
-  async function fetchEntries(options: { sourceId?: string; query?: string; sort?: PluginStoreSort } = {}) {
-    loading.value = true
+  async function fetchEntries(options: EntryQuery = {}, append = false) {
+    if (append && (!nextCursor.value || loading.value || loadingMore.value)) return
+    const request = ++entriesRequest
+    const cursor = append ? nextCursor.value : ''
+    const queryChanged = !lastQuery
+      || (lastQuery.sourceId || 'official') !== (options.sourceId || 'official')
+      || (lastQuery.query?.trim() || '') !== (options.query?.trim() || '')
+      || (lastQuery.sort || 'recommended') !== (options.sort || 'recommended')
+    lastQuery = { ...options }
+    if (append) loadingMore.value = true
+    else {
+      loading.value = true
+      loadingMore.value = false
+      nextCursor.value = ''
+      if (queryChanged) { items.value = []; total.value = 0; source.value = null }
+    }
     error.value = null
     try {
       const params = new URLSearchParams()
@@ -45,18 +70,30 @@ export const usePluginStore = defineStore('plugin-store', () => {
       if (query) params.set('query', query)
       params.set('sort', options.sort ?? 'recommended')
       params.set('limit', '100')
+      if (cursor) params.set('cursor', cursor)
       const response = await apiRequest<PluginStoreListResponse>(`/api/plugin-store/plugins?${params}`)
-      items.value = response.items
+      if (request !== entriesRequest) return response
+      items.value = append ? [...new Map([...items.value, ...response.items].map(item => [item.id, item])).values()] : response.items
+      nextCursor.value = response.next_cursor || ''
+      if (!append) iconRevision.value += 1
       total.value = response.total
       source.value = response.source
       updateSource(response.source)
       return response
     } catch (cause) {
-      error.value = getDisplayErrorMessage(cause, 'errors.common.loadFailed')
+      if (request === entriesRequest) error.value = getDisplayErrorMessage(cause, 'errors.common.loadFailed')
       throw cause
     } finally {
-      loading.value = false
+      if (request === entriesRequest) { loading.value = false; loadingMore.value = false }
     }
+  }
+
+  async function loadMore() {
+    if (lastQuery) return fetchEntries(lastQuery, true)
+  }
+
+  async function refreshEntries() {
+    if (lastQuery) return fetchEntries(lastQuery)
   }
 
   async function fetchDetail(pluginId: string, sourceId = 'official') {
@@ -77,20 +114,36 @@ export const usePluginStore = defineStore('plugin-store', () => {
     }
   }
 
-  async function install(pluginId: string, payload: PluginStoreInstallRequest) {
+  function install(pluginId: string, payload: PluginStoreInstallRequest): Promise<TaskAcceptedResponse> {
+    const pending = installRequests.get(pluginId)
+    if (pending) return pending
     installing.value = { ...installing.value, [pluginId]: true }
-    try {
-      return await apiRequest<TaskAcceptedResponse>(
+    const controller = new AbortController()
+    controllers.add(controller)
+    const request = (async () => {
+      try {
+        const accepted = await apiRequest<TaskAcceptedResponse>(
         `/api/plugin-store/plugins/${encodeURIComponent(pluginId)}/install`,
-        { method: 'POST', body: payload },
-      )
-    } finally {
-      installing.value = { ...installing.value, [pluginId]: false }
-    }
+          { method: 'POST', body: payload, signal: controller.signal },
+        )
+        try {
+          await waitForTask(accepted.task_id, controller.signal)
+        } finally {
+          if (!controller.signal.aborted) await Promise.allSettled([usePluginsStore().refreshList(), refreshEntries()])
+        }
+        return accepted
+      } finally {
+        controllers.delete(controller)
+        installRequests.delete(pluginId)
+        installing.value = { ...installing.value, [pluginId]: false }
+      }
+    })()
+    installRequests.set(pluginId, request)
+    return request
   }
 
   function finishInspection(pluginId: string) {
-    installing.value = { ...installing.value, [pluginId]: false }
+    if (!installRequests.has(pluginId)) installing.value = { ...installing.value, [pluginId]: false }
   }
 
   async function refreshSource(sourceId: string) {
@@ -157,6 +210,9 @@ export const usePluginStore = defineStore('plugin-store', () => {
     installing,
     items,
     loading,
+    loadingMore,
+    nextCursor,
+    iconRevision,
     refreshing,
     source,
     sourceSaving,
@@ -166,6 +222,8 @@ export const usePluginStore = defineStore('plugin-store', () => {
     deleteSource,
     fetchDetail,
     fetchEntries,
+    loadMore,
+    refreshEntries,
     fetchSources,
     finishInspection,
     inspect,

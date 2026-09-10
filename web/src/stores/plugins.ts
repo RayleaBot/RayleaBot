@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { apiRequest } from '@/lib/http'
+import { waitForTask } from '@/lib/tasks'
 import type {
   PluginDetail,
   PluginDetailResponse,
@@ -43,6 +44,8 @@ export const usePluginsStore = defineStore('plugins', () => {
   const installPending = ref(false)
   const inspectionPending = ref(false)
   const listLoaded = ref(false)
+  const iconRevision = ref(0)
+  const detailGenerations = new Map<string, number>()
   let detailRequestVersion = 0
   let listRequest: Promise<void> | null = null
   const detailRequests = new Map<string, Promise<PluginDetail>>()
@@ -66,8 +69,37 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  function getPluginDisplayName(pluginId: string) {
-    return pluginNameCache.value[pluginId] ?? pluginId
+  function getPluginDisplayName(pluginId: string, fallback?: string) {
+    return items.value.find(item => item.id === pluginId)?.name?.trim() || fallback?.trim() || pluginNameCache.value[pluginId] || pluginId
+  }
+
+  function getPluginLabel(pluginId: string, fallback?: string) {
+    const name = getPluginDisplayName(pluginId, fallback)
+    return name === pluginId ? pluginId : `${name}（${pluginId}）`
+  }
+
+  function invalidatePendingDetail(pluginId: string) {
+    detailGenerations.set(pluginId, (detailGenerations.get(pluginId) ?? 0) + 1)
+  }
+
+  function syncDetailSummary(summary: PluginSummary) {
+    const cached = detailsByPluginId.value[summary.id]
+    // A new package may also change management pages and other detail-only fields.
+    if (cached && cached.version !== summary.version) {
+      const next = { ...detailsByPluginId.value }
+      delete next[summary.id]
+      detailsByPluginId.value = next
+    } else if (cached) {
+      detailsByPluginId.value = { ...detailsByPluginId.value, [summary.id]: { ...cached, ...summary } }
+    }
+    if (current.value?.id === summary.id) {
+      if (current.value.version !== summary.version) {
+        current.value = null
+        void fetchDetail(summary.id).catch(() => undefined)
+      } else {
+        current.value = { ...current.value, ...summary }
+      }
+    }
   }
 
   async function fetchList() {
@@ -81,9 +113,19 @@ export const usePluginsStore = defineStore('plugins', () => {
       try {
         const response = await apiRequest<PluginListResponse>('/api/plugins')
         items.value = response.items
+        iconRevision.value += 1
+        const ids = new Set(response.items.map(item => item.id))
+        for (const id of new Set([...ids, ...Object.keys(detailsByPluginId.value), ...detailRequests.keys()])) {
+          invalidatePendingDetail(id)
+        }
+        // Development packages can change detail metadata without a version bump.
+        detailsByPluginId.value = {}
+        const currentId = current.value?.id
+        current.value = null
         listLoaded.value = true
         rememberPluginNames(response.items)
         reconcileLifecycleRefreshes(response.items)
+        if (currentId && ids.has(currentId)) void fetchDetail(currentId).catch(() => undefined)
       } catch (err) {
         error.value = getDisplayErrorMessage(err, 'errors.common.loadFailed')
         throw err
@@ -101,6 +143,12 @@ export const usePluginsStore = defineStore('plugins', () => {
       return
     }
 
+    await fetchList()
+  }
+
+  async function refreshList() {
+    // A read started before a completed mutation cannot confirm its result.
+    if (listRequest) await listRequest.catch(() => undefined)
     await fetchList()
   }
 
@@ -123,11 +171,13 @@ export const usePluginsStore = defineStore('plugins', () => {
       ...detailsByPluginId.value,
       [plugin.id]: plugin,
     }
-    upsert(plugin)
+    if (current.value?.id === plugin.id) current.value = plugin
+    iconRevision.value += 1
+    upsert(plugin, true)
     updateLifecycleRefresh(plugin.id, plugin.state)
   }
 
-  function requestPluginDetail(pluginId: string) {
+  function requestPluginDetail(pluginId: string): Promise<PluginDetail> {
     const pendingRequest = detailRequests.get(pluginId)
     if (pendingRequest) {
       return pendingRequest
@@ -135,17 +185,26 @@ export const usePluginsStore = defineStore('plugins', () => {
 
     setDetailLoading(pluginId, true)
     setDetailError(pluginId, null)
-    const request = (async () => {
+    const generation = detailGenerations.get(pluginId) ?? 0
+    let request!: Promise<PluginDetail>
+    request = (async () => {
       try {
         const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
+        if (generation !== (detailGenerations.get(pluginId) ?? 0)) {
+          if (listLoaded.value && !items.value.some(item => item.id === pluginId)) throw new Error('插件已不可用')
+          if (detailRequests.get(pluginId) === request) detailRequests.delete(pluginId)
+          return requestPluginDetail(pluginId)
+        }
         cachePluginDetail(response.plugin)
         return response.plugin
       } catch (err) {
-        setDetailError(pluginId, getDisplayErrorMessage(err, 'errors.common.loadFailed'))
+        if (generation === (detailGenerations.get(pluginId) ?? 0)) setDetailError(pluginId, getDisplayErrorMessage(err, 'errors.common.loadFailed'))
         throw err
       } finally {
-        setDetailLoading(pluginId, false)
-        detailRequests.delete(pluginId)
+        if (detailRequests.get(pluginId) === request) {
+          setDetailLoading(pluginId, false)
+          detailRequests.delete(pluginId)
+        }
       }
     })()
     detailRequests.set(pluginId, request)
@@ -180,9 +239,10 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  function upsert(plugin: PluginUpsert) {
+  function upsert(plugin: PluginUpsert, fullSnapshot = false) {
+    invalidatePendingDetail(plugin.id)
     const index = items.value.findIndex((item) => item.id === plugin.id)
-    const previous = index === -1 ? current.value?.id === plugin.id ? current.value : null : items.value[index]
+    const previous = fullSnapshot ? null : index === -1 ? current.value?.id === plugin.id ? current.value : null : items.value[index]
     const nextPlugin: PluginSummary = {
       id: plugin.id,
       name: plugin.name ?? previous?.name ?? plugin.id,
@@ -207,12 +267,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       items.value = items.value.map((item, itemIndex) => (itemIndex === index ? nextPlugin : item))
     }
 
-    if (current.value?.id === plugin.id) {
-      current.value = {
-        ...current.value,
-        ...nextPlugin,
-      }
-    }
+    syncDetailSummary(nextPlugin)
 
     rememberPluginNames([nextPlugin])
 
@@ -335,24 +390,30 @@ export const usePluginsStore = defineStore('plugins', () => {
     }
   }
 
-  async function installPlugin(payload: PluginInstallRequest) {
+  async function installPlugin(payload: PluginInstallRequest, onAccepted?: () => void) {
     installPending.value = true
     try {
-      return await apiRequest<TaskAcceptedResponse>('/api/plugins/install', {
+      const accepted = await apiRequest<TaskAcceptedResponse>('/api/plugins/install', {
         method: 'POST',
         body: payload,
       })
+      onAccepted?.()
+      try { await waitForTask(accepted.task_id) } finally { await refreshList().catch(() => undefined) }
+      return accepted
     } finally {
       installPending.value = false
     }
   }
 
-  async function uninstallPlugin(pluginId: string) {
+  async function uninstallPlugin(pluginId: string, onAccepted?: () => void) {
     setPending(pluginId, 'uninstall')
     try {
-      return await apiRequest<TaskAcceptedResponse>(`/api/plugins/${pluginId}`, {
+      const accepted = await apiRequest<TaskAcceptedResponse>(`/api/plugins/${pluginId}`, {
         method: 'DELETE',
       })
+      onAccepted?.()
+      try { await waitForTask(accepted.task_id) } finally { await refreshList().catch(() => undefined) }
+      return accepted
     } finally {
       setPending(pluginId, null)
     }
@@ -419,6 +480,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     installPending,
     inspectionPending,
     listLoaded,
+    iconRevision,
     loading,
     settingsByPluginId,
     settingsLoading,
@@ -428,10 +490,12 @@ export const usePluginsStore = defineStore('plugins', () => {
     fetchDetail,
     fetchSettings,
     fetchList,
+    refreshList,
     ensureDetail,
     ensureList,
     getSettings,
     getPluginDisplayName,
+    getPluginLabel,
     installPlugin,
     inspectPlugin,
     uninstallPlugin,

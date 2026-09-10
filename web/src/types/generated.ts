@@ -417,6 +417,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the current status of an accepted asynchronous task.
+         * @description Requires a management session. Returns only task status and a stable failure code, without task payloads or result details. Terminal states are succeeded, failed, cancelled, and interrupted. An unknown task returns HTTP 404 with platform.resource_missing.
+         */
+        get: operations["getSystemTaskStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/backup": {
         parameters: {
             query?: never;
@@ -1786,6 +1806,12 @@ export interface components {
             next_steps?: string[];
             audit?: components["schemas"]["RecoveryCompatibilityAuditEntry"][];
         };
+        TaskStatusResponse: {
+            task_id: string;
+            /** @enum {string} */
+            status: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+            error_code?: string;
+        };
         TaskAcceptedResponse: {
             task_id: string;
         };
@@ -2636,7 +2662,7 @@ export interface components {
             };
             scheduler: {
                 /**
-                 * @description IANA timezone identifier used for scheduled tasks, server log timestamps and management time display. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
+                 * @description IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
                  * @default Asia/Shanghai
                  */
                 timezone: string;
@@ -3584,6 +3610,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            default: components["responses"]["Error"];
+        };
+    };
+    getSystemTaskStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current task status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskStatusResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

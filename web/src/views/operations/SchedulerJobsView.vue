@@ -33,10 +33,15 @@ import { getDisplayErrorMessage } from '@/lib/error-text'
 import { formatDateTime } from '@/lib/format'
 import { t } from '@/i18n'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
+import { usePluginsStore } from '@/stores/plugins'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
 import type { SchedulerJobRunStats, SchedulerJobSummary } from '@/types/api'
 import { useSchedulerJobDetail } from './useSchedulerJobDetail'
 
 const schedulerStore = useSchedulerJobsStore()
+const pluginsStore = usePluginsStore()
+const pluginMap = computed(() => new Map(pluginsStore.items.map(plugin => [plugin.id, plugin])))
+function pluginName(job: SchedulerJobSummary) { return pluginsStore.getPluginDisplayName(job.plugin_id, job.plugin_name) }
 const { error, loading, sortedItems, triggeringJobId } = storeToRefs(schedulerStore)
 
 const {
@@ -54,6 +59,7 @@ const timeTick = ref(0)
 let timerId: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
+  void pluginsStore.ensureList().catch(() => undefined)
   schedulerStore.setLiveRefreshActive(true)
   void loadSchedulerJobs()
   timerId = setInterval(() => {
@@ -123,19 +129,6 @@ function conversationText(job: SchedulerJobSummary) {
     return `${payload.target_type}:${payload.target_id}`
   }
   return ''
-}
-
-function getPluginAvatarStyle() {
-  return {
-    background: 'var(--surface-accent)',
-    color: 'var(--accent)',
-  }
-}
-
-function getPluginInitials(pluginName: string): string {
-  if (!pluginName) return 'RB'
-  const cleanName = pluginName.startsWith('raylea.') ? pluginName.substring(7) : pluginName
-  return cleanName.substring(0, 2).toUpperCase()
 }
 
 function schedulerRowKey(row: SchedulerJobSummary) {
@@ -229,7 +222,7 @@ const filteredItems = computed(() => {
     const q = searchQuery.value.toLowerCase().trim()
     result = result.filter(
       (item) =>
-        item.plugin_name.toLowerCase().includes(q) ||
+        pluginName(item).toLowerCase().includes(q) ||
         item.plugin_id.toLowerCase().includes(q) ||
         item.task_name.toLowerCase().includes(q) ||
         item.job_id.toLowerCase().includes(q) ||
@@ -248,10 +241,10 @@ const filteredItems = computed(() => {
   // 3. 多维排序
   if (sortBy.value === 'name') {
     result.sort((left, right) => {
-      if (left.plugin_name === right.plugin_name) {
+      if (pluginName(left) === pluginName(right)) {
         return left.task_name.localeCompare(right.task_name)
       }
-      return left.plugin_name.localeCompare(right.plugin_name)
+      return pluginName(left).localeCompare(pluginName(right))
     })
   } else if (sortBy.value === 'last_run') {
     result.sort((left, right) => {
@@ -345,12 +338,10 @@ const filteredItems = computed(() => {
           <!-- 1. 插件与任务合并列 -->
           <template v-if="column.key === 'plugin'">
             <div class="scheduler-cell-plugin-task">
-              <div class="plugin-avatar" :style="getPluginAvatarStyle()">
-                {{ getPluginInitials(record.plugin_name) }}
-              </div>
+              <PluginIcon :plugin-id="record.plugin_id" :icon="pluginMap.get(record.plugin_id)?.icon" :version="pluginMap.get(record.plugin_id)?.version" :refresh-key="pluginsStore.iconRevision" />
               <div class="meta-content">
                 <div class="top-row">
-                  <strong class="plugin-name">{{ record.plugin_name }}</strong>
+                  <strong class="plugin-name">{{ pluginName(record) }}</strong>
                   <span class="task-tag">{{ record.task_name }}</span>
                 </div>
                 <div class="bottom-row">
@@ -497,7 +488,7 @@ const filteredItems = computed(() => {
         <article v-for="job in filteredItems" :key="job.job_id" class="scheduler-mobile-row">
           <div class="scheduler-mobile-row__heading">
             <div>
-              <strong>{{ job.plugin_name }}</strong>
+              <strong>{{ pluginName(job) }}</strong>
               <span>{{ job.task_name }}</span>
             </div>
             <AppTag :tone="job.last_error ? 'danger' : 'success'">
@@ -537,7 +528,7 @@ const filteredItems = computed(() => {
                     <div class="pane-group-title">标识与归属</div>
                     <div class="info-block">
                       <span class="label">插件模块</span>
-                      <span class="value bold">{{ currentJob.plugin_name }}<span class="sr-only"> / </span></span>
+                      <span class="value bold">{{ pluginName(currentJob) }}<span class="sr-only"> / </span></span>
                       <span class="sub-val">{{ currentJob.plugin_id }}</span>
                     </div>
                     <div class="info-block">
@@ -840,18 +831,7 @@ const filteredItems = computed(() => {
   gap: 12px;
   white-space: nowrap;
 
-  .plugin-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    font-weight: 700;
-    flex-shrink: 0;
-    user-select: none;
-  }
+
 
   .meta-content {
     display: flex;

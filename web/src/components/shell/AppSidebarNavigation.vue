@@ -374,7 +374,7 @@ function toggleRootGroup(key: string) {
                   <AppDropdownItem v-for="page in pluginCenterPages" :key="page.name" :data-sidebar-page="page.name" @select="navigateStaticPage(page)"><component :is="resolveMenuIcon(page.icon)" />{{ t(page.titleKey) }}</AppDropdownItem>
                   <div v-if="openPluginTargets.length" class="app-menu-label">{{ t('plugins.navigation.groups.openPlugins') }}</div>
                   <AppDropdownItem v-for="target in openPluginTargets" :key="target.pluginId" :data-sidebar-open-plugin-id="target.pluginId" @select="openWorkspacePlugin(target)">
-                    <PluginIcon class="sidebar-navigation__plugin-icon" :plugin-id="target.pluginId" :icon="getPluginSummary(target.pluginId)?.icon" :version="getPluginSummary(target.pluginId)?.version" />{{ getPluginName(target.pluginId) }}
+                    <PluginIcon :refresh-key="pluginsStore.iconRevision" class="sidebar-navigation__plugin-icon" :plugin-id="target.pluginId" :icon="getPluginSummary(target.pluginId)?.icon" :version="getPluginSummary(target.pluginId)?.version" />{{ getPluginName(target.pluginId) }}
                   </AppDropdownItem>
                 </template>
                 <AppDropdownItem v-for="child in item.children" v-else :key="child.key" @select="emit('navigate', child.path)"><component :is="resolveMenuIcon(child.icon)" v-if="resolveMenuIcon(child.icon)" />{{ child.title }}</AppDropdownItem>
@@ -418,7 +418,7 @@ function toggleRootGroup(key: string) {
                 :data-sidebar-plugin-retry="entry.kind === 'retry' ? entry.plugin.id : undefined"
                 @click="activatePluginNavigationEntry(entry)">
                 <span v-if="entry.kind === 'resource'" class="admin-layout__menu-label sidebar-navigation__plugin-label">
-                  <PluginIcon class="sidebar-navigation__plugin-icon" :plugin-id="entry.plugin.id" :icon="entry.plugin.icon" :version="entry.plugin.version" />
+                  <PluginIcon :refresh-key="pluginsStore.iconRevision" class="sidebar-navigation__plugin-icon" :plugin-id="entry.plugin.id" :icon="entry.plugin.icon" :version="entry.plugin.version" />
                   <span class="sidebar-navigation__plugin-copy" :title="entry.plugin.name">{{ entry.plugin.name }}</span>
                   <span v-if="entry.plugin.state" class="sidebar-navigation__state" :data-state="entry.plugin.state" :title="getPluginStateLabel(entry.plugin.state)" aria-hidden="true" />
                 </span>

@@ -2229,6 +2229,13 @@ test('plugin store manages sources and confirms first installs', async ({ page, 
   await sourceDialog.getByRole('button', { name: '关闭弹窗' }).click()
   await expect(sourceDialog).toBeHidden()
 
+  let taskChecks = 0
+  await page.route('**/api/system/tasks/*', async route => {
+    if (taskChecks++ === 0) {
+      await route.fulfill({ json: { task_id: new URL(route.request().url()).pathname.split('/').pop(), status: 'running' } })
+    } else await route.continue()
+  })
+
   await page.getByTestId('plugin-store-install-raylea.echo').click()
   const confirmDialog = page.getByRole('dialog', { name: '确认安装插件' })
   await expect(confirmDialog.getByText('message.send', { exact: true })).toBeVisible()
@@ -2238,7 +2245,11 @@ test('plugin store manages sources and confirms first installs', async ({ page, 
   ))
   await confirmDialog.getByRole('button', { name: '确认并安装' }).click()
   expect((await installResponsePromise).status()).toBe(202)
-  await expect(page.getByText(/安装任务已提交/).first()).toBeVisible()
+  await expect(confirmDialog).toBeHidden()
+  await expect(page.getByTestId('plugin-store-install-raylea.echo')).toHaveText('正在安装')
+  await expect(page.getByTestId('plugin-store-install-raylea.echo')).toBeDisabled()
+  await expect(page.getByText('插件安装完成', { exact: true }).first()).toBeVisible()
+  await expect(page.getByTestId('plugin-store-install-raylea.echo')).toHaveText('已安装')
 
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByText('Echo', { exact: true })).toBeVisible()

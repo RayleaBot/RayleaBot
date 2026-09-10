@@ -27,6 +27,7 @@ type SystemHandlers struct {
 }
 
 type CoreService interface {
+	GetTaskStatus(string) (systemsvc.TaskStatus, bool)
 	CurrentReadiness() health.ReadinessReport
 	DiagnosticsSnapshot(context.Context) systemsvc.DiagnosticsSnapshot
 	BuildDiagnosticsArchive(context.Context) ([]byte, error)
@@ -297,6 +298,7 @@ func (h *SystemHandlers) RegisterProtectedRoutes(router chi.Router, metricsHandl
 }
 
 func registerSystemProtectedRoutes(router chi.Router, h *SystemHandlers, metricsHandler http.Handler) {
+	router.Get("/api/system/tasks/{task_id}", h.HandleTaskStatus())
 	router.Post("/api/system/backup", h.HandleSystemBackup())
 	router.Post("/api/system/recovery/recheck", h.HandleSystemRecoveryRecheck())
 	router.Post("/api/system/recovery/confirm", h.HandleSystemRecoveryConfirm())

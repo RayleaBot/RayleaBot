@@ -35,6 +35,7 @@ import AppPage from '@/components/page/AppPage.vue'
 import PluginCommandsPanel from '@/components/PluginCommandsPanel.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
+  formatPluginVersion,
   getPluginRoleLabel,
   getPluginStateLabel,
 } from '@/lib/display'
@@ -317,12 +318,12 @@ async function reloadPlugin(pluginId: string) {
           <div v-else class="plugins-grid" aria-label="插件列表">
             <article v-for="item in filteredItems" :key="item.id" class="plugin-grid-card">
               <header class="plugin-card__header">
-                <PluginIcon :plugin-id="item.id" :icon="item.icon" :version="item.version" />
+                <PluginIcon :refresh-key="pluginsStore.iconRevision" :plugin-id="item.id" :icon="item.icon" :version="item.version" />
                 <div class="plugin-card__identity">
                   <button type="button" class="plugin-card__name" :title="item.name" @click="openDetail(item.id)">
                     {{ item.name }}
                   </button>
-                  <span v-if="item.version" class="plugin-card__version" :title="item.version">v{{ item.version }}</span>
+                  <span v-if="item.version" class="plugin-card__version" :title="item.version">{{ formatPluginVersion(item.version) }}</span>
                 </div>
                 <AppStatusTag :status="item.state" :label="getPluginStateLabel(item.state)" :aria-label="`状态：${getPluginStateLabel(item.state)}`" />
               </header>

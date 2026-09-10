@@ -150,6 +150,7 @@
 - `GET /api/system/status`
 - `POST /api/system/shutdown`
 - `POST /api/system/backup`
+- `GET /api/system/tasks/{task_id}`
 
 #### OneBot11 协议
 

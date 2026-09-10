@@ -1,0 +1,14 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: An unknown task cannot be queried.
+request:
+  method: GET
+  path: /api/system/tasks/task_missing
+response:
+  status: 404
+  body:
+    error:
+      code: platform.resource_missing
+      message: 缺少必要资源
+      message_key: errors.platform.resource_missing
+      request_id: req_task_missing

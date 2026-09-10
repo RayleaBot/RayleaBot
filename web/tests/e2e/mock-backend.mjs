@@ -143,6 +143,8 @@ function baseState() {
     csrfToken: null,
     plugins: pluginMap,
     pluginStoreSources: structuredClone(fixtures.pluginStoreSources.response.body.items),
+    pluginStoreInstalled: {},
+    taskStatuses: {},
     pluginSettings: {
       'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
     },
@@ -2119,7 +2121,9 @@ const server = http.createServer(async (request, response) => {
 
   if (pathname === '/api/plugin-store/plugins' && request.method === 'GET') {
     if (!requireAuth(request, response)) return
-    json(response, 200, fixtures.pluginStoreList.response.body)
+    const body = structuredClone(fixtures.pluginStoreList.response.body)
+    body.items = body.items.map(item => state.pluginStoreInstalled[item.id] ? { ...item, installed_version: state.pluginStoreInstalled[item.id], install_state: 'installed' } : item)
+    json(response, 200, body)
     return
   }
 
@@ -2197,7 +2201,20 @@ const server = http.createServer(async (request, response) => {
       json(response, 409, errorEnvelope('plugin.install_inspection_required', 'plugin inspection is required', 'req_plugin_store_install_inspection'))
       return
     }
-    json(response, fixtures.pluginInstallAccepted.response.status, structuredClone(fixtures.pluginInstallAccepted.response.body))
+    const accepted = structuredClone(fixtures.pluginInstallAccepted.response.body)
+    const pluginId = decodeURIComponent(pluginStoreInstallMatch[1])
+    state.pluginStoreInstalled[pluginId] = fixtures.pluginStoreList.response.body.items.find(item => item.id === pluginId)?.latest_release?.version
+    state.taskStatuses[accepted.task_id] = { task_id: accepted.task_id, status: 'succeeded' }
+    json(response, fixtures.pluginInstallAccepted.response.status, accepted)
+    return
+  }
+
+  const taskStatusMatch = pathname.match(/^\/api\/system\/tasks\/([^/]+)$/)
+  if (taskStatusMatch && request.method === 'GET') {
+    if (!requireAuth(request, response)) return
+    const status = state.taskStatuses[decodeURIComponent(taskStatusMatch[1])]
+    if (!status) { json(response, 404, errorEnvelope('platform.resource_missing', 'task not found', 'req_task_missing')); return }
+    json(response, 200, status)
     return
   }
 
@@ -2315,6 +2332,8 @@ const server = http.createServer(async (request, response) => {
     appendTaskLog(taskId, 'plugin.install', 'pending', `install ${inspection.source}`, {
       plugin_id: inspection.source_type === 'remote_url' ? undefined : 'weather',
     })
+
+    state.taskStatuses[taskId] = { task_id: taskId, status: 'succeeded' }
 
     json(response, 202, { task_id: taskId })
     return
@@ -2498,6 +2517,8 @@ const server = http.createServer(async (request, response) => {
     appendTaskLog(taskId, 'plugin.uninstall', 'pending', `uninstall ${pluginId}`, {
       plugin_id: pluginId,
     })
+    delete state.plugins[pluginId]
+    state.taskStatuses[taskId] = { task_id: taskId, status: 'succeeded' }
     json(response, fixtures.pluginUninstallAccepted.response.status, fixtures.pluginUninstallAccepted.response.body)
     return
   }

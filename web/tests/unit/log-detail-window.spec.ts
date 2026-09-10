@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import ManagementLogDetailDrawer from '@/components/logs/ManagementLogDetailDrawer.vue'
@@ -124,7 +125,7 @@ async function mountFloatingDrawer(options: {
       hostElement,
     },
     global: {
-      plugins: [router],
+      plugins: [createPinia(), router],
     },
   })
 

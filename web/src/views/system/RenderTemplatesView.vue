@@ -203,7 +203,7 @@ function getTemplateSourceLabel(template: RenderTemplateSummary) {
 
   const id = template.source.plugin_id
   if (!id) return t('renderTemplates.sources.plugin')
-  return pluginsStore.items.find(plugin => plugin.id === id)?.name || t('renderTemplates.sources.plugin')
+  return pluginsStore.getPluginDisplayName(id)
 }
 
 function getTemplateLocalId(template: RenderTemplateSummary) {

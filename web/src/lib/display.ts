@@ -45,6 +45,11 @@ export function getPluginRoleLabel(role?: PluginRole) {
   return role ? translated(`display.pluginRoles.${role}`, role) : t('display.empty')
 }
 
+export function formatPluginVersion(version?: string | null) {
+  const value = version?.trim()
+  return value ? `v${value.replace(/^v(?=\d)/, '')}` : t('display.empty')
+}
+
 export function getLogLevelLabel(level?: LogLevel) {
   return level ? translated(`display.logLevels.${level}`, level) : t('display.empty')
 }

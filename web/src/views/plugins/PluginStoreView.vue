@@ -12,7 +12,7 @@ import AppDetails from '@/components/AppDetails.vue'
 import AppDetailItem from '@/components/AppDetailItem.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAlert from '@/components/AppAlert.vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   Trash2Icon,
@@ -31,6 +31,9 @@ import AppPage from '@/components/page/AppPage.vue'
 import RetryPanel from '@/components/RetryPanel.vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 import { t } from '@/i18n'
+import PluginIcon from '@/components/plugins/PluginIcon.vue'
+import { formatPluginVersion } from '@/lib/display'
+import { usePluginsStore } from '@/stores/plugins'
 import { usePluginStore, type PluginStoreSort } from '@/stores/plugin-store'
 import type {
   PluginStoreEntry,
@@ -39,7 +42,8 @@ import type {
 } from '@/types/api'
 
 const store = usePluginStore()
-const { error, installing, items, loading, refreshing, source, sourceSaving, sources, total } = storeToRefs(store)
+const pluginsStore = usePluginsStore()
+const { error, installing, items, loading, loadingMore, nextCursor, refreshing, source, sourceSaving, sources, total } = storeToRefs(store)
 
 const query = ref('')
 const sort = ref<PluginStoreSort>('recommended')
@@ -60,7 +64,9 @@ const sourceEditorOpen = ref(false)
 const editingSourceId = ref<string | null>(null)
 const batchUpdating = ref(false)
 const sourceForm = reactive<PluginStoreSourceInput>({ name: '', url: '' })
-const failedIcons = ref<Set<string>>(new Set())
+let pageActive = true
+let activated = false
+let refreshTimer: ReturnType<typeof setTimeout> | undefined
 
 const permissionNames = computed(() => Object.keys(selectedInspection.value?.inspection.permissions ?? {}).sort())
 const updateablePlugins = computed(() => items.value.filter(item => item.install_state === 'update_available'))
@@ -142,8 +148,9 @@ async function acceptInspection(
 async function confirmInstall() {
   if (!selectedPlugin.value || !selectedInspection.value) return
   try {
-    await acceptInspection(selectedPlugin.value, selectedInspection.value, true)
+    const installation = acceptInspection(selectedPlugin.value, selectedInspection.value, true)
     closeConfirmation()
+    await installation
   } catch (cause) {
     notifyError(getDisplayErrorMessage(cause))
   }
@@ -247,6 +254,7 @@ async function removeSource(id: string) {
 }
 
 function installActionLabel(plugin: PluginStoreEntry) {
+  if (installing.value[plugin.id]) return t('plugins.store.actions.installing')
   switch (plugin.install_state) {
     case 'update_available': return t('plugins.store.actions.update')
     case 'installed': return t('plugins.store.actions.installed')
@@ -257,13 +265,21 @@ function installActionLabel(plugin: PluginStoreEntry) {
 }
 
 function canInstall(plugin: PluginStoreEntry) {
-  return plugin.install_state === 'available' || plugin.install_state === 'update_available'
+  return !installing.value[plugin.id] && (plugin.install_state === 'available' || plugin.install_state === 'update_available')
 }
 
-function markIconFailed(pluginId: string) {
-  failedIcons.value = new Set(failedIcons.value).add(pluginId)
+async function loadMore() {
+  try { await store.loadMore() } catch (cause) { notifyError(getDisplayErrorMessage(cause)) }
 }
 
+watch(() => pluginsStore.items.map(plugin => `${plugin.id}:${plugin.version}:${plugin.state}`).join('|'), () => {
+  if (!pageActive || loading.value || Object.values(installing.value).some(Boolean)) return
+  clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(() => { if (pageActive) void loadEntries() }, 150)
+})
+onActivated(() => { pageActive = true; if (activated) void loadEntries(); activated = true })
+onDeactivated(() => { pageActive = false; clearTimeout(refreshTimer) })
+onBeforeUnmount(() => { pageActive = false; clearTimeout(refreshTimer) })
 onMounted(() => {
   void loadInitialEntries()
 })
@@ -319,16 +335,7 @@ onMounted(() => {
         <AppCard v-for="plugin in items" :key="plugin.id" class="store-plugin-card" shadow="sm">
           <div class="plugin-card-header">
             <div class="plugin-identity">
-              <div class="plugin-mark">
-                <img
-                  v-if="plugin.icon_url && !failedIcons.has(plugin.id)"
-                  :src="plugin.icon_url"
-                  alt=""
-                  referrerpolicy="no-referrer"
-                  @error="markIconFailed(plugin.id)"
-                />
-                <span v-else>{{ plugin.name.slice(0, 2).toUpperCase() }}</span>
-              </div>
+              <PluginIcon :plugin-id="plugin.id" :remote-url="plugin.icon_url ?? ''" :source-key="sourceId" :version="plugin.latest_release?.version" :refresh-key="store.iconRevision" />
               <div class="plugin-heading">
                 <div class="plugin-title-line">
                   <h2>{{ plugin.name }}</h2>
@@ -355,14 +362,14 @@ onMounted(() => {
           <p class="plugin-summary">{{ plugin.summary }}</p>
 
           <div class="plugin-meta">
-            <span>{{ plugin.publisher.name }}</span>
-            <span>{{ plugin.license }}</span>
-            <span v-if="plugin.latest_release">v{{ plugin.latest_release.version }}</span>
+            <span>{{ t('plugins.store.publisher', { name: plugin.publisher.name }) }}</span>
+            <span :title="t('plugins.fields.license')">{{ plugin.license }}</span>
+            <span v-if="plugin.latest_release">{{ t('plugins.store.latestVersion', { version: formatPluginVersion(plugin.latest_release.version) }) }}</span>
           </div>
 
           <div class="plugin-card-footer">
             <span v-if="plugin.installed_version" class="installed-version">
-              {{ t('plugins.store.installedVersion', { version: plugin.installed_version }) }}
+              {{ t('plugins.store.installedVersion', { version: formatPluginVersion(plugin.installed_version) }) }}
             </span>
             <span v-else />
             <AppButton
@@ -377,6 +384,7 @@ onMounted(() => {
           </div>
         </AppCard>
       </div>
+      <div v-if="nextCursor" class="store-load-more"><AppButton :loading="loadingMore" :disabled="loading || loadingMore" @click="loadMore">{{ t('plugins.store.loadMore') }}</AppButton></div>
     </template>
 
     <AppDialog :open="confirmationOpen" :title="t('plugins.store.confirm.title')" :busy="Boolean(selectedPlugin && installing[selectedPlugin.id])" fallback-focus="[data-testid=plugin-store-refresh]" @close="closeConfirmation" @after-close="resetConfirmation">
@@ -387,7 +395,7 @@ onMounted(() => {
       />
       <AppDetails v-if="selectedInspection" class="confirm-details">
         <AppDetailItem :label="t('plugins.fields.version')">
-          {{ selectedInspection.inspection.plugin.version }}
+          {{ formatPluginVersion(selectedInspection.inspection.plugin.version) }}
         </AppDetailItem>
         <AppDetailItem :label="t('plugins.fields.source')">
           {{ selectedInspection.inspection.plugin.source_label }}
@@ -525,24 +533,7 @@ onMounted(() => {
 
 .plugin-heading { min-width: 0; }
 
-.plugin-mark {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 auto;
-  overflow: hidden;
-  place-items: center;
-  border-radius: var(--radius-lg);
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
-  font-weight: 700;
-}
-
-.plugin-mark img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
+.store-load-more { display: flex; justify-content: center; margin-top: var(--space-lg); }
 
 .plugin-title-line {
   flex-wrap: wrap;

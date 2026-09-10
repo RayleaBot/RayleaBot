@@ -16,6 +16,10 @@ type diagnosticsTestSystem struct {
 	snapshot systemsvc.DiagnosticsSnapshot
 }
 
+func (s diagnosticsTestSystem) GetTaskStatus(string) (systemsvc.TaskStatus, bool) {
+	return systemsvc.TaskStatus{}, false
+}
+
 func (s diagnosticsTestSystem) CurrentReadiness() health.ReadinessReport {
 	return health.ReadinessReport{Status: "ready"}
 }

@@ -52,7 +52,7 @@ export function usePluginInstallFlow(pluginsStore: ReturnType<typeof usePluginsS
         inspection_id: installInspection.value.inspection_id,
         package_sha256: installInspection.value.package_sha256,
         trusted_code_confirmed: true,
-      })
+      }, () => { installDialogVisible.value = false })
       installDialogVisible.value = false
       notifySuccess(t('plugins.installAccepted'))
     } catch (error) {

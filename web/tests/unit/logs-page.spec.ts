@@ -329,19 +329,24 @@ describe('LogsPage', () => {
     expect(activeSpy).toHaveBeenCalledWith(false)
   })
 
-  it('does not prefetch plugin options on mount', async () => {
+  it('loads plugin names on mount even after a partial state event', async () => {
     const router = createTestRouter()
     await router.push('/logs')
     await router.isReady()
 
     const pluginsStore = usePluginsStore()
-    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList')
+    pluginsStore.upsert({ id: 'weather', state: 'running' })
+    const fetchListSpy = vi.spyOn(pluginsStore, 'fetchList').mockImplementation(async () => {
+      pluginsStore.upsert({ id: 'weather', name: '天气插件', state: 'running' })
+      pluginsStore.listLoaded = true
+    })
     const store = useLogsStore()
     vi.spyOn(store, 'ensureLoaded').mockResolvedValue(store.items)
 
     mountRoutedView(router)
 
     await flushPromises()
-    expect(fetchListSpy).not.toHaveBeenCalled()
+    expect(fetchListSpy).toHaveBeenCalledTimes(1)
+    expect(pluginsStore.getPluginDisplayName('weather')).toBe('天气插件')
   })
 })

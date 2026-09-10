@@ -46,6 +46,72 @@ describe('plugins store', () => {
     expect(store.getPluginDisplayName('weather')).toBe('Weather')
   })
 
+  it('updates cached identity and invalidates detail-only fields when the package version changes', () => {
+    const store = usePluginsStore()
+    const detail = { id: 'weather', name: 'Weather', version: '1', icon: 'old.svg', role: 'community', state: 'running', commands: [], command_groups: [], help: {}, permissions: {}, webhooks: [] } as PluginDetail
+    store.items = [detail]
+    store.detailsByPluginId = { weather: detail }
+    store.upsert({ id: 'weather', name: '新名称', icon: 'new.svg', state: 'running' })
+    expect(store.detailsByPluginId.weather?.name).toBe('新名称')
+    expect(store.detailsByPluginId.weather?.icon).toBe('new.svg')
+    store.upsert({ id: 'weather', version: '2', state: 'running' })
+    expect(store.detailsByPluginId.weather).toBeUndefined()
+    expect(store.getPluginDisplayName('weather')).toBe('新名称')
+  })
+
+  it('re-reads a detail response superseded by a refreshed list', async () => {
+    const old = { id: 'weather', name: '旧插件', version: '1', state: 'running', commands: [], command_groups: [], help: {} }
+    const fresh = { ...old, name: '新插件', version: '2' }
+    let resolveOld: (value: Response) => void = () => {}
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => new Promise<Response>(resolve => { resolveOld = resolve }))
+      .mockResolvedValueOnce(jsonResponse({ items: [fresh] }))
+      .mockResolvedValueOnce(jsonResponse({ plugin: fresh }))
+    vi.stubGlobal('fetch', fetchMock)
+    const store = usePluginsStore()
+    const pending = store.ensureDetail('weather')
+    await store.fetchList()
+    resolveOld(jsonResponse({ plugin: old }))
+    await pending
+    expect(store.detailsByPluginId.weather?.version).toBe('2')
+    expect(store.items[0]?.name).toBe('新插件')
+  })
+
+  it('removes metadata omitted by a refreshed full detail', async () => {
+    const store = usePluginsStore()
+    store.upsert({ id: 'weather', name: 'Weather', state: 'running', icon: 'old.svg', description: 'old description' })
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ plugin: { id: 'weather', name: 'Weather', state: 'running', role: 'community', commands: [], command_groups: [], help: {}, permissions: {}, webhooks: [] } })))
+    await store.ensureDetail('weather', { refresh: true })
+    expect(store.items[0]?.icon).toBeUndefined()
+    expect(store.items[0]?.description).toBeUndefined()
+  })
+
+  it('refreshes same-version detail metadata after the catalog is refreshed', async () => {
+    const store = usePluginsStore()
+    const plugin = { id: 'weather', name: 'Weather', version: '1', state: 'running', role: 'community', commands: [], command_groups: [], help: {}, permissions: {}, webhooks: [] }
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ plugin }))
+      .mockResolvedValueOnce(jsonResponse({ items: [plugin] }))
+      .mockResolvedValueOnce(jsonResponse({ plugin: { ...plugin, repo: 'https://example.test/new-repository' } })))
+    await store.ensureDetail('weather')
+    await store.fetchList()
+    await store.ensureDetail('weather')
+    expect(store.detailsByPluginId.weather?.repo).toBe('https://example.test/new-repository')
+  })
+
+  it('finishes uninstalling before removing the plugin from the displayed list', async () => {
+    const store = usePluginsStore()
+    store.upsert({ id: 'weather', name: 'Weather', state: 'running' })
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ task_id: 'uninstall' }, 202))
+      .mockResolvedValueOnce(jsonResponse({ task_id: 'uninstall', status: 'succeeded' }))
+      .mockResolvedValueOnce(jsonResponse({ items: [] })))
+    await store.uninstallPlugin('weather')
+    expect(store.items).toEqual([])
+    expect(store.actionPending.weather).toBeNull()
+    expect(store.getPluginDisplayName('weather')).toBe('Weather')
+  })
+
   it('loads the plugin list once for passive navigation consumers while explicit refresh stays available', async () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({
       items: [{

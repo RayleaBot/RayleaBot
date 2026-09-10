@@ -5,7 +5,10 @@ export const plugins = {
     resultCount: '共 {count} 个插件',
     recommended: '推荐',
     repository: '打开源码仓库',
-    installedVersion: '已安装 v{version}',
+    installedVersion: '已安装 {version}',
+    latestVersion: '最新 {version}',
+    publisher: '发布者：{name}',
+    loadMore: '加载更多插件',
     sources: {
       manage: '管理插件源',
       description: '官方源始终保留；自定义源使用 HTTPS 目录地址。',
@@ -32,6 +35,7 @@ export const plugins = {
       refresh: '刷新目录',
       updateAll: '批量更新（{count}）',
       install: '安装',
+      installing: '正在安装',
       update: '更新',
       installed: '已安装',
       unpublished: '等待发布',
@@ -45,9 +49,9 @@ export const plugins = {
       noPermissions: '未声明额外权限',
     },
     feedback: {
-      accepted: '安装任务已提交，可在实时日志中查看结果',
+      accepted: '插件安装完成',
       refreshed: '插件商店目录已刷新',
-      batchAccepted: '已提交 {count} 个插件更新任务',
+      batchAccepted: '已完成 {count} 个插件更新',
       batchSkipped: '{count} 个插件需要单独确认或检查失败，已跳过',
     },
     empty: {
@@ -308,8 +312,8 @@ export const plugins = {
   },
   uninstallConfirmTitle: '确认卸载插件',
   uninstallConfirmBody: '卸载会异步执行，可在实时日志查看结果。',
-  installAccepted: '安装任务已提交，可在实时日志查看结果',
-  uninstallAccepted: '卸载任务已提交，可在实时日志查看结果',
+  installAccepted: '插件安装完成',
+  uninstallAccepted: '插件卸载完成',
   actionAccepted: '操作已提交',
   managementUi: {
     loading: '正在载入插件页面',

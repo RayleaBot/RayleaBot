@@ -104,7 +104,7 @@ const pluginOptions = computed(() => {
 
   for (const pluginId of selectedPluginIds.value) {
     if (!knownPluginIds.has(pluginId)) {
-      options.push({ label: pluginId, value: pluginId })
+      options.push({ label: pluginsStore.getPluginLabel(pluginId), value: pluginId })
     }
   }
 
@@ -153,11 +153,11 @@ function sameLogFilters(left: LogFilters, right: LogFilters) {
 }
 
 function getPluginLabel(plugin: PluginSummary) {
-  return `${plugin.name}（${plugin.id}）`
+  return pluginsStore.getPluginLabel(plugin.id, plugin.name)
 }
 
 async function loadPluginOptions() {
-  if (pluginsStore.items.length > 0 || pluginsStore.loading) {
+  if (pluginsStore.listLoaded) {
     return
   }
 
@@ -287,6 +287,7 @@ async function syncFromRoute() {
 }
 
 async function activatePage() {
+  void loadPluginOptions()
   if (activatePageTask) {
     return activatePageTask
   }
@@ -497,7 +498,7 @@ onUnmounted(() => {
                     <AppTag size="small" :tone="getLevelColor(item.level)">
                       {{ getLogLevelLabel(item.level) }}
                     </AppTag>
-                    <span v-if="item.plugin_id" class="logs-row__sub">{{ item.plugin_id }}</span>
+                    <span v-if="item.plugin_id" class="logs-row__sub" :title="item.plugin_id">{{ pluginsStore.getPluginDisplayName(item.plugin_id) }}</span>
                     <span v-if="item.request_id" class="logs-row__sub">{{ item.request_id }}</span>
                   </div>
                   <p class="logs-row__message">{{ escapeUnsafeDisplayText(item.message) }}</p>

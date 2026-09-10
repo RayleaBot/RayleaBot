@@ -704,7 +704,9 @@ describe('PluginDetailPage', () => {
     await router.push('/plugins/example-config-panel?panel=management-ui&management_page=secrets')
     await flushPromises()
 
-   expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
+    await vi.waitFor(() => {
+      expect(new URL(wrapper.get('[data-testid="plugin-management-ui-frame"]').attributes('src')).pathname).toBe('/index.html')
+    })
 
     await router.push('/plugins/example-config-panel')
     await flushPromises()

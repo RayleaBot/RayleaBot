@@ -6,6 +6,8 @@ info:
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
 x-fixtures:
+  - fixtures/web-api/ok.system-task-status.yaml
+  - fixtures/web-api/edge.system-task-missing.yaml
   - fixtures/web-api/ok.adapters-list.yaml
   - fixtures/web-api/ok.development-sync.yaml
   - fixtures/web-api/edge.development-sync-unchanged.yaml
@@ -742,6 +744,35 @@ paths:
               schema:
                 $ref: '#/components/schemas/SystemShutdownResponse'
         '401':
+          $ref: '#/components/responses/Error'
+        default:
+          $ref: '#/components/responses/Error'
+
+  /api/system/tasks/{task_id}:
+    get:
+      summary: Read the current status of an accepted asynchronous task.
+      description: Requires a management session. Returns only task status and a stable failure code, without task payloads or result details. Terminal states are succeeded, failed, cancelled, and interrupted. An unknown task returns HTTP 404 with platform.resource_missing.
+      operationId: getSystemTaskStatus
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        '200':
+          description: Current task status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStatusResponse'
+        '401':
+          $ref: '#/components/responses/Error'
+        '404':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -3693,6 +3724,21 @@ components:
           maxItems: 50
           items:
             $ref: '#/components/schemas/RecoveryCompatibilityAuditEntry'
+
+    TaskStatusResponse:
+      type: object
+      additionalProperties: false
+      required: [task_id, status]
+      properties:
+        task_id:
+          type: string
+          minLength: 1
+        status:
+          type: string
+          enum: [pending, running, succeeded, failed, cancelled, interrupted]
+        error_code:
+          type: string
+          minLength: 1
 
     TaskAcceptedResponse:
       type: object

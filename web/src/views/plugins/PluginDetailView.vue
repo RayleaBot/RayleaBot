@@ -28,6 +28,7 @@ import RetryPanel from '@/components/RetryPanel.vue'
 import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
+  formatPluginVersion,
   getConnectionStatusLabel,
   getPluginPermissionLabel,
   getPluginPermissionRawTitle,
@@ -169,14 +170,14 @@ const statusSummaryItems = computed(() => [
   },
 ])
 const heroFacts = computed(() => [
-  { key: 'version', label: t('plugins.fields.version'), value: getMetadataText(currentPlugin.value?.version) },
-  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: getMetadataText(currentPlugin.value?.min_core_version) },
+  { key: 'version', label: t('plugins.fields.version'), value: formatPluginVersion(currentPlugin.value?.version) },
+  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: formatPluginVersion(currentPlugin.value?.min_core_version) },
   { key: 'source', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
 ])
 const packageInfoRows = computed(() => [
   { key: 'author', label: t('plugins.fields.author'), value: getMetadataText(currentPlugin.value?.author) },
   { key: 'license', label: t('plugins.fields.license'), value: getMetadataText(currentPlugin.value?.license) },
-  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: getMetadataText(currentPlugin.value?.min_core_version) },
+  { key: 'core', label: t('plugins.fields.minCoreVersion'), value: formatPluginVersion(currentPlugin.value?.min_core_version) },
 ])
 const sourceInfoRows = computed(() => [
   { key: 'root', label: t('plugins.fields.sourceRoot'), value: getMetadataText(currentPlugin.value?.source?.root) },
@@ -255,9 +256,10 @@ function getToggleAction() {
 async function uninstallPlugin() {
   operationError.value = null
   try {
-    await pluginsStore.uninstallPlugin(pluginId.value)
+    await pluginsStore.uninstallPlugin(pluginId.value, () => { uninstallDialogVisible.value = false })
     uninstallDialogVisible.value = false
     notifySuccess(t('plugins.uninstallAccepted'))
+    await router.replace('/plugins')
   } catch (error) {
     operationError.value = getDisplayErrorMessage(error)
   }
@@ -428,7 +430,7 @@ onUnmounted(() => {
       <AppSkeleton v-if="detailLoading && !currentPlugin" :rows="4" />
       <section v-else class="plugin-detail-hero">
           <div class="plugin-detail-hero__identity">
-            <PluginIcon
+            <PluginIcon :refresh-key="pluginsStore.iconRevision"
               class="plugin-detail-hero__avatar"
               data-testid="plugin-detail-icon"
               :plugin-id="pluginId"

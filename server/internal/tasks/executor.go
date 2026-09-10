@@ -118,6 +118,10 @@ func (e *Executor) Submit(taskType, summary string, fn ExecuteFunc) (string, err
 	return taskID, nil
 }
 
+func (e *Executor) Get(taskID string) (Snapshot, bool) {
+	return e.registry.Get(taskID)
+}
+
 func (e *Executor) List() []Snapshot {
 	if e.registry == nil {
 		return nil

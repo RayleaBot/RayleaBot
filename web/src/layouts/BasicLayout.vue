@@ -896,7 +896,7 @@ onBeforeUnmount(() => {
                   <div class="workspace-tabs__item" :data-active="currentTabPath === item.path">
                     <TabsTrigger :value="item.path" class="workspace-tabs__trigger" aria-controls="app-main">
                       <span class="admin-layout__tab-label" :data-icon="resolveTabItemIconData(item) || undefined" :data-tab-path="item.path">
-                        <PluginIcon v-if="resolvePluginTabIdentity(item)" class="admin-layout__tab-plugin-icon" :data-plugin-id="resolvePluginTabIdentity(item)?.pluginId" :plugin-id="resolvePluginTabIdentity(item)?.pluginId ?? ''" :icon="resolvePluginTabIdentity(item)?.icon" :version="resolvePluginTabIdentity(item)?.version" />
+                        <PluginIcon :refresh-key="pluginsStore.iconRevision" v-if="resolvePluginTabIdentity(item)" class="admin-layout__tab-plugin-icon" :data-plugin-id="resolvePluginTabIdentity(item)?.pluginId" :plugin-id="resolvePluginTabIdentity(item)?.pluginId ?? ''" :icon="resolvePluginTabIdentity(item)?.icon" :version="resolvePluginTabIdentity(item)?.version" />
                         <component :is="resolveTabItemIconComponent(item)" v-else-if="resolveTabItemIconComponent(item)" class="admin-layout__tab-icon" />
                         <span>{{ item.title }}</span>
                       </span>

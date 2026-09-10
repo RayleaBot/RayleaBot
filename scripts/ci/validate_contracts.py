@@ -140,6 +140,7 @@ STRICT_OPENAPI_PATHS = {
     "/api/system/status",
     "/api/system/shutdown",
     "/api/system/backup",
+    "/api/system/tasks/{task_id}",
     "/api/system/metrics",
     "/api/system/diagnostics",
     "/api/system/recovery/recheck",

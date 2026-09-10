@@ -39,6 +39,7 @@
 - `POST /api/system/recovery/confirm`
 - `POST /api/system/runtime/bootstrap`
 - `GET /api/system/diagnostics`
+- `GET /api/system/tasks/{task_id}`：查询异步任务状态与失败码
 - `GET /api/system/diagnostics/export`
 - `GET /api/system/metrics`
 - `GET /api/update/status`
