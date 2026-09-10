@@ -41,6 +41,40 @@ class DepsManifestRuntimeTests(unittest.TestCase):
             self.assertTrue(compact.is_dir())
             self.assertFalse(root.exists())
 
+    def test_compacting_release_root_retries_and_preserves_extracted_content(self) -> None:
+        with TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "validation"
+            root = destination / "RayleaBot-v0.4.0-windows-x64-full"
+            root.mkdir(parents=True)
+            (root / "build_info.json").write_bytes(b"verified extracted content")
+            original = Path.replace
+            attempts = 0
+
+            def replace(source, target):
+                nonlocal attempts
+                attempts += 1
+                if attempts == 1:
+                    raise PermissionError("temporary scanner handle")
+                return original(source, target)
+
+            with mock.patch.object(Path, "replace", autospec=True, side_effect=replace), mock.patch.object(package_runtime.time, "sleep"):
+                compact = package_runtime.compact_release_root(root, destination, "nt")
+            self.assertEqual(attempts, 2)
+            self.assertEqual((compact / "build_info.json").read_bytes(), b"verified extracted content")
+            self.assertFalse(root.exists())
+
+    def test_compacting_release_root_preserves_source_after_retry_budget(self) -> None:
+        with TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "validation"
+            root = destination / "RayleaBot-v0.4.0-windows-x64-full"
+            root.mkdir(parents=True)
+            (root / "build_info.json").write_bytes(b"retained failure evidence")
+            with mock.patch.object(Path, "replace", side_effect=PermissionError("still locked")), mock.patch.object(package_runtime.time, "monotonic", side_effect=[0.0, 6.0]):
+                with self.assertRaises(PermissionError):
+                    package_runtime.compact_release_root(root, destination, "nt")
+            self.assertEqual((root / "build_info.json").read_bytes(), b"retained failure evidence")
+            self.assertEqual(list(Path(tmp).glob("r-*")), [])
+
     def test_resource_metadata_requires_browser_entrypoint(self) -> None:
         resource = self._resource(self._runtime_archive({"chrome-win64/chrome.exe": b"chrome"}))
 

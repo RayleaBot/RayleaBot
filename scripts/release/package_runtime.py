@@ -133,7 +133,7 @@ def compact_release_root(root: Path, destination: Path, platform_name: str | Non
     compact = destination.parent / f"r-{digest}"
     if compact.exists():
         shutil.rmtree(compact)
-    root.replace(compact)
+    replace_directory_with_retry(root, compact)
     return compact
 
 
