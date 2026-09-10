@@ -1,0 +1,25 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: Plugin task errors distinguish rollback failure and committed cleanup without leaking causes.
+input:
+  errors:
+    - code: plugin.install_failed
+      message: 插件安装失败且回滚未完成
+      applies_to: task
+      details:
+        operation_state: rollback_failed
+        failures: [finalize, rollback_files]
+    - code: plugin.install_failed
+      message: 插件安装失败，已恢复安装前状态
+      applies_to: task
+      details:
+        operation_state: rolled_back
+        failures: [finalize]
+    - code: plugin.uninstall_failed
+      message: 插件文件变更已完成，但后续处理失败
+      applies_to: task
+      details:
+        operation_state: committed
+        failures: [desired_state, metadata, finalize]
+expect:
+  valid: true

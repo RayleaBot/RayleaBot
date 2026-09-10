@@ -6,6 +6,8 @@ x-fixtures:
   - fixtures/errors/ok.core-catalog.yaml
   - fixtures/errors/invalid.missing-required-fields.yaml
   - fixtures/errors/edge.applicability.yaml
+  - fixtures/errors/ok.plugin-operation-failures.yaml
+  - fixtures/errors/invalid.plugin-operation-state.yaml
 
 domains:
   - platform
@@ -160,10 +162,60 @@ codes:
     domain: platform
     message_key: errors.platform.resource_missing
     message: 缺少必要资源
-    description: A required platform resource was missing.
+    description: A required runtime dependency was unavailable. A missing addressed resource uses platform.resource_not_found instead.
     http_status: 503
     retryable: false
     applies_to: [http, websocket, readiness]
+
+  platform.resource_not_found:
+    code: platform.resource_not_found
+    domain: platform
+    message_key: errors.platform.resource_not_found
+    message: 请求的资源不存在
+    description: The resource identified by the request does not exist, including plugins, plugin sources, files, and webhook registrations.
+    http_status: 404
+    retryable: false
+    applies_to: [http, websocket]
+
+  platform.state_conflict:
+    code: platform.state_conflict
+    domain: platform
+    message_key: errors.platform.state_conflict
+    message: 当前状态不允许执行该操作
+    description: The request shape is valid but the current resource state or an in-flight operation prevents it from being applied.
+    http_status: 409
+    retryable: false
+    applies_to: [http, websocket, task]
+
+  plugin.store_source_immutable:
+    code: plugin.store_source_immutable
+    domain: plugin
+    message_key: errors.plugin.store_source_immutable
+    message: 官方插件源不能修改或删除
+    description: An administrator attempted to modify or remove the built-in official plugin source.
+    http_status: 409
+    retryable: false
+    applies_to: [http]
+
+  plugin.store_source_conflict:
+    code: plugin.store_source_conflict
+    domain: plugin
+    message_key: errors.plugin.store_source_conflict
+    message: 插件源地址已存在
+    description: Another configured plugin source already uses the requested URL.
+    http_status: 409
+    retryable: false
+    applies_to: [http]
+
+  plugin.management_action_failed:
+    code: plugin.management_action_failed
+    domain: plugin
+    message_key: errors.plugin.management_action_failed
+    message: 插件管理操作执行失败
+    description: A delegated plugin management action failed to produce a successful result; the host does not expose the plugin's raw error or credentials.
+    http_status: 502
+    retryable: false
+    applies_to: [http]
 
   platform.upstream_request_failed:
     code: platform.upstream_request_failed
@@ -290,7 +342,29 @@ codes:
     domain: plugin
     message_key: errors.plugin.install_failed
     message: 插件安装失败
-    description: Plugin installation failed after artifact preflight or atomic placement had already started.
+    description: >
+      Plugin installation failed. Task details report unchanged before package mutation,
+      rolled_back only after files, metadata, catalog and runtime are restored,
+      rollback_failed when any restoration fails, or committed when installation completed
+      but temporary-file cleanup failed. rollback_failed retains the installation working
+      directory and previous package for manual recovery; resolve the listed stages before retrying.
+      Cancellation or timeout with failed rollback is failed, never cancelled or successful.
+      failures lists the primary failure followed by rollback and cleanup failures, using
+      stable stage names without raw error messages, credentials or filesystem paths.
+    details_schema:
+      type: object
+      additionalProperties: false
+      required: [operation_state, failures]
+      properties:
+        operation_state:
+          type: string
+          enum: [unchanged, rolled_back, rollback_failed, committed]
+        failures:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum: [stop, backup, install, metadata, desired_state, catalog, finalize, rollback_stop, rollback_files, rollback_metadata, rollback_desired_state, rollback_catalog, rollback_finalize, cleanup]
     http_status: 409
     retryable: true
     applies_to: [http, websocket, task]
@@ -430,7 +504,28 @@ codes:
     domain: plugin
     message_key: errors.plugin.uninstall_failed
     message: 插件卸载失败
-    description: Plugin uninstallation failed during runtime shutdown, directory removal, or database cleanup.
+    description: >
+      Plugin uninstallation failed during runtime shutdown, directory removal, database cleanup,
+      catalog refresh or post-processing. Task details report unchanged when package removal
+      did not start, partial when directory removal failed and may have removed some files,
+      or committed when the package directory is absent but subsequent cleanup failed.
+      Independent cleanup steps continue and failures lists every failed stage without raw
+      error messages, credentials or filesystem paths. Fix the listed stages and retry uninstall;
+      an absent directory does not prevent remaining cleanup. These failures never report success.
+    details_schema:
+      type: object
+      additionalProperties: false
+      required: [operation_state, failures]
+      properties:
+        operation_state:
+          type: string
+          enum: [unchanged, partial, committed]
+        failures:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            enum: [stop, remove, desired_state, metadata, catalog, finalize]
     http_status: 409
     retryable: true
     applies_to: [http, websocket, task]
@@ -493,13 +588,20 @@ codes:
     domain: permission
     message_key: errors.permission.denied
     message: 当前用户无权执行该操作
-    description: >
-      The caller does not have permission for the requested command or management action.
-      When returned by the HTTP auth middleware due to a missing or invalid Bearer token,
-      the HTTP status code is 401 (Unauthorized) instead of the default 403 (Forbidden).
+    description: The authenticated caller does not have permission for the requested command or management action.
     http_status: 403
     retryable: false
     applies_to: [http, websocket, plugin_protocol]
+
+  permission.authentication_required:
+    code: permission.authentication_required
+    domain: permission
+    message_key: errors.permission.authentication_required
+    message: 请求认证未通过
+    description: The management request lacks valid authentication or fails its required cookie, CSRF, Origin, or WebSocket admission binding. No protected handler is executed.
+    http_status: 401
+    retryable: false
+    applies_to: [http, websocket]
 
   permission.blacklisted:
     code: permission.blacklisted
@@ -829,15 +931,15 @@ codes:
     retryable: false
     applies_to: [http, websocket, logs]
 
-  adapter.transport_degraded:
-    code: adapter.transport_degraded
+  adapter.transport_unavailable:
+    code: adapter.transport_unavailable
     domain: adapter
-    message_key: errors.adapter.transport_degraded
-    message: OneBot 传输链路不完整
-    description: The configured OneBot transport set is only partially available, so inbound and outbound capability are not simultaneously ready.
+    message_key: errors.adapter.transport_unavailable
+    message: 适配器传输当前不可用
+    description: The addressed adapter transport is disabled or stopped and cannot accept requests. The payload itself has not been classified as invalid.
     http_status: 503
-    retryable: true
-    applies_to: [http, websocket, readiness]
+    retryable: false
+    applies_to: [http, websocket, logs]
 
   adapter.transport_not_implemented:
     code: adapter.transport_not_implemented
@@ -848,26 +950,6 @@ codes:
     http_status: 501
     retryable: false
     applies_to: [http, websocket, readiness, plugin_protocol]
-
-  adapter.transport_invalid_config:
-    code: adapter.transport_invalid_config
-    domain: adapter
-    message_key: errors.adapter.transport_invalid_config
-    message: 协议传输配置不合法
-    description: The requested OneBot transport is enabled but missing a valid endpoint or contains an incompatible URL shape.
-    http_status: 400
-    retryable: false
-    applies_to: [http, websocket, readiness]
-
-  adapter.compatibility_not_supported:
-    code: adapter.compatibility_not_supported
-    domain: adapter
-    message_key: errors.adapter.compatibility_not_supported
-    message: 当前协议兼容项尚未实现
-    description: The requested OneBot event, segment, or action is part of the formal matrix but is not implemented by the current runtime path yet.
-    http_status: 501
-    retryable: false
-    applies_to: [http, websocket, plugin_protocol]
 
   adapter.provider_extension_not_supported:
     code: adapter.provider_extension_not_supported
@@ -888,3 +970,66 @@ codes:
     http_status: 500
     retryable: true
     applies_to: [http, websocket]
+
+# Diagnostic identities are not HTTP errors. Status and remediation belong to the containing report.
+diagnostics:
+  auth.unavailable:
+    description: The authentication subsystem is unavailable.
+  config.not_accessible:
+    description: The configured user document cannot be read.
+  config.ok:
+    description: The user configuration document is accessible.
+  config.retired_plugin_runtime_keys:
+    description: The configuration contains unsupported plugin runtime fields.
+  database.ok:
+    description: The database connection is available.
+  database.path_unresolvable:
+    description: The configured database path cannot be resolved.
+  database.ping_failed:
+    description: The database health check failed.
+  deps.manifest:
+    description: The runtime dependency manifest was loaded.
+  deps.manifest_invalid:
+    description: The runtime dependency manifest is invalid.
+  deps.manifest_missing:
+    description: The runtime dependency manifest is absent.
+  deps.manifest_platform_missing:
+    description: The runtime manifest has no resources for this platform.
+  html.compile_failed:
+    description: A render template HTML source could not be compiled.
+  input_schema.compile_failed:
+    description: A render template input schema could not be compiled.
+  logging.recent_errors_unavailable:
+    description: Recent log errors could not be read.
+  platform.template_source_invalid:
+    description: A render template source failed validation.
+  plugin.min_core_version:
+    description: A plugin requires a newer core version.
+  recovery.config_schema_unsupported:
+    description: The backup configuration format is not the current format.
+  recovery.db_schema_unsupported:
+    description: The backup database structure is not the current structure.
+  recovery.plugin_incompatible:
+    description: A restored plugin does not satisfy the current runtime requirements.
+  recovery.plugin_min_core_version:
+    description: A restored plugin requires a newer core version.
+  recovery.plugin_platform_mismatch:
+    description: A restored plugin targets a different native platform.
+  recovery.post_start_checks_required:
+    description: Restored runtime resources require post-start checks.
+  schema.invalid:
+    description: The current configuration fails schema validation.
+  schema.ok:
+    description: The current configuration satisfies its schema.
+  setup.required:
+    description: The administrator account has not been initialized.
+  storage.schema_metadata_unavailable:
+    description: Current database initialization metadata could not be read.
+  third_party.accounts_unavailable:
+    description: Third-party account summaries could not be read.
+  windows.long_paths_disabled:
+    description: Windows long-path support is disabled.
+  windows.long_paths_enabled:
+    description: Windows long-path support is enabled.
+  windows.long_paths_unavailable:
+    description: Windows long-path support could not be inspected.

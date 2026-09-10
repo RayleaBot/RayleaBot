@@ -1,0 +1,13 @@
+contract: contracts/error-codes.yaml
+case: invalid
+description: An uninstall operation cannot claim that removed package files were rolled back.
+input:
+  errors:
+    - code: plugin.uninstall_failed
+      message: 插件卸载失败
+      applies_to: task
+      details:
+        operation_state: rolled_back
+        failures: [finalize]
+expect:
+  valid: false
