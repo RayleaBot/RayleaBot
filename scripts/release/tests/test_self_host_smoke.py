@@ -1,4 +1,11 @@
 import io
+import json
+import struct
+import subprocess
+import tempfile
+from contextlib import redirect_stdout
+
+import yaml
 import sys
 import unittest
 import urllib.error
@@ -20,6 +27,8 @@ class SelfHostSmokeTests(unittest.TestCase):
                 "linux-x64-server",
                 "--archive",
                 "bundle.tar.gz",
+                "--plugin-fixture",
+                "fixture.zip",
             ]
         )
 
@@ -383,23 +392,96 @@ class SelfHostSmokeTests(unittest.TestCase):
                 "preview_data_json": {"title": "RayleaBot"},
             }
         }
-        preview = {
-            "template_id": "help.menu",
-            "revision_id": "rev_help_menu_0001",
-            "width": 960,
-            "height": 640,
-            "html": "<!doctype html><html></html>",
-        }
+        preview = yaml.safe_load((ROOT / "fixtures/web-api/ok.system-render-template-preview-html.yaml").read_text(encoding="utf-8"))["response"]["body"]
 
         preview_data = self_host_smoke.validate_render_template_detail(detail, "help.menu")
-        revision_id = self_host_smoke.validate_render_template_preview_html(preview, "help.menu")
+        source_digest = self_host_smoke.validate_render_template_preview_html(preview, "help.menu")
 
         self.assertEqual({"title": "RayleaBot"}, preview_data)
-        self.assertEqual("rev_help_menu_0001", revision_id)
+        self.assertEqual(preview["source_digest"], source_digest)
 
         preview["html"] = ""
         with self.assertRaises(self_host_smoke.SmokeError):
             self_host_smoke.validate_render_template_preview_html(preview, "help.menu")
+
+
+    def test_template_preview_rejects_retired_revision_and_unknown_fields(self):
+        valid = yaml.safe_load((ROOT / "fixtures/web-api/ok.system-render-template-preview-html.yaml").read_text(encoding="utf-8"))["response"]["body"]
+        for payload in [
+            {**valid, "revision_id": "retired"},
+            {**{key: value for key, value in valid.items() if key != "source_digest"}, "revision_id": "retired"},
+            {**valid, "width": True},
+        ]:
+            with self.subTest(payload=payload), self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.validate_render_template_preview_html(payload, "help.menu")
+
+    def test_png_probe_reads_owned_file_signature_and_dimensions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "templates/help.menu").mkdir(parents=True)
+            (root / "templates/help.menu/template.json").write_text('{"width":960}')
+            (root / "data/render").mkdir(parents=True)
+            artifact = "artifact_" + "a" * 24
+            image = root / "data/render" / (artifact + ".png")
+            fields = {"artifact_id": artifact, "mime": "image/png"}
+            image.write_bytes(b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", 960, 640))
+            self.assertEqual(self_host_smoke.verify_probe_png(root, fields), (960, 640))
+            image.write_bytes(b"text fallback")
+            with self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.verify_probe_png(root, fields)
+            with self.assertRaises(self_host_smoke.SmokeError):
+                self_host_smoke.verify_probe_png(root, {"artifact_id": "../other", "mime": "image/png"})
+
+    def test_real_owned_child_exit_is_observed_without_killing_it(self):
+        with subprocess.Popen([sys.executable, "-c", "import sys;sys.stdin.read()"], stdin=subprocess.PIPE) as process:
+            witness = self_host_smoke.ProcessWitness(process.pid)
+            try:
+                self.assertFalse(witness.exited())
+                process.communicate(input=b"", timeout=10)
+                witness.wait_exit(timeout=2)
+            finally:
+                witness.close()
+
+    def test_browser_ownership_rejects_unrelated_browser_even_with_similar_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            profile = root / "rayleabot-chromium-fixture"
+            profile.mkdir()
+            with mock.patch.object(self_host_smoke, "descendant_commands", return_value=[]):
+                with self.assertRaises(self_host_smoke.SmokeError):
+                    self_host_smoke.BrowserOwnership(123, root)
+            self.assertTrue(profile.exists())
+
+    def test_plugin_task_uses_the_formal_status_and_checks_its_terminal_log(self):
+        body = {"task_id": "task_fixture", "status": "succeeded"}
+        with mock.patch.object(self_host_smoke, "request_json", return_value=body), mock.patch.object(self_host_smoke, "poll_task") as log:
+            self_host_smoke.wait_plugin_task("http://127.0.0.1/", "fixture-token", {"task_id": "task_fixture"}, "plugin.install")
+            self.assertEqual(log.call_args.kwargs["expected_task_type"], "plugin.install")
+
+    def test_smoke_workspace_preserves_primary_failure_and_evidence(self):
+        with tempfile.TemporaryDirectory() as parent:
+            root = Path(parent) / "owned"
+            root.mkdir()
+            original = self_host_smoke.SmokeError("original render failure")
+            with mock.patch.object(self_host_smoke.tempfile, "mkdtemp", return_value=str(root)), redirect_stdout(io.StringIO()):
+                with self.assertRaises(self_host_smoke.SmokeError) as caught:
+                    with self_host_smoke.smoke_workspace() as workspace:
+                        (workspace / "server-output.log").write_text("captured evidence")
+                        raise original
+            self.assertIs(caught.exception, original)
+            self.assertEqual((root / "server-output.log").read_text(), "captured evidence")
+
+    def test_smoke_workspace_removes_its_successful_run_only(self):
+        with tempfile.TemporaryDirectory() as parent:
+            root = Path(parent) / "owned"
+            root.mkdir()
+            other = Path(parent) / "other"
+            other.mkdir()
+            with mock.patch.object(self_host_smoke.tempfile, "mkdtemp", return_value=str(root)):
+                with self_host_smoke.smoke_workspace():
+                    pass
+            self.assertFalse(root.exists())
+            self.assertTrue(other.exists())
 
 
 if __name__ == "__main__":

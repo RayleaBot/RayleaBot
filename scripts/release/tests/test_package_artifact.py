@@ -29,23 +29,18 @@ class PackageArtifactTests(unittest.TestCase):
             package_artifact.archive_path(output, "0.1.0", "linux-x64-server"),
         )
 
-    def test_recovery_drill_requires_external_plugin_fixture(self) -> None:
-        with self.assertRaises(SystemExit):
-            package_artifact.parse_args(
-                [
-                    "--artifact-id",
-                    "linux-x64-server",
-                    "--version",
-                    "0.1.0",
-                    "--git-commit",
-                    "abcdef1",
-                    "--release-notes-ref",
-                    "https://example.invalid/releases/v0.1.0",
-                    "--server-bin",
-                    "dist/server/raylea-server",
-                    "--run-recovery-drill",
-                ]
-            )
+    def test_native_acceptance_requires_external_plugin_fixture(self) -> None:
+        for flag in ["--run-recovery-drill", "--run-self-host-smoke"]:
+            with self.subTest(flag=flag), self.assertRaises(SystemExit):
+                package_artifact.parse_args(
+                    [
+                        "--artifact-id", "linux-x64-server",
+                        "--version", "0.1.0",
+                        "--git-commit", "abcdef1",
+                        "--release-notes-ref", "https://example.invalid/releases/v0.1.0",
+                        "--server-bin", "dist/server/raylea-server", flag,
+                    ]
+                )
 
 
 class ValidationEvidenceTests(unittest.TestCase):
@@ -114,6 +109,7 @@ class ValidationEvidenceTests(unittest.TestCase):
             self.assertFalse(any((root / "evidence").rglob("*.db")))
             self.assertEqual(calls[2][1][calls[2][1].index("--observation-window-seconds") + 1], "300")
             self.assertEqual(calls[3][1][calls[3][1].index("--window-seconds") + 1], "600")
+            self.assertEqual(calls[3][1][calls[3][1].index("--plugin-fixture") + 1], "fixture.zip")
 
 
 if __name__ == "__main__":

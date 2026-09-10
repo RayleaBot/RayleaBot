@@ -119,8 +119,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--window-seconds", default="")
     parser.add_argument("--probe-interval-seconds", default="")
     args = parser.parse_args(argv)
-    if args.run_recovery_drill and not args.recovery_plugin_fixture:
-        parser.error("--recovery-plugin-fixture is required with --run-recovery-drill")
+    if (args.run_recovery_drill or args.run_self_host_smoke) and not args.recovery_plugin_fixture:
+        parser.error("--recovery-plugin-fixture is required with recovery or self-host validation")
     return args
 
 
@@ -205,6 +205,8 @@ def package(args: argparse.Namespace, evidence: ValidationEvidence | None) -> in
         smoke_args = [
             sys.executable,
             "scripts/release/self_host_smoke.py",
+            "--plugin-fixture",
+            args.recovery_plugin_fixture,
             "--artifact-id",
             args.artifact_id,
             "--archive",

@@ -26,9 +26,11 @@
   },
   "events": [
     "message.group",
-    "message.private"
+    "message.private",
+    "config.changed"
   ],
   "permissions": {
-    "message.send": true
+    "message.send": true,
+    "render.image": true
   }
 }

@@ -6,11 +6,15 @@ import contextlib
 import io
 import json
 import os
+import re
+import struct
+import uuid
 import shutil
 import subprocess
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -64,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="RayleaBot long self-host smoke check")
     parser.add_argument("--artifact-id", required=True, choices=sorted(REQUIRED_PATHS.keys()))
     parser.add_argument("--archive", required=True)
+    parser.add_argument("--plugin-fixture", required=True, type=Path)
     parser.add_argument("--window-seconds", type=int, default=600)
     parser.add_argument("--probe-interval-seconds", type=int, default=30)
     return parser
@@ -293,7 +298,7 @@ def validate_render_template_metadata(template: dict[str, object]) -> str:
     require_non_empty_string(template.get("updated_at"), f"render template {template_id} updated_at")
     width = template.get("width")
     height = template.get("height")
-    if not isinstance(width, int) or width <= 0 or not isinstance(height, int) or height <= 0:
+    if type(width) is not int or width <= 0 or type(height) is not int or height <= 0:
         raise SmokeError(f"render template dimensions must be positive integers: {template}")
     if not isinstance(template.get("has_input_schema"), bool):
         raise SmokeError(f"render template has_input_schema must be boolean: {template}")
@@ -337,15 +342,17 @@ def validate_render_template_detail(payload: dict[str, object], template_id: str
 
 
 def validate_render_template_preview_html(payload: dict[str, object], template_id: str) -> str:
+    if set(payload) != {"template_id", "source_digest", "width", "height", "html"}:
+        raise SmokeError("template preview fields differ from the formal contract")
     if str(payload.get("template_id", "")) != template_id:
         raise SmokeError(f"unexpected render template preview payload: {payload}")
-    revision_id = require_non_empty_string(payload.get("revision_id"), f"{template_id} revision_id")
+    source_digest = require_non_empty_string(payload.get("source_digest"), f"{template_id} source_digest")
     width = payload.get("width")
     height = payload.get("height")
-    if not isinstance(width, int) or width <= 0 or not isinstance(height, int) or height <= 0:
+    if type(width) is not int or width <= 0 or type(height) is not int or height <= 0:
         raise SmokeError(f"render template preview dimensions must be positive integers: {payload}")
     require_non_empty_string(payload.get("html"), f"{template_id} preview html")
-    return revision_id
+    return source_digest
 
 
 def exercise_packaged_protocol_and_template_workflows(base_url: str, session_token: str) -> tuple[str, str]:
@@ -383,7 +390,7 @@ def exercise_packaged_protocol_and_template_workflows(base_url: str, session_tok
     return template_id, validate_render_template_preview_html(preview_body, template_id)
 
 
-def verify_render_template_after_restart(base_url: str, session_token: str, template_id: str, expected_revision_id: str) -> None:
+def verify_render_template_after_restart(base_url: str, session_token: str, template_id: str, expected_source_digest: str) -> None:
     detail_body = request_json(
         f"{base_url}api/system/render/templates/{template_id}",
         headers=bearer_headers(session_token),
@@ -395,10 +402,10 @@ def verify_render_template_after_restart(base_url: str, session_token: str, temp
         body={"theme": "default", "data": preview_data},
         headers=bearer_headers(session_token),
     )
-    current_revision_id = validate_render_template_preview_html(preview_body, template_id)
-    if current_revision_id != expected_revision_id:
+    current_source_digest = validate_render_template_preview_html(preview_body, template_id)
+    if current_source_digest != expected_source_digest:
         raise SmokeError(
-            f"render template revision changed after restart: expected {expected_revision_id} got {current_revision_id}"
+            f"render template source digest changed after restart: expected {expected_source_digest} got {current_source_digest}"
         )
 
 
@@ -504,9 +511,12 @@ def bearer_headers(session_token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {session_token}"}
 
 
-def start_server(root: Path, server_bin: Path) -> subprocess.Popen[str]:
+def start_server(root: Path, server_bin: Path, temporary_root: Path | None = None) -> subprocess.Popen[str]:
     environment = os.environ.copy()
     environment["RAYLEA_SETUP_TOKEN"] = SETUP_TOKEN
+    if temporary_root is not None:
+        temporary_root.mkdir(parents=True, exist_ok=False)
+        environment.update({key: str(temporary_root.resolve()) for key in ("TMP", "TEMP", "TMPDIR")})
     return start_captured_process(server_base_command(server_bin), cwd=root, env=environment)
 
 
@@ -724,10 +734,275 @@ def run_runtime_bootstrap_cycle(root: Path, artifact_id: str, base_url: str, ses
                 raise SmokeError(f"runtime bootstrap task returned missing archive_path for {kind}: {task_detail}")
 
 
-def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seconds: int, probe_interval_seconds: int) -> None:
-    with tempfile.TemporaryDirectory(prefix="rayleabot-self-host-") as tmp:
-        temp_root = Path(tmp)
+
+class ProcessWitness:
+    """Track a specific owned process without sending signals to unrelated PIDs."""
+
+    def __init__(self, pid: int):
+        if type(pid) is not int or pid <= 0:
+            raise SmokeError("fixture did not report a valid process ID")
+        self.pid = pid
+        self.handle = None
+        if os.name == "nt":
+            import ctypes
+            from ctypes import wintypes
+            self.kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+            self.kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+            self.kernel.OpenProcess.restype = wintypes.HANDLE
+            self.kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+            self.kernel.WaitForSingleObject.restype = wintypes.DWORD
+            self.kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+            self.handle = self.kernel.OpenProcess(0x00100000, False, pid)
+            if not self.handle:
+                raise SmokeError(f"cannot observe owned process {pid}: {ctypes.get_last_error()}")
+        else:
+            self.identity = self._unix_identity()
+            if not self.identity:
+                raise SmokeError(f"owned process {pid} exited before it was observed")
+
+    def _unix_identity(self) -> str:
+        return subprocess.run(["ps", "-p", str(self.pid), "-o", "lstart="],
+                              capture_output=True, text=True, check=False).stdout.strip()
+
+    def exited(self) -> bool:
+        if self.handle is not None:
+            status = self.kernel.WaitForSingleObject(self.handle, 0)
+            if status == 0xFFFFFFFF:
+                raise SmokeError(f"cannot query owned process {self.pid}")
+            return status == 0
+        return self._unix_identity() != self.identity
+
+    def wait_exit(self, timeout: float = 20) -> None:
+        deadline = time.monotonic() + timeout
+        while not self.exited():
+            if time.monotonic() >= deadline:
+                raise SmokeError(f"owned process {self.pid} remained alive after shutdown")
+            time.sleep(0.1)
+
+    def close(self) -> None:
+        if self.handle is not None:
+            self.kernel.CloseHandle(self.handle)
+            self.handle = None
+
+
+def descendant_commands(parent_pid: int) -> list[tuple[int, str]]:
+    if os.name == "nt":
+        script = (
+            "$queue=[Collections.Generic.Queue[int]]::new();"
+            f"$queue.Enqueue({int(parent_pid)});"
+            "$seen=[Collections.Generic.HashSet[int]]::new();"
+            "$result=[Collections.Generic.List[object]]::new();"
+            "while($queue.Count){$owner=$queue.Dequeue();"
+            "foreach($child in @(Get-CimInstance Win32_Process -Filter ('ParentProcessId = '+$owner))){"
+            "if($seen.Add([int]$child.ProcessId)){"
+            "$queue.Enqueue([int]$child.ProcessId);"
+            "$result.Add(@{pid=[int]$child.ProcessId;command=[string]$child.CommandLine})}}};"
+            "ConvertTo-Json -InputObject @($result.ToArray()) -Compress"
+        )
+        result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                                capture_output=True, text=True, check=True,
+                                creationflags=subprocess.CREATE_NO_WINDOW)
+        return [(int(item["pid"]), item["command"]) for item in json.loads(result.stdout)]
+    result = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True, check=True)
+    children: dict[int, list[int]] = {}
+    for line in result.stdout.splitlines():
+        pid, parent = map(int, line.split())
+        children.setdefault(parent, []).append(pid)
+    pending, selected = [parent_pid], []
+    while pending:
+        for pid in children.get(pending.pop(), []):
+            selected.append(pid)
+            pending.append(pid)
+    return [(pid, subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                                 capture_output=True, text=True, check=False).stdout.strip())
+            for pid in selected]
+
+
+class BrowserOwnership:
+    def __init__(self, server_pid: int, temporary_root: Path):
+        root = temporary_root.resolve(strict=True)
+        self.profiles = [path for path in root.iterdir()
+                         if path.name.startswith("rayleabot-chromium-") and path.is_dir()
+                         and not path.is_symlink() and path.resolve().parent == root]
+        if not self.profiles:
+            raise SmokeError("rendering did not create a Server-owned Chromium profile")
+        self.processes: list[ProcessWitness] = []
+        commands = descendant_commands(server_pid)
+        try:
+            for profile in self.profiles:
+                marker = str(profile).replace("\\", "/").lower()
+                owners = [(pid, command) for pid, command in commands
+                          if marker in command.replace("\\", "/").lower() and " --type=" not in command]
+                if not owners:
+                    raise SmokeError("Chromium profile has no browser process descended from this Server")
+                self.processes.extend(ProcessWitness(pid) for pid, _ in owners)
+        except BaseException:
+            self.close()
+            raise
+
+    def assert_released(self) -> None:
+        for process in self.processes:
+            process.wait_exit()
+        remaining = [str(path) for path in self.profiles if path.exists()]
+        if remaining:
+            raise SmokeError(f"Server-owned Chromium profiles survived shutdown: {remaining}")
+
+    def close(self) -> None:
+        for process in self.processes:
+            process.close()
+
+
+def wait_plugin_state(base_url: str, token: str, plugin_id: str, expected: str) -> dict[str, object]:
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        plugin = request_json(f"{base_url}api/plugins/{plugin_id}", headers=bearer_headers(token))["plugin"]
+        if plugin.get("state") == expected:
+            return plugin
+        if plugin.get("state") in {"failed", "invalid"}:
+            raise SmokeError(f"acceptance plugin entered {plugin.get('state')}")
+        time.sleep(0.1)
+    raise SmokeError(f"acceptance plugin did not become {expected}")
+
+
+def wait_plugin_task(base_url: str, token: str, accepted: dict[str, object], task_type: str) -> None:
+    task_id = extract_task_id(accepted, task_type)
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        task = request_json(f"{base_url}api/system/tasks/{task_id}", headers=bearer_headers(token))
+        if task.get("task_id") != task_id:
+            raise SmokeError("plugin task identity changed")
+        if task.get("status") == "succeeded":
+            poll_task(base_url, token, task_id, expected_task_type=task_type, timeout_seconds=20)
+            return
+        if task.get("status") not in {"pending", "running"}:
+            raise SmokeError(f"{task_type} ended with {task.get('status')}: {task.get('error_code')}")
+        time.sleep(0.1)
+    raise SmokeError(f"{task_type} did not finish")
+
+
+def wait_acceptance_probe(base_url: str, token: str, plugin_id: str, probe: str) -> dict[str, object]:
+    deadline = time.monotonic() + 90
+    seen: set[str] = set()
+    while time.monotonic() < deadline:
+        query = urllib.parse.urlencode({"scope": "current_session", "source": "plugin",
+                                       "plugin_id": plugin_id, "limit": 100})
+        logs = request_json(f"{base_url}api/logs?{query}", headers=bearer_headers(token))
+        for item in logs.get("items", []):
+            log_id = item.get("log_id")
+            if not isinstance(log_id, str) or log_id in seen:
+                continue
+            seen.add(log_id)
+            detail = request_json(f"{base_url}api/logs/{log_id}", headers=bearer_headers(token))
+            fields = detail.get("details", {})
+            if fields.get("acceptance_probe") == probe:
+                return fields
+        time.sleep(0.2)
+    raise SmokeError("native plugin did not log its completed render probe")
+
+
+def verify_probe_png(root: Path, fields: dict[str, object]) -> tuple[int, int]:
+    artifact_id = fields.get("artifact_id")
+    if not isinstance(artifact_id, str) or not re.fullmatch(r"artifact_[0-9a-f]{24}", artifact_id):
+        raise SmokeError("render probe did not return a valid artifact ID")
+    if fields.get("mime") != "image/png":
+        raise SmokeError("render probe did not return PNG")
+    path = (root / "data/render" / f"{artifact_id}.png").resolve(strict=True)
+    if not path.is_relative_to(root.resolve()):
+        raise SmokeError("render probe artifact escaped the smoke installation")
+    header = path.read_bytes()[:24]
+    if len(header) != 24 or header[:8] != b"\x89PNG\r\n\x1a\n" or header[12:16] != b"IHDR":
+        raise SmokeError("render probe artifact is not a PNG image")
+    width, height = struct.unpack(">II", header[16:24])
+    expected_width = json.loads((root / "templates/help.menu/template.json").read_text(encoding="utf-8"))["width"]
+    if width != expected_width or not 0 < height <= 32768:
+        raise SmokeError(f"render probe dimensions are invalid: {width}x{height}")
+    return width, height
+
+
+def exercise_plugin_acceptance(root: Path, base_url: str, token: str, plugin_fixture: Path,
+                               server_pid: int, temporary_root: Path,
+                               browser_owners: list[BrowserOwnership]) -> dict[str, object]:
+    headers = bearer_headers(token)
+    inspected = request_json(f"{base_url}api/plugins/install/inspect", method="POST",
+                             body={"source_type": "local_zip", "source": str(plugin_fixture.resolve(strict=True))},
+                             headers=headers)
+    plugin_id = inspected["plugin"]["id"]
+    if plugin_id != "raylea.echo":
+        raise SmokeError("self-host acceptance requires the external native echo fixture")
+    accepted = request_json(f"{base_url}api/plugins/install", method="POST", expected_status=202,
+                            body={"inspection_id": inspected["inspection_id"],
+                                  "package_sha256": inspected["package_sha256"], "trusted_code_confirmed": True},
+                            headers=headers)
+    wait_plugin_task(base_url, token, accepted, "plugin.install")
+    installed = root / "plugins/installed" / plugin_id
+    if not (installed / "info.json").is_file():
+        raise SmokeError("successful install did not publish the plugin directory")
+    request_json(f"{base_url}api/plugins/{plugin_id}/enable", method="POST", body={}, headers=headers)
+    wait_plugin_state(base_url, token, plugin_id, "running")
+    processes: list[ProcessWitness] = []
+    probes = []
+    try:
+        for phase in ["initial", "reloaded"]:
+            probe = f"{phase}-{uuid.uuid4().hex}"
+            settings = request_json(f"{base_url}api/plugins/{plugin_id}/settings", method="PUT",
+                                    body={"values": {"fixture_acceptance": True, "acceptance_probe": probe}},
+                                    headers=headers)
+            if settings.get("values", {}).get("acceptance_probe") != probe:
+                raise SmokeError("HTTP settings did not persist the probe")
+            fields = wait_acceptance_probe(base_url, token, plugin_id, probe)
+            width, height = verify_probe_png(root, fields)
+            process = ProcessWitness(fields.get("fixture_pid"))
+            if process.exited():
+                raise SmokeError("native plugin exited before lifecycle verification")
+            processes.append(process)
+            probes.append({"phase": phase, "artifact_id": fields["artifact_id"], "width": width,
+                           "height": height, "plugin_pid": process.pid})
+            if phase == "initial":
+                browser_owners.append(BrowserOwnership(server_pid, temporary_root))
+                accepted = request_json(f"{base_url}api/plugins/{plugin_id}/reload", method="POST", body={},
+                                        headers=headers, expected_status=202)
+                wait_plugin_task(base_url, token, accepted, "plugin.reload")
+                process.wait_exit()
+                wait_plugin_state(base_url, token, plugin_id, "running")
+                current = request_json(f"{base_url}api/plugins/{plugin_id}/settings", headers=headers)
+                if current.get("values", {}).get("acceptance_probe") != probe:
+                    raise SmokeError("reload discarded saved plugin settings")
+        request_json(f"{base_url}api/plugins/{plugin_id}/disable", method="POST", body={}, headers=headers)
+        wait_plugin_state(base_url, token, plugin_id, "disabled")
+        for process in processes:
+            process.wait_exit()
+        accepted = request_json(f"{base_url}api/plugins/{plugin_id}", method="DELETE",
+                                headers=headers, expected_status=202)
+        wait_plugin_task(base_url, token, accepted, "plugin.uninstall")
+        request_json(f"{base_url}api/plugins/{plugin_id}", headers=headers, expected_status=404)
+        if installed.exists():
+            raise SmokeError("successful uninstall left the installed plugin directory")
+        result = {"plugin": plugin_id, "installed": True, "settings_persisted": True, "reloaded": True,
+                  "disabled": True, "uninstalled": True, "native_processes_reaped": True, "png_probes": probes}
+        print("plugin acceptance: " + json.dumps(result), flush=True)
+        return result
+    finally:
+        for process in processes:
+            process.close()
+
+
+
+@contextlib.contextmanager
+def smoke_workspace():
+    root = Path(tempfile.mkdtemp(prefix="rayleabot-self-host-"))
+    try:
+        yield root
+    except BaseException:
+        print(f"self-host failure evidence retained at {root}", flush=True)
+        raise
+    else:
+        shutil.rmtree(root)
+
+
+def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, plugin_fixture: Path, window_seconds: int, probe_interval_seconds: int) -> None:
+    with smoke_workspace() as temp_root:
         release_root = unpack_archive(artifact_id, archive_path, temp_root)
+        print(f"self-host installation: {release_root}", flush=True)
         ensure_required_paths(release_root, artifact_id)
         ensure_runtime_bootstrap(release_root, artifact_id)
 
@@ -738,14 +1013,18 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
             raise SmokeError(f"server executable missing: {server_bin}")
 
         base_url = f"http://127.0.0.1:{port}/"
-        process = start_server(release_root, server_bin)
+        process_temp = temp_root / "owned-server-temporary-files"
+        browser_owners: list[BrowserOwnership] = []
+        process = start_server(release_root, server_bin, process_temp)
         session_token = ""
         try:
             wait_for_management_state(release_root, process, base_url, allowed_ready_statuses=STARTUP_READY_STATUSES)
             bootstrap_admin(base_url)
             session_token = login(base_url)
             run_runtime_bootstrap_cycle(release_root, artifact_id, base_url, session_token)
-            template_id, expected_revision_id = exercise_packaged_protocol_and_template_workflows(
+            exercise_plugin_acceptance(release_root, base_url, session_token, plugin_fixture,
+                                       process.pid, process_temp, browser_owners)
+            template_id, expected_source_digest = exercise_packaged_protocol_and_template_workflows(
                 base_url,
                 session_token,
             )
@@ -777,11 +1056,24 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
             if not backup_done:
                 run_backup_cycle(release_root, base_url, session_token)
         finally:
-            if process.poll() is None:
-                if session_token:
-                    graceful_shutdown(base_url, session_token, process)
-                else:
-                    stop_process(process)
+            try:
+                if process.poll() is None:
+                    if session_token:
+                        graceful_shutdown(base_url, session_token, process)
+                    else:
+                        stop_process(process)
+            finally:
+                try:
+                    for owner in browser_owners:
+                        owner.assert_released()
+                    if browser_owners:
+                        print("Server-owned browser processes and profiles released", flush=True)
+                finally:
+                    for owner in browser_owners:
+                        owner.close()
+                    output = read_process_output(process)
+                    (temp_root / "server-output.log").write_text(output, encoding="utf-8")
+                    print(output, flush=True)
 
         restarted = start_server(release_root, server_bin)
         restart_session_token = ""
@@ -789,7 +1081,7 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
             wait_for_management_state(release_root, restarted, base_url, allowed_ready_statuses=MANAGED_READY_STATUSES)
             restart_session_token = login(base_url)
             validate_managed_status(base_url, restart_session_token, None, 0)
-            verify_render_template_after_restart(base_url, restart_session_token, template_id, expected_revision_id)
+            verify_render_template_after_restart(base_url, restart_session_token, template_id, expected_source_digest)
             run_diagnostics_export(base_url, restart_session_token)
         finally:
             if restarted.poll() is None:
@@ -797,6 +1089,13 @@ def execute_self_host_smoke(artifact_id: str, archive_path: Path, *, window_seco
                     graceful_shutdown(base_url, restart_session_token, restarted)
                 else:
                     stop_process(restarted)
+            output = read_process_output(restarted)
+            (temp_root / "server-restart-output.log").write_text(output, encoding="utf-8")
+            print(output, flush=True)
+
+        # Windows extraction uses an owned sibling with a shorter path.
+        if not release_root.is_relative_to(temp_root):
+            shutil.rmtree(release_root)
 
 
 def main() -> int:
@@ -805,6 +1104,7 @@ def main() -> int:
         execute_self_host_smoke(
             args.artifact_id,
             Path(args.archive),
+            plugin_fixture=args.plugin_fixture,
             window_seconds=args.window_seconds,
             probe_interval_seconds=args.probe_interval_seconds,
         )
