@@ -1,26 +1,28 @@
 package app
 
-import "strings"
+import (
+	"sort"
+	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+)
 
 // botIdentityProvider is one adapter's view of who it is logged in as.
-type botIdentityProvider func() string
+type botIdentityProvider func() chatevent.BotIdentity
 
-// botIdentitySource reports the bot identity the plugin runtime works with.
-//
-// The runtime models a single identity, while adapters each authenticate in
-// their own namespace and the project does not merge identities across them.
-// Until the plugin protocol carries one identity per adapter, this reports the
-// first connected adapter's, in configuration order, so a deployment that runs
-// only a QQ adapter still has an identity instead of none.
+// botIdentitySource collects confirmed identities without selecting a primary bot.
 type botIdentitySource struct {
 	providers []botIdentityProvider
 }
 
-func (s botIdentitySource) CurrentBotID() string {
+func (s botIdentitySource) BotIdentities() []chatevent.BotIdentity {
+	identities := make([]chatevent.BotIdentity, 0, len(s.providers))
 	for _, provider := range s.providers {
-		if id := strings.TrimSpace(provider()); id != "" {
-			return id
+		identity := provider()
+		if strings.TrimSpace(identity.ID) != "" {
+			identities = append(identities, identity)
 		}
 	}
-	return ""
+	sort.Slice(identities, func(i, j int) bool { return identities[i].SourceAdapter < identities[j].SourceAdapter })
+	return identities
 }

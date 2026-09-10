@@ -135,7 +135,7 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.Normal
 	}
 
 	if s.lifecycle != nil {
-		s.lifecycle.HandleAdapterBotID(ctx, event.BotID)
+		s.lifecycle.SyncBotIdentities(ctx)
 	}
 
 	if s.bridge != nil {

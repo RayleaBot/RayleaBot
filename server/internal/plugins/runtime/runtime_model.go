@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 )
 
@@ -235,6 +236,7 @@ type ProtocolSegmentFrame struct {
 }
 
 type ProtocolPayloadFrame struct {
+	Bots        *[]chatevent.BotIdentity        `json:"bots,omitempty"`
 	MessageID   string                          `json:"message_id,omitempty"`
 	Command     string                          `json:"command,omitempty"`
 	Args        []string                        `json:"args,omitempty"`
@@ -298,22 +300,17 @@ type PingFrame struct {
 }
 
 type InitFrame struct {
-	Timezone             string         `json:"timezone"`
-	ProtocolVersion      string         `json:"protocol_version"`
-	Type                 string         `json:"type"`
-	PluginID             string         `json:"plugin_id"`
-	RequestID            string         `json:"request_id"`
-	Bot                  *BotFrame      `json:"bot,omitempty"`
-	Config               map[string]any `json:"config"`
-	EffectivePermissions []string       `json:"effective_permissions"`
-	SuperAdmins          []string       `json:"super_admins"`
-	CommandPrefixes      []string       `json:"command_prefixes"`
-	Concurrency          int            `json:"concurrency"`
-}
-
-type BotFrame struct {
-	ID       string `json:"id"`
-	Nickname string `json:"nickname,omitempty"`
+	Timezone             string                  `json:"timezone"`
+	ProtocolVersion      string                  `json:"protocol_version"`
+	Type                 string                  `json:"type"`
+	PluginID             string                  `json:"plugin_id"`
+	RequestID            string                  `json:"request_id"`
+	Bots                 []chatevent.BotIdentity `json:"bots"`
+	Config               map[string]any          `json:"config"`
+	EffectivePermissions []string                `json:"effective_permissions"`
+	SuperAdmins          []string                `json:"super_admins"`
+	CommandPrefixes      []string                `json:"command_prefixes"`
+	Concurrency          int                     `json:"concurrency"`
 }
 
 type ShutdownFrame struct {

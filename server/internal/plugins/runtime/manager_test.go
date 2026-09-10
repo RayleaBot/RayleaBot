@@ -44,7 +44,7 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	if !ok || len(superAdmins) != 2 || superAdmins[0] != "9001" || superAdmins[1] != "9002" {
 		t.Fatalf("unexpected init super_admins: %#v", frames[0]["super_admins"])
 	}
-	if frames[0]["protocol_version"] != "2" || frames[0]["plugin_id"] != "helper-plugin" || frames[0]["concurrency"] != float64(1) {
+	if frames[0]["protocol_version"] != "3" || frames[0]["plugin_id"] != "helper-plugin" || frames[0]["concurrency"] != float64(1) {
 		t.Fatalf("unexpected init identity/concurrency: %#v", frames[0])
 	}
 	if config, ok := frames[0]["config"].(map[string]any); !ok || config["enabled"] != true {
@@ -56,14 +56,14 @@ func TestManagerStartInitAckSuccess(t *testing.T) {
 	}
 }
 
-func TestManagerStartOmitsBotWhenUnavailable(t *testing.T) {
+func TestManagerStartSendsEmptyIdentitySnapshot(t *testing.T) {
 	t.Parallel()
 
 	recordPath := filepath.Join(t.TempDir(), "frames.jsonl")
 	manager := testManager()
 	spec := helperSpec(t, "success", recordPath)
 	payload := testInitPayload()
-	payload.Bot = BotInfo{}
+	payload.Bots = nil
 
 	if err := manager.Start(context.Background(), spec, payload); err != nil {
 		t.Fatalf("start runtime without bot identity: %v", err)
@@ -73,8 +73,8 @@ func TestManagerStartOmitsBotWhenUnavailable(t *testing.T) {
 	if len(frames) == 0 {
 		t.Fatalf("expected recorded init frame")
 	}
-	if _, ok := frames[0]["bot"]; ok {
-		t.Fatalf("init frame should omit bot when identity is unavailable: %#v", frames[0])
+	if bots, ok := frames[0]["bots"].([]any); !ok || len(bots) != 0 {
+		t.Fatalf("init frame must carry an empty identity list: %#v", frames[0])
 	}
 
 	if err := manager.Stop(context.Background()); err != nil {

@@ -44,7 +44,7 @@
     },
     "plugin_protocol_version": {
       "type": "string",
-      "const": "2"
+      "const": "3"
     },
     "plugin_artifact_version": {
       "type": "string",
@@ -110,7 +110,7 @@
         },
         "protocol_version": {
           "type": "string",
-          "enum": ["1", "2"],
+          "enum": ["1", "2", "3"],
           "description": "Actual protocol version found in the archived package."
         },
         "artifact_version": {

@@ -8,10 +8,9 @@ import (
 	"testing"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/go-chi/chi/v5"
 )
@@ -106,13 +105,8 @@ type recordingRuntimeEnsurer struct {
 	botID      string
 }
 
-func (r *recordingRuntimeEnsurer) CurrentBotID() string {
-	return ""
-}
-
-func (r *recordingRuntimeEnsurer) EnsurePluginRunning(_ context.Context, pluginID string, botID string) error {
+func (r *recordingRuntimeEnsurer) EnsurePluginRunning(_ context.Context, pluginID string) error {
 	r.called = true
-	r.botID = botID
 	r.dispatcher.Register(pluginID, &webhookRuntime{events: r.events}, []string{"webhook.received"}, nil, 1)
 	return nil
 }

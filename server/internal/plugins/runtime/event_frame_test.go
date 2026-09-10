@@ -3,7 +3,35 @@ package runtime
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
+
+func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
+	t.Parallel()
+	frame := BuildEventFrame(Event{
+		EventID: "identities-empty", SourceProtocol: "platform", SourceAdapter: "adapters.internal",
+		EventType: "bot.identities.changed", Timestamp: 1700000000,
+		PayloadFields: map[string]any{"bots": []chatevent.BotIdentity{}},
+	}, "req-identities")
+	encoded, err := json.Marshal(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var received struct {
+		Event struct {
+			Payload struct {
+				Bots *[]chatevent.BotIdentity `json:"bots"`
+			} `json:"payload"`
+		} `json:"event"`
+	}
+	if err := json.Unmarshal(encoded, &received); err != nil {
+		t.Fatal(err)
+	}
+	if received.Event.Payload.Bots == nil || len(*received.Event.Payload.Bots) != 0 {
+		t.Fatalf("empty identity snapshot did not survive serialization: %s", encoded)
+	}
+}
 
 func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 	t.Parallel()

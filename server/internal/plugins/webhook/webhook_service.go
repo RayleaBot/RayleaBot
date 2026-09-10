@@ -10,11 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/go-chi/chi/v5"
 )
 
 type ReplayProtection struct {
@@ -44,8 +43,7 @@ type Registry struct {
 }
 
 type RuntimeEnsurer interface {
-	CurrentBotID() string
-	EnsurePluginRunning(context.Context, string, string) error
+	EnsurePluginRunning(context.Context, string) error
 }
 
 type Deps struct {

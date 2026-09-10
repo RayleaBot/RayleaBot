@@ -129,7 +129,7 @@
         "update_protocol_version": { "type": "integer", "minimum": 2 },
         "config_schema_version": { "type": "string", "minLength": 1 },
         "db_schema_version": { "type": "string", "minLength": 1 },
-          "plugin_protocol_version": { "const": "2" },
+          "plugin_protocol_version": { "const": "3" },
           "plugin_manifest_version": { "const": "3" },
           "plugin_ui_bridge_version": { "const": "3" },
         "onebot_matrix": {

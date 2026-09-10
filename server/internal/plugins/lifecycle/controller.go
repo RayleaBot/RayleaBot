@@ -6,15 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
@@ -33,7 +34,7 @@ type RuntimeRegistry interface {
 }
 
 type BotIdentitySource interface {
-	CurrentBotID() string
+	BotIdentities() []chatevent.BotIdentity
 }
 
 type Deps struct {
@@ -46,7 +47,7 @@ type Deps struct {
 	Dispatcher          *dispatch.Dispatcher
 	Scheduler           *scheduler.Engine
 	PluginConfig        pluginstore.ConfigRepository
-	Adapter             BotIdentitySource
+	Identities          BotIdentitySource
 	Webhooks            *pluginwebhook.Registry
 	Tasks               *tasks.Registry
 	OnRecoveryChange    func(string)
@@ -66,7 +67,7 @@ type Controller struct {
 	dispatcher          *dispatch.Dispatcher
 	scheduler           *scheduler.Engine
 	pluginConfig        pluginstore.ConfigRepository
-	adapter             BotIdentitySource
+	identities          BotIdentitySource
 	webhooks            *pluginwebhook.Registry
 	tasks               *tasks.Registry
 	onRecoveryChange    func(string)
@@ -78,7 +79,7 @@ type Controller struct {
 	operations     sync.Map // plugin ID -> lifecycle operation gate
 
 	identityMu       sync.Mutex
-	identityByPlugin map[string]string
+	identityByPlugin map[string][]chatevent.BotIdentity
 }
 
 func NewController(deps Deps) *Controller {
@@ -99,7 +100,7 @@ func NewController(deps Deps) *Controller {
 		dispatcher:          deps.Dispatcher,
 		scheduler:           deps.Scheduler,
 		pluginConfig:        deps.PluginConfig,
-		adapter:             deps.Adapter,
+		identities:          deps.Identities,
 		webhooks:            deps.Webhooks,
 		tasks:               deps.Tasks,
 		onRecoveryChange:    deps.OnRecoveryChange,
@@ -243,7 +244,7 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 	if runtimeSnapshot, runtimeErr := c.plugins.SetRuntimeState(updated.PluginID, string(pluginruntime.StateStarting)); runtimeErr == nil {
 		updated = runtimeSnapshot
 	}
-	go c.startPluginAsync(updated.PluginID, c.currentBotID())
+	go c.startPluginAsync(updated.PluginID)
 	c.reconcileRecoverySummaryBestEffort("plugin.enable")
 
 	return updated, nil
@@ -338,7 +339,7 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 		updated = startingSnapshot
 	}
 
-	go c.startPluginAsync(updated.PluginID, c.currentBotID())
+	go c.startPluginAsync(updated.PluginID)
 	c.reconcileRecoverySummaryBestEffort("plugin.dead_letter_recover")
 	return updated, nil
 }
@@ -359,7 +360,7 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 	if snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" || !snapshot.Valid {
 		return nil, fmt.Errorf("plugin is not enabled")
 	}
-	if err := c.ensurePluginRunning(ctx, pluginID, c.currentBotID()); err != nil {
+	if err := c.ensurePluginRunning(ctx, pluginID); err != nil {
 		return nil, err
 	}
 	manager, ok := c.runtimes.Get(pluginID)
@@ -385,14 +386,13 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 	return delivery.Result, nil
 }
 
-func (c *Controller) reconcileRuntime(ctx context.Context, botID string) {
+func (c *Controller) reconcileRuntime(ctx context.Context) {
 	if c.plugins == nil {
 		return
 	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	botID = strings.TrimSpace(botID)
 	budgetCtx, cancel := context.WithTimeout(ctx, runtimeInitBudget(c.config().Runtime))
 	defer cancel()
 
@@ -404,17 +404,17 @@ func (c *Controller) reconcileRuntime(ctx context.Context, botID string) {
 			c.logLifecycleWarn("plugin runtime reconcile skipped after cumulative init budget", snapshot.PluginID, err)
 			continue
 		}
-		if err := c.ensurePluginRunning(budgetCtx, snapshot.PluginID, botID); err != nil {
+		if err := c.ensurePluginRunning(budgetCtx, snapshot.PluginID); err != nil {
 			c.logLifecycleWarn("plugin runtime reconcile failed", snapshot.PluginID, err)
 		}
 	}
 }
 
-func (c *Controller) ReconcileRuntime(ctx context.Context, botID string) {
-	c.reconcileRuntime(ctx, botID)
+func (c *Controller) ReconcileRuntime(ctx context.Context) {
+	c.reconcileRuntime(ctx)
 }
 
-func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID, botID string) error {
+func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID string) error {
 	if c.runtimes == nil {
 		return nil
 	}
@@ -439,27 +439,25 @@ func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID, botID st
 	}
 
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
-	return c.startRuntimeLocked(ctx, pluginID, botID, manager)
+	return c.startRuntimeLocked(ctx, pluginID, manager)
 }
 
-func (c *Controller) EnsurePluginRunning(ctx context.Context, pluginID, botID string) error {
-	return c.ensurePluginRunning(ctx, pluginID, botID)
+func (c *Controller) EnsurePluginRunning(ctx context.Context, pluginID string) error {
+	return c.ensurePluginRunning(ctx, pluginID)
 }
 
-func (c *Controller) startPluginAsync(pluginID, botID string) {
-	botID = strings.TrimSpace(botID)
+func (c *Controller) startPluginAsync(pluginID string) {
 
 	ctx, cancel := c.lifecycleTimeoutContext(runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
-	manager := c.runtimes.GetOrCreate(pluginID)
-	if err := c.startRuntime(ctx, pluginID, botID, manager); err != nil {
+	if err := c.startRuntime(ctx, pluginID); err != nil {
 		c.logLifecycleWarn("start plugin runtime after enable", pluginID, err)
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 	}
 }
 
-func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, _ *pluginruntime.Manager) error {
+func (c *Controller) startRuntime(ctx context.Context, pluginID string) error {
 	release, err := c.acquireOperation(ctx, pluginID)
 	if err != nil {
 		return err
@@ -470,7 +468,7 @@ func (c *Controller) startRuntime(ctx context.Context, pluginID, botID string, _
 		c.registerRuntimeIfNeeded(pluginID, manager)
 		return nil
 	}
-	return c.startRuntimeLocked(ctx, pluginID, botID, manager)
+	return c.startRuntimeLocked(ctx, pluginID, manager)
 }
 
 func (c *Controller) acquireOperation(ctx context.Context, pluginID string) (func(), error) {
@@ -488,7 +486,7 @@ func (c *Controller) acquireOperation(ctx context.Context, pluginID string) (fun
 	}
 }
 
-func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID, botID string, manager *pluginruntime.Manager) error {
+func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID string, manager *pluginruntime.Manager) error {
 	if manager == nil {
 		return nil
 	}
@@ -506,7 +504,7 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID, botID str
 		return err
 	}
 
-	spec, payload, err := c.buildStartInputs(ctx, pluginID, botID)
+	spec, payload, err := c.buildStartInputs(ctx, pluginID)
 	if err != nil {
 		return err
 	}
@@ -519,7 +517,7 @@ func (c *Controller) startRuntimeLocked(ctx context.Context, pluginID, botID str
 	manager.ResetCrashCount()
 	c.registerRuntime(pluginID, snapshot, manager)
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
-	c.afterRuntimeRegistered(ctx, pluginID, botID)
+	c.afterRuntimeRegistered(ctx, pluginID, payload.Bots)
 	return nil
 }
 
@@ -596,7 +594,7 @@ func (c *Controller) stopPluginLocked(ctx context.Context, pluginID string, remo
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 }
 
-func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
+func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (pluginruntime.Spec, pluginruntime.InitPayload, error) {
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
 		return pluginruntime.Spec{}, pluginruntime.InitPayload{}, plugins.ErrPluginNotFound
@@ -617,10 +615,8 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID, botID strin
 		settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 	}
 	payload := pluginruntime.InitPayload{
-		Timezone: c.effectiveTimezone,
-		Bot: pluginruntime.BotInfo{
-			ID: strings.TrimSpace(botID),
-		},
+		Timezone:        c.effectiveTimezone,
+		Bots:            c.botIdentities(),
 		Config:          settings,
 		Permissions:     pluginPermissionNames(snapshot),
 		SuperAdmins:     pluginRuntimeSuperAdmins(cfg),
@@ -687,19 +683,15 @@ func PluginRuntimeSuperAdmins(cfg config.Config) []string {
 	return pluginRuntimeSuperAdmins(cfg)
 }
 
-func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBotID string) {
-	c.dispatchPluginStarted(ctx, pluginID)
-
-	initBotID = strings.TrimSpace(initBotID)
-	currentBotID := c.currentBotID()
-	if initBotID != "" {
-		c.markBotIdentitySent(pluginID, initBotID)
-		if currentBotID != "" && currentBotID != initBotID {
-			c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, currentBotID)
-		}
-		return
+func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string, initBots []chatevent.BotIdentity) {
+	c.identityMu.Lock()
+	if c.identityByPlugin == nil {
+		c.identityByPlugin = make(map[string][]chatevent.BotIdentity)
 	}
-	c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, currentBotID)
+	c.identityByPlugin[pluginID] = append([]chatevent.BotIdentity{}, initBots...)
+	c.identityMu.Unlock()
+	c.dispatchPluginStarted(ctx, pluginID)
+	c.SyncBotIdentities(ctx)
 }
 
 func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginruntime.Manager) {
@@ -788,7 +780,7 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 		return
 	}
 
-	if err := c.ensurePluginRunning(ctx, pluginID, c.currentBotID()); err != nil {
+	if err := c.ensurePluginRunning(ctx, pluginID); err != nil {
 		c.logSchedulerTriggerFailure(ctx, pluginID, schedulerPluginDisplayName(snapshot, pluginID), taskName, logLabel, job.Revision, startedAt, "plugin.internal_error", err.Error())
 		return
 	}
@@ -909,99 +901,52 @@ func schedulerPayloadFields(job scheduler.Job) map[string]any {
 }
 
 func (c *Controller) HandleAdapterReady(ctx context.Context) {
-	botID := c.currentBotID()
-	c.reconcileRuntime(ctx, botID)
-	c.broadcastBotIdentityChanged(ctx, botID)
+	c.reconcileRuntime(ctx)
+	c.SyncBotIdentities(ctx)
 }
 
-func (c *Controller) HandleAdapterBotID(ctx context.Context, botID string) {
-	botID = strings.TrimSpace(botID)
-	c.reconcileRuntime(ctx, botID)
-	c.broadcastBotIdentityChanged(ctx, botID)
-}
-
-func (c *Controller) broadcastBotIdentityChanged(ctx context.Context, botID string) {
+// SyncBotIdentities serializes snapshot capture and admission so concurrent
+// adapter callbacks cannot publish an older identity list after a newer one.
+func (c *Controller) SyncBotIdentities(ctx context.Context) {
 	if c.dispatcher == nil {
 		return
 	}
-	botID = strings.TrimSpace(botID)
+	c.identityMu.Lock()
+	defer c.identityMu.Unlock()
+	bots := c.botIdentities()
+	if c.identityByPlugin == nil {
+		c.identityByPlugin = make(map[string][]chatevent.BotIdentity)
+	}
 	for _, pluginID := range c.dispatcher.PluginIDs() {
-		c.dispatchBotIdentityChangedToPlugin(ctx, pluginID, botID)
+		previous, sent := c.identityByPlugin[pluginID]
+		if sent && slices.Equal(previous, bots) {
+			continue
+		}
+		now := time.Now()
+		event := pluginruntime.Event{
+			EventID:        fmt.Sprintf("bot-identities-%d", now.UnixNano()),
+			SourceProtocol: "platform", SourceAdapter: "adapters.internal",
+			EventType: "bot.identities.changed", Timestamp: now.Unix(),
+			PayloadFields: map[string]any{"bots": append([]chatevent.BotIdentity{}, bots...)},
+		}
+		result := c.dispatcher.DispatchToPlugin(ctx, pluginID, event)
+		if result.Outcome == dispatch.OutcomeDelivered {
+			c.identityByPlugin[pluginID] = append([]chatevent.BotIdentity{}, bots...)
+		}
 	}
-}
-
-func (c *Controller) dispatchBotIdentityChangedToPlugin(ctx context.Context, pluginID string, botID string) {
-	if c.dispatcher == nil {
-		return
-	}
-	pluginID = strings.TrimSpace(pluginID)
-	botID = strings.TrimSpace(botID)
-	if pluginID == "" {
-		return
-	}
-	if c.botIdentityAlreadySent(pluginID, botID) {
-		return
-	}
-
-	now := time.Now()
-	event := pluginruntime.Event{
-		EventID:        fmt.Sprintf("onebot11-bot-identity-%d", now.UnixNano()),
-		SourceProtocol: "onebot11",
-		SourceAdapter:  "adapter.onebot11",
-		EventType:      "bot.identity.changed",
-		Timestamp:      now.Unix(),
-		PayloadFields: map[string]any{
-			"onebot": map[string]any{
-				"self_id": botID,
-				"time":    now.Unix(),
-			},
-		},
-	}
-	if botID != "" {
-		event.Target = &pluginruntime.EventTarget{Type: "bot", ID: botID}
-	}
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, event)
-	if result.Outcome == dispatch.OutcomeDelivered {
-		c.markBotIdentitySent(pluginID, botID)
-	}
-}
-
-func (c *Controller) botIdentityAlreadySent(pluginID string, botID string) bool {
-	c.identityMu.Lock()
-	defer c.identityMu.Unlock()
-	if c.identityByPlugin == nil {
-		return false
-	}
-	current, ok := c.identityByPlugin[pluginID]
-	return ok && current == botID
-}
-
-func (c *Controller) markBotIdentitySent(pluginID string, botID string) {
-	c.identityMu.Lock()
-	defer c.identityMu.Unlock()
-	if c.identityByPlugin == nil {
-		c.identityByPlugin = make(map[string]string)
-	}
-	c.identityByPlugin[pluginID] = botID
 }
 
 func (c *Controller) clearBotIdentity(pluginID string) {
 	c.identityMu.Lock()
 	defer c.identityMu.Unlock()
-	if c.identityByPlugin != nil {
-		delete(c.identityByPlugin, pluginID)
-	}
+	delete(c.identityByPlugin, pluginID)
 }
 
-func (c *Controller) currentBotID() string {
-	if c.adapter == nil {
-		return ""
+func (c *Controller) botIdentities() []chatevent.BotIdentity {
+	if c.identities == nil {
+		return []chatevent.BotIdentity{}
 	}
-	return strings.TrimSpace(c.adapter.CurrentBotID())
-}
-
-func (c *Controller) CurrentBotID() string {
-	return c.currentBotID()
+	return c.identities.BotIdentities()
 }
 
 func (c *Controller) handleCrash(pluginID string, crashCount int, _ string) {
@@ -1117,13 +1062,11 @@ func (c *Controller) backoffRestart(pluginID string, delay time.Duration, expect
 		return
 	}
 
-	botID := c.currentBotID()
-
 	ctx, cancel := context.WithTimeout(lifecycleCtx, runtimeInitTimeout(c.config().Runtime))
 	defer cancel()
 
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStarting))
-	if err := c.startRuntimeLocked(ctx, pluginID, botID, manager); err != nil {
+	if err := c.startRuntimeLocked(ctx, pluginID, manager); err != nil {
 		c.logLifecycleWarn("restart plugin after crash backoff", pluginID, err)
 		// startRuntime 可能在构建启动输入阶段失败（此时 Manager.Start 尚未执行），
 		// manager 会停留在 backoff 状态，之后所有触发都视为等待重试而跳过启动；

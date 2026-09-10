@@ -27,7 +27,7 @@ type protocolFrame struct {
 	Details              map[string]any  `json:"details,omitempty"`
 	Data                 json.RawMessage `json:"data,omitempty"`
 	Event                json.RawMessage `json:"event,omitempty"`
-	Bot                  Bot             `json:"bot,omitempty"`
+	Bots                 *[]Bot          `json:"bots,omitempty"`
 	Config               map[string]any  `json:"config,omitempty"`
 	EffectivePermissions []string        `json:"effective_permissions,omitempty"`
 	SuperAdmins          []string        `json:"super_admins,omitempty"`

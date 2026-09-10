@@ -49,7 +49,7 @@ func TestPluginProtocolInitFixturesValidate(t *testing.T) {
 	}
 	for _, name := range []string{
 		"ok.init.yaml",
-		"edge.init-without-bot.yaml",
+		"edge.init-empty-identities.yaml",
 		"ok.config-changed.yaml",
 		"ok.http-request.yaml",
 	} {

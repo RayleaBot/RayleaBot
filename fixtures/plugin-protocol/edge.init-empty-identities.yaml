@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+- protocol_version: '3'
+  plugin_id: idle-native
+  type: init
+  timezone: Asia/Shanghai
+  request_id: init-idle-1
+  config: {}
+  effective_permissions: []
+  super_admins: []
+  command_prefixes:
+  - /
+  concurrency: 1
+  bots: []
+- type: init_ack
+  request_id: init-idle-1
+  status: ready
+expect:
+  valid: true
+  notes:
+  - The required bots snapshot is empty before an adapter identity is known.

@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-func validatePluginFrameV2(line []byte) error {
+func validatePluginFrame(line []byte) error {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(line, &object); err != nil {
 		return err

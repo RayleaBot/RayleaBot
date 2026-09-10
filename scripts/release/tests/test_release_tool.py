@@ -175,7 +175,7 @@ class ReleaseToolTests(unittest.TestCase):
                 built_at="2026-03-24T10:00:00Z",
                 config_schema_version="2",
                 db_schema_version="000004",
-                plugin_protocol_version="2",
+                plugin_protocol_version="3",
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
                 deps_manifest=deps / "manifest.json",
                 sidecars=[sidecar],
@@ -187,7 +187,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertEqual(manifest["artifacts"][0]["artifact_id"], "windows-x64-full")
             self.assertEqual(manifest["artifacts"][0]["smoke_profile"], "windows_full_smoke")
             self.assertEqual(2, manifest["manifest_version"])
-            self.assertEqual("2", manifest["plugin_protocol_version"])
+            self.assertEqual("3", manifest["plugin_protocol_version"])
             self.assertEqual("3", manifest["plugin_manifest_version"])
             self.assertEqual("3", manifest["plugin_ui_bridge_version"])
             self.assertEqual("guided", manifest["artifacts"][0]["update_mode"])

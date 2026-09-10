@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
-  "title": "RayleaBot Plugin JSONL Protocol v2",
+  "title": "RayleaBot Plugin JSONL Protocol v3",
   "description": "Language-neutral JSONL protocol. The init frame establishes protocol version and plugin identity; subsequent frames use the established process session and carry only message-local fields. Host request IDs are unique within a process session. Canceling a local action wait does not cancel the action on the host: the client consumes its eventual response and waits for outstanding actions before emitting an event terminal frame. If bounded draining expires, the client emits no terminal frame and lets the host expire the event. No new action may be emitted after an event starts closing.",
   "oneOf": [
     {
@@ -177,7 +177,8 @@
             "super_admins",
             "command_prefixes",
             "timezone",
-            "concurrency"
+            "concurrency",
+            "bots"
           ],
           "properties": {
             "type": {
@@ -186,25 +187,10 @@
             "timezone": {
               "type": "string",
               "minLength": 1,
-              "not": { "const": "Local" },
+              "not": {
+                "const": "Local"
+              },
               "description": "Effective host IANA timezone for user-visible dates. Required and fixed for this process session. A saved timezone awaiting host restart must not change it. Parse platform timestamps using their source timezone and compare instants independently of display timezone."
-            },
-            "bot": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "id"
-              ],
-              "properties": {
-                "id": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "nickname": {
-                  "type": "string",
-                  "minLength": 1
-                }
-              }
             },
             "command_prefixes": {
               "type": "array",
@@ -217,7 +203,7 @@
             },
             "protocol_version": {
               "type": "string",
-              "const": "2"
+              "const": "3"
             },
             "plugin_id": {
               "type": "string",
@@ -247,6 +233,14 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 128
+            },
+            "bots": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/bot_identity"
+              },
+              "uniqueItems": true,
+              "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
             }
           }
         }
@@ -356,7 +350,7 @@
                     "plugin.started",
                     "config.changed",
                     "webhook.received",
-                    "bot.identity.changed",
+                    "bot.identities.changed",
                     "management.action",
                     "message.private",
                     "message.group",
@@ -485,10 +479,18 @@
                           "type": "string",
                           "description": "Platform message identifier. It is also the handle a passive reply must quote."
                         },
-                        "group_openid": { "type": "string" },
-                        "user_openid": { "type": "string" },
-                        "member_openid": { "type": "string" },
-                        "member_role": { "type": "string" }
+                        "group_openid": {
+                          "type": "string"
+                        },
+                        "user_openid": {
+                          "type": "string"
+                        },
+                        "member_openid": {
+                          "type": "string"
+                        },
+                        "member_role": {
+                          "type": "string"
+                        }
                       }
                     },
                     "onebot": {
@@ -604,6 +606,14 @@
                         "minLength": 1
                       },
                       "uniqueItems": true
+                    },
+                    "bots": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/bot_identity"
+                      },
+                      "uniqueItems": true,
+                      "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
                     }
                   }
                 },
@@ -743,6 +753,36 @@
                         "required": [
                           "config",
                           "changed_keys"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "event_type": {
+                        "const": "bot.identities.changed"
+                      }
+                    },
+                    "required": [
+                      "event_type"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "source_protocol": {
+                        "const": "platform"
+                      },
+                      "source_adapter": {
+                        "const": "adapters.internal"
+                      },
+                      "payload": {
+                        "required": [
+                          "bots"
                         ]
                       }
                     }
@@ -2654,6 +2694,36 @@
         }
       ],
       "unevaluatedProperties": false
+    },
+    "bot_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_adapter",
+        "source_protocol",
+        "id"
+      ],
+      "properties": {
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_protocol": {
+          "type": "string",
+          "enum": [
+            "onebot11",
+            "qqofficial"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nickname": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   },
   "x-message-catalog": [
@@ -2764,7 +2834,7 @@
     "fixtures/plugin-protocol/ok.render-image.yaml",
     "fixtures/plugin-protocol/ok.thirdparty-account-read.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
-    "fixtures/plugin-protocol/edge.init-without-bot.yaml",
+    "fixtures/plugin-protocol/edge.init-empty-identities.yaml",
     "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
     "fixtures/plugin-protocol/ok.qq-official-group-message.yaml",
     "fixtures/plugin-protocol/ok.message-send-adapter-instance.yaml",
@@ -2772,7 +2842,9 @@
     "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
     "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
     "fixtures/plugin-protocol/invalid.removed-action.yaml",
-    "fixtures/plugin-protocol/invalid.storage-root.yaml"
+    "fixtures/plugin-protocol/invalid.storage-root.yaml",
+    "fixtures/plugin-protocol/ok.bot-identities.yaml",
+    "fixtures/plugin-protocol/invalid.bot-identities-missing-snapshot.yaml"
   ],
-  "$comment": "Protocol v2 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions."
+  "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions."
 }

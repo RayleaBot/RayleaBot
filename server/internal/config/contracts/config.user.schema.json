@@ -458,7 +458,7 @@
           "type": "integer",
           "minimum": 1,
           "default": 4,
-          "description": "Independent priority queue bound for plugin.started, config.changed, bot.identity.changed, and management.action events per plugin. Default: 4.",
+          "description": "Independent priority queue bound for plugin.started, config.changed, bot.identities.changed, and management.action events per plugin. Default: 4.",
           "x-apply-policy": "restart_required"
         },
         "ipc_pending_actions_max": {

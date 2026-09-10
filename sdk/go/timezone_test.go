@@ -12,7 +12,7 @@ import (
 func TestRunRejectsMissingOrInvalidHostTimezone(t *testing.T) {
 	for _, zone := range []string{"", "Local", "Invalid/Timezone"} {
 		t.Run(zone, func(t *testing.T) {
-			data, err := json.Marshal(protocolFrame{ProtocolVersion: "2", Type: "init", PluginID: "fixture", RequestID: "init", Timezone: zone})
+			data, err := json.Marshal(protocolFrame{Bots: &[]Bot{}, ProtocolVersion: ProtocolVersion, Type: "init", PluginID: "fixture", RequestID: "init", Timezone: zone})
 			if err != nil {
 				t.Fatal(err)
 			}

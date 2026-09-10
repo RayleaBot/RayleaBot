@@ -30,7 +30,7 @@ type runtimeState struct {
 	shutdownGrace   time.Duration
 	cancel          context.CancelFunc
 	botMu           sync.RWMutex
-	bot             Bot
+	bots            []Bot
 	permissions     []string
 	superAdmins     []string
 	commandPrefixes []string
@@ -48,6 +48,7 @@ type EventContext struct {
 	RequestID       string
 	PluginID        string
 	Bot             Bot
+	Bots            []Bot
 	Config          map[string]any
 	Permissions     []string
 	SuperAdmins     []string
@@ -133,6 +134,12 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 				return protocolError("init timezone is invalid")
 			}
 			state.location = location
+			if frame.Bots == nil {
+				return protocolError("init bots must be an array")
+			}
+			if err := validateBotIdentities(*frame.Bots); err != nil {
+				return err
+			}
 			state.captureInit(frame)
 			if err := state.client.writer.write(protocolFrame{
 				Type:      "init_ack",
@@ -190,7 +197,7 @@ func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 func (state *runtimeState) captureInit(frame protocolFrame) {
 	state.botMu.Lock()
 	defer state.botMu.Unlock()
-	state.bot = frame.Bot
+	state.bots = append([]Bot{}, (*frame.Bots)...)
 	state.pluginID = strings.TrimSpace(frame.PluginID)
 	state.permissions = append([]string(nil), frame.EffectivePermissions...)
 	state.superAdmins = append([]string(nil), frame.SuperAdmins...)
@@ -227,8 +234,8 @@ func (state *runtimeState) applyControlEvent(event Event) error {
 			return protocolError("config.changed payload.config must be an object")
 		}
 		state.config.Store(&configSnapshot{values: cloneConfig(config)})
-	case "bot.identity.changed":
-		state.updateBotIdentity(event)
+	case "bot.identities.changed":
+		return state.updateBotIdentities(event)
 	}
 	return nil
 }
@@ -273,26 +280,49 @@ func (state *runtimeState) startEvent(ctx context.Context, requestID string, eve
 	}()
 }
 
-func (state *runtimeState) updateBotIdentity(event Event) {
-	if event.EventType != "bot.identity.changed" {
-		return
+func (state *runtimeState) updateBotIdentities(event Event) error {
+	value, exists := event.Payload["bots"]
+	if !exists {
+		return protocolError("bot.identities.changed requires payload.bots")
 	}
-	botID := ""
-	if event.Target.Type == "bot" {
-		botID = event.Target.ID
+	data, err := json.Marshal(value)
+	if err != nil {
+		return protocolError("invalid bot identities")
 	}
-	if botID == "" {
-		if onebot, ok := event.Payload["onebot"].(map[string]any); ok {
-			botID, _ = onebot["self_id"].(string)
-		}
+	var bots []Bot
+	if err := json.Unmarshal(data, &bots); err != nil || bots == nil {
+		return protocolError("bot identities must be an array")
+	}
+	if err := validateBotIdentities(bots); err != nil {
+		return err
 	}
 	state.botMu.Lock()
-	if botID == "" {
-		state.bot = Bot{}
-	} else {
-		state.bot.ID = botID
-	}
+	state.bots = bots
 	state.botMu.Unlock()
+	return nil
+}
+
+func validateBotIdentities(bots []Bot) error {
+	seen := make(map[string]bool, len(bots))
+	for _, bot := range bots {
+		if bot.ID == "" || bot.SourceAdapter == "" || (bot.SourceProtocol != "onebot11" && bot.SourceProtocol != "qqofficial") || seen[bot.SourceAdapter] {
+			return protocolError("bot identities require unique adapter instances, a protocol and an ID")
+		}
+		seen[bot.SourceAdapter] = true
+	}
+	return nil
+}
+
+func botForEvent(bots []Bot, event Event) Bot {
+	for _, bot := range bots {
+		if bot.SourceAdapter == event.SourceAdapter && bot.SourceProtocol == event.SourceProtocol {
+			return bot
+		}
+	}
+	if event.SourceProtocol != "onebot11" && event.SourceProtocol != "qqofficial" && len(bots) == 1 {
+		return bots[0]
+	}
+	return Bot{}
 }
 
 func (state *runtimeState) newEventContext(requestID string, event Event) *EventContext {
@@ -303,7 +333,8 @@ func (state *runtimeState) newEventContext(requestID string, event Event) *Event
 		Event:           event,
 		RequestID:       requestID,
 		PluginID:        state.pluginID,
-		Bot:             state.bot,
+		Bot:             botForEvent(state.bots, event),
+		Bots:            append([]Bot{}, state.bots...),
 		Config:          cloneConfig(state.config.Load().values),
 		Permissions:     append([]string(nil), state.permissions...),
 		SuperAdmins:     append([]string(nil), state.superAdmins...),

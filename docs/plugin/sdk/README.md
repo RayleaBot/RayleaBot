@@ -26,7 +26,7 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 - 生效权限、超级管理员和命令前缀。
 - 宿主当前生效的 `Location`；显示时间使用 `timestamp.In(event.Location)`，动作边界可通过 `event.Actions().TimeLocation()` 取得同一个时区。
 
-每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v2 的统一 `message.send` action。
+每个事件只能发送一次 `Result`、`Fail`、`Send`、`SendText` 或 `Reply` 终态。`Reply` 仍使用 protocol v3 的统一 `message.send` action。
 
 `event.Actions()` 提供 request-bound typed helpers：
 
@@ -118,3 +118,5 @@ raylea-plugin build-go --plugin <plugin-root> --target linux-x64 --out dist
 - [Plugin Protocol](../protocol.md)
 - [Management UI](../management-ui.md)
 - [Plugin Store and Independent Development](../store-and-development.md)
+
+`EventContext.Bots` 保存全部已知适配器身份的隔离快照。`Bot` 对聊天事件按来源实例选择；多实例定时任务不推测身份，应从 `Bots` 明确选择实例并在主动发送时传入 `SourceAdapter`。

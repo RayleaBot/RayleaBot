@@ -13,7 +13,7 @@
     "update_protocol_version": 2,
     "config_schema_version": "3",
     "db_schema_version": "000004",
-    "plugin_protocol_version": "2",
+    "plugin_protocol_version": "3",
     "artifacts": [
       {
         "artifact_id": "windows-x64-full",

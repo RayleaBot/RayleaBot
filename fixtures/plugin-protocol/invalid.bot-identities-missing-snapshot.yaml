@@ -1,0 +1,14 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: event
+  request_id: missing
+  event:
+    event_id: missing
+    source_protocol: platform
+    source_adapter: adapters.internal
+    event_type: bot.identities.changed
+    timestamp: 1700000000
+    payload: {}
+expect:
+  valid: false

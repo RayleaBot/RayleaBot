@@ -64,8 +64,8 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 }
 
 func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *Error) {
-	if err := validatePluginFrameV2(line); err != nil {
-		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned a non-v2 init response", err)
+	if err := validatePluginFrame(line); err != nil {
+		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an invalid init response", err)
 	}
 	var envelope FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {

@@ -10,16 +10,49 @@ import (
 	"time"
 )
 
-func TestRuntimeStateClearsBotIdentity(t *testing.T) {
-	state := &runtimeState{bot: Bot{ID: "10001", Nickname: "RayleaBot"}}
-	state.updateBotIdentity(Event{
-		EventType: "bot.identity.changed",
-		Payload:   map[string]any{"onebot": map[string]any{"self_id": ""}},
-	})
-	state.botMu.RLock()
-	defer state.botMu.RUnlock()
-	if state.bot.ID != "" || state.bot.Nickname != "" {
-		t.Fatalf("bot identity was not cleared: %#v", state.bot)
+func TestRuntimeStateClearsBotIdentities(t *testing.T) {
+	state := &runtimeState{bots: []Bot{{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "10001", Nickname: "RayleaBot"}}}
+	if err := state.updateBotIdentities(Event{EventType: "bot.identities.changed", Payload: map[string]any{"bots": []Bot{}}}); err != nil {
+		t.Fatal(err)
+	}
+	if len(state.bots) != 0 {
+		t.Fatalf("identity snapshot not cleared: %#v", state.bots)
+	}
+}
+
+func TestInvalidIdentitySnapshotPreservesPreviousState(t *testing.T) {
+	t.Parallel()
+	bot := Bot{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "original"}
+	for _, value := range []any{nil, "invalid", []Bot{bot, bot}, []Bot{{SourceAdapter: "onebot", SourceProtocol: "unknown", ID: "other"}}} {
+		state := &runtimeState{bots: []Bot{bot}}
+		if err := state.updateBotIdentities(Event{Payload: map[string]any{"bots": value}}); err == nil {
+			t.Fatalf("invalid identity snapshot was accepted: %#v", value)
+		}
+		if len(state.bots) != 1 || state.bots[0] != bot {
+			t.Fatal("invalid update changed identity state")
+		}
+	}
+}
+
+func TestEventContextSelectsIdentityByAdapter(t *testing.T) {
+	bots := []Bot{{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "shared"}, {SourceAdapter: "qq", SourceProtocol: "qqofficial", ID: "shared"}}
+	state := &runtimeState{}
+	state.captureInit(protocolFrame{Bots: &bots})
+	for _, bot := range bots {
+		event := state.newEventContext("fixture", Event{SourceAdapter: bot.SourceAdapter, SourceProtocol: bot.SourceProtocol})
+		if event.Bot != bot {
+			t.Fatalf("selected %#v, want %#v", event.Bot, bot)
+		}
+		event.Bots[0].ID = "mutated"
+	}
+	if state.bots[0].ID != "shared" {
+		t.Fatal("shared mutable identities")
+	}
+	if state.newEventContext("task", Event{SourceProtocol: "scheduler"}).Bot.ID != "" {
+		t.Fatal("ambiguous task identity was guessed")
+	}
+	if state.newEventContext("missing", Event{SourceAdapter: "qq", SourceProtocol: "onebot11"}).Bot.ID != "" {
+		t.Fatal("protocol mismatch selected an identity")
 	}
 }
 
@@ -103,8 +136,8 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
-		Bot: Bot{ID: "old-bot"}, Config: map[string]any{"mode": "initial"},
+		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
+		Bots: &[]Bot{{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "old-bot"}}, Config: map[string]any{"mode": "initial"},
 		EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 4,
 	})
 	var frame protocolFrame
@@ -119,8 +152,8 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 		Payload: map[string]any{"config": map[string]any{"mode": "B"}, "changed_keys": []string{"mode"}},
 	})
 	writeRuntimeEvent(t, encoder, "bot-new", Event{
-		EventID: "bot-new", EventType: "bot.identity.changed",
-		Target: Target{Type: "bot", ID: "new-bot"},
+		EventID: "bot-new", EventType: "bot.identities.changed",
+		Payload: map[string]any{"bots": []Bot{{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "new-bot"}}},
 	})
 	writeRuntimeEvent(t, encoder, "message", Event{EventID: "message", EventType: "message"})
 
@@ -168,8 +201,8 @@ func TestRunRejectsConfigChangedWithoutSnapshotAndContinues(t *testing.T) {
 	}()
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
-	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
+	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
+		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
 		Config: map[string]any{"mode": "initial"}, EffectivePermissions: []string{},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
 	})
@@ -223,8 +256,8 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
-	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init-1",
+	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
+		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init-1",
 		Config: map[string]any{"enabled": true}, EffectivePermissions: []string{"storage.kv"},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 2,
 	})
@@ -297,8 +330,8 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 	}()
 	encoder := json.NewEncoder(inputWriter)
 	decoder := json.NewDecoder(outputReader)
-	writeFrame(t, encoder, protocolFrame{
-		ProtocolVersion: "2", Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
+	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
+		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init",
 		Config: map[string]any{}, EffectivePermissions: []string{}, SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 1,
 	})
 	var frame protocolFrame

@@ -1,25 +1,27 @@
 contract: contracts/plugin-protocol.schema.json
 case: ok
 frames:
-  - protocol_version: "2"
-    plugin_id: raylea.echo
-    type: init
-    timezone: Asia/Shanghai
-    request_id: init-1
-    config:
-      prefix: echo
-    effective_permissions:
-      - message.send
-    super_admins:
-      - "10001"
-    command_prefixes:
-      - "/"
-    concurrency: 2
-    bot:
-      id: "20001"
-      nickname: RayleaBot
-  - type: init_ack
-    request_id: init-1
-    status: ready
+- protocol_version: '3'
+  plugin_id: raylea.echo
+  type: init
+  timezone: Asia/Shanghai
+  request_id: init-1
+  config:
+    prefix: echo
+  effective_permissions:
+  - message.send
+  super_admins:
+  - '10001'
+  command_prefixes:
+  - /
+  concurrency: 2
+  bots:
+  - source_adapter: fixture-onebot
+    source_protocol: onebot11
+    id: '20001'
+    nickname: RayleaBot
+- type: init_ack
+  request_id: init-1
+  status: ready
 expect:
   valid: true

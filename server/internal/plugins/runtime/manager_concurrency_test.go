@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
 )
 
@@ -650,10 +651,10 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 func testInitPayload() InitPayload {
 	return InitPayload{
 		Timezone: "Asia/Shanghai",
-		Bot: BotInfo{
+		Bots: []chatevent.BotIdentity{{SourceAdapter: "fixture", SourceProtocol: "onebot11",
 			ID:       "bot-1",
 			Nickname: "RayleaBot",
-		},
+		}},
 		Config:          map[string]any{"enabled": true},
 		Permissions:     []string{"message.send"},
 		SuperAdmins:     []string{"9001", "9002"},

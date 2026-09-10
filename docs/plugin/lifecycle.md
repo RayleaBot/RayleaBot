@@ -18,12 +18,12 @@
 - 插件在开发者环境中编译并打包；Go 插件可使用仓库提供的 SDK 和构建器。服务端运行已经构建的原生可执行文件。
 - 核心在启动插件前准备共享 FFmpeg 资源，并向插件进程注入 `RAYLEABOT_FFMPEG_PATH` 与 `RAYLEABOT_FFPROBE_PATH`；这些绝对路径指向当前平台已校验的托管入口，不属于插件包内容。
 - 插件包按 `windows-x64`、`linux-x64`、`macos-arm64` 分发；目标平台只由 `artifact.json.target_platform` 声明。
-- JSONL 插件协议使用语言无关的 v2。
+- JSONL 插件协议使用语言无关的 v3。
 
 ## 生命周期主线
 
 - discovery 只读取已安装且通过 artifact 校验的 manifest。
-- 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；OneBot 协议身份可用时通过 `init.bot` 或 `bot.identity.changed` 提供给插件。
+- 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；通过 `init.bots` 提供按适配器实例区分的身份列表，后续 `bot.identities.changed` 替换该列表。
 - 运行中通过 `ping/pong` 保活。
 - 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
 - 插件刚异常退出时映射为 `state=failed`、`state_diagnosis.kind=crashed`；进入退避等待后映射为 `state=failed`、`state_diagnosis.kind=retrying`；超过重试阈值进入 dead-letter 时映射为 `state=failed`、`state_diagnosis.kind=recovery_required`。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。

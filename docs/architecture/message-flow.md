@@ -1,6 +1,6 @@
 # Message Flow
 
-本文档说明 OneBot11 入站、插件分发、平台 action、出站发送、调度和 webhook 的正式运行链路。事件与 action 字段以 `contracts/` 为准。
+本文档说明 OneBot11 与 QQ 官方适配器入站、插件分发、平台 action、出站发送、调度和 webhook 的正式运行链路。事件与 action 字段以 `contracts/` 为准。
 
 ## 消息主流程
 
@@ -58,7 +58,7 @@ sequenceDiagram
 
 Adapter 负责 transport 鉴权、协议帧分类、连接状态、事件去重和 OneBot11 字段归一化。`eventpipeline/chatpolicy` 的 Ingress 补齐可用的 bot、用户、群和 reply target 元数据，解析命令，并执行白名单、黑名单、命令权限与冷却拦截。
 
-Bridge 只处理 OneBot11 归一化事件。无法通过正式结构校验的事件进入结构化诊断，不交给插件。
+Bridge 处理受支持适配器的归一化事件。无法通过正式结构校验的事件进入结构化诊断，不交给插件。
 
 Dispatcher 只向可投递的 runtime 发送事件。命令声明优先选择目标插件，其余事件按 `event_type` 订阅匹配。
 
@@ -98,7 +98,7 @@ Scheduler 以插件 ID、任务 ID 和 revision 维护单一串行 mutation path
 
 Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `event_type=webhook.received` 的事件；来源元数据放在该事件的 `webhook` 字段，其中 `route` 与 `received_at` 必填。Webhook 事件定向进入 Dispatcher，不经过 OneBot11 Bridge。
 
-其他平台内部事件如 `config.changed`、`bot.identity.changed` 和 `management.action` 也可按目标直接进入 Dispatcher，但仍使用同一 runtime、local action 和出站链路。
+其他平台内部事件如 `config.changed`、`bot.identities.changed` 和 `management.action` 也可按目标直接进入 Dispatcher，但仍使用同一 runtime、local action 和出站链路。
 
 ## 关键边界
 

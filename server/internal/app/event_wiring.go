@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
@@ -70,11 +71,11 @@ func buildEvents(deps eventDeps) EventState {
 			oneBotShells[instance.ID] = shell
 			senders[instance.ID] = shell
 			protocols[instance.ID] = instance.Type
-			identity.providers = append(identity.providers, func() string {
+			identity.providers = append(identity.providers, func() chatevent.BotIdentity {
 				if !isEnabled(instance.ID, instance.Type) {
-					return ""
+					return chatevent.BotIdentity{}
 				}
-				return shell.CurrentBotID()
+				return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: instance.Type, ID: shell.CurrentBotID()}
 			})
 		case instance.Type == config.AdapterTypeQQOfficial && instance.QQOfficial != nil:
 			client := qqofficial.New(instance.ID, *instance.QQOfficial, deps.Config.Adapter, deps.Logger)
@@ -82,12 +83,12 @@ func buildEvents(deps eventDeps) EventState {
 			qqClients[instance.ID] = client
 			senders[instance.ID] = client
 			protocols[instance.ID] = instance.Type
-			identity.providers = append(identity.providers, func() string {
+			identity.providers = append(identity.providers, func() chatevent.BotIdentity {
 				if !isEnabled(instance.ID, instance.Type) {
-					return ""
+					return chatevent.BotIdentity{}
 				}
-				botID, _ := client.BotIdentity()
-				return botID
+				botID, nickname := client.BotIdentity()
+				return chatevent.BotIdentity{SourceAdapter: instance.ID, SourceProtocol: instance.Type, ID: botID, Nickname: nickname}
 			})
 		}
 	}

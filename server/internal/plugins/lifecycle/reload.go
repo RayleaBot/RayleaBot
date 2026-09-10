@@ -49,13 +49,12 @@ func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snaps
 	}
 
 	taskID := c.createReloadTask(pluginID, snapshot)
-	go c.reloadPluginAsync(pluginID, c.currentBotID(), taskID)
+	go c.reloadPluginAsync(pluginID, taskID)
 	c.reconcileRecoverySummaryBestEffort("plugin.reload")
 	return updated, nil
 }
 
-func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
-	botID = strings.TrimSpace(botID)
+func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	c.startReloadTask(taskID)
 
 	ctx, cancel := c.lifecycleTimeoutContext(runtimeInitTimeout(c.config().Runtime))
@@ -77,7 +76,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	if !ok || current == nil {
 		c.updateReloadTask(taskID, 30, "启动插件运行时")
 		manager := c.runtimes.GetOrCreate(pluginID)
-		if err := c.startRuntimeLocked(ctx, pluginID, botID, manager); err != nil {
+		if err := c.startRuntimeLocked(ctx, pluginID, manager); err != nil {
 			c.logLifecycleWarn("start plugin runtime during reload", pluginID, err)
 			_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
@@ -90,7 +89,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	switch current.Snapshot().State {
 	case pluginruntime.StateStopped:
 		c.updateReloadTask(taskID, 30, "启动插件运行时")
-		if err := c.startRuntimeLocked(ctx, pluginID, botID, current); err != nil {
+		if err := c.startRuntimeLocked(ctx, pluginID, current); err != nil {
 			c.logLifecycleWarn("start stopped plugin runtime during reload", pluginID, err)
 			_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
@@ -102,7 +101,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 		current.ResetCrashCount()
 		current.SetStopped()
 		c.updateReloadTask(taskID, 30, "重置插件运行时")
-		if err := c.startRuntimeLocked(ctx, pluginID, botID, current); err != nil {
+		if err := c.startRuntimeLocked(ctx, pluginID, current); err != nil {
 			c.logLifecycleWarn("restart plugin runtime during reload", pluginID, err)
 			_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
 			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
@@ -116,7 +115,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	}
 
 	c.updateReloadTask(taskID, 30, "构建插件运行时")
-	spec, payload, err := c.buildStartInputs(ctx, pluginID, botID)
+	spec, payload, err := c.buildStartInputs(ctx, pluginID)
 	if err != nil {
 		c.logLifecycleWarn("build runtime spec for plugin reload", pluginID, err)
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
@@ -137,7 +136,7 @@ func (c *Controller) reloadPluginAsync(pluginID, botID string, taskID string) {
 	newManager.ResetCrashCount()
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 	c.clearBotIdentity(pluginID)
-	c.afterRuntimeRegistered(ctx, pluginID, botID)
+	c.afterRuntimeRegistered(ctx, pluginID, payload.Bots)
 	c.finishReloadTask(taskID, pluginID)
 }
 

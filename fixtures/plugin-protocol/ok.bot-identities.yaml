@@ -1,0 +1,31 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+- type: event
+  request_id: identities-1
+  event:
+    event_id: identities-1
+    source_protocol: platform
+    source_adapter: adapters.internal
+    event_type: bot.identities.changed
+    timestamp: 1700000001
+    payload:
+      bots:
+      - source_adapter: onebot
+        source_protocol: onebot11
+        id: same-id
+      - source_adapter: qq
+        source_protocol: qqofficial
+        id: same-id
+- type: event
+  request_id: identities-2
+  event:
+    event_id: identities-2
+    source_protocol: platform
+    source_adapter: adapters.internal
+    event_type: bot.identities.changed
+    timestamp: 1700000002
+    payload:
+      bots: []
+expect:
+  valid: true

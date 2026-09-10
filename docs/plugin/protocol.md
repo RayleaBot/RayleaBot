@@ -1,4 +1,4 @@
-# Plugin Protocol v2
+# Plugin Protocol v3
 
 RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/plugin-protocol.schema.json` 为准。
 
@@ -20,13 +20,13 @@ RayleaBot 与插件进程使用 JSONL 通信。正式消息结构以 `contracts/
 | plugin → Server | `pong` | 保活响应 |
 | Server → plugin | `shutdown` | 受控退出 |
 
-只有 `init` 携带 `protocol_version: "2"` 和 `plugin_id`。后续帧不得重复协议版本、插件 ID、envelope 时间戳或事件订阅。
+只有 `init` 携带 `protocol_version: "3"` 和 `plugin_id`。后续帧不得重复协议版本、插件 ID、envelope 时间戳或事件订阅。
 
 `init` 同时提供：
 
 - 完整配置快照 `config`。
 - 生效权限 `effective_permissions`。
-- 可用时的 Bot 身份。
+- 身份列表 `bots`，元素包含 `source_adapter`、`source_protocol`、`id` 与可选 `nickname`；没有已知身份时为 `[]`。
 - 超级管理员列表和命令前缀。
 - 生效并发度。
 - 必填的 IANA 时区 `timezone`，对应宿主当前生效的时区；保存后待重启的时区不提前下发。
@@ -48,7 +48,7 @@ manifest 的 `events` 是唯一普通事件订阅来源。省略或空数组表�
 - `management.action`
 - `config.changed`
 - `webhook.received`
-- `bot.identity.changed`
+- `bot.identities.changed`
 
 OneBot 消息、notice、request 与 meta 事件继续使用正式 `event_type` 枚举。消息文本位于 `event.message.plain_text`，结构化段位于 `event.message.segments`。
 
@@ -65,7 +65,11 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 
 ### 身份变更
 
-`init.bot` 缺失或 `bot.identity.changed` 提供空身份时，依赖 OneBot 连接的动作会返回 adapter 类错误。宿主不自动重放失败动作；插件可在身份恢复事件中决定是否重试。
+`bot.identities.changed` 是来源为 `platform` / `adapters.internal` 的控制事件，`payload.bots` 是完整身份列表。SDK 在执行 handler 前替换列表；空数组清除旧身份。列表按 `source_adapter` 排序，每个适配器实例最多一个身份，停用实例从列表移除。暂时重连与已确认身份是不同状态，连接失败仍通过对应动作结果表达。
+
+Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根据聊天事件的 `source_adapter` 和 `source_protocol` 选择对应身份。平台内部事件仅在列表恰好有一个身份时提供该便利值，多实例时为空；插件应明确选择目标实例。相同字符串 ID 在不同实例中属于不同身份。
+
+协议 v2 的单一 `init.bot` 和 `bot.identity.changed` 不再使用；升级与重建步骤见[协议 v3 升级](../release/plugin-protocol-v3-upgrade.md)。
 
 ## Action RPC
 

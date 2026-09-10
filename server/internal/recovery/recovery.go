@@ -18,7 +18,7 @@ import (
 const (
 	BackupManifestVersion = "3"
 	PluginManifestVersion = "3"
-	PluginProtocolVersion = "2"
+	PluginProtocolVersion = "3"
 	PluginUIBridgeVersion = "3"
 	PluginArtifactVersion = "2"
 	RecoverySummaryPath   = "logs/recovery-summary.json"
@@ -174,7 +174,7 @@ func EvaluateRestore(manifest BackupManifest, repoRoot string) CompatibilitySumm
 					Code:        "plugin.contract_unsupported",
 					Severity:    "warning",
 					Summary:     fmt.Sprintf("插件 %s 使用旧合同版本，恢复后会保留数据并保持无效状态。", plugin.PluginID),
-					Remediation: "恢复完成后安装该插件的 manifest v3、protocol v2、artifact v2 版本。",
+					Remediation: "恢复完成后安装该插件的 manifest v3、protocol v3、artifact v2 版本。",
 				})
 			}
 		}
@@ -424,7 +424,7 @@ func pluginCompatibilityIssue(plugin plugins.Snapshot, targetCoreVersion string)
 			Summary:      "插件合同版本不受支持，已保留安装目录和插件数据并跳过自动启用。",
 			ReviewID:     buildReviewID(plugin.PluginID, "plugin.contract_unsupported", plugin.Version),
 			ReviewStatus: reviewStatusPending,
-			ManualAction: "安装 manifest v3、protocol v2、artifact v2 插件包。",
+			ManualAction: "安装 manifest v3、protocol v3、artifact v2 插件包。",
 			ManifestPath: plugin.ManifestPath,
 		}
 	}

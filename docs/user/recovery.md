@@ -10,7 +10,7 @@
 4. 重新启动服务。
 5. 让平台完成兼容检查和恢复摘要生成。
 
-当前恢复只接受 backup manifest v3。清单固定记录 `plugin_protocol_version=2`、`plugin_manifest_version=3`、`plugin_artifact_version=2` 与 `plugin_ui_bridge_version=3`；backup manifest v2 会被拒绝，不执行隐式迁移或破坏性重置。
+当前恢复只接受 backup manifest v3。清单固定记录 `plugin_protocol_version=3`、`plugin_manifest_version=3`、`plugin_artifact_version=2` 与 `plugin_ui_bridge_version=3`；backup manifest v2 会被拒绝，不执行隐式迁移或破坏性重置。
 
 升级默认保留 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；`config/default.yaml` 与其他发行基线文件由新版本替换。v3 备份可以记录旧 manifest v2 / artifact v1 插件包事实并恢复其设置、密钥、KV、文件和已发布数据，但这些旧包仍保持不受支持和禁用状态，必须重新安装 manifest v3 / artifact v2 包后才能运行。回退旧版本时使用升级前的仓库外备份，不直接让旧版本读取较新的状态库。
 

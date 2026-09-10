@@ -3,7 +3,6 @@ package dispatch
 import (
 	"bytes"
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
@@ -692,7 +692,7 @@ func TestDispatchControlQueueIsIndependentAndBounded(t *testing.T) {
 	}
 
 	identity := testEventWithTarget("bot-1")
-	identity.EventType = "bot.identity.changed"
+	identity.EventType = "bot.identities.changed"
 	identity.EventID = "identity-one"
 	if result := d.DispatchToPlugin(context.Background(), "control", identity); result.Outcome != OutcomeDelivered {
 		t.Fatalf("control outcome = %s, want delivered despite full normal queue", result.Outcome)

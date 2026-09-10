@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, error) {
@@ -165,6 +167,11 @@ func buildEventPayload(event Event) (*ProtocolPayloadFrame, bool) {
 			payload.ChangedKeys = append([]string(nil), v...)
 			hasPayload = true
 		}
+		if bots, ok := event.PayloadFields["bots"].([]chatevent.BotIdentity); ok {
+			copy := append([]chatevent.BotIdentity{}, bots...)
+			payload.Bots = &copy
+			hasPayload = true
+		}
 		if onebot, ok := buildProtocolOneBotPayload(event.PayloadFields); ok {
 			payload.OneBot = onebot
 			hasPayload = true
@@ -271,8 +278,8 @@ func payloadMapAllowEmpty(values map[string]any, key string) (map[string]any, bo
 }
 
 func parseEventEnvelope(line []byte, pluginID string) (FrameEnvelope, error) {
-	if err := validatePluginFrameV2(line); err != nil {
-		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a non-v2 protocol frame", err)
+	if err := validatePluginFrame(line); err != nil {
+		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
 	}
 	var envelope FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {

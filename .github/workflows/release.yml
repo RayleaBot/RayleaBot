@@ -376,7 +376,7 @@ jobs:
             --git-commit "$GIT_COMMIT" \
             --config-schema-version "$CONFIG_SCHEMA_VERSION" \
             --db-schema-version "$DB_SCHEMA_VERSION" \
-            --plugin-protocol-version "2" \
+            --plugin-protocol-version "3" \
             --release-notes-ref "$RELEASE_NOTES_REF" \
             --deps-manifest .deps/manifest.json \
             --sidecar dist/downloads/windows-x64-full/RayleaBot-v${VERSION}-windows-x64-full.zip.artifact.json \

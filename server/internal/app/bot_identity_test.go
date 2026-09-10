@@ -3,35 +3,28 @@ package app
 import (
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
-func TestBotIdentityFallsBackThroughConfiguredAdapters(t *testing.T) {
+func TestBotIdentitiesKeepAdapterNamespaces(t *testing.T) {
 	t.Parallel()
-
-	oneBot, qq := "", ""
 	source := botIdentitySource{providers: []botIdentityProvider{
-		func() string { return oneBot },
-		func() string { return qq },
+		func() chatevent.BotIdentity {
+			return chatevent.BotIdentity{SourceAdapter: "qq", SourceProtocol: "qqofficial", ID: "same-id"}
+		},
+		func() chatevent.BotIdentity {
+			return chatevent.BotIdentity{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "same-id"}
+		},
+		func() chatevent.BotIdentity { return chatevent.BotIdentity{} },
 	}}
-
-	// Nothing connected: the runtime has no identity rather than a made-up one.
-	if got := source.CurrentBotID(); got != "" {
-		t.Fatalf("CurrentBotID() = %q, want empty before any adapter connects", got)
+	got := source.BotIdentities()
+	if len(got) != 2 || got[0].SourceAdapter != "onebot" || got[1].SourceAdapter != "qq" {
+		t.Fatalf("identities=%#v", got)
 	}
-
-	// A deployment running only a QQ adapter still has an identity, which is
-	// what the plugin runtime needs to reconcile anything bot-scoped.
-	qq = "qq-bot"
-	if got := source.CurrentBotID(); got != "qq-bot" {
-		t.Fatalf("CurrentBotID() = %q, want the connected QQ identity", got)
-	}
-
-	// With both connected the first configured adapter wins, so the identity
-	// does not flip between adapters as connections come and go.
-	oneBot = "onebot-bot"
-	if got := source.CurrentBotID(); got != "onebot-bot" {
-		t.Fatalf("CurrentBotID() = %q, want the first configured adapter's identity", got)
+	got[0].ID = "mutated"
+	if source.BotIdentities()[0].ID != "same-id" {
+		t.Fatal("identity snapshot was shared")
 	}
 }
 
@@ -48,12 +41,12 @@ func TestEventWiringBuildsIdentityProvidersInConfigurationOrder(t *testing.T) {
 		}},
 	})
 
-	// Providers retain configuration order so an instance can be enabled later;
-	// disabled providers contribute no identity.
+	t.Cleanup(state.Close)
+	// Disabled providers contribute no identity.
 	if len(state.BotIdentity.providers) != 3 {
 		t.Fatalf("built %d identity providers, want one per configured adapter", len(state.BotIdentity.providers))
 	}
-	if got := state.BotIdentity.CurrentBotID(); got != "" {
-		t.Fatalf("CurrentBotID() = %q, want empty while nothing has connected", got)
+	if got := state.BotIdentity.BotIdentities(); len(got) != 0 {
+		t.Fatalf("BotIdentities() = %#v, want empty while nothing has connected", got)
 	}
 }

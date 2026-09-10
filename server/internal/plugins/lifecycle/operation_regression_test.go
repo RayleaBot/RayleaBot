@@ -34,7 +34,7 @@ func TestEnsurePluginRunningCanceledDuringLifecycleOperationDoesNotChangeState(t
 	defer release()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := controller.EnsurePluginRunning(ctx, "blocked-plugin", ""); !errors.Is(err, context.Canceled) {
+	if err := controller.EnsurePluginRunning(ctx, "blocked-plugin"); !errors.Is(err, context.Canceled) {
 		t.Fatalf("ensure canceled while another operation owns the plugin: %v", err)
 	}
 	snapshot, _ := catalog.Get("blocked-plugin")

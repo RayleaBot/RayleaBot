@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -14,14 +15,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
 
-type BotInfo struct {
-	ID       string
-	Nickname string
-}
-
 type InitPayload struct {
 	Timezone        string
-	Bot             BotInfo
+	Bots            []chatevent.BotIdentity
 	Config          map[string]any
 	Permissions     []string
 	SuperAdmins     []string

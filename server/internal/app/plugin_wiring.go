@@ -145,7 +145,7 @@ func buildPluginLifecycle(deps pluginServiceDeps) *pluginservice.Controller {
 		Dispatcher:          deps.Events.Dispatcher,
 		Scheduler:           deps.Platform.Scheduler,
 		PluginConfig:        deps.Plugins.PluginConfig,
-		Adapter:             deps.Events.BotIdentity,
+		Identities:          deps.Events.BotIdentity,
 		Webhooks:            deps.Plugins.Webhooks,
 		Tasks:               deps.Platform.Tasks,
 		OnRecoveryChange:    deps.System.ReconcileRecoverySummaryBestEffort,

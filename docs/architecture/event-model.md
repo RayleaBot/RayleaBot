@@ -122,7 +122,7 @@ QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协�
 - 平台能力族包括消息、日志、存储、HTTP、配置、secret、插件目录、三方账号、治理、调度、Webhook 和渲染。
 - OneBot 动作族覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke；provider 另有受控扩展动作。
 - 人类可读的完整 action 名称与参数清单只维护在[插件协议](../plugin/protocol.md#action-rpc)，机器可读结构以 `contracts/plugin-protocol.schema.json` 为准。
-- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`plugin.started`、`config.changed`、`webhook.received`、`bot.identity.changed`、`management.action`。
+- 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`plugin.started`、`config.changed`、`webhook.received`、`bot.identities.changed`、`management.action`。
 
 ### 当前正式消息段
 

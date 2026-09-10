@@ -117,7 +117,7 @@ raylea-server update verify --manifest <path> --signature <path> --artifact <pat
 - `data/**`；
 - `plugins/installed/**`。
 
-恢复只接受 backup manifest v3，其中插件合同版本固定为 protocol v2、manifest v3、artifact v2 和 management bridge v3。backup manifest v2 会被拒绝；v3 备份可以保留旧插件包事实和插件持久化数据，但旧 manifest v2 / artifact v1 包保持禁用，重新安装新合同包后才能运行。具体边界见 [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md)。
+恢复只接受 backup manifest v3，其中插件合同版本固定为 protocol v3、manifest v3、artifact v2 和 management bridge v3。backup manifest v2 会被拒绝；v3 备份可以保留旧插件包事实和插件持久化数据，但旧 manifest v2 / artifact v1 包保持禁用，重新安装新合同包后才能运行。具体边界见 [Plugin Contract v3 Upgrade](./plugin-contract-v3-upgrade.md)。
 
 `cache/` 和 `logs/` 不参与恢复，也不能阻止安装。回滚失败进入 `rollback_failed` 并禁止自动启动。旧版本与 offline backup 至少保留 7 天，并至少保留到下一次成功升级。
 

@@ -11,11 +11,10 @@ import (
 	"strings"
 	"testing"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
@@ -264,7 +263,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		newPluginWebhookRegistry(),
 	)
 
-	_, payload, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card", "")
+	_, payload, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatalf("buildStartInputs: %v", err)
 	}
@@ -272,7 +271,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		t.Fatalf("super_admins = %#v, want canonical values", payload.SuperAdmins)
 	}
 	app.state.Config.Scheduler.Timezone = "America/Los_Angeles"
-	_, pending, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card", "")
+	_, pending, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -280,7 +279,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		t.Fatalf("pending setting changed plugin timezone before restart: %q", pending.Timezone)
 	}
 	app.setTestLifecycle(catalog, nil, newRuntimeRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
-	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card", "")
+	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatal(err)
 	}

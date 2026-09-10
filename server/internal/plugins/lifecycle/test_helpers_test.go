@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
@@ -84,7 +85,7 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 	// Assign the adapter only when non-nil so the interface dep stays nil
 	// instead of holding a typed nil.
 	if adapterShell != nil {
-		deps.Adapter = adapterShell
+		deps.Identities = testAdapterIdentities{shell: adapterShell}
 	}
 	a.services.pluginLifecycle = NewController(deps)
 }
@@ -291,4 +292,13 @@ func waitTask(t *testing.T, registry *tasks.Registry, taskID string, want tasks.
 	snapshot, _ := registry.Get(taskID)
 	t.Fatalf("task %s did not reach %s: %#v", taskID, want, snapshot)
 	return tasks.Snapshot{}
+}
+
+type testAdapterIdentities struct{ shell *onebot11.Shell }
+
+func (source testAdapterIdentities) BotIdentities() []chatevent.BotIdentity {
+	if id := source.shell.CurrentBotID(); id != "" {
+		return []chatevent.BotIdentity{{SourceAdapter: "onebot11", SourceProtocol: "onebot11", ID: id}}
+	}
+	return []chatevent.BotIdentity{}
 }

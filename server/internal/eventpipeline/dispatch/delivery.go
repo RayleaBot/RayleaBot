@@ -91,7 +91,7 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 
 func isControlEvent(eventType string) bool {
 	switch strings.TrimSpace(eventType) {
-	case "plugin.started", "config.changed", "bot.identity.changed", "management.action":
+	case "plugin.started", "config.changed", "bot.identities.changed", "management.action":
 		return true
 	default:
 		return false

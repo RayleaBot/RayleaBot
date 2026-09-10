@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 )
 
@@ -99,24 +100,18 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", entryPathDisplay,
 	)
 
-	var bot *BotFrame
-	if payload.Bot.ID != "" {
-		bot = &BotFrame{
-			ID:       payload.Bot.ID,
-			Nickname: payload.Bot.Nickname,
-		}
-	}
+	bots := append([]chatevent.BotIdentity{}, payload.Bots...)
 	initConfig := cloneDetails(payload.Config)
 	if initConfig == nil {
 		initConfig = map[string]any{}
 	}
 	if err := handle.WriteJSONLine(InitFrame{
 		Timezone:             payload.Timezone,
-		ProtocolVersion:      "2",
+		ProtocolVersion:      "3",
 		Type:                 "init",
 		PluginID:             spec.PluginID,
 		RequestID:            requestID,
-		Bot:                  bot,
+		Bots:                 bots,
 		Config:               initConfig,
 		EffectivePermissions: append([]string(nil), payload.Permissions...),
 		SuperAdmins:          append([]string(nil), payload.SuperAdmins...),

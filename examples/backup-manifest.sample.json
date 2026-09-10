@@ -5,7 +5,7 @@
   "config_schema_version": "3",
   "db_schema_version": "000004",
   "plugin_manifest_version": "3",
-  "plugin_protocol_version": "2",
+  "plugin_protocol_version": "3",
   "plugin_artifact_version": "2",
   "plugin_ui_bridge_version": "3",
   "consistency": "offline",
@@ -13,7 +13,7 @@
     {
       "plugin_id": "weather-pro",
       "manifest_version": "3",
-      "protocol_version": "2",
+      "protocol_version": "3",
       "artifact_version": "2",
       "version": "1.4.0",
       "min_core_version": "0.4.0",

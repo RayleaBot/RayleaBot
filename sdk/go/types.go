@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const ProtocolVersion = "2"
+const ProtocolVersion = "3"
 
 type Options struct {
 	Stdin         io.Reader
@@ -30,8 +30,10 @@ func (fn HandlerFunc) Handle(ctx context.Context, event *EventContext) error {
 }
 
 type Bot struct {
-	ID       string `json:"id"`
-	Nickname string `json:"nickname,omitempty"`
+	SourceAdapter  string `json:"source_adapter"`
+	SourceProtocol string `json:"source_protocol"`
+	ID             string `json:"id"`
+	Nickname       string `json:"nickname,omitempty"`
 }
 
 type Actor struct {

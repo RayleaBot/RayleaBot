@@ -15,11 +15,10 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/go-chi/chi/v5"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/go-chi/chi/v5"
 )
 
 func (s *Service) HandleWebhook() http.HandlerFunc {
@@ -108,8 +107,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 
 		if !s.dispatcher.HasDeliverablePlugin(pluginID) {
-			botID := strings.TrimSpace(s.runtime.CurrentBotID())
-			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID, botID); err != nil {
+			if err := s.runtime.EnsurePluginRunning(r.Context(), pluginID); err != nil {
 				s.logger.Warn(
 					"插件 "+pluginID+" 启动失败，无法处理 Webhook 请求："+err.Error(),
 					"component", "app",

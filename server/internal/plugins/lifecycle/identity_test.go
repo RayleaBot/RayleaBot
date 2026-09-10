@@ -6,77 +6,64 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func TestBroadcastBotIdentityChangedDispatchesToRunningPlugin(t *testing.T) {
-	t.Parallel()
+type identitySource struct{ bots []chatevent.BotIdentity }
 
-	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
-	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
-	dispatcher.Register("weather", fakeRuntime, []string{"message.group"}, nil, 1)
-
-	controller := NewController(Deps{
-		CurrentConfig: newTestAppState(config.Config{}, nil).state.CurrentConfig,
-		Logger:        slog.Default(),
-		Dispatcher:    dispatcher,
-	})
-
-	controller.broadcastBotIdentityChanged(context.Background(), "10001")
-
-	select {
-	case event := <-fakeRuntime.events:
-		if event.EventType != "bot.identity.changed" {
-			t.Fatalf("event_type = %q, want bot.identity.changed", event.EventType)
-		}
-		if event.Target == nil || event.Target.Type != "bot" || event.Target.ID != "10001" {
-			t.Fatalf("unexpected identity target: %#v", event.Target)
-		}
-		onebot, ok := event.PayloadFields["onebot"].(map[string]any)
-		if !ok || onebot["self_id"] != "10001" {
-			t.Fatalf("unexpected onebot identity payload: %#v", event.PayloadFields)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("expected bot.identity.changed event")
-	}
+func (s *identitySource) BotIdentities() []chatevent.BotIdentity {
+	return append([]chatevent.BotIdentity{}, s.bots...)
 }
 
-func TestBroadcastBotIdentityChangedDispatchesUnavailableIdentity(t *testing.T) {
+func TestIdentitySnapshotsPreserveNamespacesAndClearRemovedInstances(t *testing.T) {
 	t.Parallel()
-
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16, 4)
-	defer dispatcher.Close()
-	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
-	dispatcher.Register("weather", fakeRuntime, nil, nil, 1)
-	controller := NewController(Deps{
-		CurrentConfig: newTestAppState(config.Config{}, nil).state.CurrentConfig,
-		Logger:        slog.Default(),
-		Dispatcher:    dispatcher,
-	})
-	controller.markBotIdentitySent("weather", "10001")
-
-	controller.broadcastBotIdentityChanged(context.Background(), "")
-
-	select {
-	case event := <-fakeRuntime.events:
-		if event.Target != nil {
-			t.Fatalf("unavailable identity target = %#v, want nil", event.Target)
+	t.Cleanup(dispatcher.Close)
+	capture := &capturingRuntime{events: make(chan pluginruntime.Event, 4)}
+	dispatcher.Register("fixture", capture, nil, nil, 1)
+	source := &identitySource{bots: []chatevent.BotIdentity{
+		{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "shared"},
+		{SourceAdapter: "qq", SourceProtocol: "qqofficial", ID: "shared"},
+	}}
+	controller := NewController(Deps{Dispatcher: dispatcher, Identities: source})
+	receive := func(want int) {
+		t.Helper()
+		select {
+		case event := <-capture.events:
+			bots, ok := event.PayloadFields["bots"].([]chatevent.BotIdentity)
+			if !ok || len(bots) != want || event.SourceProtocol != "platform" || event.SourceAdapter != "adapters.internal" {
+				t.Fatalf("identity event=%#v", event)
+			}
+			if want == 2 && (bots[0].SourceAdapter == bots[1].SourceAdapter || bots[0].SourceProtocol == bots[1].SourceProtocol) {
+				t.Fatalf("namespaces lost: %#v", bots)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("identity snapshot not delivered")
 		}
-		onebot, ok := event.PayloadFields["onebot"].(map[string]any)
-		if !ok || onebot["self_id"] != "" {
-			t.Fatalf("unexpected unavailable identity payload: %#v", event.PayloadFields)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("expected unavailable bot.identity.changed event")
 	}
+	controller.SyncBotIdentities(context.Background())
+	receive(2)
+	before := dispatcher.Stats().Delivered
+	controller.SyncBotIdentities(context.Background())
+	if dispatcher.Stats().Delivered != before {
+		t.Fatal("unchanged snapshot dispatched twice")
+	}
+	source.bots = source.bots[:1]
+	controller.SyncBotIdentities(context.Background())
+	receive(1)
+	source.bots = nil
+	controller.SyncBotIdentities(context.Background())
+	receive(0)
 }
 
 func TestAfterRuntimeRegisteredDispatchesPluginStarted(t *testing.T) {
 	t.Parallel()
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
+	t.Cleanup(dispatcher.Close)
 	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
 	dispatcher.Register("raylea.subscription-hub", fakeRuntime, nil, nil, 1)
 
@@ -86,7 +73,7 @@ func TestAfterRuntimeRegisteredDispatchesPluginStarted(t *testing.T) {
 		Dispatcher:    dispatcher,
 	})
 
-	controller.afterRuntimeRegistered(context.Background(), "raylea.subscription-hub", "")
+	controller.afterRuntimeRegistered(context.Background(), "raylea.subscription-hub", nil)
 
 	select {
 	case event := <-fakeRuntime.events:

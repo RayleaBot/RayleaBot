@@ -29,8 +29,7 @@ func (c *Controller) StartDevelopment(ctx context.Context, pluginID string) erro
 		settings = pluginstore.MergeValues(snapshot.DefaultConfig, persisted)
 	}
 	c.plugins.RefreshCommands(pluginID, settings)
-	manager := c.runtimes.GetOrCreate(pluginID)
-	if err := c.startRuntime(ctx, pluginID, c.currentBotID(), manager); err != nil {
+	if err := c.startRuntime(ctx, pluginID); err != nil {
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer cleanupCancel()
 		c.StopAndResetPluginWithContext(cleanupCtx, pluginID)
