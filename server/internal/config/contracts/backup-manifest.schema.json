@@ -96,7 +96,7 @@
     },
     "directory": {
       "type": "object",
-      "description": "A restorable archive root. config contains the effective user configuration, database identifies the canonical SQLite snapshot, data contains non-database runtime and plugin business data, and plugins contains installed plugin artifacts. Database restoration uses the archived effective configuration: portable relative paths are retained inside the target root; absolute source paths become data/rayleabot.db. Unsafe relative paths are rejected.",
+      "description": "Current archive roots are fixed: config/user.yaml, data/rayleabot.db, data, and plugins/installed for their respective labels. Database restoration uses the archived effective configuration: portable relative paths are retained, absolute source paths become data/rayleabot.db inside the target root. Unsafe relative paths are rejected.",
       "additionalProperties": false,
       "required": [
         "label",
@@ -116,7 +116,13 @@
           "type": "string",
           "minLength": 1
         }
-      }
+      },
+      "oneOf": [
+        {"properties": {"label": {"const": "config"}, "path": {"const": "config/user.yaml"}}},
+        {"properties": {"label": {"const": "database"}, "path": {"const": "data/rayleabot.db"}}},
+        {"properties": {"label": {"const": "data"}, "path": {"const": "data"}}},
+        {"properties": {"label": {"const": "plugins"}, "path": {"const": "plugins/installed"}}}
+      ]
     },
     "plugin": {
       "type": "object",

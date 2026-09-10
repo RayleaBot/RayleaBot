@@ -26,11 +26,20 @@ func Acquire(path string) (*Lock, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open lock file: %w", err)
 	}
+	return AcquireFile(file)
+}
+
+// AcquireFile takes ownership of an already opened lock file, including on
+// failure. Callers can use os.Root to enforce their filesystem boundary.
+func AcquireFile(file *os.File) (*Lock, error) {
+	if file == nil {
+		return nil, errors.New("lock file is required")
+	}
 	if err := lockFile(file); err != nil {
 		_ = file.Close()
 		return nil, err
 	}
-	return &Lock{file: file, path: path}, nil
+	return &Lock{file: file, path: file.Name()}, nil
 }
 
 func (l *Lock) Close() error {

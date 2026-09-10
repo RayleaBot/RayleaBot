@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -112,7 +111,7 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 		}
 	}
 
-	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  host: 127.0.0.1\n  port: 9600\n")
+	writeFile(t, filepath.Join(configDir, "user.yaml"), "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 9600\n")
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
@@ -237,7 +236,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(configDir, "user.yaml"), "server:\n  host: 127.0.0.1\n  port: 9600\n")
+	writeFile(t, filepath.Join(configDir, "user.yaml"), "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 9600\n")
 	createTestSQLiteDatabase(t, filepath.Join(dataDir, "rayleabot.db"))
 	writeFile(t, filepath.Join(dataDir, "plugin-state", "settings.json"), `{"enabled":true}`)
 	writeFile(t, filepath.Join(dataDir, ".state", "cursor"), "42")
@@ -301,7 +300,7 @@ func TestRestoreExtractsArchiveContents(t *testing.T) {
 	}
 }
 
-func TestRestoreRejectsBackupManifestV2(t *testing.T) {
+func TestRestoreRejectsIncompleteManifestBeforeExtraction(t *testing.T) {
 	t.Parallel()
 
 	archivePath := filepath.Join(t.TempDir(), "bad.zip")
@@ -311,15 +310,15 @@ func TestRestoreRejectsBackupManifestV2(t *testing.T) {
 	}
 	w := zip.NewWriter(outFile)
 	manifest := recovery.BackupManifest{
-		Version:               "2",
+		Version:               "",
 		CreatedAt:             "2025-01-01T00:00:00Z",
 		CoreVersion:           "0.3.0",
 		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
 		DBSchemaVersion:       storage.CurrentSchemaVersion(),
-		PluginManifestVersion: "2",
-		PluginProtocolVersion: "1",
-		PluginArtifactVersion: "1",
-		PluginUIBridgeVersion: "2",
+		PluginManifestVersion: recovery.PluginManifestVersion,
+		PluginProtocolVersion: recovery.PluginProtocolVersion,
+		PluginArtifactVersion: recovery.PluginArtifactVersion,
+		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
 		Consistency:           "offline",
 		Directories: []recovery.BackupManifestDirectory{
 			recovery.Directory("config/user.yaml", "config"),
@@ -350,82 +349,7 @@ func TestRestoreRejectsBackupManifestV2(t *testing.T) {
 		Args:       []string{archivePath},
 	})
 	if code != 1 {
-		t.Fatalf("restore should fail with exit code 1 for backup manifest v2, got %d", code)
-	}
-}
-
-func TestRestoreRejectsDifferentDatabaseFormatBeforeExtraction(t *testing.T) {
-	t.Parallel()
-	currentSchema, err := strconv.Atoi(storage.CurrentSchemaVersion())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	destDir := t.TempDir()
-	archivePath := filepath.Join(t.TempDir(), "blocked.zip")
-	outFile, err := os.Create(archivePath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	w := zip.NewWriter(outFile)
-	manifest := recovery.BackupManifest{
-		Version:               recovery.BackupManifestVersion,
-		CreatedAt:             "2026-04-02T00:00:00Z",
-		CoreVersion:           "0.2.0",
-		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
-		DBSchemaVersion:       strconv.Itoa(currentSchema + 1),
-		PluginManifestVersion: recovery.PluginManifestVersion,
-		PluginProtocolVersion: recovery.PluginProtocolVersion,
-		PluginArtifactVersion: recovery.PluginArtifactVersion,
-		PluginUIBridgeVersion: recovery.PluginUIBridgeVersion,
-		Consistency:           "offline",
-		Directories: []recovery.BackupManifestDirectory{
-			{Label: "config", Path: "config/user.yaml"},
-		},
-	}
-	data, err := json.Marshal(manifest)
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	mw, err := w.Create("backup-manifest.json")
-	if err != nil {
-		t.Fatalf("create manifest entry: %v", err)
-	}
-	if _, err := mw.Write(data); err != nil {
-		t.Fatalf("write manifest entry: %v", err)
-	}
-	fw, err := w.Create("config/user.yaml")
-	if err != nil {
-		t.Fatalf("create config entry: %v", err)
-	}
-	if _, err := fw.Write([]byte("server:\n  host: 127.0.0.1\n")); err != nil {
-		t.Fatalf("write config entry: %v", err)
-	}
-	if err := w.Close(); err != nil {
-		t.Fatalf("close archive writer: %v", err)
-	}
-	if err := outFile.Close(); err != nil {
-		t.Fatalf("close archive file: %v", err)
-	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	code := runRestore(Command{
-		ConfigPath: filepath.Join(destDir, "config", "user.yaml"),
-		Logger:     logger,
-		Args:       []string{archivePath},
-	})
-	if code != 1 {
-		t.Fatalf("restore should fail with exit code 1 for blocked compatibility, got %d", code)
-	}
-	if _, err := os.Stat(filepath.Join(destDir, "config", "user.yaml")); err == nil {
-		t.Fatal("restore should not extract files when compatibility is blocked")
-	}
-	summary, err := recovery.LoadSummary(destDir)
-	if err != nil {
-		t.Fatalf("load recovery summary: %v", err)
-	}
-	if summary != nil {
-		t.Fatalf("invalid manifest must not create recovery state, got %#v", summary)
+		t.Fatalf("restore should fail with exit code 1 for incomplete backup manifest, got %d", code)
 	}
 }
 
@@ -478,7 +402,7 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 		CreatedAt:             "2025-01-01T00:00:00Z",
 		CoreVersion:           "0.2.0",
 		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
-		DBSchemaVersion:       "absent",
+		DBSchemaVersion:       storage.CurrentSchemaVersion(),
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
 		PluginArtifactVersion: recovery.PluginArtifactVersion,
@@ -523,9 +447,9 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 		Logger:     logger,
 		Args:       []string{archivePath},
 	})
-	// Should succeed but skip the traversal entry.
-	if code != 0 {
-		t.Fatalf("restore should succeed (skipping traversal), got exit code %d", code)
+	// Unsafe input aborts the whole restore before any target file changes.
+	if code != 1 {
+		t.Fatalf("restore should reject traversal, got exit code %d", code)
 	}
 
 	// The evil file should NOT exist outside the dest dir.
@@ -733,7 +657,7 @@ func TestConfiguredDatabasePathDrivesResetBackupAndDoctor(t *testing.T) {
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	customDatabasePath := filepath.Join(repoRoot, "custom", "state.db")
 	defaultDatabasePath := filepath.Join(repoRoot, "data", "rayleabot.db")
-	writeFile(t, configPath, "database:\n  path: custom/state.db\n")
+	writeFile(t, configPath, "schema_version: \"4\"\ndatabase:\n  path: custom/state.db\n")
 	seedAuthAndPluginMarker(t, customDatabasePath, "custom-marker")
 	seedAuthAndPluginMarker(t, defaultDatabasePath, "default-marker")
 
@@ -967,7 +891,7 @@ func TestDoctorReportRejectsRetiredPluginRuntimeKeys(t *testing.T) {
 
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	writeFile(t, configPath, "schema_version: \"3\"\nruntime:\n  nodejs_max_old_space_size_mb: 256\n  dependency_install_timeout_seconds: 900\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nruntime:\n  nodejs_max_old_space_size_mb: 256\n  dependency_install_timeout_seconds: 900\n")
 
 	report := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
@@ -992,7 +916,7 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	if err := recovery.SaveSummary(repoRoot, recovery.CompatibilitySummary{
 		Status:    "degraded",
 		Phase:     "post_startup",
-		Operation: "restore",
+		Operation: "upgrade",
 		CreatedAt: "2026-04-02T00:00:00Z",
 		UpdatedAt: "2026-04-02T00:01:00Z",
 	}); err != nil {

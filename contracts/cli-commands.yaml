@@ -254,13 +254,16 @@ commands:
       online: false
       offline: true
     description: >
-      在停服窗口下从当前格式恢复包恢复 config/、data/ 与
-      plugins/installed/，目标可以为空目录。配置格式为 4，数据库结构为 000001；未含数据库时记录 absent。
-      数据库目标取自归档配置；相对路径保留，绝对来源路径重定位为目标目录内 data/rayleabot.db。
-      restore 会先校验 backup-manifest.json，
-      生成统一 recovery_summary 并在 `logs/recovery-summary.json`
-      中落盘。硬不兼容时恢复在解包前失败；通过预检时继续恢复，
-      并把后续启动期资源 / 插件兼容检查标记为待完成。
+      在停服窗口下恢复当前格式的 config/user.yaml、数据库、data/ 与
+      plugins/installed/。先在隔离目录校验整个归档、有效配置与 SQLite 快照，
+      不安全条目、符号链接、重复路径、大小写冲突、损坏内容或限额超出使整次恢复失败。
+      归档最多 100000 条目，展开总量最多 8 GiB，单文件最多 2 GiB，压缩比最多 1000。
+      配置中的安全自定义相对数据库路径保留；绝对、盘符或 UNC 来源路径重定位到
+      目标根内 data/rayleabot.db，并同步恢复后的配置。父级穿越、隐藏根目录、根目录文件以及
+      config、plugins、logs、cache、backups、templates、web、.deps 下的相对数据库路径拒绝。
+      写入与恢复摘要采用同一文件事务；写入失败或取消会恢复原文件。
+      回滚失败时保留隔离工作目录中的原文件并明确报错；提交后清理失败也返回 1，
+      同时明确数据已经恢复。成功后 logs/recovery-summary.json 标记启动检查待完成。
     arguments:
       - name: backup_path
         type: path
