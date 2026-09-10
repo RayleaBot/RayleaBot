@@ -1,9 +1,7 @@
-package services
+package chatpolicy_test
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"io"
 	"log/slog"
 	"reflect"
@@ -11,12 +9,15 @@ import (
 	"testing"
 	"time"
 
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -25,9 +26,9 @@ import (
 func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	t.Parallel()
 
-	logger, stream := newAppTestLogger()
+	logger, stream := newIngressTestLogger(t)
 	sender := &recordingOutboundSender{
-		replyErr: &onebot11.Error{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
+		replyErr: &chatevent.SendError{Code: "adapter.send_failed", Message: "cooldown reply blocked"},
 	}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
@@ -41,8 +42,10 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = logger
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -52,7 +55,11 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(logger, &recordingDispatcherClient{})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
@@ -70,14 +77,14 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		MessageID:        "30001",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first command should be allowed")
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
 		t.Fatal("second command should be rate limited")
 	}
 
-	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary := waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.PluginID == "weather" && summary.Details["error_code"] == "platform.user_rate_limited"
 	})
 	if summary.Level != "warn" {
@@ -87,7 +94,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 		t.Fatalf("unexpected cooldown rejection details: %#v", summary.Details)
 	}
 
-	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary = waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Message == "消息发送失败" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["reason"] == "cooldown reply blocked"
 	})
 	if summary.Level != "warn" {
@@ -98,124 +105,6 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	}
 	if summary.Details["reason"] != "cooldown reply blocked" {
 		t.Fatalf("unexpected reason detail: %#v", summary.Details["reason"])
-	}
-}
-
-func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
-	t.Parallel()
-
-	repo := newStubBlacklistRepo()
-	cfg := config.Config{
-		Admin: config.AdminConfig{
-			SuperAdmins: []string{"1"},
-		},
-		Permission: config.PermissionConfig{
-			DefaultLevel: "everyone",
-		},
-		Command: &config.CommandConfig{
-			Prefixes: []string{"/"},
-		},
-		User: config.UserConfig{
-			CommandRateLimit: "5/1h",
-			CooldownReply:    false,
-		},
-		Group: config.GroupConfig{
-			CommandRateLimit: "5/1h",
-		},
-		Storage: config.StorageConfig{
-			KVValueMaxBytes:          1024,
-			KVTotalLimitMB:           8,
-			FileMaxBytes:             2048,
-			PluginWorkDirSoftLimitMB: 32,
-		},
-		HTTP: config.HTTPConfig{
-			TimeoutSeconds:    10,
-			MaxRetries:        0,
-			AllowPrivateHosts: []string{},
-		},
-		Log: config.LogConfig{Level: "info"},
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "1/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	}
-	app := newTestAppState(cfg, nil)
-	app.setTestEventIngress(nil, repo, nil, nil)
-	app.eventStack.OutboundLimiter = outbound.NewMessageRateLimiter(cfg)
-	if err := app.eventStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
-		PluginID:   "weather",
-		TargetType: "group",
-		TargetID:   "20001",
-	}); err != nil {
-		t.Fatalf("prime outbound limiter: %v", err)
-	}
-
-	restartRequired := applyHotReloadableFields(app, config.Config{
-		Admin: config.AdminConfig{
-			SuperAdmins: []string{"42"},
-		},
-		Permission: config.PermissionConfig{
-			DefaultLevel: "group_admin",
-		},
-		Command: &config.CommandConfig{
-			Prefixes: []string{"!"},
-		},
-		User: config.UserConfig{
-			CommandRateLimit: "1/1h",
-			CooldownReply:    true,
-		},
-		Group: config.GroupConfig{
-			CommandRateLimit: "2/1h",
-		},
-		Storage: config.StorageConfig{
-			KVValueMaxBytes:          4096,
-			KVTotalLimitMB:           16,
-			FileMaxBytes:             8192,
-			PluginWorkDirSoftLimitMB: 64,
-		},
-		HTTP: config.HTTPConfig{
-			TimeoutSeconds:    15,
-			MaxRetries:        2,
-			AllowPrivateHosts: []string{"127.0.0.1"},
-		},
-		Log: config.LogConfig{Level: "info"},
-		Message: config.MessageConfig{
-			RateLimitPerPlugin:    "2/1h",
-			RateLimitPerTarget:    "100/1s",
-			CircuitBreakerSeconds: 1,
-		},
-	})
-	if restartRequired {
-		t.Fatal("restartRequired = true, want false for hot-reloadable fields")
-	}
-	if !app.services.EventIngress.Policy().CommandParser().Parse("!ping").IsCommand {
-		t.Fatal("new command prefix was not applied")
-	}
-	if app.services.EventIngress.Policy().CommandParser().Parse("/ping").IsCommand {
-		t.Fatal("old command prefix should no longer be active")
-	}
-	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
-		t.Fatalf("new super admin should bypass command checks: %#v", verdict)
-	}
-	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
-		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
-	}
-	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirSoftLimitMB != 64 {
-		t.Fatalf("storage config was not hot reloaded: %+v", app.state.Config.Storage)
-	}
-	if app.state.Config.HTTP.TimeoutSeconds != 15 || app.state.Config.HTTP.MaxRetries != 2 {
-		t.Fatalf("http config was not hot reloaded: %+v", app.state.Config.HTTP)
-	}
-	if len(app.state.Config.HTTP.AllowPrivateHosts) != 1 || app.state.Config.HTTP.AllowPrivateHosts[0] != "127.0.0.1" {
-		t.Fatalf("http allow_private_hosts was not hot reloaded: %+v", app.state.Config.HTTP.AllowPrivateHosts)
-	}
-	if err := app.eventStack.OutboundLimiter.Wait(context.Background(), outbound.MessageLimitRequest{
-		PluginID:   "weather",
-		TargetType: "group",
-		TargetID:   "20002",
-	}); err != nil {
-		t.Fatalf("new outbound message limit was not applied: %v", err)
 	}
 }
 
@@ -286,7 +175,7 @@ type contextAwareOutboundLimiter struct {
 func (l *contextAwareOutboundLimiter) Wait(ctx context.Context, _ outbound.MessageLimitRequest) error {
 	l.ctxErr = ctx.Err()
 	if l.ctxErr != nil {
-		return &onebot11.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
+		return &chatevent.SendError{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"}
 	}
 	return nil
 }
@@ -315,8 +204,10 @@ func firstImageSegment(segments []chatevent.MessageSegment) string {
 	return ""
 }
 
-func newAppTestLogger() (*slog.Logger, *logging.Stream) {
+func newIngressTestLogger(t *testing.T) (*slog.Logger, *logging.Stream) {
+	t.Helper()
 	stream := logging.NewStream(16)
+	t.Cleanup(stream.Close)
 	writer := logging.NewSummaryWriter(io.Discard, stream, nil)
 	logger := slog.New(slog.NewJSONHandler(writer, &slog.HandlerOptions{
 		ReplaceAttr: func(_ []string, attr slog.Attr) slog.Attr {
@@ -332,21 +223,28 @@ func newAppTestLogger() (*slog.Logger, *logging.Stream) {
 	return logger, stream
 }
 
-func waitForAppLog(t *testing.T, stream *logging.Stream, match func(logging.Summary) bool) logging.Summary {
+func waitForIngressLog(t *testing.T, stream *logging.Stream, match func(logging.Summary) bool) logging.Summary {
 	t.Helper()
-
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		for _, summary := range stream.Snapshot() {
-			if match(summary) {
-				return summary
-			}
+	events, cancel := stream.Subscribe(16)
+	defer cancel()
+	for _, entry := range stream.Snapshot() {
+		if match(entry) {
+			return entry
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
-
-	t.Fatal("timed out waiting for application log")
-	return logging.Summary{}
+	timeout := time.NewTimer(time.Second)
+	defer timeout.Stop()
+	for {
+		select {
+		case entry := <-events:
+			if match(entry) {
+				return entry
+			}
+		case <-timeout.C:
+			t.Fatal("timed out waiting for ingress log")
+			return logging.Summary{}
+		}
+	}
 }
 
 type stubBlacklistRepo struct {

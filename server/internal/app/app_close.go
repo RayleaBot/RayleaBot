@@ -121,7 +121,22 @@ func (a *App) stopRuntimeManagers(timeout time.Duration) error {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	return errors.Join(drainErr, a.runtimes.StopAll(ctx))
+	stopErr := a.runtimes.StopAll(ctx)
+	var projectionErr error
+	if a.pluginStack.Plugins != nil {
+		for _, plugin := range a.pluginStack.Plugins.List() {
+			manager, exists := a.runtimes.Get(plugin.PluginID)
+			if !exists {
+				continue
+			}
+			// Stop may time out while the manager still owns a live process.
+			// Project its observed state instead of assuming the attempt completed.
+			snapshot := manager.Snapshot()
+			_, err := a.pluginStack.Plugins.SetRuntimeResult(plugin.PluginID, string(snapshot.State), snapshot.LastErrorCode, snapshot.LastErrorMessage)
+			projectionErr = errors.Join(projectionErr, err)
+		}
+	}
+	return errors.Join(drainErr, stopErr, projectionErr)
 }
 
 func (a *App) stopAdapter(timeout time.Duration) error {

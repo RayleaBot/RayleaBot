@@ -1,7 +1,6 @@
 package system
 
 import (
-	"context"
 	"log/slog"
 	"time"
 
@@ -83,12 +82,4 @@ func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Ex
 		panic(err)
 	}
 	a.services.system = service
-}
-
-func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {
-	a.services.system.AutoPrepareRuntimeEnvironments(ctx)
-}
-
-func (a *App) startupRuntimeState(kind string) (StartupRuntimeState, bool) {
-	return a.services.system.StartupRuntimeState(kind)
 }

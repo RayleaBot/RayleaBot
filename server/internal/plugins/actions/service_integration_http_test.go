@@ -1,4 +1,4 @@
-package services
+package actions_test
 
 import (
 	"bytes"
@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 )
 
 func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
@@ -27,38 +29,30 @@ func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
 	}))
 	defer server.Close()
 
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		HTTP: config.HTTPConfig{
 			TimeoutSeconds:    5,
 			MaxRetries:        0,
 			AllowPrivateHosts: []string{"127.0.0.1"},
 		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		&stubPermissionView{
-			permissions: map[string][]stubPermission{
-				"scope-cache": {{
-					PluginID:   "scope-cache",
-					Permission: "http.request",
-				}},
-			},
+	}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = &scopedPermissionView{
+		permissions: map[string][]stubPermission{
+			"scope-cache": {{
+				PluginID:   "scope-cache",
+				Permission: "http.request",
+			}},
 		},
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	}
+	application := localaction.New(deps)
 
-	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", plugins.Action{
+	result, err := application.Execute(context.Background(), "scope-cache", "req_http_1", plugins.Action{
 		Kind:       "http.request",
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("http.request failed: %v", err)
 	}
@@ -78,36 +72,28 @@ func TestExecuteHTTPRequestRejectsPrivateHost(t *testing.T) {
 	}))
 	defer server.Close()
 
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		HTTP: config.HTTPConfig{
 			TimeoutSeconds: 5,
 			MaxRetries:     0,
 		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		&stubPermissionView{
-			permissions: map[string][]stubPermission{
-				"scope-cache": {{
-					PluginID:   "scope-cache",
-					Permission: "http.request",
-				}},
-			},
+	}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = &scopedPermissionView{
+		permissions: map[string][]stubPermission{
+			"scope-cache": {{
+				PluginID:   "scope-cache",
+				Permission: "http.request",
+			}},
 		},
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	}
+	application := localaction.New(deps)
 
-	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", plugins.Action{
+	_, err := application.Execute(context.Background(), "scope-cache", "req_http_2", plugins.Action{
 		Kind:       "http.request",
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "platform.invalid_request")
 }

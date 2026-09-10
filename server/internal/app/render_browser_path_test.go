@@ -9,18 +9,15 @@ import (
 )
 
 func TestPrepareBrowserPathKeepsConfiguredPath(t *testing.T) {
-	original := resolveManagedBrowserPath
-	t.Cleanup(func() {
-		resolveManagedBrowserPath = original
-	})
+	t.Parallel()
 
 	called := false
-	resolveManagedBrowserPath = func(context.Context, string) (string, error) {
+	resolve := func(context.Context, string) (string, error) {
 		called = true
 		return "", nil
 	}
 
-	got := prepareBrowserPath(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), "  C:\\chromium\\chrome.exe  ")
+	got := prepareBrowserPath(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), "  C:\\chromium\\chrome.exe  ", resolve)
 	if got != "C:\\chromium\\chrome.exe" {
 		t.Fatalf("prepareBrowserPath() = %q, want configured path", got)
 	}
@@ -30,32 +27,26 @@ func TestPrepareBrowserPathKeepsConfiguredPath(t *testing.T) {
 }
 
 func TestPrepareBrowserPathBootstrapsManagedChromium(t *testing.T) {
-	original := resolveManagedBrowserPath
-	t.Cleanup(func() {
-		resolveManagedBrowserPath = original
-	})
+	t.Parallel()
 
-	resolveManagedBrowserPath = func(context.Context, string) (string, error) {
+	resolve := func(context.Context, string) (string, error) {
 		return "C:\\managed\\chromium\\chrome.exe", nil
 	}
 
-	got := prepareBrowserPath(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), "")
+	got := prepareBrowserPath(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), "", resolve)
 	if got != "C:\\managed\\chromium\\chrome.exe" {
 		t.Fatalf("prepareBrowserPath() = %q, want managed chromium path", got)
 	}
 }
 
 func TestPrepareBrowserPathLeavesDiagnosticsWhenBootstrapFails(t *testing.T) {
-	original := resolveManagedBrowserPath
-	t.Cleanup(func() {
-		resolveManagedBrowserPath = original
-	})
+	t.Parallel()
 
-	resolveManagedBrowserPath = func(context.Context, string) (string, error) {
+	resolve := func(context.Context, string) (string, error) {
 		return "", errors.New("bootstrap failed")
 	}
 
-	got := prepareBrowserPath(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), "")
+	got := prepareBrowserPath(context.Background(), slog.New(slog.NewTextHandler(io.Discard, nil)), t.TempDir(), "", resolve)
 	if got != "" {
 		t.Fatalf("prepareBrowserPath() = %q, want empty path on bootstrap failure", got)
 	}

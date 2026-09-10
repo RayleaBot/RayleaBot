@@ -1,4 +1,4 @@
-package services
+package actions_test
 
 import (
 	"context"
@@ -9,9 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/coder/websocket"
@@ -81,19 +83,23 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	shell.Start(ctx)
 	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
-	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
 		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
-	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
+	}}
+	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
+	application := localaction.New(deps)
 
-	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", plugins.Action{
+	result, err := application.Execute(context.Background(), "weather", "req_hist", plugins.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
 			"conversation_id":   "456",
 			"limit":             float64(20),
 		},
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("executeOneBotLocalAction failed: %v", err)
 	}
@@ -135,19 +141,22 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
 		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
-	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
+	}}
+	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
+	application := localaction.New(deps)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", plugins.Action{
+	_, err := application.Execute(context.Background(), "weather", "req_provider", plugins.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
 		RawData: map[string]any{
 			"message_id": "8899",
 			"emoji_id":   "128512",
 			"enabled":    true,
 		},
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "adapter.provider_extension_not_supported")
 }
 
@@ -239,19 +248,22 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 	waitForRuntimeInfo(t, shell, onebot11.TransportForwardWS, "napcat", time.Second)
 
-	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
 		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
-	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
+	}}
+	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
+	application := localaction.New(deps)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", plugins.Action{
+	_, err := application.Execute(context.Background(), "weather", "req_provider", plugins.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
 		RawData: map[string]any{
 			"message_id": "8899",
 			"emoji_id":   "128512",
 			"enabled":    true,
 		},
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("executeOneBotLocalAction failed: %v", err)
 	}
@@ -276,24 +288,27 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 func TestExecuteOneBotLocalActionRejectsMissingPermission(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{}, nil)
-	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
+	application := localaction.New(deps)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", plugins.Action{
+	_, err := application.Execute(context.Background(), "weather", "req_provider", plugins.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
 			"conversation_id":   "456",
 		},
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
 func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{}, nil)
-	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	catalogForActions := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Valid:             true,
@@ -301,20 +316,22 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 	}})
-	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
 		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
-	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
+	}}
+	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
+	application := localaction.New(deps)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", plugins.Action{
+	_, err := application.Execute(context.Background(), "weather", "req_hist_disconnected", plugins.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
 			"conversation_id":   "456",
 		},
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "adapter.connection_lost")
 
-	snapshot, ok := application.pluginStack.Plugins.Get("weather")
+	snapshot, ok := catalogForActions.Get("weather")
 	if !ok {
 		t.Fatal("plugin missing from catalog")
 	}

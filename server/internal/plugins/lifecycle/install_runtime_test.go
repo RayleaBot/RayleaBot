@@ -20,7 +20,7 @@ func TestStartInstalledReturnsInitializationFailureSynchronously(t *testing.T) {
 		PluginID: "broken-artifact", Valid: false,
 		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "stopped",
 	}})
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	application := newTestAppState(config.Config{}, logger)
 	application.setTestLifecycle(t, catalog, nil, runtimes, dispatch.New(logger, nil, nil, 16), nil, nil, nil)
 	if err := application.services.pluginLifecycle.StartInstalled(t.Context(), "broken-artifact"); err == nil {
@@ -38,7 +38,7 @@ func TestStopAndResetReturnsOperationCancellationWithoutDroppingOwner(t *testing
 	t.Parallel()
 	logger := slog.New(slog.NewTextHandler(discardWriter{}, nil))
 	catalog := plugincatalog.New([]plugins.Snapshot{{PluginID: "weather", DesiredState: "enabled"}})
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("weather")
 	application := newTestAppState(config.Config{}, logger)
 	application.setTestLifecycle(t, catalog, nil, runtimes, dispatch.New(logger, nil, nil, 16), nil, nil, nil)

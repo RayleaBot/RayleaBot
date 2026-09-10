@@ -1,18 +1,22 @@
-package services
+package chatpolicy_test
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
@@ -20,16 +24,17 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
 			Commands: []string{"help", "帮助"},
 			Prefixes: []string{"#"},
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.renderStack.Renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
 		Valid:             true,
@@ -40,9 +45,13 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 			Name:       "fortune",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), dispatcher)
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-prefix",
 		SourceProtocol:   "onebot11",
@@ -68,15 +77,16 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
 			Commands: []string{"help"},
 			Prefixes: []string{"#"},
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "admin-help",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -86,9 +96,12 @@ func TestApplyChatPolicyDoesNotTreatPluginCommandAsBuiltinWhenMenuPrefixDiffers(
 			Name:       "help",
 			Permission: "super_admin",
 		}},
-	}}), nil, nil, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+	}})
+	deps.Bridge = bridge.New(slog.Default(), &recordingDispatcherClient{})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	_, allowed := application.applyChatPolicy(context.Background(), chatevent.NormalizedEvent{
+	_, allowed := ingress.ApplyChatPolicy(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-plugin-help-policy",
 		SourceProtocol:   "onebot11",
@@ -111,22 +124,23 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 	t.Parallel()
 
 	sender := &recordingOutboundSender{}
-	runner := &captureRenderRunner{}
+	runner := &testutil.CaptureRenderRunner{}
 	renderRoot := t.TempDir()
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
 			Commands: []string{"help", "帮助"},
 			Prefixes: []string{"#", "*"},
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.renderStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "subscription-hub",
 		Name:              "订阅中心",
 		Description:       "订阅平台内容并推送更新",
@@ -141,9 +155,13 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 			Usage:       "#订阅状态",
 			Permission:  "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), &recordingDispatcherClient{})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-plugin-menu-prefix-group",
 		SourceProtocol:   "onebot11",
@@ -161,7 +179,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 	if sender.replyCount != 1 || !strings.HasPrefix(sender.lastReplyImage, "file://") {
 		t.Fatalf("unexpected plugin menu reply: count=%d image=%q", sender.replyCount, sender.lastReplyImage)
 	}
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	for _, want := range []string{`class="command-prefixes"`, `class="command-prefixes__label">前缀</span>`, `class="command-prefix-cue"`, `<code>#</code>`, `<code>*</code>`} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("builtin plugin menu html missing %q:\n%s", want, html)
@@ -190,13 +208,14 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 	t.Parallel()
 
 	sender := &recordingOutboundSender{}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.renderStack.Renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
 		Valid:             true,
@@ -208,9 +227,13 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 			Aliases:    []string{"运势"},
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), &recordingDispatcherClient{}))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), &recordingDispatcherClient{})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-suffix",
 		SourceProtocol:   "onebot11",
@@ -235,13 +258,14 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.renderStack.Renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "fortune",
 		Name:              "运势",
 		Valid:             true,
@@ -253,9 +277,13 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 			Aliases:    []string{"运势"},
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), dispatcher)
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-missing-builtin-menu-target",
 		SourceProtocol:   "onebot11",
@@ -283,13 +311,14 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help", "帮助"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.renderStack.Renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "custom-help",
 		Name:              "Custom Help",
 		Valid:             true,
@@ -300,9 +329,13 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 			Name:       "myhelp",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), dispatcher)
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-plugin-command-help-suffix",
 		SourceProtocol:   "onebot11",
@@ -332,13 +365,14 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 	repo.block("user", "blocked-user")
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command:    &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin:    config.BuiltinConfig{Menu: config.BuiltinMenuConfig{Commands: []string{"help"}}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, nil)
-	application.renderStack.Renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -348,9 +382,14 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), repo, sender, bridge.New(slog.Default(), dispatcher))
+	}})
+	deps.BlacklistRepo = repo
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), dispatcher)
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu-blacklist",
 		SourceProtocol:   "onebot11",
@@ -378,7 +417,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
 			Commands: []string{"help"},
@@ -389,9 +428,10 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 			CooldownReply:    false,
 		},
 		Group: config.GroupConfig{CommandRateLimit: "10/1h"},
-	}, nil)
-	application.renderStack.Renderer = newRenderService(t, t.TempDir())
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	menuRenderer := testutil.NewRenderService(t, t.TempDir())
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -401,7 +441,11 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), dispatcher)
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
@@ -417,8 +461,8 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 		PlainText:        "/help",
 		MessageID:        "30005",
 	}
-	application.handleAdapterEvent(context.Background(), event)
-	application.handleAdapterEvent(context.Background(), event)
+	ingress.HandleAdapterEvent(context.Background(), event)
+	ingress.HandleAdapterEvent(context.Background(), event)
 
 	if sender.messageCount != 1 {
 		t.Fatalf("builtin menu should send once before cooldown, messages=%d", sender.messageCount)
@@ -431,7 +475,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	t.Parallel()
 
-	logger, stream := newAppTestLogger()
+	logger, stream := newIngressTestLogger(t)
 	sender := &recordingOutboundSender{}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
@@ -445,8 +489,10 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = logger
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -456,7 +502,11 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(logger, &recordingDispatcherClient{})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
@@ -474,14 +524,14 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		MessageID:        "30001",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first command should be allowed")
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
 		t.Fatal("second command should be rate limited")
 	}
 
-	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary := waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.PluginID == "weather" && summary.Details["error_code"] == "platform.user_rate_limited"
 	})
 	if summary.Level != "warn" || summary.Source != "bridge.onebot11" {
@@ -491,7 +541,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 		t.Fatalf("unexpected cooldown rejection details: %#v", summary.Details)
 	}
 
-	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary = waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Message == "消息已发送" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["plain_text"] == "命令触发冷却，请稍后再试。"
 	})
 	if summary.Source != "adapter.onebot11" {

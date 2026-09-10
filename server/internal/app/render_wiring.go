@@ -85,7 +85,7 @@ func buildRenderService(deps renderDeps) (*renderservice.Service, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	renderBrowserPath := prepareBrowserPath(ctx, deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath)
+	renderBrowserPath := prepareBrowserPath(ctx, deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath, resolveManagedBrowserPath)
 	renderService, err := renderservice.NewService(renderservice.Options{
 		RepoRoot:           deps.Discovery.RepoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(deps.Store.Path), "render"),
@@ -109,17 +109,17 @@ func buildRenderService(deps renderDeps) (*renderservice.Service, error) {
 	return renderService, nil
 }
 
-var resolveManagedBrowserPath = func(ctx context.Context, repoRoot string) (string, error) {
+func resolveManagedBrowserPath(ctx context.Context, repoRoot string) (string, error) {
 	return deps.NewRuntime(repoRoot).ResolveEntrypoint(ctx, "chromium", "browser")
 }
 
-func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot string, configuredPath string) string {
+func prepareBrowserPath(ctx context.Context, logger *slog.Logger, repoRoot string, configuredPath string, resolve func(context.Context, string) (string, error)) string {
 	browserPath := strings.TrimSpace(configuredPath)
 	if browserPath != "" {
 		return browserPath
 	}
 
-	managedBrowserPath, err := resolveManagedBrowserPath(ctx, repoRoot)
+	managedBrowserPath, err := resolve(ctx, repoRoot)
 	if err != nil {
 		if logger != nil {
 			safeErr := logpath.Error(repoRoot, err, repoRoot)

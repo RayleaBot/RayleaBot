@@ -20,6 +20,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
@@ -55,7 +56,8 @@ func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 	delivery := &runtimeBoundDelivery{manager: manager, started: make(chan struct{}), result: make(chan pluginruntime.State, 1)}
 	dispatcher := dispatch.New(logger, nil, nil, 4)
 	dispatcher.Register("fixture", delivery, nil, nil, 1)
-	application := &App{runtimes: runtimes, eventStack: EventState{Dispatcher: dispatcher}}
+	catalog := plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running"}})
+	application := &App{runtimes: runtimes, eventStack: EventState{Dispatcher: dispatcher}, pluginStack: PluginStackState{Plugins: catalog}}
 	dispatcher.DispatchToPlugin(t.Context(), "fixture", chatevent.Event{EventID: "fixture"})
 	<-delivery.started
 	done := make(chan error, 1)
@@ -75,6 +77,9 @@ func TestStopRuntimeManagersReclaimsProcessesAfterDrainTimeout(t *testing.T) {
 		}
 	default:
 		t.Fatal("app returned before delivery completed")
+	}
+	if snapshot, _ := catalog.Get("fixture"); snapshot.RuntimeState != string(pluginruntime.StateStopped) {
+		t.Fatalf("catalog did not reflect reclaimed runtime after drain timeout: %#v", snapshot)
 	}
 }
 

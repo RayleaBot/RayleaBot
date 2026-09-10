@@ -116,5 +116,19 @@ class ModelOwnershipTests(unittest.TestCase):
 
 
 
+class PackageNameTests(unittest.TestCase):
+    def test_external_test_package_does_not_hide_production_package_name(self) -> None:
+        for production_name, warning_count in [("example", 0), ("incorrect", 1)]:
+            with self.subTest(production_name=production_name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                package = root / "server/internal/example"
+                package.mkdir(parents=True)
+                (package / "a_test.go").write_text("package example_test\n", encoding="utf-8")
+                (package / "z.go").write_text(f"package {production_name}\n", encoding="utf-8")
+                warnings: list[str] = []
+                structure.check_package_names(structure.collect_go_files(root, root / "server/internal"), warnings)
+                self.assertEqual(len(warnings), warning_count, warnings)
+
+
 if __name__ == "__main__":
     unittest.main()

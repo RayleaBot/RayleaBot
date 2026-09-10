@@ -14,54 +14,6 @@ const codeResourceMissing = errorcodes.PlatformResourceMissing
 
 var errSystemTaskUnavailable = errors.New("system task service unavailable")
 
-var prepareManagedRuntimeWithReport = func(ctx context.Context, repoRoot, kind string) (*managedRuntimePrepareReport, error) {
-	report, err := deps.NewRuntime(repoRoot).PrepareWithReport(ctx, kind)
-	if err != nil {
-		return nil, err
-	}
-	return runtimePrepareReportFromDeps(report), nil
-}
-
-var prepareManagedRuntimeWithProgress = func(ctx context.Context, repoRoot, kind string, progress deps.PrepareProgressReporter) (*managedRuntimePrepareReport, error) {
-	if progress == nil {
-		return prepareManagedRuntimeWithReport(ctx, repoRoot, kind)
-	}
-	report, err := deps.NewRuntime(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
-	if err != nil {
-		return nil, err
-	}
-	return runtimePrepareReportFromDeps(report), nil
-}
-
-type managedRuntimePrepareReport struct {
-	Kind               string
-	ArchivePath        string
-	StoreRoot          string
-	UsedPreparedStore  bool
-	UsedCachedArchive  bool
-	UsedSystemBrowser  bool
-	AttemptedSources   []string
-	SelectedSource     string
-	PreparedEntrypoint string
-}
-
-func runtimePrepareReportFromDeps(report *deps.PrepareReport) *managedRuntimePrepareReport {
-	if report == nil {
-		return nil
-	}
-	return &managedRuntimePrepareReport{
-		Kind:               report.Kind,
-		ArchivePath:        report.ArchivePath,
-		StoreRoot:          report.StoreRoot,
-		UsedPreparedStore:  report.UsedPreparedStore,
-		UsedCachedArchive:  report.UsedCachedArchive,
-		UsedSystemBrowser:  report.UsedSystemBrowser,
-		AttemptedSources:   append([]string{}, report.AttemptedSources...),
-		SelectedSource:     report.SelectedSource,
-		PreparedEntrypoint: report.PreparedEntrypoint,
-	}
-}
-
 func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error) {
 	if s.taskExecutor == nil {
 		return "", errSystemTaskUnavailable
@@ -70,7 +22,7 @@ func (s *Service) SubmitRuntimeBootstrapTask(resources []string) (string, error)
 		results := make([]any, 0, len(resources))
 		for index, kind := range resources {
 			progress.Update((index*100)/len(resources), "正在准备 "+deps.ManagedResourceLabel(kind))
-			report, err := prepareManagedRuntimeWithProgress(ctx, s.repoRootPath(), kind, func(event deps.PrepareProgress) {
+			report, err := s.prepareRuntime(ctx, s.repoRootPath(), kind, func(event deps.PrepareProgress) {
 				percent, summary := managedRuntimeTaskProgress(len(resources), index, event)
 				progress.Update(percent, summary)
 			})

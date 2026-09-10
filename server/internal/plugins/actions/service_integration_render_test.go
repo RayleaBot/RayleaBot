@@ -1,4 +1,4 @@
-package services
+package actions_test
 
 import (
 	"bytes"
@@ -14,29 +14,24 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("help-menu", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderService(t, renderRoot),
-		nil,
-		nil,
-		nil,
-	)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderService(t, renderRoot))
+	application := localaction.New(deps)
 
-	result, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_1", plugins.Action{
+	result, err := application.Execute(context.Background(), "help-menu", "req_render_1", plugins.Action{
 		Kind:               "render.image",
 		RenderTemplate:     "help.menu",
 		RenderTheme:        "default",
@@ -45,7 +40,7 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 		RenderData: map[string]any{
 			"title": "帮助菜单",
 		},
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("render.image failed: %v", err)
 	}
@@ -72,9 +67,11 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	runner := &captureRenderRunner{}
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
+	runner := &testutil.CaptureRenderRunner{}
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	catalogForActions := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "help-menu",
 		Name:              "帮助",
 		Version:           "1.0.0",
@@ -82,20 +79,11 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 		RegistrationState: "installed",
 		Permissions:       map[string]plugins.PermissionGrant{"render.image": {}},
 	}})
-	application.setTestLocalActions(
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, filepath.Join("..", "..", ".."), renderRoot, runner),
-		nil,
-		nil,
-		nil,
-	)
+	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, testutil.RepoRoot(t), renderRoot, runner))
+	application := localaction.New(deps)
 
-	_, err := application.executeLocalAction(context.Background(), "help-menu", "req_render_footer", plugins.Action{
+	_, err := application.Execute(context.Background(), "help-menu", "req_render_footer", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -104,11 +92,11 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 			"title":         "帮助菜单",
 			"render_footer": "plugin supplied",
 		},
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("render.image failed: %v", err)
 	}
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	if !strings.Contains(html, "Created By RayleaBot 开发版本 &amp; Plugin 帮助 1.0.0") {
 		t.Fatalf("plugin footer was not injected: %s", html)
 	}
@@ -123,7 +111,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	repoRoot := t.TempDir()
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	writePluginRenderTemplate(t, repoRoot, "weather-card", "card")
-	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{})
+	renderer := testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, testutil.StaticRenderRunner{})
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
@@ -138,22 +126,15 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 		t.Fatalf("sync plugin render templates: %v", err)
 	}
 
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = catalog
-	application.setTestLocalActions(
-		stubPermissionViewFor("weather-card", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		renderer,
-		nil,
-		nil,
-		nil,
-	)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
-	result, err := application.executeLocalAction(context.Background(), "weather-card", "req_render_plugin_short", plugins.Action{
+	deps.Permissions = scopedPermissionViewFor("weather-card", "render.image")
+	deps.Renderer = localaction.RendererFromService(renderer)
+	application := localaction.New(deps)
+
+	result, err := application.Execute(context.Background(), "weather-card", "req_render_plugin_short", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "card",
 		RenderTheme:    "default",
@@ -161,7 +142,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 		RenderData: map[string]any{
 			"title": "天气卡片",
 		},
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("render.image failed: %v", err)
 	}
@@ -190,7 +171,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	repoRoot := t.TempDir()
 	renderRoot := filepath.Join(t.TempDir(), "render")
 	writePluginRenderTemplate(t, repoRoot, "weather-card", "card")
-	renderer := newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{})
+	renderer := testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, testutil.StaticRenderRunner{})
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-card",
 		Valid:             true,
@@ -205,22 +186,15 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 		t.Fatalf("sync plugin render templates: %v", err)
 	}
 
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = catalog
-	application.setTestLocalActions(
-		stubPermissionViewFor("other-plugin", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		renderer,
-		nil,
-		nil,
-		nil,
-	)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
-	_, err := application.executeLocalAction(context.Background(), "other-plugin", "req_render_other_plugin", plugins.Action{
+	deps.Permissions = scopedPermissionViewFor("other-plugin", "render.image")
+	deps.Renderer = localaction.RendererFromService(renderer)
+	application := localaction.New(deps)
+
+	_, err := application.Execute(context.Background(), "other-plugin", "req_render_other_plugin", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "plugin.weather-card.card",
 		RenderTheme:    "default",
@@ -228,7 +202,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 		RenderData: map[string]any{
 			"title": "天气卡片",
 		},
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
@@ -252,25 +226,18 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("other-plugin", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, repoRoot, renderRoot, staticRenderRunner{}),
-		nil,
-		nil,
-		nil,
-	)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("other-plugin", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, testutil.StaticRenderRunner{}))
+	application := localaction.New(deps)
 
-	_, err = application.executeLocalAction(context.Background(), "other-plugin", "req_render_unknown_other_plugin", plugins.Action{
+	_, err = application.Execute(context.Background(), "other-plugin", "req_render_unknown_other_plugin", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "plugin.weather-card.card",
 		RenderTheme:    "default",
@@ -278,7 +245,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 		RenderData: map[string]any{
 			"title": "天气卡片",
 		},
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
@@ -286,30 +253,23 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	runner := &captureRenderRunner{}
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	runner := &testutil.CaptureRenderRunner{}
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30001"},
 		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("help-menu", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
-		nil,
-		nil,
-		nil,
-	)
+	}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
+	application := localaction.New(deps)
 
-	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_group", plugins.Action{
+	_, err = application.Execute(context.Background(), "help-menu", "req_render_identity_group", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -360,7 +320,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 		t.Fatalf("render.image failed: %v", err)
 	}
 
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	for _, want := range []string{"群名片", "专属头衔", `<span class="identity-title"`, "ID 30001", "长名称测试群组", "超级管理员", `<span class="permission-badge`, "nk=30001"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("rendered html missing %q:\n%s", want, html)
@@ -377,26 +337,19 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	runner := &captureRenderRunner{}
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	runner := &testutil.CaptureRenderRunner{}
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("help-menu", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
-		nil,
-		nil,
-		nil,
-	)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
+	application := localaction.New(deps)
 
-	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private", plugins.Action{
+	_, err = application.Execute(context.Background(), "help-menu", "req_render_identity_private", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -436,7 +389,7 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 		t.Fatalf("render.image failed: %v", err)
 	}
 
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	for _, want := range []string{"好友昵称", "ID 30002", "nk=30002"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("rendered html missing %q:\n%s", want, html)
@@ -453,30 +406,23 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	runner := &captureRenderRunner{}
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	runner := &testutil.CaptureRenderRunner{}
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30002"},
 		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("help-menu", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
-		nil,
-		nil,
-		nil,
-	)
+	}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
+	application := localaction.New(deps)
 
-	_, err = application.executeLocalActionForEvent(context.Background(), "help-menu", "req_render_identity_private_super", plugins.Action{
+	_, err = application.Execute(context.Background(), "help-menu", "req_render_identity_private_super", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "help.menu",
 		RenderTheme:    "default",
@@ -508,7 +454,7 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 		t.Fatalf("render.image failed: %v", err)
 	}
 
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	if !strings.Contains(html, "超级管理员") || !strings.Contains(html, `<span class="permission-badge`) {
 		t.Fatalf("private super admin rendered html missing badge:\n%s", html)
 	}
@@ -521,32 +467,25 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 	t.Parallel()
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	runner := &captureRenderRunner{}
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	runner := &testutil.CaptureRenderRunner{}
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"30005"},
 		},
-	}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("status-panel", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
-		nil,
-		nil,
-		nil,
-	)
+	}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("status-panel", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
+	application := localaction.New(deps)
 
 	renderStatus := func(requestID string, event chatevent.Event) string {
 		t.Helper()
-		_, err := application.executeLocalActionForEvent(context.Background(), "status-panel", requestID, plugins.Action{
+		_, err := application.Execute(context.Background(), "status-panel", requestID, plugins.Action{
 			Kind:           "render.image",
 			RenderTemplate: "status.panel",
 			RenderTheme:    "default",
@@ -560,7 +499,7 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 		if err != nil {
 			t.Fatalf("render.image failed: %v", err)
 		}
-		return runner.lastHTML()
+		return runner.LastHTML()
 	}
 
 	privateHTML := renderStatus("req_render_status_private", chatevent.Event{
@@ -654,22 +593,15 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 	writePlainRenderTemplate(t, repoRoot)
 
 	renderRoot := filepath.Join(t.TempDir(), "render")
-	runner := &captureRenderRunner{}
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		stubPermissionViewFor("plain-card", "render.image"),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		newRenderServiceForRepo(t, repoRoot, renderRoot, runner),
-		nil,
-		nil,
-		nil,
-	)
+	runner := &testutil.CaptureRenderRunner{}
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = scopedPermissionViewFor("plain-card", "render.image")
+	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
+	application := localaction.New(deps)
 
-	_, err := application.executeLocalActionForEvent(context.Background(), "plain-card", "req_render_plain", plugins.Action{
+	_, err := application.Execute(context.Background(), "plain-card", "req_render_plain", plugins.Action{
 		Kind:           "render.image",
 		RenderTemplate: "plain.card",
 		RenderTheme:    "default",
@@ -707,7 +639,7 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 		t.Fatalf("render.image failed: %v", err)
 	}
 
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	for _, want := range []string{"插件昵称", "插件群", "admin"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("plain template html missing plugin field %q:\n%s", want, html)

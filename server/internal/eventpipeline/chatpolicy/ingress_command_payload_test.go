@@ -1,37 +1,27 @@
-package services
+package chatpolicy_test
 
 import (
-	"path/filepath"
 	"testing"
 
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 )
-
-func TestPluginDiscoveryContextUsesOnlyInstalledRoot(t *testing.T) {
-	t.Parallel()
-
-	_, _, roots, err := plugincatalog.DiscoveryContext(filepath.Join("..", "..", "..", "contracts", "config.user.schema.json"))
-	if err != nil {
-		t.Fatalf("plugincatalog.DiscoveryContext failed: %v", err)
-	}
-	if len(roots) != 1 || roots[0].Label != "plugins/installed" {
-		t.Fatalf("expected only installed root, got %#v", roots)
-	}
-}
 
 func TestEnrichCommandEventAddsCommandPayload(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Command: &config.CommandConfig{
 			Prefixes: []string{"/", "!"},
 		},
-	}, nil)
-	application.setTestEventIngress(nil, nil, nil, nil)
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	event := application.enrichCommandEvent(chatevent.NormalizedEvent{
+	event := ingress.EnrichCommandEvent(chatevent.NormalizedEvent{
 		PlainText: "/weather shanghai now",
 	})
 	if event.PayloadFields["command"] != "weather" {

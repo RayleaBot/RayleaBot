@@ -42,7 +42,7 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 	app.setTestLifecycle(t,
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
+		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -150,7 +150,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 	app.setTestLifecycle(t,
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
+		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -209,7 +209,7 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 	app.setTestLifecycle(t,
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
+		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -256,7 +256,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	app.setTestLifecycle(t,
 		catalog,
 		nil,
-		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
+		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
 		nil,
 		nil,
@@ -278,7 +278,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if pending.Timezone != "Asia/Shanghai" {
 		t.Fatalf("pending setting changed plugin timezone before restart: %q", pending.Timezone)
 	}
-	app.setTestLifecycle(t, catalog, nil, newRuntimeRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
+	app.setTestLifecycle(t, catalog, nil, pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
 	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatal(err)

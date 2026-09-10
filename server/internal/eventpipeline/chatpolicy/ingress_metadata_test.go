@@ -1,4 +1,4 @@
-package services
+package chatpolicy_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 )
 
@@ -41,13 +41,11 @@ func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event chatevent
 func TestEventIngressEnrichesMetadataBeforeBridgeDispatch(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{}, nil)
 	dispatcher := &eventIngressDispatcherStub{}
-	application.setTestEventIngress(nil, nil, nil, bridge.New(slog.Default(), dispatcher))
 	enricher := &metadataEnricherStub{}
-	application.services.EventIngress.SetMetadataEnricher(enricher)
+	ingress := chatpolicy.NewIngress(chatpolicy.IngressDeps{Bridge: bridge.New(slog.Default(), dispatcher), MetadataEnricher: enricher})
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "onebot11-message-1001",
 		BotID:            "10001",

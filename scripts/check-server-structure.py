@@ -161,7 +161,7 @@ def check_disallowed_dirs(server_internal: Path, root: Path, errors: list[str]) 
 def check_package_names(files: list[GoFile], warnings: list[str]) -> None:
     seen: set[str] = set()
     for file in files:
-        if file.package_dir in seen or not file.package_name:
+        if file.is_test or file.package_dir in seen or not file.package_name:
             continue
         seen.add(file.package_dir)
         leaf = Path(file.package_dir).name

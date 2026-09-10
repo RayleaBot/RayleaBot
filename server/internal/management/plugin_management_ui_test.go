@@ -1,4 +1,4 @@
-package services
+package management_test
 
 import (
 	"bytes"
@@ -16,15 +16,16 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -93,24 +94,22 @@ func TestHandlePluginManagementUIStaticServesScopedAssets(t *testing.T) {
 		t.Fatalf("os.WriteFile backend: %v", err)
 	}
 
-	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:            "example-config-panel",
-			Valid:               true,
-			RegistrationState:   "installed",
-			DesiredState:        "disabled",
-			RuntimeState:        "stopped",
-			PackageRootPath:     pluginDir,
-			ArtifactVersion:     "2",
-			ArtifactUIAvailable: true,
-			ManagementUI: &plugins.ManagementUI{
-				Entry: "ui/index.html",
-				Pages: []plugins.ManagementUIPage{
-					{ID: "config", Label: "配置页面"},
-				},
+	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{
+		PluginID:            "example-config-panel",
+		Valid:               true,
+		RegistrationState:   "installed",
+		DesiredState:        "disabled",
+		RuntimeState:        "stopped",
+		PackageRootPath:     pluginDir,
+		ArtifactVersion:     "2",
+		ArtifactUIAvailable: true,
+		ManagementUI: &plugins.ManagementUI{
+			Entry: "ui/index.html",
+			Pages: []plugins.ManagementUIPage{
+				{ID: "config", Label: "配置页面"},
 			},
-		}}),
-	})
+		},
+	}})})
 	options := managementapi.PluginUIOriginOptions{ServerPort: 8080, AdminOrigins: []string{"http://127.0.0.1:8080"}}
 	origin, err := managementapi.PluginUIOrigin("example-config-panel", options)
 	if err != nil {
@@ -202,24 +201,22 @@ func TestHandlePluginManagementUIStaticRejectsParentEscape(t *testing.T) {
 		t.Fatalf("os.WriteFile backend: %v", err)
 	}
 
-	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:            "example-config-panel",
-			Valid:               true,
-			RegistrationState:   "installed",
-			DesiredState:        "disabled",
-			RuntimeState:        "stopped",
-			PackageRootPath:     pluginDir,
-			ArtifactVersion:     "2",
-			ArtifactUIAvailable: true,
-			ManagementUI: &plugins.ManagementUI{
-				Entry: "ui/index.html",
-				Pages: []plugins.ManagementUIPage{
-					{ID: "config", Label: "配置页面"},
-				},
+	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{
+		PluginID:            "example-config-panel",
+		Valid:               true,
+		RegistrationState:   "installed",
+		DesiredState:        "disabled",
+		RuntimeState:        "stopped",
+		PackageRootPath:     pluginDir,
+		ArtifactVersion:     "2",
+		ArtifactUIAvailable: true,
+		ManagementUI: &plugins.ManagementUI{
+			Entry: "ui/index.html",
+			Pages: []plugins.ManagementUIPage{
+				{ID: "config", Label: "配置页面"},
 			},
-		}}),
-	})
+		},
+	}})})
 	options := managementapi.PluginUIOriginOptions{ServerPort: 8080}
 	origin, err := managementapi.PluginUIOrigin("example-config-panel", options)
 	if err != nil {
@@ -248,22 +245,24 @@ func TestHandlePluginSettingsGetMergesDefaultsAndPersistedValues(t *testing.T) {
 		t.Fatalf("repo.Write: %v", err)
 	}
 
-	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:          "example-config-panel",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-			DefaultConfig: map[string]any{
-				"default_city": "北京",
-				"unit":         "celsius",
-			},
-		}}),
-		pluginConfig: repo,
-	})
+	settingsDeps := settings.Deps{Plugins: plugincatalog.New([]plugins.Snapshot{{
+		PluginID:          "example-config-panel",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+		DefaultConfig: map[string]any{
+			"default_city": "北京",
+			"unit":         "celsius",
+		},
+	}}), Config: repo, RefreshCommands: func(context.Context, string, map[string]any) error { return nil }, Notify: func(context.Context, string, map[string]any, []string) error { return nil }}
+	settingsService, settingsErr := settings.New(settingsDeps)
+	if settingsErr != nil {
+		t.Fatal(settingsErr)
+	}
+	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: settingsDeps.Plugins, Settings: settingsService})
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsGet())
+	router.Get("/api/plugins/{plugin_id}/settings", handlers.HandlePluginSettingsGet())
 
 	request := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel/settings", nil)
 	recorder := httptest.NewRecorder()
@@ -296,7 +295,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 
 	repo := openPluginSettingsRepo(t)
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
-	application := newTestAppState(config.Config{}, nil)
+	t.Cleanup(dispatcher.Close)
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "example-config-panel",
 		Valid:             true,
@@ -313,30 +312,18 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 			Description: "动态指令", Usage: "/动态指令", Permission: "everyone",
 		}},
 	}})
-	application.pluginStack.Plugins = catalog
-	application.setTestLocalActions(
-		&stubPermissionView{permissions: map[string][]stubPermission{}},
-		repo,
-		nil,
-		nil,
-		nil,
-		dispatcher,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-	fakeRuntime := &capturingRuntime{events: make(chan chatevent.Event, 1)}
+
+	fakeRuntime := &testutil.EventRuntime{Events: make(chan chatevent.Event, 1)}
 	dispatcher.Register("example-config-panel", fakeRuntime, []string{"config.changed"}, nil, 1)
 
-	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins:            catalog,
-		pluginConfig:       repo,
-		notifyConfigChange: application.dispatchPluginConfigChanged,
-		refreshCommands:    localaction.RefreshCommands(catalog, dispatcher),
-	})
+	settingsDeps := settings.Deps{Plugins: catalog, Config: repo, RefreshCommands: localaction.RefreshCommands(catalog, dispatcher), Notify: localaction.NotifyConfigChanged(dispatcher)}
+	settingsService, settingsErr := settings.New(settingsDeps)
+	if settingsErr != nil {
+		t.Fatal(settingsErr)
+	}
+	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: settingsDeps.Plugins, Settings: settingsService})
 	router := chi.NewRouter()
-	router.Put("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsPut())
+	router.Put("/api/plugins/{plugin_id}/settings", handlers.HandlePluginSettingsPut())
 
 	body := bytes.NewReader([]byte(`{"values":{"default_city":"上海","unit":"fahrenheit","trigger_commands":["今日签"]}}`))
 	request := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/settings", body)
@@ -367,7 +354,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 	}
 
 	select {
-	case event := <-fakeRuntime.events:
+	case event := <-fakeRuntime.Events:
 		if event.EventType != "config.changed" {
 			t.Fatalf("event_type = %q, want config.changed", event.EventType)
 		}
@@ -395,20 +382,22 @@ func TestHandlePluginSecretsGetAndPutAreScopedToPlugin(t *testing.T) {
 		t.Fatalf("secretStore.Set other: %v", err)
 	}
 
-	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:          "example-config-panel",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-		}}),
-		secrets: secretStore,
-	})
+	settingsDeps := settings.Deps{Plugins: plugincatalog.New([]plugins.Snapshot{{
+		PluginID:          "example-config-panel",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+	}}), Secrets: secretStore}
+	settingsService, settingsErr := settings.New(settingsDeps)
+	if settingsErr != nil {
+		t.Fatal(settingsErr)
+	}
+	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: settingsDeps.Plugins, Settings: settingsService})
 	router := chi.NewRouter()
-	router.Get("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsGet())
-	router.Put("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsPut())
-	router.Delete("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsDelete())
+	router.Get("/api/plugins/{plugin_id}/secrets", handlers.HandlePluginSecretsGet())
+	router.Put("/api/plugins/{plugin_id}/secrets", handlers.HandlePluginSecretsPut())
+	router.Delete("/api/plugins/{plugin_id}/secrets", handlers.HandlePluginSecretsDelete())
 
 	getRequest := httptest.NewRequest(http.MethodGet, "/api/plugins/example-config-panel/secrets", nil)
 	getRecorder := httptest.NewRecorder()
@@ -487,18 +476,20 @@ func TestHandlePluginSecretsPutRejectsInvalidKey(t *testing.T) {
 	t.Parallel()
 
 	secretStore := openPluginSecretStore(t)
-	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-		plugins: plugincatalog.New([]plugins.Snapshot{{
-			PluginID:          "example-config-panel",
-			Valid:             true,
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-			RuntimeState:      "stopped",
-		}}),
-		secrets: secretStore,
-	})
+	settingsDeps := settings.Deps{Plugins: plugincatalog.New([]plugins.Snapshot{{
+		PluginID:          "example-config-panel",
+		Valid:             true,
+		RegistrationState: "installed",
+		DesiredState:      "disabled",
+		RuntimeState:      "stopped",
+	}}), Secrets: secretStore}
+	settingsService, settingsErr := settings.New(settingsDeps)
+	if settingsErr != nil {
+		t.Fatal(settingsErr)
+	}
+	handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: settingsDeps.Plugins, Settings: settingsService})
 	router := chi.NewRouter()
-	router.Put("/api/plugins/{plugin_id}/secrets", handlers.handlePluginSecretsPut())
+	router.Put("/api/plugins/{plugin_id}/secrets", handlers.HandlePluginSecretsPut())
 
 	body := bytes.NewReader([]byte(`{"values":{"Bad Key":"SESSDATA=fixture"}}`))
 	request := httptest.NewRequest(http.MethodPut, "/api/plugins/example-config-panel/secrets", body)
@@ -568,11 +559,9 @@ func TestHandlePluginSettingsRejectsInvalidPluginSnapshots(t *testing.T) {
 				entries = []plugins.Snapshot{tc.snapshot}
 			}
 
-			handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{
-				plugins: plugincatalog.New(entries),
-			})
+			handlers := managementapi.NewPluginManagementUIHandlers(managementapi.PluginManagementUIDeps{Plugins: plugincatalog.New(entries)})
 			router := chi.NewRouter()
-			router.Get("/api/plugins/{plugin_id}/settings", handlers.handlePluginSettingsGet())
+			router.Get("/api/plugins/{plugin_id}/settings", handlers.HandlePluginSettingsGet())
 
 			request := httptest.NewRequest(http.MethodGet, tc.path, nil)
 			recorder := httptest.NewRecorder()

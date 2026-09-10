@@ -68,12 +68,12 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 	a.platform.Tasks = taskRegistry
 }
 
-func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginstore.ConfigRepository, adapterShell *onebot11.Shell, webhooks *pluginwebhook.Registry) {
+func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *pluginruntime.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginstore.ConfigRepository, adapterShell *onebot11.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
 	}
 	if runtimes == nil {
-		runtimes = newRuntimeRegistry(a.state.Logger, pluginruntime.Options{})
+		runtimes = pluginruntime.NewRegistry(a.state.Logger, pluginruntime.Options{})
 	}
 	deps := Deps{
 		CurrentConfig:    a.state.CurrentConfig,
@@ -92,83 +92,6 @@ func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog,
 		deps.Identities = testAdapterIdentities{shell: adapterShell}
 	}
 	a.services.pluginLifecycle = newTestController(t, deps, pluginConfigRepo)
-}
-
-type testRuntimeRegistry struct {
-	logger  *slog.Logger
-	options pluginruntime.Options
-
-	mu      sync.RWMutex
-	onCrash pluginruntime.CrashCallback
-	items   map[string]*pluginruntime.Manager
-}
-
-func newRuntimeRegistry(logger *slog.Logger, options pluginruntime.Options) *testRuntimeRegistry {
-	if logger == nil {
-		logger = slog.Default()
-	}
-	return &testRuntimeRegistry{
-		logger:  logger,
-		options: options,
-		items:   make(map[string]*pluginruntime.Manager),
-	}
-}
-
-func (r *testRuntimeRegistry) Get(pluginID string) (*pluginruntime.Manager, bool) {
-	if r == nil {
-		return nil, false
-	}
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	manager, ok := r.items[pluginID]
-	return manager, ok
-}
-
-func (r *testRuntimeRegistry) GetOrCreate(pluginID string) *pluginruntime.Manager {
-	if r == nil {
-		return nil
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if manager, ok := r.items[pluginID]; ok {
-		return manager
-	}
-	manager := pluginruntime.NewManager(r.logger, r.options)
-	manager.SetOnCrash(r.onCrash)
-	r.items[pluginID] = manager
-	return manager
-}
-
-func (r *testRuntimeRegistry) NewDetached() *pluginruntime.Manager {
-	if r == nil {
-		return nil
-	}
-	manager := pluginruntime.NewManager(r.logger, r.options)
-	manager.SetOnCrash(r.onCrash)
-	return manager
-}
-
-func (r *testRuntimeRegistry) Replace(pluginID string, manager *pluginruntime.Manager) *pluginruntime.Manager {
-	if r == nil || manager == nil {
-		return nil
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	manager.SetOnCrash(r.onCrash)
-	previous := r.items[pluginID]
-	r.items[pluginID] = manager
-	return previous
-}
-
-func (r *testRuntimeRegistry) Delete(pluginID string) *pluginruntime.Manager {
-	if r == nil {
-		return nil
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	manager := r.items[pluginID]
-	delete(r.items, pluginID)
-	return manager
 }
 
 func newPluginWebhookRegistry() *pluginwebhook.Registry {
@@ -324,7 +247,7 @@ func newTestController(t *testing.T, deps Deps, repositories ...pluginstore.Conf
 		deps.Plugins = plugincatalog.New(nil)
 	}
 	if deps.Runtimes == nil {
-		deps.Runtimes = newRuntimeRegistry(slog.Default(), pluginruntime.Options{})
+		deps.Runtimes = pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{})
 	}
 	if deps.Dispatcher == nil {
 		deps.Dispatcher = dispatch.New(slog.Default(), nil, nil, 16)
@@ -346,11 +269,18 @@ func newTestController(t *testing.T, deps Deps, repositories ...pluginstore.Conf
 	}
 	controller.BindLifecycleContext(t.Context())
 	t.Cleanup(deps.Dispatcher.Close)
+	if registry, ok := deps.Runtimes.(*pluginruntime.Registry); ok {
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := registry.StopAll(ctx); err != nil {
+				t.Error(err)
+			}
+		})
+	}
 	t.Cleanup(controller.Close)
 	return controller
 }
-
-func (r *testRuntimeRegistry) ReleaseRetired(*pluginruntime.Manager) {}
 
 type emptySettingsRepository struct{}
 

@@ -35,10 +35,8 @@ func TestChromiumTaskProgressSummarizesSourceProbe(t *testing.T) {
 }
 
 func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
+	t.Parallel()
 	repoRoot := t.TempDir()
-	t.Cleanup(deps.SetSystemChromiumFinderForTest(func(context.Context) (string, error) {
-		return "", errors.New("system chromium disabled for test")
-	}))
 	testutil.WritePlatformDepsManifest(t, repoRoot)
 	platform := deps.CurrentPlatform()
 	store, err := storage.Open(filepath.Join(repoRoot, "state.db"))
@@ -52,6 +50,9 @@ func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 		RepoRoot:   repoRoot,
 		OutputRoot: filepath.Join(repoRoot, "render-out"),
 		Store:      store,
+		InspectRuntime: func(string) (*deps.BootstrapInspection, error) {
+			return nil, errors.New("fixture browser is not prepared")
+		},
 	})
 	if err != nil {
 		t.Fatalf("create render service: %v", err)
@@ -59,16 +60,11 @@ func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 	t.Cleanup(func() {
 		_ = renderer.Close()
 	})
+	// Exercise preparation from an unavailable browser even on developer machines
+	// where construction can discover a system installation.
+	renderer.RefreshBrowserPath("")
 
-	application := newTaskOnlyApp(t, repoRoot)
-	application.pluginStack.renderer = renderer
-	application.services.system.renderer = renderer
-
-	original := prepareManagedRuntimeWithProgress
-	t.Cleanup(func() {
-		prepareManagedRuntimeWithProgress = original
-	})
-	prepareManagedRuntimeWithProgress = func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*managedRuntimePrepareReport, error) {
+	prepare := func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
 		if progress != nil {
 			progress(deps.PrepareProgress{
 				Kind:     kind,
@@ -80,7 +76,7 @@ func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 			})
 		}
 		testutil.WritePreparedRuntime(t, repoRoot, "chromium-"+platform, "152.0.7977.42", "chrome-win64", "chrome.exe")
-		return &managedRuntimePrepareReport{
+		return &deps.PrepareReport{
 			Kind:               kind,
 			ArchivePath:        filepath.Join(repoRoot, "cache", "downloads", "runtime", "chromium-"+platform+"-152.0.7977.42.zip"),
 			StoreRoot:          filepath.Join(repoRoot, ".deps", "store", "chromium-"+platform, "152.0.7977.42"),
@@ -90,36 +86,31 @@ func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 		}, nil
 	}
 
+	registry := tasks.NewRegistry()
+	executor := tasks.NewExecutor(registry, 2*time.Second)
+	t.Cleanup(func() {
+		if err := executor.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	service, err := New(Deps{CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} }, Plugins: plugincatalog.New(nil), RepoRoot: repoRoot, Renderer: renderer, TaskExecutor: executor, PrepareRuntime: prepare})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if !containsIssueCode(renderer.Diagnostics(), "platform.resource_missing") {
 		t.Fatalf("expected pre-bootstrap render diagnostics to warn about missing chromium")
 	}
 
-	taskID, err := application.services.system.SubmitRuntimeBootstrapTask([]string{"chromium"})
+	taskID, err := service.SubmitRuntimeBootstrapTask([]string{"chromium"})
 	if err != nil {
 		t.Fatalf("submit runtime bootstrap task: %v", err)
 	}
-	testutil.WaitTask(t, application.platform.Tasks, taskID, tasks.StatusSucceeded)
+	testutil.WaitTask(t, registry, taskID, tasks.StatusSucceeded)
 
 	if containsIssueCode(renderer.Diagnostics(), "platform.resource_missing") {
 		t.Fatalf("expected runtime bootstrap to refresh chromium diagnostics")
 	}
-}
-
-func newTaskOnlyApp(t *testing.T, repoRoot string) *App {
-	t.Helper()
-	registry := tasks.NewRegistry()
-	executor := tasks.NewExecutor(registry, 2*time.Second)
-	t.Cleanup(func() {
-		_ = executor.Close()
-	})
-	application := newTestAppState(config.Config{}, nil)
-	application.state.repoRoot = repoRoot
-	application.state.startedAt = time.Now()
-	application.platform.Tasks = registry
-	application.platform.taskExecutor = executor
-	application.pluginStack.Plugins = plugincatalog.New(nil)
-	application.setTestSystem(registry, executor, nil, nil)
-	return application
 }
 
 func containsIssueCode(issues []health.DiagnosticIssue, code string) bool {

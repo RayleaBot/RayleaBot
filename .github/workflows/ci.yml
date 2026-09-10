@@ -142,6 +142,7 @@ jobs:
           go test -race
           ./internal/app ./internal/configruntime ./internal/eventpipeline/...
           ./internal/plugins/catalog ./internal/plugins/runtime ./internal/plugins/lifecycle
+          ./internal/plugins/actions ./internal/plugins/webhook ./internal/management ./internal/system ./internal/render
           ./internal/pubsub ./internal/bot/adapters ./internal/management/events ./internal/onebot11 ./internal/storage
 
       - name: Run core Go lint

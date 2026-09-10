@@ -11,7 +11,6 @@ type StubAuthRepository struct {
 	LoadBootstrapFn     func(context.Context) (*auth.BootstrapState, error)
 	LoadSessionsFn      func(context.Context) ([]auth.Claims, error)
 	SaveBootstrapFn     func(context.Context, auth.BootstrapState, auth.Claims) error
-	UpdateBootstrapFn   func(context.Context, []byte) error
 	UpdateCredentialsFn func(context.Context, string, []byte) error
 	SaveSessionFn       func(context.Context, auth.Claims) error
 	DeleteSessionsFn    func(context.Context, []string) error
@@ -41,13 +40,6 @@ func (r *StubAuthRepository) SaveBootstrap(ctx context.Context, state auth.Boots
 func (r *StubAuthRepository) SaveSession(ctx context.Context, claims auth.Claims) error {
 	if r != nil && r.SaveSessionFn != nil {
 		return r.SaveSessionFn(ctx, claims)
-	}
-	return nil
-}
-
-func (r *StubAuthRepository) UpdateBootstrapSecretDigest(ctx context.Context, secretDigest []byte) error {
-	if r != nil && r.UpdateBootstrapFn != nil {
-		return r.UpdateBootstrapFn(ctx, secretDigest)
 	}
 	return nil
 }

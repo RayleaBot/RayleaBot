@@ -10,6 +10,7 @@ import (
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	runtimedeps "github.com/RayleaBot/RayleaBot/server/internal/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -72,6 +73,8 @@ type Deps struct {
 	LogRepository       logging.Repository
 	StatusPublisher     StatusPublisher
 	ResolveDatabasePath DatabasePathResolver
+	InspectRuntime      func(string, string) (*runtimedeps.BootstrapInspection, error)
+	PrepareRuntime      func(context.Context, string, string, runtimedeps.PrepareProgressReporter) (*runtimedeps.PrepareReport, error)
 }
 
 type Service struct {
@@ -94,6 +97,8 @@ type Service struct {
 	taskExecutor        *tasks.Executor
 	logRepository       logging.Repository
 	resolveDatabasePath DatabasePathResolver
+	inspectRuntime      func(string, string) (*runtimedeps.BootstrapInspection, error)
+	prepareRuntime      func(context.Context, string, string, runtimedeps.PrepareProgressReporter) (*runtimedeps.PrepareReport, error)
 	shuttingDown        *atomic.Bool
 	statusPublisher     StatusPublisher
 	recoveryMu          sync.RWMutex
@@ -108,6 +113,12 @@ func New(deps Deps) (*Service, error) {
 	}
 	if deps.Logger == nil {
 		deps.Logger = slog.Default()
+	}
+	if deps.InspectRuntime == nil {
+		deps.InspectRuntime = inspectRuntime
+	}
+	if deps.PrepareRuntime == nil {
+		deps.PrepareRuntime = prepareRuntime
 	}
 	return &Service{
 		currentConfig:       deps.CurrentConfig,
@@ -130,6 +141,8 @@ func New(deps Deps) (*Service, error) {
 		logRepository:       deps.LogRepository,
 		statusPublisher:     deps.StatusPublisher,
 		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
+		inspectRuntime:      deps.InspectRuntime,
+		prepareRuntime:      deps.PrepareRuntime,
 		startupRuntimes:     newStartupRuntimeStates(nil),
 	}, nil
 }

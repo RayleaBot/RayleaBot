@@ -1,4 +1,4 @@
-package services
+package actions_test
 
 import (
 	"bytes"
@@ -12,8 +12,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
@@ -34,25 +36,18 @@ func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKVSQLiteRepository: %v", err)
 	}
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		&stubPermissionView{permissions: map[string][]stubPermission{}},
-		nil,
-		nil,
-		repo,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{}}
+	deps.PluginKV = repo
+	application := localaction.New(deps)
 
-	result, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", plugins.Action{
+	result, err := application.Execute(context.Background(), "notice-logger", "req_local_1", plugins.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
-	})
+	}, chatevent.Event{})
 	if err != nil || result["exists"] != false {
 		t.Fatalf("implicit KV access result = %#v, err = %v", result, err)
 	}
@@ -61,8 +56,10 @@ func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	catalogForActions := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "raylea.echo",
 			Name:              "Echo",
@@ -100,22 +97,12 @@ func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 			}},
 		},
 	})
-	application.setTestLocalActions(
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	application := localaction.New(deps)
 
-	result, err := application.executeLocalAction(context.Background(), "raylea.echo", "req_local_plugin_list_1", plugins.Action{
+	result, err := application.Execute(context.Background(), "raylea.echo", "req_local_plugin_list_1", plugins.Action{
 		Kind: "plugin.list",
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("plugin.list failed: %v", err)
 	}
@@ -197,8 +184,8 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", plugins.Action{
+			application := newPluginListVisibilityService(tc.config)
+			result, err := application.Execute(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", plugins.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -266,8 +253,8 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", plugins.Action{
+			application := newPluginListVisibilityService(tc.config)
+			result, err := application.Execute(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", plugins.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -283,9 +270,11 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 	}
 }
 
-func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
-	application := newTestAppState(cfg, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{
+func newPluginListVisibilityService(cfg config.Config) *localaction.Service {
+	testConfig := cfg
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	catalogForActions := plugincatalog.New([]plugins.Snapshot{
 		{
 			PluginID:          "raylea.echo",
 			Name:              "Echo",
@@ -316,18 +305,8 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 			CommandGroups: []plugins.CommandGroup{{ID: "tools", Title: "工具", Commands: []string{"public", "admin", "super", "defaulted"}}},
 		},
 	})
-	application.setTestLocalActions(
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
+	application := localaction.New(deps)
 	return application
 }
 
@@ -428,36 +407,33 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		t.Fatalf("secretStore.Set other: %v", err)
 	}
 
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	catalogForActions := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "subscription-hub",
 		Valid:             true,
 		RegistrationState: "installed",
 		Permissions:       map[string]plugins.PermissionGrant{"secret.read": {}},
 	}})
-	application.platform.Secrets = secretStore
-	application.setTestLocalActions(
-		&stubPermissionView{permissions: map[string][]stubPermission{
-			"subscription-hub": {{
-				PluginID:   "subscription-hub",
-				Permission: "secret.read",
-			}},
-		}},
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
 
-	result, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_1", plugins.Action{
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
+		"subscription-hub": {{
+			PluginID:   "subscription-hub",
+			Permission: "secret.read",
+		}},
+	}}
+	settingsService, settingsErr := settings.New(settings.Deps{Plugins: catalogForActions, Secrets: secretStore})
+	if settingsErr != nil {
+		t.Fatal(settingsErr)
+	}
+	deps.Settings = settingsService
+	application := localaction.New(deps)
+
+	result, err := application.Execute(context.Background(), "subscription-hub", "req_local_secret_1", plugins.Action{
 		Kind:      "secret.read",
 		SecretKey: "bili_token_primary",
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("secret.read failed: %v", err)
 	}
@@ -465,10 +441,10 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		t.Fatalf("unexpected secret.read result: %#v", result)
 	}
 
-	missing, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_2", plugins.Action{
+	missing, err := application.Execute(context.Background(), "subscription-hub", "req_local_secret_2", plugins.Action{
 		Kind:      "secret.read",
 		SecretKey: "missing",
-	})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("secret.read missing failed: %v", err)
 	}
@@ -480,28 +456,20 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 	t.Parallel()
 
-	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.setTestLocalActions(
-		&stubPermissionView{permissions: map[string][]stubPermission{
-			"subscription-hub": {{
-				PluginID:   "subscription-hub",
-				Permission: "secret.read",
-			}},
+	testConfig := config.Config{}
+	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
+		"subscription-hub": {{
+			PluginID:   "subscription-hub",
+			Permission: "secret.read",
 		}},
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-	)
+	}}
+	application := localaction.New(deps)
 
-	_, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_invalid", plugins.Action{
+	_, err := application.Execute(context.Background(), "subscription-hub", "req_local_secret_invalid", plugins.Action{
 		Kind:      "secret.read",
 		SecretKey: "Bad Key",
-	})
+	}, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, "plugin.protocol_violation")
 }

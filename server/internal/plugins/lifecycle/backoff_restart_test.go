@@ -31,7 +31,7 @@ func TestBackoffRestartStartFailureResetsManagerToStopped(t *testing.T) {
 		RuntimeState:      "backoff",
 	}})
 	dispatcher := dispatch.New(logger, nil, nil, 16)
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("broken-artifact")
 	if manager == nil {
 		t.Fatal("expected runtime manager")

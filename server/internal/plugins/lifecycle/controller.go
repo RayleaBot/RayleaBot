@@ -61,6 +61,7 @@ type Deps struct {
 	RefreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	SyncRenderTemplates func(context.Context) error
 	Operations          *OperationGate
+	ShutdownTimeout     time.Duration
 }
 
 type Controller struct {
@@ -81,6 +82,7 @@ type Controller struct {
 	onRecoveryChange    func(string)
 	refreshManifest     func(context.Context, string) (plugins.Snapshot, error)
 	syncRenderTemplates func(context.Context) error
+	shutdownTimeout     time.Duration
 
 	lifecycleCtxMu  sync.RWMutex
 	lifecycleCtx    context.Context
@@ -99,6 +101,9 @@ func NewController(deps Deps) (*Controller, error) {
 	}
 	if deps.Operations == nil {
 		return nil, errors.New("plugin lifecycle operation gate is required")
+	}
+	if deps.ShutdownTimeout <= 0 {
+		deps.ShutdownTimeout = 5 * time.Second
 	}
 	var zone string
 	if deps.Scheduler != nil {
@@ -126,6 +131,7 @@ func NewController(deps Deps) (*Controller, error) {
 		onRecoveryChange:    deps.OnRecoveryChange,
 		refreshManifest:     deps.RefreshManifest,
 		syncRenderTemplates: deps.SyncRenderTemplates,
+		shutdownTimeout:     deps.ShutdownTimeout,
 		operations:          deps.Operations,
 	}, nil
 }
@@ -608,7 +614,7 @@ func (c *Controller) stopPluginAsync(pluginID string, remove bool) {
 		return
 	}
 
-	ctx, cancel := c.lifecycleTimeoutContext(5 * time.Second)
+	ctx, cancel := c.lifecycleTimeoutContext(c.shutdownTimeout)
 	defer cancel()
 	if err := c.stopPluginLocked(ctx, pluginID, remove); err != nil {
 		c.logLifecycleWarn("stop plugin runtime", pluginID, err)

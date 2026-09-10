@@ -162,6 +162,7 @@ func TestInstallServiceFailsWhenAfterSuccessCallbackFails(t *testing.T) {
 	if snapshot.Error == nil || snapshot.Error.Code != codePluginInstallFailed {
 		t.Fatalf("unexpected task error: %#v", snapshot.Error)
 	}
+	assertOperationFailure(t, snapshot, "rolled_back", []string{"finalize"})
 	if _, ok := catalog.Get("callback-fail-weather"); ok {
 		t.Fatal("plugin remained in catalog after after-success failure")
 	}

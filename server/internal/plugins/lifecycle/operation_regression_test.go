@@ -24,7 +24,7 @@ func TestEnsurePluginRunningCanceledDuringLifecycleOperationDoesNotChangeState(t
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID: "blocked-plugin", DesiredState: "enabled", RegistrationState: "installed", RuntimeState: "stopped",
 	}})
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	app.setTestLifecycle(t, catalog, nil, runtimes, nil, nil, nil, nil)
 	controller := app.services.pluginLifecycle
 	release, err := controller.acquireOperation(context.Background(), "blocked-plugin")
@@ -50,12 +50,11 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 	t.Parallel()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	catalog := plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", DesiredState: "enabled", RegistrationState: "installed", Valid: true}})
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("fixture")
 	dispatcher := dispatch.New(logger, nil, nil, 4)
-	app := newTestAppState(config.Config{}, logger)
-	app.setTestLifecycle(t, catalog, nil, runtimes, dispatcher, nil, nil, nil)
-	controller := app.services.pluginLifecycle
+	const shutdownBudget = 250 * time.Millisecond
+	controller := newTestController(t, Deps{CurrentConfig: func() config.Config { return config.Config{} }, Logger: logger, Plugins: catalog, Runtimes: runtimes, Dispatcher: dispatcher, ShutdownTimeout: shutdownBudget})
 	lifecycleCtx, lifecycleCancel := context.WithCancel(t.Context())
 	controller.BindLifecycleContext(lifecycleCtx)
 	executable, err := os.Executable()
@@ -64,8 +63,8 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 	}
 	if err := manager.Start(t.Context(), pluginruntime.Spec{
 		PluginID: "fixture", Command: executable, Args: []string{"-test.run=^TestLifecycleShutdownProcess$"},
-		Env: []string{"RAYLEABOT_LIFECYCLE_SHUTDOWN_FIXTURE=1"}, WorkDir: t.TempDir(),
-		// The race runtime delays process exit by one second after os.Exit.
+		Env: []string{"RAYLEABOT_LIFECYCLE_SHUTDOWN_FIXTURE=1", "GORACE=atexit_sleep_ms=0"}, WorkDir: t.TempDir(),
+		// The helper exits immediately so the injected budget measures lifecycle work.
 		InitTimeout: 3 * time.Second, EventTimeout: time.Second, ShutdownGrace: 3 * time.Second,
 		EffectiveConcurrency: 1,
 	}, pluginruntime.InitPayload{Timezone: "Asia/Shanghai", CommandPrefixes: []string{"/"}}); err != nil {
@@ -89,28 +88,39 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 			release()
 		}
 	}()
+	states, unsubscribe := catalog.Subscribe(8)
+	defer unsubscribe()
 	disabled := make(chan error, 1)
 	go func() { _, err := controller.Disable(t.Context(), "fixture"); disabled <- err }()
-	time.Sleep(5250 * time.Millisecond)
+	gateWait := time.NewTimer(2 * shutdownBudget)
+	defer gateWait.Stop()
 	select {
 	case err := <-disabled:
 		t.Fatalf("disable crossed a live plugin transaction: %v", err)
-	default:
+	case <-gateWait.C:
 	}
 	release()
 	release = nil
 	if err := <-disabled; err != nil {
 		t.Fatal(err)
 	}
-	deadline := time.Now().Add(3 * time.Second)
-	for time.Now().Before(deadline) {
-		_, exists := runtimes.Get("fixture")
-		if !exists && !dispatcher.HasPlugin("fixture") && manager.Snapshot().State == pluginruntime.StateStopped {
+	stopped := time.NewTimer(3 * time.Second)
+	defer stopped.Stop()
+	for {
+		select {
+		case state := <-states:
+			if state.RuntimeState != string(pluginruntime.StateStopped) {
+				continue
+			}
+			_, exists := runtimes.Get("fixture")
+			if exists || dispatcher.HasPlugin("fixture") || manager.Snapshot().State != pluginruntime.StateStopped {
+				t.Fatal("disabled runtime remained registered")
+			}
 			return
+		case <-stopped.C:
+			t.Fatal("accepted disable was lost while waiting for the lifecycle gate")
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("accepted disable was lost while waiting for the lifecycle gate")
 }
 
 func TestLifecycleShutdownProcess(t *testing.T) {

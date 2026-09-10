@@ -1,28 +1,31 @@
-package services
+package chatpolicy_test
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
-	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	menuext "github.com/RayleaBot/RayleaBot/server/internal/builtinmenu"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
+	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
+	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 	t.Parallel()
 
-	logger, stream := newAppTestLogger()
+	logger, stream := newIngressTestLogger(t)
 	sender := &recordingOutboundSender{}
 	limiter := &recordingAppOutboundLimiter{
-		err: &onebot11.Error{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
+		err: &chatevent.SendError{Code: "platform.rate_limited", Message: "outbound message rate limit exceeded"},
 	}
 	cfg := config.Config{
 		Command: &config.CommandConfig{
@@ -36,8 +39,10 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, logger)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = logger
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -47,8 +52,12 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, bridge.New(logger, &recordingDispatcherClient{}))
-	application.services.EventIngress.SetOutboundLimiter(limiter)
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(logger, &recordingDispatcherClient{})
+	deps.OutboundLimiter = limiter
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
@@ -66,10 +75,10 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 		MessageID:        "30001",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first command should be allowed")
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
 		t.Fatal("second command should be rate limited")
 	}
 
@@ -80,7 +89,7 @@ func TestApplyChatPolicyAppliesTargetLimitToCooldownReply(t *testing.T) {
 	if request.PluginID != "" || request.TargetType != "group" || request.TargetID != "20001" {
 		t.Fatalf("unexpected limiter request: %#v", request)
 	}
-	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary := waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Details["error_code"] == "platform.rate_limited"
 	})
 	if summary.Level != "warn" || summary.Source != "adapter.onebot11" {
@@ -105,8 +114,9 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -116,8 +126,11 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 			Name:       "weather",
 			Permission: "everyone",
 		}},
-	}}), nil, sender, nil)
-	application.services.EventIngress.SetOutboundLimiter(limiter)
+	}})
+	deps.OutboundSender = sender
+	deps.OutboundLimiter = limiter
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
@@ -134,13 +147,13 @@ func TestApplyChatPolicyCancelsCooldownReplyTargetLimit(t *testing.T) {
 		MessageID:        "30001",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first command should be allowed")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, allowed := application.applyChatPolicy(ctx, event); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(ctx, event); allowed {
 		t.Fatal("second command should be rate limited")
 	}
 	if limiter.ctxErr != context.Canceled {
@@ -167,8 +180,9 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T)
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "help",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -177,7 +191,9 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T)
 		Commands: []plugins.Command{{
 			Name: "help",
 		}},
-	}}), nil, nil, nil)
+	}})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-help-private-canonical",
@@ -192,10 +208,10 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForPrivateCommand(t *testing.T)
 		MessageID:        "40001",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first private command should be allowed")
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
 		t.Fatal("second private command should be blocked by canonical user cooldown")
 	}
 }
@@ -216,8 +232,9 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -226,7 +243,9 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
 		Commands: []plugins.Command{{
 			Name: "weather",
 		}},
-	}}), nil, nil, nil)
+	}})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-group-user-canonical",
@@ -242,12 +261,12 @@ func TestApplyChatPolicyUsesCanonicalUserCooldownForGroupCommand(t *testing.T) {
 		MessageID:        "40002",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first group command should be allowed")
 	}
 	deniedEvent := event
 	deniedEvent.MessageID = "40003"
-	if _, allowed := application.applyChatPolicy(context.Background(), deniedEvent); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), deniedEvent); allowed {
 		t.Fatal("second group command should be blocked by canonical user cooldown")
 	}
 }
@@ -268,8 +287,9 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 			CommandRateLimit: "1/1h",
 		},
 	}
-	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -278,7 +298,9 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 		Commands: []plugins.Command{{
 			Name: "weather",
 		}},
-	}}), nil, nil, nil)
+	}})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 	firstEvent := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-group-group-canonical-1",
@@ -298,10 +320,10 @@ func TestApplyChatPolicyUsesCanonicalGroupCooldown(t *testing.T) {
 	secondEvent.SenderID = "10003"
 	secondEvent.MessageID = "40005"
 
-	if _, allowed := application.applyChatPolicy(context.Background(), firstEvent); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), firstEvent); !allowed {
 		t.Fatal("first group command should be allowed")
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), secondEvent); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), secondEvent); allowed {
 		t.Fatal("second sender in same group should be blocked by canonical group cooldown")
 	}
 }
@@ -323,8 +345,9 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -333,7 +356,10 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 		Commands: []plugins.Command{{
 			Name: "weather",
 		}},
-	}}), nil, sender, nil)
+	}})
+	deps.OutboundSender = sender
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 	event := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-weather-canonical-reply-flag",
@@ -349,10 +375,10 @@ func TestApplyChatPolicyUsesCanonicalCooldownReplyFlag(t *testing.T) {
 		MessageID:        "40006",
 	}
 
-	if _, allowed := application.applyChatPolicy(context.Background(), event); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); !allowed {
 		t.Fatal("first group command should be allowed")
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), event); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), event); allowed {
 		t.Fatal("second group command should be blocked by canonical cooldown")
 	}
 	if sender.replyCount != 0 || sender.messageCount != 0 {
@@ -381,8 +407,9 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 			CommandRateLimit: "5/1h",
 		},
 	}
-	application := newTestAppState(cfg, nil)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	testConfig := cfg
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "ops",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -391,7 +418,9 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 		Commands: []plugins.Command{{
 			Name: "ops",
 		}},
-	}}), nil, nil, nil)
+	}})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
 	memberEvent := chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
@@ -407,7 +436,7 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 		PlainText:        "/ops",
 		MessageID:        "40007",
 	}
-	if _, allowed := application.applyChatPolicy(context.Background(), memberEvent); allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), memberEvent); allowed {
 		t.Fatal("member should be denied when canonical default level is group_admin")
 	}
 
@@ -415,7 +444,7 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 	superAdminEvent.EventID = "evt-ops-canonical-super-admin"
 	superAdminEvent.SenderID = "42"
 	superAdminEvent.MessageID = "40008"
-	if _, allowed := application.applyChatPolicy(context.Background(), superAdminEvent); !allowed {
+	if _, allowed := ingress.ApplyChatPolicy(context.Background(), superAdminEvent); !allowed {
 		t.Fatal("canonical super admin should bypass permission checks")
 	}
 }
@@ -423,25 +452,27 @@ func TestApplyChatPolicyUsesCanonicalPermissionAndSuperAdmin(t *testing.T) {
 func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing.T) {
 	t.Parallel()
 
-	logger, stream := newAppTestLogger()
+	logger, stream := newIngressTestLogger(t)
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
-	runner := &captureRenderRunner{}
+	runner := &testutil.CaptureRenderRunner{}
 	renderRoot := t.TempDir()
-	repoRoot, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	repoRoot, err := filepath.Abs(testutil.RepoRoot(t))
 	if err != nil {
 		t.Fatalf("resolve repo root: %v", err)
 	}
-	application := newTestAppState(config.Config{
+	testConfig := config.Config{
 		Admin:   config.AdminConfig{SuperAdmins: []string{"10002"}},
 		Command: &config.CommandConfig{Prefixes: []string{"/"}},
 		Builtin: config.BuiltinConfig{Menu: config.BuiltinMenuConfig{
 			Commands: []string{"help", "帮助"},
 		}},
 		Permission: config.PermissionConfig{DefaultLevel: "everyone"},
-	}, logger)
-	application.renderStack.Renderer = newRenderServiceForRepo(t, repoRoot, renderRoot, runner)
-	application.setTestEventIngress(plugincatalog.New([]plugins.Snapshot{{
+	}
+	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
+	deps.Logger = logger
+	menuRenderer := testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner)
+	deps.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "天气",
 		Description:       "查询天气",
@@ -455,9 +486,13 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 			Usage:       "/weather 上海",
 			Permission:  "everyone",
 		}},
-	}}), nil, sender, bridge.New(slog.Default(), dispatcher))
+	}})
+	deps.OutboundSender = sender
+	deps.Bridge = bridge.New(slog.Default(), dispatcher)
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	ingress := chatpolicy.NewIngress(deps)
 
-	application.handleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
+	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMessage,
 		EventID:          "evt-builtin-menu",
 		BotID:            "10001",
@@ -492,7 +527,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	if dispatcher.deliverCount != 0 {
 		t.Fatalf("builtin menu dispatched to plugins %d times", dispatcher.deliverCount)
 	}
-	summary := waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary := waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Message == "10001: [测试群(20001)]群名片/普通昵称(10002): /help"
 	})
 	if summary.Level != "info" || summary.Source != "bridge.onebot11" || summary.Protocol != logging.ProtocolOneBot11 {
@@ -504,7 +539,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	if summary.Details["builtin_menu"] != true || summary.Details["plain_text"] != "/help" {
 		t.Fatalf("unexpected builtin menu marker details: %#v", summary.Details)
 	}
-	summary = waitForAppLog(t, stream, func(summary logging.Summary) bool {
+	summary = waitForIngressLog(t, stream, func(summary logging.Summary) bool {
 		return summary.Source == "adapter.onebot11" && summary.Details["command_name"] == "help"
 	})
 	if summary.Level != "info" {
@@ -516,7 +551,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	if summary.Details["plain_text"] != "[图片]" || summary.Details["message_id"] != "msg-2" {
 		t.Fatalf("unexpected builtin menu response message details: %#v", summary.Details)
 	}
-	html := runner.lastHTML()
+	html := runner.LastHTML()
 	for _, want := range []string{"群名片", "ID 10002", "测试群", "超级管理员", "nk=10002"} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("builtin menu html missing sender identity field %q:\n%s", want, html)

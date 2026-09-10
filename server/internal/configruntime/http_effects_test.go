@@ -1,4 +1,4 @@
-package services
+package configruntime_test
 
 import (
 	"bytes"
@@ -23,6 +23,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 // oneBotAdapters wraps OneBot settings in the single adapter instance these
@@ -39,7 +40,7 @@ func oneBotAdapters(settings config.OneBotConfig) []config.AdapterInstance {
 func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 	t.Parallel()
 
-	app := newTestAppState(config.Config{
+	source := newConfigTestSource(config.Config{
 		Server: config.ServerConfig{
 			Host: "127.0.0.1",
 			Port: 8080,
@@ -75,9 +76,9 @@ func TestApplyHotReloadableFieldsClassifiesCanonicalPaths(t *testing.T) {
 			ReconnectMaxSeconds:     120,
 			ReconnectJitterRatio:    0.2,
 		},
-	}, nil)
+	})
 
-	effects := applyConfigApplyEffects(app, config.Config{
+	effects := configruntime.NewService(source.deps(nil)).ApplyHotReloadableFields(config.Config{
 		Server: config.ServerConfig{
 			Host: "127.0.0.1",
 			Port: 8081,
@@ -159,9 +160,9 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 			ReconnectJitterRatio:    0.2,
 		},
 	}
-	app := newTestAppState(baseConfig, logger)
+	source := newConfigTestSource(baseConfig)
 
-	oneBotSettings, ok := baseConfig.OneBot11Settings(config.DefaultOneBot11AdapterID)
+	oneBotSettings, ok := baseConfig.OneBot11Settings("onebot11")
 	if !ok {
 		t.Fatal("base config has no onebot11 adapter")
 	}
@@ -169,20 +170,16 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	protocolOwner, err := adapterservice.NewService(app.state, adapterservice.Instances{
+	protocol := newAdapterTestService(t, source, adapterservice.Instances{
 		OneBot11: map[string]*onebot11.Shell{config.DefaultOneBot11AdapterID: adapterShell},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	app.services.Protocol = protocolOwner
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		_ = adapterShell.Stop(stopCtx)
 	})
 
-	effects := applyConfigApplyEffects(app, config.Config{
+	effects := configruntime.NewService(source.deps(protocol)).ApplyHotReloadableFields(config.Config{
 		Adapters: oneBotAdapters(config.OneBotConfig{
 			ForwardWS: config.OneBotTransportConfig{Enabled: true, URL: "ws://127.0.0.1:2658"},
 		}),
@@ -269,22 +266,19 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 		}
 	})
 
-	app := newTestAppState(cfg, nil)
-	app.state.Summary = summary
+	source := newConfigTestSource(cfg)
+	source.SetSummary(summary)
 	document := configruntime.ConfigDocumentFromTyped(cfg)
 	renderDoc := document["render"].(map[string]any)
 	renderDoc["default_output"] = "jpeg"
 	renderDoc["device_scale_percent"] = 200
 
 	handler := managementapi.NewConfigHandlers(configruntime.NewService(configruntime.Deps{
-		CurrentConfig:      app.state.CurrentConfig,
-		CurrentSummary:     app.state.CurrentSummary,
-		SetConfig:          app.state.SetConfig,
-		SetSummary:         app.state.SetSummary,
-		Logger:             app.state.RuntimeLogger(),
-		LogLevel:           app.state.RuntimeLogLevel(),
-		AddRedactionValues: app.state.AddRedactionValues,
-		Renderer:           renderer,
+		CurrentConfig:  source.CurrentConfig,
+		CurrentSummary: source.CurrentSummary,
+		SetConfig:      source.SetConfig,
+		SetSummary:     source.SetSummary,
+		Renderer:       renderer,
 	}))
 	body, err := json.Marshal(document)
 	if err != nil {
@@ -431,14 +425,14 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app, limiter := newConfigHTTPOutboundLimiterFixture(t, tt.baseMessage)
+			source, limiter := newConfigHTTPOutboundLimiterFixture(t, tt.baseMessage)
 			if err := limiter.Wait(context.Background(), tt.prime); err != nil {
 				t.Fatalf("prime outbound limiter: %v", err)
 			}
 
-			document := configruntime.ConfigDocumentFromTyped(app.state.Config)
+			document := configruntime.ConfigDocumentFromTyped(source.CurrentConfig())
 			tt.mutate(t, document)
-			response := putConfigDocument(t, app, limiter, document)
+			response := putConfigDocument(t, source, limiter, document)
 
 			if response.RestartRequired {
 				t.Fatalf("restart_required = true, want false")
@@ -452,8 +446,8 @@ func TestHandleConfigPutHotReloadsOutboundLimiterMessageFields(t *testing.T) {
 			if !tt.wantConfig(limiter.applied[0]) {
 				t.Fatalf("outbound limiter received config: %+v", limiter.applied[0].Message)
 			}
-			if !tt.wantConfig(app.state.Config) {
-				t.Fatalf("state config was not updated: %+v", app.state.Config.Message)
+			if !tt.wantConfig(source.CurrentConfig()) {
+				t.Fatalf("state config was not updated: %+v", source.CurrentConfig().Message)
 			}
 			tt.verify(t, limiter)
 		})
@@ -546,7 +540,7 @@ func (l *recordingConfigOutboundLimiter) Wait(ctx context.Context, request outbo
 	return l.inner.Wait(ctx, request)
 }
 
-func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageConfig) (*serviceHarness, *recordingConfigOutboundLimiter) {
+func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageConfig) (*configTestSource, *recordingConfigOutboundLimiter) {
 	t.Helper()
 
 	configPath := filepath.Join(t.TempDir(), "user.yaml")
@@ -566,13 +560,13 @@ func newConfigHTTPOutboundLimiterFixture(t *testing.T, message config.MessageCon
 		t.Fatalf("save base config: %v", err)
 	}
 
-	app := newTestAppState(cfg, nil)
-	app.state.Summary = summary
+	source := newConfigTestSource(cfg)
+	source.SetSummary(summary)
 	limiter := newRecordingConfigOutboundLimiter(cfg)
-	return app, limiter
+	return source, limiter
 }
 
-func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConfigOutboundLimiter, document map[string]any) managementapi.ConfigUpdateResponse {
+func putConfigDocument(t *testing.T, source *configTestSource, limiter *recordingConfigOutboundLimiter, document map[string]any) managementapi.ConfigUpdateResponse {
 	t.Helper()
 
 	body, err := json.Marshal(document)
@@ -581,14 +575,11 @@ func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConf
 	}
 
 	handler := managementapi.NewConfigHandlers(configruntime.NewService(configruntime.Deps{
-		CurrentConfig:      app.state.CurrentConfig,
-		CurrentSummary:     app.state.CurrentSummary,
-		SetConfig:          app.state.SetConfig,
-		SetSummary:         app.state.SetSummary,
-		Logger:             app.state.RuntimeLogger(),
-		LogLevel:           app.state.RuntimeLogLevel(),
-		AddRedactionValues: app.state.AddRedactionValues,
-		OutboundLimiter:    limiter,
+		CurrentConfig:   source.CurrentConfig,
+		CurrentSummary:  source.CurrentSummary,
+		SetConfig:       source.SetConfig,
+		SetSummary:      source.SetSummary,
+		OutboundLimiter: limiter,
 	}))
 	request := httptest.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()
@@ -608,7 +599,7 @@ func putConfigDocument(t *testing.T, app *serviceHarness, limiter *recordingConf
 func configHTTPTestSchemaPath(t *testing.T) string {
 	t.Helper()
 
-	path, err := filepath.Abs(filepath.Join("..", "..", "..", "contracts", "config.user.schema.json"))
+	path, err := filepath.Abs(testutil.RepoPath(t, "contracts", "config.user.schema.json"))
 	if err != nil {
 		t.Fatalf("resolve config schema path: %v", err)
 	}

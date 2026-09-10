@@ -12,18 +12,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 )
 
-var inspectStartupRuntime = func(repoRoot, kind string) (*deps.BootstrapInspection, error) {
+func inspectRuntime(repoRoot, kind string) (*deps.BootstrapInspection, error) {
 	return deps.NewDiagnostics(repoRoot).InspectRuntime(kind)
 }
 
-var prepareStartupRuntime = func(ctx context.Context, repoRoot, kind string) (*deps.PrepareReport, error) {
-	return deps.NewRuntime(repoRoot).PrepareWithReport(ctx, kind)
-}
-
-var prepareStartupRuntimeWithProgress = func(ctx context.Context, repoRoot, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
-	if progress == nil {
-		return prepareStartupRuntime(ctx, repoRoot, kind)
-	}
+func prepareRuntime(ctx context.Context, repoRoot, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
 	return deps.NewRuntime(repoRoot).PrepareWithReportOptions(ctx, kind, deps.PrepareOptions{Progress: progress})
 }
 
@@ -198,7 +191,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 			return
 		}
 
-		inspection, err := inspectStartupRuntime(s.repoRootPath(), kind)
+		inspection, err := s.inspectRuntime(s.repoRootPath(), kind)
 		if err != nil {
 			issue := startupInspectionIssue(kind, err)
 			s.setStartupRuntimeState(kind, StartupRuntimePhaseFailed, &issue)
@@ -231,7 +224,7 @@ func (s *Service) autoPrepareRuntimeEnvironments(ctx context.Context) {
 		}
 
 		repoRoot := s.repoRootPath()
-		report, err := prepareStartupRuntimeWithProgress(ctx, repoRoot, kind, func(event deps.PrepareProgress) {
+		report, err := s.prepareRuntime(ctx, repoRoot, kind, func(event deps.PrepareProgress) {
 			logStartupProgress(s.currentLogger(), repoRoot, event)
 		})
 		if err != nil {

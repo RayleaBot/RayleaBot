@@ -20,20 +20,10 @@ type Manager struct {
 	now                func() time.Time
 }
 
-var systemChromiumFinder = FindSystemChromium
-
-func SetSystemChromiumFinderForTest(finder func(context.Context) (string, error)) func() {
-	previous := systemChromiumFinder
-	systemChromiumFinder = finder
-	return func() {
-		systemChromiumFinder = previous
-	}
-}
-
 func NewManager(repoRoot string) *Manager {
 	return &Manager{
 		repoRoot:           strings.TrimSpace(repoRoot),
-		findSystemChromium: systemChromiumFinder,
+		findSystemChromium: FindSystemChromium,
 		now:                time.Now,
 	}
 }

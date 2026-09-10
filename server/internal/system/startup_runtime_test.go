@@ -12,79 +12,85 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
 func TestAutoPrepareRuntimeEnvironmentsPreparesManagedRuntimes(t *testing.T) {
-	originalInspect := inspectStartupRuntime
-	originalPrepare := prepareStartupRuntimeWithProgress
-	t.Cleanup(func() {
-		inspectStartupRuntime = originalInspect
-		prepareStartupRuntimeWithProgress = originalPrepare
-	})
+	t.Parallel()
 
 	preparedKinds := []string{}
-	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
+	inspect := func(_ string, kind string) (*deps.BootstrapInspection, error) {
 		return &deps.BootstrapInspection{Kind: kind, MetadataComplete: true}, nil
 	}
-	prepareStartupRuntimeWithProgress = func(_ context.Context, _ string, kind string, _ deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+	prepare := func(_ context.Context, _ string, kind string, _ deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
 		preparedKinds = append(preparedKinds, kind)
 		return &deps.PrepareReport{Kind: kind}, nil
 	}
 
-	application := newTestAppState(config.Config{}, nil)
-	application.state.repoRoot = t.TempDir()
-	application.setTestSystem(nil, nil, nil, nil)
-	application.autoPrepareRuntimeEnvironments(context.Background())
+	service, err := New(Deps{
+		CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} },
+		Plugins: plugincatalog.New(nil), RepoRoot: t.TempDir(), InspectRuntime: inspect, PrepareRuntime: prepare,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.autoPrepareRuntimeEnvironments(context.Background())
 
 	if !slices.Equal(preparedKinds, []string{"chromium", "ffmpeg"}) {
 		t.Fatalf("prepared kinds = %#v, want Chromium and FFmpeg", preparedKinds)
 	}
-	state, ok := application.startupRuntimeState("chromium")
+	state, ok := service.startupRuntimeState("chromium")
 	if !ok || state.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("Chromium state = %#v, want ready", state)
 	}
-	state, ok = application.startupRuntimeState("ffmpeg")
+	state, ok = service.startupRuntimeState("ffmpeg")
 	if !ok || state.Phase != StartupRuntimePhaseReady {
 		t.Fatalf("FFmpeg state = %#v, want ready", state)
 	}
 }
 
 func TestAutoPrepareRuntimeEnvironmentsWaitsForChromiumPrepare(t *testing.T) {
-	originalInspect := inspectStartupRuntime
-	originalPrepare := prepareStartupRuntimeWithProgress
-	t.Cleanup(func() {
-		inspectStartupRuntime = originalInspect
-		prepareStartupRuntimeWithProgress = originalPrepare
-	})
+	t.Parallel()
 
-	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
+	inspect := func(_ string, kind string) (*deps.BootstrapInspection, error) {
 		return &deps.BootstrapInspection{Kind: kind, MetadataComplete: true}, nil
 	}
 	releasePrepare := make(chan struct{})
-	prepareStartupRuntimeWithProgress = func(_ context.Context, _ string, kind string, _ deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+	startedPrepare := make(chan struct{})
+	prepare := func(_ context.Context, _ string, kind string, _ deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
 		if kind == "ffmpeg" {
 			return &deps.PrepareReport{Kind: kind}, nil
 		}
 		if kind != "chromium" {
 			t.Fatalf("unexpected prepare kind %q", kind)
 		}
+		close(startedPrepare)
 		<-releasePrepare
 		return &deps.PrepareReport{Kind: kind}, nil
 	}
 
-	application := newTestAppState(config.Config{}, nil)
-	application.state.repoRoot = t.TempDir()
-	application.setTestSystem(nil, nil, nil, nil)
+	service, err := New(Deps{
+		CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} },
+		Plugins: plugincatalog.New(nil), RepoRoot: t.TempDir(), InspectRuntime: inspect, PrepareRuntime: prepare,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	finished := make(chan struct{})
 	go func() {
-		application.autoPrepareRuntimeEnvironments(context.Background())
+		service.autoPrepareRuntimeEnvironments(context.Background())
 		close(finished)
 	}()
 
 	select {
+	case <-startedPrepare:
+	case <-time.After(time.Second):
+		t.Fatal("Chromium preparation did not start")
+	}
+	select {
 	case <-finished:
 		t.Fatal("startup prepare returned before Chromium preparation completed")
-	case <-time.After(20 * time.Millisecond):
+	default:
 	}
 	close(releasePrepare)
 	select {
@@ -95,18 +101,13 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForChromiumPrepare(t *testing.T) {
 }
 
 func TestAutoPrepareRuntimeEnvironmentsLogsChromiumProgress(t *testing.T) {
-	originalInspect := inspectStartupRuntime
-	originalPrepare := prepareStartupRuntimeWithProgress
-	t.Cleanup(func() {
-		inspectStartupRuntime = originalInspect
-		prepareStartupRuntimeWithProgress = originalPrepare
-	})
+	t.Parallel()
 
-	inspectStartupRuntime = func(_ string, kind string) (*deps.BootstrapInspection, error) {
+	inspect := func(_ string, kind string) (*deps.BootstrapInspection, error) {
 		return &deps.BootstrapInspection{Kind: kind, MetadataComplete: true}, nil
 	}
 	repoRoot := t.TempDir()
-	prepareStartupRuntimeWithProgress = func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
+	prepare := func(_ context.Context, _ string, kind string, progress deps.PrepareProgressReporter) (*deps.PrepareReport, error) {
 		progress(deps.PrepareProgress{
 			Kind: kind, Label: "图片渲染 Chromium", ResourceID: "chromium-test", Version: "147.0.0",
 			SourceLabel: "upstream", SourceURL: "https://example.invalid/chromium.zip",
@@ -118,10 +119,14 @@ func TestAutoPrepareRuntimeEnvironmentsLogsChromiumProgress(t *testing.T) {
 	}
 
 	var logs bytes.Buffer
-	application := newTestAppState(config.Config{}, slog.New(slog.NewJSONHandler(&logs, nil)))
-	application.state.repoRoot = repoRoot
-	application.setTestSystem(nil, nil, nil, nil)
-	application.autoPrepareRuntimeEnvironments(context.Background())
+	service, err := New(Deps{
+		CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} },
+		Plugins: plugincatalog.New(nil), RepoRoot: repoRoot, Logger: slog.New(slog.NewJSONHandler(&logs, nil)), InspectRuntime: inspect, PrepareRuntime: prepare,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.autoPrepareRuntimeEnvironments(context.Background())
 
 	logText := logs.String()
 	if !strings.Contains(logText, `"resource_kind":"chromium"`) || !strings.Contains(logText, `"source_url":"https://example.invalid/chromium.zip"`) {
@@ -133,9 +138,16 @@ func TestAutoPrepareRuntimeEnvironmentsLogsChromiumProgress(t *testing.T) {
 }
 
 func TestStartupRequiredRuntimeKindsKeepsFFmpegWhenBrowserPathConfigured(t *testing.T) {
-	application := newTestAppState(config.Config{Render: config.RenderConfig{BrowserPath: "C:\\chromium\\chrome.exe"}}, nil)
-	application.setTestSystem(nil, nil, nil, nil)
-	if got := application.services.system.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"ffmpeg"}) {
+	t.Parallel()
+	service, err := New(Deps{
+		CurrentConfig: func() config.Config {
+			return config.Config{Render: config.RenderConfig{BrowserPath: "configured-chromium"}}
+		}, CurrentSummary: func() config.Summary { return config.Summary{} }, Plugins: plugincatalog.New(nil),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := service.startupRequiredRuntimeKinds(); !slices.Equal(got, []string{"ffmpeg"}) {
 		t.Fatalf("startupRequiredRuntimeKinds() = %#v, want FFmpeg", got)
 	}
 }

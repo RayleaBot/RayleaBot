@@ -44,7 +44,7 @@ func TestHandleCrashDeadLetterPreservesStaticWebhooks(t *testing.T) {
 	dispatcher := dispatch.New(logger, nil, nil, 16)
 	registry := pluginwebhook.NewRegistry()
 	registry.SyncSnapshots(catalog.List())
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("repo-watcher")
 	if manager == nil {
 		t.Fatal("expected runtime manager")
@@ -98,7 +98,7 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 	}})
 	dispatcher := dispatch.New(logger, nil, nil, 16)
 	registry := pluginwebhook.NewRegistry()
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("weather")
 	if manager == nil {
 		t.Fatal("expected runtime manager")
@@ -157,7 +157,7 @@ func TestRecoverFromDeadLetterPersistFailureLeavesManagerInDeadLetter(t *testing
 	}})
 	dispatcher := dispatch.New(logger, nil, nil, 16)
 	registry := pluginwebhook.NewRegistry()
-	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
+	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("weather")
 	if manager == nil {
 		t.Fatal("expected runtime manager")
