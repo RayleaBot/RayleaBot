@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -120,7 +121,7 @@ func (h *GovernanceHandlers) handleGovernanceWhitelistStatePut() http.HandlerFun
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request governanceWhitelistStateUpdateRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Enabled == nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 
@@ -170,7 +171,7 @@ func (h *GovernanceHandlers) handleGovernanceWhitelistEntryDelete() http.Handler
 func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) (governanceEntryUpsertRequest, bool) {
 	var request governanceEntryUpsertRequest
 	if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return governanceEntryUpsertRequest{}, false
 	}
 
@@ -178,7 +179,7 @@ func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) 
 	request.TargetID = strings.TrimSpace(request.TargetID)
 	request.Reason = strings.TrimSpace(request.Reason)
 	if !request.Scope.Valid() || !governance.IsEntryType(request.EntryType) || request.TargetID == "" || request.Reason == "" {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return governanceEntryUpsertRequest{}, false
 	}
 
@@ -190,7 +191,7 @@ func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (chatevent.
 	entryType := strings.TrimSpace(chi.URLParam(r, "entry_type"))
 	targetID := strings.TrimSpace(chi.URLParam(r, "target_id"))
 	if !scope.Valid() || !governance.IsEntryType(entryType) || targetID == "" {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return scope, "", "", false
 	}
 	return scope, entryType, targetID, true
@@ -199,13 +200,13 @@ func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (chatevent.
 func writeGovernanceError(w http.ResponseWriter, r *http.Request, err error, entryType, targetID string) {
 	switch {
 	case errors.Is(err, governance.ErrInvalidRequest):
-		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 	case errors.Is(err, permission.ErrGovernanceEntryNotFound):
-		httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, map[string]any{
 			"entry_type": entryType,
 			"target_id":  targetID,
 		})
 	default:
-		httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 	}
 }

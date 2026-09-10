@@ -114,7 +114,7 @@ func assertPluginIconMissing(t *testing.T, recorder *httptest.ResponseRecorder, 
 	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if recorder.Code != http.StatusNotFound || body.Error.Code != "platform.resource_missing" {
+	if recorder.Code != http.StatusNotFound || body.Error.Code != "platform.resource_not_found" {
 		t.Fatalf("unavailable icon status=%d code=%s", recorder.Code, body.Error.Code)
 	}
 	if bytes.Contains(recorder.Body.Bytes(), []byte(privatePath)) || bytes.Contains(recorder.Body.Bytes(), []byte("private fixture content")) {

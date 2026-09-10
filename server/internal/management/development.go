@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/go-chi/chi/v5"
@@ -29,7 +30,7 @@ func (h DevelopmentRoutes) RegisterPublicRoutes(router chi.Router) {
 		r.Use(func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if h.ArtifactRoot == "" || !isLoopbackRequest(r) || r.Header.Get("Origin") != "" || h.Token == nil || !h.Token.Matches(strings.TrimSpace(r.Header.Get(LauncherControlTokenHeader))) {
-					httpapi.WriteError(w, r, http.StatusForbidden, "permission.denied", "当前请求无权执行开发操作", "errors.permission.denied", nil)
+					httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 					return
 				}
 				next.ServeHTTP(w, r)
@@ -78,13 +79,13 @@ func (h DevelopmentRoutes) sync(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h DevelopmentRoutes) invalid(w http.ResponseWriter, r *http.Request) {
-	httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "开发 artifact 必须位于指定构建目录内", "errors.platform.invalid_request", nil)
+	httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 }
 
 func (h DevelopmentRoutes) task(w http.ResponseWriter, r *http.Request) {
 	snapshot, exists := h.Tasks.Get(chi.URLParam(r, "task_id"))
 	if !exists || snapshot.TaskType != "plugin.install" {
-		httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "安装任务不存在", "errors.platform.resource_missing", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, nil)
 		return
 	}
 	response := struct {

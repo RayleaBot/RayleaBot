@@ -18,7 +18,7 @@ type recoveryConfirmRequest struct {
 func (h *SystemHandlers) HandleSystemRecoveryRecheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.system == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 
@@ -35,18 +35,18 @@ func (h *SystemHandlers) HandleSystemRecoveryRecheck() http.HandlerFunc {
 func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.system == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 
 		var req recoveryConfirmRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, systemCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, systemCodeInvalidRequest, nil)
 			return
 		}
 		reviewIDs, note, ok := normalizeRecoveryConfirmRequest(req)
 		if !ok {
-			httpapi.WriteError(w, r, http.StatusBadRequest, systemCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, systemCodeInvalidRequest, nil)
 			return
 		}
 
@@ -57,7 +57,7 @@ func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 
 		claims, ok := ClaimsFromContext(r.Context())
 		if !ok || strings.TrimSpace(claims.Subject) == "" {
-			httpapi.WriteError(w, r, http.StatusUnauthorized, systemCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied", nil)
+			httpapi.WriteError(w, r, systemCodePermissionDenied, nil)
 			return
 		}
 		operatorID := strings.TrimSpace(claims.Subject)

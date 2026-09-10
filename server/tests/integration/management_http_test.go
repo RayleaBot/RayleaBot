@@ -1,10 +1,10 @@
 package integration
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"context"
 	"fmt"
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"io"
@@ -613,10 +613,10 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	repo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
-	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "10001", "反复触发垃圾消息"); err != nil {
+	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "反复触发垃圾消息"); err != nil {
 		t.Fatalf("seed user blacklist entry: %v", err)
 	}
-	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "group", "20002", "风险群已封禁"); err != nil {
+	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "group", "20002", "风险群已封禁"); err != nil {
 		t.Fatalf("seed group blacklist entry: %v", err)
 	}
 
@@ -671,10 +671,10 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
 	repo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
-	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "10001", "旧原因"); err != nil {
+	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "旧原因"); err != nil {
 		t.Fatalf("seed blacklist entry: %v", err)
 	}
-	seeded, err := repo.Get(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "10001")
+	seeded, err := repo.Get(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001")
 	if err != nil {
 		t.Fatalf("get seeded blacklist entry: %v", err)
 	}
@@ -774,7 +774,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 
 	missingBody := decodeBody(t, readAll(t, missingResp))
 	errorBody, ok := missingBody["error"].(map[string]any)
-	if !ok || errorBody["code"] != "platform.resource_missing" {
+	if !ok || errorBody["code"] != "platform.resource_not_found" {
 		t.Fatalf("unexpected missing blacklist delete body: %#v", missingBody)
 	}
 }

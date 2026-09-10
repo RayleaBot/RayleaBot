@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -65,7 +66,7 @@ func (routes PluginStoreRoutes) list() http.HandlerFunc {
 		if raw := strings.TrimSpace(r.URL.Query().Get("cursor")); raw != "" {
 			value, err := strconv.Atoi(raw)
 			if err != nil || value < 0 {
-				writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				writeError(w, r, pluginCodeInvalidRequest, nil)
 				return
 			}
 			query.Cursor = value
@@ -73,13 +74,13 @@ func (routes PluginStoreRoutes) list() http.HandlerFunc {
 		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 			value, err := strconv.Atoi(raw)
 			if err != nil || value < 1 || value > 100 {
-				writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				writeError(w, r, pluginCodeInvalidRequest, nil)
 				return
 			}
 			query.Limit = value
 		}
 		if query.Sort != "" && query.Sort != "recommended" && query.Sort != "name" && query.Sort != "updated" {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		result, err := routes.Service.List(query)
@@ -96,7 +97,7 @@ func (routes PluginStoreRoutes) detail() http.HandlerFunc {
 		pluginID := chi.URLParam(r, "plugin_id")
 		detail, ok := routes.Service.Get(r.URL.Query().Get("source_id"), pluginID)
 		if !ok {
-			writeError(w, r, http.StatusNotFound, pluginCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin_store_entry", "plugin_id": pluginID})
+			writeError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin_store_entry", "plugin_id": pluginID})
 			return
 		}
 		writeJSON(w, http.StatusOK, detail)
@@ -107,7 +108,7 @@ func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInspectionRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		result, err := routes.Service.Inspect(r.Context(), pluginmarket.InspectionRequest{
@@ -130,7 +131,7 @@ func (routes PluginStoreRoutes) install() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInstallRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		taskID, err := routes.Service.Install(r.Context(), pluginmarket.InstallRequest{
@@ -157,7 +158,7 @@ func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input pluginmarket.SourceInput
 		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		source, err := routes.Service.CreateSource(r.Context(), input)
@@ -173,7 +174,7 @@ func (routes PluginStoreRoutes) updateSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input pluginmarket.SourceInput
 		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		source, err := routes.Service.UpdateSource(r.Context(), chi.URLParam(r, "source_id"), input)
@@ -209,13 +210,13 @@ func (routes PluginStoreRoutes) refreshSource() http.HandlerFunc {
 func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, pluginmarket.ErrEntryNotFound), errors.Is(err, pluginmarket.ErrSourceNotFound):
-		writeError(w, r, http.StatusNotFound, pluginCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", nil)
+		writeError(w, r, pluginCodeResourceNotFound, nil)
 	case errors.Is(err, pluginmarket.ErrSourceImmutable):
-		writeError(w, r, http.StatusConflict, pluginCodeInvalidRequest, "官方插件源不能修改或删除", "errors.platform.invalid_request", nil)
+		writeError(w, r, errorcodes.PluginStoreSourceImmutable, nil)
 	case errors.Is(err, pluginmarket.ErrSourceConflict):
-		writeError(w, r, http.StatusConflict, pluginCodeInvalidRequest, "插件源地址已存在", "errors.platform.invalid_request", nil)
+		writeError(w, r, errorcodes.PluginStoreSourceConflict, nil)
 	case errors.Is(err, pluginmarket.ErrSourceInvalid):
-		writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "插件源名称或地址不合法", "errors.platform.invalid_request", nil)
+		writeError(w, r, pluginCodeInvalidRequest, nil)
 	case errors.Is(err, plugins.ErrTrustedCodeConfirmation),
 		errors.Is(err, plugins.ErrInstallInspectionRequired),
 		errors.Is(err, plugins.ErrInstallInspectionExpired),
@@ -223,11 +224,11 @@ func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, tasks.ErrQueueFull):
 		writePluginInstallError(w, r, err)
 	case pluginmarket.ErrorCode(err) == pluginmarket.CodeCatalogUnavailable:
-		writeError(w, r, http.StatusServiceUnavailable, pluginmarket.CodeCatalogUnavailable, "插件源暂不可用，已保留上次成功结果", "errors.plugin.store_catalog_unavailable", nil)
+		writeError(w, r, pluginmarket.CodeCatalogUnavailable, nil)
 	case pluginmarket.ErrorCode(err) == pluginmarket.CodeReleaseUnavailable:
-		writeError(w, r, http.StatusConflict, pluginmarket.CodeReleaseUnavailable, "当前平台没有可安装的插件产物", "errors.plugin.store_release_unavailable", nil)
+		writeError(w, r, pluginmarket.CodeReleaseUnavailable, nil)
 	case pluginmarket.ErrorCode(err) == pluginmarket.CodeIntegrityMismatch || pluginservice.InstallErrorCode(err) == pluginmarket.CodeIntegrityMismatch:
-		writeError(w, r, http.StatusConflict, pluginmarket.CodeIntegrityMismatch, "插件产物摘要或身份与目录不一致", "errors.plugin.store_integrity_mismatch", nil)
+		writeError(w, r, pluginmarket.CodeIntegrityMismatch, nil)
 	default:
 		writePluginInstallError(w, r, err)
 	}

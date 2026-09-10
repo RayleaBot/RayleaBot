@@ -8,7 +8,7 @@ response:
   status: 404
   body:
     error:
-      code: platform.resource_missing
-      message: 缺少必要资源
-      message_key: errors.platform.resource_missing
+      code: platform.resource_not_found
+      message: "请求的资源不存在"
+      message_key: errors.platform.resource_not_found
       request_id: req_task_missing

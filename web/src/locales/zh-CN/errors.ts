@@ -1,41 +1,12 @@
+import { errorMessages } from '@/types/error-codes.generated'
+
 export const errors = {
-  adapter: {
-    sendUnconfirmed: '消息发送结果未确认，可能仍会送达；未自动重发。',
-    messageQuotaExceeded: '主动推送额度已用完。回复收到的消息不占用该额度。',
-    replyWindowExpired: '这条消息已超过可回复的时限，无法再回复。',
-    capabilityUnsupported: '当前适配器不支持该操作或消息类型。',
-  },
+  ...errorMessages,
   common: {
     actionFailed: '操作未完成，请稍后重试。',
     loadFailed: '读取未完成，请稍后重试。',
-  },
-  permission: {
-    currentSecretInvalid: '当前密码不正确，请重新输入。',
-    denied: '当前会话无权执行该操作。',
-    blacklisted: '当前用户或群处于黑名单中。',
-    notWhitelisted: '当前用户或群不在白名单中。',
-  },
-  platform: {
-    invalidRequest: '请求参数不正确，请检查后重试。',
-    notFound: '请求的资源不存在或已被移除。',
-    thirdPartyAccountNotFound: '三方账号不存在或尚未配置凭据。',
-    resourceMissing: '缺少必要资源，请检查当前环境。',
-    taskQueueFull: '后台任务队列已满，请稍后重试。',
-    templateNotFound: '模板不存在。',
-  },
-  plugin: {
-    eventCanceled: '插件事件处理已取消；未自动重试。',
-    installFailed: '插件安装失败。',
-    installInspectionRequired: '请先检查插件包并确认信任。',
-    installInspectionExpired: '插件包检查结果已过期，请重新检查插件包。',
-    installDigestMismatch: '插件包与检查结果不一致，请重新检查插件包。',
-    trustedCodeConfirmationRequired: '必须确认该插件将作为完全可信的本地代码运行。',
-    packageResourceLimitExceeded: '插件包超过资源限制。',
-    packageUnsafeEntry: '插件包包含不安全文件。',
-    artifactInvalid: '插件产物结构或入口校验失败。',
-    platformMismatch: '插件产物与当前平台不匹配，请选择适用于当前系统和架构的插件包。',
-    storeCatalogUnavailable: '插件商店目录暂不可用，请稍后重试。',
-    storeReleaseUnavailable: '当前平台没有可安装的插件商店产物。',
-    storeIntegrityMismatch: '插件商店产物与目录摘要不一致。',
+    saveFailed: '保存未完成，请稍后重试。',
+    requestCancelled: '请求已取消。',
+    requestTimeout: '请求超时，请稍后重试。',
   },
 } as const

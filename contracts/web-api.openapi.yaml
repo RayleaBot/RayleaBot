@@ -46,6 +46,7 @@ x-fixtures:
   - fixtures/web-api/ok.protocol-onebot11-compatibility.yaml
   - fixtures/web-api/ok.adapter-reverse-ws-upgrade.yaml
   - fixtures/web-api/ok.adapter-webhook-accepted.yaml
+  - fixtures/web-api/edge.adapter-webhook-disabled.yaml
   - fixtures/web-api/ok.system-shutdown.yaml
   - fixtures/web-api/ok.system-backup-accepted.yaml
   - fixtures/web-api/ok.system-recovery-recheck-accepted.yaml

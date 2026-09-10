@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
 
@@ -15,7 +16,7 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := ClaimsFromContext(r.Context())
 		if !ok {
-			writePermissionDenied(w, r)
+			writeAuthenticationRequired(w, r)
 			return
 		}
 		var request struct {
@@ -25,18 +26,18 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 		}
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.CurrentSecret == "" ||
 			utf8.RuneCountInString(request.NewSecret) < 8 || utf8.RuneCountInString(request.NewSecret) > 1024 {
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 		identifier := ""
 		if len(request.NewIdentifier) > 0 && (string(request.NewIdentifier) == "null" || json.Unmarshal(request.NewIdentifier, &identifier) != nil || utf8.RuneCountInString(identifier) > 128) {
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 		cfg := h.currentConfig()
 		sourceIP := httpapi.RequestRemoteIP(r)
 		if h.loginFailures != nil && !h.loginFailures.Reserve(sourceIP, cfg.LoginFailureLimit, cfg.LoginFailureWindow) {
-			httpapi.WriteError(w, r, http.StatusTooManyRequests, "platform.rate_limited", "触发平台级限流", "errors.platform.rate_limited", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformRateLimited, nil)
 			return
 		}
 		err := h.auth.UpdateCredentialsWithContext(r.Context(), claims, request.CurrentSecret, request.NewSecret, identifier)
@@ -50,13 +51,13 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 				SameSite: http.SameSiteStrictMode, MaxAge: -1, Expires: time.Unix(1, 0)})
 			w.WriteHeader(http.StatusNoContent)
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			writeAuthError(w, r, http.StatusForbidden, "permission.current_secret_invalid", "当前密码不正确", "errors.permission.current_secret_invalid")
+			writeAuthError(w, r, errorcodes.PermissionCurrentSecretInvalid)
 		case errors.Is(err, auth.ErrInvalidToken), errors.Is(err, auth.ErrExpiredToken):
-			writePermissionDenied(w, r)
+			writeAuthenticationRequired(w, r)
 		case errors.Is(err, auth.ErrInvalidCredentialInput):
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 		default:
-			writeAuthError(w, r, http.StatusInternalServerError, authCodeInternalError, "内部错误", "errors.platform.internal_error")
+			writeAuthError(w, r, authCodeInternalError)
 		}
 	}
 }

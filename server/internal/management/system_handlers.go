@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -53,56 +54,41 @@ type SchedulerEngineService interface {
 }
 
 const (
-	systemCodePermissionDenied = "permission.denied"
-	systemCodeInvalidRequest   = "platform.invalid_request"
-	systemCodeResourceMissing  = "platform.resource_missing"
-	systemCodeInternalError    = "platform.internal_error"
-	systemCodeTaskQueueFull    = "platform.task_queue_full"
+	systemCodePermissionDenied = errorcodes.PermissionDenied
+	systemCodeInvalidRequest   = errorcodes.PlatformInvalidRequest
+	systemCodeResourceMissing  = errorcodes.PlatformResourceNotFound
+	systemCodeInternalError    = errorcodes.PlatformInternalError
+	systemCodeTaskQueueFull    = errorcodes.PlatformTaskQueueFull
 )
 
 type SystemHTTPError struct {
-	statusCode int
-	code       string
-	message    string
-	messageKey string
-	details    map[string]any
+	code    string
+	details map[string]any
 }
 
 func InternalSystemHTTPError() *SystemHTTPError {
 	return &SystemHTTPError{
-		statusCode: http.StatusInternalServerError,
-		code:       systemCodeInternalError,
-		message:    "内部错误",
-		messageKey: "errors.platform.internal_error",
+		code: systemCodeInternalError,
 	}
 }
 
 func InvalidSystemHTTPError(details map[string]any) *SystemHTTPError {
 	return &SystemHTTPError{
-		statusCode: http.StatusBadRequest,
-		code:       systemCodeInvalidRequest,
-		message:    "请求参数不合法",
-		messageKey: "errors.platform.invalid_request",
-		details:    details,
+		code:    systemCodeInvalidRequest,
+		details: details,
 	}
 }
 
 func MissingSystemResourceHTTPError(details map[string]any) *SystemHTTPError {
 	return &SystemHTTPError{
-		statusCode: http.StatusNotFound,
-		code:       systemCodeResourceMissing,
-		message:    "缺少必要资源",
-		messageKey: "errors.platform.resource_missing",
-		details:    details,
+		code:    systemCodeResourceMissing,
+		details: details,
 	}
 }
 
 func TaskQueueFullSystemHTTPError() *SystemHTTPError {
 	return &SystemHTTPError{
-		statusCode: http.StatusTooManyRequests,
-		code:       systemCodeTaskQueueFull,
-		message:    "任务队列已满，请稍后重试",
-		messageKey: "errors.platform.task_queue_full",
+		code: systemCodeTaskQueueFull,
 	}
 }
 
@@ -110,7 +96,7 @@ func WriteSystemHTTPError(w http.ResponseWriter, r *http.Request, err *SystemHTT
 	if err == nil {
 		return
 	}
-	httpapi.WriteError(w, r, err.statusCode, err.code, err.message, err.messageKey, err.details)
+	httpapi.WriteError(w, r, err.code, err.details)
 }
 
 func WriteSystemError(w http.ResponseWriter, r *http.Request, err *systemsvc.Error) {
@@ -164,7 +150,7 @@ func (h *SystemHandlers) CurrentReadiness() health.ReadinessReport {
 func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.system == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 
@@ -174,7 +160,7 @@ func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 				WriteSystemHTTPError(w, r, TaskQueueFullSystemHTTPError())
 				return
 			}
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 
@@ -185,7 +171,7 @@ func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 func (h *SystemHandlers) HandleSystemDiagnostics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.system == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, h.system.DiagnosticsSnapshot(r.Context()))
@@ -195,12 +181,12 @@ func (h *SystemHandlers) HandleSystemDiagnostics() http.HandlerFunc {
 func (h *SystemHandlers) HandleSystemDiagnosticsExport() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.system == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 		archive, err := h.system.BuildDiagnosticsArchive(r.Context())
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 
@@ -214,19 +200,19 @@ func (h *SystemHandlers) HandleSystemDiagnosticsExport() http.HandlerFunc {
 func (h *SystemHandlers) HandleSystemRuntimeBootstrap() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.system == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 
 		req, err := decodeRuntimeBootstrapRequest(w, r)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, systemCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, systemCodeInvalidRequest, nil)
 			return
 		}
 
 		resources, ok := normalizeRuntimeBootstrapResources(req.Resources)
 		if !ok {
-			httpapi.WriteError(w, r, http.StatusBadRequest, systemCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, systemCodeInvalidRequest, nil)
 			return
 		}
 
@@ -236,7 +222,7 @@ func (h *SystemHandlers) HandleSystemRuntimeBootstrap() http.HandlerFunc {
 				WriteSystemHTTPError(w, r, TaskQueueFullSystemHTTPError())
 				return
 			}
-			httpapi.WriteError(w, r, http.StatusInternalServerError, systemCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, systemCodeInternalError, nil)
 			return
 		}
 

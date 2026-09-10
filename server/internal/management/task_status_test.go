@@ -38,7 +38,7 @@ func TestTaskStatusReturnsLifecycleWithoutPrivateTaskDetails(t *testing.T) {
 	}
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/system/tasks/missing", nil))
-	if response.Code != 404 || !strings.Contains(response.Body.String(), "platform.resource_missing") {
+	if response.Code != 404 || !strings.Contains(response.Body.String(), "platform.resource_not_found") {
 		t.Fatalf("missing task: %d %s", response.Code, response.Body.String())
 	}
 }

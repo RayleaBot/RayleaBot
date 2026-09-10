@@ -191,7 +191,7 @@ func TestRenderTemplateAssetHandlerStreamsAllowedResourceAndRejectsSources(t *te
 		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
 			t.Fatalf("decode error response for %q: %v", path, err)
 		}
-		if body["error"]["code"] != "platform.resource_missing" {
+		if body["error"]["code"] != "platform.resource_not_found" {
 			t.Fatalf("unexpected error response for %q: %#v", path, body)
 		}
 	}

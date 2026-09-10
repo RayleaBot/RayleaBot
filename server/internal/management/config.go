@@ -8,10 +8,11 @@ import (
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
 
-const codeInvalidRequest = "platform.invalid_request"
+const codeInvalidRequest = errorcodes.PlatformInvalidRequest
 
 type ConfigResponse struct {
 	EffectiveTimezone string         `json:"effective_timezone"`
@@ -56,13 +57,13 @@ func (h *ConfigHandlers) HandleConfigPut() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request map[string]any
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, codeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, codeInvalidRequest, nil)
 			return
 		}
 
 		response, err := h.config.UpdateConfigDocument(r.Context(), request)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_config", "配置校验失败", "errors.platform.invalid_config", configValidationDetails(err))
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidConfig, configValidationDetails(err))
 			return
 		}
 

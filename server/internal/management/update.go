@@ -58,20 +58,20 @@ func (h *UpdateHandlers) HandleStatus() http.HandlerFunc {
 func (h *UpdateHandlers) HandleCheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h == nil || h.service == nil {
-			httpapi.WriteError(w, r, http.StatusConflict, releaseupdate.CodeTrustRequired, "当前安装不具备受信任更新基线", "errors.release.trust_required", nil)
+			httpapi.WriteError(w, r, releaseupdate.CodeTrustRequired, nil)
 			return
 		}
 		snapshot, err := h.service.Check(r.Context())
 		if err != nil {
 			if errors.Is(err, releaseupdate.ErrCheckInProgress) {
-				httpapi.WriteError(w, r, http.StatusTooManyRequests, systemCodeTaskQueueFull, "更新检查正在进行，请稍后重试", "errors.platform.task_queue_full", nil)
+				httpapi.WriteError(w, r, systemCodeTaskQueueFull, nil)
 				return
 			}
 			code := releaseupdate.CodeOf(err)
 			if code == "" {
 				code = releaseupdate.CodeManifestInvalid
 			}
-			httpapi.WriteError(w, r, http.StatusConflict, code, "无法确认受信任的更新", "errors."+code, nil)
+			httpapi.WriteError(w, r, code, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, responseFromUpdateSnapshot(snapshot))

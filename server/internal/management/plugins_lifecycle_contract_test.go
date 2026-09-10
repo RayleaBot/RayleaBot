@@ -115,7 +115,7 @@ func TestUninstallPluginRejectsNotFound(t *testing.T) {
 
 	body := decodeBody(t, recorder.Body.Bytes())
 	errorBody := body["error"].(map[string]any)
-	if errorBody["code"] != "platform.resource_missing" {
+	if errorBody["code"] != "platform.resource_not_found" {
 		t.Fatalf("unexpected error code: %v", errorBody["code"])
 	}
 }

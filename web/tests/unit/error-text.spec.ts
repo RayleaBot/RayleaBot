@@ -10,19 +10,19 @@ function hasChineseText(value: string) {
 
 describe('error text helpers', () => {
   it.each([
-    ['platform.task_queue_full', 'errors.platform.taskQueueFull'],
-    ['plugin.install_failed', 'errors.plugin.installFailed'],
-    ['plugin.install_inspection_required', 'errors.plugin.installInspectionRequired'],
-    ['plugin.install_inspection_expired', 'errors.plugin.installInspectionExpired'],
-    ['plugin.install_digest_mismatch', 'errors.plugin.installDigestMismatch'],
-    ['plugin.trusted_code_confirmation_required', 'errors.plugin.trustedCodeConfirmationRequired'],
-    ['plugin.package_resource_limit_exceeded', 'errors.plugin.packageResourceLimitExceeded'],
-    ['plugin.package_unsafe_entry', 'errors.plugin.packageUnsafeEntry'],
-    ['plugin.artifact_invalid', 'errors.plugin.artifactInvalid'],
-    ['plugin.platform_mismatch', 'errors.plugin.platformMismatch'],
-    ['plugin.store_catalog_unavailable', 'errors.plugin.storeCatalogUnavailable'],
-    ['plugin.store_release_unavailable', 'errors.plugin.storeReleaseUnavailable'],
-    ['plugin.store_integrity_mismatch', 'errors.plugin.storeIntegrityMismatch'],
+    ['platform.task_queue_full', 'errors.platform.task_queue_full'],
+    ['plugin.install_failed', 'errors.plugin.install_failed'],
+    ['plugin.install_inspection_required', 'errors.plugin.install_inspection_required'],
+    ['plugin.install_inspection_expired', 'errors.plugin.install_inspection_expired'],
+    ['plugin.install_digest_mismatch', 'errors.plugin.install_digest_mismatch'],
+    ['plugin.trusted_code_confirmation_required', 'errors.plugin.trusted_code_confirmation_required'],
+    ['plugin.package_resource_limit_exceeded', 'errors.plugin.package_resource_limit_exceeded'],
+    ['plugin.package_unsafe_entry', 'errors.plugin.package_unsafe_entry'],
+    ['plugin.artifact_invalid', 'errors.plugin.artifact_invalid'],
+    ['plugin.platform_mismatch', 'errors.plugin.platform_mismatch'],
+    ['plugin.store_catalog_unavailable', 'errors.plugin.store_catalog_unavailable'],
+    ['plugin.store_release_unavailable', 'errors.plugin.store_release_unavailable'],
+    ['plugin.store_integrity_mismatch', 'errors.plugin.store_integrity_mismatch'],
   ])('preserves the recovery message for %s through its code or message key', (code, localeKey) => {
     const codeError = new ApiError('内部中文诊断', 409, code, undefined, { error: '详细诊断' })
     const keyError = new ApiError('内部中文诊断', 409, undefined, undefined, undefined, `errors.${code}`)

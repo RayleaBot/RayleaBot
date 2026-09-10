@@ -7,14 +7,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
 const (
-	renderCodeInvalidRequest  = "platform.invalid_request"
-	renderCodeResourceMissing = "platform.resource_missing"
-	renderCodeInternalError   = "platform.internal_error"
+	renderCodeInvalidRequest  = errorcodes.PlatformInvalidRequest
+	renderCodeResourceMissing = errorcodes.PlatformResourceNotFound
+	renderCodeInternalError   = errorcodes.PlatformInternalError
 )
 
 type RenderHandlers struct {
@@ -96,7 +97,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplateList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		items, err := h.renderer.ListTemplates(r.Context())
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, renderCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, renderCodeInternalError, nil)
 			return
 		}
 
@@ -129,14 +130,14 @@ func (h *RenderHandlers) HandleSystemRenderTemplateDetail() http.HandlerFunc {
 func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.renderer == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, renderCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, renderCodeInternalError, nil)
 			return
 		}
 
 		templateID := chi.URLParam(r, "template_id")
 		var request renderPreviewHTMLRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Data == nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, renderCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, renderCodeInvalidRequest, nil)
 			return
 		}
 
@@ -157,7 +158,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFun
 func (h *RenderHandlers) HandleSystemRenderTemplateAsset() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.renderer == nil {
-			httpapi.WriteError(w, r, http.StatusNotFound, renderCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, renderCodeResourceMissing, map[string]any{
 				"resource_type": "render_template_asset",
 			})
 			return
@@ -236,22 +237,22 @@ func renderStringPtr(value string) *string {
 func writeRenderTemplateError(w http.ResponseWriter, r *http.Request, err error) {
 	renderErr, ok := renderservice.AsTemplateError(err)
 	if !ok {
-		httpapi.WriteError(w, r, http.StatusInternalServerError, renderCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+		httpapi.WriteError(w, r, renderCodeInternalError, nil)
 		return
 	}
 
 	switch renderErr.Code {
-	case "platform.template_not_found":
-		httpapi.WriteError(w, r, http.StatusNotFound, renderErr.Code, "模板不存在", "errors.platform.template_not_found", nil)
-	case "platform.invalid_request":
-		httpapi.WriteError(w, r, http.StatusBadRequest, renderErr.Code, "请求参数不合法", "errors.platform.invalid_request", nil)
-	case "platform.render_input_too_large":
-		httpapi.WriteError(w, r, http.StatusRequestEntityTooLarge, renderErr.Code, "渲染输入超过大小限制", "errors.platform.render_input_too_large", nil)
-	case "platform.resource_missing":
-		httpapi.WriteError(w, r, http.StatusNotFound, renderErr.Code, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+	case errorcodes.PlatformTemplateNotFound:
+		httpapi.WriteError(w, r, renderErr.Code, nil)
+	case errorcodes.PlatformInvalidRequest:
+		httpapi.WriteError(w, r, renderErr.Code, nil)
+	case errorcodes.PlatformRenderInputTooLarge:
+		httpapi.WriteError(w, r, renderErr.Code, nil)
+	case errorcodes.PlatformResourceMissing:
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, map[string]any{
 			"resource_type": "render_template_asset",
 		})
 	default:
-		httpapi.WriteError(w, r, http.StatusInternalServerError, renderCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+		httpapi.WriteError(w, r, renderCodeInternalError, nil)
 	}
 }

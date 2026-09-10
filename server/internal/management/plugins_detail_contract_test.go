@@ -83,7 +83,7 @@ func TestGetPluginReturns404WhenMissing(t *testing.T) {
 		t.Fatalf("status = %d", recorder.Code)
 	}
 	body := decodeBody(t, recorder.Body.Bytes())
-	if body["error"].(map[string]any)["code"] != "platform.resource_missing" {
+	if body["error"].(map[string]any)["code"] != "platform.resource_not_found" {
 		t.Fatalf("body = %#v", body)
 	}
 }

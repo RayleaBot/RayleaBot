@@ -1,0 +1,30 @@
+contract: contracts/web-api.openapi.yaml
+case: edge
+description: A disabled or unavailable adapter webhook reports transport availability
+  independently of payload validity.
+request:
+  method: POST
+  path: /api/adapters/onebot11/webhook
+  headers:
+    Authorization: Bearer masked-token
+  body:
+    post_type: message
+    message_type: private
+    self_id: 30003
+    user_id: 20001
+    message_id: 1001
+    raw_message: hello
+    message:
+    - type: text
+      data:
+        text: hello
+response:
+  status: 503
+  body:
+    error:
+      code: adapter.transport_unavailable
+      message: 适配器传输当前不可用
+      message_key: errors.adapter.transport_unavailable
+      request_id: req_fixture_unavailable
+expect:
+  valid: true

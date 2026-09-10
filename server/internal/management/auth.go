@@ -11,13 +11,14 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 )
 
 const (
-	authCodePermissionDenied = "permission.denied"
-	authCodeInvalidRequest   = "platform.invalid_request"
-	authCodeInternalError    = "platform.internal_error"
+	authCodePermissionDenied = errorcodes.PermissionDenied
+	authCodeInvalidRequest   = errorcodes.PlatformInvalidRequest
+	authCodeInternalError    = errorcodes.PlatformInternalError
 )
 
 type AuthConfig struct {
@@ -95,26 +96,26 @@ func (h *AuthHandlers) HandleSetupAdmin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := h.currentConfig()
 		if !validSetupRequest(r, cfg) {
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		}
 		if cfg.SetupLocalOnly && !isLoopbackRequest(r) {
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		}
 
 		var request authRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 		transport, ok := sessionTransport(r)
 		if !ok {
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 		if h.setupToken == nil || !h.setupToken.Consume(strings.TrimSpace(r.Header.Get(SetupTokenHeader))) {
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		}
 
@@ -124,10 +125,10 @@ func (h *AuthHandlers) HandleSetupAdmin() http.HandlerFunc {
 			h.writeSessionResponse(w, token, claims, transport, cfg)
 			return
 		case errors.Is(err, auth.ErrBootstrapAlreadyInitialized), errors.Is(err, auth.ErrSessionLimitReached):
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		default:
-			httpapi.WriteError(w, r, http.StatusInternalServerError, authCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, authCodeInternalError, nil)
 			return
 		}
 	}
@@ -137,23 +138,23 @@ func (h *AuthHandlers) HandleSessionLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := h.currentConfig()
 		if !validRequestHost(r, cfg.AllowedHosts) || !validRequestOrigin(r, cfg.AllowedOrigins, false) {
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		}
 		var request authRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 		transport, ok := sessionTransport(r)
 		if !ok {
-			writeAuthError(w, r, http.StatusBadRequest, authCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request")
+			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 
 		sourceIP := httpapi.RequestRemoteIP(r)
 		if h.loginFailures != nil && !h.loginFailures.Reserve(sourceIP, cfg.LoginFailureLimit, cfg.LoginFailureWindow) {
-			httpapi.WriteError(w, r, http.StatusTooManyRequests, "platform.rate_limited", "触发平台级限流", "errors.platform.rate_limited", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformRateLimited, nil)
 			return
 		}
 
@@ -166,13 +167,13 @@ func (h *AuthHandlers) HandleSessionLogin() http.HandlerFunc {
 			h.writeSessionResponse(w, token, claims, transport, cfg)
 			return
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		case errors.Is(err, auth.ErrSessionLimitReached):
-			writeAuthError(w, r, http.StatusForbidden, authCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeAuthError(w, r, authCodePermissionDenied)
 			return
 		default:
-			httpapi.WriteError(w, r, http.StatusInternalServerError, authCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, authCodeInternalError, nil)
 			return
 		}
 	}
@@ -222,8 +223,8 @@ func LoginFailureWindow(cfg config.Config) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
-func writeAuthError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string) {
-	httpapi.WriteError(w, r, statusCode, code, message, messageKey, nil)
+func writeAuthError(w http.ResponseWriter, r *http.Request, code string) {
+	httpapi.WriteError(w, r, code, nil)
 }
 
 // claimsKey is an unexported type used as the context key for storing auth.Claims,
@@ -247,7 +248,7 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 				cfg = source.AuthConfig()
 			}
 			if !validRequestHost(r, cfg.AllowedHosts) {
-				writePermissionDenied(w, r)
+				writeAuthenticationRequired(w, r)
 				return
 			}
 
@@ -255,12 +256,12 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 			if isWebSocket {
 				if strings.TrimSpace(r.URL.Query().Get("session_token")) != "" ||
 					!validRequestOrigin(r, cfg.AllowedOrigins, true) {
-					writePermissionDenied(w, r)
+					writeAuthenticationRequired(w, r)
 					return
 				}
 				authority, ok := normalizedOriginAuthority(r.Header.Get("Origin"))
 				if !ok {
-					writePermissionDenied(w, r)
+					writeAuthenticationRequired(w, r)
 					return
 				}
 				r = r.WithContext(context.WithValue(r.Context(), webSocketOriginAuthorityKey{}, authority))
@@ -276,7 +277,7 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 				}
 			}
 			if strings.TrimSpace(token) == "" {
-				writePermissionDenied(w, r)
+				writeAuthenticationRequired(w, r)
 				return
 			}
 
@@ -287,14 +288,14 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 			}
 			claims, err := authManager.ValidateWithContext(r.Context(), token)
 			if err != nil {
-				writePermissionDenied(w, r)
+				writeAuthenticationRequired(w, r)
 				return
 			}
 			if cookieAuthenticated {
 				w.Header().Set(CSRFHeader, authManager.CSRFToken(claims))
 				if isStateChangingMethod(r.Method) {
 					if !validRequestOrigin(r, cfg.AllowedOrigins, true) || !authManager.ValidateCSRF(claims, r.Header.Get(CSRFHeader)) {
-						writePermissionDenied(w, r)
+						writeAuthenticationRequired(w, r)
 						return
 					}
 				}
@@ -344,14 +345,12 @@ func extractBearerToken(r *http.Request) string {
 	return header[len(prefix):]
 }
 
-func writePermissionDenied(w http.ResponseWriter, r *http.Request) {
+func writeAuthenticationRequired(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteError(
 		w,
 		r,
-		http.StatusUnauthorized,
-		authCodePermissionDenied,
-		"当前用户无权执行该操作",
-		"errors.permission.denied",
+		errorcodes.PermissionAuthenticationRequired,
+
 		nil,
 	)
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
@@ -14,8 +15,8 @@ import (
 )
 
 const (
-	thirdPartyCodeInvalidRequest = "platform.invalid_request"
-	thirdPartyCodeInternalError  = "platform.internal_error"
+	thirdPartyCodeInvalidRequest = errorcodes.PlatformInvalidRequest
+	thirdPartyCodeInternalError  = errorcodes.PlatformInternalError
 )
 
 type ThirdPartyHandlers struct {
@@ -157,7 +158,7 @@ func (h *ThirdPartyHandlers) RegisterProtectedRoutes(router chi.Router) {
 func (h *ThirdPartyHandlers) HandleThirdPartyAccountValidate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.accountValidation == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方账号检查不可用", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, thirdPartyCodeInternalError, nil)
 			return
 		}
 		account, err := h.accountValidation.ValidateAccount(
@@ -178,7 +179,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		accounts, err := h.accounts.List(r.Context())
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "三方账号读取失败", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, thirdPartyAccountsResponse{Items: accountSummaries(accounts)})
@@ -189,7 +190,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyAccountUpsert() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body thirdPartyAccountUpsertRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &body, httpapi.MaxManagementJSONBodyBytes); err != nil || body.Label == nil || body.Enabled == nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求格式不正确", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		account, err := h.accounts.Upsert(r.Context(), thirdparty.UpsertRequest{
@@ -233,35 +234,32 @@ func (h *ThirdPartyHandlers) credentialValidator(platform string) func(context.C
 
 func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, thirdparty.ErrInvalidAccount) {
-		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "三方账号参数不正确", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code:        "platform.upstream_request_failed",
-		HTTPStatus:  http.StatusBadGateway,
-		SafeMessage: "三方账号保存失败",
-		MessageKey:  "errors.platform.upstream_request_failed",
-		Details:     map[string]any{"reason": "account_save_failed"},
-		Cause:       err,
+		Code:    errorcodes.PlatformUpstreamRequestFailed,
+		Details: map[string]any{"reason": "account_save_failed"},
+		Cause:   err,
 	})
 }
 
 func writeThirdPartyAccountValidationError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, thirdparty.ErrInvalidAccount) {
-		httpapi.WriteError(w, r, http.StatusBadRequest, thirdPartyCodeInvalidRequest, "三方账号参数不正确", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, thirdPartyCodeInvalidRequest, nil)
 		return
 	}
 	if errors.Is(err, thirdparty.ErrAccountNotFound) {
-		httpapi.WriteError(w, r, http.StatusNotFound, "platform.third_party_account_not_found", "三方账号不存在或尚未配置凭据", "errors.platform.third_party_account_not_found", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformThirdPartyAccountNotFound, nil)
 		return
 	}
-	httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方账号检查失败", "errors.platform.internal_error", nil)
+	httpapi.WriteError(w, r, thirdPartyCodeInternalError, nil)
 }
 
 func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginCreate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.qrLogin == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方扫码登录不可用", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, thirdPartyCodeInternalError, nil)
 			return
 		}
 		result, err := h.qrLogin.Create(r.Context(), chi.URLParam(r, "platform"))
@@ -276,7 +274,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginCreate() http.HandlerFun
 func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginPoll() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.qrLogin == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方扫码登录不可用", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, thirdPartyCodeInternalError, nil)
 			return
 		}
 		result, err := h.qrLogin.Poll(r.Context(), chi.URLParam(r, "platform"), chi.URLParam(r, "login_id"))
@@ -291,7 +289,7 @@ func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginPoll() http.HandlerFunc 
 func (h *ThirdPartyHandlers) HandleThirdPartyQRCodeLoginCancel() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.qrLogin == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, thirdPartyCodeInternalError, "三方扫码登录不可用", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, thirdPartyCodeInternalError, nil)
 			return
 		}
 		if err := h.qrLogin.Cancel(r.Context(), chi.URLParam(r, "platform"), chi.URLParam(r, "login_id")); err != nil {
@@ -329,24 +327,21 @@ func thirdPartyQRCodeLoginPollResponseFrom(result thirdparty.QRLoginPollResult) 
 
 func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err error) {
 	if errors.Is(err, thirdparty.ErrInvalidAccount) || errors.Is(err, thirdparty.ErrQRLoginUnsupportedPlatform) || errors.Is(err, thirdparty.ErrQRLoginSessionNotFound) {
-		httpapi.WriteError(w, r, http.StatusBadRequest, thirdPartyCodeInvalidRequest, "三方扫码登录参数不正确", "errors.platform.invalid_request", nil)
+		httpapi.WriteError(w, r, thirdPartyCodeInvalidRequest, nil)
 		return
 	}
 	if errors.Is(err, thirdparty.ErrQRLoginBrowserUnavailable) {
-		httpapi.WriteError(w, r, http.StatusServiceUnavailable, "platform.resource_missing", "缺少扫码登录浏览器", "errors.platform.resource_missing", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceMissing, nil)
 		return
 	}
 	if errors.Is(err, thirdparty.ErrQRLoginBrowserBusy) {
-		httpapi.WriteError(w, r, http.StatusConflict, "platform.resource_busy", "扫码登录浏览器正被占用，请稍后重试", "errors.platform.resource_busy", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceBusy, nil)
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code:        "platform.upstream_request_failed",
-		HTTPStatus:  http.StatusBadGateway,
-		SafeMessage: "三方扫码登录暂时不可用",
-		MessageKey:  "errors.platform.upstream_request_failed",
-		Details:     map[string]any{"reason": thirdPartyQRCodeLoginErrorReason(err)},
-		Cause:       err,
+		Code:    errorcodes.PlatformUpstreamRequestFailed,
+		Details: map[string]any{"reason": thirdPartyQRCodeLoginErrorReason(err)},
+		Cause:   err,
 	})
 }
 

@@ -61,7 +61,7 @@ func TestUpdateCheckHandlerDoesNotLeakInternalFailure(t *testing.T) {
 	handler := NewUpdateHandlers(&updateServiceStub{err: errors.New("private upstream details")}).HandleCheck()
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/update/check", nil))
-	if recorder.Code != http.StatusConflict {
+	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("status code = %d", recorder.Code)
 	}
 	if body := recorder.Body.String(); body == "" || contains(body, "private upstream details") {

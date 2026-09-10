@@ -44,8 +44,10 @@ func newTaskOnlyHandlers(t *testing.T, repoRoot string) (*SystemHandlers, *tasks
 
 func TestSystemTaskQueueFullMapsToTooManyRequests(t *testing.T) {
 	httpErr := systemHTTPErrorFromError(system.TaskQueueFullError())
-	if httpErr == nil || httpErr.statusCode != http.StatusTooManyRequests || httpErr.code != "platform.task_queue_full" {
-		t.Fatalf("unexpected task queue mapping: %#v", httpErr)
+	response := httptest.NewRecorder()
+	WriteSystemHTTPError(response, httptest.NewRequest("POST", "/", nil), httpErr)
+	if response.Code != http.StatusTooManyRequests || decodeErrorEnvelope(t, response.Body.Bytes()).Error.Code != "platform.task_queue_full" {
+		t.Fatalf("unexpected task queue response: %d %s", response.Code, response.Body.String())
 	}
 }
 
@@ -113,7 +115,7 @@ func TestHandleSystemRecoveryRecheckRejectsMissingSummary(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload["error"].(map[string]any)["code"] != "platform.resource_missing" {
+	if payload["error"].(map[string]any)["code"] != "platform.resource_not_found" {
 		t.Fatalf("unexpected error payload: %#v", payload)
 	}
 }

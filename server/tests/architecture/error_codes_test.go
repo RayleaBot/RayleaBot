@@ -145,14 +145,14 @@ func errorWriterCodeArgIndex(fun ast.Expr) (int, bool) {
 	switch typed := fun.(type) {
 	case *ast.Ident:
 		switch typed.Name {
-		case "writeAppError", "writeAuthError", "writeError":
-			return 3, true
+		case "writeAuthError", "writeCoreAuthError", "writeError":
+			return 2, true
 		default:
 			return 0, false
 		}
 	case *ast.SelectorExpr:
 		if selectorIdentName(typed.X) == "httpapi" && typed.Sel.Name == "WriteError" {
-			return 3, true
+			return 2, true
 		}
 	}
 	return 0, false

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
@@ -52,7 +53,7 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsGet() http.HandlerFunc 
 
 		values, err := h.effectiveSettings(r.Context(), snapshot)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 
@@ -70,25 +71,25 @@ func (h *PluginManagementUIHandlers) HandlePluginSettingsPut() http.HandlerFunc 
 			return
 		}
 		if h.pluginConfig == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 
 		var req pluginSettingsRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || req.Values == nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 
 		changedKeys, err := h.pluginConfig.Write(r.Context(), snapshot.PluginID, req.Values)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 
 		values, err := h.effectiveSettings(r.Context(), snapshot)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 

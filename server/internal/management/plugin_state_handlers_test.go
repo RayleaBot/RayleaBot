@@ -20,8 +20,8 @@ func TestDesiredStateHandlersDelegateToLifecycle(t *testing.T) {
 			code   string
 		}{
 			{"accepted", nil, 200, ""},
-			{"missing", plugins.ErrPluginNotFound, 404, "platform.resource_missing"},
-			{"conflict", plugins.ErrStateConflict, 409, "platform.invalid_request"},
+			{"missing", plugins.ErrPluginNotFound, 404, "platform.resource_not_found"},
+			{"conflict", plugins.ErrStateConflict, 409, "platform.state_conflict"},
 			{"storage failure", errors.New("storage unavailable"), 500, "platform.internal_error"},
 		} {
 			t.Run(action+"/"+tc.name, func(t *testing.T) {

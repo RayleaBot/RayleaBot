@@ -199,7 +199,9 @@ jobs:
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
       - name: Validate contracts strictly
-        run: python scripts/ci/validate_contracts.py --mode=strict
+        run: |
+          python scripts/generate-error-codes.py --verify
+          python scripts/ci/validate_contracts.py --mode=strict
 
   dependency-audit:
     runs-on: ubuntu-latest

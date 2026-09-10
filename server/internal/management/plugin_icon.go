@@ -40,7 +40,7 @@ func newPluginIconHandler(catalog plugins.CatalogView) http.HandlerFunc {
 
 func writePluginIconMissing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-store")
-	writeError(w, r, http.StatusNotFound, pluginCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", nil)
+	writeError(w, r, pluginCodeResourceNotFound, nil)
 }
 
 func readPluginIcon(snapshot plugins.Snapshot) ([]byte, string) {

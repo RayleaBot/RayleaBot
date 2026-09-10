@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -16,8 +17,8 @@ import (
 )
 
 const (
-	coreCodePermissionDenied = "permission.denied"
-	coreCodeInternalError    = "platform.internal_error"
+	coreCodePermissionDenied = errorcodes.PermissionDenied
+	coreCodeInternalError    = errorcodes.PlatformInternalError
 )
 
 type CoreHandlers struct {
@@ -97,11 +98,11 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := ClaimsFromContext(r.Context())
 		if !ok || claims.SessionID == "" {
-			writeCoreAuthError(w, r, http.StatusUnauthorized, coreCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeCoreAuthError(w, r, errorcodes.PermissionAuthenticationRequired)
 			return
 		}
 		if err := h.auth.RevokeWithContext(r.Context(), claims.SessionID); err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, coreCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, coreCodeInternalError, nil)
 			return
 		}
 		http.SetCookie(w, &http.Cookie{
@@ -121,7 +122,7 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 func (h *CoreHandlers) HandleLauncherStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.validLauncherControlRequest(r) {
-			writeCoreAuthError(w, r, http.StatusForbidden, coreCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeCoreAuthError(w, r, coreCodePermissionDenied)
 			return
 		}
 
@@ -146,7 +147,7 @@ func (h *CoreHandlers) HandleSystemShutdown() http.HandlerFunc {
 func (h *CoreHandlers) HandleLauncherShutdown() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.validLauncherControlRequest(r) {
-			writeCoreAuthError(w, r, http.StatusForbidden, coreCodePermissionDenied, "当前用户无权执行该操作", "errors.permission.denied")
+			writeCoreAuthError(w, r, coreCodePermissionDenied)
 			return
 		}
 
@@ -221,6 +222,6 @@ func hasForwardingHeaders(r *http.Request) bool {
 	return false
 }
 
-func writeCoreAuthError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string) {
-	httpapi.WriteError(w, r, statusCode, code, message, messageKey, nil)
+func writeCoreAuthError(w http.ResponseWriter, r *http.Request, code string) {
+	httpapi.WriteError(w, r, code, nil)
 }

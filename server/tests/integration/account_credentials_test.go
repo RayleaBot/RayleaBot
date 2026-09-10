@@ -104,9 +104,9 @@ func TestAccountCredentialChangeAdmissionAndReauthentication(t *testing.T) {
 		want                            int
 		code                            string
 	}{
-		{name: "anonymous", body: payload, want: 401, code: "permission.denied"},
-		{name: "cookie without CSRF", token: token, origin: "http://127.0.0.1:8080", body: payload, cookie: true, want: 401, code: "permission.denied"},
-		{name: "foreign origin", token: token, csrf: csrf, origin: "https://example.invalid", body: payload, cookie: true, want: 401, code: "permission.denied"},
+		{name: "anonymous", body: payload, want: 401, code: "permission.authentication_required"},
+		{name: "cookie without CSRF", token: token, origin: "http://127.0.0.1:8080", body: payload, cookie: true, want: 401, code: "permission.authentication_required"},
+		{name: "foreign origin", token: token, csrf: csrf, origin: "https://example.invalid", body: payload, cookie: true, want: 401, code: "permission.authentication_required"},
 		{name: "wrong password", token: token, body: `{"current_secret":"wrong","new_secret":"fixture-new-password"}`, want: 403, code: "permission.current_secret_invalid"},
 		{name: "short password", token: token, body: `{"current_secret":"fixture-old-password","new_secret":"short"}`, want: 400, code: "platform.invalid_request"},
 		{name: "null username", token: token, body: `{"current_secret":"fixture-old-password","new_secret":"fixture-new-password","new_identifier":null}`, want: 400, code: "platform.invalid_request"},

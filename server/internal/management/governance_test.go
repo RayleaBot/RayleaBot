@@ -1,10 +1,10 @@
 package management
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,7 +46,7 @@ func (s *stubBlacklistRepo) Add(_ context.Context, scope chatevent.IdentityScope
 		s.entries[entryType] = make(map[string]permission.Entry)
 	}
 	s.entries[entryType][targetID] = permission.Entry{
-		Scope: scope,
+		Scope:     scope,
 		EntryType: entryType,
 		TargetID:  targetID,
 		Reason:    reason,
@@ -98,7 +98,7 @@ func (s *stubWhitelistRepo) Add(_ context.Context, scope chatevent.IdentityScope
 		s.entries[entryType] = make(map[string]permission.Entry)
 	}
 	s.entries[entryType][targetID] = permission.Entry{
-		Scope: scope,
+		Scope:     scope,
 		EntryType: entryType,
 		TargetID:  targetID,
 		Reason:    reason,

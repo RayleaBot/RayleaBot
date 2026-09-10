@@ -8,6 +8,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
@@ -16,7 +17,7 @@ type protocolAcceptedResponse struct {
 	Accepted bool `json:"accepted"`
 }
 
-const protocolCodeInvalidRequest = "platform.invalid_request"
+const protocolCodeInvalidRequest = errorcodes.PlatformInvalidRequest
 
 type oneBot11IdentityResolveRequest struct {
 	Items []wsevents.OneBot11IdentityResolveItem `json:"items"`
@@ -70,7 +71,7 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11IdentitiesResolve() http.Handle
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body oneBot11IdentityResolveRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &body, httpapi.MaxManagementJSONBodyBytes); err != nil || len(body.Items) == 0 || len(body.Items) > 100 {
-			httpapi.WriteError(w, r, http.StatusBadRequest, protocolCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, protocolCodeInvalidRequest, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, h.protocol.ResolveOneBot11Identities(r.Context(), body.Items))
@@ -81,7 +82,7 @@ func (h *ProtocolHandlers) HandleProtocolOneBot11Compatibility() http.HandlerFun
 	return func(w http.ResponseWriter, r *http.Request) {
 		response, err := h.protocol.CurrentOneBot11ProtocolCompatibility()
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "adapter.matrix_projection_failed", "协议兼容矩阵生成失败", "errors.adapter.matrix_projection_failed", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterMatrixProjectionFailed, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, response)
@@ -92,16 +93,16 @@ func (h *ProtocolHandlers) HandleAdapterReverseWS() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ingress, ok := h.protocol.OneBot11Ingress(chi.URLParam(r, "adapterID"))
 		if !ok {
-			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口不可用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportReverseWsUpgradeFailed, nil)
 			return
 		}
 		if !ingress.ReverseWSEnabled() {
-			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_reverse_ws_upgrade_failed", "OneBot 回连入口未启用", "errors.adapter.transport_reverse_ws_upgrade_failed", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportReverseWsUpgradeFailed, nil)
 			return
 		}
 		if !allowOneBotIngress(r, ingress.ReverseWSAccessToken(), ingress.ReverseWSAccessTokenQueryCompat()) {
 			ingress.MarkReverseWSAuthFailed()
-			httpapi.WriteError(w, r, http.StatusUnauthorized, "adapter.transport_reverse_ws_auth_failed", "协议鉴权失败", "errors.adapter.transport_reverse_ws_auth_failed", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportReverseWsAuthFailed, nil)
 			return
 		}
 
@@ -117,26 +118,26 @@ func (h *ProtocolHandlers) HandleAdapterWebhook() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ingress, ok := h.protocol.OneBot11Ingress(chi.URLParam(r, "adapterID"))
 		if !ok {
-			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 不可用", "errors.adapter.transport_webhook_invalid_payload", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportUnavailable, nil)
 			return
 		}
 		if !ingress.WebhookEnabled() {
-			httpapi.WriteError(w, r, http.StatusServiceUnavailable, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 入口未启用", "errors.adapter.transport_webhook_invalid_payload", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportUnavailable, nil)
 			return
 		}
 		if !allowOneBotIngress(r, ingress.WebhookAccessToken(), ingress.WebhookAccessTokenQueryCompat()) {
 			ingress.MarkWebhookAuthFailed()
-			httpapi.WriteError(w, r, http.StatusUnauthorized, "adapter.transport_webhook_auth_failed", "协议鉴权失败", "errors.adapter.transport_webhook_auth_failed", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportWebhookAuthFailed, nil)
 			return
 		}
 
 		payload, err := httpapi.ReadRequestBody(w, r, httpapi.MaxWebhookBodyBytes)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, protocolCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, protocolCodeInvalidRequest, nil)
 			return
 		}
 		if err := ingress.AcceptWebhookPayload(r.Context(), payload); err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "adapter.transport_webhook_invalid_payload", "OneBot Webhook 负载不合法", "errors.adapter.transport_webhook_invalid_payload", nil)
+			httpapi.WriteError(w, r, errorcodes.AdapterTransportWebhookInvalidPayload, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusAccepted, protocolAcceptedResponse{Accepted: true})

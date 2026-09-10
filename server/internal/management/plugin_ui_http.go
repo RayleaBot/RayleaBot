@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
@@ -97,25 +98,25 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 		pluginID := strings.TrimSpace(chi.URLParam(r, "plugin_id"))
 		actionInvoker := h.actionInvoker
 		if pluginID == "" {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		if _, ok := h.resolveSettingsSnapshot(w, r); !ok {
 			return
 		}
 		if actionInvoker == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 
 		var request pluginManagementActionRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		action := strings.TrimSpace(request.Action)
 		if action == "" {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		if request.Payload == nil {
@@ -125,11 +126,8 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 		result, err := actionInvoker.InvokeManagementAction(r.Context(), pluginID, action, request.Payload)
 		if err != nil {
 			httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-				Code:        "plugin.internal_error",
-				HTTPStatus:  http.StatusBadGateway,
-				SafeMessage: "插件操作失败",
-				MessageKey:  "errors.plugin.internal_error",
-				Cause:       err,
+				Code:  errorcodes.PluginManagementActionFailed,
+				Cause: err,
 			})
 			return
 		}
@@ -278,14 +276,14 @@ func pluginUISnapshotReady(snapshot plugins.Snapshot) bool {
 
 func (h *PluginManagementUIHandlers) resolveSettingsSnapshot(w http.ResponseWriter, r *http.Request) (plugins.Snapshot, bool) {
 	if h.plugins == nil {
-		httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 		return plugins.Snapshot{}, false
 	}
 
 	pluginID := strings.TrimSpace(chi.URLParam(r, "plugin_id"))
 	snapshot, ok := h.plugins.Get(pluginID)
 	if !ok {
-		httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+		httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, map[string]any{
 			"resource_type": "plugin",
 			"plugin_id":     pluginID,
 		})
@@ -305,12 +303,12 @@ func (h *PluginManagementUIHandlers) resolveSettingsSnapshot(w http.ResponseWrit
 			details["manifest_path"] = snapshot.ManifestPath
 			details["validation_summary"] = snapshot.ValidationSummary
 		}
-		httpapi.WriteError(w, r, http.StatusConflict, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", details)
+		httpapi.WriteError(w, r, errorcodes.PlatformStateConflict, details)
 		return plugins.Snapshot{}, false
 	}
 
 	if snapshot.RegistrationState != "installed" {
-		httpapi.WriteError(w, r, http.StatusConflict, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", map[string]any{
+		httpapi.WriteError(w, r, errorcodes.PlatformStateConflict, map[string]any{
 			"plugin_id": pluginID,
 			"kind":      "plugin_not_installed",
 			"installed": false,

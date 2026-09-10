@@ -534,7 +534,7 @@ func TestHandlePluginSettingsRejectsInvalidPluginSnapshots(t *testing.T) {
 				ValidationSummary: "manifest invalid",
 			},
 			wantStatus: http.StatusConflict,
-			wantCode:   "platform.invalid_request",
+			wantCode:   "platform.state_conflict",
 			wantKind:   "invalid_manifest",
 		},
 		{
@@ -546,14 +546,14 @@ func TestHandlePluginSettingsRejectsInvalidPluginSnapshots(t *testing.T) {
 				RegistrationState: "removed",
 			},
 			wantStatus: http.StatusConflict,
-			wantCode:   "platform.invalid_request",
+			wantCode:   "platform.state_conflict",
 			wantKind:   "plugin_not_installed",
 		},
 		{
 			name:         "missing",
 			path:         "/api/plugins/missing/settings",
 			wantStatus:   http.StatusNotFound,
-			wantCode:     "platform.resource_missing",
+			wantCode:     "platform.resource_not_found",
 			wantResource: "plugin",
 		},
 	}

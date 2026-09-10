@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -57,10 +58,8 @@ func writeWebSocketPermissionDenied(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteError(
 		w,
 		r,
-		http.StatusUnauthorized,
-		"permission.denied",
-		"当前用户无权执行该操作",
-		"errors.permission.denied",
+		errorcodes.PermissionAuthenticationRequired,
+
 		nil,
 	)
 }
@@ -69,10 +68,8 @@ func writeWebSocketNotFound(w http.ResponseWriter, r *http.Request) {
 	httpapi.WriteError(
 		w,
 		r,
-		http.StatusNotFound,
-		"platform.resource_missing",
-		"缺少必要资源",
-		"errors.platform.resource_missing",
+		errorcodes.PlatformResourceMissing,
+
 		nil,
 	)
 }

@@ -8,9 +8,9 @@ response:
   status: 409
   body:
     error:
-      code: platform.invalid_request
-      message: 请求参数不合法
-      message_key: errors.platform.invalid_request
+      code: platform.state_conflict
+      message: "当前状态不允许执行该操作"
+      message_key: errors.platform.state_conflict
       request_id: req_001
       details:
         plugin_id: weather

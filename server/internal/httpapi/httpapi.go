@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -39,20 +40,17 @@ type ErrorBody struct {
 }
 
 type DomainError struct {
-	Code        string
-	HTTPStatus  int
-	SafeMessage string
-	MessageKey  string
-	Details     map[string]any
-	Cause       error
+	Code    string
+	Details map[string]any
+	Cause   error
 }
 
 func (e *DomainError) Error() string {
 	if e == nil {
 		return ""
 	}
-	if strings.TrimSpace(e.SafeMessage) != "" {
-		return e.SafeMessage
+	if definition, ok := errorcodes.Lookup(e.Code); ok {
+		return definition.Message
 	}
 	if e.Cause != nil {
 		return e.Cause.Error()
@@ -124,10 +122,8 @@ func WithRequestContext(logger *slog.Logger, opts ...RequestContextOption) func(
 					WriteError(
 						recorder,
 						r,
-						http.StatusInternalServerError,
-						"platform.internal_error",
-						"内部错误",
-						"errors.platform.internal_error",
+						errorcodes.PlatformInternalError,
+
 						nil,
 					)
 				}
@@ -229,7 +225,14 @@ func RequestIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-func WriteError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string, details map[string]any) {
+func WriteError(w http.ResponseWriter, r *http.Request, code string, details map[string]any) {
+	definition, ok := errorcodes.HTTP(code)
+	if !ok {
+		definition, _ = errorcodes.HTTP(errorcodes.PlatformInternalError)
+		details = nil
+	}
+	statusCode := definition.HTTPStatus
+	code, message, messageKey := definition.Code, definition.Message, definition.MessageKey
 	requestID := ""
 	if r != nil {
 		requestID = RequestIDFromContext(r.Context())
@@ -255,26 +258,10 @@ func WriteError(w http.ResponseWriter, r *http.Request, statusCode int, code, me
 
 func WriteDomainError(w http.ResponseWriter, r *http.Request, err *DomainError) {
 	if err == nil {
-		WriteError(w, r, http.StatusInternalServerError, "platform.upstream_request_failed", "请求处理失败", "errors.platform.upstream_request_failed", nil)
+		WriteError(w, r, errorcodes.PlatformInternalError, nil)
 		return
 	}
-	statusCode := err.HTTPStatus
-	if statusCode == 0 {
-		statusCode = http.StatusInternalServerError
-	}
-	code := strings.TrimSpace(err.Code)
-	if code == "" {
-		code = "platform.upstream_request_failed"
-	}
-	messageKey := strings.TrimSpace(err.MessageKey)
-	if messageKey == "" {
-		messageKey = "errors.platform.upstream_request_failed"
-	}
-	message := strings.TrimSpace(err.SafeMessage)
-	if message == "" {
-		message = "请求处理失败"
-	}
-	WriteError(w, r, statusCode, code, message, messageKey, err.Details)
+	WriteError(w, r, err.Code, err.Details)
 }
 
 func WriteJSON(w http.ResponseWriter, statusCode int, body any) {

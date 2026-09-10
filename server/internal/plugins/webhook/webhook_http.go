@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/go-chi/chi/v5"
@@ -28,7 +29,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 
 		registration, ok := s.registry.Get(pluginID, route)
 		if !ok {
-			httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, map[string]any{
 				"resource_type": "webhook",
 				"plugin_id":     pluginID,
 				"route":         route,
@@ -36,7 +37,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			return
 		}
 		if !slices.Contains(registration.Methods, r.Method) {
-			httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, map[string]any{
 				"resource_type": "webhook",
 				"plugin_id":     pluginID,
 				"route":         route,
@@ -46,7 +47,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 
 		snapshot, ok := s.plugins.Get(pluginID)
 		if !ok || !snapshot.Valid || snapshot.RegistrationState != "installed" || snapshot.DesiredState != "enabled" {
-			httpapi.WriteError(w, r, http.StatusNotFound, "platform.resource_missing", "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+			httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, map[string]any{
 				"resource_type": "plugin",
 				"plugin_id":     pluginID,
 			})
@@ -55,11 +56,11 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 
 		allowed, err := webhookSourceAllowed(r.RemoteAddr, registration.SourceIPs)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		if !allowed {
-			httpapi.WriteError(w, r, http.StatusForbidden, "permission.denied", "当前用户无权执行该操作", "errors.permission.denied", nil)
+			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
 
@@ -69,13 +70,13 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 		body, err := httpapi.ReadRequestBody(w, r, maxBodyBytes)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 
 		replayDecision := s.evaluateReplayProtection(pluginID, route, registration.ReplayProtection, r)
 		if replayDecision.reject {
-			httpapi.WriteError(w, r, http.StatusUnauthorized, replayDecision.code, "插件 Webhook 重放校验失败", replayDecision.messageKey, map[string]any{
+			httpapi.WriteError(w, r, replayDecision.code, map[string]any{
 				"plugin_id": pluginID,
 				"route":     route,
 			})
@@ -83,7 +84,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 
 		if !s.validateWebhookAuth(r.Context(), registration, r.Header.Get(registration.Header), replayDecision.timestampRaw, replayDecision.eventID, body) {
-			httpapi.WriteError(w, r, http.StatusUnauthorized, "permission.denied", "当前用户无权执行该操作", "errors.permission.denied", nil)
+			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
 
@@ -96,7 +97,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			if !s.dedup.commitIfAbsent(replayDecision.dedupKey, s.now(), replayDecision.dedupTTL) {
 				if registration.ReplayProtection.Enforce {
 					s.recordReplayMetric("rejected")
-					httpapi.WriteError(w, r, http.StatusUnauthorized, "plugin.webhook_replay_rejected", "插件 Webhook 重放校验失败", "errors.plugin.webhook_replay_rejected", map[string]any{
+					httpapi.WriteError(w, r, errorcodes.PluginWebhookReplayRejected, map[string]any{
 						"plugin_id": pluginID,
 						"route":     route,
 					})
@@ -155,7 +156,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 			RawPayload: s.buildWebhookRawPayload(r, route, body, includeRawPayload),
 		})
 		if result.Outcome != dispatch.OutcomeDelivered {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 

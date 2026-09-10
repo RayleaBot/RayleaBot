@@ -10,9 +10,9 @@ response:
     Content-Type: application/json
   body:
     error:
-      code: permission.denied
-      message: 当前用户无权执行该操作
-      message_key: errors.permission.denied
+      code: permission.authentication_required
+      message: "请求认证未通过"
+      message_key: errors.permission.authentication_required
       request_id: req_0123456789abcdef
 expect:
   valid: true

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -23,8 +24,8 @@ type PluginRouteDeps struct {
 }
 
 const (
-	pluginCodeInvalidRequest  = "platform.invalid_request"
-	pluginCodeResourceMissing = "platform.resource_missing"
+	pluginCodeInvalidRequest   = errorcodes.PlatformInvalidRequest
+	pluginCodeResourceNotFound = errorcodes.PlatformResourceNotFound
 )
 
 type pluginTaskAcceptedResponse struct {
@@ -160,10 +161,8 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 			writeError(
 				w,
 				r,
-				http.StatusNotFound,
-				pluginCodeResourceMissing,
-				"缺少必要资源",
-				"errors.platform.resource_missing",
+				pluginCodeResourceNotFound,
+
 				map[string]any{
 					"resource_type": "plugin",
 					"plugin_id":     pluginID,
@@ -184,12 +183,12 @@ func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.Ins
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallInspectionRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || !validPluginInstallSource(req.SourceType, req.Source) {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		inspector, ok := installer.(plugins.InstallInspector)
 		if !ok || inspector == nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			writeError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		inspection, err := inspector.Inspect(r.Context(), plugins.InstallRequest{
@@ -202,7 +201,7 @@ func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.Ins
 			return
 		}
 		if _, exists := catalog.Get(inspection.PluginID); exists {
-			writeError(w, r, http.StatusConflict, "plugin.install_failed", "检测到同 ID 插件", "errors.plugin.install_failed", map[string]any{"plugin_id": inspection.PluginID})
+			writeError(w, r, errorcodes.PluginInstallFailed, map[string]any{"plugin_id": inspection.PluginID})
 			return
 		}
 		writeJSON(w, http.StatusOK, buildInstallInspectionResponse(inspection))
@@ -242,7 +241,7 @@ func newInstallHandler(catalog plugins.CatalogView, installer plugins.InstallCoo
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 
@@ -270,7 +269,7 @@ func newInstallHandler(catalog plugins.CatalogView, installer plugins.InstallCoo
 			return
 		}
 
-		writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+		writeError(w, r, errorcodes.PlatformInternalError, nil)
 	}
 }
 
@@ -281,29 +280,29 @@ func validPluginInstallSource(sourceType, source string) bool {
 func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, tasks.ErrQueueFull):
-		writeError(w, r, http.StatusTooManyRequests, "platform.task_queue_full", "任务队列已满，请稍后重试", "errors.platform.task_queue_full", nil)
+		writeError(w, r, errorcodes.PlatformTaskQueueFull, nil)
 	case errors.Is(err, plugins.ErrTrustedCodeConfirmation):
-		writeError(w, r, http.StatusForbidden, "plugin.trusted_code_confirmation_required", "必须确认该插件将作为完全可信的本地代码运行", "errors.plugin.trusted_code_confirmation_required", nil)
+		writeError(w, r, errorcodes.PluginTrustedCodeConfirmationRequired, nil)
 	case errors.Is(err, plugins.ErrInstallInspectionExpired):
-		writeError(w, r, http.StatusConflict, "plugin.install_inspection_expired", "插件包检查结果已过期", "errors.plugin.install_inspection_expired", nil)
+		writeError(w, r, errorcodes.PluginInstallInspectionExpired, nil)
 	case errors.Is(err, plugins.ErrInstallDigestMismatch):
-		writeError(w, r, http.StatusConflict, "plugin.install_digest_mismatch", "插件包与检查结果不一致", "errors.plugin.install_digest_mismatch", nil)
+		writeError(w, r, errorcodes.PluginInstallDigestMismatch, nil)
 	case errors.Is(err, plugins.ErrInstallInspectionRequired):
-		writeError(w, r, http.StatusConflict, "plugin.install_inspection_required", "请先检查插件包并确认信任", "errors.plugin.install_inspection_required", nil)
-	case pluginservice.InstallErrorCode(err) == "plugin.package_resource_limit_exceeded":
-		writeError(w, r, http.StatusRequestEntityTooLarge, "plugin.package_resource_limit_exceeded", "插件包超过资源限制", "errors.plugin.package_resource_limit_exceeded", nil)
-	case pluginservice.InstallErrorCode(err) == "plugin.package_unsafe_entry":
-		writeError(w, r, http.StatusBadRequest, "plugin.package_unsafe_entry", "插件包包含不安全条目", "errors.plugin.package_unsafe_entry", nil)
-	case pluginservice.InstallErrorCode(err) == "plugin.artifact_invalid":
-		writeError(w, r, http.StatusBadRequest, "plugin.artifact_invalid", "插件产物结构或入口校验失败", "errors.plugin.artifact_invalid", nil)
-	case pluginservice.InstallErrorCode(err) == "plugin.platform_mismatch":
-		writeError(w, r, http.StatusConflict, "plugin.platform_mismatch", "插件产物与当前平台不匹配", "errors.plugin.platform_mismatch", nil)
-	case pluginservice.InstallErrorCode(err) == "plugin.store_integrity_mismatch":
-		writeError(w, r, http.StatusConflict, "plugin.store_integrity_mismatch", "插件商店产物摘要与目录不一致", "errors.plugin.store_integrity_mismatch", nil)
-	case pluginservice.InstallErrorCode(err) == "platform.invalid_request" || pluginservice.InstallErrorCode(err) == "platform.resource_missing":
-		writeError(w, r, http.StatusBadRequest, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+		writeError(w, r, errorcodes.PluginInstallInspectionRequired, nil)
+	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPackageResourceLimitExceeded:
+		writeError(w, r, errorcodes.PluginPackageResourceLimitExceeded, nil)
+	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPackageUnsafeEntry:
+		writeError(w, r, errorcodes.PluginPackageUnsafeEntry, nil)
+	case pluginservice.InstallErrorCode(err) == errorcodes.PluginArtifactInvalid:
+		writeError(w, r, errorcodes.PluginArtifactInvalid, nil)
+	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPlatformMismatch:
+		writeError(w, r, errorcodes.PluginPlatformMismatch, nil)
+	case pluginservice.InstallErrorCode(err) == errorcodes.PluginStoreIntegrityMismatch:
+		writeError(w, r, errorcodes.PluginStoreIntegrityMismatch, nil)
+	case pluginservice.InstallErrorCode(err) == errorcodes.PlatformInvalidRequest || pluginservice.InstallErrorCode(err) == errorcodes.PlatformResourceMissing:
+		writeError(w, r, pluginCodeInvalidRequest, nil)
 	default:
-		writeError(w, r, http.StatusConflict, "plugin.install_failed", "插件安装失败", "errors.plugin.install_failed", nil)
+		writeError(w, r, errorcodes.PluginInstallFailed, nil)
 	}
 }
 
@@ -331,7 +330,7 @@ func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateContro
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			writeError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
@@ -347,7 +346,7 @@ func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller Desired
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			writeError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		snapshot, err := controller.RecoverFromDeadLetter(r.Context(), pluginID)
@@ -368,20 +367,20 @@ func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoord
 		pluginID := chi.URLParam(r, "plugin_id")
 		_, ok := catalog.Get(pluginID)
 		if !ok {
-			writeError(w, r, 404, pluginCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+			writeError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 			return
 		}
 		if coordinator == nil {
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			writeError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		taskID, err := coordinator.Accept(r.Context(), pluginID)
 		if err != nil {
 			if errors.Is(err, tasks.ErrQueueFull) {
-				writeError(w, r, http.StatusTooManyRequests, "platform.task_queue_full", "任务队列已满，请稍后重试", "errors.platform.task_queue_full", nil)
+				writeError(w, r, errorcodes.PlatformTaskQueueFull, nil)
 				return
 			}
-			writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			writeError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		writeJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
@@ -390,22 +389,22 @@ func newUninstallHandler(catalog plugins.CatalogView, coordinator UninstallCoord
 
 func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID string, err error) {
 	if errors.Is(err, plugins.ErrPluginNotFound) {
-		writeError(w, r, 404, pluginCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		writeError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, plugins.ErrPluginNotInDeadLetter) {
-		writeError(w, r, 409, "plugin.not_recoverable", "插件当前不可恢复", "errors.plugin.not_recoverable", map[string]any{"plugin_id": pluginID})
+		writeError(w, r, errorcodes.PluginNotRecoverable, map[string]any{"plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, plugins.ErrStateConflict) {
-		writeError(w, r, 409, pluginCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", map[string]any{"plugin_id": pluginID})
+		writeError(w, r, errorcodes.PlatformStateConflict, map[string]any{"plugin_id": pluginID})
 		return
 	}
-	writeError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+	writeError(w, r, errorcodes.PlatformInternalError, nil)
 }
 
-func writeError(w http.ResponseWriter, r *http.Request, statusCode int, code, message, messageKey string, details map[string]any) {
-	httpapi.WriteError(w, r, statusCode, code, message, messageKey, details)
+func writeError(w http.ResponseWriter, r *http.Request, code string, details map[string]any) {
+	httpapi.WriteError(w, r, code, details)
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, body any) {

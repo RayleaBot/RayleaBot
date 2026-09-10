@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
@@ -20,12 +21,12 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsGet() http.HandlerFunc {
 			return
 		}
 		if h.secrets == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		configured, err := h.readPluginSecretStatus(r.Context(), snapshot.PluginID)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsResponse{PluginID: snapshot.PluginID, Configured: configured})
@@ -39,35 +40,35 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsPut() http.HandlerFunc {
 			return
 		}
 		if h.secrets == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		var req pluginSecretsRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || len(req.Values) == 0 {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		changed := make(map[string]struct{}, len(req.Values))
 		for rawKey, value := range req.Values {
 			key := strings.TrimSpace(rawKey)
 			if !isPluginSecretKey(key) || value == "" {
-				httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 				return
 			}
 			sealed, err := secrets.SealString(r.Context(), h.secrets, value)
 			if err != nil {
-				httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 				return
 			}
 			if err := h.secrets.Set(r.Context(), pluginSecretStorageKey(snapshot.PluginID, key), sealed); err != nil {
-				httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 				return
 			}
 			changed[key] = struct{}{}
 		}
 		configured, err := h.readPluginSecretStatus(r.Context(), snapshot.PluginID)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, PluginSecretsUpdateResponse{PluginID: snapshot.PluginID, ChangedKeys: sortedStringSet(changed), Configured: configured})
@@ -81,34 +82,34 @@ func (h *PluginManagementUIHandlers) HandlePluginSecretsDelete() http.HandlerFun
 			return
 		}
 		if h.secrets == nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		var req pluginSecretsDeleteRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || len(req.Keys) == 0 {
-			httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		changed := make(map[string]struct{}, len(req.Keys))
 		for _, rawKey := range req.Keys {
 			key := strings.TrimSpace(rawKey)
 			if !isPluginSecretKey(key) {
-				httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 				return
 			}
 			if _, duplicate := changed[key]; duplicate {
-				httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 				return
 			}
 			if err := h.secrets.Delete(r.Context(), pluginSecretStorageKey(snapshot.PluginID, key)); err != nil {
-				httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 				return
 			}
 			changed[key] = struct{}{}
 		}
 		configured, err := h.readPluginSecretStatus(r.Context(), snapshot.PluginID)
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusInternalServerError, "platform.internal_error", "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		for key := range changed {

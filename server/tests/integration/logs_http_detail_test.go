@@ -171,7 +171,7 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 	}
 
 	body := decodeBody(t, readAll(t, response))
-	assertErrorEnvelopeMatchesFixture(t, body, fixture.Response.Body, "platform.resource_missing")
+	assertErrorEnvelopeMatchesFixture(t, body, fixture.Response.Body, "platform.resource_not_found")
 }
 
 func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) {

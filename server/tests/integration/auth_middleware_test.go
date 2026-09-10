@@ -227,13 +227,13 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 
 		// Verify ErrorEnvelope structure.
 		errorObj := parseErrorEnvelope(t, rec.Body.Bytes())
-		if errorObj["code"] != "permission.denied" {
-			t.Fatalf("[%s] expected code permission.denied, got %v", sc.name, errorObj["code"])
+		if errorObj["code"] != "permission.authentication_required" {
+			t.Fatalf("[%s] expected code permission.authentication_required, got %v", sc.name, errorObj["code"])
 		}
-		if errorObj["message"] != "当前用户无权执行该操作" {
+		if errorObj["message"] != "请求认证未通过" {
 			t.Fatalf("[%s] unexpected message: %v", sc.name, errorObj["message"])
 		}
-		if errorObj["message_key"] != "errors.permission.denied" {
+		if errorObj["message_key"] != "errors.permission.authentication_required" {
 			t.Fatalf("[%s] unexpected message_key: %v", sc.name, errorObj["message_key"])
 		}
 		reqID, ok := errorObj["request_id"].(string)
@@ -556,13 +556,13 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected error envelope, got %#v", envelope)
 			}
-			if errorObj["code"] != "permission.denied" {
-				t.Fatalf("expected code permission.denied, got %v", errorObj["code"])
+			if errorObj["code"] != "permission.authentication_required" {
+				t.Fatalf("expected code permission.authentication_required, got %v", errorObj["code"])
 			}
-			if errorObj["message"] != "当前用户无权执行该操作" {
+			if errorObj["message"] != "请求认证未通过" {
 				t.Fatalf("unexpected message: %v", errorObj["message"])
 			}
-			if errorObj["message_key"] != "errors.permission.denied" {
+			if errorObj["message_key"] != "errors.permission.authentication_required" {
 				t.Fatalf("unexpected message_key: %v", errorObj["message_key"])
 			}
 			reqID, ok := errorObj["request_id"].(string)

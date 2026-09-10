@@ -10,14 +10,15 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
 const (
-	logCodeInvalidRequest  = "platform.invalid_request"
-	logCodeResourceMissing = "platform.resource_missing"
-	logCodeInternalError   = "platform.internal_error"
+	logCodeInvalidRequest  = errorcodes.PlatformInvalidRequest
+	logCodeResourceMissing = errorcodes.PlatformResourceNotFound
+	logCodeInternalError   = errorcodes.PlatformInternalError
 	logMaxPageLimit        = 200
 )
 
@@ -63,7 +64,7 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 		levelFilters := normalizeRepeatedQueryValues(queryValues["level"])
 		for _, levelFilter := range levelFilters {
 			if !isAllowedLogLevel(levelFilter) {
-				httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 				return
 			}
 		}
@@ -71,7 +72,7 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 		sourceFilter := strings.TrimSpace(queryValues.Get("source"))
 		protocolFilter := strings.TrimSpace(queryValues.Get("protocol"))
 		if protocolFilter != "" && !logging.IsSupportedProtocol(protocolFilter) {
-			httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 			return
 		}
 		pluginIDFilters := normalizeRepeatedQueryValues(queryValues["plugin_id"])
@@ -79,7 +80,7 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 		cursor := strings.TrimSpace(queryValues.Get("cursor"))
 		direction := logging.PageDirection(strings.TrimSpace(queryValues.Get("direction")))
 		if direction != "" && direction != logging.PageDirectionOlder && direction != logging.PageDirectionNewer {
-			httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 			return
 		}
 
@@ -87,7 +88,7 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 		if raw := strings.TrimSpace(queryValues.Get("limit")); raw != "" {
 			parsed, err := strconv.Atoi(raw)
 			if err != nil || parsed < 1 || parsed > logMaxPageLimit {
-				httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 				return
 			}
 			limit = parsed
@@ -95,12 +96,12 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 
 		scopeValue, err := parseScope(queryValues.Get("scope"))
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 			return
 		}
 		startAt, endAt, err := parseTimeRange(scopeValue, queryValues.Get("start_at"), queryValues.Get("end_at"))
 		if err != nil {
-			httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 			return
 		}
 
@@ -123,10 +124,10 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 		result, err := h.logs.ListLogPage(r.Context(), pageQuery)
 		if err != nil {
 			if errors.Is(err, logging.ErrInvalidCursor) {
-				httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+				httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 				return
 			}
-			httpapi.WriteError(w, r, http.StatusInternalServerError, logCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, logCodeInternalError, nil)
 			return
 		}
 		httpapi.WriteJSON(w, http.StatusOK, logListResponse{
@@ -140,20 +141,20 @@ func (h *LogHandlers) HandleLogDetail() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		logID := strings.TrimSpace(chi.URLParam(r, "log_id"))
 		if logID == "" {
-			httpapi.WriteError(w, r, http.StatusBadRequest, logCodeInvalidRequest, "请求参数不合法", "errors.platform.invalid_request", nil)
+			httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
 			return
 		}
 
 		item, err := h.logs.GetLogSummary(r.Context(), logID)
 		if err != nil {
 			if err == logging.ErrLogNotFound {
-				httpapi.WriteError(w, r, http.StatusNotFound, logCodeResourceMissing, "缺少必要资源", "errors.platform.resource_missing", map[string]any{
+				httpapi.WriteError(w, r, logCodeResourceMissing, map[string]any{
 					"resource_type": "log",
 					"log_id":        logID,
 				})
 				return
 			}
-			httpapi.WriteError(w, r, http.StatusInternalServerError, logCodeInternalError, "内部错误", "errors.platform.internal_error", nil)
+			httpapi.WriteError(w, r, logCodeInternalError, nil)
 			return
 		}
 
