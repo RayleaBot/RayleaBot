@@ -21,6 +21,7 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
+	cdpruntime "github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
@@ -331,9 +332,13 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	var content []byte
 	var measuredHeight float64
 
-	actions := []chromedp.Action{r.diagnosticTabState("before-activation")}
-	if os.Getenv("RAYLEA_DIAGNOSTIC_BRING_TO_FRONT") == "1" {
-		actions = append(actions, page.BringToFront(), r.diagnosticTabState("after-activation"))
+	awaitPromise := func(params *cdpruntime.EvaluateParams) *cdpruntime.EvaluateParams {
+		return params.WithAwaitPromise(true)
+	}
+	actions := []chromedp.Action{
+		r.diagnosticTabState("before-focus-emulation"),
+		emulation.SetFocusEmulationEnabled(true),
+		r.diagnosticTabState("after-focus-emulation"),
 	}
 	actions = append(actions,
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false),
@@ -342,9 +347,9 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		r.diagnosticTabState("after-navigation"),
 	)
 	if bindResources != "" {
-		actions = append(actions, chromedp.Evaluate(bindResources, nil))
+		actions = append(actions, chromedp.Evaluate(bindResources, nil, awaitPromise))
 	}
-	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil))
+	actions = append(actions, chromedp.Evaluate(waitForLocalAssetsExpression, nil, awaitPromise))
 	if doc.AutoHeight {
 		actions = append(actions,
 			chromedp.Evaluate(adaptiveDocumentHeightExpression, &measuredHeight),
