@@ -137,20 +137,45 @@ type configSchemaMetadataState struct {
 }
 
 func (s configSchemaMetadataState) collect(path string, raw json.RawMessage) error {
+	return s.collectWithReferences(path, raw, make(map[string]bool))
+}
+
+func (s configSchemaMetadataState) collectWithReferences(path string, raw json.RawMessage, references map[string]bool) error {
 	var node configSchemaNode
 	if err := json.Unmarshal(raw, &node); err != nil {
 		return fmt.Errorf("parse config schema node %s: %w", path, err)
 	}
 	if node.Ref != "" {
+		if references[node.Ref] {
+			return fmt.Errorf("cyclic config schema reference %s at %s", node.Ref, path)
+		}
+		references[node.Ref] = true
+		defer delete(references, node.Ref)
 		resolved, err := s.resolveRef(node.Ref)
 		if err != nil {
 			return fmt.Errorf("resolve config schema ref %s for %s: %w", node.Ref, path, err)
 		}
-		return s.collect(path, resolved)
+		var base, siblings map[string]json.RawMessage
+		if err := json.Unmarshal(resolved, &base); err != nil {
+			return fmt.Errorf("parse referenced schema %s: %w", node.Ref, err)
+		}
+		if err := json.Unmarshal(raw, &siblings); err != nil {
+			return fmt.Errorf("parse schema siblings %s: %w", path, err)
+		}
+		for key, value := range siblings {
+			if key != "$ref" {
+				base[key] = value
+			}
+		}
+		merged, err := json.Marshal(base)
+		if err != nil {
+			return fmt.Errorf("merge schema metadata %s: %w", path, err)
+		}
+		return s.collectWithReferences(path, merged, references)
 	}
 	if len(node.Properties) > 0 {
 		for key, child := range node.Properties {
-			if err := s.collect(joinConfigPath(path, key), child); err != nil {
+			if err := s.collectWithReferences(joinConfigPath(path, key), child, references); err != nil {
 				return err
 			}
 		}
@@ -170,7 +195,7 @@ func (s configSchemaMetadataState) collect(path string, raw json.RawMessage) err
 		// entries while the entry fields keep theirs.
 		s.metadata[path] = ConfigFieldMetadata{ApplyPolicy: ConfigApplyPolicy(strings.TrimSpace(node.ApplyPolicy))}
 		s.collections[path] = strings.TrimSpace(node.Collection)
-		return s.collect(joinConfigPath(path, ConfigCollectionWildcard), node.Items)
+		return s.collectWithReferences(joinConfigPath(path, ConfigCollectionWildcard), node.Items, references)
 	}
 	if strings.TrimSpace(node.ApplyPolicy) == "" {
 		return fmt.Errorf("config field %s missing x-apply-policy", path)

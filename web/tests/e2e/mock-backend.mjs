@@ -155,6 +155,7 @@ function baseState() {
     logDetails: createLogDetailMap(),
     config: structuredClone(fixtures.configGet.response.body.config),
     effectiveTimezone: 'Asia/Shanghai',
+    configRevision: 1,
     loadedAdapterIds: fixtures.configGet.response.body.config.adapters.map((entry) => entry.id),
     governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
     governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
@@ -1453,6 +1454,7 @@ const server = http.createServer(async (request, response) => {
     json(response, 200, {
       config: snapshot.config,
       effective_timezone: state.effectiveTimezone,
+      revision: state.configRevision,
       redacted_fields: snapshot.redacted_fields,
     })
     return
@@ -1466,6 +1468,7 @@ const server = http.createServer(async (request, response) => {
     const payload = await parseBody(request)
     const previousConfig = structuredClone(state.config)
     state.config = restoreRedactedConfigSecrets(payload, state.config)
+    state.configRevision += 1
     syncGovernanceCommandPolicyFromConfig(state.config)
     const applyEffects = computeConfigApplyEffects(previousConfig, state.config)
     broadcast('events', {
@@ -1480,6 +1483,7 @@ const server = http.createServer(async (request, response) => {
     json(response, 200, {
       config: snapshot.config,
       effective_timezone: state.effectiveTimezone,
+      revision: state.configRevision,
       redacted_fields: snapshot.redacted_fields,
       restart_required: computeRestartRequiredForConfig(previousConfig, state.config),
       apply_effects: applyEffects,

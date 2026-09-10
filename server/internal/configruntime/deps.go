@@ -6,7 +6,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
@@ -15,7 +14,9 @@ type Service struct {
 	// updateMu serializes config document updates and hot-reload application
 	// so concurrent PUT /api/config requests cannot interleave their
 	// read-modify-write cycles.
-	updateMu           sync.Mutex
+	updateMu           sync.RWMutex
+	revision           uint64
+	desiredConfig      *config.Config
 	currentConfig      func() config.Config
 	currentSummary     func() config.Summary
 	effectiveTimezone  func() string
@@ -27,7 +28,7 @@ type Service struct {
 	logRepository      logging.Repository
 	addRedactionValues func(...string)
 	renderer           renderRuntimeConfigUpdater
-	pluginLogLimiter   *localaction.PluginLogLimiter
+	pluginLogLimiter   interface{ ApplyConfig(config.Config) }
 	outboundLimiter    interface{ ApplyConfig(config.Config) }
 	accountValidation  interface{ ApplyConfig(config.Config) }
 	protocol           configProtocolReloader
@@ -47,7 +48,7 @@ type Deps struct {
 	LogRepository      logging.Repository
 	AddRedactionValues func(...string)
 	Renderer           renderRuntimeConfigUpdater
-	PluginLogLimiter   *localaction.PluginLogLimiter
+	PluginLogLimiter   interface{ ApplyConfig(config.Config) }
 	OutboundLimiter    interface{ ApplyConfig(config.Config) }
 	AccountValidation  interface{ ApplyConfig(config.Config) }
 	Protocol           configProtocolReloader

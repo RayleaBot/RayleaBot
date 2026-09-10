@@ -3,10 +3,38 @@ package configruntime
 import (
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 )
+
+func TestReferencedFieldRetainsItsApplyPolicyOverride(t *testing.T) {
+	t.Parallel()
+	current, _, err := internalconfig.Load(filepath.Join(t.TempDir(), "config", "user.yaml"), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := current
+	next.Runtime.IPCActionBurstLimit = "180/5s"
+	effects := ClassifyApplyEffects(current, next)
+	if !slices.Equal(effects.RestartRequiredFields, []string{"runtime.ipc_action_burst_limit"}) || len(effects.AppliedNow) != 0 {
+		t.Fatalf("field-specific policy was replaced by the rateLimit definition: %#v", effects)
+	}
+}
+
+func TestMetadataRejectsRecursiveReferences(t *testing.T) {
+	t.Parallel()
+	for _, definition := range []string{
+		`{"$ref":"#/$defs/loop"}`,
+		`{"type":"object","properties":{"child":{"$ref":"#/$defs/loop"}}}`,
+	} {
+		_, err := loadConfigFieldMetadata([]byte(`{"type":"object","properties":{"item":{"$ref":"#/$defs/loop"}},"$defs":{"loop":` + definition + `}}`))
+		if err == nil || !strings.Contains(err.Error(), "cyclic config schema reference") {
+			t.Fatalf("recursive reference must fail with a bounded error, got %v", err)
+		}
+	}
+}
 
 func TestConfigSchemaMetadataCoversCanonicalFields(t *testing.T) {
 	t.Parallel()

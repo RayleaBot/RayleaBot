@@ -236,7 +236,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Query the current effective management configuration snapshot. */
+        /** Query the saved desired management configuration snapshot. */
         get: operations["getConfig"];
         /** Validate and persist a new management configuration snapshot. */
         put: operations["updateConfig"];
@@ -1356,17 +1356,23 @@ export interface components {
         };
         ConfigDocument: components["schemas"]["config.user.schema"];
         ConfigSnapshotResponse: {
+            /** @description Process-local revision of the saved desired configuration. Starts at 1 and advances after each successful persistence; invalid, cancelled, or failed writes do not advance it. Read together with config under the same update lock. */
+            revision: number;
             /** @description IANA timezone currently used by the running scheduler and management time display. Remains unchanged after saving a timezone change until the server restarts. Defaults to Asia/Shanghai. */
             effective_timezone: string;
             config: components["schemas"]["config.user.schema"];
             redacted_fields?: string[];
         };
         ConfigApplyEffects: {
+            /** @description Saved settings whose runtime application failed. Corresponding fields require restart; group actions run in documented order and do not form a cross-service transaction. Omitted when all requested groups applied. */
+            failed_groups?: ("adapters" | "logging")[];
             applied_now: string[];
             reloaded_now: string[];
             restart_required_fields: string[];
         };
         ConfigUpdateResponse: {
+            /** @description Process-local revision of the saved desired configuration. Starts at 1 and advances after each successful persistence; invalid, cancelled, or failed writes do not advance it. Read together with config under the same update lock. */
+            revision: number;
             /** @description IANA timezone currently used by the running scheduler and management time display, including while config.scheduler.timezone awaits restart. */
             effective_timezone: string;
             config: components["schemas"]["config.user.schema"];
@@ -3349,7 +3355,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current effective config snapshot with sensitive fields redacted. */
+            /** @description Saved desired config snapshot with sensitive fields redacted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3386,6 +3392,7 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            500: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

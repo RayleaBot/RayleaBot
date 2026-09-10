@@ -128,6 +128,7 @@ request:
 response:
   status: 200
   body:
+    revision: 2
     effective_timezone: Asia/Shanghai
     config:
       schema_version: "4"
@@ -253,6 +254,7 @@ response:
     redacted_fields: []
     restart_required: true
     apply_effects:
+      failed_groups: [adapters]
       applied_now: []
       reloaded_now: []
       restart_required_fields:

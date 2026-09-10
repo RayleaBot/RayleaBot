@@ -131,6 +131,7 @@ x-fixtures:
   - fixtures/web-api/invalid.launcher-status-forwarded.yaml
   - fixtures/web-api/invalid.launcher-shutdown-forwarded.yaml
   - fixtures/web-api/invalid.config-update-invalid.yaml
+  - fixtures/web-api/invalid.config-update-persistence.yaml
   - fixtures/web-api/invalid.governance-blacklist-entry-unauthorized.yaml
   - fixtures/web-api/invalid.governance-whitelist-unauthorized.yaml
   - fixtures/web-api/invalid.governance-entry-upsert-invalid.yaml
@@ -496,14 +497,14 @@ paths:
 
   /api/config:
     get:
-      summary: Query the current effective management configuration snapshot.
+      summary: Query the saved desired management configuration snapshot.
       operationId: getConfig
       security:
         - BearerAuth: []
         - CookieAuth: []
       responses:
         '200':
-          description: Current effective config snapshot with sensitive fields redacted.
+          description: Saved desired config snapshot with sensitive fields redacted.
           content:
             application/json:
               schema:
@@ -535,6 +536,8 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        '500':
           $ref: '#/components/responses/Error'
         default:
           $ref: '#/components/responses/Error'
@@ -2703,8 +2706,12 @@ components:
     ConfigSnapshotResponse:
       type: object
       additionalProperties: false
-      required: [config, effective_timezone]
+      required: [config, effective_timezone, revision]
       properties:
+        revision:
+          type: integer
+          minimum: 1
+          description: Process-local revision of the saved desired configuration. Starts at 1 and advances after each successful persistence; invalid, cancelled, or failed writes do not advance it. Read together with config under the same update lock.
         effective_timezone:
           type: string
           minLength: 1
@@ -2721,6 +2728,13 @@ components:
       additionalProperties: false
       required: [applied_now, reloaded_now, restart_required_fields]
       properties:
+        failed_groups:
+          type: array
+          uniqueItems: true
+          description: Saved settings whose runtime application failed. Corresponding fields require restart; group actions run in documented order and do not form a cross-service transaction. Omitted when all requested groups applied.
+          items:
+            type: string
+            enum: [adapters, logging]
         applied_now:
           type: array
           items:
@@ -2737,8 +2751,12 @@ components:
     ConfigUpdateResponse:
       type: object
       additionalProperties: false
-      required: [config, effective_timezone, restart_required, apply_effects]
+      required: [config, effective_timezone, revision, restart_required, apply_effects]
       properties:
+        revision:
+          type: integer
+          minimum: 1
+          description: Process-local revision of the saved desired configuration. Starts at 1 and advances after each successful persistence; invalid, cancelled, or failed writes do not advance it. Read together with config under the same update lock.
         effective_timezone:
           type: string
           minLength: 1

@@ -7,6 +7,7 @@ request:
 response:
   status: 200
   body:
+    revision: 1
     effective_timezone: Asia/Shanghai
     config:
       schema_version: "4"

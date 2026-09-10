@@ -333,6 +333,27 @@ type runtimeConfig struct {
 	deviceScalePercent int
 }
 
+type renderSettings struct {
+	maxRenderDataBytes int
+	footerTemplate     string
+	defaultOutput      string
+	deviceScalePercent int
+}
+
+func (c *runtimeConfig) snapshot() renderSettings {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	footer := c.footerTemplate
+	if strings.TrimSpace(footer) == "" {
+		footer = defaultRenderFooter
+	}
+	return renderSettings{
+		maxRenderDataBytes: c.maxRenderDataBytes, footerTemplate: footer,
+		defaultOutput:      normalizeDefaultOutput(c.defaultOutput),
+		deviceScalePercent: normalizeDeviceScalePercent(c.deviceScalePercent),
+	}
+}
+
 func newRuntimeConfig(maxRenderDataBytes int, footerTemplate, defaultOutput string, deviceScalePercent int) *runtimeConfig {
 	return &runtimeConfig{
 		maxRenderDataBytes: maxRenderDataBytes,
@@ -346,42 +367,13 @@ func (c *runtimeConfig) update(config RuntimeConfig) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if strings.TrimSpace(config.FooterTemplate) != "" {
-		c.footerTemplate = config.FooterTemplate
-	}
+	c.footerTemplate = config.FooterTemplate
 	if strings.TrimSpace(config.DefaultOutput) != "" {
 		c.defaultOutput = normalizeDefaultOutput(config.DefaultOutput)
 	}
 	if config.DeviceScalePercent > 0 {
 		c.deviceScalePercent = normalizeDeviceScalePercent(config.DeviceScalePercent)
 	}
-}
-
-func (c *runtimeConfig) maxRenderDataBytesValue() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.maxRenderDataBytes
-}
-
-func (c *runtimeConfig) footerTemplateValue() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	if strings.TrimSpace(c.footerTemplate) == "" {
-		return defaultRenderFooter
-	}
-	return c.footerTemplate
-}
-
-func (c *runtimeConfig) defaultOutputValue() string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return normalizeDefaultOutput(c.defaultOutput)
-}
-
-func (c *runtimeConfig) deviceScalePercentValue() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return normalizeDeviceScalePercent(c.deviceScalePercent)
 }
 
 func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
@@ -391,22 +383,6 @@ func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {
 		RenderTimeout:    config.RenderTimeout,
 	})
 	s.config.update(config)
-}
-
-func (s *Service) currentMaxRenderDataBytes() int {
-	return s.config.maxRenderDataBytesValue()
-}
-
-func (s *Service) currentFooterTemplate() string {
-	return s.config.footerTemplateValue()
-}
-
-func (s *Service) currentDefaultOutput() string {
-	return s.config.defaultOutputValue()
-}
-
-func (s *Service) currentDeviceScalePercent() int {
-	return s.config.deviceScalePercentValue()
 }
 
 func normalizeDefaultOutput(output string) string {

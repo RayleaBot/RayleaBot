@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,12 +16,14 @@ import (
 const codeInvalidRequest = errorcodes.PlatformInvalidRequest
 
 type ConfigResponse struct {
+	Revision          uint64         `json:"revision"`
 	EffectiveTimezone string         `json:"effective_timezone"`
 	Config            map[string]any `json:"config"`
 	RedactedFields    []string       `json:"redacted_fields,omitempty"`
 }
 
 type ConfigUpdateResponse struct {
+	Revision          uint64                     `json:"revision"`
 	EffectiveTimezone string                     `json:"effective_timezone"`
 	Config            map[string]any             `json:"config"`
 	RedactedFields    []string                   `json:"redacted_fields,omitempty"`
@@ -63,6 +66,11 @@ func (h *ConfigHandlers) HandleConfigPut() http.HandlerFunc {
 
 		response, err := h.config.UpdateConfigDocument(r.Context(), request)
 		if err != nil {
+			var persistenceError *configruntime.PersistenceError
+			if errors.As(err, &persistenceError) {
+				httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
+				return
+			}
 			httpapi.WriteError(w, r, errorcodes.PlatformInvalidConfig, configValidationDetails(err))
 			return
 		}
@@ -80,6 +88,7 @@ func (h *ConfigHandlers) ApplyHotReloadableFields(newCfg internalconfig.Config) 
 
 func responseFromDocument(doc configruntime.Document) ConfigResponse {
 	return ConfigResponse{
+		Revision:          doc.Revision,
 		EffectiveTimezone: doc.EffectiveTimezone,
 		Config:            doc.Config,
 		RedactedFields:    doc.RedactedFields,
@@ -88,6 +97,7 @@ func responseFromDocument(doc configruntime.Document) ConfigResponse {
 
 func updateResponseFromResult(result configruntime.UpdateResult) ConfigUpdateResponse {
 	return ConfigUpdateResponse{
+		Revision:          result.Document.Revision,
 		EffectiveTimezone: result.Document.EffectiveTimezone,
 		Config:            result.Document.Config,
 		RedactedFields:    result.Document.RedactedFields,

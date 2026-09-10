@@ -130,8 +130,8 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	}
 	assertStoredConfigSecret(t, application, forwardTokenStoreKey, "forward-secret")
 
-	if application.CurrentConfig().Server.Port != 8081 {
-		t.Fatalf("expected live config server.port to reflect saved value 8081, got %d", application.CurrentConfig().Server.Port)
+	if application.CurrentConfig().Server.Port != 8080 {
+		t.Fatalf("expected restart-only server.port to retain its effective value 8080, got %d", application.CurrentConfig().Server.Port)
 	}
 	if application.CurrentConfig().Log.Level != "debug" {
 		t.Fatalf("expected live config log.level to be hot-reloaded to debug, got %q", application.CurrentConfig().Log.Level)

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
@@ -27,6 +28,15 @@ const (
 	encryptionKeyName = "platform.secret_encryption_key"
 	sealedPrefix      = "raylea-secret:v1:"
 )
+
+var encryptionKeyMu sync.Mutex
+
+// EnsureEncryptionKey establishes the store's shared key before a caller stages
+// an isolated credential update. The key is infrastructure, not a config value.
+func EnsureEncryptionKey(ctx context.Context, store Store) error {
+	_, err := encryptionKey(ctx, store)
+	return err
+}
 
 // Store defines the interface for secret storage operations.
 type Store interface {
@@ -202,6 +212,8 @@ func OpenString(ctx context.Context, store Store, stored []byte) (string, error)
 }
 
 func encryptionKey(ctx context.Context, store Store) ([]byte, error) {
+	encryptionKeyMu.Lock()
+	defer encryptionKeyMu.Unlock()
 	key, err := store.Get(ctx, encryptionKeyName)
 	if err == nil {
 		if len(key) != 32 {

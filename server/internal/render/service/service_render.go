@@ -62,7 +62,8 @@ func (s *Service) PreviewHTML(ctx context.Context, request Request) (PreviewHTML
 }
 
 func (s *Service) renderInternal(ctx context.Context, request Request) (Result, error) {
-	normalized, payloadBytes, err := s.normalizeRequest(request)
+	settings := s.config.snapshot()
+	normalized, payloadBytes, err := s.normalizeRequestWithSettings(request, settings)
 	if err != nil {
 		return Result{}, err
 	}
@@ -80,7 +81,7 @@ func (s *Service) renderInternal(ctx context.Context, request Request) (Result, 
 	if err != nil {
 		return Result{}, &Error{Code: "platform.internal_error", Message: "render template resources are unavailable", Err: err}
 	}
-	deviceScalePercent := s.currentDeviceScalePercent()
+	deviceScalePercent := settings.deviceScalePercent
 	cacheKey := buildCacheKey(normalized, cacheVersion, cacheDigest, resourceDigest, deviceScalePercent, payloadBytes)
 	if cached, ok := s.artifactStore.cachedResult(cacheKey); ok {
 		cached.FromCache = true
@@ -215,6 +216,10 @@ func (s *Service) TemplateAcceptsRenderIdentity(ctx context.Context, templateID 
 }
 
 func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
+	return s.normalizeRequestWithSettings(request, s.config.snapshot())
+}
+
+func (s *Service) normalizeRequestWithSettings(request Request, settings renderSettings) (Request, []byte, error) {
 	request.Template = strings.TrimSpace(request.Template)
 	request.Theme = strings.TrimSpace(request.Theme)
 	request.Output = strings.ToLower(strings.TrimSpace(request.Output))
@@ -227,7 +232,7 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	}
 	switch request.Output {
 	case "":
-		request.Output = s.currentDefaultOutput()
+		request.Output = settings.defaultOutput
 	case "png":
 	case "jpeg":
 	default:
@@ -242,13 +247,13 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	}
 	request.Resources = resources
 	request.Data = cloneRenderData(request.Data)
-	request.Data["render_footer"] = s.renderFooter(request.Plugin)
+	request.Data["render_footer"] = s.renderFooter(request.Plugin, settings.footerTemplate)
 
 	payloadBytes, err := json.Marshal(request.Data)
 	if err != nil {
 		return Request{}, nil, &Error{Code: "platform.invalid_request", Message: "render data is not serializable", Err: err}
 	}
-	if len(payloadBytes) > s.currentMaxRenderDataBytes() {
+	if len(payloadBytes) > settings.maxRenderDataBytes {
 		return Request{}, nil, &Error{
 			Code:    "platform.render_input_too_large",
 			Message: "render input exceeds the configured size limit",
@@ -258,7 +263,7 @@ func (s *Service) normalizeRequest(request Request) (Request, []byte, error) {
 	return request, payloadBytes, nil
 }
 
-func (s *Service) renderFooter(plugin *PluginContext) string {
+func (s *Service) renderFooter(plugin *PluginContext, footerTemplate string) string {
 	pluginName := systemTemplatePlugin
 	pluginVersion := developmentVersion
 	if plugin != nil {
@@ -275,7 +280,7 @@ func (s *Service) renderFooter(plugin *PluginContext) string {
 		"{{plugin_name}}", pluginName,
 		"{{plugin_version}}", pluginVersion,
 	)
-	return replacer.Replace(s.currentFooterTemplate())
+	return replacer.Replace(footerTemplate)
 }
 
 func displayVersion(version string) string {

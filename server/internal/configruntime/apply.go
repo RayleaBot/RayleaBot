@@ -2,18 +2,25 @@ package configruntime
 
 import (
 	"context"
+	"encoding/json"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
 	"time"
 
-	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
+type PersistenceError struct{ Err error }
+
+func (e *PersistenceError) Error() string { return "persist configuration: " + e.Err.Error() }
+func (e *PersistenceError) Unwrap() error { return e.Err }
+
 type ApplyEffects struct {
+	FailedGroups          []string `json:"failed_groups,omitempty"`
 	AppliedNow            []string `json:"applied_now"`
 	ReloadedNow           []string `json:"reloaded_now"`
 	RestartRequiredFields []string `json:"restart_required_fields"`
@@ -32,6 +39,7 @@ func (e ApplyEffects) RestartRequired() bool {
 }
 
 type Document struct {
+	Revision          uint64
 	Config            map[string]any
 	RedactedFields    []string
 	EffectiveTimezone string
@@ -44,8 +52,11 @@ type UpdateResult struct {
 }
 
 func (s *Service) CurrentConfigDocument() Document {
-	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(s.config()))
+	s.updateMu.RLock()
+	defer s.updateMu.RUnlock()
+	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(s.desired()))
 	return Document{
+		Revision:          s.currentRevision(),
 		Config:            document,
 		RedactedFields:    redactedFields,
 		EffectiveTimezone: s.effectiveTimezone(),
@@ -55,26 +66,59 @@ func (s *Service) CurrentConfigDocument() Document {
 func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]any) (UpdateResult, error) {
 	s.updateMu.Lock()
 	defer s.updateMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return UpdateResult{}, err
+	}
 
 	summary := s.summary()
-	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.config()))
-	if _, _, _, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request); err != nil {
-		return UpdateResult{}, err
-	}
-	storedRequest, err := StoreConfigSecrets(ctx, s.secrets, request)
+	request = restoreRedactedConfigSecrets(request, ConfigDocumentFromTyped(s.desired()))
+	validated, _, request, err := internalconfig.NormalizeDocument(summary.ConfigPath, summary.SchemaPath, request)
 	if err != nil {
 		return UpdateResult{}, err
 	}
-	newCfg, newSummary, err := internalconfig.SaveDocument(summary.ConfigPath, summary.SchemaPath, storedRequest)
-	if err != nil {
-		return UpdateResult{}, err
+	var staged *stagedSecrets
+	var store secrets.Store = s.secrets
+	if store != nil {
+		for _, value := range configSecretValues(validated) {
+			if !isConfigSecretReference(value) {
+				if err := secrets.EnsureEncryptionKey(ctx, store); err != nil {
+					return UpdateResult{}, &PersistenceError{Err: err}
+				}
+				break
+			}
+		}
+		staged = newStagedSecrets(store)
+		store = staged
 	}
-	newCfg, err = ResolveConfigSecretRefs(ctx, s.secrets, newCfg)
+	storedRequest, err := StoreConfigSecrets(ctx, store, request)
 	if err != nil {
-		return UpdateResult{}, err
+		return UpdateResult{}, &PersistenceError{Err: err}
+	}
+	newCfg, err := ResolveConfigSecretRefs(ctx, store, validated)
+	if err != nil {
+		return UpdateResult{}, &PersistenceError{Err: err}
+	}
+	var newSummary internalconfig.Summary
+	persist := func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		_, savedSummary, err := internalconfig.SaveDocument(summary.ConfigPath, summary.SchemaPath, storedRequest)
+		newSummary = savedSummary
+		return err
+	}
+	if staged != nil {
+		err = staged.persist(ctx, persist)
+	} else {
+		err = persist()
+	}
+	if err != nil {
+		return UpdateResult{}, &PersistenceError{Err: err}
 	}
 
 	applyEffects := s.applyHotReloadableFieldsLocked(newCfg)
+	s.desiredConfig = &newCfg
+	s.revision = s.currentRevision() + 1
 	if s.setSummary != nil {
 		s.setSummary(newSummary)
 	}
@@ -82,6 +126,7 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 	document, redactedFields := sanitizeConfigDocument(ConfigDocumentFromTyped(newCfg))
 	return UpdateResult{
 		Document: Document{
+			Revision:          s.revision,
 			Config:            document,
 			RedactedFields:    redactedFields,
 			EffectiveTimezone: s.effectiveTimezone(),
@@ -89,6 +134,20 @@ func (s *Service) UpdateConfigDocument(ctx context.Context, request map[string]a
 		RestartRequired: applyEffects.RestartRequired(),
 		ApplyEffects:    applyEffects,
 	}, nil
+}
+
+func (s *Service) desired() internalconfig.Config {
+	if s.desiredConfig != nil {
+		return *s.desiredConfig
+	}
+	return s.config()
+}
+
+func (s *Service) currentRevision() uint64 {
+	if s.revision == 0 {
+		return 1
+	}
+	return s.revision
 }
 
 func ConfigDocumentFromTyped(cfg internalconfig.Config) map[string]any {
@@ -259,6 +318,9 @@ func normalizeConfigApplyEffects(e *ApplyEffects) {
 	e.AppliedNow = normalizeConfigEffectPaths(e.AppliedNow)
 	e.ReloadedNow = normalizeConfigEffectPaths(e.ReloadedNow)
 	e.RestartRequiredFields = normalizeConfigEffectPaths(e.RestartRequiredFields)
+	if len(e.FailedGroups) > 0 {
+		e.FailedGroups = normalizeConfigEffectPaths(e.FailedGroups)
+	}
 }
 
 func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEffects {
@@ -270,15 +332,32 @@ func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEf
 func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) ApplyEffects {
 	oldCfg := s.config()
 	effects := ClassifyApplyEffects(oldCfg, newCfg)
-	oneBotHotChanged := len(effects.ReloadedNow) > 0
-
 	if s.addRedactionValues != nil {
 		s.addRedactionValues(configSecretValues(newCfg)...)
 	}
+	if slices.Contains(effects.RestartRequiredFields, "adapters") {
+		retained := effects.ReloadedNow[:0]
+		for _, path := range effects.ReloadedNow {
+			if strings.HasPrefix(path, "adapters.") {
+				effects.RestartRequiredFields = append(effects.RestartRequiredFields, path)
+			} else {
+				retained = append(retained, path)
+			}
+		}
+		effects.ReloadedNow = retained
+	}
+	newCfg = retainConfigFields(oldCfg, newCfg, effects.RestartRequiredFields)
+	oneBotHotChanged := len(effects.ReloadedNow) > 0
+
 	if newCfg.Log.Level != oldCfg.Log.Level {
 		if s.logLevel != nil {
-			if err := s.logLevel.SetLevel(newCfg.Log.Level); err == nil && s.logger != nil {
-				s.logger.Info("日志级别已从 "+oldCfg.Log.Level+" 调整为 "+newCfg.Log.Level,
+			if err := s.logLevel.SetLevel(newCfg.Log.Level); err != nil {
+				effects.FailedGroups = append(effects.FailedGroups, "logging")
+				effects.AppliedNow = slices.DeleteFunc(effects.AppliedNow, func(path string) bool { return path == "log.level" })
+				effects.RestartRequiredFields = append(effects.RestartRequiredFields, "log.level")
+				newCfg.Log.Level = oldCfg.Log.Level
+			} else if s.logger != nil {
+				s.logger.Info("日志级别已调整",
 					"component", "config",
 					"old_level", oldCfg.Log.Level,
 					"new_level", newCfg.Log.Level,
@@ -316,23 +395,27 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 		})
 	}
 
-	if s.setConfig != nil {
-		s.setConfig(newCfg)
-	}
 	if s.eventIngress != nil {
 		s.eventIngress.UpdateConfig(newCfg)
 	}
 	if oneBotHotChanged && s.protocol != nil {
 		if err := s.protocol.ApplyConfigReload(newCfg); err != nil {
+			effects.FailedGroups = append(effects.FailedGroups, "adapters")
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
+			newCfg = retainConfigFields(oldCfg, newCfg, effects.ReloadedNow)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
-			if err != adapterservice.ErrStopped && s.logger != nil {
-				s.logger.Warn("消息平台配置更新失败，需重启服务后生效："+err.Error(),
+			rollbackErr := s.protocol.ApplyConfigReload(oldCfg)
+			if s.logger != nil {
+				s.logger.Warn("消息平台配置更新失败，需重启服务后生效",
 					"component", "config",
 					"err", err.Error(),
+					"rollback_err", rollbackErr,
 				)
 			}
 		}
+	}
+	if s.setConfig != nil {
+		s.setConfig(newCfg)
 	}
 	if s.protocol != nil {
 		s.protocol.PublishSnapshot()
@@ -340,4 +423,39 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 
 	normalizeConfigApplyEffects(&effects)
 	return effects
+}
+
+func retainConfigFields(current, desired internalconfig.Config, paths []string) internalconfig.Config {
+	if len(paths) == 0 {
+		return desired
+	}
+	oldDocument := typedConfigDocument(current)
+	document := typedConfigDocument(desired)
+	for _, path := range paths {
+		parts := strings.Split(path, ".")
+		if value, ok := lookupConfigPath(oldDocument, parts); ok {
+			setConfigPath(document, parts, value)
+		}
+	}
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		panic(err) // Documents are constructed exclusively from typed config values.
+	}
+	var effective internalconfig.Config
+	if err := json.Unmarshal(encoded, &effective); err != nil {
+		panic(err)
+	}
+	return effective
+}
+
+func typedConfigDocument(cfg internalconfig.Config) map[string]any {
+	encoded, err := json.Marshal(cfg)
+	if err != nil {
+		panic(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(encoded, &document); err != nil {
+		panic(err)
+	}
+	return document
 }
