@@ -114,5 +114,7 @@ type OutboundMessageReply struct {
 // SendMessageResult reports the identifier the platform assigned to a message
 // the adapter just sent.
 type SendMessageResult struct {
-	MessageID string
+	MessageID      string
+	SourceAdapter  string
+	SourceProtocol string
 }
