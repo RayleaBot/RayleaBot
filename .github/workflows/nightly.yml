@@ -202,6 +202,7 @@ jobs:
         run: |
           python scripts/generate-error-codes.py --verify
           python scripts/generate-plugin-wire.py --verify
+          python scripts/generate-launcher-api.py --verify
           python scripts/ci/validate_contracts.py --mode=strict
 
   dependency-audit:
@@ -275,10 +276,10 @@ jobs:
           mkdir -p dist/server
           (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
 
-      - name: Install recovery rehearsal dependencies
+      - name: Install recovery rehearsal dependency
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
 
-      - name: Rehearse current-format recovery
+      - name: Rehearse fresh initialization and current-format recovery
         run: python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal
 
       - name: Install web dependencies
