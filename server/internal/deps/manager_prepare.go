@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"os"
 	"path/filepath"
 	"strings"
@@ -156,7 +157,8 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 	report.AttemptedSources = append(report.AttemptedSources, attemptedSources...)
 	if err != nil {
 		stage := "download"
-		if strings.Contains(err.Error(), "verify deps resource") || strings.Contains(err.Error(), "persist deps archive") {
+		var verification *archiveVerificationError
+		if errors.As(err, &verification) {
 			stage = "verify"
 		}
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, stage, report.SelectedSource, report.AttemptedSources, err)
@@ -387,7 +389,7 @@ func resolvePreparedEntrypoints(storeRoot string, resource *Resource) (map[strin
 		var resolved string
 		for _, candidate := range candidates {
 			clean := filepath.Clean(filepath.Join(storeRoot, filepath.FromSlash(candidate)))
-			if !pathWithinRoot(storeRoot, clean) {
+			if !fsguard.WithinRoot(storeRoot, clean) {
 				continue
 			}
 			info, err := os.Stat(clean)

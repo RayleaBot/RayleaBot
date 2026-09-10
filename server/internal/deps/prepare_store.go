@@ -2,10 +2,9 @@ package deps
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"io"
 	"os"
 	"path/filepath"
@@ -23,11 +22,10 @@ func VerifyFileSHA256(path string, want string) error {
 	}
 	defer func(release func() error) { _ = release() }(file.Close)
 
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
+	got, err := fsguard.SHA256(context.Background(), file, maxRuntimeArchiveBytes)
+	if err != nil {
 		return err
 	}
-	got := hex.EncodeToString(hasher.Sum(nil))
 	if strings.ToLower(strings.TrimSpace(want)) != got {
 		return fmt.Errorf("sha256 mismatch: got %s want %s", got, want)
 	}
@@ -194,6 +192,13 @@ func removeStaleTempRoots(parent, resourceID, version string) error {
 	return nil
 }
 func verifyFileSHA256(path string, want string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Size() > maxRuntimeArchiveBytes {
+		return errors.New("runtime archive exceeds size limit or is not a regular file")
+	}
 	return VerifyFileSHA256(path, want)
 }
 

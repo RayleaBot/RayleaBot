@@ -23,3 +23,9 @@
 - CLI doctor 与系统诊断只使用 diagnostics boundary，不在只读检查中准备资源。
 - 插件安装不依赖 `internal/deps`；插件 runtime 只运行已校验的 Go artifact，并可消费核心提供的媒体工具入口。
 - 用户可见的准备失败应保留 `BootstrapError` 的 stage、source、路径和 remediation，并用现有摘要 helper 生成一致文案。
+
+## 归档与下载边界
+
+托管资源使用流式 HTTPS 下载，最多 2 GiB，保留取消、总超时、空闲超时和 SHA-256 校验；临时文件在失败后回收。归档逐项在 os.Root 内展开，最多 100,000 条目、单文件 2 GiB、累计 8 GiB；拒绝越界、重复路径和特殊文件。macOS framework 所需的内部相对链接在普通文件之后创建，再校验最终解析范围。
+
+XZ 使用纯 Go `github.com/xi2/xz` 固定版本 `v0.0.0-20171230120015-48954b6210f8`，替代外部 tar，以执行逐条路径检查、取消和 64 MiB 字典上限。第三方声明保留上游 LICENSE 的 public-domain 声明。插件包和发行更新的更严格策略仍由各自服务执行。

@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / "THIRD_PARTY_NOTICES.md"
 UNKNOWN_LICENSE_MARKERS = {"", "unknown", "unlicensed", "none", "n/a"}
 REVIEWED_LICENSE_EXPRESSIONS = {
+	"LicenseRef-xi2-xz-Public-Domain",
     "0BSD",
     "Apache-2.0",
     "BSD-2-Clause",
@@ -215,6 +216,10 @@ def decode_json_stream(raw: str) -> list[dict[str, Any]]:
 
 def detect_go_license(text: str, component: str) -> str:
     normalized = text.lower()
+    if (component == "github.com/xi2/xz@v0.0.0-20171230120015-48954b6210f8"
+            and "licensing of github.com/xi2/xz" in normalized
+            and "into the public domain" in normalized):
+        return "LicenseRef-xi2-xz-Public-Domain"
     if "apache license" in normalized and "version 2.0" in normalized:
         return "Apache-2.0"
     if "mozilla public license" in normalized and "version 2.0" in normalized:
