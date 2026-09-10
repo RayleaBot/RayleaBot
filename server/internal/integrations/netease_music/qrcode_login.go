@@ -45,7 +45,6 @@ func (p *Provider) ensureDeviceID() string {
 }
 
 // Create initiates a NetEase Music QR code login session.
-// Create initiates a NetEase Music QR code login session.
 // The flow mirrors the official web client: first visit the home page to
 // obtain __csrf and other session cookies, then call the unikey WEAPI.
 func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLoginSession, error) {
@@ -70,8 +69,9 @@ func (p *Provider) Create(ctx context.Context, now time.Time) (thirdparty.QRLogi
 		"channel":       "",
 	}
 	// Visit the home page to obtain __csrf and session cookies.
-	followClient := thirdparty.NewHTTPClientFollow(nil)
-	_, _ = thirdparty.FetchPageBody(ctx, followClient, "https://music.163.com/", neteaseHeaders(), cookies)
+	if err := thirdparty.FollowGet(ctx, p.client, "https://music.163.com/", neteaseHeaders(), cookies); err != nil && ctx.Err() != nil {
+		return thirdparty.QRLoginSession{}, ctx.Err()
+	}
 	csrf := strings.TrimSpace(cookies["__csrf"])
 
 	var response struct {
@@ -138,14 +138,14 @@ func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, 
 			session.Account = profile
 		}
 	case 803:
-		session.State = thirdparty.QRLoginStateSucceeded
 		for key, value := range thirdparty.CookieMapFromHeader(response.Cookie) {
 			cookies[key] = value
 		}
-		session.Cookie = thirdparty.FirstNonEmpty(response.Cookie, thirdparty.CookieHeader(cookies))
-		if strings.TrimSpace(session.Cookie) == "" {
+		if !HasLoginCookie(cookies) {
 			return session, fmt.Errorf("netease music qrcode login succeeded without cookies")
 		}
+		session.State = thirdparty.QRLoginStateSucceeded
+		session.Cookie = thirdparty.CookieHeader(cookies)
 		profile := neteaseProfile(response)
 		if profile.Empty() {
 			profile = session.Account
