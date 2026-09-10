@@ -1,3 +1,5 @@
+import { computeProtocolSnapshotFromConfig, redactConfigSecrets, restoreRedactedConfigSecrets, computeRestartRequiredForConfig, computeConfigApplyEffects } from './mock-config.mjs'
+import { listLogPage } from './mock-logs.mjs'
 import http from 'node:http'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
@@ -27,13 +29,9 @@ const externalPreviewImageBytes = Buffer.from(
 )
 const bilibiliAvatarUrl = 'http://127.0.0.1:4010/external-preview/avatar.png'
 const weiboAvatarUrl = 'https://tvax1.sinaimg.cn/crop.0.0.512.512.180/fixture.jpg'
-const redactedConfigValue = '********'
+
 const helpMenuFontAssetRoot = path.join(repoRoot, 'templates', 'help.menu', 'assets', 'fonts', 'noto-sans-sc')
-function secretConfigPaths(config) {
-  return (config.adapters ?? []).flatMap((entry) => entry.type === 'onebot11'
-    ? ['forward_ws', 'http_api', 'reverse_ws', 'webhook'].map((transport) => ['adapters', entry.id, 'onebot11', transport, 'access_token'])
-    : [['adapters', entry.id, 'qqofficial', 'app_secret']])
-}
+
 const externalPreviewFontBytes = await readFile(
   path.join(helpMenuFontAssetRoot, 'k3kXo84MPvpLmixcA63oeALRLoKI.woff2'),
 )
@@ -182,175 +180,21 @@ function baseState() {
   }
 }
 
-function computeProtocolSnapshotFromConfig(config, currentSnapshot) {
-  const snapshot = structuredClone(currentSnapshot)
-  const onebot = config.adapters?.find((entry) => entry.type === 'onebot11')?.onebot11 ?? {}
-  const reverseWs = onebot.reverse_ws ?? { enabled: false, url: '' }
-  const forwardWs = onebot.forward_ws ?? { enabled: false, url: '' }
-  const httpApi = onebot.http_api ?? { enabled: false, url: '' }
-  const webhook = onebot.webhook ?? { enabled: false, url: '' }
-  const transports = [
-    ['reverse_ws', reverseWs],
-    ['forward_ws', forwardWs],
-    ['http_api', httpApi],
-    ['webhook', webhook],
-  ]
 
-  snapshot.provider = 'unknown'
-  snapshot.transport_status = transports.map(([transport, entry]) => {
-    const configured = Boolean(entry.url)
-    let state = 'idle'
-    let summary = '未启用'
 
-    if (entry.enabled && configured) {
-      if (transport === 'forward_ws') {
-        state = 'connected'
-        summary = '主动连接已建立'
-      } else if (transport === 'reverse_ws') {
-        state = 'listening'
-        summary = '等待 OneBot 回连'
-      } else if (transport === 'http_api') {
-        state = 'connected'
-        summary = 'HTTP API 可用'
-      } else if (transport === 'webhook') {
-        state = 'listening'
-        summary = 'Webhook 入口可接收上报'
-      }
-    }
 
-    return {
-      transport,
-      enabled: Boolean(entry.enabled),
-      configured,
-      endpoint: entry.url ? entry.url.replace(/^(https?:\/\/[^/]+|wss?:\/\/[^/]+).*$/, '$1') : '',
-      state,
-      summary,
-    }
-  })
-  snapshot.configured_transports = transports
-    .filter(([, entry]) => Boolean(entry.url))
-    .map(([name]) => name)
 
-  if (forwardWs.enabled && forwardWs.url) {
-    snapshot.active_transports = ['forward_ws']
-    snapshot.readiness_status = 'ready'
-    snapshot.summary = 'OneBot11 主动连接已就绪'
-  } else if (reverseWs.enabled && reverseWs.url) {
-    snapshot.active_transports = ['reverse_ws']
-    snapshot.readiness_status = 'degraded'
-    snapshot.summary = 'OneBot11 等待回连'
-  } else if (httpApi.enabled && httpApi.url && webhook.enabled && webhook.url) {
-    snapshot.active_transports = ['http_api', 'webhook']
-    snapshot.readiness_status = 'ready'
-    snapshot.summary = 'OneBot11 HTTP API 与 Webhook 已就绪'
-  } else if (httpApi.enabled && httpApi.url) {
-    snapshot.active_transports = ['http_api']
-    snapshot.readiness_status = 'degraded'
-    snapshot.summary = 'OneBot11 仅 HTTP API 可用'
-  } else if (webhook.enabled && webhook.url) {
-    snapshot.active_transports = ['webhook']
-    snapshot.readiness_status = 'degraded'
-    snapshot.summary = 'OneBot11 仅 Webhook 上报可用'
-  } else {
-    snapshot.active_transports = []
-    snapshot.readiness_status = 'setup_required'
-    snapshot.summary = 'OneBot11 尚未配置连接'
-  }
-  return snapshot
-}
 
-function redactConfigSecrets(config) {
-  const snapshot = structuredClone(config)
-  const redactedFields = []
-  for (const secretPath of secretConfigPaths(config)) {
-    const value = getPath(snapshot, secretPath)
-    if (typeof value !== 'string' || value.trim() === '') {
-      continue
-    }
-    setPath(snapshot, secretPath, redactedConfigValue)
-    redactedFields.push(secretPath.join('.'))
-  }
-  return {
-    config: snapshot,
-    redacted_fields: redactedFields.sort(),
-  }
-}
 
-function restoreRedactedConfigSecrets(payload, currentConfig) {
-  const nextConfig = structuredClone(payload)
-  for (const secretPath of secretConfigPaths(nextConfig)) {
-    const submitted = getPath(nextConfig, secretPath)
-    if (submitted !== undefined && String(submitted).trim() !== redactedConfigValue) {
-      continue
-    }
-    setPath(nextConfig, secretPath, String(getPath(currentConfig, secretPath) ?? ''))
-  }
-  return nextConfig
-}
 
-function getPath(value, segments) {
-  let current = value
-  for (const segment of segments) {
-    if (Array.isArray(current)) {
-      current = current.find((entry) => entry.id === segment)
-      continue
-    }
-    if (!current || typeof current !== 'object' || !(segment in current)) {
-      return undefined
-    }
-    current = current[segment]
-  }
-  return current
-}
 
-function setPath(value, segments, nextValue) {
-  let current = value
-  for (const segment of segments.slice(0, -1)) {
-    if (Array.isArray(current)) {
-      current = current.find((entry) => entry.id === segment)
-      if (!current) return
-      continue
-    }
-    if (!current[segment] || typeof current[segment] !== 'object') {
-      current[segment] = {}
-    }
-    current = current[segment]
-  }
-  current[segments.at(-1)] = nextValue
-}
 
-function normalizeTransport(entry = {}) {
-  return {
-    enabled: Boolean(entry.enabled),
-    url: String(entry.url ?? ''),
-    access_token: String(entry.access_token ?? ''),
-  }
-}
 
-function pickOneBotHotState(config) {
-  const onebot = config.onebot ?? {}
-  const adapter = config.adapter ?? {}
 
-  return {
-    adapter: {
-      connect_timeout_seconds: adapter.connect_timeout_seconds ?? 0,
-      reconnect_initial_seconds: adapter.reconnect_initial_seconds ?? 0,
-      reconnect_multiplier: adapter.reconnect_multiplier ?? 0,
-      reconnect_max_seconds: adapter.reconnect_max_seconds ?? 0,
-      reconnect_jitter_ratio: adapter.reconnect_jitter_ratio ?? 0,
-    },
-    onebot: {
-      reverse_ws: normalizeTransport(onebot.reverse_ws),
-      forward_ws: normalizeTransport(onebot.forward_ws),
-      http_api: normalizeTransport(onebot.http_api),
-      webhook: normalizeTransport(onebot.webhook),
-    },
-  }
-}
 
-function computeRestartRequiredForConfig(prevConfig, nextConfig) {
-  return computeConfigApplyEffects(prevConfig, nextConfig).restart_required_fields.length > 0
-}
+
+
+
 
 function localizeBilibiliAccountAvatar(account) {
   if (account?.platform === 'bilibili' && account.profile) {
@@ -495,75 +339,13 @@ function escapeHTML(value) {
     .replaceAll("'", '&#39;')
 }
 
-const configRestartRequiredFields = new Set([
-  'adapters',
-  'admin.max_sessions',
-  'admin.session_ttl_days',
-  'admin.sliding_renewal',
-  'database.engine',
-  'database.path',
-  'render.browser_args',
-  'render.browser_path',
-  'render.worker_count',
-  'scheduler.timezone',
-  'server.host',
-  'server.port',
-  'third_party_accounts.douyin_login.browser_mode',
-  'third_party_accounts.douyin_login.remote_debugging_url',
-  'web.exposure_mode',
-  'web.setup_local_only',
-])
 
-function computeConfigApplyEffects(prevConfig, nextConfig) {
-  const changedPaths = []
-  collectChangedConfigPaths('', prevConfig ?? {}, nextConfig ?? {}, changedPaths)
-  changedPaths.sort()
 
-  const effects = {
-    applied_now: [],
-    reloaded_now: [],
-    restart_required_fields: [],
-  }
 
-  for (const path of [...new Set(changedPaths)]) {
-    if (path.startsWith('adapters.') || path.startsWith('adapter.')) {
-      effects.reloaded_now.push(path)
-    } else if (configRestartRequiredFields.has(path) || path.startsWith('database.') || path.startsWith('server.') || path.startsWith('web.') || path.startsWith('runtime.')) {
-      effects.restart_required_fields.push(path)
-    } else {
-      effects.applied_now.push(path)
-    }
-  }
 
-  return effects
-}
 
-function collectChangedConfigPaths(prefix, prevValue, nextValue, changedPaths) {
-  if (prefix === 'adapters' && Array.isArray(prevValue) && Array.isArray(nextValue)) {
-    const identities = (entries) => entries.map(({ id, type }) => ({ id, type }))
-    if (JSON.stringify(identities(prevValue)) !== JSON.stringify(identities(nextValue))) {
-      changedPaths.push(prefix)
-    } else {
-      nextValue.forEach((entry, index) => collectChangedConfigPaths(`adapters.${entry.id}`, prevValue[index], entry, changedPaths))
-    }
-    return
-  }
-  if (isPlainObject(prevValue) && isPlainObject(nextValue)) {
-    const keys = [...new Set([...Object.keys(prevValue), ...Object.keys(nextValue)])].sort()
-    for (const key of keys) {
-      collectChangedConfigPaths(prefix ? `${prefix}.${key}` : key, prevValue[key], nextValue[key], changedPaths)
-    }
-    return
-  }
 
-  if (prefix && JSON.stringify(prevValue) !== JSON.stringify(nextValue)) {
-    changedPaths.push(prefix)
-  }
-}
 
-function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 
 function createLogDetailMap() {
   return {
@@ -840,11 +622,12 @@ function normalizeGovernanceEntryPayload(payload) {
   const targetId = typeof payload.target_id === 'string' ? payload.target_id.trim() : ''
   const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
 
-  if (!['user', 'group'].includes(entryType) || !targetId || !reason) {
+  if (!['user', 'group'].includes(entryType) || !targetId || !reason || !payload.scope) {
     return null
   }
 
   return {
+    scope: structuredClone(payload.scope),
     entry_type: entryType,
     target_id: targetId,
     reason,
@@ -864,7 +647,7 @@ function governanceEntryCreatedAt(collectionName) {
 
 function upsertGovernanceEntry(snapshot, collectionName, payload) {
   const collection = governanceEntryCollection(snapshot, payload.entry_type)
-  const existing = collection.find((entry) => entry.target_id === payload.target_id)
+  const existing = collection.find((entry) => entry.target_id === payload.target_id && sameScope(entry.scope, payload.scope))
 
   if (existing) {
     existing.reason = payload.reason
@@ -872,6 +655,7 @@ function upsertGovernanceEntry(snapshot, collectionName, payload) {
   }
 
   const entry = {
+    scope: structuredClone(payload.scope),
     entry_type: payload.entry_type,
     target_id: payload.target_id,
     reason: payload.reason,
@@ -882,9 +666,9 @@ function upsertGovernanceEntry(snapshot, collectionName, payload) {
   return structuredClone(entry)
 }
 
-function removeGovernanceEntry(snapshot, entryType, targetId) {
+function removeGovernanceEntry(snapshot, entryType, targetId, scope) {
   const collection = governanceEntryCollection(snapshot, entryType)
-  const index = collection.findIndex((entry) => entry.target_id === targetId)
+  const index = collection.findIndex((entry) => entry.target_id === targetId && sameScope(entry.scope, scope))
   if (index < 0) {
     return false
   }
@@ -1037,136 +821,19 @@ function taskStatusText(status) {
   }
 }
 
-function normalizeSortableTimestamp(value) {
-  if (value === null || value === undefined) {
-    return Number.NEGATIVE_INFINITY
-  }
 
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return normalizeUnixTimestamp(value)
-  }
 
-  const raw = String(value).trim()
-  if (!raw) {
-    return Number.NEGATIVE_INFINITY
-  }
 
-  const numeric = Number(raw)
-  if (Number.isFinite(numeric)) {
-    return normalizeUnixTimestamp(numeric)
-  }
 
-  const parsed = Date.parse(raw)
-  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY
-}
 
-function normalizeUnixTimestamp(value) {
-  const absolute = Math.abs(value)
-  if (absolute >= 1_000_000_000 && absolute < 1_000_000_000_000) {
-    return value * 1000
-  }
-  return value
-}
 
-function compareLogsDesc(left, right) {
-  const leftTimestamp = normalizeSortableTimestamp(left.timestamp)
-  const rightTimestamp = normalizeSortableTimestamp(right.timestamp)
 
-  if (leftTimestamp !== rightTimestamp) {
-    return rightTimestamp - leftTimestamp
-  }
 
-  return String(right.log_id ?? '').localeCompare(String(left.log_id ?? ''))
-}
 
-function encodeLogCursor(item) {
-  return Buffer.from(JSON.stringify({
-    log_id: item.log_id,
-  }), 'utf8').toString('base64url')
-}
 
-function decodeLogCursor(raw) {
-  if (!raw) {
-    return null
-  }
 
-  try {
-    const decoded = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'))
-    return typeof decoded?.log_id === 'string' ? decoded.log_id : null
-  } catch {
-    return null
-  }
-}
 
-function listLogPage(searchParams) {
-  const scope = searchParams.get('scope') === 'current_session' ? 'current_session' : 'history'
-  const startAt = searchParams.get('start_at')
-  const endAt = searchParams.get('end_at')
-  const levels = normalizedSearchValues(searchParams, 'level')
-  const source = searchParams.get('source')
-  const protocol = searchParams.get('protocol')
-  const pluginIds = normalizedSearchValues(searchParams, 'plugin_id')
-  const requestId = searchParams.get('request_id')
-  const limit = Math.max(1, Number(searchParams.get('limit') ?? '50') || 50)
-  const direction = searchParams.get('direction') === 'newer' ? 'newer' : 'older'
-  const cursorLogId = decodeLogCursor(searchParams.get('cursor'))
 
-  const filtered = state.logs
-    .filter((item) => {
-      const timestamp = normalizeSortableTimestamp(item.timestamp)
-      if (scope === 'current_session' && !state.currentSessionLogIds.has(item.log_id)) return false
-      if (scope === 'history' && startAt && timestamp < normalizeSortableTimestamp(startAt)) return false
-      if (scope === 'history' && endAt && timestamp > normalizeSortableTimestamp(endAt)) return false
-      if (levels.length > 0 && !levels.includes(item.level)) return false
-      if (source && item.source !== source) return false
-      if (protocol && item.protocol !== protocol) return false
-      if (pluginIds.length > 0 && !pluginIds.includes(item.plugin_id ?? '')) return false
-      if (requestId && item.request_id !== requestId) return false
-      return true
-    })
-    .slice()
-    .sort(compareLogsDesc)
-
-  let startIndex = 0
-  let endIndex = Math.min(limit, filtered.length)
-  const cursorIndex = cursorLogId
-    ? filtered.findIndex((item) => item.log_id === cursorLogId)
-    : -1
-
-  if (cursorIndex >= 0) {
-    if (direction === 'older') {
-      startIndex = cursorIndex + 1
-      endIndex = Math.min(filtered.length, startIndex + limit)
-    } else {
-      endIndex = cursorIndex
-      startIndex = Math.max(0, endIndex - limit)
-    }
-  }
-
-  const items = filtered.slice(startIndex, endIndex)
-  const hasNewer = startIndex > 0
-  const hasOlder = endIndex < filtered.length
-
-  return {
-    items,
-    page: {
-      limit,
-      has_older: hasOlder,
-      has_newer: hasNewer,
-      older_cursor: hasOlder && items.length > 0 ? encodeLogCursor(items.at(-1)) : null,
-      newer_cursor: hasNewer && items.length > 0 ? encodeLogCursor(items[0]) : null,
-    },
-  }
-}
-
-function normalizedSearchValues(searchParams, key) {
-  return Array.from(new Set(
-    searchParams
-      .getAll(key)
-      .map((value) => value.trim())
-      .filter(Boolean),
-  ))
-}
 
 function defaultProtocolLiveLog() {
   const summary = {
@@ -1566,7 +1233,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    if (!removeGovernanceEntry(state.governanceBlacklist, entryType, targetId)) {
+    if (!removeGovernanceEntry(state.governanceBlacklist, entryType, targetId, Object.fromEntries(searchParams))) {
       json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
       return
     }
@@ -1627,7 +1294,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    if (!removeGovernanceEntry(state.governanceWhitelist, entryType, targetId)) {
+    if (!removeGovernanceEntry(state.governanceWhitelist, entryType, targetId, Object.fromEntries(searchParams))) {
       json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
       return
     }
@@ -2080,7 +1747,7 @@ const server = http.createServer(async (request, response) => {
       return
     }
 
-    json(response, 200, listLogPage(searchParams))
+    json(response, 200, listLogPage(state, searchParams))
     return
   }
 
@@ -2631,3 +2298,7 @@ server.on('upgrade', (request, socket, head) => {
 server.listen(4010, '127.0.0.1', () => {
   process.stdout.write('mock backend ready\n')
 })
+
+function sameScope(a, b) {
+ return a.kind === b.kind && a.source_protocol === b.source_protocol && a.source_adapter === (b.source_adapter ?? '') && a.bot_id === (b.bot_id ?? '')
+}

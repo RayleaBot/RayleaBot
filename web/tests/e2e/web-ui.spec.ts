@@ -650,7 +650,7 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   for (let index = 0; index < 10; index += 1) {
     await request.post(`${backendUrl}/api/governance/whitelist/entries`, {
       headers: authHeaders,
-      data: {
+      data: { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
         entry_type: 'user',
         target_id: `31${String(index + 1).padStart(3, '0')}`,
         reason: `扩展白名单${index + 1}`,
@@ -660,7 +660,7 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   for (let index = 0; index < 10; index += 1) {
     await request.post(`${backendUrl}/api/governance/blacklist/entries`, {
       headers: authHeaders,
-      data: {
+      data: { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
         entry_type: 'user',
         target_id: `41${String(index + 1).padStart(3, '0')}`,
         reason: `扩展黑名单${index + 1}`,
@@ -728,7 +728,7 @@ test('access lists page manages blacklist and whitelist entries', async ({ page,
   await expect(whitelistCard).not.toContainText('20002')
 
   for (let index = 0; index < 10; index += 1) {
-    await request.delete(`${backendUrl}/api/governance/whitelist/entries/user/${encodeURIComponent(`31${String(index + 1).padStart(3, '0')}`)}`, {
+    await request.delete(`${backendUrl}/api/governance/whitelist/entries/user/${encodeURIComponent(`31${String(index + 1).padStart(3, '0')}`)}?kind=global&source_protocol=onebot11&source_adapter=&bot_id=`, {
       headers: authHeaders,
     })
   }

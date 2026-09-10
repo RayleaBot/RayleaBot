@@ -48,21 +48,12 @@ jobs:
       - name: Run server doctor
         run: make doctor
 
-      - name: Run go test
-        working-directory: server
-        run: go test ./...
-
-      - name: Run go race tests
-        working-directory: server
-        run: go test -race ./...
-
-      - name: Run Go coverage
+      - name: Run Go race tests with coverage
         shell: bash
         working-directory: server
         run: |
           set -euo pipefail
-          mapfile -t packages < <(go list ./... | grep -v '/cmd/raylea-server$')
-          go test -covermode=atomic -coverprofile=coverage.out "${packages[@]}"
+          go test -race -covermode=atomic -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out | awk '/^total:/ {print "Go coverage total: " $3}'
 
       - name: Run golangci-lint
@@ -101,6 +92,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Setup Go for real Server E2E
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -274,6 +271,12 @@ jobs:
         run: |
           mkdir -p dist/server
           (cd server && go build -o ../dist/server/raylea-server ./cmd/raylea-server)
+
+      - name: Install migration rehearsal dependency
+        run: python -m pip install --disable-pip-version-check pyyaml==6.0.3
+
+      - name: Rehearse legacy data recovery
+        run: python scripts/release/rehearse_data_migration.py --server dist/server/raylea-server --output dist/data-migration-rehearsal
 
       - name: Install web dependencies
         working-directory: web

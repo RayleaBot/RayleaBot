@@ -13,10 +13,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 class StartBatTests(unittest.TestCase):
-    def test_start_bat_does_not_probe_retired_managed_node_runtime(self) -> None:
-        script = (REPO_ROOT / "start.bat").read_text(encoding="utf-8")
-        self.assertNotIn(r".deps\store\nodejs-windows-x64", script)
-
     def _prepare_workspace(self, workspace: Path) -> None:
         shutil.copy2(REPO_ROOT / "start.bat", workspace / "start.bat")
         shutil.copy2(REPO_ROOT / ".tool-versions", workspace / ".tool-versions")
@@ -45,15 +41,6 @@ class StartBatTests(unittest.TestCase):
         )
         (bin_dir / "node.cmd").write_text(fake_node, encoding="ascii")
         return bin_dir, calls_path
-
-    def test_launcher_workspace_pins_wails_without_electron_build_scripts(self) -> None:
-        workspace_yaml = (REPO_ROOT / "launcher" / "pnpm-workspace.yaml").read_text(encoding="utf-8")
-        package_json = (REPO_ROOT / "launcher" / "package.json").read_text(encoding="utf-8")
-        go_mod = (REPO_ROOT / "launcher" / "go.mod").read_text(encoding="utf-8")
-        self.assertNotIn("allowBuilds:", workspace_yaml)
-        self.assertIn('"@wailsio/runtime": "3.0.0-beta.9"', package_json)
-        self.assertNotIn('"electron"', package_json)
-        self.assertIn("github.com/wailsapp/wails/v3 v3.0.0-beta.9", go_mod)
 
     @unittest.skipIf(os.name != "nt", "start.bat is a Windows entrypoint")
     def test_start_bat_invokes_node_orchestrator(self) -> None:

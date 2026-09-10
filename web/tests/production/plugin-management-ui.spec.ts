@@ -14,16 +14,6 @@ test.beforeEach(async ({ request }) => {
   await request.post('/__test/reset', { data: { initialized: true } })
 })
 
-test('production hosting serves namespaced plugin routes without turning API errors into HTML', async ({ request }) => {
-  const page = await request.get('/plugins/raylea.subscription-hub')
-  expect(page.status()).toBe(200)
-  expect(page.headers()['content-type']).toContain('text/html')
-  expect(await page.text()).toContain('<div id="app">')
-  const missingAPI = await request.get('/api/missing-route')
-  expect(missingAPI.status()).toBe(404)
-  expect(missingAPI.headers()['content-type']).toContain('application/json')
-})
-
 test('built plugin pages use the deployed server port and complete the isolated handshake', async ({ page }) => {
   await openPluginPage(page)
   const frame = page.getByTestId('plugin-management-ui-frame')

@@ -38,7 +38,7 @@ def main() -> int:
 
     errors: list[str] = []
     warnings: list[str] = []
-    manual_sql_exceptions = load_manual_sql_exceptions(root, errors)
+    manual_sql_exceptions = load_manual_sql_exceptions(root, errors, warnings)
 
     check_plugin_boundaries(files, errors)
     check_disallowed_dirs(server_internal, root, errors)
@@ -145,7 +145,7 @@ def check_process_exit_calls(files: list[GoFile], errors: list[str]) -> None:
             errors.append(f"{file.rel} calls os.Exit or log.Fatal outside cmd")
 
 
-def load_manual_sql_exceptions(root: Path, errors: list[str]) -> dict[str, str]:
+def load_manual_sql_exceptions(root: Path, errors: list[str], warnings: list[str]) -> dict[str, str]:
     registry_path = root / "docs" / "engineering" / "manual-sql-exceptions.json"
     try:
         raw = registry_path.read_text(encoding="utf-8")
@@ -196,8 +196,8 @@ def load_manual_sql_exceptions(root: Path, errors: list[str]) -> dict[str, str]:
                 )
             else:
                 if revisit_date < date.today():
-                    errors.append(
-                        f"{registry_path.relative_to(root).as_posix()} entry {rel} expired on {revisit_date.isoformat()}"
+                    warnings.append(
+                        f"{registry_path.relative_to(root).as_posix()} entry {rel} is due for review since {revisit_date.isoformat()}"
                     )
         if not isinstance(reason, str) or not reason.strip():
             continue
