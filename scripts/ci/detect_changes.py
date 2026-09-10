@@ -120,6 +120,13 @@ def classify(files: list[str]) -> dict[str, bool]:
             result["release"] = True
             result["ci"] = True
             matched = True
+        if path.startswith(("server/internal/pluginwire/", "sdk/go/internal/pluginwire/", "server/internal/contractversions/", "launcher/internal/contractversions/")) or path in {
+            "sdk/go/pluginbuild/versions.generated.go", "scripts/release/contract_versions_generated.py",
+            "sdk/go/testdata/redaction.generated.json", "server/internal/redact/testdata/redaction.generated.json",
+            "sdk/vue/src/contract.generated.ts", "web/src/types/plugin-management-ui.generated.ts",
+        }:
+            result["contracts"] = True
+            matched = True
         if path.startswith("contracts/") or path.startswith("fixtures/") or path.startswith("examples/"):
             result["contracts"] = True
             if path.startswith("examples/plugins/"):
@@ -139,10 +146,9 @@ def classify(files: list[str]) -> dict[str, bool]:
         if path.startswith(".github/"):
             result["ci"] = True
             matched = True
-        if path == "scripts/generate-runtime-schemas.mjs":
-            result["server"] = True
-            result["contracts"] = True
-            result["ci"] = True
+        if path in {"scripts/generate-runtime-schemas.mjs", "scripts/generate-plugin-wire.py", "scripts/generated_outputs.py"} or path.startswith("scripts/templates/") or path == "scripts/testdata/redaction.json":
+            for area in ("server", "sdk", "web", "launcher", "contracts", "release", "ci"):
+                result[area] = True
             matched = True
         if path.startswith("design/") or path == "scripts/generate-design-tokens.mjs":
             result["web"] = True
@@ -227,6 +233,9 @@ def self_test() -> None:
         (["docs/engineering/manual-sql-exceptions.json"], {"server": True, "ci": True, "docs": True, "docs_only": False}),
         ([".impeccable/design.json"], {"docs": True, "docs_only": True}),
         (["design/tokens.json"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
+        (["launcher/internal/contractversions/versions.generated.go"], {"launcher": True, "contracts": True}),
+        (["sdk/vue/src/contract.generated.ts"], {"sdk": True, "contracts": True}),
+        (["scripts/generate-plugin-wire.py"], {"server": True, "sdk": True, "web": True, "launcher": True, "contracts": True, "release": True, "ci": True}),
         (["scripts/generate-design-tokens.mjs"], {"web": True, "launcher": True, "docs": True, "ci": True, "docs_only": False}),
         (["server/internal/app/app.go"], {"server": True, "docs_only": False}),
         (["contracts/web-api.openapi.yaml"], {"contracts": True}),

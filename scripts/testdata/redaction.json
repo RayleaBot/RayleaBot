@@ -1,0 +1,11 @@
+[
+  {"input":"Authorization: Bearer fixture-token","output":"Authorization: [REDACTED]"},
+  {"input":"Cookie: SESSDATA=fixture-session; bili_jct=fixture-csrf","output":"Cookie: [REDACTED]"},
+  {"input":"set-cookie=fixture-session; HttpOnly\nnext line","output":"set-cookie=[REDACTED]\nnext line"},
+  {"input":"https://example.invalid/?access_token=fixture-access&x=1","output":"https://example.invalid/?access_token=[REDACTED]&x=1"},
+  {"input":"setup_token=fixture-setup password:fixture-password, api_key=fixture-key; rkey=fixture-rkey","output":"setup_token=[REDACTED] password:[REDACTED], api_key=[REDACTED]; rkey=[REDACTED]"},
+  {"input":"SESSDATA=fixture-session bili_jct=fixture-csrf refresh_token=fixture-refresh","output":"SESSDATA=[REDACTED] bili_jct=[REDACTED] refresh_token=[REDACTED]"},
+  {"input":"request_id=req-1 code=plugin.internal_error count=0","output":"request_id=req-1 code=plugin.internal_error count=0"},
+  {"input":"token_count=20 mytoken=value tokenize=ok","output":"token_count=20 mytoken=value tokenize=ok"},
+  {"input":"  ordinary message\n","output":"  ordinary message\n"}
+]

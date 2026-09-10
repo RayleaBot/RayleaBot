@@ -7,7 +7,8 @@ import type {
   SettingsChangedPayload,
 } from './contract.generated'
 
-export const PLUGIN_UI_BRIDGE_VERSION = '3' as const
+import { PLUGIN_UI_BRIDGE_VERSION } from './contract.generated'
+export { PLUGIN_UI_BRIDGE_VERSION } from './contract.generated'
 const minimumHeight = 320
 const maximumHeight = 1600
 

@@ -31,7 +31,7 @@ func TestStopInterruptsBlockedOSPipe(t *testing.T) {
 	handle.Stdin = input
 	written := make(chan error, 1)
 	go func() {
-		written <- handle.WriteJSONLine(map[string]any{"type": "result", "data": strings.Repeat("x", 1024*1024)})
+		written <- handle.WriteJSONLine(map[string]any{"type": "result", "request_id": "fixture", "status": "success", "data": map[string]any{"payload": strings.Repeat("x", 1024*1024)}})
 	}()
 	<-input.started
 	ctx, cancel := context.WithTimeout(t.Context(), runtimeTestDuration(100*time.Millisecond))
@@ -93,7 +93,9 @@ func TestStopAllTerminatesEveryRuntimeWithBlockedInput(t *testing.T) {
 		managers = append(managers, manager)
 		// A response may still own the pipe after its event has expired.
 		written := make(chan error, 1)
-		go func() { written <- handle.WriteJSONLine(map[string]any{"type": "result"}) }()
+		go func() {
+			written <- handle.WriteJSONLine(map[string]any{"type": "result", "request_id": "fixture", "status": "success", "data": map[string]any{}})
+		}()
 		<-input.started
 		writes = append(writes, written)
 	}

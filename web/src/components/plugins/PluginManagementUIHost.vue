@@ -16,6 +16,7 @@ import { useConfigStore } from '@/stores/config'
 import { useGovernanceStore } from '@/stores/governance'
 import { usePluginsStore } from '@/stores/plugins'
 import { useUiShellStore } from '@/stores/ui-shell'
+import { PLUGIN_UI_BRIDGE_VERSION } from '@/types/plugin-management-ui.generated'
 import type { PluginDetail, PluginManagementUIPage, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
 import type { BridgeMessage, BridgeType } from '@/types/plugin-management-ui.generated'
 
@@ -242,7 +243,7 @@ function acceptUnverifiedSource() {
 
 function postPort(type: BridgeType, payload?: unknown, id?: string, session = bridgeSession) {
   if (session !== bridgeSession || !bridgePort) return false
-  const message: BridgeMessage = { version: '3', source: 'management_host', type }
+  const message: BridgeMessage = { version: PLUGIN_UI_BRIDGE_VERSION, source: 'management_host', type }
   if (payload !== undefined) message.payload = JSON.parse(JSON.stringify(payload))
   if (id) message.request_id = id
   bridgePort.postMessage(message)
@@ -313,7 +314,7 @@ async function initializeBridge(session: number) {
 
 function parseHandshake(value: unknown) {
   const message = toRecord(value)
-  if (!message || message.version !== '3' || message.source !== 'plugin_management_ui' || message.type !== 'page.ready') return null
+  if (!message || message.version !== PLUGIN_UI_BRIDGE_VERSION || message.source !== 'plugin_management_ui' || message.type !== 'page.ready') return null
   return typeof message.nonce === 'string' ? message.nonce : null
 }
 
@@ -332,14 +333,14 @@ function handleWindowMessage(event: MessageEvent) {
   bridgePort.addEventListener('message', (portEvent) => handlePortMessage(portEvent, session))
   bridgePort.start()
   iframeRef.value?.contentWindow?.postMessage({
-    version: '3', source: 'management_host', type: 'host.connect', nonce: bridgeNonce.value,
+    version: PLUGIN_UI_BRIDGE_VERSION, source: 'management_host', type: 'host.connect', nonce: bridgeNonce.value,
   }, frameOrigin.value, [channel.port2])
   void initializeBridge(session)
 }
 
 function parsePortMessage(value: unknown): BridgeMessage | null {
   const message = toRecord(value)
-  if (!message || message.version !== '3' || message.source !== 'plugin_management_ui' || typeof message.type !== 'string') return null
+  if (!message || message.version !== PLUGIN_UI_BRIDGE_VERSION || message.source !== 'plugin_management_ui' || typeof message.type !== 'string') return null
   return message as unknown as BridgeMessage
 }
 

@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
 )
 
 type ProcessSpec struct {
@@ -107,6 +109,10 @@ func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 	}
 	if maxBytes > 0 && len(encoded) > maxBytes {
 		return fmt.Errorf("%w: encoded frame has %d bytes, limit %d", errProtocolFrameTooLarge, len(encoded), maxBytes)
+	}
+
+	if err := pluginwire.Validate(encoded, maxBytes); err != nil {
+		return fmt.Errorf("invalid outgoing plugin frame: %w", err)
 	}
 
 	data := append(encoded, '\n')

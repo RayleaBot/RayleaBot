@@ -55,6 +55,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Setup Go for generators
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: sdk/go/go.mod
+          cache: false
+
+      - name: Setup Node for schema copies
+        uses: actions/setup-node@v7
+        with:
+          node-version: "26.7.0"
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
@@ -65,7 +76,9 @@ jobs:
 
       - name: Validate contracts
         run: |
+          node scripts/generate-runtime-schemas.mjs --verify
           python scripts/generate-error-codes.py --verify
+          python scripts/generate-plugin-wire.py --verify
           python scripts/ci/validate_contracts.py --self-test
           python scripts/ci/validate_contracts.py --mode=strict
 
@@ -110,6 +123,12 @@ jobs:
 
       - name: Check embedded schema drift
         run: node scripts/generate-runtime-schemas.mjs --verify
+
+      - name: Check generated plugin protocol and error catalogs
+        run: |
+          python -m pip install --disable-pip-version-check pyyaml==6.0.3
+          python scripts/generate-plugin-wire.py --verify
+          python scripts/generate-error-codes.py --verify
 
       - name: Run go test
         working-directory: server
@@ -313,7 +332,9 @@ jobs:
           go-version-file: sdk/go/go.mod
           cache-dependency-path: |
             sdk/go/go.mod
+            sdk/go/go.sum
             examples/plugins/*/go.mod
+            examples/plugins/*/go.sum
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -324,6 +345,16 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: "26.7.0"
+
+      - name: Setup Python for protocol generation
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14.7"
+
+      - name: Check generated plugin wire drift
+        run: |
+          python -m pip install --disable-pip-version-check pyyaml==6.0.3
+          python scripts/generate-plugin-wire.py --verify
 
       - name: Run Go SDK and example race tests
         shell: bash
@@ -455,6 +486,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Setup Go for generator self-tests
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: sdk/go/go.mod
+          cache: false
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
@@ -475,6 +512,7 @@ jobs:
           node --test "scripts/tests/*.test.mjs"
           python scripts/ci/detect_changes.py --self-test
           python scripts/generate-error-codes.py --verify
+          python scripts/generate-plugin-wire.py --verify
           python scripts/ci/validate_contracts.py --self-test
           python scripts/ci/validate_contracts.py --mode=strict
 

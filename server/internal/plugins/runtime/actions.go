@@ -229,7 +229,7 @@ func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
 		}
 		var value any
-		if err := json.Unmarshal(*frame.Value, &value); err != nil {
+		if err := json.Unmarshal(frame.Value, &value); err != nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid storage.kv value", err)
 		}
 		return &plugins.Action{Kind: "storage.kv", StorageOperation: "set", StorageKey: key, StorageValue: value}, nil
@@ -351,8 +351,9 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, 
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.blacklist.write data", err)
 	}
 
+	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
 	operation := strings.TrimSpace(frame.Operation)
-	if operation != "set_enabled" && !frame.Scope.Valid() {
+	if operation != "set_enabled" && !scope.Valid() {
 		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
 	}
 	switch operation {
@@ -369,7 +370,7 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, 
 		return &plugins.Action{
 			Kind:                "governance.blacklist.write",
 			GovernanceOperation: operation,
-			GovernanceScope:     frame.Scope,
+			GovernanceScope:     scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 			GovernanceReason:    reason,
@@ -386,7 +387,7 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, 
 		return &plugins.Action{
 			Kind:                "governance.blacklist.write",
 			GovernanceOperation: operation,
-			GovernanceScope:     frame.Scope,
+			GovernanceScope:     scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 		}, nil
@@ -408,8 +409,9 @@ func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, 
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.whitelist.write data", err)
 	}
 
+	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
 	operation := strings.TrimSpace(frame.Operation)
-	if operation != "set_enabled" && !frame.Scope.Valid() {
+	if operation != "set_enabled" && !scope.Valid() {
 		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
 	}
 	switch operation {
@@ -435,7 +437,7 @@ func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, 
 		return &plugins.Action{
 			Kind:                "governance.whitelist.write",
 			GovernanceOperation: operation,
-			GovernanceScope:     frame.Scope,
+			GovernanceScope:     scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 			GovernanceReason:    reason,
@@ -452,7 +454,7 @@ func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, 
 		return &plugins.Action{
 			Kind:                "governance.whitelist.write",
 			GovernanceOperation: operation,
-			GovernanceScope:     frame.Scope,
+			GovernanceScope:     scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 		}, nil

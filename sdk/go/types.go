@@ -6,9 +6,11 @@ import (
 	"io"
 	"log/slog"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/sdk/go/internal/pluginwire"
 )
 
-const ProtocolVersion = "3"
+const ProtocolVersion = pluginwire.ProtocolVersion
 
 type Options struct {
 	Stdin         io.Reader
@@ -29,50 +31,30 @@ func (fn HandlerFunc) Handle(ctx context.Context, event *EventContext) error {
 	return fn(ctx, event)
 }
 
-type Bot struct {
-	SourceAdapter  string `json:"source_adapter"`
-	SourceProtocol string `json:"source_protocol"`
-	ID             string `json:"id"`
-	Nickname       string `json:"nickname,omitempty"`
-}
+type Bot = pluginwire.BotIdentity
 
-type Actor struct {
-	ID       string `json:"id,omitempty"`
-	Nickname string `json:"nickname,omitempty"`
-	Role     string `json:"role,omitempty"`
-}
+type Actor = pluginwire.ProtocolActorFrame
 
-type Target struct {
-	Type string `json:"type,omitempty"`
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
-}
+type Target = pluginwire.ProtocolTargetFrame
 
-type Message struct {
-	PlainText string          `json:"plain_text,omitempty"`
-	Segments  []Segment       `json:"segments,omitempty"`
-	Raw       json.RawMessage `json:"raw,omitempty"`
-}
+type Message = pluginwire.ProtocolMessageFrame
 
-type Webhook struct {
-	Route   string            `json:"route,omitempty"`
-	Method  string            `json:"method,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Body    json.RawMessage   `json:"body,omitempty"`
-}
+type Webhook = pluginwire.ProtocolWebhookFrame
 
+// Event is the SDK view of a validated generated wire event. Payload remains
+// an application-facing object; transport structs live in internal/pluginwire.
 type Event struct {
-	EventID        string          `json:"event_id,omitempty"`
-	SourceProtocol string          `json:"source_protocol,omitempty"`
-	SourceAdapter  string          `json:"source_adapter,omitempty"`
-	EventType      string          `json:"event_type,omitempty"`
-	Timestamp      int64           `json:"timestamp,omitempty"`
-	Actor          Actor           `json:"actor,omitempty"`
-	Target         Target          `json:"target,omitempty"`
-	Message        Message         `json:"message,omitempty"`
-	Webhook        *Webhook        `json:"webhook,omitempty"`
-	Payload        map[string]any  `json:"payload,omitempty"`
-	Raw            json.RawMessage `json:"-"`
+	EventID        string
+	SourceProtocol string
+	SourceAdapter  string
+	EventType      string
+	Timestamp      int64
+	Actor          Actor
+	Target         Target
+	Message        Message
+	Webhook        *Webhook
+	Payload        map[string]any
+	Raw            json.RawMessage
 }
 
 func (event Event) Command() string {
@@ -97,10 +79,7 @@ func (event Event) Args() []string {
 	return result
 }
 
-type Segment struct {
-	Type string         `json:"type"`
-	Data map[string]any `json:"data,omitempty"`
-}
+type Segment = pluginwire.ProtocolSegmentFrame
 
 func Text(text string) Segment {
 	return Segment{Type: "text", Data: map[string]any{"text": text}}

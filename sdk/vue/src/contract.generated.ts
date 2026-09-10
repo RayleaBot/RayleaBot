@@ -1,5 +1,7 @@
 // Code generated from contracts/plugin-management-ui-bridge.schema.json; DO NOT EDIT.
 
+export const PLUGIN_UI_BRIDGE_VERSION = "3" as const
+
 export type BridgeSource = "management_host"
  | "plugin_management_ui"
 

@@ -1,0 +1,721 @@
+[
+  {
+    "name": "edge.config-changed-empty.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-config-empty-1",
+        "event": {
+          "event_id": "config-empty-1",
+          "source_protocol": "system",
+          "source_adapter": "config",
+          "event_type": "config.changed",
+          "timestamp": 1788192000,
+          "payload": {
+            "config": {},
+            "changed_keys": [
+              "removed_key"
+            ]
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "event-config-empty-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "edge.inbound-target-type-open.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-meta-1",
+        "event": {
+          "event_id": "meta-1",
+          "source_protocol": "onebot11",
+          "source_adapter": "adapter.onebot11",
+          "event_type": "meta.heartbeat",
+          "timestamp": 1788192000,
+          "actor": {
+            "id": "10000"
+          },
+          "target": {
+            "type": "bot",
+            "id": "10000"
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "event-meta-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "edge.init-empty-identities.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "protocol_version": "3",
+        "plugin_id": "idle-native",
+        "type": "init",
+        "timezone": "Asia/Shanghai",
+        "request_id": "init-idle-1",
+        "config": {},
+        "effective_permissions": [],
+        "super_admins": [],
+        "command_prefixes": [
+          "/"
+        ],
+        "concurrency": 1,
+        "bots": []
+      },
+      {
+        "type": "init_ack",
+        "request_id": "init-idle-1",
+        "status": "ready"
+      }
+    ]
+  },
+  {
+    "name": "invalid.bot-identities-missing-snapshot.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "missing",
+        "event": {
+          "event_id": "missing",
+          "source_protocol": "platform",
+          "source_adapter": "adapters.internal",
+          "event_type": "bot.identities.changed",
+          "timestamp": 1700000000,
+          "payload": {}
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.config-changed-noop.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-config-noop",
+        "event": {
+          "event_id": "config-noop",
+          "source_protocol": "system",
+          "source_adapter": "config",
+          "event_type": "config.changed",
+          "timestamp": 1788192000,
+          "payload": {
+            "config": {},
+            "changed_keys": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.governance-write-without-scope.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-governance-missing-scope-1",
+        "action": "governance.whitelist.write",
+        "data": {
+          "operation": "delete",
+          "entry_type": "user",
+          "target_id": "fixture-openid"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.legacy-envelope.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "protocol_version": "1",
+        "plugin_id": "legacy-plugin",
+        "timestamp": 1788192000,
+        "type": "action",
+        "request_id": "legacy-action-1",
+        "action": "logger.write",
+        "data": {
+          "level": "info",
+          "message": "legacy envelope"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.message-send-unknown-target-type.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-send-channel-1",
+        "action": "message.send",
+        "data": {
+          "target_type": "channel",
+          "target_id": "200",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "channel is not an addressable conversation kind yet"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.onebot-adapter-selector.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "group-info-wrong-protocol",
+        "action": "group.info.get",
+        "data": {
+          "source_adapter": "second-bot",
+          "source_protocol": "qqofficial",
+          "group_id": "20001"
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "provider-invalid-selector",
+        "action": "provider.napcat.group.sign.set",
+        "data": {
+          "source_adapter": 12,
+          "group_id": "20001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.removed-action.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "removed-action-1",
+        "action": "config.read",
+        "data": {
+          "keys": [
+            "prefix"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.storage-root.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "storage-root-1",
+        "action": "storage.file",
+        "data": {
+          "operation": "read",
+          "root": "plugin_data",
+          "path": "cache/state.json"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.bot-identities.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "identities-1",
+        "event": {
+          "event_id": "identities-1",
+          "source_protocol": "platform",
+          "source_adapter": "adapters.internal",
+          "event_type": "bot.identities.changed",
+          "timestamp": 1700000001,
+          "payload": {
+            "bots": [
+              {
+                "source_adapter": "onebot",
+                "source_protocol": "onebot11",
+                "id": "same-id"
+              },
+              {
+                "source_adapter": "qq",
+                "source_protocol": "qqofficial",
+                "id": "same-id"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "event",
+        "request_id": "identities-2",
+        "event": {
+          "event_id": "identities-2",
+          "source_protocol": "platform",
+          "source_adapter": "adapters.internal",
+          "event_type": "bot.identities.changed",
+          "timestamp": 1700000002,
+          "payload": {
+            "bots": []
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.config-changed.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-config-1",
+        "event": {
+          "event_id": "config-1",
+          "source_protocol": "system",
+          "source_adapter": "config",
+          "event_type": "config.changed",
+          "timestamp": 1788192000,
+          "payload": {
+            "config": {
+              "prefix": "updated"
+            },
+            "changed_keys": [
+              "prefix"
+            ]
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "event-config-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "ok.governance-blacklist-read.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-governance-blacklist-read-1",
+        "action": "governance.blacklist.read",
+        "data": {}
+      },
+      {
+        "type": "result",
+        "request_id": "action-governance-blacklist-read-1",
+        "status": "success",
+        "data": {
+          "user_entries": [],
+          "group_entries": []
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.governance-scoped-write.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-governance-scoped-write-1",
+        "action": "governance.blacklist.write",
+        "data": {
+          "operation": "upsert",
+          "scope": {
+            "kind": "instance",
+            "source_protocol": "qqofficial",
+            "source_adapter": "qq-main",
+            "bot_id": "fixture-bot"
+          },
+          "entry_type": "user",
+          "target_id": "fixture-openid",
+          "reason": "fixture-only"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.http-request.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-http-1",
+        "action": "http.request",
+        "data": {
+          "method": "GET",
+          "url": "https://example.com/data.json",
+          "timeout_seconds": 10
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-http-1",
+        "status": "success",
+        "data": {
+          "status": 200,
+          "body_text": "{}"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.init.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "protocol_version": "3",
+        "plugin_id": "raylea.echo",
+        "type": "init",
+        "timezone": "Asia/Shanghai",
+        "request_id": "init-1",
+        "config": {
+          "prefix": "echo"
+        },
+        "effective_permissions": [
+          "message.send"
+        ],
+        "super_admins": [
+          "10001"
+        ],
+        "command_prefixes": [
+          "/"
+        ],
+        "concurrency": 2,
+        "bots": [
+          {
+            "source_adapter": "fixture-onebot",
+            "source_protocol": "onebot11",
+            "id": "20001",
+            "nickname": "RayleaBot"
+          }
+        ]
+      },
+      {
+        "type": "init_ack",
+        "request_id": "init-1",
+        "status": "ready"
+      }
+    ]
+  },
+  {
+    "name": "ok.message-send-adapter-instance.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "push-second-bot",
+        "action": "message.send",
+        "data": {
+          "source_adapter": "second-bot",
+          "source_protocol": "onebot11",
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "实例推送示例"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.message-send.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-send-1",
+        "parent_request_id": "event-1",
+        "action": "message.send",
+        "data": {
+          "target_type": "group",
+          "target_id": "30001",
+          "reply_to_event_id": "source-event-1",
+          "fallback_to_send_if_missing": true,
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "hello"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-send-1",
+        "status": "success",
+        "data": {
+          "message_id": "40001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.onebot-adapter-instance.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "group-info-second-bot",
+        "parent_request_id": "scheduler-event",
+        "action": "group.info.get",
+        "data": {
+          "source_adapter": "second-bot",
+          "source_protocol": "onebot11",
+          "group_id": "20001"
+        }
+      },
+      {
+        "type": "action",
+        "request_id": "sign-second-bot",
+        "parent_request_id": "scheduler-event",
+        "action": "provider.napcat.group.sign.set",
+        "data": {
+          "source_adapter": "second-bot",
+          "group_id": "20001"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.ping-pong.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "ping",
+        "request_id": "ping-1"
+      },
+      {
+        "type": "pong",
+        "request_id": "ping-1"
+      }
+    ]
+  },
+  {
+    "name": "ok.qq-official-bot-added.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-qq-bot-added-1",
+        "event": {
+          "event_id": "GROUP_ADD_ROBOT:fixture",
+          "source_protocol": "qqofficial",
+          "source_adapter": "adapter.qqofficial",
+          "event_type": "notice.bot_added",
+          "timestamp": 1788752606,
+          "actor": {
+            "id": "0000000000000000000000000000AAAA"
+          },
+          "target": {
+            "type": "group",
+            "id": "1111111111111111111111111111BBBB"
+          },
+          "payload": {
+            "qq_official": {
+              "dispatch_type": "GROUP_ADD_ROBOT",
+              "group_openid": "1111111111111111111111111111BBBB",
+              "member_openid": "0000000000000000000000000000AAAA"
+            }
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "event-qq-bot-added-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "ok.qq-official-group-message.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "event-qq-group-1",
+        "event": {
+          "event_id": "GROUP_AT_MESSAGE_CREATE:fixture",
+          "source_protocol": "qqofficial",
+          "source_adapter": "adapter.qqofficial",
+          "event_type": "message.group",
+          "timestamp": 1788752625,
+          "actor": {
+            "id": "0000000000000000000000000000AAAA",
+            "nickname": "群成员",
+            "role": "owner"
+          },
+          "target": {
+            "type": "group",
+            "id": "1111111111111111111111111111BBBB"
+          },
+          "message": {
+            "plain_text": "你好",
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "你好"
+                }
+              }
+            ]
+          },
+          "payload": {
+            "message_id": "ROBOT1.0_fixture-group-message",
+            "qq_official": {
+              "dispatch_type": "GROUP_AT_MESSAGE_CREATE",
+              "message_id": "ROBOT1.0_fixture-group-message",
+              "group_openid": "1111111111111111111111111111BBBB",
+              "member_openid": "0000000000000000000000000000AAAA",
+              "member_role": "owner"
+            }
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "event-qq-group-1",
+        "status": "success",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "ok.render-image.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-render-image-1",
+        "action": "render.image",
+        "data": {
+          "template": "summary",
+          "output": "png",
+          "data": {
+            "title": "Fixture"
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-render-image-1",
+        "status": "success",
+        "data": {
+          "artifact_id": "render-fixture"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.scheduler-create.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-scheduler-create-1",
+        "action": "scheduler.create",
+        "data": {
+          "task_id": "daily-refresh",
+          "log_label": "每日刷新",
+          "cron": "0 8 * * *",
+          "event_type": "scheduler.trigger",
+          "payload": {
+            "scope": "all"
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-scheduler-create-1",
+        "status": "success",
+        "data": {
+          "job_id": "fixture-job"
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.storage-file.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-file-1",
+        "action": "storage.file",
+        "data": {
+          "operation": "write",
+          "path": "cache/state.json",
+          "content_text": "{}"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-file-1",
+        "status": "success",
+        "data": {
+          "bytes_written": 2
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.thirdparty-account-read.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-thirdparty-account-read-1",
+        "action": "thirdparty.account.read",
+        "data": {
+          "platform": "bilibili",
+          "account_id": "primary"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-thirdparty-account-read-1",
+        "status": "success",
+        "data": {
+          "accounts": []
+        }
+      }
+    ]
+  }
+]

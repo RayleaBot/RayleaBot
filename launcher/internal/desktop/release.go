@@ -18,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/launcher/internal/contractversions"
 )
 
 const (
@@ -269,7 +271,7 @@ func readBuildInfoForPlatform(basePath, goos, goarch string) (buildInfo, error) 
 		return buildInfo{}, fmt.Errorf("解析 build_info.json: %w", err)
 	}
 	expectedArtifactID := launcherArtifactID(goos, goarch)
-	if !semverPattern.MatchString(info.Version) || expectedArtifactID == "" || info.ArtifactID != expectedArtifactID || info.UpdateProtocolVersion < 2 {
+	if !semverPattern.MatchString(info.Version) || expectedArtifactID == "" || info.ArtifactID != expectedArtifactID || info.UpdateProtocolVersion < contractversions.UpdateProtocolVersion {
 		return buildInfo{}, errors.New("build_info.json 未提供可受信任的自动更新基线")
 	}
 	return info, nil

@@ -1,0 +1,2942 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rayleabot.local/contracts/plugin-protocol.schema.json",
+  "title": "RayleaBot Plugin JSONL Protocol v3",
+  "description": "Language-neutral JSONL protocol. The init frame establishes protocol version and plugin identity; subsequent frames use the established process session and carry only message-local fields. Host request IDs are unique within a process session. Canceling a local action wait does not cancel the action on the host: the client consumes its eventual response and waits for outstanding actions before emitting an event terminal frame. If bounded draining expires, the client emits no terminal frame and lets the host expire the event. No new action may be emitted after an event starts closing.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/init"
+    },
+    {
+      "$ref": "#/$defs/init_progress"
+    },
+    {
+      "$ref": "#/$defs/init_ack"
+    },
+    {
+      "$ref": "#/$defs/event"
+    },
+    {
+      "$ref": "#/$defs/action"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/error"
+    },
+    {
+      "$ref": "#/$defs/ping"
+    },
+    {
+      "$ref": "#/$defs/pong"
+    },
+    {
+      "$ref": "#/$defs/shutdown"
+    }
+  ],
+  "$defs": {
+    "common": {
+      "type": "object",
+      "required": [
+        "type",
+        "request_id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "conversation_target_type": {
+      "type": "string",
+      "description": "Conversation kind addressable for outbound delivery. Host-owned vocabulary enumerating the conversation kinds reachable through the formally supported chat adapters; it grows only when an adapter is formally added to contracts. Plugins must not treat the current set as exhaustive, and must not derive protocol identity from it. The host validates outbound values strictly and rejects unknown values fail-closed, never coercing them.",
+      "enum": [
+        "group",
+        "private"
+      ]
+    },
+    "governance_entry_type": {
+      "type": "string",
+      "description": "Governance rule subject kind. Deliberately distinct from #/$defs/conversation_target_type: governance names a subject (a user or a group), while outbound delivery names a conversation kind (private or group). The vocabularies are not interchangeable and 'user' is not an alias of 'private'. Subject identifiers live in the active chat protocol's identity namespace and are not portable across protocols.",
+      "enum": [
+        "user",
+        "group"
+      ]
+    },
+    "base_permission_name": {
+      "type": "string",
+      "description": "Protocol-neutral host capabilities, available regardless of which chat adapter produced the event.",
+      "enum": [
+        "event.raw_payload",
+        "message.send",
+        "http.request",
+        "governance.blacklist.read",
+        "governance.blacklist.write",
+        "governance.whitelist.read",
+        "governance.whitelist.write",
+        "governance.command_policy.read",
+        "scheduler.create",
+        "render.image",
+        "plugin.list",
+        "secret.read",
+        "thirdparty.account.read",
+        "thirdparty.account.validate",
+        "thirdparty.resolve"
+      ]
+    },
+    "onebot_action_kind": {
+      "type": "string",
+      "description": "Host actions that map onto OneBot11 API calls. Their semantics, availability and argument shapes are defined by OneBot11 and are not portable to other chat protocols. Actions specific to a future protocol are introduced under their own protocol-scoped $def. Existing wire values in this set stay stable.",
+      "enum": [
+        "message.get",
+        "message.delete",
+        "message.history.get",
+        "message.forward.get",
+        "message.forward.send",
+        "message.read.mark",
+        "friend.request.handle",
+        "friend.list",
+        "friend.remark.set",
+        "user.info.get",
+        "user.like.send",
+        "group.list",
+        "group.info.get",
+        "group.member.get",
+        "group.member.list",
+        "group.request.handle",
+        "group.leave",
+        "group.admin.set",
+        "group.ban.set",
+        "group.card.set",
+        "group.title.set",
+        "group.name.set",
+        "group.announcement.list",
+        "group.announcement.create",
+        "group.announcement.delete",
+        "group.essence.list",
+        "group.essence.set",
+        "group.essence.unset",
+        "group.honor.get",
+        "group.todo.set",
+        "file.get",
+        "file.download",
+        "file.group.upload",
+        "file.private.upload",
+        "file.group.url.get",
+        "file.private.url.get",
+        "file.group.fs.info",
+        "file.group.fs.list",
+        "file.group.fs.mkdir",
+        "file.group.fs.delete",
+        "reaction.set",
+        "reaction.list",
+        "poke.send"
+      ]
+    },
+    "provider_extension_action_kind": {
+      "type": "string",
+      "description": "Vendor-specific extensions above OneBot11, named provider.<vendor>.<action>. Availability depends on the connected OneBot11 implementation, not on the protocol itself.",
+      "enum": [
+        "provider.napcat.message_emoji.like.set",
+        "provider.napcat.group.sign.set",
+        "provider.luckylillia.friend_groups.get"
+      ]
+    },
+    "permission_name": {
+      "type": "string",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/base_permission_name"
+        },
+        {
+          "$ref": "#/$defs/onebot_action_kind"
+        },
+        {
+          "$ref": "#/$defs/provider_extension_action_kind"
+        }
+      ]
+    },
+    "init": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "protocol_version",
+            "plugin_id",
+            "config",
+            "effective_permissions",
+            "super_admins",
+            "command_prefixes",
+            "timezone",
+            "concurrency",
+            "bots"
+          ],
+          "properties": {
+            "type": {
+              "const": "init"
+            },
+            "timezone": {
+              "type": "string",
+              "minLength": 1,
+              "not": {
+                "const": "Local"
+              },
+              "description": "Effective host IANA timezone for user-visible dates. Required and fixed for this process session. A saved timezone awaiting host restart must not change it. Parse platform timestamps using their source timezone and compare instants independently of display timezone."
+            },
+            "command_prefixes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "protocol_version": {
+              "type": "string",
+              "const": "3"
+            },
+            "plugin_id": {
+              "type": "string",
+              "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+            },
+            "config": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "effective_permissions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/permission_name"
+              },
+              "uniqueItems": true
+            },
+            "super_admins": {
+              "type": "array",
+              "description": "OneBot11 QQ account IDs from admin.super_admins. Applies across OneBot11 instances only; these IDs do not grant privileges to QQ official openids.",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "concurrency": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 128
+            },
+            "bots": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/bot_identity"
+              },
+              "uniqueItems": true,
+              "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "init_progress": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "summary"
+          ],
+          "properties": {
+            "type": {
+              "const": "init_progress"
+            },
+            "summary": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "init_ack": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "status"
+          ],
+          "properties": {
+            "type": {
+              "const": "init_ack"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "error"
+              ]
+            },
+            "error_message": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "event": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "event"
+          ],
+          "properties": {
+            "type": {
+              "const": "event"
+            },
+            "event": {
+              "type": "object",
+              "required": [
+                "event_id",
+                "source_protocol",
+                "source_adapter",
+                "event_type",
+                "timestamp"
+              ],
+              "properties": {
+                "event_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Opaque host event identifier scoped to its adapter instance. Echo this exact value as reply_to_event_id; do not derive it from a platform message ID or parse its format."
+                },
+                "source_protocol": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Chat protocol that produced the event. Host-owned value; a plugin switches on it before reading any protocol-specific payload namespace."
+                },
+                "source_adapter": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Adapter instance that produced the event. Distinct from source_protocol because one protocol may be served by more than one adapter build."
+                },
+                "event_type": {
+                  "type": "string",
+                  "description": "Normalized event semantic. Host-owned vocabulary: entries pair an event source with a normalized meaning, and formally adding a chat adapter adds entries. A plugin manifest may subscribe to a name it never receives, because manifest subscription is an open pattern while host emission is closed to this set.",
+                  "enum": [
+                    "scheduler.trigger",
+                    "plugin.started",
+                    "config.changed",
+                    "webhook.received",
+                    "bot.identities.changed",
+                    "management.action",
+                    "message.private",
+                    "message.group",
+                    "message_sent.private",
+                    "message_sent.group",
+                    "notice.member_increase",
+                    "notice.member_decrease",
+                    "notice.group_admin",
+                    "notice.group_ban",
+                    "notice.group_recall",
+                    "notice.group_upload",
+                    "notice.group_card",
+                    "notice.group_title",
+                    "notice.group_essence",
+                    "notice.friend_add",
+                    "notice.friend_recall",
+                    "notice.flash_file",
+                    "notice.poke",
+                    "notice.poke_recall",
+                    "notice.profile_like",
+                    "notice.input_status",
+                    "notice.group_message_emoji_like",
+                    "request.friend",
+                    "request.group",
+                    "meta.heartbeat",
+                    "meta.lifecycle",
+                    "notice.bot_added",
+                    "notice.bot_removed",
+                    "notice.push_enabled",
+                    "notice.push_disabled"
+                  ]
+                },
+                "timestamp": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "actor": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Sender identifier in the identity namespace of source_protocol, scoped to the bot identity that received the event. Not portable across protocols or across bot identities, and not usable as a global correlation key."
+                    },
+                    "nickname": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "target": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "id"
+                  ],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Conversation kind the event originated in. Uses the #/$defs/conversation_target_type vocabulary plus host-internal kinds such as system and bot. Deliberately open inbound: a plugin ignores kinds it does not know, while outbound delivery stays strictly enumerated."
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Conversation identifier in the identity namespace of source_protocol. Not portable across protocols or across bot identities, and not usable as a global correlation key."
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "payload": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "command": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "action": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "payload": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "message_id": {
+                      "type": "string",
+                      "description": "Protocol-native message identifier, if available."
+                    },
+                    "sub_type": {
+                      "type": "string",
+                      "description": "Event sub-type for notice events (e.g., approve, invite, kick, leave)."
+                    },
+                    "operator_id": {
+                      "type": "string",
+                      "description": "The user who triggered the notice event, if different from the actor."
+                    },
+                    "qq_official": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "description": "QQ Open Platform native fields as a closed normalized projection. Present only when source_protocol is qqofficial; read it after checking source_protocol. Identifiers are per-bot openids and are not portable to another protocol or another bot.",
+                      "properties": {
+                        "dispatch_type": {
+                          "type": "string",
+                          "description": "Gateway dispatch name the event was normalized from, such as C2C_MESSAGE_CREATE or GROUP_AT_MESSAGE_CREATE."
+                        },
+                        "message_id": {
+                          "type": "string",
+                          "description": "Platform message identifier. It is also the handle a passive reply must quote."
+                        },
+                        "group_openid": {
+                          "type": "string"
+                        },
+                        "user_openid": {
+                          "type": "string"
+                        },
+                        "member_openid": {
+                          "type": "string"
+                        },
+                        "member_role": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "onebot": {
+                      "type": "object",
+                      "description": "OneBot11 native fields as a closed normalized projection, not a passthrough of the raw upstream frame. Present only when source_protocol is onebot11; read it after checking source_protocol. Delivered to every subscriber and not gated by a permission, unlike the top-level raw_payload.",
+                      "additionalProperties": false,
+                      "properties": {
+                        "post_type": {
+                          "type": "string"
+                        },
+                        "meta_event_type": {
+                          "type": "string"
+                        },
+                        "message_type": {
+                          "type": "string"
+                        },
+                        "request_type": {
+                          "type": "string"
+                        },
+                        "notice_type": {
+                          "type": "string"
+                        },
+                        "sub_type": {
+                          "type": "string"
+                        },
+                        "self_id": {
+                          "type": "string"
+                        },
+                        "user_id": {
+                          "type": "string"
+                        },
+                        "group_id": {
+                          "type": "string"
+                        },
+                        "target_id": {
+                          "type": "string"
+                        },
+                        "time": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "interval": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "message_id": {
+                          "type": "string"
+                        },
+                        "real_id": {
+                          "type": "string"
+                        },
+                        "message_seq": {
+                          "type": "string"
+                        },
+                        "raw_message": {
+                          "type": "string"
+                        },
+                        "font": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "message_format": {
+                          "type": "string"
+                        },
+                        "sender": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "properties": {
+                            "user_id": {
+                              "type": "string"
+                            },
+                            "nickname": {
+                              "type": "string"
+                            },
+                            "card": {
+                              "type": "string"
+                            },
+                            "role": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "sex": {
+                              "type": "string"
+                            },
+                            "age": {
+                              "type": "integer",
+                              "minimum": 0
+                            }
+                          }
+                        },
+                        "comment": {
+                          "type": "string"
+                        },
+                        "flag": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "object",
+                          "additionalProperties": true
+                        }
+                      }
+                    },
+                    "config": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "changed_keys": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "bots": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/bot_identity"
+                      },
+                      "uniqueItems": true,
+                      "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
+                    }
+                  }
+                },
+                "message": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "segments": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "enum": [
+                              "text",
+                              "image",
+                              "at",
+                              "at_all",
+                              "face",
+                              "reply",
+                              "record",
+                              "video",
+                              "file",
+                              "flash_file",
+                              "json",
+                              "xml",
+                              "markdown",
+                              "music",
+                              "contact",
+                              "forward",
+                              "node",
+                              "poke",
+                              "dice",
+                              "rps",
+                              "mface",
+                              "keyboard",
+                              "shake"
+                            ],
+                            "description": "Inbound segment kind. Host-owned vocabulary covering what the formally supported adapters can produce; the host never emits a kind outside this set. Plugins switch on the kinds they handle and ignore the rest."
+                          },
+                          "data": {
+                            "type": "object",
+                            "additionalProperties": true,
+                            "description": "Segment-specific data fields."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "plain_text": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "raw_payload": {
+                  "type": "object",
+                  "description": "Only present when the plugin manifest declares event.raw_payload.",
+                  "additionalProperties": true
+                },
+                "webhook": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "description": "Only present for webhook.received events. Carries normalized replay-protection metadata derived from the inbound request headers and the server clock.",
+                  "required": [
+                    "route",
+                    "received_at"
+                  ],
+                  "properties": {
+                    "route": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "received_at": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Server-side ingestion timestamp in seconds since the unix epoch."
+                    },
+                    "client_timestamp": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "Client-supplied timestamp from the replay_protection.timestamp_header value. Omitted only when the route is in grace mode (enforce=false) and the header was absent."
+                    },
+                    "client_event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "Client-supplied event id from the replay_protection.event_id_header value. Omitted only when the route is in grace mode and the header was absent; in that case the platform falls back to a server-generated event id and exposes it in the parent event_id field."
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "event_type"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "const": "webhook.received"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "webhook"
+                    ]
+                  },
+                  "else": {
+                    "not": {
+                      "required": [
+                        "webhook"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "event_type"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "const": "config.changed"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "payload": {
+                        "required": [
+                          "config",
+                          "changed_keys"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "event_type": {
+                        "const": "bot.identities.changed"
+                      }
+                    },
+                    "required": [
+                      "event_type"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "source_protocol": {
+                        "const": "platform"
+                      },
+                      "source_adapter": {
+                        "const": "adapters.internal"
+                      },
+                      "payload": {
+                        "required": [
+                          "bots"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ],
+              "unevaluatedProperties": false
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "outbound_message": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segments"
+      ],
+      "properties": {
+        "segments": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/outbound_message_non_reply_segment"
+              }
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/outbound_message_segment_reply"
+                }
+              ],
+              "items": {
+                "$ref": "#/$defs/outbound_message_non_reply_segment"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "outbound_message_segment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/outbound_message_segment_text"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_image"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at_all"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_face"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_passthrough_media"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_reply"
+        }
+      ]
+    },
+    "outbound_message_non_reply_segment": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/outbound_message_segment_text"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_image"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_at_all"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_face"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_passthrough_media"
+        },
+        {
+          "$ref": "#/$defs/outbound_message_segment_passthrough_payload"
+        }
+      ]
+    },
+    "outbound_message_segment_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "text"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text"
+          ],
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "image"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "file"
+              ]
+            },
+            {
+              "required": [
+                "url"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "outbound_message_segment_at": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "at"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "user_id"
+          ],
+          "properties": {
+            "user_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_at_all": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "at_all"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "maxProperties": 0
+        }
+      }
+    },
+    "outbound_message_segment_face": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "face"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "face_id"
+          ],
+          "properties": {
+            "face_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_reply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "const": "reply"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "message_id"
+          ],
+          "properties": {
+            "message_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "outbound_message_segment_passthrough_media": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "data"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "record",
+            "video",
+            "file",
+            "flash_file"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true,
+          "minProperties": 1
+        }
+      }
+    },
+    "outbound_message_segment_passthrough_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "json",
+            "xml",
+            "markdown",
+            "music",
+            "contact",
+            "forward",
+            "node",
+            "poke",
+            "dice",
+            "rps",
+            "mface",
+            "keyboard",
+            "shake"
+          ]
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "action_message_send_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_type",
+        "target_id",
+        "message"
+      ],
+      "properties": {
+        "source_protocol": {
+          "type": "string",
+          "description": "Optional protocol constraint for active delivery. Without source_adapter it must select exactly one enabled adapter instance. When both fields are supplied, the named instance must speak this protocol. A reply resolves its adapter from reply_to_event_id."
+        },
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Configured adapter instance ID for active delivery, matching event.source_adapter. Required to disambiguate multiple enabled instances of one protocol. Disabled, missing or protocol-mismatched instances are rejected without sending. When neither source field is supplied, delivery requires exactly one enabled instance."
+        },
+        "target_type": {
+          "$ref": "#/$defs/conversation_target_type"
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Conversation identifier in the identity namespace of the active chat protocol. Not portable across protocols."
+        },
+        "message": {
+          "$ref": "#/$defs/outbound_message"
+        },
+        "reply_to_event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback_to_send_if_missing": {
+          "type": "boolean"
+        }
+      }
+    },
+    "action": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/action_message_send"
+        },
+        {
+          "$ref": "#/$defs/action_logger_write"
+        },
+        {
+          "$ref": "#/$defs/action_storage_kv"
+        },
+        {
+          "$ref": "#/$defs/action_plugin_list"
+        },
+        {
+          "$ref": "#/$defs/action_secret_read"
+        },
+        {
+          "$ref": "#/$defs/action_thirdparty_account_read"
+        },
+        {
+          "$ref": "#/$defs/action_thirdparty_account_validate"
+        },
+        {
+          "$ref": "#/$defs/action_thirdparty_resolve"
+        },
+        {
+          "$ref": "#/$defs/action_config_write"
+        },
+        {
+          "$ref": "#/$defs/action_governance_blacklist_read"
+        },
+        {
+          "$ref": "#/$defs/action_governance_blacklist_write"
+        },
+        {
+          "$ref": "#/$defs/action_governance_whitelist_read"
+        },
+        {
+          "$ref": "#/$defs/action_governance_whitelist_write"
+        },
+        {
+          "$ref": "#/$defs/action_governance_command_policy_read"
+        },
+        {
+          "$ref": "#/$defs/action_storage_file"
+        },
+        {
+          "$ref": "#/$defs/action_http_request"
+        },
+        {
+          "$ref": "#/$defs/action_scheduler_create"
+        },
+        {
+          "$ref": "#/$defs/action_render_image"
+        },
+        {
+          "$ref": "#/$defs/action_onebot_family"
+        },
+        {
+          "$ref": "#/$defs/action_provider_extension"
+        }
+      ]
+    },
+    "action_onebot_family_data": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "OneBot API arguments plus host-only routing selectors. OneBot and provider actions inherit source_adapter from a OneBot parent event. An explicit selector must agree with a chat parent event; a parent from another chat protocol is rejected. Platform events do not imply a chat adapter. Without an instance selector, exactly one enabled OneBot11 instance must exist. Missing, disabled, unknown, ambiguous or protocol-mismatched routes and conflicting selectors fail with plugin.protocol_violation before any API call. Selectors are removed before forwarding arguments to the provider.",
+      "properties": {
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Configured adapter instance ID, matching event.source_adapter. Required for active actions when several OneBot11 instances are enabled."
+        },
+        "source_protocol": {
+          "const": "onebot11",
+          "description": "Optional protocol constraint; OneBot and provider actions only address OneBot11 instances."
+        }
+      }
+    },
+    "action_onebot_family": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "$ref": "#/$defs/onebot_action_kind"
+            },
+            "data": {
+              "$ref": "#/$defs/action_onebot_family_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_provider_extension": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "$ref": "#/$defs/provider_extension_action_kind"
+            },
+            "data": {
+              "$ref": "#/$defs/action_onebot_family_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_message_send": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "message.send"
+            },
+            "data": {
+              "$ref": "#/$defs/action_message_send_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_logger_write_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "message"
+      ],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Redacted operator-facing narrative shown in management log lists. It must identify the operation and outcome without requiring fields; warn and error messages include the known cause, impact, and recovery direction when available."
+        },
+        "fields": {
+          "type": "object",
+          "description": "Supplemental redacted structured diagnostics. Fields must not be required to understand the normal operator-facing outcome described by message.",
+          "additionalProperties": true
+        }
+      }
+    },
+    "action_storage_kv_get_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "key"
+      ],
+      "properties": {
+        "operation": {
+          "const": "get"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_storage_kv_set_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "key",
+        "value"
+      ],
+      "properties": {
+        "operation": {
+          "const": "set"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "value": {}
+      }
+    },
+    "action_storage_kv_delete_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "key"
+      ],
+      "properties": {
+        "operation": {
+          "const": "delete"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_storage_kv_list_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "prefix"
+      ],
+      "properties": {
+        "operation": {
+          "const": "list"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      }
+    },
+    "action_storage_file_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "path"
+      ],
+      "properties": {
+        "operation": {
+          "const": "read"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_storage_file_write_text_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "path",
+        "content_text"
+      ],
+      "properties": {
+        "operation": {
+          "const": "write"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_text": {
+          "type": "string"
+        }
+      }
+    },
+    "action_storage_file_write_base64_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "path",
+        "content_base64"
+      ],
+      "properties": {
+        "operation": {
+          "const": "write"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_base64": {
+          "type": "string"
+        }
+      }
+    },
+    "action_storage_file_delete_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "path"
+      ],
+      "properties": {
+        "operation": {
+          "const": "delete"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "action_storage_file_list_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "prefix"
+      ],
+      "properties": {
+        "operation": {
+          "const": "list"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      }
+    },
+    "action_http_request_no_body_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "GET",
+            "HEAD",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "action_http_request_text_body_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url",
+        "body_text"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "body_text": {
+          "type": "string"
+        }
+      }
+    },
+    "action_http_request_base64_body_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url",
+        "body_base64"
+      ],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": [
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "body_base64": {
+          "type": "string"
+        }
+      }
+    },
+    "action_logger_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "logger.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_logger_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_storage_kv": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "storage.kv"
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_storage_kv_get_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_kv_set_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_kv_delete_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_kv_list_data"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_storage_file": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "storage.file"
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_storage_file_read_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_write_text_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_write_base64_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_delete_data"
+                },
+                {
+                  "$ref": "#/$defs/action_storage_file_list_data"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_http_request": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "http.request"
+            },
+            "data": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/action_http_request_no_body_data"
+                },
+                {
+                  "$ref": "#/$defs/action_http_request_text_body_data"
+                },
+                {
+                  "$ref": "#/$defs/action_http_request_base64_body_data"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "result": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "status",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "result"
+            },
+            "status": {
+              "type": "string",
+              "const": "success"
+            },
+            "data": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "error": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "code",
+            "message"
+          ],
+          "properties": {
+            "type": {
+              "const": "error"
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^(platform|plugin|permission|adapter)\\.[a-z0-9_]+$"
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "details": {
+              "type": "object",
+              "additionalProperties": true,
+              "description": "Optional structured details shared by terminal plugin failures and platform local action failures."
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "ping": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "ping"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "pong": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "pong"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "shutdown": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "reason"
+          ],
+          "properties": {
+            "type": {
+              "const": "shutdown"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "stop",
+                "restart",
+                "reload"
+              ]
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_secret_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+        }
+      }
+    },
+    "action_thirdparty_account_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "bilibili",
+            "weibo",
+            "douyin",
+            "netease_music"
+          ]
+        },
+        "account_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$"
+        }
+      }
+    },
+    "action_thirdparty_account_validate_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "account_id",
+        "observation"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "bilibili",
+            "weibo",
+            "douyin",
+            "netease_music"
+          ]
+        },
+        "account_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$"
+        },
+        "observation": {
+          "type": "string",
+          "enum": [
+            "auth_rejected",
+            "session_blocked"
+          ]
+        },
+        "http_status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        }
+      }
+    },
+    "action_thirdparty_resolve_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "platform",
+        "query"
+      ],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "enum": [
+            "douyin"
+          ]
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "User nickname keyword; leading and trailing whitespace is trimmed by the platform."
+        },
+        "cookie": {
+          "type": "string",
+          "maxLength": 8192,
+          "description": "Optional account cookie header (semicolon-separated name=value pairs) used by the platform login environment for the resolution. Sensitive credential; must not be logged or returned in responses."
+        }
+      }
+    },
+    "action_config_write_data": {
+      "description": "Atomically persist top-level overrides in the authenticated plugin namespace, even values equal to defaults. Only effective JSON value changes appear in sorted changed_keys and emit config.changed; ordinary no-ops return an empty array. A plugin.settings_apply_failed error means settings are committed; retrying identical values resumes pending command refresh or notification admission, or reload the plugin to read the full snapshot.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "values"
+      ],
+      "properties": {
+        "values": {
+          "type": "object",
+          "additionalProperties": true,
+          "minProperties": 1,
+          "propertyNames": { "minLength": 1 }
+        }
+      }
+    },
+    "action_governance_read_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
+    "action_governance_blacklist_write_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "upsert",
+            "delete"
+          ]
+        },
+        "entry_type": {
+          "$ref": "#/$defs/governance_entry_type"
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/governance_scope"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "upsert"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id",
+              "reason",
+              "scope"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "delete"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id",
+              "scope"
+            ]
+          }
+        }
+      ]
+    },
+    "action_governance_whitelist_write_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "set_enabled",
+            "upsert",
+            "delete"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "entry_type": {
+          "$ref": "#/$defs/governance_entry_type"
+        },
+        "target_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/governance_scope"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "set_enabled"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "enabled"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "upsert"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id",
+              "reason",
+              "scope"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "operation": {
+                "const": "delete"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "entry_type",
+              "target_id",
+              "scope"
+            ]
+          }
+        }
+      ]
+    },
+    "action_scheduler_create_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "cron",
+        "event_type"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "log_label": {
+          "type": "string"
+        },
+        "cron": {
+          "type": "string",
+          "minLength": 1
+        },
+        "event_type": {
+          "type": "string",
+          "const": "scheduler.trigger"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "render_image_resource_url": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^https://",
+      "description": "HTTPS image URL fetched by the platform. User information and fragments are rejected at runtime; the target and every redirect are revalidated against the host SSRF and private-network policy."
+    },
+    "render_image_resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "url"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[A-Za-z][A-Za-z0-9._-]*$",
+          "description": "Request-local resource identifier. IDs must be unique within one render.image request. Templates reference this value through a host-recognized data-render-resource attribute."
+        },
+        "url": {
+          "$ref": "#/$defs/render_image_resource_url"
+        },
+        "fallback_urls": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/render_image_resource_url"
+          },
+          "description": "Ordered lower-priority HTTPS candidates. The platform tries these only when the primary URL cannot produce an accepted image or when the retained resource set must be reduced to the request limit."
+        },
+        "referer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "pattern": "^https://",
+          "description": "Optional HTTPS Referer sent by the platform while fetching this resource. No Cookie, Authorization, or arbitrary request headers can be supplied through render.image."
+        }
+      }
+    },
+    "action_render_image_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "template",
+        "data"
+      ],
+      "properties": {
+        "template": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Render template reference. Plugin code may pass a package-local template short ID discovered below templates/, a system template ID, or the current plugin's formal plugin.<plugin_id>.<template_id> ID. Other plugin templates are rejected by the platform."
+        },
+        "theme": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output": {
+          "type": "string",
+          "enum": [
+            "png",
+            "jpeg"
+          ]
+        },
+        "fallback_text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resources": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/render_image_resource"
+          },
+          "description": "Optional platform-prefetched image resources. Using this field requires both render.image and http.request permissions. JPEG, PNG, GIF, and WebP are accepted. Each downloaded response body is limited to 16 MiB, retained resources are limited to 96 MiB per request, and all resource work shares a 30 second deadline. Fetch or image validation failure leaves the resource unresolved so the template's existing fallback remains visible; malformed input or permission violations reject the action."
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    },
+    "action_plugin_list_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "catalog",
+            "caller"
+          ],
+          "default": "catalog",
+          "description": "Catalog returns the full plugin command and help catalog. Caller returns commands and help entries visible to the parent event actor."
+        }
+      }
+    },
+    "action_plugin_list": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "plugin.list"
+            },
+            "data": {
+              "$ref": "#/$defs/action_plugin_list_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_secret_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "secret.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_secret_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_thirdparty_account_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "thirdparty.account.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_thirdparty_account_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_thirdparty_account_validate": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "thirdparty.account.validate"
+            },
+            "data": {
+              "$ref": "#/$defs/action_thirdparty_account_validate_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_thirdparty_resolve": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "thirdparty.resolve"
+            },
+            "data": {
+              "$ref": "#/$defs/action_thirdparty_resolve_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_config_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "config.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_config_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_blacklist_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.blacklist.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_blacklist_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.blacklist.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_blacklist_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_whitelist_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.whitelist.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_whitelist_write": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.whitelist.write"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_whitelist_write_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_governance_command_policy_read": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "governance.command_policy.read"
+            },
+            "data": {
+              "$ref": "#/$defs/action_governance_read_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_scheduler_create": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "scheduler.create"
+            },
+            "data": {
+              "$ref": "#/$defs/action_scheduler_create_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_render_image": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "render.image"
+            },
+            "data": {
+              "$ref": "#/$defs/action_render_image_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "bot_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_adapter",
+        "source_protocol",
+        "id"
+      ],
+      "properties": {
+        "source_adapter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_protocol": {
+          "type": "string",
+          "enum": [
+            "onebot11",
+            "qqofficial"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nickname": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "governance_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_protocol",
+        "source_adapter",
+        "bot_id"
+      ],
+      "properties": {
+        "source_protocol": {
+          "enum": [
+            "onebot11",
+            "qqofficial"
+          ]
+        },
+        "source_adapter": {
+          "type": "string"
+        },
+        "bot_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "global",
+            "instance"
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "source_protocol": {
+              "const": "onebot11"
+            },
+            "source_adapter": {
+              "const": ""
+            },
+            "bot_id": {
+              "const": ""
+            },
+            "kind": {
+              "const": "global"
+            }
+          }
+        },
+        {
+          "properties": {
+            "source_adapter": {
+              "minLength": 1
+            },
+            "bot_id": {
+              "minLength": 1
+            },
+            "kind": {
+              "const": "instance"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "x-message-catalog": [
+    {
+      "type": "init",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "protocol_version",
+        "plugin_id",
+        "type",
+        "request_id",
+        "config",
+        "effective_permissions",
+        "super_admins",
+        "command_prefixes",
+        "timezone",
+        "concurrency"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.init.yaml"
+    },
+    {
+      "type": "event",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "type",
+        "request_id",
+        "event"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.config-changed.yaml"
+    },
+    {
+      "type": "action",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_new_request_distinct_from_event",
+      "required_fields": [
+        "type",
+        "request_id",
+        "action",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.message-send.yaml"
+    },
+    {
+      "type": "result",
+      "direction": "bidirectional",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "type",
+        "request_id",
+        "status",
+        "data"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.config-changed.yaml"
+    },
+    {
+      "type": "error",
+      "direction": "bidirectional",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "type",
+        "request_id",
+        "code",
+        "message"
+      ]
+    },
+    {
+      "type": "ping",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "type",
+        "request_id"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.ping-pong.yaml"
+    },
+    {
+      "type": "pong",
+      "direction": "plugin->platform",
+      "request_id_policy": "required_same_as_request",
+      "required_fields": [
+        "type",
+        "request_id"
+      ],
+      "example_ref": "fixtures/plugin-protocol/ok.ping-pong.yaml"
+    },
+    {
+      "type": "shutdown",
+      "direction": "platform->plugin",
+      "request_id_policy": "required_new_request",
+      "required_fields": [
+        "type",
+        "request_id",
+        "reason"
+      ]
+    }
+  ],
+  "x-fixtures": [
+    "fixtures/plugin-protocol/ok.init.yaml",
+    "fixtures/plugin-protocol/ok.config-changed.yaml",
+    "fixtures/plugin-protocol/edge.config-changed-empty.yaml",
+    "fixtures/plugin-protocol/invalid.config-changed-noop.yaml",
+    "fixtures/plugin-protocol/ok.message-send.yaml",
+    "fixtures/plugin-protocol/ok.storage-file.yaml",
+    "fixtures/plugin-protocol/ok.http-request.yaml",
+    "fixtures/plugin-protocol/ok.governance-blacklist-read.yaml",
+    "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
+    "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
+    "fixtures/plugin-protocol/ok.scheduler-create.yaml",
+    "fixtures/plugin-protocol/ok.render-image.yaml",
+    "fixtures/plugin-protocol/ok.thirdparty-account-read.yaml",
+    "fixtures/plugin-protocol/ok.ping-pong.yaml",
+    "fixtures/plugin-protocol/edge.init-empty-identities.yaml",
+    "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",
+    "fixtures/plugin-protocol/ok.qq-official-group-message.yaml",
+    "fixtures/plugin-protocol/ok.message-send-adapter-instance.yaml",
+    "fixtures/plugin-protocol/ok.onebot-adapter-instance.yaml",
+    "fixtures/plugin-protocol/invalid.onebot-adapter-selector.yaml",
+    "fixtures/plugin-protocol/ok.qq-official-bot-added.yaml",
+    "fixtures/plugin-protocol/invalid.legacy-envelope.yaml",
+    "fixtures/plugin-protocol/invalid.message-send-unknown-target-type.yaml",
+    "fixtures/plugin-protocol/invalid.removed-action.yaml",
+    "fixtures/plugin-protocol/invalid.storage-root.yaml",
+    "fixtures/plugin-protocol/ok.bot-identities.yaml",
+    "fixtures/plugin-protocol/invalid.bot-identities-missing-snapshot.yaml"
+  ],
+  "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions."
+}

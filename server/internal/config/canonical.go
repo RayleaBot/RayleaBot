@@ -10,9 +10,11 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
 )
 
-const currentSchemaVersion = "4"
+const currentSchemaVersion = contractversions.ConfigSchemaVersion
 const DefaultRenderFooterTemplate = "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}"
 const DefaultRenderOutput = "png"
 const DefaultRenderDeviceScalePercent = 100

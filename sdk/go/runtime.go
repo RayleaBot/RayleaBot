@@ -15,9 +15,11 @@ import (
 	"sync/atomic"
 	"time"
 	_ "time/tzdata"
+
+	"github.com/RayleaBot/RayleaBot/sdk/go/internal/pluginwire"
 )
 
-const maxProtocolFrameBytes = 8 * 1024 * 1024
+const maxProtocolFrameBytes = pluginwire.DefaultMaxFrameBytes
 
 type runtimeState struct {
 	location        *time.Location
@@ -104,9 +106,20 @@ func Run(ctx context.Context, options Options, handler Handler) error {
 
 func (state *runtimeState) run(ctx context.Context, in io.Reader) error {
 	scanner := bufio.NewScanner(in)
-	scanner.Buffer(make([]byte, 64*1024), maxProtocolFrameBytes)
+	scanner.Buffer(make([]byte, 64*1024), maxProtocolFrameBytes+1)
 	initialized := false
 	for scanner.Scan() {
+		if err := pluginwire.Validate(scanner.Bytes(), maxProtocolFrameBytes); err != nil {
+			var envelope pluginwire.FrameEnvelope
+			if initialized && json.Unmarshal(scanner.Bytes(), &envelope) == nil && envelope.Type == "event" && envelope.RequestID != "" {
+				if writeErr := state.sendError(envelope.RequestID, "plugin.protocol_violation", "host event violates the protocol schema"); writeErr != nil {
+					return writeErr
+				}
+				continue
+			}
+			state.client.rejectPending(err)
+			return fmt.Errorf("rayleabot: invalid incoming protocol frame: %w", err)
+		}
 		var frame protocolFrame
 		if err := json.Unmarshal(scanner.Bytes(), &frame); err != nil {
 			state.client.rejectPending(err)
@@ -214,11 +227,27 @@ func (state *runtimeState) captureInit(frame protocolFrame) {
 }
 
 func (state *runtimeState) decodeEvent(frame protocolFrame) (Event, error) {
-	var event Event
-	if err := json.Unmarshal(frame.Event, &event); err != nil {
+	var wire pluginwire.ProtocolEventFrame
+	if err := json.Unmarshal(frame.Event, &wire); err != nil {
 		return Event{}, protocolError("invalid event payload")
 	}
-	event.Raw = append(json.RawMessage(nil), frame.Event...)
+	event := Event{EventID: wire.EventID, SourceProtocol: wire.SourceProtocol, SourceAdapter: wire.SourceAdapter, EventType: wire.EventType, Timestamp: wire.Timestamp, Webhook: wire.Webhook, Raw: append(json.RawMessage(nil), frame.Event...)}
+	if wire.Actor != nil {
+		event.Actor = *wire.Actor
+	}
+	if wire.Target != nil {
+		event.Target = *wire.Target
+	}
+	if wire.Message != nil {
+		event.Message = *wire.Message
+	}
+	var application struct {
+		Payload map[string]any `json:"payload"`
+	}
+	if err := json.Unmarshal(frame.Event, &application); err != nil {
+		return Event{}, protocolError("invalid event payload")
+	}
+	event.Payload = application.Payload
 	return event, nil
 }
 

@@ -3,10 +3,12 @@ package releaseupdate
 import (
 	"errors"
 	"fmt"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
 )
 
 const (
-	ProtocolVersion             = 2
+	ProtocolVersion             = contractversions.UpdateProtocolVersion
 	ReleaseRepositoryURL        = "https://github.com/RayleaBot/RayleaBot"
 	ManifestAssetName           = "release_manifest.v2.json"
 	SignatureAssetName          = "release_manifest.v2.sig.json"
@@ -15,8 +17,8 @@ const (
 	MaxExpandedBytes      int64 = 8 << 30
 	MaxArtifactFiles            = 100_000
 	MaxCompressionRatio         = 100
-	PluginManifestVersion       = "3"
-	PluginUIBridgeVersion       = "3"
+	PluginManifestVersion       = contractversions.PluginManifestVersion
+	PluginUIBridgeVersion       = contractversions.PluginUIBridgeVersion
 )
 
 const (

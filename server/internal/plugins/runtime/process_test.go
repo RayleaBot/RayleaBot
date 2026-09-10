@@ -15,7 +15,6 @@ func TestWriteJSONLineRetriesShortWrites(t *testing.T) {
 	writer := &chunkedWriteCloser{maxChunk: 3}
 	frame := map[string]any{
 		"type":       "ping",
-		"plugin_id":  "raylea.echo",
 		"request_id": "req_runtime_ping_0001",
 	}
 
@@ -57,10 +56,9 @@ func TestProcessHandleWriteJSONLineSerializesConcurrentFrames(t *testing.T) {
 			for frameIndex := 0; frameIndex < framesPerWriter; frameIndex++ {
 				err := handle.WriteJSONLine(map[string]any{
 					"type":       "result",
-					"plugin_id":  "raylea.echo",
 					"request_id": "req_runtime_local_action",
-					"worker":     worker,
-					"frame":      frameIndex,
+					"status":     "success",
+					"data":       map[string]any{"worker": worker, "frame": frameIndex},
 				})
 				if err != nil {
 					t.Errorf("handle.writeJSONLine returned error: %v", err)
@@ -84,7 +82,7 @@ func TestProcessHandleWriteJSONLineSerializesConcurrentFrames(t *testing.T) {
 			t.Fatalf("expected valid json line, got %q: %v", line, err)
 		}
 
-		key := decoded["request_id"].(string) + ":" + formatJSONNumber(decoded["worker"]) + ":" + formatJSONNumber(decoded["frame"])
+		key := decoded["request_id"].(string) + ":" + formatJSONNumber(decoded["data"].(map[string]any)["worker"]) + ":" + formatJSONNumber(decoded["data"].(map[string]any)["frame"])
 		seen[key] = struct{}{}
 	}
 	if len(seen) != expectedLines {

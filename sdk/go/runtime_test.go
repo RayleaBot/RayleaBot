@@ -155,7 +155,7 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 		EventID: "bot-new", EventType: "bot.identities.changed",
 		Payload: map[string]any{"bots": []Bot{{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "new-bot"}}},
 	})
-	writeRuntimeEvent(t, encoder, "message", Event{EventID: "message", EventType: "message"})
+	writeRuntimeEvent(t, encoder, "message", Event{EventID: "message", EventType: "message.group"})
 
 	for range 4 {
 		decodeFrame(t, decoder, &frame)
@@ -167,7 +167,7 @@ func TestRunAppliesControlEventsInInputOrderBeforeBusinessHandlers(t *testing.T)
 	var message observation
 	for range 4 {
 		item := <-observations
-		if item.eventType == "message" {
+		if item.eventType == "message.group" {
 			message = item
 		}
 	}
@@ -218,7 +218,7 @@ func TestRunRejectsConfigChangedWithoutSnapshotAndContinues(t *testing.T) {
 		t.Fatalf("invalid config.changed response = %#v", frame)
 	}
 
-	writeRuntimeEvent(t, encoder, "message-after-error", Event{EventID: "message-after-error", EventType: "message"})
+	writeRuntimeEvent(t, encoder, "message-after-error", Event{EventID: "message-after-error", EventType: "message.group"})
 	decodeFrame(t, decoder, &frame)
 	if frame.Type != "result" || <-handled != "message-after-error" {
 		t.Fatalf("runtime did not continue after protocol violation: %#v", frame)
@@ -258,7 +258,7 @@ func TestRunCorrelatesConcurrentLocalActionsAndSerializesTerminalFrames(t *testi
 	decoder := json.NewDecoder(outputReader)
 	writeFrame(t, encoder, protocolFrame{Bots: &[]Bot{},
 		ProtocolVersion: ProtocolVersion, Type: "init", Timezone: "Asia/Shanghai", PluginID: "test-plugin", RequestID: "init-1",
-		Config: map[string]any{"enabled": true}, EffectivePermissions: []string{"storage.kv"},
+		Config: map[string]any{"enabled": true}, EffectivePermissions: []string{},
 		SuperAdmins: []string{}, CommandPrefixes: []string{"/"}, Concurrency: 2,
 	})
 	var initAck protocolFrame
@@ -362,21 +362,74 @@ func TestRunEnforcesOneTerminalResponseAndIsolatesPanics(t *testing.T) {
 
 func writeEvent(t *testing.T, encoder *json.Encoder, requestID, eventID string) {
 	t.Helper()
-	payload, _ := json.Marshal(Event{EventID: eventID, EventType: "message", Target: Target{Type: "group", ID: "100"}})
-	writeFrame(t, encoder, protocolFrame{Type: "event", RequestID: requestID, Event: payload})
+	writeRuntimeEvent(t, encoder, requestID, Event{EventID: eventID, EventType: "message.group", Target: Target{Type: "group", ID: "100"}})
 }
 
 func writeRuntimeEvent(t *testing.T, encoder *json.Encoder, requestID string, event Event) {
 	t.Helper()
-	payload, err := json.Marshal(event)
+	if event.EventType == "bot.identities.changed" {
+		event.SourceProtocol = "platform"
+		event.SourceAdapter = "adapters.internal"
+	}
+	if strings.HasPrefix(event.EventType, "message.") {
+		if event.SourceProtocol == "" {
+			event.SourceProtocol = "onebot11"
+		}
+		if event.SourceAdapter == "" {
+			event.SourceAdapter = "onebot"
+		}
+	}
+	if event.SourceProtocol == "" {
+		event.SourceProtocol = "system"
+	}
+	if event.SourceAdapter == "" {
+		event.SourceAdapter = "system"
+	}
+	raw := map[string]any{"event_id": event.EventID, "source_protocol": event.SourceProtocol, "source_adapter": event.SourceAdapter, "event_type": event.EventType, "timestamp": event.Timestamp}
+	if event.Actor.ID != "" {
+		raw["actor"] = event.Actor
+	}
+	if event.Target.ID != "" {
+		raw["target"] = event.Target
+	}
+	if event.Message.PlainText != "" || len(event.Message.Segments) > 0 {
+		raw["message"] = event.Message
+	}
+	if event.Payload != nil {
+		raw["payload"] = event.Payload
+	}
+	if event.Webhook != nil {
+		raw["webhook"] = event.Webhook
+	}
+	payload, err := json.Marshal(raw)
 	if err != nil {
-		t.Fatalf("marshal event: %v", err)
+		t.Fatal(err)
 	}
 	writeFrame(t, encoder, protocolFrame{Type: "event", RequestID: requestID, Event: payload})
 }
 
 func writeFrame(t *testing.T, encoder *json.Encoder, frame protocolFrame) {
 	t.Helper()
+	if frame.Type == "init" {
+		if frame.Config == nil {
+			frame.Config = map[string]any{}
+		}
+		if frame.EffectivePermissions == nil {
+			frame.EffectivePermissions = []string{}
+		}
+		if frame.SuperAdmins == nil {
+			frame.SuperAdmins = []string{}
+		}
+		if frame.CommandPrefixes == nil {
+			frame.CommandPrefixes = []string{"/"}
+		}
+		if frame.Concurrency == 0 {
+			frame.Concurrency = 1
+		}
+	}
+	if frame.Type == "result" && frame.Status == "" {
+		frame.Status = "success"
+	}
 	if err := encoder.Encode(frame); err != nil {
 		t.Fatalf("encode frame: %v", err)
 	}

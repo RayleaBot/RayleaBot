@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createRedactedOutput, redactLogLine } from "../log-redaction.mjs";
+import { createRedactedOutput, redactLogLine, redactText } from "../log-redaction.mjs";
+import { readFileSync } from "node:fs";
+
+test("shared Go and JavaScript redaction vectors", () => {
+  const vectors = JSON.parse(readFileSync(new URL("../testdata/redaction.json", import.meta.url), "utf8"));
+  for (const { input, output } of vectors) assert.equal(redactText(input), output);
+});
 
 test("pipe chunk boundaries cannot reveal setup credentials or corrupt Chinese", () => {
   for (let size = 1; size < 30; size++) {

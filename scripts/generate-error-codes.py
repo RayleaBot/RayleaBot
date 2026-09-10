@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from generated_outputs import sync_outputs
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -75,14 +76,8 @@ def main() -> int:
     parser.add_argument('--verify', action='store_true')
     args = parser.parse_args()
     document = yaml.safe_load((ROOT / 'contracts/error-codes.yaml').read_text(encoding='utf-8'))
-    stale: list[str] = []
-    for path, content in generate(document['codes'], document.get('diagnostics', {})).items():
-        if args.verify:
-            if not path.exists() or path.read_text(encoding='utf-8') != content:
-                stale.append(path.relative_to(ROOT).as_posix())
-        else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding='utf-8', newline='\n')
+    outputs = {path: content.encode('utf-8') for path, content in generate(document['codes'], document.get('diagnostics', {})).items()}
+    stale = sync_outputs(ROOT, outputs, b'by scripts/generate-error-codes.py', args.verify)
     if stale:
         raise SystemExit('error catalog drift: ' + ', '.join(stale))
     print('error catalogs verified' if args.verify else 'error catalogs generated')

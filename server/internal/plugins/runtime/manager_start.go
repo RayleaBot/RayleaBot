@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
 )
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
@@ -101,21 +101,21 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 		"entry_path", entryPathDisplay,
 	)
 
-	bots := append([]chatevent.BotIdentity{}, payload.Bots...)
+	bots := wireBotIdentities(payload.Bots)
 	initConfig := cloneDetails(payload.Config)
 	if initConfig == nil {
 		initConfig = map[string]any{}
 	}
 	if err := handle.WriteJSONLine(InitFrame{
 		Timezone:             payload.Timezone,
-		ProtocolVersion:      "3",
+		ProtocolVersion:      pluginwire.ProtocolVersion,
 		Type:                 "init",
 		PluginID:             spec.PluginID,
 		RequestID:            requestID,
 		Bots:                 bots,
 		Config:               initConfig,
-		EffectivePermissions: append([]string(nil), payload.Permissions...),
-		SuperAdmins:          append([]string(nil), payload.SuperAdmins...),
+		EffectivePermissions: append([]string{}, payload.Permissions...),
+		SuperAdmins:          append([]string{}, payload.SuperAdmins...),
 		CommandPrefixes:      append([]string(nil), payload.CommandPrefixes...),
 		Concurrency:          spec.EffectiveConcurrency,
 	}); err != nil {

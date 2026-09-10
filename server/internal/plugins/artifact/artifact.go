@@ -14,13 +14,13 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
 )
 
 const (
-	Version         = "2"
-	ManifestVersion = "3"
-	ProtocolVersion = "2"
-	BridgeVersion   = "3"
+	Version         = contractversions.PluginArtifactVersion
+	ManifestVersion = contractversions.PluginManifestVersion
 )
 
 var (

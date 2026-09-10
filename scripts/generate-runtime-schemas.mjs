@@ -25,9 +25,34 @@ const pluginUITypesTargets = [
 const verifyMode = process.argv.includes('--verify')
 let failed = false
 
-for (const name of schemas) {
+const schemaCopies = [
+  ...schemas.map(name => ({ name, target: `${targetDir}/${name}` })),
+]
+
+// These directories contain only schema copies owned by this generator. TS
+// directories are shared, so recognize ownership by the generated header.
+const expectedPaths = new Set([...schemaCopies.map(item => item.target), ...pluginUITypesTargets])
+for (const directory of new Set([...expectedPaths].map(target => path.posix.dirname(target)))) {
+  const entries = await fs.readdir(path.join(repoRoot, directory), { withFileTypes: true }).catch(error => {
+    if (error.code === 'ENOENT') return []
+    throw error
+  })
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    const target = `${directory}/${entry.name}`
+    if (expectedPaths.has(target)) continue
+    const fullPath = path.join(repoRoot, target)
+    const schemaCopy = schemaCopies.some(item => path.posix.dirname(item.target) === directory) && entry.name.endsWith('.schema.json')
+    const bridgeCopy = entry.name.endsWith('.ts') && (await fs.readFile(fullPath, 'utf8')).startsWith('// Code generated from contracts/plugin-management-ui-bridge.schema.json;')
+    if (!schemaCopy && !bridgeCopy) continue
+    if (verifyMode) { console.error(`stale generated runtime schema output: ${target}`); failed = true }
+    else await fs.unlink(fullPath)
+  }
+}
+
+for (const { name, target } of schemaCopies) {
   const sourcePath = path.join(repoRoot, 'contracts', name)
-  const targetPath = path.join(repoRoot, targetDir, name)
+  const targetPath = path.join(repoRoot, target)
   const normalized = normalizeSchemaBytes(await fs.readFile(sourcePath))
 
   if (verifyMode) {
@@ -35,7 +60,7 @@ for (const name of schemas) {
     try {
       current = normalizeSchemaBytes(await fs.readFile(targetPath))
     } catch {
-      console.error(`missing embedded schema copy: ${targetDir}/${name}`)
+      console.error(`missing embedded schema copy: ${target}`)
       failed = true
       continue
     }
@@ -47,7 +72,7 @@ for (const name of schemas) {
   }
 
   await fs.mkdir(path.dirname(targetPath), { recursive: true })
-  await fs.writeFile(targetPath, normalized)
+  await writeIfChanged(targetPath, normalized)
 }
 
 const bridgeSchema = JSON.parse(await fs.readFile(path.join(repoRoot, 'contracts', pluginUIBridgeSchema), 'utf8'))
@@ -68,7 +93,7 @@ for (const pluginUITypesTarget of pluginUITypesTargets) {
     }
   } else {
     await fs.mkdir(path.dirname(pluginUITypesPath), { recursive: true })
-    await fs.writeFile(pluginUITypesPath, generatedPluginUITypes)
+    await writeIfChanged(pluginUITypesPath, generatedPluginUITypes)
   }
 }
 
@@ -78,6 +103,14 @@ if (failed) {
 
 function normalizeSchemaBytes(buffer) {
   return Buffer.from(buffer.toString('utf8').replace(/\r\n?/g, '\n'), 'utf8')
+}
+
+async function writeIfChanged(target, data) {
+  const current = await fs.readFile(target).catch(error => {
+    if (error.code === 'ENOENT') return null
+    throw error
+  })
+  if (!current?.equals(data)) await fs.writeFile(target, data)
 }
 
 function generatePluginUITypes(schema) {
@@ -99,6 +132,8 @@ function generatePluginUITypes(schema) {
 
   return [
     '// Code generated from contracts/plugin-management-ui-bridge.schema.json; DO NOT EDIT.',
+    '',
+    `export const PLUGIN_UI_BRIDGE_VERSION = ${JSON.stringify(version)} as const`,
     '',
     `export type BridgeSource = ${literalUnion(sourceValues)}`,
     '',

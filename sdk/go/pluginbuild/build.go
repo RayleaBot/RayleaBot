@@ -21,8 +21,6 @@ import (
 )
 
 const (
-	ArtifactVersion           = "2"
-	ManifestVersion           = "3"
 	pluginBuildNodeEnv        = "RAYLEA_PLUGIN_BUILD_NODE"
 	pluginBuildCorepackCLIEnv = "RAYLEA_PLUGIN_BUILD_COREPACK_CLI"
 )

@@ -14,11 +14,11 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (plug
 	if err := ctx.Err(); err != nil {
 		return plugins.Delivery{}, eventContextError(err)
 	}
-	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
+	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp < 0 {
 		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
 	}
 	if event.EventType == "webhook.received" {
-		if event.Webhook == nil || event.Webhook.Route == "" || event.Webhook.ReceivedAt <= 0 {
+		if event.Webhook == nil || event.Webhook.Route == "" || event.Webhook.ReceivedAt < 0 {
 			return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "webhook event metadata is missing required fields", nil)
 		}
 	} else if event.Webhook != nil {
@@ -145,7 +145,7 @@ func buildEventPayload(event chatevent.Event) (*ProtocolPayloadFrame, bool) {
 			hasPayload = true
 		}
 		if v, ok := event.PayloadFields["command"].(string); ok && v != "" {
-			payload.Command = v
+			payload.Command, _ = json.Marshal(v)
 			hasPayload = true
 		}
 		if v, ok := event.PayloadFields["args"].([]string); ok && len(v) > 0 {
@@ -169,7 +169,7 @@ func buildEventPayload(event chatevent.Event) (*ProtocolPayloadFrame, bool) {
 			hasPayload = true
 		}
 		if bots, ok := event.PayloadFields["bots"].([]chatevent.BotIdentity); ok {
-			copy := append([]chatevent.BotIdentity{}, bots...)
+			copy := wireBotIdentities(bots)
 			payload.Bots = &copy
 			hasPayload = true
 		}

@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
 )
 
-const ManifestVersion = 5
+const ManifestVersion = contractversions.DepsManifestVersion
 
 type Manifest struct {
 	ManifestVersion int        `json:"manifest_version"`

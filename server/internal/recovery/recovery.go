@@ -14,14 +14,16 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
 )
 
 const (
-	BackupManifestVersion = "3"
-	PluginManifestVersion = "3"
-	PluginProtocolVersion = "3"
-	PluginUIBridgeVersion = "3"
-	PluginArtifactVersion = "2"
+	BackupManifestVersion = contractversions.BackupManifestVersion
+	PluginManifestVersion = contractversions.PluginManifestVersion
+	PluginProtocolVersion = contractversions.PluginProtocolVersion
+	PluginUIBridgeVersion = contractversions.PluginUIBridgeVersion
+	PluginArtifactVersion = contractversions.PluginArtifactVersion
 	RecoverySummaryPath   = "logs/recovery-summary.json"
 	reviewStatusPending   = "pending"
 	reviewStatusConfirmed = "confirmed"

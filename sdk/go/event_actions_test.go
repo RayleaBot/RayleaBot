@@ -55,7 +55,9 @@ func TestCanceledActionWaitDrainsBeforeTerminal(t *testing.T) {
 	event := &EventContext{RequestID: "event-1", client: client}
 	ctx, cancel := context.WithCancel(context.Background())
 	callDone := make(chan error, 1)
-	go func() { callDone <- event.Actions().Call(ctx, "storage.kv", map[string]any{}, nil) }()
+	go func() {
+		callDone <- event.Actions().Call(ctx, "storage.kv", map[string]any{"operation": "get", "key": "fixture"}, nil)
+	}()
 	action := <-sink
 	cancel()
 	if err := <-callDone; !errors.Is(err, context.Canceled) {
@@ -86,7 +88,9 @@ func TestUnsettledActionsWithholdTerminalAndRecognizeLateResponse(t *testing.T) 
 	event := &EventContext{RequestID: "event-1", client: client}
 	ctx, cancel := context.WithCancel(context.Background())
 	callDone := make(chan error, 1)
-	go func() { callDone <- event.Actions().Call(ctx, "message.send", map[string]any{}, nil) }()
+	go func() {
+		callDone <- event.Actions().Call(ctx, "logger.write", map[string]any{"level": "info", "message": "fixture"}, nil)
+	}()
 	action := <-sink
 	cancel()
 	<-callDone
@@ -124,7 +128,9 @@ func TestTerminalDrainReleasesActionWaiterWithLongerDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Hour)
 	defer cancel()
 	callDone := make(chan error, 1)
-	go func() { callDone <- event.Actions().Call(ctx, "storage.kv", nil, nil) }()
+	go func() {
+		callDone <- event.Actions().Call(ctx, "storage.kv", map[string]any{"operation": "get", "key": "fixture"}, nil)
+	}()
 	<-sink
 	if err := event.Result(nil); err == nil {
 		t.Fatal("unsettled terminal accepted")

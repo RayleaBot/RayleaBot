@@ -4,37 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/sdk/go/internal/pluginwire"
 )
 
-var sensitiveText = regexp.MustCompile(`(?i)(SESSDATA|bili_jct|access_token|refresh_token|authorization|cookie|token|secret|password)(\s*[:=]\s*)([^;,\s]+)`)
+var sensitiveAssignment = regexp.MustCompile(`(?i)(\b(?:setup_token|access_token|refresh_token|token|secret|password|passwd|api_key|rkey|SESSDATA|bili_jct)\s*[:=]\s*)([^&\s"'<>;,]+)`)
+var sensitiveHeader = regexp.MustCompile(`(?im)(\b(?:authorization|cookie|set-cookie)\s*[:=]\s*)([^\r\n]+)`)
 
-type protocolFrame struct {
-	ProtocolVersion      string          `json:"protocol_version,omitempty"`
-	Type                 string          `json:"type"`
-	PluginID             string          `json:"plugin_id,omitempty"`
-	RequestID            string          `json:"request_id"`
-	ParentRequestID      string          `json:"parent_request_id,omitempty"`
-	Status               string          `json:"status,omitempty"`
-	Action               string          `json:"action,omitempty"`
-	Code                 string          `json:"code,omitempty"`
-	Message              string          `json:"message,omitempty"`
-	Reason               string          `json:"reason,omitempty"`
-	Details              map[string]any  `json:"details,omitempty"`
-	Data                 json.RawMessage `json:"data,omitempty"`
-	Event                json.RawMessage `json:"event,omitempty"`
-	Bots                 *[]Bot          `json:"bots,omitempty"`
-	Config               map[string]any  `json:"config,omitempty"`
-	EffectivePermissions []string        `json:"effective_permissions,omitempty"`
-	SuperAdmins          []string        `json:"super_admins,omitempty"`
-	CommandPrefixes      []string        `json:"command_prefixes,omitempty"`
-	Concurrency          int             `json:"concurrency,omitempty"`
-	Timezone             string          `json:"timezone,omitempty"`
-}
+type protocolFrame = pluginwire.Frame
 
 type ActionError struct {
 	Code    string
@@ -80,11 +62,21 @@ func (writer *jsonWriter) write(frame protocolFrame) error {
 	if err != nil {
 		return fmt.Errorf("marshal protocol frame: %w", err)
 	}
+	if err := pluginwire.Validate(payload, maxProtocolFrameBytes); err != nil {
+		return fmt.Errorf("invalid outgoing plugin frame: %w", err)
+	}
 	payload = append(payload, '\n')
 	writer.mu.Lock()
 	defer writer.mu.Unlock()
-	if _, err := writer.out.Write(payload); err != nil {
-		return fmt.Errorf("write protocol frame: %w", err)
+	for len(payload) > 0 {
+		written, err := writer.out.Write(payload)
+		if err != nil {
+			return fmt.Errorf("write protocol frame: %w", err)
+		}
+		if written == 0 {
+			return io.ErrShortWrite
+		}
+		payload = payload[written:]
 	}
 	return nil
 }
@@ -191,7 +183,8 @@ func (client *runtimeClient) nextRequestID(parent string) string {
 }
 
 func redact(value string) string {
-	return sensitiveText.ReplaceAllString(strings.TrimSpace(value), "$1$2[REDACTED]")
+	value = sensitiveHeader.ReplaceAllString(value, "${1}[REDACTED]")
+	return sensitiveAssignment.ReplaceAllString(value, "${1}[REDACTED]")
 }
 
 func protocolError(message string) error {
