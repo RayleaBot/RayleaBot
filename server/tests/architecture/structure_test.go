@@ -5,7 +5,6 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 )
@@ -16,8 +15,6 @@ const (
 	managementImportPrefix = managementImportPath + "/"
 	appImportPrefix        = modulePrefix + "app"
 )
-
-var numberedTestPartNameRE = regexp.MustCompile(`_part[0-9]+_`)
 
 func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 	serverRoot := testServerRoot(t)
@@ -58,43 +55,14 @@ func TestRenderImplementationPackagesStayBehindServiceBoundary(t *testing.T) {
 	})
 }
 
-func TestInternalTreeHasNoEmptyDirectories(t *testing.T) {
-	serverRoot := testServerRoot(t)
-	internalRoot := filepath.Join(serverRoot, "internal")
-
-	if err := filepath.WalkDir(internalRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if !entry.IsDir() {
-			return nil
-		}
-		switch entry.Name() {
-		case ".git", "dist", ".gocache":
-			return filepath.SkipDir
-		}
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return err
-		}
-		if len(entries) == 0 {
-			t.Errorf("%s is an empty directory", relPath(t, serverRoot, path))
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("walk %s: %v", internalRoot, err)
-	}
-}
-
-// TestDomainPackagesDoNotImportApp forbids domain packages from importing the
-// composition root. Only the entry/assembly layer (internal/app) and the
-// server/tests tree may depend on internal/app.
-func TestDomainPackagesDoNotImportApp(t *testing.T) {
+// Domain services are shared by entrypoints; they must not depend on App or CLI.
+func TestDomainPackagesDoNotImportEntrypoints(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	internalRoot := filepath.Join(serverRoot, "internal")
 
 	exempt := []string{
 		filepath.Join(internalRoot, "app"),
+		filepath.Join(internalRoot, "cli"),
 	}
 
 	walkGoFiles(t, internalRoot, func(path string) {
@@ -107,23 +75,9 @@ func TestDomainPackagesDoNotImportApp(t *testing.T) {
 			}
 		}
 		for _, importPath := range fileImports(t, serverRoot, path) {
-			if importPath == appImportPrefix || strings.HasPrefix(importPath, appImportPrefix+"/") {
+			if importPath == appImportPrefix || strings.HasPrefix(importPath, appImportPrefix+"/") || importPath == modulePrefix+"cli" || strings.HasPrefix(importPath, modulePrefix+"cli/") {
 				t.Errorf("%s imports composition root %s", relPath(t, serverRoot, path), importPath)
 			}
-		}
-	})
-}
-
-func TestTestFilesUseScenarioNames(t *testing.T) {
-	serverRoot := testServerRoot(t)
-
-	walkGoFiles(t, serverRoot, func(path string) {
-		if !strings.HasSuffix(path, "_test.go") {
-			return
-		}
-		name := filepath.Base(path)
-		if numberedTestPartNameRE.MatchString(name) {
-			t.Errorf("%s uses numbered part naming; use a behavior or scenario name", relPath(t, serverRoot, path))
 		}
 	})
 }

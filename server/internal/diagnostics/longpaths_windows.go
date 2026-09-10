@@ -1,18 +1,18 @@
 //go:build windows
 
-package cli
+package diagnostics
 
 import "golang.org/x/sys/windows/registry"
 
 const windowsFileSystemRegistryPath = `SYSTEM\CurrentControlSet\Control\FileSystem`
 
-func platformDoctorIssues() []DoctorIssue {
+func platformIssues() []Issue {
 	key, err := registry.OpenKey(registry.LOCAL_MACHINE, windowsFileSystemRegistryPath, registry.QUERY_VALUE)
 	if err != nil {
-		return []DoctorIssue{longPathsDoctorIssue(0, err)}
+		return []Issue{longPathsIssue(0, err)}
 	}
 	defer key.Close()
 
 	value, _, err := key.GetIntegerValue("LongPathsEnabled")
-	return []DoctorIssue{longPathsDoctorIssue(value, err)}
+	return []Issue{longPathsIssue(value, err)}
 }

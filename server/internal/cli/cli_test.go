@@ -3,6 +3,7 @@ package cli
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
+	"github.com/RayleaBot/RayleaBot/server/internal/diagnostics"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
@@ -764,7 +766,7 @@ func TestConfiguredDatabasePathDrivesResetBackupAndDoctor(t *testing.T) {
 		t.Fatalf("backup marker = %q, want custom-marker", got)
 	}
 
-	report := BuildDoctorReport(command)
+	report := diagnostics.Build(context.Background(), diagnostics.Options{ConfigPath: command.ConfigPath, SchemaPath: command.SchemaPath})
 	if issue := findDoctorIssue(report.Issues, "database.ok"); issue == nil {
 		t.Fatalf("doctor did not inspect configured database: %#v", report.Issues)
 	}
@@ -895,9 +897,8 @@ func TestRestoreRequiresExactlyOneBackupPath(t *testing.T) {
 func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
 	t.Parallel()
 
-	report := BuildDoctorReport(Command{
+	report := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: filepath.Join(t.TempDir(), "config", "user.yaml"),
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	if len(report.Issues) == 0 {
@@ -926,38 +927,6 @@ func TestDoctorReportIncludesStructuredIssues(t *testing.T) {
 	}
 }
 
-func TestLongPathsDoctorIssue(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name         string
-		value        uint64
-		readErr      error
-		wantCode     string
-		wantSeverity string
-	}{
-		{name: "enabled", value: 1, wantCode: "windows.long_paths_enabled", wantSeverity: "ok"},
-		{name: "disabled", value: 0, wantCode: "windows.long_paths_disabled", wantSeverity: "warning"},
-		{name: "read failure", readErr: errors.New("access denied"), wantCode: "windows.long_paths_unavailable", wantSeverity: "warning"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			issue := longPathsDoctorIssue(tt.value, tt.readErr)
-			if issue.Code != tt.wantCode || issue.Severity != tt.wantSeverity {
-				t.Fatalf("longPathsDoctorIssue() = %#v, want code %q and severity %q", issue, tt.wantCode, tt.wantSeverity)
-			}
-			if issue.Summary == "" {
-				t.Fatal("longPathsDoctorIssue() must provide a summary")
-			}
-			if tt.wantSeverity == "warning" && (!strings.Contains(issue.Remediation, "LongPathsEnabled") || !strings.Contains(issue.Remediation, "重启")) {
-				t.Fatalf("warning remediation must explain the registry setting and restart requirement: %#v", issue)
-			}
-		})
-	}
-}
-
 func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	t.Parallel()
 
@@ -967,18 +936,16 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	writeFile(t, configPath, "schema_version: \"2\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 	createTestSQLiteDatabase(t, databasePath)
 
-	healthy := BuildDoctorReport(Command{
+	healthy := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	assertDoctorSummary(t, healthy.Issues, "database.ok", "数据库可访问：data/rayleabot.db")
 
 	if err := os.WriteFile(databasePath, []byte("not a sqlite database"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	corrupt := BuildDoctorReport(Command{
+	corrupt := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	issue := findDoctorIssue(corrupt.Issues, "database.ping_failed")
@@ -1001,9 +968,8 @@ func TestDoctorReportRejectsRetiredPluginRuntimeKeys(t *testing.T) {
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	writeFile(t, configPath, "schema_version: \"3\"\nruntime:\n  nodejs_max_old_space_size_mb: 256\n  dependency_install_timeout_seconds: 900\n")
 
-	report := BuildDoctorReport(Command{
+	report := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	issue := findDoctorIssue(report.Issues, "config.retired_plugin_runtime_keys")
 	if issue == nil || !strings.Contains(issue.Summary, "runtime.nodejs_max_old_space_size_mb") || !strings.Contains(issue.Remediation, "删除") {
@@ -1032,9 +998,8 @@ func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 		t.Fatalf("save recovery summary: %v", err)
 	}
 
-	report := BuildDoctorReport(Command{
+	report := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	if report.RecoverySummary == nil || report.RecoverySummary.Status != "degraded" {
@@ -1069,9 +1034,8 @@ func TestDoctorReportFlagsIncompleteChromiumMetadata(t *testing.T) {
 }
 `)
 
-	report := BuildDoctorReport(Command{
+	report := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	assertDoctorSummary(t, report.Issues, "deps.chromium_metadata_incomplete", "图片渲染 Chromium 元数据不完整。")
@@ -1104,15 +1068,14 @@ func TestDoctorReportAcceptsCompleteChromiumMetadata(t *testing.T) {
 }
 `)
 
-	report := BuildDoctorReport(Command{
+	report := diagnostics.Build(context.Background(), diagnostics.Options{
 		ConfigPath: configPath,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
 	assertDoctorSummary(t, report.Issues, "deps.chromium_metadata", "图片渲染 Chromium 元数据完整。")
 }
 
-func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary string) {
+func assertDoctorSummary(t *testing.T, issues []diagnostics.Issue, code, summary string) {
 	t.Helper()
 	for _, issue := range issues {
 		if issue.Code == code {
@@ -1125,7 +1088,7 @@ func assertDoctorSummary(t *testing.T, issues []DoctorIssue, code, summary strin
 	t.Fatalf("doctor issue %s not found in %#v", code, issues)
 }
 
-func findDoctorIssue(issues []DoctorIssue, code string) *DoctorIssue {
+func findDoctorIssue(issues []diagnostics.Issue, code string) *diagnostics.Issue {
 	for i := range issues {
 		if issues[i].Code == code {
 			return &issues[i]

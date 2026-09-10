@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
 
 func runRestore(cmd Command) int {
@@ -82,7 +83,7 @@ func runRestore(cmd Command) int {
 	}
 	databasePath := ""
 	if len(databaseEntries) > 0 {
-		databasePath, err = resolveDatabasePath(cmd)
+		databasePath, err = runtimepaths.DatabaseFromConfig(cmd.ConfigPath)
 		if err != nil {
 			cmd.Logger.Error("解析恢复目标数据库路径失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 			return 1

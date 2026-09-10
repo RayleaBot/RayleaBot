@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/cli"
+	"github.com/RayleaBot/RayleaBot/server/internal/diagnostics"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 )
 
@@ -23,7 +23,7 @@ func (s *Service) BuildDiagnosticsArchive(ctx context.Context) ([]byte, error) {
 	if err := addJSONToZip(writer, "readiness.json", s.CurrentReadiness()); err != nil {
 		return nil, err
 	}
-	doctorReport := cli.BuildDoctorReport(cli.Command{
+	doctorReport := diagnostics.Build(ctx, diagnostics.Options{
 		ConfigPath: s.summary().ConfigPath,
 		SchemaPath: s.summary().SchemaPath,
 	})

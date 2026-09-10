@@ -8,12 +8,13 @@ import (
 
 	backupsvc "github.com/RayleaBot/RayleaBot/server/internal/backup"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func runBackup(cmd Command) int {
 	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
-	databasePath, err := resolveDatabasePath(cmd)
+	databasePath, err := runtimepaths.DatabaseFromConfig(cmd.ConfigPath)
 	if err != nil {
 		cmd.Logger.Error("解析数据库路径失败", "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 		return 1

@@ -18,8 +18,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
-	"gopkg.in/yaml.v3"
-
 	_ "modernc.org/sqlite"
 )
 
@@ -75,29 +73,6 @@ func displayLogPath(repoRoot, path string) string {
 
 func displayLogError(repoRoot string, err error, paths ...string) string {
 	return logpath.Error(repoRoot, err, paths...)
-}
-
-func resolveDatabasePath(cmd Command) (string, error) {
-	payload, err := os.ReadFile(cmd.ConfigPath)
-	if errors.Is(err, os.ErrNotExist) {
-		return runtimepaths.ResolveDatabasePath(cmd.ConfigPath, "data/rayleabot.db")
-	}
-	if err != nil {
-		return "", fmt.Errorf("read database configuration: %w", err)
-	}
-	var document struct {
-		Database struct {
-			Path string `yaml:"path"`
-		} `yaml:"database"`
-	}
-	if err := yaml.Unmarshal(payload, &document); err != nil {
-		return "", fmt.Errorf("parse database configuration: %w", err)
-	}
-	databasePath := strings.TrimSpace(document.Database.Path)
-	if databasePath == "" {
-		databasePath = "data/rayleabot.db"
-	}
-	return runtimepaths.ResolveDatabasePath(cmd.ConfigPath, databasePath)
 }
 
 func runConfig(cmd Command) int {
@@ -193,7 +168,7 @@ func runLifecycleLocked(cmd Command, action string, run func(Command) int) int {
 func runResetAdmin(cmd Command) int {
 	repoRoot := recovery.RepoRootFromConfigPath(cmd.ConfigPath)
 	configPathDisplay := displayLogPath(repoRoot, cmd.ConfigPath)
-	databasePath, err := resolveDatabasePath(cmd)
+	databasePath, err := runtimepaths.DatabaseFromConfig(cmd.ConfigPath)
 	if err != nil {
 		cmd.Logger.Error("解析数据库路径失败："+configPathDisplay, "config_path", configPathDisplay, "err", displayLogError(repoRoot, err, cmd.ConfigPath))
 		return 1

@@ -1,17 +1,17 @@
-package cli
+package diagnostics
 
 import "github.com/RayleaBot/RayleaBot/server/internal/deps"
 
-func managedRuntimeMetadataIssue(manifest *deps.Manifest, platform, kind string) DoctorIssue {
+func managedRuntimeMetadataIssue(manifest *deps.Manifest, platform, kind string) Issue {
 	label := deps.ManagedResourceLabel(kind)
 	if deps.ResourceMetadataComplete(manifest.FindResource(platform, kind)) {
-		return DoctorIssue{
+		return Issue{
 			Code:     "deps." + kind + "_metadata",
 			Severity: "ok",
 			Summary:  label + " 元数据完整。",
 		}
 	}
-	return DoctorIssue{
+	return Issue{
 		Code:        "deps." + kind + "_metadata_incomplete",
 		Severity:    "warning",
 		Summary:     label + " 元数据不完整。",
