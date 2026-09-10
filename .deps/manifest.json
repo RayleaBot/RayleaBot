@@ -79,46 +79,46 @@
     {
       "id": "ffmpeg-windows-x64",
       "kind": "ffmpeg",
-      "version": "n9.0.1-6-g9d4ca21220",
+      "version": "n9.0.1-11-ge47273f4d9-20260831",
       "platform": "windows-x64",
       "sources": [
         {
-          "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-20-13-45/ffmpeg-n9.0.1-6-g9d4ca21220-win64-gpl-9.0.zip",
+          "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-31-13-27/ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0.zip",
           "kind": "upstream",
           "label": "BtbN FFmpeg Builds"
         }
       ],
-      "sha256": "5bbf30d81a46e4ea3bf692da189141e88a269252518e9202b95fedec3996b93e",
+      "sha256": "ec9db2cda1f5894ab95446076ad8bf49379db4b53c02e778ad3b49adf91fec83",
       "archive_format": "zip",
       "entrypoints": {
         "ffmpeg": [
-          "ffmpeg-n9.0.1-6-g9d4ca21220-win64-gpl-9.0/bin/ffmpeg.exe"
+          "ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0/bin/ffmpeg.exe"
         ],
         "ffprobe": [
-          "ffmpeg-n9.0.1-6-g9d4ca21220-win64-gpl-9.0/bin/ffprobe.exe"
+          "ffmpeg-n9.0.1-11-ge47273f4d9-win64-gpl-9.0/bin/ffprobe.exe"
         ]
       }
     },
     {
       "id": "ffmpeg-linux-x64",
       "kind": "ffmpeg",
-      "version": "n9.0.1-6-g9d4ca21220",
+      "version": "n9.0.1-11-ge47273f4d9-20260831",
       "platform": "linux-x64",
       "sources": [
         {
-          "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-20-13-45/ffmpeg-n9.0.1-6-g9d4ca21220-linux64-gpl-9.0.tar.xz",
+          "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-31-13-27/ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0.tar.xz",
           "kind": "upstream",
           "label": "BtbN FFmpeg Builds"
         }
       ],
-      "sha256": "8d2db9b783a161e92ed905b70e1a5e449172aefac369635809bc07fe30165950",
+      "sha256": "182c1b509720e939bb47bfb47dc29cc0c298640401128e3dce8627d10707eb5a",
       "archive_format": "tar.xz",
       "entrypoints": {
         "ffmpeg": [
-          "ffmpeg-n9.0.1-6-g9d4ca21220-linux64-gpl-9.0/bin/ffmpeg"
+          "ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0/bin/ffmpeg"
         ],
         "ffprobe": [
-          "ffmpeg-n9.0.1-6-g9d4ca21220-linux64-gpl-9.0/bin/ffprobe"
+          "ffmpeg-n9.0.1-11-ge47273f4d9-linux64-gpl-9.0/bin/ffprobe"
         ]
       }
     },

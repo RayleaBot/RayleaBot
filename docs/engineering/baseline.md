@@ -38,9 +38,11 @@
 | Plugin UI | Vue `3.5.41` + TypeScript `5.9.3` + Vite `8.2.1` + `@rayleabot/plugin-ui` |
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |
-| Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-6-g9d4ca21220` full GPL build；macOS arm64 使用 vanloctech `ffmpeg-2026.06.11` |
+| Media tools | Windows / Linux 使用 BtbN FFmpeg Builds `n9.0.1-11-ge47273f4d9-20260831` full GPL build；macOS arm64 使用 vanloctech `ffmpeg-2026.06.11` |
 | Metrics | `github.com/prometheus/client_golang 1.24.1`（Prometheus 文本暴露格式） |
 | macOS CI / release runner | `macos-26` |
+
+Windows / Linux 的 FFmpeg 固定使用 BtbN [2026-08-31 月末构建](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-08-31-13-27)，保留 9.0.1 维护线与 full GPL 变体。按[上游保留规则](https://github.com/BtbN/FFmpeg-Builds#release-retention-policy)，月末构建保留两年，普通日构建只保留最近 14 版；固定日期 URL 不代表永久可用。每次分发前仍需验证来源与 SHA-256，更新构建时同步资源版本、归档摘要和入口路径。
 
 Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理和工程命令见 [`web-admin-baseline.md`](./web-admin-baseline.md)。
 
