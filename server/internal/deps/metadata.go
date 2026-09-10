@@ -1,35 +1,18 @@
 package deps
 
 import (
+	"encoding/json"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"net/url"
-	"path/filepath"
-	"regexp"
 	"strings"
 )
-
-var sha256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 func MetadataComplete(resource *Resource) bool {
 	if resource == nil {
 		return false
 	}
-	if strings.TrimSpace(resource.ArchiveFormat) == "" {
-		return false
-	}
-	if !ArchiveFormatSupported(resource.ArchiveFormat) {
-		return false
-	}
-	if !HasRequiredEntrypoints(resource) {
-		return false
-	}
-	if !SourcesComplete(resource) {
-		return false
-	}
-	sha256 := strings.ToLower(strings.TrimSpace(resource.SHA256))
-	if strings.Contains(strings.ToUpper(sha256), "TODO(") {
-		return false
-	}
-	return sha256Pattern.MatchString(sha256)
+	payload, err := json.Marshal(Manifest{ManifestVersion: ManifestVersion, Resources: []Resource{*resource}})
+	return err == nil && validateManifestJSON(payload) == nil
 }
 
 func SourcesComplete(resource *Resource) bool {
@@ -43,7 +26,7 @@ func SourcesComplete(resource *Resource) bool {
 			return false
 		}
 		parsedURL, err := url.Parse(rawURL)
-		if err != nil || parsedURL.Scheme != "https" || parsedURL.Host == "" {
+		if err != nil || parsedURL.Scheme != "https" || parsedURL.Hostname() == "" || parsedURL.User != nil || parsedURL.Fragment != "" {
 			return false
 		}
 		if !ValidSourceKind(strings.TrimSpace(source.Kind)) {
@@ -88,23 +71,11 @@ func HasRequiredEntrypoints(resource *Resource) bool {
 		if len(candidates) == 0 {
 			return false
 		}
-		valid := false
 		for _, candidate := range candidates {
-			clean := strings.TrimSpace(candidate)
-			if clean == "" {
-				continue
+			clean, err := fsguard.ArchivePath(candidate, true)
+			if err != nil || clean != candidate {
+				return false
 			}
-			if filepath.IsAbs(clean) {
-				continue
-			}
-			if clean == "." || strings.HasPrefix(clean, "..") {
-				continue
-			}
-			valid = true
-			break
-		}
-		if !valid {
-			return false
 		}
 	}
 	return true

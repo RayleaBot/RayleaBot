@@ -38,6 +38,7 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | go | github.com/xi2/xz | v0.0.0-20171230120015-48954b6210f8 | LicenseRef-xi2-xz-Public-Domain |
 | go | golang.org/x/crypto | v0.55.0 | BSD-3-Clause |
 | go | golang.org/x/sys | v0.47.0 | BSD-3-Clause |
+| go | golang.org/x/text | v0.39.0 | BSD-3-Clause |
 | go | golang.org/x/text | v0.41.0 | BSD-3-Clause |
 | go | google.golang.org/protobuf | v1.36.12 | BSD-3-Clause |
 | go | gopkg.in/yaml.v3 | v3.0.1 | Apache-2.0 |
@@ -2573,7 +2574,7 @@ Applies to: modernc.org/mathutil@v1.7.1
 
 ### BSD-3-Clause (ac8ce60ad1a7)
 
-Applies to: golang.org/x/crypto@v0.55.0, golang.org/x/sys@v0.47.0, golang.org/x/text@v0.41.0
+Applies to: golang.org/x/crypto@v0.55.0, golang.org/x/sys@v0.47.0, golang.org/x/text@v0.39.0, golang.org/x/text@v0.41.0
 
     [LICENSE]
     Copyright 2009 The Go Authors.

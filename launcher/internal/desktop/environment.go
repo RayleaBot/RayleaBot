@@ -95,7 +95,7 @@ func inspectRuntimeManifest(root string) []EnvironmentCheckResult {
 	}
 
 	var manifest depsManifest
-	if json.Unmarshal(payload, &manifest) != nil || manifest.ManifestVersion != 5 {
+	if validateManifestJSON(payload) != nil || json.Unmarshal(payload, &manifest) != nil {
 		return []EnvironmentCheckResult{{
 			Scope: "preflight", Code: "deps.manifest_invalid", Title: "运行环境清单", Severity: "warning",
 			Summary: ".deps/manifest.json 内容无效。", Detail: fmt.Sprintf("检查路径：%s", manifestPath), Remediation: "请恢复 manifest_version 5 的运行环境清单。",
@@ -263,41 +263,8 @@ func findRuntimeTempRoots(parent, id, version string) []string {
 }
 
 func resourceMetadataComplete(resource depsResource) bool {
-	if resource.ID == "" || resource.Version == "" || len(resource.SHA256) != 64 {
-		return false
-	}
-	switch resource.ArchiveFormat {
-	case "zip", "tar.gz", "tar.xz":
-	default:
-		return false
-	}
-	entrypointKeys := []string{"browser"}
-	if resource.Kind == "ffmpeg" {
-		entrypointKeys = []string{"ffmpeg", "ffprobe"}
-	} else if resource.Kind != "chromium" {
-		return false
-	}
-	if len(resource.Sources) == 0 {
-		return false
-	}
-	for _, source := range resource.Sources {
-		if !strings.HasPrefix(source.URL, "https://") || (source.Kind != "upstream" && source.Kind != "mirror") {
-			return false
-		}
-	}
-	for _, key := range entrypointKeys {
-		valid := false
-		for _, candidate := range resource.Entrypoints[key] {
-			if validRelativeEntrypoint(candidate) {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			return false
-		}
-	}
-	return true
+	payload, err := json.Marshal(depsManifest{ManifestVersion: 5, Resources: []depsResource{resource}})
+	return err == nil && validateManifestJSON(payload) == nil
 }
 
 func validRelativeEntrypoint(value string) bool {

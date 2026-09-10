@@ -44,6 +44,9 @@ func LoadPath(manifestPath string) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateManifestJSON(payload); err != nil {
+		return nil, fmt.Errorf("validate deps manifest: %w", err)
+	}
 	var manifest Manifest
 	if err := json.Unmarshal(payload, &manifest); err != nil {
 		return nil, fmt.Errorf("decode deps manifest: %w", err)
@@ -68,10 +71,6 @@ func LoadPath(manifestPath string) (*Manifest, error) {
 
 func LoadManifest(repoRoot string) (*Manifest, error) {
 	return Load(repoRoot)
-}
-
-func LoadManifestPath(manifestPath string) (*Manifest, error) {
-	return LoadPath(manifestPath)
 }
 
 func CurrentPlatform() string {
@@ -125,4 +124,8 @@ func (manifest *Manifest) FindResource(platform, kind string) *Resource {
 		}
 	}
 	return nil
+}
+
+func LoadManifestPath(manifestPath string) (*Manifest, error) {
+	return LoadPath(manifestPath)
 }

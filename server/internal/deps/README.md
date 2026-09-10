@@ -29,3 +29,7 @@
 托管资源使用流式 HTTPS 下载，最多 2 GiB，保留取消、总超时、空闲超时和 SHA-256 校验；临时文件在失败后回收。归档逐项在 os.Root 内展开，最多 100,000 条目、单文件 2 GiB、累计 8 GiB；拒绝越界、重复路径和特殊文件。macOS framework 所需的内部相对链接在普通文件之后创建，再校验最终解析范围。
 
 XZ 使用纯 Go `github.com/xi2/xz` 固定版本 `v0.0.0-20171230120015-48954b6210f8`，替代外部 tar，以执行逐条路径检查、取消和 64 MiB 字典上限。第三方声明保留上游 LICENSE 的 public-domain 声明。插件包和发行更新的更严格策略仍由各自服务执行。
+
+## 清单验证
+
+Server、Launcher 与发布 Python 工具共享 deps-manifest schema 和正反 fixtures。全部来源/入口候选必须有效；拒绝重复资源 ID、平台与种类组合和同资源重复来源 URL。Launcher 使用已有 Server 技术栈的 jsonschema/v6 执行正式 schema，不再维护另一份字段校验规则。

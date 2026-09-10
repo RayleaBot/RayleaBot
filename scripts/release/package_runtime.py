@@ -9,6 +9,8 @@ import json
 import os
 import re
 import signal
+import sys
+from urllib.parse import urlsplit
 import socket
 import subprocess
 import shutil
@@ -20,6 +22,10 @@ import urllib.request
 import zipfile
 from pathlib import Path
 from typing import TextIO
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from deps_manifest import validate_manifest
+from jsonschema import ValidationError
 
 
 SERVER_BINARIES = {
@@ -246,8 +252,7 @@ def artifact_platform(artifact_id: str) -> str:
 def load_deps_manifest(root: Path) -> dict[str, object]:
     manifest_path = root / ".deps" / "manifest.json"
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if payload.get("manifest_version") != 5:
-        raise RuntimeError(f"unsupported deps manifest version: {payload.get('manifest_version')}")
+    validate_manifest(payload)
     return payload
 
 
@@ -262,22 +267,10 @@ def find_platform_resource(manifest: dict[str, object], platform: str, kind: str
 
 
 def resource_has_complete_metadata(resource: dict[str, object]) -> bool:
-    sources = resource.get("sources")
-    sha256 = str(resource.get("sha256", "")).strip().lower()
-    archive_format = str(resource.get("archive_format", "")).strip()
-    if not _sources_are_complete(sources):
+    try:
+        validate_manifest({"manifest_version": 5, "resources": [resource]})
+    except (ValueError, TypeError, ValidationError):
         return False
-    if len(sha256) != 64 or any(ch not in "0123456789abcdef" for ch in sha256):
-        return False
-    if archive_format not in ARCHIVE_SUFFIXES:
-        return False
-    entrypoints = resource.get("entrypoints")
-    if not isinstance(entrypoints, dict):
-        return False
-    for key in REQUIRED_ENTRYPOINTS.get(str(resource.get("kind", "")), ()):
-        candidates = entrypoints.get(key)
-        if not isinstance(candidates, list) or not any(_valid_entrypoint_candidate(item) for item in candidates):
-            return False
     return True
 
 
@@ -291,6 +284,12 @@ def _sources_are_complete(value: object) -> bool:
         url = str(item.get("url", "")).strip()
         kind = str(item.get("kind", "")).strip()
         if not url.startswith("https://") or "TODO(" in url.upper():
+            return False
+        try:
+            parsed = urlsplit(url)
+            if not parsed.hostname or parsed.username is not None or parsed.fragment:
+                return False
+        except ValueError:
             return False
         if kind not in SOURCE_KINDS:
             return False

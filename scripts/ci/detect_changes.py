@@ -124,6 +124,8 @@ def classify(files: list[str]) -> dict[str, bool]:
             "sdk/go/pluginbuild/versions.generated.go", "scripts/release/contract_versions_generated.py",
             "sdk/go/testdata/redaction.generated.json", "server/internal/redact/testdata/redaction.generated.json",
             "sdk/vue/src/contract.generated.ts", "web/src/types/plugin-management-ui.generated.ts",
+            "server/internal/deps/contracts/deps-manifest.schema.json",
+            "launcher/internal/desktop/contracts/deps-manifest.schema.json",
         }:
             result["contracts"] = True
             matched = True
@@ -145,6 +147,10 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path.startswith(".github/"):
             result["ci"] = True
+            matched = True
+        if path == "scripts/deps_manifest.py":
+            for area in ("server", "launcher", "contracts", "release", "ci"):
+                result[area] = True
             matched = True
         if path in {"scripts/generate-runtime-schemas.mjs", "scripts/generate-plugin-wire.py", "scripts/generated_outputs.py"} or path.startswith("scripts/templates/") or path == "scripts/testdata/redaction.json":
             for area in ("server", "sdk", "web", "launcher", "contracts", "release", "ci"):
@@ -256,6 +262,11 @@ def self_test() -> None:
         ([".env.example"], {"server": True, "web": True, "launcher": True, "ci": True, "docs_only": False}),
         (["server/AGENTS.md", "server/internal/app/app.go"], {"server": True, "ci": True}),
     ]
+    cases.extend([
+        (["scripts/deps_manifest.py"], {"server": True, "launcher": True, "contracts": True, "release": True, "ci": True}),
+        (["server/internal/deps/contracts/deps-manifest.schema.json"], {"server": True, "contracts": True}),
+        (["launcher/internal/desktop/contracts/deps-manifest.schema.json"], {"launcher": True, "contracts": True}),
+    ])
     for files, expected in cases:
         result = classify(files)
         for key, value in expected.items():

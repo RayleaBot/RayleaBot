@@ -25,6 +25,10 @@ except ImportError as exc:  # pragma: no cover - exercised by CI environment set
     raise SystemExit("jsonschema is required: python -m pip install jsonschema") from exc
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from deps_manifest import semantic_errors as dependency_manifest_errors
+
+
 class JSONSafeLoader(yaml.SafeLoader):
     """Safe YAML loader that keeps date-like scalars as JSON strings."""
 
@@ -373,19 +377,6 @@ def plugin_info_package_errors(document: dict[str, Any], manifest: Any) -> list[
             continue
         if not isinstance(content, dict):
             errors.append(f"invalid template manifest: {path}")
-    return errors
-
-
-def dependency_manifest_errors(manifest: Any) -> list[str]:
-    if not isinstance(manifest, dict):
-        return []
-    errors: list[str] = []
-    for index, resource in enumerate(manifest.get("resources", [])):
-        if not isinstance(resource, dict):
-            continue
-        urls = [source.get("url") for source in resource.get("sources", []) if isinstance(source, dict)]
-        if len(urls) != len(set(urls)):
-            errors.append(f"resources/{index}/sources: source URLs must be unique")
     return errors
 
 
