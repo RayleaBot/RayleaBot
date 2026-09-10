@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -26,13 +28,103 @@ func newTestChromiumRunner(t *testing.T) *chromiumRunner {
 		t.Skipf("managed chromium is not prepared: %v", err)
 	}
 
-	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath})
+	logTestBrowserVersion(t, browserPath)
+	output := &testBrowserOutput{}
+	runner := NewChromiumRunner(ChromiumOptions{BrowserPath: browserPath, CombinedOutput: output})
 	t.Cleanup(func() {
 		if err := runner.Close(); err != nil {
 			t.Errorf("close test Chromium runner: %v", err)
 		}
+		if t.Failed() {
+			t.Logf("Chromium combined output after Close (last %d bytes):\n%s", testBrowserOutputLimit, output.String())
+		}
 	})
 	return runner
+}
+
+func logTestBrowserVersion(t *testing.T, browserPath string) {
+	t.Helper()
+	absolutePath, err := filepath.Abs(browserPath)
+	if err != nil {
+		t.Logf("selected Chromium executable: %s (absolute path error: %v)", browserPath, err)
+	} else {
+		t.Logf("selected Chromium executable: %s", absolutePath)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, browserPath, "--version")
+	if runtime.GOOS == "windows" {
+		// Windows browsers may treat --version as a normal launch. Read PE
+		// metadata instead, without opening the operator's browser profile.
+		script := "$ErrorActionPreference='Stop'; [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false); " +
+			"(Get-Item -LiteralPath '" + strings.ReplaceAll(browserPath, "'", "''") + "').VersionInfo | " +
+			"Select-Object ProductName,FileVersion,ProductVersion | ConvertTo-Json -Compress"
+		command = exec.CommandContext(ctx, filepath.Join(os.Getenv("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe"),
+			"-NoLogo", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", script)
+	}
+	prepareBrowserCommand(command)
+	command.WaitDelay = time.Second
+	output := &testBrowserOutput{}
+	command.Stdout, command.Stderr = output, output
+	err = command.Run()
+	t.Logf("selected Chromium version: %s (probe error: %v)", strings.TrimSpace(output.String()), err)
+}
+
+const testBrowserOutputLimit = 32 * 1024
+
+// The browser writes asynchronously, including while failed startup is being
+// cancelled. Retain only its latest output without blocking cleanup on a pipe.
+type testBrowserOutput struct {
+	mu   sync.Mutex
+	data []byte
+}
+
+func (b *testBrowserOutput) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	n := len(p)
+	if n >= testBrowserOutputLimit {
+		b.data = append(b.data[:0], p[n-testBrowserOutputLimit:]...)
+	} else {
+		if overflow := len(b.data) + n - testBrowserOutputLimit; overflow > 0 {
+			b.data = b.data[:copy(b.data, b.data[overflow:])]
+		}
+		b.data = append(b.data, p...)
+	}
+	return n, nil
+}
+
+func (b *testBrowserOutput) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.data)
+}
+
+func TestBrowserOutputRetainsBoundedTail(t *testing.T) {
+	output := &testBrowserOutput{}
+	initial := strings.Repeat("a", testBrowserOutputLimit+8)
+	if n, err := output.Write([]byte(initial)); n != len(initial) || err != nil {
+		t.Fatalf("write oversized output: %d, %v", n, err)
+	}
+	if _, err := output.Write([]byte("last")); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != strings.Repeat("a", testBrowserOutputLimit-4)+"last" {
+		t.Fatalf("output tail mismatch: length=%d", len(got))
+	}
+	var writers sync.WaitGroup
+	for range 8 {
+		writers.Go(func() {
+			for range 100 {
+				_, _ = output.Write([]byte("concurrent browser output\n"))
+				_ = output.String()
+			}
+		})
+	}
+	writers.Wait()
+	if got := len(output.String()); got != testBrowserOutputLimit {
+		t.Fatalf("concurrent output exceeded limit: %d", got)
+	}
 }
 
 func TestChromiumRunnerCleanupStopsBrowser(t *testing.T) {
@@ -66,6 +158,9 @@ func TestChromiumRunnerCleanupStopsBrowser(t *testing.T) {
 				}
 				if len(content) == 0 {
 					t.Fatal("expected screenshot content")
+				}
+				if output := runner.combinedOutput.(*testBrowserOutput).String(); !strings.Contains(output, "DevTools listening on") {
+					t.Fatal("browser startup output was not captured")
 				}
 				browserCtx = runner.browserCtx
 				browser := chromedp.FromContext(browserCtx).Browser

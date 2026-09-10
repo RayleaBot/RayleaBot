@@ -127,13 +127,15 @@ type Runner interface {
 }
 
 type ChromiumOptions struct {
-	BrowserPath string
-	BrowserArgs []string
+	BrowserPath    string
+	BrowserArgs    []string
+	CombinedOutput io.Writer
 }
 
 type chromiumRunner struct {
-	browserPath string
-	browserArgs []string
+	browserPath    string
+	browserArgs    []string
+	combinedOutput io.Writer
 
 	mu              sync.Mutex
 	closed          bool
@@ -150,8 +152,9 @@ type chromiumRunner struct {
 // to release the browser process and its temporary profile.
 func NewChromiumRunner(options ChromiumOptions) *chromiumRunner {
 	return &chromiumRunner{
-		browserPath: strings.TrimSpace(options.BrowserPath),
-		browserArgs: append([]string(nil), options.BrowserArgs...),
+		browserPath:    strings.TrimSpace(options.BrowserPath),
+		browserArgs:    append([]string(nil), options.BrowserArgs...),
+		combinedOutput: options.CombinedOutput,
 	}
 }
 
@@ -386,6 +389,9 @@ func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, e
 	)
 	if r.browserPath != "" {
 		allocatorOptions = append(allocatorOptions, chromedp.ExecPath(r.browserPath))
+	}
+	if r.combinedOutput != nil {
+		allocatorOptions = append(allocatorOptions, chromedp.CombinedOutput(r.combinedOutput))
 	}
 	allocatorOptions = append(allocatorOptions, allocatorFlags(r.browserArgs)...)
 	allocatorOptions = append(allocatorOptions, chromedp.ModifyCmdFunc(func(command *exec.Cmd) {
