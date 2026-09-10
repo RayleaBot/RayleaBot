@@ -18,8 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/cdproto/page"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
@@ -296,6 +298,7 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 		return nil, err
 	}
 	r.tracePhase("browser-context.ready")
+	r.tracePhase(fmt.Sprintf("root target=%s", chromedp.FromContext(browserCtx).Target.TargetID))
 	tabCtx, cancelTab := chromedp.NewContext(browserCtx)
 
 	runCtx, cancelRun := contextWithRenderDeadline(tabCtx, ctx)
@@ -328,11 +331,16 @@ func (r *chromiumRunner) Render(ctx context.Context, doc Document) ([]byte, erro
 	var content []byte
 	var measuredHeight float64
 
-	actions := []chromedp.Action{
+	actions := []chromedp.Action{r.diagnosticTabState("before-activation")}
+	if os.Getenv("RAYLEA_DIAGNOSTIC_BRING_TO_FRONT") == "1" {
+		actions = append(actions, page.BringToFront(), r.diagnosticTabState("after-activation"))
+	}
+	actions = append(actions,
 		emulation.SetDeviceMetricsOverride(int64(doc.Width), int64(doc.Height), deviceScaleFactor, false),
 		chromedp.Navigate(renderURL),
 		chromedp.WaitReady("body"),
-	}
+		r.diagnosticTabState("after-navigation"),
+	)
 	if bindResources != "" {
 		actions = append(actions, chromedp.Evaluate(bindResources, nil))
 	}
@@ -380,6 +388,28 @@ func (r *chromiumRunner) tracePhase(phase string) {
 	if r.debugf != nil {
 		r.debugf("phase %s", phase)
 	}
+}
+
+func (r *chromiumRunner) diagnosticTabState(phase string) chromedp.Action {
+	return chromedp.ActionFunc(func(ctx context.Context) error {
+		var state struct {
+			Visibility string
+			Focus      bool
+		}
+		if err := chromedp.Evaluate("({visibility:document.visibilityState,focus:document.hasFocus()})", &state).Do(ctx); err != nil {
+			return err
+		}
+		current := chromedp.FromContext(ctx)
+		r.tracePhase(fmt.Sprintf("tab-state %s target=%s visibility=%s focus=%t", phase, current.Target.TargetID, state.Visibility, state.Focus))
+		infos, err := target.GetTargets().Do(cdp.WithExecutor(ctx, current.Browser))
+		if err != nil {
+			return err
+		}
+		for _, info := range infos {
+			r.tracePhase(fmt.Sprintf("target-state %s target=%s type=%s attached=%t", phase, info.TargetID, info.Type, info.Attached))
+		}
+		return nil
+	})
 }
 
 func (r *chromiumRunner) browserContext(ctx context.Context) (context.Context, error) {

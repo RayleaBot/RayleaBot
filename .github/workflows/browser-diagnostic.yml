@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [parallel-packages, render-only]
+        mode: [baseline, foreground]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -27,17 +27,15 @@ jobs:
         working-directory: server
         shell: pwsh
         run: |
-          $packages = @('./internal/render')
-          if ('${{ matrix.mode }}' -eq 'parallel-packages') {
-            $packages = @('./internal/plugins/lifecycle', './internal/releaseupdate', './internal/platform/filelock', './internal/render')
-          }
-          go test -v -count=1 -timeout=4m @packages 2>&1 | Tee-Object -FilePath ../browser-cold.log
+          if ('${{ matrix.mode }}' -eq 'foreground') { $env:RAYLEA_DIAGNOSTIC_BRING_TO_FRONT = '1' }
+          go test -v -count=1 -timeout=2m -run '^TestDiagnosticRealHelpMenuColdThenSecondRender$' ./internal/render 2>&1 | Tee-Object -FilePath ../browser-cold.log
           exit $LASTEXITCODE
       - name: Follow-up real help.menu on the same warmed OS
         if: always()
         working-directory: server
         shell: pwsh
         run: |
+          if ('${{ matrix.mode }}' -eq 'foreground') { $env:RAYLEA_DIAGNOSTIC_BRING_TO_FRONT = '1' }
           go test -v -count=1 -timeout=2m -run '^TestDiagnosticRealHelpMenuColdThenSecondRender$' ./internal/render 2>&1 | Tee-Object -FilePath ../browser-warmed.log
           exit $LASTEXITCODE
       - name: Preserve experiment logs including failed tests
