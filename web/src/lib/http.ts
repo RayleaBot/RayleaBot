@@ -132,32 +132,8 @@ function decodeFilenamePart(value: string) {
   }
 }
 
-function normalizeRequestError(error: unknown, callerAborted: boolean) {
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return new ApiError(callerAborted ? '请求已取消。' : '请求超时。', 0)
-  }
-
-  if (error instanceof Error) {
-    return error
-  }
-
-  return new ApiError('请求失败。', 0)
-}
-
-function isNetworkUnavailableError(error: unknown, callerAborted: boolean) {
-  if (callerAborted) {
-    return false
-  }
-
-  if (error instanceof DOMException && error.name === 'AbortError') {
-    return false
-  }
-
-  if (error instanceof TypeError) {
-    return true
-  }
-
-  return error instanceof Error && /failed to fetch|network|load failed/i.test(error.message)
+function requestAborted(cause: 'cancelled' | 'timeout') {
+  return new ApiError(cause === 'cancelled' ? '请求已取消。' : '请求超时。', 0, `client.request_${cause}`)
 }
 
 async function readResponsePayload(response: Response) {
@@ -171,9 +147,9 @@ async function readResponsePayload(response: Response) {
 }
 
 function readErrorEnvelope(payload: unknown) {
-  return typeof payload === 'object' && payload !== null && 'error' in payload
-    ? (payload as ErrorEnvelope)
-    : undefined
+  if (typeof payload !== 'object' || payload === null || !('error' in payload)) return undefined
+  const error = payload.error
+  return typeof error === 'object' && error !== null ? payload as ErrorEnvelope : undefined
 }
 
 function createApiError(response: Response, payload: unknown) {
@@ -194,119 +170,70 @@ function isBackendUnavailableResponse(response: Response) {
   return response.status === 503 && response.headers.get(backendUnavailableHeader) === '1'
 }
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+async function executeRequest<T>(
+  path: string,
+  options: ApiRequestOptions,
+  readSuccess: (response: Response) => Promise<T>,
+): Promise<T> {
   const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, acceptStatuses = [], ...rest } = options
-  const method = rest.method ?? 'GET'
-  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, method)
-
+  if (callerSignal?.aborted) throw requestAborted('cancelled')
+  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, rest.method ?? 'GET')
+  const requestBody = body === undefined ? undefined : JSON.stringify(body)
   const controller = new AbortController()
-  const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined
-  callerSignal?.addEventListener('abort', () => controller.abort(), { once: true })
-
-  let response: Response
+  let abortCause: 'cancelled' | 'timeout' | undefined
+  const abort = (cause: 'cancelled' | 'timeout') => {
+    if (controller.signal.aborted) return
+    abortCause = cause
+    controller.abort()
+  }
+  const onCallerAbort = () => abort('cancelled')
+  callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
+  const timeoutId = timeoutMs > 0 ? setTimeout(() => abort('timeout'), timeoutMs) : undefined
   try {
-    response = await fetch(path, {
+    const response = await fetch(path, {
       ...rest,
       credentials: 'same-origin',
       signal: controller.signal,
       headers: requestHeaders,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: requestBody,
     })
-  } catch (error) {
-    const normalizedError = normalizeRequestError(error, Boolean(callerSignal?.aborted))
-    if (isNetworkUnavailableError(error, Boolean(callerSignal?.aborted))) {
-      runtime.onNetworkUnavailable(path, normalizedError)
-    }
-    throw normalizedError
-  } finally {
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
-  }
-
-  const payload = await readResponsePayload(response)
-
-  const nextCSRFToken = response.headers.get('X-Raylea-CSRF')?.trim()
-  if (nextCSRFToken) {
-    runtime.onCSRFToken(nextCSRFToken)
-  }
-
-  if (isBackendUnavailableResponse(response)) {
-    const error = createApiError(response, payload)
-    runtime.onNetworkUnavailable(path, error)
-    throw error
-  }
-
-  runtime.onReachable(path, response.status)
-
-  if (!response.ok && !acceptStatuses.includes(response.status)) {
-    if (response.status === 401 && auth) {
-      runtime.onUnauthorized()
-    }
-
-    throw createApiError(response, payload)
-  }
-
-  if (response.status === 204) {
-    return undefined as T
-  }
-
-  return payload as T
-}
-
-export async function apiDownload(path: string, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
-  const { auth = true, headers, body, timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, ...rest } = options
-  const method = rest.method ?? 'GET'
-  const requestHeaders = withRuntimeHeaders(headers, auth, body !== undefined, method)
-
-  const controller = new AbortController()
-  const timeoutId = timeoutMs > 0 ? setTimeout(() => controller.abort(), timeoutMs) : undefined
-  callerSignal?.addEventListener('abort', () => controller.abort(), { once: true })
-
-  let response: Response
-  try {
-    response = await fetch(path, {
-      ...rest,
-      credentials: 'same-origin',
-      signal: controller.signal,
-      headers: requestHeaders,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch (error) {
-    const normalizedError = normalizeRequestError(error, Boolean(callerSignal?.aborted))
-    if (isNetworkUnavailableError(error, Boolean(callerSignal?.aborted))) {
-      runtime.onNetworkUnavailable(path, normalizedError)
-    }
-    throw normalizedError
-  } finally {
-    if (timeoutId !== undefined) clearTimeout(timeoutId)
-  }
-
-  if (!response.ok) {
-    const payload = await readResponsePayload(response)
+    if (abortCause) throw requestAborted(abortCause)
+    const nextCSRFToken = response.headers.get('X-Raylea-CSRF')?.trim()
+    if (nextCSRFToken) runtime.onCSRFToken(nextCSRFToken)
 
     if (isBackendUnavailableResponse(response)) {
-      const error = createApiError(response, payload)
+      const error = createApiError(response, await readResponsePayload(response))
       runtime.onNetworkUnavailable(path, error)
       throw error
     }
-
     runtime.onReachable(path, response.status)
-
-    if (response.status === 401 && auth) {
-      runtime.onUnauthorized()
+    if (!response.ok && !acceptStatuses.includes(response.status)) {
+      if (response.status === 401 && auth) runtime.onUnauthorized()
+      throw createApiError(response, await readResponsePayload(response))
     }
-
-    throw createApiError(response, payload)
+    const result = await readSuccess(response)
+    if (abortCause) throw requestAborted(abortCause)
+    return result
+  } catch (error) {
+    if (abortCause) throw requestAborted(abortCause)
+    if (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name)) {
+      throw requestAborted(error.name === 'TimeoutError' ? 'timeout' : 'cancelled')
+    }
+    if (error instanceof TypeError) runtime.onNetworkUnavailable(path, error)
+    throw error instanceof Error ? error : new ApiError('请求失败。', 0)
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
+    callerSignal?.removeEventListener('abort', onCallerAbort)
   }
+}
 
-  runtime.onReachable(path, response.status)
+export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+  return executeRequest(path, options, response => readResponsePayload(response) as Promise<T>)
+}
 
-  const nextCSRFToken = response.headers.get('X-Raylea-CSRF')?.trim()
-  if (nextCSRFToken) {
-    runtime.onCSRFToken(nextCSRFToken)
-  }
-
-  return {
+export async function apiDownload(path: string, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
+  return executeRequest(path, options, async response => ({
     blob: await response.blob(),
     filename: parseDownloadFilename(response.headers.get('content-disposition')),
-  }
+  }))
 }
