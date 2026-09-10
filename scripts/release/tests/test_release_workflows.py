@@ -1,5 +1,8 @@
 """Release callers share native build and trust gates without sharing publish rights."""
 import importlib.util
+import os
+import shutil
+import subprocess
 from pathlib import Path
 import sys
 import unittest
@@ -61,6 +64,34 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.assertTrue(evidence["with"]["name"].startswith("validation-evidence-"))
         for job_name, step_name in (("build-full", "Build launcher"), ("build-full", "Build web"), ("build-linux-server", "Build web")):
             self.assertEqual(step_named(jobs[job_name], step_name)["env"]["RAYLEA_BUILD_VERSION"], "${{ inputs.version }}")
+
+    def test_native_packaging_shell_preserves_arguments_without_optional_windows_flags(self):
+        candidates = ([str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe")]
+                      if os.name == "nt" else ["/bin/bash"])
+        candidates.append(shutil.which("bash") or "")
+        bash = next((candidate for candidate in candidates if candidate and Path(candidate).is_file()), None)
+        if bash is None:
+            self.skipTest("bash is unavailable")
+        job = workflow("release-build.yml")["jobs"]["build-full"]
+        for platform in job["strategy"]["matrix"]["include"]:
+            for signer in ("", "a" * 64) if platform["artifact_id"] == "windows-x64-full" else ("",):
+                with self.subTest(artifact=platform["artifact_id"], signer=bool(signer)):
+                    command = step_named(job, "Package full artifact")["run"]
+                    for key, value in platform.items():
+                        command = command.replace("${{ matrix." + key + " }}", value)
+                    command = command.replace("${{ steps.windows-signing.outputs.signer_sha256 }}", signer)
+                    command = command.replace("python scripts/release/package_artifact.py", "capture")
+                    environment = {**os.environ, "RELEASE_VERSION": "0.4.0", "RELEASE_NOTES_REF": "https://example.invalid/notes"}
+                    completed = subprocess.run([bash, "--noprofile", "--norc", "-c",
+                                                'capture() { printf "%s\\n" "$@"; };\n' + command],
+                                               cwd=ROOT, env=environment, capture_output=True, text=True, timeout=20)
+                    self.assertEqual(completed.returncode, 0, completed.stderr)
+                    args = completed.stdout.splitlines()
+                    self.assertEqual(args.count("--artifact-id"), 1, args)
+                    self.assertEqual(args[args.index("--artifact-id") + 1], platform["artifact_id"])
+                    self.assertEqual("--updater-bin" in args, platform["artifact_id"] == "windows-x64-full")
+                    self.assertEqual("--windows-signer-sha256" in args, bool(signer))
+                    self.assertNotIn("", args)
 
     def test_signatures_and_metadata_only_consume_release_packages(self):
         jobs = workflow("release-build.yml")["jobs"]

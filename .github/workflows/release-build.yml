@@ -209,15 +209,14 @@ jobs:
           set -euo pipefail
           VERSION="$RELEASE_VERSION"
           GIT_COMMIT="$(git rev-parse HEAD)"
-          EXTRA=()
+          PLATFORM_ARGS=(--artifact-id "${{ matrix.artifact_id }}")
           if [ "${{ matrix.artifact_id }}" = "windows-x64-full" ]; then
-            EXTRA+=(--updater-bin dist/server/raylea-updater.exe)
+            PLATFORM_ARGS+=(--updater-bin dist/server/raylea-updater.exe)
             if [ -n "${{ steps.windows-signing.outputs.signer_sha256 }}" ]; then
-              EXTRA+=(--windows-signer-sha256 "${{ steps.windows-signing.outputs.signer_sha256 }}")
+              PLATFORM_ARGS+=(--windows-signer-sha256 "${{ steps.windows-signing.outputs.signer_sha256 }}")
             fi
           fi
           python scripts/release/package_artifact.py \
-            --artifact-id "${{ matrix.artifact_id }}" \
             --version "$VERSION" \
             --git-commit "$GIT_COMMIT" \
             --release-notes-ref "$RELEASE_NOTES_REF" \
@@ -237,7 +236,7 @@ jobs:
             --observation-window-seconds 300 \
             --window-seconds 600 \
             --probe-interval-seconds 30 \
-            "${EXTRA[@]}"
+            "${PLATFORM_ARGS[@]}"
 
       - name: Upload full release artifact
         uses: actions/upload-artifact@v7
