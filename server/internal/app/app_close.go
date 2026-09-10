@@ -21,6 +21,9 @@ func (a *App) Close() error {
 func (a *App) closeResources() error {
 	var errs []error
 	a.requestShutdown()
+	if a.httpHandlers.EventsWS != nil {
+		a.httpHandlers.EventsWS.Close()
+	}
 	if err := a.shutdownHTTPServer(5 * time.Second); err != nil {
 		errs = append(errs, fmt.Errorf("shutdown http server: %w", err))
 	}
@@ -122,20 +125,12 @@ func (a *App) stopRuntimeManagers(timeout time.Duration) error {
 }
 
 func (a *App) stopAdapter(timeout time.Duration) error {
-	var errs []error
+	if a.services.Protocol == nil {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	for id, client := range a.eventStack.QQOfficial {
-		if err := client.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			errs = append(errs, fmt.Errorf("stop QQ official adapter %s: %w", id, err))
-		}
-	}
-	for id, shell := range a.eventStack.OneBotShells {
-		if err := shell.Stop(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			errs = append(errs, fmt.Errorf("stop OneBot adapter %s: %w", id, err))
-		}
-	}
-	return errors.Join(errs...)
+	return a.services.Protocol.Stop(ctx)
 }
 
 func (a *App) shutdownHTTPServer(timeout time.Duration) error {

@@ -7,12 +7,12 @@ import (
 	"strings"
 	"testing"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/pluginmarket"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -49,7 +49,10 @@ func TestUnavailableWebhookUsesTransportUnavailable(t *testing.T) {
 			cfg.Adapters = []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &settings}}
 			shells["onebot11"] = onebot11.New("onebot11", settings, config.AdapterConfig{}, nil)
 		}
-		service := wsevents.NewProtocolService(webhookConfigSource{cfg: cfg}, wsevents.ProtocolServiceAdapters{OneBot11: shells})
+		service, err := adapterservice.NewService(webhookConfigSource{cfg: cfg}, adapterservice.Instances{OneBot11: shells})
+		if err != nil {
+			t.Fatal(err)
+		}
 		handler := NewProtocolHandlers(service)
 		router := chi.NewRouter()
 		handler.RegisterPublicRoutes(router)

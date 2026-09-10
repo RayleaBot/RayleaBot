@@ -13,11 +13,10 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type webSocketOriginAuthorityKey struct{}
@@ -46,7 +45,7 @@ func acceptManagementWebSocket(w http.ResponseWriter, r *http.Request) (*websock
 			case <-changed:
 				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 				defer cancel()
-				_ = wsjson.Write(ctx, conn, wsevents.Frame{Channel: channel, Type: "session_expired", Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Data: struct{}{}})
+				_ = wsjson.Write(ctx, conn, managementevents.Frame{Channel: channel, Type: "session_expired", Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Data: struct{}{}})
 				_ = conn.Close(websocket.StatusPolicyViolation, "session invalidated")
 			}
 		}()
@@ -74,45 +73,17 @@ func writeWebSocketNotFound(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-type EventsHandler struct {
-	bridge        eventBridgeSource
-	plugins       pluginEventSource
-	protocol      protocolEventSource
-	serviceStatus serviceStatusEventSource
-	governance    governanceEventSource
-	thirdParty    thirdPartyAccountEventSource
+type EventsHandler struct{ stream *managementevents.Stream }
+
+func NewEventsHandler(sources managementevents.Sources) (*EventsHandler, error) {
+	stream, err := managementevents.NewStream(sources)
+	if err != nil {
+		return nil, err
+	}
+	return &EventsHandler{stream: stream}, nil
 }
 
-type eventBridgeSource interface {
-	SubscribeObservability(int) (<-chan bridge.ObservabilityFrame, func())
-}
-
-type pluginEventSource interface {
-	Subscribe(int) (<-chan plugins.Snapshot, func())
-	List() []plugins.Snapshot
-}
-
-type protocolEventSource interface {
-	AdaptersSnapshotEvent() wsevents.Frame
-	SubscribeProtocolEvents(int) (<-chan wsevents.Frame, func())
-}
-
-type serviceStatusEventSource interface {
-	CurrentEvent() wsevents.Frame
-	Subscribe(int) (<-chan wsevents.Frame, func())
-}
-
-type governanceEventSource interface {
-	Subscribe(int) (<-chan wsevents.Frame, func())
-}
-
-type thirdPartyAccountEventSource interface {
-	Subscribe(int) (<-chan wsevents.Frame, func())
-}
-
-func NewEventsHandler(bridge eventBridgeSource, plugins pluginEventSource, protocol protocolEventSource, serviceStatus serviceStatusEventSource, governance governanceEventSource, thirdParty thirdPartyAccountEventSource) *EventsHandler {
-	return &EventsHandler{bridge: bridge, plugins: plugins, protocol: protocol, serviceStatus: serviceStatus, governance: governance, thirdParty: thirdParty}
-}
+func (h *EventsHandler) Close() { h.stream.Close() }
 
 type LogsHandler struct {
 	logs logEventSource
@@ -167,146 +138,7 @@ func (h *EventsHandler) HandleEventsWebSocket() http.HandlerFunc {
 
 func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 	eventsCtx := conn.CloseRead(context.Background())
-	bridgeFrames, unsubscribeBridge := h.bridge.SubscribeObservability(1)
-	defer unsubscribeBridge()
-	var pluginFrames <-chan plugins.Snapshot
-	unsubscribePlugins := func() {}
-	if h.plugins != nil {
-		pluginFrames, unsubscribePlugins = h.plugins.Subscribe(8)
-	}
-	defer unsubscribePlugins()
-	protocolFrames, unsubscribeProtocol := h.protocol.SubscribeProtocolEvents(2)
-	defer unsubscribeProtocol()
-	statusFrames, unsubscribeStatus := h.serviceStatus.Subscribe(4)
-	defer unsubscribeStatus()
-	var governanceFrames <-chan wsevents.Frame
-	unsubscribeGovernance := func() {}
-	if h.governance != nil {
-		governanceFrames, unsubscribeGovernance = h.governance.Subscribe(4)
-	}
-	defer unsubscribeGovernance()
-	var thirdPartyFrames <-chan wsevents.Frame
-	unsubscribeThirdParty := func() {}
-	if h.thirdParty != nil {
-		thirdPartyFrames, unsubscribeThirdParty = h.thirdParty.Subscribe(4)
-	}
-	defer unsubscribeThirdParty()
-
-	for _, frame := range []wsevents.Frame{
-		h.serviceStatus.CurrentEvent(),
-		h.protocol.AdaptersSnapshotEvent(),
-	} {
-		if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
-			return
-		}
-	}
-
-	for {
-		select {
-		case <-eventsCtx.Done():
-			return
-		case frame, ok := <-bridgeFrames:
-			if !ok {
-				return
-			}
-			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
-				return
-			}
-		case snapshot, ok := <-pluginFrames:
-			if !ok {
-				return
-			}
-			if err := wsjson.Write(eventsCtx, conn, pluginStateEventFrame(snapshot, pluginSnapshotsForConflicts(h.plugins))); err != nil {
-				return
-			}
-		case frame, ok := <-protocolFrames:
-			if !ok {
-				return
-			}
-			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
-				return
-			}
-		case frame, ok := <-statusFrames:
-			if !ok {
-				return
-			}
-			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
-				return
-			}
-		case frame, ok := <-governanceFrames:
-			if !ok {
-				return
-			}
-			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
-				return
-			}
-		case frame, ok := <-thirdPartyFrames:
-			if !ok {
-				return
-			}
-			if err := wsjson.Write(eventsCtx, conn, frame); err != nil {
-				return
-			}
-		}
-	}
-}
-
-func pluginStateEventFrame(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) wsevents.Frame {
-	state, diagnosis := plugins.ProjectState(snapshot)
-	return wsevents.NewReceivedFrame(wsevents.PluginStatePayload{
-		PluginID:         snapshot.PluginID,
-		State:            state,
-		StateDiagnosis:   diagnosis,
-		Commands:         pluginStateEventCommands(snapshot.Commands),
-		CommandConflicts: pluginStateEventCommandConflicts(snapshot, snapshots),
-	})
-}
-
-func pluginSnapshotsForConflicts(catalog interface{ List() []plugins.Snapshot }) []plugins.Snapshot {
-	if catalog == nil {
-		return nil
-	}
-	return catalog.List()
-}
-
-func pluginStateEventCommands(commands []plugins.Command) []wsevents.PluginCommandItem {
-	if len(commands) == 0 {
-		return []wsevents.PluginCommandItem{}
-	}
-	items := make([]wsevents.PluginCommandItem, 0, len(commands))
-	for _, command := range commands {
-		if command.ID == "" || command.DisplayName == "" {
-			continue
-		}
-		item := wsevents.PluginCommandItem{
-			ID:             command.ID,
-			Name:           command.DisplayName,
-			EffectiveNames: plugins.EffectiveCommandNames(command.TriggerType, command.Name, command.Aliases),
-			Description:    command.Description,
-			Usage:          command.Usage,
-			Permission:     command.Permission,
-			Trigger: wsevents.PluginCommandTrigger{
-				Type: command.TriggerType, Names: append([]string(nil), command.TriggerNames...),
-				Pattern: command.MatchPattern, SettingsKey: command.SettingsKey,
-			},
-		}
-		items = append(items, item)
-	}
-	if len(items) == 0 {
-		return []wsevents.PluginCommandItem{}
-	}
-	return items
-}
-
-func pluginStateEventCommandConflicts(snapshot plugins.Snapshot, snapshots []plugins.Snapshot) []string {
-	if len(snapshots) == 0 {
-		snapshots = []plugins.Snapshot{snapshot}
-	}
-	conflicts := plugins.DetectCommandConflicts(snapshots)
-	if len(conflicts[snapshot.PluginID]) == 0 {
-		return []string{}
-	}
-	return conflicts[snapshot.PluginID]
+	_ = h.stream.Run(eventsCtx, func(ctx context.Context, value any) error { return wsjson.Write(ctx, conn, value) }, func() { _ = conn.CloseNow() })
 }
 
 type logFrame struct {

@@ -3,6 +3,7 @@ package system
 import (
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -12,7 +13,7 @@ import (
 
 type StatusSnapshot struct {
 	Status          string
-	Adapters        []AdapterStatus
+	Adapters        []adapterservice.Status
 	ActivePlugins   int
 	RunningPlugins  int
 	FailedPlugins   int
@@ -29,7 +30,7 @@ type DiagnosticsSnapshot struct {
 	Config          DiagnosticsConfig              `json:"config"`
 	Secrets         DiagnosticsSecrets             `json:"secrets"`
 	Database        DiagnosticsDatabase            `json:"database"`
-	Adapters        []AdapterStatus                `json:"adapters"`
+	Adapters        []adapterservice.Status        `json:"adapters"`
 	Plugins         DiagnosticsPlugins             `json:"plugins"`
 	Render          DiagnosticsIssueGroup          `json:"render"`
 	ThirdParty      DiagnosticsThirdParty          `json:"third_party"`
@@ -75,13 +76,6 @@ type DiagnosticsMigration struct {
 	Version   string `json:"version"`
 	Name      string `json:"name"`
 	AppliedAt string `json:"applied_at"`
-}
-
-type AdapterStatus struct {
-	ID       string `json:"id"`
-	Protocol string `json:"protocol"`
-	Enabled  bool   `json:"enabled"`
-	State    string `json:"state"`
 }
 
 type DiagnosticsPlugins struct {

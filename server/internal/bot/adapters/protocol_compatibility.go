@@ -1,6 +1,6 @@
-package wsevents
+package adapters
 
-func (s *ProtocolService) CurrentOneBot11ProtocolCompatibility() (OneBot11ProtocolCompatibility, error) {
+func (s *Service) CurrentOneBot11ProtocolCompatibility() (OneBot11ProtocolCompatibility, error) {
 	return oneBot11CompatibilityMatrix(), nil
 }
 

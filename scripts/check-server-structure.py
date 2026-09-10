@@ -41,6 +41,7 @@ def main() -> int:
     manual_sql_exceptions = load_manual_sql_exceptions(root, errors, warnings)
 
     check_plugin_boundaries(files, errors)
+    check_adapter_boundaries(files, errors)
     check_disallowed_dirs(server_internal, root, errors)
     check_package_names(files, warnings)
     check_process_exit_calls(files, errors)
@@ -116,6 +117,15 @@ def check_plugin_boundaries(files: list[GoFile], errors: list[str]) -> None:
 
 def within_package(path: str, root: str) -> bool:
     return path == root or path.startswith(root + "/")
+
+
+def check_adapter_boundaries(files: list[GoFile], errors: list[str]) -> None:
+    for file in files:
+        if file.is_test or not within_package(file.package_dir, "internal/bot/adapters"):
+            continue
+        for imported in file.imports:
+            if any(within_package(imported, INTERNAL_PREFIX + name) for name in ("management", "configruntime", "system", "app")):
+                errors.append(f"{file.rel} imports {imported}; adapter domain must own its state and reload errors")
 
 
 def check_disallowed_dirs(server_internal: Path, root: Path, errors: list[str]) -> None:

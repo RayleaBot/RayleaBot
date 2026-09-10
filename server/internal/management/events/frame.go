@@ -1,11 +1,13 @@
-// Package wsevents holds the management WebSocket event domain: the frozen
+// Package events owns management stream envelopes, projections and subscriptions.
+// It contains the frozen
 // frame envelope, event payload types, and the services that project and
 // broadcast protocol, governance, and service-status events.
-package wsevents
+package events
 
 import (
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -58,12 +60,9 @@ type GenericPayload struct {
 	Summary   string `json:"summary"`
 }
 
-// AdaptersSnapshotPayload carries the state of every configured adapter
-// instance. The OneBot snapshot describes one protocol in transport-level
-// detail; this one says what every adapter is doing, which is what the adapter
-// list needs and what an adapter with no transports of its own can report.
+// AdaptersSnapshotPayload carries every configured instance and its protocol details.
 type AdaptersSnapshotPayload struct {
-	Adapters []AdapterDescriptor `json:"adapters"`
+	Adapters []adapters.AdapterDescriptor `json:"adapters"`
 }
 
 func NewReceivedFrame(data any) Frame {

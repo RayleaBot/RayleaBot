@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"context"
@@ -21,7 +21,7 @@ type OneBot11Ingress struct {
 // OneBot11Ingress returns the ingress of the OneBot adapter with this id. The
 // second result is false when no such adapter is running, which is how a route
 // answers an unknown id or an adapter speaking another protocol.
-func (s *ProtocolService) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
+func (s *Service) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
 	if s == nil || s.config == nil {
 		return OneBot11Ingress{}, false
 	}
@@ -93,7 +93,7 @@ func (i OneBot11Ingress) transportEnabled(transport onebot11.TransportKey) bool 
 	}
 }
 
-func (s *ProtocolService) oneBotShell(id string) *onebot11.Shell {
+func (s *Service) oneBotShell(id string) *onebot11.Shell {
 	if s == nil {
 		return nil
 	}
@@ -106,7 +106,7 @@ func (s *ProtocolService) oneBotShell(id string) *onebot11.Shell {
 	return shell
 }
 
-func (s *ProtocolService) qqClient(id string) QQOfficialAdapter {
+func (s *Service) qqClient(id string) QQOfficialAdapter {
 	if s == nil {
 		return nil
 	}

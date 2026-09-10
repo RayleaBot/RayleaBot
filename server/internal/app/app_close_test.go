@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
@@ -299,6 +300,11 @@ func TestAppCloseWaitsForInboundHandlerBeforeClosingDatabase(t *testing.T) {
 	application := &App{platform: PlatformState{Storage: store}, eventStack: EventState{
 		OneBotShells: map[string]*onebot11.Shell{"fixture": shell},
 	}}
+	adapterOwner, err := adapterservice.NewService(&appRuntimeState{}, adapterservice.Instances{OneBot11: application.eventStack.OneBotShells})
+	if err != nil {
+		t.Fatal(err)
+	}
+	application.services.Protocol = adapterOwner
 	started := make(chan struct{})
 	cancelled := make(chan struct{})
 	release := make(chan struct{})

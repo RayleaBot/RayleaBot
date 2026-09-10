@@ -1,13 +1,13 @@
-package wsevents
+package adapters
 
 import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
@@ -118,46 +118,74 @@ type OneBot11ProtocolCompatibility struct {
 	Categories []CompatibilityCategory `json:"categories"`
 }
 
-type ProtocolConfigSource interface {
+type ConfigSource interface {
 	CurrentConfig() config.Config
 }
 
-type ProtocolService struct {
-	config                    ProtocolConfigSource
+type Service struct {
+	config                    ConfigSource
 	oneBotShells              map[string]*onebot11.Shell
 	qqClients                 map[string]QQOfficialAdapter
 	oneBot11TargetReadTimeout time.Duration
-	hub                       pubsub.Hub[Frame]
+	hub                       pubsub.Hub[AdaptersView]
+	snapshotMu                sync.Mutex
+	lifecycleMu               sync.Mutex
+	stopMu                    sync.Mutex
+	stopped                   bool
 }
 
-// ProtocolServiceAdapters are the configured adapters, keyed by instance id.
-type ProtocolServiceAdapters struct {
+// Instances are the configured adapters, keyed by instance id.
+type Instances struct {
 	// OneBot11 contains every configured instance, including disabled ones.
 	OneBot11   map[string]*onebot11.Shell
 	QQOfficial map[string]QQOfficialAdapter
 }
 
-func NewProtocolService(configSource ProtocolConfigSource, adapters ProtocolServiceAdapters) *ProtocolService {
-	return &ProtocolService{
-		config:                    configSource,
-		oneBotShells:              adapters.OneBot11,
-		qqClients:                 adapters.QQOfficial,
-		oneBot11TargetReadTimeout: 3 * time.Second,
+var ErrStopped = errors.New("adapter service stopped")
+
+func NewService(configSource ConfigSource, instances Instances) (*Service, error) {
+	if configSource == nil {
+		return nil, errors.New("adapter config source is required")
 	}
+	oneBotShells := make(map[string]*onebot11.Shell, len(instances.OneBot11))
+	for id, shell := range instances.OneBot11 {
+		if shell == nil {
+			return nil, fmt.Errorf("adapter %s has no OneBot runtime", id)
+		}
+		oneBotShells[id] = shell
+	}
+	qqClients := make(map[string]QQOfficialAdapter, len(instances.QQOfficial))
+	for id, client := range instances.QQOfficial {
+		if client == nil {
+			return nil, fmt.Errorf("adapter %s has no QQ runtime", id)
+		}
+		qqClients[id] = client
+	}
+	return &Service{
+		config:                    configSource,
+		oneBotShells:              oneBotShells,
+		qqClients:                 qqClients,
+		oneBot11TargetReadTimeout: 3 * time.Second,
+	}, nil
 }
 
 // ApplyConfigReload applies the new configuration to every running adapter.
 // An instance whose settings did not change is left connected; one that is no
 // longer configured is left to a restart, because removing an adapter is a
 // change to the set of adapters rather than to one adapter's settings.
-func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
+func (s *Service) ApplyConfigReload(cfg config.Config) error {
+	s.lifecycleMu.Lock()
+	defer s.lifecycleMu.Unlock()
+	if s.stopped {
+		return ErrStopped
+	}
 	failures := make([]error, 0, len(s.oneBotShells)+len(s.qqClients))
 	for _, instance := range cfg.Adapters {
 		if instance.Type == config.AdapterTypeOneBot11 && s.oneBotShell(instance.ID) == nil ||
 			instance.Type == config.AdapterTypeQQOfficial && s.qqClient(instance.ID) == nil {
 			// Adding an instance changes the collection and requires a restart.
 			// A subsequent settings save must retain that requirement.
-			failures = append(failures, configruntime.ErrProtocolStopped)
+			failures = append(failures, ErrStopped)
 		}
 	}
 
@@ -167,7 +195,7 @@ func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
 			continue
 		}
 		if shell.Snapshot().State == onebot11.StateStopped {
-			failures = append(failures, configruntime.ErrProtocolStopped)
+			failures = append(failures, ErrStopped)
 			continue
 		}
 		if err := shell.Reload(settings, cfg.Adapter); err != nil {
@@ -187,29 +215,28 @@ func (s *ProtocolService) ApplyConfigReload(cfg config.Config) error {
 		client.SetEnabled(instance.Enabled)
 	}
 
-	// One stopped adapter keeps the caller's existing meaning: the change is
-	// saved but needs a restart, without a warning about a failure.
+	// Preserve each adapter failure for the configuration coordinator.
 	if len(failures) == 1 {
 		return failures[0]
 	}
 	return errors.Join(failures...)
 }
 
-func (s *ProtocolService) PublishSnapshot() {
-	s.hub.Publish(s.AdaptersSnapshotEvent())
+func (s *Service) PublishSnapshot() {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	snapshot := s.Adapters()
+	s.hub.PublishReplaceEach(func() AdaptersView { return cloneView(snapshot) })
 }
 
-func (s *ProtocolService) AdaptersSnapshotEvent() Frame {
-	return NewReceivedFrame(AdaptersSnapshotPayload{Adapters: s.Adapters().Adapters})
-}
-
-// PublishAdaptersSnapshot tells subscribers what every adapter is doing. An
-// adapter without transports of its own has no OneBot snapshot to publish, so
-// this is how its state reaches the management surface.
-func (s *ProtocolService) PublishAdaptersSnapshot() { s.PublishSnapshot() }
-
-func (s *ProtocolService) SubscribeProtocolEvents(buffer int) (<-chan Frame, func()) {
-	return s.hub.Subscribe(buffer)
+// SnapshotAndSubscribe excludes already-published events from a new stream,
+// so an initial snapshot cannot be followed by an older queued snapshot.
+func (s *Service) SnapshotAndSubscribe(buffer int) (AdaptersView, <-chan AdaptersView, func()) {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	snapshot := s.Adapters()
+	channel, unsubscribe := s.hub.Subscribe(buffer)
+	return snapshot, channel, unsubscribe
 }
 
 func currentOneBotProvider(raw string) string {

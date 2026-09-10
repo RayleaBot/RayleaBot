@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
@@ -72,7 +73,7 @@ type coreSetupStatusResponse struct {
 
 type CoreSystemStatusResponse struct {
 	Status          string                         `json:"status"`
-	Adapters        []systemsvc.AdapterStatus      `json:"adapters"`
+	Adapters        []adapterservice.Status        `json:"adapters"`
 	ActivePlugins   int                            `json:"active_plugins"`
 	RunningPlugins  int                            `json:"running_plugins"`
 	FailedPlugins   int                            `json:"failed_plugins"`

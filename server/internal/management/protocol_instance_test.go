@@ -10,9 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type protocolInstanceConfig struct{ config config.Config }
@@ -55,7 +55,10 @@ func TestOneBotManagementQueriesStayWithinExplicitInstance(t *testing.T) {
 		source.config.Adapters = append(source.config.Adapters, config.AdapterInstance{ID: id, Type: "onebot11", Enabled: true, OneBot11: &settings})
 		shells[id] = onebot11.New(id, settings, config.AdapterConfig{}, nil)
 	}
-	service := wsevents.NewProtocolService(source, wsevents.ProtocolServiceAdapters{OneBot11: shells})
+	service, err := adapterservice.NewService(source, adapterservice.Instances{OneBot11: shells})
+	if err != nil {
+		t.Fatal(err)
+	}
 	router := chi.NewRouter()
 	NewProtocolHandlers(service).RegisterProtectedRoutes(router)
 	query := func(method, id, suffix, body string, wantStatus int) string {

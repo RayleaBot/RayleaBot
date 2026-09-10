@@ -8,9 +8,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type protocolAcceptedResponse struct {
@@ -20,7 +20,7 @@ type protocolAcceptedResponse struct {
 const protocolCodeInvalidRequest = errorcodes.PlatformInvalidRequest
 
 type oneBot11IdentityResolveRequest struct {
-	Items []wsevents.OneBot11IdentityResolveItem `json:"items"`
+	Items []adapterservice.OneBot11IdentityResolveItem `json:"items"`
 }
 
 type ProtocolHandlers struct {
@@ -28,11 +28,11 @@ type ProtocolHandlers struct {
 }
 
 type protocolHTTPService interface {
-	Adapters() wsevents.AdaptersView
-	CurrentOneBot11ProtocolTargets(context.Context, string) (wsevents.OneBot11ProtocolTargets, error)
-	ResolveOneBot11Identities(context.Context, string, []wsevents.OneBot11IdentityResolveItem) (wsevents.OneBot11IdentityResolveResult, error)
-	CurrentOneBot11ProtocolCompatibility() (wsevents.OneBot11ProtocolCompatibility, error)
-	OneBot11Ingress(id string) (wsevents.OneBot11Ingress, bool)
+	Adapters() adapterservice.AdaptersView
+	CurrentOneBot11ProtocolTargets(context.Context, string) (adapterservice.OneBot11ProtocolTargets, error)
+	ResolveOneBot11Identities(context.Context, string, []adapterservice.OneBot11IdentityResolveItem) (adapterservice.OneBot11IdentityResolveResult, error)
+	CurrentOneBot11ProtocolCompatibility() (adapterservice.OneBot11ProtocolCompatibility, error)
+	OneBot11Ingress(id string) (adapterservice.OneBot11Ingress, bool)
 }
 
 func NewProtocolHandlers(protocol protocolHTTPService) *ProtocolHandlers {

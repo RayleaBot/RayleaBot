@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"context"
@@ -204,7 +204,7 @@ func TestProtocolSnapshotEventMatchesCurrentProjection(t *testing.T) {
 	if len(requests) != 2 {
 		t.Fatalf("runtime info requests = %d, want 2", len(requests))
 	}
-	service := newTestService(t, protocolTestConfigSource{config: config.Config{Adapters: []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}}}}}, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"onebot11": shell}})
+	service := newTestService(t, protocolTestConfigSource{config: config.Config{Adapters: []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}}}}}, Instances{OneBot11: map[string]*onebot11.Shell{"onebot11": shell}})
 
 	snapshot := service.Adapters().Adapters[0].OneBot11
 	if snapshot.Provider != "luckylillia" {
@@ -306,7 +306,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 	shell.Start(ctx)
 	waitForAdapterState(t, shell, onebot11.StateConnected, time.Second)
 
-	service := newTestService(t, protocolTestConfigSource{config: config.Config{Adapters: []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}}}}}, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"onebot11": shell}})
+	service := newTestService(t, protocolTestConfigSource{config: config.Config{Adapters: []config.AdapterInstance{{ID: "onebot11", Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}}}}}, Instances{OneBot11: map[string]*onebot11.Shell{"onebot11": shell}})
 	service.oneBot11TargetReadTimeout = 60 * time.Millisecond
 
 	started := time.Now()
@@ -340,7 +340,7 @@ func TestProtocolTargetsReturnPartialResultsWhenFriendListTimesOut(t *testing.T)
 func TestProtocolCompatibilityProjectionKeepsUnsupportedGapsVisible(t *testing.T) {
 	t.Parallel()
 
-	service := newTestService(t, protocolTestConfigSource{}, ProtocolServiceAdapters{})
+	service := newTestService(t, protocolTestConfigSource{}, Instances{})
 
 	response, err := service.CurrentOneBot11ProtocolCompatibility()
 	if err != nil {

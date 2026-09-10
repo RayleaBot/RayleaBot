@@ -44,7 +44,7 @@
 
 ### 3.1 优先：适配器运行服务藏在 wsevents
 
-`ProtocolService` 同时保存 OneBot/QQ 实例集合、执行配置热重载、提供协议查询，并持有 `pubsub.Hub[Frame]`。入站凭据、反向 WS 连接和 webhook 接入也由这个包暴露。证据：[protocol.go:125–180](../server/internal/wsevents/protocol.go)、[ingress.go:24](../server/internal/wsevents/ingress.go)、[protocol_targets.go:65](../server/internal/wsevents/protocol_targets.go)。
+`ProtocolService` 同时保存 OneBot/QQ 实例集合、执行配置热重载、提供协议查询，并持有 `pubsub.Hub[Frame]`。入站凭据、反向 WS 连接和 webhook 接入也由这个包暴露。证据：[protocol.go:125–180](../server/internal/bot/adapters/protocol.go)、[ingress.go:24](../server/internal/bot/adapters/ingress.go)、[protocol_targets.go:65](../server/internal/bot/adapters/protocol_targets.go)。
 
 影响：寻找协议运行逻辑必须进入一个看似只有 WS 推送的包；管理展示和适配器生命周期难以独立演进。把整个包移入 `management/events` 会进一步固化这个错误归属。
 

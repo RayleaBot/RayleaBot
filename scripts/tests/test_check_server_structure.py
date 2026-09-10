@@ -68,5 +68,26 @@ class PluginBoundaryTests(unittest.TestCase):
                     self.assertEqual(len(errors), int(invalid), errors)
 
 
+class AdapterOwnershipTests(unittest.TestCase):
+    def test_adapter_boundaries_check_owner_and_nested_dependencies(self) -> None:
+        cases = [
+            ("bot/adapters", "management/events", True),
+            ("bot/adapters/nested", "configruntime", True),
+            ("bot/adapters", "config", False),
+            ("bot/adapters", "systemview", False),
+        ]
+        for package, dependency, invalid in cases:
+            with self.subTest(package=package, dependency=dependency), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / "server/internal" / package / "boundary.go"
+                source.parent.mkdir(parents=True)
+                source.write_text(f'package {source.parent.name}\nimport "{structure.INTERNAL_PREFIX}{dependency}"\n', encoding="utf-8")
+                files = structure.collect_go_files(root, root / "server/internal")
+                errors: list[str] = []
+                structure.check_adapter_boundaries(files, errors)
+                self.assertEqual(len(errors), int(invalid), errors)
+
+
+
 if __name__ == "__main__":
     unittest.main()

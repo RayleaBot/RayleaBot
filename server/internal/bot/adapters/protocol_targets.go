@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 var ErrOneBotInstanceUnavailable = errors.New("指定的 OneBot11 实例不存在、未启用或不可用")
 
-func (s *ProtocolService) CurrentOneBot11ProtocolTargets(ctx context.Context, adapterID string) (OneBot11ProtocolTargets, error) {
+func (s *Service) CurrentOneBot11ProtocolTargets(ctx context.Context, adapterID string) (OneBot11ProtocolTargets, error) {
 	response := OneBot11ProtocolTargets{
 		Protocol:     "onebot11",
 		Groups:       []OneBot11GroupTarget{},
@@ -65,7 +65,7 @@ type oneBot11FriendsResult struct {
 	err     error
 }
 
-func (s *ProtocolService) readOneBot11ProtocolTargets(ctx context.Context, adapter *onebot11.Shell) (oneBot11GroupsResult, oneBot11FriendsResult) {
+func (s *Service) readOneBot11ProtocolTargets(ctx context.Context, adapter *onebot11.Shell) (oneBot11GroupsResult, oneBot11FriendsResult) {
 	timeout := s.oneBot11TargetTimeout()
 	groupCtx, cancelGroups := context.WithTimeout(ctx, timeout)
 	defer cancelGroups()
@@ -150,14 +150,14 @@ func oneBot11TargetIssueMessage(fallback string, err error) string {
 	}
 }
 
-func (s *ProtocolService) oneBot11TargetTimeout() time.Duration {
+func (s *Service) oneBot11TargetTimeout() time.Duration {
 	if s != nil && s.oneBot11TargetReadTimeout > 0 {
 		return s.oneBot11TargetReadTimeout
 	}
 	return 3 * time.Second
 }
 
-func (s *ProtocolService) ResolveOneBot11Identities(ctx context.Context, adapterID string, items []OneBot11IdentityResolveItem) (OneBot11IdentityResolveResult, error) {
+func (s *Service) ResolveOneBot11Identities(ctx context.Context, adapterID string, items []OneBot11IdentityResolveItem) (OneBot11IdentityResolveResult, error) {
 	response := OneBot11IdentityResolveResult{
 		Items:  []OneBot11Identity{},
 		Issues: []OneBot11TargetIssue{},

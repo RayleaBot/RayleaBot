@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"testing"
@@ -58,7 +58,11 @@ func waitForRuntimeInfo(t *testing.T, shell *onebot11.Shell, transport onebot11.
 	t.Fatalf("timed out waiting for %s runtime provider %s, got %#v", transport, wantProvider, shell.Snapshot())
 }
 
-func newTestService(t *testing.T, source ProtocolConfigSource, instances ProtocolServiceAdapters) *ProtocolService {
+func newTestService(t *testing.T, source ConfigSource, instances Instances) *Service {
 	t.Helper()
-	return NewProtocolService(source, instances)
+	service, err := NewService(source, instances)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return service
 }

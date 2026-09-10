@@ -3,6 +3,7 @@ package app
 import (
 	"log/slog"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
@@ -10,7 +11,6 @@ import (
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type configRuntimeState interface {
@@ -33,7 +33,7 @@ type configServiceDeps struct {
 	PluginLogLimiter  *localaction.PluginLogLimiter
 	OutboundLimiter   interface{ ApplyConfig(config.Config) }
 	AccountValidation interface{ ApplyConfig(config.Config) }
-	Protocol          *wsevents.ProtocolService
+	Protocol          *adapterservice.Service
 	EventIngress      *chatpolicy.Ingress
 	Secrets           secrets.Store
 }

@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"strings"

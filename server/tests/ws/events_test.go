@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"reflect"
 	"strings"
@@ -518,4 +519,37 @@ func waitForPluginSubscriber(t *testing.T, catalog interface{ SubscriberCount() 
 	}
 
 	t.Fatalf("timed out waiting for plugin subscriber")
+}
+
+func TestEventsWebSocketApplicationCloseReleasesConnectionAndSubscriptions(t *testing.T) {
+	application := newTestApp(t, deterministicAuthOptions()...)
+	token := issueLoginToken(t, application)
+	server := newManagementTestServer(t, application.Handler())
+	defer server.Close()
+	initialBridgeSubscribers := application.Bridge().ObservabilitySubscriberCount()
+	initialPluginSubscribers := application.Plugins().SubscriberCount()
+	conn := dialEventsWebSocket(t, server.URL, token)
+	defer func() { _ = conn.CloseNow() }()
+	readProtocolReplayFrame(t, conn)
+	if application.Bridge().ObservabilitySubscriberCount() != initialBridgeSubscribers+1 || application.Plugins().SubscriberCount() != initialPluginSubscribers+1 {
+		t.Fatal("connection did not subscribe to runtime sources")
+	}
+	if err := application.Close(); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	for {
+		_, _, err := conn.Read(ctx)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, context.DeadlineExceeded) {
+			t.Fatal("application close left the WebSocket connected")
+		}
+		break
+	}
+	if application.Bridge().ObservabilitySubscriberCount() != 0 || application.Plugins().SubscriberCount() != 0 {
+		t.Fatal("closed connection retained runtime subscriptions")
+	}
 }

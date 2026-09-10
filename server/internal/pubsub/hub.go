@@ -11,6 +11,7 @@ type Hub[T any] struct {
 	mu          sync.RWMutex
 	nextID      uint64
 	subscribers map[uint64]chan T
+	closed      bool
 }
 
 func NewHub[T any]() *Hub[T] {
@@ -27,6 +28,11 @@ func (h *Hub[T]) Subscribe(buffer int) (<-chan T, func()) {
 
 	ch := make(chan T, buffer)
 	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		close(ch)
+		return ch, func() {}
+	}
 	if h.subscribers == nil {
 		h.subscribers = make(map[uint64]chan T)
 	}
@@ -77,10 +83,17 @@ func (h *Hub[T]) PublishEach(next func() T) {
 // buffer is full the oldest buffered value is evicted and the send is
 // retried once, so laggards keep the newest data.
 func (h *Hub[T]) PublishReplace(value T) {
+	h.PublishReplaceEach(func() T { return value })
+}
+
+// PublishReplaceEach keeps the latest value while isolating mutable payloads
+// between subscribers. next runs once for each subscriber.
+func (h *Hub[T]) PublishReplaceEach(next func() T) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	for _, subscriber := range h.subscribers {
+		value := next()
 		select {
 		case subscriber <- value:
 		default:
@@ -93,5 +106,20 @@ func (h *Hub[T]) PublishReplace(value T) {
 			default:
 			}
 		}
+	}
+}
+
+// Close ends every subscription and rejects new subscriptions. Unsubscribe
+// remains safe after Close, including when a stream is concurrently exiting.
+func (h *Hub[T]) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return
+	}
+	h.closed = true
+	for id, subscriber := range h.subscribers {
+		delete(h.subscribers, id)
+		close(subscriber)
 	}
 }

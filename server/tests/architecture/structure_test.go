@@ -33,6 +33,24 @@ func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 	})
 }
 
+func TestAdapterServiceOwnsDomainStateWithoutManagementOrReloadCoordinator(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	adapterRoot := filepath.Join(serverRoot, "internal", "bot", "adapters")
+	walkGoFiles(t, adapterRoot, func(path string) {
+		if strings.HasSuffix(path, "_test.go") {
+			return
+		}
+		for _, imported := range fileImports(t, serverRoot, path) {
+			for _, forbidden := range []string{"management", "configruntime", "system", "app"} {
+				root := modulePrefix + forbidden
+				if imported == root || strings.HasPrefix(imported, root+"/") {
+					t.Errorf("%s imports %s; adapter state and reload errors belong to the adapter domain", relPath(t, serverRoot, path), imported)
+				}
+			}
+		}
+	})
+}
+
 func TestEventPipelineDoesNotDependOnPluginProcesses(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	for _, name := range []string{"chatevent", "eventpipeline", "plugins/actions", "scheduler"} {

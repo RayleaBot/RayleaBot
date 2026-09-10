@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
@@ -28,7 +29,7 @@ type AuthBootstrapState interface {
 }
 
 type AdapterStatesSource interface {
-	AdapterStates() []AdapterStatus
+	AdapterStates() []adapterservice.Status
 }
 
 type RuntimeRegistry interface {
@@ -177,7 +178,7 @@ func (s *Service) SchedulerTimezone() string {
 }
 
 func (s *Service) StatusSnapshot() StatusSnapshot {
-	adapters := []AdapterStatus{}
+	adapters := []adapterservice.Status{}
 	if s.adapters != nil {
 		adapters = append(adapters, s.adapters.AdapterStates()...)
 	}

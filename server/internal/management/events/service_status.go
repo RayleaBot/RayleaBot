@@ -1,7 +1,8 @@
-package wsevents
+package events
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
@@ -13,8 +14,9 @@ type ServiceStatusProvider interface {
 }
 
 type ServiceStatusService struct {
-	system ServiceStatusProvider
-	hub    pubsub.Hub[Frame]
+	system     ServiceStatusProvider
+	hub        pubsub.Hub[Frame]
+	snapshotMu sync.Mutex
 }
 
 func NewServiceStatusService(system ServiceStatusProvider) *ServiceStatusService {
@@ -89,7 +91,24 @@ func serviceStatusSummary(status string) string {
 }
 
 func (s *ServiceStatusService) PublishSnapshot() {
-	s.hub.Publish(s.CurrentEvent())
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	snapshot := s.CurrentEvent()
+	s.hub.PublishReplaceEach(func() Frame {
+		cloned := snapshot
+		payload := snapshot.Data.(ServiceStatusPayload)
+		payload.ReasonCodes = append([]string{}, payload.ReasonCodes...)
+		cloned.Data = payload
+		return cloned
+	})
+}
+
+func (s *ServiceStatusService) SnapshotAndSubscribe(buffer int) (Frame, <-chan Frame, func()) {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
+	snapshot := s.CurrentEvent()
+	channel, unsubscribe := s.hub.Subscribe(buffer)
+	return snapshot, channel, unsubscribe
 }
 
 func (s *ServiceStatusService) Subscribe(buffer int) (<-chan Frame, func()) {

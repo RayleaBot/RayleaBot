@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
@@ -66,7 +67,7 @@ func TestSystemDiagnosticsHTTP(t *testing.T) {
 				SchemaVersion:     "000004",
 				AppliedMigrations: []systemsvc.DiagnosticsMigration{},
 			},
-			Adapters:     []systemsvc.AdapterStatus{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
+			Adapters:     []adapterservice.Status{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
 			Plugins:      systemsvc.DiagnosticsPlugins{},
 			Render:       systemsvc.DiagnosticsIssueGroup{Status: "ok", Issues: []health.DiagnosticIssue{}},
 			ThirdParty:   systemsvc.DiagnosticsThirdParty{Platforms: []systemsvc.DiagnosticsThirdPartyPlatform{}},

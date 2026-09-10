@@ -1,13 +1,20 @@
-package wsevents
+package adapters
 
 import (
+	"context"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/qqofficial"
-	"github.com/RayleaBot/RayleaBot/server/internal/system"
 )
+
+type Status struct {
+	ID       string `json:"id"`
+	Protocol string `json:"protocol"`
+	Enabled  bool   `json:"enabled"`
+	State    string `json:"state"`
+}
 
 // AdapterIdentity is the bot a connected adapter authenticates as.
 type AdapterIdentity struct {
@@ -47,11 +54,33 @@ type AdaptersView struct {
 // QQOfficialAdapter is the slice of the QQ client this package needs, so the
 // service does not depend on the concrete adapter.
 type QQOfficialAdapter interface {
+	Start(context.Context)
+	Stop(context.Context) error
 	Status() qqofficial.Status
 	// Reload applies new settings, reporting whether anything the connection
 	// depends on changed.
 	Reload(config.QQOfficialConfig) bool
 	SetEnabled(bool)
+}
+
+func cloneView(view AdaptersView) AdaptersView {
+	cloned := AdaptersView{Adapters: make([]AdapterDescriptor, len(view.Adapters)), AvailableProtocols: append([]AdapterProtocolDescriptor{}, view.AvailableProtocols...)}
+	for index, descriptor := range view.Adapters {
+		if descriptor.Identity != nil {
+			identity := *descriptor.Identity
+			descriptor.Identity = &identity
+		}
+		if descriptor.OneBot11 != nil {
+			protocol := *descriptor.OneBot11
+			protocol.ConfiguredTransports = append([]string{}, protocol.ConfiguredTransports...)
+			protocol.ActiveTransports = append([]string{}, protocol.ActiveTransports...)
+			protocol.TransportStatus = append([]TransportStatus{}, protocol.TransportStatus...)
+			protocol.RecentTransportIssues = append([]ProtocolIssue{}, protocol.RecentTransportIssues...)
+			descriptor.OneBot11 = &protocol
+		}
+		cloned.Adapters[index] = descriptor
+	}
+	return cloned
 }
 
 var adapterProtocols = []AdapterProtocolDescriptor{
@@ -69,7 +98,7 @@ var adapterProtocols = []AdapterProtocolDescriptor{
 
 // Adapters lists the configured adapter instances in configuration order,
 // alongside the protocols an instance can be added for.
-func (s *ProtocolService) Adapters() AdaptersView {
+func (s *Service) Adapters() AdaptersView {
 	view := AdaptersView{
 		Adapters:           make([]AdapterDescriptor, 0, 2),
 		AvailableProtocols: append([]AdapterProtocolDescriptor(nil), adapterProtocols...),
@@ -83,7 +112,7 @@ func (s *ProtocolService) Adapters() AdaptersView {
 	return view
 }
 
-func (s *ProtocolService) adapterDescriptor(instance config.AdapterInstance) AdapterDescriptor {
+func (s *Service) adapterDescriptor(instance config.AdapterInstance) AdapterDescriptor {
 	switch instance.Type {
 	case config.AdapterTypeOneBot11:
 		return s.oneBot11Descriptor(instance)
@@ -101,7 +130,7 @@ func (s *ProtocolService) adapterDescriptor(instance config.AdapterInstance) Ada
 	}
 }
 
-func (s *ProtocolService) oneBot11Descriptor(instance config.AdapterInstance) AdapterDescriptor {
+func (s *Service) oneBot11Descriptor(instance config.AdapterInstance) AdapterDescriptor {
 	descriptor := AdapterDescriptor{
 		ID:          instance.ID,
 		Protocol:    config.AdapterTypeOneBot11,
@@ -157,7 +186,7 @@ func oneBot11Identity(snapshot onebot11.Snapshot) *AdapterIdentity {
 	return identity
 }
 
-func (s *ProtocolService) qqOfficialDescriptor(instance config.AdapterInstance) AdapterDescriptor {
+func (s *Service) qqOfficialDescriptor(instance config.AdapterInstance) AdapterDescriptor {
 	descriptor := AdapterDescriptor{
 		ID:          instance.ID,
 		Protocol:    config.AdapterTypeQQOfficial,
@@ -217,11 +246,11 @@ func oneBot11Summary(instance config.AdapterInstance, snapshot onebot11.Snapshot
 }
 
 // AdapterStates projects the same configured collection for status and diagnostics.
-func (s *ProtocolService) AdapterStates() []system.AdapterStatus {
+func (s *Service) AdapterStates() []Status {
 	descriptors := s.Adapters().Adapters
-	states := make([]system.AdapterStatus, 0, len(descriptors))
+	states := make([]Status, 0, len(descriptors))
 	for _, descriptor := range descriptors {
-		states = append(states, system.AdapterStatus{ID: descriptor.ID, Protocol: descriptor.Protocol, Enabled: descriptor.Enabled, State: descriptor.State})
+		states = append(states, Status{ID: descriptor.ID, Protocol: descriptor.Protocol, Enabled: descriptor.Enabled, State: descriptor.State})
 	}
 	return states
 }

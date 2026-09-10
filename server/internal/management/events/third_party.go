@@ -1,4 +1,4 @@
-package wsevents
+package events
 
 import "github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 

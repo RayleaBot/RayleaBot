@@ -19,6 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -31,7 +32,6 @@ import (
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 // serviceHarness assembles individual application services in isolation, the
@@ -232,7 +232,7 @@ func (a *serviceHarness) setTestLocalActions(permissions localaction.PermissionV
 	}
 	a.pluginStack.PluginLogLimiter = limiter
 	if a.services.GovernanceEvents == nil {
-		a.services.GovernanceEvents = wsevents.NewGovernanceService()
+		a.services.GovernanceEvents = managementevents.NewGovernanceService()
 	}
 	a.services.Governance = governance.NewService(governance.Deps{
 		CurrentConfig:  func() config.Config { return a.state.Config },

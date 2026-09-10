@@ -2,18 +2,16 @@ package configruntime
 
 import (
 	"context"
-	"errors"
 	"maps"
 	"reflect"
 	"slices"
 	"strings"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
-
-var ErrProtocolStopped = errors.New("protocol adapter stopped")
 
 type ApplyEffects struct {
 	AppliedNow            []string `json:"applied_now"`
@@ -328,7 +326,7 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 		if err := s.protocol.ApplyConfigReload(newCfg); err != nil {
 			effects.RestartRequiredFields = append(effects.RestartRequiredFields, effects.ReloadedNow...)
 			effects.ReloadedNow = effects.ReloadedNow[:0]
-			if err != ErrProtocolStopped && s.logger != nil {
+			if err != adapterservice.ErrStopped && s.logger != nil {
 				s.logger.Warn("消息平台配置更新失败，需重启服务后生效："+err.Error(),
 					"component", "config",
 					"err", err.Error(),

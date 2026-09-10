@@ -15,7 +15,8 @@
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
 | Runtime Manager | 负责插件进程会话、握手、保活、事件投递与终态收集 |
 | Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、Webhook、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
-| Protocol Service | 负责协议快照、OneBot 回连入口和 Webhook 协议入口 |
+| Adapter Service | 位于 `bot/adapters`，持有所有适配器实例，负责启停、配置 reload、领域快照、协议查询、OneBot 回连与 Webhook 协议入口 |
+| Management Events | 位于 `management/events`，负责管理 Frame、初始快照、事件投影和连接订阅生命周期 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
 | Scheduler | 负责 cron 周期任务的注册与定时触发 |
 | Permission View | 提供插件权限与参数查询 |
@@ -24,6 +25,10 @@
 | Render Service | 负责模板渲染、结果缓存与 artifact 管理 |
 
 ## 事件分发规则
+
+适配器服务发布不含管理 Frame 的领域快照，HTTP、系统诊断与管理事件流使用同一实例集合及配置顺序。reload 停止错误由适配器领域定义，配置服务仅消费执行结果并保留需要重启的字段。
+
+管理事件流原子获取初始快照与订阅，避免初始状态后出现旧排队状态。每个订阅者收到独立快照，慢消费者保留最新状态；连接退出时解除全部订阅。App 关闭时先结束管理事件流并等待传输关闭，再由适配器服务统一停止所有实例，领域服务不反向依赖管理层。
 
 - `eventpipeline/chatpolicy` Ingress 在进入 Bridge 前完成命令提取、黑名单、权限级别和冷却限流检查。
 - 订阅以统一 `event_type` 为中心，当前支持精确匹配和 `*` 全量订阅。

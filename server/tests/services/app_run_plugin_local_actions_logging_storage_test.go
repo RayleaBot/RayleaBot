@@ -19,7 +19,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 )
 
 func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
@@ -422,7 +422,7 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 
 	select {
 	case frame := <-events:
-		data, ok := frame.Data.(wsevents.GenericPayload)
+		data, ok := frame.Data.(managementevents.GenericPayload)
 		if !ok || data.EventType != "governance.changed" {
 			t.Fatalf("unexpected governance event: %#v", frame)
 		}

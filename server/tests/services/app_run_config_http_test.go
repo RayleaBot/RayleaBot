@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/configruntime"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
@@ -22,7 +23,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 // oneBotAdapters wraps OneBot settings in the single adapter instance these
@@ -169,9 +169,13 @@ func TestApplyHotReloadableFieldsFallsBackToRestartRequiredWhenAdapterReloadFail
 	startCtx, cancelStart := context.WithCancel(context.Background())
 	adapterShell.Start(startCtx)
 	cancelStart()
-	app.services.Protocol = wsevents.NewProtocolService(app.state, wsevents.ProtocolServiceAdapters{
+	protocolOwner, err := adapterservice.NewService(app.state, adapterservice.Instances{
 		OneBot11: map[string]*onebot11.Shell{config.DefaultOneBot11AdapterID: adapterShell},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.services.Protocol = protocolOwner
 	t.Cleanup(func() {
 		stopCtx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()

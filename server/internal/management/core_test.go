@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
 )
@@ -17,7 +18,7 @@ func TestSystemStatusIncludesPluginCountsAndDBSchemaVersion(t *testing.T) {
 		System: coreTestSystem{
 			snapshot: systemsvc.StatusSnapshot{
 				Status:          "running",
-				Adapters:        []systemsvc.AdapterStatus{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
+				Adapters:        []adapterservice.Status{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
 				ActivePlugins:   2,
 				RunningPlugins:  1,
 				FailedPlugins:   1,

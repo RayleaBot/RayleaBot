@@ -11,6 +11,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/health"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/go-chi/chi/v5"
 )
@@ -82,7 +83,13 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		)
 	}
 	updateHandler := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
-	eventsWS := managementapi.NewEventsHandler(eventState.Bridge, pluginState.Plugins, services.Protocol, deps.ServiceBuild.Status, services.GovernanceEvents, services.ThirdPartyEvents)
+	eventsWS, err := managementapi.NewEventsHandler(managementevents.Sources{
+		Bridge: eventState.Bridge, Plugins: pluginState.Plugins, Adapters: services.Protocol,
+		Status: deps.ServiceBuild.Status, Governance: services.GovernanceEvents, ThirdParty: services.ThirdPartyEvents,
+	})
+	if err != nil {
+		return managementRouteState{}, err
+	}
 	logsWS := managementapi.NewLogsHandler(services.Logs)
 	consoleWS := managementapi.NewConsoleHandler(platformState.Console, pluginState.Plugins)
 	configHandler := managementapi.NewConfigHandlers(configService)

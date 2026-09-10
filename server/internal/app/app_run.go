@@ -129,13 +129,9 @@ func (a *App) Run(ctx context.Context) error {
 		storage.RunSnapshotLoop(ctx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
 		return nil
 	})
-	// Disabled instances run no transports; keeping the supervisor alive lets
-	// the instance switch take effect without restarting the application.
-	for _, shell := range a.eventStack.OneBotShells {
-		shell.Start(runCtx)
-	}
-	for _, client := range a.eventStack.QQOfficial {
-		client.Start(runCtx)
+	if err := a.services.Protocol.Start(runCtx); err != nil {
+		close(started)
+		return errors.Join(err, a.Close())
 	}
 	a.platform.Scheduler.Start(runCtx)
 

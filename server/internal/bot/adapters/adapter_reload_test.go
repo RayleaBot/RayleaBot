@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"context"
@@ -15,7 +15,7 @@ func TestInstanceSwitchRestoresConfiguredIngressWithoutRestart(t *testing.T) {
 	effective, _ := cfg.OneBot11RuntimeSettings("fixture")
 	shell := onebot11.New("fixture", effective, cfg.Adapter, nil)
 	source := &adapterConfigSource{cfg: cfg}
-	service := NewProtocolService(source, ProtocolServiceAdapters{OneBot11: map[string]*onebot11.Shell{"fixture": shell}})
+	service := newTestService(t, source, Instances{OneBot11: map[string]*onebot11.Shell{"fixture": shell}})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		cancel()
@@ -46,7 +46,7 @@ func TestInstanceSwitchRestoresConfiguredIngressWithoutRestart(t *testing.T) {
 
 func TestNewInstanceSettingsStillRequireRestart(t *testing.T) {
 	cfg := config.Config{Adapters: []config.AdapterInstance{{ID: "new-qq", Type: "qqofficial", Enabled: true, QQOfficial: &config.QQOfficialConfig{AppID: "1001"}}}}
-	service := NewProtocolService(adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{})
+	service := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{})
 	if err := service.ApplyConfigReload(cfg); err == nil {
 		t.Fatal("unbuilt instance was reported as reloaded")
 	}

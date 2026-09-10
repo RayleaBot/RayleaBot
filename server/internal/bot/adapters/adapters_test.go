@@ -1,4 +1,4 @@
-package wsevents
+package adapters
 
 import (
 	"context"
@@ -18,7 +18,7 @@ func TestAdapterSnapshotsShareCollectionOrderAndInstanceDetails(t *testing.T) {
 		{ID: "second", Type: "onebot11", Enabled: true, OneBot11: &settings},
 		{ID: "qq", Type: "qqofficial", Enabled: true, QQOfficial: &config.QQOfficialConfig{}},
 	}}}
-	service := newTestService(t, source, ProtocolServiceAdapters{
+	service := newTestService(t, source, Instances{
 		OneBot11: map[string]*onebot11.Shell{
 			"first":  onebot11.New("first", config.OneBotConfig{}, config.AdapterConfig{}, nil),
 			"second": onebot11.New("second", settings, config.AdapterConfig{}, nil),
@@ -35,12 +35,11 @@ func TestAdapterSnapshotsShareCollectionOrderAndInstanceDetails(t *testing.T) {
 			source.cfg.Adapters = nil
 		}
 		view := service.Adapters().Adapters
-		frame := service.Adapters()
-		updates, unsubscribe := service.SubscribeProtocolEvents(1)
+		frame, updates, unsubscribe := service.SnapshotAndSubscribe(1)
 		service.PublishSnapshot()
-		published := (<-updates).Data.(AdaptersSnapshotPayload)
+		published := <-updates
 		unsubscribe()
-		if !reflect.DeepEqual(frame.Adapters, published.Adapters) {
+		if !reflect.DeepEqual(frame, published) {
 			t.Fatal("initial and live adapter snapshots differ")
 		}
 		states := service.AdapterStates()
@@ -78,7 +77,7 @@ func TestAdaptersOffersEveryProtocolWhenNothingIsConfigured(t *testing.T) {
 
 	// A fresh install has no adapter instances, so the listing is empty and the
 	// page has nothing to show unless the protocols are offered separately.
-	view := newTestService(t, adapterConfigSource{}, ProtocolServiceAdapters{}).Adapters()
+	view := newTestService(t, adapterConfigSource{}, Instances{}).Adapters()
 	if len(view.Adapters) != 0 {
 		t.Fatalf("listed %d adapters, want none before any is added", len(view.Adapters))
 	}
@@ -112,7 +111,7 @@ func TestAdaptersReportEnabledStateAndLiveIdentityPerInstance(t *testing.T) {
 
 	// Added but switched off: the operator needs to see that this is a choice,
 	// not a failure, and no client is running to report a state.
-	service := newTestService(t, adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{})
+	service := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{})
 	qq := findAdapter(t, service.Adapters(), config.DefaultQQOfficialAdapterID)
 	if qq.Enabled || qq.State != qqofficial.StateIdle || qq.Summary == "" {
 		t.Fatalf("disabled adapter = %+v, want an idle disabled instance with a summary", qq)
@@ -123,7 +122,7 @@ func TestAdaptersReportEnabledStateAndLiveIdentityPerInstance(t *testing.T) {
 
 	qqAdapter.Enabled = true
 	cfg = config.Config{Adapters: []config.AdapterInstance{qqAdapter}}
-	connected := newTestService(t, adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{
+	connected := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{
 		QQOfficial: map[string]QQOfficialAdapter{
 			config.DefaultQQOfficialAdapterID: stubQQStatus{status: qqofficial.Status{
 				State: qqofficial.StateConnected, Summary: "已连接：洛箐箐", BotID: "bot-1", BotName: "洛箐箐", BotAvatarURL: "https://example.com/bot.png",
@@ -143,7 +142,7 @@ func TestAdaptersKeepInstancesOfOneProtocolApart(t *testing.T) {
 		{ID: config.DefaultOneBot11AdapterID, Type: config.AdapterTypeOneBot11, Enabled: true, OneBot11: &config.OneBotConfig{}},
 		{ID: "second-bot", Type: config.AdapterTypeOneBot11, Enabled: false, OneBot11: &config.OneBotConfig{}},
 	}}
-	view := newTestService(t, adapterConfigSource{cfg: cfg}, ProtocolServiceAdapters{}).Adapters()
+	view := newTestService(t, adapterConfigSource{cfg: cfg}, Instances{}).Adapters()
 
 	if len(view.Adapters) != 2 {
 		t.Fatalf("listed %d adapters, want both instances", len(view.Adapters))

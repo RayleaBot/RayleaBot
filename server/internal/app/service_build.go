@@ -5,12 +5,14 @@ import (
 	"net/http"
 	"time"
 
+	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
+	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
@@ -20,7 +22,6 @@ import (
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/system"
-	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
 )
 
 type runtimeStateView interface {
@@ -51,11 +52,11 @@ type Services struct {
 	PluginSettings    *settings.Service
 	PluginLifecycle   *pluginservice.Controller
 	EventIngress      *chatpolicy.Ingress
-	Protocol          *wsevents.ProtocolService
+	Protocol          *adapterservice.Service
 	PluginWebhooks    *pluginwebhook.Service
 	Governance        *governance.Service
-	GovernanceEvents  *wsevents.GovernanceService
-	ThirdPartyEvents  *wsevents.ThirdPartyAccountService
+	GovernanceEvents  *managementevents.GovernanceService
+	ThirdPartyEvents  *managementevents.ThirdPartyAccountService
 	Logs              *logging.ManagementService
 	System            *systemsvc.Service
 	ThirdParty        *thirdparty.Service
@@ -66,7 +67,7 @@ type Services struct {
 type serviceBuildResult struct {
 	Services                   Services
 	Runtimes                   *pluginruntime.Registry
-	Status                     *wsevents.ServiceStatusService
+	Status                     *managementevents.ServiceStatusService
 	ThirdPartyAccountValidator *accountvalidation.Validator
 }
 
@@ -86,8 +87,8 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	renderer := deps.Renderer
 	logService := logging.NewManagementService(platform.Logs, platform.LogRepository)
 	policyRepos := buildPolicyRepositories(platform)
-	governanceEvents := wsevents.NewGovernanceService()
-	thirdPartyEvents := wsevents.NewThirdPartyAccountService()
+	governanceEvents := managementevents.NewGovernanceService()
+	thirdPartyEvents := managementevents.NewThirdPartyAccountService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
 	integrations, err := buildIntegrations(integrationDeps{
 		Config:               runtimeState.CurrentConfig(),
@@ -124,21 +125,24 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		return serviceBuildResult{}, err
 	}
 	runtimeRegistry := pluginRuntime.Runtimes
-	var serviceStatusService *wsevents.ServiceStatusService
+	var serviceStatusService *managementevents.ServiceStatusService
 	// A concrete pointer assigned straight into the interface would hand the
 	// service a typed nil that passes a nil check, so only real clients enter
 	// the map the protocol surface reads.
-	qqStatus := make(map[string]wsevents.QQOfficialAdapter, len(eventStack.QQOfficial))
+	qqStatus := make(map[string]adapterservice.QQOfficialAdapter, len(eventStack.QQOfficial))
 	for id, client := range eventStack.QQOfficial {
 		if client == nil {
 			continue
 		}
 		qqStatus[id] = client
 	}
-	protocolService := wsevents.NewProtocolService(runtimeState, wsevents.ProtocolServiceAdapters{
+	protocolService, err := adapterservice.NewService(runtimeState, adapterservice.Instances{
 		OneBot11:   eventStack.OneBotShells,
 		QQOfficial: qqStatus,
 	})
+	if err != nil {
+		return serviceBuildResult{}, err
+	}
 	var systemRenderer systemsvc.RendererState
 	if renderer != nil {
 		systemRenderer = renderer
@@ -170,7 +174,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	if err != nil {
 		return serviceBuildResult{}, err
 	}
-	serviceStatusService = wsevents.NewServiceStatusService(systemService)
+	serviceStatusService = managementevents.NewServiceStatusService(systemService)
 	pluginServices, err := buildPluginServices(pluginServiceDeps{
 		Runtime:       runtimeState,
 		Platform:      platform,
@@ -222,7 +226,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	}, nil
 }
 
-func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginStackState, policy policyRepositories, events *wsevents.GovernanceService) *governance.Service {
+func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginStackState, policy policyRepositories, events *managementevents.GovernanceService) *governance.Service {
 	return governance.NewService(governance.Deps{
 		CurrentConfig:  runtimeState.CurrentConfig,
 		Plugins:        pluginStack.Plugins,
