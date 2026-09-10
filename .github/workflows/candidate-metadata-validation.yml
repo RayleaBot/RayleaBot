@@ -1,0 +1,144 @@
+name: candidate-metadata-validation
+'on':
+  push:
+    branches:
+    - codex/metadata-validation-0-4-0
+permissions:
+  contents: read
+  actions: read
+env:
+  RELEASE_VERSION: 0.4.0
+  RELEASE_SOURCE_COMMIT: 5b2fa9d85212a2129784d07088f4d844cefe09ed
+  SOURCE_RUN_ID: '34539781886'
+  RELEASE_NOTES_REF: https://github.com/RayleaBot/RayleaBot/blob/5b2fa9d85212a2129784d07088f4d844cefe09ed/docs/release/notes/v0.4.0.md
+jobs:
+  validate-metadata:
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+    - name: Setup Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: 3.14.7
+    - name: Setup Go
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: server/go.mod
+        cache-dependency-path: |
+          server/go.sum
+          launcher/go.sum
+    - name: Authenticate the already validated source run
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID" > "$RUNNER_TEMP/source-run.json"
+        python - <<'PY'
+        import json, os
+        from pathlib import Path
+        run = json.loads((Path(os.environ["RUNNER_TEMP"]) / "source-run.json").read_text())
+        assert run["repository"]["full_name"] == os.environ["GITHUB_REPOSITORY"]
+        assert run["head_repository"]["full_name"] == os.environ["GITHUB_REPOSITORY"]
+        assert run["head_sha"] == os.environ["RELEASE_SOURCE_COMMIT"]
+        assert run["event"] == "push"
+        assert run["head_branch"] == "codex/validation-execution-plan-v2"
+        assert run["path"] == ".github/workflows/artifact-validation.yml"
+        assert run["status"] == "completed" and run["conclusion"] == "success"
+        print("Validated source run:", run["id"], run["head_sha"])
+        PY
+    - name: Verify the metadata correction regressions
+      run: python -m unittest discover -s scripts/release/tests -p test_release_tool.py
+    - name: Download release artifacts
+      uses: actions/download-artifact@v8
+      with:
+        pattern: package-*
+        path: dist/downloads
+        run-id: '34539781886'
+        github-token: ${{ github.token }}
+    - name: Generate release metadata
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p dist/artifacts
+        find dist/downloads -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} dist/artifacts/ \;
+        VERSION="$RELEASE_VERSION"
+        GIT_COMMIT="$RELEASE_SOURCE_COMMIT"
+        CONFIG_SCHEMA_VERSION="$(python -c "import json; print(json.load(open('contracts/config.user.schema.json', encoding='utf-8'))['properties']['schema_version']['const'])")"
+        DB_SCHEMA_VERSION="$(python -c "from pathlib import Path; import re; text = Path('server/internal/storage/store_schema.go').read_text(encoding='utf-8'); print(re.search(r'const currentSchemaVersion = .(\d+).', text).group(1))")"
+        python scripts/release/release_tool.py metadata \
+          --version "$VERSION" \
+          --git-commit "$GIT_COMMIT" \
+          --config-schema-version "$CONFIG_SCHEMA_VERSION" \
+          --db-schema-version "$DB_SCHEMA_VERSION" \
+          --plugin-protocol-version "3" \
+          --release-notes-ref "$RELEASE_NOTES_REF" \
+          --sidecar dist/downloads/package-windows-x64-full/RayleaBot-v${VERSION}-windows-x64-full.zip.artifact.json \
+          --sidecar dist/downloads/package-linux-x64-full/RayleaBot-v${VERSION}-linux-x64-full.tar.gz.artifact.json \
+          --sidecar dist/downloads/package-macos-arm64-full/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz.artifact.json \
+          --sidecar dist/downloads/package-linux-x64-server/RayleaBot-v${VERSION}-linux-x64-server.tar.gz.artifact.json \
+          --output-dir dist/release
+        python scripts/release/release_tool.py verify \
+          --manifest dist/release/release_manifest.v2.json \
+          --checksums dist/release/SHA256SUMS.txt \
+          --artifact-dir dist/artifacts
+    - name: Sign v2 release manifest with Ed25519
+      shell: bash
+      env:
+        RAYLEA_RELEASE_SIGNING_KEY_ID: ${{ vars.RAYLEA_RELEASE_SIGNING_KEY_ID }}
+        RAYLEA_RELEASE_SIGNING_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_SIGNING_KEY_PEM
+          }}
+        RAYLEA_RELEASE_NEXT_KEY_ID: ${{ vars.RAYLEA_RELEASE_NEXT_KEY_ID }}
+        RAYLEA_RELEASE_NEXT_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_NEXT_KEY_PEM }}
+      run: |
+        set -euo pipefail
+        test -n "$RAYLEA_RELEASE_SIGNING_KEY_ID"
+        test -n "$RAYLEA_RELEASE_SIGNING_KEY_PEM"
+        umask 077
+        PRIMARY_KEY="$RUNNER_TEMP/raylea-release-primary.pem"
+        NEXT_KEY="$RUNNER_TEMP/raylea-release-next.pem"
+        trap 'rm -f "$PRIMARY_KEY" "$NEXT_KEY"' EXIT
+        printf '%s' "$RAYLEA_RELEASE_SIGNING_KEY_PEM" > "$PRIMARY_KEY"
+        KEY_ARGS=(--key "$RAYLEA_RELEASE_SIGNING_KEY_ID=$PRIMARY_KEY")
+        if [ -n "$RAYLEA_RELEASE_NEXT_KEY_ID" ] || [ -n "$RAYLEA_RELEASE_NEXT_KEY_PEM" ]; then
+          test -n "$RAYLEA_RELEASE_NEXT_KEY_ID"
+          test -n "$RAYLEA_RELEASE_NEXT_KEY_PEM"
+          printf '%s' "$RAYLEA_RELEASE_NEXT_KEY_PEM" > "$NEXT_KEY"
+          KEY_ARGS+=(--key "$RAYLEA_RELEASE_NEXT_KEY_ID=$NEXT_KEY")
+        fi
+        python scripts/release/release_tool.py sign \
+          --manifest dist/release/release_manifest.v2.json \
+          --output dist/release/release_manifest.v2.sig.json \
+          "${KEY_ARGS[@]}"
+        (cd dist/release && sha256sum release_manifest.v2.sig.json >> SHA256SUMS.txt)
+    - name: Verify signature and every release artifact with the shipped trust registry
+      shell: bash
+      env:
+        RAYLEA_RELEASE_TRUSTED_KEYS: ${{ vars.RAYLEA_RELEASE_TRUSTED_KEYS }}
+      run: |
+        set -euo pipefail
+        test -n "$RAYLEA_RELEASE_TRUSTED_KEYS"
+        LDFLAGS="-X=github.com/RayleaBot/RayleaBot/server/internal/releaseupdate.embeddedTrustedKeysSpec=${RAYLEA_RELEASE_TRUSTED_KEYS}"
+        git worktree add --detach "$RUNNER_TEMP/raylea-verified-source" "$RELEASE_SOURCE_COMMIT"
+                  (cd "$RUNNER_TEMP/raylea-verified-source/server" && go build -ldflags "$LDFLAGS" -o "$GITHUB_WORKSPACE/dist/release/raylea-server-verify" ./cmd/raylea-server)
+        for artifact in dist/artifacts/*; do
+          dist/release/raylea-server-verify update verify \
+            --manifest dist/release/release_manifest.v2.json \
+            --signature dist/release/release_manifest.v2.sig.json \
+            --artifact "$artifact"
+        done
+    - name: Upload verified release metadata
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-metadata
+        if-no-files-found: error
+        path: |
+          dist/release/release_manifest.v2.json
+          dist/release/release_manifest.v2.sig.json
+          dist/release/SHA256SUMS.txt
