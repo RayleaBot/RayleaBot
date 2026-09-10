@@ -12,15 +12,7 @@ import (
 
 func pluginListRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:             "plugin.list",
-			Permission:         "plugin.list",
-			RequestSchema:      "plugin-protocol.action_plugin_list",
-			ResponseSchema:     "plugin-protocol.local_action_result",
-			RequiredPermission: "declared permission",
-			AuditFields:        []string{"plugin_id", "visibility"},
-			ErrorCodes:         commonErrorCodes(),
-		},
+		kind: "plugin.list",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executePluginList(ctx, deps, req)

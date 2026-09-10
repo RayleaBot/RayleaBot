@@ -17,15 +17,7 @@ var thirdPartyAccountIDPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,6
 
 func thirdPartyAccountReadRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         "thirdparty.account.read",
-			Permission:     "thirdparty.account.read",
-			RequestSchema:  "plugin-protocol.action_thirdparty_account_read",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			ReadsSecret:    true,
-			AuditFields:    []string{"plugin_id", "platform", "account_id", "count"},
-			ErrorCodes:     commonErrorCodes("platform.invalid_request"),
-		},
+		kind: "thirdparty.account.read",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeThirdPartyAccountRead(ctx, deps, req)
@@ -36,14 +28,7 @@ func thirdPartyAccountReadRegistrar() registrar {
 
 func thirdPartyAccountValidateRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         "thirdparty.account.validate",
-			Permission:     "thirdparty.account.validate",
-			RequestSchema:  "plugin-protocol.action_thirdparty_account_validate",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			AuditFields:    []string{"plugin_id", "platform", "account_id", "observation", "http_status", "accepted", "reason"},
-			ErrorCodes:     commonErrorCodes("platform.invalid_request"),
-		},
+		kind: "thirdparty.account.validate",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeThirdPartyAccountValidate(ctx, deps, req)
@@ -138,15 +123,7 @@ func executeThirdPartyAccountValidate(ctx context.Context, deps Deps, req Action
 
 func thirdPartyResolveRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         "thirdparty.resolve",
-			Permission:     "thirdparty.resolve",
-			RequestSchema:  "plugin-protocol.action_thirdparty_resolve",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			ReadsSecret:    true,
-			AuditFields:    []string{"plugin_id", "platform", "query", "count"},
-			ErrorCodes:     commonErrorCodes("platform.invalid_request", "platform.resource_busy", "platform.upstream_request_failed"),
-		},
+		kind: "thirdparty.resolve",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeThirdPartyResolve(ctx, deps, req)

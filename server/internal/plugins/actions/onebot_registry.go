@@ -23,18 +23,9 @@ var oneBotActions = buildOneBotActionRegistry()
 
 func oneBotRegistrars() []registrar {
 	registrars := make([]registrar, 0, len(oneBotActions))
-	for kind, spec := range OneBotActionRegistry() {
-		kind := kind
-		spec := spec
+	for kind := range OneBotActionRegistry() {
 		registrars = append(registrars, registrar{
-			metadata: Metadata{
-				Action:         kind,
-				Permission:     spec.Permission,
-				RequestSchema:  "plugin-protocol.onebot_action",
-				ResponseSchema: "plugin-protocol.local_action_result",
-				AuditFields:    []string{"plugin_id", "action", "provider"},
-				ErrorCodes:     commonErrorCodes("adapter.transport_not_implemented", "adapter.provider_extension_not_supported"),
-			},
+			kind: kind,
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeOneBotAction(ctx, oneBotActionRequest{

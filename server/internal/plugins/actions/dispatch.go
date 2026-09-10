@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"sort"
 
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
@@ -15,45 +16,15 @@ type ActionRequest struct {
 
 type ActionHandler func(context.Context, ActionRequest) (map[string]any, error)
 
-type Registrar interface {
-	RegisterActions(*Registry, Deps)
-}
+type Registry struct{ handlers map[string]ActionHandler }
 
-type RegistrarFunc func(*Registry, Deps)
-
-func (fn RegistrarFunc) RegisterActions(registry *Registry, deps Deps) {
-	if fn != nil {
-		fn(registry, deps)
+func (r *Registry) Kinds() []string {
+	kinds := make([]string, 0, len(r.handlers))
+	for kind := range r.handlers {
+		kinds = append(kinds, kind)
 	}
-}
-
-type Registry struct {
-	handlers map[string]ActionHandler
-}
-
-func NewRegistry() *Registry {
-	return &Registry{handlers: make(map[string]ActionHandler)}
-}
-
-func DefaultRegistry() *Registry {
-	return NewDefaultRegistry(Deps{})
-}
-
-func NewRegistryWithRegistrars(deps Deps, registrars ...Registrar) *Registry {
-	registry := NewRegistry()
-	for _, registrar := range registrars {
-		if registrar != nil {
-			registrar.RegisterActions(registry, deps)
-		}
-	}
-	return registry
-}
-
-func (r *Registry) Register(kind string, handler ActionHandler) {
-	if kind == "" || handler == nil {
-		return
-	}
-	r.handlers[kind] = handler
+	sort.Strings(kinds)
+	return kinds
 }
 
 func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]any, bool, error) {
@@ -66,19 +37,11 @@ func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]
 }
 
 func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
-	if s != nil && s.actionRegistry != nil {
-		result, handled, err := s.actionRegistry.Dispatch(ctx, ActionRequest{
-			PluginID:    pluginID,
-			RequestID:   requestID,
-			Action:      action,
-			ParentEvent: parentEvent,
-		})
-		if handled {
-			return result, err
-		}
+	result, handled, err := s.actionRegistry.Dispatch(ctx, ActionRequest{
+		PluginID: pluginID, RequestID: requestID, Action: action, ParentEvent: parentEvent,
+	})
+	if handled {
+		return result, err
 	}
-	return nil, &pluginruntime.Error{
-		Code:    "plugin.protocol_violation",
-		Message: "received unsupported local action kind",
-	}
+	return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "received unsupported local action kind"}
 }

@@ -13,23 +13,7 @@ import (
 
 func renderImageRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:          "render.image",
-			Permission:      "render.image",
-			RequestSchema:   "plugin-protocol.action_render_image",
-			ResponseSchema:  "plugin-protocol.local_action_result",
-			AccessesNetwork: true,
-			WritesFile:      true,
-			AuditFields:     []string{"plugin_id", "template", "output"},
-			ErrorCodes: commonErrorCodes(
-				"platform.invalid_request",
-				"platform.upstream_response_too_large",
-				"platform.render_queue_full",
-				"platform.render_timeout",
-				"platform.render_input_too_large",
-				"platform.internal_error",
-			),
-		},
+		kind: "render.image",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeRenderImage(ctx, deps, req)

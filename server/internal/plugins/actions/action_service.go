@@ -27,47 +27,12 @@ type Deps struct {
 	Renderer          Renderer
 	Adapter           OneBotAdapter
 	PluginLogLimiter  *PluginLogLimiter
-	Governance        any
+	Governance        GovernanceService
 	RefreshCommands   func(context.Context, string, map[string]any)
-	Registrars        []Registrar
-	ActionRegistry    *Registry
 }
 
-type Service struct {
-	actionRegistry *Registry
-	runtimeHooks   *runtimeHooks
-}
-
-type runtimeHooks struct {
-	refreshCommands func(context.Context, string, map[string]any)
-}
+type Service struct{ actionRegistry *Registry }
 
 func New(deps Deps) *Service {
-	hooks := &runtimeHooks{
-		refreshCommands: deps.RefreshCommands,
-	}
-	service := &Service{
-		runtimeHooks: hooks,
-	}
-	if deps.ActionRegistry != nil {
-		service.actionRegistry = deps.ActionRegistry
-	} else {
-		if len(deps.Registrars) == 0 {
-			deps.Registrars = DefaultRegistrars()
-		}
-		deps.RefreshCommands = func(ctx context.Context, pluginID string, settings map[string]any) {
-			if hooks.refreshCommands != nil {
-				hooks.refreshCommands(ctx, pluginID, settings)
-			}
-		}
-		service.actionRegistry = NewRegistryWithRegistrars(deps, deps.Registrars...)
-	}
-	return service
-}
-
-func (s *Service) SetRefreshPluginCommands(refresh func(context.Context, string, map[string]any)) {
-	if s.runtimeHooks == nil {
-		s.runtimeHooks = &runtimeHooks{}
-	}
-	s.runtimeHooks.refreshCommands = refresh
+	return &Service{actionRegistry: NewDefaultRegistry(deps)}
 }

@@ -8,17 +8,7 @@ import (
 
 func messageSendRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         "message.send",
-			Permission:     "message.send",
-			RequestSchema:  "plugin-protocol.action_message_send",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			AuditFields:    []string{"plugin_id", "target_type", "target_id"},
-			ErrorCodes: commonErrorCodes(
-				"platform.rate_limited",
-				"adapter.send_failed",
-			),
-		},
+		kind: "message.send",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeMessageSend(ctx, deps, req)

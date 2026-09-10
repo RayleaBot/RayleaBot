@@ -11,64 +11,17 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-type Metadata struct {
-	Action             string
-	Permission         string
-	RequestSchema      string
-	ResponseSchema     string
-	RequiredPermission string
-	ReadsSecret        bool
-	WritesSecret       bool
-	AccessesNetwork    bool
-	WritesFile         bool
-	AuditFields        []string
-	ErrorCodes         []string
-}
-
 type registrar struct {
-	metadata Metadata
-	factory  func(Deps) ActionHandler
-}
-
-func (r registrar) RegisterActions(registry *Registry, deps Deps) {
-	if registry == nil || r.factory == nil || r.metadata.Action == "" {
-		return
-	}
-	registry.Register(r.metadata.Action, r.factory(deps))
-}
-
-func DefaultRegistrars() []Registrar {
-	items := defaultRegistrarItems()
-	result := make([]Registrar, 0, len(items))
-	for _, item := range items {
-		result = append(result, item)
-	}
-	return result
+	kind    string
+	factory func(Deps) ActionHandler
 }
 
 func NewDefaultRegistry(deps Deps) *Registry {
-	return NewRegistryWithRegistrars(deps, DefaultRegistrars()...)
-}
-
-func DefaultMetadataList() []Metadata {
-	registrars := defaultRegistrarItems()
-	items := make([]Metadata, 0, len(registrars))
-	for _, item := range registrars {
-		metadata := item.metadata
-		metadata.AuditFields = append([]string(nil), metadata.AuditFields...)
-		metadata.ErrorCodes = append([]string(nil), metadata.ErrorCodes...)
-		items = append(items, metadata)
+	registry := &Registry{handlers: make(map[string]ActionHandler)}
+	for _, item := range defaultRegistrarItems() {
+		registry.handlers[item.kind] = item.factory(deps)
 	}
-	return items
-}
-
-func commonErrorCodes(extra ...string) []string {
-	codes := []string{
-		"plugin.permission_denied",
-		"plugin.internal_error",
-		"plugin.protocol_violation",
-	}
-	return append(codes, extra...)
+	return registry
 }
 
 func defaultRegistrarItems() []registrar {
@@ -93,14 +46,7 @@ func defaultRegistrarItems() []registrar {
 
 func schedulerCreateRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         "scheduler.create",
-			Permission:     "scheduler.create",
-			RequestSchema:  "plugin-protocol.action_scheduler_create",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			AuditFields:    []string{"plugin_id", "task_id", "cron"},
-			ErrorCodes:     commonErrorCodes(),
-		},
+		kind: "scheduler.create",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeSchedulerCreate(ctx, deps, req)
@@ -135,15 +81,7 @@ var pluginSecretKeyPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[
 
 func secretReadRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         "secret.read",
-			Permission:     "secret.read",
-			RequestSchema:  "plugin-protocol.action_secret_read",
-			ResponseSchema: "plugin-protocol.local_action_result",
-			ReadsSecret:    true,
-			AuditFields:    []string{"plugin_id", "key", "exists"},
-			ErrorCodes:     commonErrorCodes(),
-		},
+		kind: "secret.read",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeSecretRead(ctx, deps, req)
@@ -186,14 +124,7 @@ func isPluginSecretKey(key string) bool {
 func configRegistrars() []registrar {
 	return []registrar{
 		{
-			metadata: Metadata{
-				Action:         "config.write",
-				Permission:     "config.write",
-				RequestSchema:  "plugin-protocol.action_config_write",
-				ResponseSchema: "plugin-protocol.local_action_result",
-				AuditFields:    []string{"plugin_id", "changed_keys"},
-				ErrorCodes:     commonErrorCodes(),
-			},
+			kind: "config.write",
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeConfigWrite(ctx, deps, req)

@@ -11,24 +11,17 @@ import (
 
 func governanceRegistrars() []registrar {
 	return []registrar{
-		governanceRegistrar("governance.blacklist.read", "plugin-protocol.action_governance_blacklist_read", blacklistRead),
-		governanceRegistrar("governance.blacklist.write", "plugin-protocol.action_governance_blacklist_write", blacklistWrite),
-		governanceRegistrar("governance.whitelist.read", "plugin-protocol.action_governance_whitelist_read", whitelistRead),
-		governanceRegistrar("governance.whitelist.write", "plugin-protocol.action_governance_whitelist_write", whitelistWrite),
-		governanceRegistrar("governance.command_policy.read", "plugin-protocol.action_governance_command_policy_read", commandPolicyRead),
+		governanceRegistrar("governance.blacklist.read", blacklistRead),
+		governanceRegistrar("governance.blacklist.write", blacklistWrite),
+		governanceRegistrar("governance.whitelist.read", whitelistRead),
+		governanceRegistrar("governance.whitelist.write", whitelistWrite),
+		governanceRegistrar("governance.command_policy.read", commandPolicyRead),
 	}
 }
 
-func governanceRegistrar(action string, schema string, execute func(context.Context, Deps, ActionRequest) (map[string]any, error)) registrar {
+func governanceRegistrar(action string, execute func(context.Context, Deps, ActionRequest) (map[string]any, error)) registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:         action,
-			Permission:     action,
-			RequestSchema:  schema,
-			ResponseSchema: "plugin-protocol.local_action_result",
-			AuditFields:    []string{"plugin_id", "operation", "entry_type", "target_id"},
-			ErrorCodes:     commonErrorCodes("platform.resource_missing"),
-		},
+		kind: action,
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return execute(ctx, deps, req)
@@ -37,7 +30,7 @@ func governanceRegistrar(action string, schema string, execute func(context.Cont
 	}
 }
 
-type governanceService interface {
+type GovernanceService interface {
 	ReadBlacklist(context.Context) (governance.BlacklistSnapshot, error)
 	UpsertBlacklistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
 	DeleteBlacklistEntry(context.Context, string, string) error
@@ -48,12 +41,12 @@ type governanceService interface {
 	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
 }
 
-func requireGovernancePermission(ctx context.Context, deps Deps, req ActionRequest, permission string) (governanceService, error) {
+func requireGovernancePermission(ctx context.Context, deps Deps, req ActionRequest, permission string) (GovernanceService, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, permission) {
 		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: permission + " permission is not declared"}
 	}
-	service, ok := deps.Governance.(governanceService)
-	if !ok || service == nil {
+	service := deps.Governance
+	if service == nil {
 		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "governance service is not available"}
 	}
 	return service, nil

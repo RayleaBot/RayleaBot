@@ -110,10 +110,10 @@ func TestBaseActionHandlersMatchLocalActionPermissions(t *testing.T) {
 	for _, implicit := range []string{"logger.write", "config.write", "storage.kv", "storage.file"} {
 		basePermissionSet[implicit] = true
 	}
-	metadata := actions.DefaultMetadataList()
+	kinds := actions.NewDefaultRegistry(actions.Deps{}).Kinds()
 	handlerKinds := map[string]bool{}
-	for _, item := range metadata {
-		handlerKinds[item.Action] = true
+	for _, kind := range kinds {
+		handlerKinds[kind] = true
 	}
 	for kind := range handlerKinds {
 		if _, ok := actions.LookupOneBotAction(kind); ok {
@@ -143,25 +143,6 @@ func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
 		_, handled, _ := registry.Dispatch(context.Background(), actions.ActionRequest{Action: pluginruntime.Action{Kind: kind}})
 		if !handled {
 			t.Fatalf("default registry is missing OneBot handler %q", kind)
-		}
-	}
-}
-
-func TestDefaultActionMetadataIsComplete(t *testing.T) {
-	t.Parallel()
-
-	for _, item := range actions.DefaultMetadataList() {
-		if strings.TrimSpace(item.Action) == "" {
-			t.Fatal("default action metadata is missing action name")
-		}
-		if strings.TrimSpace(item.Permission) == "" {
-			t.Fatalf("%s metadata is missing permission", item.Action)
-		}
-		if strings.TrimSpace(item.RequestSchema) == "" || strings.TrimSpace(item.ResponseSchema) == "" {
-			t.Fatalf("%s metadata is missing request or response schema", item.Action)
-		}
-		if len(item.ErrorCodes) == 0 {
-			t.Fatalf("%s metadata is missing stable error codes", item.Action)
 		}
 	}
 }

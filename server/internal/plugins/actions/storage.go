@@ -21,14 +21,7 @@ const (
 func storageRegistrars() []registrar {
 	return []registrar{
 		{
-			metadata: Metadata{
-				Action:         "storage.kv",
-				Permission:     "storage.kv",
-				RequestSchema:  "plugin-protocol.action_storage_kv",
-				ResponseSchema: "plugin-protocol.local_action_result",
-				AuditFields:    []string{"plugin_id", "operation", "key", "prefix"},
-				ErrorCodes:     commonErrorCodes("platform.value_too_large"),
-			},
+			kind: "storage.kv",
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeStorageKV(ctx, deps, req)
@@ -36,15 +29,7 @@ func storageRegistrars() []registrar {
 			},
 		},
 		{
-			metadata: Metadata{
-				Action:         "storage.file",
-				Permission:     "storage.file",
-				RequestSchema:  "plugin-protocol.action_storage_file",
-				ResponseSchema: "plugin-protocol.local_action_result",
-				WritesFile:     true,
-				AuditFields:    []string{"plugin_id", "operation", "root", "path", "prefix"},
-				ErrorCodes:     commonErrorCodes("platform.invalid_request", "platform.value_too_large"),
-			},
+			kind: "storage.file",
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 					return executeStorageFile(ctx, deps, req)

@@ -17,15 +17,7 @@ const (
 
 func httpRequestRegistrar() registrar {
 	return registrar{
-		metadata: Metadata{
-			Action:          "http.request",
-			Permission:      "http.request",
-			RequestSchema:   "plugin-protocol.action_http_request",
-			ResponseSchema:  "plugin-protocol.local_action_result",
-			AccessesNetwork: true,
-			AuditFields:     []string{"plugin_id", "method", "url"},
-			ErrorCodes:      commonErrorCodes("platform.invalid_request", "platform.upstream_response_too_large"),
-		},
+		kind: "http.request",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
 				return executeHTTPRequest(ctx, req.PluginID, req.Action, currentConfig(deps), deps.Permissions)
