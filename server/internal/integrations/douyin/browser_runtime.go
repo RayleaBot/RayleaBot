@@ -114,7 +114,7 @@ func newDouyinBrowserContext(requestCtx context.Context, attempt browserLaunchAt
 	command.Stderr = logFile
 	command.Stdout = logFile
 	if err := command.Start(); err != nil {
-		logFile.Close()
+		_ = logFile.Close()
 		if tempUserDataDir != "" {
 			_ = os.RemoveAll(tempUserDataDir)
 		}
@@ -136,7 +136,7 @@ func newDouyinBrowserContext(requestCtx context.Context, attempt browserLaunchAt
 		if tempUserDataDir != "" {
 			_ = os.RemoveAll(tempUserDataDir)
 		}
-		logFile.Close()
+		_ = logFile.Close()
 		return nil, nil, fmt.Errorf("%w: browser debugging endpoint did not become ready", thirdparty.ErrQRLoginBrowserUnavailable)
 	}
 
@@ -157,7 +157,7 @@ func newDouyinBrowserContext(requestCtx context.Context, attempt browserLaunchAt
 			if tempUserDataDir != "" {
 				_ = os.RemoveAll(tempUserDataDir)
 			}
-			logFile.Close()
+			_ = logFile.Close()
 		})
 	}
 	return tabCtx, cancel, nil
@@ -257,7 +257,7 @@ func resolveDouyinRemoteDebuggingURL(ctx context.Context, raw string, client *ht
 	if err != nil {
 		return "", fmt.Errorf("%w: remote CDP discovery failed", thirdparty.ErrQRLoginBrowserUnavailable)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		return "", fmt.Errorf("%w: remote CDP discovery returned HTTP %d", thirdparty.ErrQRLoginBrowserUnavailable, response.StatusCode)
 	}

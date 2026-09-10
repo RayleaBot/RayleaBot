@@ -117,7 +117,7 @@ func (s *QRLoginService) createRemoteSession(ctx context.Context, now time.Time)
 	if err != nil {
 		return qrLoginSession{}, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return qrLoginSession{}, fmt.Errorf("bilibili qr generate http %d", response.StatusCode)
 	}
@@ -194,7 +194,7 @@ func (s *QRLoginService) pollRemote(ctx context.Context, session qrLoginSession)
 	if err != nil {
 		return session, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return session, fmt.Errorf("bilibili qr poll http %d", response.StatusCode)
 	}

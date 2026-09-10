@@ -54,7 +54,7 @@ func TestAccountClientCheckCookieMarksInvalidNavResponse(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected invalid cookie error")
 	}
-	if credential.State != "invalid" || credential.CheckedAt == nil || !strings.Contains(credential.LastError, "账号未登录") {
+	if credential.State != "invalid" || credential.CheckedAt == nil {
 		t.Fatalf("unexpected invalid credential: %#v", credential)
 	}
 }
@@ -70,7 +70,7 @@ func TestAccountClientCheckCookieKeepsRiskControlUnknown(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected risk control error")
 	}
-	if credential.State != "unknown" || credential.CheckedAt == nil || !strings.Contains(credential.LastError, "code -352") {
+	if credential.State != "unknown" || credential.CheckedAt == nil {
 		t.Fatalf("unexpected risk-control credential: %#v", credential)
 	}
 }

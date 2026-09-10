@@ -43,7 +43,7 @@ func FetchAccountProfileWithBrowser(ctx context.Context, client *http.Client, co
 		}
 	}
 
-	if !thirdparty.AccountProfileEmpty(profile) {
+	if !profile.Empty() {
 		return profile, nil
 	}
 
@@ -154,7 +154,7 @@ func fetchDouyinWebProfile(ctx context.Context, client *http.Client, cookies map
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
@@ -194,7 +194,7 @@ func fetchDouyinWebProfile(ctx context.Context, client *http.Client, cookies map
 	} else if len(response.User.AvatarThumb.URLList) > 0 {
 		profile.AvatarURL = strings.TrimSpace(response.User.AvatarThumb.URLList[0])
 	}
-	if thirdparty.AccountProfileEmpty(profile) {
+	if profile.Empty() {
 		return thirdparty.AccountProfile{}, fmt.Errorf("douyin profile empty")
 	}
 	return profile, nil

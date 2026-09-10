@@ -161,9 +161,6 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     return `${platform}:${accountId}`
   }
 
-  function disposeMedia() {
-  }
-
   return {
     accounts,
     accountsByPlatform,
@@ -179,7 +176,6 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     createQRCodeLogin,
     deleteAccount,
     deleteBilibiliAccount,
-    disposeMedia,
     fetchAll,
     pollQRCodeLogin,
     saveAccount,

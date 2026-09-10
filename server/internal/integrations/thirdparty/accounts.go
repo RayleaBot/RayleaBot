@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -92,12 +91,6 @@ type Service struct {
 	now     func() time.Time
 }
 
-type AccountValidator struct {
-	Client     *http.Client
-	Now        func() time.Time
-	CheckFuncs map[string]func(context.Context, *http.Client, map[string]string) (AccountProfile, error)
-}
-
 func NewService(store *storage.Store, secretStore secrets.Store) (*Service, error) {
 	if store == nil || store.Read == nil || store.Write == nil {
 		return nil, errors.New("sqlite store is required")
@@ -111,107 +104,6 @@ func NewService(store *storage.Store, secretStore secrets.Store) (*Service, erro
 		secrets: secretStore,
 		now:     func() time.Time { return time.Now().UTC() },
 	}, nil
-}
-
-func NewAccountValidator(transport http.RoundTripper, now func() time.Time) *AccountValidator {
-	if now == nil {
-		now = func() time.Time { return time.Now().UTC() }
-	}
-	return &AccountValidator{
-		Client:     NewHTTPClient(transport),
-		Now:        now,
-		CheckFuncs: make(map[string]func(context.Context, *http.Client, map[string]string) (AccountProfile, error)),
-	}
-}
-
-func (v *AccountValidator) RegisterPlatform(platform string, checkFn func(context.Context, *http.Client, map[string]string) (AccountProfile, error)) {
-	v.CheckFuncs[platform] = checkFn
-}
-
-func (v *AccountValidator) CheckCookie(ctx context.Context, platform, cookie string) (AccountProfile, CredentialStatus, error) {
-	normalized, err := NormalizePlatform(platform)
-	if err != nil {
-		return AccountProfile{}, v.invalidStatus(err.Error()), err
-	}
-	cookies := CookieMapFromHeader(cookie)
-
-	checkFn := v.CheckFuncs[normalized]
-	if checkFn == nil {
-		err := fmt.Errorf("unsupported third-party account platform %s", normalized)
-		return AccountProfile{}, v.invalidStatus(err.Error()), err
-	}
-
-	profile, err := checkFn(ctx, v.Client, cookies)
-	if err != nil {
-		if platformError := AsThirdPartyError(err); platformError != nil && (platformError.Kind == ErrorAuth || platformError.Kind == ErrorExpired) {
-			return AccountProfile{}, v.invalidStatus(credentialInvalidMessage(normalized)), err
-		}
-		return AccountProfile{}, v.unknownStatus(credentialUnknownMessage(normalized, err)), err
-	}
-	return profile, v.validStatus(), nil
-}
-
-func credentialInvalidMessage(platform string) string {
-	switch platform {
-	case PlatformWeibo:
-		return "微博账号 CK 已失效，请重新扫码"
-	case PlatformDouyin:
-		return "抖音账号 CK 已失效，请重新扫码"
-	case PlatformNeteaseMusic:
-		return "网易云音乐账号 CK 已失效，请重新扫码"
-	default:
-		return "账号 CK 已失效，请重新登录"
-	}
-}
-
-func credentialUnknownMessage(platform string, err error) string {
-	label := "三方账号"
-	switch platform {
-	case PlatformWeibo:
-		label = "微博"
-	case PlatformDouyin:
-		label = "抖音"
-	case PlatformNeteaseMusic:
-		label = "网易云音乐"
-	}
-	if platformError := AsThirdPartyError(err); platformError != nil {
-		switch platformError.Kind {
-		case ErrorRiskControl, ErrorCaptcha:
-			return label + " CK 检查受到平台风控限制，请稍后重试"
-		case ErrorRateLimit:
-			return label + " CK 检查触发频率限制，请稍后重试"
-		}
-	}
-	return label + " CK 状态暂时无法确认，请稍后重试"
-}
-
-func (v *AccountValidator) validStatus() CredentialStatus {
-	checkedAt := v.Now().UTC()
-	return CredentialStatus{State: CredentialValid, CheckedAt: &checkedAt}
-}
-
-func (v *AccountValidator) invalidStatus(message string) CredentialStatus {
-	checkedAt := v.Now().UTC()
-	return CredentialStatus{
-		State:     CredentialInvalid,
-		CheckedAt: &checkedAt,
-		LastError: strings.TrimSpace(message),
-	}
-}
-
-func (v *AccountValidator) unknownStatus(message string) CredentialStatus {
-	checkedAt := v.Now().UTC()
-	return CredentialStatus{
-		State:     CredentialUnknown,
-		CheckedAt: &checkedAt,
-		LastError: strings.TrimSpace(message),
-	}
-}
-
-func AccountProfileEmpty(profile AccountProfile) bool {
-	return strings.TrimSpace(profile.UID) == "" &&
-		strings.TrimSpace(profile.Nickname) == "" &&
-		strings.TrimSpace(profile.AvatarURL) == ""
 }
 
 func JSONStringValue(value any) string {
@@ -355,7 +247,7 @@ func (s *Service) List(ctx context.Context) ([]Account, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list third-party accounts: %w", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	accounts := []Account{}
 	for rows.Next() {
@@ -442,7 +334,7 @@ func (s *Service) ListEnabled(ctx context.Context, platform string) ([]Account, 
 	if err != nil {
 		return nil, fmt.Errorf("list enabled third-party accounts: %w", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	accounts := []Account{}
 	for rows.Next() {

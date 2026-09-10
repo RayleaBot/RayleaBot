@@ -134,7 +134,7 @@ func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, 
 		session.State = thirdparty.QRLoginStatePendingScan
 	case 802:
 		session.State = thirdparty.QRLoginStatePendingConfirm
-		if profile := neteaseProfile(response); !thirdparty.AccountProfileEmpty(profile) {
+		if profile := neteaseProfile(response); !profile.Empty() {
 			session.Account = profile
 		}
 	case 803:
@@ -147,10 +147,10 @@ func (p *Provider) Poll(ctx context.Context, session thirdparty.QRLoginSession, 
 			return session, fmt.Errorf("netease music qrcode login succeeded without cookies")
 		}
 		profile := neteaseProfile(response)
-		if thirdparty.AccountProfileEmpty(profile) {
+		if profile.Empty() {
 			profile = session.Account
 		}
-		if thirdparty.AccountProfileEmpty(profile) {
+		if profile.Empty() {
 			if fetched, err := fetchNeteaseAccountProfile(ctx, p.client, cookies); err == nil {
 				profile = fetched
 			}
@@ -255,7 +255,7 @@ func fetchNeteaseAccountProfile(ctx context.Context, client *http.Client, cookie
 		return thirdparty.AccountProfile{}, err
 	}
 	profile := neteaseProfile(response)
-	if thirdparty.AccountProfileEmpty(profile) {
+	if profile.Empty() {
 		return thirdparty.AccountProfile{}, fmt.Errorf("netease music profile unavailable")
 	}
 	return profile, nil

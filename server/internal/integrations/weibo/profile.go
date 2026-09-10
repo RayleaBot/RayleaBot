@@ -35,7 +35,7 @@ func FetchAccountProfile(ctx context.Context, client *http.Client, cookies map[s
 			return thirdparty.AccountProfile{}, probeErr
 		}
 	}
-	if thirdparty.AccountProfileEmpty(profile) {
+	if profile.Empty() {
 		if len(probeErrors) > 0 {
 			return thirdparty.AccountProfile{}, probeErrors[0]
 		}

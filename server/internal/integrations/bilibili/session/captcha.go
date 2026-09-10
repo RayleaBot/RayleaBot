@@ -95,7 +95,7 @@ func (c *CaptchaClient) RegisterChallenge(ctx context.Context, vVoucher, cookie 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func (c *CaptchaClient) Validate(ctx context.Context, challenge *CaptchaChalleng
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, err
@@ -196,7 +196,7 @@ func fetchGeetestKey(ctx context.Context, client *http.Client) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 	js, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 	if err != nil {
 		return "", err

@@ -187,11 +187,3 @@ func shouldRetryWBI(err error) bool {
 func ShouldRetryWBI(err error) bool {
 	return shouldRetryWBI(err)
 }
-
-func isBilibiliRequestCooldownError(err error) bool {
-	biliErr := asBilibiliError(err)
-	if biliErr == nil {
-		return false
-	}
-	return biliErr.Kind == ErrorRiskControl || biliErr.Kind == ErrorRateLimit
-}

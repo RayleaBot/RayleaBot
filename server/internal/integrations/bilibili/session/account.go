@@ -40,29 +40,18 @@ func NewAccountClient(transport http.RoundTripper, now func() time.Time, identit
 func (c *AccountClient) CheckCookie(ctx context.Context, cookie string) (thirdparty.AccountProfile, thirdparty.CredentialStatus, error) {
 	checkedAt := c.now().UTC()
 	if err := validateCookieForLogin(cookie); err != nil {
-		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{
-			State:     thirdparty.CredentialInvalid,
-			CheckedAt: &checkedAt,
-			LastError: err.Error(),
-		}, err
+		return thirdparty.AccountProfile{}, thirdparty.CheckedCredential(thirdparty.PlatformBilibili, checkedAt, thirdparty.ErrorAuth), err
 	}
 	profile, err := c.fetchNav(ctx, cookie)
+	var kind thirdparty.ErrorKind
 	if err != nil {
-		state := thirdparty.CredentialInvalid
-		if isBilibiliRequestCooldownError(err) {
-			state = thirdparty.CredentialUnknown
+		kind = thirdparty.ErrorUpstream
+		if rejected := AsError(err); rejected != nil && rejected.Kind == ErrorAuth &&
+			(rejected.HTTPStatus == 0 || rejected.HTTPStatus == http.StatusUnauthorized || rejected.Code == -101 || rejected.Code == -102 || rejected.Code == -658) {
+			kind = thirdparty.ErrorAuth
 		}
-		return thirdparty.AccountProfile{}, thirdparty.CredentialStatus{
-			State:     state,
-			CheckedAt: &checkedAt,
-			LastError: err.Error(),
-		}, err
 	}
-	return profile, thirdparty.CredentialStatus{
-		State:     thirdparty.CredentialValid,
-		CheckedAt: &checkedAt,
-		LastError: "",
-	}, nil
+	return profile, thirdparty.CheckedCredential(thirdparty.PlatformBilibili, checkedAt, kind), err
 }
 
 func (c *AccountClient) fetchNav(ctx context.Context, cookie string) (thirdparty.AccountProfile, error) {
@@ -77,7 +66,7 @@ func (c *AccountClient) fetchNav(ctx context.Context, cookie string) (thirdparty
 	if err != nil {
 		return thirdparty.AccountProfile{}, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	var document struct {
 		Code    int    `json:"code"`
 		Message string `json:"message"`

@@ -171,7 +171,7 @@ func (c *SessionClient) send(ctx context.Context, method, rawURL, cookie string,
 	if err != nil {
 		return nil, nil, 0, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	responseBody, err := io.ReadAll(io.LimitReader(response.Body, 4<<20))
 	if err != nil {
 		return nil, nil, response.StatusCode, err

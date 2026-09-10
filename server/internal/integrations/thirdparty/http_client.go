@@ -68,7 +68,7 @@ func FetchPageBody(ctx context.Context, client *http.Client, rawURL string, head
 	if err != nil {
 		return "", err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	MergeResponseCookies(cookies, response)
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxLoginResponseBytes))
 	if err != nil {
@@ -109,7 +109,7 @@ func doJSON(client *http.Client, request *http.Request, cookies map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	MergeResponseCookies(cookies, response)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		return response, fmt.Errorf("third-party qrcode login http %d", response.StatusCode)

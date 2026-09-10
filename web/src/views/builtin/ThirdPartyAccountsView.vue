@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useAccountQRLogins, type QRLoginState } from './useAccountQRLogins'
+import { useAccountAvatars } from './useAccountAvatars'
 import AppTextarea from '@/components/AppTextarea.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
@@ -9,7 +11,7 @@ import AppField from '@/components/AppField.vue'
 import AppConfirmDialog from '@/components/AppConfirmDialog.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppAvatar from '@/components/AppAvatar.vue'
-import { computed, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   Trash2Icon,
@@ -37,9 +39,6 @@ import {
 import type {
   ThirdPartyAccountSummary,
   ThirdPartyCredentialState,
-  ThirdPartyQRCodeLoginCreateResponse,
-  ThirdPartyQRCodeLoginPollResponse,
-  ThirdPartyQRCodeLoginState,
 } from '@/types/api'
 
 interface AccountDraft {
@@ -70,21 +69,6 @@ interface PlatformSection {
   cookieExtra?: string
 }
 
-interface QRLoginState {
-  platform: ThirdPartyPlatform
-  loginId: string
-  qrcodeUrl: string
-  expiresAt: string
-  state: ThirdPartyQRCodeLoginState
-  accountNickname: string
-  accountUid: string
-  accountAvatarUrl: string
-  pollErrorNotified: boolean
-}
-
-const qrPollIntervalMs = 2000
-const avatarRetryCooldownMs = 30_000
-
 const store = useThirdPartyAccountsStore()
 const {
   accounts,
@@ -99,15 +83,11 @@ const {
 } = storeToRefs(store)
 
 const drafts = reactive<Record<string, AccountDraft>>({})
-const qrLogins = reactive<Record<string, QRLoginState>>({})
-const avatarLoadFailures = reactive<Record<string, number>>({})
+
 const editingAccountKey = ref<string>('')
 const deleteOpen = ref(false)
 const deleteCandidate = ref<ThirdPartyAccountSummary | null>(null)
 const draftSequence = ref(0)
-const qrPollInFlight = new Set<string>()
-const avatarRetryTimers = new Map<string, number>()
-let qrPollTimer: number | undefined
 
 const pageErrorToast = computed(() => (
   error.value && accounts.value.length > 0
@@ -151,27 +131,15 @@ const platformSections = computed<PlatformSection[]>(() => thirdPartyPlatformOrd
   }
 }))
 
-watch(accounts, () => {
-  clearAvatarFailures()
-}, { flush: 'sync' })
+const { qrLogins, start: startQR, cancel: cancelQRCodeSession } = useAccountQRLogins(reconcileQRCodeAccount)
+const { accountAvatarSrc, markAvatarFailed, markAvatarLoaded, avatarFailureKey } = useAccountAvatars(accounts)
 
-onMounted(() => {
-  window.addEventListener('pagehide', handlePageHide)
-  void loadPage()
-})
+function startQRCodeLogin(key: string) {
+  const platform = drafts[key]?.platform
+  if (platform) return startQR(key, platform)
+}
 
-onBeforeUnmount(() => {
-  window.removeEventListener('pagehide', handlePageHide)
-  stopQRPolling()
-  clearAvatarFailures()
-  void cancelAllQRCodeLogins(true)
-  store.disposeMedia()
-})
-
-onDeactivated(() => {
-  stopQRPolling()
-  void cancelAllQRCodeLogins()
-})
+onMounted(() => { void loadPage() })
 
 async function loadPage() {
   try {
@@ -251,7 +219,7 @@ async function saveDraft(key: string) {
     return
   }
   try {
-    await cancelQRCodeSession(key, false, false)
+    await cancelQRCodeSession(key, false, true)
     await store.saveAccount(draft.platform, accountId, {
       label,
       enabled: draft.enabled,
@@ -299,96 +267,11 @@ function deleteDraft(key: string) {
   cancelEdit(key)
 }
 
-async function startQRCodeLogin(key: string) {
-  const platform = drafts[key]?.platform
-  if (!platform || !supportsQRCode(platform)) {
-    return
-  }
-  try {
-    await cancelQRCodeSession(key)
-    const response = await store.createQRCodeLogin(platform)
-    setQRLogin(key, response)
-    scheduleQRPolling()
-  } catch (err) {
-    notifyError(getDisplayErrorMessage(err))
-  }
-}
-
-function setQRLogin(key: string, response: ThirdPartyQRCodeLoginCreateResponse | ThirdPartyQRCodeLoginPollResponse) {
-  const previous = qrLogins[key]
-  const account = 'account' in response ? response.account : null
-  qrLogins[key] = {
-    platform: response.platform,
-    loginId: response.login_id,
-    qrcodeUrl: 'qrcode_url' in response ? response.qrcode_url : previous?.qrcodeUrl || '',
-    expiresAt: response.expires_at,
-    state: normalizeQRCodeState(response.state),
-    accountNickname: account?.profile?.nickname || account?.label || previous?.accountNickname || '',
-    accountUid: account?.profile?.uid || account?.account_id || previous?.accountUid || '',
-    accountAvatarUrl: account?.profile?.avatar_url || previous?.accountAvatarUrl || '',
-    pollErrorNotified: false,
-  }
-  if (qrLogins[key].state === 'succeeded' && account && drafts[key]) {
-    reconcileQRCodeAccount(key, account)
-  }
-}
-
-function normalizeQRCodeState(state: string): ThirdPartyQRCodeLoginState {
-  switch (state) {
-    case 'pending_scan':
-    case 'pending_confirm':
-    case 'verification_required':
-    case 'expired':
-    case 'failed':
-    case 'succeeded':
-      return state
-    default:
-      return 'failed'
-  }
-}
-
-function isActiveQRCodeState(state: ThirdPartyQRCodeLoginState) {
-  return state === 'pending_scan' || state === 'pending_confirm' || state === 'verification_required'
-}
-
-async function cancelQRCodeSession(key: string, keepalive = false, ignoreError = true) {
-  const qr = qrLogins[key]
-  delete qrLogins[key]
-  qrPollInFlight.delete(key)
-  if (!qr) {
-    return
-  }
-  try {
-    await store.cancelQRCodeLogin(qr.platform, qr.loginId, keepalive)
-  } catch (err) {
-    if (!ignoreError) {
-      qrLogins[key] = qr
-      scheduleQRPolling()
-      throw err
-    }
-    // 服务端会在会话到期或应用退出时执行兜底清理。
-  }
-}
-
-async function cancelAllQRCodeLogins(keepalive = false) {
-  const sessions = Object.entries(qrLogins)
-  for (const [key] of sessions) {
-    delete qrLogins[key]
-    qrPollInFlight.delete(key)
-  }
-  await Promise.allSettled(sessions.map(([, qr]) => store.cancelQRCodeLogin(qr.platform, qr.loginId, keepalive)))
-}
-
-function handlePageHide() {
-  stopQRPolling()
-  void cancelAllQRCodeLogins(true)
-}
-
 function reconcileQRCodeAccount(key: string, account: ThirdPartyAccountSummary) {
   const draft = drafts[key]
   const accountId = normalizeAccountId(account.account_id)
   if (!draft || !accountId) {
-    return
+    return key
   }
 
   const nextKey = operationKey(account.platform, accountId)
@@ -402,65 +285,10 @@ function reconcileQRCodeAccount(key: string, account: ThirdPartyAccountSummary) 
 
   if (nextKey !== key) {
     drafts[nextKey] = draft
-    qrLogins[nextKey] = qrLogins[key]
     delete drafts[key]
-    delete qrLogins[key]
   }
   editingAccountKey.value = nextKey
-}
-
-function scheduleQRPolling() {
-  if (qrPollTimer !== undefined) {
-    return
-  }
-  qrPollTimer = window.setInterval(() => {
-    void pollActiveQRLogins()
-  }, qrPollIntervalMs)
-}
-
-function stopQRPolling() {
-  if (qrPollTimer === undefined) {
-    return
-  }
-  window.clearInterval(qrPollTimer)
-  qrPollTimer = undefined
-}
-
-async function pollActiveQRLogins() {
-  const active = Object.entries(qrLogins).filter(([key, qr]) => isActiveQRCodeState(qr.state) && !qrPollInFlight.has(key))
-  if (active.length === 0) {
-    if (!Object.values(qrLogins).some((qr) => isActiveQRCodeState(qr.state))) {
-      stopQRPolling()
-    }
-    return
-  }
-  await Promise.all(active.map(async ([key, qr]) => {
-    qrPollInFlight.add(key)
-    try {
-      const response = await store.pollQRCodeLogin(qr.platform, qr.loginId)
-      if (qrLogins[key]?.loginId === qr.loginId) {
-        setQRLogin(key, response)
-      }
-    } catch (err) {
-      if (qrLogins[key]?.loginId !== qr.loginId) {
-        return
-      }
-      const expiresAt = Date.parse(qr.expiresAt)
-      if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
-        qr.state = 'expired'
-        return
-      }
-      if (!qr.pollErrorNotified) {
-        qr.pollErrorNotified = true
-        notifyError(getDisplayErrorMessage(err))
-      }
-    } finally {
-      qrPollInFlight.delete(key)
-    }
-  }))
-  if (!Object.values(qrLogins).some((qr) => isActiveQRCodeState(qr.state))) {
-    stopQRPolling()
-  }
+  return nextKey
 }
 
 function accountKey(account: Pick<ThirdPartyAccountSummary, 'platform' | 'account_id'>) {
@@ -617,54 +445,6 @@ function displayUid(account: ThirdPartyAccountSummary) {
 
 function avatarText(account: ThirdPartyAccountSummary) {
   return displayName(account).slice(0, 1).toUpperCase()
-}
-
-function accountAvatarSrc(account: ThirdPartyAccountSummary) {
-  const avatarURL = account.profile?.avatar_url?.trim()
-  if (!avatarURL || avatarLoadFailures[avatarFailureKey(account)] !== undefined) {
-    return ''
-  }
-  return `/api/third-party/accounts/${encodeURIComponent(account.platform)}/${encodeURIComponent(account.account_id)}/avatar`
-}
-
-function markAvatarFailed(account: ThirdPartyAccountSummary) {
-  const key = avatarFailureKey(account)
-  avatarLoadFailures[key] = Date.now()
-  const existingTimer = avatarRetryTimers.get(key)
-  if (existingTimer !== undefined) {
-    window.clearTimeout(existingTimer)
-  }
-  avatarRetryTimers.set(key, window.setTimeout(() => {
-    avatarRetryTimers.delete(key)
-    delete avatarLoadFailures[key]
-  }, avatarRetryCooldownMs))
-}
-
-function markAvatarLoaded(account: ThirdPartyAccountSummary) {
-  clearAvatarFailure(avatarFailureKey(account))
-}
-
-function clearAvatarFailure(key: string) {
-  const timer = avatarRetryTimers.get(key)
-  if (timer !== undefined) {
-    window.clearTimeout(timer)
-    avatarRetryTimers.delete(key)
-  }
-  delete avatarLoadFailures[key]
-}
-
-function clearAvatarFailures() {
-  for (const timer of avatarRetryTimers.values()) {
-    window.clearTimeout(timer)
-  }
-  avatarRetryTimers.clear()
-  for (const key of Object.keys(avatarLoadFailures)) {
-    delete avatarLoadFailures[key]
-  }
-}
-
-function avatarFailureKey(account: ThirdPartyAccountSummary) {
-  return `${account.platform}:${account.account_id}:${account.profile?.avatar_url || ''}`
 }
 
 function timeText(value?: string | null) {
