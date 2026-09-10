@@ -7,6 +7,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestProductionRequestIDsAreUniqueAcrossConcurrentManagers(t *testing.T) {
@@ -37,18 +40,18 @@ func TestDuplicateSessionRegistrationPreservesOriginal(t *testing.T) {
 	handle := &Handle{}
 	manager.proc = handle
 	manager.snap.State = StateRunning
-	first, err := manager.registerEventSession(context.Background(), handle, "same", Event{})
+	first, err := manager.registerEventSession(context.Background(), handle, "same", chatevent.Event{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := manager.registerEventSession(context.Background(), handle, "same", Event{}); err == nil {
+	if _, err := manager.registerEventSession(context.Background(), handle, "same", chatevent.Event{}); err == nil {
 		t.Fatal("duplicate event accepted")
 	}
 	if _, err := manager.registerPingRequest(handle, "same"); err == nil {
 		t.Fatal("ping collided with event")
 	}
 	manager.mu.Lock()
-	manager.completeEventLocked(first, Delivery{RequestID: "same"}, nil)
+	manager.completeEventLocked(first, plugins.Delivery{RequestID: "same"}, nil)
 	manager.mu.Unlock()
 	select {
 	case <-first.done:
@@ -61,7 +64,7 @@ func TestCanceledEventIsNotReportedAsTimeout(t *testing.T) {
 	manager := testManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := manager.DeliverEvent(ctx, Event{})
+	_, err := manager.DeliverEvent(ctx, chatevent.Event{})
 	assertRuntimeErrorCode(t, err, codePluginEventCanceled)
 }
 

@@ -9,11 +9,10 @@ import (
 	"testing"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -87,7 +86,7 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
 	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
-	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", pluginruntime.Action{
+	result, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist", plugins.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
@@ -141,7 +140,7 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
 	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", pluginruntime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", plugins.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
 		RawData: map[string]any{
 			"message_id": "8899",
@@ -245,7 +244,7 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
 	}}, nil, nil, nil, nil, nil, nil, shell, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", pluginruntime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", plugins.Action{
 		Kind: "provider.napcat.message_emoji.like.set",
 		RawData: map[string]any{
 			"message_id": "8899",
@@ -280,7 +279,7 @@ func TestExecuteOneBotLocalActionRejectsMissingPermission(t *testing.T) {
 	application := newTestAppState(config.Config{}, nil)
 	application.setTestLocalActions(nil, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", pluginruntime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_provider", plugins.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",
@@ -306,7 +305,7 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
 	}}, nil, nil, nil, nil, nil, nil, &onebot11.Shell{}, nil, nil)
 
-	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", pluginruntime.Action{
+	_, err := application.executeOneBotLocalAction(context.Background(), "weather", "req_hist_disconnected", plugins.Action{
 		Kind: "message.history.get",
 		RawData: map[string]any{
 			"conversation_type": "group",

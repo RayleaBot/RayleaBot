@@ -18,6 +18,7 @@ const (
 	CodeReplyWindowExpired    = "adapter.reply_window_expired"
 	CodeCapabilityUnsupported = "adapter.capability_unsupported"
 	CodeSendFailed            = "adapter.send_failed"
+	CodeSendUnconfirmed       = "adapter.send_unconfirmed"
 )
 
 // SendError carries a formal code alongside the platform's own wording, so a
@@ -170,10 +171,10 @@ func (c *Client) post(ctx context.Context, settings requestSettings, endpoint st
 	if err != nil {
 		return chatevent.SendMessageResult{}, fmt.Errorf("qqofficial: send message: %w", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 
 	var decoded sendMessageResponse
-	json.NewDecoder(response.Body).Decode(&decoded)
+	decodeErr := json.NewDecoder(response.Body).Decode(&decoded)
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		message := decoded.Message
 		if message == "" {
@@ -183,6 +184,9 @@ func (c *Client) post(ctx context.Context, settings requestSettings, endpoint st
 			Code:    sendErrorCode(response.StatusCode, decoded.Code, replyTo != ""),
 			Message: message,
 		}
+	}
+	if decodeErr != nil || strings.TrimSpace(decoded.ID) == "" {
+		return chatevent.SendMessageResult{}, &SendError{Code: CodeSendUnconfirmed, Message: "平台未返回有效消息回执，无法确认消息是否送达；未自动重发。"}
 	}
 	return chatevent.SendMessageResult{MessageID: decoded.ID}, nil
 }

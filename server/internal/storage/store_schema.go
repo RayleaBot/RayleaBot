@@ -12,6 +12,30 @@ import (
 
 const migrationTimestampFormat = time.RFC3339Nano
 
+// ReadSchemaVersion inspects the snapshot itself without applying migrations.
+func ReadSchemaVersion(ctx context.Context, path string) (string, error) {
+	db, err := sql.Open(sqliteDriverName, sqliteReadOnlyDSN(path))
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = db.Close() }()
+	var exists int
+	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_migrations'").Scan(&exists); err != nil {
+		return "", err
+	}
+	if exists == 0 {
+		return "unknown", nil
+	}
+	var version sql.NullInt64
+	if err := db.QueryRowContext(ctx, "SELECT MAX(version) FROM schema_migrations").Scan(&version); err != nil {
+		return "", err
+	}
+	if !version.Valid {
+		return "unknown", nil
+	}
+	return fmt.Sprintf("%06d", version.Int64), nil
+}
+
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
@@ -64,6 +88,7 @@ var schemaMigrations = []schemaMigration{
 		name:    "current_render_templates",
 		file:    "migrations/000007_current_render_templates.sql",
 	},
+	{version: 8, name: "scoped_access_lists", file: "migrations/000008_scoped_access_lists.sql"},
 }
 
 func initializeSchema(ctx context.Context, db *sql.DB) error {
@@ -135,7 +160,7 @@ func databaseHasOnlySchemaMigrations(ctx context.Context, db *sql.DB) (bool, err
 	if err != nil {
 		return false, fmt.Errorf("query sqlite tables: %w", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	var tables []string
 	for rows.Next() {
@@ -314,7 +339,7 @@ func tableHasColumns(ctx context.Context, db *sql.DB, tableName string, columnNa
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	present := make(map[string]bool)
 	for rows.Next() {

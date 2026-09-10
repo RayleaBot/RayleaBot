@@ -7,7 +7,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) Outcome {
@@ -29,7 +28,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 		return OutcomeIgnored
 	}
 
-	runtimeEvent := pluginruntime.EventFromAdapter(event)
+	runtimeEvent := chatevent.FromAdapter(event)
 
 	commandName := bridgeCommandName(runtimeEvent)
 	results := b.dispatcher.Dispatch(ctx, runtimeEvent, commandName)
@@ -94,7 +93,7 @@ func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejec
 	b.logger.Warn(commandPolicyRejectedSummary(rejection), attrs...)
 }
 
-func bridgeCommandName(event pluginruntime.Event) string {
+func bridgeCommandName(event chatevent.Event) string {
 	if event.PayloadFields == nil {
 		return ""
 	}

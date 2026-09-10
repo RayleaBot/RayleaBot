@@ -2,7 +2,6 @@ package permission
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 type Verdict struct {
@@ -38,13 +39,13 @@ type CommandInfo struct {
 
 type Checker struct {
 	cfg                CheckerConfig
-	whitelistRepo      WhitelistRepository
+	whitelistRepo      EntryRepository
 	whitelistStateRepo WhitelistStateRepository
-	blacklistRepo      BlacklistRepository
+	blacklistRepo      EntryRepository
 	cooldown           *CooldownTracker
 }
 
-func NewChecker(cfg CheckerConfig, whitelistRepo WhitelistRepository, whitelistStateRepo WhitelistStateRepository, blacklistRepo BlacklistRepository, cooldown *CooldownTracker) *Checker {
+func NewChecker(cfg CheckerConfig, whitelistRepo EntryRepository, whitelistStateRepo WhitelistStateRepository, blacklistRepo EntryRepository, cooldown *CooldownTracker) *Checker {
 	return &Checker{
 		cfg:                cfg,
 		whitelistRepo:      whitelistRepo,
@@ -59,10 +60,10 @@ func NewChecker(cfg CheckerConfig, whitelistRepo WhitelistRepository, whitelistS
 // actorID is the sender, actorRole is "owner"/"admin"/"member"/""
 // groupID is the conversation group ID (empty for private messages)
 // cmd is non-nil only when the message is a parsed command
-func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string, cmd *CommandInfo) Verdict {
+func (c *Checker) Check(ctx context.Context, scope chatevent.IdentityScope, actorID, actorRole, groupID string, cmd *CommandInfo) Verdict {
 
 	// 1. Super admin bypass - skip all other checks.
-	if slices.Contains(c.cfg.SuperAdmins, actorID) {
+	if scope.SourceProtocol == "onebot11" && slices.Contains(c.cfg.SuperAdmins, actorID) {
 		return Verdict{Allowed: true}
 	}
 
@@ -73,7 +74,7 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 			return unavailableVerdict(err)
 		}
 		if enabled {
-			matched, err := c.matchesWhitelist(ctx, actorID, groupID)
+			matched, err := c.matchesWhitelist(ctx, scope, actorID, groupID)
 			if err != nil {
 				return unavailableVerdict(err)
 			}
@@ -86,7 +87,7 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 
 	// 2. Blacklist check.
 	if !skipBlacklist && c.blacklistRepo != nil {
-		blocked, err := c.blacklistRepo.IsBlacklisted(ctx, "user", actorID)
+		blocked, err := c.blacklistRepo.Contains(ctx, scope, "user", actorID)
 		if err != nil {
 			return unavailableVerdict(err)
 		}
@@ -94,7 +95,7 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 			return Verdict{Allowed: false, Reason: "用户在黑名单中", ErrorCode: "permission.blacklisted", Scope: ScopeUser}
 		}
 		if groupID != "" {
-			blocked, err := c.blacklistRepo.IsBlacklisted(ctx, "group", groupID)
+			blocked, err := c.blacklistRepo.Contains(ctx, scope, "group", groupID)
 			if err != nil {
 				return unavailableVerdict(err)
 			}
@@ -113,12 +114,12 @@ func (c *Checker) Check(ctx context.Context, actorID, actorRole, groupID string,
 
 	// 4. Cooldown / rate limit check.
 	if c.cooldown != nil && cmd != nil {
-		userKey := "user:" + actorID
+		userKey := "user:" + scope.Key("user", actorID)
 		if !c.cooldown.Allow(userKey) {
 			return Verdict{Allowed: false, Reason: "用户命令触发频率限制", ErrorCode: "platform.user_rate_limited", Scope: ScopeUser}
 		}
 		if groupID != "" {
-			groupKey := "group:" + groupID
+			groupKey := "group:" + scope.Key("group", groupID)
 			if !c.cooldown.Allow(groupKey) {
 				return Verdict{Allowed: false, Reason: "群命令触发频率限制", ErrorCode: "platform.rate_limited", Scope: ScopeGroup}
 			}
@@ -132,12 +133,12 @@ func unavailableVerdict(err error) Verdict {
 	return Verdict{Reason: "暂时无法确认权限，本次操作未执行", ErrorCode: "permission.unavailable", Err: err}
 }
 
-func (c *Checker) matchesWhitelist(ctx context.Context, actorID, groupID string) (bool, error) {
+func (c *Checker) matchesWhitelist(ctx context.Context, scope chatevent.IdentityScope, actorID, groupID string) (bool, error) {
 	if c.whitelistRepo == nil {
 		return false, errors.New("whitelist repository is unavailable")
 	}
 
-	matchedUser, err := c.whitelistRepo.IsWhitelisted(ctx, "user", actorID)
+	matchedUser, err := c.whitelistRepo.Contains(ctx, scope, "user", actorID)
 	if err != nil || matchedUser {
 		return matchedUser, err
 	}
@@ -146,7 +147,7 @@ func (c *Checker) matchesWhitelist(ctx context.Context, actorID, groupID string)
 		return false, nil
 	}
 
-	return c.whitelistRepo.IsWhitelisted(ctx, "group", groupID)
+	return c.whitelistRepo.Contains(ctx, scope, "group", groupID)
 }
 
 // hasPermissionLevel checks if actorRole meets the required permission level.
@@ -181,242 +182,6 @@ func levelToRank(level string) int {
 	default:
 		return 1
 	}
-}
-
-var ErrGovernanceEntryNotFound = errors.New("governance entry not found")
-
-type BlacklistEntry struct {
-	ID        int64
-	EntryType string
-	TargetID  string
-	Reason    string
-	CreatedAt string
-}
-
-type BlacklistRepository interface {
-	IsBlacklisted(ctx context.Context, entryType, targetID string) (bool, error)
-	Get(ctx context.Context, entryType, targetID string) (BlacklistEntry, error)
-	Add(ctx context.Context, entryType, targetID, reason string) error
-	Remove(ctx context.Context, entryType, targetID string) error
-	List(ctx context.Context, entryType string) ([]BlacklistEntry, error)
-}
-
-type SQLiteBlacklistRepository struct {
-	read  *sql.DB
-	write *sql.DB
-}
-
-func NewSQLiteBlacklistRepository(read, write *sql.DB) *SQLiteBlacklistRepository {
-	return &SQLiteBlacklistRepository{read: read, write: write}
-}
-
-func (r *SQLiteBlacklistRepository) IsBlacklisted(ctx context.Context, entryType, targetID string) (bool, error) {
-	var count int
-	err := r.read.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM blacklist_entries WHERE entry_type = ? AND target_id = ?",
-		entryType, targetID).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-func (r *SQLiteBlacklistRepository) Add(ctx context.Context, entryType, targetID, reason string) error {
-	_, err := r.write.ExecContext(ctx,
-		`INSERT INTO blacklist_entries (entry_type, target_id, reason, created_at) VALUES (?, ?, ?, ?)
-		 ON CONFLICT (entry_type, target_id) DO UPDATE SET reason = excluded.reason`,
-		entryType, targetID, reason, time.Now().UTC().Format(time.RFC3339))
-	return err
-}
-
-func (r *SQLiteBlacklistRepository) Get(ctx context.Context, entryType, targetID string) (BlacklistEntry, error) {
-	var entry BlacklistEntry
-	err := r.read.QueryRowContext(ctx,
-		`SELECT id, entry_type, target_id, reason, created_at
-		 FROM blacklist_entries
-		 WHERE entry_type = ? AND target_id = ?`,
-		entryType, targetID,
-	).Scan(&entry.ID, &entry.EntryType, &entry.TargetID, &entry.Reason, &entry.CreatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return BlacklistEntry{}, ErrGovernanceEntryNotFound
-	}
-	if err != nil {
-		return BlacklistEntry{}, err
-	}
-	return entry, nil
-}
-
-func (r *SQLiteBlacklistRepository) Remove(ctx context.Context, entryType, targetID string) error {
-	result, err := r.write.ExecContext(ctx,
-		"DELETE FROM blacklist_entries WHERE entry_type = ? AND target_id = ?",
-		entryType, targetID)
-	if err != nil {
-		return err
-	}
-	affected, _ := result.RowsAffected()
-	if affected == 0 {
-		return ErrGovernanceEntryNotFound
-	}
-	return nil
-}
-
-func (r *SQLiteBlacklistRepository) List(ctx context.Context, entryType string) ([]BlacklistEntry, error) {
-	rows, err := r.read.QueryContext(ctx,
-		"SELECT id, entry_type, target_id, reason, created_at FROM blacklist_entries WHERE entry_type = ? ORDER BY created_at DESC",
-		entryType)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var entries []BlacklistEntry
-	for rows.Next() {
-		var entry BlacklistEntry
-		if err := rows.Scan(&entry.ID, &entry.EntryType, &entry.TargetID, &entry.Reason, &entry.CreatedAt); err != nil {
-			return nil, err
-		}
-		entries = append(entries, entry)
-	}
-	return entries, rows.Err()
-}
-
-type WhitelistEntry struct {
-	ID        int64
-	EntryType string
-	TargetID  string
-	Reason    string
-	CreatedAt string
-}
-
-type WhitelistRepository interface {
-	IsWhitelisted(ctx context.Context, entryType, targetID string) (bool, error)
-	Get(ctx context.Context, entryType, targetID string) (WhitelistEntry, error)
-	Add(ctx context.Context, entryType, targetID, reason string) error
-	Remove(ctx context.Context, entryType, targetID string) error
-	List(ctx context.Context, entryType string) ([]WhitelistEntry, error)
-}
-
-type WhitelistStateRepository interface {
-	Enabled(ctx context.Context) (bool, error)
-	SetEnabled(ctx context.Context, enabled bool) error
-}
-
-type SQLiteWhitelistRepository struct {
-	read  *sql.DB
-	write *sql.DB
-}
-
-func NewSQLiteWhitelistRepository(read, write *sql.DB) *SQLiteWhitelistRepository {
-	return &SQLiteWhitelistRepository{read: read, write: write}
-}
-
-func (r *SQLiteWhitelistRepository) IsWhitelisted(ctx context.Context, entryType, targetID string) (bool, error) {
-	var count int
-	err := r.read.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM whitelist_entries WHERE entry_type = ? AND target_id = ?",
-		entryType, targetID,
-	).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count > 0, nil
-}
-
-func (r *SQLiteWhitelistRepository) Get(ctx context.Context, entryType, targetID string) (WhitelistEntry, error) {
-	var entry WhitelistEntry
-	err := r.read.QueryRowContext(ctx,
-		`SELECT id, entry_type, target_id, reason, created_at
-		 FROM whitelist_entries
-		 WHERE entry_type = ? AND target_id = ?`,
-		entryType, targetID,
-	).Scan(&entry.ID, &entry.EntryType, &entry.TargetID, &entry.Reason, &entry.CreatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return WhitelistEntry{}, ErrGovernanceEntryNotFound
-	}
-	if err != nil {
-		return WhitelistEntry{}, err
-	}
-	return entry, nil
-}
-
-func (r *SQLiteWhitelistRepository) Add(ctx context.Context, entryType, targetID, reason string) error {
-	_, err := r.write.ExecContext(ctx,
-		`INSERT INTO whitelist_entries (entry_type, target_id, reason, created_at) VALUES (?, ?, ?, ?)
-		 ON CONFLICT (entry_type, target_id) DO UPDATE SET reason = excluded.reason`,
-		entryType, targetID, reason, time.Now().UTC().Format(time.RFC3339))
-	return err
-}
-
-func (r *SQLiteWhitelistRepository) Remove(ctx context.Context, entryType, targetID string) error {
-	result, err := r.write.ExecContext(ctx,
-		"DELETE FROM whitelist_entries WHERE entry_type = ? AND target_id = ?",
-		entryType, targetID,
-	)
-	if err != nil {
-		return err
-	}
-	affected, _ := result.RowsAffected()
-	if affected == 0 {
-		return ErrGovernanceEntryNotFound
-	}
-	return nil
-}
-
-func (r *SQLiteWhitelistRepository) List(ctx context.Context, entryType string) ([]WhitelistEntry, error) {
-	rows, err := r.read.QueryContext(ctx,
-		"SELECT id, entry_type, target_id, reason, created_at FROM whitelist_entries WHERE entry_type = ? ORDER BY created_at DESC",
-		entryType,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var entries []WhitelistEntry
-	for rows.Next() {
-		var entry WhitelistEntry
-		if err := rows.Scan(&entry.ID, &entry.EntryType, &entry.TargetID, &entry.Reason, &entry.CreatedAt); err != nil {
-			return nil, err
-		}
-		entries = append(entries, entry)
-	}
-	return entries, rows.Err()
-}
-
-type SQLiteWhitelistStateRepository struct {
-	read  *sql.DB
-	write *sql.DB
-}
-
-func NewSQLiteWhitelistStateRepository(read, write *sql.DB) *SQLiteWhitelistStateRepository {
-	return &SQLiteWhitelistStateRepository{read: read, write: write}
-}
-
-func (r *SQLiteWhitelistStateRepository) Enabled(ctx context.Context) (bool, error) {
-	var enabled int
-	err := r.read.QueryRowContext(ctx,
-		"SELECT enabled FROM whitelist_state WHERE singleton_id = 1",
-	).Scan(&enabled)
-	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-	return enabled == 1, nil
-}
-
-func (r *SQLiteWhitelistStateRepository) SetEnabled(ctx context.Context, enabled bool) error {
-	value := 0
-	if enabled {
-		value = 1
-	}
-	_, err := r.write.ExecContext(ctx,
-		`INSERT INTO whitelist_state (singleton_id, enabled, updated_at) VALUES (1, ?, ?)
-		 ON CONFLICT (singleton_id) DO UPDATE SET enabled = excluded.enabled, updated_at = excluded.updated_at`,
-		value, time.Now().UTC().Format(time.RFC3339),
-	)
-	return err
 }
 
 type RateLimit struct {

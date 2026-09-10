@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -31,16 +32,17 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open sqlite store: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 	if _, err := store.Write.Exec(`INSERT INTO plugin_instances (plugin_id, desired_state, updated_at) VALUES ('system-backup-test', 'enabled', '2026-06-13T00:00:00Z')`); err != nil {
 		t.Fatalf("seed sqlite store: %v", err)
 	}
 
 	registry := tasks.NewRegistry()
 	executor := tasks.NewExecutor(registry, 5*time.Second)
-	defer executor.Close()
+	defer func(release func() error) { _ = release() }(executor.Close)
 
-	service := system.New(system.Deps{
+	service, err := system.New(system.Deps{
+		Plugins: plugincatalog.New(nil),
 		CurrentConfig: func() config.Config {
 			return config.Config{
 				Database: config.DatabaseConfig{Path: filepath.Join("data", "rayleabot.db")},
@@ -56,6 +58,9 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 		Storage:         store,
 		TaskExecutor:    executor,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	handler := NewSystemHandlers(service).HandleSystemBackup()
 
 	recorder := httptest.NewRecorder()
@@ -84,7 +89,7 @@ func TestSystemBackupUsesSQLiteSnapshotAndPreservesTaskShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open backup archive: %v", err)
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	names := map[string]bool{}
 	for _, file := range reader.File {
@@ -124,12 +129,12 @@ func extractBackupZipEntry(t *testing.T, files []*zip.File, name string, targetP
 		if err != nil {
 			t.Fatalf("open zip entry %s: %v", name, err)
 		}
-		defer reader.Close()
+		defer func(release func() error) { _ = release() }(reader.Close)
 		out, err := os.Create(targetPath)
 		if err != nil {
 			t.Fatalf("create extracted entry %s: %v", targetPath, err)
 		}
-		defer out.Close()
+		defer func(release func() error) { _ = release() }(out.Close)
 		if _, err := io.Copy(out, reader); err != nil {
 			t.Fatalf("extract zip entry %s: %v", name, err)
 		}

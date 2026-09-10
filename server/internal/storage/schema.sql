@@ -105,18 +105,6 @@ CREATE INDEX IF NOT EXISTS idx_scheduler_jobs_next_run
 CREATE INDEX IF NOT EXISTS idx_scheduler_jobs_plugin_id
     ON scheduler_jobs (plugin_id);
 
-CREATE TABLE IF NOT EXISTS blacklist_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_type TEXT NOT NULL CHECK (entry_type IN ('user', 'group')),
-    target_id TEXT NOT NULL,
-    reason TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL,
-    UNIQUE(entry_type, target_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_blacklist_entries_lookup
-    ON blacklist_entries (entry_type, target_id);
-
 CREATE TABLE IF NOT EXISTS management_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     log_id TEXT NOT NULL,
@@ -272,18 +260,6 @@ CREATE TABLE IF NOT EXISTS render_templates (
 CREATE INDEX IF NOT EXISTS idx_render_templates_source
     ON render_templates (source_type, source_plugin_id);
 
-CREATE TABLE IF NOT EXISTS whitelist_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    entry_type TEXT NOT NULL CHECK (entry_type IN ('user', 'group')),
-    target_id TEXT NOT NULL,
-    reason TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL,
-    UNIQUE(entry_type, target_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_whitelist_entries_lookup
-    ON whitelist_entries (entry_type, target_id);
-
 CREATE TABLE IF NOT EXISTS whitelist_state (
     singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
     enabled INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
@@ -292,3 +268,17 @@ CREATE TABLE IF NOT EXISTS whitelist_state (
 
 INSERT OR IGNORE INTO whitelist_state (singleton_id, enabled, updated_at)
 VALUES (1, 0, '1970-01-01T00:00:00Z');
+
+CREATE TABLE access_list_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    list_kind TEXT NOT NULL CHECK (list_kind IN ('blacklist', 'whitelist')),
+    source_protocol TEXT NOT NULL CHECK (source_protocol IN ('onebot11', 'qqofficial')),
+    source_adapter TEXT NOT NULL,
+    bot_id TEXT NOT NULL,
+    entry_type TEXT NOT NULL CHECK (entry_type IN ('user', 'group')),
+    target_id TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK ((source_protocol = 'onebot11' AND source_adapter = '' AND bot_id = '') OR (source_adapter <> '' AND bot_id <> '')),
+    UNIQUE (list_kind, source_protocol, source_adapter, bot_id, entry_type, target_id)
+);

@@ -1,4 +1,9 @@
 export const accessLists = {
+  namespace: {
+    required: '请输入适配器与机器人 ID。',
+    label: '适用范围', onebotGlobal: 'OneBot · 全部机器人', onebotInstance: 'OneBot · 指定机器人',
+    qqOfficial: 'QQ 官方 · 指定机器人', adapter: '适配器 ID', bot: '机器人 ID',
+  },
   title: '黑白名单',
   subtitle: '维护白名单、黑名单和白名单启用状态。',
   actions: {

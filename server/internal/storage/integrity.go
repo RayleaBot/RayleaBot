@@ -34,7 +34,7 @@ func QuickCheckPath(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func(release func() error) { _ = release() }(db.Close)
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 
@@ -68,7 +68,7 @@ func QuickCheck(ctx context.Context, db *sql.DB, path string) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	results := make([]string, 0, 1)
 	for rows.Next() {

@@ -7,7 +7,8 @@ import (
 	"strings"
 	"time"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -81,13 +82,13 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					defer func() { stop(); cancel() }()
 					item.ctx = execCtx
 					if slot.ctx.Err() != nil {
-						d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeOther, schedulerElapsed(item.event), "plugin.event_canceled", "事件因运行时停止而取消")
+						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), "plugin.event_canceled", "事件因运行时停止而取消")
 						completions <- laneCompletion{laneKey: laneKey}
 						return
 					}
 					if !slotIsDeliverable(slot) {
-						d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeFailed, schedulerElapsed(item.event), "platform.invalid_request", "plugin runtime is not deliverable")
-						d.logSchedulerCompletion(pluginID, item.event, "处理失败", schedulerElapsed(item.event), map[string]any{
+						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), "platform.invalid_request", "plugin runtime is not deliverable")
+						d.logSchedulerCompletion(pluginID, item.run, "处理失败", schedulerElapsed(item.run), map[string]any{
 							"error": "plugin runtime is not deliverable",
 						})
 						completions <- laneCompletion{laneKey: laneKey}
@@ -95,11 +96,11 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					}
 					delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
 					if err != nil {
-						duration := schedulerElapsed(item.event)
+						duration := schedulerElapsed(item.run)
 						outcome, code, message := schedulerFailureFields(err, delivery)
-						var runtimeErr *pluginruntime.Error
+						var runtimeErr *plugins.Error
 						reported := errors.As(err, &runtimeErr) && runtimeErr != nil && runtimeErr.FailureReported()
-						if item.event.SchedulerLog == nil && !reported && code != "plugin.event_canceled" {
+						if item.run == nil && !reported && code != "plugin.event_canceled" {
 							count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
 							if count > 0 {
 								d.logger.Warn("插件 "+pluginID+" 处理任务失败："+eventFailureDescription(code),
@@ -113,9 +114,9 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 								)
 							}
 						}
-						d.recordSchedulerCompletion(item.ctx, item.event, outcome, duration, code, message)
+						d.recordSchedulerCompletion(item.ctx, item.run, outcome, duration, code, message)
 						if !reported {
-							d.logSchedulerCompletion(pluginID, item.event, "处理失败", duration, map[string]any{
+							d.logSchedulerCompletion(pluginID, item.run, "处理失败", duration, map[string]any{
 								"error":      err.Error(),
 								"error_code": code,
 							})
@@ -127,9 +128,9 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					if delivery.Action != nil {
 						d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
 					}
-					d.recordSchedulerCompletion(item.ctx, item.event, scheduler.RunOutcomeSuccess, schedulerElapsed(item.event), "", "")
-					d.recoverScheduler(pluginID, item.event)
-					if item.event.SchedulerLog == nil {
+					d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeSuccess, schedulerElapsed(item.run), "", "")
+					d.recoverScheduler(pluginID, item.run)
+					if item.run == nil {
 						if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {
 							d.logger.Info("插件 "+pluginID+" 已恢复处理任务。", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
 						}
@@ -214,7 +215,7 @@ func enqueueLaneItem(
 	*laneOrder = append(*laneOrder, laneKey)
 }
 
-func laneKeyForEvent(event pluginruntime.Event, fallbackCounter *int) string {
+func laneKeyForEvent(event chatevent.Event, fallbackCounter *int) string {
 	if event.Target != nil {
 		targetType := strings.TrimSpace(event.Target.Type)
 		targetID := strings.TrimSpace(event.Target.ID)

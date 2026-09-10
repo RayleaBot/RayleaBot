@@ -5,9 +5,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func pluginListRegistrar() registrar {
@@ -23,7 +23,7 @@ func pluginListRegistrar() registrar {
 
 func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "plugin.list") {
-		return nil, &pluginruntime.Error{
+		return nil, &plugins.Error{
 			Code:    "plugin.permission_denied",
 			Message: "plugin.list permission is not declared",
 		}
@@ -66,7 +66,7 @@ func executePluginList(ctx context.Context, deps Deps, req ActionRequest) (map[s
 	}, nil
 }
 
-func pluginListVisibleCommandsForCaller(commands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) []plugins.CommandView {
+func pluginListVisibleCommandsForCaller(commands []plugins.CommandView, cfg config.Config, event chatevent.Event) []plugins.CommandView {
 	if len(commands) == 0 {
 		return []plugins.CommandView{}
 	}
@@ -109,7 +109,7 @@ func pluginListVisibleCommandGroups(groups []plugins.CommandGroup, commands []pl
 	return result
 }
 
-func pluginListCallerPermissionRank(cfg config.Config, event pluginruntime.Event) int {
+func pluginListCallerPermissionRank(cfg config.Config, event chatevent.Event) int {
 	actorID := ""
 	actorRole := ""
 	if event.Actor != nil {

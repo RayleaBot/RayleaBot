@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type RenderIdentity struct {
@@ -15,7 +15,7 @@ type RenderIdentity struct {
 	Permission map[string]any
 }
 
-func RenderIdentityData(cfg config.Config, event pluginruntime.Event) RenderIdentity {
+func RenderIdentityData(cfg config.Config, event chatevent.Event) RenderIdentity {
 	actor := event.Actor
 	target := event.Target
 	onebot := objectValue(event.PayloadFields["onebot"])

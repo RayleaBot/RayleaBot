@@ -3,6 +3,13 @@ package services
 import (
 	"bytes"
 	"context"
+	"log/slog"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
@@ -10,15 +17,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/wsevents"
-	"log/slog"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
@@ -48,7 +49,7 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		nil,
 	)
 
-	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_2", pluginruntime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_2", plugins.Action{
 		Kind:       "logger.write",
 		LogLevel:   "info",
 		LogMessage: "first log",
@@ -56,7 +57,7 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 		t.Fatalf("first logger.write failed: %v", err)
 	}
 
-	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_3", pluginruntime.Action{
+	_, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_3", plugins.Action{
 		Kind:       "logger.write",
 		LogLevel:   "info",
 		LogMessage: "second log",
@@ -71,7 +72,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	repo, err := pluginstore.NewKVSQLiteRepository(store)
 	if err != nil {
@@ -104,7 +105,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		nil,
 	)
 
-	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_4", pluginruntime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_4", plugins.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "set",
 		StorageKey:       "notice:last_join",
@@ -116,7 +117,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("storage set failed: %v", err)
 	}
 
-	getResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_5", pluginruntime.Action{
+	getResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_5", plugins.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
@@ -128,7 +129,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("expected get exists=true, got %#v", getResult)
 	}
 
-	listResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_6", pluginruntime.Action{
+	listResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_6", plugins.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "list",
 		StoragePrefix:    "notice:",
@@ -141,7 +142,7 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected list keys: %#v", listResult["keys"])
 	}
 
-	deleteResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_7", pluginruntime.Action{
+	deleteResult, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_7", plugins.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "delete",
 		StorageKey:       "notice:last_join",
@@ -161,7 +162,7 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
@@ -184,10 +185,10 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 		nil,
 		nil,
 	)
-	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan chatevent.Event, 1)}
 	application.eventStack.Dispatcher.Register("weather", fakeRuntime, []string{"config.changed"}, nil, 1)
 
-	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", pluginruntime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "weather", "req_config_changed", plugins.Action{
 		Kind: "config.write",
 		ConfigValues: map[string]any{
 			"default_city": "上海",
@@ -213,11 +214,11 @@ func TestExecuteGovernanceActionsRejectMissingPermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.blacklistRepo = permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
+	application.whitelistRepo = permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubPermissionView{permissions: map[string][]stubPermission{}},
@@ -232,7 +233,7 @@ func TestExecuteGovernanceActionsRejectMissingPermission(t *testing.T) {
 		nil,
 	)
 
-	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", pluginruntime.Action{
+	_, err = application.executeLocalAction(context.Background(), "governance-helper", "req_governance_unauthorized", plugins.Action{
 		Kind: "governance.blacklist.read",
 	})
 	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
@@ -245,11 +246,11 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.blacklistRepo = permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
+	application.whitelistRepo = permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.pluginStack.Plugins = plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
@@ -288,9 +289,10 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		nil,
 	)
 
-	blacklistWrite, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_upsert", pluginruntime.Action{
+	blacklistWrite, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_upsert", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
+		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 		GovernanceReason:    "spam",
@@ -302,7 +304,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected blacklist write result: %#v", blacklistWrite)
 	}
 
-	blacklistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_read", pluginruntime.Action{
+	blacklistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_read", plugins.Action{
 		Kind: "governance.blacklist.read",
 	})
 	if err != nil {
@@ -313,7 +315,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected blacklist snapshot: %#v", blacklistRead)
 	}
 
-	whitelistToggle, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_enabled", pluginruntime.Action{
+	whitelistToggle, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_enabled", plugins.Action{
 		Kind:                "governance.whitelist.write",
 		GovernanceOperation: "set_enabled",
 		GovernanceEnabled:   boolPointer(true),
@@ -325,9 +327,10 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected whitelist toggle result: %#v", whitelistToggle)
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_upsert", pluginruntime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_upsert", plugins.Action{
 		Kind:                "governance.whitelist.write",
 		GovernanceOperation: "upsert",
+		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
 		GovernanceEntryType: "group",
 		GovernanceTargetID:  "2001",
 		GovernanceReason:    "approved",
@@ -335,7 +338,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("governance.whitelist.write upsert failed: %v", err)
 	}
 
-	whitelistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_read", pluginruntime.Action{
+	whitelistRead, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_whitelist_read", plugins.Action{
 		Kind: "governance.whitelist.read",
 	})
 	if err != nil {
@@ -346,7 +349,7 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected whitelist snapshot: %#v", whitelistRead)
 	}
 
-	commandPolicy, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_command_policy", pluginruntime.Action{
+	commandPolicy, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_command_policy", plugins.Action{
 		Kind: "governance.command_policy.read",
 	})
 	if err != nil {
@@ -362,9 +365,10 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		}
 	}
 
-	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", pluginruntime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_blacklist_delete", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "delete",
+		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 	}); err != nil {
@@ -379,11 +383,11 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	application.blacklistRepo = permission.NewSQLiteBlacklistRepository(store.Read, store.Write)
-	application.whitelistRepo = permission.NewSQLiteWhitelistRepository(store.Read, store.Write)
+	application.blacklistRepo = permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
+	application.whitelistRepo = permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	application.whitelistState = permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
 	application.setTestLocalActions(
 		&stubPermissionView{permissions: map[string][]stubPermission{
@@ -403,9 +407,10 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	events, unsubscribe := application.services.GovernanceEvents.Subscribe(1)
 	defer unsubscribe()
 
-	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", pluginruntime.Action{
+	if _, err := application.executeLocalAction(context.Background(), "governance-helper", "req_governance_publish", plugins.Action{
 		Kind:                "governance.blacklist.write",
 		GovernanceOperation: "upsert",
+		GovernanceScope: chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"},
 		GovernanceEntryType: "user",
 		GovernanceTargetID:  "1001",
 		GovernanceReason:    "spam",
@@ -432,7 +437,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	repo, err := scheduler.NewSQLiteRepository(store)
 	if err != nil {
@@ -467,7 +472,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		nil,
 	)
 
-	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", pluginruntime.Action{
+	first, err := application.executeLocalAction(context.Background(), "weather", "req_sched_1", plugins.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    "daily_report",
 		SchedulerLogLabel:  "每日早报",
@@ -487,7 +492,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		t.Fatalf("expected next_run string, got %#v", first["next_run"])
 	}
 
-	second, err := application.executeLocalAction(context.Background(), "weather", "req_sched_2", pluginruntime.Action{
+	second, err := application.executeLocalAction(context.Background(), "weather", "req_sched_2", plugins.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    "daily_report",
 		SchedulerLogLabel:  "新版早报",

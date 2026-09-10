@@ -29,7 +29,7 @@ func TestNewRegistersAllFormalMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("metrics request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func(release func() error) { _ = release() }(resp.Body.Close)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}

@@ -308,11 +308,21 @@ func (actions *Actions) GovernanceBlacklistRead(ctx context.Context) (ActionResu
 	return actions.callResult(ctx, "governance.blacklist.read", struct{}{})
 }
 
+// GovernanceScope binds IDs to their protocol and receiving bot.
+// Only OneBot global rules use empty SourceAdapter and BotID.
+type GovernanceScope struct {
+	Kind           string `json:"kind"`
+	SourceProtocol string `json:"source_protocol"`
+	SourceAdapter  string `json:"source_adapter"`
+	BotID          string `json:"bot_id"`
+}
+
 type GovernanceBlacklistWriteRequest struct {
-	Operation string `json:"operation"`
-	EntryType string `json:"entry_type"`
-	TargetID  string `json:"target_id"`
-	Reason    string `json:"reason,omitempty"`
+	Scope     GovernanceScope `json:"scope"`
+	Operation string          `json:"operation"`
+	EntryType string          `json:"entry_type"`
+	TargetID  string          `json:"target_id"`
+	Reason    string          `json:"reason,omitempty"`
 }
 
 func (actions *Actions) GovernanceBlacklistWrite(ctx context.Context, request GovernanceBlacklistWriteRequest) (ActionResult, error) {
@@ -324,11 +334,12 @@ func (actions *Actions) GovernanceWhitelistRead(ctx context.Context) (ActionResu
 }
 
 type GovernanceWhitelistWriteRequest struct {
-	Operation string `json:"operation"`
-	Enabled   *bool  `json:"enabled,omitempty"`
-	EntryType string `json:"entry_type,omitempty"`
-	TargetID  string `json:"target_id,omitempty"`
-	Reason    string `json:"reason,omitempty"`
+	Scope     *GovernanceScope `json:"scope,omitempty"`
+	Operation string           `json:"operation"`
+	Enabled   *bool            `json:"enabled,omitempty"`
+	EntryType string           `json:"entry_type,omitempty"`
+	TargetID  string           `json:"target_id,omitempty"`
+	Reason    string           `json:"reason,omitempty"`
 }
 
 func (actions *Actions) GovernanceWhitelistWrite(ctx context.Context, request GovernanceWhitelistWriteRequest) (ActionResult, error) {

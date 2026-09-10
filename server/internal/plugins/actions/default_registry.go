@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type registrar struct {
@@ -57,19 +57,19 @@ func schedulerCreateRegistrar() registrar {
 
 func executeSchedulerCreate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "scheduler.create") {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "scheduler.create permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "scheduler.create permission is not declared"}
 	}
 	if deps.Scheduler == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "scheduler engine is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "scheduler engine is not available"}
 	}
 
 	payloadBytes, err := json.Marshal(req.Action.SchedulerPayload)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "scheduler.create payload is invalid", Err: err}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "scheduler.create payload is invalid", Err: err}
 	}
 	job, err := deps.Scheduler(ctx, req.PluginID, req.Action.SchedulerTaskID, req.Action.SchedulerLogLabel, req.Action.SchedulerCron, payloadBytes)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "scheduler.create failed", Err: err}
 	}
 	return map[string]any{
 		"task_id":  job.JobID,
@@ -92,20 +92,20 @@ func secretReadRegistrar() registrar {
 
 func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "secret.read") {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "secret.read permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "secret.read permission is not declared"}
 	}
 
 	key := strings.TrimSpace(req.Action.SecretKey)
 	if !isPluginSecretKey(key) {
-		return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "secret.read key is required"}
+		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "secret.read key is required"}
 	}
 	if deps.Secrets == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "secret.read store is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "secret.read store is not available"}
 	}
 
 	value, exists, err := deps.Secrets.ReadPluginSecret(ctx, pluginSecretStorageKey(req.PluginID, key))
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "secret.read failed", Err: err}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "secret.read failed", Err: err}
 	}
 	if !exists {
 		return map[string]any{"key": key, "exists": false}, nil
@@ -136,16 +136,16 @@ func configRegistrars() []registrar {
 
 func executeConfigWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.PluginConfig == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write repository is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "config.write repository is not available"}
 	}
 
 	changedKeys, err := deps.PluginConfig.Write(ctx, req.PluginID, req.Action.ConfigValues)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: err}
 	}
 	settings, readErr := deps.PluginConfig.ReadAll(ctx, req.PluginID)
 	if readErr != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "config.write failed", Err: readErr}
 	}
 	if deps.Plugins != nil {
 		if snapshot, ok := deps.Plugins.Get(req.PluginID); ok {

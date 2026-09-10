@@ -1,0 +1,12 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+  - type: action
+    request_id: action-governance-missing-scope-1
+    action: governance.whitelist.write
+    data:
+      operation: delete
+      entry_type: user
+      target_id: fixture-openid
+expect:
+  valid: false

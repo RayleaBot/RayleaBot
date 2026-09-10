@@ -6,8 +6,13 @@ request:
   path: /api/governance/whitelist/entries
   body:
     entry_type: channel
-    target_id: '20002'
-    reason: ''
+    target_id: "20002"
+    reason: ""
+    scope:
+      source_protocol: onebot11
+      source_adapter: ""
+      bot_id: ""
+      kind: global
 response:
   status: 400
   body:

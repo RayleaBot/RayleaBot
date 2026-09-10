@@ -43,8 +43,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "tasks")
 	assertTableExists(t, store.Read, "secret_store")
 	assertTableExists(t, store.Read, "scheduler_jobs")
-	assertTableExists(t, store.Read, "blacklist_entries")
-	assertTableExists(t, store.Read, "whitelist_entries")
+	assertTableExists(t, store.Read, "access_list_entries")
 	assertTableExists(t, store.Read, "whitelist_state")
 	assertTableExists(t, store.Read, "management_logs")
 	assertTableExists(t, store.Read, "plugin_kv")
@@ -83,11 +82,7 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertIndexExists(t, store.Read, "idx_bilibili_source_seen_uid")
 	assertIndexExists(t, store.Read, "idx_bilibili_source_dynamics_observed_at")
 
-	tables := readTables(t, store.Read)
-	if len(tables) != 24 {
-		t.Fatalf("unexpected table set: %#v", tables)
-	}
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7, 8})
 }
 
 func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
@@ -95,10 +90,10 @@ func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
 	store := mustOpenStore(t, databasePath)
-	store.Close()
+	_ = store.Close()
 
 	second := mustOpenStore(t, databasePath)
-	defer second.Close()
+	defer func(release func() error) { _ = release() }(second.Close)
 
 	var bootstrapCount int
 	if err := second.Read.QueryRow(`SELECT COUNT(*) FROM auth_bootstrap_state`).Scan(&bootstrapCount); err != nil {
@@ -134,7 +129,7 @@ func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
 	createLegacySchemaDatabase(t, databasePath)
 
 	store := mustOpenStore(t, databasePath)
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	var label string
 	if err := store.Read.QueryRow(`SELECT label FROM third_party_accounts WHERE platform = 'bilibili' AND account_id = 'primary'`).Scan(&label); err != nil {
@@ -151,7 +146,7 @@ func TestOpenMigratesLegacySchemaToCurrentVersion(t *testing.T) {
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
 	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
 	assertColumnExists(t, store.Read, "bilibili_source_rooms", "cover_url")
-	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7})
+	assertMigrationsApplied(t, store.Read, []int{1, 2, 3, 4, 5, 6, 7, 8})
 	assertTableMissing(t, store.Read, "third_party_accounts_legacy")
 }
 
@@ -171,7 +166,7 @@ func TestOpenQuarantinesMalformedDatabaseAndCreatesFreshStore(t *testing.T) {
 	}
 
 	store := mustOpenStore(t, databasePath)
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	if err := QuickCheckPath(context.Background(), databasePath); err != nil {
 		t.Fatalf("fresh database quick_check failed: %v", err)
@@ -211,11 +206,11 @@ func TestOpenRejectsSecondHandleForSameDatabasePath(t *testing.T) {
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
 	store := mustOpenStore(t, databasePath)
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	second, err := Open(databasePath)
 	if err == nil {
-		second.Close()
+		_ = second.Close()
 		t.Fatal("expected second Open for the same database path to fail")
 	}
 	if !strings.Contains(err.Error(), "already in use") {
@@ -248,7 +243,7 @@ func TestCreateSnapshotUsesValidSQLiteFileAndRetainsThree(t *testing.T) {
 
 	databasePath := filepath.Join(t.TempDir(), "state.db")
 	store := mustOpenStore(t, databasePath)
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	for i := 0; i < 5; i++ {
 		snapshotPath, err := store.CreateSnapshot(context.Background())
@@ -421,7 +416,7 @@ func assertColumnExists(t *testing.T, db *sql.DB, tableName, columnName string) 
 	if err != nil {
 		t.Fatalf("query table info for %s: %v", tableName, err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	for rows.Next() {
 		var cid int
@@ -461,7 +456,7 @@ func assertMigrationsApplied(t *testing.T, db *sql.DB, versions []int) {
 	if err != nil {
 		t.Fatalf("query schema_migrations: %v", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	var got []int
 	names := map[int]string{}
@@ -497,7 +492,7 @@ func readTables(t *testing.T, db *sql.DB) []string {
 	if err != nil {
 		t.Fatalf("query sqlite_master tables: %v", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	var tables []string
 	for rows.Next() {

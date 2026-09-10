@@ -579,6 +579,20 @@ paths:
         - CookieAuth: []
           CSRFAuth: []
       parameters:
+        - name: kind
+          in: query
+          required: true
+          schema: { type: string, enum: [global, instance] }
+        - name: source_protocol
+          in: query
+          required: true
+          schema: { type: string, enum: [onebot11, qqofficial] }
+        - name: source_adapter
+          in: query
+          schema: { type: string }
+        - name: bot_id
+          in: query
+          schema: { type: string }
         - $ref: '#/components/parameters/GovernanceEntryType'
         - $ref: '#/components/parameters/GovernanceTargetId'
       responses:
@@ -675,6 +689,20 @@ paths:
         - CookieAuth: []
           CSRFAuth: []
       parameters:
+        - name: kind
+          in: query
+          required: true
+          schema: { type: string, enum: [global, instance] }
+        - name: source_protocol
+          in: query
+          required: true
+          schema: { type: string, enum: [onebot11, qqofficial] }
+        - name: source_adapter
+          in: query
+          schema: { type: string }
+        - name: bot_id
+          in: query
+          schema: { type: string }
         - $ref: '#/components/parameters/GovernanceEntryType'
         - $ref: '#/components/parameters/GovernanceTargetId'
       responses:
@@ -4018,6 +4046,31 @@ components:
           items:
             $ref: '#/components/schemas/SchedulerJobSummary'
 
+    GovernanceScope:
+      type: object
+      additionalProperties: false
+      required: [kind, source_protocol, source_adapter, bot_id]
+      description: OneBot global rules use empty source_adapter and bot_id; instance rules require both. QQ official rules always bind both fields. Identities never cross protocols or bot namespaces.
+      properties:
+        kind: { type: string, enum: [global, instance] }
+        source_protocol:
+          type: string
+          enum: [onebot11, qqofficial]
+        source_adapter:
+          type: string
+        bot_id:
+          type: string
+      oneOf:
+        - properties:
+            kind: { const: global }
+            source_protocol: { const: onebot11 }
+            source_adapter: { const: '' }
+            bot_id: { const: '' }
+        - properties:
+            kind: { const: instance }
+            source_adapter: { minLength: 1 }
+            bot_id: { minLength: 1 }
+
     GovernanceEntryType:
       type: string
       enum: [user, group]
@@ -4025,8 +4078,10 @@ components:
     GovernanceEntry:
       type: object
       additionalProperties: false
-      required: [entry_type, target_id, reason, created_at]
+      required: [scope, entry_type, target_id, reason, created_at]
       properties:
+        scope:
+          $ref: '#/components/schemas/GovernanceScope'
         entry_type:
           $ref: '#/components/schemas/GovernanceEntryType'
         target_id:
@@ -4046,8 +4101,10 @@ components:
     GovernanceEntryUpsertRequest:
       type: object
       additionalProperties: false
-      required: [entry_type, target_id, reason]
+      required: [scope, entry_type, target_id, reason]
       properties:
+        scope:
+          $ref: '#/components/schemas/GovernanceScope'
         entry_type:
           $ref: '#/components/schemas/GovernanceEntryType'
         target_id:

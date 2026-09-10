@@ -4,17 +4,20 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const expiredEventRetention = 5 * time.Minute
 
 type eventSession struct {
 	requestID          string
-	event              Event
+	event              chatevent.Event
 	ctx                context.Context
 	cancel             context.CancelFunc
 	done               chan struct{}
-	delivery           Delivery
+	delivery           plugins.Delivery
 	err                error
 	localActionIDs     map[string]struct{}
 	localActionOrder   []string
@@ -29,7 +32,7 @@ type pingRequest struct {
 	completed bool
 }
 
-func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requestID string, event Event) (*eventSession, *Error) {
+func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requestID string, event chatevent.Event) (*eventSession, *plugins.Error) {
 	sessionCtx, cancel := context.WithCancel(ctx)
 
 	m.mu.Lock()
@@ -65,7 +68,7 @@ func (m *Manager) registerEventSession(ctx context.Context, handle *Handle, requ
 	return session, nil
 }
 
-func (m *Manager) completeEventLocked(session *eventSession, delivery Delivery, err error) {
+func (m *Manager) completeEventLocked(session *eventSession, delivery plugins.Delivery, err error) {
 	if session == nil || session.completed || m.pendingEvents[session.requestID] != session {
 		return
 	}
@@ -126,7 +129,7 @@ func (m *Manager) pruneExpiredEventsLocked(now time.Time) {
 	}
 }
 
-func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *Error {
+func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *plugins.Error {
 	runtimeErr := errorf(code, message, err)
 
 	m.mu.Lock()
@@ -134,7 +137,7 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 		m.mu.Unlock()
 		return runtimeErr
 	}
-	runtimeErr.failureReported = true
+	runtimeErr.MarkFailureReported()
 	m.markStoppedLocked(code, message, err)
 	m.abortPendingLocked(runtimeErr)
 	m.mu.Unlock()
@@ -151,13 +154,13 @@ func (m *Manager) failRuntime(handle *Handle, code, message string, err error) *
 	return runtimeErr
 }
 
-func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, message string, err error) (Delivery, error) {
+func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, message string, err error) (plugins.Delivery, error) {
 	runtimeErr := errorf(code, message, err)
 	if session == nil {
-		return Delivery{}, runtimeErr
+		return plugins.Delivery{}, runtimeErr
 	}
 
-	delivery := Delivery{
+	delivery := plugins.Delivery{
 		RequestID:    session.requestID,
 		ErrorCode:    runtimeErr.Code,
 		ErrorMessage: runtimeErr.Message,
@@ -170,7 +173,7 @@ func (m *Manager) timeoutEvent(handle *Handle, session *eventSession, code, mess
 		if session.err == nil {
 			return session.delivery, nil
 		}
-		if runtimeSessionErr, ok := session.err.(*Error); ok {
+		if runtimeSessionErr, ok := session.err.(*plugins.Error); ok {
 			return session.delivery, runtimeSessionErr
 		}
 		return session.delivery, errorf(codePluginInternalError, "plugin event delivery failed", session.err)

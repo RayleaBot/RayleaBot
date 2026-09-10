@@ -66,9 +66,12 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 	a.platform.Tasks = taskRegistry
 }
 
-func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginstore.ConfigRepository, adapterShell *onebot11.Shell, webhooks *pluginwebhook.Registry) {
+func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *testRuntimeRegistry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginstore.ConfigRepository, adapterShell *onebot11.Shell, webhooks *pluginwebhook.Registry) {
 	if a == nil {
 		return
+	}
+	if runtimes == nil {
+		runtimes = newRuntimeRegistry(a.state.Logger, pluginruntime.Options{})
 	}
 	deps := Deps{
 		CurrentConfig:    a.state.CurrentConfig,
@@ -87,7 +90,7 @@ func (a *testApp) setTestLifecycle(catalog *plugincatalog.Catalog, desiredRepo p
 	if adapterShell != nil {
 		deps.Identities = testAdapterIdentities{shell: adapterShell}
 	}
-	a.services.pluginLifecycle = NewController(deps)
+	a.services.pluginLifecycle = newTestController(t, deps)
 }
 
 type testRuntimeRegistry struct {
@@ -172,15 +175,15 @@ func newPluginWebhookRegistry() *pluginwebhook.Registry {
 }
 
 type capturingRuntime struct {
-	events chan pluginruntime.Event
+	events chan chatevent.Event
 }
 
-func (r *capturingRuntime) DeliverEvent(_ context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (r *capturingRuntime) DeliverEvent(_ context.Context, event chatevent.Event) (plugins.Delivery, error) {
 	select {
 	case r.events <- event:
 	default:
 	}
-	return pluginruntime.Delivery{
+	return plugins.Delivery{
 		RequestID: "event_test_1",
 		Result:    map[string]any{},
 	}, nil
@@ -301,4 +304,32 @@ func (source testAdapterIdentities) BotIdentities() []chatevent.BotIdentity {
 		return []chatevent.BotIdentity{{SourceAdapter: "onebot11", SourceProtocol: "onebot11", ID: id}}
 	}
 	return []chatevent.BotIdentity{}
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (r *capturingRuntime) ReadyForEvents() bool {
+	return r.Snapshot().State == pluginruntime.StateRunning
+}
+
+func newTestController(t *testing.T, deps Deps) *Controller {
+	t.Helper()
+	if deps.CurrentConfig == nil {
+		deps.CurrentConfig = func() config.Config { return config.Config{} }
+	}
+	if deps.Plugins == nil {
+		deps.Plugins = plugincatalog.New(nil)
+	}
+	if deps.Runtimes == nil {
+		deps.Runtimes = newRuntimeRegistry(slog.Default(), pluginruntime.Options{})
+	}
+	if deps.Dispatcher == nil {
+		deps.Dispatcher = dispatch.New(slog.Default(), nil, nil, 16)
+	}
+	controller, err := NewController(deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controller.BindLifecycleContext(t.Context())
+	t.Cleanup(deps.Dispatcher.Close)
+	return controller
 }

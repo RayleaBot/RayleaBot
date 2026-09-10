@@ -4,16 +4,13 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func (c *Controller) Reload(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c.plugins == nil {
-		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
-	}
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -118,25 +115,39 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	spec, payload, err := c.buildStartInputs(ctx, pluginID)
 	if err != nil {
 		c.logLifecycleWarn("build runtime spec for plugin reload", pluginID, err)
-		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateStopped))
+		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 		return
 	}
 
 	newManager := c.runtimes.NewDetached()
 	c.updateReloadTask(taskID, 60, "重载插件运行时")
-	if err := c.dispatcher.ReloadPlugin(ctx, pluginID, current, newManager, spec, payload, dispatch.CommandsFromPlugin(snapshot.Commands)); err != nil {
+	if err := newManager.Start(ctx, spec, payload); err != nil {
 		c.logLifecycleWarn("reload plugin runtime", pluginID, err)
 		_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 		return
 	}
 
+	retired := c.dispatcher.SwapPlugin(pluginID, newManager, spec.Events, snapshot.Commands, spec.EffectiveConcurrency)
 	c.runtimes.Replace(pluginID, newManager)
 	newManager.ResetCrashCount()
 	_, _ = c.plugins.SetRuntimeState(pluginID, string(pluginruntime.StateRunning))
 	c.clearBotIdentity(pluginID)
 	c.afterRuntimeRegistered(ctx, pluginID, payload.Bots)
+	if retired != nil {
+		drainCtx, cancelDrain := context.WithTimeout(c.lifecycleContext(), spec.ShutdownGrace)
+		if err := retired.Wait(drainCtx); err != nil {
+			c.logLifecycleWarn("old plugin delivery drain canceled", pluginID, err)
+		}
+		cancelDrain()
+	}
+	// Use a fresh budget: an expired drain must not prevent process cleanup.
+	stopCtx, cancelStop := context.WithTimeout(context.WithoutCancel(c.lifecycleContext()), max(spec.ShutdownGrace, time.Second))
+	if err := current.Stop(stopCtx); err != nil {
+		c.logLifecycleWarn("stop old plugin runtime after reload", pluginID, err)
+	}
+	cancelStop()
 	c.finishReloadTask(taskID, pluginID)
 }
 
@@ -149,7 +160,7 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 		message = "插件重载超时"
 	}
 
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if errors.As(err, &runtimeErr) {
 		if strings.TrimSpace(runtimeErr.Code) != "" {
 			code = runtimeErr.Code
@@ -158,17 +169,6 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 			message = runtimeErr.Message
 		}
 	} else {
-		var specErr *pluginruntime.Error
-		if errors.As(err, &specErr) {
-			if strings.TrimSpace(specErr.Code) != "" {
-				code = specErr.Code
-			}
-			if strings.TrimSpace(specErr.Message) != "" {
-				message = specErr.Message
-			}
-			c.failReloadTask(taskID, pluginID, code, message)
-			return
-		}
 		if strings.TrimSpace(err.Error()) != "" {
 			message = err.Error()
 		}

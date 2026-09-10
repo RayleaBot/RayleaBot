@@ -2,16 +2,16 @@ package dispatch
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"log/slog"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func allowAllPermissions(dispatcher *Dispatcher) {
@@ -26,13 +26,13 @@ func TestDispatchActionExecutionRejectsWhenPermissionCheckerIsMissing(t *testing
 	d := New(logger, sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_missing_checker",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "should be denied"},
 			}},
@@ -65,13 +65,13 @@ func TestDispatchActionExecutionRejectsMissingMessageSendPermission(t *testing.T
 	})
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_permission_send",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "should be denied"},
 			}},
@@ -115,12 +115,12 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyPermission(t *testing.
 	})
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_permission_reply",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:           "message.reply",
 			ReplyToEventID: "evt_reply_target",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply denied"},
 			}},
@@ -158,13 +158,13 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	allowAllPermissions(d)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_0001",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -223,13 +223,13 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 	allowAllPermissions(d)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_0002",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -280,13 +280,13 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	allowAllPermissions(d)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_0003",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:                    "message.reply",
 			ReplyToEventID:          "evt_reply_target",
 			FallbackToSendIfMissing: true,
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "fallback reply"},
 			}},
@@ -333,13 +333,13 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 	allowAllPermissions(d)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_0004",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "hello dispatch"},
 			}},
@@ -365,7 +365,7 @@ func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{}}}
+	rt := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{}}}
 	d.Register("p", rt, []string{"message.group"}, nil, 1)
 
 	pub := &recordingRuntimePublisher{}
@@ -383,7 +383,7 @@ func TestDispatcherWindowFlushPublishesDeltas(t *testing.T) {
 		t.Fatalf("unexpected snapshot: %+v", first)
 	}
 
-	noTarget := pluginruntime.Event{
+	noTarget := chatevent.Event{
 		EventID:        "evt-no-target",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
@@ -409,8 +409,8 @@ func TestDispatcherFlushDropsByReasonRecordsQueueFull(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		started:  make(chan pluginruntime.Event, 1),
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
 
@@ -463,7 +463,6 @@ func (p *recordingRuntimePublisher) Snapshots() []DispatcherWindowSnapshot {
 // recordingDispatchMetrics captures dispatcher metric callbacks so the
 // outbound-instrumentation test can assert IncOutboundSend and
 // ObserveOutboundDuration are invoked once per send attempt.
-
 type recordingDispatchMetrics struct {
 	mu                sync.Mutex
 	pipelineCounters  map[string]map[string]int
@@ -530,7 +529,6 @@ func (m *recordingDispatchMetrics) ObserveOutboundDuration(adapter string, durat
 // time an action is sent. The /api/system/metrics contract advertises
 // outbound_send_total and outbound_send_duration_seconds and depends on
 // these calls firing in production.
-
 func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 	sender := &fakeSender{}
 	d := New(slog.Default(), sender, nil, 16)
@@ -540,12 +538,12 @@ func TestDispatchActionExecutionRecordsOutboundMetrics(t *testing.T) {
 	metrics := newRecordingDispatchMetrics()
 	d.SetMetricsObserver(metrics)
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
-		Action: &pluginruntime.Action{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "metric reply"},
 			}},

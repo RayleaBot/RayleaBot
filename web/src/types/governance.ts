@@ -1,5 +1,6 @@
 import type { components } from './generated'
 
+export type GovernanceScope = components['schemas']['GovernanceScope']
 export type BlacklistEntry = components['schemas']['BlacklistEntry']
 export type GovernanceEntryType = components['schemas']['GovernanceEntryType']
 export type GovernanceEntryUpsertRequest = components['schemas']['GovernanceEntryUpsertRequest']

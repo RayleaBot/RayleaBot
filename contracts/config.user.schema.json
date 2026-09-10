@@ -167,7 +167,8 @@
             "minLength": 1
           },
           "uniqueItems": true,
-          "x-apply-policy": "hot_reload"
+          "x-apply-policy": "hot_reload",
+          "description": "OneBot11 QQ user IDs with global super-admin access. These IDs never grant privileges to QQ official openids or other protocols."
         },
         "session_ttl_days": {
           "type": "integer",

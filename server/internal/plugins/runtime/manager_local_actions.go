@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type localActionRejection struct {
@@ -15,7 +18,7 @@ type localActionRejection struct {
 	details         map[string]any
 }
 
-func (m *Manager) routeLocalActionFrameLocked(handle *Handle, line []byte) (*localActionRejection, *Error) {
+func (m *Manager) routeLocalActionFrameLocked(handle *Handle, line []byte) (*localActionRejection, *plugins.Error) {
 	frame, action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, line)
 	if err != nil {
 		return nil, err
@@ -107,7 +110,7 @@ func rememberLocalActionID(session *eventSession, requestID string, limit int) {
 	session.localActionOrder = append(session.localActionOrder, requestID)
 }
 
-func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (ActionFrame, *Action, string, *Error) {
+func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (ActionFrame, *plugins.Action, string, *plugins.Error) {
 	var frame ActionFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
@@ -136,7 +139,7 @@ func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (Acti
 	return frame, action, parentRequestID, nil
 }
 
-func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parentRequestID string, requestID string, action Action, parentEvent Event) {
+func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parentRequestID string, requestID string, action plugins.Action, parentEvent chatevent.Event) {
 	if m.opts.ExecuteLocalAction == nil {
 		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available", nil); err != nil {
 			_ = m.failRuntime(handle, err.Code, err.Message, err.Err)
@@ -146,7 +149,7 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parent
 
 	result, err := m.opts.ExecuteLocalAction(ctx, handle.Spec.PluginID, requestID, action, parentEvent)
 	if err != nil {
-		var runtimeErr *Error
+		var runtimeErr *plugins.Error
 		if errors.As(err, &runtimeErr) {
 			if writeErr := m.writeLocalError(handle, parentRequestID, requestID, runtimeErr.Code, runtimeErr.Message, runtimeErr.Details); writeErr != nil {
 				_ = m.failRuntime(handle, writeErr.Code, writeErr.Message, writeErr.Err)
@@ -167,7 +170,7 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parent
 	}
 }
 
-func (m *Manager) writeLocalResult(handle *Handle, parentRequestID string, requestID string, data map[string]any) *Error {
+func (m *Manager) writeLocalResult(handle *Handle, parentRequestID string, requestID string, data map[string]any) *plugins.Error {
 	frame := map[string]any{
 		"type":       "result",
 		"request_id": requestID,
@@ -177,7 +180,7 @@ func (m *Manager) writeLocalResult(handle *Handle, parentRequestID string, reque
 	return m.writeLocalResponse(handle, parentRequestID, frame)
 }
 
-func (m *Manager) writeLocalError(handle *Handle, parentRequestID string, requestID string, code string, message string, details map[string]any) *Error {
+func (m *Manager) writeLocalError(handle *Handle, parentRequestID string, requestID string, code string, message string, details map[string]any) *plugins.Error {
 	frame := map[string]any{
 		"type":       "error",
 		"request_id": requestID,
@@ -190,7 +193,7 @@ func (m *Manager) writeLocalError(handle *Handle, parentRequestID string, reques
 	return m.writeLocalResponse(handle, parentRequestID, frame)
 }
 
-func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, frame map[string]any) *Error {
+func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, frame map[string]any) *plugins.Error {
 	m.protocolMu.Lock()
 	defer m.protocolMu.Unlock()
 
@@ -220,7 +223,7 @@ func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, fra
 	return nil
 }
 
-func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActionRejection) *Error {
+func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActionRejection) *plugins.Error {
 	m.mu.RLock()
 	if m.proc != handle {
 		m.mu.RUnlock()

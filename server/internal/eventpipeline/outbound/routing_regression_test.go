@@ -1,21 +1,21 @@
-package app
+package outbound
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func inboundRoutingEvent(t *testing.T, id string) chatevent.NormalizedEvent {
 	t.Helper()
-	shell := onebot11.New(id, config.OneBotConfig{}, config.AdapterConfig{}, discardLogger())
+	shell := onebot11.New(id, config.OneBotConfig{}, config.AdapterConfig{}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	events := make(chan chatevent.NormalizedEvent, 1)
 	shell.SetEventHandler(func(_ context.Context, event chatevent.NormalizedEvent) { events <- event })
 	ctx, cancel := context.WithCancel(context.Background())
@@ -49,16 +49,16 @@ func TestReplyRoutingIsolatesEqualUpstreamMessageIDs(t *testing.T) {
 	if first.EventID == second.EventID {
 		t.Fatal("two adapters emitted the same host event ID")
 	}
-	cache := outbound.NewReplyTargetCache(100)
+	cache := NewReplyTargetCache(100)
 	cache.Record(first)
 	cache.Record(second)
 	var sent []string
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"first":  recordingSender{name: "first", sent: &sent},
 		"second": recordingSender{name: "second", sent: &sent},
-	}, map[string]string{"first": "onebot11", "second": "onebot11"})
+	}, map[string]string{"first": "onebot11", "second": "onebot11"}, nil)
 	for _, event := range []chatevent.NormalizedEvent{first, second} {
-		if _, err := outbound.SendAction(context.Background(), router, cache, pluginruntime.EventFromAdapter(event), pluginruntime.Action{Kind: "message.reply", ReplyToEventID: event.EventID}); err != nil {
+		if _, err := SendAction(context.Background(), router, cache, chatevent.FromAdapter(event), chatevent.MessageCommand{Kind: "message.reply", ReplyToEventID: event.EventID}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -73,27 +73,26 @@ func TestActiveSendSelectsInstanceAndTracksEnableSwitch(t *testing.T) {
 		{ID: "first", Type: "onebot11", Enabled: true},
 		{ID: "second", Type: "onebot11", Enabled: true},
 	}}
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"first":  recordingSender{name: "first", sent: &sent},
 		"second": recordingSender{name: "second", sent: &sent},
-	}, map[string]string{"first": "onebot11", "second": "onebot11"})
-	router.currentConfig = func() config.Config { return cfg }
-	action := pluginruntime.Action{Kind: "message.send", SourceAdapter: "second", SourceProtocol: "onebot11", TargetType: "group", TargetID: "301"}
-	if _, err := outbound.SendAction(context.Background(), router, nil, pluginruntime.Event{}, action); err != nil {
+	}, map[string]string{"first": "onebot11", "second": "onebot11"}, func() config.Config { return cfg })
+	action := chatevent.MessageCommand{Kind: "message.send", SourceAdapter: "second", SourceProtocol: "onebot11", TargetType: "group", TargetID: "301"}
+	if _, err := SendAction(context.Background(), router, nil, chatevent.Event{}, action); err != nil {
 		t.Fatal(err)
 	}
 	cfg.Adapters[1].Enabled = false
-	if _, err := outbound.SendAction(context.Background(), router, nil, pluginruntime.Event{}, action); err == nil {
+	if _, err := SendAction(context.Background(), router, nil, chatevent.Event{}, action); err == nil {
 		t.Fatal("disabled instance accepted a send")
 	}
 	action.SourceAdapter = ""
-	if _, err := outbound.SendAction(context.Background(), router, nil, pluginruntime.Event{}, action); err != nil {
+	if _, err := SendAction(context.Background(), router, nil, chatevent.Event{}, action); err != nil {
 		t.Fatal(err)
 	}
 	cfg.Adapters[1].Enabled = true
 	action.SourceAdapter = "second"
 	action.SourceProtocol = "qqofficial"
-	if _, err := outbound.SendAction(context.Background(), router, nil, pluginruntime.Event{}, action); err == nil {
+	if _, err := SendAction(context.Background(), router, nil, chatevent.Event{}, action); err == nil {
 		t.Fatal("protocol mismatch accepted")
 	}
 	if !reflect.DeepEqual(sent, []string{"second", "first"}) {

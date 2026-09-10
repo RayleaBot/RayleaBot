@@ -7,6 +7,7 @@ import type {
   GovernanceBlacklistResponse,
   GovernanceCommandPolicyResponse,
   GovernanceEntryType,
+  GovernanceScope,
   GovernanceEntryUpsertRequest,
   GovernanceWhitelistResponse,
 } from '@/types/api'
@@ -119,11 +120,11 @@ export const useGovernanceStore = defineStore('governance', () => {
     }
   }
 
-  async function removeBlacklistEntry(entryType: GovernanceEntryType, targetId: string) {
+  async function removeBlacklistEntry(entryType: GovernanceEntryType, targetId: string, scope: GovernanceScope) {
     blacklistLoading.value = true
     blacklistError.value = null
     try {
-      await apiRequest<void>(`/api/governance/blacklist/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(targetId)}`, {
+      await apiRequest<void>(`/api/governance/blacklist/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(targetId)}?${new URLSearchParams(scope)}`, {
         method: 'DELETE',
       })
       return await fetchBlacklist()
@@ -169,11 +170,11 @@ export const useGovernanceStore = defineStore('governance', () => {
     }
   }
 
-  async function removeWhitelistEntry(entryType: GovernanceEntryType, targetId: string) {
+  async function removeWhitelistEntry(entryType: GovernanceEntryType, targetId: string, scope: GovernanceScope) {
     whitelistLoading.value = true
     whitelistError.value = null
     try {
-      await apiRequest<void>(`/api/governance/whitelist/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(targetId)}`, {
+      await apiRequest<void>(`/api/governance/whitelist/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(targetId)}?${new URLSearchParams(scope)}`, {
         method: 'DELETE',
       })
       return await fetchWhitelist()

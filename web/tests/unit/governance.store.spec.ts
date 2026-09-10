@@ -21,15 +21,15 @@ describe('governance store', () => {
       const url = String(input)
       if (url.includes('/api/governance/blacklist')) {
         return Promise.resolve(jsonResponse({
-          user_entries: [{ entry_type: 'user', target_id: '10001', reason: 'spam', created_at: '2026-04-17T09:00:00Z' }],
-          group_entries: [{ entry_type: 'group', target_id: '20002', reason: 'risk', created_at: '2026-04-16T06:30:00Z' }],
+          user_entries: [{ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""}, entry_type: 'user', target_id: '10001', reason: 'spam', created_at: '2026-04-17T09:00:00Z' }],
+          group_entries: [{ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""}, entry_type: 'group', target_id: '20002', reason: 'risk', created_at: '2026-04-16T06:30:00Z' }],
         }))
       }
 
       if (url.includes('/api/governance/whitelist')) {
         return Promise.resolve(jsonResponse({
           enabled: true,
-          user_entries: [{ entry_type: 'user', target_id: '10003', reason: 'ops', created_at: '2026-04-18T09:00:00Z' }],
+          user_entries: [{ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""}, entry_type: 'user', target_id: '10003', reason: 'ops', created_at: '2026-04-18T09:00:00Z' }],
           group_entries: [],
         }))
       }
@@ -128,7 +128,7 @@ describe('governance store', () => {
       const method = init?.method ?? 'GET'
 
       if (url.includes('/api/governance/blacklist/entries') && method === 'POST') {
-        state.blacklist.user_entries = [{
+        state.blacklist.user_entries = [{ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'user',
           target_id: '10001',
           reason: 'spam',
@@ -137,7 +137,7 @@ describe('governance store', () => {
         return jsonResponse(state.blacklist.user_entries[0])
       }
 
-      if (url.includes('/api/governance/blacklist/entries/user/10001') && method === 'DELETE') {
+      if (url.includes('/api/governance/blacklist/entries/user/10001?kind=global&source_protocol=onebot11&source_adapter=&bot_id=') && method === 'DELETE') {
         state.blacklist.user_entries = []
         return new Response(null, { status: 204 })
       }
@@ -148,7 +148,7 @@ describe('governance store', () => {
       }
 
       if (url.includes('/api/governance/whitelist/entries') && method === 'POST') {
-        state.whitelist.group_entries = [{
+        state.whitelist.group_entries = [{ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'group',
           target_id: '20002',
           reason: 'ops',
@@ -157,7 +157,7 @@ describe('governance store', () => {
         return jsonResponse(state.whitelist.group_entries[0])
       }
 
-      if (url.includes('/api/governance/whitelist/entries/group/20002') && method === 'DELETE') {
+      if (url.includes('/api/governance/whitelist/entries/group/20002?kind=global&source_protocol=onebot11&source_adapter=&bot_id=') && method === 'DELETE') {
         state.whitelist.group_entries = []
         return new Response(null, { status: 204 })
       }
@@ -184,7 +184,7 @@ describe('governance store', () => {
     const store = useGovernanceStore()
     await store.refresh()
 
-    await store.addBlacklistEntry({
+    await store.addBlacklistEntry({ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
       entry_type: 'user',
       target_id: '10001',
       reason: 'spam',
@@ -194,17 +194,17 @@ describe('governance store', () => {
     await store.setWhitelistEnabled(true)
     expect(store.whitelist?.enabled).toBe(true)
 
-    await store.addWhitelistEntry({
+    await store.addWhitelistEntry({ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
       entry_type: 'group',
       target_id: '20002',
       reason: 'ops',
     })
     expect(store.whitelist?.group_entries[0]?.target_id).toBe('20002')
 
-    await store.removeBlacklistEntry('user', '10001')
+    await store.removeBlacklistEntry('user', '10001', {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""})
     expect(store.blacklist?.user_entries).toEqual([])
 
-    await store.removeWhitelistEntry('group', '20002')
+    await store.removeWhitelistEntry('group', '20002', {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""})
     expect(store.whitelist?.group_entries).toEqual([])
   })
 })

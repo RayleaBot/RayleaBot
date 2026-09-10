@@ -39,7 +39,7 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 		Help: &plugins.Help{Title: "订阅中心", Summary: "旧帮助摘要"},
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
-	app.setTestLifecycle(
+	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
@@ -147,7 +147,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 	}
 
 	app := newTestAppState(config.Config{}, slog.Default())
-	app.setTestLifecycle(
+	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
@@ -206,7 +206,7 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 		RuntimeState:      "running",
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
-	app.setTestLifecycle(
+	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
@@ -253,7 +253,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		},
 	}, slog.Default())
 	app.state.repoRoot = repoRoot
-	app.setTestLifecycle(
+	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
@@ -278,7 +278,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if pending.Timezone != "Asia/Shanghai" {
 		t.Fatalf("pending setting changed plugin timezone before restart: %q", pending.Timezone)
 	}
-	app.setTestLifecycle(catalog, nil, newRuntimeRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
+	app.setTestLifecycle(t, catalog, nil, newRuntimeRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
 	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatal(err)

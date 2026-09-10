@@ -38,7 +38,7 @@ func TestBackoffRestartStartFailureResetsManagerToStopped(t *testing.T) {
 	}
 	manager.SetBackoffState(time.Now())
 
-	application.setTestLifecycle(catalog, nil, runtimes, dispatcher, nil, nil, nil)
+	application.setTestLifecycle(t, catalog, nil, runtimes, dispatcher, nil, nil, nil)
 
 	application.services.pluginLifecycle.backoffRestart("broken-artifact", 0, manager)
 

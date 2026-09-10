@@ -75,7 +75,7 @@ func TestLogsListReturnsHistoryRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform history range request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected history range status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -126,7 +126,7 @@ func TestLogsListReturnsHistoryRangeForOffsetTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform offset history range request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected offset history range status: got %d want 200", response.StatusCode)
 	}
@@ -160,7 +160,7 @@ func TestLogsListRejectsInvalidScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform invalid scope request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected invalid scope status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -187,7 +187,7 @@ func TestLogsListRejectsStartAfterEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform start-after-end request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected start-after-end status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -214,7 +214,7 @@ func TestLogsListRejectsCurrentSessionTimeRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform current-session-with-time-range request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected current-session-with-time-range status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -381,7 +381,7 @@ func TestLogsListDoesNotLeakRawAttrs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform logs redaction request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected logs redaction status: got %d want 200", response.StatusCode)
 	}
@@ -489,7 +489,7 @@ func TestLogDetailReturnsStructuredDetails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform log detail request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}

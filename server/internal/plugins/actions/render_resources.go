@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const (
@@ -33,7 +33,7 @@ var errRenderImageResourceUnavailable = errors.New("render.image resource is una
 type prefetchedRenderImageResource struct {
 	resource       RenderImageResource
 	candidateIndex int
-	spec           pluginruntime.RenderImageResource
+	spec           plugins.RenderImageResource
 	requestIndex   int
 }
 
@@ -48,7 +48,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 		return nil, func() {}, nil
 	}
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "http.request") {
-		return nil, func() {}, &pluginruntime.Error{
+		return nil, func() {}, &plugins.Error{
 			Code:    "plugin.permission_denied",
 			Message: "render.image resources require the http.request permission",
 		}
@@ -56,7 +56,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 
 	workspace, err := os.MkdirTemp("", "rayleabot-render-resources-*")
 	if err != nil {
-		return nil, func() {}, &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image resource workspace is unavailable", Err: err}
+		return nil, func() {}, &plugins.Error{Code: "plugin.internal_error", Message: "render.image resource workspace is unavailable", Err: err}
 	}
 	cleanup := func() {
 		_ = os.RemoveAll(workspace)
@@ -76,7 +76,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	var wait sync.WaitGroup
 	for index, spec := range req.Action.RenderResources {
 		wait.Add(1)
-		go func(index int, spec pluginruntime.RenderImageResource) {
+		go func(index int, spec plugins.RenderImageResource) {
 			defer wait.Done()
 			select {
 			case semaphore <- struct{}{}:
@@ -117,7 +117,7 @@ func prefetchRenderImageResources(ctx context.Context, deps Deps, req ActionRequ
 	return resources, cleanup, nil
 }
 
-func fetchRenderImageResource(ctx context.Context, client *httpClient, workspace string, requestIndex int, spec pluginruntime.RenderImageResource, startCandidate int, maxAcceptedBytes int64) (*prefetchedRenderImageResource, string, error) {
+func fetchRenderImageResource(ctx context.Context, client *httpClient, workspace string, requestIndex int, spec plugins.RenderImageResource, startCandidate int, maxAcceptedBytes int64) (*prefetchedRenderImageResource, string, error) {
 	candidates := append([]string{spec.URL}, spec.FallbackURLs...)
 	lastReason := "unavailable"
 	for candidateIndex := startCandidate; candidateIndex < len(candidates); candidateIndex++ {
@@ -295,7 +295,7 @@ func detectRenderImageResource(path string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 	header := make([]byte, 512)
 	count, err := file.Read(header)
 	if err != nil && !errors.Is(err, io.EOF) {
@@ -332,11 +332,11 @@ func headerValue(headers map[string]string, name string) string {
 func renderImageResourceFetchError(err error) error {
 	switch {
 	case errors.Is(err, errHTTPInvalidRequest):
-		return &pluginruntime.Error{Code: "platform.invalid_request", Message: "render.image resource request is invalid", Err: err}
+		return &plugins.Error{Code: "platform.invalid_request", Message: "render.image resource request is invalid", Err: err}
 	case errors.Is(err, errHTTPResponseTooLarge):
-		return &pluginruntime.Error{Code: "platform.upstream_response_too_large", Message: "render.image resources exceed the request limit", Err: err}
+		return &plugins.Error{Code: "platform.upstream_response_too_large", Message: "render.image resources exceed the request limit", Err: err}
 	default:
-		return &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image resource prefetch failed", Err: err}
+		return &plugins.Error{Code: "plugin.internal_error", Message: "render.image resource prefetch failed", Err: err}
 	}
 }
 

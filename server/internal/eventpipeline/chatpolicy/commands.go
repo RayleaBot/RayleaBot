@@ -1,13 +1,11 @@
 package chatpolicy
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type commandPolicyContext struct {
@@ -47,11 +45,11 @@ func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) 
 	}
 	if s != nil && s.plugins != nil {
 		for _, snapshot := range s.plugins.List() {
-			if !pluginParticipatesInCommandPolicy(snapshot) {
+			if !snapshot.CommandsEnabled() {
 				continue
 			}
 			for _, command := range snapshot.Commands {
-				if !commandMatches(command, commandName) {
+				if !command.Matches(commandName) {
 					continue
 				}
 				context.MatchedPluginIDs = append(context.MatchedPluginIDs, snapshot.PluginID)
@@ -84,32 +82,6 @@ func commandNameFromEvent(event chatevent.NormalizedEvent) string {
 		return ""
 	}
 	return strings.TrimSpace(value)
-}
-
-func pluginParticipatesInCommandPolicy(snapshot plugins.Snapshot) bool {
-	return snapshot.Valid &&
-		snapshot.RegistrationState == "installed" &&
-		snapshot.DesiredState == "enabled"
-}
-
-func commandMatches(command plugins.Command, commandName string) bool {
-	commandName = strings.TrimSpace(commandName)
-	if commandName == "" {
-		return false
-	}
-	if pattern := strings.TrimSpace(command.MatchPattern); pattern != "" {
-		matched, err := regexp.MatchString(pattern, commandName)
-		return err == nil && matched
-	}
-	if strings.TrimSpace(command.Name) == commandName {
-		return true
-	}
-	for _, alias := range command.Aliases {
-		if strings.TrimSpace(alias) == commandName {
-			return true
-		}
-	}
-	return false
 }
 
 func effectiveCommandPermissionLevel(permissionLevel string, cfg config.Config) string {

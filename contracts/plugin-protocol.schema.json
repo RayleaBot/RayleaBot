@@ -222,7 +222,7 @@
             },
             "super_admins": {
               "type": "array",
-              "description": "Administrator identifiers interpreted in the identity namespace of the active chat protocol. Entries are not portable across protocols.",
+              "description": "OneBot11 QQ account IDs from admin.super_admins. Applies across OneBot11 instances only; these IDs do not grant privileges to QQ official openids.",
               "items": {
                 "type": "string",
                 "minLength": 1
@@ -2035,6 +2035,9 @@
         "reason": {
           "type": "string",
           "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/governance_scope"
         }
       },
       "allOf": [
@@ -2050,7 +2053,8 @@
             "required": [
               "entry_type",
               "target_id",
-              "reason"
+              "reason",
+              "scope"
             ]
           }
         },
@@ -2065,7 +2069,8 @@
           "then": {
             "required": [
               "entry_type",
-              "target_id"
+              "target_id",
+              "scope"
             ]
           }
         }
@@ -2099,6 +2104,9 @@
         "reason": {
           "type": "string",
           "minLength": 1
+        },
+        "scope": {
+          "$ref": "#/$defs/governance_scope"
         }
       },
       "allOf": [
@@ -2128,7 +2136,8 @@
             "required": [
               "entry_type",
               "target_id",
-              "reason"
+              "reason",
+              "scope"
             ]
           }
         },
@@ -2143,7 +2152,8 @@
           "then": {
             "required": [
               "entry_type",
-              "target_id"
+              "target_id",
+              "scope"
             ]
           }
         }
@@ -2724,6 +2734,67 @@
           "minLength": 1
         }
       }
+    },
+    "governance_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source_protocol",
+        "source_adapter",
+        "bot_id"
+      ],
+      "properties": {
+        "source_protocol": {
+          "enum": [
+            "onebot11",
+            "qqofficial"
+          ]
+        },
+        "source_adapter": {
+          "type": "string"
+        },
+        "bot_id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "global",
+            "instance"
+          ]
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "source_protocol": {
+              "const": "onebot11"
+            },
+            "source_adapter": {
+              "const": ""
+            },
+            "bot_id": {
+              "const": ""
+            },
+            "kind": {
+              "const": "global"
+            }
+          }
+        },
+        {
+          "properties": {
+            "source_adapter": {
+              "minLength": 1
+            },
+            "bot_id": {
+              "minLength": 1
+            },
+            "kind": {
+              "const": "instance"
+            }
+          }
+        }
+      ]
     }
   },
   "x-message-catalog": [
@@ -2830,6 +2901,8 @@
     "fixtures/plugin-protocol/ok.storage-file.yaml",
     "fixtures/plugin-protocol/ok.http-request.yaml",
     "fixtures/plugin-protocol/ok.governance-blacklist-read.yaml",
+    "fixtures/plugin-protocol/ok.governance-scoped-write.yaml",
+    "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",
     "fixtures/plugin-protocol/ok.thirdparty-account-read.yaml",

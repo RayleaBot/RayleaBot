@@ -8,6 +8,18 @@ import (
 	"database/sql"
 )
 
+type AccessListEntry struct {
+	ID             int64
+	ListKind       string
+	SourceProtocol string
+	SourceAdapter  string
+	BotID          string
+	EntryType      string
+	TargetID       string
+	Reason         string
+	CreatedAt      string
+}
+
 type AdminSession struct {
 	SessionID string
 	Subject   string
@@ -75,14 +87,6 @@ type BilibiliSourceState struct {
 	Key       string
 	ValueJson string
 	UpdatedAt string
-}
-
-type BlacklistEntry struct {
-	ID        int64
-	EntryType string
-	TargetID  string
-	Reason    string
-	CreatedAt string
 }
 
 type ManagementLog struct {
@@ -218,14 +222,6 @@ type ThirdPartyAccount struct {
 	ProxyUrl            string
 	ProxyEnabled        int64
 	UpdatedAt           string
-}
-
-type WhitelistEntry struct {
-	ID        int64
-	EntryType string
-	TargetID  string
-	Reason    string
-	CreatedAt string
 }
 
 type WhitelistState struct {

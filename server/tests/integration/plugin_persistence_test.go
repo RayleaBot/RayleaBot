@@ -54,7 +54,7 @@ func TestPluginDesiredStatePersistsAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform plugin list request: %v", err)
 	}
-	defer listResp.Body.Close()
+	defer func(release func() error) { _ = release() }(listResp.Body.Close)
 	listBody := decodeBody(t, readAll(t, listResp))
 	items := listBody["items"].([]any)
 

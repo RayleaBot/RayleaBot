@@ -9,7 +9,7 @@ import (
 
 func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
 	t.Parallel()
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID: "identities-empty", SourceProtocol: "platform", SourceAdapter: "adapters.internal",
 		EventType: "bot.identities.changed", Timestamp: 1700000000,
 		PayloadFields: map[string]any{"bots": []chatevent.BotIdentity{}},
@@ -36,16 +36,16 @@ func TestBuildEventFramePreservesEmptyIdentitySnapshot(t *testing.T) {
 func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "evt-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "onebot",
 		EventType:      "message",
 		Timestamp:      1700000000,
 		MessageID:      "msg-1",
-		Actor:          &EventActor{ID: "10001", Nickname: "Alice"},
-		Target:         &EventTarget{Type: "group", ID: "20001"},
-		Message:        &EventMessage{PlainText: "hello"},
+		Actor:          &chatevent.Actor{ID: "10001", Nickname: "Alice"},
+		Target:         &chatevent.Target{Type: "group", ID: "20001"},
+		Message:        &chatevent.Message{PlainText: "hello"},
 		PayloadFields: map[string]any{
 			"onebot": map[string]any{
 				"post_type":    "message",
@@ -70,7 +70,7 @@ func TestBuildEventFrameProjectsOneBotPayload(t *testing.T) {
 func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "scheduler-subscription-hub-check-1",
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
@@ -98,7 +98,7 @@ func TestBuildEventFrameProjectsSchedulerPayload(t *testing.T) {
 func TestBuildEventFramePreservesEmptyConfigSnapshot(t *testing.T) {
 	t.Parallel()
 
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "config-empty-1",
 		SourceProtocol: "system",
 		SourceAdapter:  "config",
@@ -133,13 +133,13 @@ func TestBuildEventFrameProjectsWebhookMetadataAtEventRoot(t *testing.T) {
 	t.Parallel()
 
 	clientTimestamp := int64(1700000000)
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "webhook-event-1",
 		SourceProtocol: "webhook",
 		SourceAdapter:  "webhook.gateway",
 		EventType:      "webhook.received",
 		Timestamp:      1700000001,
-		Webhook: &EventWebhook{
+		Webhook: &chatevent.Webhook{
 			Route:           "github",
 			ReceivedAt:      1700000001,
 			ClientTimestamp: &clientTimestamp,

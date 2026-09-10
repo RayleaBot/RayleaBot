@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 )
 
@@ -39,27 +39,27 @@ func thirdPartyAccountValidateRegistrar() registrar {
 
 func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "thirdparty.account.read") {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.read permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.read permission is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read platform is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read platform is invalid"}
 	}
 	if !thirdPartyAccountPlatformAllowed(deps.Permissions.PermissionPlatforms(ctx, req.PluginID, "thirdparty.account.read"), platform) {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.read platform is outside declared permission parameters"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.read platform is outside declared permission parameters"}
 	}
 	accountID := strings.TrimSpace(req.Action.ThirdPartyAccountID)
 	if accountID != "" && !thirdPartyAccountIDPattern.MatchString(accountID) {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read account_id is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.account.read account_id is invalid"}
 	}
 	if deps.ThirdParty == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read store is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read store is not available"}
 	}
 
 	accounts, err := deps.ThirdParty.ListEnabled(ctx, platform)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
 	}
 
 	items := make([]map[string]any, 0, len(accounts))
@@ -75,7 +75,7 @@ func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequ
 			continue
 		}
 		if err != nil {
-			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
+			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.account.read failed", Err: err}
 		}
 		items = append(items, thirdPartyAccountReadItem(account, cookie))
 	}
@@ -88,35 +88,35 @@ func executeThirdPartyAccountRead(ctx context.Context, deps Deps, req ActionRequ
 
 func executeThirdPartyAccountValidate(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "thirdparty.account.validate") {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.validate permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.validate permission is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate platform is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate platform is invalid"}
 	}
 	if !thirdPartyAccountPlatformAllowed(deps.Permissions.PermissionPlatforms(ctx, req.PluginID, "thirdparty.account.validate"), platform) {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.validate platform is outside declared permission parameters"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "thirdparty.account.validate platform is outside declared permission parameters"}
 	}
 	accountID := strings.TrimSpace(req.Action.ThirdPartyAccountID)
 	if !thirdPartyAccountIDPattern.MatchString(accountID) {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate account_id is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate account_id is invalid"}
 	}
 	observation := strings.TrimSpace(req.Action.ThirdPartyAccountObservation)
 	if observation != "auth_rejected" && observation != "session_blocked" {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate observation is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate observation is invalid"}
 	}
 	httpStatus := req.Action.ThirdPartyAccountHTTPStatus
 	if httpStatus != 0 && (httpStatus < 100 || httpStatus > 599) {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate http_status is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.account.validate http_status is invalid"}
 	}
 	if deps.AccountValidation == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate service is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate service is not available"}
 	}
 
 	accepted, reason, err := deps.AccountValidation.RequestPluginValidation(ctx, req.PluginID, platform, accountID, observation, httpStatus)
 	if err != nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate failed", Err: err}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.account.validate failed", Err: err}
 	}
 	return map[string]any{"accepted": accepted, "reason": reason}, nil
 }
@@ -134,24 +134,24 @@ func thirdPartyResolveRegistrar() registrar {
 
 func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "thirdparty.resolve") {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.resolve permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "thirdparty.resolve permission is not declared"}
 	}
 
 	platform, err := thirdparty.NormalizePlatform(req.Action.ThirdPartyAccountPlatform)
 	if err != nil || platform != thirdparty.PlatformDouyin {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve platform is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve platform is invalid"}
 	}
 	if !thirdPartyAccountPlatformAllowed(deps.Permissions.PermissionPlatforms(ctx, req.PluginID, "thirdparty.resolve"), platform) {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "thirdparty.resolve platform is outside declared permission parameters"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "thirdparty.resolve platform is outside declared permission parameters"}
 	}
 	query := strings.TrimSpace(req.Action.ThirdPartyResolveQuery)
 	// schema maxLength 按 Unicode 码点计，这里用 rune 计数保持一致，
 	// 避免多字节昵称（如 emoji）被字节长度误拒。
 	if query == "" || utf8.RuneCountInString(query) > 64 {
-		return nil, &pluginruntime.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve query is invalid"}
+		return nil, &plugins.Error{Code: "platform.invalid_request", Message: "thirdparty.resolve query is invalid"}
 	}
 	if deps.ThirdPartyResolve == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.resolve service is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.resolve service is not available"}
 	}
 
 	cookieSets := make([]map[string]string, 0)
@@ -160,7 +160,7 @@ func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest)
 	if deps.ThirdParty != nil {
 		accounts, err := deps.ThirdParty.ListEnabled(ctx, platform)
 		if err != nil {
-			return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "thirdparty.resolve account read failed", Err: err}
+			return nil, &plugins.Error{Code: "plugin.internal_error", Message: "thirdparty.resolve account read failed", Err: err}
 		}
 		for _, account := range accounts {
 			if !account.Configured {
@@ -184,9 +184,9 @@ func executeThirdPartyResolve(ctx context.Context, deps Deps, req ActionRequest)
 		}
 		// 登录 profile 槽忙映射为 409，可重试；其余上游失败映射为 502。
 		if errors.Is(err, thirdparty.ErrQRLoginBrowserBusy) {
-			return nil, &pluginruntime.Error{Code: "platform.resource_busy", Message: "thirdparty.resolve browser profile is busy", Err: err}
+			return nil, &plugins.Error{Code: "platform.resource_busy", Message: "thirdparty.resolve browser profile is busy", Err: err}
 		}
-		return nil, &pluginruntime.Error{Code: "platform.upstream_request_failed", Message: "thirdparty.resolve failed", Err: err}
+		return nil, &plugins.Error{Code: "platform.upstream_request_failed", Message: "thirdparty.resolve failed", Err: err}
 	}
 	items := make([]map[string]any, 0, len(profiles))
 	for _, profile := range profiles {

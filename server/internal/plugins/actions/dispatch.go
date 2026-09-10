@@ -4,14 +4,15 @@ import (
 	"context"
 	"sort"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type ActionRequest struct {
 	PluginID    string
 	RequestID   string
-	Action      pluginruntime.Action
-	ParentEvent pluginruntime.Event
+	Action      plugins.Action
+	ParentEvent chatevent.Event
 }
 
 type ActionHandler func(context.Context, ActionRequest) (map[string]any, error)
@@ -36,12 +37,12 @@ func (r *Registry) Dispatch(ctx context.Context, req ActionRequest) (map[string]
 	return result, true, err
 }
 
-func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
+func (s *Service) Execute(ctx context.Context, pluginID, requestID string, action plugins.Action, parentEvent chatevent.Event) (map[string]any, error) {
 	result, handled, err := s.actionRegistry.Dispatch(ctx, ActionRequest{
 		PluginID: pluginID, RequestID: requestID, Action: action, ParentEvent: parentEvent,
 	})
 	if handled {
 		return result, err
 	}
-	return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "received unsupported local action kind"}
+	return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "received unsupported local action kind"}
 }

@@ -1,27 +1,25 @@
-package runtime
+package chatevent
 
 import (
 	"strings"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
-// EventFromAdapter projects a normalized adapter event onto the plugin runtime
+// FromAdapter projects a normalized adapter event onto the plugin runtime
 // event shape. It is the single conversion used by every delivery path, so the
 // bridge and the builtin menu cannot drift apart on target resolution.
-func EventFromAdapter(event chatevent.NormalizedEvent) Event {
+func FromAdapter(event NormalizedEvent) Event {
 	runtimeEvent := Event{
 		EventID:        event.EventID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
 		Timestamp:      event.Timestamp,
-		Actor: &EventActor{
+		Actor: &Actor{
 			ID:       event.SenderID,
 			Nickname: event.ActorNickname,
 			Role:     event.ActorRole,
 		},
-		Target: &EventTarget{
+		Target: &Target{
 			Type: adapterTargetType(event),
 			ID:   adapterTargetID(event),
 			Name: event.TargetName,
@@ -30,7 +28,7 @@ func EventFromAdapter(event chatevent.NormalizedEvent) Event {
 		MessageID:     event.MessageID,
 	}
 	if event.PlainText != "" || len(event.Segments) > 0 {
-		runtimeEvent.Message = &EventMessage{
+		runtimeEvent.Message = &Message{
 			PlainText: event.PlainText,
 			Segments:  segmentsFromAdapter(event.Segments),
 		}
@@ -38,13 +36,13 @@ func EventFromAdapter(event chatevent.NormalizedEvent) Event {
 	return runtimeEvent
 }
 
-func segmentsFromAdapter(segments []chatevent.MessageSegment) []EventSegment {
+func segmentsFromAdapter(segments []MessageSegment) []MessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
-	projected := make([]EventSegment, 0, len(segments))
+	projected := make([]MessageSegment, 0, len(segments))
 	for _, seg := range segments {
-		projected = append(projected, EventSegment{
+		projected = append(projected, MessageSegment{
 			Type: seg.Type,
 			Data: seg.Data,
 		})
@@ -54,14 +52,14 @@ func segmentsFromAdapter(segments []chatevent.MessageSegment) []EventSegment {
 
 // adapterTargetType prefers the explicit target an event names, falling back to
 // the conversation it happened in. Only meta events carry an explicit target.
-func adapterTargetType(event chatevent.NormalizedEvent) string {
+func adapterTargetType(event NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetType) != "" {
 		return event.TargetType
 	}
 	return event.ConversationType
 }
 
-func adapterTargetID(event chatevent.NormalizedEvent) string {
+func adapterTargetID(event NormalizedEvent) string {
 	if strings.TrimSpace(event.TargetID) != "" {
 		return event.TargetID
 	}

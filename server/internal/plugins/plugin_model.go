@@ -288,10 +288,10 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		cloned.DeadLetter = &copied
 	}
 	if len(snapshot.Commands) > 0 {
-		cloned.Commands = cloneCommands(snapshot.Commands)
+		cloned.Commands = CloneCommands(snapshot.Commands)
 	}
 	if len(snapshot.ManifestCommands) > 0 {
-		cloned.ManifestCommands = cloneCommands(snapshot.ManifestCommands)
+		cloned.ManifestCommands = CloneCommands(snapshot.ManifestCommands)
 	}
 	return cloned
 }
@@ -349,7 +349,8 @@ func cloneHelp(help *Help) *Help {
 	return &cloned
 }
 
-func cloneCommands(commands []Command) []Command {
+// CloneCommands isolates all mutable command declaration fields.
+func CloneCommands(commands []Command) []Command {
 	if len(commands) == 0 {
 		return nil
 	}

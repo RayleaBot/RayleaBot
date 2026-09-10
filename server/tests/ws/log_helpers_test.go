@@ -28,7 +28,7 @@ func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
 	if err != nil {
 		t.Fatalf("perform whitelist state request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected whitelist state status: got %d want 200", response.StatusCode)
 	}

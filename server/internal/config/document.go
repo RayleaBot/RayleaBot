@@ -56,14 +56,14 @@ func writeAtomic(path string, contents []byte, mode os.FileMode) error {
 		return fmt.Errorf("create temporary config file for %s: %w", path, err)
 	}
 	tempPath := tempFile.Name()
-	defer os.Remove(tempPath)
+	defer func() { _ = os.Remove(tempPath) }()
 
 	if _, err := tempFile.Write(contents); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return fmt.Errorf("write temporary config file for %s: %w", path, err)
 	}
 	if err := tempFile.Chmod(mode); err != nil {
-		tempFile.Close()
+		_ = tempFile.Close()
 		return fmt.Errorf("set mode on temporary config file for %s: %w", path, err)
 	}
 	if err := tempFile.Close(); err != nil {

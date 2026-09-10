@@ -277,15 +277,6 @@ func stripNullValue(value any) (any, bool) {
 	}
 }
 
-func section(document map[string]any, key string) map[string]any {
-	value, ok := document[key]
-	if !ok {
-		return nil
-	}
-	typed, _ := value.(map[string]any)
-	return typed
-}
-
 func transportSection(document map[string]any, key string) map[string]any {
 	value, ok := document[key]
 	if !ok {

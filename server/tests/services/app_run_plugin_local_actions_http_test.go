@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
@@ -54,7 +54,7 @@ func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", pluginruntime.Action{
+	result, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_1", plugins.Action{
 		Kind:       "http.request",
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",
@@ -104,7 +104,7 @@ func TestExecuteHTTPRequestRejectsPrivateHost(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", pluginruntime.Action{
+	_, err := application.executeLocalAction(context.Background(), "scope-cache", "req_http_2", plugins.Action{
 		Kind:       "http.request",
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/v1/data",

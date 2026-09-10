@@ -2,37 +2,39 @@ package governance
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
 type stubBlacklistRepo struct {
-	entries map[string]map[string]permission.BlacklistEntry
+	entries map[string]map[string]permission.Entry
 }
 
 func newStubBlacklistRepo() *stubBlacklistRepo {
-	return &stubBlacklistRepo{entries: make(map[string]map[string]permission.BlacklistEntry)}
+	return &stubBlacklistRepo{entries: make(map[string]map[string]permission.Entry)}
 }
 
-func (s *stubBlacklistRepo) IsBlacklisted(_ context.Context, entryType, targetID string) (bool, error) {
-	_, err := s.Get(context.Background(), entryType, targetID)
+func (s *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+	_, err := s.Get(context.Background(), scope, entryType, targetID)
 	return err == nil, nil
 }
 
-func (s *stubBlacklistRepo) Get(_ context.Context, entryType, targetID string) (permission.BlacklistEntry, error) {
+func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
 	if items, ok := s.entries[entryType]; ok {
 		if entry, ok := items[targetID]; ok {
 			return entry, nil
 		}
 	}
-	return permission.BlacklistEntry{}, permission.ErrGovernanceEntryNotFound
+	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubBlacklistRepo) Add(_ context.Context, entryType, targetID, reason string) error {
+func (s *stubBlacklistRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
 	if s.entries[entryType] == nil {
-		s.entries[entryType] = make(map[string]permission.BlacklistEntry)
+		s.entries[entryType] = make(map[string]permission.Entry)
 	}
-	s.entries[entryType][targetID] = permission.BlacklistEntry{
+	s.entries[entryType][targetID] = permission.Entry{
+		Scope:     scope,
 		EntryType: entryType,
 		TargetID:  targetID,
 		Reason:    reason,
@@ -41,7 +43,7 @@ func (s *stubBlacklistRepo) Add(_ context.Context, entryType, targetID, reason s
 	return nil
 }
 
-func (s *stubBlacklistRepo) Remove(_ context.Context, entryType, targetID string) error {
+func (s *stubBlacklistRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
 	if _, ok := s.entries[entryType][targetID]; !ok {
 		return permission.ErrGovernanceEntryNotFound
 	}
@@ -49,8 +51,8 @@ func (s *stubBlacklistRepo) Remove(_ context.Context, entryType, targetID string
 	return nil
 }
 
-func (s *stubBlacklistRepo) List(_ context.Context, entryType string) ([]permission.BlacklistEntry, error) {
-	items := make([]permission.BlacklistEntry, 0, len(s.entries[entryType]))
+func (s *stubBlacklistRepo) List(_ context.Context, entryType string) ([]permission.Entry, error) {
+	items := make([]permission.Entry, 0, len(s.entries[entryType]))
 	for _, entry := range s.entries[entryType] {
 		items = append(items, entry)
 	}
@@ -58,32 +60,33 @@ func (s *stubBlacklistRepo) List(_ context.Context, entryType string) ([]permiss
 }
 
 type stubWhitelistRepo struct {
-	entries map[string]map[string]permission.WhitelistEntry
+	entries map[string]map[string]permission.Entry
 }
 
 func newStubWhitelistRepo() *stubWhitelistRepo {
-	return &stubWhitelistRepo{entries: make(map[string]map[string]permission.WhitelistEntry)}
+	return &stubWhitelistRepo{entries: make(map[string]map[string]permission.Entry)}
 }
 
-func (s *stubWhitelistRepo) IsWhitelisted(_ context.Context, entryType, targetID string) (bool, error) {
-	_, err := s.Get(context.Background(), entryType, targetID)
+func (s *stubWhitelistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
+	_, err := s.Get(context.Background(), scope, entryType, targetID)
 	return err == nil, nil
 }
 
-func (s *stubWhitelistRepo) Get(_ context.Context, entryType, targetID string) (permission.WhitelistEntry, error) {
+func (s *stubWhitelistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
 	if items, ok := s.entries[entryType]; ok {
 		if entry, ok := items[targetID]; ok {
 			return entry, nil
 		}
 	}
-	return permission.WhitelistEntry{}, permission.ErrGovernanceEntryNotFound
+	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubWhitelistRepo) Add(_ context.Context, entryType, targetID, reason string) error {
+func (s *stubWhitelistRepo) Add(_ context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) error {
 	if s.entries[entryType] == nil {
-		s.entries[entryType] = make(map[string]permission.WhitelistEntry)
+		s.entries[entryType] = make(map[string]permission.Entry)
 	}
-	s.entries[entryType][targetID] = permission.WhitelistEntry{
+	s.entries[entryType][targetID] = permission.Entry{
+		Scope:     scope,
 		EntryType: entryType,
 		TargetID:  targetID,
 		Reason:    reason,
@@ -92,7 +95,7 @@ func (s *stubWhitelistRepo) Add(_ context.Context, entryType, targetID, reason s
 	return nil
 }
 
-func (s *stubWhitelistRepo) Remove(_ context.Context, entryType, targetID string) error {
+func (s *stubWhitelistRepo) Remove(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
 	if _, ok := s.entries[entryType][targetID]; !ok {
 		return permission.ErrGovernanceEntryNotFound
 	}
@@ -100,8 +103,8 @@ func (s *stubWhitelistRepo) Remove(_ context.Context, entryType, targetID string
 	return nil
 }
 
-func (s *stubWhitelistRepo) List(_ context.Context, entryType string) ([]permission.WhitelistEntry, error) {
-	items := make([]permission.WhitelistEntry, 0, len(s.entries[entryType]))
+func (s *stubWhitelistRepo) List(_ context.Context, entryType string) ([]permission.Entry, error) {
+	items := make([]permission.Entry, 0, len(s.entries[entryType]))
 	for _, entry := range s.entries[entryType] {
 		items = append(items, entry)
 	}

@@ -305,42 +305,21 @@ func configureAppRuntimeCallbacks(application *App) {
 		systemService.ReconcileRecoverySummaryBestEffort("plugin.install")
 		return nil
 	}
-	if installer, ok := application.pluginStack.PluginInstaller.(interface {
-		SetAfterSuccess(func(context.Context, string) error)
-	}); ok {
-		installer.SetAfterSuccess(reconcileInstalledPlugin)
-	}
-	if installer, ok := application.pluginStack.PluginInstaller.(interface {
-		SetAfterRollback(func(context.Context, string))
-	}); ok {
-		installer.SetAfterRollback(func(ctx context.Context, pluginID string) {
-			_ = reconcileInstalledPlugin(ctx, pluginID)
-		})
-	}
-	if installer, ok := application.pluginStack.PluginInstaller.(interface {
-		SetBeforeReplace(plugins.StopPluginFunc)
-	}); ok {
-		installer.SetBeforeReplace(lifecycle.StopAndResetPluginWithContext)
-	}
-	if installer, ok := application.pluginStack.PluginInstaller.(interface {
-		SetRenderTemplateValidator(func(plugins.Snapshot) error)
-	}); ok {
-		installer.SetRenderTemplateValidator(validatePluginRenderTemplates)
-	}
-	if uninstaller, ok := application.pluginStack.PluginUninstaller.(interface {
-		SetStopPlugin(plugins.StopPluginFunc)
-		SetAfterSuccess(func(context.Context, string))
-	}); ok {
-		uninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
-		uninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) {
-			application.services.PluginWebhooks.SyncManifestRegistrations()
-			if application.renderStack.Renderer != nil {
-				_ = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
-			}
-			_ = syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins)
-			systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
-		})
-	}
+	application.pluginStack.PluginInstaller.SetAfterSuccess(reconcileInstalledPlugin)
+	application.pluginStack.PluginInstaller.SetAfterRollback(func(ctx context.Context, pluginID string) {
+		_ = reconcileInstalledPlugin(ctx, pluginID)
+	})
+	application.pluginStack.PluginInstaller.SetBeforeReplace(lifecycle.StopAndResetPluginWithContext)
+	application.pluginStack.PluginInstaller.SetRenderTemplateValidator(validatePluginRenderTemplates)
+	application.pluginStack.PluginUninstaller.SetStopPlugin(lifecycle.StopAndResetPluginWithContext)
+	application.pluginStack.PluginUninstaller.SetAfterSuccess(func(ctx context.Context, pluginID string) {
+		application.services.PluginWebhooks.SyncManifestRegistrations()
+		if application.renderStack.Renderer != nil {
+			_ = application.renderStack.Renderer.RemovePluginTemplates(ctx, pluginID)
+		}
+		_ = syncCatalogRenderTemplates(ctx, application.renderStack.Renderer, application.pluginStack.Plugins)
+		systemService.ReconcileRecoverySummaryBestEffort("plugin.uninstall")
+	})
 	if application.runtimes != nil {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
 	}

@@ -1,11 +1,15 @@
 package dispatch
 
-import "context"
+import (
+	"context"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+)
 
 // Register adds a plugin runtime to the dispatch registry and starts its
 // delivery worker goroutine. The rt parameter must implement DeliverEvent
 // and Snapshot (both *runtime.Manager and test fakes satisfy this).
-func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []CommandDecl, concurrency int) {
+func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int) {
 	d.mu.Lock()
 	old, replacing := d.slots[pluginID]
 	if replacing {
@@ -86,7 +90,7 @@ func (d *Dispatcher) HasPlugin(pluginID string) bool {
 	_, ok := d.slots[pluginID]
 	return ok
 }
-func (d *Dispatcher) UpdateCommands(pluginID string, cmds []CommandDecl) bool {
+func (d *Dispatcher) UpdateCommands(pluginID string, cmds []plugins.Command) bool {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -95,7 +99,7 @@ func (d *Dispatcher) UpdateCommands(pluginID string, cmds []CommandDecl) bool {
 	if !ok {
 		return false
 	}
-	slot.commands = append([]CommandDecl(nil), cmds...)
+	slot.commands = plugins.CloneCommands(cmds)
 	return true
 }
 
@@ -160,7 +164,7 @@ func (d *Dispatcher) Close() {
 	}
 }
 
-func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []CommandDecl, concurrency int) *pluginSlot {
+func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int) *pluginSlot {
 	if concurrency <= 0 {
 		concurrency = 1
 	}
@@ -170,7 +174,7 @@ func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []Co
 		cancel:        cancel,
 		runtime:       rt,
 		subscriptions: append([]string(nil), subs...),
-		commands:      append([]CommandDecl(nil), cmds...),
+		commands:      plugins.CloneCommands(cmds),
 		concurrency:   concurrency,
 		eventQueue:    make(chan dispatchItem, d.queueSize),
 		controlQueue:  make(chan dispatchItem, d.controlQueueSize),

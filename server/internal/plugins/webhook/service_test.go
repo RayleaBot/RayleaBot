@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -19,7 +20,7 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	t.Parallel()
 
 	dispatcher := dispatch.New(nil, nil, nil, 16)
-	events := make(chan pluginruntime.Event, 1)
+	events := make(chan chatevent.Event, 1)
 	ensurer := &recordingRuntimeEnsurer{
 		dispatcher: dispatcher,
 		events:     events,
@@ -63,7 +64,7 @@ func TestHandleWebhookEnsuresRuntimeWithoutBotID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform webhook request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusAccepted {
 		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusAccepted)
 	}
@@ -100,7 +101,7 @@ func TestNewRequiresRuntimeDependencies(t *testing.T) {
 
 type recordingRuntimeEnsurer struct {
 	dispatcher *dispatch.Dispatcher
-	events     chan pluginruntime.Event
+	events     chan chatevent.Event
 	called     bool
 	botID      string
 }
@@ -112,12 +113,12 @@ func (r *recordingRuntimeEnsurer) EnsurePluginRunning(_ context.Context, pluginI
 }
 
 type webhookRuntime struct {
-	events chan pluginruntime.Event
+	events chan chatevent.Event
 }
 
-func (r *webhookRuntime) DeliverEvent(_ context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (r *webhookRuntime) DeliverEvent(_ context.Context, event chatevent.Event) (plugins.Delivery, error) {
 	r.events <- event
-	return pluginruntime.Delivery{RequestID: "evt_webhook", Result: map[string]any{}}, nil
+	return plugins.Delivery{RequestID: "evt_webhook", Result: map[string]any{}}, nil
 }
 
 func (r *webhookRuntime) Snapshot() pluginruntime.Snapshot {
@@ -142,4 +143,9 @@ func (s *staticSecretStore) Delete(context.Context, string) error {
 
 func (s *staticSecretStore) List(context.Context) ([]string, error) {
 	return nil, nil
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (r *webhookRuntime) ReadyForEvents() bool {
+	return r.Snapshot().State == pluginruntime.StateRunning
 }

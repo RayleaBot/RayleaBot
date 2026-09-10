@@ -22,13 +22,6 @@
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"
     },
-    "server/internal/permission/checker.go": {
-      "category": "A",
-      "reason": "Blacklist, whitelist, and whitelist-state CRUD are static, but they must migrate together to keep one governance repository boundary.",
-      "owner": "server-governance",
-      "target_action": "migrate_to_sqlc",
-      "revisit_after": "2026-10-01"
-    },
     "server/internal/plugins/pluginstore/config.go": {
       "category": "C",
       "reason": "Plugin config selective reads compose a variable key IN clause; namespace-wide reads and writes use sqlc.",

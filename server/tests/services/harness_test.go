@@ -26,7 +26,6 @@ import (
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -46,8 +45,8 @@ type serviceHarness struct {
 	services    appcore.Services
 	permissions localaction.PermissionView
 
-	blacklistRepo  permission.BlacklistRepository
-	whitelistRepo  permission.WhitelistRepository
+	blacklistRepo  permission.EntryRepository
+	whitelistRepo  permission.EntryRepository
 	whitelistState permission.WhitelistStateRepository
 }
 
@@ -163,11 +162,11 @@ func defaultAdapterTestConfig() config.AdapterConfig {
 	}
 }
 
-func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.BlacklistRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngress(catalog *plugincatalog.Catalog, blacklistRepo permission.EntryRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
 	a.setTestEventIngressWithGovernance(catalog, nil, nil, blacklistRepo, sender, eventBridge)
 }
 
-func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.WhitelistRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.BlacklistRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
+func (a *serviceHarness) setTestEventIngressWithGovernance(catalog *plugincatalog.Catalog, whitelistRepo permission.EntryRepository, whitelistState permission.WhitelistStateRepository, blacklistRepo permission.EntryRepository, sender chatpolicy.OutboundSender, eventBridge *bridge.Bridge) {
 	if a == nil {
 		return
 	}
@@ -281,15 +280,15 @@ func (a *serviceHarness) setTestWebhookService(secretStore secrets.Store, dispat
 	a.services.PluginWebhooks = service
 }
 
-func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
-	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, pluginruntime.Event{})
+func (a *serviceHarness) executeLocalAction(ctx context.Context, pluginID, requestID string, action plugins.Action) (map[string]any, error) {
+	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, chatevent.Event{})
 }
 
-func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action pluginruntime.Action) (map[string]any, error) {
-	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, pluginruntime.Event{})
+func (a *serviceHarness) executeOneBotLocalAction(ctx context.Context, pluginID, requestID string, action plugins.Action) (map[string]any, error) {
+	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, chatevent.Event{})
 }
 
-func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action pluginruntime.Action, parentEvent pluginruntime.Event) (map[string]any, error) {
+func (a *serviceHarness) executeLocalActionForEvent(ctx context.Context, pluginID, requestID string, action plugins.Action, parentEvent chatevent.Event) (map[string]any, error) {
 	return a.services.LocalActions.Execute(ctx, pluginID, requestID, action, parentEvent)
 }
 

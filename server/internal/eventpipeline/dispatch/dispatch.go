@@ -6,15 +6,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 // runtimeDeliverer is the interface a plugin runtime must satisfy for dispatch.
 type runtimeDeliverer interface {
-	DeliverEvent(context.Context, pluginruntime.Event) (pluginruntime.Delivery, error)
-	Snapshot() pluginruntime.Snapshot
+	DeliverEvent(context.Context, chatevent.Event) (plugins.Delivery, error)
+	ReadyForEvents() bool
 }
 
 // Outcome represents the result of delivering an event to a single plugin.
@@ -34,24 +36,18 @@ type DeliveryResult struct {
 	ErrorCode string
 }
 
-// CommandDecl captures a plugin's declared command for directed delivery.
-type CommandDecl struct {
-	Name         string
-	Aliases      []string
-	MatchPattern string
-	Permission   string
-}
 type dispatchItem struct {
 	ctx     context.Context
-	event   pluginruntime.Event
+	event   chatevent.Event
 	control bool
+	run     *scheduler.RunContext
 }
 type pluginSlot struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
 	runtime       runtimeDeliverer
 	subscriptions []string
-	commands      []CommandDecl
+	commands      []plugins.Command
 	concurrency   int
 	eventQueue    chan dispatchItem
 	controlQueue  chan dispatchItem
@@ -74,6 +70,10 @@ type deliveryContext struct {
 func (ctx deliveryContext) Value(key any) any { return ctx.values.Value(key) }
 
 type PermissionChecker func(context.Context, string, string) bool
+
+type OutboundPolicy interface {
+	Begin(context.Context, outbound.MessageLimitRequest) (outbound.MessageAdmission, error)
+}
 
 // DispatcherStats summarises cumulative per-dispatch outcomes so consumers
 // (the bridge runtime observability frame and the Prometheus metrics handler)
@@ -108,8 +108,7 @@ type Dispatcher struct {
 	logger            *slog.Logger
 	sender            outbound.ActionSender
 	resolver          outbound.ReplyTargetResolver
-	outboundLimiter   outbound.MessageLimiter
-	outboundBreaker   *outbound.MessageCircuitBreaker
+	outboundPolicy    OutboundPolicy
 	queueSize         int
 	controlQueueSize  int
 	mu                sync.RWMutex
@@ -158,13 +157,8 @@ func (d *Dispatcher) SetPermissionChecker(checker PermissionChecker) {
 	defer d.mu.Unlock()
 	d.permissionChecker = checker
 }
-func (d *Dispatcher) SetOutboundLimiter(limiter outbound.MessageLimiter) {
+func (d *Dispatcher) SetOutboundPolicy(policy OutboundPolicy) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.outboundLimiter = limiter
-}
-func (d *Dispatcher) SetOutboundCircuitBreaker(breaker *outbound.MessageCircuitBreaker) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.outboundBreaker = breaker
+	d.outboundPolicy = policy
 }

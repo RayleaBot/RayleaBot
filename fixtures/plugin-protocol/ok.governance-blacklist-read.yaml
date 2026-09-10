@@ -9,7 +9,7 @@ frames:
     request_id: action-governance-blacklist-read-1
     status: success
     data:
-      enabled: true
-      entries: []
+      user_entries: []
+      group_entries: []
 expect:
   valid: true

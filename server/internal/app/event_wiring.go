@@ -102,8 +102,7 @@ func buildEvents(deps eventDeps) EventState {
 	if adapterShell == nil {
 		adapterShell = onebot11.New(config.DefaultOneBot11AdapterID, config.OneBotConfig{}, deps.Config.Adapter, deps.Logger)
 	}
-	outboundSender := newAdapterRouter(senders, protocols)
-	outboundSender.currentConfig = currentConfig
+	outboundSender := outbound.NewRouter(senders, protocols, currentConfig)
 
 	replyTargets := outbound.NewReplyTargetCache(outbound.DefaultReplyTargetCacheSize)
 	eventDispatcher := dispatch.New(
@@ -113,9 +112,10 @@ func buildEvents(deps eventDeps) EventState {
 		deps.Config.Runtime.MaxPendingEventsPerPlugin,
 		deps.Config.Runtime.MaxPendingControlEvents,
 	)
-	outboundPolicy := outbound.NewMessagePolicy(deps.Config)
-	eventDispatcher.SetOutboundLimiter(outboundPolicy)
-	eventDispatcher.SetOutboundCircuitBreaker(outboundPolicy.Breaker)
+	outboundPolicy := outbound.NewMessagePolicy(deps.Config, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
+		return outboundSender.ResolveScope(scope, identity.BotIdentities())
+	})
+	eventDispatcher.SetOutboundPolicy(outboundPolicy)
 	var bridgeDispatch bridge.Dispatch = eventDispatcher
 	if deps.BridgeDispatch != nil {
 		bridgeDispatch = deps.BridgeDispatch

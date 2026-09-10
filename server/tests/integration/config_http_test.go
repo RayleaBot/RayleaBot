@@ -47,7 +47,7 @@ func TestConfigGetRedactsOneBotTransportTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform config get request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected config get status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -97,7 +97,7 @@ func TestConfigPutWritesValidatedDocumentAndRedactsTransportTokens(t *testing.T)
 	if err != nil {
 		t.Fatalf("perform config update request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected config update status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -162,7 +162,7 @@ func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T)
 	if err != nil {
 		t.Fatalf("perform config get request: %v", err)
 	}
-	defer getResponse.Body.Close()
+	defer func(release func() error) { _ = release() }(getResponse.Body.Close)
 	document := decodeBody(t, readAll(t, getResponse))["config"].(map[string]any)
 	onebot := testutil.ConfigDocumentOneBot(t, document)
 	onebot["reverse_ws"].(map[string]any)["access_token"] = ""
@@ -182,7 +182,7 @@ func TestConfigPutRetainsRedactedTransportTokenAndClearsEmptyToken(t *testing.T)
 	if err != nil {
 		t.Fatalf("perform config update request: %v", err)
 	}
-	defer putResponse.Body.Close()
+	defer func(release func() error) { _ = release() }(putResponse.Body.Close)
 	if putResponse.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected config update status: got %d want 200; body=%s", putResponse.StatusCode, readAll(t, putResponse))
 	}
@@ -427,7 +427,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform config update request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	responseBody := readAll(t, response)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected config update status: got %d want 200; body=%s", response.StatusCode, responseBody)
@@ -447,7 +447,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform protocol snapshot request: %v", err)
 	}
-	defer snapshotResp.Body.Close()
+	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
 
 	snapshotBody := decodeBody(t, readAll(t, snapshotResp))
 	transports, ok := snapshotBody["transport_status"].([]any)
@@ -483,7 +483,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform reverse websocket request: %v", err)
 	}
-	defer reverseResp.Body.Close()
+	defer func(release func() error) { _ = release() }(reverseResp.Body.Close)
 	if reverseResp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("unexpected reverse websocket status: got %d want 503", reverseResp.StatusCode)
 	}
@@ -498,7 +498,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform webhook request: %v", err)
 	}
-	defer webhookResp.Body.Close()
+	defer func(release func() error) { _ = release() }(webhookResp.Body.Close)
 	if webhookResp.StatusCode != http.StatusServiceUnavailable {
 		t.Fatalf("unexpected webhook status: got %d want 503", webhookResp.StatusCode)
 	}
@@ -572,7 +572,7 @@ func storeConfigSecretFixture(t *testing.T, configPath string, key string, value
 	if err != nil {
 		t.Fatalf("open sqlite store: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 	secretStore, err := secrets.NewSQLiteStore(store)
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)

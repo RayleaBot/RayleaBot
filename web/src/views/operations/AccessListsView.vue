@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import GovernanceScopeEditor from '@/components/governance/GovernanceScopeEditor.vue'
+import { oneBotGlobalScope, governanceEntryKey, governanceScopeLabel } from '@/lib/governance-scope'
 import AppHelp from '@/components/AppHelp.vue'
 import AppTag from '@/components/AppTag.vue'
 import AppSwitch from '@/components/AppSwitch.vue'
@@ -56,11 +58,13 @@ const blacklistSearchQuery = ref('')
 const isAddingWhitelist = ref(false)
 const whitelistAdding = ref(false)
 const whitelistDraft = reactive({
+  scope: oneBotGlobalScope(),
   entry_type: 'user' as GovernanceEntryType,
   target_id: '',
   reason: '',
 })
 const whitelistDraftErrors = reactive({
+  scope: '',
   target_id: '',
   reason: '',
 })
@@ -69,11 +73,13 @@ const whitelistDraftErrors = reactive({
 const isAddingBlacklist = ref(false)
 const blacklistAdding = ref(false)
 const blacklistDraft = reactive({
+  scope: oneBotGlobalScope(),
   entry_type: 'user' as GovernanceEntryType,
   target_id: '',
   reason: '',
 })
 const blacklistDraftErrors = reactive({
+  scope: '',
   target_id: '',
   reason: '',
 })
@@ -176,6 +182,7 @@ const whitelistTableData = computed(() => {
   const list: (BlacklistEntry & { isDraft?: boolean })[] = [...filteredWhitelistEntries.value]
   if (isAddingWhitelist.value) {
     list.unshift({
+      scope: { ...whitelistDraft.scope },
       entry_type: whitelistDraft.entry_type,
       target_id: '__whitelist_draft__',
       reason: whitelistDraft.reason,
@@ -190,6 +197,7 @@ const blacklistTableData = computed(() => {
   const list: (BlacklistEntry & { isDraft?: boolean })[] = [...filteredBlacklistEntries.value]
   if (isAddingBlacklist.value) {
     list.unshift({
+      scope: { ...blacklistDraft.scope },
       entry_type: blacklistDraft.entry_type,
       target_id: '__blacklist_draft__',
       reason: blacklistDraft.reason,
@@ -212,6 +220,7 @@ const scopeFilterOptions = computed(() => [
 ])
 
 const tableColumns = computed(() => [
+  { label: t('accessLists.namespace.label'), key: 'namespace', width: 230 },
   { label: t('accessLists.table.columns.type'), key: 'type', width: 120, align: 'center' as const },
   { label: t('accessLists.table.columns.targetId'), key: 'targetId', width: 180 },
   { label: t('accessLists.table.columns.reason'), key: 'reason' },
@@ -247,7 +256,7 @@ async function removeBlacklistEntry(entry: BlacklistEntry) {
   blacklistMutating.value = true
   blacklistActionError.value = null
   try {
-    await governanceStore.removeBlacklistEntry(entry.entry_type, entry.target_id)
+    await governanceStore.removeBlacklistEntry(entry.entry_type, entry.target_id, entry.scope)
     removeOpen.value = false
     notifySuccess(t('accessLists.feedback.blacklistRemoved'))
   } catch (error) {
@@ -261,7 +270,7 @@ async function removeWhitelistEntry(entry: BlacklistEntry) {
   whitelistMutating.value = true
   whitelistActionError.value = null
   try {
-    await governanceStore.removeWhitelistEntry(entry.entry_type, entry.target_id)
+    await governanceStore.removeWhitelistEntry(entry.entry_type, entry.target_id, entry.scope)
     removeOpen.value = false
     notifySuccess(t('accessLists.feedback.whitelistRemoved'))
   } catch (error) {
@@ -322,6 +331,11 @@ async function saveWhitelistInline() {
   const reason = whitelistDraft.reason.trim()
 
   let hasError = false
+  whitelistDraftErrors.scope = ''
+  if (whitelistDraft.scope.kind === 'instance' && (!whitelistDraft.scope.source_adapter.trim() || !whitelistDraft.scope.bot_id.trim())) {
+    whitelistDraftErrors.scope = t('accessLists.namespace.required')
+    hasError = true
+  }
   if (!targetId) {
     whitelistDraftErrors.target_id = t('accessLists.validation.entryRequired')
     hasError = true
@@ -338,6 +352,7 @@ async function saveWhitelistInline() {
 
   try {
     await governanceStore.addWhitelistEntry({
+      scope: { ...whitelistDraft.scope },
       entry_type: whitelistDraft.entry_type,
       target_id: targetId,
       reason,
@@ -375,6 +390,11 @@ async function saveBlacklistInline() {
   const reason = blacklistDraft.reason.trim()
 
   let hasError = false
+  blacklistDraftErrors.scope = ''
+  if (blacklistDraft.scope.kind === 'instance' && (!blacklistDraft.scope.source_adapter.trim() || !blacklistDraft.scope.bot_id.trim())) {
+    blacklistDraftErrors.scope = t('accessLists.namespace.required')
+    hasError = true
+  }
   if (!targetId) {
     blacklistDraftErrors.target_id = t('accessLists.validation.entryRequired')
     hasError = true
@@ -391,6 +411,7 @@ async function saveBlacklistInline() {
 
   try {
     await governanceStore.addBlacklistEntry({
+      scope: { ...blacklistDraft.scope },
       entry_type: blacklistDraft.entry_type,
       target_id: targetId,
       reason,
@@ -512,7 +533,7 @@ onMounted(() => {
             :columns="tableColumns"
             :rows="whitelistTableData"
             :min-width="760"
-            :row-key="(row) => row.isDraft ? 'draft-whitelist' : `${row.entry_type}-${row.target_id}`"
+            :row-key="(row) => row.isDraft ? 'draft-whitelist' : governanceEntryKey(row)"
             :loading="whitelistLoading && !whitelist"
           >
             <template #empty>
@@ -539,6 +560,11 @@ onMounted(() => {
                     data-testid="whitelist-draft-type"
                     :aria-label="t('accessLists.table.columns.type')"
                   />
+                </template>
+
+                <template v-else-if="column.key === 'namespace'">
+                  <GovernanceScopeEditor v-model="whitelistDraft.scope" />
+                  <span v-if="whitelistDraftErrors.scope" class="inline-error-text" role="alert">{{ whitelistDraftErrors.scope }}</span>
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
@@ -608,6 +634,10 @@ onMounted(() => {
                   <AppTag :tone="getEntryTypeTagColor(record.entry_type)">
                     {{ getEntryTypeLabel(record.entry_type) }}
                   </AppTag>
+                </template>
+
+                <template v-else-if="column.key === 'namespace'">
+                  <span>{{ governanceScopeLabel(record.scope) }}</span>
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
@@ -702,7 +732,7 @@ onMounted(() => {
             :columns="tableColumns"
             :rows="blacklistTableData"
             :min-width="760"
-            :row-key="(row) => row.isDraft ? 'draft-blacklist' : `${row.entry_type}-${row.target_id}`"
+            :row-key="(row) => row.isDraft ? 'draft-blacklist' : governanceEntryKey(row)"
             :loading="blacklistLoading && !blacklist"
           >
             <template #empty>
@@ -729,6 +759,11 @@ onMounted(() => {
                     data-testid="blacklist-draft-type"
                     :aria-label="t('accessLists.table.columns.type')"
                   />
+                </template>
+
+                <template v-else-if="column.key === 'namespace'">
+                  <GovernanceScopeEditor v-model="blacklistDraft.scope" />
+                  <span v-if="blacklistDraftErrors.scope" class="inline-error-text" role="alert">{{ blacklistDraftErrors.scope }}</span>
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">
@@ -798,6 +833,10 @@ onMounted(() => {
                   <AppTag :tone="getEntryTypeTagColor(record.entry_type)">
                     {{ getEntryTypeLabel(record.entry_type) }}
                   </AppTag>
+                </template>
+
+                <template v-else-if="column.key === 'namespace'">
+                  <span>{{ governanceScopeLabel(record.scope) }}</span>
                 </template>
 
                 <template v-else-if="column.key === 'targetId'">

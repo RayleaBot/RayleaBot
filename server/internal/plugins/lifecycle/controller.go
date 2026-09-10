@@ -82,11 +82,14 @@ type Controller struct {
 	identityByPlugin map[string][]chatevent.BotIdentity
 }
 
-func NewController(deps Deps) *Controller {
-	zone := config.DefaultTimezone
+func NewController(deps Deps) (*Controller, error) {
+	if deps.CurrentConfig == nil || deps.Plugins == nil || deps.Runtimes == nil || deps.Dispatcher == nil {
+		return nil, errors.New("plugin lifecycle requires config, catalog, runtimes and dispatcher")
+	}
+	var zone string
 	if deps.Scheduler != nil {
 		zone = deps.Scheduler.Timezone()
-	} else if deps.CurrentConfig != nil {
+	} else {
 		zone = config.NormalizeTimezone(deps.CurrentConfig().Scheduler.Timezone)
 	}
 	return &Controller{
@@ -106,7 +109,7 @@ func NewController(deps Deps) *Controller {
 		onRecoveryChange:    deps.OnRecoveryChange,
 		refreshManifest:     deps.RefreshManifest,
 		syncRenderTemplates: deps.SyncRenderTemplates,
-	}
+	}, nil
 }
 
 func (c *Controller) BindLifecycleContext(ctx context.Context) {
@@ -133,9 +136,6 @@ func (c *Controller) lifecycleTimeoutContext(timeout time.Duration) (context.Con
 }
 
 func (c *Controller) config() config.Config {
-	if c.currentConfig == nil {
-		return config.Config{}
-	}
 	return c.currentConfig()
 }
 
@@ -220,9 +220,6 @@ func RefreshPluginManifest(
 }
 
 func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c.plugins == nil {
-		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
-	}
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -251,9 +248,6 @@ func (c *Controller) Enable(ctx context.Context, pluginID string) (plugins.Snaps
 }
 
 func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c.plugins == nil {
-		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
-	}
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -295,9 +289,6 @@ func (c *Controller) Disable(ctx context.Context, pluginID string) (plugins.Snap
 }
 
 func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
-	if c.plugins == nil {
-		return plugins.Snapshot{}, errors.New("plugin lifecycle controller is not available")
-	}
 
 	snapshot, ok := c.plugins.Get(pluginID)
 	if !ok {
@@ -345,9 +336,6 @@ func (c *Controller) RecoverFromDeadLetter(ctx context.Context, pluginID string)
 }
 
 func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, action string, payload map[string]any) (map[string]any, error) {
-	if c.plugins == nil || c.runtimes == nil {
-		return nil, fmt.Errorf("plugin management action service is not available")
-	}
 	pluginID = strings.TrimSpace(pluginID)
 	action = strings.TrimSpace(action)
 	if pluginID == "" || action == "" {
@@ -369,7 +357,7 @@ func (c *Controller) InvokeManagementAction(ctx context.Context, pluginID, actio
 	}
 
 	now := time.Now()
-	delivery, err := manager.DeliverEvent(ctx, pluginruntime.Event{
+	delivery, err := manager.DeliverEvent(ctx, chatevent.Event{
 		EventID:        fmt.Sprintf("management-action-%s-%d", action, now.UnixNano()),
 		SourceProtocol: "management",
 		SourceAdapter:  "management.ui",
@@ -415,9 +403,6 @@ func (c *Controller) ReconcileRuntime(ctx context.Context) {
 }
 
 func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID string) error {
-	if c.runtimes == nil {
-		return nil
-	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -620,7 +605,7 @@ func (c *Controller) buildStartInputs(ctx context.Context, pluginID string) (plu
 		Config:          settings,
 		Permissions:     pluginPermissionNames(snapshot),
 		SuperAdmins:     pluginRuntimeSuperAdmins(cfg),
-		CommandPrefixes: pluginRuntimeCommandPrefixes(cfg),
+		CommandPrefixes: cfg.CommandPrefixes(),
 	}
 	return spec, payload, nil
 }
@@ -631,33 +616,6 @@ func pluginPermissionNames(snapshot plugins.Snapshot) []string {
 		items = append(items, name)
 	}
 	sort.Strings(items)
-	return items
-}
-
-func pluginRuntimeCommandPrefixes(cfg config.Config) []string {
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
-		return sanitizeRuntimeCommandPrefixes(cfg.Command.Prefixes)
-	}
-	return []string{"/"}
-}
-
-func sanitizeRuntimeCommandPrefixes(prefixes []string) []string {
-	items := make([]string, 0, len(prefixes))
-	seen := make(map[string]struct{}, len(prefixes))
-	for _, prefix := range prefixes {
-		prefix = strings.TrimSpace(prefix)
-		if prefix == "" {
-			continue
-		}
-		if _, ok := seen[prefix]; ok {
-			continue
-		}
-		seen[prefix] = struct{}{}
-		items = append(items, prefix)
-	}
-	if len(items) == 0 {
-		return []string{"/"}
-	}
 	return items
 }
 
@@ -695,7 +653,7 @@ func (c *Controller) afterRuntimeRegistered(ctx context.Context, pluginID string
 }
 
 func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginruntime.Manager) {
-	if c.dispatcher == nil || manager == nil {
+	if manager == nil {
 		return
 	}
 	if c.dispatcher.HasDeliverablePlugin(pluginID) {
@@ -709,7 +667,7 @@ func (c *Controller) registerRuntimeIfNeeded(pluginID string, manager *pluginrun
 }
 
 func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot, manager *pluginruntime.Manager) {
-	if c.dispatcher == nil || manager == nil {
+	if manager == nil {
 		return
 	}
 	concurrency := snapshot.Concurrency
@@ -719,7 +677,7 @@ func (c *Controller) registerRuntime(pluginID string, snapshot plugins.Snapshot,
 	if max := c.config().Runtime.MaxConcurrentTasksPerPlugin; max > 0 && concurrency > max {
 		concurrency = max
 	}
-	c.dispatcher.Register(pluginID, manager, snapshot.Events, dispatch.CommandsFromPlugin(snapshot.Commands), concurrency)
+	c.dispatcher.Register(pluginID, manager, snapshot.Events, snapshot.Commands, concurrency)
 }
 
 func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string) {
@@ -732,7 +690,7 @@ func (c *Controller) dispatchPluginStarted(ctx context.Context, pluginID string)
 	}
 
 	now := time.Now()
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
+	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, chatevent.Event{
 		EventID:        fmt.Sprintf("plugin-started-%s-%d", pluginID, now.UnixNano()),
 		SourceProtocol: "platform",
 		SourceAdapter:  "plugin.lifecycle",
@@ -787,22 +745,21 @@ func (c *Controller) HandleSchedulerTrigger(ctx context.Context, job scheduler.J
 
 	pluginName := schedulerPluginDisplayName(snapshot, pluginID)
 
-	result := c.dispatcher.DispatchToPlugin(ctx, pluginID, pluginruntime.Event{
+	result := c.dispatcher.DispatchScheduledEvent(ctx, pluginID, chatevent.Event{
 		EventID:        fmt.Sprintf("scheduler-%s-%d", job.JobID, time.Now().UnixNano()),
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      startedAt.Unix(),
 		PayloadFields:  schedulerPayloadFields(job),
-		SchedulerLog: &pluginruntime.SchedulerLogContext{
-			JobID:      job.JobID,
-			Revision:   job.Revision,
-			PluginName: pluginName,
-			TaskName:   taskName,
-			LogLabel:   logLabel,
-			StartedAt:  startedAt,
-			Recorder:   c.scheduler,
-		},
+	}, scheduler.RunContext{
+		JobID:      job.JobID,
+		Revision:   job.Revision,
+		PluginName: pluginName,
+		TaskName:   taskName,
+		LogLabel:   logLabel,
+		StartedAt:  startedAt,
+		Recorder:   c.scheduler,
 	})
 	if result.Outcome != dispatch.OutcomeDelivered {
 		c.logSchedulerTriggerFailure(ctx, pluginID, pluginName, taskName, logLabel, job.Revision, startedAt, result.ErrorCode, string(result.Outcome))
@@ -923,7 +880,7 @@ func (c *Controller) SyncBotIdentities(ctx context.Context) {
 			continue
 		}
 		now := time.Now()
-		event := pluginruntime.Event{
+		event := chatevent.Event{
 			EventID:        fmt.Sprintf("bot-identities-%d", now.UnixNano()),
 			SourceProtocol: "platform", SourceAdapter: "adapters.internal",
 			EventType: "bot.identities.changed", Timestamp: now.Unix(),

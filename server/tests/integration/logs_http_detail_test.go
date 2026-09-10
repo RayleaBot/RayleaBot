@@ -63,7 +63,7 @@ func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform outbound log detail request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected outbound log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -122,7 +122,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform command rejection detail request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected command rejection detail status: got %d want 200", response.StatusCode)
 	}
@@ -165,7 +165,7 @@ func TestLogDetailReturnsNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform missing log detail request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected missing log detail status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -217,7 +217,7 @@ func TestLogDetailFallsBackToLiveStreamWhenRepositoryMissesNewLog(t *testing.T) 
 	if err != nil {
 		t.Fatalf("perform live stream fallback request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected live stream fallback status: got %d want 200", response.StatusCode)
 	}
@@ -294,7 +294,7 @@ func TestLogDetailFallbackSanitizesUnsafeOneBotText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform live stream fallback request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected live stream fallback status: got %d want 200", response.StatusCode)
 	}
@@ -338,7 +338,7 @@ func TestLogsRouteRequiresAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform logs auth request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected logs auth status: got %d want 401", response.StatusCode)
 	}
@@ -357,7 +357,7 @@ func doLogsListRequest(t *testing.T, baseURL, token, requestPath string) map[str
 	if err != nil {
 		t.Fatalf("perform logs list request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected logs list status: got %d want 200", response.StatusCode)
 	}
@@ -384,7 +384,7 @@ func putWhitelistState(t *testing.T, baseURL, token string, enabled bool) {
 	if err != nil {
 		t.Fatalf("perform whitelist state request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected whitelist state status: got %d want 200", response.StatusCode)
 	}
@@ -465,7 +465,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform seed request: %v", err)
 	}
-	responseA.Body.Close()
+	_ = responseA.Body.Close()
 
 	appA.Logger().Error(
 		"重启后仍可读取的持久化日志样例",
@@ -493,7 +493,7 @@ func TestLogsListReadsPersistedSummariesAcrossRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform persisted logs request: %v", err)
 	}
-	defer responseB.Body.Close()
+	defer func(release func() error) { _ = release() }(responseB.Body.Close)
 	if responseB.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected persisted logs status: got %d want 200", responseB.StatusCode)
 	}

@@ -6,9 +6,68 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
+
+func TestOutboundQuotaAndCircuitUseResolvedBotNamespace(t *testing.T) {
+	botID := "bot-a"
+	policy := NewMessagePolicy(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "3/1h"}}, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
+		scope.BotID = botID
+		return scope
+	})
+	request := MessageLimitRequest{Scope: chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq"}, TargetType: "group", TargetID: "same-id"}
+	for range 3 {
+		record, err := policy.Begin(t.Context(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		record.Record(errors.New("send failed"))
+	}
+	botID = "bot-b"
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	record, err := policy.Begin(ctx, request)
+	if err != nil {
+		t.Fatalf("another bot inherited quota or circuit: %v", err)
+	}
+	record.Record(nil)
+}
+
+func TestOutboundProbeKeepsIdentityUntilItsResultIsRecorded(t *testing.T) {
+	botID := "bot-a"
+	policy := NewMessagePolicy(config.Config{Message: config.MessageConfig{RateLimitPerTarget: "100/1h"}}, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
+		scope.BotID = botID
+		return scope
+	})
+	now := time.Now()
+	policy.Breaker.now = func() time.Time { return now }
+	request := MessageLimitRequest{Scope: chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq"}, TargetType: "group", TargetID: "same-id"}
+	for range 3 {
+		record, err := policy.Begin(t.Context(), request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		record.Record(errors.New("send failed"))
+	}
+	if _, err := policy.Begin(t.Context(), request); err == nil {
+		t.Fatal("circuit stayed closed")
+	}
+	now = now.Add(time.Minute)
+	record, err := policy.Begin(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	botID = "bot-b"
+	record.Record(nil)
+	botID = "bot-a"
+	record, err = policy.Begin(t.Context(), request)
+	if err != nil {
+		t.Fatalf("completed probe remained occupied after identity changed: %v", err)
+	}
+	record.Record(nil)
+}
 
 func TestMessageRateLimiterDelaysPluginMessagesUntilWindowAllows(t *testing.T) {
 	limiter := NewMessageRateLimiter(config.Config{

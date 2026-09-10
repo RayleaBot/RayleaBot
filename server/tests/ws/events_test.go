@@ -14,7 +14,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"github.com/coder/websocket"
 )
@@ -38,7 +37,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForObservabilitySubscriber(t, eventBridge)
 	readProtocolReplayFrame(t, conn)
@@ -111,7 +110,7 @@ func TestEventsWebSocketReplaysProtocolStateOnConnect(t *testing.T) {
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForObservabilitySubscriber(t, eventBridge)
 	firstStatus := readServiceStatusReplayFrame(t, conn)
@@ -129,7 +128,7 @@ func TestEventsWebSocketReplaysServiceStatusOnConnect(t *testing.T) {
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	frame := readServiceStatusReplayFrame(t, conn)
 	assertServiceStatusReplayFrame(t, frame, "running")
@@ -160,7 +159,7 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform reverse websocket request: %v", err)
 	}
-	defer unauthorizedResp.Body.Close()
+	defer func(release func() error) { _ = release() }(unauthorizedResp.Body.Close)
 	if unauthorizedResp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected reverse websocket status: got %d want %d", unauthorizedResp.StatusCode, http.StatusUnauthorized)
 	}
@@ -174,14 +173,14 @@ func TestEventsWebSocketReplaysSameProtocolSnapshotAsHTTPHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform protocol snapshot request: %v", err)
 	}
-	defer snapshotResp.Body.Close()
+	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
 	if snapshotResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected protocol snapshot status: got %d want %d", snapshotResp.StatusCode, http.StatusOK)
 	}
 	httpSnapshot := decodeBody(t, readAll(t, snapshotResp))
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 	readServiceStatusReplayFrame(t, conn)
 	first := readProtocolReplayFrame(t, conn)
 	assertProtocolReplayFrame(t, first, "protocol_snapshot")
@@ -208,7 +207,7 @@ func TestEventsWebSocketDeliversPluginStateFrame(t *testing.T) {
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForPluginSubscriber(t, application.Plugins())
 	readServiceStatusReplayFrame(t, conn)
@@ -246,7 +245,7 @@ func TestEventsWebSocketPublishesStoppingServiceStatusAfterShutdownRequest(t *te
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	readServiceStatusReplayFrame(t, conn)
 	readProtocolReplayFrame(t, conn)
@@ -261,7 +260,7 @@ func TestEventsWebSocketPublishesStoppingServiceStatusAfterShutdownRequest(t *te
 	if err != nil {
 		t.Fatalf("perform shutdown request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusAccepted {
 		t.Fatalf("unexpected shutdown status: got %d want %d", response.StatusCode, http.StatusAccepted)
 	}
@@ -279,12 +278,22 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	readServiceStatusReplayFrame(t, conn)
 	readProtocolReplayFrame(t, conn)
 
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"1001","reason":"spam"}`))
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{
+  "entry_type": "user",
+  "target_id": "1001",
+  "reason": "spam",
+  "scope": {
+    "kind":"global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
+}`))
 	if err != nil {
 		t.Fatalf("create governance request: %v", err)
 	}
@@ -295,7 +304,7 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
 	if err != nil {
 		t.Fatalf("perform governance request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected governance status: got %d want %d", response.StatusCode, http.StatusOK)
 	}
@@ -351,7 +360,7 @@ func (s *eventsDispatchStub) HasDeliverablePlugins() bool {
 	return s.deliverable
 }
 
-func (s *eventsDispatchStub) Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult {
+func (s *eventsDispatchStub) Dispatch(context.Context, chatevent.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 

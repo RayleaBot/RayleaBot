@@ -15,9 +15,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -123,7 +123,7 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		if strings.TrimSpace(eventID) == "" {
 			eventID = fmt.Sprintf("webhook-%s-%d", route, nowTime.UnixNano())
 		}
-		webhookMeta := &pluginruntime.EventWebhook{
+		webhookMeta := &chatevent.Webhook{
 			Route:      route,
 			ReceivedAt: nowTime.Unix(),
 		}
@@ -136,18 +136,18 @@ func (s *Service) HandleWebhook() http.HandlerFunc {
 		}
 
 		_, includeRawPayload := snapshot.Permissions["event.raw_payload"]
-		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, pluginruntime.Event{
+		result := s.dispatcher.DispatchToPlugin(r.Context(), pluginID, chatevent.Event{
 			EventID:        eventID,
 			SourceProtocol: "webhook",
 			SourceAdapter:  "webhook.gateway",
 			EventType:      "webhook.received",
 			Timestamp:      nowTime.Unix(),
-			Target: &pluginruntime.EventTarget{
+			Target: &chatevent.Target{
 				Type: "webhook",
 				ID:   route,
 				Name: route,
 			},
-			Actor: &pluginruntime.EventActor{
+			Actor: &chatevent.Actor{
 				ID:   webhookRemoteIP(r.RemoteAddr),
 				Role: "remote",
 			},

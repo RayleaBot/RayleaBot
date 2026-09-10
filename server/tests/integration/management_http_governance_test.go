@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"archive/zip"
 	"bytes"
 	"context"
@@ -20,7 +21,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	entryRepo := permission.NewSQLiteWhitelistRepository(application.Storage().Read, application.Storage().Write)
+	entryRepo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListWhitelist)
 	stateRepo := permission.NewSQLiteWhitelistStateRepository(application.Storage().Read, application.Storage().Write)
 
 	server := newManagementTestServer(t, application.Handler())
@@ -36,7 +37,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform whitelist get request: %v", err)
 	}
-	defer getResp.Body.Close()
+	defer func(release func() error) { _ = release() }(getResp.Body.Close)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected whitelist get status: got %d want 200", getResp.StatusCode)
 	}
@@ -46,7 +47,17 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 		t.Fatalf("unexpected initial whitelist enabled: %#v", initialBody["enabled"])
 	}
 
-	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/whitelist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":"值班账号"}`))
+	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/whitelist/entries", strings.NewReader(`{
+  "entry_type": "user",
+  "target_id": "10001",
+  "reason": "值班账号",
+  "scope": {
+    "kind":"global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
+}`))
 	if err != nil {
 		t.Fatalf("create whitelist upsert request: %v", err)
 	}
@@ -57,7 +68,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform whitelist upsert request: %v", err)
 	}
-	defer upsertResp.Body.Close()
+	defer func(release func() error) { _ = release() }(upsertResp.Body.Close)
 	if upsertResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected whitelist upsert status: got %d want 200", upsertResp.StatusCode)
 	}
@@ -66,7 +77,17 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 		t.Fatalf("unexpected whitelist upsert body: %#v", upsertBody)
 	}
 
-	groupReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/whitelist/entries", strings.NewReader(`{"entry_type":"group","target_id":"20002","reason":"核心服务群"}`))
+	groupReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/whitelist/entries", strings.NewReader(`{
+  "entry_type": "group",
+  "target_id": "20002",
+  "reason": "核心服务群",
+  "scope": {
+    "kind":"global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
+}`))
 	if err != nil {
 		t.Fatalf("create group whitelist upsert request: %v", err)
 	}
@@ -77,7 +98,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform group whitelist upsert request: %v", err)
 	}
-	defer groupResp.Body.Close()
+	defer func(release func() error) { _ = release() }(groupResp.Body.Close)
 	if groupResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected group whitelist upsert status: got %d want 200", groupResp.StatusCode)
 	}
@@ -93,7 +114,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform whitelist state request: %v", err)
 	}
-	defer enableResp.Body.Close()
+	defer func(release func() error) { _ = release() }(enableResp.Body.Close)
 	if enableResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected whitelist state status: got %d want 200", enableResp.StatusCode)
 	}
@@ -120,7 +141,7 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform enabled whitelist get request: %v", err)
 	}
-	defer snapshotResp.Body.Close()
+	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
 	if snapshotResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected enabled whitelist get status: got %d want 200", snapshotResp.StatusCode)
 	}
@@ -147,12 +168,12 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform invalid whitelist state request: %v", err)
 	}
-	defer invalidResp.Body.Close()
+	defer func(release func() error) { _ = release() }(invalidResp.Body.Close)
 	if invalidResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("unexpected invalid whitelist state status: got %d want 400", invalidResp.StatusCode)
 	}
 
-	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/whitelist/entries/group/20002", nil)
+	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/whitelist/entries/group/20002?kind=global&source_protocol=onebot11", nil)
 	if err != nil {
 		t.Fatalf("create whitelist delete request: %v", err)
 	}
@@ -162,12 +183,12 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform whitelist delete request: %v", err)
 	}
-	defer deleteResp.Body.Close()
+	defer func(release func() error) { _ = release() }(deleteResp.Body.Close)
 	if deleteResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("unexpected whitelist delete status: got %d want 204", deleteResp.StatusCode)
 	}
 
-	if _, err := entryRepo.Get(context.Background(), "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
+	if _, err := entryRepo.Get(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "group", "20002"); err != permission.ErrGovernanceEntryNotFound {
 		t.Fatalf("group whitelist entry should be removed, got err=%v", err)
 	}
 }
@@ -229,7 +250,7 @@ func TestGovernanceCommandPolicyHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform governance command-policy request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected governance command-policy status: got %d want 200", response.StatusCode)
 	}
@@ -297,7 +318,7 @@ func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform system backup request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected system backup status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -336,7 +357,7 @@ func TestSystemBackupAcceptsTaskAndCreatesArchive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open backup archive: %v", err)
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	entries := map[string]bool{}
 	for _, file := range reader.File {
@@ -366,7 +387,7 @@ func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform diagnostics export request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected diagnostics export status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -402,7 +423,7 @@ func TestSystemDiagnosticsExportReturnsZipBundle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("open doctor.json: %v", err)
 		}
-		defer rc.Close()
+		defer func(release func() error) { _ = release() }(rc.Close)
 
 		var body map[string]any
 		if err := json.NewDecoder(rc).Decode(&body); err != nil {

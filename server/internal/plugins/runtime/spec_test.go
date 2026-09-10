@@ -168,7 +168,7 @@ func copyRuntimeTestFile(t *testing.T, source, destination string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer input.Close()
+	defer func(release func() error) { _ = release() }(input.Close)
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +199,7 @@ func assertBuildSpecErrorCode(t *testing.T, err error, want string) {
 	if err == nil {
 		t.Fatalf("expected runtime error %q", want)
 	}
-	runtimeErr, ok := err.(*Error)
+	runtimeErr, ok := err.(*plugins.Error)
 	if !ok || runtimeErr.Code != want {
 		t.Fatalf("error = %T %v, want code %q", err, err, want)
 	}

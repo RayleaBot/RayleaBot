@@ -704,7 +704,7 @@ codes:
     domain: adapter
     message_key: errors.adapter.send_unconfirmed
     message: 消息发送结果未确认
-    description: A message request may have reached the upstream but no definitive receipt was obtained before cancellation, timeout, or connection loss. Delivery may still complete. Do not automatically resend or immediately delete referenced media files.
+    description: A message request may have reached the upstream but no definitive receipt was obtained because of cancellation, timeout, connection loss, or a missing or malformed success receipt. Delivery may still complete. Do not automatically resend or immediately delete referenced media files.
     http_status: 504
     retryable: false
     applies_to: [http, websocket, plugin_protocol, logs]

@@ -102,7 +102,7 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		Tasks:        platformState.Tasks,
 	}
 	if deps.DevelopmentArtifactRoot != "" {
-		developmentRoutes.Installer = pluginState.PluginInstaller.(managementapi.DevelopmentInstaller)
+		developmentRoutes.Installer = pluginState.PluginInstaller
 	}
 
 	handlers := httpHandlers{

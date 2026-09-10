@@ -29,7 +29,7 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
 	app.setTestSystem(registry, nil, nil, nil)
-	app.setTestLifecycle(
+	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),
@@ -71,7 +71,7 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 	}})
 	app := newTestAppState(config.Config{}, slog.Default())
 	app.setTestSystem(registry, nil, nil, nil)
-	app.setTestLifecycle(
+	app.setTestLifecycle(t,
 		catalog,
 		nil,
 		newRuntimeRegistry(slog.Default(), pluginruntime.Options{}),

@@ -64,17 +64,25 @@ func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Ex
 	a.platform.Tasks = taskRegistry
 	a.platform.taskExecutor = taskExecutor
 	a.pluginStack.renderer = rendererService
-	a.services.system = New(Deps{
+	var renderer RendererState
+	if rendererService != nil {
+		renderer = rendererService
+	}
+	service, err := New(Deps{
 		CurrentConfig:    a.state.CurrentConfig,
 		CurrentSummary:   func() config.Summary { return a.state.Summary },
 		CurrentRepoRoot:  func() string { return a.state.repoRoot },
 		CurrentStartedAt: func() time.Time { return a.state.startedAt },
 		Logger:           a.state.Logger,
 		Plugins:          a.pluginStack.Plugins,
-		Renderer:         rendererService,
+		Renderer:         renderer,
 		TaskExecutor:     taskExecutor,
 		LogRepository:    nil,
 	})
+	if err != nil {
+		panic(err)
+	}
+	a.services.system = service
 }
 
 func (a *App) autoPrepareRuntimeEnvironments(ctx context.Context) {

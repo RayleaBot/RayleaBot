@@ -110,7 +110,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewUninstallService failed: %v", err)
 	}
-	defer service.Close()
+	defer func(release func() error) { _ = release() }(service.Close)
 
 	called := make(chan string, 1)
 	service.SetAfterSuccess(func(ctx context.Context, pluginID string) {

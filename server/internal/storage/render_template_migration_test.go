@@ -32,7 +32,7 @@ func TestRenderTemplateMigrationDiscardsEditorHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 	var obsolete, current int
 	if err := store.Read.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE name IN ('render_template_states','render_template_revisions')`).Scan(&obsolete); err != nil {
 		t.Fatal(err)

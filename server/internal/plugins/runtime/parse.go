@@ -3,13 +3,20 @@ package runtime
 import (
 	"encoding/json"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func ParseTerminalAction(kind string, raw json.RawMessage) (*Action, error) {
+func ParseTerminalAction(kind string, raw json.RawMessage) (*chatevent.MessageCommand, error) {
 	switch kind {
 	case "message.send":
-		return parseMessageSendAction(raw)
+		action, err := parseMessageSendAction(raw)
+		if err != nil {
+			return nil, err
+		}
+		command := action.MessageCommand()
+		return &command, nil
 	default:
 		if isLocalActionKind(kind) || isOneBotFamilyAction(kind) || isProviderExtensionAction(kind) {
 			return nil, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
@@ -18,7 +25,7 @@ func ParseTerminalAction(kind string, raw json.RawMessage) (*Action, error) {
 	}
 }
 
-func ParseLocalAction(kind string, raw json.RawMessage) (*Action, error) {
+func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error) {
 	switch kind {
 	case "logger.write":
 		return parseLoggerWriteAction(raw)
@@ -100,7 +107,7 @@ func isProviderExtensionAction(kind string) bool {
 	return onebot11.IsProviderExtensionAction(kind)
 }
 
-func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*Action, error) {
+func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*plugins.Action, error) {
 	payload := map[string]any{}
 	if len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &payload); err != nil {
@@ -110,7 +117,7 @@ func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*Action, e
 			payload = map[string]any{}
 		}
 	}
-	return &Action{
+	return &plugins.Action{
 		Kind:    actionKind,
 		RawData: payload,
 	}, nil

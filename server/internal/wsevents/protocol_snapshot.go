@@ -63,22 +63,6 @@ func (s *ProtocolService) CurrentOneBot11ProtocolSnapshot() OneBot11ProtocolSnap
 	}
 }
 
-func (s *ProtocolService) transportIngressEnabled(transport onebot11.TransportKey) bool {
-	if s.adapter == nil {
-		return false
-	}
-
-	snapshot := s.adapter.Snapshot()
-	switch transport {
-	case onebot11.TransportReverseWS:
-		return snapshot.ReverseWS.Enabled && snapshot.ReverseWS.Configured
-	case onebot11.TransportWebhook:
-		return snapshot.Webhook.Enabled && snapshot.Webhook.Configured
-	default:
-		return false
-	}
-}
-
 func protocolIssuesFromSnapshot(snapshot onebot11.Snapshot) []ProtocolIssue {
 	issues := make([]ProtocolIssue, 0, 4)
 	appendIssue := func(transport onebot11.TransportKey, transportSnapshot onebot11.TransportSnapshot) {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func TestExecuteHTTPSendsExplicitRequestAndReturnsText(t *testing.T) {
@@ -26,7 +25,7 @@ func TestExecuteHTTPSendsExplicitRequestAndReturnsText(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
+	result, err := executeHTTPRequest(context.Background(), "plugin.http", plugins.Action{
 		HTTPMethod:  "GET",
 		HTTPURL:     server.URL + "/v1/data",
 		HTTPHeaders: map[string]string{"X-Request": "fixture"},
@@ -58,7 +57,7 @@ func TestExecuteHTTPAllowsConfiguredPrivateHost(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
+	result, err := executeHTTPRequest(context.Background(), "plugin.http", plugins.Action{
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL + "/cover.jpg",
 	}, config.Config{
@@ -81,14 +80,14 @@ func TestExecuteHTTPAllowsConfiguredPrivateHost(t *testing.T) {
 func TestExecuteHTTPRejectsPrivateHostWithoutServerAllowlist(t *testing.T) {
 	t.Parallel()
 
-	_, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
+	_, err := executeHTTPRequest(context.Background(), "plugin.http", plugins.Action{
 		HTTPMethod: "GET",
 		HTTPURL:    "https://127.0.0.1/v1/data",
 	}, config.Config{HTTP: config.HTTPConfig{TimeoutSeconds: 5, MaxRetries: 0}}, stubHTTPActionPermissions{
 		permissions: map[string]bool{"http.request": true},
 	})
 
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
@@ -105,7 +104,7 @@ func TestExecuteHTTPMapsOversizedResponseToStableError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := executeHTTPRequest(context.Background(), "plugin.http", pluginruntime.Action{
+	_, err := executeHTTPRequest(context.Background(), "plugin.http", plugins.Action{
 		HTTPMethod: "GET",
 		HTTPURL:    server.URL,
 	}, config.Config{HTTP: config.HTTPConfig{
@@ -116,7 +115,7 @@ func TestExecuteHTTPMapsOversizedResponseToStableError(t *testing.T) {
 		permissions: map[string]bool{"http.request": true},
 	})
 
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.upstream_response_too_large" {
 		t.Fatalf("unexpected oversized response error: %#v", err)
 	}

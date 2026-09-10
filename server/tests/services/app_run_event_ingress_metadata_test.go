@@ -10,7 +10,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type metadataEnricherStub struct {
@@ -24,14 +23,14 @@ func (s *metadataEnricherStub) EnrichEventMetadata(_ context.Context, event chat
 }
 
 type eventIngressDispatcherStub struct {
-	events []pluginruntime.Event
+	events []chatevent.Event
 }
 
 func (*eventIngressDispatcherStub) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event pluginruntime.Event, _ string) []dispatch.DeliveryResult {
+func (s *eventIngressDispatcherStub) Dispatch(_ context.Context, event chatevent.Event, _ string) []dispatch.DeliveryResult {
 	s.events = append(s.events, event)
 	return []dispatch.DeliveryResult{{
 		PluginID: "echo",

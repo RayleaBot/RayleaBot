@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func TestOneBotActionRegistryMatchesContractsAndClientHelpers(t *testing.T) {
@@ -140,7 +140,7 @@ func TestDefaultRegistryRegistersOneBotHandlers(t *testing.T) {
 
 	registry := actions.NewDefaultRegistry(actions.Deps{})
 	for kind := range actions.OneBotActionRegistry() {
-		_, handled, _ := registry.Dispatch(context.Background(), actions.ActionRequest{Action: pluginruntime.Action{Kind: kind}})
+		_, handled, _ := registry.Dispatch(context.Background(), actions.ActionRequest{Action: plugins.Action{Kind: kind}})
 		if !handled {
 			t.Fatalf("default registry is missing OneBot handler %q", kind)
 		}

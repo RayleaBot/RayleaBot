@@ -42,9 +42,9 @@ type Deps struct {
 	OutboundSender  OutboundSender
 	OutboundLimiter outbound.MessageLimiter
 	Logger          *slog.Logger
-	WhitelistRepo   permission.WhitelistRepository
+	WhitelistRepo   permission.EntryRepository
 	WhitelistState  permission.WhitelistStateRepository
-	BlacklistRepo   permission.BlacklistRepository
+	BlacklistRepo   permission.EntryRepository
 }
 
 // policyEngine bundles the config-derived policy collaborators into one
@@ -65,9 +65,9 @@ type Service struct {
 	outboundSender  OutboundSender
 	outboundLimiter outbound.MessageLimiter
 	logger          *slog.Logger
-	whitelistRepo   permission.WhitelistRepository
+	whitelistRepo   permission.EntryRepository
 	whitelistState  permission.WhitelistStateRepository
-	blacklistRepo   permission.BlacklistRepository
+	blacklistRepo   permission.EntryRepository
 	engine          atomic.Pointer[policyEngine]
 }
 
@@ -168,6 +168,7 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 
 	verdict := checker.Check(
 		ctx,
+		enriched.IdentityScope(),
 		strings.TrimSpace(enriched.SenderID),
 		strings.TrimSpace(enriched.ActorRole),
 		commandGroupID(enriched),

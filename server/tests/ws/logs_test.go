@@ -35,7 +35,7 @@ func TestLogsWebSocketReplaysBufferedSummaries(t *testing.T) {
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
@@ -98,7 +98,7 @@ func TestLogsWebSocketReplaysOutboundDeliverySummary(t *testing.T) {
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	frame := readWebSocketFrameWhere(t, conn, func(frame map[string]any) bool {
 		data, ok := frame["data"].(map[string]any)
@@ -151,7 +151,7 @@ func TestLogsWebSocketAppendsCommandPolicyRejectionSummary(t *testing.T) {
 	putWhitelistState(t, server.URL, token, true)
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForLogSubscriber(t, application.Logs())
 	application.HandleAdapterEvent(context.Background(), commandRejectionEvent())
@@ -195,7 +195,7 @@ func TestLogsWebSocketDeliversLiveWhitelistedSummaries(t *testing.T) {
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForLogSubscriber(t, application.Logs())
 	for i := 0; i < replayCount; i++ {
@@ -260,7 +260,7 @@ func TestLogsWebSocketRedactsSensitiveMessageContent(t *testing.T) {
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/logs", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForLogSubscriber(t, application.Logs())
 	for i := 0; i < replayCount; i++ {

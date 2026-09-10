@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func normalizeParams(raw map[string]any) (map[string]any, error) {
@@ -37,21 +37,21 @@ func normalizeParams(raw map[string]any) (map[string]any, error) {
 
 func requiredString(data map[string]any, key string) (string, error) {
 	if len(data) == 0 {
-		return "", &pluginruntime.Error{
+		return "", &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
 	value, ok := data[key]
 	if !ok {
-		return "", &pluginruntime.Error{
+		return "", &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
 	}
 	text := strings.TrimSpace(fmt.Sprint(value))
 	if text == "" || text == "<nil>" {
-		return "", &pluginruntime.Error{
+		return "", &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: fmt.Sprintf("onebot action missing %s", key),
 		}
@@ -140,7 +140,7 @@ func projectMessageHistoryGet(raw map[string]any) (string, map[string]any, error
 		historyParams["user_id"] = apiValue(conversationID)
 		return "get_friend_msg_history", historyParams, nil
 	default:
-		return "", nil, &pluginruntime.Error{
+		return "", nil, &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "onebot action missing conversation_type",
 		}
@@ -189,7 +189,7 @@ func projectMessageForwardSend(raw map[string]any) (string, map[string]any, erro
 		delete(params, "target_type")
 		return "send_private_forward_msg", params, nil
 	default:
-		return "", nil, &pluginruntime.Error{
+		return "", nil, &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "onebot action missing target_type",
 		}
@@ -214,7 +214,7 @@ func projectMessageReadMark(raw map[string]any) (string, map[string]any, error) 
 	case "private":
 		return "mark_private_msg_as_read", map[string]any{"user_id": apiValue(targetID)}, nil
 	default:
-		return "", nil, &pluginruntime.Error{
+		return "", nil, &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "onebot action missing conversation_type",
 		}

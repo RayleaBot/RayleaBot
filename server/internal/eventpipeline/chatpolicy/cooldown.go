@@ -47,6 +47,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 				TargetID:     strings.TrimSpace(event.ConversationID),
 			}
 			if limitErr := s.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+				Scope:      event.IdentityScope(),
 				TargetType: result.TargetType,
 				TargetID:   result.TargetID,
 			}); limitErr != nil {
@@ -84,6 +85,7 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 				TargetID:     targetID,
 			}
 			if limitErr := s.waitOutboundLimit(ctx, outbound.MessageLimitRequest{
+				Scope:      event.IdentityScope(),
 				TargetType: result.TargetType,
 				TargetID:   result.TargetID,
 			}); limitErr != nil {

@@ -8,8 +8,13 @@ request:
     Authorization: Bearer invalid_token
   body:
     entry_type: user
-    target_id: '10001'
+    target_id: "10001"
     reason: 反复触发垃圾消息
+    scope:
+      source_protocol: onebot11
+      source_adapter: ""
+      bot_id: ""
+      kind: global
 response:
   status: 401
   body:

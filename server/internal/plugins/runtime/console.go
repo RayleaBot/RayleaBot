@@ -77,7 +77,7 @@ func (m *Manager) captureStderr(pluginID string, reader io.ReadCloser) {
 	if reader == nil {
 		return
 	}
-	defer reader.Close()
+	defer func(release func() error) { _ = release() }(reader.Close)
 
 	limiter := newStderrLimiter(m.opts.StderrRateLimitBytesPerSec, m.deps.now)
 	lines := bufio.NewReaderSize(reader, 64*1024)

@@ -29,9 +29,9 @@ type IngressDeps struct {
 	Bridge           *bridge.Bridge
 	Lifecycle        *pluginservice.Controller
 	MetadataEnricher MetadataEnricher
-	WhitelistRepo    permission.WhitelistRepository
+	WhitelistRepo    permission.EntryRepository
 	WhitelistState   permission.WhitelistStateRepository
-	BlacklistRepo    permission.BlacklistRepository
+	BlacklistRepo    permission.EntryRepository
 }
 
 type Ingress struct {

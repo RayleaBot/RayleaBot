@@ -1,0 +1,18 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-governance-scoped-write-1
+    action: governance.blacklist.write
+    data:
+      operation: upsert
+      scope:
+        kind: instance
+        source_protocol: qqofficial
+        source_adapter: qq-main
+        bot_id: fixture-bot
+      entry_type: user
+      target_id: fixture-openid
+      reason: fixture-only
+expect:
+  valid: true

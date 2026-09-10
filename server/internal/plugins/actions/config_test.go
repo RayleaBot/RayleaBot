@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
@@ -23,7 +24,7 @@ func TestExecuteConfigWriteUsesImplicitPrivateNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
@@ -54,13 +55,13 @@ func TestExecuteConfigWriteUsesImplicitPrivateNamespace(t *testing.T) {
 		t.Fatalf("SeedDefaults: %v", err)
 	}
 
-	writeResult, err := service.Execute(context.Background(), "weather", "req_config_2", pluginruntime.Action{
+	writeResult, err := service.Execute(context.Background(), "weather", "req_config_2", plugins.Action{
 		Kind: "config.write",
 		ConfigValues: map[string]any{
 			"default_city": "Shanghai",
 			"unit":         "fahrenheit",
 		},
-	}, pluginruntime.Event{})
+	}, chatevent.Event{})
 	if err != nil {
 		t.Fatalf("config.write failed: %v", err)
 	}
@@ -112,9 +113,9 @@ type configChangeRuntime struct {
 	contextErrors chan error
 }
 
-func (r *configChangeRuntime) DeliverEvent(ctx context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (r *configChangeRuntime) DeliverEvent(ctx context.Context, event chatevent.Event) (plugins.Delivery, error) {
 	r.contextErrors <- ctx.Err()
-	return pluginruntime.Delivery{Result: map[string]any{"handled": true}}, nil
+	return plugins.Delivery{Result: map[string]any{"handled": true}}, nil
 }
 
 func (r *configChangeRuntime) Snapshot() pluginruntime.Snapshot {
@@ -132,9 +133,9 @@ func TestConfigRefreshPreservesPatternDirectedDelivery(t *testing.T) {
 	}})
 	snapshot, _ := pluginCatalog.Get("pattern")
 	commands := catalog.ProjectCommands(snapshot, nil)
-	dispatcher.Register("pattern", &configChangeRuntime{contextErrors: make(chan error, 4)}, []string{"message.group"}, dispatch.CommandsFromPlugin(commands), 1)
+	dispatcher.Register("pattern", &configChangeRuntime{contextErrors: make(chan error, 4)}, []string{"message.group"}, commands, 1)
 	dispatcher.Register("observer", &configChangeRuntime{contextErrors: make(chan error, 4)}, []string{"message.group"}, nil, 1)
-	event := pluginruntime.Event{EventID: "fixture-event", EventType: "message.group", SourceProtocol: "onebot11", SourceAdapter: "fixture", Timestamp: 1}
+	event := chatevent.Event{EventID: "fixture-event", EventType: "message.group", SourceProtocol: "onebot11", SourceAdapter: "fixture", Timestamp: 1}
 	for _, refresh := range []bool{false, true} {
 		if refresh {
 			actions.RefreshCommands(pluginCatalog, dispatcher)(context.Background(), "pattern", map[string]any{})
@@ -144,4 +145,9 @@ func TestConfigRefreshPreservesPatternDirectedDelivery(t *testing.T) {
 			t.Fatalf("refresh=%v: expected directed delivery to pattern, got %#v", refresh, results)
 		}
 	}
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (r *configChangeRuntime) ReadyForEvents() bool {
+	return r.Snapshot().State == pluginruntime.StateRunning
 }

@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
@@ -48,7 +48,7 @@ func TestPrefetchRenderImageResourcesUsesRefererAndFallbackURL(t *testing.T) {
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-request",
-		Action: pluginruntime.Action{RenderResources: []pluginruntime.RenderImageResource{{
+		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
 			ID:           "media-0",
 			URL:          server.URL + "/large/image.jpg",
 			FallbackURLs: []string{server.URL + "/mw2000/image.jpg"},
@@ -107,7 +107,7 @@ func TestPrefetchRenderImageResourcesAllowsConfiguredPrivateHost(t *testing.T) {
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-suffix",
-		Action: pluginruntime.Action{RenderResources: []pluginruntime.RenderImageResource{{
+		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
 			ID:  "media-0",
 			URL: server.URL + "/cover.png",
 		}}},
@@ -134,13 +134,13 @@ func TestPrefetchRenderImageResourcesRejectsPrivateHostWithoutServerAllowlist(t 
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-scope",
-		Action: pluginruntime.Action{RenderResources: []pluginruntime.RenderImageResource{{
+		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
 			ID:  "media-0",
 			URL: "https://127.0.0.1/image.jpg",
 		}}},
 	})
 	cleanup()
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("error = %#v", err)
 	}
@@ -168,13 +168,13 @@ func TestPrefetchRenderImageResourcesRevalidatesRedirectSafety(t *testing.T) {
 	}, ActionRequest{
 		PluginID:  "plugin.render",
 		RequestID: "render-resource-redirect-scope",
-		Action: pluginruntime.Action{RenderResources: []pluginruntime.RenderImageResource{{
+		Action: plugins.Action{RenderResources: []plugins.RenderImageResource{{
 			ID:  "media-0",
 			URL: server.URL + "/image.jpg",
 		}}},
 	})
 	cleanup()
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("error = %#v", err)
 	}

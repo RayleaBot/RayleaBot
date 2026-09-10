@@ -28,7 +28,7 @@ func newTaskOnlyHandlers(t *testing.T, repoRoot string) (*SystemHandlers, *tasks
 		_ = executor.Close()
 	})
 	startedAt := time.Now()
-	service := system.New(system.Deps{
+	service, err := system.New(system.Deps{
 		CurrentConfig:    func() config.Config { return config.Config{} },
 		CurrentSummary:   func() config.Summary { return config.Summary{} },
 		CurrentRepoRoot:  func() string { return repoRoot },
@@ -36,6 +36,9 @@ func newTaskOnlyHandlers(t *testing.T, repoRoot string) (*SystemHandlers, *tasks
 		Plugins:          plugincatalog.New(nil),
 		TaskExecutor:     executor,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	return NewSystemHandlers(service), registry
 }
 

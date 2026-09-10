@@ -1927,9 +1927,33 @@ export interface components {
         SchedulerJobListResponse: {
             items: components["schemas"]["SchedulerJobSummary"][];
         };
+        /** @description OneBot global rules use empty source_adapter and bot_id; instance rules require both. QQ official rules always bind both fields. Identities never cross protocols or bot namespaces. */
+        GovernanceScope: {
+            /** @enum {string} */
+            kind: "global" | "instance";
+            /** @enum {string} */
+            source_protocol: "onebot11" | "qqofficial";
+            source_adapter: string;
+            bot_id: string;
+        } & ({
+            /** @constant */
+            kind?: "global";
+            /** @constant */
+            source_protocol?: "onebot11";
+            /** @constant */
+            source_adapter?: "";
+            /** @constant */
+            bot_id?: "";
+        } | {
+            /** @constant */
+            kind?: "instance";
+            source_adapter?: unknown;
+            bot_id?: unknown;
+        });
         /** @enum {string} */
         GovernanceEntryType: "user" | "group";
         GovernanceEntry: {
+            scope: components["schemas"]["GovernanceScope"];
             entry_type: components["schemas"]["GovernanceEntryType"];
             target_id: string;
             reason: string;
@@ -1938,6 +1962,7 @@ export interface components {
         };
         BlacklistEntry: components["schemas"]["GovernanceEntry"];
         GovernanceEntryUpsertRequest: {
+            scope: components["schemas"]["GovernanceScope"];
             entry_type: components["schemas"]["GovernanceEntryType"];
             target_id: string;
             reason: string;
@@ -2553,7 +2578,10 @@ export interface components {
                 };
             };
             admin: {
-                /** @default [] */
+                /**
+                 * @description OneBot11 QQ user IDs with global super-admin access. These IDs never grant privileges to QQ official openids or other protocols.
+                 * @default []
+                 */
                 super_admins: string[];
                 /**
                  * @description Idle lifetime for an admin session in days. Activity may renew this deadline without extending the absolute lifetime. Default: 7.
@@ -2689,7 +2717,7 @@ export interface components {
                  */
                 max_pending_events_per_plugin: number;
                 /**
-                 * @description Independent priority queue bound for plugin.started, config.changed, bot.identity.changed, and management.action events per plugin. Default: 4.
+                 * @description Independent priority queue bound for plugin.started, config.changed, bot.identities.changed, and management.action events per plugin. Default: 4.
                  * @default 4
                  */
                 max_pending_control_events_per_plugin: number;
@@ -3424,7 +3452,12 @@ export interface operations {
     };
     deleteGovernanceBlacklistEntry: {
         parameters: {
-            query?: never;
+            query: {
+                kind: "global" | "instance";
+                source_protocol: "onebot11" | "qqofficial";
+                source_adapter?: string;
+                bot_id?: string;
+            };
             header?: never;
             path: {
                 entry_type: components["parameters"]["GovernanceEntryType"];
@@ -3524,7 +3557,12 @@ export interface operations {
     };
     deleteGovernanceWhitelistEntry: {
         parameters: {
-            query?: never;
+            query: {
+                kind: "global" | "instance";
+                source_protocol: "onebot11" | "qqofficial";
+                source_adapter?: string;
+                bot_id?: string;
+            };
             header?: never;
             path: {
                 entry_type: components["parameters"]["GovernanceEntryType"];

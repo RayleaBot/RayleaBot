@@ -300,7 +300,7 @@ func copyFile(t *testing.T, source, destination string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer input.Close()
+	defer func(release func() error) { _ = release() }(input.Close)
 	output, err := os.OpenFile(destination, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		t.Fatal(err)

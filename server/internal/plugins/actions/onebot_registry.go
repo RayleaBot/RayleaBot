@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type OneBotActionSpec struct {
@@ -152,7 +152,7 @@ type oneBotCodedError interface {
 
 type oneBotActionRequest struct {
 	PluginID    string
-	Action      pluginruntime.Action
+	Action      plugins.Action
 	Permissions PermissionView
 	Adapter     OneBotAdapter
 }
@@ -160,21 +160,21 @@ type oneBotActionRequest struct {
 func executeOneBotAction(ctx context.Context, req oneBotActionRequest) (map[string]any, error) {
 	spec, ok := LookupOneBotAction(req.Action.Kind)
 	if !ok {
-		return nil, &pluginruntime.Error{
+		return nil, &plugins.Error{
 			Code:    "plugin.protocol_violation",
 			Message: "received unsupported local action kind",
 		}
 	}
 
 	if req.Permissions == nil || !req.Permissions.PermissionDeclared(ctx, req.PluginID, spec.Permission) {
-		return nil, &pluginruntime.Error{
+		return nil, &plugins.Error{
 			Code:    "plugin.permission_denied",
 			Message: spec.Permission + " permission is not declared",
 		}
 	}
 
 	if req.Adapter == nil {
-		return nil, &pluginruntime.Error{
+		return nil, &plugins.Error{
 			Code:    "adapter.transport_not_implemented",
 			Message: "OneBot adapter 不可用",
 		}
@@ -198,25 +198,25 @@ func oneBotRuntimeActionError(err error) error {
 	}
 	var adapterErr oneBotCodedError
 	if errors.As(err, &adapterErr) {
-		return &pluginruntime.Error{
+		return &plugins.Error{
 			Code:    adapterErr.RuntimeActionCode(),
 			Message: adapterErr.RuntimeActionMessage(),
 		}
 	}
-	return &pluginruntime.Error{
+	return &plugins.Error{
 		Code:    "adapter.transport_not_implemented",
 		Message: err.Error(),
 	}
 }
 
-func projectOneBotAction(adapter OneBotAdapter, spec OneBotActionSpec, action pluginruntime.Action) (string, map[string]any, error) {
+func projectOneBotAction(adapter OneBotAdapter, spec OneBotActionSpec, action plugins.Action) (string, map[string]any, error) {
 	if spec.Provider == "" {
 		return spec.Project(action.RawData)
 	}
 
 	provider := adapter.DetectedProvider()
 	if provider != spec.Provider {
-		return "", nil, &pluginruntime.Error{
+		return "", nil, &plugins.Error{
 			Code:    "adapter.provider_extension_not_supported",
 			Message: "当前 provider 不支持该扩展动作",
 		}

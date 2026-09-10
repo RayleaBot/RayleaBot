@@ -39,7 +39,7 @@ func CreateSnapshot(ctx context.Context, databasePath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("open sqlite database for snapshot: %w", err)
 	}
-	defer db.Close()
+	defer func(release func() error) { _ = release() }(db.Close)
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 

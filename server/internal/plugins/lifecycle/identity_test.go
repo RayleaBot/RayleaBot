@@ -9,7 +9,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type identitySource struct{ bots []chatevent.BotIdentity }
@@ -22,13 +21,13 @@ func TestIdentitySnapshotsPreserveNamespacesAndClearRemovedInstances(t *testing.
 	t.Parallel()
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16, 4)
 	t.Cleanup(dispatcher.Close)
-	capture := &capturingRuntime{events: make(chan pluginruntime.Event, 4)}
+	capture := &capturingRuntime{events: make(chan chatevent.Event, 4)}
 	dispatcher.Register("fixture", capture, nil, nil, 1)
 	source := &identitySource{bots: []chatevent.BotIdentity{
 		{SourceAdapter: "onebot", SourceProtocol: "onebot11", ID: "shared"},
 		{SourceAdapter: "qq", SourceProtocol: "qqofficial", ID: "shared"},
 	}}
-	controller := NewController(Deps{Dispatcher: dispatcher, Identities: source})
+	controller := newTestController(t, Deps{Dispatcher: dispatcher, Identities: source})
 	receive := func(want int) {
 		t.Helper()
 		select {
@@ -64,10 +63,10 @@ func TestAfterRuntimeRegisteredDispatchesPluginStarted(t *testing.T) {
 
 	dispatcher := dispatch.New(slog.Default(), nil, nil, 16)
 	t.Cleanup(dispatcher.Close)
-	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan chatevent.Event, 1)}
 	dispatcher.Register("raylea.subscription-hub", fakeRuntime, nil, nil, 1)
 
-	controller := NewController(Deps{
+	controller := newTestController(t, Deps{
 		CurrentConfig: newTestAppState(config.Config{}, nil).state.CurrentConfig,
 		Logger:        slog.Default(),
 		Dispatcher:    dispatcher,

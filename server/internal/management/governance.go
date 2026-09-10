@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -50,9 +51,10 @@ func (h *GovernanceHandlers) handleGovernanceCommandPolicy() http.HandlerFunc {
 }
 
 type governanceEntryUpsertRequest struct {
-	EntryType string `json:"entry_type"`
-	TargetID  string `json:"target_id"`
-	Reason    string `json:"reason"`
+	Scope     chatevent.IdentityScope `json:"scope"`
+	EntryType string                  `json:"entry_type"`
+	TargetID  string                  `json:"target_id"`
+	Reason    string                  `json:"reason"`
 }
 
 type governanceWhitelistStateUpdateRequest struct {
@@ -77,7 +79,7 @@ func (h *GovernanceHandlers) handleGovernanceBlacklistEntryUpsert() http.Handler
 			return
 		}
 
-		entry, err := h.service.UpsertBlacklistEntry(r.Context(), request.EntryType, request.TargetID, request.Reason)
+		entry, err := h.service.UpsertBlacklistEntry(r.Context(), request.Scope, request.EntryType, request.TargetID, request.Reason)
 		if err != nil {
 			writeGovernanceError(w, r, err, request.EntryType, request.TargetID)
 			return
@@ -89,12 +91,12 @@ func (h *GovernanceHandlers) handleGovernanceBlacklistEntryUpsert() http.Handler
 
 func (h *GovernanceHandlers) handleGovernanceBlacklistEntryDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		entryType, targetID, ok := readGovernanceEntryPath(w, r)
+		scope, entryType, targetID, ok := readGovernanceEntryPath(w, r)
 		if !ok {
 			return
 		}
 
-		if err := h.service.DeleteBlacklistEntry(r.Context(), entryType, targetID); err != nil {
+		if err := h.service.DeleteBlacklistEntry(r.Context(), scope, entryType, targetID); err != nil {
 			writeGovernanceError(w, r, err, entryType, targetID)
 			return
 		}
@@ -139,7 +141,7 @@ func (h *GovernanceHandlers) handleGovernanceWhitelistEntryUpsert() http.Handler
 			return
 		}
 
-		entry, err := h.service.UpsertWhitelistEntry(r.Context(), request.EntryType, request.TargetID, request.Reason)
+		entry, err := h.service.UpsertWhitelistEntry(r.Context(), request.Scope, request.EntryType, request.TargetID, request.Reason)
 		if err != nil {
 			writeGovernanceError(w, r, err, request.EntryType, request.TargetID)
 			return
@@ -151,12 +153,12 @@ func (h *GovernanceHandlers) handleGovernanceWhitelistEntryUpsert() http.Handler
 
 func (h *GovernanceHandlers) handleGovernanceWhitelistEntryDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		entryType, targetID, ok := readGovernanceEntryPath(w, r)
+		scope, entryType, targetID, ok := readGovernanceEntryPath(w, r)
 		if !ok {
 			return
 		}
 
-		if err := h.service.DeleteWhitelistEntry(r.Context(), entryType, targetID); err != nil {
+		if err := h.service.DeleteWhitelistEntry(r.Context(), scope, entryType, targetID); err != nil {
 			writeGovernanceError(w, r, err, entryType, targetID)
 			return
 		}
@@ -175,7 +177,7 @@ func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) 
 	request.EntryType = strings.TrimSpace(request.EntryType)
 	request.TargetID = strings.TrimSpace(request.TargetID)
 	request.Reason = strings.TrimSpace(request.Reason)
-	if !governance.IsEntryType(request.EntryType) || request.TargetID == "" || request.Reason == "" {
+	if !request.Scope.Valid() || !governance.IsEntryType(request.EntryType) || request.TargetID == "" || request.Reason == "" {
 		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
 		return governanceEntryUpsertRequest{}, false
 	}
@@ -183,14 +185,15 @@ func decodeGovernanceEntryUpsertRequest(w http.ResponseWriter, r *http.Request) 
 	return request, true
 }
 
-func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+func readGovernanceEntryPath(w http.ResponseWriter, r *http.Request) (chatevent.IdentityScope, string, string, bool) {
+	scope := chatevent.IdentityScope{Kind: r.URL.Query().Get("kind"), SourceProtocol: r.URL.Query().Get("source_protocol"), SourceAdapter: r.URL.Query().Get("source_adapter"), BotID: r.URL.Query().Get("bot_id")}
 	entryType := strings.TrimSpace(chi.URLParam(r, "entry_type"))
 	targetID := strings.TrimSpace(chi.URLParam(r, "target_id"))
-	if !governance.IsEntryType(entryType) || targetID == "" {
+	if !scope.Valid() || !governance.IsEntryType(entryType) || targetID == "" {
 		httpapi.WriteError(w, r, http.StatusBadRequest, "platform.invalid_request", "请求参数不合法", "errors.platform.invalid_request", nil)
-		return "", "", false
+		return scope, "", "", false
 	}
-	return entryType, targetID, true
+	return scope, entryType, targetID, true
 }
 
 func writeGovernanceError(w http.ResponseWriter, r *http.Request, err error, entryType, targetID string) {

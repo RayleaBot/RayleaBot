@@ -28,15 +28,15 @@ func newMediaClient(t *testing.T) (*Client, *[]capturedUpload, *[]sendMessageReq
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/files") {
 			var body uploadMediaRequest
-			json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			*uploads = append(*uploads, capturedUpload{path: r.URL.Path, body: body})
-			json.NewEncoder(w).Encode(map[string]any{"file_info": "file-info-1", "ttl": 600})
+			_ = json.NewEncoder(w).Encode(map[string]any{"file_info": "file-info-1", "ttl": 600})
 			return
 		}
 		var body sendMessageRequest
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		*sends = append(*sends, body)
-		json.NewEncoder(w).Encode(map[string]any{"id": "sent-1"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": "sent-1"})
 	}))
 	t.Cleanup(server.Close)
 

@@ -33,9 +33,9 @@ type pluginStackDeps struct {
 
 type PluginStackState struct {
 	Plugins           *plugincatalog.Catalog
-	PluginInstaller   plugins.InstallCoordinator
+	PluginInstaller   *pluginservice.InstallService
 	PluginStore       pluginmarket.ServiceAPI
-	PluginUninstaller plugins.UninstallCoordinator
+	PluginUninstaller *pluginservice.UninstallService
 	PluginRepository  plugins.DesiredStateRepository
 	PluginConfig      pluginstore.ConfigRepository
 	PluginFiles       *pluginstore.FileService
@@ -70,17 +70,12 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 	if err != nil {
 		return PluginStackState{}, err
 	}
-	marketInstaller, ok := pluginInstallService.(pluginmarket.Installer)
-	if !ok {
-		_ = pluginInstallService.Close()
-		return PluginStackState{}, errors.New("plugin installer does not expose inspection")
-	}
 	pluginStoreRepository, err := pluginmarket.NewSQLiteRepository(deps.Platform.Storage)
 	if err != nil {
 		_ = pluginInstallService.Close()
 		return PluginStackState{}, fmt.Errorf("create plugin store repository: %w", err)
 	}
-	pluginStore, err := pluginmarket.New(ctx, deps.Catalog, marketInstaller, pluginStoreRepository, pluginmarket.Options{
+	pluginStore, err := pluginmarket.New(ctx, deps.Catalog, pluginInstallService, pluginStoreRepository, pluginmarket.Options{
 		CoreVersion: recovery.DetectCoreVersion(deps.Discovery.RepoRoot),
 	})
 	if err != nil {
@@ -105,7 +100,7 @@ func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 
 func buildManifestRefresh(
 	deps pluginStackDeps,
-	pluginRepository plugins.DesiredStateRepository,
+	pluginRepository plugins.PackageMetadataLoader,
 	pluginConfigRepository pluginstore.ConfigRepository,
 ) func(context.Context, string) (plugins.Snapshot, error) {
 	return func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
@@ -119,14 +114,11 @@ func buildManifestRefresh(
 			if err != nil {
 				return nil, err
 			}
-			if packageLoader, ok := any(pluginRepository).(plugins.PackageMetadataLoader); ok {
-				packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
-				if err != nil {
-					return nil, err
-				}
-				snapshots = plugins.ApplyPackageMetadata(snapshots, packageMetadata)
+			packageMetadata, err := pluginRepository.LoadAllPackageMetadata(ctx)
+			if err != nil {
+				return nil, err
 			}
-			return snapshots, nil
+			return plugins.ApplyPackageMetadata(snapshots, packageMetadata), nil
 		})
 	}
 }
@@ -152,13 +144,11 @@ func hydratePluginCatalog(ctx context.Context, catalog *plugincatalog.Catalog, p
 	if err != nil {
 		return fmt.Errorf("load persisted plugin desired_state: %w", err)
 	}
-	if packageLoader, ok := any(pluginRepository).(plugins.PackageMetadataLoader); ok {
-		packageMetadata, err := packageLoader.LoadAllPackageMetadata(ctx)
-		if err != nil {
-			return fmt.Errorf("load plugin package metadata: %w", err)
-		}
-		catalog.Replace(plugins.ApplyPackageMetadata(catalog.List(), packageMetadata))
+	packageMetadata, err := pluginRepository.LoadAllPackageMetadata(ctx)
+	if err != nil {
+		return fmt.Errorf("load plugin package metadata: %w", err)
 	}
+	catalog.Replace(plugins.ApplyPackageMetadata(catalog.List(), packageMetadata))
 	catalog.ApplyDesiredStates(desiredStates)
 	if err := refreshCatalogCommandsFromSettings(ctx, catalog, pluginConfigRepository); err != nil {
 		return err
@@ -181,7 +171,7 @@ func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugincata
 	return nil
 }
 
-func buildPluginMutationServices(deps pluginStackDeps, pluginRepository *plugins.SQLiteRepository) (plugins.InstallCoordinator, plugins.UninstallCoordinator, error) {
+func buildPluginMutationServices(deps pluginStackDeps, pluginRepository *plugins.SQLiteRepository) (*pluginservice.InstallService, *pluginservice.UninstallService, error) {
 	pluginInstallService, err := pluginservice.NewInstallService(
 		deps.Logger,
 		deps.Tasks,

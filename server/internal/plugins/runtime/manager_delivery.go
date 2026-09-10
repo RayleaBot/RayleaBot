@@ -7,34 +7,35 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, error) {
+func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (plugins.Delivery, error) {
 	if err := ctx.Err(); err != nil {
-		return Delivery{}, eventContextError(err)
+		return plugins.Delivery{}, eventContextError(err)
 	}
 	if event.EventID == "" || event.SourceProtocol == "" || event.SourceAdapter == "" || event.EventType == "" || event.Timestamp <= 0 {
-		return Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
+		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "event payload is missing required fields", nil)
 	}
 	if event.EventType == "webhook.received" {
 		if event.Webhook == nil || event.Webhook.Route == "" || event.Webhook.ReceivedAt <= 0 {
-			return Delivery{}, errorf(codePlatformInvalidRequest, "webhook event metadata is missing required fields", nil)
+			return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "webhook event metadata is missing required fields", nil)
 		}
 	} else if event.Webhook != nil {
-		return Delivery{}, errorf(codePlatformInvalidRequest, "webhook metadata is only valid for webhook.received events", nil)
+		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "webhook metadata is only valid for webhook.received events", nil)
 	}
 
 	m.mu.RLock()
 	handle := m.proc
 	m.mu.RUnlock()
 	if handle == nil {
-		return Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
+		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
 	}
 
 	requestID := m.deps.requestID()
 	session, runtimeErr := m.registerEventSession(ctx, handle, requestID, event)
 	if runtimeErr != nil {
-		return Delivery{}, runtimeErr
+		return plugins.Delivery{}, runtimeErr
 	}
 
 	frame := BuildEventFrame(event, requestID)
@@ -44,7 +45,7 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	}
 	if err := handle.WriteJSONLine(frame); err != nil {
 		m.removeEventSession(handle, requestID)
-		return Delivery{}, m.failRuntime(handle, codePluginInternalError, "write event frame", err)
+		return plugins.Delivery{}, m.failRuntime(handle, codePluginInternalError, "write event frame", err)
 	}
 
 	timeout := handle.Spec.EventTimeout
@@ -70,14 +71,14 @@ func (m *Manager) DeliverEvent(ctx context.Context, event Event) (Delivery, erro
 	}
 }
 
-func eventContextError(err error) *Error {
+func eventContextError(err error) *plugins.Error {
 	if errors.Is(err, context.Canceled) {
 		return errorf(codePluginEventCanceled, "插件事件处理已取消", err)
 	}
 	return errorf(codePluginEventTimeout, "插件事件处理超过允许时限", err)
 }
 
-func BuildEventFrame(event Event, requestID string) EventFrame {
+func BuildEventFrame(event chatevent.Event, requestID string) EventFrame {
 	frame := EventFrame{
 		Type:      "event",
 		RequestID: requestID,
@@ -127,7 +128,7 @@ func BuildEventFrame(event Event, requestID string) EventFrame {
 	return frame
 }
 
-func buildEventPayload(event Event) (*ProtocolPayloadFrame, bool) {
+func buildEventPayload(event chatevent.Event) (*ProtocolPayloadFrame, bool) {
 	var payload ProtocolPayloadFrame
 	hasPayload := false
 	if event.MessageID != "" {
@@ -292,7 +293,7 @@ func parseEventEnvelope(line []byte, pluginID string) (FrameEnvelope, error) {
 	return envelope, nil
 }
 
-func decodeTerminalDelivery(eventRequestID string, line []byte, frameType string) (Delivery, bool, error) {
+func decodeTerminalDelivery(eventRequestID string, line []byte, frameType string) (plugins.Delivery, bool, error) {
 	switch frameType {
 	case "action":
 		return decodeTerminalAction(eventRequestID, line)
@@ -301,45 +302,45 @@ func decodeTerminalDelivery(eventRequestID string, line []byte, frameType string
 	case "error":
 		return decodeTerminalError(eventRequestID, line)
 	default:
-		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
+		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
 	}
 }
 
-func decodeTerminalAction(eventRequestID string, line []byte) (Delivery, bool, error) {
+func decodeTerminalAction(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
 	var frame ActionFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
-		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
+		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
 	}
 	action, err := ParseTerminalAction(frame.Action, frame.Data)
 	if err != nil {
-		return Delivery{}, false, normalizeRuntimeError(err, "parse terminal action frame")
+		return plugins.Delivery{}, false, normalizeRuntimeError(err, "parse terminal action frame")
 	}
-	return Delivery{RequestID: eventRequestID, Action: action}, true, nil
+	return plugins.Delivery{RequestID: eventRequestID, Action: action}, true, nil
 }
 
-func decodeTerminalResult(eventRequestID string, line []byte) (Delivery, bool, error) {
+func decodeTerminalResult(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
 	var frame ResultFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
-		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
+		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
 	}
 	if frame.Status != "success" {
-		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin result frame must use status=success", nil)
+		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin result frame must use status=success", nil)
 	}
 	if frame.Data == nil {
 		frame.Data = map[string]any{}
 	}
-	return Delivery{RequestID: eventRequestID, Result: frame.Data}, true, nil
+	return plugins.Delivery{RequestID: eventRequestID, Result: frame.Data}, true, nil
 }
 
-func decodeTerminalError(eventRequestID string, line []byte) (Delivery, bool, error) {
+func decodeTerminalError(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
 	var frame ErrorFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
-		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
+		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 	}
 	if frame.Code == "" || frame.Message == "" {
-		return Delivery{}, false, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
+		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
 	}
-	delivery := Delivery{
+	delivery := plugins.Delivery{
 		RequestID:    eventRequestID,
 		ErrorCode:    frame.Code,
 		ErrorMessage: frame.Message,

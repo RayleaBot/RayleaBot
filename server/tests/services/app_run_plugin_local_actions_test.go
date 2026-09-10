@@ -3,18 +3,19 @@ package services
 import (
 	"bytes"
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
-	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
-	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"log/slog"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
+	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func boolPointer(value bool) *bool {
@@ -47,7 +48,7 @@ func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", pluginruntime.Action{
+	result, err := application.executeLocalAction(context.Background(), "notice-logger", "req_local_1", plugins.Action{
 		Kind:             "storage.kv",
 		StorageOperation: "get",
 		StorageKey:       "notice:last_join",
@@ -112,7 +113,7 @@ func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "raylea.echo", "req_local_plugin_list_1", pluginruntime.Action{
+	result, err := application.executeLocalAction(context.Background(), "raylea.echo", "req_local_plugin_list_1", plugins.Action{
 		Kind: "plugin.list",
 	})
 	if err != nil {
@@ -142,7 +143,7 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    config.Config
-		event     pluginruntime.Event
+		event     chatevent.Event
 		wantNames []string
 	}{
 		{
@@ -197,7 +198,7 @@ func TestExecutePluginListCallerVisibilityFiltersCommands(t *testing.T) {
 			t.Parallel()
 
 			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", pluginruntime.Action{
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_visibility", plugins.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -219,7 +220,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 	tests := []struct {
 		name           string
 		config         config.Config
-		event          pluginruntime.Event
+		event          chatevent.Event
 		wantHelpTitles []string
 	}{
 		{
@@ -266,7 +267,7 @@ func TestExecutePluginListCallerVisibilityFiltersHelp(t *testing.T) {
 			t.Parallel()
 
 			application := newPluginListVisibilityTestApp(tc.config)
-			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", pluginruntime.Action{
+			result, err := application.executeLocalActionForEvent(context.Background(), "raylea.echo", "req_local_plugin_list_help_visibility", plugins.Action{
 				Kind:                 "plugin.list",
 				PluginListVisibility: "caller",
 			}, tc.event)
@@ -330,18 +331,18 @@ func newPluginListVisibilityTestApp(cfg config.Config) *serviceHarness {
 	return application
 }
 
-func pluginListCallerEvent(actorID, actorRole, targetType string) pluginruntime.Event {
-	event := pluginruntime.Event{
+func pluginListCallerEvent(actorID, actorRole, targetType string) chatevent.Event {
+	event := chatevent.Event{
 		EventID:        "event-help-visibility",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "test",
 		EventType:      "message." + targetType,
 		Timestamp:      time.Now().Unix(),
-		Actor: &pluginruntime.EventActor{
+		Actor: &chatevent.Actor{
 			ID:   actorID,
 			Role: actorRole,
 		},
-		Target: &pluginruntime.EventTarget{
+		Target: &chatevent.Target{
 			Type: targetType,
 			ID:   actorID,
 		},
@@ -453,7 +454,7 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		nil,
 	)
 
-	result, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_1", pluginruntime.Action{
+	result, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_1", plugins.Action{
 		Kind:      "secret.read",
 		SecretKey: "bili_token_primary",
 	})
@@ -464,7 +465,7 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		t.Fatalf("unexpected secret.read result: %#v", result)
 	}
 
-	missing, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_2", pluginruntime.Action{
+	missing, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_2", plugins.Action{
 		Kind:      "secret.read",
 		SecretKey: "missing",
 	})
@@ -498,7 +499,7 @@ func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 		nil,
 	)
 
-	_, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_invalid", pluginruntime.Action{
+	_, err := application.executeLocalAction(context.Background(), "subscription-hub", "req_local_secret_invalid", plugins.Action{
 		Kind:      "secret.read",
 		SecretKey: "Bad Key",
 	})

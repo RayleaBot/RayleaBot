@@ -15,15 +15,14 @@ import (
 	"testing"
 	"time"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -327,7 +326,7 @@ func TestHandlePluginSettingsPutDispatchesConfigChanged(t *testing.T) {
 		nil,
 		nil,
 	)
-	fakeRuntime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
+	fakeRuntime := &capturingRuntime{events: make(chan chatevent.Event, 1)}
 	dispatcher.Register("example-config-panel", fakeRuntime, []string{"config.changed"}, nil, 1)
 
 	handlers := newPluginManagementUIHTTPHandlers(pluginManagementUIHTTPDeps{

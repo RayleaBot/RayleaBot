@@ -20,7 +20,7 @@ func TestSeedPluginDefaultConfigAddsMissingDefaultsWithoutOverwriting(t *testing
 	if err != nil {
 		t.Fatalf("storage.Open: %v", err)
 	}
-	defer store.Close()
+	defer func(release func() error) { _ = release() }(store.Close)
 
 	repo, err := pluginstore.NewConfigSQLiteRepository(store)
 	if err != nil {
@@ -28,7 +28,7 @@ func TestSeedPluginDefaultConfigAddsMissingDefaultsWithoutOverwriting(t *testing
 	}
 
 	application := newTestAppState(config.Config{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	controller := NewController(Deps{
+	controller := newTestController(t, Deps{
 		CurrentConfig: application.state.CurrentConfig,
 		Logger:        application.state.Logger,
 		PluginConfig:  repo,

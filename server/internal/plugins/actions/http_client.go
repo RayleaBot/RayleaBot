@@ -246,7 +246,7 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 		retryable := isRetryableTransportError(opts.method, err)
 		return httpClientResponse{}, retryable, err
 	}
-	defer httpResponse.Body.Close()
+	defer func(release func() error) { _ = release() }(httpResponse.Body.Close)
 	if responseHeaderBytes(httpResponse.Header) > maxHTTPResponseHeaderBytes {
 		return httpClientResponse{}, false, errHTTPResponseTooLarge
 	}

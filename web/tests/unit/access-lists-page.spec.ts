@@ -30,7 +30,7 @@ function buildEntries(
   startId: number,
   reasonPrefix: string,
 ) {
-  return Array.from({ length: count }, (_, index) => ({
+  return Array.from({ length: count }, (_, index) => ({ scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
     entry_type: entryType,
     target_id: String(startId + index),
     reason: `${reasonPrefix}${index + 1}`,
@@ -77,7 +77,7 @@ describe('AccessListsPage', () => {
     const store = useGovernanceStore()
     store.blacklist = {
       user_entries: [
-        {
+        { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'user',
           target_id: '10001',
           reason: '反复刷屏',
@@ -90,7 +90,7 @@ describe('AccessListsPage', () => {
       enabled: true,
       user_entries: [],
       group_entries: [
-        {
+        { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'group',
           target_id: '20002',
           reason: '核心值守群',
@@ -273,7 +273,7 @@ describe('AccessListsPage', () => {
     store.blacklist = {
       user_entries: buildEntries(11, 'user', 50001, '黑名单用户'),
       group_entries: [
-        {
+        { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'group',
           target_id: '60001',
           reason: '黑名单群组',
@@ -285,7 +285,7 @@ describe('AccessListsPage', () => {
       enabled: false,
       user_entries: buildEntries(12, 'user', 10001, '白名单用户'),
       group_entries: [
-        {
+        { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'group',
           target_id: '20002',
           reason: '核心服务群',
@@ -495,7 +495,7 @@ describe('AccessListsPage', () => {
     store.whitelist = {
       enabled: true,
       user_entries: [
-        {
+        { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
           entry_type: 'user',
           target_id: '91001',
           reason: '值班账号',

@@ -79,7 +79,7 @@ func (s *TokenSource) fetch(ctx context.Context) (string, time.Duration, error) 
 	if err != nil {
 		return "", 0, fmt.Errorf("qqofficial: request app access token: %w", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 
 	var payload struct {
 		AccessToken string          `json:"access_token"`

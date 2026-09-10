@@ -15,7 +15,7 @@ func TestTokenSourceCachesUntilTheRenewWindow(t *testing.T) {
 	var calls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		json.NewEncoder(w).Encode(map[string]any{"access_token": "token-" + string(rune('a'+calls-1)), "expires_in": 7200})
+		_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "token-" + string(rune('a'+calls-1)), "expires_in": 7200})
 	}))
 	defer server.Close()
 
@@ -56,11 +56,11 @@ func TestTokenSourceKeepsServingWhileRefreshFails(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if calls == 1 {
-			json.NewEncoder(w).Encode(map[string]any{"access_token": "good", "expires_in": 7200})
+			_ = json.NewEncoder(w).Encode(map[string]any{"access_token": "good", "expires_in": 7200})
 			return
 		}
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]any{"message": "upstream unavailable"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"message": "upstream unavailable"})
 	}))
 	defer server.Close()
 

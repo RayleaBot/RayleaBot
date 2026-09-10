@@ -19,7 +19,7 @@ func TestLegacyMigrationsConvergeToCurrentSchemaShape(t *testing.T) {
 	legacyPath := filepath.Join(t.TempDir(), "legacy.db")
 	createLegacySchemaDatabase(t, legacyPath)
 	legacy := mustOpenStore(t, legacyPath)
-	defer legacy.Close()
+	defer func(release func() error) { _ = release() }(legacy.Close)
 
 	currentShape := readSQLiteSchemaShape(t, current.Read)
 	legacyShape := readSQLiteSchemaShape(t, legacy.Read)
@@ -40,7 +40,7 @@ func TestCurrentSchemaSnapshotMatchesNewDatabaseShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open snapshot sqlite: %v", err)
 	}
-	defer snapshot.Close()
+	defer func(release func() error) { _ = release() }(snapshot.Close)
 
 	currentShape := readSQLiteSchemaShape(t, current.Read)
 	snapshotShape := readSQLiteSchemaShape(t, snapshot)
@@ -201,7 +201,7 @@ func readSQLiteSchemaShape(t *testing.T, db *sql.DB) sqliteSchemaShape {
 	if err != nil {
 		t.Fatalf("query sqlite indexes: %v", err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 	for rows.Next() {
 		var name, sql string
 		if err := rows.Scan(&name, &sql); err != nil {
@@ -223,7 +223,7 @@ func readSQLiteTableShape(t *testing.T, db *sql.DB, tableName string) sqliteTabl
 	if err != nil {
 		t.Fatalf("query table info for %s: %v", tableName, err)
 	}
-	defer rows.Close()
+	defer func(release func() error) { _ = release() }(rows.Close)
 
 	table := sqliteTableShape{Columns: map[string]sqliteColumnShape{}}
 	for rows.Next() {

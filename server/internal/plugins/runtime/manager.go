@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type Manager struct {
@@ -93,7 +94,7 @@ func (m *Manager) Snapshot() Snapshot {
 	return cloneSnapshot(m.snap)
 }
 
-func (m *Manager) abortPendingLocked(runtimeErr *Error) {
+func (m *Manager) abortPendingLocked(runtimeErr *plugins.Error) {
 	for requestID, session := range m.pendingEvents {
 		if session.completed {
 			delete(m.pendingEvents, requestID)
@@ -120,7 +121,7 @@ func (m *Manager) abortPendingLocked(runtimeErr *Error) {
 	}
 }
 
-func (m *Manager) signalPendingRequests(handle *Handle, runtimeErr *Error) {
+func (m *Manager) signalPendingRequests(handle *Handle, runtimeErr *plugins.Error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.proc != handle {
@@ -134,7 +135,7 @@ func (m *Manager) signalPendingRequests(handle *Handle, runtimeErr *Error) {
 	m.abortPendingLocked(runtimeErr)
 }
 
-func (m *Manager) reportExitFailureLocked(handle *Handle, runtimeErr *Error) {
+func (m *Manager) reportExitFailureLocked(handle *Handle, runtimeErr *plugins.Error) {
 	if !handle.exitFailureReported {
 		m.logger.Warn("插件"+pluginIDLabel(handle.Spec.PluginID)+"意外退出或断开连接。",
 			"component", "runtime", "plugin_id", handle.Spec.PluginID,
@@ -142,5 +143,12 @@ func (m *Manager) reportExitFailureLocked(handle *Handle, runtimeErr *Error) {
 			"error_code", runtimeErr.Code, "err", runtimeErr.Error())
 		handle.exitFailureReported = true
 	}
-	runtimeErr.failureReported = true
+	runtimeErr.MarkFailureReported()
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (m *Manager) ReadyForEvents() bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.snap.State == StateRunning
 }

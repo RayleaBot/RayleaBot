@@ -55,7 +55,7 @@ func TestLogsListReturnsFilteredSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform logs list request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected logs list status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -96,7 +96,7 @@ func TestLogsListRefreshDoesNotAppendHTTPAccessLogAtInfoLevel(t *testing.T) {
 			t.Fatalf("perform logs refresh request: %v", err)
 		}
 		if response.StatusCode != http.StatusOK {
-			response.Body.Close()
+			_ = response.Body.Close()
 			t.Fatalf("unexpected logs refresh status: got %d want 200", response.StatusCode)
 		}
 		if err := response.Body.Close(); err != nil {
@@ -172,7 +172,7 @@ func TestLogsListReturnsMultiFilteredSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform logs multi-filter request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected logs multi-filter status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -239,7 +239,7 @@ func TestLogsListReturnsProtocolFilteredSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform protocol logs list request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -302,7 +302,7 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform outbound protocol logs request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected outbound protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -342,7 +342,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform empty logs request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected empty logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -382,7 +382,7 @@ func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform empty protocol logs request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected empty protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -411,7 +411,7 @@ func TestLogsListRejectsInvalidFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform invalid logs request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusBadRequest {
 		t.Fatalf("unexpected invalid logs status: got %d want 400", response.StatusCode)
 	}
@@ -442,7 +442,7 @@ func TestLogsListRejectsLimitAboveFormalMaximum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform large limit request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != fixture.Response.Status {
 		t.Fatalf("unexpected large limit status: got %d want %d", response.StatusCode, fixture.Response.Status)
 	}
@@ -501,7 +501,7 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform current session logs request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected current session logs status: got %d want 200", response.StatusCode)
 	}

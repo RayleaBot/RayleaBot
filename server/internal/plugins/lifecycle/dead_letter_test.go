@@ -50,7 +50,7 @@ func TestHandleCrashDeadLetterPreservesStaticWebhooks(t *testing.T) {
 		t.Fatal("expected runtime manager")
 	}
 
-	application.setTestLifecycle(catalog, nil, runtimes, dispatcher, nil, nil, registry)
+	application.setTestLifecycle(t, catalog, nil, runtimes, dispatcher, nil, nil, registry)
 
 	if _, ok := registry.Get("repo-watcher", "github"); !ok {
 		t.Fatal("seed registration was not stored")
@@ -105,7 +105,7 @@ func TestRecoverFromDeadLetterRejectsRunning(t *testing.T) {
 	}
 	// Plugin runtime is in default Stopped state, not dead_letter.
 
-	application.setTestLifecycle(catalog, nil, runtimes, dispatcher, nil, nil, registry)
+	application.setTestLifecycle(t, catalog, nil, runtimes, dispatcher, nil, nil, registry)
 
 	_, err := application.services.pluginLifecycle.RecoverFromDeadLetter(context.Background(), "weather")
 	if err == nil {
@@ -166,7 +166,7 @@ func TestRecoverFromDeadLetterPersistFailureLeavesManagerInDeadLetter(t *testing
 
 	repo := &failingDesiredStateRepo{saveErr: errPersistFailure}
 
-	application.setTestLifecycle(catalog, repo, runtimes, dispatcher, nil, nil, registry)
+	application.setTestLifecycle(t, catalog, repo, runtimes, dispatcher, nil, nil, registry)
 
 	_, err := application.services.pluginLifecycle.RecoverFromDeadLetter(context.Background(), "weather")
 	if err == nil {

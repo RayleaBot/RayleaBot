@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -22,17 +23,18 @@ var (
 type Deps struct {
 	CurrentConfig  func() config.Config
 	Plugins        plugins.CatalogView
-	BlacklistRepo  permission.BlacklistRepository
-	WhitelistRepo  permission.WhitelistRepository
+	BlacklistRepo  permission.EntryRepository
+	WhitelistRepo  permission.EntryRepository
 	WhitelistState permission.WhitelistStateRepository
 	NotifyChanged  func(string)
 }
 
 type EntryResponse struct {
-	EntryType string `json:"entry_type"`
-	TargetID  string `json:"target_id"`
-	Reason    string `json:"reason"`
-	CreatedAt string `json:"created_at"`
+	Scope     chatevent.IdentityScope `json:"scope"`
+	EntryType string                  `json:"entry_type"`
+	TargetID  string                  `json:"target_id"`
+	Reason    string                  `json:"reason"`
+	CreatedAt string                  `json:"created_at"`
 }
 
 type BlacklistSnapshot struct {
@@ -84,8 +86,8 @@ type CommandPolicyResponse struct {
 type Service struct {
 	currentConfig  func() config.Config
 	plugins        plugins.CatalogView
-	blacklistRepo  permission.BlacklistRepository
-	whitelistRepo  permission.WhitelistRepository
+	blacklistRepo  permission.EntryRepository
+	whitelistRepo  permission.EntryRepository
 	whitelistState permission.WhitelistStateRepository
 	notifyChanged  func(string)
 }
@@ -124,12 +126,13 @@ func (s *Service) notify(summary string) {
 	s.notifyChanged(strings.TrimSpace(summary))
 }
 
-func buildEntryResponse(entryType, targetID, reason, createdAt string) EntryResponse {
+func buildEntryResponse(entry permission.Entry) EntryResponse {
 	return EntryResponse{
-		EntryType: strings.TrimSpace(entryType),
-		TargetID:  strings.TrimSpace(targetID),
-		Reason:    strings.TrimSpace(reason),
-		CreatedAt: strings.TrimSpace(createdAt),
+		Scope:     entry.Scope,
+		EntryType: strings.TrimSpace(entry.EntryType),
+		TargetID:  strings.TrimSpace(entry.TargetID),
+		Reason:    strings.TrimSpace(entry.Reason),
+		CreatedAt: strings.TrimSpace(entry.CreatedAt),
 	}
 }
 
@@ -143,10 +146,7 @@ func validEntryDeleteInput(entryType, targetID string) bool {
 
 func (s *Service) ReadBlacklist(ctx context.Context) (BlacklistSnapshot, error) {
 	if s.blacklistRepo == nil {
-		return BlacklistSnapshot{
-			UserEntries:  []EntryResponse{},
-			GroupEntries: []EntryResponse{},
-		}, nil
+		return BlacklistSnapshot{}, ErrServiceUnavailable
 	}
 
 	userEntries, err := s.blacklistRepo.List(ctx, "user")
@@ -159,58 +159,58 @@ func (s *Service) ReadBlacklist(ctx context.Context) (BlacklistSnapshot, error) 
 	}
 
 	return BlacklistSnapshot{
-		UserEntries:  buildBlacklistEntries(userEntries),
-		GroupEntries: buildBlacklistEntries(groupEntries),
+		UserEntries:  buildEntries(userEntries),
+		GroupEntries: buildEntries(groupEntries),
 	}, nil
 }
 
-func (s *Service) UpsertBlacklistEntry(ctx context.Context, entryType, targetID, reason string) (EntryResponse, error) {
+func (s *Service) UpsertBlacklistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) (EntryResponse, error) {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
 	reason = strings.TrimSpace(reason)
-	if !validEntryInput(entryType, targetID, reason) {
+	if !scope.Valid() || !validEntryInput(entryType, targetID, reason) {
 		return EntryResponse{}, ErrInvalidRequest
 	}
 	if s.blacklistRepo == nil {
 		return EntryResponse{}, ErrServiceUnavailable
 	}
 
-	if err := s.blacklistRepo.Add(ctx, entryType, targetID, reason); err != nil {
+	if err := s.blacklistRepo.Add(ctx, scope, entryType, targetID, reason); err != nil {
 		return EntryResponse{}, err
 	}
-	entry, err := s.blacklistRepo.Get(ctx, entryType, targetID)
+	entry, err := s.blacklistRepo.Get(ctx, scope, entryType, targetID)
 	if err != nil {
 		return EntryResponse{}, err
 	}
 	s.notify(defaultGovernanceSummary)
-	return buildEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt), nil
+	return buildEntryResponse(entry), nil
 }
 
-func (s *Service) DeleteBlacklistEntry(ctx context.Context, entryType, targetID string) error {
+func (s *Service) DeleteBlacklistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
-	if !validEntryDeleteInput(entryType, targetID) {
+	if !scope.Valid() || !validEntryDeleteInput(entryType, targetID) {
 		return ErrInvalidRequest
 	}
 	if s.blacklistRepo == nil {
 		return ErrServiceUnavailable
 	}
 
-	if err := s.blacklistRepo.Remove(ctx, entryType, targetID); err != nil {
+	if err := s.blacklistRepo.Remove(ctx, scope, entryType, targetID); err != nil {
 		return err
 	}
 	s.notify(defaultGovernanceSummary)
 	return nil
 }
 
-func buildBlacklistEntries(entries []permission.BlacklistEntry) []EntryResponse {
+func buildEntries(entries []permission.Entry) []EntryResponse {
 	if len(entries) == 0 {
 		return []EntryResponse{}
 	}
 
 	items := make([]EntryResponse, 0, len(entries))
 	for _, entry := range entries {
-		items = append(items, buildEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt))
+		items = append(items, buildEntryResponse(entry))
 	}
 	return items
 }
@@ -244,39 +244,39 @@ func (s *Service) SetWhitelistEnabled(ctx context.Context, enabled bool) (Whitel
 	return WhitelistStateResponse{Enabled: enabled}, nil
 }
 
-func (s *Service) UpsertWhitelistEntry(ctx context.Context, entryType, targetID, reason string) (EntryResponse, error) {
+func (s *Service) UpsertWhitelistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID, reason string) (EntryResponse, error) {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
 	reason = strings.TrimSpace(reason)
-	if !validEntryInput(entryType, targetID, reason) {
+	if !scope.Valid() || !validEntryInput(entryType, targetID, reason) {
 		return EntryResponse{}, ErrInvalidRequest
 	}
 	if s.whitelistRepo == nil {
 		return EntryResponse{}, ErrServiceUnavailable
 	}
 
-	if err := s.whitelistRepo.Add(ctx, entryType, targetID, reason); err != nil {
+	if err := s.whitelistRepo.Add(ctx, scope, entryType, targetID, reason); err != nil {
 		return EntryResponse{}, err
 	}
-	entry, err := s.whitelistRepo.Get(ctx, entryType, targetID)
+	entry, err := s.whitelistRepo.Get(ctx, scope, entryType, targetID)
 	if err != nil {
 		return EntryResponse{}, err
 	}
 	s.notify(defaultGovernanceSummary)
-	return buildEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt), nil
+	return buildEntryResponse(entry), nil
 }
 
-func (s *Service) DeleteWhitelistEntry(ctx context.Context, entryType, targetID string) error {
+func (s *Service) DeleteWhitelistEntry(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) error {
 	entryType = strings.TrimSpace(entryType)
 	targetID = strings.TrimSpace(targetID)
-	if !validEntryDeleteInput(entryType, targetID) {
+	if !scope.Valid() || !validEntryDeleteInput(entryType, targetID) {
 		return ErrInvalidRequest
 	}
 	if s.whitelistRepo == nil {
 		return ErrServiceUnavailable
 	}
 
-	if err := s.whitelistRepo.Remove(ctx, entryType, targetID); err != nil {
+	if err := s.whitelistRepo.Remove(ctx, scope, entryType, targetID); err != nil {
 		return err
 	}
 	s.notify(defaultGovernanceSummary)
@@ -285,14 +285,14 @@ func (s *Service) DeleteWhitelistEntry(ctx context.Context, entryType, targetID 
 
 func whitelistEnabled(ctx context.Context, repo permission.WhitelistStateRepository) (bool, error) {
 	if repo == nil {
-		return false, nil
+		return false, ErrServiceUnavailable
 	}
 	return repo.Enabled(ctx)
 }
 
-func whitelistEntries(ctx context.Context, repo permission.WhitelistRepository) ([]EntryResponse, []EntryResponse, error) {
+func whitelistEntries(ctx context.Context, repo permission.EntryRepository) ([]EntryResponse, []EntryResponse, error) {
 	if repo == nil {
-		return []EntryResponse{}, []EntryResponse{}, nil
+		return nil, nil, ErrServiceUnavailable
 	}
 
 	userEntries, err := repo.List(ctx, "user")
@@ -303,17 +303,5 @@ func whitelistEntries(ctx context.Context, repo permission.WhitelistRepository) 
 	if err != nil {
 		return nil, nil, err
 	}
-	return buildWhitelistEntries(userEntries), buildWhitelistEntries(groupEntries), nil
-}
-
-func buildWhitelistEntries(entries []permission.WhitelistEntry) []EntryResponse {
-	if len(entries) == 0 {
-		return []EntryResponse{}
-	}
-
-	items := make([]EntryResponse, 0, len(entries))
-	for _, entry := range entries {
-		items = append(items, buildEntryResponse(entry.EntryType, entry.TargetID, entry.Reason, entry.CreatedAt))
-	}
-	return items
+	return buildEntries(userEntries), buildEntries(groupEntries), nil
 }

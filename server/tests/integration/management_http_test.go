@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"context"
 	"fmt"
 	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
@@ -62,7 +63,7 @@ func TestSessionLogoutRevokesCurrentToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform logout request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusNoContent {
 		t.Fatalf("unexpected logout status: got %d want 204", response.StatusCode)
 	}
@@ -76,7 +77,7 @@ func TestSessionLogoutRevokesCurrentToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform protected request: %v", err)
 	}
-	defer protectedResp.Body.Close()
+	defer func(release func() error) { _ = release() }(protectedResp.Body.Close)
 	if protectedResp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected protected status after logout: got %d want 401", protectedResp.StatusCode)
 	}
@@ -99,7 +100,7 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform system status request: %v", err)
 	}
-	defer statusResp.Body.Close()
+	defer func(release func() error) { _ = release() }(statusResp.Body.Close)
 	if statusResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected system status code: got %d want 200", statusResp.StatusCode)
 	}
@@ -136,7 +137,7 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform system shutdown request: %v", err)
 	}
-	defer shutdownResp.Body.Close()
+	defer func(release func() error) { _ = release() }(shutdownResp.Body.Close)
 	if shutdownResp.StatusCode != shutdownFixture.Response.Status {
 		t.Fatalf("unexpected system shutdown status: got %d want %d", shutdownResp.StatusCode, shutdownFixture.Response.Status)
 	}
@@ -154,7 +155,7 @@ func TestSystemStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform post-shutdown system status request: %v", err)
 	}
-	defer statusAfterResp.Body.Close()
+	defer func(release func() error) { _ = release() }(statusAfterResp.Body.Close)
 	statusAfterBody := decodeBody(t, readAll(t, statusAfterResp))
 	if statusAfterBody["status"] != "shutting_down" {
 		t.Fatalf("unexpected post-shutdown status: %#v", statusAfterBody["status"])
@@ -178,7 +179,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform launcher status request: %v", err)
 	}
-	defer statusResp.Body.Close()
+	defer func(release func() error) { _ = release() }(statusResp.Body.Close)
 	if statusResp.StatusCode != statusFixture.Response.Status {
 		t.Fatalf("unexpected launcher status code: got %d want %d", statusResp.StatusCode, statusFixture.Response.Status)
 	}
@@ -215,7 +216,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform launcher shutdown request: %v", err)
 	}
-	defer shutdownResp.Body.Close()
+	defer func(release func() error) { _ = release() }(shutdownResp.Body.Close)
 	if shutdownResp.StatusCode != shutdownFixture.Response.Status {
 		t.Fatalf("unexpected launcher shutdown status: got %d want %d", shutdownResp.StatusCode, shutdownFixture.Response.Status)
 	}
@@ -233,7 +234,7 @@ func TestLauncherStatusAndShutdownHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform post-shutdown launcher status request: %v", err)
 	}
-	defer statusAfterResp.Body.Close()
+	defer func(release func() error) { _ = release() }(statusAfterResp.Body.Close)
 	statusAfterBody := decodeBody(t, readAll(t, statusAfterResp))
 	if statusAfterBody["status"] != "shutting_down" {
 		t.Fatalf("unexpected post-shutdown launcher status: %#v", statusAfterBody["status"])
@@ -266,7 +267,7 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 			if err != nil {
 				t.Fatalf("perform forwarded request: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func(release func() error) { _ = release() }(resp.Body.Close)
 			if resp.StatusCode != http.StatusForbidden {
 				t.Fatalf("unexpected forwarded status: got %d want 403", resp.StatusCode)
 			}
@@ -296,7 +297,7 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 		if err != nil {
 			t.Fatalf("perform old launcher route request: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func(release func() error) { _ = release() }(resp.Body.Close)
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("old launcher route %s returned %d, want 404", tc.path, resp.StatusCode)
 		}
@@ -334,7 +335,7 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 
 	cookie := "SESSDATA=fixture; bili_jct=fixture;"
 	upsertResp, upsertPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/primary", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`"}`)
-	defer upsertResp.Body.Close()
+	defer func(release func() error) { _ = release() }(upsertResp.Body.Close)
 	if upsertResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected third-party account upsert status: got %d want 200 body=%s", upsertResp.StatusCode, string(upsertPayload))
 	}
@@ -366,7 +367,7 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 	}
 
 	listResp, listPayload := doRequest(http.MethodGet, "/api/third-party/accounts", "")
-	defer listResp.Body.Close()
+	defer func(release func() error) { _ = release() }(listResp.Body.Close)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected third-party account list status: got %d want 200 body=%s", listResp.StatusCode, string(listPayload))
 	}
@@ -388,7 +389,7 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 	}
 
 	rejectedResp, rejectedPayload := doRequest(http.MethodPut, "/api/third-party/accounts/bilibili/rejected", `{"label":"主账号","enabled":true,"cookie":"`+cookie+`","profile":{"uid":"bad"}}`)
-	defer rejectedResp.Body.Close()
+	defer func(release func() error) { _ = release() }(rejectedResp.Body.Close)
 	if rejectedResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("unexpected display-only field status: got %d want 400 body=%s", rejectedResp.StatusCode, string(rejectedPayload))
 	}
@@ -406,14 +407,14 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 		{method: http.MethodGet, path: "/api/bilibili/login/qrcode/qr_fixture"},
 	} {
 		response, payload := doRequest(route.method, route.path, "")
-		defer response.Body.Close()
+		defer func(release func() error) { _ = release() }(response.Body.Close)
 		if response.StatusCode != http.StatusNotFound {
 			t.Fatalf("old route %s %s returned %d, want 404 body=%s", route.method, route.path, response.StatusCode, string(payload))
 		}
 	}
 
 	qrCreateResp, qrCreatePayload := doRequest(http.MethodPost, "/api/third-party/accounts/bilibili/login/qrcode", "")
-	defer qrCreateResp.Body.Close()
+	defer func(release func() error) { _ = release() }(qrCreateResp.Body.Close)
 	if qrCreateResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr create code: got %d want 200 body=%s", qrCreateResp.StatusCode, string(qrCreatePayload))
 	}
@@ -427,7 +428,7 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 	}
 
 	qrPendingResp, qrPendingPayload := doRequest(http.MethodGet, "/api/third-party/accounts/bilibili/login/qrcode/"+loginID, "")
-	defer qrPendingResp.Body.Close()
+	defer func(release func() error) { _ = release() }(qrPendingResp.Body.Close)
 	if qrPendingResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr pending code: got %d want 200 body=%s", qrPendingResp.StatusCode, string(qrPendingPayload))
 	}
@@ -437,7 +438,7 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 	}
 
 	qrSucceededResp, qrSucceededPayload := doRequest(http.MethodGet, "/api/third-party/accounts/bilibili/login/qrcode/"+loginID, "")
-	defer qrSucceededResp.Body.Close()
+	defer func(release func() error) { _ = release() }(qrSucceededResp.Body.Close)
 	if qrSucceededResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected bilibili qr succeeded code: got %d want 200 body=%s", qrSucceededResp.StatusCode, string(qrSucceededPayload))
 	}
@@ -458,19 +459,19 @@ func TestThirdPartyAccountAndQRCodeHandlers(t *testing.T) {
 	}
 
 	deleteResp, deletePayload := doRequest(http.MethodDelete, "/api/third-party/accounts/bilibili/primary", "")
-	defer deleteResp.Body.Close()
+	defer func(release func() error) { _ = release() }(deleteResp.Body.Close)
 	if deleteResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("unexpected third-party account delete status: got %d want 204 body=%s", deleteResp.StatusCode, string(deletePayload))
 	}
 
 	deleteQRResp, deleteQRPayload := doRequest(http.MethodDelete, "/api/third-party/accounts/bilibili/123456", "")
-	defer deleteQRResp.Body.Close()
+	defer func(release func() error) { _ = release() }(deleteQRResp.Body.Close)
 	if deleteQRResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("unexpected qr third-party account delete status: got %d want 204 body=%s", deleteQRResp.StatusCode, string(deleteQRPayload))
 	}
 
 	emptyResp, emptyPayload := doRequest(http.MethodGet, "/api/third-party/accounts", "")
-	defer emptyResp.Body.Close()
+	defer func(release func() error) { _ = release() }(emptyResp.Body.Close)
 	if emptyResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected empty third-party account list status: got %d want 200 body=%s", emptyResp.StatusCode, string(emptyPayload))
 	}
@@ -561,7 +562,7 @@ func TestProtocolSnapshotHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform protocol snapshot request: %v", err)
 	}
-	defer snapshotResp.Body.Close()
+	defer func(release func() error) { _ = release() }(snapshotResp.Body.Close)
 	if snapshotResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected protocol snapshot status: got %d want 200", snapshotResp.StatusCode)
 	}
@@ -591,7 +592,7 @@ func TestProtocolCompatibilityHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform protocol compatibility request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected protocol compatibility status: got %d want 200", response.StatusCode)
 	}
@@ -611,11 +612,11 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	repo := permission.NewSQLiteBlacklistRepository(application.Storage().Read, application.Storage().Write)
-	if err := repo.Add(context.Background(), "user", "10001", "反复触发垃圾消息"); err != nil {
+	repo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
+	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "10001", "反复触发垃圾消息"); err != nil {
 		t.Fatalf("seed user blacklist entry: %v", err)
 	}
-	if err := repo.Add(context.Background(), "group", "20002", "风险群已封禁"); err != nil {
+	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "group", "20002", "风险群已封禁"); err != nil {
 		t.Fatalf("seed group blacklist entry: %v", err)
 	}
 
@@ -632,7 +633,7 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform governance blacklist request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected governance blacklist status: got %d want 200", response.StatusCode)
 	}
@@ -669,11 +670,11 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	repo := permission.NewSQLiteBlacklistRepository(application.Storage().Read, application.Storage().Write)
-	if err := repo.Add(context.Background(), "user", "10001", "旧原因"); err != nil {
+	repo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
+	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "10001", "旧原因"); err != nil {
 		t.Fatalf("seed blacklist entry: %v", err)
 	}
-	seeded, err := repo.Get(context.Background(), "user", "10001")
+	seeded, err := repo.Get(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "10001")
 	if err != nil {
 		t.Fatalf("get seeded blacklist entry: %v", err)
 	}
@@ -681,7 +682,17 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()
 
-	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":"新原因"}`))
+	upsertReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{
+  "entry_type": "user",
+  "target_id": "10001",
+  "reason": "新原因",
+  "scope": {
+    "kind":"global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
+}`))
 	if err != nil {
 		t.Fatalf("create blacklist upsert request: %v", err)
 	}
@@ -692,7 +703,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform blacklist upsert request: %v", err)
 	}
-	defer upsertResp.Body.Close()
+	defer func(release func() error) { _ = release() }(upsertResp.Body.Close)
 	if upsertResp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected blacklist upsert status: got %d want 200", upsertResp.StatusCode)
 	}
@@ -705,7 +716,17 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 		t.Fatalf("created_at = %#v, want %q", upsertBody["created_at"], seeded.CreatedAt)
 	}
 
-	invalidReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{"entry_type":"user","target_id":"10001","reason":""}`))
+	invalidReq, err := http.NewRequest(http.MethodPost, server.URL+"/api/governance/blacklist/entries", strings.NewReader(`{
+  "entry_type": "user",
+  "target_id": "10001",
+  "reason": "",
+  "scope": {
+    "kind":"global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
+}`))
 	if err != nil {
 		t.Fatalf("create invalid blacklist upsert request: %v", err)
 	}
@@ -716,12 +737,12 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform invalid blacklist upsert request: %v", err)
 	}
-	defer invalidResp.Body.Close()
+	defer func(release func() error) { _ = release() }(invalidResp.Body.Close)
 	if invalidResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("unexpected invalid blacklist upsert status: got %d want 400", invalidResp.StatusCode)
 	}
 
-	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001", nil)
+	deleteReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001?kind=global&source_protocol=onebot11", nil)
 	if err != nil {
 		t.Fatalf("create blacklist delete request: %v", err)
 	}
@@ -731,12 +752,12 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform blacklist delete request: %v", err)
 	}
-	defer deleteResp.Body.Close()
+	defer func(release func() error) { _ = release() }(deleteResp.Body.Close)
 	if deleteResp.StatusCode != http.StatusNoContent {
 		t.Fatalf("unexpected blacklist delete status: got %d want 204", deleteResp.StatusCode)
 	}
 
-	missingReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001", nil)
+	missingReq, err := http.NewRequest(http.MethodDelete, server.URL+"/api/governance/blacklist/entries/user/10001?kind=global&source_protocol=onebot11", nil)
 	if err != nil {
 		t.Fatalf("create missing blacklist delete request: %v", err)
 	}
@@ -746,7 +767,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform missing blacklist delete request: %v", err)
 	}
-	defer missingResp.Body.Close()
+	defer func(release func() error) { _ = release() }(missingResp.Body.Close)
 	if missingResp.StatusCode != http.StatusNotFound {
 		t.Fatalf("unexpected missing blacklist delete status: got %d want 404", missingResp.StatusCode)
 	}

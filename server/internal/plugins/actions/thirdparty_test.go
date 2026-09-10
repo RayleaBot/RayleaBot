@@ -8,7 +8,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func TestThirdPartyAccountReadReturnsDeclaredPlatformAccounts(t *testing.T) {
@@ -38,7 +37,7 @@ func TestThirdPartyAccountReadReturnsDeclaredPlatformAccounts(t *testing.T) {
 		},
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.account.read",
 			ThirdPartyAccountPlatform: thirdparty.PlatformBilibili,
 		},
@@ -70,13 +69,13 @@ func TestThirdPartyAccountReadRejectsUndeclaredPlatform(t *testing.T) {
 		ThirdParty: stubThirdPartyAccountReader{},
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.account.read",
 			ThirdPartyAccountPlatform: thirdparty.PlatformBilibili,
 		},
 	})
 
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %#v", err)
 	}
@@ -97,7 +96,7 @@ func TestThirdPartyAccountValidateQueuesAuthoritativeCheck(t *testing.T) {
 		AccountValidation: requester,
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                         "thirdparty.account.validate",
 			ThirdPartyAccountPlatform:    thirdparty.PlatformWeibo,
 			ThirdPartyAccountID:          "primary",
@@ -127,7 +126,7 @@ func TestThirdPartyAccountValidateRequiresSeparatePermission(t *testing.T) {
 		AccountValidation: &stubThirdPartyAccountValidationRequester{},
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                         "thirdparty.account.validate",
 			ThirdPartyAccountPlatform:    thirdparty.PlatformWeibo,
 			ThirdPartyAccountID:          "primary",
@@ -135,7 +134,7 @@ func TestThirdPartyAccountValidateRequiresSeparatePermission(t *testing.T) {
 			ThirdPartyAccountHTTPStatus:  401,
 		},
 	})
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.permission_denied" {
 		t.Fatalf("expected permission violation, got %#v", err)
 	}
@@ -169,7 +168,7 @@ func TestThirdPartyResolvePassesAccountCookiesToBrowserResolver(t *testing.T) {
 		ThirdPartyResolve: resolver,
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.resolve",
 			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
 			ThirdPartyResolveQuery:    "  洛天依  ",
@@ -220,7 +219,7 @@ func TestThirdPartyResolveMergesRequestCookie(t *testing.T) {
 		ThirdPartyResolve: resolver,
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.resolve",
 			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
 			ThirdPartyResolveQuery:    "洛天依",
@@ -256,13 +255,13 @@ func TestThirdPartyResolveRejectsUnsupportedPlatform(t *testing.T) {
 		ThirdPartyResolve: &stubThirdPartyResolver{},
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.resolve",
 			ThirdPartyAccountPlatform: thirdparty.PlatformBilibili,
 			ThirdPartyResolveQuery:    "测试用户",
 		},
 	})
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("expected platform.invalid_request, got %#v", err)
 	}
@@ -279,13 +278,13 @@ func TestThirdPartyResolveRequiresPermission(t *testing.T) {
 		ThirdPartyResolve: &stubThirdPartyResolver{},
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.resolve",
 			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
 			ThirdPartyResolveQuery:    "测试用户",
 		},
 	})
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "plugin.permission_denied" {
 		t.Fatalf("expected permission violation, got %#v", err)
 	}
@@ -302,13 +301,13 @@ func TestThirdPartyResolveRejectsEmptyQuery(t *testing.T) {
 		ThirdPartyResolve: &stubThirdPartyResolver{},
 	}, ActionRequest{
 		PluginID: "raylea.subscription-hub",
-		Action: pluginruntime.Action{
+		Action: plugins.Action{
 			Kind:                      "thirdparty.resolve",
 			ThirdPartyAccountPlatform: thirdparty.PlatformDouyin,
 			ThirdPartyResolveQuery:    "   ",
 		},
 	})
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) || runtimeErr.Code != "platform.invalid_request" {
 		t.Fatalf("expected platform.invalid_request, got %#v", err)
 	}

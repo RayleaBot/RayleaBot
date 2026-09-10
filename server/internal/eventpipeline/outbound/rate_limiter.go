@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
@@ -17,6 +18,7 @@ const (
 
 // MessageLimitRequest identifies one outbound message for platform throttling.
 type MessageLimitRequest struct {
+	Scope      chatevent.IdentityScope
 	PluginID   string
 	TargetType string
 	TargetID   string
@@ -65,7 +67,7 @@ func (l *MessageRateLimiter) Wait(ctx context.Context, request MessageLimitReque
 	targetType := strings.TrimSpace(request.TargetType)
 	targetID := strings.TrimSpace(request.TargetID)
 	if targetType != "" && targetID != "" {
-		if err := l.targetLimiter.Wait(ctx, "target:"+targetType+":"+targetID); err != nil {
+		if err := l.targetLimiter.Wait(ctx, "target:"+request.Scope.Key(targetType, targetID)); err != nil {
 			return rateLimitedError()
 		}
 	}

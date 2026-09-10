@@ -301,7 +301,7 @@ func (c *Client) runConnection(ctx context.Context) (runErr error) {
 	if err != nil {
 		return fmt.Errorf("qqofficial: dial gateway: %w", err)
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	_, helloBytes, err := conn.Read(connCtx)
 	if err != nil {
@@ -312,7 +312,9 @@ func (c *Client) runConnection(ctx context.Context) (runErr error) {
 		return fmt.Errorf("qqofficial: decode hello: %w", err)
 	}
 	var helloPayload helloData
-	json.Unmarshal(hello.D, &helloPayload)
+	if err := json.Unmarshal(hello.D, &helloPayload); err != nil {
+		return fmt.Errorf("qqofficial: decode hello payload: %w", err)
+	}
 
 	// Resume where the session survived the drop, so the gateway can replay
 	// what was missed; otherwise identify afresh.

@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (m *Manager) Stop(ctx context.Context) error {
@@ -103,7 +105,7 @@ func isIgnorableShutdownWriteError(err error) bool {
 	return strings.Contains(message, "broken pipe") || strings.Contains(message, "pipe is being closed")
 }
 
-func classifyProtocolReadError(handle *Handle, readErr error, exitMessage string, protocolMessage string) *Error {
+func classifyProtocolReadError(handle *Handle, readErr error, exitMessage string, protocolMessage string) *plugins.Error {
 	if errors.Is(readErr, errProtocolFrameTooLarge) {
 		return errorf(codePluginProtocolViolation, "plugin IPC frame exceeds runtime.ipc_message_max_bytes", readErr)
 	}
@@ -185,7 +187,7 @@ func (m *Manager) Ping(ctx context.Context) error {
 	}
 }
 
-func (m *Manager) registerPingRequest(handle *Handle, requestID string) (*pingRequest, *Error) {
+func (m *Manager) registerPingRequest(handle *Handle, requestID string) (*pingRequest, *plugins.Error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

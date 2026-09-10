@@ -3,7 +3,7 @@ case: edge
 description: Governance entry delete returns 404 when the target entry does not exist.
 request:
   method: DELETE
-  path: /api/governance/whitelist/entries/user/99999
+  path: /api/governance/whitelist/entries/user/99999?kind=global&source_protocol=onebot11
 response:
   status: 404
   body:

@@ -27,7 +27,7 @@ func TestPluginConsoleWebSocketReplaysBufferedFrames(t *testing.T) {
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.echo/console", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	frame := readWebSocketJSON(t, conn)
 	if frame["channel"] != "plugin_console" {
@@ -61,7 +61,7 @@ func TestPluginConsoleWebSocketDeliversLiveFrames(t *testing.T) {
 	defer server.Close()
 
 	conn := dialProtectedWebSocket(t, server.URL, "/ws/plugins/raylea.echo/console", token)
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(websocket.StatusNormalClosure, "") }(conn.Close)
 
 	waitForConsoleSubscriber(t, application.Console(), "raylea.echo")
 	application.Console().Append(console.Entry{

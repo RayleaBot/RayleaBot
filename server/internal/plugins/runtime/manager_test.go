@@ -8,6 +8,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestManagerStartInitAckSuccess(t *testing.T) {
@@ -118,9 +121,9 @@ func TestTimeoutEventKeepsCompletedSuccessErrorNil(t *testing.T) {
 	manager := testManager()
 	session := &eventSession{
 		completed: true,
-		delivery:  Delivery{RequestID: "completed"},
+		delivery:  plugins.Delivery{RequestID: "completed"},
 	}
-	var delivery Delivery
+	var delivery plugins.Delivery
 	var err error
 	delivery, err = manager.timeoutEvent(nil, session, codePluginEventTimeout, "plugin event response timed out", context.Canceled)
 	if err != nil {
@@ -242,24 +245,24 @@ func TestManagerDeliverEventReturnsResult(t *testing.T) {
 func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "evt-onebot-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message_sent.group",
 		Timestamp:      1_729_679_125,
-		Actor: &EventActor{
+		Actor: &chatevent.Actor{
 			ID:       "10001",
 			Nickname: "--",
 			Role:     "owner",
 		},
-		Target: &EventTarget{
+		Target: &chatevent.Target{
 			Type: "group",
 			ID:   "20001",
 		},
-		Message: &EventMessage{
+		Message: &chatevent.Message{
 			PlainText: "您好",
-			Segments: []EventSegment{{
+			Segments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "您好"},
 			}},
@@ -312,16 +315,16 @@ func TestBuildEventFrameIncludesOneBotPayload(t *testing.T) {
 func TestBuildEventFrameIncludesMetaOneBotPayload(t *testing.T) {
 	t.Parallel()
 
-	frame := BuildEventFrame(Event{
+	frame := BuildEventFrame(chatevent.Event{
 		EventID:        "evt-onebot-meta-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "meta.heartbeat",
 		Timestamp:      1_729_679_130,
-		Actor: &EventActor{
+		Actor: &chatevent.Actor{
 			ID: "10001",
 		},
-		Target: &EventTarget{
+		Target: &chatevent.Target{
 			Type: "bot",
 			ID:   "10001",
 		},
@@ -396,7 +399,7 @@ func TestManagerDeliverEventReturnsPluginErrorDetails(t *testing.T) {
 		t.Fatalf("unexpected delivery error details: %#v", delivery.ErrorDetails)
 	}
 
-	var runtimeErr *Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected runtime error, got %T", err)
 	}
@@ -521,10 +524,10 @@ func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing
 
 	var (
 		mu      sync.Mutex
-		actions []Action
+		actions []plugins.Action
 	)
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, parentEvent Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action plugins.Action, parentEvent chatevent.Event) (map[string]any, error) {
 			mu.Lock()
 			actions = append(actions, action)
 			mu.Unlock()
@@ -594,7 +597,7 @@ func TestManagerDeliverEventWritesLocalActionErrorAndContinues(t *testing.T) {
 		OnCrash: func(string, int, string) {
 			crashCh <- struct{}{}
 		},
-		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action plugins.Action, _ chatevent.Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
@@ -642,11 +645,11 @@ func TestManagerDeliverEventWritesLocalActionErrorDetailsAndContinues(t *testing
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, _ string, _ string, action plugins.Action, _ chatevent.Event) (map[string]any, error) {
 			if action.Kind != "logger.write" {
 				t.Fatalf("unexpected local action: %#v", action)
 			}
-			return nil, &Error{
+			return nil, &plugins.Error{
 				Code:    "plugin.permission_denied",
 				Message: "permission not declared",
 				Details: map[string]any{
@@ -703,7 +706,7 @@ func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *t
 	started := make(chan string, 2)
 	release := make(chan struct{})
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action plugins.Action, _ chatevent.Event) (map[string]any, error) {
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}
@@ -719,7 +722,7 @@ func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *t
 	}
 
 	type deliveryResult struct {
-		delivery Delivery
+		delivery plugins.Delivery
 		err      error
 	}
 	done := make(chan deliveryResult, 1)
@@ -768,7 +771,7 @@ func TestManagerDeliverEventRejectsTerminalFrameBeforePendingLocalActionsComplet
 
 	release := make(chan struct{})
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
+		ExecuteLocalAction: func(context.Context, string, string, plugins.Action, chatevent.Event) (map[string]any, error) {
 			<-release
 			return map[string]any{}, nil
 		},
@@ -792,7 +795,7 @@ func TestManagerDeliverEventRejectsLocalActionUsingEventRequestID(t *testing.T) 
 	t.Parallel()
 
 	manager := testManagerWithOptions(Options{
-		ExecuteLocalAction: func(context.Context, string, string, Action, Event) (map[string]any, error) {
+		ExecuteLocalAction: func(context.Context, string, string, plugins.Action, chatevent.Event) (map[string]any, error) {
 			t.Fatal("ExecuteLocalAction should not be called when request_id reuses the event request_id")
 			return nil, nil
 		},

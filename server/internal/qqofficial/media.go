@@ -110,11 +110,11 @@ func (c *Client) uploadMedia(ctx context.Context, settings requestSettings, targ
 	if err != nil {
 		return "", fmt.Errorf("qqofficial: upload media: %w", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 
 	var decoded uploadMediaResponse
-	json.NewDecoder(response.Body).Decode(&decoded)
-	if response.StatusCode < 200 || response.StatusCode >= 300 || decoded.FileInfo == "" {
+	decodeErr := json.NewDecoder(response.Body).Decode(&decoded)
+	if response.StatusCode < 200 || response.StatusCode >= 300 || decodeErr != nil || decoded.FileInfo == "" {
 		message := decoded.Message
 		if message == "" {
 			message = "平台拒绝了媒体上传。"

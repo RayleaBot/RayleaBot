@@ -1,6 +1,7 @@
 package chatpolicy
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"context"
 	"testing"
 
@@ -18,19 +19,19 @@ type stubBlacklistRepo struct {
 	blockedType string
 }
 
-func (r *stubBlacklistRepo) IsBlacklisted(_ context.Context, entryType, _ string) (bool, error) {
+func (r *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, _ string) (bool, error) {
 	return entryType == r.blockedType, nil
 }
 
-func (r *stubBlacklistRepo) Get(context.Context, string, string) (permission.BlacklistEntry, error) {
-	return permission.BlacklistEntry{}, permission.ErrGovernanceEntryNotFound
+func (r *stubBlacklistRepo) Get(context.Context, chatevent.IdentityScope, string, string) (permission.Entry, error) {
+	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (r *stubBlacklistRepo) Add(context.Context, string, string, string) error { return nil }
+func (r *stubBlacklistRepo) Add(context.Context, chatevent.IdentityScope, string, string, string) error { return nil }
 
-func (r *stubBlacklistRepo) Remove(context.Context, string, string) error { return nil }
+func (r *stubBlacklistRepo) Remove(context.Context, chatevent.IdentityScope, string, string) error { return nil }
 
-func (r *stubBlacklistRepo) List(context.Context, string) ([]permission.BlacklistEntry, error) {
+func (r *stubBlacklistRepo) List(context.Context, string) ([]permission.Entry, error) {
 	return nil, nil
 }
 
@@ -52,7 +53,7 @@ func TestCommandPolicyReasonSummaryDistinguishesBlacklistScope(t *testing.T) {
 				CurrentConfig: func() config.Config { return config.Config{} },
 				BlacklistRepo: &stubBlacklistRepo{blockedType: testCase.blockedType},
 			})
-			verdict := service.PermissionChecker().Check(context.Background(), "1001", "member", "20001", nil)
+			verdict := service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "20001", nil)
 			if verdict.Allowed {
 				t.Fatal("expected blacklist rejection")
 			}
@@ -73,10 +74,10 @@ func TestUpdateConfigPreservesCooldownWhenRateLimitsUnchanged(t *testing.T) {
 	service := New(Deps{CurrentConfig: func() config.Config { return cfg }})
 
 	cmd := &permission.CommandInfo{}
-	if verdict := service.PermissionChecker().Check(context.Background(), "1001", "member", "", cmd); !verdict.Allowed {
+	if verdict := service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "", cmd); !verdict.Allowed {
 		t.Fatalf("first command should be allowed, got %+v", verdict)
 	}
-	if verdict := service.PermissionChecker().Check(context.Background(), "1001", "member", "", cmd); verdict.Allowed {
+	if verdict := service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "", cmd); verdict.Allowed {
 		t.Fatal("second command should hit the rate limit")
 	}
 
@@ -84,7 +85,7 @@ func TestUpdateConfigPreservesCooldownWhenRateLimitsUnchanged(t *testing.T) {
 	next.Admin.SuperAdmins = []string{"9999"}
 	service.UpdateConfig(next)
 
-	if verdict := service.PermissionChecker().Check(context.Background(), "1001", "member", "", cmd); verdict.Allowed {
+	if verdict := service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "", cmd); verdict.Allowed {
 		t.Fatal("cooldown window should survive a config update that keeps rate limits unchanged")
 	}
 }
@@ -94,14 +95,14 @@ func TestUpdateConfigResetsCooldownWhenRateLimitsChange(t *testing.T) {
 	service := New(Deps{CurrentConfig: func() config.Config { return cfg }})
 
 	cmd := &permission.CommandInfo{}
-	service.PermissionChecker().Check(context.Background(), "1001", "member", "", cmd)
-	if verdict := service.PermissionChecker().Check(context.Background(), "1001", "member", "", cmd); verdict.Allowed {
+	service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "", cmd)
+	if verdict := service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "", cmd); verdict.Allowed {
 		t.Fatal("second command should hit the rate limit before the update")
 	}
 
 	service.UpdateConfig(policyConfigWithUserLimit("5/60s"))
 
-	if verdict := service.PermissionChecker().Check(context.Background(), "1001", "member", "", cmd); !verdict.Allowed {
+	if verdict := service.PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1001", "member", "", cmd); !verdict.Allowed {
 		t.Fatalf("changed rate limit should rebuild the tracker, got %+v", verdict)
 	}
 }

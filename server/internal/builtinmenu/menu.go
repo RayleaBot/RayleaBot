@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -16,7 +15,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render/service"
 )
 
@@ -160,11 +158,11 @@ func (s *Service) hasExactPluginCommand(commandName string) bool {
 		return false
 	}
 	for _, snapshot := range s.plugins.List() {
-		if !pluginParticipatesInCommandPolicy(snapshot) {
+		if !snapshot.CommandsEnabled() {
 			continue
 		}
 		for _, commandItem := range snapshot.Commands {
-			if commandMatches(commandItem, commandName) {
+			if commandItem.Matches(commandName) {
 				return true
 			}
 		}
@@ -179,64 +177,11 @@ func (s *Service) config() config.Config {
 	return s.currentConfig()
 }
 
-func pluginParticipatesInCommandPolicy(snapshot plugins.Snapshot) bool {
-	return snapshot.Valid &&
-		snapshot.RegistrationState == "installed" &&
-		snapshot.DesiredState == "enabled"
-}
-
-func commandMatches(command plugins.Command, commandName string) bool {
-	commandName = strings.TrimSpace(commandName)
-	if commandName == "" {
-		return false
-	}
-	if pattern := strings.TrimSpace(command.MatchPattern); pattern != "" {
-		matched, err := regexp.MatchString(pattern, commandName)
-		return err == nil && matched
-	}
-	if strings.TrimSpace(command.Name) == commandName {
-		return true
-	}
-	for _, alias := range command.Aliases {
-		if strings.TrimSpace(alias) == commandName {
-			return true
-		}
-	}
-	return false
-}
-
 func builtinMenuPrefixes(cfg config.Config) []string {
 	if len(cfg.Builtin.Menu.Prefixes) > 0 {
-		return sanitizeCommandPrefixes(cfg.Builtin.Menu.Prefixes)
+		return config.NormalizeCommandPrefixes(cfg.Builtin.Menu.Prefixes)
 	}
-	return runtimeCommandPrefixes(cfg)
-}
-
-func runtimeCommandPrefixes(cfg config.Config) []string {
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
-		return sanitizeCommandPrefixes(cfg.Command.Prefixes)
-	}
-	return []string{"/"}
-}
-
-func sanitizeCommandPrefixes(prefixes []string) []string {
-	items := make([]string, 0, len(prefixes))
-	seen := make(map[string]struct{}, len(prefixes))
-	for _, prefix := range prefixes {
-		prefix = strings.TrimSpace(prefix)
-		if prefix == "" {
-			continue
-		}
-		if _, ok := seen[prefix]; ok {
-			continue
-		}
-		seen[prefix] = struct{}{}
-		items = append(items, prefix)
-	}
-	if len(items) == 0 {
-		return []string{"/"}
-	}
-	return items
+	return cfg.CommandPrefixes()
 }
 
 func builtinMenuCommands(cfg config.Config) []string {
@@ -400,7 +345,7 @@ func applyBuiltinHelpCommandPrefixes(help map[string]any, cfg config.Config) map
 
 func (s *Service) buildBuiltinMenuData(event chatevent.NormalizedEvent, target string) builtinMenuRenderData {
 	items := s.visibleBuiltinMenuItems(event)
-	runtimeEvent := pluginruntime.EventFromAdapter(event)
+	runtimeEvent := chatevent.FromAdapter(event)
 	cfg := s.config()
 	if target != "" {
 		if item, ok := findBuiltinMenuItem(items, target); ok {
@@ -422,7 +367,7 @@ func (s *Service) visibleBuiltinMenuItems(event chatevent.NormalizedEvent) []map
 	if s.plugins == nil {
 		return []map[string]any{}
 	}
-	runtimeEvent := pluginruntime.EventFromAdapter(event)
+	runtimeEvent := chatevent.FromAdapter(event)
 	cfg := s.config()
 	snapshots := s.plugins.List()
 	conflicts := plugins.DetectCommandConflicts(snapshots)
@@ -453,7 +398,7 @@ func (s *Service) visibleBuiltinMenuItems(event chatevent.NormalizedEvent) []map
 	return items
 }
 
-func (s *Service) withBuiltinMenuIdentity(data map[string]any, event pluginruntime.Event) map[string]any {
+func (s *Service) withBuiltinMenuIdentity(data map[string]any, event chatevent.Event) map[string]any {
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -808,6 +753,7 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 		}, attempt, result, err)
 	}
 	if err := s.waitLimit(ctx, outbound.MessageLimitRequest{
+		Scope:      event.IdentityScope(),
 		TargetType: targetType,
 		TargetID:   targetID,
 	}); err != nil {
@@ -871,14 +817,14 @@ func builtinCommandUsageArgs(commandName string, usage string, prefixes []string
 	return ""
 }
 
-func builtinMenuCallerPermissionRank(cfg config.Config, event pluginruntime.Event) int {
+func builtinMenuCallerPermissionRank(cfg config.Config, event chatevent.Event) int {
 	actorID := ""
 	actorRole := ""
 	if event.Actor != nil {
 		actorID = strings.TrimSpace(event.Actor.ID)
 		actorRole = strings.TrimSpace(event.Actor.Role)
 	}
-	if actorID != "" && slices.Contains(builtinMenuSuperAdmins(cfg), actorID) {
+	if event.SourceProtocol == "onebot11" && actorID != "" && slices.Contains(builtinMenuSuperAdmins(cfg), actorID) {
 		return builtinMenuPermissionRank("super_admin")
 	}
 	switch actorRole {
@@ -940,7 +886,7 @@ func builtinMenuPermissionLabel(level string) string {
 	}
 }
 
-func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, event pluginruntime.Event) []plugins.CommandView {
+func visibleBuiltinCommands(commands []plugins.CommandView, cfg config.Config, event chatevent.Event) []plugins.CommandView {
 	callerRank := builtinMenuCallerPermissionRank(cfg, event)
 	items := make([]plugins.CommandView, 0, len(commands))
 	for _, item := range commands {

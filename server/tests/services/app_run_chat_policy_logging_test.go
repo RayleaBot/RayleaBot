@@ -2,6 +2,14 @@ package services
 
 import (
 	"context"
+	"io"
+	"log/slog"
+	"reflect"
+	"slices"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
@@ -12,14 +20,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
-	"io"
-	"log/slog"
-	"reflect"
-	"slices"
-	"strings"
-	"testing"
-	"time"
 )
 
 func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
@@ -197,10 +197,10 @@ func TestApplyHotReloadableFieldsReloadsCommandPolicy(t *testing.T) {
 	if app.services.EventIngress.Policy().CommandParser().Parse("/ping").IsCommand {
 		t.Fatal("old command prefix should no longer be active")
 	}
-	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
+	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "42", "member", "", &permission.CommandInfo{Permission: "super_admin"}); !verdict.Allowed {
 		t.Fatalf("new super admin should bypass command checks: %#v", verdict)
 	}
-	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
+	if verdict := app.services.EventIngress.Policy().PermissionChecker().Check(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "1", "member", "", &permission.CommandInfo{Permission: "super_admin"}); verdict.Allowed {
 		t.Fatalf("old super admin should no longer bypass command checks: %#v", verdict)
 	}
 	if app.state.Config.Storage.FileMaxBytes != 8192 || app.state.Config.Storage.PluginWorkDirSoftLimitMB != 64 {
@@ -229,7 +229,7 @@ func (r *recordingDispatcherClient) HasDeliverablePlugins() bool {
 	return true
 }
 
-func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ pluginruntime.Event, _ string) []dispatch.DeliveryResult {
+func (r *recordingDispatcherClient) Dispatch(_ context.Context, _ chatevent.Event, _ string) []dispatch.DeliveryResult {
 	r.deliverCount++
 	return []dispatch.DeliveryResult{{
 		PluginID: "test",
@@ -366,34 +366,34 @@ func (s *stubBlacklistRepo) block(entryType, targetID string) {
 	s.blocked[entryType][targetID] = true
 }
 
-func (s *stubBlacklistRepo) IsBlacklisted(_ context.Context, entryType, targetID string) (bool, error) {
+func (s *stubBlacklistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
 	if entries, ok := s.blocked[entryType]; ok {
 		return entries[targetID], nil
 	}
 	return false, nil
 }
 
-func (s *stubBlacklistRepo) Get(_ context.Context, entryType, targetID string) (permission.BlacklistEntry, error) {
-	if blocked, _ := s.IsBlacklisted(context.Background(), entryType, targetID); blocked {
-		return permission.BlacklistEntry{
+func (s *stubBlacklistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
+	if blocked, _ := s.Contains(context.Background(), scope, entryType, targetID); blocked {
+		return permission.Entry{
 			EntryType: entryType,
 			TargetID:  targetID,
 			Reason:    "blocked",
 			CreatedAt: "2026-04-19T00:00:00Z",
 		}, nil
 	}
-	return permission.BlacklistEntry{}, permission.ErrGovernanceEntryNotFound
+	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubBlacklistRepo) Add(context.Context, string, string, string) error {
+func (s *stubBlacklistRepo) Add(context.Context, chatevent.IdentityScope, string, string, string) error {
 	return nil
 }
 
-func (s *stubBlacklistRepo) Remove(context.Context, string, string) error {
+func (s *stubBlacklistRepo) Remove(context.Context, chatevent.IdentityScope, string, string) error {
 	return nil
 }
 
-func (s *stubBlacklistRepo) List(context.Context, string) ([]permission.BlacklistEntry, error) {
+func (s *stubBlacklistRepo) List(context.Context, string) ([]permission.Entry, error) {
 	return nil, nil
 }
 
@@ -405,34 +405,34 @@ func newStubWhitelistRepo() *stubWhitelistRepo {
 	return &stubWhitelistRepo{allowed: make(map[string]map[string]bool)}
 }
 
-func (s *stubWhitelistRepo) IsWhitelisted(_ context.Context, entryType, targetID string) (bool, error) {
+func (s *stubWhitelistRepo) Contains(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {
 	if entries, ok := s.allowed[entryType]; ok {
 		return entries[targetID], nil
 	}
 	return false, nil
 }
 
-func (s *stubWhitelistRepo) Get(_ context.Context, entryType, targetID string) (permission.WhitelistEntry, error) {
-	if allowed, _ := s.IsWhitelisted(context.Background(), entryType, targetID); allowed {
-		return permission.WhitelistEntry{
+func (s *stubWhitelistRepo) Get(_ context.Context, scope chatevent.IdentityScope, entryType, targetID string) (permission.Entry, error) {
+	if allowed, _ := s.Contains(context.Background(), scope, entryType, targetID); allowed {
+		return permission.Entry{
 			EntryType: entryType,
 			TargetID:  targetID,
 			Reason:    "allowed",
 			CreatedAt: "2026-04-19T00:00:00Z",
 		}, nil
 	}
-	return permission.WhitelistEntry{}, permission.ErrGovernanceEntryNotFound
+	return permission.Entry{}, permission.ErrGovernanceEntryNotFound
 }
 
-func (s *stubWhitelistRepo) Add(context.Context, string, string, string) error {
+func (s *stubWhitelistRepo) Add(context.Context, chatevent.IdentityScope, string, string, string) error {
 	return nil
 }
 
-func (s *stubWhitelistRepo) Remove(context.Context, string, string) error {
+func (s *stubWhitelistRepo) Remove(context.Context, chatevent.IdentityScope, string, string) error {
 	return nil
 }
 
-func (s *stubWhitelistRepo) List(context.Context, string) ([]permission.WhitelistEntry, error) {
+func (s *stubWhitelistRepo) List(context.Context, string) ([]permission.Entry, error) {
 	return nil, nil
 }
 

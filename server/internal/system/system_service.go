@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -103,51 +102,26 @@ type Service struct {
 	startupRuntimes     map[string]StartupRuntimeState
 }
 
-func New(deps Deps) *Service {
+func New(deps Deps) (*Service, error) {
+	if deps.CurrentConfig == nil || deps.CurrentSummary == nil || deps.Plugins == nil {
+		return nil, fmt.Errorf("system service requires current config, summary and plugin catalog")
+	}
 	if deps.Logger == nil {
 		deps.Logger = slog.Default()
 	}
-	currentConfig := deps.CurrentConfig
-	if currentConfig == nil {
-		currentConfig = func() config.Config { return config.Config{} }
-	}
-	currentSummary := deps.CurrentSummary
-	if currentSummary == nil {
-		currentSummary = func() config.Summary { return config.Summary{} }
-	}
-	authState := deps.Auth
-	if isNilDependency(authState) {
-		authState = nil
-	}
-	adapter := deps.Adapter
-	if isNilDependency(adapter) {
-		adapter = nil
-	}
-	pluginsCatalog := deps.Plugins
-	if isNilDependency(pluginsCatalog) {
-		pluginsCatalog = nil
-	}
-	runtimes := deps.Runtimes
-	if isNilDependency(runtimes) {
-		runtimes = nil
-	}
-	renderer := deps.Renderer
-	if isNilDependency(renderer) {
-		renderer = nil
-	}
 	return &Service{
-		currentConfig:       currentConfig,
-		currentSummary:      currentSummary,
+		currentConfig:       deps.CurrentConfig,
+		currentSummary:      deps.CurrentSummary,
 		currentRepoRoot:     deps.CurrentRepoRoot,
 		currentStartedAt:    deps.CurrentStartedAt,
 		repoRoot:            deps.RepoRoot,
 		logger:              deps.Logger,
 		startedAt:           deps.StartedAt,
-		auth:                authState,
-		adapter:             adapter,
-		plugins:             pluginsCatalog,
-		runtimes:            runtimes,
-		renderer:            renderer,
+		auth:                deps.Auth,
+		adapter:             deps.Adapter,
+		plugins:             deps.Plugins,
+		runtimes:            deps.Runtimes,
+		renderer:            deps.Renderer,
 		storage:             deps.Storage,
 		thirdParty:          deps.ThirdParty,
 		scheduler:           deps.Scheduler,
@@ -157,38 +131,18 @@ func New(deps Deps) *Service {
 		statusPublisher:     deps.StatusPublisher,
 		resolveDatabasePath: databasePathResolver(deps.ResolveDatabasePath),
 		startupRuntimes:     newStartupRuntimeStates(nil),
-	}
+	}, nil
 }
 
 func databasePathResolver(resolver DatabasePathResolver) DatabasePathResolver {
 	if resolver != nil {
 		return resolver
 	}
-	return defaultDatabasePath
+	return runtimepaths.ResolveDatabasePath
 }
 
 func (s *Service) databasePath(configPath, configuredPath string) (string, error) {
-	if s != nil && s.resolveDatabasePath != nil {
-		return s.resolveDatabasePath(configPath, configuredPath)
-	}
-	return defaultDatabasePath(configPath, configuredPath)
-}
-
-func defaultDatabasePath(configPath, configuredPath string) (string, error) {
-	if filepath.IsAbs(configuredPath) {
-		return filepath.Clean(configuredPath), nil
-	}
-
-	absoluteConfigPath, err := filepath.Abs(configPath)
-	if err != nil {
-		return "", fmt.Errorf("resolve runtime root from %s: %w", configPath, err)
-	}
-	repoRoot := recovery.RepoRootFromConfigPath(absoluteConfigPath)
-	resolved, err := filepath.Abs(filepath.Join(repoRoot, configuredPath))
-	if err != nil {
-		return "", fmt.Errorf("resolve database path %s: %w", configuredPath, err)
-	}
-	return resolved, nil
+	return s.resolveDatabasePath(configPath, configuredPath)
 }
 
 func (s *Service) SystemStatus() string {
@@ -197,7 +151,7 @@ func (s *Service) SystemStatus() string {
 
 func (s *Service) SchedulerPluginName(pluginID string) string {
 	pluginName := strings.TrimSpace(pluginID)
-	if s != nil && s.plugins != nil {
+	if s.plugins != nil {
 		if snapshot, ok := s.plugins.Get(pluginID); ok {
 			if name := strings.TrimSpace(snapshot.Name); name != "" {
 				pluginName = name
@@ -224,7 +178,7 @@ func (s *Service) SchedulerTimezone() string {
 
 func (s *Service) StatusSnapshot() StatusSnapshot {
 	adapterState := ""
-	if s != nil && s.adapter != nil {
+	if s.adapter != nil {
 		adapterState = s.adapter.CurrentState()
 	}
 	runningPlugins, failedPlugins := s.pluginStateCounts()
@@ -252,16 +206,10 @@ func (s *Service) BindShutdownFlag(flag *atomic.Bool) {
 }
 
 func (s *Service) config() config.Config {
-	if s.currentConfig == nil {
-		return config.Config{}
-	}
 	return s.currentConfig()
 }
 
 func (s *Service) summary() config.Summary {
-	if s.currentSummary == nil {
-		return config.Summary{}
-	}
 	return s.currentSummary()
 }
 
@@ -284,19 +232,6 @@ func (s *Service) currentLogger() *slog.Logger {
 		return slog.Default()
 	}
 	return s.logger
-}
-
-func isNilDependency(value any) bool {
-	if value == nil {
-		return true
-	}
-	rv := reflect.ValueOf(value)
-	switch rv.Kind() {
-	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
-		return rv.IsNil()
-	default:
-		return false
-	}
 }
 
 func (s *Service) recoverySummarySnapshot() *recovery.CompatibilitySummary {

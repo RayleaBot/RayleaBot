@@ -1,19 +1,26 @@
 contract: contracts/web-api.openapi.yaml
 case: ok
-description: Governance blacklist entry upsert stores one user or group entry without resetting the original created_at.
+description: Governance blacklist entry upsert stores one user or group entry
+  without resetting the original created_at.
 request:
   method: POST
   path: /api/governance/blacklist/entries
   body:
     entry_type: user
-    target_id: '10001'
+    target_id: "10001"
     reason: 反复触发垃圾消息
+    scope: &a1
+      source_protocol: onebot11
+      source_adapter: ""
+      bot_id: ""
+      kind: global
 response:
   status: 200
   body:
     entry_type: user
-    target_id: '10001'
+    target_id: "10001"
     reason: 反复触发垃圾消息
-    created_at: '2026-04-17T09:00:00Z'
+    created_at: 2026-04-17T09:00:00Z
+    scope: *a1
 expect:
   valid: true

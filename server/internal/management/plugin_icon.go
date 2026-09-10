@@ -52,7 +52,7 @@ func readPluginIcon(snapshot plugins.Snapshot) ([]byte, string) {
 	if err != nil {
 		return nil, ""
 	}
-	defer root.Close()
+	defer func(release func() error) { _ = release() }(root.Close)
 	info, err := root.Stat(name)
 	if err != nil || !info.Mode().IsRegular() || info.Size() > pluginIconMaxBytes {
 		return nil, ""
@@ -61,7 +61,7 @@ func readPluginIcon(snapshot plugins.Snapshot) ([]byte, string) {
 	if err != nil {
 		return nil, ""
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 	info, err = file.Stat()
 	if err != nil || !info.Mode().IsRegular() || info.Size() > pluginIconMaxBytes {
 		return nil, ""

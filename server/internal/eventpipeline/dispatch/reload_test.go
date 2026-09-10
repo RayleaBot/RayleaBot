@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestRegisterReplacesExistingPluginRuntime(t *testing.T) {
@@ -14,14 +15,14 @@ func TestRegisterReplacesExistingPluginRuntime(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	oldStarted := make(chan pluginruntime.Event, 1)
-	newStarted := make(chan pluginruntime.Event, 1)
+	oldStarted := make(chan chatevent.Event, 1)
+	newStarted := make(chan chatevent.Event, 1)
 	oldRT := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"version": "old"}},
+		delivery: plugins.Delivery{Result: map[string]any{"version": "old"}},
 		started:  oldStarted,
 	}
 	newRT := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"version": "new"}},
+		delivery: plugins.Delivery{Result: map[string]any{"version": "new"}},
 		started:  newStarted,
 	}
 

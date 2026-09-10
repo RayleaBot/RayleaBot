@@ -2,11 +2,10 @@ package outbound
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type stubSender struct {
@@ -39,11 +38,11 @@ func TestSendActionRoutesMessageSend(t *testing.T) {
 	t.Parallel()
 
 	sender := &stubSender{}
-	result, err := SendAction(context.Background(), sender, nil, pluginruntime.Event{}, pluginruntime.Action{
+	result, err := SendAction(context.Background(), sender, nil, chatevent.Event{}, chatevent.MessageCommand{
 		Kind:       "message.send",
 		TargetType: "group",
 		TargetID:   "10001",
-		MessageSegments: []pluginruntime.ActionSegment{
+		MessageSegments: []chatevent.MessageSegment{
 			{Type: "text", Data: map[string]any{"text": "hello"}},
 		},
 	})
@@ -74,11 +73,11 @@ func TestSendActionFallsBackToSendWhenReplyTargetIsMissingAtAdapterLevel(t *test
 			TargetID:   "10001",
 		},
 	}
-	result, err := SendAction(context.Background(), sender, resolver, pluginruntime.Event{}, pluginruntime.Action{
+	result, err := SendAction(context.Background(), sender, resolver, chatevent.Event{}, chatevent.MessageCommand{
 		Kind:                    "message.reply",
 		ReplyToEventID:          "evt_1",
 		FallbackToSendIfMissing: true,
-		MessageSegments: []pluginruntime.ActionSegment{
+		MessageSegments: []chatevent.MessageSegment{
 			{Type: "reply", Data: map[string]any{"id": "msg_1"}},
 			{Type: "text", Data: map[string]any{"text": "fallback"}},
 		},

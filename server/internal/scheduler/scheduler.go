@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 var ErrJobNotFound = errors.New("scheduler job not found")
@@ -558,18 +557,6 @@ func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 	e.jobs[job.JobID] = job
 	e.mu.Unlock()
 	return nil
-}
-
-func (e *Engine) RecordSchedulerRunResult(ctx context.Context, result pluginruntime.SchedulerRunResult) error {
-	return e.RecordRunResult(ctx, RunResult{
-		JobID:      result.JobID,
-		Revision:   result.Revision,
-		Outcome:    RunOutcome(result.Outcome),
-		Duration:   result.Duration,
-		ErrorCode:  result.ErrorCode,
-		ErrorText:  result.ErrorText,
-		OccurredAt: result.OccurredAt,
-	})
 }
 
 func (e *Engine) nextJobRevision() uint64 {

@@ -37,7 +37,7 @@ func TestFetchBotProfile(t *testing.T) {
 					t.Error("profile request did not use the connection credentials and endpoint")
 				}
 				w.WriteHeader(tt.status)
-				io.WriteString(w, tt.body)
+				_, _ = io.WriteString(w, tt.body)
 			}))
 			defer srv.Close()
 			if got := fetchBotProfile(context.Background(), srv.Client(), srv.URL, "10001", "fixture-token"); got != tt.want {

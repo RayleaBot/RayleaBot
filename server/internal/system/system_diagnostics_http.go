@@ -85,7 +85,7 @@ func addFileToZip(writer *zip.Writer, sourcePath, archivePath string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 
 	info, err := file.Stat()
 	if err != nil {

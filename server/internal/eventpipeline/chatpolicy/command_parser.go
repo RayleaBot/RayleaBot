@@ -10,38 +10,7 @@ import (
 )
 
 func newCommandParser(cfg config.Config) *command.Parser {
-	prefixes := []string{"/"}
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
-		prefixes = sanitizeCommandPrefixes(cfg.Command.Prefixes)
-	}
-	return command.NewParser(prefixes)
-}
-
-func sanitizeCommandPrefixes(prefixes []string) []string {
-	items := make([]string, 0, len(prefixes))
-	seen := make(map[string]struct{}, len(prefixes))
-	for _, prefix := range prefixes {
-		prefix = strings.TrimSpace(prefix)
-		if prefix == "" {
-			continue
-		}
-		if _, ok := seen[prefix]; ok {
-			continue
-		}
-		seen[prefix] = struct{}{}
-		items = append(items, prefix)
-	}
-	if len(items) == 0 {
-		return []string{"/"}
-	}
-	return items
-}
-
-func RuntimeCommandPrefixes(cfg config.Config) []string {
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
-		return sanitizeCommandPrefixes(cfg.Command.Prefixes)
-	}
-	return []string{"/"}
+	return command.NewParser(cfg.CommandPrefixes())
 }
 
 func (s *Service) EnrichCommandEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {

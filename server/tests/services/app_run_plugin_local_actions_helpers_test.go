@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func assertRuntimeErrorCode(t *testing.T, err error, want string) {
@@ -14,7 +14,7 @@ func assertRuntimeErrorCode(t *testing.T, err error, want string) {
 		t.Fatalf("expected runtime error %q, got nil", want)
 	}
 
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected *pluginruntime.Error, got %T", err)
 	}

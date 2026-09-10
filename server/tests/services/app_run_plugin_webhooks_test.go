@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -24,11 +25,11 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type capturingRuntime struct{ events chan pluginruntime.Event }
+type capturingRuntime struct{ events chan chatevent.Event }
 
-func (r *capturingRuntime) DeliverEvent(_ context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (r *capturingRuntime) DeliverEvent(_ context.Context, event chatevent.Event) (plugins.Delivery, error) {
 	r.events <- event
-	return pluginruntime.Delivery{RequestID: "event_webhook_1", Result: map[string]any{}}, nil
+	return plugins.Delivery{RequestID: "event_webhook_1", Result: map[string]any{}}, nil
 }
 
 func (r *capturingRuntime) Snapshot() pluginruntime.Snapshot {
@@ -40,7 +41,7 @@ func TestHandlePluginWebhookUsesStaticManifestRegistration(t *testing.T) {
 	application, server, runtime := newStaticWebhookHarness(t, 1024)
 	body := []byte(`{"action":"opened"}`)
 	response := sendSignedWebhook(t, server.URL, body, "gh-evt-test-1")
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(response.Body)
 		t.Fatalf("status = %d, body = %s", response.StatusCode, payload)
@@ -66,7 +67,7 @@ func TestHandlePluginWebhookRejectsManifestBodyLimit(t *testing.T) {
 	t.Parallel()
 	_, server, _ := newStaticWebhookHarness(t, 16)
 	response := sendSignedWebhook(t, server.URL, []byte(`{"action":"payload-too-large"}`), "gh-evt-large")
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d", response.StatusCode)
 	}
@@ -99,7 +100,7 @@ func newStaticWebhookHarness(t *testing.T, maxBodyBytes int) (*serviceHarness, *
 	application.setTestLocalActions(&stubPermissionView{permissions: map[string][]stubPermission{}}, nil, nil, nil, nil, dispatcher, nil, nil, nil, nil)
 	application.setTestWebhookService(secretStore, dispatcher, nil, registry)
 	application.services.PluginWebhooks.SyncManifestRegistrations()
-	runtime := &capturingRuntime{events: make(chan pluginruntime.Event, 1)}
+	runtime := &capturingRuntime{events: make(chan chatevent.Event, 1)}
 	dispatcher.Register("repo-watcher", runtime, []string{"webhook.received"}, nil, 1)
 	if err := application.platform.Secrets.Set(context.Background(), "webhook.github.secret", []byte("fixture-webhook-secret")); err != nil {
 		t.Fatalf("set secret: %v", err)
@@ -130,4 +131,9 @@ func sendSignedWebhook(t *testing.T, baseURL string, body []byte, eventID string
 		t.Fatalf("send webhook: %v", err)
 	}
 	return response
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (r *capturingRuntime) ReadyForEvents() bool {
+	return r.Snapshot().State == pluginruntime.StateRunning
 }

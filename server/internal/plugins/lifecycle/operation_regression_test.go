@@ -25,7 +25,7 @@ func TestEnsurePluginRunningCanceledDuringLifecycleOperationDoesNotChangeState(t
 		PluginID: "blocked-plugin", DesiredState: "enabled", RegistrationState: "installed", RuntimeState: "stopped",
 	}})
 	runtimes := newRuntimeRegistry(logger, pluginruntime.Options{})
-	app.setTestLifecycle(catalog, nil, runtimes, nil, nil, nil, nil)
+	app.setTestLifecycle(t, catalog, nil, runtimes, nil, nil, nil, nil)
 	controller := app.services.pluginLifecycle
 	release, err := controller.acquireOperation(context.Background(), "blocked-plugin")
 	if err != nil {
@@ -54,7 +54,7 @@ func TestDisableWaitsForLifecycleOperationBeforeShutdownBudget(t *testing.T) {
 	manager := runtimes.GetOrCreate("fixture")
 	dispatcher := dispatch.New(logger, nil, nil, 4)
 	app := newTestAppState(config.Config{}, logger)
-	app.setTestLifecycle(catalog, nil, runtimes, dispatcher, nil, nil, nil)
+	app.setTestLifecycle(t, catalog, nil, runtimes, dispatcher, nil, nil, nil)
 	controller := app.services.pluginLifecycle
 	lifecycleCtx, lifecycleCancel := context.WithCancel(t.Context())
 	controller.BindLifecycleContext(lifecycleCtx)

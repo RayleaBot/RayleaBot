@@ -11,6 +11,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/logpath"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {
@@ -209,7 +210,7 @@ func errorsAreExitLike(handle *Handle, err error) bool {
 	return exited
 }
 
-func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRejection, *Error) {
+func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRejection, *plugins.Error) {
 	envelope, err := parseEventEnvelope(line, handle.Spec.PluginID)
 	if err != nil {
 		return nil, normalizeRuntimeError(err, "parse runtime frame envelope")
@@ -245,7 +246,7 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 	return nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
 }
 
-func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope FrameEnvelope, line []byte) *Error {
+func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope FrameEnvelope, line []byte) *plugins.Error {
 	if session.pendingLocalAction > 0 {
 		return errorf(codePluginProtocolViolation, "plugin returned a terminal frame before all local actions completed", nil)
 	}
@@ -255,7 +256,7 @@ func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope Frame
 		return errorf(codePluginProtocolViolation, "plugin returned an unexpected non-terminal frame for the active event", nil)
 	}
 	if err != nil {
-		var runtimeErr *Error
+		var runtimeErr *plugins.Error
 		if ok := asRuntimeError(err, &runtimeErr); ok {
 			m.completeEventLocked(session, delivery, runtimeErr)
 			return nil
@@ -268,11 +269,11 @@ func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope Frame
 	return nil
 }
 
-func asRuntimeError(err error, target **Error) bool {
+func asRuntimeError(err error, target **plugins.Error) bool {
 	if err == nil {
 		return false
 	}
-	var runtimeErr *Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
 		return false
 	}
@@ -280,15 +281,15 @@ func asRuntimeError(err error, target **Error) bool {
 	return true
 }
 
-func normalizeRuntimeError(err error, message string) *Error {
+func normalizeRuntimeError(err error, message string) *plugins.Error {
 	if err == nil {
 		return nil
 	}
-	var runtimeErr *Error
+	var runtimeErr *plugins.Error
 	if errors.As(err, &runtimeErr) {
 		return runtimeErr
 	}
-	var actionErr *Error
+	var actionErr *plugins.Error
 	if errors.As(err, &actionErr) {
 		return errorf(actionErr.Code, actionErr.Message, actionErr.Err)
 	}

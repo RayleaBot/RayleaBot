@@ -2,6 +2,7 @@ package permission
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"path/filepath"
 	"testing"
 
@@ -12,15 +13,15 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 	t.Parallel()
 
 	store := openPermissionTestStore(t)
-	repo := NewSQLiteWhitelistRepository(store.Read, store.Write)
+	repo := NewSQLiteAccessListRepository(store.Read, store.Write, ListWhitelist)
 	ctx := context.Background()
 
-	if err := repo.Add(ctx, "user", "10001", "值班账号"); err != nil {
+	if err := repo.Add(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "值班账号"); err != nil {
 		t.Fatalf("add whitelist entry: %v", err)
 	}
 	const createdAt = "2000-01-02T03:04:05Z"
 	if _, err := store.Write.ExecContext(ctx,
-		`UPDATE whitelist_entries SET created_at = ? WHERE entry_type = ? AND target_id = ?`,
+		`UPDATE access_list_entries SET created_at = ? WHERE entry_type = ? AND target_id = ?`,
 		createdAt,
 		"user",
 		"10001",
@@ -28,7 +29,7 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 		t.Fatalf("set fixed whitelist created_at: %v", err)
 	}
 
-	entry, err := repo.Get(ctx, "user", "10001")
+	entry, err := repo.Get(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001")
 	if err != nil {
 		t.Fatalf("get whitelist entry: %v", err)
 	}
@@ -38,11 +39,11 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 	if entry.CreatedAt != createdAt {
 		t.Fatalf("created_at = %q, want fixed value %q", entry.CreatedAt, createdAt)
 	}
-	if err := repo.Add(ctx, "user", "10001", "轮值账号"); err != nil {
+	if err := repo.Add(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "轮值账号"); err != nil {
 		t.Fatalf("upsert whitelist entry: %v", err)
 	}
 
-	updated, err := repo.Get(ctx, "user", "10001")
+	updated, err := repo.Get(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001")
 	if err != nil {
 		t.Fatalf("get updated whitelist entry: %v", err)
 	}
@@ -61,10 +62,10 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 		t.Fatalf("entries length = %d, want 1", len(entries))
 	}
 
-	if err := repo.Remove(ctx, "user", "10001"); err != nil {
+	if err := repo.Remove(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001"); err != nil {
 		t.Fatalf("remove whitelist entry: %v", err)
 	}
-	if _, err := repo.Get(ctx, "user", "10001"); err != ErrGovernanceEntryNotFound {
+	if _, err := repo.Get(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001"); err != ErrGovernanceEntryNotFound {
 		t.Fatalf("get removed whitelist entry error = %v, want ErrGovernanceEntryNotFound", err)
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const defaultPluginLogRateLimit = "200/10s"
@@ -97,10 +97,10 @@ func logWriteRegistrar() registrar {
 
 func executeLogWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.PluginLogLimiter != nil && !deps.PluginLogLimiter.Allow(req.PluginID) {
-		return nil, &pluginruntime.Error{Code: "platform.rate_limited", Message: "plugin log throughput exceeded the configured platform limit"}
+		return nil, &plugins.Error{Code: "platform.rate_limited", Message: "plugin log throughput exceeded the configured platform limit"}
 	}
 	if deps.Logger == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "logger.write is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "logger.write is not available"}
 	}
 
 	level := strings.TrimSpace(req.Action.LogLevel)

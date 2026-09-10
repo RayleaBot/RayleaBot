@@ -7,22 +7,22 @@ import (
 	"strings"
 	"time"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
-func schedulerElapsed(event pluginruntime.Event) time.Duration {
-	if event.SchedulerLog == nil {
+func schedulerElapsed(run *scheduler.RunContext) time.Duration {
+	if run == nil {
 		return 0
 	}
-	return time.Since(event.SchedulerLog.StartedAt)
+	return time.Since(run.StartedAt)
 }
 
-func (d *Dispatcher) logSchedulerCompletion(pluginID string, event pluginruntime.Event, status string, duration time.Duration, extra map[string]any) {
-	if d.logger == nil || event.SchedulerLog == nil {
+func (d *Dispatcher) logSchedulerCompletion(pluginID string, run *scheduler.RunContext, status string, duration time.Duration, extra map[string]any) {
+	if d.logger == nil || run == nil {
 		return
 	}
-	ctx := event.SchedulerLog
+	ctx := run
 	attrs := []any{
 		"component", "scheduler",
 		"plugin_id", pluginID,
@@ -71,23 +71,23 @@ func eventFailureDescription(code string) string {
 	}
 }
 
-func (d *Dispatcher) recoverScheduler(pluginID string, event pluginruntime.Event) {
-	if event.SchedulerLog == nil {
+func (d *Dispatcher) recoverScheduler(pluginID string, run *scheduler.RunContext) {
+	if run == nil {
 		return
 	}
-	job := event.SchedulerLog.TaskName
+	job := run.TaskName
 	if count := d.failures.Recover("scheduler:" + pluginID + ":" + job); count > 0 {
-		d.logger.Info(scheduler.DisplayMessage(event.SchedulerLog.PluginName, job, event.SchedulerLog.LogLabel, "已恢复"), "component", "scheduler", "plugin_id", pluginID, "job_id", job, "repeat_count", count)
+		d.logger.Info(scheduler.DisplayMessage(run.PluginName, job, run.LogLabel, "已恢复"), "component", "scheduler", "plugin_id", pluginID, "job_id", job, "repeat_count", count)
 	}
 }
 
-func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event pluginruntime.Event, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string) {
-	if event.SchedulerLog == nil || event.SchedulerLog.Recorder == nil {
+func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, run *scheduler.RunContext, outcome scheduler.RunOutcome, duration time.Duration, errorCode, errorText string) {
+	if run == nil || run.Recorder == nil {
 		return
 	}
-	jobID := strings.TrimSpace(event.SchedulerLog.JobID)
+	jobID := strings.TrimSpace(run.JobID)
 	if jobID == "" {
-		jobID = strings.TrimSpace(event.SchedulerLog.TaskName)
+		jobID = strings.TrimSpace(run.TaskName)
 	}
 	if jobID == "" {
 		return
@@ -97,10 +97,10 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event plugin
 	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
-	if err := event.SchedulerLog.Recorder.RecordSchedulerRunResult(ctx, pluginruntime.SchedulerRunResult{
+	if err := run.Recorder.RecordRunResult(ctx, scheduler.RunResult{
 		JobID:      jobID,
-		Revision:   event.SchedulerLog.Revision,
-		Outcome:    string(outcome),
+		Revision:   run.Revision,
+		Outcome:    outcome,
 		Duration:   duration,
 		ErrorCode:  errorCode,
 		ErrorText:  errorText,
@@ -115,11 +115,11 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, event plugin
 	}
 }
 
-func schedulerFailureFields(err error, delivery pluginruntime.Delivery) (scheduler.RunOutcome, string, string) {
+func schedulerFailureFields(err error, delivery plugins.Delivery) (scheduler.RunOutcome, string, string) {
 	code := strings.TrimSpace(delivery.ErrorCode)
 	message := strings.TrimSpace(delivery.ErrorMessage)
 	if code == "" {
-		var runtimeErr *pluginruntime.Error
+		var runtimeErr *plugins.Error
 		if errors.As(err, &runtimeErr) && runtimeErr != nil {
 			code = runtimeErr.Code
 			message = runtimeErr.Message

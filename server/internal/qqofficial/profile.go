@@ -31,7 +31,7 @@ func fetchBotProfile(ctx context.Context, client *http.Client, base, appID, toke
 	if err != nil {
 		return botProfile{}
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		return botProfile{}
 	}

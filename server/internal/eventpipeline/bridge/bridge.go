@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/pubsub"
 )
 
@@ -91,7 +91,7 @@ type ObservabilityData struct {
 // exported so app.Options can inject a test double at construction time.
 type Dispatch interface {
 	HasDeliverablePlugins() bool
-	Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult
+	Dispatch(context.Context, chatevent.Event, string) []dispatch.DeliveryResult
 }
 
 type CommandPolicyRejection struct {

@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/runtimepaths"
 )
@@ -28,7 +30,7 @@ func (delivery *runtimeBoundDelivery) Snapshot() pluginruntime.Snapshot {
 	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
 }
 
-func (delivery *runtimeBoundDelivery) DeliverEvent(ctx context.Context, _ pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (delivery *runtimeBoundDelivery) DeliverEvent(ctx context.Context, _ chatevent.Event) (plugins.Delivery, error) {
 	close(delivery.started)
 	<-ctx.Done()
 	// An IPC write cannot finish until the owning runtime stops.
@@ -36,7 +38,7 @@ func (delivery *runtimeBoundDelivery) DeliverEvent(ctx context.Context, _ plugin
 		time.Sleep(time.Millisecond)
 	}
 	delivery.result <- delivery.manager.Snapshot().State
-	return pluginruntime.Delivery{}, ctx.Err()
+	return plugins.Delivery{}, ctx.Err()
 }
 
 func TestAppCloseWaitsForDeliveriesAfterStoppingRuntimes(t *testing.T) {
@@ -48,7 +50,7 @@ func TestAppCloseWaitsForDeliveriesAfterStoppingRuntimes(t *testing.T) {
 	dispatcher := dispatch.New(logger, nil, nil, 4)
 	dispatcher.Register("fixture", delivery, nil, nil, 1)
 	application := &App{runtimes: runtimes, eventStack: EventState{Dispatcher: dispatcher}}
-	dispatcher.DispatchToPlugin(t.Context(), "fixture", pluginruntime.Event{EventID: "fixture"})
+	dispatcher.DispatchToPlugin(t.Context(), "fixture", chatevent.Event{EventID: "fixture"})
 	<-delivery.started
 	done := make(chan error, 1)
 	go func() { done <- application.Close() }()
@@ -170,4 +172,9 @@ func (p *appCloseQRProvider) Close(thirdparty.QRLoginSession) {
 	p.mu.Lock()
 	p.closeCalls++
 	p.mu.Unlock()
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (delivery *runtimeBoundDelivery) ReadyForEvents() bool {
+	return delivery.Snapshot().State == pluginruntime.StateRunning
 }

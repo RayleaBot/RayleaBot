@@ -33,6 +33,22 @@ func TestManagementPackagesDoNotLeakIntoDomainPackages(t *testing.T) {
 	})
 }
 
+func TestEventPipelineDoesNotDependOnPluginProcesses(t *testing.T) {
+	serverRoot := testServerRoot(t)
+	for _, name := range []string{"chatevent", "eventpipeline", "plugins/actions", "scheduler"} {
+		walkGoFiles(t, filepath.Join(serverRoot, "internal", name), func(path string) {
+			if strings.HasSuffix(path, "_test.go") {
+				return
+			}
+			for _, imported := range fileImports(t, serverRoot, path) {
+				if imported == modulePrefix+"plugins/runtime" {
+					t.Errorf("%s imports plugin process implementation", relPath(t, serverRoot, path))
+				}
+			}
+		})
+	}
+}
+
 func TestRenderImplementationPackagesStayBehindServiceBoundary(t *testing.T) {
 	serverRoot := testServerRoot(t)
 	internalRoot := filepath.Join(serverRoot, "internal")

@@ -27,7 +27,7 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *[]captured
 	captured := &[]capturedRequest{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body sendMessageRequest
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		*captured = append(*captured, capturedRequest{path: r.URL.Path, body: body})
 		handler(w, r)
 	}))
@@ -47,10 +47,30 @@ func newTestClient(t *testing.T, handler http.HandlerFunc) (*Client, *[]captured
 
 func okResponse(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/files") {
-		json.NewEncoder(w).Encode(map[string]any{"file_uuid": "u-1", "file_info": "file-info-1", "ttl": 600})
+		_ = json.NewEncoder(w).Encode(map[string]any{"file_uuid": "u-1", "file_info": "file-info-1", "ttl": 600})
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]any{"id": "sent-1"})
+	_ = json.NewEncoder(w).Encode(map[string]any{"id": "sent-1"})
+}
+
+func TestSendRejectsMissingOrMalformedReceipts(t *testing.T) {
+	for _, response := range []string{`{}`, `{"id":"partial"`, `<html>upstream failure</html>`} {
+		t.Run(response, func(t *testing.T) {
+			client, captured := newTestClient(t, func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(response))
+			})
+			result, err := client.SendMessage(t.Context(), chatevent.OutboundMessageSend{
+				TargetType: "private", TargetID: "openid", Segments: []chatevent.MessageSegment{{Type: "text", Data: map[string]any{"text": "fixture"}}},
+			})
+			var failure *SendError
+			if !errors.As(err, &failure) || failure.Code != CodeSendUnconfirmed || result.MessageID != "" {
+				t.Fatalf("malformed receipt accepted: result=%+v err=%v", result, err)
+			}
+			if len(*captured) != 1 {
+				t.Fatal("uncertain delivery was retried")
+			}
+		})
+	}
 }
 
 func TestSendRoutesConversationsToTheirEndpoints(t *testing.T) {
@@ -143,7 +163,7 @@ func TestSendSurfacesPlatformRejection(t *testing.T) {
 
 	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]any{"code": 40034, "message": "push message is limited"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 40034, "message": "push message is limited"})
 	})
 	_, err := client.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1",
@@ -176,7 +196,7 @@ func TestSendErrorsCarryFormalCodes(t *testing.T) {
 	// caller that cannot tell them apart will either retry forever or give up.
 	quota, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]any{"code": 40034, "message": "push message is limited"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 40034, "message": "push message is limited"})
 	})
 	_, err := quota.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1", Segments: text,
@@ -191,7 +211,7 @@ func TestSendErrorsCarryFormalCodes(t *testing.T) {
 
 	window, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{"code": 40004, "message": "msg_id expired"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 40004, "message": "msg_id expired"})
 	})
 	_, err = window.SendReply(context.Background(), chatevent.OutboundMessageReply{
 		TargetType: "group", TargetID: "G1", ReplyToMessageID: "ROBOT1.0_abc", Segments: text,
@@ -203,7 +223,7 @@ func TestSendErrorsCarryFormalCodes(t *testing.T) {
 	// The same status on an active push is not a reply-window problem.
 	active, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]any{"code": 40004, "message": "bad request"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 40004, "message": "bad request"})
 	})
 	_, err = active.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1", Segments: text,

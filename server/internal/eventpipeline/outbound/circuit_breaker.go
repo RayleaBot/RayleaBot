@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
 )
@@ -120,12 +121,12 @@ func circuitKey(request MessageLimitRequest) string {
 	targetType := strings.TrimSpace(request.TargetType)
 	targetID := strings.TrimSpace(request.TargetID)
 	if targetType != "" && targetID != "" {
-		return "target:" + targetType + ":" + targetID
+		return "target:" + request.Scope.Key(targetType, targetID)
 	}
 	if pluginID := strings.TrimSpace(request.PluginID); pluginID != "" {
 		return "plugin:" + pluginID
 	}
-	return "adapter:onebot11"
+	return "adapter:" + request.Scope.Key("", "")
 }
 
 func circuitOpenError() error {
@@ -144,15 +145,18 @@ func messageCircuitCooldown(cfg config.Config) time.Duration {
 }
 
 type MessagePolicy struct {
-	Limiter *MessageRateLimiter
-	Breaker *MessageCircuitBreaker
+	resolveScope func(chatevent.IdentityScope) chatevent.IdentityScope
+	Limiter      *MessageRateLimiter
+	Breaker      *MessageCircuitBreaker
 }
 
-func NewMessagePolicy(cfg config.Config) *MessagePolicy {
-	return &MessagePolicy{
-		Limiter: NewMessageRateLimiter(cfg),
-		Breaker: NewMessageCircuitBreaker(cfg),
+func NewMessagePolicy(cfg config.Config, resolveScope func(chatevent.IdentityScope) chatevent.IdentityScope) *MessagePolicy {
+	policy := &MessagePolicy{
+		resolveScope: resolveScope,
+		Limiter:      NewMessageRateLimiter(cfg),
+		Breaker:      NewMessageCircuitBreaker(cfg),
 	}
+	return policy
 }
 
 func (p *MessagePolicy) ApplyConfig(cfg config.Config) {
@@ -165,8 +169,30 @@ func (p *MessagePolicy) ApplyConfig(cfg config.Config) {
 }
 
 func (p *MessagePolicy) Wait(ctx context.Context, request MessageLimitRequest) error {
-	if p.Limiter == nil {
-		return nil
+	return p.Limiter.Wait(ctx, p.resolve(request))
+}
+
+func (p *MessagePolicy) resolve(request MessageLimitRequest) MessageLimitRequest {
+	if p.resolveScope != nil {
+		request.Scope = p.resolveScope(request.Scope)
 	}
-	return p.Limiter.Wait(ctx, request)
+	return request
+}
+
+// Begin binds quota admission and the eventual circuit result to one identity
+// snapshot, even if the adapter reconnects while the send is in flight.
+func (p *MessagePolicy) Begin(ctx context.Context, request MessageLimitRequest) (MessageAdmission, error) {
+	request = p.resolve(request)
+	if err := p.Limiter.Wait(ctx, request); err != nil {
+		return MessageAdmission{}, err
+	}
+	if err := p.Breaker.Allow(request); err != nil {
+		return MessageAdmission{}, err
+	}
+	return MessageAdmission{Scope: request.Scope, Record: func(err error) { p.Breaker.Record(request, err) }}, nil
+}
+
+type MessageAdmission struct {
+	Scope  chatevent.IdentityScope
+	Record func(error)
 }

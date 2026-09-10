@@ -57,7 +57,7 @@ func TestAdaptersListsEveryConfiguredInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform adapters request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusOK {
 		t.Fatalf("adapters status = %d, want %d", response.StatusCode, http.StatusOK)
 	}
@@ -139,7 +139,7 @@ func TestAdapterIngressIsAddressedAndAuthenticatedPerInstance(t *testing.T) {
 			if err != nil {
 				t.Fatalf("perform ingress request: %v", err)
 			}
-			defer response.Body.Close()
+			defer func(release func() error) { _ = release() }(response.Body.Close)
 			if response.StatusCode != testCase.wantStatus {
 				t.Fatalf("ingress status = %d, want %d", response.StatusCode, testCase.wantStatus)
 			}
@@ -185,7 +185,7 @@ func TestAdapterWebhookIngressAuthenticatesAgainstItsOwnInstance(t *testing.T) {
 			if err != nil {
 				t.Fatalf("perform webhook request: %v", err)
 			}
-			defer response.Body.Close()
+			defer func(release func() error) { _ = release() }(response.Body.Close)
 			if response.StatusCode != testCase.wantStatus {
 				t.Fatalf("webhook status = %d, want %d", response.StatusCode, testCase.wantStatus)
 			}

@@ -22,6 +22,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	t.Parallel()
 
 	repoRoot := t.TempDir()
+	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
 	configPath := writePersistentYAMLConfig(t, filepath.Join(t.TempDir(), "state.db"))
 	pluginSchemaPath := filepath.Join("..", "contracts", "plugin-info.schema.json")
 	examplesRoot := filepath.Join(repoRoot, "examples", "plugins")
@@ -89,7 +90,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform install inspection request: %v", err)
 	}
-	defer inspectionResponse.Body.Close()
+	defer func(release func() error) { _ = release() }(inspectionResponse.Body.Close)
 	if inspectionResponse.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected install inspection status: got %d want 200", inspectionResponse.StatusCode)
 	}
@@ -122,7 +123,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform install request: %v", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 	if response.StatusCode != http.StatusAccepted {
 		t.Fatalf("unexpected install status: got %d want 202", response.StatusCode)
 	}
@@ -151,7 +152,7 @@ func TestPluginInstallRouteExecutesTaskAndRefreshesCatalog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("perform plugin detail request: %v", err)
 	}
-	defer pluginResponse.Body.Close()
+	defer func(release func() error) { _ = release() }(pluginResponse.Body.Close)
 	if pluginResponse.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected plugin detail status: got %d want 200", pluginResponse.StatusCode)
 	}

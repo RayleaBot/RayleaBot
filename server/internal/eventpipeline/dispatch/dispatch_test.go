@@ -14,26 +14,26 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type fakeDeliverer struct {
-	mu       sync.Mutex
-	events   []pluginruntime.Event
-	delivery pluginruntime.Delivery
-	err      error
-	started  chan pluginruntime.Event
-	blockCh  chan struct{} // if non-nil, block until closed
-	state    pluginruntime.State
+	mu          sync.Mutex
+	events      []chatevent.Event
+	delivery    plugins.Delivery
+	err         error
+	started     chan chatevent.Event
+	blockCh     chan struct{} // if non-nil, block until closed
+	unavailable bool
 }
 
 type recordingSchedulerRunRecorder struct {
 	mu      sync.Mutex
-	entries []pluginruntime.SchedulerRunResult
+	entries []scheduler.RunResult
 }
 
-func (r *recordingSchedulerRunRecorder) RecordSchedulerRunResult(_ context.Context, result pluginruntime.SchedulerRunResult) error {
+func (r *recordingSchedulerRunRecorder) RecordRunResult(_ context.Context, result scheduler.RunResult) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.entries = append(r.entries, result)
@@ -46,32 +46,24 @@ func (r *recordingSchedulerRunRecorder) count() int {
 	return len(r.entries)
 }
 
-func (r *recordingSchedulerRunRecorder) results() []pluginruntime.SchedulerRunResult {
+func (r *recordingSchedulerRunRecorder) results() []scheduler.RunResult {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return append([]pluginruntime.SchedulerRunResult(nil), r.entries...)
+	return append([]scheduler.RunResult(nil), r.entries...)
 }
 
 func TestSchedulerFailureFieldsHandlesTypedNilRuntimeError(t *testing.T) {
 	t.Parallel()
 
-	var runtimeErr *pluginruntime.Error
+	var runtimeErr *plugins.Error
 	var err error = runtimeErr
-	outcome, code, message := schedulerFailureFields(err, pluginruntime.Delivery{})
+	outcome, code, message := schedulerFailureFields(err, plugins.Delivery{})
 	if outcome != scheduler.RunOutcomeFailed || code != "" || message != "" {
 		t.Fatalf("typed nil runtime error fields = (%q, %q, %q)", outcome, code, message)
 	}
 }
 
-func (f *fakeDeliverer) Snapshot() pluginruntime.Snapshot {
-	state := f.state
-	if state == "" {
-		state = pluginruntime.StateRunning
-	}
-	return pluginruntime.Snapshot{State: state}
-}
-
-func (f *fakeDeliverer) DeliverEvent(_ context.Context, event pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (f *fakeDeliverer) DeliverEvent(_ context.Context, event chatevent.Event) (plugins.Delivery, error) {
 	f.mu.Lock()
 	f.events = append(f.events, event)
 	f.mu.Unlock()
@@ -91,10 +83,10 @@ func (f *fakeDeliverer) eventCount() int {
 	return len(f.events)
 }
 
-func (f *fakeDeliverer) setState(state pluginruntime.State) {
+func (f *fakeDeliverer) setUnavailable() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.state = state
+	f.unavailable = true
 }
 
 type fakeSender struct {
@@ -150,7 +142,7 @@ type recordingOutboundLimiter struct {
 	err      error
 }
 
-func (l *recordingOutboundLimiter) Wait(_ context.Context, request outbound.MessageLimitRequest) error {
+func (l *recordingOutboundLimiter) Begin(_ context.Context, request outbound.MessageLimitRequest) (outbound.MessageAdmission, error) {
 	l.mu.Lock()
 	l.requests = append(l.requests, request)
 	err := l.err
@@ -160,7 +152,7 @@ func (l *recordingOutboundLimiter) Wait(_ context.Context, request outbound.Mess
 	case l.called <- request:
 	default:
 	}
-	return err
+	return outbound.MessageAdmission{Scope: request.Scope}, err
 }
 
 func (l *recordingOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
@@ -172,20 +164,20 @@ func (l *recordingOutboundLimiter) lastRequest() outbound.MessageLimitRequest {
 	return l.requests[len(l.requests)-1]
 }
 
-func testEvent() pluginruntime.Event {
-	return pluginruntime.Event{
+func testEvent() chatevent.Event {
+	return chatevent.Event{
 		EventID:        "test-evt-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message.group",
 		Timestamp:      time.Now().Unix(),
-		Actor:          &pluginruntime.EventActor{ID: "100", Nickname: "测试用户A"},
-		Target:         &pluginruntime.EventTarget{Type: "group", ID: "200", Name: "测试群"},
-		Message:        &pluginruntime.EventMessage{PlainText: "hello"},
+		Actor:          &chatevent.Actor{ID: "100", Nickname: "测试用户A"},
+		Target:         &chatevent.Target{Type: "group", ID: "200", Name: "测试群"},
+		Message:        &chatevent.Message{PlainText: "hello"},
 	}
 }
 
-func testEventWithCommand(commandName string) pluginruntime.Event {
+func testEventWithCommand(commandName string) chatevent.Event {
 	event := testEvent()
 	event.PayloadFields = map[string]any{
 		"command": commandName,
@@ -193,14 +185,14 @@ func testEventWithCommand(commandName string) pluginruntime.Event {
 	return event
 }
 
-func testEventWithTarget(targetID string) pluginruntime.Event {
+func testEventWithTarget(targetID string) chatevent.Event {
 	event := testEvent()
 	event.EventID = "test-evt-" + targetID
-	event.Target = &pluginruntime.EventTarget{Type: "group", ID: targetID}
+	event.Target = &chatevent.Target{Type: "group", ID: targetID}
 	return event
 }
 
-func waitForStartedEvent(t *testing.T, started <-chan pluginruntime.Event) pluginruntime.Event {
+func waitForStartedEvent(t *testing.T, started <-chan chatevent.Event) chatevent.Event {
 	t.Helper()
 
 	select {
@@ -208,7 +200,7 @@ func waitForStartedEvent(t *testing.T, started <-chan pluginruntime.Event) plugi
 		return event
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected event delivery to start")
-		return pluginruntime.Event{}
+		return chatevent.Event{}
 	}
 }
 
@@ -304,12 +296,12 @@ func TestDispatchFanOutToMultiplePlugins(t *testing.T) {
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
 	}
 	rt2 := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
 	}
 
 	d.Register("plugin-a", rt1, []string{"message.group"}, nil, 1)
@@ -351,23 +343,22 @@ func TestDispatchRecordsSchedulerSuccessWithoutCompletionLog(t *testing.T) {
 	defer d.Close()
 	recorder := &recordingSchedulerRunRecorder{}
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"handled": true}}}
+	rt := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"handled": true}}}
 	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
 
-	result := d.DispatchToPlugin(context.Background(), "weather", pluginruntime.Event{
+	result := d.DispatchScheduledEvent(context.Background(), "weather", chatevent.Event{
 		EventID:        "scheduler-daily_report-1",
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
-		SchedulerLog: &pluginruntime.SchedulerLogContext{
-			JobID:      "daily_report",
-			PluginName: "天气插件",
-			TaskName:   "daily_report",
-			LogLabel:   "每日早报",
-			StartedAt:  time.Now().Add(-150 * time.Millisecond),
-			Recorder:   recorder,
-		},
+	}, scheduler.RunContext{
+		JobID:      "daily_report",
+		PluginName: "天气插件",
+		TaskName:   "daily_report",
+		LogLabel:   "每日早报",
+		StartedAt:  time.Now().Add(-150 * time.Millisecond),
+		Recorder:   recorder,
 	})
 	if result.Outcome != OutcomeDelivered {
 		t.Fatalf("DispatchToPlugin outcome = %s, want delivered", result.Outcome)
@@ -395,23 +386,22 @@ func TestDispatchLogsAndRecordsSchedulerFailure(t *testing.T) {
 	defer d.Close()
 	recorder := &recordingSchedulerRunRecorder{}
 
-	rt := &fakeDeliverer{err: &pluginruntime.Error{Code: "plugin.event_timeout", Message: "plugin event response timed out"}}
+	rt := &fakeDeliverer{err: &plugins.Error{Code: "plugin.event_timeout", Message: "plugin event response timed out"}}
 	d.Register("weather", rt, []string{"scheduler.trigger"}, nil, 1)
 
-	result := d.DispatchToPlugin(context.Background(), "weather", pluginruntime.Event{
+	result := d.DispatchScheduledEvent(context.Background(), "weather", chatevent.Event{
 		EventID:        "scheduler-daily_report-2",
 		SourceProtocol: "scheduler",
 		SourceAdapter:  "scheduler.internal",
 		EventType:      "scheduler.trigger",
 		Timestamp:      time.Now().Unix(),
-		SchedulerLog: &pluginruntime.SchedulerLogContext{
-			JobID:      "daily_report",
-			PluginName: "天气插件",
-			TaskName:   "daily_report",
-			LogLabel:   "每日早报",
-			StartedAt:  time.Now().Add(-150 * time.Millisecond),
-			Recorder:   recorder,
-		},
+	}, scheduler.RunContext{
+		JobID:      "daily_report",
+		PluginName: "天气插件",
+		TaskName:   "daily_report",
+		LogLabel:   "每日早报",
+		StartedAt:  time.Now().Add(-150 * time.Millisecond),
+		Recorder:   recorder,
 	})
 	if result.Outcome != OutcomeDelivered {
 		t.Fatalf("DispatchToPlugin outcome = %s, want delivered", result.Outcome)
@@ -441,15 +431,15 @@ func TestDispatchDirectedDeliveryByCommand(t *testing.T) {
 	defer d.Close()
 
 	rt1 := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
 	}
-	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
 
-	d.Register("weather", rt1, []string{"message.group"}, []CommandDecl{
+	d.Register("weather", rt1, []string{"message.group"}, []plugins.Command{
 		{Name: "weather", Aliases: []string{"天气"}},
 	}, 1)
-	d.Register("echo", rt2, []string{"message.group"}, []CommandDecl{
+	d.Register("echo", rt2, []string{"message.group"}, []plugins.Command{
 		{Name: "echo"},
 	}, 1)
 
@@ -475,8 +465,8 @@ func TestDispatchDirectedDeliveryByAlias(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	d.Register("weather", rt1, []string{"message.group"}, []CommandDecl{
+	rt1 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
+	d.Register("weather", rt1, []string{"message.group"}, []plugins.Command{
 		{Name: "weather", Aliases: []string{"天气"}},
 	}, 1)
 
@@ -492,10 +482,10 @@ func TestDispatchDirectedDeliveryByCommandPattern(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
 	}
-	d.Register("guide", rt, []string{"plugin.started"}, []CommandDecl{
+	d.Register("guide", rt, []string{"plugin.started"}, []plugins.Command{
 		{Name: "角色攻略", MatchPattern: "^(.+?)攻略$"},
 	}, 1)
 
@@ -515,8 +505,8 @@ func TestDispatchCommandPatternDisplayNameIsNotExactTrigger(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	d.Register("guide", rt, []string{"plugin.started"}, []CommandDecl{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
+	d.Register("guide", rt, []string{"plugin.started"}, []plugins.Command{
 		{Name: "角色攻略查询", MatchPattern: "^(.+?)攻略$"},
 	}, 1)
 
@@ -531,8 +521,8 @@ func TestDispatchFallbackWhenNoCommandMatch(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("plugin-a", rt1, []string{"message.group"}, nil, 1)
 	d.Register("plugin-b", rt2, []string{"message.group"}, nil, 1)
@@ -548,8 +538,8 @@ func TestDispatchSubscriptionFiltering(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt1 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
-	rt2 := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt1 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
+	rt2 := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
 
 	d.Register("msg-only", rt1, []string{"message.group", "message.private"}, nil, 1)
 	d.Register("notice-only", rt2, []string{"notice.member_increase"}, nil, 1)
@@ -569,12 +559,12 @@ func TestDispatchSkipsNonRunningRuntimes(t *testing.T) {
 	defer d.Close()
 
 	rtRunning := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
 	}
 	rtBackoff := &fakeDeliverer{
-		state:    pluginruntime.StateBackoff,
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		unavailable: true,
+		delivery:    plugins.Delivery{Result: map[string]any{"ok": true}},
 	}
 
 	d.Register("running", rtRunning, []string{"message.group"}, nil, 1)
@@ -613,8 +603,8 @@ func TestDispatchQueueOverflow(t *testing.T) {
 
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		started:  make(chan pluginruntime.Event, 1),
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("blocker", blocker, []string{"message.group"}, nil, 1)
 
@@ -646,8 +636,8 @@ func TestDispatchQueueLimitIncludesSameLanePendingBuffer(t *testing.T) {
 	defer d.Close()
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		started:  make(chan pluginruntime.Event, 3),
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 3),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("ordered", blocker, []string{"message.group"}, nil, 2)
 
@@ -678,8 +668,8 @@ func TestDispatchControlQueueIsIndependentAndBounded(t *testing.T) {
 	defer d.Close()
 	blocker := &fakeDeliverer{
 		blockCh:  make(chan struct{}),
-		started:  make(chan pluginruntime.Event, 3),
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 3),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("control", blocker, []string{"message.group"}, nil, 1)
 
@@ -711,8 +701,8 @@ func TestDispatchDifferentTargetsRunConcurrently(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 2),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 2),
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("parallel", rt, []string{"message.group"}, nil, 2)
@@ -738,8 +728,8 @@ func TestDispatchSameTargetPreservesFIFO(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 2),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 2),
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("ordered", rt, []string{"message.group"}, nil, 2)
@@ -774,7 +764,7 @@ func TestDispatchDeregister(t *testing.T) {
 	d := New(slog.Default(), sender, nil, 16)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}}}
+	rt := &fakeDeliverer{delivery: plugins.Delivery{Result: map[string]any{"ok": true}}}
 	d.Register("test", rt, []string{"message.group"}, nil, 1)
 	d.Deregister("test")
 
@@ -790,8 +780,8 @@ func TestDispatchDeregisterWaitsForActiveLane(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
-		started:  make(chan pluginruntime.Event, 1),
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
+		started:  make(chan chatevent.Event, 1),
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("test", rt, []string{"message.group"}, nil, 2)
@@ -826,8 +816,8 @@ func TestDispatchToPluginRejectsNonRunningRuntime(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		state:    pluginruntime.StateBackoff,
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		unavailable: true,
+		delivery:    plugins.Delivery{Result: map[string]any{"ok": true}},
 	}
 	d.Register("test", rt, []string{"message.group"}, nil, 1)
 
@@ -850,7 +840,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 	defer d.Close()
 
 	rt := &fakeDeliverer{
-		delivery: pluginruntime.Delivery{Result: map[string]any{"ok": true}},
+		delivery: plugins.Delivery{Result: map[string]any{"ok": true}},
 		blockCh:  make(chan struct{}),
 	}
 	d.Register("test", rt, []string{"message.group"}, nil, 1)
@@ -865,7 +855,7 @@ func TestDispatchSkipsQueuedEventWhenRuntimeStopsBeforeDelivery(t *testing.T) {
 	if len(results) != 1 || results[0].Outcome != OutcomeDelivered {
 		t.Fatalf("unexpected queued dispatch result: %#v", results)
 	}
-	rt.setState(pluginruntime.StateStarting)
+	rt.setUnavailable()
 	close(rt.blockCh)
 
 	drained := make(chan struct{})
@@ -889,12 +879,12 @@ func TestDispatchActionExecution(t *testing.T) {
 	allowAllPermissions(d)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
-		Action: &pluginruntime.Action{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply text"},
 			}},
@@ -925,12 +915,12 @@ func TestDispatchActionExecutionWithRichSegments(t *testing.T) {
 	allowAllPermissions(d)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
-		Action: &pluginruntime.Action{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{
+			MessageSegments: []chatevent.MessageSegment{
 				{Type: "at", Data: map[string]any{"user_id": "300"}},
 				{Type: "text", Data: map[string]any{"text": " rich dispatch"}},
 			},
@@ -964,14 +954,14 @@ func TestDispatchActionExecutionUsesReplyTargetForOutboundLimiter(t *testing.T) 
 		},
 	}, 16)
 	allowAllPermissions(d)
-	d.SetOutboundLimiter(limiter)
+	d.SetOutboundPolicy(limiter)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
-		Action: &pluginruntime.Action{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
+		Action: &chatevent.MessageCommand{
 			Kind:           "message.reply",
 			ReplyToEventID: "evt_reply_target",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "reply text"},
 			}},
@@ -998,16 +988,16 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 	}
 	d := New(logger, sender, nil, 16)
 	allowAllPermissions(d)
-	d.SetOutboundLimiter(limiter)
+	d.SetOutboundPolicy(limiter)
 	defer d.Close()
 
-	rt := &fakeDeliverer{delivery: pluginruntime.Delivery{
+	rt := &fakeDeliverer{delivery: plugins.Delivery{
 		RequestID: "req_runtime_delivery_rate_limited",
-		Action: &pluginruntime.Action{
+		Action: &chatevent.MessageCommand{
 			Kind:       "message.send",
 			TargetType: "group",
 			TargetID:   "200",
-			MessageSegments: []pluginruntime.ActionSegment{{
+			MessageSegments: []chatevent.MessageSegment{{
 				Type: "text",
 				Data: map[string]any{"text": "limited"},
 			}},
@@ -1029,4 +1019,11 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 	if len(sender.messages) != 0 || len(sender.replies) != 0 {
 		t.Fatalf("rate limited action should not send: messages=%#v replies=%#v", sender.messages, sender.replies)
 	}
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (f *fakeDeliverer) ReadyForEvents() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return !f.unavailable
 }

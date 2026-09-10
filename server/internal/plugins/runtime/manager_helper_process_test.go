@@ -40,7 +40,7 @@ func recordFrame(path string, line []byte) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(6)
 	}
-	defer file.Close()
+	defer func(release func() error) { _ = release() }(file.Close)
 
 	if _, err := file.Write(append(line, '\n')); err != nil {
 		fmt.Fprintln(os.Stderr, err)

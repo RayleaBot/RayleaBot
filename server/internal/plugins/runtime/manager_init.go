@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const pluginExitedBeforeInitMessage = "插件进程在初始化完成前退出，请查看该插件的 stderr 日志"
 
-func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) *Error {
+func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID string) *plugins.Error {
 	deadlineTimer := time.NewTimer(handle.Spec.InitTimeout)
 	defer deadlineTimer.Stop()
 
@@ -63,7 +65,7 @@ func (m *Manager) awaitInitAck(ctx context.Context, handle *Handle, requestID st
 	}
 }
 
-func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *Error) {
+func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID string) (InitResponseStatus, []string, *plugins.Error) {
 	if err := validatePluginFrame(line); err != nil {
 		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an invalid init response", err)
 	}

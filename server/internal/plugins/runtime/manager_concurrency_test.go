@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/testenv"
 )
 
@@ -23,7 +24,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 	startedSlow := make(chan string, 1)
 	releaseSlow := make(chan struct{})
 	manager := testManagerWithRequestIDs(Options{
-		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action Action, _ Event) (map[string]any, error) {
+		ExecuteLocalAction: func(_ context.Context, pluginID string, requestID string, action plugins.Action, _ chatevent.Event) (map[string]any, error) {
 			if pluginID != "helper-plugin" {
 				t.Fatalf("pluginID = %q, want helper-plugin", pluginID)
 			}
@@ -42,7 +43,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 	}
 
 	type deliveryResult struct {
-		delivery Delivery
+		delivery plugins.Delivery
 		err      error
 	}
 
@@ -306,11 +307,17 @@ func TestParseGovernanceBlacklistWriteAction(t *testing.T) {
 	t.Parallel()
 
 	action, err := ParseLocalAction("governance.blacklist.write", json.RawMessage(`{
-		"operation": "upsert",
-		"entry_type": "user",
-		"target_id": "10001",
-		"reason": "manual_review"
-	}`))
+  "operation": "upsert",
+  "entry_type": "user",
+  "target_id": "10001",
+  "reason": "manual_review",
+  "scope": {
+    "kind":"global",
+    "source_protocol": "onebot11",
+    "source_adapter": "",
+    "bot_id": ""
+  }
+}`))
 	if err != nil {
 		t.Fatalf("parseGovernanceBlacklistWriteAction: %v", err)
 	}
@@ -662,30 +669,30 @@ func testInitPayload() InitPayload {
 	}
 }
 
-func testRuntimeEvent() Event {
-	return Event{
+func testRuntimeEvent() chatevent.Event {
+	return chatevent.Event{
 		EventID:        "evt-1",
 		SourceProtocol: "onebot11",
 		SourceAdapter:  "adapter.onebot11",
 		EventType:      "message.group",
 		Timestamp:      time.Unix(1_700_000_200, 0).Unix(),
-		Actor: &EventActor{
+		Actor: &chatevent.Actor{
 			ID: "3001",
 		},
-		Target: &EventTarget{
+		Target: &chatevent.Target{
 			Type: "group",
 			ID:   "2001",
 		},
-		Message: &EventMessage{
+		Message: &chatevent.Message{
 			PlainText: "hello from adapter bridge",
 		},
 	}
 }
 
-func testRuntimeEventWithTarget(targetID string) Event {
+func testRuntimeEventWithTarget(targetID string) chatevent.Event {
 	event := testRuntimeEvent()
 	event.EventID = "evt-" + targetID
-	event.Target = &EventTarget{
+	event.Target = &chatevent.Target{
 		Type: "group",
 		ID:   targetID,
 	}
@@ -898,7 +905,7 @@ func assertRuntimeErrorCode(t *testing.T, err error, want string) {
 		t.Fatalf("expected runtime error %q, got nil", want)
 	}
 
-	var runtimeErr *Error
+	var runtimeErr *plugins.Error
 	if !errors.As(err, &runtimeErr) {
 		t.Fatalf("expected *runtime.Error, got %T", err)
 	}

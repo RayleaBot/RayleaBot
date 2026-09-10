@@ -2,17 +2,17 @@ package dispatch
 
 import (
 	"context"
-	"regexp"
 	"strings"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 // Dispatch fans out an event to all matching registered plugins.
 // If commandName is non-empty, plugins declaring that command are
 // preferred (directed delivery). Otherwise all message-subscribed
 // plugins receive the event.
-func (d *Dispatcher) Dispatch(ctx context.Context, event pluginruntime.Event, commandName string) []DeliveryResult {
+func (d *Dispatcher) Dispatch(ctx context.Context, event chatevent.Event, commandName string) []DeliveryResult {
 
 	d.mu.RLock()
 	targets := d.selectTargets(event, commandName)
@@ -23,13 +23,21 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event pluginruntime.Event, co
 		return nil
 	}
 
-	return d.enqueueTargets(ctx, event, targets)
+	return d.enqueueTargets(ctx, event, targets, nil)
 }
 
 // DispatchToPlugin delivers an event to one specific registered plugin.
-func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event pluginruntime.Event) DeliveryResult {
+func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event chatevent.Event) DeliveryResult {
+	return d.dispatchOne(ctx, pluginID, event, nil)
+}
 
-	results := d.enqueueTargets(ctx, event, []string{pluginID})
+// DispatchScheduledEvent keeps run bookkeeping outside the event sent to a plugin.
+func (d *Dispatcher) DispatchScheduledEvent(ctx context.Context, pluginID string, event chatevent.Event, run scheduler.RunContext) DeliveryResult {
+	return d.dispatchOne(ctx, pluginID, event, &run)
+}
+
+func (d *Dispatcher) dispatchOne(ctx context.Context, pluginID string, event chatevent.Event, run *scheduler.RunContext) DeliveryResult {
+	results := d.enqueueTargets(ctx, event, []string{pluginID}, run)
 	if len(results) == 0 {
 		return DeliveryResult{
 			PluginID:  pluginID,
@@ -39,7 +47,7 @@ func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, even
 	}
 	return results[0]
 }
-func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Event, targets []string) []DeliveryResult {
+func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, targets []string, run *scheduler.RunContext) []DeliveryResult {
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
 		if ctx.Err() != nil {
@@ -50,8 +58,8 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 		d.mu.RLock()
 		slot, ok := d.slots[pluginID]
 		deliverable := ok && slotIsDeliverable(slot)
-		d.mu.RUnlock()
 		if !ok || !deliverable {
+			d.mu.RUnlock()
 			results = append(results, DeliveryResult{
 				PluginID:  pluginID,
 				Outcome:   OutcomeError,
@@ -66,8 +74,10 @@ func (d *Dispatcher) enqueueTargets(ctx context.Context, event pluginruntime.Eve
 		if event.EventType == "management.action" {
 			eventCtx = ctx
 		}
-		item := dispatchItem{ctx: eventCtx, event: event, control: control}
-		if slot.tryEnqueue(item) {
+		item := dispatchItem{ctx: eventCtx, event: event, control: control, run: run}
+		accepted := slot.tryEnqueue(item)
+		d.mu.RUnlock()
+		if accepted {
 			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
 			d.recordOutcome(OutcomeDelivered, pluginID, "")
 		} else {
@@ -100,7 +110,7 @@ func isControlEvent(eventType string) bool {
 
 // selectTargets picks which plugins should receive the event.
 // Must be called with d.mu held for reading.
-func (d *Dispatcher) selectTargets(event pluginruntime.Event, commandName string) []string {
+func (d *Dispatcher) selectTargets(event chatevent.Event, commandName string) []string {
 	// If there's a command, try directed delivery first.
 	if commandName != "" {
 		var directed []string
@@ -129,43 +139,20 @@ func (d *Dispatcher) selectTargets(event pluginruntime.Event, commandName string
 	}
 	return targets
 }
-func slotDeclaresCommand(slot *pluginSlot, commandName string) bool {
-	commandName = strings.TrimSpace(commandName)
-	if commandName == "" {
-		return false
-	}
+func slotDeclaresCommand(slot *pluginSlot, name string) bool {
 	for _, cmd := range slot.commands {
-		if commandPatternMatches(cmd.MatchPattern, commandName) {
+		if cmd.Matches(name) {
 			return true
-		}
-		if strings.TrimSpace(cmd.MatchPattern) == "" {
-			if strings.TrimSpace(cmd.Name) == commandName {
-				return true
-			}
-			for _, alias := range cmd.Aliases {
-				if strings.TrimSpace(alias) == commandName {
-					return true
-				}
-			}
 		}
 	}
 	return false
-}
-
-func commandPatternMatches(pattern string, commandName string) bool {
-	pattern = strings.TrimSpace(pattern)
-	if pattern == "" {
-		return false
-	}
-	matched, err := regexp.MatchString(pattern, commandName)
-	return err == nil && matched
 }
 
 func slotIsDeliverable(slot *pluginSlot) bool {
 	if slot == nil || slot.runtime == nil {
 		return false
 	}
-	return slot.runtime.Snapshot().State == pluginruntime.StateRunning
+	return slot.runtime.ReadyForEvents()
 }
 func slotAcceptsEvent(slot *pluginSlot, eventType string) bool {
 	// An empty manifest subscription list receives no ordinary fan-out.

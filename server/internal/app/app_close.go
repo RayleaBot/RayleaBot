@@ -40,10 +40,8 @@ func (a *App) Close() error {
 		a.platform.TaskExecutor = nil
 	}
 	if a != nil && a.pluginStack.PluginUninstaller != nil {
-		if closer, ok := a.pluginStack.PluginUninstaller.(interface{ Close() error }); ok {
-			if err := closer.Close(); err != nil {
-				errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
-			}
+		if err := a.pluginStack.PluginUninstaller.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
 		}
 		a.pluginStack.PluginUninstaller = nil
 	}

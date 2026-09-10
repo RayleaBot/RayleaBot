@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 const (
@@ -21,70 +24,7 @@ var (
 	errInvalidRenderImageResourceURL = errors.New("invalid render.image resource URL")
 )
 
-type ActionSegment struct {
-	Type string
-	Data map[string]any
-}
-
-type Action struct {
-	Kind                         string
-	RawData                      map[string]any
-	SourceProtocol               string
-	SourceAdapter                string
-	TargetType                   string
-	TargetID                     string
-	ReplyToEventID               string
-	FallbackToSendIfMissing      bool
-	MessageSegments              []ActionSegment
-	LogLevel                     string
-	LogMessage                   string
-	LogFields                    map[string]any
-	PluginListVisibility         string
-	SecretKey                    string
-	ThirdPartyAccountPlatform    string
-	ThirdPartyAccountID          string
-	ThirdPartyAccountObservation string
-	ThirdPartyAccountHTTPStatus  int
-	ThirdPartyResolveQuery       string
-	ThirdPartyResolveCookie      string
-	ConfigValues                 map[string]any
-	GovernanceOperation          string
-	GovernanceEntryType          string
-	GovernanceTargetID           string
-	GovernanceReason             string
-	GovernanceEnabled            *bool
-	StorageOperation             string
-	StoragePath                  string
-	StorageKey                   string
-	StoragePrefix                string
-	StorageValue                 any
-	StorageContent               []byte
-	HTTPMethod                   string
-	HTTPURL                      string
-	HTTPHeaders                  map[string]string
-	HTTPTimeoutSeconds           int
-	HTTPBody                     []byte
-	SchedulerTaskID              string
-	SchedulerLogLabel            string
-	SchedulerCron                string
-	SchedulerEventType           string
-	SchedulerPayload             map[string]any
-	RenderTemplate               string
-	RenderTheme                  string
-	RenderOutput                 string
-	RenderFallbackText           string
-	RenderData                   map[string]any
-	RenderResources              []RenderImageResource
-}
-
-type RenderImageResource struct {
-	ID           string
-	URL          string
-	FallbackURLs []string
-	Referer      string
-}
-
-func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
+func parseLoggerWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionLoggerWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed logger.write data", err)
@@ -102,7 +42,7 @@ func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required logger.write fields", nil)
 	}
 
-	return &Action{
+	return &plugins.Action{
 		Kind:       "logger.write",
 		LogLevel:   level,
 		LogMessage: message,
@@ -110,7 +50,7 @@ func parseLoggerWriteAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
-func parsePluginListAction(raw json.RawMessage) (*Action, error) {
+func parsePluginListAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionPluginListFrame
 	payload := map[string]json.RawMessage{}
 	if len(raw) > 0 && string(raw) != "null" {
@@ -135,10 +75,10 @@ func parsePluginListAction(raw json.RawMessage) (*Action, error) {
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid plugin.list visibility", nil)
 	}
-	return &Action{Kind: "plugin.list", PluginListVisibility: visibility}, nil
+	return &plugins.Action{Kind: "plugin.list", PluginListVisibility: visibility}, nil
 }
 
-func parseSecretReadAction(raw json.RawMessage) (*Action, error) {
+func parseSecretReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionSecretReadFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed secret.read data", err)
@@ -148,10 +88,10 @@ func parseSecretReadAction(raw json.RawMessage) (*Action, error) {
 	if key == "" {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required secret.read fields", nil)
 	}
-	return &Action{Kind: "secret.read", SecretKey: key}, nil
+	return &plugins.Action{Kind: "secret.read", SecretKey: key}, nil
 }
 
-func parseThirdPartyAccountReadAction(raw json.RawMessage) (*Action, error) {
+func parseThirdPartyAccountReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionThirdPartyAccountReadFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.read data", err)
@@ -161,14 +101,14 @@ func parseThirdPartyAccountReadAction(raw json.RawMessage) (*Action, error) {
 	if platform == "" {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.account.read fields", nil)
 	}
-	return &Action{
+	return &plugins.Action{
 		Kind:                      "thirdparty.account.read",
 		ThirdPartyAccountPlatform: platform,
 		ThirdPartyAccountID:       strings.TrimSpace(frame.AccountID),
 	}, nil
 }
 
-func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*Action, error) {
+func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionThirdPartyAccountValidateFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.validate data", err)
@@ -197,7 +137,7 @@ func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*Action, error) 
 	if _, provided := payload["http_status"]; provided && (frame.HTTPStatus < 100 || frame.HTTPStatus > 599) {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate http_status", nil)
 	}
-	return &Action{
+	return &plugins.Action{
 		Kind:                         "thirdparty.account.validate",
 		ThirdPartyAccountPlatform:    platform,
 		ThirdPartyAccountID:          accountID,
@@ -206,7 +146,7 @@ func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*Action, error) 
 	}, nil
 }
 
-func parseThirdPartyResolveAction(raw json.RawMessage) (*Action, error) {
+func parseThirdPartyResolveAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionThirdPartyResolveFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.resolve data", err)
@@ -226,7 +166,7 @@ func parseThirdPartyResolveAction(raw json.RawMessage) (*Action, error) {
 	if len(cookie) > 8192 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.resolve cookie", nil)
 	}
-	return &Action{
+	return &plugins.Action{
 		Kind:                      "thirdparty.resolve",
 		ThirdPartyAccountPlatform: platform,
 		ThirdPartyResolveQuery:    query,
@@ -234,7 +174,7 @@ func parseThirdPartyResolveAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
-func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
+func parseConfigWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionConfigWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.write data", err)
@@ -258,13 +198,13 @@ func parseConfigWriteAction(raw json.RawMessage) (*Action, error) {
 	if len(values) == 0 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required config.write fields", nil)
 	}
-	return &Action{
+	return &plugins.Action{
 		Kind:         "config.write",
 		ConfigValues: values,
 	}, nil
 }
 
-func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
+func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionStorageKVFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.kv data", err)
@@ -279,7 +219,7 @@ func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
 		if key == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
 		}
-		return &Action{Kind: "storage.kv", StorageOperation: "get", StorageKey: key}, nil
+		return &plugins.Action{Kind: "storage.kv", StorageOperation: "get", StorageKey: key}, nil
 	case "set":
 		if frame.Key == nil || frame.Value == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
@@ -292,7 +232,7 @@ func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
 		if err := json.Unmarshal(*frame.Value, &value); err != nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid storage.kv value", err)
 		}
-		return &Action{Kind: "storage.kv", StorageOperation: "set", StorageKey: key, StorageValue: value}, nil
+		return &plugins.Action{Kind: "storage.kv", StorageOperation: "set", StorageKey: key, StorageValue: value}, nil
 	case "delete":
 		if frame.Key == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
@@ -301,19 +241,19 @@ func parseStorageKVAction(raw json.RawMessage) (*Action, error) {
 		if key == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
 		}
-		return &Action{Kind: "storage.kv", StorageOperation: "delete", StorageKey: key}, nil
+		return &plugins.Action{Kind: "storage.kv", StorageOperation: "delete", StorageKey: key}, nil
 	case "list":
 		if frame.Prefix == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)
 		}
 		prefix := *frame.Prefix
-		return &Action{Kind: "storage.kv", StorageOperation: "list", StoragePrefix: prefix}, nil
+		return &plugins.Action{Kind: "storage.kv", StorageOperation: "list", StoragePrefix: prefix}, nil
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.kv operation", nil)
 	}
 }
 
-func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
+func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionStorageFileFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.file data", err)
@@ -324,7 +264,7 @@ func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 		if frame.Path == nil || *frame.Path == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
 		}
-		return &Action{Kind: "storage.file", StorageOperation: "read", StoragePath: *frame.Path}, nil
+		return &plugins.Action{Kind: "storage.file", StorageOperation: "read", StoragePath: *frame.Path}, nil
 	case "write":
 		if frame.Path == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
@@ -333,7 +273,7 @@ func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &Action{
+		return &plugins.Action{
 			Kind:             "storage.file",
 			StorageOperation: "write",
 			StoragePath:      *frame.Path,
@@ -343,18 +283,18 @@ func parseStorageFileAction(raw json.RawMessage) (*Action, error) {
 		if frame.Path == nil || *frame.Path == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
 		}
-		return &Action{Kind: "storage.file", StorageOperation: "delete", StoragePath: *frame.Path}, nil
+		return &plugins.Action{Kind: "storage.file", StorageOperation: "delete", StoragePath: *frame.Path}, nil
 	case "list":
 		if frame.Prefix == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.file fields", nil)
 		}
-		return &Action{Kind: "storage.file", StorageOperation: "list", StoragePrefix: *frame.Prefix}, nil
+		return &plugins.Action{Kind: "storage.file", StorageOperation: "list", StoragePrefix: *frame.Prefix}, nil
 	default:
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported storage.file operation", nil)
 	}
 }
 
-func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
+func parseHTTPRequestAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionHTTPRequestFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed http.request data", err)
@@ -388,7 +328,7 @@ func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
 		}
 	}
 
-	return &Action{
+	return &plugins.Action{
 		Kind:               "http.request",
 		HTTPMethod:         method,
 		HTTPURL:            targetURL,
@@ -398,20 +338,23 @@ func parseHTTPRequestAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
-func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*Action, error) {
+func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	if err := parseEmptyObjectAction(raw, "governance.blacklist.read"); err != nil {
 		return nil, err
 	}
-	return &Action{Kind: "governance.blacklist.read"}, nil
+	return &plugins.Action{Kind: "governance.blacklist.read"}, nil
 }
 
-func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*Action, error) {
+func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionGovernanceBlacklistWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.blacklist.write data", err)
 	}
 
 	operation := strings.TrimSpace(frame.Operation)
+	if operation != "set_enabled" && !frame.Scope.Valid() {
+		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
+	}
 	switch operation {
 	case "upsert":
 		if frame.EntryType == nil || frame.TargetID == nil || frame.Reason == nil {
@@ -423,9 +366,10 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*Action, error) {
 		if entryType == "" || targetID == "" || reason == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.blacklist.write fields", nil)
 		}
-		return &Action{
+		return &plugins.Action{
 			Kind:                "governance.blacklist.write",
 			GovernanceOperation: operation,
+			GovernanceScope:     frame.Scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 			GovernanceReason:    reason,
@@ -439,9 +383,10 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*Action, error) {
 		if entryType == "" || targetID == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.blacklist.write fields", nil)
 		}
-		return &Action{
+		return &plugins.Action{
 			Kind:                "governance.blacklist.write",
 			GovernanceOperation: operation,
+			GovernanceScope:     frame.Scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 		}, nil
@@ -450,26 +395,29 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*Action, error) {
 	}
 }
 
-func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*Action, error) {
+func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	if err := parseEmptyObjectAction(raw, "governance.whitelist.read"); err != nil {
 		return nil, err
 	}
-	return &Action{Kind: "governance.whitelist.read"}, nil
+	return &plugins.Action{Kind: "governance.whitelist.read"}, nil
 }
 
-func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*Action, error) {
+func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionGovernanceWhitelistWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.whitelist.write data", err)
 	}
 
 	operation := strings.TrimSpace(frame.Operation)
+	if operation != "set_enabled" && !frame.Scope.Valid() {
+		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
+	}
 	switch operation {
 	case "set_enabled":
 		if frame.Enabled == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
 		}
-		return &Action{
+		return &plugins.Action{
 			Kind:                "governance.whitelist.write",
 			GovernanceOperation: operation,
 			GovernanceEnabled:   frame.Enabled,
@@ -484,9 +432,10 @@ func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*Action, error) {
 		if entryType == "" || targetID == "" || reason == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
 		}
-		return &Action{
+		return &plugins.Action{
 			Kind:                "governance.whitelist.write",
 			GovernanceOperation: operation,
+			GovernanceScope:     frame.Scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 			GovernanceReason:    reason,
@@ -500,9 +449,10 @@ func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*Action, error) {
 		if entryType == "" || targetID == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required governance.whitelist.write fields", nil)
 		}
-		return &Action{
+		return &plugins.Action{
 			Kind:                "governance.whitelist.write",
 			GovernanceOperation: operation,
+			GovernanceScope:     frame.Scope,
 			GovernanceEntryType: entryType,
 			GovernanceTargetID:  targetID,
 		}, nil
@@ -511,14 +461,14 @@ func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*Action, error) {
 	}
 }
 
-func parseGovernanceCommandPolicyReadAction(raw json.RawMessage) (*Action, error) {
+func parseGovernanceCommandPolicyReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	if err := parseEmptyObjectAction(raw, "governance.command_policy.read"); err != nil {
 		return nil, err
 	}
-	return &Action{Kind: "governance.command_policy.read"}, nil
+	return &plugins.Action{Kind: "governance.command_policy.read"}, nil
 }
 
-func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
+func parseMessageSendAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionMessageSendFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.send data", err)
@@ -544,7 +494,7 @@ func parseMessageSendAction(raw json.RawMessage) (*Action, error) {
 	if replyToEventID != "" {
 		kind = "message.reply"
 	}
-	return &Action{
+	return &plugins.Action{
 		Kind:                    kind,
 		SourceProtocol:          strings.TrimSpace(frame.SourceProtocol),
 		SourceAdapter:           stringValue(frame.SourceAdapter),
@@ -563,7 +513,7 @@ func stringValue(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
+func parseRenderImageAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionRenderImageFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed render.image data", err)
@@ -591,7 +541,7 @@ func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported render.image output", nil)
 	}
 
-	return &Action{
+	return &plugins.Action{
 		Kind:               "render.image",
 		RenderTemplate:     templateName,
 		RenderTheme:        strings.TrimSpace(frame.Theme),
@@ -602,11 +552,11 @@ func parseRenderImageAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
-func parseRenderImageResources(frames []ProtocolRenderImageResourceFrame) ([]RenderImageResource, error) {
+func parseRenderImageResources(frames []ProtocolRenderImageResourceFrame) ([]plugins.RenderImageResource, error) {
 	if len(frames) > maxRenderImageResources {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has too many render.image resources", nil)
 	}
-	resources := make([]RenderImageResource, 0, len(frames))
+	resources := make([]plugins.RenderImageResource, 0, len(frames))
 	seenIDs := make(map[string]struct{}, len(frames))
 	for _, frame := range frames {
 		id := strings.TrimSpace(frame.ID)
@@ -649,7 +599,7 @@ func parseRenderImageResources(frames []ProtocolRenderImageResourceFrame) ([]Ren
 				return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid render.image resource referer", err)
 			}
 		}
-		resources = append(resources, RenderImageResource{
+		resources = append(resources, plugins.RenderImageResource{
 			ID:           id,
 			URL:          primary,
 			FallbackURLs: fallbacks,
@@ -671,7 +621,7 @@ func parseRenderImageResourceURL(value string) (string, error) {
 	return parsed.String(), nil
 }
 
-func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {
+func parseSchedulerCreateAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame ProtocolActionSchedulerCreateFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed scheduler.create data", err)
@@ -691,7 +641,7 @@ func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {
 		}
 	}
 
-	return &Action{
+	return &plugins.Action{
 		Kind:               "scheduler.create",
 		SchedulerTaskID:    taskID,
 		SchedulerLogLabel:  strings.TrimSpace(frame.LogLabel),
@@ -701,12 +651,12 @@ func parseSchedulerCreateAction(raw json.RawMessage) (*Action, error) {
 	}, nil
 }
 
-func parseOutboundActionSegments(raw []ProtocolSegmentFrame) ([]ActionSegment, error) {
+func parseOutboundActionSegments(raw []ProtocolSegmentFrame) ([]chatevent.MessageSegment, error) {
 	if len(raw) == 0 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required rich message segments", nil)
 	}
 
-	segments := make([]ActionSegment, 0, len(raw))
+	segments := make([]chatevent.MessageSegment, 0, len(raw))
 	for index, segment := range raw {
 		actionSegment, err := parseOutboundActionSegment(segment, index)
 		if err != nil {
@@ -717,7 +667,7 @@ func parseOutboundActionSegments(raw []ProtocolSegmentFrame) ([]ActionSegment, e
 	return segments, nil
 }
 
-func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (ActionSegment, error) {
+func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (chatevent.MessageSegment, error) {
 	segmentType := strings.TrimSpace(segment.Type)
 	data := cloneActionSegmentData(segment.Data)
 
@@ -725,14 +675,14 @@ func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (Action
 	case "text":
 		text, ok := data["text"].(string)
 		if !ok || strings.TrimSpace(text) == "" {
-			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid text segment", nil)
+			return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid text segment", nil)
 		}
 		data["text"] = text
 	case "image":
 		file := outboundActionString(data, "file")
 		url := outboundActionString(data, "url")
 		if file == "" && url == "" {
-			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid image segment", nil)
+			return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid image segment", nil)
 		}
 		if file != "" {
 			data["file"] = file
@@ -743,7 +693,7 @@ func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (Action
 	case "at":
 		userID := outboundActionString(data, "user_id")
 		if userID == "" {
-			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid at segment", nil)
+			return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid at segment", nil)
 		}
 		data["user_id"] = userID
 	case "at_all":
@@ -751,16 +701,16 @@ func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (Action
 	case "face":
 		faceID := outboundActionString(data, "face_id")
 		if faceID == "" {
-			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid face segment", nil)
+			return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid face segment", nil)
 		}
 		data["face_id"] = faceID
 	case "reply":
 		if index != 0 {
-			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame places reply segment outside the message head", nil)
+			return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame places reply segment outside the message head", nil)
 		}
 		messageID := outboundActionString(data, "message_id")
 		if messageID == "" {
-			return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid reply segment", nil)
+			return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame has invalid reply segment", nil)
 		}
 		data["message_id"] = messageID
 	case "record", "video", "file", "flash_file", "json", "xml", "markdown", "music", "contact", "forward", "node", "poke", "dice", "rps", "mface", "keyboard", "shake":
@@ -768,10 +718,10 @@ func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (Action
 			data = map[string]any{}
 		}
 	default:
-		return ActionSegment{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported message segment type", nil)
+		return chatevent.MessageSegment{}, errorf(codePluginProtocolViolation, "plugin action frame uses unsupported message segment type", nil)
 	}
 
-	return ActionSegment{
+	return chatevent.MessageSegment{
 		Type: segmentType,
 		Data: data,
 	}, nil

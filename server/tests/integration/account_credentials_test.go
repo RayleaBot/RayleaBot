@@ -35,7 +35,7 @@ func TestAccountCredentialChangeExpiresConnectedWebSockets(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer conn.CloseNow()
+		defer func(release func() error) { _ = release() }(conn.CloseNow)
 		connections = append(connections, conn)
 	}
 	if err := application.AuthManager().UpdateCredentialsWithContext(ctx, claims, "fixture-old-password", "fixture-new-password", ""); err != nil {

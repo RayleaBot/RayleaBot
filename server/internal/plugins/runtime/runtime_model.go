@@ -3,11 +3,11 @@ package runtime
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/console"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 type State string
@@ -38,44 +38,16 @@ const (
 	codePluginPlatformMismatch  = "plugin.platform_mismatch"
 )
 
-type Error struct {
-	failureReported bool
-	Code            string
-	Message         string
-	Details         map[string]any
-	Err             error
-}
-
-// FailureReported reports whether the runtime emitted the owning failure record.
-func (e *Error) FailureReported() bool { return e.failureReported }
-
-func (e *Error) Error() string {
-	if e == nil {
-		return ""
-	}
-	if e.Err == nil {
-		return fmt.Sprintf("%s: %s", e.Code, e.Message)
-	}
-	return fmt.Sprintf("%s: %s: %v", e.Code, e.Message, e.Err)
-}
-
-func (e *Error) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.Err
-}
-
-func errorf(code, message string, err error) *Error {
-	return &Error{
+func errorf(code, message string, err error) *plugins.Error {
+	return &plugins.Error{
 		Code:    code,
 		Message: message,
 		Err:     err,
 	}
 }
 
-func errorWithDetails(code, message string, details map[string]any, err error) *Error {
-	return &Error{
+func errorWithDetails(code, message string, details map[string]any, err error) *plugins.Error {
+	return &plugins.Error{
 		Code:    code,
 		Message: message,
 		Details: cloneDetails(details),
@@ -106,84 +78,6 @@ type Snapshot struct {
 	CrashCount          int
 	NextRetryAt         *time.Time
 	EnteredDeadLetterAt *time.Time
-}
-
-type Delivery struct {
-	RequestID    string
-	Action       *Action
-	Result       map[string]any
-	ErrorCode    string
-	ErrorMessage string
-	ErrorDetails map[string]any
-}
-
-type Event struct {
-	EventID        string
-	SourceProtocol string
-	SourceAdapter  string
-	EventType      string
-	Timestamp      int64
-	Actor          *EventActor
-	Target         *EventTarget
-	Message        *EventMessage
-	Webhook        *EventWebhook
-	PayloadFields  map[string]any
-	MessageID      string
-	RawPayload     any
-	SchedulerLog   *SchedulerLogContext
-}
-
-type SchedulerLogContext struct {
-	JobID      string
-	Revision   uint64
-	PluginName string
-	TaskName   string
-	LogLabel   string
-	StartedAt  time.Time
-	Recorder   SchedulerRunRecorder
-}
-
-type SchedulerRunRecorder interface {
-	RecordSchedulerRunResult(context.Context, SchedulerRunResult) error
-}
-
-type SchedulerRunResult struct {
-	JobID      string
-	Revision   uint64
-	Outcome    string
-	Duration   time.Duration
-	ErrorCode  string
-	ErrorText  string
-	OccurredAt time.Time
-}
-
-type EventActor struct {
-	ID       string
-	Nickname string
-	Role     string
-}
-
-type EventTarget struct {
-	Type string
-	ID   string
-	Name string
-}
-
-type EventMessage struct {
-	PlainText string
-	Segments  []EventSegment
-}
-
-type EventSegment struct {
-	Type string
-	Data map[string]any
-}
-
-type EventWebhook struct {
-	Route           string
-	ReceivedAt      int64
-	ClientTimestamp *int64
-	ClientEventID   string
 }
 
 type EventFrame struct {
@@ -425,18 +319,20 @@ type ProtocolActionConfigWriteFrame struct {
 }
 
 type ProtocolActionGovernanceBlacklistWriteFrame struct {
-	Operation string  `json:"operation"`
-	EntryType *string `json:"entry_type,omitempty"`
-	TargetID  *string `json:"target_id,omitempty"`
-	Reason    *string `json:"reason,omitempty"`
+	Scope     chatevent.IdentityScope `json:"scope"`
+	Operation string                  `json:"operation"`
+	EntryType *string                 `json:"entry_type,omitempty"`
+	TargetID  *string                 `json:"target_id,omitempty"`
+	Reason    *string                 `json:"reason,omitempty"`
 }
 
 type ProtocolActionGovernanceWhitelistWriteFrame struct {
-	Operation string  `json:"operation"`
-	Enabled   *bool   `json:"enabled,omitempty"`
-	EntryType *string `json:"entry_type,omitempty"`
-	TargetID  *string `json:"target_id,omitempty"`
-	Reason    *string `json:"reason,omitempty"`
+	Scope     chatevent.IdentityScope `json:"scope"`
+	Operation string                  `json:"operation"`
+	Enabled   *bool                   `json:"enabled,omitempty"`
+	EntryType *string                 `json:"entry_type,omitempty"`
+	TargetID  *string                 `json:"target_id,omitempty"`
+	Reason    *string                 `json:"reason,omitempty"`
 }
 
 type ProtocolActionStorageFileFrame struct {
@@ -490,7 +386,7 @@ type managerDeps struct {
 	requestID func() string
 }
 
-type LocalActionExecutor func(context.Context, string, string, Action, Event) (map[string]any, error)
+type LocalActionExecutor func(context.Context, string, string, plugins.Action, chatevent.Event) (map[string]any, error)
 
 type Options struct {
 	Console                    *console.Stream

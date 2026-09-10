@@ -2,6 +2,7 @@ package governance
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"testing"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -31,14 +32,14 @@ func TestServiceWritesNotifyGovernanceChangedOnce(t *testing.T) {
 		},
 	})
 
-	if _, err := service.UpsertBlacklistEntry(context.Background(), "user", "1001", "spam"); err != nil {
+	if _, err := service.UpsertBlacklistEntry(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "1001", "spam"); err != nil {
 		t.Fatalf("UpsertBlacklistEntry: %v", err)
 	}
 	if notifications != 1 {
 		t.Fatalf("blacklist upsert notifications = %d, want 1", notifications)
 	}
 
-	if _, err := service.UpsertWhitelistEntry(context.Background(), "group", "2001", "approved"); err != nil {
+	if _, err := service.UpsertWhitelistEntry(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "group", "2001", "approved"); err != nil {
 		t.Fatalf("UpsertWhitelistEntry: %v", err)
 	}
 	if notifications != 2 {
@@ -52,14 +53,14 @@ func TestServiceWritesNotifyGovernanceChangedOnce(t *testing.T) {
 		t.Fatalf("whitelist state notifications = %d, want 3", notifications)
 	}
 
-	if err := service.DeleteBlacklistEntry(context.Background(), "user", "1001"); err != nil {
+	if err := service.DeleteBlacklistEntry(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "user", "1001"); err != nil {
 		t.Fatalf("DeleteBlacklistEntry: %v", err)
 	}
 	if notifications != 4 {
 		t.Fatalf("blacklist delete notifications = %d, want 4", notifications)
 	}
 
-	if err := service.DeleteWhitelistEntry(context.Background(), "group", "2001"); err != nil {
+	if err := service.DeleteWhitelistEntry(context.Background(), chatevent.IdentityScope{Kind:"global", SourceProtocol:"onebot11"}, "group", "2001"); err != nil {
 		t.Fatalf("DeleteWhitelistEntry: %v", err)
 	}
 	if notifications != 5 {

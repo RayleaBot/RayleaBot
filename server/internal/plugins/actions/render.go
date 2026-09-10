@@ -8,7 +8,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 func renderImageRegistrar() registrar {
@@ -24,10 +23,10 @@ func renderImageRegistrar() registrar {
 
 func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "render.image") {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: "render.image permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: "render.image permission is not declared"}
 	}
 	if deps.Renderer == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image service is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "render.image service is not available"}
 	}
 
 	templateID, err := deps.Renderer.ResolvePluginTemplate(ctx, req.PluginID, req.Action.RenderTemplate)
@@ -63,10 +62,10 @@ func executeRenderImage(ctx context.Context, deps Deps, req ActionRequest) (map[
 	}, nil
 }
 
-func renderImageActionError(err error) *pluginruntime.Error {
+func renderImageActionError(err error) *plugins.Error {
 	var renderErr *RenderTemplateError
 	if !errors.As(err, &renderErr) {
-		return &pluginruntime.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
+		return &plugins.Error{Code: "plugin.internal_error", Message: "render.image failed", Err: err}
 	}
 
 	code := renderErr.Code
@@ -83,7 +82,7 @@ func renderImageActionError(err error) *pluginruntime.Error {
 	if message == "" {
 		message = "render.image failed"
 	}
-	return &pluginruntime.Error{Code: code, Message: message, Err: err}
+	return &plugins.Error{Code: code, Message: message, Err: err}
 }
 
 func logRenderImageFailure(deps Deps, req ActionRequest, phase, template string, err error) {

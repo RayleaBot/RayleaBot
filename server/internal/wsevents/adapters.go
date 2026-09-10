@@ -212,12 +212,3 @@ func oneBot11Summary(instance config.AdapterInstance, snapshot onebot11.Snapshot
 		return "等待连接。"
 	}
 }
-
-func primaryQQOfficialOf(cfg config.Config) (config.AdapterInstance, config.QQOfficialConfig, bool) {
-	for _, adapter := range cfg.AdaptersOfType(config.AdapterTypeQQOfficial) {
-		if adapter.QQOfficial != nil {
-			return adapter, *adapter.QQOfficial, true
-		}
-	}
-	return config.AdapterInstance{}, config.QQOfficialConfig{}, false
-}

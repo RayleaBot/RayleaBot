@@ -155,7 +155,7 @@ func gatewayEndpoint(ctx context.Context, client *http.Client, base, appID, toke
 	if err != nil {
 		return "", fmt.Errorf("qqofficial: request gateway endpoint: %w", err)
 	}
-	defer response.Body.Close()
+	defer func(release func() error) { _ = release() }(response.Body.Close)
 
 	var payload struct {
 		URL     string `json:"url"`

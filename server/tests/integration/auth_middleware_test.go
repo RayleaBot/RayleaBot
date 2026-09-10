@@ -484,7 +484,7 @@ func TestPublicRoutesAccessibleWithoutToken(t *testing.T) {
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func(release func() error) { _ = release() }(resp.Body.Close)
 
 			if resp.StatusCode == http.StatusUnauthorized {
 				t.Fatalf("public route %s %s returned 401, expected non-401", route.method, route.path)
@@ -536,7 +536,7 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func(release func() error) { _ = release() }(resp.Body.Close)
 
 			if resp.StatusCode != http.StatusUnauthorized {
 				t.Fatalf("protected route %s %s returned %d, expected 401", route.method, route.path, resp.StatusCode)

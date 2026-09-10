@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/permission"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func governanceRegistrars() []registrar {
@@ -32,22 +33,22 @@ func governanceRegistrar(action string, execute func(context.Context, Deps, Acti
 
 type GovernanceService interface {
 	ReadBlacklist(context.Context) (governance.BlacklistSnapshot, error)
-	UpsertBlacklistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
-	DeleteBlacklistEntry(context.Context, string, string) error
+	UpsertBlacklistEntry(context.Context, chatevent.IdentityScope, string, string, string) (governance.EntryResponse, error)
+	DeleteBlacklistEntry(context.Context, chatevent.IdentityScope, string, string) error
 	ReadWhitelist(context.Context) (governance.WhitelistSnapshot, error)
 	SetWhitelistEnabled(context.Context, bool) (governance.WhitelistStateResponse, error)
-	UpsertWhitelistEntry(context.Context, string, string, string) (governance.EntryResponse, error)
-	DeleteWhitelistEntry(context.Context, string, string) error
+	UpsertWhitelistEntry(context.Context, chatevent.IdentityScope, string, string, string) (governance.EntryResponse, error)
+	DeleteWhitelistEntry(context.Context, chatevent.IdentityScope, string, string) error
 	ReadCommandPolicy(context.Context) (governance.CommandPolicyResponse, error)
 }
 
 func requireGovernancePermission(ctx context.Context, deps Deps, req ActionRequest, permission string) (GovernanceService, error) {
 	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, permission) {
-		return nil, &pluginruntime.Error{Code: "plugin.permission_denied", Message: permission + " permission is not declared"}
+		return nil, &plugins.Error{Code: "plugin.permission_denied", Message: permission + " permission is not declared"}
 	}
 	service := deps.Governance
 	if service == nil {
-		return nil, &pluginruntime.Error{Code: "plugin.internal_error", Message: "governance service is not available"}
+		return nil, &plugins.Error{Code: "plugin.internal_error", Message: "governance service is not available"}
 	}
 	return service, nil
 }
@@ -55,11 +56,11 @@ func requireGovernancePermission(ctx context.Context, deps Deps, req ActionReque
 func mapGovernanceRuntimeError(message string, err error) error {
 	switch {
 	case errors.Is(err, permission.ErrGovernanceEntryNotFound):
-		return &pluginruntime.Error{Code: "platform.resource_missing", Message: message, Err: err}
+		return &plugins.Error{Code: "platform.resource_missing", Message: message, Err: err}
 	case errors.Is(err, governance.ErrInvalidRequest):
-		return &pluginruntime.Error{Code: "plugin.protocol_violation", Message: message, Err: err}
+		return &plugins.Error{Code: "plugin.protocol_violation", Message: message, Err: err}
 	default:
-		return &pluginruntime.Error{Code: "plugin.internal_error", Message: message, Err: err}
+		return &plugins.Error{Code: "plugin.internal_error", Message: message, Err: err}
 	}
 }
 
@@ -82,18 +83,18 @@ func blacklistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 	}
 	switch req.Action.GovernanceOperation {
 	case "upsert":
-		entry, err := service.UpsertBlacklistEntry(ctx, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID, req.Action.GovernanceReason)
+		entry, err := service.UpsertBlacklistEntry(ctx, req.Action.GovernanceScope, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID, req.Action.GovernanceReason)
 		if err != nil {
 			return nil, mapGovernanceRuntimeError("governance.blacklist.write failed", err)
 		}
 		return map[string]any{"entry_type": entry.EntryType, "target_id": entry.TargetID, "reason": entry.Reason, "created_at": entry.CreatedAt}, nil
 	case "delete":
-		if err := service.DeleteBlacklistEntry(ctx, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID); err != nil {
+		if err := service.DeleteBlacklistEntry(ctx, req.Action.GovernanceScope, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID); err != nil {
 			return nil, mapGovernanceRuntimeError("governance.blacklist.write failed", err)
 		}
 		return map[string]any{"deleted": true}, nil
 	default:
-		return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "governance.blacklist.write uses unsupported operation"}
+		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "governance.blacklist.write uses unsupported operation"}
 	}
 }
 
@@ -117,7 +118,7 @@ func whitelistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 	switch req.Action.GovernanceOperation {
 	case "set_enabled":
 		if req.Action.GovernanceEnabled == nil {
-			return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write is missing enabled"}
+			return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write is missing enabled"}
 		}
 		response, err := service.SetWhitelistEnabled(ctx, *req.Action.GovernanceEnabled)
 		if err != nil {
@@ -125,18 +126,18 @@ func whitelistWrite(ctx context.Context, deps Deps, req ActionRequest) (map[stri
 		}
 		return map[string]any{"enabled": response.Enabled}, nil
 	case "upsert":
-		entry, err := service.UpsertWhitelistEntry(ctx, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID, req.Action.GovernanceReason)
+		entry, err := service.UpsertWhitelistEntry(ctx, req.Action.GovernanceScope, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID, req.Action.GovernanceReason)
 		if err != nil {
 			return nil, mapGovernanceRuntimeError("governance.whitelist.write failed", err)
 		}
 		return map[string]any{"entry_type": entry.EntryType, "target_id": entry.TargetID, "reason": entry.Reason, "created_at": entry.CreatedAt}, nil
 	case "delete":
-		if err := service.DeleteWhitelistEntry(ctx, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID); err != nil {
+		if err := service.DeleteWhitelistEntry(ctx, req.Action.GovernanceScope, req.Action.GovernanceEntryType, req.Action.GovernanceTargetID); err != nil {
 			return nil, mapGovernanceRuntimeError("governance.whitelist.write failed", err)
 		}
 		return map[string]any{"deleted": true}, nil
 	default:
-		return nil, &pluginruntime.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write uses unsupported operation"}
+		return nil, &plugins.Error{Code: "plugin.protocol_violation", Message: "governance.whitelist.write uses unsupported operation"}
 	}
 }
 

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 )
 
 func TestReadProtocolLineRejectsOversizedFrameWithoutNewline(t *testing.T) {
@@ -55,7 +57,7 @@ func TestLocalActionAdmissionRejectsPendingAndBurstOverflow(t *testing.T) {
 	}}
 	session := &eventSession{
 		requestID:        "event-1",
-		event:            Event{EventID: "event-1"},
+		event:            chatevent.Event{EventID: "event-1"},
 		localActionIDs:   make(map[string]struct{}),
 		pendingActionIDs: make(map[string]struct{}),
 	}

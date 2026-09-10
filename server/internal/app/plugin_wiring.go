@@ -116,7 +116,10 @@ type pluginServices struct {
 }
 
 func buildPluginServices(deps pluginServiceDeps) (pluginServices, error) {
-	lifecycle := buildPluginLifecycle(deps)
+	lifecycle, err := buildPluginLifecycle(deps)
+	if err != nil {
+		return pluginServices{}, err
+	}
 	menu, err := buildBuiltinMenuService(deps.Runtime, deps.Plugins, deps.Events, deps.Renderer)
 	if err != nil {
 		return pluginServices{}, err
@@ -134,7 +137,7 @@ func buildPluginServices(deps pluginServiceDeps) (pluginServices, error) {
 	}, nil
 }
 
-func buildPluginLifecycle(deps pluginServiceDeps) *pluginservice.Controller {
+func buildPluginLifecycle(deps pluginServiceDeps) (*pluginservice.Controller, error) {
 	return pluginservice.NewController(pluginservice.Deps{
 		CurrentConfig:       deps.Runtime.CurrentConfig,
 		RepoRoot:            deps.Runtime.RepoRoot(),

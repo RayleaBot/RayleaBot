@@ -9,18 +9,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
-	"gopkg.in/yaml.v3"
-
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
+	"github.com/coder/websocket"
+	"gopkg.in/yaml.v3"
 )
 
 const sessionSigningKeySecret = "platform.auth.session_signing_key"
@@ -65,7 +64,7 @@ func TestBootstrapStateAndBootstrapTokenSurviveRestart(t *testing.T) {
 	server := newManagementTestServer(t, appB.Handler())
 	defer server.Close()
 	conn := dialEventsWebSocket(t, server.URL, bootstrapToken)
-	defer conn.Close(1000, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(1000, "") }(conn.Close)
 }
 
 func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
@@ -101,7 +100,7 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 	defer server.Close()
 
 	conn := dialEventsWebSocket(t, server.URL, loginToken)
-	defer conn.Close(1000, "")
+	defer func(release func(websocket.StatusCode, string) error) { _ = release(1000, "") }(conn.Close)
 
 	eventBridge := appB.Bridge()
 	waitForObservabilitySubscriber(t, eventBridge)
@@ -273,7 +272,7 @@ func (s *persistentDispatchStub) HasDeliverablePlugins() bool {
 	return s.deliverable
 }
 
-func (s *persistentDispatchStub) Dispatch(context.Context, pluginruntime.Event, string) []dispatch.DeliveryResult {
+func (s *persistentDispatchStub) Dispatch(context.Context, chatevent.Event, string) []dispatch.DeliveryResult {
 	return append([]dispatch.DeliveryResult(nil), s.results...)
 }
 

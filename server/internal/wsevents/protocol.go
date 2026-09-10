@@ -274,17 +274,3 @@ func isDigits(raw string) bool {
 	}
 	return true
 }
-
-// primaryOneBotSettings returns the first configured OneBot adapter's settings.
-// The OneBot protocol surface predates multiple adapters and still speaks about
-// a single connection; this makes "which one" explicit rather than implied.
-func (s *ProtocolService) primaryOneBotSettings() config.OneBotConfig {
-	return primaryOneBotSettingsOf(s.config.CurrentConfig())
-}
-
-func primaryOneBotSettingsOf(cfg config.Config) config.OneBotConfig {
-	if _, settings, ok := cfg.PrimaryOneBot11(); ok {
-		return settings
-	}
-	return config.OneBotConfig{}
-}

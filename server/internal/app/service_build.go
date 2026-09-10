@@ -120,17 +120,25 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	})
 	runtimeRegistry := pluginRuntime.Runtimes
 	var serviceStatusService *wsevents.ServiceStatusService
-	systemService := systemsvc.New(systemsvc.Deps{
+	var systemAdapter systemsvc.AdapterStateSource
+	if eventStack.Adapter != nil {
+		systemAdapter = eventStack.Adapter
+	}
+	var systemRenderer systemsvc.RendererState
+	if renderer != nil {
+		systemRenderer = renderer
+	}
+	systemService, err := systemsvc.New(systemsvc.Deps{
 		CurrentConfig:    runtimeState.CurrentConfig,
 		CurrentSummary:   runtimeState.CurrentSummary,
 		CurrentRepoRoot:  runtimeState.RepoRoot,
 		CurrentStartedAt: runtimeState.StartedAt,
 		Logger:           runtimeState.RuntimeLogger(),
 		Auth:             platform.Auth,
-		Adapter:          eventStack.Adapter,
+		Adapter:          systemAdapter,
 		Plugins:          pluginStack.Plugins,
 		Runtimes:         runtimeRegistry,
-		Renderer:         renderer,
+		Renderer:         systemRenderer,
 		Storage:          platform.Storage,
 		ThirdParty:       thirdPartyDiagnostics{service: integrations.ThirdParty},
 		Scheduler:        schedulerDiagnostics{scheduler: platform.Scheduler},
@@ -144,6 +152,9 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		}),
 		ResolveDatabasePath: runtimepaths.ResolveDatabasePath,
 	})
+	if err != nil {
+		return serviceBuildResult{}, err
+	}
 	serviceStatusService = wsevents.NewServiceStatusService(systemService)
 	pluginServices, err := buildPluginServices(pluginServiceDeps{
 		Runtime:       runtimeState,
@@ -222,15 +233,15 @@ func buildGovernanceService(runtimeState runtimeStateView, pluginStack PluginSta
 }
 
 type policyRepositories struct {
-	Blacklist      permission.BlacklistRepository
-	Whitelist      permission.WhitelistRepository
+	Blacklist      permission.EntryRepository
+	Whitelist      permission.EntryRepository
 	WhitelistState permission.WhitelistStateRepository
 }
 
 func buildPolicyRepositories(platform PlatformState) policyRepositories {
 	return policyRepositories{
-		Blacklist:      permission.NewSQLiteBlacklistRepository(platform.Storage.Read, platform.Storage.Write),
-		Whitelist:      permission.NewSQLiteWhitelistRepository(platform.Storage.Read, platform.Storage.Write),
+		Blacklist:      permission.NewSQLiteAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListBlacklist),
+		Whitelist:      permission.NewSQLiteAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListWhitelist),
 		WhitelistState: permission.NewSQLiteWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write),
 	}
 }

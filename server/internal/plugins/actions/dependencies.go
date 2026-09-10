@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginstore"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type PermissionView interface {
@@ -35,7 +35,7 @@ type ConfigChangeDispatchResult struct {
 
 type ConfigChangeDispatcher func(context.Context, string, map[string]any, []string) ConfigChangeDispatchResult
 
-type MessageSendFunc func(context.Context, string, string, pluginruntime.Event, pluginruntime.Action) (map[string]any, error)
+type MessageSendFunc func(context.Context, string, string, chatevent.Event, chatevent.MessageCommand) (map[string]any, error)
 
 type ScheduledTask struct {
 	JobID   string

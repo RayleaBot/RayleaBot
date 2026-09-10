@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type contextDeliverer struct {
@@ -21,31 +23,24 @@ type stoppingDeliverer struct {
 	stopped atomic.Bool
 }
 
-func (rt *stoppingDeliverer) Snapshot() pluginruntime.Snapshot {
-	if rt.stopped.Load() {
-		return pluginruntime.Snapshot{State: pluginruntime.StateStopped}
-	}
-	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
-}
-
-func (rt *stoppingDeliverer) DeliverEvent(ctx context.Context, _ pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (rt *stoppingDeliverer) DeliverEvent(ctx context.Context, _ chatevent.Event) (plugins.Delivery, error) {
 	close(rt.started)
 	<-ctx.Done()
 	rt.stopped.Store(true)
-	return pluginruntime.Delivery{}, ctx.Err()
+	return plugins.Delivery{}, ctx.Err()
 }
 
 func TestShutdownCountsQueuedSchedulerRunsAsCanceled(t *testing.T) {
 	d := New(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, 4)
 	rt := &stoppingDeliverer{started: make(chan struct{})}
-	recorder := &checkingRunRecorder{results: make(chan pluginruntime.SchedulerRunResult, 2), err: make(chan error, 2)}
+	recorder := &checkingRunRecorder{results: make(chan scheduler.RunResult, 2), err: make(chan error, 2)}
 	d.Register("fixture", rt, nil, nil, 1)
 	event := testEvent()
 	event.EventType = "scheduler.trigger"
-	event.SchedulerLog = &pluginruntime.SchedulerLogContext{JobID: "fixture-job", TaskName: "fixture-job", StartedAt: time.Now(), Recorder: recorder}
-	d.DispatchToPlugin(t.Context(), "fixture", event)
+	run := scheduler.RunContext{JobID: "fixture-job", TaskName: "fixture-job", StartedAt: time.Now(), Recorder: recorder}
+	d.DispatchScheduledEvent(t.Context(), "fixture", event, run)
 	<-rt.started
-	d.DispatchToPlugin(t.Context(), "fixture", event)
+	d.DispatchScheduledEvent(t.Context(), "fixture", event, run)
 	d.CancelPending()
 	d.Close()
 	if len(recorder.results) != 2 {
@@ -63,11 +58,11 @@ func TestShutdownCountsQueuedSchedulerRunsAsCanceled(t *testing.T) {
 }
 
 type checkingRunRecorder struct {
-	results chan pluginruntime.SchedulerRunResult
+	results chan scheduler.RunResult
 	err     chan error
 }
 
-func (r *checkingRunRecorder) RecordSchedulerRunResult(ctx context.Context, result pluginruntime.SchedulerRunResult) error {
+func (r *checkingRunRecorder) RecordRunResult(ctx context.Context, result scheduler.RunResult) error {
 	r.err <- ctx.Err()
 	r.results <- result
 	return ctx.Err()
@@ -75,24 +70,21 @@ func (r *checkingRunRecorder) RecordSchedulerRunResult(ctx context.Context, resu
 
 type cancelingDeliverer struct{ started chan struct{} }
 
-func (rt *cancelingDeliverer) Snapshot() pluginruntime.Snapshot {
-	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
-}
-func (rt *cancelingDeliverer) DeliverEvent(ctx context.Context, _ pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (rt *cancelingDeliverer) DeliverEvent(ctx context.Context, _ chatevent.Event) (plugins.Delivery, error) {
 	close(rt.started)
 	<-ctx.Done()
-	return pluginruntime.Delivery{}, ctx.Err()
+	return plugins.Delivery{}, ctx.Err()
 }
 
 func TestShutdownPersistsCanceledSchedulerResultExactlyOnce(t *testing.T) {
 	d := New(slog.New(slog.NewTextHandler(io.Discard, nil)), nil, nil, 4)
 	rt := &cancelingDeliverer{started: make(chan struct{})}
-	recorder := &checkingRunRecorder{results: make(chan pluginruntime.SchedulerRunResult, 2), err: make(chan error, 2)}
+	recorder := &checkingRunRecorder{results: make(chan scheduler.RunResult, 2), err: make(chan error, 2)}
 	d.Register("fixture", rt, nil, nil, 1)
 	event := testEvent()
 	event.EventType = "scheduler.trigger"
-	event.SchedulerLog = &pluginruntime.SchedulerLogContext{JobID: "fixture-job", TaskName: "fixture-job", StartedAt: time.Now(), Recorder: recorder}
-	d.DispatchToPlugin(t.Context(), "fixture", event)
+	run := scheduler.RunContext{JobID: "fixture-job", TaskName: "fixture-job", StartedAt: time.Now(), Recorder: recorder}
+	d.DispatchScheduledEvent(t.Context(), "fixture", event, run)
 	<-rt.started
 	d.Close()
 	if err := <-recorder.err; err != nil {
@@ -110,26 +102,23 @@ func TestShutdownPersistsCanceledSchedulerResultExactlyOnce(t *testing.T) {
 func TestTypedNilFailureDoesNotCrashWorker(t *testing.T) {
 	logger, _ := newDispatchTestLogger()
 	d := New(logger, nil, nil, 1)
-	var failure *pluginruntime.Error
+	var failure *plugins.Error
 	recorder := &recordingSchedulerRunRecorder{}
 	d.Register("fixture", &fakeDeliverer{err: failure}, nil, nil, 1)
 	event := testEvent()
 	event.EventType = "scheduler.trigger"
-	event.SchedulerLog = &pluginruntime.SchedulerLogContext{JobID: "fixture-job", TaskName: "fixture-job", StartedAt: time.Now(), Recorder: recorder}
-	d.DispatchToPlugin(t.Context(), "fixture", event)
+	run := scheduler.RunContext{JobID: "fixture-job", TaskName: "fixture-job", StartedAt: time.Now(), Recorder: recorder}
+	d.DispatchScheduledEvent(t.Context(), "fixture", event, run)
 	d.Close()
 	if recorder.count() != 1 {
 		t.Fatal("worker did not finish the failed run")
 	}
 }
 
-func (rt *contextDeliverer) Snapshot() pluginruntime.Snapshot {
-	return pluginruntime.Snapshot{State: pluginruntime.StateRunning}
-}
-func (rt *contextDeliverer) DeliverEvent(ctx context.Context, _ pluginruntime.Event) (pluginruntime.Delivery, error) {
+func (rt *contextDeliverer) DeliverEvent(ctx context.Context, _ chatevent.Event) (plugins.Delivery, error) {
 	rt.contexts <- ctx
 	<-rt.release
-	return pluginruntime.Delivery{}, ctx.Err()
+	return plugins.Delivery{}, ctx.Err()
 }
 
 func TestAcceptedAsyncEventOutlivesCallerCancellation(t *testing.T) {
@@ -164,4 +153,19 @@ func waitForContextDone(t *testing.T, ctx context.Context, timeout time.Duration
 	case <-time.After(timeout):
 		t.Fatal("dispatcher close did not cancel owned context")
 	}
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (rt *stoppingDeliverer) ReadyForEvents() bool {
+	return !rt.stopped.Load()
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (rt *cancelingDeliverer) ReadyForEvents() bool {
+	return true
+}
+
+// ReadyForEvents reports whether this target can accept a plugin event.
+func (rt *contextDeliverer) ReadyForEvents() bool {
+	return true
 }

@@ -1,4 +1,4 @@
-package app
+package outbound
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 )
 
 type recordingSender struct {
@@ -28,10 +27,10 @@ func TestAdapterRouterDeliversThroughTheOriginatingProtocol(t *testing.T) {
 	t.Parallel()
 
 	var sent []string
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
 		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
-	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"})
+	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"}, nil)
 
 	if _, err := router.SendReply(context.Background(), chatevent.OutboundMessageReply{
 		SourceProtocol: "qqofficial", TargetType: "group", TargetID: "G1",
@@ -47,10 +46,10 @@ func TestAdapterRouterRefusesToGuessBetweenAdapters(t *testing.T) {
 	t.Parallel()
 
 	var sent []string
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
 		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
-	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"})
+	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"}, nil)
 
 	// Target ids are namespaced per protocol, so picking one at random could
 	// reach an unrelated conversation that happens to share an id.
@@ -80,9 +79,9 @@ func TestAdapterRouterResolvesWhenOnlyOneAdapterIsConnected(t *testing.T) {
 	t.Parallel()
 
 	var sent []string
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"onebot11": recordingSender{name: "onebot11", sent: &sent},
-	}, map[string]string{"onebot11": "onebot11"})
+	}, map[string]string{"onebot11": "onebot11"}, nil)
 	// The common deployment: one adapter, so an active push is unambiguous.
 	if _, err := router.SendMessage(context.Background(), chatevent.OutboundMessageSend{
 		TargetType: "group", TargetID: "G1",
@@ -98,10 +97,10 @@ func TestAdapterRouterHonoursAPluginNamedProtocol(t *testing.T) {
 	t.Parallel()
 
 	var sent []string
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"onebot11":    recordingSender{name: "onebot11", sent: &sent},
 		"qq-official": recordingSender{name: "qqofficial", sent: &sent},
-	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"})
+	}, map[string]string{"onebot11": "onebot11", "qq-official": "qqofficial"}, nil)
 
 	// With two adapters connected an active push is otherwise ambiguous; naming
 	// the protocol is how a plugin resolves it.
@@ -130,12 +129,12 @@ func TestAdapterRouterResolvesTargetNamesThroughTheOwningAdapter(t *testing.T) {
 	t.Parallel()
 
 	var sent []string
-	router := newAdapterRouter(map[string]outbound.ActionSender{
+	router := NewRouter(map[string]ActionSender{
 		"onebot11":   namingSender{recordingSender{name: "onebot11", sent: &sent}, map[string]string{"onebot11/group:200": "测试群"}},
 		"second-bot": namingSender{recordingSender{name: "second-bot", sent: &sent}, map[string]string{"second-bot/group:200": "另一个群"}},
-	}, map[string]string{"onebot11": "onebot11", "second-bot": "onebot11"})
+	}, map[string]string{"onebot11": "onebot11", "second-bot": "onebot11"}, nil)
 
-	resolver, ok := any(router).(outbound.TargetDisplayResolver)
+	resolver, ok := any(router).(TargetDisplayResolver)
 	if !ok {
 		t.Fatal("the router does not answer target-name questions, so log lines lose their names")
 	}

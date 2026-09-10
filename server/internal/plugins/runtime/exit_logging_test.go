@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func TestInterruptedEventExitIsReportedOnce(t *testing.T) {
@@ -63,7 +65,7 @@ func TestInterruptedEventExitIsReportedOnce(t *testing.T) {
 				}
 				err := <-finished
 				assertRuntimeErrorCode(t, err, codePluginInternalError)
-				var failure *Error
+				var failure *plugins.Error
 				if !errors.As(err, &failure) || !failure.FailureReported() {
 					t.Fatalf("unowned delivery error: %v", err)
 				}

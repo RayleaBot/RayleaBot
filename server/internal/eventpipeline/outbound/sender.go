@@ -9,7 +9,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 const (
@@ -24,6 +23,7 @@ type ActionSender interface {
 }
 
 type ReplyTarget struct {
+	BotID          string
 	MessageID      string
 	TargetType     string
 	TargetID       string
@@ -84,6 +84,7 @@ func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 		existing.Value = replyTargetEntry{
 			EventID: eventID,
 			Target: ReplyTarget{
+				BotID:          event.BotID,
 				MessageID:      messageID,
 				TargetType:     targetType,
 				TargetID:       targetID,
@@ -98,6 +99,7 @@ func (c *ReplyTargetCache) Record(event chatevent.NormalizedEvent) {
 	element := c.order.PushFront(replyTargetEntry{
 		EventID: eventID,
 		Target: ReplyTarget{
+			BotID:          event.BotID,
 			MessageID:      messageID,
 			TargetType:     targetType,
 			TargetID:       targetID,
@@ -137,7 +139,7 @@ func (c *ReplyTargetCache) ResolveReplyTarget(eventID string) (ReplyTarget, bool
 	return entry.Target, true
 }
 
-func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin pluginruntime.Event, action pluginruntime.Action) (SendResult, error) {
+func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, origin chatevent.Event, action chatevent.MessageCommand) (SendResult, error) {
 	if sender == nil {
 		return SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
 			Code:    codeAdapterSendFailed,
@@ -170,7 +172,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 	}
 }
 
-func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ pluginruntime.Event, action pluginruntime.Action) (SendResult, error) {
+func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTargetResolver, _ chatevent.Event, action chatevent.MessageCommand) (SendResult, error) {
 	replyTarget, ok := resolveReplyTarget(action, resolver)
 	if !ok {
 		return SendResult{DeliveryKind: "message.reply"}, &onebot11.Error{
@@ -221,7 +223,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 	}, fallbackErr
 }
 
-func resolveReplyTarget(action pluginruntime.Action, resolver ReplyTargetResolver) (ReplyTarget, bool) {
+func resolveReplyTarget(action chatevent.MessageCommand, resolver ReplyTargetResolver) (ReplyTarget, bool) {
 	replyToEventID := strings.TrimSpace(action.ReplyToEventID)
 	if replyToEventID == "" || resolver == nil {
 		return ReplyTarget{}, false
@@ -233,7 +235,7 @@ func resolveReplyTarget(action pluginruntime.Action, resolver ReplyTargetResolve
 	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
 }
 
-func toAdapterSegments(segments []pluginruntime.ActionSegment) []chatevent.MessageSegment {
+func toAdapterSegments(segments []chatevent.MessageSegment) []chatevent.MessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}

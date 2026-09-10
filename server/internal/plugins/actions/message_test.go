@@ -2,14 +2,14 @@ package actions_test
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"io"
 	"log/slog"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
 type messageSendRecorder struct {
@@ -38,17 +38,17 @@ func TestMessageSendLocalActionUsesSharedOutboundPath(t *testing.T) {
 		Permissions:   &stubPermissionView{permissions: map[string]bool{"message.send": true}},
 		MessageSender: actions.OutboundMessageSender(dispatcher),
 	})
-	action := pluginruntime.Action{
+	action := plugins.Action{
 		Kind:       "message.send",
 		TargetType: "group",
 		TargetID:   "2001",
-		MessageSegments: []pluginruntime.ActionSegment{{
+		MessageSegments: []chatevent.MessageSegment{{
 			Type: "text",
 			Data: map[string]any{"text": "正在处理"},
 		}},
 	}
 
-	result, err := service.Execute(context.Background(), "guide-plugin", "local-message-1", action, pluginruntime.Event{
+	result, err := service.Execute(context.Background(), "guide-plugin", "local-message-1", action, chatevent.Event{
 		EventID:   "event-1",
 		EventType: "message.group",
 	})

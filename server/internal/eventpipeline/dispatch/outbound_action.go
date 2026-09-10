@@ -3,22 +3,21 @@ package dispatch
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"strings"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/eventpipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 )
 
-func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event pluginruntime.Event, action pluginruntime.Action) {
+func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event chatevent.Event, action chatevent.MessageCommand) {
 	_, _ = d.ExecuteOutboundAction(ctx, pluginID, requestID, event, action)
 }
 
 // ExecuteOutboundAction sends one plugin message action through the shared
 // permission, rate-limit, metrics, and outbound logging path.
-func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string, requestID string, event pluginruntime.Event, action pluginruntime.Action) (outbound.SendResult, error) {
+func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string, requestID string, event chatevent.Event, action chatevent.MessageCommand) (outbound.SendResult, error) {
 	if d == nil || d.sender == nil {
 		return outbound.SendResult{DeliveryKind: action.Kind}, &onebot11.Error{
 			Code:    onebot11.ErrorCodeSendFailed,
@@ -62,7 +61,7 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		}, attempt, result, err)
 		return result, err
 	}
-	limitTargetType, limitTargetID := d.limitTargetForAction(action)
+	limitTargetType, limitTargetID, limitScope := d.limitTargetForAction(action)
 	if strings.TrimSpace(limitTargetType) == "" {
 		limitTargetType = targetType
 	}
@@ -70,11 +69,13 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		limitTargetID = targetID
 	}
 	limitRequest := outbound.MessageLimitRequest{
+		Scope:      limitScope,
 		PluginID:   pluginID,
 		TargetType: limitTargetType,
 		TargetID:   limitTargetID,
 	}
-	if err := d.waitOutboundLimit(ctx, limitRequest); err != nil {
+	admission, err := d.beginOutboundSend(ctx, limitRequest)
+	if err != nil {
 		result := outbound.SendResult{
 			DeliveryKind: action.Kind,
 			TargetType:   limitTargetType,
@@ -88,23 +89,15 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		}, attempt, result, err)
 		return result, err
 	}
-	if err := d.allowOutboundSend(limitRequest); err != nil {
-		result := outbound.SendResult{
-			DeliveryKind: action.Kind,
-			TargetType:   limitTargetType,
-			TargetID:     limitTargetID,
-		}
-		outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
-			PluginID:    pluginID,
-			RequestID:   requestID,
-			CommandName: commandName,
-			TargetLabel: targetLabel,
-		}, attempt, result, err)
-		return result, err
+	if admission.Scope.SourceAdapter != "" {
+		action.SourceAdapter = admission.Scope.SourceAdapter
+		action.SourceProtocol = admission.Scope.SourceProtocol
 	}
 	outboundStart := time.Now()
 	result, err := outbound.SendAction(ctx, d.sender, d.resolver, event, action)
-	d.recordOutboundSend(limitRequest, err)
+	if admission.Record != nil {
+		admission.Record(err)
+	}
 	d.recordOutboundMetric(action, result, err, time.Since(outboundStart))
 	outbound.LogSendOutcome(d.logger, outbound.SendLogContext{
 		PluginID:    pluginID,
@@ -115,23 +108,14 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 	return result, err
 }
 
-func (d *Dispatcher) allowOutboundSend(request outbound.MessageLimitRequest) error {
+func (d *Dispatcher) beginOutboundSend(ctx context.Context, request outbound.MessageLimitRequest) (outbound.MessageAdmission, error) {
 	d.mu.RLock()
-	breaker := d.outboundBreaker
+	policy := d.outboundPolicy
 	d.mu.RUnlock()
-	if breaker == nil {
-		return nil
+	if policy == nil {
+		return outbound.MessageAdmission{Scope: request.Scope}, nil
 	}
-	return breaker.Allow(request)
-}
-
-func (d *Dispatcher) recordOutboundSend(request outbound.MessageLimitRequest, err error) {
-	d.mu.RLock()
-	breaker := d.outboundBreaker
-	d.mu.RUnlock()
-	if breaker != nil {
-		breaker.Record(request, err)
-	}
+	return policy.Begin(ctx, request)
 }
 
 func (d *Dispatcher) permissionDeclared(ctx context.Context, pluginID string, permission string) bool {
@@ -144,26 +128,16 @@ func (d *Dispatcher) permissionDeclared(ctx context.Context, pluginID string, pe
 	return checker(ctx, pluginID, permission)
 }
 
-func (d *Dispatcher) waitOutboundLimit(ctx context.Context, request outbound.MessageLimitRequest) error {
-	d.mu.RLock()
-	limiter := d.outboundLimiter
-	d.mu.RUnlock()
-	if limiter == nil {
-		return nil
-	}
-	return limiter.Wait(ctx, request)
-}
-
-func (d *Dispatcher) limitTargetForAction(action pluginruntime.Action) (string, string) {
+func (d *Dispatcher) limitTargetForAction(action chatevent.MessageCommand) (string, string, chatevent.IdentityScope) {
 	if action.Kind == "message.reply" && d != nil && d.resolver != nil {
 		if target, ok := d.resolver.ResolveReplyTarget(strings.TrimSpace(action.ReplyToEventID)); ok {
-			return target.TargetType, target.TargetID
+			return target.TargetType, target.TargetID, chatevent.IdentityScope{Kind: "instance", SourceAdapter: target.SourceAdapter, SourceProtocol: target.SourceProtocol, BotID: target.BotID}
 		}
 	}
-	return action.TargetType, action.TargetID
+	return action.TargetType, action.TargetID, chatevent.IdentityScope{Kind: "instance", SourceAdapter: action.SourceAdapter, SourceProtocol: action.SourceProtocol}
 }
 
-func commandNameForEvent(event pluginruntime.Event) string {
+func commandNameForEvent(event chatevent.Event) string {
 	if event.PayloadFields == nil {
 		return ""
 	}
@@ -176,7 +150,7 @@ func commandNameForEvent(event pluginruntime.Event) string {
 	return strings.TrimSpace(commandName)
 }
 
-func buildOutboundTargetLabel(ctx context.Context, event pluginruntime.Event, targetType, targetID string, sender outbound.ActionSender) string {
+func buildOutboundTargetLabel(ctx context.Context, event chatevent.Event, targetType, targetID string, sender outbound.ActionSender) string {
 	targetName := ""
 	if event.Target != nil &&
 		strings.TrimSpace(event.Target.Type) == strings.TrimSpace(targetType) &&
@@ -199,7 +173,7 @@ func buildOutboundTargetLabel(ctx context.Context, event pluginruntime.Event, ta
 	return outbound.BuildTargetLabel(ctx, event.SourceAdapter, targetType, targetID, targetName, actorID, actorNickname, resolver)
 }
 
-func toOutboundSegments(segments []pluginruntime.ActionSegment) []chatevent.MessageSegment {
+func toOutboundSegments(segments []chatevent.MessageSegment) []chatevent.MessageSegment {
 	if len(segments) == 0 {
 		return nil
 	}
@@ -222,7 +196,7 @@ func toOutboundSegments(segments []pluginruntime.ActionSegment) []chatevent.Mess
 // dispatcher MetricsObserver. The adapter label is the OneBot11 shell;
 // outbound currently routes through a single shared adapter, so the label
 // stays bounded and predictable.
-func (d *Dispatcher) recordOutboundMetric(action pluginruntime.Action, result outbound.SendResult, err error, duration time.Duration) {
+func (d *Dispatcher) recordOutboundMetric(action chatevent.MessageCommand, result outbound.SendResult, err error, duration time.Duration) {
 	observer := d.currentMetrics()
 	if observer == nil {
 		return
@@ -233,7 +207,7 @@ func (d *Dispatcher) recordOutboundMetric(action pluginruntime.Action, result ou
 	_ = result
 }
 
-func outboundAdapterLabel(_ pluginruntime.Action) string {
+func outboundAdapterLabel(_ chatevent.MessageCommand) string {
 	return "onebot11"
 }
 
