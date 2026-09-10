@@ -49,7 +49,7 @@ flowchart TB
 | OneBot11 连接与事件 | Adapter / Event Pipeline | adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
 | 三方平台集成 | Integrations | 平台账号、资料、扫码会话与校验结果 | 三方账号服务、插件动作、管理面 |
 | 插件静态声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源 | Lifecycle、管理面 |
-| 插件商店目录 | Plugin Store Service | 已验签 catalog、来源元数据与刷新状态 | 安装流程、管理面 |
+| 插件商店目录 | Plugin Store Service | HTTPS 来源的已校验 catalog、来源元数据与刷新状态 | 安装流程、管理面 |
 | 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、Dispatcher、管理视图 |
 | 后台任务 | Task Registry | 有序持久化记录 | API/WebSocket、恢复逻辑 |
 | 调度任务 | Scheduler | SQLite job 与内存 revision | 插件定向事件 |
@@ -143,6 +143,7 @@ flowchart LR
 | Process/config locks | `server/internal/filelock/` |
 | Storage / migrations | `server/internal/storage/`、`server/internal/sqlcgen/` |
 | Shared update core | `server/internal/releaseupdate/` |
+| 共享诊断 | `server/internal/diagnostics/` |
 | CLI | `server/internal/cli/` |
 | Launcher | `launcher/` |
 
