@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/config.user.schema.json",
   "title": "RayleaBot User Config",
-  "description": "Fixture-ready schema for config/user.yaml. This file is the only formal source for the planning-aligned platform configuration shape.",
+  "description": "Current user configuration. Effective settings combine embedded schema defaults with config/user.yaml; user values replace defaults without treating false, zero, or empty collections as absent. Configuration initialization and normalization write only user.yaml.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,8 +26,7 @@
     "group",
     "adapter",
     "http",
-    "web",
-    "backup"
+    "web"
   ],
   "properties": {
     "schema_version": {
@@ -563,27 +562,9 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "audit_logs_retention_days",
-        "event_records_retention_days",
         "download_cache_retention_days"
       ],
       "properties": {
-        "audit_logs_retention_days": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 90,
-          "description": "Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot has no separate audit-log store; management log retention is controlled by log.retention_days.",
-          "deprecated": true,
-          "x-apply-policy": "read_only"
-        },
-        "event_records_retention_days": {
-          "type": "integer",
-          "minimum": 1,
-          "default": 7,
-          "description": "Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot does not persist a general raw event-record stream.",
-          "deprecated": true,
-          "x-apply-policy": "read_only"
-        },
         "download_cache_retention_days": {
           "type": "integer",
           "minimum": 1,
@@ -844,26 +825,6 @@
           ],
           "description": "Origin template for isolated plugin management pages. Non-empty values must contain {plugin_host}; localhost_only may derive http://p-<id-hash>.plugins.localhost:<port>, while LAN and reverse-proxy exposure require an explicit template.",
           "x-apply-policy": "restart_required"
-        }
-      }
-    },
-    "backup": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "default_consistency"
-      ],
-      "properties": {
-        "default_consistency": {
-          "type": "string",
-          "enum": [
-            "offline",
-            "online"
-          ],
-          "default": "offline",
-          "description": "Deprecated compatibility field retained for existing schema-v3 documents. CLI backup is always offline and synchronous; the management API backup.create task is always online.",
-          "deprecated": true,
-          "x-apply-policy": "read_only"
         }
       }
     },

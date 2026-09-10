@@ -10,7 +10,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/deps"
-	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
@@ -88,9 +87,9 @@ func BuildSpecWithContext(ctx context.Context, snapshot plugins.Snapshot, repoRo
 	}
 
 	initTimeout := durationFromSeconds(runtimeConfig.PluginInitTimeoutSeconds, 10)
-	burstLimit, err := permission.ParseRateLimit(runtimeConfig.IPCActionBurstLimit)
+	burstLimit, err := config.ParseRateLimit(runtimeConfig.IPCActionBurstLimit)
 	if err != nil {
-		burstLimit, _ = permission.ParseRateLimit("100/1s")
+		burstLimit, _ = config.ParseRateLimit("100/1s")
 	}
 
 	return Spec{

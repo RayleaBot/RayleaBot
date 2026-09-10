@@ -206,7 +206,7 @@ func settingsFilePath(root string) string {
 
 func hasInstallationMarkers(root string) bool {
 	development := regularFile(filepath.Join(root, "server", "go.mod")) && regularFile(filepath.Join(root, "launcher", "package.json"))
-	release := regularFile(filepath.Join(root, "config", "default.yaml")) && regularFile(filepath.Join(root, ".deps", "manifest.json"))
+	release := regularFile(filepath.Join(root, "build_info.json")) && regularFile(filepath.Join(root, ".deps", "manifest.json"))
 	return development || release
 }
 

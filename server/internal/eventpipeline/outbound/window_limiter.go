@@ -2,17 +2,16 @@ package outbound
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
 type windowLimiter struct {
 	mu      sync.Mutex
 	now     func() time.Time
-	limit   permission.RateLimit
+	limit   config.RateLimit
 	updated chan struct{}
 	windows map[string]*windowState
 }
@@ -26,7 +25,7 @@ type windowWaiter struct {
 	ready chan struct{}
 }
 
-func newWindowLimiter(now func() time.Time, limit permission.RateLimit) *windowLimiter {
+func newWindowLimiter(now func() time.Time, limit config.RateLimit) *windowLimiter {
 	if now == nil {
 		now = time.Now
 	}
@@ -50,7 +49,7 @@ func pruneWindowRecords(entries []time.Time, now time.Time, window time.Duration
 	return append([]time.Time(nil), entries[index:]...)
 }
 
-func (l *windowLimiter) SetLimit(limit permission.RateLimit) {
+func (l *windowLimiter) SetLimit(limit config.RateLimit) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.limit = limit

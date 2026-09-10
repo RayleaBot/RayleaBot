@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"testing"
 	"time"
 
@@ -46,7 +47,7 @@ func TestAccessListNamespacesDoNotShareIDs(t *testing.T) {
 }
 
 func TestCommandCooldownAndSuperAdminsRespectNamespaces(t *testing.T) {
-	limit := RateLimit{Count: 1, Window: time.Hour}
+	limit := config.RateLimit{Count: 1, Window: time.Hour}
 	checker := NewChecker(CheckerConfig{SuperAdmins: []string{"admin-id"}}, nil, nil, nil, NewCooldownTracker(limit, limit))
 	first := chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq", BotID: "bot-a"}
 	command := &CommandInfo{Permission: "everyone"}

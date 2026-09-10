@@ -71,7 +71,7 @@ function detailFromReadiness(readiness: LauncherReadinessSnapshot, fallback: str
 
 function startingDetail(hasBootstrapConfig: boolean) {
   return hasBootstrapConfig
-    ? "已基于 default.yaml 生成首份用户配置，正在准备运行环境并等待服务就绪。"
+    ? "已根据内嵌默认值 生成首份用户配置，正在准备运行环境并等待服务就绪。"
     : "正在准备运行环境并等待服务就绪。";
 }
 
@@ -174,7 +174,7 @@ function derivePresentationState(snapshot: LauncherSnapshot): Pick<LauncherPrese
   if (bootstrapConfigAvailable) {
     return {
       state: "stopped",
-      detail: localHint || "服务尚未启动。Launcher 会在启动服务前基于 default.yaml 生成首份用户配置。",
+      detail: localHint || "服务尚未启动。Launcher 会在启动服务前根据内嵌默认值 生成首份用户配置。",
     };
   }
 

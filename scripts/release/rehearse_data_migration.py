@@ -46,10 +46,6 @@ def rehearse(repo: Path, binary: Path, output: Path) -> dict:
         port = probe.getsockname()[1]
     config_path = legacy / "config/user.yaml"
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    config["schema_version"] = "3"
-    config.pop("adapters", None)
-    config["onebot"] = {name: {"enabled": False, "url": "", "access_token": ""}
-                        for name in ("forward_ws", "reverse_ws", "http_api", "webhook")}
     config["server"].update(host="127.0.0.1", port=port)
     config_path.write_text(yaml.safe_dump(config, allow_unicode=True), encoding="utf-8")
     database = legacy / "data/rayleabot.db"
@@ -72,7 +68,7 @@ def rehearse(repo: Path, binary: Path, output: Path) -> dict:
     archive = next((legacy / "backups").glob("*.zip"))
     with zipfile.ZipFile(archive) as package:
         manifest = json.loads(package.read("backup-manifest.json"))
-    assert manifest["config_schema_version"] == "3", manifest
+    assert manifest["config_schema_version"] == "4", manifest
     assert manifest["db_schema_version"] == "000007", manifest
 
     run(binary, restored, "config", "init")
@@ -118,7 +114,7 @@ def rehearse(repo: Path, binary: Path, output: Path) -> dict:
     restored_config = yaml.safe_load((restored / "config/user.yaml").read_text(encoding="utf-8"))
     assert restored_config["schema_version"] == "4" and "onebot" not in restored_config
     result = {"archive": str(archive), "source_database_version": 7, "restored_database_version": version,
-              "config_migrated": True, "password_upgraded": True, "access_lists_preserved": True,
+              "current_config_restored": True, "password_upgraded": True, "access_lists_preserved": True,
               "server_exit_code": server.returncode}
     (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result

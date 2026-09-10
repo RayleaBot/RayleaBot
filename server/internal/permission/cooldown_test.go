@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"testing"
 	"time"
 )
@@ -9,8 +10,8 @@ func TestAllowWithinLimit(t *testing.T) {
 	t.Parallel()
 
 	tracker := NewCooldownTracker(
-		RateLimit{Count: 3, Window: time.Minute},
-		RateLimit{Count: 3, Window: time.Minute},
+		config.RateLimit{Count: 3, Window: time.Minute},
+		config.RateLimit{Count: 3, Window: time.Minute},
 	)
 
 	for i := range 3 {
@@ -24,8 +25,8 @@ func TestDenyWhenLimitExceeded(t *testing.T) {
 	t.Parallel()
 
 	tracker := NewCooldownTracker(
-		RateLimit{Count: 2, Window: time.Minute},
-		RateLimit{Count: 2, Window: time.Minute},
+		config.RateLimit{Count: 2, Window: time.Minute},
+		config.RateLimit{Count: 2, Window: time.Minute},
 	)
 
 	tracker.Allow("user:u1")
@@ -40,8 +41,8 @@ func TestAllowAgainAfterWindowExpires(t *testing.T) {
 	t.Parallel()
 
 	tracker := NewCooldownTracker(
-		RateLimit{Count: 1, Window: 50 * time.Millisecond},
-		RateLimit{Count: 1, Window: 50 * time.Millisecond},
+		config.RateLimit{Count: 1, Window: 50 * time.Millisecond},
+		config.RateLimit{Count: 1, Window: 50 * time.Millisecond},
 	)
 
 	if !tracker.Allow("user:u1") {
@@ -65,7 +66,7 @@ func TestAllowAgainAfterWindowExpires(t *testing.T) {
 func TestParseRateLimit(t *testing.T) {
 	t.Parallel()
 
-	limit, err := ParseRateLimit("10/60s")
+	limit, err := config.ParseRateLimit("10/60s")
 	if err != nil {
 		t.Fatalf("ParseRateLimit returned error: %v", err)
 	}
@@ -81,7 +82,7 @@ func TestParseRateLimitRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
 
 	for _, raw := range []string{"", "10", "0/60s", "10/0s", "bad/60s", "10/bad"} {
-		if _, err := ParseRateLimit(raw); err == nil {
+		if _, err := config.ParseRateLimit(raw); err == nil {
 			t.Fatalf("expected %q to be rejected", raw)
 		}
 	}

@@ -2532,7 +2532,7 @@ export interface components {
         } & (unknown & unknown);
         /**
          * RayleaBot User Config
-         * @description Fixture-ready schema for config/user.yaml. This file is the only formal source for the planning-aligned platform configuration shape.
+         * @description Current user configuration. Effective settings combine embedded schema defaults with config/user.yaml; user values replace defaults without treating false, zero, or empty collections as absent. Configuration initialization and normalization write only user.yaml.
          */
         "config.user.schema": {
             /**
@@ -2795,18 +2795,6 @@ export interface components {
             };
             data: {
                 /**
-                 * @deprecated
-                 * @description Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot has no separate audit-log store; management log retention is controlled by log.retention_days.
-                 * @default 90
-                 */
-                audit_logs_retention_days: number;
-                /**
-                 * @deprecated
-                 * @description Deprecated compatibility field retained for existing schema-v3 documents. RayleaBot does not persist a general raw event-record stream.
-                 * @default 7
-                 */
-                event_records_retention_days: number;
-                /**
                  * @description Minimum age in days before the offline cleanup command removes entries from cache/downloads. Default: 15.
                  * @default 15
                  */
@@ -2909,15 +2897,6 @@ export interface components {
                  * @default
                  */
                 plugin_ui_origin_template: string | "" | unknown;
-            };
-            backup: {
-                /**
-                 * @deprecated
-                 * @description Deprecated compatibility field retained for existing schema-v3 documents. CLI backup is always offline and synchronous; the management API backup.create task is always online.
-                 * @default offline
-                 * @enum {string}
-                 */
-                default_consistency: "offline" | "online";
             };
             /**
              * @description Configured chat adapters. An empty list means the bot accepts no chat traffic.

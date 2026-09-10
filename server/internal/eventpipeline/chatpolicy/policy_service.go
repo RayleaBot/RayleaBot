@@ -215,19 +215,19 @@ type ConfigSnapshot struct {
 	CooldownReplyEnabled  bool
 }
 
-func parseCooldownRateLimitWithFallback(raw, fallback string) permission.RateLimit {
-	if limit, err := permission.ParseRateLimit(strings.TrimSpace(raw)); err == nil {
+func parseCooldownRateLimitWithFallback(raw, fallback string) config.RateLimit {
+	if limit, err := config.ParseRateLimit(strings.TrimSpace(raw)); err == nil {
 		return limit
 	}
 	return parseCooldownRateLimit(fallback)
 }
 
-func parseCooldownRateLimit(raw string) permission.RateLimit {
-	limit, err := permission.ParseRateLimit(raw)
+func parseCooldownRateLimit(raw string) config.RateLimit {
+	limit, err := config.ParseRateLimit(raw)
 	if err == nil {
 		return limit
 	}
-	return permission.RateLimit{Count: 1, Window: time.Minute}
+	return config.RateLimit{Count: 1, Window: time.Minute}
 }
 
 func commandPermissionDefaultLevel(cfg config.Config) string {

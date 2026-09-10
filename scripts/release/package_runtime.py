@@ -53,7 +53,6 @@ REQUIRED_PATHS = {
         "build_info.json",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",
-        "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
         "templates/help.menu/template.json",
@@ -66,7 +65,6 @@ REQUIRED_PATHS = {
         "build_info.json",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",
-        "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
         "templates/help.menu/template.json",
@@ -78,7 +76,6 @@ REQUIRED_PATHS = {
         "build_info.json",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",
-        "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
         "templates/help.menu/template.json",
@@ -89,7 +86,6 @@ REQUIRED_PATHS = {
         "build_info.json",
         "LICENSE",
         "THIRD_PARTY_NOTICES.md",
-        "config/default.yaml",
         "web/dist/index.html",
         ".deps/manifest.json",
         "systemd/rayleabot.service",
@@ -217,13 +213,14 @@ def choose_free_port() -> int:
 
 
 def write_user_config(root: Path, port: int) -> Path:
-    default_path = root / "config" / "default.yaml"
     user_path = root / "config" / "user.yaml"
-    text = default_path.read_text(encoding="utf-8")
-    updated = re.sub(r"(?m)^(\s*port:\s*)8080$", rf"\g<1>{port}", text, count=1)
-    if updated == text:
-        raise RuntimeError("failed to rewrite server.port in default config")
-    user_path.write_text(updated, encoding="utf-8")
+    user_path.parent.mkdir(parents=True, exist_ok=True)
+    user_path.write_text(f"server:\n  host: 127.0.0.1\n  port: {port}\n", encoding="utf-8")
+    server_bin = root / ("raylea-server.exe" if (root / "raylea-server.exe").is_file() else "raylea-server")
+    subprocess.run(
+        server_base_command(server_bin) + ["config", "init"],
+        cwd=root, check=True, capture_output=True, text=True, encoding="utf-8", timeout=120,
+    )
     return user_path
 
 

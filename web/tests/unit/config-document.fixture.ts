@@ -81,8 +81,6 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
       plugin_workdir_soft_limit_mb: 256,
     },
     data: {
-      audit_logs_retention_days: 90,
-      event_records_retention_days: 7,
       download_cache_retention_days: 15,
     },
     log: { level: 'info', retention_days: 7, rate_limit_per_plugin: '200/10s' },
@@ -118,7 +116,6 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
       trusted_proxy_cidrs: [],
       plugin_ui_origin_template: '',
     },
-    backup: { default_consistency: 'offline' },
   } satisfies RuntimeConfigDocument
 
   configure?.(config)

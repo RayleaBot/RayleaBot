@@ -117,8 +117,6 @@
       "plugin_workdir_soft_limit_mb": 256
     },
     "data": {
-      "audit_logs_retention_days": 90,
-      "event_records_retention_days": 7,
       "download_cache_retention_days": 15
     },
     "log": {
@@ -159,9 +157,6 @@
         "10.0.0.0/8"
       ],
       "plugin_ui_origin_template": "https://{plugin_host}.plugins.example.com"
-    },
-    "backup": {
-      "default_consistency": "offline"
     }
   },
   "expect": {

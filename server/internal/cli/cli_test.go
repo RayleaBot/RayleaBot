@@ -476,7 +476,7 @@ func TestRestoreRejectsPathTraversal(t *testing.T) {
 		Version:               recovery.BackupManifestVersion,
 		CreatedAt:             "2025-01-01T00:00:00Z",
 		CoreVersion:           "0.2.0",
-		ConfigSchemaVersion:   "3",
+		ConfigSchemaVersion:   internalconfig.CurrentSchemaVersion(),
 		DBSchemaVersion:       "000004",
 		PluginManifestVersion: recovery.PluginManifestVersion,
 		PluginProtocolVersion: recovery.PluginProtocolVersion,
@@ -543,14 +543,14 @@ func TestConfigInitNormalizeValidateCommands(t *testing.T) {
 	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"init"}}); code != 0 {
 		t.Fatalf("config init exit code = %d, want 0", code)
 	}
-	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); err != nil {
-		t.Fatalf("config init should create default.yaml: %v", err)
+	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("config init wrote a second configuration layer: %v", err)
 	}
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatalf("config init should create user.yaml: %v", err)
 	}
 
-	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  port: 9090\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nserver:\n  port: 9090\n")
 	if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{"validate"}}); code != 0 {
 		t.Fatalf("config validate exit code = %d, want 0", code)
 	}
@@ -601,7 +601,7 @@ func TestConfigMutatingCommandsRefuseWhileLifecycleLockHeld(t *testing.T) {
 	defer func(release func() error) { _ = release() }(lock.Close)
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: ::1\n  port: 8080\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nserver:\n  host: ::1\n  port: 8080\n")
 
 	for _, action := range []string{"init", "normalize"} {
 		if code := Run(Command{Name: "config", ConfigPath: configPath, Logger: logger, Args: []string{action}}); code != 1 {
@@ -1013,7 +1013,7 @@ func TestDoctorReportFlagsIncompleteChromiumMetadata(t *testing.T) {
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	platform := deps.CurrentPlatform()
-	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -1047,7 +1047,7 @@ func TestDoctorReportAcceptsCompleteChromiumMetadata(t *testing.T) {
 	repoRoot := t.TempDir()
 	configPath := filepath.Join(repoRoot, "config", "user.yaml")
 	platform := deps.CurrentPlatform()
-	writeFile(t, configPath, "schema_version: \"3\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
+	writeFile(t, configPath, "schema_version: \"4\"\nserver:\n  host: 127.0.0.1\n  port: 8080\n")
 	if err := os.MkdirAll(filepath.Join(repoRoot, "data"), 0o755); err != nil {
 		t.Fatal(err)
 	}

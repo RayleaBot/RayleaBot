@@ -69,7 +69,6 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             deps = temp / ".deps"
             templates = temp / "templates"
-            default_config = temp / "config" / "default.yaml"
             updater_bin = temp / "raylea-updater.exe"
             license_file = temp / "LICENSE"
             notices_file = temp / "THIRD_PARTY_NOTICES.md"
@@ -100,8 +99,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "help.menu" / "template.test.mjs").write_text("test", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
-            default_config.parent.mkdir(parents=True, exist_ok=True)
-            default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
 
             archive_path, sidecar = release_tool.stage_release_root(
                 artifact_id="windows-x64-full",
@@ -113,7 +110,6 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 deps_dir=deps,
                 templates_dir=templates,
-                default_config=default_config,
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
@@ -135,7 +131,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/THIRD_PARTY_NOTICES.md", names)
             self.assertFalse(any("app.asar" in name or "/launcher/" in name for name in names))
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/config/default.yaml", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/config.user.schema.json", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/contracts/plugin-info.schema.json", names)
             self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/app.js.map", names)
@@ -215,7 +211,6 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             deps = temp / ".deps"
             templates = temp / "templates"
-            default_config = temp / "config" / "default.yaml"
             license_file = temp / "LICENSE"
             notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
@@ -237,8 +232,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
-            default_config.parent.mkdir(parents=True, exist_ok=True)
-            default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
 
             archive_path, _ = release_tool.stage_release_root(
                 artifact_id="linux-x64-full",
@@ -250,7 +243,6 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 deps_dir=deps,
                 templates_dir=templates,
-                default_config=default_config,
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref=None,
@@ -277,7 +269,6 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             deps = temp / ".deps"
             templates = temp / "templates"
-            default_config = temp / "config" / "default.yaml"
             license_file = temp / "LICENSE"
             notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
@@ -298,8 +289,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
-            default_config.parent.mkdir(parents=True, exist_ok=True)
-            default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
 
             archive_path, _ = release_tool.stage_release_root(
                 artifact_id="macos-arm64-full",
@@ -311,7 +300,6 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 deps_dir=deps,
                 templates_dir=templates,
-                default_config=default_config,
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref=None,
@@ -337,7 +325,6 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             deps = temp / ".deps"
             templates = temp / "templates"
-            default_config = temp / "config" / "default.yaml"
             systemd_file = temp / "rayleabot.service"
             license_file = temp / "LICENSE"
             notices_file = temp / "THIRD_PARTY_NOTICES.md"
@@ -354,8 +341,6 @@ class ReleaseToolTests(unittest.TestCase):
             (templates / "help.menu" / "template.json").write_text("{}", encoding="utf-8")
             (templates / "status.panel" / "template.json").parent.mkdir(parents=True, exist_ok=True)
             (templates / "status.panel" / "template.json").write_text("{}", encoding="utf-8")
-            default_config.parent.mkdir(parents=True, exist_ok=True)
-            default_config.write_text("schema_version: \"2\"\n", encoding="utf-8")
             systemd_file.write_text("[Service]\nExecStart=/opt/raylea/raylea-server\n", encoding="utf-8")
 
             archive_path, _ = release_tool.stage_release_root(
@@ -368,7 +353,6 @@ class ReleaseToolTests(unittest.TestCase):
                 web_dist=web_dist,
                 deps_dir=deps,
                 templates_dir=templates,
-                default_config=default_config,
                 launcher_bundle=None,
                 systemd_file=systemd_file,
                 release_notes_ref=None,

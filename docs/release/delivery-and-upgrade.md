@@ -19,7 +19,7 @@
 
 - server 二进制与 Launcher 桌面入口；Windows 完整包另含事务安装使用的 `raylea-updater.exe`；
 - `web/dist` 与核心 `templates/`；
-- `config/default.yaml` 与 `.deps/manifest.json`；
+- 内嵌配置默认值与 `.deps/manifest.json`；
 - `build_info.json`；
 - 根仓库 `LICENSE` 与生成、审阅后的 `THIRD_PARTY_NOTICES.md`。
 

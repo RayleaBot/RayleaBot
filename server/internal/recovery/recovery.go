@@ -183,14 +183,14 @@ func EvaluateRestore(manifest BackupManifest, repoRoot string) CompatibilitySumm
 		}
 	}
 
-	if manifest.ConfigSchemaVersion != "unknown" && !config.CanMigrateFrom(manifest.ConfigSchemaVersion) {
+	if manifest.ConfigSchemaVersion != "unknown" && manifest.ConfigSchemaVersion != config.CurrentSchemaVersion() {
 		summary.Status = "blocked"
 		summary.RequiresPostStartChecks = false
 		summary.Issues = append(summary.Issues, CompatibilityIssue{
 			Code:        "recovery.config_schema_unsupported",
 			Severity:    "error",
-			Summary:     "当前程序没有这份备份配置的迁移路径。",
-			Remediation: "先用支持该配置版本的程序恢复并升级配置，再创建新备份。",
+			Summary:     "备份配置格式与当前程序要求不一致。",
+			Remediation: "请选择当前配置格式的备份。",
 		})
 	}
 	if isSchemaNewer(manifest.DBSchemaVersion, storage.CurrentSchemaVersion()) {

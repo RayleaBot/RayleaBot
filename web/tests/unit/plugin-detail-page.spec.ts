@@ -69,8 +69,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     },
     storage: { kv_value_max_bytes: 65536, kv_total_limit_mb: 16, file_max_bytes: 10485760, plugin_workdir_soft_limit_mb: 256 },
     data: {
-      audit_logs_retention_days: 90,
-      event_records_retention_days: 7,
       download_cache_retention_days: 15,
     },
     log: { level: 'info', retention_days: 7, rate_limit_per_plugin: '200/10s' },
@@ -94,7 +92,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       setup_local_only: true,
       plugin_ui_origin_template: 'http://{plugin_host}.plugins.localhost:8080',
     },
-    backup: { default_consistency: 'offline' },
   }
 }
 

@@ -3,14 +3,13 @@ package permission
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type Verdict struct {
@@ -184,52 +183,24 @@ func levelToRank(level string) int {
 	}
 }
 
-type RateLimit struct {
-	Count  int
-	Window time.Duration
-}
-
 type CooldownTracker struct {
-	userLimit  RateLimit
-	groupLimit RateLimit
+	userLimit  config.RateLimit
+	groupLimit config.RateLimit
 	mu         sync.Mutex
 	windows    map[string]*slidingWindow
 }
 
 type slidingWindow struct {
 	timestamps []time.Time
-	limit      RateLimit
+	limit      config.RateLimit
 }
 
-func NewCooldownTracker(userLimit, groupLimit RateLimit) *CooldownTracker {
+func NewCooldownTracker(userLimit, groupLimit config.RateLimit) *CooldownTracker {
 	return &CooldownTracker{
 		userLimit:  userLimit,
 		groupLimit: groupLimit,
 		windows:    make(map[string]*slidingWindow),
 	}
-}
-
-func ParseRateLimit(raw string) (RateLimit, error) {
-	raw = strings.TrimSpace(raw)
-	countText, windowText, ok := strings.Cut(raw, "/")
-	if !ok {
-		return RateLimit{}, fmt.Errorf("invalid rate limit format %q", raw)
-	}
-
-	count, err := strconv.Atoi(strings.TrimSpace(countText))
-	if err != nil || count <= 0 {
-		return RateLimit{}, fmt.Errorf("invalid rate limit count %q", countText)
-	}
-
-	window, err := time.ParseDuration(strings.TrimSpace(windowText))
-	if err != nil || window <= 0 {
-		return RateLimit{}, fmt.Errorf("invalid rate limit window %q", windowText)
-	}
-
-	return RateLimit{
-		Count:  count,
-		Window: window,
-	}, nil
 }
 
 func (t *CooldownTracker) Allow(key string) bool {
@@ -263,7 +234,7 @@ func (t *CooldownTracker) Allow(key string) bool {
 	return true
 }
 
-func (t *CooldownTracker) limitForKey(key string) RateLimit {
+func (t *CooldownTracker) limitForKey(key string) config.RateLimit {
 	if strings.HasPrefix(key, "group:") {
 		return t.groupLimit
 	}

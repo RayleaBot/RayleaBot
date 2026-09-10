@@ -22,7 +22,6 @@ type Config struct {
 	Adapter       AdapterConfig            `json:"adapter" yaml:"adapter"`
 	HTTP          HTTPConfig               `json:"http" yaml:"http"`
 	Web           WebConfig                `json:"web" yaml:"web"`
-	Backup        BackupConfig             `json:"backup" yaml:"backup"`
 }
 
 type CommandConfig struct {
@@ -57,8 +56,6 @@ type SchedulerConfig struct {
 }
 
 type DataConfig struct {
-	AuditLogsRetentionDays     int `json:"audit_logs_retention_days" yaml:"audit_logs_retention_days"`
-	EventRecordsRetentionDays  int `json:"event_records_retention_days" yaml:"event_records_retention_days"`
 	DownloadCacheRetentionDays int `json:"download_cache_retention_days" yaml:"download_cache_retention_days"`
 }
 
@@ -192,8 +189,4 @@ type WebConfig struct {
 	PublicOrigin           string   `json:"public_origin" yaml:"public_origin"`
 	TrustedProxyCIDRs      []string `json:"trusted_proxy_cidrs" yaml:"trusted_proxy_cidrs"`
 	PluginUIOriginTemplate string   `json:"plugin_ui_origin_template" yaml:"plugin_ui_origin_template"`
-}
-
-type BackupConfig struct {
-	DefaultConsistency string `json:"default_consistency" yaml:"default_consistency"`
 }

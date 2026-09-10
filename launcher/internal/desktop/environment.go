@@ -46,23 +46,21 @@ func inspectEnvironment(settings LauncherResolvedSettings, probeWorkdir bool, pr
 		checkPath("server.executable", "server.executable_missing", "服务端可执行文件", regularFile(settings.ServerExecutablePath), "已找到 raylea-server。", fmt.Sprintf("未找到服务端可执行文件：%s", settings.ServerExecutablePath), "请选择有效的 raylea-server 可执行文件。", true),
 	}
 
-	defaultConfig := filepath.Join(filepath.Dir(settings.ConfigPath), "default.yaml")
 	userConfigExists := regularFile(settings.ConfigPath)
-	defaultConfigExists := regularFile(defaultConfig)
 	switch {
 	case userConfigExists:
 		checks = append(checks, okCheck("config.file", "用户配置", "config/user.yaml 可用。"))
-	case defaultConfigExists:
+	case !pathExists(settings.ConfigPath) && regularFile(settings.ServerExecutablePath):
 		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "config.bootstrap_available", Title: "用户配置", Severity: "warning",
 			Summary: "首次启动时将自动生成用户配置。", Detail: fmt.Sprintf("尚未找到 %s", settings.ConfigPath),
-			Remediation: "启动服务时会基于 config/default.yaml 生成 config/user.yaml。",
+			Remediation: "启动服务时会按内嵌默认值生成 config/user.yaml。",
 		})
 	default:
 		checks = append(checks, EnvironmentCheckResult{
 			Scope: "preflight", Code: "config.missing", Title: "用户配置", Severity: "error",
-			Summary: "配置基线不完整。", Detail: "user.yaml 与 default.yaml 均不存在。",
-			Remediation: "请恢复 config/default.yaml，或选择有效的 config/user.yaml。",
+			Summary: "无法读取或初始化用户配置。", Detail: "配置路径必须是文件，初始化需要可用的服务端程序。",
+			Remediation: "请选择有效的服务端程序与用户配置文件路径。",
 		})
 	}
 

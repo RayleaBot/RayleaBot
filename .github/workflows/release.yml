@@ -206,7 +206,6 @@ jobs:
             --web-dist web/dist \
             --deps-dir .deps \
             --templates-dir templates \
-            --default-config config/default.yaml \
             --license-file LICENSE \
             --third-party-notices THIRD_PARTY_NOTICES.md \
             --output-dir dist/release \
@@ -307,7 +306,6 @@ jobs:
             --web-dist web/dist \
             --deps-dir .deps \
             --templates-dir templates \
-            --default-config config/default.yaml \
             --license-file LICENSE \
             --third-party-notices THIRD_PARTY_NOTICES.md \
             --systemd-file packaging/systemd/rayleabot.service \

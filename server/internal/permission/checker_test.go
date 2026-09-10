@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"testing"
 	"time"
 )
@@ -59,7 +60,7 @@ func TestGovernanceReadFailuresDenyWithoutConsumingCooldown(t *testing.T) {
 				state = &stubWhitelistStateRepo{}
 				blacklist = failingBlacklistRepo{blacklist, "group"}
 			}
-			cooldown := NewCooldownTracker(RateLimit{Count: 1, Window: time.Minute}, RateLimit{Count: 1, Window: time.Minute})
+			cooldown := NewCooldownTracker(config.RateLimit{Count: 1, Window: time.Minute}, config.RateLimit{Count: 1, Window: time.Minute})
 			checker := NewChecker(CheckerConfig{}, whitelist, state, blacklist, cooldown)
 			verdict := checker.Check(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "member", "group", &CommandInfo{Permission: "everyone"})
 			if verdict.Allowed || verdict.ErrorCode != "permission.unavailable" || !errors.Is(verdict.Err, context.DeadlineExceeded) {
@@ -187,8 +188,8 @@ func TestSuperAdminBypassesAllChecks(t *testing.T) {
 		&stubWhitelistStateRepo{enabled: true},
 		blacklistRepo,
 		NewCooldownTracker(
-			RateLimit{Count: 1, Window: time.Minute},
-			RateLimit{Count: 1, Window: time.Minute},
+			config.RateLimit{Count: 1, Window: time.Minute},
+			config.RateLimit{Count: 1, Window: time.Minute},
 		),
 	)
 
@@ -306,8 +307,8 @@ func TestWhitelistDoesNotBypassCooldown(t *testing.T) {
 	whitelistRepo := newStubWhitelistRepo()
 	whitelistRepo.allow("user", "10001")
 	cooldown := NewCooldownTracker(
-		RateLimit{Count: 1, Window: time.Minute},
-		RateLimit{Count: 1, Window: time.Minute},
+		config.RateLimit{Count: 1, Window: time.Minute},
+		config.RateLimit{Count: 1, Window: time.Minute},
 	)
 	checker := NewChecker(CheckerConfig{}, whitelistRepo, &stubWhitelistStateRepo{enabled: true}, nil, cooldown)
 	command := &CommandInfo{Permission: "everyone"}
@@ -401,8 +402,8 @@ func TestCooldownTriggered(t *testing.T) {
 	t.Parallel()
 
 	cooldown := NewCooldownTracker(
-		RateLimit{Count: 2, Window: time.Minute},
-		RateLimit{Count: 2, Window: time.Minute},
+		config.RateLimit{Count: 2, Window: time.Minute},
+		config.RateLimit{Count: 2, Window: time.Minute},
 	)
 	checker := NewChecker(CheckerConfig{}, nil, nil, nil, cooldown)
 	command := &CommandInfo{Permission: "everyone"}
@@ -433,8 +434,8 @@ func TestPrivateMessageSkipsGroupChecks(t *testing.T) {
 	whitelistRepo := newStubWhitelistRepo()
 	whitelistRepo.allow("user", "user1")
 	cooldown := NewCooldownTracker(
-		RateLimit{Count: 100, Window: time.Minute},
-		RateLimit{Count: 1, Window: time.Minute},
+		config.RateLimit{Count: 100, Window: time.Minute},
+		config.RateLimit{Count: 1, Window: time.Minute},
 	)
 	checker := NewChecker(CheckerConfig{}, whitelistRepo, &stubWhitelistStateRepo{enabled: true}, blacklistRepo, cooldown)
 

@@ -3,6 +3,7 @@ package recovery
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"slices"
 	"testing"
 	"time"
@@ -488,7 +489,7 @@ func TestEvaluateRestoreRejectsBackupV2ButAllowsOldPluginsInsideBackupV3(t *test
 
 	backupV3 := BackupManifest{
 		Version: BackupManifestVersion, PluginManifestVersion: PluginManifestVersion,
-		ConfigSchemaVersion:   "3",
+		ConfigSchemaVersion:   config.CurrentSchemaVersion(),
 		PluginProtocolVersion: PluginProtocolVersion, PluginArtifactVersion: PluginArtifactVersion,
 		PluginUIBridgeVersion: PluginUIBridgeVersion,
 		Plugins: []BackupManifestPlugin{{

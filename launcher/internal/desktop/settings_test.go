@@ -74,7 +74,7 @@ func TestResolveLauncherSettingsPrefersBuiltServer(t *testing.T) {
 
 func TestDiscoverBasePathPrefersExecutableInstallationOverWorkingDirectory(t *testing.T) {
 	executableRoot := t.TempDir()
-	writeTestFile(t, filepath.Join(executableRoot, "config", "default.yaml"), "schema_version: \"2\"\n")
+	writeTestFile(t, filepath.Join(executableRoot, "build_info.json"), "{}")
 	writeTestFile(t, filepath.Join(executableRoot, ".deps", "manifest.json"), "{\"manifest_version\":4}\n")
 	workingRoot := createDevelopmentInstall(t)
 	executable := filepath.Join(executableRoot, "RayleaLauncher")

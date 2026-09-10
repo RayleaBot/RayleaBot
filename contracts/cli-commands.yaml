@@ -81,7 +81,7 @@ commands:
 
   config:
     name: config
-    summary: 维护本地配置模板与用户配置文件。
+    summary: 维护本地用户配置文件。
     availability:
       online: false
       offline: true
@@ -91,23 +91,23 @@ commands:
     subcommands:
       init:
         name: init
-        summary: 创建默认配置模板并写出规范化用户配置。
+        summary: 按内嵌 schema 默认值创建或规范化用户配置。
         description: >
-          确保存在按当前 schema 生成的默认模板，将用户配置合并到默认值之上，
+          将用户配置合并到内嵌 schema 默认值之上，
           整体通过 schema 与运行时约束校验后写出规范化配置文件。
           命令会写入配置目录；服务生命周期锁被占用时直接拒绝执行，
           必须在停服窗口运行。
         exit_codes:
-          0: 配置模板与用户配置已初始化并规范化
+          0: 用户配置已初始化并规范化
           1: 生命周期锁、文件读写、schema 校验或运行时约束失败
         x-fixtures:
           - fixtures/cli/ok.config-init.yaml
           - fixtures/cli/invalid.config-init.online.yaml
       normalize:
         name: normalize
-        summary: 按当前 schema 整理默认模板和用户配置。
+        summary: 按当前 schema 整理用户配置。
         description: >
-          与 init 使用同一规范化事务：确保默认模板存在、合并用户覆盖值、
+          与 init 使用同一规范化事务：合并内嵌默认值与用户覆盖值、
           通过 schema 校验与运行时约束检查后写回规范化文档。
           服务生命周期锁被占用时直接拒绝执行；请在停服窗口运行。
         exit_codes:
@@ -119,7 +119,7 @@ commands:
         name: validate
         summary: 校验配置文件，不修改文件内容。
         description: >
-          以只读方式加载默认模板与用户配置，执行 schema 校验与
+          以只读方式合并内嵌 schema 默认值与用户配置，执行 schema 校验与
           运行时约束检查，不写回任何文件；可在线或停服执行。
         availability:
           online: true

@@ -3,7 +3,7 @@ package config
 func Load(configPath, schemaPath string) (Config, Summary, error) {
 	var cfg Config
 
-	document, cfg, err := loadCanonicalDocument(configPath, schemaPath, true)
+	document, cfg, err := loadCanonicalDocument(configPath, schemaPath)
 	if err != nil {
 		return cfg, Summary{}, err
 	}
@@ -19,11 +19,9 @@ func Normalize(configPath, schemaPath string) (Config, Summary, error) {
 	return normalizeCanonicalDocument(configPath, schemaPath)
 }
 
-// Validate reads the config the way Load does but leaves the file alone: a
-// document written by an older build is migrated in memory to be judged against
-// the current schema, and the migrated form is not persisted.
+// Validate checks the effective configuration without changing the user file.
 func Validate(configPath, schemaPath string) (Config, Summary, error) {
-	document, cfg, err := loadCanonicalDocument(configPath, schemaPath, false)
+	document, cfg, err := loadCanonicalDocument(configPath, schemaPath)
 	if err != nil {
 		return cfg, Summary{}, err
 	}

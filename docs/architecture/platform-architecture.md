@@ -108,7 +108,7 @@ flowchart LR
 
 | 资源 | 职责方 | 语义 |
 | --- | --- | --- |
-| `config/default.yaml`、`config/user.yaml` | Config | 校验后合并为运行快照 |
+| 内嵌 schema 默认值、`config/user.yaml` | Config | 校验后合并为运行快照 |
 | SQLite | Server services | auth、tasks、plugins、scheduler、logs 等正式状态 |
 | `data/` | Server services | 状态库与服务端业务数据 |
 | `data/plugins/` | Plugin File Store | 每插件文件工作目录；artifact 升级不覆盖该目录 |

@@ -93,8 +93,6 @@ request:
       file_max_bytes: 10485760
       plugin_workdir_soft_limit_mb: 256
     data:
-      audit_logs_retention_days: 90
-      event_records_retention_days: 7
       download_cache_retention_days: 15
     log:
       level: info
@@ -127,8 +125,6 @@ request:
       public_origin: ""
       setup_local_only: true
       trusted_proxy_cidrs: []
-    backup:
-      default_consistency: offline
 response:
   status: 200
   body:
@@ -222,8 +218,6 @@ response:
         file_max_bytes: 10485760
         plugin_workdir_soft_limit_mb: 256
       data:
-        audit_logs_retention_days: 90
-        event_records_retention_days: 7
         download_cache_retention_days: 15
       log:
         level: info
@@ -256,8 +250,6 @@ response:
         public_origin: ""
         setup_local_only: true
         trusted_proxy_cidrs: []
-      backup:
-        default_consistency: offline
     redacted_fields: []
     restart_required: true
     apply_effects:

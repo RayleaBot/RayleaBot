@@ -25,7 +25,6 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		"adapter":              configAdapterDocument(cfg),
 		"http":                 configHTTPDocument(cfg),
 		"web":                  configWebDocument(cfg),
-		"backup":               configBackupDocument(cfg),
 	}
 }
 
@@ -34,17 +33,14 @@ func CanonicalDocumentFromTyped(cfg Config) map[string]any {
 }
 
 func configCommandPrefixes(cfg Config) []string {
-	if cfg.Command != nil && len(cfg.Command.Prefixes) > 0 {
+	if cfg.Command != nil {
 		return append([]string{}, cfg.Command.Prefixes...)
 	}
 	return []string{"/"}
 }
 
 func configBuiltinMenuCommands(cfg Config) []string {
-	if len(cfg.Builtin.Menu.Commands) > 0 {
-		return append([]string{}, cfg.Builtin.Menu.Commands...)
-	}
-	return []string{"help", "帮助"}
+	return append([]string{}, cfg.Builtin.Menu.Commands...)
 }
 
 func configBuiltinMenuPrefixes(cfg Config) []string {
@@ -90,10 +86,7 @@ func configGroupCommandRateLimit(cfg Config) string {
 }
 
 func configRenderFooterTemplate(cfg Config) string {
-	if strings.TrimSpace(cfg.Render.FooterTemplate) != "" {
-		return cfg.Render.FooterTemplate
-	}
-	return DefaultRenderFooterTemplate
+	return cfg.Render.FooterTemplate
 }
 
 func configRenderDefaultOutput(cfg Config) string {
@@ -251,12 +244,6 @@ func configWebDocument(cfg Config) map[string]any {
 	}
 }
 
-func configBackupDocument(cfg Config) map[string]any {
-	return map[string]any{
-		"default_consistency": cfg.Backup.DefaultConsistency,
-	}
-}
-
 func configRenderDocument(cfg Config) map[string]any {
 	return map[string]any{
 		"worker_count":               cfg.Render.WorkerCount,
@@ -316,8 +303,6 @@ func configStorageDocument(cfg Config) map[string]any {
 
 func configDataDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"audit_logs_retention_days":     cfg.Data.AuditLogsRetentionDays,
-		"event_records_retention_days":  cfg.Data.EventRecordsRetentionDays,
 		"download_cache_retention_days": cfg.Data.DownloadCacheRetentionDays,
 	}
 }

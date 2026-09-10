@@ -21,7 +21,6 @@ func TestExtractWindowsArtifactValidatesSignedInventoryAndBuildIdentity(t *testi
 		"RayleaLauncher.exe":     []byte("launcher"),
 		"raylea-server.exe":      []byte("server"),
 		"raylea-updater.exe":     []byte("updater"),
-		"config/default.yaml":    []byte("schema_version: 2\n"),
 		"LICENSE":                []byte("AGPL"),
 		"THIRD_PARTY_NOTICES.md": []byte("notices"),
 	})

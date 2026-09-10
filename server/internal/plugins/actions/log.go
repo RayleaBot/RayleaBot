@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -17,7 +16,7 @@ const defaultPluginLogRateLimit = "200/10s"
 type PluginLogLimiter struct {
 	mu      sync.Mutex
 	now     func() time.Time
-	limit   permission.RateLimit
+	limit   config.RateLimit
 	records map[string][]time.Time
 }
 
@@ -33,7 +32,7 @@ func (l *PluginLogLimiter) ApplyConfig(cfg config.Config) {
 	l.SetLimit(parsePluginLogRateLimit(cfg))
 }
 
-func (l *PluginLogLimiter) SetLimit(limit permission.RateLimit) {
+func (l *PluginLogLimiter) SetLimit(limit config.RateLimit) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.limit = limit
@@ -75,12 +74,12 @@ func prunePluginLogEntries(entries []time.Time, now time.Time, window time.Durat
 	return append([]time.Time(nil), entries[index:]...)
 }
 
-func parsePluginLogRateLimit(cfg config.Config) permission.RateLimit {
-	limit, err := permission.ParseRateLimit(strings.TrimSpace(cfg.Log.RateLimitPerPlugin))
+func parsePluginLogRateLimit(cfg config.Config) config.RateLimit {
+	limit, err := config.ParseRateLimit(strings.TrimSpace(cfg.Log.RateLimitPerPlugin))
 	if err == nil {
 		return limit
 	}
-	limit, _ = permission.ParseRateLimit(defaultPluginLogRateLimit)
+	limit, _ = config.ParseRateLimit(defaultPluginLogRateLimit)
 	return limit
 }
 

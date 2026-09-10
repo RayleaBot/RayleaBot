@@ -366,8 +366,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"plugin_workdir_soft_limit_mb": 256,
 		},
 		"data": map[string]any{
-			"audit_logs_retention_days":     90,
-			"event_records_retention_days":  7,
 			"download_cache_retention_days": 15,
 		},
 		"log": map[string]any{
@@ -406,9 +404,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"public_origin":             "",
 			"trusted_proxy_cidrs":       []any{},
 			"plugin_ui_origin_template": "",
-		},
-		"backup": map[string]any{
-			"default_consistency": "offline",
 		},
 	}
 

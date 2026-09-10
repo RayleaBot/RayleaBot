@@ -71,7 +71,7 @@ func TestLoadDoesNotWriteConfigFilesWhenMissing(t *testing.T) {
 	}
 }
 
-func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
+func TestNormalizeBootstrapsUserConfigWhenMissing(t *testing.T) {
 	t.Parallel()
 
 	configPath := filepath.Join(t.TempDir(), "config", "user.yaml")
@@ -93,8 +93,8 @@ func TestNormalizeBootstrapsDefaultAndUserConfigWhenMissing(t *testing.T) {
 	}
 
 	defaultPath := filepath.Join(filepath.Dir(configPath), "default.yaml")
-	if _, err := os.Stat(defaultPath); err != nil {
-		t.Fatalf("default.yaml was not created: %v", err)
+	if _, err := os.Stat(defaultPath); !os.IsNotExist(err) {
+		t.Fatalf("unexpected default.yaml: %v", err)
 	}
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatalf("user.yaml was not created: %v", err)
@@ -148,8 +148,8 @@ func TestInitWritesCanonicalConfig(t *testing.T) {
 	if _, _, err := Init(configPath, schemaPath); err != nil {
 		t.Fatalf("Init() error = %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); err != nil {
-		t.Fatalf("default.yaml was not created: %v", err)
+	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); !os.IsNotExist(err) {
+		t.Fatalf("unexpected default.yaml: %v", err)
 	}
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatalf("user.yaml was not created: %v", err)
@@ -189,18 +189,12 @@ func TestValidateDoesNotRewriteConfig(t *testing.T) {
 	}
 }
 
-func TestLoadMergesDefaultAndUserOverrides(t *testing.T) {
+func TestLoadMergesEmbeddedDefaultsAndUserOverrides(t *testing.T) {
 	t.Parallel()
 
 	configDir := filepath.Join(t.TempDir(), "config")
 	configPath := filepath.Join(configDir, "user.yaml")
 	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
-
-	defaultDoc := newPlanningConfigDocument()
-	defaultDoc["server"].(map[string]any)["host"] = "127.0.0.1"
-	defaultDoc["server"].(map[string]any)["port"] = 8080
-	defaultDoc["log"].(map[string]any)["level"] = "info"
-	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
 
 	override := map[string]any{
 		"schema_version": "4",
@@ -440,51 +434,16 @@ func TestSaveDocumentAcceptsRenderOutputAndDeviceScalePercent(t *testing.T) {
 	}
 }
 
-func TestLoadHealsNullPlanningAlignedValues(t *testing.T) {
+func TestLoadRejectsExplicitNullValues(t *testing.T) {
 	t.Parallel()
-
-	configDir := filepath.Join(t.TempDir(), "config")
-	configPath := filepath.Join(configDir, "user.yaml")
-	schemaPath := filepath.Join("..", "..", "..", "contracts", "config.user.schema.json")
-
-	defaultDoc := newPlanningConfigDocument()
-	defaultDoc["adapter"].(map[string]any)["connect_timeout_seconds"] = nil
-	defaultDoc["adapter"].(map[string]any)["reconnect_initial_seconds"] = nil
-	defaultDoc["adapter"].(map[string]any)["reconnect_multiplier"] = nil
-	defaultDoc["adapter"].(map[string]any)["reconnect_max_seconds"] = nil
-	defaultDoc["adapter"].(map[string]any)["reconnect_jitter_ratio"] = nil
-	defaultDoc["scheduler"].(map[string]any)["timezone"] = nil
-	writeYAMLDocument(t, filepath.Join(configDir, "default.yaml"), defaultDoc)
-	writeYAMLDocument(t, configPath, map[string]any{
-		"schema_version": "4",
-		"server": map[string]any{
-			"host": "127.0.0.1",
-			"port": 8080,
-		},
-	})
-
-	cfg, _, err := Load(configPath, schemaPath)
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-
-	if cfg.Adapter.ConnectTimeoutSeconds != 15 {
-		t.Fatalf("Adapter.ConnectTimeoutSeconds = %d, want 15", cfg.Adapter.ConnectTimeoutSeconds)
-	}
-	if cfg.Adapter.ReconnectInitialSeconds != 2 {
-		t.Fatalf("Adapter.ReconnectInitialSeconds = %d, want 2", cfg.Adapter.ReconnectInitialSeconds)
-	}
-	if cfg.Adapter.ReconnectMultiplier != 2 {
-		t.Fatalf("Adapter.ReconnectMultiplier = %v, want 2", cfg.Adapter.ReconnectMultiplier)
-	}
-	if cfg.Adapter.ReconnectMaxSeconds != 120 {
-		t.Fatalf("Adapter.ReconnectMaxSeconds = %d, want 120", cfg.Adapter.ReconnectMaxSeconds)
-	}
-	if cfg.Adapter.ReconnectJitterRatio != 0.2 {
-		t.Fatalf("Adapter.ReconnectJitterRatio = %v, want 0.2", cfg.Adapter.ReconnectJitterRatio)
-	}
-	if cfg.Scheduler.Timezone != DefaultTimezone {
-		t.Fatalf("Scheduler.Timezone = %q, want %q", cfg.Scheduler.Timezone, DefaultTimezone)
+	for _, field := range []string{"connect_timeout_seconds", "reconnect_multiplier"} {
+		t.Run(field, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "user.yaml")
+			writeYAMLDocument(t, path, map[string]any{"adapter": map[string]any{field: nil}})
+			if _, _, err := Load(path, ""); err == nil {
+				t.Fatal("explicit null configuration accepted")
+			}
+		})
 	}
 }
 
@@ -676,8 +635,6 @@ func newPlanningConfigDocument() map[string]any {
 			"plugin_workdir_soft_limit_mb": 256,
 		},
 		"data": map[string]any{
-			"audit_logs_retention_days":     90,
-			"event_records_retention_days":  7,
 			"download_cache_retention_days": 15,
 		},
 		"log": map[string]any{
@@ -716,9 +673,6 @@ func newPlanningConfigDocument() map[string]any {
 			"public_origin":             "",
 			"plugin_ui_origin_template": "",
 			"trusted_proxy_cidrs":       []string{},
-		},
-		"backup": map[string]any{
-			"default_consistency": "offline",
 		},
 	}
 }

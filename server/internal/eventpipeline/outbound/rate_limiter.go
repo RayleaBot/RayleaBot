@@ -8,7 +8,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/permission"
 )
 
 const (
@@ -82,11 +81,11 @@ func rateLimitedError() error {
 	}
 }
 
-func parseOutboundRateLimit(raw string, fallback string) permission.RateLimit {
-	limit, err := permission.ParseRateLimit(strings.TrimSpace(raw))
+func parseOutboundRateLimit(raw string, fallback string) config.RateLimit {
+	limit, err := config.ParseRateLimit(strings.TrimSpace(raw))
 	if err == nil {
 		return limit
 	}
-	limit, _ = permission.ParseRateLimit(fallback)
+	limit, _ = config.ParseRateLimit(fallback)
 	return limit
 }

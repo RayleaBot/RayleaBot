@@ -35,7 +35,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--web-dist", default="web/dist")
     parser.add_argument("--deps-dir", default=".deps")
     parser.add_argument("--templates-dir", default="templates")
-    parser.add_argument("--default-config", default="config/default.yaml")
     parser.add_argument("--output-dir", default="dist/release")
     parser.add_argument("--launcher-bundle", default="")
     parser.add_argument("--updater-bin", default="")
@@ -82,8 +81,6 @@ def main(argv: list[str] | None = None) -> int:
         args.deps_dir,
         "--templates-dir",
         args.templates_dir,
-        "--default-config",
-        args.default_config,
         "--license-file",
         args.license_file,
         "--third-party-notices",

@@ -6,8 +6,7 @@ const (
 	AdapterTypeQQOfficial = "qqofficial"
 )
 
-// Identifiers the schema-3 migration assigns to the adapters that used to be
-// singleton blocks. They also name the ingress routes those adapters keep.
+// Suggested instance identifiers used by configuration examples and tests.
 const (
 	DefaultOneBot11AdapterID   = "onebot11"
 	DefaultQQOfficialAdapterID = "qq-official"

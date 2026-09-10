@@ -13,7 +13,6 @@ func TestInspectEnvironmentAllowsConfigBootstrapAndPreparedChromium(t *testing.T
 	root := t.TempDir()
 	server := filepath.Join(root, "raylea-server")
 	writeTestFile(t, server, "server")
-	writeTestFile(t, filepath.Join(root, "config", "default.yaml"), "schema_version: \"2\"\n")
 	platform := manifestPlatform()
 	browserRelative := "browser/chromium"
 	ffmpegRelative := "bin/ffmpeg"
