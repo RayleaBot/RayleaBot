@@ -59,7 +59,7 @@
 
 Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆盖全部 Go 包。SQL 例外的复审日期到期产生维护提示；登记缺失、字段无效、文件不存在或与实际 SQL 使用不符仍阻止结构检查。
 
-PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播和协议事件；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者，SQL 例外登记变化触发 Server 与 CI 自检。跨目录重命名同时按来源和目标路径识别影响范围。
+PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者，SQL 例外登记变化触发 Server 与 CI 自检。跨目录重命名同时按来源和目标路径识别影响范围。
 
 Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。前者构建真实 Server，在临时配置和 SQLite 目录验证静态路由、鉴权、配置保存、治理作用域隔离及日志详情；后者模拟插件管理页握手与加载故障。开发模式 E2E 的模拟配置和日志分页分别维护，不替代真实接口验证。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
 

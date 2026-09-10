@@ -122,7 +122,7 @@ jobs:
           go test -race
           ./internal/app ./internal/configruntime ./internal/eventpipeline/...
           ./internal/plugins/catalog ./internal/plugins/runtime ./internal/plugins/lifecycle
-          ./internal/pubsub ./internal/wsevents
+          ./internal/pubsub ./internal/wsevents ./internal/onebot11 ./internal/storage
 
       - name: Run core Go lint
         uses: golangci/golangci-lint-action@v9
