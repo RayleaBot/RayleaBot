@@ -9,13 +9,13 @@ import (
 	"testing"
 )
 
-func TestManifestPlatformNormalizesSupportedArchitectures(t *testing.T) {
+func TestPlatformNormalizesSupportedArchitectures(t *testing.T) {
 	t.Parallel()
-	if got := ManifestPlatform("windows", "amd64"); got != "windows-x64" {
-		t.Fatalf("ManifestPlatform(windows, amd64) = %q", got)
+	if got := Platform("windows", "amd64"); got != "windows-x64" {
+		t.Fatalf("Platform(windows, amd64) = %q", got)
 	}
-	if got := ManifestPlatform("darwin", "arm64"); got != "macos-arm64" {
-		t.Fatalf("ManifestPlatform(darwin, arm64) = %q", got)
+	if got := Platform("darwin", "arm64"); got != "macos-arm64" {
+		t.Fatalf("Platform(darwin, arm64) = %q", got)
 	}
 }
 

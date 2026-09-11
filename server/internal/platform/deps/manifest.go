@@ -77,10 +77,6 @@ func CurrentPlatform() string {
 	return Platform(runtime.GOOS, runtime.GOARCH)
 }
 
-func ManifestPlatform(goos, goarch string) string {
-	return Platform(goos, goarch)
-}
-
 func Platform(goos, goarch string) string {
 	switch goos {
 	case "windows":
