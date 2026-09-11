@@ -13,12 +13,16 @@ import (
 )
 
 // SHA256File hashes a bounded regular file. Callers own symlink/reparse policy.
-func SHA256File(ctx context.Context, path string, limit int64) (string, error) {
+func SHA256File(ctx context.Context, path string, limit int64) (digest string, err error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); err == nil && closeErr != nil {
+			digest, err = "", closeErr
+		}
+	}()
 	info, err := file.Stat()
 	if err != nil {
 		return "", err
