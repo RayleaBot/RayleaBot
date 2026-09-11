@@ -15,14 +15,6 @@ type ProtectedRouteModule interface {
 	RegisterProtectedRoutes(chi.Router)
 }
 
-type PublicRouteFunc func(chi.Router)
-
-func (fn PublicRouteFunc) RegisterPublicRoutes(r chi.Router) {
-	if fn != nil {
-		fn(r)
-	}
-}
-
 type ProtectedRouteFunc func(chi.Router)
 
 func (fn ProtectedRouteFunc) RegisterProtectedRoutes(r chi.Router) {

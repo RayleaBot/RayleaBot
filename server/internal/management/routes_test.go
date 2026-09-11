@@ -15,6 +15,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type publicRouteFunc func(chi.Router)
+
+func (fn publicRouteFunc) RegisterPublicRoutes(r chi.Router) { fn(r) }
+
 func TestRegisterManagementRoutes(t *testing.T) {
 	router := chi.NewRouter()
 	pluginUI := NewPluginManagementUIHandlers(PluginManagementUIDeps{})
@@ -26,7 +30,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewCoreHandlers(CoreDeps{}),
 			DevelopmentRoutes{},
 			NewProtocolHandlers(nil),
-			PublicRouteFunc(func(r chi.Router) {
+			publicRouteFunc(func(r chi.Router) {
 				r.Post("/api/webhooks/{plugin_id}/{route}", noopHandler)
 			}),
 			pluginUI,
