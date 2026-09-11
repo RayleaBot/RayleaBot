@@ -18,7 +18,7 @@ func TestWriteJSONLineRetriesShortWrites(t *testing.T) {
 		"request_id": "req_runtime_ping_0001",
 	}
 
-	if err := writeJSONLine(writer, frame); err != nil {
+	if err := writeJSONLineWithLimit(writer, frame, 0); err != nil {
 		t.Fatalf("writeJSONLine returned error: %v", err)
 	}
 
@@ -101,7 +101,7 @@ func TestWriteJSONLineRejectsInvalidEmbeddedJSON(t *testing.T) {
 		},
 	}
 
-	err := writeJSONLine(writer, frame)
+	err := writeJSONLineWithLimit(writer, frame, 0)
 	if err == nil {
 		t.Fatal("expected writeJSONLine to reject invalid embedded json")
 	}

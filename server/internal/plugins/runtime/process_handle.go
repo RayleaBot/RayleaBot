@@ -143,10 +143,6 @@ func (h *Handle) WriteJSONLine(value any) error {
 	return writeJSONLineWithLimit(h.Stdin, value, h.Spec.IPCMessageMaxBytes)
 }
 
-func writeJSONLine(writer io.Writer, value any) error {
-	return writeJSONLineWithLimit(writer, value, 0)
-}
-
 func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
