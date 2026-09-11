@@ -151,10 +151,11 @@ func (s *Service) config() config.Config {
 
 func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.NormalizedEvent, bool) {
 	enriched := s.EnrichCommandEvent(event)
-	checker := s.PermissionChecker()
-	if checker == nil || !shouldEvaluateChatPolicy(enriched) {
+	engine := s.currentEngine()
+	if engine == nil || !shouldEvaluateChatPolicy(enriched) {
 		return enriched, true
 	}
+	checker := engine.checker
 	commandContext := s.commandPolicyContextForEvent(enriched)
 
 	var permissionInfo *permission.CommandInfo
@@ -181,7 +182,7 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 	if commandContext != nil {
 		s.logCommandPolicyRejection(enriched, verdict, commandContext)
 	}
-	if (verdict.ErrorCode == errorcodes.PlatformUserRateLimited || verdict.ErrorCode == errorcodes.PlatformRateLimited) && cooldownReplyEnabled(s.config()) {
+	if (verdict.ErrorCode == errorcodes.PlatformUserRateLimited || verdict.ErrorCode == errorcodes.PlatformRateLimited) && engine.snapshot.CooldownReplyEnabled {
 		s.sendCooldownReply(ctx, enriched)
 	}
 	return enriched, false
@@ -226,18 +227,15 @@ func parseCooldownRateLimit(raw string) config.RateLimit {
 	return config.RateLimit{Count: 1, Window: time.Minute}
 }
 
-func commandPermissionDefaultLevel(cfg config.Config) string {
-	defaultLevel := strings.TrimSpace(ResolveConfig(cfg).DefaultLevel)
-	switch defaultLevel {
+// normalizePermissionLevel maps the configured default level onto the
+// levels the checker understands, treating anything else as everyone.
+func normalizePermissionLevel(level string) string {
+	switch level = strings.TrimSpace(level); level {
 	case "super_admin", "group_admin", "everyone":
-		return defaultLevel
+		return level
 	default:
 		return "everyone"
 	}
-}
-
-func cooldownReplyEnabled(cfg config.Config) bool {
-	return ResolveConfig(cfg).CooldownReplyEnabled
 }
 
 func ResolveConfig(cfg config.Config) ConfigSnapshot {

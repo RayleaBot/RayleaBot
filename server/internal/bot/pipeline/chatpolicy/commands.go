@@ -5,7 +5,6 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 type commandPolicyContext struct {
@@ -39,9 +38,11 @@ func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) 
 		CommandName:    commandName,
 		PermissionInfo: &permission.CommandInfo{Permission: requiredLevel},
 	}
-	currentConfig := config.Config{}
+	defaultLevel := "everyone"
 	if s != nil {
-		currentConfig = s.config()
+		if engine := s.currentEngine(); engine != nil {
+			defaultLevel = normalizePermissionLevel(engine.snapshot.DefaultLevel)
+		}
 	}
 	if s != nil && s.plugins != nil {
 		for _, snapshot := range s.plugins.List() {
@@ -53,7 +54,7 @@ func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) 
 					continue
 				}
 				context.MatchedPluginIDs = append(context.MatchedPluginIDs, snapshot.PluginID)
-				level := effectiveCommandPermissionLevel(command.Permission, currentConfig)
+				level := effectiveCommandPermissionLevel(command.Permission, defaultLevel)
 				if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
 					requiredLevel = level
 				}
@@ -84,12 +85,12 @@ func commandNameFromEvent(event chatevent.NormalizedEvent) string {
 	return strings.TrimSpace(value)
 }
 
-func effectiveCommandPermissionLevel(permissionLevel string, cfg config.Config) string {
+func effectiveCommandPermissionLevel(permissionLevel string, defaultLevel string) string {
 	switch strings.TrimSpace(permissionLevel) {
 	case "super_admin", "group_admin", "everyone":
 		return strings.TrimSpace(permissionLevel)
 	case "":
-		return commandPermissionDefaultLevel(cfg)
+		return defaultLevel
 	default:
 		return "everyone"
 	}
