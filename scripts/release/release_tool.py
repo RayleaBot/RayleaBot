@@ -5,7 +5,6 @@ import argparse
 import base64
 import hashlib
 import json
-import fnmatch
 import re
 import shutil
 import subprocess
@@ -21,55 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from archive_io import extract_archive
 
 from artifact_matrix import ARTIFACT_MATRIX
+from release_content import FORBIDDEN_DIRECTORY_NAMES, find_forbidden_paths, is_forbidden_file_name, should_skip_release_path
 from contract_versions_generated import PLUGIN_MANIFEST_VERSION, PLUGIN_UI_BRIDGE_VERSION, UPDATE_PROTOCOL_VERSION
-
-
-FORBIDDEN_TOP_LEVEL_PATHS = {
-    ".github",
-    "contracts",
-    "docs",
-    "examples",
-    "fixtures",
-    "launcher/src",
-    "plugins",
-    "scripts",
-    "sdk",
-    "server",
-    "web/src",
-}
-FORBIDDEN_DIRECTORY_NAMES = {
-    ".cache",
-    ".git",
-    ".pytest_cache",
-    ".venv",
-    "__pycache__",
-    "node_modules",
-    "test",
-    "tests",
-    "venv",
-}
-FORBIDDEN_FILE_PATTERNS = (
-    "*.map",
-    "*.pyc",
-    "*.pyo",
-    "*.spec.*",
-    "*.test.*",
-    "*_test.*",
-)
-RELEASE_SOURCE_FILE_PATTERNS = (
-    "*.go",
-    "*.py",
-    "*.ts",
-    "*.tsx",
-    "*.vue",
-    "go.mod",
-    "go.sum",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-)
-RELEASE_FILTERED_FILE_PATTERNS = FORBIDDEN_FILE_PATTERNS + RELEASE_SOURCE_FILE_PATTERNS + ("*.md",)
-RELEASE_FILTERED_DIRECTORY_NAMES = FORBIDDEN_DIRECTORY_NAMES
 
 
 @dataclass(frozen=True)
@@ -123,26 +75,6 @@ def copy_tree(src: Path, dst: Path) -> None:
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(src, dst)
-
-
-def normalize_relative(path: Path) -> str:
-    return path.as_posix().strip("/")
-
-
-def is_forbidden_file_name(name: str) -> bool:
-    return any(
-        fnmatch.fnmatchcase(name, pattern)
-        for pattern in FORBIDDEN_FILE_PATTERNS + RELEASE_SOURCE_FILE_PATTERNS
-    )
-
-
-def should_skip_release_path(relative_path: Path) -> bool:
-    parts = relative_path.parts
-    if any(part in RELEASE_FILTERED_DIRECTORY_NAMES for part in parts):
-        return True
-    if parts and any(fnmatch.fnmatchcase(parts[-1], pattern) for pattern in RELEASE_FILTERED_FILE_PATTERNS):
-        return True
-    return False
 
 
 def copy_release_tree(src: Path, dst: Path) -> None:
@@ -218,28 +150,8 @@ def copy_launcher_bundle(src: Path, dst_root: Path) -> None:
     raise ValueError(f"launcher bundle path does not exist: {src}")
 
 
-def find_forbidden_release_entries(root: Path) -> list[str]:
-    forbidden: list[str] = []
-    for item in sorted(root.rglob("*")):
-        relative = item.relative_to(root)
-        normalized = normalize_relative(relative)
-        parts = relative.parts
-        if normalized in FORBIDDEN_TOP_LEVEL_PATHS:
-            forbidden.append(normalized)
-            continue
-        if any(normalized == path or normalized.startswith(path + "/") for path in FORBIDDEN_TOP_LEVEL_PATHS):
-            forbidden.append(normalized)
-            continue
-        if any(part in FORBIDDEN_DIRECTORY_NAMES for part in parts):
-            forbidden.append(normalized)
-            continue
-        if item.is_file() and is_forbidden_file_name(item.name):
-            forbidden.append(normalized)
-    return forbidden
-
-
 def assert_release_tree_clean(root: Path) -> None:
-    forbidden = find_forbidden_release_entries(root)
+    forbidden = find_forbidden_paths(root)
     if forbidden:
         raise ValueError(f"release package contains development files: {forbidden}")
 

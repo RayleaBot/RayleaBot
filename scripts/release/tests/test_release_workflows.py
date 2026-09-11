@@ -111,9 +111,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for name in ("release_manifest.v2.json", "release_manifest.v2.sig.json", "SHA256SUMS.txt"):
             self.assertIn(name, uploaded)
         windows_gate = step_named(jobs["build-full"], "Apply and verify Windows Authenticode gate")["run"]
-        self.assertIn("Windows update remains guided", windows_gate)
-        self.assertIn("signtool verify /pa /all", windows_gate)
-        self.assertIn('"signer_sha256="', windows_gate)
+        self.assertEqual(windows_gate, "./scripts/release/windows-signing.ps1")
 
     def test_new_workflows_select_release_and_ci_checks(self):
         spec = importlib.util.spec_from_file_location("validation_detect_changes", ROOT / "scripts/ci/detect_changes.py")

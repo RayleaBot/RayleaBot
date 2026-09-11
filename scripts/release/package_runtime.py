@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import contextlib
 from collections import deque
-import fnmatch
 import hashlib
 import json
 import os
@@ -29,6 +28,7 @@ from archive_io import extract_archive, copy_bounded, MAX_ARCHIVE_BYTES
 from jsonschema import ValidationError
 
 from artifact_matrix import ARTIFACT_MATRIX, REQUIRED_PATHS, SERVER_BINARIES
+from release_content import find_forbidden_paths
 
 
 RESOURCE_KINDS = ("chromium", "ffmpeg")
@@ -45,50 +45,6 @@ ARCHIVE_SUFFIXES = {
 SOURCE_PROBE_BYTES = 1024 * 1024
 SOURCE_PROBE_TIMEOUT_SECONDS = 8
 SOURCE_PROBE_CLOSE_RATIO = 0.10
-
-FORBIDDEN_TOP_LEVEL_PATHS = {
-    ".github",
-    "contracts",
-    "docs",
-    "examples",
-    "fixtures",
-    "launcher/src",
-    "plugins",
-    "scripts",
-    "sdk",
-    "server",
-    "web/src",
-}
-FORBIDDEN_DIRECTORY_NAMES = {
-    ".cache",
-    ".git",
-    ".pytest_cache",
-    ".venv",
-    "__pycache__",
-    "node_modules",
-    "test",
-    "tests",
-    "venv",
-}
-FORBIDDEN_FILE_PATTERNS = (
-    "*.go",
-    "*.map",
-    "*.py",
-    "*.pyc",
-    "*.pyo",
-    "*.spec.*",
-    "*.test.*",
-    "*.ts",
-    "*.tsx",
-    "*.vue",
-    "*_test.*",
-    "go.mod",
-    "go.sum",
-    "package.json",
-    "pnpm-lock.yaml",
-    "pnpm-workspace.yaml",
-)
-
 
 def archive_root_name(names: list[str]) -> str:
     roots: set[str] = set()
@@ -142,31 +98,6 @@ def ensure_required_paths(root: Path, artifact_id: str) -> None:
     if missing:
         raise RuntimeError(f"missing required packaged paths: {missing}")
     ensure_no_forbidden_paths(root)
-
-
-def normalize_relative(path: Path) -> str:
-    return path.as_posix().strip("/")
-
-
-def is_forbidden_file_name(name: str) -> bool:
-    return any(fnmatch.fnmatchcase(name, pattern) for pattern in FORBIDDEN_FILE_PATTERNS)
-
-
-def find_forbidden_paths(root: Path) -> list[str]:
-    forbidden: list[str] = []
-    for item in sorted(root.rglob("*")):
-        relative = item.relative_to(root)
-        normalized = normalize_relative(relative)
-        parts = relative.parts
-        if any(normalized == path or normalized.startswith(path + "/") for path in FORBIDDEN_TOP_LEVEL_PATHS):
-            forbidden.append(normalized)
-            continue
-        if any(part in FORBIDDEN_DIRECTORY_NAMES for part in parts):
-            forbidden.append(normalized)
-            continue
-        if item.is_file() and is_forbidden_file_name(item.name):
-            forbidden.append(normalized)
-    return forbidden
 
 
 def ensure_no_forbidden_paths(root: Path) -> None:

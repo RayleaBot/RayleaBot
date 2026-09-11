@@ -6,12 +6,12 @@
 
 | `artifact_id` | 产物 | 支持级别 | 更新方式 |
 | --- | --- | --- | --- |
-| `windows-x64-full` | Windows 桌面完整包 | `first_class` | 满足全部签名门槛时 `automatic`，否则 `guided` |
+| `windows-x64-full` | Windows 桌面完整包 | `first_class` | 满足全部签名门槛时 `automatic`；未配置签名且产物未签名时 `guided` |
 | `linux-x64-full` | Linux 桌面完整包 | `first_class` | `guided` |
 | `macos-arm64-full` | macOS Apple Silicon 桌面完整包 | `first_class` | `guided` |
 | `linux-x64-server` | Linux 服务端包 | `first_class` | `guided` 或 `manual` |
 
-`automatic` 表示用户确认后的事务式安装，不表示静默下载或静默安装。当前正式 Windows 证书缺失时，`windows-x64-full` 必须发布为 `guided`。
+`automatic` 表示用户确认后的事务式安装，不表示静默下载或静默安装。未配置 Windows 签名身份且三个必需程序均未签名时，`windows-x64-full` 发布为 `guided`。配置了签名身份，或接收到预签名产物后，签名操作失败、验证失败、必需程序签名缺失或签名者不一致都会使本次构建失败；不会自动改为 `guided` 后继续发布。
 
 ## 发布包目录
 
