@@ -325,3 +325,33 @@ func TestRefreshCommandsPublishesAllSnapshotsForConflictRecalculation(t *testing
 		t.Fatalf("published plugin IDs = %#v, want fortune and weather", seen)
 	}
 }
+
+func TestCatalogCommandsFollowMutations(t *testing.T) {
+	t.Parallel()
+
+	enabled := plugins.Snapshot{
+		PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "enabled",
+		Commands: []plugins.Command{{ID: "weather", Name: "weather", TriggerType: "exact", TriggerNames: []string{"weather"}}},
+	}
+	catalog := New([]plugins.Snapshot{enabled})
+
+	before := catalog.Commands()
+	if len(before) != 1 || before[0].PluginID != "weather" || len(before[0].Commands) != 1 {
+		t.Fatalf("unexpected initial command index: %+v", before)
+	}
+
+	disabled := enabled
+	disabled.DesiredState = "disabled"
+	catalog.Replace([]plugins.Snapshot{disabled})
+	if got := catalog.Commands(); len(got) != 0 {
+		t.Fatalf("disabled plugin must leave the index, got %+v", got)
+	}
+	if len(before) != 1 {
+		t.Fatal("a previously returned index must stay intact")
+	}
+
+	catalog.Replace([]plugins.Snapshot{enabled})
+	if got := catalog.Commands(); len(got) != 1 {
+		t.Fatalf("re-enabled plugin must return to the index, got %+v", got)
+	}
+}

@@ -3,6 +3,7 @@ package catalog
 import (
 	"sort"
 	"sync"
+	"sync/atomic"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pubsub"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -13,6 +14,9 @@ type Catalog struct {
 	order []string
 	items map[string]plugins.Snapshot
 	hub   pubsub.Hub[plugins.Snapshot]
+	// commands is the enabled command index, replaced wholesale on every
+	// mutation so message-path readers share one immutable slice.
+	commands atomic.Pointer[[]plugins.CommandEntry]
 }
 
 func New(entries []plugins.Snapshot) *Catalog {
@@ -31,10 +35,30 @@ func New(entries []plugins.Snapshot) *Catalog {
 
 	sort.Strings(order)
 
-	return &Catalog{
+	catalog := &Catalog{
 		order: order,
 		items: items,
 	}
+	catalog.rebuildCommandsLocked()
+	return catalog
+}
+
+// Commands returns the enabled command declarations in catalog order. The
+// slice is shared and must be treated as read-only.
+func (c *Catalog) Commands() []plugins.CommandEntry {
+	if entries := c.commands.Load(); entries != nil {
+		return *entries
+	}
+	return nil
+}
+
+func (c *Catalog) rebuildCommandsLocked() {
+	snapshots := make([]plugins.Snapshot, 0, len(c.order))
+	for _, pluginID := range c.order {
+		snapshots = append(snapshots, c.items[pluginID])
+	}
+	entries := plugins.CommandEntries(snapshots)
+	c.commands.Store(&entries)
 }
 
 func (c *Catalog) List() []plugins.Snapshot {
@@ -74,6 +98,7 @@ func (c *Catalog) RefreshCommands(pluginID string, settings map[string]any) (plu
 	entry.Commands = ProjectCommands(entry, settings)
 	changed := pluginStateChanged(current, entry)
 	c.items[pluginID] = entry
+	c.rebuildCommandsLocked()
 	updated := plugins.CloneSnapshot(entry)
 	published := []plugins.Snapshot{updated}
 	if changed {
@@ -145,6 +170,7 @@ func (c *Catalog) replace(entries []plugins.Snapshot, installedID string) {
 	sort.Strings(order)
 	c.items = items
 	c.order = order
+	c.rebuildCommandsLocked()
 	c.mu.Unlock()
 
 	c.publishMany(updated)

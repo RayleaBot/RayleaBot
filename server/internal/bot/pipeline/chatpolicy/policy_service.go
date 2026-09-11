@@ -17,8 +17,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
+// PluginCatalog is the catalog surface the policy and the builtin menu
+// share; only Commands is read on the message path.
 type PluginCatalog interface {
 	List() []plugins.Snapshot
+	Commands() []plugins.CommandEntry
 }
 
 type MenuMatcher interface {

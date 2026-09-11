@@ -11,7 +11,8 @@ import (
 
 type protocolPolicyCatalog []plugins.Snapshot
 
-func (c protocolPolicyCatalog) List() []plugins.Snapshot { return c }
+func (c protocolPolicyCatalog) List() []plugins.Snapshot         { return c }
+func (c protocolPolicyCatalog) Commands() []plugins.CommandEntry { return plugins.CommandEntries(c) }
 
 func TestQQCommandEnforcesSamePermissionAsOneBot(t *testing.T) {
 	s := New(Deps{CurrentConfig: func() config.Config { return config.Config{Command: &config.CommandConfig{Prefixes: []string{"/"}}} }, Plugins: protocolPolicyCatalog{{PluginID: "restricted", Valid: true, RegistrationState: "installed", DesiredState: "enabled", Commands: []plugins.Command{{Name: "danger", Permission: "super_admin"}}}}})

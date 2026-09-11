@@ -45,15 +45,12 @@ func (s *Service) commandPolicyContextForEvent(event chatevent.NormalizedEvent) 
 		}
 	}
 	if s != nil && s.plugins != nil {
-		for _, snapshot := range s.plugins.List() {
-			if !snapshot.CommandsEnabled() {
-				continue
-			}
-			for _, command := range snapshot.Commands {
+		for _, entry := range s.plugins.Commands() {
+			for _, command := range entry.Commands {
 				if !command.Matches(commandName) {
 					continue
 				}
-				context.MatchedPluginIDs = append(context.MatchedPluginIDs, snapshot.PluginID)
+				context.MatchedPluginIDs = append(context.MatchedPluginIDs, entry.PluginID)
 				level := effectiveCommandPermissionLevel(command.Permission, defaultLevel)
 				if commandPermissionRank(level) > commandPermissionRank(requiredLevel) {
 					requiredLevel = level

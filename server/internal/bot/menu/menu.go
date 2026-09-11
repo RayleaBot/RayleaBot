@@ -30,6 +30,7 @@ type Renderer func(context.Context, RenderRequest) (string, error)
 
 type PluginCatalog interface {
 	List() []plugins.Snapshot
+	Commands() []plugins.CommandEntry
 }
 
 type RenderRequest struct {
@@ -168,11 +169,8 @@ func (s *Service) hasExactPluginCommand(commandName string) bool {
 	if commandName == "" || s == nil || s.plugins == nil {
 		return false
 	}
-	for _, snapshot := range s.plugins.List() {
-		if !snapshot.CommandsEnabled() {
-			continue
-		}
-		for _, commandItem := range snapshot.Commands {
+	for _, entry := range s.plugins.Commands() {
+		for _, commandItem := range entry.Commands {
 			if commandItem.Matches(commandName) {
 				return true
 			}
