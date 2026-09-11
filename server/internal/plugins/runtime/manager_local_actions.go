@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 
@@ -19,8 +18,8 @@ type localActionRejection struct {
 	details         map[string]any
 }
 
-func (m *Manager) routeLocalActionFrameLocked(handle *Handle, line []byte) (*localActionRejection, *plugins.Error) {
-	frame, action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, line)
+func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*localActionRejection, *plugins.Error) {
+	action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, frame)
 	if err != nil {
 		return nil, err
 	}
@@ -111,19 +110,14 @@ func rememberLocalActionID(session *eventSession, requestID string, limit int) {
 	session.localActionOrder = append(session.localActionOrder, requestID)
 }
 
-func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (pluginwire.ActionFrame, *plugins.Action, string, *plugins.Error) {
-	var frame pluginwire.ActionFrame
-	if err := json.Unmarshal(line, &frame); err != nil {
-		return pluginwire.ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
-	}
-
+func (m *Manager) parseLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*plugins.Action, string, *plugins.Error) {
 	parentRequestID := strings.TrimSpace(frame.ParentRequestID)
 	if parentRequestID == "" {
 		if handle.Spec.EffectiveConcurrency > 1 {
-			return pluginwire.ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "concurrent plugin local actions must include parent_request_id", nil)
+			return nil, "", errorf(codePluginProtocolViolation, "concurrent plugin local actions must include parent_request_id", nil)
 		}
 		if len(m.pendingEvents) != 1 {
-			return pluginwire.ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin local action parent_request_id is missing", nil)
+			return nil, "", errorf(codePluginProtocolViolation, "plugin local action parent_request_id is missing", nil)
 		}
 		for requestID := range m.pendingEvents {
 			parentRequestID = requestID
@@ -131,13 +125,13 @@ func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (plug
 	}
 
 	if m.eventExpiredLocked(parentRequestID) {
-		return frame, nil, parentRequestID, nil
+		return nil, parentRequestID, nil
 	}
 	action, parseErr := ParseLocalAction(frame.Action, frame.Data)
 	if parseErr != nil {
-		return pluginwire.ActionFrame{}, nil, "", normalizeRuntimeError(parseErr, "parse local action frame")
+		return nil, "", normalizeRuntimeError(parseErr, "parse local action frame")
 	}
-	return frame, action, parentRequestID, nil
+	return action, parentRequestID, nil
 }
 
 func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parentRequestID string, requestID string, action plugins.Action, parentEvent chatevent.Event) {

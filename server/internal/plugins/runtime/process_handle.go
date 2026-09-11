@@ -148,9 +148,6 @@ func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 	if err != nil {
 		return err
 	}
-	if !json.Valid(encoded) {
-		return fmt.Errorf("protocol frame encoded invalid json")
-	}
 	if maxBytes > 0 && len(encoded) > maxBytes {
 		return fmt.Errorf("%w: encoded frame has %d bytes, limit %d", errProtocolFrameTooLarge, len(encoded), maxBytes)
 	}

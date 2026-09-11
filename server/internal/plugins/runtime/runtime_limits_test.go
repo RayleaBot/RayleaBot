@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 func TestReadProtocolLineRejectsOversizedFrameWithoutNewline(t *testing.T) {
@@ -68,7 +69,7 @@ func TestLocalActionAdmissionRejectsPendingAndBurstOverflow(t *testing.T) {
 
 	pendingFrame := localActionFrameBytes(t, "action-pending", session.requestID)
 	manager.mu.Lock()
-	rejection, runtimeErr := manager.routeLocalActionFrameLocked(handle, pendingFrame)
+	rejection, runtimeErr := manager.routeLocalActionFrameLocked(handle, decodeRuntimeFrame(t, pendingFrame))
 	manager.mu.Unlock()
 	if runtimeErr != nil || rejection == nil || rejection.details["limit_scope"] != "runtime.ipc_pending_actions_max" {
 		t.Fatalf("unexpected pending rejection: rejection=%#v err=%v", rejection, runtimeErr)
@@ -79,7 +80,7 @@ func TestLocalActionAdmissionRejectsPendingAndBurstOverflow(t *testing.T) {
 	manager.actionBurstCount = 1
 	burstFrame := localActionFrameBytes(t, "action-burst", session.requestID)
 	manager.mu.Lock()
-	rejection, runtimeErr = manager.routeLocalActionFrameLocked(handle, burstFrame)
+	rejection, runtimeErr = manager.routeLocalActionFrameLocked(handle, decodeRuntimeFrame(t, burstFrame))
 	manager.mu.Unlock()
 	if runtimeErr != nil || rejection == nil || rejection.details["limit_scope"] != "runtime.ipc_action_burst_limit" {
 		t.Fatalf("unexpected burst rejection: rejection=%#v err=%v", rejection, runtimeErr)
@@ -117,4 +118,13 @@ func localActionFrameBytes(t *testing.T, requestID, parentRequestID string) []by
 		t.Fatalf("marshal local action frame: %v", err)
 	}
 	return payload
+}
+
+func decodeRuntimeFrame(t *testing.T, line []byte) pluginwire.Frame {
+	t.Helper()
+	var frame pluginwire.Frame
+	if err := json.Unmarshal(line, &frame); err != nil {
+		t.Fatalf("decode runtime frame: %v", err)
+	}
+	return frame
 }

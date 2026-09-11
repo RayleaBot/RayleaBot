@@ -263,39 +263,36 @@ func shallowCloneMap(raw map[string]any) map[string]any {
 	return cloned
 }
 
-func parseEventEnvelope(line []byte, pluginID string) (pluginwire.FrameEnvelope, error) {
+// parseRuntimeFrame validates one runtime line against the protocol schema and
+// decodes it once into the union frame every router reads from.
+func parseRuntimeFrame(line []byte) (pluginwire.Frame, error) {
 	if err := validatePluginFrame(line); err != nil {
-		return pluginwire.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
+		return pluginwire.Frame{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
 	}
-	var envelope pluginwire.FrameEnvelope
-	if err := json.Unmarshal(line, &envelope); err != nil {
-		return pluginwire.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+	var frame pluginwire.Frame
+	if err := json.Unmarshal(line, &frame); err != nil {
+		return pluginwire.Frame{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
-	_ = pluginID
-	if envelope.RequestID == "" {
-		return pluginwire.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+	if frame.RequestID == "" {
+		return pluginwire.Frame{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}
-	return envelope, nil
+	return frame, nil
 }
 
-func decodeTerminalDelivery(eventRequestID string, line []byte, frameType string) (plugins.Delivery, bool, error) {
-	switch frameType {
+func decodeTerminalDelivery(eventRequestID string, frame pluginwire.Frame) (plugins.Delivery, bool, error) {
+	switch frame.Type {
 	case "action":
-		return decodeTerminalAction(eventRequestID, line)
+		return decodeTerminalAction(eventRequestID, frame)
 	case "result":
-		return decodeTerminalResult(eventRequestID, line)
+		return decodeTerminalResult(eventRequestID, frame)
 	case "error":
-		return decodeTerminalError(eventRequestID, line)
+		return decodeTerminalError(eventRequestID, frame)
 	default:
 		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during event delivery", nil)
 	}
 }
 
-func decodeTerminalAction(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
-	var frame pluginwire.ActionFrame
-	if err := json.Unmarshal(line, &frame); err != nil {
-		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
-	}
+func decodeTerminalAction(eventRequestID string, frame pluginwire.Frame) (plugins.Delivery, bool, error) {
 	action, err := ParseTerminalAction(frame.Action, frame.Data)
 	if err != nil {
 		return plugins.Delivery{}, false, normalizeRuntimeError(err, "parse terminal action frame")
@@ -303,25 +300,20 @@ func decodeTerminalAction(eventRequestID string, line []byte) (plugins.Delivery,
 	return plugins.Delivery{RequestID: eventRequestID, Action: action}, true, nil
 }
 
-func decodeTerminalResult(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
-	var frame pluginwire.ResultFrame
-	if err := json.Unmarshal(line, &frame); err != nil {
-		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
-	}
+func decodeTerminalResult(eventRequestID string, frame pluginwire.Frame) (plugins.Delivery, bool, error) {
 	if frame.Status != "success" {
 		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin result frame must use status=success", nil)
 	}
-	if frame.Data == nil {
-		frame.Data = map[string]any{}
+	data := map[string]any{}
+	if len(frame.Data) > 0 && string(frame.Data) != "null" {
+		if err := json.Unmarshal(frame.Data, &data); err != nil {
+			return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
+		}
 	}
-	return plugins.Delivery{RequestID: eventRequestID, Result: frame.Data}, true, nil
+	return plugins.Delivery{RequestID: eventRequestID, Result: data}, true, nil
 }
 
-func decodeTerminalError(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
-	var frame pluginwire.ErrorFrame
-	if err := json.Unmarshal(line, &frame); err != nil {
-		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
-	}
+func decodeTerminalError(eventRequestID string, frame pluginwire.Frame) (plugins.Delivery, bool, error) {
 	if frame.Code == "" || frame.Message == "" {
 		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin error frame is missing code or message", nil)
 	}

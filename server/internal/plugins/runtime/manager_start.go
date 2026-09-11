@@ -267,7 +267,7 @@ func errorsAreExitLike(handle *Handle, err error) bool {
 }
 
 func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRejection, *plugins.Error) {
-	envelope, err := parseEventEnvelope(line, handle.Spec.PluginID)
+	frame, err := parseRuntimeFrame(line)
 	if err != nil {
 		return nil, normalizeRuntimeError(err, "parse runtime frame envelope")
 	}
@@ -279,35 +279,35 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 		return nil, nil
 	}
 
-	if ping := m.pendingPings[envelope.RequestID]; ping != nil {
-		if envelope.Type != "pong" {
+	if ping := m.pendingPings[frame.RequestID]; ping != nil {
+		if frame.Type != "pong" {
 			return nil, errorf(codePluginProtocolViolation, "plugin returned unexpected frame type in response to ping", nil)
 		}
-		m.completePingLocked(envelope.RequestID, ping, nil)
+		m.completePingLocked(frame.RequestID, ping, nil)
 		return nil, nil
 	}
 
-	if session := m.pendingEvents[envelope.RequestID]; session != nil {
-		return nil, m.routeTerminalFrameLocked(session, envelope, line)
+	if session := m.pendingEvents[frame.RequestID]; session != nil {
+		return nil, m.routeTerminalFrameLocked(session, frame)
 	}
 
-	if m.eventExpiredLocked(envelope.RequestID) && (envelope.Type == "result" || envelope.Type == "error" || envelope.Type == "pong") {
+	if m.eventExpiredLocked(frame.RequestID) && (frame.Type == "result" || frame.Type == "error" || frame.Type == "pong") {
 		return nil, nil
 	}
 
-	if envelope.Type == "action" {
-		return m.routeLocalActionFrameLocked(handle, line)
+	if frame.Type == "action" {
+		return m.routeLocalActionFrameLocked(handle, frame)
 	}
 
 	return nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
 }
 
-func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope pluginwire.FrameEnvelope, line []byte) *plugins.Error {
+func (m *Manager) routeTerminalFrameLocked(session *eventSession, frame pluginwire.Frame) *plugins.Error {
 	if session.pendingLocalAction > 0 {
 		return errorf(codePluginProtocolViolation, "plugin returned a terminal frame before all local actions completed", nil)
 	}
 
-	delivery, done, err := decodeTerminalDelivery(session.requestID, line, envelope.Type)
+	delivery, done, err := decodeTerminalDelivery(session.requestID, frame)
 	if !done {
 		return errorf(codePluginProtocolViolation, "plugin returned an unexpected non-terminal frame for the active event", nil)
 	}
