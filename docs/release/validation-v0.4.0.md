@@ -13,7 +13,7 @@
 | 修正元数据与重新签名 | [run 34543000042](https://github.com/RayleaBot/RayleaBot/actions/runs/34543000042)，工具工作流 `d901466d1b3144ba30eb8d03fc0e8e09d6af7750`；先验证原生构建 run 的仓库、提交与成功状态，再下载原四包生成、签名及验证元数据 |
 | 后续样例与文档 | `d5493776` 只修正调度成功样例和两份生成测试向量，生成 verify、strict、Server/独立 SDK 向量测试通过；文档及发布工具更新均未改变上述四个归档的生产编译输入 |
 
-本机交付目录为 `dist/candidates/v0.4.0/5b2fa9d8/`，入口为其中的 `README.md`。`candidate-status.json` 汇总状态，`independent-artifact-verification.json` 记录独立检查，`validation-evidence-*` 保存原生执行日志。执行计划的当前台账见[完成记录](../execution-plan-v2.md#3-推进顺序与可回写台账)。
+本机交付目录为 `dist/candidates/v0.4.0/5b2fa9d8/`，入口为其中的 `README.md`。`candidate-status.json` 汇总状态，`independent-artifact-verification.json` 记录独立检查，`validation-evidence-*` 保存原生执行日志。
 
 ## 四种最终候选包
 

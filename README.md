@@ -88,7 +88,6 @@ node scripts/start-dev.mjs
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
 | [0.4.0 候选分发说明](./docs/release/notes/v0.4.0.md) | 本轮全新安装、插件接入、本版恢复与尚待完成的发布验收 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
-| [项目优化执行计划](./docs/execution-plan-v2.md) | 三份评审核实结果、实施顺序、验收与进度回写 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
 
 ## 贡献与开发
