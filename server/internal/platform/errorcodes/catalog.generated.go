@@ -187,7 +187,6 @@ const (
 	DiagnosticAuthUnavailable                           = "auth.unavailable"
 	DiagnosticConfigNotAccessible                       = "config.not_accessible"
 	DiagnosticConfigOk                                  = "config.ok"
-	DiagnosticConfigRetiredPluginRuntimeKeys            = "config.retired_plugin_runtime_keys"
 	DiagnosticDatabaseOk                                = "database.ok"
 	DiagnosticDatabasePathUnresolvable                  = "database.path_unresolvable"
 	DiagnosticDatabasePingFailed                        = "database.ping_failed"

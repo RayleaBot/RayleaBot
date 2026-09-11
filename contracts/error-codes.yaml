@@ -1029,8 +1029,6 @@ diagnostics:
     description: The configured user document cannot be read.
   config.ok:
     description: The user configuration document is accessible.
-  config.retired_plugin_runtime_keys:
-    description: The configuration contains unsupported plugin runtime fields.
   database.ok:
     description: The database connection is available.
   database.path_unresolvable:

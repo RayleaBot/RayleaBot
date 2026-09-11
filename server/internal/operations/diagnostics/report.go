@@ -3,9 +3,6 @@ package diagnostics
 import (
 	"context"
 	"os"
-	"strings"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
@@ -64,7 +61,6 @@ func Build(ctx context.Context, options Options) Report {
 			Severity: "ok",
 			Summary:  "配置文件可访问：" + configPathDisplay,
 		})
-		issues = append(issues, retiredPluginRuntimeConfigIssues(options.ConfigPath)...)
 	}
 
 	if err := validateConfigSchema(options.SchemaPath); err != nil {
@@ -124,40 +120,6 @@ func Build(ctx context.Context, options Options) Report {
 		report.RecoverySummary = summary
 	}
 	return report
-}
-
-func retiredPluginRuntimeConfigIssues(configPath string) []Issue {
-	payload, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil
-	}
-	var document map[string]any
-	if yaml.Unmarshal(payload, &document) != nil {
-		return nil
-	}
-	runtimeSection, ok := document["runtime"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	retired := make([]string, 0, 3)
-	for _, key := range []string{
-		"nodejs_max_old_space_size_mb",
-		"dependency_install_timeout_seconds",
-		"max_concurrent_dependency_installs",
-	} {
-		if _, exists := runtimeSection[key]; exists {
-			retired = append(retired, "runtime."+key)
-		}
-	}
-	if len(retired) == 0 {
-		return nil
-	}
-	return []Issue{{
-		Code:        errorcodes.DiagnosticConfigRetiredPluginRuntimeKeys,
-		Severity:    "error",
-		Summary:     "配置仍包含已退役的 Python/Node.js 插件运行时键：" + strings.Join(retired, "、"),
-		Remediation: "删除这些键；Go 插件 artifact 不使用语言运行时或依赖安装配置。",
-	}}
 }
 
 func depsManifestIssues(err error) []Issue {

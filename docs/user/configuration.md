@@ -83,7 +83,7 @@ third_party_accounts:
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
 - `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
 - `web.plugin_ui_origin_template` 必须包含 `{plugin_host}`。本机模式可省略并自动派生 `plugins.localhost` 子域；LAN 与反向代理模式必须显式配置不同于管理面的插件域模板。
-- 旧 Python/Node 插件运行时配置键必须直接删除；doctor 会报告退役键，不会迁移或忽略后继续运行。
+- 配置不接受 schema 之外的键；旧版本遗留的插件运行时键会在服务启动、`config validate` 与 `config normalize` 时被拒绝，需要直接删除。
 - 配置结构、默认值和字段约束以 `contracts/config.user.schema.json` 为准。
 
 ## 当前目录职责

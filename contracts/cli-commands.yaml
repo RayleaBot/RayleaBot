@@ -288,8 +288,8 @@ commands:
       offline: true
     description: >
       检查配置文件可访问性、配置 schema 可用性、SQLite quick_check、
-      .deps/ v5 清单的当前平台项、Chromium 与 FFmpeg 元数据，以及退役插件运行时
-      配置键。存在恢复摘要时附带 recovery_summary；Windows 上额外检查
+      .deps/ v5 清单的当前平台项、Chromium 与 FFmpeg 元数据。
+      存在恢复摘要时附带 recovery_summary；Windows 上额外检查
       LongPathsEnabled 注册表项。
     exit_codes:
       0: 所有检查通过

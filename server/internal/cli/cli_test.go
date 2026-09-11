@@ -869,22 +869,6 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 	}
 }
 
-func TestDoctorReportRejectsRetiredPluginRuntimeKeys(t *testing.T) {
-	t.Parallel()
-
-	repoRoot := t.TempDir()
-	configPath := filepath.Join(repoRoot, "config", "user.yaml")
-	writeFile(t, configPath, "schema_version: \"4\"\nruntime:\n  nodejs_max_old_space_size_mb: 256\n  dependency_install_timeout_seconds: 900\n")
-
-	report := diagnostics.Build(context.Background(), diagnostics.Options{
-		ConfigPath: configPath,
-	})
-	issue := findDoctorIssue(report.Issues, "config.retired_plugin_runtime_keys")
-	if issue == nil || !strings.Contains(issue.Summary, "runtime.nodejs_max_old_space_size_mb") || issue.Remediation == "" {
-		t.Fatalf("doctor should identify retired plugin runtime keys: %#v", report.Issues)
-	}
-}
-
 func TestDoctorReportIncludesRecoverySummaryWhenPresent(t *testing.T) {
 	t.Parallel()
 
