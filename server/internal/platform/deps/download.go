@@ -100,28 +100,11 @@ func downloadRuntimeHTTP(ctx context.Context, client *http.Client, rawURL, destP
 	return err
 }
 
-func downloadHTTPSFileWithProgress(ctx context.Context, rawURL, destPath string, progress func(downloadProgress)) error {
-	return HTTPSFileWithProgress(ctx, rawURL, destPath, func(event DownloadProgress) {
-		if progress == nil {
-			return
-		}
-		progress(downloadProgress(event))
-	})
-}
-
-func downloadWithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(downloadProgress)) error {
+func downloadWithProgress(ctx context.Context, rawURL, destPath string, downloader func(context.Context, string, string) error, progress func(DownloadProgress)) error {
 	if downloader != nil {
 		return downloader(ctx, rawURL, destPath)
 	}
-	return downloadHTTPSFileWithProgress(ctx, rawURL, destPath, progress)
-}
-
-func normalizedResourceSources(sources []ResourceSource) []ResourceSource {
-	return NormalizeSources(sources)
-}
-
-func downloadSourceSummary(kind string, source ResourceSource) string {
-	return SourceSummary(kind, source)
+	return HTTPSFileWithProgress(ctx, rawURL, destPath, progress)
 }
 
 func ensureDownloadedArchiveWithProgress(
@@ -133,7 +116,7 @@ func ensureDownloadedArchiveWithProgress(
 	sourceSelector func(context.Context, []ResourceSource) []ResourceSource,
 	reporter PrepareProgressReporter,
 ) (string, []string, error) {
-	if err := verifyFileSHA256(archivePath, resource.SHA256); err == nil {
+	if err := VerifyFileSHA256(archivePath, resource.SHA256); err == nil {
 		emitPrepareProgress(reporter, PrepareProgress{
 			Stage:    "download",
 			Status:   "succeeded",
@@ -145,7 +128,7 @@ func ensureDownloadedArchiveWithProgress(
 	tempPath := archivePath + ".download"
 	var attempted []string
 	var finalErr error
-	downloadSources := normalizedResourceSources(resource.Sources)
+	downloadSources := NormalizeSources(resource.Sources)
 	if len(downloadSources) > 1 && sourceSelector != nil {
 		emitPrepareProgress(reporter, PrepareProgress{
 			Stage:    "probe",
@@ -178,10 +161,10 @@ func ensureDownloadedArchiveWithProgress(
 			Status:      "running",
 			SourceLabel: strings.TrimSpace(source.Label),
 			SourceURL:   rawURL,
-			Summary:     downloadSourceSummary(resource.Kind, source),
+			Summary:     SourceSummary(resource.Kind, source),
 		}.withResource(resource, archivePath, storeRoot))
 		_ = os.Remove(tempPath)
-		if err := downloadWithProgress(ctx, rawURL, tempPath, downloader, func(progress downloadProgress) {
+		if err := downloadWithProgress(ctx, rawURL, tempPath, downloader, func(progress DownloadProgress) {
 			emitPrepareProgress(reporter, PrepareProgress{
 				Stage:           "download",
 				Status:          "running",
@@ -190,7 +173,7 @@ func ensureDownloadedArchiveWithProgress(
 				Progress:        progress.Progress,
 				DownloadedBytes: progress.DownloadedBytes,
 				TotalBytes:      progress.TotalBytes,
-				Summary:         downloadSourceSummary(resource.Kind, source),
+				Summary:         SourceSummary(resource.Kind, source),
 			}.withResource(resource, archivePath, storeRoot))
 		}); err != nil {
 			_ = os.Remove(tempPath)
@@ -205,7 +188,7 @@ func ensureDownloadedArchiveWithProgress(
 			Progress:    100,
 			Summary:     "正在校验 " + managedResourceText(resource.Kind, "安装包"),
 		}.withResource(resource, archivePath, storeRoot))
-		if err := verifyFileSHA256(tempPath, resource.SHA256); err != nil {
+		if err := VerifyFileSHA256(tempPath, resource.SHA256); err != nil {
 			_ = os.Remove(tempPath)
 			finalErr = &archiveVerificationError{cause: fmt.Errorf("verify deps resource %s archive from %s: %w", resource.Kind, rawURL, err)}
 			continue

@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 type Source struct {
@@ -176,8 +178,7 @@ func pluginTemplateSource(declaration PluginTemplateDeclaration) (Source, bool) 
 		return Source{}, false
 	}
 	candidate := filepath.Join(absoluteRoot, cleanRelative)
-	relativeToRoot, err := filepath.Rel(absoluteRoot, candidate)
-	if err != nil || relativeToRoot == ".." || strings.HasPrefix(relativeToRoot, ".."+string(filepath.Separator)) {
+	if !fsguard.WithinRoot(absoluteRoot, candidate) {
 		return Source{}, false
 	}
 	return Source{

@@ -7,12 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"io"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (SourceBundle, error) {
@@ -193,7 +195,7 @@ func (d *resourceDigester) Digest(templateDir string) (string, error) {
 
 func scanResourceFiles(templateDir string) ([]resourceFile, string, bool, error) {
 	assetsDir := filepath.Join(templateDir, "assets")
-	if !pathWithinRoot(templateDir, assetsDir) {
+	if !fsguard.WithinRoot(templateDir, assetsDir) {
 		return nil, "", false, fmt.Errorf("render resource directory escapes template root")
 	}
 	assetsInfo, err := os.Stat(assetsDir)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
 )
@@ -27,11 +28,11 @@ func (s *InstallService) SyncDevelopment(ctx context.Context, artifactPath, sour
 		return "", false, err
 	}
 	if current, exists := s.catalog.Get(snapshot.PluginID); exists && current.PackageSourceType == "development" && filepath.Clean(current.PackageSourceRef) == filepath.Clean(sourcePath) {
-		candidateHash, hashErr := s.deps.hashDir(artifactPath)
+		candidateHash, hashErr := fsguard.SHA256Directory(ctx, artifactPath)
 		if hashErr != nil {
 			return "", false, hashErr
 		}
-		installedHash, hashErr := s.deps.hashDir(current.PackageRootPath)
+		installedHash, hashErr := fsguard.SHA256Directory(ctx, current.PackageRootPath)
 		if hashErr == nil && installedHash == candidateHash {
 			return "", false, nil
 		}

@@ -6,6 +6,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 func newManagementUIHandler(repoRoot string) http.HandlerFunc {
@@ -63,7 +65,7 @@ func staticAssetPath(distRoot string, requestPath string) (string, bool) {
 		return "", false
 	}
 	targetPath := filepath.Join(distRoot, localPath)
-	if !pathWithinRoot(distRoot, targetPath) {
+	if !fsguard.WithinRoot(distRoot, targetPath) {
 		return "", false
 	}
 	return targetPath, true
@@ -79,20 +81,4 @@ func slashPathIsLocal(value string) bool {
 		}
 	}
 	return true
-}
-
-func pathWithinRoot(root, candidate string) bool {
-	absoluteRoot, err := filepath.Abs(root)
-	if err != nil {
-		return false
-	}
-	absoluteCandidate, err := filepath.Abs(candidate)
-	if err != nil {
-		return false
-	}
-	relative, err := filepath.Rel(absoluteRoot, absoluteCandidate)
-	if err != nil {
-		return false
-	}
-	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }

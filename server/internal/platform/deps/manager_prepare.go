@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 type Manager struct {
@@ -104,7 +105,7 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 		Status:  "running",
 		Summary: "正在等待 " + managedResourceLabel(kind) + "准备锁",
 	}.withResource(resource, report.ArchivePath, report.StoreRoot))
-	release, err := acquireLock(ctx, lockPath, m.now)
+	release, err := AcquireLock(ctx, lockPath, m.now)
 	if err != nil {
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "lock", "", nil, err)
 	}
@@ -129,7 +130,7 @@ func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, opt
 	if err := os.MkdirAll(CacheRoot(m.repoRoot), 0o755); err != nil {
 		return nil, m.classifyBootstrapErrorWithProgress(options.Progress, kind, resource, "download", "", nil, fmt.Errorf("create deps cache root: %w", err))
 	}
-	if verifyFileSHA256(report.ArchivePath, resource.SHA256) == nil {
+	if VerifyFileSHA256(report.ArchivePath, resource.SHA256) == nil {
 		report.UsedCachedArchive = true
 		emitPrepareProgress(options.Progress, PrepareProgress{
 			Stage:    "download",
@@ -244,7 +245,7 @@ func (m *Manager) Inspect(kind string) (*BootstrapInspection, error) {
 			return inspection, nil
 		}
 	}
-	if inspection.MetadataComplete && verifyFileSHA256(inspection.ArchivePath, resource.SHA256) == nil {
+	if inspection.MetadataComplete && VerifyFileSHA256(inspection.ArchivePath, resource.SHA256) == nil {
 		inspection.CachedArchivePresent = true
 	}
 	if _, err := m.resolvePreparedManifestResource(manifest, resource); err == nil {

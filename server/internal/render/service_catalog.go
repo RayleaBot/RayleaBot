@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) {
@@ -191,7 +192,7 @@ func (r *Roots) TemplateDir(templateID string) string {
 		return root.TemplateDir
 	}
 	r.mu.RUnlock()
-	templateDir, ok := templateDirWithinRoot(r.templatesRoot, templateID)
+	templateDir, ok := resolveTemplateDirectory(r.templatesRoot, templateID)
 	if !ok {
 		return ""
 	}
@@ -209,7 +210,7 @@ func (r *Roots) TemplateRoot(templateID string) Root {
 	if root.TemplateDir != "" && root.ResourceRoot != "" {
 		return root
 	}
-	templateDir, ok := templateDirWithinRoot(r.templatesRoot, templateID)
+	templateDir, ok := resolveTemplateDirectory(r.templatesRoot, templateID)
 	if !ok {
 		return Root{}
 	}
@@ -244,7 +245,7 @@ func BaseURL(templateDir string) string {
 	return fileURL(path)
 }
 
-func templateDirWithinRoot(root string, templateID string) (string, bool) {
+func resolveTemplateDirectory(root string, templateID string) (string, bool) {
 	root = strings.TrimSpace(root)
 	templateID = strings.TrimSpace(templateID)
 	if root == "" || templateID == "" || filepath.IsAbs(filepath.FromSlash(templateID)) {
@@ -259,16 +260,8 @@ func templateDirWithinRoot(root string, templateID string) (string, bool) {
 		return "", false
 	}
 	candidate := filepath.Join(absoluteRoot, cleanID)
-	if !pathWithinRoot(absoluteRoot, candidate) {
+	if !fsguard.WithinRoot(absoluteRoot, candidate) {
 		return "", false
 	}
 	return candidate, true
-}
-
-func pathWithinRoot(root, candidate string) bool {
-	relativePath, err := filepath.Rel(root, candidate)
-	if err != nil {
-		return false
-	}
-	return relativePath != ".." && !strings.HasPrefix(relativePath, ".."+string(filepath.Separator))
 }

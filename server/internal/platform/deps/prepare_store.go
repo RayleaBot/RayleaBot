@@ -4,25 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 const abandonedLockAge = 30 * time.Minute
 
 func VerifyFileSHA256(path string, want string) error {
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer func(release func() error) { _ = release() }(file.Close)
-
-	got, err := fsguard.SHA256(context.Background(), file, maxRuntimeArchiveBytes)
+	got, err := fsguard.SHA256File(context.Background(), path, maxRuntimeArchiveBytes)
 	if err != nil {
 		return err
 	}
@@ -190,18 +185,4 @@ func removeStaleTempRoots(parent, resourceID, version string) error {
 		}
 	}
 	return nil
-}
-func verifyFileSHA256(path string, want string) error {
-	info, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-	if !info.Mode().IsRegular() || info.Size() > maxRuntimeArchiveBytes {
-		return errors.New("runtime archive exceeds size limit or is not a regular file")
-	}
-	return VerifyFileSHA256(path, want)
-}
-
-func acquireLock(ctx context.Context, path string, now func() time.Time) (func(), error) {
-	return AcquireLock(ctx, path, now)
 }

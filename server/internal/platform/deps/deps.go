@@ -121,12 +121,6 @@ type PrepareOptions struct {
 	Progress PrepareProgressReporter
 }
 
-type downloadProgress struct {
-	DownloadedBytes int64
-	TotalBytes      int64
-	Progress        int
-}
-
 type extractProgress struct {
 	ExtractedEntries int
 	TotalEntries     int

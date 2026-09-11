@@ -13,6 +13,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 const (
@@ -93,7 +94,7 @@ func ResolveAssetPath(root Root, relativePath string) (string, error) {
 		return "", err
 	}
 	candidate := filepath.Join(absoluteTemplateDir, cleanRelative)
-	if !pathWithinRoot(absoluteResourceRoot, candidate) {
+	if !fsguard.WithinRoot(absoluteResourceRoot, candidate) {
 		return "", &Error{Code: errorcodes.PlatformResourceMissing, Message: "render template asset was not found"}
 	}
 	return candidate, nil

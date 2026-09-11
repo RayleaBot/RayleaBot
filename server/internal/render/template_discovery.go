@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 )
 
@@ -151,7 +152,7 @@ func TemplateFilePath(templateDir, relativePath string) (string, error) {
 		return "", err
 	}
 	candidate := filepath.Join(absoluteRoot, cleanRelative)
-	if !pathWithinRoot(absoluteRoot, candidate) {
+	if !fsguard.WithinRoot(absoluteRoot, candidate) {
 		return "", fmt.Errorf("template file path %q is outside template directory", relativePath)
 	}
 	return candidate, nil

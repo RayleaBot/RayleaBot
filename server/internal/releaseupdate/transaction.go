@@ -2,16 +2,15 @@ package releaseupdate
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 type Phase string
@@ -633,12 +632,7 @@ func regularFileSHA256(path string) (string, error) {
 	if !info.Mode().IsRegular() || reparse {
 		return "", errors.New("preserved state path is not a regular file")
 	}
-	payload, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	digest := sha256.Sum256(payload)
-	return hex.EncodeToString(digest[:]), nil
+	return fsguard.SHA256File(context.Background(), path, math.MaxInt64)
 }
 
 func cleanupOldTransactions(parent, current string, now time.Time) {

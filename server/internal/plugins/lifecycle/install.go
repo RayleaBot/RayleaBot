@@ -4,25 +4,23 @@ import (
 	"archive/zip"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/artifact"
@@ -66,8 +64,6 @@ type installerDeps struct {
 	waitRename   func(context.Context) error
 	stat         func(string) (os.FileInfo, error)
 	readDir      func(string) ([]os.DirEntry, error)
-	hashFile     func(string) (string, error)
-	hashDir      func(string) (string, error)
 	downloadFile func(context.Context, string, string) error
 }
 
@@ -364,7 +360,7 @@ func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallReq
 			"插件与当前 RayleaBot 版本不兼容",
 		)
 	}
-	metadata, err := s.buildPackageMetadata(request, snapshot, candidateDir)
+	metadata, err := s.buildPackageMetadata(ctx, request, snapshot, candidateDir)
 	if err != nil {
 		return plugins.InstallInspection{}, err
 	}
@@ -671,12 +667,6 @@ func withDefaultInstallerDeps(_ string, deps installerDeps) installerDeps {
 	}
 	if deps.readDir == nil {
 		deps.readDir = os.ReadDir
-	}
-	if deps.hashFile == nil {
-		deps.hashFile = hashFileSHA256
-	}
-	if deps.hashDir == nil {
-		deps.hashDir = hashDirectorySHA256
 	}
 	if deps.downloadFile == nil {
 		deps.downloadFile = downloadHTTPSFile
@@ -1048,8 +1038,8 @@ func (s *InstallService) loadCandidateSnapshot(candidateDir string) (plugins.Sna
 	return snapshot, nil
 }
 
-func (s *InstallService) buildPackageMetadata(request plugins.InstallRequest, snapshot plugins.Snapshot, candidateDir string) (plugins.PackageMetadata, error) {
-	packageHash, err := s.deps.hashDir(candidateDir)
+func (s *InstallService) buildPackageMetadata(ctx context.Context, request plugins.InstallRequest, snapshot plugins.Snapshot, candidateDir string) (plugins.PackageMetadata, error) {
+	packageHash, err := fsguard.SHA256Directory(ctx, candidateDir)
 	if err != nil {
 		return plugins.PackageMetadata{}, installError(codePluginInstallFailed, "计算插件安装包哈希失败", "计算插件安装包哈希失败")
 	}
@@ -1152,7 +1142,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			return "", "", func() {}, installError(codeInvalidRequest, "插件来源必须是压缩包文件", "插件来源必须是压缩包文件")
 		}
 		if request.ExpectedArchiveSHA256 != "" {
-			digest, hashErr := s.deps.hashFile(source)
+			digest, hashErr := fsguard.SHA256File(ctx, source, maxRemoteDownloadBytes)
 			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
 				cleanup()
 				return "", "", func() {}, installError(errorcodes.PluginStoreIntegrityMismatch, "插件压缩包摘要与商店目录不一致", "插件商店产物完整性校验失败")
@@ -1186,7 +1176,7 @@ func (s *InstallService) prepareSource(ctx context.Context, request plugins.Inst
 			return "", "", func() {}, installError(codePluginInstallFailed, "下载远程插件压缩包失败", "下载远程插件压缩包失败")
 		}
 		if request.ExpectedArchiveSHA256 != "" {
-			digest, hashErr := s.deps.hashFile(downloadPath)
+			digest, hashErr := fsguard.SHA256File(ctx, downloadPath, maxRemoteDownloadBytes)
 			if hashErr != nil || digest != request.ExpectedArchiveSHA256 {
 				cleanup()
 				return "", "", func() {}, installError(errorcodes.PluginStoreIntegrityMismatch, "下载的插件摘要与商店目录不一致", "插件商店产物完整性校验失败")
@@ -1278,74 +1268,6 @@ func copyFile(sourcePath, targetPath string) (err error) {
 	return nil
 }
 
-func hashFileSHA256(path string) (string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func(release func() error) { _ = release() }(file.Close)
-
-	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(hasher.Sum(nil)), nil
-}
-
-func hashDirectorySHA256(root string) (string, error) {
-	info, err := os.Stat(root)
-	if err != nil {
-		return "", err
-	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("%s is not a directory", root)
-	}
-
-	var files []string
-	if err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		relativePath, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		files = append(files, relativePath)
-		return nil
-	}); err != nil {
-		return "", err
-	}
-
-	sort.Strings(files)
-	hasher := sha256.New()
-	for _, relativePath := range files {
-		if _, err := io.WriteString(hasher, filepath.ToSlash(relativePath)); err != nil {
-			return "", err
-		}
-		if _, err := hasher.Write([]byte{0}); err != nil {
-			return "", err
-		}
-
-		file, err := os.Open(filepath.Join(root, relativePath))
-		if err != nil {
-			return "", err
-		}
-		if _, err := io.Copy(hasher, file); err != nil {
-			_ = file.Close()
-			return "", err
-		}
-		_ = file.Close()
-		if _, err := hasher.Write([]byte{0}); err != nil {
-			return "", err
-		}
-	}
-
-	return hex.EncodeToString(hasher.Sum(nil)), nil
-}
-
 func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string, error) {
 	archiveInfo, err := os.Stat(archivePath)
 	if err != nil {
@@ -1406,8 +1328,7 @@ func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string
 		}
 
 		targetPath := filepath.Join(extractRoot, cleanName)
-		relativePath, err := filepath.Rel(extractRoot, targetPath)
-		if err != nil || relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(filepath.Separator)) {
+		if !fsguard.WithinRoot(extractRoot, targetPath) {
 			return "", installError(codePluginInstallFailed, "插件压缩包包含越界路径", "插件压缩包包含越界路径")
 		}
 

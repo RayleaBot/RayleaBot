@@ -6,13 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
 )
 
 type Result struct {
@@ -272,7 +274,7 @@ func Load(outputRoot string) (map[string]Result, map[string]Artifact, error) {
 		}
 
 		artifactPath := filepath.Join(outputRoot, filepath.Base(record.Filename))
-		if !artifactPathWithinRoot(outputRoot, artifactPath) {
+		if !fsguard.WithinRoot(outputRoot, artifactPath) {
 			continue
 		}
 		if _, err := os.Stat(artifactPath); err != nil {
@@ -319,7 +321,7 @@ func Lookup(outputRoot string, artifactID string) (Artifact, error) {
 	}
 
 	artifactPath := filepath.Join(outputRoot, filepath.Base(record.Filename))
-	if !artifactPathWithinRoot(outputRoot, artifactPath) {
+	if !fsguard.WithinRoot(outputRoot, artifactPath) {
 		return Artifact{}, &Error{Code: errorcodes.PlatformResourceMissing, Message: "render artifact path is invalid"}
 	}
 	if _, err := os.Stat(artifactPath); err != nil {
@@ -364,20 +366,4 @@ func fileURL(path string) string {
 		path = "/" + path
 	}
 	return (&url.URL{Scheme: "file", Path: path}).String()
-}
-
-func artifactPathWithinRoot(root, candidate string) bool {
-	rootAbs, err := filepath.Abs(root)
-	if err != nil {
-		return false
-	}
-	candidateAbs, err := filepath.Abs(candidate)
-	if err != nil {
-		return false
-	}
-	relative, err := filepath.Rel(rootAbs, candidateAbs)
-	if err != nil {
-		return false
-	}
-	return relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
 }
