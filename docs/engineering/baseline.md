@@ -50,9 +50,9 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 ## 工具链获取
 
-- 仓库根目录的 `.tool-versions` 只固定 Go、Node.js、Python 与 pnpm，可由 mise 或 asdf 读取。npm 随 Node.js 提供；Corepack 与 sqlc 不在该文件中，由下列独立安装步骤和 doctor 校验覆盖。 doctor 从该文件读取四个版本，并核对各 Go module 与 JS package 的版本声明。
+- 仓库根目录的 `.tool-versions` 固定七种工具的版本。doctor 核对已安装工具、各 Go module 与 JS package 的声明；CI 与开发容器安装步骤从该文件读取版本。Docker 的 Go/Python 基础镜像标签需要在解析 Dockerfile 时确定，保留显式声明，由严格契约门禁检查一致性。
 - `python scripts/check-toolchain.py --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 保持完整冻结工具链门禁，版本错误仍失败。
-- `server/go.mod` 的 `go 1.26.6` 是 CI 与本地 server 测试的 Go 版本来源；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+- `server/go.mod` 的 `go 1.26.6` 是 Go 工具识别的最低版本声明，与 `.tool-versions` 保持一致；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
 - Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Corepack 单独安装：先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
 - sqlc 固定为 v1.31.1，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。

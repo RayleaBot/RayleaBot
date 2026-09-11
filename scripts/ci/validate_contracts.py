@@ -1148,8 +1148,17 @@ def validate_fixture_matrix() -> None:
                 fail(f"{path.relative_to(ROOT)} must contain a {prefix} fixture")
 
 
+def validate_devcontainer_versions(versions: dict[str, str]) -> None:
+    dockerfile = (ROOT / ".devcontainer" / "Dockerfile").read_text(encoding="utf-8")
+    images = re.findall(r"^FROM\s+(\S+)", dockerfile, re.MULTILINE)
+    expected = [f"python:{versions['python']}-bookworm", f"golang:{versions['golang']}-bookworm"]
+    if images != expected:
+        fail(".devcontainer/Dockerfile base images must follow .tool-versions")
+
+
 def validate_baseline() -> None:
     versions = read_tool_versions(ROOT)
+    validate_devcontainer_versions(versions)
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
     for snippet in [
         f"Go `{versions['golang']}`",

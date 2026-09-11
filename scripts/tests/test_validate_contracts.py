@@ -34,6 +34,20 @@ class ContractValidatorTests(unittest.TestCase):
             validator.CONTRACTS / "plugin-management-ui-bridge.schema.json", self.registry, "", payload,
         )
 
+    def test_devcontainer_base_images_follow_changed_tool_versions(self) -> None:
+        versions = validator.read_tool_versions(validator.ROOT)
+        dockerfile = (validator.ROOT / ".devcontainer/Dockerfile").read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".devcontainer").mkdir()
+            (root / ".devcontainer/Dockerfile").write_text(dockerfile, encoding="utf-8")
+            with patch.object(validator, "ROOT", root):
+                validator.validate_devcontainer_versions(versions)
+                for tool in ("golang", "python"):
+                    changed = dict(versions, **{tool: "9.8.7"})
+                    with self.subTest(tool=tool), self.assertRaisesRegex(SystemExit, "base images must follow"):
+                        validator.validate_devcontainer_versions(changed)
+
     def test_bridge_valid_handoff_and_resize_boundary(self) -> None:
         for name in ["ok.bridge-page-ready.json", "ok.bridge-host-connect.json", "ok.bridge-ui-resize.json"]:
             with self.subTest(name=name):
