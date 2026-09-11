@@ -10,7 +10,7 @@ func (h *SystemHandlers) HandleTaskStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		status, ok := h.system.GetTaskStatus(chi.URLParam(r, "task_id"))
 		if !ok {
-			WriteSystemHTTPError(w, r, MissingSystemResourceHTTPError(nil))
+			writeSystemHTTPError(w, r, missingSystemResourceHTTPError(nil))
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")

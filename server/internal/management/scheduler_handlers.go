@@ -13,7 +13,7 @@ import (
 func (h *SystemHandlers) HandleSystemSchedulerJobList() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.scheduler == nil {
-			WriteSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
+			writeSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
 			return
 		}
 		query, ok := readCollectionQuery(w, r)
@@ -35,16 +35,16 @@ func (h *SystemHandlers) HandleSystemSchedulerJobList() http.HandlerFunc {
 func (h *SystemHandlers) HandleSystemSchedulerJobTrigger() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if h.scheduler == nil {
-			WriteSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
+			writeSystemHTTPError(w, r, missingSchedulerJobHTTPError(""))
 			return
 		}
 		jobID := chi.URLParam(r, "job_id")
 		response, err := h.scheduler.TriggerJob(context.WithoutCancel(r.Context()), jobID)
 		if err != nil {
 			if errors.Is(err, scheduler.ErrJobNotFound) {
-				WriteSystemHTTPError(w, r, missingSchedulerJobHTTPError(jobID))
+				writeSystemHTTPError(w, r, missingSchedulerJobHTTPError(jobID))
 			} else {
-				WriteSystemHTTPError(w, r, InternalSystemHTTPError())
+				writeSystemHTTPError(w, r, internalSystemHTTPError())
 			}
 			return
 		}
@@ -52,10 +52,10 @@ func (h *SystemHandlers) HandleSystemSchedulerJobTrigger() http.HandlerFunc {
 	}
 }
 
-func missingSchedulerJobHTTPError(jobID string) *SystemHTTPError {
+func missingSchedulerJobHTTPError(jobID string) *systemHTTPError {
 	details := map[string]any{"resource_type": "scheduler_job"}
 	if jobID != "" {
 		details["job_id"] = jobID
 	}
-	return MissingSystemResourceHTTPError(details)
+	return missingSystemResourceHTTPError(details)
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
@@ -40,7 +41,7 @@ func newPluginIconHandler(catalog plugins.CatalogView) http.HandlerFunc {
 
 func writePluginIconMissing(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, no-store")
-	writeError(w, r, pluginCodeResourceNotFound, nil)
+	httpapi.WriteError(w, r, pluginCodeResourceNotFound, nil)
 }
 
 func readPluginIcon(snapshot plugins.Snapshot) ([]byte, string) {

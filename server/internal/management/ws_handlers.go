@@ -53,28 +53,6 @@ func acceptManagementWebSocket(w http.ResponseWriter, r *http.Request) (*websock
 	return conn, nil
 }
 
-func writeWebSocketPermissionDenied(w http.ResponseWriter, r *http.Request) {
-	httpapi.WriteError(
-		w,
-		r,
-
-		errorcodes.PermissionDenied,
-
-		nil,
-	)
-}
-
-func writeWebSocketNotFound(w http.ResponseWriter, r *http.Request) {
-	httpapi.WriteError(
-		w,
-		r,
-
-		errorcodes.PlatformResourceNotFound,
-
-		nil,
-	)
-}
-
 type EventsHandler struct{ stream *managementevents.Stream }
 
 func NewEventsHandler(sources managementevents.Sources) (*EventsHandler, error) {
@@ -122,7 +100,7 @@ func NewConsoleHandler(console consoleEventSource, plugins pluginLookupSource) *
 func (h *EventsHandler) HandleEventsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
-			writeWebSocketPermissionDenied(w, r)
+			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
 
@@ -153,7 +131,7 @@ type logFrame struct {
 func (h *LogsHandler) HandleLogsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
-			writeWebSocketPermissionDenied(w, r)
+			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
 
@@ -244,17 +222,17 @@ type consoleFrameData struct {
 func (h *ConsoleHandler) HandlePluginConsoleWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
-			writeWebSocketPermissionDenied(w, r)
+			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
 
 		pluginID := strings.TrimSpace(chi.URLParam(r, "id"))
 		if pluginID == "" {
-			writeWebSocketNotFound(w, r)
+			httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, nil)
 			return
 		}
 		if _, ok := h.plugins.Get(pluginID); !ok {
-			writeWebSocketNotFound(w, r)
+			httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, nil)
 			return
 		}
 

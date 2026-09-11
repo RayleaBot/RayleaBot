@@ -179,9 +179,9 @@ func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 		page, meta := pagination.Slice(filtered, query)
 		items := make([]SummaryResponse, 0, len(page))
 		for _, snapshot := range page {
-			items = append(items, ToSummary(snapshot, conflicts[snapshot.PluginID]))
+			items = append(items, toSummary(snapshot, conflicts[snapshot.PluginID]))
 		}
-		writeJSON(w, http.StatusOK, ListResponse{Metadata: meta, Items: items})
+		httpapi.WriteJSON(w, http.StatusOK, ListResponse{Metadata: meta, Items: items})
 	}
 }
 
@@ -190,7 +190,7 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 		pluginID := chi.URLParam(r, "plugin_id")
 		snapshot, ok := catalog.Get(pluginID)
 		if !ok {
-			writeError(
+			httpapi.WriteError(
 				w,
 				r,
 
@@ -204,24 +204,20 @@ func newDetailHandler(catalog plugins.CatalogView) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
+		httpapi.WriteJSON(w, http.StatusOK, buildDetail(catalog, snapshot))
 	}
-}
-
-func buildPluginDetailResponse(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailResponse {
-	return BuildDetail(catalog, snapshot)
 }
 
 func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallInspectionRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil || !validPluginInstallSource(req.SourceType, req.Source) {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		inspector, ok := installer.(plugins.InstallInspector)
 		if !ok || inspector == nil {
-			writeError(w, r, errorcodes.PlatformInternalError, nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		inspection, err := inspector.Inspect(r.Context(), plugins.InstallRequest{
@@ -234,10 +230,10 @@ func newInstallInspectHandler(catalog plugins.CatalogView, installer plugins.Ins
 			return
 		}
 		if _, exists := catalog.Get(inspection.PluginID); exists {
-			writeError(w, r, errorcodes.PluginInstallFailed, map[string]any{"plugin_id": inspection.PluginID})
+			httpapi.WriteError(w, r, errorcodes.PluginInstallFailed, map[string]any{"plugin_id": inspection.PluginID})
 			return
 		}
-		writeJSON(w, http.StatusOK, buildInstallInspectionResponse(inspection))
+		httpapi.WriteJSON(w, http.StatusOK, buildInstallInspectionResponse(inspection))
 	}
 }
 
@@ -274,7 +270,7 @@ func newInstallHandler(installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 
@@ -298,11 +294,11 @@ func newInstallHandler(installer plugins.InstallCoordinator) http.HandlerFunc {
 				return
 			}
 
-			writeJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
+			httpapi.WriteJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
 			return
 		}
 
-		writeError(w, r, errorcodes.PlatformInternalError, nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 	}
 }
 
@@ -313,29 +309,29 @@ func validPluginInstallSource(sourceType, source string) bool {
 func writePluginInstallError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, tasks.ErrQueueFull):
-		writeError(w, r, errorcodes.PlatformTaskQueueFull, nil)
+		httpapi.WriteError(w, r, errorcodes.PlatformTaskQueueFull, nil)
 	case errors.Is(err, plugins.ErrTrustedCodeConfirmation):
-		writeError(w, r, errorcodes.PluginTrustedCodeConfirmationRequired, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginTrustedCodeConfirmationRequired, nil)
 	case errors.Is(err, plugins.ErrInstallInspectionExpired):
-		writeError(w, r, errorcodes.PluginInstallInspectionExpired, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginInstallInspectionExpired, nil)
 	case errors.Is(err, plugins.ErrInstallDigestMismatch):
-		writeError(w, r, errorcodes.PluginInstallDigestMismatch, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginInstallDigestMismatch, nil)
 	case errors.Is(err, plugins.ErrInstallInspectionRequired):
-		writeError(w, r, errorcodes.PluginInstallInspectionRequired, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginInstallInspectionRequired, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPackageResourceLimitExceeded:
-		writeError(w, r, errorcodes.PluginPackageResourceLimitExceeded, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginPackageResourceLimitExceeded, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPackageUnsafeEntry:
-		writeError(w, r, errorcodes.PluginPackageUnsafeEntry, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginPackageUnsafeEntry, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginArtifactInvalid:
-		writeError(w, r, errorcodes.PluginArtifactInvalid, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginArtifactInvalid, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginPlatformMismatch:
-		writeError(w, r, errorcodes.PluginPlatformMismatch, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginPlatformMismatch, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PluginStoreIntegrityMismatch:
-		writeError(w, r, errorcodes.PluginStoreIntegrityMismatch, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginStoreIntegrityMismatch, nil)
 	case pluginservice.InstallErrorCode(err) == errorcodes.PlatformInvalidRequest || pluginservice.InstallErrorCode(err) == errorcodes.PlatformResourceMissing:
-		writeError(w, r, pluginCodeInvalidRequest, nil)
+		httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 	default:
-		writeError(w, r, errorcodes.PluginInstallFailed, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginInstallFailed, nil)
 	}
 }
 
@@ -363,7 +359,7 @@ func newReloadHandler(catalog plugins.CatalogView, controller DesiredStateContro
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
-			writeError(w, r, errorcodes.PlatformInternalError, nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		snapshot, err := controller.Reload(r.Context(), pluginID)
@@ -379,7 +375,7 @@ func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller Desired
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if controller == nil {
-			writeError(w, r, errorcodes.PlatformInternalError, nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		snapshot, err := controller.RecoverFromDeadLetter(r.Context(), pluginID)
@@ -392,69 +388,49 @@ func newDeadLetterRecoverHandler(catalog plugins.CatalogView, controller Desired
 }
 
 func writePluginDetailResponse(w http.ResponseWriter, catalog plugins.CatalogView, snapshot plugins.Snapshot) {
-	writeJSON(w, http.StatusOK, buildPluginDetailResponse(catalog, snapshot))
+	httpapi.WriteJSON(w, http.StatusOK, buildDetail(catalog, snapshot))
 }
 
 func newUninstallHandler(coordinator UninstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pluginID := chi.URLParam(r, "plugin_id")
 		if !plugins.ValidPluginID(pluginID) {
-			writeError(w, r, errorcodes.PlatformInvalidRequest, nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 			return
 		}
 		if coordinator == nil {
-			writeError(w, r, errorcodes.PlatformInternalError, nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
 		taskID, err := coordinator.Accept(r.Context(), pluginID)
 		if err != nil {
 			if errors.Is(err, plugins.ErrInvalidPluginID) {
-				writeError(w, r, errorcodes.PlatformInvalidRequest, nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 				return
 			}
 			if errors.Is(err, tasks.ErrQueueFull) {
-				writeError(w, r, errorcodes.PlatformTaskQueueFull, nil)
+				httpapi.WriteError(w, r, errorcodes.PlatformTaskQueueFull, nil)
 				return
 			}
-			writeError(w, r, errorcodes.PlatformInternalError, nil)
+			httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 			return
 		}
-		writeJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
+		httpapi.WriteJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
 	}
 }
 
 func writeDesiredStateError(w http.ResponseWriter, r *http.Request, pluginID string, err error) {
 	if errors.Is(err, plugins.ErrPluginNotFound) {
-		writeError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
+		httpapi.WriteError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin", "plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, plugins.ErrPluginNotInDeadLetter) {
-		writeError(w, r, errorcodes.PluginNotRecoverable, map[string]any{"plugin_id": pluginID})
+		httpapi.WriteError(w, r, errorcodes.PluginNotRecoverable, map[string]any{"plugin_id": pluginID})
 		return
 	}
 	if errors.Is(err, plugins.ErrStateConflict) {
-		writeError(w, r, errorcodes.PlatformStateConflict, map[string]any{"plugin_id": pluginID})
+		httpapi.WriteError(w, r, errorcodes.PlatformStateConflict, map[string]any{"plugin_id": pluginID})
 		return
 	}
-	writeError(w, r, errorcodes.PlatformInternalError, nil)
-}
-
-func writeError(w http.ResponseWriter, r *http.Request, code string, details map[string]any) {
-	httpapi.WriteError(w, r, code, details)
-}
-
-func writeJSON(w http.ResponseWriter, statusCode int, body any) {
-	httpapi.WriteJSON(w, statusCode, body)
-}
-
-type errorEnvelope struct {
-	Error errorBody `json:"error"`
-}
-
-type errorBody struct {
-	Code       string         `json:"code"`
-	Message    string         `json:"message"`
-	MessageKey string         `json:"message_key"`
-	RequestID  string         `json:"request_id"`
-	Details    map[string]any `json:"details,omitempty"`
+	httpapi.WriteError(w, r, errorcodes.PlatformInternalError, nil)
 }

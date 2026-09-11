@@ -50,21 +50,21 @@ func (h DevelopmentRoutes) sync(w http.ResponseWriter, r *http.Request) {
 		Source   string `json:"source"`
 	}
 	if err := httpapi.DecodeStrictJSON(w, r, &input, 16*1024); err != nil {
-		h.invalid(w, r)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
 	if !filepath.IsAbs(input.Source) || len(input.Source) > 4096 || len(input.Artifact) > 4096 || !filepath.IsAbs(input.Artifact) {
-		h.invalid(w, r)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
 	canonical, err := filepath.EvalSymlinks(input.Artifact)
 	if err != nil {
-		h.invalid(w, r)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
 	relative, err := filepath.Rel(h.ArtifactRoot, canonical)
 	if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) {
-		h.invalid(w, r)
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return
 	}
 	taskID, changed, err := h.Installer.SyncDevelopment(r.Context(), canonical, filepath.Clean(input.Source))
@@ -76,10 +76,6 @@ func (h DevelopmentRoutes) sync(w http.ResponseWriter, r *http.Request) {
 		Changed bool   `json:"changed"`
 		TaskID  string `json:"task_id"`
 	}{changed, taskID})
-}
-
-func (h DevelopmentRoutes) invalid(w http.ResponseWriter, r *http.Request) {
-	httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 }
 
 func (h DevelopmentRoutes) task(w http.ResponseWriter, r *http.Request) {

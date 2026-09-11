@@ -24,16 +24,16 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 			NewIdentifier json.RawMessage `json:"new_identifier,omitempty"`
 		}
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 		identifier := ""
 		if len(request.NewIdentifier) > 0 && (string(request.NewIdentifier) == "null" || json.Unmarshal(request.NewIdentifier, &identifier) != nil) {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 		if err := auth.ValidateCredentialUpdate(request.CurrentSecret, request.NewSecret, identifier); err != nil {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 		cfg := h.currentConfig()
@@ -53,13 +53,13 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 				SameSite: http.SameSiteStrictMode, MaxAge: -1, Expires: time.Unix(1, 0)})
 			w.WriteHeader(http.StatusNoContent)
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			writeAuthError(w, r, errorcodes.PermissionCurrentSecretInvalid)
+			httpapi.WriteError(w, r, errorcodes.PermissionCurrentSecretInvalid, nil)
 		case errors.Is(err, auth.ErrInvalidToken), errors.Is(err, auth.ErrExpiredToken):
 			writeAuthenticationRequired(w, r)
 		case errors.Is(err, auth.ErrInvalidCredentialInput):
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 		default:
-			writeAuthError(w, r, authCodeInternalError)
+			httpapi.WriteError(w, r, authCodeInternalError, nil)
 		}
 	}
 }

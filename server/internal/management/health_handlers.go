@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 )
 
 func NewReadinessHandler(getReport func() systemsvc.ReadinessReport) http.HandlerFunc {
@@ -14,16 +15,16 @@ func NewReadinessHandler(getReport func() systemsvc.ReadinessReport) http.Handle
 			statusCode = http.StatusOK
 		}
 
-		writeJSON(w, statusCode, report)
+		httpapi.WriteJSON(w, statusCode, report)
 	}
 }
 
-type LivenessResponse struct {
+type livenessResponse struct {
 	Status string `json:"status"`
 }
 
 func NewLivenessHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, LivenessResponse{Status: "ok"})
+		httpapi.WriteJSON(w, http.StatusOK, livenessResponse{Status: "ok"})
 	}
 }

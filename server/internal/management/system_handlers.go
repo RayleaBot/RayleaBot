@@ -50,20 +50,20 @@ const (
 	systemCodeTaskQueueFull    = errorcodes.PlatformTaskQueueFull
 )
 
-type SystemHTTPError struct {
+type systemHTTPError struct {
 	code    string
 	details map[string]any
 }
 
-func InternalSystemHTTPError() *SystemHTTPError {
-	return &SystemHTTPError{
+func internalSystemHTTPError() *systemHTTPError {
+	return &systemHTTPError{
 
 		code: systemCodeInternalError,
 	}
 }
 
-func InvalidSystemHTTPError(details map[string]any) *SystemHTTPError {
-	return &SystemHTTPError{
+func invalidSystemHTTPError(details map[string]any) *systemHTTPError {
+	return &systemHTTPError{
 
 		code: systemCodeInvalidRequest,
 
@@ -71,8 +71,8 @@ func InvalidSystemHTTPError(details map[string]any) *SystemHTTPError {
 	}
 }
 
-func MissingSystemResourceHTTPError(details map[string]any) *SystemHTTPError {
-	return &SystemHTTPError{
+func missingSystemResourceHTTPError(details map[string]any) *systemHTTPError {
+	return &systemHTTPError{
 
 		code: systemCodeResourceMissing,
 
@@ -80,37 +80,37 @@ func MissingSystemResourceHTTPError(details map[string]any) *SystemHTTPError {
 	}
 }
 
-func TaskQueueFullSystemHTTPError() *SystemHTTPError {
-	return &SystemHTTPError{
+func taskQueueFullSystemHTTPError() *systemHTTPError {
+	return &systemHTTPError{
 
 		code: systemCodeTaskQueueFull,
 	}
 }
 
-func WriteSystemHTTPError(w http.ResponseWriter, r *http.Request, err *SystemHTTPError) {
+func writeSystemHTTPError(w http.ResponseWriter, r *http.Request, err *systemHTTPError) {
 	if err == nil {
 		return
 	}
 	httpapi.WriteError(w, r, err.code, err.details)
 }
 
-func WriteSystemError(w http.ResponseWriter, r *http.Request, err *systemsvc.Error) {
-	WriteSystemHTTPError(w, r, systemHTTPErrorFromError(err))
+func writeSystemError(w http.ResponseWriter, r *http.Request, err *systemsvc.Error) {
+	writeSystemHTTPError(w, r, systemHTTPErrorFromError(err))
 }
 
-func systemHTTPErrorFromError(err *systemsvc.Error) *SystemHTTPError {
+func systemHTTPErrorFromError(err *systemsvc.Error) *systemHTTPError {
 	if err == nil {
 		return nil
 	}
 	switch err.Reason {
 	case systemsvc.ErrorReasonInvalidRequest:
-		return InvalidSystemHTTPError(err.Details)
+		return invalidSystemHTTPError(err.Details)
 	case systemsvc.ErrorReasonResourceMissing:
-		return MissingSystemResourceHTTPError(err.Details)
+		return missingSystemResourceHTTPError(err.Details)
 	case systemsvc.ErrorReasonTaskQueueFull:
-		return TaskQueueFullSystemHTTPError()
+		return taskQueueFullSystemHTTPError()
 	default:
-		return InternalSystemHTTPError()
+		return internalSystemHTTPError()
 	}
 }
 
@@ -147,7 +147,7 @@ func (h *SystemHandlers) HandleSystemBackup() http.HandlerFunc {
 		taskID, err := h.system.SubmitSystemBackupTask()
 		if err != nil {
 			if errors.Is(err, tasks.ErrQueueFull) {
-				WriteSystemHTTPError(w, r, TaskQueueFullSystemHTTPError())
+				writeSystemHTTPError(w, r, taskQueueFullSystemHTTPError())
 				return
 			}
 			httpapi.WriteError(w, r, systemCodeInternalError, nil)
@@ -209,7 +209,7 @@ func (h *SystemHandlers) HandleSystemRuntimeBootstrap() http.HandlerFunc {
 		taskID, err := h.system.SubmitRuntimeBootstrapTask(resources)
 		if err != nil {
 			if errors.Is(err, tasks.ErrQueueFull) {
-				WriteSystemHTTPError(w, r, TaskQueueFullSystemHTTPError())
+				writeSystemHTTPError(w, r, taskQueueFullSystemHTTPError())
 				return
 			}
 			httpapi.WriteError(w, r, systemCodeInternalError, nil)

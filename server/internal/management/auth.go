@@ -96,26 +96,26 @@ func (h *AuthHandlers) HandleSetupAdmin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := h.currentConfig()
 		if !validSetupRequest(r, cfg) {
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		}
 		if cfg.SetupLocalOnly && !isLoopbackRequest(r) {
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		}
 
 		var request authRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 		transport, ok := sessionTransport(r)
 		if !ok {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 		if h.setupToken == nil || !h.setupToken.Consume(strings.TrimSpace(r.Header.Get(SetupTokenHeader))) {
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		}
 
@@ -125,7 +125,7 @@ func (h *AuthHandlers) HandleSetupAdmin() http.HandlerFunc {
 			h.writeSessionResponse(w, token, claims, transport, cfg)
 			return
 		case errors.Is(err, auth.ErrBootstrapAlreadyInitialized), errors.Is(err, auth.ErrSessionLimitReached):
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		default:
 			httpapi.WriteError(w, r, authCodeInternalError, nil)
@@ -138,17 +138,17 @@ func (h *AuthHandlers) HandleSessionLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cfg := h.currentConfig()
 		if !validRequestHost(r, cfg.AllowedHosts) || !validRequestOrigin(r, cfg.AllowedOrigins, false) {
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		}
 		var request authRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 		transport, ok := sessionTransport(r)
 		if !ok {
-			writeAuthError(w, r, authCodeInvalidRequest)
+			httpapi.WriteError(w, r, authCodeInvalidRequest, nil)
 			return
 		}
 
@@ -167,10 +167,10 @@ func (h *AuthHandlers) HandleSessionLogin() http.HandlerFunc {
 			h.writeSessionResponse(w, token, claims, transport, cfg)
 			return
 		case errors.Is(err, auth.ErrInvalidCredentials):
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		case errors.Is(err, auth.ErrSessionLimitReached):
-			writeAuthError(w, r, authCodePermissionDenied)
+			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		default:
 			httpapi.WriteError(w, r, authCodeInternalError, nil)
@@ -221,10 +221,6 @@ func LoginFailureWindow(cfg config.Config) time.Duration {
 		return 0
 	}
 	return time.Duration(seconds) * time.Second
-}
-
-func writeAuthError(w http.ResponseWriter, r *http.Request, code string) {
-	httpapi.WriteError(w, r, code, nil)
 }
 
 // claimsKey is an unexported type used as the context key for storing auth.Claims,

@@ -45,7 +45,7 @@ func TestNewLivenessHandlerReturnsOKJSON(t *testing.T) {
 		t.Fatalf("status = %d, want 200", recorder.Code)
 	}
 
-	var response LivenessResponse
+	var response livenessResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("decode liveness response: %v", err)
 	}

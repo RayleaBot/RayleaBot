@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/go-chi/chi/v5"
@@ -70,8 +71,8 @@ type fataler interface {
 	Fatalf(format string, args ...any)
 }
 
-func decodeErrorEnvelope(t fataler, body []byte) errorEnvelope {
-	var env errorEnvelope
+func decodeErrorEnvelope(t fataler, body []byte) httpapi.ErrorEnvelope {
+	var env httpapi.ErrorEnvelope
 	if err := json.Unmarshal(body, &env); err != nil {
 		t.Fatalf("failed to decode error envelope: %v\nbody: %s", err, body)
 	}

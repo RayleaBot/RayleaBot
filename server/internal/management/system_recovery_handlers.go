@@ -24,7 +24,7 @@ func (h *SystemHandlers) HandleSystemRecoveryRecheck() http.HandlerFunc {
 
 		taskID, systemErr := h.system.SubmitRecoveryRecheckTask()
 		if systemErr != nil {
-			WriteSystemError(w, r, systemErr)
+			writeSystemError(w, r, systemErr)
 			return
 		}
 
@@ -51,7 +51,7 @@ func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 		}
 
 		if systemErr := h.system.ValidateRecoveryConfirmRequest(reviewIDs, note); systemErr != nil {
-			WriteSystemError(w, r, systemErr)
+			writeSystemError(w, r, systemErr)
 			return
 		}
 
@@ -64,7 +64,7 @@ func (h *SystemHandlers) HandleSystemRecoveryConfirm() http.HandlerFunc {
 
 		taskID, systemErr := h.system.SubmitRecoveryConfirmTask(reviewIDs, note, operatorID)
 		if systemErr != nil {
-			WriteSystemError(w, r, systemErr)
+			writeSystemError(w, r, systemErr)
 			return
 		}
 

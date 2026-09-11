@@ -42,15 +42,15 @@ type ListResponse struct {
 	Items []SummaryResponse `json:"items"`
 }
 
-func BuildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot) SummaryResponse {
+func buildSummary(catalog plugins.CatalogView, snapshot plugins.Snapshot) SummaryResponse {
 	if catalog == nil {
-		return ToSummary(snapshot, nil)
+		return toSummary(snapshot, nil)
 	}
 	conflicts := plugins.DetectCommandConflicts(catalog.List())
-	return ToSummary(snapshot, conflicts[snapshot.PluginID])
+	return toSummary(snapshot, conflicts[snapshot.PluginID])
 }
 
-func ToSummary(snapshot plugins.Snapshot, conflicts []string) SummaryResponse {
+func toSummary(snapshot plugins.Snapshot, conflicts []string) SummaryResponse {
 	view := plugins.BuildSummaryView(snapshot, conflicts)
 	return SummaryResponse{
 		Summary:       view.Summary,
@@ -96,7 +96,7 @@ func toHelpResponse(help *plugins.HelpView) plugins.HelpView {
 	return *help
 }
 
-func NormalizeStringList(values []string) []string {
+func normalizeStringList(values []string) []string {
 	if len(values) == 0 {
 		return nil
 	}

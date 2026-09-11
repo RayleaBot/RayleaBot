@@ -52,10 +52,6 @@ type DetailResponse struct {
 	Plugin DetailPluginResponse `json:"plugin"`
 }
 
-func buildPluginPermissions(snapshot plugins.Snapshot) map[string]any {
-	return buildPermissionResponse(snapshot.Permissions)
-}
-
 func buildPermissionResponse(permissions map[string]plugins.PermissionGrant) map[string]any {
 	response := make(map[string]any, len(permissions))
 	for name, grant := range permissions {
@@ -63,7 +59,7 @@ func buildPermissionResponse(permissions map[string]plugins.PermissionGrant) map
 			response[name] = true
 			continue
 		}
-		response[name] = plugins.PermissionGrant{Platforms: NormalizeStringList(grant.Platforms)}
+		response[name] = plugins.PermissionGrant{Platforms: normalizeStringList(grant.Platforms)}
 	}
 	return response
 }
@@ -75,7 +71,7 @@ func buildPluginWebhooks(snapshot plugins.Snapshot) []WebhookScopeResponse {
 			ID: strings.TrimSpace(scope.ID), Route: strings.TrimSpace(scope.Route),
 			AuthStrategy: strings.TrimSpace(scope.AuthStrategy), Header: strings.TrimSpace(scope.Header),
 			SecretRef: strings.TrimSpace(scope.SecretRef), SignaturePrefix: strings.TrimSpace(scope.SignaturePrefix),
-			SourceCIDRs: NormalizeStringList(scope.SourceCIDRs), MaxBodyBytes: scope.MaxBodyBytes,
+			SourceCIDRs: normalizeStringList(scope.SourceCIDRs), MaxBodyBytes: scope.MaxBodyBytes,
 			ReplayProtection: scope.ReplayProtection,
 		})
 	}
@@ -127,20 +123,20 @@ func buildPluginManagementUI(snapshot plugins.Snapshot) *ManagementUIResponse {
 	return response
 }
 
-func BuildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailResponse {
-	summary := BuildSummary(catalog, snapshot)
+func buildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailResponse {
+	summary := buildSummary(catalog, snapshot)
 	return DetailResponse{
 		Plugin: DetailPluginResponse{
 			SummaryResponse: summary,
 			License:         strings.TrimSpace(snapshot.License),
 			MinCoreVersion:  strings.TrimSpace(snapshot.MinCoreVersion),
 			Concurrency:     snapshot.Concurrency,
-			Events:          NormalizeStringList(snapshot.Events),
-			Permissions:     buildPluginPermissions(snapshot),
+			Events:          normalizeStringList(snapshot.Events),
+			Permissions:     buildPermissionResponse(snapshot.Permissions),
 			Webhooks:        buildPluginWebhooks(snapshot),
 			Repo:            strings.TrimSpace(snapshot.Repo),
 			Homepage:        strings.TrimSpace(snapshot.Homepage),
-			Keywords:        NormalizeStringList(snapshot.Keywords),
+			Keywords:        normalizeStringList(snapshot.Keywords),
 			Screenshots:     buildPluginScreenshots(snapshot),
 			ManagementUI:    buildPluginManagementUI(snapshot),
 		},

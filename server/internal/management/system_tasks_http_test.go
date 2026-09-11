@@ -46,7 +46,7 @@ func newTaskOnlyHandlers(t *testing.T, repoRoot string) (*SystemHandlers, *tasks
 func TestSystemTaskQueueFullMapsToTooManyRequests(t *testing.T) {
 	httpErr := systemHTTPErrorFromError(system.TaskQueueFullError())
 	response := httptest.NewRecorder()
-	WriteSystemHTTPError(response, httptest.NewRequest("POST", "/", nil), httpErr)
+	writeSystemHTTPError(response, httptest.NewRequest("POST", "/", nil), httpErr)
 	if response.Code != http.StatusTooManyRequests || decodeErrorEnvelope(t, response.Body.Bytes()).Error.Code != "platform.task_queue_full" {
 		t.Fatalf("unexpected task queue response: %d %s", response.Code, response.Body.String())
 	}

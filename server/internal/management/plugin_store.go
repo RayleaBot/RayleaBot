@@ -69,7 +69,7 @@ func (routes PluginStoreRoutes) list() http.HandlerFunc {
 		if raw := strings.TrimSpace(r.URL.Query().Get("cursor")); raw != "" {
 			value, err := strconv.Atoi(raw)
 			if err != nil || value < 0 {
-				writeError(w, r, pluginCodeInvalidRequest, nil)
+				httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 				return
 			}
 			query.Cursor = value
@@ -77,13 +77,13 @@ func (routes PluginStoreRoutes) list() http.HandlerFunc {
 		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
 			value, err := strconv.Atoi(raw)
 			if err != nil || value < 1 || value > 100 {
-				writeError(w, r, pluginCodeInvalidRequest, nil)
+				httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 				return
 			}
 			query.Limit = value
 		}
 		if query.Sort != "" && query.Sort != "recommended" && query.Sort != "name" && query.Sort != "updated" {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		result, err := routes.Service.List(query)
@@ -91,7 +91,7 @@ func (routes PluginStoreRoutes) list() http.HandlerFunc {
 			writePluginStoreError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, result)
+		httpapi.WriteJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -100,10 +100,10 @@ func (routes PluginStoreRoutes) detail() http.HandlerFunc {
 		pluginID := chi.URLParam(r, "plugin_id")
 		detail, ok := routes.Service.Get(r.URL.Query().Get("source_id"), pluginID)
 		if !ok {
-			writeError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin_store_entry", "plugin_id": pluginID})
+			httpapi.WriteError(w, r, pluginCodeResourceNotFound, map[string]any{"resource_type": "plugin_store_entry", "plugin_id": pluginID})
 			return
 		}
-		writeJSON(w, http.StatusOK, detail)
+		httpapi.WriteJSON(w, http.StatusOK, detail)
 	}
 }
 
@@ -111,7 +111,7 @@ func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInspectionRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		result, err := routes.Service.Inspect(r.Context(), market.InspectionRequest{
@@ -122,7 +122,7 @@ func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
 			writePluginStoreError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, pluginStoreInspectionResponse{
+		httpapi.WriteJSON(w, http.StatusOK, pluginStoreInspectionResponse{
 			Inspection:           buildInstallInspectionResponse(result.Inspection),
 			ConfirmationRequired: result.ConfirmationRequired,
 			ConfirmationReasons:  append([]string(nil), result.ConfirmationReasons...),
@@ -134,7 +134,7 @@ func (routes PluginStoreRoutes) install() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var request pluginStoreInstallRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		taskID, err := routes.Service.Install(r.Context(), market.InstallRequest{
@@ -147,7 +147,7 @@ func (routes PluginStoreRoutes) install() http.HandlerFunc {
 			writePluginStoreError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
+		httpapi.WriteJSON(w, http.StatusAccepted, pluginTaskAcceptedResponse{TaskID: taskID})
 	}
 }
 
@@ -165,7 +165,7 @@ func (routes PluginStoreRoutes) listSources() http.HandlerFunc {
 		}
 		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 		page, meta := pagination.Slice(items, query)
-		writeJSON(w, http.StatusOK, pluginStoreSourcesResponse{Metadata: meta, Items: page})
+		httpapi.WriteJSON(w, http.StatusOK, pluginStoreSourcesResponse{Metadata: meta, Items: page})
 	}
 }
 
@@ -173,7 +173,7 @@ func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input market.SourceInput
 		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		source, err := routes.Service.CreateSource(r.Context(), input)
@@ -181,7 +181,7 @@ func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 			writePluginStoreError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusCreated, source)
+		httpapi.WriteJSON(w, http.StatusCreated, source)
 	}
 }
 
@@ -189,7 +189,7 @@ func (routes PluginStoreRoutes) updateSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input market.SourceInput
 		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
-			writeError(w, r, pluginCodeInvalidRequest, nil)
+			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
 		source, err := routes.Service.UpdateSource(r.Context(), chi.URLParam(r, "source_id"), input)
@@ -197,7 +197,7 @@ func (routes PluginStoreRoutes) updateSource() http.HandlerFunc {
 			writePluginStoreError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, source)
+		httpapi.WriteJSON(w, http.StatusOK, source)
 	}
 }
 
@@ -218,20 +218,20 @@ func (routes PluginStoreRoutes) refreshSource() http.HandlerFunc {
 			writePluginStoreError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, source)
+		httpapi.WriteJSON(w, http.StatusOK, source)
 	}
 }
 
 func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, market.ErrEntryNotFound), errors.Is(err, market.ErrSourceNotFound):
-		writeError(w, r, pluginCodeResourceNotFound, nil)
+		httpapi.WriteError(w, r, pluginCodeResourceNotFound, nil)
 	case errors.Is(err, market.ErrSourceImmutable):
-		writeError(w, r, errorcodes.PluginStoreSourceImmutable, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginStoreSourceImmutable, nil)
 	case errors.Is(err, market.ErrSourceConflict):
-		writeError(w, r, errorcodes.PluginStoreSourceConflict, nil)
+		httpapi.WriteError(w, r, errorcodes.PluginStoreSourceConflict, nil)
 	case errors.Is(err, market.ErrSourceInvalid):
-		writeError(w, r, pluginCodeInvalidRequest, nil)
+		httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
 	case errors.Is(err, plugins.ErrTrustedCodeConfirmation),
 		errors.Is(err, plugins.ErrInstallInspectionRequired),
 		errors.Is(err, plugins.ErrInstallInspectionExpired),
@@ -239,11 +239,11 @@ func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, tasks.ErrQueueFull):
 		writePluginInstallError(w, r, err)
 	case market.ErrorCode(err) == market.CodeCatalogUnavailable:
-		writeError(w, r, market.CodeCatalogUnavailable, nil)
+		httpapi.WriteError(w, r, market.CodeCatalogUnavailable, nil)
 	case market.ErrorCode(err) == market.CodeReleaseUnavailable:
-		writeError(w, r, market.CodeReleaseUnavailable, nil)
+		httpapi.WriteError(w, r, market.CodeReleaseUnavailable, nil)
 	case market.ErrorCode(err) == market.CodeIntegrityMismatch || pluginservice.InstallErrorCode(err) == market.CodeIntegrityMismatch:
-		writeError(w, r, market.CodeIntegrityMismatch, nil)
+		httpapi.WriteError(w, r, market.CodeIntegrityMismatch, nil)
 	default:
 		writePluginInstallError(w, r, err)
 	}

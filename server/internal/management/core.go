@@ -98,7 +98,7 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := ClaimsFromContext(r.Context())
 		if !ok || claims.SessionID == "" {
-			writeCoreAuthError(w, r, errorcodes.PermissionAuthenticationRequired)
+			httpapi.WriteError(w, r, errorcodes.PermissionAuthenticationRequired, nil)
 			return
 		}
 		if err := h.auth.RevokeWithContext(r.Context(), claims.SessionID); err != nil {
@@ -122,7 +122,7 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 func (h *CoreHandlers) HandleLauncherStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.validLauncherControlRequest(r) {
-			writeCoreAuthError(w, r, coreCodePermissionDenied)
+			httpapi.WriteError(w, r, coreCodePermissionDenied, nil)
 			return
 		}
 
@@ -147,7 +147,7 @@ func (h *CoreHandlers) HandleSystemShutdown() http.HandlerFunc {
 func (h *CoreHandlers) HandleLauncherShutdown() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.validLauncherControlRequest(r) {
-			writeCoreAuthError(w, r, coreCodePermissionDenied)
+			httpapi.WriteError(w, r, coreCodePermissionDenied, nil)
 			return
 		}
 
@@ -220,8 +220,4 @@ func hasForwardingHeaders(r *http.Request) bool {
 	}
 
 	return false
-}
-
-func writeCoreAuthError(w http.ResponseWriter, r *http.Request, code string) {
-	httpapi.WriteError(w, r, code, nil)
 }
