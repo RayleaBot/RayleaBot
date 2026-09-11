@@ -74,9 +74,6 @@ func New(ctx context.Context, installed plugins.CatalogView, installer Installer
 	if err != nil {
 		return nil, fmt.Errorf("compile plugin store catalog schema: %w", err)
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	sources, err := repository.ListSources(ctx)
 	if err != nil {
 		return nil, err

@@ -46,9 +46,6 @@ func (m *Manager) PrepareWithReport(ctx context.Context, kind string) (*PrepareR
 }
 
 func (m *Manager) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	manifest, resource, err := m.currentResource(kind)
 	if err != nil {
 		if report, ok := m.prepareSystemChromiumIfAvailable(ctx, kind, nil, nil, options.Progress); ok {

@@ -357,9 +357,6 @@ func withDefaultInstallerDeps(deps installerDeps) installerDeps {
 }
 
 func (s *InstallService) refreshCatalog(ctx context.Context, pluginID string) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	snapshots, _, err := plugincatalog.Discover(plugincatalog.DiscoverOptions{
 		Validator: s.validator,
 		Roots:     s.discoveryRoots,

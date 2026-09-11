@@ -122,9 +122,6 @@ func NewChromedpBrowser(options BrowserOptions) *ChromedpBrowser {
 }
 
 func (b *ChromedpBrowser) Create(ctx context.Context, now time.Time) (BrowserCreateResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := ctx.Err(); err != nil {
 		return BrowserCreateResult{}, fmt.Errorf("douyin browser: %w", err)
 	}
@@ -360,9 +357,6 @@ func startDouyinBrowserContextWith(
 }
 
 func (b *ChromedpBrowser) Poll(ctx context.Context, token string) (BrowserPollResult, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := ctx.Err(); err != nil {
 		return BrowserPollResult{}, fmt.Errorf("douyin browser poll: %w", err)
 	}

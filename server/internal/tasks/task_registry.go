@@ -257,9 +257,6 @@ func (r *Registry) broadcastLocked(snapshot Snapshot) {
 }
 
 func (r *Registry) Flush(ctx context.Context) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	r.persistMu.Lock()
 	if !r.persistStarted {
 		err := r.persistErr

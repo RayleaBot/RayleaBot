@@ -14,9 +14,6 @@ import (
 var errSystemChromiumUnavailable = errors.New("system chromium browser is not available")
 
 func FindSystemChromium(ctx context.Context) (string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	for _, candidate := range systemChromiumCandidates(runtime.GOOS, os.Getenv, exec.LookPath) {
 		if isUsableSystemChromium(ctx, candidate) {
 			return candidate, nil

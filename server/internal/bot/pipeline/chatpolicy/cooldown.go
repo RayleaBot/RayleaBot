@@ -17,9 +17,6 @@ func (s *Service) sendCooldownReply(ctx context.Context, event chatevent.Normali
 	if s.outboundSender == nil {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	var (
 		attempt outbound.SendAttempt

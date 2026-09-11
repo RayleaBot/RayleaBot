@@ -40,9 +40,6 @@ type Result struct {
 }
 
 func Create(ctx context.Context, options Options) (Result, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if strings.TrimSpace(options.RepoRoot) == "" {
 		return Result{}, errors.New("backup runtime root is required")
 	}

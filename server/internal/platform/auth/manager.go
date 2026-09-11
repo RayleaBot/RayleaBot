@@ -16,13 +16,6 @@ var (
 	ErrSessionLimitReached = errors.New("maximum active sessions reached")
 )
 
-func normalizeContext(ctx context.Context) context.Context {
-	if ctx == nil {
-		return context.Background()
-	}
-	return ctx
-}
-
 type Config struct {
 	SessionTTLDays         int
 	SessionAbsoluteTTLDays int
@@ -119,7 +112,6 @@ func NewManager(cfg Config, opts ...Option) (*Manager, error) {
 }
 
 func NewManagerWithContext(ctx context.Context, cfg Config, opts ...Option) (*Manager, error) {
-	ctx = normalizeContext(ctx)
 	if cfg.SessionAbsoluteTTLDays == 0 {
 		cfg.SessionAbsoluteTTLDays = 30
 	}

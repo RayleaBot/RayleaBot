@@ -132,9 +132,6 @@ func NewController(deps Deps) (*Controller, error) {
 }
 
 func (c *Controller) BindLifecycleContext(ctx context.Context) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	c.lifecycleCtxMu.Lock()
 	previousCancel := c.lifecycleCancel
 	c.lifecycleCtx, c.lifecycleCancel = context.WithCancel(ctx)
@@ -172,9 +169,6 @@ func (c *Controller) lifecycleContext() context.Context {
 	c.lifecycleCtxMu.RLock()
 	ctx := c.lifecycleCtx
 	c.lifecycleCtxMu.RUnlock()
-	if ctx == nil {
-		return context.Background()
-	}
 	return ctx
 }
 

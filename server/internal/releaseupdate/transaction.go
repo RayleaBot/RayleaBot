@@ -363,7 +363,7 @@ func (i *Installer) rollback(ctx context.Context, path string, journal *transact
 		_ = writeJournal(path, journal, request.Now)
 		return errorWithCode(CodeRollbackFailed, "restore previous release", err)
 	}
-	restartCtx, cancelRestart := context.WithTimeout(context.WithoutCancel(normalizeContext(ctx)), rollbackTimeout)
+	restartCtx, cancelRestart := context.WithTimeout(context.WithoutCancel(ctx), rollbackTimeout)
 	defer cancelRestart()
 	if err := i.Operations.RestartPrevious(restartCtx, request.InstallRoot, request); err != nil {
 		journal.State = "rollback_failed"
@@ -375,13 +375,6 @@ func (i *Installer) rollback(ctx context.Context, path string, journal *transact
 		return errorWithCode(CodeRollbackFailed, "record completed rollback", err)
 	}
 	return errorWithCode(CodeInstallFailed, "transaction rolled back", cause)
-}
-
-func normalizeContext(ctx context.Context) context.Context {
-	if ctx == nil {
-		return context.Background()
-	}
-	return ctx
 }
 
 func writeJournal(path string, journal *transactionJournal, now time.Time) error {

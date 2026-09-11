@@ -64,9 +64,6 @@ func New(options Options) (*App, error) {
 }
 
 func NewWithContext(ctx context.Context, options Options) (*App, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

@@ -23,7 +23,6 @@ func (m *Manager) Bootstrap(identifier, secret string) (string, Claims, error) {
 }
 
 func (m *Manager) BootstrapWithContext(ctx context.Context, identifier, secret string) (string, Claims, error) {
-	ctx = normalizeContext(ctx)
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || secret == "" {
 		return "", Claims{}, ErrInvalidToken
@@ -104,7 +103,6 @@ func (m *Manager) Login(identifier, secret string) (string, Claims, error) {
 }
 
 func (m *Manager) LoginWithContext(ctx context.Context, identifier, secret string) (string, Claims, error) {
-	ctx = normalizeContext(ctx)
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" || secret == "" {
 		return "", Claims{}, ErrInvalidToken

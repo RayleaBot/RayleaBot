@@ -220,9 +220,6 @@ func DisplayServerURL(listenAddr string) string {
 }
 
 func RequestIDFromContext(ctx context.Context) string {
-	if ctx == nil {
-		return ""
-	}
 	if requestID, ok := ctx.Value(requestIDKey{}).(string); ok {
 		return requestID
 	}

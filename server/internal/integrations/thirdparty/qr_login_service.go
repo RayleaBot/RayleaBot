@@ -178,9 +178,6 @@ func (s *QRLoginService) Poll(ctx context.Context, platform, loginID string) (QR
 	if err != nil {
 		return QRLoginPollResult{}, err
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	loginID = strings.TrimSpace(loginID)
 	now := s.now().UTC()
 	s.mu.Lock()

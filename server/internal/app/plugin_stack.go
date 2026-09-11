@@ -48,9 +48,6 @@ type PluginStackState struct {
 
 func buildPluginStack(deps pluginStackDeps) (PluginStackState, error) {
 	ctx := deps.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := ctx.Err(); err != nil {
 		return PluginStackState{}, err
 	}

@@ -19,9 +19,6 @@ func (c *Controller) reconcileRuntime(ctx context.Context) {
 	if c.plugins == nil {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	budgetCtx, cancel := context.WithTimeout(ctx, runtimeInitBudget(c.config().Runtime))
 	defer cancel()
 
@@ -44,9 +41,6 @@ func (c *Controller) ReconcileRuntime(ctx context.Context) {
 }
 
 func (c *Controller) ensurePluginRunning(ctx context.Context, pluginID string) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	release, err := c.acquireOperation(ctx, pluginID)
 	if err != nil {
 		return err
@@ -155,9 +149,6 @@ func (c *Controller) StartInstalled(ctx context.Context, pluginID string) error 
 }
 
 func (c *Controller) StopAndResetPluginWithContext(ctx context.Context, pluginID string) error {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	return c.stopPlugin(ctx, pluginID, true)
 }
 

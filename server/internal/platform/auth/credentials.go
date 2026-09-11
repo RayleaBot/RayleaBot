@@ -20,7 +20,6 @@ func ValidateCredentialUpdate(currentSecret, newSecret, newIdentifier string) er
 // UpdateCredentialsWithContext verifies the current password before atomically
 // replacing the credential source and revoking every existing session.
 func (m *Manager) UpdateCredentialsWithContext(ctx context.Context, claims Claims, currentSecret, newSecret, newIdentifier string) error {
-	ctx = normalizeContext(ctx)
 	if err := ValidateCredentialUpdate(currentSecret, newSecret, newIdentifier); err != nil {
 		return err
 	}

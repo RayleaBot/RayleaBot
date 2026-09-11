@@ -207,9 +207,6 @@ func douyinUserAgentForProduct(goos, product string) string {
 }
 
 func resolveDouyinRemoteDebuggingURL(ctx context.Context, raw string, client *http.Client) (string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := validateDouyinRemoteDebuggingURL(raw); err != nil {
 		return "", err
 	}

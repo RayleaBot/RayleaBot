@@ -67,9 +67,6 @@ func (s *InstallService) Accept(_ context.Context, acceptance plugins.InstallAcc
 }
 
 func (s *InstallService) Inspect(ctx context.Context, request plugins.InstallRequest) (plugins.InstallInspection, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()

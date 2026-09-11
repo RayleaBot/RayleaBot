@@ -49,9 +49,6 @@ type PlatformState struct {
 
 func buildPlatform(deps platformDeps) (PlatformState, error) {
 	ctx := deps.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := ctx.Err(); err != nil {
 		return PlatformState{}, err
 	}

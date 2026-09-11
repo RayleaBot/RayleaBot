@@ -35,9 +35,6 @@ type appRenderState struct {
 
 func buildRender(deps renderDeps) (appRenderState, error) {
 	ctx := deps.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	if err := ctx.Err(); err != nil {
 		return appRenderState{}, err
 	}
@@ -82,9 +79,6 @@ func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []render.Plu
 
 func buildRenderService(deps renderDeps) (*render.Service, error) {
 	ctx := deps.Context
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	renderBrowserPath := prepareBrowserPath(ctx, deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath, resolveManagedBrowserPath)
 	renderService, err := render.NewService(render.Options{
 		RepoRoot:           deps.Discovery.RepoRoot,

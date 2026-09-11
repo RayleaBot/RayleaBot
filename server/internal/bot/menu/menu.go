@@ -733,9 +733,6 @@ func (s *Service) sendBuiltinMenuSegments(ctx context.Context, event chatevent.N
 	if s.sender == nil {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	targetType := strings.TrimSpace(event.ConversationType)
 	targetID := strings.TrimSpace(event.ConversationID)
 	if targetID == "" {

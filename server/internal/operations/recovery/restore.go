@@ -67,9 +67,6 @@ func Restore(ctx context.Context, options RestoreOptions) (RestoreResult, error)
 }
 
 func restoreWithDeps(ctx context.Context, options RestoreOptions, deps restoreDeps) (result RestoreResult, retErr error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	deps = deps.withDefaults()
 	repoRoot, configRelative, err := resolveRestoreTarget(options)
 	if err != nil {

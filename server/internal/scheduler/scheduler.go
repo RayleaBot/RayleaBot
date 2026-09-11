@@ -149,6 +149,9 @@ func New(opts Options) (*Engine, error) {
 		trigger = func(context.Context, Job) {}
 	}
 
+	// Jobs fired before Start still run under a live context; Start replaces it
+	// with one derived from the application run.
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Engine{
 		repo:     opts.Repository,
 		logger:   opts.Logger,
@@ -156,6 +159,8 @@ func New(opts Options) (*Engine, error) {
 		location: loc,
 		now:      time.Now,
 		jobs:     make(map[string]Job),
+		ctx:      ctx,
+		cancel:   cancel,
 	}, nil
 }
 
@@ -205,6 +210,7 @@ func (e *Engine) Hydrate(ctx context.Context) error {
 
 // Start begins the background tick loop. It should be called after Hydrate.
 func (e *Engine) Start(ctx context.Context) {
+	e.cancel()
 	e.ctx, e.cancel = context.WithCancel(ctx)
 	e.wg.Add(1)
 	go e.tickLoop()
@@ -212,9 +218,7 @@ func (e *Engine) Start(ctx context.Context) {
 
 // Stop cancels the tick loop and waits for it to finish.
 func (e *Engine) Stop() {
-	if e.cancel != nil {
-		e.cancel()
-	}
+	e.cancel()
 	e.wg.Wait()
 }
 
@@ -494,9 +498,6 @@ func (e *Engine) Trigger(ctx context.Context, jobID string) (Job, error) {
 	if !job.Enabled {
 		return Job{}, ErrJobNotFound
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	e.trigger(ctx, job)
 	return job, nil
 }
@@ -504,9 +505,6 @@ func (e *Engine) Trigger(ctx context.Context, jobID string) (Job, error) {
 func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
 	if e == nil {
 		return ErrJobNotFound
-	}
-	if ctx == nil {
-		ctx = context.Background()
 	}
 	if result.OccurredAt.IsZero() {
 		result.OccurredAt = e.now().UTC()

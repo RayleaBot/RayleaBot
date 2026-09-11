@@ -79,9 +79,6 @@ func (d *Dispatcher) recordSchedulerCompletion(ctx context.Context, run *schedul
 	if jobID == "" {
 		return
 	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	if err := run.Recorder.RecordRunResult(ctx, scheduler.RunResult{

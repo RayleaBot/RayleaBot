@@ -12,7 +12,6 @@ func (m *Manager) Issue(subject string) (string, Claims, error) {
 }
 
 func (m *Manager) IssueWithContext(ctx context.Context, subject string) (string, Claims, error) {
-	ctx = normalizeContext(ctx)
 	subject = strings.TrimSpace(subject)
 	if subject == "" {
 		return "", Claims{}, fmt.Errorf("subject is required")
@@ -24,7 +23,6 @@ func (m *Manager) IssueWithContext(ctx context.Context, subject string) (string,
 }
 
 func (m *Manager) RevokeWithContext(ctx context.Context, sessionID string) error {
-	ctx = normalizeContext(ctx)
 	sessionID = strings.TrimSpace(sessionID)
 	if sessionID == "" {
 		return ErrInvalidToken
@@ -44,7 +42,6 @@ func (m *Manager) Validate(token string) (Claims, error) {
 }
 
 func (m *Manager) ValidateWithContext(ctx context.Context, token string) (Claims, error) {
-	ctx = normalizeContext(ctx)
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return Claims{}, ErrInvalidToken
