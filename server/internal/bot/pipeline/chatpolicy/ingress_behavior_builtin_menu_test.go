@@ -16,7 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
@@ -562,9 +562,9 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 }
 
-func menuTestRenderer(service *renderservice.Service) menuext.Renderer {
+func menuTestRenderer(service *render.Service) menuext.Renderer {
 	return func(ctx context.Context, request menuext.RenderRequest) (string, error) {
-		result, err := service.Render(ctx, renderservice.Request{Template: "help.menu", Data: request.Data, Plugin: &renderservice.PluginContext{Name: request.PluginName, Version: request.PluginVersion}})
+		result, err := service.Render(ctx, render.Request{Template: "help.menu", Data: request.Data, Plugin: &render.PluginContext{Name: request.PluginName, Version: request.PluginVersion}})
 		return result.ImagePath, err
 	}
 }

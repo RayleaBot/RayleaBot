@@ -14,12 +14,12 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
-	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
 type PluginStoreRoutes struct {
-	Service pluginmarket.ServiceAPI
+	Service market.ServiceAPI
 }
 
 type pluginStoreInspectionRequest struct {
@@ -40,7 +40,7 @@ type pluginStoreInstallRequest struct {
 
 type pluginStoreSourcesResponse struct {
 	pagination.Metadata
-	Items []pluginmarket.SourceView `json:"items"`
+	Items []market.SourceView `json:"items"`
 }
 
 func (routes PluginStoreRoutes) RegisterProtectedRoutes(router chi.Router) {
@@ -60,7 +60,7 @@ func (routes PluginStoreRoutes) RegisterProtectedRoutes(router chi.Router) {
 
 func (routes PluginStoreRoutes) list() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		query := pluginmarket.Query{
+		query := market.Query{
 			SourceID: r.URL.Query().Get("source_id"),
 			Text:     r.URL.Query().Get("query"),
 			Sort:     r.URL.Query().Get("sort"),
@@ -114,7 +114,7 @@ func (routes PluginStoreRoutes) inspect() http.HandlerFunc {
 			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
-		result, err := routes.Service.Inspect(r.Context(), pluginmarket.InspectionRequest{
+		result, err := routes.Service.Inspect(r.Context(), market.InspectionRequest{
 			SourceID: strings.TrimSpace(request.SourceID),
 			PluginID: chi.URLParam(r, "plugin_id"),
 		})
@@ -137,7 +137,7 @@ func (routes PluginStoreRoutes) install() http.HandlerFunc {
 			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
 		}
-		taskID, err := routes.Service.Install(r.Context(), pluginmarket.InstallRequest{
+		taskID, err := routes.Service.Install(r.Context(), market.InstallRequest{
 			PluginID:             chi.URLParam(r, "plugin_id"),
 			InspectionID:         strings.TrimSpace(request.InspectionID),
 			PackageSHA256:        strings.TrimSpace(request.PackageSHA256),
@@ -157,7 +157,7 @@ func (routes PluginStoreRoutes) listSources() http.HandlerFunc {
 		if !ok {
 			return
 		}
-		items := make([]pluginmarket.SourceView, 0)
+		items := make([]market.SourceView, 0)
 		for _, source := range routes.Service.Sources() {
 			if pagination.Matches(query.Text, source.ID, source.Name, source.URL) {
 				items = append(items, source)
@@ -171,7 +171,7 @@ func (routes PluginStoreRoutes) listSources() http.HandlerFunc {
 
 func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var input pluginmarket.SourceInput
+		var input market.SourceInput
 		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
@@ -187,7 +187,7 @@ func (routes PluginStoreRoutes) createSource() http.HandlerFunc {
 
 func (routes PluginStoreRoutes) updateSource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var input pluginmarket.SourceInput
+		var input market.SourceInput
 		if err := httpapi.DecodeStrictJSON(w, r, &input, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeError(w, r, pluginCodeInvalidRequest, nil)
 			return
@@ -224,13 +224,13 @@ func (routes PluginStoreRoutes) refreshSource() http.HandlerFunc {
 
 func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
-	case errors.Is(err, pluginmarket.ErrEntryNotFound), errors.Is(err, pluginmarket.ErrSourceNotFound):
+	case errors.Is(err, market.ErrEntryNotFound), errors.Is(err, market.ErrSourceNotFound):
 		writeError(w, r, pluginCodeResourceNotFound, nil)
-	case errors.Is(err, pluginmarket.ErrSourceImmutable):
+	case errors.Is(err, market.ErrSourceImmutable):
 		writeError(w, r, errorcodes.PluginStoreSourceImmutable, nil)
-	case errors.Is(err, pluginmarket.ErrSourceConflict):
+	case errors.Is(err, market.ErrSourceConflict):
 		writeError(w, r, errorcodes.PluginStoreSourceConflict, nil)
-	case errors.Is(err, pluginmarket.ErrSourceInvalid):
+	case errors.Is(err, market.ErrSourceInvalid):
 		writeError(w, r, pluginCodeInvalidRequest, nil)
 	case errors.Is(err, plugins.ErrTrustedCodeConfirmation),
 		errors.Is(err, plugins.ErrInstallInspectionRequired),
@@ -238,12 +238,12 @@ func writePluginStoreError(w http.ResponseWriter, r *http.Request, err error) {
 		errors.Is(err, plugins.ErrInstallDigestMismatch),
 		errors.Is(err, tasks.ErrQueueFull):
 		writePluginInstallError(w, r, err)
-	case pluginmarket.ErrorCode(err) == pluginmarket.CodeCatalogUnavailable:
-		writeError(w, r, pluginmarket.CodeCatalogUnavailable, nil)
-	case pluginmarket.ErrorCode(err) == pluginmarket.CodeReleaseUnavailable:
-		writeError(w, r, pluginmarket.CodeReleaseUnavailable, nil)
-	case pluginmarket.ErrorCode(err) == pluginmarket.CodeIntegrityMismatch || pluginservice.InstallErrorCode(err) == pluginmarket.CodeIntegrityMismatch:
-		writeError(w, r, pluginmarket.CodeIntegrityMismatch, nil)
+	case market.ErrorCode(err) == market.CodeCatalogUnavailable:
+		writeError(w, r, market.CodeCatalogUnavailable, nil)
+	case market.ErrorCode(err) == market.CodeReleaseUnavailable:
+		writeError(w, r, market.CodeReleaseUnavailable, nil)
+	case market.ErrorCode(err) == market.CodeIntegrityMismatch || pluginservice.InstallErrorCode(err) == market.CodeIntegrityMismatch:
+		writeError(w, r, market.CodeIntegrityMismatch, nil)
 	default:
 		writePluginInstallError(w, r, err)
 	}

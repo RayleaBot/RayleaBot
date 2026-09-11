@@ -6,7 +6,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -18,7 +18,7 @@ type App struct {
 	}
 	pluginStack struct {
 		Plugins  *plugincatalog.Catalog
-		renderer *renderservice.Service
+		renderer *render.Service
 	}
 	services struct {
 		system *Service
@@ -56,7 +56,7 @@ func newTestAppState(cfg config.Config, logger *slog.Logger) *App {
 	return app
 }
 
-func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *renderservice.Service, logRepository any) {
+func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *render.Service, logRepository any) {
 	if a == nil {
 		return
 	}

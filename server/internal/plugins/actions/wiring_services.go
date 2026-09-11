@@ -3,14 +3,14 @@ package actions
 import (
 	"context"
 
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type renderer struct {
-	service *renderservice.Service
+	service *render.Service
 }
 
-func RendererFromService(service *renderservice.Service) Renderer {
+func RendererFromService(service *render.Service) Renderer {
 	if service == nil {
 		return nil
 	}
@@ -22,7 +22,7 @@ func (r renderer) ResolvePluginTemplate(ctx context.Context, pluginID, templateP
 	if err == nil {
 		return templateID, nil
 	}
-	if renderErr, ok := renderservice.AsTemplateError(err); ok {
+	if renderErr, ok := render.AsTemplateError(err); ok {
 		return "", &RenderTemplateError{
 			Code:    renderErr.Code,
 			Message: renderErr.Message,
@@ -33,19 +33,19 @@ func (r renderer) ResolvePluginTemplate(ctx context.Context, pluginID, templateP
 }
 
 func (r renderer) RenderImage(ctx context.Context, req RenderImageRequest) (RenderImageResult, error) {
-	result, err := r.service.Render(ctx, renderservice.Request{
+	result, err := r.service.Render(ctx, render.Request{
 		Template:  req.Template,
 		Theme:     req.Theme,
 		Output:    req.Output,
 		Data:      req.Data,
 		Resources: renderServiceResources(req.Resources),
-		Plugin: &renderservice.PluginContext{
+		Plugin: &render.PluginContext{
 			Name:    req.Plugin.Name,
 			Version: req.Plugin.Version,
 		},
 	})
 	if err != nil {
-		if renderErr, ok := renderservice.AsTemplateError(err); ok {
+		if renderErr, ok := render.AsTemplateError(err); ok {
 			return RenderImageResult{}, &RenderTemplateError{
 				Code:    renderErr.Code,
 				Message: renderErr.Message,
@@ -62,10 +62,10 @@ func (r renderer) RenderImage(ctx context.Context, req RenderImageRequest) (Rend
 	}, nil
 }
 
-func renderServiceResources(resources []RenderImageResource) []renderservice.RenderResource {
-	result := make([]renderservice.RenderResource, 0, len(resources))
+func renderServiceResources(resources []RenderImageResource) []render.RenderResource {
+	result := make([]render.RenderResource, 0, len(resources))
 	for _, resource := range resources {
-		result = append(result, renderservice.RenderResource{
+		result = append(result, render.RenderResource{
 			ID:     resource.ID,
 			Path:   resource.Path,
 			MIME:   resource.MIME,

@@ -21,7 +21,7 @@ import (
 	pluginsettings "github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
@@ -124,10 +124,10 @@ var (
 
 type captureRenderRunner struct {
 	mu   sync.Mutex
-	docs []renderservice.Document
+	docs []render.Document
 }
 
-func (r *captureRenderRunner) Render(_ context.Context, doc renderservice.Document) ([]byte, error) {
+func (r *captureRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -146,7 +146,7 @@ func (r *captureRenderRunner) lastHTML() string {
 	return r.docs[len(r.docs)-1].HTML
 }
 
-func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner renderservice.Runner) *renderservice.Service {
+func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner render.Runner) *render.Service {
 	t.Helper()
 
 	store, err := storage.Open(filepath.Join(root, "render-state.db"))
@@ -157,7 +157,7 @@ func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner 
 		_ = store.Close()
 	})
 
-	service, err := renderservice.NewService(renderservice.Options{
+	service, err := render.NewService(render.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         root,
 		Store:              store,
@@ -169,7 +169,7 @@ func newRenderServiceForRepo(t *testing.T, repoRoot string, root string, runner 
 		MaxRenderDataBytes: 1 << 20,
 	})
 	if err != nil {
-		t.Fatalf("renderservice.NewService: %v", err)
+		t.Fatalf("render.NewService: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = service.Close()

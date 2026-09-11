@@ -16,7 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -30,7 +30,7 @@ type Options struct {
 	PluginRepoRoot          string
 	PluginSchemaPath        string
 	PluginRoots             []plugincatalog.ScanRoot
-	RenderRunner            renderservice.Runner
+	RenderRunner            render.Runner
 	BilibiliHTTPTransport   http.RoundTripper
 	BilibiliClock           func() time.Time
 	// LogRepository overrides the SQLite-backed management log repository.
@@ -276,7 +276,7 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	return application, nil
 }
 
-func wireMetrics(platform PlatformState, events EventState, renderer *renderservice.Service, plugins PluginStackState) (*MetricsRegistry, func()) {
+func wireMetrics(platform PlatformState, events EventState, renderer *render.Service, plugins PluginStackState) (*MetricsRegistry, func()) {
 	registry := NewMetricsRegistry()
 	events.Bridge.SetMetricsObserver(NewBridgeObserver(registry))
 	events.Dispatcher.SetMetricsObserver(NewDispatchObserver(registry))

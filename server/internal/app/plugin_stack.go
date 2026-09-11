@@ -12,11 +12,11 @@ import (
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
-	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 
@@ -35,7 +35,7 @@ type PluginStackState struct {
 	Operations        *pluginservice.OperationGate
 	Plugins           *plugincatalog.Catalog
 	PluginInstaller   *pluginservice.InstallService
-	PluginStore       pluginmarket.ServiceAPI
+	PluginStore       market.ServiceAPI
 	PluginUninstaller *pluginservice.UninstallService
 	PluginRepository  plugins.DesiredStateRepository
 	PluginConfig      pluginstore.ConfigRepository
@@ -152,7 +152,7 @@ func refreshCatalogCommandsFromSettings(ctx context.Context, catalog *plugincata
 	return nil
 }
 
-func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, services Services, renderer *renderservice.Service) error {
+func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, services Services, renderer *render.Service) error {
 	pluginRepository := state.PluginRepository
 	if state.Operations == nil || services.PluginLifecycle == nil || services.System == nil || services.PluginWebhooks == nil {
 		return errors.New("plugin mutations require the constructed lifecycle and services")
@@ -213,10 +213,10 @@ func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, 
 		return fmt.Errorf("create plugin uninstall service: %w", err)
 	}
 	state.PluginUninstaller = pluginUninstallService
-	pluginStoreRepository, err := pluginmarket.NewSQLiteRepository(deps.Platform.Storage)
+	pluginStoreRepository, err := market.NewSQLiteRepository(deps.Platform.Storage)
 	if err != nil {
 		return fmt.Errorf("create plugin store repository: %w", err)
 	}
-	state.PluginStore, err = pluginmarket.New(deps.Context, state.Plugins, state.PluginInstaller, pluginStoreRepository, pluginmarket.Options{CoreVersion: releaseupdate.InstalledVersion(deps.Discovery.RepoRoot)})
+	state.PluginStore, err = market.New(deps.Context, state.Plugins, state.PluginInstaller, pluginStoreRepository, market.Options{CoreVersion: releaseupdate.InstalledVersion(deps.Discovery.RepoRoot)})
 	return err
 }

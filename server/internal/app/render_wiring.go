@@ -15,7 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -26,11 +26,11 @@ type renderDeps struct {
 	Discovery plugincatalog.DiscoverySpec
 	Store     *storage.Store
 	Catalog   *plugincatalog.Catalog
-	Runner    renderservice.Runner
+	Runner    render.Runner
 }
 
 type appRenderState struct {
-	Renderer *renderservice.Service
+	Renderer *render.Service
 }
 
 func buildRender(deps renderDeps) (appRenderState, error) {
@@ -53,7 +53,7 @@ func buildRender(deps renderDeps) (appRenderState, error) {
 	return appRenderState{Renderer: renderer}, nil
 }
 
-func syncCatalogRenderTemplates(ctx context.Context, renderer *renderservice.Service, catalog *plugincatalog.Catalog) error {
+func syncCatalogRenderTemplates(ctx context.Context, renderer *render.Service, catalog *plugincatalog.Catalog) error {
 	if renderer == nil || catalog == nil {
 		return nil
 	}
@@ -61,14 +61,14 @@ func syncCatalogRenderTemplates(ctx context.Context, renderer *renderservice.Ser
 }
 
 func validatePluginRenderTemplates(snapshot plugins.Snapshot) error {
-	return renderservice.ValidatePluginTemplateDeclarations(pluginRenderTemplateDeclarations([]plugins.Snapshot{snapshot}))
+	return render.ValidatePluginTemplateDeclarations(pluginRenderTemplateDeclarations([]plugins.Snapshot{snapshot}))
 }
 
-func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
-	var declarations []renderservice.PluginTemplateDeclaration
+func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []render.PluginTemplateDeclaration {
+	var declarations []render.PluginTemplateDeclaration
 	for _, snapshot := range snapshots {
 		for _, declared := range snapshot.RenderTemplates {
-			declarations = append(declarations, renderservice.PluginTemplateDeclaration{
+			declarations = append(declarations, render.PluginTemplateDeclaration{
 				PluginID:          snapshot.PluginID,
 				Path:              declared.Path,
 				PackageRootPath:   snapshot.PackageRootPath,
@@ -80,13 +80,13 @@ func pluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderserv
 	return declarations
 }
 
-func buildRenderService(deps renderDeps) (*renderservice.Service, error) {
+func buildRenderService(deps renderDeps) (*render.Service, error) {
 	ctx := deps.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	renderBrowserPath := prepareBrowserPath(ctx, deps.Logger, deps.Discovery.RepoRoot, deps.Config.Render.BrowserPath, resolveManagedBrowserPath)
-	renderService, err := renderservice.NewService(renderservice.Options{
+	renderService, err := render.NewService(render.Options{
 		RepoRoot:           deps.Discovery.RepoRoot,
 		OutputRoot:         filepath.Join(filepath.Dir(deps.Store.Path), "render"),
 		Store:              deps.Store,

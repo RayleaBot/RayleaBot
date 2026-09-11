@@ -15,7 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
@@ -105,7 +105,7 @@ func assertShutdownReleasesPersistentResources(t *testing.T, configPath, databas
 
 type shutdownTestRunner struct{}
 
-func (shutdownTestRunner) Render(context.Context, renderservice.Document) ([]byte, error) {
+func (shutdownTestRunner) Render(context.Context, render.Document) ([]byte, error) {
 	return nil, errors.New("unexpected render")
 }
 

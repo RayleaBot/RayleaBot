@@ -23,7 +23,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -206,7 +206,7 @@ func TestAppCloseRetainsTaskAndCloserErrorsAndReleasesRemainingResources(t *test
 	t.Cleanup(func() { _ = lock.Close() })
 	renderErr := errors.New("runner close failed")
 	runner := &appCloseRunner{err: renderErr}
-	renderer, err := renderservice.NewService(renderservice.Options{
+	renderer, err := render.NewService(render.Options{
 		RepoRoot: root, OutputRoot: filepath.Join(root, "render"), Store: store, Runner: runner,
 	})
 	if err != nil {
@@ -285,7 +285,7 @@ type appCloseRunner struct {
 	closes atomic.Int32
 }
 
-func (*appCloseRunner) Render(context.Context, renderservice.Document) ([]byte, error) {
+func (*appCloseRunner) Render(context.Context, render.Document) ([]byte, error) {
 	return nil, errors.New("unexpected render")
 }
 

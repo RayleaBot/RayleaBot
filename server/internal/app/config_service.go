@@ -10,7 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type configRuntimeState interface {
@@ -29,7 +29,7 @@ type configServiceDeps struct {
 	Runtime           configRuntimeState
 	Logs              *logging.Stream
 	LogRepository     logging.Repository
-	Renderer          *renderservice.Service
+	Renderer          *render.Service
 	PluginLogLimiter  *localaction.PluginLogLimiter
 	OutboundLimiter   interface{ ApplyConfig(config.Config) }
 	AccountValidation interface{ ApplyConfig(config.Config) }

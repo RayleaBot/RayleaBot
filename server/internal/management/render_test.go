@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/go-chi/chi/v5"
 )
@@ -24,7 +24,7 @@ var (
 
 type staticRenderRunner struct{}
 
-func (staticRenderRunner) Render(_ context.Context, doc renderservice.Document) ([]byte, error) {
+func (staticRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
 	if doc.Output == "jpeg" {
 		return append([]byte(nil), renderTestJPEGBytes...), nil
 	}
@@ -224,7 +224,7 @@ func TestRenderTemplateEditorRoutesAreRemoved(t *testing.T) {
 
 type renderHTTPFixture struct {
 	router   http.Handler
-	renderer *renderservice.Service
+	renderer *render.Service
 	cleanup  func()
 }
 
@@ -242,7 +242,7 @@ func newRenderHTTPFixture(t *testing.T) renderHTTPFixture {
 		t.Fatalf("open sqlite store: %v", err)
 	}
 
-	renderer, err := renderservice.NewService(renderservice.Options{
+	renderer, err := render.NewService(render.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         filepath.Join(root, "render-output"),
 		Store:              store,
@@ -299,35 +299,35 @@ type snapshotRenderService struct {
 	detailReads int
 }
 
-func (s *snapshotRenderService) PreviewHTML(context.Context, renderservice.Request) (renderservice.PreviewHTML, error) {
-	return renderservice.PreviewHTML{}, nil
+func (s *snapshotRenderService) PreviewHTML(context.Context, render.Request) (render.PreviewHTML, error) {
+	return render.PreviewHTML{}, nil
 }
 
-func (s *snapshotRenderService) LookupTemplateAsset(context.Context, string, string) (renderservice.TemplateAsset, error) {
-	return renderservice.TemplateAsset{}, nil
+func (s *snapshotRenderService) LookupTemplateAsset(context.Context, string, string) (render.TemplateAsset, error) {
+	return render.TemplateAsset{}, nil
 }
 
-func (s *snapshotRenderService) ListTemplates(context.Context) ([]renderservice.TemplateSummary, error) {
+func (s *snapshotRenderService) ListTemplates(context.Context) ([]render.TemplateSummary, error) {
 	return nil, nil
 }
 
-func (s *snapshotRenderService) GetTemplateDetailSnapshot(context.Context, string) (renderservice.TemplateDetailSnapshot, error) {
+func (s *snapshotRenderService) GetTemplateDetailSnapshot(context.Context, string) (render.TemplateDetailSnapshot, error) {
 	s.detailReads++
-	return renderservice.TemplateDetailSnapshot{
-		Detail: renderservice.TemplateDetail{
-			TemplateSummary: renderservice.TemplateSummary{
+	return render.TemplateDetailSnapshot{
+		Detail: render.TemplateDetail{
+			TemplateSummary: render.TemplateSummary{
 				ID:             "help.menu",
 				Version:        "1.0.0",
 				Width:          960,
 				Height:         640,
 				HasInputSchema: true,
 				UpdatedAt:      "2026-06-29T00:00:00Z",
-				Source: renderservice.TemplateSourceInfo{
+				Source: render.TemplateSourceInfo{
 					Type: "system",
 				},
 			},
 		},
-		Source: renderservice.TemplateSource{
+		Source: render.TemplateSource{
 			InputSchemaJSON: map[string]any{"type": "object"},
 		},
 		PreviewData: map[string]any{"title": "preview"},

@@ -21,7 +21,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
@@ -244,7 +244,7 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 	repoRoot := t.TempDir()
 	writeConfigHTTPRenderTemplateSeed(t, filepath.Join(repoRoot, "templates"), "help.menu")
 	runner := &recordingConfigRenderRunner{}
-	renderer, err := renderservice.NewService(renderservice.Options{
+	renderer, err := render.NewService(render.Options{
 		RepoRoot:           repoRoot,
 		OutputRoot:         filepath.Join(t.TempDir(), "render-output"),
 		Store:              openAppTestStorage(t),
@@ -305,7 +305,7 @@ func TestHandleConfigPutHotReloadsRenderDefaults(t *testing.T) {
 		t.Fatalf("applied_now = %#v", response.ApplyEffects.AppliedNow)
 	}
 
-	result, err := renderer.Render(context.Background(), renderservice.Request{
+	result, err := renderer.Render(context.Background(), render.Request{
 		Template: "help.menu",
 		Data: map[string]any{
 			"title": "帮助菜单",
@@ -461,10 +461,10 @@ type recordingConfigOutboundLimiter struct {
 
 type recordingConfigRenderRunner struct {
 	mu   sync.Mutex
-	docs []renderservice.Document
+	docs []render.Document
 }
 
-func (r *recordingConfigRenderRunner) Render(_ context.Context, doc renderservice.Document) ([]byte, error) {
+func (r *recordingConfigRenderRunner) Render(_ context.Context, doc render.Document) ([]byte, error) {
 	r.mu.Lock()
 	r.docs = append(r.docs, doc)
 	r.mu.Unlock()
@@ -474,11 +474,11 @@ func (r *recordingConfigRenderRunner) Render(_ context.Context, doc renderservic
 	return []byte{137, 80, 78, 71}, nil
 }
 
-func (r *recordingConfigRenderRunner) lastDocument() (renderservice.Document, bool) {
+func (r *recordingConfigRenderRunner) lastDocument() (render.Document, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.docs) == 0 {
-		return renderservice.Document{}, false
+		return render.Document{}, false
 	}
 	return r.docs[len(r.docs)-1], true
 }

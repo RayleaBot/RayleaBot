@@ -11,7 +11,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 const (
@@ -26,10 +26,10 @@ type RenderHandlers struct {
 }
 
 type renderTemplateService interface {
-	PreviewHTML(context.Context, renderservice.Request) (renderservice.PreviewHTML, error)
-	LookupTemplateAsset(context.Context, string, string) (renderservice.TemplateAsset, error)
-	ListTemplates(context.Context) ([]renderservice.TemplateSummary, error)
-	GetTemplateDetailSnapshot(context.Context, string) (renderservice.TemplateDetailSnapshot, error)
+	PreviewHTML(context.Context, render.Request) (render.PreviewHTML, error)
+	LookupTemplateAsset(context.Context, string, string) (render.TemplateAsset, error)
+	ListTemplates(context.Context) ([]render.TemplateSummary, error)
+	GetTemplateDetailSnapshot(context.Context, string) (render.TemplateDetailSnapshot, error)
 }
 
 func NewRenderHandlers(renderer renderTemplateService, pluginName func(string) string) *RenderHandlers {
@@ -161,7 +161,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplatePreviewHTML() http.HandlerFun
 			return
 		}
 
-		result, err := h.renderer.PreviewHTML(r.Context(), renderservice.Request{
+		result, err := h.renderer.PreviewHTML(r.Context(), render.Request{
 			Template: templateID,
 			Theme:    request.Theme,
 			Data:     request.Data,
@@ -195,7 +195,7 @@ func (h *RenderHandlers) HandleSystemRenderTemplateAsset() http.HandlerFunc {
 	}
 }
 
-func toRenderTemplateSummary(item renderservice.TemplateSummary) renderTemplateSummary {
+func toRenderTemplateSummary(item render.TemplateSummary) renderTemplateSummary {
 	return renderTemplateSummary{
 		ID:             item.ID,
 		Name:           item.Name,
@@ -209,7 +209,7 @@ func toRenderTemplateSummary(item renderservice.TemplateSummary) renderTemplateS
 	}
 }
 
-func toRenderTemplateDetail(detail renderservice.TemplateDetail, source renderservice.TemplateSource, previewData map[string]any) renderTemplateDetail {
+func toRenderTemplateDetail(detail render.TemplateDetail, source render.TemplateSource, previewData map[string]any) renderTemplateDetail {
 	return renderTemplateDetail{
 		ID:              detail.ID,
 		Name:            detail.Name,
@@ -225,7 +225,7 @@ func toRenderTemplateDetail(detail renderservice.TemplateDetail, source renderse
 	}
 }
 
-func toRenderPreviewHTMLResponse(result renderservice.PreviewHTML) renderPreviewHTMLResponse {
+func toRenderPreviewHTMLResponse(result render.PreviewHTML) renderPreviewHTMLResponse {
 	return renderPreviewHTMLResponse{
 		TemplateID:   result.TemplateID,
 		SourceDigest: result.SourceDigest,
@@ -235,7 +235,7 @@ func toRenderPreviewHTMLResponse(result renderservice.PreviewHTML) renderPreview
 	}
 }
 
-func toRenderTemplateSource(source renderservice.TemplateSourceInfo) renderTemplateSource {
+func toRenderTemplateSource(source render.TemplateSourceInfo) renderTemplateSource {
 	if source.Type != "plugin" {
 		return renderTemplateSource{Type: "system", PluginID: nil, LocalID: nil}
 	}
@@ -255,7 +255,7 @@ func renderStringPtr(value string) *string {
 }
 
 func writeRenderTemplateError(w http.ResponseWriter, r *http.Request, err error) {
-	renderErr, ok := renderservice.AsTemplateError(err)
+	renderErr, ok := render.AsTemplateError(err)
 	if !ok {
 		httpapi.WriteError(w, r, renderCodeInternalError, nil)
 		return

@@ -23,7 +23,7 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type runtimeStateView interface {
@@ -40,7 +40,7 @@ type serviceBuildDeps struct {
 	Platform              PlatformState
 	Plugins               PluginStackState
 	Events                EventState
-	Renderer              *renderservice.Service
+	Renderer              *render.Service
 	Metrics               *MetricsRegistry
 	Discovery             plugincatalog.DiscoverySpec
 	PluginValidator       *config.Validator

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
 	"github.com/go-chi/chi/v5"
 	"gopkg.in/yaml.v3"
 )
@@ -86,27 +86,27 @@ func TestRegisterManagementRoutes(t *testing.T) {
 
 type emptyPluginStoreService struct{}
 
-func (emptyPluginStoreService) Sources() []pluginmarket.SourceView { return nil }
-func (emptyPluginStoreService) CreateSource(context.Context, pluginmarket.SourceInput) (pluginmarket.SourceView, error) {
-	return pluginmarket.SourceView{}, nil
+func (emptyPluginStoreService) Sources() []market.SourceView { return nil }
+func (emptyPluginStoreService) CreateSource(context.Context, market.SourceInput) (market.SourceView, error) {
+	return market.SourceView{}, nil
 }
-func (emptyPluginStoreService) UpdateSource(context.Context, string, pluginmarket.SourceInput) (pluginmarket.SourceView, error) {
-	return pluginmarket.SourceView{}, nil
+func (emptyPluginStoreService) UpdateSource(context.Context, string, market.SourceInput) (market.SourceView, error) {
+	return market.SourceView{}, nil
 }
 func (emptyPluginStoreService) DeleteSource(context.Context, string) error { return nil }
-func (emptyPluginStoreService) List(pluginmarket.Query) (pluginmarket.ListResult, error) {
-	return pluginmarket.ListResult{}, nil
+func (emptyPluginStoreService) List(market.Query) (market.ListResult, error) {
+	return market.ListResult{}, nil
 }
-func (emptyPluginStoreService) Get(string, string) (pluginmarket.DetailResult, bool) {
-	return pluginmarket.DetailResult{}, false
+func (emptyPluginStoreService) Get(string, string) (market.DetailResult, bool) {
+	return market.DetailResult{}, false
 }
-func (emptyPluginStoreService) Refresh(context.Context, string) (pluginmarket.SourceView, error) {
-	return pluginmarket.SourceView{}, nil
+func (emptyPluginStoreService) Refresh(context.Context, string) (market.SourceView, error) {
+	return market.SourceView{}, nil
 }
-func (emptyPluginStoreService) Inspect(context.Context, pluginmarket.InspectionRequest) (pluginmarket.InspectionResult, error) {
-	return pluginmarket.InspectionResult{}, nil
+func (emptyPluginStoreService) Inspect(context.Context, market.InspectionRequest) (market.InspectionResult, error) {
+	return market.InspectionResult{}, nil
 }
-func (emptyPluginStoreService) Install(context.Context, pluginmarket.InstallRequest) (string, error) {
+func (emptyPluginStoreService) Install(context.Context, market.InstallRequest) (string, error) {
 	return "", nil
 }
 

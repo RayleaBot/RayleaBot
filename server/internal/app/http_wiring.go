@@ -11,7 +11,7 @@ import (
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -20,7 +20,7 @@ type httpBuildDeps struct {
 	Platform                PlatformState
 	Plugins                 PluginStackState
 	Events                  EventState
-	Renderer                *renderservice.Service
+	Renderer                *render.Service
 	ServiceBuild            serviceBuildResult
 	Metrics                 *MetricsRegistry
 	HTTPTransport           http.RoundTripper
@@ -38,7 +38,7 @@ type appHTTPState struct {
 
 type serverDeps struct {
 	runtime  configRuntimeState
-	renderer *renderservice.Service
+	renderer *render.Service
 	metrics  *MetricsRegistry
 	routes   managementRouteState
 	pluginUI *managementapi.PluginManagementUIHandlers
@@ -127,7 +127,7 @@ func buildPluginUIOriginOptions(cfg config.Config) managementapi.PluginUIOriginO
 	}
 }
 
-func logConfiguredServer(state configRuntimeState, renderer *renderservice.Service, listenAddr string) {
+func logConfiguredServer(state configRuntimeState, renderer *render.Service, listenAddr string) {
 	summary := state.CurrentSummary()
 	repoRoot := state.RepoRoot()
 	configPath := logpath.Display(repoRoot, summary.ConfigPath)

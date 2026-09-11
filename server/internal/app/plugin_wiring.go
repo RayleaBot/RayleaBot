@@ -14,7 +14,7 @@ import (
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type pluginRuntimeDeps struct {
@@ -22,7 +22,7 @@ type pluginRuntimeDeps struct {
 	Platform          PlatformState
 	Plugins           PluginStackState
 	Events            EventState
-	Renderer          *renderservice.Service
+	Renderer          *render.Service
 	Governance        *governance.Service
 	ManagementRedact  func(string) string
 	ThirdParty        localaction.ThirdPartyAccountReader
@@ -83,7 +83,7 @@ func buildLocalActionService(
 	platform PlatformState,
 	pluginStack PluginStackState,
 	eventStack EventState,
-	renderer *renderservice.Service,
+	renderer *render.Service,
 	permissionView *plugins.PermissionView,
 	governanceService *governance.Service,
 	thirdParty localaction.ThirdPartyAccountReader,
@@ -117,7 +117,7 @@ type pluginServiceDeps struct {
 	Platform      PlatformState
 	Plugins       PluginStackState
 	Events        EventState
-	Renderer      *renderservice.Service
+	Renderer      *render.Service
 	System        *systemsvc.Service
 	PluginRuntime pluginRuntime
 	Metrics       *MetricsRegistry
@@ -172,16 +172,16 @@ func buildPluginLifecycle(deps pluginServiceDeps) (*pluginservice.Controller, er
 	})
 }
 
-func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginStackState, eventStack EventState, renderer *renderservice.Service) (*menuext.Service, error) {
+func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginStackState, eventStack EventState, renderer *render.Service) (*menuext.Service, error) {
 	if eventStack.OutboundSender == nil {
 		return nil, errors.New("builtin menu requires an outbound sender")
 	}
 	var menuRenderer menuext.Renderer
 	if renderer != nil {
 		menuRenderer = func(ctx context.Context, request menuext.RenderRequest) (string, error) {
-			result, err := renderer.Render(ctx, renderservice.Request{
+			result, err := renderer.Render(ctx, render.Request{
 				Template: "help.menu", Data: request.Data,
-				Plugin: &renderservice.PluginContext{Name: request.PluginName, Version: request.PluginVersion},
+				Plugin: &render.PluginContext{Name: request.PluginName, Version: request.PluginVersion},
 			})
 			return result.ImagePath, err
 		}

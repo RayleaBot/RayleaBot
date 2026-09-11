@@ -16,7 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
@@ -206,11 +206,11 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	assertRuntimeErrorCode(t, err, "plugin.permission_denied")
 }
 
-func testPluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []renderservice.PluginTemplateDeclaration {
-	var declarations []renderservice.PluginTemplateDeclaration
+func testPluginRenderTemplateDeclarations(snapshots []plugins.Snapshot) []render.PluginTemplateDeclaration {
+	var declarations []render.PluginTemplateDeclaration
 	for _, snapshot := range snapshots {
 		for _, declared := range snapshot.RenderTemplates {
-			declarations = append(declarations, renderservice.PluginTemplateDeclaration{
+			declarations = append(declarations, render.PluginTemplateDeclaration{
 				PluginID:          snapshot.PluginID,
 				Path:              declared.Path,
 				PackageRootPath:   snapshot.PackageRootPath,

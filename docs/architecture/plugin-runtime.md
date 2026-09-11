@@ -49,7 +49,7 @@ stateDiagram-v2
 
 ```mermaid
 flowchart TD
-  dispatcher["eventpipeline/dispatch"] --> delivery["DeliverEvent / ReadyForEvents"]
+  dispatcher["bot/pipeline/dispatch"] --> delivery["DeliverEvent / ReadyForEvents"]
   runtime["plugins/runtime"] -. implements .-> delivery
   runtime --> plugin["plugin subprocess"]
   plugin --> localaction["plugins/actions"]

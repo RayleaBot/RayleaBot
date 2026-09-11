@@ -13,7 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
-	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -23,10 +23,10 @@ func TestPluginStoreErrorCausesHaveDistinctHTTPMetadata(t *testing.T) {
 		code   string
 		status int
 	}{
-		{pluginmarket.ErrSourceImmutable, errorcodes.PluginStoreSourceImmutable, 409},
-		{pluginmarket.ErrSourceConflict, errorcodes.PluginStoreSourceConflict, 409},
-		{pluginmarket.ErrSourceInvalid, errorcodes.PlatformInvalidRequest, 400},
-		{pluginmarket.ErrSourceNotFound, errorcodes.PlatformResourceNotFound, 404},
+		{market.ErrSourceImmutable, errorcodes.PluginStoreSourceImmutable, 409},
+		{market.ErrSourceConflict, errorcodes.PluginStoreSourceConflict, 409},
+		{market.ErrSourceInvalid, errorcodes.PlatformInvalidRequest, 400},
+		{market.ErrSourceNotFound, errorcodes.PlatformResourceNotFound, 404},
 	} {
 		response := httptest.NewRecorder()
 		writePluginStoreError(response, httptest.NewRequest("PUT", "/api/plugin-store/sources/fixture", nil), test.cause)

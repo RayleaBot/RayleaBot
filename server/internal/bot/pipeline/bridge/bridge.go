@@ -94,7 +94,7 @@ type AdapterDedupStats interface {
 
 // DispatcherStatsSnapshot reports cumulative dispatcher outcomes for
 // cross-layer observability. The bridge keeps the dispatcher dependency
-// loose to avoid an import cycle through internal/eventpipeline/dispatch.
+// loose to avoid an import cycle through internal/bot/pipeline/dispatch.
 type DispatcherStatsSnapshot interface {
 	Stats() DispatcherStatsView
 }
