@@ -64,17 +64,7 @@ func TestSessionLoginRejectsBadCredentials(t *testing.T) {
 	}
 
 	recorder := performJSONRequest(t, application, loginFixture.Request.Method, loginFixture.Request.Path, loginFixture.Request.Body)
-	if recorder.Code != loginFixture.Response.Status {
-		t.Fatalf("unexpected status: got %d want %d", recorder.Code, loginFixture.Response.Status)
-	}
-
-	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, loginFixture.Response.Body, "permission.denied")
-
-	raw := recorder.Body.String()
-	if strings.Contains(raw, loginFixture.Request.Body["identifier"].(string)) || strings.Contains(raw, loginFixture.Request.Body["secret"].(string)) {
-		t.Fatalf("response leaked request credential content: %s", raw)
-	}
+	assertCredentialRejection(t, recorder, loginFixture, "permission.denied")
 }
 
 func TestSessionLoginRecyclesOldestSessionWhenMaxSessionsReached(t *testing.T) {

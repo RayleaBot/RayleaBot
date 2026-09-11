@@ -313,86 +313,6 @@ func TestLogsListReturnsOutboundProtocolFilteredSummaries(t *testing.T) {
 	}
 }
 
-func TestLogsListReturnsEmptyArrayForUnmatchedFilter(t *testing.T) {
-	t.Parallel()
-
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["log"].(map[string]any)["retention_days"] = 365
-	}, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.logs-empty-response.yaml"))
-	application.Logs().Append(logging.Summary{
-		LogID:     "log_empty_0001",
-		Timestamp: "2026-03-20T10:00:00Z",
-		Level:     "info",
-		Source:    "adapter.onebot11",
-		Message:   "OneBot 主动 WebSocket 已连接：ws://127.0.0.1:6700",
-	})
-
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create empty logs request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform empty logs request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	if response.StatusCode != fixture.Response.Status {
-		t.Fatalf("unexpected empty logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
-	}
-
-	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
-		t.Fatalf("unexpected empty logs body: got %#v want %#v", body, fixture.Response.Body)
-	}
-}
-
-func TestLogsListReturnsEmptyArrayForUnmatchedProtocolFilter(t *testing.T) {
-	t.Parallel()
-
-	application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
-		input["log"].(map[string]any)["retention_days"] = 365
-	}, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "edge.logs-empty-response.protocol-onebot11.yaml"))
-	application.Logs().Append(logging.Summary{
-		LogID:     "log_runtime_0002",
-		Timestamp: "2026-03-20T10:00:00Z",
-		Level:     "info",
-		Source:    "runtime",
-		Message:   "仅运行时来源的日志样例",
-	})
-
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create empty protocol logs request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform empty protocol logs request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	if response.StatusCode != fixture.Response.Status {
-		t.Fatalf("unexpected empty protocol logs status: got %d want %d", response.StatusCode, fixture.Response.Status)
-	}
-
-	body := decodeBody(t, readAll(t, response))
-	if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
-		t.Fatalf("unexpected empty protocol logs body: got %#v want %#v", body, fixture.Response.Body)
-	}
-}
-
 func TestLogsListRejectsInvalidFilters(t *testing.T) {
 	t.Parallel()
 
@@ -421,33 +341,6 @@ func TestLogsListRejectsInvalidFilters(t *testing.T) {
 	if errorBody["code"] != "platform.invalid_request" {
 		t.Fatalf("unexpected error code: %#v", errorBody["code"])
 	}
-}
-
-func TestLogsListRejectsLimitAboveFormalMaximum(t *testing.T) {
-	t.Parallel()
-
-	application := newTestApp(t, deterministicAuthOptions()...)
-	token := issueLoginToken(t, application)
-	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "invalid.logs-list-limit-too-large.yaml"))
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
-	if err != nil {
-		t.Fatalf("create large limit request: %v", err)
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-
-	response, err := server.Client().Do(request)
-	if err != nil {
-		t.Fatalf("perform large limit request: %v", err)
-	}
-	defer func(release func() error) { _ = release() }(response.Body.Close)
-	if response.StatusCode != fixture.Response.Status {
-		t.Fatalf("unexpected large limit status: got %d want %d", response.StatusCode, fixture.Response.Status)
-	}
-
-	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, readAll(t, response)), fixture.Response.Body, "platform.invalid_request")
 }
 
 func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
@@ -525,4 +418,93 @@ func TestLogsListReturnsCurrentSessionScope(t *testing.T) {
 	if page["has_older"] != false || page["has_newer"] != false {
 		t.Fatalf("unexpected current session page info: %#v", page)
 	}
+}
+
+func TestLogsListReturnsEmptyArrayForUnmatchedFilters(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		fixture string
+		entry   logging.Summary
+	}{
+		{
+			fixture: "edge.logs-empty-response.yaml",
+			entry: logging.Summary{
+				LogID:     "log_empty_0001",
+				Timestamp: "2026-03-20T10:00:00Z",
+				Level:     "info",
+				Source:    "adapter.onebot11",
+				Message:   "OneBot 主动 WebSocket 已连接：ws://127.0.0.1:6700",
+			},
+		},
+		{
+			fixture: "edge.logs-empty-response.protocol-onebot11.yaml",
+			entry: logging.Summary{
+				LogID:     "log_runtime_0002",
+				Timestamp: "2026-03-20T10:00:00Z",
+				Level:     "info",
+				Source:    "runtime",
+				Message:   "仅运行时来源的日志样例",
+			},
+		},
+	} {
+		t.Run(tc.fixture, func(t *testing.T) {
+			t.Parallel()
+
+			application, _, _ := newTestAppWithConfigMutation(t, func(input map[string]any) {
+				input["log"].(map[string]any)["retention_days"] = 365
+			}, deterministicAuthOptions()...)
+			fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", tc.fixture))
+			application.Logs().Append(tc.entry)
+
+			body := requestLogsFixture(t, application, issueLoginToken(t, application), fixture)
+			if !reflect.DeepEqual(body, normalizeJSONMap(t, fixture.Response.Body)) {
+				t.Fatalf("unexpected logs body: got %#v want %#v", body, fixture.Response.Body)
+			}
+		})
+	}
+}
+
+func TestLogsListRejectsInvalidQueryFixtures(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{
+		"invalid.logs-list-invalid-scope.yaml",
+		"invalid.logs-list-start-after-end.yaml",
+		"invalid.logs-list-current-session-with-time-range.yaml",
+		"invalid.logs-list-limit-too-large.yaml",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			application := newTestApp(t, deterministicAuthOptions()...)
+			fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", name))
+			body := requestLogsFixture(t, application, issueLoginToken(t, application), fixture)
+			assertErrorEnvelopeMatchesFixture(t, body, fixture.Response.Body, "platform.invalid_request")
+		})
+	}
+}
+
+// requestLogsFixture performs the fixture's logs query with a bearer session,
+// checks the status the fixture expects and returns the decoded body.
+func requestLogsFixture(t *testing.T, application interface{ Handler() http.Handler }, token string, fixture webAPIFixtureDocument) map[string]any {
+	t.Helper()
+
+	server := newManagementTestServer(t, application.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(http.MethodGet, server.URL+fixture.Request.Path, nil)
+	if err != nil {
+		t.Fatalf("create logs request: %v", err)
+	}
+	request.Header.Set("Authorization", "Bearer "+token)
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("perform logs request: %v", err)
+	}
+	defer func(release func() error) { _ = release() }(response.Body.Close)
+	if response.StatusCode != fixture.Response.Status {
+		t.Fatalf("logs status = %d, want %d", response.StatusCode, fixture.Response.Status)
+	}
+	return decodeBody(t, readAll(t, response))
 }

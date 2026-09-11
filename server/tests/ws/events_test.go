@@ -326,30 +326,7 @@ func TestEventsWebSocketPublishesGovernanceChangedAfterGovernanceWrite(t *testin
 func TestEventsWebSocketRejectsUnauthorizedSession(t *testing.T) {
 	t.Parallel()
 
-	application := newTestApp(t)
-	server := newManagementTestServer(t, application.Handler())
-	defer server.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+"/ws/events", &websocket.DialOptions{
-		Host:       testManagementAuthority,
-		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
-	})
-	if conn != nil {
-		_ = conn.Close(websocket.StatusNormalClosure, "")
-	}
-	if err == nil {
-		t.Fatalf("expected unauthorized websocket dial to fail")
-	}
-	if response == nil || response.StatusCode != http.StatusUnauthorized {
-		if response == nil {
-			t.Fatalf("expected unauthorized response, got nil")
-			return
-		}
-		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
-	}
+	assertWebSocketRejectsUnauthorized(t, "/ws/events")
 }
 
 type eventsDispatchStub struct {

@@ -1,12 +1,15 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
@@ -166,4 +169,34 @@ func decodeBody(t *testing.T, raw []byte) map[string]any {
 
 func readAll(t *testing.T, response *http.Response) []byte {
 	return testutil.ReadAll(t, response)
+}
+
+// assertWebSocketRejectsUnauthorized dials a management WebSocket without a
+// session and expects the upgrade to be refused with 401.
+func assertWebSocketRejectsUnauthorized(t *testing.T, path string) {
+	t.Helper()
+
+	application := newTestApp(t)
+	server := newManagementTestServer(t, application.Handler())
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	conn, response, err := websocket.Dial(ctx, websocketURL(server.URL)+path, &websocket.DialOptions{
+		Host:       testManagementAuthority,
+		HTTPHeader: http.Header{"Origin": []string{testManagementOrigin}},
+	})
+	if conn != nil {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}
+	if err == nil {
+		t.Fatal("expected unauthorized websocket dial to fail")
+	}
+	if response == nil {
+		t.Fatal("expected unauthorized response, got nil")
+	}
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
+	}
 }

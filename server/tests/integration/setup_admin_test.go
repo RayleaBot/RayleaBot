@@ -84,17 +84,7 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 	}
 
 	second := performJSONRequest(t, application, edgeFixture.Request.Method, edgeFixture.Request.Path, edgeFixture.Request.Body)
-	if second.Code != edgeFixture.Response.Status {
-		t.Fatalf("unexpected second bootstrap status: got %d want %d", second.Code, edgeFixture.Response.Status)
-	}
-
-	body := decodeBody(t, second.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, edgeFixture.Response.Body, "permission.denied")
-
-	raw := second.Body.String()
-	if strings.Contains(raw, edgeFixture.Request.Body["identifier"].(string)) || strings.Contains(raw, edgeFixture.Request.Body["secret"].(string)) {
-		t.Fatalf("edge response leaked request content: %s", raw)
-	}
+	assertCredentialRejection(t, second, edgeFixture, "permission.denied")
 }
 
 func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
@@ -284,5 +274,20 @@ func deterministicAuthOptions() []auth.Option {
 			sessionCounter++
 			return "session-test-" + string(rune('0'+sessionCounter)), nil
 		}),
+	}
+}
+
+// assertCredentialRejection checks a rejected credential request against its
+// fixture and that the response does not echo the submitted identifier or secret.
+func assertCredentialRejection(t *testing.T, recorder *httptest.ResponseRecorder, fixture webAPIFixtureDocument, wantCode string) {
+	t.Helper()
+
+	if recorder.Code != fixture.Response.Status {
+		t.Fatalf("unexpected status: got %d want %d", recorder.Code, fixture.Response.Status)
+	}
+	assertErrorEnvelopeMatchesFixture(t, decodeBody(t, recorder.Body.Bytes()), fixture.Response.Body, wantCode)
+	raw := recorder.Body.String()
+	if strings.Contains(raw, fixture.Request.Body["identifier"].(string)) || strings.Contains(raw, fixture.Request.Body["secret"].(string)) {
+		t.Fatalf("response leaked request credential content: %s", raw)
 	}
 }
