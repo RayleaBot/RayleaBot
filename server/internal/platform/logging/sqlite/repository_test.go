@@ -1,4 +1,4 @@
-package logging
+package sqlite
 
 import (
 	"context"
@@ -7,17 +7,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
-func TestSQLiteRepositoryListsFilteredSummariesInAscendingOrder(t *testing.T) {
+func TestRepositoryListsFilteredSummariesInAscendingOrder(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{Timestamp: "2026-03-20T10:00:02Z", Level: "error", Source: "runtime", Message: "third", PluginID: "weather"},
 		{Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "server", Message: "first"},
 		{Timestamp: "2026-03-20T10:00:01Z", Level: "error", Source: "runtime", Message: "second", PluginID: "weather", RequestID: "req_1"},
@@ -27,7 +28,7 @@ func TestSQLiteRepositoryListsFilteredSummariesInAscendingOrder(t *testing.T) {
 		}
 	}
 
-	items, err := repository.ListSummaries(ctx, Query{
+	items, err := repository.ListSummaries(ctx, logging.Query{
 		Level:    "error",
 		PluginID: "weather",
 		Limit:    10,
@@ -48,19 +49,19 @@ func TestSQLiteRepositoryListsFilteredSummariesInAscendingOrder(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryPrunesOldSummaries(t *testing.T) {
+func TestRepositoryPrunesOldSummaries(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	oldSummary := Summary{
+	oldSummary := logging.Summary{
 		Timestamp: "2026-03-10T10:00:00Z",
 		Level:     "warn",
 		Source:    "runtime",
 		Message:   "old",
 	}
-	newSummary := Summary{
+	newSummary := logging.Summary{
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "info",
 		Source:    "server",
@@ -77,7 +78,7 @@ func TestSQLiteRepositoryPrunesOldSummaries(t *testing.T) {
 		t.Fatalf("prune summaries: %v", err)
 	}
 
-	items, err := repository.ListSummaries(ctx, Query{Limit: 10})
+	items, err := repository.ListSummaries(ctx, logging.Query{Limit: 10})
 	if err != nil {
 		t.Fatalf("list summaries after prune: %v", err)
 	}
@@ -86,13 +87,13 @@ func TestSQLiteRepositoryPrunesOldSummaries(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
+func TestRepositoryFiltersByDerivedProtocol(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{Timestamp: "2026-03-20T10:00:00Z", Level: "warn", Source: "adapter", Message: "adapter"},
 		{Timestamp: "2026-03-20T10:00:01Z", Level: "warn", Source: "adapter.onebot11", Message: "adapter.onebot11"},
 		{Timestamp: "2026-03-20T10:00:02Z", Level: "info", Source: "bridge", Message: "bridge"},
@@ -103,8 +104,8 @@ func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
 		}
 	}
 
-	items, err := repository.ListSummaries(ctx, Query{
-		Protocol: ProtocolOneBot11,
+	items, err := repository.ListSummaries(ctx, logging.Query{
+		Protocol: logging.ProtocolOneBot11,
 		Limit:    10,
 	})
 	if err != nil {
@@ -115,38 +116,38 @@ func TestSQLiteRepositoryFiltersByDerivedProtocol(t *testing.T) {
 		t.Fatalf("unexpected protocol summary count: got %d want 3", len(items))
 	}
 	for _, item := range items {
-		if item.Protocol != ProtocolOneBot11 {
+		if item.Protocol != logging.ProtocolOneBot11 {
 			t.Fatalf("unexpected summary protocol: %#v", item)
 		}
 	}
 }
 
-func TestSQLiteRepositoryKeepsQQOfficialLogsSeparateFromOneBot(t *testing.T) {
+func TestRepositoryKeepsQQOfficialLogsSeparateFromOneBot(t *testing.T) {
 	repository := openLoggingRepository(t)
 	for _, source := range []string{"adapter.qqofficial", "bridge.qqofficial", "adapter.onebot11", "bridge.onebot11"} {
-		if err := repository.SaveSummary(context.Background(), Summary{Timestamp: "2026-09-10T00:00:00Z", Level: "info", Source: source, Message: "fixture", Details: map[string]any{"source_adapter": "unique-instance"}}); err != nil {
+		if err := repository.SaveSummary(context.Background(), logging.Summary{Timestamp: "2026-09-10T00:00:00Z", Level: "info", Source: source, Message: "fixture", Details: map[string]any{"source_adapter": "unique-instance"}}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	items, err := repository.ListSummaries(context.Background(), Query{Protocol: ProtocolQQOfficial, Limit: 10})
+	items, err := repository.ListSummaries(context.Background(), logging.Query{Protocol: logging.ProtocolQQOfficial, Limit: 10})
 	if err != nil || len(items) != 2 {
 		t.Fatalf("QQ log filter: %#v %v", items, err)
 	}
 	for _, item := range items {
 		detail, err := repository.GetSummary(context.Background(), item.LogID)
-		if err != nil || item.Protocol != ProtocolQQOfficial || detail.Details["source_adapter"] != "unique-instance" {
+		if err != nil || item.Protocol != logging.ProtocolQQOfficial || detail.Details["source_adapter"] != "unique-instance" {
 			t.Fatalf("attribution: %#v", item)
 		}
 	}
 }
 
-func TestSQLiteRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
+func TestRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{LogID: "log_boot_0001", BootID: "boot_old", Timestamp: "2026-03-19T23:59:59Z", Level: "info", Source: "runtime", Message: "old boot"},
 		{LogID: "log_boot_0002", BootID: "boot_new", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "new boot first"},
 		{LogID: "log_boot_0003", BootID: "boot_new", Timestamp: "2026-03-20T10:30:00Z", Level: "warn", Source: "runtime", Message: "new boot second"},
@@ -157,7 +158,7 @@ func TestSQLiteRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
 		}
 	}
 
-	currentSessionItems, err := repository.ListSummaries(ctx, Query{
+	currentSessionItems, err := repository.ListSummaries(ctx, logging.Query{
 		BootID: "boot_new",
 		Limit:  10,
 	})
@@ -168,7 +169,7 @@ func TestSQLiteRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
 		t.Fatalf("unexpected boot-filtered summaries: %#v", got)
 	}
 
-	historyItems, err := repository.ListSummaries(ctx, Query{
+	historyItems, err := repository.ListSummaries(ctx, logging.Query{
 		StartAt: "2026-03-20T00:00:00Z",
 		EndAt:   "2026-03-20T23:59:59Z",
 		Limit:   10,
@@ -181,13 +182,13 @@ func TestSQLiteRepositoryFiltersByBootIDAndTimeRange(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryFiltersTimeRangeAcrossTimezoneOffsets(t *testing.T) {
+func TestRepositoryFiltersTimeRangeAcrossTimezoneOffsets(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{LogID: "log_offset_0001", Timestamp: "2026-04-17T02:02:41+08:00", Level: "info", Source: "runtime", Message: "local offset row"},
 		{LogID: "log_offset_0002", Timestamp: "2026-04-17T02:05:01+08:00", Level: "info", Source: "runtime", Message: "outside range"},
 	} {
@@ -196,7 +197,7 @@ func TestSQLiteRepositoryFiltersTimeRangeAcrossTimezoneOffsets(t *testing.T) {
 		}
 	}
 
-	items, err := repository.ListSummaries(ctx, Query{
+	items, err := repository.ListSummaries(ctx, logging.Query{
 		StartAt: "2026-04-16T18:00:00Z",
 		EndAt:   "2026-04-16T18:04:00Z",
 		Limit:   10,
@@ -209,13 +210,13 @@ func TestSQLiteRepositoryFiltersTimeRangeAcrossTimezoneOffsets(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
+func TestRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{LogID: "log_page_0001", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "1"},
 		{LogID: "log_page_0002", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "2"},
 		{LogID: "log_page_0003", Timestamp: "2026-03-20T10:00:01Z", Level: "info", Source: "runtime", Message: "3"},
@@ -227,7 +228,7 @@ func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 		}
 	}
 
-	firstPage, err := repository.ListPage(ctx, PageQuery{
+	firstPage, err := repository.ListPage(ctx, logging.PageQuery{
 		Source: "runtime",
 		Limit:  2,
 	})
@@ -244,11 +245,11 @@ func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 		t.Fatalf("unexpected first page cursors: %#v", firstPage.Page)
 	}
 
-	olderPage, err := repository.ListPage(ctx, PageQuery{
+	olderPage, err := repository.ListPage(ctx, logging.PageQuery{
 		Source:    "runtime",
 		Limit:     2,
 		Cursor:    *firstPage.Page.OlderCursor,
-		Direction: PageDirectionOlder,
+		Direction: logging.PageDirectionOlder,
 	})
 	if err != nil {
 		t.Fatalf("list older page: %v", err)
@@ -263,11 +264,11 @@ func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 		t.Fatalf("expected both cursors on middle page: %#v", olderPage.Page)
 	}
 
-	newerPage, err := repository.ListPage(ctx, PageQuery{
+	newerPage, err := repository.ListPage(ctx, logging.PageQuery{
 		Source:    "runtime",
 		Limit:     2,
 		Cursor:    *olderPage.Page.NewerCursor,
-		Direction: PageDirectionNewer,
+		Direction: logging.PageDirectionNewer,
 	})
 	if err != nil {
 		t.Fatalf("list newer page: %v", err)
@@ -280,13 +281,13 @@ func TestSQLiteRepositoryListsCursorPagedSummariesNewestFirst(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryPagesWithinBootIDScope(t *testing.T) {
+func TestRepositoryPagesWithinBootIDScope(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{LogID: "log_boot_page_0001", BootID: "boot_old", Timestamp: "2026-03-20T09:59:59Z", Level: "info", Source: "runtime", Message: "old boot"},
 		{LogID: "log_boot_page_0002", BootID: "boot_new", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "1"},
 		{LogID: "log_boot_page_0003", BootID: "boot_new", Timestamp: "2026-03-20T10:00:01Z", Level: "info", Source: "runtime", Message: "2"},
@@ -297,7 +298,7 @@ func TestSQLiteRepositoryPagesWithinBootIDScope(t *testing.T) {
 		}
 	}
 
-	firstPage, err := repository.ListPage(ctx, PageQuery{
+	firstPage, err := repository.ListPage(ctx, logging.PageQuery{
 		BootID: "boot_new",
 		Limit:  2,
 	})
@@ -311,11 +312,11 @@ func TestSQLiteRepositoryPagesWithinBootIDScope(t *testing.T) {
 		t.Fatalf("unexpected first boot-scoped page info: %#v", firstPage.Page)
 	}
 
-	secondPage, err := repository.ListPage(ctx, PageQuery{
+	secondPage, err := repository.ListPage(ctx, logging.PageQuery{
 		BootID:    "boot_new",
 		Limit:     2,
 		Cursor:    *firstPage.Page.OlderCursor,
-		Direction: PageDirectionOlder,
+		Direction: logging.PageDirectionOlder,
 	})
 	if err != nil {
 		t.Fatalf("list second boot-scoped page: %v", err)
@@ -328,26 +329,26 @@ func TestSQLiteRepositoryPagesWithinBootIDScope(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryRejectsInvalidCursor(t *testing.T) {
+func TestRepositoryRejectsInvalidCursor(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
-	_, err := repository.ListPage(context.Background(), PageQuery{
+	_, err := repository.ListPage(context.Background(), logging.PageQuery{
 		Limit:  2,
 		Cursor: "not-a-valid-cursor",
 	})
-	if !errors.Is(err, ErrInvalidCursor) {
+	if !errors.Is(err, logging.ErrInvalidCursor) {
 		t.Fatalf("expected ErrInvalidCursor, got %v", err)
 	}
 }
 
-func TestSQLiteRepositoryIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testing.T) {
+func TestRepositoryIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	for _, summary := range []Summary{
+	for _, summary := range []logging.Summary{
 		{LogID: "log_page_1001", Timestamp: "2026-03-20T10:00:00Z", Level: "info", Source: "runtime", Message: "1"},
 		{LogID: "log_page_1002", Timestamp: "2026-03-20T10:00:01Z", Level: "info", Source: "runtime", Message: "2"},
 		{LogID: "log_page_1003", Timestamp: "2026-03-20T10:00:02Z", Level: "info", Source: "runtime", Message: "3"},
@@ -359,7 +360,7 @@ func TestSQLiteRepositoryIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testin
 		}
 	}
 
-	defaultPage, err := repository.ListPage(ctx, PageQuery{
+	defaultPage, err := repository.ListPage(ctx, logging.PageQuery{
 		Source: "runtime",
 		Limit:  2,
 	})
@@ -367,10 +368,10 @@ func TestSQLiteRepositoryIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testin
 		t.Fatalf("list default page: %v", err)
 	}
 
-	newerFirstPage, err := repository.ListPage(ctx, PageQuery{
+	newerFirstPage, err := repository.ListPage(ctx, logging.PageQuery{
 		Source:    "runtime",
 		Limit:     2,
-		Direction: PageDirectionNewer,
+		Direction: logging.PageDirectionNewer,
 	})
 	if err != nil {
 		t.Fatalf("list first page with newer direction: %v", err)
@@ -393,13 +394,13 @@ func TestSQLiteRepositoryIgnoresNewerDirectionWithoutCursorOnFirstPage(t *testin
 	}
 }
 
-func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
+func TestRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	ctx := context.Background()
 
-	if err := repository.SaveSummary(ctx, Summary{
+	if err := repository.SaveSummary(ctx, logging.Summary{
 		LogID:     "log_detail_0001",
 		Timestamp: "2026-03-20T10:00:00Z",
 		Level:     "warn",
@@ -423,7 +424,7 @@ func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
 	if item.LogID != "log_detail_0001" {
 		t.Fatalf("unexpected log_id: %#v", item.LogID)
 	}
-	if item.Protocol != ProtocolOneBot11 {
+	if item.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected protocol: %#v", item.Protocol)
 	}
 	if item.Details["echo_value_type"] != "float64" {
@@ -434,7 +435,7 @@ func TestSQLiteRepositoryGetsDetailAndSanitizesSensitiveKeys(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
+func TestRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
@@ -485,7 +486,7 @@ func TestSQLiteRepositoryCompactsStoredOneBotDetailMirrorsOnRead(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
+func TestRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
@@ -523,17 +524,17 @@ func TestSQLiteRepositorySanitizesStoredOneBotTextOnRead(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
+func TestRepositoryReturnsNotFoundForMissingLogID(t *testing.T) {
 	t.Parallel()
 
 	repository := openLoggingRepository(t)
 	_, err := repository.GetSummary(context.Background(), "log_missing_0001")
-	if !errors.Is(err, ErrLogNotFound) {
+	if !errors.Is(err, logging.ErrLogNotFound) {
 		t.Fatalf("expected ErrLogNotFound, got %v", err)
 	}
 }
 
-func openLoggingRepository(t *testing.T) *SQLiteRepository {
+func openLoggingRepository(t *testing.T) *Repository {
 	t.Helper()
 
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
@@ -546,7 +547,7 @@ func openLoggingRepository(t *testing.T) *SQLiteRepository {
 		}
 	})
 
-	repository, err := NewSQLiteRepository(store)
+	repository, err := NewRepository(store)
 	if err != nil {
 		t.Fatalf("create sqlite logging repository: %v", err)
 	}

@@ -22,15 +22,6 @@ const (
 	summaryBridgeRuntime         = "插件事件处理统计已更新"
 )
 
-type Outcome string
-
-const (
-	OutcomeIgnored   Outcome = "ignored"
-	OutcomeDelivered Outcome = "delivered"
-	OutcomeError     Outcome = "error"
-	OutcomeRejected  Outcome = "rejected"
-)
-
 type Snapshot struct {
 	AcceptedCount  uint64
 	DeliveredCount uint64
@@ -40,7 +31,7 @@ type Snapshot struct {
 	RejectedCount  uint64
 	LastEventType  string
 	LastEventKind  string
-	LastOutcome    Outcome
+	LastOutcome    chatevent.DeliveryOutcome
 	LastErrorCode  string
 	LastErrorText  string
 	LastEventAt    *time.Time
@@ -74,18 +65,18 @@ type DispatcherRuntimeData struct {
 }
 
 type ObservabilityData struct {
-	ObservabilityScope     string  `json:"observability_scope"`
-	Summary                string  `json:"summary"`
-	LastSupportedKind      string  `json:"last_supported_event_kind,omitempty"`
-	LastDeliveryOutcome    Outcome `json:"last_delivery_outcome,omitempty"`
-	DeliveredCount         uint64  `json:"delivered_count"`
-	ResultCount            uint64  `json:"result_count"`
-	ErrorCount             uint64  `json:"error_count"`
-	AdapterDedupDropsTotal uint64  `json:"adapter_dedup_drops_total,omitempty"`
-	BridgeIgnoredTotal     uint64  `json:"bridge_ignored_total,omitempty"`
-	DispatcherDelivered    uint64  `json:"dispatcher_delivered_total,omitempty"`
-	DispatcherDropped      uint64  `json:"dispatcher_dropped_total,omitempty"`
-	DispatcherIgnored      uint64  `json:"dispatcher_ignored_total,omitempty"`
+	ObservabilityScope     string                    `json:"observability_scope"`
+	Summary                string                    `json:"summary"`
+	LastSupportedKind      string                    `json:"last_supported_event_kind,omitempty"`
+	LastDeliveryOutcome    chatevent.DeliveryOutcome `json:"last_delivery_outcome,omitempty"`
+	DeliveredCount         uint64                    `json:"delivered_count"`
+	ResultCount            uint64                    `json:"result_count"`
+	ErrorCount             uint64                    `json:"error_count"`
+	AdapterDedupDropsTotal uint64                    `json:"adapter_dedup_drops_total,omitempty"`
+	BridgeIgnoredTotal     uint64                    `json:"bridge_ignored_total,omitempty"`
+	DispatcherDelivered    uint64                    `json:"dispatcher_delivered_total,omitempty"`
+	DispatcherDropped      uint64                    `json:"dispatcher_dropped_total,omitempty"`
+	DispatcherIgnored      uint64                    `json:"dispatcher_ignored_total,omitempty"`
 }
 
 // Dispatch is the dispatcher capability the bridge depends on. It is
@@ -93,16 +84,6 @@ type ObservabilityData struct {
 type Dispatch interface {
 	HasDeliverablePlugins() bool
 	Dispatch(context.Context, chatevent.Event, string) []dispatch.DeliveryResult
-}
-
-type CommandPolicyRejection struct {
-	CommandName      string
-	PluginID         string
-	MatchedPluginIDs []string
-	ErrorCode        string
-	Reason           string
-	ReasonSummary    string
-	PolicyStage      string
 }
 
 // AdapterDedupStats reports the cumulative count of inbound events the

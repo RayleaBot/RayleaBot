@@ -1,4 +1,4 @@
-package secrets
+package sqlite
 
 import (
 	"context"
@@ -7,11 +7,12 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 func TestConcurrentFirstEncryptionUsesOneStoredKey(t *testing.T) {
-	store, err := NewSQLiteStore(openTestStore(t))
+	store, err := NewStore(openTestStore(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +20,7 @@ func TestConcurrentFirstEncryptionUsesOneStoredKey(t *testing.T) {
 	sealed := make(chan []byte, 20)
 	for range 20 {
 		writers.Go(func() {
-			value, err := SealString(context.Background(), store, "fixture-only-secret")
+			value, err := secrets.SealString(context.Background(), store, "fixture-only-secret")
 			if err != nil {
 				t.Error(err)
 				return
@@ -30,7 +31,7 @@ func TestConcurrentFirstEncryptionUsesOneStoredKey(t *testing.T) {
 	writers.Wait()
 	close(sealed)
 	for value := range sealed {
-		opened, err := OpenString(context.Background(), store, value)
+		opened, err := secrets.OpenString(context.Background(), store, value)
 		if err != nil || opened != "fixture-only-secret" {
 			t.Fatalf("concurrent encryption lost its key: %v", err)
 		}
@@ -52,7 +53,7 @@ func openTestStore(t *testing.T) *storage.Store {
 func TestSQLiteStore_SetAndGet(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
-	ss, err := NewSQLiteStore(store)
+	ss, err := NewStore(store)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -74,21 +75,21 @@ func TestSQLiteStore_SetAndGet(t *testing.T) {
 func TestSQLiteStore_GetNotFound(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
-	ss, err := NewSQLiteStore(store)
+	ss, err := NewStore(store)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
 
 	_, err = ss.Get(context.Background(), "nonexistent")
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound, got %v", err)
+	if !errors.Is(err, secrets.ErrNotFound) {
+		t.Fatalf("expected secrets.ErrNotFound, got %v", err)
 	}
 }
 
 func TestSQLiteStore_Upsert(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
-	ss, err := NewSQLiteStore(store)
+	ss, err := NewStore(store)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -113,7 +114,7 @@ func TestSQLiteStore_Upsert(t *testing.T) {
 func TestSQLiteStore_Delete(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
-	ss, err := NewSQLiteStore(store)
+	ss, err := NewStore(store)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -127,15 +128,15 @@ func TestSQLiteStore_Delete(t *testing.T) {
 	}
 
 	_, err = ss.Get(ctx, "ephemeral")
-	if !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expected ErrNotFound after delete, got %v", err)
+	if !errors.Is(err, secrets.ErrNotFound) {
+		t.Fatalf("expected secrets.ErrNotFound after delete, got %v", err)
 	}
 }
 
 func TestSQLiteStore_List(t *testing.T) {
 	t.Parallel()
 	store := openTestStore(t)
-	ss, err := NewSQLiteStore(store)
+	ss, err := NewStore(store)
 	if err != nil {
 		t.Fatalf("new store: %v", err)
 	}
@@ -162,7 +163,7 @@ func TestSQLiteStore_List(t *testing.T) {
 
 func TestSQLiteStore_NilStore(t *testing.T) {
 	t.Parallel()
-	_, err := NewSQLiteStore(nil)
+	_, err := NewStore(nil)
 	if err == nil {
 		t.Fatal("expected error for nil store")
 	}

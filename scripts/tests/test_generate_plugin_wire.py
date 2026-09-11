@@ -35,8 +35,14 @@ class GenerationTests(unittest.TestCase):
                 source = root / 'contracts/plugin-protocol.schema.json'
                 schema = json.loads(source.read_text(encoding='utf-8'))
                 schema['$defs']['init']['allOf'][1]['properties']['protocol_version']['const'] = '99'
+                schema['$defs']['onebot_action_kind']['enum'].append('fixture.action')
+                schema['$defs']['provider_extension_action_kind']['enum'].append('provider.fixture.action')
                 source.write_text(json.dumps(schema), encoding='utf-8')
                 changed = generator.generate()
+                action_kinds = root / 'server/internal/pluginwire/action_kinds.generated.go'
+                self.assertNotEqual(first[action_kinds], changed[action_kinds])
+                self.assertIn(b'"fixture.action"', changed[action_kinds])
+                self.assertIn(b'"provider.fixture.action"', changed[action_kinds])
                 for output in [server, sdk, root / 'server/internal/contractversions/versions.generated.go', root / 'launcher/internal/contractversions/versions.generated.go']:
                     self.assertNotEqual(first[output], changed[output])
                     self.assertIn(b'"99"', changed[output])

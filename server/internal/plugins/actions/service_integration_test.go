@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
@@ -388,9 +389,9 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		t.Fatalf("storage.Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secretssqlite.NewStore(store)
 	if err != nil {
-		t.Fatalf("secrets.NewSQLiteStore: %v", err)
+		t.Fatalf("secretssqlite.NewStore: %v", err)
 	}
 	sealedPrimary, err := secrets.SealString(context.Background(), secretStore, "SESSDATA=fixture")
 	if err != nil {

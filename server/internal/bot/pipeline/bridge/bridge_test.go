@@ -27,8 +27,8 @@ func TestBridgeQueuesSupportedEventToDispatcher(t *testing.T) {
 	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeDelivered {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	if outcome != chatevent.DeliveryOutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeDelivered)
 	}
 
 	if len(fakeDispatcher.events) != 1 {
@@ -64,8 +64,8 @@ func TestBridgeReturnsErrorWhenDispatcherCannotQueueAnyTarget(t *testing.T) {
 	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent())
-	if outcome != OutcomeError {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeError)
+	if outcome != chatevent.DeliveryOutcomeError {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeError)
 	}
 
 	snapshot := eventBridge.Snapshot()
@@ -87,8 +87,8 @@ func TestBridgeIgnoresUnsupportedAdapterEventShape(t *testing.T) {
 		Kind:      "onebot11.unsupported",
 		EventType: "message.segmented",
 	})
-	if outcome != OutcomeIgnored {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
+	if outcome != chatevent.DeliveryOutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeIgnored)
 	}
 	if len(fakeDispatcher.events) != 0 {
 		t.Fatalf("unsupported event should not reach dispatcher")
@@ -107,8 +107,8 @@ func TestBridgeIgnoresEventWhenNoDeliverableRuntimeExists(t *testing.T) {
 	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent())
-	if outcome != OutcomeIgnored {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
+	if outcome != chatevent.DeliveryOutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeIgnored)
 	}
 	if len(fakeDispatcher.events) != 0 {
 		t.Fatalf("dispatcher should not receive event when nothing is deliverable")
@@ -130,8 +130,8 @@ func TestBridgeIgnoresEventWhenNoTargetAccepts(t *testing.T) {
 	eventBridge := testBridge(fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent())
-	if outcome != OutcomeIgnored {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
+	if outcome != chatevent.DeliveryOutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeIgnored)
 	}
 	if len(fakeDispatcher.events) != 1 {
 		t.Fatalf("dispatcher should inspect the event once, got %d", len(fakeDispatcher.events))
@@ -151,8 +151,8 @@ func TestBridgeLogsUnmatchedNoticeAsDebugIgnored(t *testing.T) {
 	eventBridge := New(logger, fakeDispatcher)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent())
-	if outcome != OutcomeIgnored {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeIgnored)
+	if outcome != chatevent.DeliveryOutcomeIgnored {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeIgnored)
 	}
 
 	summaries := stream.Snapshot()
@@ -186,18 +186,18 @@ func TestBridgeIgnoredEventClearsPreviousErrorState(t *testing.T) {
 	}
 	eventBridge := testBridge(fakeDispatcher)
 
-	if outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != OutcomeError {
-		t.Fatalf("unexpected first outcome: got %q want %q", outcome, OutcomeError)
+	if outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != chatevent.DeliveryOutcomeError {
+		t.Fatalf("unexpected first outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeError)
 	}
 
 	fakeDispatcher.results = nil
-	if outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent()); outcome != OutcomeIgnored {
-		t.Fatalf("unexpected second outcome: got %q want %q", outcome, OutcomeIgnored)
+	if outcome := eventBridge.HandleAdapterEvent(context.Background(), supportedGroupRecallNoticeEvent()); outcome != chatevent.DeliveryOutcomeIgnored {
+		t.Fatalf("unexpected second outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeIgnored)
 	}
 
 	snapshot := eventBridge.Snapshot()
-	if snapshot.LastOutcome != OutcomeIgnored {
-		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, OutcomeIgnored)
+	if snapshot.LastOutcome != chatevent.DeliveryOutcomeIgnored {
+		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, chatevent.DeliveryOutcomeIgnored)
 	}
 	if snapshot.LastErrorCode != "" || snapshot.LastErrorText != "" {
 		t.Fatalf("ignored event should clear stale error state: %+v", snapshot)
@@ -216,7 +216,7 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	event.PlainText = "/help"
 	event.PayloadFields["command"] = "help"
 
-	eventBridge.LogCommandPolicyRejected(event, CommandPolicyRejection{
+	eventBridge.LogCommandPolicyRejected(event, chatevent.CommandPolicyRejection{
 		CommandName:      "help",
 		PluginID:         "raylea.echo",
 		MatchedPluginIDs: []string{"raylea.echo"},
@@ -236,8 +236,8 @@ func TestBridgeLogsCommandPolicyRejected(t *testing.T) {
 	if snapshot.AcceptedCount != 1 || snapshot.RejectedCount != 1 {
 		t.Fatalf("unexpected bridge rejection counters: %+v", snapshot)
 	}
-	if snapshot.LastOutcome != OutcomeRejected {
-		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, OutcomeRejected)
+	if snapshot.LastOutcome != chatevent.DeliveryOutcomeRejected {
+		t.Fatalf("unexpected last outcome: got %q want %q", snapshot.LastOutcome, chatevent.DeliveryOutcomeRejected)
 	}
 	if snapshot.LastErrorCode != "permission.not_whitelisted" || snapshot.LastErrorText != "发送者不在白名单中" {
 		t.Fatalf("unexpected last rejection details: %+v", snapshot)
@@ -296,8 +296,8 @@ func TestBridgeDeliversFriendRequestEvent(t *testing.T) {
 			"comment": "请通过好友申请",
 		},
 	})
-	if outcome != OutcomeDelivered {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	if outcome != chatevent.DeliveryOutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeDelivered)
 	}
 	if len(fakeDispatcher.events) != 1 {
 		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))
@@ -348,8 +348,8 @@ func TestBridgeDeliversMetaHeartbeatEvent(t *testing.T) {
 			},
 		},
 	})
-	if outcome != OutcomeDelivered {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	if outcome != chatevent.DeliveryOutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeDelivered)
 	}
 	if len(fakeDispatcher.events) != 1 {
 		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))
@@ -411,8 +411,8 @@ func TestBridgeDeliversMessageSentEvent(t *testing.T) {
 			},
 		},
 	})
-	if outcome != OutcomeDelivered {
-		t.Fatalf("unexpected outcome: got %q want %q", outcome, OutcomeDelivered)
+	if outcome != chatevent.DeliveryOutcomeDelivered {
+		t.Fatalf("unexpected outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeDelivered)
 	}
 	if len(fakeDispatcher.events) != 1 {
 		t.Fatalf("unexpected dispatcher delivery count: got %d want 1", len(fakeDispatcher.events))

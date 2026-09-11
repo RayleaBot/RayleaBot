@@ -12,8 +12,10 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/console"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	loggingsqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/logging/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
@@ -83,7 +85,7 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	if err != nil {
 		return abort(fmt.Errorf("create auth repository: %w", err))
 	}
-	secretStore, err := secrets.NewSQLiteStore(storageStore)
+	secretStore, err := secretssqlite.NewStore(storageStore)
 	if err != nil {
 		return abort(fmt.Errorf("create secret store: %w", err))
 	}
@@ -134,7 +136,7 @@ func buildPlatform(deps platformDeps) (PlatformState, error) {
 	}
 	logRepository := deps.LogRepository
 	if logRepository == nil {
-		sqliteLogRepository, err := logging.NewSQLiteRepository(storageStore)
+		sqliteLogRepository, err := loggingsqlite.NewRepository(storageStore)
 		if err != nil {
 			return abort(fmt.Errorf("create logging repository: %w", err))
 		}

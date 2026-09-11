@@ -3,9 +3,9 @@ package runtime
 import (
 	"encoding/json"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
 )
 
 func ParseTerminalAction(kind string, raw json.RawMessage) (*chatevent.MessageCommand, error) {
@@ -18,7 +18,7 @@ func ParseTerminalAction(kind string, raw json.RawMessage) (*chatevent.MessageCo
 		command := action.MessageCommand()
 		return &command, nil
 	default:
-		if isLocalActionKind(kind) || isOneBotFamilyAction(kind) || isProviderExtensionAction(kind) {
+		if isLocalActionKind(kind) || pluginwire.IsOneBotAction(kind) || pluginwire.IsProviderExtensionAction(kind) {
 			return nil, errorf(codePluginProtocolViolation, "plugin local action request_id must differ from the current event request_id", nil)
 		}
 		return nil, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
@@ -65,7 +65,7 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 		return parseMessageSendAction(raw)
 	default:
 		switch {
-		case isOneBotFamilyAction(kind), isProviderExtensionAction(kind):
+		case pluginwire.IsOneBotAction(kind), pluginwire.IsProviderExtensionAction(kind):
 			return parseOneBotFamilyAction(kind, raw)
 		default:
 			return nil, errorf(codePluginProtocolViolation, "plugin returned unsupported action kind", nil)
@@ -97,14 +97,6 @@ func isLocalActionKind(kind string) bool {
 	default:
 		return false
 	}
-}
-
-func isOneBotFamilyAction(kind string) bool {
-	return onebot11.IsGenericAction(kind)
-}
-
-func isProviderExtensionAction(kind string) bool {
-	return onebot11.IsProviderExtensionAction(kind)
 }
 
 func parseOneBotFamilyAction(actionKind string, raw json.RawMessage) (*plugins.Action, error) {

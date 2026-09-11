@@ -5,10 +5,10 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/presentation"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 func renderImageRegistrar() registrar {
@@ -134,8 +134,8 @@ func renderImageData(ctx context.Context, deps Deps, req ActionRequest, template
 	if deps.Renderer == nil || !deps.Renderer.TemplateAcceptsRenderIdentity(ctx, templateID) {
 		return req.Action.RenderData
 	}
-	merged := renderservice.CloneRenderData(req.Action.RenderData)
-	identity := renderservice.RenderIdentityData(currentConfig(deps).Admin.SuperAdmins, req.ParentEvent)
+	merged := presentation.CloneData(req.Action.RenderData)
+	identity := presentation.IdentityData(currentConfig(deps).Admin.SuperAdmins, req.ParentEvent)
 	merged["user"] = identity.User
 	merged["permission"] = identity.Permission
 	if identity.Group != nil {

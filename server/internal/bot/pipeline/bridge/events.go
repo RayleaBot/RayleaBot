@@ -9,7 +9,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 )
 
-func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) Outcome {
+func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) chatevent.DeliveryOutcome {
 	now := time.Now().UTC()
 
 	if !isSupportedEvent(event) {
@@ -17,7 +17,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 		attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 		attrs = append(attrs, "reason", "event shape or source is outside the supported adapter contract")
 		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
-		return OutcomeIgnored
+		return chatevent.DeliveryOutcomeIgnored
 	}
 
 	if b.dispatcher == nil || !b.dispatcher.HasDeliverablePlugins() {
@@ -25,7 +25,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 		attrs := append([]any{"component", "bridge." + chatevent.ProtocolLabel(event.SourceProtocol), "source_protocol", event.SourceProtocol, "source_adapter", event.SourceAdapter}, bridgeEventLogAttrs(event)...)
 		attrs = append(attrs, "reason", "no deliverable plugin runtime is registered")
 		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
-		return OutcomeIgnored
+		return chatevent.DeliveryOutcomeIgnored
 	}
 
 	runtimeEvent := chatevent.FromAdapter(event)
@@ -40,7 +40,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 			attrs = append(attrs, "command_name", commandName)
 		}
 		b.logger.Debug(bridgeEventSummary("ignored", event), attrs...)
-		return OutcomeIgnored
+		return chatevent.DeliveryOutcomeIgnored
 	}
 
 	if bridgeDispatchDelivered(results) {
@@ -51,7 +51,7 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 			attrs = append(attrs, "command_name", commandName)
 		}
 		b.logger.Info(bridgeEventSummary("queued for dispatcher", event), attrs...)
-		return OutcomeDelivered
+		return chatevent.DeliveryOutcomeDelivered
 	}
 
 	b.recordError(event, now, codePluginInternalError, "eligible plugin runtimes did not accept the event")
@@ -62,10 +62,10 @@ func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.Normali
 		attrs = append(attrs, "command_name", commandName)
 	}
 	b.logger.Warn(bridgeEventSummary("failed to queue for dispatcher", event), attrs...)
-	return OutcomeError
+	return chatevent.DeliveryOutcomeError
 }
 
-func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejection CommandPolicyRejection) {
+func (b *Bridge) LogCommandPolicyRejected(event chatevent.NormalizedEvent, rejection chatevent.CommandPolicyRejection) {
 
 	now := time.Now().UTC()
 	errorCode := strings.TrimSpace(rejection.ErrorCode)

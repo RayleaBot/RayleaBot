@@ -489,7 +489,7 @@ func TestHandleAdapterEventSendsBuiltinMenuImageWithoutPluginDispatch(t *testing
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{

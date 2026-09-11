@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -185,9 +185,9 @@ func newTestService(t *testing.T) *Service {
 		t.Fatalf("storage.Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secretssqlite.NewStore(store)
 	if err != nil {
-		t.Fatalf("secrets.NewSQLiteStore: %v", err)
+		t.Fatalf("secretssqlite.NewStore: %v", err)
 	}
 	service, err := NewService(store, secretStore)
 	if err != nil {

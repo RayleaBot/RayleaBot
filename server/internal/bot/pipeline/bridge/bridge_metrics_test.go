@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 )
 
@@ -54,20 +55,20 @@ func TestBridgeMetricsObserverIncrementsOnEachOutcome(t *testing.T) {
 	deliveredBridge := testBridge(deliveredDispatcher)
 	deliveredMetrics := &recordingMetrics{}
 	deliveredBridge.SetMetricsObserver(deliveredMetrics)
-	if outcome := deliveredBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != OutcomeDelivered {
+	if outcome := deliveredBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != chatevent.DeliveryOutcomeDelivered {
 		t.Fatalf("expected delivered outcome, got %q", outcome)
 	}
-	if got := deliveredMetrics.pipelineCount("bridge", string(OutcomeDelivered)); got != 1 {
+	if got := deliveredMetrics.pipelineCount("bridge", string(chatevent.DeliveryOutcomeDelivered)); got != 1 {
 		t.Fatalf("expected bridge:delivered=1, got %d", got)
 	}
 
 	ignoredBridge := testBridge(&recordingDispatcher{deliverable: false})
 	ignoredMetrics := &recordingMetrics{}
 	ignoredBridge.SetMetricsObserver(ignoredMetrics)
-	if outcome := ignoredBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != OutcomeIgnored {
+	if outcome := ignoredBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != chatevent.DeliveryOutcomeIgnored {
 		t.Fatalf("expected ignored outcome, got %q", outcome)
 	}
-	if got := ignoredMetrics.pipelineCount("bridge", string(OutcomeIgnored)); got != 1 {
+	if got := ignoredMetrics.pipelineCount("bridge", string(chatevent.DeliveryOutcomeIgnored)); got != 1 {
 		t.Fatalf("expected bridge:ignored=1, got %d", got)
 	}
 	if got := ignoredMetrics.ignoredCount(); got != 1 {
@@ -85,10 +86,10 @@ func TestBridgeMetricsObserverIncrementsOnEachOutcome(t *testing.T) {
 	errorBridge := testBridge(errorDispatcher)
 	errorMetrics := &recordingMetrics{}
 	errorBridge.SetMetricsObserver(errorMetrics)
-	if outcome := errorBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != OutcomeError {
+	if outcome := errorBridge.HandleAdapterEvent(context.Background(), supportedAdapterEvent()); outcome != chatevent.DeliveryOutcomeError {
 		t.Fatalf("expected error outcome, got %q", outcome)
 	}
-	if got := errorMetrics.pipelineCount("bridge", string(OutcomeError)); got != 1 {
+	if got := errorMetrics.pipelineCount("bridge", string(chatevent.DeliveryOutcomeError)); got != 1 {
 		t.Fatalf("expected bridge:error=1, got %d", got)
 	}
 }

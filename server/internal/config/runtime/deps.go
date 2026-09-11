@@ -7,7 +7,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type Service struct {
@@ -91,7 +90,7 @@ func NewService(deps Deps) *Service {
 }
 
 type renderRuntimeConfigUpdater interface {
-	UpdateRuntimeConfig(renderservice.RuntimeConfig)
+	ApplyConfig(config.Config)
 }
 
 type configProtocolReloader interface {

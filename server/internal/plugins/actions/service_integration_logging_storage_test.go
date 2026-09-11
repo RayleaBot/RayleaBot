@@ -12,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
+	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
@@ -207,9 +208,9 @@ func TestExecuteGovernanceActionsRejectMissingPermission(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	blacklistRepo := permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
-	whitelistRepo := permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
-	whitelistState := permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
+	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
+	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
 	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{}}
 	governanceEvents := managementevents.NewGovernanceService()
 	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged})
@@ -233,9 +234,9 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	blacklistRepo := permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
-	whitelistRepo := permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
-	whitelistState := permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
+	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
+	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
 	catalogForActions := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
@@ -364,9 +365,9 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	blacklistRepo := permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
-	whitelistRepo := permission.NewSQLiteAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
-	whitelistState := permission.NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
+	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
+	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
 	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
 		"governance-helper": {{PluginID: "governance-helper", Permission: "governance.blacklist.write"}},
 	}}

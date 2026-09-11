@@ -294,6 +294,12 @@ def generate():
     codec = gofmt(HEADER + CODEC)
     source = (ROOT / "contracts/plugin-protocol.schema.json").read_text(encoding="utf-8").replace("\r\n", "\n").encode("utf-8")
     outputs = {}
+    action_kinds = HEADER + "\npackage pluginwire\n"
+    for name, definition in [("IsOneBotAction", "onebot_action_kind"), ("IsProviderExtensionAction", "provider_extension_action_kind")]:
+        values = at(schema, f"/$defs/{definition}/enum")
+        cases = ", ".join(json.dumps(value) for value in values)
+        action_kinds += f"\nfunc {name}(kind string) bool {{\nswitch kind {{\ncase {cases}:\nreturn true\ndefault:\nreturn false\n}}\n}}\n"
+    outputs[ROOT / "server/internal/pluginwire/action_kinds.generated.go"] = gofmt(action_kinds)
     for directory in ["server/internal/pluginwire", "sdk/go/internal/pluginwire"]:
         outputs[ROOT / directory / "protocol.generated.go"] = models
         outputs[ROOT / directory / "codec.generated.go"] = codec

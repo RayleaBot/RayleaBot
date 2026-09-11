@@ -46,7 +46,7 @@ func (b *Bridge) SetMetricsObserver(observer MetricsObserver) {
 	b.metrics = observer
 }
 
-func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome Outcome) {
+func (b *Bridge) emitObservabilityLocked(observedAt time.Time, outcome chatevent.DeliveryOutcome) {
 	lastKind := b.snapshot.LastEventKind
 	if lastKind == "" {
 		lastKind = chatevent.EventKindMessageText

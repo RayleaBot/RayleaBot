@@ -11,7 +11,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/command"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
@@ -27,7 +26,7 @@ type MenuMatcher interface {
 }
 
 type RejectionLogger interface {
-	LogCommandPolicyRejected(chatevent.NormalizedEvent, bridge.CommandPolicyRejection)
+	LogCommandPolicyRejected(chatevent.NormalizedEvent, chatevent.CommandPolicyRejection)
 }
 
 type OutboundSender interface {
@@ -267,7 +266,7 @@ func (s *Service) logCommandPolicyRejection(event chatevent.NormalizedEvent, ver
 		return
 	}
 
-	s.bridge.LogCommandPolicyRejected(event, bridge.CommandPolicyRejection{
+	s.bridge.LogCommandPolicyRejected(event, chatevent.CommandPolicyRejection{
 		CommandName:      commandContext.CommandName,
 		PluginID:         commandContext.PrimaryPluginID,
 		MatchedPluginIDs: commandContext.MatchedPluginIDs,

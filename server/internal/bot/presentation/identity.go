@@ -1,4 +1,4 @@
-package render
+package presentation
 
 import (
 	"fmt"
@@ -8,13 +8,13 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
-type RenderIdentity struct {
+type Identity struct {
 	User       map[string]any
 	Group      map[string]any
 	Permission map[string]any
 }
 
-func RenderIdentityData(superAdmins []string, event chatevent.Event) RenderIdentity {
+func IdentityData(superAdmins []string, event chatevent.Event) Identity {
 	actor := event.Actor
 	target := event.Target
 	onebot := map[string]any{}
@@ -61,11 +61,11 @@ func RenderIdentityData(superAdmins []string, event chatevent.Event) RenderIdent
 	}
 
 	level := normalizePermissionLevel(firstText(actorRole, sender["role"]))
-	if event.SourceProtocol == "onebot11" && userID != "" && renderIdentityUserIsSuperAdmin(superAdmins, userID) {
+	if event.SourceProtocol == "onebot11" && userID != "" && identityUserIsSuperAdmin(superAdmins, userID) {
 		level = "super_admin"
 	}
 
-	identity := RenderIdentity{
+	identity := Identity{
 		User: user,
 		Permission: map[string]any{
 			"level": level,
@@ -80,7 +80,7 @@ func RenderIdentityData(superAdmins []string, event chatevent.Event) RenderIdent
 	return identity
 }
 
-func CloneRenderData(data map[string]any) map[string]any {
+func CloneData(data map[string]any) map[string]any {
 	if len(data) == 0 {
 		return map[string]any{}
 	}
@@ -91,7 +91,7 @@ func CloneRenderData(data map[string]any) map[string]any {
 	return cloned
 }
 
-func renderIdentityUserIsSuperAdmin(superAdmins []string, userID string) bool {
+func identityUserIsSuperAdmin(superAdmins []string, userID string) bool {
 	for _, candidate := range superAdmins {
 		if strings.TrimSpace(candidate) == userID {
 			return true

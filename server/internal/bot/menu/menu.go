@@ -11,15 +11,14 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/command"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/presentation"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 const (
-	builtinMenuTemplateID = "help.menu"
-	builtinMenuFallback   = "菜单生成失败，请稍后重试。"
+	builtinMenuFallback = "菜单生成失败，请稍后重试。"
 )
 
 type Sender interface {
@@ -27,13 +26,21 @@ type Sender interface {
 	SendReply(context.Context, chatevent.OutboundMessageReply) (chatevent.SendMessageResult, error)
 }
 
-type Renderer interface {
-	Render(context.Context, renderservice.Request) (renderservice.Result, error)
+type Renderer func(context.Context, RenderRequest) (string, error)
+
+type PluginCatalog interface {
+	List() []plugins.Snapshot
+}
+
+type RenderRequest struct {
+	Data          map[string]any
+	PluginName    string
+	PluginVersion string
 }
 
 type Deps struct {
 	CurrentConfig func() config.Config
-	Plugins       plugins.CatalogView
+	Plugins       PluginCatalog
 	Renderer      Renderer
 	Sender        Sender
 	WaitOutbound  func(context.Context, outbound.MessageLimitRequest) error
@@ -42,7 +49,7 @@ type Deps struct {
 
 type Service struct {
 	currentConfig func() config.Config
-	plugins       plugins.CatalogView
+	plugins       PluginCatalog
 	renderer      Renderer
 	sender        Sender
 	waitOutbound  func(context.Context, outbound.MessageLimitRequest) error
@@ -56,9 +63,14 @@ type Request struct {
 	Command string
 }
 
+type pluginIdentity struct {
+	Name    string
+	Version string
+}
+
 type builtinMenuRenderData struct {
 	Data   map[string]any
-	Plugin *renderservice.PluginContext
+	Plugin *pluginIdentity
 }
 
 func New(deps Deps) *Service {
@@ -85,7 +97,7 @@ func (s *Service) Handle(ctx context.Context, event chatevent.NormalizedEvent) b
 	s.logBuiltinMenuTrigger(ctx, event, request)
 
 	result, err := s.renderBuiltinMenu(ctx, payload)
-	if err != nil || strings.TrimSpace(result.ImagePath) == "" {
+	if err != nil || strings.TrimSpace(result) == "" {
 		if err == nil {
 			err = fmt.Errorf("render service returned no image")
 		}
@@ -94,25 +106,21 @@ func (s *Service) Handle(ctx context.Context, event chatevent.NormalizedEvent) b
 		return true
 	}
 
-	s.sendBuiltinMenuImage(ctx, event, request.Command, result.ImagePath)
+	s.sendBuiltinMenuImage(ctx, event, request.Command, result)
 	return true
 }
 
-func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRenderData) (renderservice.Result, error) {
+func (s *Service) renderBuiltinMenu(ctx context.Context, payload builtinMenuRenderData) (string, error) {
 	if s.renderer == nil {
-		return renderservice.Result{}, fmt.Errorf("render service is not available")
+		return "", fmt.Errorf("render service is not available")
 	}
 	renderCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	plugin := payload.Plugin
 	if plugin == nil {
-		plugin = &renderservice.PluginContext{Name: "RayleaBot"}
+		plugin = &pluginIdentity{Name: "RayleaBot"}
 	}
-	return s.renderer.Render(renderCtx, renderservice.Request{
-		Template: builtinMenuTemplateID,
-		Data:     payload.Data,
-		Plugin:   plugin,
-	})
+	return s.renderer(renderCtx, RenderRequest{Data: payload.Data, PluginName: plugin.Name, PluginVersion: plugin.Version})
 }
 
 func (s *Service) Match(event chatevent.NormalizedEvent) Request {
@@ -355,7 +363,7 @@ func (s *Service) buildBuiltinMenuData(event chatevent.NormalizedEvent, target s
 			data := s.withBuiltinMenuIdentity(builtinPluginMenuData(item, cfg), runtimeEvent)
 			return builtinMenuRenderData{
 				Data: data,
-				Plugin: &renderservice.PluginContext{
+				Plugin: &pluginIdentity{
 					Name:    stringValueFromMap(item, "plugin_name"),
 					Version: stringValueFromMap(item, "plugin_version"),
 				},
@@ -406,7 +414,7 @@ func (s *Service) withBuiltinMenuIdentity(data map[string]any, event chatevent.E
 		data = map[string]any{}
 	}
 	cfg := s.config()
-	identity := renderservice.RenderIdentityData(cfg.Admin.SuperAdmins, event)
+	identity := presentation.IdentityData(cfg.Admin.SuperAdmins, event)
 	data["user"] = identity.User
 	data["permission"] = identity.Permission
 	if identity.Group != nil {

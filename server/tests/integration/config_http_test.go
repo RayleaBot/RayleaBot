@@ -17,6 +17,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
@@ -525,7 +526,7 @@ func newTestAppWithConfigMutation(t *testing.T, mutate func(map[string]any), aut
 
 func assertStoredConfigSecret(t *testing.T, application *internalapp.App, key string, want string) {
 	t.Helper()
-	secretStore, err := secrets.NewSQLiteStore(application.Storage())
+	secretStore, err := secretssqlite.NewStore(application.Storage())
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}
@@ -547,7 +548,7 @@ func assertStoredConfigSecret(t *testing.T, application *internalapp.App, key st
 
 func assertMissingConfigSecret(t *testing.T, application *internalapp.App, key string) {
 	t.Helper()
-	secretStore, err := secrets.NewSQLiteStore(application.Storage())
+	secretStore, err := secretssqlite.NewStore(application.Storage())
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}
@@ -569,7 +570,7 @@ func storeConfigSecretFixture(t *testing.T, configPath string, key string, value
 		t.Fatalf("open sqlite store: %v", err)
 	}
 	defer func(release func() error) { _ = release() }(store.Close)
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secretssqlite.NewStore(store)
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}

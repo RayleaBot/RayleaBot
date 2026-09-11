@@ -59,41 +59,12 @@ var actionSpecs = []ActionSpec{
 	providerCollectionAction("provider.luckylillia.friend_groups.get", "luckylillia", "get_grouped_friend_list", "groups"),
 }
 
-var actionSpecByKind = buildActionSpecByKind()
-
 func Actions() []ActionSpec {
 	items := make([]ActionSpec, 0, len(actionSpecs))
 	for _, spec := range actionSpecs {
 		items = append(items, normalizeSpec(spec))
 	}
 	return items
-}
-
-func LookupAction(kind string) (ActionSpec, bool) {
-	spec, ok := actionSpecByKind[kind]
-	if !ok {
-		return ActionSpec{}, false
-	}
-	return cloneSpec(spec), true
-}
-
-func IsGenericAction(kind string) bool {
-	spec, ok := LookupAction(kind)
-	return ok && spec.Provider == ""
-}
-
-func IsProviderExtensionAction(kind string) bool {
-	spec, ok := LookupAction(kind)
-	return ok && spec.Provider != ""
-}
-
-func buildActionSpecByKind() map[string]ActionSpec {
-	registry := make(map[string]ActionSpec, len(actionSpecs))
-	for _, spec := range actionSpecs {
-		spec = normalizeSpec(spec)
-		registry[spec.Kind] = spec
-	}
-	return registry
 }
 
 func normalizeSpec(spec ActionSpec) ActionSpec {

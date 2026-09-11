@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
@@ -48,7 +49,7 @@ func TestHandleAdapterEventUsesIndependentBuiltinMenuPrefix(t *testing.T) {
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
@@ -158,7 +159,7 @@ func TestHandleAdapterEventRendersBuiltinMenuPluginPrefixesAsHeaderBadge(t *test
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), &recordingDispatcherClient{})
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
@@ -230,7 +231,7 @@ func TestHandleAdapterEventMatchesBuiltinPluginSuffixHelp(t *testing.T) {
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), &recordingDispatcherClient{})
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
@@ -280,7 +281,7 @@ func TestHandleAdapterEventSkipsMissingBuiltinPluginMenuTarget(t *testing.T) {
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
@@ -332,7 +333,7 @@ func TestHandleAdapterEventDoesNotTreatExactPluginCommandAsBuiltinSuffixMenu(t *
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
@@ -386,7 +387,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 	deps.BlacklistRepo = repo
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	ingress.HandleAdapterEvent(context.Background(), chatevent.NormalizedEvent{
@@ -444,7 +445,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenCooldownApplies(t *testing.T) {
 	}})
 	deps.OutboundSender = sender
 	deps.Bridge = bridge.New(slog.Default(), dispatcher)
-	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuRenderer, Sender: deps.OutboundSender, Logger: deps.Logger})
+	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Renderer: menuTestRenderer(menuRenderer), Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
 	event := chatevent.NormalizedEvent{
@@ -558,5 +559,12 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 	if summary.Details["message_id"] != "msg-2" {
 		t.Fatalf("unexpected message_id detail: %#v", summary.Details["message_id"])
+	}
+}
+
+func menuTestRenderer(service *renderservice.Service) menuext.Renderer {
+	return func(ctx context.Context, request menuext.RenderRequest) (string, error) {
+		result, err := service.Render(ctx, renderservice.Request{Template: "help.menu", Data: request.Data, Plugin: &renderservice.PluginContext{Name: request.PluginName, Version: request.PluginVersion}})
+		return result.ImagePath, err
 	}
 }

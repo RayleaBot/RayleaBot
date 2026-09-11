@@ -178,7 +178,13 @@ func buildBuiltinMenuService(runtimeState runtimeStateView, pluginStack PluginSt
 	}
 	var menuRenderer menuext.Renderer
 	if renderer != nil {
-		menuRenderer = renderer
+		menuRenderer = func(ctx context.Context, request menuext.RenderRequest) (string, error) {
+			result, err := renderer.Render(ctx, renderservice.Request{
+				Template: "help.menu", Data: request.Data,
+				Plugin: &renderservice.PluginContext{Name: request.PluginName, Version: request.PluginVersion},
+			})
+			return result.ImagePath, err
+		}
 	}
 	return menuext.New(menuext.Deps{
 		CurrentConfig: runtimeState.CurrentConfig,

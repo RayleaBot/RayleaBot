@@ -17,7 +17,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
@@ -70,7 +70,7 @@ func newStaticWebhookServer(t *testing.T, maxBodyBytes int) (*pluginwebhook.Regi
 		t.Fatalf("storage.Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secretssqlite.NewStore(store)
 	if err != nil {
 		t.Fatalf("NewSQLiteStore: %v", err)
 	}

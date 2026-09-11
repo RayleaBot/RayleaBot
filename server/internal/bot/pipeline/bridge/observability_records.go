@@ -13,12 +13,12 @@ func (b *Bridge) recordIgnored(event chatevent.NormalizedEvent, observedAt time.
 	b.snapshot.IgnoredCount++
 	b.snapshot.LastEventType = event.EventType
 	b.snapshot.LastEventKind = event.Kind
-	b.snapshot.LastOutcome = OutcomeIgnored
+	b.snapshot.LastOutcome = chatevent.DeliveryOutcomeIgnored
 	b.snapshot.LastErrorCode = ""
 	b.snapshot.LastErrorText = ""
 	b.snapshot.LastEventAt = &observedAt
 	if b.metrics != nil {
-		b.metrics.IncEventPipelineStage("bridge", string(OutcomeIgnored))
+		b.metrics.IncEventPipelineStage("bridge", string(chatevent.DeliveryOutcomeIgnored))
 		b.metrics.IncBridgeIgnored()
 	}
 }
@@ -31,12 +31,12 @@ func (b *Bridge) recordRejected(event chatevent.NormalizedEvent, observedAt time
 	b.snapshot.RejectedCount++
 	b.snapshot.LastEventType = event.EventType
 	b.snapshot.LastEventKind = event.Kind
-	b.snapshot.LastOutcome = OutcomeRejected
+	b.snapshot.LastOutcome = chatevent.DeliveryOutcomeRejected
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
 	b.snapshot.LastEventAt = &observedAt
 	if b.metrics != nil {
-		b.metrics.IncEventPipelineStage("bridge", string(OutcomeRejected))
+		b.metrics.IncEventPipelineStage("bridge", string(chatevent.DeliveryOutcomeRejected))
 	}
 }
 
@@ -48,14 +48,14 @@ func (b *Bridge) recordError(event chatevent.NormalizedEvent, observedAt time.Ti
 	b.snapshot.ErrorCount++
 	b.snapshot.LastEventType = event.EventType
 	b.snapshot.LastEventKind = event.Kind
-	b.snapshot.LastOutcome = OutcomeError
+	b.snapshot.LastOutcome = chatevent.DeliveryOutcomeError
 	b.snapshot.LastErrorCode = code
 	b.snapshot.LastErrorText = message
 	b.snapshot.LastEventAt = &observedAt
 	if b.metrics != nil {
-		b.metrics.IncEventPipelineStage("bridge", string(OutcomeError))
+		b.metrics.IncEventPipelineStage("bridge", string(chatevent.DeliveryOutcomeError))
 	}
-	b.emitObservabilityLocked(observedAt, OutcomeError)
+	b.emitObservabilityLocked(observedAt, chatevent.DeliveryOutcomeError)
 }
 
 func (b *Bridge) recordDelivered(event chatevent.NormalizedEvent, observedAt time.Time) {
@@ -67,12 +67,12 @@ func (b *Bridge) recordDelivered(event chatevent.NormalizedEvent, observedAt tim
 	b.snapshot.ResultCount++
 	b.snapshot.LastEventType = event.EventType
 	b.snapshot.LastEventKind = event.Kind
-	b.snapshot.LastOutcome = OutcomeDelivered
+	b.snapshot.LastOutcome = chatevent.DeliveryOutcomeDelivered
 	b.snapshot.LastErrorCode = ""
 	b.snapshot.LastErrorText = ""
 	b.snapshot.LastEventAt = &observedAt
 	if b.metrics != nil {
-		b.metrics.IncEventPipelineStage("bridge", string(OutcomeDelivered))
+		b.metrics.IncEventPipelineStage("bridge", string(chatevent.DeliveryOutcomeDelivered))
 	}
-	b.emitObservabilityLocked(observedAt, OutcomeDelivered)
+	b.emitObservabilityLocked(observedAt, chatevent.DeliveryOutcomeDelivered)
 }

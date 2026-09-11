@@ -105,7 +105,7 @@ func bridgeEventSummary(action string, event chatevent.NormalizedEvent) string {
 	return summary
 }
 
-func commandPolicyRejectedSummary(rejection CommandPolicyRejection) string {
+func commandPolicyRejectedSummary(rejection chatevent.CommandPolicyRejection) string {
 	commandName := strings.TrimSpace(rejection.CommandName)
 	reasonSummary := strings.TrimSpace(rejection.ReasonSummary)
 	if reasonSummary == "" {

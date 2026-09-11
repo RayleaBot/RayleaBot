@@ -11,10 +11,9 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
@@ -104,8 +103,8 @@ func TestLoginTokenSurvivesRestartAndReceivesEvents(t *testing.T) {
 
 	eventBridge := appB.Bridge()
 	waitForObservabilitySubscriber(t, eventBridge)
-	if outcome := eventBridge.HandleAdapterEvent(context.Background(), testBridgeEvent()); outcome != bridge.OutcomeDelivered {
-		t.Fatalf("unexpected bridge outcome after restart: got %q want %q", outcome, bridge.OutcomeDelivered)
+	if outcome := eventBridge.HandleAdapterEvent(context.Background(), testBridgeEvent()); outcome != chatevent.DeliveryOutcomeDelivered {
+		t.Fatalf("unexpected bridge outcome after restart: got %q want %q", outcome, chatevent.DeliveryOutcomeDelivered)
 	}
 
 	readCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -123,7 +122,7 @@ func TestProductionAppPersistsSessionSigningKeyInSecretStore(t *testing.T) {
 	application := newPersistentTestApp(t, configPath, time.Now, "secret-a")
 	defer closePersistentTestApp(t, application)
 
-	secretStore, err := secrets.NewSQLiteStore(application.Storage())
+	secretStore, err := secretssqlite.NewStore(application.Storage())
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}
@@ -160,7 +159,7 @@ func TestDeletingPersistedSessionSigningKeyInvalidatesOlderTokens(t *testing.T) 
 		}
 	}()
 
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secretssqlite.NewStore(store)
 	if err != nil {
 		t.Fatalf("create sqlite secret store: %v", err)
 	}

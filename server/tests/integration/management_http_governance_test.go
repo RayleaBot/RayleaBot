@@ -5,15 +5,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
+	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestGovernanceWhitelistHandlers(t *testing.T) {
@@ -21,8 +23,8 @@ func TestGovernanceWhitelistHandlers(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	entryRepo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListWhitelist)
-	stateRepo := permission.NewSQLiteWhitelistStateRepository(application.Storage().Read, application.Storage().Write)
+	entryRepo := permissionsqlite.NewAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListWhitelist)
+	stateRepo := permissionsqlite.NewWhitelistStateRepository(application.Storage().Read, application.Storage().Write)
 
 	server := newManagementTestServer(t, application.Handler())
 	defer server.Close()

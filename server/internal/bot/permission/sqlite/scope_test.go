@@ -1,18 +1,19 @@
-package permission
+package sqlite
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"testing"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
 
 func TestAccessListNamespacesDoNotShareIDs(t *testing.T) {
 	store := openPermissionTestStore(t)
-	for _, list := range []string{ListBlacklist, ListWhitelist} {
+	for _, list := range []string{permission.ListBlacklist, permission.ListWhitelist} {
 		t.Run(list, func(t *testing.T) {
-			repo := NewSQLiteAccessListRepository(store.Read, store.Write, list)
+			repo := NewAccessListRepository(store.Read, store.Write, list)
 			first := chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq-a", BotID: "bot-a"}
 			if err := repo.Add(t.Context(), first, "user", "shared-id", "reviewed"); err != nil {
 				t.Fatal(err)
@@ -48,9 +49,9 @@ func TestAccessListNamespacesDoNotShareIDs(t *testing.T) {
 
 func TestCommandCooldownAndSuperAdminsRespectNamespaces(t *testing.T) {
 	limit := config.RateLimit{Count: 1, Window: time.Hour}
-	checker := NewChecker(CheckerConfig{SuperAdmins: []string{"admin-id"}}, nil, nil, nil, NewCooldownTracker(limit, limit))
+	checker := permission.NewChecker(permission.CheckerConfig{SuperAdmins: []string{"admin-id"}}, nil, nil, nil, permission.NewCooldownTracker(limit, limit))
 	first := chatevent.IdentityScope{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq", BotID: "bot-a"}
-	command := &CommandInfo{Permission: "everyone"}
+	command := &permission.CommandInfo{Permission: "everyone"}
 	for _, scope := range []chatevent.IdentityScope{
 		first,
 		{Kind: "instance", SourceProtocol: "qqofficial", SourceAdapter: "qq", BotID: "bot-b"},
@@ -64,7 +65,7 @@ func TestCommandCooldownAndSuperAdminsRespectNamespaces(t *testing.T) {
 	if result := checker.Check(t.Context(), first, "same-user", "member", "same-group", command); result.ErrorCode != "platform.user_rate_limited" {
 		t.Fatal(result)
 	}
-	if result := checker.Check(t.Context(), first, "admin-id", "member", "", &CommandInfo{Permission: "super_admin"}); result.Allowed {
+	if result := checker.Check(t.Context(), first, "admin-id", "member", "", &permission.CommandInfo{Permission: "super_admin"}); result.Allowed {
 		t.Fatal("QQ openid inherited OneBot super-admin privileges")
 	}
 }

@@ -13,7 +13,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
+	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
@@ -40,7 +40,7 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	secretStore, err := secrets.NewSQLiteStore(store)
+	secretStore, err := secretssqlite.NewStore(store)
 	if err != nil {
 		t.Fatal(err)
 	}

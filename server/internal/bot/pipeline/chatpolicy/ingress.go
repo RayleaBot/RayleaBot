@@ -7,10 +7,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )
 
 type MetadataEnricher interface {
@@ -22,15 +20,20 @@ type Lifecycle interface {
 	HandleAdapterReady(context.Context)
 }
 
+type EventBridge interface {
+	RejectionLogger
+	HandleAdapterEvent(context.Context, chatevent.NormalizedEvent) chatevent.DeliveryOutcome
+}
+
 type IngressDeps struct {
 	CurrentConfig    func() config.Config
 	Logger           *slog.Logger
-	Plugins          *plugincatalog.Catalog
+	Plugins          PluginCatalog
 	ReplyTargets     *outbound.ReplyTargetCache
 	OutboundSender   OutboundSender
 	OutboundLimiter  outbound.MessageLimiter
 	Menu             *menuext.Service
-	Bridge           *bridge.Bridge
+	Bridge           EventBridge
 	Lifecycle        Lifecycle
 	MetadataEnricher MetadataEnricher
 	WhitelistRepo    permission.EntryRepository
@@ -41,7 +44,7 @@ type IngressDeps struct {
 type Ingress struct {
 	replyTargets     *outbound.ReplyTargetCache
 	menu             *menuext.Service
-	bridge           *bridge.Bridge
+	bridge           EventBridge
 	lifecycle        Lifecycle
 	metadataEnricher MetadataEnricher
 	policy           *Service

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/health"
@@ -379,6 +380,17 @@ func (c *runtimeConfig) update(config RuntimeConfig) {
 	if config.DeviceScalePercent > 0 {
 		c.deviceScalePercent = normalizeDeviceScalePercent(config.DeviceScalePercent)
 	}
+}
+
+func (s *Service) ApplyConfig(cfg config.Config) {
+	s.UpdateRuntimeConfig(RuntimeConfig{
+		QueueMaxLength:     cfg.Render.QueueMaxLength,
+		QueueWaitTimeout:   time.Duration(cfg.Render.QueueWaitTimeoutSeconds) * time.Second,
+		RenderTimeout:      time.Duration(cfg.Render.TimeoutSeconds) * time.Second,
+		FooterTemplate:     cfg.Render.FooterTemplate,
+		DefaultOutput:      cfg.Render.DefaultOutput,
+		DeviceScalePercent: cfg.Render.DeviceScalePercent,
+	})
 }
 
 func (s *Service) UpdateRuntimeConfig(config RuntimeConfig) {

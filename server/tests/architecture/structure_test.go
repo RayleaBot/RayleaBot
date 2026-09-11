@@ -66,7 +66,7 @@ func TestSharedModelsDoNotTransitivelyDependOnStorageOrExecution(t *testing.T) {
 		owner := modulePrefix + filepath.ToSlash(rel)
 		imports[owner] = append(imports[owner], fileImports(t, serverRoot, path)...)
 	})
-	for _, model := range []string{"plugins", "platform/health"} {
+	for _, model := range []string{"plugins", "platform/health", "platform/logging", "platform/secrets", "bot/menu", "bot/permission", "bot/governance", "bot/presentation", "bot/pipeline/chatpolicy", "config/runtime"} {
 		if _, scanned := imports[modulePrefix+model]; !scanned {
 			t.Fatalf("shared model package was not scanned: %s", model)
 		}
@@ -82,7 +82,7 @@ func TestSharedModelsDoNotTransitivelyDependOnStorageOrExecution(t *testing.T) {
 					continue
 				}
 				next := chain + " -> " + strings.TrimPrefix(imported, modulePrefix)
-				for _, forbidden := range []string{"storage", "sqlcgen", "plugins/catalog", "plugins/lifecycle", "plugins/runtime", "plugins/actions", "management"} {
+				for _, forbidden := range []string{"storage", "sqlcgen", "render", "plugins/catalog", "plugins/lifecycle", "plugins/runtime", "plugins/actions", "management"} {
 					path := modulePrefix + forbidden
 					if imported == path || strings.HasPrefix(imported, path+"/") {
 						t.Errorf("shared model dependency crosses implementation boundary: %s", next)

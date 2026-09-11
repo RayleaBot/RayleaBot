@@ -1,16 +1,17 @@
-package permission
+package sqlite
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 )
 
 func TestAccessListPagesTraverseAllRowsAndFilterBeforeLimit(t *testing.T) {
 	store := openPermissionTestStore(t)
-	repo := NewSQLiteAccessListRepository(store.Read, store.Write, ListWhitelist)
+	repo := NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	scope := chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}
 	for index := range 205 {
 		kind, reason := "user", "ordinary"

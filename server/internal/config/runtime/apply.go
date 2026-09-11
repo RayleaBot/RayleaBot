@@ -7,11 +7,9 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"time"
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
-	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )
 
 type PersistenceError struct{ Err error }
@@ -383,14 +381,7 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 		newCfg.Render.FooterTemplate != oldCfg.Render.FooterTemplate ||
 		newCfg.Render.DefaultOutput != oldCfg.Render.DefaultOutput ||
 		newCfg.Render.DeviceScalePercent != oldCfg.Render.DeviceScalePercent) {
-		s.renderer.UpdateRuntimeConfig(renderservice.RuntimeConfig{
-			QueueMaxLength:     newCfg.Render.QueueMaxLength,
-			QueueWaitTimeout:   time.Duration(newCfg.Render.QueueWaitTimeoutSeconds) * time.Second,
-			RenderTimeout:      time.Duration(newCfg.Render.TimeoutSeconds) * time.Second,
-			FooterTemplate:     newCfg.Render.FooterTemplate,
-			DefaultOutput:      newCfg.Render.DefaultOutput,
-			DeviceScalePercent: newCfg.Render.DeviceScalePercent,
-		})
+		s.renderer.ApplyConfig(newCfg)
 	}
 
 	if s.eventIngress != nil {

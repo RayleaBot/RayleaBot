@@ -44,8 +44,8 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	readProtocolReplayFrame(t, conn)
 
 	outcome := eventBridge.HandleAdapterEvent(context.Background(), testBridgeEvent())
-	if outcome != bridge.OutcomeDelivered {
-		t.Fatalf("unexpected bridge outcome: got %q want %q", outcome, bridge.OutcomeDelivered)
+	if outcome != chatevent.DeliveryOutcomeDelivered {
+		t.Fatalf("unexpected bridge outcome: got %q want %q", outcome, chatevent.DeliveryOutcomeDelivered)
 	}
 
 	frame := readEventsReplayFrameByKey(t, conn, "observability_scope")
@@ -70,7 +70,7 @@ func TestEventsWebSocketDeliversBridgeRuntimeFrame(t *testing.T) {
 	if data["last_supported_event_kind"] != string(chatevent.EventKindMessageText) {
 		t.Fatalf("unexpected last_supported_event_kind: got %#v", data["last_supported_event_kind"])
 	}
-	if data["last_delivery_outcome"] != string(bridge.OutcomeDelivered) {
+	if data["last_delivery_outcome"] != string(chatevent.DeliveryOutcomeDelivered) {
 		t.Fatalf("unexpected last_delivery_outcome: got %#v", data["last_delivery_outcome"])
 	}
 	if data["delivered_count"] != float64(1) || data["result_count"] != float64(1) || data["error_count"] != float64(0) {

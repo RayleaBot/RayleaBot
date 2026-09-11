@@ -3,15 +3,17 @@ package integration
 import (
 	"context"
 	"fmt"
-	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
-	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
+	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestSetupStatusReportsBootstrapState(t *testing.T) {
@@ -612,7 +614,7 @@ func TestGovernanceBlacklistHandler(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	repo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
+	repo := permissionsqlite.NewAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
 	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "反复触发垃圾消息"); err != nil {
 		t.Fatalf("seed user blacklist entry: %v", err)
 	}
@@ -670,7 +672,7 @@ func TestGovernanceBlacklistWriteHandlers(t *testing.T) {
 
 	application := newTestApp(t, deterministicAuthOptions()...)
 	token := issueLoginToken(t, application)
-	repo := permission.NewSQLiteAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
+	repo := permissionsqlite.NewAccessListRepository(application.Storage().Read, application.Storage().Write, permission.ListBlacklist)
 	if err := repo.Add(context.Background(), chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "旧原因"); err != nil {
 		t.Fatalf("seed blacklist entry: %v", err)
 	}

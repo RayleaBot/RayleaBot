@@ -1,11 +1,12 @@
-package permission
+package sqlite
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"path/filepath"
 	"testing"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -13,7 +14,7 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 	t.Parallel()
 
 	store := openPermissionTestStore(t)
-	repo := NewSQLiteAccessListRepository(store.Read, store.Write, ListWhitelist)
+	repo := NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	ctx := context.Background()
 
 	if err := repo.Add(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001", "值班账号"); err != nil {
@@ -65,7 +66,7 @@ func TestSQLiteWhitelistRepositoryCRUDAndPreservesCreatedAt(t *testing.T) {
 	if err := repo.Remove(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001"); err != nil {
 		t.Fatalf("remove whitelist entry: %v", err)
 	}
-	if _, err := repo.Get(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001"); err != ErrGovernanceEntryNotFound {
+	if _, err := repo.Get(ctx, chatevent.IdentityScope{Kind: "global", SourceProtocol: "onebot11"}, "user", "10001"); err != permission.ErrGovernanceEntryNotFound {
 		t.Fatalf("get removed whitelist entry error = %v, want ErrGovernanceEntryNotFound", err)
 	}
 }
@@ -74,7 +75,7 @@ func TestSQLiteWhitelistStateRepository(t *testing.T) {
 	t.Parallel()
 
 	store := openPermissionTestStore(t)
-	repo := NewSQLiteWhitelistStateRepository(store.Read, store.Write)
+	repo := NewWhitelistStateRepository(store.Read, store.Write)
 	ctx := context.Background()
 
 	enabled, err := repo.Enabled(ctx)

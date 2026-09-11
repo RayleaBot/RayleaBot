@@ -8,7 +8,7 @@ import (
 
 func TestNeutralOutboundDoesNotImportProtocolImplementations(t *testing.T) {
 	root := testServerRoot(t)
-	for _, name := range []string{"bot/chatevent", "bot/pipeline/outbound", "bot/pipeline/dispatch"} {
+	for _, name := range []string{"bot/chatevent", "bot/pipeline/outbound", "bot/pipeline/dispatch", "plugins/runtime"} {
 		files := 0
 		walkGoFiles(t, filepath.Join(root, "internal", filepath.FromSlash(name)), func(path string) {
 			if strings.HasSuffix(path, "_test.go") {

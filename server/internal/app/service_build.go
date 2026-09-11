@@ -8,6 +8,7 @@ import (
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
+	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/chatpolicy"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
@@ -246,8 +247,8 @@ type policyRepositories struct {
 
 func buildPolicyRepositories(platform PlatformState) policyRepositories {
 	return policyRepositories{
-		Blacklist:      permission.NewSQLiteAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListBlacklist),
-		Whitelist:      permission.NewSQLiteAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListWhitelist),
-		WhitelistState: permission.NewSQLiteWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write),
+		Blacklist:      permissionsqlite.NewAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListBlacklist),
+		Whitelist:      permissionsqlite.NewAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListWhitelist),
+		WhitelistState: permissionsqlite.NewWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write),
 	}
 }
