@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { respondWith } from './fixture-responses'
 
 test.beforeEach(async ({ page, request }) => {
   await request.post('http://127.0.0.1:4010/__test/reset', { data: { initialized: true } })
@@ -45,6 +46,12 @@ test('canceling installation keeps the inspection visible through exit and perfo
 })
 
 test('plugin source creation and nested removal confirmations preserve cancellation', async ({ page }) => {
+  const sources = await (await page.request.get('/api/plugin-store/sources')).json()
+  const created = { id: 'fixture-source', name: '测试目录', url: 'https://plugins.example/reka-catalog.json', official: false, cached: true, entry_count: 0, refreshed_at: '2026-09-07T00:00:00Z' }
+  await respondWith(page.request, [
+    { method: 'POST', path: '/api/plugin-store/sources', status: 201, body: created, after: [{ path: '/api/plugin-store/sources', body: { ...sources, items: [...sources.items, created], total: sources.total + 1 } }] },
+    { method: 'DELETE', path: '/api/plugin-store/sources/fixture-source', status: 204, after: [{ path: '/api/plugin-store/sources', body: sources }] },
+  ])
   await page.goto('/plugins/store')
   const managerTrigger = page.getByTestId('plugin-store-sources')
   await managerTrigger.click()
@@ -102,10 +109,12 @@ test('selection preserves primitive types and tags allow a literal comma', async
 
 test('unknown plugin filters remain visible and can be cleared', async ({ page }) => {
   await page.goto('/commands?plugin_id=unknown-plugin')
-  const selector = page.locator('.commands-filter-toolbar').getByRole('combobox')
+  const selector = page.getByRole('button', { name: '按插件筛选', exact: true })
   await expect(selector).toContainText('unknown-plugin')
-  await expect(page.locator('.commands-data-table .app-empty-state')).toBeVisible()
-  await page.getByRole('button', { name: '清除选择' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
+  await selector.click()
+  await page.getByRole('dialog', { name: '选择插件', exact: true }).getByRole('button', { name: '清除选择' }).click()
+  await page.keyboard.press('Escape')
   await expect(page).toHaveURL(/\/commands$/)
   await expect(page.locator('.commands-data-table')).toContainText('weather')
   await expect(page.locator('.commands-data-table')).toContainText('hello')

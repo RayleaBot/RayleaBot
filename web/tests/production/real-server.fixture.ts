@@ -1,7 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
@@ -49,7 +49,8 @@ async function stopServer(server: ChildProcess, url: string, controlToken: strin
   try { await exited } finally { clearTimeout(timer) }
 }
 
-export const test = base.extend<{ server: Server }, { serverBinary: string }>({
+export const test = base.extend<{ server: Server; configPanel: boolean }, { serverBinary: string }>({
+  configPanel: [false, { option: true }],
   serverBinary: [async ({}, use) => {
     const root = await mkdtemp(path.join(os.tmpdir(), tempPrefix))
     try {
@@ -58,7 +59,7 @@ export const test = base.extend<{ server: Server }, { serverBinary: string }>({
       await use(binary)
     } finally { await removeFixtureRoot(root) }
   }, { scope: 'worker', timeout: 120_000 }],
-  server: [async ({ serverBinary }, use, testInfo) => {
+  server: [async ({ serverBinary, configPanel }, use, testInfo) => {
     const root = await mkdtemp(path.join(os.tmpdir(), tempPrefix))
     const configPath = path.join(root, 'config', 'user.yaml')
     const setupToken = randomBytes(32).toString('base64url')
@@ -75,6 +76,17 @@ export const test = base.extend<{ server: Server }, { serverBinary: string }>({
       await writeFile(configPath, YAML.stringify(config))
       await cp(path.join(repoRoot, 'web', 'dist'), path.join(root, 'web', 'dist'), { recursive: true })
       await cp(path.join(repoRoot, 'templates'), path.join(root, 'templates'), { recursive: true })
+      if (configPanel) {
+        const source = path.join(repoRoot, 'examples/plugins/example-config-panel')
+        const destination = path.join(root, 'plugins/installed/example-config-panel')
+        const entry = process.platform === 'win32' ? 'bin/example-config-panel.exe' : 'bin/example-config-panel'
+        const targetPlatform = `${process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux'}-${process.arch === 'x64' ? 'x64' : process.arch}`
+        await mkdir(path.join(destination, 'bin'), { recursive: true })
+        await run('go', ['build', '-o', path.join(destination, entry), './cmd/example-config-panel'], source)
+        await cp(path.join(source, 'info.json'), path.join(destination, 'info.json'))
+        await cp(path.join(source, 'ui/dist'), path.join(destination, 'ui'), { recursive: true })
+        await writeFile(path.join(destination, 'artifact.json'), JSON.stringify({ artifact_version: '2', target_platform: targetPlatform, entry }))
+      }
       server = spawn(serverBinary, ['-config', configPath], {
         cwd: root, stdio: 'pipe', windowsHide: true,
         env: { ...process.env, RAYLEA_SETUP_TOKEN: setupToken, RAYLEA_LAUNCHER_CONTROL_TOKEN: controlToken },

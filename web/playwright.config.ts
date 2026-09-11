@@ -11,6 +11,7 @@ export default defineConfig({
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
+  projects: [{ name: 'ui-fixtures' }],
   use: {
     baseURL: webOrigin,
     trace: 'on-first-retry',

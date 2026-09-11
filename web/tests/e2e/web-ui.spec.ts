@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { respondWith } from './fixture-responses'
 
 const backendUrl = 'http://127.0.0.1:4010'
 
@@ -170,13 +171,6 @@ async function openLogAdvancedFilters(page: import('@playwright/test').Page) {
 
 function dashboardConnectionCard(page: import('@playwright/test').Page) {
   return page.getByTestId('dashboard-connection-card')
-}
-
-function governanceEntryCard(
-  container: import('@playwright/test').Locator,
-  targetId: string,
-) {
-  return container.locator('tr').filter({ hasText: targetId }).first()
 }
 
 async function fillRateLimit(
@@ -626,124 +620,6 @@ test('plugin management flow covers install, manifest detail and console recover
   await expect(page.locator('.console-terminal').first()).toBeVisible()
 })
 
-test('access lists page manages blacklist and whitelist entries', async ({ page, request }) => {
-  await resetBackend(request, true)
-  await login(page)
-
-  const sessionResponse = await request.post(`${backendUrl}/api/session/login`, {
-    data: {
-      identifier: 'admin',
-      secret: 'fixture-only-secret',
-    },
-  })
-  expect(sessionResponse.ok()).toBeTruthy()
-  const { session_token: sessionToken } = await sessionResponse.json()
-  const authHeaders = {
-    Authorization: `Bearer ${sessionToken}`,
-  }
-
-  for (let index = 0; index < 10; index += 1) {
-    await request.post(`${backendUrl}/api/governance/whitelist/entries`, {
-      headers: authHeaders,
-      data: { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
-        entry_type: 'user',
-        target_id: `31${String(index + 1).padStart(3, '0')}`,
-        reason: `扩展白名单${index + 1}`,
-      },
-    })
-  }
-  for (let index = 0; index < 10; index += 1) {
-    await request.post(`${backendUrl}/api/governance/blacklist/entries`, {
-      headers: authHeaders,
-      data: { scope: {"kind":"global","source_protocol":"onebot11","source_adapter":"","bot_id":""},
-        entry_type: 'user',
-        target_id: `41${String(index + 1).padStart(3, '0')}`,
-        reason: `扩展黑名单${index + 1}`,
-      },
-    })
-  }
-
-  await page.goto('/access-lists')
-  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
-
-  const whitelistCard = page.getByTestId('access-lists-whitelist-card')
-  const blacklistCard = page.getByTestId('access-lists-blacklist-card')
-  await expect(whitelistCard).toContainText('10001')
-  await expect(whitelistCard).toContainText('值班账号')
-  await expect(whitelistCard).toContainText('31010')
-
-  await expect(blacklistCard).toContainText('10001')
-  await expect(blacklistCard).toContainText('41010')
-
-  await page.getByTestId('access-lists-blacklist-add-btn').click()
-  await page.getByTestId('blacklist-draft-target-id').fill('30003')
-  await page.getByTestId('blacklist-draft-reason').fill('临时封禁')
-  const blacklistAddResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'POST'
-    && response.url().endsWith('/api/governance/blacklist/entries')
-  ))
-  await page.getByTestId('blacklist-draft-save').click()
-  expect((await blacklistAddResponsePromise).status()).toBe(200)
-  const addedBlacklistRow = governanceEntryCard(blacklistCard, '30003')
-  await expect(addedBlacklistRow).toBeVisible()
-  await expect(addedBlacklistRow).toContainText('临时封禁')
-
-  await governanceEntryCard(blacklistCard, '30003').getByRole('button', { name: '移除' }).click()
-  await page.getByRole('alertdialog').getByRole('button', { name: '移除', exact: true }).click()
-  await expect(blacklistCard).not.toContainText('30003')
-
-  await page.getByTestId('access-lists-whitelist-add-btn').click()
-  await page.getByTestId('whitelist-draft-target-id').fill('30003')
-  await page.getByTestId('whitelist-draft-reason').fill('临时放行')
-  const whitelistAddResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'POST'
-    && response.url().endsWith('/api/governance/whitelist/entries')
-  ))
-  await page.getByTestId('whitelist-draft-save').click()
-  expect((await whitelistAddResponsePromise).status()).toBe(200)
-  const addedWhitelistRow = governanceEntryCard(whitelistCard, '30003')
-  await expect(addedWhitelistRow).toBeVisible()
-  await expect(addedWhitelistRow).toContainText('临时放行')
-
-  await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
-  await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'false')
-
-  for (const targetId of ['10001', '30003']) {
-    await governanceEntryCard(whitelistCard, targetId).getByRole('button', { name: '移除' }).click()
-    await page.getByRole('alertdialog').getByRole('button', { name: '移除', exact: true }).click()
-    await expect(whitelistCard).not.toContainText(targetId)
-  }
-
-  await whitelistCard.locator('.access-lists-toolbar__filter').click()
-  await page.getByRole('option', { name: '群', exact: true }).click()
-  await expect(whitelistCard).toContainText('20002')
-  await expect(whitelistCard).toContainText('核心服务群')
-  await governanceEntryCard(whitelistCard, '20002').getByRole('button', { name: '移除' }).click()
-  await page.getByRole('alertdialog').getByRole('button', { name: '移除', exact: true }).click()
-  await expect(whitelistCard).not.toContainText('20002')
-
-  for (let index = 0; index < 10; index += 1) {
-    await request.delete(`${backendUrl}/api/governance/whitelist/entries/user/${encodeURIComponent(`31${String(index + 1).padStart(3, '0')}`)}?kind=global&source_protocol=onebot11&source_adapter=&bot_id=`, {
-      headers: authHeaders,
-    })
-  }
-  await page.goto('/access-lists')
-  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
-  await expect(whitelistCard).not.toContainText('31010')
-
-  await page.getByTestId('access-lists-whitelist-enabled').dispatchEvent('click')
-  const confirmDialog = page.getByRole('alertdialog', { name: '确认启用空白名单' })
-  await expect(confirmDialog).toBeVisible()
-
-  await confirmDialog.getByRole('button', { name: '确认启用' }).dispatchEvent('click')
-
-  await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
-
-  await page.reload()
-  await expect(page.getByRole('heading', { name: '黑白名单', level: 1 })).toBeVisible()
-  await expect(page.getByTestId('access-lists-whitelist-enabled')).toHaveAttribute('aria-checked', 'true')
-})
-
 test('permission policy page edits command policy config', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
@@ -784,6 +660,14 @@ test('permission policy page edits command policy config', async ({ page, reques
 test('plugin management ui uses an isolated bridge for settings, secrets, theme, and height', async ({ page, request }) => {
   await resetBackend(request, true)
   await login(page)
+  const savedSettings = { plugin_id: 'example-config-panel', values: { default_city: '广州', unit: 'celsius' } }
+  const configured = { plugin_id: 'example-config-panel', configured: { api_key: true } }
+  const cleared = { plugin_id: 'example-config-panel', configured: {} }
+  await respondWith(request, [
+    { method: 'PUT', path: '/api/plugins/example-config-panel/settings', body: { ...savedSettings, changed_keys: ['default_city', 'unit'] }, after: [{ path: '/api/plugins/example-config-panel/settings', body: savedSettings }] },
+    { method: 'PUT', path: '/api/plugins/example-config-panel/secrets', body: { ...configured, changed_keys: ['api_key'] }, after: [{ path: '/api/plugins/example-config-panel/secrets', body: configured }] },
+    { method: 'DELETE', path: '/api/plugins/example-config-panel/secrets', body: { ...cleared, changed_keys: ['api_key'] }, after: [{ path: '/api/plugins/example-config-panel/secrets', body: cleared }] },
+  ])
 
   await page.goto('/plugins/example-config-panel')
   await expect(page.getByRole('heading', { name: '插件：Example Config Panel', level: 1 })).toBeVisible()
@@ -823,18 +707,8 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
   const frameSource = new URL((await page.getByTestId('plugin-management-ui-frame').getAttribute('src'))!)
   expect(frameSource.hostname).toMatch(/^p-[a-f0-9]{16}\.plugins\.localhost$/)
   expect(frameSource.origin).not.toBe(new URL(page.url()).origin)
-  // Chromium resolves *.localhost to loopback; Node may use the host DNS resolver.
-  const isolatedAPIResponse = await request.get(`${backendUrl}/api/config`, {
-    headers: { Host: frameSource.host },
-  })
-  expect(isolatedAPIResponse.status()).toBe(404)
-  expect(isolatedAPIResponse.headers()['access-control-allow-origin']).toBeUndefined()
-  expect(isolatedAPIResponse.headers()['set-cookie']).toBeUndefined()
-
   const initialSecretResponse = await secretStatusResponsePromise
-  const initialSecretBody = await initialSecretResponse.text()
-  expect(initialSecretBody).toContain('"configured"')
-  expect(initialSecretBody).not.toContain('stored-secret-must-not-leak')
+  expect(await initialSecretResponse.json()).toEqual(configured)
   await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已配置')
 
   await pluginFrame.getByTestId('default-city-input').fill('广州')
@@ -858,10 +732,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
     && response.url().includes('/api/plugins/example-config-panel/secrets')
   ))
   await pluginFrame.getByTestId('save-secret').click()
-  const setSecretBody = await (await setSecretResponsePromise).text()
-  expect(setSecretBody).toContain('"configured"')
-  expect(setSecretBody).not.toContain('replacement-secret-for-e2e')
-  expect(setSecretBody).not.toContain('stored-secret-must-not-leak')
+  expect((await setSecretResponsePromise).request().postDataJSON()).toEqual({ values: { api_key: 'replacement-secret-for-e2e' } })
   await expect(pluginFrame.getByTestId('secret-input')).toHaveValue('')
   await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已覆盖')
 
@@ -870,8 +741,7 @@ test('plugin management ui uses an isolated bridge for settings, secrets, theme,
     && response.url().includes('/api/plugins/example-config-panel/secrets')
   ))
   await pluginFrame.getByTestId('delete-secret').click()
-  const deleteSecretBody = await (await deleteSecretResponsePromise).text()
-  expect(deleteSecretBody).not.toContain('replacement-secret-for-e2e')
+  expect((await deleteSecretResponsePromise).request().postDataJSON()).toEqual({ keys: ['api_key'] })
   await expect(pluginFrame.getByTestId('secret-status')).toHaveText('API 密钥已删除')
 
   const frameHeight = await page.getByTestId('plugin-management-ui-frame').evaluate((frame) => Number.parseFloat((frame as HTMLIFrameElement).style.height))
@@ -1226,23 +1096,16 @@ test('current logs do not snap back to the bottom when scrolling upward without 
     firstVisibleText: document.querySelector('.logs-row__message')?.textContent?.trim() ?? '',
   }))
 
-  const afterImmediate = await logScroller(page).evaluate((node) => {
-    node.scrollTop = Math.max(0, node.scrollTop - 260)
-    node.dispatchEvent(new Event('scroll'))
-    return {
-      scrollTop: node.scrollTop,
-      firstVisibleText: document.querySelector('.logs-row__message')?.textContent?.trim() ?? '',
-    }
-  })
-
-  await page.waitForTimeout(250)
+  await logScroller(page).hover()
+  await page.mouse.wheel(0, -260)
+  await expect(page.getByText('已暂停跟随')).toBeVisible()
+  await expect.poll(() => logScroller(page).evaluate(node => node.scrollTop)).toBeLessThan(before.scrollTop - 180)
 
   const afterSettled = await logScroller(page).evaluate((node) => ({
     scrollTop: node.scrollTop,
     firstVisibleText: document.querySelector('.logs-row__message')?.textContent?.trim() ?? '',
   }))
 
-  expect(afterImmediate.scrollTop).toBeLessThan(before.scrollTop)
   expect(afterSettled.scrollTop).toBeLessThan(before.scrollTop - 180)
   expect(afterSettled.firstVisibleText).not.toBe(before.firstVisibleText)
   await expect(page.getByText('已暂停跟随')).toBeVisible()
@@ -1631,46 +1494,6 @@ test('protocol dialogs stay centered throughout their opening animation', async 
   await page.locator('[aria-label="关闭弹窗"]').click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expectCenteredOpening('[data-slot=app-dialog][role=dialog]', page.getByRole('button', { name: '兼容矩阵', exact: true }))
-})
-
-test('protocol connection creation stays local until the completed form is saved', async ({ page, request }) => {
-  await request.post(`${backendUrl}/__test/reset`, { data: { initialized: true, config_apply_effects: { applied_now: [], reloaded_now: [], restart_required_fields: ['adapters'] } } })
-  await login(page)
-  await page.goto('/protocols')
-  const writes: unknown[] = []
-  page.on('request', (entry) => {
-    if (entry.method() === 'PUT' && entry.url().endsWith('/api/config')) writes.push(entry.postDataJSON())
-  })
-  await expect(page.getByTestId('adapter-select-qqofficial')).toHaveCount(0)
-  await page.getByTestId('adapter-add').click()
-  await page.getByTestId('adapter-select-qqofficial').click()
-  await expect(page.getByLabel('AppID', { exact: true })).toBeFocused()
-  await page.getByTestId('adapter-save').click()
-  await expect(page.getByText('请输入 AppSecret。')).toBeVisible()
-  expect(writes).toHaveLength(0)
-  await page.getByLabel('AppID', { exact: true }).fill('100000007')
-  await page.keyboard.press('Escape')
-  await expect(page.getByText('放弃未保存的修改？')).toBeVisible()
-  await page.getByRole('button', { name: '放弃修改' }).click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByTestId('adapter-add')).toBeFocused()
-  expect(writes).toHaveLength(0)
-
-  await page.getByTestId('adapter-add').click()
-  await page.getByTestId('adapter-select-qqofficial').click()
-  await page.getByLabel('AppID', { exact: true }).fill('100000007')
-  await page.getByLabel('AppSecret', { exact: true }).fill('fixture-protocol-secret')
-  await page.getByTestId('adapter-save').click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByTestId('adapter-restart-notice')).toBeVisible()
-  expect(writes).toHaveLength(1)
-  await page.getByTestId('adapter-qq-official').click()
-  await expect(page.getByLabel('AppSecret', { exact: true })).toHaveValue('********')
-  await page.getByLabel('AppID', { exact: true }).fill('100000008')
-  await page.getByTestId('adapter-save').click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  expect(writes).toHaveLength(2)
-  expect((writes[1] as { adapters: Array<{ id: string; qqofficial?: { app_secret: string } }> }).adapters.find((entry) => entry.id === 'qq-official')?.qqofficial?.app_secret).toBe('********')
 })
 
 test('protocol deep links open dialogs within one workspace and fit a narrow viewport', async ({ page, request }) => {
@@ -2147,7 +1970,7 @@ test('plugin store manages sources and confirms first installs', async ({ page, 
 test('plugin sidebar keeps resources visible, resumes workspaces, and returns to root once', async ({ page, request }) => {
   await resetBackend(request, true)
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.route('**/api/plugins', async (route) => {
+  await page.route(/\/api\/plugins(?:\?.*)?$/, async (route) => {
     const outbound = route.request()
     if (outbound.method() !== 'GET' || new URL(outbound.url()).pathname !== '/api/plugins') {
       await route.continue()
@@ -2165,7 +1988,9 @@ test('plugin sidebar keeps resources visible, resumes workspaces, and returns to
         : `Fixture Addon ${index}`,
       state: index % 2 === 0 ? 'running' : 'disabled',
     }))
-    await route.fulfill({ response, json: { ...payload, items: [...payload.items, ...extraItems] } })
+    const allItems = [...payload.items, ...extraItems]
+    const items = new URL(outbound.url()).searchParams.get('query') === 'needle' ? [extraItems.at(-1)] : allItems
+    await route.fulfill({ response, json: { ...payload, items, total: items.length, next_cursor: null } })
   })
   await login(page)
   await navigateThroughMenu(page, '插件中心')
@@ -2652,26 +2477,38 @@ test('Douyin QR login exposes failure recovery and cancels abandoned sessions', 
 
 test('error recovery covers retry and uninstall failure', async ({ page, request }) => {
   await resetBackend(request, true, {
-    failPluginsListOnce: true,
-    failPluginDetailOnce: true,
     failUninstallOnce: true,
   })
   await login(page)
+  let listFailed = true
+  let detailFailed = true
+  const failedResponse = { status: 500, json: { error: { code: 'platform.internal_error', message: 'scripted load failure', message_key: 'errors.platform.internal_error', request_id: 'fixture-load-failure' } } }
+  await page.route(/\/api\/plugins(?:\?.*)?$/, route => listFailed ? route.fulfill(failedResponse) : route.continue())
+  await page.route('**/api/plugins/weather', route => detailFailed ? route.fulfill(failedResponse) : route.continue())
 
   await page.goto('/plugins')
-  await expect(page.locator('.retry-panel__inline')).toBeVisible()
-  await page.locator('.retry-panel__inline').getByRole('button', { name: /重\s*试/ }).click({ force: true })
-  await expect(page.getByText('weather').first()).toBeVisible()
+  const workspace = page.getByRole('main')
+  await expect(workspace.getByRole('button', { name: '重试', exact: true })).toBeVisible()
+  listFailed = false
+  await workspace.getByRole('button', { name: '重试', exact: true }).click()
+  await expect(pluginRows(page).filter({ hasText: 'Weather' })).toBeVisible()
 
   const weatherRow = pluginRows(page).filter({ hasText: 'Weather' })
   await weatherRow.getByRole('button', { name: 'Weather', exact: true }).click()
-  await expect(page.locator('.retry-panel__inline')).toBeVisible()
-  await page.locator('.retry-panel__inline').getByRole('button', { name: /重\s*试/ }).click({ force: true })
+  await expect(workspace.getByRole('button', { name: '重试', exact: true })).toBeVisible()
+  detailFailed = false
+  await workspace.getByRole('button', { name: '重试', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
 
   await page.getByRole('button', { name: /卸\s*载/ }).click()
+  const uninstall = page.waitForResponse(response => response.request().method() === 'DELETE' && response.url().endsWith('/api/plugins/weather'))
   await page.getByRole('button', { name: /确认卸载/ }).click()
-  await expect(page.locator('.app-toast__description').filter({ hasText: '内部错误' })).toBeVisible()
+  const rejected = await uninstall
+  expect(rejected.status()).toBe(500)
+  expect((await rejected.json()).error.code).toBe('platform.internal_error')
+  await expect(page.locator('.app-toast__description').filter({ hasText: '内部错误' }).last()).toBeVisible()
+  await page.getByRole('alertdialog').getByRole('button', { name: '取消', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'weather' })).toBeVisible()
 })
 
 test('missing routes keep their fallback while network recovery stays in place', async ({ page, request }) => {

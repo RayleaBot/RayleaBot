@@ -16,7 +16,7 @@
     "test": "node ../scripts/run-vitest.mjs run",
     "test:coverage": "node ../scripts/run-vitest.mjs run --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:production": "pnpm run build && playwright test --config playwright.production.config.ts",
+    "test:e2e:production": "pnpm run build && pnpm --dir ../examples/plugins/example-config-panel/ui install --frozen-lockfile && pnpm --dir ../examples/plugins/example-config-panel/ui build && playwright test --config playwright.production.config.ts",
     "generate:openapi-types": "openapi-typescript ../contracts/web-api.openapi.yaml -o src/types/generated.ts",
     "generate:ws-types": "node scripts/generate-websocket-types.mjs",
     "generate:types": "corepack pnpm run generate:openapi-types && corepack pnpm run generate:ws-types"

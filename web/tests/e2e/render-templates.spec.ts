@@ -32,15 +32,23 @@ test('template catalog uses names, searches owners, and separates preview data f
 test('refreshing the catalog removes obsolete selections and their cached details', async ({ page }) => {
   await page.goto('/render/templates/help.menu')
   await expect(page.getByRole('heading', { name: '帮助菜单', exact: true })).toBeVisible()
-  await page.route('**/api/system/render/templates', async route => {
+  await page.route(/\/api\/system\/render\/templates(?:\?.*)?$/, async route => {
     const response = await route.fetch()
     const body = await response.json()
-    await route.fulfill({ response, json: { ...body, items: body.items.filter((item: { id: string }) => item.id !== 'help.menu') } })
+    const items = body.items.filter((item: { id: string }) => item.id !== 'help.menu')
+    await route.fulfill({ response, json: { ...body, items, total: items.length, next_cursor: null } })
   })
+  await page.route('**/api/system/render/templates/help.menu', route => route.fulfill({ status: 404, json: {
+    error: { code: 'platform.resource_not_found', message: 'fixture template removed', message_key: 'errors.platform.resource_not_found', request_id: 'fixture-template-removed' },
+  } }))
   await page.getByRole('button', { name: '刷新模板目录', exact: true }).click()
   await expect(page.locator('.template-nav-item[title="help.menu"]')).toHaveCount(0)
   await expect(page.getByText('原模板已不可用，已切换到当前模板。', { exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '运势统计', exact: true })).toBeVisible()
+  await expect(page).not.toHaveURL(/\/help\.menu$/)
+  const selected = page.locator('.template-nav-item[aria-current="page"]')
+  await expect(selected).toBeVisible()
+  await expect(page.getByTestId('render-template-preview-frame')).toHaveAttribute('data-template-id', (await selected.getAttribute('title'))!)
+  await expect(page.getByRole('heading', { name: '帮助菜单', exact: true })).toHaveCount(0)
 })
 
 test('catalog refresh loads updated example data without a template source change', async ({ page }) => {

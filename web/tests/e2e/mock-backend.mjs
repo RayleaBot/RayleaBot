@@ -1,18 +1,17 @@
-import { redactConfigSecrets } from './mock-config.mjs'
-import { listLogPage } from './mock-logs.mjs'
+import { ResponsePlan } from './response-plan.mjs'
+import { listLogPage } from './fixture-log-pages.mjs'
 import http from 'node:http'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readFile } from 'node:fs/promises'
 
-import YAML from 'yaml'
+import { errorCodes, fixtures } from './fixture-data.mjs'
 import { WebSocketServer } from 'ws'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
-const webDistRoot = process.env.RAYLEA_E2E_SERVE_WEB_DIST === '1' ? path.join(repoRoot, 'web', 'dist') : null
 const exampleConfigPanelRoot = path.join(repoRoot, 'examples', 'plugins', 'example-config-panel', 'ui', 'dist')
 const exampleConfigPanelHost = `p-${createHash('sha256').update('example-config-panel').digest('hex').slice(0, 16)}.plugins.localhost:4010`
 const configuredWebOrigin = String(process.env.RAYLEA_E2E_WEB_ORIGIN ?? 'http://127.0.0.1:4173').trim()
@@ -36,88 +35,7 @@ const externalPreviewFontBytes = await readFile(
   path.join(helpMenuFontAssetRoot, 'k3kXo84MPvpLmixcA63oeALRLoKI.woff2'),
 )
 
-async function readFixture(relativePath) {
-  const absolutePath = path.join(repoRoot, relativePath)
-  const raw = await readFile(absolutePath, 'utf8')
-  if (relativePath.endsWith('.json')) {
-    return JSON.parse(raw)
-  }
-  return YAML.parse(raw)
-}
-
-const fixtures = {
-  healthz: await readFixture('fixtures/web-api/ok.healthz-response.yaml'),
-  readyz: await readFixture('fixtures/web-api/edge.readyz-degraded-response.yaml'),
-  setupAdmin: await readFixture('fixtures/web-api/ok.setup-admin.yaml'),
-  setupAdminDenied: await readFixture('fixtures/web-api/edge.setup-admin-already-initialized.yaml'),
-  setupStatus: await readFixture('fixtures/web-api/ok.setup-status.yaml'),
-  sessionLogin: await readFixture('fixtures/web-api/ok.session-login.yaml'),
-  sessionDenied: await readFixture('fixtures/web-api/invalid.session-login-bad-credentials.yaml'),
-  configGet: await readFixture('fixtures/web-api/ok.config-get-response.yaml'),
-  protocolSnapshot: await readFixture('fixtures/web-api/ok.protocol-onebot11-snapshot.yaml'),
-  protocolCompatibility: await readFixture('fixtures/web-api/ok.protocol-onebot11-compatibility.yaml'),
-  logsList: await readFixture('fixtures/web-api/ok.logs-list-response.yaml'),
-  logDetail: await readFixture('fixtures/web-api/ok.log-detail-response.yaml'),
-  logDetailNotFound: await readFixture('fixtures/web-api/edge.log-detail-not-found.yaml'),
-  systemStatus: await readFixture('fixtures/web-api/ok.system-status.yaml'),
-  systemDiagnostics: await readFixture('fixtures/web-api/ok.system-diagnostics.yaml'),
-  updateStatus: await readFixture('fixtures/web-api/ok.update-status.yaml'),
-  updateCheck: await readFixture('fixtures/web-api/ok.update-check.yaml'),
-  systemShutdown: await readFixture('fixtures/web-api/ok.system-shutdown.yaml'),
-  systemBackupAccepted: await readFixture('fixtures/web-api/ok.system-backup-accepted.yaml'),
-  renderTemplatesList: await readFixture('fixtures/web-api/ok.system-render-templates-list-response.yaml'),
-  renderTemplateDetail: await readFixture('fixtures/web-api/ok.system-render-template-detail-response.yaml'),
-  renderTemplateNotFound: await readFixture('fixtures/web-api/invalid.system-render-template-not-found.yaml'),
-  schedulerJobsList: await readFixture('fixtures/web-api/ok.system-scheduler-jobs-list.yaml'),
-  schedulerJobTriggered: await readFixture('fixtures/web-api/ok.system-scheduler-job-triggered.yaml'),
-  systemDiagnosticsExport: await readFixture('fixtures/web-api/ok.system-diagnostics-export.yaml'),
-  pluginEnable: await readFixture('fixtures/web-api/ok.plugins-enable-response.yaml'),
-  pluginDisable: await readFixture('fixtures/web-api/edge.plugins-disable-response.yaml'),
-  pluginReload: await readFixture('fixtures/web-api/ok.plugins-reload-response.yaml'),
-  pluginInstallAccepted: await readFixture('fixtures/web-api/ok.plugins-install-accepted.yaml'),
-  pluginInstallLocalArtifact: await readFixture('fixtures/web-api/ok.plugins-install-local-artifact.yaml'),
-  pluginInstallRemoteUrl: await readFixture('fixtures/web-api/ok.plugins-install-remote-url.yaml'),
-  pluginList: await readFixture('fixtures/web-api/ok.plugins-list-response.yaml'),
-  pluginStoreList: await readFixture('fixtures/web-api/ok.plugin-store-list.yaml'),
-  pluginStoreSources: await readFixture('fixtures/web-api/ok.plugin-store-sources.yaml'),
-  pluginStoreInspection: await readFixture('fixtures/web-api/ok.plugin-store-inspection.yaml'),
-  pluginStoreSourceRefresh: await readFixture('fixtures/web-api/ok.plugin-store-source-refresh.yaml'),
-  pluginDetail: await readFixture('fixtures/web-api/ok.plugin-detail-response.yaml'),
-  pluginDetailManagementUI: await readFixture('fixtures/web-api/ok.plugin-detail-response.management-ui.yaml'),
-  pluginSettings: await readFixture('fixtures/web-api/ok.plugin-settings-response.yaml'),
-  pluginSettingsUpdate: await readFixture('fixtures/web-api/ok.plugin-settings-update-response.yaml'),
-  pluginUninstallAccepted: await readFixture('fixtures/web-api/ok.plugins-uninstall-accepted.yaml'),
-  invalidUninstallId: await readFixture('fixtures/web-api/invalid.plugins-uninstall-id.yaml'),
-  governanceBlacklist: await readFixture('fixtures/web-api/ok.governance-blacklist-response.yaml'),
-  governanceBlacklistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-blacklist-entry-upsert.yaml'),
-  governanceWhitelist: await readFixture('fixtures/web-api/ok.governance-whitelist-response.yaml'),
-  governanceWhitelistState: await readFixture('fixtures/web-api/ok.governance-whitelist-state-response.yaml'),
-  governanceWhitelistEntryUpsert: await readFixture('fixtures/web-api/ok.governance-whitelist-entry-upsert.yaml'),
-  governanceCommandPolicy: await readFixture('fixtures/web-api/ok.governance-command-policy-response.yaml'),
-  thirdPartyAccounts: await readFixture('fixtures/web-api/ok.third-party-accounts-list.yaml'),
-  thirdPartyAccountUpsert: await readFixture('fixtures/web-api/ok.third-party-account-upsert.yaml'),
-  thirdPartyAccountValidateInvalid: await readFixture('fixtures/web-api/ok.third-party-account-validate-invalid.yaml'),
-  thirdPartyAccountValidateNotFound: await readFixture('fixtures/web-api/invalid.third-party-account-validate-not-found.yaml'),
-  thirdPartyQRCodeCreateBilibili: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-bilibili.yaml'),
-  thirdPartyQRCodePollBilibiliPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-pending.yaml'),
-  thirdPartyQRCodePollBilibiliSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-succeeded.yaml'),
-  thirdPartyQRCodeCreateWeibo: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml'),
-  thirdPartyQRCodePollWeiboPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml'),
-  thirdPartyQRCodePollWeiboSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml'),
-  thirdPartyQRCodeCreateDouyin: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml'),
-  thirdPartyQRCodePollDouyinPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml'),
-  thirdPartyQRCodePollDouyinVerificationRequired: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-verification-required.yaml'),
-  thirdPartyQRCodePollDouyinFailed: await readFixture('fixtures/web-api/edge.third-party-login-qrcode-poll-douyin-failed.yaml'),
-  thirdPartyQRCodePollDouyinSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml'),
-  thirdPartyQRCodeCreateNeteaseMusic: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml'),
-  thirdPartyQRCodePollNeteaseMusicPending: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml'),
-  thirdPartyQRCodePollNeteaseMusicSucceeded: await readFixture('fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml'),
-  wsLogs: await readFixture('fixtures/websocket/ok.logs-appended.protocol-onebot11.json'),
-  wsEvents: await readFixture('fixtures/websocket/edge.events-received-degraded.json'),
-  wsEventsProtocolSnapshot: await readFixture('fixtures/websocket/ok.events-received-protocol-snapshot.json'),
-  wsConsole: await readFixture('fixtures/websocket/ok.plugins-console-stderr.json'),
-  wsSessionExpired: await readFixture('fixtures/websocket/edge.session-expired.json'),
-}
+const responsePlan = new ResponsePlan()
 
 const sockets = {
   events: new Set(),
@@ -147,9 +65,8 @@ function baseState() {
       'example-config-panel': structuredClone(fixtures.pluginSettings.response.body.values),
     },
     pluginSecrets: {
-      'example-config-panel': { api_key: 'stored-secret-must-not-leak' },
+      'example-config-panel': { api_key: true },
     },
-    pluginInstallInspections: {},
     logs: initialLogs,
     currentSessionLogIds: new Set(initialLogs.map((item) => item.log_id)),
     logDetails: createLogDetailMap(),
@@ -157,9 +74,6 @@ function baseState() {
     configRevision: fixtures.configGet.response.body.revision,
     configApplyEffects: { applied_now: [], reloaded_now: [], restart_required_fields: [] },
     effectiveTimezone: 'Asia/Shanghai',
-    loadedAdapterIds: fixtures.configGet.response.body.config.adapters.map((entry) => entry.id),
-    governanceBlacklist: structuredClone(fixtures.governanceBlacklist.response.body),
-    governanceWhitelist: structuredClone(fixtures.governanceWhitelist.response.body),
     governanceCommandPolicy: structuredClone(fixtures.governanceCommandPolicy.response.body),
     thirdPartyAccounts,
     thirdPartyQRCodePolls: {},
@@ -181,22 +95,6 @@ function baseState() {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function localizeBilibiliAccountAvatar(account) {
   if (account?.platform === 'bilibili' && account.profile) {
     account.profile.avatar_url = bilibiliAvatarUrl
@@ -204,7 +102,6 @@ function localizeBilibiliAccountAvatar(account) {
   return account
 }
 
-const thirdPartyAccountPlatforms = ['bilibili', 'weibo', 'douyin', 'netease_music']
 
 function thirdPartyQRCodeFixtures(platform) {
   switch (platform) {
@@ -243,30 +140,6 @@ function thirdPartyQRCodePollKey(platform, loginId) {
   return `${platform}:${loginId}`
 }
 
-function defaultCredentialStatus(platform) {
-  if (platform === 'bilibili') {
-    return structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account.credential)
-  }
-  return {
-    state: 'unknown',
-    checked_at: new Date().toISOString(),
-    last_error: '',
-  }
-}
-
-function syncGovernanceCommandPolicyFromConfig(config) {
-  if (!state?.governanceCommandPolicy) {
-    return
-  }
-
-  state.governanceCommandPolicy.default_level = config.permission?.default_level ?? 'everyone'
-  state.governanceCommandPolicy.cooldown = {
-    user_command_rate_limit: config.user?.command_rate_limit ?? '10/60s',
-    group_command_rate_limit: config.group?.command_rate_limit ?? '30/60s',
-    cooldown_reply: Boolean(config.user?.cooldown_reply),
-  }
-}
-
 function createRenderTemplateState() {
   const helpDetail = structuredClone(fixtures.renderTemplateDetail.response.body.template)
   const items = structuredClone(fixtures.renderTemplatesList.response.body.items)
@@ -298,7 +171,7 @@ function listRenderTemplates() {
         updated_at: template.detail.updated_at,
         source: structuredClone(template.detail.source),
       }))
-      .sort((left, right) => right.updated_at.localeCompare(left.updated_at)),
+,
   }
 }
 
@@ -340,14 +213,6 @@ function escapeHTML(value) {
     .replaceAll("'", '&#39;')
 }
 
-
-
-
-
-
-
-
-
 function createLogDetailMap() {
   return {
     [fixtures.logDetail.response.body.log_id]: structuredClone(fixtures.logDetail.response.body),
@@ -387,23 +252,22 @@ function createLogDetailMap() {
 
 let state = baseState()
 
-function collectionPage(items, params, text = item => JSON.stringify(item), filter = () => true, compare = (a, b) => String(a.id).localeCompare(String(b.id))) {
+function collectionPage(items, params, text = item => JSON.stringify(item)) {
   const query = (params.get('query') || '').trim().toLowerCase()
-  const selected = items.filter(item => filter(item) && (!query || text(item).toLowerCase().includes(query))).sort(compare)
+  const selected = items.filter(item => !query || text(item).toLowerCase().includes(query))
   const offset = Number(params.get('cursor') || 0)
   const limit = Math.min(100, Number(params.get('limit') || 100))
   const page = selected.slice(offset, offset + limit)
   return { items: structuredClone(page), total: selected.length, ...(offset + page.length < selected.length ? { next_cursor: String(offset + page.length) } : {}) }
 }
 
-function governancePage(value, params) {
-  const all = [...value.user_entries, ...value.group_entries]
-  const page = collectionPage(all, params, entry => [entry.target_id, entry.reason].join(' '), entry => !params.get('entry_type') || entry.entry_type === params.get('entry_type'), (a,b) => b.created_at.localeCompare(a.created_at) || b.target_id.localeCompare(a.target_id))
-  const { items, ...metadata } = page
-  return { ...value, ...metadata, entry_count: all.length, user_entries: items.filter(item => item.entry_type === 'user'), group_entries: items.filter(item => item.entry_type === 'group') }
-}
-
 function json(response, status, body) {
+  if (body?.error) {
+    const declaration = errorCodes[body.error.code]
+    if (!declaration?.applies_to.includes('http') || declaration.http_status !== status || declaration.message_key !== body.error.message_key) {
+      throw new Error(`HTTP fixture contradicts error catalog: ${body.error.code} (${status})`)
+    }
+  }
   response.writeHead(status, { 'Content-Type': 'application/json' })
   response.end(JSON.stringify(body))
 }
@@ -451,10 +315,6 @@ function cookieValue(request, name) {
   return null
 }
 
-function isSafeMethod(method) {
-  return ['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(String(method ?? 'GET').toUpperCase())
-}
-
 function requireAuth(request, response) {
   const bearer = authToken(request)
   if (bearer && bearer === state.token) {
@@ -464,18 +324,14 @@ function requireAuth(request, response) {
   const cookie = cookieValue(request, 'raylea_session')
   if (cookie && cookie === state.token) {
     response.setHeader('X-Raylea-CSRF', state.csrfToken)
-    if (isSafeMethod(request.method) || request.headers['x-raylea-csrf'] === state.csrfToken) {
-      return true
-    }
-    json(response, 403, errorEnvelope('permission.denied', '请求缺少有效的 CSRF 凭据', 'req_csrf_missing_fixture'))
-    return false
+    return true
   }
 
   json(response, 401, {
     error: {
-      code: 'permission.denied',
+      code: 'permission.authentication_required',
       message: '需要有效的管理会话',
-      message_key: 'errors.permission.denied',
+      message_key: 'errors.permission.authentication_required',
       request_id: 'req_auth_missing_fixture',
     },
   })
@@ -501,6 +357,7 @@ function closeAllSockets() {
 
 function resetState(payload = {}) {
   closeAllSockets()
+  responsePlan.clear()
 
   state = baseState()
   if (typeof payload.timezone === 'string') {
@@ -602,96 +459,9 @@ function pluginSettingsBody(pluginId) {
   return {
     plugin_id: pluginId,
     values: {
-      ...structuredClone(plugin.default_config ?? {}),
       ...structuredClone(state.pluginSettings[pluginId] ?? {}),
     },
   }
-}
-
-function updatePluginSettings(pluginId, patchValues) {
-  const current = pluginSettingsBody(pluginId)
-  if (!current) {
-    return null
-  }
-
-  const mergedValues = {
-    ...current.values,
-    ...structuredClone(patchValues),
-  }
-  const changedKeys = Object.keys(patchValues)
-    .filter((key) => JSON.stringify(current.values[key]) !== JSON.stringify(mergedValues[key]))
-    .sort((left, right) => left.localeCompare(right))
-
-  state.pluginSettings[pluginId] = mergedValues
-
-  return {
-    plugin_id: pluginId,
-    changed_keys: changedKeys,
-    values: structuredClone(mergedValues),
-  }
-}
-
-function normalizeGovernanceEntryPayload(payload) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return null
-  }
-
-  const entryType = typeof payload.entry_type === 'string' ? payload.entry_type : ''
-  const targetId = typeof payload.target_id === 'string' ? payload.target_id.trim() : ''
-  const reason = typeof payload.reason === 'string' ? payload.reason.trim() : ''
-
-  if (!['user', 'group'].includes(entryType) || !targetId || !reason || !payload.scope) {
-    return null
-  }
-
-  return {
-    scope: structuredClone(payload.scope),
-    entry_type: entryType,
-    target_id: targetId,
-    reason,
-  }
-}
-
-function governanceEntryCollection(snapshot, entryType) {
-  return entryType === 'group' ? snapshot.group_entries : snapshot.user_entries
-}
-
-function governanceEntryCreatedAt(collectionName) {
-  if (collectionName === 'whitelist') {
-    return fixtures.governanceWhitelistEntryUpsert.response.body.created_at
-  }
-  return fixtures.governanceBlacklistEntryUpsert.response.body.created_at
-}
-
-function upsertGovernanceEntry(snapshot, collectionName, payload) {
-  const collection = governanceEntryCollection(snapshot, payload.entry_type)
-  const existing = collection.find((entry) => entry.target_id === payload.target_id && sameScope(entry.scope, payload.scope))
-
-  if (existing) {
-    existing.reason = payload.reason
-    return structuredClone(existing)
-  }
-
-  const entry = {
-    scope: structuredClone(payload.scope),
-    entry_type: payload.entry_type,
-    target_id: payload.target_id,
-    reason: payload.reason,
-    created_at: governanceEntryCreatedAt(collectionName),
-  }
-  collection.push(entry)
-  collection.sort((left, right) => left.target_id.localeCompare(right.target_id))
-  return structuredClone(entry)
-}
-
-function removeGovernanceEntry(snapshot, entryType, targetId, scope) {
-  const collection = governanceEntryCollection(snapshot, entryType)
-  const index = collection.findIndex((entry) => entry.target_id === targetId && sameScope(entry.scope, scope))
-  if (index < 0) {
-    return false
-  }
-  collection.splice(index, 1)
-  return true
 }
 
 function mergePluginState(pluginId, patch) {
@@ -839,20 +609,6 @@ function taskStatusText(status) {
   }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 function defaultProtocolLiveLog() {
   const summary = {
     log_id: 'log_adapter_live_0001',
@@ -902,28 +658,28 @@ const server = http.createServer(async (request, response) => {
 
   if (state.networkOffline && !pathname.startsWith('/__test/')) {
     response.writeHead(503, {
-      'Content-Type': 'application/json',
+      'Content-Type': 'text/plain; charset=utf-8',
       'x-rayleabot-backend-unavailable': '1',
     })
-    response.end(JSON.stringify(errorEnvelope('platform.unavailable', 'mock backend unavailable', 'req_mock_backend_unavailable')))
+    response.end()
     return
   }
 
   if (String(request.headers.host ?? '').toLowerCase() === exampleConfigPanelHost) {
     if ((request.method !== 'GET' && request.method !== 'HEAD') || pathname.startsWith('/api/') || pathname.startsWith('/ws/')) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin origin has no API routes', 'req_plugin_ui_isolated'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin origin has no API routes', 'req_plugin_ui_isolated'))
       return
     }
     let requestedPath = ''
     try {
       requestedPath = pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment)).join('/')
     } catch {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin management page not found', 'req_plugin_ui_invalid_path'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin management page not found', 'req_plugin_ui_invalid_path'))
       return
     }
     const filePath = resolvePluginManagementUIFile('example-config-panel', requestedPath)
     if (!filePath) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin management page not found', 'req_plugin_ui_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin management page not found', 'req_plugin_ui_not_found'))
       return
     }
     try {
@@ -938,7 +694,7 @@ const server = http.createServer(async (request, response) => {
       response.end(request.method === 'HEAD' ? undefined : file)
       return
     } catch {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin management page not found', 'req_plugin_ui_missing'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin management page not found', 'req_plugin_ui_missing'))
       return
     }
   }
@@ -952,6 +708,20 @@ const server = http.createServer(async (request, response) => {
     const payload = await parseBody(request)
     resetState(payload)
     json(response, 200, { ok: true, initialized: state.initialized })
+    return
+  }
+
+  if (pathname === '/__test/responses' && request.method === 'POST') {
+    const payload = await parseBody(request)
+    responsePlan.set(payload.responses)
+    json(response, 200, { ok: true })
+    return
+  }
+
+  const scripted = responsePlan.take(request.method, pathname)
+  if (scripted) {
+    if (pathname.startsWith('/api/') && !requireAuth(request, response)) return
+    json(response, scripted.status ?? 200, scripted.body)
     return
   }
 
@@ -1093,35 +863,9 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/account/credentials' && request.method === 'PUT') {
-    if (!requireAuth(request, response)) return
-    const payload = await parseBody(request)
-    if (payload.current_secret !== state.adminSecret) {
-      json(response, 403, errorEnvelope('permission.current_secret_invalid', '当前密码不正确', 'req_account_credentials_fixture'))
-      return
-    }
-    if (typeof payload.new_secret !== 'string' || Array.from(payload.new_secret).length < 8) {
-      json(response, 400, errorEnvelope('platform.invalid_request', '请求参数不合法', 'req_account_credentials_fixture'))
-      return
-    }
-    state.adminSecret = payload.new_secret
-    state.adminIdentifier = payload.new_identifier?.trim() || state.adminIdentifier
-    state.token = null
-    state.csrfToken = null
-    broadcast('events', fixtures.wsSessionExpired.frame)
-    closeAllSockets()
-    // Exercise session invalidation arriving before the pending HTTP response.
-    await new Promise(resolve => setTimeout(resolve, 50))
-    response.setHeader('Set-Cookie', 'raylea_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0')
-    noContent(response)
-    return
-  }
+  if (pathname.startsWith('/api/') && !requireAuth(request, response)) return
 
   if (pathname === '/api/session' && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     state.token = null
     state.csrfToken = null
     response.setHeader('Set-Cookie', 'raylea_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0')
@@ -1130,16 +874,12 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/system/status' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     if (takeFailureFlag('failSystemStatusOnce')) {
-      json(response, 500, errorEnvelope('plugin.internal_error', 'system status failed', 'req_system_status_failed'))
+      json(response, 500, errorEnvelope('platform.internal_error', 'system status failed', 'req_system_status_failed'))
       return
     }
 
-    json(response, fixtures.systemStatus.response.status, { ...state.systemStatus, adapters: adapterDescriptors().map(({ id, protocol, enabled, state }) => ({ id, protocol, enabled, state })) })
+    json(response, fixtures.systemStatus.response.status, { ...state.systemStatus, adapters: structuredClone(fixtures.protocolSnapshot.response.body.adapters).map(({ id, protocol, enabled, state }) => ({ id, protocol, enabled, state })) })
     return
   }
 
@@ -1152,11 +892,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/governance/blacklist' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, governancePage(state.governanceBlacklist, searchParams))
+    json(response, 200, fixtures.governanceBlacklist.response.body)
     return
   }
 
@@ -1224,117 +960,17 @@ const server = http.createServer(async (request, response) => {
     return
   }
 
-  if (pathname === '/api/governance/blacklist/entries' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const payload = normalizeGovernanceEntryPayload(await parseBody(request))
-    if (!payload) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'governance entry payload is invalid', 'req_governance_blacklist_invalid'))
-      return
-    }
-
-    json(response, 200, upsertGovernanceEntry(state.governanceBlacklist, 'blacklist', payload))
-    return
-  }
-
-  if (pathname.startsWith('/api/governance/blacklist/entries/') && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const entryType = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const targetId = decodeURIComponent(pathname.split('/')[6] ?? '')
-    if (!['user', 'group'].includes(entryType) || !targetId) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
-      return
-    }
-
-    if (!removeGovernanceEntry(state.governanceBlacklist, entryType, targetId, Object.fromEntries(searchParams))) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_blacklist_entry_not_found'))
-      return
-    }
-
-    noContent(response)
-    return
-  }
-
   if (pathname === '/api/governance/whitelist' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, governancePage(state.governanceWhitelist, searchParams))
-    return
-  }
-
-  if (pathname === '/api/governance/whitelist/state' && request.method === 'PUT') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const payload = await parseBody(request)
-    if (!payload || typeof payload.enabled !== 'boolean') {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'governance whitelist state payload is invalid', 'req_governance_whitelist_state_invalid'))
-      return
-    }
-
-    state.governanceWhitelist.enabled = payload.enabled
-    json(response, fixtures.governanceWhitelistState.response.status, { enabled: state.governanceWhitelist.enabled })
-    return
-  }
-
-  if (pathname === '/api/governance/whitelist/entries' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const payload = normalizeGovernanceEntryPayload(await parseBody(request))
-    if (!payload) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'governance entry payload is invalid', 'req_governance_whitelist_invalid'))
-      return
-    }
-
-    json(response, 200, upsertGovernanceEntry(state.governanceWhitelist, 'whitelist', payload))
-    return
-  }
-
-  if (pathname.startsWith('/api/governance/whitelist/entries/') && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const entryType = decodeURIComponent(pathname.split('/')[5] ?? '')
-    const targetId = decodeURIComponent(pathname.split('/')[6] ?? '')
-    if (!['user', 'group'].includes(entryType) || !targetId) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
-      return
-    }
-
-    if (!removeGovernanceEntry(state.governanceWhitelist, entryType, targetId, Object.fromEntries(searchParams))) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'governance entry not found', 'req_governance_whitelist_entry_not_found'))
-      return
-    }
-
-    noContent(response)
+    json(response, 200, fixtures.governanceWhitelist.response.body)
     return
   }
 
   if (pathname === '/api/governance/command-policy' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     json(response, 200, structuredClone(state.governanceCommandPolicy))
     return
   }
 
   if (pathname === '/api/system/shutdown' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     state.systemStatus.status = 'shutting_down'
     json(response, fixtures.systemShutdown.response.status, fixtures.systemShutdown.response.body)
     setTimeout(() => {
@@ -1345,10 +981,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/system/backup' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const taskId = fixtures.systemBackupAccepted.response.body.task_id
     appendTaskLog(taskId, 'backup.create', 'pending', 'create online backup')
 
@@ -1357,10 +989,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/system/diagnostics/export' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     response.writeHead(fixtures.systemDiagnosticsExport.response.status, {
       'Content-Type': fixtures.systemDiagnosticsExport.response.headers['Content-Type'],
       'Content-Disposition': fixtures.systemDiagnosticsExport.response.headers['Content-Disposition'],
@@ -1370,19 +998,11 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/system/render/templates' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     json(response, 200, collectionPage(listRenderTemplates().items, searchParams, item => [item.id, item.name, item.description, item.source?.plugin_id, state.plugins[item.source?.plugin_id]?.name].join(' ')))
     return
   }
 
   if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/asset') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const assetPath = searchParams.get('path') ?? ''
     const fontAssetMatch = assetPath.match(/^assets\/fonts\/noto-sans-sc\/([A-Za-z0-9._-]+\.woff2)$/)
     if (fontAssetMatch) {
@@ -1403,10 +1023,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/system/render/templates/') && pathname.endsWith('/preview-html') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
     const payload = await parseBody(request)
     const body = renderTemplatePreviewHTMLBody(templateId, payload)
@@ -1419,10 +1035,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/system/render/templates/') && request.method === 'GET' && pathname.split('/').length === 6) {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const templateId = decodeURIComponent(pathname.split('/')[5] ?? '')
     const detailBody = renderTemplateDetailBody(templateId)
     if (!detailBody) {
@@ -1435,28 +1047,15 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/system/scheduler/jobs' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, collectionPage(state.schedulerJobs, searchParams, item => [item.job_id,item.plugin_id,item.plugin_name,item.task_name,item.log_label,item.payload_summary?.content].join(' '), item => searchParams.get('status') === 'error' ? Boolean(item.last_error) : searchParams.get('status') === 'success' ? !item.last_error : true, (a,b) => {
-      const fallback = a.plugin_id.localeCompare(b.plugin_id) || a.job_id.localeCompare(b.job_id)
-      if (searchParams.get('sort') === 'last_run') return Date.parse(b.last_run || '1970-01-01') - Date.parse(a.last_run || '1970-01-01') || fallback
-      if (searchParams.get('sort') === 'duration') return (b.last_duration_ms || 0) - (a.last_duration_ms || 0) || fallback
-      return a.plugin_name.localeCompare(b.plugin_name) || a.task_name.localeCompare(b.task_name) || fallback
-    }))
+    json(response, 200, collectionPage(state.schedulerJobs, searchParams))
     return
   }
 
   if (pathname.startsWith('/api/system/scheduler/jobs/') && pathname.endsWith('/trigger') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const jobId = decodeURIComponent(pathname.split('/')[5] ?? '')
     const job = state.schedulerJobs.find((item) => item.job_id === jobId)
     if (!job) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'scheduler job not found', 'req_scheduler_job_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'scheduler job not found', 'req_scheduler_job_not_found'))
       return
     }
 
@@ -1469,11 +1068,7 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/config' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const snapshot = redactConfigSecrets(state.config)
+    const snapshot = { config: state.config, redacted_fields: fixtures.configGet.response.body.redacted_fields }
     json(response, 200, {
       config: snapshot.config,
       effective_timezone: state.effectiveTimezone,
@@ -1484,24 +1079,19 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/config' && request.method === 'PUT') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const payload = await parseBody(request)
     state.config = structuredClone(payload)
     state.configRevision += 1
-    syncGovernanceCommandPolicyFromConfig(state.config)
     const applyEffects = structuredClone(state.configApplyEffects)
     broadcast('events', {
       channel: 'events',
       type: 'events.received',
       timestamp: new Date().toISOString(),
       data: {
-        adapters: adapterDescriptors(),
+        adapters: structuredClone(fixtures.protocolSnapshot.response.body.adapters),
       },
     })
-    const snapshot = redactConfigSecrets(state.config)
+    const snapshot = { config: state.config, redacted_fields: fixtures.configGet.response.body.redacted_fields }
     json(response, 200, {
       config: snapshot.config,
       effective_timezone: state.effectiveTimezone,
@@ -1514,9 +1104,8 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/adapters' && request.method === 'GET') {
-    if (!requireAuth(request, response)) return
     json(response, 200, {
-      adapters: adapterDescriptors(),
+      adapters: structuredClone(fixtures.protocolSnapshot.response.body.adapters),
       available_protocols: [
         { protocol: 'onebot11', display_name: 'OneBot11', description: '连接 NapCat 等实现 OneBot11 的协议端。' },
         { protocol: 'qqofficial', display_name: 'QQ 官方机器人', description: '使用 QQ 开放平台的 AppID 和 AppSecret 接入。' },
@@ -1526,28 +1115,16 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/protocols/onebot11/compatibility' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     json(response, 200, structuredClone(fixtures.protocolCompatibility.response.body))
     return
   }
 
   if (pathname === '/api/third-party/accounts' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    json(response, 200, collectionPage(state.thirdPartyAccounts, searchParams, item => [item.platform,item.account_id,item.label,item.profile?.nickname].join(' '), () => true, (a,b) => a.platform.localeCompare(b.platform) || a.account_id.localeCompare(b.account_id)))
+    json(response, 200, collectionPage(state.thirdPartyAccounts, searchParams, item => [item.platform,item.account_id,item.label,item.profile?.nickname].join(' ')))
     return
   }
 
   if (/^\/api\/third-party\/accounts\/[^/]+\/[^/]+\/avatar$/.test(pathname) && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     response.writeHead(200, {
       'Content-Type': 'image/png',
       'Cache-Control': 'private, no-store',
@@ -1558,92 +1135,29 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'PUT') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const segments = pathname.split('/')
     const platform = decodeURIComponent(segments[4] ?? '')
     const accountId = decodeURIComponent(segments[5] ?? '')
-    const payload = await parseBody(request)
-    if (!thirdPartyAccountPlatforms.includes(platform) || !accountId || !payload || typeof payload.label !== 'string' || typeof payload.enabled !== 'boolean') {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'third-party account payload is invalid', 'req_third_party_account_invalid'))
-      return
-    }
-
-    const previous = state.thirdPartyAccounts.find((item) => item.platform === platform && item.account_id === accountId)
-    if (payload.create_only && previous) { json(response, 409, errorEnvelope('platform.state_conflict', '账号已存在', 'req_account_exists')); return }
-    const fixtureAccount = platform === 'bilibili'
-      ? structuredClone(fixtures.thirdPartyAccountUpsert.response.body.account)
-      : null
-    const succeededFixture = thirdPartyQRCodeFixtures(platform)?.succeeded?.response.body
-    const nextAccount = {
-      ...(fixtureAccount ?? {}),
-      ...(previous ?? {}),
-      platform,
-      account_id: accountId,
-      label: payload.label,
-      enabled: payload.enabled,
-      configured: previous?.configured || Boolean(payload.cookie),
-      profile: previous?.profile ?? null,
-      credential: previous?.credential ?? defaultCredentialStatus(platform),
-      updated_at: new Date().toISOString(),
-    }
-    if (payload.cookie) {
-      nextAccount.profile = platform === 'bilibili'
-        ? structuredClone(fixtureAccount.profile)
-        : structuredClone(succeededFixture?.account?.profile ?? previous?.profile ?? null)
-      if (platform === 'weibo' && nextAccount.profile) {
-        nextAccount.profile.avatar_url = weiboAvatarUrl
-      }
-      nextAccount.credential = defaultCredentialStatus(platform)
-      nextAccount.configured = true
-    }
-    localizeBilibiliAccountAvatar(nextAccount)
-    state.thirdPartyAccounts = [
-      ...state.thirdPartyAccounts.filter((item) => item.platform !== platform || item.account_id !== accountId),
-      nextAccount,
-    ].sort((left, right) => left.account_id.localeCompare(right.account_id))
+    const nextAccount = state.thirdPartyAccounts.find(item => item.platform === platform && item.account_id === accountId)
+      ?? thirdPartyQRCodeFixtures(platform).succeeded.response.body.account
     json(response, 200, { account: structuredClone(nextAccount) })
     return
   }
 
   if (/^\/api\/third-party\/accounts\/[^/]+\/[^/]+\/validate$/.test(pathname) && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const segments = pathname.split('/')
     const platform = decodeURIComponent(segments[4] ?? '')
     const accountId = decodeURIComponent(segments[5] ?? '')
-    const account = state.thirdPartyAccounts.find((item) => item.platform === platform && item.account_id === accountId)
-    if (!account?.configured) {
-      json(response, fixtures.thirdPartyAccountValidateNotFound.response.status, structuredClone(fixtures.thirdPartyAccountValidateNotFound.response.body))
-      return
-    }
-    await new Promise((resolve) => setTimeout(resolve, 120))
-    const nextAccount = structuredClone(account)
-    if (platform === 'weibo') {
-      nextAccount.credential = structuredClone(fixtures.thirdPartyAccountValidateInvalid.response.body.account.credential)
-    } else {
-      nextAccount.credential = {
-        state: 'valid',
-        checked_at: new Date().toISOString(),
-        last_error: '',
-      }
-    }
-    state.thirdPartyAccounts = state.thirdPartyAccounts.map((item) => (
-      item.platform === platform && item.account_id === accountId ? nextAccount : item
-    ))
+    await new Promise(resolve => setTimeout(resolve, 120))
+    const nextAccount = structuredClone(platform === 'weibo'
+      ? fixtures.thirdPartyAccountValidateInvalid.response.body.account
+      : fixtures.thirdPartyAccountUpsert.response.body.account)
+    state.thirdPartyAccounts = state.thirdPartyAccounts.map(item => item.platform === platform && item.account_id === accountId ? nextAccount : item)
     json(response, 200, { account: structuredClone(nextAccount) })
     return
   }
 
   if (pathname.startsWith('/api/third-party/accounts/') && pathname.endsWith('/login/qrcode') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const segments = pathname.split('/')
     const platform = decodeURIComponent(segments[4] ?? '')
     const fixture = thirdPartyQRCodeFixtures(platform)?.create
@@ -1662,10 +1176,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const segments = pathname.split('/')
     const platform = decodeURIComponent(segments[4] ?? '')
     const loginId = decodeURIComponent(segments[7] ?? '')
@@ -1716,10 +1226,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (/^\/api\/third-party\/accounts\/[^/]+\/login\/qrcode\/[^/]+$/.test(pathname) && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const segments = pathname.split('/')
     const platform = decodeURIComponent(segments[4] ?? '')
     const loginId = decodeURIComponent(segments[7] ?? '')
@@ -1733,10 +1239,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/third-party/accounts/') && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const segments = pathname.split('/')
     const platform = decodeURIComponent(segments[4] ?? '')
     const accountId = decodeURIComponent(segments[5] ?? '')
@@ -1746,12 +1248,8 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/logs' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     if (takeFailureFlag('failLogsOnce')) {
-      json(response, 500, errorEnvelope('plugin.internal_error', 'log list failed', 'req_logs_failed'))
+      json(response, 500, errorEnvelope('platform.internal_error', 'log list failed', 'req_logs_failed'))
       return
     }
 
@@ -1760,10 +1258,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/logs/') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const logId = decodeURIComponent(pathname.split('/')[3] ?? '')
     const detail = state.logDetails[logId]
     if (!detail) {
@@ -1777,10 +1271,9 @@ const server = http.createServer(async (request, response) => {
 
   const iconMatch = pathname.match(/^\/api\/plugins\/([^/]+)\/icon$/)
   if (iconMatch && request.method === 'GET') {
-    if (!requireAuth(request, response)) return
     const plugin = state.plugins[decodeURIComponent(iconMatch[1])]
     if (!plugin?.icon) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'icon unavailable', 'req_icon_missing'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'icon unavailable', 'req_icon_missing'))
       return
     }
     const bytes = await readFile(path.join(repoRoot, 'examples/plugins/hello-go/assets/icon.svg'))
@@ -1795,7 +1288,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/plugin-store/plugins' && request.method === 'GET') {
-    if (!requireAuth(request, response)) return
     const body = structuredClone(fixtures.pluginStoreList.response.body)
     body.items = body.items.map(item => state.pluginStoreInstalled[item.id] ? { ...item, installed_version: state.pluginStoreInstalled[item.id], install_state: 'installed' } : item)
     json(response, 200, body)
@@ -1803,79 +1295,24 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/plugin-store/sources' && request.method === 'GET') {
-    if (!requireAuth(request, response)) return
     json(response, 200, collectionPage(state.pluginStoreSources, searchParams, item => [item.id,item.name,item.url].join(' ')))
-    return
-  }
-
-  const pluginStoreSourceMatch = pathname.match(/^\/api\/plugin-store\/sources\/([^/]+)$/)
-  if ((pathname === '/api/plugin-store/sources' && request.method === 'POST')
-    || (pluginStoreSourceMatch && ['PUT', 'DELETE'].includes(request.method))) {
-    if (!requireAuth(request, response)) return
-    const sourceId = pluginStoreSourceMatch ? decodeURIComponent(pluginStoreSourceMatch[1]) : null
-    const existing = sourceId ? state.pluginStoreSources.find(item => item.id === sourceId) : null
-    if (sourceId && !existing) {
-      json(response, 404, errorEnvelope('platform.not_found', 'source not found', 'req_source_missing'))
-      return
-    }
-    if (existing?.official) {
-      json(response, 409, errorEnvelope('platform.invalid_request', 'official source is immutable', 'req_source_immutable'))
-      return
-    }
-    if (request.method === 'DELETE') {
-      state.pluginStoreSources = state.pluginStoreSources.filter(item => item.id !== sourceId)
-      response.writeHead(204)
-      response.end()
-      return
-    }
-    const input = await parseBody(request)
-    if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > 120
-      || typeof input.url !== 'string' || !input.url.startsWith('https://')) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid source', 'req_source_invalid'))
-      return
-    }
-    const item = {
-      id: sourceId || 'custom-' + createHash('sha256').update(input.url).digest('hex').slice(0, 12),
-      name: input.name.trim(), url: input.url, official: false, cached: true,
-      entry_count: 0, refreshed_at: '2026-09-07T00:00:00Z',
-    }
-    state.pluginStoreSources = [...state.pluginStoreSources.filter(source => source.id !== item.id), item]
-    json(response, request.method === 'POST' ? 201 : 200, item)
     return
   }
 
   const pluginStoreInspectMatch = pathname.match(/^\/api\/plugin-store\/plugins\/([^/]+)\/inspect$/)
   if (pluginStoreInspectMatch && request.method === 'POST') {
-    if (!requireAuth(request, response)) return
-    const payload = await parseBody(request)
-    if (payload.source_id !== 'official') {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid plugin source', 'req_plugin_store_inspect_invalid'))
-      return
-    }
     json(response, 200, structuredClone(fixtures.pluginStoreInspection.response.body))
     return
   }
 
   const pluginStoreRefreshMatch = pathname.match(/^\/api\/plugin-store\/sources\/([^/]+)\/refresh$/)
   if (pluginStoreRefreshMatch && request.method === 'POST') {
-    if (!requireAuth(request, response)) return
     json(response, 200, structuredClone(fixtures.pluginStoreSourceRefresh.response.body))
     return
   }
 
   const pluginStoreInstallMatch = pathname.match(/^\/api\/plugin-store\/plugins\/([^/]+)\/install$/)
   if (pluginStoreInstallMatch && request.method === 'POST') {
-    if (!requireAuth(request, response)) return
-    const payload = await parseBody(request)
-    const inspection = fixtures.pluginStoreInspection.response.body.inspection
-    if (
-      payload.inspection_id !== inspection.inspection_id
-      || payload.package_sha256 !== inspection.package_sha256
-      || payload.trusted_code_confirmed !== true
-    ) {
-      json(response, 409, errorEnvelope('plugin.install_inspection_required', 'plugin inspection is required', 'req_plugin_store_install_inspection'))
-      return
-    }
     const accepted = structuredClone(fixtures.pluginInstallAccepted.response.body)
     const pluginId = decodeURIComponent(pluginStoreInstallMatch[1])
     state.pluginStoreInstalled[pluginId] = fixtures.pluginStoreList.response.body.items.find(item => item.id === pluginId)?.latest_release?.version
@@ -1886,31 +1323,19 @@ const server = http.createServer(async (request, response) => {
 
   const taskStatusMatch = pathname.match(/^\/api\/system\/tasks\/([^/]+)$/)
   if (taskStatusMatch && request.method === 'GET') {
-    if (!requireAuth(request, response)) return
     const status = state.taskStatuses[decodeURIComponent(taskStatusMatch[1])]
-    if (!status) { json(response, 404, errorEnvelope('platform.resource_missing', 'task not found', 'req_task_missing')); return }
+    if (!status) { json(response, 404, errorEnvelope('platform.resource_not_found', 'task not found', 'req_task_missing')); return }
     json(response, 200, status)
     return
   }
 
   if (pathname === '/api/plugins' && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     if (takeFailureFlag('failPluginsListOnce')) {
-      json(response, 500, errorEnvelope('plugin.internal_error', 'plugin list failed', 'req_plugins_failed'))
+      json(response, 500, errorEnvelope('platform.internal_error', 'plugin list failed', 'req_plugins_failed'))
       return
     }
 
-    json(response, 200, collectionPage(pluginListBody().items, searchParams, item => [item.id,item.name,item.description].join(' '), item => {
-      const status = searchParams.get('state'); const source = searchParams.get('source')
-      if (status === 'alert' && item.state !== 'failed' && item.state !== 'invalid' && !item.command_conflicts?.length) return false
-      if ((status === 'running' || status === 'disabled') && item.state !== status) return false
-      if (source === 'official' && item.trust?.level !== 'official') return false
-      if (source === 'community' && item.trust?.level === 'official') return false
-      return true
-    }))
+    json(response, 200, collectionPage(pluginListBody().items, searchParams))
     return
   }
 
@@ -1931,22 +1356,9 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/plugins/install/inspect' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const payload = await parseBody(request)
-    if (!['local_zip', 'local_directory', 'remote_url'].includes(payload.source_type) || typeof payload.source !== 'string' || !payload.source.trim()) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'invalid plugin source', 'req_plugin_inspect_invalid'))
-      return
-    }
     const inspectionId = 'inspection_mock_weather_package_0000001'
     const packageSha256 = 'a'.repeat(64)
-    state.pluginInstallInspections[inspectionId] = {
-      source_type: payload.source_type,
-      source: payload.source,
-      package_sha256: packageSha256,
-    }
     json(response, 200, {
       inspection_id: inspectionId,
       expires_at: '2026-07-10T12:15:00Z',
@@ -1988,32 +1400,8 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname === '/api/plugins/install' && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const payload = await parseBody(request)
-    const inspection = state.pluginInstallInspections[payload.inspection_id]
-    if (
-      !inspection
-      || payload.trusted_code_confirmed !== true
-      || payload.package_sha256 !== inspection.package_sha256
-    ) {
-      json(response, 409, errorEnvelope('plugin.install_inspection_required', 'plugin inspection is required', 'req_plugin_install_inspection'))
-      return
-    }
-    delete state.pluginInstallInspections[payload.inspection_id]
-    let taskId = fixtures.pluginInstallAccepted.response.body.task_id
-
-    if (inspection.source_type === 'remote_url') {
-      taskId = fixtures.pluginInstallRemoteUrl.response.body.task_id
-    } else if (inspection.source.includes('local-artifact')) {
-      taskId = fixtures.pluginInstallLocalArtifact.response.body.task_id
-    }
-
-    appendTaskLog(taskId, 'plugin.install', 'pending', `install ${inspection.source}`, {
-      plugin_id: inspection.source_type === 'remote_url' ? undefined : 'weather',
-    })
+    const taskId = fixtures.pluginInstallAccepted.response.body.task_id
+    appendTaskLog(taskId, 'plugin.install', 'pending', 'fixture install response', { plugin_id: 'weather' })
 
     state.taskStatuses[taskId] = { task_id: taskId, status: 'succeeded' }
 
@@ -2022,10 +1410,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/enable') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const pluginId = pathname.split('/')[3]
     mergePluginState(pluginId, fixtures.pluginEnable.response.body.plugin)
     broadcast('events', {
@@ -2044,10 +1428,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/disable') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const pluginId = pathname.split('/')[3]
     mergePluginState(pluginId, fixtures.pluginDisable.response.body.plugin)
     broadcast('events', {
@@ -2066,10 +1446,6 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/reload') && request.method === 'POST') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const pluginId = pathname.split('/')[3]
     mergePluginState(pluginId, fixtures.pluginReload.response.body.plugin)
     json(response, 200, pluginDetailBody(pluginId))
@@ -2091,40 +1467,14 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/settings') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const pluginId = pathname.split('/')[3]
     const settingsBody = pluginSettingsBody(pluginId)
     if (!settingsBody) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin settings not found', 'req_plugin_settings_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin settings not found', 'req_plugin_settings_not_found'))
       return
     }
 
     json(response, 200, settingsBody)
-    return
-  }
-
-  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/settings') && request.method === 'PUT') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
-    const pluginId = pathname.split('/')[3]
-    const payload = await parseBody(request)
-    if (!payload || !payload.values || typeof payload.values !== 'object' || Array.isArray(payload.values)) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'plugin settings payload is invalid', 'req_plugin_settings_invalid'))
-      return
-    }
-
-    const updatedBody = updatePluginSettings(pluginId, payload.values)
-    if (!updatedBody) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin settings not found', 'req_plugin_settings_not_found'))
-      return
-    }
-
-    json(response, 200, updatedBody)
     return
   }
 
@@ -2134,66 +1484,16 @@ const server = http.createServer(async (request, response) => {
     }
     const pluginId = pathname.split('/')[3]
     if (!state.plugins[pluginId]) {
-      json(response, 404, errorEnvelope('platform.resource_missing', 'plugin secrets not found', 'req_plugin_secrets_not_found'))
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'plugin secrets not found', 'req_plugin_secrets_not_found'))
       return
     }
-    const configured = Object.fromEntries(Object.entries(state.pluginSecrets[pluginId] ?? {}).map(([key, value]) => [key, Boolean(value)]))
+    const configured = state.pluginSecrets[pluginId] ?? {}
     json(response, 200, { plugin_id: pluginId, configured })
     return
   }
 
-  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/secrets') && request.method === 'PUT') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-    const pluginId = pathname.split('/')[3]
-    const payload = await parseBody(request)
-    if (!state.plugins[pluginId] || !payload?.values || typeof payload.values !== 'object' || Array.isArray(payload.values)) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'plugin secrets payload is invalid', 'req_plugin_secrets_invalid'))
-      return
-    }
-    const previous = state.pluginSecrets[pluginId] ?? {}
-    const next = { ...previous, ...payload.values }
-    state.pluginSecrets[pluginId] = next
-    json(response, 200, {
-      plugin_id: pluginId,
-      changed_keys: Object.keys(payload.values).sort(),
-      configured: Object.fromEntries(Object.entries(next).map(([key, value]) => [key, Boolean(value)])),
-    })
-    return
-  }
-
-  if (pathname.startsWith('/api/plugins/') && pathname.endsWith('/secrets') && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-    const pluginId = pathname.split('/')[3]
-    const payload = await parseBody(request)
-    if (!state.plugins[pluginId] || !Array.isArray(payload?.keys) || payload.keys.length === 0) {
-      json(response, 400, errorEnvelope('platform.invalid_request', 'plugin secret delete payload is invalid', 'req_plugin_secrets_delete_invalid'))
-      return
-    }
-    const next = { ...(state.pluginSecrets[pluginId] ?? {}) }
-    for (const key of payload.keys) delete next[key]
-    state.pluginSecrets[pluginId] = next
-    json(response, 200, {
-      plugin_id: pluginId,
-      changed_keys: [...new Set(payload.keys)].sort(),
-      configured: Object.fromEntries(Object.entries(next).map(([key, value]) => [key, Boolean(value)])),
-    })
-    return
-  }
-
   if (pathname.startsWith('/api/plugins/') && request.method === 'DELETE') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const pluginId = pathname.split('/')[3]
-    if (!/^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$/.test(pluginId)) {
-      json(response, fixtures.invalidUninstallId.response.status, fixtures.invalidUninstallId.response.body)
-      return
-    }
     if (takeFailureFlag('failUninstallOnce')) {
       json(response, 500, errorEnvelope('platform.internal_error', 'uninstall acceptance failed', 'req_plugin_uninstall_failed'))
       return
@@ -2210,37 +1510,24 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (pathname.startsWith('/api/plugins/') && request.method === 'GET') {
-    if (!requireAuth(request, response)) {
-      return
-    }
-
     const pluginId = pathname.split('/')[3]
     if (takeFailureFlag('failPluginDetailOnce')) {
-      json(response, 500, errorEnvelope('plugin.internal_error', 'plugin detail failed', 'req_plugin_detail_failed'))
+      json(response, 500, errorEnvelope('platform.internal_error', 'plugin detail failed', 'req_plugin_detail_failed'))
+      return
+    }
+    if (!state.plugins[pluginId]) {
+      json(response, 404, errorEnvelope('platform.resource_not_found', 'fixture plugin not found', 'req_fixture_plugin_missing'))
       return
     }
     json(response, 200, pluginDetailBody(pluginId))
     return
   }
 
-  if (webDistRoot && request.method === 'GET' && !pathname.startsWith('/api/') && !pathname.startsWith('/ws/')) {
-    const candidates = [path.resolve(webDistRoot, pathname.slice(1)), path.join(webDistRoot, 'index.html')]
-    for (const filePath of candidates) {
-      if (!isPathInside(webDistRoot, filePath)) continue
-      try {
-        const file = await readFile(filePath)
-        response.writeHead(200, { 'Content-Type': getContentType(filePath), 'Cache-Control': 'no-store' })
-        response.end(file)
-        return
-      } catch { /* Match the Server's SPA fallback, including namespaced plugin IDs. */ }
-    }
-  }
-
   json(response, 404, {
     error: {
-      code: 'platform.resource_missing',
+      code: 'platform.resource_not_found',
       message: 'mock route not found',
-      message_key: 'errors.platform.resource_missing',
+      message_key: 'errors.platform.resource_not_found',
       request_id: 'req_mock_not_found',
     },
   })
@@ -2273,7 +1560,7 @@ wsServer.on('connection', (socket, request) => {
     setTimeout(() => socket.send(JSON.stringify({
       ...fixtures.wsEventsProtocolSnapshot.frame,
       data: {
-        adapters: adapterDescriptors(),
+        adapters: structuredClone(fixtures.protocolSnapshot.response.body.adapters),
       },
     })), 80)
     setTimeout(() => socket.send(JSON.stringify(fixtures.wsEvents.frame)), 120)
@@ -2316,19 +1603,3 @@ server.on('upgrade', (request, socket, head) => {
 server.listen(4010, '127.0.0.1', () => {
   process.stdout.write('mock backend ready\n')
 })
-
-function sameScope(a, b) {
- return a.kind === b.kind && a.source_protocol === b.source_protocol && a.source_adapter === (b.source_adapter ?? '') && a.bot_id === (b.bot_id ?? '')
-}
-
-function adapterDescriptors() {
-  return state.config.adapters.map((entry) => ({
-    id: entry.id,
-    protocol: entry.type,
-    display_name: `${entry.type === 'onebot11' ? 'OneBot11' : 'QQ 官方机器人'}（${entry.id}）`,
-    enabled: entry.enabled,
-    state: !state.loadedAdapterIds.includes(entry.id) || !entry.enabled ? 'stopped' : 'connecting',
-    summary: !state.loadedAdapterIds.includes(entry.id) ? '重启后启动此连接。' : entry.enabled ? '正在连接协议端。' : '此连接已配置，当前未启用。',
-    ...(entry.type === 'onebot11' && state.loadedAdapterIds.includes(entry.id) ? { onebot11: structuredClone(fixtures.protocolSnapshot.response.body.adapters[0].onebot11) } : {}),
-  }))
-}

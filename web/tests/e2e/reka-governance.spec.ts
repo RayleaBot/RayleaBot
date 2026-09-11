@@ -8,7 +8,7 @@ test.beforeEach(async ({ page, request }) => {
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
 })
 
-test('saving an existing account without a cookie preserves its credential', async ({ page }) => {
+test('editing account metadata omits a blank cookie from the outgoing request', async ({ page }) => {
   await page.goto('/third-party-accounts')
   const card = page.locator('.account-card').filter({ hasText: '测试账号昵称' }).first()
   await card.getByRole('button', { name: '编辑', exact: true }).click()

@@ -63,7 +63,7 @@ Nightly 的 Server 测试一次运行同时启用 race 和 atomic coverage，覆
 
 PR 的关键并发包 race 覆盖 App、配置应用、事件管线、插件 Catalog/Runtime/Lifecycle、广播、协议事件、OneBot 回调和存储快照；完整包清单由 `ci.yml` 维护。Server、契约或 CI 规则变化触发服务端门禁；`go.work.sum` 触发工作区相关消费者，SQL 例外登记变化触发 Server 与 CI 自检。跨目录重命名同时按来源和目标路径识别影响范围。
 
-Web 生产构建 E2E 分为 `real-server` 与 `plugin-ui-fixtures`。真实 Server 用例独立使用临时目录、SQLite 和动态端口，覆盖静态路由、鉴权、配置与插件全局设置、治理作用域、调度列表和日志详情。模拟入口保留受控网络、iframe、消息节奏与展示数据；配置应用策略不在 JS 中重算。覆盖范围和运行方式见 [Web 端到端验证](./web-testing.md)。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
+Web 生产构建 E2E 只运行 `real-server` project，独立使用临时目录、SQLite 和动态端口，覆盖静态路由、鉴权与账户更新、配置及密钥遮罩、插件全局设置、治理作用域与名单增删、调度列表、日志详情和实际示例插件 iframe。开发模式的 `ui-fixtures` project 保留受控网络、消息节奏和展示数据；写入后的固定快照由测试指定，不承担 Server 规则的证明。覆盖范围和运行方式见 [Web 端到端验证](./web-testing.md)。`RAYLEA_E2E_WEB_PORT` 可隔离开发模式的 Web 端口。
 
 Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、恢复包、进程日志和结果 JSON；验证空目录初始化、当前格式备份、恢复到空目录、登录、配置与插件数据一致性，以及重复启动幂等。
 

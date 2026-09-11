@@ -90,9 +90,14 @@ test('template preview stays inside its centered container when the viewport nar
     await page.setViewportSize({ width, height: 960 })
     await expect.poll(() => frame.evaluate(element => {
       const rect = element.getBoundingClientRect()
-      const parent = element.parentElement!.getBoundingClientRect()
-      return Math.max(Math.abs(rect.x - parent.x), Math.abs(rect.right - parent.right))
-    })).toBeLessThan(1)
+      const container = element.parentElement!
+      const parent = container.getBoundingClientRect()
+      const style = getComputedStyle(container)
+      return Math.max(
+        Math.abs(rect.x - parent.x - parseFloat(style.borderLeftWidth)),
+        Math.abs(parent.right - parseFloat(style.borderRightWidth) - rect.right),
+      )
+    })).toBeLessThanOrEqual(1)
     await expect(frame).toHaveAttribute('data-resize-witness', 'retained-document')
   }
 })
@@ -121,9 +126,12 @@ test('advanced log filters clear protocol and unknown plugin values with keyboar
   const panel = page.locator('.log-advanced-filters__panel')
   await panel.getByRole('combobox', { name: '协议', exact: true }).click()
   await page.getByRole('option', { name: '全部', exact: true }).click()
-  const plugins = panel.getByRole('combobox', { name: '插件', exact: true })
+  const plugins = panel.getByRole('button', { name: '插件', exact: true })
   await expect(plugins).toContainText('removed-plugin')
-  await panel.getByRole('button', { name: '清除选择' }).click()
+  await plugins.click()
+  const picker = page.getByRole('dialog', { name: '选择插件', exact: true })
+  await picker.getByRole('button', { name: '清除选择' }).click()
+  await page.keyboard.press('Escape')
   await expect(plugins).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)
