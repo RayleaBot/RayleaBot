@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 )
@@ -19,9 +18,6 @@ func (f failedConfigUpdate) CurrentConfigDocument() configruntime.Document {
 }
 func (f failedConfigUpdate) UpdateConfigDocument(context.Context, map[string]any) (configruntime.UpdateResult, error) {
 	return configruntime.UpdateResult{}, f.err
-}
-func (f failedConfigUpdate) ApplyHotReloadableFields(config.Config) configruntime.ApplyEffects {
-	return configruntime.NewApplyEffects()
 }
 
 func TestConfigUpdateDistinguishesInvalidInputFromPersistenceFailure(t *testing.T) {

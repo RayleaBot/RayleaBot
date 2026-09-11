@@ -98,7 +98,10 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 			thirdPartyOptions...,
 		)
 	}
-	updateHandler := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
+	updateHandler, err := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
+	if err != nil {
+		return managementRouteState{}, err
+	}
 	eventsWS, err := managementapi.NewEventsHandler(managementevents.Sources{
 		Bridge: eventState.Bridge, Plugins: pluginState.Plugins, Adapters: services.Protocol,
 		Status: deps.ServiceBuild.Status, Governance: services.GovernanceEvents, ThirdParty: services.ThirdPartyEvents,

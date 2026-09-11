@@ -32,8 +32,11 @@ type updateStatusResponse struct {
 	ReleaseNotesRef           string     `json:"release_notes_ref,omitempty"`
 }
 
-func NewUpdateHandlers(service UpdateService) *UpdateHandlers {
-	return &UpdateHandlers{service: service}
+func NewUpdateHandlers(service UpdateService) (*UpdateHandlers, error) {
+	if service == nil {
+		return nil, errors.New("update service is required")
+	}
+	return &UpdateHandlers{service: service}, nil
 }
 
 func (h *UpdateHandlers) RegisterProtectedRoutes(router chi.Router) {
@@ -43,24 +46,12 @@ func (h *UpdateHandlers) RegisterProtectedRoutes(router chi.Router) {
 
 func (h *UpdateHandlers) HandleStatus() http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		if h == nil || h.service == nil {
-			httpapi.WriteJSON(w, http.StatusOK, responseFromUpdateSnapshot(releaseupdate.StatusSnapshot{
-				State:          "disabled",
-				CurrentVersion: "unknown",
-				UpdateMode:     "unavailable",
-			}))
-			return
-		}
 		httpapi.WriteJSON(w, http.StatusOK, responseFromUpdateSnapshot(h.service.Status()))
 	}
 }
 
 func (h *UpdateHandlers) HandleCheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if h == nil || h.service == nil {
-			httpapi.WriteError(w, r, releaseupdate.CodeTrustRequired, nil)
-			return
-		}
 		snapshot, err := h.service.Check(r.Context())
 		if err != nil {
 			if errors.Is(err, releaseupdate.ErrCheckInProgress) {

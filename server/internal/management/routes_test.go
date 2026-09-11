@@ -39,7 +39,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewSystemRoutes(NewSystemHandlers(nil), noopHandler),
 			NewRenderHandlers(nil, nil),
 			NewThirdPartyHandlers(nil, nil, nil),
-			NewUpdateHandlers(nil),
+			newUpdateTestHandler(t, &updateServiceStub{}),
 			pluginUI,
 			ProtectedRouteFunc(func(r chi.Router) {
 				r.Get("/ws/events", noopHandler)

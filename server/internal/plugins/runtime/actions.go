@@ -353,7 +353,7 @@ func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, 
 
 	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
 	operation := strings.TrimSpace(frame.Operation)
-	if operation != "set_enabled" && !scope.Valid() {
+	if !scope.Valid() {
 		return nil, errorf(codePluginProtocolViolation, "governance entry requires a valid identity scope", nil)
 	}
 	switch operation {

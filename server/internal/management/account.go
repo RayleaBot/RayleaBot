@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"time"
-	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
@@ -24,13 +23,16 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 			NewSecret     string          `json:"new_secret"`
 			NewIdentifier json.RawMessage `json:"new_identifier,omitempty"`
 		}
-		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.CurrentSecret == "" ||
-			utf8.RuneCountInString(request.NewSecret) < 8 || utf8.RuneCountInString(request.NewSecret) > 1024 {
+		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil {
 			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}
 		identifier := ""
-		if len(request.NewIdentifier) > 0 && (string(request.NewIdentifier) == "null" || json.Unmarshal(request.NewIdentifier, &identifier) != nil || utf8.RuneCountInString(identifier) > 128) {
+		if len(request.NewIdentifier) > 0 && (string(request.NewIdentifier) == "null" || json.Unmarshal(request.NewIdentifier, &identifier) != nil) {
+			writeAuthError(w, r, authCodeInvalidRequest)
+			return
+		}
+		if err := auth.ValidateCredentialUpdate(request.CurrentSecret, request.NewSecret, identifier); err != nil {
 			writeAuthError(w, r, authCodeInvalidRequest)
 			return
 		}

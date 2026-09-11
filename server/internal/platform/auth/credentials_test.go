@@ -4,10 +4,30 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestCredentialInputLengthsCountCharacters(t *testing.T) {
+	for _, tc := range []struct {
+		current, next, identifier string
+		valid                     bool
+	}{
+		{"old", strings.Repeat("密", 8), strings.Repeat("名", 128), true},
+		{"old", strings.Repeat("密", 1024), "", true},
+		{"old", strings.Repeat("密", 7), "", false},
+		{"old", strings.Repeat("密", 1025), "", false},
+		{"old", "password", strings.Repeat("名", 129), false},
+		{"", "password", "", false},
+	} {
+		err := ValidateCredentialUpdate(tc.current, tc.next, tc.identifier)
+		if (err == nil) != tc.valid {
+			t.Fatalf("input validity = %v, want %v", err, tc.valid)
+		}
+	}
+}
 
 func TestCredentialChangePreservesStateOnRejection(t *testing.T) {
 	for _, tc := range []struct {

@@ -10,12 +10,19 @@ import (
 
 var ErrInvalidCredentialInput = errors.New("invalid credential update input")
 
+func ValidateCredentialUpdate(currentSecret, newSecret, newIdentifier string) error {
+	if currentSecret == "" || utf8.RuneCountInString(newSecret) < 8 || utf8.RuneCountInString(newSecret) > 1024 || utf8.RuneCountInString(newIdentifier) > 128 {
+		return ErrInvalidCredentialInput
+	}
+	return nil
+}
+
 // UpdateCredentialsWithContext verifies the current password before atomically
 // replacing the credential source and revoking every existing session.
 func (m *Manager) UpdateCredentialsWithContext(ctx context.Context, claims Claims, currentSecret, newSecret, newIdentifier string) error {
 	ctx = normalizeContext(ctx)
-	if currentSecret == "" || utf8.RuneCountInString(newSecret) < 8 || utf8.RuneCountInString(newSecret) > 1024 || utf8.RuneCountInString(newIdentifier) > 128 {
-		return ErrInvalidCredentialInput
+	if err := ValidateCredentialUpdate(currentSecret, newSecret, newIdentifier); err != nil {
+		return err
 	}
 	newIdentifier = strings.TrimSpace(newIdentifier)
 

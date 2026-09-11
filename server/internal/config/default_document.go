@@ -7,6 +7,27 @@ import (
 
 var defaultDocumentTemplate = mustDefaultDocumentTemplate()
 
+var defaultHTTP = mustDefaultHTTPConfig()
+
+// DefaultHTTPConfig returns HTTP defaults derived from the embedded config schema.
+func DefaultHTTPConfig() HTTPConfig {
+	result := defaultHTTP
+	result.AllowPrivateHosts = append([]string(nil), defaultHTTP.AllowPrivateHosts...)
+	return result
+}
+
+func mustDefaultHTTPConfig() HTTPConfig {
+	raw, err := json.Marshal(defaultDocumentTemplate["http"])
+	if err != nil {
+		panic(fmt.Sprintf("encode HTTP config defaults: %v", err))
+	}
+	var result HTTPConfig
+	if err := json.Unmarshal(raw, &result); err != nil {
+		panic(fmt.Sprintf("decode HTTP config defaults: %v", err))
+	}
+	return result
+}
+
 func defaultDocument() map[string]any {
 	return CloneDocument(defaultDocumentTemplate)
 }

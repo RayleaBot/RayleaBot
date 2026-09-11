@@ -26,7 +26,7 @@ func (stub *updateServiceStub) Check(context.Context) (releaseupdate.StatusSnaps
 
 func TestUpdateStatusHandlerReturnsSharedState(t *testing.T) {
 	checkedAt := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
-	handler := NewUpdateHandlers(&updateServiceStub{status: releaseupdate.StatusSnapshot{
+	handler := newUpdateTestHandler(t, &updateServiceStub{status: releaseupdate.StatusSnapshot{
 		State:            "update_available",
 		CurrentVersion:   "1.0.0",
 		AvailableVersion: "1.1.0",
@@ -49,7 +49,7 @@ func TestUpdateStatusHandlerReturnsSharedState(t *testing.T) {
 }
 
 func TestUpdateCheckHandlerRejectsConcurrentCheck(t *testing.T) {
-	handler := NewUpdateHandlers(&updateServiceStub{err: releaseupdate.ErrCheckInProgress}).HandleCheck()
+	handler := newUpdateTestHandler(t, &updateServiceStub{err: releaseupdate.ErrCheckInProgress}).HandleCheck()
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/update/check", nil))
 	if recorder.Code != http.StatusTooManyRequests {
@@ -58,7 +58,7 @@ func TestUpdateCheckHandlerRejectsConcurrentCheck(t *testing.T) {
 }
 
 func TestUpdateCheckHandlerDoesNotLeakInternalFailure(t *testing.T) {
-	handler := NewUpdateHandlers(&updateServiceStub{err: errors.New("private upstream details")}).HandleCheck()
+	handler := newUpdateTestHandler(t, &updateServiceStub{err: errors.New("private upstream details")}).HandleCheck()
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/update/check", nil))
 	if recorder.Code != http.StatusBadGateway {
@@ -76,4 +76,19 @@ func contains(value, substring string) bool {
 		}
 	}
 	return false
+}
+
+func newUpdateTestHandler(t *testing.T, service UpdateService) *UpdateHandlers {
+	t.Helper()
+	handler, err := NewUpdateHandlers(service)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return handler
+}
+
+func TestUpdateHandlerRejectsMissingService(t *testing.T) {
+	if handler, err := NewUpdateHandlers(nil); err == nil || handler != nil {
+		t.Fatalf("missing dependency accepted: %#v, %v", handler, err)
+	}
 }

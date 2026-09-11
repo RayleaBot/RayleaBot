@@ -34,7 +34,6 @@ type ConfigUpdateResponse struct {
 type ConfigService interface {
 	CurrentConfigDocument() configruntime.Document
 	UpdateConfigDocument(context.Context, map[string]any) (configruntime.UpdateResult, error)
-	ApplyHotReloadableFields(internalconfig.Config) configruntime.ApplyEffects
 }
 
 type ConfigHandlers struct {
@@ -77,13 +76,6 @@ func (h *ConfigHandlers) HandleConfigPut() http.HandlerFunc {
 
 		httpapi.WriteJSON(w, http.StatusOK, updateResponseFromResult(response))
 	}
-}
-
-func (h *ConfigHandlers) ApplyHotReloadableFields(newCfg internalconfig.Config) configruntime.ApplyEffects {
-	if h.config == nil {
-		return configruntime.NewApplyEffects()
-	}
-	return h.config.ApplyHotReloadableFields(newCfg)
 }
 
 func responseFromDocument(doc configruntime.Document) ConfigResponse {
