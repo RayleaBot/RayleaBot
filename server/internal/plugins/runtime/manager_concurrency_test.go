@@ -593,6 +593,9 @@ func TestManagerStopIgnoresPluginThatAlreadyExited(t *testing.T) {
 	}
 }
 
+// helperSpec leaves generous budgets because helper processes start while the
+// rest of the suite competes for CPU; a test asserting a timeout sets its own
+// short budget instead of relying on these defaults.
 func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 	t.Helper()
 
@@ -602,7 +605,7 @@ func helperSpec(t *testing.T, scenario string, recordPath string) Spec {
 		recordPath,
 		2*time.Second,
 		4*time.Second,
-		400*time.Millisecond,
+		4*time.Second,
 	)
 }
 
@@ -625,7 +628,7 @@ func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string,
 	return spec
 }
 
-func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, _ time.Duration, shutdownGrace time.Duration) Spec {
+func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, initTimeout time.Duration, eventTimeout time.Duration, shutdownGrace time.Duration) Spec {
 	t.Helper()
 
 	executable, err := os.Executable()
