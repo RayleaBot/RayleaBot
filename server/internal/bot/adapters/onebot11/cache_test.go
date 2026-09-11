@@ -1,6 +1,7 @@
 package onebot11
 
 import (
+	"strconv"
 	"testing"
 	"time"
 )
@@ -143,5 +144,34 @@ func TestIdentityCacheInvalidatesFromEventFrameAndAPICall(t *testing.T) {
 	cache.InvalidateForAPICall("set_group_admin", map[string]any{"group_id": "100"})
 	if _, ok := cache.GetGroupMemberInfo("100", "201"); ok {
 		t.Fatal("expected API call to invalidate group members")
+	}
+}
+
+func TestIdentityCacheBoundsUnreadEntries(t *testing.T) {
+	t.Parallel()
+
+	cache := NewIdentityCache(time.Hour)
+	for i := 0; i < identityCacheMaxEntries; i++ {
+		cache.SetStrangerInfo(strconv.Itoa(i), StrangerInfo{Nickname: strconv.Itoa(i)})
+	}
+	cache.strangers["0"].expiresAt = time.Now().Add(-time.Minute)
+
+	cache.SetStrangerInfo("newest", StrangerInfo{Nickname: "newest"})
+
+	if got := len(cache.strangers); got != identityCacheMaxEntries {
+		t.Fatalf("stranger entries = %d, want %d", got, identityCacheMaxEntries)
+	}
+	if _, ok := cache.strangers["0"]; ok {
+		t.Fatal("the expired entry should have been evicted first")
+	}
+	if _, ok := cache.GetStrangerInfo("newest"); !ok {
+		t.Fatal("the newly written entry must survive eviction")
+	}
+
+	for i := 0; i < 10; i++ {
+		cache.SetStrangerInfo("extra-"+strconv.Itoa(i), StrangerInfo{})
+	}
+	if got := len(cache.strangers); got != identityCacheMaxEntries {
+		t.Fatalf("stranger entries after overflow = %d, want %d", got, identityCacheMaxEntries)
 	}
 }

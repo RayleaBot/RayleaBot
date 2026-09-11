@@ -2,15 +2,22 @@ package onebot11
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
+// identityCacheMaxEntries bounds each identity map. Entries expire on read,
+// so the bound only matters for identities that are never looked up again.
+const identityCacheMaxEntries = 4096
+
 // IdentityCache provides TTL-based caching for OneBot11 identity lookups
 // (login info, group info, group member info, stranger info). Expired
-// entries are detected on read; no background reaper is needed.
+// entries are detected on read; a write that pushes a map past
+// identityCacheMaxEntries evicts expired entries first, then the ones
+// closest to expiry.
 type IdentityCache struct {
 	ttl       time.Duration
 	mu        sync.RWMutex
@@ -78,10 +85,12 @@ func (c *IdentityCache) SetStrangerInfo(userID string, info StrangerInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	now := time.Now()
 	c.strangers[userID] = &cachedStrangerInfo{
 		value:     info,
-		expiresAt: time.Now().Add(c.ttl),
+		expiresAt: now.Add(c.ttl),
 	}
+	boundIdentityEntries(c.strangers, now, func(entry *cachedStrangerInfo) time.Time { return entry.expiresAt })
 }
 
 // GetLogin returns the cached login info if present and not expired.
@@ -123,10 +132,12 @@ func (c *IdentityCache) SetGroupInfo(groupID string, info GroupInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	now := time.Now()
 	c.groups[groupID] = &cachedGroupInfo{
 		value:     info,
-		expiresAt: time.Now().Add(c.ttl),
+		expiresAt: now.Add(c.ttl),
 	}
+	boundIdentityEntries(c.groups, now, func(entry *cachedGroupInfo) time.Time { return entry.expiresAt })
 }
 
 func (c *IdentityCache) InvalidateGroupInfo(groupID string) {
@@ -155,10 +166,40 @@ func (c *IdentityCache) SetGroupMemberInfo(groupID, userID string, info GroupMem
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	key := groupID + ":" + userID
-	c.members[key] = &cachedGroupMemberInfo{
+	now := time.Now()
+	c.members[groupID+":"+userID] = &cachedGroupMemberInfo{
 		value:     info,
-		expiresAt: time.Now().Add(c.ttl),
+		expiresAt: now.Add(c.ttl),
+	}
+	boundIdentityEntries(c.members, now, func(entry *cachedGroupMemberInfo) time.Time { return entry.expiresAt })
+}
+
+// boundIdentityEntries keeps entries within identityCacheMaxEntries: expired
+// entries go first, then the ones expiring soonest.
+func boundIdentityEntries[T any](entries map[string]*T, now time.Time, expiresAt func(*T) time.Time) {
+	if len(entries) <= identityCacheMaxEntries {
+		return
+	}
+	for key, entry := range entries {
+		if now.After(expiresAt(entry)) {
+			delete(entries, key)
+		}
+	}
+	excess := len(entries) - identityCacheMaxEntries
+	if excess <= 0 {
+		return
+	}
+	type candidate struct {
+		key       string
+		expiresAt time.Time
+	}
+	candidates := make([]candidate, 0, len(entries))
+	for key, entry := range entries {
+		candidates = append(candidates, candidate{key: key, expiresAt: expiresAt(entry)})
+	}
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].expiresAt.Before(candidates[j].expiresAt) })
+	for _, item := range candidates[:excess] {
+		delete(entries, item.key)
 	}
 }
 
