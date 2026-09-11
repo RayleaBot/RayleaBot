@@ -223,6 +223,9 @@ jobs:
       - name: Check design token generation and color drift
         run: node scripts/generate-design-tokens.mjs --check
 
+      - name: Check launcher icon generation
+        run: node scripts/generate-launcher-icons.mjs --check
+
   web:
     if: needs.changes.outputs.web == 'true' || needs.changes.outputs.contracts == 'true'
     runs-on: ubuntu-latest
