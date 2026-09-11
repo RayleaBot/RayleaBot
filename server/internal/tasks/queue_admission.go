@@ -15,9 +15,6 @@ func NewQueueAdmission(capacity int) *QueueAdmission {
 }
 
 func (q *QueueAdmission) TryAcquire() bool {
-	if q == nil {
-		return false
-	}
 	select {
 	case q.slots <- struct{}{}:
 		return true
@@ -27,9 +24,6 @@ func (q *QueueAdmission) TryAcquire() bool {
 }
 
 func (q *QueueAdmission) Release() {
-	if q == nil {
-		return
-	}
 	select {
 	case <-q.slots:
 	default:

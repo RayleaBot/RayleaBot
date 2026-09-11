@@ -24,9 +24,6 @@ func NewOneTimeToken(value string) *OneTimeToken {
 }
 
 func (t *OneTimeToken) Consume(candidate string) bool {
-	if t == nil {
-		return false
-	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.consumed || len(t.value) == 0 || !hmac.Equal(t.value, []byte(candidate)) {

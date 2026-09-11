@@ -503,9 +503,6 @@ func (e *Engine) Trigger(ctx context.Context, jobID string) (Job, error) {
 }
 
 func (e *Engine) RecordRunResult(ctx context.Context, result RunResult) error {
-	if e == nil {
-		return ErrJobNotFound
-	}
 	if result.OccurredAt.IsZero() {
 		result.OccurredAt = e.now().UTC()
 	}

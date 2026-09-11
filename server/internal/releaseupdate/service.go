@@ -82,18 +82,12 @@ func NewEmbeddedService(installRoot string) *Service {
 }
 
 func (s *Service) Status() StatusSnapshot {
-	if s == nil {
-		return StatusSnapshot{State: "disabled", CurrentVersion: "unknown", UpdateMode: "unavailable", ErrorCode: CodeTrustRequired}
-	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return cloneStatusSnapshot(s.snapshot)
 }
 
 func (s *Service) Check(ctx context.Context) (StatusSnapshot, error) {
-	if s == nil {
-		return StatusSnapshot{}, errorWithCode(CodeTrustRequired, "check update", errors.New("update service is unavailable"))
-	}
 	s.mu.Lock()
 	if s.checker == nil {
 		snapshot := cloneStatusSnapshot(s.snapshot)
