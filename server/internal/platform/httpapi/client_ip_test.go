@@ -14,16 +14,13 @@ func TestTrustedProxyResolverUsesFirstUntrustedAddressFromRight(t *testing.T) {
 	request.RemoteAddr = "127.0.0.1:54321"
 	request.Header.Set("X-Forwarded-For", "198.51.100.25, 10.2.3.4")
 
-	var clientIP, peerIP string
-	var trusted bool
+	var clientIP string
 	resolver.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 		clientIP = RequestRemoteIP(request)
-		peerIP = RequestPeerIP(request)
-		trusted = RequestUsesTrustedProxy(request)
 	})).ServeHTTP(httptest.NewRecorder(), request)
 
-	if clientIP != "198.51.100.25" || peerIP != "127.0.0.1" || !trusted {
-		t.Fatalf("unexpected proxy resolution: client=%q peer=%q trusted=%v", clientIP, peerIP, trusted)
+	if clientIP != "198.51.100.25" {
+		t.Fatalf("unexpected proxy resolution: client=%q", clientIP)
 	}
 }
 
@@ -53,12 +50,10 @@ func TestTrustedProxyResolverIgnoresSpoofedHeadersFromUntrustedPeer(t *testing.T
 	request.Header.Set("X-Forwarded-For", "198.51.100.25")
 
 	var clientIP string
-	var trusted bool
 	resolver.Middleware(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
 		clientIP = RequestRemoteIP(request)
-		trusted = RequestUsesTrustedProxy(request)
 	})).ServeHTTP(httptest.NewRecorder(), request)
-	if clientIP != "192.0.2.44" || trusted {
-		t.Fatalf("spoofed header was trusted: client=%q trusted=%v", clientIP, trusted)
+	if clientIP != "192.0.2.44" {
+		t.Fatalf("spoofed header was trusted: client=%q", clientIP)
 	}
 }

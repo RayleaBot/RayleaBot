@@ -10,9 +10,7 @@ import (
 type clientIPContextKey struct{}
 
 type clientIPContext struct {
-	peerIP       string
-	clientIP     string
-	trustedProxy bool
+	clientIP string
 }
 
 type TrustedProxyResolver struct {
@@ -37,9 +35,8 @@ func NewTrustedProxyResolver(exposureMode string, cidrs []string) *TrustedProxyR
 func (resolver *TrustedProxyResolver) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		peerIP := remoteAddressIP(request)
-		info := clientIPContext{peerIP: peerIP, clientIP: peerIP}
+		info := clientIPContext{clientIP: peerIP}
 		if resolver != nil && resolver.enabled && resolver.contains(peerIP) {
-			info.trustedProxy = true
 			if clientIP := resolver.forwardedClientIP(request); clientIP != "" {
 				info.clientIP = clientIP
 			}
@@ -149,22 +146,4 @@ func remoteAddressIP(request *http.Request) string {
 		return ip.String()
 	}
 	return strings.TrimSpace(strings.Trim(host, "[]"))
-}
-
-func RequestPeerIP(request *http.Request) string {
-	if request == nil {
-		return ""
-	}
-	if info, ok := request.Context().Value(clientIPContextKey{}).(clientIPContext); ok && info.peerIP != "" {
-		return info.peerIP
-	}
-	return remoteAddressIP(request)
-}
-
-func RequestUsesTrustedProxy(request *http.Request) bool {
-	if request == nil {
-		return false
-	}
-	info, ok := request.Context().Value(clientIPContextKey{}).(clientIPContext)
-	return ok && info.trustedProxy
 }
