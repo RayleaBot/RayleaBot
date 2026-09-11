@@ -25,39 +25,25 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 
 	activeLanes := make(map[string]struct{})
 	pendingByLane := make(map[string][]dispatchItem)
-	laneOrder := make([]string, 0)
+	lanes := newLaneQueue()
 	completions := make(chan laneCompletion, slot.concurrency)
 	eventQueue := (<-chan dispatchItem)(slot.eventQueue)
 	controlQueue := (<-chan dispatchItem)(slot.controlQueue)
 	fallbackCounter := 0
 	activeCount := 0
 
-	appendLane := func(laneKey string) {
-		for _, existing := range laneOrder {
-			if existing == laneKey {
-				return
-			}
-		}
-		laneOrder = append(laneOrder, laneKey)
-	}
-
-	removeLaneAt := func(index int) {
-		copy(laneOrder[index:], laneOrder[index+1:])
-		laneOrder = laneOrder[:len(laneOrder)-1]
-	}
-
 	startReadyLanes := func() {
 		for activeCount < slot.concurrency {
 			started := false
-			for i := 0; i < len(laneOrder) && activeCount < slot.concurrency; i++ {
-				laneKey := laneOrder[i]
+			for i := 0; i < len(lanes.order) && activeCount < slot.concurrency; i++ {
+				laneKey := lanes.order[i]
 				if _, active := activeLanes[laneKey]; active {
 					continue
 				}
 				queueForLane := pendingByLane[laneKey]
 				if len(queueForLane) == 0 {
 					delete(pendingByLane, laneKey)
-					removeLaneAt(i)
+					lanes.removeAt(i)
 					i--
 					continue
 				}
@@ -66,7 +52,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				queueForLane = queueForLane[1:]
 				if len(queueForLane) == 0 {
 					delete(pendingByLane, laneKey)
-					removeLaneAt(i)
+					lanes.removeAt(i)
 					i--
 				} else {
 					pendingByLane[laneKey] = queueForLane
@@ -107,7 +93,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 					controlQueue = nil
 					continue
 				}
-				enqueueLaneItem(item, pendingByLane, &laneOrder, activeLanes, &fallbackCounter)
+				enqueueLaneItem(item, pendingByLane, lanes, activeLanes, &fallbackCounter)
 				continue
 			default:
 			}
@@ -119,13 +105,13 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				controlQueue = nil
 				continue
 			}
-			enqueueLaneItem(item, pendingByLane, &laneOrder, activeLanes, &fallbackCounter)
+			enqueueLaneItem(item, pendingByLane, lanes, activeLanes, &fallbackCounter)
 		case item, ok := <-normalInbound:
 			if !ok {
 				eventQueue = nil
 				continue
 			}
-			enqueueLaneItem(item, pendingByLane, &laneOrder, activeLanes, &fallbackCounter)
+			enqueueLaneItem(item, pendingByLane, lanes, activeLanes, &fallbackCounter)
 		case completion := <-completions:
 			if _, active := activeLanes[completion.laneKey]; !active {
 				continue
@@ -133,7 +119,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 			delete(activeLanes, completion.laneKey)
 			activeCount--
 			if len(pendingByLane[completion.laneKey]) > 0 {
-				appendLane(completion.laneKey)
+				lanes.append(completion.laneKey)
 			}
 		}
 	}
@@ -203,7 +189,7 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 func enqueueLaneItem(
 	item dispatchItem,
 	pendingByLane map[string][]dispatchItem,
-	laneOrder *[]string,
+	lanes *laneQueue,
 	activeLanes map[string]struct{},
 	fallbackCounter *int,
 ) {
@@ -212,12 +198,32 @@ func enqueueLaneItem(
 	if _, active := activeLanes[laneKey]; active {
 		return
 	}
-	for _, existing := range *laneOrder {
-		if existing == laneKey {
-			return
-		}
+	lanes.append(laneKey)
+}
+
+// laneQueue keeps lanes in arrival order with a membership index so enqueue
+// does not scan the order on every event.
+type laneQueue struct {
+	order   []string
+	present map[string]struct{}
+}
+
+func newLaneQueue() *laneQueue {
+	return &laneQueue{present: make(map[string]struct{})}
+}
+
+func (q *laneQueue) append(laneKey string) {
+	if _, ok := q.present[laneKey]; ok {
+		return
 	}
-	*laneOrder = append(*laneOrder, laneKey)
+	q.present[laneKey] = struct{}{}
+	q.order = append(q.order, laneKey)
+}
+
+func (q *laneQueue) removeAt(index int) {
+	delete(q.present, q.order[index])
+	copy(q.order[index:], q.order[index+1:])
+	q.order = q.order[:len(q.order)-1]
 }
 
 func laneKeyForEvent(event chatevent.Event, fallbackCounter *int) string {
