@@ -23,7 +23,3 @@
 - 固定工具链与发布基线：[`docs/engineering/baseline.md`](../engineering/baseline.md)
 
 在正式 Authenticode 证书和真实签名 Windows packaged E2E 通过之前，`windows-x64-full` 的更新方式固定为 `guided`（引导更新）。
-
-## 历史排障记录
-
-[2026-09-04 日志运行修复](./log-runtime-repair-2026-09-04.md) 保留当时的问题、处理与验证边界，不作为当前操作流程或本轮验收证据。
