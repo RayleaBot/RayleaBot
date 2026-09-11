@@ -206,23 +206,6 @@ func TestBackupCreatesValidArchive(t *testing.T) {
 	}
 }
 
-func TestSameBackupPathResolvesRelativeAndAbsolutePaths(t *testing.T) {
-	t.Parallel()
-
-	absolute := filepath.Join(t.TempDir(), "data", "rayleabot.db")
-	workingDirectory, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("resolve working directory: %v", err)
-	}
-	relative, err := filepath.Rel(workingDirectory, absolute)
-	if err != nil {
-		t.Fatalf("resolve relative path: %v", err)
-	}
-	if !sameBackupPath(relative, absolute) {
-		t.Fatalf("expected relative and absolute spellings to match: %q and %q", relative, absolute)
-	}
-}
-
 func TestRestoreExtractsArchiveContents(t *testing.T) {
 	t.Parallel()
 

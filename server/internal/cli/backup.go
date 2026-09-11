@@ -2,8 +2,6 @@ package cli
 
 import (
 	"context"
-	"path/filepath"
-	"strings"
 
 	backupsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/backup"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
@@ -37,13 +35,4 @@ func runBackup(cmd Command) int {
 		"plugins", len(result.Manifest.Plugins),
 	)
 	return 0
-}
-
-func sameBackupPath(left, right string) bool {
-	leftAbsolute, leftErr := filepath.Abs(left)
-	rightAbsolute, rightErr := filepath.Abs(right)
-	if leftErr != nil || rightErr != nil {
-		return strings.EqualFold(filepath.Clean(left), filepath.Clean(right))
-	}
-	return strings.EqualFold(filepath.Clean(leftAbsolute), filepath.Clean(rightAbsolute))
 }
