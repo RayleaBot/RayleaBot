@@ -51,7 +51,3 @@ $env:IMPECCABLE_CONTEXT_DIR = (Get-Location).Path
 ```
 
 共享设计记录的维护在仓库根执行 `.agents/skills/impeccable/scripts/impeccable.cmd doctor --json`。设计稿、评审截图、交互会话和构建草稿在本地使用；`PRODUCT.md`、`DESIGN.md`、`design/tokens.json` 与 `.impeccable/design.json` 随仓库维护。
-
-## 历史记录
-
-[2026-09-05 配置工作台验证](./history/configuration-workbench-2026-09-05.md) 保留当时的结论和测试范围，与当前规范及本轮验收分开。
