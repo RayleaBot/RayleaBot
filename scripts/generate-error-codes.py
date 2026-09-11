@@ -33,8 +33,8 @@ def generate(codes: dict, diagnostics: dict) -> dict[Path, str]:
         names.add(name)
         status = entry['http_status'] or 0
         surfaces = entry['applies_to']
-        if ('http' in surfaces) != (status != 0) and 'http' in surfaces:
-            raise ValueError(f'{code}: HTTP applicability requires a status')
+        if ('http' in surfaces) != (status != 0):
+            raise ValueError(f'{code}: HTTP applicability and status must agree')
         constants.append(f'{name} = {quoted(code)}')
         constants.append(f'{name}MessageKey = {quoted(entry["message_key"])}')
         definitions.append(

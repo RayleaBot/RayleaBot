@@ -410,6 +410,9 @@ def error_entry_errors(entry: Any) -> list[str]:
                        "items": {"type": "string", "minLength": 1}},
     })
     errors = [format_schema_error(error) for error in Draft202012Validator(schema).iter_errors(entry)]
+    if isinstance(entry, dict) and isinstance(entry.get("applies_to"), list):
+        if ("http" in entry["applies_to"]) != (entry.get("http_status") is not None):
+            errors.append("HTTP applicability and status must agree")
     if isinstance(entry, dict) and "details_schema" in entry:
         try:
             Draft202012Validator.check_schema(entry["details_schema"])

@@ -104,6 +104,14 @@ class ContractValidatorTests(unittest.TestCase):
         entry = dict(self.catalog["plugin.install_failed"], details_schema={"type": "not-a-type"})
         self.assertTrue(validator.error_entry_errors(entry))
 
+    def test_http_status_and_applicability_must_agree_in_both_directions(self) -> None:
+        for code, field, value in [("plugin.shutdown", "http_status", 503),
+                                   ("platform.internal_error", "http_status", None)]:
+            entry = dict(self.catalog[code])
+            entry[field] = value
+            with self.subTest(code=code):
+                self.assertTrue(validator.error_entry_errors(entry))
+
     def test_http_error_code_status_scope_and_key_follow_catalog(self) -> None:
         response = {"status": 404, "body": {"error": {
             "code": "platform.resource_not_found", "message_key": "errors.platform.resource_not_found",

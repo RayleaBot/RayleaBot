@@ -59,13 +59,13 @@ func (s *Service) CurrentReadiness() ReadinessReport {
 		case "blocked":
 			report.Status = "failed"
 			report.Reason = "Recovery compatibility checks blocked startup"
-			report.ReasonCodes = []string{"recovery.blocked"}
+			report.ReasonCodes = []string{errorcodes.DiagnosticRecoveryBlocked}
 			report.Checks["runtime"] = "recovery_blocked"
 		case "degraded", "pending":
 			if report.Status == "ready" {
 				report.Status = "degraded"
 				report.Reason = "Recovery compatibility checks require attention"
-				report.ReasonCodes = []string{"recovery.degraded"}
+				report.ReasonCodes = []string{errorcodes.DiagnosticRecoveryDegraded}
 			}
 		}
 		report.Issues = append(report.Issues, recoveryIssuesToHealth(report.RecoverySummary.Issues)...)

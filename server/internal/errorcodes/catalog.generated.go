@@ -140,6 +140,8 @@ const (
 	PluginProtocolViolationMessageKey                   = "errors.plugin.protocol_violation"
 	PluginSettingsApplyFailed                           = "plugin.settings_apply_failed"
 	PluginSettingsApplyFailedMessageKey                 = "errors.plugin.settings_apply_failed"
+	PluginShutdown                                      = "plugin.shutdown"
+	PluginShutdownMessageKey                            = "errors.plugin.shutdown"
 	PluginShutdownTimeout                               = "plugin.shutdown_timeout"
 	PluginShutdownTimeoutMessageKey                     = "errors.plugin.shutdown_timeout"
 	PluginStopping                                      = "plugin.stopping"
@@ -198,8 +200,10 @@ const (
 	DiagnosticLoggingRecentErrorsUnavailable            = "logging.recent_errors_unavailable"
 	DiagnosticPlatformTemplateSourceInvalid             = "platform.template_source_invalid"
 	DiagnosticPluginMinCoreVersion                      = "plugin.min_core_version"
+	DiagnosticRecoveryBlocked                           = "recovery.blocked"
 	DiagnosticRecoveryConfigSchemaUnsupported           = "recovery.config_schema_unsupported"
 	DiagnosticRecoveryDbSchemaUnsupported               = "recovery.db_schema_unsupported"
+	DiagnosticRecoveryDegraded                          = "recovery.degraded"
 	DiagnosticRecoveryPluginIncompatible                = "recovery.plugin_incompatible"
 	DiagnosticRecoveryPluginMinCoreVersion              = "recovery.plugin_min_core_version"
 	DiagnosticRecoveryPluginPlatformMismatch            = "recovery.plugin_platform_mismatch"
@@ -240,10 +244,10 @@ var catalog = map[string]Definition{
 	AdapterTransportWebhookDuplicateEvent:     {Code: AdapterTransportWebhookDuplicateEvent, HTTPStatus: 202, MessageKey: AdapterTransportWebhookDuplicateEventMessageKey, Message: "OneBot Webhook 重复事件已丢弃", Retryable: false, Surfaces: "http,websocket,logs"},
 	AdapterTransportWebhookInvalidPayload:     {Code: AdapterTransportWebhookInvalidPayload, HTTPStatus: 400, MessageKey: AdapterTransportWebhookInvalidPayloadMessageKey, Message: "OneBot Webhook 负载不合法", Retryable: false, Surfaces: "http,websocket,readiness"},
 	PermissionAuthenticationRequired:          {Code: PermissionAuthenticationRequired, HTTPStatus: 401, MessageKey: PermissionAuthenticationRequiredMessageKey, Message: "请求认证未通过", Retryable: false, Surfaces: "http,websocket"},
-	PermissionBlacklisted:                     {Code: PermissionBlacklisted, HTTPStatus: 403, MessageKey: PermissionBlacklistedMessageKey, Message: "当前用户或群处于黑名单中", Retryable: false, Surfaces: "plugin_protocol,logs"},
+	PermissionBlacklisted:                     {Code: PermissionBlacklisted, HTTPStatus: 0, MessageKey: PermissionBlacklistedMessageKey, Message: "当前用户或群处于黑名单中", Retryable: false, Surfaces: "plugin_protocol,logs"},
 	PermissionCurrentSecretInvalid:            {Code: PermissionCurrentSecretInvalid, HTTPStatus: 403, MessageKey: PermissionCurrentSecretInvalidMessageKey, Message: "当前密码不正确", Retryable: false, Surfaces: "http"},
 	PermissionDenied:                          {Code: PermissionDenied, HTTPStatus: 403, MessageKey: PermissionDeniedMessageKey, Message: "当前用户无权执行该操作", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},
-	PermissionNotWhitelisted:                  {Code: PermissionNotWhitelisted, HTTPStatus: 403, MessageKey: PermissionNotWhitelistedMessageKey, Message: "当前用户或群不在白名单中", Retryable: false, Surfaces: "plugin_protocol,logs"},
+	PermissionNotWhitelisted:                  {Code: PermissionNotWhitelisted, HTTPStatus: 0, MessageKey: PermissionNotWhitelistedMessageKey, Message: "当前用户或群不在白名单中", Retryable: false, Surfaces: "plugin_protocol,logs"},
 	PermissionUnavailable:                     {Code: PermissionUnavailable, HTTPStatus: 0, MessageKey: PermissionUnavailableMessageKey, Message: "暂时无法确认权限，本次操作未执行", Retryable: true, Surfaces: "logs"},
 	PlatformInternalError:                     {Code: PlatformInternalError, HTTPStatus: 500, MessageKey: PlatformInternalErrorMessageKey, Message: "内部错误", Retryable: true, Surfaces: "http,websocket,plugin_protocol,task,readiness"},
 	PlatformInvalidConfig:                     {Code: PlatformInvalidConfig, HTTPStatus: 400, MessageKey: PlatformInvalidConfigMessageKey, Message: "配置校验失败", Retryable: false, Surfaces: "http,websocket,readiness"},
@@ -262,7 +266,7 @@ var catalog = map[string]Definition{
 	PlatformThirdPartyAccountNotFound:         {Code: PlatformThirdPartyAccountNotFound, HTTPStatus: 404, MessageKey: PlatformThirdPartyAccountNotFoundMessageKey, Message: "三方账号不存在或尚未配置凭据", Retryable: false, Surfaces: "http"},
 	PlatformUpstreamRequestFailed:             {Code: PlatformUpstreamRequestFailed, HTTPStatus: 502, MessageKey: PlatformUpstreamRequestFailedMessageKey, Message: "上游请求失败", Retryable: true, Surfaces: "http,websocket,plugin_protocol,readiness"},
 	PlatformUpstreamResponseTooLarge:          {Code: PlatformUpstreamResponseTooLarge, HTTPStatus: 502, MessageKey: PlatformUpstreamResponseTooLargeMessageKey, Message: "上游响应超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol,task"},
-	PlatformUserRateLimited:                   {Code: PlatformUserRateLimited, HTTPStatus: 429, MessageKey: PlatformUserRateLimitedMessageKey, Message: "用户命令触发冷却限流", Retryable: true, Surfaces: "plugin_protocol,logs"},
+	PlatformUserRateLimited:                   {Code: PlatformUserRateLimited, HTTPStatus: 0, MessageKey: PlatformUserRateLimitedMessageKey, Message: "用户命令触发冷却限流", Retryable: true, Surfaces: "plugin_protocol,logs"},
 	PlatformValueTooLarge:                     {Code: PlatformValueTooLarge, HTTPStatus: 413, MessageKey: PlatformValueTooLargeMessageKey, Message: "写入值超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol"},
 	PluginArtifactInvalid:                     {Code: PluginArtifactInvalid, HTTPStatus: 400, MessageKey: PluginArtifactInvalidMessageKey, Message: "插件产物结构或入口校验失败", Retryable: false, Surfaces: "http,task,plugin_protocol"},
 	PluginContractUnsupported:                 {Code: PluginContractUnsupported, HTTPStatus: 409, MessageKey: PluginContractUnsupportedMessageKey, Message: "插件合同版本不受支持", Retryable: false, Surfaces: "http,task,cli,plugin_protocol,backup,restore,update,readiness"},
@@ -284,6 +288,7 @@ var catalog = map[string]Definition{
 	PluginPlatformMismatch:                    {Code: PluginPlatformMismatch, HTTPStatus: 409, MessageKey: PluginPlatformMismatchMessageKey, Message: "插件产物与当前平台不匹配", Retryable: false, Surfaces: "http,task,readiness"},
 	PluginProtocolViolation:                   {Code: PluginProtocolViolation, HTTPStatus: 0, MessageKey: PluginProtocolViolationMessageKey, Message: "插件协议违规", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
 	PluginSettingsApplyFailed:                 {Code: PluginSettingsApplyFailed, HTTPStatus: 409, MessageKey: PluginSettingsApplyFailedMessageKey, Message: "设置已保存，运行时应用失败，请重试保存或重载插件", Retryable: true, Surfaces: "http,plugin_protocol,task"},
+	PluginShutdown:                            {Code: PluginShutdown, HTTPStatus: 0, MessageKey: PluginShutdownMessageKey, Message: "插件运行时已关闭，本地动作结果未确认", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginShutdownTimeout:                     {Code: PluginShutdownTimeout, HTTPStatus: 0, MessageKey: PluginShutdownTimeoutMessageKey, Message: "插件优雅退出超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},
 	PluginStopping:                            {Code: PluginStopping, HTTPStatus: 0, MessageKey: PluginStoppingMessageKey, Message: "插件正在停止，不再接受新动作", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginStoreCatalogUnavailable:             {Code: PluginStoreCatalogUnavailable, HTTPStatus: 503, MessageKey: PluginStoreCatalogUnavailableMessageKey, Message: "插件商店目录暂不可用", Retryable: true, Surfaces: "http,task"},
@@ -324,8 +329,10 @@ var diagnostics = map[string]string{
 	DiagnosticLoggingRecentErrorsUnavailable:   "Recent log errors could not be read.",
 	DiagnosticPlatformTemplateSourceInvalid:    "A render template source failed validation.",
 	DiagnosticPluginMinCoreVersion:             "A plugin requires a newer core version.",
+	DiagnosticRecoveryBlocked:                  "Current-format recovery checks block service readiness; the containing report provides affected items and recovery actions.",
 	DiagnosticRecoveryConfigSchemaUnsupported:  "The backup configuration format is not the current format.",
 	DiagnosticRecoveryDbSchemaUnsupported:      "The backup database structure is not the current structure.",
+	DiagnosticRecoveryDegraded:                 "Recovery checks require attention while the service remains available; the containing report provides affected items and recovery actions.",
 	DiagnosticRecoveryPluginIncompatible:       "A restored plugin does not satisfy the current runtime requirements.",
 	DiagnosticRecoveryPluginMinCoreVersion:     "A restored plugin requires a newer core version.",
 	DiagnosticRecoveryPluginPlatformMismatch:   "A restored plugin targets a different native platform.",

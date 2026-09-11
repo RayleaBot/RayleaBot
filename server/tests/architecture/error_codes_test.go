@@ -53,33 +53,108 @@ func TestHTTPErrorCodesAreDeclaredForTheirTransport(t *testing.T) {
 
 func TestStructuredErrorAndDiagnosticCodesAreRegistered(t *testing.T) {
 	serverRoot := testServerRoot(t)
-	root := filepath.Join(serverRoot, "internal")
 	declared := loadDeclaredErrorCodes(t, serverRoot)
-	constants := managementPackageStringConstants(t, serverRoot, root)
-	walkGoFiles(t, root, func(path string) {
-		if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
+	for _, root := range []string{filepath.Join(serverRoot, "internal"), filepath.Join(serverRoot, "..", "sdk", "go")} {
+		constants := managementPackageStringConstants(t, serverRoot, root)
+		walkGoFiles(t, root, func(path string) {
+			if strings.HasSuffix(path, "_test.go") || isGeneratedGoFile(path) {
+				return
+			}
+			set := token.NewFileSet()
+			file, err := parser.ParseFile(set, path, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, reported := range structuredReportedCodes(set, file, path, constants[filepath.Dir(path)], root != filepath.Join(serverRoot, "internal")) {
+				if _, ok := declared[reported.code]; !ok {
+					t.Errorf("%s:%d uses unregistered error/diagnostic code %q", relPath(t, serverRoot, path), reported.line, reported.code)
+				}
+			}
+		})
+	}
+}
+
+func structuredReportedCodes(set *token.FileSet, file *ast.File, path string, constants map[string]string, sdk bool) []reportedErrorCode {
+	var reported []reportedErrorCode
+	var collect func(ast.Expr)
+	collect = func(expr ast.Expr) {
+		if code, ok := errorCodeExpressionValue(expr, constants); ok && strings.Contains(code, ".") {
+			reported = append(reported, reportedErrorCodeFromExpr(set, path, expr, code))
 			return
 		}
-		set := token.NewFileSet()
-		file, err := parser.ParseFile(set, path, nil, 0)
-		if err != nil {
-			t.Fatal(err)
+		if literal, ok := expr.(*ast.CompositeLit); ok {
+			for _, element := range literal.Elts {
+				collect(element)
+			}
 		}
-		ast.Inspect(file, func(node ast.Node) bool {
-			field, ok := node.(*ast.KeyValueExpr)
-			if !ok || (selectorIdentName(field.Key) != "Code" && selectorIdentName(field.Key) != "ErrorCode") {
-				return true
+		if call, ok := expr.(*ast.CallExpr); ok && selectorIdentName(call.Fun) == "append" {
+			for _, element := range call.Args[1:] {
+				collect(element)
 			}
-			code, ok := errorCodeExpressionValue(field.Value, constants[filepath.Dir(path)])
-			if !ok || !strings.Contains(code, ".") {
-				return true
+		}
+	}
+	isCode := func(name string) bool { return name == "Code" || name == "ErrorCode" || name == "ReasonCodes" }
+	ast.Inspect(file, func(node ast.Node) bool {
+		switch value := node.(type) {
+		case *ast.KeyValueExpr:
+			if isCode(selectorIdentName(value.Key)) {
+				collect(value.Value)
 			}
-			if _, ok := declared[code]; !ok {
-				t.Errorf("%s:%d uses unregistered error/diagnostic code %q", relPath(t, serverRoot, path), set.Position(field.Pos()).Line, code)
+		case *ast.AssignStmt:
+			for index, target := range value.Lhs {
+				if isCode(selectorIdentName(target)) && index < len(value.Rhs) {
+					collect(value.Rhs[index])
+				}
 			}
-			return true
-		})
+		case *ast.CallExpr:
+			if !sdk {
+				break
+			}
+			index := -1
+			switch selectorIdentName(value.Fun) {
+			case "sendError":
+				index = 1
+			case "Fail":
+				index = 0
+			}
+			if index >= 0 && len(value.Args) > index {
+				collect(value.Args[index])
+			}
+		}
+		return true
 	})
+	return reported
+}
+
+func TestStructuredCodeGuardIncludesAssignmentsSlicesAndSDKFailures(t *testing.T) {
+	set := token.NewFileSet()
+	file, err := parser.ParseFile(set, "sample.go", `package sample
+func f() {
+    report := Report{ReasonCodes: []string{"recovery.blocked"}, Code: "plugin.shutdown"}
+    report.ReasonCodes = []string{errorcodes.DiagnosticRecoveryDegraded}
+    report.ReasonCodes = append(report.ReasonCodes, "unregistered.reason")
+    report.ErrorCode = "unregistered.assignment"
+    state.sendError("request", "unregistered.sdk", "message")
+    event.Fail("unregistered.failure", "message")
+    report.Summary = "unregistered.not_a_code"
+}`, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, item := range structuredReportedCodes(set, file, "sample.go", map[string]string{
+		"errorcodes.DiagnosticRecoveryDegraded": "recovery.degraded",
+	}, true) {
+		got[item.code] = true
+	}
+	for _, code := range []string{"recovery.blocked", "plugin.shutdown", "recovery.degraded", "unregistered.reason", "unregistered.assignment", "unregistered.sdk", "unregistered.failure"} {
+		if !got[code] {
+			t.Errorf("guard missed %s", code)
+		}
+	}
+	if got["unregistered.not_a_code"] {
+		t.Error("ordinary text was treated as an error code")
+	}
 }
 
 func loadDeclaredErrorCodes(t *testing.T, serverRoot string) map[string]struct{} {

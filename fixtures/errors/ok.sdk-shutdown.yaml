@@ -1,0 +1,10 @@
+contract: contracts/error-codes.yaml
+case: ok
+description: SDK shutdown reports an unconfirmed local-action result without HTTP semantics or automatic replay.
+input:
+  errors:
+    - code: plugin.shutdown
+      message: 插件运行时已关闭，本地动作结果未确认
+      applies_to: plugin_protocol
+expect:
+  valid: true

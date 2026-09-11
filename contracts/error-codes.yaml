@@ -9,6 +9,7 @@ x-fixtures:
   - fixtures/errors/ok.plugin-operation-failures.yaml
   - fixtures/errors/invalid.plugin-operation-state.yaml
   - fixtures/errors/ok.plugin-settings-apply-failed.yaml
+  - fixtures/errors/ok.sdk-shutdown.yaml
 
 domains:
   - platform
@@ -18,6 +19,19 @@ domains:
   - release
 
 codes:
+  plugin.shutdown:
+    code: plugin.shutdown
+    domain: plugin
+    message_key: errors.plugin.shutdown
+    message: 插件运行时已关闭，本地动作结果未确认
+    description: >
+      The SDK completes pending local-action waits when its host connection or runtime
+      shuts down. This is a local SDK failure result; it does not confirm whether an
+      in-flight host action committed and must not trigger automatic replay.
+    http_status: null
+    retryable: false
+    applies_to: [plugin_protocol]
+
   plugin.settings_apply_failed:
     code: plugin.settings_apply_failed
     domain: plugin
@@ -285,7 +299,7 @@ codes:
     message_key: errors.platform.user_rate_limited
     message: 用户命令触发冷却限流
     description: A chat-side user command was rejected before plugin dispatch because the cooldown window was still active.
-    http_status: 429
+    http_status: null
     retryable: true
     applies_to: [plugin_protocol, logs]
 
@@ -641,7 +655,7 @@ codes:
     message_key: errors.permission.blacklisted
     message: 当前用户或群处于黑名单中
     description: The event source is blacklisted and the event must not be dispatched to plugins.
-    http_status: 403
+    http_status: null
     retryable: false
     applies_to: [plugin_protocol, logs]
 
@@ -651,7 +665,7 @@ codes:
     message_key: errors.permission.not_whitelisted
     message: 当前用户或群不在白名单中
     description: Command dispatch admission is gated by the whitelist and the current user or group did not match any whitelist entry.
-    http_status: 403
+    http_status: null
     retryable: false
     applies_to: [plugin_protocol, logs]
 
@@ -1005,6 +1019,10 @@ codes:
 
 # Diagnostic identities are not HTTP errors. Status and remediation belong to the containing report.
 diagnostics:
+  recovery.blocked:
+    description: Current-format recovery checks block service readiness; the containing report provides affected items and recovery actions.
+  recovery.degraded:
+    description: Recovery checks require attention while the service remains available; the containing report provides affected items and recovery actions.
   auth.unavailable:
     description: The authentication subsystem is unavailable.
   config.not_accessible:

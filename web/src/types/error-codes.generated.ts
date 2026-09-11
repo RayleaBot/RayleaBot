@@ -128,7 +128,7 @@ export const errorCatalog = {
   },
   "permission.blacklisted": {
     "messageKey": "errors.permission.blacklisted",
-    "httpStatus": 403,
+    "httpStatus": null,
     "retryable": false
   },
   "permission.current_secret_invalid": {
@@ -143,7 +143,7 @@ export const errorCatalog = {
   },
   "permission.not_whitelisted": {
     "messageKey": "errors.permission.not_whitelisted",
-    "httpStatus": 403,
+    "httpStatus": null,
     "retryable": false
   },
   "permission.unavailable": {
@@ -238,7 +238,7 @@ export const errorCatalog = {
   },
   "platform.user_rate_limited": {
     "messageKey": "errors.platform.user_rate_limited",
-    "httpStatus": 429,
+    "httpStatus": null,
     "retryable": true
   },
   "platform.value_too_large": {
@@ -345,6 +345,11 @@ export const errorCatalog = {
     "messageKey": "errors.plugin.settings_apply_failed",
     "httpStatus": 409,
     "retryable": true
+  },
+  "plugin.shutdown": {
+    "messageKey": "errors.plugin.shutdown",
+    "httpStatus": null,
+    "retryable": false
   },
   "plugin.shutdown_timeout": {
     "messageKey": "errors.plugin.shutdown_timeout",
@@ -530,6 +535,7 @@ export const errorMessages = {
     "platform_mismatch": "插件产物与当前平台不匹配",
     "protocol_violation": "插件协议违规",
     "settings_apply_failed": "设置已保存，运行时应用失败，请重试保存或重载插件",
+    "shutdown": "插件运行时已关闭，本地动作结果未确认",
     "shutdown_timeout": "插件优雅退出超时",
     "stopping": "插件正在停止，不再接受新动作",
     "store_catalog_unavailable": "插件商店目录暂不可用",
