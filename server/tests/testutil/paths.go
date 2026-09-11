@@ -22,19 +22,9 @@ func RepoRoot(t testing.TB) string {
 	return root
 }
 
-func ServerRoot(t testing.TB) string {
-	t.Helper()
-	return filepath.Join(RepoRoot(t), "server")
-}
-
 func RepoPath(t testing.TB, segments ...string) string {
 	t.Helper()
 	return filepath.Join(append([]string{RepoRoot(t)}, segments...)...)
-}
-
-func ServerPath(t testing.TB, segments ...string) string {
-	t.Helper()
-	return filepath.Join(append([]string{ServerRoot(t)}, segments...)...)
 }
 
 func ResolveRepoPath(path string) string {
