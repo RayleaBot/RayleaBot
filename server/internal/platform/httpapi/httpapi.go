@@ -44,27 +44,6 @@ type ErrorBody struct {
 type DomainError struct {
 	Code    string
 	Details map[string]any
-	Cause   error
-}
-
-func (e *DomainError) Error() string {
-	if e == nil {
-		return ""
-	}
-	if definition, ok := errorcodes.Lookup(e.Code); ok {
-		return definition.Message
-	}
-	if e.Cause != nil {
-		return e.Cause.Error()
-	}
-	return e.Code
-}
-
-func (e *DomainError) Unwrap() error {
-	if e == nil {
-		return nil
-	}
-	return e.Cause
 }
 
 type RequestObserver interface {

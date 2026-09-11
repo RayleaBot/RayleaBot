@@ -118,8 +118,6 @@ func (h *PluginManagementUIHandlers) HandlePluginManagementAction() http.Handler
 		if err != nil {
 			httpapi.WriteDomainError(w, r, &httpapi.DomainError{
 				Code: errorcodes.PluginManagementActionFailed,
-
-				Cause: err,
 			})
 			return
 		}

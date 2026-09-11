@@ -250,10 +250,8 @@ func writeThirdPartyAccountError(w http.ResponseWriter, r *http.Request, err err
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code: errorcodes.PlatformUpstreamRequestFailed,
-
+		Code:    errorcodes.PlatformUpstreamRequestFailed,
 		Details: map[string]any{"reason": "account_save_failed"},
-		Cause:   err,
 	})
 }
 
@@ -352,10 +350,8 @@ func writeThirdPartyQRCodeLoginError(w http.ResponseWriter, r *http.Request, err
 		return
 	}
 	httpapi.WriteDomainError(w, r, &httpapi.DomainError{
-		Code: errorcodes.PlatformUpstreamRequestFailed,
-
+		Code:    errorcodes.PlatformUpstreamRequestFailed,
 		Details: map[string]any{"reason": thirdPartyQRCodeLoginErrorReason(err)},
-		Cause:   err,
 	})
 }
 
