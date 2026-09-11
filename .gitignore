@@ -17,16 +17,13 @@
 /.deps/*
 !/.deps/manifest.json
 
-# Python plugin and local tooling artifacts.
+# Python tooling artifacts.
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 .pytest_cache/
 .venv/
-plugins/**/.venv/
-plugins/**/__pycache__/
-examples/plugins/**/__pycache__/
 /examples/plugins/**/*.exe
 
 # Node.js dependency and build artifacts.
