@@ -1,10 +1,14 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.1.0
+  version: 0.2.0
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
+    info.version is the revision of this contract document, independent of
+    product, package, and runtime protocol versions; breaking contract changes
+    increment the minor version while compatible additions increment the patch
+    version.
     Management JSON request bodies, excluding adapter webhooks, must contain
     exactly one JSON object. Unknown fields follow each schema's
     additionalProperties rule; plugin settings values and management action

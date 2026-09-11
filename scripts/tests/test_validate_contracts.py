@@ -187,6 +187,16 @@ class ContractValidatorTests(unittest.TestCase):
                 self.web_api, self.registry, pointer, operation, direction, message,
             ))
 
+    def test_openapi_info_version_requires_a_semantic_version(self) -> None:
+        api = copy.deepcopy(self.web_api)
+        for version in ["", "1.0", "v1.0.0", 1]:
+            with self.subTest(version=version):
+                api["info"]["version"] = version
+                with self.assertRaisesRegex(SystemExit, "semantic version"):
+                    validator.validate_openapi_basic(api)
+        api["info"]["version"] = "1.0.0"
+        validator.validate_openapi_basic(api)
+
     def test_new_example_requires_explicit_mapping(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             examples = Path(directory)

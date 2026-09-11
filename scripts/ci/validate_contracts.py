@@ -985,6 +985,10 @@ def validate_contract_instances(web_api: dict[str, Any], websocket_events: dict[
 def validate_openapi_basic(web_api: dict[str, Any]) -> None:
     if web_api.get("openapi") != "3.1.0":
         fail("contracts/web-api.openapi.yaml must use OpenAPI 3.1.0")
+    info = require_object(web_api.get("info"), "web-api info")
+    version = info.get("version")
+    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        fail("contracts/web-api.openapi.yaml info.version must be a semantic version")
     paths = require_object(web_api.get("paths"), "web-api paths")
     if not paths:
         fail("web-api paths must not be empty")
