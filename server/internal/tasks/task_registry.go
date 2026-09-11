@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -405,7 +406,7 @@ func cloneResult(result *ResultSummary) *ResultSummary {
 		Summary: result.Summary,
 	}
 	if result.Details != nil {
-		cloned.Details = cloneMap(result.Details)
+		cloned.Details = maps.Clone(result.Details)
 	}
 	return cloned
 }
@@ -420,15 +421,7 @@ func cloneError(errSummary *ErrorSummary) *ErrorSummary {
 		Message: errSummary.Message,
 	}
 	if errSummary.Details != nil {
-		cloned.Details = cloneMap(errSummary.Details)
-	}
-	return cloned
-}
-
-func cloneMap(source map[string]any) map[string]any {
-	cloned := make(map[string]any, len(source))
-	for key, value := range source {
-		cloned[key] = value
+		cloned.Details = maps.Clone(errSummary.Details)
 	}
 	return cloned
 }

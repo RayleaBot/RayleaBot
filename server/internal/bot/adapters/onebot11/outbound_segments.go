@@ -1,8 +1,10 @@
 package onebot11
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"maps"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 )
 
 func ValidateTarget(rawType, rawID, actionKind string) (string, string, error) {
@@ -145,11 +147,7 @@ func cloneOutboundSegmentData(data map[string]any) map[string]any {
 	if len(data) == 0 {
 		return map[string]any{}
 	}
-	cloned := make(map[string]any, len(data))
-	for key, value := range data {
-		cloned[key] = value
-	}
-	return cloned
+	return maps.Clone(data)
 }
 
 func outboundSegmentString(data map[string]any, key string) (string, bool) {
