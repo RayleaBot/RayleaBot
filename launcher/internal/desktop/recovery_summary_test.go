@@ -1,9 +1,23 @@
 package desktop
 
-import "testing"
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
-func TestParseRecoverySummaryPreservesValidatedContractShape(t *testing.T) {
-	summary := parseRecoverySummary([]byte(`{
+func writeRecoverySummary(t *testing.T, payload string) string {
+	t.Helper()
+	logDirectory := t.TempDir()
+	if err := os.WriteFile(filepath.Join(logDirectory, "recovery-summary.json"), []byte(payload), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return logDirectory
+}
+
+func TestReadRecoverySummaryPreservesValidatedContractShape(t *testing.T) {
+	summary, err := readRecoverySummary(writeRecoverySummary(t, `{
 		"status":"degraded",
 		"phase":"post_startup",
 		"operation":"restore",
@@ -16,8 +30,8 @@ func TestParseRecoverySummaryPreservesValidatedContractShape(t *testing.T) {
 		"next_steps":[" Continue recovery "],
 		"audit":[{"task_id":"task-1","created_at":"2026-08-17T10:02:00Z","operator_id":"admin","note":" reviewed ","items":[{"review_id":"review-1","plugin_id":"calendar","reason_code":"plugin.incompatible","summary":"Confirmed"}]}]
 	}`))
-	if summary == nil {
-		t.Fatal("parseRecoverySummary() rejected a valid contract payload")
+	if err != nil || summary == nil {
+		t.Fatalf("readRecoverySummary() rejected a valid contract payload: %v", err)
 	}
 	if summary.Status != "degraded" || summary.Phase != "post_startup" || summary.Operation != "restore" {
 		t.Fatalf("summary identity = %#v", summary)
@@ -28,10 +42,9 @@ func TestParseRecoverySummaryPreservesValidatedContractShape(t *testing.T) {
 	if len(summary.Issues) != 1 || summary.Issues[0].Summary != " Review required " {
 		t.Fatalf("issues = %#v", summary.Issues)
 	}
-
 }
 
-func TestParseRecoverySummaryRejectsContractDrift(t *testing.T) {
+func TestReadRecoverySummaryRejectsContractDrift(t *testing.T) {
 	tests := map[string]string{
 		"missing required phase": `{"status":"compatible","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z"}`,
 		"unknown property":       `{"status":"compatible","phase":"pre_restore","operation":"restore","created_at":"2026-08-17T10:00:00Z","updated_at":"2026-08-17T10:01:00Z","legacy_status":"ok"}`,
@@ -43,8 +56,10 @@ func TestParseRecoverySummaryRejectsContractDrift(t *testing.T) {
 	}
 	for name, payload := range tests {
 		t.Run(name, func(t *testing.T) {
-			if summary := parseRecoverySummary([]byte(payload)); summary != nil {
-				t.Fatalf("parseRecoverySummary() = %#v, want nil", summary)
+			summary, err := readRecoverySummary(writeRecoverySummary(t, payload))
+			var boundary *BoundaryError
+			if summary != nil || !errors.As(err, &boundary) || boundary.Code != "launcher.recovery_summary_invalid" {
+				t.Fatalf("readRecoverySummary() = %#v, %v; want launcher.recovery_summary_invalid", summary, err)
 			}
 		})
 	}
