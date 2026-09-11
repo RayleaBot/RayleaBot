@@ -29,7 +29,7 @@ describe("Wails desktop snapshot bridge", () => {
 
   test("rejects enum drift instead of silently passing an incompatible snapshot", () => {
     const snapshot = createLauncherSnapshot() as unknown as desktopModels.LauncherSnapshot;
-    snapshot.launcher.processLifecycle = "booting";
+    snapshot.launcher.processLifecycle = "booting" as desktopModels.LauncherProcessLifecycle;
 
     expect(() => normalizeWailsSnapshot(snapshot)).toThrow("Invalid Wails payload field: launcher.processLifecycle");
   });

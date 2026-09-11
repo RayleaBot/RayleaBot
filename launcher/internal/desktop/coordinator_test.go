@@ -320,7 +320,7 @@ func TestExternalShutdownFailureRemainsVisibleAndDoesNotForceKill(t *testing.T) 
 
 	hostBridge := &testServiceHost{confirmExternal: true}
 	coordinator := NewCoordinator(root, "", 0, hostBridge)
-	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: closeAsk}
+	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime}
 	coordinator.initialized = true
 	coordinator.process.SetWorkdir(root)
 	if err := coordinator.Stop(); err != nil {
@@ -481,7 +481,7 @@ func TestSaveSettingsCancelsStartupBeforeWaitingForOperationLock(t *testing.T) {
 	coordinator := NewCoordinator(root, "", 0, nil)
 	coordinator.mu.Lock()
 	coordinator.initialized = true
-	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: closeAsk}
+	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime}
 	coordinator.mu.Unlock()
 
 	startupContext, finishStartup, allowed := coordinator.startups.begin()
@@ -493,7 +493,7 @@ func TestSaveSettingsCancelsStartupBeforeWaitingForOperationLock(t *testing.T) {
 
 	result := make(chan error, 1)
 	go func() {
-		result <- coordinator.SaveSettings(LauncherSettings{InstallationRoot: root, CloseBehavior: closeTray})
+		result <- coordinator.SaveSettings(LauncherSettings{InstallationRoot: root, CloseBehavior: CloseHideToTray})
 	}()
 
 	select {
@@ -530,7 +530,7 @@ func TestStartupTimeoutKeepsRunningProcessVisibleWhenTerminationFails(t *testing
 func TestFailedUpdateReportsUnavailableServiceRecovery(t *testing.T) {
 	root := t.TempDir()
 	coordinator := NewCoordinator(root, "", 0, nil)
-	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: closeAsk}
+	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime}
 	coordinator.initialized = true
 	installErr := errors.New("update helper unavailable")
 

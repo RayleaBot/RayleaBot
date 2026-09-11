@@ -1,8 +1,27 @@
+import type * as desktop from "../renderer/bindings/github.com/RayleaBot/RayleaBot/launcher/internal/desktop/models";
 import type { components } from "./web-api.generated";
 
-export type LauncherCloseBehavior = "ask_every_time" | "hide_to_tray" | "exit_application";
-export type LauncherProcessLifecycle = "stopped" | "starting" | "running" | "stopping";
-export type LauncherProcessOwnership = "none" | "launcher_managed" | "external";
+// Renderer objects use the string values of generated Go enums. Exclude Go's
+// zero enum value, which is not a usable UI state.
+type JsonModel<T> = T extends string ? Exclude<`${T}`, ""> : T extends object
+  ? { [K in keyof T]: JsonModel<T[K]> } : T;
+type PresentSlices<T> = { [K in keyof T]: NonNullable<T[K]> extends readonly unknown[] ? NonNullable<T[K]> : T[K] };
+
+export type LauncherCloseBehavior = JsonModel<desktop.LauncherCloseBehavior>;
+export type LauncherProcessLifecycle = JsonModel<desktop.LauncherProcessLifecycle>;
+export type LauncherProcessOwnership = JsonModel<desktop.LauncherProcessOwnership>;
+export type CheckSeverity = JsonModel<desktop.CheckSeverity>;
+export type EnvironmentCheckScope = JsonModel<desktop.EnvironmentCheckScope>;
+export type RuntimePrepareStatus = JsonModel<desktop.RuntimePrepareStatus>;
+export type LauncherAdvancedOverrides = JsonModel<desktop.LauncherAdvancedOverrides>;
+export type LauncherSettings = JsonModel<desktop.LauncherSettings>;
+export type LauncherCloseConfirmResponse = JsonModel<desktop.LauncherCloseConfirmResponse>;
+export type LauncherResolvedSettings = desktop.LauncherResolvedSettings;
+export type ServerEndpoint = desktop.ServerEndpoint;
+export type EnvironmentCheckResult = JsonModel<desktop.EnvironmentCheckResult>;
+export type ReleaseCheckSnapshot = JsonModel<desktop.ReleaseCheckSnapshot>;
+export type RuntimePrepareResourceProgress = JsonModel<desktop.RuntimePrepareResourceProgress>;
+export type RuntimePrepareSnapshot = PresentSlices<JsonModel<desktop.RuntimePrepareSnapshot>>;
 
 export type LivenessStatusResponse = components["schemas"]["LivenessStatusResponse"];
 export type LauncherDiagnosticIssue = components["schemas"]["DiagnosticIssue"];
@@ -10,147 +29,18 @@ export type LauncherReadinessSnapshot = components["schemas"]["ReadinessStatusRe
 export type LauncherSystemStatusSnapshot = components["schemas"]["SystemStatusResponse"];
 export type RecoveryCompatibilitySummary = components["schemas"]["RecoveryCompatibilitySummary"];
 
-export type CheckSeverity = LauncherDiagnosticIssue["severity"];
-export type EnvironmentCheckScope = "preflight" | "advisory";
-
-export interface LauncherAdvancedOverrides {
-  serverExecutablePath?: string;
-  configPath?: string;
-  workdir?: string;
-}
-
-export interface LauncherSettings {
-  installationRoot: string;
-  closeBehavior: LauncherCloseBehavior;
-  advancedOverrides?: LauncherAdvancedOverrides;
-}
-
-export interface LauncherCloseConfirmResponse {
-  action: "hide" | "exit" | "cancel";
-  setAsDefault: boolean;
-}
-
-export interface LauncherResolvedSettings {
-  installationRoot: string;
-  serverExecutablePath: string;
-  configPath: string;
-  workdir: string;
-}
-
-export interface ServerEndpoint {
-  host: string;
-  port: number;
-  baseUrl: string;
-}
-
-export interface EnvironmentCheckResult {
-  scope: EnvironmentCheckScope;
-  code: string;
-  title: string;
-  severity: CheckSeverity;
-  summary: string;
-  detail: string;
-  remediation: string;
-}
-
-export interface ReleaseCheckSnapshot {
-  status:
-    | "disabled"
-    | "idle"
-    | "checking"
-    | "up_to_date"
-    | "update_available"
-    | "downloading"
-    | "ready_to_install"
-    | "installing"
-    | "succeeded"
-    | "failed"
-    | "rolled_back"
-    | "rollback_failed";
-  currentVersion: string;
-  latestVersion: string;
-  summary: string;
-  detail: string;
-  errorCode: string;
-  releasePageUrl: string;
-  updateAvailable: boolean;
-  downloadProgress: number | null;
-  downloadedBytes: number | null;
-  totalBytes: number | null;
-  artifactFileName: string;
-  canCheck: boolean;
-  canDownload: boolean;
-  canInstall: boolean;
-}
-
-export type RuntimePrepareStage =
-  | "inspect"
-  | "lock"
-  | "probe"
-  | "download"
-  | "verify"
-  | "cleanup"
-  | "extract"
-  | "activate"
-  | "complete"
-  | "manifest"
-  | "entrypoint";
-
-export type RuntimePrepareStatus = "pending" | "running" | "succeeded" | "failed";
-
-export interface RuntimePrepareResourceProgress {
-  kind: string;
-  label: string;
-  resourceId: string;
-  version: string;
-  sourceLabel: string;
-  sourceUrl: string;
-  archivePath: string;
-  storeRoot: string;
-  stage: RuntimePrepareStage | string;
-  status: RuntimePrepareStatus;
-  progress: number | null;
-  downloadedBytes: number | null;
-  totalBytes: number | null;
-  extractedEntries: number | null;
-  totalEntries: number | null;
-  summary: string;
-  error: string;
-  updatedAt: string;
-}
-
-export interface RuntimePrepareSnapshot {
-  active: boolean;
-  currentKind: string;
-  summary: string;
-  resources: RuntimePrepareResourceProgress[];
-}
-
-export interface LauncherServerSnapshot {
+// The host validates these server payloads against OpenAPI before publishing.
+// Retain the formal HTTP types across Wails' broader pointer/enum representation.
+export type LauncherServerSnapshot = Omit<desktop.LauncherServerSnapshot, "health" | "readiness" | "systemStatus"> & {
   health: LivenessStatusResponse | null;
   readiness: LauncherReadinessSnapshot | null;
   systemStatus: LauncherSystemStatusSnapshot | null;
-}
-
-export interface LauncherLocalSnapshot {
-  processId: number | null;
-  processLifecycle: LauncherProcessLifecycle;
-  processOwnership: LauncherProcessOwnership;
-  environmentChecks: EnvironmentCheckResult[];
-  preflightChecks: EnvironmentCheckResult[];
-  advisoryChecks: EnvironmentCheckResult[];
-  recentStderr: string[];
+};
+export type LauncherLocalSnapshot = Omit<PresentSlices<JsonModel<desktop.LauncherLocalSnapshot>>, "runtimePrepare" | "localRecoverySummary"> & {
   runtimePrepare: RuntimePrepareSnapshot | null;
-  releaseCheck: ReleaseCheckSnapshot;
-  lastLocalError: string;
-  statusHint: string;
-  settings: LauncherSettings;
-  resolvedSettings: LauncherResolvedSettings;
-  endpoint: ServerEndpoint;
   localRecoverySummary: RecoveryCompatibilitySummary | null;
-}
-
-export interface LauncherSnapshot {
+};
+export type LauncherSnapshot = Omit<desktop.LauncherSnapshot, "server" | "launcher"> & {
   server: LauncherServerSnapshot;
   launcher: LauncherLocalSnapshot;
-}
+};

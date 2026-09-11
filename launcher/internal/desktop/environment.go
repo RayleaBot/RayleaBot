@@ -338,9 +338,9 @@ func checkPath(okCode, errorCode, title string, ready bool, okSummary, errorDeta
 	if ready {
 		return okCheck(okCode, title, okSummary)
 	}
-	severity := "warning"
+	severity := CheckWarning
 	if blocking {
-		severity = "error"
+		severity = CheckError
 	}
 	return EnvironmentCheckResult{Scope: "preflight", Code: errorCode, Title: title, Severity: severity, Summary: errorDetail, Detail: errorDetail, Remediation: remediation}
 }

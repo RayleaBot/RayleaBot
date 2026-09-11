@@ -51,8 +51,8 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 		inspection.Checks = append(inspection.Checks, check)
 	}
 	if inspection.HasBlockingIssues || inspection.CanBootstrapUserConfig {
-		lifecycle := "stopped"
-		ownership := "none"
+		lifecycle := Stopped
+		ownership := OwnershipNone
 		if c.process.IsRunning() {
 			lifecycle = "running"
 			ownership = "launcher_managed"
@@ -73,8 +73,8 @@ func (c *Coordinator) refreshWithInspection(operation operationContext, inspecti
 	defer cancel()
 	healthy := c.management.IsHealthy(ctx, operation.endpoint)
 	if !healthy {
-		lifecycle := "stopped"
-		ownership := "none"
+		lifecycle := Stopped
+		ownership := OwnershipNone
 		hint := "服务尚未启动。"
 		lastError := ""
 		if c.process.IsRunning() {
@@ -295,7 +295,7 @@ func (c *Coordinator) stopLocked(confirmExternal bool) error {
 	inspection := InspectEnvironment(operation.resolvedSettings)
 	healthy := c.quickHealthy(operation.endpoint)
 	managed := c.process.IsRunning()
-	ownership := "none"
+	ownership := OwnershipNone
 	if managed {
 		ownership = "launcher_managed"
 	} else if healthy {
@@ -367,7 +367,7 @@ func (c *Coordinator) ResetAdmin() error {
 	healthy := c.quickHealthy(operation.endpoint)
 	managed := c.process.IsRunning()
 	if managed || healthy {
-		ownership := "external"
+		ownership := OwnershipExternal
 		if managed {
 			ownership = "launcher_managed"
 		}

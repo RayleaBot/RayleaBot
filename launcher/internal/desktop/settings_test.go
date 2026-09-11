@@ -20,8 +20,8 @@ func TestSettingsStoreCreatesNormalizedPortableSettings(t *testing.T) {
 	if !samePath(settings.InstallationRoot, root) {
 		t.Fatalf("InstallationRoot = %q, want %q", settings.InstallationRoot, root)
 	}
-	if settings.CloseBehavior != closeAsk {
-		t.Fatalf("CloseBehavior = %q, want %q", settings.CloseBehavior, closeAsk)
+	if settings.CloseBehavior != CloseAskEveryTime {
+		t.Fatalf("CloseBehavior = %q, want %q", settings.CloseBehavior, CloseAskEveryTime)
 	}
 	payload, err := os.ReadFile(filepath.Join(root, "data", "launcher.json"))
 	if err != nil {
@@ -64,7 +64,7 @@ func TestResolveLauncherSettingsPrefersBuiltServer(t *testing.T) {
 	builtServer := filepath.Join(root, "server", "dist", name)
 	writeTestFile(t, builtServer, "binary")
 
-	resolved := ResolveLauncherSettings(LauncherSettings{InstallationRoot: root, CloseBehavior: closeAsk})
+	resolved := ResolveLauncherSettings(LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime})
 	if !samePath(resolved.ServerExecutablePath, builtServer) {
 		t.Fatalf("ServerExecutablePath = %q, want %q", resolved.ServerExecutablePath, builtServer)
 	}

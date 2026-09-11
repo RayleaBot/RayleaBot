@@ -1,163 +1,66 @@
 import { Events } from "@wailsio/runtime";
 import * as desktop from "../bindings/github.com/RayleaBot/RayleaBot/launcher/internal/desktop/service";
-import type * as desktopModels from "../bindings/github.com/RayleaBot/RayleaBot/launcher/internal/desktop/models";
+import * as desktopModels from "../bindings/github.com/RayleaBot/RayleaBot/launcher/internal/desktop/models";
 import type { LauncherDesktopApi } from "../../shared/desktop-api";
 import type {
   LauncherCloseConfirmResponse,
-  LauncherResolvedSettings,
   LauncherSettings,
   LauncherSnapshot,
 } from "../../shared/launcher-models";
 import type { LauncherThemeMode } from "../../shared/launcher-theme";
 
-function asDesktopSettings(settings: LauncherSettings): desktopModels.LauncherSettings {
-  return {
-    installationRoot: settings.installationRoot,
-    closeBehavior: settings.closeBehavior,
-    advancedOverrides: settings.advancedOverrides
-      ? {
-          serverExecutablePath: settings.advancedOverrides.serverExecutablePath,
-          configPath: settings.advancedOverrides.configPath,
-          workdir: settings.advancedOverrides.workdir,
-        }
-      : undefined,
-  };
-}
-
 function subscribe<T>(eventName: string, listener: (value: T) => void) {
   return Events.On(eventName, (event) => listener(event.data as T));
 }
 
-function expectEnumValue<const Values extends readonly string[]>(
-  value: string,
-  allowed: Values,
-  field: string,
-): Values[number] {
-  if ((allowed as readonly string[]).includes(value)) {
-    return value as Values[number];
+function expectEnumValue<Values extends Record<string, string>>(
+  value: string, allowed: Values, field: string,
+): Exclude<`${Values[keyof Values]}`, ""> {
+  if (value !== "" && Object.values(allowed).includes(value)) {
+    return value as Exclude<`${Values[keyof Values]}`, "">;
   }
   throw new Error(`Invalid Wails payload field: ${field}`);
 }
 
-function normalizeEnvironmentCheck(
-  check: desktopModels.EnvironmentCheckResult,
-): LauncherSnapshot["launcher"]["environmentChecks"][number] {
+function normalizeEnvironmentCheck(check: desktopModels.EnvironmentCheckResult) {
   return {
-    scope: expectEnumValue(check.scope, ["preflight", "advisory"] as const, "environmentChecks.scope"),
-    code: check.code,
-    title: check.title,
-    severity: expectEnumValue(check.severity, ["ok", "warning", "error"] as const, "environmentChecks.severity"),
-    summary: check.summary,
-    detail: check.detail,
-    remediation: check.remediation,
-  };
-}
-
-function normalizeResolvedSettings(
-  settings: desktopModels.LauncherResolvedSettings,
-): LauncherResolvedSettings {
-  return {
-    installationRoot: settings.installationRoot,
-    serverExecutablePath: settings.serverExecutablePath,
-    configPath: settings.configPath,
-    workdir: settings.workdir,
+    ...check,
+    scope: expectEnumValue(check.scope, desktopModels.EnvironmentCheckScope, "environmentChecks.scope"),
+    severity: expectEnumValue(check.severity, desktopModels.CheckSeverity, "environmentChecks.severity"),
   };
 }
 
 export function normalizeWailsSnapshot(snapshot: desktopModels.LauncherSnapshot): LauncherSnapshot {
-  const runtimePrepare: LauncherSnapshot["launcher"]["runtimePrepare"] = snapshot.launcher.runtimePrepare
-    ? {
-        active: snapshot.launcher.runtimePrepare.active,
-        currentKind: snapshot.launcher.runtimePrepare.currentKind,
-        summary: snapshot.launcher.runtimePrepare.summary,
-        resources: (snapshot.launcher.runtimePrepare.resources ?? []).map((resource) => ({
-          kind: resource.kind,
-          label: resource.label,
-          resourceId: resource.resourceId,
-          version: resource.version,
-          sourceLabel: resource.sourceLabel,
-          sourceUrl: resource.sourceUrl,
-          archivePath: resource.archivePath,
-          storeRoot: resource.storeRoot,
-          stage: resource.stage,
-          status: expectEnumValue(resource.status, ["pending", "running", "succeeded", "failed"] as const, "runtimePrepare.resources.status"),
-          progress: resource.progress,
-          downloadedBytes: resource.downloadedBytes,
-          totalBytes: resource.totalBytes,
-          extractedEntries: resource.extractedEntries,
-          totalEntries: resource.totalEntries,
-          summary: resource.summary,
-          error: resource.error,
-          updatedAt: resource.updatedAt,
+  const local = snapshot.launcher;
+  return {
+    ...snapshot,
+    server: snapshot.server as LauncherSnapshot["server"],
+    launcher: {
+      ...local,
+      processLifecycle: expectEnumValue(local.processLifecycle, desktopModels.LauncherProcessLifecycle, "launcher.processLifecycle"),
+      processOwnership: expectEnumValue(local.processOwnership, desktopModels.LauncherProcessOwnership, "launcher.processOwnership"),
+      environmentChecks: (local.environmentChecks ?? []).map(normalizeEnvironmentCheck),
+      preflightChecks: (local.preflightChecks ?? []).map(normalizeEnvironmentCheck),
+      advisoryChecks: (local.advisoryChecks ?? []).map(normalizeEnvironmentCheck),
+      recentStderr: local.recentStderr ?? [],
+      runtimePrepare: local.runtimePrepare ? {
+        ...local.runtimePrepare,
+        resources: (local.runtimePrepare.resources ?? []).map(resource => ({
+          ...resource,
+          status: expectEnumValue(resource.status, desktopModels.RuntimePrepareStatus, "runtimePrepare.resources.status"),
         })),
-      }
-    : null;
-
-  // Go validates the formal schema before exposing these typed Wails models.
-  // Wails represents enum strings and optional pointers more broadly than OpenAPI.
-  const server = snapshot.server as LauncherSnapshot["server"];
-  const launcher: LauncherSnapshot["launcher"] = {
-    processId: snapshot.launcher.processId,
-    processLifecycle: expectEnumValue(snapshot.launcher.processLifecycle, ["stopped", "starting", "running", "stopping"] as const, "launcher.processLifecycle"),
-    processOwnership: expectEnumValue(snapshot.launcher.processOwnership, ["none", "launcher_managed", "external"] as const, "launcher.processOwnership"),
-    environmentChecks: (snapshot.launcher.environmentChecks ?? []).map(normalizeEnvironmentCheck),
-    preflightChecks: (snapshot.launcher.preflightChecks ?? []).map(normalizeEnvironmentCheck),
-    advisoryChecks: (snapshot.launcher.advisoryChecks ?? []).map(normalizeEnvironmentCheck),
-    recentStderr: snapshot.launcher.recentStderr ?? [],
-    runtimePrepare,
-    releaseCheck: {
-      status: expectEnumValue(snapshot.launcher.releaseCheck.status, [
-        "disabled",
-        "idle",
-        "checking",
-        "up_to_date",
-        "update_available",
-        "downloading",
-        "ready_to_install",
-        "installing",
-        "succeeded",
-        "failed",
-        "rolled_back",
-        "rollback_failed",
-      ] as const, "launcher.releaseCheck.status"),
-      currentVersion: snapshot.launcher.releaseCheck.currentVersion,
-      latestVersion: snapshot.launcher.releaseCheck.latestVersion,
-      summary: snapshot.launcher.releaseCheck.summary,
-      detail: snapshot.launcher.releaseCheck.detail,
-      errorCode: snapshot.launcher.releaseCheck.errorCode,
-      releasePageUrl: snapshot.launcher.releaseCheck.releasePageUrl,
-      updateAvailable: snapshot.launcher.releaseCheck.updateAvailable,
-      downloadProgress: snapshot.launcher.releaseCheck.downloadProgress,
-      downloadedBytes: snapshot.launcher.releaseCheck.downloadedBytes,
-      totalBytes: snapshot.launcher.releaseCheck.totalBytes,
-      artifactFileName: snapshot.launcher.releaseCheck.artifactFileName,
-      canCheck: snapshot.launcher.releaseCheck.canCheck,
-      canDownload: snapshot.launcher.releaseCheck.canDownload,
-      canInstall: snapshot.launcher.releaseCheck.canInstall,
+      } : null,
+      releaseCheck: {
+        ...local.releaseCheck,
+        status: expectEnumValue(local.releaseCheck.status, desktopModels.ReleaseCheckStatus, "launcher.releaseCheck.status"),
+      },
+      settings: {
+        ...local.settings,
+        closeBehavior: expectEnumValue(local.settings.closeBehavior, desktopModels.LauncherCloseBehavior, "launcher.settings.closeBehavior"),
+      },
+      localRecoverySummary: local.localRecoverySummary as LauncherSnapshot["launcher"]["localRecoverySummary"],
     },
-    lastLocalError: snapshot.launcher.lastLocalError,
-    statusHint: snapshot.launcher.statusHint,
-    settings: {
-      installationRoot: snapshot.launcher.settings.installationRoot,
-      closeBehavior: expectEnumValue(snapshot.launcher.settings.closeBehavior, ["ask_every_time", "hide_to_tray", "exit_application"] as const, "launcher.settings.closeBehavior"),
-      advancedOverrides: snapshot.launcher.settings.advancedOverrides
-        ? {
-            serverExecutablePath: snapshot.launcher.settings.advancedOverrides.serverExecutablePath,
-            configPath: snapshot.launcher.settings.advancedOverrides.configPath,
-            workdir: snapshot.launcher.settings.advancedOverrides.workdir,
-          }
-        : undefined,
-    },
-    resolvedSettings: normalizeResolvedSettings(snapshot.launcher.resolvedSettings),
-    endpoint: {
-      host: snapshot.launcher.endpoint.host,
-      port: snapshot.launcher.endpoint.port,
-      baseUrl: snapshot.launcher.endpoint.baseUrl,
-    },
-    localRecoverySummary: snapshot.launcher.localRecoverySummary as LauncherSnapshot["launcher"]["localRecoverySummary"],
   };
-
-  return { server, launcher };
 }
 
 export function createWailsDesktopApi(): LauncherDesktopApi {
@@ -176,9 +79,9 @@ export function createWailsDesktopApi(): LauncherDesktopApi {
     openReleasePage: () => desktop.OpenReleasePage(),
     openRepositoryPage: () => desktop.OpenRepositoryPage(),
     openLogsDirectory: () => desktop.OpenLogsDirectory(),
-    saveSettings: (settings: LauncherSettings) => desktop.SaveSettings(asDesktopSettings(settings)),
-    previewResolvedSettings: async (settings: LauncherSettings) =>
-      normalizeResolvedSettings(await desktop.PreviewResolvedSettings(asDesktopSettings(settings))),
+    saveSettings: (settings: LauncherSettings) => desktop.SaveSettings(settings as desktopModels.LauncherSettings),
+    previewResolvedSettings: (settings: LauncherSettings) =>
+      desktop.PreviewResolvedSettings(settings as desktopModels.LauncherSettings),
     chooseInstallationRoot: () => desktop.ChooseInstallationRoot(),
     chooseServerExecutable: () => desktop.ChooseServerExecutable(),
     chooseConfigFile: () => desktop.ChooseConfigFile(),
@@ -189,7 +92,7 @@ export function createWailsDesktopApi(): LauncherDesktopApi {
     close: () => desktop.Close(),
     hasPendingCloseConfirm: () => desktop.HasPendingCloseConfirm(),
     closeConfirmResponse: (response: LauncherCloseConfirmResponse) =>
-      desktop.CloseConfirmResponse({ action: response.action, setAsDefault: response.setAsDefault }),
+      desktop.CloseConfirmResponse(response as desktopModels.LauncherCloseConfirmResponse),
     externalStopConfirmResponse: (confirmed: boolean) => desktop.ExternalStopConfirmResponse(confirmed),
     hasPendingExternalStopConfirm: () => desktop.HasPendingExternalStopConfirm(),
     setThemeMode: (mode: LauncherThemeMode) => desktop.SetThemeMode(mode),

@@ -29,8 +29,8 @@ type snapshotOptions struct {
 	health               *ServerLivenessStatusResponse
 	readiness            *ServerReadinessStatusResponse
 	systemStatus         *ServerSystemStatusResponse
-	processLifecycle     string
-	processOwnership     string
+	processLifecycle     LauncherProcessLifecycle
+	processOwnership     LauncherProcessOwnership
 	lastLocalError       string
 	statusHint           string
 	localRecoverySummary *ServerRecoveryCompatibilitySummary

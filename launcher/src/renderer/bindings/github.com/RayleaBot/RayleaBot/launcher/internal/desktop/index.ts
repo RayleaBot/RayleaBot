@@ -6,6 +6,17 @@ export {
     Service
 };
 
+export {
+    CheckSeverity,
+    EnvironmentCheckScope,
+    LauncherCloseAction,
+    LauncherCloseBehavior,
+    LauncherProcessLifecycle,
+    LauncherProcessOwnership,
+    ReleaseCheckStatus,
+    RuntimePrepareStatus
+} from "./models.js";
+
 export type {
     EnvironmentCheckResult,
     LauncherAdvancedOverrides,

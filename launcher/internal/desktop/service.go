@@ -266,9 +266,9 @@ func (s *Service) Close() error {
 	}
 	snapshot := coordinator.Snapshot()
 	switch snapshot.Launcher.Settings.CloseBehavior {
-	case closeTray:
+	case CloseHideToTray:
 		host.HideWindow()
-	case closeExit:
+	case CloseExitApplication:
 		s.requestExit()
 	default:
 		showConfirmation := false
@@ -305,9 +305,9 @@ func (s *Service) CloseConfirmResponse(response LauncherCloseConfirmResponse) er
 	if response.SetAsDefault && response.Action != "cancel" {
 		settings := coordinator.Snapshot().Launcher.Settings
 		if response.Action == "hide" {
-			settings.CloseBehavior = closeTray
+			settings.CloseBehavior = CloseHideToTray
 		} else {
-			settings.CloseBehavior = closeExit
+			settings.CloseBehavior = CloseExitApplication
 		}
 		if err := coordinator.SaveSettings(settings); err != nil {
 			return err

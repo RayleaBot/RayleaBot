@@ -124,7 +124,7 @@ func (r *ReleaseFeed) getSnapshot(force bool, goos, goarch string) ReleaseCheckS
 		r.checked, r.downloaded = nil, nil
 		return r.cached
 	}
-	result, err := parseTrustedCheck(stdout, false)
+	result, err := parseWindowsUpdaterCheck(stdout, false)
 	if err != nil {
 		r.cached = r.failure("failed", "launcher.update_response_invalid", "更新助手返回的检查结果无效。", err.Error(), info.Version)
 		r.cached.CanCheck = true
@@ -154,7 +154,7 @@ func (r *ReleaseFeed) Download() ReleaseCheckSnapshot {
 		r.cached.CanCheck, r.cached.CanDownload = true, true
 		return r.cached
 	}
-	result, err := parseTrustedCheck(stdout, true)
+	result, err := parseWindowsUpdaterCheck(stdout, true)
 	if err != nil {
 		r.cached = r.failure("failed", "launcher.update_response_invalid", "更新助手返回的下载结果无效。", err.Error(), previous.CurrentVersion)
 		r.cached.CanCheck, r.cached.CanDownload = true, true
@@ -290,7 +290,7 @@ func launcherArtifactID(goos, goarch string) string {
 	}
 }
 
-func parseTrustedCheck(payload string, requireArtifactPath bool) (trustedCheck, error) {
+func parseWindowsUpdaterCheck(payload string, requireArtifactPath bool) (trustedCheck, error) {
 	var result trustedCheck
 	if err := json.Unmarshal([]byte(payload), &result); err != nil {
 		return result, err
@@ -336,13 +336,13 @@ func snapshotFromCheck(result trustedCheck) ReleaseCheckSnapshot {
 	}
 	total := result.Artifact.ArchiveSizeBytes
 	return ReleaseCheckSnapshot{
-		Status: result.Status, CurrentVersion: result.CurrentVersion, LatestVersion: latest, Summary: summary, Detail: detail,
+		Status: ReleaseCheckStatus(result.Status), CurrentVersion: result.CurrentVersion, LatestVersion: latest, Summary: summary, Detail: detail,
 		ReleasePageURL: result.ReleasePageURL, UpdateAvailable: available, TotalBytes: &total, ArtifactFileName: result.Artifact.FileName,
 		CanCheck: true, CanDownload: automatic,
 	}
 }
 
-func (r *ReleaseFeed) failure(status, code, summary, detail, currentVersion string, transactionRoot ...string) ReleaseCheckSnapshot {
+func (r *ReleaseFeed) failure(status ReleaseCheckStatus, code, summary, detail, currentVersion string, transactionRoot ...string) ReleaseCheckSnapshot {
 	context := releaseFailureContext{installRoot: r.basePath, updaterPath: r.updaterPath}
 	if len(transactionRoot) > 0 {
 		context.transactionRoot = transactionRoot[0]
@@ -353,7 +353,7 @@ func (r *ReleaseFeed) failure(status, code, summary, detail, currentVersion stri
 	}
 }
 
-func (r *ReleaseFeed) installFailure(status, code, summary, detail, currentVersion string, transactionRoot ...string) ReleaseCheckSnapshot {
+func (r *ReleaseFeed) installFailure(status ReleaseCheckStatus, code, summary, detail, currentVersion string, transactionRoot ...string) ReleaseCheckSnapshot {
 	previous := r.cached
 	failed := r.failure(status, code, summary, detail, currentVersion, transactionRoot...)
 	failed.LatestVersion = previous.LatestVersion

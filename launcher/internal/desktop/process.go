@@ -269,7 +269,7 @@ func (p *ProcessController) recordStructuredOutput(line string) {
 	item := RuntimePrepareResourceProgress{
 		Kind: kind, Label: label, ResourceID: stringField(payload, "resource_id"), Version: stringField(payload, "version"),
 		SourceLabel: stringField(payload, "source_label"), SourceURL: stringField(payload, "source_url"), ArchivePath: stringField(payload, "archive_path"), StoreRoot: stringField(payload, "store_root"),
-		Stage: firstNonEmpty(stringField(payload, "stage"), "inspect"), Status: status, Progress: progress,
+		Stage: firstNonEmpty(stringField(payload, "stage"), "inspect"), Status: RuntimePrepareStatus(status), Progress: progress,
 		DownloadedBytes: intPointer(payload["downloaded_bytes"]), TotalBytes: intPointer(payload["total_bytes"]), ExtractedEntries: intPointer(payload["extracted_entries"]), TotalEntries: intPointer(payload["total_entries"]),
 		Summary: firstNonEmpty(stringField(payload, "summary"), label+"准备中"), Error: stringField(payload, "err"), UpdatedAt: firstNonEmpty(stringField(payload, "ts"), time.Now().UTC().Format(time.RFC3339Nano)),
 	}

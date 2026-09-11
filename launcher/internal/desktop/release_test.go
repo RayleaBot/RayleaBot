@@ -9,12 +9,12 @@ import (
 
 func TestParseTrustedCheckRejectsUnsafeReleaseSurface(t *testing.T) {
 	base := `{"status":"update_available","current_version":"1.0.0","available_version":"1.1.0","update_mode":"automatic","automatic_install_supported":true,"release_page_url":"https://github.com/RayleaBot/RayleaBot/releases/tag/v1.1.0","artifact":{"artifact_id":"windows-x64-full","file_name":"RayleaBot-v1.1.0.zip","archive_size_bytes":1024,"update_mode":"automatic"},"artifact_path":"C:/cache/update.zip"}`
-	if _, err := parseTrustedCheck(base, true); err != nil {
-		t.Fatalf("parseTrustedCheck(valid) error = %v", err)
+	if _, err := parseWindowsUpdaterCheck(base, true); err != nil {
+		t.Fatalf("parseWindowsUpdaterCheck(valid) error = %v", err)
 	}
 	unsafe := `{"status":"update_available","current_version":"1.0.0","available_version":"1.1.0","update_mode":"automatic","automatic_install_supported":true,"release_page_url":"https://user:pass@example.com/release","artifact":{"artifact_id":"windows-x64-full","file_name":"../update.zip","archive_size_bytes":1024,"update_mode":"automatic"},"artifact_path":"C:/cache/update.zip"}`
-	if _, err := parseTrustedCheck(unsafe, true); err == nil {
-		t.Fatal("parseTrustedCheck() accepted unsafe release metadata")
+	if _, err := parseWindowsUpdaterCheck(unsafe, true); err == nil {
+		t.Fatal("parseWindowsUpdaterCheck() accepted unsafe release metadata")
 	}
 }
 

@@ -12,12 +12,6 @@ import (
 	"strings"
 )
 
-const (
-	closeAsk  = "ask_every_time"
-	closeTray = "hide_to_tray"
-	closeExit = "exit_application"
-)
-
 type SettingsStore struct {
 	basePath string
 }
@@ -58,7 +52,7 @@ func discoverBasePath(override, workingDirectory, executable string) string {
 }
 
 func (s *SettingsStore) Load() (LauncherSettings, error) {
-	defaults := LauncherSettings{InstallationRoot: FindInstallationRoot(s.basePath), CloseBehavior: closeAsk}
+	defaults := LauncherSettings{InstallationRoot: FindInstallationRoot(s.basePath), CloseBehavior: CloseAskEveryTime}
 	settingsPath := settingsFilePath(defaults.InstallationRoot)
 	payload, err := os.ReadFile(settingsPath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -161,8 +155,8 @@ func normalizeSettings(settings LauncherSettings, fallbackRoot string) (Launcher
 	settings.InstallationRoot = absoluteClean(settings.InstallationRoot)
 	switch settings.CloseBehavior {
 	case "":
-		settings.CloseBehavior = closeAsk
-	case closeAsk, closeTray, closeExit:
+		settings.CloseBehavior = CloseAskEveryTime
+	case CloseAskEveryTime, CloseHideToTray, CloseExitApplication:
 	default:
 		return LauncherSettings{}, errors.New("closeBehavior 使用了不支持的值")
 	}
@@ -222,7 +216,7 @@ func removeRedundantOverrides(overrides *LauncherAdvancedOverrides, derived Laun
 		return nil
 	}
 	copy := *overrides
-	base := LauncherSettings{InstallationRoot: derived.InstallationRoot, CloseBehavior: closeAsk}
+	base := LauncherSettings{InstallationRoot: derived.InstallationRoot, CloseBehavior: CloseAskEveryTime}
 	defaults := ResolveLauncherSettings(base)
 	if samePath(copy.ServerExecutablePath, defaults.ServerExecutablePath) {
 		copy.ServerExecutablePath = ""

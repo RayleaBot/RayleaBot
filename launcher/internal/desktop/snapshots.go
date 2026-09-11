@@ -10,7 +10,7 @@ func defaultSnapshot() LauncherSnapshot {
 		Server: LauncherServerSnapshot{},
 		Launcher: LauncherLocalSnapshot{
 			ProcessLifecycle: "stopped", ProcessOwnership: "none", EnvironmentChecks: []EnvironmentCheckResult{}, PreflightChecks: []EnvironmentCheckResult{}, AdvisoryChecks: []EnvironmentCheckResult{}, RecentStderr: []string{},
-			ReleaseCheck: releaseUnavailable("尚未检查版本。"), Settings: LauncherSettings{CloseBehavior: closeAsk}, Endpoint: ServerEndpoint{Host: "127.0.0.1", Port: 8080, BaseURL: "http://127.0.0.1:8080/"},
+			ReleaseCheck: releaseUnavailable("尚未检查版本。"), Settings: LauncherSettings{CloseBehavior: CloseAskEveryTime}, Endpoint: ServerEndpoint{Host: "127.0.0.1", Port: 8080, BaseURL: "http://127.0.0.1:8080/"},
 		},
 	}
 }
@@ -123,7 +123,7 @@ func trayState(snapshot LauncherSnapshot) TrayMenuState {
 	return TrayMenuState{TrayStatusSummary: state, CanOpenWebUI: canOpen, TrayServiceAction: action, TrayServiceActionLabel: label, CanRunTrayServiceAction: canRun}
 }
 
-func lifecycleFor(running bool) string {
+func lifecycleFor(running bool) LauncherProcessLifecycle {
 	if running {
 		return "running"
 	}
@@ -142,7 +142,7 @@ func serviceAvailable(snapshot LauncherSnapshot) bool {
 	}
 }
 
-func ownershipFor(managed, reachable bool) string {
+func ownershipFor(managed, reachable bool) LauncherProcessOwnership {
 	if managed {
 		return "launcher_managed"
 	}
