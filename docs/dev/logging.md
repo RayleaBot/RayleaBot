@@ -17,19 +17,3 @@
 开发日志按职责分别保存在 `logs/dev/server/`、`logs/dev/web/`、`logs/dev/launcher/` 和 `logs/dev/build/`。`logs/dev/start/` 保存进程编排、构建结果与子日志位置。插件 stderr 按完整行脱敏；超长诊断行会被省略。
 
 首次设置地址只向需要初始化的交互终端显示，管道与日志文件不能接收 setup 凭据。管理日志与诊断详情不能包含 token、Cookie 或密码。
-
-## 历史 setup 凭据脱敏
-
-停止开发启动器和 Server，确认日志文件没有写入者。以下命令先列出受影响文件和匹配数量，不输出凭据：
-
-```powershell
-node scripts/redact-historical-logs.mjs --root logs
-```
-
-确认范围后执行：
-
-```powershell
-node scripts/redact-historical-logs.mjs --root logs --apply
-```
-
-工具仅替换已确认的 setup URL 凭据，保留其他字节、行数和文件时间，不复制明文备份，不修改数据库或调度统计。该操作不承诺清除磁盘历史扇区、外部备份或操作系统快照。

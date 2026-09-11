@@ -8,7 +8,7 @@
 | --- | --- |
 | [repo-workflow.md](./repo-workflow.md) | 仓库跟踪边界与常规忽略策略 |
 | [diagnostics.md](./diagnostics.md) | 正式诊断入口与排障文档 |
-| [logging.md](./logging.md) | 日志分类、重复故障汇总与历史 setup 凭据脱敏 |
+| [logging.md](./logging.md) | 日志分类与重复故障汇总 |
 | [text-resources.md](./text-resources.md) | 文本资源和国际化边界 |
 
 ## 当前原则
