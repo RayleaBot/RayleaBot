@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -27,6 +28,13 @@ func validateRuntimeConstraints(cfg Config) error {
 		return fmt.Errorf("admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days")
 	}
 
+	if err := validateWebExposure(cfg); err != nil {
+		return err
+	}
+	return validateDouyinLoginConfig(cfg.ThirdParty.DouyinLogin)
+}
+
+func validateWebExposure(cfg Config) error {
 	hostIP, loopback, private, err := classifyBindHost(cfg.Server.Host)
 	if err != nil {
 		return err
@@ -54,8 +62,7 @@ func validateRuntimeConstraints(cfg Config) error {
 		if !loopback {
 			return fmt.Errorf("web.exposure_mode public_via_reverse_proxy requires a loopback server.host")
 		}
-		origin, err := url.Parse(strings.TrimSpace(cfg.Web.PublicOrigin))
-		if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+		if !isStrictOrigin(cfg.Web.PublicOrigin, "https") {
 			return fmt.Errorf("web.public_origin must be an HTTPS origin for public_via_reverse_proxy")
 		}
 		if len(cfg.Web.TrustedProxyCIDRs) == 0 {
@@ -72,9 +79,7 @@ func validateRuntimeConstraints(cfg Config) error {
 		if !strings.Contains(template, "{plugin_host}") {
 			return fmt.Errorf("web.plugin_ui_origin_template must contain {plugin_host}")
 		}
-		rendered := strings.ReplaceAll(template, "{plugin_host}", "p-0123456789abcdef")
-		origin, err := url.Parse(rendered)
-		if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+		if !isStrictOrigin(strings.ReplaceAll(template, "{plugin_host}", "p-0123456789abcdef"), "http", "https") {
 			return fmt.Errorf("web.plugin_ui_origin_template must render to an HTTP(S) origin")
 		}
 	}
@@ -84,10 +89,17 @@ func validateRuntimeConstraints(cfg Config) error {
 			return fmt.Errorf("invalid web.trusted_proxy_cidrs entry %q", rawCIDR)
 		}
 	}
-	if err := validateDouyinLoginConfig(cfg.ThirdParty.DouyinLogin); err != nil {
-		return err
-	}
 	return nil
+}
+
+// isStrictOrigin reports whether raw is a bare origin (scheme and host only)
+// using one of the given schemes.
+func isStrictOrigin(raw string, schemes ...string) bool {
+	origin, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || origin.Host == "" || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+		return false
+	}
+	return slices.Contains(schemes, origin.Scheme)
 }
 
 func validateDouyinLoginConfig(cfg DouyinLoginConfig) error {
