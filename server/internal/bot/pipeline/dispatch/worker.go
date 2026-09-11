@@ -78,64 +78,7 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 				started = true
 
 				go func(laneKey string, item dispatchItem) {
-					execCtx, cancel := context.WithCancel(item.ctx)
-					stop := context.AfterFunc(slot.ctx, cancel)
-					defer func() { stop(); cancel() }()
-					item.ctx = execCtx
-					if slot.ctx.Err() != nil {
-						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), errorcodes.PluginEventCanceled, "事件因运行时停止而取消")
-						completions <- laneCompletion{laneKey: laneKey}
-						return
-					}
-					if !slotIsDeliverable(slot) {
-						d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), errorcodes.PlatformInvalidRequest, "plugin runtime is not deliverable")
-						d.logSchedulerFailure(pluginID, item.run, schedulerElapsed(item.run), map[string]any{
-							"error": "plugin runtime is not deliverable",
-						})
-						completions <- laneCompletion{laneKey: laneKey}
-						return
-					}
-					delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
-					if err != nil {
-						duration := schedulerElapsed(item.run)
-						outcome, code, message := schedulerFailureFields(err, delivery)
-						var runtimeErr *plugins.Error
-						reported := errors.As(err, &runtimeErr) && runtimeErr != nil && runtimeErr.FailureReported()
-						if item.run == nil && !reported && code != errorcodes.PluginEventCanceled {
-							count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
-							if count > 0 {
-								d.logger.Warn("插件处理任务失败", "failure_reason", eventFailureDescription(code),
-									"component", "dispatch",
-									"plugin_id", pluginID,
-									"event_id", item.event.EventID,
-									"event_type", item.event.EventType,
-									"lane_key", laneKey,
-									"err", err.Error(),
-									"error_code", code, "request_id", delivery.RequestID, "repeat_count", count,
-								)
-							}
-						}
-						d.recordSchedulerCompletion(item.ctx, item.run, outcome, duration, code, message)
-						if !reported {
-							d.logSchedulerFailure(pluginID, item.run, duration, map[string]any{
-								"error":      err.Error(),
-								"error_code": code,
-							})
-						}
-						completions <- laneCompletion{laneKey: laneKey}
-						return
-					}
-
-					if delivery.Action != nil {
-						d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
-					}
-					d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeSuccess, schedulerElapsed(item.run), "", "")
-					d.recoverScheduler(pluginID, item.run)
-					if item.run == nil {
-						if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {
-							d.logger.Info("插件已恢复处理任务", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
-						}
-					}
+					d.deliverLaneItem(pluginID, slot, laneKey, item)
 					completions <- laneCompletion{laneKey: laneKey}
 				}(laneKey, item)
 			}
@@ -192,6 +135,67 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 			if len(pendingByLane[completion.laneKey]) > 0 {
 				appendLane(completion.laneKey)
 			}
+		}
+	}
+}
+
+// deliverLaneItem delivers one dequeued item to the plugin runtime and records
+// the scheduler and failure outcome. The worker keeps the item's lane reserved
+// until it returns.
+func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey string, item dispatchItem) {
+	execCtx, cancel := context.WithCancel(item.ctx)
+	stop := context.AfterFunc(slot.ctx, cancel)
+	defer func() { stop(); cancel() }()
+	item.ctx = execCtx
+	if slot.ctx.Err() != nil {
+		d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), errorcodes.PluginEventCanceled, "事件因运行时停止而取消")
+		return
+	}
+	if !slotIsDeliverable(slot) {
+		d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), errorcodes.PlatformInvalidRequest, "plugin runtime is not deliverable")
+		d.logSchedulerFailure(pluginID, item.run, schedulerElapsed(item.run), map[string]any{
+			"error": "plugin runtime is not deliverable",
+		})
+		return
+	}
+	delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
+	if err != nil {
+		duration := schedulerElapsed(item.run)
+		outcome, code, message := schedulerFailureFields(err, delivery)
+		var runtimeErr *plugins.Error
+		reported := errors.As(err, &runtimeErr) && runtimeErr != nil && runtimeErr.FailureReported()
+		if item.run == nil && !reported && code != errorcodes.PluginEventCanceled {
+			count := d.failures.Failure(pluginID+":"+item.event.EventType, code, time.Now())
+			if count > 0 {
+				d.logger.Warn("插件处理任务失败", "failure_reason", eventFailureDescription(code),
+					"component", "dispatch",
+					"plugin_id", pluginID,
+					"event_id", item.event.EventID,
+					"event_type", item.event.EventType,
+					"lane_key", laneKey,
+					"err", err.Error(),
+					"error_code", code, "request_id", delivery.RequestID, "repeat_count", count,
+				)
+			}
+		}
+		d.recordSchedulerCompletion(item.ctx, item.run, outcome, duration, code, message)
+		if !reported {
+			d.logSchedulerFailure(pluginID, item.run, duration, map[string]any{
+				"error":      err.Error(),
+				"error_code": code,
+			})
+		}
+		return
+	}
+
+	if delivery.Action != nil {
+		d.executeAction(item.ctx, pluginID, delivery.RequestID, item.event, *delivery.Action)
+	}
+	d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeSuccess, schedulerElapsed(item.run), "", "")
+	d.recoverScheduler(pluginID, item.run)
+	if item.run == nil {
+		if count := d.failures.Recover(pluginID + ":" + item.event.EventType); count > 0 {
+			d.logger.Info("插件已恢复处理任务", "component", "dispatch", "plugin_id", pluginID, "event_type", item.event.EventType, "repeat_count", count)
 		}
 	}
 }
