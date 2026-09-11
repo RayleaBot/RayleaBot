@@ -48,4 +48,5 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 ## Git and Review
 
 - 提交遵守 Conventional Commits：`<type>[optional scope]: <description>`，subject 说明具体变更。
+- 每次提交必须撰写非空正文，与 subject 之间空一行；正文直接说明改动内容与原因，不写验证过程或结果。
 - 一个 commit 表达一个逻辑变更；保留无关工作区改动，只暂存核对过的相关文件或 hunks。
