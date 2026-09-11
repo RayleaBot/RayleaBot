@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,11 +36,11 @@ type FrameSummary struct {
 // identity for an event. A group event keys on its group, a private event on
 // the peer. Both are OneBot11 numeric ids rendered as strings.
 func privateConversation(userID int64) (string, string) {
-	return "private", fmt.Sprintf("%d", userID)
+	return "private", strconv.FormatInt(userID, 10)
 }
 
 func groupConversation(groupID int64) (string, string) {
-	return "group", fmt.Sprintf("%d", groupID)
+	return "group", strconv.FormatInt(groupID, 10)
 }
 
 type senderObject struct {
@@ -166,14 +168,14 @@ func normalizeRequestEvent(frame OneBotFrame, observedAt time.Time) (chatevent.N
 	return chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindRequest,
 		EventID:          eventID,
-		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		BotID:            strconv.FormatInt(frame.SelfID, 10),
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        eventType,
 		Timestamp:        timestamp,
 		ConversationType: conversationType,
 		ConversationID:   conversationID,
-		SenderID:         fmt.Sprintf("%d", frame.UserID),
+		SenderID:         strconv.FormatInt(frame.UserID, 10),
 		PayloadFields:    payloadFields,
 	}, true
 }
@@ -203,7 +205,7 @@ func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (chatevent.Norm
 		eventID = fmt.Sprintf("onebot11-meta-%s-%s-%d", strings.ReplaceAll(frame.MetaEventType, "_", "-"), strings.ReplaceAll(subType, "_", "-"), timestamp)
 	}
 
-	botID := fmt.Sprintf("%d", frame.SelfID)
+	botID := strconv.FormatInt(frame.SelfID, 10)
 	return chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindMeta,
 		EventID:          eventID,
@@ -398,7 +400,7 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 
 	var messageID string
 	if frame.MessageID > 0 {
-		messageID = fmt.Sprintf("%d", frame.MessageID)
+		messageID = strconv.FormatInt(frame.MessageID, 10)
 	}
 
 	payloadFields := buildCommonPayloadFields(frame)
@@ -411,14 +413,14 @@ func normalizeMessageLikeEvent(frame OneBotFrame, observedAt time.Time, sent boo
 			return chatevent.EventKindMessage
 		}(),
 		EventID:          eventID,
-		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		BotID:            strconv.FormatInt(frame.SelfID, 10),
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        eventType,
 		Timestamp:        timestamp,
 		ConversationType: conversationType,
 		ConversationID:   conversationID,
-		SenderID:         fmt.Sprintf("%d", frame.UserID),
+		SenderID:         strconv.FormatInt(frame.UserID, 10),
 		PlainText:        plainText,
 		Segments:         segments,
 		MessageID:        messageID,
@@ -455,18 +457,19 @@ func buildCommonPayloadFields(frame OneBotFrame) map[string]any {
 		payloadFields["request_type"] = frame.RequestType
 	}
 	if frame.OperatorID > 0 {
-		payloadFields["operator_id"] = fmt.Sprintf("%d", frame.OperatorID)
+		payloadFields["operator_id"] = strconv.FormatInt(frame.OperatorID, 10)
 	}
 	if frame.TargetID > 0 {
-		payloadFields["target_id"] = fmt.Sprintf("%d", frame.TargetID)
+		payloadFields["target_id"] = strconv.FormatInt(frame.TargetID, 10)
 	}
+	sender := buildSenderPayload(frame.Sender)
 	if frame.Sender != nil {
-		payloadFields["sender"] = buildSenderPayload(frame.Sender)
+		payloadFields["sender"] = sender
 	}
 	if data := buildDataPayload(frame.Data); len(data) > 0 {
 		payloadFields["data"] = data
 	}
-	if onebot := buildOneBotPayload(frame); len(onebot) > 0 {
+	if onebot := buildOneBotPayload(frame, sender); len(onebot) > 0 {
 		payloadFields["onebot"] = onebot
 	}
 	return payloadFields
@@ -478,7 +481,7 @@ func buildSenderPayload(sender *senderObject) map[string]any {
 	}
 	payload := map[string]any{}
 	if sender.UserID > 0 {
-		payload["user_id"] = fmt.Sprintf("%d", sender.UserID)
+		payload["user_id"] = strconv.FormatInt(sender.UserID, 10)
 	}
 	if nickname := redact.SanitizeString(sender.Nickname); nickname != "" {
 		payload["nickname"] = nickname
@@ -501,7 +504,9 @@ func buildSenderPayload(sender *senderObject) map[string]any {
 	return payload
 }
 
-func buildOneBotPayload(frame OneBotFrame) map[string]any {
+// buildOneBotPayload projects the raw frame fields; sender is the already
+// built sender payload and is copied so the two projections stay isolated.
+func buildOneBotPayload(frame OneBotFrame, sender map[string]any) map[string]any {
 	payload := map[string]any{}
 	if frame.PostType != "" {
 		payload["post_type"] = frame.PostType
@@ -522,19 +527,19 @@ func buildOneBotPayload(frame OneBotFrame) map[string]any {
 		payload["sub_type"] = frame.SubType
 	}
 	if frame.SelfID > 0 {
-		payload["self_id"] = fmt.Sprintf("%d", frame.SelfID)
+		payload["self_id"] = strconv.FormatInt(frame.SelfID, 10)
 	}
 	if frame.UserID > 0 {
-		payload["user_id"] = fmt.Sprintf("%d", frame.UserID)
+		payload["user_id"] = strconv.FormatInt(frame.UserID, 10)
 	}
 	if frame.GroupID > 0 {
-		payload["group_id"] = fmt.Sprintf("%d", frame.GroupID)
+		payload["group_id"] = strconv.FormatInt(frame.GroupID, 10)
 	}
 	if groupName := redact.SanitizeString(frame.GroupName); groupName != "" {
 		payload["group_name"] = groupName
 	}
 	if frame.TargetID > 0 {
-		payload["target_id"] = fmt.Sprintf("%d", frame.TargetID)
+		payload["target_id"] = strconv.FormatInt(frame.TargetID, 10)
 	}
 	if frame.Time > 0 {
 		payload["time"] = frame.Time
@@ -543,13 +548,13 @@ func buildOneBotPayload(frame OneBotFrame) map[string]any {
 		payload["interval"] = frame.Interval
 	}
 	if frame.MessageID > 0 {
-		payload["message_id"] = fmt.Sprintf("%d", frame.MessageID)
+		payload["message_id"] = strconv.FormatInt(frame.MessageID, 10)
 	}
 	if frame.RealID > 0 {
-		payload["real_id"] = fmt.Sprintf("%d", frame.RealID)
+		payload["real_id"] = strconv.FormatInt(frame.RealID, 10)
 	}
 	if frame.MessageSeq > 0 {
-		payload["message_seq"] = fmt.Sprintf("%d", frame.MessageSeq)
+		payload["message_seq"] = strconv.FormatInt(frame.MessageSeq, 10)
 	}
 	if rawMessage := redact.SanitizeString(frame.RawMessage); rawMessage != "" {
 		payload["raw_message"] = rawMessage
@@ -560,8 +565,8 @@ func buildOneBotPayload(frame OneBotFrame) map[string]any {
 	if messageFormat := strings.TrimSpace(redact.SanitizeString(frame.MessageFormat)); messageFormat != "" {
 		payload["message_format"] = messageFormat
 	}
-	if sender := buildSenderPayload(frame.Sender); len(sender) > 0 {
-		payload["sender"] = sender
+	if len(sender) > 0 {
+		payload["sender"] = maps.Clone(sender)
 	}
 	if comment := strings.TrimSpace(redact.SanitizeString(frame.Comment)); comment != "" {
 		payload["comment"] = comment
@@ -591,87 +596,59 @@ func messageIDString(messageID int64) string {
 	if messageID <= 0 {
 		return ""
 	}
-	return fmt.Sprintf("%d", messageID)
+	return strconv.FormatInt(messageID, 10)
+}
+
+// noticeSpec describes how a OneBot11 notice type maps onto the unified
+// event model: group notices require a group and key on it, friend notices
+// key on the peer.
+type noticeSpec struct {
+	eventType    string
+	requireGroup bool
+}
+
+var noticeSpecs = map[string]noticeSpec{
+	"group_increase": {eventType: "notice.member_increase", requireGroup: true},
+	"group_decrease": {eventType: "notice.member_decrease", requireGroup: true},
+	"group_admin":    {eventType: "notice.group_admin", requireGroup: true},
+	"group_ban":      {eventType: "notice.group_ban", requireGroup: true},
+	"group_recall":   {eventType: "notice.group_recall", requireGroup: true},
+	"group_upload":   {eventType: "notice.group_upload", requireGroup: true},
+	"group_card":     {eventType: "notice.group_card", requireGroup: true},
+	"group_title":    {eventType: "notice.group_title", requireGroup: true},
+	"essence":        {eventType: "notice.group_essence", requireGroup: true},
+	"friend_add":     {eventType: "notice.friend_add"},
+	"friend_recall":  {eventType: "notice.friend_recall"},
 }
 
 func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (chatevent.NormalizedEvent, bool) {
 	if frame.SelfID <= 0 {
 		return chatevent.NormalizedEvent{}, false
 	}
+	if frame.NoticeType == "notify" {
+		return normalizeNotifyEvent(frame, observedAt)
+	}
+	if frame.UserID <= 0 {
+		return chatevent.NormalizedEvent{}, false
+	}
 
 	var eventType string
 	conversationType, conversationID := groupConversation(frame.GroupID)
-	senderID := fmt.Sprintf("%d", frame.UserID)
-	switch frame.NoticeType {
-	case "group_increase":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.member_increase"
-	case "group_decrease":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.member_decrease"
-	case "group_admin":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_admin"
-	case "group_ban":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_ban"
-	case "group_recall":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_recall"
-	case "group_upload":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_upload"
-	case "group_card":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_card"
-	case "group_title":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_title"
-	case "essence":
-		if frame.UserID <= 0 || frame.GroupID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.group_essence"
-	case "friend_add":
-		if frame.UserID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.friend_add"
-		conversationType, conversationID = privateConversation(frame.UserID)
-	case "friend_recall":
-		if frame.UserID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
-		eventType = "notice.friend_recall"
-		conversationType, conversationID = privateConversation(frame.UserID)
-	case "notify":
-		return normalizeNotifyEvent(frame, observedAt)
-	case "flash_file":
-		if frame.UserID <= 0 {
-			return chatevent.NormalizedEvent{}, false
-		}
+	senderID := strconv.FormatInt(frame.UserID, 10)
+	if frame.NoticeType == "flash_file" {
 		eventType = "notice.flash_file"
 		if frame.GroupID <= 0 {
 			conversationType, conversationID = privateConversation(frame.UserID)
 		}
-	default:
-		return chatevent.NormalizedEvent{}, false
+	} else {
+		spec, known := noticeSpecs[frame.NoticeType]
+		if !known || (spec.requireGroup && frame.GroupID <= 0) {
+			return chatevent.NormalizedEvent{}, false
+		}
+		eventType = spec.eventType
+		if !spec.requireGroup {
+			conversationType, conversationID = privateConversation(frame.UserID)
+		}
 	}
 
 	if conversationID == "0" || senderID == "0" {
@@ -693,7 +670,7 @@ func normalizeNoticeEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 	return chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindNotice,
 		EventID:          eventID,
-		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		BotID:            strconv.FormatInt(frame.SelfID, 10),
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        eventType,
@@ -747,14 +724,14 @@ func normalizeNotifyEvent(frame OneBotFrame, observedAt time.Time) (chatevent.No
 	return chatevent.NormalizedEvent{
 		Kind:             chatevent.EventKindNotice,
 		EventID:          eventID,
-		BotID:            fmt.Sprintf("%d", frame.SelfID),
+		BotID:            strconv.FormatInt(frame.SelfID, 10),
 		SourceProtocol:   "onebot11",
 		SourceAdapter:    "adapter.onebot11",
 		EventType:        eventType,
 		Timestamp:        timestamp,
 		ConversationType: conversationType,
 		ConversationID:   conversationID,
-		SenderID:         fmt.Sprintf("%d", frame.UserID),
+		SenderID:         strconv.FormatInt(frame.UserID, 10),
 		MessageID:        messageIDString(frame.MessageID),
 		PayloadFields:    payloadFields,
 	}, true
