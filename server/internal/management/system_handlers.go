@@ -126,10 +126,6 @@ func NewSystemHandlers(system CoreService, schedulerServices ...SchedulerService
 	return &SystemHandlers{system: system, scheduler: schedulerValue}
 }
 
-func NewSchedulerHandlers(service SchedulerService) *SystemHandlers {
-	return &SystemHandlers{scheduler: service}
-}
-
 func NewSystemRoutes(handlers *SystemHandlers, metrics http.Handler) SystemRoutes {
 	return SystemRoutes{Handlers: handlers, Metrics: metrics}
 }

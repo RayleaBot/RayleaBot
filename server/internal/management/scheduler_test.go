@@ -34,7 +34,7 @@ func newSchedulerTestHandlers(t *testing.T, pluginName func(string) string, engi
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewSchedulerHandlers(view)
+	return NewSystemHandlers(nil, view)
 }
 
 func TestSystemSchedulerJobListHTTP(t *testing.T) {
