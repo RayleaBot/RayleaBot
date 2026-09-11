@@ -122,7 +122,7 @@ go run ./sdk/go/cmd/raylea-plugin build-go --plugin ../RayleaBotPlugins/plugin-f
 
 ## 仓库动态
 
-> 以下图表由 [`.github/workflows/repo-stats.yml`](.github/workflows/repo-stats.yml) 每日自动生成，反映本仓库最近一年的提交活动。
+> 以下图表由 [`.github/workflows/repo-stats.yml`](.github/workflows/repo-stats.yml) 在推送到 `main` 时自动生成，反映本仓库最近一年的提交活动。
 
 ![月度提交折线图](https://raw.githubusercontent.com/RayleaBot/RayleaBot/output/repo-activity-line.svg)
 
