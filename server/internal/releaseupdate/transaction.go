@@ -92,154 +92,219 @@ func (i *Installer) Install(ctx context.Context, request InstallRequest) error {
 	if err := os.MkdirAll(request.TransactionRoot, 0o700); err != nil {
 		return errorWithCode(CodeInstallFailed, "create transaction directory", err)
 	}
-	journalPath := filepath.Join(request.TransactionRoot, "journal.json")
-	previousRoot := filepath.Join(request.TransactionRoot, "previous")
-	stagingRoot := filepath.Join(request.TransactionRoot, "staging")
-	journal := transactionJournal{
-		Version:           1,
-		State:             "installing",
-		InstallRoot:       request.InstallRoot,
-		TransactionRoot:   request.TransactionRoot,
-		PreviousRoot:      previousRoot,
-		StagingRoot:       stagingRoot,
-		ServiceWasRunning: request.ServiceWasRunning,
+	tx := &installTransaction{
+		installer:   i,
+		request:     request,
+		journalPath: filepath.Join(request.TransactionRoot, "journal.json"),
+		journal: transactionJournal{
+			Version:           1,
+			State:             "installing",
+			InstallRoot:       request.InstallRoot,
+			TransactionRoot:   request.TransactionRoot,
+			PreviousRoot:      filepath.Join(request.TransactionRoot, "previous"),
+			StagingRoot:       filepath.Join(request.TransactionRoot, "staging"),
+			ServiceWasRunning: request.ServiceWasRunning,
+		},
 	}
 
-	if err := i.recordPhase(journalPath, &journal, PhaseMetadata, request.Now); err != nil {
+	verified, artifact, err := tx.validateRelease()
+	if err != nil {
 		return err
+	}
+	payloadRoot, err := tx.stageRelease(ctx, verified, artifact)
+	if err != nil {
+		return err
+	}
+	return tx.swapRelease(ctx, payloadRoot)
+}
+
+// installTransaction carries the journal for one Install call so each stage
+// can record phases and failures without threading the path and clock.
+type installTransaction struct {
+	installer   *Installer
+	request     InstallRequest
+	journalPath string
+	journal     transactionJournal
+}
+
+func (t *installTransaction) phase(phase Phase) error {
+	return t.installer.recordPhase(t.journalPath, &t.journal, phase, t.request.Now)
+}
+
+// fail records the transaction as failed before any swap happened and returns
+// the cause unchanged.
+func (t *installTransaction) fail(cause error) error {
+	t.journal.State = "failed"
+	_ = writeJournal(t.journalPath, &t.journal, t.request.Now)
+	return cause
+}
+
+func (t *installTransaction) rollback(ctx context.Context, cause error) error {
+	return t.installer.rollback(ctx, t.journalPath, &t.journal, t.request, cause)
+}
+
+// validateRelease checks the signed metadata, the artifact and the disk
+// reservation before anything on disk changes.
+func (t *installTransaction) validateRelease() (VerifiedManifest, Artifact, error) {
+	i, request := t.installer, t.request
+	if err := t.phase(PhaseMetadata); err != nil {
+		return VerifiedManifest{}, Artifact{}, err
 	}
 	verified, err := ValidateMetadataFiles(i.Verifier, request.ManifestPath, request.SignaturePath, request.Now)
 	if err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
+		return VerifiedManifest{}, Artifact{}, t.fail(err)
 	}
 	artifact, found := verified.ArtifactByID(ArtifactWindowsX64Full)
 	if !found || artifact.UpdateMode != "automatic" || artifact.MinUpdaterProtocolVersion > ProtocolVersion || artifact.WindowsSignerSHA256 == "" {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeUpdateNotSupported, "select automatic artifact", errors.New("signed release does not permit automatic Windows installation")))
+		return VerifiedManifest{}, Artifact{}, t.fail(errorWithCode(CodeUpdateNotSupported, "select automatic artifact", errors.New("signed release does not permit automatic Windows installation")))
 	}
 	if !strings.EqualFold(filepath.Base(request.ArtifactPath), artifact.FileName) {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeArtifactInvalid, "match artifact basename", errors.New("artifact path does not match the signed basename")))
+		return VerifiedManifest{}, Artifact{}, t.fail(errorWithCode(CodeArtifactInvalid, "match artifact basename", errors.New("artifact path does not match the signed basename")))
 	}
 	currentBuildBytes, err := os.ReadFile(filepath.Join(request.InstallRoot, "build_info.json"))
 	if err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeTrustRequired, "read installed build info", err))
+		return VerifiedManifest{}, Artifact{}, t.fail(errorWithCode(CodeTrustRequired, "read installed build info", err))
 	}
 	currentBuild, err := DecodeBuildInfo(currentBuildBytes)
 	if err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
+		return VerifiedManifest{}, Artifact{}, t.fail(err)
 	}
 	comparison, err := compareSemanticVersions(verified.Manifest.Version, currentBuild.Version)
 	if err != nil || comparison <= 0 {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeReplayRejected, "validate target version", errors.New("automatic installation requires a strictly newer version")))
+		return VerifiedManifest{}, Artifact{}, t.fail(errorWithCode(CodeReplayRejected, "validate target version", errors.New("automatic installation requires a strictly newer version")))
 	}
 	if err := ObserveManifest(filepath.Join(request.InstallRoot, "data", "update-trust.json"), currentBuild, verified, request.Now); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
+		return VerifiedManifest{}, Artifact{}, t.fail(err)
 	}
-	journal.TargetVersion = verified.Manifest.Version
+	t.journal.TargetVersion = verified.Manifest.Version
 
-	if err := i.recordPhase(journalPath, &journal, PhaseArtifact, request.Now); err != nil {
-		return err
+	if err := t.phase(PhaseArtifact); err != nil {
+		return VerifiedManifest{}, Artifact{}, err
 	}
 	if err := VerifyArtifactFile(request.ArtifactPath, artifact); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
+		return VerifiedManifest{}, Artifact{}, t.fail(err)
 	}
+	if err := t.reserveDisk(artifact); err != nil {
+		return VerifiedManifest{}, Artifact{}, t.fail(err)
+	}
+	return verified, artifact, nil
+}
+
+func (t *installTransaction) reserveDisk(artifact Artifact) error {
+	request := t.request
 	preservedSize, err := preservedStateSize(request.InstallRoot)
 	if err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "inspect preserved state", err))
+		return errorWithCode(CodeInstallFailed, "inspect preserved state", err)
 	}
-	freeDisk := i.FreeDiskBytes
+	freeDisk := t.installer.FreeDiskBytes
 	if freeDisk == nil {
 		freeDisk = freeDiskBytes
 	}
 	expandedBytes := uint64(artifact.ExpandedSizeBytes)
 	if preservedSize < 0 || uint64(preservedSize) > (math.MaxUint64-expandedBytes)/2 {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeDiskSpaceInsufficient, "calculate transaction disk reservation", errors.New("preserved state size exceeds the supported range")))
+		return errorWithCode(CodeDiskSpaceInsufficient, "calculate transaction disk reservation", errors.New("preserved state size exceeds the supported range"))
 	}
-	if freeBytes, diskErr := freeDisk(request.TransactionRoot); diskErr != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeDiskSpaceInsufficient, "inspect transaction disk", diskErr))
-	} else if required := expandedBytes + 2*uint64(preservedSize); freeBytes < required {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeDiskSpaceInsufficient, "reserve transaction disk", fmt.Errorf("need %d bytes, have %d bytes", required, freeBytes)))
+	freeBytes, diskErr := freeDisk(request.TransactionRoot)
+	if diskErr != nil {
+		return errorWithCode(CodeDiskSpaceInsufficient, "inspect transaction disk", diskErr)
 	}
+	if required := expandedBytes + 2*uint64(preservedSize); freeBytes < required {
+		return errorWithCode(CodeDiskSpaceInsufficient, "reserve transaction disk", fmt.Errorf("need %d bytes, have %d bytes", required, freeBytes))
+	}
+	return nil
+}
 
-	if err := i.recordPhase(journalPath, &journal, PhaseStop, request.Now); err != nil {
-		return err
+// stageRelease stops the launcher, backs up the current state, extracts the
+// artifact and preflights it in the staging directory.
+func (t *installTransaction) stageRelease(ctx context.Context, verified VerifiedManifest, artifact Artifact) (string, error) {
+	i, request := t.installer, t.request
+	if err := t.phase(PhaseStop); err != nil {
+		return "", err
 	}
 	if err := i.Operations.WaitForLauncher(ctx, request.LauncherPID); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "wait for Launcher exit", err))
+		return "", t.fail(errorWithCode(CodeInstallFailed, "wait for Launcher exit", err))
 	}
 
-	if err := i.recordPhase(journalPath, &journal, PhaseBackup, request.Now); err != nil {
-		return err
+	if err := t.phase(PhaseBackup); err != nil {
+		return "", err
 	}
 	backupPath, err := i.Operations.CreateOfflineBackup(ctx, request.InstallRoot, request.TransactionRoot)
 	if err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "create offline backup", err))
+		return "", t.fail(errorWithCode(CodeInstallFailed, "create offline backup", err))
 	}
-	journal.BackupPath = backupPath
+	t.journal.BackupPath = backupPath
 
-	if err := i.recordPhase(journalPath, &journal, PhaseExtract, request.Now); err != nil {
-		return err
+	if err := t.phase(PhaseExtract); err != nil {
+		return "", err
 	}
-	if err := os.RemoveAll(stagingRoot); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "reset staging directory", err))
+	if err := os.RemoveAll(t.journal.StagingRoot); err != nil {
+		return "", t.fail(errorWithCode(CodeInstallFailed, "reset staging directory", err))
 	}
-	payloadRoot, err := ExtractWindowsArtifact(request.ArtifactPath, stagingRoot, verified, artifact)
+	payloadRoot, err := ExtractWindowsArtifact(request.ArtifactPath, t.journal.StagingRoot, verified, artifact)
 	if err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
+		return "", t.fail(err)
 	}
-	journal.PayloadRoot = payloadRoot
+	t.journal.PayloadRoot = payloadRoot
 
-	if err := i.recordPhase(journalPath, &journal, PhasePreflight, request.Now); err != nil {
-		return err
+	if err := t.phase(PhasePreflight); err != nil {
+		return "", err
 	}
 	if err := i.Operations.VerifyAuthenticode(payloadRoot, artifact.WindowsSignerSHA256); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
+		return "", t.fail(err)
 	}
 	if err := i.Operations.RestoreAndPreflight(ctx, payloadRoot, backupPath); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "restore and preflight staged release", err))
+		return "", t.fail(errorWithCode(CodeInstallFailed, "restore and preflight staged release", err))
 	}
 	if err := verifyPreservedUserState(request.InstallRoot, payloadRoot); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "verify restored user state", err))
+		return "", t.fail(errorWithCode(CodeInstallFailed, "verify restored user state", err))
 	}
+	return payloadRoot, nil
+}
 
+// swapRelease moves the staged payload into place; from the swap phase on,
+// every failure rolls back to the previous release.
+func (t *installTransaction) swapRelease(ctx context.Context, payloadRoot string) error {
+	i, request := t.installer, t.request
+	previousRoot := t.journal.PreviousRoot
 	if err := os.RemoveAll(previousRoot); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "reset previous release directory", err))
+		return t.fail(errorWithCode(CodeInstallFailed, "reset previous release directory", err))
 	}
 	if err := os.Rename(request.InstallRoot, previousRoot); err != nil {
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "move current release aside", err))
+		return t.fail(errorWithCode(CodeInstallFailed, "move current release aside", err))
 	}
 	if err := os.Rename(payloadRoot, request.InstallRoot); err != nil {
 		_ = os.Rename(previousRoot, request.InstallRoot)
-		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeInstallFailed, "activate staged release", err))
+		return t.fail(errorWithCode(CodeInstallFailed, "activate staged release", err))
 	}
-	if err := i.recordPhase(journalPath, &journal, PhaseSwap, request.Now); err != nil {
-		if errors.Is(err, ErrSimulatedPowerLoss) {
-			return err
-		}
-		return i.rollback(ctx, journalPath, &journal, request, err)
+	if err := t.phaseOrRollback(ctx, PhaseSwap); err != nil {
+		return err
 	}
-
-	if err := i.recordPhase(journalPath, &journal, PhasePostflight, request.Now); err != nil {
-		if errors.Is(err, ErrSimulatedPowerLoss) {
-			return err
-		}
-		return i.rollback(ctx, journalPath, &journal, request, err)
+	if err := t.phaseOrRollback(ctx, PhasePostflight); err != nil {
+		return err
 	}
 	if err := i.Operations.Postflight(ctx, request.InstallRoot, request); err != nil {
-		return i.rollback(ctx, journalPath, &journal, request, errorWithCode(CodeInstallFailed, "run postflight", err))
+		return t.rollback(ctx, errorWithCode(CodeInstallFailed, "run postflight", err))
 	}
-
-	if err := i.recordPhase(journalPath, &journal, PhaseCommit, request.Now); err != nil {
-		if errors.Is(err, ErrSimulatedPowerLoss) {
-			return err
-		}
-		return i.rollback(ctx, journalPath, &journal, request, err)
+	if err := t.phaseOrRollback(ctx, PhaseCommit); err != nil {
+		return err
 	}
-	journal.State = "succeeded"
-	if err := writeJournal(journalPath, &journal, request.Now); err != nil {
+	t.journal.State = "succeeded"
+	if err := writeJournal(t.journalPath, &t.journal, request.Now); err != nil {
 		return errorWithCode(CodeInstallFailed, "commit transaction journal", err)
 	}
 	cleanupOldTransactions(filepath.Dir(request.InstallRoot), request.TransactionRoot, request.Now)
 	return nil
+}
+
+// phaseOrRollback records a post-swap phase; a simulated power loss returns
+// as-is so recovery tests observe the interrupted journal, any other failure
+// rolls back.
+func (t *installTransaction) phaseOrRollback(ctx context.Context, phase Phase) error {
+	err := t.phase(phase)
+	if err == nil || errors.Is(err, ErrSimulatedPowerLoss) {
+		return err
+	}
+	return t.rollback(ctx, err)
 }
 
 func (i *Installer) Recover(ctx context.Context, transactionRoot string) error {
@@ -337,12 +402,6 @@ func (i *Installer) recordPhase(path string, journal *transactionJournal, phase 
 		}
 	}
 	return nil
-}
-
-func (i *Installer) failBeforeSwap(path string, journal *transactionJournal, now time.Time, cause error) error {
-	journal.State = "failed"
-	_ = writeJournal(path, journal, now)
-	return cause
 }
 
 func (i *Installer) rollback(ctx context.Context, path string, journal *transactionJournal, request InstallRequest, cause error) error {
