@@ -9,7 +9,7 @@ on:
       version:
         description: Version to build without creating a tag or release.
         type: string
-        default: "0.4.0"
+        default: "0.5.0"
         required: true
 
 permissions:
@@ -23,8 +23,8 @@ jobs:
   validate:
     uses: ./.github/workflows/release-build.yml
     with:
-      version: ${{ inputs.version || '0.4.0' }}
-      release_notes_ref: ${{ format('https://github.com/{0}/blob/{1}/docs/release/notes/v{2}.md', github.repository, github.sha, inputs.version || '0.4.0') }}
+      version: ${{ inputs.version || '0.5.0' }}
+      release_notes_ref: ${{ format('https://github.com/{0}/blob/{1}/docs/release/notes/v{2}.md', github.repository, github.sha, inputs.version || '0.5.0') }}
     secrets:
       RAYLEA_RELEASE_SIGNING_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_SIGNING_KEY_PEM }}
       RAYLEA_RELEASE_NEXT_KEY_PEM: ${{ secrets.RAYLEA_RELEASE_NEXT_KEY_PEM }}

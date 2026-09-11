@@ -26,9 +26,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
     def test_validation_and_release_call_the_same_build_without_publishing_validation(self):
         validation, release, build = (workflow(name) for name in ("artifact-validation.yml", "release.yml", "release-build.yml"))
         self.assertEqual(validation["on"]["push"]["branches"], ["codex/validation-*"])
-        self.assertEqual(validation["on"]["workflow_dispatch"]["inputs"]["version"]["default"], "0.4.0")
+        self.assertEqual(validation["on"]["workflow_dispatch"]["inputs"]["version"]["default"], "0.5.0")
         for value in validation["jobs"]["validate"]["with"].values():
-            self.assertIn("inputs.version || '0.4.0'", value)
+            self.assertIn("inputs.version || '0.5.0'", value)
         self.assertEqual(set(validation["on"]), {"push", "workflow_dispatch"})
         for caller, job_id in ((validation, "validate"), (release, "build")):
             self.assertEqual(caller["jobs"][job_id]["uses"], "./.github/workflows/release-build.yml")

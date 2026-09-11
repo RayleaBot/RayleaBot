@@ -1,6 +1,8 @@
-# 0.4.0 候选版验收与交付记录
+# 0.5.0 候选版验收与交付记录
 
 本轮按全新分发前提完成执行计划 P01–P26，交付四种已验收候选包及校验材料；尚未创建发布 tag 或公开 Release。验证范围、平台签名和工具限制见下文，候选验收完成不代表这些边界之外的验证也已完成。
+
+候选版本号于 2026-09-11 由 0.4.0 改为 0.5.0。下文四个归档在构建时以版本 `0.4.0` 标识，其提交、摘要、清单与证据按原样保留；以 0.5.0 标识的候选包需要重新构建并按同一流程验收。本机交付目录 `dist/candidates/v0.4.0/5b2fa9d8/` 已于同日清理，证据以上述 CI run 与本记录为准。
 
 ## 来源与验证入口
 
@@ -83,4 +85,4 @@
 - 最终 macOS Server 和 Launcher 为链接器 ad-hoc 签名，CodeDirectory flags 为 `0x20002`，逐页摘要核验通过；没有 Developer ID/CMS/Team ID 或 bundle 资源签名封装，公证与 Gatekeeper 未验收。
 - Linux/macOS 已验证原生构建与实际服务/插件/渲染/恢复流程，没有同等的原生桌面人工操作记录；外部聊天平台实网验证也没有冒充为通过。
 - 最终 Windows/macOS Server 均使用 `govulncheck@v1.7.0`、Go 1.26.6 执行 binary-mode 扫描，受影响符号和导入包漏洞均为 0；仍有 3 项仅存在于声明模块的 x/crypto SSH/OpenPGP 公告（GO-2026-6355、GO-2026-6354、GO-2026-5932），不等于全局没有漏洞。macOS 二进制仅解析，未在 Windows 上执行。证据为 `.verification/vulnerability/results.json`。
-- 当前交付是未公开分发的候选版。未生成发布 tag、公开 Release 或提前编造正式 CHANGELOG；安装与本版恢复步骤见[候选说明](./notes/v0.4.0.md)。
+- 当前交付是未公开分发的候选版。未生成发布 tag、公开 Release 或提前编造正式 CHANGELOG；安装与本版恢复步骤见[候选说明](./notes/v0.5.0.md)。
