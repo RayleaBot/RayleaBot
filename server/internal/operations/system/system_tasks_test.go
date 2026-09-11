@@ -93,7 +93,7 @@ func TestRuntimeBootstrapRefreshesChromiumDiagnostics(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	service, err := New(Deps{CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} }, Plugins: plugincatalog.New(nil), RepoRoot: repoRoot, Renderer: renderer, TaskExecutor: executor, PrepareRuntime: prepare})
+	service, err := New(Deps{CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} }, Plugins: plugincatalog.New(nil), PluginRepository: &testutil.DesiredStateRecorder{}, RepoRoot: repoRoot, Renderer: renderer, TaskExecutor: executor, PrepareRuntime: prepare})
 	if err != nil {
 		t.Fatal(err)
 	}

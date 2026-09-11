@@ -1,10 +1,12 @@
 package system
 
 import (
+	"context"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
 func (s *Service) RefreshRecoverySummary() {
@@ -27,14 +29,9 @@ func (s *Service) RefreshRecoverySummary() {
 }
 
 func (s *Service) recoveryFinalizeInput() recovery.FinalizeInput {
-	pluginsList := []plugins.Snapshot(nil)
-	if s != nil && s.plugins != nil {
-		pluginsList = s.plugins.List()
-	}
 	issues := s.platformDiagnostics()
 	return recovery.FinalizeInput{
-		Plugins:          pluginsList,
-		DesiredStateRepo: s.pluginRepository,
+		Plugins: s.plugins.List(),
 		Readiness: recovery.RuntimeReadiness{
 			RuntimeReady:  len(issues) == 0,
 			RuntimeIssues: issues,
@@ -55,11 +52,30 @@ func (s *Service) reconcileRecoverySummary() (*recovery.CompatibilitySummary, er
 	}
 
 	reconciled := recovery.Finalize(*summary, s.recoveryFinalizeInput())
+	if err := s.persistSkippedPluginsDisabled(reconciled.SkippedPlugins); err != nil {
+		return nil, err
+	}
 	if err := recovery.SaveSummary(s.repoRootPath(), reconciled); err != nil {
 		return nil, err
 	}
 	s.applyRecoverySummary(&reconciled)
 	return &reconciled, nil
+}
+
+// persistSkippedPluginsDisabled stores the disabled state before the summary is
+// saved. A failed write leaves the saved summary unchanged, so the next
+// reconciliation retries it instead of letting the skipped plugin start again.
+func (s *Service) persistSkippedPluginsDisabled(skipped []recovery.SkippedPlugin) error {
+	for _, plugin := range skipped {
+		snapshot, ok := s.plugins.Get(plugin.PluginID)
+		if !ok || snapshot.DesiredState == "disabled" {
+			continue
+		}
+		if err := s.pluginRepository.SaveDesiredState(context.Background(), plugin.PluginID, "disabled", time.Now().UTC()); err != nil {
+			return fmt.Errorf("disable skipped plugin %s: %w", plugin.PluginID, err)
+		}
+	}
+	return nil
 }
 
 func (s *Service) ReconcileRecoverySummaryBestEffort(trigger string) {
@@ -74,9 +90,11 @@ func (s *Service) ReconcileRecoverySummaryBestEffort(trigger string) {
 }
 
 func (s *Service) applyRecoverySummary(summary *recovery.CompatibilitySummary) {
-	if summary != nil && s.plugins != nil {
+	if summary != nil {
 		for _, skipped := range summary.SkippedPlugins {
 			if snapshot, ok := s.plugins.Get(skipped.PluginID); ok && snapshot.DesiredState != "disabled" {
+				// SetDesiredState only fails when the plugin was removed or already
+				// disabled after the lookup, which leaves nothing to project.
 				_, _ = s.plugins.SetDesiredState(skipped.PluginID, "disabled")
 			}
 		}

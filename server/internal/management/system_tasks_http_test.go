@@ -34,6 +34,7 @@ func newTaskOnlyHandlers(t *testing.T, repoRoot string) (*SystemHandlers, *tasks
 		CurrentRepoRoot:  func() string { return repoRoot },
 		CurrentStartedAt: func() time.Time { return startedAt },
 		Plugins:          plugincatalog.New(nil),
+		PluginRepository: &testutil.DesiredStateRecorder{},
 		TaskExecutor:     executor,
 	})
 	if err != nil {

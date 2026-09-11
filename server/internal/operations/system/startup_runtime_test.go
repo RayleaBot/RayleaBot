@@ -13,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestAutoPrepareRuntimeEnvironmentsPreparesManagedRuntimes(t *testing.T) {
@@ -29,7 +30,7 @@ func TestAutoPrepareRuntimeEnvironmentsPreparesManagedRuntimes(t *testing.T) {
 
 	service, err := New(Deps{
 		CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} },
-		Plugins: plugincatalog.New(nil), RepoRoot: t.TempDir(), InspectRuntime: inspect, PrepareRuntime: prepare,
+		Plugins: plugincatalog.New(nil), PluginRepository: &testutil.DesiredStateRecorder{}, RepoRoot: t.TempDir(), InspectRuntime: inspect, PrepareRuntime: prepare,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +72,7 @@ func TestAutoPrepareRuntimeEnvironmentsWaitsForChromiumPrepare(t *testing.T) {
 
 	service, err := New(Deps{
 		CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} },
-		Plugins: plugincatalog.New(nil), RepoRoot: t.TempDir(), InspectRuntime: inspect, PrepareRuntime: prepare,
+		Plugins: plugincatalog.New(nil), PluginRepository: &testutil.DesiredStateRecorder{}, RepoRoot: t.TempDir(), InspectRuntime: inspect, PrepareRuntime: prepare,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +122,7 @@ func TestAutoPrepareRuntimeEnvironmentsLogsChromiumProgress(t *testing.T) {
 	var logs bytes.Buffer
 	service, err := New(Deps{
 		CurrentConfig: func() config.Config { return config.Config{} }, CurrentSummary: func() config.Summary { return config.Summary{} },
-		Plugins: plugincatalog.New(nil), RepoRoot: repoRoot, Logger: slog.New(slog.NewJSONHandler(&logs, nil)), InspectRuntime: inspect, PrepareRuntime: prepare,
+		Plugins: plugincatalog.New(nil), PluginRepository: &testutil.DesiredStateRecorder{}, RepoRoot: repoRoot, Logger: slog.New(slog.NewJSONHandler(&logs, nil)), InspectRuntime: inspect, PrepareRuntime: prepare,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +143,7 @@ func TestStartupRequiredRuntimeKindsKeepsFFmpegWhenBrowserPathConfigured(t *test
 	service, err := New(Deps{
 		CurrentConfig: func() config.Config {
 			return config.Config{Render: config.RenderConfig{BrowserPath: "configured-chromium"}}
-		}, CurrentSummary: func() config.Summary { return config.Summary{} }, Plugins: plugincatalog.New(nil),
+		}, CurrentSummary: func() config.Summary { return config.Summary{} }, Plugins: plugincatalog.New(nil), PluginRepository: &testutil.DesiredStateRecorder{},
 	})
 	if err != nil {
 		t.Fatal(err)

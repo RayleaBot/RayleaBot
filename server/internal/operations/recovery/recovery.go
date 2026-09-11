@@ -1,7 +1,6 @@
 package recovery
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -122,9 +121,8 @@ type RuntimeReadiness struct {
 }
 
 type FinalizeInput struct {
-	Plugins          []plugins.Snapshot
-	DesiredStateRepo plugins.DesiredStateRepository
-	Readiness        RuntimeReadiness
+	Plugins   []plugins.Snapshot
+	Readiness RuntimeReadiness
 }
 
 type UnknownReviewIDsError struct {
@@ -236,9 +234,6 @@ func Finalize(summary CompatibilitySummary, input FinalizeInput) CompatibilitySu
 		summary.SkippedPlugins = append(summary.SkippedPlugins, skipped)
 		if skipped.ReviewStatus != reviewStatusConfirmed {
 			summary.Issues = append(summary.Issues, pluginIssueFromSkipped(skipped))
-		}
-		if input.DesiredStateRepo != nil && plugin.DesiredState != "disabled" {
-			_ = input.DesiredStateRepo.SaveDesiredState(context.Background(), plugin.PluginID, "disabled", time.Now().UTC())
 		}
 	}
 

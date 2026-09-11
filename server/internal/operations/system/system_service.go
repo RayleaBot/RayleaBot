@@ -108,8 +108,8 @@ type Service struct {
 }
 
 func New(deps Deps) (*Service, error) {
-	if deps.CurrentConfig == nil || deps.CurrentSummary == nil || deps.Plugins == nil {
-		return nil, fmt.Errorf("system service requires current config, summary and plugin catalog")
+	if deps.CurrentConfig == nil || deps.CurrentSummary == nil || deps.Plugins == nil || deps.PluginRepository == nil {
+		return nil, fmt.Errorf("system service requires current config, summary, plugin catalog and desired state repository")
 	}
 	if deps.Logger == nil {
 		deps.Logger = slog.Default()

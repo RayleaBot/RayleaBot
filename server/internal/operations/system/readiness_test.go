@@ -6,6 +6,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestCurrentReadinessDoesNotRequireOneBotAdapter(t *testing.T) {
@@ -13,10 +14,11 @@ func TestCurrentReadinessDoesNotRequireOneBotAdapter(t *testing.T) {
 
 	app := newTestAppState(config.Config{}, nil)
 	service, err := New(Deps{
-		Plugins:        app.pluginStack.Plugins,
-		CurrentConfig:  app.state.CurrentConfig,
-		CurrentSummary: func() config.Summary { return app.state.Summary },
-		Auth:           initializedReadinessAuth(t),
+		Plugins:          app.pluginStack.Plugins,
+		PluginRepository: &testutil.DesiredStateRecorder{},
+		CurrentConfig:    app.state.CurrentConfig,
+		CurrentSummary:   func() config.Summary { return app.state.Summary },
+		Auth:             initializedReadinessAuth(t),
 	})
 
 	if err != nil {

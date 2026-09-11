@@ -1,31 +1,12 @@
 package recovery
 
 import (
-	"context"
 	"errors"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
-
-type desiredStateRepoStub struct {
-	saves []string
-}
-
-func (s *desiredStateRepoStub) LoadDesiredStates(context.Context) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
-func (s *desiredStateRepoStub) SaveDesiredState(_ context.Context, pluginID string, desiredState string, _ time.Time) error {
-	s.saves = append(s.saves, pluginID+":"+desiredState)
-	return nil
-}
-
-func (s *desiredStateRepoStub) DeleteDesiredState(context.Context, string) error {
-	return nil
-}
 
 func TestFinalizeClearsPostStartCheckIssueForCompatibleSummary(t *testing.T) {
 	t.Parallel()
@@ -121,10 +102,8 @@ func TestFinalizeBuildsRuntimeGuidance(t *testing.T) {
 	}
 }
 
-func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
+func TestFinalizeBuildsPluginGuidanceForSkippedPlugins(t *testing.T) {
 	t.Parallel()
-
-	repo := &desiredStateRepoStub{}
 	summary := Finalize(
 		CompatibilitySummary{
 			Status:            "pending",
@@ -140,8 +119,7 @@ func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
 			},
 		},
 		FinalizeInput{
-			DesiredStateRepo: repo,
-			Readiness:        RuntimeReadiness{RuntimeReady: true},
+			Readiness: RuntimeReadiness{RuntimeReady: true},
 			Plugins: []plugins.Snapshot{
 				{
 					PluginID:          "weather-pro",
@@ -183,9 +161,6 @@ func TestFinalizeBuildsPluginGuidanceAndDisablesSkippedPlugins(t *testing.T) {
 	}
 	if !slices.Equal(summary.NextSteps, expectedSteps) {
 		t.Fatalf("unexpected plugin next steps: %#v", summary.NextSteps)
-	}
-	if !slices.Equal(repo.saves, []string{"weather-pro:disabled"}) {
-		t.Fatalf("unexpected desired state writes: %#v", repo.saves)
 	}
 }
 
