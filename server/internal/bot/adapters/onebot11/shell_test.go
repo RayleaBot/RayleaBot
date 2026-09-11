@@ -192,48 +192,15 @@ func TestShellReloadReconnectsWithNewForwardTransportAndKeepsSendUsable(t *testi
 	}))
 	defer firstServer.Close()
 
-	requests := make(chan map[string]any, 1)
-	secondServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-		requests <- request
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	secondServer, requests := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
 				"message_id": 67890,
 			},
-			"echo": request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer secondServer.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(firstServer.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,

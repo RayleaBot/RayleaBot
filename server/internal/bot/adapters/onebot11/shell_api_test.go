@@ -101,44 +101,13 @@ func TestGetLoginInfoReturnsErrorOnFailedResponse(t *testing.T) {
 
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "failed",
 			"retcode": 1400,
 			"wording": "not available",
-			"echo":    request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -255,44 +224,13 @@ func TestGetVersionInfoReturnsImplementationMetadata(t *testing.T) {
 func TestGetVersionInfoReturnsErrorOnFailedResponse(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "failed",
 			"retcode": 1400,
 			"wording": "not available",
-			"echo":    request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+	})
 
 	shell := newShell("onebot11", oneBotForwardWS(wsURL(server.URL)), defaultAdapterConfig(), slog.New(slog.NewJSONHandler(io.Discard, nil)), shellDeps{
 		connectTimeout:  75 * time.Millisecond,
@@ -416,32 +354,8 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
@@ -449,15 +363,8 @@ func TestGetGroupMemberInfoSanitizesUnsafeTextFields(t *testing.T) {
 				"nickname": "测试用户A\u2066",
 				"card":     "测试群名片\u202e~喵",
 			},
-			"echo": request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -571,46 +478,15 @@ func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
 
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
 				"group_name": "Test\u2028Group",
 			},
-			"echo": request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -908,46 +784,15 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
 				"nickname": "测试私聊\u007f用户B",
 			},
-			"echo": request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,

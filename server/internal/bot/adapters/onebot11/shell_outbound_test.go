@@ -21,48 +21,15 @@ func TestShellSendMessageWritesRichSegmentArray(t *testing.T) {
 
 	t.Parallel()
 
-	requests := make(chan map[string]any, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-		requests <- request
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, requests := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
 				"message_id": 11111,
 			},
-			"echo": request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -128,41 +95,13 @@ func TestShellSendReplyMapsReplyTargetMissing(t *testing.T) {
 
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write ready failed: %v", err)
-			return
-		}
-
-		var request map[string]any
-		if err := wsjson.Read(context.Background(), conn, &request); err != nil {
-			t.Errorf("wsjson.Read request failed: %v", err)
-			return
-		}
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
+	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
+		return map[string]any{
 			"status":  "failed",
 			"retcode": 1404,
 			"wording": "reply target missing",
-			"echo":    request["echo"],
-		}); err != nil {
-			t.Errorf("wsjson.Write response failed: %v", err)
-			return
 		}
-	}))
-	defer server.Close()
+	})
 
 	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
 		connectTimeout: 75 * time.Millisecond,
@@ -286,4 +225,50 @@ func blockingSleep(ctx context.Context, _ time.Duration) error {
 
 func wsURL(raw string) string {
 	return "ws" + strings.TrimPrefix(raw, "http")
+}
+
+// newOneBotAPIServer accepts forward WebSocket connections that report ready and
+// answer each API request with the frame built by respond, carrying the
+// request's echo so the shell can match it. Requests are also delivered to the
+// returned channel while it has room.
+func newOneBotAPIServer(t *testing.T, respond func(request map[string]any) map[string]any) (*httptest.Server, <-chan map[string]any) {
+	t.Helper()
+
+	requests := make(chan map[string]any, 8)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			t.Errorf("Accept failed: %v", err)
+			return
+		}
+		defer func() {
+			_ = conn.CloseNow()
+		}()
+
+		if err := wsjson.Write(r.Context(), conn, map[string]any{
+			"post_type":       "meta_event",
+			"meta_event_type": "lifecycle",
+			"sub_type":        "enable",
+		}); err != nil {
+			t.Errorf("wsjson.Write ready failed: %v", err)
+			return
+		}
+		for {
+			var request map[string]any
+			if err := wsjson.Read(r.Context(), conn, &request); err != nil {
+				return
+			}
+			select {
+			case requests <- request:
+			default:
+			}
+			response := respond(request)
+			response["echo"] = request["echo"]
+			if err := wsjson.Write(r.Context(), conn, response); err != nil {
+				return
+			}
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server, requests
 }
