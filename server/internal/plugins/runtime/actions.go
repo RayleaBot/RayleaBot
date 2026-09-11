@@ -1,18 +1,18 @@
 package runtime
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
-
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 const (
@@ -27,9 +27,9 @@ var (
 )
 
 func parseLoggerWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionLoggerWriteFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed logger.write data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionLoggerWriteFrame](raw, "logger.write")
+	if err != nil {
+		return nil, err
 	}
 
 	level := strings.TrimSpace(frame.Level)
@@ -54,19 +54,15 @@ func parseLoggerWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 
 func parsePluginListAction(raw json.RawMessage) (*plugins.Action, error) {
 	var frame pluginwire.ProtocolActionPluginListFrame
-	payload := map[string]json.RawMessage{}
 	if len(raw) > 0 && string(raw) != "null" {
-		if err := json.Unmarshal(raw, &frame); err != nil {
-			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed plugin.list data", err)
+		decoded, err := decodeActionFrame[pluginwire.ProtocolActionPluginListFrame](raw, "plugin.list")
+		if err != nil {
+			return nil, err
 		}
-		if err := json.Unmarshal(raw, &payload); err != nil {
-			return nil, errorf(codePluginProtocolViolation, "plugin returned malformed plugin.list data", err)
+		if _, err := decodeAllowedActionKeys(raw, "plugin.list", "visibility"); err != nil {
+			return nil, err
 		}
-	}
-	for key := range payload {
-		if key != "visibility" {
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid plugin.list data", nil)
-		}
+		frame = decoded
 	}
 
 	visibility := strings.TrimSpace(frame.Visibility)
@@ -81,9 +77,9 @@ func parsePluginListAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseSecretReadAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionSecretReadFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed secret.read data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionSecretReadFrame](raw, "secret.read")
+	if err != nil {
+		return nil, err
 	}
 
 	key := strings.TrimSpace(frame.Key)
@@ -94,9 +90,9 @@ func parseSecretReadAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseThirdPartyAccountReadAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionThirdPartyAccountReadFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.read data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionThirdPartyAccountReadFrame](raw, "thirdparty.account.read")
+	if err != nil {
+		return nil, err
 	}
 
 	platform := strings.TrimSpace(frame.Platform)
@@ -111,20 +107,13 @@ func parseThirdPartyAccountReadAction(raw json.RawMessage) (*plugins.Action, err
 }
 
 func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionThirdPartyAccountValidateFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.validate data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionThirdPartyAccountValidateFrame](raw, "thirdparty.account.validate")
+	if err != nil {
+		return nil, err
 	}
-	payload := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.validate data", err)
-	}
-	for key := range payload {
-		switch key {
-		case "platform", "account_id", "observation", "http_status":
-		default:
-			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate data", nil)
-		}
+	payload, err := decodeAllowedActionKeys(raw, "thirdparty.account.validate", "platform", "account_id", "observation", "http_status")
+	if err != nil {
+		return nil, err
 	}
 
 	platform := strings.TrimSpace(frame.Platform)
@@ -149,9 +138,9 @@ func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*plugins.Action,
 }
 
 func parseThirdPartyResolveAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionThirdPartyResolveFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.resolve data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionThirdPartyResolveFrame](raw, "thirdparty.resolve")
+	if err != nil {
+		return nil, err
 	}
 
 	platform := strings.TrimSpace(frame.Platform)
@@ -177,9 +166,9 @@ func parseThirdPartyResolveAction(raw json.RawMessage) (*plugins.Action, error) 
 }
 
 func parseConfigWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionConfigWriteFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.write data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionConfigWriteFrame](raw, "config.write")
+	if err != nil {
+		return nil, err
 	}
 	if len(frame.Values) == 0 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required config.write fields", nil)
@@ -207,9 +196,9 @@ func parseConfigWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionStorageKVFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.kv data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionStorageKVFrame](raw, "storage.kv")
+	if err != nil {
+		return nil, err
 	}
 
 	switch strings.TrimSpace(frame.Operation) {
@@ -256,9 +245,9 @@ func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionStorageFileFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.file data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionStorageFileFrame](raw, "storage.file")
+	if err != nil {
+		return nil, err
 	}
 
 	switch strings.TrimSpace(frame.Operation) {
@@ -297,9 +286,9 @@ func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseHTTPRequestAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionHTTPRequestFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed http.request data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionHTTPRequestFrame](raw, "http.request")
+	if err != nil {
+		return nil, err
 	}
 
 	method := strings.ToUpper(strings.TrimSpace(frame.Method))
@@ -348,9 +337,9 @@ func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*plugins.Action, e
 }
 
 func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionGovernanceBlacklistWriteFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.blacklist.write data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionGovernanceBlacklistWriteFrame](raw, "governance.blacklist.write")
+	if err != nil {
+		return nil, err
 	}
 
 	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
@@ -406,9 +395,9 @@ func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*plugins.Action, e
 }
 
 func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionGovernanceWhitelistWriteFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.whitelist.write data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionGovernanceWhitelistWriteFrame](raw, "governance.whitelist.write")
+	if err != nil {
+		return nil, err
 	}
 
 	scope := chatevent.IdentityScope{Kind: frame.Scope.Kind, SourceProtocol: frame.Scope.SourceProtocol, SourceAdapter: frame.Scope.SourceAdapter, BotID: frame.Scope.BotID}
@@ -473,9 +462,9 @@ func parseGovernanceCommandPolicyReadAction(raw json.RawMessage) (*plugins.Actio
 }
 
 func parseMessageSendAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionMessageSendFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.send data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionMessageSendFrame](raw, "message.send")
+	if err != nil {
+		return nil, err
 	}
 	if frame.SourceAdapter != nil && !adapterInstanceIDPattern.MatchString(*frame.SourceAdapter) {
 		return nil, errorf(codePluginProtocolViolation, "message.send source_adapter must be a configured instance ID", nil)
@@ -518,9 +507,9 @@ func stringValue(value *string) string {
 }
 
 func parseRenderImageAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionRenderImageFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed render.image data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionRenderImageFrame](raw, "render.image")
+	if err != nil {
+		return nil, err
 	}
 
 	templateName := strings.TrimSpace(frame.Template)
@@ -626,9 +615,9 @@ func parseRenderImageResourceURL(value string) (string, error) {
 }
 
 func parseSchedulerCreateAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame pluginwire.ProtocolActionSchedulerCreateFrame
-	if err := json.Unmarshal(raw, &frame); err != nil {
-		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed scheduler.create data", err)
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionSchedulerCreateFrame](raw, "scheduler.create")
+	if err != nil {
+		return nil, err
 	}
 
 	taskID := strings.TrimSpace(frame.TaskID)
@@ -729,6 +718,32 @@ func parseOutboundActionSegment(segment pluginwire.ProtocolSegmentFrame, index i
 		Type: segmentType,
 		Data: data,
 	}, nil
+}
+
+// decodeActionFrame unmarshals an action payload into its generated frame type
+// and reports a protocol violation for malformed data.
+func decodeActionFrame[T any](raw json.RawMessage, actionKind string) (T, error) {
+	var frame T
+	if err := json.Unmarshal(raw, &frame); err != nil {
+		var zero T
+		return zero, errorf(codePluginProtocolViolation, "plugin returned malformed "+actionKind+" data", err)
+	}
+	return frame, nil
+}
+
+// decodeAllowedActionKeys returns the payload's raw members and reports a
+// protocol violation when any key falls outside the allowed set.
+func decodeAllowedActionKeys(raw json.RawMessage, actionKind string, allowed ...string) (map[string]json.RawMessage, error) {
+	payload := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed "+actionKind+" data", err)
+	}
+	for key := range payload {
+		if !slices.Contains(allowed, key) {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid "+actionKind+" data", nil)
+		}
+	}
+	return payload, nil
 }
 
 func parseEmptyObjectAction(raw json.RawMessage, actionKind string) error {

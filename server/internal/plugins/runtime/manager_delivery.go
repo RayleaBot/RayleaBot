@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+	"maps"
 
 	"context"
 	"encoding/json"
@@ -213,47 +214,31 @@ func payloadString(values map[string]any, key string) (string, bool) {
 }
 
 func payloadInt64(values map[string]any, key string) (int64, bool) {
-	switch value := values[key].(type) {
-	case int64:
-		if value <= 0 {
-			return 0, false
-		}
-		return value, true
-	case int:
-		if value <= 0 {
-			return 0, false
-		}
-		return int64(value), true
-	case float64:
-		if value <= 0 {
-			return 0, false
-		}
-		return int64(value), true
-	default:
-		return 0, false
-	}
+	return payloadPositive[int64](values, key)
 }
 
 func payloadInt(values map[string]any, key string) (int, bool) {
+	return payloadPositive[int](values, key)
+}
+
+// payloadPositive reads a strictly positive numeric field that JSON decoding
+// or upstream normalization may have left as int, int64 or float64.
+func payloadPositive[T int | int64](values map[string]any, key string) (T, bool) {
 	switch value := values[key].(type) {
 	case int:
-		if value <= 0 {
-			return 0, false
+		if value > 0 {
+			return T(value), true
 		}
-		return value, true
 	case int64:
-		if value <= 0 {
-			return 0, false
+		if value > 0 {
+			return T(value), true
 		}
-		return int(value), true
 	case float64:
-		if value <= 0 {
-			return 0, false
+		if value > 0 {
+			return T(value), true
 		}
-		return int(value), true
-	default:
-		return 0, false
 	}
+	return 0, false
 }
 
 func payloadMap(values map[string]any, key string) (map[string]any, bool) {
@@ -261,11 +246,7 @@ func payloadMap(values map[string]any, key string) (map[string]any, bool) {
 	if !ok || len(raw) == 0 {
 		return nil, false
 	}
-	cloned := make(map[string]any, len(raw))
-	for mapKey, value := range raw {
-		cloned[mapKey] = value
-	}
-	return cloned, true
+	return shallowCloneMap(raw), true
 }
 
 func payloadMapAllowEmpty(values map[string]any, key string) (map[string]any, bool) {
@@ -273,11 +254,13 @@ func payloadMapAllowEmpty(values map[string]any, key string) (map[string]any, bo
 	if !ok {
 		return nil, false
 	}
+	return shallowCloneMap(raw), true
+}
+
+func shallowCloneMap(raw map[string]any) map[string]any {
 	cloned := make(map[string]any, len(raw))
-	for mapKey, value := range raw {
-		cloned[mapKey] = value
-	}
-	return cloned, true
+	maps.Copy(cloned, raw)
+	return cloned
 }
 
 func parseEventEnvelope(line []byte, pluginID string) (pluginwire.FrameEnvelope, error) {
