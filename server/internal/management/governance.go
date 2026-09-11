@@ -18,10 +18,6 @@ type GovernanceHandlers struct {
 	service *governance.Service
 }
 
-func NewGovernanceHandlers(deps governance.Deps) *GovernanceHandlers {
-	return NewGovernanceHandlersWithService(governance.NewService(deps))
-}
-
 func NewGovernanceHandlersWithService(service *governance.Service) *GovernanceHandlers {
 	return &GovernanceHandlers{service: service}
 }

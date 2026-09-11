@@ -139,13 +139,13 @@ func (s *stubWhitelistStateRepo) SetEnabled(_ context.Context, enabled bool) err
 
 func newGovernanceRouter(cfg config.Config, blacklist governance.ManagementEntryRepository, whitelist governance.ManagementEntryRepository, whitelistState permission.WhitelistStateRepository, catalog plugins.CatalogView) *chi.Mux {
 	router := chi.NewRouter()
-	NewGovernanceHandlers(governance.Deps{
+	NewGovernanceHandlersWithService(governance.NewService(governance.Deps{
 		CurrentConfig:  func() config.Config { return cfg },
 		Plugins:        catalog,
 		BlacklistRepo:  blacklist,
 		WhitelistRepo:  whitelist,
 		WhitelistState: whitelistState,
-	}).RegisterProtectedRoutes(router)
+	})).RegisterProtectedRoutes(router)
 	return router
 }
 
