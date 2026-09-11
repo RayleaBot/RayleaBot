@@ -147,7 +147,7 @@ func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.A
 	}
 	s.snapshot = newTransportSnapshot(nextCfg)
 	s.pendingResponses = make(map[string]chan APIResponse)
-	s.recentEventIDs = make(map[string]time.Time)
+	s.resetDedup()
 	s.identityCache = NewIdentityCache(defaultIdentityCacheTTL)
 	snapshot := cloneSnapshot(s.snapshot)
 	handler := s.stateHandler

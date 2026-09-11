@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 )
@@ -47,7 +46,7 @@ func (s *Shell) markTransportPrimed() {
 	s.mu.Lock()
 	s.snapshot = newTransportSnapshot(s.cfg)
 	s.pendingResponses = make(map[string]chan APIResponse)
-	s.recentEventIDs = make(map[string]time.Time)
+	s.resetDedup()
 	s.identityCache = NewIdentityCache(defaultIdentityCacheTTL)
 	if s.snapshot.ReverseWS.Enabled && s.snapshot.ReverseWS.Configured {
 		s.snapshot.ReverseWS.State = TransportStateListening

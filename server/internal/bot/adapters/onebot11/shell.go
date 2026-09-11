@@ -34,6 +34,7 @@ const (
 	errorCodeWebhookDuplicateEvent  = errorcodes.AdapterTransportWebhookDuplicateEvent
 	defaultConnectedReadTimeout     = 2 * time.Minute
 	recentEventDedupRetention       = 2 * time.Minute
+	recentEventDedupPruneSize       = 1024
 )
 
 type dialFunc func(context.Context, string, *websocket.DialOptions) (*websocket.Conn, *http.Response, error)
@@ -76,10 +77,15 @@ type Shell struct {
 	nextEcho         uint64
 	pendingResponses map[string]chan APIResponse
 	httpClient       *http.Client
-	recentEventIDs   map[string]time.Time
 	identityCache    *IdentityCache
-	dedupDrops       uint64
 	metrics          MetricsObserver
+
+	// dedupMu guards the recent event set separately from mu so per-event
+	// deduplication never queues behind snapshot or connection updates.
+	dedupMu        sync.Mutex
+	recentEventIDs map[string]time.Time
+	dedupPrunedAt  time.Time
+	dedupDrops     uint64
 }
 
 // MetricsObserver records adapter-side counter increments without coupling
@@ -206,16 +212,21 @@ func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
 		return false
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.dedupMu.Lock()
+	defer s.dedupMu.Unlock()
 
 	cutoff := observedAt.Add(-recentEventDedupRetention)
-	for key, seenAt := range s.recentEventIDs {
-		if seenAt.Before(cutoff) {
-			delete(s.recentEventIDs, key)
+	// Expired ids are ignored on lookup, so the full sweep only has to keep
+	// the set bounded rather than run on every event.
+	if len(s.recentEventIDs) > recentEventDedupPruneSize || observedAt.Sub(s.dedupPrunedAt) >= recentEventDedupRetention/4 {
+		for key, seenAt := range s.recentEventIDs {
+			if seenAt.Before(cutoff) {
+				delete(s.recentEventIDs, key)
+			}
 		}
+		s.dedupPrunedAt = observedAt
 	}
-	if _, ok := s.recentEventIDs[eventID]; ok {
+	if seenAt, ok := s.recentEventIDs[eventID]; ok && !seenAt.Before(cutoff) {
 		s.dedupDrops++
 		if s.metrics != nil {
 			s.metrics.IncAdapterDedupDrop()
@@ -230,13 +241,21 @@ func (s *Shell) isDuplicateEvent(eventID string, observedAt time.Time) bool {
 	return false
 }
 
+// resetDedup forgets the recent event ids when the transport is re-primed.
+func (s *Shell) resetDedup() {
+	s.dedupMu.Lock()
+	defer s.dedupMu.Unlock()
+	s.recentEventIDs = make(map[string]time.Time)
+	s.dedupPrunedAt = time.Time{}
+}
+
 // DedupDropsSnapshot returns the cumulative number of inbound events dropped
 // because their event id matched a recently observed event within the
 // dedup retention window. The counter is monotonically non-decreasing and
 // safe to read from the bridge observability path.
 func (s *Shell) DedupDropsSnapshot() uint64 {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.dedupMu.Lock()
+	defer s.dedupMu.Unlock()
 	return s.dedupDrops
 }
 
