@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+
 	"context"
 	"encoding/json"
 	"errors"
@@ -110,19 +112,19 @@ func rememberLocalActionID(session *eventSession, requestID string, limit int) {
 	session.localActionOrder = append(session.localActionOrder, requestID)
 }
 
-func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (ActionFrame, *plugins.Action, string, *plugins.Error) {
-	var frame ActionFrame
+func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (pluginwire.ActionFrame, *plugins.Action, string, *plugins.Error) {
+	var frame pluginwire.ActionFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
-		return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
+		return pluginwire.ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
 	}
 
 	parentRequestID := strings.TrimSpace(frame.ParentRequestID)
 	if parentRequestID == "" {
 		if handle.Spec.EffectiveConcurrency > 1 {
-			return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "concurrent plugin local actions must include parent_request_id", nil)
+			return pluginwire.ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "concurrent plugin local actions must include parent_request_id", nil)
 		}
 		if len(m.pendingEvents) != 1 {
-			return ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin local action parent_request_id is missing", nil)
+			return pluginwire.ActionFrame{}, nil, "", errorf(codePluginProtocolViolation, "plugin local action parent_request_id is missing", nil)
 		}
 		for requestID := range m.pendingEvents {
 			parentRequestID = requestID
@@ -134,7 +136,7 @@ func (m *Manager) parseLocalActionFrameLocked(handle *Handle, line []byte) (Acti
 	}
 	action, parseErr := ParseLocalAction(frame.Action, frame.Data)
 	if parseErr != nil {
-		return ActionFrame{}, nil, "", normalizeRuntimeError(parseErr, "parse local action frame")
+		return pluginwire.ActionFrame{}, nil, "", normalizeRuntimeError(parseErr, "parse local action frame")
 	}
 	return frame, action, parentRequestID, nil
 }

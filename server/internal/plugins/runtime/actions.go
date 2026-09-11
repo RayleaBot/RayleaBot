@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -25,7 +27,7 @@ var (
 )
 
 func parseLoggerWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionLoggerWriteFrame
+	var frame pluginwire.ProtocolActionLoggerWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed logger.write data", err)
 	}
@@ -51,7 +53,7 @@ func parseLoggerWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parsePluginListAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionPluginListFrame
+	var frame pluginwire.ProtocolActionPluginListFrame
 	payload := map[string]json.RawMessage{}
 	if len(raw) > 0 && string(raw) != "null" {
 		if err := json.Unmarshal(raw, &frame); err != nil {
@@ -79,7 +81,7 @@ func parsePluginListAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseSecretReadAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionSecretReadFrame
+	var frame pluginwire.ProtocolActionSecretReadFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed secret.read data", err)
 	}
@@ -92,7 +94,7 @@ func parseSecretReadAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseThirdPartyAccountReadAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionThirdPartyAccountReadFrame
+	var frame pluginwire.ProtocolActionThirdPartyAccountReadFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.read data", err)
 	}
@@ -109,7 +111,7 @@ func parseThirdPartyAccountReadAction(raw json.RawMessage) (*plugins.Action, err
 }
 
 func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionThirdPartyAccountValidateFrame
+	var frame pluginwire.ProtocolActionThirdPartyAccountValidateFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.account.validate data", err)
 	}
@@ -147,7 +149,7 @@ func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*plugins.Action,
 }
 
 func parseThirdPartyResolveAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionThirdPartyResolveFrame
+	var frame pluginwire.ProtocolActionThirdPartyResolveFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed thirdparty.resolve data", err)
 	}
@@ -175,7 +177,7 @@ func parseThirdPartyResolveAction(raw json.RawMessage) (*plugins.Action, error) 
 }
 
 func parseConfigWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionConfigWriteFrame
+	var frame pluginwire.ProtocolActionConfigWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed config.write data", err)
 	}
@@ -205,7 +207,7 @@ func parseConfigWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionStorageKVFrame
+	var frame pluginwire.ProtocolActionStorageKVFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.kv data", err)
 	}
@@ -254,7 +256,7 @@ func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionStorageFileFrame
+	var frame pluginwire.ProtocolActionStorageFileFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed storage.file data", err)
 	}
@@ -295,7 +297,7 @@ func parseStorageFileAction(raw json.RawMessage) (*plugins.Action, error) {
 }
 
 func parseHTTPRequestAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionHTTPRequestFrame
+	var frame pluginwire.ProtocolActionHTTPRequestFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed http.request data", err)
 	}
@@ -346,7 +348,7 @@ func parseGovernanceBlacklistReadAction(raw json.RawMessage) (*plugins.Action, e
 }
 
 func parseGovernanceBlacklistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionGovernanceBlacklistWriteFrame
+	var frame pluginwire.ProtocolActionGovernanceBlacklistWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.blacklist.write data", err)
 	}
@@ -404,7 +406,7 @@ func parseGovernanceWhitelistReadAction(raw json.RawMessage) (*plugins.Action, e
 }
 
 func parseGovernanceWhitelistWriteAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionGovernanceWhitelistWriteFrame
+	var frame pluginwire.ProtocolActionGovernanceWhitelistWriteFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed governance.whitelist.write data", err)
 	}
@@ -471,7 +473,7 @@ func parseGovernanceCommandPolicyReadAction(raw json.RawMessage) (*plugins.Actio
 }
 
 func parseMessageSendAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionMessageSendFrame
+	var frame pluginwire.ProtocolActionMessageSendFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed message.send data", err)
 	}
@@ -516,7 +518,7 @@ func stringValue(value *string) string {
 }
 
 func parseRenderImageAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionRenderImageFrame
+	var frame pluginwire.ProtocolActionRenderImageFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed render.image data", err)
 	}
@@ -554,7 +556,7 @@ func parseRenderImageAction(raw json.RawMessage) (*plugins.Action, error) {
 	}, nil
 }
 
-func parseRenderImageResources(frames []ProtocolRenderImageResourceFrame) ([]plugins.RenderImageResource, error) {
+func parseRenderImageResources(frames []pluginwire.ProtocolRenderImageResourceFrame) ([]plugins.RenderImageResource, error) {
 	if len(frames) > maxRenderImageResources {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has too many render.image resources", nil)
 	}
@@ -624,7 +626,7 @@ func parseRenderImageResourceURL(value string) (string, error) {
 }
 
 func parseSchedulerCreateAction(raw json.RawMessage) (*plugins.Action, error) {
-	var frame ProtocolActionSchedulerCreateFrame
+	var frame pluginwire.ProtocolActionSchedulerCreateFrame
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return nil, errorf(codePluginProtocolViolation, "plugin returned malformed scheduler.create data", err)
 	}
@@ -653,7 +655,7 @@ func parseSchedulerCreateAction(raw json.RawMessage) (*plugins.Action, error) {
 	}, nil
 }
 
-func parseOutboundActionSegments(raw []ProtocolSegmentFrame) ([]chatevent.MessageSegment, error) {
+func parseOutboundActionSegments(raw []pluginwire.ProtocolSegmentFrame) ([]chatevent.MessageSegment, error) {
 	if len(raw) == 0 {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required rich message segments", nil)
 	}
@@ -669,7 +671,7 @@ func parseOutboundActionSegments(raw []ProtocolSegmentFrame) ([]chatevent.Messag
 	return segments, nil
 }
 
-func parseOutboundActionSegment(segment ProtocolSegmentFrame, index int) (chatevent.MessageSegment, error) {
+func parseOutboundActionSegment(segment pluginwire.ProtocolSegmentFrame, index int) (chatevent.MessageSegment, error) {
 	segmentType := strings.TrimSpace(segment.Type)
 	data := cloneActionSegmentData(segment.Data)
 

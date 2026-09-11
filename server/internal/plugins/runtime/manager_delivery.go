@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+
 	"context"
 	"encoding/json"
 	"errors"
@@ -78,11 +80,11 @@ func eventContextError(err error) *plugins.Error {
 	return errorf(codePluginEventTimeout, "插件事件处理超过允许时限", err)
 }
 
-func BuildEventFrame(event chatevent.Event, requestID string) EventFrame {
-	frame := EventFrame{
+func BuildEventFrame(event chatevent.Event, requestID string) pluginwire.EventFrame {
+	frame := pluginwire.EventFrame{
 		Type:      "event",
 		RequestID: requestID,
-		Event: ProtocolEventFrame{
+		Event: pluginwire.ProtocolEventFrame{
 			EventID:        event.EventID,
 			SourceProtocol: event.SourceProtocol,
 			SourceAdapter:  event.SourceAdapter,
@@ -91,23 +93,23 @@ func BuildEventFrame(event chatevent.Event, requestID string) EventFrame {
 		},
 	}
 	if event.Actor != nil && event.Actor.ID != "" {
-		frame.Event.Actor = &ProtocolActorFrame{
+		frame.Event.Actor = &pluginwire.ProtocolActorFrame{
 			ID:       event.Actor.ID,
 			Nickname: event.Actor.Nickname,
 			Role:     event.Actor.Role,
 		}
 	}
 	if event.Target != nil && event.Target.Type != "" && event.Target.ID != "" {
-		frame.Event.Target = &ProtocolTargetFrame{
+		frame.Event.Target = &pluginwire.ProtocolTargetFrame{
 			Type: event.Target.Type,
 			ID:   event.Target.ID,
 			Name: event.Target.Name,
 		}
 	}
 	if event.Message != nil && (event.Message.PlainText != "" || len(event.Message.Segments) > 0) {
-		msgFrame := &ProtocolMessageFrame{PlainText: event.Message.PlainText}
+		msgFrame := &pluginwire.ProtocolMessageFrame{PlainText: event.Message.PlainText}
 		for _, seg := range event.Message.Segments {
-			msgFrame.Segments = append(msgFrame.Segments, ProtocolSegmentFrame(seg))
+			msgFrame.Segments = append(msgFrame.Segments, pluginwire.ProtocolSegmentFrame(seg))
 		}
 		frame.Event.Message = msgFrame
 	}
@@ -115,7 +117,7 @@ func BuildEventFrame(event chatevent.Event, requestID string) EventFrame {
 		frame.Event.Payload = payload
 	}
 	if event.Webhook != nil {
-		frame.Event.Webhook = &ProtocolWebhookFrame{
+		frame.Event.Webhook = &pluginwire.ProtocolWebhookFrame{
 			Route:           event.Webhook.Route,
 			ReceivedAt:      event.Webhook.ReceivedAt,
 			ClientTimestamp: event.Webhook.ClientTimestamp,
@@ -128,8 +130,8 @@ func BuildEventFrame(event chatevent.Event, requestID string) EventFrame {
 	return frame
 }
 
-func buildEventPayload(event chatevent.Event) (*ProtocolPayloadFrame, bool) {
-	var payload ProtocolPayloadFrame
+func buildEventPayload(event chatevent.Event) (*pluginwire.ProtocolPayloadFrame, bool) {
+	var payload pluginwire.ProtocolPayloadFrame
 	hasPayload := false
 	if event.MessageID != "" {
 		payload.MessageID = event.MessageID
@@ -179,7 +181,7 @@ func buildEventPayload(event chatevent.Event) (*ProtocolPayloadFrame, bool) {
 		}
 		if event.SourceProtocol == "qqofficial" {
 			if raw, ok := payloadMap(event.PayloadFields, "qq_official"); ok {
-				payload.QQOfficial = &ProtocolQQOfficialPayloadFrame{
+				payload.QQOfficial = &pluginwire.ProtocolQQOfficialPayloadFrame{
 					DispatchType: payloadText(raw, "dispatch_type"),
 					MessageID:    payloadText(raw, "message_id"),
 					GroupOpenID:  payloadText(raw, "group_openid"),
@@ -278,17 +280,17 @@ func payloadMapAllowEmpty(values map[string]any, key string) (map[string]any, bo
 	return cloned, true
 }
 
-func parseEventEnvelope(line []byte, pluginID string) (FrameEnvelope, error) {
+func parseEventEnvelope(line []byte, pluginID string) (pluginwire.FrameEnvelope, error) {
 	if err := validatePluginFrame(line); err != nil {
-		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
+		return pluginwire.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned an invalid protocol frame", err)
 	}
-	var envelope FrameEnvelope
+	var envelope pluginwire.FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
-		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
+		return pluginwire.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
 	_ = pluginID
 	if envelope.RequestID == "" {
-		return FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
+		return pluginwire.FrameEnvelope{}, errorf(codePluginProtocolViolation, "plugin returned a mismatched request_id", nil)
 	}
 	return envelope, nil
 }
@@ -307,7 +309,7 @@ func decodeTerminalDelivery(eventRequestID string, line []byte, frameType string
 }
 
 func decodeTerminalAction(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
-	var frame ActionFrame
+	var frame pluginwire.ActionFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed action frame", err)
 	}
@@ -319,7 +321,7 @@ func decodeTerminalAction(eventRequestID string, line []byte) (plugins.Delivery,
 }
 
 func decodeTerminalResult(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
-	var frame ResultFrame
+	var frame pluginwire.ResultFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
 	}
@@ -333,7 +335,7 @@ func decodeTerminalResult(eventRequestID string, line []byte) (plugins.Delivery,
 }
 
 func decodeTerminalError(eventRequestID string, line []byte) (plugins.Delivery, bool, error) {
-	var frame ErrorFrame
+	var frame pluginwire.ErrorFrame
 	if err := json.Unmarshal(line, &frame); err != nil {
 		return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 	}

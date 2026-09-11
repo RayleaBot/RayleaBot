@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+
 	"context"
 	"encoding/json"
 	"strings"
@@ -63,7 +65,7 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 	if err := validatePluginFrame(line); err != nil {
 		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned an invalid init response", err)
 	}
-	var envelope FrameEnvelope
+	var envelope pluginwire.FrameEnvelope
 	if err := json.Unmarshal(line, &envelope); err != nil {
 		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed protocol json", err)
 	}
@@ -75,7 +77,7 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 
 	switch envelope.Type {
 	case "init_progress":
-		var progress InitProgressFrame
+		var progress pluginwire.InitProgressFrame
 		if err := json.Unmarshal(line, &progress); err != nil {
 			return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_progress", err)
 		}
@@ -86,7 +88,7 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 		}
 		return InitResponseWait, []string{summary}, nil
 	case "init_ack":
-		var ack InitAckFrame
+		var ack pluginwire.InitAckFrame
 		if err := json.Unmarshal(line, &ack); err != nil {
 			return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed init_ack", err)
 		}
@@ -102,7 +104,7 @@ func (m *Manager) parseInitResponse(line []byte, pluginID string, requestID stri
 		}
 		return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned unsupported init_ack status", nil)
 	case "error":
-		var frame ErrorFrame
+		var frame pluginwire.ErrorFrame
 		if err := json.Unmarshal(line, &frame); err != nil {
 			return InitResponseWait, nil, errorf(codePluginProtocolViolation, "plugin returned malformed error frame", err)
 		}

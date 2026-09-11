@@ -1,12 +1,14 @@
 package runtime
 
-func buildProtocolOneBotPayload(fields map[string]any) (*ProtocolOneBotPayloadFrame, bool) {
+import "github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+
+func buildProtocolOneBotPayload(fields map[string]any) (*pluginwire.ProtocolOneBotPayloadFrame, bool) {
 	raw, ok := fields["onebot"].(map[string]any)
 	if !ok || len(raw) == 0 {
 		return nil, false
 	}
 
-	var payload ProtocolOneBotPayloadFrame
+	var payload pluginwire.ProtocolOneBotPayloadFrame
 	hasPayload := false
 	if v, ok := payloadString(raw, "post_type"); ok {
 		payload.PostType = v
@@ -102,13 +104,13 @@ func buildProtocolOneBotPayload(fields map[string]any) (*ProtocolOneBotPayloadFr
 	return &payload, true
 }
 
-func buildProtocolOneBotSender(raw map[string]any) (*ProtocolOneBotSenderFrame, bool) {
+func buildProtocolOneBotSender(raw map[string]any) (*pluginwire.ProtocolOneBotSenderFrame, bool) {
 	senderRaw, ok := raw["sender"].(map[string]any)
 	if !ok || len(senderRaw) == 0 {
 		return nil, false
 	}
 
-	var sender ProtocolOneBotSenderFrame
+	var sender pluginwire.ProtocolOneBotSenderFrame
 	hasPayload := false
 	if v, ok := payloadString(senderRaw, "user_id"); ok {
 		sender.UserID = v

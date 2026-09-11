@@ -58,7 +58,7 @@ func TestParseOneBotFamilyActionRejectsInvalidSelectors(t *testing.T) {
 func TestParseOutboundActionSegmentAcceptsExtendedSegmentTypes(t *testing.T) {
 	t.Parallel()
 
-	segment, err := parseOutboundActionSegment(ProtocolSegmentFrame{
+	segment, err := parseOutboundActionSegment(pluginwire.ProtocolSegmentFrame{
 		Type: "markdown",
 		Data: map[string]any{"content": "**天气**"},
 	}, 1)

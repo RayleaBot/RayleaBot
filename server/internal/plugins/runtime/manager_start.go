@@ -151,7 +151,7 @@ func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) err
 	defer cancelInit()
 	stopInitPipe := context.AfterFunc(initCtx, func() { _ = handle.Stdin.Close() })
 	defer stopInitPipe()
-	if err := handle.WriteJSONLine(InitFrame{
+	if err := handle.WriteJSONLine(pluginwire.InitFrame{
 		Timezone:             payload.Timezone,
 		ProtocolVersion:      pluginwire.ProtocolVersion,
 		Type:                 "init",
@@ -302,7 +302,7 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 	return nil, errorf(codePluginProtocolViolation, "plugin returned an unexpected protocol message during runtime delivery", nil)
 }
 
-func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope FrameEnvelope, line []byte) *plugins.Error {
+func (m *Manager) routeTerminalFrameLocked(session *eventSession, envelope pluginwire.FrameEnvelope, line []byte) *plugins.Error {
 	if session.pendingLocalAction > 0 {
 		return errorf(codePluginProtocolViolation, "plugin returned a terminal frame before all local actions completed", nil)
 	}

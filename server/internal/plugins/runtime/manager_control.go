@@ -1,6 +1,8 @@
 package runtime
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+
 	"context"
 	"errors"
 	"io"
@@ -88,7 +90,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 	stopPipe := context.AfterFunc(stopCtx, func() { _ = handle.Stdin.Close() })
 	defer stopPipe()
 
-	writeErr := handle.WriteJSONLine(ShutdownFrame{
+	writeErr := handle.WriteJSONLine(pluginwire.ShutdownFrame{
 		Type:      "shutdown",
 		RequestID: m.deps.requestID(),
 		Reason:    "stop",
@@ -187,7 +189,7 @@ func (m *Manager) Ping(ctx context.Context) error {
 		return runtimeErr
 	}
 
-	if err := handle.WriteJSONLine(PingFrame{
+	if err := handle.WriteJSONLine(pluginwire.PingFrame{
 		Type:      "ping",
 		RequestID: requestID,
 	}); err != nil {
