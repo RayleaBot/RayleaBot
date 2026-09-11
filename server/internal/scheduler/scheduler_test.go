@@ -137,6 +137,7 @@ func TestEngineRunningCountDuringTrigger(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     slog.New(slog.NewTextHandler(discardWriter{}, nil)),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(context.Context, Job) {
 			close(triggered)
 			<-release
@@ -476,6 +477,7 @@ func TestEngine_RegisterAndHydrate(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     logger,
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("new engine: %v", err)
@@ -497,6 +499,7 @@ func TestEngine_RegisterAndHydrate(t *testing.T) {
 	engine2, err := New(Options{
 		Repository: repo,
 		Logger:     logger,
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("new engine2: %v", err)
@@ -525,6 +528,7 @@ func TestEngine_Unregister(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("new engine: %v", err)
@@ -557,6 +561,7 @@ func TestEngine_UpsertTask(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("new engine: %v", err)
@@ -601,6 +606,7 @@ func TestEngine_UpsertTaskPreservesRunState(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("new engine: %v", err)
@@ -648,6 +654,7 @@ func TestEngine_TriggerDoesNotAdvanceNextRun(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(_ context.Context, job Job) {
 			mu.Lock()
 			fired = append(fired, job.JobID)
@@ -707,6 +714,7 @@ func TestEngine_TickPreservesRunStateRecordedDuringTrigger(t *testing.T) {
 	engine, err = New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(ctx context.Context, job Job) {
 			if err := engine.RecordRunResult(ctx, RunResult{
 				JobID:      job.JobID,
@@ -756,6 +764,7 @@ func TestEngineStaleTriggerCannotOverwriteUpsertedJob(t *testing.T) {
 	engine, err = New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(triggerCtx context.Context, job Job) {
 			triggered <- job
 			<-release
@@ -831,6 +840,7 @@ func TestEngineStaleTriggerCannotResurrectUnregisteredJob(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(context.Context, Job) {
 			close(triggered)
 			<-release
@@ -885,6 +895,7 @@ func TestEngine_TickFiresDueJob(t *testing.T) {
 	engine, err := New(Options{
 		Repository: repo,
 		Logger:     testLogger(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(_ context.Context, job Job) {
 			mu.Lock()
 			fired = append(fired, job.JobID)

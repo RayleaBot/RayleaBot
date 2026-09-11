@@ -57,7 +57,7 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
       },
     },
     scheduler: {
-      timezone: '',
+      timezone: 'Asia/Shanghai',
     },
     runtime: {
       plugin_init_timeout_seconds: 30,

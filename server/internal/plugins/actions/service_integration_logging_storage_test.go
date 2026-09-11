@@ -416,6 +416,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 	engine, err := scheduler.New(scheduler.Options{
 		Repository: repo,
 		Logger:     slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)),
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("scheduler.New: %v", err)

@@ -10,14 +10,14 @@ import (
 const DefaultTimezone = "Asia/Shanghai"
 
 func NormalizeTimezone(value string) string {
-	if zone := strings.TrimSpace(value); zone != "" {
-		return zone
-	}
-	return DefaultTimezone
+	return strings.TrimSpace(value)
 }
 
 func LoadTimezone(value string) (*time.Location, error) {
 	zone := NormalizeTimezone(value)
+	if zone == "" {
+		return nil, fmt.Errorf("scheduler.timezone must not be empty")
+	}
 	if zone == "Local" {
 		return nil, fmt.Errorf("scheduler.timezone must be an IANA timezone identifier")
 	}

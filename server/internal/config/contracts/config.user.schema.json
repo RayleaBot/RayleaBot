@@ -401,8 +401,9 @@
       "properties": {
         "timezone": {
           "type": "string",
+          "minLength": 1,
           "default": "Asia/Shanghai",
-          "description": "IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
+          "description": "IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.",
           "x-apply-policy": "restart_required"
         }
       }
@@ -1135,7 +1136,8 @@
     "fixtures/config/edge.public-via-reverse-proxy.json",
     "fixtures/config/ok.with-command-and-cooldown.json",
     "fixtures/config/ok.qq-official-adapter.json",
-    "fixtures/config/invalid.qq-official-intent.json"
+    "fixtures/config/invalid.qq-official-intent.json",
+    "fixtures/config/invalid.scheduler-timezone-empty.json"
   ],
   "x-runtime-constraints": [
     "admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days",

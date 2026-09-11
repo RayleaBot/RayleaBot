@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-func TestTimezoneDefaultAndValidation(t *testing.T) {
-	for _, input := range []string{"", "  ", "Asia/Shanghai"} {
+func TestTimezoneValidation(t *testing.T) {
+	for _, input := range []string{"Asia/Shanghai", " Asia/Shanghai "} {
 		loc, err := LoadTimezone(input)
 		if err != nil {
 			t.Fatal(err)
@@ -19,7 +19,7 @@ func TestTimezoneDefaultAndValidation(t *testing.T) {
 			t.Fatalf("timezone %q = %s offset %d", input, loc, offset)
 		}
 	}
-	for _, input := range []string{"Local", "Mars/Olympus", "UTC+8"} {
+	for _, input := range []string{"", "  ", "Local", "Mars/Olympus", "UTC+8"} {
 		if _, err := LoadTimezone(input); err == nil {
 			t.Fatalf("accepted invalid timezone %q", input)
 		}

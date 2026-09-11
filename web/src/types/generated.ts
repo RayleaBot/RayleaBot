@@ -2685,7 +2685,7 @@ export interface components {
             };
             scheduler: {
                 /**
-                 * @description IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Empty legacy values resolve to Asia/Shanghai (UTC+08:00). Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
+                 * @description IANA timezone identifier used for scheduled tasks, server log timestamps, management time display, and plugin display dates through init.timezone. Changes take effect after restart; persisted future schedules are recalculated in the new timezone and overdue jobs retain recovery behavior.
                  * @default Asia/Shanghai
                  */
                 timezone: string;

@@ -72,7 +72,7 @@ request:
         browser_mode: auto
         remote_debugging_url: ""
     scheduler:
-      timezone: ""
+      timezone: Asia/Shanghai
     runtime:
       plugin_init_timeout_seconds: 30
       plugin_init_max_total_seconds: 300

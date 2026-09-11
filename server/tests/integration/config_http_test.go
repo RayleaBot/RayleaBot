@@ -344,7 +344,7 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			},
 		},
 		"scheduler": map[string]any{
-			"timezone": "",
+			"timezone": "Asia/Shanghai",
 		},
 		"runtime": map[string]any{
 			"plugin_init_timeout_seconds":           30,

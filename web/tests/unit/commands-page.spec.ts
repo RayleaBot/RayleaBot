@@ -52,7 +52,7 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
     },
     scheduler: {
-      timezone: '',
+      timezone: 'Asia/Shanghai',
     },
     runtime: {
       plugin_init_timeout_seconds: 30,

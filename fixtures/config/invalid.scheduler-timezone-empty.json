@@ -1,7 +1,7 @@
 {
   "contract": "contracts/config.user.schema.json",
   "case": "invalid",
-  "description": "Invalid because onebot reverse_ws.url must use ws:// or wss://.",
+  "description": "Invalid because scheduler.timezone must be a non-empty IANA identifier; empty values are not resolved to a default.",
   "input": {
     "schema_version": "4",
     "server": {
@@ -12,11 +12,11 @@
       {
         "id": "onebot11",
         "type": "onebot11",
-        "enabled": true,
+        "enabled": false,
         "onebot11": {
           "reverse_ws": {
-            "enabled": true,
-            "url": "http://127.0.0.1:6700",
+            "enabled": false,
+            "url": "",
             "access_token": "",
             "access_token_query_compat": false
           },
@@ -61,6 +61,7 @@
     "admin": {
       "super_admins": [],
       "session_ttl_days": 7,
+      "session_absolute_ttl_days": 30,
       "sliding_renewal": true,
       "max_sessions": 3,
       "login_fail_limit": 5,
@@ -90,7 +91,7 @@
       }
     },
     "scheduler": {
-      "timezone": "Asia/Shanghai"
+      "timezone": ""
     },
     "runtime": {
       "plugin_init_timeout_seconds": 30,
@@ -143,7 +144,8 @@
     "http": {
       "timeout_seconds": 10,
       "max_retries": 2,
-      "allow_private_hosts": []
+      "allow_private_hosts": [],
+      "max_response_body_bytes": 4194304
     },
     "web": {
       "exposure_mode": "localhost_only",
@@ -155,6 +157,6 @@
   },
   "expect": {
     "valid": false,
-    "reason": "adapters[].onebot11.reverse_ws.url must satisfy the formal reverse WebSocket URI constraint"
+    "reason": "scheduler.timezone must satisfy minLength 1"
   }
 }

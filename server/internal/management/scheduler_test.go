@@ -127,6 +127,7 @@ func TestSystemSchedulerJobListHTTPEmpty(t *testing.T) {
 	engine, err := scheduler.New(scheduler.Options{
 		Repository: repo,
 		Logger:     slog.Default(),
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("scheduler.New: %v", err)
@@ -168,6 +169,7 @@ func TestSystemSchedulerJobTriggerHTTP(t *testing.T) {
 	engine, err := scheduler.New(scheduler.Options{
 		Repository: repo,
 		Logger:     slog.Default(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(_ context.Context, job scheduler.Job) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -227,6 +229,7 @@ func TestSystemSchedulerJobTriggerHTTPDetachesRequestCancellation(t *testing.T) 
 	engine, err := scheduler.New(scheduler.Options{
 		Repository: repo,
 		Logger:     slog.Default(),
+		Timezone:   "Asia/Shanghai",
 		Trigger: func(ctx context.Context, _ scheduler.Job) {
 			triggered <- ctx.Err()
 		},
@@ -276,6 +279,7 @@ func TestSystemSchedulerJobTriggerHTTPMissingJob(t *testing.T) {
 	engine, err := scheduler.New(scheduler.Options{
 		Repository: repo,
 		Logger:     slog.Default(),
+		Timezone:   "Asia/Shanghai",
 	})
 	if err != nil {
 		t.Fatalf("scheduler.New: %v", err)

@@ -51,7 +51,7 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
       queue_max_length: 32,
       footer_template: 'Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}',
     },
-    scheduler: { timezone: '' },
+    scheduler: { timezone: 'Asia/Shanghai' },
     runtime: {
       plugin_init_timeout_seconds: 30,
       plugin_init_max_total_seconds: 300,

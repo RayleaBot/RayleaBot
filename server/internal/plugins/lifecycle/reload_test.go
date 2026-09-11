@@ -251,6 +251,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		Admin: config.AdminConfig{
 			SuperAdmins: []string{"10001", "10002", "10001", " "},
 		},
+		Scheduler: config.SchedulerConfig{Timezone: "Asia/Shanghai"},
 	}, slog.Default())
 	app.state.repoRoot = repoRoot
 	app.setTestLifecycle(t,

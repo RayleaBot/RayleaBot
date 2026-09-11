@@ -55,7 +55,7 @@ func TestHydrateUsesNewTimezoneForFutureJobsAndRetainsOverdueJobs(t *testing.T) 
 	if err := repo.SaveJob(ctx, late); err != nil {
 		t.Fatal(err)
 	}
-	after, err := New(Options{Repository: repo, Logger: logger})
+	after, err := New(Options{Repository: repo, Logger: logger, Timezone: "Asia/Shanghai"})
 	if err != nil {
 		t.Fatal(err)
 	}
