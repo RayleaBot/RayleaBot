@@ -26,10 +26,10 @@ type Service struct {
 	logs               *logging.Stream
 	logRepository      logging.Repository
 	addRedactionValues func(...string)
-	renderer           renderRuntimeConfigUpdater
-	pluginLogLimiter   interface{ ApplyConfig(config.Config) }
-	outboundLimiter    interface{ ApplyConfig(config.Config) }
-	accountValidation  interface{ ApplyConfig(config.Config) }
+	renderer           configConsumer
+	pluginLogLimiter   configConsumer
+	outboundLimiter    configConsumer
+	accountValidation  configConsumer
 	protocol           configProtocolReloader
 	eventIngress       configEventIngress
 	secrets            secrets.Store
@@ -46,10 +46,10 @@ type Deps struct {
 	Logs               *logging.Stream
 	LogRepository      logging.Repository
 	AddRedactionValues func(...string)
-	Renderer           renderRuntimeConfigUpdater
-	PluginLogLimiter   interface{ ApplyConfig(config.Config) }
-	OutboundLimiter    interface{ ApplyConfig(config.Config) }
-	AccountValidation  interface{ ApplyConfig(config.Config) }
+	Renderer           configConsumer
+	PluginLogLimiter   configConsumer
+	OutboundLimiter    configConsumer
+	AccountValidation  configConsumer
 	Protocol           configProtocolReloader
 	EventIngress       configEventIngress
 	Secrets            secrets.Store
@@ -89,7 +89,9 @@ func NewService(deps Deps) *Service {
 	}
 }
 
-type renderRuntimeConfigUpdater interface {
+// configConsumer receives the full configuration whenever a hot reload
+// changed a field it owns. Every implementation is an idempotent setter.
+type configConsumer interface {
 	ApplyConfig(config.Config)
 }
 

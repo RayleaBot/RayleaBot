@@ -318,6 +318,33 @@ func normalizeConfigApplyEffects(e *ApplyEffects) {
 	}
 }
 
+// hotReloadTarget names the config paths a consumer owns. A path ending in "."
+// owns every field below that prefix.
+type hotReloadTarget struct {
+	paths    []string
+	consumer configConsumer
+}
+
+func (s *Service) hotReloadTargets() []hotReloadTarget {
+	return []hotReloadTarget{
+		{paths: []string{"log.rate_limit_per_plugin"}, consumer: s.pluginLogLimiter},
+		{paths: []string{"message.rate_limit_per_plugin", "message.rate_limit_per_target", "message.circuit_breaker_seconds"}, consumer: s.outboundLimiter},
+		{paths: []string{"third_party_accounts.credential_check_interval_minutes"}, consumer: s.accountValidation},
+		{paths: []string{"render."}, consumer: s.renderer},
+	}
+}
+
+func configPathsTouch(changed []string, owned []string) bool {
+	for _, path := range changed {
+		for _, owner := range owned {
+			if path == owner || (strings.HasSuffix(owner, ".") && strings.HasPrefix(path, owner)) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (s *Service) ApplyHotReloadableFields(newCfg internalconfig.Config) ApplyEffects {
 	s.updateMu.Lock()
 	defer s.updateMu.Unlock()
@@ -363,24 +390,10 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 	if newCfg.Log.RetentionDays != oldCfg.Log.RetentionDays && s.logs != nil {
 		s.logs.SetRepository(s.logRepository, newCfg.Log.RetentionDays)
 	}
-	if newCfg.Log.RateLimitPerPlugin != oldCfg.Log.RateLimitPerPlugin && s.pluginLogLimiter != nil {
-		s.pluginLogLimiter.ApplyConfig(newCfg)
-	}
-	if s.outboundLimiter != nil && (newCfg.Message.RateLimitPerPlugin != oldCfg.Message.RateLimitPerPlugin ||
-		newCfg.Message.RateLimitPerTarget != oldCfg.Message.RateLimitPerTarget ||
-		newCfg.Message.CircuitBreakerSeconds != oldCfg.Message.CircuitBreakerSeconds) {
-		s.outboundLimiter.ApplyConfig(newCfg)
-	}
-	if s.accountValidation != nil && newCfg.ThirdParty.CredentialCheckIntervalMinutes != oldCfg.ThirdParty.CredentialCheckIntervalMinutes {
-		s.accountValidation.ApplyConfig(newCfg)
-	}
-	if s.renderer != nil && (newCfg.Render.TimeoutSeconds != oldCfg.Render.TimeoutSeconds ||
-		newCfg.Render.QueueWaitTimeoutSeconds != oldCfg.Render.QueueWaitTimeoutSeconds ||
-		newCfg.Render.QueueMaxLength != oldCfg.Render.QueueMaxLength ||
-		newCfg.Render.FooterTemplate != oldCfg.Render.FooterTemplate ||
-		newCfg.Render.DefaultOutput != oldCfg.Render.DefaultOutput ||
-		newCfg.Render.DeviceScalePercent != oldCfg.Render.DeviceScalePercent) {
-		s.renderer.ApplyConfig(newCfg)
+	for _, target := range s.hotReloadTargets() {
+		if target.consumer != nil && configPathsTouch(effects.AppliedNow, target.paths) {
+			target.consumer.ApplyConfig(newCfg)
+		}
 	}
 
 	if s.eventIngress != nil {

@@ -200,3 +200,45 @@ func isConfigCollection(prefix string) bool {
 	_, ok := ConfigCollectionKey(ConfigShapePath(prefix))
 	return ok
 }
+
+type configApplyCounter struct {
+	calls int
+}
+
+func (c *configApplyCounter) ApplyConfig(internalconfig.Config) {
+	c.calls++
+}
+
+func TestHotReloadConsumersOnlyReceiveOwnedChanges(t *testing.T) {
+	t.Parallel()
+
+	current, _, err := internalconfig.Load(filepath.Join(t.TempDir(), "config", "user.yaml"), "")
+	if err != nil {
+		t.Fatalf("load default config: %v", err)
+	}
+	next := current
+	next.Render.QueueMaxLength = current.Render.QueueMaxLength + 1
+	next.Message.CircuitBreakerSeconds = current.Message.CircuitBreakerSeconds + 1
+
+	renderer := &configApplyCounter{}
+	outbound := &configApplyCounter{}
+	pluginLog := &configApplyCounter{}
+	accountValidation := &configApplyCounter{}
+	service := NewService(Deps{
+		CurrentConfig:     func() internalconfig.Config { return current },
+		SetConfig:         func(cfg internalconfig.Config) { current = cfg },
+		Renderer:          renderer,
+		OutboundLimiter:   outbound,
+		PluginLogLimiter:  pluginLog,
+		AccountValidation: accountValidation,
+	})
+
+	service.ApplyHotReloadableFields(next)
+
+	if renderer.calls != 1 || outbound.calls != 1 {
+		t.Fatalf("renderer=%d outbound=%d, want one apply each", renderer.calls, outbound.calls)
+	}
+	if pluginLog.calls != 0 || accountValidation.calls != 0 {
+		t.Fatalf("plugin log=%d account validation=%d, want no apply", pluginLog.calls, accountValidation.calls)
+	}
+}
