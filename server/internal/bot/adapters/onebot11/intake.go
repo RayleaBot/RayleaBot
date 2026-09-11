@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -89,7 +91,15 @@ type ClassifiedFrame struct {
 	Summary        FrameSummary
 	Frame          OneBotFrame
 	InvalidSummary string
-	PayloadPreview any
+	PayloadPreview FramePayloadPreview
+}
+
+// FramePayloadPreview defers the sanitized preview of a raw frame to the
+// moment a log line is actually emitted; most frames are never previewed.
+type FramePayloadPreview []byte
+
+func (p FramePayloadPreview) LogValue() slog.Value {
+	return slog.AnyValue(PreviewFramePayload(p))
 }
 
 func PreviewFramePayload(payload []byte) any {
@@ -224,7 +234,7 @@ func normalizeMetaEvent(frame OneBotFrame, observedAt time.Time) (chatevent.Norm
 }
 
 func ClassifyFrame(messageType websocket.MessageType, payload []byte, observedAt time.Time) ClassifiedFrame {
-	payloadPreview := PreviewFramePayload(payload)
+	payloadPreview := FramePayloadPreview(slices.Clone(payload))
 
 	if messageType != websocket.MessageText && messageType != websocket.MessageBinary {
 		return ClassifiedFrame{
