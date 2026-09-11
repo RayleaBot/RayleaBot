@@ -30,6 +30,7 @@ func downloadHTTPSFile(ctx context.Context, rawURL, destPath string) (err error)
 		},
 		CheckRedirect: validatePluginDownloadRedirect,
 	}
+	defer client.CloseIdleConnections()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -174,6 +175,9 @@ func verifyPluginSourceDigest(ctx context.Context, source, expected, message str
 		return nil
 	}
 	digest, err := fsguard.SHA256File(ctx, source, maxRemoteDownloadBytes)
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
 	if err != nil || digest != expected {
 		return installError(errorcodes.PluginStoreIntegrityMismatch, message, "插件商店产物完整性校验失败")
 	}
