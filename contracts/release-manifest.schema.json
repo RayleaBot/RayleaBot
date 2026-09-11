@@ -86,7 +86,7 @@
         },
         "windows_signer_sha256": {
           "$ref": "#/$defs/sha256",
-          "description": "SHA256 certificate thumbprint required for every PE in an automatic Windows artifact."
+          "description": "Publisher certificate SHA256 required for the root RayleaLauncher.exe, raylea-server.exe and raylea-updater.exe in an automatic Windows artifact. Every other PE must pass Authenticode trust verification and may retain its dependency publisher's certificate."
         },
         "support_level": {
           "type": "string",

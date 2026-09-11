@@ -32,6 +32,7 @@ function global:Get-AuthenticodeSignature {
     if ($global:SigningScenario -eq 'invalid-signer') { $status = 'HashMismatch' }
     [byte[]]$data = @(1, 2, 3)
     if ($global:SigningScenario -eq 'different-signers' -and $LiteralPath.EndsWith('server.exe')) { $data = @(4, 5, 6) }
+    if ($global:SigningScenario -eq 'vendor-signer' -and $LiteralPath.EndsWith('vendor.dll')) { $data = @(4, 5, 6) }
     return [pscustomobject]@{ Status = $status; SignerCertificate = [pscustomobject]@{ RawData = $data } }
 }
 function global:FixtureSignTool {
@@ -45,12 +46,12 @@ $tool = if ($Scenario -eq 'missing-tool') { 'NonexistentFixtureSignTool' } else 
 $targets = @('server.exe', 'updater.exe', 'launcher.exe') | ForEach-Object { Join-Path $Package $_ }
 & $Gate -SignTargets $targets -LauncherDirectory $Package -CertificateSHA1 $certificate -SignTool $tool -OutputPath $OutputPath
 ''', encoding="utf-8")
-            for scenario in ("unsigned", "pre-signed", "signed", "sign-failure", "verify-failure", "partial", "invalid-signer", "different-signers", "missing-tool"):
+            for scenario in ("unsigned", "pre-signed", "signed", "vendor-signer", "sign-failure", "verify-failure", "partial", "invalid-signer", "different-signers", "missing-tool"):
                 with self.subTest(scenario=scenario):
                     output = root / (scenario + ".out")
                     completed = subprocess.run([pwsh, "-NoProfile", "-File", str(harness), scenario, str(ROOT / "scripts/release/windows-signing.ps1"), str(package), str(output)], cwd=ROOT, env={**os.environ, "RAYLEA_WINDOWS_CERT_SHA1": ""}, text=True, capture_output=True, timeout=30)
                     entries = output.read_text(encoding="utf-8-sig").splitlines()
-                    success = scenario in {"unsigned", "pre-signed", "signed"}
+                    success = scenario in {"unsigned", "pre-signed", "signed", "vendor-signer"}
                     self.assertEqual(completed.returncode == 0, success, completed.stderr)
-                    expected = "" if scenario not in {"pre-signed", "signed"} else hashlib.sha256(bytes([1, 2, 3])).hexdigest()
+                    expected = "" if scenario not in {"pre-signed", "signed", "vendor-signer"} else hashlib.sha256(bytes([1, 2, 3])).hexdigest()
                     self.assertEqual(entries[-1], "signer_sha256=" + expected)

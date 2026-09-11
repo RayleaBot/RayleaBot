@@ -13,6 +13,8 @@
 
 `automatic` 表示用户确认后的事务式安装，不表示静默下载或静默安装。未配置 Windows 签名身份且三个必需程序均未签名时，`windows-x64-full` 发布为 `guided`。配置了签名身份，或接收到预签名产物后，签名操作失败、验证失败、必需程序签名缺失或签名者不一致都会使本次构建失败；不会自动改为 `guided` 后继续发布。
 
+根目录的 `RayleaLauncher.exe`、`raylea-server.exe` 和 `raylea-updater.exe` 必须匹配 manifest 中的发布者证书摘要。其他 PE 仍需通过 Authenticode 信任校验，可以保留依赖发布者的证书；整个产物的字节完整性同时受已签名 manifest 的归档摘要约束。
+
 ## 发布包目录
 
 发行包根目录按产物形态包含：
