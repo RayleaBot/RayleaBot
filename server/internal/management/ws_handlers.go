@@ -103,16 +103,44 @@ func (h *EventsHandler) HandleEventsWebSocket() http.HandlerFunc {
 			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
+		serveManagementWebSocket(w, r, h.streamEventsWebSocket)
+	}
+}
 
-		conn, err := acceptManagementWebSocket(w, r)
-		if err != nil {
+// serveManagementWebSocket upgrades the request, hands the connection to
+// serve and closes it normally once serve returns. A failed upgrade has
+// already written its response.
+func serveManagementWebSocket(w http.ResponseWriter, r *http.Request, serve func(*websocket.Conn)) {
+	conn, err := acceptManagementWebSocket(w, r)
+	if err != nil {
+		return
+	}
+	defer func() {
+		_ = conn.Close(websocket.StatusNormalClosure, "")
+	}()
+	serve(conn)
+}
+
+// streamFrames writes the initial items, then forwards updates until the
+// peer closes or the source ends. frame projects each item onto the wire.
+func streamFrames[T any](ctx context.Context, conn *websocket.Conn, initial []T, updates <-chan T, frame func(T) managementevents.Frame) {
+	for _, item := range initial {
+		if err := wsjson.Write(ctx, conn, frame(item)); err != nil {
 			return
 		}
-		defer func() {
-			_ = conn.Close(websocket.StatusNormalClosure, "")
-		}()
-
-		h.streamEventsWebSocket(conn)
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case item, ok := <-updates:
+			if !ok {
+				return
+			}
+			if err := wsjson.Write(ctx, conn, frame(item)); err != nil {
+				return
+			}
+		}
 	}
 }
 
@@ -121,63 +149,36 @@ func (h *EventsHandler) streamEventsWebSocket(conn *websocket.Conn) {
 	_ = h.stream.Run(eventsCtx, func(ctx context.Context, value any) error { return wsjson.Write(ctx, conn, value) }, func() { _ = conn.CloseNow() })
 }
 
-type logFrame struct {
-	Channel   string          `json:"channel"`
-	Type      string          `json:"type"`
-	Timestamp string          `json:"timestamp"`
-	Data      logging.Summary `json:"data"`
-}
-
 func (h *LogsHandler) HandleLogsWebSocket() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ClaimsFromContext(r.Context()); !ok {
 			httpapi.WriteError(w, r, errorcodes.PermissionDenied, nil)
 			return
 		}
-
-		conn, err := acceptManagementWebSocket(w, r)
-		if err != nil {
-			return
-		}
-		defer func() {
-			_ = conn.Close(websocket.StatusNormalClosure, "")
-		}()
-
-		framesCtx := conn.CloseRead(context.Background())
-		summaries, unsubscribe := h.logs.Subscribe(8)
-		defer unsubscribe()
-
-		replayed := make(map[string]struct{})
-		for _, summary := range h.logs.Replay(framesCtx) {
-			if err := wsjson.Write(framesCtx, conn, newLogFrame(summary)); err != nil {
-				return
-			}
-			replayed[logSummaryKey(summary)] = struct{}{}
-		}
-
-		for _, summary := range h.logs.Snapshot() {
-			if _, ok := replayed[logSummaryKey(summary)]; ok {
-				continue
-			}
-			if err := wsjson.Write(framesCtx, conn, newLogFrame(summary)); err != nil {
-				return
-			}
-		}
-
-		for {
-			select {
-			case <-framesCtx.Done():
-				return
-			case summary, ok := <-summaries:
-				if !ok {
-					return
-				}
-				if err := wsjson.Write(framesCtx, conn, newLogFrame(summary)); err != nil {
-					return
-				}
-			}
-		}
+		serveManagementWebSocket(w, r, func(conn *websocket.Conn) {
+			framesCtx := conn.CloseRead(context.Background())
+			summaries, unsubscribe := h.logs.Subscribe(8)
+			defer unsubscribe()
+			streamFrames(framesCtx, conn, h.initialLogSummaries(framesCtx), summaries, newLogFrame)
+		})
 	}
+}
+
+// initialLogSummaries returns the persisted replay followed by the in-memory
+// entries the replay did not already cover.
+func (h *LogsHandler) initialLogSummaries(ctx context.Context) []logging.Summary {
+	initial := h.logs.Replay(ctx)
+	replayed := make(map[string]struct{}, len(initial))
+	for _, summary := range initial {
+		replayed[logSummaryKey(summary)] = struct{}{}
+	}
+	for _, summary := range h.logs.Snapshot() {
+		if _, ok := replayed[logSummaryKey(summary)]; ok {
+			continue
+		}
+		initial = append(initial, summary)
+	}
+	return initial
 }
 
 func logSummaryKey(summary logging.Summary) string {
@@ -196,20 +197,13 @@ func logSummaryKey(summary logging.Summary) string {
 	}, "\x1f")
 }
 
-func newLogFrame(summary logging.Summary) logFrame {
-	return logFrame{
+func newLogFrame(summary logging.Summary) managementevents.Frame {
+	return managementevents.Frame{
 		Channel:   "logs",
 		Type:      "logs.appended",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		Data:      summary,
 	}
-}
-
-type consoleFrame struct {
-	Channel   string           `json:"channel"`
-	Type      string           `json:"type"`
-	Timestamp string           `json:"timestamp"`
-	Data      consoleFrameData `json:"data"`
 }
 
 type consoleFrameData struct {
@@ -235,44 +229,18 @@ func (h *ConsoleHandler) HandlePluginConsoleWebSocket() http.HandlerFunc {
 			httpapi.WriteError(w, r, errorcodes.PlatformResourceNotFound, nil)
 			return
 		}
-
-		conn, err := acceptManagementWebSocket(w, r)
-		if err != nil {
-			return
-		}
-		defer func() {
-			_ = conn.Close(websocket.StatusNormalClosure, "")
-		}()
-
-		framesCtx := conn.CloseRead(context.Background())
-		entries, unsubscribe := h.console.Subscribe(pluginID, 8)
-		defer unsubscribe()
-
-		for _, entry := range h.console.Snapshot(pluginID) {
-			if err := wsjson.Write(framesCtx, conn, newConsoleFrame(entry)); err != nil {
-				return
-			}
-		}
-
-		for {
-			select {
-			case <-framesCtx.Done():
-				return
-			case entry, ok := <-entries:
-				if !ok {
-					return
-				}
-				if err := wsjson.Write(framesCtx, conn, newConsoleFrame(entry)); err != nil {
-					return
-				}
-			}
-		}
+		serveManagementWebSocket(w, r, func(conn *websocket.Conn) {
+			framesCtx := conn.CloseRead(context.Background())
+			entries, unsubscribe := h.console.Subscribe(pluginID, 8)
+			defer unsubscribe()
+			streamFrames(framesCtx, conn, h.console.Snapshot(pluginID), entries, newConsoleFrame)
+		})
 	}
 }
 
-func newConsoleFrame(entry console.Entry) consoleFrame {
+func newConsoleFrame(entry console.Entry) managementevents.Frame {
 	timestamp := entry.Timestamp.UTC().Format(time.RFC3339)
-	return consoleFrame{
+	return managementevents.Frame{
 		Channel:   "plugin_console",
 		Type:      "plugins.console",
 		Timestamp: timestamp,
