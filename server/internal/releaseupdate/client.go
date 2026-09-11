@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 type Checker struct {
@@ -194,28 +196,7 @@ func saveBytesAtomically(path string, payload []byte, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+"-*")
-	if err != nil {
-		return err
-	}
-	temporaryPath := temporary.Name()
-	defer func() { _ = os.Remove(temporaryPath) }()
-	if err := temporary.Chmod(mode); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if _, err := temporary.Write(payload); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if err := temporary.Sync(); err != nil {
-		_ = temporary.Close()
-		return err
-	}
-	if err := temporary.Close(); err != nil {
-		return err
-	}
-	return os.Rename(temporaryPath, path)
+	return fsguard.WriteFileAtomic(path, payload, mode)
 }
 
 func ValidateMetadataFiles(verifier *Verifier, manifestPath, signaturePath string, now time.Time) (VerifiedManifest, error) {

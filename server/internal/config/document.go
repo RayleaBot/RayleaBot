@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func LoadDocument(configPath, schemaPath string) (map[string]any, error) {
@@ -48,30 +50,9 @@ func writeAtomic(path string, contents []byte, mode os.FileMode) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create config directory %s: %w", filepath.Dir(path), err)
 	}
-
-	tempFile, err := os.CreateTemp(filepath.Dir(path), ".config-*.yaml")
-	if err != nil {
-		return fmt.Errorf("create temporary config file for %s: %w", path, err)
-	}
-	tempPath := tempFile.Name()
-	defer func() { _ = os.Remove(tempPath) }()
-
-	if _, err := tempFile.Write(contents); err != nil {
-		_ = tempFile.Close()
-		return fmt.Errorf("write temporary config file for %s: %w", path, err)
-	}
-	if err := tempFile.Chmod(mode); err != nil {
-		_ = tempFile.Close()
-		return fmt.Errorf("set mode on temporary config file for %s: %w", path, err)
-	}
-	if err := tempFile.Close(); err != nil {
-		return fmt.Errorf("close temporary config file for %s: %w", path, err)
-	}
-
-	if err := os.Rename(tempPath, path); err != nil {
+	if err := fsguard.WriteFileAtomic(path, contents, mode); err != nil {
 		return fmt.Errorf("replace config file %s: %w", path, err)
 	}
-
 	return nil
 }
 

@@ -3,11 +3,12 @@ package recovery
 import (
 	"encoding/json"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
-
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func SummaryPath(repoRoot string) string {
@@ -39,7 +40,7 @@ func SaveSummary(repoRoot string, summary CompatibilitySummary) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(payload, '\n'), 0o644)
+	return fsguard.WriteFileAtomic(path, append(payload, '\n'), 0o644)
 }
 
 func issuesForSkippedPlugins(skippedPlugins []SkippedPlugin) []CompatibilityIssue {
