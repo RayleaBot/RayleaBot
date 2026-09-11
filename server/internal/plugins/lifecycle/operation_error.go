@@ -1,6 +1,7 @@
 package lifecycle
 
 import (
+	"context"
 	"errors"
 	"strings"
 )
@@ -47,4 +48,11 @@ func (e *operationError) message() string {
 	default:
 		return "插件操作失败，安装目录未变更"
 	}
+}
+
+func (e *operationError) taskMustFail(cause error) bool {
+	if e.state == "rollback_failed" || e.state == "committed" || len(e.failures) > 1 {
+		return true
+	}
+	return !errors.Is(cause, context.Canceled) && !errors.Is(cause, context.DeadlineExceeded)
 }
