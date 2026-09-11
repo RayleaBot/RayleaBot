@@ -18,6 +18,8 @@ func (a *App) Close() error {
 	return a.process.closeErr
 }
 
+// closeResources runs once per App (guarded by closeOnce), so fields are not
+// cleared after their owner closes.
 func (a *App) closeResources() error {
 	var errs []error
 	a.requestShutdown()
@@ -40,19 +42,16 @@ func (a *App) closeResources() error {
 	}
 	if a.metricsRuntimeGaugeStop != nil {
 		a.metricsRuntimeGaugeStop()
-		a.metricsRuntimeGaugeStop = nil
 	}
 	if a.pluginStack.PluginInstaller != nil {
 		if err := a.pluginStack.PluginInstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin install service: %w", err))
 		}
-		a.pluginStack.PluginInstaller = nil
 	}
 	if a.pluginStack.PluginUninstaller != nil {
 		if err := a.pluginStack.PluginUninstaller.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close plugin uninstall service: %w", err))
 		}
-		a.pluginStack.PluginUninstaller = nil
 	}
 	if a.services.PluginLifecycle != nil {
 		a.services.PluginLifecycle.Close()
@@ -61,7 +60,6 @@ func (a *App) closeResources() error {
 		if err := a.stopRuntimeManagers(5 * time.Second); err != nil {
 			errs = append(errs, fmt.Errorf("stop runtime managers: %w", err))
 		}
-		a.runtimes = nil
 	}
 	if err := a.stopAdapter(5 * time.Second); err != nil {
 		errs = append(errs, fmt.Errorf("stop adapters: %w", err))
@@ -70,20 +68,17 @@ func (a *App) closeResources() error {
 
 	if a.services.ThirdPartyQRLogin != nil {
 		a.services.ThirdPartyQRLogin.Close()
-		a.services.ThirdPartyQRLogin = nil
 	}
 	if a.platform.TaskExecutor != nil {
 		if err := a.platform.TaskExecutor.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close task executor: %w", err))
 		}
-		a.platform.TaskExecutor = nil
 	}
 
 	if a.platform.Tasks != nil {
 		if err := a.platform.Tasks.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("flush task registry: %w", err))
 		}
-		a.platform.Tasks = nil
 	}
 	if a.renderStack.Renderer != nil {
 		if err := a.renderStack.Close(); err != nil {
@@ -97,13 +92,11 @@ func (a *App) closeResources() error {
 		if err := a.platform.Storage.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close sqlite store: %w", err))
 		}
-		a.platform.Storage = nil
 	}
 	if a.configLifecycleLock != nil {
 		if err := a.configLifecycleLock.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("release config lifecycle lock: %w", err))
 		}
-		a.configLifecycleLock = nil
 	}
 	return errors.Join(errs...)
 }

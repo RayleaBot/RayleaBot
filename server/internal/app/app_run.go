@@ -277,24 +277,21 @@ func configureAppRuntimeCallbacks(application *App) {
 		application.runtimes.SetOnCrash(lifecycle.HandleCrash)
 	}
 	// Every instance publishes the complete management snapshot after a state change.
+	publishAdapterState := func() {
+		protocolService.PublishSnapshot()
+		systemService.PublishStatusSnapshot()
+		lifecycle.SyncBotIdentities(context.Background())
+	}
 	for _, shell := range application.eventStack.OneBotShells {
 		shell.SetEventHandler(eventIngress.HandleAdapterEvent)
 		shell.SetReadyHandler(eventIngress.HandleAdapterReady)
-		shell.SetStateHandler(func(onebot11.Snapshot) {
-			protocolService.PublishSnapshot()
-			systemService.PublishStatusSnapshot()
-			lifecycle.SyncBotIdentities(context.Background())
-		})
+		shell.SetStateHandler(func(onebot11.Snapshot) { publishAdapterState() })
 	}
 	for _, client := range application.eventStack.QQOfficial {
 		client.SetEventHandler(eventIngress.HandleAdapterEvent)
 		client.SetReadyHandler(eventIngress.HandleAdapterReady)
 		// The QQ adapter has no transport snapshot of its own, so its state
 		// reaches the management surface through the adapters listing.
-		client.SetStateHandler(func() {
-			protocolService.PublishSnapshot()
-			systemService.PublishStatusSnapshot()
-			lifecycle.SyncBotIdentities(context.Background())
-		})
+		client.SetStateHandler(publishAdapterState)
 	}
 }

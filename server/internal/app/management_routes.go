@@ -14,6 +14,7 @@ import (
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
@@ -57,20 +58,10 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	})
 	governanceHandler := managementapi.NewGovernanceHandlersWithService(services.Governance)
 	logHandler := managementapi.NewLogHandlers(services.Logs)
-	renderHandler := managementapi.NewRenderHandlers(deps.Renderer, func(id string) string {
-		if snapshot, ok := pluginState.Plugins.Get(id); ok {
-			return snapshot.Name
-		}
-		return id
-	})
+	renderHandler := managementapi.NewRenderHandlers(deps.Renderer, pluginNameResolver(pluginState.Plugins.Get, true))
 	systemHandlers := managementapi.NewSystemHandlers(services.System)
 	if platformState.Scheduler != nil {
-		schedulerView, err := scheduler.NewView(platformState.Scheduler, func(pluginID string) string {
-			if snapshot, exists := pluginState.Plugins.Get(pluginID); exists {
-				return snapshot.Name
-			}
-			return ""
-		})
+		schedulerView, err := scheduler.NewView(platformState.Scheduler, pluginNameResolver(pluginState.Plugins.Get, false))
 		if err != nil {
 			return managementRouteState{}, err
 		}
@@ -175,6 +166,20 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 			},
 		},
 	}, nil
+}
+
+// pluginNameResolver maps a plugin id to its display name; fallbackToID
+// controls whether an unknown id is echoed back or rendered empty.
+func pluginNameResolver(lookup func(string) (plugins.Snapshot, bool), fallbackToID bool) func(string) string {
+	return func(pluginID string) string {
+		if snapshot, ok := lookup(pluginID); ok {
+			return snapshot.Name
+		}
+		if fallbackToID {
+			return pluginID
+		}
+		return ""
+	}
 }
 
 type authConfigSource struct {

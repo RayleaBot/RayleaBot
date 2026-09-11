@@ -63,39 +63,50 @@ func New(options Options) (*App, error) {
 	return NewWithContext(context.Background(), options)
 }
 
+// normalizeOptions fills the generated tokens and resolves the development
+// artifact root so the rest of assembly sees validated inputs.
+func normalizeOptions(options Options) (Options, error) {
+	var err error
+	if options.SetupToken, err = ensureOpaqueToken(options.SetupToken, "setup token"); err != nil {
+		return options, err
+	}
+	if options.LauncherControlToken, err = ensureOpaqueToken(options.LauncherControlToken, "launcher control token"); err != nil {
+		return options, err
+	}
+	if options.DevelopmentArtifactRoot != "" {
+		if !filepath.IsAbs(options.DevelopmentArtifactRoot) {
+			return options, errors.New("development artifact root must be absolute")
+		}
+		canonical, err := filepath.EvalSymlinks(options.DevelopmentArtifactRoot)
+		if err != nil {
+			return options, fmt.Errorf("resolve development artifact root: %w", err)
+		}
+		options.DevelopmentArtifactRoot = canonical
+	}
+	return options, nil
+}
+
+func ensureOpaqueToken(token, label string) (string, error) {
+	if token == "" {
+		generated, err := auth.GenerateOpaqueToken(32)
+		if err != nil {
+			return "", fmt.Errorf("generate %s: %w", label, err)
+		}
+		token = generated
+	}
+	if err := auth.ValidateOpaqueToken(token); err != nil {
+		return "", fmt.Errorf("validate %s: %w", label, err)
+	}
+	return token, nil
+}
+
 func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if options.SetupToken == "" {
-		generated, err := auth.GenerateOpaqueToken(32)
-		if err != nil {
-			return nil, fmt.Errorf("generate setup token: %w", err)
-		}
-		options.SetupToken = generated
-	}
-	if err := auth.ValidateOpaqueToken(options.SetupToken); err != nil {
-		return nil, fmt.Errorf("validate setup token: %w", err)
-	}
-	if options.DevelopmentArtifactRoot != "" {
-		if !filepath.IsAbs(options.DevelopmentArtifactRoot) {
-			return nil, errors.New("development artifact root must be absolute")
-		}
-		canonical, err := filepath.EvalSymlinks(options.DevelopmentArtifactRoot)
-		if err != nil {
-			return nil, fmt.Errorf("resolve development artifact root: %w", err)
-		}
-		options.DevelopmentArtifactRoot = canonical
-	}
-	if options.LauncherControlToken == "" {
-		generated, err := auth.GenerateOpaqueToken(32)
-		if err != nil {
-			return nil, fmt.Errorf("generate launcher control token: %w", err)
-		}
-		options.LauncherControlToken = generated
-	}
-	if err := auth.ValidateOpaqueToken(options.LauncherControlToken); err != nil {
-		return nil, fmt.Errorf("validate launcher control token: %w", err)
+	options, err := normalizeOptions(options)
+	if err != nil {
+		return nil, err
 	}
 	lockPath, err := runtimepaths.ResolveConfigLifecycleLockPath(options.ConfigPath)
 	if err != nil {
@@ -129,7 +140,29 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		}
 		schedulerLifecycle.HandleSchedulerTrigger(ctx, job)
 	}
-	platformState, err := buildPlatform(platformDeps{
+	var (
+		platformState         PlatformState
+		pluginState           PluginStackState
+		renderState           appRenderState
+		eventState            EventState
+		serviceBuild          serviceBuildResult
+		stopRuntimeStateGauge func()
+	)
+	// cleanupPartialBuild releases whatever has been assembled so far by
+	// closing it as an App; stages that have not run leave their zero value.
+	cleanupPartialBuild := func(cause error) error {
+		partial := &App{
+			platform:                platformState,
+			pluginStack:             pluginState,
+			renderStack:             renderState,
+			eventStack:              eventState,
+			services:                serviceBuild.Services,
+			runtimes:                serviceBuild.Runtimes,
+			metricsRuntimeGaugeStop: stopRuntimeStateGauge,
+		}
+		return errors.Join(cause, partial.Close())
+	}
+	platformState, err = buildPlatform(platformDeps{
 		Context:          ctx,
 		ConfigPath:       buildState.options.ConfigPath,
 		Config:           buildState.core.CurrentConfig(),
@@ -142,31 +175,12 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		SchedulerTrigger: schedulerTrigger,
 	})
 	if err != nil {
-		partial := &App{platform: PlatformState{
+		platformState = PlatformState{
 			TaskExecutor: buildState.taskExecutor,
 			Tasks:        buildState.taskRegistry,
 			Logs:         buildState.logStream,
-		}}
-		return nil, errors.Join(err, partial.Close())
-	}
-	var (
-		pluginState           PluginStackState
-		renderState           appRenderState
-		eventState            EventState
-		serviceBuild          serviceBuildResult
-		stopRuntimeStateGauge func()
-	)
-	cleanupPartialBuild := func(cause error) error {
-		partial := &App{
-			platform:                platformState,
-			pluginStack:             pluginState,
-			renderStack:             renderState,
-			eventStack:              eventState,
-			services:                serviceBuild.Services,
-			runtimes:                serviceBuild.Runtimes,
-			metricsRuntimeGaugeStop: stopRuntimeStateGauge,
 		}
-		return errors.Join(cause, partial.Close())
+		return nil, cleanupPartialBuild(err)
 	}
 	resolvedConfig, err := configruntime.ResolveConfigSecretRefs(ctx, platformState.Secrets, buildState.core.CurrentConfig())
 	if err != nil {
