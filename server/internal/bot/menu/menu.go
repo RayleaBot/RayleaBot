@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
@@ -55,6 +56,14 @@ type Service struct {
 	sender        Sender
 	waitOutbound  func(context.Context, outbound.MessageLimitRequest) error
 	logger        *slog.Logger
+	// matcher is the config-derived command matcher, replaced wholesale by
+	// UpdateConfig so message goroutines never rebuild it.
+	matcher atomic.Pointer[builtinMatcher]
+}
+
+type builtinMatcher struct {
+	commands []string
+	parser   *command.Parser
 }
 
 type Request struct {
@@ -75,7 +84,7 @@ type builtinMenuRenderData struct {
 }
 
 func New(deps Deps) *Service {
-	return &Service{
+	service := &Service{
 		currentConfig: deps.CurrentConfig,
 		plugins:       deps.Plugins,
 		renderer:      deps.Renderer,
@@ -83,6 +92,22 @@ func New(deps Deps) *Service {
 		waitOutbound:  deps.WaitOutbound,
 		logger:        deps.Logger,
 	}
+	service.UpdateConfig(service.config())
+	return service
+}
+
+// UpdateConfig rebuilds the builtin command matcher from cfg.
+func (s *Service) UpdateConfig(cfg config.Config) {
+	prefixes := builtinMenuPrefixes(cfg)
+	s.matcher.Store(&builtinMatcher{commands: builtinMenuCommands(cfg), parser: command.NewParser(prefixes)})
+}
+
+func (s *Service) currentMatcher() *builtinMatcher {
+	if matcher := s.matcher.Load(); matcher != nil {
+		return matcher
+	}
+	s.UpdateConfig(s.config())
+	return s.matcher.Load()
 }
 
 func (s *Service) Handle(ctx context.Context, event chatevent.NormalizedEvent) bool {
@@ -128,16 +153,14 @@ func (s *Service) Match(event chatevent.NormalizedEvent) Request {
 	if strings.TrimSpace(event.PlainText) == "" {
 		return Request{}
 	}
-	cfg := s.config()
-	prefixes := builtinMenuPrefixes(cfg)
-	commands := builtinMenuCommands(cfg)
-	parsed := command.NewParser(prefixes).Parse(event.PlainText)
+	matcher := s.currentMatcher()
+	parsed := matcher.parser.Parse(event.PlainText)
 	if !parsed.IsCommand {
 		return Request{}
 	}
 
 	commandName := strings.TrimSpace(parsed.Command)
-	for _, name := range commands {
+	for _, name := range matcher.commands {
 		if commandName == name {
 			return Request{
 				Matched: true,

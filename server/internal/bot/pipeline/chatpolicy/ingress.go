@@ -87,6 +87,9 @@ func (s *Ingress) UpdateConfig(cfg config.Config) {
 	if s.policy != nil {
 		s.policy.UpdateConfig(cfg)
 	}
+	if s.menu != nil {
+		s.menu.UpdateConfig(cfg)
+	}
 }
 
 func (s *Ingress) ApplyChatPolicy(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.NormalizedEvent, bool) {
