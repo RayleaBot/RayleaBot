@@ -560,6 +560,62 @@ def schema_errors_at_pointer(
         fail(f"{contract_path.relative_to(ROOT)}{pointer}: schema resolution failed: {exc}")
 
 
+ERROR_CODE_REGISTRY_EXTENSION = "x-error-code-registry"
+
+_error_code_catalog: dict[str, Any] | None = None
+
+
+def error_code_catalog() -> dict[str, Any]:
+    global _error_code_catalog
+    if _error_code_catalog is None:
+        document = require_object(load_yaml(CONTRACTS / "error-codes.yaml"), "error-codes")
+        _error_code_catalog = require_object(document.get("codes"), "error catalog codes")
+    return _error_code_catalog
+
+
+def resolve_schema_reference(schema: Any, resolver: Any) -> tuple[Any, Any]:
+    while isinstance(schema, dict) and "$ref" in schema:
+        reference = schema["$ref"]
+        if not isinstance(reference, str):
+            fail(f"schema $ref must be a string: {reference!r}")
+        try:
+            resolved = resolver.lookup(reference)
+        except Exception as exc:
+            fail(f"schema $ref cannot be resolved: {reference}: {exc}")
+        schema, resolver = resolved.contents, resolved.resolver
+    return schema, resolver
+
+
+def registry_code_errors(schema: Any, instance: Any, resolver: Any, pointer: str = "") -> list[str]:
+    schema, resolver = resolve_schema_reference(schema, resolver)
+    if not isinstance(schema, dict):
+        return []
+    if ERROR_CODE_REGISTRY_EXTENSION in schema:
+        if not isinstance(instance, str) or not instance:
+            return [f"{pointer or '<root>'}: registry code fields require a non-empty string"]
+        if instance not in error_code_catalog():
+            return [f"{pointer or '<root>'}: unregistered error code {instance!r}"]
+        return []
+
+    errors: list[str] = []
+    properties = schema.get("properties")
+    if isinstance(instance, dict) and isinstance(properties, dict):
+        for key, value in instance.items():
+            child = properties.get(key)
+            if child is None:
+                continue
+            errors.extend(registry_code_errors(child, value, resolver, f"{pointer}/{key}" if pointer else f"/{key}"))
+    items = schema.get("items")
+    if isinstance(instance, list) and isinstance(items, (dict, bool)):
+        for index, value in enumerate(instance):
+            errors.extend(registry_code_errors(items, value, resolver, f"{pointer}/{index}" if pointer else f"/{index}"))
+    all_of = schema.get("allOf")
+    if isinstance(all_of, list):
+        for sub_schema in all_of:
+            errors.extend(registry_code_errors(sub_schema, instance, resolver, pointer))
+    return errors
+
+
 def matching_openapi_path(paths: dict[str, Any], request_path: str) -> str | None:
     request_path = urlsplit(request_path).path
     if request_path in paths:
@@ -790,7 +846,14 @@ def openapi_message_body_errors(
     if media_type is None or not isinstance(content.get(media_type), dict) or "schema" not in content[media_type]:
         return [f"{direction} body media type has no schema"]
     schema_pointer = f"{pointer}/content/{pointer_escape(media_type)}/schema"
-    return schema_errors_at_pointer(CONTRACTS / "web-api.openapi.yaml", registry, schema_pointer, message["body"])
+    errors = schema_errors_at_pointer(CONTRACTS / "web-api.openapi.yaml", registry, schema_pointer, message["body"])
+    contract_uri = (CONTRACTS / "web-api.openapi.yaml").resolve().as_uri()
+    try:
+        resolved = registry.resolver().lookup(f"{contract_uri}#{schema_pointer}")
+    except Exception as exc:
+        fail(f"contracts/web-api.openapi.yaml{schema_pointer}: schema resolution failed: {exc}")
+    errors.extend(registry_code_errors(resolved.contents, message["body"], resolved.resolver))
+    return errors
 
 
 def http_example_errors(

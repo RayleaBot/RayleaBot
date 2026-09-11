@@ -187,6 +187,20 @@ class ContractValidatorTests(unittest.TestCase):
                 self.web_api, self.registry, pointer, operation, direction, message,
             ))
 
+    def test_task_error_code_must_be_registered(self) -> None:
+        route, method, operation = validator.openapi_operations(self.web_api)["getSystemTaskStatus"]
+        pointer = f"/paths/{validator.pointer_escape(route)}/{method}"
+        body = {"task_id": "task_fixture", "status": "failed", "error_code": "plugin.internal_error"}
+        message = {"status": 200, "body": body}
+        self.assertEqual(
+            validator.openapi_message_body_errors(self.web_api, self.registry, pointer, operation, "response", message),
+            [],
+        )
+        body["error_code"] = "plugin.not_registered"
+        self.assertTrue(validator.openapi_message_body_errors(
+            self.web_api, self.registry, pointer, operation, "response", message,
+        ))
+
     def test_openapi_info_version_requires_a_semantic_version(self) -> None:
         api = copy.deepcopy(self.web_api)
         for version in ["", "1.0", "v1.0.0", 1]:

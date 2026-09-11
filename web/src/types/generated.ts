@@ -1826,6 +1826,7 @@ export interface components {
             task_id: string;
             /** @enum {string} */
             status: "pending" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+            /** @description Formal error code registered in contracts/error-codes.yaml. */
             error_code?: string;
         };
         TaskAcceptedResponse: {

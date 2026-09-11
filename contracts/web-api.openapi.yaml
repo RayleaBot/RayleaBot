@@ -22,6 +22,7 @@ x-fixtures:
   - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-onebot11.yaml
   - fixtures/web-api/ok.system-task-status.yaml
+  - fixtures/web-api/invalid.system-task-unregistered-code.yaml
   - fixtures/web-api/edge.system-task-missing.yaml
   - fixtures/web-api/ok.adapters-list.yaml
   - fixtures/web-api/edge.adapters-empty.yaml
@@ -3922,8 +3923,10 @@ components:
           type: string
           enum: [pending, running, succeeded, failed, cancelled, interrupted]
         error_code:
+          description: Formal error code registered in contracts/error-codes.yaml.
           type: string
           minLength: 1
+          x-error-code-registry: contracts/error-codes.yaml
 
     TaskAcceptedResponse:
       type: object
