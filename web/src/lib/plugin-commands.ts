@@ -25,7 +25,7 @@ export function isPluginCommandConflicted(command: PluginCommandSummary, conflic
   return command.effective_names.some((name) => tokens.has(normalizeToken(name)))
 }
 
-export function getPluginCommandAvailability(plugin: PluginSummary): PluginCommandAvailability {
+function getPluginCommandAvailability(plugin: PluginSummary): PluginCommandAvailability {
   switch (plugin.state) {
     case 'running':
       return 'available'

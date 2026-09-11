@@ -25,7 +25,7 @@ export function notifyWarning(content: string) {
   publishToast('warning', content)
 }
 
-export function notifyToast(level: ToastLevel, content: string) {
+function notifyToast(level: ToastLevel, content: string) {
   switch (level) {
     case 'error':
       notifyError(content)

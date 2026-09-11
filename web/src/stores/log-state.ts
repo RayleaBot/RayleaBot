@@ -3,8 +3,8 @@ import type { LogLevel, LogListResponse, LogPageDirection, LogProtocol, LogSumma
 
 export type LogScope = 'history' | 'current_session'
 
-export const DEFAULT_LOG_PAGE_LIMIT = 100
-export const MAX_LOG_PAGE_LIMIT = 200
+const DEFAULT_LOG_PAGE_LIMIT = 100
+const MAX_LOG_PAGE_LIMIT = 200
 
 export interface LogFilters {
   levels?: LogLevel[]

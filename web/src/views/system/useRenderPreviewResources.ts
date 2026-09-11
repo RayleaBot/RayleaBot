@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRenderTemplatesStore } from '@/stores/render-templates'
 import type { RenderTemplatePreviewHTMLResponse } from '@/types/api'
 
-export interface PreviewDocumentState extends RenderTemplatePreviewHTMLResponse {
+interface PreviewDocumentState extends RenderTemplatePreviewHTMLResponse {
   cacheKey: string
   resourceKeys: string[]
 }

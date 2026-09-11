@@ -1,7 +1,7 @@
 import type { paths } from '@/types/generated'
 
-export type ApiRoute = keyof paths
-export type ParameterizedApiRoute = Extract<ApiRoute, `${string}{${string}}${string}`>
+type ApiRoute = keyof paths
+type ParameterizedApiRoute = Extract<ApiRoute, `${string}{${string}}${string}`>
 export type StaticApiRoute = Exclude<ApiRoute, ParameterizedApiRoute>
 
 type ParameterNames<Route extends string> = Route extends `${string}{${infer Name}}${infer Rest}`

@@ -38,7 +38,7 @@ export function createGlassDisplacement(width: number, height: number, radius: n
  * WebKit and Gecko fall back to the flat CSS material, and reduced-transparency and
  * forced-colors drop the backdrop entirely, so the raster is pure waste there.
  */
-export function supportsGlassRefraction() {
+function supportsGlassRefraction() {
   if (typeof window === 'undefined' || typeof CSS === 'undefined' || typeof CSS.supports !== 'function') return false
   if (CSS.supports('-webkit-backdrop-filter', 'blur(1px)') || CSS.supports('-moz-appearance', 'none')) return false
   if (!CSS.supports('backdrop-filter', 'blur(1px)')) return false

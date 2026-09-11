@@ -8,7 +8,7 @@ export interface BackoffOptions {
   jitterRatio: number
 }
 
-export const DEFAULT_BACKOFF: BackoffOptions = {
+const DEFAULT_BACKOFF: BackoffOptions = {
   baseMs: 500,
   capMs: 30_000,
   jitterRatio: 0.25,

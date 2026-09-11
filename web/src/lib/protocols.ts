@@ -2,7 +2,7 @@ export const ONEBOT11_PROTOCOL_NAME = 'OneBot11'
 // Reverse-WebSocket ingress is addressed per adapter instance, so the callback
 // URL an operator pastes into their OneBot client names the instance it
 // belongs to. Renaming the instance changes this URL.
-export function oneBot11ReverseWsPath(adapterId: string) {
+function oneBot11ReverseWsPath(adapterId: string) {
   return `/api/adapters/${encodeURIComponent(adapterId)}/reverse-ws`
 }
 
