@@ -82,40 +82,18 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	}
 	current, ok := c.runtimes.Get(pluginID)
 	if !ok || current == nil {
-		c.updateReloadTask(taskID, 30, "启动插件运行时")
-		manager := c.runtimes.GetOrCreate(pluginID)
-		if err := c.startRuntimeLocked(ctx, pluginID, manager); err != nil {
-			c.logLifecycleWarn("start plugin runtime during reload", pluginID, err)
-			c.publishRuntimeFailure(pluginID, err)
-			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
-			return
-		}
-		c.finishReloadTask(taskID, pluginID)
+		c.startRuntimeForReload(ctx, taskID, pluginID, c.runtimes.GetOrCreate(pluginID), "启动插件运行时", "start plugin runtime during reload")
 		return
 	}
 
 	switch current.Snapshot().State {
 	case pluginruntime.StateStopped:
-		c.updateReloadTask(taskID, 30, "启动插件运行时")
-		if err := c.startRuntimeLocked(ctx, pluginID, current); err != nil {
-			c.logLifecycleWarn("start stopped plugin runtime during reload", pluginID, err)
-			c.publishRuntimeFailure(pluginID, err)
-			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
-			return
-		}
-		c.finishReloadTask(taskID, pluginID)
+		c.startRuntimeForReload(ctx, taskID, pluginID, current, "启动插件运行时", "start stopped plugin runtime during reload")
 		return
 	case pluginruntime.StateBackoff, pluginruntime.StateCrashed, pluginruntime.StateDeadLetter:
 		current.ResetCrashCount()
 		current.SetStopped()
-		c.updateReloadTask(taskID, 30, "重置插件运行时")
-		if err := c.startRuntimeLocked(ctx, pluginID, current); err != nil {
-			c.logLifecycleWarn("restart plugin runtime during reload", pluginID, err)
-			c.publishRuntimeFailure(pluginID, err)
-			c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
-			return
-		}
-		c.finishReloadTask(taskID, pluginID)
+		c.startRuntimeForReload(ctx, taskID, pluginID, current, "重置插件运行时", "restart plugin runtime during reload")
 		return
 	case pluginruntime.StateStarting, pluginruntime.StateStopping:
 		c.failReloadTask(taskID, pluginID, errorcodes.PlatformInvalidRequest, "插件运行时正在切换状态")
@@ -184,6 +162,19 @@ func (c *Controller) reloadPluginAsync(pluginID, taskID string) {
 	c.runtimes.ReleaseRetired(current)
 	if activationErr != nil {
 		c.failReloadTaskForError(taskID, pluginID, activationErr, "插件切换已完成，后续处理失败")
+		return
+	}
+	c.finishReloadTask(taskID, pluginID)
+}
+
+// startRuntimeForReload finishes a reload that only needs the runtime started
+// on the existing manager instead of a swap.
+func (c *Controller) startRuntimeForReload(ctx context.Context, taskID, pluginID string, manager *pluginruntime.Manager, progress, warnMessage string) {
+	c.updateReloadTask(taskID, 30, progress)
+	if err := c.startRuntimeLocked(ctx, pluginID, manager); err != nil {
+		c.logLifecycleWarn(warnMessage, pluginID, err)
+		c.publishRuntimeFailure(pluginID, err)
+		c.failReloadTaskForError(taskID, pluginID, err, "插件重载失败")
 		return
 	}
 	c.finishReloadTask(taskID, pluginID)
