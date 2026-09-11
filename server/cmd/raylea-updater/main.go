@@ -133,7 +133,7 @@ func runInstall(ctx context.Context, verifier *releaseupdate.Verifier, args []st
 	if err != nil {
 		return err
 	}
-	artifact, found := verified.ArtifactByID("windows-x64-full")
+	artifact, found := verified.ArtifactByID(releaseupdate.ArtifactWindowsX64Full)
 	if !found || artifact.UpdateMode != "automatic" || artifact.WindowsSignerSHA256 == "" {
 		return errors.New("signed release does not permit the external helper to install this artifact")
 	}

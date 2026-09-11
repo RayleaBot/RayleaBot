@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from archive_io import extract_archive
 
+from artifact_ids_generated import ARTIFACT_WINDOWS_X64_FULL, ARTIFACT_LINUX_X64_SERVER
 from artifact_matrix import ARTIFACT_MATRIX
 from release_content import FORBIDDEN_DIRECTORY_NAMES, find_forbidden_paths, is_forbidden_file_name, should_skip_release_path
 from contract_versions_generated import PLUGIN_MANIFEST_VERSION, PLUGIN_UI_BRIDGE_VERSION, UPDATE_PROTOCOL_VERSION
@@ -180,11 +181,11 @@ def stage_release_root(
     matrix = ARTIFACT_MATRIX[artifact_id]
     if matrix["launcher_required"] and launcher_bundle is None:
         raise ValueError(f"{artifact_id} requires --launcher-bundle")
-    if artifact_id == "linux-x64-server" and systemd_file is None:
+    if artifact_id == ARTIFACT_LINUX_X64_SERVER and systemd_file is None:
         raise ValueError("linux-x64-server requires --systemd-file")
-    if artifact_id == "windows-x64-full" and updater_bin is None:
+    if artifact_id == ARTIFACT_WINDOWS_X64_FULL and updater_bin is None:
         raise ValueError("windows-x64-full requires --updater-bin")
-    if artifact_id == "windows-x64-full" and launcher_bundle is not None:
+    if artifact_id == ARTIFACT_WINDOWS_X64_FULL and launcher_bundle is not None:
         assert_windows_launcher_bundle_layout(launcher_bundle)
     for required_file, label in ((license_file, "LICENSE"), (third_party_notices, "THIRD_PARTY_NOTICES.md")):
         if not required_file.is_file() or required_file.stat().st_size == 0:
@@ -192,7 +193,7 @@ def stage_release_root(
     signer_digest = (windows_signer_sha256 or "").strip().lower()
     if signer_digest and not re.fullmatch(r"[0-9a-f]{64}", signer_digest):
         raise ValueError("windows signer SHA256 must be 64 lowercase hexadecimal characters")
-    if artifact_id != "windows-x64-full" and signer_digest:
+    if artifact_id != ARTIFACT_WINDOWS_X64_FULL and signer_digest:
         raise ValueError("windows signer SHA256 is only valid for windows-x64-full")
 
     root_name = f"RayleaBot-v{version}-{artifact_id}"
@@ -200,11 +201,11 @@ def stage_release_root(
     ensure_clean_dir(stage_root)
 
     copy_file(server_bin, stage_root / server_bin.name)
-    if artifact_id == "windows-x64-full" and updater_bin is not None:
+    if artifact_id == ARTIFACT_WINDOWS_X64_FULL and updater_bin is not None:
         copy_file(updater_bin, stage_root / "raylea-updater.exe")
     if matrix["launcher_required"] and launcher_bundle is not None:
         copy_launcher_bundle(launcher_bundle, stage_root)
-    if artifact_id == "linux-x64-server" and systemd_file is not None:
+    if artifact_id == ARTIFACT_LINUX_X64_SERVER and systemd_file is not None:
         copy_file(systemd_file, stage_root / "systemd" / "rayleabot.service")
 
     copy_release_tree(web_dist, stage_root / "web" / "dist")
@@ -237,7 +238,7 @@ def stage_release_root(
     if archive_path.exists():
         archive_path.unlink()
 
-    if artifact_id == "windows-x64-full":
+    if artifact_id == ARTIFACT_WINDOWS_X64_FULL:
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
             for file_path in sorted(stage_root.rglob("*")):
                 if file_path.is_dir():
@@ -256,7 +257,7 @@ def stage_release_root(
         smoke_profile=matrix["smoke_profile"],
         expanded_size_bytes=expanded_size_bytes,
         file_count=file_count,
-        update_mode="automatic" if artifact_id == "windows-x64-full" and signer_digest else "guided",
+        update_mode="automatic" if artifact_id == ARTIFACT_WINDOWS_X64_FULL and signer_digest else "guided",
         windows_signer_sha256=signer_digest or None,
     )
     sidecar_path = archive_path.with_suffix(archive_path.suffix + ".artifact.json")
@@ -343,7 +344,7 @@ def build_release_metadata(
         if sidecar.update_mode not in {"automatic", "guided", "manual"}:
             raise ValueError(f"invalid update mode for {sidecar.artifact_id}")
         if sidecar.update_mode == "automatic" and (
-            sidecar.artifact_id != "windows-x64-full"
+            sidecar.artifact_id != ARTIFACT_WINDOWS_X64_FULL
             or not sidecar.windows_signer_sha256
             or not re.fullmatch(r"[0-9a-f]{64}", sidecar.windows_signer_sha256)
         ):

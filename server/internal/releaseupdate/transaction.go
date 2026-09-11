@@ -112,7 +112,7 @@ func (i *Installer) Install(ctx context.Context, request InstallRequest) error {
 	if err != nil {
 		return i.failBeforeSwap(journalPath, &journal, request.Now, err)
 	}
-	artifact, found := verified.ArtifactByID("windows-x64-full")
+	artifact, found := verified.ArtifactByID(ArtifactWindowsX64Full)
 	if !found || artifact.UpdateMode != "automatic" || artifact.MinUpdaterProtocolVersion > ProtocolVersion || artifact.WindowsSignerSHA256 == "" {
 		return i.failBeforeSwap(journalPath, &journal, request.Now, errorWithCode(CodeUpdateNotSupported, "select automatic artifact", errors.New("signed release does not permit automatic Windows installation")))
 	}
@@ -423,7 +423,7 @@ func validateRecoveryJournal(transactionRoot string, journal transactionJournal)
 		return errors.New("journal backup path is invalid")
 	}
 	if journal.PayloadRoot != "" {
-		if journal.TargetVersion == "" || !samePath(journal.PayloadRoot, filepath.Join(journal.StagingRoot, "RayleaBot-v"+journal.TargetVersion+"-windows-x64-full")) {
+		if journal.TargetVersion == "" || !samePath(journal.PayloadRoot, filepath.Join(journal.StagingRoot, "RayleaBot-v"+journal.TargetVersion+"-"+ArtifactWindowsX64Full)) {
 			return errors.New("journal payload path is invalid")
 		}
 	}

@@ -28,6 +28,7 @@ except ImportError as exc:  # pragma: no cover - exercised by CI environment set
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from deps_manifest import semantic_errors as dependency_manifest_errors
 from tool_versions import read_tool_versions
+from artifact_ids_generated import ARTIFACT_IDS
 
 
 class JSONSafeLoader(yaml.SafeLoader):
@@ -1321,7 +1322,7 @@ def validate_strict_websocket(events: dict[str, Any]) -> None:
 
 
 def validate_strict_release(release_schema: dict[str, Any]) -> None:
-    expected = {"windows-x64-full", "linux-x64-full", "macos-arm64-full", "linux-x64-server"}
+    expected = set(ARTIFACT_IDS)
     actual = set(release_schema["$defs"]["artifactId"].get("enum", []))
     if actual != expected:
         fail(f"release artifact matrix drift: expected={sorted(expected)} actual={sorted(actual)}")

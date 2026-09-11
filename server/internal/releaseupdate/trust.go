@@ -37,10 +37,10 @@ type artifactMatrixEntry struct {
 }
 
 var artifactMatrix = map[string]artifactMatrixEntry{
-	"windows-x64-full": {platform: "windows-x64", smokeProfile: "windows_full_smoke"},
-	"linux-x64-full":   {platform: "linux-x64", smokeProfile: "linux_full_smoke"},
-	"macos-arm64-full": {platform: "macos-arm64", smokeProfile: "macos_full_smoke"},
-	"linux-x64-server": {platform: "linux-x64", smokeProfile: "linux_server_smoke"},
+	ArtifactWindowsX64Full: {platform: "windows-x64", smokeProfile: "windows_full_smoke"},
+	ArtifactLinuxX64Full:   {platform: "linux-x64", smokeProfile: "linux_full_smoke"},
+	ArtifactMacOSARM64Full: {platform: "macos-arm64", smokeProfile: "macos_full_smoke"},
+	ArtifactLinuxX64Server: {platform: "linux-x64", smokeProfile: "linux_server_smoke"},
 }
 
 func EmbeddedKeyRegistry() (KeyRegistry, error) {
@@ -270,8 +270,8 @@ func validateArtifact(artifact Artifact) error {
 		return fmt.Errorf("invalid update_mode")
 	}
 	if artifact.UpdateMode == "automatic" {
-		if artifact.ArtifactID != "windows-x64-full" || !sha256Pattern.MatchString(artifact.WindowsSignerSHA256) {
-			return fmt.Errorf("automatic updates require windows-x64-full and windows_signer_sha256")
+		if artifact.ArtifactID != ArtifactWindowsX64Full || !sha256Pattern.MatchString(artifact.WindowsSignerSHA256) {
+			return fmt.Errorf("automatic updates require " + ArtifactWindowsX64Full + " and windows_signer_sha256")
 		}
 	} else if artifact.WindowsSignerSHA256 != "" && !sha256Pattern.MatchString(artifact.WindowsSignerSHA256) {
 		return fmt.Errorf("invalid windows_signer_sha256")

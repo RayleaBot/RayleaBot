@@ -280,11 +280,11 @@ func readBuildInfoForPlatform(basePath, goos, goarch string) (buildInfo, error) 
 func launcherArtifactID(goos, goarch string) string {
 	switch {
 	case goos == "windows" && goarch == "amd64":
-		return "windows-x64-full"
+		return ArtifactWindowsX64Full
 	case goos == "linux" && goarch == "amd64":
-		return "linux-x64-full"
+		return ArtifactLinuxX64Full
 	case goos == "darwin" && goarch == "arm64":
-		return "macos-arm64-full"
+		return ArtifactMacOSARM64Full
 	default:
 		return ""
 	}
@@ -304,7 +304,7 @@ func parseWindowsUpdaterCheck(payload string, requireArtifactPath bool) (trusted
 	if result.UpdateMode != "automatic" && result.UpdateMode != "guided" && result.UpdateMode != "manual" {
 		return result, errors.New("update_mode 无效")
 	}
-	if result.Artifact.ArtifactID != "windows-x64-full" || !safeArtifactName(result.Artifact.FileName) || result.Artifact.ArchiveSizeBytes <= 0 || result.Artifact.ArchiveSizeBytes > 2<<30 || result.Artifact.UpdateMode != result.UpdateMode {
+	if result.Artifact.ArtifactID != ArtifactWindowsX64Full || !safeArtifactName(result.Artifact.FileName) || result.Artifact.ArchiveSizeBytes <= 0 || result.Artifact.ArchiveSizeBytes > 2<<30 || result.Artifact.UpdateMode != result.UpdateMode {
 		return result, errors.New("artifact 信息无效")
 	}
 	if result.ReleasePageURL != "" && !safeReleaseURL(result.ReleasePageURL) {

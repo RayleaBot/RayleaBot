@@ -114,7 +114,7 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 	}
 	effectiveMode := artifact.UpdateMode
 	automaticAllowed := artifact.UpdateMode == "automatic" &&
-		artifact.ArtifactID == "windows-x64-full" &&
+		artifact.ArtifactID == ArtifactWindowsX64Full &&
 		artifact.MinUpdaterProtocolVersion <= ProtocolVersion &&
 		artifact.WindowsSignerSHA256 != ""
 	if !automaticAllowed && effectiveMode == "automatic" {

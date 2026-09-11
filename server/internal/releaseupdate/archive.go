@@ -13,8 +13,8 @@ import (
 )
 
 func ExtractWindowsArtifact(archivePath, destinationRoot string, verified VerifiedManifest, artifact Artifact) (string, error) {
-	if artifact.ArtifactID != "windows-x64-full" || artifact.Platform != "windows-x64" {
-		return "", errorWithCode(CodeUpdateNotSupported, "extract artifact", errors.New("transactional extraction is limited to windows-x64-full"))
+	if artifact.ArtifactID != ArtifactWindowsX64Full || artifact.Platform != "windows-x64" {
+		return "", errorWithCode(CodeUpdateNotSupported, "extract artifact", errors.New("transactional extraction is limited to "+ArtifactWindowsX64Full))
 	}
 	if err := VerifyArtifactFile(archivePath, artifact); err != nil {
 		return "", err

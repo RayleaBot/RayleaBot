@@ -46,6 +46,14 @@ class GenerationTests(unittest.TestCase):
                 for output in [server, sdk, root / 'server/internal/contractversions/versions.generated.go', root / 'launcher/internal/contractversions/versions.generated.go']:
                     self.assertNotEqual(first[output], changed[output])
                     self.assertIn(b'"99"', changed[output])
+                release_source = root / 'contracts/release-manifest.schema.json'
+                release_schema = json.loads(release_source.read_text(encoding='utf-8'))
+                release_schema['$defs']['artifactId']['enum'].append('fixture-x64-full')
+                release_source.write_text(json.dumps(release_schema), encoding='utf-8')
+                artifact_change = generator.generate()
+                for name in ['server/internal/releaseupdate/artifacts.generated.go', 'launcher/internal/desktop/artifacts.generated.go', 'scripts/artifact_ids_generated.py']:
+                    self.assertNotEqual(changed[root / name], artifact_change[root / name])
+                    self.assertIn(b'"fixture-x64-full"', artifact_change[root / name])
 
     def test_generate_and_verify_detect_missing_changed_and_extra_outputs(self):
         with tempfile.TemporaryDirectory() as temporary:
