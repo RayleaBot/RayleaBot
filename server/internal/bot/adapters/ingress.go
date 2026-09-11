@@ -22,16 +22,13 @@ type OneBot11Ingress struct {
 // second result is false when no such adapter is running, which is how a route
 // answers an unknown id or an adapter speaking another protocol.
 func (s *Service) OneBot11Ingress(id string) (OneBot11Ingress, bool) {
-	if s == nil || s.config == nil {
-		return OneBot11Ingress{}, false
-	}
 	cfg := s.config.CurrentConfig()
 	instance, configured := cfg.AdapterByID(id)
 	if !configured || !instance.Enabled || instance.Type != config.AdapterTypeOneBot11 {
 		return OneBot11Ingress{}, false
 	}
 	shell, ok := s.oneBotShells[id]
-	if !ok || shell == nil {
+	if !ok {
 		return OneBot11Ingress{}, false
 	}
 	settings, ok := cfg.OneBot11Settings(id)
@@ -94,25 +91,9 @@ func (i OneBot11Ingress) transportEnabled(transport onebot11.TransportKey) bool 
 }
 
 func (s *Service) oneBotShell(id string) *onebot11.Shell {
-	if s == nil {
-		return nil
-	}
-	// A typed nil in the map would pass an interface nil check later, so the
-	// concrete pointer is what is tested here.
-	shell, ok := s.oneBotShells[id]
-	if !ok || shell == nil {
-		return nil
-	}
-	return shell
+	return s.oneBotShells[id]
 }
 
 func (s *Service) qqClient(id string) QQOfficialAdapter {
-	if s == nil {
-		return nil
-	}
-	client, ok := s.qqClients[id]
-	if !ok || client == nil {
-		return nil
-	}
-	return client
+	return s.qqClients[id]
 }

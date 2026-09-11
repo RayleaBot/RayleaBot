@@ -39,68 +39,23 @@ type configServiceDeps struct {
 }
 
 func newConfigService(deps configServiceDeps) *configruntime.Service {
-	runtimeDeps := configruntime.Deps{
-		EffectiveTimezone: deps.EffectiveTimezone,
-		CurrentConfig: func() config.Config {
-			if deps.Runtime == nil {
-				return config.Config{}
-			}
-			return deps.Runtime.CurrentConfig()
-		},
-		CurrentSummary: func() config.Summary {
-			if deps.Runtime == nil {
-				return config.Summary{}
-			}
-			return deps.Runtime.CurrentSummary()
-		},
-		SetConfig: func(cfg config.Config) {
-			if deps.Runtime != nil {
-				deps.Runtime.SetConfig(cfg)
-			}
-		},
-		SetSummary: func(summary config.Summary) {
-			if deps.Runtime != nil {
-				deps.Runtime.SetSummary(summary)
-			}
-		},
-		Logger:        runtimeStateLogger(deps.Runtime),
-		LogLevel:      runtimeStateLogLevel(deps.Runtime),
-		Logs:          deps.Logs,
-		LogRepository: deps.LogRepository,
-		AddRedactionValues: func(values ...string) {
-			if deps.Runtime != nil {
-				deps.Runtime.AddRedactionValues(values...)
-			}
-		},
-		PluginLogLimiter:  deps.PluginLogLimiter,
-		OutboundLimiter:   deps.OutboundLimiter,
-		AccountValidation: deps.AccountValidation,
-		Secrets:           deps.Secrets,
-	}
-	// Assign concrete pointers only when non-nil so interface deps stay nil
-	// instead of holding typed nils.
-	if deps.Renderer != nil {
-		runtimeDeps.Renderer = deps.Renderer
-	}
-	if deps.EventIngress != nil {
-		runtimeDeps.EventIngress = deps.EventIngress
-	}
-	if deps.Protocol != nil {
-		runtimeDeps.Protocol = deps.Protocol
-	}
-	return configruntime.NewService(runtimeDeps)
-}
-
-func runtimeStateLogger(state configRuntimeState) *slog.Logger {
-	if state == nil {
-		return nil
-	}
-	return state.RuntimeLogger()
-}
-
-func runtimeStateLogLevel(state configRuntimeState) *logging.LevelController {
-	if state == nil {
-		return nil
-	}
-	return state.RuntimeLogLevel()
+	return configruntime.NewService(configruntime.Deps{
+		EffectiveTimezone:  deps.EffectiveTimezone,
+		CurrentConfig:      deps.Runtime.CurrentConfig,
+		CurrentSummary:     deps.Runtime.CurrentSummary,
+		SetConfig:          deps.Runtime.SetConfig,
+		SetSummary:         deps.Runtime.SetSummary,
+		Logger:             deps.Runtime.RuntimeLogger(),
+		LogLevel:           deps.Runtime.RuntimeLogLevel(),
+		Logs:               deps.Logs,
+		LogRepository:      deps.LogRepository,
+		AddRedactionValues: deps.Runtime.AddRedactionValues,
+		Renderer:           deps.Renderer,
+		PluginLogLimiter:   deps.PluginLogLimiter,
+		OutboundLimiter:    deps.OutboundLimiter,
+		AccountValidation:  deps.AccountValidation,
+		Protocol:           deps.Protocol,
+		EventIngress:       deps.EventIngress,
+		Secrets:            deps.Secrets,
+	})
 }
