@@ -69,14 +69,6 @@ func (c *Client) Reload(qq config.QQOfficialConfig) bool {
 	return true
 }
 
-// currentSettings reads the fields one connection attempt runs with, so an
-// attempt is not affected halfway through by a reload.
-func (c *Client) currentSettings() (appID, apiBase string, intents int, tokens *TokenSource) {
-	c.settingsMu.RLock()
-	defer c.settingsMu.RUnlock()
-	return c.appID, c.apiBase, c.intents, c.tokens
-}
-
 // setConnectionCancel records how to end the connection currently running, so a
 // reload can close it without waiting for the platform to drop it.
 func (c *Client) setConnectionCancel(cancel context.CancelFunc) {

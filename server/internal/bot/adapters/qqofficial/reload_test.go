@@ -60,7 +60,7 @@ func TestReloadReplacesWhatTheNextConnectionUses(t *testing.T) {
 		AppSecret: "first-secret",
 		Intents:   []string{"group_and_c2c"},
 	})
-	beforeAppID, beforeBase, beforeIntents, beforeTokens := client.currentSettings()
+	beforeAppID, beforeBase, beforeIntents, beforeTokens := settingsSnapshot(client)
 
 	client.Reload(config.QQOfficialConfig{
 		AppID:     "100000002",
@@ -68,7 +68,7 @@ func TestReloadReplacesWhatTheNextConnectionUses(t *testing.T) {
 		Intents:   []string{"group_and_c2c", "guilds"},
 		Sandbox:   true,
 	})
-	afterAppID, afterBase, afterIntents, afterTokens := client.currentSettings()
+	afterAppID, afterBase, afterIntents, afterTokens := settingsSnapshot(client)
 
 	if afterAppID == beforeAppID || afterIntents == beforeIntents {
 		t.Fatalf("settings after reload = %q/%d, want the new app id and intent mask", afterAppID, afterIntents)
@@ -134,4 +134,12 @@ func TestReloadEndsTheConnectionItReplaces(t *testing.T) {
 	if client.takeReloading() {
 		t.Fatal("the reload flag was not cleared by reading it")
 	}
+}
+
+// settingsSnapshot reads the fields one connection attempt runs with under the
+// same lock the reload path takes.
+func settingsSnapshot(c *Client) (appID, apiBase string, intents int, tokens *TokenSource) {
+	c.settingsMu.RLock()
+	defer c.settingsMu.RUnlock()
+	return c.appID, c.apiBase, c.intents, c.tokens
 }
