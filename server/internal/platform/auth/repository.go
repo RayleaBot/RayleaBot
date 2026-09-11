@@ -68,63 +68,45 @@ func (r *SQLiteRepository) LoadBootstrap(ctx context.Context) (*BootstrapState, 
 }
 
 func (r *SQLiteRepository) SaveBootstrap(ctx context.Context, state BootstrapState, session Claims) error {
-	tx, err := r.write.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin bootstrap transaction: %w", err)
-	}
-
-	q := r.writeQ.WithTx(tx)
-
-	existing, err := q.CountBootstrap(ctx)
-	if err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("check bootstrap state: %w", err)
-	}
-	if existing > 0 {
-		_ = tx.Rollback()
-		return ErrBootstrapAlreadyInitialized
-	}
-
-	if err := q.InsertBootstrap(ctx, sqlcgen.InsertBootstrapParams{
-		Identifier:    state.Identifier,
-		SecretDigest:  state.SecretDigest,
-		SigningKey:    state.SigningKey,
-		InitializedAt: state.InitializedAt.UTC().Format(time.RFC3339Nano),
-	}); err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("insert bootstrap state: %w", err)
-	}
-
-	if err := q.UpsertSession(ctx, claimsToUpsertParams(session)); err != nil {
-		_ = tx.Rollback()
-		return fmt.Errorf("upsert session %s: %w", session.SessionID, err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit bootstrap transaction: %w", err)
-	}
-
-	return nil
+	return storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		q := r.writeQ.WithTx(tx)
+		existing, err := q.CountBootstrap(ctx)
+		if err != nil {
+			return fmt.Errorf("check bootstrap state: %w", err)
+		}
+		if existing > 0 {
+			return ErrBootstrapAlreadyInitialized
+		}
+		if err := q.InsertBootstrap(ctx, sqlcgen.InsertBootstrapParams{
+			Identifier:    state.Identifier,
+			SecretDigest:  state.SecretDigest,
+			SigningKey:    state.SigningKey,
+			InitializedAt: state.InitializedAt.UTC().Format(time.RFC3339Nano),
+		}); err != nil {
+			return fmt.Errorf("insert bootstrap state: %w", err)
+		}
+		if err := q.UpsertSession(ctx, claimsToUpsertParams(session)); err != nil {
+			return fmt.Errorf("upsert session %s: %w", session.SessionID, err)
+		}
+		return nil
+	})
 }
 
 func (r *SQLiteRepository) UpdateCredentials(ctx context.Context, identifier string, secretDigest []byte) error {
-	tx, err := r.write.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin credential update: %w", err)
-	}
-	defer func(release func() error) { _ = release() }(tx.Rollback)
-	q := r.writeQ.WithTx(tx)
-	affected, err := q.UpdateBootstrapCredentials(ctx, sqlcgen.UpdateBootstrapCredentialsParams{Identifier: identifier, SecretDigest: secretDigest})
-	if err != nil {
-		return fmt.Errorf("update credentials: %w", err)
-	}
-	if affected != 1 {
-		return sql.ErrNoRows
-	}
-	if err := q.DeleteAllAdminSessions(ctx); err != nil {
-		return fmt.Errorf("revoke admin sessions: %w", err)
-	}
-	return tx.Commit()
+	return storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		q := r.writeQ.WithTx(tx)
+		affected, err := q.UpdateBootstrapCredentials(ctx, sqlcgen.UpdateBootstrapCredentialsParams{Identifier: identifier, SecretDigest: secretDigest})
+		if err != nil {
+			return fmt.Errorf("update credentials: %w", err)
+		}
+		if affected != 1 {
+			return sql.ErrNoRows
+		}
+		if err := q.DeleteAllAdminSessions(ctx); err != nil {
+			return fmt.Errorf("revoke admin sessions: %w", err)
+		}
+		return nil
+	})
 }
 
 func (r *SQLiteRepository) LoadSessions(ctx context.Context) ([]Claims, error) {

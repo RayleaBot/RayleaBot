@@ -33,30 +33,26 @@ func NewStore(store *storage.Store) (*Store, error) {
 }
 
 func (s *Store) Apply(ctx context.Context, values map[string][]byte, deleted []string) error {
-	tx, err := s.write.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin secret update: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	q := s.writeQ.WithTx(tx)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	keys := make([]string, 0, len(values))
 	for key := range values {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	for _, key := range keys {
-		value := values[key]
-		if err := q.UpsertSecret(ctx, sqlcgen.UpsertSecretParams{Key: key, Value: value, CreatedAt: now, UpdatedAt: now}); err != nil {
-			return fmt.Errorf("update secret batch: %w", err)
+	return storage.WithTx(ctx, s.write, nil, func(tx *sql.Tx) error {
+		q := s.writeQ.WithTx(tx)
+		for _, key := range keys {
+			if err := q.UpsertSecret(ctx, sqlcgen.UpsertSecretParams{Key: key, Value: values[key], CreatedAt: now, UpdatedAt: now}); err != nil {
+				return fmt.Errorf("update secret batch: %w", err)
+			}
 		}
-	}
-	for _, key := range deleted {
-		if err := q.DeleteSecret(ctx, key); err != nil {
-			return fmt.Errorf("delete secret batch: %w", err)
+		for _, key := range deleted {
+			if err := q.DeleteSecret(ctx, key); err != nil {
+				return fmt.Errorf("delete secret batch: %w", err)
+			}
 		}
-	}
-	return tx.Commit()
+		return nil
+	})
 }
 
 // Get retrieves a secret by key. Returns secrets.ErrNotFound if the key does not exist.

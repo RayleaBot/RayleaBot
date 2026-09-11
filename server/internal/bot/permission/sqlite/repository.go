@@ -10,6 +10,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/sqlcgen"
+	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
 // AccessListRepository uses one storage model for both list policies.
@@ -24,36 +25,35 @@ func NewAccessListRepository(read, write *sql.DB, kind string) *AccessListReposi
 }
 
 func (r *AccessListRepository) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	tx, err := r.readDB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	queries := r.read.WithTx(tx)
-	countArgs := sqlcgen.AccessListCountParams{ListKind: r.kind, EntryType: entryType, SearchText: query.Text}
-	total, err := queries.AccessListCount(ctx, countArgs)
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	entryCount := total
-	if entryType != "" || query.Text != "" {
-		entryCount, err = queries.AccessListCount(ctx, sqlcgen.AccessListCountParams{ListKind: r.kind, EntryType: "", SearchText: ""})
+	var page permission.EntryPage
+	err := storage.WithTx(ctx, r.readDB, &sql.TxOptions{ReadOnly: true}, func(tx *sql.Tx) error {
+		queries := r.read.WithTx(tx)
+		total, err := queries.AccessListCount(ctx, sqlcgen.AccessListCountParams{ListKind: r.kind, EntryType: entryType, SearchText: query.Text})
 		if err != nil {
-			return permission.EntryPage{}, err
+			return err
 		}
-	}
-	rows, err := queries.AccessListPage(ctx, sqlcgen.AccessListPageParams{ListKind: r.kind, EntryType: entryType, SearchText: query.Text, PageLimit: int64(query.Limit), PageOffset: int64(query.Cursor)})
+		entryCount := total
+		if entryType != "" || query.Text != "" {
+			entryCount, err = queries.AccessListCount(ctx, sqlcgen.AccessListCountParams{ListKind: r.kind, EntryType: "", SearchText: ""})
+			if err != nil {
+				return err
+			}
+		}
+		rows, err := queries.AccessListPage(ctx, sqlcgen.AccessListPageParams{ListKind: r.kind, EntryType: entryType, SearchText: query.Text, PageLimit: int64(query.Limit), PageOffset: int64(query.Cursor)})
+		if err != nil {
+			return err
+		}
+		items := make([]permission.Entry, 0, len(rows))
+		for _, entry := range rows {
+			items = append(items, fromStoredEntry(entry))
+		}
+		page = permission.EntryPage{Items: items, Total: int(total), EntryCount: int(entryCount)}
+		return nil
+	})
 	if err != nil {
 		return permission.EntryPage{}, err
 	}
-	items := make([]permission.Entry, 0, len(rows))
-	for _, entry := range rows {
-		items = append(items, fromStoredEntry(entry))
-	}
-	if err := tx.Commit(); err != nil {
-		return permission.EntryPage{}, err
-	}
-	return permission.EntryPage{Items: items, Total: int(total), EntryCount: int(entryCount)}, nil
+	return page, nil
 }
 
 func (r *AccessListRepository) Contains(ctx context.Context, scope chatevent.IdentityScope, entryType, targetID string) (bool, error) {

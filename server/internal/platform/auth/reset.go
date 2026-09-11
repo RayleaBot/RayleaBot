@@ -34,17 +34,14 @@ func ResetStoredCredentials(ctx context.Context, databasePath string) (err error
 }
 
 func resetCredentials(ctx context.Context, database *sql.DB) error {
-	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin credential reset: %w", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	queries := sqlcgen.New(transaction)
-	if err := queries.DeleteAllAdminSessions(ctx); err != nil {
-		return fmt.Errorf("clear admin sessions: %w", err)
-	}
-	if err := queries.DeleteBootstrapState(ctx); err != nil {
-		return fmt.Errorf("clear bootstrap credentials: %w", err)
-	}
-	return transaction.Commit()
+	return storage.WithTx(ctx, database, nil, func(tx *sql.Tx) error {
+		queries := sqlcgen.New(tx)
+		if err := queries.DeleteAllAdminSessions(ctx); err != nil {
+			return fmt.Errorf("clear admin sessions: %w", err)
+		}
+		if err := queries.DeleteBootstrapState(ctx); err != nil {
+			return fmt.Errorf("clear bootstrap credentials: %w", err)
+		}
+		return nil
+	})
 }

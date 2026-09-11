@@ -111,42 +111,38 @@ func (r *ConfigSQLiteRepository) writeValues(ctx context.Context, namespace stri
 		return []string{}, nil
 	}
 
-	tx, err := r.write.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin system config tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	q := r.writeQ.WithTx(tx)
-	current, err := q.ListConfigsByNamespace(ctx, namespace)
-	if err != nil {
-		return nil, fmt.Errorf("read current config values: %w", err)
-	}
-	existing := make(map[string]string, len(current))
-	for _, row := range current {
-		existing[row.Key] = row.ValueJson
-	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-
 	written := make([]string, 0, len(keys))
-	for _, key := range keys {
-		if key == "" {
-			return nil, errors.New("config key must not be empty")
-		}
-		raw, err := json.Marshal(values[key])
+	err := storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		q := r.writeQ.WithTx(tx)
+		current, err := q.ListConfigsByNamespace(ctx, namespace)
 		if err != nil {
-			return nil, fmt.Errorf("marshal system config %s: %w", key, err)
+			return fmt.Errorf("read current config values: %w", err)
 		}
-		if previous, ok := existing[key]; ok && previous == string(raw) {
-			continue
+		existing := make(map[string]string, len(current))
+		for _, row := range current {
+			existing[row.Key] = row.ValueJson
 		}
-		if err := q.UpsertConfig(ctx, sqlcgen.UpsertConfigParams{Namespace: namespace, Key: key, ValueJson: string(raw), UpdatedAt: now}); err != nil {
-			return nil, fmt.Errorf("upsert system config %s: %w", key, err)
+		for _, key := range keys {
+			if key == "" {
+				return errors.New("config key must not be empty")
+			}
+			raw, err := json.Marshal(values[key])
+			if err != nil {
+				return fmt.Errorf("marshal system config %s: %w", key, err)
+			}
+			if previous, ok := existing[key]; ok && previous == string(raw) {
+				continue
+			}
+			if err := q.UpsertConfig(ctx, sqlcgen.UpsertConfigParams{Namespace: namespace, Key: key, ValueJson: string(raw), UpdatedAt: now}); err != nil {
+				return fmt.Errorf("upsert system config %s: %w", key, err)
+			}
+			written = append(written, key)
 		}
-		written = append(written, key)
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit system config tx: %w", err)
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return written, nil
 }

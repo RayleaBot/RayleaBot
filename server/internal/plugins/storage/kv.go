@@ -82,48 +82,34 @@ func (r *KVSQLiteRepository) Set(ctx context.Context, pluginID, key string, valu
 		return ErrKVValueTooLarge
 	}
 
-	tx, err := r.write.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("begin plugin kv transaction: %w", err)
-	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	q := r.writeQ.WithTx(tx)
-
-	previousSize, err := q.GetKVSize(ctx, sqlcgen.GetKVSizeParams{
-		PluginID: pluginID,
-		Key:      key,
+	return storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		q := r.writeQ.WithTx(tx)
+		previousSize, err := q.GetKVSize(ctx, sqlcgen.GetKVSizeParams{
+			PluginID: pluginID,
+			Key:      key,
+		})
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("query previous plugin kv size: %w", err)
+		}
+		totalSize, err := q.GetKVTotalSize(ctx)
+		if err != nil {
+			return fmt.Errorf("query global plugin kv total size: %w", err)
+		}
+		nextTotal := int(totalSize) - int(previousSize) + sizeBytes
+		if limits.TotalMaxBytes > 0 && nextTotal > limits.TotalMaxBytes {
+			return ErrKVQuotaExceeded
+		}
+		if err := q.UpsertKV(ctx, sqlcgen.UpsertKVParams{
+			PluginID:  pluginID,
+			Key:       key,
+			ValueJson: string(valueJSON),
+			SizeBytes: int64(sizeBytes),
+			UpdatedAt: r.now().UTC().Format(time.RFC3339Nano),
+		}); err != nil {
+			return fmt.Errorf("upsert plugin kv value: %w", err)
+		}
+		return nil
 	})
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return fmt.Errorf("query previous plugin kv size: %w", err)
-	}
-
-	totalSize, err := q.GetKVTotalSize(ctx)
-	if err != nil {
-		return fmt.Errorf("query global plugin kv total size: %w", err)
-	}
-
-	nextTotal := int(totalSize) - int(previousSize) + sizeBytes
-	if limits.TotalMaxBytes > 0 && nextTotal > limits.TotalMaxBytes {
-		return ErrKVQuotaExceeded
-	}
-
-	if err := q.UpsertKV(ctx, sqlcgen.UpsertKVParams{
-		PluginID:  pluginID,
-		Key:       key,
-		ValueJson: string(valueJSON),
-		SizeBytes: int64(sizeBytes),
-		UpdatedAt: r.now().UTC().Format(time.RFC3339Nano),
-	}); err != nil {
-		return fmt.Errorf("upsert plugin kv value: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit plugin kv transaction: %w", err)
-	}
-	return nil
 }
 
 func (r *KVSQLiteRepository) Delete(ctx context.Context, pluginID, key string) (bool, error) {

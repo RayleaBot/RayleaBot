@@ -16,8 +16,11 @@ func WithTx(ctx context.Context, db *sql.DB, opts *sql.TxOptions, fn func(*sql.T
 	}
 	committed := false
 	defer func() {
-		if !committed {
-			err = errors.Join(err, ignoreTxDone(tx.Rollback()))
+		if committed {
+			return
+		}
+		if rollbackErr := ignoreTxDone(tx.Rollback()); rollbackErr != nil {
+			err = errors.Join(err, rollbackErr)
 		}
 	}()
 	if err = fn(tx); err != nil {

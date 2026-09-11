@@ -45,35 +45,31 @@ func (r *templateRepository) SyncTemplate(ctx context.Context, item currentTempl
 		}
 		schema = sql.NullString{String: string(encoded), Valid: true}
 	}
-	tx, err := r.write.BeginTx(ctx, nil)
-	if err != nil {
-		return false, err
-	}
-	defer func(release func() error) { _ = release() }(tx.Rollback)
-	queries := sqlcgen.New(tx)
-	current, err := queries.GetRenderTemplate(ctx, item.ID)
-	if err == nil {
-		if current.SourceType != item.Owner.Type || current.SourcePluginID.String != item.Owner.PluginID || current.SourceLocalID.String != item.Owner.LocalID {
-			return false, fmt.Errorf("render template %s is already registered by another source", item.ID)
+	changed := false
+	err = storage.WithTx(ctx, r.write, nil, func(tx *sql.Tx) error {
+		queries := sqlcgen.New(tx)
+		current, err := queries.GetRenderTemplate(ctx, item.ID)
+		if err == nil {
+			if current.SourceType != item.Owner.Type || current.SourcePluginID.String != item.Owner.PluginID || current.SourceLocalID.String != item.Owner.LocalID {
+				return fmt.Errorf("render template %s is already registered by another source", item.ID)
+			}
+			if current.SourceDigest == item.SourceDigest {
+				return nil
+			}
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return err
 		}
-		if current.SourceDigest == item.SourceDigest {
-			return false, tx.Commit()
+		if err := queries.UpsertRenderTemplate(ctx, sqlcgen.UpsertRenderTemplateParams{
+			TemplateID: item.ID, SourceDigest: item.SourceDigest, UpdatedAt: item.UpdatedAt,
+			SourceType: item.Owner.Type, SourcePluginID: nullable(item.Owner.PluginID), SourceLocalID: nullable(item.Owner.LocalID),
+			ManifestJson: string(manifest), Html: item.Source.HTML, Stylesheet: item.Source.Stylesheet, InputSchemaJson: schema,
+		}); err != nil {
+			return fmt.Errorf("sync current render template %s: %w", item.ID, err)
 		}
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return false, err
-	}
-	err = queries.UpsertRenderTemplate(ctx, sqlcgen.UpsertRenderTemplateParams{
-		TemplateID: item.ID, SourceDigest: item.SourceDigest, UpdatedAt: item.UpdatedAt,
-		SourceType: item.Owner.Type, SourcePluginID: nullable(item.Owner.PluginID), SourceLocalID: nullable(item.Owner.LocalID),
-		ManifestJson: string(manifest), Html: item.Source.HTML, Stylesheet: item.Source.Stylesheet, InputSchemaJson: schema,
+		changed = true
+		return nil
 	})
-	if err != nil {
-		return false, fmt.Errorf("sync current render template %s: %w", item.ID, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return false, err
-	}
-	return true, nil
+	return changed, err
 }
 
 func nullable(value string) sql.NullString {
