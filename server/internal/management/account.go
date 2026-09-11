@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
@@ -49,8 +48,7 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 				h.loginFailures.Reset(sourceIP)
 			}
 			w.Header().Del(CSRFHeader)
-			http.SetCookie(w, &http.Cookie{Name: SessionCookieName, Value: "", Path: "/", HttpOnly: true, Secure: cfg.SecureCookie,
-				SameSite: http.SameSiteStrictMode, MaxAge: -1, Expires: time.Unix(1, 0)})
+			http.SetCookie(w, clearSessionCookie(cfg.SecureCookie))
 			w.WriteHeader(http.StatusNoContent)
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			httpapi.WriteError(w, r, errorcodes.PermissionCurrentSecretInvalid, nil)

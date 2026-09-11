@@ -1,6 +1,7 @@
 package management
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 )
 
 type GovernanceHandlers struct {
@@ -26,13 +28,13 @@ func (h *GovernanceHandlers) RegisterProtectedRoutes(router chi.Router) {
 	if router == nil {
 		return
 	}
-	router.Get("/api/governance/blacklist", h.handleGovernanceBlacklist())
-	router.Post("/api/governance/blacklist/entries", h.handleGovernanceBlacklistEntryUpsert())
-	router.Delete("/api/governance/blacklist/entries/{entry_type}/{target_id}", h.handleGovernanceBlacklistEntryDelete())
-	router.Get("/api/governance/whitelist", h.handleGovernanceWhitelist())
+	router.Get("/api/governance/blacklist", governancePageHandler(h.service.ReadBlacklistPage))
+	router.Post("/api/governance/blacklist/entries", governanceEntryUpsertHandler(h.service.UpsertBlacklistEntry))
+	router.Delete("/api/governance/blacklist/entries/{entry_type}/{target_id}", governanceEntryDeleteHandler(h.service.DeleteBlacklistEntry))
+	router.Get("/api/governance/whitelist", governancePageHandler(h.service.ReadWhitelistPage))
 	router.Put("/api/governance/whitelist/state", h.handleGovernanceWhitelistStatePut())
-	router.Post("/api/governance/whitelist/entries", h.handleGovernanceWhitelistEntryUpsert())
-	router.Delete("/api/governance/whitelist/entries/{entry_type}/{target_id}", h.handleGovernanceWhitelistEntryDelete())
+	router.Post("/api/governance/whitelist/entries", governanceEntryUpsertHandler(h.service.UpsertWhitelistEntry))
+	router.Delete("/api/governance/whitelist/entries/{entry_type}/{target_id}", governanceEntryDeleteHandler(h.service.DeleteWhitelistEntry))
 	router.Get("/api/governance/command-policy", h.handleGovernanceCommandPolicy())
 }
 
@@ -58,13 +60,16 @@ type governanceWhitelistStateUpdateRequest struct {
 	Enabled *bool `json:"enabled"`
 }
 
-func (h *GovernanceHandlers) handleGovernanceBlacklist() http.HandlerFunc {
+// The blacklist and whitelist expose the same page, upsert and delete shape;
+// the handlers below differ only in the service method they call.
+
+func governancePageHandler[T any](read func(context.Context, pagination.Query, string) (T, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		query, ok := readCollectionQuery(w, r)
 		if !ok {
 			return
 		}
-		snapshot, err := h.service.ReadBlacklistPage(r.Context(), query, r.URL.Query().Get("entry_type"))
+		snapshot, err := read(r.Context(), query, r.URL.Query().Get("entry_type"))
 		if err != nil {
 			writeGovernanceError(w, r, err, "", "")
 			return
@@ -73,51 +78,32 @@ func (h *GovernanceHandlers) handleGovernanceBlacklist() http.HandlerFunc {
 	}
 }
 
-func (h *GovernanceHandlers) handleGovernanceBlacklistEntryUpsert() http.HandlerFunc {
+func governanceEntryUpsertHandler(upsert func(context.Context, chatevent.IdentityScope, string, string, string) (governance.EntryResponse, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		request, ok := decodeGovernanceEntryUpsertRequest(w, r)
 		if !ok {
 			return
 		}
-
-		entry, err := h.service.UpsertBlacklistEntry(r.Context(), request.Scope, request.EntryType, request.TargetID, request.Reason)
+		entry, err := upsert(r.Context(), request.Scope, request.EntryType, request.TargetID, request.Reason)
 		if err != nil {
 			writeGovernanceError(w, r, err, request.EntryType, request.TargetID)
 			return
 		}
-
 		httpapi.WriteJSON(w, http.StatusOK, entry)
 	}
 }
 
-func (h *GovernanceHandlers) handleGovernanceBlacklistEntryDelete() http.HandlerFunc {
+func governanceEntryDeleteHandler(remove func(context.Context, chatevent.IdentityScope, string, string) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		scope, entryType, targetID, ok := readGovernanceEntryPath(w, r)
 		if !ok {
 			return
 		}
-
-		if err := h.service.DeleteBlacklistEntry(r.Context(), scope, entryType, targetID); err != nil {
+		if err := remove(r.Context(), scope, entryType, targetID); err != nil {
 			writeGovernanceError(w, r, err, entryType, targetID)
 			return
 		}
-
 		w.WriteHeader(http.StatusNoContent)
-	}
-}
-
-func (h *GovernanceHandlers) handleGovernanceWhitelist() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		query, ok := readCollectionQuery(w, r)
-		if !ok {
-			return
-		}
-		snapshot, err := h.service.ReadWhitelistPage(r.Context(), query, r.URL.Query().Get("entry_type"))
-		if err != nil {
-			writeGovernanceError(w, r, err, "", "")
-			return
-		}
-		httpapi.WriteJSON(w, http.StatusOK, snapshot)
 	}
 }
 
@@ -136,39 +122,6 @@ func (h *GovernanceHandlers) handleGovernanceWhitelistStatePut() http.HandlerFun
 		}
 
 		httpapi.WriteJSON(w, http.StatusOK, response)
-	}
-}
-
-func (h *GovernanceHandlers) handleGovernanceWhitelistEntryUpsert() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		request, ok := decodeGovernanceEntryUpsertRequest(w, r)
-		if !ok {
-			return
-		}
-
-		entry, err := h.service.UpsertWhitelistEntry(r.Context(), request.Scope, request.EntryType, request.TargetID, request.Reason)
-		if err != nil {
-			writeGovernanceError(w, r, err, request.EntryType, request.TargetID)
-			return
-		}
-
-		httpapi.WriteJSON(w, http.StatusOK, entry)
-	}
-}
-
-func (h *GovernanceHandlers) handleGovernanceWhitelistEntryDelete() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		scope, entryType, targetID, ok := readGovernanceEntryPath(w, r)
-		if !ok {
-			return
-		}
-
-		if err := h.service.DeleteWhitelistEntry(r.Context(), scope, entryType, targetID); err != nil {
-			writeGovernanceError(w, r, err, entryType, targetID)
-			return
-		}
-
-		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

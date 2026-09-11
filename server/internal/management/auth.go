@@ -186,16 +186,7 @@ func (h *AuthHandlers) writeSessionResponse(w http.ResponseWriter, token string,
 	}
 	w.Header().Set(SessionTransportHeader, transport)
 	if transport == "cookie" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     SessionCookieName,
-			Value:    token,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   cfg.SecureCookie,
-			SameSite: http.SameSiteStrictMode,
-			Expires:  claims.ExpiresAt.UTC(),
-			MaxAge:   max(1, int(time.Until(claims.ExpiresAt).Seconds())),
-		})
+		http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, cfg.SecureCookie))
 		response.CSRFToken = h.auth.CSRFToken(claims)
 	} else {
 		response.SessionToken = token
@@ -289,21 +280,42 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 						return
 					}
 				}
-				http.SetCookie(w, &http.Cookie{
-					Name:     SessionCookieName,
-					Value:    token,
-					Path:     "/",
-					HttpOnly: true,
-					Secure:   cfg.SecureCookie,
-					SameSite: http.SameSiteStrictMode,
-					Expires:  claims.ExpiresAt.UTC(),
-					MaxAge:   max(1, int(time.Until(claims.ExpiresAt).Seconds())),
-				})
+				http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, cfg.SecureCookie))
 			}
 
 			ctx := ContextWithClaims(r.Context(), claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+// sessionCookie carries the session token for browser transports; the
+// Secure flag follows the effective web exposure.
+func sessionCookie(token string, expiresAt time.Time, secure bool) *http.Cookie {
+	return &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+		Expires:  expiresAt.UTC(),
+		MaxAge:   max(1, int(time.Until(expiresAt).Seconds())),
+	}
+}
+
+// clearSessionCookie expires the session cookie on logout and credential
+// changes.
+func clearSessionCookie(secure bool) *http.Cookie {
+	return &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+		Expires:  time.Unix(1, 0).UTC(),
 	}
 }
 

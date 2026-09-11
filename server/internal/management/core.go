@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -22,6 +21,7 @@ const (
 )
 
 type CoreHandlers struct {
+	config               AuthConfigSource
 	auth                 coreAuthService
 	system               coreSystemService
 	requestShutdown      func()
@@ -29,6 +29,9 @@ type CoreHandlers struct {
 }
 
 type CoreDeps struct {
+	// Config supplies the cookie security flag for logout; nil clears the
+	// cookie without the Secure attribute.
+	Config               AuthConfigSource
 	Auth                 coreAuthService
 	System               coreSystemService
 	RequestShutdown      func()
@@ -37,6 +40,7 @@ type CoreDeps struct {
 
 func NewCoreHandlers(deps CoreDeps) *CoreHandlers {
 	return &CoreHandlers{
+		config:               deps.Config,
 		auth:                 deps.Auth,
 		system:               deps.System,
 		requestShutdown:      deps.RequestShutdown,
@@ -105,15 +109,11 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 			httpapi.WriteError(w, r, coreCodeInternalError, nil)
 			return
 		}
-		http.SetCookie(w, &http.Cookie{
-			Name:     SessionCookieName,
-			Value:    "",
-			Path:     "/",
-			HttpOnly: true,
-			SameSite: http.SameSiteStrictMode,
-			MaxAge:   -1,
-			Expires:  time.Unix(1, 0).UTC(),
-		})
+		secure := false
+		if h.config != nil {
+			secure = h.config.AuthConfig().SecureCookie
+		}
+		http.SetCookie(w, clearSessionCookie(secure))
 
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -137,20 +137,21 @@ func (h *CoreHandlers) HandleSystemStatus() http.HandlerFunc {
 }
 
 func (h *CoreHandlers) HandleSystemShutdown() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		h.requestShutdown()
-		h.system.PublishStatusSnapshot()
-		httpapi.WriteJSON(w, http.StatusAccepted, coreShutdownResponse{Accepted: true})
-	}
+	return h.handleShutdown(false)
 }
 
 func (h *CoreHandlers) HandleLauncherShutdown() http.HandlerFunc {
+	return h.handleShutdown(true)
+}
+
+// handleShutdown accepts a shutdown request; the launcher route is public
+// and therefore gated on the launcher control token instead of a session.
+func (h *CoreHandlers) handleShutdown(requireLauncherToken bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !h.validLauncherControlRequest(r) {
+		if requireLauncherToken && !h.validLauncherControlRequest(r) {
 			httpapi.WriteError(w, r, coreCodePermissionDenied, nil)
 			return
 		}
-
 		h.requestShutdown()
 		h.system.PublishStatusSnapshot()
 		httpapi.WriteJSON(w, http.StatusAccepted, coreShutdownResponse{Accepted: true})
