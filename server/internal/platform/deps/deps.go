@@ -150,13 +150,6 @@ func (r *Runtime) ResolvePreparedEntrypoint(kind, name string) (string, error) {
 	return r.manager.ResolvePreparedEntrypoint(kind, name)
 }
 
-func (r *Runtime) PrepareWithReport(ctx context.Context, kind string) (*PrepareReport, error) {
-	if r.manager == nil {
-		return nil, errManagerRequired()
-	}
-	return r.manager.PrepareWithReport(ctx, kind)
-}
-
 func (r *Runtime) PrepareWithReportOptions(ctx context.Context, kind string, options PrepareOptions) (*PrepareReport, error) {
 	if r.manager == nil {
 		return nil, errManagerRequired()
