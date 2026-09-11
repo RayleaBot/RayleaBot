@@ -24,7 +24,7 @@ OUTPUT_KEYS = (
 
 DOC_ROOT_FILES = {"AGENTS.md", "CLAUDE.md", "README.md", "PRODUCT.md", "DESIGN.md", "design-qa.md"}
 DOC_AUX_FILES = {".impeccable/design.json"}
-TOOLCHAIN_ROOT_FILES = {".env.example", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
+TOOLCHAIN_ROOT_FILES = {".env.example", ".gitattributes", ".gitignore", ".tool-versions", "Makefile", "start.bat", "start.sh"}
 SERVER_STRUCTURE_INPUTS = {"docs/engineering/manual-sql-exceptions.json"}
 
 
@@ -266,6 +266,7 @@ def self_test() -> None:
         ([".deps/manifest.json"], {"server": True, "release": True}),
         (["scripts/check-toolchain.py"], {"server": True, "web": True, "launcher": True, "ci": True}),
         ([".env.example"], {"server": True, "web": True, "launcher": True, "ci": True, "docs_only": False}),
+        ([".gitattributes"], {"server": True, "web": True, "launcher": True, "ci": True, "docs_only": False}),
         (["server/AGENTS.md", "server/internal/app/app.go"], {"server": True, "ci": True}),
     ]
     cases.extend([
