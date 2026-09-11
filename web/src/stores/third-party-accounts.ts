@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -55,7 +56,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     savingAccountId.value = accountOperationKey(platform, accountId)
     try {
       const response = await apiRequest<ThirdPartyAccountUpsertResponse>(
-        `/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}`,
+        apiPath('/api/third-party/accounts/{platform}/{account_id}', { platform, account_id: accountId }),
         { method: 'PUT', body: payload },
       )
       upsertAccount(response.account)
@@ -77,7 +78,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     }
     try {
       const response = await apiRequest<ThirdPartyAccountValidationResponse>(
-        `/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}/validate`,
+        apiPath('/api/third-party/accounts/{platform}/{account_id}/validate', { platform, account_id: accountId }),
         { method: 'POST' },
       )
       upsertAccount(response.account)
@@ -90,7 +91,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
   async function deleteAccount(platform: ThirdPartyPlatform, accountId: string) {
     deletingAccountId.value = accountOperationKey(platform, accountId)
     try {
-      await apiRequest<void>(`/api/third-party/accounts/${encodeURIComponent(platform)}/${encodeURIComponent(accountId)}`, {
+      await apiRequest<void>(apiPath('/api/third-party/accounts/{platform}/{account_id}', { platform, account_id: accountId }), {
         method: 'DELETE',
       })
       await fetchAll()
@@ -107,7 +108,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     qrcodeCreating.value = true
     try {
       return await apiRequest<ThirdPartyQRCodeLoginCreateResponse>(
-        `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode`,
+        apiPath('/api/third-party/accounts/{platform}/login/qrcode', { platform }),
         { method: 'POST' },
       )
     } finally {
@@ -119,7 +120,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
     qrcodePollingLoginId.value = loginId
     try {
       const response = await apiRequest<ThirdPartyQRCodeLoginPollResponse>(
-        `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode/${encodeURIComponent(loginId)}`,
+        apiPath('/api/third-party/accounts/{platform}/login/qrcode/{login_id}', { platform, login_id: loginId }),
       )
       await applyQRCodeAccount(response.account)
       return response
@@ -130,7 +131,7 @@ export const useThirdPartyAccountsStore = defineStore('third-party-accounts', ()
 
   async function cancelQRCodeLogin(platform: ThirdPartyPlatform, loginId: string, keepalive = false) {
     await apiRequest<void>(
-      `/api/third-party/accounts/${encodeURIComponent(platform)}/login/qrcode/${encodeURIComponent(loginId)}`,
+      apiPath('/api/third-party/accounts/{platform}/login/qrcode/{login_id}', { platform, login_id: loginId }),
       { method: 'DELETE', keepalive },
     )
   }

@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -50,7 +51,7 @@ export const useSchedulerJobsStore = defineStore('scheduler-jobs', () => {
   async function trigger(jobId: string) {
     triggeringJobId.value = jobId
     try {
-      const response = await apiRequest<SchedulerJobTriggerResponse>(`/api/system/scheduler/jobs/${encodeURIComponent(jobId)}/trigger`, {
+      const response = await apiRequest<SchedulerJobTriggerResponse>(apiPath('/api/system/scheduler/jobs/{job_id}/trigger', { job_id: jobId }), {
         method: 'POST',
       })
       await fetchList()

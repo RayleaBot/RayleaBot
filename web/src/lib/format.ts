@@ -1,5 +1,5 @@
-import { i18n } from '@/i18n'
-import { t } from '@/i18n'
+import { i18n, t } from '@/i18n'
+import { timestampMilliseconds } from '@/lib/timestamp'
 import { parseRateLimitValue } from '@/lib/rate-limit'
 import { getActivePinia } from 'pinia'
 import { useConfigStore } from '@/stores/config'
@@ -36,22 +36,22 @@ export function formatRelativeTime(value?: string | number | Date | null): strin
 
   const now = Date.now()
   const diffMs = now - date.getTime()
-  const direction = diffMs < 0 ? '后' : '前'
+  const direction = t(diffMs < 0 ? 'display.relative.after' : 'display.relative.before')
   const diffSec = Math.floor(Math.abs(diffMs) / 1000)
   const diffMin = Math.floor(diffSec / 60)
   const diffHour = Math.floor(diffMin / 60)
   const diffDay = Math.floor(diffHour / 24)
 
   if (diffSec < 60) {
-    return `${diffSec} 秒${direction}`
+    return t('display.relative.seconds', { count: diffSec, direction })
   }
   if (diffMin < 60) {
-    return `${diffMin} 分钟${direction}`
+    return t('display.relative.minutes', { count: diffMin, direction })
   }
   if (diffHour < 24) {
-    return `${diffHour} 小时${direction}`
+    return t('display.relative.hours', { count: diffHour, direction })
   }
-  return `${diffDay} 天${direction}`
+  return t('display.relative.days', { count: diffDay, direction })
 }
 
 export function formatDurationSeconds(seconds?: number) {
@@ -60,16 +60,16 @@ export function formatDurationSeconds(seconds?: number) {
   }
 
   if (seconds < 60) {
-    return `${seconds} 秒`
+    return t('display.duration.seconds', { seconds })
   }
 
   if (seconds < 3600) {
-    return `${Math.floor(seconds / 60)} 分钟 ${seconds % 60} 秒`
+    return t('display.duration.minutesSeconds', { minutes: Math.floor(seconds / 60), seconds: seconds % 60 })
   }
 
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
-  return `${hours} 小时 ${minutes} 分钟`
+  return t('display.duration.hoursMinutes', { hours, minutes })
 }
 
 export function formatRateLimit(value?: string | null) {
@@ -87,7 +87,7 @@ export function formatRateLimit(value?: string | null) {
     return trimmed
   }
 
-  return `${parsed.windowLabel}内最多 ${parsed.count} 次`
+  return t('display.rateLimit', { window: parsed.windowLabel, count: parsed.count })
 }
 
 export function toMultilineList(values: string[]) {
@@ -102,71 +102,8 @@ export function fromMultilineList(value: string) {
 }
 
 function toValidDate(value?: string | number | Date | null) {
-  if (value === undefined || value === null || value === '') {
-    return null
-  }
-
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value
-  }
-
-  if (typeof value === 'number') {
-    return toDateFromTimestampNumber(value)
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) {
-      return null
-    }
-
-    if (isNumericTimestampString(trimmed)) {
-      const timestamp = Number(trimmed)
-      const date = toDateFromTimestampNumber(timestamp)
-      if (date) {
-        return date
-      }
-    }
-
-    const date = new Date(trimmed)
-    return Number.isNaN(date.getTime()) ? null : date
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return null
-  }
-
-  return date
-}
-
-function toDateFromTimestampNumber(value: number) {
-  if (!Number.isFinite(value)) {
-    return null
-  }
-
-  const normalized = normalizeUnixTimestamp(value)
-  if (normalized === null) {
-    return null
-  }
-
-  const date = new Date(normalized)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function normalizeUnixTimestamp(value: number) {
-  const absolute = Math.abs(value)
-  if (absolute >= 1_000_000_000 && absolute < 1_000_000_000_000) {
-    return value * 1000
-  }
-  if (absolute >= 1_000_000_000_000 && absolute <= 8_640_000_000_000_000) {
-    return value
-  }
-  return null
-}
-
-function isNumericTimestampString(value: string) {
-  return /^[+-]?(?:\d+\.?\d*|\d*\.?\d+)(?:e[+-]?\d+)?$/i.test(value)
+  const milliseconds = timestampMilliseconds(value)
+  return milliseconds === null ? null : new Date(milliseconds)
 }
 
 function formatFallbackValue(value?: string | number | Date | null) {
@@ -226,16 +163,5 @@ function formatDurationLabel(raw: string) {
 }
 
 function durationUnitLabel(unit: string) {
-  switch (unit) {
-    case 'ms':
-      return '毫秒'
-    case 's':
-      return '秒'
-    case 'm':
-      return '分钟'
-    case 'h':
-      return '小时'
-    default:
-      return unit
-  }
+  return i18n.global.te(`display.durationUnits.${unit}`) ? t(`display.durationUnits.${unit}`) : unit
 }

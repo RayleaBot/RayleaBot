@@ -111,6 +111,7 @@ defineEmits<{
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .dashboard-recovery-card__empty { margin: 0; padding: 12px 0; color: var(--muted); font-size: 13px; }
 .dashboard-recovery-card { border: 1px solid var(--border); background: var(--surface); box-shadow: none; min-width: 0; }
 .dashboard-recovery-card :deep(.app-card__body) { padding: 16px 20px; }
@@ -118,7 +119,7 @@ defineEmits<{
 .readiness-note { padding: 4px 0; color: var(--muted); line-height: 1.5; }
 .dashboard-recovery-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 8px; }
 .table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-@media (max-width: 640px) {
+@media (max-width: #{bp.$phone}) {
  .dashboard-recovery-card :deep(.app-card__body) { padding: 14px; }
  .dashboard-recovery-actions { grid-template-columns: 1fr; gap: 8px; }
 }

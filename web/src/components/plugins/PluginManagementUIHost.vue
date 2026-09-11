@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { apiPath } from '@/lib/api-path'
 import AppLoadingPanel from '@/components/AppLoadingPanel.vue'
 import AppDetails from '@/components/AppDetails.vue'
 import AppDetailItem from '@/components/AppDetailItem.vue'
@@ -19,7 +20,7 @@ import { usePluginsStore } from '@/stores/plugins'
 import { useUiShellStore } from '@/stores/ui-shell'
 import type { components, PluginDetail, PluginManagementUIPage, PluginSettingsUpdateRequest, SchedulerJobTriggerResponse } from '@/types/api'
 import { PLUGIN_UI_BRIDGE_VERSION } from '@/types/plugin-management-ui.generated'
-import type { BridgeMessage, BridgeType, HostInitPayload } from '@/types/plugin-management-ui.generated'
+import type { BridgeMessage, BridgeType, HostInitPayload, SettingsChangedPayload, SecretsStatusPayload, BridgeErrorPayload } from '@/types/plugin-management-ui.generated'
 
 type PluginSecretsResponse = components['schemas']['PluginSecretsResponse']
 type PluginSecretsUpdateResponse = components['schemas']['PluginSecretsUpdateResponse']
@@ -212,7 +213,7 @@ function postError(error: unknown, id?: string, session = bridgeSession) {
   postPort('error', {
     code: error instanceof ApiError ? error.code : 'platform.internal_error',
     message,
-  }, id)
+  } satisfies BridgeErrorPayload, id)
 }
 
 function themePayload(): HostInitPayload['theme'] {
@@ -252,7 +253,7 @@ async function initializeBridge(session: number) {
   try {
     const [settings, secrets] = await Promise.all([
       pluginsStore.fetchSettings(props.plugin.id),
-      apiRequest<PluginSecretsResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`),
+      apiRequest<PluginSecretsResponse>(apiPath('/api/plugins/{plugin_id}/secrets', { plugin_id: props.plugin.id })),
     ])
     if (session !== bridgeSession || !bridgePort) return
     lastSettings = settings.values
@@ -374,7 +375,7 @@ async function reloadSettings(id?: string) {
     const response = await pluginsStore.fetchSettings(props.plugin.id)
     if (session !== bridgeSession) return
     lastSettings = response.values
-    postPort('settings.changed', { config: response.values }, id)
+    postPort('settings.changed', { config: response.values } satisfies SettingsChangedPayload, id)
   } catch (error) { postError(error, id, session) }
 }
 
@@ -386,17 +387,17 @@ async function saveSettings(values: PluginSettingsUpdateRequest['values'], id?: 
     lastSettings = response.values
     await pluginsStore.fetchDetail(props.plugin.id)
     await governanceStore.fetchCommandPolicy().catch(() => undefined)
-    postPort('settings.changed', { config: response.values }, id, session)
+    postPort('settings.changed', { config: response.values } satisfies SettingsChangedPayload, id, session)
   } catch (error) { postError(error, id, session) }
 }
 
 async function reloadSecrets(id?: string) {
   const session = bridgeSession
   try {
-    const response = await apiRequest<PluginSecretsResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`)
+    const response = await apiRequest<PluginSecretsResponse>(apiPath('/api/plugins/{plugin_id}/secrets', { plugin_id: props.plugin.id }))
     if (session !== bridgeSession) return
     lastSecretsConfigured = response.configured
-    postPort('secrets.status.changed', { configured: response.configured }, id)
+    postPort('secrets.status.changed', { configured: response.configured } satisfies SecretsStatusPayload, id)
   } catch (error) { postError(error, id, session) }
 }
 
@@ -404,10 +405,10 @@ async function setSecrets(values: Record<string, string>, id?: string) {
   if (Object.keys(values).length === 0) { postPort('error', { code: 'platform.invalid_request', message: '至少提供一个非空密钥。' }, id); return }
   const session = bridgeSession
   try {
-    const response = await apiRequest<PluginSecretsUpdateResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`, { method: 'PUT', body: { values } })
+    const response = await apiRequest<PluginSecretsUpdateResponse>(apiPath('/api/plugins/{plugin_id}/secrets', { plugin_id: props.plugin.id }), { method: 'PUT', body: { values } })
     if (session !== bridgeSession) return
     lastSecretsConfigured = response.configured
-    postPort('secrets.status.changed', { configured: response.configured }, id)
+    postPort('secrets.status.changed', { configured: response.configured } satisfies SecretsStatusPayload, id)
   } catch (error) { postError(error, id, session) }
 }
 
@@ -415,10 +416,10 @@ async function deleteSecrets(keys: string[], id?: string) {
   if (keys.length === 0) { postPort('error', { code: 'platform.invalid_request', message: '至少提供一个密钥名称。' }, id); return }
   const session = bridgeSession
   try {
-    const response = await apiRequest<PluginSecretsUpdateResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/secrets`, { method: 'DELETE', body: { keys } })
+    const response = await apiRequest<PluginSecretsUpdateResponse>(apiPath('/api/plugins/{plugin_id}/secrets', { plugin_id: props.plugin.id }), { method: 'DELETE', body: { keys } })
     if (session !== bridgeSession) return
     lastSecretsConfigured = response.configured
-    postPort('secrets.status.changed', { configured: response.configured }, id)
+    postPort('secrets.status.changed', { configured: response.configured } satisfies SecretsStatusPayload, id)
   } catch (error) { postError(error, id, session) }
 }
 
@@ -432,7 +433,7 @@ function hasPermissions(permissions: string[], id?: string) {
 async function triggerSchedulerJob(jobID: string, id?: string) {
   const session = bridgeSession
   try {
-    const response = await apiRequest<SchedulerJobTriggerResponse>(`/api/system/scheduler/jobs/${encodeURIComponent(jobID)}/trigger`, { method: 'POST' })
+    const response = await apiRequest<SchedulerJobTriggerResponse>(apiPath('/api/system/scheduler/jobs/{job_id}/trigger', { job_id: jobID }), { method: 'POST' })
     postPort('scheduler.triggered', response, id, session)
   } catch (error) { postError(error, id, session) }
 }
@@ -454,7 +455,7 @@ async function reloadProtocolTargets(value: unknown, id?: string) {
   if (!hasPermissions(['group.list', 'friend.list'], id)) return
   const session = bridgeSession
   try {
-    const response = await apiRequest<OneBot11ProtocolTargetsResponse>(`/api/adapters/${encodeURIComponent(adapterID)}/onebot11/targets`)
+    const response = await apiRequest<OneBot11ProtocolTargetsResponse>(apiPath('/api/adapters/{adapterID}/onebot11/targets', { adapterID }))
     postPort('protocol.targets.changed', response, id, session)
   } catch (error) { postError(error, id, session) }
 }
@@ -470,7 +471,7 @@ async function resolveProtocolIdentities(adapter: unknown, value: unknown, id?: 
   if (!hasPermissions(permissions, id)) return
   const session = bridgeSession
   try {
-    const response = await apiRequest<OneBot11IdentityResolveResponse>(`/api/adapters/${encodeURIComponent(adapterID)}/onebot11/identities/resolve`, { method: 'POST', body: { items } })
+    const response = await apiRequest<OneBot11IdentityResolveResponse>(apiPath('/api/adapters/{adapterID}/onebot11/identities/resolve', { adapterID }), { method: 'POST', body: { items } })
     postPort('protocol.identities.resolved', response, id, session)
   } catch (error) { postError(error, id, session) }
 }
@@ -479,7 +480,7 @@ async function invokePluginManagementAction(action: string, payload: Record<stri
   if (!/^[a-z][a-z0-9_.:-]*$/.test(action)) { postPort('error', { code: 'platform.invalid_request', message: '管理动作名称无效。' }, id); return }
   const session = bridgeSession
   try {
-    const response = await apiRequest<PluginManagementActionResponse>(`/api/plugins/${encodeURIComponent(props.plugin.id)}/management/actions`, { method: 'POST', body: { action, payload } })
+    const response = await apiRequest<PluginManagementActionResponse>(apiPath('/api/plugins/{plugin_id}/management/actions', { plugin_id: props.plugin.id }), { method: 'POST', body: { action, payload } })
     postPort('plugin.action.result', { action: response.action, result: response.result }, id, session)
   } catch (error) { postError(error, id, session) }
 }

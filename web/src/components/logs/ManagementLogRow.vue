@@ -46,7 +46,8 @@ function getLevelColor(level: string) {
   </button>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .logs-row {
   width: 100%;
   display: grid;
@@ -130,7 +131,7 @@ function getLevelColor(level: string) {
   unicode-bidi: plaintext;
 }
 
-@media (max-width: 760px) {
+@media (max-width: #{bp.$compactStore}) {
   .logs-row { grid-template-columns: 1fr; }
 }
 </style>

@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -101,14 +102,14 @@ export const usePluginStore = defineStore('plugin-store', () => {
 
   async function fetchDetail(pluginId: string, sourceId = 'official') {
     const params = new URLSearchParams({ source_id: sourceId })
-    return await apiRequest<PluginStoreDetailResponse>(`/api/plugin-store/plugins/${encodeURIComponent(pluginId)}?${params}`)
+    return await apiRequest<PluginStoreDetailResponse>(apiPath('/api/plugin-store/plugins/{plugin_id}', { plugin_id: pluginId }, params))
   }
 
   async function inspect(pluginId: string, payload: PluginStoreInspectionRequest) {
     installing.value = { ...installing.value, [pluginId]: true }
     try {
       return await apiRequest<PluginStoreInspectionResponse>(
-        `/api/plugin-store/plugins/${encodeURIComponent(pluginId)}/inspect`,
+        apiPath('/api/plugin-store/plugins/{plugin_id}/inspect', { plugin_id: pluginId }),
         { method: 'POST', body: payload },
       )
     } catch (cause) {
@@ -126,7 +127,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
     const request = (async () => {
       try {
         const accepted = await apiRequest<TaskAcceptedResponse>(
-        `/api/plugin-store/plugins/${encodeURIComponent(pluginId)}/install`,
+        apiPath('/api/plugin-store/plugins/{plugin_id}/install', { plugin_id: pluginId }),
           { method: 'POST', body: payload, signal: controller.signal },
         )
         try {
@@ -153,7 +154,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
     refreshing.value = true
     try {
       const response = await apiRequest<PluginStoreSource>(
-        `/api/plugin-store/sources/${encodeURIComponent(sourceId)}/refresh`,
+        apiPath('/api/plugin-store/sources/{source_id}/refresh', { source_id: sourceId }),
         { method: 'POST' },
       )
       source.value = response
@@ -181,7 +182,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
     sourceSaving.value = true
     try {
       const response = await apiRequest<PluginStoreSource>(
-        `/api/plugin-store/sources/${encodeURIComponent(sourceId)}`,
+        apiPath('/api/plugin-store/sources/{source_id}', { source_id: sourceId }),
         { method: 'PUT', body: input },
       )
       updateSource(response)
@@ -195,7 +196,7 @@ export const usePluginStore = defineStore('plugin-store', () => {
   async function deleteSource(sourceId: string) {
     sourceSaving.value = true
     try {
-      await apiRequest<void>(`/api/plugin-store/sources/${encodeURIComponent(sourceId)}`, { method: 'DELETE' })
+      await apiRequest<void>(apiPath('/api/plugin-store/sources/{source_id}', { source_id: sourceId }), { method: 'DELETE' })
       await fetchSources()
     } finally {
       sourceSaving.value = false

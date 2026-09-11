@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { computed, ref } from 'vue'
 
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -39,7 +40,7 @@ export function useLogDetailController() {
     const currentVersion = requestVersion
 
     try {
-      const detail = await apiRequest<LogDetailResponse>(`/api/logs/${encodeURIComponent(nextLogId)}`)
+      const detail = await apiRequest<LogDetailResponse>(apiPath('/api/logs/{log_id}', { log_id: nextLogId }))
       if (currentVersion !== requestVersion || selectedLogId.value !== nextLogId) {
         return detail
       }

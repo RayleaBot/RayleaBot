@@ -1,10 +1,11 @@
+import { apiPath } from '@/lib/api-path'
 import { ApiError, apiRequest } from '@/lib/http'
 import type { TaskStatusResponse } from '@/types/api'
 
 export async function waitForTask(taskId: string, signal?: AbortSignal) {
   const deadline = Date.now() + 15 * 60_000
   while (true) {
-    const task = await apiRequest<TaskStatusResponse>(`/api/system/tasks/${encodeURIComponent(taskId)}`, { signal })
+    const task = await apiRequest<TaskStatusResponse>(apiPath('/api/system/tasks/{task_id}', { task_id: taskId }), { signal })
     if (task.status === 'succeeded') return task
     if (task.status !== 'pending' && task.status !== 'running') {
       const message = task.status === 'cancelled' ? '任务已取消' : task.status === 'interrupted' ? '任务已中断，请检查服务状态' : '任务执行失败'

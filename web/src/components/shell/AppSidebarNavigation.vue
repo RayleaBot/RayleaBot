@@ -455,6 +455,7 @@ function toggleRootGroup(key: string) {
   </div>
 </template>
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .sidebar-navigation {
   display: grid;
   min-width: 0;
@@ -683,7 +684,7 @@ function toggleRootGroup(key: string) {
   transform: translateX(-12px);
 }
 
-@media (max-width: 1024px), (pointer: coarse) {
+@media (max-width: #{bp.$navigation}), (pointer: coarse) {
   .sidebar-navigation__back {
     min-height: 44px;
   }
@@ -743,6 +744,6 @@ function toggleRootGroup(key: string) {
 .sidebar-navigation__item.sidebar-navigation__collapsed-item { width: 40px; height: 40px; justify-content: center; margin: 4px 0; padding: 10px; }
 .sidebar-navigation[data-collapsed=true] .admin-layout__menu-label { justify-content: center; }
 .sidebar-navigation__filter :deep(.app-input) { background: var(--sider-menu-hover-bg); color: var(--sider-menu-text); border-color: var(--sider-brand-border); font-size: 12px; }
-@media (max-width: 991px), (pointer: coarse) { .sidebar-navigation__item, .sidebar-navigation__group-heading { min-height: 44px; } }
+@media (max-width: #{bp.$desktop - 1px}), (pointer: coarse) { .sidebar-navigation__item, .sidebar-navigation__group-heading { min-height: 44px; } }
 
 </style>

@@ -34,7 +34,8 @@ defineEmits<{
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .sidebar-account { display: flex; align-items: center; gap: 8px; padding: 12px; border-top: 1px solid var(--sider-brand-border); }
 .sidebar-account__trigger { flex: 1; min-width: 0; justify-content: flex-start; gap: 10px; height: 40px; padding-inline: 10px; color: var(--sider-menu-text); }
 .sidebar-account__label { flex: 1; text-align: left; }
@@ -43,7 +44,7 @@ defineEmits<{
 .sidebar-account__trigger:hover, .sidebar-account__theme:hover { background: var(--sider-menu-hover-bg); }
 .sidebar-account[data-collapsed=true] { flex-direction: column; padding: 12px 10px; }
 .sidebar-account[data-collapsed=true] .sidebar-account__trigger { flex: none; justify-content: center; width: 40px; padding: 0; }
-@media (max-width: 991px), (pointer: coarse) {
+@media (max-width: #{bp.$desktop - 1px}), (pointer: coarse) {
   .sidebar-account__trigger, .sidebar-account__theme { min-height: 44px; }
   .sidebar-account__theme { min-width: 44px; }
 }

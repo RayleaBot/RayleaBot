@@ -1,4 +1,5 @@
-@media (max-width: 1199px) {
+@use './breakpoints.generated' as bp;
+@media (max-width: #{bp.$wide - 1px}) {
   .admin-layout__content {
     padding: var(--space-lg);
   }
@@ -12,7 +13,7 @@
   }
 }
 
-@media (max-width: 991px) {
+@media (max-width: #{bp.$desktop - 1px}) {
   .desktop-only {
     display: none !important;
   }
@@ -57,7 +58,7 @@
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .app-page__header {
     flex-direction: column;
     align-items: stretch;
@@ -125,7 +126,7 @@
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .readiness-checks {
     grid-template-columns: 1fr;
   }
@@ -148,10 +149,10 @@
   }
 }
 
-@media (max-width: 1050px) {
+@media (max-width: #{bp.$sidebar - 1px}) {
  .admin-layout__search-button .admin-layout__search-copy { display: none !important; }
 }
-@media (max-width: 639px), (pointer: coarse) {
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
  .admin-layout .app-button,
  .auth-layout .app-button { min-height: 44px; }
  .auth-layout .auth-layout__theme-toggle.app-button { width: 44px; min-width: 44px; height: 44px; }

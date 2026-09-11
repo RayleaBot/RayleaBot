@@ -1,4 +1,4 @@
-import { computed, reactive, ref, type Ref } from 'vue'
+import { computed, reactive, ref, type Ref, type UnwrapRef } from 'vue'
 import { notifySuccess } from '@/adapter/feedback'
 import { t } from '@/i18n'
 import { getDisplayErrorMessage } from '@/lib/error-text'
@@ -75,3 +75,5 @@ export function useAccessListEditor(options: {
   }
   return { searchQuery, scopeFilter, isAdding, adding, mutating, actionError, draft, draftErrors, filteredEntries, tableData, startAdd, cancel, save, remove }
 }
+
+export type AccessListEditor = UnwrapRef<ReturnType<typeof useAccessListEditor>>

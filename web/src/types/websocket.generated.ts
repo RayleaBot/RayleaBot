@@ -3,6 +3,24 @@
 
 import type { components } from './generated'
 
+export const webSocketPaths = {
+  logs: '/ws/logs',
+  events: '/ws/events',
+  pluginConsole: (id: string) => `/ws/plugins/${encodeURIComponent(id)}/console`,
+} as const
+
+export const webSocketEvents = {
+  logsAppended: 'logs.appended',
+  eventsReceived: 'events.received',
+  pluginsConsole: 'plugins.console',
+  sessionExpired: 'session_expired',
+} as const
+
+export const managementEventTypes = {
+  governanceChanged: 'governance.changed',
+  thirdPartyAccountChanged: 'third_party.account.changed',
+} as const
+
 export type ManagementWebSocketChannel = 'logs' | 'events' | 'plugin_console'
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'authenticated' | 'auth_failed' | 'reconnecting'
 
@@ -15,7 +33,7 @@ export type WebSocketErrorPayload = {
 
 export interface WebSocketFrame<T = Record<string, unknown>> {
   channel: ManagementWebSocketChannel
-  type: string
+  type: typeof webSocketEvents.logsAppended | typeof webSocketEvents.eventsReceived | typeof webSocketEvents.pluginsConsole
   timestamp: string
   data: T
   request_id?: string
@@ -23,7 +41,7 @@ export interface WebSocketFrame<T = Record<string, unknown>> {
 }
 
 export interface SessionExpiredFrame {
-  type: 'session_expired'
+  type: typeof webSocketEvents.sessionExpired
   data: Record<string, never>
 }
 

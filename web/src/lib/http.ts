@@ -1,3 +1,5 @@
+import { t } from '@/i18n'
+import type { ApiPath } from '@/lib/api-path'
 import type { ErrorEnvelope } from '@/types/api'
 
 export class ApiError extends Error {
@@ -133,7 +135,7 @@ function decodeFilenamePart(value: string) {
 }
 
 function requestAborted(cause: 'cancelled' | 'timeout') {
-  return new ApiError(cause === 'cancelled' ? '请求已取消。' : '请求超时。', 0, `client.request_${cause}`)
+  return new ApiError(t(cause === 'cancelled' ? 'errors.common.requestCancelled' : 'errors.common.requestTimeout'), 0, `client.request_${cause}`)
 }
 
 async function readResponsePayload(response: Response) {
@@ -220,18 +222,18 @@ async function executeRequest<T>(
       throw requestAborted(error.name === 'TimeoutError' ? 'timeout' : 'cancelled')
     }
     if (error instanceof TypeError) runtime.onNetworkUnavailable(path, error)
-    throw error instanceof Error ? error : new ApiError('请求失败。', 0)
+    throw error instanceof Error ? error : new ApiError(t('errors.common.actionFailed'), 0)
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId)
     callerSignal?.removeEventListener('abort', onCallerAbort)
   }
 }
 
-export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
+export async function apiRequest<T>(path: ApiPath, options: ApiRequestOptions = {}): Promise<T> {
   return executeRequest(path, options, response => readResponsePayload(response) as Promise<T>)
 }
 
-export async function apiDownload(path: string, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
+export async function apiDownload(path: ApiPath, options: ApiRequestOptions = {}): Promise<ApiDownloadResult> {
   return executeRequest(path, options, async response => ({
     blob: await response.blob(),
     filename: parseDownloadFilename(response.headers.get('content-disposition')),

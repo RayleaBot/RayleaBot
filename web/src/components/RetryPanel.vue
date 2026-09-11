@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import AppButton from '@/components/AppButton.vue'
 import { CircleAlertIcon, RotateCwIcon } from '@lucide/vue'
 import { computed, getCurrentInstance } from 'vue'
@@ -51,7 +52,7 @@ function goHome() {
       </div>
       <AppButton :loading="loading" @click="$emit('retry')">
         <template #icon><RotateCwIcon :size="16" /></template>
-        {{ retryLabel ?? '重试' }}
+        {{ retryLabel ?? t('ui.retry') }}
       </AppButton>
     </div>
   </section>

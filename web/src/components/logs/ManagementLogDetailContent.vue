@@ -125,6 +125,7 @@ const summaryFields = computed(() => {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .log-detail-content__summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -215,7 +216,7 @@ const summaryFields = computed(() => {
   overflow: visible;
 }
 
-@media (max-width: 640px) {
+@media (max-width: #{bp.$phone}) {
   .log-detail-content__summary {
     grid-template-columns: 1fr;
   }

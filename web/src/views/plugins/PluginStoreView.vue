@@ -473,6 +473,7 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .store-toolbar {
   display: flex;
   align-items: center;
@@ -620,7 +621,7 @@ onMounted(() => {
   gap: 4px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: #{bp.$compactStore}) {
   .store-search,
   .store-source,
   .store-sort {

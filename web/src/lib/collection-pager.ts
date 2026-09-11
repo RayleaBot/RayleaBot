@@ -1,10 +1,11 @@
+import type { StaticApiRoute } from '@/lib/api-path'
 import { getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getDisplayErrorMessage } from '@/lib/error-text'
 
 export type CollectionQuery = Record<string, string | undefined>
 type Page = { total: number; next_cursor?: string }
 
-export function collectionURL(path: string, query: CollectionQuery, cursor = '') {
+export function collectionURL<Path extends StaticApiRoute>(path: Path, query: CollectionQuery, cursor = ''): Path | `${Path}?${string}` {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(query)) if (value?.trim()) params.set(key, value.trim())
   if (cursor) params.set('cursor', cursor)

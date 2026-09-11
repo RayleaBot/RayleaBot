@@ -330,6 +330,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .plugin-settings-skeleton-layout {
   display: grid;
 }
@@ -356,7 +357,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
 }
 
 .plugin-settings-save-bar .app-button { flex: 0 0 auto; }
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .plugin-settings-save-bar { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); }
   .plugin-settings-save-bar .app-button { min-height: 44px; }
 }
@@ -611,7 +612,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
   line-height: 1.4;
 }
 
-@media (max-width: 860px) {
+@media (max-width: #{bp.$pluginSettings}) {
   .plugin-settings-setting-row {
     grid-template-columns: 1fr;
     gap: 12px;

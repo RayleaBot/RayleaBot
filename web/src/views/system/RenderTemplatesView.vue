@@ -10,6 +10,7 @@ import AppTabs from '@/components/AppTabs.vue'
 import { ChevronDownIcon, FileImageIcon, RefreshCwIcon, SearchIcon } from '@lucide/vue'
 import { computed, onActivated, onDeactivated, onMounted, ref, useId, watch } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
+import { breakpoints } from '@/preferences/breakpoints.generated'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -34,7 +35,7 @@ const router = useRouter()
 const renderTemplatesStore = useRenderTemplatesStore()
 const pluginsStore = usePluginsStore()
 const search = ref('')
-const compact = useMediaQuery('(max-width: 767px)')
+const compact = useMediaQuery(`(max-width: ${breakpoints.tablet - 1}px)`)
 const catalogOpen = ref(false)
 const catalogId = useId()
 const workspaceTab = ref('preview')
@@ -322,7 +323,8 @@ onDeactivated(() => {
   </AppPage>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .render-templates-shell { display: grid; grid-template-columns: 252px minmax(0, 1fr); gap: 28px; flex: 1; min-height: 0; }
 .template-catalog { display: flex; flex-direction: column; min-height: 0; padding-right: 20px; border-right: 1px solid var(--border); }
 .template-catalog__content { display: flex; flex: 1; flex-direction: column; min-height: 0; }
@@ -376,8 +378,8 @@ onDeactivated(() => {
 .template-info-list div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 16px; font-size: 13px; line-height: 1.6; }
 .template-info-list dt { color: var(--muted); }
 .template-info-list dd { margin: 0; overflow-wrap: anywhere; }
-@media (max-width: 1100px) { .render-templates-shell { grid-template-columns: 220px minmax(0, 1fr); gap: 20px; } .template-catalog { padding-right: 16px; } }
-@media (max-width: 767px) {
+@media (max-width: #{bp.$splitPanel}) { .render-templates-shell { grid-template-columns: 220px minmax(0, 1fr); gap: 20px; } .template-catalog { padding-right: 16px; } }
+@media (max-width: #{bp.$tablet - 1px}) {
   .render-templates-shell { display: flex; flex-direction: column; gap: 24px; }
   .template-catalog { flex: none; padding: 0 0 16px; border-right: 0; border-bottom: 1px solid var(--border); }
   .template-catalog__content { margin-top: 12px; }

@@ -95,6 +95,30 @@ function branchProperty(branch, propertyName) {
   return requireObject(requireObject(branch.properties, 'branch.properties')[propertyName], `branch.properties.${propertyName}`)
 }
 
+function constantKey(value) {
+  return value.replace(/[._]([a-z])/g, (_, char) => char.toUpperCase())
+}
+
+function generatedTransportConstants(contract, branches) {
+  const paths = contract.channels.map(channel => {
+    const key = constantKey(channel.channel)
+    const parameters = [...channel.path.matchAll(/\{([^}]+)\}/g)].map(match => match[1])
+    const value = parameters.length === 0 ? quote(channel.path)
+      : `(${parameters.map(name => `${name}: string`).join(', ')}) => \`${channel.path.replace(/\{([^}]+)\}/g, (_, name) => '${encodeURIComponent(' + name + ')}')}\``
+    return `  ${key}: ${value},`
+  })
+  const events = [...contract.channels.flatMap(channel => channel.events), ...contract.session_events]
+    .map(({ event }) => `  ${constantKey(event)}: ${quote(event)},`)
+  const knownTypes = branchProperty(branchWithRequired(branches, 'event_type'), 'event_type').examples
+  return [
+    'export const webSocketPaths = {', ...paths, '} as const', '',
+    'export const webSocketEvents = {', ...events, '} as const', '',
+    'export const managementEventTypes = {',
+    ...requireArray(knownTypes, 'event_type.examples').map(value => `  ${constantKey(value)}: ${quote(value)},`),
+    '} as const',
+  ].join('\n')
+}
+
 function generatedSource(contract) {
   const envelope = requireObject(contract.envelope, 'envelope')
   const envelopeProperties = requireObject(envelope.properties, 'envelope.properties')
@@ -129,6 +153,8 @@ function generatedSource(contract) {
 
 import type { components } from './generated'
 
+${generatedTransportConstants(contract, branches)}
+
 export type ManagementWebSocketChannel = ${union(channels)}
 export type ConnectionStatus = ${union(connectionStatuses)}
 
@@ -141,7 +167,7 @@ export type WebSocketErrorPayload = {
 
 export interface WebSocketFrame<T = Record<string, unknown>> {
   channel: ManagementWebSocketChannel
-  type: string
+  type: typeof webSocketEvents.logsAppended | typeof webSocketEvents.eventsReceived | typeof webSocketEvents.pluginsConsole
   timestamp: string
   data: T
   request_id?: string
@@ -149,7 +175,7 @@ export interface WebSocketFrame<T = Record<string, unknown>> {
 }
 
 export interface SessionExpiredFrame {
-  type: 'session_expired'
+  type: typeof webSocketEvents.sessionExpired
   data: Record<string, never>
 }
 

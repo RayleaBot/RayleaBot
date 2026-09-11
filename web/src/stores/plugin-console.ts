@@ -1,3 +1,4 @@
+import { timestampMilliseconds } from '@/lib/timestamp'
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -158,8 +159,8 @@ function compareConsoleFrames(left: ConsoleFrame, right: ConsoleFrame) {
 }
 
 function compareConsoleTimestamps(left: string, right: string) {
-  const leftValue = toConsoleTimestampValue(left)
-  const rightValue = toConsoleTimestampValue(right)
+  const leftValue = timestampMilliseconds(left)
+  const rightValue = timestampMilliseconds(right)
   if (leftValue !== null && rightValue !== null && leftValue !== rightValue) {
     return leftValue - rightValue
   }
@@ -169,35 +170,6 @@ function compareConsoleTimestamps(left: string, right: string) {
   }
 
   return 0
-}
-
-function toConsoleTimestampValue(value: string) {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return null
-  }
-
-  const numericValue = Number(trimmed)
-  if (Number.isFinite(numericValue)) {
-    return normalizeUnixTimestamp(numericValue)
-  }
-
-  const parsed = Date.parse(trimmed)
-  if (Number.isNaN(parsed)) {
-    return null
-  }
-  return parsed
-}
-
-function normalizeUnixTimestamp(value: number) {
-  const absolute = Math.abs(value)
-  if (absolute >= 1_000_000_000 && absolute < 1_000_000_000_000) {
-    return value * 1000
-  }
-  if (absolute >= 1_000_000_000_000 && absolute <= 8_640_000_000_000_000) {
-    return value
-  }
-  return null
 }
 
 function getConsoleFrameIdentity(frame: ConsoleFrame) {

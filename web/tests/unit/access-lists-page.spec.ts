@@ -3,13 +3,14 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
+import { notifyError, notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import { t } from '@/i18n'
 import AccessListsPage from '@/views/operations/AccessListsView.vue'
 import { useGovernanceStore } from '@/stores/governance'
 
 vi.mock('@/adapter/feedback', () => ({
   notifySuccess: vi.fn(),
+  notifyError: vi.fn(),
   useToastFeedback: vi.fn(),
 }))
 
@@ -67,6 +68,32 @@ describe('AccessListsPage', () => {
     setActivePinia(createPinia())
     document.body.innerHTML = ''
     vi.clearAllMocks()
+  })
+
+  it.each(['blacklist', 'whitelist'] as const)('shows copy failures in the shared %s card', async (kind) => {
+    const router = createRouterForPage()
+    await router.push('/access-lists')
+    const store = useGovernanceStore()
+    const entries = buildEntries(1, 'user', 10001, 'fixture reason ')
+    store.blacklist = { user_entries: entries, group_entries: [] }
+    store.whitelist = { enabled: false, user_entries: entries, group_entries: [] }
+    mockAccessListFetches(store)
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard denied'))
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+    const wrapper = mount(AccessListsPage, { global: { plugins: [getActivePinia()!, router] } })
+    try {
+      await flushPromises()
+      await wrapper.get(`[data-testid="access-lists-${kind}-card"] .target-id-chip`).trigger('click')
+      await flushPromises()
+      expect(writeText).toHaveBeenCalledWith('10001')
+      expect(notifyError).toHaveBeenCalledWith(t('ui.clipboard.copyFailed'))
+      expect(notifySuccess).not.toHaveBeenCalled()
+    } finally {
+      wrapper.unmount()
+      if (clipboard) Object.defineProperty(navigator, 'clipboard', clipboard)
+      else Reflect.deleteProperty(navigator, 'clipboard')
+    }
   })
 
   it('renders access lists and keeps local errors scoped to the current card', async () => {

@@ -248,6 +248,7 @@ function providerColumnClass(provider: string) {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .protocol-compatibility-page {
   display: grid;
   gap: var(--app-layout-gap);
@@ -402,7 +403,7 @@ function providerColumnClass(provider: string) {
   font-size: 14px;
 }
 
-@media (max-width: 960px) {
+@media (max-width: #{bp.$protocolPanel}) {
   .protocol-overview-band {
     grid-template-columns: 1fr;
   }
@@ -413,7 +414,7 @@ function providerColumnClass(provider: string) {
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .protocol-compatibility-scroll-hint { display: block; margin: 12px 16px; font-size: 12px; color: var(--muted); }
   .protocol-compatibility-toolbar {
     grid-template-columns: 1fr;

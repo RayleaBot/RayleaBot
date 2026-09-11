@@ -1,3 +1,4 @@
+import { resolveStatusTone } from '@/lib/status-tone'
 import type {
   ConnectionStatus,
   LogLevel,
@@ -76,27 +77,12 @@ export function getRecoveryStatusLabel(status?: RecoveryCompatibilitySummary['st
 
 export type StatusType = 'success' | 'warning' | 'danger' | 'muted'
 
-const STATUS_TYPE_MAP: Record<string, StatusType> = {
-  ok: 'success',
-  ready: 'success',
-  running: 'success',
-  connected: 'success',
-  listening: 'warning',
-  degraded: 'warning',
-  connecting: 'warning',
-  reconnecting: 'warning',
-  failed: 'danger',
-  setup_required: 'danger',
-  shutting_down: 'danger',
-  disconnected: 'danger',
-  auth_failed: 'danger',
-}
-
+// Compact indicators have four tones; project the shared semantic palette.
 export function getStatusType(status?: string): StatusType {
-  if (!status) {
-    return 'muted'
-  }
-  return STATUS_TYPE_MAP[status] ?? 'muted'
+  const tone = resolveStatusTone(status)
+  if (tone === 'neutral') return 'muted'
+  if (tone === 'attention' || tone === 'info') return 'warning'
+  return tone
 }
 
 export function getPluginTrustLabel(level?: string) {

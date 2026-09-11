@@ -313,6 +313,7 @@ async function save() {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .permission-policy-page {
   display: grid;
   gap: 22px;
@@ -489,7 +490,7 @@ async function save() {
   line-height: 1.6;
 }
 
-@media (max-width: 768px) {
+@media (max-width: #{bp.$tablet}) {
   .permission-policy-actions {
     justify-content: flex-start;
   }
@@ -504,7 +505,7 @@ async function save() {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: #{bp.$pluginDetail}) {
   .permission-policy-settings-layout {
     grid-template-columns: 1fr;
   }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { breakpoints } from '@/preferences/breakpoints.generated'
 import AppDrawer from '@/components/AppDrawer.vue'
 import { XIcon } from '@lucide/vue'
 import { computed, shallowRef, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -12,7 +13,7 @@ import type { LogDetailResponse, LogSummary } from '@/types/api'
 import ManagementLogDetailContent from './ManagementLogDetailContent.vue'
 import { readLogDetailWindowPosition, writeLogDetailWindowPosition } from './log-detail-window-memory'
 
-const desktopBreakpoint = 960
+const desktopBreakpoint = breakpoints.protocolPanel
 const floatingWindowSafeInset = 12
 const floatingWindowPreferredWidth = 680
 const floatingWindowMaxWidth = 720

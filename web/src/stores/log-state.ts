@@ -1,3 +1,4 @@
+import { timestampMilliseconds } from '@/lib/timestamp'
 import type { LogLevel, LogListResponse, LogPageDirection, LogProtocol, LogSummary } from '@/types/api'
 
 export type LogScope = 'history' | 'current_session'
@@ -27,7 +28,7 @@ interface BuildLogListPathOptions {
   limit?: number
 }
 
-export function buildLogListPath(options: BuildLogListPathOptions) {
+export function buildLogListPath(options: BuildLogListPathOptions): `/api/logs?${string}` {
   const params = new URLSearchParams()
   const filters = options.filters ?? {}
 
@@ -232,17 +233,7 @@ export function normalizeFilterValues(values: string[] | undefined | null) {
 }
 
 function toComparableTimestamp(value: string) {
-  const numeric = Number(value)
-  if (Number.isFinite(numeric) && numeric > 0) {
-    return numeric >= 1_000_000_000_000 ? numeric : numeric * 1000
-  }
-
-  const parsed = Date.parse(value)
-  if (Number.isFinite(parsed)) {
-    return parsed
-  }
-
-  return 0
+  return timestampMilliseconds(value) ?? 0
 }
 
 function sameFilterValues(left: string[], right: string[]) {

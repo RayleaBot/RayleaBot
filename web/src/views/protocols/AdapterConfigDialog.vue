@@ -289,6 +289,7 @@ function openLogs() {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .dialog-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
 .dialog-loading { display: grid; gap: 20px; min-height: 300px; align-content: start; }
 .dialog-description { margin: 0 0 24px; color: var(--muted); line-height: 1.6; }
@@ -315,7 +316,7 @@ function openLogs() {
 .dialog-footer { display: flex; align-items: center; gap: 8px; }
 .dialog-footer > :first-child { margin-right: auto; }
 .save-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; text-align: right; }
-@media (max-width: 480px) {
+@media (max-width: #{bp.$smallPhone}) {
   .dialog-disclosure summary span { display: none; }
   .shared-fields { grid-template-columns: 1fr; }
 }

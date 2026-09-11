@@ -197,6 +197,7 @@ function handleTextareaUpdate(value: unknown) {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .config-field {
   display: grid;
   gap: 8px;
@@ -284,7 +285,7 @@ function handleTextareaUpdate(value: unknown) {
 .config-field__unit-end { flex: none; color: var(--muted); font-size: 13px; }
 .config-field--row .config-field__preview { grid-column: 2; padding: 0; border: 0; background: transparent; flex-wrap: wrap; }
 :global([data-density=compact]) .config-field--row { padding-block: 12px; }
-@container config-editor (max-width: 560px) {
+@container config-editor (max-width: #{bp.$configActions}) {
   .config-field--row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .config-field--row .config-field__preview { grid-column: 1; }
 }

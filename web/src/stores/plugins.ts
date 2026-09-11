@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { computed, onScopeDispose, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -200,7 +201,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     let request!: Promise<PluginDetail>
     request = (async () => {
       try {
-        const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}`)
+        const response = await apiRequest<PluginDetailResponse>(apiPath('/api/plugins/{plugin_id}', { plugin_id: pluginId }))
         if (generation !== (detailGenerations.get(pluginId) ?? 0)) {
           if (detailRequests.get(pluginId) === request) detailRequests.delete(pluginId)
           return requestPluginDetail(pluginId)
@@ -371,7 +372,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   async function executeAction(pluginId: string, action: 'enable' | 'disable' | 'reload') {
     setPending(pluginId, action)
     try {
-      const response = await apiRequest<PluginDetailResponse>(`/api/plugins/${pluginId}/${action}`, {
+      const response = await apiRequest<PluginDetailResponse>(apiPath(`/api/plugins/{plugin_id}/${action}`, { plugin_id: pluginId }), {
         method: 'POST',
       })
       cachePluginDetail(response.plugin)
@@ -402,7 +403,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   async function uninstallPlugin(pluginId: string, onAccepted?: () => void) {
     setPending(pluginId, 'uninstall')
     try {
-      const accepted = await apiRequest<TaskAcceptedResponse>(`/api/plugins/${pluginId}`, {
+      const accepted = await apiRequest<TaskAcceptedResponse>(apiPath('/api/plugins/{plugin_id}', { plugin_id: pluginId }), {
         method: 'DELETE',
       })
       onAccepted?.()
@@ -416,7 +417,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   async function fetchSettings(pluginId: string) {
     setSettingsLoading(pluginId, true)
     try {
-      const response = await apiRequest<PluginSettingsResponse>(`/api/plugins/${pluginId}/settings`)
+      const response = await apiRequest<PluginSettingsResponse>(apiPath('/api/plugins/{plugin_id}/settings', { plugin_id: pluginId }))
       settingsByPluginId.value = {
         ...settingsByPluginId.value,
         [pluginId]: response.values,
@@ -430,7 +431,7 @@ export const usePluginsStore = defineStore('plugins', () => {
   async function updateSettings(pluginId: string, values: PluginSettingsUpdateRequest['values']) {
     setSettingsSaving(pluginId, true)
     try {
-      const response = await apiRequest<PluginSettingsUpdateResponse>(`/api/plugins/${pluginId}/settings`, {
+      const response = await apiRequest<PluginSettingsUpdateResponse>(apiPath('/api/plugins/{plugin_id}/settings', { plugin_id: pluginId }), {
         method: 'PUT',
         body: {
           values,

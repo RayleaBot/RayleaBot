@@ -75,6 +75,7 @@ const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .vben-fallback {
   display: flex;
   flex: 1 1 auto;
@@ -130,7 +131,7 @@ const retryButtonLabel = computed(() => props.retryLabel || t('fallback.actions.
   min-width: 112px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: #{bp.$compactPanel}) {
   .vben-fallback {
     min-height: min(440px, calc(100vh - 132px));
     padding: 36px 18px;

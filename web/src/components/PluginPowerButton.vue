@@ -79,6 +79,7 @@ function handleClick(event: MouseEvent) {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .plugin-holo-button {
   --button-width: 92px;
   --button-height: 34px;
@@ -279,7 +280,7 @@ function handleClick(event: MouseEvent) {
 .plugin-holo-button--icon.is-loading :deep(.lucide) { animation: spinner 800ms linear infinite; }
 .plugin-holo-button--icon :deep(.lucide) { width: 18px; height: 18px; }
 
-@media (max-width: 639px), (pointer: coarse) {
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
   .plugin-holo-button {
     min-height: 44px;
   }

@@ -396,6 +396,7 @@ onMounted(() => {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .commands-filter-toolbar,
 .commands-section-card,
 .commands-data-table {
@@ -517,7 +518,7 @@ onMounted(() => {
   color: var(--muted);
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .commands-page__actions {
     justify-content: flex-end;
   }

@@ -56,6 +56,7 @@ const showSummary = computed(() => !identity.value?.id || props.runtime?.state !
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .connection-card { display: flex; flex-direction: column; min-width: 0; min-height: 240px; padding: 20px; border: 1px solid var(--border); border-radius: var(--app-card-radius); background: var(--surface-strong); }
 .connection-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
 .connection-protocol { color: var(--muted); font-size: 12px; font-weight: 500; }
@@ -76,7 +77,7 @@ const showSummary = computed(() => !identity.value?.id || props.runtime?.state !
 .connection-actions { display: flex; flex: none; align-items: center; gap: 4px; }
 .connection-remove { color: var(--muted); }
 .connection-remove:hover { color: var(--text-danger); background: var(--surface-danger); }
-@media (max-width: 639px), (pointer: coarse) {
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
   .connection-actions :deep(button) { min-width: 44px; min-height: 44px; }
 }
 </style>

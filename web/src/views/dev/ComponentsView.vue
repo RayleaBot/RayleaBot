@@ -85,12 +85,13 @@ const optionalNumber = ref<number | null>(7)
     <AppConfirmDialog :open="confirmation" title="放弃修改？" description="当前草稿尚未保存。" confirm-text="放弃修改" cancel-text="继续编辑" danger @cancel="confirmation = false" @confirm="confirmation = false; open = false" />
   </main>
 </template>
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .component-showcase { max-width: 1040px; margin: 0 auto; padding: 40px 24px; color: var(--text); }
 .component-showcase > h1 { font-size: 28px; font-weight: 600; }
 .component-showcase > p { margin: 12px 0 40px; color: var(--muted); }
 .component-showcase section { margin-top: 32px; }
 .component-showcase h2 { margin: 0 0 20px; font-size: 18px; font-weight: 600; }
 .showcase-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; }
-@media (max-width: 639px) { .showcase-fields { grid-template-columns: 1fr; gap: 24px; } }
+@media (max-width: #{bp.$phone - 1px}) { .showcase-fields { grid-template-columns: 1fr; gap: 24px; } }
 </style>

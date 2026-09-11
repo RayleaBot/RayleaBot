@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -121,7 +122,7 @@ export const useGovernanceStore = defineStore('governance', () => {
     blacklistLoading.value = true
     blacklistError.value = null
     try {
-      await apiRequest<void>(`/api/governance/blacklist/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(targetId)}?${new URLSearchParams(scope)}`, {
+      await apiRequest<void>(apiPath('/api/governance/blacklist/entries/{entry_type}/{target_id}', { entry_type: entryType, target_id: targetId }, new URLSearchParams(scope)), {
         method: 'DELETE',
       })
       return await fetchBlacklist()
@@ -171,7 +172,7 @@ export const useGovernanceStore = defineStore('governance', () => {
     whitelistLoading.value = true
     whitelistError.value = null
     try {
-      await apiRequest<void>(`/api/governance/whitelist/entries/${encodeURIComponent(entryType)}/${encodeURIComponent(targetId)}?${new URLSearchParams(scope)}`, {
+      await apiRequest<void>(apiPath('/api/governance/whitelist/entries/{entry_type}/{target_id}', { entry_type: entryType, target_id: targetId }, new URLSearchParams(scope)), {
         method: 'DELETE',
       })
       return await fetchWhitelist()

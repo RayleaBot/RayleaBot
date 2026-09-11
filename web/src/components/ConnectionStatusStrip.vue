@@ -26,7 +26,7 @@ function formatLastErrorAt(value: string | undefined) {
 const channelStates = computed(() =>
   managementChannels.map((channel) => {
     const snapshot = snapshots.value[channel]
-    const genericError = `${channel} 连接异常`
+    const genericError = t('display.connectionErrors.connectionFailed', { channel: getConnectionChannelLabel(channel) })
     const secondary = snapshot.lastError && snapshot.lastError !== genericError ? snapshot.lastError : ''
     const reconnectSeconds = snapshot.nextBackoffMs !== undefined && snapshot.status === 'reconnecting'
       ? Math.max(1, Math.round(snapshot.nextBackoffMs / 1000))
@@ -107,6 +107,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .connection-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -181,7 +182,7 @@ function resolveBadgeStatus(status: ConnectionStatus) {
   display: inline-flex;
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .connection-card { grid-template-columns: 1fr; gap: 8px; }
   .connection-card__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
   .connection-card__row { flex-wrap: wrap; gap: 4px 8px; }

@@ -2,6 +2,13 @@ export type StatusTone = 'neutral' | 'info' | 'success' | 'warning' | 'attention
 
 const statusToneMap: Record<string, StatusTone> = {
   stopped: 'neutral',
+  ok: 'success',
+  connected: 'success',
+  listening: 'info',
+  authenticated: 'success',
+  disconnected: 'danger',
+  auth_failed: 'danger',
+  shutting_down: 'attention',
   disabled: 'neutral',
   inactive: 'neutral',
   starting: 'info',

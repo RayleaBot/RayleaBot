@@ -101,7 +101,8 @@ async function handleSubmit() {
     <template v-if="$slots.footer" #footer><slot name="footer" /></template>
   </AuthPanel>
 </template>
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .auth-form { display: grid; gap: 22px; margin-top: 32px; --floating-label-color: var(--auth-text-muted); --floating-label-active-color: var(--auth-brand-foreground); --floating-label-error-color: var(--auth-danger); }
 .auth-form :deep(.app-field) { margin: 0; gap: 6px; }
 .auth-form :deep(.auth-form__control) { height: 56px; min-height: 56px; padding: 24px 48px 8px 12px; color: var(--auth-text); font-size: 16px; border: 1px solid var(--auth-border-control); border-radius: 16px; background: var(--auth-glass-control, var(--auth-control)); box-shadow: none; transition: color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast), box-shadow var(--motion-fast); }
@@ -119,7 +120,7 @@ async function handleSubmit() {
 .auth-form__submit:not(:disabled):hover { background: var(--auth-brand-fill-hover); }
 .auth-form__submit:not(:disabled):active { background: var(--auth-brand-fill-pressed); box-shadow: none; }
 .auth-form__submit:not(:disabled):focus-visible { outline: 2px solid var(--auth-on-brand); outline-offset: var(--focus-outline-offset); }
-@media (max-width: 600px) { .auth-form { gap: 16px; } }
+@media (max-width: #{bp.$compactAuth}) { .auth-form { gap: 16px; } }
 @media (prefers-reduced-motion: reduce) { .auth-form :deep(.auth-form__control) { transition: none; } }
 @media (forced-colors: active) {
   .auth-form :deep(.auth-form__control) { border-color: CanvasText; }

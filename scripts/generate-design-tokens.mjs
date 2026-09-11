@@ -842,6 +842,17 @@ validateLiteralAllowlist()
 
 stageOutput('web/src/preferences/theme-tokens.generated.ts', renderWebTokens())
 stageOutput('web/src/styles/_theme-tokens.generated.scss', renderWebScss())
+const breakpointValues = Object.keys(source.breakpoint).filter(name => !name.startsWith('$')).map(name => {
+  const value = resolveToken(`breakpoint.${name}`)
+  if (value?.unit !== 'px' || !Number.isFinite(value.value) || value.value <= 0) throw new Error(`Invalid breakpoint: ${name}`)
+  return [name, value.value]
+})
+const breakpointHeader = '// Generated from design/tokens.json by scripts/generate-design-tokens.mjs. Do not edit.\n'
+stageOutput('web/src/preferences/breakpoints.generated.ts', breakpointHeader
+  + 'export const breakpoints = ' + JSON.stringify(Object.fromEntries(breakpointValues), null, 2) + ' as const\n')
+stageOutput('web/src/styles/_breakpoints.generated.scss', breakpointHeader
+  + breakpointValues.map(([name, value]) => `$${name}: ${value}px;`).join('\n') + '\n')
+
 stageOutput('web/public/favicon.svg', renderWebFavicon())
 stageOutput('launcher/src/shared/launcher-theme-tokens.generated.ts', renderLauncherTokens())
 stageOutput('design/typography.generated.css', renderTypographyCss())

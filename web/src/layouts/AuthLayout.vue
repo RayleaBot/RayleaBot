@@ -69,6 +69,7 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .auth-layout {
   --auth-glass-edge: color-mix(in srgb, var(--auth-panel-highlight) 58%, transparent);
   --auth-glass-highlight: color-mix(in srgb, var(--auth-panel-highlight) 18%, transparent);
@@ -198,7 +199,7 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   from { opacity: .75; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@media (max-width: 600px) {
+@media (max-width: #{bp.$compactAuth}) {
   .auth-layout { padding: 88px 20px 32px; }
   .auth-layout__brand { top: 26px; left: 26px; font-size: 16px; }
   .auth-layout__surface { border-radius: 28px; }
@@ -206,7 +207,7 @@ function setThemeModeWithMotion(mode: ThemeMode, origin: ThemeMotionOrigin) {
   .auth-layout__toolbar { top: 12px; right: 12px; }
   .auth-layout__caption { margin-top: 20px; }
 }
-@media (max-height: 700px) {
+@media (max-height: #{bp.$shortViewport}) {
   .auth-layout { place-items: start center; padding-top: 80px; }
 }
 @media (prefers-reduced-motion: reduce) {

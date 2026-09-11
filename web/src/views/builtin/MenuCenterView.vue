@@ -473,6 +473,7 @@ async function save() {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .menu-center-actions {
   display: flex;
   align-items: center;
@@ -670,7 +671,7 @@ async function save() {
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: #{bp.$navigation - 1px}) {
   .menu-center-layout {
     --menu-center-preview-top-space: 0px;
     grid-template-columns: minmax(0, 1fr);
@@ -683,7 +684,7 @@ async function save() {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: #{bp.$compactPanel}) {
   .menu-center-layout {
     padding: var(--space-sm);
   }

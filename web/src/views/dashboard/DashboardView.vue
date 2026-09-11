@@ -477,6 +477,7 @@ useToastFeedback(protocolIssueToast)
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .dashboard-main-grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(300px, .85fr); gap: 16px; align-items: start; }
 .dashboard-primary-column, .dashboard-support-column { display: grid; min-width: 0; gap: 16px; align-content: start; }
 .dashboard-activity-card { min-width: 0; align-self: stretch; }
@@ -533,12 +534,12 @@ useToastFeedback(protocolIssueToast)
 .text-success { color: var(--text-success) !important; }
 .text-warning { color: var(--text-warning) !important; }
 .text-danger { color: var(--text-danger) !important; }
-@media (max-width: 1100px) {
+@media (max-width: #{bp.$splitPanel}) {
  .dashboard-main-grid { grid-template-columns: 1fr; }
  .dashboard-support-column { grid-template-columns: repeat(2, minmax(0, 1fr)); }
  .dashboard-runtime-card { grid-column: 1 / -1; }
 }
-@media (max-width: 640px) {
+@media (max-width: #{bp.$phone}) {
  .dashboard-support-column, .diagnostics-subsystem-grid { grid-template-columns: 1fr; }
  .dashboard-activity-card :deep(.app-card__body) { padding-inline: 14px; }
  .events-timeline__item { grid-template-columns: minmax(0, 1fr); }

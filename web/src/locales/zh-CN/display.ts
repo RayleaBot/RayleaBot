@@ -1,4 +1,14 @@
 export const display = {
+  connectionErrors: {
+    invalidMessage: '{channel} 收到无效消息',
+    sessionExpired: '会话已失效',
+    connectionFailed: '{channel} 连接异常',
+  },
+  relative: { before: '前', after: '后', seconds: '{count} 秒{direction}', minutes: '{count} 分钟{direction}', hours: '{count} 小时{direction}', days: '{count} 天{direction}' },
+  duration: { seconds: '{seconds} 秒', minutesSeconds: '{minutes} 分钟 {seconds} 秒', hoursMinutes: '{hours} 小时 {minutes} 分钟' },
+  durationUnits: { ms: '毫秒', s: '秒', m: '分钟', h: '小时' },
+  rateLimit: '{window}内最多 {count} 次',
+
   empty: '—',
   connectionChannels: {
     events: '事件流',

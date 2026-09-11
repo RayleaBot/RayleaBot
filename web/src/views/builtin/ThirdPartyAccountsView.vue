@@ -776,6 +776,7 @@ function timeText(value?: string | null) {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .accounts-panel__header,
 .accounts-panel__actions,
 .account-card__badges,
@@ -1131,7 +1132,7 @@ function timeText(value?: string | null) {
   color: var(--muted);
 }
 
-@media (max-width: 720px) {
+@media (max-width: #{bp.$compactPanel}) {
   .third-party-layout {
     padding: var(--space-md);
   }
@@ -1168,7 +1169,7 @@ function timeText(value?: string | null) {
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: #{bp.$accountActions}) {
   .accounts-grid {
     grid-template-columns: minmax(0, 1fr);
   }

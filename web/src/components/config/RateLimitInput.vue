@@ -129,6 +129,7 @@ function emitIfValid() {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .rate-limit-input {
   display: grid;
   gap: 8px;
@@ -175,7 +176,7 @@ function emitIfValid() {
   line-height: 1.45;
 }
 
-@media (max-width: 640px) {
+@media (max-width: #{bp.$phone}) {
   .rate-limit-input__grid {
     grid-template-columns: 1fr;
   }

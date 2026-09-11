@@ -175,7 +175,8 @@ channels:
               properties:
                 event_type:
                   type: string
-                  description: Generic management event type. Current values include governance.changed and third_party.account.changed.
+                  description: Generic management event type. Unrecognized types remain displayable without triggering domain refresh.
+                  examples: [governance.changed, third_party.account.changed]
                 summary:
                   type: string
             - type: object

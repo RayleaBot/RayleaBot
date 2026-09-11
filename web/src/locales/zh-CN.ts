@@ -1,3 +1,4 @@
+import { ui } from './zh-CN/ui'
 import { app, fallback, routes, shell } from './zh-CN/app'
 import { dashboard } from './zh-CN/dashboard'
 import { commands } from './zh-CN/commands'
@@ -16,6 +17,7 @@ import { display } from './zh-CN/display'
 import { errors } from './zh-CN/errors'
 
 export const zhCN = {
+  ui,
   app,
   fallback,
   routes,

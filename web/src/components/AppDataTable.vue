@@ -1,15 +1,16 @@
 <script setup lang="ts" generic="T extends object">
+import { t } from '@/i18n'
 import type { DataColumn } from './data-table'
 import AppEmptyState from './AppEmptyState.vue'
 import AppSkeleton from './AppSkeleton.vue'
-withDefaults(defineProps<{
+defineProps<{
   rows: readonly T[]
   columns: readonly DataColumn[]
   rowKey: (row: T) => string
   loading?: boolean
   minWidth?: number
   label?: string
-}>(), { label: '数据表格' })
+}>()
 defineSlots<{
   cell?: (props: { row: T; column: DataColumn; index: number }) => unknown
   empty?: () => unknown
@@ -21,9 +22,9 @@ function cellText(row: T, key: string) {
 </script>
 <template>
   <div class="app-data-table" :aria-busy="loading || undefined">
-    <div class="app-data-table__scroller" :tabindex="minWidth ? 0 : undefined" :aria-label="label">
+    <div class="app-data-table__scroller" :tabindex="minWidth ? 0 : undefined" :aria-label="label ?? t('ui.dataTable')">
       <table :style="{ minWidth: minWidth ? minWidth + 'px' : undefined }">
-        <caption class="sr-only">{{ label }}</caption>
+        <caption class="sr-only">{{ label ?? t('ui.dataTable') }}</caption>
         <thead>
           <tr><th v-for="column in columns" :key="column.key" scope="col" :style="{ width: column.width ? column.width + 'px' : undefined, textAlign: column.align }">{{ column.label }}</th></tr>
         </thead>
@@ -37,7 +38,7 @@ function cellText(row: T, key: string) {
         </tbody>
       </table>
     </div>
-    <div v-if="!loading && rows.length === 0" class="app-data-table__empty"><slot name="empty"><AppEmptyState title="暂无数据" /></slot></div>
+    <div v-if="!loading && rows.length === 0" class="app-data-table__empty"><slot name="empty"><AppEmptyState :title="t('ui.empty')" /></slot></div>
   </div>
 </template>
 <style>

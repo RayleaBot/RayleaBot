@@ -1,3 +1,4 @@
+import { webSocketEvents, managementEventTypes } from '@/types/websocket.generated'
 import { createRefreshScheduler } from '@/lib/refresh-scheduler'
 import type {
   EventsPayload,
@@ -33,6 +34,7 @@ export function createSocketFrameRouter(
   }
 
   function handleEventsFrame(frame: WebSocketFrame<EventsPayload>) {
+    if (frame.type !== webSocketEvents.eventsReceived) return
     dependencies.system.applyEvent(frame.timestamp, frame.data)
 
     if (isServiceStatusEvent(frame.data)) {
@@ -96,7 +98,7 @@ export function createSocketFrameRouter(
   }
 
   function handleLogsFrame(frame: WebSocketFrame<LogSummary>) {
-    if (frame.type === 'logs.appended') {
+    if (frame.type === webSocketEvents.logsAppended) {
       pendingLiveLogs.push(frame.data)
       scheduleFlushLiveLogs()
       if (isSchedulerLog(frame.data)) {
@@ -106,7 +108,7 @@ export function createSocketFrameRouter(
   }
 
   function handleConsoleFrame(frame: WebSocketFrame<PluginConsoleFrameData>) {
-    if (frame.type === 'plugins.console') {
+    if (frame.type === webSocketEvents.pluginsConsole) {
       dependencies.pluginConsole.appendConsole(frame.data)
     }
   }
@@ -132,11 +134,11 @@ function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSna
 }
 
 function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
-  return 'event_type' in payload && payload.event_type === 'governance.changed'
+  return 'event_type' in payload && payload.event_type === managementEventTypes.governanceChanged
 }
 
 function isThirdPartyAccountChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
-  return 'event_type' in payload && payload.event_type === 'third_party.account.changed'
+  return 'event_type' in payload && payload.event_type === managementEventTypes.thirdPartyAccountChanged
 }
 
 function isSchedulerLog(log: LogSummary) {

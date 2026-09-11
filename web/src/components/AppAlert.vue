@@ -11,7 +11,8 @@ withDefaults(defineProps<{ tone?: 'info' | 'success' | 'warning' | 'danger'; tit
     <div v-if="$slots.action" class="app-alert__action"><slot name="action" /></div>
   </div>
 </template>
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .app-alert { --alert-accent: var(--text-accent); display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: start; gap: 10px; width: fit-content; max-width: 100%; padding: 10px 0; color: var(--text); font-size: 14px; line-height: 1.6; }
 .app-alert[data-tone=warning] { --alert-accent: var(--text-warning); }
 .app-alert[data-tone=danger] { --alert-accent: var(--text-danger); }
@@ -22,5 +23,5 @@ withDefaults(defineProps<{ tone?: 'info' | 'success' | 'warning' | 'danger'; tit
 .app-alert__content > p:first-child { font-weight: 500; }
 .app-alert .app-alert__description { margin-top: 3px; color: var(--muted); font-size: 13px; }
 .app-alert__action { align-self: center; }
-@media (max-width: 639px) { .app-alert { grid-template-columns: 18px minmax(0, 1fr); } .app-alert__action { grid-column: 2; } }
+@media (max-width: #{bp.$phone - 1px}) { .app-alert { grid-template-columns: 18px minmax(0, 1fr); } .app-alert__action { grid-column: 2; } }
 </style>

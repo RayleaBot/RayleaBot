@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import AppButton from '@/components/AppButton.vue'
 
 defineProps<{ loaded: number; total: number; nextCursor?: string; loading?: boolean }>()
@@ -7,8 +8,8 @@ defineEmits<{ more: [] }>()
 
 <template>
   <div class="collection-pagination">
-    <span role="status">已加载 {{ loaded }} / {{ total }}</span>
-    <AppButton v-if="nextCursor" :loading="loading" :disabled="loading" @click="$emit('more')">加载更多</AppButton>
+    <span role="status">{{ t('ui.loadedCount', { loaded, total }) }}</span>
+    <AppButton v-if="nextCursor" :loading="loading" :disabled="loading" @click="$emit('more')">{{ t('ui.loadMore') }}</AppButton>
   </div>
 </template>
 

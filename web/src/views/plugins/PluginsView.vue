@@ -484,6 +484,7 @@ async function reloadPlugin(pluginId: string) {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .plugins-page-content {
   display: flex;
   flex-direction: column;
@@ -546,7 +547,7 @@ async function reloadPlugin(pluginId: string) {
   flex-wrap: wrap;
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .plugins-filter-desktop {
     display: none;
   }
@@ -789,14 +790,14 @@ async function reloadPlugin(pluginId: string) {
 .plugin-card__icon-action.app-button:hover:not(:disabled) { background: var(--surface-accent); color: var(--text); }
 .plugin-card__icon-action.app-button:active:not(:disabled) { transform: scale(.94); }
 .plugin-card__icon-action.app-button:disabled { color: var(--muted); opacity: .45; }
-@media (min-width: 1800px) { .plugins-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (min-width: 2300px) {
+@media (min-width: #{bp.$fourColumns}) { .plugins-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: #{bp.$fiveColumns}) {
  .plugins-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
  .plugin-grid-card { min-height: 240px; }
 }
-@media (max-width: 1199px) { .plugins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 767px) { .plugins-grid { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 639px), (pointer: coarse) {
+@media (max-width: #{bp.$wide - 1px}) { .plugins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: #{bp.$tablet - 1px}) { .plugins-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) {
  .plugin-card__name { min-height: 44px; white-space: normal; line-height: 1.4; }
  .plugin-card__manage-action.app-button { min-height: 44px; }
  .plugin-card__icon-action.app-button { width: 44px; height: 44px; }

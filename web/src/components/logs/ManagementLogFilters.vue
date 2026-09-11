@@ -35,14 +35,15 @@ const { selectedLevels, levelOptions } = useLogFilterControls(filters)
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .logs-filter-grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; width: 100%; }
 .logs-filter-grid :deep(.app-field) { flex: 1 1 200px; max-width: 320px; margin-bottom: 0; }
 .logs-filter-grid--history :deep(.app-field) { flex-basis: 190px; max-width: 300px; }
 .logs-filter-grid :deep(.app-field:first-child) { max-width: 220px; }
 .logs-toolbar__actions { display: flex; flex: 0 0 auto; gap: 8px; justify-content: flex-end; align-items: center; margin-inline-start: auto; }
 .logs-filter-grid--history .logs-toolbar__actions { flex-wrap: wrap; }
-@media (max-width: 760px) {
+@media (max-width: #{bp.$compactStore}) {
   .logs-filter-grid :deep(.app-field) { flex-basis: 100%; max-width: none; }
   .logs-toolbar__actions { flex: 1 1 100%; align-items: stretch; justify-content: flex-start; margin-inline-start: 0; }
   .logs-toolbar__apply { flex: 1 1 auto; }

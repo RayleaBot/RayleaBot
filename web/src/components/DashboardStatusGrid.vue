@@ -92,6 +92,7 @@ defineProps<{
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .dashboard-status-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -184,7 +185,7 @@ defineProps<{
   color: var(--accent);
 }
 
-@media (max-width: 899px) {
+@media (max-width: #{bp.$dashboard - 1px}) {
   .dashboard-status-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -198,7 +199,7 @@ defineProps<{
   }
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .dashboard-status-item { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 4px 8px; padding: 12px; align-items: center; }
   .dashboard-status-item__icon { width: 20px; height: 24px; grid-column: 1; grid-row: 1; }
   .dashboard-status-item__body { display: contents; }
@@ -211,7 +212,7 @@ defineProps<{
   .dashboard-status-item__body small { font-size: 12px; }
 }
 
-@media (max-width: 359px) {
+@media (max-width: #{bp.$narrowPhone - 1px}) {
   .dashboard-status-grid { grid-template-columns: 1fr; }
   .dashboard-status-item + .dashboard-status-item { border-inline-start: 0; border-top: 1px solid var(--border); }
 }

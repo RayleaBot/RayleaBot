@@ -1,3 +1,4 @@
+import { webSocketPaths } from '@/types/websocket.generated'
 import { reactive } from 'vue'
 
 import { ManagedSocket, type SocketStatusDetail } from '@/lib/ws'
@@ -25,7 +26,7 @@ export function createSocketController(options: SocketControllerOptions): Socket
 
   const eventsSocket = new ManagedSocket<EventsPayload>({
     name: 'events',
-    path: () => '/ws/events',
+    path: () => webSocketPaths.events,
     runtime: options.runtime,
     onStatusChange: createSnapshotUpdater(snapshots, 'events'),
     onFrame: options.router.handleEventsFrame,
@@ -33,7 +34,7 @@ export function createSocketController(options: SocketControllerOptions): Socket
 
   const logsSocket = new ManagedSocket<LogSummary>({
     name: 'logs',
-    path: () => '/ws/logs',
+    path: () => webSocketPaths.logs,
     runtime: options.runtime,
     onStatusChange: createSnapshotUpdater(snapshots, 'logs'),
     onFrame: options.router.handleLogsFrame,
@@ -41,7 +42,7 @@ export function createSocketController(options: SocketControllerOptions): Socket
 
   const consoleSocket = new ManagedSocket<PluginConsoleFrameData>({
     name: 'pluginConsole',
-    path: () => (consolePluginId ? `/ws/plugins/${consolePluginId}/console` : null),
+    path: () => (consolePluginId ? webSocketPaths.pluginConsole(consolePluginId) : null),
     runtime: options.runtime,
     onStatusChange: createSnapshotUpdater(snapshots, 'pluginConsole'),
     onFrame: options.router.handleConsoleFrame,

@@ -268,6 +268,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .config-workbench-page { width: 100%; max-width: 1120px; margin-inline: auto; }
 .config-page { container-type: inline-size; container-name: config-workbench; }
 .config-workbench { display: grid; grid-template-columns: 200px minmax(0, 1fr); align-items: start; gap: 24px; }
@@ -319,16 +320,16 @@ onBeforeUnmount(() => {
 :global([data-density=compact]) .config-editor__body { padding: 20px 24px; }
 :global([data-density=compact]) .config-editor__header { margin-bottom: 20px; }
 :global([data-density=compact]) .config-advanced__trigger { padding-block: 16px; }
-@container config-workbench (max-width: 760px) {
+@container config-workbench (max-width: #{bp.$compactStore}) {
   .config-workbench { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .config-navigation { position: static; gap: 10px; }
   .config-categories { display: none; }
   .config-category-select { display: block; }
 }
-@container config-editor (max-width: 560px) {
+@container config-editor (max-width: #{bp.$configActions}) {
   .config-editor__body { padding: 20px 16px; }
 }
-@media (max-width: 639px), (pointer: coarse) { .config-category { min-height: 44px; } }
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .config-category { min-height: 44px; } }
 @keyframes config-section-enter { from { opacity: .88; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) {
   .config-editor__body { animation: none; }

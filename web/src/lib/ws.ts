@@ -1,3 +1,5 @@
+import { t } from '@/i18n'
+import { webSocketEvents, webSocketPaths } from '@/types/websocket.generated'
 import type { ConnectionStatus, SessionExpiredFrame, WebSocketFrame } from '@/types/api'
 
 export interface BackoffOptions {
@@ -48,7 +50,7 @@ export interface SocketStatusDetail {
 }
 
 export interface ManagedSocketOptions<TFrameData> {
-  name: string
+  name: keyof typeof webSocketPaths
   path: () => string | null
   runtime: SocketRuntime
   onStatusChange?: (status: ConnectionStatus, detail: SocketStatusDetail) => void
@@ -59,7 +61,7 @@ export interface ManagedSocketOptions<TFrameData> {
 }
 
 export class ManagedSocket<TFrameData = Record<string, unknown>> {
-  private readonly name: string
+  private readonly name: keyof typeof webSocketPaths
   private readonly getPath: () => string | null
   private readonly runtime: SocketRuntime
   private readonly onStatusChange?: (status: ConnectionStatus, detail: SocketStatusDetail) => void
@@ -146,13 +148,13 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
       try {
         frame = JSON.parse(String(event.data)) as WebSocketFrame<TFrameData> | SessionExpiredFrame
       } catch {
-        this.recordError(`${this.name} 收到无效消息`)
+        this.recordError(t('display.connectionErrors.invalidMessage', { channel: this.channelLabel() }))
         socket.close()
         return
       }
 
-      if ('type' in frame && frame.type === 'session_expired') {
-        this.recordError('会话已失效')
+      if ('type' in frame && frame.type === webSocketEvents.sessionExpired) {
+        this.recordError(t('display.connectionErrors.sessionExpired'))
         this.setStatus('auth_failed')
         this.runtime.onSessionExpired()
         this.stop()
@@ -168,7 +170,7 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
         return
       }
 
-      this.recordError(`${this.name} 连接异常`)
+      this.recordError(t('display.connectionErrors.connectionFailed', { channel: this.channelLabel() }))
     })
 
     socket.addEventListener('close', () => {
@@ -211,6 +213,10 @@ export class ManagedSocket<TFrameData = Record<string, unknown>> {
       window.clearTimeout(this.reconnectHandle)
       this.reconnectHandle = null
     }
+  }
+
+  private channelLabel() {
+    return t(`display.connectionChannels.${this.name}`)
   }
 
   private recordError(message: string) {

@@ -98,7 +98,8 @@ function select(value: unknown) {
   </ComboboxRoot>
 </template>
 
-<style>
+<style lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .timezone-select { width: 100%; min-width: 0; }
 .timezone-select__trigger { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface-strong); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .timezone-select__trigger:focus-visible { outline: 1px solid var(--focus); outline-offset: -2px; }
@@ -133,6 +134,6 @@ function select(value: unknown) {
 .timezone-select__retained { margin-left: 8px; }
 .timezone-select__check { position: absolute; right: 10px; color: var(--brand-foreground); }
 .timezone-select__empty { margin: 0; padding: 28px 18px; color: var(--muted); font-size: 14px; line-height: 1.6; }
-@media (max-width: 639px) { .timezone-select__search input { font-size: 16px; } }
+@media (max-width: #{bp.$phone - 1px}) { .timezone-select__search input { font-size: 16px; } }
 @media (forced-colors: active) { .timezone-select__content { border: 1px solid CanvasText; } .timezone-select__option[data-highlighted] { outline: 1px solid Highlight; } }
 </style>

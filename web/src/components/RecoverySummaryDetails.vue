@@ -241,6 +241,7 @@ function toggleReview(id: string, checked: boolean | 'indeterminate') {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .recovery-summary { gap: 12px; min-width: 0; }
 .recovery-summary__status { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 16px; align-items: center; padding: 4px 0 14px; border-bottom: 1px solid var(--border); }
 .recovery-summary__status-icon { grid-row: 1 / span 2; width: 28px; height: 32px; display: grid; place-items: center; background: transparent; color: var(--success); font-size: 26px; }
@@ -270,7 +271,7 @@ function toggleReview(id: string, checked: boolean | 'indeterminate') {
 .issue-alert-card__summary { flex: 1; font-weight: 500; font-size: 14px; color: var(--text); min-width: 80px; overflow-wrap: anywhere; }
 .issue-alert-card__summary--link { text-align: left; padding: 0; height: auto; color: var(--brand-foreground); }
 .issue-alert-card__remediation { margin-top: 6px; font-size: 13px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
-@media (max-width: 640px), (pointer: coarse) {
+@media (max-width: #{bp.$phone}), (pointer: coarse) {
  .recovery-summary__filters :deep(.app-button), .recovery-summary__history summary { min-height: 44px; }
  .recovery-summary__status .issue-alert-card__summary { flex-basis: 100%; text-align: left; }
 }

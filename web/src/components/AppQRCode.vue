@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import { computed } from 'vue'
 import { CircleCheckIcon, RotateCwIcon } from '@lucide/vue'
 import { encodeQRCode } from '@/lib/qrcode'
@@ -14,11 +15,11 @@ const source = computed(() => {
 </script>
 <template>
   <div class="app-qrcode" :style="{ width: size + 'px', height: size + 'px' }">
-    <img v-if="source" :src="source" :width="size" :height="size" alt="登录二维码" />
+    <img v-if="source" :src="source" :width="size" :height="size" :alt="t('ui.loginQRCode')" />
     <div v-if="status !== 'active' || !source" class="app-qrcode__status" role="status">
       <AppSpinner v-if="status === 'loading'" />
-      <template v-else-if="status === 'scanned'"><CircleCheckIcon :size="28" /><span>已扫码</span></template>
-      <template v-else><span>{{ status === 'expired' ? '二维码已过期' : '二维码不可用' }}</span><AppButton size="sm" @click="$emit('refresh')"><RotateCwIcon :size="14" />刷新</AppButton></template>
+      <template v-else-if="status === 'scanned'"><CircleCheckIcon :size="28" /><span>{{ t('ui.qrScanned') }}</span></template>
+      <template v-else><span>{{ status === 'expired' ? t('ui.qrExpired') : t('ui.qrUnavailable') }}</span><AppButton size="sm" @click="$emit('refresh')"><RotateCwIcon :size="14" />{{ t('ui.refresh') }}</AppButton></template>
     </div>
   </div>
 </template>

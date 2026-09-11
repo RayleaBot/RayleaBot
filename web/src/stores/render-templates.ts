@@ -1,3 +1,4 @@
+import { apiPath } from '@/lib/api-path'
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -62,7 +63,7 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
     workspaceLoading.value = true
     error.value = null
     try {
-      const response = await apiRequest<RenderTemplateDetailResponse>(`/api/system/render/templates/${encodeURIComponent(templateId)}`)
+      const response = await apiRequest<RenderTemplateDetailResponse>(apiPath('/api/system/render/templates/{template_id}', { template_id: templateId }))
       // Only the latest request in the current catalog may update its workspace.
       if (!isCurrentRequest()) return response.template
       detailById.value = {
@@ -82,7 +83,7 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
 
   async function previewTemplateHTML(templateId: string, payload: RenderTemplatePreviewHTMLRequest, signal?: AbortSignal) {
     return apiRequest<RenderTemplatePreviewHTMLResponse>(
-      `/api/system/render/templates/${encodeURIComponent(templateId)}/preview-html`,
+      apiPath('/api/system/render/templates/{template_id}/preview-html', { template_id: templateId }),
       {
         body: payload,
         method: 'POST',
@@ -94,7 +95,7 @@ export const useRenderTemplatesStore = defineStore('render-templates', () => {
   async function downloadTemplateAsset(templateId: string, path: string, signal?: AbortSignal) {
     const params = new URLSearchParams({ path })
     return apiDownload(
-      `/api/system/render/templates/${encodeURIComponent(templateId)}/asset?${params.toString()}`,
+      apiPath('/api/system/render/templates/{template_id}/asset', { template_id: templateId }, params),
       { signal },
     )
   }

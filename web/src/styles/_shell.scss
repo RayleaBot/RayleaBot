@@ -1,3 +1,4 @@
+@use './breakpoints.generated' as bp;
 .page-eyebrow {
   margin-bottom: 6px;
   font-size: 13px;
@@ -422,14 +423,14 @@
 
 .admin-layout__search-copy { flex: 1; color: var(--muted); }
 
-@media (min-width: 1051px) {
+@media (min-width: #{bp.$sidebar}) {
   .admin-layout__header-left,
   .admin-layout__header-right {
     flex: 1 1 0;
   }
 }
 
-@media (max-width: 1050px) {
+@media (max-width: #{bp.$sidebar - 1px}) {
   .admin-layout__search-button { width: 36px; margin-inline-end: 0; padding-inline: 0 !important; border: 0; background: transparent; justify-content: center; }
   .admin-layout__search-copy { display: none; }
 }
@@ -459,7 +460,7 @@
 .workspace-tabs__trigger:focus-visible, .workspace-tabs__close:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; border-radius: 5px; }
 .workspace-tabs__close { display: grid; place-items: center; width: 28px; height: 28px; margin-right: 4px; border-radius: 5px; color: var(--muted); }
 .workspace-tabs__close:hover { background: var(--surface-soft); color: var(--text); }
-@media (max-width: 991px) { .admin-layout__sider { display: none; } }
+@media (max-width: #{bp.$desktop - 1px}) { .admin-layout__sider { display: none; } }
 @media (prefers-reduced-motion: reduce), (forced-colors: active) { .admin-layout__sider { transition: none; } }
 
-@media (min-width: 992px) { .admin-layout .app-button.mobile-only { display: none !important; } }
+@media (min-width: #{bp.$desktop}) { .admin-layout .app-button.mobile-only { display: none !important; } }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import { computed, nextTick, provide, ref, watch } from 'vue'
 import { DialogContent, DialogDescription, DialogOverlay, DialogPortal, DialogRoot, DialogTitle } from 'reka-ui'
 import { motion } from 'motion-v'
@@ -104,7 +105,7 @@ function restoreFocus(event: Event) {
                 <DialogTitle class="app-dialog__title">{{ title }}</DialogTitle>
                 <DialogDescription :class="description ? 'app-dialog__description' : 'sr-only'">{{ description || title }}</DialogDescription>
               </div>
-              <AppButton v-if="dismissible" variant="ghost" size="icon" :disabled="busy" aria-label="关闭弹窗" @click="requestClose"><XIcon /></AppButton>
+              <AppButton v-if="dismissible" variant="ghost" size="icon" :disabled="busy" :aria-label="t('ui.closeDialog')" @click="requestClose"><XIcon /></AppButton>
             </header>
             <div ref="body" class="app-dialog__body" :aria-busy="busy || undefined"><div ref="bodyContent" class="app-dialog__body-content"><slot /></div></div>
             <footer v-if="$slots.footer" ref="footer" class="app-dialog__footer"><slot name="footer" /></footer>
@@ -113,7 +114,8 @@ function restoreFocus(event: Event) {
     </DialogPortal>
   </DialogRoot>
 </template>
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .app-dialog-overlay { position: fixed; inset: 0; z-index: 1200; background: color-mix(in srgb, var(--text) 42%, transparent); }
 :global([data-theme=dark]) .app-dialog-overlay { background: color-mix(in srgb, var(--bg) 42%, transparent); }
 .app-dialog { position: fixed; z-index: 1201; top: 50%; left: 50%; translate: -50% -50%; transform-origin: 50% 50%; display: flex; flex-direction: column; max-width: calc(100vw - 32px); max-height: calc(100dvh - 48px); overflow: hidden; background: var(--surface-strong); color: var(--text); border-radius: 16px; box-shadow: var(--shadow-floating); outline: none; }
@@ -130,7 +132,7 @@ function restoreFocus(event: Event) {
 .app-dialog[data-placement=left] { left: 0; }
 .app-dialog[data-placement=bottom] { top: auto; bottom: 0; left: 0; translate: none; max-width: 100vw; max-height: calc(100dvh - 24px); border-radius: 16px 16px 0 0; }
 .app-dialog:not([data-placement=center]) .app-dialog__body { flex: 1; }
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .app-dialog { max-width: calc(100vw - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
   .app-dialog__header { padding: 20px 16px 16px; }
   .app-dialog__body { padding: 0 16px 20px; }

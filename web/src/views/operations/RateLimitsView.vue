@@ -292,6 +292,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .rate-limits-page {
   display: grid;
   gap: 18px;
@@ -557,13 +558,13 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
   line-height: 1.4;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: #{bp.$pluginDetail}) {
   .rate-limits-summary-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: #{bp.$pluginSettings}) {
   .rate-limits-board__header {
     align-items: flex-start;
     flex-direction: column;
@@ -579,7 +580,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: #{bp.$phone}) {
   .rate-limits-summary-cards {
     grid-template-columns: 1fr;
   }

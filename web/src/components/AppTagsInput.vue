@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '@/i18n'
 import { computed, useAttrs } from 'vue'
 import { TagsInputInput, TagsInputItem, TagsInputItemDelete, TagsInputItemText, TagsInputRoot } from 'reka-ui'
 import { XIcon } from '@lucide/vue'
@@ -26,7 +27,7 @@ const delimiter = computed(() => props.separators?.length
   >
     <TagsInputItem v-for="value in model" :key="value" :value="value" class="app-tags-input__item">
       <TagsInputItemText />
-      <TagsInputItemDelete aria-labelledby="" :aria-label="'删除 ' + value" class="app-tags-input__delete"><XIcon :size="14" /></TagsInputItemDelete>
+      <TagsInputItemDelete aria-labelledby="" :aria-label="t('ui.removeValue', { value })" class="app-tags-input__delete"><XIcon :size="14" /></TagsInputItemDelete>
     </TagsInputItem>
     <TagsInputInput
       :id="attrs.id as string || field?.id"
@@ -39,7 +40,8 @@ const delimiter = computed(() => props.separators?.length
     />
   </TagsInputRoot>
 </template>
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .app-tags-input { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 40px; padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-strong); color: var(--text); }
 .app-tags-input:focus-within { border-color: var(--brand-foreground); box-shadow: inset 0 0 0 1px var(--brand-foreground); }
 .app-tags-input__item { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: var(--surface-soft); font-size: 13px; }
@@ -48,6 +50,6 @@ const delimiter = computed(() => props.separators?.length
 .app-tags-input__delete:hover { background: var(--surface-accent); }
 .app-tags-input__entry { flex: 1; width: 8ch; min-width: 8ch; border: 0; outline: none; background: transparent; font-size: 14px; }
 .app-tags-input[data-disabled] { opacity: .5; }
-@media (max-width: 639px), (pointer: coarse) { .app-tags-input { min-height: 44px; } .app-tags-input__delete { min-width: 44px; min-height: 44px; } }
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-tags-input { min-height: 44px; } .app-tags-input__delete { min-width: 44px; min-height: 44px; } }
 @media (forced-colors: active) { .app-tags-input { border-color: CanvasText; } .app-tags-input:focus-within { outline: 2px solid Highlight; outline-offset: var(--focus-outline-offset); box-shadow: none; } }
 </style>

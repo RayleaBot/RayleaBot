@@ -22,8 +22,9 @@ function update(value: string | number) {
     @update:model-value="update"
   />
 </template>
-<style scoped>
+<style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .app-number-input { height: 40px; background: var(--surface-strong); color: var(--text); }
 .app-number-input--floating { height: 56px; min-height: 56px; padding-top: 24px; padding-bottom: 8px; line-height: 22px; }
-@media (max-width: 639px), (pointer: coarse) { .app-number-input { min-height: 44px; } }
+@media (max-width: #{bp.$phone - 1px}), (pointer: coarse) { .app-number-input { min-height: 44px; } }
 </style>

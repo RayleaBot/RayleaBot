@@ -28,6 +28,7 @@ defineExpose({ focus: () => heading.value?.focus() })
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 .auth-panel { width: 100%; padding: 48px 40px 32px; color: var(--auth-text); }
 .auth-panel__header { text-align: center; }
 .auth-panel__mark {
@@ -94,7 +95,7 @@ defineExpose({ focus: () => heading.value?.focus() })
   &:focus-visible { outline: 2px solid var(--auth-focus); outline-offset: var(--focus-outline-offset); }
   &:disabled { opacity: .55; cursor: wait; }
 }
-@media (max-width: 600px) {
+@media (max-width: #{bp.$compactAuth}) {
   .auth-panel { padding: 44px 24px 24px; }
   .auth-panel__mark { margin-bottom: 20px; }
   .auth-panel__title { font-size: 26px; }

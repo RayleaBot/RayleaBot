@@ -144,24 +144,24 @@ function schedulerRowKey(row: SchedulerJobSummary) {
 
 
 // 智能 Cron 中文解析
-function parseCronToChinese(cron?: string): string {
-  if (!cron) return '未配置'
+function formatCronSchedule(cron?: string): string {
+  if (!cron) return t('scheduler.unconfigured')
   const parts = cron.trim().split(/\s+/)
   if (parts.length < 5) return cron
 
   const [min, hour, day, month, week] = parts
 
   if (min === '*' && hour === '*' && day === '*' && month === '*' && week === '*') {
-    return '每分钟'
+    return t('scheduler.everyMinute')
   }
   if (min.startsWith('*/') && hour === '*' && day === '*' && month === '*' && week === '*') {
-    return `每 ${min.substring(2)} 分钟`
+    return t('scheduler.everyMinutes', { count: min.substring(2) })
   }
   if (min === '0' && hour.startsWith('*/') && day === '*' && month === '*' && week === '*') {
-    return `每 ${hour.substring(2)} 小时整`
+    return t('scheduler.everyHours', { count: hour.substring(2) })
   }
   if (!min.includes('*') && !min.includes('/') && !hour.includes('*') && !hour.includes('/') && day === '*' && month === '*' && week === '*') {
-    return `每天 ${hour.padStart(2, '0')}:${min.padStart(2, '0')}`
+    return t('scheduler.everyDayAt', { time: `${hour.padStart(2, '0')}:${min.padStart(2, '0')}` })
   }
   return cron
 }
@@ -172,22 +172,22 @@ function getNextRunRelativeText(nextRunTime?: string) {
   const next = new Date(nextRunTime).getTime()
   const now = Date.now()
   const diffMs = next - now
-  if (diffMs <= 0) return '即将执行'
+  if (diffMs <= 0) return t('scheduler.dueSoon')
   const diffMin = Math.round(diffMs / 60000)
   if (diffMin < 1) {
     const diffSec = Math.round(diffMs / 1000)
-    return `${diffSec > 0 ? diffSec : 1} 秒后`
+    return t('scheduler.inSeconds', { count: diffSec > 0 ? diffSec : 1 })
   }
   if (diffMin < 60) {
-    return `${diffMin} 分钟后`
+    return t('scheduler.inMinutes', { count: diffMin })
   }
   const diffHour = Math.floor(diffMin / 60)
   const remainMin = diffMin % 60
   if (diffHour < 24) {
-    return `${diffHour} 小时 ${remainMin} 分钟后`
+    return t('scheduler.inHoursMinutes', { hours: diffHour, minutes: remainMin })
   }
   const diffDay = Math.floor(diffHour / 24)
-  return `${diffDay} 天后`
+  return t('scheduler.inDays', { count: diffDay })
 }
 
 // 健康百分比及 Conic-gradient 环形算法
@@ -197,8 +197,8 @@ function getSuccessRate(stats: SchedulerJobRunStats): number {
 }
 
 function successRateText(stats: SchedulerJobRunStats): string {
-  if (!stats.total) return '未执行'
-  return `${getSuccessRate(stats)}% 成功`
+  if (!stats.total) return t('scheduler.notRun')
+  return t('scheduler.successRate', { rate: getSuccessRate(stats) })
 }
 
 function getHealthRingStyle(stats: SchedulerJobRunStats) {
@@ -213,9 +213,9 @@ async function copyToClipboard(text?: string) {
   if (!text) return
   try {
     await navigator.clipboard.writeText(text)
-    notifySuccess('错误信息已复制到剪切板')
+    notifySuccess(t('scheduler.errorCopied'))
   } catch {
-    notifyError('复制失败，请手动选择复制')
+    notifyError(t('ui.clipboard.copyFailed'))
   }
 }
 
@@ -231,9 +231,9 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
       <div class="filter-left">
         <AppInput
           v-model="searchQuery" :maxlength="200"
-          placeholder="搜索插件、任务或自定义内容..."
+          :placeholder="t('scheduler.searchPlaceholder')"
           allow-clear
-          wrapper-class="filter-search-input" aria-label="搜索定时任务"
+          wrapper-class="filter-search-input" :aria-label="t('scheduler.searchLabel')"
         >
           <template #prefix>
             <SearchIcon class="search-icon" />
@@ -243,21 +243,21 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
         <AppSegmented
           v-model="statusFilter"
           :options="[
-            { label: '全部', value: 'all' },
-            { label: '正常运行', value: 'success' },
-            { label: '异常警告', value: 'error' },
+            { label: t('scheduler.filterAll'), value: 'all' },
+            { label: t('scheduler.healthy'), value: 'success' },
+            { label: t('scheduler.filterError'), value: 'error' },
           ]"
-          class="filter-segmented" aria-label="定时任务状态"
+          class="filter-segmented" :aria-label="t('scheduler.filterLabel')"
         />
       </div>
 
       <div class="filter-right">
         <div class="sort-wrapper">
-          <span class="sort-label">排序方式:</span>
-          <AppSelect v-model="sortBy" wrapper-class="sort-select" aria-label="排序方式" :options="[
-            { value: 'name', label: '按任务字母排序' },
-            { value: 'last_run', label: '按最近执行时间' },
-            { value: 'duration', label: '按执行耗时排序' },
+          <span class="sort-label">{{ t('scheduler.sortCaption') }}</span>
+          <AppSelect v-model="sortBy" wrapper-class="sort-select" :aria-label="t('scheduler.sortLabel')" :options="[
+            { value: 'name', label: t('scheduler.sortName') },
+            { value: 'last_run', label: t('scheduler.sortLastRun') },
+            { value: 'duration', label: t('scheduler.sortDuration') },
           ]" />
         </div>
 
@@ -282,7 +282,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
       v-else-if="filteredItems.length === 0"
       icon="box"
       :title="t('scheduler.empty.title')"
-      :description="searchQuery ? '未找到符合筛选条件的定时任务' : t('scheduler.empty.description')"
+      :description="searchQuery ? t('scheduler.noMatches') : t('scheduler.empty.description')"
     />
 
     <!-- 任务表格 -->
@@ -292,7 +292,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
         :columns="tableColumns"
         :rows="filteredItems"
         :row-key="schedulerRowKey"
-       :min-width="1450" label="定时任务">
+       :min-width="1450" :label="t('scheduler.title')">
         <template #empty>
           {{ t('display.empty') }}
         </template>
@@ -308,9 +308,9 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                   <span class="task-tag">{{ record.task_name }}</span>
                 </div>
                 <div class="bottom-row">
-                  <span class="plugin-id" title="插件 ID">{{ record.plugin_id }}</span>
+                  <span class="plugin-id" :title="t('scheduler.pluginId')">{{ record.plugin_id }}</span>
                   <span class="divider">/</span>
-                  <span class="job-id" title="任务 ID">{{ record.job_id }}</span>
+                  <span class="job-id" :title="t('scheduler.jobId')">{{ record.job_id }}</span>
                 </div>
               </div>
             </div>
@@ -330,7 +330,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                   </span>
                 </template>
                 <template v-else>
-                  <span class="conv-badge global">全局会话</span>
+                  <span class="conv-badge global">{{ t('scheduler.globalConversation') }}</span>
                 </template>
               </div>
             </div>
@@ -339,8 +339,8 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
           <!-- 3. 定时计划与下一次执行列 -->
           <template v-else-if="column.key === 'cron'">
             <div class="scheduler-cell-cron-next">
-              <div class="cron-expr-row" :title="`表达式: ${record.cron_expr} (${record.timezone})`">
-                <span class="chinese-cron">{{ parseCronToChinese(record.cron_expr) }}</span>
+              <div class="cron-expr-row" :title="t('scheduler.expression', { expression: record.cron_expr, timeZone: record.timezone })">
+                <span class="chinese-cron">{{ formatCronSchedule(record.cron_expr) }}</span>
                 <span class="raw-cron">{{ record.cron_expr }}</span>
               </div>
               <div class="next-run-row">
@@ -359,7 +359,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
           <template v-else-if="column.key === 'lastRun'">
             <div class="scheduler-cell-run-duration">
               <div class="last-run-time">
-                {{ record.last_run ? formatDateTime(record.last_run) : '尚未执行' }}
+                {{ record.last_run ? formatDateTime(record.last_run) : t('scheduler.neverRun') }}
               </div>
               <div class="duration-row" v-if="record.last_run">
                 <span class="duration-badge" :class="getDurationClass(record.last_duration_ms)">
@@ -382,23 +382,23 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                 <div
                   class="bar-success"
                   :style="{ width: `${(record.stats.success / record.stats.total) * 100}%` }"
-                  :title="`成功: ${record.stats.success}次`"
+                  :title="t('scheduler.stats.success', { count: record.stats.success })"
                 ></div>
                 <div
                   class="bar-failed"
                   :style="{ width: `${(record.stats.failed / record.stats.total) * 100}%` }"
-                  :title="`失败: ${record.stats.failed}次`"
+                  :title="t('scheduler.stats.failed', { count: record.stats.failed })"
                 ></div>
                 <div
                   class="bar-other"
                   :style="{ width: `${((record.stats.total - record.stats.success - record.stats.failed) / record.stats.total) * 100}%` }"
-                  :title="`其他: ${record.stats.total - record.stats.success - record.stats.failed}次`"
+                  :title="t('scheduler.stats.other', { count: record.stats.total - record.stats.success - record.stats.failed })"
                 ></div>
               </div>
 
               <!-- 错误气泡 -->
               <div class="error-badge-row" v-if="record.last_error">
-                <AppPopover title="最近运行错误" side="left">
+                <AppPopover :title="t('scheduler.recentError')" side="left">
                   <template #content>
                     <div class="error-popover-content">
                       <div class="err-title">
@@ -408,7 +408,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                       <div class="err-msg">{{ record.last_error.message }}</div>
                       <AppButton size="sm" variant="link" class="copy-err-btn" @click="copyToClipboard(`${record.last_error.code}: ${record.last_error.message}`)">
                         <template #icon><CopyIcon /></template>
-                        复制错误信息
+                        {{ t('scheduler.copyError') }}
                       </AppButton>
                     </div>
                   </template>
@@ -418,7 +418,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                 </AppPopover>
               </div>
               <div class="success-dot-row" v-else-if="record.stats.total > 0">
-                <span class="success-dot"><CheckIcon class="ok-icon" /> 正常运行</span>
+                <span class="success-dot"><CheckIcon class="ok-icon" /> {{ t('scheduler.healthy') }}</span>
               </div>
             </div>
           </template>
@@ -447,7 +447,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
           </template>
         </template>
       </AppDataTable>
-      <div class="scheduler-mobile-list" aria-label="定时任务列表">
+      <div class="scheduler-mobile-list" :aria-label="t('scheduler.listLabel')">
         <article v-for="job in filteredItems" :key="job.job_id" class="scheduler-mobile-row">
           <div class="scheduler-mobile-row__heading">
             <div>
@@ -455,13 +455,13 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
               <span>{{ job.task_name }}</span>
             </div>
             <AppTag :tone="job.last_error ? 'danger' : 'success'">
-              {{ job.last_error ? job.last_error.code : '正常' }}
+              {{ job.last_error ? job.last_error.code : t('scheduler.normal') }}
             </AppTag>
           </div>
           <dl>
-            <div><dt>计划</dt><dd>{{ parseCronToChinese(job.cron_expr) }}</dd></div>
-            <div><dt>下次执行</dt><dd>{{ formatDateTime(job.next_run) }}</dd></div>
-            <div><dt>最近耗时</dt><dd>{{ formatDurationMs(job.last_duration_ms) }}</dd></div>
+            <div><dt>{{ t('scheduler.schedule') }}</dt><dd>{{ formatCronSchedule(job.cron_expr) }}</dd></div>
+            <div><dt>{{ t('scheduler.nextExecution') }}</dt><dd>{{ formatDateTime(job.next_run) }}</dd></div>
+            <div><dt>{{ t('scheduler.recentDuration') }}</dt><dd>{{ formatDurationMs(job.last_duration_ms) }}</dd></div>
           </dl>
           <div class="scheduler-mobile-row__actions">
             <AppButton @click="showJobDetail(job)">{{ t('scheduler.view') }}</AppButton>
@@ -481,7 +481,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
 
     <AppCollectionPagination :loaded="sortedItems.length" :total="total" :next-cursor="nextCursor" :loading="loadingMore || loading" @more="schedulerStore.loadMore().catch(() => undefined)" />
 
-    <AppDialog :open="detailVisible" title="定时任务详情" :width="800" @close="closeJobDetail" @after-close="finishJobDetailClose">
+    <AppDialog :open="detailVisible" :title="t('scheduler.detailTitle')" :width="800" @close="closeJobDetail" @after-close="finishJobDetailClose">
                 <div
                   v-if="currentJob"
                   key="content"
@@ -490,47 +490,47 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                 <!-- 左侧：系统参数面板 -->
                 <div class="console-pane-left">
                   <div class="pane-group">
-                    <div class="pane-group-title">标识与归属</div>
+                    <div class="pane-group-title">{{ t('scheduler.identitySection') }}</div>
                     <div class="info-block">
-                      <span class="label">插件模块</span>
+                      <span class="label">{{ t('scheduler.pluginModule') }}</span>
                       <span class="value bold">{{ pluginName(currentJob) }}<span class="sr-only"> / </span></span>
                       <span class="sub-val">{{ currentJob.plugin_id }}</span>
                     </div>
                     <div class="info-block">
-                      <span class="label">任务名称</span>
+                      <span class="label">{{ t('scheduler.taskName') }}</span>
                       <span class="value bold">{{ currentJob.task_name }}<span class="sr-only"> / </span></span>
                       <span class="sub-val">{{ currentJob.job_id }}</span>
                     </div>
                   </div>
 
                   <div class="pane-group">
-                    <div class="pane-group-title">执行调度配置</div>
+                    <div class="pane-group-title">{{ t('scheduler.scheduleSection') }}</div>
                     <div class="info-block inline">
                       <div>
-                        <span class="label">Cron 规则</span>
+                        <span class="label">{{ t('scheduler.cronRule') }}</span>
                         <span class="value code">{{ currentJob.cron_expr }}</span>
                       </div>
                       <div>
-                        <span class="label">时区</span>
+                        <span class="label">{{ t('scheduler.timeZone') }}</span>
                         <span class="value code">{{ currentJob.timezone }}</span>
                       </div>
                     </div>
                     <div class="info-block">
-                      <span class="label">智能中文语义</span>
-                      <span class="value highlight">{{ parseCronToChinese(currentJob.cron_expr) }}</span>
+                      <span class="label">{{ t('scheduler.scheduleMeaning') }}</span>
+                      <span class="value highlight">{{ formatCronSchedule(currentJob.cron_expr) }}</span>
                     </div>
                   </div>
 
                   <div class="pane-group">
-                    <div class="pane-group-title">上下文载荷</div>
+                    <div class="pane-group-title">{{ t('scheduler.contextSection') }}</div>
                     <div class="info-block inline">
                       <div>
-                        <span class="label">会话 ID</span>
-                        <span class="value code">{{ conversationText(currentJob) || 'N/A (全局任务)' }}</span>
+                        <span class="label">{{ t('scheduler.fields.conversation') }}</span>
+                        <span class="value code">{{ conversationText(currentJob) || t('scheduler.globalTask') }}</span>
                       </div>
                     </div>
                     <div class="info-block">
-                      <span class="label">内容标识</span>
+                      <span class="label">{{ t('scheduler.contentLabel') }}</span>
                       <span class="value">{{ displayText(currentJob.log_label || currentJob.payload_summary.content) }}</span>
                     </div>
                   </div>
@@ -538,14 +538,14 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
 
                 <!-- 右侧：健康运行分析仪 -->
                 <div class="console-pane-right">
-                  <div class="pane-group-title">运行状态分析</div>
+                  <div class="pane-group-title">{{ t('scheduler.healthSection') }}</div>
 
                   <div class="health-instrument">
                     <!-- 仪表圆环 -->
                     <div class="health-gauge" :style="getHealthRingStyle(currentJob.stats)">
                       <div class="gauge-center">
                         <span class="gauge-pct">{{ currentJob.stats.total ? `${getSuccessRate(currentJob.stats)}%` : '-' }}</span>
-                        <span class="gauge-desc">健康度</span>
+                        <span class="gauge-desc">{{ t('scheduler.health') }}</span>
                       </div>
                     </div>
 
@@ -553,43 +553,43 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                     <div class="gauge-stats-list">
                       <div class="stat-item success">
                         <CircleCheckIcon />
-                        <span class="lbl">成功执行</span>
-                        <span class="val">{{ currentJob.stats.success }} 次</span>
+                        <span class="lbl">{{ t('scheduler.successRuns') }}</span>
+                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.success }) }}</span>
                       </div>
                       <div class="stat-item failed">
                         <CircleXIcon />
-                        <span class="lbl">失败运行</span>
-                        <span class="val">{{ currentJob.stats.failed }} 次</span>
+                        <span class="lbl">{{ t('scheduler.failedRuns') }}</span>
+                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.failed }) }}</span>
                       </div>
                       <div class="stat-item warning">
                         <ClockIcon />
-                        <span class="lbl">执行超时</span>
-                        <span class="val">{{ currentJob.stats.timeout }} 次</span>
+                        <span class="lbl">{{ t('scheduler.timeoutRuns') }}</span>
+                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.timeout }) }}</span>
                       </div>
                       <div class="stat-item other">
                         <InfoIcon />
-                        <span class="lbl">重试次数</span>
-                        <span class="val">{{ currentJob.stats.retry }} 次</span>
+                        <span class="lbl">{{ t('scheduler.retryRuns') }}</span>
+                        <span class="val">{{ t('scheduler.runCount', { count: currentJob.stats.retry }) }}</span>
                       </div>
                     </div>
                   </div>
 
                   <div class="pane-group margin-top">
-                    <div class="pane-group-title">时间与性能</div>
+                    <div class="pane-group-title">{{ t('scheduler.performanceSection') }}</div>
                     <div class="info-block inline">
                       <div>
-                        <span class="label">上一次执行</span>
-                        <span class="value small-text">{{ currentJob.last_run ? formatDateTime(currentJob.last_run) : '未跑' }}</span>
+                        <span class="label">{{ t('scheduler.previousRun') }}</span>
+                        <span class="value small-text">{{ currentJob.last_run ? formatDateTime(currentJob.last_run) : t('scheduler.notStarted') }}</span>
                       </div>
                       <div>
-                        <span class="label">单次耗时</span>
+                        <span class="label">{{ t('scheduler.runDuration') }}</span>
                         <span class="value highlight">{{ formatDurationMs(currentJob.last_duration_ms) }}</span>
                       </div>
                     </div>
                     <div class="info-block">
-                      <span class="label">下一次预计调度</span>
+                      <span class="label">{{ t('scheduler.scheduledNextRun') }}</span>
                       <span class="value small-text">
-                        {{ currentJob.next_run ? formatDateTime(currentJob.next_run) : '未排期' }}
+                        {{ currentJob.next_run ? formatDateTime(currentJob.next_run) : t('scheduler.notScheduled') }}
                         <span class="rel-time" v-if="currentJob.next_run">({{ getNextRunRelativeText(currentJob.next_run) }})</span>
                       </span>
                     </div>
@@ -599,14 +599,14 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
                   <div class="console-error-report" v-if="currentJob.last_error">
                     <div class="report-head">
                       <TriangleAlertIcon />
-                      <span>运行故障报告</span>
+                      <span>{{ t('scheduler.errorReport') }}</span>
                     </div>
                     <div class="report-body">
-                      <div class="err-code">错误代码: <code>{{ currentJob.last_error.code }}</code></div>
+                      <div class="err-code">{{ t('scheduler.errorCode') }} <code>{{ currentJob.last_error.code }}</code></div>
                       <p class="err-msg">{{ currentJob.last_error.message }}</p>
                       <AppButton size="sm" class="copy-console-err-btn" @click="copyToClipboard(`${currentJob.last_error.code}: ${currentJob.last_error.message}`)" variant="destructive">
                         <template #icon><CopyIcon /></template>
-                        复制报错诊断堆栈
+                        {{ t('scheduler.copyDiagnosis') }}
                       </AppButton>
                     </div>
                   </div>
@@ -617,6 +617,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/breakpoints.generated' as bp;
 .lucide { width: 16px; height: 16px; flex-shrink: 0; }
 .error-capsule:focus-visible { outline: 2px solid var(--focus); outline-offset: var(--focus-outline-offset); }
 .scheduler-page-container {
@@ -774,7 +775,7 @@ watch([searchQuery, statusFilter, sortBy], () => { void loadSchedulerJobs() })
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 639px) {
+@media (max-width: #{bp.$phone - 1px}) {
   .scheduler-data-table {
     display: none;
   }

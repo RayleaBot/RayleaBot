@@ -761,6 +761,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped lang="scss">
+@use '@/styles/breakpoints.generated' as bp;
 :deep(.app-card) {
   box-shadow: var(--shadow-xs);
   border-radius: var(--radius-lg);
@@ -804,7 +805,7 @@ onUnmounted(() => {
   flex: 0 0 auto;
 }
 
-@media (min-width: 1025px) {
+@media (min-width: #{bp.$navigation + 1px}) {
   .plugin-detail-panel-switch--sidebar-owned {
     display: none;
   }
@@ -1562,13 +1563,13 @@ onUnmounted(() => {
 }
 
 /* Responsive queries */
-@media (max-width: 1180px) {
+@media (max-width: #{bp.$pluginDetail}) {
   .plugin-detail-summary-stack {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: #{bp.$pluginSettings}) {
   .plugin-detail-hero,
   .plugin-detail-status-chips,
   .plugin-detail-hero__facts,
@@ -1582,7 +1583,7 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: #{bp.$compactPanel}) {
   .plugin-detail-back-button {
     width: 44px;
     min-width: 44px;

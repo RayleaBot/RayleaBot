@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -192,7 +193,7 @@ describe('ManagedSocket', () => {
     expect(latestUpdate(updates)).toEqual({
       status: 'reconnecting',
       detail: {
-        lastError: 'events 连接异常',
+        lastError: t('display.connectionErrors.connectionFailed', { channel: t('display.connectionChannels.events') }),
         lastErrorAt: '2026-03-17T09:33:00.000Z',
         nextBackoffMs: 500,
       },
@@ -230,7 +231,7 @@ describe('ManagedSocket', () => {
     firstInstance.emit('open')
     firstInstance.emit('message', 'not-json')
 
-    expect(latestUpdate(updates).detail.lastError).toBe('events 收到无效消息')
+    expect(latestUpdate(updates).detail.lastError).toBe(t('display.connectionErrors.invalidMessage', { channel: t('display.connectionChannels.events') }))
     expect(latestUpdate(updates).status).toBe('reconnecting')
 
     vi.advanceTimersByTime(500)
