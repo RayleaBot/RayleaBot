@@ -28,7 +28,7 @@ const {
 
 const selectedAdapterId = ref('')
 const adapterOptions = computed(() => [
-  { label: '选择 OneBot 连接', value: '' },
+  { label: t('protocols.compatibilityPanel.selectConnection'), value: '' },
   ...adapters.value.filter(adapter => adapter.protocol === 'onebot11').map(adapter => ({ label: adapter.display_name, value: adapter.id })),
 ])
 const selectedAdapter = computed(() => adapters.value.find(adapter => adapter.id === selectedAdapterId.value))
@@ -47,7 +47,7 @@ const pageLoading = computed(() => protocolsLoading.value || compatibilityLoadin
 const pageError = computed(() => protocolsError.value || compatibilityError.value)
 const matrixSections = computed(() => matrix.value?.categories ?? [])
 const categoryOptions = computed(() => [
-  { label: '全部能力', value: 'all' },
+  { label: t('protocols.compatibilityPanel.allCapabilities'), value: 'all' },
   ...matrixSections.value.map((section) => ({ label: section.title, value: section.key })),
 ])
 const filteredMatrixSections = computed(() => {
@@ -152,12 +152,12 @@ function providerColumnClass(provider: string) {
 </script>
 
 <template>
-  <section aria-label="协议兼容能力">
+  <section :aria-label="t('protocols.compatibilityPanel.region')">
     <div class="protocol-compatibility-page" data-testid="protocol-compatibility-page">
-      <AppSelect v-model="selectedAdapterId" :options="adapterOptions" aria-label="查看连接实例的兼容信息" />
+      <AppSelect v-model="selectedAdapterId" :options="adapterOptions" :aria-label="t('protocols.compatibilityPanel.selectAria')" />
       <details v-if="snapshot" class="protocol-provider-details">
         <summary>{{ selectedAdapter?.display_name }}：{{ currentProviderLabel }}</summary>
-        <section class="protocol-overview-band" aria-label="所选 OneBot 实例运行摘要">
+        <section class="protocol-overview-band" :aria-label="t('protocols.compatibilityPanel.overviewAria')">
         <div class="protocol-overview-item">
           <span>{{ t('protocols.overviewTitle') }}</span>
           <strong>{{ currentProviderLabel }}</strong>
@@ -177,7 +177,7 @@ function providerColumnClass(provider: string) {
       </details>
 
       <AppAlert v-if="pageError && matrixSections.length === 0" :title="t('protocols.compatibilityTitle')" :description="pageError" tone="danger">
-        <template #action><AppButton :loading="pageLoading" @click="loadPage">重试</AppButton></template>
+        <template #action><AppButton :loading="pageLoading" @click="loadPage">{{ t('protocols.retry') }}</AppButton></template>
       </AppAlert>
 
       <section v-else class="protocol-compatibility-surface">
@@ -185,17 +185,17 @@ function providerColumnClass(provider: string) {
           <AppSelect
             v-model="selectedCategory"
             :options="categoryOptions"
-            aria-label="能力分类"
+            :aria-label="t('protocols.compatibilityPanel.categoryAria')"
           />
           <AppInput
             v-model="compatibilitySearch"
-            aria-label="筛选兼容能力"
-            placeholder="筛选能力名称、标识或说明"
+            :aria-label="t('protocols.compatibilityPanel.searchAria')"
+            :placeholder="t('protocols.compatibilityPanel.searchPlaceholder')"
           />
         </div>
 
-        <p class="protocol-compatibility-scroll-hint">横向滚动可查看各连接端的支持情况。</p>
-        <div v-if="filteredMatrixSections.length > 0" class="protocol-compatibility-table-wrap" tabindex="0" role="region" aria-label="兼容能力表，可横向滚动">
+        <p class="protocol-compatibility-scroll-hint">{{ t('protocols.compatibilityPanel.scrollHint') }}</p>
+        <div v-if="filteredMatrixSections.length > 0" class="protocol-compatibility-table-wrap" tabindex="0" role="region" :aria-label="t('protocols.compatibilityPanel.tableAria')">
           <table class="protocol-compatibility-table">
             <colgroup><col class="capability-column"><col class="provider-column"><col class="provider-column"><col class="provider-column"><col></colgroup>
             <thead>
@@ -240,7 +240,7 @@ function providerColumnClass(provider: string) {
         </div>
 
         <div v-else class="protocol-compatibility-empty" role="status">
-          没有匹配的兼容能力。
+          {{ t('protocols.compatibilityPanel.empty') }}
         </div>
       </section>
     </div>

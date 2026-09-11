@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import type { EventsPayload } from '@/types/api'
 
 export function formatDashboardEventSummary(payload: EventsPayload): string | null {
@@ -18,7 +19,7 @@ export function formatDashboardEventSummary(payload: EventsPayload): string | nu
   }
 
   if ('event_type' in payload) {
-    return summaryOrFallback(payload.summary, '管理事件已更新')
+    return summaryOrFallback(payload.summary, t('dashboard.eventSummary.managementUpdated'))
   }
 
   return null
@@ -28,40 +29,40 @@ function connectionSummary(status: string) {
   switch (status) {
     case 'connected':
     case 'authenticated':
-      return '协议连接正常'
+      return t('dashboard.eventSummary.connection.connected')
     case 'connecting':
-      return '协议正在连接'
+      return t('dashboard.eventSummary.connection.connecting')
     case 'reconnecting':
-      return '协议正在重连'
+      return t('dashboard.eventSummary.connection.reconnecting')
     case 'auth_failed':
-      return '协议鉴权失败，请检查访问令牌'
+      return t('dashboard.eventSummary.connection.authFailed')
     case 'disconnected':
-      return '协议连接已断开'
+      return t('dashboard.eventSummary.connection.disconnected')
     default:
-      return '协议状态已更新'
+      return t('dashboard.eventSummary.connection.updated')
   }
 }
 
 function pluginSummary(payload: Extract<EventsPayload, { plugin_id: string }>) {
-  const pluginID = payload.plugin_id
+  const pluginId = payload.plugin_id
 
   switch (payload.state) {
     case 'running':
-      return `插件 ${pluginID} 运行中`
+      return t('dashboard.eventSummary.plugin.running', { pluginId })
     case 'starting':
-      return `插件 ${pluginID} 启动中`
+      return t('dashboard.eventSummary.plugin.starting', { pluginId })
     case 'stopping':
-      return `插件 ${pluginID} 停止中`
+      return t('dashboard.eventSummary.plugin.stopping', { pluginId })
     case 'enabled':
-      return `插件 ${pluginID} 已启用`
+      return t('dashboard.eventSummary.plugin.enabled', { pluginId })
     case 'disabled':
-      return `插件 ${pluginID} 已停用`
+      return t('dashboard.eventSummary.plugin.disabled', { pluginId })
     case 'failed':
-      return `插件 ${pluginID} 运行异常`
+      return t('dashboard.eventSummary.plugin.failed', { pluginId })
     case 'invalid':
-      return `插件 ${pluginID} 清单异常`
+      return t('dashboard.eventSummary.plugin.invalid', { pluginId })
     default:
-      return `插件 ${pluginID} 状态已更新`
+      return t('dashboard.eventSummary.plugin.updated', { pluginId })
   }
 }
 
@@ -70,21 +71,21 @@ function serviceSummary(status: string, rawReason: string | undefined) {
 
   switch (status) {
     case 'running':
-      return reason || '服务运行中'
+      return reason || t('dashboard.eventSummary.service.running')
     case 'starting':
-      return '服务启动中'
+      return t('dashboard.eventSummary.service.starting')
     case 'stopping':
-      return '服务正在停止'
+      return t('dashboard.eventSummary.service.stopping')
     case 'stopped':
-      return '服务已停止'
+      return t('dashboard.eventSummary.service.stopped')
     case 'degraded':
-      return reason || '服务运行条件受限'
+      return reason || t('dashboard.eventSummary.service.degraded')
     case 'failed':
-      return reason || '服务运行异常'
+      return reason || t('dashboard.eventSummary.service.failed')
     case 'setup_required':
-      return '服务等待初始化'
+      return t('dashboard.eventSummary.service.setupRequired')
     default:
-      return reason || '服务状态已更新'
+      return reason || t('dashboard.eventSummary.service.updated')
   }
 }
 

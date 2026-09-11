@@ -280,7 +280,7 @@ async function reloadPlugin(pluginId: string) {
             @action="installDialogVisible = true"
           />
 
-          <div v-else class="plugins-grid" aria-label="插件列表">
+          <div v-else class="plugins-grid" :aria-label="t('plugins.title')">
             <article v-for="item in filteredItems" :key="item.id" class="plugin-grid-card">
               <header class="plugin-card__header">
                 <PluginIcon :refresh-key="pluginsStore.iconRevision" :plugin-id="item.id" :icon="item.icon" :version="item.version" />
@@ -290,7 +290,7 @@ async function reloadPlugin(pluginId: string) {
                   </button>
                   <span v-if="item.version" class="plugin-card__version" :title="item.version">{{ formatPluginVersion(item.version) }}</span>
                 </div>
-                <AppStatusTag :status="item.state" :label="getPluginStateLabel(item.state)" :aria-label="`状态：${getPluginStateLabel(item.state)}`" />
+                <AppStatusTag :status="item.state" :label="getPluginStateLabel(item.state)" :aria-label="t('plugins.stateAria', { state: getPluginStateLabel(item.state) })" />
               </header>
 
               <p class="plugin-card__description" :title="getOptionalDisplayText(item.description)">
@@ -307,7 +307,7 @@ async function reloadPlugin(pluginId: string) {
                   v-for="notice in getPluginHealthNotices(item)"
                   :key="notice.label"
                   :tone="getTagColor(notice.tone)"
-                  :aria-label="`健康状态：${notice.label}`"
+                  :aria-label="t('plugins.health.aria', { label: notice.label })"
                 >
                   {{ notice.label }}
                 </AppTag>
@@ -372,7 +372,7 @@ async function reloadPlugin(pluginId: string) {
         </AppInput>
         <AppSegmented v-model="filterState" :options="stateOptions" :label="t('plugins.filter.title')" class="filter-radio-group" />
         <AppSelect v-model="filterSource" :options="sourceOptions" :aria-label="t('plugins.filter.sourceAll')" wrapper-class="filter-select" />
-        <AppButton variant="default" @click="filterDrawerVisible = false">完成</AppButton>
+        <AppButton variant="default" @click="filterDrawerVisible = false">{{ t('plugins.filter.done') }}</AppButton>
       </div>
     </AppDrawer>
 
@@ -402,35 +402,35 @@ async function reloadPlugin(pluginId: string) {
         <template v-if="installInspection">
           <AppAlert
             tone="warning"
-            title="第三方插件是完全可信的本地代码"
-            description="原生插件进程使用当前用户权限运行。仅安装来源、平台、摘要和权限均符合预期的代码。"
+            :title="t('plugins.inspection.trustTitle')"
+            :description="t('plugins.inspection.trustDescription')"
           />
 
           <AppDetails class="install-inspection">
-            <AppDetailItem label="插件">{{ installInspection.plugin.name }}（{{ installInspection.plugin.id }}）</AppDetailItem>
-            <AppDetailItem label="版本">{{ installInspection.plugin.version }}</AppDetailItem>
-            <AppDetailItem label="作者">{{ installInspection.plugin.author }}</AppDetailItem>
-            <AppDetailItem label="许可证">{{ installInspection.plugin.license }}</AppDetailItem>
-            <AppDetailItem label="来源">{{ installInspection.plugin.source_label }}</AppDetailItem>
-            <AppDetailItem label="包摘要"><code>{{ installInspection.package_sha256 }}</code></AppDetailItem>
-            <AppDetailItem label="目标平台">{{ installInspection.target_platform }}</AppDetailItem>
-            <AppDetailItem label="后端"><code>{{ installInspection.backend.path }}</code> · {{ installInspection.backend.size }} bytes</AppDetailItem>
-            <AppDetailItem label="管理页面">{{ installInspection.ui.enabled ? `${installInspection.ui.entry}（${installInspection.ui.file_count} 个文件）` : '无' }}</AppDetailItem>
-            <AppDetailItem label="Artifact 校验">{{ installInspection.artifact.valid ? `v${installInspection.artifact.artifact_version} · ${installInspection.artifact.file_count} 个文件` : '未通过' }}</AppDetailItem>
-            <AppDetailItem label="有效期">{{ installInspection.expires_at }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.plugin')">{{ t('plugins.inspection.pluginValue', { name: installInspection.plugin.name, id: installInspection.plugin.id }) }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.version')">{{ installInspection.plugin.version }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.author')">{{ installInspection.plugin.author }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.license')">{{ installInspection.plugin.license }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.fields.source')">{{ installInspection.plugin.source_label }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.packageDigest')"><code>{{ installInspection.package_sha256 }}</code></AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.targetPlatform')">{{ installInspection.target_platform }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.backend')"><code>{{ installInspection.backend.path }}</code> · {{ installInspection.backend.size }} bytes</AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.managementPage')">{{ installInspection.ui.enabled ? t('plugins.inspection.managementPageValue', { entry: installInspection.ui.entry, count: installInspection.ui.file_count }) : t('plugins.inspection.none') }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.artifact')">{{ installInspection.artifact.valid ? t('plugins.inspection.artifactValue', { version: installInspection.artifact.artifact_version, count: installInspection.artifact.file_count }) : t('plugins.inspection.artifactInvalid') }}</AppDetailItem>
+            <AppDetailItem :label="t('plugins.inspection.expiresAt')">{{ installInspection.expires_at }}</AppDetailItem>
           </AppDetails>
 
           <div class="install-inspection-list">
-            <strong>声明权限</strong>
+            <strong>{{ t('plugins.inspection.permissions') }}</strong>
             <div>
               <AppTag v-for="permission in inspectionPermissionNames" :key="permission">{{ permission }}</AppTag>
-              <span v-if="inspectionPermissionNames.length === 0">未声明额外权限</span>
+              <span v-if="inspectionPermissionNames.length === 0">{{ t('plugins.store.confirm.noPermissions') }}</span>
             </div>
           </div>
 
           <div class="app-field-group">
             <AppCheckbox v-model="trustedCodeConfirmed">
-              我已核对来源、目标平台、artifact 摘要和权限，并信任此代码使用本机当前用户权限运行。
+              {{ t('plugins.inspection.confirmTrust') }}
             </AppCheckbox>
           </div>
         </template>
@@ -438,7 +438,7 @@ async function reloadPlugin(pluginId: string) {
       <template #footer>
         <div class="flex justify-end gap-3">
           <AppButton :disabled="inspectionPending || installPending" @click="installDialogVisible = false">{{ t('dashboard.previewCancel') }}</AppButton>
-          <AppButton variant="default" :loading="inspectionPending || installPending" :disabled="!installForm.source.trim() || Boolean(installInspection && !trustedCodeConfirmed)" @click="submitInstall">{{ installInspection ? t('plugins.installSubmit') : '检查插件包' }}</AppButton>
+          <AppButton variant="default" :loading="inspectionPending || installPending" :disabled="!installForm.source.trim() || Boolean(installInspection && !trustedCodeConfirmed)" @click="submitInstall">{{ installInspection ? t('plugins.installSubmit') : t('plugins.inspection.inspect') }}</AppButton>
         </div>
       </template>
     </AppDialog>

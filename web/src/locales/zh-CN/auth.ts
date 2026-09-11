@@ -37,6 +37,15 @@ export const auth = {
   feedback: {
     loginSuccess: '已登录',
     setupSuccess: '管理员账号已创建',
+    loginDenied: '登录未完成，请检查管理员账号和密钥。',
+    loginInvalid: '登录请求未完成，请检查输入后重试。',
+    loginFailed: '登录未完成，请稍后重试。',
+    serviceUnreachable: '暂时无法连接管理界面，请确认服务已经启动。',
+    setupInitialized: '当前环境已经完成初始化，请直接登录。',
+    setupInvalid: '创建管理员账号未完成，请检查输入后重试。',
+    setupFailed: '创建管理员账号未完成，请稍后重试。',
+    bootstrapUnknown: '暂时无法确认管理界面状态，请稍后重试。',
+    bootstrapUnavailable: '管理界面暂时不可用，请稍后重试。',
   },
   validation: {
     identifierRequired: '请输入管理员账号',

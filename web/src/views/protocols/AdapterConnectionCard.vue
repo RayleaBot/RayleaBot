@@ -4,6 +4,7 @@ import { Settings2Icon, Trash2Icon, UserRoundIcon } from '@lucide/vue'
 import AppAvatar from '@/components/AppAvatar.vue'
 import AppBadge from '@/components/AppBadge.vue'
 import AppButton from '@/components/AppButton.vue'
+import { t } from '@/i18n'
 import type { AdapterInstanceDocument } from '@/lib/adapters'
 import type { StatusTone } from '@/lib/status-tone'
 import type { AdapterDescriptor } from '@/types/api'
@@ -19,9 +20,9 @@ const props = defineProps<{
 defineEmits<{ configure: []; remove: [] }>()
 
 const identity = computed(() => props.runtime?.identity)
-const protocolName = computed(() => props.config.type === 'qqofficial' ? 'QQ 官方机器人' : 'OneBot11')
-const accountLabel = computed(() => props.config.type === 'qqofficial' ? '机器人 ID' : 'QQ')
-const name = computed(() => identity.value?.name || (identity.value?.id ? '用户名未获取' : '等待获取账号'))
+const protocolName = computed(() => props.config.type === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11')
+const accountLabel = computed(() => props.config.type === 'qqofficial' ? t('protocols.connectionCard.botId') : 'QQ')
+const name = computed(() => identity.value?.name || (identity.value?.id ? t('protocols.connectionCard.nameUnavailable') : t('protocols.connectionCard.accountPending')))
 const avatarFailed = ref(false)
 watch(() => [identity.value?.id, identity.value?.avatar_url], () => { avatarFailed.value = false })
 const showSummary = computed(() => !identity.value?.id || props.runtime?.state !== 'connected')
@@ -41,15 +42,15 @@ const showSummary = computed(() => !identity.value?.id || props.runtime?.state !
       <div class="connection-identity">
         <h3 :class="{ 'connection-name-pending': !identity?.name }">{{ name }}</h3>
         <p v-if="identity?.id" class="connection-number"><span>{{ accountLabel }}</span><span>{{ identity.id }}</span></p>
-        <p v-else class="connection-pending">连接后显示账号信息</p>
+        <p v-else class="connection-pending">{{ t('protocols.connectionCard.accountAfterConnect') }}</p>
       </div>
     </div>
-    <p v-if="showSummary" class="connection-summary">{{ runtime?.summary || '已保存配置，等待服务加载。' }}</p>
+    <p v-if="showSummary" class="connection-summary">{{ runtime?.summary || t('protocols.connectionCard.savedWaiting') }}</p>
     <footer class="connection-footer">
-      <div class="connection-instance"><span>连接标识</span><code>{{ config.id }}</code></div>
+      <div class="connection-instance"><span>{{ t('protocols.connectionDialog.instanceField') }}</span><code>{{ config.id }}</code></div>
       <div class="connection-actions">
-        <AppButton size="sm" :data-testid="`adapter-${config.id}`" :disabled="busy" @click="$emit('configure')"><Settings2Icon />配置</AppButton>
-        <AppButton size="sm" variant="ghost" class="connection-remove" :loading="removing" :disabled="busy" :aria-label="'删除连接 ' + config.id" title="删除连接" @click="$emit('remove')"><Trash2Icon /></AppButton>
+        <AppButton size="sm" :data-testid="`adapter-${config.id}`" :disabled="busy" @click="$emit('configure')"><Settings2Icon />{{ t('protocols.connectionCard.configure') }}</AppButton>
+        <AppButton size="sm" variant="ghost" class="connection-remove" :loading="removing" :disabled="busy" :aria-label="t('protocols.connectionCard.removeNamed', { id: config.id })" :title="t('protocols.connectionCard.remove')" @click="$emit('remove')"><Trash2Icon /></AppButton>
       </div>
     </footer>
   </li>

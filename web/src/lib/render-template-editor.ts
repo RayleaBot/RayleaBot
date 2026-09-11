@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import type { RenderTemplateLocalIssue, RenderTemplateSchemaNode } from '@/types/api'
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -6,10 +7,10 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function normalizeJsonError(error: unknown) {
   if (error instanceof Error && error.message) {
-    return `JSON 解析失败：${error.message}`
+    return t('renderTemplates.previewDataErrors.parseFailedWithReason', { message: error.message })
   }
 
-  return 'JSON 解析失败，请检查格式。'
+  return t('renderTemplates.previewDataErrors.parseFailed')
 }
 
 export function parseRenderTemplatePreviewData(raw: string) {
@@ -28,7 +29,7 @@ export function parseRenderTemplatePreviewData(raw: string) {
         data: null,
         issue: {
           field: 'preview_data',
-          message: '预览输入需要是 JSON 对象。',
+          message: t('renderTemplates.previewDataErrors.objectRequired'),
         } satisfies RenderTemplateLocalIssue,
       }
     }
@@ -183,24 +184,24 @@ function schemaTypes(schema: Record<string, unknown>) {
 function sampleStringForKey(key: string) {
   const normalized = key.toLowerCase()
   if (normalized.includes('title')) {
-    return '示例标题'
+    return t('renderTemplates.sampleValues.title')
   }
   if (normalized.includes('subtitle') || normalized.includes('summary') || normalized.includes('description')) {
-    return '示例说明'
+    return t('renderTemplates.sampleValues.description')
   }
   if (normalized.includes('avatar') || normalized.includes('url')) {
     return 'https://q1.qlogo.cn/g?b=qq&nk=10001&s=100'
   }
   if (normalized.includes('nickname') || normalized.includes('name')) {
-    return '示例成员'
+    return t('renderTemplates.sampleValues.member')
   }
   if (normalized.includes('label')) {
-    return '数值'
+    return t('renderTemplates.sampleValues.label')
   }
   if (normalized.includes('status')) {
     return 'ready'
   }
-  return '示例文本'
+  return t('renderTemplates.sampleValues.text')
 }
 
 function buildSchemaSampleValue(schema: Record<string, unknown>, key: string): unknown {

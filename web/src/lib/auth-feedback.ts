@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { ApiError } from '@/lib/http'
 
 function isNetworkError(error: unknown) {
@@ -8,56 +9,56 @@ export function toLoginErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'permission.denied':
-        return '登录未完成，请检查管理员账号和密钥。'
+        return t('auth.feedback.loginDenied')
       case 'platform.invalid_request':
-        return '登录请求未完成，请检查输入后重试。'
+        return t('auth.feedback.loginInvalid')
       default:
-        return '登录未完成，请稍后重试。'
+        return t('auth.feedback.loginFailed')
     }
   }
 
   if (isNetworkError(error)) {
-    return '暂时无法连接管理界面，请确认服务已经启动。'
+    return t('auth.feedback.serviceUnreachable')
   }
 
-  return '登录未完成，请稍后重试。'
+  return t('auth.feedback.loginFailed')
 }
 
 export function toSetupErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
     switch (error.code) {
       case 'permission.denied':
-        return '当前环境已经完成初始化，请直接登录。'
+        return t('auth.feedback.setupInitialized')
       case 'platform.invalid_request':
-        return '创建管理员账号未完成，请检查输入后重试。'
+        return t('auth.feedback.setupInvalid')
       default:
-        return '创建管理员账号未完成，请稍后重试。'
+        return t('auth.feedback.setupFailed')
     }
   }
 
   if (isNetworkError(error)) {
-    return '暂时无法连接管理界面，请确认服务已经启动。'
+    return t('auth.feedback.serviceUnreachable')
   }
 
-  return '创建管理员账号未完成，请稍后重试。'
+  return t('auth.feedback.setupFailed')
 }
 
 export function toBootstrapStatusMessage(error: unknown) {
   if (error instanceof ApiError) {
     if (error.code === 'permission.denied') {
-      return '暂时无法确认管理界面状态，请稍后重试。'
+      return t('auth.feedback.bootstrapUnknown')
     }
 
     if (error.code === 'platform.invalid_request') {
-      return '管理界面暂时不可用，请稍后重试。'
+      return t('auth.feedback.bootstrapUnavailable')
     }
 
-    return '暂时无法确认管理界面状态，请稍后重试。'
+    return t('auth.feedback.bootstrapUnknown')
   }
 
   if (isNetworkError(error)) {
-    return '暂时无法连接管理界面，请确认服务已经启动。'
+    return t('auth.feedback.serviceUnreachable')
   }
 
-  return '暂时无法确认管理界面状态，请稍后重试。'
+  return t('auth.feedback.bootstrapUnknown')
 }

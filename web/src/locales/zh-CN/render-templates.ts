@@ -48,6 +48,18 @@ export const renderTemplates = {
     type: '类型',
     description: '说明',
   },
+  previewDataErrors: {
+    parseFailedWithReason: 'JSON 解析失败：{message}',
+    parseFailed: 'JSON 解析失败，请检查格式。',
+    objectRequired: '预览输入需要是 JSON 对象。',
+  },
+  sampleValues: {
+    title: '示例标题',
+    description: '示例说明',
+    member: '示例成员',
+    label: '数值',
+    text: '示例文本',
+  },
   required: {
     yes: '有',
     no: '无',

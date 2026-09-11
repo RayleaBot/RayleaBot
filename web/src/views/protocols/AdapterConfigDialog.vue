@@ -45,7 +45,7 @@ const formElement = ref<HTMLFormElement | null>(null)
 const isEditing = computed(() => Boolean(props.adapterId))
 const dirty = computed(() => Boolean(draft.value) && (JSON.stringify(draft.value) !== initialDraft.value || JSON.stringify(sharedDraft.value) !== initialShared.value))
 const descriptor = computed(() => adaptersStore.adapters.find((item) => item.id === props.adapterId))
-const protocolName = computed(() => draft.value?.type === 'qqofficial' ? 'QQ 官方机器人' : 'OneBot11')
+const protocolName = computed(() => draft.value?.type === 'qqofficial' ? t('protocols.qqTitle') : 'OneBot11')
 const runtimeSnapshot = computed(() => descriptor.value?.onebot11 ?? null)
 const intentOptions: { value: QQOfficialSettings['intents'][number]; label: string }[] = [
   { value: 'group_and_c2c', label: t('protocols.qqIntents.groupAndC2c') },
@@ -56,11 +56,11 @@ const intentOptions: { value: QQOfficialSettings['intents'][number]; label: stri
   { value: 'direct_message', label: t('protocols.qqIntents.directMessage') },
 ]
 const sharedFields: { key: keyof ConfigDocument['adapter']; label: string; min: number; max?: number; step: number }[] = [
-  { key: 'connect_timeout_seconds', label: '连接超时（秒）', min: 1, step: 1 },
-  { key: 'reconnect_initial_seconds', label: '初始重连时间（秒）', min: 1, step: 1 },
-  { key: 'reconnect_multiplier', label: '重连倍率', min: 1, step: 0.1 },
-  { key: 'reconnect_max_seconds', label: '最大重连时间（秒）', min: 1, step: 1 },
-  { key: 'reconnect_jitter_ratio', label: '重连抖动比例', min: 0, max: 1, step: 0.05 },
+  { key: 'connect_timeout_seconds', label: t('protocols.connectionDialog.sharedFields.connectTimeoutSeconds'), min: 1, step: 1 },
+  { key: 'reconnect_initial_seconds', label: t('protocols.connectionDialog.sharedFields.reconnectInitialSeconds'), min: 1, step: 1 },
+  { key: 'reconnect_multiplier', label: t('protocols.connectionDialog.sharedFields.reconnectMultiplier'), min: 1, step: 0.1 },
+  { key: 'reconnect_max_seconds', label: t('protocols.connectionDialog.sharedFields.reconnectMaxSeconds'), min: 1, step: 1 },
+  { key: 'reconnect_jitter_ratio', label: t('protocols.connectionDialog.sharedFields.reconnectJitterRatio'), min: 0, max: 1, step: 0.05 },
 ]
 const baseUrl = import.meta.env.VITE_WS_BASE_URL || window.location.origin
 function copy<T>(value: T): T { return JSON.parse(JSON.stringify(value)) as T }
@@ -76,7 +76,7 @@ async function load() {
     if (props.adapterId) {
       const instance = findAdapterInstance(configStore.document, props.adapterId)
       if (!instance) {
-        error.value = '此连接已被删除或尚未配置。请关闭弹窗并刷新列表。'
+        error.value = t('protocols.connectionDialog.missingConnection')
         return
       }
       baseline.value = copy(instance)
@@ -161,11 +161,11 @@ async function save() {
   if (sharedDraft.value && draft.value.type === 'onebot11') {
     for (const { key, min, max, step } of sharedFields) {
       const value = sharedDraft.value[key]
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || (max !== undefined && value > max) || (step === 1 && !Number.isInteger(value))) fieldErrors.value[key] = '请填写有效范围内的数值。'
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < min || (max !== undefined && value > max) || (step === 1 && !Number.isInteger(value))) fieldErrors.value[key] = t('protocols.connectionDialog.invalidNumber')
     }
   }
   if (Object.keys(fieldErrors.value).length) {
-    error.value = '请检查标出的配置项。'
+    error.value = t('protocols.connectionDialog.checkFields')
     advancedOpen.value = Boolean(fieldErrors.value.id || sharedFields.some(({ key }) => fieldErrors.value[key]))
     await nextTick()
     formElement.value?.querySelector<HTMLElement>('[data-invalid=true] input, [data-invalid=true] [role=combobox]')?.focus()
@@ -180,7 +180,7 @@ async function save() {
     try {
       nextDocument = mergeAdapterDraft(configStore.document, baseline.value, draft.value)
       if (JSON.stringify(sharedDraft.value) !== initialShared.value && sharedDraft.value) {
-        if (JSON.stringify(configStore.document.adapter) !== initialShared.value) throw new Error('共用重连策略已在其他位置更改，请重新打开后再编辑。')
+        if (JSON.stringify(configStore.document.adapter) !== initialShared.value) throw new Error(t('protocols.connectionDialog.sharedPolicyChanged'))
         nextDocument.adapter = copy(sharedDraft.value)
       }
     } catch (err) {
@@ -201,53 +201,53 @@ function openLogs() {
 </script>
 
 <template>
-  <AppDialog :open="open" :title="draft ? (isEditing ? '配置 ' : '添加 ') + protocolName : '添加连接'" :width="640" :busy="saving" fallback-focus="[data-testid=adapter-add]" @close="requestClose" @after-close="$emit('afterClose')">
-    <div v-if="loading" class="dialog-loading" role="status" aria-label="正在加载连接配置"><Skeleton class="h-5 w-2/3" /><Skeleton class="h-10 w-full" /><Skeleton class="h-5 w-1/2" /><Skeleton class="h-10 w-full" /></div>
+  <AppDialog :open="open" :title="draft ? t(isEditing ? 'protocols.connectionDialog.titleConfigure' : 'protocols.connectionDialog.titleAddProtocol', { protocol: protocolName }) : t('protocols.connectionDialog.titleAdd')" :width="640" :busy="saving" fallback-focus="[data-testid=adapter-add]" @close="requestClose" @after-close="$emit('afterClose')">
+    <div v-if="loading" class="dialog-loading" role="status" :aria-label="t('protocols.connectionDialog.loading')"><Skeleton class="h-5 w-2/3" /><Skeleton class="h-10 w-full" /><Skeleton class="h-5 w-1/2" /><Skeleton class="h-10 w-full" /></div>
     <div v-else>
       <AppAlert v-if="error" tone="danger" :title="error" class="dialog-error" role="alert">
-        <template v-if="!draft" #action><AppButton size="sm" :loading="loading" @click="load">重试</AppButton></template>
+        <template v-if="!draft" #action><AppButton size="sm" :loading="loading" @click="load">{{ t('protocols.retry') }}</AppButton></template>
       </AppAlert>
       <div v-if="!draft && !loading && !error" class="protocol-picker">
-        <p class="dialog-description">选择接入方式，接下来填写连接配置。</p>
+        <p class="dialog-description">{{ t('protocols.connectionDialog.choose') }}</p>
         <button v-for="protocol in adaptersStore.availableProtocols" :key="protocol.protocol" type="button" class="protocol-choice" :data-testid="`adapter-select-${protocol.protocol}`" @click="selectProtocol(protocol.protocol)">
           <span><strong>{{ protocol.display_name }}</strong><small>{{ protocol.description }}</small></span>
           <ChevronRightIcon />
         </button>
-        <p v-if="!adaptersStore.availableProtocols.length" role="status">暂时没有可用协议，请刷新列表后重试。</p>
+        <p v-if="!adaptersStore.availableProtocols.length" role="status">{{ t('protocols.connectionDialog.noProtocols') }}</p>
       </div>
       <form v-if="draft" ref="formElement" novalidate @submit.prevent="save">
         <fieldset :disabled="saving || loading" class="dialog-fields">
-          <p class="dialog-description">{{ isEditing ? `连接标识：${draft.id}` : '完成配置后保存，即可在协议中心管理此连接。' }}</p>
+          <p class="dialog-description">{{ isEditing ? t('protocols.connectionDialog.instanceId', { id: draft.id }) : t('protocols.connectionDialog.addDescription') }}</p>
           <template v-if="draft.qqofficial">
             <AppField floating label="AppID" for="adapter-app-id" :required="draft.enabled" :error="fieldErrors.app_id">
-              <AppInput id="adapter-app-id" v-model="draft.qqofficial.app_id" placeholder="QQ 开放平台的机器人 AppID" inputmode="numeric" autocomplete="off" />
+              <AppInput id="adapter-app-id" v-model="draft.qqofficial.app_id" :placeholder="t('protocols.connectionDialog.appIdPlaceholder')" inputmode="numeric" autocomplete="off" />
             </AppField>
             <AppField floating label="AppSecret" for="adapter-app-secret" :required="draft.enabled" :error="fieldErrors.app_secret">
-              <AppInput type="password" id="adapter-app-secret" v-model="draft.qqofficial.app_secret" placeholder="填写机器人密钥" autocomplete="new-password" />
-              <p class="field-hint">{{ draft.qqofficial.app_secret === '********' ? '已保存密钥。保持现值可沿用，重新输入可替换。' : '在 QQ 开放平台的机器人管理中获取。' }}</p>
+              <AppInput type="password" id="adapter-app-secret" v-model="draft.qqofficial.app_secret" :placeholder="t('protocols.connectionDialog.appSecretPlaceholder')" autocomplete="new-password" />
+              <p class="field-hint">{{ draft.qqofficial.app_secret === '********' ? t('protocols.connectionDialog.appSecretSaved') : t('protocols.connectionDialog.appSecretHint') }}</p>
             </AppField>
-            <AppField label="接收消息" for="adapter-intents">
-              <AppSelect id="adapter-intents" v-model="draft.qqofficial.intents" :multiple="true" :options="intentOptions" placeholder="选择要接收的事件" />
-              <p class="field-hint">按机器人已获授权的能力选择；不选择任何事件时不会收到消息。</p>
+            <AppField :label="t('protocols.connectionDialog.intentsLabel')" for="adapter-intents">
+              <AppSelect id="adapter-intents" v-model="draft.qqofficial.intents" :multiple="true" :options="intentOptions" :placeholder="t('protocols.connectionDialog.intentsPlaceholder')" />
+              <p class="field-hint">{{ t('protocols.connectionDialog.intentsHint') }}</p>
             </AppField>
           </template>
           <OneBotConnectionFields v-if="draft.onebot11" v-model="draft.onebot11" :adapter-id="draft.id" :errors="fieldErrors" />
           <div class="enable-connection">
-            <div><label for="adapter-enabled">启用此连接</label><p class="field-hint">关闭后保留配置，暂停连接和消息收发。</p></div>
-            <AppSwitch id="adapter-enabled" v-model="draft.enabled" aria-label="启用此连接" />
+            <div><label for="adapter-enabled">{{ t('protocols.connectionDialog.enable') }}</label><p class="field-hint">{{ t('protocols.connectionDialog.enableHint') }}</p></div>
+            <AppSwitch id="adapter-enabled" v-model="draft.enabled" :aria-label="t('protocols.connectionDialog.enable')" />
           </div>
           <details class="dialog-disclosure" :open="advancedOpen" @toggle="advancedOpen = ($event.target as HTMLDetailsElement).open">
-            <summary>高级设置<span>连接标识{{ draft.qqofficial ? '、沙箱环境' : '、共用重连策略' }}</span></summary>
+            <summary>{{ t('protocols.connectionDialog.advanced') }}<span>{{ draft.qqofficial ? t('protocols.connectionDialog.advancedQQ') : t('protocols.connectionDialog.advancedOneBot') }}</span></summary>
             <div class="disclosure-content">
-              <AppField floating label="连接标识" for="adapter-id" :error="fieldErrors.id">
+              <AppField floating :label="t('protocols.connectionDialog.instanceField')" for="adapter-id" :error="fieldErrors.id">
                 <AppInput id="adapter-id" v-model="draft.id" :disabled="isEditing" :maxlength="64" />
-                <p class="field-hint">{{ isEditing ? '创建后固定，用于识别此连接。' : '已自动生成。标识用于区分连接，也会出现在回连地址中。' }}</p>
+                <p class="field-hint">{{ isEditing ? t('protocols.connectionDialog.instanceFixed') : t('protocols.connectionDialog.instanceGenerated') }}</p>
               </AppField>
-              <AppCheckbox v-if="draft.qqofficial" v-model="draft.qqofficial.sandbox">使用 QQ 沙箱环境</AppCheckbox>
-              <p v-if="draft.qqofficial" class="field-hint">仅对沙箱名单内的账号和群生效。</p>
+              <AppCheckbox v-if="draft.qqofficial" v-model="draft.qqofficial.sandbox">{{ t('protocols.connectionDialog.sandbox') }}</AppCheckbox>
+              <p v-if="draft.qqofficial" class="field-hint">{{ t('protocols.connectionDialog.sandboxHint') }}</p>
               <template v-if="draft.onebot11 && sharedDraft">
-                <h3>所有连接共用的重连策略</h3>
-                <p class="field-hint">这些参数同时影响所有适配器连接。</p>
+                <h3>{{ t('protocols.connectionDialog.sharedPolicyTitle') }}</h3>
+                <p class="field-hint">{{ t('protocols.connectionDialog.sharedPolicyHint') }}</p>
                 <div class="shared-fields">
                   <AppField floating v-for="field in sharedFields" :key="field.key" :label="field.label" :for="`adapter-${field.key}`" :error="fieldErrors[field.key]">
                     <AppNumberInput :id="`adapter-${field.key}`" v-model="sharedDraft[field.key]" :min="field.min" :max="field.max" :step="field.step" />
@@ -257,10 +257,10 @@ function openLogs() {
             </div>
           </details>
           <details v-if="isEditing" class="dialog-disclosure">
-            <summary>运行状态与诊断</summary>
+            <summary>{{ t('protocols.connectionDialog.runtimeTitle') }}</summary>
             <div class="disclosure-content">
-              <p>{{ descriptor?.summary || '尚未读取到此连接的运行状态。' }}</p>
-              <p v-if="descriptor?.identity" class="field-hint">登录身份：{{ descriptor.identity.name || descriptor.identity.id }}</p>
+              <p>{{ descriptor?.summary || t('protocols.connectionDialog.runtimeUnknown') }}</p>
+              <p v-if="descriptor?.identity" class="field-hint">{{ t('protocols.connectionDialog.identity', { name: descriptor.identity.name || descriptor.identity.id }) }}</p>
               <AppAlert v-if="adaptersStore.error" tone="warning" :title="adaptersStore.error" />
               <ul v-if="runtimeSnapshot" class="runtime-list">
                 <li v-for="transport in runtimeSnapshot.transport_status" :key="transport.transport">
@@ -269,7 +269,7 @@ function openLogs() {
                 </li>
                 <li v-for="issue in runtimeSnapshot.recent_transport_issues" :key="issue.code">{{ issue.code }} · {{ issue.summary }}</li>
               </ul>
-              <AppButton size="sm" @click="openLogs">{{ draft.type === 'onebot11' ? '查看此协议的实时日志' : '查看实时日志' }}</AppButton>
+              <AppButton size="sm" @click="openLogs">{{ draft.type === 'onebot11' ? t('protocols.connectionDialog.protocolLogs') : t('protocols.connectionDialog.logs') }}</AppButton>
             </div>
           </details>
         </fieldset>
@@ -277,15 +277,15 @@ function openLogs() {
     </div>
     <template #footer>
       <div class="dialog-footer">
-        <AppButton v-if="draft && !isEditing" variant="ghost" :disabled="saving" @click="changeProtocol"><ArrowLeftIcon />更换协议</AppButton>
+        <AppButton v-if="draft && !isEditing" variant="ghost" :disabled="saving" @click="changeProtocol"><ArrowLeftIcon />{{ t('protocols.connectionDialog.changeProtocol') }}</AppButton>
         <span v-else class="footer-spacer" />
-        <AppButton :disabled="saving" @click="requestClose">取消</AppButton>
-        <AppButton v-if="draft" variant="default" :loading="saving" :disabled="loading || configStore.saving || (isEditing && !dirty)" data-testid="adapter-save" @click="save">{{ isEditing ? '保存修改' : '保存连接' }}</AppButton>
+        <AppButton :disabled="saving" @click="requestClose">{{ t('protocols.connectionDialog.cancel') }}</AppButton>
+        <AppButton v-if="draft" variant="default" :loading="saving" :disabled="loading || configStore.saving || (isEditing && !dirty)" data-testid="adapter-save" @click="save">{{ isEditing ? t('protocols.connectionDialog.saveChanges') : t('protocols.connectionDialog.saveConnection') }}</AppButton>
       </div>
-      <p v-if="draft && !isEditing" class="save-hint">新增连接将在服务重启后加载。</p>
+      <p v-if="draft && !isEditing" class="save-hint">{{ t('protocols.connectionDialog.restartHint') }}</p>
     </template>
   </AppDialog>
-  <AppConfirmDialog :open="confirmOpen" title="放弃未保存的修改？" description="填写的内容还未保存，离开后将丢失。" confirm-text="放弃修改" cancel-text="继续编辑" danger @confirm="finishConfirmation(true)" @cancel="finishConfirmation(false)" />
+  <AppConfirmDialog :open="confirmOpen" :title="t('protocols.connectionDialog.discardTitle')" :description="t('protocols.connectionDialog.discardDescription')" :confirm-text="t('protocols.connectionDialog.discardConfirm')" :cancel-text="t('protocols.connectionDialog.discardCancel')" danger @confirm="finishConfirmation(true)" @cancel="finishConfirmation(false)" />
 </template>
 
 <style scoped lang="scss">
