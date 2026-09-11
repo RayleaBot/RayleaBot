@@ -69,7 +69,7 @@ SDK 在调用事件 handler 前原子替换配置快照。每个 `EventContext.C
 
 Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根据聊天事件的 `source_adapter` 和 `source_protocol` 选择对应身份。平台内部事件仅在列表恰好有一个身份时提供该便利值，多实例时为空；插件应明确选择目标实例。相同字符串 ID 在不同实例中属于不同身份。
 
-协议 v2 的单一 `init.bot` 和 `bot.identity.changed` 不再使用；升级与重建步骤见[协议 v3 升级](../release/plugin-protocol-v3-upgrade.md)。
+协议 v2 的单一 `init.bot` 和 `bot.identity.changed` 不再使用。SDK 的协议版本校验会拒绝 v2 宿主，v2 SDK 也不能处理 v3 握手；插件须用当前 SDK 重新构建，其他语言实现按 `contracts/plugin-protocol.schema.json` 更新。
 
 ## Action RPC
 
