@@ -96,20 +96,6 @@ func (s *Ingress) ApplyChatPolicy(ctx context.Context, event chatevent.Normalize
 	return s.policy.Apply(ctx, event)
 }
 
-func (s *Ingress) EnrichCommandEvent(event chatevent.NormalizedEvent) chatevent.NormalizedEvent {
-	if s.policy == nil {
-		return event
-	}
-	return s.policy.EnrichCommandEvent(event)
-}
-
-func (s *Ingress) CommandInfoForEvent(event chatevent.NormalizedEvent) *permission.CommandInfo {
-	if s.policy == nil {
-		return nil
-	}
-	return s.policy.CommandInfoForEvent(event)
-}
-
 func (s *Ingress) Policy() *Service {
 	return s.policy
 }

@@ -21,7 +21,7 @@ func TestEnrichCommandEventAddsCommandPayload(t *testing.T) {
 	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
-	event := ingress.EnrichCommandEvent(chatevent.NormalizedEvent{
+	event := ingress.Policy().EnrichCommandEvent(chatevent.NormalizedEvent{
 		PlainText: "/weather shanghai now",
 	})
 	if event.PayloadFields["command"] != "weather" {

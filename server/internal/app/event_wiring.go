@@ -33,13 +33,7 @@ type EventState struct {
 	ReplyTargets    *outbound.ReplyTargetCache
 	OutboundSender  outbound.ActionSender
 	AdapterRouter   *outbound.Router
-	OutboundLimiter outboundRuntimePolicy
-	OutboundPolicy  *outbound.MessagePolicy
-}
-
-type outboundRuntimePolicy interface {
-	outbound.MessageLimiter
-	ApplyConfig(config.Config)
+	OutboundLimiter *outbound.MessagePolicy
 }
 
 func buildEvents(deps eventDeps) EventState {
@@ -127,7 +121,6 @@ func buildEvents(deps eventDeps) EventState {
 		OutboundSender:  outboundSender,
 		AdapterRouter:   outboundSender,
 		OutboundLimiter: outboundPolicy,
-		OutboundPolicy:  outboundPolicy,
 	}
 }
 

@@ -41,7 +41,7 @@ func TestCommandInfoForEventUsesDefaultLevelForOmittedPermission(t *testing.T) {
 	deps.Menu = menuext.New(menuext.Deps{CurrentConfig: deps.CurrentConfig, Plugins: deps.Plugins, Sender: deps.OutboundSender, Logger: deps.Logger})
 	ingress := chatpolicy.NewIngress(deps)
 
-	info := ingress.CommandInfoForEvent(ingress.EnrichCommandEvent(chatevent.NormalizedEvent{
+	info := ingress.Policy().CommandInfoForEvent(ingress.Policy().EnrichCommandEvent(chatevent.NormalizedEvent{
 		PlainText: "/weather-admin",
 	}))
 	if info == nil {

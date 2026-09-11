@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/cli"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
@@ -109,10 +110,6 @@ func consumeSecretEnv(name string) string {
 }
 
 func setupURL(cfg config.Config, setupToken string) string {
-	host := strings.TrimSpace(cfg.Server.Host)
-	if host == "0.0.0.0" || host == "::" || host == "" {
-		host = "127.0.0.1"
-	}
-	return "http://" + net.JoinHostPort(host, strconv.Itoa(cfg.Server.Port)) +
-		"/setup#setup_token=" + url.QueryEscape(setupToken)
+	listenAddr := net.JoinHostPort(strings.TrimSpace(cfg.Server.Host), strconv.Itoa(cfg.Server.Port))
+	return httpapi.DisplayServerURL(listenAddr) + "/setup#setup_token=" + url.QueryEscape(setupToken)
 }
