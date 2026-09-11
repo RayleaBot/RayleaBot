@@ -34,10 +34,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Detect changed areas
         id: detect
@@ -56,6 +60,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go for generators
         uses: actions/setup-go@v7
         with:
@@ -65,12 +73,12 @@ jobs:
       - name: Setup Node for schema copies
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Install contract validators
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
@@ -93,6 +101,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -102,23 +114,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Install Corepack
-        run: npm install --global corepack@0.35.0
+        run: npm install --global corepack@${{ steps.toolchain.outputs.corepack }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Install sqlc
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v${{ steps.toolchain.outputs.sqlc }}
 
       - name: Run server doctor
         run: make doctor
@@ -199,10 +211,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Check design token generation and color drift
         run: node scripts/generate-design-tokens.mjs --check
@@ -216,22 +232,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Install Corepack and activate pnpm
         run: |
-          npm install --global corepack@0.35.0
-          corepack prepare pnpm@11.22.0 --activate
+          npm install --global corepack@${{ steps.toolchain.outputs.corepack }}
+          corepack prepare pnpm@${{ steps.toolchain.outputs.pnpm }} --activate
 
       - name: Install web dependencies
         working-directory: web
@@ -272,6 +292,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -281,12 +305,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: launcher/pnpm-lock.yaml
 
@@ -297,7 +321,7 @@ jobs:
       - name: Setup Python for Launcher API generation
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Install Launcher API generator dependency
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3
@@ -343,6 +367,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -356,17 +384,17 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup Python for protocol generation
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Check generated plugin wire drift
         run: |
@@ -406,10 +434,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Setup Go
         uses: actions/setup-go@v7
@@ -439,6 +471,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -448,17 +484,17 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Install production graph inputs
         run: |
@@ -478,15 +514,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Check agent docs
         run: |
@@ -506,6 +546,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go for generator self-tests
         uses: actions/setup-go@v7
         with:
@@ -515,12 +559,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Install contract validators
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
@@ -554,10 +598,17 @@ jobs:
       - ci-self-check
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Check required CI result
         shell: bash

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { toolVersions } from './tool-versions.mjs'
 import fsp from 'node:fs/promises'
 import path from 'node:path'
 import { createFileContentTracker } from './file-content-tracker.mjs'
@@ -135,7 +136,7 @@ export function createDevelopmentReloadQueue() {
   }
 }
 
-export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = '1.26.6' }) {
+export function renderDevelopmentGoWork({ sdkGoPath, sdkGoVersions = [], plugins, goVersion = toolVersions.golang }) {
   const modulePaths = [sdkGoPath, ...plugins.filter((plugin) => plugin.hasGoModule !== false).map((plugin) => plugin.path)]
   const uniquePaths = [...new Set(modulePaths.map((modulePath) => path.resolve(modulePath)))]
   const uses = uniquePaths.map((modulePath) => `\t${quoteGoWorkPath(modulePath)}`).join('\n')

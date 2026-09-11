@@ -16,29 +16,18 @@ from dataclasses import dataclass
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-def read_tool_versions(root: Path) -> dict[str, str]:
-    versions: dict[str, str] = {}
-    for line in (root / ".tool-versions").read_text(encoding="utf-8").splitlines():
-        fields = line.split("#", 1)[0].split()
-        if not fields:
-            continue
-        if len(fields) != 2 or fields[0] in versions:
-            raise ValueError(".tool-versions requires one fixed version per tool")
-        versions[fields[0]] = fields[1]
-    for name in ("golang", "nodejs", "python", "pnpm"):
-        if not re.fullmatch(r"\d+\.\d+\.\d+", versions.get(name, "")):
-            raise ValueError(f".tool-versions must pin {name} to an exact version")
-    return versions
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from tool_versions import read_tool_versions
 
 
 TOOL_VERSIONS = read_tool_versions(REPO_ROOT)
 REQUIRED_GO_VERSION = "go" + TOOL_VERSIONS["golang"]
 REQUIRED_NODE_VERSION = "v" + TOOL_VERSIONS["nodejs"]
-REQUIRED_NPM_VERSION = "11.19.0"
-REQUIRED_COREPACK_VERSION = "0.35.0"
+REQUIRED_NPM_VERSION = TOOL_VERSIONS["npm"]
+REQUIRED_COREPACK_VERSION = TOOL_VERSIONS["corepack"]
 REQUIRED_PNPM_VERSION = TOOL_VERSIONS["pnpm"]
 REQUIRED_PYTHON_VERSION = TOOL_VERSIONS["python"]
-REQUIRED_SQLC_VERSION = "v1.31.1"
+REQUIRED_SQLC_VERSION = "v" + TOOL_VERSIONS["sqlc"]
 
 GO_INSTALL_URL = "https://go.dev/dl/"
 NODE_INSTALL_URL = f"https://nodejs.org/dist/{REQUIRED_NODE_VERSION}/"
@@ -242,7 +231,7 @@ def check_pnpm() -> CheckResult:
                     "pnpm",
                     "warning",
                     f"`pnpm --version` is {found}; `corepack pnpm --version` is {corepack_actual}.",
-                    "Run `corepack enable` and `corepack prepare pnpm@11.22.0 --activate`, or use `corepack pnpm` for project commands.",
+                    f"Run `corepack enable` and `corepack prepare pnpm@{REQUIRED_PNPM_VERSION} --activate`, or use `corepack pnpm` for project commands.",
                 )
 
     found = pnpm_actual or corepack_actual or "not found"
@@ -250,7 +239,7 @@ def check_pnpm() -> CheckResult:
         "pnpm",
         "error",
         f"Found {found}; required {REQUIRED_PNPM_VERSION}.",
-        "Run `corepack enable` and `corepack prepare pnpm@11.22.0 --activate`; offline images must pre-seed Corepack's pnpm 11.22.0 package.",
+        f"Run `corepack enable` and `corepack prepare pnpm@{REQUIRED_PNPM_VERSION} --activate`; offline images must pre-seed Corepack's pnpm {REQUIRED_PNPM_VERSION} package.",
     )
 
 

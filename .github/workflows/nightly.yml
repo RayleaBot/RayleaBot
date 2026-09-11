@@ -18,6 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -27,23 +31,23 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Install Corepack
-        run: npm install --global corepack@0.35.0
+        run: npm install --global corepack@${{ steps.toolchain.outputs.corepack }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Install sqlc
-        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@v${{ steps.toolchain.outputs.sqlc }}
 
       - name: Run server doctor
         run: make doctor
@@ -93,6 +97,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go for real Server E2E
         uses: actions/setup-go@v7
         with:
@@ -102,12 +110,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
@@ -142,6 +150,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -151,12 +163,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: launcher/pnpm-lock.yaml
 
@@ -190,10 +202,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Install contract validators
         run: python -m pip install --disable-pip-version-check pyyaml==6.0.3 jsonschema==4.26.0
@@ -212,15 +228,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Install web dependencies
         working-directory: web
@@ -245,6 +265,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Read toolchain versions
+        id: toolchain
+        uses: ./.github/actions/tool-versions
+
       - name: Setup Go
         uses: actions/setup-go@v7
         with:
@@ -254,19 +278,19 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 11.22.0
+          version: ${{ steps.toolchain.outputs.pnpm }}
 
       - name: Setup Node
         uses: actions/setup-node@v7
         with:
-          node-version: "26.7.0"
+          node-version: ${{ steps.toolchain.outputs.nodejs }}
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14.7"
+          python-version: ${{ steps.toolchain.outputs.python }}
 
       - name: Run release helper tests
         run: python -m unittest discover -s scripts/release/tests

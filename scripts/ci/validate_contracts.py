@@ -27,6 +27,7 @@ except ImportError as exc:  # pragma: no cover - exercised by CI environment set
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from deps_manifest import semantic_errors as dependency_manifest_errors
+from tool_versions import read_tool_versions
 
 
 class JSONSafeLoader(yaml.SafeLoader):
@@ -1147,15 +1148,16 @@ def validate_fixture_matrix() -> None:
 
 
 def validate_baseline() -> None:
+    versions = read_tool_versions(ROOT)
     baseline = (ROOT / "docs" / "engineering" / "baseline.md").read_text(encoding="utf-8")
     for snippet in [
-        "Go `1.26.6`",
-        "Node.js `26.7.0`",
-        "npm `11.19.0`",
-        "Corepack `0.35.0`",
-        "`pnpm 11.22.0`",
-        "Python `3.14.7`",
-        "sqlc `v1.31.1`",
+        f"Go `{versions['golang']}`",
+        f"Node.js `{versions['nodejs']}`",
+        f"npm `{versions['npm']}`",
+        f"Corepack `{versions['corepack']}`",
+        f"`pnpm {versions['pnpm']}`",
+        f"Python `{versions['python']}`",
+        f"sqlc `v{versions['sqlc']}`",
     ]:
         if snippet not in baseline:
             fail(f"docs/engineering/baseline.md missing expected snippet: {snippet}")
@@ -1173,8 +1175,8 @@ def validate_baseline() -> None:
     go_mod = (ROOT / "server" / "go.mod").read_text(encoding="utf-8")
     if "module github.com/RayleaBot/RayleaBot/server" not in go_mod:
         fail("server/go.mod must use module path github.com/RayleaBot/RayleaBot/server")
-    if "go 1.26.6" not in go_mod:
-        fail("server/go.mod must pin Go 1.26.6")
+    if f"go {versions['golang']}" not in go_mod:
+        fail(f"server/go.mod must pin Go {versions['golang']}")
 
     expected_pnpm_workspaces = {
         ROOT / "web" / "package.json": {
@@ -1206,13 +1208,13 @@ def validate_baseline() -> None:
 
     for package_path, expected_workspace in expected_pnpm_workspaces.items():
         package_json = load_json(package_path)
-        if package_json.get("packageManager") != "pnpm@11.22.0":
-            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@11.22.0")
+        if package_json.get("packageManager") != f"pnpm@{versions['pnpm']}":
+            fail(f"{package_path.relative_to(ROOT)} packageManager must be pnpm@{versions['pnpm']}")
         engines = package_json.get("engines", {})
-        if engines.get("node") != "26.7.0":
-            fail(f"{package_path.relative_to(ROOT)} engines.node must be 26.7.0")
-        if engines.get("pnpm") != "11.22.0":
-            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be 11.22.0")
+        if engines.get("node") != f"{versions['nodejs']}":
+            fail(f"{package_path.relative_to(ROOT)} engines.node must be {versions['nodejs']}")
+        if engines.get("pnpm") != f"{versions['pnpm']}":
+            fail(f"{package_path.relative_to(ROOT)} engines.pnpm must be {versions['pnpm']}")
         if "pnpm" in package_json:
             fail(f"{package_path.relative_to(ROOT)} must keep pnpm settings in pnpm-workspace.yaml")
 

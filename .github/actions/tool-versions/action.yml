@@ -1,0 +1,30 @@
+name: Repository tool versions
+description: Read fixed toolchain versions before installing runtimes.
+outputs:
+  golang:
+    description: Fixed golang version.
+    value: ${{ steps.read.outputs.golang }}
+  nodejs:
+    description: Fixed nodejs version.
+    value: ${{ steps.read.outputs.nodejs }}
+  python:
+    description: Fixed python version.
+    value: ${{ steps.read.outputs.python }}
+  pnpm:
+    description: Fixed pnpm version.
+    value: ${{ steps.read.outputs.pnpm }}
+  npm:
+    description: Fixed npm version.
+    value: ${{ steps.read.outputs.npm }}
+  corepack:
+    description: Fixed corepack version.
+    value: ${{ steps.read.outputs.corepack }}
+  sqlc:
+    description: Fixed sqlc version.
+    value: ${{ steps.read.outputs.sqlc }}
+runs:
+  using: composite
+  steps:
+    - id: read
+      shell: bash
+      run: bash scripts/read-tool-versions.sh >> "$GITHUB_OUTPUT"

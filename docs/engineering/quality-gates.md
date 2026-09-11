@@ -68,7 +68,7 @@ Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release
 ## 验证原则
 
 - 正式语义变化先更新契约；实现、测试、fixtures、examples、生成物和文档按实际影响同步。实现修复以现有契约为准，不要求无关文件制造 diff。
-- 基线版本以工程文件和 `docs/engineering/baseline.md` 为准，CI 不单独维护另一套漂移版本号。
+- 工具链版本值由 `.tool-versions` 提供，CI 通过共享 action 读取后安装。doctor 校验生态工程文件，契约门禁核对基线文档；这两类必要副本发生漂移时失败。
 - 事件、插件协议、配置、错误码和初始化相关 Golden Fixtures 进入正式门禁，不只停留在文档说明。
 - 轻量门禁负责可合并性，发布门禁负责可交付性。
 - 恢复、运行环境准备和交付矩阵验证进入正式工作流，不只停留在文档说明。

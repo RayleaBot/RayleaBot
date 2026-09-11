@@ -24,6 +24,8 @@
 
 ## 固定版本线
 
+Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 `.tool-versions` 维护。CI 在安装工具前读取该文件；doctor、契约校验与插件开发工作区也从此处取值。`go.mod`、`package.json` 等生态必填声明及下表保留，并由门禁检查一致性。
+
 | 领域 | 固定基线 |
 | --- | --- |
 | Server | Go `1.26.6` |
