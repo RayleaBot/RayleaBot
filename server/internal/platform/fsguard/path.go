@@ -1,5 +1,6 @@
-// Package fsguard provides lexical path checks shared by filesystem boundaries.
-// Callers must separately enforce ownership, permitted entries and symlink rules.
+// Package fsguard provides the lexical path checks and guarded file I/O shared
+// by filesystem boundaries. Callers must separately enforce ownership, permitted
+// entries and symlink rules.
 package fsguard
 
 import (
@@ -19,7 +20,12 @@ func WithinRoot(root, candidate string) bool {
 		return false
 	}
 	relative, err := filepath.Rel(absoluteRoot, absoluteCandidate)
-	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+	return err == nil && !EscapesRoot(relative)
+}
+
+// EscapesRoot reports whether a cleaned relative path climbs above its root.
+func EscapesRoot(cleanRelative string) bool {
+	return cleanRelative == ".." || strings.HasPrefix(cleanRelative, ".."+string(filepath.Separator))
 }
 
 // ArchivePath normalizes a slash-separated archive name without allowing it to

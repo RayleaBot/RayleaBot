@@ -21,6 +21,20 @@ func TestWithinRootChecksPathComponents(t *testing.T) {
 	}
 }
 
+func TestEscapesRootOnlyMatchesParentTraversal(t *testing.T) {
+	for _, test := range []struct {
+		path    string
+		escapes bool
+	}{
+		{"..", true}, {filepath.Join("..", "outside"), true},
+		{".", false}, {"..safe", false}, {filepath.Join("child", ".."), false}, {"", false},
+	} {
+		if got := EscapesRoot(test.path); got != test.escapes {
+			t.Errorf("EscapesRoot(%q)=%v", test.path, got)
+		}
+	}
+}
+
 func TestArchivePathRejectsEscapesAndWindowsDevicesOnEveryHost(t *testing.T) {
 	for _, name := range []string{"", ".", "../secret", "a/../../secret", "/absolute", `a\..\secret`, "C:/secret", "file:stream", "x\x00y", "a/CON", "a/nul.txt", "a/COM¹", "a/LPT9.log", "a/CONOUT$", "a/trailing.", "a/trailing "} {
 		if clean, err := ArchivePath(name, true); err == nil {
