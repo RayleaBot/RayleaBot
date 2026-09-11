@@ -39,45 +39,63 @@ type Result struct {
 	Manifest    recovery.BackupManifest
 }
 
-func Create(ctx context.Context, options Options) (Result, error) {
+// backupInputs holds the validated, absolute form of Options.
+type backupInputs struct {
+	repoRoot     string
+	configPath   string
+	databasePath string
+	consistency  string
+	now          func() time.Time
+}
+
+func normalizeOptions(options Options) (backupInputs, error) {
 	if strings.TrimSpace(options.RepoRoot) == "" {
-		return Result{}, errors.New("backup runtime root is required")
+		return backupInputs{}, errors.New("backup runtime root is required")
 	}
 	repoRoot, err := filepath.Abs(strings.TrimSpace(options.RepoRoot))
 	if err != nil {
-		return Result{}, fmt.Errorf("resolve backup runtime root: %w", err)
+		return backupInputs{}, fmt.Errorf("resolve backup runtime root: %w", err)
 	}
 	if strings.TrimSpace(options.ConfigPath) == "" {
-		return Result{}, errors.New("backup config path is required")
+		return backupInputs{}, errors.New("backup config path is required")
 	}
 	configPath, err := filepath.Abs(strings.TrimSpace(options.ConfigPath))
 	if err != nil {
-		return Result{}, fmt.Errorf("resolve backup config path: %w", err)
+		return backupInputs{}, fmt.Errorf("resolve backup config path: %w", err)
 	}
 	databasePath := ""
 	if strings.TrimSpace(options.DatabasePath) != "" {
 		databasePath, err = filepath.Abs(options.DatabasePath)
 		if err != nil {
-			return Result{}, fmt.Errorf("resolve backup database path: %w", err)
+			return backupInputs{}, fmt.Errorf("resolve backup database path: %w", err)
 		}
 	}
 	consistency := strings.TrimSpace(options.Consistency)
 	if consistency != "offline" && consistency != "online" {
-		return Result{}, fmt.Errorf("unsupported backup consistency %q", consistency)
+		return backupInputs{}, fmt.Errorf("unsupported backup consistency %q", consistency)
 	}
 	if options.CreateSnapshot == nil {
-		return Result{}, errors.New("database snapshot function is required")
+		return backupInputs{}, errors.New("database snapshot function is required")
 	}
 	now := options.Now
 	if now == nil {
 		now = time.Now
 	}
+	return backupInputs{repoRoot: repoRoot, configPath: configPath, databasePath: databasePath, consistency: consistency, now: now}, nil
+}
+
+func Create(ctx context.Context, options Options) (Result, error) {
+	inputs, err := normalizeOptions(options)
+	if err != nil {
+		return Result{}, err
+	}
+	repoRoot, configPath, databasePath, consistency := inputs.repoRoot, inputs.configPath, inputs.databasePath, inputs.consistency
 
 	backupDir := filepath.Join(repoRoot, "backups")
 	if err := os.MkdirAll(backupDir, 0o755); err != nil {
 		return Result{}, fmt.Errorf("create backup directory: %w", err)
 	}
-	archivePath, err := allocateArchivePath(backupDir, now().UTC())
+	archivePath, err := allocateArchivePath(backupDir, inputs.now().UTC())
 	if err != nil {
 		return Result{}, err
 	}
@@ -123,58 +141,45 @@ func Create(ctx context.Context, options Options) (Result, error) {
 	}
 
 	if databasePath != "" {
-		if info, statErr := os.Stat(databasePath); statErr == nil && info.Mode().IsRegular() {
-			progress(options.Progress, 30, "创建数据库快照")
-			snapshotPath, snapshotErr := options.CreateSnapshot(ctx, databasePath)
-			if snapshotErr != nil {
-				return Result{}, fmt.Errorf("create database snapshot: %w", snapshotErr)
-			}
-			databaseVersion, err = storage.ReadSchemaVersion(ctx, snapshotPath)
-			if err != nil {
-				return Result{}, fmt.Errorf("read database snapshot version: %w", err)
-			}
-			if err := addFile(ctx, writer, snapshotPath, databaseArchivePath); err != nil {
-				return Result{}, fmt.Errorf("archive database snapshot: %w", err)
-			}
+		version, added, err := addDatabaseSnapshot(ctx, writer, databasePath, options)
+		if err != nil {
+			return Result{}, err
+		}
+		if added {
+			databaseVersion = version
 			directories = append(directories, recovery.Directory(databaseArchivePath, "database"))
-		} else if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-			return Result{}, fmt.Errorf("stat database: %w", statErr)
 		}
 	}
 
 	progress(options.Progress, 55, "写入运行数据")
-	dataRoot := filepath.Join(repoRoot, "data")
-	if info, statErr := os.Stat(dataRoot); statErr == nil && info.IsDir() {
-		snapshotRoot := ""
-		if databasePath != "" {
-			snapshotRoot = storage.SnapshotDirForDatabase(databasePath)
+	snapshotRoot := ""
+	if databasePath != "" {
+		snapshotRoot = storage.SnapshotDirForDatabase(databasePath)
+	}
+	skipDatabaseFiles := func(sourcePath, archivePath string, entry fs.DirEntry) bool {
+		if samePath(sourcePath, databasePath) || samePath(sourcePath, databasePath+"-wal") || samePath(sourcePath, databasePath+"-shm") || samePath(sourcePath, databasePath+".lock") {
+			return true
 		}
-		addErr := addDirectory(ctx, writer, dataRoot, "data", func(sourcePath, archivePath string, entry fs.DirEntry) bool {
-			if samePath(sourcePath, databasePath) || samePath(sourcePath, databasePath+"-wal") || samePath(sourcePath, databasePath+"-shm") || samePath(sourcePath, databasePath+".lock") {
-				return true
-			}
-			if snapshotRoot != "" && samePath(sourcePath, snapshotRoot) {
-				return true
-			}
-			return archivePath == databaseArchivePath && !entry.IsDir()
-		})
-		if addErr != nil {
-			return Result{}, fmt.Errorf("archive runtime data: %w", addErr)
+		if snapshotRoot != "" && samePath(sourcePath, snapshotRoot) {
+			return true
 		}
+		return archivePath == databaseArchivePath && !entry.IsDir()
+	}
+	added, err := addOptionalDirectory(ctx, writer, filepath.Join(repoRoot, "data"), "data", "runtime data", skipDatabaseFiles)
+	if err != nil {
+		return Result{}, err
+	}
+	if added {
 		directories = append(directories, recovery.Directory("data", "data"))
-	} else if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return Result{}, fmt.Errorf("stat runtime data: %w", statErr)
 	}
 
 	progress(options.Progress, 75, "写入插件产物")
-	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
-	if info, statErr := os.Stat(installedRoot); statErr == nil && info.IsDir() {
-		if err := addDirectory(ctx, writer, installedRoot, "plugins/installed", nil); err != nil {
-			return Result{}, fmt.Errorf("archive installed plugins: %w", err)
-		}
+	added, err = addOptionalDirectory(ctx, writer, filepath.Join(repoRoot, "plugins", "installed"), "plugins/installed", "installed plugins", nil)
+	if err != nil {
+		return Result{}, err
+	}
+	if added {
 		directories = append(directories, recovery.Directory("plugins/installed", "plugins"))
-	} else if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return Result{}, fmt.Errorf("stat installed plugins: %w", statErr)
 	}
 
 	progress(options.Progress, 90, "写入备份清单")
@@ -294,7 +299,54 @@ func addFile(ctx context.Context, writer *zip.Writer, sourcePath, archivePath st
 	return err
 }
 
+// addDatabaseSnapshot archives a consistent snapshot of the database file and
+// returns its schema version; a missing database file adds nothing.
+func addDatabaseSnapshot(ctx context.Context, writer *zip.Writer, databasePath string, options Options) (string, bool, error) {
+	info, err := os.Stat(databasePath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("stat database: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return "", false, nil
+	}
+	progress(options.Progress, 30, "创建数据库快照")
+	snapshotPath, err := options.CreateSnapshot(ctx, databasePath)
+	if err != nil {
+		return "", false, fmt.Errorf("create database snapshot: %w", err)
+	}
+	version, err := storage.ReadSchemaVersion(ctx, snapshotPath)
+	if err != nil {
+		return "", false, fmt.Errorf("read database snapshot version: %w", err)
+	}
+	if err := addFile(ctx, writer, snapshotPath, databaseArchivePath); err != nil {
+		return "", false, fmt.Errorf("archive database snapshot: %w", err)
+	}
+	return version, true, nil
+}
+
 type skipFunc func(sourcePath, archivePath string, entry fs.DirEntry) bool
+
+// addOptionalDirectory archives sourceRoot when it exists as a directory and
+// reports whether anything was added; a missing directory is not an error.
+func addOptionalDirectory(ctx context.Context, writer *zip.Writer, sourceRoot, archivePrefix, label string, skip skipFunc) (bool, error) {
+	info, err := os.Stat(sourceRoot)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat %s: %w", label, err)
+	}
+	if !info.IsDir() {
+		return false, nil
+	}
+	if err := addDirectory(ctx, writer, sourceRoot, archivePrefix, skip); err != nil {
+		return false, fmt.Errorf("archive %s: %w", label, err)
+	}
+	return true, nil
+}
 
 func addDirectory(ctx context.Context, writer *zip.Writer, sourceRoot, archivePrefix string, skip skipFunc) error {
 	return filepath.WalkDir(sourceRoot, func(sourcePath string, entry fs.DirEntry, walkErr error) error {
