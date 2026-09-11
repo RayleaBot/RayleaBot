@@ -60,7 +60,7 @@ HTTP handler 直接执行配置写入、默认值合并、命令刷新和变更�
 
 ### 3.3 优先：聊天入口通过具体协作者依赖整个插件执行栈
 
-内置菜单仅为 `RenderIdentityData` 导入 `plugins/actions`；Ingress 直接持有 `*lifecycle.Controller`，由此传递依赖进程 runtime。证据：[menu.go:17、406](../server/internal/bot/menu/menu.go)、[render_identity.go:8–18](../server/internal/render/identity.go)、[ingress.go:14、30](../server/internal/bot/pipeline/chatpolicy/ingress.go)。
+内置菜单仅为 `RenderIdentityData` 导入 `plugins/actions`；Ingress 直接持有 `*lifecycle.Controller`，由此传递依赖进程 runtime。证据：[menu.go:17、406](../server/internal/bot/menu/menu.go)、[身份投影实现](../server/internal/bot/presentation/identity.go)、[ingress.go:14、30](../server/internal/bot/pipeline/chatpolicy/ingress.go)。
 
 整改：身份渲染投影移入现有 render 入口包，menu 和 actions 均调用它；其输入已有 chatevent/config，不需要依赖插件实现。Ingress 只声明实际使用的身份协调方法，由 App 注入 lifecycle 实现。保留 bridge、dispatch、outbound 的独立边界，不把整条事件链合成一个大包。
 
