@@ -9,12 +9,25 @@ import (
 )
 
 func readCollectionQuery(w http.ResponseWriter, r *http.Request) (pagination.Query, bool) {
-	query, err := pagination.Parse(r.URL.Query())
+	return readCollectionQueryWithLimits(w, r, pagination.Limits{})
+}
+
+func readCollectionQueryWithLimits(w http.ResponseWriter, r *http.Request, limits pagination.Limits) (pagination.Query, bool) {
+	query, err := pagination.ParseWithLimits(r.URL.Query(), limits)
 	if err != nil {
 		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
 		return pagination.Query{}, false
 	}
 	return query, true
+}
+
+func readCollectionLimit(w http.ResponseWriter, r *http.Request, limits pagination.Limits) (int, bool) {
+	limit, err := pagination.ParseLimit(r.URL.Query(), limits)
+	if err != nil {
+		httpapi.WriteError(w, r, errorcodes.PlatformInvalidRequest, nil)
+		return 0, false
+	}
+	return limit, true
 }
 
 func readCollectionChoice(w http.ResponseWriter, r *http.Request, name string, allowed ...string) (string, bool) {

@@ -5,7 +5,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -60,33 +59,21 @@ func (routes PluginStoreRoutes) RegisterProtectedRoutes(router chi.Router) {
 
 func (routes PluginStoreRoutes) list() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		query := market.Query{
-			SourceID: r.URL.Query().Get("source_id"),
-			Text:     r.URL.Query().Get("query"),
-			Sort:     r.URL.Query().Get("sort"),
-			Limit:    24,
-		}
-		if raw := strings.TrimSpace(r.URL.Query().Get("cursor")); raw != "" {
-			value, err := strconv.Atoi(raw)
-			if err != nil || value < 0 {
-				httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
-				return
-			}
-			query.Cursor = value
-		}
-		if raw := strings.TrimSpace(r.URL.Query().Get("limit")); raw != "" {
-			value, err := strconv.Atoi(raw)
-			if err != nil || value < 1 || value > 100 {
-				httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
-				return
-			}
-			query.Limit = value
-		}
-		if query.Sort != "" && query.Sort != "recommended" && query.Sort != "name" && query.Sort != "updated" {
-			httpapi.WriteError(w, r, pluginCodeInvalidRequest, nil)
+		page, ok := readCollectionQueryWithLimits(w, r, pagination.Limits{Default: 24, Max: 100})
+		if !ok {
 			return
 		}
-		result, err := routes.Service.List(query)
+		sortOrder, ok := readCollectionChoice(w, r, "sort", "recommended", "name", "updated")
+		if !ok {
+			return
+		}
+		result, err := routes.Service.List(market.Query{
+			SourceID: r.URL.Query().Get("source_id"),
+			Text:     page.Text,
+			Sort:     sortOrder,
+			Limit:    page.Limit,
+			Cursor:   page.Cursor,
+		})
 		if err != nil {
 			writePluginStoreError(w, r, err)
 			return

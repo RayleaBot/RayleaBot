@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 )
 
 const (
@@ -84,14 +84,9 @@ func (h *LogHandlers) HandleLogsList() http.HandlerFunc {
 			return
 		}
 
-		limit := 50
-		if raw := strings.TrimSpace(queryValues.Get("limit")); raw != "" {
-			parsed, err := strconv.Atoi(raw)
-			if err != nil || parsed < 1 || parsed > logMaxPageLimit {
-				httpapi.WriteError(w, r, logCodeInvalidRequest, nil)
-				return
-			}
-			limit = parsed
+		limit, ok := readCollectionLimit(w, r, pagination.Limits{Default: 50, Max: logMaxPageLimit})
+		if !ok {
+			return
 		}
 
 		scopeValue, err := parseScope(queryValues.Get("scope"))

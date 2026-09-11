@@ -5,6 +5,7 @@ package pagination
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -24,21 +25,39 @@ type Metadata struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 }
 
+// Limits bounds the page size of a collection query. A zero field falls back
+// to DefaultLimit.
+type Limits struct {
+	Default int
+	Max     int
+}
+
+func (l Limits) normalized() Limits {
+	if l.Default <= 0 {
+		l.Default = DefaultLimit
+	}
+	if l.Max <= 0 {
+		l.Max = DefaultLimit
+	}
+	return l
+}
+
 func Parse(values url.Values) (Query, error) {
-	query := Query{Limit: DefaultLimit, Text: strings.TrimSpace(values.Get("query"))}
+	return ParseWithLimits(values, Limits{})
+}
+
+// ParseWithLimits reads the query, limit and offset cursor parameters with
+// endpoint-specific page bounds.
+func ParseWithLimits(values url.Values, limits Limits) (Query, error) {
+	query := Query{Text: strings.TrimSpace(values.Get("query"))}
 	if utf8.RuneCountInString(query.Text) > 200 {
 		return Query{}, errors.New("collection query exceeds 200 characters")
 	}
-	if raw, exists := values["limit"]; exists {
-		if len(raw) != 1 {
-			return Query{}, errors.New("limit must occur once")
-		}
-		value, err := strconv.Atoi(raw[0])
-		if err != nil || value < 1 || value > DefaultLimit {
-			return Query{}, errors.New("limit must be between 1 and 100")
-		}
-		query.Limit = value
+	limit, err := ParseLimit(values, limits)
+	if err != nil {
+		return Query{}, err
 	}
+	query.Limit = limit
 	if raw, exists := values["cursor"]; exists {
 		if len(raw) != 1 || len(raw[0]) == 0 || len(raw[0]) > 10 {
 			return Query{}, errors.New("invalid collection cursor")
@@ -50,6 +69,24 @@ func Parse(values url.Values) (Query, error) {
 		query.Cursor = int(value)
 	}
 	return query, nil
+}
+
+// ParseLimit reads only the limit parameter, for endpoints whose cursor is
+// not an offset in a fixed order.
+func ParseLimit(values url.Values, limits Limits) (int, error) {
+	limits = limits.normalized()
+	raw, exists := values["limit"]
+	if !exists {
+		return limits.Default, nil
+	}
+	if len(raw) != 1 {
+		return 0, errors.New("limit must occur once")
+	}
+	value, err := strconv.Atoi(raw[0])
+	if err != nil || value < 1 || value > limits.Max {
+		return 0, fmt.Errorf("limit must be between 1 and %d", limits.Max)
+	}
+	return value, nil
 }
 
 func Meta(query Query, total int) Metadata {
