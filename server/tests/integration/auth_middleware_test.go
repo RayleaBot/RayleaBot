@@ -95,7 +95,7 @@ func TestPropertyTokenExtraction(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
-	middleware := managementapi.RequireAuth(manager)
+	middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 	rapid.Check(t, func(t *rapid.T) {
 		// Generate a random token string (non-empty, no leading/trailing whitespace, printable ASCII).
@@ -128,7 +128,7 @@ func TestPropertyTokenExtraction(t *testing.T) {
 	// Also verify that valid tokens with Bearer prefix are correctly extracted and validated.
 	rapid.Check(t, func(t *rapid.T) {
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementapi.RequireAuth(manager)
+		middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		validToken := issueToken(t, manager, subject)
@@ -165,7 +165,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
-	middleware := managementapi.RequireAuth(manager)
+	middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 	// Scenario generator: one of four invalid auth scenarios.
 	type scenario struct {
@@ -248,7 +248,7 @@ func TestRequestIDUniqueness(t *testing.T) {
 	t.Parallel()
 
 	manager := newPropertyAuthManager(t)
-	middleware := managementapi.RequireAuth(manager)
+	middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 	// Collect request_ids from multiple rejection responses and verify uniqueness.
 	const batchSize = 50
@@ -286,7 +286,7 @@ func TestPropertyValidTokenClaimsContext(t *testing.T) {
 
 	rapid.Check(t, func(t *rapid.T) {
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementapi.RequireAuth(manager)
+		middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		token, expectedClaims, err := manager.Issue(subject)
@@ -336,7 +336,7 @@ func TestPropertyWebSocketQueryParamRejected(t *testing.T) {
 
 	rapid.Check(t, func(t *rapid.T) {
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementapi.RequireAuth(manager)
+		middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 		subject := rapid.StringMatching(`[a-z]{3,12}`).Draw(t, "subject")
 		token := issueToken(t, manager, subject)
@@ -367,7 +367,7 @@ func TestPropertyQueryTokenRejectedEvenWithAuthorization(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		// Create a fresh manager per iteration to avoid hitting max sessions across iterations.
 		manager := newPropertyAuthManagerWithMax(t, 10)
-		middleware := managementapi.RequireAuth(manager)
+		middleware := managementapi.RequireAuthWithConfig(manager, nil)
 
 		subjectA := rapid.StringMatching(`[a-z]{3,6}`).Draw(t, "subject_a")
 		subjectB := rapid.StringMatching(`[a-z]{3,6}`).Draw(t, "subject_b")

@@ -231,12 +231,6 @@ func writeAuthError(w http.ResponseWriter, r *http.Request, code string) {
 // preventing external packages from accidentally overwriting the value.
 type claimsKey struct{}
 
-// RequireAuth preserves the Bearer-only middleware entry point for non-browser
-// callers and tests. Production management routes use RequireAuthWithConfig.
-func RequireAuth(authManager *auth.Manager) func(http.Handler) http.Handler {
-	return RequireAuthWithConfig(authManager, nil)
-}
-
 // RequireAuthWithConfig accepts Bearer authentication for API clients and the
 // host-only session cookie for browsers. Unsafe cookie-authenticated requests
 // additionally require the per-session CSRF value.
