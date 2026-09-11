@@ -62,15 +62,6 @@ func ConfigShapePath(path string) string {
 	return strings.Join(shape, ".")
 }
 
-func ConfigFieldMetadataPaths() []string {
-	paths := make([]string, 0, len(configFieldMetadata))
-	for path := range configFieldMetadata {
-		paths = append(paths, path)
-	}
-	slices.Sort(paths)
-	return paths
-}
-
 func ConfigSecretFieldPaths() []string {
 	paths := make([]string, 0)
 	for path, metadata := range configFieldMetadata {

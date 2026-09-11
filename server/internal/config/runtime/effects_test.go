@@ -67,7 +67,7 @@ func TestConfigSchemaMetadataCoversCanonicalFields(t *testing.T) {
 		pathSet[path] = true
 	}
 	var extra []string
-	for _, path := range ConfigFieldMetadataPaths() {
+	for path := range configFieldMetadata {
 		if !pathSet[path] {
 			extra = append(extra, path)
 		}
