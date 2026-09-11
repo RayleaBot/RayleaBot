@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"pgregory.net/rapid"
 )
@@ -60,7 +61,7 @@ func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
 		UI:             plugins.InstallUIInspection{Enabled: true, Entry: "ui/index.html", FileCount: 3},
 		Artifact:       plugins.ArtifactInspection{Valid: true, Version: "2", FileCount: 8},
 	}}
-	handler := newInstallInspectHandler(newTestCatalog(nil), installer)
+	handler := newInstallInspectHandler(plugincatalog.New(nil), installer)
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install/inspect", strings.NewReader(`{"source_type":"local_zip","source":"C:/plugins/weather.zip"}`))
 	recorder := httptest.NewRecorder()
 

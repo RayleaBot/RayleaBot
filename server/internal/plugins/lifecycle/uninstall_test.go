@@ -29,7 +29,7 @@ func TestUninstallServiceRejectsFullQueueBeforeTaskCreation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
-	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), &stubInstallRepository{}, validator, repoRoot, []plugincatalog.ScanRoot{
+	service, err := NewUninstallService(nil, registry, plugincatalog.New(nil), &stubInstallRepository{}, validator, repoRoot, []plugincatalog.ScanRoot{
 		{Label: "examples/plugins", Path: examplesRoot},
 		{Label: "plugins/installed", Path: installedRoot},
 	}, UninstallOptions{Operations: NewOperationGate()})
@@ -86,7 +86,7 @@ func TestUninstallServiceInvokesAfterSuccessCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compile plugin-info schema: %v", err)
 	}
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather-remove",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -160,7 +160,7 @@ func TestUninstallAggregatesIndependentCleanupFailuresAfterRemoval(t *testing.T)
 		t.Fatal(err)
 	}
 	repository := &failingUninstallRepository{desiredErr: desiredErr, metadataErr: metadataErr}
-	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), repository, validator, repoRoot,
+	service, err := NewUninstallService(nil, registry, plugincatalog.New(nil), repository, validator, repoRoot,
 		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}}, UninstallOptions{Operations: NewOperationGate()})
 	if err != nil {
 		t.Fatal(err)
@@ -190,7 +190,7 @@ func TestUninstallStopsBeforeDestructiveWorkWhenRuntimeStopFails(t *testing.T) {
 	writeInstallSourcePlugin(t, filepath.Join(installedRoot, "weather"), "weather")
 	registry := tasks.NewRegistry()
 	repository := &stubInstallRepository{}
-	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), repository, nil, repoRoot,
+	service, err := NewUninstallService(nil, registry, plugincatalog.New(nil), repository, nil, repoRoot,
 		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: installedRoot}},
 		UninstallOptions{Operations: NewOperationGate(), StopPlugin: func(context.Context, string) error { return errors.New("test-secret-process-stop") }})
 	if err != nil {
@@ -220,7 +220,7 @@ func TestUninstallRejectsInvalidIdentifierBeforeCreatingTask(t *testing.T) {
 	t.Parallel()
 	registry := tasks.NewRegistry()
 	repoRoot := t.TempDir()
-	service, err := NewUninstallService(nil, registry, newTestCatalog(nil), nil, nil, repoRoot,
+	service, err := NewUninstallService(nil, registry, plugincatalog.New(nil), nil, nil, repoRoot,
 		[]plugincatalog.ScanRoot{{Label: "plugins/installed", Path: filepath.Join(repoRoot, "plugins", "installed")}}, UninstallOptions{Operations: NewOperationGate()})
 	if err != nil {
 		t.Fatal(err)

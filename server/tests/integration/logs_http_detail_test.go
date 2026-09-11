@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"net/http"
 	"path/filepath"
 	"reflect"
@@ -14,6 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
 func TestLogDetailReturnsOutboundStructuredDetail(t *testing.T) {
@@ -143,7 +143,7 @@ func TestLogsIncludeCommandPolicyRejectionFromEventIngress(t *testing.T) {
 	if details["command_name"] != "echo" || details["error_code"] != "permission.not_whitelisted" {
 		t.Fatalf("unexpected command rejection details: %#v", details)
 	}
-	if details["reason"] != "发送者不在白名单中" || details["policy_stage"] != "whitelist" {
+	if reason, ok := details["reason"].(string); !ok || reason == "" || details["policy_stage"] != "whitelist" {
 		t.Fatalf("unexpected command rejection details: %#v", details)
 	}
 	if !reflect.DeepEqual(details["matched_plugin_ids"], []any{"raylea.echo"}) {

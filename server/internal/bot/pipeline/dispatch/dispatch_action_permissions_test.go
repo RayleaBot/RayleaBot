@@ -184,7 +184,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	if summary.Protocol != logging.ProtocolOneBot11 {
 		t.Fatalf("unexpected protocol: got %q want %q", summary.Protocol, logging.ProtocolOneBot11)
 	}
-	if summary.Message != "消息已发送" || summary.Details["target_label"] != "[测试群(200)]" {
+	if summary.Details["outcome"] != "delivered" || summary.Details["target_label"] != "[测试群(200)]" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if summary.PluginID != "action-plugin" {
@@ -243,7 +243,7 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)
 	}
-	if summary.Message != "消息发送失败" || summary.Details["target_label"] != "[测试群(200)]" {
+	if summary.Details["outcome"] != "failed" || summary.Details["target_label"] != "[测试群(200)]" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if summary.Details["command_name"] != "echo" {
@@ -307,7 +307,7 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	if summary.Details["command_name"] != "echo" {
 		t.Fatalf("unexpected command_name detail: %#v", summary.Details["command_name"])
 	}
-	if summary.Message != "消息已发送" || summary.Details["plain_text"] != "fallback reply" {
+	if summary.Details["outcome"] != "delivered" || summary.Details["plain_text"] != "fallback reply" {
 		t.Fatalf("unexpected fallback summary: got %q", summary.Message)
 	}
 	if summary.Details["target_type"] != "group" || summary.Details["target_id"] != "200" {
@@ -348,7 +348,7 @@ func TestDispatchLogsOutboundMessageWithoutCommandContext(t *testing.T) {
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0004"
 	})
-	if summary.Message != "消息已发送" || summary.Details["plain_text"] != "hello dispatch" {
+	if summary.Details["outcome"] != "delivered" || summary.Details["plain_text"] != "hello dispatch" {
 		t.Fatalf("unexpected log message: got %q", summary.Message)
 	}
 	if _, ok := summary.Details["command_name"]; ok {

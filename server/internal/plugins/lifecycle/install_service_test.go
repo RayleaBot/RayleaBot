@@ -895,7 +895,7 @@ func TestInstallServiceRejectsIncompatibleMinimumCoreVersion(t *testing.T) {
 	}
 }
 
-func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []plugins.Snapshot, repository plugins.DesiredStateRepository, deps installerDeps) (*InstallService, *testCatalog) {
+func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Registry, initial []plugins.Snapshot, repository plugins.DesiredStateRepository, deps installerDeps) (*InstallService, *plugincatalog.Catalog) {
 	t.Helper()
 	testutil.WriteBuildInfo(t, repoRoot, "0.4.0")
 
@@ -913,7 +913,7 @@ func newInstallTestService(t *testing.T, repoRoot string, registry *tasks.Regist
 		t.Fatalf("create installed root: %v", err)
 	}
 
-	catalog := newTestCatalog(initial)
+	catalog := plugincatalog.New(initial)
 	service, err := newInstallService(
 		nil,
 		registry,

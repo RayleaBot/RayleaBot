@@ -878,7 +878,7 @@ func TestDoctorReportChecksSQLiteIntegrity(t *testing.T) {
 		t.Fatalf("doctor report should flag corrupt database, got %#v", corrupt.Issues)
 		return
 	}
-	if issue.Severity != "error" || !strings.Contains(issue.Summary, "数据库完整性检查失败") {
+	if issue.Severity != "error" || issue.Summary == "" {
 		t.Fatalf("unexpected corrupt database issue: %#v", issue)
 	}
 	if !strings.Contains(issue.Remediation, "data/quarantine/") || !strings.Contains(issue.Remediation, "data/sqlite-snapshots/") {
@@ -897,7 +897,7 @@ func TestDoctorReportRejectsRetiredPluginRuntimeKeys(t *testing.T) {
 		ConfigPath: configPath,
 	})
 	issue := findDoctorIssue(report.Issues, "config.retired_plugin_runtime_keys")
-	if issue == nil || !strings.Contains(issue.Summary, "runtime.nodejs_max_old_space_size_mb") || !strings.Contains(issue.Remediation, "删除") {
+	if issue == nil || !strings.Contains(issue.Summary, "runtime.nodejs_max_old_space_size_mb") || issue.Remediation == "" {
 		t.Fatalf("doctor should identify retired plugin runtime keys: %#v", report.Issues)
 	}
 }

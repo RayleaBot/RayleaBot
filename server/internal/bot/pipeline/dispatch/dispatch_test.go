@@ -5,7 +5,6 @@ import (
 	"context"
 	"io"
 	"log/slog"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -371,7 +370,7 @@ func TestDispatchRecordsSchedulerSuccessWithoutCompletionLog(t *testing.T) {
 		t.Fatalf("unexpected scheduler run result: %#v", got)
 	}
 	if summary := findDispatchLog(stream, func(summary logging.Summary) bool {
-		return strings.Contains(summary.Message, "处理完成")
+		return summary.Source == "scheduler" && summary.PluginID == "weather" && summary.Details["job_id"] == "daily_report"
 	}); summary != nil {
 		t.Fatalf("success completion should not be logged: %#v", summary)
 	}

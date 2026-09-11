@@ -2,15 +2,17 @@ package management
 
 import (
 	"context"
-	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
-	"github.com/go-chi/chi/v5"
-	"gopkg.in/yaml.v3"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
+
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/go-chi/chi/v5"
+	"gopkg.in/yaml.v3"
 )
 
 func TestRegisterManagementRoutes(t *testing.T) {
@@ -47,7 +49,7 @@ func TestRegisterManagementRoutes(t *testing.T) {
 				r.Get("/ws/plugins/{id}/console", noopHandler)
 			}),
 			ProtectedRouteFunc(func(r chi.Router) {
-				catalog := newTestCatalog(nil)
+				catalog := plugincatalog.New(nil)
 				controller := &stubDesiredStateController{}
 				registerPluginReadRoutes(r, catalog)
 				registerPluginInstallRoutes(r, catalog, nil)

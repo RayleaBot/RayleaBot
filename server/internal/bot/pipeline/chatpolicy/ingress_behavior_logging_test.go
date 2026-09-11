@@ -95,7 +95,7 @@ func TestApplyChatPolicyLogsCooldownReplyFailure(t *testing.T) {
 	}
 
 	summary = waitForIngressLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "消息发送失败" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["reason"] == "cooldown reply blocked"
+		return summary.Details["outcome"] == "failed" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["reason"] == "cooldown reply blocked"
 	})
 	if summary.Level != "warn" {
 		t.Fatalf("unexpected log level: got %q want warn", summary.Level)

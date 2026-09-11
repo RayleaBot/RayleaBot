@@ -7,14 +7,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
-
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginmarket "github.com/RayleaBot/RayleaBot/server/internal/plugins/market"
+	"github.com/go-chi/chi/v5"
 )
 
 func TestPluginStoreErrorCausesHaveDistinctHTTPMetadata(t *testing.T) {
@@ -70,7 +70,7 @@ func (failedActionInvoker) InvokeManagementAction(context.Context, string, strin
 }
 
 func TestPluginManagementActionFailureIsGatewayFailureWithoutPrivateCause(t *testing.T) {
-	handler := NewPluginManagementUIHandlers(PluginManagementUIDeps{Plugins: newTestCatalog([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}}), ActionInvoker: failedActionInvoker{}})
+	handler := NewPluginManagementUIHandlers(PluginManagementUIDeps{Plugins: plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}}), ActionInvoker: failedActionInvoker{}})
 	router := chi.NewRouter()
 	handler.RegisterProtectedRoutes(router)
 	response := httptest.NewRecorder()

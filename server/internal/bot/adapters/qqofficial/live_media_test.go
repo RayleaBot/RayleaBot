@@ -1,3 +1,5 @@
+//go:build manual_smoke
+
 package qqofficial
 
 import (
@@ -15,15 +17,15 @@ import (
 // exercising the real upload-then-send path against the platform. It replies
 // rather than pushes, so it does not spend the active message quota.
 //
-// Skipped unless credentials and an image are supplied:
+// Select it explicitly with manual_smoke; credentials and an image are required:
 //
 //	QQ_APP_ID=... QQ_APP_SECRET=... QQ_LIVE_IMAGE=/path/to.png \
-//	  go test ./internal/qqofficial/ -run LiveMediaReply -v -timeout 5m
+//	  go test -tags manual_smoke ./internal/bot/adapters/qqofficial/ -run LiveMediaReply -v -timeout 5m
 func TestLiveMediaReply(t *testing.T) {
 	appID, appSecret := os.Getenv("QQ_APP_ID"), os.Getenv("QQ_APP_SECRET")
 	imagePath := os.Getenv("QQ_LIVE_IMAGE")
 	if appID == "" || appSecret == "" || imagePath == "" {
-		t.Skip("set QQ_APP_ID, QQ_APP_SECRET and QQ_LIVE_IMAGE to exercise a live media reply")
+		t.Fatal("set QQ_APP_ID, QQ_APP_SECRET and QQ_LIVE_IMAGE to exercise a live media reply")
 	}
 	if _, err := os.Stat(imagePath); err != nil {
 		t.Fatalf("QQ_LIVE_IMAGE is not readable: %v", err)
@@ -41,6 +43,9 @@ func TestLiveMediaReply(t *testing.T) {
 	var once sync.Once
 	received := make(chan chatevent.NormalizedEvent, 1)
 	client.SetEventHandler(func(_ context.Context, event chatevent.NormalizedEvent) {
+		if event.Kind != chatevent.EventKindMessage || event.MessageID == "" || event.ConversationID == "" {
+			return
+		}
 		once.Do(func() { received <- event })
 	})
 
@@ -50,7 +55,9 @@ func TestLiveMediaReply(t *testing.T) {
 	defer func() {
 		stopCtx, stopCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer stopCancel()
-		_ = client.Stop(stopCtx)
+		if err := client.Stop(stopCtx); err != nil {
+			t.Errorf("stop live client: %v", err)
+		}
 	}()
 
 	t.Log("connected; waiting for an inbound message to answer")
@@ -77,6 +84,9 @@ func TestLiveMediaReply(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("live media reply failed: %v", err)
+	}
+	if result.MessageID == "" {
+		t.Fatal("platform did not acknowledge the reply with a message ID")
 	}
 	t.Logf("reply delivered: message_id=%s", result.MessageID)
 }

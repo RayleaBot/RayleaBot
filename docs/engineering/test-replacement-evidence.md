@@ -2,6 +2,8 @@
 
 这份记录对应执行计划 P20 的 services 装配替代。原 `server/tests/services/` 的 80 个测试逐项保留名称和业务断言，移到相应领域的外部测试包；构造对象改用正式 `Deps`，不再复制 App、Platform、EventStack 或 Services 状态。
 
+补充评审后的测试边界：管理与安装测试直接使用真实 `catalog.Catalog`，删除两份复制排序、状态冲突和刷新逻辑的 `testCatalog`。目录并发测试验证更新结果、稳定成员、读快照与最终状态，并纳入 race 检查。错误与事件选择使用 code、message_key、outcome、event_id 等结构字段；中文名称、用户输入、菜单语法、脱敏结果及专门的格式化测试继续保留数据断言。QQ 官方网关和媒体回复改为显式选择的 [人工 Smoke](./manual-smoke.md)，不计入默认自动覆盖。
+
 `harness_test.go`、无语义转发器及空的 services 测试目录已移除。共享渲染 runner 和取消感知的事件记录运行时位于 `tests/testutil`，各测试创建并关闭自己的 SQLite、Dispatcher 和 HTTP server。日志等待使用订阅与超时预算。
 
 ## 装配证据

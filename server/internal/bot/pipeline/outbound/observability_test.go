@@ -2,12 +2,12 @@ package outbound
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"io"
 	"log/slog"
 	"testing"
 	"time"
 
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 )
 
@@ -71,7 +71,7 @@ func TestLogSendOutcomeUsesPlatformSummaryWithoutPluginContext(t *testing.T) {
 	}, nil)
 
 	summary := waitForOutboundSummary(t, stream)
-	if summary.Message != "消息已发送" || summary.Details["plain_text"] != "cooldown reply" || summary.Details["target_id"] != "200" {
+	if summary.Details["outcome"] != "delivered" || summary.Details["plain_text"] != "cooldown reply" || summary.Details["target_id"] != "200" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.PluginID != "" {
@@ -105,7 +105,7 @@ func TestLogSendOutcomeUsesPlatformFailureSummaryWithoutPluginContext(t *testing
 	})
 
 	summary := waitForOutboundSummary(t, stream)
-	if summary.Message != "消息发送失败" || summary.Details["reason"] != "send rejected by upstream" || summary.Details["target_id"] != "300" {
+	if summary.Details["outcome"] != "failed" || summary.Details["reason"] != "send rejected by upstream" || summary.Details["target_id"] != "300" {
 		t.Fatalf("unexpected summary message: got %q", summary.Message)
 	}
 	if summary.Details["error_code"] != "adapter.send_failed" {

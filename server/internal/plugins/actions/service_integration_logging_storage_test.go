@@ -5,7 +5,6 @@ import (
 	"context"
 	"log/slog"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -483,7 +482,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 	if jobs[0].LogLabel != "新版早报" {
 		t.Fatalf("LogLabel = %q, want 新版早报", jobs[0].LogLabel)
 	}
-	if logs := buffer.String(); strings.Contains(logs, "定时任务已注册") {
+	if logs := buffer.String(); logs != "" {
 		t.Fatalf("scheduler registration should not write management log:\n%s", logs)
 	}
 }

@@ -9,11 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
-	"pgregory.net/rapid"
-
 	managementapi "github.com/RayleaBot/RayleaBot/server/internal/management"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/auth"
+	"github.com/coder/websocket"
+	"pgregory.net/rapid"
 )
 
 // newPropertyAuthManager creates a deterministic auth.Manager for property tests.
@@ -230,7 +229,7 @@ func TestPropertyInvalidAuthUniformRejection(t *testing.T) {
 		if errorObj["code"] != "permission.authentication_required" {
 			t.Fatalf("[%s] expected code permission.authentication_required, got %v", sc.name, errorObj["code"])
 		}
-		if errorObj["message"] != "请求认证未通过" {
+		if message, ok := errorObj["message"].(string); !ok || strings.TrimSpace(message) == "" {
 			t.Fatalf("[%s] unexpected message: %v", sc.name, errorObj["message"])
 		}
 		if errorObj["message_key"] != "errors.permission.authentication_required" {
@@ -557,7 +556,7 @@ func TestProtectedRoutesReject401WithoutToken(t *testing.T) {
 			if errorObj["code"] != "permission.authentication_required" {
 				t.Fatalf("expected code permission.authentication_required, got %v", errorObj["code"])
 			}
-			if errorObj["message"] != "请求认证未通过" {
+			if message, ok := errorObj["message"].(string); !ok || strings.TrimSpace(message) == "" {
 				t.Fatalf("unexpected message: %v", errorObj["message"])
 			}
 			if errorObj["message_key"] != "errors.permission.authentication_required" {

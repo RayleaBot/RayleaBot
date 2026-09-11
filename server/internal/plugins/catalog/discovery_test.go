@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -45,7 +44,7 @@ func TestDiscoverSkipsInternalRuntimeDirectoriesWithoutWarnings(t *testing.T) {
 		t.Fatalf("unexpected skipped count: %#v", summary)
 	}
 	for _, item := range stream.Snapshot() {
-		if strings.Contains(item.Message, "缺少 info.json") {
+		if item.Level == "warn" || item.Level == "error" {
 			t.Fatalf("internal runtime directory should not warn about missing manifest: %#v", item)
 		}
 	}

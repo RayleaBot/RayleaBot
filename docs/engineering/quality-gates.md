@@ -9,6 +9,8 @@
 - `go test ./...`
 - `mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
 
+需要真实平台凭据或人工参与的用例单独登记于 [人工 Smoke](./manual-smoke.md)，通过 `manual_smoke` build tag 显式执行。
+
 ### Web
 
 - `pnpm install --frozen-lockfile`

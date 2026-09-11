@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -26,7 +26,7 @@ func TestDesiredStateHandlersDelegateToLifecycle(t *testing.T) {
 		} {
 			t.Run(action+"/"+tc.name, func(t *testing.T) {
 				original := plugins.Snapshot{PluginID: "fixture", Valid: true, RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped"}
-				catalog := newTestCatalog([]plugins.Snapshot{original})
+				catalog := plugincatalog.New([]plugins.Snapshot{original})
 				result := original
 				result.DesiredState, result.RuntimeState = "enabled", "starting"
 				controller := &stubDesiredStateController{enableResult: result, disableResult: result, enableErr: tc.err, disableErr: tc.err}
@@ -62,7 +62,7 @@ func TestDesiredStateHandlersDelegateToLifecycle(t *testing.T) {
 func TestPluginRoutesRejectMissingLifecycleDuringAssembly(t *testing.T) {
 	t.Parallel()
 	routes, err := NewPluginRoutes(PluginRouteDeps{
-		Catalog: catalog.New(nil), Installer: testInstallCoordinator{}, Uninstaller: &stubUninstallCoordinator{},
+		Catalog: plugincatalog.New(nil), Installer: testInstallCoordinator{}, Uninstaller: &stubUninstallCoordinator{},
 	})
 	if err == nil || routes != nil {
 		t.Fatal("incomplete plugin routes must fail assembly")

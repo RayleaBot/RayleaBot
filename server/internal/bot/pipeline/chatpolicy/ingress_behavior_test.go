@@ -259,7 +259,7 @@ func TestHandleAdapterEventLogsWhitelistedCommandRejection(t *testing.T) {
 	if summary.Details["command_name"] != "weather" || summary.Details["policy_stage"] != "whitelist" {
 		t.Fatalf("unexpected whitelist log details: %#v", summary.Details)
 	}
-	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] != "发送者不在白名单中" {
+	if summary.Details["error_code"] != "permission.not_whitelisted" || summary.Details["reason"] == nil || summary.Details["reason"] == "" {
 		t.Fatalf("unexpected whitelist log details: %#v", summary.Details)
 	}
 	if !reflect.DeepEqual(summary.Details["matched_plugin_ids"], []any{"weather"}) {

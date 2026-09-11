@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-
 	"pgregory.net/rapid"
 )
 
@@ -87,46 +86,60 @@ func TestProperty_SetDesiredState_NotFound(t *testing.T) {
 	})
 }
 
-// Feature: plugin-write-api, Property 7: Catalog 并发安全
-// Validates: Requirements 7.4
-func TestProperty_Catalog_ConcurrentSafety(t *testing.T) {
-	entries := make([]plugins.Snapshot, 10)
+func TestCatalogConcurrentUpdatesPreserveMembershipAndSnapshots(t *testing.T) {
+	const count = 10
+	entries := make([]plugins.Snapshot, count)
 	for i := range entries {
-		entries[i] = plugins.Snapshot{
-			PluginID:          fmt.Sprintf("plugin_%d", i),
-			Name:              fmt.Sprintf("Plugin %d", i),
-			Version:           "1.0.0",
-			RegistrationState: "installed",
-			DesiredState:      "disabled",
-		}
+		entries[i] = plugins.Snapshot{PluginID: fmt.Sprintf("plugin_%d", i), Name: fmt.Sprintf("Plugin %d", i), RegistrationState: "installed", DesiredState: "disabled"}
 	}
 	catalog := New(entries)
-
-	var wg sync.WaitGroup
-	const goroutines = 20
-
-	for g := 0; g < goroutines; g++ {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			id := fmt.Sprintf("plugin_%d", idx%len(entries))
-
-			switch idx % 3 {
-			case 0:
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	for i := range entries {
+		workers.Go(func() {
+			<-start
+			for n := range 40 {
 				desired := "enabled"
-				if idx%2 == 0 {
+				if n%2 != 0 {
 					desired = "disabled"
 				}
-				_, _ = catalog.SetDesiredState(id, desired)
-			case 1:
-				catalog.Get(id)
-			case 2:
-				catalog.List()
+				updated, err := catalog.SetDesiredState(entries[i].PluginID, desired)
+				if err != nil || updated.DesiredState != desired {
+					t.Errorf("update = %#v, %v", updated, err)
+					return
+				}
 			}
-		}(g)
+		})
+		workers.Go(func() {
+			<-start
+			for range 40 {
+				snapshots := catalog.List()
+				if len(snapshots) != count {
+					t.Errorf("membership changed: %d", len(snapshots))
+					return
+				}
+				for index, snapshot := range snapshots {
+					if snapshot.PluginID != entries[index].PluginID || snapshot.Name != entries[index].Name || (snapshot.DesiredState != "enabled" && snapshot.DesiredState != "disabled") {
+						t.Errorf("inconsistent snapshot: %#v", snapshot)
+						return
+					}
+					snapshots[index].Name = "caller-owned mutation"
+				}
+				snapshot, found := catalog.Get(entries[i].PluginID)
+				if !found || snapshot.Name != entries[i].Name {
+					t.Errorf("read lost identity: %#v, %v", snapshot, found)
+					return
+				}
+			}
+		})
 	}
-
-	wg.Wait()
+	close(start)
+	workers.Wait()
+	for _, entry := range catalog.List() {
+		if entry.DesiredState != "disabled" {
+			t.Errorf("final write lost: %#v", entry)
+		}
+	}
 }
 
 // --- Unit Tests ---

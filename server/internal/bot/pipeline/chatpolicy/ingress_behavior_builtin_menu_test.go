@@ -543,7 +543,7 @@ func TestApplyChatPolicyLogsCooldownReplySuccess(t *testing.T) {
 	}
 
 	summary = waitForIngressLog(t, stream, func(summary logging.Summary) bool {
-		return summary.Message == "消息已发送" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["plain_text"] == "命令触发冷却，请稍后再试。"
+		return summary.Details["outcome"] == "delivered" && summary.Details["target_label"] == "[测试群(20001)]" && summary.Details["plain_text"] != nil && summary.Details["plain_text"] != ""
 	})
 	if summary.Source != "adapter.onebot11" {
 		t.Fatalf("unexpected log source: got %q want adapter.onebot11", summary.Source)

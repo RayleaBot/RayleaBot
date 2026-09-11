@@ -15,6 +15,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	secretssqlite "github.com/RayleaBot/RayleaBot/server/internal/platform/secrets/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
@@ -44,7 +45,7 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	catalog := newTestCatalog([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}})
+	catalog := plugincatalog.New([]plugins.Snapshot{{PluginID: "fixture", Valid: true, RegistrationState: "installed"}})
 	invoker := &requestBoundaryActionInvoker{}
 	settingsService, err := settings.New(settings.Deps{
 		Plugins: catalog, Config: configRepo, Secrets: secretStore,

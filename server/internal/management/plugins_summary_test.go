@@ -7,13 +7,14 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/go-chi/chi/v5"
 )
 
 func TestListHandler_ReturnsPluginMetadata(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Name:              "Weather",
 		Version:           "1.2.3",

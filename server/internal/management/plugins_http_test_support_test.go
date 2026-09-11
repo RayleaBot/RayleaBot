@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 	"github.com/go-chi/chi/v5"
 )
@@ -24,7 +25,7 @@ func (testInstallCoordinator) Close() error       { return nil }
 func setupInstallRouter() (chi.Router, *tasks.Registry) {
 	registry := tasks.NewRegistry()
 	router := chi.NewRouter()
-	router.Post("/api/plugins/install", newInstallHandler(newTestCatalog(nil), testInstallCoordinator{registry: registry}))
+	router.Post("/api/plugins/install", newInstallHandler(plugincatalog.New(nil), testInstallCoordinator{registry: registry}))
 	return router, registry
 }
 

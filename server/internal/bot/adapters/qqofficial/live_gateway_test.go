@@ -1,3 +1,5 @@
+//go:build manual_smoke
+
 package qqofficial
 
 import (
@@ -10,14 +12,14 @@ import (
 )
 
 // TestLiveGatewayHandshake drives the real client against the QQ Open Platform.
-// It is skipped unless credentials are supplied through the environment, so it
-// never runs in CI and never carries a secret in the repository:
+// Select it explicitly with the manual_smoke build tag and provide credentials
+// through the environment; see docs/engineering/manual-smoke.md:
 //
-//	QQ_APP_ID=... QQ_APP_SECRET=... go test ./internal/qqofficial/ -run LiveGateway
+//	QQ_APP_ID=... QQ_APP_SECRET=... go test -tags manual_smoke ./internal/bot/adapters/qqofficial/ -run LiveGateway
 func TestLiveGatewayHandshake(t *testing.T) {
 	appID, appSecret := os.Getenv("QQ_APP_ID"), os.Getenv("QQ_APP_SECRET")
 	if appID == "" || appSecret == "" {
-		t.Skip("set QQ_APP_ID and QQ_APP_SECRET to exercise the live gateway")
+		t.Fatal("set QQ_APP_ID and QQ_APP_SECRET to exercise the live gateway")
 	}
 
 	client := New("qq-official",

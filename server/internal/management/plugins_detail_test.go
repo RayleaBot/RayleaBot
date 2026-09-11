@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/go-chi/chi/v5"
 )
 
 func TestDetailHandlerReturnsPermissions(t *testing.T) {
 	t.Parallel()
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID: "weather", Name: "Weather", Valid: true,
 		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
 		Permissions: map[string]plugins.PermissionGrant{
@@ -36,7 +37,7 @@ func TestDetailHandlerReturnsPermissions(t *testing.T) {
 
 func TestDetailHandlerReturnsGeneratedHelpMetadata(t *testing.T) {
 	t.Parallel()
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID: "weather", Name: "Weather", Valid: true,
 		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
 		Help: &plugins.Help{Title: "Weather", Summary: "天气命令"},
@@ -57,7 +58,7 @@ func TestDetailHandlerReturnsGeneratedHelpMetadata(t *testing.T) {
 
 func TestDetailHandlerReturnsSingleManagementUIEntry(t *testing.T) {
 	t.Parallel()
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID: "example-config-panel", Name: "Example Config Panel", Valid: true,
 		RegistrationState: "installed", DesiredState: "disabled", RuntimeState: "stopped",
 		ManagementUI: &plugins.ManagementUI{

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -16,7 +17,7 @@ import (
 func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -61,7 +62,7 @@ func TestRecoverFromDeadLetterHandler_Success(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_NotRecoverable(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog([]plugins.Snapshot{{
+	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID:          "weather",
 		Valid:             true,
 		RegistrationState: "installed",
@@ -99,7 +100,7 @@ func TestRecoverFromDeadLetterHandler_NotRecoverable(t *testing.T) {
 func TestRecoverFromDeadLetterHandler_NotFound(t *testing.T) {
 	t.Parallel()
 
-	catalog := newTestCatalog(nil)
+	catalog := plugincatalog.New(nil)
 	controller := &stubDesiredStateController{
 		recoverErr: plugins.ErrPluginNotFound,
 	}
