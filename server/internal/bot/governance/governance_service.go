@@ -119,11 +119,11 @@ func (s *Service) currentCfg() config.Config {
 	return s.currentConfig()
 }
 
-func (s *Service) notify(summary string) {
+func (s *Service) notify() {
 	if s.notifyChanged == nil {
 		return
 	}
-	s.notifyChanged(strings.TrimSpace(summary))
+	s.notifyChanged(defaultGovernanceSummary)
 }
 
 func buildEntryResponse(entry permission.Entry) EntryResponse {
@@ -182,7 +182,7 @@ func (s *Service) UpsertBlacklistEntry(ctx context.Context, scope chatevent.Iden
 	if err != nil {
 		return EntryResponse{}, err
 	}
-	s.notify(defaultGovernanceSummary)
+	s.notify()
 	return buildEntryResponse(entry), nil
 }
 
@@ -199,7 +199,7 @@ func (s *Service) DeleteBlacklistEntry(ctx context.Context, scope chatevent.Iden
 	if err := s.blacklistRepo.Remove(ctx, scope, entryType, targetID); err != nil {
 		return err
 	}
-	s.notify(defaultGovernanceSummary)
+	s.notify()
 	return nil
 }
 
@@ -240,7 +240,7 @@ func (s *Service) SetWhitelistEnabled(ctx context.Context, enabled bool) (Whitel
 	if err := s.whitelistState.SetEnabled(ctx, enabled); err != nil {
 		return WhitelistStateResponse{}, err
 	}
-	s.notify(defaultGovernanceSummary)
+	s.notify()
 	return WhitelistStateResponse{Enabled: enabled}, nil
 }
 
@@ -262,7 +262,7 @@ func (s *Service) UpsertWhitelistEntry(ctx context.Context, scope chatevent.Iden
 	if err != nil {
 		return EntryResponse{}, err
 	}
-	s.notify(defaultGovernanceSummary)
+	s.notify()
 	return buildEntryResponse(entry), nil
 }
 
@@ -279,7 +279,7 @@ func (s *Service) DeleteWhitelistEntry(ctx context.Context, scope chatevent.Iden
 	if err := s.whitelistRepo.Remove(ctx, scope, entryType, targetID); err != nil {
 		return err
 	}
-	s.notify(defaultGovernanceSummary)
+	s.notify()
 	return nil
 }
 

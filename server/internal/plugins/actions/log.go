@@ -89,13 +89,13 @@ func logWriteRegistrar() registrar {
 		kind: "logger.write",
 		factory: func(deps Deps) ActionHandler {
 			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-				return executeLogWrite(ctx, deps, req)
+				return executeLogWrite(deps, req)
 			}
 		},
 	}
 }
 
-func executeLogWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+func executeLogWrite(deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.PluginLogLimiter != nil && !deps.PluginLogLimiter.Allow(req.PluginID) {
 		return nil, &plugins.Error{Code: errorcodes.PlatformRateLimited, Message: "plugin log throughput exceeded the configured platform limit"}
 	}

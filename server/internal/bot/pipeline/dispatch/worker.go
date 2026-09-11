@@ -228,6 +228,6 @@ func laneKeyForEvent(event chatevent.Event, fallbackCounter *int) string {
 			return targetType + ":" + targetID
 		}
 	}
-	*fallbackCounter = *fallbackCounter + 1
+	*fallbackCounter++
 	return fmt.Sprintf("fallback:%d", *fallbackCounter)
 }

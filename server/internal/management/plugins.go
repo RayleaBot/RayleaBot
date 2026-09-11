@@ -128,7 +128,7 @@ func registerPluginReadRoutes(router chi.Router, catalog plugins.CatalogView) {
 
 func registerPluginInstallRoutes(router chi.Router, catalog plugins.CatalogView, installer plugins.InstallCoordinator) {
 	router.Post("/api/plugins/install/inspect", newInstallInspectHandler(catalog, installer))
-	router.Post("/api/plugins/install", newInstallHandler(catalog, installer))
+	router.Post("/api/plugins/install", newInstallHandler(installer))
 }
 
 func registerPluginLifecycleRoutes(router chi.Router, catalog plugins.CatalogView, controller DesiredStateController, uninstaller UninstallCoordinator) {
@@ -270,7 +270,7 @@ func buildInstallInspectionResponse(inspection plugins.InstallInspection) plugin
 	}
 }
 
-func newInstallHandler(catalog plugins.CatalogView, installer plugins.InstallCoordinator) http.HandlerFunc {
+func newInstallHandler(installer plugins.InstallCoordinator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req pluginInstallRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &req, httpapi.MaxManagementJSONBodyBytes); err != nil {

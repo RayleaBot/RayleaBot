@@ -118,10 +118,7 @@ func normalizeOneBotActionSpec(spec OneBotActionSpec) OneBotActionSpec {
 					return "", nil, err
 				}
 			}
-			params, err := normalizeParams(raw)
-			if err != nil {
-				return "", nil, err
-			}
+			params := normalizeParams(raw)
 			return spec.APIName, params, nil
 		}
 	}

@@ -121,7 +121,7 @@ func (s *Shell) Reload(nextCfg config.OneBotConfig, nextAdapterCfg config.Adapte
 		}
 	}
 
-	s.applyConfig(nextCfg, nextAdapterCfg, previousCfg, previousAdapterCfg)
+	s.applyConfig(nextCfg, nextAdapterCfg, previousAdapterCfg)
 	if !started {
 		return nil
 	}
@@ -136,7 +136,7 @@ func (s *Shell) Reload(nextCfg config.OneBotConfig, nextAdapterCfg config.Adapte
 	return nil
 }
 
-func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.AdapterConfig, previousCfg config.OneBotConfig, previousAdapterCfg config.AdapterConfig) {
+func (s *Shell) applyConfig(nextCfg config.OneBotConfig, nextAdapterCfg config.AdapterConfig, previousAdapterCfg config.AdapterConfig) {
 	s.mu.Lock()
 	s.cfg = nextCfg
 	s.adapterCfg = nextAdapterCfg

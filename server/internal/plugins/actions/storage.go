@@ -32,7 +32,7 @@ func storageRegistrars() []registrar {
 			kind: "storage.file",
 			factory: func(deps Deps) ActionHandler {
 				return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
-					return executeStorageFile(ctx, deps, req)
+					return executeStorageFile(deps, req)
 				}
 			},
 		},
@@ -96,7 +96,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 	}
 }
 
-func executeStorageFile(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+func executeStorageFile(deps Deps, req ActionRequest) (map[string]any, error) {
 	if deps.PluginFiles == nil {
 		return nil, &plugins.Error{
 			Code:    errorcodes.PluginInternalError,

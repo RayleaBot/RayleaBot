@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -20,7 +19,7 @@ func TestInvalidInstallRequestsReturnExpectedErrors(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			router := chi.NewRouter()
-			router.Post("/api/plugins/install", newInstallHandler(plugincatalog.New(nil), nil))
+			router.Post("/api/plugins/install", newInstallHandler(nil))
 			req := httptest.NewRequest("POST", "/api/plugins/install", strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()

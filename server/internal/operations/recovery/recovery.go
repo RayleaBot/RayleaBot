@@ -295,7 +295,8 @@ func ConfirmSkippedPlugins(summary CompatibilitySummary, reviewIDs []string, ope
 
 	machineIssues := filterMachineIssues(summary.Issues)
 	pendingSkipped := pendingSkippedPlugins(summary.SkippedPlugins)
-	summary.Issues = append(machineIssues, issuesForSkippedPlugins(pendingSkipped)...)
+	machineIssues = append(machineIssues, issuesForSkippedPlugins(pendingSkipped)...)
+	summary.Issues = machineIssues
 	if len(summary.Issues) == 0 {
 		summary.Issues = nil
 	}

@@ -86,7 +86,7 @@ func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
 	payload := trustedInstallRequest()
 	payload.TrustedCodeConfirmed = false
 	body, _ := json.Marshal(payload)
-	handler := newInstallHandler(nil, &inspectionInstaller{})
+	handler := newInstallHandler(&inspectionInstaller{})
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", bytes.NewReader(body))
 	recorder := httptest.NewRecorder()
 
@@ -102,7 +102,7 @@ func TestInstallHandlerRequiresTrustedCodeConfirmation(t *testing.T) {
 
 func TestInstallHandlerMapsQueueFullWithoutCreatingTask(t *testing.T) {
 	registry := tasks.NewRegistry()
-	handler := newInstallHandler(nil, queueFullInstaller{})
+	handler := newInstallHandler(queueFullInstaller{})
 	request := httptest.NewRequest(http.MethodPost, "/api/plugins/install", strings.NewReader(`{"inspection_id":"iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii","package_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","trusted_code_confirmed":true}`))
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()

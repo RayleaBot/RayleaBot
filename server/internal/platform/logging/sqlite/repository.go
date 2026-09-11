@@ -61,7 +61,7 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 		limit = 50
 	}
 
-	clauses, args, err := buildLogFilterClauses(filterSpec{
+	clauses, args := buildLogFilterClauses(filterSpec{
 		Level:     query.Level,
 		Levels:    query.Levels,
 		Source:    query.Source,
@@ -73,9 +73,6 @@ func (r *Repository) ListSummaries(ctx context.Context, query logging.Query) ([]
 		StartAt:   query.StartAt,
 		EndAt:     query.EndAt,
 	})
-	if err != nil {
-		return nil, err
-	}
 	args = append(args, limit)
 
 	rows, err := r.read.QueryContext(
@@ -133,10 +130,7 @@ func (r *Repository) ListPage(ctx context.Context, query logging.PageQuery) (log
 		direction = logging.PageDirectionOlder
 	}
 
-	clauses, args, err := buildLogFilterClauses(filterSpecFromPageQuery(query))
-	if err != nil {
-		return logging.PageResult{}, err
-	}
+	clauses, args := buildLogFilterClauses(filterSpecFromPageQuery(query))
 
 	cursor, err := decodeLogCursor(query.Cursor)
 	if err != nil {
@@ -292,7 +286,7 @@ type filterSpec struct {
 
 const logTimestampExpr = "julianday(ts)"
 
-func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
+func buildLogFilterClauses(spec filterSpec) ([]string, []any) {
 	clauses := []string{"1 = 1"}
 	args := make([]any, 0, 8)
 	if levels := normalizeFilterValues(spec.Level, spec.Levels, true); len(levels) > 0 {
@@ -305,7 +299,7 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 	if spec.Protocol != "" {
 		sources := logging.SourcesForProtocol(spec.Protocol)
 		if len(sources) == 0 {
-			return []string{"1 = 0"}, args, nil
+			return []string{"1 = 0"}, args
 		}
 		placeholders := make([]string, 0, len(sources))
 		for _, source := range sources {
@@ -333,7 +327,7 @@ func buildLogFilterClauses(spec filterSpec) ([]string, []any, error) {
 		clauses = append(clauses, logTimestampExpr+" <= julianday(?)")
 		args = append(args, strings.TrimSpace(spec.EndAt))
 	}
-	return clauses, args, nil
+	return clauses, args
 }
 
 func normalizeFilterValues(single string, values []string, lower bool) []string {
@@ -448,10 +442,7 @@ func scanPagedSummary(scanner interface{ Scan(...any) error }) (pagedSummary, er
 }
 
 func (r *Repository) hasRows(ctx context.Context, spec filterSpec, boundary logBoundary, marker logCursor) (bool, error) {
-	clauses, args, err := buildLogFilterClauses(spec)
-	if err != nil {
-		return false, err
-	}
+	clauses, args := buildLogFilterClauses(spec)
 	switch boundary {
 	case logBoundaryOlder:
 		clauses = append(clauses, "("+logTimestampExpr+" < julianday(?) OR ("+logTimestampExpr+" = julianday(?) AND id < ?))")

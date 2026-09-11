@@ -90,7 +90,7 @@ func TestManagementJSONRequestBoundaries(t *testing.T) {
 		{name: "plugin secrets delete", handler: ui.HandlePluginSecretsDelete(), body: `{"keys":["fixture.key"]}`, status: 200},
 		{name: "plugin action", handler: ui.HandlePluginManagementAction(), body: `{"action":"fixture","payload":` + dynamicValues + `}`, status: 200},
 		{name: "plugin inspect", handler: newInstallInspectHandler(catalog, installer), body: `{"source_type":"local_zip","source":"fixture.zip"}`, status: 200},
-		{name: "plugin install", handler: newInstallHandler(catalog, installer), body: string(installBody), status: 202},
+		{name: "plugin install", handler: newInstallHandler(installer), body: string(installBody), status: 202},
 		{name: "store inspect", handler: market.inspect(), body: `{"source_id":"fixture"}`, status: 200},
 		{name: "store install", handler: market.install(), body: string(installBody), status: 202},
 		{name: "store create source", handler: market.createSource(), body: `{"name":"fixture","url":"https://example.invalid/catalog.json"}`, status: 201},

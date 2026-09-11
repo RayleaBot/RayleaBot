@@ -8,9 +8,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func normalizeParams(raw map[string]any) (map[string]any, error) {
+func normalizeParams(raw map[string]any) map[string]any {
 	if len(raw) == 0 {
-		return map[string]any{}, nil
+		return map[string]any{}
 	}
 	params := make(map[string]any, len(raw))
 	for key, value := range raw {
@@ -33,7 +33,7 @@ func normalizeParams(raw map[string]any) (map[string]any, error) {
 			params[normalizedKey] = value
 		}
 	}
-	return params, nil
+	return params
 }
 
 func requiredString(data map[string]any, key string) (string, error) {
@@ -149,10 +149,7 @@ func projectMessageHistoryGet(raw map[string]any) (string, map[string]any, error
 }
 
 func projectMessageForwardGet(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeParams(raw)
-	if err != nil {
-		return "", nil, err
-	}
+	params := normalizeParams(raw)
 	if _, err := requiredString(raw, "message_id"); err != nil {
 		if _, altErr := requiredString(raw, "forward_id"); altErr != nil {
 			return "", nil, err
@@ -166,10 +163,7 @@ func projectMessageForwardGet(raw map[string]any) (string, map[string]any, error
 }
 
 func projectMessageForwardSend(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeParams(raw)
-	if err != nil {
-		return "", nil, err
-	}
+	params := normalizeParams(raw)
 	targetType, err := requiredString(raw, "target_type")
 	if err != nil {
 		return "", nil, err
@@ -229,19 +223,13 @@ func projectGroupMemberGet(raw map[string]any) (string, map[string]any, error) {
 	if _, err := requiredString(raw, "user_id"); err != nil {
 		return "", nil, err
 	}
-	params, err := normalizeParams(raw)
-	if err != nil {
-		return "", nil, err
-	}
+	params := normalizeParams(raw)
 	params["no_cache"] = true
 	return "get_group_member_info", params, nil
 }
 
 func projectGroupBanSet(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeParams(raw)
-	if err != nil {
-		return "", nil, err
-	}
+	params := normalizeParams(raw)
 	if whole, ok := raw["whole_group"].(bool); ok && whole {
 		delete(params, "user_id")
 		delete(params, "duration_seconds")
@@ -252,10 +240,7 @@ func projectGroupBanSet(raw map[string]any) (string, map[string]any, error) {
 }
 
 func projectGroupFilesList(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeParams(raw)
-	if err != nil {
-		return "", nil, err
-	}
+	params := normalizeParams(raw)
 	if folderID, ok := optionalString(raw, "folder_id"); ok {
 		params["folder_id"] = folderID
 		return "get_group_files_by_folder", params, nil
@@ -264,10 +249,7 @@ func projectGroupFilesList(raw map[string]any) (string, map[string]any, error) {
 }
 
 func projectGroupFilesDelete(raw map[string]any) (string, map[string]any, error) {
-	params, err := normalizeParams(raw)
-	if err != nil {
-		return "", nil, err
-	}
+	params := normalizeParams(raw)
 	if folderID, ok := optionalString(raw, "folder_id"); ok && folderID != "" {
 		return "delete_group_folder", map[string]any{
 			"group_id":  params["group_id"],

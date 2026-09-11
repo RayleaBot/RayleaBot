@@ -728,7 +728,8 @@ func matchesQuery(entry Entry, query Query) bool {
 	if query.Text == "" {
 		return true
 	}
-	values := []string{entry.ID, entry.Name, entry.Summary, entry.Description, entry.Publisher.Name, entry.Category}
+	values := make([]string, 0, 6+len(entry.Keywords))
+	values = append(values, entry.ID, entry.Name, entry.Summary, entry.Description, entry.Publisher.Name, entry.Category)
 	values = append(values, entry.Keywords...)
 	for _, value := range values {
 		if strings.Contains(strings.ToLower(value), query.Text) {

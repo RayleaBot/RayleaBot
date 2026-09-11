@@ -159,7 +159,8 @@ func writeJSONLineWithLimit(writer io.Writer, value any, maxBytes int) error {
 		return fmt.Errorf("invalid outgoing plugin frame: %w", err)
 	}
 
-	data := append(encoded, '\n')
+	encoded = append(encoded, '\n')
+	data := encoded
 	for len(data) > 0 {
 		written, writeErr := writer.Write(data)
 		if written > 0 {

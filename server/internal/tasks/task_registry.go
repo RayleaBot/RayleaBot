@@ -215,11 +215,11 @@ func (r *Registry) Update(taskID string, update Update) (Snapshot, bool) {
 		snapshot.Summary = *update.Summary
 	}
 	if update.StartedAt != nil {
-		startedAt := (*update.StartedAt).UTC()
+		startedAt := update.StartedAt.UTC()
 		snapshot.StartedAt = &startedAt
 	}
 	if update.FinishedAt != nil {
-		finishedAt := (*update.FinishedAt).UTC()
+		finishedAt := update.FinishedAt.UTC()
 		snapshot.FinishedAt = &finishedAt
 	}
 	if update.Result != nil {

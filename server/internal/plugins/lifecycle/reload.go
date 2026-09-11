@@ -212,10 +212,8 @@ func (c *Controller) failReloadTaskForError(taskID string, pluginID string, err 
 		if strings.TrimSpace(runtimeErr.Message) != "" {
 			message = runtimeErr.Message
 		}
-	} else {
-		if strings.TrimSpace(err.Error()) != "" {
-			message = err.Error()
-		}
+	} else if strings.TrimSpace(err.Error()) != "" {
+		message = err.Error()
 	}
 
 	c.failReloadTask(taskID, pluginID, code, message)

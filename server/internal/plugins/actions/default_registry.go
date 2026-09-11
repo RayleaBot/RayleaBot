@@ -25,7 +25,8 @@ func NewDefaultRegistry(deps Deps) *Registry {
 }
 
 func defaultRegistrarItems() []registrar {
-	items := []registrar{
+	items := make([]registrar, 0, 16)
+	items = append(items,
 		schedulerCreateRegistrar(),
 		secretReadRegistrar(),
 		httpRequestRegistrar(),
@@ -36,7 +37,7 @@ func defaultRegistrarItems() []registrar {
 		thirdPartyAccountReadRegistrar(),
 		thirdPartyAccountValidateRegistrar(),
 		thirdPartyResolveRegistrar(),
-	}
+	)
 	items = append(items, configRegistrars()...)
 	items = append(items, governanceRegistrars()...)
 	items = append(items, oneBotRegistrars()...)

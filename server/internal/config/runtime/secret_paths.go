@@ -15,8 +15,9 @@ import (
 // identifier rather than its position, so reordering the collection does not
 // re-key its secrets.
 func configSecretPathsIn(document map[string]any) [][]string {
-	resolved := make([][]string, 0)
-	for _, shape := range ConfigSecretFieldPaths() {
+	shapes := ConfigSecretFieldPaths()
+	resolved := make([][]string, 0, len(shapes))
+	for _, shape := range shapes {
 		resolved = append(resolved, expandSecretShape(document, strings.Split(shape, "."))...)
 	}
 	slices.SortFunc(resolved, func(left, right []string) int {

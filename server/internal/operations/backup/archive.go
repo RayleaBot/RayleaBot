@@ -149,7 +149,7 @@ func Create(ctx context.Context, options Options) (Result, error) {
 		if databasePath != "" {
 			snapshotRoot = storage.SnapshotDirForDatabase(databasePath)
 		}
-		_, addErr := addDirectory(ctx, writer, dataRoot, "data", func(sourcePath, archivePath string, entry fs.DirEntry) bool {
+		addErr := addDirectory(ctx, writer, dataRoot, "data", func(sourcePath, archivePath string, entry fs.DirEntry) bool {
 			if samePath(sourcePath, databasePath) || samePath(sourcePath, databasePath+"-wal") || samePath(sourcePath, databasePath+"-shm") || samePath(sourcePath, databasePath+".lock") {
 				return true
 			}
@@ -169,7 +169,7 @@ func Create(ctx context.Context, options Options) (Result, error) {
 	progress(options.Progress, 75, "写入插件产物")
 	installedRoot := filepath.Join(repoRoot, "plugins", "installed")
 	if info, statErr := os.Stat(installedRoot); statErr == nil && info.IsDir() {
-		if _, err := addDirectory(ctx, writer, installedRoot, "plugins/installed", nil); err != nil {
+		if err := addDirectory(ctx, writer, installedRoot, "plugins/installed", nil); err != nil {
 			return Result{}, fmt.Errorf("archive installed plugins: %w", err)
 		}
 		directories = append(directories, recovery.Directory("plugins/installed", "plugins"))
@@ -296,9 +296,8 @@ func addFile(ctx context.Context, writer *zip.Writer, sourcePath, archivePath st
 
 type skipFunc func(sourcePath, archivePath string, entry fs.DirEntry) bool
 
-func addDirectory(ctx context.Context, writer *zip.Writer, sourceRoot, archivePrefix string, skip skipFunc) (int, error) {
-	count := 0
-	err := filepath.WalkDir(sourceRoot, func(sourcePath string, entry fs.DirEntry, walkErr error) error {
+func addDirectory(ctx context.Context, writer *zip.Writer, sourceRoot, archivePrefix string, skip skipFunc) error {
+	return filepath.WalkDir(sourceRoot, func(sourcePath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -330,10 +329,8 @@ func addDirectory(ctx context.Context, writer *zip.Writer, sourceRoot, archivePr
 		if err := addFile(ctx, writer, sourcePath, archivePath); err != nil {
 			return err
 		}
-		count++
 		return nil
 	})
-	return count, err
 }
 
 func copyContext(ctx context.Context, destination io.Writer, source io.Reader) (int64, error) {
