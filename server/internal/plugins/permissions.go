@@ -77,12 +77,3 @@ func (v *PermissionView) snapshot(pluginID string) (Snapshot, bool) {
 	}
 	return v.plugins.Get(pluginID)
 }
-
-func PermissionDeclared(snapshot Snapshot, permission string) bool {
-	permission = strings.TrimSpace(permission)
-	if permission == "" {
-		return false
-	}
-	_, ok := snapshot.Permissions[permission]
-	return ok
-}

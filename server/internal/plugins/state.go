@@ -80,13 +80,6 @@ type StateDiagnosis struct {
 	Recoverable      bool       `json:"recoverable,omitempty"`
 }
 
-func DisplayName(snapshot Snapshot) string {
-	if name := strings.TrimSpace(snapshot.Name); name != "" {
-		return name
-	}
-	return strings.TrimSpace(snapshot.PluginID)
-}
-
 func DisplayLabel(snapshot Snapshot) string {
 	pluginID := strings.TrimSpace(snapshot.PluginID)
 	name := strings.TrimSpace(snapshot.Name)
