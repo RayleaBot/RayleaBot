@@ -264,7 +264,7 @@ paths:
       summary: Query a plugin installation task using local development admission.
       description: >
         Uses the same admission as development status. A missing task or a task of another
-        kind returns 404 platform.resource_missing. pending and running are transient;
+        kind returns 404 platform.resource_not_found. pending and running are transient;
         succeeded, failed, cancelled and interrupted are terminal. Unknown statuses are rejected.
         error_code is present only when the task has an error, using the formal error code registry.
       security:
@@ -817,7 +817,7 @@ paths:
   /api/system/tasks/{task_id}:
     get:
       summary: Read the current status of an accepted asynchronous task.
-      description: Requires a management session. Returns only task status and a stable failure code, without task payloads or result details. Terminal states are succeeded, failed, cancelled, and interrupted. An unknown task returns HTTP 404 with platform.resource_missing.
+      description: Requires a management session. Returns only task status and a stable failure code, without task payloads or result details. Terminal states are succeeded, failed, cancelled, and interrupted. An unknown task returns HTTP 404 with platform.resource_not_found.
       operationId: getSystemTaskStatus
       security:
         - BearerAuth: []
@@ -1531,7 +1531,7 @@ paths:
         '401':
           $ref: '#/components/responses/Error'
         '404':
-          description: The plugin or its declared icon is unavailable (platform.resource_missing).
+          description: The plugin or its declared icon is unavailable (platform.resource_not_found).
           content:
             application/json:
               schema:

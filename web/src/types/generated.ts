@@ -53,7 +53,7 @@ export interface paths {
         };
         /**
          * Query a plugin installation task using local development admission.
-         * @description Uses the same admission as development status. A missing task or a task of another kind returns 404 platform.resource_missing. pending and running are transient; succeeded, failed, cancelled and interrupted are terminal. Unknown statuses are rejected. error_code is present only when the task has an error, using the formal error code registry.
+         * @description Uses the same admission as development status. A missing task or a task of another kind returns 404 platform.resource_not_found. pending and running are transient; succeeded, failed, cancelled and interrupted are terminal. Unknown statuses are rejected. error_code is present only when the task has an error, using the formal error code registry.
          */
         get: operations["getDevelopmentPluginSync"];
         put?: never;
@@ -426,7 +426,7 @@ export interface paths {
         };
         /**
          * Read the current status of an accepted asynchronous task.
-         * @description Requires a management session. Returns only task status and a stable failure code, without task payloads or result details. Terminal states are succeeded, failed, cancelled, and interrupted. An unknown task returns HTTP 404 with platform.resource_missing.
+         * @description Requires a management session. Returns only task status and a stable failure code, without task payloads or result details. Terminal states are succeeded, failed, cancelled, and interrupted. An unknown task returns HTTP 404 with platform.resource_not_found.
          */
         get: operations["getSystemTaskStatus"];
         put?: never;
@@ -4326,7 +4326,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
-            /** @description The plugin or its declared icon is unavailable (platform.resource_missing). */
+            /** @description The plugin or its declared icon is unavailable (platform.resource_not_found). */
             404: {
                 headers: {
                     [name: string]: unknown;
