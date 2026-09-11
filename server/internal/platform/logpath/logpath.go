@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func Display(repoRoot, value string) string {
@@ -61,8 +63,7 @@ func Text(repoRoot, message string, paths ...string) string {
 }
 
 func isLocalRelative(value string) bool {
-	value = filepath.Clean(value)
-	return value == "." || (value != ".." && !strings.HasPrefix(value, ".."+string(filepath.Separator)))
+	return !fsguard.EscapesRoot(filepath.Clean(value))
 }
 
 func looksLikeURI(value string) bool {

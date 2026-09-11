@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func (s *Service) ListTemplates(ctx context.Context) ([]TemplateSummary, error) {
@@ -246,22 +245,5 @@ func BaseURL(templateDir string) string {
 }
 
 func resolveTemplateDirectory(root string, templateID string) (string, bool) {
-	root = strings.TrimSpace(root)
-	templateID = strings.TrimSpace(templateID)
-	if root == "" || templateID == "" || filepath.IsAbs(filepath.FromSlash(templateID)) {
-		return "", false
-	}
-	cleanID := filepath.Clean(filepath.FromSlash(templateID))
-	if cleanID == "." || cleanID == ".." || strings.HasPrefix(cleanID, ".."+string(filepath.Separator)) {
-		return "", false
-	}
-	absoluteRoot, err := filepath.Abs(root)
-	if err != nil {
-		return "", false
-	}
-	candidate := filepath.Join(absoluteRoot, cleanID)
-	if !fsguard.WithinRoot(absoluteRoot, candidate) {
-		return "", false
-	}
-	return candidate, true
+	return resolveUnderRoot(root, templateID)
 }

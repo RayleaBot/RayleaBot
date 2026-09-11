@@ -136,24 +136,35 @@ func LoadSeed(templateDir string) (Seed, error) {
 }
 
 func TemplateFilePath(templateDir, relativePath string) (string, error) {
-	templateDir = strings.TrimSpace(templateDir)
-	relativePath = strings.TrimSpace(relativePath)
-	if templateDir == "" || relativePath == "" || filepath.IsAbs(filepath.FromSlash(relativePath)) {
+	if strings.TrimSpace(templateDir) == "" || strings.TrimSpace(relativePath) == "" || filepath.IsAbs(filepath.FromSlash(strings.TrimSpace(relativePath))) {
 		return "", fmt.Errorf("template file path %q is invalid", relativePath)
 	}
-
-	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
-	if cleanRelative == "." || cleanRelative == ".." || strings.HasPrefix(cleanRelative, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("template file path %q is outside template directory", relativePath)
-	}
-
-	absoluteRoot, err := filepath.Abs(templateDir)
-	if err != nil {
-		return "", err
-	}
-	candidate := filepath.Join(absoluteRoot, cleanRelative)
-	if !fsguard.WithinRoot(absoluteRoot, candidate) {
+	candidate, ok := resolveUnderRoot(templateDir, relativePath)
+	if !ok {
 		return "", fmt.Errorf("template file path %q is outside template directory", relativePath)
 	}
 	return candidate, nil
+}
+
+// resolveUnderRoot joins a relative, slash-separated path under root and
+// rejects empty, absolute, current-directory and parent-traversal inputs.
+func resolveUnderRoot(root, relative string) (string, bool) {
+	root = strings.TrimSpace(root)
+	relative = strings.TrimSpace(relative)
+	if root == "" || relative == "" || filepath.IsAbs(filepath.FromSlash(relative)) {
+		return "", false
+	}
+	cleanRelative := filepath.Clean(filepath.FromSlash(relative))
+	if cleanRelative == "." || fsguard.EscapesRoot(cleanRelative) {
+		return "", false
+	}
+	absoluteRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", false
+	}
+	candidate := filepath.Join(absoluteRoot, cleanRelative)
+	if !fsguard.WithinRoot(absoluteRoot, candidate) {
+		return "", false
+	}
+	return candidate, true
 }

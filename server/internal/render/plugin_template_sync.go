@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 type Source struct {
@@ -165,20 +164,11 @@ func pluginTemplateSourcesFromDeclarations(declarations []PluginTemplateDeclarat
 func pluginTemplateSource(declaration PluginTemplateDeclaration) (Source, bool) {
 	pluginID := strings.TrimSpace(declaration.PluginID)
 	packageRoot := strings.TrimSpace(declaration.PackageRootPath)
-	relativePath := strings.TrimSpace(declaration.Path)
-	if pluginID == "" || packageRoot == "" || relativePath == "" || filepath.IsAbs(relativePath) {
+	if pluginID == "" {
 		return Source{}, false
 	}
-	cleanRelative := filepath.Clean(filepath.FromSlash(relativePath))
-	if cleanRelative == "." || cleanRelative == ".." || strings.HasPrefix(cleanRelative, ".."+string(filepath.Separator)) {
-		return Source{}, false
-	}
-	absoluteRoot, err := filepath.Abs(packageRoot)
-	if err != nil {
-		return Source{}, false
-	}
-	candidate := filepath.Join(absoluteRoot, cleanRelative)
-	if !fsguard.WithinRoot(absoluteRoot, candidate) {
+	candidate, ok := resolveUnderRoot(packageRoot, declaration.Path)
+	if !ok {
 		return Source{}, false
 	}
 	return Source{

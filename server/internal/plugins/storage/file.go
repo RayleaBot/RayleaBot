@@ -292,7 +292,7 @@ func normalizeRelativePath(raw string, allowEmpty bool) (string, error) {
 	if filepath.IsAbs(normalized) || filepath.VolumeName(normalized) != "" {
 		return "", ErrFileInvalidPath
 	}
-	if normalized == ".." || strings.HasPrefix(normalized, ".."+string(filepath.Separator)) {
+	if fsguard.EscapesRoot(normalized) {
 		return "", ErrFileInvalidPath
 	}
 	return normalized, nil
