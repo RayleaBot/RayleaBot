@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"maps"
 	"reflect"
 	"slices"
@@ -412,39 +411,4 @@ func (s *Service) applyHotReloadableFieldsLocked(newCfg internalconfig.Config) A
 
 	normalizeConfigApplyEffects(&effects)
 	return effects
-}
-
-func retainConfigFields(current, desired internalconfig.Config, paths []string) internalconfig.Config {
-	if len(paths) == 0 {
-		return desired
-	}
-	oldDocument := typedConfigDocument(current)
-	document := typedConfigDocument(desired)
-	for _, path := range paths {
-		parts := strings.Split(path, ".")
-		if value, ok := lookupConfigPath(oldDocument, parts); ok {
-			setConfigPath(document, parts, value)
-		}
-	}
-	encoded, err := json.Marshal(document)
-	if err != nil {
-		panic(err) // Documents are constructed exclusively from typed config values.
-	}
-	var effective internalconfig.Config
-	if err := json.Unmarshal(encoded, &effective); err != nil {
-		panic(err)
-	}
-	return effective
-}
-
-func typedConfigDocument(cfg internalconfig.Config) map[string]any {
-	encoded, err := json.Marshal(cfg)
-	if err != nil {
-		panic(err)
-	}
-	var document map[string]any
-	if err := json.Unmarshal(encoded, &document); err != nil {
-		panic(err)
-	}
-	return document
 }
