@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func extractZipSource(ctx context.Context, archivePath, tempRoot string) (string, error) {

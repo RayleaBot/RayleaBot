@@ -3,9 +3,9 @@ package management
 import (
 	"net/http"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 )
 
 func readCollectionQuery(w http.ResponseWriter, r *http.Request) (pagination.Query, bool) {

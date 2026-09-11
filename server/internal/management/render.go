@@ -2,14 +2,14 @@ package management
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"net/http"
 	"sort"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	renderservice "github.com/RayleaBot/RayleaBot/server/internal/render"
 )

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"gopkg.in/yaml.v3"
 )
 
@@ -190,7 +190,7 @@ func managementPackageStringConstants(t *testing.T, serverRoot, managementRoot s
 
 	packageConstants := map[string]map[string]string{}
 	generated := map[string]string{}
-	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(serverRoot, "internal", "errorcodes", "catalog.generated.go"), nil, 0)
+	file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(serverRoot, "internal", "platform", "errorcodes", "catalog.generated.go"), nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

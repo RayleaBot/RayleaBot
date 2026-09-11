@@ -29,7 +29,7 @@ class GenerationTests(unittest.TestCase):
             with patch.object(generator, 'ROOT', root):
                 first = generator.generate()
                 self.assertEqual(first, generator.generate())
-                server = root / 'server/internal/pluginwire/protocol.generated.go'
+                server = root / 'server/internal/plugins/pluginwire/protocol.generated.go'
                 sdk = root / 'sdk/go/internal/pluginwire/protocol.generated.go'
                 self.assertEqual(first[server], first[sdk])
                 source = root / 'contracts/plugin-protocol.schema.json'
@@ -39,11 +39,11 @@ class GenerationTests(unittest.TestCase):
                 schema['$defs']['provider_extension_action_kind']['enum'].append('provider.fixture.action')
                 source.write_text(json.dumps(schema), encoding='utf-8')
                 changed = generator.generate()
-                action_kinds = root / 'server/internal/pluginwire/action_kinds.generated.go'
+                action_kinds = root / 'server/internal/plugins/pluginwire/action_kinds.generated.go'
                 self.assertNotEqual(first[action_kinds], changed[action_kinds])
                 self.assertIn(b'"fixture.action"', changed[action_kinds])
                 self.assertIn(b'"provider.fixture.action"', changed[action_kinds])
-                for output in [server, sdk, root / 'server/internal/contractversions/versions.generated.go', root / 'launcher/internal/contractversions/versions.generated.go']:
+                for output in [server, sdk, root / 'server/internal/platform/contractversions/versions.generated.go', root / 'launcher/internal/contractversions/versions.generated.go']:
                     self.assertNotEqual(first[output], changed[output])
                     self.assertIn(b'"99"', changed[output])
                 release_source = root / 'contracts/release-manifest.schema.json'
@@ -81,7 +81,7 @@ class GenerationTests(unittest.TestCase):
         generator = load_generator('generate-plugin-wire')
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            extra = [root / 'server/internal/pluginwire/old.schema.json', root / 'sdk/go/testdata/old.generated.json']
+            extra = [root / 'server/internal/plugins/pluginwire/old.schema.json', root / 'sdk/go/testdata/old.generated.json']
             for path in extra:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text('{}', encoding='utf-8')

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/contractversions"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 const (

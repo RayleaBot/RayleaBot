@@ -1,7 +1,7 @@
 package management
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"

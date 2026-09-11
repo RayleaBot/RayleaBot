@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 func TestSourceDigestCancellationIsNotAnIntegrityFailure(t *testing.T) {

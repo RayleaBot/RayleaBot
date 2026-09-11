@@ -2,7 +2,7 @@ package management
 
 import (
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"net/http"
 	"sort"
 	"strconv"
@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"

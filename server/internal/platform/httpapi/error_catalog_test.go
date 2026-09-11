@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 func TestErrorResponseUsesRegisteredHTTPMetadata(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"os"
 	"path"
 	"path/filepath"

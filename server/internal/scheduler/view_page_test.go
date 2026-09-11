@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 )
 
 func TestJobPagesApplyStatusSearchAndSortBeforeLimit(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/secrets"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )

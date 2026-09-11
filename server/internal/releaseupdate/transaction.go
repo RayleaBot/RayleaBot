@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 type Phase string

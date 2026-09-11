@@ -3,7 +3,7 @@ package management
 import (
 	"context"
 	"encoding/json"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"net/http"
 	"net/http/httptest"
 	"strings"

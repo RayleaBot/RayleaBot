@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"net/http"
 	"net/http/httptest"
 	"strings"

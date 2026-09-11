@@ -17,8 +17,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 )

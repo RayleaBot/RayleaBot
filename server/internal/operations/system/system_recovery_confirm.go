@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/tasks"
 )
 

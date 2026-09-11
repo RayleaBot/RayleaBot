@@ -7,7 +7,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 func (d *Dispatcher) executeAction(ctx context.Context, pluginID string, requestID string, event chatevent.Event, action chatevent.MessageCommand) {

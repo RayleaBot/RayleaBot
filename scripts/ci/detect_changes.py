@@ -120,7 +120,7 @@ def classify(files: list[str]) -> dict[str, bool]:
             result["release"] = True
             result["ci"] = True
             matched = True
-        if path.startswith(("server/internal/pluginwire/", "sdk/go/internal/pluginwire/", "server/internal/contractversions/", "launcher/internal/contractversions/")) or path in {
+        if path.startswith(("server/internal/plugins/pluginwire/", "sdk/go/internal/pluginwire/", "server/internal/platform/contractversions/", "launcher/internal/contractversions/")) or path in {
             "sdk/go/pluginbuild/versions.generated.go", "scripts/release/contract_versions_generated.py",
             "sdk/go/testdata/redaction.generated.json", "server/internal/platform/redact/testdata/redaction.generated.json",
             "sdk/vue/src/contract.generated.ts", "web/src/types/plugin-management-ui.generated.ts",

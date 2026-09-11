@@ -2,7 +2,7 @@ package tasks
 
 import (
 	"context"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"sync"
 	"time"
 )

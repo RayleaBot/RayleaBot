@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/contractversions"
 	"gopkg.in/yaml.v3"
 )
 

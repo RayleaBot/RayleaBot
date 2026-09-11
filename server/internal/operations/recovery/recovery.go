@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/contractversions"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	semverutil "github.com/RayleaBot/RayleaBot/server/internal/platform/semver"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"

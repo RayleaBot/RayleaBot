@@ -2,7 +2,7 @@ package runtime
 
 import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 // Protocol representations are generated identically for the host and the standalone SDK.

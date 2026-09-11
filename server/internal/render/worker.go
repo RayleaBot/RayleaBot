@@ -3,7 +3,7 @@ package render
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"sync"
 	"time"
 )

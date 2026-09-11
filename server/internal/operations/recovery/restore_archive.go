@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func copyRestoreEntry(ctx context.Context, entry *zip.File, output *os.File) (err error) {

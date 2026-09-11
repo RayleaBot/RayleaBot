@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 func oneBot11ProtocolSnapshot(adapterSnapshot onebot11.Snapshot) OneBot11ProtocolSnapshot {

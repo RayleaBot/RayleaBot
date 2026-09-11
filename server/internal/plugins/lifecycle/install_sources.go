@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 

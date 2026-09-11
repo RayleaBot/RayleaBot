@@ -3,7 +3,7 @@ package governance
 import (
 	"context"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 )

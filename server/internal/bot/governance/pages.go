@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 )
 
 // ManagementEntryRepository keeps paging requirements out of the chat policy's

@@ -10,9 +10,9 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/operations/recovery"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 )
 

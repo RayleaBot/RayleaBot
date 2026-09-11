@@ -11,7 +11,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 func (m *Manager) Start(ctx context.Context, spec Spec, payload InitPayload) error {

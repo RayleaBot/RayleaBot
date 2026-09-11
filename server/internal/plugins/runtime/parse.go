@@ -5,7 +5,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 func ParseTerminalAction(kind string, raw json.RawMessage) (*chatevent.MessageCommand, error) {

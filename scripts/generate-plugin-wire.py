@@ -299,8 +299,8 @@ def generate():
         values = at(schema, f"/$defs/{definition}/enum")
         cases = ", ".join(json.dumps(value) for value in values)
         action_kinds += f"\nfunc {name}(kind string) bool {{\nswitch kind {{\ncase {cases}:\nreturn true\ndefault:\nreturn false\n}}\n}}\n"
-    outputs[ROOT / "server/internal/pluginwire/action_kinds.generated.go"] = gofmt(action_kinds)
-    for directory in ["server/internal/pluginwire", "sdk/go/internal/pluginwire"]:
+    outputs[ROOT / "server/internal/plugins/pluginwire/action_kinds.generated.go"] = gofmt(action_kinds)
+    for directory in ["server/internal/plugins/pluginwire", "sdk/go/internal/pluginwire"]:
         outputs[ROOT / directory / "protocol.generated.go"] = models
         outputs[ROOT / directory / "codec.generated.go"] = codec
         outputs[ROOT / directory / "protocol.schema.json"] = source
@@ -326,7 +326,7 @@ def generate():
     text = HEADER + "\npackage contractversions\n\nconst (\n" + "\n".join(
         f" {name} = {json.dumps(value)}" for name, value in versions.items()
     ) + "\n)\n"
-    outputs[ROOT / "server/internal/contractversions/versions.generated.go"] = gofmt(text)
+    outputs[ROOT / "server/internal/platform/contractversions/versions.generated.go"] = gofmt(text)
     outputs[ROOT / "launcher/internal/contractversions/versions.generated.go"] = gofmt(text)
     python_names = {
         "PLUGIN_MANIFEST_VERSION": "PluginManifestVersion", "PLUGIN_UI_BRIDGE_VERSION": "PluginUIBridgeVersion",
@@ -369,8 +369,8 @@ def sync_owned_data(outputs, verify):
     # These generated-data directories are exclusively owned by this generator.
     stale = []
     for directory in [
-        "server/internal/pluginwire", "sdk/go/internal/pluginwire",
-        "server/internal/pluginwire/testdata", "sdk/go/internal/pluginwire/testdata",
+        "server/internal/plugins/pluginwire", "sdk/go/internal/pluginwire",
+        "server/internal/plugins/pluginwire/testdata", "sdk/go/internal/pluginwire/testdata",
         "server/internal/platform/redact/testdata", "sdk/go/testdata",
     ]:
         for pattern in ("*.schema.json", "*.generated.json"):

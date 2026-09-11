@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )

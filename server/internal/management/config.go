@@ -9,7 +9,7 @@ import (
 
 	internalconfig "github.com/RayleaBot/RayleaBot/server/internal/config"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 )
 

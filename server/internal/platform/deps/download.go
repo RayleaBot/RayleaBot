@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 const maxRuntimeArchiveBytes int64 = 2 << 30

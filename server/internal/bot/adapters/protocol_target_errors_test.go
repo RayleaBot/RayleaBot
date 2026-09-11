@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 func TestTargetFailureClassificationIgnoresTranslatedErrorMessages(t *testing.T) {

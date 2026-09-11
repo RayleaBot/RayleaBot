@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/contractversions"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/contractversions"
 )
 
 const ManifestVersion = contractversions.DepsManifestVersion

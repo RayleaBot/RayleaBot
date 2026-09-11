@@ -3,14 +3,14 @@ package management
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/pagination"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
 	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/go-chi/chi/v5"
 )

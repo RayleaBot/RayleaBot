@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 func TestParseOneBotFamilyActionAcceptsObjectData(t *testing.T) {

@@ -66,7 +66,7 @@ var catalog = map[string]Definition{
     ts += 'export const errorCatalog = ' + json.dumps(web, ensure_ascii=False, indent=2) + ' as const\n\n'
     ts += 'export const errorMessages = ' + json.dumps(messages, ensure_ascii=False, indent=2) + ' as const\n'
     return {
-        ROOT / 'server/internal/errorcodes/catalog.generated.go': formatted,
+        ROOT / 'server/internal/platform/errorcodes/catalog.generated.go': formatted,
         ROOT / 'web/src/types/error-codes.generated.ts': ts,
     }
 

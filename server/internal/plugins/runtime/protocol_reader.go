@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/pluginwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 func validatePluginFrame(line []byte) error {

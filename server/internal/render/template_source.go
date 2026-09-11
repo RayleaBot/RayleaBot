@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
-	"github.com/RayleaBot/RayleaBot/server/internal/fsguard"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 func BuildSourceBundle(expectedTemplateID string, source TemplateSource) (SourceBundle, error) {

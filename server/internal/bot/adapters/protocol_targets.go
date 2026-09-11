@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
-	"github.com/RayleaBot/RayleaBot/server/internal/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 )
 
 var ErrOneBotInstanceUnavailable = errors.New("指定的 OneBot11 实例不存在、未启用或不可用")
