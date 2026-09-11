@@ -1,8 +1,6 @@
 package runtime
 
 import (
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
-
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,6 +8,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
 
 type localActionRejection struct {
@@ -173,29 +172,23 @@ func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parent
 }
 
 func (m *Manager) writeLocalResult(handle *Handle, parentRequestID string, requestID string, data map[string]any) *plugins.Error {
-	frame := map[string]any{
-		"type":       "result",
-		"request_id": requestID,
-		"status":     "success",
-		"data":       data,
-	}
-	return m.writeLocalResponse(handle, parentRequestID, frame)
+	frame := pluginwire.ResultFrame{Type: "result", RequestID: requestID, Status: "success", Data: data}
+	return m.writeLocalResponse(handle, parentRequestID, requestID, frame)
 }
 
 func (m *Manager) writeLocalError(handle *Handle, parentRequestID string, requestID string, code string, message string, details map[string]any) *plugins.Error {
-	frame := map[string]any{
-		"type":       "error",
-		"request_id": requestID,
-		"code":       code,
-		"message":    message,
-	}
-	if len(details) > 0 {
-		frame["details"] = cloneDetails(details)
-	}
-	return m.writeLocalResponse(handle, parentRequestID, frame)
+	return m.writeLocalResponse(handle, parentRequestID, requestID, localErrorFrame(requestID, code, message, details))
 }
 
-func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, frame map[string]any) *plugins.Error {
+func localErrorFrame(requestID, code, message string, details map[string]any) pluginwire.ErrorFrame {
+	frame := pluginwire.ErrorFrame{Type: "error", RequestID: requestID, Code: code, Message: message}
+	if len(details) > 0 {
+		frame.Details = cloneDetails(details)
+	}
+	return frame
+}
+
+func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, requestID string, frame any) *plugins.Error {
 	m.protocolMu.Lock()
 	defer m.protocolMu.Unlock()
 
@@ -209,7 +202,6 @@ func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, fra
 		m.mu.Unlock()
 		return nil
 	}
-	requestID, _ := frame["request_id"].(string)
 	if _, pending := session.pendingActionIDs[requestID]; pending {
 		delete(session.pendingActionIDs, requestID)
 		session.pendingLocalAction--
@@ -237,15 +229,7 @@ func (m *Manager) writeLocalRejectionLocked(handle *Handle, rejection localActio
 	if !active {
 		return nil
 	}
-	frame := map[string]any{
-		"type":       "error",
-		"request_id": rejection.requestID,
-		"code":       rejection.code,
-		"message":    rejection.message,
-	}
-	if len(rejection.details) > 0 {
-		frame["details"] = cloneDetails(rejection.details)
-	}
+	frame := localErrorFrame(rejection.requestID, rejection.code, rejection.message, rejection.details)
 	if err := handle.WriteJSONLine(frame); err != nil {
 		return errorf(codePluginInternalError, "write local action rejection frame", err)
 	}
