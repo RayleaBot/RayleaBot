@@ -3,9 +3,7 @@ package management
 import (
 	"context"
 	"errors"
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -158,25 +156,7 @@ func newListHandler(catalog plugins.CatalogView) http.HandlerFunc {
 		}
 		snapshots := catalog.List()
 		conflicts := plugins.DetectCommandConflicts(snapshots)
-		filtered := make([]plugins.Snapshot, 0, len(snapshots))
-		for _, snapshot := range snapshots {
-			summary := plugins.BuildSummary(snapshot, conflicts[snapshot.PluginID])
-			if state == "alert" && summary.State != "failed" && summary.State != "invalid" && len(summary.CommandConflicts) == 0 {
-				continue
-			}
-			if state != "" && state != "alert" && summary.State != state {
-				continue
-			}
-			official := summary.Trust.Level == "official"
-			if source == "official" && !official || source == "community" && official {
-				continue
-			}
-			if pagination.Matches(query.Text, snapshot.PluginID, snapshot.Name, snapshot.Description) {
-				filtered = append(filtered, snapshot)
-			}
-		}
-		sort.Slice(filtered, func(i, j int) bool { return filtered[i].PluginID < filtered[j].PluginID })
-		page, meta := pagination.Slice(filtered, query)
+		page, meta := plugins.ListPage(snapshots, conflicts, plugins.ListFilter{State: state, Source: source}, query)
 		items := make([]SummaryResponse, 0, len(page))
 		for _, snapshot := range page {
 			items = append(items, toSummary(snapshot, conflicts[snapshot.PluginID]))
