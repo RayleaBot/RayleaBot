@@ -83,6 +83,7 @@ func TestSystemEdgeRenderRetainsBrowserProcessAndCloses(t *testing.T) {
 	process := browser.Process()
 	if process == nil {
 		t.Fatal("allocator has no browser process")
+		return
 	}
 	infos, err := systeminfo.GetProcessInfo().Do(cdp.WithExecutor(ctx, browser))
 	if err != nil {
