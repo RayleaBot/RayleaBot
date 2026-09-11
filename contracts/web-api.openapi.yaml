@@ -872,6 +872,9 @@ paths:
         返回已配置的适配器实例及其状态，按配置顺序排列，无实例时 adapters 为 []。
         OneBot 实例包含独立传输摘要。available_protocols 列出可添加实例的协议。
       operationId: listAdapters
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
       tags:
         - protocols
       responses:
@@ -4331,9 +4334,7 @@ components:
             $ref: '#/components/schemas/GovernanceEntry'
 
     CommandPermissionLevel:
-      type: string
-      enum: [super_admin, group_admin, everyone]
-
+      $ref: ./plugin-info.schema.json#/$defs/permission_level
     CommandPermissionSource:
       type: string
       enum: [declared, default_level]
@@ -4477,8 +4478,7 @@ components:
       required: [id, name, effective_names, description, usage, permission, trigger]
       properties:
         id:
-          type: string
-          pattern: '^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$'
+          $ref: ./plugin-info.schema.json#/$defs/stable_id
         name:
           type: string
         effective_names:
@@ -4502,57 +4502,13 @@ components:
         - $ref: '#/components/schemas/PluginSettingCommandTrigger'
 
     PluginExactCommandTrigger:
-      type: object
-      additionalProperties: false
-      required: [type, names]
-      properties:
-        type:
-          type: string
-          const: exact
-        names:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            type: string
-
+      $ref: ./plugin-info.schema.json#/$defs/exact_trigger
     PluginPatternCommandTrigger:
-      type: object
-      additionalProperties: false
-      required: [type, pattern]
-      properties:
-        type:
-          type: string
-          const: pattern
-        pattern:
-          type: string
-
+      $ref: ./plugin-info.schema.json#/$defs/pattern_trigger
     PluginSettingCommandTrigger:
-      type: object
-      additionalProperties: false
-      required: [type, settings_key]
-      properties:
-        type:
-          type: string
-          const: setting
-        settings_key:
-          type: string
-
+      $ref: ./plugin-info.schema.json#/$defs/setting_trigger
     PluginCommandGroup:
-      type: object
-      additionalProperties: false
-      required: [id, title, commands]
-      properties:
-        id:
-          type: string
-        title:
-          type: string
-        commands:
-          type: array
-          items:
-            type: string
-          uniqueItems: true
-
+      $ref: ./plugin-info.schema.json#/$defs/command_group
     PluginDisplayFields:
       type: object
       required:
@@ -4608,14 +4564,7 @@ components:
       type: object
       unevaluatedProperties: false
     PluginHelp:
-      type: object
-      additionalProperties: false
-      properties:
-        title:
-          type: string
-        summary:
-          type: string
-
+      $ref: ./plugin-info.schema.json#/$defs/help
     PluginListResponse:
       allOf:
         - $ref: '#/components/schemas/CollectionPage'
@@ -4884,15 +4833,7 @@ components:
         $ref: '#/components/schemas/PluginPermissionGrant'
 
     PluginScreenshot:
-      type: object
-      additionalProperties: false
-      required: [path]
-      properties:
-        path:
-          type: string
-        alt:
-          type: string
-
+      $ref: ./plugin-info.schema.json#/$defs/screenshot
     PluginManagementUISummary:
       type: object
       additionalProperties: false

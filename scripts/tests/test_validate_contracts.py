@@ -112,6 +112,18 @@ class ContractValidatorTests(unittest.TestCase):
             with self.subTest(code=code):
                 self.assertTrue(validator.error_entry_errors(entry))
 
+    def test_websocket_plugin_diagnosis_uses_the_http_definition(self) -> None:
+        fixture = validator.load_json(validator.FIXTURES / "websocket/edge.events-received-plugin-initialization-failed.json")
+        event = fixture["frame"]["data"]
+        document = self.documents[(validator.CONTRACTS / "websocket-events.yaml").resolve()]
+        channel_index = next(i for i, channel in enumerate(document["channels"]) if channel["path"] == "/ws/events")
+        channel = document["channels"][channel_index]
+        event_index = next(i for i, item in enumerate(channel["events"]) if item["event"] == "events.received")
+        pointer = f"/channels/{channel_index}/events/{event_index}/payload_schema"
+        self.assertEqual(validator.schema_errors_at_pointer(validator.CONTRACTS / "websocket-events.yaml", self.registry, pointer, event), [])
+        event["state_diagnosis"]["kind"] = "invented_state"
+        self.assertTrue(validator.schema_errors_at_pointer(validator.CONTRACTS / "websocket-events.yaml", self.registry, pointer, event))
+
     def test_http_error_code_status_scope_and_key_follow_catalog(self) -> None:
         response = {"status": 404, "body": {"error": {
             "code": "platform.resource_not_found", "message_key": "errors.platform.resource_not_found",

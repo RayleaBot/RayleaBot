@@ -6,6 +6,28 @@ import YAML from 'yaml'
 const repoRoot = path.resolve(process.cwd(), '..')
 const contractPath = path.join(repoRoot, 'contracts', 'websocket-events.yaml')
 const outputPath = path.join(process.cwd(), 'src', 'types', 'websocket.generated.ts')
+const documents = new Map()
+
+async function resolveSchema(value, sourcePath, ancestors = new Set()) {
+  if (Array.isArray(value)) return Promise.all(value.map(item => resolveSchema(item, sourcePath, ancestors)))
+  if (!value || typeof value !== 'object') return value
+  if (value.$ref) {
+    const [file, fragment = ''] = value.$ref.split('#')
+    const target = path.resolve(path.dirname(sourcePath), file || path.basename(sourcePath))
+    const relative = path.relative(path.join(repoRoot, 'contracts'), target)
+    if (relative.startsWith('..') || path.isAbsolute(relative)) throw new Error(`external schema outside contracts: ${value.$ref}`)
+    const identity = `${target}#${fragment}`
+    if (ancestors.has(identity)) throw new Error(`cyclic schema reference: ${identity}`)
+    if (!documents.has(target)) documents.set(target, YAML.parse(await fs.readFile(target, 'utf8')))
+    let referred = documents.get(target)
+    for (const token of fragment.split('/').slice(1)) referred = referred?.[token.replaceAll('~1', '/').replaceAll('~0', '~')]
+    if (!referred) throw new Error(`missing schema reference: ${identity}`)
+    const resolved = await resolveSchema(referred, target, new Set([...ancestors, identity]))
+    const { $ref, ...siblings } = value
+    return { ...resolved, ...await resolveSchema(siblings, sourcePath, ancestors) }
+  }
+  return Object.fromEntries(await Promise.all(Object.entries(value).map(async ([key, item]) => [key, await resolveSchema(item, sourcePath, ancestors)])))
+}
 
 function quote(value) {
   return `'${String(value).replaceAll("'", "\\'")}'`
@@ -213,4 +235,5 @@ export type PluginConsoleFrameData = {
 
 const contractText = await fs.readFile(contractPath, 'utf8')
 const contract = YAML.parse(contractText)
-await fs.writeFile(outputPath, generatedSource(contract), 'utf8')
+documents.set(contractPath, contract)
+await fs.writeFile(outputPath, generatedSource(await resolveSchema(contract, contractPath)), 'utf8')

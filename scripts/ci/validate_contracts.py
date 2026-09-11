@@ -926,7 +926,7 @@ def websocket_event_schema(events: dict[str, Any], frame: dict[str, Any]) -> Any
     return None
 
 
-def validate_websocket_fixtures(events: dict[str, Any]) -> None:
+def validate_websocket_fixtures(events: dict[str, Any], registry: Registry) -> None:
     envelope = require_object(events.get("envelope"), "websocket envelope")
     envelope_schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -955,7 +955,10 @@ def validate_websocket_fixtures(events: dict[str, Any]) -> None:
                 Draft202012Validator.check_schema(payload_schema)
             except Exception as exc:
                 fail(f"contracts/websocket-events.yaml {frame.get('type')}: invalid payload schema: {exc}")
-            payload_validator = Draft202012Validator(payload_schema, format_checker=FormatChecker())
+            payload_validator = Draft202012Validator(
+                {"$id": (CONTRACTS / "websocket-events.yaml").resolve().as_uri(), **payload_schema},
+                registry=registry, format_checker=FormatChecker(),
+            )
             errors.extend(f"data/{format_schema_error(error)}" for error in payload_validator.iter_errors(frame.get("data")))
         require_fixture_outcome(path, fixture_expected_valid(path, document), errors)
 
@@ -974,7 +977,7 @@ def validate_contract_instances(web_api: dict[str, Any], websocket_events: dict[
     validate_error_fixtures(contract_documents[(CONTRACTS / "error-codes.yaml").resolve()])
     validate_openapi_fixtures(web_api, registry)
     validate_http_examples(web_api, registry)
-    validate_websocket_fixtures(websocket_events)
+    validate_websocket_fixtures(websocket_events, registry)
 
 
 def validate_openapi_basic(web_api: dict[str, Any]) -> None:

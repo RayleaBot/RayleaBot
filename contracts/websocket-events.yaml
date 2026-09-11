@@ -4,6 +4,7 @@ description: >
   envelope and the smallest set of server-push event types needed by the
   management surface.
 x-fixtures:
+  - fixtures/websocket/edge.events-received-plugin-initialization-failed.json
   - fixtures/websocket/ok.logs-appended.json
   - fixtures/websocket/ok.logs-appended.outbound-onebot11.json
   - fixtures/websocket/ok.logs-appended.task.json
@@ -148,99 +149,13 @@ channels:
                 plugin_id:
                   type: string
                 state:
-                  type: string
-                  enum: [disabled, enabled, starting, running, stopping, failed, invalid]
+                  $ref: ./web-api.openapi.yaml#/components/schemas/PluginState
                 state_diagnosis:
-                  type: object
-                  additionalProperties: false
-                  required: [kind]
-                  properties:
-                    kind:
-                      type: string
-                      enum: [invalid_manifest, plugin_id_conflict, crashed, retrying, recovery_required]
-                    summary:
-                      type: string
-                    manifest_path:
-                      type: string
-                    manifest_paths:
-                      type: array
-                      items:
-                        type: string
-                    source_roots:
-                      type: array
-                      items:
-                        type: string
-                    last_error_code:
-                      type: string
-                    last_error_message:
-                      type: string
-                    crash_count:
-                      type: integer
-                      minimum: 0
-                    entered_at:
-                      type: string
-                      format: date-time
-                    retry_at:
-                      type: string
-                      format: date-time
-                    recoverable:
-                      type: boolean
+                  $ref: ./web-api.openapi.yaml#/components/schemas/PluginStateDiagnosis
                 commands:
                   type: array
                   items:
-                    type: object
-                    additionalProperties: false
-                    required: [id, name, effective_names, description, usage, permission, trigger]
-                    properties:
-                      id:
-                        type: string
-                      name:
-                        type: string
-                      effective_names:
-                        type: array
-                        items:
-                          type: string
-                        uniqueItems: true
-                      description:
-                        type: string
-                      usage:
-                        type: string
-                      permission:
-                        type: string
-                        enum: [super_admin, group_admin, everyone]
-                      trigger:
-                        oneOf:
-                          - type: object
-                            additionalProperties: false
-                            required: [type, names]
-                            properties:
-                              type:
-                                type: string
-                                const: exact
-                              names:
-                                type: array
-                                minItems: 1
-                                uniqueItems: true
-                                items:
-                                  type: string
-                          - type: object
-                            additionalProperties: false
-                            required: [type, pattern]
-                            properties:
-                              type:
-                                type: string
-                                const: pattern
-                              pattern:
-                                type: string
-                          - type: object
-                            additionalProperties: false
-                            required: [type, settings_key]
-                            properties:
-                              type:
-                                type: string
-                                const: setting
-                              settings_key:
-                                type: string
+                    $ref: ./web-api.openapi.yaml#/components/schemas/PluginCommandSummary
                 command_conflicts:
                   type: array
                   items:

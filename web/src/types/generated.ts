@@ -2003,8 +2003,7 @@ export interface components {
             user_entries: components["schemas"]["GovernanceEntry"][];
             group_entries: components["schemas"]["GovernanceEntry"][];
         } & components["schemas"]["CollectionPage"];
-        /** @enum {string} */
-        CommandPermissionLevel: "super_admin" | "group_admin" | "everyone";
+        CommandPermissionLevel: components["schemas"]["permission_level"];
         /** @enum {string} */
         CommandPermissionSource: "declared" | "default_level";
         GovernanceCommandCooldown: {
@@ -2019,12 +2018,12 @@ export interface components {
             command: string;
             aliases: string[];
             trigger: components["schemas"]["PluginCommandTrigger"];
-            declared_permission: components["schemas"]["CommandPermissionLevel"] | null;
-            effective_permission: components["schemas"]["CommandPermissionLevel"];
+            declared_permission: components["schemas"]["permission_level"] | null;
+            effective_permission: components["schemas"]["permission_level"];
             permission_source: components["schemas"]["CommandPermissionSource"];
         };
         GovernanceCommandPolicyResponse: {
-            default_level: components["schemas"]["CommandPermissionLevel"];
+            default_level: components["schemas"]["permission_level"];
             cooldown: components["schemas"]["GovernanceCommandCooldown"];
             commands: components["schemas"]["GovernanceCommandPolicyEntry"][];
         };
@@ -2065,35 +2064,19 @@ export interface components {
             verified: boolean;
         };
         PluginCommandSummary: {
-            id: string;
+            id: components["schemas"]["stable_id"];
             name: string;
             effective_names: string[];
             description: string;
             usage: string;
-            permission: components["schemas"]["CommandPermissionLevel"];
+            permission: components["schemas"]["permission_level"];
             trigger: components["schemas"]["PluginCommandTrigger"];
         };
-        PluginCommandTrigger: components["schemas"]["PluginExactCommandTrigger"] | components["schemas"]["PluginPatternCommandTrigger"] | components["schemas"]["PluginSettingCommandTrigger"];
-        PluginExactCommandTrigger: {
-            /** @constant */
-            type: "exact";
-            names: string[];
-        };
-        PluginPatternCommandTrigger: {
-            /** @constant */
-            type: "pattern";
-            pattern: string;
-        };
-        PluginSettingCommandTrigger: {
-            /** @constant */
-            type: "setting";
-            settings_key: string;
-        };
-        PluginCommandGroup: {
-            id: string;
-            title: string;
-            commands: string[];
-        };
+        PluginCommandTrigger: components["schemas"]["exact_trigger"] | components["schemas"]["pattern_trigger"] | components["schemas"]["setting_trigger"];
+        PluginExactCommandTrigger: components["schemas"]["exact_trigger"];
+        PluginPatternCommandTrigger: components["schemas"]["pattern_trigger"];
+        PluginSettingCommandTrigger: components["schemas"]["setting_trigger"];
+        PluginCommandGroup: components["schemas"]["command_group"];
         PluginDisplayFields: {
             id: string;
             name: string;
@@ -2108,15 +2091,12 @@ export interface components {
             source?: components["schemas"]["PluginSourceSummary"];
             trust?: components["schemas"]["PluginTrustSummary"];
             commands: components["schemas"]["PluginCommandSummary"][];
-            command_groups: components["schemas"]["PluginCommandGroup"][];
-            help: components["schemas"]["PluginHelp"];
+            command_groups: components["schemas"]["command_group"][];
+            help: components["schemas"]["help"];
             command_conflicts?: string[];
         };
         PluginSummary: components["schemas"]["PluginDisplayFields"];
-        PluginHelp: {
-            title?: string;
-            summary?: string;
-        };
+        PluginHelp: components["schemas"]["help"];
         PluginListResponse: {
             items: components["schemas"]["PluginSummary"][];
         } & components["schemas"]["CollectionPage"];
@@ -2221,10 +2201,7 @@ export interface components {
         PluginPermissions: {
             [key: string]: components["schemas"]["PluginPermissionGrant"];
         };
-        PluginScreenshot: {
-            path: string;
-            alt?: string;
-        };
+        PluginScreenshot: components["schemas"]["screenshot"];
         PluginManagementUISummary: {
             entry: string;
             pages: components["schemas"]["PluginManagementUIPage"][];
@@ -2245,7 +2222,7 @@ export interface components {
             /** Format: uri */
             homepage?: string;
             keywords?: string[];
-            screenshots?: components["schemas"]["PluginScreenshot"][];
+            screenshots?: components["schemas"]["screenshot"][];
             management_ui?: components["schemas"]["PluginManagementUISummary"];
         } & components["schemas"]["PluginDisplayFields"];
         PluginDetailResponse: {
@@ -3000,6 +2977,38 @@ export interface components {
                     qqofficial?: components["schemas"]["qqOfficialAdapterSettings"];
                 } & (unknown & unknown);
             };
+        };
+        /** @enum {string} */
+        permission_level: "super_admin" | "group_admin" | "everyone";
+        exact_trigger: {
+            /** @constant */
+            type: "exact";
+            names: string[];
+        };
+        pattern_trigger: {
+            /** @constant */
+            type: "pattern";
+            pattern: string;
+        };
+        setting_trigger: {
+            /** @constant */
+            type: "setting";
+            settings_key: string;
+        };
+        stable_id: string;
+        command_group: {
+            id: components["schemas"]["stable_id"];
+            title: string;
+            commands: components["schemas"]["stable_id"][];
+        };
+        help: {
+            title?: string;
+            summary?: string;
+        };
+        package_relative_path: string & unknown & unknown;
+        screenshot: {
+            path: components["schemas"]["package_relative_path"];
+            alt: string;
         };
     };
     responses: {

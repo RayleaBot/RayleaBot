@@ -1,0 +1,26 @@
+{
+  "contract": "contracts/websocket-events.yaml",
+  "case": "edge",
+  "frame": {
+    "channel": "events",
+    "type": "events.received",
+    "timestamp": "2026-03-17T09:35:00Z",
+    "data": {
+      "plugin_id": "weather",
+      "state": "failed",
+      "state_diagnosis": {
+        "kind": "initialization_failed",
+        "last_error_code": "plugin.init_timeout",
+        "recoverable": true
+      },
+      "commands": [],
+      "command_conflicts": []
+    }
+  },
+  "expect": {
+    "valid": true,
+    "notes": [
+      "Initialization failure uses the same diagnosis vocabulary in HTTP and WebSocket."
+    ]
+  }
+}
