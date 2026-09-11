@@ -34,8 +34,6 @@ export function composeFieldTooltip(field: ConfigFieldDefinition): string | unde
   return field.description
 }
 
-export const DEFAULT_RENDER_FOOTER_TEMPLATE = configSchema.properties.render.properties.footer_template.default
-
 export interface ConfigSectionDefinition {
   key: string
   title: string

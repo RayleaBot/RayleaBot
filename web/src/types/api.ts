@@ -14,7 +14,6 @@ import type { components } from './generated'
 
 export type AccountCredentialsUpdateRequest = components['schemas']['AccountCredentialsUpdateRequest']
 
-export type OneBot11ProtocolSnapshotResponse = components['schemas']['OneBot11ProtocolSnapshotResponse']
 export type AdaptersResponse = components['schemas']['AdaptersResponse']
 export type AdapterDescriptor = components['schemas']['AdapterDescriptor']
 export type AdapterProtocolDescriptor = components['schemas']['AdapterProtocolDescriptor']
@@ -22,7 +21,6 @@ export type AdapterProtocol = components['schemas']['AdapterProtocol']
 export type AdapterState = components['schemas']['AdapterState']
 export type OneBot11ProtocolCompatibilityResponse = components['schemas']['OneBot11ProtocolCompatibilityResponse']
 export type ThirdPartyAccountSummary = components['schemas']['ThirdPartyAccountSummary']
-export type ThirdPartyAccountProfile = components['schemas']['ThirdPartyAccountProfile']
 export type ThirdPartyCredentialState = components['schemas']['ThirdPartyCredentialState']
 export type ThirdPartyAccountUpsertRequest = components['schemas']['ThirdPartyAccountUpsertRequest']
 export type ThirdPartyAccountUpsertResponse = components['schemas']['ThirdPartyAccountUpsertResponse']

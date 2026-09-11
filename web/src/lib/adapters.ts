@@ -16,13 +16,6 @@ export function findAdapterInstance(document: ConfigDocument | null, id: string)
   return readAdapterInstances(document).find((instance) => instance.id === id) ?? null
 }
 
-// adapterSettingsPath spells where one instance's settings live in the config
-// document. Instances are addressed by identifier rather than position, so
-// reordering the list does not move a field.
-export function adapterSettingsPath(id: string, protocol: AdapterProtocol, field: string) {
-  return `adapters.${id}.${protocol}.${field}`
-}
-
 const DEFAULT_ONEBOT_WS_TRANSPORT = {
   enabled: false,
   url: '',
@@ -30,9 +23,9 @@ const DEFAULT_ONEBOT_WS_TRANSPORT = {
   access_token_query_compat: false,
 }
 
-export function defaultAdapterSettings(protocol: 'onebot11'): OneBotSettings
-export function defaultAdapterSettings(protocol: 'qqofficial'): QQOfficialSettings
-export function defaultAdapterSettings(protocol: AdapterProtocol): OneBotSettings | QQOfficialSettings {
+function defaultAdapterSettings(protocol: 'onebot11'): OneBotSettings
+function defaultAdapterSettings(protocol: 'qqofficial'): QQOfficialSettings
+function defaultAdapterSettings(protocol: AdapterProtocol): OneBotSettings | QQOfficialSettings {
   if (protocol === 'onebot11') {
     return {
       reverse_ws: { ...DEFAULT_ONEBOT_WS_TRANSPORT },
