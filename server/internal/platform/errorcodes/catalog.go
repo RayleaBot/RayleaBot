@@ -27,10 +27,3 @@ func HTTP(code string) (Definition, bool) {
 	definition, ok := Lookup(code)
 	return definition, ok && definition.HTTPStatus != 0 && definition.AppliesTo("http")
 }
-
-// Diagnostic reports may use a diagnostic identity or an applicable error code;
-// a diagnostic identity itself cannot be emitted as an HTTP error.
-func Diagnostic(code string) bool {
-	_, ok := diagnostics[code]
-	return ok
-}
