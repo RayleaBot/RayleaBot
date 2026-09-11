@@ -69,7 +69,7 @@ func TestExtractZipReportsEntryProgress(t *testing.T) {
 	})
 	var events []extractProgress
 
-	if err := ZipWithProgress(archivePath, t.TempDir(), func(event ExtractProgress) {
+	if err := ExtractWithProgress(context.Background(), archivePath, "zip", t.TempDir(), func(event ExtractProgress) {
 		events = append(events, extractProgress(event))
 	}); err != nil {
 		t.Fatalf("extractZipWithProgress failed: %v", err)
@@ -94,7 +94,7 @@ func TestExtractTarGzReportsEntryProgress(t *testing.T) {
 	})
 	var events []extractProgress
 
-	if err := TarGzWithProgress(archivePath, t.TempDir(), func(event ExtractProgress) {
+	if err := ExtractWithProgress(context.Background(), archivePath, "tar.gz", t.TempDir(), func(event ExtractProgress) {
 		events = append(events, extractProgress(event))
 	}); err != nil {
 		t.Fatalf("extractTarGzWithProgress failed: %v", err)

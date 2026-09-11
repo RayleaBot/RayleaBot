@@ -105,7 +105,7 @@ func TestRuntimeArchivesRejectTraversalDuplicatesAndEscapingLinks(t *testing.T) 
 			t.Run(format+"/"+tc.name, func(t *testing.T) {
 				parent := t.TempDir()
 				target := filepath.Join(parent, "target")
-				if err := Extract(context.Background(), writeRuntimeArchive(t, format, tc.entries), format, target); err == nil {
+				if err := ExtractWithProgress(context.Background(), writeRuntimeArchive(t, format, tc.entries), format, target, nil); err == nil {
 					t.Fatal("unsafe archive accepted")
 				}
 				if _, err := os.Stat(filepath.Join(parent, "outside")); !errors.Is(err, os.ErrNotExist) {
@@ -125,7 +125,7 @@ func TestRuntimeArchivesPreserveExistingFilesAndObserveCancellation(t *testing.T
 			if err := os.WriteFile(file, []byte("original"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := Extract(context.Background(), archive, format, target); err == nil {
+			if err := ExtractWithProgress(context.Background(), archive, format, target, nil); err == nil {
 				t.Fatal("existing file overwritten")
 			}
 			got, err := os.ReadFile(file)
@@ -162,7 +162,7 @@ func TestCompressedRuntimeArchivesVerifyFooter(t *testing.T) {
 			if err := os.WriteFile(archive, payload, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if err := Extract(context.Background(), archive, format, t.TempDir()); err == nil {
+			if err := ExtractWithProgress(context.Background(), archive, format, t.TempDir(), nil); err == nil {
 				t.Fatal("corrupt archive accepted")
 			}
 		})
@@ -170,7 +170,7 @@ func TestCompressedRuntimeArchivesVerifyFooter(t *testing.T) {
 }
 
 func TestRuntimeArchiveLimitsAndXZExtraction(t *testing.T) {
-	if err := Extract(context.Background(), "testdata/archives/dictionary-limit.tar.xz", "tar.xz", t.TempDir()); !errors.Is(err, xz.ErrMemlimit) {
+	if err := ExtractWithProgress(context.Background(), "testdata/archives/dictionary-limit.tar.xz", "tar.xz", t.TempDir(), nil); !errors.Is(err, xz.ErrMemlimit) {
 		t.Fatalf("XZ dictionary limit: %v", err)
 	}
 	e := runtimeExtractor{ctx: context.Background(), seen: map[string]struct{}{}}
@@ -183,7 +183,7 @@ func TestRuntimeArchiveLimitsAndXZExtraction(t *testing.T) {
 	}
 	archive := writeRuntimeArchive(t, "tar.xz", []archiveEntry{{name: "ffmpeg/bin/ffmpeg", content: strings.Repeat("binary", 100)}})
 	target := t.TempDir()
-	if err := Extract(context.Background(), archive, "tar.xz", target); err != nil {
+	if err := ExtractWithProgress(context.Background(), archive, "tar.xz", target, nil); err != nil {
 		t.Fatal(err)
 	}
 	if body, err := os.ReadFile(filepath.Join(target, "ffmpeg/bin/ffmpeg")); err != nil || len(body) != 600 {
