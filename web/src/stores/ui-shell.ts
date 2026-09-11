@@ -290,10 +290,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     persist()
   }
 
-  function resetRestoredTabs() {
-    closeAllTabs()
-  }
-
   function openSearch() {
     searchOpen.value = true
   }
@@ -331,7 +327,6 @@ export const useUiShellStore = defineStore('ui-shell', () => {
     resolvedThemeMode,
     patchPreferences,
     resetPreferences,
-    resetRestoredTabs,
     routeLoading,
     searchOpen,
     siderCollapsed,

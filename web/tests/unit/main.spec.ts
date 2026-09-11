@@ -113,9 +113,7 @@ describe('web bootstrap', () => {
       markConnectionInterrupted: vi.fn(),
     })
 
-    useUiShellStore.mockReturnValue({
-      resetRestoredTabs: vi.fn(),
-    })
+    useUiShellStore.mockReturnValue({})
   })
 
   afterEach(() => {
