@@ -38,12 +38,9 @@ func TestExecuteHTTPRequestUsesPermissionedScopeAndReturnsText(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{
-		permissions: map[string][]stubPermission{
-			"scope-cache": {{
-				PluginID:   "scope-cache",
-				Permission: "http.request",
-			}},
+	deps.Permissions = &stubPermissionView{
+		permissions: map[string]map[string]bool{
+			"scope-cache": {"http.request": true},
 		},
 	}
 	application := localaction.New(deps)
@@ -80,12 +77,9 @@ func TestExecuteHTTPRequestRejectsPrivateHost(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{
-		permissions: map[string][]stubPermission{
-			"scope-cache": {{
-				PluginID:   "scope-cache",
-				Permission: "http.request",
-			}},
+	deps.Permissions = &stubPermissionView{
+		permissions: map[string]map[string]bool{
+			"scope-cache": {"http.request": true},
 		},
 	}
 	application := localaction.New(deps)

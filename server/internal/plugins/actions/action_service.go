@@ -4,7 +4,6 @@ import (
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
@@ -13,7 +12,6 @@ type Deps struct {
 	Logger               *slog.Logger
 	RedactText           func(string) string
 	Permissions          PermissionView
-	Plugins              plugins.CatalogView
 	Settings             *settings.Service
 	PluginFiles          FileStore
 	PluginKV             KVRepository

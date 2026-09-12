@@ -20,7 +20,7 @@ func TestExecuteStorageFileRoundTripUsesImplicitPrivateNamespace(t *testing.T) {
 	testConfig := config.Config{Storage: config.StorageConfig{FileMaxBytes: 1024, PluginWorkDirSoftLimitMB: 1}}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{}}
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{}}
 	deps.PluginFiles = pluginstore.NewFileService(filepath.Join(t.TempDir(), "plugins"))
 	application := localaction.New(deps)
 	writeResult, err := application.Execute(context.Background(), "scope-cache", "req_local_file_1", plugins.Action{
@@ -57,7 +57,7 @@ func TestExecuteStorageFileNamespacesPlugins(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{}}
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{}}
 	deps.PluginFiles = pluginstore.NewFileService(filepath.Join(t.TempDir(), "plugins"))
 	application := localaction.New(deps)
 	_, err := application.Execute(context.Background(), "first", "req_first", plugins.Action{

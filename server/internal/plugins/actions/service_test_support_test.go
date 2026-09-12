@@ -7,39 +7,23 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-type stubPermission struct {
-	PluginID   string
-	Permission string
+type stubPermissionView struct {
+	permissions map[string]map[string]bool
 }
 
-type scopedPermissionView struct {
-	permissions map[string][]stubPermission
-}
-
-func scopedPermissionViewFor(pluginID string, permissions ...string) *scopedPermissionView {
-	view := &scopedPermissionView{permissions: map[string][]stubPermission{}}
+func permissionViewFor(pluginID string, permissions ...string) *stubPermissionView {
+	view := &stubPermissionView{permissions: map[string]map[string]bool{pluginID: {}}}
 	for _, permission := range permissions {
-		view.permissions[pluginID] = append(view.permissions[pluginID], stubPermission{
-			PluginID:   pluginID,
-			Permission: permission,
-		})
+		view.permissions[pluginID][permission] = true
 	}
 	return view
 }
 
-func (v *scopedPermissionView) PermissionDeclared(_ context.Context, pluginID string, permission string) bool {
-	if v == nil {
-		return false
-	}
-	for _, item := range v.permissions[pluginID] {
-		if item.Permission == permission {
-			return true
-		}
-	}
-	return false
+func (v *stubPermissionView) PermissionDeclared(_ context.Context, pluginID string, permission string) bool {
+	return v != nil && v.permissions[pluginID][permission]
 }
 
-func (v *scopedPermissionView) ListPluginSnapshots() []plugins.Snapshot {
+func (v *stubPermissionView) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }
 

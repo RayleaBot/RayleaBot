@@ -63,7 +63,7 @@ type pluginInstallInspectionResponse struct {
 	PackageSHA256  string                                `json:"package_sha256"`
 	Source         pluginInstallSourceResponse           `json:"source"`
 	Plugin         pluginInstallInspectionPluginResponse `json:"plugin"`
-	Permissions    map[string]any                        `json:"permissions"`
+	Permissions    map[string]bool                       `json:"permissions"`
 	TargetPlatform string                                `json:"target_platform"`
 	Backend        pluginInstallBackendResponse          `json:"backend"`
 	UI             pluginInstallUIResponse               `json:"ui"`
@@ -234,7 +234,7 @@ func buildInstallInspectionResponse(inspection plugins.InstallInspection) plugin
 			License:     inspection.License,
 			SourceLabel: inspection.SourceLabel,
 		},
-		Permissions:    buildPermissionResponse(inspection.Permissions),
+		Permissions:    plugins.ClonePermissions(inspection.Permissions),
 		TargetPlatform: inspection.TargetPlatform,
 		Backend: pluginInstallBackendResponse{
 			Entry: inspection.Backend.Entry,

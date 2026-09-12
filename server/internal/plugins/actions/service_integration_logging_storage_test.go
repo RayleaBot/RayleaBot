@@ -39,8 +39,8 @@ func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 	deps.RedactText = func(text string) string {
 		return text
 	}
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"notice-logger": {{PluginID: "notice-logger", Permission: "logger.write"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"notice-logger": {"logger.write": true},
 	}}
 	deps.PluginLogLimiter = localaction.NewPluginLogLimiter(config.Config{Log: config.LogConfig{RateLimitPerPlugin: "1/1h"}})
 	application := localaction.New(deps)
@@ -83,12 +83,9 @@ func TestExecuteStorageKVRoundTrip(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{
-		permissions: map[string][]stubPermission{
-			"notice-logger": {{
-				PluginID:   "notice-logger",
-				Permission: "storage.kv",
-			}},
+	deps.Permissions = &stubPermissionView{
+		permissions: map[string]map[string]bool{
+			"notice-logger": {"storage.kv": true},
 		},
 	}
 	deps.PluginKV = repo
@@ -164,8 +161,8 @@ func TestExecuteConfigWriteDispatchesConfigChanged(t *testing.T) {
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	catalogForActions := plugincatalog.New([]plugins.Snapshot{{PluginID: "weather", Valid: true, RegistrationState: "installed"}})
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"weather": {{PluginID: "weather", Permission: "config.write"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"weather": {"config.write": true},
 	}}
 	settingsService, settingsErr := settings.New(settings.Deps{Plugins: catalogForActions, Config: repo, RefreshCommands: localaction.RefreshCommands(catalogForActions, dispatcher), Notify: localaction.NotifyConfigChanged(dispatcher)})
 	if settingsErr != nil {
@@ -210,7 +207,7 @@ func TestExecuteGovernanceActionsRejectMissingPermission(t *testing.T) {
 	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
 	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{}}
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{}}
 	governanceEvents := managementevents.NewGovernanceService()
 	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged})
 	application := localaction.New(deps)
@@ -252,13 +249,13 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 			{ID: "current", Name: "current", DisplayName: "current", TriggerType: "exact", TriggerNames: []string{"current"}},
 		},
 	}})
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
 		"governance-helper": {
-			{PluginID: "governance-helper", Permission: "governance.blacklist.read"},
-			{PluginID: "governance-helper", Permission: "governance.blacklist.write"},
-			{PluginID: "governance-helper", Permission: "governance.whitelist.read"},
-			{PluginID: "governance-helper", Permission: "governance.whitelist.write"},
-			{PluginID: "governance-helper", Permission: "governance.command_policy.read"},
+			"governance.blacklist.read":      true,
+			"governance.blacklist.write":     true,
+			"governance.whitelist.read":      true,
+			"governance.whitelist.write":     true,
+			"governance.command_policy.read": true,
 		},
 	}}
 	governanceEvents := managementevents.NewGovernanceService()
@@ -367,8 +364,8 @@ func TestExecuteGovernanceWritePublishesGovernanceChanged(t *testing.T) {
 	blacklistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListBlacklist)
 	whitelistRepo := permissionsqlite.NewAccessListRepository(store.Read, store.Write, permission.ListWhitelist)
 	whitelistState := permissionsqlite.NewWhitelistStateRepository(store.Read, store.Write)
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"governance-helper": {{PluginID: "governance-helper", Permission: "governance.blacklist.write"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"governance-helper": {"governance.blacklist.write": true},
 	}}
 	governanceEvents := managementevents.NewGovernanceService()
 	deps.Governance = governance.NewService(governance.Deps{CurrentConfig: deps.CurrentConfig, BlacklistRepo: blacklistRepo, WhitelistRepo: whitelistRepo, WhitelistState: whitelistState, NotifyChanged: governanceEvents.PublishChanged})

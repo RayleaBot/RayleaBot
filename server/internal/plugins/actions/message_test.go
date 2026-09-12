@@ -35,7 +35,7 @@ func TestMessageSendLocalActionUsesSharedOutboundPath(t *testing.T) {
 	defer dispatcher.Close()
 
 	service := actions.New(actions.Deps{
-		Permissions:   &stubPermissionView{permissions: map[string]bool{"message.send": true}},
+		Permissions:   permissionViewFor("guide-plugin", "message.send"),
 		MessageSender: actions.OutboundMessageSender(dispatcher),
 	})
 	action := plugins.Action{

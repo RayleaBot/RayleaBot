@@ -18,7 +18,7 @@ func NewPermissionView(deps PermissionViewDeps) *PermissionView {
 	return &PermissionView{plugins: deps.Plugins}
 }
 
-func (v *PermissionView) DeclaredPermissions(ctx context.Context, pluginID string) []string {
+func (v *PermissionView) declaredPermissions(ctx context.Context, pluginID string) []string {
 	_ = ctx
 	snapshot, ok := v.snapshot(pluginID)
 	if !ok {
@@ -37,7 +37,7 @@ func (v *PermissionView) PermissionDeclared(ctx context.Context, pluginID, permi
 	if permission == "" {
 		return false
 	}
-	for _, declared := range v.DeclaredPermissions(ctx, pluginID) {
+	for _, declared := range v.declaredPermissions(ctx, pluginID) {
 		if declared == permission {
 			return true
 		}

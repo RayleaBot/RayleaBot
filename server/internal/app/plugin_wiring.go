@@ -92,7 +92,6 @@ func buildLocalActionService(
 		Logger:               runtimeState.RuntimeLogger(),
 		RedactText:           runtimeState.RedactString,
 		Permissions:          permissionView,
-		Plugins:              pluginStack.Plugins,
 		Settings:             settingsService,
 		PluginFiles:          pluginStack.PluginFiles,
 		PluginKV:             pluginStack.PluginKV,

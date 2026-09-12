@@ -86,8 +86,8 @@ func TestExecuteOneBotLocalActionMessageHistoryGet(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"weather": {"message.history.get": true},
 	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
 	application := localaction.New(deps)
@@ -143,8 +143,8 @@ func TestExecuteOneBotLocalActionProviderMismatch(t *testing.T) {
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"weather": {"provider.napcat.message_emoji.like.set": true},
 	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)
@@ -250,8 +250,8 @@ func TestExecuteOneBotLocalActionProviderExtensionUsesDetectedProvider(t *testin
 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"weather": {{PluginID: "weather", Permission: "provider.napcat.message_emoji.like.set"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"weather": {"provider.napcat.message_emoji.like.set": true},
 	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return shell, nil }
 	application := localaction.New(deps)
@@ -316,8 +316,8 @@ func TestExecuteOneBotLocalActionConnectionLossKeepsPluginRunning(t *testing.T) 
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
 	}})
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"weather": {{PluginID: "weather", Permission: "message.history.get"}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"weather": {"message.history.get": true},
 	}}
 	deps.ResolveOneBotAdapter = func(string, string) (localaction.OneBotAdapter, error) { return &onebot11.Shell{}, nil }
 	application := localaction.New(deps)

@@ -27,7 +27,7 @@ func TestExecuteRenderImageReturnsArtifact(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderService(t, renderRoot))
 	application := localaction.New(deps)
 
@@ -130,7 +130,7 @@ func TestExecuteRenderImageResolvesOwnPluginTemplateShortID(t *testing.T) {
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
-	deps.Permissions = scopedPermissionViewFor("weather-card", "render.image")
+	deps.Permissions = permissionViewFor("weather-card", "render.image")
 	deps.Renderer = localaction.RendererFromService(renderer)
 	application := localaction.New(deps)
 
@@ -190,7 +190,7 @@ func TestExecuteRenderImageRejectsOtherPluginTemplate(t *testing.T) {
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 
-	deps.Permissions = scopedPermissionViewFor("other-plugin", "render.image")
+	deps.Permissions = permissionViewFor("other-plugin", "render.image")
 	deps.Renderer = localaction.RendererFromService(renderer)
 	application := localaction.New(deps)
 
@@ -233,7 +233,7 @@ func TestExecuteRenderImageRejectsUnknownOtherPluginTemplate(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("other-plugin", "render.image")
+	deps.Permissions = permissionViewFor("other-plugin", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, testutil.StaticRenderRunner{}))
 	application := localaction.New(deps)
 
@@ -265,7 +265,7 @@ func TestExecuteRenderImageInjectsGroupIdentityFromParentEvent(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -345,7 +345,7 @@ func TestExecuteRenderImageInjectsPrivateIdentityWithoutGroup(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -418,7 +418,7 @@ func TestExecuteRenderImageKeepsPrivateSuperAdminBadge(t *testing.T) {
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("help-menu", "render.image")
+	deps.Permissions = permissionViewFor("help-menu", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -479,7 +479,7 @@ func TestExecuteRenderImageAppliesIdentityBadgeRulesToStatusPanel(t *testing.T) 
 	}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("status-panel", "render.image")
+	deps.Permissions = permissionViewFor("status-panel", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 
@@ -597,7 +597,7 @@ func TestExecuteRenderImageLeavesNonIdentityTemplateDataUnchanged(t *testing.T) 
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = scopedPermissionViewFor("plain-card", "render.image")
+	deps.Permissions = permissionViewFor("plain-card", "render.image")
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, repoRoot, renderRoot, runner))
 	application := localaction.New(deps)
 

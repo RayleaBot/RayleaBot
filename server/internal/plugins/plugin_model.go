@@ -241,10 +241,11 @@ type UninstallCoordinator interface {
 	Accept(ctx context.Context, pluginID string) (string, error)
 }
 
-func cloneSnapshot(snapshot Snapshot) Snapshot {
+// CloneSnapshot isolates mutable plugin declarations and runtime view fields.
+func CloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned := snapshot
 	cloned.DisplayState = projectDisplayState(snapshot)
-	cloned.DefaultConfig = cloneMap(snapshot.DefaultConfig)
+	cloned.DefaultConfig = CloneMap(snapshot.DefaultConfig)
 	cloned.SourceRoots = append([]string(nil), snapshot.SourceRoots...)
 	cloned.ConflictPaths = append([]string(nil), snapshot.ConflictPaths...)
 	cloned.Events = append([]string(nil), snapshot.Events...)
@@ -293,12 +294,8 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	return cloned
 }
 
-func CloneSnapshot(snapshot Snapshot) Snapshot {
-	return cloneSnapshot(snapshot)
-}
-
 func CloneSettings(values map[string]any) map[string]any {
-	cloned := cloneMap(values)
+	cloned := CloneMap(values)
 	if cloned == nil {
 		return map[string]any{}
 	}
@@ -323,7 +320,7 @@ func ApplyPackageMetadata(entries []Snapshot, metadata map[string]PackageMetadat
 
 	enriched := make([]Snapshot, 0, len(entries))
 	for _, entry := range entries {
-		cloned := cloneSnapshot(entry)
+		cloned := CloneSnapshot(entry)
 		if pkg, ok := metadata[cloned.PluginID]; ok {
 			cloned.PackageSourceType = pkg.SourceType
 			cloned.PackageSourceRef = pkg.SourceRef
@@ -366,7 +363,8 @@ func cloneWebhookScopes(scopes []WebhookScope) []WebhookScope {
 	return items
 }
 
-func cloneMap(values map[string]any) map[string]any {
+// CloneMap copies JSON maps and slices recursively, preserving empty values as nil.
+func CloneMap(values map[string]any) map[string]any {
 	if len(values) == 0 {
 		return nil
 	}
@@ -375,10 +373,6 @@ func cloneMap(values map[string]any) map[string]any {
 		cloned[key] = cloneValue(value)
 	}
 	return cloned
-}
-
-func CloneMap(values map[string]any) map[string]any {
-	return cloneMap(values)
 }
 
 func cloneSlice(values []any) []any {
@@ -395,7 +389,7 @@ func cloneSlice(values []any) []any {
 func cloneValue(value any) any {
 	switch typed := value.(type) {
 	case map[string]any:
-		return cloneMap(typed)
+		return CloneMap(typed)
 	case []any:
 		return cloneSlice(typed)
 	default:

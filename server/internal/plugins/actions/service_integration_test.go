@@ -40,7 +40,7 @@ func TestExecutePluginPrivateKVWithoutDeclaredPermission(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{}}
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{}}
 	deps.PluginKV = repo
 	application := localaction.New(deps)
 
@@ -418,11 +418,8 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		Permissions:       map[string]bool{"secret.read": true},
 	}})
 
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"subscription-hub": {{
-			PluginID:   "subscription-hub",
-			Permission: "secret.read",
-		}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"subscription-hub": {"secret.read": true},
 	}}
 	settingsService, settingsErr := settings.New(settings.Deps{Plugins: catalogForActions, Secrets: secretStore})
 	if settingsErr != nil {
@@ -460,11 +457,8 @@ func TestExecuteSecretReadRejectsInvalidKey(t *testing.T) {
 	testConfig := config.Config{}
 	deps := localaction.Deps{CurrentConfig: func() config.Config { return testConfig }}
 	deps.Logger = slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{
-		"subscription-hub": {{
-			PluginID:   "subscription-hub",
-			Permission: "secret.read",
-		}},
+	deps.Permissions = &stubPermissionView{permissions: map[string]map[string]bool{
+		"subscription-hub": {"secret.read": true},
 	}}
 	application := localaction.New(deps)
 

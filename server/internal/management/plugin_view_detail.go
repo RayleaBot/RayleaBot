@@ -39,7 +39,7 @@ type DetailPluginResponse struct {
 	MinCoreVersion string                 `json:"min_core_version,omitempty"`
 	Concurrency    int                    `json:"concurrency,omitempty"`
 	Events         []string               `json:"events,omitempty"`
-	Permissions    map[string]any         `json:"permissions"`
+	Permissions    map[string]bool        `json:"permissions"`
 	Webhooks       []WebhookScopeResponse `json:"webhooks"`
 	Repo           string                 `json:"repo,omitempty"`
 	Homepage       string                 `json:"homepage,omitempty"`
@@ -50,14 +50,6 @@ type DetailPluginResponse struct {
 
 type DetailResponse struct {
 	Plugin DetailPluginResponse `json:"plugin"`
-}
-
-func buildPermissionResponse(permissions map[string]bool) map[string]any {
-	response := make(map[string]any, len(permissions))
-	for name := range permissions {
-		response[name] = true
-	}
-	return response
 }
 
 func buildPluginWebhooks(snapshot plugins.Snapshot) []WebhookScopeResponse {
@@ -128,7 +120,7 @@ func buildDetail(catalog plugins.CatalogView, snapshot plugins.Snapshot) DetailR
 			MinCoreVersion:  strings.TrimSpace(snapshot.MinCoreVersion),
 			Concurrency:     snapshot.Concurrency,
 			Events:          normalizeStringList(snapshot.Events),
-			Permissions:     buildPermissionResponse(snapshot.Permissions),
+			Permissions:     plugins.ClonePermissions(snapshot.Permissions),
 			Webhooks:        buildPluginWebhooks(snapshot),
 			Repo:            strings.TrimSpace(snapshot.Repo),
 			Homepage:        strings.TrimSpace(snapshot.Homepage),
