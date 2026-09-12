@@ -90,7 +90,7 @@ flowchart LR
 | 组件 | 职责 | 禁止承担 |
 | --- | --- | --- |
 | App | 服务组装、启动、关闭和领域服务协调 | 把内部对象暴露给客户端 |
-| Management handlers | transport、鉴权、参数校验、错误映射 | 业务状态机和私有字段 |
+| Management handlers | transport、鉴权、参数校验、错误映射；只向客户端返回稳定 `code` 与安全 `message`，底层 cause 进日志 | 业务状态机、私有字段和 runtime / storage 内部模型 |
 | Adapter | OneBot11 transport、鉴权、归一化、动作转换 | 业务持久化和插件治理 |
 | Chat Policy Ingress | `bot/pipeline/chatpolicy` 中的元数据、命令解析、聊天治理、reply target | 插件进程管理或治理数据突变 |
 | Bridge | 统一事件结构校验与观测 | 平台内部事件的重复转发层 |
@@ -150,7 +150,6 @@ flowchart LR
 ## 相关文档
 
 - [Message Flow](./message-flow.md)
-- [Event Pipeline](./event-pipeline.md)
 - [Plugin Runtime](./plugin-runtime.md)
 - [State Model](./state-model.md)
 - [Platform Runtime](./platform-runtime.md)

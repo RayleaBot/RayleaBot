@@ -86,6 +86,18 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | 插件商店 | 默认使用 `RayleaBot/plugin-catalog` 的 catalog v2，并允许管理员添加自定义 HTTPS 来源；Server 持久化各来源最后一次成功目录 |
 | 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和插件浏览器会话可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
 
+## 当前评估方向
+
+新增依赖或替换工具需说明要解决的具体问题、现有技术栈为何不足、是否引入平行技术栈、回滚路径，以及对 CI、发布打包、lockfile、fixture 和生成文件的影响。
+
+| 领域 | 当前方向 |
+| --- | --- |
+| 数据库初始化 | 从当前 `schema.sql` 在事务内初始化并以 `schema_metadata` 记录版本；不引入历史迁移执行器或额外迁移框架 |
+| OpenAPI 实现 | 保留严格契约校验和生成类型检查；只有 handler 漂移持续发生时才评估 Server 侧 OpenAPI 代码生成 |
+| Secret 存储 | 保留 SQLite 支持的密封 secret；部署目标要求外部密钥托管时再评估环境密钥、操作系统 keychain 或外部 KMS |
+| 架构门禁 | 保留仓库专用的结构测试和预算文件，它们比通用 linter 更准确地表达本仓库包边界 |
+| 媒体处理 | 使用 `.deps/manifest.json` 固定三平台 full GPL FFmpeg / FFprobe 资源，不在各插件内重复打包，也不新增 Go 媒体编解码栈 |
+
 ## 默认命令
 
 ### Shell

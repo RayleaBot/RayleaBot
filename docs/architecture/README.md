@@ -8,17 +8,13 @@
 | --- | --- |
 | [Platform Architecture](./platform-architecture.md) | 组件职责归属、信任边界、状态来源、部署边界和代码地图 |
 | [Message Flow](./message-flow.md) | 聊天适配器入站、插件分发、local action、出站、调度与 webhook |
-| [Event Pipeline](./event-pipeline.md) | adapter、chatpolicy ingress、bridge、dispatch、runtime 与 outbound |
 | [Event Model](./event-model.md) | OneBot11、QQ 官方事件、插件协议消息和管理 WebSocket 事件 |
 | [State Model](./state-model.md) | 插件 runtime、任务和连接状态 |
 | [Server Lifecycle](./server-lifecycle.md) | 启动、运行、关闭和依赖组装 |
-| [Management API](./management-api.md) | 管理 API、鉴权、错误和 contract 同步 |
 | [Plugin Runtime](./plugin-runtime.md) | 插件进程、事件投递和 local action 边界 |
 | [Bot Core](./bot-core.md) | 命令、治理、调度和后台任务 |
 | [Render Service](./render-service.md) | 模板、Chromium、artifact 与资源摘要 |
 | [Platform Runtime](./platform-runtime.md) | 配置、存储、日志、恢复和 Launcher 控制 |
-| [数据库初始化](../engineering/storage-initialization.md) | SQLite 当前结构、初始化与验证 |
-| [Technology Decisions](./technology-decisions.md) | 正式技术栈和依赖替换准则 |
 
 ## 架构不变量
 
