@@ -147,6 +147,8 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 `http.request` 需要显式权限，但不声明主机白名单。宿主仍执行 HTTPS、DNS、重定向复查、SSRF/私网拦截、超时和响应体限制。
 
+响应包含 `status_code`、`headers` 和 `set_cookies`，以及按内容返回的 `body_text` 或 `body_base64`。`set_cookies` 保留每条 Set-Cookie 响应头及其顺序，无 Cookie 时为空数组；这些敏感值不能写入日志。其余响应头在 `headers` 中表示。
+
 `render.image.resources` 复用同一 HTTP 安全边界，并叠加图片格式、单项大小、总量、数量和处理期限限制。
 
 ### Webhook

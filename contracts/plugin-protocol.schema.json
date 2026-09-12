@@ -1504,6 +1504,7 @@
       }
     },
     "action_http_request_no_body_data": {
+      "description": "http.request results follow #/$defs/http_response_data. Set-Cookie fields are preserved individually in set_cookies and excluded from the joined headers object.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1539,6 +1540,7 @@
       }
     },
     "action_http_request_text_body_data": {
+      "description": "http.request results follow #/$defs/http_response_data.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1576,6 +1578,7 @@
       }
     },
     "action_http_request_base64_body_data": {
+      "description": "http.request results follow #/$defs/http_response_data.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1611,6 +1614,23 @@
           "type": "string"
         }
       }
+    },
+    "http_response_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status_code", "headers", "set_cookies"],
+      "properties": {
+        "status_code": {"type": "integer", "minimum": 100, "maximum": 599},
+        "headers": {"type": "object", "additionalProperties": {"type": "string"}},
+        "set_cookies": {
+          "type": "array",
+          "description": "Each Set-Cookie response field in received order, without joining or splitting its contents. Empty when no cookies are set. Sensitive; never log these values.",
+          "items": {"type": "string"}
+        },
+        "body_text": {"type": "string"},
+        "body_base64": {"type": "string", "contentEncoding": "base64"}
+      },
+      "not": {"required": ["body_text", "body_base64"]}
     },
     "action_logger_write": {
       "allOf": [

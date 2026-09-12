@@ -378,7 +378,14 @@
         "request_id": "action-http-1",
         "status": "success",
         "data": {
-          "status": 200,
+          "status_code": 200,
+          "headers": {
+            "Content-Type": "application/json"
+          },
+          "set_cookies": [
+            "visitor=fixture; Path=/; Expires=Wed, 09 Jun 2032 10:18:14 GMT",
+            "session=fixture; Path=/; HttpOnly"
+          ],
           "body_text": "{}"
         }
       }

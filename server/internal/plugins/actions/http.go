@@ -69,6 +69,7 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Act
 	result := map[string]any{
 		"status_code": response.StatusCode,
 		"headers":     cloneHTTPHeaders(response.Headers),
+		"set_cookies": append([]string{}, response.SetCookies...),
 	}
 	if len(response.Body) > 0 {
 		if utf8.Valid(response.Body) {

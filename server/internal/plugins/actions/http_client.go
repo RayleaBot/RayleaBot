@@ -48,6 +48,7 @@ type httpClientRequest struct {
 type httpClientResponse struct {
 	StatusCode int
 	Headers    map[string]string
+	SetCookies []string
 	Body       []byte
 	BodyBytes  int64
 }
@@ -254,6 +255,7 @@ func (c *httpClient) doAttempt(ctx context.Context, opts httpAttemptOptions) (ht
 	response := httpClientResponse{
 		StatusCode: httpResponse.StatusCode,
 		Headers:    flattenHeaders(httpResponse.Header),
+		SetCookies: append([]string{}, httpResponse.Header.Values("Set-Cookie")...),
 	}
 	if opts.method != http.MethodHead && httpResponse.ContentLength > c.maxResponseBodyBytes {
 		return response, false, errHTTPResponseTooLarge
@@ -451,6 +453,9 @@ func flattenHeaders(header http.Header) map[string]string {
 	}
 	result := make(map[string]string, len(header))
 	for key, values := range header {
+		if strings.EqualFold(key, "Set-Cookie") {
+			continue
+		}
 		result[key] = strings.Join(values, ", ")
 	}
 	return result
