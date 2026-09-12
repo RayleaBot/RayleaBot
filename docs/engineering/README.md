@@ -29,7 +29,7 @@
 | [implementation-order.md](./implementation-order.md) | 长期依赖顺序、状态归属与跨层边界 |
 | [quality-gates.md](./quality-gates.md) | 默认验证命令、CI 门禁与发布回归 |
 | [collection-pagination.md](./collection-pagination.md) | 管理集合分页、数据库读取与事件刷新边界 |
-| [cleanup-decisions.md](./cleanup-decisions.md) | 清理依据、保留风险与连接复用实验 |
+| [cleanup-decisions.md](./cleanup-decisions.md) | 清理时核实过但保留或不实施的替代方案 |
 | [web-admin-baseline.md](./web-admin-baseline.md) | Web 管理面 Reka UI、自有组件与 Motion for Vue 工程基线 |
 | [`../CHANGELOGS/`](../CHANGELOGS/README.md) | 历史版本能力归档 |
 
