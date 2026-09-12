@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"encoding/base64"
+	"maps"
 	"time"
 	"unicode/utf8"
 
@@ -36,7 +37,10 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Act
 		MaxResponseBodyBytes: currentHTTPMaxResponseBodyBytes(cfg),
 		AllowPrivateHosts:    append([]string(nil), cfg.HTTP.AllowPrivateHosts...),
 	})
-	headers := cloneHTTPHeaders(action.HTTPHeaders)
+	headers := maps.Clone(action.HTTPHeaders)
+	if headers == nil {
+		headers = map[string]string{}
+	}
 
 	response, err := client.do(ctx, httpClientRequest{
 		Method:        action.HTTPMethod,
@@ -66,9 +70,13 @@ func executeHTTPRequest(ctx context.Context, pluginID string, action plugins.Act
 		}
 	}
 
+	responseHeaders := maps.Clone(response.Headers)
+	if responseHeaders == nil {
+		responseHeaders = map[string]string{}
+	}
 	result := map[string]any{
 		"status_code": response.StatusCode,
-		"headers":     cloneHTTPHeaders(response.Headers),
+		"headers":     responseHeaders,
 		"set_cookies": append([]string{}, response.SetCookies...),
 	}
 	if len(response.Body) > 0 {
@@ -111,15 +119,4 @@ func currentHTTPActionTimeout(action plugins.Action) time.Duration {
 		return 0
 	}
 	return time.Duration(action.HTTPTimeoutSeconds) * time.Second
-}
-
-func cloneHTTPHeaders(headers map[string]string) map[string]string {
-	if len(headers) == 0 {
-		return map[string]string{}
-	}
-	cloned := make(map[string]string, len(headers))
-	for key, value := range headers {
-		cloned[key] = value
-	}
-	return cloned
 }

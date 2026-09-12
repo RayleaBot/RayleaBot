@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/url"
 	"regexp"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 )
 
 const (
@@ -23,7 +25,6 @@ const (
 var (
 	adapterInstanceIDPattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 	renderImageResourceIDPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]{0,63}$`)
-	secretKeyPattern                 = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$`)
 	errInvalidRenderImageResourceURL = errors.New("invalid render.image resource URL")
 )
 
@@ -99,7 +100,7 @@ func parseSecretWriteAction(raw json.RawMessage) (*plugins.Action, error) {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required secret.write fields", nil)
 	}
 	for key, value := range frame.Values {
-		if !secretKeyPattern.MatchString(key) || value == "" {
+		if !settings.ValidSecretKey(key) || value == "" {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid secret.write values", nil)
 		}
 	}
@@ -117,7 +118,7 @@ func parseSecretDeleteAction(raw json.RawMessage) (*plugins.Action, error) {
 	keys := make([]string, 0, len(frame.Keys))
 	seen := make(map[string]bool, len(frame.Keys))
 	for _, key := range frame.Keys {
-		if !secretKeyPattern.MatchString(key) || seen[key] {
+		if !settings.ValidSecretKey(key) || seen[key] {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid secret.delete keys", nil)
 		}
 		seen[key] = true
@@ -323,7 +324,7 @@ func parseHTTPRequestAction(raw json.RawMessage) (*plugins.Action, error) {
 		Kind:               "http.request",
 		HTTPMethod:         method,
 		HTTPURL:            targetURL,
-		HTTPHeaders:        cloneHTTPActionHeaders(frame.Headers),
+		HTTPHeaders:        maps.Clone(frame.Headers),
 		HTTPTimeoutSeconds: timeoutSeconds,
 		HTTPBody:           body,
 	}, nil
@@ -783,11 +784,7 @@ func cloneActionSegmentData(data map[string]any) map[string]any {
 	if len(data) == 0 {
 		return map[string]any{}
 	}
-	cloned := make(map[string]any, len(data))
-	for key, value := range data {
-		cloned[key] = value
-	}
-	return cloned
+	return maps.Clone(data)
 }
 
 func outboundActionString(data map[string]any, key string) string {
@@ -803,17 +800,6 @@ func outboundActionString(data map[string]any, key string) string {
 		return ""
 	}
 	return strings.TrimSpace(text)
-}
-
-func cloneHTTPActionHeaders(headers map[string]string) map[string]string {
-	if len(headers) == 0 {
-		return map[string]string{}
-	}
-	cloned := make(map[string]string, len(headers))
-	for key, value := range headers {
-		cloned[key] = value
-	}
-	return cloned
 }
 
 func validateActionTarget(rawType, rawID, actionKind string) (string, string, error) {

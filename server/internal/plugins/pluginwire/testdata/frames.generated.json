@@ -726,6 +726,32 @@
     ]
   },
   {
+    "name": "ok.secret-delete.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-secret-delete-1",
+        "action": "secret.delete",
+        "data": {
+          "keys": [
+            "account.example.cookie"
+          ]
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-secret-delete-1",
+        "status": "success",
+        "data": {
+          "changed_keys": [
+            "account.example.cookie"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "name": "ok.secret-write.yaml",
     "valid": true,
     "frames": [

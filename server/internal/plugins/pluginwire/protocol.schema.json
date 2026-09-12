@@ -2988,6 +2988,7 @@
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",
     "fixtures/plugin-protocol/ok.secret-write.yaml",
+    "fixtures/plugin-protocol/ok.secret-delete.yaml",
     "fixtures/plugin-protocol/ok.browser-launch.yaml",
     "fixtures/plugin-protocol/ok.browser-close.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
