@@ -22,7 +22,7 @@ func TestStoreDetailExposesOnlyTheCurrentRelease(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, published := range []bool{true, false} {
-		payload := catalogJSON(platform, "0.4.0", "0.4.0")
+		payload := catalogJSON(platform)
 		if !published {
 			var catalog Catalog
 			if err := json.Unmarshal(payload, &catalog); err != nil {
@@ -54,7 +54,7 @@ func TestServiceLoadsCachedCatalogAndKeepsItAfterRefreshFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := catalogJSON(platform, "0.4.0", "0.4.0")
+	payload := catalogJSON(platform)
 	repository := newMemoryRepository(payload)
 	service := newTestService(t, emptyCatalog{}, nil, repository, roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("offline")
@@ -81,7 +81,7 @@ func TestServiceCustomSourceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := catalogJSON(platform, "0.4.0", "0.4.0")
+	payload := catalogJSON(platform)
 	repository := newMemoryRepository(nil)
 	service := newTestService(t, emptyCatalog{}, nil, repository, staticCatalogTransport(payload))
 
@@ -125,7 +125,7 @@ func TestServiceInspectionRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	payload := catalogJSON(platform, "0.4.0", "0.4.0")
+	payload := catalogJSON(platform)
 	repository := newMemoryRepository(payload)
 	installer := &stubInstaller{inspection: plugins.InstallInspection{
 		InspectionID:  strings.Repeat("a", 64),
@@ -197,7 +197,11 @@ func newTestService(t *testing.T, installed plugins.CatalogView, installer Insta
 	return service
 }
 
-func catalogJSON(platform, version, minCoreVersion string) []byte {
+func catalogJSON(platform string) []byte {
+	const minCoreVersion = "0.4.0"
+
+	const version = "0.4.0"
+
 	return []byte(`{
   "catalog_version":"2",
   "entries":[{

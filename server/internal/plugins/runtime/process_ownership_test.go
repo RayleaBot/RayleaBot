@@ -87,7 +87,7 @@ func TestFatalRunningFailureNotifiesLifecycleAfterProcessReaping(t *testing.T) {
 	t.Parallel()
 	crashed := make(chan int, 2)
 	manager := testManagerWithOptions(Options{OnCrash: func(_ string, count int, _ string) { crashed <- count }})
-	spec := helperSpecWithConcurrency(t, "event-local-action-missing-parent-request-id", "", 2)
+	spec := concurrentHelperSpec(t, "event-local-action-missing-parent-request-id")
 	if err := manager.Start(t.Context(), spec, testInitPayload()); err != nil {
 		t.Fatal(err)
 	}

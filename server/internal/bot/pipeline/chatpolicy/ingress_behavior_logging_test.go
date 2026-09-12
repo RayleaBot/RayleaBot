@@ -2,6 +2,7 @@ package chatpolicy_test
 
 import (
 	"context"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil/permissiontest"
 	"io"
 	"log/slog"
 	"reflect"
@@ -255,7 +256,9 @@ func newStubBlacklistRepo() *stubBlacklistRepo {
 	return &stubBlacklistRepo{blocked: make(map[string]map[string]bool)}
 }
 
-func (s *stubBlacklistRepo) block(entryType, targetID string) {
+func (s *stubBlacklistRepo) blockUser(targetID string) {
+	const entryType = "user"
+
 	if s.blocked[entryType] == nil {
 		s.blocked[entryType] = make(map[string]bool)
 	}
@@ -367,41 +370,9 @@ func sameStringItems(actual any, expected []string) bool {
 }
 
 func (s *stubBlacklistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	users, err := s.List(ctx, "user")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	groups, err := s.List(ctx, "group")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	all := append(users, groups...)
-	filtered := make([]permission.Entry, 0, len(all))
-	for _, item := range all {
-		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
-			filtered = append(filtered, item)
-		}
-	}
-	items, meta := pagination.Slice(filtered, query)
-	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
+	return permissiontest.Page(ctx, s.List, query, entryType)
 }
 
 func (s *stubWhitelistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	users, err := s.List(ctx, "user")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	groups, err := s.List(ctx, "group")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	all := append(users, groups...)
-	filtered := make([]permission.Entry, 0, len(all))
-	for _, item := range all {
-		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
-			filtered = append(filtered, item)
-		}
-	}
-	items, meta := pagination.Slice(filtered, query)
-	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
+	return permissiontest.Page(ctx, s.List, query, entryType)
 }

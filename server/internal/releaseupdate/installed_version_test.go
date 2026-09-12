@@ -17,7 +17,7 @@ func TestInstalledVersionRequiresValidBuildMetadata(t *testing.T) {
 			t.Fatalf("invalid metadata %s produced version %q", payload, got)
 		}
 	}
-	writeFile(t, path, marshalBuildInfo(t, testBuildInfo("1.2.3", "windows-x64-full")))
+	writeFile(t, path, marshalBuildInfo(t, testBuildInfo("1.2.3")))
 	if got := InstalledVersion(root); got != "1.2.3" {
 		t.Fatalf("release version = %q", got)
 	}

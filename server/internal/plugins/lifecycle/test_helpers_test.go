@@ -68,7 +68,11 @@ func (a *testApp) setTestSystem(taskRegistry *tasks.Registry, _ any, _ any, _ an
 	a.platform.Tasks = taskRegistry
 }
 
-func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *pluginruntime.Registry, dispatcher *dispatch.Dispatcher, pluginConfigRepo pluginstore.ConfigRepository, adapterShell *onebot11.Shell, webhooks *pluginwebhook.Registry) {
+func (a *testApp) setTestLifecycle(t *testing.T, catalog *plugincatalog.Catalog, desiredRepo plugins.DesiredStateRepository, runtimes *pluginruntime.Registry, dispatcher *dispatch.Dispatcher, webhooks *pluginwebhook.Registry) {
+	var adapterShell *onebot11.Shell = nil
+
+	var pluginConfigRepo pluginstore.ConfigRepository = nil
+
 	if a == nil {
 		return
 	}

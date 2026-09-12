@@ -19,8 +19,13 @@ import (
 )
 
 func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
-
 	t.Parallel()
+	assertShellFrameClassification(t, map[string]any{"post_type": "message"}, FrameCategoryEvent, "message")
+}
+
+func assertShellFrameClassification(t *testing.T, frame map[string]any, category FrameCategory, frameType string) {
+
+	t.Helper()
 
 	eventSent := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -41,9 +46,7 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 			t.Errorf("wsjson.Write failed: %v", err)
 			return
 		}
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type": "message",
-		}); err != nil {
+		if err := wsjson.Write(context.Background(), conn, frame); err != nil {
 			t.Errorf("wsjson.Write failed: %v", err)
 			return
 		}
@@ -79,11 +82,11 @@ func TestShellEventFrameIsConsumedWithoutSideEffects(t *testing.T) {
 	if snapshot.InvalidReceivedFrames != 0 {
 		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
 	}
-	if snapshot.LastFrameCategory != FrameCategoryEvent {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryEvent)
+	if snapshot.LastFrameCategory != category {
+		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, category)
 	}
-	if snapshot.LastFrameType != "message" {
-		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "message")
+	if snapshot.LastFrameType != frameType {
+		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, frameType)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)

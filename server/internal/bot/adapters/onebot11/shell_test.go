@@ -592,78 +592,8 @@ func TestShellInvalidFrameIncrementsInvalidCounter(t *testing.T) {
 }
 
 func TestShellUnknownFrameIsClassifiedConservatively(t *testing.T) {
-
 	t.Parallel()
-
-	unknownSent := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			t.Errorf("Accept failed: %v", err)
-			return
-		}
-		defer func() {
-			_ = conn.CloseNow()
-		}()
-
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"post_type":       "meta_event",
-			"meta_event_type": "lifecycle",
-			"sub_type":        "enable",
-		}); err != nil {
-			t.Errorf("wsjson.Write failed: %v", err)
-			return
-		}
-		if err := wsjson.Write(context.Background(), conn, map[string]any{
-			"status": "ok",
-		}); err != nil {
-			t.Errorf("wsjson.Write failed: %v", err)
-			return
-		}
-		close(unknownSent)
-
-		<-r.Context().Done()
-	}))
-	defer server.Close()
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 500 * time.Millisecond,
-		sleep:          blockingSleep,
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-
-	select {
-	case <-unknownSent:
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for unknown frame to be sent")
-	}
-
-	snapshot := waitForSnapshot(t, shell, 500*time.Millisecond, func(snapshot Snapshot) bool {
-		return snapshot.TotalReceivedFrames == 2
-	})
-	if snapshot.State != StateConnected {
-		t.Fatalf("unexpected state: got %s want %s", snapshot.State, StateConnected)
-	}
-	if snapshot.InvalidReceivedFrames != 0 {
-		t.Fatalf("unexpected invalid frame count: got %d want 0", snapshot.InvalidReceivedFrames)
-	}
-	if snapshot.LastFrameCategory != FrameCategoryUnknown {
-		t.Fatalf("unexpected last frame category: got %s want %s", snapshot.LastFrameCategory, FrameCategoryUnknown)
-	}
-	if snapshot.LastFrameType != "unknown" {
-		t.Fatalf("unexpected last frame type: got %q want %q", snapshot.LastFrameType, "unknown")
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
+	assertShellFrameClassification(t, map[string]any{"status": "ok"}, FrameCategoryUnknown, "unknown")
 }
 
 func TestShellNonStringEchoDoesNotTriggerReconnect(t *testing.T) {

@@ -37,7 +37,7 @@ func TestDispatchActionExecutionRejectsWhenPermissionCheckerIsMissing(t *testing
 		},
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_missing_checker"
@@ -77,7 +77,7 @@ func TestDispatchActionExecutionRejectsMissingMessageSendPermission(t *testing.T
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_permission_send"
@@ -126,7 +126,7 @@ func TestDispatchActionExecutionRejectsMissingMessageReplyPermission(t *testing.
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_permission_reply"
@@ -170,7 +170,7 @@ func TestDispatchLogsOutboundMessageSuccess(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0001"
@@ -235,7 +235,7 @@ func TestDispatchLogsOutboundMessageFailure(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0002"
@@ -290,7 +290,7 @@ func TestDispatchLogsReplyFallbackUsingActualDeliveryKind(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_0003"

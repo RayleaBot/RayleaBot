@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/pagination"
+	"github.com/RayleaBot/RayleaBot/server/tests/testutil/permissiontest"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -318,41 +319,9 @@ func TestGovernanceCommandPolicyProjection(t *testing.T) {
 }
 
 func (s *stubBlacklistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	users, err := s.List(ctx, "user")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	groups, err := s.List(ctx, "group")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	all := append(users, groups...)
-	filtered := make([]permission.Entry, 0, len(all))
-	for _, item := range all {
-		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
-			filtered = append(filtered, item)
-		}
-	}
-	items, meta := pagination.Slice(filtered, query)
-	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
+	return permissiontest.Page(ctx, s.List, query, entryType)
 }
 
 func (s *stubWhitelistRepo) Page(ctx context.Context, query pagination.Query, entryType string) (permission.EntryPage, error) {
-	users, err := s.List(ctx, "user")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	groups, err := s.List(ctx, "group")
-	if err != nil {
-		return permission.EntryPage{}, err
-	}
-	all := append(users, groups...)
-	filtered := make([]permission.Entry, 0, len(all))
-	for _, item := range all {
-		if (entryType == "" || item.EntryType == entryType) && pagination.Matches(query.Text, item.TargetID, item.Reason) {
-			filtered = append(filtered, item)
-		}
-	}
-	items, meta := pagination.Slice(filtered, query)
-	return permission.EntryPage{Items: items, Total: meta.Total, EntryCount: len(all)}, nil
+	return permissiontest.Page(ctx, s.List, query, entryType)
 }

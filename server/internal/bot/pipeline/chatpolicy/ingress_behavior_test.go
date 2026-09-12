@@ -89,7 +89,7 @@ func TestHandleAdapterEventBlocksBlacklistedMessageBeforeBridge(t *testing.T) {
 	t.Parallel()
 
 	repo := newStubBlacklistRepo()
-	repo.block("user", "bad-user")
+	repo.blockUser("bad-user")
 	dispatcherClient := &recordingDispatcherClient{}
 	testConfig := config.Config{}
 	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
@@ -121,7 +121,7 @@ func TestHandleAdapterEventKeepsBlacklistedNonCommandMessageSilent(t *testing.T)
 
 	logger, stream := newIngressTestLogger(t)
 	repo := newStubBlacklistRepo()
-	repo.block("user", "bad-user")
+	repo.blockUser("bad-user")
 	dispatcherClient := &recordingDispatcherClient{}
 	testConfig := config.Config{}
 	deps := chatpolicy.IngressDeps{CurrentConfig: func() config.Config { return testConfig }}
@@ -272,7 +272,7 @@ func TestHandleAdapterEventLogsBlacklistedCommandRejection(t *testing.T) {
 
 	logger, stream := newIngressTestLogger(t)
 	repo := newStubBlacklistRepo()
-	repo.block("user", "bad-user")
+	repo.blockUser("bad-user")
 	dispatcherClient := &recordingDispatcherClient{}
 	cfg := config.Config{
 		Command: &config.CommandConfig{

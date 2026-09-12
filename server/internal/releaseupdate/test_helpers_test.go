@@ -103,7 +103,9 @@ func testAutomaticArtifact(fileName string, archive []byte, expanded int64, file
 	}
 }
 
-func testBuildInfo(version, artifactID string) BuildInfo {
+func testBuildInfo(version string) BuildInfo {
+	const artifactID = "windows-x64-full"
+
 	return BuildInfo{
 		Version:               version,
 		GitCommit:             "0123456789abcdef0123456789abcdef01234567",

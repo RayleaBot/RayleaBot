@@ -53,11 +53,11 @@ func newTestAppState(cfg config.Config, logger *slog.Logger) *App {
 		},
 	}
 	app.pluginStack.Plugins = plugincatalog.New(nil)
-	app.setTestSystem(nil, nil, nil, nil)
+	app.setTestSystem(nil, nil, nil)
 	return app
 }
 
-func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *render.Service, logRepository any) {
+func (a *App) setTestSystem(taskRegistry *tasks.Registry, taskExecutor *tasks.Executor, rendererService *render.Service) {
 	if a == nil {
 		return
 	}

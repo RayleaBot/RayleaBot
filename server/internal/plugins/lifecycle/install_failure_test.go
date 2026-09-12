@@ -31,7 +31,7 @@ func TestInstallRollbackFailuresRemainFailedAndRetainRecoveryFiles(t *testing.T)
 				t.Fatalf("initial install: %#v", got)
 			}
 			next := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "next"), "weather")
-			setInstallSourcePluginVersion(t, next, "0.2.0")
+			setUpdatedInstallSourceVersion(t, next)
 			inspection, err := service.Inspect(t.Context(), plugins.InstallRequest{SourceType: "local_directory", Source: next, ReplaceExisting: true})
 			if err != nil {
 				t.Fatal(err)

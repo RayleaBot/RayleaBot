@@ -516,7 +516,7 @@ func TestParseMessageSendActionRejectsRemovedTextPayload(t *testing.T) {
 		"target_id": "2001",
 		"text": "removed text payload"
 	}`))
-	assertActionErrorCode(t, err, codePluginProtocolViolation)
+	assertProtocolViolation(t, err)
 }
 
 func TestManagerDeliverEventProcessesLocalActionsBeforeTerminalResult(t *testing.T) {
@@ -686,7 +686,7 @@ func TestManagerDeliverEventRejectsLocalActionWithoutParentRequestIDWhenConcurre
 	t.Parallel()
 
 	manager := testManager()
-	spec := helperSpecWithConcurrency(t, "event-local-action-missing-parent-request-id", "", 2)
+	spec := concurrentHelperSpec(t, "event-local-action-missing-parent-request-id")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime: %v", err)
@@ -715,7 +715,7 @@ func TestManagerDeliverEventProcessesConcurrentLocalActionsWithinOneSession(t *t
 			return map[string]any{"request_id": requestID}, nil
 		},
 	})
-	spec := helperSpecWithConcurrency(t, "event-concurrent-local-actions-then-result", "", 2)
+	spec := concurrentHelperSpec(t, "event-concurrent-local-actions-then-result")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime: %v", err)
@@ -776,7 +776,7 @@ func TestManagerDeliverEventRejectsTerminalFrameBeforePendingLocalActionsComplet
 			return map[string]any{}, nil
 		},
 	})
-	spec := helperSpecWithConcurrency(t, "event-local-action-early-terminal-result", "", 2)
+	spec := concurrentHelperSpec(t, "event-local-action-early-terminal-result")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime: %v", err)

@@ -12,7 +12,7 @@ func TestObservationHistoryRejectsDowngradeReplayAndReplacement(t *testing.T) {
 	v120 := newSignedReleaseFixture(t, "1.2.0", now, artifact).verified
 	v130 := newSignedReleaseFixture(t, "1.3.0", now, artifact).verified
 	historyPath := filepath.Join(t.TempDir(), "data", "update-trust.json")
-	current := testBuildInfo("1.1.0", "windows-x64-full")
+	current := testBuildInfo("1.1.0")
 
 	if err := ObserveManifest(historyPath, current, v120, now); err != nil {
 		t.Fatal(err)
@@ -40,7 +40,7 @@ func TestObservationHistoryCanAtomicallyUpdateExistingFile(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	artifact := testAutomaticArtifact("rayleabot.zip", []byte("archive"), 8, 1)
 	historyPath := filepath.Join(t.TempDir(), "update-trust.json")
-	current := testBuildInfo("1.0.0", "windows-x64-full")
+	current := testBuildInfo("1.0.0")
 	for _, version := range []string{"1.1.0", "1.2.0", "1.3.0"} {
 		verified := newSignedReleaseFixture(t, version, now, artifact).verified
 		if err := ObserveManifest(historyPath, current, verified, now); err != nil {

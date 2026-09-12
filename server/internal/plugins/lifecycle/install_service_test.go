@@ -193,7 +193,7 @@ func TestInstallServiceAtomicallyReplacesInstalledPlugin(t *testing.T) {
 	}
 
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "replace-next"), "replace-weather")
-	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	setUpdatedInstallSourceVersion(t, replacement)
 	stopped := make(chan string, 1)
 	service.SetBeforeReplace(func(_ context.Context, pluginID string) error { stopped <- pluginID; return nil })
 	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
@@ -240,7 +240,7 @@ func TestInstallServiceRestoresLastGoodPluginAndMetadataWhenReplacementFinalizat
 	initialMetadata := repository.packages["rollback-weather"]
 
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rollback-next"), "rollback-weather")
-	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	setUpdatedInstallSourceVersion(t, replacement)
 	rolledBack := make(chan string, 1)
 	service.SetAfterRollback(func(_ context.Context, pluginID string) error { rolledBack <- pluginID; return nil })
 	service.SetAfterSuccess(func(context.Context, string) error { return errors.New("template finalization failed") })
@@ -302,7 +302,7 @@ func TestInstallServiceResumesLastGoodPluginWhenReplacementRenameFails(t *testin
 	}
 
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "rename-rollback-next"), "rename-rollback-weather")
-	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	setUpdatedInstallSourceVersion(t, replacement)
 	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
@@ -361,7 +361,7 @@ func TestInstallServiceRetriesTransientReplacementRename(t *testing.T) {
 	}
 
 	replacement := writeInstallSourcePlugin(t, filepath.Join(t.TempDir(), "retry-next"), "retry-weather")
-	setInstallSourcePluginVersion(t, replacement, "0.2.0")
+	setUpdatedInstallSourceVersion(t, replacement)
 	replaceTask, err := acceptInspected(t, service, plugins.InstallRequest{
 		SourceType: "development", Source: replacement, ResolvedSourceType: "local_directory",
 		ResolvedSource: replacement, ReplaceExisting: true,
@@ -1021,7 +1021,9 @@ func (r *stubInstallRepository) DeletePackageMetadata(_ context.Context, pluginI
 	return nil
 }
 
-func setInstallSourcePluginVersion(t *testing.T, root, version string) {
+func setUpdatedInstallSourceVersion(t *testing.T, root string) {
+	const version = "0.2.0"
+
 	t.Helper()
 	manifestPath := filepath.Join(root, "info.json")
 	payload, err := os.ReadFile(manifestPath)

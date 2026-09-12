@@ -475,15 +475,23 @@ func TestGetGroupInfoReturnsGroupName(t *testing.T) {
 }
 
 func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
-
 	t.Parallel()
+	assertSanitizedAPIName(t, "group_name", "Test\u2028Group", "Test\nGroup", func(shell *Shell) (string, error) {
+		value, err := shell.GetGroupInfo(t.Context(), "1001")
+		return value.Name, err
+	})
+}
+
+func assertSanitizedAPIName(t *testing.T, field, raw, expected string, read func(*Shell) (string, error)) {
+
+	t.Helper()
 
 	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
 		return map[string]any{
 			"status":  "ok",
 			"retcode": 0,
 			"data": map[string]any{
-				"group_name": "Test\u2028Group",
+				field: raw,
 			},
 		}
 	})
@@ -499,12 +507,12 @@ func TestGetGroupInfoSanitizesUnsafeGroupName(t *testing.T) {
 	shell.Start(ctx)
 	waitForState(t, shell, StateConnected, 500*time.Millisecond)
 
-	info, err := shell.GetGroupInfo(context.Background(), "1001")
+	name, err := read(shell)
 	if err != nil {
 		t.Fatalf("GetGroupInfo failed: %v", err)
 	}
-	if info.Name != "Test\nGroup" {
-		t.Fatalf("unexpected sanitized group name: got %q want %q", info.Name, "Test\nGroup")
+	if name != expected {
+		t.Fatalf("unexpected sanitized group name: got %q want %q", name, expected)
 	}
 
 	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -783,41 +791,10 @@ func TestGetStrangerInfoReturnsNickname(t *testing.T) {
 
 func TestGetStrangerInfoSanitizesUnsafeNickname(t *testing.T) {
 	t.Parallel()
-
-	server, _ := newOneBotAPIServer(t, func(request map[string]any) map[string]any {
-		return map[string]any{
-			"status":  "ok",
-			"retcode": 0,
-			"data": map[string]any{
-				"nickname": "测试私聊\u007f用户B",
-			},
-		}
+	assertSanitizedAPIName(t, "nickname", "测试私聊\u007f用户B", "测试私聊用户B", func(shell *Shell) (string, error) {
+		value, err := shell.GetStrangerInfo(t.Context(), "9999")
+		return value.Nickname, err
 	})
-
-	shell := newTestShell(oneBotForwardWS(wsURL(server.URL)), shellDeps{
-		connectTimeout: 75 * time.Millisecond,
-		sleep:          blockingSleep,
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	shell.Start(ctx)
-	waitForState(t, shell, StateConnected, 500*time.Millisecond)
-
-	info, err := shell.GetStrangerInfo(context.Background(), "9999")
-	if err != nil {
-		t.Fatalf("GetStrangerInfo failed: %v", err)
-	}
-	if info.Nickname != "测试私聊用户B" {
-		t.Fatalf("unexpected sanitized nickname: got %q want %q", info.Nickname, "测试私聊用户B")
-	}
-
-	stopCtx, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer stopCancel()
-	if err := shell.Stop(stopCtx); err != nil {
-		t.Fatalf("Stop failed: %v", err)
-	}
 }
 
 func TestCallAPIReturnsErrorWhenNotConnected(t *testing.T) {

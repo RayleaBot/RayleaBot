@@ -175,7 +175,9 @@ func testEvent() chatevent.Event {
 	}
 }
 
-func testEventWithCommand(commandName string) chatevent.Event {
+func testEchoEvent() chatevent.Event {
+	const commandName = "echo"
+
 	event := testEvent()
 	event.PayloadFields = map[string]any{
 		"command": commandName,
@@ -202,15 +204,15 @@ func waitForStartedEvent(t *testing.T, started <-chan chatevent.Event) chatevent
 	}
 }
 
-func waitForSentMessage(t *testing.T, sent <-chan chatevent.OutboundMessageSend) chatevent.OutboundMessageSend {
+func waitForSentMessage(t *testing.T, sent <-chan chatevent.OutboundMessageSend) {
 	t.Helper()
 
 	select {
-	case message := <-sent:
-		return message
+	case <-sent:
+		return
 	case <-time.After(500 * time.Millisecond):
 		t.Fatal("expected outbound message send")
-		return chatevent.OutboundMessageSend{}
+		return
 	}
 }
 
@@ -1003,7 +1005,7 @@ func TestDispatchActionExecutionLogsRateLimitedOutcome(t *testing.T) {
 	}}
 	d.Register("action-plugin", rt, []string{"message.group"}, nil, 1)
 
-	d.Dispatch(context.Background(), testEventWithCommand("echo"), "")
+	d.Dispatch(context.Background(), testEchoEvent(), "")
 
 	summary := waitForDispatchLog(t, stream, func(summary logging.Summary) bool {
 		return summary.RequestID == "req_runtime_delivery_rate_limited"

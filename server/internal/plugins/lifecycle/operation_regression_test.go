@@ -25,7 +25,7 @@ func TestEnsurePluginRunningCanceledDuringLifecycleOperationDoesNotChangeState(t
 		PluginID: "blocked-plugin", DesiredState: "enabled", RegistrationState: "installed", RuntimeState: "stopped",
 	}})
 	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
-	app.setTestLifecycle(t, catalog, nil, runtimes, nil, nil, nil, nil)
+	app.setTestLifecycle(t, catalog, nil, runtimes, nil, nil)
 	controller := app.services.pluginLifecycle
 	release, err := controller.acquireOperation(context.Background(), "blocked-plugin")
 	if err != nil {

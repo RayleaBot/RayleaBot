@@ -14,7 +14,7 @@ func TestRecoveryRejectsJournalPathsOutsideTransaction(t *testing.T) {
 	parent := t.TempDir()
 	installRoot := filepath.Join(parent, "RayleaBot")
 	transactionRoot := filepath.Join(parent, ".rayleabot-update-malicious")
-	writeFile(t, filepath.Join(installRoot, "build_info.json"), marshalBuildInfo(t, testBuildInfo("1.0.0", "windows-x64-full")))
+	writeFile(t, filepath.Join(installRoot, "build_info.json"), marshalBuildInfo(t, testBuildInfo("1.0.0")))
 	journal := transactionJournal{
 		Version:         1,
 		State:           "installing",
@@ -322,12 +322,12 @@ func newInstallFixture(t *testing.T) installFixture {
 	parent := t.TempDir()
 	installRoot := filepath.Join(parent, "RayleaBot")
 	transactionRoot := filepath.Join(parent, ".rayleabot-update-test")
-	writeFile(t, filepath.Join(installRoot, "build_info.json"), marshalBuildInfo(t, testBuildInfo("1.0.0", "windows-x64-full")))
+	writeFile(t, filepath.Join(installRoot, "build_info.json"), marshalBuildInfo(t, testBuildInfo("1.0.0")))
 	writeFile(t, filepath.Join(installRoot, "previous.txt"), []byte("previous"))
 
 	rootName := "RayleaBot-v1.1.0-windows-x64-full"
 	archiveBytes, expanded, files := createReleaseZIP(t, rootName, map[string][]byte{
-		"build_info.json": marshalBuildInfo(t, testBuildInfo("1.1.0", "windows-x64-full")),
+		"build_info.json": marshalBuildInfo(t, testBuildInfo("1.1.0")),
 		"new.txt":         []byte("new"),
 	})
 	artifact := testAutomaticArtifact("rayleabot.zip", archiveBytes, expanded, files)

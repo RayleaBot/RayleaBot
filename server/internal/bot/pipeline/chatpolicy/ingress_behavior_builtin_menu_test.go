@@ -363,7 +363,7 @@ func TestHandleAdapterEventBlocksBuiltinMenuWhenBlacklistApplies(t *testing.T) {
 	t.Parallel()
 
 	repo := newStubBlacklistRepo()
-	repo.block("user", "blocked-user")
+	repo.blockUser("blocked-user")
 	sender := &recordingOutboundSender{}
 	dispatcher := &recordingDispatcherClient{}
 	testConfig := config.Config{

@@ -59,7 +59,7 @@ func TestDevelopmentSyncIsIdempotentAndPreservesDisabledState(t *testing.T) {
 	entries := catalog.List()
 	entries[0].DesiredState = plugins.DesiredStateDisabled
 	catalog.Replace(entries)
-	setInstallSourcePluginVersion(t, source, "0.2.0")
+	setUpdatedInstallSourceVersion(t, source)
 	_, changed = sync()
 	if !changed {
 		t.Fatal("replacement skipped")

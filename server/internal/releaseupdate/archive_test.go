@@ -15,7 +15,7 @@ import (
 func TestExtractWindowsArtifactValidatesSignedInventoryAndBuildIdentity(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	root := "RayleaBot-v1.2.0-windows-x64-full"
-	buildInfo := marshalBuildInfo(t, testBuildInfo("1.2.0", "windows-x64-full"))
+	buildInfo := marshalBuildInfo(t, testBuildInfo("1.2.0"))
 	archiveBytes, expanded, files := createReleaseZIP(t, root, map[string][]byte{
 		"build_info.json":        buildInfo,
 		"RayleaLauncher.exe":     []byte("launcher"),
@@ -95,7 +95,7 @@ func TestExtractWindowsArtifactRejectsCompressionBomb(t *testing.T) {
 
 func TestExtractWindowsArtifactRejectsMismatchedBuildInfo(t *testing.T) {
 	root := "RayleaBot-v1.2.0-windows-x64-full"
-	wrong := testBuildInfo("9.9.9", "windows-x64-full")
+	wrong := testBuildInfo("9.9.9")
 	buildBytes, _ := json.Marshal(wrong)
 	archiveBytes, expanded, files := createReleaseZIP(t, root, map[string][]byte{"build_info.json": buildBytes})
 	artifact := testAutomaticArtifact("rayleabot.zip", archiveBytes, expanded, files)

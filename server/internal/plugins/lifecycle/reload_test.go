@@ -44,8 +44,7 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
+
 		newPluginWebhookRegistry(),
 	)
 	app.services.pluginLifecycle.refreshManifest = func(ctx context.Context, pluginID string) (plugins.Snapshot, error) {
@@ -152,8 +151,7 @@ func TestReloadSyncsPluginRenderTemplates(t *testing.T) {
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
+
 		newPluginWebhookRegistry(),
 	)
 	app.services.pluginLifecycle.syncRenderTemplates = func(ctx context.Context) error {
@@ -211,8 +209,7 @@ func TestReloadReturnsTemplateSyncErrorBeforeStartingRuntime(t *testing.T) {
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
+
 		newPluginWebhookRegistry(),
 	)
 	syncErr := errors.New("sync plugin templates")
@@ -259,8 +256,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
+
 		newPluginWebhookRegistry(),
 	)
 
@@ -279,7 +275,7 @@ func TestPluginRuntimeStartInputsIncludeSuperAdmins(t *testing.T) {
 	if pending.Timezone != "Asia/Shanghai" {
 		t.Fatalf("pending setting changed plugin timezone before restart: %q", pending.Timezone)
 	}
-	app.setTestLifecycle(t, catalog, nil, pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), nil, nil, newPluginWebhookRegistry())
+	app.setTestLifecycle(t, catalog, nil, pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}), dispatch.New(slog.Default(), nil, nil, 16), newPluginWebhookRegistry())
 	_, restarted, err := app.services.pluginLifecycle.buildStartInputs(context.Background(), "weather-card")
 	if err != nil {
 		t.Fatal(err)

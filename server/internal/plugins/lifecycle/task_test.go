@@ -34,8 +34,7 @@ func TestReloadCreatesPluginReloadTask(t *testing.T) {
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
+
 		newPluginWebhookRegistry(),
 	)
 
@@ -76,8 +75,7 @@ func TestReloadRejectedBeforeAcceptanceDoesNotCreateTask(t *testing.T) {
 		nil,
 		pluginruntime.NewRegistry(slog.Default(), pluginruntime.Options{}),
 		dispatch.New(slog.Default(), nil, nil, 16),
-		nil,
-		nil,
+
 		newPluginWebhookRegistry(),
 	)
 

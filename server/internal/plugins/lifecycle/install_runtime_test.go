@@ -22,7 +22,7 @@ func TestStartInstalledReturnsInitializationFailureSynchronously(t *testing.T) {
 	}})
 	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	application := newTestAppState(config.Config{}, logger)
-	application.setTestLifecycle(t, catalog, nil, runtimes, dispatch.New(logger, nil, nil, 16), nil, nil, nil)
+	application.setTestLifecycle(t, catalog, nil, runtimes, dispatch.New(logger, nil, nil, 16), nil)
 	if err := application.services.pluginLifecycle.StartInstalled(t.Context(), "broken-artifact"); err == nil {
 		t.Fatal("installer received success before a valid runtime initialized")
 	}
@@ -41,7 +41,7 @@ func TestStopAndResetReturnsOperationCancellationWithoutDroppingOwner(t *testing
 	runtimes := pluginruntime.NewRegistry(logger, pluginruntime.Options{})
 	manager := runtimes.GetOrCreate("weather")
 	application := newTestAppState(config.Config{}, logger)
-	application.setTestLifecycle(t, catalog, nil, runtimes, dispatch.New(logger, nil, nil, 16), nil, nil, nil)
+	application.setTestLifecycle(t, catalog, nil, runtimes, dispatch.New(logger, nil, nil, 16), nil)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	err := application.services.pluginLifecycle.StopAndResetPluginWithContext(ctx, "weather")

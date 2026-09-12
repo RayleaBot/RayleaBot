@@ -26,7 +26,7 @@ func TestParseOneBotFamilyActionRejectsNonObjectData(t *testing.T) {
 	t.Parallel()
 
 	_, err := parseOneBotFamilyAction("user.info.get", json.RawMessage(`["invalid"]`))
-	assertActionErrorCode(t, err, codePluginProtocolViolation)
+	assertProtocolViolation(t, err)
 }
 
 func TestParseOneBotFamilyActionSeparatesRoutingFromProviderArguments(t *testing.T) {
@@ -50,7 +50,7 @@ func TestParseOneBotFamilyActionRejectsInvalidSelectors(t *testing.T) {
 	} {
 		for _, kind := range []string{"group.info.get", "provider.napcat.group.sign.set"} {
 			_, err := ParseLocalAction(kind, json.RawMessage(raw))
-			assertActionErrorCode(t, err, codePluginProtocolViolation)
+			assertProtocolViolation(t, err)
 		}
 	}
 }

@@ -162,7 +162,7 @@ func compositionCommandEvent(text string) chatevent.NormalizedEvent {
 	}
 }
 
-func waitCompositionLog(t *testing.T, entries <-chan logging.Summary, match func(logging.Summary) bool) logging.Summary {
+func waitCompositionLog(t *testing.T, entries <-chan logging.Summary, match func(logging.Summary) bool) {
 	t.Helper()
 	timeout := time.NewTimer(5 * time.Second)
 	defer timeout.Stop()
@@ -171,7 +171,7 @@ func waitCompositionLog(t *testing.T, entries <-chan logging.Summary, match func
 		select {
 		case entry := <-entries:
 			if match(entry) {
-				return entry
+				return
 			}
 			observed = append(observed, fmt.Sprintf("%s %#v", entry.Message, entry.Details))
 		case <-timeout.C:

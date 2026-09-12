@@ -36,7 +36,7 @@ func TestManagerDeliverEventConcurrentSessionsDoNotBlockOnSlowLocalAction(t *tes
 			return map[string]any{"status_code": 200}, nil
 		},
 	})
-	spec := helperSpecWithConcurrency(t, "event-concurrent-slow-local-action-does-not-block-other-session", "", 2)
+	spec := concurrentHelperSpec(t, "event-concurrent-slow-local-action-does-not-block-other-session")
 
 	if err := manager.Start(context.Background(), spec, testInitPayload()); err != nil {
 		t.Fatalf("start runtime: %v", err)
@@ -145,7 +145,7 @@ func TestParseHTTPRequestActionRejectsGetWithBody(t *testing.T) {
 		"url": "https://api.example.test/v1/data",
 		"body_text": "denied"
 	}`))
-	assertActionErrorCode(t, err, codePluginProtocolViolation)
+	assertProtocolViolation(t, err)
 }
 
 func TestParseLocalMessageSendAction(t *testing.T) {
@@ -189,10 +189,10 @@ func TestParsePluginListActionVisibility(t *testing.T) {
 	}
 
 	_, err = ParseLocalAction("plugin.list", json.RawMessage(`{"visibility":"invalid"}`))
-	assertActionErrorCode(t, err, codePluginProtocolViolation)
+	assertProtocolViolation(t, err)
 
 	_, err = ParseLocalAction("plugin.list", json.RawMessage(`{"visibility":"caller","extra":true}`))
-	assertActionErrorCode(t, err, codePluginProtocolViolation)
+	assertProtocolViolation(t, err)
 }
 
 func TestParseSecretReadAction(t *testing.T) {
@@ -632,14 +632,11 @@ func helperSpecWithEventTimeout(t *testing.T, scenario string, recordPath string
 	return spec
 }
 
-func helperSpecWithConcurrency(t *testing.T, scenario string, recordPath string, concurrency int) Spec {
+func concurrentHelperSpec(t *testing.T, scenario string) Spec {
 	t.Helper()
 
-	spec := helperSpec(t, scenario, recordPath)
-	if concurrency < 1 {
-		concurrency = 1
-	}
-	spec.EffectiveConcurrency = concurrency
+	spec := helperSpec(t, scenario, "")
+	spec.EffectiveConcurrency = 2
 	return spec
 }
 
@@ -667,7 +664,7 @@ func helperSpecWithTimings(t *testing.T, scenario string, recordPath string, ini
 		WorkDir:              t.TempDir(),
 		EntryPath:            "helper",
 		InitTimeout:          runtimeTestDuration(initTimeout),
-		EventTimeout:         runtimeTestDuration(300 * time.Millisecond),
+		EventTimeout:         runtimeTestDuration(eventTimeout),
 		ShutdownGrace:        runtimeTestDuration(shutdownGrace),
 		EffectiveConcurrency: 1,
 	}

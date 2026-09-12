@@ -302,8 +302,6 @@ func TestLauncherHandlersRejectForwardedHeadersAndOldTokenRoutesAreGone(t *testi
 	}
 }
 
-
-
 func TestProtocolSnapshotHandler(t *testing.T) {
 	t.Parallel()
 

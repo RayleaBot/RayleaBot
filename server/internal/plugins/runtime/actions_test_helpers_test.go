@@ -7,7 +7,9 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func assertActionErrorCode(t *testing.T, err error, want string) {
+func assertProtocolViolation(t *testing.T, err error) {
+	const want = codePluginProtocolViolation
+
 	t.Helper()
 
 	if err == nil {
