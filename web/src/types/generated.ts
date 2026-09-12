@@ -1111,7 +1111,7 @@ export interface paths {
         post?: never;
         /**
          * Uninstall a plugin asynchronously.
-         * @description Idempotently remove a plugin package and finish its scheduler registrations, metadata and template cleanup. A valid plugin identifier is accepted even when absent from the catalog, allowing retry after committed file removal with incomplete cleanup. Invalid identifiers return platform.invalid_request before a task or filesystem operation is created.
+         * @description Idempotently remove a plugin package and finish its scheduler registrations, metadata and template cleanup. Close its host-managed browser sessions and remove their persistent profiles. Failed browser cleanup retains the profiles and fails the task so cleanup can be retried. A valid plugin identifier is accepted even when absent from the catalog, allowing retry after committed file removal with incomplete cleanup. Invalid identifiers return platform.invalid_request before a task or filesystem operation is created.
          */
         delete: operations["uninstallPlugin"];
         options?: never;

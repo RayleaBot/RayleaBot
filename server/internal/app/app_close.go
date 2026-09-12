@@ -67,7 +67,9 @@ func (a *App) closeResources() error {
 	a.eventStack.Close()
 
 	if a.services.Browser != nil {
-		a.services.Browser.CloseAll()
+		if err := a.services.Browser.CloseAll(); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if a.platform.TaskExecutor != nil {
 		if err := a.platform.TaskExecutor.Close(); err != nil {

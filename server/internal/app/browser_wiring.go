@@ -19,23 +19,19 @@ type browserWiringDeps struct {
 	RepoRoot string
 }
 
-type browserWiringState struct {
-	Manager *browser.Manager
-}
-
-func buildBrowserManager(deps browserWiringDeps) browserWiringState {
-	managedPath := deps.Config.Render.BrowserPath
-	browserArgs := deps.Config.Render.BrowserArgs
-	if deps.Renderer != nil {
-		managedPath, browserArgs = deps.Renderer.BrowserLaunchConfig()
+func buildBrowserManager(deps browserWiringDeps) *browser.Manager {
+	launchConfig := func() (string, []string) {
+		return deps.Config.Render.BrowserPath, append([]string(nil), deps.Config.Render.BrowserArgs...)
 	}
-	return browserWiringState{Manager: browser.NewManager(browser.Options{
+	if deps.Renderer != nil {
+		launchConfig = deps.Renderer.BrowserLaunchConfig
+	}
+	return browser.NewManager(browser.Options{
 		ConfiguredBrowserPath: deps.Config.Render.BrowserPath,
-		ManagedBrowserPath:    managedPath,
-		BrowserArgs:           browserArgs,
+		LaunchConfig:          launchConfig,
 		ProfileRoot:           pluginBrowserProfileRoot(deps.RepoRoot),
 		Logger:                deps.Logger,
-	})}
+	})
 }
 
 // pluginBrowserProfileRoot 返回插件浏览器会话的持久化 profile 根目录。

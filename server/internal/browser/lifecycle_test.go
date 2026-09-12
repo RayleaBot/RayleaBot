@@ -14,8 +14,7 @@ import (
 func TestSessionEndsWithOwningProcessOrDeadline(t *testing.T) {
 	for _, end := range []string{"process", "deadline"} {
 		t.Run(end, func(t *testing.T) {
-			manager := NewManager(Options{SessionTTL: 40 * time.Millisecond})
-			defer manager.CloseAll()
+			manager := newTestManager(t, Options{SessionTTL: 40 * time.Millisecond})
 			owner := make(chan struct{})
 			requestCtx, cancel := context.WithCancel(context.Background())
 			info, err := manager.Launch(requestCtx, "fixture", LaunchRequest{Profile: "login", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture", OwnerDone: owner})
@@ -39,7 +38,7 @@ func TestSessionEndsWithOwningProcessOrDeadline(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("resource outlived its owner or deadline")
 			}
-			if manager.Close("fixture", info.ID) {
+			if closed, err := manager.Close("fixture", info.ID); closed || err != nil {
 				t.Fatal("expired session remained registered")
 			}
 		})
@@ -47,8 +46,7 @@ func TestSessionEndsWithOwningProcessOrDeadline(t *testing.T) {
 }
 
 func TestProfileHeldUntilCleanupCompletes(t *testing.T) {
-	manager := NewManager(Options{})
-	defer manager.CloseAll()
+	manager := newTestManager(t, Options{})
 	req := LaunchRequest{Profile: "login", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture"}
 	info, err := manager.Launch(context.Background(), "fixture", req)
 	if err != nil {
@@ -56,9 +54,15 @@ func TestProfileHeldUntilCleanupCompletes(t *testing.T) {
 	}
 	entered, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})
 	manager.mu.Lock()
-	manager.sessions[info.ID].cleanup = func() { close(entered); <-release }
+	manager.sessions[info.ID].cleanup = func() error { close(entered); <-release; return nil }
 	manager.mu.Unlock()
-	go func() { manager.Close("fixture", info.ID); close(done) }()
+	go func() {
+		_, err := manager.Close("fixture", info.ID)
+		if err != nil {
+			t.Error(err)
+		}
+		close(done)
+	}()
 	<-entered
 	_, err = manager.Launch(context.Background(), "fixture", req)
 	close(release)
@@ -72,13 +76,12 @@ func TestProfileHeldUntilCleanupCompletes(t *testing.T) {
 }
 
 func TestManagedBrowserProfileAndProcessLifetime(t *testing.T) {
-	path := resolveBrowserPath(os.Getenv("RAYLEA_TEST_BROWSER_PATH"), "")
+	path := resolveBrowserPath(t.Context(), os.Getenv("RAYLEA_TEST_BROWSER_PATH"), "")
 	if path == "" {
 		t.Skip("Chromium is not installed")
 	}
 	root := t.TempDir()
-	manager := NewManager(Options{ConfiguredBrowserPath: path, ProfileRoot: root})
-	t.Cleanup(manager.CloseAll)
+	manager := newTestManager(t, Options{ConfiguredBrowserPath: path, ProfileRoot: root})
 	owner := make(chan struct{})
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -111,5 +114,88 @@ func TestManagedBrowserProfileAndProcessLifetime(t *testing.T) {
 			t.Fatal("browser debugging endpoint survived process cleanup")
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+func TestPurgePluginWaitsForSessionsAndRemovesOnlyOwnedProfiles(t *testing.T) {
+	root := t.TempDir()
+	for _, id := range []string{"fixture", "other"} {
+		if err := os.MkdirAll(filepath.Join(root, id, "login"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manager := newTestManager(t, Options{ProfileRoot: root})
+	request := LaunchRequest{Profile: "login", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture"}
+	info, err := manager.Launch(t.Context(), "fixture", request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entered, release := make(chan struct{}), make(chan struct{})
+	manager.mu.Lock()
+	manager.sessions[info.ID].cleanup = func() error { close(entered); <-release; return nil }
+	manager.mu.Unlock()
+	done := make(chan error, 1)
+	go func() { done <- manager.PurgePlugin(t.Context(), "fixture") }()
+	<-entered
+	_, launchErr := manager.Launch(t.Context(), "fixture", LaunchRequest{Profile: "another", Mode: ModeRemoteCDP, RemoteDebuggingURL: request.RemoteDebuggingURL})
+	_, profileErr := os.Stat(filepath.Join(root, "fixture", "login"))
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(launchErr, ErrBusy) || profileErr != nil {
+		t.Fatalf("purge did not retain ownership during cleanup: launch=%v profile=%v", launchErr, profileErr)
+	}
+	if _, err := os.Stat(filepath.Join(root, "fixture")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("removed plugin profile: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "other", "login")); err != nil {
+		t.Fatalf("other plugin profile changed: %v", err)
+	}
+	if err := manager.PurgePlugin(t.Context(), "../other"); !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("unsafe plugin path: %v", err)
+	}
+	if err := manager.PurgePlugin(t.Context(), "fixture"); err != nil {
+		t.Fatalf("repeated purge: %v", err)
+	}
+}
+
+func TestFailedCleanupRetainsProfileUntilRetry(t *testing.T) {
+	root := t.TempDir()
+	profile := filepath.Join(root, "fixture", "login")
+	if err := os.MkdirAll(profile, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	manager := newTestManager(t, Options{ProfileRoot: root})
+	request := LaunchRequest{Profile: "login", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture"}
+	info, err := manager.Launch(t.Context(), "fixture", request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failure := errors.New("fixture process has not exited")
+	attempts := 0
+	manager.mu.Lock()
+	manager.sessions[info.ID].cleanup = func() error {
+		attempts++
+		if attempts == 1 {
+			return failure
+		}
+		return nil
+	}
+	manager.mu.Unlock()
+	if err := manager.PurgePlugin(t.Context(), "fixture"); !errors.Is(err, failure) {
+		t.Fatalf("cleanup failure = %v", err)
+	}
+	if _, err := os.Stat(profile); err != nil {
+		t.Fatalf("failed cleanup removed profile: %v", err)
+	}
+	if _, err := manager.Launch(t.Context(), "fixture", request); !errors.Is(err, ErrBusy) {
+		t.Fatalf("failed cleanup released profile: %v", err)
+	}
+	if err := manager.PurgePlugin(t.Context(), "fixture"); err != nil {
+		t.Fatalf("retry cleanup: %v", err)
+	}
+	if _, err := os.Stat(profile); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("successful retry retained profile: %v", err)
 	}
 }

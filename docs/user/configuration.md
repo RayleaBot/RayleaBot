@@ -54,6 +54,7 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 - `scheduler.timezone` 默认上海（`Asia/Shanghai`，UTC+08:00），缺省时使用 schema 默认值，不接受空值。配置页参考 Windows 提供地区时区与常用城市，覆盖 UTC−12 至 UTC+14，以及半小时、四十五分钟偏移，支持按城市、地区、IANA 标识或 UTC 偏移搜索。历史别名与重复技术条目不默认展示，已有配置使用其他有效时区时仍原样保留。显示的偏移按当前日期计算，地区时区遵循夏令时规则。
 - 时区影响定时任务、服务日志、管理面时间展示和历史日志筛选。保存后重启服务生效，重启前前后端继续使用当前时区；后台存储与 API 时间戳保持 UTC，服务日志按配置时区输出并携带偏移。历史日志日期输入遇到夏令时跳过的时间会提示修正，回拨时段的范围起止覆盖两次出现的时间。
 - 自定义浏览器场景可使用 `render.browser_path` 指向 Chrome、Chromium 或 Edge 可执行文件路径；该路径同时用于图片渲染与插件浏览器会话。
+- 插件浏览器的持久 profile 位于运行根目录下的 `data/plugin-browser/<plugin_id>/<profile>`。关闭会话保留这些文件供下次使用；卸载插件会先关闭其会话，再删除所属 profile。关闭或文件清理失败时，卸载任务返回失败，可再次卸载以重试清理。
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
 - `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
 - `web.plugin_ui_origin_template` 必须包含 `{plugin_host}`。本机模式可省略并自动派生 `plugins.localhost` 子域；LAN 与反向代理模式必须显式配置不同于管理面的插件域模板。

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/pluginwire"
 )
@@ -136,9 +137,7 @@ func parseBrowserLaunchAction(raw json.RawMessage) (*plugins.Action, error) {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required browser.launch fields", nil)
 	}
 	mode := strings.TrimSpace(frame.Mode)
-	switch mode {
-	case "", "auto", "visible", "headless", "remote_cdp":
-	default:
+	if !browser.ValidMode(mode) {
 		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid browser.launch mode", nil)
 	}
 	remoteURL := strings.TrimSpace(frame.RemoteDebuggingURL)

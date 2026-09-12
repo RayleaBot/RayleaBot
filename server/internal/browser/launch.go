@@ -3,6 +3,7 @@ package browser
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -13,7 +14,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/deps"
 )
 
 const (
@@ -28,91 +32,94 @@ const (
 // reserved debugging port, waits for its CDP endpoint, and returns the
 // browser-level WebSocket URL plus a cleanup function that reaps the whole
 // process tree.
-func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile string, attempt launchAttempt) (string, func(), error) {
+func launchLocalBrowser(ctx context.Context, options Options, pluginID, profile string, attempt launchAttempt) (endpoint string, cleanup func() error, err error) {
 	path := strings.TrimSpace(attempt.browserPath)
 	if path == "" {
 		return "", nil, fmt.Errorf("%w: Chromium executable is missing", ErrUnavailable)
 	}
+	var tempProfile, logPath string
+	var logFile *os.File
+	var stopped <-chan struct{}
+	var terminate func()
+	var stopOnce sync.Once
+	cleanup = func() error {
+		if terminate != nil {
+			stopOnce.Do(terminate)
+		}
+		if stopped != nil {
+			select {
+			case <-stopped:
+			case <-time.After(browserShutdownTimeout):
+				return errors.New("browser process did not exit before the cleanup deadline")
+			}
+		}
+		var errs []error
+		if logFile != nil {
+			errs = append(errs, logFile.Close())
+			logFile = nil
+		}
+		if logPath != "" {
+			if e := os.Remove(logPath); e != nil && !errors.Is(e, os.ErrNotExist) {
+				errs = append(errs, e)
+			}
+		}
+		if tempProfile != "" {
+			errs = append(errs, os.RemoveAll(tempProfile))
+		}
+		return errors.Join(errs...)
+	}
+	defer func() {
+		if err != nil {
+			if cleanupErr := cleanup(); cleanupErr != nil {
+				err = errors.Join(err, cleanupErr)
+			} else {
+				cleanup = nil
+			}
+		}
+	}()
 	userDataDir := ""
-	tempUserDataDir := ""
 	if attempt.useProfile {
 		userDataDir = filepath.Join(options.ProfileRoot, pluginID, profile)
-		if err := os.MkdirAll(userDataDir, 0o755); err != nil {
-			return "", nil, fmt.Errorf("%w: browser profile directory is unavailable", ErrUnavailable)
+		if err = os.MkdirAll(userDataDir, 0o755); err != nil {
+			return "", cleanup, fmt.Errorf("%w: browser profile directory is unavailable", ErrUnavailable)
 		}
 	} else {
-		dir, err := os.MkdirTemp("", "rayleabot-browser-")
+		tempProfile, err = os.MkdirTemp("", "rayleabot-browser-")
 		if err != nil {
-			return "", nil, fmt.Errorf("%w: temporary browser profile directory is unavailable", ErrUnavailable)
+			return "", cleanup, fmt.Errorf("%w: temporary browser profile directory is unavailable", ErrUnavailable)
 		}
-		tempUserDataDir = dir
-		userDataDir = dir
+		userDataDir = tempProfile
 	}
-
 	port, err := reserveBrowserPort()
 	if err != nil {
-		if tempUserDataDir != "" {
-			_ = os.RemoveAll(tempUserDataDir)
-		}
-		return "", nil, fmt.Errorf("%w: browser debugging port is unavailable", ErrUnavailable)
+		return "", cleanup, fmt.Errorf("%w: browser debugging port is unavailable", ErrUnavailable)
 	}
-	logFile, err := os.CreateTemp("", "rayleabot-plugin-browser-*.log")
+	logFile, err = os.CreateTemp("", "rayleabot-plugin-browser-*.log")
 	if err != nil {
-		if tempUserDataDir != "" {
-			_ = os.RemoveAll(tempUserDataDir)
-		}
-		return "", nil, fmt.Errorf("%w: browser log file is unavailable", ErrUnavailable)
+		return "", cleanup, fmt.Errorf("%w: browser log file is unavailable", ErrUnavailable)
 	}
-
-	command := exec.Command(path, browserLaunchArgs(attempt, options.BrowserArgs, userDataDir, port)...)
-	command.Stderr = logFile
-	command.Stdout = logFile
-	terminate, err := startBrowserProcess(command)
+	logPath = logFile.Name()
+	command := exec.Command(path, browserLaunchArgs(attempt, attempt.browserArgs, userDataDir, port)...)
+	command.Stderr, command.Stdout = logFile, logFile
+	terminate, err = startBrowserProcess(command)
 	if err != nil {
-		_ = logFile.Close()
-		_ = os.Remove(logFile.Name())
-		if tempUserDataDir != "" {
-			_ = os.RemoveAll(tempUserDataDir)
-		}
-		return "", nil, fmt.Errorf("%w: browser process could not start", ErrUnavailable)
+		return "", cleanup, fmt.Errorf("%w: browser process could not start", ErrUnavailable)
 	}
-	stopped := make(chan struct{})
-	go func() { _ = command.Wait(); close(stopped) }()
-	stop := func() {
-		terminate()
-		select {
-		case <-stopped:
-		case <-time.After(browserShutdownTimeout):
-		}
-	}
-
-	wsURL, err := waitBrowserDevTools(ctx, port)
+	done := make(chan struct{})
+	stopped = done
+	go func() { _ = command.Wait(); close(done) }()
+	endpoint, err = waitBrowserDevTools(ctx, port)
 	if err != nil {
-		stop()
-		if tempUserDataDir != "" {
-			_ = os.RemoveAll(tempUserDataDir)
-		}
-		_ = logFile.Close()
-		_ = os.Remove(logFile.Name())
-		return "", nil, fmt.Errorf("%w: browser debugging endpoint did not become ready", ErrUnavailable)
+		return "", cleanup, fmt.Errorf("%w: browser debugging endpoint did not become ready", ErrUnavailable)
 	}
-
-	cleanup := func() {
-		stop()
-		if tempUserDataDir != "" {
-			_ = os.RemoveAll(tempUserDataDir)
-		}
-		_ = logFile.Close()
-		_ = os.Remove(logFile.Name())
-	}
-	return wsURL, cleanup, nil
+	return endpoint, cleanup, nil
 }
 
-func resolveBrowserPath(configuredPath, managedPath string) string {
+func resolveBrowserPath(ctx context.Context, configuredPath, managedPath string) string {
 	return resolveBrowserPathWith(
 		configuredPath,
 		managedPath,
-		func() string { return findSystemChromium(runtime.GOOS, os.Getenv, exec.LookPath, fileExists) },
+		func() string { path, _ := deps.FindSystemChromium(ctx); return path },
 		fileExists,
 	)
 }
@@ -125,47 +132,6 @@ func resolveBrowserPathWith(configuredPath, managedPath string, findSystem func(
 		return path
 	}
 	return strings.TrimSpace(findSystem())
-}
-
-func findSystemChromium(goos string, getenv func(string) string, lookPath func(string) (string, error), exists func(string) bool) string {
-	var candidates []string
-	switch goos {
-	case "windows":
-		programFiles := strings.TrimSpace(getenv("ProgramFiles"))
-		programFilesX86 := strings.TrimSpace(getenv("ProgramFiles(x86)"))
-		localAppData := strings.TrimSpace(getenv("LOCALAPPDATA"))
-		for _, candidate := range []struct {
-			root  string
-			parts []string
-		}{
-			{root: programFiles, parts: []string{"Google", "Chrome", "Application", "chrome.exe"}},
-			{root: programFilesX86, parts: []string{"Google", "Chrome", "Application", "chrome.exe"}},
-			{root: localAppData, parts: []string{"Google", "Chrome", "Application", "chrome.exe"}},
-			{root: programFiles, parts: []string{"Microsoft", "Edge", "Application", "msedge.exe"}},
-			{root: programFilesX86, parts: []string{"Microsoft", "Edge", "Application", "msedge.exe"}},
-		} {
-			if candidate.root != "" {
-				candidates = append(candidates, filepath.Join(append([]string{candidate.root}, candidate.parts...)...))
-			}
-		}
-	case "darwin":
-		candidates = []string{
-			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-			"/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-			"/Applications/Chromium.app/Contents/MacOS/Chromium",
-		}
-	}
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate) != "" && exists(candidate) {
-			return candidate
-		}
-	}
-	for _, name := range []string{"google-chrome-stable", "google-chrome", "chromium", "chromium-browser", "microsoft-edge", "msedge"} {
-		if path, err := lookPath(name); err == nil && strings.TrimSpace(path) != "" {
-			return path
-		}
-	}
-	return ""
 }
 
 func hasInteractiveDesktop() bool {

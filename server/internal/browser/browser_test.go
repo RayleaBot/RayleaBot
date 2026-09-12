@@ -3,6 +3,8 @@ package browser
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -74,6 +76,45 @@ func TestResolveBrowserPathPreference(t *testing.T) {
 	}
 }
 
+func TestLaunchReadsCurrentPreparedBrowserConfig(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	paths := []string{filepath.Join(root, "first-browser"), filepath.Join(root, "prepared-browser")}
+	for _, path := range paths {
+		if err := os.WriteFile(path, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current := 0
+	arguments := []string{"--first"}
+	manager := newTestManager(t, Options{LaunchConfig: func() (string, []string) {
+		return paths[current], arguments
+	}})
+	for index := range paths {
+		current = index
+		attempts, err := manager.launchAttempts(t.Context(), LaunchRequest{Mode: ModeHeadless})
+		if err != nil || len(attempts) != 1 || attempts[0].browserPath != paths[index] {
+			t.Fatalf("prepared path %d: attempts = %#v, error = %v", index, attempts, err)
+		}
+		wantArgument := arguments[0]
+		arguments[0] = "--next"
+		if attempts[0].browserArgs[0] != wantArgument {
+			t.Fatal("launch arguments changed with the next provider snapshot")
+		}
+	}
+}
+
+func TestLaunchRejectsOversizedRemoteEndpoint(t *testing.T) {
+	t.Parallel()
+	manager := newTestManager(t, Options{})
+	_, err := manager.Launch(t.Context(), "plugin", LaunchRequest{
+		Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/" + strings.Repeat("a", 2048),
+	})
+	if !errors.Is(err, ErrInvalidRequest) {
+		t.Fatalf("oversized endpoint error = %v", err)
+	}
+}
+
 func TestBrowserLaunchArgsFilterReservedFlags(t *testing.T) {
 	t.Parallel()
 
@@ -104,8 +145,7 @@ func TestBrowserLaunchArgsFilterReservedFlags(t *testing.T) {
 
 func TestManagerProfileExclusivity(t *testing.T) {
 	t.Parallel()
-	manager := NewManager(Options{ProfileRoot: t.TempDir()})
-	defer manager.CloseAll()
+	manager := newTestManager(t, Options{ProfileRoot: t.TempDir()})
 	req := LaunchRequest{Profile: "default", Mode: ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1:9222/devtools/browser/fixture"}
 	first, err := manager.Launch(context.Background(), "weather", req)
 	if err != nil {
@@ -117,7 +157,7 @@ func TestManagerProfileExclusivity(t *testing.T) {
 	if _, err = manager.Launch(context.Background(), "other", req); err != nil {
 		t.Fatal(err)
 	}
-	if !manager.Close("weather", first.ID) {
+	if closed, err := manager.Close("weather", first.ID); !closed || err != nil {
 		t.Fatal("close failed")
 	}
 	if _, err = manager.Launch(context.Background(), "weather", req); err != nil {
@@ -128,7 +168,7 @@ func TestManagerProfileExclusivity(t *testing.T) {
 func TestManagerLaunchRejectsInvalidRequests(t *testing.T) {
 	t.Parallel()
 
-	manager := NewManager(Options{ProfileRoot: t.TempDir()})
+	manager := newTestManager(t, Options{ProfileRoot: t.TempDir()})
 	for name, request := range map[string]LaunchRequest{
 		"invalid profile": {Profile: "Bad Profile"},
 		"invalid mode":    {Profile: "default", Mode: "personal"},
@@ -146,8 +186,8 @@ func TestManagerLaunchRejectsInvalidRequests(t *testing.T) {
 func TestManagerCloseUnknownSession(t *testing.T) {
 	t.Parallel()
 
-	manager := NewManager(Options{})
-	if manager.Close("weather", "missing") {
+	manager := newTestManager(t, Options{})
+	if closed, err := manager.Close("weather", "missing"); closed || err != nil {
 		t.Fatal("closing an unknown session reported success")
 	}
 }

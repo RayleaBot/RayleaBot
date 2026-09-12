@@ -16,6 +16,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
+	"github.com/RayleaBot/RayleaBot/server/internal/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
@@ -25,6 +26,27 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
+
+func TestCloseReleasesPluginBrowserSessions(t *testing.T) {
+	t.Parallel()
+	manager := browser.NewManager(browser.Options{})
+	application := &App{services: Services{Browser: manager}}
+	t.Cleanup(func() {
+		if err := application.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	request := browser.LaunchRequest{Profile: "login", Mode: browser.ModeRemoteCDP, RemoteDebuggingURL: "ws://127.0.0.1/devtools/browser/fixture"}
+	if _, err := manager.Launch(t.Context(), "fixture", request); err != nil {
+		t.Fatal(err)
+	}
+	if err := application.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Launch(t.Context(), "fixture", request); !errors.Is(err, browser.ErrUnavailable) {
+		t.Fatalf("browser manager remained open after App.Close: %v", err)
+	}
+}
 
 type runtimeBoundDelivery struct {
 	manager *pluginruntime.Manager

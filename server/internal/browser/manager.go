@@ -6,10 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -40,11 +43,12 @@ type LaunchRequest struct {
 type Session struct{ ID, Mode, DebuggerURL string }
 type Options struct {
 	ConfiguredBrowserPath string
-	ManagedBrowserPath    string
-	BrowserArgs           []string
-	ProfileRoot           string
-	Logger                *slog.Logger
-	SessionTTL            time.Duration
+	// LaunchConfig reads the currently prepared browser path and arguments.
+	// The provider must support concurrent reads and return a stable snapshot.
+	LaunchConfig func() (string, []string)
+	ProfileRoot  string
+	Logger       *slog.Logger
+	SessionTTL   time.Duration
 }
 
 type Manager struct {
@@ -52,35 +56,36 @@ type Manager struct {
 	mu       sync.Mutex
 	sessions map[string]*session
 	profiles map[string]string
+	purging  map[string]bool
 	closed   bool
 }
 
 type session struct {
 	info              Session
 	pluginID, profile string
-	cleanup           func()
+	cleanup           func() error
 	cancelLaunch      context.CancelFunc
 	launchDone        chan struct{}
 	done              chan struct{}
 	timer             *time.Timer
 	closing           bool
-	closeOnce         sync.Once
+	closeMu           sync.Mutex
+	closed            bool
 }
 
 type launchAttempt struct {
 	mode, browserPath, remoteDebuggingURL string
 	useProfile                            bool
+	browserArgs                           []string
 }
 
 func NewManager(options Options) *Manager {
 	options.ConfiguredBrowserPath = strings.TrimSpace(options.ConfiguredBrowserPath)
-	options.ManagedBrowserPath = strings.TrimSpace(options.ManagedBrowserPath)
 	options.ProfileRoot = strings.TrimSpace(options.ProfileRoot)
-	options.BrowserArgs = append([]string(nil), options.BrowserArgs...)
 	if options.SessionTTL <= 0 {
 		options.SessionTTL = DefaultSessionTTL
 	}
-	return &Manager{options: options, sessions: map[string]*session{}, profiles: map[string]string{}}
+	return &Manager{options: options, sessions: map[string]*session{}, profiles: map[string]string{}, purging: map[string]bool{}}
 }
 
 func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchRequest) (Session, error) {
@@ -101,7 +106,7 @@ func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchReq
 	if request.LifetimeSeconds < 0 || request.LifetimeSeconds > 1800 {
 		return Session{}, ErrInvalidRequest
 	}
-	attempts, err := m.launchAttempts(request)
+	attempts, err := m.launchAttempts(ctx, request)
 	if err != nil {
 		return Session{}, err
 	}
@@ -113,6 +118,10 @@ func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchReq
 		m.mu.Unlock()
 		return Session{}, ErrUnavailable
 	}
+	if m.purging[pluginID] {
+		m.mu.Unlock()
+		return Session{}, ErrBusy
+	}
 	if _, held := m.profiles[profileKey(pluginID, profile)]; held {
 		m.mu.Unlock()
 		return Session{}, ErrBusy
@@ -123,18 +132,18 @@ func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchReq
 	if request.LifetimeSeconds > 0 {
 		ttl = time.Duration(request.LifetimeSeconds) * time.Second
 	}
-	entry.timer = time.AfterFunc(ttl, func() { m.closeSession(entry.info.ID, nil) })
+	entry.timer = time.AfterFunc(ttl, func() { m.closeBackground(entry.info.ID) })
 	m.mu.Unlock()
 	if request.OwnerDone != nil {
 		go func() {
 			select {
 			case <-request.OwnerDone:
-				m.closeSession(entry.info.ID, nil)
+				m.closeBackground(entry.info.ID)
 			case <-entry.done:
 			}
 		}()
 	}
-	var cleanup func()
+	var cleanup func() error
 	var lastErr error
 	var mode, debuggerURL string
 	for index, attempt := range attempts {
@@ -155,6 +164,9 @@ func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchReq
 			break
 		}
 		m.logLaunchFallback(pluginID, attempt.mode, lastErr)
+		if cleanup != nil {
+			break // A failed cleanup still owns this profile; do not start a fallback.
+		}
 	}
 	m.mu.Lock()
 	entry.cleanup = cleanup
@@ -164,7 +176,8 @@ func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchReq
 	info := entry.info
 	m.mu.Unlock()
 	if lastErr != nil || closing {
-		m.closeSession(info.ID, nil)
+		_, cleanupErr := m.closeSession(info.ID, nil)
+		lastErr = errors.Join(lastErr, cleanupErr)
 		if lastErr == nil {
 			lastErr = context.Canceled
 		}
@@ -177,12 +190,12 @@ func (m *Manager) Launch(ctx context.Context, pluginID string, request LaunchReq
 	return info, nil
 }
 
-func (m *Manager) Close(pluginID, sessionID string) bool {
+func (m *Manager) Close(pluginID, sessionID string) (bool, error) {
 	pluginID = strings.TrimSpace(pluginID)
 	return m.closeSession(strings.TrimSpace(sessionID), &pluginID)
 }
 
-func (m *Manager) CloseAll() {
+func (m *Manager) CloseAll() error {
 	m.mu.Lock()
 	m.closed = true
 	ids := make([]string, 0, len(m.sessions))
@@ -190,50 +203,131 @@ func (m *Manager) CloseAll() {
 		ids = append(ids, id)
 	}
 	m.mu.Unlock()
+	var errs []error
 	for _, id := range ids {
-		m.closeSession(id, nil)
+		_, err := m.closeSession(id, nil)
+		errs = append(errs, err)
 	}
+	return errors.Join(errs...)
+}
+
+// PurgePlugin closes the stopped plugin's sessions before removing its profiles.
+// Launches for this plugin are rejected while the removal is in progress.
+func (m *Manager) PurgePlugin(ctx context.Context, pluginID string) error {
+	if !profilePattern.MatchString(pluginID) {
+		return ErrInvalidRequest
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	if m.purging[pluginID] {
+		m.mu.Unlock()
+		return ErrBusy
+	}
+	m.purging[pluginID] = true
+	ids := make([]string, 0)
+	for id, entry := range m.sessions {
+		if entry.pluginID == pluginID {
+			ids = append(ids, id)
+		}
+	}
+	m.mu.Unlock()
+	defer func() {
+		m.mu.Lock()
+		delete(m.purging, pluginID)
+		m.mu.Unlock()
+	}()
+	for _, id := range ids {
+		if _, err := m.closeSession(id, &pluginID); err != nil {
+			return err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if m.options.ProfileRoot == "" {
+		return nil
+	}
+	return os.RemoveAll(filepath.Join(m.options.ProfileRoot, pluginID))
 }
 
 // Keep the reservation until cleanup completes. Concurrent closes wait for
 // the same cleanup, and a retired session never releases another owner's key.
-func (m *Manager) closeSession(id string, expectedPlugin *string) bool {
+func (m *Manager) closeBackground(id string) {
+	if _, err := m.closeSession(id, nil); err != nil && m.options.Logger != nil {
+		m.options.Logger.Error("插件浏览器会话清理失败", "component", "plugin_browser", "session_id", id, "err", err)
+	}
+}
+
+func (m *Manager) closeSession(id string, expectedPlugin *string) (bool, error) {
 	m.mu.Lock()
 	entry := m.sessions[id]
 	if entry == nil || (expectedPlugin != nil && entry.pluginID != *expectedPlugin) {
 		m.mu.Unlock()
-		return false
+		return false, nil
 	}
 	entry.closing = true
 	m.mu.Unlock()
 	entry.cancelLaunch()
-	entry.closeOnce.Do(func() {
-		<-entry.launchDone
-		if entry.timer != nil {
-			entry.timer.Stop()
+	entry.closeMu.Lock()
+	defer entry.closeMu.Unlock()
+	if entry.closed {
+		return true, nil
+	}
+	<-entry.launchDone
+	if entry.timer != nil {
+		entry.timer.Stop()
+	}
+	if entry.cleanup != nil {
+		if err := entry.cleanup(); err != nil {
+			return true, fmt.Errorf("close browser session: %w", err)
 		}
-		if entry.cleanup != nil {
-			entry.cleanup()
-		}
-		m.mu.Lock()
-		delete(m.sessions, id)
-		key := profileKey(entry.pluginID, entry.profile)
-		if m.profiles[key] == id {
-			delete(m.profiles, key)
-		}
-		m.mu.Unlock()
-		close(entry.done)
-	})
-	return true
+	}
+	m.mu.Lock()
+	delete(m.sessions, id)
+	key := profileKey(entry.pluginID, entry.profile)
+	if m.profiles[key] == id {
+		delete(m.profiles, key)
+	}
+	m.mu.Unlock()
+	entry.closed = true
+	close(entry.done)
+	return true, nil
 }
 
-func (m *Manager) launchAttempts(request LaunchRequest) ([]launchAttempt, error) {
+// ValidMode reports whether mode is a current browser mode or its omitted default.
+func ValidMode(mode string) bool {
+	switch mode {
+	case "", ModeAuto, ModeVisible, ModeHeadless, ModeRemoteCDP:
+		return true
+	default:
+		return false
+	}
+}
+
+func (m *Manager) launchAttempts(ctx context.Context, request LaunchRequest) ([]launchAttempt, error) {
 	mode := strings.ToLower(strings.TrimSpace(request.Mode))
+	if !ValidMode(mode) {
+		return nil, fmt.Errorf("%w: unsupported browser mode", ErrInvalidRequest)
+	}
 	if mode == "" {
 		mode = ModeAuto
 	}
 	remoteURL := strings.TrimSpace(request.RemoteDebuggingURL)
-	browserPath := resolveBrowserPath(m.options.ConfiguredBrowserPath, m.options.ManagedBrowserPath)
+	if utf8.RuneCountInString(remoteURL) > 2048 {
+		return nil, fmt.Errorf("%w: remote CDP endpoint is too long", ErrInvalidRequest)
+	}
+	var managedPath string
+	var browserArgs []string
+	if m.options.LaunchConfig != nil {
+		managedPath, browserArgs = m.options.LaunchConfig()
+		browserArgs = append([]string(nil), browserArgs...)
+	}
+	browserPath := resolveBrowserPath(ctx, m.options.ConfiguredBrowserPath, managedPath)
+	localAttempt := func(mode string) launchAttempt {
+		return launchAttempt{mode: mode, browserPath: browserPath, browserArgs: browserArgs, useProfile: true}
+	}
 	switch mode {
 	case ModeAuto:
 		attempts := make([]launchAttempt, 0, 3)
@@ -241,14 +335,14 @@ func (m *Manager) launchAttempts(request LaunchRequest) ([]launchAttempt, error)
 			attempts = append(attempts, launchAttempt{mode: ModeRemoteCDP, remoteDebuggingURL: remoteURL})
 		}
 		if hasInteractiveDesktop() {
-			attempts = append(attempts, launchAttempt{mode: ModeVisible, browserPath: browserPath, useProfile: true})
+			attempts = append(attempts, localAttempt(ModeVisible))
 		}
-		attempts = append(attempts, launchAttempt{mode: ModeHeadless, browserPath: browserPath, useProfile: true})
+		attempts = append(attempts, localAttempt(ModeHeadless))
 		return attempts, nil
 	case ModeVisible:
-		return []launchAttempt{{mode: ModeVisible, browserPath: browserPath, useProfile: true}}, nil
+		return []launchAttempt{localAttempt(ModeVisible)}, nil
 	case ModeHeadless:
-		return []launchAttempt{{mode: ModeHeadless, browserPath: browserPath, useProfile: true}}, nil
+		return []launchAttempt{localAttempt(ModeHeadless)}, nil
 	case ModeRemoteCDP:
 		if remoteURL == "" {
 			return nil, fmt.Errorf("%w: remote CDP endpoint is missing", ErrInvalidRequest)

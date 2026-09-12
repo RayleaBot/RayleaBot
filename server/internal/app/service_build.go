@@ -81,7 +81,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	policyRepos := buildPolicyRepositories(platform)
 	governanceEvents := managementevents.NewGovernanceService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
-	browserState := buildBrowserManager(browserWiringDeps{
+	browserManager := buildBrowserManager(browserWiringDeps{
 		Config:   runtimeState.CurrentConfig(),
 		Renderer: renderer,
 		Logger:   runtimeState.RuntimeLogger(),
@@ -95,7 +95,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		Renderer:         renderer,
 		Governance:       governanceService,
 		ManagementRedact: deps.ManagementRedact,
-		Browser:          browserState.Manager,
+		Browser:          browserManager,
 	})
 	if err != nil {
 		return serviceBuildResult{}, err
@@ -180,7 +180,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 			GovernanceEvents: governanceEvents,
 			Logs:             logService,
 			System:           systemService,
-			Browser:          browserState.Manager,
+			Browser:          browserManager,
 		},
 		Runtimes: runtimeRegistry,
 		Status:   serviceStatusService,

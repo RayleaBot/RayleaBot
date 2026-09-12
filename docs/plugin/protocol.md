@@ -156,6 +156,7 @@ Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook �
 
 - `browser.launch` 为调用插件启动或附着宿主托管的浏览器会话，宿主按插件隔离本地 profile、应用启动硬化，并限制同一 profile 同时只有一个会话；返回的 `debugger_url` 是该会话的浏览器级 CDP WebSocket 端点。
 - `lifetime_seconds` 设置 1～1800 秒的会话期限，默认 1800 秒。会话在期限到期、所属插件进程退出或收到 `browser.close` 时关闭；宿主启动的浏览器进程回收完成后才释放 profile。
+- 关闭会话会释放占用并保留 profile 文件；关闭失败返回错误，继续保留占用以供重试。卸载插件在会话关闭成功后删除其宿主管理 profile。
 - `remote_cdp` 模式只接受无凭据的本机回环 HTTP(S) 或 WS(S) 端点。
 
 ## 终态和错误

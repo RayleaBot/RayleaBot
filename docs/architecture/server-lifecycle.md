@@ -49,7 +49,7 @@ flowchart TD
   lifecycle --> drain["drain accepted plugin events within budget"]
   drain --> plugins["stop current and retired runtime managers"]
   plugins --> adapter["stop all adapter instances and callbacks"]
-  adapter --> services["events · QR sessions · tasks · render · logs"]
+  adapter --> services["events · browser sessions · tasks · render · logs"]
   services --> storage["close storage"]
   storage --> lock["release config lifecycle lock"]
 ```

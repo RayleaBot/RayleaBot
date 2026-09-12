@@ -2003,7 +2003,7 @@
         "profile": {
           "type": "string",
           "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$",
-          "description": "Plugin-scoped persistent profile name. The same plugin and profile name map to one isolated user-data directory; only one live session may hold a profile at a time."
+          "description": "Plugin-scoped persistent profile name. The same plugin and profile name map to one isolated user-data directory; only one live session may hold a profile at a time. Closing a session retains its profile for reuse. Uninstalling the plugin closes its sessions and removes its host-managed profiles; a cleanup failure fails the uninstall task and retains profiles for retry."
         },
         "mode": {
           "type": "string",
@@ -2025,7 +2025,7 @@
       }
     },
     "action_browser_close_data": {
-      "description": "Close a browser session previously launched by the calling plugin and release its persistent profile.",
+      "description": "Close a browser session previously launched by the calling plugin and release its profile reservation after process cleanup succeeds. Profile files remain for reuse until plugin uninstall. Cleanup failure returns an error and keeps the reservation for retry.",
       "type": "object",
       "additionalProperties": false,
       "required": [

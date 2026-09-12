@@ -42,7 +42,7 @@ type SchedulerCreateFunc func(context.Context, string, string, string, string, [
 // plugin interacts with the returned CDP endpoint directly.
 type BrowserSessionManager interface {
 	Launch(context.Context, string, browser.LaunchRequest) (browser.Session, error)
-	Close(pluginID, sessionID string) bool
+	Close(pluginID, sessionID string) (bool, error)
 }
 
 type Renderer interface {

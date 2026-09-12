@@ -62,7 +62,10 @@ func executeBrowserClose(ctx context.Context, deps Deps, req ActionRequest) (map
 	if deps.Browser == nil {
 		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "browser session manager is not available"}
 	}
-	closed := deps.Browser.Close(req.PluginID, req.Action.BrowserSessionID)
+	closed, err := deps.Browser.Close(req.PluginID, req.Action.BrowserSessionID)
+	if err != nil {
+		return nil, browserActionError(err)
+	}
 	return map[string]any{"closed": closed}, nil
 }
 

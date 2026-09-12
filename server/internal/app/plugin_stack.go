@@ -194,9 +194,9 @@ func buildPluginMutationServices(deps pluginStackDeps, state *PluginStackState, 
 		pluginservice.UninstallOptions{Operations: state.Operations, StopPlugin: services.PluginLifecycle.StopAndResetPluginWithContext,
 			AfterSuccess: func(ctx context.Context, pluginID string) error {
 				services.PluginWebhooks.SyncManifestRegistrations()
-				var cleanupErr error
+				cleanupErr := services.Browser.PurgePlugin(ctx, pluginID)
 				if deps.Platform.Scheduler != nil {
-					cleanupErr = deps.Platform.Scheduler.UnregisterByPlugin(ctx, pluginID)
+					cleanupErr = errors.Join(cleanupErr, deps.Platform.Scheduler.UnregisterByPlugin(ctx, pluginID))
 				}
 				if renderer != nil {
 					cleanupErr = errors.Join(cleanupErr, renderer.RemovePluginTemplates(ctx, pluginID))

@@ -188,7 +188,7 @@ codes:
     domain: platform
     message_key: errors.platform.resource_busy
     message: 资源正被占用，请稍后重试
-    description: A platform resource (such as the persistent login browser profile) is held by another in-flight session; retry after it is released.
+    description: A platform resource (such as a plugin browser profile) is held by another in-flight session; retry after it is released.
     http_status: 409
     retryable: true
     applies_to: [http, websocket, plugin_protocol]
@@ -201,7 +201,7 @@ codes:
     description: A required runtime dependency was unavailable. A missing addressed resource uses platform.resource_not_found instead.
     http_status: 503
     retryable: false
-    applies_to: [http, websocket, readiness]
+    applies_to: [http, websocket, readiness, plugin_protocol]
 
   platform.resource_not_found:
     code: platform.resource_not_found
