@@ -195,6 +195,7 @@ func assertWebSocketRejectsUnauthorized(t *testing.T, path string) {
 	}
 	if response == nil {
 		t.Fatal("expected unauthorized response, got nil")
+		return
 	}
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("unexpected unauthorized status: got %d want %d", response.StatusCode, http.StatusUnauthorized)
