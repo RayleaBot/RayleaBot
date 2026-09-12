@@ -29,5 +29,6 @@
 ## 默认命令
 
 - 环境检查：从仓库根目录运行 `make doctor`
+- 源码启动：从本目录运行 `go run ./cmd/raylea-server`，默认读取仓库根目录的 `config/user.yaml`
 - 构建：`mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
 - 测试：`go test ./...`

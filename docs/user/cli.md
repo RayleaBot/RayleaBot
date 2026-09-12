@@ -30,7 +30,9 @@ CLI 提供本地离线恢复与运维命令。命令统一记为
 raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json> doctor
 ```
 
-`-config` 默认为 `config/user.yaml`；`-config-schema` 默认为 server 内置的正式配置 schema。
+未显式传入 `-config` 时，服务端启动和 CLI 共用根目录定位：先从服务端可执行文件所在目录向上查找，再从进程工作目录向上查找，使用找到的 RayleaBot 根目录下的 `config/user.yaml`。源码根目录同时包含 `server/go.mod` 和 `launcher/package.json`；发行根目录同时包含 `build_info.json` 和 `.deps/manifest.json`。均未找到时，当前工作目录作为独立运行根目录。
+
+显式传入的 `-config` 优先，相对路径以进程工作目录为基准，空路径会报错。配置路径在创建锁和运行数据之前转为绝对路径；数据库相对路径以配置文件所在 `config/` 的父目录为基准。`-config-schema` 默认为 server 内置的正式配置 schema。
 
 ## 可用性矩阵
 

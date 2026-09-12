@@ -86,6 +86,7 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 ## 运行根目录
 
 - 发行包根目录同时是默认运行根目录。
+- Server 未显式指定 `-config` 时，从可执行文件位置或进程工作目录向上定位 RayleaBot 根目录；从源码 `server/` 目录启动也使用仓库根目录的配置。显式配置路径与独立运行目录的规则见 [CLI](./cli.md)。
 - 复用已有工作区时，继续沿用原有 `config/`、`data/`、`cache/`、`logs/` 和 `plugins/installed/`。
 - Launcher 的运行目录覆盖只影响进程工作目录和本地数据目录，不改变 `.deps/` 与 `templates/` 的正式位置。
 - 运行环境与模板资源的有效根目录跟随 RayleaBot 根目录，而不是临时工作目录。

@@ -30,9 +30,22 @@ func main() {
 	var configPath string
 	var schemaPath string
 
-	flag.StringVar(&configPath, "config", "config/user.yaml", "path to config/user.yaml")
+	flag.StringVar(&configPath, "config", runtimepaths.DefaultConfigPath, "path to config/user.yaml (default uses the RayleaBot root)")
 	flag.StringVar(&schemaPath, "config-schema", config.ConfigUserSchemaID, "path to config.user.schema.json or builtin schema id")
 	flag.Parse()
+
+	explicitConfig := false
+	flag.Visit(func(option *flag.Flag) {
+		if option.Name == "config" {
+			explicitConfig = true
+		}
+	})
+	resolvedConfigPath, err := runtimepaths.ResolveStartupConfigPath(configPath, explicitConfig)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "配置路径定位失败: %v\n", err)
+		os.Exit(1)
+	}
+	configPath = resolvedConfigPath
 
 	// If a subcommand is provided as the first non-flag argument, dispatch to CLI.
 	args := flag.Args()

@@ -26,12 +26,27 @@ x-fixtures:
   - fixtures/cli/ok.plugin-dev-sync.yaml
   - fixtures/cli/invalid.plugin-dev-sync-online.yaml
   - fixtures/cli/ok.config-init.yaml
+  - fixtures/cli/ok.config-init-from-server.yaml
   - fixtures/cli/invalid.config-init.online.yaml
   - fixtures/cli/ok.config-normalize.yaml
   - fixtures/cli/ok.config-validate.yaml
   - fixtures/cli/edge.config-validate.exit-code-1.yaml
 
 x-design-source: docs/user/cli.md
+
+x-startup-config:
+  scope: 服务端启动与全部 CLI 子命令在创建配置锁或运行数据之前使用同一配置路径定位规则。
+  flag: -config
+  default: config/user.yaml
+  explicit: 显式路径优先；相对路径以进程工作目录为基准，空路径拒绝执行。
+  default_root:
+    - 优先从服务端可执行文件所在目录向上寻找最近的 RayleaBot 根目录。
+    - 未找到时，从进程工作目录向上寻找最近的 RayleaBot 根目录。
+    - 两处均未找到时，以进程工作目录作为独立运行根目录。
+  root_markers:
+    source: 同时包含普通文件 server/go.mod 和 launcher/package.json。
+    release: 同时包含普通文件 build_info.json 和 .deps/manifest.json。
+  resolved: 配置路径在入口转换为绝对路径；相对数据库路径仍以配置文件所在 config 目录的父目录为基准。
 
 x-plugin-builder-development:
   command: raylea-plugin build-go
@@ -103,6 +118,7 @@ commands:
           1: 生命周期锁、文件读写、schema 校验或运行时约束失败
         x-fixtures:
           - fixtures/cli/ok.config-init.yaml
+          - fixtures/cli/ok.config-init-from-server.yaml
           - fixtures/cli/invalid.config-init.online.yaml
       normalize:
         name: normalize

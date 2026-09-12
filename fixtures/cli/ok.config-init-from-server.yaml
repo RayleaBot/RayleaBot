@@ -1,0 +1,17 @@
+contract: contracts/cli-commands.yaml#commands.config.subcommands.init
+case: ok
+input:
+  command: raylea config init
+  mode: offline
+  working_directory: workspace/server
+  executable_path: go-build/raylea-server
+  existing_files:
+    - workspace/server/go.mod
+    - workspace/launcher/package.json
+expect:
+  valid: true
+  exit_code: 0
+  config_path: workspace/config/user.yaml
+  absent_paths:
+    - workspace/server/config
+    - workspace/server/data
