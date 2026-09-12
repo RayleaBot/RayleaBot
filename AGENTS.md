@@ -33,7 +33,7 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 - 服务端改动先读 `server/README.md`；Web 与 Launcher 改动先读各自 `package.json`，Launcher 还需读 `launcher/go.mod`。
 - 开发启动与工作区说明：`docs/dev/repo-workflow.md`。
 - 设计工具共享上下文：指定应用目标前，按 `docs/design/README.md` 设置 `IMPECCABLE_CONTEXT_DIR`。
-- 验证选择：`.agents/skills/repo-validation/SKILL.md`；既有 CI 与发布门禁见 `docs/engineering/quality-gates.md`。
+- 既有 CI 与发布门禁见 `docs/engineering/quality-gates.md`。
 
 ## Testing
 
@@ -48,5 +48,6 @@ RayleaBot 是包含 `server/`、`web/`、`launcher/` 和 `contracts/` 的自托�
 ## Git and Review
 
 - 提交遵守 Conventional Commits：`<type>[optional scope]: <description>`，subject 说明具体变更。
+- 提交标题与正文须使用中文。
 - 每次提交必须撰写非空正文，与 subject 之间空一行；正文直接说明改动内容与原因，不写验证过程或结果。
 - 一个 commit 表达一个逻辑变更；保留无关工作区改动，只暂存核对过的相关文件或 hunks。
