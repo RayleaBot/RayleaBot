@@ -364,6 +364,23 @@ def validate_json_schema_fixtures() -> None:
                     + "; ".join(runtime_errors)
                 )
 
+def plugin_protocol_response_errors(schema: dict[str, Any], frames: list[Any]) -> list[str]:
+    """Associate generic result frames with the current HTTP action result schema."""
+    requests = {
+        frame.get("request_id"): frame.get("action")
+        for frame in frames if isinstance(frame, dict) and frame.get("type") == "action"
+        and isinstance(frame.get("request_id"), str)
+    }
+    response_validator = Draft202012Validator(schema["$defs"]["http_response_data"])
+    return [
+        f"frames/{index}/data/{format_schema_error(error)}"
+        for index, frame in enumerate(frames)
+        if isinstance(frame, dict) and frame.get("type") == "result" and frame.get("status") == "success"
+        and isinstance(frame.get("request_id"), str) and requests.get(frame["request_id"]) == "http.request"
+        for error in response_validator.iter_errors(frame.get("data"))
+    ]
+
+
 def validate_plugin_protocol_fixtures() -> None:
     schema_path = CONTRACTS / "plugin-protocol.schema.json"
     schema = require_object(load_json(schema_path), "plugin protocol schema")
@@ -388,6 +405,7 @@ def validate_plugin_protocol_fixtures() -> None:
             )
 
         manifest = document.get("manifest")
+        errors.extend(plugin_protocol_response_errors(schema, frames))
         concurrency = manifest.get("concurrency", 1) if isinstance(manifest, dict) else 1
         if isinstance(concurrency, int) and concurrency > 1:
             for index, frame in enumerate(frames):

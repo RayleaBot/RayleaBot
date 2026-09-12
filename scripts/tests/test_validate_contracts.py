@@ -17,6 +17,20 @@ SPEC.loader.exec_module(validator)
 
 
 class ContractValidatorTests(unittest.TestCase):
+    def test_http_action_results_follow_the_response_definition(self) -> None:
+        schema = validator.load_json(validator.CONTRACTS / "plugin-protocol.schema.json")
+        frames = validator.load_yaml(validator.FIXTURES / "plugin-protocol/ok.http-request.yaml")["frames"]
+        self.assertEqual(validator.plugin_protocol_response_errors(schema, frames), [])
+        for field, value in [("set_cookies", "a=fixture"), ("status_code", 999), ("body_base64", "YQ==")]:
+            changed = copy.deepcopy(frames)
+            changed[-1]["data"][field] = value
+            with self.subTest(field=field):
+                self.assertTrue(validator.plugin_protocol_response_errors(schema, changed))
+        other_action = copy.deepcopy(frames)
+        other_action[0]["action"] = "secret.delete"
+        other_action[-1]["data"] = {"changed_keys": []}
+        self.assertEqual(validator.plugin_protocol_response_errors(schema, other_action), [])
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.documents = {
