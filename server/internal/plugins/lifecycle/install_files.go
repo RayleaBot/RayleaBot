@@ -7,44 +7,15 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
+
+	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
-func waitForInstallRenameRetry(ctx context.Context) error {
-	timer := time.NewTimer(installRenameRetryDelay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
-
 func (s *InstallService) renameInstallPath(ctx context.Context, source, target string) error {
-	if installRenameAttempts < 1 {
-		return errors.New("install rename attempts must be positive")
-	}
-	var lastErr error
-	for attempt := 0; attempt < installRenameAttempts; attempt++ {
-		if contextErr := ctx.Err(); contextErr != nil {
-			if lastErr != nil {
-				return errors.Join(lastErr, contextErr)
-			}
-			return contextErr
-		}
-		lastErr = s.deps.rename(source, target)
-		if lastErr == nil {
-			return nil
-		}
-		if !s.deps.retryRename(lastErr) || attempt+1 == installRenameAttempts {
-			return lastErr
-		}
-		if waitErr := s.deps.waitRename(ctx); waitErr != nil {
-			return errors.Join(lastErr, waitErr)
-		}
-	}
-	return errors.New("install rename attempts exhausted")
+	return fsguard.RenameWithRetry(ctx, source, target, fsguard.RenameRetryOptions{
+		Attempts: installRenameAttempts, Delay: installRenameRetryDelay,
+		Rename: s.deps.rename, Retryable: s.deps.retryRename, Wait: s.deps.waitRename,
+	})
 }
 
 func copyDirectory(ctx context.Context, sourceRoot, targetRoot string) error {

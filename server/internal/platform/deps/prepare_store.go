@@ -155,8 +155,9 @@ func ensurePreparedResourceWithProgress(
 		Status:  "running",
 		Summary: "正在启用 " + managedResourceLabel(resource.Kind),
 	}.withResource(&resource, archivePath, storeRoot))
-	_ = os.RemoveAll(storeRoot)
-	if err := os.Rename(tempRoot, storeRoot); err != nil {
+	if err := fsguard.RenameWithRetry(ctx, tempRoot, storeRoot, fsguard.RenameRetryOptions{
+		Attempts: 51, Delay: 100 * time.Millisecond,
+	}); err != nil {
 		return fmt.Errorf("activate deps resource %s: %w", resource.Kind, err)
 	}
 	emitPrepareProgress(reporter, PrepareProgress{

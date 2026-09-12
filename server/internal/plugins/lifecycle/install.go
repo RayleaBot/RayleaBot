@@ -338,12 +338,6 @@ func withDefaultInstallerDeps(deps installerDeps) installerDeps {
 	if deps.rename == nil {
 		deps.rename = os.Rename
 	}
-	if deps.retryRename == nil {
-		deps.retryRename = isRetryableInstallRenameError
-	}
-	if deps.waitRename == nil {
-		deps.waitRename = waitForInstallRenameRetry
-	}
 	if deps.stat == nil {
 		deps.stat = os.Stat
 	}
