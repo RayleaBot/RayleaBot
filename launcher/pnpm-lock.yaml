@@ -19,9 +19,6 @@ importers:
       '@fluentui/react-icons':
         specifier: 2.0.337
         version: 2.0.337(react@19.2.8)
-      '@fluentui/react-message-bar':
-        specifier: 9.7.5
-        version: 9.7.5(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@fluentui/react-motion':
         specifier: 9.16.2
         version: 9.16.2(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

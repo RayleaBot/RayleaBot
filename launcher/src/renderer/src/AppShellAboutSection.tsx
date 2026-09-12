@@ -1,6 +1,5 @@
-import { Button } from "@fluentui/react-components";
+import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-components";
 import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
-import { MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/react-message-bar";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
 import { formatByteCount, formatReleaseVersion } from "./AppShell.shared";

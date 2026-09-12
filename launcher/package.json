@@ -25,7 +25,6 @@
   "dependencies": {
     "@fluentui/react-components": "9.74.6",
     "@fluentui/react-icons": "2.0.337",
-    "@fluentui/react-message-bar": "9.7.5",
     "@fluentui/react-motion": "9.16.2",
     "@wailsio/runtime": "3.0.0-beta.9",
     "react": "19.2.8",
