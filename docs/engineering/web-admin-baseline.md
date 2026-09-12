@@ -17,7 +17,7 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 ## 组件与页面结构
 
 - 基础组件源码位于 `components/ui/`，来源、摘要与许可证随源码记录；业务页面使用 `AppButton`、`AppField`、`AppSelect`、`AppDialog` 等产品封装。
-- Reka 负责交互语义与焦点，Motion 负责进入、退出和内容尺寸变化；组件行为、浮层生命周期、字段标签、日志详情与预览 iframe 的具体规则见 [`DESIGN.md`](../../DESIGN.md) 与 [Web 界面规范](../design/web-management-ui.md)。`AppQRCode` 依赖的 `qrcode-generator` 版权与 MIT 文本由版本化补充文件纳入发布 notices。
+- Reka 负责交互语义与焦点，Motion 负责进入、退出和内容尺寸变化；组件行为、浮层生命周期、字段标签、日志详情与预览 iframe 的具体规则见 [`DESIGN.md`](../../DESIGN.md) 与 [Web 界面规范](../design/web-management-ui.md)。
 - `/__dev/components` 仅在开发构建注册，使用正式管理会话，不加入生产菜单或产物。
 - 页面壳、菜单、页签、面包屑、主题偏好和工作区身份由布局、路由与 `ui-shell` store 维护。
 - `stores/`、`lib/`、`views/` 与 `components/` 分别承担业务状态、共享逻辑、页面和组件职责。
