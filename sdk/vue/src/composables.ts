@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, readonly, ref, shallowRef } from 'vue'
+import { computed, onUnmounted, readonly, ref, shallowRef } from 'vue'
 
 import { PluginUIBridgeClient } from './client'
 import type { HostInitPayload } from './contract.generated'
@@ -31,7 +31,7 @@ export function usePluginHost(client = new PluginUIBridgeClient()) {
       loading.value = false
     })
 
-  onBeforeUnmount(() => {
+  onUnmounted(() => {
     stopHostInit()
     client.close()
   })

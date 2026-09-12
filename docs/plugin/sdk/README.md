@@ -97,6 +97,7 @@ plugin-example/
 
 - `PluginUIBridgeClient` 完成 nonce-bound bridge v3 与 MessageChannel 握手。
 - `usePluginHost` 暴露初始化状态、配置、secret configured-state 和 bridge 请求。
+- 根组件建立一次连接并传给子组件；子组件卸载时可先取消所属操作，SDK 在组件树卸载后关闭连接。`invokeAction` 等待管理动作结果的上限为 60 秒。
 - `applyTheme` 把宿主主题 token 映射为插件 CSS variables。
 - `contract.generated.ts` 从 bridge v3 schema 生成类型。
 

@@ -176,7 +176,7 @@ export class PluginUIBridgeClient {
   }
 
   invokeAction(action: string, payload: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-    return this.request<{ action: string; result: Record<string, unknown> }>('plugin.action.invoke', { action, payload })
+    return this.request<{ action: string; result: Record<string, unknown> }>('plugin.action.invoke', { action, payload }, 60_000)
       .then((response) => response.result)
   }
 
