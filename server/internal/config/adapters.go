@@ -22,18 +22,6 @@ func (c Config) AdapterByID(id string) (AdapterInstance, bool) {
 	return AdapterInstance{}, false
 }
 
-// AdaptersOfType returns every configured instance speaking one protocol, in
-// configuration order.
-func (c Config) AdaptersOfType(adapterType string) []AdapterInstance {
-	matched := make([]AdapterInstance, 0, len(c.Adapters))
-	for _, adapter := range c.Adapters {
-		if adapter.Type == adapterType {
-			matched = append(matched, adapter)
-		}
-	}
-	return matched
-}
-
 // OneBot11Settings returns the OneBot settings for one instance. The second
 // result is false when the instance is absent or speaks another protocol, so a
 // caller never reads the wrong adapter's settings.

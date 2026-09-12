@@ -16,12 +16,12 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
-	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
 	pluginservice "github.com/RayleaBot/RayleaBot/server/internal/plugins/lifecycle"
 	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginwebhook "github.com/RayleaBot/RayleaBot/server/internal/plugins/webhook"
 	"github.com/RayleaBot/RayleaBot/server/internal/render"
+	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
 type runtimeStateView interface {
@@ -34,14 +34,12 @@ type runtimeStateView interface {
 }
 
 type serviceBuildDeps struct {
-	Runtime         runtimeStateView
-	Platform        PlatformState
-	Plugins         PluginStackState
-	Events          EventState
-	Renderer        *render.Service
-	Metrics         *MetricsRegistry
-	Discovery       plugincatalog.DiscoverySpec
-	PluginValidator *config.Validator
+	Runtime          runtimeStateView
+	Platform         PlatformState
+	Plugins          PluginStackState
+	Events           EventState
+	Renderer         *render.Service
+	Metrics          *MetricsRegistry
 	ManagementRedact func(string) string
 }
 
@@ -212,4 +210,36 @@ func buildPolicyRepositories(platform PlatformState) policyRepositories {
 		Whitelist:      permissionsqlite.NewAccessListRepository(platform.Storage.Read, platform.Storage.Write, permission.ListWhitelist),
 		WhitelistState: permissionsqlite.NewWhitelistStateRepository(platform.Storage.Read, platform.Storage.Write),
 	}
+}
+
+type schedulerDiagnostics struct {
+	scheduler *scheduler.Engine
+}
+
+func (d schedulerDiagnostics) Timezone() string {
+	return d.scheduler.Timezone()
+}
+
+func (d schedulerDiagnostics) DiagnosticsScheduler() systemsvc.DiagnosticsScheduler {
+	result := systemsvc.DiagnosticsScheduler{}
+	if d.scheduler == nil {
+		return result
+	}
+	now := time.Now().UTC()
+	result.Running = d.scheduler.RunningCount()
+	for _, job := range d.scheduler.Jobs() {
+		result.Total++
+		if job.Enabled {
+			result.Enabled++
+			if !job.NextRun.After(now) {
+				result.Pending++
+			}
+		} else {
+			result.Disabled++
+		}
+		if job.LastError != nil {
+			result.Failed++
+		}
+	}
+	return result
 }

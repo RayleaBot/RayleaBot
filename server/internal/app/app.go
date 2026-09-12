@@ -229,8 +229,6 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Events:           eventState,
 		Renderer:         renderState.Renderer,
 		Metrics:          metricRegistry,
-		Discovery:        buildState.discoverySpec,
-		PluginValidator:  buildState.pluginValidator,
 		ManagementRedact: buildState.managementRedact,
 	})
 	if err != nil {

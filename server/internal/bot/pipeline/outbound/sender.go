@@ -156,7 +156,7 @@ func SendAction(ctx context.Context, sender ActionSender, resolver ReplyTargetRe
 			SourceProtocol: action.SourceProtocol,
 			TargetType:     action.TargetType,
 			TargetID:       action.TargetID,
-			Segments:       toAdapterSegments(action.MessageSegments),
+			Segments:       chatevent.CloneMessageSegments(action.MessageSegments),
 		})
 		return SendResult{
 			MessageID:      result.MessageID,
@@ -191,7 +191,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		TargetType:       replyTarget.TargetType,
 		TargetID:         replyTarget.TargetID,
 		ReplyToMessageID: replyTarget.MessageID,
-		Segments:         toAdapterSegments(action.MessageSegments),
+		Segments:         chatevent.CloneMessageSegments(action.MessageSegments),
 	}
 	result, err := sender.SendReply(ctx, replyRequest)
 	if err == nil {
@@ -221,7 +221,7 @@ func sendReplyAction(ctx context.Context, sender ActionSender, resolver ReplyTar
 		SourceProtocol: replyTarget.SourceProtocol,
 		TargetType:     replyTarget.TargetType,
 		TargetID:       replyTarget.TargetID,
-		Segments:       stripReplySegments(toAdapterSegments(action.MessageSegments)),
+		Segments:       stripReplySegments(chatevent.CloneMessageSegments(action.MessageSegments)),
 	})
 	return SendResult{
 		MessageID:      fallbackResult.MessageID,
@@ -243,24 +243,6 @@ func resolveReplyTarget(action chatevent.MessageCommand, resolver ReplyTargetRes
 		return ReplyTarget{}, false
 	}
 	return target, target.MessageID != "" && target.TargetType != "" && target.TargetID != ""
-}
-
-func toAdapterSegments(segments []chatevent.MessageSegment) []chatevent.MessageSegment {
-	if len(segments) == 0 {
-		return nil
-	}
-	items := make([]chatevent.MessageSegment, 0, len(segments))
-	for _, segment := range segments {
-		data := make(map[string]any, len(segment.Data))
-		for key, value := range segment.Data {
-			data[key] = value
-		}
-		items = append(items, chatevent.MessageSegment{
-			Type: segment.Type,
-			Data: data,
-		})
-	}
-	return items
 }
 
 func stripReplySegments(segments []chatevent.MessageSegment) []chatevent.MessageSegment {

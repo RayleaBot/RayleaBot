@@ -150,14 +150,6 @@ func (s *Shell) CurrentBotID() string {
 	return strings.TrimSpace(snapshot.BotID)
 }
 
-func (s *Shell) CurrentState() string {
-	state := s.Snapshot().State
-	if state == "" {
-		return string(StateIdle)
-	}
-	return string(state)
-}
-
 func (s *Shell) DetectedProvider() string {
 	return s.Snapshot().DetectedProvider()
 }

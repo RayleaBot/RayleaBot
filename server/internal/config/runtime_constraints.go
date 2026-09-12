@@ -28,10 +28,7 @@ func validateRuntimeConstraints(cfg Config) error {
 		return fmt.Errorf("admin.session_absolute_ttl_days must be greater than or equal to admin.session_ttl_days")
 	}
 
-	if err := validateWebExposure(cfg); err != nil {
-		return err
-	}
-	return nil
+	return validateWebExposure(cfg)
 }
 
 func validateWebExposure(cfg Config) error {

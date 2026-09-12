@@ -41,7 +41,7 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		SourceProtocol: action.SourceProtocol,
 		TargetType:     targetType,
 		TargetID:       targetID,
-		Segments:       toOutboundSegments(action.MessageSegments),
+		Segments:       chatevent.CloneMessageSegments(action.MessageSegments),
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
 	if !d.permissionDeclared(ctx, pluginID, action.Kind) {
@@ -175,25 +175,6 @@ func buildOutboundTargetLabel(ctx context.Context, event chatevent.Event, target
 	}
 
 	return outbound.BuildTargetLabel(ctx, event.SourceAdapter, targetType, targetID, targetName, actorID, actorNickname, resolver)
-}
-
-func toOutboundSegments(segments []chatevent.MessageSegment) []chatevent.MessageSegment {
-	if len(segments) == 0 {
-		return nil
-	}
-
-	items := make([]chatevent.MessageSegment, 0, len(segments))
-	for _, segment := range segments {
-		data := make(map[string]any, len(segment.Data))
-		for key, value := range segment.Data {
-			data[key] = value
-		}
-		items = append(items, chatevent.MessageSegment{
-			Type: segment.Type,
-			Data: data,
-		})
-	}
-	return items
 }
 
 // recordOutboundMetric records a protocol label from the resolved sender.

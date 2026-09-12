@@ -50,26 +50,6 @@ func (d *Dispatcher) currentMetrics() MetricsObserver {
 	return d.metrics
 }
 
-func (d *Dispatcher) snapshotStatsLocked() DispatcherStats {
-	d.statsMu.Lock()
-	defer d.statsMu.Unlock()
-	cloned := make(map[string]map[string]uint64, len(d.dropsByReason))
-	for reason, plugins := range d.dropsByReason {
-		row := make(map[string]uint64, len(plugins))
-		for pluginID, count := range plugins {
-			row[pluginID] = count
-		}
-		cloned[reason] = row
-	}
-	return DispatcherStats{
-		Delivered:     d.delivered,
-		Dropped:       d.dropped,
-		Errored:       d.errored,
-		Ignored:       d.ignored,
-		DropsByReason: cloned,
-	}
-}
-
 func deltaUint64(current, baseline uint64) uint64 {
 	if current < baseline {
 		return 0
@@ -147,7 +127,7 @@ func (d *Dispatcher) StartObservabilityFlush(interval time.Duration) {
 	done := make(chan struct{})
 	d.flushStop = stop
 	d.flushDone = done
-	d.flushBaseline = d.snapshotStatsLocked()
+	d.flushBaseline = d.Stats()
 	d.flushMu.Unlock()
 
 	go func() {
