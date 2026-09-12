@@ -26,7 +26,7 @@
 - 插件启用时由 per-plugin runtime manager 启动子进程并完成 `init -> init_ack` 握手；通过 `init.bots` 提供按适配器实例区分的身份列表，后续 `bot.identities.changed` 替换该列表。
 - 运行中通过 `ping/pong` 保活。
 - 停止时先停止接收新事件，等待活跃会话排空，再发送 `shutdown`。
-- 插件刚异常退出时映射为 `state=failed`、`state_diagnosis.kind=crashed`；进入退避等待后映射为 `state=failed`、`state_diagnosis.kind=retrying`；超过重试阈值进入 dead-letter 时映射为 `state=failed`、`state_diagnosis.kind=recovery_required`。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
+- 异常退出、退避重试与需人工恢复的用户可见状态映射见 [State Model](../architecture/state-model.md)。进入需人工恢复状态后，平台同步移除该插件已注册的 webhook 路由。
 - `POST /api/plugins/{plugin_id}/recover` 触发受控冷启动尝试：服务端重置 crash 计数并重新拉起 runtime。
 - 热重载保持正式的 start-before-stop / zero-gap reload 语义。
 

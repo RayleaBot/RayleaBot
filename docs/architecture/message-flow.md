@@ -99,12 +99,3 @@ Scheduler 以插件 ID、任务 ID 和 revision 维护单一串行 mutation path
 Plugin Webhook Service 验证 route、token/HMAC 和目标插件后，构造 `event_type=webhook.received` 的事件；来源元数据放在该事件的 `webhook` 字段，其中 `route` 与 `received_at` 必填。Webhook 事件定向进入 Dispatcher，不经过 OneBot11 Bridge。
 
 其他平台内部事件如 `config.changed`、`bot.identities.changed` 和 `management.action` 也可按目标直接进入 Dispatcher，但仍使用同一 runtime、local action 和出站链路。
-
-## 关键边界
-
-- Adapter 不写业务状态库。
-- `bot/pipeline/chatpolicy` 的 Ingress 是命令与聊天治理职责方；Bridge 只校验统一事件。
-- Dispatcher 是插件事件排队和出站 action 的职责方。
-- Runtime Manager 管理插件进程协议。
-- Local Action Service 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口；插件自有的外部网络、临时文件和子进程工作由插件进程负责。
-- Scheduler 与 webhook 只产生目标事件，不建立平行分发或发送通道。

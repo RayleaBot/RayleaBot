@@ -54,12 +54,7 @@ SQLite 从 `server/internal/storage/schema.sql` 在事务内一次创建当前�
 
 ## Launcher 预检边界
 
-- Launcher 启动前阻塞项只覆盖本地必须立即确认的条件：
-  - 安装根可用
-  - `raylea-server` 路径有效
-  - `config/user.yaml` 可定位
-  - 工作目录可用
-  - Launcher 设置可解析
+- Launcher 启动前阻塞项只覆盖本地必须立即确认的条件，清单见[管理面说明](../user/management-surface.md)。
 - 模板基线目录和插件进程问题由服务端 readiness 与 system diagnostics 判定；实际浏览器可用性通过 readiness、system diagnostics 与 Launcher 状态展示。
 - Launcher 可以展示这些问题，但不单独发明第二套运行态语义。
 
@@ -69,7 +64,6 @@ SQLite 从 `server/internal/storage/schema.sql` 在事务内一次创建当前�
 - Patch 版本只用于修复缺陷、补充非破坏性观测或校正文档，不引入破坏既有数据语义的变更。
 - RayleaBot 在协议层复用 OneBot11 生态，不追求直接兼容其他框架的插件运行时。
 - 不内建 LLM / AI 平台能力；相关能力可由插件通过现有能力集自行组合。
-- OneBot11 与 QQ 官方机器人通过适配器实例接入；新增协议或动作族先定义契约和来源身份，再接入既有事件与动作边界。
 
 ## 相关文档
 

@@ -6,23 +6,16 @@
 
 ## 当前职责
 
+App、Chat Policy Ingress、Bridge、Dispatcher、Runtime Manager、Local Action Service、Scheduler 与 Render Service 的职责和禁止事项见 [Platform Architecture](./platform-architecture.md) 的组件职责表；本页补充其余模块：
+
 | 模块 | 作用 |
 | --- | --- |
-| App | 负责服务组装、运行控制、关闭和统一路由输出 |
-| Chat Policy Ingress | 位于 `bot/pipeline/chatpolicy`，负责 adapter 事件入口、命令提取、聊天权限、cooldown reply 和 adapter ready 协调 |
-| Bridge | 负责 adapter 事件校验、统一事件转换和桥接层观测 |
-| Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
-| Runtime Manager | 负责插件进程会话、握手、保活、事件投递与终态收集 |
-| Local Action Service | 负责消息、配置、secret、存储、插件目录、浏览器、治理、渲染、调度、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
 | Adapter Service | 位于 `bot/adapters`，持有所有适配器实例，负责启停、配置 reload、领域快照、协议查询、OneBot 回连与 Webhook 协议入口 |
 | Management Events | 位于 `management/events`，负责管理 Frame、初始快照、事件投影和连接订阅生命周期 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |
-| Scheduler | 负责 cron 周期任务的注册与定时触发 |
 | Permission View | 提供插件权限与参数查询 |
 | Config Manager | 负责配置读取、校验、覆盖与热更新入口 |
-| Logger | 负责统一结构化日志输出 |
-| Render Service | 负责模板渲染、结果缓存与 artifact 管理 |
 
 共享插件模型与展示摘要位于 `plugins`，SQLite 实现在 `plugins/catalog`；命令触发器和空对象等传输形态由管理边界投影。`platform/health` 仅保存中性诊断问题，包含恢复摘要的 readiness 由 `operations/system` 组合，HTTP 状态映射由 `management` 处理。`platform/runtimepaths` 只推导路径，插件发现参数由 catalog 管理；启动不自动删除失败安装保留的恢复目录。
 
@@ -84,7 +77,7 @@
 ### 后台任务模型
 
 - Task Registry 是有限长异步操作的职责方，负责 admission、执行状态、持久化和关闭 drain。
-- 当前后台任务固定为 `plugin.install`、`plugin.uninstall`、`plugin.reload`、`backup.create`、`restore.apply`、`recovery.recheck`、`recovery.confirm`、`runtime.bootstrap`。
+- 当前后台任务类型见 [State Model](./state-model.md)。
 - 数据库结构初始化在存储启动时同步执行；模板 HTML 预览是同步接口，二者都不创建后台任务。
 - 统一任务字段包括 `task_id`、`task_type`、`status`、`progress`、`summary`、`started_at`、`finished_at`、`result` 和 `error`。
 - Web UI、CLI、日志和管理 WebSocket 复用同一套任务状态，不为不同长操作发明独立状态模型。
