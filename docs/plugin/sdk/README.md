@@ -105,11 +105,7 @@ plugin-example/
 
 ## 本地联调
 
-`plugin-workspace.local.json` 使用 workspace v2 连接本地插件仓库。插件 ID 从各仓库 `info.json` 推导；有 `go.mod` 的插件进入临时 go.work，无 Go module 的项目使用 `dist/native/<platform>/<plugin-id>[.exe]` 作为预构建原生入口。
-
-开发 `watch` 会监听非 Go 插件的上述预构建入口；`dist` 下的其他生成产物仍被忽略，因此统一打包输出不会触发重复构建。
-
-启动开发环境时，主仓库同步当前 Go/Vue SDK，并通过统一工具构建或打包后执行离线 `plugin dev-sync`。同步安装与商店安装共享 artifact 校验和原子替换边界。
+`plugin-workspace.local.json`（workspace v2）连接本地插件仓库，插件 ID 从各仓库 `info.json` 推导；非 Go 项目以 `dist/native/<platform>/<plugin-id>[.exe]` 作为预构建原生入口。工作区模式、同步方式与监听规则见[插件商店与独立开发](../store-and-development.md)。
 
 ## 验证
 
@@ -127,5 +123,3 @@ raylea-plugin build-go --plugin <plugin-root> --target linux-x64 --out dist
 - [Plugin Protocol](../protocol.md)
 - [Management UI](../management-ui.md)
 - [Plugin Store and Independent Development](../store-and-development.md)
-
-`EventContext.Bots` 保存全部已知适配器身份的隔离快照。`Bot` 对聊天事件按来源实例选择；多实例定时任务不推测身份，应从 `Bots` 明确选择实例并在主动发送时传入 `SourceAdapter`。

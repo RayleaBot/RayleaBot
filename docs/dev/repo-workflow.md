@@ -36,21 +36,7 @@ dist/
 
 ## 本地插件联调
 
-主仓库开发启动脚本（`node scripts/start-dev.mjs`，Windows 下为 `start.bat`）负责编排本机独立插件仓库，不依赖 GitHub 构建：
-
-独立 Go 插件后端采用 `cmd/<plugin>`、`internal/plugin` 与可选 `internal/assets` 目录；统一的 `raylea-plugin build-go` 从 `info.json` 推导插件 ID 和默认后端 package，也可通过参数覆盖入口并把内部资源映射到稳定 artifact 路径。其他语言或构建系统把目标平台原生可执行文件写入 `dist/native/<platform>/<plugin-id>[.exe]`，再使用 `raylea-plugin pack`。
-
-1. `plugin-workspace.local.json` 声明需要联调的仓库；该文件及 `.tmp/plugin-dev/` 均不进入版本控制。
-2. 为存在 `go.mod` 的启用插件生成临时 `go.work`，按内容镜像主仓库 Vue SDK，复用当前平台的后端、UI 和 artifact 缓存；非 Go 插件使用工作区约定的原生产物路径。
-3. 启动前先构建开发插件，在停服状态下使用 `plugin dev-sync` 同步，再启动 Server 加载插件。Server 与插件同时变更时，也在 Server 停止后先同步插件再启动新版本。只更新插件时，通过本机认证开发接口在线同步。两种同步方式均经正式校验与原子安装事务写入 `plugins/installed/`，内容未变化时跳过安装，运行期不直接发现源码目录。
-4. `watch` 模式按 500ms 窗口和插件 ID 合并变更。构建期间的新修改在安装前重新检查；SDK 与工作区清单变化会更新对应依赖和监听集合。
-5. 在线插件更新只切换目标插件，保留 desired state；初始化失败恢复旧版本。只有 Server 自身构建输入变化才重启 Server。
-
-插件仓库的 GitHub Actions 只处理 `v*` tag 的正式 Release，官方目录定时读取每个仓库的当前 Release 并收录实际发布的平台包。日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。
-
-源码运行缺少有效 `build_info.json` 时，诊断和备份记录 core 版本为 `unknown`。开发同步仍检查 artifact、平台和协议握手，但无法确认最低 core 版本；普通安装和商店安装要求可验证的安装版本，不把开发目录当作固定发布版本。
-
-独立插件仓库、本地工作区和启动模式见 [插件商店与独立开发](../plugin/store-and-development.md)。
+主仓库开发启动脚本（`node scripts/start-dev.mjs`，Windows 下为 `start.bat`）负责编排本机独立插件仓库，不依赖 GitHub 构建；日常修改插件或与本地主仓库 SDK 联调不需要创建 tag、提交远端或等待 GitHub Actions。工作区文件、同步入口与监听规则见[插件商店与独立开发](../plugin/store-and-development.md)，增量构建与环境复用见[开发者文档](./README.md)，插件目录约定与统一构建工具见[插件 SDK](../plugin/sdk/README.md)。
 
 ## 显式开发工具路径
 
