@@ -14,7 +14,7 @@ test('timezone picker covers Windows offsets, supports the keyboard, and preserv
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await page.clock.setFixedTime(new Date('2026-07-15T12:00:00Z'))
   await page.goto('/config')
-  await page.getByRole('tab', { name: '账号与调度' }).click()
+  await page.getByRole('tab', { name: '调度' }).click()
   const trigger = page.getByRole('button', { name: '时区', exact: true })
   await expect(trigger).toContainText('UTC+08:00')
   await expect(trigger).toContainText('上海')

@@ -16,7 +16,7 @@ test.beforeEach(async ({ page, request }) => {
 
 test('the timezone list has a visible draggable scrollbar and shrinks for a single search result', async ({ page }) => {
   await page.goto('/config')
-  await page.getByRole('tab', { name: '账号与调度' }).click()
+  await page.getByRole('tab', { name: '调度' }).click()
   await page.getByRole('button', { name: '时区', exact: true }).click()
   const viewport = page.locator('.timezone-select__viewport')
   const initial = await viewport.boundingBox()
@@ -43,7 +43,7 @@ test('the timezone list has a visible draggable scrollbar and shrinks for a sing
 test('timezone transitions preserve intermediate sizes, exit cleanly, and tolerate rapid reopening', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/config')
-  await page.getByRole('tab', { name: '账号与调度' }).click()
+  await page.getByRole('tab', { name: '调度' }).click()
   const trigger = page.getByRole('button', { name: '时区', exact: true })
   await trigger.click()
   const panel = page.locator('.timezone-select__content')
@@ -95,7 +95,7 @@ test('timezone transitions preserve intermediate sizes, exit cleanly, and tolera
 test('reduced motion keeps timezone selection and resizing immediate', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/config')
-  await page.getByRole('tab', { name: '账号与调度' }).click()
+  await page.getByRole('tab', { name: '调度' }).click()
   const trigger = page.getByRole('button', { name: '时区', exact: true })
   await trigger.click()
   const panel = page.locator('.timezone-select__content')
@@ -115,7 +115,7 @@ test('an existing uncommon timezone remains selected without creating an edit', 
   await page.getByRole('button', { name: '登录', exact: true }).click()
   await expect(page.getByRole('heading', { name: '系统状态', level: 1 })).toBeVisible()
   await page.goto('/config')
-  await page.getByRole('tab', { name: '账号与调度' }).click()
+  await page.getByRole('tab', { name: '调度' }).click()
   await page.getByRole('button', { name: '时区', exact: true }).click()
   const retained = page.locator('[role=option][title="Asia/Katmandu"]')
   await expect(retained).toContainText('当前配置')

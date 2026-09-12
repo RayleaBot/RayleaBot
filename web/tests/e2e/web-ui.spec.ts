@@ -2136,7 +2136,6 @@ test('breadcrumb and tabbar track leaf pages instead of hidden route groups', as
   expect(await readActiveTabLabel(page)).toBe('协议中心')
   expect(await readTabLabels(page)).toContain('协议中心')
   expect(await readTabIconKeys(page)).toContain('protocols')
-  await expect(page.locator('.admin-layout__sider .sidebar-navigation__group').filter({ hasText: '账号与连接' }).locator('.sidebar-navigation__item .admin-layout__menu-icon')).toHaveCount(2)
 
   await page.goto('/config')
   await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()

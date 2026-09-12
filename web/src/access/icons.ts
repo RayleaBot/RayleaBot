@@ -2,7 +2,6 @@ import type { Component } from 'vue'
 import {
   PlugZapIcon,
   BlocksIcon,
-  NetworkIcon,
   LayersIcon,
   TerminalIcon,
   GaugeIcon,
@@ -28,7 +27,6 @@ const iconMap: Record<string, Component> = {
   'access-lists': BanIcon,
   commands: TerminalIcon,
   config: SlidersHorizontalIcon,
-  connections: NetworkIcon,
   dashboard: GaugeIcon,
   features: LayersIcon,
   'history-logs': HistoryIcon,
