@@ -43,10 +43,6 @@ type RendererState interface {
 
 type DatabasePathResolver func(configPath, databasePath string) (string, error)
 
-type ThirdPartyDiagnosticsSource interface {
-	DiagnosticsThirdParty(context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue)
-}
-
 type SchedulerDiagnosticsSource interface {
 	DiagnosticsScheduler() DiagnosticsScheduler
 	Timezone() string
@@ -66,7 +62,6 @@ type Deps struct {
 	Runtimes            RuntimeRegistry
 	Renderer            RendererState
 	Storage             *storage.Store
-	ThirdParty          ThirdPartyDiagnosticsSource
 	Scheduler           SchedulerDiagnosticsSource
 	PluginRepository    plugins.DesiredStateRepository
 	TaskExecutor        *tasks.Executor
@@ -91,7 +86,6 @@ type Service struct {
 	runtimes            RuntimeRegistry
 	renderer            RendererState
 	storage             *storage.Store
-	thirdParty          ThirdPartyDiagnosticsSource
 	scheduler           SchedulerDiagnosticsSource
 	pluginRepository    plugins.DesiredStateRepository
 	taskExecutor        *tasks.Executor
@@ -134,7 +128,6 @@ func New(deps Deps) (*Service, error) {
 		runtimes:            deps.Runtimes,
 		renderer:            deps.Renderer,
 		storage:             deps.Storage,
-		thirdParty:          deps.ThirdParty,
 		scheduler:           deps.Scheduler,
 		pluginRepository:    deps.PluginRepository,
 		taskExecutor:        deps.TaskExecutor,

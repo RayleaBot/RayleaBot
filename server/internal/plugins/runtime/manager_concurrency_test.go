@@ -209,68 +209,83 @@ func TestParseSecretReadAction(t *testing.T) {
 	}
 }
 
-func TestParseThirdPartyAccountValidateAction(t *testing.T) {
+func TestParseSecretWriteAndDeleteActions(t *testing.T) {
 	t.Parallel()
 
-	action, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{
-		"platform":"weibo",
-		"account_id":"primary",
-		"observation":"session_blocked",
-		"http_status":432
+	action, err := ParseLocalAction("secret.write", json.RawMessage(`{
+		"values": {"account.example.cookie": "fixture-only-secret"}
 	}`))
 	if err != nil {
 		t.Fatalf("ParseLocalAction returned error: %v", err)
 	}
-	if action.Kind != "thirdparty.account.validate" || action.ThirdPartyAccountPlatform != "weibo" || action.ThirdPartyAccountID != "primary" || action.ThirdPartyAccountObservation != "session_blocked" || action.ThirdPartyAccountHTTPStatus != 432 {
+	if action.Kind != "secret.write" || action.SecretValues["account.example.cookie"] != "fixture-only-secret" {
 		t.Fatalf("unexpected action: %#v", action)
 	}
-	if _, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{"platform":"weibo","account_id":"primary","observation":"expired"}`)); err == nil {
-		t.Fatal("invalid observation was accepted")
+	if _, err := ParseLocalAction("secret.write", json.RawMessage(`{"values":{}}`)); err == nil {
+		t.Fatal("empty secret.write values were accepted")
 	}
-	if _, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{"platform":"weibo","account_id":"primary","observation":"auth_rejected","response_body":"secret"}`)); err == nil {
-		t.Fatal("free-form upstream response data was accepted")
+	if _, err := ParseLocalAction("secret.write", json.RawMessage(`{"values":{"Bad Key":"value"}}`)); err == nil {
+		t.Fatal("invalid secret.write key was accepted")
 	}
-	if _, err := ParseLocalAction("thirdparty.account.validate", json.RawMessage(`{"platform":"weibo","account_id":"primary","observation":"auth_rejected","http_status":0}`)); err == nil {
-		t.Fatal("out-of-contract http_status was accepted")
+
+	deleted, err := ParseLocalAction("secret.delete", json.RawMessage(`{"keys":["account.example.cookie"]}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction returned error: %v", err)
+	}
+	if deleted.Kind != "secret.delete" || len(deleted.SecretKeys) != 1 || deleted.SecretKeys[0] != "account.example.cookie" {
+		t.Fatalf("unexpected action: %#v", deleted)
+	}
+	if _, err := ParseLocalAction("secret.delete", json.RawMessage(`{"keys":[]}`)); err == nil {
+		t.Fatal("empty secret.delete keys were accepted")
+	}
+	if _, err := ParseLocalAction("secret.delete", json.RawMessage(`{"keys":["a","a"]}`)); err == nil {
+		t.Fatal("duplicate secret.delete keys were accepted")
 	}
 }
 
-func TestParseThirdPartyResolveAction(t *testing.T) {
+func TestParseBrowserLaunchAndCloseActions(t *testing.T) {
 	t.Parallel()
 
-	action, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{
-		"platform":"douyin",
-		"query":"  洛天依  ",
-		"cookie":"  sessionid=fixture; ttwid=fixture;  "
+	action, err := ParseLocalAction("browser.launch", json.RawMessage(`{
+		"profile":"default",
+		"mode":"auto"
 	}`))
 	if err != nil {
 		t.Fatalf("ParseLocalAction returned error: %v", err)
 	}
-	if action.Kind != "thirdparty.resolve" || action.ThirdPartyAccountPlatform != "douyin" || action.ThirdPartyResolveQuery != "洛天依" {
+	if action.Kind != "browser.launch" || action.BrowserProfile != "default" || action.BrowserMode != "auto" {
 		t.Fatalf("unexpected action: %#v", action)
 	}
-	if action.ThirdPartyResolveCookie != "sessionid=fixture; ttwid=fixture;" {
-		t.Fatalf("resolve cookie = %q, want trimmed cookie header", action.ThirdPartyResolveCookie)
+	remote, err := ParseLocalAction("browser.launch", json.RawMessage(`{
+		"profile":"default",
+		"mode":"remote_cdp",
+		"remote_debugging_url":"http://127.0.0.1:9222"
+	}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction returned error: %v", err)
 	}
-	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"   "}`)); err == nil {
-		t.Fatal("empty query was accepted")
+	if remote.BrowserRemoteDebuggingURL != "http://127.0.0.1:9222" {
+		t.Fatalf("unexpected remote debugging url: %#v", remote)
 	}
-	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"`+strings.Repeat("长", 65)+`"}`)); err == nil {
-		t.Fatal("oversized query was accepted")
+	if _, err := ParseLocalAction("browser.launch", json.RawMessage(`{"mode":"auto"}`)); err == nil {
+		t.Fatal("missing browser.launch profile was accepted")
 	}
-	// maxLength 按 Unicode 码点计：64 个 emoji（每字符 4 字节）必须被接受，
-	// 65 个 emoji 必须被拒绝；字节计数会把 64 个 emoji 误拒。
-	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"`+strings.Repeat("🎵", 64)+`"}`)); err != nil {
-		t.Fatalf("64-codepoint emoji query was rejected: %v", err)
+	if _, err := ParseLocalAction("browser.launch", json.RawMessage(`{"profile":"default","mode":"personal"}`)); err == nil {
+		t.Fatal("invalid browser.launch mode was accepted")
 	}
-	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"`+strings.Repeat("🎵", 65)+`"}`)); err == nil {
-		t.Fatal("65-codepoint emoji query was accepted")
+	if _, err := ParseLocalAction("browser.launch", json.RawMessage(`{"profile":"default","mode":"remote_cdp"}`)); err == nil {
+		t.Fatal("remote_cdp without remote_debugging_url was accepted")
 	}
-	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"query":"洛天依"}`)); err == nil {
-		t.Fatal("missing platform was accepted")
+
+	closed, err := ParseLocalAction("browser.close", json.RawMessage(`{"session_id":"browser-1"}`))
+	if err != nil {
+		t.Fatalf("ParseLocalAction returned error: %v", err)
 	}
-	if _, err := ParseLocalAction("thirdparty.resolve", json.RawMessage(`{"platform":"douyin","query":"洛天依","cookie":"`+strings.Repeat("c", 8193)+`"}`)); err == nil {
-		t.Fatal("oversized cookie was accepted")
+	if closed.Kind != "browser.close" || closed.BrowserSessionID != "browser-1" {
+		t.Fatalf("unexpected action: %#v", closed)
+	}
+	if _, err := ParseLocalAction("browser.close", json.RawMessage(`{}`)); err == nil {
+		t.Fatal("missing browser.close session_id was accepted")
 	}
 }
 

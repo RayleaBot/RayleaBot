@@ -70,7 +70,7 @@ func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 	session.pendingLocalAction++
 	m.pendingLocalActions++
 
-	go m.executeLocalAction(session.ctx, handle, parentRequestID, frame.RequestID, *action, session.event)
+	go m.executeLocalAction(plugins.WithRuntimeDone(session.ctx, handle.Done()), handle, parentRequestID, frame.RequestID, *action, session.event)
 	return nil, nil
 }
 

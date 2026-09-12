@@ -6,15 +6,12 @@
 
 | 范围 | 删除内容 | 保留的实际责任与验证 |
 | --- | --- | --- |
-| Bilibili 订阅遗留链 | 无生产构造入口的 `SessionClient`、WBI 签名、Cookie 刷新/补全、验证码客户端，以及仅被该链使用的旧设备指纹包 | `AccountClient`、扫码登录、Cookie 解析/合并、账号资料、凭据错误分类与浏览器请求身份仍保留；账号/扫码/错误分类测试通过 |
-| 网易云 / 微博查询遗留链 | 无生产引用的 `user_resolve.go` | 网易云扫码、加密、账号资料和微博扫码/资料继续使用；宿主正式 `thirdparty.resolve` 仍是实际使用的抖音浏览器解析 |
 | 无调用包装 | 旧 logging 构造包装、auth.Revoke、未使用 deps 下载/清单入口、OneBot 提取/归一化转发、插件动作识别转发、生命周期无 ctx 包装、旧 recovery 文件入口、旧 render 预览包装等 | 保留实际消费者调用的入口；运行期模型深复制和正式错误分类未替换为浅复制或文本判断 |
 | 重复配置入口 | 未使用的配置常量、SQLite busy timeout Option 链 | 默认值仍从正式 schema 生成；SQLite 保留既定超时，生产与测试均无超时覆盖调用 |
 | SQL | `CountNamespace`、`GetPluginStoreSource` | 全仓只有声明和生成文件，已删除输入并执行 sqlc generate/diff；其余加载、写入与本版恢复查询保留 |
 | Web | 无引用的布尔标签、命令平铺包装、协议文案猜测、文本转发、view transition 探测导出、旧日志合并函数和信任类型别名 | RetryPanel 实际使用的 `resolveExceptionStatus` 保留；命令聚合、转义、排序日志合并与动画运行入口保留；类型检查通过 |
 | 无输入变化的属性测试 | 安装任务查询、HTTP request ID 批量唯一性的 rapid 包装 | 原断言改为普通测试；认证随机字符串/场景、任务数量、命令解析和 Catalog 的真实生成器保留 |
 
-仅验证已删除功能的测试随该功能删除：旧 SessionClient 的签名/刷新/补全、验证码执行与旧指纹生成测试。仍服务账号风险分类的断言从原文件保留为 `account_errors_test.go`，验证码响应的凭据状态识别保留为 `response_values_test.go`。删去未使用的执行链不等于把平台风控误判为凭据失效。
 
 ## 保留与不实施项
 

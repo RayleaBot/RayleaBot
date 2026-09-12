@@ -69,7 +69,7 @@ func TestExecutePluginListUsesDeclaredPermission(t *testing.T) {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
-			Permissions:       map[string]plugins.PermissionGrant{"plugin.list": {}},
+			Permissions:       map[string]bool{"plugin.list": true},
 			Commands: []plugins.Command{{
 				ID:           "echo",
 				Name:         "echo",
@@ -284,7 +284,7 @@ func newPluginListVisibilityService(cfg config.Config) *localaction.Service {
 			RegistrationState: "installed",
 			DesiredState:      "enabled",
 			RuntimeState:      "running",
-			Permissions:       map[string]plugins.PermissionGrant{"plugin.list": {}},
+			Permissions:       map[string]bool{"plugin.list": true},
 		},
 		{
 			PluginID:          "raylea.tools",
@@ -415,7 +415,7 @@ func TestExecuteSecretReadReturnsPluginScopedValue(t *testing.T) {
 		PluginID:          "subscription-hub",
 		Valid:             true,
 		RegistrationState: "installed",
-		Permissions:       map[string]plugins.PermissionGrant{"secret.read": {}},
+		Permissions:       map[string]bool{"secret.read": true},
 	}})
 
 	deps.Permissions = &scopedPermissionView{permissions: map[string][]stubPermission{

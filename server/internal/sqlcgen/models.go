@@ -152,24 +152,6 @@ type Task struct {
 	CreatedAt  string
 }
 
-type ThirdPartyAccount struct {
-	Platform            string
-	AccountID           string
-	Label               string
-	Enabled             int64
-	SecretKey           string
-	ProfileUid          string
-	ProfileNickname     string
-	ProfileAvatarUrl    string
-	CredentialState     string
-	CredentialCheckedAt sql.NullString
-	CredentialLastError string
-	LastUsedAt          sql.NullString
-	ProxyUrl            string
-	ProxyEnabled        int64
-	UpdatedAt           string
-}
-
 type WhitelistState struct {
 	SingletonID int64
 	Enabled     int64

@@ -21,9 +21,6 @@ func TestLoadAndSaveUseEmbeddedSchemaByDefault(t *testing.T) {
 	if cfg.Server.Host != "127.0.0.1" {
 		t.Fatalf("server.host = %q, want 127.0.0.1", cfg.Server.Host)
 	}
-	if cfg.ThirdParty.CredentialCheckIntervalMinutes != 360 {
-		t.Fatalf("third_party_accounts.credential_check_interval_minutes = %d, want 360", cfg.ThirdParty.CredentialCheckIntervalMinutes)
-	}
 	if summary.SchemaPath != "builtin://contracts/config.user.schema.json" {
 		t.Fatalf("summary.SchemaPath = %q", summary.SchemaPath)
 	}
@@ -378,40 +375,6 @@ func TestSaveDocumentRejectsInvalidRenderDeviceScalePercent(t *testing.T) {
 	}
 }
 
-func TestSaveDocumentValidatesCredentialCheckInterval(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name    string
-		value   int
-		wantErr bool
-	}{
-		{name: "disabled", value: 0},
-		{name: "minimum", value: 15},
-		{name: "maximum", value: 10080},
-		{name: "below minimum", value: 1, wantErr: true},
-		{name: "above maximum", value: 10081, wantErr: true},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			document := newPlanningConfigDocument()
-			thirdParty := document["third_party_accounts"].(map[string]any)
-			thirdParty["credential_check_interval_minutes"] = test.value
-			_, _, err := SaveDocument(
-				filepath.Join(t.TempDir(), "config", "user.yaml"),
-				filepath.Join("..", "..", "..", "contracts", "config.user.schema.json"),
-				document,
-			)
-			if test.wantErr && err == nil {
-				t.Fatalf("SaveDocument(%d) succeeded, want error", test.value)
-			}
-			if !test.wantErr && err != nil {
-				t.Fatalf("SaveDocument(%d) error = %v", test.value, err)
-			}
-		})
-	}
-}
-
 func TestSaveDocumentAcceptsRenderOutputAndDeviceScalePercent(t *testing.T) {
 	t.Parallel()
 
@@ -602,13 +565,6 @@ func newPlanningConfigDocument() map[string]any {
 			"queue_wait_timeout_seconds": 15,
 			"queue_max_length":           32,
 			"footer_template":            DefaultRenderFooterTemplate,
-		},
-		"third_party_accounts": map[string]any{
-			"credential_check_interval_minutes": 360,
-			"douyin_login": map[string]any{
-				"browser_mode":         "auto",
-				"remote_debugging_url": "",
-			},
 		},
 		"scheduler": map[string]any{
 			"timezone": "Asia/Shanghai",

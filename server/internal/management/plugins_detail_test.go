@@ -16,22 +16,17 @@ func TestDetailHandlerReturnsPermissions(t *testing.T) {
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID: "weather", Name: "Weather", Valid: true,
 		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
-		Permissions: map[string]plugins.PermissionGrant{
-			"http.request":            {},
-			"thirdparty.account.read": {Platforms: []string{"bilibili", "weibo"}},
+		Permissions: map[string]bool{
+			"http.request": true,
+			"secret.write": true,
 		},
 	}})
 	response := requestPluginDetail(t, catalog, "weather")
 	if response.Plugin.Permissions["http.request"] != true {
 		t.Fatalf("http.request permission = %#v", response.Plugin.Permissions["http.request"])
 	}
-	grant, ok := response.Plugin.Permissions["thirdparty.account.read"].(map[string]any)
-	if !ok {
-		t.Fatalf("thirdparty permission = %#v", response.Plugin.Permissions["thirdparty.account.read"])
-	}
-	platforms, _ := grant["platforms"].([]any)
-	if len(platforms) != 2 || platforms[0] != "bilibili" || platforms[1] != "weibo" {
-		t.Fatalf("permission platforms = %#v", platforms)
+	if response.Plugin.Permissions["secret.write"] != true {
+		t.Fatalf("secret.write permission = %#v", response.Plugin.Permissions["secret.write"])
 	}
 }
 

@@ -133,16 +133,6 @@ codes:
     retryable: false
     applies_to: [http, websocket, task]
 
-  platform.third_party_account_not_found:
-    code: platform.third_party_account_not_found
-    domain: platform
-    message_key: errors.platform.third_party_account_not_found
-    message: 三方账号不存在或尚未配置凭据
-    description: The requested third-party account does not exist or has no stored credential available for validation.
-    http_status: 404
-    retryable: false
-    applies_to: [http]
-
   platform.invalid_config:
     code: platform.invalid_config
     domain: platform
@@ -1073,8 +1063,6 @@ diagnostics:
     description: The administrator account has not been initialized.
   storage.schema_metadata_unavailable:
     description: Current database initialization metadata could not be read.
-  third_party.accounts_unavailable:
-    description: Third-party account summaries could not be read.
   windows.long_paths_disabled:
     description: Windows long-path support is disabled.
   windows.long_paths_enabled:

@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-browser-launch-1
+    action: browser.launch
+    data:
+      profile: default
+      mode: auto
+  - type: result
+    request_id: action-browser-launch-1
+    status: success
+    data:
+      session_id: browser-session-1
+      debugger_url: ws://127.0.0.1:9222/devtools/browser/fixture
+expect:
+  valid: true

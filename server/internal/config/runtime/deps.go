@@ -29,7 +29,6 @@ type Service struct {
 	renderer           configConsumer
 	pluginLogLimiter   configConsumer
 	outboundLimiter    configConsumer
-	accountValidation  configConsumer
 	protocol           configProtocolReloader
 	eventIngress       configEventIngress
 	secrets            secrets.Store
@@ -49,7 +48,6 @@ type Deps struct {
 	Renderer           configConsumer
 	PluginLogLimiter   configConsumer
 	OutboundLimiter    configConsumer
-	AccountValidation  configConsumer
 	Protocol           configProtocolReloader
 	EventIngress       configEventIngress
 	Secrets            secrets.Store
@@ -82,7 +80,6 @@ func NewService(deps Deps) *Service {
 		renderer:           deps.Renderer,
 		pluginLogLimiter:   deps.PluginLogLimiter,
 		outboundLimiter:    deps.OutboundLimiter,
-		accountValidation:  deps.AccountValidation,
 		protocol:           protocol,
 		eventIngress:       deps.EventIngress,
 		secrets:            deps.Secrets,

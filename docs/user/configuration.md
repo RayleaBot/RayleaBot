@@ -35,7 +35,7 @@
 
 管理 API 的 `config` 返回已保存的期望配置。`revision` 是当前服务进程内的配置修订号，从 1 开始，每次成功持久化后递增；校验失败、取消及写入失败不会增加修订号。需要重启的值保留在用户配置文件中，运行中的服务继续使用已生效值。
 
-保存先校验完整配置、准备并解析 secret 引用，再保存凭据和用户文件；保存失败会尝试恢复本轮已写入的凭据，并返回服务端错误。持久化完成后，日志、限流、账号检查、渲染、聊天策略与适配器依次应用。聊天策略按完整快照切换；每个限流窗口的次数与时长一起替换；一次渲染使用同一份输出格式、页脚与缩放快照。不同服务和连接动作不组成跨服务事务。
+保存先校验完整配置、准备并解析 secret 引用，再保存凭据和用户文件；保存失败会尝试恢复本轮已写入的凭据，并返回服务端错误。持久化完成后，日志、限流、渲染、聊天策略与适配器依次应用。聊天策略按完整快照切换；每个限流窗口的次数与时长一起替换；一次渲染使用同一份输出格式、页脚与缩放快照。不同服务和连接动作不组成跨服务事务。
 
 `apply_effects.failed_groups` 表示已经保存但运行时应用失败的配置组，相关字段同时列入需重启项。适配器应用失败会尝试恢复原设置；完成恢复或重启前应检查连接状态。`effective_timezone` 始终表示当前运行时区。
 
@@ -45,9 +45,9 @@
 | 策略 | 典型内容 | 保存后的效果 |
 | --- | --- | --- |
 | `read_only` | `schema_version` | 只用于标识当前配置格式，不作为运行期可变设置 |
-| `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、三方账号检查间隔、存储配额、日志、消息、用户和 HTTP 参数 | 保存后直接应用，列入 `apply_effects.applied_now` |
+| `hot_reload` | 命令前缀、内置菜单、权限、渲染输出与队列参数、存储配额、日志、消息、用户和 HTTP 参数 | 保存后直接应用，列入 `apply_effects.applied_now` |
 | `adapter_reload` | OneBot11 连接地址、兼容开关、QQ 官方机器人的 AppID / 订阅事件 / 沙箱开关，以及 adapter 连接和重连参数 | 保存后受控重载对应实例，列入 `apply_effects.reloaded_now` |
-| `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、抖音扫码浏览器、调度时区、插件运行限制、Web | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
+| `restart_required` | Server 与数据库、管理会话、渲染浏览器与 worker、调度时区、插件运行限制、Web | 配置已保存，但服务重启后才生效，列入 `apply_effects.restart_required_fields` |
 
 OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数据：管理 API 把明文写入本地 secret store，配置文件仅保存 `secret://` 引用；更新后与 adapter 配置一并受控重载。
 
@@ -55,31 +55,11 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 
 重载只作用于设置发生变化的实例：其他实例的连接不受影响。QQ 官方机器人的凭据、订阅事件与沙箱开关都在建立连接时固定，因此改动这些字段会让该实例立即断开并按新配置重连（不等待重连退避），而未改动时连接原样保留。
 
-## 三方账号检查与抖音扫码浏览器
-
-`third_party_accounts` 控制 CK 自动检查和抖音扫码获取 CK 使用的浏览器：
-
-```yaml
-third_party_accounts:
-  credential_check_interval_minutes: 360
-  douyin_login:
-    browser_mode: auto
-    remote_debugging_url: ""
-```
-
-- `credential_check_interval_minutes` 是服务端自动检查已启用账号 CK 的间隔，默认 `360` 分钟；`0` 关闭自动检查，三方账号页仍可手动检查。非零值范围为 `15` 到 `10080`，保存后立即生效。
-- `browser_mode: auto` 优先连接已配置且可用的本机 CDP 专用浏览器，再启动可见的隔离浏览器；服务器没有图形界面时使用无头浏览器。
-- `visible`、`headless` 和 `remote_cdp` 是显式模式，启动失败时不会切换到其他模式。
-- 本地浏览器优先使用 `render.browser_path`，随后查找系统 Chrome、Edge 或 Chromium，最后使用 RayleaBot 托管的 Chromium。
-- `remote_cdp` 必须配置 `remote_debugging_url`。地址只接受无凭据的本机回环 HTTP(S) 或 WS(S) 端点，例如 `http://127.0.0.1:9222`。
-- CDP 浏览器应使用专用 profile，不应连接个人默认浏览器。RayleaBot 不读取个人浏览器的 Cookie。
-- `douyin_login` 的两个字段保存后均需重启服务生效。
-
 ## 配置提醒
 
 - `scheduler.timezone` 默认上海（`Asia/Shanghai`，UTC+08:00），缺省时使用 schema 默认值，不接受空值。配置页参考 Windows 提供地区时区与常用城市，覆盖 UTC−12 至 UTC+14，以及半小时、四十五分钟偏移，支持按城市、地区、IANA 标识或 UTC 偏移搜索。历史别名与重复技术条目不默认展示，已有配置使用其他有效时区时仍原样保留。显示的偏移按当前日期计算，地区时区遵循夏令时规则。
 - 时区影响定时任务、服务日志、管理面时间展示和历史日志筛选。保存后重启服务生效，重启前前后端继续使用当前时区；后台存储与 API 时间戳保持 UTC，服务日志按配置时区输出并携带偏移。历史日志日期输入遇到夏令时跳过的时间会提示修正，回拨时段的范围起止覆盖两次出现的时间。
-- 自定义浏览器场景可使用 `render.browser_path` 指向 Chrome、Chromium 或 Edge 可执行文件路径。
+- 自定义浏览器场景可使用 `render.browser_path` 指向 Chrome、Chromium 或 Edge 可执行文件路径；该路径同时用于图片渲染与插件浏览器会话。
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
 - `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
 - `web.plugin_ui_origin_template` 必须包含 `{plugin_host}`。本机模式可省略并自动派生 `plugins.localhost` 子域；LAN 与反向代理模式必须显式配置不同于管理面的插件域模板。

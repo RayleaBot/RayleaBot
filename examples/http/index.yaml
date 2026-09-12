@@ -126,39 +126,3 @@ examples:
     status: 202
     media_type: application/json
     representation: body
-  third-party-account-upsert.request.json:
-    operationId: upsertThirdPartyAccount
-    direction: request
-    status: null
-    media_type: application/json
-    representation: body
-  third-party-account-upsert.response.json:
-    operationId: upsertThirdPartyAccount
-    direction: response
-    status: 200
-    media_type: application/json
-    representation: body
-  third-party-account-validation.response.json:
-    operationId: validateThirdPartyAccount
-    direction: response
-    status: 200
-    media_type: application/json
-    representation: body
-  third-party-accounts.response.json:
-    operationId: listThirdPartyAccounts
-    direction: response
-    status: 200
-    media_type: application/json
-    representation: body
-  third-party-login-qrcode-create.response.json:
-    operationId: createThirdPartyQRCodeLogin
-    direction: response
-    status: 200
-    media_type: application/json
-    representation: body
-  third-party-login-qrcode-poll.response.json:
-    operationId: pollThirdPartyQRCodeLogin
-    direction: response
-    status: 200
-    media_type: application/json
-    representation: body

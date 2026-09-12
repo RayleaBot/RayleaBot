@@ -18,16 +18,14 @@ import (
 )
 
 type pluginRuntimeDeps struct {
-	Runtime           runtimeStateView
-	Platform          PlatformState
-	Plugins           PluginStackState
-	Events            EventState
-	Renderer          *render.Service
-	Governance        *governance.Service
-	ManagementRedact  func(string) string
-	ThirdParty        localaction.ThirdPartyAccountReader
-	AccountValidation localaction.ThirdPartyAccountValidationRequester
-	ThirdPartyResolve localaction.ThirdPartyResolver
+	Runtime          runtimeStateView
+	Platform         PlatformState
+	Plugins          PluginStackState
+	Events           EventState
+	Renderer         *render.Service
+	Governance       *governance.Service
+	ManagementRedact func(string) string
+	Browser          localaction.BrowserSessionManager
 }
 
 type pluginRuntime struct {
@@ -52,7 +50,7 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 		return pluginRuntime{}, err
 	}
 	permissionView := buildPluginPermissionView(deps.Plugins, deps.Events)
-	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.ThirdParty, deps.AccountValidation, deps.ThirdPartyResolve, settingsService)
+	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.Browser, settingsService)
 	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
@@ -86,9 +84,7 @@ func buildLocalActionService(
 	renderer *render.Service,
 	permissionView *plugins.PermissionView,
 	governanceService *governance.Service,
-	thirdParty localaction.ThirdPartyAccountReader,
-	accountValidation localaction.ThirdPartyAccountValidationRequester,
-	thirdPartyResolve localaction.ThirdPartyResolver,
+	browserManager localaction.BrowserSessionManager,
 	settingsService *settings.Service,
 ) *localaction.Service {
 	return localaction.New(localaction.Deps{
@@ -100,9 +96,7 @@ func buildLocalActionService(
 		Settings:             settingsService,
 		PluginFiles:          pluginStack.PluginFiles,
 		PluginKV:             pluginStack.PluginKV,
-		ThirdParty:           thirdParty,
-		AccountValidation:    accountValidation,
-		ThirdPartyResolve:    thirdPartyResolve,
+		Browser:              browserManager,
 		Scheduler:            localaction.Scheduler(platform.Scheduler),
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),
 		Renderer:             localaction.RendererFromService(renderer),

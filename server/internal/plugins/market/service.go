@@ -389,26 +389,10 @@ func (s *Service) confirmationReasons(sourceID string, inspection plugins.Instal
 	return reasons
 }
 
-func permissionsExpanded(current, next map[string]plugins.PermissionGrant) bool {
-	for name, nextGrant := range next {
-		currentGrant, ok := current[name]
-		if !ok {
+func permissionsExpanded(current, next map[string]bool) bool {
+	for name := range next {
+		if !current[name] {
 			return true
-		}
-		if len(currentGrant.Platforms) == 0 {
-			continue
-		}
-		if len(nextGrant.Platforms) == 0 {
-			return true
-		}
-		allowed := make(map[string]struct{}, len(currentGrant.Platforms))
-		for _, platform := range currentGrant.Platforms {
-			allowed[platform] = struct{}{}
-		}
-		for _, platform := range nextGrant.Platforms {
-			if _, ok := allowed[platform]; !ok {
-				return true
-			}
 		}
 	}
 	return false

@@ -263,7 +263,6 @@ RayleaBot is licensed under AGPL-3.0-only. The components below retain their own
 | npm:web | pkg-types | 1.3.1 | MIT |
 | npm:web | pkg-types | 2.3.1 | MIT |
 | npm:web | postcss | 8.5.26 | MIT |
-| npm:web | qrcode-generator | 2.0.4 | MIT |
 | npm:web | quansync | 0.2.11 | MIT |
 | npm:web | readdirp | 5.1.1 | MIT |
 | npm:web | reka-ui | 2.10.4 | MIT |
@@ -4644,37 +4643,6 @@ Applies to: @fluentui/react-provider@9.22.20
     THE SOFTWARE IS PROVIDED *AS IS*, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Note: Usage of the fonts and icons referenced in Fluent UI React is subject to the terms listed at https://aka.ms/fluentui-assets-license
-
-### MIT (78ff1c3c0e16)
-
-Applies to: qrcode-generator@2.0.4
-
-    [qrcode-generator-2.0.4.LICENSE]
-    qrcode-generator 2.0.4
-    Upstream: https://github.com/kazuhikoarase/qrcode-generator
-    The distributed dist/qrcode.mjs header declares the following copyright and MIT license.
-
-    Copyright (c) 2009 Kazuhiko Arase
-
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
-
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
-
-    The word 'QR Code' is a registered trademark of DENSO WAVE INCORPORATED.
 
 ### MIT (79d0f02e3322)
 

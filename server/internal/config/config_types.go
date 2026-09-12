@@ -10,7 +10,6 @@ type Config struct {
 	Admin         AdminConfig              `json:"admin" yaml:"admin"`
 	Permission    PermissionConfig         `json:"permission" yaml:"permission"`
 	Render        RenderConfig             `json:"render" yaml:"render"`
-	ThirdParty    ThirdPartyAccountsConfig `json:"third_party_accounts" yaml:"third_party_accounts"`
 	Scheduler     SchedulerConfig          `json:"scheduler" yaml:"scheduler"`
 	Runtime       RuntimeConfig            `json:"runtime" yaml:"runtime"`
 	Storage       StorageConfig            `json:"storage" yaml:"storage"`
@@ -171,16 +170,6 @@ type RenderConfig struct {
 	QueueWaitTimeoutSeconds int      `json:"queue_wait_timeout_seconds" yaml:"queue_wait_timeout_seconds"`
 	QueueMaxLength          int      `json:"queue_max_length" yaml:"queue_max_length"`
 	FooterTemplate          string   `json:"footer_template" yaml:"footer_template"`
-}
-
-type ThirdPartyAccountsConfig struct {
-	CredentialCheckIntervalMinutes int               `json:"credential_check_interval_minutes" yaml:"credential_check_interval_minutes"`
-	DouyinLogin                    DouyinLoginConfig `json:"douyin_login" yaml:"douyin_login"`
-}
-
-type DouyinLoginConfig struct {
-	BrowserMode        string `json:"browser_mode" yaml:"browser_mode"`
-	RemoteDebuggingURL string `json:"remote_debugging_url" yaml:"remote_debugging_url"`
 }
 
 type WebConfig struct {

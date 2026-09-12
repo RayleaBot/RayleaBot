@@ -88,18 +88,8 @@ test('scheduler searches the full collection and refreshes only explicitly loade
   expect(requests - beforeRefresh).toBe(2)
 })
 
-test('account and source management can search an item that has never been loaded', async ({ page }) => {
+test('plugin store sources can search an item that has never been loaded', async ({ page }) => {
   await login(page)
-  const account = (await (await page.request.get('/api/third-party/accounts')).json()).items[0]
-  const accounts = Array.from({ length: 5 }, (_, i) => ({ ...account, account_id: `paging-account-${i}`, label: i === 4 ? '后页账号' : `账号 ${i}`, profile: null }))
-  await page.route('**/api/third-party/accounts*', route => {
-    if (new URL(route.request().url()).pathname !== '/api/third-party/accounts') return route.fallback()
-    return route.fulfill({ json: pageOf(accounts, new URL(route.request().url()), item => `${item.account_id} ${item.label}`) })
-  })
-  await page.goto('/third-party-accounts')
-  await page.getByLabel('搜索账号', { exact: true }).fill('后页账号')
-  await expect(page.getByRole('main').getByRole('status')).toContainText('已加载 1 / 1')
-  await expect(page.getByRole('main').getByText('后页账号', { exact: true }).first()).toBeVisible()
 
   const source = (await (await page.request.get('/api/plugin-store/sources')).json()).items[0]
   const sources = Array.from({ length: 5 }, (_, i) => ({ ...source, id: i === 0 ? 'official' : `source-${i}`, name: i === 4 ? '后页来源' : `来源 ${i}`, official: i === 0 }))

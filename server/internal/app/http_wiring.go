@@ -23,7 +23,6 @@ type httpBuildDeps struct {
 	Renderer                *render.Service
 	ServiceBuild            serviceBuildResult
 	Metrics                 *MetricsRegistry
-	HTTPTransport           http.RoundTripper
 	RequestShutdown         func()
 	SetupToken              string
 	LauncherControlToken    string
@@ -60,7 +59,6 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 		Renderer:          renderer,
 		PluginLogLimiter:  pluginState.PluginLogLimiter,
 		OutboundLimiter:   eventState.OutboundLimiter,
-		AccountValidation: services.AccountValidation,
 		Protocol:          services.Protocol,
 		EventIngress:      services.EventIngress,
 		Secrets:           platformState.Secrets,

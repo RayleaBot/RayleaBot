@@ -1,7 +1,0 @@
-{
-  "platform": "bilibili",
-  "login_id": "fixture_qr_001",
-  "qrcode_url": "https://example.invalid/qr/fixture-only",
-  "expires_at": "2026-08-23T08:10:00Z",
-  "state": "pending_scan"
-}

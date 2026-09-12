@@ -17,9 +17,7 @@ type Deps struct {
 	Settings             *settings.Service
 	PluginFiles          FileStore
 	PluginKV             KVRepository
-	ThirdParty           ThirdPartyAccountReader
-	AccountValidation    ThirdPartyAccountValidationRequester
-	ThirdPartyResolve    ThirdPartyResolver
+	Browser              BrowserSessionManager
 	Scheduler            SchedulerCreateFunc
 	MessageSender        MessageSendFunc
 	Renderer             Renderer

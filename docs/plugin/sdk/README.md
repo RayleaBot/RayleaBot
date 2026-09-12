@@ -31,7 +31,7 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 `event.Actions()` 提供 request-bound typed helpers：
 
 - 非终态消息、日志、KV、文件、HTTP、配置写入、插件列表和 secret。
-- 治理、scheduler、渲染和三方账号动作。
+- 治理、scheduler、渲染和浏览器会话动作。
 - OneBot 单动作与 provider 扩展动作。
 - 已进入正式 contract 的通用 `Call`。
 

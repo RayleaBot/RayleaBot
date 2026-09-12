@@ -52,27 +52,16 @@ func TestOpenBootstrapsSQLiteWithExpectedPragmas(t *testing.T) {
 	assertTableExists(t, store.Read, "render_templates")
 	assertColumnExists(t, store.Read, "render_templates", "source_digest")
 	assertIndexExists(t, store.Read, "idx_render_templates_source")
-	assertTableExists(t, store.Read, "third_party_accounts")
 	assertColumnExists(t, store.Read, "schema_metadata", "initialized_at")
 	assertColumnExists(t, store.Read, "management_logs", "log_id")
 	assertColumnExists(t, store.Read, "management_logs", "details_json")
 	assertColumnExists(t, store.Read, "management_logs", "boot_id")
 	assertColumnExists(t, store.Read, "scheduler_jobs", "log_label")
-	assertColumnExists(t, store.Read, "third_party_accounts", "profile_uid")
-	assertColumnExists(t, store.Read, "third_party_accounts", "profile_nickname")
-	assertColumnExists(t, store.Read, "third_party_accounts", "profile_avatar_url")
-	assertColumnExists(t, store.Read, "third_party_accounts", "credential_state")
-	assertColumnExists(t, store.Read, "third_party_accounts", "credential_checked_at")
-	assertColumnExists(t, store.Read, "third_party_accounts", "credential_last_error")
-	assertColumnExists(t, store.Read, "third_party_accounts", "last_used_at")
-	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_url")
-	assertColumnExists(t, store.Read, "third_party_accounts", "proxy_enabled")
 	assertIndexExists(t, store.Read, "idx_management_logs_log_id")
 	assertIndexExists(t, store.Read, "idx_management_logs_boot_ts")
 	assertIndexExists(t, store.Read, "idx_management_logs_source")
 	assertIndexExists(t, store.Read, "idx_plugin_kv_plugin_id")
 	assertIndexExists(t, store.Read, "idx_system_configs_namespace")
-	assertIndexExists(t, store.Read, "idx_third_party_accounts_platform")
 
 }
 
@@ -106,24 +95,6 @@ func TestOpenCanReopenCurrentSchemaDatabase(t *testing.T) {
 	}
 	if bootstrapCount != 0 {
 		t.Fatalf("unexpected bootstrap row count: got %d want 0", bootstrapCount)
-	}
-}
-
-func TestThirdPartyAccountsAcceptSupportedPlatforms(t *testing.T) {
-	t.Parallel()
-
-	store := openTestStore(t)
-	for _, platform := range []string{"bilibili", "weibo", "douyin", "netease_music"} {
-		if _, err := store.Write.Exec(
-			`INSERT INTO third_party_accounts (platform, account_id, label, enabled, secret_key, updated_at) VALUES (?, ?, ?, 1, ?, ?)`,
-			platform,
-			"primary",
-			platform+" account",
-			"third_party:"+platform+":primary:cookie",
-			"2026-06-08T08:00:00Z",
-		); err != nil {
-			t.Fatalf("insert %s third-party account: %v", platform, err)
-		}
 	}
 }
 

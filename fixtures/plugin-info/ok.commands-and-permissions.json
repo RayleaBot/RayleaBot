@@ -16,12 +16,11 @@
     "permissions": {
       "message.send": true,
       "http.request": true,
-      "thirdparty.account.read": {
-        "platforms": ["bilibili", "weibo", "douyin"]
-      },
-      "thirdparty.resolve": {
-        "platforms": ["douyin"]
-      }
+      "secret.read": true,
+      "secret.write": true,
+      "secret.delete": true,
+      "browser.launch": true,
+      "browser.close": true
     },
     "commands": [
       {

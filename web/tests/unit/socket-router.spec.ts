@@ -34,9 +34,6 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      thirdPartyAccounts: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -94,9 +91,6 @@ describe('socket frame router', () => {
         appendBatch: vi.fn(),
       },
       governance: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
-      thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
       adapters: {
@@ -181,9 +175,6 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      thirdPartyAccounts: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -264,9 +255,6 @@ describe('socket frame router', () => {
       governance: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
-      thirdPartyAccounts: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -322,9 +310,6 @@ describe('socket frame router', () => {
         appendBatch: vi.fn(),
       },
       governance: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
-      thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
       adapters: {
@@ -386,9 +371,6 @@ describe('socket frame router', () => {
       governance: {
         refresh: refreshSpy,
       },
-      thirdPartyAccounts: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
       adapters: {
         applySnapshot: vi.fn(),
       },
@@ -426,54 +408,6 @@ describe('socket frame router', () => {
     expect(refreshSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('refreshes third-party accounts when an account change event arrives', async () => {
-    const dependencies = {
-      system: {
-        applyEvent: vi.fn(),
-        refreshStatus: vi.fn().mockResolvedValue(undefined),
-      },
-      plugins: {
-        upsert: vi.fn(),
-      },
-      pluginConsole: {
-        appendOutboundLog: vi.fn(),
-        appendConsole: vi.fn(),
-      },
-      schedulerJobs: {
-        scheduleDataSourceRefresh: vi.fn(),
-      },
-      logs: {
-        appendBatch: vi.fn(),
-      },
-      governance: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
-      thirdPartyAccounts: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
-      adapters: {
-        applySnapshot: vi.fn(),
-      },
-    }
-    const router = createSocketFrameRouter(dependencies)
-
-    for (const timestamp of ['2026-08-21T09:20:00Z', '2026-08-21T09:20:01Z']) {
-      router.handleEventsFrame({
-        channel: 'events',
-        type: 'events.received',
-        timestamp,
-        data: {
-          event_type: 'third_party.account.changed',
-          summary: 'Third-party account status updated',
-        },
-      })
-    }
-
-    expect(dependencies.thirdPartyAccounts.refresh).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(120)
-    expect(dependencies.thirdPartyAccounts.refresh).toHaveBeenCalledTimes(1)
-  })
-
   it('batches multiple log frames into a single appendBatch call', async () => {
     const dependencies = {
       system: {
@@ -494,9 +428,6 @@ describe('socket frame router', () => {
         appendBatch: vi.fn(),
       },
       governance: {
-        refresh: vi.fn().mockResolvedValue(undefined),
-      },
-      thirdPartyAccounts: {
         refresh: vi.fn().mockResolvedValue(undefined),
       },
       adapters: {

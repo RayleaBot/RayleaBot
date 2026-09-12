@@ -99,13 +99,6 @@ export function useDashboardDiagnosticsState(input: DiagnosticsInput) {
         detail: issueCountDetail(snapshot.render.issues.length),
       },
       {
-        key: 'third-party',
-        label: t('dashboard.diagnosticsSubsystems.thirdParty'),
-        status: snapshot.third_party.invalid > 0 ? 'warning' as const : 'success' as const,
-        value: t('dashboard.diagnosticsThirdPartyValue', { configured: snapshot.third_party.configured, total: snapshot.third_party.total }),
-        detail: t('dashboard.diagnosticsThirdPartyDetail', { enabled: snapshot.third_party.enabled, invalid: snapshot.third_party.invalid }),
-      },
-      {
         key: 'scheduler',
         label: t('dashboard.diagnosticsSubsystems.scheduler'),
         status: snapshot.scheduler.failed > 0 ? 'danger' as const : 'success' as const,

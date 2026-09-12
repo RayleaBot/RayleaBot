@@ -2,7 +2,6 @@ package app
 
 import (
 	"log/slog"
-	"net/http"
 	"time"
 
 	adapterservice "github.com/RayleaBot/RayleaBot/server/internal/bot/adapters"
@@ -10,9 +9,8 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	permissionsqlite "github.com/RayleaBot/RayleaBot/server/internal/bot/permission/sqlite"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/chatpolicy"
+	"github.com/RayleaBot/RayleaBot/server/internal/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/accountvalidation"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
 	managementevents "github.com/RayleaBot/RayleaBot/server/internal/management/events"
 	systemsvc "github.com/RayleaBot/RayleaBot/server/internal/operations/system"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
@@ -36,41 +34,35 @@ type runtimeStateView interface {
 }
 
 type serviceBuildDeps struct {
-	Runtime               runtimeStateView
-	Platform              PlatformState
-	Plugins               PluginStackState
-	Events                EventState
-	Renderer              *render.Service
-	Metrics               *MetricsRegistry
-	Discovery             plugincatalog.DiscoverySpec
-	PluginValidator       *config.Validator
-	ManagementRedact      func(string) string
-	BilibiliHTTPTransport http.RoundTripper
-	BilibiliClock         func() time.Time
+	Runtime         runtimeStateView
+	Platform        PlatformState
+	Plugins         PluginStackState
+	Events          EventState
+	Renderer        *render.Service
+	Metrics         *MetricsRegistry
+	Discovery       plugincatalog.DiscoverySpec
+	PluginValidator *config.Validator
+	ManagementRedact func(string) string
 }
 
 type Services struct {
-	LocalActions      *actions.Service
-	PluginSettings    *settings.Service
-	PluginLifecycle   *pluginservice.Controller
-	EventIngress      *chatpolicy.Ingress
-	Protocol          *adapterservice.Service
-	PluginWebhooks    *pluginwebhook.Service
-	Governance        *governance.Service
-	GovernanceEvents  *managementevents.GovernanceService
-	ThirdPartyEvents  *managementevents.ThirdPartyAccountService
-	Logs              *logging.ManagementService
-	System            *systemsvc.Service
-	ThirdParty        *thirdparty.Service
-	ThirdPartyQRLogin *thirdparty.QRLoginService
-	AccountValidation *accountvalidation.Service
+	LocalActions     *actions.Service
+	PluginSettings   *settings.Service
+	PluginLifecycle  *pluginservice.Controller
+	EventIngress     *chatpolicy.Ingress
+	Protocol         *adapterservice.Service
+	PluginWebhooks   *pluginwebhook.Service
+	Governance       *governance.Service
+	GovernanceEvents *managementevents.GovernanceService
+	Logs             *logging.ManagementService
+	System           *systemsvc.Service
+	Browser          *browser.Manager
 }
 
 type serviceBuildResult struct {
-	Services                   Services
-	Runtimes                   *pluginruntime.Registry
-	Status                     *managementevents.ServiceStatusService
-	ThirdPartyAccountValidator *accountvalidation.Validator
+	Services Services
+	Runtimes *pluginruntime.Registry
+	Status   *managementevents.ServiceStatusService
 }
 
 type statusPublisherFunc func()
@@ -90,32 +82,22 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	logService := logging.NewManagementService(platform.Logs, platform.LogRepository)
 	policyRepos := buildPolicyRepositories(platform)
 	governanceEvents := managementevents.NewGovernanceService()
-	thirdPartyEvents := managementevents.NewThirdPartyAccountService()
 	governanceService := buildGovernanceService(runtimeState, pluginStack, policyRepos, governanceEvents)
-	integrations, err := buildIntegrations(integrationDeps{
-		Config:               runtimeState.CurrentConfig(),
-		Platform:             platform,
-		Renderer:             renderer,
-		HTTPTransport:        deps.BilibiliHTTPTransport,
-		Clock:                deps.BilibiliClock,
-		Logger:               runtimeState.RuntimeLogger(),
-		RepoRoot:             runtimeState.RepoRoot(),
-		NotifyAccountChanged: thirdPartyEvents.PublishChanged,
+	browserState := buildBrowserManager(browserWiringDeps{
+		Config:   runtimeState.CurrentConfig(),
+		Renderer: renderer,
+		Logger:   runtimeState.RuntimeLogger(),
+		RepoRoot: runtimeState.RepoRoot(),
 	})
-	if err != nil {
-		return serviceBuildResult{}, err
-	}
 	pluginRuntime, err := buildPluginRuntime(pluginRuntimeDeps{
-		Runtime:           runtimeState,
-		Platform:          platform,
-		Plugins:           pluginStack,
-		Events:            eventStack,
-		Renderer:          renderer,
-		Governance:        governanceService,
-		ManagementRedact:  deps.ManagementRedact,
-		ThirdParty:        integrations.ThirdParty,
-		AccountValidation: integrations.AccountValidation,
-		ThirdPartyResolve: integrations.DouyinBrowser,
+		Runtime:          runtimeState,
+		Platform:         platform,
+		Plugins:          pluginStack,
+		Events:           eventStack,
+		Renderer:         renderer,
+		Governance:       governanceService,
+		ManagementRedact: deps.ManagementRedact,
+		Browser:          browserState.Manager,
 	})
 	if err != nil {
 		return serviceBuildResult{}, err
@@ -145,7 +127,6 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		Runtimes:         runtimeRegistry,
 		Renderer:         renderer,
 		Storage:          platform.Storage,
-		ThirdParty:       thirdPartyDiagnostics{service: integrations.ThirdParty},
 		Scheduler:        schedulerDiagnostics{scheduler: platform.Scheduler},
 		PluginRepository: pluginStack.PluginRepository,
 		TaskExecutor:     platform.TaskExecutor,
@@ -191,24 +172,20 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 	})
 	return serviceBuildResult{
 		Services: Services{
-			LocalActions:      pluginRuntime.LocalActions,
-			PluginSettings:    pluginRuntime.Settings,
-			PluginLifecycle:   pluginServices.PluginLifecycle,
-			EventIngress:      eventIngress,
-			Protocol:          protocolService,
-			PluginWebhooks:    pluginServices.PluginWebhooks,
-			Governance:        governanceService,
-			GovernanceEvents:  governanceEvents,
-			ThirdPartyEvents:  thirdPartyEvents,
-			Logs:              logService,
-			System:            systemService,
-			ThirdParty:        integrations.ThirdParty,
-			ThirdPartyQRLogin: integrations.ThirdPartyQRLogin,
-			AccountValidation: integrations.AccountValidation,
+			LocalActions:     pluginRuntime.LocalActions,
+			PluginSettings:   pluginRuntime.Settings,
+			PluginLifecycle:  pluginServices.PluginLifecycle,
+			EventIngress:     eventIngress,
+			Protocol:         protocolService,
+			PluginWebhooks:   pluginServices.PluginWebhooks,
+			Governance:       governanceService,
+			GovernanceEvents: governanceEvents,
+			Logs:             logService,
+			System:           systemService,
+			Browser:          browserState.Manager,
 		},
-		Runtimes:                   runtimeRegistry,
-		Status:                     serviceStatusService,
-		ThirdPartyAccountValidator: integrations.AccountValidator,
+		Runtimes: runtimeRegistry,
+		Status:   serviceStatusService,
 	}, nil
 }
 

@@ -35,12 +35,14 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 		return parsePluginListAction(raw)
 	case "secret.read":
 		return parseSecretReadAction(raw)
-	case "thirdparty.account.read":
-		return parseThirdPartyAccountReadAction(raw)
-	case "thirdparty.account.validate":
-		return parseThirdPartyAccountValidateAction(raw)
-	case "thirdparty.resolve":
-		return parseThirdPartyResolveAction(raw)
+	case "secret.write":
+		return parseSecretWriteAction(raw)
+	case "secret.delete":
+		return parseSecretDeleteAction(raw)
+	case "browser.launch":
+		return parseBrowserLaunchAction(raw)
+	case "browser.close":
+		return parseBrowserCloseAction(raw)
 	case "config.write":
 		return parseConfigWriteAction(raw)
 	case "governance.blacklist.read":
@@ -79,9 +81,10 @@ func isLocalActionKind(kind string) bool {
 		"storage.kv",
 		"plugin.list",
 		"secret.read",
-		"thirdparty.account.read",
-		"thirdparty.account.validate",
-		"thirdparty.resolve",
+		"secret.write",
+		"secret.delete",
+		"browser.launch",
+		"browser.close",
 		"config.write",
 		"governance.blacklist.read",
 		"governance.blacklist.write",

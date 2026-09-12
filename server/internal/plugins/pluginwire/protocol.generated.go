@@ -249,22 +249,23 @@ type ProtocolActionSecretReadFrame struct {
 	Key string `json:"key"`
 }
 
-type ProtocolActionThirdPartyAccountReadFrame struct {
-	Platform  string `json:"platform"`
-	AccountID string `json:"account_id,omitempty"`
+type ProtocolActionSecretWriteFrame struct {
+	Values map[string]string `json:"values"`
 }
 
-type ProtocolActionThirdPartyAccountValidateFrame struct {
-	Platform    string `json:"platform"`
-	AccountID   string `json:"account_id"`
-	Observation string `json:"observation"`
-	HTTPStatus  int    `json:"http_status,omitempty"`
+type ProtocolActionSecretDeleteFrame struct {
+	Keys []string `json:"keys"`
 }
 
-type ProtocolActionThirdPartyResolveFrame struct {
-	Platform string `json:"platform"`
-	Query    string `json:"query"`
-	Cookie   string `json:"cookie,omitempty"`
+type ProtocolActionBrowserLaunchFrame struct {
+	LifetimeSeconds    int    `json:"lifetime_seconds,omitempty"`
+	Profile            string `json:"profile"`
+	Mode               string `json:"mode,omitempty"`
+	RemoteDebuggingURL string `json:"remote_debugging_url,omitempty"`
+}
+
+type ProtocolActionBrowserCloseFrame struct {
+	SessionID string `json:"session_id"`
 }
 
 type ProtocolActionConfigWriteFrame struct {

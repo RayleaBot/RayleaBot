@@ -40,17 +40,6 @@ response:
     render:
       status: ok
       issues: []
-    third_party:
-      total: 1
-      enabled: 1
-      configured: 1
-      invalid: 0
-      platforms:
-        - platform: bilibili
-          total: 1
-          enabled: 1
-          configured: 1
-          invalid: 0
     scheduler:
       total: 1
       enabled: 1

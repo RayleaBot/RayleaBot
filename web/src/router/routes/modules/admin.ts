@@ -147,66 +147,51 @@ export const adminRoutes: RouteRecordRaw[] = [
           },
         },
       ]),
-      groupRoute('routes.connections', 'connections', 3, 'third-party-accounts', [
-        {
-          path: '/third-party-accounts',
-          name: 'third-party-accounts',
-          component: () => import('@/views/builtin/ThirdPartyAccountsView.vue'),
-          meta: {
-            icon: 'third-party-accounts',
-            keepAlive: true,
-            order: 1,
-            requiresAuth: true,
-            titleKey: 'routes.thirdPartyAccounts',
-            viewKey: 'third-party-accounts',
-          },
+      {
+        path: '/protocols',
+        name: 'protocols',
+        component: () => import('@/views/protocols/AdaptersView.vue'),
+        meta: {
+          icon: 'protocols',
+          keepAlive: true,
+          order: 3,
+          requiresAuth: true,
+          titleKey: 'routes.protocols',
+          viewKey: 'protocols',
         },
-        {
-          path: '/protocols',
-          name: 'protocols',
-          component: () => import('@/views/protocols/AdaptersView.vue'),
-          meta: {
-            icon: 'protocols',
-            keepAlive: true,
-            order: 2,
-            requiresAuth: true,
-            titleKey: 'routes.protocols',
-            viewKey: 'protocols',
-          },
+      },
+      {
+        path: '/protocols/qqofficial/:adapterId',
+        name: 'protocols-qqofficial',
+        redirect: (to) => buildProtocolsLocation({ adapterId: String(to.params.adapterId) }),
+        meta: {
+          hideInMenu: true,
+          keepAlive: true,
+          requiresAuth: true,
+          titleKey: 'routes.protocols',
         },
-        {
-          path: '/protocols/qqofficial/:adapterId',
-          name: 'protocols-qqofficial',
-          redirect: (to) => buildProtocolsLocation({ adapterId: String(to.params.adapterId) }),
-          meta: {
-            hideInMenu: true,
-            keepAlive: true,
-            requiresAuth: true,
-            titleKey: 'routes.protocols',
-          },
+      },
+      {
+        path: '/protocols/onebot11/:adapterId',
+        name: 'protocols-onebot11',
+        redirect: (to) => buildProtocolsLocation({ adapterId: String(to.params.adapterId) }),
+        meta: {
+          hideInMenu: true,
+          keepAlive: true,
+          requiresAuth: true,
+          titleKey: 'routes.protocols',
         },
-        {
-          path: '/protocols/onebot11/:adapterId',
-          name: 'protocols-onebot11',
-          redirect: (to) => buildProtocolsLocation({ adapterId: String(to.params.adapterId) }),
-          meta: {
-            hideInMenu: true,
-            keepAlive: true,
-            requiresAuth: true,
-            titleKey: 'routes.protocols',
-          },
+      },
+      {
+        path: '/protocols/compatibility',
+        name: 'protocols-compatibility',
+        redirect: () => buildProtocolCompatibilityLocation(),
+        meta: {
+          hideInMenu: true,
+          requiresAuth: true,
+          titleKey: 'routes.protocolCompatibility',
         },
-        {
-          path: '/protocols/compatibility',
-          name: 'protocols-compatibility',
-          redirect: () => buildProtocolCompatibilityLocation(),
-          meta: {
-            hideInMenu: true,
-            requiresAuth: true,
-            titleKey: 'routes.protocolCompatibility',
-          },
-        },
-      ]),
+      },
       groupRoute('routes.governance', 'toolbox', 4, 'permission-policy', [
         {
           path: '/permission-policy',

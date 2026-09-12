@@ -44,7 +44,6 @@ func TestRegisterManagementRoutes(t *testing.T) {
 			NewLogHandlers(nil),
 			NewSystemRoutes(NewSystemHandlers(nil), noopHandler),
 			NewRenderHandlers(nil, nil),
-			NewThirdPartyHandlers(nil, nil, nil),
 			newUpdateTestHandler(t, &updateServiceStub{}),
 			pluginUI,
 			ProtectedRouteFunc(func(r chi.Router) {

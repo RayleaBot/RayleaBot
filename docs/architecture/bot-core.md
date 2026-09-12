@@ -14,7 +14,7 @@
 | Dispatcher | 负责目标选择、命令定向、fan-out 排队和插件返回动作执行 |
 | Plugin Lifecycle Controller | 负责发现、注册、启停、重载、崩溃恢复和生命周期编排 |
 | Runtime Manager | 负责插件进程会话、握手、保活、事件投递与终态收集 |
-| Local Action Service | 负责消息、配置、secret、存储、插件目录、三方账号、治理、渲染、调度、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
+| Local Action Service | 负责消息、配置、secret、存储、插件目录、浏览器、治理、渲染、调度、OneBot 与 provider 动作；完整清单见[插件协议](../plugin/protocol.md#action-rpc) |
 | Adapter Service | 位于 `bot/adapters`，持有所有适配器实例，负责启停、配置 reload、领域快照、协议查询、OneBot 回连与 Webhook 协议入口 |
 | Management Events | 位于 `management/events`，负责管理 Frame、初始快照、事件投影和连接订阅生命周期 |
 | Plugin Webhook Service | 负责插件 webhook 注册、鉴权、按需拉起和事件投递 |

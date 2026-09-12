@@ -91,7 +91,6 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 - `storage.file`
 
 宿主使用 init 建立的插件身份选择命名空间。`storage.file` 请求只传相对 `path`，不能选择文件根或其他插件空间。配置读取不使用 action；插件读取当前 `EventContext.Config`。
-
 ### 显式权限动作
 
 常用动作：
@@ -99,10 +98,8 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 - `message.send`
 - `http.request`
 - `plugin.list`
-- `secret.read`
-- `thirdparty.account.read`
-- `thirdparty.account.validate`
-- `thirdparty.resolve`
+- `secret.read` / `write` / `delete`
+- `browser.launch` / `browser.close`
 - `governance.blacklist.read` / `write`
 - `governance.whitelist.read` / `write`
 - `governance.command_policy.read`
@@ -155,11 +152,11 @@ QQ 官方机器人事件的原生投影位于 `event.payload.qq_official`，包�
 
 Webhook 路由由 manifest 静态声明。协议没有运行时暴露 webhook 的 action。请求通过宿主鉴权与重放检查后以 `webhook.received` 投递。
 
-### 三方账号
+### 浏览器会话
 
-- `thirdparty.account.read` 只返回已保存、启用且可用的账号凭据。
-- `thirdparty.account.validate` 只提交受限异常观察，由 Server 决定凭据状态。
-- `thirdparty.resolve` 当前用抖音登录环境解析用户候选。
+- `browser.launch` 为调用插件启动或附着宿主托管的浏览器会话，宿主按插件隔离本地 profile、应用启动硬化，并限制同一 profile 同时只有一个会话；返回的 `debugger_url` 是该会话的浏览器级 CDP WebSocket 端点。
+- `lifetime_seconds` 设置 1～1800 秒的会话期限，默认 1800 秒。会话在期限到期、所属插件进程退出或收到 `browser.close` 时关闭；宿主启动的浏览器进程回收完成后才释放 profile。
+- `remote_cdp` 模式只接受无凭据的本机回环 HTTP(S) 或 WS(S) 端点。
 
 ## 终态和错误
 

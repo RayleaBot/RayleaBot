@@ -11,7 +11,6 @@ import {
   FileTextIcon,
   ServerIcon,
   HistoryIcon,
-  ContactRoundIcon,
   LogInIcon,
   MenuIcon,
   MonitorIcon,
@@ -47,7 +46,6 @@ const iconMap: Record<string, Component> = {
   runtime: MonitorIcon,
   scheduler: CalendarClockIcon,
   system: ServerIcon,
-  'third-party-accounts': ContactRoundIcon,
   toolbox: WrenchIcon,
 }
 

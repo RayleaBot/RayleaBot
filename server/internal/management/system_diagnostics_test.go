@@ -70,7 +70,6 @@ func TestSystemDiagnosticsHTTP(t *testing.T) {
 			Adapters:     []adapterservice.Status{{ID: "onebot11", Protocol: "onebot11", Enabled: true, State: "connected"}},
 			Plugins:      systemsvc.DiagnosticsPlugins{},
 			Render:       systemsvc.DiagnosticsIssueGroup{Status: "ok", Issues: []health.DiagnosticIssue{}},
-			ThirdParty:   systemsvc.DiagnosticsThirdParty{Platforms: []systemsvc.DiagnosticsThirdPartyPlatform{}},
 			Dependencies: []systemsvc.DiagnosticsDependency{},
 			Filesystem:   []systemsvc.DiagnosticsPathPermission{},
 			RecentErrors: []logging.Summary{},

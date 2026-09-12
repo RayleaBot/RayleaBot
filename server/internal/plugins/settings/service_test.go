@@ -62,7 +62,7 @@ func newFixture(t *testing.T, configure func(*settings.Deps), controlQueueSize .
 		PluginID: "weather", Valid: true, RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
 		DefaultConfig:    map[string]any{"count": 3, "nested": map[string]any{"old": true}, "trigger_commands": []any{"old"}},
 		ManifestCommands: []plugins.Command{{ID: "query", TriggerType: "setting", SettingsKey: "trigger_commands", Permission: "everyone"}},
-		Permissions:      map[string]plugins.PermissionGrant{"secret.read": {}},
+		Permissions:      map[string]bool{"secret.read": true},
 	}
 	cat := catalog.New([]plugins.Snapshot{entry, {PluginID: "other", Valid: true, RegistrationState: "installed"}})
 	d := dispatch.New(slog.Default(), nil, nil, 128, controlQueueSize...)

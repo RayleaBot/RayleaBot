@@ -267,42 +267,49 @@ func (actions *Actions) SecretRead(ctx context.Context, key string) (ActionResul
 	return actions.callResult(ctx, "secret.read", SecretReadRequest{Key: key})
 }
 
-type ThirdPartyAccountReadRequest struct {
-	Platform  string `json:"platform"`
-	AccountID string `json:"account_id,omitempty"`
+type SecretWriteRequest struct {
+	Values map[string]string `json:"values"`
 }
 
-func (actions *Actions) ThirdPartyAccountRead(ctx context.Context, request ThirdPartyAccountReadRequest) (ActionResult, error) {
-	return actions.callResult(ctx, "thirdparty.account.read", request)
+func (actions *Actions) SecretWrite(ctx context.Context, values map[string]string) (ActionResult, error) {
+	if len(values) == 0 {
+		return nil, errors.New("rayleabot: SecretWrite requires at least one value")
+	}
+	return actions.callResult(ctx, "secret.write", SecretWriteRequest{Values: values})
 }
 
-type ThirdPartyAccountObservation string
-
-const (
-	ThirdPartyAccountObservationAuthRejected   ThirdPartyAccountObservation = "auth_rejected"
-	ThirdPartyAccountObservationSessionBlocked ThirdPartyAccountObservation = "session_blocked"
-)
-
-type ThirdPartyAccountValidateRequest struct {
-	Platform    string                       `json:"platform"`
-	AccountID   string                       `json:"account_id"`
-	Observation ThirdPartyAccountObservation `json:"observation"`
-	HTTPStatus  int                          `json:"http_status,omitempty"`
+type SecretDeleteRequest struct {
+	Keys []string `json:"keys"`
 }
 
-func (actions *Actions) ThirdPartyAccountValidate(ctx context.Context, request ThirdPartyAccountValidateRequest) (ActionResult, error) {
-	return actions.callResult(ctx, "thirdparty.account.validate", request)
+func (actions *Actions) SecretDelete(ctx context.Context, keys []string) (ActionResult, error) {
+	if len(keys) == 0 {
+		return nil, errors.New("rayleabot: SecretDelete requires at least one key")
+	}
+	return actions.callResult(ctx, "secret.delete", SecretDeleteRequest{Keys: keys})
 }
 
-type ThirdPartyResolveRequest struct {
-	Platform string `json:"platform"`
-	Query    string `json:"query"`
-	// Cookie 为账号 CK（敏感凭据），宿主用于恢复登录环境解析关键词。
-	Cookie string `json:"cookie,omitempty"`
+type BrowserLaunchRequest struct {
+	LifetimeSeconds int `json:"lifetime_seconds,omitempty"`
+	// Profile selects the plugin-scoped persistent browser profile.
+	Profile string `json:"profile"`
+	// Mode is one of auto, visible, headless, or remote_cdp.
+	Mode string `json:"mode,omitempty"`
+	// RemoteDebuggingURL is required for remote_cdp mode and must be a
+	// loopback HTTP(S) or WS(S) CDP endpoint.
+	RemoteDebuggingURL string `json:"remote_debugging_url,omitempty"`
 }
 
-func (actions *Actions) ThirdPartyResolve(ctx context.Context, request ThirdPartyResolveRequest) (ActionResult, error) {
-	return actions.callResult(ctx, "thirdparty.resolve", request)
+func (actions *Actions) BrowserLaunch(ctx context.Context, request BrowserLaunchRequest) (ActionResult, error) {
+	return actions.callResult(ctx, "browser.launch", request)
+}
+
+type BrowserCloseRequest struct {
+	SessionID string `json:"session_id"`
+}
+
+func (actions *Actions) BrowserClose(ctx context.Context, sessionID string) (ActionResult, error) {
+	return actions.callResult(ctx, "browser.close", BrowserCloseRequest{SessionID: sessionID})
 }
 
 func (actions *Actions) GovernanceBlacklistRead(ctx context.Context) (ActionResult, error) {

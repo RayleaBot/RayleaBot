@@ -119,7 +119,7 @@ QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协�
 
 ### Local action 能力族
 
-- 平台能力族包括消息、日志、存储、HTTP、配置、secret、插件目录、三方账号、治理、调度、Webhook 和渲染。
+- 平台能力族包括消息、日志、存储、HTTP、配置、secret、插件目录、浏览器、治理、调度、Webhook 和渲染。
 - OneBot 动作族覆盖消息读取与管理、好友与用户、群治理、文件、reaction 与 poke；provider 另有受控扩展动作。
 - 人类可读的完整 action 名称与参数清单只维护在[插件协议](../plugin/protocol.md#action-rpc)，机器可读结构以 `contracts/plugin-protocol.schema.json` 为准。
 - 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`plugin.started`、`config.changed`、`webhook.received`、`bot.identities.changed`、`management.action`。
@@ -165,7 +165,7 @@ QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协�
 - `service_status`：服务总体状态变化摘要
 - `plugin_id` + `state` + `commands` + `command_conflicts` + 可选 `state_diagnosis`：插件生命周期状态展示
 - `connection_status`：OneBot 连接状态摘要
-- `event_type` + `summary`：通用管理事件（当前包括 `governance.changed` 与 `third_party.account.changed`）
+- `event_type` + `summary`：通用管理事件（当前包括 `governance.changed`）
 - `adapters`：按配置顺序推送完整适配器实例集合；OneBot11 实例的协议快照位于该实例的 `onebot11` 字段
 - `observability_scope` = `bridge_runtime` 时的聚合观测摘要
 - `observability_scope` = `dispatcher_runtime` 时的 dispatcher 窗口统计摘要

@@ -134,7 +134,7 @@ func TestServiceInspectionRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 		PluginID:      "raylea.echo",
 		PluginName:    "Echo",
 		Version:       "0.4.0",
-		Permissions:   map[string]plugins.PermissionGrant{"message.send": {}},
+		Permissions:   map[string]bool{"message.send": true},
 	}}
 	service := newTestService(t, emptyCatalog{}, installer, repository, staticCatalogTransport(payload))
 	first, err := service.Inspect(context.Background(), InspectionRequest{SourceID: OfficialSourceID, PluginID: "raylea.echo"})
@@ -154,7 +154,7 @@ func TestServiceInspectionRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 
 	installed := fixedCatalog{snapshot: plugins.Snapshot{
 		PluginID: "raylea.echo", Version: "0.3.0", PackageSourceType: "catalog", PackageSourceRef: OfficialSourceID,
-		Permissions: map[string]plugins.PermissionGrant{"message.send": {}},
+		Permissions: map[string]bool{"message.send": true},
 	}}
 	installer = &stubInstaller{inspection: installer.inspection}
 	service = newTestService(t, installed, installer, repository, staticCatalogTransport(payload))
@@ -175,14 +175,11 @@ func TestServiceInspectionRequiresConfirmationOnlyForNewTrust(t *testing.T) {
 }
 
 func TestPermissionsExpanded(t *testing.T) {
-	current := map[string]plugins.PermissionGrant{"thirdparty.account.read": {Platforms: []string{"bilibili", "weibo"}}}
-	if permissionsExpanded(current, map[string]plugins.PermissionGrant{"thirdparty.account.read": {Platforms: []string{"bilibili"}}}) {
-		t.Fatal("permission reduction was classified as expansion")
+	current := map[string]bool{"http.request": true}
+	if permissionsExpanded(current, map[string]bool{"http.request": true}) {
+		t.Fatal("unchanged permission was classified as expansion")
 	}
-	if !permissionsExpanded(current, map[string]plugins.PermissionGrant{"thirdparty.account.read": {Platforms: []string{"bilibili", "douyin"}}}) {
-		t.Fatal("new platform was not classified as expansion")
-	}
-	if !permissionsExpanded(current, map[string]plugins.PermissionGrant{"message.send": {}}) {
+	if !permissionsExpanded(current, map[string]bool{"http.request": true, "message.send": true}) {
 		t.Fatal("new permission was not classified as expansion")
 	}
 }

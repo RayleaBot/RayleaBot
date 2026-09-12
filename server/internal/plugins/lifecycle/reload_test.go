@@ -30,7 +30,7 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
 		RuntimeState:      "running",
-		Permissions:       map[string]plugins.PermissionGrant{"http.request": {}},
+		Permissions:       map[string]bool{"http.request": true},
 		Commands: []plugins.Command{{
 			ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
 			Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},
@@ -58,7 +58,7 @@ func TestReloadRefreshesManifestCommandsAndPermissions(t *testing.T) {
 				RegistrationState: "installed",
 				DesiredState:      "enabled",
 				RuntimeState:      "stopped",
-				Permissions:       map[string]plugins.PermissionGrant{"http.request": {}, "message.send": {}},
+				Permissions:       map[string]bool{"http.request": true, "message.send": true},
 				ManifestCommands: []plugins.Command{{
 					ID: "subscribe-bilibili", DisplayName: "订阅 Bilibili 推送",
 					Name: "订阅b站推送", TriggerType: "exact", TriggerNames: []string{"订阅b站推送"},

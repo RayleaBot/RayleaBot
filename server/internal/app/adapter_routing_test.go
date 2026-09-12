@@ -21,7 +21,6 @@ import (
 type routingPermissions struct{}
 
 func (routingPermissions) PermissionDeclared(context.Context, string, string) bool      { return true }
-func (routingPermissions) PermissionPlatforms(context.Context, string, string) []string { return nil }
 func (routingPermissions) ListPluginSnapshots() []plugins.Snapshot                      { return nil }
 
 func oneBotRoutingEndpoint(t *testing.T, name string) (config.AdapterInstance, *atomic.Int32) {

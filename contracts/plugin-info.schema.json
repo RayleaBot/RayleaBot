@@ -70,8 +70,8 @@
         "governance.blacklist.read", "governance.blacklist.write",
         "governance.whitelist.read", "governance.whitelist.write",
         "governance.command_policy.read", "scheduler.create", "render.image",
-        "plugin.list", "secret.read", "thirdparty.account.read",
-        "thirdparty.account.validate", "thirdparty.resolve", "message.get",
+        "plugin.list", "secret.read", "secret.write", "secret.delete",
+        "browser.launch", "browser.close", "message.get",
         "message.delete", "message.history.get", "message.forward.get",
         "message.forward.send", "message.read.mark", "friend.request.handle",
         "friend.list", "friend.remark.set", "user.info.get", "user.like.send",
@@ -92,37 +92,7 @@
       "type": "object",
       "description": "Explicit elevated host permissions. Plugin-private logging, configuration, KV and file access are implicit and namespace-isolated.",
       "propertyNames": { "$ref": "#/$defs/permission_name" },
-      "additionalProperties": { "const": true },
-      "properties": {
-        "thirdparty.account.read": { "$ref": "#/$defs/platform_permission" },
-        "thirdparty.account.validate": { "$ref": "#/$defs/platform_permission" },
-        "thirdparty.resolve": { "$ref": "#/$defs/resolve_permission" }
-      }
-    },
-    "platform_permission": {
-      "oneOf": [
-        { "const": true },
-        {
-          "type": "object", "additionalProperties": false, "required": ["platforms"],
-          "properties": {
-            "platforms": {
-              "type": "array", "minItems": 1, "uniqueItems": true,
-              "items": { "type": "string", "enum": ["bilibili", "weibo", "douyin", "netease_music"] }
-            }
-          }
-        }
-      ]
-    },
-    "resolve_permission": {
-      "oneOf": [
-        { "const": true },
-        {
-          "type": "object", "additionalProperties": false, "required": ["platforms"],
-          "properties": {
-            "platforms": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "const": "douyin" } }
-          }
-        }
-      ]
+      "additionalProperties": { "const": true }
     },
     "permission_level": { "type": "string", "enum": ["super_admin", "group_admin", "everyone"] },
     "command": {

@@ -55,7 +55,7 @@ func TestInstallInspectHandlerReturnsDigestBoundMetadata(t *testing.T) {
 		Author:         "example",
 		License:        "MIT",
 		SourceLabel:    "本地插件包",
-		Permissions:    map[string]plugins.PermissionGrant{"http.request": {}},
+		Permissions:    map[string]bool{"http.request": true},
 		TargetPlatform: "windows-x64",
 		Backend:        plugins.InstallBackendInspection{Entry: "bin/weather", Path: "bin/weather.exe", Size: 1024},
 		UI:             plugins.InstallUIInspection{Enabled: true, Entry: "ui/index.html", FileCount: 3},

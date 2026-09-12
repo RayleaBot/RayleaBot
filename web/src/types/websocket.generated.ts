@@ -18,7 +18,6 @@ export const webSocketEvents = {
 
 export const managementEventTypes = {
   governanceChanged: 'governance.changed',
-  thirdPartyAccountChanged: 'third_party.account.changed',
 } as const
 
 export type ManagementWebSocketChannel = 'logs' | 'events' | 'plugin_console'

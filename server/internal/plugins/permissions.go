@@ -45,25 +45,6 @@ func (v *PermissionView) PermissionDeclared(ctx context.Context, pluginID, permi
 	return false
 }
 
-func (v *PermissionView) PermissionPlatforms(ctx context.Context, pluginID, permission string) []string {
-	_ = ctx
-	snapshot, ok := v.snapshot(pluginID)
-	if !ok {
-		return nil
-	}
-	grant, ok := snapshot.Permissions[strings.TrimSpace(permission)]
-	if !ok {
-		return nil
-	}
-	if len(grant.Platforms) > 0 {
-		return append([]string(nil), grant.Platforms...)
-	}
-	if permission == "thirdparty.resolve" {
-		return []string{"douyin"}
-	}
-	return []string{"bilibili", "douyin", "netease_music", "weibo"}
-}
-
 func (v *PermissionView) ListPluginSnapshots() []Snapshot {
 	if v.plugins == nil {
 		return nil

@@ -79,7 +79,7 @@ func newStaticWebhookServer(t *testing.T, maxBodyBytes int) (*pluginwebhook.Regi
 	catalog := plugincatalog.New([]plugins.Snapshot{{
 		PluginID: "repo-watcher", Name: "Repo Watcher", Valid: true,
 		RegistrationState: "installed", DesiredState: "enabled", RuntimeState: "running",
-		Events: []string{"webhook.received"}, Permissions: map[string]plugins.PermissionGrant{"event.raw_payload": {}},
+		Events: []string{"webhook.received"}, Permissions: map[string]bool{"event.raw_payload": true},
 		Webhooks: []plugins.WebhookScope{{
 			ID: "github", Route: "github", AuthStrategy: "hmac_sha256", Header: "X-Hub-Signature-256",
 			SecretRef: "webhook.github.secret", SignaturePrefix: "sha256=", MaxBodyBytes: maxBodyBytes,

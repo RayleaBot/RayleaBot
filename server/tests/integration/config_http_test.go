@@ -336,13 +336,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"queue_max_length":           32,
 			"footer_template":            "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}",
 		},
-		"third_party_accounts": map[string]any{
-			"credential_check_interval_minutes": 360,
-			"douyin_login": map[string]any{
-				"browser_mode":         "auto",
-				"remote_debugging_url": "",
-			},
-		},
 		"scheduler": map[string]any{
 			"timezone": "Asia/Shanghai",
 		},

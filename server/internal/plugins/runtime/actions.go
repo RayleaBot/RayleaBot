@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -23,6 +22,7 @@ const (
 var (
 	adapterInstanceIDPattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 	renderImageResourceIDPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]{0,63}$`)
+	secretKeyPattern                 = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$`)
 	errInvalidRenderImageResourceURL = errors.New("invalid render.image resource URL")
 )
 
@@ -89,80 +89,81 @@ func parseSecretReadAction(raw json.RawMessage) (*plugins.Action, error) {
 	return &plugins.Action{Kind: "secret.read", SecretKey: key}, nil
 }
 
-func parseThirdPartyAccountReadAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionThirdPartyAccountReadFrame](raw, "thirdparty.account.read")
+func parseSecretWriteAction(raw json.RawMessage) (*plugins.Action, error) {
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionSecretWriteFrame](raw, "secret.write")
+	if err != nil {
+		return nil, err
+	}
+	if len(frame.Values) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required secret.write fields", nil)
+	}
+	for key, value := range frame.Values {
+		if !secretKeyPattern.MatchString(key) || value == "" {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid secret.write values", nil)
+		}
+	}
+	return &plugins.Action{Kind: "secret.write", SecretValues: frame.Values}, nil
+}
+
+func parseSecretDeleteAction(raw json.RawMessage) (*plugins.Action, error) {
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionSecretDeleteFrame](raw, "secret.delete")
+	if err != nil {
+		return nil, err
+	}
+	if len(frame.Keys) == 0 {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required secret.delete fields", nil)
+	}
+	keys := make([]string, 0, len(frame.Keys))
+	seen := make(map[string]bool, len(frame.Keys))
+	for _, key := range frame.Keys {
+		if !secretKeyPattern.MatchString(key) || seen[key] {
+			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid secret.delete keys", nil)
+		}
+		seen[key] = true
+		keys = append(keys, key)
+	}
+	return &plugins.Action{Kind: "secret.delete", SecretKeys: keys}, nil
+}
+
+func parseBrowserLaunchAction(raw json.RawMessage) (*plugins.Action, error) {
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionBrowserLaunchFrame](raw, "browser.launch")
 	if err != nil {
 		return nil, err
 	}
 
-	platform := strings.TrimSpace(frame.Platform)
-	if platform == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.account.read fields", nil)
+	profile := strings.TrimSpace(frame.Profile)
+	if profile == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required browser.launch fields", nil)
+	}
+	mode := strings.TrimSpace(frame.Mode)
+	switch mode {
+	case "", "auto", "visible", "headless", "remote_cdp":
+	default:
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid browser.launch mode", nil)
+	}
+	remoteURL := strings.TrimSpace(frame.RemoteDebuggingURL)
+	if mode == "remote_cdp" && remoteURL == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required browser.launch remote_debugging_url", nil)
 	}
 	return &plugins.Action{
-		Kind:                      "thirdparty.account.read",
-		ThirdPartyAccountPlatform: platform,
-		ThirdPartyAccountID:       strings.TrimSpace(frame.AccountID),
+		Kind:                      "browser.launch",
+		BrowserProfile:            profile,
+		BrowserMode:               mode,
+		BrowserRemoteDebuggingURL: remoteURL,
+		BrowserLifetimeSeconds:    frame.LifetimeSeconds,
 	}, nil
 }
 
-func parseThirdPartyAccountValidateAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionThirdPartyAccountValidateFrame](raw, "thirdparty.account.validate")
+func parseBrowserCloseAction(raw json.RawMessage) (*plugins.Action, error) {
+	frame, err := decodeActionFrame[pluginwire.ProtocolActionBrowserCloseFrame](raw, "browser.close")
 	if err != nil {
 		return nil, err
 	}
-	payload, err := decodeAllowedActionKeys(raw, "thirdparty.account.validate", "platform", "account_id", "observation", "http_status")
-	if err != nil {
-		return nil, err
+	sessionID := strings.TrimSpace(frame.SessionID)
+	if sessionID == "" {
+		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required browser.close fields", nil)
 	}
-
-	platform := strings.TrimSpace(frame.Platform)
-	accountID := strings.TrimSpace(frame.AccountID)
-	observation := strings.TrimSpace(frame.Observation)
-	if platform == "" || accountID == "" || observation == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.account.validate fields", nil)
-	}
-	if observation != "auth_rejected" && observation != "session_blocked" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate observation", nil)
-	}
-	if _, provided := payload["http_status"]; provided && (frame.HTTPStatus < 100 || frame.HTTPStatus > 599) {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.account.validate http_status", nil)
-	}
-	return &plugins.Action{
-		Kind:                         "thirdparty.account.validate",
-		ThirdPartyAccountPlatform:    platform,
-		ThirdPartyAccountID:          accountID,
-		ThirdPartyAccountObservation: observation,
-		ThirdPartyAccountHTTPStatus:  frame.HTTPStatus,
-	}, nil
-}
-
-func parseThirdPartyResolveAction(raw json.RawMessage) (*plugins.Action, error) {
-	frame, err := decodeActionFrame[pluginwire.ProtocolActionThirdPartyResolveFrame](raw, "thirdparty.resolve")
-	if err != nil {
-		return nil, err
-	}
-
-	platform := strings.TrimSpace(frame.Platform)
-	query := strings.TrimSpace(frame.Query)
-	if platform == "" || query == "" {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required thirdparty.resolve fields", nil)
-	}
-	// schema maxLength 按 Unicode 码点计，这里用 rune 计数保持一致，
-	// 避免多字节昵称（如 emoji）被字节长度误拒。
-	if utf8.RuneCountInString(query) > 64 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.resolve query", nil)
-	}
-	cookie := strings.TrimSpace(frame.Cookie)
-	if len(cookie) > 8192 {
-		return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid thirdparty.resolve cookie", nil)
-	}
-	return &plugins.Action{
-		Kind:                      "thirdparty.resolve",
-		ThirdPartyAccountPlatform: platform,
-		ThirdPartyResolveQuery:    query,
-		ThirdPartyResolveCookie:   cookie,
-	}, nil
+	return &plugins.Action{Kind: "browser.close", BrowserSessionID: sessionID}, nil
 }
 
 func parseConfigWriteAction(raw json.RawMessage) (*plugins.Action, error) {

@@ -52,10 +52,10 @@ func TestDiagnosticsIssueGroupsExposeUserAndInternalFields(t *testing.T) {
 	t.Parallel()
 
 	items := nonNilIssues([]health.DiagnosticIssue{{
-		Code:        "third_party.credential_invalid",
-		Severity:    "error",
-		Summary:     "三方账号凭据失效",
-		Remediation: "请重新扫码登录。",
+		Code:        "storage.schema_metadata_unavailable",
+		Severity:    "warning",
+		Summary:     "数据库初始化元数据不可读",
+		Remediation: "请检查 SQLite 文件权限和 schema_metadata 表是否完整。",
 	}})
 
 	if len(items) != 1 {

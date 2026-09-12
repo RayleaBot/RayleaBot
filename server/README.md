@@ -7,7 +7,7 @@
 - 配置校验与热更新、SQLite 持久化、管理认证、secret store、日志与指标。
 - OneBot11 和 QQ 官方适配器实例、统一聊天事件、命令治理与出站消息。
 - 插件 artifact 安装、商店来源、生命周期、JSONL 协议、私有存储与宿主动作。
-- 调度、模板渲染、三方账号、运行资源准备、备份恢复和更新编排。
+- 调度、模板渲染、插件浏览器会话、运行资源准备、备份恢复和更新编排。
 - HTTP/WebSocket 管理面、Launcher 本机控制与离线 CLI。
 
 接口、错误码、配置和插件协议以 [`contracts/`](../contracts/README.md) 为准；完整 HTTP 操作见 [OpenAPI](../contracts/web-api.openapi.yaml)。使用说明见[管理面职责](../docs/user/management-surface.md)和 [CLI](../docs/user/cli.md)。
@@ -23,9 +23,8 @@
 - 单实例 Server 与 SQLite；聊天连接按 `adapters` 实例管理，支持 OneBot11 与 QQ 官方协议
 - 插件 runtime 通过正式 local action surface 访问平台能力
 - App 负责组装、运行和关闭；事件入口、协议入口、Webhook 网关、本地动作和系统能力各自由独立服务实现
-- 内置三方账号平台包含 Bilibili、微博、抖音和网易云音乐
-- Cookie / CK 值只保存在 secret store；HTTP 响应只暴露账号摘要与凭据状态
-- 平台保存三方账号 CK、扫码登录结果和账号资料，并负责手动与定时 CK 检查；订阅检查、用户解析、状态读取和内容的即时检查由订阅中心插件处理
+- 平台提供按插件隔离的通用浏览器会话与密钥读写动作
+- 插件凭据只保存在各自插件的 secret 命名空间，平台响应只暴露必要的摘要与状态
 
 ## 默认命令
 

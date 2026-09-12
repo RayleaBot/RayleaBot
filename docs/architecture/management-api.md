@@ -36,5 +36,4 @@ handler 只能向客户端返回稳定 `code` 和安全 `message`。底层 cause
 
 - `scripts/ci/validate_contracts.py --mode=strict` 校验 OpenAPI、fixtures、配置 metadata 和生成物。
 - `server/tests/architecture/error_codes_test.go` 校验 management handler 使用的错误码。
-- `server/tests/architecture/credential_leak_test.go` 防止扫码登录成功响应 fixture 带出原始凭据。
 - Web 和 Launcher 生成类型来自 `contracts/web-api.openapi.yaml`，contract 变更需要同步生成物。

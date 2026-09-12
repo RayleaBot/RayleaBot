@@ -1,0 +1,15 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+  - type: action
+    request_id: action-browser-close-1
+    action: browser.close
+    data:
+      session_id: browser-session-1
+  - type: result
+    request_id: action-browser-close-1
+    status: success
+    data:
+      closed: true
+expect:
+  valid: true

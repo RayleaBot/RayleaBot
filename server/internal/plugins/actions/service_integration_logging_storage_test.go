@@ -242,10 +242,10 @@ func TestExecuteGovernanceActionsRoundTrip(t *testing.T) {
 		Valid:             true,
 		RegistrationState: "installed",
 		DesiredState:      "enabled",
-		Permissions: map[string]plugins.PermissionGrant{
-			"governance.blacklist.read": {}, "governance.blacklist.write": {},
-			"governance.whitelist.read": {}, "governance.whitelist.write": {},
-			"governance.command_policy.read": {},
+		Permissions: map[string]bool{
+			"governance.blacklist.read": true, "governance.blacklist.write": true,
+			"governance.whitelist.read": true, "governance.whitelist.write": true,
+			"governance.command_policy.read": true,
 		},
 		Commands: []plugins.Command{
 			{ID: "forecast", Name: "forecast", DisplayName: "forecast", TriggerType: "exact", TriggerNames: []string{"forecast", "fc"}, Permission: "group_admin", Aliases: []string{"fc"}},
@@ -430,7 +430,7 @@ func TestExecuteSchedulerCreateUpsertDoesNotWriteManagementLog(t *testing.T) {
 		Name:              "天气插件",
 		Valid:             true,
 		RegistrationState: "installed",
-		Permissions:       map[string]plugins.PermissionGrant{"scheduler.create": {}},
+		Permissions:       map[string]bool{"scheduler.create": true},
 	}})
 	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
 	deps.Scheduler = localaction.Scheduler(engine)

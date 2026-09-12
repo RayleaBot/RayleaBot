@@ -40,7 +40,7 @@ func (source *streamStatusSource) SnapshotAndSubscribe(buffer int) (Frame, <-cha
 func newStreamFixture(t *testing.T) (*Stream, *streamSources) {
 	t.Helper()
 	source := &streamSources{}
-	stream, err := NewStream(Sources{Bridge: source, Plugins: source, Adapters: source, Status: &source.status, Governance: &source.changes, ThirdParty: &source.changes})
+	stream, err := NewStream(Sources{Bridge: source, Plugins: source, Adapters: source, Status: &source.status, Governance: &source.changes})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -90,8 +90,6 @@ const (
 	PlatformTaskTimeoutMessageKey                       = "errors.platform.task_timeout"
 	PlatformTemplateNotFound                            = "platform.template_not_found"
 	PlatformTemplateNotFoundMessageKey                  = "errors.platform.template_not_found"
-	PlatformThirdPartyAccountNotFound                   = "platform.third_party_account_not_found"
-	PlatformThirdPartyAccountNotFoundMessageKey         = "errors.platform.third_party_account_not_found"
 	PlatformUpstreamRequestFailed                       = "platform.upstream_request_failed"
 	PlatformUpstreamRequestFailedMessageKey             = "errors.platform.upstream_request_failed"
 	PlatformUpstreamResponseTooLarge                    = "platform.upstream_response_too_large"
@@ -211,7 +209,6 @@ const (
 	DiagnosticSchemaOk                                  = "schema.ok"
 	DiagnosticSetupRequired                             = "setup.required"
 	DiagnosticStorageSchemaMetadataUnavailable          = "storage.schema_metadata_unavailable"
-	DiagnosticThirdPartyAccountsUnavailable             = "third_party.accounts_unavailable"
 	DiagnosticWindowsLongPathsDisabled                  = "windows.long_paths_disabled"
 	DiagnosticWindowsLongPathsEnabled                   = "windows.long_paths_enabled"
 	DiagnosticWindowsLongPathsUnavailable               = "windows.long_paths_unavailable"
@@ -262,7 +259,6 @@ var catalog = map[string]Definition{
 	PlatformTaskQueueFull:                     {Code: PlatformTaskQueueFull, HTTPStatus: 429, MessageKey: PlatformTaskQueueFullMessageKey, Message: "后台任务队列已满", Retryable: true, Surfaces: "http,websocket,task"},
 	PlatformTaskTimeout:                       {Code: PlatformTaskTimeout, HTTPStatus: 504, MessageKey: PlatformTaskTimeoutMessageKey, Message: "后台任务超时", Retryable: true, Surfaces: "http,websocket,task"},
 	PlatformTemplateNotFound:                  {Code: PlatformTemplateNotFound, HTTPStatus: 404, MessageKey: PlatformTemplateNotFoundMessageKey, Message: "模板不存在", Retryable: false, Surfaces: "http,task"},
-	PlatformThirdPartyAccountNotFound:         {Code: PlatformThirdPartyAccountNotFound, HTTPStatus: 404, MessageKey: PlatformThirdPartyAccountNotFoundMessageKey, Message: "三方账号不存在或尚未配置凭据", Retryable: false, Surfaces: "http"},
 	PlatformUpstreamRequestFailed:             {Code: PlatformUpstreamRequestFailed, HTTPStatus: 502, MessageKey: PlatformUpstreamRequestFailedMessageKey, Message: "上游请求失败", Retryable: true, Surfaces: "http,websocket,plugin_protocol,readiness"},
 	PlatformUpstreamResponseTooLarge:          {Code: PlatformUpstreamResponseTooLarge, HTTPStatus: 502, MessageKey: PlatformUpstreamResponseTooLargeMessageKey, Message: "上游响应超过大小限制", Retryable: false, Surfaces: "http,websocket,plugin_protocol,task"},
 	PlatformUserRateLimited:                   {Code: PlatformUserRateLimited, HTTPStatus: 0, MessageKey: PlatformUserRateLimitedMessageKey, Message: "用户命令触发冷却限流", Retryable: true, Surfaces: "plugin_protocol,logs"},

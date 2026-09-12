@@ -11,7 +11,7 @@
 | 场景 | 当前验证入口 | 核对结果 |
 | --- | --- | --- |
 | 生产静态资源、保护路由、登录、治理作用域、配置落盘、日志详情 | [`management.real.spec.ts`](../../web/tests/production/management.real.spec.ts) | 真实 HTTP 响应与 UI 操作结果一致；同目标 ID 的不同机器人规则互不覆盖 |
-| IPC 限流和抖音浏览器配置 | [`config.real.spec.ts`](../../web/tests/production/config.real.spec.ts) | Server 返回实际的即时应用与需重启字段，刷新后读取持久化结果 |
+| IPC 限流 | [`config.real.spec.ts`](../../web/tests/production/config.real.spec.ts) | Server 返回实际的即时应用与需重启字段，刷新后读取持久化结果 |
 | Cookie/CSRF、全局插件配置、空适配器与空调度列表 | [`settings.real.spec.ts`](../../web/tests/production/settings.real.spec.ts) | 未初始化状态互相隔离；无 CSRF 的写入拒绝；保存后刷新仍保留配置 |
 | 管理员密码与用户名更新 | [`account.real.spec.ts`](../../web/tests/production/account.real.spec.ts) | 当前密码由真实 Server 检查，更新使会话失效，新凭据能够重新登录 |
 | 协议连接草稿、配置保存与密钥遮罩 | [`adapters.real.spec.ts`](../../web/tests/production/adapters.real.spec.ts) | 不完整或取消的表单不发写请求；新连接保存后的重启提示与遮罩结果来自 Server；后续编辑保留被遮罩密钥 |
@@ -19,15 +19,15 @@
 | 黑白名单增删、开关与空名单确认 | [`governance.real.spec.ts`](../../web/tests/production/governance.real.spec.ts) | 初始数据通过 API 创建；增删与开关操作后读取真实持久化结果 |
 | 插件 iframe 隔离、握手、错误恢复 | [`plugin-management-ui.real.spec.ts`](../../web/tests/production/plugin-management-ui.real.spec.ts) | 当前 Server 托管实际示例插件，iframe 使用实际动态端口，插件来源不暴露管理 API；失败恢复只拦截 iframe 的网络请求 |
 
-这些用例均使用真实 Server。第三方平台没有真实登录凭据，QQ、Bilibili、微博、抖音等外部登录与消息发送不属于本组覆盖。
+这些用例均使用真实 Server。外部平台登录与消息发送不属于本组覆盖。
 
 ## 受控浏览器场景
 
 在 `web/` 执行 `corepack pnpm exec playwright test --project ui-fixtures`。`playwright.config.ts` 只包含 `ui-fixtures` project，使用 Vite 与 [`mock-backend.mjs`](../../web/tests/e2e/mock-backend.mjs) 提供的受控传输。`RAYLEA_E2E_WEB_PORT` 可指定 Vite 端口，模拟传输固定使用回环端口 `4010`。
 
-[`web-ui.spec.ts`](../../web/tests/e2e/web-ui.spec.ts) 与同目录用例控制网络断开、会话失效、平台扫码状态、插件安装故障、日志持续追加、列表大数据以及焦点、主题、减少动画和窄屏交互。它们通过登录接口进入受保护页面；模拟会话门只为页面建立测试会话，不证明密码、CSRF 或来源授权策略正确。
+[`web-ui.spec.ts`](../../web/tests/e2e/web-ui.spec.ts) 与同目录用例控制网络断开、会话失效、插件安装故障、日志持续追加、列表大数据以及焦点、主题、减少动画和窄屏交互。它们通过登录接口进入受保护页面；模拟会话门只为页面建立测试会话，不证明密码、CSRF 或来源授权策略正确。
 
-[`fixture-data.mjs`](../../web/tests/e2e/fixture-data.mjs) 读取仓库契约样例。配置编辑场景只回显测试输入和预设应用结果；适配器状态直接取样例，不根据配置重算。账号校验与扫码按照选定样例返回，不解析 Cookie、推导凭据有效性或调用第三方平台。
+[`fixture-data.mjs`](../../web/tests/e2e/fixture-data.mjs) 读取仓库契约样例。配置编辑场景只回显测试输入和预设应用结果；适配器状态直接取样例，不根据配置重算。
 
 模拟入口发送的 JSON 错误同时按 `contracts/error-codes.yaml` 检查 HTTP 适用范围、状态码和 `message_key`。断网场景返回带网关标记的空 `503` 响应，不伪造 Server 业务错误码。
 

@@ -105,14 +105,6 @@ func (a *App) Run(ctx context.Context) error {
 	if a.services.PluginLifecycle != nil {
 		a.services.PluginLifecycle.BindLifecycleContext(runCtx)
 	}
-	if a.services.AccountValidation != nil {
-		supervisor.Go(func(ctx context.Context) error {
-			if err := a.services.AccountValidation.Run(ctx); err != nil {
-				return fmt.Errorf("run account validation: %w", err)
-			}
-			return nil
-		})
-	}
 
 	a.services.System.AutoPrepareRuntimeEnvironments(runCtx)
 	if err := runCtx.Err(); err != nil {

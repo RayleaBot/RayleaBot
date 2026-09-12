@@ -1,6 +1,5 @@
 // Generated from design/tokens.json by scripts/generate-design-tokens.mjs. Do not edit.
 export const breakpoints = {
-  "accountActions": 520,
   "splitPanel": 1100,
   "configActions": 560,
   "narrowPhone": 360,

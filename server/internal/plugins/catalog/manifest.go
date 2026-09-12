@@ -176,17 +176,13 @@ func projectManifest(manifest manifestDocument, infoPath, sourceRoot, repoRoot s
 	return snapshot, nil
 }
 
-func projectPermissions(values map[string]json.RawMessage) (map[string]plugins.PermissionGrant, error) {
-	permissions := make(map[string]plugins.PermissionGrant, len(values))
+func projectPermissions(values map[string]json.RawMessage) (map[string]bool, error) {
+	permissions := make(map[string]bool, len(values))
 	for name, raw := range values {
-		grant := plugins.PermissionGrant{}
 		if string(raw) != "true" {
-			if err := json.Unmarshal(raw, &grant); err != nil {
-				return nil, fmt.Errorf("decode permission %s: %w", name, err)
-			}
+			return nil, fmt.Errorf("permission %s must be true", name)
 		}
-		grant.Platforms = append([]string(nil), grant.Platforms...)
-		permissions[name] = grant
+		permissions[name] = true
 	}
 	return permissions, nil
 }

@@ -34,15 +34,6 @@ test('touch can activate the reserved area around a compact switch', async ({ pa
   await expect(control).toHaveAttribute('aria-checked', original!)
 })
 
-test('credential instructions remain associated with the editable field', async ({ page }) => {
-  await page.goto('/third-party-accounts')
-  await page.getByRole('button', { name: '编辑', exact: true }).first().tap()
-  const control = page.getByRole('textbox', { name: 'CK', exact: true })
-  const descriptionId = await control.getAttribute('aria-describedby')
-  expect(descriptionId).toBeTruthy()
-  await expect(page.locator(`[id="${descriptionId}"]`)).toHaveText('留空时保留当前 CK。')
-})
-
 test('a missing browser resource can be prepared from its readiness issue', async ({ page }) => {
   const checks = page.locator('details.readiness-check-group')
   await expect(checks).not.toHaveAttribute('open')

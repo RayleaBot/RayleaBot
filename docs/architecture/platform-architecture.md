@@ -47,14 +47,14 @@ flowchart TB
 | 对外接口与发布元数据 | `contracts/` | schema、OpenAPI、WebSocket、errors、CLI、fixtures | 所有实现与文档 |
 | 服务生命周期与运行状态 | App / domain services | SQLite、配置快照、受保护内存状态 | API、CLI、Launcher |
 | 聊天适配器连接与事件 | Adapter / Event Pipeline | 按实例隔离的 adapter snapshot 与统一事件 | Dispatcher、协议管理面 |
-| 三方平台集成 | Integrations | 平台账号、资料、扫码会话与校验结果 | 三方账号服务、插件动作、管理面 |
+| 插件浏览器会话 | Browser Manager | 插件专属的托管浏览器进程、profile 与 CDP 端点 | Local Action、插件 |
 | 插件静态声明 | Plugin Catalog | 校验后的 manifest、管理页入口、安装来源 | Lifecycle、管理面 |
 | 插件商店目录 | Plugin Store Service | HTTPS 来源的已校验 catalog、来源元数据与刷新状态 | 安装流程、管理面 |
 | 插件进程状态 | Runtime Manager | per-plugin runtime snapshot | Lifecycle、管理视图；Dispatcher 只读取投递就绪状态 |
 | 后台任务 | Task Registry | 有序持久化记录 | API/WebSocket、恢复逻辑 |
 | 调度任务 | Scheduler | SQLite job 与内存 revision | 插件定向事件 |
 | 图片渲染 | Render Service | 模板仓、artifact 与 cache metadata | Local Action、管理面 |
-| Chromium 与 FFmpeg 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、抖音扫码兜底、受信本地插件媒体处理、运行环境准备与系统诊断；doctor 只读取清单元数据 |
+| Chromium 与 FFmpeg 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、插件浏览器会话、受信本地插件媒体处理、运行环境准备与系统诊断；doctor 只读取清单元数据 |
 | 配置单实例锁 | File Lock / App | `<config-path>.runtime.lock` | Server 启动、配置 CLI |
 | 更新信任 | Shared update core | 编译内置仓库/公钥、最高版本与 digest 记录 | CLI、API、Launcher、updater |
 | 更新事务 | External updater | 安装根外 journal、offline backup、staging | Launcher 与恢复流程 |
@@ -134,7 +134,7 @@ flowchart LR
 | Auth | `server/internal/platform/auth/` |
 | OneBot11 adapter | `server/internal/bot/adapters/onebot11/` |
 | Event pipeline | `server/internal/bot/pipeline/` |
-| Third-party integrations | `server/internal/integrations/` |
+| Plugin browser manager | `server/internal/browser/` |
 | Plugin catalog/lifecycle/runtime/actions | `server/internal/plugins/` |
 | Plugin Store Service | `server/internal/plugins/market/` |
 | Tasks / Scheduler | `server/internal/tasks/`、`server/internal/scheduler/` |

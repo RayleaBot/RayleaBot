@@ -23,8 +23,8 @@ func TestDiscoverProjectsManifestV3(t *testing.T) {
 	manifest := baseManifest("subscription-hub")
 	manifest["events"] = []string{"message.group", "message.private"}
 	manifest["permissions"] = map[string]any{
-		"message.send":            true,
-		"thirdparty.account.read": map[string]any{"platforms": []string{"bilibili", "weibo"}},
+		"message.send": true,
+		"secret.write": true,
 	}
 	manifest["default_config"] = map[string]any{"help_commands": []string{"解析帮助", "链接帮助"}}
 	manifest["commands"] = []any{
@@ -54,9 +54,6 @@ func TestDiscoverProjectsManifestV3(t *testing.T) {
 	}
 	if len(snapshot.Events) != 2 || len(snapshot.Permissions) != 2 || len(snapshot.CommandGroups) != 2 {
 		t.Fatalf("manifest collections were not projected: %#v", snapshot)
-	}
-	if got := snapshot.Permissions["thirdparty.account.read"].Platforms; len(got) != 2 || got[0] != "bilibili" || got[1] != "weibo" {
-		t.Fatalf("platform permission = %#v", got)
 	}
 	if len(snapshot.Commands) != 3 {
 		t.Fatalf("commands = %#v", snapshot.Commands)

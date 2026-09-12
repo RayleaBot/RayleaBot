@@ -77,7 +77,7 @@ func TestExecuteRenderImageInjectsPluginFooter(t *testing.T) {
 		Version:           "1.0.0",
 		Valid:             true,
 		RegistrationState: "installed",
-		Permissions:       map[string]plugins.PermissionGrant{"render.image": {}},
+		Permissions:       map[string]bool{"render.image": true},
 	}})
 	deps.Permissions = plugins.NewPermissionView(plugins.PermissionViewDeps{Plugins: catalogForActions})
 	deps.Renderer = localaction.RendererFromService(testutil.NewRenderServiceForRepo(t, testutil.RepoRoot(t), renderRoot, runner))

@@ -2,7 +2,6 @@ package actions_test
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
@@ -11,7 +10,6 @@ import (
 type stubPermission struct {
 	PluginID   string
 	Permission string
-	ScopeJSON  string
 }
 
 type scopedPermissionView struct {
@@ -41,35 +39,8 @@ func (v *scopedPermissionView) PermissionDeclared(_ context.Context, pluginID st
 	return false
 }
 
-func (v *scopedPermissionView) PermissionPlatforms(_ context.Context, pluginID, permission string) []string {
-	for _, item := range v.permissions[pluginID] {
-		if item.Permission == permission {
-			return parseStubScopeList(item.ScopeJSON, "third_party_account_platforms")
-		}
-	}
-	return nil
-}
-
 func (v *scopedPermissionView) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
-}
-
-func parseStubScopeList(scopeJSON string, key string) []string {
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(scopeJSON), &payload); err != nil {
-		return nil
-	}
-	raw, ok := payload[key].([]any)
-	if !ok {
-		return nil
-	}
-	values := make([]string, 0, len(raw))
-	for _, item := range raw {
-		if value, ok := item.(string); ok && value != "" {
-			values = append(values, value)
-		}
-	}
-	return values
 }
 
 func defaultAdapterTestConfig() config.AdapterConfig {

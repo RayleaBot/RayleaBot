@@ -53,7 +53,7 @@ flowchart TD
   runtime["plugins/runtime"] -. implements .-> delivery
   runtime --> plugin["plugin subprocess"]
   plugin --> localaction["plugins/actions"]
-  localaction --> service["message / storage / config / secret / plugin / thirdparty / governance / render / scheduler / protocol"]
+  localaction --> service["message / storage / config / secret / browser / plugin / governance / render / scheduler / protocol"]
   plugin --> ownwork["external network / temporary files / bundled tools"]
   plugin --> result["dispatch result / outbound actions"]
 ```
@@ -69,7 +69,7 @@ flowchart TD
 - artifact 校验确认目标平台和入口，安装器另行确认插件身份并扫描实际文件；这些检查不判断代码行为是否安全。需要确认的安装或更新表示管理员信任该版本的本地原生代码。
 - 插件可使用所选语言的标准库直接访问外部服务，可在进程创建的临时目录中缓存媒体，也可启动随 artifact 发布的辅助程序。此类操作不需要宿主权限，也不受宿主 `storage.file` 配额或 action 审计约束。
 - 插件直接 I/O 的超时、下载大小、并发、临时文件清理、子进程退出和第三方许可证由插件负责。临时产物不属于宿主管理存储，不保证进入备份、恢复或卸载清理。
-- RayleaBot 配置、secret、宿主管理存储、三方账号、渲染器、调度器、治理状态及 OneBot/provider 动作仍通过 Local Action Service 访问。插件不能直接修改 RayleaBot 的配置文件、状态库或已安装插件目录。
+- RayleaBot 配置、secret、宿主管理存储、浏览器会话、渲染器、调度器、治理状态及 OneBot/provider 动作仍通过 Local Action Service 访问。插件不能直接修改 RayleaBot 的配置文件、状态库或已安装插件目录。
 
 ## 管理视图
 

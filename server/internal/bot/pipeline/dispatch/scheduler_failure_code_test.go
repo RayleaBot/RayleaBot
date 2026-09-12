@@ -16,7 +16,7 @@ func TestSchedulerTimeoutOutcomeUsesRegisteredCodes(t *testing.T) {
 			t.Fatalf("registered timeout %s: %s / %s", code, outcome, actual)
 		}
 	}
-	for _, code := range []string{"thirdparty.timeout_note", "unexpected.timeout", errorcodes.PluginInternalError} {
+	for _, code := range []string{"plugin.timeout_note", "unexpected.timeout", errorcodes.PluginInternalError} {
 		outcome, _, _ := schedulerFailureFields(nil, plugins.Delivery{ErrorCode: code, ErrorMessage: "timeout"})
 		if outcome != scheduler.RunOutcomeFailed {
 			t.Fatalf("arbitrary code/message selected timeout outcome: %s", code)

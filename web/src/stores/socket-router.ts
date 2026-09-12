@@ -20,14 +20,12 @@ export function createSocketFrameRouter(
 ): SocketFrameRouter {
   const statusRefresh = createRefreshScheduler(dependencies.system.refreshStatus, statusRefreshDebounceMs)
   const governanceRefresh = createRefreshScheduler(dependencies.governance.refresh, statusRefreshDebounceMs)
-  const thirdPartyRefresh = createRefreshScheduler(dependencies.thirdPartyAccounts.refresh, statusRefreshDebounceMs)
   let pendingLiveLogs: LogSummary[] = []
   let flushLiveLogsScheduled = false
 
   function clearPendingStatusRefresh() {
     statusRefresh.cancel()
     governanceRefresh.cancel()
-    thirdPartyRefresh.cancel()
     dependencies.schedulerJobs.cancelPendingRefresh?.()
     dependencies.plugins.cancelPendingRefresh?.()
     pendingLiveLogs = []
@@ -44,11 +42,6 @@ export function createSocketFrameRouter(
 
     if (isGovernanceChangedEvent(frame.data)) {
       governanceRefresh.schedule()
-      return
-    }
-
-    if (isThirdPartyAccountChangedEvent(frame.data)) {
-      thirdPartyRefresh.schedule()
       return
     }
 
@@ -135,10 +128,6 @@ function isAdaptersSnapshotEvent(payload: EventsPayload): payload is AdaptersSna
 
 function isGovernanceChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
   return 'event_type' in payload && payload.event_type === managementEventTypes.governanceChanged
-}
-
-function isThirdPartyAccountChangedEvent(payload: EventsPayload): payload is Extract<EventsPayload, { event_type: string }> {
-  return 'event_type' in payload && payload.event_type === managementEventTypes.thirdPartyAccountChanged
 }
 
 function isSchedulerLog(log: LogSummary) {

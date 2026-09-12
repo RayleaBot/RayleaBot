@@ -32,7 +32,6 @@ type configServiceDeps struct {
 	Renderer          *render.Service
 	PluginLogLimiter  *localaction.PluginLogLimiter
 	OutboundLimiter   interface{ ApplyConfig(config.Config) }
-	AccountValidation interface{ ApplyConfig(config.Config) }
 	Protocol          *adapterservice.Service
 	EventIngress      *chatpolicy.Ingress
 	Secrets           secrets.Store
@@ -53,7 +52,6 @@ func newConfigService(deps configServiceDeps) *configruntime.Service {
 		Renderer:           deps.Renderer,
 		PluginLogLimiter:   deps.PluginLogLimiter,
 		OutboundLimiter:    deps.OutboundLimiter,
-		AccountValidation:  deps.AccountValidation,
 		Protocol:           deps.Protocol,
 		EventIngress:       deps.EventIngress,
 		Secrets:            deps.Secrets,

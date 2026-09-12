@@ -1,13 +1,6 @@
 {
   "schema_version": 2,
   "allowed_files": {
-    "server/internal/integrations/thirdparty/accounts.go": {
-      "category": "A",
-      "reason": "Third-party account queries are static, but migration must preserve account row projection and secret-store lookups as one repository change.",
-      "owner": "server-integrations",
-      "target_action": "migrate_to_sqlc",
-      "revisit_after": "2026-10-01"
-    },
     "server/internal/platform/logging/sqlite/repository.go": {
       "category": "C",
       "reason": "Management log list and cursor-boundary queries compose optional filters and variable IN clauses; static insert, detail, and pruning queries use sqlc.",

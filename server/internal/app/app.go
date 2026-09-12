@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"path/filepath"
-	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	configruntime "github.com/RayleaBot/RayleaBot/server/internal/config/runtime"
@@ -31,8 +29,6 @@ type Options struct {
 	PluginSchemaPath        string
 	PluginRoots             []plugincatalog.ScanRoot
 	RenderRunner            render.Runner
-	BilibiliHTTPTransport   http.RoundTripper
-	BilibiliClock           func() time.Time
 	// LogRepository overrides the SQLite-backed management log repository.
 	// Test-only seam; nil means the default repository is built.
 	LogRepository logging.Repository
@@ -227,17 +223,15 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 	state := buildState.core
 	metricRegistry, stopRuntimeStateGauge := wireMetrics(platformState, eventState, renderState.Renderer, pluginState)
 	serviceBuild, err = buildServices(serviceBuildDeps{
-		Runtime:               state,
-		Platform:              platformState,
-		Plugins:               pluginState,
-		Events:                eventState,
-		Renderer:              renderState.Renderer,
-		Metrics:               metricRegistry,
-		Discovery:             buildState.discoverySpec,
-		PluginValidator:       buildState.pluginValidator,
-		ManagementRedact:      buildState.managementRedact,
-		BilibiliHTTPTransport: options.BilibiliHTTPTransport,
-		BilibiliClock:         options.BilibiliClock,
+		Runtime:          state,
+		Platform:         platformState,
+		Plugins:          pluginState,
+		Events:           eventState,
+		Renderer:         renderState.Renderer,
+		Metrics:          metricRegistry,
+		Discovery:        buildState.discoverySpec,
+		PluginValidator:  buildState.pluginValidator,
+		ManagementRedact: buildState.managementRedact,
 	})
 	if err != nil {
 		return nil, cleanupPartialBuild(err)
@@ -271,7 +265,6 @@ func NewWithContext(ctx context.Context, options Options) (*App, error) {
 		Renderer:                renderState.Renderer,
 		ServiceBuild:            serviceBuild,
 		Metrics:                 metricRegistry,
-		HTTPTransport:           options.BilibiliHTTPTransport,
 		RequestShutdown:         application.requestShutdown,
 		SetupToken:              options.SetupToken,
 		LauncherControlToken:    options.LauncherControlToken,

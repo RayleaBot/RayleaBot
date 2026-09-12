@@ -33,7 +33,6 @@ type DiagnosticsSnapshot struct {
 	Adapters        []adapterservice.Status        `json:"adapters"`
 	Plugins         DiagnosticsPlugins             `json:"plugins"`
 	Render          DiagnosticsIssueGroup          `json:"render"`
-	ThirdParty      DiagnosticsThirdParty          `json:"third_party"`
 	Scheduler       DiagnosticsScheduler           `json:"scheduler"`
 	Tasks           DiagnosticsTaskSummary         `json:"tasks"`
 	Dependencies    []DiagnosticsDependency        `json:"dependencies"`
@@ -82,22 +81,6 @@ type DiagnosticsPlugins struct {
 type DiagnosticsIssueGroup struct {
 	Status string                   `json:"status"`
 	Issues []health.DiagnosticIssue `json:"issues"`
-}
-
-type DiagnosticsThirdParty struct {
-	Total      int                             `json:"total"`
-	Enabled    int                             `json:"enabled"`
-	Configured int                             `json:"configured"`
-	Invalid    int                             `json:"invalid"`
-	Platforms  []DiagnosticsThirdPartyPlatform `json:"platforms"`
-}
-
-type DiagnosticsThirdPartyPlatform struct {
-	Platform   string `json:"platform"`
-	Total      int    `json:"total"`
-	Enabled    int    `json:"enabled"`
-	Configured int    `json:"configured"`
-	Invalid    int    `json:"invalid"`
 }
 
 type DiagnosticsScheduler struct {

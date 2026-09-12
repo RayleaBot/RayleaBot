@@ -129,10 +129,6 @@ func (s stubHTTPActionPermissions) PermissionDeclared(_ context.Context, _ strin
 	return s.permissions[permission]
 }
 
-func (s stubHTTPActionPermissions) PermissionPlatforms(context.Context, string, string) []string {
-	return nil
-}
-
 func (s stubHTTPActionPermissions) ListPluginSnapshots() []plugins.Snapshot {
 	return nil
 }

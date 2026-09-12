@@ -29,14 +29,15 @@ func defaultRegistrarItems() []registrar {
 	items = append(items,
 		schedulerCreateRegistrar(),
 		secretReadRegistrar(),
+		secretWriteRegistrar(),
+		secretDeleteRegistrar(),
+		browserLaunchRegistrar(),
+		browserCloseRegistrar(),
 		httpRequestRegistrar(),
 		renderImageRegistrar(),
 		messageSendRegistrar(),
 		logWriteRegistrar(),
 		pluginListRegistrar(),
-		thirdPartyAccountReadRegistrar(),
-		thirdPartyAccountValidateRegistrar(),
-		thirdPartyResolveRegistrar(),
 	)
 	items = append(items, configRegistrars()...)
 	items = append(items, governanceRegistrars()...)
@@ -110,6 +111,69 @@ func executeSecretRead(ctx context.Context, deps Deps, req ActionRequest) (map[s
 		return map[string]any{"key": key, "exists": false}, nil
 	}
 	return map[string]any{"key": key, "exists": true, "value": value}, nil
+}
+
+func secretWriteRegistrar() registrar {
+	return registrar{
+		kind: "secret.write",
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeSecretWrite(ctx, deps, req)
+			}
+		},
+	}
+}
+
+func executeSecretWrite(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "secret.write") {
+		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "secret.write permission is not declared"}
+	}
+	if len(req.Action.SecretValues) == 0 {
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "secret.write values are required"}
+	}
+	if deps.Settings == nil {
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "secret.write store is not available"}
+	}
+	result, err := deps.Settings.SetSecrets(ctx, req.PluginID, req.Action.SecretValues)
+	if err != nil {
+		return nil, secretWriteError(err)
+	}
+	return map[string]any{"changed_keys": result.ChangedKeys}, nil
+}
+
+func secretDeleteRegistrar() registrar {
+	return registrar{
+		kind: "secret.delete",
+		factory: func(deps Deps) ActionHandler {
+			return func(ctx context.Context, req ActionRequest) (map[string]any, error) {
+				return executeSecretDelete(ctx, deps, req)
+			}
+		},
+	}
+}
+
+func executeSecretDelete(ctx context.Context, deps Deps, req ActionRequest) (map[string]any, error) {
+	if deps.Permissions == nil || !deps.Permissions.PermissionDeclared(ctx, req.PluginID, "secret.delete") {
+		return nil, &plugins.Error{Code: errorcodes.PluginPermissionDenied, Message: "secret.delete permission is not declared"}
+	}
+	if len(req.Action.SecretKeys) == 0 {
+		return nil, &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "secret.delete keys are required"}
+	}
+	if deps.Settings == nil {
+		return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "secret.delete store is not available"}
+	}
+	result, err := deps.Settings.DeleteSecrets(ctx, req.PluginID, req.Action.SecretKeys)
+	if err != nil {
+		return nil, secretWriteError(err)
+	}
+	return map[string]any{"changed_keys": result.ChangedKeys}, nil
+}
+
+func secretWriteError(err error) error {
+	if errors.Is(err, settings.ErrInvalidValues) {
+		return &plugins.Error{Code: errorcodes.PluginProtocolViolation, Message: "secret values are invalid"}
+	}
+	return &plugins.Error{Code: errorcodes.PluginInternalError, Message: "secret store operation failed", Err: err}
 }
 
 func configRegistrars() []registrar {

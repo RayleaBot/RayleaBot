@@ -5,14 +5,13 @@ import (
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
-	"github.com/RayleaBot/RayleaBot/server/internal/integrations/thirdparty"
+	"github.com/RayleaBot/RayleaBot/server/internal/browser"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 )
 
 type PermissionView interface {
 	PermissionDeclared(context.Context, string, string) bool
-	PermissionPlatforms(context.Context, string, string) []string
 	ListPluginSnapshots() []plugins.Snapshot
 }
 
@@ -38,20 +37,12 @@ type ScheduledTask struct {
 
 type SchedulerCreateFunc func(context.Context, string, string, string, string, []byte) (ScheduledTask, error)
 
-type ThirdPartyAccountReader interface {
-	ListEnabled(context.Context, string) ([]thirdparty.Account, error)
-	ReadCookie(context.Context, thirdparty.Account) (string, error)
-}
-
-type ThirdPartyAccountValidationRequester interface {
-	RequestPluginValidation(context.Context, string, string, string, string, int) (bool, string, error)
-}
-
-// ThirdPartyResolver 用平台侧的登录环境（浏览器会话与设备信誉）把昵称
-// 关键词解析为候选用户列表。resolve 是插件纯 HTTP 搜索被风控拦截后的
-// 回退路径，只有宿主持有登录浏览器资源的平台（douyin）提供实现。
-type ThirdPartyResolver interface {
-	ResolveUser(context.Context, string, []map[string]string) ([]thirdparty.AccountProfile, bool, error)
+// BrowserSessionManager starts and stops host-managed browser sessions for
+// plugins. The host owns process launch, profile isolation, and shutdown; the
+// plugin interacts with the returned CDP endpoint directly.
+type BrowserSessionManager interface {
+	Launch(context.Context, string, browser.LaunchRequest) (browser.Session, error)
+	Close(pluginID, sessionID string) bool
 }
 
 type Renderer interface {

@@ -14,7 +14,7 @@ test.beforeEach(async ({ page, request, server, baseURL }) => {
 })
 
 async function scrollConfigSectionIntoView(page: import('@playwright/test').Page, sectionKey: string) {
-  const category = sectionKey === 'runtime' ? '运行与请求' : '账号与调度'
+  const category = sectionKey === 'runtime' ? '运行与请求' : '调度'
   await page.getByRole('tab', { name: category }).click()
   const advanced = page.locator('.config-advanced__trigger')
   if (await advanced.getAttribute('data-state') === 'closed') await advanced.click()
@@ -57,37 +57,4 @@ test('config page edits general IPC rate limit with split inputs', async ({ page
 
   await scrollConfigSectionIntoView(page, 'runtime')
   await expect(page.getByText('5 秒内最多 180 次')).toBeVisible()
-})
-
-test('config page saves restart-required Douyin browser settings', async ({ page, request }) => {
-
-  await page.goto('/config')
-  await expect(page.getByRole('heading', { name: '配置', level: 1 })).toBeVisible()
-  await scrollConfigSectionIntoView(page, 'third-party-accounts')
-
-  await page.getByRole('spinbutton', { name: 'CK 自动检查间隔' }).fill('720')
-  await expect(page.getByRole('combobox', { name: '抖音登录浏览器模式' })).toContainText('自动选择')
-  await page.getByRole('combobox', { name: '抖音登录浏览器模式' }).click()
-  await page.getByRole('option', { name: '远程 CDP', exact: true }).click()
-  await page.getByRole('textbox', { name: '抖音远程调试地址' }).fill('http://127.0.0.1:9222')
-
-  const configResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === 'PUT'
-    && response.url().endsWith('/api/config')
-  ))
-  await page.getByRole('button', { name: '保存更改' }).click()
-  const configResponse = await configResponsePromise
-  const responseBody = await configResponse.json()
-  expect(responseBody.restart_required).toBe(true)
-  expect(responseBody.apply_effects.restart_required_fields).toEqual(expect.arrayContaining([
-    'third_party_accounts.douyin_login.browser_mode',
-    'third_party_accounts.douyin_login.remote_debugging_url',
-  ]))
-  expect(responseBody.apply_effects.applied_now).toContain('third_party_accounts.credential_check_interval_minutes')
-
-  await page.reload()
-  await scrollConfigSectionIntoView(page, 'third-party-accounts')
-  await expect(page.getByRole('spinbutton', { name: 'CK 自动检查间隔' })).toHaveValue('720')
-  await expect(page.getByRole('combobox', { name: '抖音登录浏览器模式' })).toContainText('远程 CDP')
-  await expect(page.getByRole('textbox', { name: '抖音远程调试地址' })).toHaveValue('http://127.0.0.1:9222')
 })

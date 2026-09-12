@@ -25,7 +25,6 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 
 	database, databaseIssues := s.diagnosticsDatabase(ctx)
 	render := s.diagnosticsRender()
-	thirdParty, thirdPartyIssues := s.diagnosticsThirdParty(ctx)
 	dependencies, dependencyIssues := s.diagnosticsDependencies()
 	filesystem := s.diagnosticsFilesystem(summary)
 	recentErrors, logIssues := s.diagnosticsRecentErrors(ctx)
@@ -33,7 +32,6 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 	issues := append([]health.DiagnosticIssue{}, readiness.Issues...)
 	issues = append(issues, render.Issues...)
 	issues = append(issues, databaseIssues...)
-	issues = append(issues, thirdPartyIssues...)
 	issues = append(issues, dependencyIssues...)
 	issues = append(issues, logIssues...)
 
@@ -68,7 +66,6 @@ func (s *Service) DiagnosticsSnapshot(ctx context.Context) DiagnosticsSnapshot {
 			Failed:  status.FailedPlugins,
 		},
 		Render:          render,
-		ThirdParty:      thirdParty,
 		Scheduler:       s.diagnosticsScheduler(),
 		Tasks:           s.diagnosticsTasks(),
 		Dependencies:    dependencies,
@@ -124,13 +121,6 @@ func (s *Service) diagnosticsRender() DiagnosticsIssueGroup {
 		Status: status,
 		Issues: nonNilIssues(issues),
 	}
-}
-
-func (s *Service) diagnosticsThirdParty(ctx context.Context) (DiagnosticsThirdParty, []health.DiagnosticIssue) {
-	if s.thirdParty == nil {
-		return DiagnosticsThirdParty{Platforms: []DiagnosticsThirdPartyPlatform{}}, nil
-	}
-	return s.thirdParty.DiagnosticsThirdParty(ctx)
 }
 
 func (s *Service) diagnosticsScheduler() DiagnosticsScheduler {

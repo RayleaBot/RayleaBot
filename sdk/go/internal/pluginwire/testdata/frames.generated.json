@@ -285,6 +285,52 @@
     ]
   },
   {
+    "name": "ok.browser-close.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-browser-close-1",
+        "action": "browser.close",
+        "data": {
+          "session_id": "browser-session-1"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-browser-close-1",
+        "status": "success",
+        "data": {
+          "closed": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.browser-launch.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-browser-launch-1",
+        "action": "browser.launch",
+        "data": {
+          "profile": "default",
+          "mode": "auto"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-browser-launch-1",
+        "status": "success",
+        "data": {
+          "session_id": "browser-session-1",
+          "debugger_url": "ws://127.0.0.1:9222/devtools/browser/fixture"
+        }
+      }
+    ]
+  },
+  {
     "name": "ok.config-changed.yaml",
     "valid": true,
     "frames": [
@@ -680,6 +726,32 @@
     ]
   },
   {
+    "name": "ok.secret-write.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-secret-write-1",
+        "action": "secret.write",
+        "data": {
+          "values": {
+            "account.example.cookie": "fixture-only-secret"
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-secret-write-1",
+        "status": "success",
+        "data": {
+          "changed_keys": [
+            "account.example.cookie"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "name": "ok.storage-file.yaml",
     "valid": true,
     "frames": [
@@ -699,29 +771,6 @@
         "status": "success",
         "data": {
           "bytes_written": 2
-        }
-      }
-    ]
-  },
-  {
-    "name": "ok.thirdparty-account-read.yaml",
-    "valid": true,
-    "frames": [
-      {
-        "type": "action",
-        "request_id": "action-thirdparty-account-read-1",
-        "action": "thirdparty.account.read",
-        "data": {
-          "platform": "bilibili",
-          "account_id": "primary"
-        }
-      },
-      {
-        "type": "result",
-        "request_id": "action-thirdparty-account-read-1",
-        "status": "success",
-        "data": {
-          "accounts": []
         }
       }
     ]

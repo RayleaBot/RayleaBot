@@ -84,9 +84,10 @@
         "render.image",
         "plugin.list",
         "secret.read",
-        "thirdparty.account.read",
-        "thirdparty.account.validate",
-        "thirdparty.resolve"
+        "secret.write",
+        "secret.delete",
+        "browser.launch",
+        "browser.close"
       ]
     },
     "onebot_action_kind": {
@@ -1155,13 +1156,16 @@
           "$ref": "#/$defs/action_secret_read"
         },
         {
-          "$ref": "#/$defs/action_thirdparty_account_read"
+          "$ref": "#/$defs/action_secret_write"
         },
         {
-          "$ref": "#/$defs/action_thirdparty_account_validate"
+          "$ref": "#/$defs/action_secret_delete"
         },
         {
-          "$ref": "#/$defs/action_thirdparty_resolve"
+          "$ref": "#/$defs/action_browser_launch"
+        },
+        {
+          "$ref": "#/$defs/action_browser_close"
         },
         {
           "$ref": "#/$defs/action_config_write"
@@ -1941,88 +1945,97 @@
         }
       }
     },
-    "action_thirdparty_account_read_data": {
+    "action_secret_write_data": {
+      "description": "Write one or more secrets in the authenticated plugin namespace. Values are sealed by the host before persistence and are never returned. Keys that already hold the same value are unchanged.",
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "platform"
+        "values"
       ],
       "properties": {
-        "platform": {
-          "type": "string",
-          "enum": [
-            "bilibili",
-            "weibo",
-            "douyin",
-            "netease_music"
-          ]
-        },
-        "account_id": {
-          "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$"
+        "values": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 32,
+          "propertyNames": {
+            "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          }
         }
       }
     },
-    "action_thirdparty_account_validate_data": {
+    "action_secret_delete_data": {
+      "description": "Delete secrets in the authenticated plugin namespace. Keys without a stored value are unchanged.",
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "platform",
-        "account_id",
-        "observation"
+        "keys"
       ],
       "properties": {
-        "platform": {
-          "type": "string",
-          "enum": [
-            "bilibili",
-            "weibo",
-            "douyin",
-            "netease_music"
-          ]
-        },
-        "account_id": {
-          "type": "string",
-          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$"
-        },
-        "observation": {
-          "type": "string",
-          "enum": [
-            "auth_rejected",
-            "session_blocked"
-          ]
-        },
-        "http_status": {
-          "type": "integer",
-          "minimum": 100,
-          "maximum": 599
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$"
+          }
         }
       }
     },
-    "action_thirdparty_resolve_data": {
+    "action_browser_launch_data": {
+      "description": "Launch or attach to a host-managed browser session for the calling plugin. The host isolates each local profile name in a plugin-scoped user-data directory, applies its browser launch hardening, enforces one live session per profile, and closes the session when its lifetime elapses or browser.close arrives. The returned debugger_url is the browser-level CDP WebSocket endpoint.",
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "platform",
-        "query"
+        "profile"
       ],
       "properties": {
-        "platform": {
+        "lifetime_seconds": {
+          "type": "integer", "minimum": 1, "maximum": 1800, "default": 1800,
+          "description": "Maximum session lifetime from the launch request. The host also releases sessions when the owning plugin process exits. A retired process cannot close a replacement process's sessions."
+        },
+        "profile": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$",
+          "description": "Plugin-scoped persistent profile name. The same plugin and profile name map to one isolated user-data directory; only one live session may hold a profile at a time."
+        },
+        "mode": {
           "type": "string",
           "enum": [
-            "douyin"
-          ]
+            "auto",
+            "visible",
+            "headless",
+            "remote_cdp"
+          ],
+          "default": "auto",
+          "description": "auto first tries a configured loopback CDP endpoint, then prefers a visible persistent-profile browser when an interactive desktop is available and falls back to headless; visible and headless launch a local browser; remote_cdp attaches to remote_debugging_url."
         },
-        "query": {
+        "remote_debugging_url": {
           "type": "string",
           "minLength": 1,
-          "maxLength": 64,
-          "description": "User nickname keyword; leading and trailing whitespace is trimmed by the platform."
-        },
-        "cookie": {
+          "maxLength": 2048,
+          "description": "Loopback HTTP(S) or WS(S) CDP endpoint. Required when mode is remote_cdp; the host validates the scheme, loopback host and no-credentials rule."
+        }
+      }
+    },
+    "action_browser_close_data": {
+      "description": "Close a browser session previously launched by the calling plugin and release its persistent profile.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id"
+      ],
+      "properties": {
+        "session_id": {
           "type": "string",
-          "maxLength": 8192,
-          "description": "Optional account cookie header (semicolon-separated name=value pairs) used by the platform login environment for the resolution. Sensitive credential; must not be logged or returned in responses."
+          "minLength": 1,
+          "maxLength": 64
         }
       }
     },
@@ -2389,7 +2402,7 @@
       ],
       "unevaluatedProperties": false
     },
-    "action_thirdparty_account_read": {
+    "action_secret_write": {
       "allOf": [
         {
           "$ref": "#/$defs/common"
@@ -2411,17 +2424,17 @@
             },
             "action": {
               "type": "string",
-              "const": "thirdparty.account.read"
+              "const": "secret.write"
             },
             "data": {
-              "$ref": "#/$defs/action_thirdparty_account_read_data"
+              "$ref": "#/$defs/action_secret_write_data"
             }
           }
         }
       ],
       "unevaluatedProperties": false
     },
-    "action_thirdparty_account_validate": {
+    "action_secret_delete": {
       "allOf": [
         {
           "$ref": "#/$defs/common"
@@ -2443,17 +2456,17 @@
             },
             "action": {
               "type": "string",
-              "const": "thirdparty.account.validate"
+              "const": "secret.delete"
             },
             "data": {
-              "$ref": "#/$defs/action_thirdparty_account_validate_data"
+              "$ref": "#/$defs/action_secret_delete_data"
             }
           }
         }
       ],
       "unevaluatedProperties": false
     },
-    "action_thirdparty_resolve": {
+    "action_browser_launch": {
       "allOf": [
         {
           "$ref": "#/$defs/common"
@@ -2475,10 +2488,42 @@
             },
             "action": {
               "type": "string",
-              "const": "thirdparty.resolve"
+              "const": "browser.launch"
             },
             "data": {
-              "$ref": "#/$defs/action_thirdparty_resolve_data"
+              "$ref": "#/$defs/action_browser_launch_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "action_browser_close": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "type": "string",
+              "const": "browser.close"
+            },
+            "data": {
+              "$ref": "#/$defs/action_browser_close_data"
             }
           }
         }
@@ -2942,7 +2987,9 @@
     "fixtures/plugin-protocol/invalid.governance-write-without-scope.yaml",
     "fixtures/plugin-protocol/ok.scheduler-create.yaml",
     "fixtures/plugin-protocol/ok.render-image.yaml",
-    "fixtures/plugin-protocol/ok.thirdparty-account-read.yaml",
+    "fixtures/plugin-protocol/ok.secret-write.yaml",
+    "fixtures/plugin-protocol/ok.browser-launch.yaml",
+    "fixtures/plugin-protocol/ok.browser-close.yaml",
     "fixtures/plugin-protocol/ok.ping-pong.yaml",
     "fixtures/plugin-protocol/edge.init-empty-identities.yaml",
     "fixtures/plugin-protocol/edge.inbound-target-type-open.yaml",

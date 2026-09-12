@@ -13,9 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
-	internalapp "github.com/RayleaBot/RayleaBot/server/internal/app"
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 	"gopkg.in/yaml.v3"
@@ -162,30 +160,6 @@ func TestActualManagementResponsesMatchOpenAPI(t *testing.T) {
 		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/launcher/status", recorder.Code, decodeBody(t, recorder.Body.Bytes()))
 	})
 
-	t.Run("third party account upsert and list", func(t *testing.T) {
-		t.Parallel()
-
-		application, _, _ := newTestAppWithOptions(t, nil, func(options *internalapp.Options, _ string) {
-			options.BilibiliHTTPTransport = managementBilibiliTransport(t)
-			options.BilibiliClock = func() time.Time { return time.Date(2026, 6, 8, 8, 0, 0, 0, time.UTC) }
-		}, deterministicAuthOptions()...)
-		token := issueLoginToken(t, application)
-		upsertFixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.third-party-account-upsert.yaml"))
-
-		assertRequestMatchesOpenAPI(t, upsertFixture.Request.Method, upsertFixture.Request.Path, upsertFixture.Request.Body)
-		upsert := performOpenAPIJSONRequest(t, application, upsertFixture.Request.Method, upsertFixture.Request.Path, upsertFixture.Request.Body, token)
-		if upsert.Code != upsertFixture.Response.Status {
-			t.Fatalf("unexpected third-party account upsert code: got %d want %d body=%s", upsert.Code, upsertFixture.Response.Status, upsert.Body.String())
-		}
-		assertActualResponseMatchesOpenAPI(t, upsertFixture.Request.Method, "/api/third-party/accounts/{platform}/{account_id}", upsert.Code, decodeBody(t, upsert.Body.Bytes()))
-
-		list := performOpenAPIJSONRequest(t, application, http.MethodGet, "/api/third-party/accounts", nil, token)
-		if list.Code != http.StatusOK {
-			t.Fatalf("unexpected third-party account list code: got %d want 200 body=%s", list.Code, list.Body.String())
-		}
-		assertActualResponseMatchesOpenAPI(t, http.MethodGet, "/api/third-party/accounts", list.Code, decodeBody(t, list.Body.Bytes()))
-
-	})
 }
 
 func TestWebAPIRequestFixturesMatchOpenAPI(t *testing.T) {

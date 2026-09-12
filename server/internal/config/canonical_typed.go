@@ -13,7 +13,6 @@ func canonicalDocumentFromTyped(cfg Config) map[string]any {
 		"admin":                configAdminDocument(cfg),
 		"permission":           configPermissionDocument(cfg),
 		"render":               configRenderDocument(cfg),
-		"third_party_accounts": configThirdPartyAccountsDocument(cfg),
 		"scheduler":            configSchedulerDocument(cfg),
 		"runtime":              configRuntimeDocument(cfg),
 		"storage":              configStorageDocument(cfg),
@@ -255,16 +254,6 @@ func configRenderDocument(cfg Config) map[string]any {
 		"queue_wait_timeout_seconds": cfg.Render.QueueWaitTimeoutSeconds,
 		"queue_max_length":           cfg.Render.QueueMaxLength,
 		"footer_template":            configRenderFooterTemplate(cfg),
-	}
-}
-
-func configThirdPartyAccountsDocument(cfg Config) map[string]any {
-	return map[string]any{
-		"credential_check_interval_minutes": cfg.ThirdParty.CredentialCheckIntervalMinutes,
-		"douyin_login": map[string]any{
-			"browser_mode":         cfg.ThirdParty.DouyinLogin.BrowserMode,
-			"remote_debugging_url": cfg.ThirdParty.DouyinLogin.RemoteDebuggingURL,
-		},
 	}
 }
 

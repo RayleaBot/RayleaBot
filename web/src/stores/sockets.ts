@@ -12,7 +12,6 @@ import { useAdaptersStore } from '@/stores/adapters'
 import { useSessionStore } from '@/stores/session'
 import { useSchedulerJobsStore } from '@/stores/scheduler-jobs'
 import { useSystemStore } from '@/stores/system'
-import { useThirdPartyAccountsStore } from '@/stores/third-party-accounts'
 
 export const useSocketStore = defineStore('sockets', () => {
   const sessionStore = useSessionStore()
@@ -24,7 +23,6 @@ export const useSocketStore = defineStore('sockets', () => {
   const governanceStore = useGovernanceStore()
   const adaptersStore = useAdaptersStore()
   const systemStore = useSystemStore()
-  const thirdPartyAccountsStore = useThirdPartyAccountsStore()
 
   const router = createSocketFrameRouter({
     system: {
@@ -48,9 +46,6 @@ export const useSocketStore = defineStore('sockets', () => {
     },
     governance: {
       refresh: governanceStore.refresh,
-    },
-    thirdPartyAccounts: {
-      refresh: thirdPartyAccountsStore.fetchAll,
     },
     adapters: {
       applySnapshot: adaptersStore.applySnapshot,

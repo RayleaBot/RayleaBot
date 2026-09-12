@@ -52,14 +52,10 @@ type DetailResponse struct {
 	Plugin DetailPluginResponse `json:"plugin"`
 }
 
-func buildPermissionResponse(permissions map[string]plugins.PermissionGrant) map[string]any {
+func buildPermissionResponse(permissions map[string]bool) map[string]any {
 	response := make(map[string]any, len(permissions))
-	for name, grant := range permissions {
-		if len(grant.Platforms) == 0 {
-			response[name] = true
-			continue
-		}
-		response[name] = plugins.PermissionGrant{Platforms: normalizeStringList(grant.Platforms)}
+	for name := range permissions {
+		response[name] = true
 	}
 	return response
 }

@@ -221,11 +221,6 @@ export const errorCatalog = {
     "httpStatus": 404,
     "retryable": false
   },
-  "platform.third_party_account_not_found": {
-    "messageKey": "errors.platform.third_party_account_not_found",
-    "httpStatus": 404,
-    "retryable": false
-  },
   "platform.upstream_request_failed": {
     "messageKey": "errors.platform.upstream_request_failed",
     "httpStatus": 502,
@@ -508,7 +503,6 @@ export const errorMessages = {
     "task_queue_full": "后台任务队列已满",
     "task_timeout": "后台任务超时",
     "template_not_found": "模板不存在",
-    "third_party_account_not_found": "三方账号不存在或尚未配置凭据",
     "upstream_request_failed": "上游请求失败",
     "upstream_response_too_large": "上游响应超过大小限制",
     "user_rate_limited": "用户命令触发冷却限流",

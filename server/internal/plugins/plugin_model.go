@@ -46,10 +46,6 @@ type CommandGroup struct {
 	Commands []string
 }
 
-type PermissionGrant struct {
-	Platforms []string `json:"platforms,omitempty"`
-}
-
 type WebhookScope struct {
 	ID               string                  `json:"id"`
 	Route            string                  `json:"route"`
@@ -104,7 +100,7 @@ type Snapshot struct {
 	MinCoreVersion         string
 	Concurrency            int
 	Events                 []string
-	Permissions            map[string]PermissionGrant
+	Permissions            map[string]bool
 	Webhooks               []WebhookScope
 	CommandGroups          []CommandGroup
 	Description            string
@@ -216,7 +212,7 @@ type InstallInspection struct {
 	Author         string
 	License        string
 	SourceLabel    string
-	Permissions    map[string]PermissionGrant
+	Permissions    map[string]bool
 	TargetPlatform string
 	Backend        InstallBackendInspection
 	UI             InstallUIInspection
@@ -254,10 +250,9 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	cloned.Events = append([]string(nil), snapshot.Events...)
 	cloned.Keywords = append([]string(nil), snapshot.Keywords...)
 	if len(snapshot.Permissions) > 0 {
-		cloned.Permissions = make(map[string]PermissionGrant, len(snapshot.Permissions))
-		for name, grant := range snapshot.Permissions {
-			grant.Platforms = append([]string(nil), grant.Platforms...)
-			cloned.Permissions[name] = grant
+		cloned.Permissions = make(map[string]bool, len(snapshot.Permissions))
+		for name := range snapshot.Permissions {
+			cloned.Permissions[name] = true
 		}
 	}
 	if len(snapshot.Webhooks) > 0 {
@@ -310,14 +305,13 @@ func CloneSettings(values map[string]any) map[string]any {
 	return cloned
 }
 
-func ClonePermissions(values map[string]PermissionGrant) map[string]PermissionGrant {
+func ClonePermissions(values map[string]bool) map[string]bool {
 	if len(values) == 0 {
-		return map[string]PermissionGrant{}
+		return map[string]bool{}
 	}
-	cloned := make(map[string]PermissionGrant, len(values))
-	for name, grant := range values {
-		grant.Platforms = append([]string(nil), grant.Platforms...)
-		cloned[name] = grant
+	cloned := make(map[string]bool, len(values))
+	for name := range values {
+		cloned[name] = true
 	}
 	return cloned
 }

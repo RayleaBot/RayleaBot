@@ -18,7 +18,7 @@
 
 ## Caller Rules
 
-- 图片渲染和抖音扫码登录（浏览器兜底）通过 runtime boundary 请求 Chromium `browser` 入口，不直接遍历缓存或 `.deps/store`。
+- 图片渲染和插件浏览器会话通过 runtime boundary 请求 Chromium `browser` 入口，不直接遍历缓存或 `.deps/store`。
 - 启动准备同时覆盖当前平台的 Chromium 与 FFmpeg；插件 runtime 只读取已准备的 `ffmpeg` / `ffprobe` 入口，并通过 `RAYLEABOT_FFMPEG_PATH`、`RAYLEABOT_FFPROBE_PATH` 注入受信本地插件进程，不在插件启动时下载资源。
 - CLI doctor 与系统诊断只使用 diagnostics boundary，不在只读检查中准备资源。
 - 插件安装不依赖 `internal/platform/deps`；插件 runtime 只运行已校验的 Go artifact，并可消费核心提供的媒体工具入口。

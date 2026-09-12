@@ -1153,110 +1153,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/third-party/accounts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List configured third-party accounts available to built-in platform sources. */
-        get: operations["listThirdPartyAccounts"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/accounts/{platform}/{account_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save one third-party account and its credential. */
-        put: operations["upsertThirdPartyAccount"];
-        post?: never;
-        /** Delete one third-party account and its credential. */
-        delete: operations["deleteThirdPartyAccount"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/accounts/{platform}/login/qrcode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Start a third-party QR code login session. */
-        post: operations["createThirdPartyQRCodeLogin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/accounts/{platform}/login/qrcode/{login_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Poll a third-party QR code login session. */
-        get: operations["pollThirdPartyQRCodeLogin"];
-        put?: never;
-        post?: never;
-        /** Cancel a third-party QR code login session. */
-        delete: operations["cancelThirdPartyQRCodeLogin"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/accounts/{platform}/{account_id}/validate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Validate one saved third-party account credential. */
-        post: operations["validateThirdPartyAccount"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/third-party/accounts/{platform}/{account_id}/avatar": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Fetch the saved profile avatar for one third-party account through a controlled platform media request. */
-        get: operations["getThirdPartyAccountAvatar"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/update/status": {
         parameters: {
             query?: never;
@@ -1415,7 +1311,6 @@ export interface components {
             adapters: components["schemas"]["AdapterStatus"][];
             plugins: components["schemas"]["SystemDiagnosticsPlugins"];
             render: components["schemas"]["SystemDiagnosticsIssueGroup"];
-            third_party: components["schemas"]["SystemDiagnosticsThirdParty"];
             scheduler: components["schemas"]["SystemDiagnosticsScheduler"];
             tasks: components["schemas"]["SystemDiagnosticsTaskSummary"];
             dependencies: components["schemas"]["SystemDiagnosticsDependency"][];
@@ -1467,20 +1362,6 @@ export interface components {
         SystemDiagnosticsIssueGroup: {
             status: string;
             issues: components["schemas"]["DiagnosticIssue"][];
-        };
-        SystemDiagnosticsThirdParty: {
-            total: number;
-            enabled: number;
-            configured: number;
-            invalid: number;
-            platforms: components["schemas"]["SystemDiagnosticsThirdPartyPlatform"][];
-        };
-        SystemDiagnosticsThirdPartyPlatform: {
-            platform: components["schemas"]["ThirdPartyPlatform"];
-            total: number;
-            enabled: number;
-            configured: number;
-            invalid: number;
         };
         SystemDiagnosticsScheduler: {
             total: number;
@@ -2196,9 +2077,8 @@ export interface components {
             tolerance_seconds: number;
             enforce: boolean;
         };
-        PluginPermissionGrant: true | {
-            platforms: components["schemas"]["ThirdPartyPlatform"][];
-        };
+        /** @constant */
+        PluginPermissionGrant: true;
         PluginPermissions: {
             [key: string]: components["schemas"]["PluginPermissionGrant"];
         };
@@ -2260,72 +2140,6 @@ export interface components {
             result: {
                 [key: string]: unknown;
             };
-        };
-        /** @enum {string} */
-        ThirdPartyPlatform: "bilibili" | "weibo" | "douyin" | "netease_music";
-        ThirdPartyAccountSummary: {
-            platform: components["schemas"]["ThirdPartyPlatform"];
-            account_id: string;
-            label: string;
-            enabled: boolean;
-            configured: boolean;
-            profile: components["schemas"]["ThirdPartyAccountProfile"];
-            credential: components["schemas"]["ThirdPartyCredentialStatus"];
-            /** Format: date-time */
-            updated_at: string;
-        };
-        ThirdPartyAccountProfile: {
-            uid: string;
-            nickname: string;
-            avatar_url: string;
-        } | null;
-        /** @enum {string} */
-        ThirdPartyCredentialState: "unknown" | "valid" | "invalid";
-        ThirdPartyCredentialStatus: {
-            state: components["schemas"]["ThirdPartyCredentialState"];
-            /** Format: date-time */
-            checked_at: string | null;
-            last_error: string;
-        };
-        ThirdPartyAccountsResponse: {
-            items: components["schemas"]["ThirdPartyAccountSummary"][];
-        } & components["schemas"]["CollectionPage"];
-        ThirdPartyAccountUpsertRequest: {
-            /**
-             * @description Reject an already existing platform/account_id with 409 platform.state_conflict before changing its account or credential. Used by the new-account form, including when the existing record is on another page.
-             * @default false
-             */
-            create_only: boolean;
-            label: string;
-            enabled: boolean;
-            cookie?: string;
-        };
-        ThirdPartyAccountUpsertResponse: {
-            account: components["schemas"]["ThirdPartyAccountSummary"];
-        };
-        ThirdPartyAccountValidationResponse: {
-            account: components["schemas"]["ThirdPartyAccountSummary"];
-        };
-        /**
-         * @description QR login lifecycle state. pending_scan, pending_confirm, and verification_required are transient. expired, failed, and succeeded are terminal. verification_required means the operator must complete an interactive browser challenge. Consumers must treat an unknown value as a terminal failure and offer a fresh login attempt.
-         * @enum {string}
-         */
-        ThirdPartyQRCodeLoginState: "pending_scan" | "pending_confirm" | "verification_required" | "expired" | "failed" | "succeeded";
-        ThirdPartyQRCodeLoginCreateResponse: {
-            platform: components["schemas"]["ThirdPartyPlatform"];
-            login_id: string;
-            qrcode_url: string;
-            /** Format: date-time */
-            expires_at: string;
-            state: components["schemas"]["ThirdPartyQRCodeLoginState"];
-        };
-        ThirdPartyQRCodeLoginPollResponse: {
-            platform: components["schemas"]["ThirdPartyPlatform"];
-            login_id: string;
-            state: components["schemas"]["ThirdPartyQRCodeLoginState"];
-            /** Format: date-time */
-            expires_at: string;
-            account: components["schemas"]["ThirdPartyAccountSummary"] | null;
         };
         PluginSecretValues: {
             [key: string]: string;
@@ -2630,7 +2444,7 @@ export interface components {
                  */
                 browser_args: string[];
                 /**
-                 * @description Shared Chromium executable path for image rendering and the Douyin QR-login browser fallback. Leave empty to use a prepared managed Chromium or a system Chromium-family browser.
+                 * @description Shared Chromium executable path for image rendering and plugin browser sessions. Leave empty to use a prepared managed Chromium or a system Chromium-family browser.
                  * @default
                  */
                 browser_path: string;
@@ -2662,26 +2476,6 @@ export interface components {
                 queue_max_length: number;
                 /** @default Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}} */
                 footer_template: string;
-            };
-            third_party_accounts: {
-                /**
-                 * @description Interval in minutes for server-side credential checks. Set to 0 to disable automatic checks; manual checks remain available.
-                 * @default 360
-                 */
-                credential_check_interval_minutes: number & (0 | unknown);
-                douyin_login: {
-                    /**
-                     * @description Browser mode used for Douyin QR login. Auto prefers a configured loopback CDP browser, then a visible local browser, and finally headless mode when a visible browser cannot start. Requires restart.
-                     * @default auto
-                     * @enum {string}
-                     */
-                    browser_mode: "auto" | "visible" | "headless" | "remote_cdp";
-                    /**
-                     * @description Loopback HTTP(S) or WS(S) endpoint for a dedicated Chromium remote-debugging profile. Required by remote_cdp mode. Requires restart.
-                     * @default
-                     */
-                    remote_debugging_url: string;
-                } & unknown;
             };
             scheduler: {
                 /**
@@ -3041,9 +2835,6 @@ export interface components {
         GovernanceTargetId: string;
         TemplateId: string;
         SchedulerJobId: string;
-        ThirdPartyPlatform: components["schemas"]["ThirdPartyPlatform"];
-        ThirdPartyAccountId: string;
-        ThirdPartyQRCodeLoginId: string;
     };
     requestBodies: never;
     headers: {
@@ -4981,222 +4772,6 @@ export interface operations {
             401: components["responses"]["Error"];
             409: components["responses"]["Error"];
             429: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    listThirdPartyAccounts: {
-        parameters: {
-            query?: {
-                /** @description Maximum entries in this response. Changing a query starts at cursor 0. */
-                limit?: components["parameters"]["CollectionLimit"];
-                /** @description Decimal offset in the stable endpoint order; reset after a collection change. Not an immutable database snapshot. */
-                cursor?: components["parameters"]["CollectionCursor"];
-                /** @description Substring search over the endpoint's identifying labels, IDs and descriptions, ignoring ASCII letter case; filtering occurs before pagination. */
-                query?: components["parameters"]["CollectionQuery"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current third-party account summaries. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyAccountsResponse"];
-                };
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    upsertThirdPartyAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-                account_id: components["parameters"]["ThirdPartyAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ThirdPartyAccountUpsertRequest"];
-            };
-        };
-        responses: {
-            /** @description Account saved. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyAccountUpsertResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    deleteThirdPartyAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-                account_id: components["parameters"]["ThirdPartyAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Account deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    createThirdPartyQRCodeLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description QR code login session created. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyQRCodeLoginCreateResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    pollThirdPartyQRCodeLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-                login_id: components["parameters"]["ThirdPartyQRCodeLoginId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current QR code login state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyQRCodeLoginPollResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    cancelThirdPartyQRCodeLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-                login_id: components["parameters"]["ThirdPartyQRCodeLoginId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description QR code login session cancelled and its provider resources released. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    validateThirdPartyAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-                account_id: components["parameters"]["ThirdPartyAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Credential check completed. Valid, invalid, and unknown are all successful check outcomes. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThirdPartyAccountValidationResponse"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            default: components["responses"]["Error"];
-        };
-    };
-    getThirdPartyAccountAvatar: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform: components["parameters"]["ThirdPartyPlatform"];
-                account_id: components["parameters"]["ThirdPartyAccountId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Saved account avatar bytes. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": string;
-                    "image/jpeg": string;
-                    "image/webp": string;
-                    "image/gif": string;
-                    "image/avif": string;
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            502: components["responses"]["Error"];
             default: components["responses"]["Error"];
         };
     };

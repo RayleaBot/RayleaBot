@@ -48,8 +48,8 @@ func TestGetPluginReturnsRichV3Metadata(t *testing.T) {
 		PluginID: "weather", Name: "Weather", Version: "1.4.2", Description: "天气查询",
 		Author: "raylea", License: "MIT", MinCoreVersion: "0.4.0", Concurrency: 3,
 		Events: []string{"message.group"},
-		Permissions: map[string]plugins.PermissionGrant{
-			"http.request": {}, "thirdparty.account.read": {Platforms: []string{"bilibili"}},
+		Permissions: map[string]bool{
+			"http.request": true, "secret.write": true,
 		},
 		Icon: "assets/weather.svg", Repo: "https://github.com/RayleaBot/plugins-weather",
 		Homepage: "https://plugins.rayleabot.local/weather", Keywords: []string{"weather", "forecast"},

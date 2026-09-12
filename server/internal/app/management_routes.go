@@ -70,33 +70,13 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 	}
 	systemRoutes := managementapi.NewSystemRoutes(systemHandlers, deps.Metrics.HTTPHandler())
 	protocolHandler := managementapi.NewProtocolHandlers(services.Protocol)
-	thirdPartyOptions := []managementapi.ThirdPartyHandlersOption{
-		managementapi.WithThirdPartyAccountValidation(services.AccountValidation),
-		managementapi.WithThirdPartyAvatarTransport(deps.HTTPTransport),
-	}
-	var thirdPartyHandler *managementapi.ThirdPartyHandlers
-	if services.ThirdPartyQRLogin == nil {
-		thirdPartyHandler = managementapi.NewThirdPartyHandlers(
-			services.ThirdParty,
-			deps.ServiceBuild.ThirdPartyAccountValidator,
-			nil,
-			thirdPartyOptions...,
-		)
-	} else {
-		thirdPartyHandler = managementapi.NewThirdPartyHandlers(
-			services.ThirdParty,
-			deps.ServiceBuild.ThirdPartyAccountValidator,
-			services.ThirdPartyQRLogin,
-			thirdPartyOptions...,
-		)
-	}
 	updateHandler, err := managementapi.NewUpdateHandlers(releaseupdate.NewEmbeddedService(runtimeState.RepoRoot()))
 	if err != nil {
 		return managementRouteState{}, err
 	}
 	eventsWS, err := managementapi.NewEventsHandler(managementevents.Sources{
 		Bridge: eventState.Bridge, Plugins: pluginState.Plugins, Adapters: services.Protocol,
-		Status: deps.ServiceBuild.Status, Governance: services.GovernanceEvents, ThirdParty: services.ThirdPartyEvents,
+		Status: deps.ServiceBuild.Status, Governance: services.GovernanceEvents,
 	})
 	if err != nil {
 		return managementRouteState{}, err
@@ -154,7 +134,6 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 				logHandler,
 				systemRoutes,
 				renderHandler,
-				thirdPartyHandler,
 				updateHandler,
 				pluginManagementUI,
 				managementapi.ProtectedRouteFunc(func(r chi.Router) {

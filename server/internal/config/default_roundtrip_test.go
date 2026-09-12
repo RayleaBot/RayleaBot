@@ -13,17 +13,16 @@ import (
 func TestDefaultsPreserveExplicitZeroFalseAndEmptyCollections(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "user.yaml")
 	writeYAMLDocument(t, path, map[string]any{
-		"admin":                map[string]any{"sliding_renewal": false},
-		"third_party_accounts": map[string]any{"credential_check_interval_minutes": 0},
-		"command":              map[string]any{"prefixes": []any{}},
-		"builtin_features":     map[string]any{"menu": map[string]any{"commands": []any{}}},
-		"render":               map[string]any{"browser_args": []any{}, "footer_template": ""},
+		"admin":            map[string]any{"sliding_renewal": false},
+		"command":          map[string]any{"prefixes": []any{}},
+		"builtin_features": map[string]any{"menu": map[string]any{"commands": []any{}}},
+		"render":           map[string]any{"browser_args": []any{}, "footer_template": ""},
 	})
 	cfg, _, err := Normalize(path, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Admin.SlidingRenewal || cfg.ThirdParty.CredentialCheckIntervalMinutes != 0 ||
+	if cfg.Admin.SlidingRenewal ||
 		len(cfg.Command.Prefixes) != 0 || len(cfg.Builtin.Menu.Commands) != 0 ||
 		len(cfg.Render.BrowserArgs) != 0 || cfg.Render.FooterTemplate != "" {
 		t.Fatal("normalization replaced explicitly configured empty or disabled values")

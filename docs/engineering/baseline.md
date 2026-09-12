@@ -15,10 +15,10 @@
 
 ## 工程目录与职责
 
-- `server/` 是产品核心，负责配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、三方账号、管理面日志持久化与运行指标。
+- `server/` 是产品核心，负责配置、存储、鉴权、任务、插件发现、OneBot11 adapter、多插件 runtime、dispatcher、scheduler trigger、插件浏览器会话、管理面日志持久化与运行指标。
 - `web/` 负责管理控制台主路径。
 - `launcher/` 负责 Wails 桌面启动器、本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
-- `.deps/manifest.json` v5 固定图片渲染与抖音扫码浏览器兜底共用的 Chromium，以及受信本地插件共用的 FFmpeg / FFprobe 资源矩阵和可信来源列表；插件运行不依赖托管语言运行时。
+- `.deps/manifest.json` v5 固定图片渲染与插件浏览器会话共用的 Chromium，以及受信本地插件共用的 FFmpeg / FFprobe 资源矩阵和可信来源列表；插件运行不依赖托管语言运行时。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
 - 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
 
@@ -84,7 +84,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | 插件管理页 | 独立 Vue package + `sdk/vue`；Vite 固定 `base: "./"`，产物位于 artifact 的 `ui/` |
 | 插件构建 | `raylea-plugin inspect/pack/build-go` 统一检查、通用原生打包和 Go 构建；输出 artifact v2 单根目录 ZIP 与可选展开目录 |
 | 插件商店 | 默认使用 `RayleaBot/plugin-catalog` 的 catalog v2，并允许管理员添加自定义 HTTPS 来源；Server 持久化各来源最后一次成功目录 |
-| 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和抖音扫码浏览器兜底可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
+| 运行环境资源准备 | `.deps/manifest.json` 可信来源测速 + `cache/downloads/runtime/` + `.deps/store/<resource-id>/<version>/`；图片渲染和插件浏览器会话可复用已安装的 Chrome、Chromium、Edge 或托管 Chromium，受信本地插件通过启动环境读取托管 FFmpeg / FFprobe 入口 |
 
 ## 默认命令
 

@@ -157,32 +157,9 @@ x-fixtures:
   - fixtures/web-api/ok.plugins-reload-response.yaml
   - fixtures/web-api/ok.plugins-recover-response.yaml
   - fixtures/web-api/ok.plugins-uninstall-accepted.yaml
-  - fixtures/web-api/ok.third-party-accounts-list.yaml
-  - fixtures/web-api/ok.third-party-account-upsert.yaml
-  - fixtures/web-api/ok.third-party-account-upsert-weibo.yaml
-  - fixtures/web-api/ok.third-party-account-delete.yaml
-  - fixtures/web-api/ok.third-party-account-validate-invalid.yaml
-  - fixtures/web-api/invalid.third-party-account-validate-not-found.yaml
-  - fixtures/web-api/ok.third-party-account-avatar-weibo.yaml
-  - fixtures/web-api/invalid.third-party-account-avatar-not-found.yaml
   - fixtures/web-api/ok.plugin-management-action.yaml
   - fixtures/web-api/ok.update-status.yaml
   - fixtures/web-api/ok.update-check.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-create-weibo.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-pending.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-weibo-succeeded.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-create-bilibili.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-pending.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-bilibili-succeeded.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-create-douyin.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-pending.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-verification-required.yaml
-  - fixtures/web-api/edge.third-party-login-qrcode-poll-douyin-failed.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-douyin-succeeded.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-cancel-douyin.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-create-netease-music.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-pending.yaml
-  - fixtures/web-api/ok.third-party-login-qrcode-poll-netease-music-succeeded.yaml
   - fixtures/web-api/invalid.plugins-reload-not-enabled.yaml
   - fixtures/web-api/invalid.plugins-recover-not-recoverable.yaml
   - fixtures/web-api/invalid.plugins-uninstall-id.yaml
@@ -2244,216 +2221,6 @@ paths:
         default:
           $ref: '#/components/responses/Error'
 
-  /api/third-party/accounts:
-    get:
-      summary: List configured third-party accounts available to built-in platform sources.
-      operationId: listThirdPartyAccounts
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-      parameters:
-        - $ref: '#/components/parameters/CollectionLimit'
-        - $ref: '#/components/parameters/CollectionCursor'
-        - $ref: '#/components/parameters/CollectionQuery'
-      responses:
-        '200':
-          description: Current third-party account summaries.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyAccountsResponse'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/accounts/{platform}/{account_id}:
-    put:
-      summary: Save one third-party account and its credential.
-      operationId: upsertThirdPartyAccount
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-        - $ref: '#/components/parameters/ThirdPartyAccountId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ThirdPartyAccountUpsertRequest'
-      responses:
-        '200':
-          description: Account saved.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyAccountUpsertResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-    delete:
-      summary: Delete one third-party account and its credential.
-      operationId: deleteThirdPartyAccount
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-        - $ref: '#/components/parameters/ThirdPartyAccountId'
-      responses:
-        '204':
-          description: Account deleted.
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/accounts/{platform}/login/qrcode:
-    post:
-      summary: Start a third-party QR code login session.
-      operationId: createThirdPartyQRCodeLogin
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-      responses:
-        '200':
-          description: QR code login session created.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyQRCodeLoginCreateResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/accounts/{platform}/login/qrcode/{login_id}:
-    get:
-      summary: Poll a third-party QR code login session.
-      operationId: pollThirdPartyQRCodeLogin
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-        - $ref: '#/components/parameters/ThirdPartyQRCodeLoginId'
-      responses:
-        '200':
-          description: Current QR code login state.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyQRCodeLoginPollResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-    delete:
-      summary: Cancel a third-party QR code login session.
-      operationId: cancelThirdPartyQRCodeLogin
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-        - $ref: '#/components/parameters/ThirdPartyQRCodeLoginId'
-      responses:
-        '204':
-          description: QR code login session cancelled and its provider resources released.
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/accounts/{platform}/{account_id}/validate:
-    post:
-      summary: Validate one saved third-party account credential.
-      operationId: validateThirdPartyAccount
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-          CSRFAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-        - $ref: '#/components/parameters/ThirdPartyAccountId'
-      responses:
-        '200':
-          description: Credential check completed. Valid, invalid, and unknown are all successful check outcomes.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ThirdPartyAccountValidationResponse'
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
-
-  /api/third-party/accounts/{platform}/{account_id}/avatar:
-    get:
-      summary: Fetch the saved profile avatar for one third-party account through a controlled platform media request.
-      operationId: getThirdPartyAccountAvatar
-      security:
-        - BearerAuth: []
-        - CookieAuth: []
-      parameters:
-        - $ref: '#/components/parameters/ThirdPartyPlatform'
-        - $ref: '#/components/parameters/ThirdPartyAccountId'
-      responses:
-        '200':
-          description: Saved account avatar bytes.
-          content:
-            image/png:
-              schema:
-                type: string
-                format: binary
-            image/jpeg:
-              schema:
-                type: string
-                format: binary
-            image/webp:
-              schema:
-                type: string
-                format: binary
-            image/gif:
-              schema:
-                type: string
-                format: binary
-            image/avif:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/Error'
-        '401':
-          $ref: '#/components/responses/Error'
-        '404':
-          $ref: '#/components/responses/Error'
-        '502':
-          $ref: '#/components/responses/Error'
-        default:
-          $ref: '#/components/responses/Error'
 
   /api/update/status:
     get:
@@ -2667,26 +2434,6 @@ components:
       schema:
         type: string
         minLength: 1
-    ThirdPartyPlatform:
-      name: platform
-      in: path
-      required: true
-      schema:
-        $ref: '#/components/schemas/ThirdPartyPlatform'
-    ThirdPartyAccountId:
-      name: account_id
-      in: path
-      required: true
-      schema:
-        type: string
-        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$'
-    ThirdPartyQRCodeLoginId:
-      name: login_id
-      in: path
-      required: true
-      schema:
-        type: string
-        pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
 
   responses:
     Error:
@@ -2910,7 +2657,7 @@ components:
     SystemDiagnosticsResponse:
       type: object
       additionalProperties: false
-      required: [generated_at, build, system, config, secrets, database, adapters, plugins, render, third_party, scheduler, tasks, dependencies, filesystem, recent_errors, issues]
+      required: [generated_at, build, system, config, secrets, database, adapters, plugins, render, scheduler, tasks, dependencies, filesystem, recent_errors, issues]
       properties:
         generated_at:
           type: string
@@ -2933,8 +2680,6 @@ components:
           $ref: '#/components/schemas/SystemDiagnosticsPlugins'
         render:
           $ref: '#/components/schemas/SystemDiagnosticsIssueGroup'
-        third_party:
-          $ref: '#/components/schemas/SystemDiagnosticsThirdParty'
         scheduler:
           $ref: '#/components/schemas/SystemDiagnosticsScheduler'
         tasks:
@@ -3069,47 +2814,6 @@ components:
           items:
             $ref: '#/components/schemas/DiagnosticIssue'
 
-    SystemDiagnosticsThirdParty:
-      type: object
-      additionalProperties: false
-      required: [total, enabled, configured, invalid, platforms]
-      properties:
-        total:
-          type: integer
-          minimum: 0
-        enabled:
-          type: integer
-          minimum: 0
-        configured:
-          type: integer
-          minimum: 0
-        invalid:
-          type: integer
-          minimum: 0
-        platforms:
-          type: array
-          items:
-            $ref: '#/components/schemas/SystemDiagnosticsThirdPartyPlatform'
-
-    SystemDiagnosticsThirdPartyPlatform:
-      type: object
-      additionalProperties: false
-      required: [platform, total, enabled, configured, invalid]
-      properties:
-        platform:
-          $ref: '#/components/schemas/ThirdPartyPlatform'
-        total:
-          type: integer
-          minimum: 0
-        enabled:
-          type: integer
-          minimum: 0
-        configured:
-          type: integer
-          minimum: 0
-        invalid:
-          type: integer
-          minimum: 0
 
     SystemDiagnosticsScheduler:
       type: object
@@ -4819,20 +4523,10 @@ components:
         enforce:
           type: boolean
 
+
     PluginPermissionGrant:
-      oneOf:
-        - type: boolean
-          const: true
-        - type: object
-          additionalProperties: false
-          required: [platforms]
-          properties:
-            platforms:
-              type: array
-              minItems: 1
-              uniqueItems: true
-              items:
-                $ref: '#/components/schemas/ThirdPartyPlatform'
+      type: boolean
+      const: true
 
     PluginPermissions:
       type: object
@@ -4983,158 +4677,6 @@ components:
         result:
           type: object
           additionalProperties: true
-
-    ThirdPartyPlatform:
-      type: string
-      enum: [bilibili, weibo, douyin, netease_music]
-
-    ThirdPartyAccountSummary:
-      type: object
-      additionalProperties: false
-      required: [platform, account_id, label, enabled, configured, profile, credential, updated_at]
-      properties:
-        platform:
-          $ref: '#/components/schemas/ThirdPartyPlatform'
-        account_id:
-          type: string
-          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,62}[a-z0-9])?$'
-        label:
-          type: string
-        enabled:
-          type: boolean
-        configured:
-          type: boolean
-        profile:
-          $ref: '#/components/schemas/ThirdPartyAccountProfile'
-        credential:
-          $ref: '#/components/schemas/ThirdPartyCredentialStatus'
-        updated_at:
-          type: string
-          format: date-time
-
-    ThirdPartyAccountProfile:
-      type: [object, 'null']
-      additionalProperties: false
-      required: [uid, nickname, avatar_url]
-      properties:
-        uid:
-          type: string
-          pattern: '^[0-9]+$'
-        nickname:
-          type: string
-        avatar_url:
-          type: string
-
-    ThirdPartyCredentialState:
-      type: string
-      enum: [unknown, valid, invalid]
-
-    ThirdPartyCredentialStatus:
-      type: object
-      additionalProperties: false
-      required: [state, checked_at, last_error]
-      properties:
-        state:
-          $ref: '#/components/schemas/ThirdPartyCredentialState'
-        checked_at:
-          type: [string, 'null']
-          format: date-time
-        last_error:
-          type: string
-
-    ThirdPartyAccountsResponse:
-      allOf:
-        - $ref: '#/components/schemas/CollectionPage'
-      type: object
-      unevaluatedProperties: false
-      required: [items]
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ThirdPartyAccountSummary'
-
-    ThirdPartyAccountUpsertRequest:
-      type: object
-      additionalProperties: false
-      required: [label, enabled]
-      properties:
-        create_only:
-          type: boolean
-          default: false
-          description: Reject an already existing platform/account_id with 409 platform.state_conflict before changing its account or credential. Used by the new-account form, including when the existing record is on another page.
-        label:
-          type: string
-        enabled:
-          type: boolean
-        cookie:
-          type: string
-          minLength: 1
-
-    ThirdPartyAccountUpsertResponse:
-      type: object
-      additionalProperties: false
-      required: [account]
-      properties:
-        account:
-          $ref: '#/components/schemas/ThirdPartyAccountSummary'
-
-    ThirdPartyAccountValidationResponse:
-      type: object
-      additionalProperties: false
-      required: [account]
-      properties:
-        account:
-          $ref: '#/components/schemas/ThirdPartyAccountSummary'
-
-    ThirdPartyQRCodeLoginState:
-      type: string
-      enum: [pending_scan, pending_confirm, verification_required, expired, failed, succeeded]
-      description: >
-        QR login lifecycle state. pending_scan, pending_confirm, and
-        verification_required are transient. expired, failed, and succeeded
-        are terminal. verification_required means the operator must complete
-        an interactive browser challenge. Consumers must treat an unknown
-        value as a terminal failure and offer a fresh login attempt.
-
-    ThirdPartyQRCodeLoginCreateResponse:
-      type: object
-      additionalProperties: false
-      required: [platform, login_id, qrcode_url, expires_at, state]
-      properties:
-        platform:
-          $ref: '#/components/schemas/ThirdPartyPlatform'
-        login_id:
-          type: string
-          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
-        qrcode_url:
-          type: string
-          minLength: 1
-        expires_at:
-          type: string
-          format: date-time
-        state:
-          $ref: '#/components/schemas/ThirdPartyQRCodeLoginState'
-
-    ThirdPartyQRCodeLoginPollResponse:
-      type: object
-      additionalProperties: false
-      required: [platform, login_id, state, expires_at, account]
-      properties:
-        platform:
-          $ref: '#/components/schemas/ThirdPartyPlatform'
-        login_id:
-          type: string
-          pattern: '^[a-z0-9](?:[a-z0-9_.-]{0,126}[a-z0-9])?$'
-        state:
-          $ref: '#/components/schemas/ThirdPartyQRCodeLoginState'
-        expires_at:
-          type: string
-          format: date-time
-        account:
-          oneOf:
-            - $ref: '#/components/schemas/ThirdPartyAccountSummary'
-            - type: 'null'
 
     PluginSecretValues:
       type: object

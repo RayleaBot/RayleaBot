@@ -172,58 +172,6 @@ describe('ConfigPage', () => {
     expect(submitted.render.device_scale_percent).toBe(200)
   })
 
-  it('edits hot credential checks and restart-required Douyin browser settings', async () => {
-    const store = useConfigStore()
-    store.document = createConfigDocumentFixture()
-
-    vi.spyOn(store, 'fetchConfig').mockResolvedValue(undefined)
-    const saveSpy = vi.spyOn(store, 'saveConfig').mockResolvedValue({
-      config: store.document,
-      redacted_fields: [],
-      restart_required: true,
-      apply_effects: {
-        applied_now: ['third_party_accounts.credential_check_interval_minutes'],
-        reloaded_now: [],
-        restart_required_fields: [
-          'third_party_accounts.douyin_login.browser_mode',
-          'third_party_accounts.douyin_login.remote_debugging_url',
-        ],
-      },
-    })
-
-    const wrapper = mount(ConfigPage, {
-      global: {
-        plugins: [getActivePinia()!],
-      },
-    })
-
-    await flushPromises()
-
-    await selectCategory(wrapper, 'accounts', true)
-    const checkIntervalRow = getConfigFieldRow(wrapper, 'third_party_accounts.credential_check_interval_minutes')
-    const browserModeRow = getConfigFieldRow(wrapper, 'third_party_accounts.douyin_login.browser_mode')
-    const remoteDebuggingRow = getConfigFieldRow(wrapper, 'third_party_accounts.douyin_login.remote_debugging_url')
-    expect(checkIntervalRow.props('field').restartRequired).toBeFalsy()
-    expect(browserModeRow.props('field').restartRequired).toBe(true)
-    expect(remoteDebuggingRow.props('field').restartRequired).toBe(true)
-
-    await checkIntervalRow.vm.$emit('update:value', 720)
-    await browserModeRow.vm.$emit('update:value', 'remote_cdp')
-    await remoteDebuggingRow.vm.$emit('update:value', 'http://127.0.0.1:9222')
-    await flushPromises()
-
-    const saveButton = wrapper.get('[data-testid=config-save]')
-    expect(saveButton).toBeTruthy()
-    await saveButton!.trigger('click')
-
-    expect(saveSpy).toHaveBeenCalledTimes(1)
-    expect(saveSpy.mock.calls[0][0].third_party_accounts.douyin_login).toEqual({
-      browser_mode: 'remote_cdp',
-      remote_debugging_url: 'http://127.0.0.1:9222',
-    })
-    expect(saveSpy.mock.calls[0][0].third_party_accounts.credential_check_interval_minutes).toBe(720)
-  })
-
   it('edits general IPC rate limit with split inputs', async () => {
     const store = useConfigStore()
     store.document = createConfigDocumentFixture()

@@ -43,34 +43,13 @@
 
 需要显式权限的能力包括：
 
-- 消息、治理、调度、渲染和插件目录等宿主动作。这类基础权限与聊天协议无关。
+- 消息、治理、调度、渲染、浏览器会话和插件目录等宿主动作。这类基础权限与聊天协议无关。
 - OneBot 单动作与 provider 扩展动作。这些名字承载 OneBot11 的语义、可用性和参数形状，不跨聊天协议可移植；provider 扩展还取决于所连的 OneBot11 实现。
 - `http.request`。
-- `secret.read`。
+- `secret.read`、`secret.write` 和 `secret.delete`。
 - `event.raw_payload`。
-- 三方账号读取、校验和解析。
 
 未声明权限时，宿主返回 `plugin.permission_denied`。
-
-### 带平台范围的权限
-
-三方权限可使用 `true` 允许其正式平台全集，也可声明平台子集：
-
-```json
-{
-  "permissions": {
-    "message.send": true,
-    "thirdparty.account.read": {
-      "platforms": ["bilibili", "weibo"]
-    },
-    "thirdparty.resolve": {
-      "platforms": ["douyin"]
-    }
-  }
-}
-```
-
-`thirdparty.account.read` 与 `thirdparty.account.validate` 支持 `bilibili`、`weibo`、`douyin`、`netease_music`；`thirdparty.resolve` 当前只支持 `douyin`。
 
 ## HTTP 安全边界
 

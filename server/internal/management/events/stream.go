@@ -33,7 +33,6 @@ type Sources struct {
 	Adapters   AdapterSource
 	Status     StatusSource
 	Governance ChangeSource
-	ThirdParty ChangeSource
 }
 
 // Stream owns event subscriptions and cancels active transports on shutdown.
@@ -96,15 +95,10 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 	defer unsubscribeAdapters()
 	initialStatus, statusFrames, unsubscribeStatus := sources.Status.SnapshotAndSubscribe(4)
 	defer unsubscribeStatus()
-	var governanceFrames, thirdPartyFrames <-chan Frame
+	var governanceFrames <-chan Frame
 	if sources.Governance != nil {
 		var unsubscribe func()
 		governanceFrames, unsubscribe = sources.Governance.Subscribe(4)
-		defer unsubscribe()
-	}
-	if sources.ThirdParty != nil {
-		var unsubscribe func()
-		thirdPartyFrames, unsubscribe = sources.ThirdParty.Subscribe(4)
 		defer unsubscribe()
 	}
 	for _, frame := range []Frame{initialStatus, AdaptersSnapshotFrame(initialAdapters)} {
@@ -145,13 +139,6 @@ func (s *Stream) Run(ctx context.Context, write func(context.Context, any) error
 				return err
 			}
 		case frame, ok := <-governanceFrames:
-			if !ok {
-				return nil
-			}
-			if err := write(ctx, frame); err != nil {
-				return err
-			}
-		case frame, ok := <-thirdPartyFrames:
 			if !ok {
 				return nil
 			}

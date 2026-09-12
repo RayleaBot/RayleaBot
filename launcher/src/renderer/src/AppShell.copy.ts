@@ -44,7 +44,6 @@ const diagnosticCheckNameLabels: Record<string, string> = {
   runtime: "运行环境",
   scheduler: "定时任务",
   tasks: "任务队列",
-  third_party: "第三方平台",
 };
 
 const diagnosticCheckValueLabels: Record<string, string> = {

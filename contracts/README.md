@@ -38,12 +38,12 @@
   - 配置与数据库 schema 版本从实际归档内容读取：当前配置为 `4`，数据库为 `000001`；没有归档数据库时明确记录 `absent`。恢复只处理当前格式，初始化元数据、配置与业务数据在本版备份恢复中保持一致。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
-  - 图片渲染与抖音扫码登录（浏览器兜底）共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
+  - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
 - `error-codes.yaml`
   - 统一错误码命名、默认消息资源键、HTTP 语义和适用范围
 - `web-api.openapi.yaml`
   - 当前已固定的管理 HTTP 接口
-  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、插件商店、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、third-party accounts、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及受信更新状态与检查入口
+  - 当前包含 setup / cookie 与 Bearer session、launcher control、config snapshot/update、protocol snapshot / compatibility、OneBot target / identity resolution、plugin lifecycle、插件商店、安装检查与可信代码确认、自定义插件管理页、plugin settings / secrets、governance 管理面、logs / system / metrics、scheduler、recovery、runtime bootstrap、render templates 以及受信更新状态与检查入口
   - `PUT /api/config` response 固定返回 `apply_effects.applied_now`、`apply_effects.reloaded_now`、`apply_effects.restart_required_fields`
   - plugin lifecycle surface 统一使用正式 `state` 枚举与可选 `state_diagnosis`
   - 黑白名单条目必须携带 `scope`。`global` 只允许 `onebot11`，`source_adapter` 与 `bot_id` 均为空；`instance` 必须同时提供协议、实例 ID 和 bot ID。读取聚合所有作用域，写入与删除按完整作用域定位；实例规则与同协议的全局规则均可命中。白名单启用开关仍作用于整个服务。
@@ -51,7 +51,7 @@
   - `TaskStatusResponse.error_code` 等标注 `x-error-code-registry: contracts/error-codes.yaml` 的字段，取值必须是该目录已登记的 code；契约校验对 fixtures 与 examples 强制执行。
 - `websocket-events.yaml`
   - 当前已固定的管理 WebSocket envelope、事件名和 payload 约束
-  - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed` 与 `third_party.account.changed`
+  - `events.received` 的通用 `event_type + summary` 分支当前包含 `governance.changed`
   - 插件状态、诊断及命令运行态投影引用 OpenAPI 的同一 schema；命令触发器、权限级别、帮助与分组等声明字段引用 `plugin-info.schema.json` 的定义。静态 manifest 与含有效命令名的运行态投影保持各自的 required 字段。
 - `plugin-info.schema.json`
   - 插件 `info.json` v3 的安装前静态校验、最低 Core 版本、事件、权限、命令、管理页与 webhook 边界
@@ -83,12 +83,11 @@
   - `message.send` 统一发送与回复；非终态动作通过独立 `request_id` 和当前事件 `parent_request_id` 关联
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达
-  - `logger.write`、`storage.kv`、`storage.file` 和 `config.write` 是隐式插件私有动作；HTTP、消息、secret、三方账号、治理、调度、渲染、OneBot 与 provider 动作使用显式权限。
+  - `logger.write`、`storage.kv`、`storage.file` 和 `config.write` 是隐式插件私有动作；HTTP、消息、secret、浏览器、治理、调度、渲染、OneBot 与 provider 动作使用显式权限。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
-    - `secret.read` 只读取调用插件自己的 secret 命名空间。
-    - `thirdparty.account.read` 只读取插件 manifest 声明平台的已启用有效三方账号，并把 CK 按 secret 值处理。
-    - `thirdparty.account.validate` 只提交受限异常观察并请求 Server 权威复检，不接受 CK 状态、凭据、响应正文或自由文本错误。
-    - `thirdparty.resolve` 请求宿主用已登录浏览器环境解析三方平台用户，当前仅支持 douyin；返回的 `uid` 是稳定绑定标识，`unique_id` 是平台可修改标识，仅用于展示。
+    - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值经宿主加密后落盘，读取结果仅返回调用插件。
+    - `browser.launch` 启动或附着插件专属的宿主托管浏览器会话，宿主按插件隔离 profile、应用启动硬化、限制同一 profile 同时只有一个会话，并在生命周期到期或 `browser.close` 时关闭；返回的 `debugger_url` 是该会话的浏览器级 CDP WebSocket 端点。
+    - `browser.close` 关闭调用插件自己启动的会话并释放其持久 profile。
     - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台经统一 HTTPS、DNS/重定向复查、SSRF/私网和资源限制预取后交给 Chromium 的请求级临时图片资源
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`

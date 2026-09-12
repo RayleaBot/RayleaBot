@@ -15,7 +15,6 @@
     "admin",
     "permission",
     "render",
-    "third_party_accounts",
     "scheduler",
     "runtime",
     "storage",
@@ -268,7 +267,7 @@
         "browser_path": {
           "type": "string",
           "default": "",
-          "description": "Shared Chromium executable path for image rendering and the Douyin QR-login browser fallback. Leave empty to use a prepared managed Chromium or a system Chromium-family browser.",
+          "description": "Shared Chromium executable path for image rendering and plugin browser sessions. Leave empty to use a prepared managed Chromium or a system Chromium-family browser.",
           "x-apply-policy": "restart_required"
         },
         "default_output": {
@@ -314,81 +313,6 @@
           "type": "string",
           "default": "Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}}",
           "x-apply-policy": "hot_reload"
-        }
-      }
-    },
-    "third_party_accounts": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "credential_check_interval_minutes",
-        "douyin_login"
-      ],
-      "properties": {
-        "credential_check_interval_minutes": {
-          "type": "integer",
-          "oneOf": [
-            {
-              "const": 0
-            },
-            {
-              "minimum": 15,
-              "maximum": 10080
-            }
-          ],
-          "default": 360,
-          "description": "Interval in minutes for server-side credential checks. Set to 0 to disable automatic checks; manual checks remain available.",
-          "x-apply-policy": "hot_reload"
-        },
-        "douyin_login": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "browser_mode",
-            "remote_debugging_url"
-          ],
-          "properties": {
-            "browser_mode": {
-              "type": "string",
-              "enum": [
-                "auto",
-                "visible",
-                "headless",
-                "remote_cdp"
-              ],
-              "default": "auto",
-              "description": "Browser mode used for Douyin QR login. Auto prefers a configured loopback CDP browser, then a visible local browser, and finally headless mode when a visible browser cannot start. Requires restart.",
-              "x-apply-policy": "restart_required"
-            },
-            "remote_debugging_url": {
-              "type": "string",
-              "default": "",
-              "pattern": "^(?:$|(?:https?|wss?)://(?:localhost|127(?:\\.(?:25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}|\\[::1\\])(?::[0-9]{1,5})?(?:/.*)?)$",
-              "description": "Loopback HTTP(S) or WS(S) endpoint for a dedicated Chromium remote-debugging profile. Required by remote_cdp mode. Requires restart.",
-              "x-apply-policy": "restart_required"
-            }
-          },
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "browser_mode": {
-                    "const": "remote_cdp"
-                  }
-                },
-                "required": [
-                  "browser_mode"
-                ]
-              },
-              "then": {
-                "properties": {
-                  "remote_debugging_url": {
-                    "minLength": 1
-                  }
-                }
-              }
-            }
-          ]
         }
       }
     },
@@ -1129,9 +1053,6 @@
   },
   "x-fixtures": [
     "fixtures/config/ok.minimal.json",
-    "fixtures/config/invalid.third-party-credential-check-interval.json",
-    "fixtures/config/invalid.douyin-remote-cdp-empty.json",
-    "fixtures/config/invalid.douyin-remote-cdp-non-loopback.json",
     "fixtures/config/invalid.onebot-url.json",
     "fixtures/config/edge.public-via-reverse-proxy.json",
     "fixtures/config/ok.with-command-and-cooldown.json",

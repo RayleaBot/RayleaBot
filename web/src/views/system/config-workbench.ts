@@ -17,7 +17,7 @@ export function getConfigWorkbenchGroups(): ConfigWorkbenchGroup[] {
   const definitions = [
     { key: 'access', sections: ['server', 'admin', 'web'], common: ['server.host', 'server.port', 'web.exposure_mode'] },
     { key: 'render', sections: ['render'], common: ['render.default_output', 'render.device_scale_percent', 'render.timeout_seconds'] },
-    { key: 'accounts', sections: ['third-party-accounts', 'scheduler'], common: ['third_party_accounts.credential_check_interval_minutes', 'scheduler.timezone'] },
+    { key: 'scheduler', sections: ['scheduler'], common: ['scheduler.timezone'] },
     { key: 'runtime', sections: ['runtime', 'http'], common: ['runtime.plugin_event_timeout_seconds', 'runtime.max_concurrent_tasks_per_plugin', 'http.timeout_seconds', 'http.max_retries'] },
     { key: 'data', sections: ['database', 'storage', 'data'], common: ['database.path', 'data.download_cache_retention_days'] },
     { key: 'logs', sections: ['log', 'message'], common: null },
