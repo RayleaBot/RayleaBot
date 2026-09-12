@@ -1,16 +1,16 @@
 import { computed, onActivated, onDeactivated, onScopeDispose, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { notifySuccess } from '@/adapter/feedback'
+import { notifySuccess, useToastFeedback } from '@/adapter/feedback'
 import { cloneConfig, getValueByPath, setValueByPath, type ConfigFieldDefinition } from '@/lib/config-form'
 import { fromMultilineList, toMultilineList } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 import type { ConfigDocument } from '@/types/api'
 
-export function useConfigDraft() {
+export function useConfigDraft(options: { error?: () => string | null } = {}) {
   const store = useConfigStore()
-  const { document, saving } = storeToRefs(store)
+  const { document, saving, error, redactedFields } = storeToRefs(store)
   const draft = ref<ConfigDocument | null>(null)
   const saveStatus = ref<'hot' | 'restart' | null>(null)
   let active = true
@@ -24,6 +24,24 @@ export function useConfigDraft() {
   const hasUnsavedChanges = computed(() => Boolean(draft.value && document.value)
     && JSON.stringify(draft.value) !== JSON.stringify(document.value))
   const canSave = computed(() => hasUnsavedChanges.value && !saving.value)
+  const saveStatusLabel = computed(() => saveStatus.value === 'restart'
+    ? t('config.savedRestart') : saveStatus.value === 'hot' ? t('config.savedHot') : '')
+  useToastFeedback(computed(() => {
+    const message = options.error ? options.error() : error.value
+    if (message) return { key: `config-error:${message}`, level: 'error' as const, message }
+    if (redactedFields.value.length) return {
+      key: `config-redacted:${redactedFields.value.join('|')}`,
+      level: 'info' as const,
+      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
+    }
+    return null
+  }))
+
+  async function loadConfig() {
+    try { await store.fetchConfig() } catch {
+      // The store exposes the failure to the page and shared feedback.
+    }
+  }
 
   function markDraftChanged() {
     clearTimeout(saveStatusTimer)
@@ -67,5 +85,5 @@ export function useConfigDraft() {
     return response
   }
 
-  return { draft, saveStatus, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save }
+  return { draft, saveStatus, saveStatusLabel, loadConfig, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save }
 }

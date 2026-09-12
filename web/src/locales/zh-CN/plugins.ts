@@ -112,8 +112,6 @@ export const plugins = {
     },
     status: {
       unsaved: '有未保存更改',
-      savedHot: '保存完成，已生效',
-      savedRestart: '保存完成，重启后生效',
     },
   },
   localZip: '本地 ZIP 包',

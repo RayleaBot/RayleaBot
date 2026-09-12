@@ -17,56 +17,30 @@ import {
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useToastFeedback } from '@/adapter/feedback'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
+import RateLimitPreview from '@/components/config/RateLimitPreview.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
 import {
   getRateLimitConfigSections,
-  type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import { formatRateLimit,  } from '@/lib/format'
+import { formatRateLimit, formatRateLimitPreview } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 
 const configStore = useConfigStore()
-const { document, error, loading, redactedFields, saving } = storeToRefs(configStore)
+const { document, error, loading, saving } = storeToRefs(configStore)
 
-const { draft, saveStatus, hasUnsavedChanges, canSave, readField, writeField, save } = useConfigDraft()
+const { draft, saveStatus, saveStatusLabel, loadConfig, hasUnsavedChanges, canSave, readField, writeField, save } = useConfigDraft()
 
-const configSections = computed(() => getRateLimitConfigSections())
+const configSections = computed(() => getRateLimitConfigSections().map(section => ({
+  ...section,
+  fields: section.fields.map(field => ({ ...field, rateLimitPreview: field.type === 'rateLimit'
+    ? formatRateLimitPreview(readField(field.path, field.type)) : null })),
+})))
 
-const saveStatusLabel = computed(() => {
-  switch (saveStatus.value) {
-    case 'restart':
-      return t('rateLimits.status.savedRestart')
-    case 'hot':
-      return t('rateLimits.status.savedHot')
-    default:
-      return ''
-  }
-})
-const feedbackToast = computed(() => {
-  if (error.value) {
-    return {
-      key: `rate-limits-error:${error.value}`,
-      level: 'error' as const,
-      message: error.value,
-    }
-  }
-
-  if (redactedFields.value.length > 0) {
-    return {
-      key: `rate-limits-redacted:${redactedFields.value.join('|')}`,
-      level: 'info' as const,
-      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
-    }
-  }
-
-  return null
-})
 const summaryCards = computed(() => [
   {
     key: 'user-command',
@@ -102,53 +76,25 @@ const summaryCards = computed(() => [
   },
 ])
 
-
-
-async function loadConfig() {
-  try {
-    await configStore.fetchConfig()
-  } catch {
-    // store error state drives the page
-  }
-}
-
 onMounted(() => {
   void loadConfig()
 })
 
-useToastFeedback(feedbackToast)
-
-
-
-function getSectionIcon(sectionTitle: string) {
-  switch (sectionTitle) {
-    case t('rateLimits.sections.userCommand'):
+function getSectionIcon(key: string) {
+  switch (key) {
+    case 'user':
       return UserIcon
-    case t('rateLimits.sections.groupCommand'):
+    case 'group':
       return UsersIcon
-    case t('rateLimits.sections.cooldownReply'):
+    case 'cooldown-reply':
       return SendIcon
-    case t('rateLimits.sections.pluginMessage'):
+    case 'plugin-message':
       return MessageSquareIcon
-    case t('rateLimits.sections.targetMessage'):
+    case 'target-message':
       return BellIcon
     default:
       return ZapIcon
   }
-}
-
-function getRateLimitPreview(field: ConfigFieldDefinition) {
-  if (field.type !== 'rateLimit') {
-    return null
-  }
-
-  const rawValue = String(readField(field.path, field.type) ?? '').trim()
-  if (!rawValue) {
-    return null
-  }
-
-  const preview = formatRateLimit(rawValue)
-  return preview !== rawValue ? preview : null
 }
 
 </script>
@@ -239,7 +185,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
             >
               <div class="rate-limits-setting-row__intro">
                 <span class="rate-limits-setting-row__icon">
-                  <component :is="getSectionIcon(section.title)" :size="16" />
+                  <component :is="getSectionIcon(section.key)" :size="16" />
                 </span>
                 <div class="rate-limits-setting-row__title">
                   <h3>{{ section.title }}</h3>
@@ -258,7 +204,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
                       </div>
                     </template>
 
-                    <div class="rate-limits-control-wrap" :class="{ 'rate-limits-control-wrap--with-preview': getRateLimitPreview(field) }">
+                    <div class="rate-limits-control-wrap" :class="{ 'rate-limits-control-wrap--with-preview': field.rateLimitPreview }">
                       <RateLimitInput
                         v-if="field.type === 'rateLimit'"
                         :value="String(readField(field.path, field.type) ?? '')"
@@ -274,10 +220,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
                         />
                       </div>
 
-                      <div v-if="getRateLimitPreview(field)" class="rate-limits-rate-preview">
-                        <span class="rate-limits-rate-preview__label">{{ t('config.hints.rateLimitPreview') }}</span>
-                        <strong class="rate-limits-rate-preview__value">{{ getRateLimitPreview(field) }}</strong>
-                      </div>
+                      <RateLimitPreview :text="field.rateLimitPreview" class="rate-limits-rate-preview" />
                     </div>
 
                   </AppField>
@@ -533,29 +476,6 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
   display: flex;
   min-height: 36px;
   align-items: center;
-}
-
-.rate-limits-rate-preview {
-  display: grid;
-  align-content: center;
-  gap: 3px;
-  min-height: 36px;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
-}
-
-.rate-limits-rate-preview__label {
-  font-size: 13px;
-  letter-spacing: 0;
-  color: var(--accent);
-}
-
-.rate-limits-rate-preview__value {
-  color: var(--text);
-  font-size: 0.9rem;
-  line-height: 1.4;
 }
 
 @media (max-width: #{bp.$pluginDetail}) {

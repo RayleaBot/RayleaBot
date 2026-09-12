@@ -29,7 +29,5 @@ export const permissionPolicy = {
   },
   status: {
     unsaved: '有未保存更改',
-    savedHot: '保存完成，已生效',
-    savedRestart: '保存完成，重启后生效',
   },
 } as const

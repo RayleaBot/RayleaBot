@@ -29,6 +29,7 @@ import VirtualDataViewport from '@/components/VirtualDataViewport.vue'
 import { getPrimaryCommandPrefix } from '@/lib/command-usage'
 import {
   formatPluginVersion,
+  getPluginTrustLabel,
   getConnectionStatusLabel,
   getPluginPermissionLabel,
   getPluginPermissionRawTitle,
@@ -47,7 +48,6 @@ import {
 } from '@/lib/management-links'
 import { escapeUnsafeDisplayText, safeJsonStringify } from '@/lib/text-safety'
 import { t } from '@/i18n'
-import { getPluginTrustLabel } from '@/lib/display'
 import { useConfigStore } from '@/stores/config'
 import { usePluginConsoleStore } from '@/stores/plugin-console'
 import { usePluginsStore } from '@/stores/plugins'

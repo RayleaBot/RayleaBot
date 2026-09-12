@@ -90,6 +90,13 @@ export function formatRateLimit(value?: string | null) {
   return t('display.rateLimit', { window: parsed.windowLabel, count: parsed.count })
 }
 
+export function formatRateLimitPreview(value: unknown): string | null {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+  const formatted = formatRateLimit(raw)
+  return formatted !== raw ? formatted : null
+}
+
 export function toMultilineList(values: string[]) {
   return values.join('\n')
 }

@@ -23,9 +23,9 @@ import {
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useToastFeedback } from '@/adapter/feedback'
 import AppSkeletonCard from '@/components/AppSkeletonCard.vue'
 import RateLimitInput from '@/components/config/RateLimitInput.vue'
+import RateLimitPreview from '@/components/config/RateLimitPreview.vue'
 import AppPage from '@/components/page/AppPage.vue'
 import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -35,14 +35,14 @@ import {
   setValueByPath,
   type ConfigFieldDefinition,
 } from '@/lib/config-form'
-import { formatRateLimit,  } from '@/lib/format'
+import { formatRateLimitPreview } from '@/lib/format'
 import { t } from '@/i18n'
 import { useConfigStore } from '@/stores/config'
 
 const configStore = useConfigStore()
-const { error, loading, redactedFields, saving } = storeToRefs(configStore)
+const { error, loading, saving } = storeToRefs(configStore)
 
-const { draft, saveStatus, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save } = useConfigDraft()
+const { draft, saveStatus, saveStatusLabel, loadConfig, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save } = useConfigDraft()
 
 function readNumberField(path: string) {
   const value = readField(path, 'number')
@@ -52,54 +52,15 @@ function readSelectField(path: string) {
   const value = readField(path, 'select')
   return typeof value === 'boolean' ? value : String(value ?? '')
 }
-const configSections = computed(() => getPluginSettingsConfigSections())
-
-const feedbackToast = computed(() => {
-  if (error.value) {
-    return {
-      key: `plugin-settings-error:${error.value}`,
-      level: 'error' as const,
-      message: error.value,
-    }
-  }
-
-  if (redactedFields.value.length > 0) {
-    return {
-      key: `plugin-settings-redacted:${redactedFields.value.join('|')}`,
-      level: 'info' as const,
-      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
-    }
-  }
-
-  return null
-})
-const saveStatusLabel = computed(() => {
-  switch (saveStatus.value) {
-    case 'restart':
-      return t('plugins.settings.status.savedRestart')
-    case 'hot':
-      return t('plugins.settings.status.savedHot')
-    default:
-      return ''
-  }
-})
-
-
-
-async function loadConfig() {
-  try {
-    await configStore.fetchConfig()
-  } catch {
-    // store error state drives the page
-  }
-}
+const configSections = computed(() => getPluginSettingsConfigSections().map(section => ({
+  ...section,
+  fields: section.fields.map(field => ({ ...field, rateLimitPreview: field.type === 'rateLimit'
+    ? formatRateLimitPreview(readField(field.path, field.type)) : null })),
+})))
 
 onMounted(() => {
   void loadConfig()
 })
-
-useToastFeedback(feedbackToast)
-
 
 function normalizeTagList(value: unknown) {
   const source = Array.isArray(value) ? value : [value]
@@ -130,7 +91,6 @@ function isCommandPrefixField(path: string) {
   return path === 'command.prefixes'
 }
 
-
 function resetFieldToDefault(field: ConfigFieldDefinition) {
   if (!draft.value || field.defaultValue === undefined) {
     return
@@ -157,20 +117,6 @@ function getSectionIcon(key: string) {
     default:
       return SettingsIcon
   }
-}
-
-function getRateLimitPreview(field: ConfigFieldDefinition) {
-  if (field.type !== 'rateLimit') {
-    return null
-  }
-
-  const rawValue = String(readField(field.path, field.type) ?? '').trim()
-  if (!rawValue) {
-    return null
-  }
-
-  const preview = formatRateLimit(rawValue)
-  return preview !== rawValue ? preview : null
 }
 
 </script>
@@ -218,7 +164,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
                     </div>
                   </template>
 
-                  <div class="plugin-settings-control-wrap" :class="{ 'plugin-settings-control-wrap--with-preview': getRateLimitPreview(field) }">
+                  <div class="plugin-settings-control-wrap" :class="{ 'plugin-settings-control-wrap--with-preview': field.rateLimitPreview }">
                     <AppTagsInput
                       v-if="isCommandPrefixField(field.path)"
 
@@ -286,10 +232,7 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
                       @update:model-value="writeField(field.path, field.type, $event)"
                     />
 
-                    <div v-if="getRateLimitPreview(field)" class="plugin-settings-rate-preview">
-                      <span class="plugin-settings-rate-preview__label">{{ t('config.hints.rateLimitPreview') }}</span>
-                      <strong class="plugin-settings-rate-preview__value">{{ getRateLimitPreview(field) }}</strong>
-                    </div>
+                    <RateLimitPreview :text="field.rateLimitPreview" class="plugin-settings-rate-preview" />
                   </div>
 
                   <div v-if="field.description" class="plugin-settings-field-note">
@@ -587,29 +530,6 @@ function getRateLimitPreview(field: ConfigFieldDefinition) {
   padding: 0;
   font-size: 0.82rem;
   font-weight: 650;
-}
-
-.plugin-settings-rate-preview {
-  display: grid;
-  align-content: center;
-  gap: 3px;
-  min-height: 36px;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  background: var(--surface-accent);
-  border: 1px solid var(--border-accent);
-}
-
-.plugin-settings-rate-preview__label {
-  font-size: 13px;
-  letter-spacing: 0;
-  color: var(--accent);
-}
-
-.plugin-settings-rate-preview__value {
-  color: var(--text);
-  font-size: 0.9rem;
-  line-height: 1.4;
 }
 
 @media (max-width: #{bp.$pluginSettings}) {

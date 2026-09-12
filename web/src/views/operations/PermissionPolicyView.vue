@@ -20,7 +20,6 @@ import {
 import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 
-import { useToastFeedback } from '@/adapter/feedback'
 import AppPage from '@/components/page/AppPage.vue'
 import { useConfigDraft } from '@/components/config/useConfigDraft'
 import RetryPanel from '@/components/RetryPanel.vue'
@@ -43,7 +42,6 @@ const governanceStore = useGovernanceStore()
 const {
   error: configError,
   loading: configLoading,
-  redactedFields,
   saving,
 } = storeToRefs(configStore)
 const {
@@ -51,44 +49,12 @@ const {
   commandPolicyLoading,
 } = storeToRefs(governanceStore)
 
-const { draft, saveStatus, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save: saveDraft } = useConfigDraft()
+const { draft, saveStatus, saveStatusLabel, loadConfig, hasUnsavedChanges, canSave, markDraftChanged, readField, writeField, save: saveDraft } = useConfigDraft({ error: () => configError.value || commandPolicyError.value })
 
 const configSections = computed(() => getPermissionPolicyConfigSections())
 const pageBusy = computed(() => configLoading.value || commandPolicyLoading.value)
 const pageError = computed(() => configError.value || commandPolicyError.value)
 const showFatalError = computed(() => Boolean(configError.value) && !draft.value)
-
-const saveStatusLabel = computed(() => {
-  switch (saveStatus.value) {
-    case 'restart':
-      return t('permissionPolicy.status.savedRestart')
-    case 'hot':
-      return t('permissionPolicy.status.savedHot')
-    default:
-      return ''
-  }
-})
-const feedbackToast = computed(() => {
-  if (pageError.value) {
-    return {
-      key: `permission-policy-error:${pageError.value}`,
-      level: 'error' as const,
-      message: pageError.value,
-    }
-  }
-
-  if (redactedFields.value.length > 0) {
-    return {
-      key: `permission-policy-redacted:${redactedFields.value.join('|')}`,
-      level: 'info' as const,
-      message: `${t('config.redactedTitle')}：${redactedFields.value.join(', ')}`,
-    }
-  }
-
-  return null
-})
-
-
 
 function getSectionIcon(key: string) {
   switch (key) {
@@ -106,7 +72,7 @@ function getSectionIcon(key: string) {
 async function loadPage() {
   try {
     await Promise.all([
-      configStore.fetchConfig(),
+      loadConfig(),
       governanceStore.fetchCommandPolicy(),
     ])
   } catch {
@@ -117,9 +83,6 @@ async function loadPage() {
 onMounted(() => {
   void loadPage()
 })
-
-useToastFeedback(feedbackToast)
-
 
 function normalizeTagList(value: unknown) {
   const source = Array.isArray(value) ? value : [value]
@@ -160,7 +123,6 @@ function readSelectField(path: string, type: ConfigFieldDefinition['type']) {
   const value = readField(path, type)
   return typeof value === 'boolean' ? value : String(value ?? '')
 }
-
 
 async function save() {
   if (!await saveDraft()) return

@@ -1,5 +1,7 @@
 export const config = {
   title: '配置',
+  savedHot: '保存完成，已生效',
+  savedRestart: '保存完成，重启后生效',
   workbench: {
     saving: '正在保存…',
     retrySave: '保存失败，点击重试',

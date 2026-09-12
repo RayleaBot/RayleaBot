@@ -9,9 +9,10 @@ import TimezoneSelect from '@/components/TimezoneSelect.vue'
 import { computed } from 'vue'
 
 import { composeFieldTooltip, type ConfigFieldDefinition } from '@/lib/config-form'
-import { formatRateLimit, fromMultilineList, toMultilineList } from '@/lib/format'
+import { formatRateLimitPreview, fromMultilineList, toMultilineList } from '@/lib/format'
 import { t } from '@/i18n'
 import RateLimitInput from './RateLimitInput.vue'
+import RateLimitPreview from './RateLimitPreview.vue'
 
 const props = defineProps<{
   field: ConfigFieldDefinition
@@ -57,17 +58,7 @@ const listValue = computed(() => {
   return ''
 })
 
-const rateLimitPreview = computed(() => {
-  if (props.field.type !== 'rateLimit') {
-    return null
-  }
-  const raw = textValue.value.trim()
-  if (!raw) {
-    return null
-  }
-  const preview = formatRateLimit(raw)
-  return preview !== raw ? preview : null
-})
+const rateLimitPreview = computed(() => props.field.type === 'rateLimit' ? formatRateLimitPreview(props.value) : null)
 
 function emitText(value: unknown) {
   emit('update:value', String(value ?? ''))
@@ -189,10 +180,7 @@ function handleTextareaUpdate(value: unknown) {
       <span v-if="layout === 'row' && field.unit" class="config-field__unit-end" aria-hidden="true">{{ field.unit }}</span>
     </div>
 
-    <div v-if="rateLimitPreview" class="config-field__preview">
-      <span class="config-field__preview-label">{{ t('config.hints.rateLimitPreview') }}</span>
-      <strong class="config-field__preview-value">{{ rateLimitPreview }}</strong>
-    </div>
+    <RateLimitPreview :text="rateLimitPreview" inline class="config-field__preview" />
   </div>
 </template>
 
@@ -248,31 +236,6 @@ function handleTextareaUpdate(value: unknown) {
   display: flex;
   align-items: center;
   min-height: 32px;
-}
-
-.config-field__preview {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-  width: max-content;
-  max-width: 100%;
-}
-
-.config-field__preview-label {
-  letter-spacing: 0.04em;
-}
-
-.config-field__preview-value {
-  color: var(--text);
-  font-weight: 600;
-  font-family: var(--font-mono);
 }
 
 .config-field__description { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
