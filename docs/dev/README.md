@@ -11,11 +11,6 @@
 | [logging.md](./logging.md) | 日志分类与重复故障汇总 |
 | [text-resources.md](./text-resources.md) | 文本资源和国际化边界 |
 
-## 当前原则
-
-- 默认命令、版本线和 CI 门禁以 `docs/engineering/` 为准。
-- 本目录说明开发入口和调试路径，不单独定义对外接口。
-
 ## 本地启动
 
 - Windows 本地开发入口为仓库根目录的 `start.bat`，Linux 和 macOS 使用 `sh start.sh`；两个包装器都调用 `scripts/start-dev.mjs`。

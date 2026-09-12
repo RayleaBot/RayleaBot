@@ -14,9 +14,6 @@
 
 ## 规则
 
-- 示例只能演示已被 `contracts/` 确认的结构。
 - HTTP JSON 示例必须在 [`http/index.yaml`](./http/index.yaml) 中登记 `operationId`、请求或响应方向、状态码、媒体类型与包装方式。无响应状态的请求填写 `status: null`；只演示方法和 URL 的请求填写 `representation: request` 与 `media_type: null`。CI 通过同一 OpenAPI 校验器验证 fixtures 与示例，未登记或失效的映射均会失败。
-- 示例本身不定义任何正式接口。
-- 新字段或消息类型必须先更新对应 contract。
 - `plugins/` 下的示例只用于理解 manifest、插件协议、运行时客户端入口和常用 local action，不参与插件发现或正式发布；示例插件不是生产模板、市场分发包或官方最佳实践承诺。
 - 凭据使用明确假值并标注替换用途；演示中的断言与 mock 不替代正式测试，稳定回归语义放在 `fixtures/`。

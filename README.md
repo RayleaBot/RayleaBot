@@ -92,8 +92,6 @@ node scripts/start-dev.mjs
 
 Server、Web、Launcher 与插件 SDK 的构建、测试和类型检查命令见[工程基线](./docs/engineering/baseline.md)，CI 与发布门禁见[质量门禁](./docs/engineering/quality-gates.md)。
 
-项目采用契约优先（contract-first）模式。修改任何对外接口前，请先更新 `contracts/` 中的对应契约文件，再同步实现与测试。
-
 ## License
 
 [AGPL-3.0](LICENSE)
