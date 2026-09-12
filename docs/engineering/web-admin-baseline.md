@@ -108,10 +108,7 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 
 ## 验证门禁
 
-- `pnpm build`
-- `pnpm test`
-- `pnpm test:e2e`
-- `pnpm test:e2e:production`：构建实际发布前端，通过同端口 HTTP 服务验证插件隔离页面、初始化与失败重试。
+默认命令见[工程基线](./baseline.md)。`pnpm test:e2e:production` 构建实际发布前端，通过同端口 HTTP 服务验证插件隔离页面、初始化与失败重试；覆盖范围见 [Web 端到端验证](./web-testing.md)。
 
 ## 约束
 

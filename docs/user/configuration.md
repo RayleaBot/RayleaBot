@@ -75,6 +75,7 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 | `cache/` | 渲染缓存、下载缓存和临时缓存 |
 | `logs/` | 结构化日志与诊断输出 |
 | `plugins/installed/` | 用户安装插件 |
+| `templates/` | 系统渲染模板 |
 | `.deps/` | Chromium、FFmpeg / FFprobe 资源与展开目录 |
 
 ## 日志目录

@@ -4,34 +4,11 @@
 
 ## 默认验证命令
 
-### Server
+各工程的安装、构建、测试与类型检查命令以[工程基线的默认命令](./baseline.md)为准。门禁另有以下要求：
 
-- `go test ./...`
-- `mkdir -p dist && go build -o "dist/raylea-server$(go env GOEXE)" ./cmd/raylea-server`
-
-需要真实平台凭据或人工参与的用例单独登记于 [人工 Smoke](./manual-smoke.md)，通过 `manual_smoke` build tag 显式执行。
-
-### Web
-
-- `pnpm install --frozen-lockfile`
-- `pnpm run typecheck`
-- `pnpm test`
-- `pnpm build`
-
-### Launcher
-
-- `pnpm install --frozen-lockfile`
-- `pnpm run typecheck`
-- `pnpm test`
-- `pnpm build`
-- `pnpm test:e2e`：当前 Renderer 配合模拟桌面桥，覆盖窗口边界、字体加载、初始化失败和减少动态效果；真实 Wails 系统集成另行验证。
-
-### Plugins
-
-- 主仓库 `sdk/go` 与 Go 示例：`go test -race ./...`
-- 主仓库 `sdk/vue` 与 Vue 示例管理页：`pnpm run typecheck && pnpm test && pnpm build`
-- 开发同步：`node --test scripts/tests/plugin-dev-workspace.test.mjs`
-- 每个独立插件仓库自行执行 Go race test、Vue typecheck/test/build 和三平台 artifact 构建。
+- Server：需要真实平台凭据或人工参与的用例单独登记于 [人工 Smoke](./manual-smoke.md)，通过 `manual_smoke` build tag 显式执行。
+- Launcher：`pnpm test:e2e` 由 Renderer 配合模拟桌面桥运行，覆盖窗口边界、字体加载、初始化失败和减少动态效果；真实 Wails 系统集成另行验证。
+- Plugins：主仓库 `sdk/go` 与 Go 示例执行 `go test -race ./...`；每个独立插件仓库自行执行 Go race test、Vue typecheck/test/build 和三平台 artifact 构建。
 
 ## CI 工作流
 

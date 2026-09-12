@@ -2,25 +2,6 @@
 
 本目录说明 RayleaBot 的工程治理：固定版本线、目录职责、实施顺序和质量门禁。
 
-## 工程目录模型
-
-| 路径 | 作用 |
-| --- | --- |
-| `server/` | Go 服务端主链路 |
-| `web/` | Web 管理面 |
-| `launcher/` | Wails 桌面启动器 |
-| `contracts/` | 正式接口、schema、错误码与 release metadata |
-| `fixtures/` | 契约样例与回归基线 |
-| `examples/` | 示例插件、manifest 和示例请求/响应 |
-| `plugins/installed/` | 统一插件安装与发现目录；商店、本地 artifact 和开发同步共用 |
-| `config/` | 用户配置；默认值来自正式 schema |
-| `data/` | SQLite 状态库与插件业务数据 |
-| `cache/` | 渲染缓存、下载缓存与临时缓存 |
-| `logs/` | 结构化日志与诊断输出 |
-| `.deps/` | Chromium 与 FFmpeg / FFprobe 运行环境资源清单 |
-| `.github/workflows/` | CI、打包与发布门禁 |
-| `docs/` | 文档总纲与专题说明 |
-
 ## 阅读入口
 
 | 文档 | 主题 |

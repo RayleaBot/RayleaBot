@@ -20,7 +20,6 @@
 - `launcher/` 负责 Wails 桌面启动器、本地环境检查、服务进程编排、桌面交互与打开 Web 管理面。
 - `.deps/manifest.json` v5 固定图片渲染与插件浏览器会话共用的 Chromium，以及受信本地插件共用的 FFmpeg / FFprobe 资源矩阵和可信来源列表；插件运行不依赖托管语言运行时。
 - 运行环境有效根目录按 `config/user.yaml` 的上两级目录推导；Launcher `workdir` 只承担进程工作目录与日志目录职责，不覆盖 `.deps/` 与 `templates/` 的位置。
-- 恢复人工处理与运行环境准备继续复用共享任务模型；`recovery.recheck`、`recovery.confirm` 与 `runtime.bootstrap` 是当前正式操作入口。
 
 ## 固定版本线
 
@@ -52,12 +51,12 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 - 仓库根目录的 `.tool-versions` 固定七种工具的版本。doctor 核对已安装工具、各 Go module 与 JS package 的声明；CI 与开发容器安装步骤从该文件读取版本。Docker 的 Go/Python 基础镜像标签需要在解析 Dockerfile 时确定，保留显式声明，由严格契约门禁检查一致性。
 - `python scripts/check-toolchain.py --task server --toolchain-only` 只检查服务端编译工具；`web`、`launcher`、`contracts`、`sql`、`runtime` 可选择对应任务。默认 `all` 保持完整冻结工具链门禁，版本错误仍失败。
-- `server/go.mod` 的 `go 1.26.6` 是 Go 工具识别的最低版本声明，与 `.tool-versions` 保持一致；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
-- Node.js 使用 26.7.0，并使用其内置 npm 11.19.0。Corepack 单独安装：先执行 `npm install --global corepack@0.35.0`，再执行 `corepack enable` 与 `corepack prepare pnpm@11.22.0 --activate`。
-- sqlc 固定为 v1.31.1，安装命令为 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`。
+- `server/go.mod` 的 `go` 指令是 Go 工具识别的最低版本声明，与 `.tool-versions` 保持一致；当前保持 patch 级锁定，不使用单独 `toolchain` 指令替代。离线环境需要预装同一 Go 版本，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
+- npm 随 Node.js 提供；Corepack 单独安装：按 `.tool-versions` 中的版本执行 `npm install --global corepack@<version>`，再执行 `corepack enable` 与 `corepack prepare pnpm@<version> --activate`。
+- sqlc 单独安装：按 `.tool-versions` 中的版本执行 `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v<version>`。
 - 无网络环境需要提前把 Go、Node.js、Corepack pnpm、sqlc 和 `.deps/manifest.json` 对应的 Chromium、FFmpeg 资源放入镜像或工作站。Chromium 可使用系统 Chrome / Chromium / Edge，也可使用 `.deps/store/` 中已展开的托管资源；FFmpeg 与 FFprobe 使用清单内固定的托管资源。
 - Linux 构建 Wails Launcher 固定使用 Wails v3.0.x 支持的 `gtk3` 兼容标签，需要 GTK 3 与 WebKit2GTK 4.1 开发包；Ubuntu 使用 `libgtk-3-dev` 和 `libwebkit2gtk-4.1-dev`。
-- 仓库提供 devcontainer，包含 Go 1.26.6、Node.js 26.7.0、npm 11.19.0、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc v1.31.1、Chromium、SQLite 与 `make doctor`。
+- 仓库提供 devcontainer，预装 `.tool-versions` 中的全部工具以及 Chromium、SQLite 与 `make doctor`。
 - 本地环境诊断入口是仓库根目录的 `make doctor`，无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。
 
 ## 固定工程选型
@@ -168,13 +167,13 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 | 路径 | 约束 |
 | --- | --- |
-| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、Go `1.26.6` 与 server 依赖版本 |
+| `server/go.mod` | 固定 `module github.com/RayleaBot/RayleaBot/server`、与 `.tool-versions` 一致的 Go 版本与 server 依赖版本 |
 | `server/go.sum` | 维护 server 依赖锁定结果 |
-| `web/package.json` | 固定 `packageManager = pnpm@11.22.0` 与 `engines.node = 26.7.0` |
+| `web/package.json` | 固定与 `.tool-versions` 一致的 `packageManager` 与 `engines.node` |
 | `web/pnpm-lock.yaml` | 作为 Web 工程唯一 JS 锁文件 |
-| `launcher/go.mod` | 固定 Go `1.26.6`、Wails v3 Go module 与桌面宿主依赖 |
+| `launcher/go.mod` | 固定与 `.tool-versions` 一致的 Go 版本、Wails v3 Go module 与桌面宿主依赖 |
 | `launcher/go.sum` | 维护 Launcher Go 依赖锁定结果 |
-| `launcher/package.json` | 固定 `packageManager = pnpm@11.22.0`、`engines.node = 26.7.0`、Wails runtime/Vite/React/`@vitejs/plugin-react` 与构建脚本 |
+| `launcher/package.json` | 固定与 `.tool-versions` 一致的 `packageManager`、`engines.node`，以及 Wails runtime/Vite/React/`@vitejs/plugin-react` 与构建脚本 |
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
@@ -189,17 +188,4 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 ## `contracts/` 作为正式来源
 
-以下边界的最终定义不在 Markdown，而在 `contracts/`：
-
-- 插件 manifest：`contracts/plugin-info.schema.json`
-- 插件 JSONL 协议：`contracts/plugin-protocol.schema.json`
-- HTTP API：`contracts/web-api.openapi.yaml`
-- WebSocket：`contracts/websocket-events.yaml`
-- 用户配置：`contracts/config.user.schema.json`
-- 错误码：`contracts/error-codes.yaml`
-- 发行元数据：`contracts/release-manifest.schema.json`
-- CLI：`contracts/cli-commands.yaml`
-
-规则：
-
-- 若后续变更尝试绕开 baseline 与 contracts 直接写功能代码，应视为违反仓库治理规则。
+对外接口、协议、schema、错误码、事件、CLI 与发布元数据的最终定义不在 Markdown，而在 `contracts/`；文件清单与各自职责见 [`contracts/README.md`](../../contracts/README.md)。绕开 baseline 与 contracts 直接写功能代码视为违反仓库治理规则。

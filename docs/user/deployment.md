@@ -26,17 +26,7 @@ Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Mi
 
 ## 运行根目录
 
-运行根目录包含：
-
-- `config/`：默认配置和用户配置；
-- `data/`：SQLite 状态库和插件业务数据；
-- `cache/`：可重建缓存；
-- `logs/`：运行日志和诊断输出；
-- `plugins/installed/`：已安装插件；
-- `templates/`：渲染模板；
-- `.deps/`：Chromium 与 FFmpeg / FFprobe 受控资源。
-
-图片渲染也可使用配置允许的系统 Chrome、Chromium 或 Edge。
+解压目录同时是安装根和默认运行根，各子目录的职责见[配置说明](./configuration.md)。图片渲染也可使用配置允许的系统 Chrome、Chromium 或 Edge。
 
 ## 更新
 

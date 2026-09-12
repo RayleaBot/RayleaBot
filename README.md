@@ -42,10 +42,7 @@ Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌�
 
 ### 方式二：从源码启动
 
-前置条件：Go 1.26.6、Node.js 26.7.0（自带 npm 11.19.0）、Corepack 0.35.0、pnpm 11.22.0、Python 3.14.7、sqlc 1.31.1、Git 2.x，以及系统 Chrome / Chromium / Edge 或已经准备完成的托管 Chromium。FFmpeg / FFprobe 由运行环境清单准备，无需单独安装。Node.js 26 需要先运行 `npm install --global corepack@0.35.0`。
-`.tool-versions` 只固定 Go、Node.js、Python 和 pnpm；npm 随 Node.js 提供，Corepack 与 sqlc 需要单独安装并由 doctor 脚本校验。
-工具链检查：`make doctor`；无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`。离线环境需要预装 Go 1.26.6，并设置 `GOTOOLCHAIN=local` 让版本错误在本地直接失败。
-Devcontainer 位于 `.devcontainer/`，可直接提供 server tests 所需的 Go、Node、pnpm、sqlc、Chromium 与 SQLite 环境。
+前置工具及其版本由根目录 `.tool-versions` 固定，运行 `make doctor`（无 make 环境时运行 `python scripts/check-toolchain.py` 和 `python scripts/check-server-structure.py`）核对本机工具链；安装方式、离线环境与 devcontainer 见[工程基线](./docs/engineering/baseline.md)。图片渲染需要系统 Chrome / Chromium / Edge 或已准备完成的托管 Chromium，FFmpeg / FFprobe 由运行环境清单准备。
 
 ```bash
 git clone https://github.com/RayleaBot/RayleaBot.git
@@ -93,25 +90,7 @@ node scripts/start-dev.mjs
 
 独立 Go 插件统一使用 `cmd/<plugin>` 进程入口、`internal/` 实现与嵌入资源以及可选 `ui/`/`templates/` 资源，并使用 `raylea-plugin build-go`；其他语言先生成原生入口，再使用 `raylea-plugin pack`。完整目录约定见[插件 SDK](./docs/plugin/sdk/README.md#raylea-plugin)。
 
-```bash
-# Server
-cd server && go test ./...
-
-# Web
-cd web && pnpm install --frozen-lockfile && pnpm test
-
-# Launcher
-cd launcher && pnpm install --frozen-lockfile && pnpm test
-
-# Go 插件 SDK
-cd sdk/go && go test ./...
-
-# Vue 插件 UI SDK
-cd sdk/vue && pnpm install --frozen-lockfile && pnpm run typecheck && pnpm test
-
-# 在主仓库调用统一工具构建相邻 Go 插件的当前平台 artifact
-go run ./sdk/go/cmd/raylea-plugin build-go --plugin ../RayleaBotPlugins/plugin-fortune --target windows-x64 --out ../RayleaBotPlugins/plugin-fortune/dist
-```
+Server、Web、Launcher 与插件 SDK 的构建、测试和类型检查命令见[工程基线](./docs/engineering/baseline.md)，CI 与发布门禁见[质量门禁](./docs/engineering/quality-gates.md)。
 
 项目采用契约优先（contract-first）模式。修改任何对外接口前，请先更新 `contracts/` 中的对应契约文件，再同步实现与测试。
 
