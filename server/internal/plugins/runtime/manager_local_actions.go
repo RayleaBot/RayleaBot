@@ -182,6 +182,8 @@ func localErrorFrame(requestID, code, message string, details map[string]any) pl
 	return frame
 }
 
+// Response writes and inbound terminal frames share this ordering boundary.
+// The protocol lock keeps terminal processing behind the pending response write.
 func (m *Manager) writeLocalResponse(handle *Handle, parentRequestID string, requestID string, frame any) *plugins.Error {
 	m.protocolMu.Lock()
 	defer m.protocolMu.Unlock()

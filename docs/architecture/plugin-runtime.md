@@ -64,6 +64,8 @@ flowchart TD
 
 `chatevent.Event`、`MessageSegment` 和 `MessageCommand` 不包含进程帧或调度回调。调度器把 `RunContext` 与事件分别交给 Dispatcher；运行记录不会被序列化给插件。宿主动作解码结果由 `plugins.Action` 承载，消息出口只接收 `chatevent.MessageCommand`。
 
+插件 HTTP 客户端各自拥有 transport，并在请求预检和实际拨号时重新解析、授权目标地址。客户端之间共享连接需要同时处理 DNS 变化、权限归属、取消和关闭所有权；当前隔离方式确保一个插件的私网授权不会被其他客户端复用。
+
 ## 信任与进程能力
 
 - artifact 校验确认目标平台和入口，安装器另行确认插件身份并扫描实际文件；这些检查不判断代码行为是否安全。需要确认的安装或更新表示管理员信任该版本的本地原生代码。
