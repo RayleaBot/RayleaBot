@@ -1,6 +1,6 @@
 # Managed Runtime Dependency Boundary
 
-`internal/platform/deps` 管理 `.deps/manifest.json` v5 声明的 Chromium 与 FFmpeg。Chromium 资源声明 `entrypoints.browser`，FFmpeg 资源同时声明 `entrypoints.ffmpeg` 与 `entrypoints.ffprobe`；插件后端仍是预编译 Go artifact，不从这里请求 Python、Node.js 或 npm。
+`internal/platform/deps` 管理 `.deps/manifest.json` v5 声明的 Chromium 与 FFmpeg。Chromium 资源声明 `entrypoints.browser`，FFmpeg 资源同时声明 `entrypoints.ffmpeg` 与 `entrypoints.ffprobe`；插件后端是预编译的原生 artifact，不从这里请求任何语言运行时。
 
 ## Responsibilities
 
@@ -21,7 +21,7 @@
 - 图片渲染和插件浏览器会话通过 runtime boundary 请求 Chromium `browser` 入口，不直接遍历缓存或 `.deps/store`。
 - 启动准备同时覆盖当前平台的 Chromium 与 FFmpeg；插件 runtime 只读取已准备的 `ffmpeg` / `ffprobe` 入口，并通过 `RAYLEABOT_FFMPEG_PATH`、`RAYLEABOT_FFPROBE_PATH` 注入受信本地插件进程，不在插件启动时下载资源。
 - CLI doctor 与系统诊断只使用 diagnostics boundary，不在只读检查中准备资源。
-- 插件安装不依赖 `internal/platform/deps`；插件 runtime 只运行已校验的 Go artifact，并可消费核心提供的媒体工具入口。
+- 插件安装不依赖 `internal/platform/deps`；插件 runtime 只运行已校验的原生 artifact，并可消费核心提供的媒体工具入口。
 - 用户可见的准备失败应保留 `BootstrapError` 的 stage、source、路径和 remediation，并用现有摘要 helper 生成一致文案。
 
 ## Input and Archive Limits

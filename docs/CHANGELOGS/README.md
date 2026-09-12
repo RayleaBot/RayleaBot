@@ -18,7 +18,7 @@
 
 ## 范围
 
-- 已交付版本的正式范围以本目录归档为准；执行期计划按需在 `docs/` 建立。
+- 已交付版本的正式范围以本目录归档为准。
 - 工程基线、目录职责、固定版本线见 [`../engineering/baseline.md`](../engineering/baseline.md)。
 - 长期依赖顺序与实现边界见 [`../engineering/implementation-order.md`](../engineering/implementation-order.md)。
 - 对外接口、错误码、release metadata 以 `contracts/` 为准。
@@ -26,4 +26,3 @@
 ## 维护原则
 
 - 历史版本归档不再回写，已交付能力的最终行为以 `contracts/` 与现行文档为准。
-- 新版本发布后，把对应执行计划整理为本目录的新增条目。

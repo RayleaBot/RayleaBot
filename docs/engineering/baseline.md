@@ -35,7 +35,7 @@ Go、Node.js、Python、pnpm、npm、Corepack 和 sqlc 的版本值由根目录 
 | Launcher runtime | Wails v3 `v3.0.0-beta.9` + `@wailsio/runtime 3.0.0-beta.9` + Go `1.26.6` + TypeScript `5.9.3` + React `19.2.8` + Fluent UI React v9 + Fluent Motion `9.16.2` + Vite `8.2.1` + `@vitejs/plugin-react 6.0.5` |
 | Repository scripting | Python `3.14.7` |
 | SQL generation | sqlc `v1.31.1` |
-| Plugin backend | Go `1.26.6`，`CGO_ENABLED=0` 的平台预编译 artifact |
+| Plugin backend | 当前平台预编译原生 artifact；官方 Go 插件使用 Go `1.26.6` 与 `CGO_ENABLED=0` 构建 |
 | Plugin UI | Vue `3.5.41` + TypeScript `5.9.3` + Vite `8.2.1` + `@rayleabot/plugin-ui` |
 | Database | SQLite via `modernc.org/sqlite v1.56.0` |
 | Render | `chromedp 0.16.0` + Chrome for Testing `152.0.7977.42` |

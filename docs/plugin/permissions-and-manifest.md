@@ -95,7 +95,6 @@
 - `artifact_version: "2"`
 - `target_platform`
 - `entry`
-- 除自身以外全部文件的相对路径、大小和 SHA-256
 
 插件身份、版本和管理面来自 `info.json`，不在 artifact 重复。入口必须是目标平台可执行格式；安装器直接扫描管理 UI、模板、资源、许可证、notices 和 SBOM 等实际文件。
 
