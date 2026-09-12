@@ -47,7 +47,7 @@
 - 支持能力清单与已定义的事件范围一致。
 - Bridge 负责事件形状校验、统一字段转换和桥接层观测；Dispatcher 负责选择可投递 runtime、按会话 lane 排队和执行插件返回的动作。
 - `message_id` 表示单条消息编号，`conversation_id` 表示统一会话标识；群消息使用 `group_id`，私聊消息使用对端 `user_id`。
-- OneBot 原生字段通过 `event.payload.onebot` 暴露给所有订阅插件，不需要额外 permission。它是形状固定的归一化投影（字段集由 `contracts/plugin-protocol.schema.json` 的 `payload.onebot` 闭合定义，`additionalProperties: false`），不是原始上报帧的透传，可读取 `group_id`、`user_id`、`time`、`real_id`、`message_seq`、`raw_message`、`sender`、`meta_event_type`、`interval` 和 `status` 等字段。
+- OneBot 原生字段通过 `event.payload.onebot` 暴露给所有订阅插件，不需要额外 permission。它是形状固定的归一化投影，不是原始上报帧的透传；字段集由 `contracts/plugin-protocol.schema.json` 的 `payload.onebot` 闭合定义（`additionalProperties: false`）。
 - `event.raw_payload` 是另一个字段，与 `payload.onebot` 无关：它承载已校验 webhook 请求的原始正文，且只在插件 manifest 声明 `event.raw_payload` permission 时出现。
 - 管理面不接收上述任一原始 payload，只消费脱敏后的观测摘要和管理日志详情。
 - `meta.*` 事件使用 `conversation_type=system`、`conversation_id=bot:<self_id>`、`sender_id=<self_id>`、`target.type=bot`、`target.id=<self_id>`；`event.message` 保持为空。
@@ -124,31 +124,9 @@ QQ 开放平台适配器与 OneBot11 共用同一套归一化事件与插件协�
 - 人类可读的完整 action 名称与参数清单只维护在[插件协议](../plugin/protocol.md#action-rpc)，机器可读结构以 `contracts/plugin-protocol.schema.json` 为准。
 - 平台内部事件（不经 Bridge，直接进入 Dispatcher）：`scheduler.trigger`、`plugin.started`、`config.changed`、`webhook.received`、`bot.identities.changed`、`management.action`。
 
-### 当前正式消息段
+### 消息段
 
-- `text`
-- `image`
-- `at`
-- `at_all`
-- `face`
-- `reply`
-- `record`
-- `video`
-- `file`
-- `flash_file`
-- `json`
-- `xml`
-- `markdown`
-- `music`
-- `contact`
-- `forward`
-- `node`
-- `poke`
-- `dice`
-- `rps`
-- `mface`
-- `keyboard`
-- `shake`
+消息段种类以 `contracts/plugin-protocol.schema.json` 的 segment 枚举为准，随正式接入的适配器增长；宿主不会发出集合外的种类。
 
 ## 五、管理 WebSocket 事件
 

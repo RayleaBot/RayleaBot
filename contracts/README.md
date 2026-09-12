@@ -91,9 +91,9 @@
     - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台经统一 HTTPS、DNS/重定向复查、SSRF/私网和资源限制预取后交给 Chromium 的请求级临时图片资源
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
-  - 正式 `event.event_type` 固定包含 `scheduler.trigger`、`plugin.started`、`management.action`、`config.changed`、`webhook.received`、`bot.identities.changed` 以及 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
-  - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），正式暴露 `post_type`、`meta_event_type`、`message_type`、`request_type`、`notice_type`、`sub_type`、`self_id`、`user_id`、`group_id`、`target_id`、`time`、`interval`、`message_id`、`real_id`、`message_seq`、`raw_message`、`font`、`message_format`、`sender`、`comment`、`flag`、`status`；不需要 permission，与 permission-gated 的 `event.raw_payload` 无关
-  - 正式 inbound / outbound segment 种类当前为 `text`、`image`、`at`、`at_all`、`face`、`reply`、`record`、`video`、`file`、`flash_file`、`json`、`xml`、`markdown`、`music`、`contact`、`forward`、`node`、`poke`、`dice`、`rps`、`mface`、`keyboard`、`shake`；该集合随正式接入的适配器增长，宿主不会发出集合外的种类
+  - 正式 `event.event_type` 以 schema 枚举为准，包含平台内部事件与 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
+  - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），字段集以 schema 为准；不需要 permission，与 permission-gated 的 `event.raw_payload` 无关
+  - inbound / outbound 消息段种类以 schema 枚举为准，随正式接入的适配器增长；宿主不会发出集合外的种类
   - 会话种类词表 `conversation_target_type` 当前为 `group`、`private`。出站 `message.send` / `message.reply` 严格校验并对未知值 fail-closed；入站 `event.target.type` 有意保持开放，另含 `system`、`bot` 等宿主内部种类，插件忽略不认识的种类。两个方向的 unknown 策略不同
   - 治理词表 `governance_entry_type`（`user`、`group`）与 `conversation_target_type` 是两套词表，`user` 不是 `private` 的别名
   - `governance.blacklist.write` 与 `governance.whitelist.write` 的条目增删要求与管理 API 相同的 `scope`；`set_enabled` 仅修改服务级白名单开关。
