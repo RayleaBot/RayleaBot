@@ -36,9 +36,9 @@
 
 Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌面 Launcher 需要 GTK 3 和 WebKit2GTK 4.1；对应完整包内的 `WINDOWS-RUNTIME.md`、`LINUX-RUNTIME.md` 提供安装说明。
 
-首个支持签名更新的版本需要手动安装。Launcher 每 6 小时检查一次更新；Windows 只有在 Ed25519 发布签名和正式 Authenticode 全部通过时才提供用户确认后的事务安装，Linux、macOS 和未满足签名门槛的 Windows 包使用引导更新。
+首个支持签名更新的版本需要手动安装；之后由 Launcher 检查更新并在用户确认后升级，各平台的更新方式与签名门槛见 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
 
-完整部署与发布信任说明见 [`docs/user/deployment.md`](./docs/user/deployment.md) 和 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
+完整部署说明见 [`docs/user/deployment.md`](./docs/user/deployment.md)。
 
 ### 方式二：从源码启动
 

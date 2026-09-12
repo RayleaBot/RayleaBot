@@ -23,13 +23,7 @@
 
 ## 配置文件维护
 
-| 命令 | 作用 |
-| --- | --- |
-| `raylea-server config init` | 按内嵌默认值创建或规范化用户配置 |
-| `raylea-server config normalize` | 按当前 schema 整理用户配置 |
-| `raylea-server config validate` | 校验配置文件，不修改文件内容 |
-
-缺少配置文件或需要整理配置格式时，使用显式配置命令处理。`raylea-server` 启动路径不承担初始化或格式化职责。
+缺少配置文件或需要整理配置格式时，使用 `raylea-server config init`、`config normalize` 与 `config validate`，命令说明见 [CLI](./cli.md)。`raylea-server` 启动路径不承担初始化或格式化职责。
 
 ## 配置生效方式
 

@@ -30,27 +30,11 @@ Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Mi
 
 ## 更新
 
-Launcher 每 6 小时在后台检查一次更新，只显示可用版本。任何下载、停服、备份、替换和回滚都需要用户确认。
-
-### Windows
-
-Windows 自动安装仅适用于 `windows-x64-full`，并要求 Ed25519 manifest 验签、artifact 校验和 Launcher/server/updater Authenticode 全部通过。正式证书未满足发布门槛时，Launcher 只提供 guided update，不显示安装按钮。
-
-事务安装保留：
-
-- `config/user.yaml`；
-- `data/**`；
-- `plugins/installed/**`。
-
-安装器记录原服务状态并停服，创建 offline backup，在同卷 staging 验证新版，再以双 rename 交换安装根。新版 postflight 失败时恢复旧安装和旧状态。`rollback_failed` 表示自动恢复失败，系统保持停机并等待人工处理。
-
-### Linux 与 macOS
-
-Linux 和 macOS 使用 guided update：验证签名与 artifact，停止服务，执行 CLI 创建 offline backup，替换程序文件，运行 doctor 和健康检查。失败时使用升级前包与该次事务保留的备份恢复。
+Launcher 在后台检查更新并只展示可用版本；下载、停服、备份、替换和回滚都需要用户确认。各产物的更新方式、Windows 自动安装的签名门槛、事务安装保留的目录、guided update 步骤与回滚语义见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
 
 Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整包不内嵌这些发行版组件。启动前按包内 `LINUX-RUNTIME.md` 或 [Linux Desktop Runtime](../release/linux-desktop-runtime.md) 安装所需系统包；无桌面环境时使用 `linux-x64-server`。
 
-完整信任与回滚语义见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)；恢复操作见 [Recovery](./recovery.md)。
+恢复操作见 [Recovery](./recovery.md)。
 
 ## 远程管理
 
