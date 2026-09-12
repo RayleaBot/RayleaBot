@@ -9,7 +9,6 @@ import platform
 import re
 import shutil
 import sqlite3
-import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -17,6 +16,7 @@ from dataclasses import dataclass
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from process_output import run_utf8
 from tool_versions import read_tool_versions
 
 
@@ -60,7 +60,7 @@ def run_command(args: list[str], cwd: Path | None = None) -> CommandOutput:
     if resolved:
         args = [resolved, *args[1:]]
     try:
-        result = subprocess.run(args, capture_output=True, check=False, text=True, cwd=cwd)
+        result = run_utf8(args, capture_output=True, check=False, cwd=cwd)
     except OSError as exc:
         return CommandOutput(127, "", str(exc))
     return CommandOutput(result.returncode, result.stdout.strip(), result.stderr.strip())

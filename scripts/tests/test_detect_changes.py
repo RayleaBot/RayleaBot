@@ -19,6 +19,7 @@ class ChangeClassificationTests(unittest.TestCase):
     def test_build_inputs_trigger_their_consumers(self) -> None:
         cases = [
             (["go.work.sum"], {"server", "sdk", "release", "ci"}),
+            (["scripts/process_output.py"], {"server", "web", "launcher", "release", "ci"}),
             ([".gitattributes"], {"server", "web", "launcher", "ci"}),
             (["docs/engineering/manual-sql-exceptions.json"], {"server", "ci", "docs"}),
             (["docs/notes.md", "docs/engineering/manual-sql-exceptions.json"], {"server", "ci", "docs"}),

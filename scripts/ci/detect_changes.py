@@ -150,7 +150,7 @@ def classify(files: list[str]) -> dict[str, bool]:
         if path.startswith(".github/"):
             result["ci"] = True
             matched = True
-        if path == "scripts/process-invocation.mjs":
+        if path in {"scripts/process-invocation.mjs", "scripts/process_output.py"}:
             for area in ("server", "launcher", "web", "release", "ci"):
                 result[area] = True
             matched = True

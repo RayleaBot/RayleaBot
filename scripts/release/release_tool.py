@@ -7,7 +7,6 @@ import hashlib
 import json
 import re
 import shutil
-import subprocess
 import sys
 import tarfile
 import tempfile
@@ -17,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from process_output import run_utf8
 from archive_io import extract_archive
 
 from artifact_ids_generated import ARTIFACT_WINDOWS_X64_FULL, ARTIFACT_LINUX_X64_SERVER
@@ -463,11 +463,10 @@ def sign_release_manifest(
                 raise ValueError(f"release private key does not exist: {private_key}")
             seen.add(key_id)
             signature_path = Path(temp_dir) / f"{key_id}.sig"
-            result = subprocess.run(
+            result = run_utf8(
                 [openssl, "pkeyutl", "-sign", "-rawin", "-inkey", str(private_key), "-in", str(manifest_path), "-out", str(signature_path)],
                 check=False,
                 capture_output=True,
-                text=True,
             )
             if result.returncode != 0:
                 raise RuntimeError(f"OpenSSL Ed25519 signing failed for {key_id}")

@@ -37,6 +37,8 @@ from package_runtime import (
     write_user_config,
 )
 
+from process_output import run_utf8
+
 
 SETUP_IDENTIFIER = "admin"
 SETUP_SECRET = "fixture-only-secret"
@@ -767,8 +769,8 @@ class ProcessWitness:
                 raise SmokeError(f"owned process {pid} exited before it was observed")
 
     def _unix_identity(self) -> str:
-        return subprocess.run(["ps", "-p", str(self.pid), "-o", "lstart="],
-                              capture_output=True, text=True, check=False).stdout.strip()
+        return run_utf8(["ps", "-p", str(self.pid), "-o", "lstart="],
+                              capture_output=True, check=False).stdout.strip()
 
     def exited(self) -> bool:
         if self.handle is not None:
@@ -794,6 +796,7 @@ class ProcessWitness:
 def descendant_commands(parent_pid: int) -> list[tuple[int, str]]:
     if os.name == "nt":
         script = (
+            "[Console]::OutputEncoding=[Text.UTF8Encoding]::new($false);"
             "$queue=[Collections.Generic.Queue[int]]::new();"
             f"$queue.Enqueue({int(parent_pid)});"
             "$seen=[Collections.Generic.HashSet[int]]::new();"
@@ -805,11 +808,11 @@ def descendant_commands(parent_pid: int) -> list[tuple[int, str]]:
             "$result.Add(@{pid=[int]$child.ProcessId;command=[string]$child.CommandLine})}}};"
             "ConvertTo-Json -InputObject @($result.ToArray()) -Compress"
         )
-        result = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
-                                capture_output=True, text=True, check=True,
+        result = run_utf8(["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                                capture_output=True, check=True,
                                 creationflags=subprocess.CREATE_NO_WINDOW)
         return [(int(item["pid"]), item["command"]) for item in json.loads(result.stdout)]
-    result = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, text=True, check=True)
+    result = run_utf8(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, check=True)
     children: dict[int, list[int]] = {}
     for line in result.stdout.splitlines():
         pid, parent = map(int, line.split())
@@ -819,8 +822,8 @@ def descendant_commands(parent_pid: int) -> list[tuple[int, str]]:
         for pid in children.get(pending.pop(), []):
             selected.append(pid)
             pending.append(pid)
-    return [(pid, subprocess.run(["ps", "-p", str(pid), "-o", "command="],
-                                 capture_output=True, text=True, check=False).stdout.strip())
+    return [(pid, run_utf8(["ps", "-p", str(pid), "-o", "command="],
+                                 capture_output=True, check=False).stdout.strip())
             for pid in selected]
 
 

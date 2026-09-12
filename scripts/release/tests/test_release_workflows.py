@@ -2,7 +2,6 @@
 import importlib.util
 import os
 import shutil
-import subprocess
 from pathlib import Path
 import sys
 import unittest
@@ -10,6 +9,8 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "scripts"))
+from process_output import run_utf8
 sys.path.insert(0, str(ROOT / "scripts/release"))
 from artifact_matrix import ARTIFACT_MATRIX
 
@@ -82,9 +83,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
                     command = command.replace("${{ steps.windows-signing.outputs.signer_sha256 }}", signer)
                     command = command.replace("python scripts/release/package_artifact.py", "capture")
                     environment = {**os.environ, "RELEASE_VERSION": "0.4.0", "RELEASE_NOTES_REF": "https://example.invalid/notes"}
-                    completed = subprocess.run([bash, "--noprofile", "--norc", "-c",
+                    completed = run_utf8([bash, "--noprofile", "--norc", "-c",
                                                 'capture() { printf "%s\\n" "$@"; };\n' + command],
-                                               cwd=ROOT, env=environment, capture_output=True, text=True, timeout=20)
+                                               cwd=ROOT, env=environment, capture_output=True, timeout=20)
                     self.assertEqual(completed.returncode, 0, completed.stderr)
                     args = completed.stdout.splitlines()
                     self.assertEqual(args.count("--artifact-id"), 1, args)

@@ -2,11 +2,13 @@ import hashlib
 import os
 from pathlib import Path
 import shutil
-import subprocess
 import tempfile
 import unittest
+import sys
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "scripts"))
+from process_output import run_utf8
 
 
 class WindowsSigningGateTests(unittest.TestCase):
@@ -49,7 +51,7 @@ $targets = @('server.exe', 'updater.exe', 'launcher.exe') | ForEach-Object { Joi
             for scenario in ("unsigned", "pre-signed", "signed", "vendor-signer", "sign-failure", "verify-failure", "partial", "invalid-signer", "different-signers", "missing-tool"):
                 with self.subTest(scenario=scenario):
                     output = root / (scenario + ".out")
-                    completed = subprocess.run([pwsh, "-NoProfile", "-File", str(harness), scenario, str(ROOT / "scripts/release/windows-signing.ps1"), str(package), str(output)], cwd=ROOT, env={**os.environ, "RAYLEA_WINDOWS_CERT_SHA1": ""}, text=True, capture_output=True, timeout=30)
+                    completed = run_utf8([pwsh, "-NoProfile", "-File", str(harness), scenario, str(ROOT / "scripts/release/windows-signing.ps1"), str(package), str(output)], cwd=ROOT, env={**os.environ, "RAYLEA_WINDOWS_CERT_SHA1": ""}, capture_output=True, timeout=30)
                     entries = output.read_text(encoding="utf-8-sig").splitlines()
                     success = scenario in {"unsigned", "pre-signed", "signed", "vendor-signer"}
                     self.assertEqual(completed.returncode == 0, success, completed.stderr)
