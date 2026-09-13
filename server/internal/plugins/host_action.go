@@ -40,6 +40,8 @@ type Action struct {
 	StorageKey                string
 	StoragePrefix             string
 	StorageValue              any
+	StorageTTLSeconds         int
+	StorageIfNotExists        bool
 	StorageContent            []byte
 	HTTPMethod                string
 	HTTPURL                   string

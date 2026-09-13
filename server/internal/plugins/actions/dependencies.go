@@ -107,8 +107,8 @@ func (e *RenderTemplateError) Unwrap() error {
 }
 
 type KVRepository interface {
-	Get(context.Context, string, string) (any, bool, error)
-	Set(context.Context, string, string, any, pluginstore.KVLimits) error
+	GetEntry(context.Context, string, string) (pluginstore.KVEntry, error)
+	SetWithOptions(context.Context, string, string, any, pluginstore.KVLimits, pluginstore.KVSetOptions) (pluginstore.KVSetResult, error)
 	Delete(context.Context, string, string) (bool, error)
 	List(context.Context, string, string) ([]string, error)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/httpapi"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logging"
+	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 )
 
@@ -121,6 +122,12 @@ func (a *App) Run(ctx context.Context) error {
 		storage.RunSnapshotLoop(ctx, a.platform.Storage, a.state.Logger, a.state.RepoRoot())
 		return nil
 	})
+	if a.pluginStack.PluginKV != nil {
+		supervisor.Go(func(ctx context.Context) error {
+			pluginstore.RunKVExpiryLoop(ctx, a.pluginStack.PluginKV, a.state.Logger)
+			return nil
+		})
+	}
 	if err := a.services.Protocol.Start(runCtx); err != nil {
 		close(started)
 		return errors.Join(err, a.Close())

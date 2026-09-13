@@ -224,7 +224,11 @@ func parseStorageKVAction(raw json.RawMessage) (*plugins.Action, error) {
 		if err := json.Unmarshal(frame.Value, &value); err != nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame has invalid storage.kv value", err)
 		}
-		return &plugins.Action{Kind: "storage.kv", StorageOperation: "set", StorageKey: key, StorageValue: value}, nil
+		action := &plugins.Action{Kind: "storage.kv", StorageOperation: "set", StorageKey: key, StorageValue: value, StorageIfNotExists: frame.IfNotExists}
+		if frame.TtlSeconds != nil {
+			action.StorageTTLSeconds = *frame.TtlSeconds
+		}
+		return action, nil
 	case "delete":
 		if frame.Key == nil {
 			return nil, errorf(codePluginProtocolViolation, "plugin action frame is missing required storage.kv fields", nil)

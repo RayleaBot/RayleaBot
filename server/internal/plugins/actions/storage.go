@@ -49,27 +49,37 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 
 	switch req.Action.StorageOperation {
 	case "get":
-		value, exists, err := deps.PluginKV.Get(ctx, req.PluginID, req.Action.StorageKey)
+		entry, err := deps.PluginKV.GetEntry(ctx, req.PluginID, req.Action.StorageKey)
 		if err != nil {
 			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv get failed", Err: err}
 		}
 		result := map[string]any{
 			"key":    req.Action.StorageKey,
-			"exists": exists,
+			"exists": entry.Exists,
 		}
-		if exists {
-			result["value"] = value
+		if entry.Exists {
+			result["value"] = entry.Value
+			if entry.ExpiresAtMS != nil {
+				result["expires_at_ms"] = *entry.ExpiresAtMS
+			}
 		}
 		return result, nil
 	case "set":
-		err := deps.PluginKV.Set(ctx, req.PluginID, req.Action.StorageKey, req.Action.StorageValue, currentKVLimits(currentConfig(deps)))
+		outcome, err := deps.PluginKV.SetWithOptions(ctx, req.PluginID, req.Action.StorageKey, req.Action.StorageValue, currentKVLimits(currentConfig(deps)), pluginstore.KVSetOptions{TTLSeconds: req.Action.StorageTTLSeconds, IfNotExists: req.Action.StorageIfNotExists})
+		if errors.Is(err, pluginstore.ErrKVInvalidRequest) {
+			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.kv parameters are invalid"}
+		}
 		if errors.Is(err, pluginstore.ErrKVValueTooLarge) || errors.Is(err, pluginstore.ErrKVQuotaExceeded) {
 			return nil, &plugins.Error{Code: errorcodes.PlatformValueTooLarge, Message: "storage.kv value exceeds configured platform limit"}
 		}
 		if err != nil {
 			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv set failed", Err: err}
 		}
-		return map[string]any{}, nil
+		result := map[string]any{"stored": outcome.Stored}
+		if outcome.ExpiresAtMS != nil {
+			result["expires_at_ms"] = *outcome.ExpiresAtMS
+		}
+		return result, nil
 	case "delete":
 		deleted, err := deps.PluginKV.Delete(ctx, req.PluginID, req.Action.StorageKey)
 		if err != nil {

@@ -17,7 +17,7 @@
     },
     "server/internal/plugins/storage/kv.go": {
       "category": "C",
-      "reason": "Plugin KV prefix listing uses SQLite LIKE ESCAPE syntax that sqlc v1.31.1 cannot parse.",
+      "reason": "Plugin KV prefix listing uses SQLite LIKE ESCAPE; conditional UPSERT WHERE bindings are not traversed by sqlc v1.31.1. Both stay in the repository; reads, quota and bounded cleanup use generated queries.",
       "owner": "server-plugins",
       "target_action": "keep_wrapped_dynamic_query",
       "revisit_after": "2027-09-04"

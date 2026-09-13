@@ -10,46 +10,79 @@ import (
 	"database/sql"
 )
 
-const deleteKV = `-- name: DeleteKV :execresult
-DELETE FROM plugin_kv WHERE plugin_id = ? AND key = ?
+const deleteExpiredKV = `-- name: DeleteExpiredKV :execrows
+DELETE FROM plugin_kv WHERE rowid IN (
+  SELECT expired.rowid FROM plugin_kv AS expired WHERE expired.expires_at_ms IS NOT NULL AND expired.expires_at_ms <= ?1
+  ORDER BY expired.expires_at_ms, expired.rowid LIMIT 1000
+)
+`
+
+func (q *Queries) DeleteExpiredKV(ctx context.Context, nowMs sql.NullInt64) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteExpiredKV, nowMs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteKV = `-- name: DeleteKV :execrows
+DELETE FROM plugin_kv WHERE plugin_id = ?1 AND key = ?2
+AND (expires_at_ms IS NULL OR expires_at_ms > ?3)
 `
 
 type DeleteKVParams struct {
 	PluginID string
 	Key      string
+	NowMs    sql.NullInt64
 }
 
-func (q *Queries) DeleteKV(ctx context.Context, arg DeleteKVParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, deleteKV, arg.PluginID, arg.Key)
+func (q *Queries) DeleteKV(ctx context.Context, arg DeleteKVParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteKV, arg.PluginID, arg.Key, arg.NowMs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const getKV = `-- name: GetKV :one
-SELECT value_json FROM plugin_kv WHERE plugin_id = ? AND key = ?
+SELECT value_json, size_bytes, expires_at_ms FROM plugin_kv
+WHERE plugin_id = ?1 AND key = ?2
+AND (expires_at_ms IS NULL OR expires_at_ms > ?3)
 `
 
 type GetKVParams struct {
 	PluginID string
 	Key      string
+	NowMs    sql.NullInt64
 }
 
-func (q *Queries) GetKV(ctx context.Context, arg GetKVParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, getKV, arg.PluginID, arg.Key)
-	var value_json string
-	err := row.Scan(&value_json)
-	return value_json, err
+type GetKVRow struct {
+	ValueJson   string
+	SizeBytes   int64
+	ExpiresAtMs sql.NullInt64
+}
+
+func (q *Queries) GetKV(ctx context.Context, arg GetKVParams) (GetKVRow, error) {
+	row := q.db.QueryRowContext(ctx, getKV, arg.PluginID, arg.Key, arg.NowMs)
+	var i GetKVRow
+	err := row.Scan(&i.ValueJson, &i.SizeBytes, &i.ExpiresAtMs)
+	return i, err
 }
 
 const getKVSize = `-- name: GetKVSize :one
-SELECT COALESCE(size_bytes, 0) FROM plugin_kv WHERE plugin_id = ? AND key = ?
+SELECT COALESCE(size_bytes, 0) FROM plugin_kv
+WHERE plugin_id = ?1 AND key = ?2
+AND (expires_at_ms IS NULL OR expires_at_ms > ?3)
 `
 
 type GetKVSizeParams struct {
 	PluginID string
 	Key      string
+	NowMs    sql.NullInt64
 }
 
 func (q *Queries) GetKVSize(ctx context.Context, arg GetKVSizeParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getKVSize, arg.PluginID, arg.Key)
+	row := q.db.QueryRowContext(ctx, getKVSize, arg.PluginID, arg.Key, arg.NowMs)
 	var size_bytes int64
 	err := row.Scan(&size_bytes)
 	return size_bytes, err
@@ -57,39 +90,12 @@ func (q *Queries) GetKVSize(ctx context.Context, arg GetKVSizeParams) (int64, er
 
 const getKVTotalSize = `-- name: GetKVTotalSize :one
 SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv
+WHERE expires_at_ms IS NULL OR expires_at_ms > ?1
 `
 
-func (q *Queries) GetKVTotalSize(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, getKVTotalSize)
+func (q *Queries) GetKVTotalSize(ctx context.Context, nowMs sql.NullInt64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getKVTotalSize, nowMs)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
-}
-
-const upsertKV = `-- name: UpsertKV :exec
-INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at)
-VALUES (?, ?, ?, ?, ?)
-ON CONFLICT(plugin_id, key) DO UPDATE SET
-    value_json = excluded.value_json,
-    size_bytes = excluded.size_bytes,
-    updated_at = excluded.updated_at
-`
-
-type UpsertKVParams struct {
-	PluginID  string
-	Key       string
-	ValueJson string
-	SizeBytes int64
-	UpdatedAt string
-}
-
-func (q *Queries) UpsertKV(ctx context.Context, arg UpsertKVParams) error {
-	_, err := q.db.ExecContext(ctx, upsertKV,
-		arg.PluginID,
-		arg.Key,
-		arg.ValueJson,
-		arg.SizeBytes,
-		arg.UpdatedAt,
-	)
-	return err
 }

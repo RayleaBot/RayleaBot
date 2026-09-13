@@ -3,6 +3,7 @@ package actions_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"log/slog"
 	"path/filepath"
 	"testing"
@@ -18,12 +19,58 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	localaction "github.com/RayleaBot/RayleaBot/server/internal/plugins/actions"
 	plugincatalog "github.com/RayleaBot/RayleaBot/server/internal/plugins/catalog"
+	pluginruntime "github.com/RayleaBot/RayleaBot/server/internal/plugins/runtime"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins/settings"
 	pluginstore "github.com/RayleaBot/RayleaBot/server/internal/plugins/storage"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 	"github.com/RayleaBot/RayleaBot/server/internal/storage"
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
+
+func TestKVTTLAndNXFromDecodedWireAction(t *testing.T) {
+	t.Parallel()
+	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	repo, err := pluginstore.NewKVSQLiteRepository(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	application := localaction.New(localaction.Deps{PluginKV: repo, CurrentConfig: func() config.Config { return config.Config{} }, Logger: slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), Permissions: &stubPermissionView{permissions: map[string]map[string]bool{}}})
+	call := func(pluginID, data string) map[string]any {
+		t.Helper()
+		action, err := pluginruntime.ParseLocalAction("storage.kv", json.RawMessage(data))
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, err := application.Execute(t.Context(), pluginID, "fixture-action", *action, chatevent.Event{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return result
+	}
+	first := call("p", `{"operation":"set","key":"once","value":1,"ttl_seconds":60,"if_not_exists":true}`)
+	if first["stored"] != true || first["expires_at_ms"] == nil {
+		t.Fatalf("TTL response=%#v", first)
+	}
+	second := call("p", `{"operation":"set","key":"once","value":2,"ttl_seconds":1,"if_not_exists":true}`)
+	if second["stored"] != false || second["expires_at_ms"] != first["expires_at_ms"] {
+		t.Fatal("NX rewrote TTL")
+	}
+	entry := call("p", `{"operation":"get","key":"once"}`)
+	if entry["value"] != float64(1) || entry["expires_at_ms"] != first["expires_at_ms"] {
+		t.Fatal("NX winner value/expiry changed")
+	}
+	if entry := call("other", `{"operation":"get","key":"once"}`); entry["exists"] != false || entry["value"] != nil || entry["expires_at_ms"] != nil {
+		t.Fatal("KV namespace leaked")
+	}
+	permanent := call("p", `{"operation":"set","key":"once","value":null}`)
+	if permanent["stored"] != true || permanent["expires_at_ms"] != nil {
+		t.Fatal("permanent set retained TTL")
+	}
+}
 
 func TestExecuteLoggerWriteAppliesRateLimit(t *testing.T) {
 	t.Parallel()
