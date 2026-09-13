@@ -1,0 +1,22 @@
+contract: contracts/plugin-protocol.schema.json
+case: ok
+frames:
+- type: action
+  request_id: kv-fixture
+  parent_request_id: event-fixture
+  action: storage.kv
+  data:
+    operation: set
+    key: dedup
+    value:
+      seen: true
+    ttl_seconds: 60
+    if_not_exists: true
+- type: result
+  request_id: kv-fixture
+  status: success
+  data:
+    stored: true
+    expires_at_ms: 1789300000000
+expect:
+  valid: true

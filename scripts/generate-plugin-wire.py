@@ -33,6 +33,8 @@ MODELS = {
     "ProtocolActionSessionFinishFrame": "/$defs/action_session_finish_data",
     "ProtocolSessionWaitResultFrame": "/$defs/session_wait_result",
     "ProtocolSessionFinishResultFrame": "/$defs/session_finish_result",
+    "ProtocolKVSetResultFrame": "/$defs/storage_kv_set_result",
+    "ProtocolKVGetResultFrame": "/$defs/storage_kv_get_result",
     "ProtocolOneBotPayloadFrame": PAYLOAD + "/properties/onebot",
     "ProtocolOneBotSenderFrame": PAYLOAD + "/properties/onebot/properties/sender",
     "ProtocolQQOfficialPayloadFrame": PAYLOAD + "/properties/qq_official",
@@ -61,12 +63,16 @@ MODELS = {
     "ProtocolRenderImageResourceFrame": "/$defs/render_image_resource",
 }
 RAW_FIELDS = {
+    ("ProtocolKVGetResultFrame", "value"),
     ("ProtocolActionSessionWaitFrame", "state"),
     ("ProtocolPayloadFrame", "command"),
     ("ActionFrame", "data"), ("ProtocolActionStorageKVFrame", "value"),
     ("ProtocolActionSchedulerCreateFrame", "payload"), ("ProtocolActionRenderImageFrame", "data"),
 }
 PRESENCE_FIELDS = {
+    ("ProtocolActionStorageKVFrame", "ttl_seconds"),
+    ("ProtocolKVSetResultFrame", "expires_at_ms"),
+    ("ProtocolKVGetResultFrame", "expires_at_ms"),
     ("ProtocolActionSessionWaitFrame", "revision"),
     ("ProtocolActionSessionWaitFrame", "timeout_seconds"),
     ("ProtocolActionSessionWaitFrame", "max_turns"),

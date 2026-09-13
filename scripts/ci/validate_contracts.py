@@ -367,7 +367,11 @@ def validate_json_schema_fixtures() -> None:
 def plugin_protocol_response_errors(schema: dict[str, Any], frames: list[Any]) -> list[str]:
     """Associate generic result frames with their contract-defined action result."""
     requests = {
-        frame.get("request_id"): frame.get("action")
+        frame.get("request_id"): (
+            "storage.kv." + str(frame.get("data", {}).get("operation", ""))
+            if frame.get("action") == "storage.kv" and isinstance(frame.get("data"), dict)
+            else frame.get("action")
+        )
         for frame in frames if isinstance(frame, dict) and frame.get("type") == "action"
         and isinstance(frame.get("request_id"), str)
     }

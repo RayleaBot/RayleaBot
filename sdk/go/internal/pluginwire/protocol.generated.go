@@ -132,6 +132,18 @@ type ProtocolSessionFinishResultFrame struct {
 	Finished bool `json:"finished"`
 }
 
+type ProtocolKVSetResultFrame struct {
+	Stored      bool   `json:"stored"`
+	ExpiresAtMs *int64 `json:"expires_at_ms,omitempty"`
+}
+
+type ProtocolKVGetResultFrame struct {
+	Key         string          `json:"key"`
+	Exists      bool            `json:"exists"`
+	Value       json.RawMessage `json:"value,omitempty"`
+	ExpiresAtMs *int64          `json:"expires_at_ms,omitempty"`
+}
+
 type ProtocolOneBotPayloadFrame struct {
 	PostType      string                     `json:"post_type,omitempty"`
 	MetaEventType string                     `json:"meta_event_type,omitempty"`
@@ -255,10 +267,12 @@ type ProtocolActionLoggerWriteFrame struct {
 }
 
 type ProtocolActionStorageKVFrame struct {
-	Operation string          `json:"operation"`
-	Key       *string         `json:"key,omitempty"`
-	Value     json.RawMessage `json:"value,omitempty"`
-	Prefix    *string         `json:"prefix,omitempty"`
+	Operation   string          `json:"operation"`
+	Key         *string         `json:"key,omitempty"`
+	Value       json.RawMessage `json:"value,omitempty"`
+	TtlSeconds  *int            `json:"ttl_seconds,omitempty"`
+	IfNotExists bool            `json:"if_not_exists,omitempty"`
+	Prefix      *string         `json:"prefix,omitempty"`
 }
 
 type ProtocolActionStorageFileFrame struct {

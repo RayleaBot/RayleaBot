@@ -1,0 +1,13 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: action
+  request_id: kv-fixture
+  parent_request_id: event-fixture
+  action: storage.kv
+  data:
+    operation: get
+    key: dedup
+    ttl_seconds: 1
+expect:
+  valid: false

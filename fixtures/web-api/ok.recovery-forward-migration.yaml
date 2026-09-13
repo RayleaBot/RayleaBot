@@ -1,0 +1,19 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+request:
+  method: GET
+  path: /readyz
+response:
+  status: 200
+  body:
+    status: ready
+    recovery_summary:
+      status: compatible
+      phase: post_startup
+      operation: restore
+      created_at: '2026-09-13T00:00:00Z'
+      updated_at: '2026-09-13T00:01:00Z'
+      source_db_schema_version: '000001'
+      target_db_schema_version: '000002'
+expect:
+  valid: true

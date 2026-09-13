@@ -33,7 +33,13 @@ func TestContractFrames(t *testing.T) {
 					err = json.Unmarshal(frame, &envelope)
 				}
 				if err == nil && envelope.Type == "action" {
-					actions[envelope.RequestID] = envelope.Action
+					key := envelope.Action
+					if key == "storage.kv" {
+						var input ProtocolActionStorageKVFrame
+						err = json.Unmarshal(envelope.Data, &input)
+						key += "." + input.Operation
+					}
+					actions[envelope.RequestID] = key
 				}
 				if err == nil && envelope.Type == "result" {
 					err = ValidateActionResult(actions[envelope.RequestID], envelope.Data)

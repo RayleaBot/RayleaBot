@@ -1483,8 +1483,18 @@
           "type": "string",
           "minLength": 1
         },
-        "value": {}
-      }
+        "value": {},
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 31536000
+        },
+        "if_not_exists": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "description": "Omitted TTL writes a permanent value and clears the previous deadline. if_not_exists atomically writes only absent/expired keys. Always validate key, value and single-value size; an unmodified existing key returns stored=false and its expiry without checking added global quota. Capture host time once per write transaction for expiry, live global quota, previous size and conditional UPSERT. Requires min_core_version >= 0.6.0 when TTL/NX is used. This is short-term deduplication, not an owner-safe lock."
     },
     "action_storage_kv_delete_data": {
       "type": "object",
@@ -3269,6 +3279,117 @@
       ],
       "unevaluatedProperties": false,
       "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_finish_result. Requires min_core_version >= 0.6.0."
+    },
+    "storage_kv_set_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stored": {
+          "type": "boolean"
+        },
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Unix milliseconds; absent for a permanent value. Expired at now_ms >= expires_at_ms."
+        }
+      },
+      "required": [
+        "stored"
+      ]
+    },
+    "storage_kv_get_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "value": {},
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Unix milliseconds; absent for a permanent value. Expired at now_ms >= expires_at_ms."
+        }
+      },
+      "required": [
+        "key",
+        "exists"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "exists": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "value"
+                  ]
+                },
+                {
+                  "required": [
+                    "expires_at_ms"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "storage_kv_delete_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "deleted"
+      ],
+      "description": "Reports whether a live key was deleted. An expired physical row may also be removed but yields deleted=false."
+    },
+    "storage_kv_list_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prefix": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "prefix",
+        "keys"
+      ],
+      "description": "Only unexpired keys in the calling plugin namespace, preserving prefix escaping and ascending ordering. Empty keys is an empty array."
     }
   },
   "x-message-catalog": [
@@ -3412,12 +3533,26 @@
     "fixtures/plugin-protocol/ok.session-closed.yaml",
     "fixtures/plugin-protocol/invalid.session-unrelated-event.yaml",
     "fixtures/plugin-protocol/invalid.session-closed-reason.yaml",
-    "fixtures/plugin-protocol/invalid.session-closed-user-canceled.yaml"
+    "fixtures/plugin-protocol/invalid.session-closed-user-canceled.yaml",
+    "fixtures/plugin-protocol/ok.kv-ttl-nx.yaml",
+    "fixtures/plugin-protocol/edge.kv-nx-existing.yaml",
+    "fixtures/plugin-protocol/edge.kv-expired-get.yaml",
+    "fixtures/plugin-protocol/edge.kv-expired-delete.yaml",
+    "fixtures/plugin-protocol/ok.kv-permanent.yaml",
+    "fixtures/plugin-protocol/invalid.kv-ttl-zero.yaml",
+    "fixtures/plugin-protocol/invalid.kv-ttl-fraction.yaml",
+    "fixtures/plugin-protocol/invalid.kv-ttl-upper.yaml",
+    "fixtures/plugin-protocol/invalid.kv-ttl-get.yaml",
+    "fixtures/plugin-protocol/invalid.kv-expired-value.yaml"
   ],
   "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions.",
   "x-action-result-schemas": {
     "http.request": "#/$defs/http_response_data",
     "session.wait": "#/$defs/session_wait_result",
-    "session.finish": "#/$defs/session_finish_result"
+    "session.finish": "#/$defs/session_finish_result",
+    "storage.kv.get": "#/$defs/storage_kv_get_result",
+    "storage.kv.set": "#/$defs/storage_kv_set_result",
+    "storage.kv.delete": "#/$defs/storage_kv_delete_result",
+    "storage.kv.list": "#/$defs/storage_kv_list_result"
   }
 }

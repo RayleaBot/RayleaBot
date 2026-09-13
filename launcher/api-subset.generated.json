@@ -3,7 +3,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "RayleaBot Web API",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "description": "Fixture-ready HTTP contract. This file intentionally contains only the currently frozen management routes. info.version is the revision of this contract document, independent of product, package, and runtime protocol versions; breaking contract changes increment the minor version while compatible additions increment the patch version. Management JSON request bodies, excluding adapter webhooks, must contain exactly one JSON object. Unknown fields follow each schema's additionalProperties rule; plugin settings values and management action payloads retain their arbitrary nested JSON values. The body limit is 1048576 bytes, including whitespace, except development plugin sync which is limited to 16384 bytes. Empty bodies are accepted only when requestBody is optional. Invalid JSON, non-object values, trailing content, unknown fields in closed objects, and oversized bodies return HTTP 400 with platform.invalid_request after the route's authentication checks.\n"
   },
   "paths": {},
@@ -175,10 +175,12 @@
             "type": "string"
           },
           "source_db_schema_version": {
-            "type": "string"
+            "type": "string",
+            "description": "Actual archived database version, including a supported older structure such as 000001. absent denotes a configuration-only archive."
           },
           "target_db_schema_version": {
-            "type": "string"
+            "type": "string",
+            "description": "Structure expected after first startup; 000002 for the v0.6 migration chain. Source and target are reported separately before and after startup."
           },
           "requires_post_start_checks": {
             "type": "boolean"

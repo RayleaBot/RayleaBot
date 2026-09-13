@@ -1694,7 +1694,9 @@ export interface components {
             target_core_version?: string;
             source_config_schema_version?: string;
             target_config_schema_version?: string;
+            /** @description Actual archived database version, including a supported older structure such as 000001. absent denotes a configuration-only archive. */
             source_db_schema_version?: string;
+            /** @description Structure expected after first startup; 000002 for the v0.6 migration chain. Source and target are reported separately before and after startup. */
             target_db_schema_version?: string;
             requires_post_start_checks?: boolean;
             issues?: components["schemas"]["RecoveryCompatibilityIssue"][];

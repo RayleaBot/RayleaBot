@@ -19,7 +19,11 @@ func TestContractFrames(t *testing.T) {
    err := Validate(frame, 0)
    var envelope Frame
    if err == nil { err = json.Unmarshal(frame, &envelope) }
-   if err == nil && envelope.Type == "action" { actions[envelope.RequestID] = envelope.Action }
+   if err == nil && envelope.Type == "action" {
+    key := envelope.Action
+    if key == "storage.kv" { var input ProtocolActionStorageKVFrame; err = json.Unmarshal(envelope.Data, &input); key += "." + input.Operation }
+    actions[envelope.RequestID] = key
+   }
    if err == nil && envelope.Type == "result" { err = ValidateActionResult(actions[envelope.RequestID], envelope.Data) }
    if err != nil { rejected = true; if c.Valid { t.Fatalf("valid frame rejected: %v", err) } }
   }

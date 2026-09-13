@@ -85,6 +85,84 @@
     ]
   },
   {
+    "name": "edge.kv-expired-delete.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "delete",
+          "key": "dedup"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "kv-fixture",
+        "status": "success",
+        "data": {
+          "key": "dedup",
+          "deleted": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "edge.kv-expired-get.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "get",
+          "key": "dedup"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "kv-fixture",
+        "status": "success",
+        "data": {
+          "key": "dedup",
+          "exists": false
+        }
+      }
+    ]
+  },
+  {
+    "name": "edge.kv-nx-existing.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "set",
+          "key": "dedup",
+          "value": false,
+          "ttl_seconds": 60,
+          "if_not_exists": true
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "kv-fixture",
+        "status": "success",
+        "data": {
+          "stored": false,
+          "expires_at_ms": 1789300000000
+        }
+      }
+    ]
+  },
+  {
     "name": "edge.session-finish-unknown.yaml",
     "valid": true,
     "frames": [
@@ -158,6 +236,103 @@
           "operation": "delete",
           "entry_type": "user",
           "target_id": "fixture-openid"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.kv-expired-value.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "get",
+          "key": "dedup"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "kv-fixture",
+        "status": "success",
+        "data": {
+          "key": "dedup",
+          "exists": false,
+          "value": "expired"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.kv-ttl-fraction.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "set",
+          "key": "dedup",
+          "value": 0,
+          "ttl_seconds": 1.5
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.kv-ttl-get.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "get",
+          "key": "dedup",
+          "ttl_seconds": 1
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.kv-ttl-upper.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "set",
+          "key": "dedup",
+          "value": 0,
+          "ttl_seconds": 31536001
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.kv-ttl-zero.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "set",
+          "key": "dedup",
+          "value": 0,
+          "ttl_seconds": 0
         }
       }
     ]
@@ -705,6 +880,61 @@
         "type": "init_ack",
         "request_id": "init-1",
         "status": "ready"
+      }
+    ]
+  },
+  {
+    "name": "ok.kv-permanent.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "set",
+          "key": "dedup",
+          "value": null
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "kv-fixture",
+        "status": "success",
+        "data": {
+          "stored": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.kv-ttl-nx.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "kv-fixture",
+        "parent_request_id": "event-fixture",
+        "action": "storage.kv",
+        "data": {
+          "operation": "set",
+          "key": "dedup",
+          "value": {
+            "seen": true
+          },
+          "ttl_seconds": 60,
+          "if_not_exists": true
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "kv-fixture",
+        "status": "success",
+        "data": {
+          "stored": true,
+          "expires_at_ms": 1789300000000
+        }
       }
     ]
   },

@@ -35,7 +35,7 @@
   - 恢复包版本、core / config / db schema 兼容性判断边界，以及插件库存摘要
   - `core_version` 从有效的安装产物 `build_info.json` 读取；缺失或无效时记为 `unknown`。未知版本不参与升降级排序，恢复操作标为 `restore`，仍检查 schema 与协议版本；有最低 core 版本要求的插件须确认兼容后才能自动启用或通过商店安装。
   - 本机 `plugin dev-sync` 和受控开发同步接口允许未标版本的源码构建接收 `development` artifact；此路径不声称已验证最低 core 版本，仍执行 manifest、artifact、平台、权限与协议握手检查。普通安装和商店安装不使用此例外。
-  - 配置与数据库 schema 版本从实际归档内容读取：当前配置为 `4`，数据库为 `000001`；没有归档数据库时明确记录 `absent`。恢复只处理当前格式，初始化元数据、配置与业务数据在本版备份恢复中保持一致。
+  - 配置与数据库 schema 版本从实际归档内容读取：配置为 `4`，备份契约接受数据库 `000001`、`000002`；没有归档数据库时明确记录 `absent`。可前向迁移的旧结构在首次启动时迁移，恢复摘要分别记录源版本与目标版本。初始化元数据、配置与业务数据一起恢复。
 - `deps-manifest.schema.json`
   - `.deps/manifest.json` 的正式机器可校验结构
   - 图片渲染与插件浏览器会话共用 Chromium，以及受信本地插件共用 FFmpeg / FFprobe 的可信来源列表、SHA256、归档格式与相对入口
@@ -84,6 +84,7 @@
   - `init.bots` 提供按适配器实例区分的身份列表；`bot.identities.changed` 通过 `payload.bots` 替换整个列表
   - 未知或已停用实例不出现在身份列表中；空列表清除旧身份。身份包含 `source_adapter`、`source_protocol`、`id`，不跨实例合并。连接可用性仍由 adapter 动作的正式结果表达
   - `logger.write`、`storage.kv`、`storage.file` 和 `config.write` 是隐式插件私有动作；HTTP、消息、secret、浏览器、治理、调度、渲染、OneBot 与 provider 动作使用显式权限。
+    - `storage.kv set` 的 `ttl_seconds` 和 `if_not_exists` 定义到期不可见与事务内条件写入；省略 TTL 表示永久覆盖，NX 未写入时返回 `stored=false` 和已有期限，不返回已有值，也不先检查新增总配额。`x-action-result-schemas` 中的 KV 结果按请求的 operation 关联校验，配额仍在所有插件间全局统计。
     - `scheduler.create.log_label` 用于定时任务管理日志展示。
     - `secret.read`、`secret.write` 和 `secret.delete` 只在调用插件自己的 secret 命名空间内读取、覆盖或删除；值经宿主加密后落盘，读取结果仅返回调用插件。
     - `browser.launch` 启动或附着插件专属的宿主托管浏览器会话，宿主按插件隔离 profile、应用启动硬化、限制同一 profile 同时只有一个会话，并在生命周期到期或 `browser.close` 时关闭；返回的 `debugger_url` 是该会话的浏览器级 CDP WebSocket 端点。
