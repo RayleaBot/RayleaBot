@@ -15,6 +15,8 @@
     "min_core_version": { "$ref": "#/$defs/semver" },
     "metadata": { "$ref": "#/$defs/metadata" },
     "concurrency": { "type": "integer", "minimum": 1, "maximum": 128, "default": 1 },
+    "priority": { "$ref": "#/$defs/message_priority" },
+    "block": { "$ref": "#/$defs/message_block" },
     "events": {
       "type": "array",
       "maxItems": 128,
@@ -30,7 +32,15 @@
     "management_ui": { "$ref": "#/$defs/management_ui" },
     "webhooks": { "type": "array", "maxItems": 32, "items": { "$ref": "#/$defs/webhook" } }
   },
+  "allOf": [
+    {
+      "if": { "anyOf": [{ "required": ["priority"] }, { "required": ["block"] }] },
+      "then": { "properties": { "min_core_version": { "not": { "anyOf": [{ "pattern": "^0\\.[0-5]\\." }, { "pattern": "^0\\.6\\.0-" }] } } } }
+    }
+  ],
   "$defs": {
+    "message_priority": { "type": "integer", "minimum": -1000, "maximum": 1000, "default": 0, "description": "Incoming-message priority: greater first, equal priorities concurrent. A positive-priority message subscriber that does not declare a matched command also receives that command message before its declarers. Other event types retain their existing dispatch behavior." },
+    "message_block": { "type": "boolean", "default": false, "description": "Successful message terminal frames stop later priority layers unless propagation explicitly says continue. A not-handled or failed event continues. Same-layer work is not undone; terminal action sending finishes before layer advancement but sending failure does not alter propagation." },
     "semver": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
     "https_url": { "type": "string", "format": "uri", "pattern": "^https://.+$" },
     "package_relative_path": {
@@ -205,6 +215,10 @@
     "fixtures/plugin-info/ok.management-ui-and-webhook.json",
     "fixtures/plugin-info/edge.empty-events-and-permissions.json",
     "fixtures/plugin-info/invalid.legacy-v2.json",
-    "fixtures/plugin-info/invalid.command-group-reference.json"
+    "fixtures/plugin-info/invalid.command-group-reference.json",
+    "fixtures/plugin-info/ok.priority-block.json",
+    "fixtures/plugin-info/invalid.priority-range.json",
+    "fixtures/plugin-info/invalid.priority-old-core.json",
+    "fixtures/plugin-info/invalid.filter-stage.json"
   ]
 }

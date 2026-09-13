@@ -42,7 +42,11 @@ func TestContractFrames(t *testing.T) {
 					actions[envelope.RequestID] = key
 				}
 				if err == nil && envelope.Type == "result" {
-					err = ValidateActionResult(actions[envelope.RequestID], envelope.Data)
+					if actions[envelope.RequestID] != "" && envelope.Propagation != "" {
+						err = errors.New("local action result cannot control propagation")
+					} else {
+						err = ValidateActionResult(actions[envelope.RequestID], envelope.Data)
+					}
 				}
 				if err != nil {
 					rejected = true

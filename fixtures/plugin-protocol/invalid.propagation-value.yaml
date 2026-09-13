@@ -1,0 +1,10 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: result
+  request_id: event-1
+  status: success
+  data: {}
+  propagation: later
+expect:
+  valid: false

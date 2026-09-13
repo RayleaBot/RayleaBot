@@ -1,0 +1,75 @@
+contract: contracts/web-api.openapi.yaml
+case: ok
+description: Plugin detail returns the same trust/source metadata as the list surface.
+request:
+  method: GET
+  path: /api/plugins/weather
+response:
+  status: 200
+  body:
+    plugin:
+      id: weather
+      name: Weather
+      role: community
+      version: 1.4.2
+      description: 提供当前城市天气与未来天气查询。
+      author: raylea
+      license: MIT
+      min_core_version: 0.2.0
+      concurrency: 3
+      events:
+      - message.group
+      - message.private
+      permissions:
+        http.request: true
+        render.image: true
+        message.send: true
+      webhooks: []
+      icon: assets/weather.svg
+      repo: https://github.com/RayleaBot/plugins-weather
+      homepage: https://plugins.rayleabot.local/weather
+      keywords:
+      - weather
+      - forecast
+      - climate
+      screenshots:
+      - path: assets/overview.svg
+        alt: 天气总览卡片
+      state: running
+      source:
+        root: plugins/installed
+        package_source_type: local_zip
+        package_source_ref: C:/plugins/weather.zip
+        verified: false
+      trust:
+        level: unverified
+      commands:
+      - id: weather
+        name: 天气查询
+        effective_names:
+        - weather
+        - tq
+        - 天气
+        description: 查询天气
+        usage: weather <城市>
+        permission: everyone
+        trigger:
+          type: exact
+          names:
+          - weather
+          - tq
+          - 天气
+      command_groups:
+      - id: query
+        title: 查询
+        commands:
+        - weather
+      help:
+        title: Weather
+        summary: 天气菜单
+      command_conflicts:
+      - weather
+      priority: 10
+      block: true
+expect:
+  valid: true

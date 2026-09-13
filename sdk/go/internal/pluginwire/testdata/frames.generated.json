@@ -396,6 +396,82 @@
     ]
   },
   {
+    "name": "invalid.propagation-error.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "error",
+        "request_id": "event-1",
+        "code": "plugin.not_handled",
+        "message": "not handled",
+        "propagation": "stop"
+      }
+    ]
+  },
+  {
+    "name": "invalid.propagation-local-action.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "action": "message.send",
+        "data": {
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "fixture"
+                }
+              }
+            ]
+          }
+        },
+        "propagation": "continue",
+        "parent_request_id": "event-1"
+      }
+    ]
+  },
+  {
+    "name": "invalid.propagation-local-result.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "logger.write",
+        "data": {
+          "level": "info",
+          "message": "fixture"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {},
+        "propagation": "stop"
+      }
+    ]
+  },
+  {
+    "name": "invalid.propagation-value.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "result",
+        "request_id": "event-1",
+        "status": "success",
+        "data": {},
+        "propagation": "later"
+      }
+    ]
+  },
+  {
     "name": "invalid.removed-action.yaml",
     "valid": false,
     "frames": [
@@ -969,6 +1045,45 @@
       {
         "type": "pong",
         "request_id": "ping-1"
+      }
+    ]
+  },
+  {
+    "name": "ok.propagation-result.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "result",
+        "request_id": "event-1",
+        "status": "success",
+        "data": {},
+        "propagation": "stop"
+      }
+    ]
+  },
+  {
+    "name": "ok.propagation-terminal-send.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "event-1",
+        "action": "message.send",
+        "data": {
+          "target_type": "group",
+          "target_id": "20001",
+          "message": {
+            "segments": [
+              {
+                "type": "text",
+                "data": {
+                  "text": "fixture"
+                }
+              }
+            ]
+          }
+        },
+        "propagation": "continue"
       }
     ]
   },

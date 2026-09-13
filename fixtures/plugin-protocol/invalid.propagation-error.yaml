@@ -1,0 +1,10 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: error
+  request_id: event-1
+  code: plugin.not_handled
+  message: not handled
+  propagation: stop
+expect:
+  valid: false

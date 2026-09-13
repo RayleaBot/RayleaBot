@@ -1373,6 +1373,28 @@
             },
             "data": {
               "$ref": "#/$defs/action_message_send_data"
+            },
+            "propagation": {
+              "type": "string",
+              "enum": [
+                "stop",
+                "continue"
+              ],
+              "description": "Only a successful incoming-message event terminal may control later priority layers. Explicit continue overrides manifest block. Local-action responses and nonterminal actions cannot carry propagation."
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "propagation"
+            ]
+          },
+          "then": {
+            "not": {
+              "required": [
+                "parent_request_id"
+              ]
             }
           }
         }
@@ -1919,6 +1941,14 @@
             "data": {
               "type": "object",
               "additionalProperties": true
+            },
+            "propagation": {
+              "type": "string",
+              "enum": [
+                "stop",
+                "continue"
+              ],
+              "description": "Only a successful incoming-message event terminal may control later priority layers. Explicit continue overrides manifest block. Local-action responses and nonterminal actions cannot carry propagation."
             }
           }
         }
@@ -3438,7 +3468,13 @@
     "fixtures/plugin-protocol/invalid.session-wait-limits.yaml",
     "fixtures/plugin-protocol/invalid.session-wait-result.yaml",
     "fixtures/plugin-protocol/ok.kv-ttl.yaml",
-    "fixtures/plugin-protocol/invalid.kv-nx.yaml"
+    "fixtures/plugin-protocol/invalid.kv-nx.yaml",
+    "fixtures/plugin-protocol/ok.propagation-result.yaml",
+    "fixtures/plugin-protocol/ok.propagation-terminal-send.yaml",
+    "fixtures/plugin-protocol/invalid.propagation-local-action.yaml",
+    "fixtures/plugin-protocol/invalid.propagation-error.yaml",
+    "fixtures/plugin-protocol/invalid.propagation-value.yaml",
+    "fixtures/plugin-protocol/invalid.propagation-local-result.yaml"
   ],
   "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions.",
   "x-action-result-schemas": {

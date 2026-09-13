@@ -1,0 +1,18 @@
+{
+  "contract": "contracts/plugin-info.schema.json",
+  "case": "ok",
+  "input": {
+    "id": "hello-native",
+    "name": "Hello Native",
+    "version": "1.0.0",
+    "manifest_version": "3",
+    "license": "MIT",
+    "min_core_version": "0.6.0",
+    "events": [],
+    "priority": 10,
+    "block": true
+  },
+  "expect": {
+    "valid": true
+  }
+}

@@ -226,10 +226,11 @@ type ErrorFrame struct {
 }
 
 type ResultFrame struct {
-	Type      string         `json:"type"`
-	RequestID string         `json:"request_id"`
-	Status    string         `json:"status"`
-	Data      map[string]any `json:"data"`
+	Type        string         `json:"type"`
+	RequestID   string         `json:"request_id"`
+	Status      string         `json:"status"`
+	Data        map[string]any `json:"data"`
+	Propagation string         `json:"propagation,omitempty"`
 }
 
 type ActionFrame struct {
@@ -238,6 +239,7 @@ type ActionFrame struct {
 	ParentRequestID string          `json:"parent_request_id,omitempty"`
 	Action          string          `json:"action"`
 	Data            json.RawMessage `json:"data"`
+	Propagation     string          `json:"propagation,omitempty"`
 }
 
 type ProtocolActionMessageSendFrame struct {
@@ -372,6 +374,7 @@ type Frame struct {
 	ParentRequestID      string          `json:"parent_request_id,omitempty"`
 	Action               string          `json:"action,omitempty"`
 	Data                 json.RawMessage `json:"data,omitempty"`
+	Propagation          string          `json:"propagation,omitempty"`
 	Code                 string          `json:"code,omitempty"`
 	Message              string          `json:"message,omitempty"`
 	Details              map[string]any  `json:"details,omitempty"`

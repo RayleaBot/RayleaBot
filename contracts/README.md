@@ -59,6 +59,7 @@
   - `events` 静态声明普通事件订阅；`permissions` 只声明高权限或跨系统宿主能力
   - 当前已固定内联 `default_config`、metadata、统一 `commands`、真实 `command_groups`、帮助标题/摘要、单入口 `management_ui` 和静态 `webhooks`
   - `concurrency` 省略时按 `1` 处理，声明值用于插件事件并发 opt-in
+  - `priority`（默认 0）与 `block`（默认 false）定义消息分层与阻断。正优先级消息订阅者可先于命令声明者接收命令消息；其他事件保留既有投递。成功终态的显式 propagation 覆盖 block，同名命令授权与冷却保持既有语义。
   - command `permission` 省略时使用 `permission.default_level`
 - `plugin-artifact.schema.json`
   - artifact v2 的目标平台与原生入口边界

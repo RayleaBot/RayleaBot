@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.4.1
+  version: 0.4.2
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -19,6 +19,7 @@ info:
     fields in closed objects, and oversized bodies return HTTP 400 with
     platform.invalid_request after the route's authentication checks.
 x-fixtures:
+  - fixtures/web-api/ok.plugin-message-policy.yaml
   - fixtures/web-api/ok.recovery-forward-migration.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-qqofficial.yaml
   - fixtures/web-api/ok.log-detail-response.outbound-onebot11.yaml
@@ -4241,6 +4242,10 @@ components:
       - command_groups
       - help
       properties:
+        priority:
+          $ref: ./plugin-info.schema.json#/$defs/message_priority
+        block:
+          $ref: ./plugin-info.schema.json#/$defs/message_block
         id:
           type: string
         name:

@@ -379,7 +379,11 @@ def plugin_protocol_response_errors(schema: dict[str, Any], frames: list[Any]) -
     for index, frame in enumerate(frames):
         if not isinstance(frame, dict) or frame.get("type") != "result" or frame.get("status") != "success":
             continue
+        if not isinstance(frame.get("request_id"), str):
+            continue
         action = requests.get(frame.get("request_id"))
+        if action and "propagation" in frame:
+            errors.append(f"frames/{index}: local action results cannot control propagation")
         reference = schema.get("x-action-result-schemas", {}).get(action)
         if reference:
             validator = Draft202012Validator({"$ref": reference, "$defs": schema["$defs"]})

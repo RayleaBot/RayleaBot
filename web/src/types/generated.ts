@@ -1965,6 +1965,8 @@ export interface components {
         PluginSettingCommandTrigger: components["schemas"]["setting_trigger"];
         PluginCommandGroup: components["schemas"]["command_group"];
         PluginDisplayFields: {
+            priority?: components["schemas"]["message_priority"];
+            block?: components["schemas"]["message_block"];
             id: string;
             name: string;
             version?: string;
@@ -2836,6 +2838,16 @@ export interface components {
             type: "setting";
             settings_key: string;
         };
+        /**
+         * @description Incoming-message priority: greater first, equal priorities concurrent. A positive-priority message subscriber that does not declare a matched command also receives that command message before its declarers. Other event types retain their existing dispatch behavior.
+         * @default 0
+         */
+        message_priority: number;
+        /**
+         * @description Successful message terminal frames stop later priority layers unless propagation explicitly says continue. A not-handled or failed event continues. Same-layer work is not undone; terminal action sending finishes before layer advancement but sending failure does not alter propagation.
+         * @default false
+         */
+        message_block: boolean;
         stable_id: string;
         command_group: {
             id: components["schemas"]["stable_id"];

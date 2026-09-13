@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: logger.write
+  data:
+    level: info
+    message: fixture
+- type: result
+  request_id: action-1
+  status: success
+  data: {}
+  propagation: stop
+expect:
+  valid: false

@@ -24,7 +24,9 @@ func TestContractFrames(t *testing.T) {
     if key == "storage.kv" { var input ProtocolActionStorageKVFrame; err = json.Unmarshal(envelope.Data, &input); key += "." + input.Operation }
     actions[envelope.RequestID] = key
    }
-   if err == nil && envelope.Type == "result" { err = ValidateActionResult(actions[envelope.RequestID], envelope.Data) }
+   if err == nil && envelope.Type == "result" {
+    if actions[envelope.RequestID] != "" && envelope.Propagation != "" { err = errors.New("local action result cannot control propagation") } else { err = ValidateActionResult(actions[envelope.RequestID], envelope.Data) }
+   }
    if err != nil { rejected = true; if c.Valid { t.Fatalf("valid frame rejected: %v", err) } }
   }
   if !c.Valid && !rejected { t.Fatal("all invalid fixture frames accepted") }
