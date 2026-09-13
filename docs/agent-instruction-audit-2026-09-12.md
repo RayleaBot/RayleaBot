@@ -185,7 +185,7 @@ Impeccable 相关重复：`.agents` / `.claude` / `.gemini` 三份 skill 副本�
 | O1 | 删除 `baseline.md` 末节“视为违反仓库治理规则”的表述，契约来源说明并入仓库级强制基线文件表 |
 | O2、O5 | `quality-gates.md` 新增“按改动面的最小验证”表，覆盖契约门禁与生成器命令；根 `AGENTS.md`、`contracts/AGENTS.md`、`contract-audit` 与 PR 模板引用该表；`implementation-order.md` 第 9 节注明为发布验收范围；`Makefile` 测试目标依赖 doctor 的行为未改，本机工具链检查通过，日常验证不经过 Makefile；契约配套登记清单集中到 `contracts/AGENTS.md` 的 Merge Readiness，`contract-audit` 引用该清单 |
 | O3 | 复核后保留在根 `AGENTS.md`：Launcher `internal/desktop` 同样持有并发读写的共享状态 |
-| O4 | nil 检查规则限定为新增的业务方法，并按 auth Manager 的现有做法补充：可选协作者通过构造期 Option 注入，缺省实现在构造函数中确定 |
+| O4 | nil 检查规则限定为新增的业务方法，并补充可选协作者在构造期注入、需要缺省行为时在构造函数中补齐；服务端构造函数主要接收 Deps 或 Options 结构体，函数式 Option 只在少数包使用，因此不规定注入形式，也不要求为可选依赖增加 no-op 实现 |
 | O7 | `contract-audit` 注明只调整描述的契约修改不需要新增 fixture，怀疑契约本身有误时向用户确认 |
 | O8 | `baseline.md` 的新依赖说明要求限定为运行时依赖与固定选型替换 |
 | O9、O11 | `docs/AGENTS.md` 写入“只修改确有漂移的内容”与“执行计划只约束对应版本的任务” |
