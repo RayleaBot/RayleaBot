@@ -168,28 +168,30 @@ Impeccable 相关重复：`.agents` / `.claude` / `.gemini` 三份 skill 副本�
 
 | 编号 | 处理结果 |
 | --- | --- |
-| D1、D2、D3、D9、D15 | 根 `AGENTS.md` 保留契约规则，并补充“正式语义不变的内部调整不需要契约改动”；删除 `baseline.md`、`implementation-order.md`、`quality-gates.md`、`contract-audit` 与 PR 模板中的重复表述 |
-| D4、D5 | 状态来源与错误分支规则移入根 `AGENTS.md`；删除 `server/`、`web/`、`contracts/` 局部指令与 `web-admin-baseline.md` 约束节中的重复条目；`implementation-order.md` 第 7 节中的日志推断状态表述也已删除 |
-| D6 | `server/AGENTS.md` 只保留 secret store 的专属要求 |
+| D1、D2、D9 | 根 `AGENTS.md` 保留契约规则，并补充“正式语义不变的内部调整不需要契约改动”；删除 `implementation-order.md`、`quality-gates.md`、`contract-audit` 与 PR 模板中的重复表述，`baseline.md` 删除契约来源重述 |
+| D3 | 复核后保留根 `AGENTS.md` 中“合并前样例与验证齐备”一句：Codex 在仓库根工作时不会读取 contracts 目录的指令；详细规则由 `contracts/AGENTS.md` 与 `fixtures/README.md` 维护 |
+| D4、D5 | 状态来源与错误分支规则移入根 `AGENTS.md`；删除 `server/`、`web/`、`contracts/` 局部指令与 `web-admin-baseline.md` 约束节中的重复条目；`implementation-order.md` 第 7 节中的日志推断状态表述也已删除；`PRODUCT.md`、项目章程、设计目录 README 与 Web 工程基线中的状态来源原则保留，它们面向人工读者并作为 Impeccable 的产品语境；文本资源文档保留 message 分支说明，用于解释 message_key 的用途 |
+| D6 | `server/AGENTS.md` 只保留 secret store 的专属要求；插件管理页规范中的凭据禁令保留，读者是独立插件仓库 |
 | D7 | 复核后未改：根 `AGENTS.md` 保留通用规则，其余文档只列本领域的具体对象，符合原建议的归属方式 |
 | D8 | 删除 `editing-final-state-content` 中与根 Testing 重复的测试要求 |
 | D10 | 删除 v0.6 执行计划中的提交格式要求 |
-| D11 | 三份界面规范的验收条件改为引用 `DESIGN.md` 的 Do's and Don'ts；插件管理页规范的官方页面布局节保留逐条禁用项，读者是独立插件仓库 |
-| D12 | 页签显示规则归 Web 界面规范，缓存与恢复语义和偏好版本归 Web 工程基线，`DESIGN.md` 的插件中心页签规则改为引用 Web 界面规范；修正 Web 界面规范把只读快捷键列表写成偏好项的描述 |
+| D11 | 三份界面规范的验收条件改为引用 `DESIGN.md` 的 Do's and Don'ts；插件管理页规范的官方页面布局节保留逐条禁用项，读者是独立插件仓库；`PRODUCT.md` 的反例清单保留，它是 Impeccable 读取的产品语境 |
+| D12 | 页签显示规则归 Web 界面规范，缓存与恢复语义和偏好版本归 Web 工程基线，`DESIGN.md` 的插件中心页签规则改为引用 Web 界面规范；修正 Web 界面规范把只读快捷键列表写成偏好项的描述；插件卡片、协议连接卡片与认证面板的尺寸、构成和材质参数只由 Web 界面规范维护，`DESIGN.md` 保留共享规则并引用，协议连接卡片的头像、最小高度与内边距补入 Web 界面规范 |
 | D13 | `web-testing.md` 改为链接 `web/AGENTS.md` 的 Browser Verification |
 | D14、D16 | 复核后未改：各目录只写本目录的生成命令，根 `AGENTS.md` 对设计工具环境变量只保留指向 |
+| D15 | 复核后保留工程基线的跨领域冲突处理步骤与 `contracts/README.md` 的同一变更修正文档要求，两处都比根指令多出具体做法；`docs/AGENTS.md` 中的重复已删除 |
 | D17、C5 | 已由 `23acb63e` 移除 gbash 包装与相关要求 |
 | D18、C7 | 删除五份局部 `AGENTS.md` 首句的“先遵守根 AGENTS.md” |
 | O1 | 删除 `baseline.md` 末节“视为违反仓库治理规则”的表述，契约来源说明并入仓库级强制基线文件表 |
-| O2、O5 | `quality-gates.md` 新增“按改动面的最小验证”表，覆盖契约门禁与生成器命令；根 `AGENTS.md`、`contracts/AGENTS.md`、`contract-audit` 与 PR 模板引用该表；`implementation-order.md` 第 9 节注明为发布验收范围；`Makefile` 测试目标依赖 doctor 的行为未改，本机工具链检查通过，日常验证不经过 Makefile |
+| O2、O5 | `quality-gates.md` 新增“按改动面的最小验证”表，覆盖契约门禁与生成器命令；根 `AGENTS.md`、`contracts/AGENTS.md`、`contract-audit` 与 PR 模板引用该表；`implementation-order.md` 第 9 节注明为发布验收范围；`Makefile` 测试目标依赖 doctor 的行为未改，本机工具链检查通过，日常验证不经过 Makefile；契约配套登记清单集中到 `contracts/AGENTS.md` 的 Merge Readiness，`contract-audit` 引用该清单 |
 | O3 | 复核后保留在根 `AGENTS.md`：Launcher `internal/desktop` 同样持有并发读写的共享状态 |
-| O4 | nil 检查规则限定为新增的业务方法 |
+| O4 | nil 检查规则限定为新增的业务方法，并按 auth Manager 的现有做法补充：可选协作者通过构造期 Option 注入，缺省实现在构造函数中确定 |
 | O7 | `contract-audit` 注明只调整描述的契约修改不需要新增 fixture，怀疑契约本身有误时向用户确认 |
 | O8 | `baseline.md` 的新依赖说明要求限定为运行时依赖与固定选型替换 |
 | O9、O11 | `docs/AGENTS.md` 写入“只修改确有漂移的内容”与“执行计划只约束对应版本的任务” |
 | O10 | 根 `AGENTS.md` 说明 agent-docs 检查脚本的检查内容 |
 | O12 | Codex 全局 `AGENTS.md` 增加执行方式：实现与修复类任务直接修改，诊断、审计和评审类任务先报告；Codex 记忆中的 gbash 建议与已删除报告的引用已加注 |
-| O6 | 设计检测 hook 默认已把逐次编辑限定为即时规则、完整规则留到 Stop 事件，未改配置。`DESIGN.md` 是 Impeccable 读取的设计上下文，未迁出组件细节；改为修正界面规范中与其冲突的重复描述，见 C8、C9 |
+| O6 | 设计检测 hook 默认已把逐次编辑限定为即时规则、完整规则留到 Stop 事件，未改配置。`DESIGN.md` 是 Impeccable 读取的设计上下文，未迁出组件细节；改为修正界面规范中与其冲突的重复描述，见 C8、C9。后续按 `6c8a281e` 已确立的方向，重复的界面尺寸与材质参数改为由 Web 界面规范维护，`DESIGN.md` 保留共享规则与组件行为 |
 | C1 | `impeccable hooks on` 已修复 Codex 的 hook 配置；Claude 的 hook 改为调用 `.agents/skills/impeccable/scripts/impeccable` 的 `hook` 子命令，已通过管道测试与实际触发验证，引擎二进制与发布页 sha256 一致 |
 | C2 | `.claude/` 与 `.gemini/` 下的旧版副本已在 2026-09-12 被移除，版本分叉不再存在 |
 | C3 | `CLAUDE.md` 说明 Claude Code 需直接读取 `.agents/skills/` 中的 `SKILL.md` |
@@ -198,6 +200,7 @@ Impeccable 相关重复：`.agents` / `.claude` / `.gemini` 三份 skill 副本�
 | C8 | 新发现：`web-management-ui.md` 与 `plugin-management-surface.md` 称 Web 浮层使用 12px 背景模糊，`DESIGN.md` 与 Web 代码均为不透明表面；已按代码修正 |
 | C9 | 新发现：`web-management-ui.md` 称桌面控件默认高度 36px，Web 的 `AppButton`、`AppInput`、`AppSelect` 实为 40px；已改为引用 `DESIGN.md` Components |
 | C10 | 新发现：Impeccable doctor 按文件修改时间报告 `.impeccable/design.json` 过期；sidecar 内容由仓库生成器维护且与 `DESIGN.md` 一致，刷新文件修改时间后不再报告。该判断依赖本地文件时间，重新检出后可能再次出现 |
+| C11 | 新发现：`DESIGN.md` 称插件卡片底部为概要、详情、重载和启停四个图标入口，实现为概要、管理、重载和启停；Web 界面规范称认证密钥显隐按钮只在窄屏或粗指针环境使用 44px，实现始终为 44px。已随尺寸归属调整按实现修正 |
 
 尚未处理：
 
