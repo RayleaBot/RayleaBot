@@ -24,6 +24,11 @@ func TestConfigFixtures(t *testing.T) {
 			expectValid: true,
 		},
 		{
+			name:        "unknown fields fixture",
+			fixturePath: filepath.Join("..", "fixtures", "config", "edge.unknown-fields.json"),
+			expectValid: true,
+		},
+		{
 			name:                "invalid fixture",
 			fixturePath:         filepath.Join("..", "fixtures", "config", "invalid.onebot-url.json"),
 			expectValid:         false,

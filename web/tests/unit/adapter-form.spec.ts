@@ -25,6 +25,17 @@ describe('adapter form boundaries', () => {
     expect(() => mergeAdapterDraft(doc, null, buildAdapterInstance('onebot11', 'qqofficial'))).toThrow('已被使用')
     expect(doc.adapters).toHaveLength(1)
   })
+  it('ignores unknown OneBot settings without treating them as enabled transports', () => {
+    const instance = buildAdapterInstance('bot', 'onebot11')
+    instance.onebot11!.obsolete_transport = { enabled: true, url: 'invalid' }
+    instance.onebot11!.obsolete_option = null
+    expect(validateAdapterDraft(instance)).toEqual({})
+    instance.enabled = true
+    expect(validateAdapterDraft(instance)).toEqual({ transports: expect.any(String) })
+    instance.onebot11!.forward_ws.enabled = true
+    instance.onebot11!.forward_ws.url = 'wss://client.example'
+    expect(validateAdapterDraft(instance)).toEqual({})
+  })
   it('does not resurrect an instance deleted while editing', () => {
     const doc = createConfigDocumentFixture()
     const baseline = doc.adapters[0]

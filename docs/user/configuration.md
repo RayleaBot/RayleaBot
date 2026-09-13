@@ -58,7 +58,7 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
 - `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
 - `web.plugin_ui_origin_template` 非空时必须包含 `{plugin_host}`。本机可省略并自动派生 `plugins.localhost` 子域；内网插件自定义页面需要可解析到服务器、且不同于管理面的独立域模板。该配置不影响主程序启动和其他管理操作。
-- 配置不接受 schema 之外的键；旧版本遗留的插件运行时键会在服务启动、`config validate` 与 `config normalize` 时被拒绝，需要直接删除。
+- 配置对象各层级未定义的字段会被忽略，包括旧版本遗留项和适配器数组中的未知字段；已知字段仍须满足类型、取值和运行时约束。启动与 `config validate` 不改写原文件，管理 API 返回的有效配置不包含未知字段；保存配置、`config init` 或 `config normalize` 时只写入已知字段。
 - 配置结构、默认值和字段约束以 `contracts/config.user.schema.json` 为准。
 
 ## 当前目录职责

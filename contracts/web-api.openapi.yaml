@@ -502,6 +502,11 @@ paths:
           $ref: '#/components/responses/Error'
     put:
       summary: Validate and persist a new management configuration snapshot.
+      description: >
+        Unknown configuration properties are ignored at every object level,
+        including adapter array entries. Declared fields retain their type,
+        value, and runtime constraints. Ignored fields are omitted from
+        persistence, config snapshots, and apply effects.
       operationId: updateConfig
       security:
         - BearerAuth: []

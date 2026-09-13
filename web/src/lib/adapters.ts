@@ -1,4 +1,5 @@
 import type { AdapterProtocol, ConfigDocument } from '@/types/api'
+import configSchema from '../../../contracts/config.user.schema.json'
 
 // One configured adapter instance as it appears in the config document. The
 // settings block is named by the protocol, so only the block matching `type`
@@ -6,7 +7,8 @@ import type { AdapterProtocol, ConfigDocument } from '@/types/api'
 export type AdapterInstanceDocument = ConfigDocument['adapters'][number]
 export type OneBotSettings = NonNullable<AdapterInstanceDocument['onebot11']>
 export type QQOfficialSettings = NonNullable<AdapterInstanceDocument['qqofficial']>
-export type OneBotTransport = keyof OneBotSettings
+export type OneBotTransport = keyof typeof configSchema.$defs.onebot11AdapterSettings.properties
+export const oneBotTransports = Object.keys(configSchema.$defs.onebot11AdapterSettings.properties) as OneBotTransport[]
 
 export function readAdapterInstances(document: ConfigDocument | null): AdapterInstanceDocument[] {
   return document?.adapters ?? []

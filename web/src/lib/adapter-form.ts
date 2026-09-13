@@ -1,5 +1,5 @@
 import { cloneConfig } from '@/lib/config-form'
-import { findAdapterInstance, type AdapterInstanceDocument } from '@/lib/adapters'
+import { findAdapterInstance, oneBotTransports, type AdapterInstanceDocument } from '@/lib/adapters'
 import type { ConfigDocument } from '@/types/api'
 
 export function validateAdapterDraft(draft: AdapterInstanceDocument) {
@@ -17,10 +17,12 @@ export function validateAdapterDraft(draft: AdapterInstanceDocument) {
     }
   }
   if (draft.type === 'onebot11' && draft.onebot11) {
-    if (draft.enabled && !Object.values(draft.onebot11).some((entry) => entry.enabled)) {
+    const settings = draft.onebot11
+    if (draft.enabled && !oneBotTransports.some((key) => settings[key].enabled)) {
       errors.transports = '请至少启用一种连接方式，或关闭此连接。'
     }
-    for (const [key, entry] of Object.entries(draft.onebot11)) {
+    for (const key of oneBotTransports) {
+      const entry = settings[key]
       const url = String(entry.url ?? '').trim()
       const protocols = key.endsWith('_ws') ? ['ws:', 'wss:'] : ['http:', 'https:']
       let valid = !url && !(draft.enabled && entry.enabled)

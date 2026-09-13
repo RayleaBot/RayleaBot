@@ -97,6 +97,10 @@ commands:
   config:
     name: config
     summary: 维护本地用户配置文件。
+    description: >
+      配置对象各层级未在 schema 中定义的字段均被忽略，包括适配器数组中的对象；
+      已知字段仍执行类型、取值和运行时约束校验。validate 保持用户文件不变，
+      init 和 normalize 写出的规范化文档只包含已知字段。
     availability:
       online: false
       offline: true

@@ -115,7 +115,11 @@ func yamlDocumentValue(value any) any {
 }
 
 func canonicalizeDocument(raw map[string]any) (map[string]any, error) {
-	normalized, err := normalizeDocument(raw)
+	known, err := filterConfigDocument(raw)
+	if err != nil {
+		return nil, err
+	}
+	normalized, err := normalizeDocument(known)
 	if err != nil {
 		return nil, err
 	}

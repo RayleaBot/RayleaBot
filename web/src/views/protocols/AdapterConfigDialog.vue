@@ -23,6 +23,7 @@ import { buildOneBot11ReverseWsUrl, buildOneBot11WebhookUrl } from '@/lib/protoc
 import { useAdaptersStore } from '@/stores/adapters'
 import { useConfigStore } from '@/stores/config'
 import type { AdapterProtocol, ConfigDocument, ConfigUpdateResponse } from '@/types/api'
+import configSchema from '../../../../contracts/config.user.schema.json'
 import OneBotConnectionFields from './OneBotConnectionFields.vue'
 
 const props = defineProps<{ adapterId?: string; open: boolean }>()
@@ -55,7 +56,7 @@ const intentOptions: { value: QQOfficialSettings['intents'][number]; label: stri
   { value: 'guild_messages', label: t('protocols.qqIntents.guildMessages') },
   { value: 'direct_message', label: t('protocols.qqIntents.directMessage') },
 ]
-const sharedFields: { key: keyof ConfigDocument['adapter']; label: string; min: number; max?: number; step: number }[] = [
+const sharedFields: { key: keyof typeof configSchema.properties.adapter.properties; label: string; min: number; max?: number; step: number }[] = [
   { key: 'connect_timeout_seconds', label: t('protocols.connectionDialog.sharedFields.connectTimeoutSeconds'), min: 1, step: 1 },
   { key: 'reconnect_initial_seconds', label: t('protocols.connectionDialog.sharedFields.reconnectInitialSeconds'), min: 1, step: 1 },
   { key: 'reconnect_multiplier', label: t('protocols.connectionDialog.sharedFields.reconnectMultiplier'), min: 1, step: 0.1 },

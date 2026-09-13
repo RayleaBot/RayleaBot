@@ -238,7 +238,10 @@ export interface paths {
         };
         /** Query the saved desired management configuration snapshot. */
         get: operations["getConfig"];
-        /** Validate and persist a new management configuration snapshot. */
+        /**
+         * Validate and persist a new management configuration snapshot.
+         * @description Unknown configuration properties are ignored at every object level, including adapter array entries. Declared fields retain their type, value, and runtime constraints. Ignored fields are omitted from persistence, config snapshots, and apply effects.
+         */
         put: operations["updateConfig"];
         post?: never;
         delete?: never;
@@ -2256,6 +2259,8 @@ export interface components {
              * @default false
              */
             access_token_query_compat: boolean;
+        } & {
+            [key: string]: unknown;
         };
         onebotHttpTransport: {
             /** @default false */
@@ -2267,6 +2272,8 @@ export interface components {
              * @default
              */
             access_token: string;
+        } & {
+            [key: string]: unknown;
         };
         onebotWebhookTransport: {
             /** @default false */
@@ -2283,12 +2290,16 @@ export interface components {
              * @default false
              */
             access_token_query_compat: boolean;
+        } & {
+            [key: string]: unknown;
         };
         onebot11AdapterSettings: {
             reverse_ws: components["schemas"]["onebotWsTransport"];
             forward_ws: components["schemas"]["onebotWsTransport"];
             http_api: components["schemas"]["onebotHttpTransport"];
             webhook: components["schemas"]["onebotWebhookTransport"];
+        } & {
+            [key: string]: unknown;
         };
         /** @description QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace. */
         qqOfficialAdapterSettings: {
@@ -2312,10 +2323,12 @@ export interface components {
              * @default false
              */
             sandbox: boolean;
+        } & {
+            [key: string]: unknown;
         };
         rateLimit: string;
         /** @description One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type. */
-        adapterInstance: {
+        adapterInstance: ({
             /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL. */
             id: string;
             /**
@@ -2327,10 +2340,12 @@ export interface components {
             enabled: boolean;
             onebot11?: components["schemas"]["onebot11AdapterSettings"];
             qqofficial?: components["schemas"]["qqOfficialAdapterSettings"];
-        } & (unknown & unknown);
+        } & {
+            [key: string]: unknown;
+        }) & (unknown & unknown);
         /**
          * RayleaBot User Config
-         * @description Current user configuration. Effective settings combine embedded schema defaults with config/user.yaml; user values replace defaults without treating false, zero, or empty collections as absent. Configuration initialization and normalization write only user.yaml.
+         * @description Current user configuration. Effective settings combine embedded schema defaults with config/user.yaml; user values replace defaults without treating false, zero, or empty collections as absent. Unknown properties at every object level, including adapter array entries, are accepted and ignored before validation of declared fields. Ignored properties are absent from effective configuration, management responses, and saved or normalized documents. Loading and validation never rewrite the user file. Configuration initialization and normalization write only user.yaml.
          */
         "config.user.schema": {
             /**
@@ -2349,6 +2364,8 @@ export interface components {
                  * @default 8080
                  */
                 port: number;
+            } & {
+                [key: string]: unknown;
             };
             database: {
                 /**
@@ -2362,6 +2379,8 @@ export interface components {
                  * @default data/rayleabot.db
                  */
                 path: string;
+            } & {
+                [key: string]: unknown;
             };
             command: {
                 /**
@@ -2370,6 +2389,8 @@ export interface components {
                  *     ]
                  */
                 prefixes: string[];
+            } & {
+                [key: string]: unknown;
             };
             builtin_features: {
                 menu: {
@@ -2382,7 +2403,11 @@ export interface components {
                     commands: string[];
                     /** @default [] */
                     prefixes: string[];
+                } & {
+                    [key: string]: unknown;
                 };
+            } & {
+                [key: string]: unknown;
             };
             admin: {
                 /**
@@ -2420,6 +2445,8 @@ export interface components {
                  * @default 300
                  */
                 login_fail_window_seconds: number;
+            } & {
+                [key: string]: unknown;
             };
             permission: {
                 /**
@@ -2427,6 +2454,8 @@ export interface components {
                  * @enum {string}
                  */
                 default_level: "super_admin" | "group_admin" | "everyone";
+            } & {
+                [key: string]: unknown;
             };
             render: {
                 /**
@@ -2474,6 +2503,8 @@ export interface components {
                 queue_max_length: number;
                 /** @default Created By RayleaBot {{rayleabot_version}} & Plugin {{plugin_name}} {{plugin_version}} */
                 footer_template: string;
+            } & {
+                [key: string]: unknown;
             };
             scheduler: {
                 /**
@@ -2481,6 +2512,8 @@ export interface components {
                  * @default Asia/Shanghai
                  */
                 timezone: string;
+            } & {
+                [key: string]: unknown;
             };
             runtime: {
                 /**
@@ -2548,6 +2581,8 @@ export interface components {
                  * @default 8388608
                  */
                 ipc_message_max_bytes: number;
+            } & {
+                [key: string]: unknown;
             };
             storage: {
                 /**
@@ -2570,6 +2605,8 @@ export interface components {
                  * @default 256
                  */
                 plugin_workdir_soft_limit_mb: number;
+            } & {
+                [key: string]: unknown;
             };
             data: {
                 /**
@@ -2577,6 +2614,8 @@ export interface components {
                  * @default 15
                  */
                 download_cache_retention_days: number;
+            } & {
+                [key: string]: unknown;
             };
             log: {
                 /**
@@ -2592,6 +2631,8 @@ export interface components {
                 retention_days: number;
                 /** @default 200/10s */
                 rate_limit_per_plugin: components["schemas"]["rateLimit"];
+            } & {
+                [key: string]: unknown;
             };
             message: {
                 /** @default 20/10s */
@@ -2603,16 +2644,22 @@ export interface components {
                  * @default 30
                  */
                 circuit_breaker_seconds: number;
+            } & {
+                [key: string]: unknown;
             };
             user: {
                 /** @default 10/60s */
                 command_rate_limit: components["schemas"]["rateLimit"];
                 /** @default true */
                 cooldown_reply: boolean;
+            } & {
+                [key: string]: unknown;
             };
             group: {
                 /** @default 30/60s */
                 command_rate_limit: components["schemas"]["rateLimit"];
+            } & {
+                [key: string]: unknown;
             };
             adapter: {
                 /** @default 15 */
@@ -2625,6 +2672,8 @@ export interface components {
                 reconnect_max_seconds: number;
                 /** @default 0.2 */
                 reconnect_jitter_ratio: number;
+            } & {
+                [key: string]: unknown;
             };
             http: {
                 /**
@@ -2647,6 +2696,8 @@ export interface components {
                  * @default 4194304
                  */
                 max_response_body_bytes: number;
+            } & {
+                [key: string]: unknown;
             };
             web: {
                 /**
@@ -2654,6 +2705,8 @@ export interface components {
                  * @default
                  */
                 plugin_ui_origin_template: string | "" | unknown;
+            } & {
+                [key: string]: unknown;
             };
             /**
              * @description Configured chat adapters. An empty list means the bot accepts no chat traffic.
@@ -2676,6 +2729,8 @@ export interface components {
                      * @default false
                      */
                     access_token_query_compat: boolean;
+                } & {
+                    [key: string]: unknown;
                 };
                 onebotHttpTransport: {
                     /** @default false */
@@ -2687,6 +2742,8 @@ export interface components {
                      * @default
                      */
                     access_token: string;
+                } & {
+                    [key: string]: unknown;
                 };
                 onebotWebhookTransport: {
                     /** @default false */
@@ -2703,6 +2760,8 @@ export interface components {
                      * @default false
                      */
                     access_token_query_compat: boolean;
+                } & {
+                    [key: string]: unknown;
                 };
                 rateLimit: string;
                 onebot11AdapterSettings: {
@@ -2710,6 +2769,8 @@ export interface components {
                     forward_ws: components["schemas"]["onebotWsTransport"];
                     http_api: components["schemas"]["onebotHttpTransport"];
                     webhook: components["schemas"]["onebotWebhookTransport"];
+                } & {
+                    [key: string]: unknown;
                 };
                 /** @description QQ Open Platform official bot adapter. Distinct from onebot: it authenticates with an app credential pair rather than a shared access token, and its identifiers live in their own namespace. */
                 qqOfficialAdapterSettings: {
@@ -2733,9 +2794,11 @@ export interface components {
                      * @default false
                      */
                     sandbox: boolean;
+                } & {
+                    [key: string]: unknown;
                 };
                 /** @description One configured chat adapter. id names this instance and is how events, outbound routing and the inbound ingress routes refer to it; type selects which settings block applies. Several instances may share a type. */
-                adapterInstance: {
+                adapterInstance: ({
                     /** @description Stable identifier for this adapter instance, unique across adapters. It appears as event.source_adapter, selects the adapter for outbound routing, keys the adapter secrets in the secret store, and forms the inbound ingress path /api/adapters/{id}/reverse-ws. Renaming it re-identifies the adapter and changes that URL. */
                     id: string;
                     /**
@@ -2747,8 +2810,12 @@ export interface components {
                     enabled: boolean;
                     onebot11?: components["schemas"]["onebot11AdapterSettings"];
                     qqofficial?: components["schemas"]["qqOfficialAdapterSettings"];
-                } & (unknown & unknown);
+                } & {
+                    [key: string]: unknown;
+                }) & (unknown & unknown);
             };
+        } & {
+            [key: string]: unknown;
         };
         /** @enum {string} */
         permission_level: "super_admin" | "group_admin" | "everyone";
