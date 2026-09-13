@@ -100,6 +100,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertEqual(download["with"]["pattern"], "package-*")
         for artifact_id in ARTIFACT_MATRIX:
             self.assertIn("dist/downloads/package-" + artifact_id + "/", step_named(assemble, "Generate release metadata")["run"])
+        self.assertIn('--download-base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"', step_named(assemble, "Generate release metadata")["run"])
         uploaded = step_named(assemble, "Upload release metadata")["with"]["path"]
         self.assertEqual(uploaded.strip(), "dist/release/release_manifest.v2.json")
         self.assertNotIn("secrets", workflow("release-build.yml")["on"]["workflow_call"])

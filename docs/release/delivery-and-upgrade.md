@@ -38,7 +38,7 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 每次正式 Release 发布各平台 artifact 和 `release_manifest.v2.json`，随包附带 `build_info.json`。字段以发布契约为准：
 
 - 发布清单记录版本、提交、构建与发布时间、channel、配置/数据库/插件格式版本、产物列表和发布页地址。
-- 每个产物记录平台、文件名、大小、文件数、支持级别、smoke profile 和 `guided` / `manual` 更新方式。
+- 每个产物记录平台、文件名、下载地址、大小、文件数、支持级别、smoke profile 和 `guided` / `manual` 更新方式。
 - `build_info.json` 记录当前安装版本、提交、产物标识、构建时间和插件格式版本。
 
 发布脚本严格按契约生成并校验清单。Server 读取时忽略未知字段，只使用版本、发布页地址和当前产物的文件名、大小与更新方式；插件格式版本仅供展示，兼容性写在发布说明中。

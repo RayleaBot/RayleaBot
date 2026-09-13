@@ -1195,6 +1195,7 @@ def validate_release_basic(release_schema: dict[str, Any]) -> None:
     for field in [
         "artifact_id",
         "file_name",
+        "download_url",
         "platform",
         "archive_size_bytes",
         "expanded_size_bytes",

@@ -134,6 +134,7 @@ class ReleaseToolTests(unittest.TestCase):
                 db_schema_version="000001",
                 plugin_protocol_version="3",
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
+                download_base_url="https://example.invalid/releases/download/v0.1.0",
                 sidecars=[sidecar],
                 output_dir=output / "release",
             )
@@ -149,6 +150,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertEqual("3", manifest["plugin_manifest_version"])
             self.assertEqual("3", manifest["plugin_ui_bridge_version"])
             self.assertEqual("guided", manifest["artifacts"][0]["update_mode"])
+            self.assertEqual("https://example.invalid/releases/download/v0.1.0/" + archive_path.name, manifest["artifacts"][0]["download_url"])
             self.assertNotIn("sha256", manifest["artifacts"][0])
             self.assertFalse((manifest_path.parent / "release_manifest.v2.sig.json").exists())
             self.assertFalse((manifest_path.parent / "SHA256SUMS.txt").exists())
@@ -180,6 +182,7 @@ class ReleaseToolTests(unittest.TestCase):
                     db_schema_version="000001",
                     plugin_protocol_version="3",
                     release_notes_ref="http://example.invalid/releases/v0.1.0",
+                    download_base_url="https://example.invalid/releases/download/v0.1.0",
                     sidecars=[sidecar],
                     output_dir=temp / "release",
                 )

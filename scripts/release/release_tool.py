@@ -282,6 +282,7 @@ def build_release_metadata(
     db_schema_version: str,
     plugin_protocol_version: str,
     release_notes_ref: str,
+    download_base_url: str,
     sidecars: list[ArtifactSidecar],
     output_dir: Path,
     channel: str = "stable",
@@ -308,6 +309,7 @@ def build_release_metadata(
             {
                 "artifact_id": sidecar.artifact_id,
                 "file_name": sidecar.file_name,
+                "download_url": f"{download_base_url.rstrip('/')}/{sidecar.file_name}",
                 "platform": sidecar.platform,
                 "archive_size_bytes": archive.stat().st_size,
                 "expanded_size_bytes": sidecar.expanded_size_bytes,
@@ -384,6 +386,7 @@ def cmd_metadata(args: argparse.Namespace) -> int:
         db_schema_version=args.db_schema_version,
         plugin_protocol_version=args.plugin_protocol_version,
         release_notes_ref=args.release_notes_ref,
+        download_base_url=args.download_base_url,
         sidecars=sidecars,
         output_dir=Path(args.output_dir),
         channel=args.channel,
@@ -422,6 +425,7 @@ def build_parser() -> argparse.ArgumentParser:
     metadata.add_argument("--db-schema-version", required=True)
     metadata.add_argument("--plugin-protocol-version", required=True)
     metadata.add_argument("--release-notes-ref", required=True)
+    metadata.add_argument("--download-base-url", required=True)
     metadata.add_argument("--channel", default="stable", choices=["stable", "beta"])
     metadata.add_argument("--published-at")
     metadata.add_argument("--sidecar", action="append", required=True)

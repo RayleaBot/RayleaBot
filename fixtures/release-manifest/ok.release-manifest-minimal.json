@@ -16,6 +16,7 @@
       {
         "artifact_id": "windows-x64-full",
         "file_name": "RayleaBot-v0.1.0-windows-x64-full.zip",
+        "download_url": "https://example.com/releases/download/v0.1.0/RayleaBot-v0.1.0-windows-x64-full.zip",
         "platform": "windows-x64",
         "archive_size_bytes": 104857600,
         "expanded_size_bytes": 314572800,

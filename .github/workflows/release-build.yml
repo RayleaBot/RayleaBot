@@ -357,6 +357,7 @@ jobs:
             --db-schema-version "$DB_SCHEMA_VERSION" \
             --plugin-protocol-version "3" \
             --release-notes-ref "$RELEASE_NOTES_REF" \
+            --download-base-url "https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}" \
             --sidecar dist/downloads/package-windows-x64-full/RayleaBot-v${VERSION}-windows-x64-full.zip.artifact.json \
             --sidecar dist/downloads/package-linux-x64-full/RayleaBot-v${VERSION}-linux-x64-full.tar.gz.artifact.json \
             --sidecar dist/downloads/package-macos-arm64-full/RayleaBot-v${VERSION}-macos-arm64-full.tar.gz.artifact.json \

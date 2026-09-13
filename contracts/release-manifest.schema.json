@@ -35,6 +35,7 @@
       "required": [
         "artifact_id",
         "file_name",
+        "download_url",
         "platform",
         "archive_size_bytes",
         "expanded_size_bytes",
@@ -51,6 +52,12 @@
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$",
           "description": "Release asset basename. Directory separators, drive prefixes and parent paths are not valid."
+        },
+        "download_url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://",
+          "description": "HTTPS URL of this release asset."
         },
         "platform": {
           "type": "string",
