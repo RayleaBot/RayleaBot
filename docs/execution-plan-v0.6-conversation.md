@@ -4,7 +4,7 @@
 
 - 目标版本：v0.6；按用户于 2026-09-13 收窄后的范围执行。
 - 范围：Core、Go SDK、仓库内示例、必要的 Web 声明展示、契约与文档。一工作项一提交。
-- A0/A1/A3/B1/B2 已按原范围提交；新增 X1 精简阶段，后续工作以本文为准。
+- A0/A1/A3/B1/B2 按原范围提交后，经 X1 精简；全部工作项已完成，最终范围与验收记录见本文。
 - 正式语义以 [contracts](../contracts/README.md) 为准；先同步契约和 fixtures，再实现对应能力。
 
 ## 一、交付目标
@@ -114,8 +114,8 @@ storage.kv set 增加整数 ttl_seconds，范围 1..31536000；省略时永久�
 | D3 | 等待输入定向、普通流程和父事件收尾 | D2,C3 | ☑️ 已完成 | 32f35321；实际 Ingress/Bridge/Dispatcher 链路与插件替身验证三轮续接、普通流量切换、黑名单不关闭等待、原命令授权/冷却和桥接统计；日志放在路由锁外；Server 全测及 conversation、整个 pipeline、runtime/actions/app 本机 race 通过 |
 | D4 | SDK 登记与回调式往返 | D3 | ☑️ 已完成 | a1f7c04b；SessionWait/Finish、typed 引用与 Ask；真实 SDK JSONL 流在 concurrency=1 完成三轮；提示失败撤销、独立计时回收、迟到帧、回调 panic、旧 Context 拒绝动作及容量边界通过；SDK 全量测试与 race 通过 |
 | E1 | 仓库内三轮会话与 TTL 示例 | D4,B3 | ☑️ 已完成 | 1e0909b4；example-conversation 原生子进程贯穿 Ingress、Dispatcher、JSONL、SDK 和 SQLite；三轮确认、错误重试、提示失败和超时通过本机 race；仅最终确认写入 TTL；Server 全测通过；Windows/Linux/macOS 构建产物位于 dist/example-conversation |
-| E2 | Web 声明展示与当前文档 | C3,D4,B3 | ☑️ 已完成 | Server 列表和详情返回声明；Web 展示优先级与默认传播；默认值及显式阻断的管理接口/组件验证、Web typecheck、strict contracts 和文档链接通过；Playwright 桌面/手机复核产物位于 output/playwright/conversation-after-* |
-| E3 | 跨层、并发与恢复总验收 | E1,E2 | ⬜ 待处理 | |
+| E2 | Web 声明展示与当前文档 | C3,D4,B3 | ☑️ 已完成 | 828f07a9；Server 列表和详情返回声明；Web 展示优先级与默认传播；默认值及显式阻断的管理接口/组件验证、Web typecheck、strict contracts 和文档链接通过；Playwright 桌面/手机复核产物位于 output/playwright/conversation-after-* |
+| E3 | 跨层、并发与恢复总验收 | E1,E2 | ☑️ 已完成 | Server 全测、关键包与原生集成 race、SDK race、11 个示例模块编译、Web 构建、生成器/SQL 无漂移及最终构建新旧格式恢复通过；删除已由正式 SDK 测试替代的 A0 回调原型；详细产物见第七节 |
 
 不把外部仓库改造、SDK 标签发布、模块代理下载或阻塞式 API 原型作为交付前提。
 
@@ -134,3 +134,30 @@ storage.kv set 增加整数 ttl_seconds，范围 1..31536000；省略时永久�
 | 配套 | 正式 fixtures、双端生成模型、仓库内示例、本地构建产物、当前文档与执行记录一致 |
 
 全部已交付项附验证证据；未完成项明确保留状态。用户数据和真实凭据不进入提交。
+
+## 七、最终验收记录
+
+验收日期：2026-09-13；Windows 本机 Go 1.26.6，race 使用工作区内的便携 GCC，未修改系统工具链。
+
+| 检查 | 结果 |
+| --- | --- |
+| Server | `go test ./...` 通过；conversation、整个 pipeline、runtime、actions、storage、app 与全部 integration 的 `-race` 通过 |
+| SDK 与示例 | 独立 SDK `GOWORK=off go test -race ./...` 通过；11 个仓库示例模块以相同命令完成编译；真实会话示例由 Server 集成测试驱动 Windows 子进程 |
+| Web | typecheck、详情页 10 项组件测试、生产构建与缩进检查通过；1440×1000 和 390×844 浏览器复核无布局问题 |
+| 契约与生成物 | strict contracts、4 个生成器 verify、Web/Launcher 类型重生成无漂移；32 项 Python 测试、runtime schema 生成测试与 CI 变更识别自检通过 |
+| 存储与结构 | `sqlc generate`/`sqlc diff` 无漂移；Server 结构检查与文档链接检查通过 |
+| 旧格式恢复 | `dist/conversation-final/recovery-000001/result.json`：000001 → 000002；配置、插件数据、恢复登录和重复启动幂等均通过 |
+| 当前格式恢复 | `dist/conversation-final/recovery-current/result.json`：000002 → 000002；同项通过；两种演练均不生成迁移前副本 |
+| 范围核对 | 删除能力仅保留在拒绝样例和执行记录中；正式协议、生成 schema 与实现不接受相应字段；未增加配置键 |
+
+最终 Server 构建：`dist/conversation-final/raylea-server.exe`，SHA-256 为 `84d61efcc4a612de40597758d5da9b618d7f14fd18a958c87af55c278fffe330`。
+
+会话示例产物位于 `dist/example-conversation/`：
+
+| 平台 | ZIP SHA-256 |
+| --- | --- |
+| windows-x64 | `44c01f4abf420bbf3d9a09fbbb07a51b52cb2542a5de4947dc2dfdba482fd5ea` |
+| linux-x64 | `92d8c5ce4f3d1310fa7d9d22574354ccb5553dd3e448089bb0c7efe5a7d975f7` |
+| macos-arm64 | `4bf8749ea6377f29812561192b845deafe8eb0d75603569ef07ef09bb727932a` |
+
+验证边界：聊天平台发送使用适配器替身，未连接真实 QQ/OneBot 服务；Linux/macOS 示例已交叉构建，未在对应系统运行。本地验收不代表远程 CI 或发布验证；未发布 SDK 标签，也未修改独立插件仓库。
