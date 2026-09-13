@@ -6,23 +6,21 @@
 
 | 产物 | 入口 | 更新方式 |
 | --- | --- | --- |
-| `windows-x64-full` | `RayleaLauncher.exe` | 正式签名门槛满足时支持用户确认后的事务安装，否则 guided |
-| `linux-x64-full` | `RayleaLauncher` | 签名校验与 guided update |
-| `macos-arm64-full` | `RayleaLauncher.app` | 签名校验与 guided update |
-| `linux-x64-server` | `raylea-server` | 签名校验与 guided/manual update |
+| `windows-x64-full` | `RayleaLauncher.exe` | 发布页引导更新 |
+| `linux-x64-full` | `RayleaLauncher` | 发布页引导更新 |
+| `macos-arm64-full` | `RayleaLauncher.app` | 发布页引导更新 |
+| `linux-x64-server` | `raylea-server` | 发布页引导或手动更新 |
 
 GitHub 自动生成的源代码压缩包不是正式运行时产物。
 
 ## 首次安装
 
-1. 从 [GitHub Releases](https://github.com/RayleaBot/RayleaBot/releases) 下载对应 artifact、`release_manifest.v2.json` 和 `release_manifest.v2.sig.json`。
-2. 使用正式 CLI 或发布说明提供的校验入口验证 manifest、签名和 artifact。
-3. 解压到固定目录。该目录是安装根和默认运行根。
-4. 启动 Launcher 或 server，按一次性初始化入口创建管理员。
+1. 从 [GitHub Releases](https://github.com/RayleaBot/RayleaBot/releases) 下载对应平台的 artifact。
+2. 解压到固定目录。该目录是安装根和默认运行根。
+3. 启动 Launcher 或 server，按一次性初始化入口创建管理员。
 
 Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Microsoft Edge WebView2 Runtime；窗口未出现且系统未安装该运行库时，先按包内 `WINDOWS-RUNTIME.md` 或 [Windows Desktop Runtime](../release/windows-desktop-runtime.md) 完成安装。请勿单独移动 Launcher，完整安装根应作为一个单元保留。
 
-首个支持 v2 发布信任的版本必须手动安装。旧 updater 不能自动跨越新的信任边界。
 
 ## 运行根目录
 
@@ -30,7 +28,7 @@ Windows 用户从解压根目录启动 `RayleaLauncher.exe`。Launcher 需要 Mi
 
 ## 更新
 
-Launcher 在后台检查更新并只展示可用版本；下载、停服、备份、替换和回滚都需要用户确认。各产物的更新方式、Windows 自动安装的签名门槛、事务安装保留的目录、guided update 步骤与回滚语义见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
+Launcher 在后台检查更新，发现新版本后提供发布页入口。各产物的手动更新步骤见 [Delivery and Upgrade](../release/delivery-and-upgrade.md)。
 
 Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整包不内嵌这些发行版组件。启动前按包内 `LINUX-RUNTIME.md` 或 [Linux Desktop Runtime](../release/linux-desktop-runtime.md) 安装所需系统包；无桌面环境时使用 `linux-x64-server`。
 
@@ -59,4 +57,4 @@ Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整
 
 ## 容器边界
 
-仓库不提供正式 Dockerfile、Compose 文件或容器镜像。自建容器仍需遵守运行根目录、SQLite、本地备份、签名校验和 guided update 规则。
+仓库不提供正式 Dockerfile、Compose 文件或容器镜像。自建容器仍需遵守运行根目录、SQLite、本地备份和手动更新 规则。

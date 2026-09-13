@@ -6,32 +6,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/RayleaBot/RayleaBot/server/internal/platform/fsguard"
 )
 
 type Checker struct {
-	Verifier     *Verifier
-	HTTPClient   *http.Client
-	Now          func() time.Time
-	ManifestURL  string
-	SignatureURL string
-	Channel      string
+	HTTPClient  *http.Client
+	ManifestURL string
+	Channel     string
 }
 
-func NewChecker(verifier *Verifier) *Checker {
+func NewChecker() *Checker {
 	return &Checker{
-		Verifier:     verifier,
-		HTTPClient:   newSecureHTTPClient(10 * time.Second),
-		Now:          time.Now,
-		ManifestURL:  ReleaseRepositoryURL + "/releases/latest/download/" + ManifestAssetName,
-		SignatureURL: ReleaseRepositoryURL + "/releases/latest/download/" + SignatureAssetName,
-		Channel:      "stable",
+		HTTPClient:  newSecureHTTPClient(10 * time.Second),
+		ManifestURL: ReleaseRepositoryURL + "/releases/latest/download/" + ManifestAssetName,
+		Channel:     "stable",
 	}
 }
 
@@ -60,13 +50,13 @@ func newSecureHTTPClient(timeout time.Duration) *http.Client {
 }
 
 func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, error) {
-	if c == nil || c.Verifier == nil {
-		return CheckResult{}, errorWithCode(CodeTrustRequired, "check release", errors.New("release verifier is not configured"))
+	if c == nil {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "check release", errors.New("release checker is not configured"))
 	}
 	buildInfoPath := filepath.Join(installRoot, "build_info.json")
 	buildInfoBytes, err := os.ReadFile(buildInfoPath)
 	if err != nil {
-		return CheckResult{}, errorWithCode(CodeTrustRequired, "read build_info.json", err)
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "read build_info.json", err)
 	}
 	buildInfo, err := DecodeBuildInfo(buildInfoBytes)
 	if err != nil {
@@ -77,50 +67,34 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 	if err != nil {
 		return CheckResult{}, errorWithCode(CodeManifestInvalid, "download release manifest", err)
 	}
-	signatureBytes, err := c.fetchMetadata(ctx, c.SignatureURL)
-	if err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "download release signature", err)
+	var manifest Manifest
+	if err := decodeStrictJSON(manifestBytes, &manifest); err != nil {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "decode release metadata", err)
 	}
-	verified, err := c.Verifier.Verify(manifestBytes, signatureBytes, c.now())
-	if err != nil {
-		return CheckResult{}, err
+	if err := validateManifest(manifest); err != nil {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "validate release metadata", err)
 	}
 	channel := c.Channel
 	if channel == "" {
 		channel = "stable"
 	}
-	if verified.Manifest.Channel != channel {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select release channel", fmt.Errorf("expected %s channel, received %s", channel, verified.Manifest.Channel))
+	if manifest.Channel != channel {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select release channel", fmt.Errorf("expected %s channel, received %s", channel, manifest.Channel))
 	}
-	artifact, found := verified.ArtifactByID(buildInfo.ArtifactID)
+	var artifact Artifact
+	found := false
+	for _, candidate := range manifest.Artifacts {
+		if candidate.ArtifactID == buildInfo.ArtifactID {
+			artifact, found = candidate, true
+			break
+		}
+	}
 	if !found {
-		return CheckResult{}, errorWithCode(CodeUpdateNotSupported, "select release artifact", fmt.Errorf("manifest does not contain %s", buildInfo.ArtifactID))
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select artifact", fmt.Errorf("release does not contain %s", buildInfo.ArtifactID))
 	}
-	if err := ObserveManifest(filepath.Join(installRoot, "data", "update-trust.json"), buildInfo, verified, c.now()); err != nil {
-		return CheckResult{}, err
-	}
-
-	cacheRoot := filepath.Join(installRoot, "cache", "downloads", "updates")
-	manifestPath := filepath.Join(cacheRoot, ManifestAssetName)
-	signaturePath := filepath.Join(cacheRoot, SignatureAssetName)
-	if err := saveBytesAtomically(manifestPath, manifestBytes, 0o600); err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "cache release manifest", err)
-	}
-	if err := saveBytesAtomically(signaturePath, signatureBytes, 0o600); err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "cache release signature", err)
-	}
-
-	comparison, err := compareSemanticVersions(verified.Manifest.Version, buildInfo.Version)
+	comparison, err := compareSemanticVersions(manifest.Version, buildInfo.Version)
 	if err != nil {
 		return CheckResult{}, errorWithCode(CodeManifestInvalid, "compare release versions", err)
-	}
-	effectiveMode := artifact.UpdateMode
-	automaticAllowed := artifact.UpdateMode == "automatic" &&
-		artifact.ArtifactID == ArtifactWindowsX64Full &&
-		artifact.MinUpdaterProtocolVersion <= ProtocolVersion &&
-		artifact.WindowsSignerSHA256 != ""
-	if !automaticAllowed && effectiveMode == "automatic" {
-		effectiveMode = "guided"
 	}
 	status := "up_to_date"
 	if comparison > 0 {
@@ -129,23 +103,11 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 	return CheckResult{
 		Status:           status,
 		CurrentVersion:   buildInfo.Version,
-		AvailableVersion: verified.Manifest.Version,
-		UpdateMode:       effectiveMode,
-		ReleasePageURL:   verified.Manifest.ReleaseNotesRef,
-		AutomaticAllowed: automaticAllowed,
-		ManifestPath:     manifestPath,
-		SignaturePath:    signaturePath,
+		AvailableVersion: manifest.Version,
+		UpdateMode:       artifact.UpdateMode,
+		ReleasePageURL:   manifest.ReleaseNotesRef,
 		Artifact:         artifact,
-		ManifestDigest:   verified.Digest,
-		TrustedKeyIDs:    append([]string(nil), verified.TrustedKeyIDs...),
 	}, nil
-}
-
-func (c *Checker) now() time.Time {
-	if c.Now == nil {
-		return time.Now().UTC()
-	}
-	return c.Now().UTC()
 }
 
 func (c *Checker) fetchMetadata(ctx context.Context, rawURL string) ([]byte, error) {
@@ -159,7 +121,7 @@ func (c *Checker) fetchMetadata(ctx context.Context, rawURL string) ([]byte, err
 		return nil, err
 	}
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("User-Agent", "RayleaBot-Updater/2")
+	request.Header.Set("User-Agent", "RayleaBot-UpdateCheck/2")
 	client := c.HTTPClient
 	if client == nil {
 		client = newSecureHTTPClient(10 * time.Second)
@@ -183,36 +145,4 @@ func (c *Checker) fetchMetadata(ctx context.Context, rawURL string) ([]byte, err
 		return nil, fmt.Errorf("release metadata is too large")
 	}
 	return payload, nil
-}
-
-func artifactDownloadURL(version, fileName string) (string, error) {
-	if _, err := parseSemanticVersion(version); err != nil || !fileNamePattern.MatchString(fileName) {
-		return "", fmt.Errorf("invalid release version or artifact basename")
-	}
-	return ReleaseRepositoryURL + "/releases/download/v" + version + "/" + url.PathEscape(fileName), nil
-}
-
-func saveBytesAtomically(path string, payload []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return err
-	}
-	return fsguard.WriteFileAtomic(path, payload, mode)
-}
-
-func ValidateMetadataFiles(verifier *Verifier, manifestPath, signaturePath string, now time.Time) (VerifiedManifest, error) {
-	manifestBytes, err := os.ReadFile(manifestPath)
-	if err != nil {
-		return VerifiedManifest{}, errorWithCode(CodeManifestInvalid, "read manifest file", err)
-	}
-	signatureBytes, err := os.ReadFile(signaturePath)
-	if err != nil {
-		return VerifiedManifest{}, errorWithCode(CodeManifestInvalid, "read signature file", err)
-	}
-	return verifier.Verify(manifestBytes, signatureBytes, now)
-}
-
-func samePath(left, right string) bool {
-	leftAbsolute, leftErr := filepath.Abs(left)
-	rightAbsolute, rightErr := filepath.Abs(right)
-	return leftErr == nil && rightErr == nil && strings.EqualFold(filepath.Clean(leftAbsolute), filepath.Clean(rightAbsolute))
 }

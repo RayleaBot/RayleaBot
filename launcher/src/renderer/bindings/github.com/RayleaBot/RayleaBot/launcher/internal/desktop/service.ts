@@ -37,10 +37,6 @@ export function CloseConfirmResponse(response: $models.LauncherCloseConfirmRespo
     return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.CloseConfirmResponse", response);
 }
 
-export function DownloadUpdate(): $CancellablePromise<void> {
-    return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.DownloadUpdate");
-}
-
 export function ExitApplication(): $CancellablePromise<void> {
     return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.ExitApplication");
 }
@@ -67,10 +63,6 @@ export function HasPendingExternalStopConfirm(): $CancellablePromise<boolean> {
 
 export function Initialize(): $CancellablePromise<void> {
     return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.Initialize");
-}
-
-export function InstallDownloadedUpdate(): $CancellablePromise<void> {
-    return $Call.ByName("github.com/RayleaBot/RayleaBot/launcher/internal/desktop.Service.InstallDownloadedUpdate");
 }
 
 export function IsMaximized(): $CancellablePromise<boolean> {

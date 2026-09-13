@@ -10,7 +10,6 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 - 日常部署和运维不依赖云端控制面；
 - 插件通过版本化协议访问受控平台能力；
 - Web、Launcher 和 CLI 共享服务端状态与错误模型；
-- 正式发行物具有可验证的来源、完整性和恢复路径。
 - 独立插件通过 HTTPS 静态目录发现，安装时校验归档摘要，并按来源与权限变化要求用户确认可信代码。
 
 ## 范围与限制
@@ -22,7 +21,7 @@ RayleaBot 为聊天平台事件处理、插件扩展和本地管理提供一套�
 - 聊天协议接入按适配器组织：归一化事件形状与管理面语义由 `contracts/` 定义，适配器只负责各自的线上格式。
 - Server 负责事件、状态、插件、任务、调度、渲染、治理、日志和恢复。
 - 插件后端是当前平台的预编译原生可执行文件，实现语言不限；官方插件使用 Go SDK，官方管理页使用 Vue 静态产物。服务运行期不编译源码或安装依赖。
-- Web 是主要在线管理面；Launcher 负责本机进程编排、预检、更新检查和 Windows 事务安装；CLI 负责离线或脚本化运维。
+- Web 是主要在线管理面；Launcher 负责本机进程编排、预检、更新检查；CLI 负责离线或脚本化运维。
 - SQLite 是单实例状态库；用户配置、持久状态、缓存、日志、模板和插件目录具有明确职责。
 
 ## 设计原则
@@ -64,7 +63,7 @@ flowchart LR
 | 在线业务与运行状态 | Server | SQLite、配置快照与受保护的内存状态 |
 | 插件声明 | Plugin Catalog | 已校验 manifest、管理页入口与安装来源 |
 | 插件进程状态 | Runtime Manager | runtime snapshot |
-| 桌面进程与安装事务 | Launcher / external updater | server 状态与 updater journal |
+| 桌面进程 | Launcher | 本机进程状态与 Server 快照 |
 | 客户端展示 | Web / Launcher | 管理 API 与 WebSocket 视图 |
 
 平台分层、信任边界和状态职责方见 [Architecture Docs](./architecture/README.md)。
@@ -77,10 +76,9 @@ flowchart LR
 - 浏览器使用 HttpOnly cookie、CSRF 和 WebSocket Origin 校验；
 - 管理操作具有结构化错误、任务终态和可诊断日志；
 - 插件安装、启停、重载、卸载和管理页动作可追溯；
-- 备份、恢复、doctor、healthz、readyz 和 rollback 构成完整恢复路径；
+- 备份、恢复、doctor、healthz 和 readyz 构成完整恢复路径；
 - Web 与 Launcher 达到 WCAG 2.2 AA，并覆盖正式最小视口；
-- 发行物包含许可证、第三方 notices、签名 metadata 和可重复 smoke；
-- Windows 自动安装同时通过 Ed25519 与正式 Authenticode，并在失败时恢复旧版和旧状态。
+- 发行物包含许可证、第三方 notices、发布元数据 和可重复 smoke；
 
 ## 演进规则
 

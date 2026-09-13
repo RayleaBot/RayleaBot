@@ -16,10 +16,6 @@ func configureChildProcess(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
-func configureDetachedProcess(command *exec.Cmd) {
-	command.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-}
-
 func superviseProcess(*os.Process) (func(), error) {
 	return func() {}, nil
 }

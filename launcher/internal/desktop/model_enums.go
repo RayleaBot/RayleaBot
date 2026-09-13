@@ -56,13 +56,7 @@ const (
 	ReleaseChecking        ReleaseCheckStatus = "checking"
 	ReleaseUpToDate        ReleaseCheckStatus = "up_to_date"
 	ReleaseUpdateAvailable ReleaseCheckStatus = "update_available"
-	ReleaseDownloading     ReleaseCheckStatus = "downloading"
-	ReleaseReadyToInstall  ReleaseCheckStatus = "ready_to_install"
-	ReleaseInstalling      ReleaseCheckStatus = "installing"
-	ReleaseSucceeded       ReleaseCheckStatus = "succeeded"
 	ReleaseFailed          ReleaseCheckStatus = "failed"
-	ReleaseRolledBack      ReleaseCheckStatus = "rolled_back"
-	ReleaseRollbackFailed  ReleaseCheckStatus = "rollback_failed"
 )
 
 type RuntimePrepareStatus string

@@ -15,9 +15,8 @@ CLI 提供本地离线恢复与运维命令。命令统一记为
 | `raylea config normalize` | 按当前 schema 整理用户配置 |
 | `raylea config validate` | 校验配置文件，不修改文件内容 |
 | `raylea plugin dev-sync --artifact <path> --source <path>` | 把已构建的开发插件 artifact 同步进本地插件安装目录；插件 ID 来自 artifact 根目录的 `info.json` |
-| `raylea version --json` | 输出当前构建版本与更新协议版本 |
-| `raylea update check --json` | 获取并验证签名发布清单，不下载或安装更新 |
-| `raylea update verify --manifest <path> --signature <path> --artifact <path>` | 离线验证发布清单、签名 envelope 与 artifact |
+| `raylea version --json` | 输出当前构建版本、提交与产物标识 |
+| `raylea update check --json` | 读取发布版本信息，不下载或安装更新 |
 | `raylea reset-admin` | 重置管理员凭据并重新进入初始化向导 |
 | `raylea backup` | 在停服窗口创建恢复用备份 |
 | `raylea restore <backup-path>` | 在停服窗口从指定备份包恢复配置、状态与插件目录 |
@@ -44,7 +43,6 @@ raylea-server -config <config/user.yaml> -config-schema <config.user.schema.json
 | `plugin dev-sync --artifact <path> --source <path>` | 否 | 是 | 两个参数均必填；需要数据库锁，在启动前或协调的重启窗口执行 |
 | `version --json` | 是 | 是 | 输出构建版本信息 |
 | `update check --json` | 是 | 否 | 需要网络访问受信发布来源 |
-| `update verify --manifest <path> --signature <path> --artifact <path>` | 是 | 是 | 三个参数均必填；离线校验更新包三件套 |
 | `reset-admin` | 否 | 是 | 必须在停服窗口执行 |
 | `backup` | 否 | 是 | 获取服务生命周期锁后创建离线备份；在线备份使用管理 API 的 `backup.create` 任务 |
 | `restore <backup-path>` | 否 | 是 | 备份路径必填，恢复导入必须在停服状态执行 |

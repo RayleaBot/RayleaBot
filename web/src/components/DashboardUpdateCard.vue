@@ -22,15 +22,13 @@ const detail = computed(() => {
   const snapshot = status.value
   if (!snapshot) return t('dashboard.update.notChecked')
   if (snapshot.state === 'update_available' && snapshot.available_version) {
-    return snapshot.automatic_install_supported
-      ? t('dashboard.update.availableInLauncher', { version: snapshot.available_version })
-      : t('dashboard.update.guidedAvailable', { version: snapshot.available_version })
+    return t('dashboard.update.guidedAvailable', { version: snapshot.available_version })
   }
   if (snapshot.state === 'up_to_date') {
     return t('dashboard.update.upToDate', { version: snapshot.current_version })
   }
   if (snapshot.state === 'disabled') {
-    return t('dashboard.update.trustBaselineRequired')
+    return t('dashboard.update.checkUnavailable')
   }
   return t('dashboard.update.currentVersion', { version: snapshot.current_version })
 })

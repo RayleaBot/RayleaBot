@@ -15,7 +15,7 @@ func (c *Coordinator) buildSnapshot(operation operationContext, inspection Envir
 		inspection.AdvisoryChecks = append(append([]EnvironmentCheckResult(nil), inspection.AdvisoryChecks...), warning)
 	}
 	c.mu.RLock()
-	currentRelease := cloneReleaseCheck(c.snapshot.Launcher.ReleaseCheck)
+	currentRelease := c.snapshot.Launcher.ReleaseCheck
 	currentOwnership := c.snapshot.Launcher.ProcessOwnership
 	c.mu.RUnlock()
 	lifecycle := options.processLifecycle
@@ -44,7 +44,7 @@ func (c *Coordinator) publish(snapshot LauncherSnapshot) {
 	defer c.publishMu.Unlock()
 	snapshot = cloneSnapshot(snapshot)
 	c.mu.Lock()
-	snapshot.Launcher.ReleaseCheck = cloneReleaseCheck(c.snapshot.Launcher.ReleaseCheck)
+	snapshot.Launcher.ReleaseCheck = c.snapshot.Launcher.ReleaseCheck
 	if reflect.DeepEqual(c.snapshot, snapshot) {
 		c.mu.Unlock()
 		return
@@ -71,7 +71,7 @@ func (c *Coordinator) publishRelease(snapshot ReleaseCheckSnapshot) {
 	defer c.publishMu.Unlock()
 	c.mu.Lock()
 	current := cloneSnapshot(c.snapshot)
-	current.Launcher.ReleaseCheck = cloneReleaseCheck(snapshot)
+	current.Launcher.ReleaseCheck = snapshot
 	if reflect.DeepEqual(c.snapshot, current) {
 		c.mu.Unlock()
 		return

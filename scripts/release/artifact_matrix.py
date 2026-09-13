@@ -14,7 +14,7 @@ ARTIFACT_MATRIX = {
         "platform": "windows-x64", "support_level": "first_class", "smoke_profile": "windows_full_smoke",
         "extension": ".zip", "archive_type": "zip", "launcher_required": True,
         "server_binary": "raylea-server.exe",
-        "required_paths": COMMON_PATHS | {"raylea-server.exe", "raylea-updater.exe", "RayleaLauncher.exe", "WINDOWS-RUNTIME.md"},
+        "required_paths": COMMON_PATHS | {"raylea-server.exe", "RayleaLauncher.exe", "WINDOWS-RUNTIME.md"},
     },
     ARTIFACT_LINUX_X64_FULL: {
         "platform": "linux-x64", "support_level": "first_class", "smoke_profile": "linux_full_smoke",

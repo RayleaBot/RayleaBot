@@ -43,7 +43,7 @@ Server 与 Go SDK 的 wire 模型由 `scripts/generate-plugin-wire.py` 从正式
 
 生成器只负责传输结构投影：required 字段保留零值，语义需要区分缺省的字段使用指针或 RawMessage，KV 的显式 `null` 不等同于缺少 value。动作 data、动态配置和扩展 payload 保留 JSON 边界。Server 与 SDK 在实际收发时使用内嵌的同一 schema 校验分支、必填字段、整数、未知字段及帧字节上限；动作权限、请求关联和生命周期状态仍由各自运行时检查。`oneOf` 的结构投影不能代替这些校验。
 
-artifact、manifest、运行时协议、UI bridge 和更新协议分别从对应契约生成版本常量，不共用版本号。Go 与 JavaScript 的敏感文本脱敏通过 `scripts/testdata/redaction.json` 的共享向量校准。
+artifact、manifest、运行时协议和 UI bridge 分别从对应契约生成版本常量，不共用版本号。Go 与 JavaScript 的敏感文本脱敏通过 `scripts/testdata/redaction.json` 的共享向量校准。
 
 动作调用前会检查 context 和事件终态。已发送动作在调用方停止等待后继续保留响应关联，终态等待宿主动作结算；超过 `ActionTimeout` 时不输出早于动作完成的终态，由宿主结束事件。已关闭事件不能继续调用 `event.Actions()` 发送动作。`adapter.send_unconfirmed` 和等待取消都不证明消息未发送，不能据此自动重试。
 

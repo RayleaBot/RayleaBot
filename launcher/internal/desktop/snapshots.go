@@ -26,7 +26,7 @@ func cloneSnapshot(snapshot LauncherSnapshot) LauncherSnapshot {
 	clone.Launcher.AdvisoryChecks = cloneSlice(snapshot.Launcher.AdvisoryChecks)
 	clone.Launcher.RecentStderr = cloneSlice(snapshot.Launcher.RecentStderr)
 	clone.Launcher.RuntimePrepare = cloneRuntimePrepare(snapshot.Launcher.RuntimePrepare)
-	clone.Launcher.ReleaseCheck = cloneReleaseCheck(snapshot.Launcher.ReleaseCheck)
+	clone.Launcher.ReleaseCheck = snapshot.Launcher.ReleaseCheck
 	clone.Launcher.Settings = cloneSettings(snapshot.Launcher.Settings)
 	clone.Launcher.LocalRecoverySummary = cloneResponse(snapshot.Launcher.LocalRecoverySummary)
 	return clone
@@ -56,14 +56,6 @@ func cloneRuntimePrepare(snapshot *RuntimePrepareSnapshot) *RuntimePrepareSnapsh
 		resource.TotalEntries = clonePointer(resource.TotalEntries)
 	}
 	return &clone
-}
-
-func cloneReleaseCheck(snapshot ReleaseCheckSnapshot) ReleaseCheckSnapshot {
-	clone := snapshot
-	clone.DownloadProgress = clonePointer(snapshot.DownloadProgress)
-	clone.DownloadedBytes = clonePointer(snapshot.DownloadedBytes)
-	clone.TotalBytes = clonePointer(snapshot.TotalBytes)
-	return clone
 }
 
 func cloneResponse[T any](value *T) *T {

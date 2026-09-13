@@ -147,8 +147,6 @@ describe("Launcher workspace presentation", () => {
         snapshot={configuredSnapshot}
         controlsDisabled={false}
         onCheckForUpdates={noop}
-        onDownloadUpdate={noop}
-        onInstallDownloadedUpdate={noop}
         onOpenReleasePage={noop}
         onOpenRepositoryPage={noop}
       />,
@@ -170,8 +168,6 @@ describe("Launcher workspace presentation", () => {
           releasePageUrl: "https://example.invalid/releases/v0.4.0",
           updateAvailable: true,
           canCheck: true,
-          canDownload: false,
-          canInstall: false,
         },
       },
     });
@@ -181,8 +177,6 @@ describe("Launcher workspace presentation", () => {
         snapshot={snapshot}
         controlsDisabled={false}
         onCheckForUpdates={noop}
-        onDownloadUpdate={noop}
-        onInstallDownloadedUpdate={noop}
         onOpenReleasePage={onOpenReleasePage}
         onOpenRepositoryPage={noop}
       />,
@@ -202,8 +196,6 @@ describe("Launcher workspace presentation", () => {
           releasePageUrl: "https://example.invalid/releases/latest",
           updateAvailable: false,
           canCheck: false,
-          canDownload: false,
-          canInstall: false,
         },
       },
     });
@@ -213,8 +205,6 @@ describe("Launcher workspace presentation", () => {
         snapshot={snapshot}
         controlsDisabled={false}
         onCheckForUpdates={noop}
-        onDownloadUpdate={noop}
-        onInstallDownloadedUpdate={noop}
         onOpenReleasePage={onOpenReleasePage}
         onOpenRepositoryPage={noop}
       />,
@@ -231,9 +221,9 @@ describe("Launcher workspace presentation", () => {
         releaseCheck: {
           status: "failed",
           currentVersion: "0.3.0",
-          summary: "发布签名验证失败",
-          detail: "没有受信任的 Ed25519 公钥接受当前发布清单签名。",
-          errorCode: "release.signature_invalid",
+          summary: "检查更新失败",
+          detail: "无法获取发布信息，请稍后重试。",
+          errorCode: "launcher.update_check_failed",
           canCheck: true,
         },
       },
@@ -244,16 +234,14 @@ describe("Launcher workspace presentation", () => {
         snapshot={snapshot}
         controlsDisabled={false}
         onCheckForUpdates={noop}
-        onDownloadUpdate={noop}
-        onInstallDownloadedUpdate={noop}
         onOpenReleasePage={noop}
         onOpenRepositoryPage={noop}
       />,
     );
 
-    expect(screen.getAllByText("发布签名验证失败")).toHaveLength(2);
-    expect(screen.getByText("release.signature_invalid")).toBeInTheDocument();
-    expect(screen.getByText("没有受信任的 Ed25519 公钥接受当前发布清单签名。")).toBeInTheDocument();
-    expect(screen.queryByText("无法确认受信任的更新。")).not.toBeInTheDocument();
+    expect(screen.getAllByText("检查更新失败")).toHaveLength(2);
+    expect(screen.getByText("launcher.update_check_failed")).toBeInTheDocument();
+    expect(screen.getByText("无法获取发布信息，请稍后重试。")).toBeInTheDocument();
+    expect(screen.queryByText("更新请求失败。")).not.toBeInTheDocument();
   });
 });

@@ -20,7 +20,7 @@ class ArtifactMatrixTests(unittest.TestCase):
             self.assertIn(item["server_binary"], item["required_paths"], name)
             self.assertIn("LICENSE", item["required_paths"], name)
             self.assertIn("THIRD_PARTY_NOTICES.md", item["required_paths"], name)
-        self.assertIn("raylea-updater.exe", ARTIFACT_MATRIX["windows-x64-full"]["required_paths"])
+        self.assertNotIn("raylea-updater.exe", ARTIFACT_MATRIX["windows-x64-full"]["required_paths"])
         self.assertIn("systemd/rayleabot.service", ARTIFACT_MATRIX["linux-x64-server"]["required_paths"])
 
     def test_invalid_archive_roots_are_rejected_before_writing(self):

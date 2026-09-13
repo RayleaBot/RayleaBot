@@ -1179,18 +1179,16 @@ def validate_config_field_metadata(config_schema: dict[str, Any]) -> None:
 
 def validate_release_basic(release_schema: dict[str, Any]) -> None:
     if "oneOf" not in release_schema:
-        fail("release-manifest.schema.json must distinguish manifest, signature envelope, and build info via oneOf")
+        fail("release-manifest.schema.json must distinguish manifest and build info via oneOf")
     artifact = require_object(release_schema.get("$defs", {}).get("artifact"), "release artifact")
     for field in [
         "artifact_id",
         "file_name",
         "platform",
-        "sha256",
         "archive_size_bytes",
         "expanded_size_bytes",
         "file_count",
         "update_mode",
-        "min_updater_protocol_version",
     ]:
         if field not in artifact.get("required", []):
             fail(f"release-manifest.schema.json artifact missing required field: {field}")

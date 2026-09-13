@@ -1160,7 +1160,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Query the shared release trust and update state without starting installation. */
+        /** Query the shared release version check state. */
         get: operations["getUpdateStatus"];
         put?: never;
         post?: never;
@@ -1179,7 +1179,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Check the compiled release repository for a trusted v2 manifest; never download or install an artifact. */
+        /** Read release metadata from the configured repository and report available versions and the release page. */
         post: operations["checkForUpdate"];
         delete?: never;
         options?: never;
@@ -2223,19 +2223,15 @@ export interface components {
             trusted_code_confirmed: true;
         };
         /** @enum {string} */
-        UpdateState: "disabled" | "idle" | "checking" | "up_to_date" | "update_available" | "downloading" | "ready_to_install" | "installing" | "succeeded" | "failed" | "rolled_back" | "rollback_failed";
-        /** @enum {string} */
-        UpdatePhase: "metadata" | "artifact" | "backup" | "extract" | "preflight" | "stop" | "swap" | "postflight" | "commit" | "rollback";
+        UpdateState: "disabled" | "idle" | "checking" | "up_to_date" | "update_available" | "failed";
         UpdateStatusResponse: {
             state: components["schemas"]["UpdateState"];
-            phase?: components["schemas"]["UpdatePhase"];
             current_version: string;
             available_version?: string;
             /** Format: date-time */
             checked_at: string | null;
             /** @enum {string} */
-            update_mode: "automatic" | "guided" | "manual" | "unavailable";
-            automatic_install_supported: boolean;
+            update_mode: "guided" | "manual" | "unavailable";
             /** Format: uri */
             release_notes_ref?: string;
             error?: components["schemas"]["ErrorEnvelope"];
@@ -4784,7 +4780,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Current update state and latest trusted release observation. */
+            /** @description Current update state and latest release version observation. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4807,7 +4803,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Completed trusted update check. */
+            /** @description Completed release version check. */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -49,21 +49,15 @@ type EnvironmentInspection struct {
 }
 
 type ReleaseCheckSnapshot struct {
-	Status           ReleaseCheckStatus `json:"status"`
-	CurrentVersion   string             `json:"currentVersion"`
-	LatestVersion    string             `json:"latestVersion"`
-	Summary          string             `json:"summary"`
-	Detail           string             `json:"detail"`
-	ErrorCode        string             `json:"errorCode"`
-	ReleasePageURL   string             `json:"releasePageUrl"`
-	UpdateAvailable  bool               `json:"updateAvailable"`
-	DownloadProgress *float64           `json:"downloadProgress"`
-	DownloadedBytes  *int64             `json:"downloadedBytes"`
-	TotalBytes       *int64             `json:"totalBytes"`
-	ArtifactFileName string             `json:"artifactFileName"`
-	CanCheck         bool               `json:"canCheck"`
-	CanDownload      bool               `json:"canDownload"`
-	CanInstall       bool               `json:"canInstall"`
+	Status          ReleaseCheckStatus `json:"status"`
+	CurrentVersion  string             `json:"currentVersion"`
+	LatestVersion   string             `json:"latestVersion"`
+	Summary         string             `json:"summary"`
+	Detail          string             `json:"detail"`
+	ErrorCode       string             `json:"errorCode"`
+	ReleasePageURL  string             `json:"releasePageUrl"`
+	UpdateAvailable bool               `json:"updateAvailable"`
+	CanCheck        bool               `json:"canCheck"`
 }
 
 type RuntimePrepareResourceProgress struct {

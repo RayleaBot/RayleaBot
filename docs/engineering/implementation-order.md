@@ -42,7 +42,6 @@
 | 插件商店 | Plugin Store Service | 来源配置、最后成功目录缓存与安装来源身份 |
 | 插件进程状态 | Runtime Manager | runtime snapshot |
 | 后台任务 | Task Registry | 有序持久化记录与终态 |
-| 更新事务 | Updater | 签名 metadata、最高版本记录与 journal |
 
 数据库结构变更必须先更新 当前 schema、queries、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态来源。
 
@@ -80,19 +79,15 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - CLI 复用 server/update 核心，提供离线、脚本化和恢复入口。
 - SDK 只暴露正式协议；生成物由 CI 检查修改、删除和新增漂移。
 
-客户端接入时使用契约定义的状态名、错误码、字段和信任根。
+客户端接入时使用契约定义的状态名、错误码和字段。
 
-## 8. 打包、签名与恢复
+## 8. 打包与恢复
 
 发布实现依赖稳定的 contract、server、客户端和 SDK：
 
 - 归档包含正式运行资源、LICENSE 和经审阅的第三方 notices；
-- release metadata 由正式 schema 生成并签名；
-- Windows 自动安装同时要求 Ed25519 和 Authenticode；
-- update helper 位于安装根之外，使用 journal、offline backup、同卷 staging 和原子 swap；
-- 正式 smoke 同时验证新装、升级、恢复和故障回滚。
-
-缺少正式证书、签名或 recovery drill 时，发布方式必须降级为 guided/manual，不能放宽门禁。
+- release metadata 按正式 schema 生成；
+- 正式 smoke 同时验证新装和备份恢复。
 
 ## 9. 验收与发布
 
@@ -102,7 +97,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - 目标包 `-race`、server tests/build 和 binary vulnerability scan；
 - Web/Launcher typecheck、test、build 与风险对应的 E2E；
 - SDK 打包与 fresh-environment install；
-- release artifact、签名、license notice、smoke 与 recovery drill；
+- release artifact、license notice、smoke 与 recovery drill；
 - doctor、文档链接和 `git diff --check`。
 
 只有 exit code 不能证明真实产物时，必须继续检查生成文件、归档内容或运行时效果。
@@ -115,4 +110,4 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 - 插件 OS 强沙盒；
 - 当前 OneBot11 与 QQ 官方之外的聊天协议；
 - 新的官方插件运行时；
-- 新的客户端状态来源、远程组件运行时或发布信任根。
+- 新的客户端状态来源或远程组件运行时。

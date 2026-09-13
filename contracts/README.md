@@ -99,11 +99,9 @@
   - `governance.blacklist.write` 与 `governance.whitelist.write` 的条目增删要求与管理 API 相同的 `scope`；`set_enabled` 仅修改服务级白名单开关。
   - `event.actor.id` 与 `event.target.id` 属于 `source_protocol` 的身份命名空间，并限定于接收事件的 bot 身份；不能作为跨协议、跨 bot 的全局关联键。`init.super_admins` 固定为 `admin.super_admins` 的 OneBot11 QQ 账号列表，不授予 QQ 官方 openid 管理权限。
 - `release-manifest.schema.json`
-  - `release_manifest.v2.json`、`release_manifest.v2.sig.json` 与 `build_info.json` 的正式字段结构
-  - Ed25519 双签轮换、artifact 摘要与资源上限、更新协议、平台模式和 Windows signer 摘要
-  - `SHA256SUMS.txt` 继续由 release tool 的生成与校验规则决定，不作为独立 schema
+  - `release_manifest.v2.json` 与 `build_info.json` 的正式字段结构
 - `cli-commands.yaml`
-  - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 与 `update verify` 的正式命令模型
+  - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 的正式命令模型
 
 ## 当前延后到后续版本的边界
 

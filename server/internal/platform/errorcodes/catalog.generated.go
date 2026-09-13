@@ -162,26 +162,8 @@ const (
 	PluginWebhookReplayRejectedMessageKey               = "errors.plugin.webhook_replay_rejected"
 	PluginWebhookTimestampSkew                          = "plugin.webhook_timestamp_skew"
 	PluginWebhookTimestampSkewMessageKey                = "errors.plugin.webhook_timestamp_skew"
-	ReleaseArtifactInvalid                              = "release.artifact_invalid"
-	ReleaseArtifactInvalidMessageKey                    = "errors.release.artifact_invalid"
-	ReleaseDiskSpaceInsufficient                        = "release.disk_space_insufficient"
-	ReleaseDiskSpaceInsufficientMessageKey              = "errors.release.disk_space_insufficient"
-	ReleaseInstallFailed                                = "release.install_failed"
-	ReleaseInstallFailedMessageKey                      = "errors.release.install_failed"
-	ReleaseManifestExpired                              = "release.manifest_expired"
-	ReleaseManifestExpiredMessageKey                    = "errors.release.manifest_expired"
 	ReleaseManifestInvalid                              = "release.manifest_invalid"
 	ReleaseManifestInvalidMessageKey                    = "errors.release.manifest_invalid"
-	ReleaseReplayRejected                               = "release.replay_rejected"
-	ReleaseReplayRejectedMessageKey                     = "errors.release.replay_rejected"
-	ReleaseRollbackFailed                               = "release.rollback_failed"
-	ReleaseRollbackFailedMessageKey                     = "errors.release.rollback_failed"
-	ReleaseSignatureInvalid                             = "release.signature_invalid"
-	ReleaseSignatureInvalidMessageKey                   = "errors.release.signature_invalid"
-	ReleaseTrustRequired                                = "release.trust_required"
-	ReleaseTrustRequiredMessageKey                      = "errors.release.trust_required"
-	ReleaseUpdateNotSupported                           = "release.update_not_supported"
-	ReleaseUpdateNotSupportedMessageKey                 = "errors.release.update_not_supported"
 	DiagnosticAuthUnavailable                           = "auth.unavailable"
 	DiagnosticConfigNotAccessible                       = "config.not_accessible"
 	DiagnosticConfigOk                                  = "config.ok"
@@ -295,14 +277,5 @@ var catalog = map[string]Definition{
 	PluginUninstallFailed:                     {Code: PluginUninstallFailed, HTTPStatus: 409, MessageKey: PluginUninstallFailedMessageKey, Message: "插件卸载失败", Retryable: true, Surfaces: "http,websocket,task"},
 	PluginWebhookReplayRejected:               {Code: PluginWebhookReplayRejected, HTTPStatus: 401, MessageKey: PluginWebhookReplayRejectedMessageKey, Message: "插件 Webhook 请求已被识别为重复事件", Retryable: false, Surfaces: "http"},
 	PluginWebhookTimestampSkew:                {Code: PluginWebhookTimestampSkew, HTTPStatus: 401, MessageKey: PluginWebhookTimestampSkewMessageKey, Message: "插件 Webhook 请求时间戳超出容忍窗口", Retryable: false, Surfaces: "http"},
-	ReleaseArtifactInvalid:                    {Code: ReleaseArtifactInvalid, HTTPStatus: 502, MessageKey: ReleaseArtifactInvalidMessageKey, Message: "更新包完整性或签名验证失败", Retryable: false, Surfaces: "http,task,cli"},
-	ReleaseDiskSpaceInsufficient:              {Code: ReleaseDiskSpaceInsufficient, HTTPStatus: 507, MessageKey: ReleaseDiskSpaceInsufficientMessageKey, Message: "磁盘空间不足", Retryable: true, Surfaces: "http,task,cli"},
-	ReleaseInstallFailed:                      {Code: ReleaseInstallFailed, HTTPStatus: 500, MessageKey: ReleaseInstallFailedMessageKey, Message: "更新安装失败", Retryable: true, Surfaces: "http,task,cli"},
-	ReleaseManifestExpired:                    {Code: ReleaseManifestExpired, HTTPStatus: 409, MessageKey: ReleaseManifestExpiredMessageKey, Message: "发布清单已过期", Retryable: true, Surfaces: "http,task,cli"},
 	ReleaseManifestInvalid:                    {Code: ReleaseManifestInvalid, HTTPStatus: 502, MessageKey: ReleaseManifestInvalidMessageKey, Message: "发布清单无效", Retryable: false, Surfaces: "http,task,cli"},
-	ReleaseReplayRejected:                     {Code: ReleaseReplayRejected, HTTPStatus: 409, MessageKey: ReleaseReplayRejectedMessageKey, Message: "已拒绝旧版或被替换的发布清单", Retryable: false, Surfaces: "http,task,cli"},
-	ReleaseRollbackFailed:                     {Code: ReleaseRollbackFailed, HTTPStatus: 500, MessageKey: ReleaseRollbackFailedMessageKey, Message: "更新回滚失败", Retryable: false, Surfaces: "http,task,cli"},
-	ReleaseSignatureInvalid:                   {Code: ReleaseSignatureInvalid, HTTPStatus: 502, MessageKey: ReleaseSignatureInvalidMessageKey, Message: "发布签名验证失败", Retryable: false, Surfaces: "http,task,cli"},
-	ReleaseTrustRequired:                      {Code: ReleaseTrustRequired, HTTPStatus: 409, MessageKey: ReleaseTrustRequiredMessageKey, Message: "当前安装不具备自动更新信任基线", Retryable: false, Surfaces: "http,task,cli"},
-	ReleaseUpdateNotSupported:                 {Code: ReleaseUpdateNotSupported, HTTPStatus: 409, MessageKey: ReleaseUpdateNotSupportedMessageKey, Message: "当前平台仅支持引导更新", Retryable: false, Surfaces: "http,task,cli"},
 }

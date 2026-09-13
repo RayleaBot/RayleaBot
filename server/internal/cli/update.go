@@ -33,21 +33,19 @@ func runVersion(cmd Command) int {
 		return 1
 	}
 	return writeCommandJSON(cmd, struct {
-		Version               string `json:"version"`
-		GitCommit             string `json:"git_commit"`
-		ArtifactID            string `json:"artifact_id"`
-		UpdateProtocolVersion int    `json:"update_protocol_version"`
+		Version    string `json:"version"`
+		GitCommit  string `json:"git_commit"`
+		ArtifactID string `json:"artifact_id"`
 	}{
-		Version:               buildInfo.Version,
-		GitCommit:             buildInfo.GitCommit,
-		ArtifactID:            buildInfo.ArtifactID,
-		UpdateProtocolVersion: buildInfo.UpdateProtocolVersion,
+		Version:    buildInfo.Version,
+		GitCommit:  buildInfo.GitCommit,
+		ArtifactID: buildInfo.ArtifactID,
 	})
 }
 
 func runUpdate(cmd Command) int {
 	if len(cmd.Args) == 0 {
-		cmd.Logger.Error("更新命令缺少子命令，用法 raylea update check --json 或 raylea update verify ...")
+		cmd.Logger.Error("更新命令缺少子命令，用法 raylea update check --json")
 		return 1
 	}
 	child := cmd
@@ -55,8 +53,6 @@ func runUpdate(cmd Command) int {
 	switch cmd.Args[0] {
 	case "check":
 		return runUpdateCheck(child)
-	case "verify":
-		return runUpdateVerify(child)
 	default:
 		cmd.Logger.Error("未知更新子命令", "subcommand", cmd.Args[0])
 		return 1
@@ -71,24 +67,16 @@ func runUpdateCheck(cmd Command) int {
 		cmd.Logger.Error("更新检查参数无效，用法 raylea update check --json")
 		return 1
 	}
-	verifier, err := commandUpdateVerifier(cmd)
-	if err != nil {
-		cmd.Logger.Error("发布签名信任信息不可用", "code", releaseupdate.CodeOf(err), "err", err.Error())
-		return 1
-	}
-	checker := releaseupdate.NewChecker(verifier)
+	checker := releaseupdate.NewChecker()
 	if cmd.UpdateHTTPClient != nil {
 		checker.HTTPClient = cmd.UpdateHTTPClient
-	}
-	if cmd.Now != nil {
-		checker.Now = cmd.Now
 	}
 	repoRoot := runtimepaths.RootFromConfigPath(cmd.ConfigPath)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	result, err := checker.Check(ctx, repoRoot)
 	if err != nil {
-		cmd.Logger.Error("检查受信任更新失败", "code", releaseupdate.CodeOf(err), "err", err.Error())
+		cmd.Logger.Error("检查更新失败", "code", releaseupdate.CodeOf(err), "err", err.Error())
 		return 1
 	}
 	return writeCommandJSON(cmd, struct {
@@ -96,65 +84,14 @@ func runUpdateCheck(cmd Command) int {
 		CurrentVersion   string `json:"current_version"`
 		AvailableVersion string `json:"available_version"`
 		UpdateMode       string `json:"update_mode"`
+		ReleasePageURL   string `json:"release_page_url"`
 	}{
 		Status:           result.Status,
 		CurrentVersion:   result.CurrentVersion,
 		AvailableVersion: result.AvailableVersion,
 		UpdateMode:       result.UpdateMode,
+		ReleasePageURL:   result.ReleasePageURL,
 	})
-}
-
-func runUpdateVerify(cmd Command) int {
-	flags := flag.NewFlagSet("update verify", flag.ContinueOnError)
-	flags.SetOutput(io.Discard)
-	manifestPath := flags.String("manifest", "", "path to release manifest")
-	signaturePath := flags.String("signature", "", "path to signature envelope")
-	artifactPath := flags.String("artifact", "", "path to release artifact")
-	if err := flags.Parse(cmd.Args); err != nil || flags.NArg() != 0 || *manifestPath == "" || *signaturePath == "" || *artifactPath == "" {
-		cmd.Logger.Error("更新验证参数无效，用法 raylea update verify --manifest <path> --signature <path> --artifact <path>")
-		return 1
-	}
-	verifier, err := commandUpdateVerifier(cmd)
-	if err != nil {
-		cmd.Logger.Error("发布签名信任信息不可用", "code", releaseupdate.CodeOf(err), "err", err.Error())
-		return 1
-	}
-	now := time.Now().UTC()
-	if cmd.Now != nil {
-		now = cmd.Now().UTC()
-	}
-	verified, err := releaseupdate.ValidateMetadataFiles(verifier, *manifestPath, *signaturePath, now)
-	if err != nil {
-		cmd.Logger.Error("发布元数据验证失败", "code", releaseupdate.CodeOf(err), "err", err.Error())
-		return 1
-	}
-	artifactBase := filepath.Base(*artifactPath)
-	var artifact releaseupdate.Artifact
-	found := false
-	for _, candidate := range verified.Manifest.Artifacts {
-		if candidate.FileName == artifactBase {
-			artifact = candidate
-			found = true
-			break
-		}
-	}
-	if !found {
-		cmd.Logger.Error("发布包未列入受信任清单", "code", releaseupdate.CodeArtifactInvalid)
-		return 1
-	}
-	if err := releaseupdate.VerifyArtifactFile(*artifactPath, artifact); err != nil {
-		cmd.Logger.Error("发布包验证失败", "code", releaseupdate.CodeOf(err), "err", err.Error())
-		return 1
-	}
-	cmd.Logger.Info("发布清单、签名和更新包验证通过", "version", verified.Manifest.Version, "artifact_id", artifact.ArtifactID)
-	return 0
-}
-
-func commandUpdateVerifier(cmd Command) (*releaseupdate.Verifier, error) {
-	if cmd.UpdateVerifier != nil {
-		return cmd.UpdateVerifier, nil
-	}
-	return releaseupdate.NewEmbeddedVerifier()
 }
 
 func writeCommandJSON(cmd Command, value any) int {

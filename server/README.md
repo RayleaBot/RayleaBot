@@ -7,7 +7,7 @@
 - 配置校验与热更新、SQLite 持久化、管理认证、secret store、日志与指标。
 - OneBot11 和 QQ 官方适配器实例、统一聊天事件、命令治理与出站消息。
 - 插件 artifact 安装、商店来源、生命周期、JSONL 协议、私有存储与宿主动作。
-- 调度、模板渲染、插件浏览器会话、运行资源准备、备份恢复和更新编排。
+- 调度、模板渲染、插件浏览器会话、运行资源准备、备份恢复和版本检查。
 - HTTP/WebSocket 管理面、Launcher 本机控制与离线 CLI。
 
 接口、错误码、配置和插件协议以 [`contracts/`](../contracts/README.md) 为准；完整 HTTP 操作见 [OpenAPI](../contracts/web-api.openapi.yaml)。使用说明见[管理面职责](../docs/user/management-surface.md)和 [CLI](../docs/user/cli.md)。

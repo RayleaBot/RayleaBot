@@ -45,11 +45,11 @@ RayleaBot 发布说明使用中文，面向安装、升级和使用机器人的�
 | macOS Apple Silicon 桌面完整包 | [tar.gz](https://github.com/RayleaBot/RayleaBot/releases/download/{{TAG}}/RayleaBot-v{{VERSION}}-macos-arm64-full.tar.gz) |
 | Linux x64 服务端包 | [tar.gz](https://github.com/RayleaBot/RayleaBot/releases/download/{{TAG}}/RayleaBot-v{{VERSION}}-linux-x64-server.tar.gz) |
 
-{{根据本版各产物的 update_mode，说明通过 Launcher 确认安装、引导更新或手动更新的实际入口。}}
+{{根据本版各产物的 update_mode，说明通过发布页下载与手动更新的实际入口。}}
 
 首次使用请阅读[安装说明](https://github.com/RayleaBot/RayleaBot/blob/{{TAG}}/docs/user/deployment.md)。业务插件从插件商店或各插件 Release 单独安装。下方 Assets 中的 Source code 为源码归档，运行请下载上表对应的平台包。
 
-[SHA-256 校验清单](https://github.com/RayleaBot/RayleaBot/releases/download/{{TAG}}/SHA256SUMS.txt) · [发布清单](https://github.com/RayleaBot/RayleaBot/releases/download/{{TAG}}/release_manifest.v2.json) · [清单签名](https://github.com/RayleaBot/RayleaBot/releases/download/{{TAG}}/release_manifest.v2.sig.json)
+[发布清单](https://github.com/RayleaBot/RayleaBot/releases/download/{{TAG}}/release_manifest.v2.json)
 
 <!-- 以下两节有对应内容时才保留。影响升级的开发者变更也要在升级说明中摘要提示。 -->
 ## 开发者说明
@@ -97,7 +97,7 @@ RayleaBot 发布说明使用中文，面向安装、升级和使用机器人的�
 - 普通重构、CI 整理和版本号更新留在完整变更中。影响安全、兼容性或平台要求的依赖升级需要进入正文。
 - 破坏性变更说明谁受影响、行为如何变化、需要做什么。必要操作不能只放进折叠区域。
 - 升级兼容性、备份格式和可回退范围依据目标标签的 contract、实现及验证结果填写，不预填“无破坏性变更”“可直接覆盖”或“所有插件兼容”。插件能否运行与数据是否保留分别说明。
-- 下载表与实际上传的产物一致。文件名、平台、校验文件和更新方式核对本版 release manifest 与 Assets。Windows 的安装方式按签名及验证结果填写，不能把 Ed25519 清单签名等同于 Windows Authenticode。
+- 下载表与实际上传的产物一致。文件名、平台和更新方式核对本版 release manifest 与 Assets。
 - 已知问题写清影响条件、临时处理方式或跟踪入口。没有已确认条目时删除该节，不自动生成“没有已知问题”。
 - 首次发布没有比较基线时，使用该标签的版本说明或提交历史入口。稳定版通常与上一稳定版比较，预发布明确比较基线。
 - 预发布在摘要说明测试用途、验证范围和已知限制，并核对 GitHub 预发布标记与正式 channel。

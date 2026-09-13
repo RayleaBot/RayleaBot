@@ -11,6 +11,5 @@ response:
     current_version: 0.3.1
     checked_at: '2026-07-10T12:00:00Z'
     update_mode: guided
-    automatic_install_supported: false
 expect:
   valid: true

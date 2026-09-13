@@ -1785,24 +1785,16 @@ code,
   color: var(--color-text-muted);
 }
 
-.version-value[data-status="checking"] span + span,
-.version-value[data-status="downloading"] span + span,
-.version-value[data-status="installing"] span + span {
+.version-value[data-status="checking"] span + span {
   color: var(--color-cool);
 }
 
-.version-value[data-status="update_available"] span + span,
-.version-value[data-status="ready_to_install"] span + span {
+.version-value[data-status="update_available"] span + span {
   color: var(--color-warm);
 }
 
-.version-value[data-status="failed"] span + span,
-.version-value[data-status="rollback_failed"] span + span {
+.version-value[data-status="failed"] span + span {
   color: var(--color-danger);
-}
-
-.version-value[data-status="rolled_back"] span + span {
-  color: var(--color-warning);
 }
 
 .update-error-message {

@@ -36,7 +36,7 @@
 
 Windows Launcher 需要系统安装 Microsoft Edge WebView2 Runtime，Linux 桌面 Launcher 需要 GTK 3 和 WebKit2GTK 4.1；对应完整包内的 `WINDOWS-RUNTIME.md`、`LINUX-RUNTIME.md` 提供安装说明。
 
-首个支持签名更新的版本需要手动安装；之后由 Launcher 检查更新并在用户确认后升级，各平台的更新方式与签名门槛见 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
+Launcher 提供更新检查与发布页入口，各平台的手动更新步骤见 [`docs/release/delivery-and-upgrade.md`](./docs/release/delivery-and-upgrade.md)。
 
 完整部署说明见 [`docs/user/deployment.md`](./docs/user/deployment.md)。
 
@@ -80,7 +80,7 @@ node scripts/start-dev.mjs
 | [插件开发](./docs/plugin/README.md) | 生命周期、manifest、协议、SDK |
 | [插件商店与独立开发](./docs/plugin/store-and-development.md) | 商店信任、独立发布和本地同步联调 |
 | [用户指南](./docs/user/README.md) | 部署、配置、CLI、恢复 |
-| [发布说明](./docs/release/README.md) | 产物矩阵、发布信任、升级与各版本说明 |
+| [发布说明](./docs/release/README.md) | 产物矩阵、更新方式与各版本说明 |
 | [工程基线](./docs/engineering/baseline.md) | 版本线、选型、目录职责 |
 | [CHANGELOGS](./docs/CHANGELOGS/) | 版本变更记录 |
 

@@ -176,10 +176,6 @@ export function App() {
       respondToExternalStopConfirm(true);
       return;
     }
-    if (action === "install-update") {
-      void runAction(action, () => window.rayleaLauncher.installDownloadedUpdate());
-      return;
-    }
     void runAction(action, () => window.rayleaLauncher.resetAdmin());
   }, [respondToExternalStopConfirm, runAction]);
 
@@ -306,8 +302,6 @@ export function App() {
       onOpenWeb={() => runAction("open-web", () => window.rayleaLauncher.openWebUi())}
       onOpenTasks={() => runAction("open-web", () => window.rayleaLauncher.openWebUi("/logs?source=tasks"))}
       onCheckForUpdates={() => runAction("check-updates", () => window.rayleaLauncher.checkForUpdates())}
-      onDownloadUpdate={() => runAction("download-update", () => window.rayleaLauncher.downloadUpdate())}
-      onInstallDownloadedUpdate={() => setConfirmedAction("install-update")}
       onOpenReleasePage={() => runAction("open-release-page", () => window.rayleaLauncher.openReleasePage())}
       onOpenRepositoryPage={() => runAction("open-repository-page", () => window.rayleaLauncher.openRepositoryPage())}
       onOpenLogs={() => runAction("open-logs", () => window.rayleaLauncher.openLogsDirectory())}

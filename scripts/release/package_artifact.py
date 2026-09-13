@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 from contextlib import nullcontext
 from datetime import datetime, timezone
-import hashlib
 import json
 import shutil
 import tempfile
@@ -53,9 +52,7 @@ class ValidationEvidence:
         (self.directory / "validation.json").write_text(json.dumps(self.result, indent=2) + "\n", encoding="utf-8")
 
     def record_archive(self, archive: Path) -> None:
-        with archive.open("rb") as source:
-            digest = hashlib.file_digest(source, "sha256").hexdigest()
-        self.result["archive"] = {"file_name": archive.name, "size_bytes": archive.stat().st_size, "sha256": digest}
+        self.result["archive"] = {"file_name": archive.name, "size_bytes": archive.stat().st_size}
         self.save()
 
     def run(self, name: str, args: list[str]) -> None:
@@ -106,11 +103,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--output-dir", default="dist/release")
     parser.add_argument("--evidence-dir", type=Path, help="new directory for persistent validation results and check logs")
     parser.add_argument("--launcher-bundle", default="")
-    parser.add_argument("--updater-bin", default="")
     parser.add_argument("--systemd-file", default="")
     parser.add_argument("--license-file", default="LICENSE")
     parser.add_argument("--third-party-notices", default="THIRD_PARTY_NOTICES.md")
-    parser.add_argument("--windows-signer-sha256", default="")
     parser.add_argument("--run-smoke", action="store_true")
     parser.add_argument("--run-recovery-drill", action="store_true")
     parser.add_argument("--recovery-plugin-fixture", default="")
@@ -157,12 +152,8 @@ def package(args: argparse.Namespace, evidence: ValidationEvidence | None) -> in
     ]
     if args.launcher_bundle:
         package_args.extend(["--launcher-bundle", args.launcher_bundle])
-    if args.updater_bin:
-        package_args.extend(["--updater-bin", args.updater_bin])
     if args.systemd_file:
         package_args.extend(["--systemd-file", args.systemd_file])
-    if args.windows_signer_sha256:
-        package_args.extend(["--windows-signer-sha256", args.windows_signer_sha256])
     execute("package", package_args)
 
     archive = archive_path(output_dir, args.version, args.artifact_id)

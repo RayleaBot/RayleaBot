@@ -66,7 +66,7 @@ class ReleaseWorkflowTests(unittest.TestCase):
         for job_name, step_name in (("build-full", "Build launcher"), ("build-full", "Build web"), ("build-linux-server", "Build web")):
             self.assertEqual(step_named(jobs[job_name], step_name)["env"]["RAYLEA_BUILD_VERSION"], "${{ inputs.version }}")
 
-    def test_native_packaging_shell_preserves_arguments_without_optional_windows_flags(self):
+    def test_native_packaging_shell_preserves_arguments(self):
         candidates = ([str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe")]
                       if os.name == "nt" else ["/bin/bash"])
         candidates.append(shutil.which("bash") or "")
@@ -75,26 +75,24 @@ class ReleaseWorkflowTests(unittest.TestCase):
             self.skipTest("bash is unavailable")
         job = workflow("release-build.yml")["jobs"]["build-full"]
         for platform in job["strategy"]["matrix"]["include"]:
-            for signer in ("", "a" * 64) if platform["artifact_id"] == "windows-x64-full" else ("",):
-                with self.subTest(artifact=platform["artifact_id"], signer=bool(signer)):
-                    command = step_named(job, "Package full artifact")["run"]
-                    for key, value in platform.items():
-                        command = command.replace("${{ matrix." + key + " }}", value)
-                    command = command.replace("${{ steps.windows-signing.outputs.signer_sha256 }}", signer)
-                    command = command.replace("python scripts/release/package_artifact.py", "capture")
-                    environment = {**os.environ, "RELEASE_VERSION": "0.4.0", "RELEASE_NOTES_REF": "https://example.invalid/notes"}
-                    completed = run_utf8([bash, "--noprofile", "--norc", "-c",
-                                                'capture() { printf "%s\\n" "$@"; };\n' + command],
-                                               cwd=ROOT, env=environment, capture_output=True, timeout=20)
-                    self.assertEqual(completed.returncode, 0, completed.stderr)
-                    args = completed.stdout.splitlines()
-                    self.assertEqual(args.count("--artifact-id"), 1, args)
-                    self.assertEqual(args[args.index("--artifact-id") + 1], platform["artifact_id"])
-                    self.assertEqual("--updater-bin" in args, platform["artifact_id"] == "windows-x64-full")
-                    self.assertEqual("--windows-signer-sha256" in args, bool(signer))
-                    self.assertNotIn("", args)
+            with self.subTest(artifact=platform["artifact_id"]):
+                command = step_named(job, "Package full artifact")["run"]
+                for key, value in platform.items():
+                    command = command.replace("${{ matrix." + key + " }}", value)
+                command = command.replace("python scripts/release/package_artifact.py", "capture")
+                environment = {**os.environ, "RELEASE_VERSION": "0.4.0", "RELEASE_NOTES_REF": "https://example.invalid/notes"}
+                completed = run_utf8([bash, "--noprofile", "--norc", "-c",
+                                            'capture() { printf "%s\\n" "$@"; };\n' + command],
+                                           cwd=ROOT, env=environment, capture_output=True, timeout=20)
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                args = completed.stdout.splitlines()
+                self.assertEqual(args.count("--artifact-id"), 1, args)
+                self.assertEqual(args[args.index("--artifact-id") + 1], platform["artifact_id"])
+                self.assertNotIn("--updater-bin", args)
+                self.assertNotIn("--windows-signer-sha256", args)
+                self.assertNotIn("", args)
 
-    def test_signatures_and_metadata_only_consume_release_packages(self):
+    def test_metadata_only_consumes_release_packages(self):
         jobs = workflow("release-build.yml")["jobs"]
         assemble = jobs["assemble"]
         self.assertEqual(set(assemble["needs"]), {"build-full", "build-linux-server"})
@@ -102,17 +100,9 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertEqual(download["with"]["pattern"], "package-*")
         for artifact_id in ARTIFACT_MATRIX:
             self.assertIn("dist/downloads/package-" + artifact_id + "/", step_named(assemble, "Generate release metadata")["run"])
-        signing = step_named(assemble, "Sign v2 release manifest with Ed25519")
-        self.assertIn("release_tool.py sign", signing["run"])
-        self.assertIn("RAYLEA_RELEASE_SIGNING_KEY_PEM", signing["env"])
-        verification = step_named(assemble, "Verify signature and every release artifact with the shipped trust registry")["run"]
-        self.assertIn("--signature dist/release/release_manifest.v2.sig.json", verification)
-        self.assertIn("for artifact in dist/artifacts/*", verification)
-        uploaded = step_named(assemble, "Upload verified release metadata")["with"]["path"]
-        for name in ("release_manifest.v2.json", "release_manifest.v2.sig.json", "SHA256SUMS.txt"):
-            self.assertIn(name, uploaded)
-        windows_gate = step_named(jobs["build-full"], "Apply and verify Windows Authenticode gate")["run"]
-        self.assertEqual(windows_gate, "./scripts/release/windows-signing.ps1")
+        uploaded = step_named(assemble, "Upload release metadata")["with"]["path"]
+        self.assertEqual(uploaded.strip(), "dist/release/release_manifest.v2.json")
+        self.assertNotIn("secrets", workflow("release-build.yml")["on"]["workflow_call"])
 
     def test_new_workflows_select_release_and_ci_checks(self):
         spec = importlib.util.spec_from_file_location("validation_detect_changes", ROOT / "scripts/ci/detect_changes.py")

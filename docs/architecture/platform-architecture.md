@@ -56,8 +56,6 @@ flowchart TB
 | 图片渲染 | Render Service | 模板仓、artifact 与 cache metadata | Local Action、管理面 |
 | Chromium 与 FFmpeg 资源 | Deps Service | `.deps/manifest.json`、准备目录与诊断快照 | 渲染、插件浏览器会话、受信本地插件媒体处理、运行环境准备与系统诊断；doctor 只读取清单元数据 |
 | 配置单实例锁 | File Lock / App | `<config-path>.runtime.lock` | Server 启动、配置 CLI |
-| 更新信任 | Shared update core | 编译内置仓库/公钥、最高版本与 digest 记录 | CLI、API、Launcher、updater |
-| 更新事务 | External updater | 安装根外 journal、offline backup、staging | Launcher 与恢复流程 |
 | 客户端视图 | Web / Launcher | API/WebSocket 的临时视图 | 用户 |
 
 Web 和 Launcher 不持有正式业务状态。缓存可丢弃，不能反向覆盖服务端。
@@ -70,8 +68,6 @@ flowchart LR
     Tool["API client"] -->|"Bearer"| API
     Launcher["Launcher process"] -->|"control token + loopback"| Control["Local control API"]
     Plugin["Trusted plugin process"] -->|"JSONL + declared permissions"| Actions["Local Action Service"]
-    Release["Release repository"] -->|"Ed25519 manifest + artifact hash"| Core["Update core"]
-    Core -->|"Authenticode required for automatic Windows install"| Helper["External updater"]
 ```
 
 | 边界 | 接受条件 | 拒绝条件 |
@@ -80,8 +76,6 @@ flowchart LR
 | 初始化 | loopback、一次性 setup token、JSON、Fetch Metadata | token 缺失/复用、跨站表单、非法 Host |
 | Launcher 控制 | loopback 直连与进程级 control token | 无凭据 shutdown、代理转发来源 |
 | 插件代码 | 用户检查来源、目标平台、artifact 摘要和权限后确认 | 未确认安装、非法包路径、摘要不一致、未声明权限 |
-| 发布更新 | 编译内置仓库与公钥、Ed25519、摘要、重放防护 | 可修改 metadata 改信任根、过期、降级、同版换包 |
-| Windows 安装 | 发布信任校验与正式 Authenticode 均通过 | 自签名、signer 不符、任一 PE 验签失败 |
 
 第三方插件是完全可信的本地代码。Permission 是平台 API 的访问控制，不是 OS 安全沙盒。
 
@@ -102,7 +96,6 @@ flowchart LR
 | Scheduler | revision、到期检查和插件事件触发 | 直接发送聊天消息 |
 | Render Service | 模板校验、Chromium、artifact、资源摘要和缓存 | 插件自建并行截图链路 |
 | Launcher | 本机进程、预检、更新检查和安装确认 | 在线业务状态或 Web 页面复制 |
-| External updater | 复验、备份、staging、swap、postflight、rollback | 从可修改文件读取信任根 |
 
 ## 数据与资源
 
@@ -117,7 +110,6 @@ flowchart LR
 | `cache/` | 各自归属 | 可重建缓存，不影响正确性 |
 | `logs/` | Logging | 结构化日志、spool 与诊断输出 |
 | `.deps/` | Deps service | Chromium 与 FFmpeg / FFprobe 受控资源 |
-| updater transaction directory | External updater | journal、offline backup、旧版与 staging |
 
 ## 部署边界
 

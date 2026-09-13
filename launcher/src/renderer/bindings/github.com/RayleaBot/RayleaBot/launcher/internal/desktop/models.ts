@@ -139,13 +139,7 @@ export interface ReleaseCheckSnapshot {
     "errorCode": string;
     "releasePageUrl": string;
     "updateAvailable": boolean;
-    "downloadProgress": number | null;
-    "downloadedBytes": number | null;
-    "totalBytes": number | null;
-    "artifactFileName": string;
     "canCheck": boolean;
-    "canDownload": boolean;
-    "canInstall": boolean;
 }
 
 export enum ReleaseCheckStatus {
@@ -159,13 +153,7 @@ export enum ReleaseCheckStatus {
     ReleaseChecking = "checking",
     ReleaseUpToDate = "up_to_date",
     ReleaseUpdateAvailable = "update_available",
-    ReleaseDownloading = "downloading",
-    ReleaseReadyToInstall = "ready_to_install",
-    ReleaseInstalling = "installing",
-    ReleaseSucceeded = "succeeded",
     ReleaseFailed = "failed",
-    ReleaseRolledBack = "rolled_back",
-    ReleaseRollbackFailed = "rollback_failed",
 };
 
 export interface RuntimePrepareResourceProgress {

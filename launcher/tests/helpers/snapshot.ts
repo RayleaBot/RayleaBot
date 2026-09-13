@@ -34,13 +34,7 @@ export function createLauncherSnapshot(overrides: DeepPartial<LauncherSnapshot> 
         errorCode: "",
         releasePageUrl: "",
         updateAvailable: false,
-        downloadProgress: null,
-        downloadedBytes: null,
-        totalBytes: null,
-        artifactFileName: "",
         canCheck: false,
-        canDownload: false,
-        canInstall: false,
         ...overrides.launcher?.releaseCheck,
       },
       settings: {

@@ -1,25 +1,21 @@
 # Delivery and Upgrade
 
-本页说明 RayleaBot 的正式发行物、发布信任、升级事务和回滚边界。字段与限制以 [`contracts/release-manifest.schema.json`](../../contracts/release-manifest.schema.json) 为准。
+本页说明 RayleaBot 的正式发行物、版本检查和手动更新方式。字段与限制以 [`contracts/release-manifest.schema.json`](../../contracts/release-manifest.schema.json) 为准。
 
 ## 正式产物矩阵
 
 | `artifact_id` | 产物 | 支持级别 | 更新方式 |
 | --- | --- | --- | --- |
-| `windows-x64-full` | Windows 桌面完整包 | `first_class` | 满足全部签名门槛时 `automatic`；未配置签名且产物未签名时 `guided` |
+| `windows-x64-full` | Windows 桌面完整包 | `first_class` | `guided` |
 | `linux-x64-full` | Linux 桌面完整包 | `first_class` | `guided` |
 | `macos-arm64-full` | macOS Apple Silicon 桌面完整包 | `first_class` | `guided` |
 | `linux-x64-server` | Linux 服务端包 | `first_class` | `guided` 或 `manual` |
-
-`automatic` 表示用户确认后的事务式安装，不表示静默下载或静默安装。未配置 Windows 签名身份且三个必需程序均未签名时，`windows-x64-full` 发布为 `guided`。配置了签名身份，或接收到预签名产物后，签名操作失败、验证失败、必需程序签名缺失或签名者不一致都会使本次构建失败；不会自动改为 `guided` 后继续发布。
-
-根目录的 `RayleaLauncher.exe`、`raylea-server.exe` 和 `raylea-updater.exe` 必须匹配 manifest 中的发布者证书摘要。其他 PE 仍需通过 Authenticode 信任校验，可以保留依赖发布者的证书；整个产物的字节完整性同时受已签名 manifest 的归档摘要约束。
 
 ## 发布包目录
 
 发行包根目录按产物形态包含：
 
-- server 二进制与 Launcher 桌面入口；Windows 完整包另含事务安装使用的 `raylea-updater.exe`；
+- server 二进制与 Launcher 桌面入口；
 - `web/dist` 与核心 `templates/`；
 - `.deps/manifest.json`（用户配置由服务端内嵌默认值初始化）；
 - `build_info.json`；
@@ -37,101 +33,33 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 
 依赖许可证未知或缺失时，发布必须失败。运行时配置和插件 schema 内置于 server；源码仓库中的 `contracts/` 仍是正式来源。
 
-## 发布信任元数据
+## 发布元数据
 
-每次正式 Release 同时发布：
+每次正式 Release 发布各平台 artifact 和 `release_manifest.v2.json`，随包附带 `build_info.json`。字段以发布契约为准：
 
-- `release_manifest.v2.json`；
-- `release_manifest.v2.sig.json`；
-- 各平台 artifact。
+- 发布清单记录版本、提交、构建与发布时间、channel、配置/数据库/插件格式版本、产物列表和发布页地址。
+- 每个产物记录平台、文件名、大小、文件数、支持级别、smoke profile 和 `guided` / `manual` 更新方式。
+- `build_info.json` 记录当前安装版本、提交、产物标识、构建时间和插件格式版本。
 
-### Manifest v2
+## 更新检查
 
-Manifest 固定包含版本、提交、构建时间、channel、发布时间、过期时间、更新协议版本、配置/数据库/插件协议版本、`plugin_manifest_version=3`、`plugin_ui_bridge_version=3` 和 artifact 列表。每个 artifact 至少声明：
-
-- 唯一 `artifact_id`、平台和 basename 文件名；
-- SHA-256、归档大小、展开大小和文件数；
-- `update_mode` 与最小 updater 协议版本；
-- 支持级别、`.deps/manifest.json` 摘要和 smoke profile；
-- Windows 自动安装所需的 signer 证书 SHA-256 摘要。
-
-归档上限为 2 GiB，展开上限为 8 GiB，文件上限为 100,000，压缩比上限为 100:1。
-
-### Ed25519 signature envelope
-
-签名 envelope 固定使用 Ed25519，记录原始 manifest 的 SHA-256、主 `key_id` 和一至两个签名。双签 envelope 用于新旧公钥轮换。
-
-更新仓库地址和受信 Ed25519 公钥注册表编译进更新核心；可修改的 `build_info.json` 不能改变仓库或信任根。更新器保存已见最高版本和 manifest digest，拒绝：
-
-- 签名或摘要不匹配；
-- manifest 过期；
-- 版本降级或旧 manifest 重放；
-- 同版本对应不同 manifest digest；
-- artifact 的平台、版本、协议、文件名、大小或摘要不一致。
-
-过期 manifest 只允许走手动更新。首个可信更新基线必须手动安装，无法验证 v2 元数据的客户端不能进入自动安装链路。
-
-核心更新的 Ed25519 公钥注册表由 `RAYLEA_RELEASE_TRUSTED_KEYS` 注入，用于验证 `release_manifest.v2.json`。正式 Server 构建要求该注册表非空，并支持至多两个公钥并行轮换。插件目录使用 HTTPS、持久化最后成功缓存和资产归档 SHA-256，不参与核心更新签名体系。
-
-## 更新检查与用户确认
-
-Launcher 后台每 6 小时检查一次更新，只展示可用版本和发布说明。用户确认后才允许下载、停服、备份、替换或回滚。
-
-Web 通过 `GET /api/update/status` 查看状态，通过 `POST /api/update/check` 主动检查；Web 不执行安装。CLI 提供：
+Launcher 每 6 小时检查发布版本，发现新版本后提供发布页入口。Web 使用 `GET /api/update/status` 查看状态，使用 `POST /api/update/check` 主动检查。CLI 提供：
 
 ```text
 raylea-server version --json
 raylea-server update check --json
-raylea-server update verify --manifest <path> --signature <path> --artifact <path>
 ```
 
-## Windows 自动安装门槛
+版本检查通过 HTTPS 读取发布清单，比较当前版本并返回发布页地址。当前安装缺少有效 `build_info.json` 时，Launcher 提供项目发布页入口。
 
-`windows-x64-full` 只有同时满足以下条件才可标记为 `automatic`：
+## 手动更新
 
-- manifest v2 与 Ed25519 signature envelope 验证通过；
-- artifact SHA-256、大小、平台、版本和 updater 协议验证通过；
-- Launcher、server 与 updater 全部通过 Authenticode；
-- signer 与 manifest 中的证书摘要一致；
-- release job 通过标准 Windows certificate-store 接口使用本机或云签名证书，签名算法为 SHA-256，并带 RFC3161 timestamp；
-- release job 的 `signtool verify /pa /all` 和 packaged E2E 通过。
+1. 从发布页下载对应平台的包。
+2. 停止服务，并使用 `backup` 保存配置、数据库和插件数据。
+3. 解压新版到独立目录，按[恢复说明](../user/recovery.md)将备份恢复到新目录。
+4. 运行 doctor 并启动服务，检查健康状态、配置和插件。
 
-自签名证书不能满足正式门槛。任一条件失败时，发布清单必须使用 `guided`，Launcher 不显示安装按钮。
-
-## 事务式安装
-
-外置 `raylea-updater.exe` 位于安装根之外，并在执行前重新完成签名、摘要、平台、版本、归档结构和磁盘空间检查。下载使用 partial 文件与原子 rename；metadata 请求超时 10 秒，下载空闲超时 30 秒，总时限 30 分钟。
-
-用户确认后执行：
-
-1. 记录升级前服务状态并停止原服务。
-2. 运行正式 offline backup，并把备份复制到安装根之外的事务目录。
-3. 在同卷 staging 解包，拒绝路径穿越、reparse point、大小写冲突和额外根目录。
-4. 使用新 server 执行 restore、doctor 和 preflight。
-5. 以双 rename 交换旧安装根和 staging。
-6. 启动新 Launcher 并执行 postflight。
-7. 原服务运行时验证 `healthz`、`readyz`；原服务停止时验证 Launcher heartbeat、build info 和文件版本。
-8. postflight 成功后提交事务；失败时停止新版、恢复旧安装根和旧状态，并按升级前状态启动旧版。
-
-事务保留：
-
-- `config/user.yaml`；
-- `data/**`；
-- `plugins/installed/**`。
-
-本版恢复使用 backup manifest v3，配置与数据库格式固定为当前 `4` / `000001`，插件合同固定为 protocol v3、manifest v3、artifact v2 和 management bridge v3。归档配置、SQLite 快照、插件包与业务数据共同恢复；操作与验证见[恢复说明](../user/recovery.md)。
-
-`cache/` 和 `logs/` 不参与恢复，也不能阻止安装。回滚失败进入 `rollback_failed` 并禁止自动启动。旧版本与 offline backup 至少保留 7 天，并至少保留到下一次成功升级。
-
-## Guided update
-
-Linux、macOS、server 包以及未满足 Windows 自动安装门槛的发行物使用 `guided`：
-
-1. 使用受信更新入口检查并验证 manifest、signature envelope 和 artifact。
-2. 停止服务并生成 offline backup。
-3. 按平台说明替换程序文件，同时保留用户配置、数据和已安装插件。
-4. 运行 doctor、兼容检查和健康检查。
-5. 失败时使用升级前包与 offline backup 恢复。
+保留旧安装目录和备份，直到确认新版运行正常。备份与恢复支持的格式和操作步骤见[恢复说明](../user/recovery.md)。
 
 GitHub 自动生成的源代码压缩包不是正式运行时产物。
 

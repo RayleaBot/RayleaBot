@@ -17,7 +17,6 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/logpath"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/runtimepaths"
-	"github.com/RayleaBot/RayleaBot/server/internal/releaseupdate"
 )
 
 type Command struct {
@@ -27,7 +26,6 @@ type Command struct {
 	Logger           *slog.Logger
 	Args             []string // additional positional arguments after the subcommand name
 	Stdout           io.Writer
-	UpdateVerifier   *releaseupdate.Verifier
 	UpdateHTTPClient *http.Client
 	Now              func() time.Time
 }

@@ -62,17 +62,13 @@ func main() {
 		_ = os.Setenv("FRONTEND_DEVSERVER_URL", devServerURL)
 	}
 	basePath := desktop.DiscoverBasePath()
-	heartbeat, heartbeatEnvironmentPresent := desktop.ConsumeUpdateHeartbeatEnvironment()
-	if !heartbeatEnvironmentPresent && desktop.LaunchInterruptedUpdateRecovery(basePath, os.Getpid()) {
-		return
-	}
 	assetFS, err := fs.Sub(frontend.Assets, "dist")
 	if err != nil {
 		log.Fatal(err)
 	}
 	icon := launcherIcon()
 	host := &appHost{}
-	service := desktop.NewService(basePath, consumeEnvironment("RAYLEA_LAUNCHER_CONTROL_TOKEN"), consumePIDEnvironment("RAYLEA_DEV_SERVER_WATCHER_PID"), heartbeat, host)
+	service := desktop.NewService(basePath, consumeEnvironment("RAYLEA_LAUNCHER_CONTROL_TOKEN"), consumePIDEnvironment("RAYLEA_DEV_SERVER_WATCHER_PID"), host)
 	app := application.New(application.Options{
 		Name:        "RayleaLauncher",
 		Description: "RayleaBot 桌面启动器",

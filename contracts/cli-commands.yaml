@@ -22,7 +22,6 @@ x-fixtures:
   - fixtures/cli/ok.version-json.yaml
   - fixtures/cli/edge.version-output-failed.yaml
   - fixtures/cli/ok.update-check-json.yaml
-  - fixtures/cli/ok.update-verify.yaml
   - fixtures/cli/ok.plugin-dev-sync.yaml
   - fixtures/cli/invalid.plugin-dev-sync-online.yaml
   - fixtures/cli/ok.config-init.yaml
@@ -150,7 +149,7 @@ commands:
 
   version:
     name: version
-    summary: 输出当前构建版本与更新协议版本。
+    summary: 输出当前构建版本、提交与产物标识。
     availability:
       online: true
       offline: true
@@ -171,7 +170,7 @@ commands:
 
   update:
     name: update
-    summary: 检查或离线验证受信任更新包。
+    summary: 检查可用版本并提供发布页。
     availability:
       online: true
       offline: true
@@ -181,7 +180,7 @@ commands:
     subcommands:
       check:
         name: check
-        summary: 获取并验证签名发布清单，不下载或安装更新。
+        summary: 读取发布版本信息，不下载或安装更新。
         availability:
           online: true
           offline: false
@@ -193,33 +192,9 @@ commands:
             const: true
         exit_codes:
           0: 检查完成
-          1: 网络、契约或信任校验失败
+          1: 网络或发布信息格式校验失败
         x-fixtures:
           - fixtures/cli/ok.update-check-json.yaml
-      verify:
-        name: verify
-        summary: 离线验证发布清单、签名 envelope 与 artifact。
-        availability:
-          online: true
-          offline: true
-        options:
-          manifest:
-            flag: --manifest
-            type: path
-            required: true
-          signature:
-            flag: --signature
-            type: path
-            required: true
-          artifact:
-            flag: --artifact
-            type: path
-            required: true
-        exit_codes:
-          0: 契约、签名和 artifact 校验通过
-          1: 任一校验失败
-        x-fixtures:
-          - fixtures/cli/ok.update-verify.yaml
 
   reset-admin:
     name: reset-admin

@@ -659,105 +659,24 @@ codes:
     retryable: false
     applies_to: [plugin_protocol, logs]
 
-  release.trust_required:
-    code: release.trust_required
-    domain: release
-    message_key: errors.release.trust_required
-    message: 当前安装不具备自动更新信任基线
-    description: The installed version predates the signed updater trust baseline and must be upgraded manually.
-    http_status: 409
-    retryable: false
-    applies_to: [http, task, cli]
 
   release.manifest_invalid:
     code: release.manifest_invalid
     domain: release
     message_key: errors.release.manifest_invalid
     message: 发布清单无效
-    description: The release manifest or signature envelope does not satisfy the v2 contract.
+    description: The release metadata could not be fetched or does not satisfy the release contract.
     http_status: 502
     retryable: false
     applies_to: [http, task, cli]
 
-  release.signature_invalid:
-    code: release.signature_invalid
-    domain: release
-    message_key: errors.release.signature_invalid
-    message: 发布签名验证失败
-    description: No trusted Ed25519 key produced a valid signature for the exact release manifest bytes.
-    http_status: 502
-    retryable: false
-    applies_to: [http, task, cli]
 
-  release.manifest_expired:
-    code: release.manifest_expired
-    domain: release
-    message_key: errors.release.manifest_expired
-    message: 发布清单已过期
-    description: The signed release manifest is outside its validity window; only manual update guidance is permitted.
-    http_status: 409
-    retryable: true
-    applies_to: [http, task, cli]
 
-  release.replay_rejected:
-    code: release.replay_rejected
-    domain: release
-    message_key: errors.release.replay_rejected
-    message: 已拒绝旧版或被替换的发布清单
-    description: The manifest attempts a downgrade, replays an older observation, or changes the digest for an already observed version.
-    http_status: 409
-    retryable: false
-    applies_to: [http, task, cli]
 
-  release.artifact_invalid:
-    code: release.artifact_invalid
-    domain: release
-    message_key: errors.release.artifact_invalid
-    message: 更新包完整性或签名验证失败
-    description: Artifact hash, size, platform, version, file inventory, or required Windows signer validation failed.
-    http_status: 502
-    retryable: false
-    applies_to: [http, task, cli]
 
-  release.update_not_supported:
-    code: release.update_not_supported
-    domain: release
-    message_key: errors.release.update_not_supported
-    message: 当前平台仅支持引导更新
-    description: The selected artifact or current platform does not permit automatic installation.
-    http_status: 409
-    retryable: false
-    applies_to: [http, task, cli]
 
-  release.disk_space_insufficient:
-    code: release.disk_space_insufficient
-    domain: release
-    message_key: errors.release.disk_space_insufficient
-    message: 磁盘空间不足
-    description: The updater cannot reserve enough space for the artifact handoff, staging tree, offline backup, and restored user state.
-    http_status: 507
-    retryable: true
-    applies_to: [http, task, cli]
 
-  release.install_failed:
-    code: release.install_failed
-    domain: release
-    message_key: errors.release.install_failed
-    message: 更新安装失败
-    description: A transactional update failed and rollback was started or completed.
-    http_status: 500
-    retryable: true
-    applies_to: [http, task, cli]
 
-  release.rollback_failed:
-    code: release.rollback_failed
-    domain: release
-    message_key: errors.release.rollback_failed
-    message: 更新回滚失败
-    description: The updater could not restore the previous installation and automatic restart is disabled.
-    http_status: 500
-    retryable: false
-    applies_to: [http, task, cli]
 
   adapter.message_quota_exceeded:
     code: adapter.message_quota_exceeded

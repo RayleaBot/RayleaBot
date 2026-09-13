@@ -22,14 +22,12 @@ type UpdateHandlers struct {
 }
 
 type updateStatusResponse struct {
-	State                     string     `json:"state"`
-	Phase                     string     `json:"phase,omitempty"`
-	CurrentVersion            string     `json:"current_version"`
-	AvailableVersion          string     `json:"available_version,omitempty"`
-	CheckedAt                 *time.Time `json:"checked_at"`
-	UpdateMode                string     `json:"update_mode"`
-	AutomaticInstallSupported bool       `json:"automatic_install_supported"`
-	ReleaseNotesRef           string     `json:"release_notes_ref,omitempty"`
+	State            string     `json:"state"`
+	CurrentVersion   string     `json:"current_version"`
+	AvailableVersion string     `json:"available_version,omitempty"`
+	CheckedAt        *time.Time `json:"checked_at"`
+	UpdateMode       string     `json:"update_mode"`
+	ReleaseNotesRef  string     `json:"release_notes_ref,omitempty"`
 }
 
 func NewUpdateHandlers(service UpdateService) (*UpdateHandlers, error) {
@@ -71,13 +69,11 @@ func (h *UpdateHandlers) HandleCheck() http.HandlerFunc {
 
 func responseFromUpdateSnapshot(snapshot releaseupdate.StatusSnapshot) updateStatusResponse {
 	return updateStatusResponse{
-		State:                     snapshot.State,
-		Phase:                     string(snapshot.Phase),
-		CurrentVersion:            snapshot.CurrentVersion,
-		AvailableVersion:          snapshot.AvailableVersion,
-		CheckedAt:                 snapshot.CheckedAt,
-		UpdateMode:                snapshot.UpdateMode,
-		AutomaticInstallSupported: snapshot.AutomaticInstallSupported,
-		ReleaseNotesRef:           snapshot.ReleaseNotesRef,
+		State:            snapshot.State,
+		CurrentVersion:   snapshot.CurrentVersion,
+		AvailableVersion: snapshot.AvailableVersion,
+		CheckedAt:        snapshot.CheckedAt,
+		UpdateMode:       snapshot.UpdateMode,
+		ReleaseNotesRef:  snapshot.ReleaseNotesRef,
 	}
 }

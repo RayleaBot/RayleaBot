@@ -1,16 +1,13 @@
 import json
-import hashlib
-import base64
+import jsonschema
 import io
 import shutil
-import subprocess
 import sys
 import tarfile
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "release"))
@@ -19,134 +16,6 @@ import release_tool
 
 
 class ReleaseToolTests(unittest.TestCase):
-    def archive_with_deps(self, root: Path, artifact_id: str, payload: bytes):
-        definition = release_tool.ARTIFACT_MATRIX[artifact_id]
-        archive = root / f"RayleaBot-v0.4.0-{artifact_id}{definition['extension']}"
-        entries = {"release/.deps/manifest.json": payload, "release/raylea-server": b"core"}
-        if definition["archive_type"] == "zip":
-            with zipfile.ZipFile(archive, "w") as bundle:
-                for name, content in entries.items():
-                    bundle.writestr(name, content)
-        else:
-            with tarfile.open(archive, "w:gz") as bundle:
-                for name, content in entries.items():
-                    member = tarfile.TarInfo(name)
-                    member.size = len(content)
-                    bundle.addfile(member, io.BytesIO(content))
-        return release_tool.ArtifactSidecar(
-            artifact_id=artifact_id, archive_path=archive, file_name=archive.name,
-            platform=definition["platform"], support_level=definition["support_level"],
-            smoke_profile=definition["smoke_profile"], expanded_size_bytes=sum(map(len, entries.values())),
-            file_count=len(entries), update_mode="guided", windows_signer_sha256=None,
-        )
-
-    def metadata_for(self, root: Path, sidecars):
-        return release_tool.build_release_metadata(
-            version="0.4.0", git_commit="abcdef1", built_at="2026-09-10T00:00:00Z",
-            config_schema_version="4", db_schema_version="000001", plugin_protocol_version="3",
-            release_notes_ref="https://example.invalid/releases/v0.4.0",
-            sidecars=sidecars, output_dir=root / "metadata",
-        )
-
-    def test_metadata_hashes_each_archives_raw_deps_bytes(self) -> None:
-        lf = b'{\n  "manifest_version": 5,\n  "resources": []\n}\n'
-        crlf = lf.replace(b"\n", b"\r\n")
-        self.assertEqual(json.loads(lf), json.loads(crlf))
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            sidecars = [self.archive_with_deps(root, "linux-x64-server", lf),
-                        self.archive_with_deps(root, "windows-x64-full", crlf)]
-            manifest, checksums = self.metadata_for(root, sidecars)
-            hashes = {entry["artifact_id"]: entry["deps_manifest_sha256"]
-                      for entry in json.loads(manifest.read_text())["artifacts"]}
-            self.assertEqual(hashes["linux-x64-server"], hashlib.sha256(lf).hexdigest())
-            self.assertEqual(hashes["windows-x64-full"], hashlib.sha256(crlf).hexdigest())
-            self.assertNotEqual(hashes["linux-x64-server"], hashes["windows-x64-full"])
-            release_tool.verify_release_bundle(manifest, checksums, root)
-
-    @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
-    def test_valid_signature_cannot_hide_wrong_packaged_deps_digest(self) -> None:
-        lf = b'{\n"manifest_version":5,"resources":[]\n}\n'
-        crlf = lf.replace(b"\n", b"\r\n")
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            sidecar = self.archive_with_deps(root, "windows-x64-full", crlf)
-            manifest, checksums = self.metadata_for(root, [sidecar])
-            data = json.loads(manifest.read_text())
-            data["artifacts"][0]["deps_manifest_sha256"] = hashlib.sha256(lf).hexdigest()
-            manifest.write_text(json.dumps(data), encoding="utf-8")
-            checksums.write_text(
-                f"{release_tool.sha256_file(sidecar.archive_path)}  {sidecar.file_name}\n"
-                f"{release_tool.sha256_file(manifest)}  {manifest.name}\n", encoding="utf-8")
-            key, public_key = root / "test.pem", root / "test.pub.pem"
-            subprocess.run(["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(key)],
-                           check=True, capture_output=True)
-            signature = root / "signature.json"
-            release_tool.sign_release_manifest(manifest, signature, [("fixture-only", key)])
-            signed = json.loads(signature.read_text())
-            self.assertEqual(signed["manifest_sha256"], release_tool.sha256_file(manifest))
-            raw_signature = root / "signature.bin"
-            raw_signature.write_bytes(base64.urlsafe_b64decode(signed["signatures"][0]["signature"]))
-            subprocess.run(["openssl", "pkey", "-in", str(key), "-pubout", "-out", str(public_key)],
-                           check=True, capture_output=True)
-            subprocess.run(["openssl", "pkeyutl", "-verify", "-rawin", "-pubin", "-inkey", str(public_key),
-                            "-in", str(manifest), "-sigfile", str(raw_signature)], check=True, capture_output=True)
-            with self.assertRaisesRegex(SystemExit, "packaged deps manifest sha256 mismatch"):
-                release_tool.verify_release_bundle(manifest, checksums, root)
-
-    def test_packaged_deps_read_preserves_shared_archive_boundaries(self) -> None:
-        for artifact_id in ("windows-x64-full", "linux-x64-server"):
-            with self.subTest(artifact_id=artifact_id), tempfile.TemporaryDirectory() as tmp:
-                root = Path(tmp)
-                sidecar = self.archive_with_deps(root, artifact_id, b"{}")
-                with mock.patch("archive_io.MAX_FILE_BYTES", 1), self.assertRaisesRegex(ValueError, "size limit"):
-                    release_tool.packaged_deps_manifest_sha256(sidecar.archive_path)
-                if artifact_id == "windows-x64-full":
-                    with zipfile.ZipFile(sidecar.archive_path, "a") as bundle:
-                        bundle.writestr("another-root/file", b"x")
-                else:
-                    with tarfile.open(sidecar.archive_path, "w:gz") as bundle:
-                        member = tarfile.TarInfo("release/.deps/manifest.json")
-                        member.type = tarfile.SYMTYPE
-                        member.linkname = "../../outside.json"
-                        bundle.addfile(member)
-                with self.assertRaises(ValueError):
-                    release_tool.packaged_deps_manifest_sha256(sidecar.archive_path)
-
-    @unittest.skipUnless(shutil.which("openssl"), "OpenSSL is required")
-    def test_sign_release_manifest_emits_exact_dual_signed_ed25519_envelope(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            private_key = root / "release.pem"
-            next_private_key = root / "release-next.pem"
-            manifest = root / "release_manifest.v2.json"
-            signature = root / "release_manifest.v2.sig.json"
-            manifest.write_bytes(b'{"manifest_version":2}\n')
-            subprocess.run(
-                ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(private_key)],
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(next_private_key)],
-                check=True,
-                capture_output=True,
-            )
-
-            release_tool.sign_release_manifest(
-                manifest,
-                signature,
-                [("release-2026", private_key), ("release-2027", next_private_key)],
-            )
-
-            envelope = json.loads(signature.read_text(encoding="utf-8"))
-            self.assertEqual("ed25519", envelope["algorithm"])
-            self.assertEqual("release-2026", envelope["key_id"])
-            self.assertEqual(hashlib.sha256(manifest.read_bytes()).hexdigest(), envelope["manifest_sha256"])
-            self.assertEqual(["release-2026", "release-2027"], [item["key_id"] for item in envelope["signatures"]])
-            for item in envelope["signatures"]:
-                self.assertEqual(64, len(base64.urlsafe_b64decode(item["signature"])))
-
     def test_windows_launcher_bundle_requires_runtime_guide(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             bundle = Path(tmp)
@@ -157,7 +26,7 @@ class ReleaseToolTests(unittest.TestCase):
 
         self.assertIn("WINDOWS-RUNTIME.md", str(ctx.exception))
 
-    def test_package_metadata_and_verify_windows_bundle(self) -> None:
+    def test_package_windows_bundle_and_unsigned_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             temp = Path(tmp)
             server_bin = temp / "raylea-server.exe"
@@ -165,13 +34,11 @@ class ReleaseToolTests(unittest.TestCase):
             web_dist = temp / "web-dist"
             deps = temp / ".deps"
             templates = temp / "templates"
-            updater_bin = temp / "raylea-updater.exe"
             license_file = temp / "LICENSE"
             notices_file = temp / "THIRD_PARTY_NOTICES.md"
             output = temp / "out"
 
             server_bin.write_text("server", encoding="utf-8")
-            updater_bin.write_text("updater", encoding="utf-8")
             license_file.write_text("AGPL", encoding="utf-8")
             notices_file.write_text("notices", encoding="utf-8")
             (launcher_bundle / "RayleaLauncher.exe").parent.mkdir(parents=True, exist_ok=True)
@@ -209,7 +76,6 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref="https://example.invalid/releases/v0.1.0",
-                updater_bin=updater_bin,
                 license_file=license_file,
                 third_party_notices=notices_file,
             )
@@ -223,7 +89,7 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/build_info.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/RayleaLauncher.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/WINDOWS-RUNTIME.md", names)
-            self.assertIn("RayleaBot-v0.1.0-windows-x64-full/raylea-updater.exe", names)
+            self.assertNotIn("RayleaBot-v0.1.0-windows-x64-full/raylea-updater.exe", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/LICENSE", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/THIRD_PARTY_NOTICES.md", names)
             self.assertFalse(any("app.asar" in name or "/launcher/" in name for name in names))
@@ -249,7 +115,6 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/templates/status.panel/template.json", names)
             self.assertIn("RayleaBot-v0.1.0-windows-x64-full/web/dist/index.html", names)
             self.assertEqual("https://example.invalid/releases/v0.1.0", build_info["release_notes_ref"])
-            self.assertEqual(2, build_info["update_protocol_version"])
             self.assertEqual("3", build_info["plugin_manifest_version"])
             self.assertEqual("3", build_info["plugin_ui_bridge_version"])
 
@@ -261,7 +126,7 @@ class ReleaseToolTests(unittest.TestCase):
             loaded_sidecar = release_tool.load_sidecar(relocated / sidecar_path.name)
             self.assertEqual(relocated / archive_path.name, loaded_sidecar.archive_path)
 
-            manifest_path, checksums_path = release_tool.build_release_metadata(
+            manifest_path = release_tool.build_release_metadata(
                 version="0.1.0",
                 git_commit="abcdef1",
                 built_at="2026-03-24T10:00:00Z",
@@ -274,7 +139,9 @@ class ReleaseToolTests(unittest.TestCase):
             )
 
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            checksums = release_tool.parse_checksums(checksums_path)
+            schema = json.loads((ROOT / "contracts/release-manifest.schema.json").read_text(encoding="utf-8"))
+            jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker()).validate(manifest)
+            jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker()).validate(build_info)
             self.assertEqual(manifest["artifacts"][0]["artifact_id"], "windows-x64-full")
             self.assertEqual(manifest["artifacts"][0]["smoke_profile"], "windows_full_smoke")
             self.assertEqual(2, manifest["manifest_version"])
@@ -282,10 +149,10 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertEqual("3", manifest["plugin_manifest_version"])
             self.assertEqual("3", manifest["plugin_ui_bridge_version"])
             self.assertEqual("guided", manifest["artifacts"][0]["update_mode"])
-            self.assertIn("release_manifest.v2.json", checksums_path.read_text(encoding="utf-8"))
-            self.assertEqual(release_tool.sha256_file(manifest_path), checksums["release_manifest.v2.json"])
+            self.assertNotIn("sha256", manifest["artifacts"][0])
+            self.assertFalse((manifest_path.parent / "release_manifest.v2.sig.json").exists())
+            self.assertFalse((manifest_path.parent / "SHA256SUMS.txt").exists())
 
-            release_tool.verify_release_bundle(manifest_path, checksums_path, output)
 
     def test_launcher_bundle_rejects_development_sources(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -341,7 +208,6 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref=None,
-                updater_bin=None,
                 license_file=license_file,
                 third_party_notices=notices_file,
             )
@@ -398,7 +264,6 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=launcher_bundle,
                 systemd_file=None,
                 release_notes_ref=None,
-                updater_bin=None,
                 license_file=license_file,
                 third_party_notices=notices_file,
             )
@@ -451,7 +316,6 @@ class ReleaseToolTests(unittest.TestCase):
                 launcher_bundle=None,
                 systemd_file=systemd_file,
                 release_notes_ref=None,
-                updater_bin=None,
                 license_file=license_file,
                 third_party_notices=notices_file,
             )

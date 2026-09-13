@@ -16,15 +16,13 @@ type CheckProvider interface {
 }
 
 type StatusSnapshot struct {
-	State                     string     `json:"state"`
-	Phase                     Phase      `json:"phase,omitempty"`
-	CurrentVersion            string     `json:"current_version"`
-	AvailableVersion          string     `json:"available_version,omitempty"`
-	CheckedAt                 *time.Time `json:"checked_at"`
-	UpdateMode                string     `json:"update_mode"`
-	AutomaticInstallSupported bool       `json:"automatic_install_supported"`
-	ReleaseNotesRef           string     `json:"release_notes_ref,omitempty"`
-	ErrorCode                 string     `json:"-"`
+	State            string     `json:"state"`
+	CurrentVersion   string     `json:"current_version"`
+	AvailableVersion string     `json:"available_version,omitempty"`
+	CheckedAt        *time.Time `json:"checked_at"`
+	UpdateMode       string     `json:"update_mode"`
+	ReleaseNotesRef  string     `json:"release_notes_ref,omitempty"`
+	ErrorCode        string     `json:"-"`
 }
 
 type Service struct {
@@ -43,7 +41,7 @@ func NewService(installRoot string, checker CheckProvider, currentVersion string
 	if checker == nil {
 		state = "disabled"
 		mode = "unavailable"
-		errorCode = CodeTrustRequired
+		errorCode = CodeManifestInvalid
 	}
 	if currentVersion == "" {
 		currentVersion = "unknown"
@@ -72,13 +70,9 @@ func InstalledVersion(installRoot string) string {
 	return "unknown"
 }
 
-func NewEmbeddedService(installRoot string) *Service {
+func NewDefaultService(installRoot string) *Service {
 	currentVersion := InstalledVersion(installRoot)
-	verifier, err := NewEmbeddedVerifier()
-	if err != nil {
-		return NewService(installRoot, nil, currentVersion)
-	}
-	return NewService(installRoot, NewChecker(verifier), currentVersion)
+	return NewService(installRoot, NewChecker(), currentVersion)
 }
 
 func (s *Service) Status() StatusSnapshot {
@@ -92,7 +86,7 @@ func (s *Service) Check(ctx context.Context) (StatusSnapshot, error) {
 	if s.checker == nil {
 		snapshot := cloneStatusSnapshot(s.snapshot)
 		s.mu.Unlock()
-		return snapshot, errorWithCode(CodeTrustRequired, "check update", errors.New("no trusted release public key is compiled into this binary"))
+		return snapshot, errorWithCode(CodeManifestInvalid, "check update", errors.New("update checking is unavailable"))
 	}
 	if s.checking {
 		snapshot := cloneStatusSnapshot(s.snapshot)
@@ -101,7 +95,6 @@ func (s *Service) Check(ctx context.Context) (StatusSnapshot, error) {
 	}
 	s.checking = true
 	s.snapshot.State = "checking"
-	s.snapshot.Phase = PhaseMetadata
 	s.snapshot.ErrorCode = ""
 	s.mu.Unlock()
 
@@ -110,11 +103,9 @@ func (s *Service) Check(ctx context.Context) (StatusSnapshot, error) {
 	s.mu.Lock()
 	s.checking = false
 	s.snapshot.CheckedAt = &checkedAt
-	s.snapshot.Phase = ""
 	if err != nil {
 		s.snapshot.State = "failed"
 		s.snapshot.UpdateMode = "unavailable"
-		s.snapshot.AutomaticInstallSupported = false
 		s.snapshot.ErrorCode = CodeOf(err)
 		if s.snapshot.ErrorCode == "" {
 			s.snapshot.ErrorCode = CodeManifestInvalid
@@ -127,7 +118,6 @@ func (s *Service) Check(ctx context.Context) (StatusSnapshot, error) {
 	s.snapshot.CurrentVersion = result.CurrentVersion
 	s.snapshot.AvailableVersion = result.AvailableVersion
 	s.snapshot.UpdateMode = result.UpdateMode
-	s.snapshot.AutomaticInstallSupported = result.AutomaticAllowed
 	s.snapshot.ReleaseNotesRef = result.ReleasePageURL
 	s.snapshot.ErrorCode = ""
 	snapshot := cloneStatusSnapshot(s.snapshot)

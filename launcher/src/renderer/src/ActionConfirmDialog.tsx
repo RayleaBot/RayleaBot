@@ -8,9 +8,9 @@ import {
   DialogSurface,
   DialogTitle,
 } from "@fluentui/react-components";
-import { ArrowSync20Regular, Delete20Regular, Stop20Regular } from "@fluentui/react-icons";
+import { Delete20Regular, Stop20Regular } from "@fluentui/react-icons";
 
-export type ConfirmedLauncherAction = "install-update" | "reset-admin" | "stop-external";
+export type ConfirmedLauncherAction = "reset-admin" | "stop-external";
 
 type ActionConfirmDialogProps = {
   action: ConfirmedLauncherAction | null;
@@ -19,13 +19,6 @@ type ActionConfirmDialogProps = {
 };
 
 const actionCopy = {
-  "install-update": {
-    title: "安装更新",
-    lead: "确认重启并安装已验证的更新？",
-    detail: "Launcher 将先停止服务并创建离线备份，再执行原子替换。启动后检查失败时会自动恢复上一版本。",
-    confirm: "确认安装",
-    icon: <ArrowSync20Regular />,
-  },
   "reset-admin": {
     title: "重置管理员凭据",
     lead: "确认清除本地管理员凭据和现有会话？",
@@ -53,7 +46,7 @@ export const ActionConfirmDialog = React.memo(function ActionConfirmDialog({
   onCancel,
   onConfirm,
 }: ActionConfirmDialogProps) {
-  const copy = action ? actionCopy[action] : actionCopy["install-update"];
+  const copy = action ? actionCopy[action] : actionCopy["reset-admin"];
   return (
     <Dialog
       open={action !== null}

@@ -13,7 +13,7 @@ func (fn checkProviderFunc) Check(ctx context.Context, root string) (CheckResult
 	return fn(ctx, root)
 }
 
-func TestUpdateServicePublishesTrustedCheckState(t *testing.T) {
+func TestUpdateServicePublishesCheckState(t *testing.T) {
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	service := NewService("C:/RayleaBot", checkProviderFunc(func(_ context.Context, root string) (CheckResult, error) {
 		if root != "C:/RayleaBot" {
@@ -61,12 +61,12 @@ func TestUpdateServiceRejectsConcurrentChecks(t *testing.T) {
 	}
 }
 
-func TestUpdateServiceFailsClosedWithoutTrustBaseline(t *testing.T) {
+func TestUpdateServiceReportsUnavailableChecker(t *testing.T) {
 	service := NewService("root", nil, "1.0.0")
-	if status := service.Status(); status.State != "disabled" || status.UpdateMode != "unavailable" || status.ErrorCode != CodeTrustRequired {
+	if status := service.Status(); status.State != "disabled" || status.UpdateMode != "unavailable" || status.ErrorCode != CodeManifestInvalid {
 		t.Fatalf("unexpected disabled status: %#v", status)
 	}
-	if _, err := service.Check(context.Background()); CodeOf(err) != CodeTrustRequired {
+	if _, err := service.Check(context.Background()); CodeOf(err) != CodeManifestInvalid {
 		t.Fatalf("disabled check should fail closed, got %v", err)
 	}
 }

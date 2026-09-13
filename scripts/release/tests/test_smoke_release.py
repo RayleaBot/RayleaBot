@@ -28,7 +28,7 @@ class SmokeReleaseTests(unittest.TestCase):
             self.assertIn("WINDOWS-RUNTIME.md", entries)
             self.assertNotIn("launcher/RayleaLauncher.exe", entries)
             self.assertNotIn("launcher/resources/app.asar", entries)
-            self.assertIn("raylea-updater.exe", entries)
+            self.assertNotIn("raylea-updater.exe", entries)
             self.assertIn("LICENSE", entries)
             self.assertIn("THIRD_PARTY_NOTICES.md", entries)
             self.assertNotIn("contracts/config.user.schema.json", entries)

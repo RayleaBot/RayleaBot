@@ -2,37 +2,26 @@ import { Button, MessageBar, MessageBarBody, MessageBarTitle } from "@fluentui/r
 import { ArrowClockwise20Regular, Open20Regular } from "@fluentui/react-icons";
 import type { LauncherSnapshot } from "@shared/launcher-models";
 
-import { formatByteCount, formatReleaseVersion } from "./AppShell.shared";
+import { formatReleaseVersion } from "./AppShell.shared";
 import { RayleaMark } from "./RayleaMark";
 
 type AppShellAboutSectionProps = {
   snapshot: LauncherSnapshot;
   controlsDisabled: boolean;
   onCheckForUpdates: () => void;
-  onDownloadUpdate: () => void;
-  onInstallDownloadedUpdate: () => void;
   onOpenReleasePage: () => void;
   onOpenRepositoryPage: () => void;
 };
 
-function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseCheck"], progressLabel: string) {
+function buildVersionHint(releaseCheck: LauncherSnapshot["launcher"]["releaseCheck"]) {
   const latestVersion = releaseCheck.latestVersion.trim();
   switch (releaseCheck.status) {
     case "checking":
       return "正在检查更新";
     case "update_available":
       return latestVersion ? `有新版本 ${latestVersion}` : "有新版本";
-    case "downloading":
-      return progressLabel ? `下载中 ${progressLabel}` : "正在下载更新";
-    case "ready_to_install":
-      return latestVersion ? `已验证 ${latestVersion}` : "更新已准备安装";
-    case "installing":
-      return "正在安装更新";
     case "failed":
-    case "rollback_failed":
       return releaseCheck.summary || releaseCheck.errorCode || releaseCheck.detail || "更新检查没有返回错误信息";
-    case "rolled_back":
-      return "新版启动失败，已恢复上一版本";
     default:
       return "";
   }
@@ -42,64 +31,18 @@ export function AppShellAboutSection({
   snapshot,
   controlsDisabled,
   onCheckForUpdates,
-  onDownloadUpdate,
-  onInstallDownloadedUpdate,
   onOpenReleasePage,
   onOpenRepositoryPage,
 }: AppShellAboutSectionProps) {
   const releaseCheck = snapshot.launcher.releaseCheck;
   const currentVersion = formatReleaseVersion(releaseCheck.currentVersion);
-  const progressLabel =
-    releaseCheck.downloadedBytes && releaseCheck.totalBytes
-      ? `${formatByteCount(releaseCheck.downloadedBytes)} / ${formatByteCount(releaseCheck.totalBytes)}`
-      : "";
-  const versionHint = buildVersionHint(releaseCheck, progressLabel);
-  const guidedRelease = Boolean(releaseCheck.releasePageUrl)
-    && !releaseCheck.canDownload
-    && !releaseCheck.canInstall
-    && (
-      releaseCheck.updateAvailable
-      || (releaseCheck.status === "disabled" && !releaseCheck.canCheck)
-    );
-  const updateButtonLabel =
-    guidedRelease
-      ? "打开发布页"
-      : releaseCheck.status === "ready_to_install"
-      ? "确认安装"
-      : releaseCheck.status === "downloading"
-        ? "下载中"
-        : releaseCheck.status === "checking"
-          ? "检查中"
-          : releaseCheck.status === "installing"
-            ? "安装中"
-            : releaseCheck.canDownload
-              ? "下载更新"
-              : "检查更新";
-  const updateDisabled =
-    controlsDisabled
-    || releaseCheck.status === "checking"
-    || releaseCheck.status === "downloading"
-    || releaseCheck.status === "installing"
-    || (!guidedRelease && !releaseCheck.canCheck && !releaseCheck.canDownload && !releaseCheck.canInstall);
-  const updateInProgress = releaseCheck.status === "checking"
-    || releaseCheck.status === "downloading"
-    || releaseCheck.status === "installing";
-  const showUpdateAction = releaseCheck.canCheck
-    || releaseCheck.canDownload
-    || releaseCheck.canInstall
-    || guidedRelease
-    || updateInProgress;
-  const showUpdateError = Boolean(releaseCheck.errorCode)
-    || releaseCheck.status === "failed"
-    || releaseCheck.status === "rollback_failed";
-  const onUpdateAction =
-    guidedRelease
-      ? onOpenReleasePage
-      : releaseCheck.canInstall
-      ? onInstallDownloadedUpdate
-      : releaseCheck.canDownload
-        ? onDownloadUpdate
-        : onCheckForUpdates;
+  const versionHint = buildVersionHint(releaseCheck);
+  const guidedRelease = Boolean(releaseCheck.releasePageUrl) && (releaseCheck.updateAvailable || !releaseCheck.canCheck);
+  const updateButtonLabel = guidedRelease ? "打开发布页" : releaseCheck.status === "checking" ? "检查中" : "检查更新";
+  const updateDisabled = controlsDisabled || releaseCheck.status === "checking" || (!guidedRelease && !releaseCheck.canCheck);
+  const showUpdateAction = releaseCheck.canCheck || guidedRelease || releaseCheck.status === "checking";
+  const showUpdateError = Boolean(releaseCheck.errorCode) || releaseCheck.status === "failed";
+  const onUpdateAction = guidedRelease ? onOpenReleasePage : onCheckForUpdates;
 
   return (
     <article className="about-workspace">
@@ -115,8 +58,7 @@ export function AppShellAboutSection({
           <div className="about-panel__actions">
             {showUpdateAction ? (
               <Button
-                appearance={releaseCheck.canInstall ? "primary" : "secondary"}
-                className={releaseCheck.canInstall ? "attention-button" : undefined}
+                appearance="secondary"
                 icon={guidedRelease ? <Open20Regular /> : <ArrowClockwise20Regular />}
                 disabled={updateDisabled}
                 onClick={onUpdateAction}

@@ -401,54 +401,9 @@ export const errorCatalog = {
     "httpStatus": 401,
     "retryable": false
   },
-  "release.artifact_invalid": {
-    "messageKey": "errors.release.artifact_invalid",
-    "httpStatus": 502,
-    "retryable": false
-  },
-  "release.disk_space_insufficient": {
-    "messageKey": "errors.release.disk_space_insufficient",
-    "httpStatus": 507,
-    "retryable": true
-  },
-  "release.install_failed": {
-    "messageKey": "errors.release.install_failed",
-    "httpStatus": 500,
-    "retryable": true
-  },
-  "release.manifest_expired": {
-    "messageKey": "errors.release.manifest_expired",
-    "httpStatus": 409,
-    "retryable": true
-  },
   "release.manifest_invalid": {
     "messageKey": "errors.release.manifest_invalid",
     "httpStatus": 502,
-    "retryable": false
-  },
-  "release.replay_rejected": {
-    "messageKey": "errors.release.replay_rejected",
-    "httpStatus": 409,
-    "retryable": false
-  },
-  "release.rollback_failed": {
-    "messageKey": "errors.release.rollback_failed",
-    "httpStatus": 500,
-    "retryable": false
-  },
-  "release.signature_invalid": {
-    "messageKey": "errors.release.signature_invalid",
-    "httpStatus": 502,
-    "retryable": false
-  },
-  "release.trust_required": {
-    "messageKey": "errors.release.trust_required",
-    "httpStatus": 409,
-    "retryable": false
-  },
-  "release.update_not_supported": {
-    "messageKey": "errors.release.update_not_supported",
-    "httpStatus": 409,
     "retryable": false
   }
 } as const
@@ -543,15 +498,6 @@ export const errorMessages = {
     "webhook_timestamp_skew": "插件 Webhook 请求时间戳超出容忍窗口"
   },
   "release": {
-    "artifact_invalid": "更新包完整性或签名验证失败",
-    "disk_space_insufficient": "磁盘空间不足",
-    "install_failed": "更新安装失败",
-    "manifest_expired": "发布清单已过期",
-    "manifest_invalid": "发布清单无效",
-    "replay_rejected": "已拒绝旧版或被替换的发布清单",
-    "rollback_failed": "更新回滚失败",
-    "signature_invalid": "发布签名验证失败",
-    "trust_required": "当前安装不具备自动更新信任基线",
-    "update_not_supported": "当前平台仅支持引导更新"
+    "manifest_invalid": "发布清单无效"
   }
 } as const

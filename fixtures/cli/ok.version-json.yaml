@@ -10,4 +10,3 @@ expect:
     version: 0.3.0
     git_commit: a8ee7bb
     artifact_id: windows-x64-full
-    update_protocol_version: 2

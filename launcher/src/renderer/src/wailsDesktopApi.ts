@@ -73,8 +73,6 @@ export function createWailsDesktopApi(): LauncherDesktopApi {
     stop: () => desktop.Stop(),
     resetAdmin: () => desktop.ResetAdmin(),
     checkForUpdates: () => desktop.CheckForUpdates(),
-    downloadUpdate: () => desktop.DownloadUpdate(),
-    installDownloadedUpdate: () => desktop.InstallDownloadedUpdate(),
     openWebUi: (targetPath = "") => desktop.OpenWebUI(targetPath),
     openReleasePage: () => desktop.OpenReleasePage(),
     openRepositoryPage: () => desktop.OpenRepositoryPage(),

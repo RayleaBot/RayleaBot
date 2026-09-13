@@ -74,8 +74,6 @@ export const busyActionLabels: Record<string, string> = {
   save: "正在保存设置",
   "open-web": "正在打开管理界面",
   "check-updates": "正在检查更新",
-  "download-update": "正在下载更新",
-  "install-update": "正在安装更新",
   "open-repository-page": "正在打开 GitHub",
   "open-release-page": "正在打开版本页面",
   "open-logs": "正在打开日志目录",

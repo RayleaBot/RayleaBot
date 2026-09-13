@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: RayleaBot Web API
-  version: 0.3.0
+  version: 0.4.0
   description: >
     Fixture-ready HTTP contract. This file intentionally contains only
     the currently frozen management routes.
@@ -2226,14 +2226,14 @@ paths:
 
   /api/update/status:
     get:
-      summary: Query the shared release trust and update state without starting installation.
+      summary: Query the shared release version check state.
       operationId: getUpdateStatus
       security:
         - BearerAuth: []
         - CookieAuth: []
       responses:
         '200':
-          description: Current update state and latest trusted release observation.
+          description: Current update state and latest release version observation.
           content:
             application/json:
               schema:
@@ -2247,7 +2247,7 @@ paths:
 
   /api/update/check:
     post:
-      summary: Check the compiled release repository for a trusted v2 manifest; never download or install an artifact.
+      summary: Read release metadata from the configured repository and report available versions and the release page.
       operationId: checkForUpdate
       security:
         - BearerAuth: []
@@ -2255,7 +2255,7 @@ paths:
           CSRFAuth: []
       responses:
         '200':
-          description: Completed trusted update check.
+          description: Completed release version check.
           content:
             application/json:
               schema:
@@ -4859,21 +4859,15 @@ components:
 
     UpdateState:
       type: string
-      enum: [disabled, idle, checking, up_to_date, update_available, downloading, ready_to_install, installing, succeeded, failed, rolled_back, rollback_failed]
-
-    UpdatePhase:
-      type: string
-      enum: [metadata, artifact, backup, extract, preflight, stop, swap, postflight, commit, rollback]
+      enum: [disabled, idle, checking, up_to_date, update_available, failed]
 
     UpdateStatusResponse:
       type: object
       additionalProperties: false
-      required: [state, current_version, checked_at, update_mode, automatic_install_supported]
+      required: [state, current_version, checked_at, update_mode]
       properties:
         state:
           $ref: '#/components/schemas/UpdateState'
-        phase:
-          $ref: '#/components/schemas/UpdatePhase'
         current_version:
           type: string
         available_version:
@@ -4883,9 +4877,7 @@ components:
           format: date-time
         update_mode:
           type: string
-          enum: [automatic, guided, manual, unavailable]
-        automatic_install_supported:
-          type: boolean
+          enum: [guided, manual, unavailable]
         release_notes_ref:
           type: string
           format: uri

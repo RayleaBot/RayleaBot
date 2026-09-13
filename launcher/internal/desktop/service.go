@@ -25,21 +25,16 @@ type ServiceHost interface {
 type Service struct {
 	mu sync.Mutex
 
-	coordinator   *Coordinator
-	host          ServiceHost
-	basePath      string
-	heartbeat     *UpdateHeartbeatRequest
-	heartbeatOnce sync.Once
-	closePending  bool
-	exiting       bool
+	coordinator  *Coordinator
+	host         ServiceHost
+	closePending bool
+	exiting      bool
 }
 
-func NewService(basePath, initialControlToken string, watcherPID int, heartbeat *UpdateHeartbeatRequest, host ServiceHost) *Service {
+func NewService(basePath, initialControlToken string, watcherPID int, host ServiceHost) *Service {
 	basePath = filepath.Clean(basePath)
 	return &Service{
 		host:        host,
-		basePath:    basePath,
-		heartbeat:   heartbeat,
 		coordinator: NewCoordinator(basePath, initialControlToken, watcherPID, host),
 	}
 }
@@ -84,7 +79,6 @@ func (s *Service) Initialize() error {
 	if err := coordinator.Initialize(); err != nil {
 		return err
 	}
-	s.heartbeatOnce.Do(func() { CompleteUpdateHeartbeat(s.basePath, s.heartbeat, coordinator) })
 	return nil
 }
 
@@ -126,29 +120,6 @@ func (s *Service) CheckForUpdates() error {
 		return err
 	}
 	coordinator.CheckForUpdates()
-	return nil
-}
-
-func (s *Service) DownloadUpdate() error {
-	coordinator, _, err := s.dependencies()
-	if err != nil {
-		return err
-	}
-	coordinator.DownloadUpdate()
-	return nil
-}
-
-func (s *Service) InstallDownloadedUpdate() error {
-	coordinator, _, err := s.dependencies()
-	if err != nil {
-		return err
-	}
-	if err := coordinator.InstallDownloadedUpdate(); err != nil {
-		return err
-	}
-	if coordinator.Snapshot().Launcher.ReleaseCheck.Status == "installing" {
-		s.requestExit()
-	}
 	return nil
 }
 

@@ -10,5 +10,4 @@ const (
 	BackupManifestVersion = "3"
 	ConfigSchemaVersion   = "4"
 	DepsManifestVersion   = 5
-	UpdateProtocolVersion = 2
 )

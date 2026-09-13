@@ -6,10 +6,6 @@
 
 | 风险 | 控制 |
 | --- | --- |
-| 发布元数据伪造、过期或重放 | 固定仓库与 Ed25519 公钥、双签轮换、过期时间、最高版本和同版本 digest 记录 |
-| Windows artifact 被替换或 signer 不符 | manifest 摘要与 Authenticode 双重校验，正式证书和 RFC3161 timestamp |
-| 安装中断、磁盘不足或新版不可用 | 外置 updater、磁盘预检、journal、同卷 staging、双 rename、postflight 与自动回滚 |
-| 回滚状态不可读 | offline backup、旧安装根保留、旧版 restore/doctor 和 `rollback_failed` 停机保护 |
 | 插件包伪造、篡改或宿主能力扩大 | manifest/artifact 校验、商店归档摘要、实际文件扫描、平台/二进制格式检查、权限展示、必要的可信代码确认和归档资源上限 |
 | 插件直接网络、文件或子进程行为 | 安装和更新前明确提示完全可信本地代码；当前没有插件 OS 强沙盒，只启用来源与代码均可信的版本 |
 | Chromium、FFmpeg、SQLite、聊天适配器或原生插件进程故障 | readiness、diagnostics、结构化错误、恢复摘要和受控重试 |
@@ -27,20 +23,11 @@
 
 插件验收以 manifest v3、JSONL protocol v3、artifact v2 和 bridge v3 为准。负向用例必须拒绝不符合这些契约的输入、错误平台、篡改摘要、错误二进制、缺失 UI 资源和非单根目录 ZIP。正式包检查必须确认不存在插件源码、源码 SDK、`node_modules` 与托管语言运行时。
 
-## 更新安全验收
+## 更新检查与恢复验收
 
-更新核心必须拒绝：错误 key、错误签名、过期或重放 manifest、降级、同版本不同摘要、artifact hash/size/platform/version/signer 不匹配、路径穿越、reparse point、大小写冲突、额外根目录、zip bomb、磁盘不足和超时。
+更新检查覆盖版本比较、平台产物选择、网络失败、无效元数据及发布页地址校验。
 
-事务恢复测试必须覆盖每个 journal phase、helper 启动失败、停止服务失败、健康检查失败、回滚成功和回滚失败。恢复验收使用本版生成的 backup manifest v3，核对 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；清单、配置或数据库结构版本不符时拒绝恢复。无法启动的插件保持禁用并给出人工处理建议，插件持久化数据保持完整。
-
-Windows packaged E2E 必须使用正式签名证书覆盖：
-
-- 服务运行时的真实 N→N+1；
-- 服务停止时的真实 N→N+1；
-- 强制 postflight 失败后的旧版与旧状态恢复；
-- Launcher、server、updater 的 `signtool verify /pa /all`。
-
-正式 Authenticode 证书与真实签名 packaged E2E 是 Phase 3 的阻塞门槛。证书可用前，`windows-x64-full` 保持 `guided`，不能用自签名证书替代验收。
+恢复验收使用本版生成的 backup manifest v3，核对 `config/user.yaml`、`data/**` 和 `plugins/installed/**`；清单、配置或数据库结构版本不符时拒绝恢复。无法启动的插件保持禁用并给出人工处理建议，插件持久化数据保持完整。
 
 ## 产品验收
 

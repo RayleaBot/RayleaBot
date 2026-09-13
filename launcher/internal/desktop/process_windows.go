@@ -19,10 +19,6 @@ func configureChildProcess(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000}
 }
 
-func configureDetachedProcess(command *exec.Cmd) {
-	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000 | 0x00000008 | 0x00000200}
-}
-
 func superviseProcess(process *os.Process) (func(), error) {
 	if process == nil {
 		return nil, errors.New("服务进程不可用")

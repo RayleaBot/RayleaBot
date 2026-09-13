@@ -1,7 +1,6 @@
 import sys
 import argparse
 from contextlib import redirect_stdout
-import hashlib
 import io
 import json
 import subprocess
@@ -48,7 +47,7 @@ class ValidationEvidenceTests(unittest.TestCase):
         return argparse.Namespace(artifact_id="linux-x64-server", version="0.1.0", git_commit="abcdef1",
                                   observation_window_seconds="300", window_seconds="600", probe_interval_seconds="30")
 
-    def test_real_child_output_status_and_archive_digest_are_retained(self):
+    def test_real_child_output_status_and_archive_identity_are_retained(self):
         with tempfile.TemporaryDirectory() as temporary, redirect_stdout(io.StringIO()):
             root = Path(temporary)
             archive = root / "release.tar.gz"
@@ -58,7 +57,7 @@ class ValidationEvidenceTests(unittest.TestCase):
                 evidence.run("self-host-smoke", [sys.executable, "-c", "import sys; print('stdout marker'); print('stderr marker', file=sys.stderr)"])
             result = json.loads((root / "evidence/validation.json").read_text())
             self.assertEqual(result["status"], "passed")
-            self.assertEqual(result["archive"]["sha256"], hashlib.sha256(archive.read_bytes()).hexdigest())
+            self.assertEqual(result["archive"], {"file_name": archive.name, "size_bytes": archive.stat().st_size})
             self.assertEqual(result["checks"][0]["exit_code"], 0)
             self.assertGreaterEqual(result["checks"][0]["elapsed_seconds"], 0)
             log = (root / "evidence/self-host-smoke.log").read_text()

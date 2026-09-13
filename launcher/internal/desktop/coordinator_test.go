@@ -526,19 +526,3 @@ func TestStartupTimeoutKeepsRunningProcessVisibleWhenTerminationFails(t *testing
 		t.Fatalf("timeout snapshot = %#v, want managed process to remain visible", snapshot.Launcher)
 	}
 }
-
-func TestFailedUpdateReportsUnavailableServiceRecovery(t *testing.T) {
-	root := t.TempDir()
-	coordinator := NewCoordinator(root, "", 0, nil)
-	coordinator.settings = LauncherSettings{InstallationRoot: root, CloseBehavior: CloseAskEveryTime}
-	coordinator.initialized = true
-	installErr := errors.New("update helper unavailable")
-
-	err := coordinator.recoverServiceAfterUpdateFailure(installErr)
-	if !errors.Is(err, installErr) {
-		t.Fatalf("recoverServiceAfterUpdateFailure() error = %v, want wrapped install error", err)
-	}
-	if !strings.Contains(err.Error(), "更新助手启动失败，且原服务恢复失败") {
-		t.Fatalf("recoverServiceAfterUpdateFailure() error = %q, want combined recovery failure", err)
-	}
-}
