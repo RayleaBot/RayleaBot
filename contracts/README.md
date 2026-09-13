@@ -103,6 +103,7 @@
   - `event.actor.id` 与 `event.target.id` 属于 `source_protocol` 的身份命名空间，并限定于接收事件的 bot 身份；不能作为跨协议、跨 bot 的全局关联键。`init.super_admins` 固定为 `admin.super_admins` 的 OneBot11 QQ 账号列表，不授予 QQ 官方 openid 管理权限。
 - `release-manifest.schema.json`
   - `release_manifest.v2.json` 与 `build_info.json` 的正式字段结构
+  - 发布脚本按 schema 严格生成与校验；读取端忽略未知字段，只校验实际使用的字段，插件格式版本仅供展示
 - `cli-commands.yaml`
   - `config init / normalize / validate`、`reset-admin`、`backup`、`restore <backup-path>`、`doctor`、`cleanup`、`plugin dev-sync`、`version --json`、`update check --json` 的正式命令模型
 

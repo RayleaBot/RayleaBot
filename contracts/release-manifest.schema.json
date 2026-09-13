@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://rayleabot.local/contracts/release-manifest.schema.json",
   "title": "RayleaBot Release Metadata",
-  "description": "Release version information for update notices and packaged build_info.json.",
+  "description": "Release version information for update notices and packaged build_info.json. Release tooling generates and validates metadata strictly against this schema. Readers ignore unknown fields and validate only the fields they use; release metadata is not a security boundary.",
   "oneOf": [
     {
       "$ref": "#/$defs/releaseManifestV2"
@@ -81,7 +81,7 @@
             "guided",
             "manual"
           ],
-          "description": "Open the release page for a manual update."
+          "description": "Informational update method. Update checks pass it through unchanged and do not branch on it."
         },
         "support_level": {
           "type": "string",
@@ -153,13 +153,16 @@
           "minLength": 1
         },
         "plugin_protocol_version": {
-          "const": "3"
+          "const": "3",
+          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "plugin_manifest_version": {
-          "const": "3"
+          "const": "3",
+          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "plugin_ui_bridge_version": {
-          "const": "3"
+          "const": "3",
+          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "onebot_matrix": {
           "type": "object",
@@ -225,10 +228,12 @@
           "format": "date-time"
         },
         "plugin_manifest_version": {
-          "const": "3"
+          "const": "3",
+          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "plugin_ui_bridge_version": {
-          "const": "3"
+          "const": "3",
+          "description": "Informational only. Readers do not compare it; plugin compatibility is stated in release notes."
         },
         "release_notes_ref": {
           "type": "string",
@@ -262,7 +267,7 @@
     }
   },
   "x-runtime-constraints": [
-    "artifact ids and platforms must match the release matrix"
+    "release tooling validates generated metadata against this schema and the release matrix; readers use only version, release_notes_ref and the artifact matching build_info.json"
   ],
   "x-fixtures": [
     "fixtures/release-manifest/ok.release-manifest-minimal.json",

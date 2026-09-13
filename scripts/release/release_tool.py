@@ -19,6 +19,9 @@ from release_content import FORBIDDEN_DIRECTORY_NAMES, find_forbidden_paths, is_
 from contract_versions_generated import PLUGIN_MANIFEST_VERSION, PLUGIN_UI_BRIDGE_VERSION
 
 
+RELEASE_METADATA_SCHEMA = Path(__file__).resolve().parents[2] / "contracts" / "release-manifest.schema.json"
+
+
 @dataclass(frozen=True)
 class ArtifactSidecar:
     artifact_id: str
@@ -263,6 +266,14 @@ def load_sidecar(path: Path) -> ArtifactSidecar:
     )
 
 
+def validate_release_metadata(document: dict) -> None:
+    # Only metadata generation needs jsonschema; packaging runs without it.
+    import jsonschema
+
+    schema = json.loads(RELEASE_METADATA_SCHEMA.read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator(schema, format_checker=jsonschema.FormatChecker()).validate(document)
+
+
 def build_release_metadata(
     version: str,
     git_commit: str,
@@ -322,6 +333,7 @@ def build_release_metadata(
         "artifacts": artifacts,
         "release_notes_ref": release_notes_ref,
     }
+    validate_release_metadata(release_manifest)
     manifest_path = output_dir / "release_manifest.v2.json"
     manifest_path.write_text(json.dumps(release_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return manifest_path

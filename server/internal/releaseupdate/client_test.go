@@ -36,7 +36,7 @@ func writeFile(t *testing.T, path string, data []byte) {
 	}
 }
 func testBuildInfo(version string) BuildInfo {
-	return BuildInfo{Version: version, GitCommit: "abcdef1", ArtifactID: ArtifactWindowsX64Full, BuiltAt: "2026-09-10T00:00:00Z", PluginManifestVersion: PluginManifestVersion, PluginUIBridgeVersion: PluginUIBridgeVersion}
+	return BuildInfo{Version: version, GitCommit: "abcdef1", ArtifactID: ArtifactWindowsX64Full}
 }
 func marshalBuildInfo(t *testing.T, info BuildInfo) []byte {
 	t.Helper()
@@ -45,6 +45,11 @@ func marshalBuildInfo(t *testing.T, info BuildInfo) []byte {
 		t.Fatal(err)
 	}
 	return data
+}
+func manifestClient(data []byte) *http.Client {
+	return &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(data)), Header: make(http.Header)}, nil
+	})}
 }
 func TestCheckReadsUnsignedMetadataWithoutDownloadingOrPersisting(t *testing.T) {
 	for _, version := range []string{"0.0.1", "99.0.0"} {
@@ -84,21 +89,53 @@ func TestCheckReadsUnsignedMetadataWithoutDownloadingOrPersisting(t *testing.T) 
 		})
 	}
 }
-func TestCheckRejectsMalformedMetadataAndUnsafeReleaseLinks(t *testing.T) {
+
+// A newer release may add fields, change plugin contract versions or list
+// artifacts this installation does not know; the check must still find it.
+func TestCheckIgnoresUnknownAndUnusedReleaseFields(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "build_info.json"), []byte(`{"version":"0.9.0","artifact_id":"windows-x64-full","plugin_manifest_version":"99","future_field":true}`))
+	data := []byte(`{
+		"version": "1.0.0",
+		"release_notes_ref": "https://example.com/releases/v1.0.0",
+		"plugin_manifest_version": "99",
+		"plugin_ui_bridge_version": "99",
+		"future_field": {"nested": true},
+		"artifacts": [
+			{"artifact_id": "future-artifact", "file_name": "future.pkg", "archive_size_bytes": 1, "update_mode": "future"},
+			{"artifact_id": "windows-x64-full", "file_name": "RayleaBot-v1.0.0-windows-x64-full.zip", "archive_size_bytes": 10, "update_mode": "guided", "future_field": 1}
+		]
+	}`)
+	checker := NewChecker()
+	checker.HTTPClient = manifestClient(data)
+	result, err := checker.Check(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "update_available" || result.AvailableVersion != "1.0.0" || result.Artifact.FileName != "RayleaBot-v1.0.0-windows-x64-full.zip" {
+		t.Fatalf("unexpected result: %#v", result)
+	}
+}
+
+func TestCheckRejectsMalformedMetadataAndUnsafeValues(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "build_info.json"), marshalBuildInfo(t, testBuildInfo("0.0.1")))
 	fixture := releaseFixture(t)
-	var manifest Manifest
-	if err := json.Unmarshal(fixture, &manifest); err != nil {
+	var unsafeLink Manifest
+	if err := json.Unmarshal(fixture, &unsafeLink); err != nil {
 		t.Fatal(err)
 	}
-	manifest.ReleaseNotesRef = "javascript:alert(1)"
-	unsafeData, _ := json.Marshal(manifest)
-	for _, data := range [][]byte{[]byte(`{`), unsafeData} {
+	unsafeLink.ReleaseNotesRef = "javascript:alert(1)"
+	unsafeLinkData, _ := json.Marshal(unsafeLink)
+	var unsafeFile Manifest
+	if err := json.Unmarshal(fixture, &unsafeFile); err != nil {
+		t.Fatal(err)
+	}
+	unsafeFile.Artifacts[0].FileName = "../RayleaBot.zip"
+	unsafeFileData, _ := json.Marshal(unsafeFile)
+	for _, data := range [][]byte{[]byte(`{`), unsafeLinkData, unsafeFileData} {
 		checker := NewChecker()
-		checker.HTTPClient = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(data)), Header: make(http.Header)}, nil
-		})}
+		checker.HTTPClient = manifestClient(data)
 		if _, err := checker.Check(context.Background(), root); CodeOf(err) != CodeManifestInvalid {
 			t.Fatalf("invalid metadata accepted: %v", err)
 		}

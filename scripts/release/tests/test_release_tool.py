@@ -154,6 +154,38 @@ class ReleaseToolTests(unittest.TestCase):
             self.assertFalse((manifest_path.parent / "SHA256SUMS.txt").exists())
 
 
+    def test_metadata_rejects_manifest_outside_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            temp = Path(tmp)
+            archive = temp / "RayleaBot-v0.1.0-windows-x64-full.zip"
+            archive.write_bytes(b"archive")
+            sidecar = release_tool.ArtifactSidecar(
+                artifact_id="windows-x64-full",
+                archive_path=archive,
+                file_name=archive.name,
+                platform="windows-x64",
+                support_level="first_class",
+                smoke_profile="windows_full_smoke",
+                expanded_size_bytes=1,
+                file_count=1,
+                update_mode="guided",
+            )
+
+            with self.assertRaises(jsonschema.ValidationError):
+                release_tool.build_release_metadata(
+                    version="0.1.0",
+                    git_commit="abcdef1",
+                    built_at="2026-03-24T10:00:00Z",
+                    config_schema_version="4",
+                    db_schema_version="000001",
+                    plugin_protocol_version="3",
+                    release_notes_ref="http://example.invalid/releases/v0.1.0",
+                    sidecars=[sidecar],
+                    output_dir=temp / "release",
+                )
+
+            self.assertFalse((temp / "release" / "release_manifest.v2.json").exists())
+
     def test_launcher_bundle_rejects_development_sources(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source_path = Path(tmp) / "src" / "main.go"

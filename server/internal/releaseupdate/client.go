@@ -14,14 +14,12 @@ import (
 type Checker struct {
 	HTTPClient  *http.Client
 	ManifestURL string
-	Channel     string
 }
 
 func NewChecker() *Checker {
 	return &Checker{
 		HTTPClient:  newSecureHTTPClient(10 * time.Second),
 		ManifestURL: ReleaseRepositoryURL + "/releases/latest/download/" + ManifestAssetName,
-		Channel:     "stable",
 	}
 }
 
@@ -67,30 +65,13 @@ func (c *Checker) Check(ctx context.Context, installRoot string) (CheckResult, e
 	if err != nil {
 		return CheckResult{}, errorWithCode(CodeManifestInvalid, "download release manifest", err)
 	}
-	var manifest Manifest
-	if err := decodeStrictJSON(manifestBytes, &manifest); err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "decode release metadata", err)
+	manifest, err := decodeManifest(manifestBytes)
+	if err != nil {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "read release metadata", err)
 	}
-	if err := validateManifest(manifest); err != nil {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "validate release metadata", err)
-	}
-	channel := c.Channel
-	if channel == "" {
-		channel = "stable"
-	}
-	if manifest.Channel != channel {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select release channel", fmt.Errorf("expected %s channel, received %s", channel, manifest.Channel))
-	}
-	var artifact Artifact
-	found := false
-	for _, candidate := range manifest.Artifacts {
-		if candidate.ArtifactID == buildInfo.ArtifactID {
-			artifact, found = candidate, true
-			break
-		}
-	}
-	if !found {
-		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select artifact", fmt.Errorf("release does not contain %s", buildInfo.ArtifactID))
+	artifact, err := selectArtifact(manifest, buildInfo.ArtifactID)
+	if err != nil {
+		return CheckResult{}, errorWithCode(CodeManifestInvalid, "select artifact", err)
 	}
 	comparison, err := compareSemanticVersions(manifest.Version, buildInfo.Version)
 	if err != nil {

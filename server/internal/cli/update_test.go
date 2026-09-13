@@ -24,12 +24,9 @@ func (fn cliRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, err
 func TestVersionJSONReadsPackagedBuildInfo(t *testing.T) {
 	root := t.TempDir()
 	writeCLIJSON(t, filepath.Join(root, "build_info.json"), releaseupdate.BuildInfo{
-		Version:               "1.2.3",
-		GitCommit:             "0123456789abcdef0123456789abcdef01234567",
-		ArtifactID:            "windows-x64-full",
-		BuiltAt:               "2026-07-10T00:00:00Z",
-		PluginManifestVersion: releaseupdate.PluginManifestVersion,
-		PluginUIBridgeVersion: releaseupdate.PluginUIBridgeVersion,
+		Version:    "1.2.3",
+		GitCommit:  "0123456789abcdef0123456789abcdef01234567",
+		ArtifactID: "windows-x64-full",
 	})
 	var stdout bytes.Buffer
 	code := Run(Command{
@@ -55,12 +52,9 @@ func TestUpdateCheckJSONUsesUnsignedMetadata(t *testing.T) {
 	root := t.TempDir()
 	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
 	writeCLIJSON(t, filepath.Join(root, "build_info.json"), releaseupdate.BuildInfo{
-		Version:               "1.0.0",
-		GitCommit:             "0123456789abcdef0123456789abcdef01234567",
-		ArtifactID:            "windows-x64-full",
-		BuiltAt:               now.Add(-24 * time.Hour).Format(time.RFC3339),
-		PluginManifestVersion: releaseupdate.PluginManifestVersion,
-		PluginUIBridgeVersion: releaseupdate.PluginUIBridgeVersion,
+		Version:    "1.0.0",
+		GitCommit:  "0123456789abcdef0123456789abcdef01234567",
+		ArtifactID: "windows-x64-full",
 	})
 	manifestBytes, err := os.ReadFile("../../../fixtures/release-manifest/ok.release-manifest-minimal.json")
 	if err != nil {

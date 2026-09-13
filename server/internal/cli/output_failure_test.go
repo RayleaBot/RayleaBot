@@ -19,8 +19,7 @@ func (failingCommandWriter) Write([]byte) (int, error) { return 0, errors.New("o
 func TestVersionReturnsFailureWhenJSONOutputCannotBeWritten(t *testing.T) {
 	root := t.TempDir()
 	writeCLIJSON(t, filepath.Join(root, "build_info.json"), releaseupdate.BuildInfo{
-		Version: "1.2.3", GitCommit: "0123456789abcdef0123456789abcdef01234567", ArtifactID: "windows-x64-full", BuiltAt: "2026-07-10T00:00:00Z",
-		PluginManifestVersion: releaseupdate.PluginManifestVersion, PluginUIBridgeVersion: releaseupdate.PluginUIBridgeVersion,
+		Version: "1.2.3", GitCommit: "0123456789abcdef0123456789abcdef01234567", ArtifactID: "windows-x64-full",
 	})
 	var logs bytes.Buffer
 	code := Run(Command{Name: "version", ConfigPath: filepath.Join(root, "config", "user.yaml"), Logger: slog.New(slog.NewJSONHandler(&logs, nil)), Args: []string{"--json"}, Stdout: failingCommandWriter{}})

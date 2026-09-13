@@ -41,6 +41,8 @@ Linux 完整包还包含 `LINUX-RUNTIME.md`。Launcher 依赖系统提供的 GTK
 - 每个产物记录平台、文件名、大小、文件数、支持级别、smoke profile 和 `guided` / `manual` 更新方式。
 - `build_info.json` 记录当前安装版本、提交、产物标识、构建时间和插件格式版本。
 
+发布脚本严格按契约生成并校验清单。Server 读取时忽略未知字段，只使用版本、发布页地址和当前产物的文件名、大小与更新方式；插件格式版本仅供展示，兼容性写在发布说明中。
+
 ## 更新检查
 
 Launcher 每 6 小时检查发布版本，发现新版本后提供发布页入口。Web 使用 `GET /api/update/status` 查看状态，使用 `POST /api/update/check` 主动检查。CLI 提供：
