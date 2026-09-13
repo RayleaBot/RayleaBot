@@ -256,9 +256,11 @@ commands:
       配置中的安全自定义相对数据库路径保留；绝对、盘符或 UNC 来源路径重定位到
       目标根内 data/rayleabot.db，并同步恢复后的配置。父级穿越、隐藏根目录、根目录文件以及
       config、plugins、logs、cache、backups、templates、web、.deps 下的相对数据库路径拒绝。
-      写入与恢复摘要采用同一文件事务；写入失败或取消会恢复原文件。
-      回滚失败时保留隔离工作目录中的原文件并明确报错；提交后清理失败也返回 1，
-      同时明确数据已经恢复。成功后 logs/recovery-summary.json 标记启动检查待完成。
+      写入前检查计划写入的配置、数据库及其 -wal/-shm/-journal、data/ 与 plugins/installed/
+      下的文件以及 logs/recovery-summary.json，任一已存在即拒绝且不写入；常规目标是未启动过的
+      新解压目录。写入失败或取消时只删除本次写入的文件与新建目录，不备份或还原已有文件，
+      删除未完成时明确报错；提交后清理失败也返回 1，同时明确数据已经恢复。
+      成功后 logs/recovery-summary.json 标记启动检查待完成。
     arguments:
       - name: backup_path
         type: path
@@ -273,6 +275,7 @@ commands:
     x-fixtures:
       - fixtures/cli/ok.restore.offline.yaml
       - fixtures/cli/invalid.restore.online.yaml
+      - fixtures/cli/invalid.restore.existing-target.yaml
       - fixtures/cli/edge.restore.exit-code-1.yaml
 
   doctor:

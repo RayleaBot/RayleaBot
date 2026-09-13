@@ -8,7 +8,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 
@@ -163,12 +162,11 @@ func TestRestoreRejectsUnsafeAndCollidingArchiveBeforeMutation(t *testing.T) {
 	} {
 		t.Run(entry.name, func(t *testing.T) {
 			root := t.TempDir()
-			original := seedRestoreTarget(t, root)
 			_, err := Restore(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: createRestoreFixture(t, restoredDatabaseEntry, entry)})
 			if err == nil {
 				t.Fatal("unsafe archive accepted")
 			}
-			assertRestoreOriginals(t, root, original)
+			assertRestoreTargetsAbsent(t, root)
 		})
 	}
 }
@@ -177,11 +175,10 @@ func TestRestoreRejectsUnsafeRelativeDatabaseBeforeMutation(t *testing.T) {
 	for _, relative := range []string{"../outside.db", "custom/../../outside.db", "config/other.yaml", "plugins/state.db", ".git/config", "state.db", ".hidden/state.db", "data/state.db:stream"} {
 		t.Run(relative, func(t *testing.T) {
 			root := t.TempDir()
-			original := seedRestoreTarget(t, root)
 			if _, err := Restore(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: createRestoreFixture(t, relative)}); err == nil {
 				t.Fatal("unsafe relative database accepted")
 			}
-			assertRestoreOriginals(t, root, original)
+			assertRestoreTargetsAbsent(t, root)
 		})
 	}
 }
@@ -202,11 +199,41 @@ func TestRestoreRejectsTargetSymlink(t *testing.T) {
 	}
 }
 
-func TestRestoreExtractionFailureAndCancellationLeaveTargetUntouched(t *testing.T) {
+func TestRestoreRejectsExistingTargetsWithoutWriting(t *testing.T) {
+	for _, existing := range []string{"config/user.yaml", "data/state.json", restoredDatabaseEntry, restoredDatabaseEntry + "-wal", RecoverySummaryPath} {
+		t.Run(existing, func(t *testing.T) {
+			root := t.TempDir()
+			target := filepath.Join(root, filepath.FromSlash(existing))
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(target, []byte("existing"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err := Restore(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: createRestoreFixture(t, restoredDatabaseEntry)})
+			var failure *RestoreError
+			if !errors.As(err, &failure) || failure.Stage != "target" {
+				t.Fatalf("existing %s accepted: %v", existing, err)
+			}
+			if got, err := os.ReadFile(target); err != nil || string(got) != "existing" {
+				t.Fatalf("existing %s changed: %q %v", existing, got, err)
+			}
+			for _, name := range restoreTargets {
+				if name == existing {
+					continue
+				}
+				if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(name))); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("restore wrote %s despite existing %s: %v", name, existing, err)
+				}
+			}
+		})
+	}
+}
+
+func TestRestoreExtractionFailureAndCancellationWriteNothing(t *testing.T) {
 	for _, cancelCopy := range []bool{false, true} {
 		t.Run(map[bool]string{false: "write failure", true: "cancellation"}[cancelCopy], func(t *testing.T) {
 			root := t.TempDir()
-			original := seedRestoreTarget(t, root)
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			injected := errors.New("copy failed")
@@ -223,16 +250,15 @@ func TestRestoreExtractionFailureAndCancellationLeaveTargetUntouched(t *testing.
 			if cancelCopy && !errors.Is(err, context.Canceled) || !cancelCopy && !errors.Is(err, injected) {
 				t.Fatalf("copy cause lost: %v", err)
 			}
-			assertRestoreOriginals(t, root, original)
+			assertRestoreTargetsAbsent(t, root)
 		})
 	}
 }
 
-func TestRestoreRollsBackAllWritesOnFailureOrCancellation(t *testing.T) {
+func TestRestoreRemovesWrittenFilesOnFailureOrCancellation(t *testing.T) {
 	for _, cancelCommit := range []bool{false, true} {
 		t.Run(map[bool]string{false: "rename failure", true: "cancellation"}[cancelCommit], func(t *testing.T) {
 			root := t.TempDir()
-			original := seedRestoreTarget(t, root)
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			injected := errors.New("commit failed")
@@ -252,38 +278,38 @@ func TestRestoreRollsBackAllWritesOnFailureOrCancellation(t *testing.T) {
 			if cancelCommit && !errors.Is(err, context.Canceled) || !cancelCommit && !errors.Is(err, injected) {
 				t.Fatalf("commit cause lost: %v", err)
 			}
-			assertRestoreOriginals(t, root, original)
-			if _, err := os.Stat(SummaryPath(root)); !errors.Is(err, os.ErrNotExist) {
-				t.Fatalf("failed restore published summary: %v", err)
-			}
+			assertRestoreTargetsAbsent(t, root)
 		})
 	}
 }
 
-func TestRestoreRollbackFailureRetainsOriginalFilesAndBothCauses(t *testing.T) {
+func TestRestoreRemovalFailureReportsBothCauses(t *testing.T) {
 	root := t.TempDir()
-	original := seedRestoreTarget(t, root)
-	primary, rollback := errors.New("commit failed"), errors.New("rollback failed")
-	_, err := restoreWithDeps(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: createRestoreFixture(t, restoredDatabaseEntry)}, restoreDeps{rename: func(root *os.Root, old, new string) error {
-		if strings.Contains(old, "incoming") && new == filepath.FromSlash("data/state.json") {
-			return primary
-		}
-		if strings.Contains(old, "previous") && new == filepath.FromSlash("config/user.yaml") {
-			return rollback
-		}
-		return root.Rename(old, new)
-	}})
+	primary, removal := errors.New("commit failed"), errors.New("remove failed")
+	_, err := restoreWithDeps(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: createRestoreFixture(t, restoredDatabaseEntry)}, restoreDeps{
+		rename: func(root *os.Root, old, new string) error {
+			if strings.Contains(old, "incoming") && new == filepath.FromSlash("data/state.json") {
+				return primary
+			}
+			return root.Rename(old, new)
+		},
+		remove: func(root *os.Root, name string) error {
+			if name == filepath.FromSlash("config/user.yaml") {
+				return removal
+			}
+			return root.Remove(name)
+		},
+	})
 	var failure *RestoreError
-	if !errors.Is(err, primary) || !errors.Is(err, rollback) || !errors.As(err, &failure) || failure.Stage != "rollback" || failure.RecoveryDirectory == "" {
-		t.Fatalf("rollback outcome = %v", err)
+	if !errors.Is(err, primary) || !errors.Is(err, removal) || !errors.As(err, &failure) || failure.Stage != "remove" {
+		t.Fatalf("removal outcome = %v", err)
 	}
-	payload, err := os.ReadFile(filepath.Join(failure.RecoveryDirectory, "previous", "config", "user.yaml"))
-	if err != nil || !bytes.Equal(payload, original["config/user.yaml"]) {
-		t.Fatalf("original config was not retained at its relative path: %q %v", payload, err)
+	if _, err := os.Stat(filepath.Join(root, "config", "user.yaml")); err != nil {
+		t.Fatalf("file that could not be removed disappeared: %v", err)
 	}
 }
 
-func TestRestoreCRCFailureDoesNotReplaceExistingFile(t *testing.T) {
+func TestRestoreCRCFailureWritesNothing(t *testing.T) {
 	archivePath := createRestoreFixture(t, restoredDatabaseEntry)
 	payload, err := os.ReadFile(archivePath)
 	if err != nil {
@@ -306,34 +332,27 @@ func TestRestoreCRCFailureDoesNotReplaceExistingFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	original := seedRestoreTarget(t, root)
 	if _, err := Restore(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: archivePath}); !errors.Is(err, zip.ErrChecksum) {
 		t.Fatalf("CRC failure = %v", err)
 	}
-	assertRestoreOriginals(t, root, original)
+	assertRestoreTargetsAbsent(t, root)
 }
 
-func TestRestoreDatabaseLockConflictLeavesTargetUntouched(t *testing.T) {
+func TestRestoreDatabaseLockConflictWritesNothing(t *testing.T) {
 	root := t.TempDir()
-	store, err := storage.Open(filepath.Join(root, restoredDatabaseEntry))
+	if err := os.MkdirAll(filepath.Join(root, "data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := filelock.Acquire(filepath.Join(root, filepath.FromSlash(restoredDatabaseEntry)+".lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Close() })
-	configPath := filepath.Join(root, "config", "user.yaml")
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(configPath, []byte("original config"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err = Restore(t.Context(), RestoreOptions{ConfigPath: configPath, ArchivePath: createRestoreFixture(t, restoredDatabaseEntry)})
+	t.Cleanup(func() { _ = lock.Close() })
+	_, err = Restore(t.Context(), RestoreOptions{ConfigPath: filepath.Join(root, "config", "user.yaml"), ArchivePath: createRestoreFixture(t, restoredDatabaseEntry)})
 	if !errors.Is(err, filelock.ErrLocked) {
 		t.Fatalf("database lock was ignored: %v", err)
 	}
-	if got, err := os.ReadFile(configPath); err != nil || string(got) != "original config" {
-		t.Fatalf("config changed before database admission: %q %v", got, err)
-	}
+	assertRestoreTargetsAbsent(t, root)
 }
 
 func TestRestoreCleanupFailureReportsCommittedFilesAndRetainsWorkspace(t *testing.T) {
@@ -352,32 +371,14 @@ func TestRestoreCleanupFailureReportsCommittedFilesAndRetainsWorkspace(t *testin
 	assertRestoredDatabase(t, root, restoredDatabaseEntry)
 }
 
-func seedRestoreTarget(t *testing.T, root string) map[string][]byte {
-	t.Helper()
-	files := map[string][]byte{"config/user.yaml": []byte("original config"), "data/state.json": []byte("original state"), restoredDatabaseEntry: []byte("original database"), restoredDatabaseEntry + "-wal": []byte("original wal")}
-	for name, payload := range files {
-		target := filepath.Join(root, filepath.FromSlash(name))
-		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(target, payload, 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return files
-}
+// restoreTargets are the files the fixture archive restores into a target root.
+var restoreTargets = []string{"config/user.yaml", "data/state.json", restoredDatabaseEntry, RecoverySummaryPath}
 
-func assertRestoreOriginals(t *testing.T, root string, original map[string][]byte) {
+func assertRestoreTargetsAbsent(t *testing.T, root string) {
 	t.Helper()
-	names := make([]string, 0, len(original))
-	for name := range original {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		got, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
-		if err != nil || !bytes.Equal(got, original[name]) {
-			t.Fatalf("original %s changed: %q %v", name, got, err)
+	for _, name := range restoreTargets {
+		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(name))); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("restore left %s behind: %v", name, err)
 		}
 	}
 }

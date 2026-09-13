@@ -1,0 +1,11 @@
+contract: contracts/cli-commands.yaml#commands.restore
+case: invalid
+input:
+  command: raylea restore backups/fixture-backup.zip
+  mode: offline
+  existing_targets:
+    - config/user.yaml
+expect:
+  valid: false
+  exit_code: 1
+  reason: target_exists

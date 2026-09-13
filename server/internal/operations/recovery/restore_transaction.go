@@ -13,11 +13,11 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/filelock"
 )
 
+var errRestoreTargetExists = errors.New("restore destination already exists")
+
 type restoreWrite struct {
 	target    string
 	staged    string
-	previous  string
-	backedUp  bool
 	installed bool
 }
 
@@ -38,6 +38,7 @@ func (w *restoreWorkspace) planWrites(entries map[string]*zip.File, configRelati
 		writes = append(writes, restoreWrite{target: filepath.FromSlash(target), staged: filepath.Join(work, "incoming", filepath.FromSlash(name))})
 	}
 	if hasDatabase {
+		// Sidecars from another database must not attach to the restored one.
 		for _, suffix := range []string{"-wal", "-shm", "-journal"} {
 			writes = append(writes, restoreWrite{target: filepath.FromSlash(databaseRelative) + suffix})
 		}
@@ -72,7 +73,7 @@ func lockRestoreDatabase(root *os.Root, relative string, present bool) (*fileloc
 		return nil, nil
 	}
 	lockPath := filepath.FromSlash(relative) + ".lock"
-	if err := checkRestoreTarget(root, lockPath); err != nil {
+	if err := checkRestorePath(root, lockPath, true); err != nil {
 		return nil, err
 	}
 	if err := root.MkdirAll(filepath.Dir(lockPath), 0o755); err != nil {
@@ -85,23 +86,16 @@ func lockRestoreDatabase(root *os.Root, relative string, present bool) (*fileloc
 	return filelock.AcquireFile(file)
 }
 
+// Restore only fills targets that do not exist yet, so a failure removes what
+// this restore wrote instead of preserving and putting back existing files.
 func (w *restoreWorkspace) applyWrites(ctx context.Context, writes []restoreWrite) error {
-	if err := w.root.Mkdir(filepath.Join(w.work, "previous"), 0o700); err != nil {
-		return err
-	}
 	var created []string
 	for index := range writes {
-		write := &writes[index]
-		write.previous = filepath.Join(w.work, "previous", write.target)
-		if err := w.applyWrite(ctx, write, &created); err != nil {
-			rollbackErr := rollbackRestore(w.root, writes[:index+1], created, w.deps)
-			failure := &RestoreError{Stage: "write", cause: errors.Join(err, rollbackErr)}
-			if rollbackErr != nil {
-				w.keepWork = true
-				failure.Stage = "rollback"
-				failure.RecoveryDirectory = filepath.Join(w.repoRoot, w.work)
+		if err := w.applyWrite(ctx, &writes[index], &created); err != nil {
+			if removeErr := removeRestoreWrites(w.root, writes[:index+1], created, w.deps); removeErr != nil {
+				return &RestoreError{Stage: "remove", cause: errors.Join(err, removeErr)}
 			}
-			return failure
+			return &RestoreError{Stage: "write", cause: err}
 		}
 	}
 	return nil
@@ -114,30 +108,24 @@ func (w *restoreWorkspace) applyWrite(ctx context.Context, write *restoreWrite, 
 	if err := checkRestoreTarget(w.root, write.target); err != nil {
 		return err
 	}
+	if write.staged == "" {
+		return nil
+	}
 	if err := createRestoreParents(w.root, filepath.Dir(write.target), created); err != nil {
 		return err
 	}
-	if err := w.root.MkdirAll(filepath.Dir(write.previous), 0o700); err != nil {
+	if err := w.deps.rename(w.root, write.staged, write.target); err != nil {
 		return err
 	}
-	if _, err := w.root.Lstat(write.target); err == nil {
-		if err := w.deps.rename(w.root, write.target, write.previous); err != nil {
-			return err
-		}
-		write.backedUp = true
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	if write.staged != "" {
-		if err := w.deps.rename(w.root, write.staged, write.target); err != nil {
-			return err
-		}
-		write.installed = true
-	}
+	write.installed = true
 	return ctx.Err()
 }
 
 func checkRestoreTarget(root *os.Root, name string) error {
+	return checkRestorePath(root, name, false)
+}
+
+func checkRestorePath(root *os.Root, name string, allowExisting bool) error {
 	parts := strings.Split(filepath.ToSlash(name), "/")
 	for index := range parts {
 		info, err := root.Lstat(filepath.FromSlash(strings.Join(parts[:index+1], "/")))
@@ -153,8 +141,13 @@ func checkRestoreTarget(root *os.Root, name string) error {
 		if index < len(parts)-1 && !info.IsDir() {
 			return errors.New("restore destination parent is not a directory")
 		}
-		if index == len(parts)-1 && !info.Mode().IsRegular() {
-			return errors.New("restore destination is not a regular file")
+		if index == len(parts)-1 {
+			if !allowExisting {
+				return errRestoreTargetExists
+			}
+			if !info.Mode().IsRegular() {
+				return errors.New("restore destination is not a regular file")
+			}
 		}
 	}
 	return nil
@@ -176,24 +169,17 @@ func createRestoreParents(root *os.Root, directory string, created *[]string) er
 	return nil
 }
 
-func rollbackRestore(root *os.Root, writes []restoreWrite, created []string, deps restoreDeps) error {
-	var rollbackErr error
+func removeRestoreWrites(root *os.Root, writes []restoreWrite, created []string, deps restoreDeps) error {
+	var removeErr error
 	for index := len(writes) - 1; index >= 0; index-- {
-		write := writes[index]
-		if write.installed {
-			if err := deps.remove(root, write.target); err != nil {
-				rollbackErr = errors.Join(rollbackErr, err)
-				continue
-			}
-		}
-		if write.backedUp {
-			rollbackErr = errors.Join(rollbackErr, deps.rename(root, write.previous, write.target))
+		if writes[index].installed {
+			removeErr = errors.Join(removeErr, deps.remove(root, writes[index].target))
 		}
 	}
 	for index := len(created) - 1; index >= 0; index-- {
 		if err := root.Remove(created[index]); err != nil && !errors.Is(err, os.ErrNotExist) {
-			rollbackErr = errors.Join(rollbackErr, err)
+			removeErr = errors.Join(removeErr, err)
 		}
 	}
-	return rollbackErr
+	return removeErr
 }

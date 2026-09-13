@@ -13,7 +13,6 @@ type restoreWorkspace struct {
 	root           *os.Root
 	repoRoot, work string
 	deps           restoreDeps
-	keepWork       bool
 }
 
 func newRestoreWorkspace(repoRoot string, deps restoreDeps) (*restoreWorkspace, error) {
@@ -35,14 +34,12 @@ func newRestoreWorkspace(repoRoot string, deps restoreDeps) (*restoreWorkspace, 
 }
 
 func (w *restoreWorkspace) close(committed bool, cause error) error {
-	if !w.keepWork {
-		if err := w.deps.removeAll(w.root, w.work); err != nil {
-			stage := "preflight cleanup"
-			if committed {
-				stage = "cleanup"
-			}
-			cause = &RestoreError{Stage: stage, RecoveryDirectory: filepath.Join(w.repoRoot, w.work), cause: errors.Join(cause, err)}
+	if err := w.deps.removeAll(w.root, w.work); err != nil {
+		stage := "preflight cleanup"
+		if committed {
+			stage = "cleanup"
 		}
+		cause = &RestoreError{Stage: stage, RecoveryDirectory: filepath.Join(w.repoRoot, w.work), cause: errors.Join(cause, err)}
 	}
 	return errors.Join(cause, w.root.Close())
 }

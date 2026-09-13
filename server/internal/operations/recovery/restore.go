@@ -34,8 +34,9 @@ type RestoreResult struct {
 	Summary           CompatibilitySummary
 }
 
-// RestoreError reports whether committed files or recovery material need
-// attention without including untrusted archive content in its message.
+// RestoreError reports the failed stage and, when a committed restore could not
+// remove its workspace, where that workspace remains. Messages never include
+// untrusted archive content.
 type RestoreError struct {
 	Stage             string
 	RecoveryDirectory string
@@ -44,12 +45,14 @@ type RestoreError struct {
 
 func (e *RestoreError) Error() string {
 	switch e.Stage {
-	case "rollback":
-		return "恢复失败且回滚未完成，已保留恢复工作目录"
+	case "target":
+		return "恢复目标已有配置、数据库或数据文件，请恢复到未启动过的新目录"
+	case "remove":
+		return "恢复失败，且本次写入的文件未能全部删除"
 	case "cleanup":
 		return "数据已恢复，但恢复工作目录清理失败"
 	default:
-		return "恢复失败（" + e.Stage + "），目标文件未改变或已回滚"
+		return "恢复失败（" + e.Stage + "），目标目录没有保留本次写入"
 	}
 }
 
