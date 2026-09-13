@@ -101,11 +101,8 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 ### Shell
 
-- Windows 环境执行仓库命令优先使用 `gbash -lc '<command>'`。
-- `gbash` 包装 `C:\Program Files\Git\usr\bin\bash.exe`，并前置 Git Bash 的 `usr\bin`、`bin`、`cmd`。
-- `gbash` 的仓库来源文件为 `scripts/gbash.ps1` 和 `scripts/gbash.cmd`；本机可执行入口位于 `%USERPROFILE%\.local\bin\`。
-- 系统 `bash` 可能指向 WSL；仓库命令使用 `gbash`。
-- 现有 `.bat` / `.cmd` 启动入口保持 Windows 原生命令文件；执行时可从 Git Bash 调用。
+- 直接在当前 shell 中执行 `node`、`go`、`python` 和 `pnpm`，命令语法按所用 shell 调整。
+- Windows 开发启动使用 `.\start.bat`；POSIX 环境使用 `sh start.sh`。
 
 ### Server
 

@@ -18,7 +18,6 @@
 - `start.sh` 优先使用父进程提供的绝对路径 `RAYLEA_NODE_EXECUTABLE`，未设置时使用 `PATH` 中的 Node；`start.bat` 依次检查父进程提供的 `RAYLEA_START_NODE`、`%USERPROFILE%\.local\opt\node-v<version>-win-x64\node.exe` 和 `PATH`。
 - `RAYLEA_START_NODE` 必须由父进程在运行 `start.bat` 前设置；包装器在 Node 启动前选择可执行文件，因此不会从 `.env` 读取该覆盖项。
 - 统一编排器会加载仓库根目录的 `.env`；可复制 `.env.example` 并按注释配置本地启动参数，父进程已设置的环境变量优先。
-- Windows 环境执行开发命令使用 `gbash -lc '<command>'`。
 - 默认 profile 使用 Web 开发服务器，管理面地址为 `http://127.0.0.1:4173/`。
 - Web 开发服务器代理到 `config/user.yaml` 中的 `server.host` / `server.port`；自定义后端地址使用 `VITE_BACKEND_TARGET`。
 - WebSocket 后端地址使用 `VITE_WS_BASE_URL`，缺省值与 `VITE_BACKEND_TARGET` 一致。

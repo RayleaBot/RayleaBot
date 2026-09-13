@@ -173,8 +173,6 @@ def classify(files: list[str]) -> dict[str, bool]:
             matched = True
         if path in {
             "scripts/check-toolchain.py",
-            "scripts/gbash.cmd",
-            "scripts/gbash.ps1",
             "scripts/start-dev.mjs",
             "scripts/start-dev-support.mjs",
             "scripts/plugin-dev-workspace.mjs",
