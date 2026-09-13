@@ -119,12 +119,8 @@ response:
         max_response_body_bytes: 4194304
         allow_private_hosts: []
       web:
-        exposure_mode: localhost_only
 
         plugin_ui_origin_template: ""
-        public_origin: ""
-        setup_local_only: true
-        trusted_proxy_cidrs: []
     redacted_fields:
       - adapters.onebot11.onebot11.forward_ws.access_token
       - adapters.onebot11.onebot11.http_api.access_token

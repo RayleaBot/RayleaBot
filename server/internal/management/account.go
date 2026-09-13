@@ -48,7 +48,7 @@ func (h *AuthHandlers) HandleAccountCredentialsUpdate() http.HandlerFunc {
 				h.loginFailures.Reset(sourceIP)
 			}
 			w.Header().Del(CSRFHeader)
-			http.SetCookie(w, clearSessionCookie(cfg.SecureCookie))
+			http.SetCookie(w, clearSessionCookie(r.TLS != nil))
 			w.WriteHeader(http.StatusNoContent)
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			httpapi.WriteError(w, r, errorcodes.PermissionCurrentSecretInvalid, nil)

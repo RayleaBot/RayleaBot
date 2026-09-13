@@ -122,7 +122,7 @@
 - 字段使用标准输入控件和持续可见标签；字段错误就近显示，校验失败聚焦首个无效字段，服务错误与状态异常显示在表单反馈区。登录使用 `current-password` 自动填充，初始化使用 `new-password`；提交期间保留禁用与加载反馈。
 - 登录面板的“忘记密钥？”打开“重置管理员凭据”指引并聚焦标题；“返回登录”保留已填凭据，将焦点归还“忘记密钥？”入口。浏览器只展示操作指引，不执行凭据重置。
 - 启动器路径为“设置 → 维护操作 → 重置凭据 → 立即重置”，确认后由启动器停止服务并重置。命令行路径要求先停服，再于安装目录运行：Windows PowerShell 使用 `.\raylea-server.exe reset-admin`，macOS / Linux 使用 `./raylea-server reset-admin`；自定义配置通过放在子命令之前的 `-config` 参数指向原配置文件。
-- 重置后启动服务，从本机初始化入口重新创建管理员账号；配置、数据和已安装插件保留，旧登录会话失效。恢复语义遵循 [`cli-commands.yaml`](../../contracts/cli-commands.yaml) 与[管理面用户说明](../user/management-surface.md)，登录、初始化和会话接口沿用现有请求层与 store。
+- 重置后启动服务，从初始化入口重新创建管理员账号；配置、数据和已安装插件保留，旧登录会话失效。恢复语义遵循 [`cli-commands.yaml`](../../contracts/cli-commands.yaml) 与[管理面用户说明](../user/management-surface.md)，登录、初始化和会话接口沿用现有请求层与 store。
 
 ## 组件状态
 

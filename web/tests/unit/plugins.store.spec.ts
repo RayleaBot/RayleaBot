@@ -151,6 +151,7 @@ describe('plugins store', () => {
         commands: [],
         help: { groups: [] },
         management_ui: {
+          origin_host: 'p-0102030405060708',
           pages: [{ id: 'settings', label: '天气设置', entry: 'ui/settings.html' }],
         },
       },

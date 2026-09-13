@@ -244,7 +244,6 @@ server:
   host: 0.0.0.0
   port: "18080"
 web:
-  exposure_mode: localhost_only
 `);
 
   assert.deepEqual(endpoint, { host: "0.0.0.0", port: 18080 });

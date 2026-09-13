@@ -90,8 +90,6 @@ func buildHTTP(deps httpBuildDeps) (appHTTPState, error) {
 func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandlers) {
 	router := chi.NewRouter()
 	cfg := deps.runtime.CurrentConfig()
-	proxyResolver := httpapi.NewTrustedProxyResolver(cfg.Web.ExposureMode, cfg.Web.TrustedProxyCIDRs)
-	router.Use(proxyResolver.Middleware)
 	router.Use(httpapi.WithRequestContext(deps.runtime.RuntimeLogger(), httpapi.WithRequestObserver(NewHTTPObserver(deps.metrics))))
 
 	managementapi.RegisterRoutes(router, deps.routes.RouterDeps, deps.routes.RequireAuth)
@@ -117,7 +115,17 @@ func buildAppHTTPServer(deps serverDeps) (http.Handler, *http.Server, httpHandle
 }
 
 func buildPluginUIOriginOptions(cfg config.Config) managementapi.PluginUIOriginOptions {
-	_, adminOrigins, _ := managementBrowserOrigins(cfg, os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
+	adminOrigins := managementDevelopmentOrigins(os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
+	for _, host := range []string{"127.0.0.1", "localhost", "::1"} {
+		adminOrigins = appendUniqueString(adminOrigins, "http://"+net.JoinHostPort(host, strconv.Itoa(cfg.Server.Port)))
+	}
+	if addresses, err := net.InterfaceAddrs(); err == nil {
+		for _, address := range addresses {
+			if ip, _, err := net.ParseCIDR(address.String()); err == nil {
+				adminOrigins = appendUniqueString(adminOrigins, "http://"+net.JoinHostPort(ip.String(), strconv.Itoa(cfg.Server.Port)))
+			}
+		}
+	}
 	return managementapi.PluginUIOriginOptions{
 		OriginTemplate: cfg.Web.PluginUIOriginTemplate,
 		ServerPort:     cfg.Server.Port,
@@ -140,7 +148,6 @@ func logConfiguredServer(state configRuntimeState, renderer *render.Service, lis
 		"server_port", summary.ServerPort,
 		"database_engine", summary.DatabaseEngine,
 		"database_path", databasePath,
-		"web_exposure_mode", summary.WebExposureMode,
 		"logging_level", summary.LoggingLevel,
 		"super_admin_count", summary.SuperAdminCount,
 		"adapter_count", summary.AdapterCount,

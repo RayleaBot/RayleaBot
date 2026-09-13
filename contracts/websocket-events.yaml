@@ -33,7 +33,7 @@ admission:
     forbidden: [query_token, query_session_token]
   origin:
     required_for_browser_cookie_auth: true
-    validation: Exact match against web.public_origin or the direct listener origin for the active exposure mode.
+    validation: Exact match against the request origin (scheme and Host), with an explicit local development UI origin allowed for development.
   failure:
     code: permission.denied
     disclosure: Missing, invalid, expired, origin-mismatched, and forbidden-transport credentials are indistinguishable.

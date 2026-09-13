@@ -389,6 +389,7 @@ describe('BasicLayout', () => {
       role: 'community',
       state: 'running',
       management_ui: {
+        origin_host: 'p-0102030405060708',
         entry: 'ui/index.html',
         pages: [
           { id: 'config', label: '配置页面' },
@@ -408,6 +409,7 @@ describe('BasicLayout', () => {
       role: 'community',
       state: 'disabled',
       management_ui: {
+        origin_host: 'p-0102030405060708',
         entry: 'ui/index.html',
         pages: [{ id: 'settings', label: '天气设置' }],
       },
@@ -567,6 +569,7 @@ describe('BasicLayout', () => {
         commands: [],
         help: { groups: [] },
         management_ui: {
+          origin_host: 'p-0102030405060708',
           entry: 'ui/index.html',
           pages: [
             { id: 'config', label: '配置页面' },

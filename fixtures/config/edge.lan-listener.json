@@ -5,7 +5,7 @@
   "input": {
     "schema_version": "4",
     "server": {
-      "host": "127.0.0.1",
+      "host": "0.0.0.0",
       "port": 8080
     },
     "adapters": [
@@ -143,20 +143,10 @@
       "max_response_body_bytes": 4194304
     },
     "web": {
-      "exposure_mode": "public_via_reverse_proxy",
-      "setup_local_only": true,
-      "public_origin": "https://bot.example.com",
-      "trusted_proxy_cidrs": [
-        "10.0.0.0/8"
-      ],
-      "plugin_ui_origin_template": "https://{plugin_host}.plugins.example.com"
+      "plugin_ui_origin_template": ""
     }
   },
   "expect": {
-    "valid": true,
-    "notes": [
-      "server.host remains 127.0.0.1",
-      "public access is represented only through web.exposure_mode"
-    ]
+    "valid": true
   }
 }

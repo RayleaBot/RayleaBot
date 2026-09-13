@@ -18,6 +18,7 @@ response:
       permissions: {}
       webhooks: []
       management_ui:
+        origin_host: p-e9ed3879a86b8688
         entry: ui/index.html
         pages:
           - id: config

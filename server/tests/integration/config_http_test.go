@@ -394,10 +394,6 @@ func TestConfigPutHotReloadsOneBotTransportStateWithoutRestart(t *testing.T) {
 			"allow_private_hosts":     []any{},
 		},
 		"web": map[string]any{
-			"exposure_mode":             "localhost_only",
-			"setup_local_only":          true,
-			"public_origin":             "",
-			"trusted_proxy_cidrs":       []any{},
 			"plugin_ui_origin_template": "",
 		},
 	}

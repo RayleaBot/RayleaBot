@@ -16,14 +16,12 @@ func TestConfigFixtures(t *testing.T) {
 		name                string
 		fixturePath         string
 		expectValid         bool
-		expectExposureMode  string
 		expectValidationErr bool
 	}{
 		{
-			name:               "ok fixture",
-			fixturePath:        filepath.Join("..", "fixtures", "config", "ok.minimal.json"),
-			expectValid:        true,
-			expectExposureMode: "localhost_only",
+			name:        "ok fixture",
+			fixturePath: filepath.Join("..", "fixtures", "config", "ok.minimal.json"),
+			expectValid: true,
 		},
 		{
 			name:                "invalid fixture",
@@ -32,10 +30,9 @@ func TestConfigFixtures(t *testing.T) {
 			expectValidationErr: true,
 		},
 		{
-			name:               "edge fixture",
-			fixturePath:        filepath.Join("..", "fixtures", "config", "edge.public-via-reverse-proxy.json"),
-			expectValid:        true,
-			expectExposureMode: "public_via_reverse_proxy",
+			name:        "edge fixture",
+			fixturePath: filepath.Join("..", "fixtures", "config", "edge.lan-listener.json"),
+			expectValid: true,
 		},
 	}
 
@@ -47,7 +44,7 @@ func TestConfigFixtures(t *testing.T) {
 			fixture := testutil.LoadConfigFixture(t, tc.fixturePath)
 			configPath := testutil.WriteYAMLConfig(t, fixture.Input)
 
-			cfg, _, err := config.Load(configPath, schemaPath)
+			_, _, err := config.Load(configPath, schemaPath)
 			if tc.expectValidationErr {
 				if err == nil {
 					t.Fatalf("expected config.Load to fail for %s", tc.fixturePath)
@@ -59,9 +56,6 @@ func TestConfigFixtures(t *testing.T) {
 				t.Fatalf("config.Load(%s) failed: %v", tc.fixturePath, err)
 			}
 
-			if cfg.Web.ExposureMode != tc.expectExposureMode {
-				t.Fatalf("unexpected exposure mode: got %q want %q", cfg.Web.ExposureMode, tc.expectExposureMode)
-			}
 		})
 	}
 }

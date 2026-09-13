@@ -35,7 +35,6 @@ type Summary struct {
 	ServerPort      int
 	DatabaseEngine  string
 	DatabasePath    string
-	WebExposureMode string
 	LoggingLevel    string
 	SuperAdminCount int
 	AdapterCount    int
@@ -52,7 +51,6 @@ func buildSummary(configPath, schemaPath string, cfg Config, _ map[string]any) S
 		ServerPort:      cfg.Server.Port,
 		DatabaseEngine:  cfg.Database.Engine,
 		DatabasePath:    cfg.Database.Path,
-		WebExposureMode: cfg.Web.ExposureMode,
 		LoggingLevel:    cfg.Log.Level,
 		SuperAdminCount: len(cfg.Admin.SuperAdmins),
 		AdapterCount:    len(cfg.Adapters),

@@ -302,9 +302,6 @@ func RequestRemoteIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	if info, ok := r.Context().Value(clientIPContextKey{}).(clientIPContext); ok && info.clientIP != "" {
-		return info.clientIP
-	}
 	return remoteAddressIP(r)
 }
 

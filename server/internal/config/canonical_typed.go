@@ -4,26 +4,26 @@ import "strings"
 
 func canonicalDocumentFromTyped(cfg Config) map[string]any {
 	return map[string]any{
-		"schema_version":       currentSchemaVersion,
-		"server":               configServerDocument(cfg),
-		"adapters":             configAdaptersDocument(cfg),
-		"database":             configDatabaseDocument(cfg),
-		"command":              configCommandDocument(cfg),
-		"builtin_features":     configBuiltinFeaturesDocument(cfg),
-		"admin":                configAdminDocument(cfg),
-		"permission":           configPermissionDocument(cfg),
-		"render":               configRenderDocument(cfg),
-		"scheduler":            configSchedulerDocument(cfg),
-		"runtime":              configRuntimeDocument(cfg),
-		"storage":              configStorageDocument(cfg),
-		"data":                 configDataDocument(cfg),
-		"log":                  configLogDocument(cfg),
-		"message":              configMessageDocument(cfg),
-		"user":                 configUserDocument(cfg),
-		"group":                configGroupDocument(cfg),
-		"adapter":              configAdapterDocument(cfg),
-		"http":                 configHTTPDocument(cfg),
-		"web":                  configWebDocument(cfg),
+		"schema_version":   currentSchemaVersion,
+		"server":           configServerDocument(cfg),
+		"adapters":         configAdaptersDocument(cfg),
+		"database":         configDatabaseDocument(cfg),
+		"command":          configCommandDocument(cfg),
+		"builtin_features": configBuiltinFeaturesDocument(cfg),
+		"admin":            configAdminDocument(cfg),
+		"permission":       configPermissionDocument(cfg),
+		"render":           configRenderDocument(cfg),
+		"scheduler":        configSchedulerDocument(cfg),
+		"runtime":          configRuntimeDocument(cfg),
+		"storage":          configStorageDocument(cfg),
+		"data":             configDataDocument(cfg),
+		"log":              configLogDocument(cfg),
+		"message":          configMessageDocument(cfg),
+		"user":             configUserDocument(cfg),
+		"group":            configGroupDocument(cfg),
+		"adapter":          configAdapterDocument(cfg),
+		"http":             configHTTPDocument(cfg),
+		"web":              configWebDocument(cfg),
 	}
 }
 
@@ -235,10 +235,6 @@ func configHTTPDocument(cfg Config) map[string]any {
 
 func configWebDocument(cfg Config) map[string]any {
 	return map[string]any{
-		"exposure_mode":             cfg.Web.ExposureMode,
-		"setup_local_only":          cfg.Web.SetupLocalOnly,
-		"public_origin":             cfg.Web.PublicOrigin,
-		"trusted_proxy_cidrs":       append([]string{}, cfg.Web.TrustedProxyCIDRs...),
 		"plugin_ui_origin_template": cfg.Web.PluginUIOriginTemplate,
 	}
 }

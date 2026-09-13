@@ -117,11 +117,7 @@ request:
       max_response_body_bytes: 4194304
       allow_private_hosts: []
     web:
-      exposure_mode: localhost_only
       plugin_ui_origin_template: ''
-      public_origin: ''
-      setup_local_only: true
-      trusted_proxy_cidrs: []
 response:
   status: 500
   body:

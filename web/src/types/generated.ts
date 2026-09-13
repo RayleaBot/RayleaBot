@@ -2084,6 +2084,8 @@ export interface components {
         };
         PluginScreenshot: components["schemas"]["screenshot"];
         PluginManagementUISummary: {
+            /** @description Server-derived plugin host label for the isolated management page origin. */
+            origin_host: string;
             entry: string;
             pages: components["schemas"]["PluginManagementUIPage"][];
         };
@@ -2338,8 +2340,8 @@ export interface components {
             schema_version: "4";
             server: {
                 /**
-                 * @description HTTP server bind address. Use a loopback address for localhost_only and public_via_reverse_proxy, or an explicit private/LAN address for lan_enabled. Wildcard addresses are rejected. Requires restart.
-                 * @default 127.0.0.1
+                 * @description HTTP server bind address. Defaults to all IPv4 interfaces for local and LAN access. Network access control is managed by the deployer. Requires restart.
+                 * @default 0.0.0.0
                  */
                 host: string;
                 /**
@@ -2648,28 +2650,7 @@ export interface components {
             };
             web: {
                 /**
-                 * @description Admin UI network exposure: localhost_only restricts to 127.0.0.1; lan_enabled allows LAN; public_via_reverse_proxy trusts reverse-proxy headers. Requires restart.
-                 * @default localhost_only
-                 * @enum {string}
-                 */
-                exposure_mode: "localhost_only" | "lan_enabled" | "public_via_reverse_proxy";
-                /**
-                 * @description When enabled, first-run setup is only reachable from 127.0.0.1, preventing remote takeover. Requires restart.
-                 * @default true
-                 */
-                setup_local_only: boolean;
-                /**
-                 * @description Canonical browser origin for Origin validation and secure-cookie decisions. public_via_reverse_proxy requires an HTTPS origin; other modes may leave it empty and use the direct listener origin.
-                 * @default
-                 */
-                public_origin: string | "" | unknown;
-                /**
-                 * @description TCP peer networks allowed to supply Forwarded, X-Forwarded-For, or X-Real-IP client chains. The server walks the chain from right to left, strips configured trusted proxies, and uses the first untrusted address for login throttling. Headers from other peers are ignored. Required and non-empty for public_via_reverse_proxy.
-                 * @default []
-                 */
-                trusted_proxy_cidrs: string[];
-                /**
-                 * @description Origin template for isolated plugin management pages. Non-empty values must contain {plugin_host}; localhost_only may derive http://p-<id-hash>.plugins.localhost:<port>, while LAN and reverse-proxy exposure require an explicit template.
+                 * @description Optional origin template for isolated plugin management pages. Must contain {plugin_host}; an empty value uses the local plugin page origin.
                  * @default
                  */
                 plugin_ui_origin_template: string | "" | unknown;

@@ -22,12 +22,10 @@ const (
 )
 
 type AuthConfig struct {
-	SetupLocalOnly     bool
 	LoginFailureLimit  int
 	LoginFailureWindow time.Duration
 	AllowedHosts       []string
 	AllowedOrigins     []string
-	SecureCookie       bool
 }
 
 type AuthConfigSource interface {
@@ -99,10 +97,6 @@ func (h *AuthHandlers) HandleSetupAdmin() http.HandlerFunc {
 			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
 			return
 		}
-		if cfg.SetupLocalOnly && !isLoopbackRequest(r) {
-			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
-			return
-		}
 
 		var request authRequest
 		if err := httpapi.DecodeStrictJSON(w, r, &request, httpapi.MaxManagementJSONBodyBytes); err != nil || request.Identifier == "" || request.Secret == "" {
@@ -122,7 +116,7 @@ func (h *AuthHandlers) HandleSetupAdmin() http.HandlerFunc {
 		token, claims, err := h.auth.BootstrapWithContext(r.Context(), request.Identifier, request.Secret)
 		switch {
 		case err == nil:
-			h.writeSessionResponse(w, token, claims, transport, cfg)
+			h.writeSessionResponse(w, token, claims, transport, r.TLS != nil)
 			return
 		case errors.Is(err, auth.ErrBootstrapAlreadyInitialized), errors.Is(err, auth.ErrSessionLimitReached):
 			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
@@ -164,7 +158,7 @@ func (h *AuthHandlers) HandleSessionLogin() http.HandlerFunc {
 			if h.loginFailures != nil {
 				h.loginFailures.Reset(sourceIP)
 			}
-			h.writeSessionResponse(w, token, claims, transport, cfg)
+			h.writeSessionResponse(w, token, claims, transport, r.TLS != nil)
 			return
 		case errors.Is(err, auth.ErrInvalidCredentials):
 			httpapi.WriteError(w, r, authCodePermissionDenied, nil)
@@ -179,14 +173,14 @@ func (h *AuthHandlers) HandleSessionLogin() http.HandlerFunc {
 	}
 }
 
-func (h *AuthHandlers) writeSessionResponse(w http.ResponseWriter, token string, claims auth.Claims, transport string, cfg AuthConfig) {
+func (h *AuthHandlers) writeSessionResponse(w http.ResponseWriter, token string, claims auth.Claims, transport string, secure bool) {
 	response := authResponse{
 		Transport: transport,
 		ExpiresAt: claims.ExpiresAt.UTC().Format(time.RFC3339),
 	}
 	w.Header().Set(SessionTransportHeader, transport)
 	if transport == "cookie" {
-		http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, cfg.SecureCookie))
+		http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, secure))
 		response.CSRFToken = h.auth.CSRFToken(claims)
 	} else {
 		response.SessionToken = token
@@ -280,7 +274,7 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 						return
 					}
 				}
-				http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, cfg.SecureCookie))
+				http.SetCookie(w, sessionCookie(token, claims.ExpiresAt, r.TLS != nil))
 			}
 
 			ctx := ContextWithClaims(r.Context(), claims)
@@ -290,7 +284,7 @@ func RequireAuthWithConfig(authManager *auth.Manager, source AuthConfigSource) f
 }
 
 // sessionCookie carries the session token for browser transports; the
-// Secure flag follows the effective web exposure.
+// Secure flag follows the direct request transport.
 func sessionCookie(token string, expiresAt time.Time, secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     SessionCookieName,

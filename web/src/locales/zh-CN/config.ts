@@ -143,8 +143,6 @@ export const config = {
     httpTimeoutSeconds: '请求超时',
     httpMaxRetries: '最大重试次数',
     httpAllowPrivateHosts: '允许的私有地址',
-    webExposureMode: '暴露方式',
-    webSetupLocalOnly: '仅允许本地初始化',
     webPluginUiOriginTemplate: '插件页面域名模板',
   },
   options: {
@@ -157,9 +155,6 @@ export const config = {
     logError: 'error',
     renderOutputPng: 'PNG',
     renderOutputJpeg: 'JPEG',
-    webExposureLocalhostOnly: '仅本机访问',
-    webExposureLanEnabled: '局域网访问',
-    webExposureReverseProxy: '反向代理公开访问',
   },
   units: {
     second: '秒',
@@ -220,9 +215,7 @@ export const config = {
     httpTimeoutSeconds: '插件发起 HTTP 请求的默认超时。',
     httpMaxRetries: '插件 HTTP 请求失败时的最大重试次数。',
     httpAllowPrivateHosts: '允许插件访问的私有或局域网地址白名单，每行一项；默认禁止访问私网以避免 SSRF。',
-    webExposureMode: '管理面网络暴露范围：localhost_only 仅本机；lan_enabled 允许局域网；public_via_reverse_proxy 信任反向代理头。',
-    webSetupLocalOnly: '开启后首次初始化页仅允许从 127.0.0.1 访问，避免远程接管。',
-    webPluginUiOriginTemplate: '插件管理页面使用的独立来源模板，必须包含 {plugin_host}。局域网与反向代理模式必须显式配置。',
+    webPluginUiOriginTemplate: '插件管理页面使用的独立来源模板，必须包含 {plugin_host}。本机可留空；内网插件页面需将对应域名解析到服务器。',
   },
   rateLimit: {
     count: '次数',

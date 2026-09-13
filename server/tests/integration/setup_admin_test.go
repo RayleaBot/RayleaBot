@@ -87,26 +87,14 @@ func TestSetupAdminRejectsAlreadyInitialized(t *testing.T) {
 	assertCredentialRejection(t, second, edgeFixture, "permission.denied")
 }
 
-func TestSetupAdminRejectsNonLoopbackWhenSetupLocalOnlyEnabled(t *testing.T) {
+func TestSetupAdminAllowsLANWithSetupToken(t *testing.T) {
 	t.Parallel()
-
 	application := newTestApp(t, deterministicAuthOptions()...)
 	fixture := loadWebAPIFixtureDocument(t, testutil.RepoPath(t, "fixtures", "web-api", "ok.setup-admin.yaml"))
-
-	recorder := performJSONRequestWithRemoteAddr(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "198.51.100.20:3210")
-	if recorder.Code != http.StatusForbidden {
-		t.Fatalf("unexpected status: got %d want %d", recorder.Code, http.StatusForbidden)
+	recorder := performJSONRequestWithRemoteAddr(t, application, fixture.Request.Method, fixture.Request.Path, fixture.Request.Body, "192.168.1.20:3210")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("LAN setup status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
-
-	body := decodeBody(t, recorder.Body.Bytes())
-	assertErrorEnvelopeMatchesFixture(t, body, map[string]any{
-		"error": map[string]any{
-			"code":        "permission.denied",
-			"message":     "当前用户无权执行该操作",
-			"message_key": "errors.permission.denied",
-			"request_id":  "fixture_request_id_placeholder",
-		},
-	}, "permission.denied")
 }
 
 func TestSetupAdminUnexpectedAuthFailureReturnsInternalError(t *testing.T) {

@@ -1,26 +1,26 @@
 package config
 
 type Config struct {
-	SchemaVersion string                   `json:"schema_version" yaml:"schema_version"`
-	Server        ServerConfig             `json:"server" yaml:"server"`
-	Adapters      []AdapterInstance        `json:"adapters" yaml:"adapters"`
-	Database      DatabaseConfig           `json:"database" yaml:"database"`
-	Command       *CommandConfig           `json:"command" yaml:"command"`
-	Builtin       BuiltinConfig            `json:"builtin_features" yaml:"builtin_features"`
-	Admin         AdminConfig              `json:"admin" yaml:"admin"`
-	Permission    PermissionConfig         `json:"permission" yaml:"permission"`
-	Render        RenderConfig             `json:"render" yaml:"render"`
-	Scheduler     SchedulerConfig          `json:"scheduler" yaml:"scheduler"`
-	Runtime       RuntimeConfig            `json:"runtime" yaml:"runtime"`
-	Storage       StorageConfig            `json:"storage" yaml:"storage"`
-	Data          DataConfig               `json:"data" yaml:"data"`
-	Log           LogConfig                `json:"log" yaml:"log"`
-	Message       MessageConfig            `json:"message" yaml:"message"`
-	User          UserConfig               `json:"user" yaml:"user"`
-	Group         GroupConfig              `json:"group" yaml:"group"`
-	Adapter       AdapterConfig            `json:"adapter" yaml:"adapter"`
-	HTTP          HTTPConfig               `json:"http" yaml:"http"`
-	Web           WebConfig                `json:"web" yaml:"web"`
+	SchemaVersion string            `json:"schema_version" yaml:"schema_version"`
+	Server        ServerConfig      `json:"server" yaml:"server"`
+	Adapters      []AdapterInstance `json:"adapters" yaml:"adapters"`
+	Database      DatabaseConfig    `json:"database" yaml:"database"`
+	Command       *CommandConfig    `json:"command" yaml:"command"`
+	Builtin       BuiltinConfig     `json:"builtin_features" yaml:"builtin_features"`
+	Admin         AdminConfig       `json:"admin" yaml:"admin"`
+	Permission    PermissionConfig  `json:"permission" yaml:"permission"`
+	Render        RenderConfig      `json:"render" yaml:"render"`
+	Scheduler     SchedulerConfig   `json:"scheduler" yaml:"scheduler"`
+	Runtime       RuntimeConfig     `json:"runtime" yaml:"runtime"`
+	Storage       StorageConfig     `json:"storage" yaml:"storage"`
+	Data          DataConfig        `json:"data" yaml:"data"`
+	Log           LogConfig         `json:"log" yaml:"log"`
+	Message       MessageConfig     `json:"message" yaml:"message"`
+	User          UserConfig        `json:"user" yaml:"user"`
+	Group         GroupConfig       `json:"group" yaml:"group"`
+	Adapter       AdapterConfig     `json:"adapter" yaml:"adapter"`
+	HTTP          HTTPConfig        `json:"http" yaml:"http"`
+	Web           WebConfig         `json:"web" yaml:"web"`
 }
 
 type CommandConfig struct {
@@ -173,9 +173,5 @@ type RenderConfig struct {
 }
 
 type WebConfig struct {
-	ExposureMode           string   `json:"exposure_mode" yaml:"exposure_mode"`
-	SetupLocalOnly         bool     `json:"setup_local_only" yaml:"setup_local_only"`
-	PublicOrigin           string   `json:"public_origin" yaml:"public_origin"`
-	TrustedProxyCIDRs      []string `json:"trusted_proxy_cidrs" yaml:"trusted_proxy_cidrs"`
-	PluginUIOriginTemplate string   `json:"plugin_ui_origin_template" yaml:"plugin_ui_origin_template"`
+	PluginUIOriginTemplate string `json:"plugin_ui_origin_template" yaml:"plugin_ui_origin_template"`
 }

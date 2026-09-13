@@ -213,8 +213,7 @@ func PluginUIOrigin(pluginID string, options PluginUIOriginOptions) (string, err
 	if pluginID == "" {
 		return "", fmt.Errorf("plugin id is required")
 	}
-	digest := sha256.Sum256([]byte(pluginID))
-	pluginHost := fmt.Sprintf("p-%x", digest[:8])
+	pluginHost := pluginUIHost(pluginID)
 	template := strings.TrimSpace(options.OriginTemplate)
 	if template == "" {
 		if options.ServerPort < 1 || options.ServerPort > 65535 {
@@ -342,4 +341,9 @@ func writePluginUIHeaders(w http.ResponseWriter, assetPath string, adminOrigins 
 	header.Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors "+frameAncestors)
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "no-referrer")
+}
+
+func pluginUIHost(pluginID string) string {
+	digest := sha256.Sum256([]byte(strings.TrimSpace(pluginID)))
+	return fmt.Sprintf("p-%x", digest[:8])
 }

@@ -13,9 +13,6 @@ origin:
   placeholder: "{plugin_host}"
   plugin_host_format: "p-<sha256(plugin_id)[0:16]>"
   localhost_default: "http://{plugin_host}.plugins.localhost:{server_port}"
-  explicit_template_required_for:
-    - lan_enabled
-    - public_via_reverse_proxy
   must_differ_from_admin_origin: true
 
 static_route:

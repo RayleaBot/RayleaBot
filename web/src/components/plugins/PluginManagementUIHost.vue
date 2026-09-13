@@ -143,8 +143,10 @@ async function resolvePluginOrigin() {
   if (!configStore.document) {
     await configStore.fetchConfig()
   }
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(props.plugin.id.trim()))
-  const pluginHost = `p-${Array.from(new Uint8Array(digest).slice(0, 8), (byte) => byte.toString(16).padStart(2, '0')).join('')}`
+  const pluginHost = props.plugin.management_ui?.origin_host
+  if (!pluginHost || !/^p-[a-f0-9]{16}$/.test(pluginHost)) {
+    throw new Error(t('plugins.managementUi.invalidOriginHost'))
+  }
   const templateValue = configStore.document?.web?.plugin_ui_origin_template
   const configuredTemplate = typeof templateValue === 'string' ? templateValue.trim() : ''
   if (configuredTemplate) {
@@ -152,6 +154,9 @@ async function resolvePluginOrigin() {
   }
   const backendTarget = typeof import.meta.env.VITE_BACKEND_TARGET === 'string' ? import.meta.env.VITE_BACKEND_TARGET.trim() : ''
   const backend = backendTarget ? new URL(backendTarget) : new URL(window.location.origin)
+  if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(backend.hostname)) {
+    throw new Error(t('plugins.managementUi.lanOriginRequired'))
+  }
   const port = backend.port || (backend.protocol === 'https:' ? '443' : '80')
   return `${backend.protocol}//${pluginHost}.plugins.localhost:${port}`
 }

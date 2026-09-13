@@ -431,25 +431,6 @@ export function getConfigSections(): ConfigSectionDefinition[] {
       title: t('config.sections.web'),
       fields: [
         {
-          path: 'web.exposure_mode',
-          label: t('config.fields.webExposureMode'),
-          type: 'select',
-          description: t('config.descriptions.webExposureMode'),
-          restartRequired: true,
-          options: [
-            { label: t('config.options.webExposureLocalhostOnly'), value: 'localhost_only' },
-            { label: t('config.options.webExposureLanEnabled'), value: 'lan_enabled' },
-            { label: t('config.options.webExposureReverseProxy'), value: 'public_via_reverse_proxy' },
-          ],
-        },
-        {
-          path: 'web.setup_local_only',
-          label: t('config.fields.webSetupLocalOnly'),
-          type: 'boolean',
-          description: t('config.descriptions.webSetupLocalOnly'),
-          restartRequired: true,
-        },
-        {
           path: 'web.plugin_ui_origin_template',
           label: t('config.fields.webPluginUiOriginTemplate'),
           type: 'text',

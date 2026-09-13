@@ -30,7 +30,8 @@
 
 - 插件 UI 与管理面使用不同 origin。宿主 iframe 只加载当前插件 artifact 的 `ui/` 文件。
 - 本机模式默认派生 `http://p-<sha256(plugin_id)[0:16]>.plugins.localhost:<port>`。
-- LAN 或反向代理模式必须显式配置 `web.plugin_ui_origin_template`，并保留 `{plugin_host}` 占位符；解析结果不能与管理面 origin 相同。
+- 内网插件页面通过 `web.plugin_ui_origin_template` 指定可解析到服务器的独立域名，并保留 `{plugin_host}` 占位符；解析结果不能与管理面 origin 相同。主程序的启动、登录和其他管理操作不依赖该配置。
+- 插件详情的 `management_ui.origin_host` 由服务端计算，HTTP 内网页面可直接使用，无需浏览器的安全上下文摘要 API。
 - 管理 cookie 是 admin origin 的 host-only cookie，插件 origin 不接收 cookie。
 - 插件域没有 `/api` 路由，不开放管理端 CORS，不提供目录枚举，也不允许路径越界。
 - 响应应用严格 CSP：脚本、样式、图片和字体只允许 artifact 自身所需来源，`connect-src 'none'`，`frame-ancestors` 只允许管理面 origin。

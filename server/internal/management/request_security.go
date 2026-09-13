@@ -66,13 +66,13 @@ func validRequestOrigin(r *http.Request, allowed []string, required bool) bool {
 	if !ok {
 		return false
 	}
-	if len(allowed) == 0 {
-		scheme := "http"
-		if r.TLS != nil {
-			scheme = "https"
-		}
-		requestOrigin, valid := normalizeOrigin(scheme + "://" + r.Host)
-		return valid && origin == requestOrigin
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	requestOrigin, valid := normalizeOrigin(scheme + "://" + r.Host)
+	if valid && origin == requestOrigin {
+		return true
 	}
 	for _, candidate := range allowed {
 		if normalized, valid := normalizeOrigin(candidate); valid && normalized == origin {

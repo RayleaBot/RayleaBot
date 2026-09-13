@@ -66,7 +66,7 @@ function buildPlugin(overrides: Record<string, unknown> = {}): PluginDetail {
       verified: true,
     },
     trust: { level: 'third_party' },
-    management_ui: { entry: 'ui/index.html', pages: [buildManagementPage()] },
+    management_ui: { origin_host: 'p-0102030405060708', entry: 'ui/index.html', pages: [buildManagementPage()] },
     commands: [],
     command_groups: [],
     help: {},
@@ -115,13 +115,11 @@ function dispatchWindowMessage(source: Window, origin: string, data: unknown) {
 }
 
 function installWebPlatformMocks() {
-  const digest = Uint8Array.from({ length: 32 }, (_, index) => index + 1)
   vi.stubGlobal('crypto', {
     getRandomValues: (target: Uint8Array) => {
       target.forEach((_, index) => { target[index] = (index + 17) % 256 })
       return target
     },
-    subtle: { digest: vi.fn(async () => digest.buffer) },
   })
   vi.stubGlobal('MessageChannel', FakeMessageChannel)
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -248,6 +246,17 @@ describe('PluginManagementUIHost bridge v3', () => {
     wrapper.unmount()
   })
 
+  it('loads plugin frames over HTTP without a browser digest API', async () => {
+    useConfigStore().document = {
+      web: { plugin_ui_origin_template: 'http://{plugin_host}.plugins.lan:8080' },
+    } as never
+    const wrapper = mountHost()
+    await flushPromises()
+    const frame = wrapper.get('[data-testid="plugin-management-ui-frame"]')
+    expect(new URL(frame.attributes('src')).origin).toBe('http://p-0102030405060708.plugins.lan:8080')
+    wrapper.unmount()
+  })
+
   it('explains how to fix a plugin page origin that matches the management origin', async () => {
     const configStore = useConfigStore()
     configStore.document = {
@@ -369,8 +378,13 @@ describe('PluginManagementUIHost bridge v3', () => {
     const wrapper = mountHost()
     await flushPromises()
     const previous = await connectBridge(wrapper)
-    let resolveOrigin!: (digest: ArrayBuffer) => void
-    vi.mocked(crypto.subtle.digest).mockImplementationOnce(() => new Promise((resolve) => { resolveOrigin = resolve }))
+    const configStore = useConfigStore()
+    const document = configStore.document
+    configStore.document = null
+    let resolveOrigin!: () => void
+    vi.spyOn(configStore, 'fetchConfig').mockImplementationOnce(() => new Promise<void>((resolve) => {
+      resolveOrigin = () => { configStore.document = document; resolve() }
+    }))
     await wrapper.setProps({ page: { id: 'secrets', label: '密钥设置' } })
     expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(false)
     expect(previous.channel.port1.closed).toBe(true)
@@ -379,7 +393,7 @@ describe('PluginManagementUIHost bridge v3', () => {
       nonce: new URL(previous.iframe.src).searchParams.get('bridge_nonce'),
     })
     expect(FakeMessageChannel.latest).toBe(previous.channel)
-    resolveOrigin(new Uint8Array(32).buffer)
+    resolveOrigin()
     await flushPromises()
     expect(wrapper.find('[data-testid="plugin-management-ui-frame"]').exists()).toBe(true)
     wrapper.unmount()

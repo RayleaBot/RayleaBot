@@ -329,6 +329,8 @@ export const plugins = {
     loading: '正在载入插件页面',
     saving: '正在保存设置',
     loadFailed: '插件页面未打开',
+    invalidOriginHost: '插件页面缺少有效的域名信息，请刷新插件详情。',
+    lanOriginRequired: '内网插件页面需要配置可解析到服务器的插件页面域名模板。',
     loadTimeout: '插件页面未在预期时间内完成初始化，请重试。',
     sameOrigin: '插件页面域不能与管理域相同，请修改 Web 配置中的插件页面域模板。',
     invalidBridgeMessage: '插件页面发送了无效消息，当前页面已停止交互。',

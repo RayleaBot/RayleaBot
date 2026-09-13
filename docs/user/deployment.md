@@ -34,18 +34,17 @@ Linux Launcher 使用系统提供的 GTK 3 和 WebKit2GTK 4.1 动态库，完整
 
 恢复操作见 [Recovery](./recovery.md)。
 
-## 远程管理
+## 本机与局域网访问
 
-管理面默认只监听 loopback。远程访问应使用 HTTPS 反向代理，并配置：
+默认监听 `0.0.0.0:8080`。本机使用 `http://127.0.0.1:8080`，同一局域网设备使用 `http://<服务器内网 IP>:8080`。可通过 `server.host` 与 `server.port` 修改监听地址。
 
-- `web.exposure_mode: public_via_reverse_proxy`；
-- `web.public_origin` 为唯一公开 HTTPS origin；
-- `web.trusted_proxy_cidrs` 只包含实际代理地址段。
-- `web.plugin_ui_origin_template` 使用独立插件域模板并包含 `{plugin_host}`，例如 `https://{plugin_host}.plugins.example.com`；代理只向插件域提供只读静态文件，不能转发管理 API。
+已有配置升级时，删除 `web` 下的 `exposure_mode`、`public_origin`、`trusted_proxy_cidrs` 和 `setup_local_only`；这些字段已不属于配置契约，残留字段会使校验失败。已有的 `server.host` 会保留，需要开放内网时将其设为 `0.0.0.0` 或具体内网地址。
 
-危险的 host/exposure 组合会在启动时失败。不要直接把管理端口暴露到公网。
+用户负责防火墙、网络隔离、端口映射及传输安全。应用按本机和局域网直连场景提供支持，管理访问不要求公开 origin、代理配置或 HTTPS。登录会话、CSRF 和 WebSocket Origin 校验按实际请求地址工作，代理转发头不参与客户端 IP 识别。
 
-本机模式会自动派生 `p-<id-hash>.plugins.localhost:<port>`，无需显式模板。LAN 与反向代理模式缺少独立插件域模板时配置校验失败。插件域不接收管理 cookie、不开放 CORS，也不提供 `/api`。
+首次初始化需要一次性初始化 token；可从运行机器取得后在内网浏览器完成初始化。
+
+插件自定义管理页使用独立域名隔离：本机可使用自动派生的 `p-<id-hash>.plugins.localhost:<port>`；内网访问需将 `web.plugin_ui_origin_template` 对应域名解析到运行机器。该设置只影响插件自定义页面，不限制主程序启动和管理访问。
 
 ## Linux systemd / LXC
 

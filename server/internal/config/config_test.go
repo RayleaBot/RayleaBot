@@ -18,8 +18,8 @@ func TestLoadAndSaveUseEmbeddedSchemaByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load with embedded schema failed: %v", err)
 	}
-	if cfg.Server.Host != "127.0.0.1" {
-		t.Fatalf("server.host = %q, want 127.0.0.1", cfg.Server.Host)
+	if cfg.Server.Host != "0.0.0.0" {
+		t.Fatalf("server.host = %q, want 0.0.0.0", cfg.Server.Host)
 	}
 	if summary.SchemaPath != "builtin://contracts/config.user.schema.json" {
 		t.Fatalf("summary.SchemaPath = %q", summary.SchemaPath)
@@ -57,8 +57,8 @@ func TestLoadDoesNotWriteConfigFilesWhenMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.Server.Host != "127.0.0.1" {
-		t.Fatalf("Server.Host = %q, want 127.0.0.1", cfg.Server.Host)
+	if cfg.Server.Host != "0.0.0.0" {
+		t.Fatalf("Server.Host = %q, want 0.0.0.0", cfg.Server.Host)
 	}
 	if _, err := os.Stat(filepath.Join(filepath.Dir(configPath), "default.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("Load should not create default.yaml, stat err = %v", err)
@@ -79,8 +79,8 @@ func TestNormalizeBootstrapsUserConfigWhenMissing(t *testing.T) {
 		t.Fatalf("Normalize() error = %v", err)
 	}
 
-	if cfg.Server.Host != "127.0.0.1" {
-		t.Fatalf("Server.Host = %q, want 127.0.0.1", cfg.Server.Host)
+	if cfg.Server.Host != "0.0.0.0" {
+		t.Fatalf("Server.Host = %q, want 0.0.0.0", cfg.Server.Host)
 	}
 	if cfg.Server.Port != 8080 {
 		t.Fatalf("Server.Port = %d, want 8080", cfg.Server.Port)
@@ -208,8 +208,8 @@ func TestLoadMergesEmbeddedDefaultsAndUserOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.Server.Host != "127.0.0.1" {
-		t.Fatalf("Server.Host = %q, want 127.0.0.1", cfg.Server.Host)
+	if cfg.Server.Host != "0.0.0.0" {
+		t.Fatalf("Server.Host = %q, want 0.0.0.0", cfg.Server.Host)
 	}
 	if cfg.Server.Port != 9090 {
 		t.Fatalf("Server.Port = %d, want 9090", cfg.Server.Port)
@@ -222,8 +222,8 @@ func TestLoadMergesEmbeddedDefaultsAndUserOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDocument() error = %v", err)
 	}
-	if got := nestedString(t, document, "server", "host"); got != "127.0.0.1" {
-		t.Fatalf("server.host = %q, want 127.0.0.1", got)
+	if got := nestedString(t, document, "server", "host"); got != "0.0.0.0" {
+		t.Fatalf("server.host = %q, want 0.0.0.0", got)
 	}
 	if got := nestedString(t, document, "server", "port"); got != "9090" {
 		t.Fatalf("server.port = %q, want 9090", got)
@@ -624,11 +624,7 @@ func newPlanningConfigDocument() map[string]any {
 			"allow_private_hosts":     []string{},
 		},
 		"web": map[string]any{
-			"exposure_mode":             "localhost_only",
-			"setup_local_only":          true,
-			"public_origin":             "",
 			"plugin_ui_origin_template": "",
-			"trusted_proxy_cidrs":       []string{},
 		},
 	}
 }

@@ -103,10 +103,6 @@ export function createConfigDocumentFixture(configure?: ConfigureConfigDocument)
       max_response_body_bytes: 4194304,
     },
     web: {
-      exposure_mode: 'localhost_only',
-      setup_local_only: true,
-      public_origin: '',
-      trusted_proxy_cidrs: [],
       plugin_ui_origin_template: '',
     },
   } satisfies RuntimeConfigDocument

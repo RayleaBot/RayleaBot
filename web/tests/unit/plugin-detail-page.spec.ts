@@ -88,8 +88,6 @@ function createFixtureConfig(prefixes: string[]): ConfigDocument {
     },
     http: { timeout_seconds: 10, max_retries: 2, allow_private_hosts: [] },
     web: {
-      exposure_mode: 'localhost_only',
-      setup_local_only: true,
       plugin_ui_origin_template: 'http://{plugin_host}.plugins.localhost:8080',
     },
   }
@@ -674,6 +672,7 @@ describe('PluginDetailPage', () => {
         label: '示例',
       },
       management_ui: {
+    origin_host: 'p-0102030405060708',
     entry: 'ui/index.html',
         pages: [
           {
@@ -764,6 +763,7 @@ describe('PluginDetailPage', () => {
         label: '示例',
       },
       management_ui: {
+    origin_host: 'p-0102030405060708',
     entry: 'ui/index.html',
         pages: [
           {

@@ -21,7 +21,6 @@ const (
 )
 
 type CoreHandlers struct {
-	config               AuthConfigSource
 	auth                 coreAuthService
 	system               coreSystemService
 	requestShutdown      func()
@@ -29,9 +28,6 @@ type CoreHandlers struct {
 }
 
 type CoreDeps struct {
-	// Config supplies the cookie security flag for logout; nil clears the
-	// cookie without the Secure attribute.
-	Config               AuthConfigSource
 	Auth                 coreAuthService
 	System               coreSystemService
 	RequestShutdown      func()
@@ -40,7 +36,6 @@ type CoreDeps struct {
 
 func NewCoreHandlers(deps CoreDeps) *CoreHandlers {
 	return &CoreHandlers{
-		config:               deps.Config,
 		auth:                 deps.Auth,
 		system:               deps.System,
 		requestShutdown:      deps.RequestShutdown,
@@ -109,11 +104,7 @@ func (h *CoreHandlers) HandleSessionLogout() http.HandlerFunc {
 			httpapi.WriteError(w, r, coreCodeInternalError, nil)
 			return
 		}
-		secure := false
-		if h.config != nil {
-			secure = h.config.AuthConfig().SecureCookie
-		}
-		http.SetCookie(w, clearSessionCookie(secure))
+		http.SetCookie(w, clearSessionCookie(r.TLS != nil))
 
 		w.WriteHeader(http.StatusNoContent)
 	}

@@ -181,7 +181,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 ## 已冻结的规范化决议
 
-- `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `127.0.0.1`。
+- `contracts/config.user.schema.json` 中 `server.host` 默认值采用 `0.0.0.0`。
 - 聊天适配器配置正式形状是 `adapters` 实例列表：连接键名采用 `adapters[].onebot11.reverse_ws.url`、`adapters[].onebot11.forward_ws.url`、`adapters[].onebot11.http_api.url` 与 `adapters[].onebot11.webhook.url`，实例由 `adapters[].id` 标识。
 - `launcher/go.mod` 与 `launcher/package.json` 共同锁定 Wails 启动器的 Go host、typed runtime、构建形态与 Node / pnpm 基线。原生托盘和单实例能力依赖当前固定的 Wails v3 预发布版本，变更版本必须同步验证 Go bindings、三平台构建与发布包布局。
 - `server/go.mod` 采用 `github.com/RayleaBot/RayleaBot/server` 作为 module path。

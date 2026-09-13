@@ -51,7 +51,6 @@ func buildManagementRoutes(deps httpBuildDeps, configService managementapi.Confi
 		SetupToken:    managementapi.NewOneTimeToken(deps.SetupToken),
 	})
 	managementHandler := managementapi.NewCoreHandlers(managementapi.CoreDeps{
-		Config:               authConfig,
 		Auth:                 platformState.Auth,
 		System:               services.System,
 		RequestShutdown:      deps.RequestShutdown,
@@ -175,46 +174,20 @@ func (s authConfigSource) AuthConfig() managementapi.AuthConfig {
 		return managementapi.AuthConfig{}
 	}
 	cfg := s.source.CurrentConfig()
-	allowedHosts, allowedOrigins, secureCookie := managementBrowserOrigins(cfg, os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
+	allowedOrigins := managementDevelopmentOrigins(os.Getenv("RAYLEA_WEB_UI_BASE_URL"))
 	return managementapi.AuthConfig{
-		SetupLocalOnly:     cfg.Web.SetupLocalOnly,
 		LoginFailureLimit:  managementapi.LoginFailureLimit(cfg),
 		LoginFailureWindow: managementapi.LoginFailureWindow(cfg),
-		AllowedHosts:       allowedHosts,
 		AllowedOrigins:     allowedOrigins,
-		SecureCookie:       secureCookie,
 	}
 }
 
-func managementBrowserOrigins(cfg config.Config, developmentUIOrigin string) ([]string, []string, bool) {
-	port := strconv.Itoa(cfg.Server.Port)
-	directAuthority := net.JoinHostPort(cfg.Server.Host, port)
-	hosts := []string{directAuthority}
-	origins := []string{"http://" + directAuthority}
-	secureCookie := false
-
-	if parsed, err := url.Parse(strings.TrimSpace(cfg.Web.PublicOrigin)); err == nil && parsed.Host != "" {
-		hosts = appendUniqueString(hosts, parsed.Host)
-		origins = appendUniqueString(origins, strings.TrimRight(parsed.String(), "/"))
-		secureCookie = strings.EqualFold(parsed.Scheme, "https")
+func managementDevelopmentOrigins(developmentUIOrigin string) []string {
+	origins := []string{}
+	if developmentOrigin, _, ok := localDevelopmentUIOrigin(developmentUIOrigin); ok {
+		origins = append(origins, developmentOrigin)
 	}
-
-	if isLoopbackHost(cfg.Server.Host) {
-		for _, host := range []string{
-			net.JoinHostPort("127.0.0.1", port),
-			net.JoinHostPort("localhost", port),
-			net.JoinHostPort("::1", port),
-		} {
-			hosts = appendUniqueString(hosts, host)
-			origins = appendUniqueString(origins, "http://"+host)
-		}
-		if developmentOrigin, developmentHost, ok := localDevelopmentUIOrigin(developmentUIOrigin); ok {
-			hosts = appendUniqueString(hosts, developmentHost)
-			origins = appendUniqueString(origins, developmentOrigin)
-		}
-	}
-
-	return hosts, origins, secureCookie
+	return origins
 }
 
 func localDevelopmentUIOrigin(raw string) (string, string, bool) {

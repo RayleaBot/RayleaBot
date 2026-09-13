@@ -72,8 +72,8 @@ flowchart LR
 
 | 边界 | 接受条件 | 拒绝条件 |
 | --- | --- | --- |
-| 浏览器管理 | 合法 Host/Origin、cookie 会话、unsafe method CSRF | query token、跨站请求、伪造 Host、错误 Origin |
-| 初始化 | loopback、一次性 setup token、JSON、Fetch Metadata | token 缺失/复用、跨站表单、非法 Host |
+| 浏览器管理 | 合法请求地址与同源 Origin、cookie 会话、unsafe method CSRF | query token、跨站请求、伪造 Host、错误 Origin |
+| 初始化 | 一次性 setup token、JSON、Fetch Metadata | token 缺失/复用、跨站表单、非法 Host |
 | Launcher 控制 | loopback 直连与进程级 control token | 无凭据 shutdown、代理转发来源 |
 | 插件代码 | 用户检查来源、目标平台、artifact 摘要和权限后确认 | 未确认安装、非法包路径、摘要不一致、未声明权限 |
 

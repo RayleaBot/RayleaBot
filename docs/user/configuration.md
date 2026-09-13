@@ -57,7 +57,7 @@ OneBot11 `access_token` 与 QQ `app_secret` 使用专门的 `secret_only` 元数
 - 插件浏览器的持久 profile 位于运行根目录下的 `data/plugin-browser/<plugin_id>/<profile>`。关闭会话保留这些文件供下次使用；卸载插件会先关闭其会话，再删除所属 profile。关闭或文件清理失败时，卸载任务返回失败，可再次卸载以重试清理。
 - `render.default_output` 控制图片生成默认格式，支持 `png` 与 `jpeg`。
 - `render.device_scale_percent` 控制图片生成精度，`100` 为当前基础倍率，范围为 `50` 到 `500`。
-- `web.plugin_ui_origin_template` 必须包含 `{plugin_host}`。本机模式可省略并自动派生 `plugins.localhost` 子域；LAN 与反向代理模式必须显式配置不同于管理面的插件域模板。
+- `web.plugin_ui_origin_template` 非空时必须包含 `{plugin_host}`。本机可省略并自动派生 `plugins.localhost` 子域；内网插件自定义页面需要可解析到服务器、且不同于管理面的独立域模板。该配置不影响主程序启动和其他管理操作。
 - 配置不接受 schema 之外的键；旧版本遗留的插件运行时键会在服务启动、`config validate` 与 `config normalize` 时被拒绝，需要直接删除。
 - 配置结构、默认值和字段约束以 `contracts/config.user.schema.json` 为准。
 

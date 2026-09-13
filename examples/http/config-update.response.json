@@ -141,11 +141,7 @@
       "allow_private_hosts": []
     },
     "web": {
-      "exposure_mode": "localhost_only",
-      "plugin_ui_origin_template": "",
-      "public_origin": "",
-      "setup_local_only": true,
-      "trusted_proxy_cidrs": []
+      "plugin_ui_origin_template": ""
     }
   },
   "redacted_fields": [

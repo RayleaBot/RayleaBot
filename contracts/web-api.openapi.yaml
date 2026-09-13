@@ -168,7 +168,7 @@ x-fixtures:
 
 x-browser-session-policy:
   cookie: raylea_session; Host-only; HttpOnly; SameSite=Strict
-  secure: Required when web.public_origin uses HTTPS
+  secure: Set for direct TLS requests. Local and LAN HTTP are supported.
   csrf_header: X-Raylea-CSRF
   rule: Every POST, PUT, PATCH, or DELETE admitted through CookieAuth must also satisfy CSRFAuth; BearerAuth clients do not send the CSRF header.
   websocket: Browser WebSocket admission uses CookieAuth and exact Origin validation; query-string session tokens are forbidden.
@@ -2323,7 +2323,7 @@ components:
       type: apiKey
       in: cookie
       name: raylea_session
-      description: Host-only HttpOnly SameSite=Strict browser session cookie. Secure is required when web.public_origin is HTTPS.
+      description: Host-only HttpOnly SameSite=Strict browser session cookie. Secure follows direct TLS; local and LAN HTTP are supported.
     CSRFAuth:
       type: apiKey
       in: header
@@ -4540,8 +4540,12 @@ components:
     PluginManagementUISummary:
       type: object
       additionalProperties: false
-      required: [entry, pages]
+      required: [entry, pages, origin_host]
       properties:
+        origin_host:
+          type: string
+          pattern: '^p-[a-f0-9]{16}$'
+          description: Server-derived plugin host label for the isolated management page origin.
         entry:
           type: string
           pattern: '^[A-Za-z0-9._/-]+\.html$'
