@@ -56,6 +56,9 @@ func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 		return nil, cause
 	}
 
+	if err := initializeSchema(context.Background(), writeDB, path); err != nil {
+		return cleanup(fmt.Errorf("initialize sqlite schema: %w", err))
+	}
 	if err := configureHandle(context.Background(), writeDB); err != nil {
 		return cleanup(fmt.Errorf("configure sqlite write handle: %w", err))
 	}
@@ -64,9 +67,6 @@ func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 	}
 	if _, err := readDB.ExecContext(context.Background(), "PRAGMA query_only = ON"); err != nil {
 		return cleanup(fmt.Errorf("set sqlite read handle to query_only: %w", err))
-	}
-	if err := initializeSchema(context.Background(), writeDB); err != nil {
-		return cleanup(fmt.Errorf("initialize sqlite schema: %w", err))
 	}
 
 	return &Store{

@@ -142,8 +142,12 @@ CREATE TABLE IF NOT EXISTS plugin_kv (
     value_json TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
     updated_at TEXT NOT NULL,
+    expires_at_ms INTEGER,
     PRIMARY KEY (plugin_id, key)
 );
+
+CREATE INDEX IF NOT EXISTS idx_plugin_kv_expiry
+    ON plugin_kv(expires_at_ms) WHERE expires_at_ms IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_plugin_kv_plugin_id
     ON plugin_kv (plugin_id);

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -180,7 +181,7 @@ func EvaluateRestore(manifest BackupManifest, repoRoot string) CompatibilitySumm
 			Remediation: "请检查归档配置与备份清单是否完整。",
 		})
 	}
-	if manifest.DBSchemaVersion != "absent" && manifest.DBSchemaVersion != storage.CurrentSchemaVersion() {
+	if manifest.DBSchemaVersion != "absent" && !slices.Contains(storage.SupportedSchemaVersions(), manifest.DBSchemaVersion) {
 		summary.Status = "blocked"
 		summary.RequiresPostStartChecks = false
 		summary.Issues = append(summary.Issues, CompatibilityIssue{

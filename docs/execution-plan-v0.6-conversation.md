@@ -397,7 +397,7 @@ API 文档版本按实际契约变化更新，A 组记录旧值、新值与消�
 | A0 | 完成第三节六项设计门槛，确定候选预算与版本矩阵 | — | ☑️ 已完成 | `1ee005c8`；[隔离原型、来源评审、预算与验证边界](execution-evidence-v0.6-a0.md)；真实迁移和跨层兼容验收归 B1/E3 |
 | A1 | 会话等待/finish、关闭通知与错误码契约/fixtures | A0 | ☑️ 已完成 | `e730c971`；protocol v3 新增 14 份会话 fixtures、两项错误码；`d817df83` 移除用户取消及 canceled 原因并补拒绝样例；双端生成模型、关联动作结果校验、strict contracts、生成器 verify、Server pluginwire/runtime、独立 SDK 全测及 24 项门禁脚本测试通过。宿主路由与 action 执行仍按 D 组接入 |
 | A2 | 过滤/业务阶段、传播结果、配置契约，以及 Web API / WebSocket 只读投影契约与 fixtures | A0 | ⬜ 待处理 | |
-| A3 | TTL/NX、备份支持集合与恢复摘要契约/fixtures | A0 | ☑️ 已完成 | TTL/NX 请求与按 operation 关联的结果模型、10 份 KV fixtures、000002 备份与源/目标恢复摘要样例；OpenAPI 0.4.0 → 0.4.1；strict contracts、生成器 verify、Server pluginwire/config/recovery 与独立 SDK 全测通过；Web/Launcher 类型已生成。生产迁移与 TTL 操作分别由 B1/B2 接入 |
+| A3 | TTL/NX、备份支持集合与恢复摘要契约/fixtures | A0 | ☑️ 已完成 | `aa2c1210`；TTL/NX 请求与按 operation 关联的结果模型、10 份 KV fixtures、000002 备份与源/目标恢复摘要样例；OpenAPI 0.4.0 → 0.4.1；strict contracts、生成器 verify、Server pluginwire/config/recovery 与独立 SDK 全测通过；Web/Launcher 类型已生成。生产迁移与 TTL 操作分别由 B1/B2 接入 |
 | C1 | 统一投递完成结果及恰好一次结算，覆盖拒绝与清队列 | A2 | ⬜ 待处理 | |
 | C2 | 候选快照、队列预留/激活、顺序与总预算 | C1 | ⬜ 待处理 | |
 | C3 | 拆分授权与原子冷却、逐候选权限、过滤执行及失败策略，补齐启动/重载最低核心版本检查 | C2 | ⬜ 待处理 | |
@@ -405,7 +405,7 @@ API 文档版本按实际契约变化更新，A 组记录旧值、新值与消�
 | D2 | 等待/重新等待/finish action 与限额 | D1, A1 | ⬜ 待处理 | |
 | D3 | 认领与队列事务、输入缓冲、父事件完成提交、主动结束与关闭通知 | D2, C3 | ⬜ 待处理 | |
 | D4 | SDK 登记式/回调式、独立超时、幂等收尾与迟到事件处理 | D3 | ⬜ 待处理 | |
-| B1 | `000002` 结构、启动迁移链与迁移前副本、恢复兼容 | A3 | ⬜ 待处理 | |
+| B1 | `000002` 结构、启动迁移链与迁移前副本、恢复兼容 | A3 | ☑️ 已完成 | 生产启动迁移、失败回滚、归一化 sqlite_master 等价与旧格式副本测试通过；Server 全量测试通过；sqlc generate/diff 通过；真实 000001 → 000002 与 000002 → 000002 恢复、登录及重复启动产物位于 dist/conversation-b1；Nightly 已登记旧格式演练 |
 | B2 | TTL/NX 仓储、sqlc、动作与有界清扫器 | B1 | ⬜ 待处理 | |
 | B3 | SDK KV 选项与去重示例 | B2 | ⬜ 待处理 | |
 | E1 | 三轮交互示例及订阅与解析插件的订阅向导，覆盖错误输入和超时收尾 | D4, B3 | ⬜ 待处理 | |

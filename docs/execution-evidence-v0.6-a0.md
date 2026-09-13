@@ -96,4 +96,6 @@ stateDiagram-v2
 - `python scripts/release/rehearse_current_recovery.py --server dist/conversation-a0/raylea-server.exe --output dist/conversation-a0/recovery-000001 --legacy-schema`，实际 Server 演练通过；本机产物位于 `dist/conversation-a0/recovery-000001/result.json`。
 - 本机 Go 1.26.6、Python 3.14.7。`CGO_ENABLED=1 go test -race` 因没有 gcc 无法构建；CI 已登记原型包，尚无 CI 运行结果，E3 之前必须补齐。
 
-A0.1/A0.3/A0.4 的隔离可行性与 A0.2/A0.6 的来源评审完成；上述生产验证由对应阶段承担。A0.5 的迁移算法和旧归档演练分别通过，生产迁移验收保留在 B1。本记录不宣称 v0.6 已可发布。
+A0.1/A0.3/A0.4 的隔离可行性与 A0.2/A0.6 的来源评审完成；上述生产验证由对应阶段承担。A0.5 的迁移算法和旧归档演练分别通过。本记录不宣称 v0.6 已可发布。
+
+B1 补充：真实 Server 的 `000001 → 000002` 恢复、首次启动迁移、登录与第二次启动通过，本机结果位于 `dist/conversation-b1/recovery-000001/result.json`；副本为原结构且业务数据一致。生产存储测试另覆盖迁移失败原库字节不变、副本保留、副本创建失败和未知版本拒绝。

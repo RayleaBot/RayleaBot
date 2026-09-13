@@ -55,11 +55,12 @@ type PluginInstance struct {
 }
 
 type PluginKv struct {
-	PluginID  string
-	Key       string
-	ValueJson string
-	SizeBytes int64
-	UpdatedAt string
+	PluginID    string
+	Key         string
+	ValueJson   string
+	SizeBytes   int64
+	UpdatedAt   string
+	ExpiresAtMs sql.NullInt64
 }
 
 type PluginPackage struct {

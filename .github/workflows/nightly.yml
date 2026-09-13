@@ -306,6 +306,9 @@ jobs:
       - name: Rehearse fresh initialization and current-format recovery
         run: python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal
 
+      - name: Rehearse legacy backup and startup migration
+        run: python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/legacy-recovery-rehearsal --legacy-schema
+
       - name: Install web dependencies
         working-directory: web
         run: pnpm install --frozen-lockfile

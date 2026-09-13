@@ -59,7 +59,7 @@
     },
     "server/internal/storage/store_schema.go": {
       "category": "D",
-      "reason": "Storage initialization executes the current schema atomically and records and reads its initialization metadata.",
+      "reason": "Storage initialization and ordered forward migrations execute transactional schema SQL and maintain version metadata, with a verified VACUUM INTO copy before migration.",
       "owner": "server-storage",
       "target_action": "keep_schema_initialization_sql",
       "revisit_after": "2027-09-04"
