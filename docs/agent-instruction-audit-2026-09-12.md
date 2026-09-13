@@ -5,7 +5,7 @@
 - 核对基准：工作区 `340f8765`，2026-09-12；工作区存在大量未提交改动，结论按当前文件内容给出。
 - 范围：仓库内所有 `AGENTS.md` / `CLAUDE.md`、项目级 skill、被指令引用为规则的治理文档、CI 与本地门禁、编辑器与 agent harness 的 hook / 权限配置，以及本机用户级的 Codex、Claude、Gemini 指令、skill 与记忆。
 - 方法：逐份阅读文件正文，对照 `scripts/check-agent-docs.mjs`、`scripts/check-doc-links.py`、`scripts/check-server-structure.py`、`server/tests/architecture/` 与 `.github/workflows/ci.yml` 确认哪些规则由脚本强制；重复项按“同一约束在不同文件被完整重述”统计，仅作为来源指针的一句引用不计入。
-- 本文只记录发现与建议，不改动任何指令文件。
+- 第一至五节记录 2026-09-12 的发现与建议；各项处理结果见文末“处理记录”。
 
 ## 一、指令与约束盘点
 
@@ -161,3 +161,39 @@ Impeccable 相关重复：`.agents` / `.claude` / `.gemini` 三份 skill 副本�
 - 约束密度以 `必须|不得|禁止|不能|严禁|不允许|不要|不可|须|不应|不默认|不为|不在|不把|不通过|不使用|不新增|不引入|不复制|不手写|不另建|不吞|不做` 在每份 Markdown 中的出现次数计，仅用于排序阅读优先级，不作为结论依据。
 - 运行 `node scripts/check-agent-docs.mjs` 确认当前指令文件通过结构门禁。
 - 未覆盖：`docs/plugin/`、`docs/user/`、`docs/release/`、`docs/CHANGELOGS/` 的正文只抽查了与指令交叉的部分；`server/`、`web/`、`launcher/` 源码内注释中的约束未纳入；`~/.codex/memories/rollout_summaries/` 的逐篇内容未读取，只依据 `MEMORY.md` 与 `memory_summary.md` 的汇总。
+
+## 处理记录（2026-09-13）
+
+本轮处理仓库内跟踪的指令、skill 与治理文档；本机 agent 配置与用户目录中的项目未改动。
+
+| 编号 | 处理结果 |
+| --- | --- |
+| D1、D2、D3、D9、D15 | 根 `AGENTS.md` 保留契约规则，并补充“正式语义不变的内部调整不需要契约改动”；删除 `baseline.md`、`implementation-order.md`、`quality-gates.md`、`contract-audit` 与 PR 模板中的重复表述 |
+| D4、D5 | 状态来源与错误分支规则移入根 `AGENTS.md`；删除 `server/`、`web/`、`contracts/` 局部指令与 `web-admin-baseline.md` 约束节中的重复条目 |
+| D6 | `server/AGENTS.md` 只保留 secret store 的专属要求 |
+| D8 | 删除 `editing-final-state-content` 中与根 Testing 重复的测试要求 |
+| D10 | 删除 v0.6 执行计划中的提交格式要求 |
+| D11 | 三份界面规范的验收条件改为引用 `DESIGN.md` 的 Do's and Don'ts |
+| D13 | `web-testing.md` 改为链接 `web/AGENTS.md` 的 Browser Verification |
+| D17、C5 | 已由 `23acb63e` 移除 gbash 包装与相关要求 |
+| D18、C7 | 删除五份局部 `AGENTS.md` 首句的“先遵守根 AGENTS.md” |
+| O1 | 删除 `baseline.md` 末节“视为违反仓库治理规则”的表述，契约来源说明并入仓库级强制基线文件表 |
+| O2、O5 | `quality-gates.md` 新增“按改动面的最小验证”表，覆盖契约门禁与生成器命令；根 `AGENTS.md`、`contracts/AGENTS.md`、`contract-audit` 与 PR 模板引用该表；`implementation-order.md` 第 9 节注明为发布验收范围 |
+| O3 | 复核后保留在根 `AGENTS.md`：Launcher `internal/desktop` 同样持有并发读写的共享状态 |
+| O4 | nil 检查规则限定为新增的业务方法 |
+| O7 | `contract-audit` 注明只调整描述的契约修改不需要新增 fixture，怀疑契约本身有误时向用户确认 |
+| O8 | `baseline.md` 的新依赖说明要求限定为运行时依赖与固定选型替换 |
+| O9、O11 | `docs/AGENTS.md` 写入“只修改确有漂移的内容”与“执行计划只约束对应版本的任务” |
+| O10 | 根 `AGENTS.md` 说明 agent-docs 检查脚本的检查内容 |
+| O6 | 设计检测 hook 默认已把逐次编辑限定为即时规则、完整规则留到 Stop 事件，未改配置。`DESIGN.md` 是 Impeccable 读取的设计上下文，未迁出组件细节；改为修正界面规范中与其冲突的重复描述，见 C8、C9 |
+| C3 | `CLAUDE.md` 说明 Claude Code 需直接读取 `.agents/skills/` 中的 `SKILL.md` |
+| C4 | 已由 `ed390c77` 修正 README 默认监听地址 |
+| C8 | 新发现：`web-management-ui.md` 与 `plugin-management-surface.md` 称 Web 浮层使用 12px 背景模糊，`DESIGN.md` 与 Web 代码均为不透明表面；已按代码修正 |
+| C9 | 新发现：`web-management-ui.md` 称桌面控件默认高度 36px，Web 的 `AppButton`、`AppInput`、`AppSelect` 实为 40px；已改为引用 `DESIGN.md` Components |
+
+尚未处理：
+
+- C1、C2、C6：`.codex/hooks.json`、`.claude/` 与 `.gemini/` 下的 Impeccable 副本和权限白名单，均为本机未跟踪配置。
+- O12 与第 1.5 节各项：用户目录中的 Codex 记忆、规则与 skill。
+- D12：Web 工作区事实仍分布在 `web-admin-baseline.md`、`DESIGN.md` 与 `web-management-ui.md` 三处；本轮只修正已核实的冲突。
+- `Makefile` 测试目标依赖 `doctor` 的行为未改；最小验证表直接使用各工程命令。
