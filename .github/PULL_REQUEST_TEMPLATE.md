@@ -17,10 +17,9 @@
 
 请确认已完成以下验证：
 
-- [ ] 已运行与改动面直接相关的最小验证（build / test / typecheck / lint）
+- [ ] 已按 `docs/engineering/quality-gates.md` 运行与改动面对应的最小验证
 - [ ] 若改动 `AGENTS.md` / `CLAUDE.md` / `.agents/skills/`，已运行 `node scripts/check-agent-docs.mjs`
-- [ ] 若对外正式语义变化，已先更新对应 contract，并按实际影响更新实现、生成物、fixtures、examples、tests 与 docs
-- [ ] 若修复实现以符合现有 contract，已核对约定并完成必要验证；未受影响的配套项无需改动
+- [ ] 若对外正式语义变化，已先更新对应 contract，并补齐受影响的样例与生成物
 
 ## 备注
 

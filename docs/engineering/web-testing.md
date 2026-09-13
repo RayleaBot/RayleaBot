@@ -35,4 +35,4 @@
 
 日志持续追加由 Playwright 的 APIRequestContext 注入，先确认新行已到达浏览器，再进行滚动断言。小型 [`fixture-log-pages.mjs`](../../web/tests/e2e/fixture-log-pages.mjs) 为这些已知数据提供浏览器滚动所需的页，使用 `fixture-row:` 游标和精确字段匹配。它不处理真实 Server 游标、时间戳归一化、输入校验或数据库排序；对应服务端行为由 Go 测试与真实 Server 用例覆盖。大列表用例通过测试内的请求拦截指定页面数据。
 
-新增用例先选择真实 Server；仅在需要可控响应、消息序列或展示数据时使用模拟入口。不得为了截图或断言绕过鉴权、修改路由守卫或用日志反推正式状态。
+新增用例先选择真实 Server；仅在需要可控响应、消息序列或展示数据时使用模拟入口。会话建立与视觉验证边界见 [`web/AGENTS.md`](../../web/AGENTS.md#browser-verification)。

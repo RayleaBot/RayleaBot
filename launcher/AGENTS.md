@@ -1,6 +1,6 @@
 # Launcher Agent Guide
 
-先遵守根 `AGENTS.md`；职责边界见 `docs/user/management-surface.md`，工具入口见 `launcher/package.json` 与 `launcher/scripts/run-go.mjs`。
+职责边界见 `docs/user/management-surface.md`，工具入口见 `launcher/package.json` 与 `launcher/scripts/run-go.mjs`。
 
 ## Ownership
 

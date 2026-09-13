@@ -13,8 +13,6 @@
 - 硬上限、超时和失败终态；
 - `x-fixtures` 或等价样例引用。
 
-实现、README、fixtures 和 examples 不能反向覆盖 contract。
-
 ## 2. 建立验证样例与生成链
 
 每个正式 surface 至少提供能证明关键行为的 valid、invalid 和边界样例。strict validator 必须按声明的 JSON Schema/OpenAPI 版本验证，并拒绝网络 `$ref`。
@@ -27,7 +25,7 @@
 - SDK 输入输出模型；
 - drift gate。
 
-生成链以各自输入依赖为准；OpenAPI 的客户端类型与 Go service/model 的 Wails bindings 分别生成。契约与样例可以先后编辑，合并前引用须存在、样例和必要验证须齐备；不为未受影响的生成链制造 diff。
+生成链以各自输入依赖为准；OpenAPI 的客户端类型与 Go service/model 的 Wails bindings 分别生成，未受影响的生成链不需要重新生成。
 
 ## 3. 固定状态归属与持久化语义
 
@@ -91,7 +89,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 ## 9. 验收与发布
 
-按受影响面运行最小但充分的验证：
+发布前按受影响面完成以下验收；日常改动的最小验证见[质量门禁](./quality-gates.md#按改动面的最小验证)：
 
 - strict contracts 与 generated drift；
 - 目标包 `-race`、server tests/build 和 binary vulnerability scan；

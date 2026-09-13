@@ -1,6 +1,6 @@
 # Contracts Agent Guide
 
-先遵守根 `AGENTS.md`，从 `contracts/README.md` 定位相关契约。
+从 `contracts/README.md` 定位相关契约。
 
 ## Definitions
 
@@ -18,10 +18,10 @@
 ## Errors
 
 - 每个错误码明确触发条件、HTTP status 与 message 策略；不同接口触发条件不一致时拆分错误码或明确 scope。
-- 程序分支依赖 code 和已定义的结构化 details，message 面向读者；details 只在契约声明时出现，优先固定对象形状。
+- message 面向读者；details 只在契约声明时出现，优先固定对象形状。
 - 新增错误码时提供必要错误样例，检查受影响客户端的消费点。
 
 ## Merge Readiness
 
-- 按实际依赖检查实现、样例、测试、生成物与文档；生成来源和输出从现有工程脚本确认，不维护完整输出清单。
+- 按实际依赖检查实现、样例、测试、生成物与文档；生成来源和输出从现有工程脚本确认，不维护完整输出清单。契约门禁与生成器校验命令见 `docs/engineering/quality-gates.md`。
 - fixture-ready 是合并验收条件。契约和样例可以先后编辑，合并前 `x-fixtures` 或等价引用须存在、可解析、可被 CI 枚举，并通过必要校验。

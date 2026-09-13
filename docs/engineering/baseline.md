@@ -9,7 +9,6 @@
 - 产品目标、范围、顶层架构与路线图以 `docs/RayleaBot机器人项目规划.md` 为准。
 - HTTP、WebSocket、schema、错误码、事件、CLI、插件协议与发布元数据以 `contracts/` 为准。
 - 工具链、默认命令、目录职责与固定工程选型以本文件及对应工程文件为准。
-- fixtures、examples、实现和说明文档必须跟随所属领域的正式来源，不能反向覆盖正式 contract。
 
 来源之间发生冲突时，先在冲突所属领域的正式来源中作出决定，再同步全部 companion；产品规划不能覆盖已经冻结的对外 contract。
 
@@ -87,7 +86,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 
 ## 当前评估方向
 
-新增依赖或替换工具需说明要解决的具体问题、现有技术栈为何不足、是否引入平行技术栈、回滚路径，以及对 CI、发布打包、lockfile、fixture 和生成文件的影响。
+新增运行时依赖或替换固定选型时，说明要解决的具体问题、现有技术栈为何不足、是否引入平行技术栈、回滚路径，以及对 CI、发布打包、lockfile、fixture 和生成文件的影响。只用于开发、测试或仓库脚本的依赖说明必要性即可。
 
 | 领域 | 当前方向 |
 | --- | --- |
@@ -174,7 +173,7 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 | `launcher/pnpm-lock.yaml` | 作为 Launcher 工程唯一 JS 锁文件 |
 | `go.work` | 连接 server、Go SDK 和 Go 示例的主仓库工作区；Launcher 使用独立 Go module，启动与构建脚本固定 `GOWORK=off`，避免 Wails 依赖改变 server 的模块选择；独立插件只通过本地临时开发工作区连接 |
 | `.deps/manifest.json` | 固定资源名、版本线、可信来源列表、SHA256、archive_format、entrypoints 与平台矩阵 |
-| `contracts/*` | 对外接口与错误码唯一正式来源 |
+| `contracts/*` | 对外接口、协议、schema、错误码、事件、CLI 与发布元数据的正式来源；文件清单与职责见 [`contracts/README.md`](../../contracts/README.md) |
 
 ## 已冻结的规范化决议
 
@@ -182,7 +181,3 @@ Web 管理面使用 Reka UI 与自有产品组件，组件职责、状态管理�
 - 聊天适配器配置正式形状是 `adapters` 实例列表：连接键名采用 `adapters[].onebot11.reverse_ws.url`、`adapters[].onebot11.forward_ws.url`、`adapters[].onebot11.http_api.url` 与 `adapters[].onebot11.webhook.url`，实例由 `adapters[].id` 标识。
 - `launcher/go.mod` 与 `launcher/package.json` 共同锁定 Wails 启动器的 Go host、typed runtime、构建形态与 Node / pnpm 基线。原生托盘和单实例能力依赖当前固定的 Wails v3 预发布版本，变更版本必须同步验证 Go bindings、三平台构建与发布包布局。
 - `server/go.mod` 采用 `github.com/RayleaBot/RayleaBot/server` 作为 module path。
-
-## `contracts/` 作为正式来源
-
-对外接口、协议、schema、错误码、事件、CLI 与发布元数据的最终定义不在 Markdown，而在 `contracts/`；文件清单与各自职责见 [`contracts/README.md`](../../contracts/README.md)。绕开 baseline 与 contracts 直接写功能代码视为违反仓库治理规则。

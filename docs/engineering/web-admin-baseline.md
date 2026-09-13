@@ -98,8 +98,6 @@ HTTP API、WebSocket 事件、错误码、配置 schema、插件信息与协议�
 ## 约束
 
 - 不新增平行 HTTP client、WebSocket client、状态管理或组件系统。
-- 不在前端发明 contract 外字段、状态名或错误码。
-- 不通过解析日志推断真实状态。
 - 不把 Web 改成 Launcher 的子状态来源。
 
 ## 官方参考

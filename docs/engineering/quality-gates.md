@@ -10,6 +10,25 @@
 - Launcher：`pnpm test:e2e` 由 Renderer 配合模拟桌面桥运行，覆盖窗口边界、字体加载、初始化失败和减少动态效果；真实 Wails 系统集成另行验证。
 - Plugins：主仓库 `sdk/go` 与 Go 示例执行 `go test -race ./...`；每个独立插件仓库自行执行 Go race test、Vue typecheck/test/build 和三平台 artifact 构建。
 
+## 按改动面的最小验证
+
+日常改动只运行与改动面对应的命令，其余检查由 PR 与发布门禁补足。命令在所列目录执行，未注明目录时在仓库根执行。
+
+| 改动面 | 本地最小验证 | 由 CI 或按风险补充 |
+| --- | --- | --- |
+| Server Go 代码 | `server/`：`go test ./<受影响包>/...`；装配或跨包流程变化时运行 `go test ./...` | 关键并发包 `-race`、golangci-lint（含 Windows 源码）、`govulncheck`、`server-windows` 回归 |
+| SQL 结构或查询 | `server/`：`sqlc generate`、`sqlc diff` 与受影响的存储测试 | — |
+| 契约、fixtures、examples | `node scripts/generate-runtime-schemas.mjs --verify`、`python scripts/generate-error-codes.py --verify`、`python scripts/generate-plugin-wire.py --verify`、`python scripts/generate-launcher-api.py --verify`、`python scripts/ci/validate_contracts.py --mode=strict`；去掉 `--verify` 即重新生成 | OpenAPI 或 WebSocket 变化时，Web 与 Launcher 的 `pnpm generate:types` 漂移检查 |
+| Web | `web/`：`pnpm run typecheck`、`pnpm test <受影响测试文件>`；构建配置变化时运行 `pnpm build` | `pnpm run check:indent`、完整 `pnpm test`、Playwright E2E |
+| Launcher | `launcher/`：`pnpm run typecheck`、`pnpm test`；Go 桥接变化时运行 `pnpm generate:wails` | Wails bindings 漂移、`pnpm build`、Renderer E2E |
+| 插件 SDK 与示例 | `sdk/go`：`GOWORK=off go test ./...`；`sdk/vue`：`pnpm run typecheck && pnpm test` | `-race`、示例插件 UI 构建 |
+| 设计 token 与图标 | `node scripts/generate-design-tokens.mjs --check`；图标变化时运行 `node scripts/generate-launcher-icons.mjs --check` | — |
+| 文档与指令 | `python scripts/check-doc-links.py`；指令文件变化时运行 `node scripts/check-agent-docs.mjs` | — |
+| CI 脚本 | `python scripts/ci/detect_changes.py --self-test` 与 `scripts/tests/` 中对应测试 | 两平台 `ci-self-check` |
+| 依赖变化 | 对应工程的安装、类型检查与测试 | `python scripts/release/generate_third_party_notices.py --check --output THIRD_PARTY_NOTICES.md`、`pnpm audit` |
+
+Race 测试需要 CGO 与 C 编译器；本机缺少时由 CI 覆盖，并在结果中说明未在本地运行。[实施顺序第 9 节](./implementation-order.md#9-验收与发布)是发布验收范围，不作为日常改动的默认清单。
+
 ## CI 工作流
 
 | 工作流 | 主要职责 |
@@ -46,7 +65,6 @@ Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release
 
 ## 验证原则
 
-- 正式语义变化先更新契约；实现、测试、fixtures、examples、生成物和文档按实际影响同步。实现修复以现有契约为准，不要求无关文件制造 diff。
 - 工具链版本值由 `.tool-versions` 提供，CI 通过共享 action 读取后安装。doctor 校验生态工程文件，契约门禁核对基线文档；这两类必要副本发生漂移时失败。
 - 事件、插件协议、配置、错误码和初始化相关 Golden Fixtures 进入正式门禁，不只停留在文档说明。
 - 轻量门禁负责可合并性，发布门禁负责可交付性。
