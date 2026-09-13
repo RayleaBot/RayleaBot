@@ -11,40 +11,47 @@ import (
 )
 
 func (b *Bridge) HandleAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) chatevent.DeliveryOutcome {
+	outcome, report := b.QueueAdapterEvent(ctx, event)
+	report()
+	return outcome
+}
+
+// QueueAdapterEvent separates queue admission from logging, allowing a caller
+// to release its routing lock before reporting the accepted delivery.
+func (b *Bridge) QueueAdapterEvent(ctx context.Context, event chatevent.NormalizedEvent) (chatevent.DeliveryOutcome, func()) {
 	now := time.Now().UTC()
-
 	if !isSupportedEvent(event) {
-		b.recordIgnored(event, now)
-		b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, "reason", "event shape or source is outside the supported adapter contract")
-		return chatevent.DeliveryOutcomeIgnored
+		return chatevent.DeliveryOutcomeIgnored, func() {
+			b.recordIgnored(event, now)
+			b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, "reason", "event shape or source is outside the supported adapter contract")
+		}
 	}
-
 	if b.dispatcher == nil || !b.dispatcher.HasDeliverablePlugins() {
-		b.recordIgnored(event, now)
-		b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, "reason", "no deliverable plugin runtime is registered")
-		return chatevent.DeliveryOutcomeIgnored
+		return chatevent.DeliveryOutcomeIgnored, func() {
+			b.recordIgnored(event, now)
+			b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, "reason", "no deliverable plugin runtime is registered")
+		}
 	}
-
 	runtimeEvent := chatevent.FromAdapter(event)
-
 	commandName := bridgeCommandName(runtimeEvent)
 	results := b.dispatcher.Dispatch(ctx, runtimeEvent, commandName)
 	if len(results) == 0 {
-		b.recordIgnored(event, now)
-		b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, appendCommandName([]any{"reason", "no plugin subscription accepted the event"}, commandName)...)
-		return chatevent.DeliveryOutcomeIgnored
+		return chatevent.DeliveryOutcomeIgnored, func() {
+			b.recordIgnored(event, now)
+			b.logEvent(ctx, slog.LevelDebug, bridgeEventSummary("ignored", event), event, appendCommandName([]any{"reason", "no plugin subscription accepted the event"}, commandName)...)
+		}
 	}
-
 	if bridgeDispatchDelivered(results) {
-		b.recordDelivered(event, now)
-		b.logEvent(ctx, slog.LevelInfo, bridgeEventSummary("queued for dispatcher", event), event, appendCommandName(bridgeDispatchLogAttrs(results), commandName)...)
-		return chatevent.DeliveryOutcomeDelivered
+		return chatevent.DeliveryOutcomeDelivered, func() {
+			b.recordDelivered(event, now)
+			b.logEvent(ctx, slog.LevelInfo, bridgeEventSummary("queued for dispatcher", event), event, appendCommandName(bridgeDispatchLogAttrs(results), commandName)...)
+		}
 	}
-
-	b.recordError(event, now, codePluginInternalError, "eligible plugin runtimes did not accept the event")
-	extra := append(bridgeDispatchLogAttrs(results), "error_code", codePluginInternalError)
-	b.logEvent(ctx, slog.LevelWarn, bridgeEventSummary("failed to queue for dispatcher", event), event, appendCommandName(extra, commandName)...)
-	return chatevent.DeliveryOutcomeError
+	return chatevent.DeliveryOutcomeError, func() {
+		b.recordError(event, now, codePluginInternalError, "eligible plugin runtimes did not accept the event")
+		extra := append(bridgeDispatchLogAttrs(results), "error_code", codePluginInternalError)
+		b.logEvent(ctx, slog.LevelWarn, bridgeEventSummary("failed to queue for dispatcher", event), event, appendCommandName(extra, commandName)...)
+	}
 }
 
 // logEvent emits one bridge log line with the shared event attributes. The

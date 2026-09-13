@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
@@ -16,6 +17,10 @@ import (
 // plugins receive the event.
 func (d *Dispatcher) Dispatch(ctx context.Context, event chatevent.Event, commandName string) []DeliveryResult {
 	if event.EventType == "message.private" || event.EventType == "message.group" {
+		if target, ok := conversation.DeliveryFromContext(ctx); ok {
+			event.Session = &target.Reference
+			return []DeliveryResult{d.DispatchToProcess(ctx, target.Owner.PluginID, target.Owner.Done, event)}
+		}
 		return d.dispatchLayered(ctx, event, commandName)
 	}
 

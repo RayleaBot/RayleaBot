@@ -191,6 +191,20 @@ func (s *Service) Apply(ctx context.Context, event chatevent.NormalizedEvent) (c
 	return enriched, false
 }
 
+// A conversation reply uses the existing ordinary-message list admission.
+// It carries no command authorization or cooldown charge from its initiator.
+func (s *Service) AllowSessionInput(ctx context.Context, event chatevent.NormalizedEvent) bool {
+	engine := s.currentEngine()
+	if engine == nil {
+		return true
+	}
+	verdict := engine.checker.Check(ctx, event.IdentityScope(), strings.TrimSpace(event.SenderID), strings.TrimSpace(event.ActorRole), commandGroupID(event), nil)
+	if verdict.Err != nil {
+		s.logger.ErrorContext(ctx, "权限数据读取失败，本次事件未执行", "error_code", verdict.ErrorCode, "err", verdict.Err, "event_id", event.EventID, "source_adapter", event.SourceAdapter)
+	}
+	return verdict.Allowed
+}
+
 func shouldEvaluateChatPolicy(event chatevent.NormalizedEvent) bool {
 	switch chatevent.EventFamily(event.Kind) {
 	case chatevent.FamilyMessageText, chatevent.FamilyMessage, chatevent.FamilyNotice:

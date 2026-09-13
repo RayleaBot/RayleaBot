@@ -93,8 +93,17 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 - `config.write`
 - `storage.kv`
 - `storage.file`
+- `session.wait` / `session.finish`
 
 宿主使用 init 建立的插件身份选择命名空间。`storage.file` 请求只传相对 `path`，不能选择文件根或其他插件空间。配置读取不使用 action；插件读取当前 `EventContext.Config`。
+
+### 对话等待
+
+消息事件中的 `session.wait` 登记下一条输入，返回对话 ID、scope 和 Unix 毫秒期限。发起事件成功终态后才等待；只有 waiting 状态的回复定向交给登记进程，沿用普通消息的名单准入，跳过普通命令、菜单和订阅分发。发起中或处理中的消息继续普通流程，不缓冲或回放。
+
+当前回复带有 `payload.session`，再次等待传入同一个 session_id；业务步骤由插件维护。同插件在同一路由新建会覆盖自己的旧项，新 ID 产生新绝对期限。插件停止或重载时清理其进程的对话。
+
+`notify_on_expire: true` 请求尽力投递的 `session.expired`；只有该新事件上下文可用于发送超时提示，仍受平台发送能力限制。主动结束、覆盖和进程退出不通知。`session.finish` 可在同一插件进程的其他活动父事件中调用。
 
 ### KV 期限
 

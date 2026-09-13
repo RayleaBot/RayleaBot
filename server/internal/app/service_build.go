@@ -167,6 +167,7 @@ func buildServices(deps serviceBuildDeps) (serviceBuildResult, error) {
 		WhitelistRepo:    policyRepos.Whitelist,
 		WhitelistState:   policyRepos.WhitelistState,
 		BlacklistRepo:    policyRepos.Blacklist,
+		Conversations:    eventStack.Conversations,
 	})
 	return serviceBuildResult{
 		Services: Services{

@@ -3,8 +3,10 @@ package chatpolicy
 import (
 	"context"
 	"log/slog"
+	"maps"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/permission"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
@@ -23,6 +25,7 @@ type Lifecycle interface {
 type EventBridge interface {
 	RejectionLogger
 	HandleAdapterEvent(context.Context, chatevent.NormalizedEvent) chatevent.DeliveryOutcome
+	QueueAdapterEvent(context.Context, chatevent.NormalizedEvent) (chatevent.DeliveryOutcome, func())
 }
 
 type IngressDeps struct {
@@ -39,6 +42,7 @@ type IngressDeps struct {
 	WhitelistRepo    permission.EntryRepository
 	WhitelistState   permission.WhitelistStateRepository
 	BlacklistRepo    permission.EntryRepository
+	Conversations    *conversation.Registry
 }
 
 type Ingress struct {
@@ -48,6 +52,7 @@ type Ingress struct {
 	lifecycle        Lifecycle
 	metadataEnricher MetadataEnricher
 	policy           *Service
+	conversations    *conversation.Registry
 }
 
 func NewIngress(deps IngressDeps) *Ingress {
@@ -61,6 +66,7 @@ func NewIngress(deps IngressDeps) *Ingress {
 		bridge:           deps.Bridge,
 		lifecycle:        deps.Lifecycle,
 		metadataEnricher: deps.MetadataEnricher,
+		conversations:    deps.Conversations,
 	}
 	policyDeps := Deps{
 		CurrentConfig:   currentConfig,
@@ -107,6 +113,33 @@ func (s *Ingress) HandleAdapterEvent(ctx context.Context, event chatevent.Normal
 	event = s.enrichEventMetadata(ctx, event)
 	if s.replyTargets != nil {
 		s.replyTargets.Record(event)
+	}
+	if s.conversations != nil && s.conversations.HasWaiting(chatevent.FromAdapter(event)) {
+		if !s.policy.AllowSessionInput(ctx, event) {
+			return
+		}
+		if s.lifecycle != nil {
+			s.lifecycle.SyncBotIdentities(ctx)
+		}
+		sessionEvent := event
+		sessionEvent.PayloadFields = maps.Clone(event.PayloadFields)
+		delete(sessionEvent.PayloadFields, "command")
+		delete(sessionEvent.PayloadFields, "args")
+		var report func()
+		consumed := s.conversations.TryRoute(chatevent.FromAdapter(sessionEvent), func(owner conversation.Owner, ref chatevent.SessionRef) bool {
+			if s.bridge == nil {
+				return false
+			}
+			var outcome chatevent.DeliveryOutcome
+			outcome, report = s.bridge.QueueAdapterEvent(conversation.WithDelivery(ctx, owner, ref), sessionEvent)
+			return outcome == chatevent.DeliveryOutcomeDelivered
+		})
+		if report != nil {
+			report()
+		}
+		if consumed {
+			return
+		}
 	}
 
 	enriched, allowed := s.ApplyChatPolicy(ctx, event)
