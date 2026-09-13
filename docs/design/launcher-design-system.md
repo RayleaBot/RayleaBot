@@ -129,6 +129,6 @@ Launcher 支持 `system`、`light` 和 `dark`，首次显示跟随系统，显�
 
 - `system`、`light` 和 `dark` 三种偏好均同步作用于 `FluentProvider`、CSS variables 和窗口背景。
 - 主操作、人工关注、警告和危险具有独立且稳定的语义。
-- 界面不存在嵌套卡片、巨型指标、彩色侧边条或装饰性循环动效；玻璃仅用于具有不透明降级的主题菜单和 Dialog。
+- 界面符合 [`DESIGN.md`](../../DESIGN.md) 的 Do's and Don'ts，不使用装饰性循环动效；玻璃仅用于具有不透明降级的主题菜单和 Dialog。
 - 键盘顺序、焦点、对比度、状态标签、reduced-motion 和 forced-colors 达到 WCAG 2.2 AA。
 - Launcher 继续只负责本机进程、系统集成、更新确认和打开 Web，不复制管理面业务。
