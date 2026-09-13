@@ -40,6 +40,7 @@ type DeliveryResult struct {
 type CompletionResult struct {
 	RequestID   string
 	Success     bool
+	Skipped     bool
 	Propagation string
 	ErrorCode   string
 }
@@ -69,6 +70,19 @@ type dispatchItem struct {
 	control    bool
 	run        *scheduler.RunContext
 	completion *Completion
+	gate       *layerGate
+}
+type MessagePolicy struct {
+	Priority int
+	Block    bool
+}
+type layerGate struct {
+	done chan struct{}
+	skip bool
+}
+type enqueueOptions struct {
+	expected *pluginSlot
+	gate     *layerGate
 }
 type pluginSlot struct {
 	ctx           context.Context
@@ -77,6 +91,7 @@ type pluginSlot struct {
 	subscriptions []string
 	commands      []plugins.Command
 	concurrency   int
+	messagePolicy MessagePolicy
 	eventQueue    chan dispatchItem
 	controlQueue  chan dispatchItem
 	done          chan struct{}
@@ -140,6 +155,8 @@ type Dispatcher struct {
 	queueSize         int
 	controlQueueSize  int
 	mu                sync.RWMutex
+	admissionMu       sync.Mutex
+	layersDone        sync.WaitGroup
 	slots             map[string]*pluginSlot
 	retired           map[*pluginSlot]struct{}
 	closed            bool

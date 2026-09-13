@@ -71,7 +71,7 @@ func (d *Drain) Wait(ctx context.Context) error {
 
 // SwapPlugin publishes an already initialized target atomically. It does not
 // start or stop processes; the caller owns initialization and retirement.
-func (d *Dispatcher) SwapPlugin(pluginID string, target runtimeDeliverer, subscriptions []string, commands []plugins.Command, concurrency int) (*Drain, error) {
+func (d *Dispatcher) SwapPlugin(pluginID string, target runtimeDeliverer, subscriptions []string, commands []plugins.Command, concurrency int, policy ...MessagePolicy) (*Drain, error) {
 	d.mu.Lock()
 	if d.closed {
 		d.mu.Unlock()
@@ -81,7 +81,7 @@ func (d *Dispatcher) SwapPlugin(pluginID string, target runtimeDeliverer, subscr
 	if previous != nil {
 		d.retireSlotLocked(previous)
 	}
-	next := d.newPluginSlot(target, subscriptions, commands, concurrency)
+	next := d.newPluginSlot(target, subscriptions, commands, concurrency, policy...)
 	d.slots[pluginID] = next
 	go d.worker(pluginID, next)
 	d.mu.Unlock()

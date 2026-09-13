@@ -14,6 +14,9 @@ import (
 // preferred (directed delivery). Otherwise all message-subscribed
 // plugins receive the event.
 func (d *Dispatcher) Dispatch(ctx context.Context, event chatevent.Event, commandName string) []DeliveryResult {
+	if event.EventType == "message.private" || event.EventType == "message.group" {
+		return d.dispatchLayered(ctx, event, commandName)
+	}
 
 	d.mu.RLock()
 	targets := d.selectTargets(event, commandName)
@@ -49,14 +52,16 @@ func (d *Dispatcher) dispatchOne(ctx context.Context, pluginID string, event cha
 	return results[0]
 }
 func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, targets []string, run *scheduler.RunContext) []DeliveryResult {
+	d.admissionMu.Lock()
+	defer d.admissionMu.Unlock()
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
-		results = append(results, d.enqueueTarget(ctx, event, pluginID, run))
+		results = append(results, d.enqueueTarget(ctx, event, pluginID, run, nil))
 	}
 	return results
 }
 
-func (d *Dispatcher) enqueueTarget(ctx context.Context, event chatevent.Event, pluginID string, run *scheduler.RunContext) DeliveryResult {
+func (d *Dispatcher) enqueueTarget(ctx context.Context, event chatevent.Event, pluginID string, run *scheduler.RunContext, options *enqueueOptions) DeliveryResult {
 	completion := newCompletion()
 	reject := func(outcome Outcome, code, reason string) DeliveryResult {
 		completion.finish(CompletionResult{ErrorCode: code})
@@ -72,12 +77,20 @@ func (d *Dispatcher) enqueueTarget(ctx context.Context, event chatevent.Event, p
 		d.mu.RUnlock()
 		return reject(OutcomeError, errorcodes.PlatformInvalidRequest, "plugin_not_running")
 	}
+	if options != nil && options.expected != nil && options.expected != slot {
+		d.mu.RUnlock()
+		return reject(OutcomeError, errorcodes.PluginStopping, "plugin_replaced")
+	}
 	control := isControlEvent(event.EventType)
 	var eventCtx context.Context = deliveryContext{Context: slot.ctx, values: ctx}
 	if event.EventType == "management.action" {
 		eventCtx = ctx
 	}
-	accepted := slot.tryEnqueue(dispatchItem{ctx: eventCtx, event: event, control: control, run: run, completion: completion})
+	var gate *layerGate
+	if options != nil {
+		gate = options.gate
+	}
+	accepted := slot.tryEnqueue(dispatchItem{ctx: eventCtx, event: event, control: control, run: run, completion: completion, gate: gate})
 	d.mu.RUnlock()
 	if accepted {
 		d.recordOutcome(OutcomeDelivered, pluginID, "")

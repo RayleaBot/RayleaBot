@@ -8,8 +8,8 @@ import (
 
 // Register adds a plugin runtime to the dispatch registry and starts its
 // delivery worker goroutine. The rt parameter must implement DeliverEvent
-// and Snapshot (both *runtime.Manager and test fakes satisfy this).
-func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int) bool {
+// and ReadyForEvents (both *runtime.Manager and test fakes satisfy this).
+func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int, policy ...MessagePolicy) bool {
 	d.mu.Lock()
 	if d.closed {
 		d.mu.Unlock()
@@ -24,7 +24,7 @@ func (d *Dispatcher) Register(pluginID string, rt runtimeDeliverer, subs []strin
 		concurrency = 1
 	}
 
-	slot := d.newPluginSlot(rt, subs, cmds, concurrency)
+	slot := d.newPluginSlot(rt, subs, cmds, concurrency, policy...)
 	d.slots[pluginID] = slot
 	go d.worker(pluginID, slot)
 	d.mu.Unlock()
@@ -138,6 +138,7 @@ func (d *Dispatcher) Close() {
 		}
 	}
 
+	d.admissionMu.Lock()
 	d.mu.Lock()
 	d.closed = true
 	slots := make(map[*pluginSlot]struct{}, len(d.slots)+len(d.retired))
@@ -150,6 +151,7 @@ func (d *Dispatcher) Close() {
 	d.slots = make(map[string]*pluginSlot)
 	d.retired = make(map[*pluginSlot]struct{})
 	d.mu.Unlock()
+	d.admissionMu.Unlock()
 
 	for slot := range slots {
 		slot.closeQueues()
@@ -158,13 +160,18 @@ func (d *Dispatcher) Close() {
 	for slot := range slots {
 		<-slot.done
 	}
+	d.layersDone.Wait()
 }
 
-func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int) *pluginSlot {
+func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []plugins.Command, concurrency int, policy ...MessagePolicy) *pluginSlot {
 	if concurrency <= 0 {
 		concurrency = 1
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	var messagePolicy MessagePolicy
+	if len(policy) > 0 {
+		messagePolicy = policy[0]
+	}
 	return &pluginSlot{
 		ctx:           ctx,
 		cancel:        cancel,
@@ -172,6 +179,7 @@ func (d *Dispatcher) newPluginSlot(rt runtimeDeliverer, subs []string, cmds []pl
 		subscriptions: append([]string(nil), subs...),
 		commands:      plugins.CloneCommands(cmds),
 		concurrency:   concurrency,
+		messagePolicy: messagePolicy,
 		eventQueue:    make(chan dispatchItem, d.queueSize),
 		controlQueue:  make(chan dispatchItem, d.controlQueueSize),
 		done:          make(chan struct{}),

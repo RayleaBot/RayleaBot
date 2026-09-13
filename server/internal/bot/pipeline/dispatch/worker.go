@@ -143,6 +143,18 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 		d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, schedulerElapsed(item.run), errorcodes.PluginEventCanceled, "事件因运行时停止而取消")
 		return
 	}
+	if item.gate != nil {
+		select {
+		case <-item.ctx.Done():
+			return
+		case <-item.gate.done:
+		}
+		if item.gate.skip {
+			completion = CompletionResult{Skipped: true}
+			d.recordOutcome(OutcomeIgnored, pluginID, "propagation_stopped")
+			return
+		}
+	}
 	if !slotIsDeliverable(slot) {
 		completion.ErrorCode = errorcodes.PlatformInvalidRequest
 		d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), errorcodes.PlatformInvalidRequest, "plugin runtime is not deliverable")
