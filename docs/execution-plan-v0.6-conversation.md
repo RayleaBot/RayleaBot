@@ -103,8 +103,8 @@ storage.kv set 增加整数 ttl_seconds，范围 1..31536000；省略时永久�
 | A3 | TTL 与恢复契约 | A0 | ☑️ 已完成 | aa2c1210；NX 部分随 X1 移除 |
 | B1 | 000002 启动迁移与旧格式恢复 | A3 | ☑️ 已完成 | 62ca21a0；真实新旧格式恢复、登录、重复启动和 Server 全测通过；迁移前副本随 X1 移除 |
 | B2 | TTL 仓储、动作和清扫生命周期 | B1 | ☑️ 已完成 | d5a10fb1；Server 全测、索引、并发、恢复及 sqlc diff 通过；额外能力随 X1 精简 |
-| X1 | 精简契约、既有实现、原型与当前计划 | B2 | ☑️ 已完成 | 会话与 TTL 契约、既有存储实现和迁移已收窄；废弃原型删除；strict contracts、Server/SDK 全测、32 项 Python 测试、生成器 verify 与 sqlc diff 通过；真实新旧格式恢复及登录结果位于 dist/conversation-x1，未生成迁移前副本 |
-| B3 | SDK TTL 选项与仓库内示例 | X1 | ⬜ 待处理 | |
+| X1 | 精简契约、既有实现、原型与当前计划 | B2 | ☑️ 已完成 | 6b045001；会话与 TTL 契约、既有存储实现和迁移已收窄；废弃原型删除；strict contracts、Server/SDK 全测、32 项 Python 测试、生成器 verify 与 sqlc diff 通过；真实新旧格式恢复及登录结果位于 dist/conversation-x1，未生成迁移前副本 |
+| B3 | SDK TTL 选项与仓库内示例 | X1 | ☑️ 已完成 | KVSetWithOptions、duration 校验、typed 期限与编译示例；显式 null/永久写入、期限边界及错误宿主结果均经过实际动作请求关联测试；独立 SDK 全测通过 |
 | A2 | priority/block、传播结果和只读展示契约 | X1 | ⬜ 待处理 | 不新增阶段、失败策略、确认原因或配置键 |
 | C1 | 投递完成通知与各路径结算 | A2 | ⬜ 待处理 | 发送仍先完成；传播决定不受发送失败改写 |
 | C2 | 低层等待信号、FIFO 与分层推进 | C1 | ⬜ 待处理 | 沿用每插件容量和事件超时 |

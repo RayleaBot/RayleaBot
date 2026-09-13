@@ -176,7 +176,15 @@ func (actions *Actions) KVGet(ctx context.Context, key string) (ActionResult, er
 }
 
 func (actions *Actions) KVSet(ctx context.Context, key string, value any) (ActionResult, error) {
-	return actions.callResult(ctx, "storage.kv", KVRequest{Operation: "set", Key: key, Value: value})
+	result, err := actions.KVSetWithOptions(ctx, key, value, KVSetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	response := ActionResult{}
+	if result.ExpiresAtMS != nil {
+		response["expires_at_ms"] = *result.ExpiresAtMS
+	}
+	return response, nil
 }
 
 func (actions *Actions) KVDelete(ctx context.Context, key string) (ActionResult, error) {

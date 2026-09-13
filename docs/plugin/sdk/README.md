@@ -35,6 +35,8 @@ err := rayleabot.Run(ctx, rayleabot.Options{}, rayleabot.HandlerFunc(
 - OneBot 单动作与 provider 扩展动作。
 - 已进入正式 contract 的通用 `Call`。
 
+临时 KV 使用 `event.Actions().KVSetWithOptions(ctx, "draft", value, rayleabot.KVSetOptions{TTL: 5 * time.Minute})`，返回可选的 `ExpiresAtMS`。零 TTL 和既有 `KVSet` 都表示永久写入并清除旧期限；负数、正的非整秒或超过 31536000 秒的 TTL 会在发送前报错。显式 nil 值作为 JSON null 写入。需要进程内条件写入时由插件自行同步。
+
 OneBot 和 provider typed helpers 默认由宿主按当前聊天事件选择实例。定时任务等平台事件需要主动指定实例时，使用 `event.Actions().ForOneBotAdapter("second-bot").GroupInfoGet(ctx, groupID)`；返回的动作视图不会改变其他调用的实例。显式实例仍须与聊天父事件一致，多实例且没有选择信息时宿主拒绝调用。
 
 SDK 串行写 stdout JSONL，日志写 stderr；负责 request 关联、并发、ping/pong、关闭、panic 隔离和配置快照原子替换。
