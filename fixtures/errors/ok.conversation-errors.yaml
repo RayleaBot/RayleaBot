@@ -1,0 +1,12 @@
+contract: contracts/error-codes.yaml
+case: ok
+input:
+  errors:
+    - code: plugin.session_conflict
+      message: 当前作用域已有对话，请先结束已有对话
+      applies_to: plugin_protocol
+    - code: plugin.session_stale
+      message: 对话轮次已失效，无法继续等待
+      applies_to: plugin_protocol
+expect:
+  valid: true

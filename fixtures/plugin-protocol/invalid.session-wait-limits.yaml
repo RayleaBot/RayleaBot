@@ -1,0 +1,11 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: session.wait
+  data:
+    timeout_seconds: 601
+expect:
+  valid: false

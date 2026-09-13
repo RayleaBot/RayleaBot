@@ -85,6 +85,29 @@
     ]
   },
   {
+    "name": "edge.session-finish-unknown.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.finish",
+        "data": {
+          "session_id": "unknown"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "finished": false
+        }
+      }
+    ]
+  },
+  {
     "name": "invalid.bot-identities-missing-snapshot.yaml",
     "valid": false,
     "frames": [
@@ -219,6 +242,177 @@
           "keys": [
             "prefix"
           ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-closed-reason.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "reply-1",
+        "event": {
+          "event_id": "fixture-reply",
+          "source_protocol": "onebot11",
+          "source_adapter": "fixture-adapter",
+          "event_type": "session.closed",
+          "timestamp": 1789299999,
+          "actor": {
+            "id": "10001",
+            "role": "member"
+          },
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "payload": {
+            "session": {
+              "session_id": "session-fixture",
+              "revision": 1,
+              "turn": 1,
+              "expires_at_ms": 1789300000000,
+              "scope": "user",
+              "state": {
+                "step": "role"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-unrelated-event.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "reply-1",
+        "event": {
+          "event_id": "fixture-reply",
+          "source_protocol": "onebot11",
+          "source_adapter": "fixture-adapter",
+          "event_type": "scheduler.trigger",
+          "timestamp": 1789299999,
+          "actor": {
+            "id": "10001",
+            "role": "member"
+          },
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "payload": {
+            "session": {
+              "session_id": "session-fixture",
+              "revision": 1,
+              "turn": 1,
+              "expires_at_ms": 1789300000000,
+              "scope": "user",
+              "state": {
+                "step": "role"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-wait-limits.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {
+          "timeout_seconds": 601
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-wait-missing-revision.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {
+          "session_id": "session-fixture"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-wait-mixed.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {
+          "session_id": "session-fixture",
+          "revision": 1,
+          "scope": "user"
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-wait-no-parent.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "action": "session.wait",
+        "data": {}
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-wait-result.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {}
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "session_id": "session-fixture",
+          "revision": 1,
+          "turn": 0
+        }
+      }
+    ]
+  },
+  {
+    "name": "invalid.session-wait-state.yaml",
+    "valid": false,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {
+          "state": []
         }
       }
     ]
@@ -773,6 +967,163 @@
           "changed_keys": [
             "account.example.cookie"
           ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.session-closed.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "reply-1",
+        "event": {
+          "event_id": "fixture-reply",
+          "source_protocol": "onebot11",
+          "source_adapter": "fixture-adapter",
+          "event_type": "session.closed",
+          "timestamp": 1789299999,
+          "actor": {
+            "id": "10001",
+            "role": "member"
+          },
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "payload": {
+            "session": {
+              "session_id": "session-fixture",
+              "revision": 1,
+              "turn": 1,
+              "expires_at_ms": 1789300000000,
+              "scope": "user",
+              "state": {
+                "step": "role"
+              },
+              "reason": "expired"
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.session-finish.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "scheduler-event",
+        "action": "session.finish",
+        "data": {
+          "session_id": "session-fixture"
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "finished": true
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.session-input.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "event",
+        "request_id": "reply-1",
+        "event": {
+          "event_id": "fixture-reply",
+          "source_protocol": "onebot11",
+          "source_adapter": "fixture-adapter",
+          "event_type": "message.group",
+          "timestamp": 1789299999,
+          "actor": {
+            "id": "10001",
+            "role": "member"
+          },
+          "target": {
+            "type": "group",
+            "id": "20001"
+          },
+          "payload": {
+            "session": {
+              "session_id": "session-fixture",
+              "revision": 1,
+              "turn": 1,
+              "expires_at_ms": 1789300000000,
+              "scope": "user",
+              "state": {
+                "step": "role"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.session-rewait.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {
+          "session_id": "session-fixture",
+          "revision": 1,
+          "state": {
+            "step": "operation"
+          }
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "session_id": "session-fixture",
+          "revision": 2,
+          "turn": 1,
+          "expires_at_ms": 1789300000000
+        }
+      }
+    ]
+  },
+  {
+    "name": "ok.session-wait.yaml",
+    "valid": true,
+    "frames": [
+      {
+        "type": "action",
+        "request_id": "action-1",
+        "parent_request_id": "event-1",
+        "action": "session.wait",
+        "data": {
+          "state": {
+            "step": "role"
+          },
+          "notify_on_close": true
+        }
+      },
+      {
+        "type": "result",
+        "request_id": "action-1",
+        "status": "success",
+        "data": {
+          "session_id": "session-fixture",
+          "revision": 1,
+          "turn": 0,
+          "expires_at_ms": 1789300000000
         }
       }
     ]

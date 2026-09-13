@@ -1,0 +1,17 @@
+contract: contracts/plugin-protocol.schema.json
+case: invalid
+frames:
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: session.wait
+  data: {}
+- type: result
+  request_id: action-1
+  status: success
+  data:
+    session_id: session-fixture
+    revision: 1
+    turn: 0
+expect:
+  valid: false

@@ -93,6 +93,43 @@ type ProtocolPayloadFrame struct {
 	Config      *map[string]any                 `json:"config,omitempty"`
 	ChangedKeys []string                        `json:"changed_keys,omitempty"`
 	Bots        *[]BotIdentity                  `json:"bots,omitempty"`
+	Session     *ProtocolSessionFrame           `json:"session,omitempty"`
+}
+
+type ProtocolSessionFrame struct {
+	SessionID   string         `json:"session_id"`
+	Revision    int            `json:"revision"`
+	Turn        int            `json:"turn"`
+	ExpiresAtMs int64          `json:"expires_at_ms"`
+	Scope       string         `json:"scope"`
+	State       map[string]any `json:"state"`
+	Reason      string         `json:"reason,omitempty"`
+}
+
+type ProtocolActionSessionWaitFrame struct {
+	Scope          string          `json:"scope,omitempty"`
+	TimeoutSeconds *int            `json:"timeout_seconds,omitempty"`
+	MaxTurns       *int            `json:"max_turns,omitempty"`
+	NotifyOnClose  bool            `json:"notify_on_close,omitempty"`
+	Replace        bool            `json:"replace,omitempty"`
+	State          json.RawMessage `json:"state,omitempty"`
+	SessionID      string          `json:"session_id,omitempty"`
+	Revision       *int            `json:"revision,omitempty"`
+}
+
+type ProtocolActionSessionFinishFrame struct {
+	SessionID string `json:"session_id"`
+}
+
+type ProtocolSessionWaitResultFrame struct {
+	SessionID   string `json:"session_id"`
+	Revision    int    `json:"revision"`
+	Turn        int    `json:"turn"`
+	ExpiresAtMs int64  `json:"expires_at_ms"`
+}
+
+type ProtocolSessionFinishResultFrame struct {
+	Finished bool `json:"finished"`
 }
 
 type ProtocolOneBotPayloadFrame struct {

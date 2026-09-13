@@ -381,7 +381,8 @@
                     "notice.bot_added",
                     "notice.bot_removed",
                     "notice.push_enabled",
-                    "notice.push_disabled"
+                    "notice.push_disabled",
+                    "session.closed"
                   ]
                 },
                 "timestamp": {
@@ -616,6 +617,9 @@
                       },
                       "uniqueItems": true,
                       "description": "Confirmed identities of enabled adapter instances, sorted by source_adapter with one entry per instance. IDs are scoped to that instance. Empty means no identity is known. The snapshot replaces previous identities; connection readiness is separate from a confirmed identity."
+                    },
+                    "session": {
+                      "$ref": "#/$defs/session_context"
                     }
                   }
                 },
@@ -786,6 +790,100 @@
                         "required": [
                           "bots"
                         ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "event_type": {
+                        "const": "session.closed"
+                      }
+                    },
+                    "required": [
+                      "event_type"
+                    ]
+                  },
+                  "then": {
+                    "required": [
+                      "actor",
+                      "target",
+                      "payload"
+                    ],
+                    "properties": {
+                      "payload": {
+                        "required": [
+                          "session"
+                        ],
+                        "properties": {
+                          "session": {
+                            "required": [
+                              "reason"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "required": [
+                      "payload"
+                    ],
+                    "properties": {
+                      "payload": {
+                        "required": [
+                          "session"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "actor",
+                      "target"
+                    ],
+                    "properties": {
+                      "event_type": {
+                        "enum": [
+                          "message.private",
+                          "message.group",
+                          "session.closed"
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "event_type": {
+                        "enum": [
+                          "message.private",
+                          "message.group"
+                        ]
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "payload": {
+                        "properties": {
+                          "session": {
+                            "not": {
+                              "required": [
+                                "reason"
+                              ]
+                            },
+                            "properties": {
+                              "turn": {
+                                "minimum": 1
+                              }
+                            }
+                          }
+                        }
                       }
                     }
                   }
@@ -1202,6 +1300,12 @@
         },
         {
           "$ref": "#/$defs/action_provider_extension"
+        },
+        {
+          "$ref": "#/$defs/action_session_wait"
+        },
+        {
+          "$ref": "#/$defs/action_session_finish"
         }
       ]
     },
@@ -1622,19 +1726,44 @@
     "http_response_data": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["status_code", "headers", "set_cookies"],
+      "required": [
+        "status_code",
+        "headers",
+        "set_cookies"
+      ],
       "properties": {
-        "status_code": {"type": "integer", "minimum": 100, "maximum": 599},
-        "headers": {"type": "object", "additionalProperties": {"type": "string"}},
+        "status_code": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
         "set_cookies": {
           "type": "array",
           "description": "Each Set-Cookie response field in received order, without joining or splitting its contents. Empty when no cookies are set. Sensitive; never log these values.",
-          "items": {"type": "string"}
+          "items": {
+            "type": "string"
+          }
         },
-        "body_text": {"type": "string"},
-        "body_base64": {"type": "string", "contentEncoding": "base64"}
+        "body_text": {
+          "type": "string"
+        },
+        "body_base64": {
+          "type": "string",
+          "contentEncoding": "base64"
+        }
       },
-      "not": {"required": ["body_text", "body_base64"]}
+      "not": {
+        "required": [
+          "body_text",
+          "body_base64"
+        ]
+      }
     },
     "action_logger_write": {
       "allOf": [
@@ -1997,7 +2126,10 @@
       ],
       "properties": {
         "lifetime_seconds": {
-          "type": "integer", "minimum": 1, "maximum": 1800, "default": 1800,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1800,
+          "default": 1800,
           "description": "Maximum session lifetime from the launch request. The host also releases sessions when the owning plugin process exits. A retired process cannot close a replacement process's sessions."
         },
         "profile": {
@@ -2051,7 +2183,9 @@
           "type": "object",
           "additionalProperties": true,
           "minProperties": 1,
-          "propertyNames": { "minLength": 1 }
+          "propertyNames": {
+            "minLength": 1
+          }
         }
       }
     },
@@ -2876,6 +3010,266 @@
           }
         }
       ]
+    },
+    "action_session_wait_create_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": [
+            "user",
+            "conversation"
+          ],
+          "default": "user"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        },
+        "max_turns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 100
+        },
+        "notify_on_close": {
+          "type": "boolean",
+          "default": false
+        },
+        "replace": {
+          "type": "boolean",
+          "default": false
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Immutable JSON object snapshot, at most 4096 UTF-8 serialized bytes. The host checks serialized size and never exposes mutable registry references."
+        }
+      },
+      "required": [],
+      "description": "Only an ordinary business message may create a session. Host derives full source protocol/adapter/bot, target, actor and command origin from its parent event. A filter plugin cannot register. Scope conversation becomes user in private chats. replace only replaces the same process owner in waiting, with a new ID."
+    },
+    "action_session_wait_resume_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Immutable JSON object snapshot, at most 4096 UTF-8 serialized bytes. The host checks serialized size and never exposes mutable registry references."
+        }
+      },
+      "required": [
+        "session_id",
+        "revision"
+      ],
+      "description": "Parent must be the current handling request of this session/revision. One pending proposal per round; identical retry is idempotent. Omitted state retains the previous snapshot. Commit on successful parent completion only; total turns and absolute lifetime cannot reset."
+    },
+    "action_session_wait_data": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/action_session_wait_create_data"
+        },
+        {
+          "$ref": "#/$defs/action_session_wait_resume_data"
+        }
+      ]
+    },
+    "action_session_finish_data": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "session_id"
+      ]
+    },
+    "session_wait_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "turn": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "session_id",
+        "revision",
+        "turn",
+        "expires_at_ms"
+      ],
+      "description": "Host deadline in Unix milliseconds, starting at acceptance and bounded by the immutable absolute lifetime. Default wait 60 seconds, configured maximum at most 600. Expired at now >= expires_at_ms. Receiving acceptance does not commit the parent event."
+    },
+    "session_finish_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "finished": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "finished"
+      ],
+      "description": "false for unknown, closed, or other-process session IDs without disclosing ownership. true only for the first owner closure. The caller may use any active event in the owning process; no process-level action or action after parent closure is permitted."
+    },
+    "session_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "turn": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "user",
+            "conversation"
+          ]
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Immutable JSON object snapshot, at most 4096 UTF-8 serialized bytes. The host checks serialized size and never exposes mutable registry references."
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "finished",
+            "expired",
+            "canceled",
+            "replaced",
+            "policy_changed",
+            "delivery_failed",
+            "owner_stopped",
+            "turn_limit"
+          ]
+        }
+      },
+      "required": [
+        "session_id",
+        "revision",
+        "turn",
+        "expires_at_ms",
+        "scope",
+        "state"
+      ],
+      "description": "Host-owned routing metadata, delivered only to its registering process generation, never copied from adapter raw payload. Message input requires turn >= 1 and no reason; session.closed requires reason. Closure notification is best effort and opt-in, uses the ordinary target lane, retains source and initiator, and grants no additional authority."
+    },
+    "action_session_wait": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data",
+            "parent_request_id"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "const": "session.wait",
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/action_session_wait_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_wait_result. Requires min_core_version >= 0.6.0."
+    },
+    "action_session_finish": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/common"
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "action",
+            "data",
+            "parent_request_id"
+          ],
+          "properties": {
+            "type": {
+              "const": "action"
+            },
+            "parent_request_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "action": {
+              "const": "session.finish",
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/$defs/action_session_finish_data"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false,
+      "description": "Implicit plugin-private, parent-event-bound conversation action. Success result: #/$defs/session_finish_result. Requires min_core_version >= 0.6.0."
     }
   },
   "x-message-catalog": [
@@ -3004,7 +3398,26 @@
     "fixtures/plugin-protocol/invalid.removed-action.yaml",
     "fixtures/plugin-protocol/invalid.storage-root.yaml",
     "fixtures/plugin-protocol/ok.bot-identities.yaml",
-    "fixtures/plugin-protocol/invalid.bot-identities-missing-snapshot.yaml"
+    "fixtures/plugin-protocol/invalid.bot-identities-missing-snapshot.yaml",
+    "fixtures/plugin-protocol/ok.session-wait.yaml",
+    "fixtures/plugin-protocol/ok.session-rewait.yaml",
+    "fixtures/plugin-protocol/ok.session-finish.yaml",
+    "fixtures/plugin-protocol/edge.session-finish-unknown.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-mixed.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-missing-revision.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-no-parent.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-limits.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-state.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-result.yaml",
+    "fixtures/plugin-protocol/ok.session-input.yaml",
+    "fixtures/plugin-protocol/ok.session-closed.yaml",
+    "fixtures/plugin-protocol/invalid.session-unrelated-event.yaml",
+    "fixtures/plugin-protocol/invalid.session-closed-reason.yaml"
   ],
-  "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions."
+  "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions.",
+  "x-action-result-schemas": {
+    "http.request": "#/$defs/http_response_data",
+    "session.wait": "#/$defs/session_wait_result",
+    "session.finish": "#/$defs/session_finish_result"
+  }
 }

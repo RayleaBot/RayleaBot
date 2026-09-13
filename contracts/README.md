@@ -90,6 +90,7 @@
     - `browser.close` 关闭调用插件自己启动的会话并释放其持久 profile。
     - `render.image` 支持系统模板 ID、调用插件自动发现的模板短 ID，以及平台经统一 HTTPS、DNS/重定向复查、SSRF/私网和资源限制预取后交给 Chromium 的请求级临时图片资源
   - local action `action` 帧使用 `parent_request_id` 归属到对应事件；并发插件必须提供该字段
+  - `session.wait` 和 `session.finish` 固定为必须携带父事件的私有动作；新建和本轮重新等待使用互斥形状。会话回复的 `payload.session` 只交付给登记者进程，`session.closed` 是显式请求后的尽力通知，不参与普通订阅广播。具体生命周期、期限、轮数、归属和结果约束见协议 schema；生产接入进度见 [v0.6 执行计划](../docs/execution-plan-v0.6-conversation.md)。
   - 当前已固定 OneBot 单动作能力，provider 扩展 action 固定为 `provider.napcat.message_emoji.like.set`、`provider.napcat.group.sign.set` 与 `provider.luckylillia.friend_groups.get`
   - 正式 `event.event_type` 以 schema 枚举为准，包含平台内部事件与 OneBot `message.*`、`message_sent.*`、`notice.*`、`request.*`、`meta.*`
   - `event.payload.onebot` 是形状闭合的 OneBot11 归一化投影（`additionalProperties: false`），字段集以 schema 为准；不需要 permission，与 permission-gated 的 `event.raw_payload` 无关

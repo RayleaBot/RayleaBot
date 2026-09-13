@@ -365,20 +365,23 @@ def validate_json_schema_fixtures() -> None:
                 )
 
 def plugin_protocol_response_errors(schema: dict[str, Any], frames: list[Any]) -> list[str]:
-    """Associate generic result frames with the current HTTP action result schema."""
+    """Associate generic result frames with their contract-defined action result."""
     requests = {
         frame.get("request_id"): frame.get("action")
         for frame in frames if isinstance(frame, dict) and frame.get("type") == "action"
         and isinstance(frame.get("request_id"), str)
     }
-    response_validator = Draft202012Validator(schema["$defs"]["http_response_data"])
-    return [
-        f"frames/{index}/data/{format_schema_error(error)}"
-        for index, frame in enumerate(frames)
-        if isinstance(frame, dict) and frame.get("type") == "result" and frame.get("status") == "success"
-        and isinstance(frame.get("request_id"), str) and requests.get(frame["request_id"]) == "http.request"
-        for error in response_validator.iter_errors(frame.get("data"))
-    ]
+    errors = []
+    for index, frame in enumerate(frames):
+        if not isinstance(frame, dict) or frame.get("type") != "result" or frame.get("status") != "success":
+            continue
+        action = requests.get(frame.get("request_id"))
+        reference = schema.get("x-action-result-schemas", {}).get(action)
+        if reference:
+            validator = Draft202012Validator({"$ref": reference, "$defs": schema["$defs"]})
+            errors.extend(f"frames/{index}/data/{format_schema_error(error)}"
+                          for error in validator.iter_errors(frame.get("data")))
+    return errors
 
 
 def validate_plugin_protocol_fixtures() -> None:

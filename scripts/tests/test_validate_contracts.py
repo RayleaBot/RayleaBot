@@ -17,6 +17,16 @@ SPEC.loader.exec_module(validator)
 
 
 class ContractValidatorTests(unittest.TestCase):
+    def test_session_result_requires_host_deadline_and_boolean_finish(self) -> None:
+        schema = validator.load_json(validator.CONTRACTS / "plugin-protocol.schema.json")
+        for name, field, value in [("ok.session-wait.yaml", "expires_at_ms", None),
+                                   ("ok.session-finish.yaml", "finished", "true")]:
+            with self.subTest(name=name):
+                frames = validator.load_yaml(validator.FIXTURES / "plugin-protocol" / name)["frames"]
+                self.assertEqual(validator.plugin_protocol_response_errors(schema, frames), [])
+                frames[-1]["data"][field] = value
+                self.assertTrue(validator.plugin_protocol_response_errors(schema, frames))
+
     def test_http_action_results_follow_the_response_definition(self) -> None:
         schema = validator.load_json(validator.CONTRACTS / "plugin-protocol.schema.json")
         frames = validator.load_yaml(validator.FIXTURES / "plugin-protocol/ok.http-request.yaml")["frames"]

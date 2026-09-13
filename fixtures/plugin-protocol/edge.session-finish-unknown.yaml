@@ -1,0 +1,16 @@
+contract: contracts/plugin-protocol.schema.json
+case: edge
+frames:
+- type: action
+  request_id: action-1
+  parent_request_id: event-1
+  action: session.finish
+  data:
+    session_id: unknown
+- type: result
+  request_id: action-1
+  status: success
+  data:
+    finished: false
+expect:
+  valid: true

@@ -28,6 +28,11 @@ MODELS = {
     "ProtocolMessageFrame": EVENT + "/properties/message",
     "ProtocolWebhookFrame": EVENT + "/properties/webhook",
     "ProtocolPayloadFrame": PAYLOAD,
+    "ProtocolSessionFrame": "/$defs/session_context",
+    "ProtocolActionSessionWaitFrame": "/$defs/action_session_wait_data",
+    "ProtocolActionSessionFinishFrame": "/$defs/action_session_finish_data",
+    "ProtocolSessionWaitResultFrame": "/$defs/session_wait_result",
+    "ProtocolSessionFinishResultFrame": "/$defs/session_finish_result",
     "ProtocolOneBotPayloadFrame": PAYLOAD + "/properties/onebot",
     "ProtocolOneBotSenderFrame": PAYLOAD + "/properties/onebot/properties/sender",
     "ProtocolQQOfficialPayloadFrame": PAYLOAD + "/properties/qq_official",
@@ -56,11 +61,15 @@ MODELS = {
     "ProtocolRenderImageResourceFrame": "/$defs/render_image_resource",
 }
 RAW_FIELDS = {
+    ("ProtocolActionSessionWaitFrame", "state"),
     ("ProtocolPayloadFrame", "command"),
     ("ActionFrame", "data"), ("ProtocolActionStorageKVFrame", "value"),
     ("ProtocolActionSchedulerCreateFrame", "payload"), ("ProtocolActionRenderImageFrame", "data"),
 }
 PRESENCE_FIELDS = {
+    ("ProtocolActionSessionWaitFrame", "revision"),
+    ("ProtocolActionSessionWaitFrame", "timeout_seconds"),
+    ("ProtocolActionSessionWaitFrame", "max_turns"),
     ("ProtocolWebhookFrame", "client_timestamp"), ("ProtocolPayloadFrame", "bots"),
     ("ProtocolPayloadFrame", "config"), ("ProtocolActionMessageSendFrame", "source_adapter"),
     ("ProtocolActionMessageSendFrame", "reply_to_event_id"),
@@ -176,7 +185,7 @@ class GoModels:
         elif category == "string":
             result = "string"
         elif category == "integer":
-            result = "int64" if name in {"timestamp", "time", "received_at", "client_timestamp"} else "int"
+            result = "int64" if name in {"timestamp", "time", "received_at", "client_timestamp", "expires_at_ms"} else "int"
         elif category == "number":
             result = "float64"
         elif category == "boolean":
@@ -277,6 +286,37 @@ func Validate(data []byte, maxBytes int) error {
  if err := decoder.Decode(&value); err != nil { return err }
  if err := decoder.Decode(new(any)); err != io.EOF { return errors.New("plugin frame must contain exactly one JSON value") }
  if err := compiled.Validate(value); err != nil { return &ValidationError{Cause: err} }
+ return nil
+}
+
+var actionResultOnce sync.Once
+var actionResultSchemas map[string]*jsonschema.Schema
+var actionResultCompileError error
+
+// ValidateActionResult checks data using the action associated with a result's
+// request ID. Generic event results have no action-specific data constraint.
+func ValidateActionResult(action string, data []byte) error {
+ actionResultOnce.Do(func() {
+  var document map[string]any
+  if actionResultCompileError = json.Unmarshal(schemaJSON, &document); actionResultCompileError != nil { return }
+  compiler := jsonschema.NewCompiler(); compiler.AssertFormat()
+  const location = "urn:rayleabot:plugin-action-results"
+  if actionResultCompileError = compiler.AddResource(location, document); actionResultCompileError != nil { return }
+  actionResultSchemas = make(map[string]*jsonschema.Schema)
+  references, _ := document["x-action-result-schemas"].(map[string]any)
+  for name, reference := range references {
+   value, ok := reference.(string); if !ok { actionResultCompileError = errors.New("invalid action result schema reference"); return }
+   schema, err := compiler.Compile(location+value); if err != nil { actionResultCompileError = err; return }
+   actionResultSchemas[name] = schema
+  }
+ })
+ if actionResultCompileError != nil { return fmt.Errorf("compile action result schema: %w", actionResultCompileError) }
+ schema := actionResultSchemas[action]; if schema == nil { return nil }
+ decoder := json.NewDecoder(bytes.NewReader(data)); decoder.UseNumber()
+ var value any
+ if err := decoder.Decode(&value); err != nil { return err }
+ if err := decoder.Decode(new(any)); err != io.EOF { return errors.New("action result must contain exactly one JSON value") }
+ if err := schema.Validate(value); err != nil { return &ValidationError{Cause:err} }
  return nil
 }
 '''

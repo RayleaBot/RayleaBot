@@ -25,8 +25,20 @@ func TestContractFrames(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.Name, func(t *testing.T) {
 			rejected := false
+			actions := make(map[string]string)
 			for _, frame := range c.Frames {
-				if err := Validate(frame, 0); err != nil {
+				err := Validate(frame, 0)
+				var envelope Frame
+				if err == nil {
+					err = json.Unmarshal(frame, &envelope)
+				}
+				if err == nil && envelope.Type == "action" {
+					actions[envelope.RequestID] = envelope.Action
+				}
+				if err == nil && envelope.Type == "result" {
+					err = ValidateActionResult(actions[envelope.RequestID], envelope.Data)
+				}
+				if err != nil {
 					rejected = true
 					if c.Valid {
 						t.Fatalf("valid frame rejected: %v", err)
