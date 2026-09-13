@@ -41,7 +41,7 @@
 | 插件进程状态 | Runtime Manager | runtime snapshot |
 | 后台任务 | Task Registry | 有序持久化记录与终态 |
 
-数据库结构变更必须先更新 当前 schema、queries、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态来源。
+数据库结构变更先更新当前 schema，再按实际影响同步 queries、生成物、fixtures 和恢复说明。普通状态修复不能引入平行数据库或客户端状态来源。
 
 ## 4. 实现服务端领域语义
 
@@ -58,7 +58,7 @@ Server 负责正式业务状态、并发控制、资源边界、错误映射和�
 
 各组件的职责与禁止事项见 [Platform Architecture](../architecture/platform-architecture.md)，插件进程的信任与能力边界见 [Plugin Runtime](../architecture/plugin-runtime.md)；接入时不得跨越这些边界。
 
-协议扩展必须同步正式 schema、fixtures、SDK 和示例插件。
+协议扩展先更新对应正式 schema，再按实际影响同步 fixtures、SDK 和示例插件。
 
 ## 6. 暴露管理与本机控制入口
 
