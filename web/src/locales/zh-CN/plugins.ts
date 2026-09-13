@@ -150,11 +150,17 @@ export const plugins = {
     keywords: '关键词',
     screenshots: '截图',
     concurrency: '并发',
+    priority: '消息优先级',
+    propagation: '默认传播',
     permissions: '权限',
     events: '事件订阅',
     webhooks: 'Webhook',
     screenshotPath: '路径',
     screenshotAlt: '说明',
+  },
+  propagation: {
+    stop: '阻断后续插件',
+    continue: '继续传播',
   },
   actions: {
     backToList: '返回插件列表',

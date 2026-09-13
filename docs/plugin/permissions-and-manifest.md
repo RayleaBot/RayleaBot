@@ -19,6 +19,8 @@
 | --- | --- |
 | `metadata` | 作者、描述、图标、仓库、主页、关键词和截图 |
 | `concurrency` | 插件事件并发度，默认 `1` |
+| `priority` | 消息优先级，整数 -1000..1000，默认 `0`；值越大越早执行 |
+| `block` | 成功处理消息后默认阻断后续插件层，默认 `false` |
 | `events` | 静态事件订阅；省略或空数组表示不接收普通事件 |
 | `permissions` | 需要宿主授权的高权限或跨系统能力 |
 | `default_config` | 内联默认配置 |
@@ -38,6 +40,7 @@
 - `config.write`，以及 init/config.changed 提供的配置快照
 - `storage.kv`
 - `storage.file`
+- `session.wait`、`session.finish`
 
 这些能力始终按调用插件 ID 隔离。插件不能选择其他插件命名空间，也不能通过文件根参数扩大访问范围。
 
@@ -73,6 +76,14 @@
 `command_groups[].commands` 只能引用存在的命令 ID。帮助菜单从命令和分组生成；`help` 只提供标题与摘要，不能声明没有对应命令的任意项目。
 
 同名有效触发词会在管理面标记冲突。命令权限由 `command.permission`、全局默认权限、黑白名单、冷却和超级管理员共同决定。
+
+## 消息优先级与会话
+
+声明 `priority` 或 `block` 的插件要求 `min_core_version >= 0.6.0`。普通消息按优先级降序分层，同层并发；同一目标的消息在每个插件内保持接收顺序。命令声明者之外，正优先级且订阅该消息的插件也会先收到命令消息。现有同名命令取最严格权限、名单与冷却规则继续适用。
+
+成功消息终态可用 `propagation: stop|continue` 覆盖静态 `block`；未处理、异常、超时与队列拒绝继续后续层。终态动作发送完成后推进层次，发送失败不改变终态指定的传播结果。详情页的“消息优先级”和“默认传播”展示 manifest 声明。
+
+多轮输入使用 `session.wait`，或使用 [Go SDK 的回调式会话](./sdk/README.md#回调式会话)。这类插件同样要求 Core 0.6.0。只有当前事件成功结束后的等待阶段接收回复，回复定向交给登记进程；业务状态由插件保存。完整三轮流程与 KV TTL 见[会话示例](../../examples/plugins/example-conversation/README.md)。
 
 ## 静态 Webhook
 

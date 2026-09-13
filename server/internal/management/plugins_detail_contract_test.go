@@ -47,6 +47,7 @@ func TestGetPluginReturnsRichV3Metadata(t *testing.T) {
 	snapshot := plugins.Snapshot{
 		PluginID: "weather", Name: "Weather", Version: "1.4.2", Description: "天气查询",
 		Author: "raylea", License: "MIT", MinCoreVersion: "0.4.0", Concurrency: 3,
+		Priority: 25, Block: true,
 		Events: []string{"message.group"},
 		Permissions: map[string]bool{
 			"http.request": true, "secret.write": true,
@@ -66,6 +67,9 @@ func TestGetPluginReturnsRichV3Metadata(t *testing.T) {
 		t.Fatalf("metadata = %#v", plugin)
 	}
 	permissions := plugin["permissions"].(map[string]any)
+	if plugin["priority"] != float64(25) || plugin["block"] != true {
+		t.Fatalf("message policy = %#v", plugin)
+	}
 	if permissions["http.request"] != true {
 		t.Fatalf("permissions = %#v", permissions)
 	}

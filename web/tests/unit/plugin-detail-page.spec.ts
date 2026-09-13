@@ -274,6 +274,8 @@ describe('PluginDetailPage', () => {
       license: 'MIT',
       min_core_version: '0.2.0',
       concurrency: 3,
+      priority: 25,
+      block: true,
     events: ['message.group'],
     permissions: { 'http.request': true, 'render.image': true },
     webhooks: [],
@@ -362,6 +364,15 @@ describe('PluginDetailPage', () => {
     expect(wrapper.text()).toContain('1.4.2')
     expect(wrapper.text()).toContain('raylea')
     expect(wrapper.text()).toContain('MIT')
+    const runtimeValue = (label: string) => wrapper.findAll('.plugin-detail-kv-list > div')
+      .find(row => row.find('dt').text() === label)?.find('dd').text()
+    expect(runtimeValue('消息优先级')).toBe('25')
+    expect(runtimeValue('默认传播')).toBe('阻断后续插件')
+    delete pluginsStore.current!.priority
+    delete pluginsStore.current!.block
+    await flushPromises()
+    expect(runtimeValue('消息优先级')).toBe('0')
+    expect(runtimeValue('默认传播')).toBe('继续传播')
     expect(wrapper.text()).toContain('assets/weather.svg')
     expect(wrapper.text()).toContain('https://github.com/RayleaBot/plugins-weather')
     expect(wrapper.text()).toContain('https://plugins.rayleabot.local/weather')

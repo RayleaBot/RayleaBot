@@ -187,6 +187,8 @@ const sourceInfoRows = computed(() => [
 ])
 const runtimeInfoRows = computed(() => [
   { key: 'concurrency', label: t('plugins.fields.concurrency'), value: currentPlugin.value?.concurrency ?? t('display.empty') },
+  { key: 'priority', label: t('plugins.fields.priority'), value: currentPlugin.value?.priority ?? 0 },
+  { key: 'block', label: t('plugins.fields.propagation'), value: t(currentPlugin.value?.block ? 'plugins.propagation.stop' : 'plugins.propagation.continue') },
 ])
 const permissionNames = computed(() => Object.keys(currentPlugin.value?.permissions ?? {}).sort())
 const detailErrorToast = computed(() => {

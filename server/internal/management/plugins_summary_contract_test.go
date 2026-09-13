@@ -85,6 +85,9 @@ func TestPluginSummaryAndDetailKeepEmptyWireCollections(t *testing.T) {
 				t.Fatalf("%s %s did not serialize an empty array: %#v", path, field, value[field])
 			}
 		}
+		if value["priority"] != float64(0) || value["block"] != false {
+			t.Fatalf("%s default message policy = %#v", path, value)
+		}
 		if help, ok := value["help"].(map[string]any); !ok || len(help) != 0 {
 			t.Fatalf("absent help did not serialize an empty object: %#v", value["help"])
 		}

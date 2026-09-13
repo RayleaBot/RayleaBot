@@ -29,6 +29,7 @@ stateDiagram-v2
 | 声明、启用意图与管理投影 | Catalog | 保存 manifest 与用户意图；Lifecycle 发布运行结果，管理 API 和 WebSocket 只读取投影 |
 | 进程、握手、事件 session、本地 action RPC | Runtime Manager / Registry | Manager 持有进程直到确认退出；Registry 同时持有当前、待发布及退出中的实例 |
 | 投递许可、队列与排空 | Dispatcher | 接收事件时确定目标实例；关闭许可后拒绝新事件，已接收事件在预算内完成 |
+| 对话路由与期限 | `bot/conversation` | 绑定具体进程和当前父事件；仅等待阶段接收回复，停止或重载清理旧进程登记 |
 | 启停、重载、崩溃重试与包事务协调 | Lifecycle | 同一插件共用可取消的操作锁；安装、回滚、卸载及其同步回调都属于完整事务 |
 
 `starting` 包括进程尚未创建的阶段，不能按空进程句柄推导成停止。已启用插件初始化失败时，管理状态为 `failed`，诊断为 `initialization_failed`，携带正式错误码。运行中发生致命协议或进程故障时，先回收进程，再通知 Lifecycle 进入退避重试或人工恢复终态。进程退出尚未确认时保留句柄并显示 `stopping`。
@@ -61,6 +62,8 @@ flowchart TD
 本地 action 是插件访问 RayleaBot 宿主状态与聊天平台能力的唯一入口。完整 action 清单由[插件协议](../plugin/protocol.md#action-rpc)维护；新增宿主 action 应通过 `plugins/actions` 的模块注册接入，声明权限和参数校验，避免插件 runtime 直接 import 管理层或业务实现细节。
 
 插件 stdout 专用于 JSONL 协议，stderr 进入受控插件日志。Runtime Manager 保持请求关联、超时、并发、重启、ping/pong、一次终态响应和 shutdown grace 语义。
+
+Runtime Manager 在事件进入与完成时通知对话注册表；`session.wait` 只在父事件成功完成后激活等待。会话路由与超时通知绑定具体进程，不跟随插件 ID 转交新进程；业务状态与 SDK 回调闭包由插件内存维护。注册表与 Dispatcher 的目标入队共用短临界区，等待输入不缓冲，事件处理中的新消息继续普通流程。
 
 `chatevent.Event`、`MessageSegment` 和 `MessageCommand` 不包含进程帧或调度回调。调度器把 `RunContext` 与事件分别交给 Dispatcher；运行记录不会被序列化给插件。宿主动作解码结果由 `plugins.Action` 承载，消息出口只接收 `chatevent.MessageCommand`。
 

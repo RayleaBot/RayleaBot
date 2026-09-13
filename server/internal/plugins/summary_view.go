@@ -46,6 +46,8 @@ type Summary struct {
 	Icon             string          `json:"icon,omitempty"`
 	Role             string          `json:"role"`
 	State            string          `json:"state"`
+	Priority         int             `json:"priority"`
+	Block            bool            `json:"block"`
 	StateDiagnosis   *StateDiagnosis `json:"state_diagnosis,omitempty"`
 	Source           SourceView      `json:"source"`
 	Trust            TrustView       `json:"trust"`
@@ -62,7 +64,7 @@ type SummaryView struct {
 func BuildSummary(snapshot Snapshot, conflicts []string) Summary {
 	role := summaryViewRole(snapshot)
 	state, diagnosis := ProjectState(snapshot)
-	return Summary{ID: snapshot.PluginID, Name: summaryViewDisplayName(snapshot), Version: strings.TrimSpace(snapshot.Version), Description: strings.TrimSpace(snapshot.Description), Author: strings.TrimSpace(snapshot.Author), Icon: strings.TrimSpace(snapshot.Icon), Role: role, State: state, StateDiagnosis: diagnosis, Source: buildSourceView(snapshot), Trust: buildTrustView(role, snapshot), CommandConflicts: normalizeConflictViews(conflicts)}
+	return Summary{ID: snapshot.PluginID, Name: summaryViewDisplayName(snapshot), Version: strings.TrimSpace(snapshot.Version), Description: strings.TrimSpace(snapshot.Description), Author: strings.TrimSpace(snapshot.Author), Icon: strings.TrimSpace(snapshot.Icon), Role: role, State: state, Priority: snapshot.Priority, Block: snapshot.Block, StateDiagnosis: diagnosis, Source: buildSourceView(snapshot), Trust: buildTrustView(role, snapshot), CommandConflicts: normalizeConflictViews(conflicts)}
 }
 
 func BuildSummaryView(snapshot Snapshot, conflicts []string) SummaryView {

@@ -113,8 +113,8 @@ storage.kv set 增加整数 ttl_seconds，范围 1..31536000；省略时永久�
 | D2 | wait/finish 与可选超时通知 | D1 | ☑️ 已完成 | 8a11bd23；隐式私有动作、父事件上下文和进程限定投递接入；真实 JSONL 子进程验证终态提交/失败清理，拒绝原始 payload 伪造；Server 全测及 conversation/dispatch/runtime/storage 本机 race 通过；并修复取消与上层信号同时到达的旧项继续投递竞态（100 次回归） |
 | D3 | 等待输入定向、普通流程和父事件收尾 | D2,C3 | ☑️ 已完成 | 32f35321；实际 Ingress/Bridge/Dispatcher 链路与插件替身验证三轮续接、普通流量切换、黑名单不关闭等待、原命令授权/冷却和桥接统计；日志放在路由锁外；Server 全测及 conversation、整个 pipeline、runtime/actions/app 本机 race 通过 |
 | D4 | SDK 登记与回调式往返 | D3 | ☑️ 已完成 | a1f7c04b；SessionWait/Finish、typed 引用与 Ask；真实 SDK JSONL 流在 concurrency=1 完成三轮；提示失败撤销、独立计时回收、迟到帧、回调 panic、旧 Context 拒绝动作及容量边界通过；SDK 全量测试与 race 通过 |
-| E1 | 仓库内三轮会话与 TTL 示例 | D4,B3 | ☑️ 已完成 | example-conversation 原生子进程贯穿 Ingress、Dispatcher、JSONL、SDK 和 SQLite；三轮确认、错误重试、提示失败和超时通过本机 race；仅最终确认写入 TTL；Server 全测通过；Windows/Linux/macOS 构建产物位于 dist/example-conversation |
-| E2 | Web 声明展示与当前文档 | C3,D4,B3 | ⬜ 待处理 | |
+| E1 | 仓库内三轮会话与 TTL 示例 | D4,B3 | ☑️ 已完成 | 1e0909b4；example-conversation 原生子进程贯穿 Ingress、Dispatcher、JSONL、SDK 和 SQLite；三轮确认、错误重试、提示失败和超时通过本机 race；仅最终确认写入 TTL；Server 全测通过；Windows/Linux/macOS 构建产物位于 dist/example-conversation |
+| E2 | Web 声明展示与当前文档 | C3,D4,B3 | ☑️ 已完成 | Server 列表和详情返回声明；Web 展示优先级与默认传播；默认值及显式阻断的管理接口/组件验证、Web typecheck、strict contracts 和文档链接通过；Playwright 桌面/手机复核产物位于 output/playwright/conversation-after-* |
 | E3 | 跨层、并发与恢复总验收 | E1,E2 | ⬜ 待处理 | |
 
 不把外部仓库改造、SDK 标签发布、模块代理下载或阻塞式 API 原型作为交付前提。

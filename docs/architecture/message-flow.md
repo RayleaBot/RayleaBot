@@ -46,7 +46,8 @@ sequenceDiagram
 | transport 与协议帧 | Adapter | 各实例的连接快照、请求关联、序列与去重状态 |
 | 命令与聊天治理 | `bot/pipeline/chatpolicy` | 配置与治理服务 |
 | 统一事件校验 | Bridge | formal event contract |
-| 目标与队列 | Dispatcher | manifest events、command declarations、per-plugin lanes |
+| 对话输入路由 | `bot/conversation` | 完整聊天身份、等待登记、当前父事件和具体进程 |
+| 目标与队列 | Dispatcher | manifest events、command declarations、priority/block、per-plugin lanes |
 | 插件进程协议 | Runtime Manager | runtime snapshot 与 event session |
 | 插件自有工作 | Plugin | 进程内状态、进程创建的临时目录与辅助程序 |
 | 平台 action | Local Action Service | permissions 与领域服务 |
@@ -62,12 +63,16 @@ Bridge 处理受支持适配器的归一化事件。无法通过正式结构校�
 
 Dispatcher 只向可投递的 runtime 发送事件。命令声明优先选择目标插件，其余事件按 `event_type` 订阅匹配。
 
+消息候选按 manifest `priority` 降序分层；同层并发，所有候选在接收时入队，低层等待上层完成信号，从而保留跨层 FIFO。正优先级且订阅相应消息的非命令声明者先于命令声明者执行。成功终态的 `propagation` 覆盖静态 `block`；未处理、失败和队列拒绝继续，终态发送失败不改写传播决定。
+
+Ingress 先尝试匹配会话等待。命中后只执行名单准入，并将带 `payload.session` 的回复定向交给登记进程，跳过普通命令、菜单、冷却和订阅派发。会话发起事件成功结束后才进入等待；发起中或处理中的消息仍走普通流程。群内先匹配当前发送者的 user 等待，再匹配 group 等待。
+
 ## 插件动作
 
 插件通过 Runtime Manager 发起 local action。每个 action 必须：
 
 - 使用独立 `request_id`，并通过 `parent_request_id` 关联当前事件；
-- 在 manifest 中声明对应权限；插件私有日志、配置、KV 和文件动作除外；
+- 在 manifest 中声明对应权限；插件私有日志、配置、KV、文件和会话动作除外；
 - 满足权限范围和资源上限；
 - 返回正式 result 或 error envelope。
 
