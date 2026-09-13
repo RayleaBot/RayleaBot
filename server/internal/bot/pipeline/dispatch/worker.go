@@ -129,6 +129,12 @@ func (d *Dispatcher) worker(pluginID string, slot *pluginSlot) {
 // the scheduler and failure outcome. The worker keeps the item's lane reserved
 // until it returns.
 func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey string, item dispatchItem) {
+	completion := CompletionResult{ErrorCode: errorcodes.PluginEventCanceled}
+	defer func() {
+		if item.completion != nil {
+			item.completion.finish(completion)
+		}
+	}()
 	execCtx, cancel := context.WithCancel(item.ctx)
 	stop := context.AfterFunc(slot.ctx, cancel)
 	defer func() { stop(); cancel() }()
@@ -138,6 +144,7 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 		return
 	}
 	if !slotIsDeliverable(slot) {
+		completion.ErrorCode = errorcodes.PlatformInvalidRequest
 		d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeFailed, schedulerElapsed(item.run), errorcodes.PlatformInvalidRequest, "plugin runtime is not deliverable")
 		d.logSchedulerFailure(pluginID, item.run, schedulerElapsed(item.run), map[string]any{
 			"error": "plugin runtime is not deliverable",
@@ -145,9 +152,15 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 		return
 	}
 	delivery, err := slot.runtime.DeliverEvent(item.ctx, item.event)
+	completion = CompletionResult{RequestID: delivery.RequestID, Success: err == nil, Propagation: delivery.Propagation, ErrorCode: delivery.ErrorCode}
 	if err != nil {
 		duration := schedulerElapsed(item.run)
 		outcome, code, message := schedulerFailureFields(err, delivery)
+		completion.ErrorCode = code
+		if code == errorcodes.PluginNotHandled {
+			d.recordSchedulerCompletion(item.ctx, item.run, scheduler.RunOutcomeOther, duration, code, message)
+			return
+		}
 		var runtimeErr *plugins.Error
 		reported := errors.As(err, &runtimeErr) && runtimeErr != nil && runtimeErr.FailureReported()
 		if item.run == nil && !reported && code != errorcodes.PluginEventCanceled {

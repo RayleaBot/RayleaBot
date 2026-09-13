@@ -105,8 +105,8 @@ storage.kv set 增加整数 ttl_seconds，范围 1..31536000；省略时永久�
 | B2 | TTL 仓储、动作和清扫生命周期 | B1 | ☑️ 已完成 | d5a10fb1；Server 全测、索引、并发、恢复及 sqlc diff 通过；额外能力随 X1 精简 |
 | X1 | 精简契约、既有实现、原型与当前计划 | B2 | ☑️ 已完成 | 6b045001；会话与 TTL 契约、既有存储实现和迁移已收窄；废弃原型删除；strict contracts、Server/SDK 全测、32 项 Python 测试、生成器 verify 与 sqlc diff 通过；真实新旧格式恢复及登录结果位于 dist/conversation-x1，未生成迁移前副本 |
 | B3 | SDK TTL 选项与仓库内示例 | X1 | ☑️ 已完成 | 40e09181；KVSetWithOptions、duration 校验、typed 期限与编译示例；显式 null/永久写入、期限边界及错误宿主结果均经过实际动作请求关联测试；独立 SDK 全测通过 |
-| A2 | priority/block、传播结果和只读展示契约 | X1 | ☑️ 已完成 | manifest、终态传播与只读字段及 11 份样例；OpenAPI 0.4.1 → 0.4.2；strict contracts、双端 wire/SDK、catalog/config 和生成器检查通过；保留原配置与授权模型 |
-| C1 | 投递完成通知与各路径结算 | A2 | ⬜ 待处理 | 发送仍先完成；传播决定不受发送失败改写 |
+| A2 | priority/block、传播结果和只读展示契约 | X1 | ☑️ 已完成 | 3f9443e7；manifest、终态传播与只读字段及 11 份样例；OpenAPI 0.4.1 → 0.4.2；strict contracts、双端 wire/SDK、catalog/config 和生成器检查通过；保留原配置与授权模型 |
+| C1 | 投递完成通知与各路径结算 | A2 | ☑️ 已完成 | 可多次观察的完成结果，覆盖队列满、停止、清队列和正常终态；发送完成后结算且失败不改写传播；非消息与非终态传播拒绝；Server 全测通过 |
 | C2 | 低层等待信号、FIFO 与分层推进 | C1 | ⬜ 待处理 | 沿用每插件容量和事件超时 |
 | C3 | 正优先级订阅者接收命令及阻断 | C2 | ⬜ 待处理 | 保留当前授权、菜单与冷却行为 |
 | D1 | 简化对话注册表、身份、进程清理和期限 | X1 | ⬜ 待处理 | |

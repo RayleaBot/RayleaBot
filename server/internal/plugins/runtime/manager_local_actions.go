@@ -19,6 +19,9 @@ type localActionRejection struct {
 }
 
 func (m *Manager) routeLocalActionFrameLocked(handle *Handle, frame pluginwire.Frame) (*localActionRejection, *plugins.Error) {
+	if frame.Propagation != "" {
+		return nil, errorf(codePluginProtocolViolation, "nonterminal action cannot control propagation", nil)
+	}
 	action, parentRequestID, err := m.parseLocalActionFrameLocked(handle, frame)
 	if err != nil {
 		return nil, err

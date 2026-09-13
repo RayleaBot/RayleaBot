@@ -31,16 +31,44 @@ const (
 
 // DeliveryResult records the outcome of event delivery to a single plugin.
 type DeliveryResult struct {
-	PluginID  string
-	Outcome   Outcome
-	ErrorCode string
+	PluginID   string
+	Outcome    Outcome
+	ErrorCode  string
+	Completion *Completion `json:"-"`
+}
+
+type CompletionResult struct {
+	RequestID   string
+	Success     bool
+	Propagation string
+	ErrorCode   string
+}
+type Completion struct {
+	once   sync.Once
+	done   chan struct{}
+	result CompletionResult
+}
+
+func newCompletion() *Completion            { return &Completion{done: make(chan struct{})} }
+func (c *Completion) Done() <-chan struct{} { return c.done }
+func (c *Completion) Wait(ctx context.Context) (CompletionResult, error) {
+	select {
+	case <-c.done:
+		return c.result, nil
+	case <-ctx.Done():
+		return CompletionResult{}, ctx.Err()
+	}
+}
+func (c *Completion) finish(result CompletionResult) {
+	c.once.Do(func() { c.result = result; close(c.done) })
 }
 
 type dispatchItem struct {
-	ctx     context.Context
-	event   chatevent.Event
-	control bool
-	run     *scheduler.RunContext
+	ctx        context.Context
+	event      chatevent.Event
+	control    bool
+	run        *scheduler.RunContext
+	completion *Completion
 }
 type pluginSlot struct {
 	ctx           context.Context

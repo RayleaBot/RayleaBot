@@ -303,6 +303,9 @@ func (m *Manager) routeRuntimeFrame(handle *Handle, line []byte) (*localActionRe
 }
 
 func (m *Manager) routeTerminalFrameLocked(session *eventSession, frame pluginwire.Frame) *plugins.Error {
+	if frame.Propagation != "" && session.event.EventType != "message.private" && session.event.EventType != "message.group" {
+		return errorf(codePluginProtocolViolation, "only message event terminals can control propagation", nil)
+	}
 	if session.pendingLocalAction > 0 {
 		return errorf(codePluginProtocolViolation, "plugin returned a terminal frame before all local actions completed", nil)
 	}

@@ -40,6 +40,7 @@ func (e *Error) MarkFailureReported() { e.failureReported.Store(true) }
 
 type Delivery struct {
 	RequestID    string
+	Propagation  string
 	Action       *chatevent.MessageCommand
 	Result       map[string]any
 	ErrorCode    string

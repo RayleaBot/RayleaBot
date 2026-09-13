@@ -51,58 +51,47 @@ func (d *Dispatcher) dispatchOne(ctx context.Context, pluginID string, event cha
 func (d *Dispatcher) enqueueTargets(ctx context.Context, event chatevent.Event, targets []string, run *scheduler.RunContext) []DeliveryResult {
 	results := make([]DeliveryResult, 0, len(targets))
 	for _, pluginID := range targets {
-		if ctx.Err() != nil {
-			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: errorcodes.PluginEventCanceled})
-			d.recordOutcome(OutcomeDropped, pluginID, "event_canceled")
-			continue
-		}
-		d.mu.RLock()
-		slot, ok := d.slots[pluginID]
-		deliverable := ok && slotIsDeliverable(slot)
-		if !ok || !deliverable {
-			d.mu.RUnlock()
-			results = append(results, DeliveryResult{
-				PluginID:  pluginID,
-				Outcome:   OutcomeError,
-				ErrorCode: errorcodes.PlatformInvalidRequest,
-			})
-			d.recordOutcome(OutcomeDropped, pluginID, "plugin_not_running")
-			continue
-		}
-
-		control := isControlEvent(event.EventType)
-		var eventCtx context.Context = deliveryContext{Context: slot.ctx, values: ctx}
-		if event.EventType == "management.action" {
-			eventCtx = ctx
-		}
-		item := dispatchItem{ctx: eventCtx, event: event, control: control, run: run}
-		accepted := slot.tryEnqueue(item)
-		d.mu.RUnlock()
-		if accepted {
-			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered})
-			d.recordOutcome(OutcomeDelivered, pluginID, "")
-		} else {
-			if !slot.isAccepting() {
-				results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: errorcodes.PluginStopping})
-				d.recordOutcome(OutcomeDropped, pluginID, "plugin_stopping")
-				continue
-			}
-			reason := "queue_full"
-			if control {
-				reason = "control_queue_full"
-			}
-			d.logger.Warn("插件待处理任务过多，本次请求已丢弃",
-				"component", "dispatch",
-				"plugin_id", pluginID,
-				"event_id", event.EventID,
-				"event_type", event.EventType,
-				"reason", reason,
-			)
-			results = append(results, DeliveryResult{PluginID: pluginID, Outcome: OutcomeDropped, ErrorCode: errorcodes.PlatformRateLimited})
-			d.recordOutcome(OutcomeDropped, pluginID, reason)
-		}
+		results = append(results, d.enqueueTarget(ctx, event, pluginID, run))
 	}
 	return results
+}
+
+func (d *Dispatcher) enqueueTarget(ctx context.Context, event chatevent.Event, pluginID string, run *scheduler.RunContext) DeliveryResult {
+	completion := newCompletion()
+	reject := func(outcome Outcome, code, reason string) DeliveryResult {
+		completion.finish(CompletionResult{ErrorCode: code})
+		d.recordOutcome(OutcomeDropped, pluginID, reason)
+		return DeliveryResult{PluginID: pluginID, Outcome: outcome, ErrorCode: code, Completion: completion}
+	}
+	if ctx.Err() != nil {
+		return reject(OutcomeError, errorcodes.PluginEventCanceled, "event_canceled")
+	}
+	d.mu.RLock()
+	slot, ok := d.slots[pluginID]
+	if !ok || !slotIsDeliverable(slot) {
+		d.mu.RUnlock()
+		return reject(OutcomeError, errorcodes.PlatformInvalidRequest, "plugin_not_running")
+	}
+	control := isControlEvent(event.EventType)
+	var eventCtx context.Context = deliveryContext{Context: slot.ctx, values: ctx}
+	if event.EventType == "management.action" {
+		eventCtx = ctx
+	}
+	accepted := slot.tryEnqueue(dispatchItem{ctx: eventCtx, event: event, control: control, run: run, completion: completion})
+	d.mu.RUnlock()
+	if accepted {
+		d.recordOutcome(OutcomeDelivered, pluginID, "")
+		return DeliveryResult{PluginID: pluginID, Outcome: OutcomeDelivered, Completion: completion}
+	}
+	if !slot.isAccepting() {
+		return reject(OutcomeError, errorcodes.PluginStopping, "plugin_stopping")
+	}
+	reason := "queue_full"
+	if control {
+		reason = "control_queue_full"
+	}
+	d.logger.Warn("插件待处理任务过多，本次请求已丢弃", "component", "dispatch", "plugin_id", pluginID, "event_id", event.EventID, "event_type", event.EventType, "reason", reason)
+	return reject(OutcomeDropped, errorcodes.PlatformRateLimited, reason)
 }
 
 func isControlEvent(eventType string) bool {

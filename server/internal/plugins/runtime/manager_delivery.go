@@ -297,7 +297,7 @@ func decodeTerminalAction(eventRequestID string, frame pluginwire.Frame) (plugin
 	if err != nil {
 		return plugins.Delivery{}, false, normalizeRuntimeError(err, "parse terminal action frame")
 	}
-	return plugins.Delivery{RequestID: eventRequestID, Action: action}, true, nil
+	return plugins.Delivery{RequestID: eventRequestID, Action: action, Propagation: frame.Propagation}, true, nil
 }
 
 func decodeTerminalResult(eventRequestID string, frame pluginwire.Frame) (plugins.Delivery, bool, error) {
@@ -310,7 +310,7 @@ func decodeTerminalResult(eventRequestID string, frame pluginwire.Frame) (plugin
 			return plugins.Delivery{}, false, errorf(codePluginProtocolViolation, "plugin returned malformed result frame", err)
 		}
 	}
-	return plugins.Delivery{RequestID: eventRequestID, Result: data}, true, nil
+	return plugins.Delivery{RequestID: eventRequestID, Result: data, Propagation: frame.Propagation}, true, nil
 }
 
 func decodeTerminalError(eventRequestID string, frame pluginwire.Frame) (plugins.Delivery, bool, error) {
