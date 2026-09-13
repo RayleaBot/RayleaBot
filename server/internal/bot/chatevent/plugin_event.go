@@ -2,6 +2,8 @@ package chatevent
 
 type Event struct {
 	EventID        string
+	BotID          string
+	Session        *SessionRef
 	SourceProtocol string
 	SourceAdapter  string
 	EventType      string
@@ -13,6 +15,13 @@ type Event struct {
 	PayloadFields  map[string]any
 	MessageID      string
 	RawPayload     any
+}
+
+// SessionRef is host routing metadata. Business state remains in the plugin.
+type SessionRef struct {
+	SessionID   string `json:"session_id"`
+	Scope       string `json:"scope"`
+	ExpiresAtMS int64  `json:"expires_at_ms"`
 }
 
 type Actor struct {

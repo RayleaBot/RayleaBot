@@ -10,6 +10,7 @@ import (
 func FromAdapter(event NormalizedEvent) Event {
 	runtimeEvent := Event{
 		EventID:        event.EventID,
+		BotID:          event.BotID,
 		SourceProtocol: event.SourceProtocol,
 		SourceAdapter:  event.SourceAdapter,
 		EventType:      event.EventType,
