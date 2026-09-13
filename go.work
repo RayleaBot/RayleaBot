@@ -6,6 +6,7 @@ use (
 	./examples/plugins/echo-go
 	./examples/plugins/example-http-storage
 	./examples/plugins/example-config-panel
+	./examples/plugins/example-conversation
 	./examples/plugins/example-governance-control
 	./examples/plugins/example-plugin-list
 	./examples/plugins/example-render-card

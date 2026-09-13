@@ -44,10 +44,14 @@ func (d *Dispatcher) ExecuteOutboundAction(ctx context.Context, pluginID string,
 		Segments:       chatevent.CloneMessageSegments(action.MessageSegments),
 	}
 	targetLabel := buildOutboundTargetLabel(ctx, event, targetType, targetID, d.sender)
-	if !d.permissionDeclared(ctx, pluginID, action.Kind) {
+	permission := action.Kind
+	if permission == "message.reply" {
+		permission = "message.send"
+	}
+	if !d.permissionDeclared(ctx, pluginID, permission) {
 		err := &chatevent.SendError{
 			Code:    errorcodes.PluginPermissionDenied,
-			Message: action.Kind + " permission is not declared",
+			Message: permission + " permission is not declared",
 		}
 		result := outbound.SendResult{
 			DeliveryKind: action.Kind,

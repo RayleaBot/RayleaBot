@@ -3,6 +3,8 @@
 本目录收录与 `contracts/plugin-info.schema.json` 和
 `contracts/plugin-protocol.schema.json` 对齐的示例插件。
 
+[三轮会话示例](example-conversation/README.md)演示回调式选择、无效输入重试和五分钟 KV 结果，业务状态由插件闭包维护。
+
 规则：
 
 - 示例用于理解 `info.json`、插件协议、SDK 入口和常用 local action。

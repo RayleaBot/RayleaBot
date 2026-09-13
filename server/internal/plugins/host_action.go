@@ -65,8 +65,12 @@ type Action struct {
 }
 
 func (a Action) MessageCommand() chatevent.MessageCommand {
+	kind := a.Kind
+	if kind == "message.send" && a.ReplyToEventID != "" {
+		kind = "message.reply"
+	}
 	return chatevent.MessageCommand{
-		Kind:                    a.Kind,
+		Kind:                    kind,
 		SourceProtocol:          a.SourceProtocol,
 		SourceAdapter:           a.SourceAdapter,
 		TargetType:              a.TargetType,

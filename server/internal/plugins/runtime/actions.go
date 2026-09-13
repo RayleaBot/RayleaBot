@@ -488,12 +488,8 @@ func parseMessageSendAction(raw json.RawMessage) (*plugins.Action, error) {
 		return nil, err
 	}
 	replyToEventID := stringValue(frame.ReplyToEventID)
-	kind := "message.send"
-	if replyToEventID != "" {
-		kind = "message.reply"
-	}
 	return &plugins.Action{
-		Kind:                    kind,
+		Kind:                    "message.send",
 		SourceProtocol:          strings.TrimSpace(frame.SourceProtocol),
 		SourceAdapter:           stringValue(frame.SourceAdapter),
 		TargetType:              targetType,

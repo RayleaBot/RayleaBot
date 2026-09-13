@@ -1,0 +1,22 @@
+{
+  "id": "example-conversation",
+  "name": "三轮会话示例",
+  "version": "0.6.0",
+  "manifest_version": "3",
+  "min_core_version": "0.6.0",
+  "license": "MIT",
+  "concurrency": 1,
+  "metadata": { "author": "RayleaBot", "description": "回调式三轮选择、错误输入重试与临时 KV 结果。" },
+  "events": ["message.group", "message.private"],
+  "permissions": { "message.send": true },
+  "commands": [
+    {
+      "id": "conversation-demo",
+      "name": "会话演示",
+      "description": "选择角色、选择操作并确认，结果保留五分钟。",
+      "usage": "/会话演示",
+      "permission": "everyone",
+      "trigger": { "type": "exact", "names": ["会话演示"] }
+    }
+  ]
+}

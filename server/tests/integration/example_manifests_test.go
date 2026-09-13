@@ -15,6 +15,7 @@ func TestExamplePluginManifestsMatchContract(t *testing.T) {
 
 	validator := compileSchema(t, testutil.RepoPath(t, "contracts", "plugin-info.schema.json"))
 	manifestPaths := []string{
+		testutil.RepoPath(t, "examples", "plugins", "example-conversation", "info.json"),
 		testutil.RepoPath(t, "examples", "plugins", "echo-go", "info.json"),
 		testutil.RepoPath(t, "examples", "plugins", "example-config-panel", "info.json"),
 		testutil.RepoPath(t, "examples", "plugins", "example-http-storage", "info.json"),
