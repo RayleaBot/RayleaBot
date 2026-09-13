@@ -2,340 +2,471 @@
 
 ## 文档状态
 
-- 目标版本：v0.6
-- 执行范围：`contracts/`、`server/`、`sdk/go`、`web/` 插件详情、`fixtures/`、`examples/plugins/` 与相关文档
-- 升级方式：协议仍为 v3、manifest 仍为 v3，全部为可选字段与新增动作；SQLite 结构升到 `000002` 并首次引入前向迁移
-- 当前状态：方案已定，待维护者确认默认值后开始实施
-- 验收方式：本文档保留，逐项验收后整理为 `docs/CHANGELOGS/v0.6.md`
+- 目标版本：v0.6；当前为候选设计，A0 设计门槛与所有实现项均待验收。
+- 仓库核对基准：`8c165ac3`，2026-09-12。执行前复核受影响实现与正式契约是否发生变化。
+- 范围：`contracts/`、`server/`、`sdk/go/`、Web 插件详情、fixtures、示例、必要的升级交付与文档。
+- 首发交付：登记式多轮对话、回调式 SDK 交互、消息过滤与业务传播控制、持久 KV TTL 和原子条件写入。
+- 阻塞式 `Prompt` 单列 SDK 运行时原型；不作为登记式能力的发布前提。通过所有权与取消验收后，再决定纳入 v0.6.0 或后续小版本。
+- 升级取向：一次性离线转换到 SQLite `000002`，核心只处理当前结构；不以建立通用旧版兼容框架作为 TTL 前提。
+- 本文描述拟实施行为，不代表功能已上线；对外正式语义仍以 [contracts](../contracts/README.md) 为准。A0 验收后先落对应契约，再实现与生成。
 
-状态说明：
+执行状态使用 `⬜ 待处理`、`🟡 进行中`、`☑️ 已完成`、`❌ 阻塞`；完成项必须填写提交或产物与验证证据。版本交付后按文档规则整理归档。提交、推送和发布按当次任务授权执行，提交标题与正文使用中文 Conventional Commits。
 
-- `⬜ 待处理`：尚未开始。
-- `🟡 进行中`：已经开始，但尚未满足完成条件。
-- `☑️ 已完成`：实现、配套更新和本项验证均已完成。
-- `❌ 阻塞`：当前范围内无法完成，已记录原因。
+## 一、目标、现状与边界
 
-## 一、现状与问题
+### 1.1 用户与插件开发者应得到的能力
 
-以下事实来自当前 `main`，是后文决策的依据。
+1. 插件询问后，用户可以直接回复文字、图片或其他消息段；宿主把输入交回该对话，不要求每次重复命令前缀。
+2. 支持至少三轮的选择、校验失败重试、确认、主动取消和超时结束；业务步骤与校验由插件维护，宿主负责对话归属和生命周期。
+3. 管理员可安装先于业务执行的消息过滤插件；业务插件之间可按优先级处理并停止后续传播。
+4. 临时 KV 数据到期后立即在逻辑上不可见；条件写入与配额检查具有数据库事务内的原子性。
+5. 并发、队列拥塞、权限变化、适配器换号、插件热重载和停机均有确定的结束行为，不串线、不重复处理，也不留下无限等待。
 
-| 主题 | 当前实现 | 直接后果 |
+### 1.2 当前实现与必须保留的约束
+
+| 主题 | 当前依据 | 对设计的约束 |
 | --- | --- | --- |
-| 事件派发 | `bot/pipeline/dispatch/delivery.go` 的 `selectTargets`：命令消息定向给所有声明该命令的插件，否则按 `events` 订阅全量 fan-out；`enqueueTargets` 只入队不等待终态，终态由 `worker.go` 的 `deliverLaneItem` 消费后不再回馈派发决策 | 没有优先级，也没有"高优先级插件消费后阻止后续插件"的信息通道 |
-| 终态帧 | `result` / `action` / `error` 三种终态；`plugin.not_handled` 错误码已登记（`contracts/error-codes.yaml`）但宿主不据此做任何路由决定；任何 `error` 终态都进入失败计数并打 Warn | 插件无法表达"我不处理，请继续"或"我已处理，请停止" |
-| 命令与治理 | `chatpolicy/policy_service.go` 的 `Apply` 在同一步完成命令解析、黑白名单、命令权限与冷却；`permission.Checker.Check` 在 `cmd == nil` 时只做超管旁路和黑名单，不做冷却 | 用户回复的"1"不带前缀，不会被识别为命令，也无法定向到发问插件；但非命令消息天然不受冷却影响，这正是会话回复需要的路径 |
-| 事件生命周期 | 每个事件是一次请求-响应，`runtime.plugin_event_timeout_seconds` 默认 60 秒；同一 `event.target` 的事件在同一 lane 内 FIFO | 插件不能在事件内阻塞等待下一条消息：后续消息会排在等待中的事件之后，形成死锁 |
-| Local action 上下文 | `plugins/actions/dispatch.go` 的 `ActionRequest` 携带 `ParentEvent` | 宿主可以从父事件推导会话键，插件登记等待时不必重复传会话身份 |
-| KV | `plugin_kv(plugin_id, key, value_json, size_bytes, updated_at)`；`set` 只有 `key` 与 `value`；配额按 `SUM(size_bytes)` 统计 | 验证码、会话锁等临时数据必须由插件自行清理 |
-| 数据库结构版本 | `storage/store_schema.go` 只接受 `000001`，无迁移机制；`recovery.go` 与 `backup-manifest.schema.json` 只接受当前版本 | 任何结构变更都需要先建立前向迁移，否则升级后现有安装无法启动、旧备份无法恢复 |
-| 管理面 | 同名命令被多个插件声明时标记 `command_conflicts`，运行时仍全量投递 | 冲突提示只是信息，没有可预测的先后顺序 |
+| 普通派发 | [delivery.go](../server/internal/bot/pipeline/dispatch/delivery.go) 优先命令定向；找到声明者后不再选择普通订阅者，否则按事件订阅 fan-out | 消息过滤需要独立候选阶段，不能仅给现有结果排序 |
+| FIFO | [worker.go](../server/internal/bot/pipeline/dispatch/worker.go) 按每插件 lane 入队顺序执行，同 lane 的事件等待前一个调用完成 | 后续层延迟入队会改变顺序；等待用户时必须结束当前宿主事件 |
+| 命令权限 | [commands.go](../server/internal/bot/pipeline/chatpolicy/commands.go) 把同名命令的权限合并为最严格等级 | 需要改为各候选分别授权，否则低优先级声明仍会阻止其他候选执行 |
+| 名单与冷却 | [checker.go](../server/internal/bot/permission/checker.go) 区分命令准入与普通消息；白名单命中会跳过黑名单；冷却仅用于命令 | 分离授权与冷却，保留名单优先关系；不能用 `cmd=nil` 代替会话授权设计 |
+| 身份隔离 | [IdentityScope](../server/internal/bot/chatevent/identity_scope.go) 包含协议、适配器实例与 `BotID` | 对话路由应复用完整身份，不能仅用群号、用户号或适配器 ID |
+| 请求与进程 | [manager_sessions.go](../server/internal/plugins/runtime/manager_sessions.go) 在终态后关闭父事件；[RuntimeDone](../server/internal/plugins/runtime_context.go) 提供进程归属 | 对话跨事件存活，归属于具体进程代际；事件上下文不能作为其存活上下文 |
+| SDK | [runtime.go](../sdk/go/runtime.go) 的信号量、自动终态与异常收尾绑定一次处理调用；关闭后的事件不能再发 local action | 阻塞续体需要运行时所有权交接，不是增加一个等待 channel 即可 |
+| KV | [kv.go](../server/internal/plugins/storage/kv.go) 在事务中检查单值限制与全局 KV 配额；[pluginkv.sql](../server/internal/sqlcqueries/pluginkv.sql) 无过期列 | 复用事务与仓储，明确 NX 未写入、过期键与配额的先后关系 |
+| 数据结构 | [store_schema.go](../server/internal/storage/store_schema.go) 只接受 `000001`；恢复校验归档真实版本 | 必须提供可靠的数据转换与发行准入，不能先替换正式库再等待下次启动验证 |
 
-## 二、同类项目对照
+当前缺的是跨事件对话归属与续接，不是所有运行状态都不存在。进程会话、单次事件请求和对话会话在文档及类型中分别命名。
 
-| 能力 | NoneBot2 | Koishi | AstrBot | Yunzai (Miao-Yunzai) | 本计划 |
-| --- | --- | --- | --- | --- | --- |
-| 多轮等待 | `got` / `receive` / `reject` / `pause`：暂停时复制一个临时 matcher（`temp=True`、`priority=0`、`block=True`，到期时间为 `SESSION_EXPIRE_TIMEOUT`，默认 2 分钟），会话键为群 + 用户，`permission_updater` 可扩展为多用户 | `session.prompt(timeout)` 基于临时中间件，只对同用户同频道生效，默认超时 `delay.prompt` 为 60 秒，超时返回 `null` | `@session_waiter(timeout, record_history_chains)`，会话键默认 `sender_id`，`SessionFilter` 可改为群；`controller.keep / stop`；超时抛 `TimeoutError`；等待期间消息先经 waiter，不经命令解析 | `setContext(type, isGroup, time=120, timeout 文案)`，键为插件名 + 群号或用户号；上下文在规则匹配前处理；`finish` 结束；超时自动回复文案 | 宿主登记式：`session.wait` 登记后正常结束当前事件，匹配的后续消息作为新事件定向投递并附 `payload.session`；`scope` 为 `user`（默认）或 `conversation`；默认 60 秒、上限可配；`max_turns`、`state` 回显、`session.expired` 通知；SDK 另提供阻塞式 `Prompt` 糖 |
-| 优先级 | `priority` 数字小者先，默认 1；同级按注册顺序并发 | 中间件按注册顺序，`prepend` 前置 | `priority` 数值大者先，默认 0 | `priority` 数字小者先，默认 5000 | manifest `priority` 整数，数值大者先，默认 0，范围 -1000..1000；同级并发 |
-| 阻断 | 静态 `block`（非命令 message matcher 默认 `True`）+ 动态 `stop_propagation()` | 不调用 `next()` 即阻断 | 动态 `event.stop_event()` | 处理函数返回非 `false` 即阻断（默认阻断） | 静态 manifest `block`（默认 `false`）+ 终态帧 `propagation` 动态覆盖；`error` 终态、超时、丢弃一律继续 |
-| KV TTL | 无内置 KV | `ctx.cache` 的 `maxAge` | 无 TTL | Redis `EX` | `storage.kv set` 新增 `ttl_seconds` 与 `if_not_exists`；读时过滤、后台清扫；配额排除过期行 |
+### 1.3 本版不做
 
-参考来源：[NoneBot2 事件响应器进阶](https://nonebot.dev/docs/advanced/matcher)、[NoneBot2 会话控制](https://nonebot.dev/docs/appendices/session-control)、[NoneBot2 会话更新](https://nonebot.dev/docs/advanced/session-updating)、[Koishi 中间件](https://koishi.chat/zh-CN/guide/basic/middleware.html)、[Koishi Session API](https://koishi.chat/zh-CN/api/core/session.html)、[AstrBot 会话控制](https://docs.astrbot.app/dev/star/guides/session-control.html)、[AstrBot 处理消息事件](https://docs.astrbot.app/dev/star/guides/listen-message-event)、[Miao-Yunzai plugin.js](https://github.com/yoimiya-kokomi/Miao-Yunzai/blob/master/lib/plugins/plugin.js)、[Miao-Yunzai loader.js](https://github.com/yoimiya-kokomi/Miao-Yunzai/blob/master/lib/plugins/loader.js)。
+- 不持久化或跨宿主重启恢复对话；持久业务草稿仍可由插件放入 KV。
+- 不提供任意脚本过滤器、跨插件修改消息、任意事件类型等待或通用工作流 DSL。
+- 优先级只做到插件级；同插件不同命令不分别声明优先级。管理面展示有效声明，不提供管理员覆盖优先级的第二份配置。
+- 不提供 KV 分布式锁、原子计数器或用 `get` 加 `delete` 模拟条件删除。
+- 不新增对话管理列表和强制结束 Web 页面；提供用户取消命令、插件停用清理、日志及计数。
+- 阻断只控制本宿主后续处理，不撤回已执行动作，不改变上游聊天平台已经发生的行为。
 
-四个项目的等待机制都只保存在内存中，宿主重启即失效；本计划同样不持久化等待项。
+## 二、同类项目调研基线
 
-## 三、固定决策
+源码固定到 2026-09-12 核对的提交，避免随默认分支漂移。表中只比较实际机制，不以某个项目的默认数字决定本项目契约。
 
-1. 会话等待采用宿主登记模型，不延长事件会话。插件在当前事件内通过 local action 登记，然后照常发送终态；命中的后续消息作为新事件定向投递给登记插件，`event_type` 不变，附 `payload.session`。协议层没有阻塞式等待，SDK 的阻塞式 `Prompt` 只是进程内续体。
-2. 会话键为 `plugin_id + source_protocol + source_adapter + target.type + target.id`，`scope=user` 时再加 `actor.id`。默认 `user`；`conversation` 允许同会话任何人回复。私聊时两种 scope 等价。
-3. 匹配发生在 Ingress 命令解析之前，只作用于 `message.private` / `message.group`。命中后只保留超管旁路与黑名单（即 `Checker.Check(cmd=nil)`），跳过白名单、命令权限、冷却与内置菜单。事件仍填充 `payload.command` / `payload.args`（若形如命令），便于插件识别 `/cancel` 之类输入，但不再定向给其他命令声明者。
-4. 会话回复对登记插件独占：不进入优先级分层，也不 fan-out。多个等待项同时命中时，`user` 作用域优先于 `conversation`，同作用域取最近登记者，其余等待项保留到各自过期。
-5. `max_turns` 默认 1（一次性，NoneBot / Koishi 语义），最大 100；插件处理回复时可用同一 `session_id` 再次 `session.wait`（AstrBot `keep` 语义：重置超时、累加 `turn`）；`session.finish` 提前结束。一次性等待项在被消费到重新登记之间到达的消息走普通链路，文档写明。
-6. `timeout_seconds` 默认 `runtime.session_wait_default_seconds`（60），上限 `runtime.session_wait_max_seconds`（600）。过期时仅当登记了 `notify_on_expire` 才投递 `session.expired` 事件；宿主不代发超时文案，出站仍由插件负责。
-7. 每插件活跃等待项上限 `runtime.session_wait_max_active_per_plugin`（256），超限返回 `platform.rate_limited`；同键重复登记替换旧项（不通知）。插件停止、重载、禁用或进入失败状态时清空其等待项；宿主不持久化等待项。
-8. `state` 为 JSON object，序列化后不超过 4096 字节，超限返回 `platform.value_too_large`；宿主原样回显在每个后续事件的 `payload.session.state`。更大的状态用 KV。
-9. manifest 新增 `priority`（整数，-1000..1000，默认 0）与 `block`（布尔，默认 `false`）。数值大者先；同级并发，保持现有 fan-out 行为；分层链式投递，上一层全部终态后再投下一层，任一插件要求停止则终止。终态 `result` / `action` 帧可选 `propagation: "stop" | "continue"` 覆盖 manifest 默认；`error` 终态（含 `plugin.not_handled`）、事件超时、队列满、运行时不可投递均视为继续。
-10. 命令定向集合与订阅 fan-out 集合各自排序，命令定向仍优先且独占，与现状一致。分层不改变 lane FIFO；下一层的入队在上一层终态回调中执行；上一层某插件耗尽 `plugin_event_timeout_seconds` 会等量延迟下一层。
-11. `plugin.not_handled` 不再进入失败计数与 Warn 日志，作为正常终态记录到 Debug。
-12. `storage.kv set` 新增 `ttl_seconds`（≥ 1，≤ 31536000）与 `if_not_exists`；结果返回 `stored` 与可选 `expires_at`（Unix 秒）；`get` 结果新增可选 `expires_at`；`list` 不含过期键。过期判定以宿主时钟在读路径过滤，另有每 60 秒、每批最多 1000 行的后台清扫；配额统计排除过期行。不新增 `incr` 等原子计数动作。
-13. `plugin_kv` 新增 `expires_at_ms INTEGER NULL` 与部分索引，结构版本升为 `000002`，并建立首个前向迁移：启动时按 `schema_metadata.version` 顺序执行迁移并在事务内更新版本；恢复接受可前向迁移的旧结构，由启动时迁移完成升级。这是本计划唯一的横切改动，先于 KV TTL 落地。
-14. 契约兼容：协议版本保持 `3`。旧 SDK 构建的插件不会登记等待项，因而不会收到 `payload.session` 或 `session.expired`；使用新能力的插件应声明 `min_core_version >= 0.6.0`。Web API `info.version` 递增 patch。
-15. 不做：跨插件修改事件或中间件链、会话持久化、管理面手动终止会话、全局取消关键词、原子计数动作、按事件类型等待 notice 事件、管理员在管理面覆盖插件优先级。这些在验收后按需要单独立项。
+| 项目与源码快照 | 已核对机制 | 采用与取舍 |
+| --- | --- | --- |
+| [NoneBot2 `206d31a6`](https://github.com/nonebot/nonebot2/blob/206d31a61da92cbf2d2d1776118780c6d7bd5483/nonebot/message.py)；[会话更新](https://nonebot.dev/docs/advanced/session-updating) | 临时响应器续接并更新触发权限；按优先级分组，同级并发；阻断后续优先级 | 保留会话主体和授权约束，借鉴分层业务传播；RayleaBot 不能跨 RPC 阻塞原事件来等待回复 |
+| [Koishi `5525cfd0`](https://github.com/koishijs/koishi/blob/5525cfd06e0e48be0d65fa31a0ce46d0dc65ffde/packages/core/src/session.ts)；[中间件](https://koishi.chat/zh-CN/guide/basic/middleware) | 临时中间件依据 `fid` 隔离会话；Prompt 回调可选择继续后续链路；此源码的超时结果为 `undefined` | 区分候选匹配、认领与消费；保留完整消息上下文。公开文档与源码的返回值差异必须注明版本 |
+| [AstrBot `7ec39bde`](https://github.com/AstrBotDevs/AstrBot/blob/7ec39bdef02a55964adf8f2b3fb4fa2b53c8bab6/astrbot/core/utils/session_waiter.py) | 默认键是 `unified_msg_origin`；同会话触发有锁；`keep` 区分重置与延长剩余时间 | 采用完整来源标识和串行续接；本版每轮重新登记按固定期限计算，不复制所有 `keep` 变体 |
+| [Miao-Yunzai `40cc2103` loader](https://github.com/yoimiya-kokomi/Miao-Yunzai/blob/40cc2103efba1fbb279b768e3f5345d45372d357/lib/plugins/loader.js)；[plugin](https://github.com/yoimiya-kokomi/Miao-Yunzai/blob/40cc2103efba1fbb279b768e3f5345d45372d357/lib/plugins/plugin.js) | 上下文在普通规则前处理，名单检查在上下文前；上下文的 `continue` 与普通规则返回 `false` 属于不同分支 | 保留明确的会话入口和结束控制，不照搬粗粒度用户键或忽略跨插件冲突 |
 
-命名约定：协议中既有的"进程会话"（init 建立）与"事件会话"（一次 `event` 请求）保持原名；本计划新增的概念统一称"对话会话"（conversation session），协议动作与字段使用 `session.*` / `payload.session`，文档首次出现时注明区别。
+这些默认等待机制主要维护内存续接状态，不能据此推断整个项目没有持久状态能力。RayleaBot 的对话等待与持久 KV TTL 分别设计。
 
-## 四、契约变更
+## 三、A0 设计门槛
 
-### `contracts/plugin-info.schema.json`
+下文给出候选选择。A0 用隔离模型、现有代码路径和最小反例验证其可行性，不提前把拟议接口接入正式运行路径。只有通过相应 A0 项后，才固定对应契约。
 
-- 顶层新增 `priority`（`integer`，`minimum: -1000`，`maximum: 1000`，`default: 0`）与 `block`（`boolean`，`default: false`）。
-- fixtures：`ok.commands-and-permissions.json` 增加两个字段；新增 `invalid.priority-out-of-range.json`。
+| ID | 必须证明的事项 | 通过标准 | 状态 |
+| --- | --- | --- | --- |
+| A0.1 | 逐轮状态机、认领与消息缓冲 | 单次等待能续接；拒绝和入队失败不增加轮次；连续回复使用新状态；所有关闭路径释放占用 | ⬜ 待处理 |
+| A0.2 | 准入、过滤、会话、命令与菜单的顺序 | 过滤覆盖命令及对话回复；各候选权限互不抬高；会话不扩大授权；取消入口可用 | ⬜ 待处理 |
+| A0.3 | 分层调度与 FIFO | 不同候选集合的相邻消息不倒序；拒绝入队也结算；停止、超时、重载无悬挂票据和循环等待 | ⬜ 待处理 |
+| A0.4 | SDK 交互所有权 | 登记式及回调式在 `concurrency=1` 可往返；提示发送失败可撤销；本地超时不依赖通知送达 | ⬜ 待处理 |
+| A0.5 | 一次性数据转换与发行准入 | 停服备份、隔离转换、验证、替换及回退可完成；旧库不会被未经迁移的更新切换破坏 | ⬜ 待处理 |
+| A0.6 | 协议与旧消费者矩阵 | v3 能明确表达新增控制动作；旧插件普通流量不收到不支持的控制帧；最低核心版本可有效约束 | ⬜ 待处理 |
 
-### `contracts/plugin-protocol.schema.json`
+A0 需记录反例输入、预期顺序、状态图、时间与容量预算、未解决问题。若更改过滤信任边界、公开升级策略或协议版本，先更新本计划中的选择，再进入契约工作；不得把这些变化称为只调整默认值。
 
-- `event.event_type` 枚举新增 `session.expired`。
-- `event.payload` 新增 `session` 对象（`additionalProperties: false`）：
+## 四、消息准入、过滤与业务传播
 
-```json
-{
-  "session_id": "sess-01J...",
-  "scope": "user",
-  "turn": 1,
-  "state": {"step": "pick_role"}
-}
+### 4.1 候选阶段与声明
+
+拟在 manifest 顶层增加：
+
+| 字段 | 候选规则 |
+| --- | --- |
+| `message_stage` | `business`（默认）或 `filter`；一个插件只属于一个消息阶段 |
+| `priority` | 整数，-1000..1000，默认 0；同阶段数值大者先 |
+| `block` | 布尔，默认 `false`；成功处理后是否停止后续传播 |
+| `on_error` | 只允许过滤插件声明，`stop`（默认）或 `continue` |
+
+- 过滤能力拟要求显式 `event.filter` 权限，纳入安装确认与权限变更检查。失去有效授权时不能静默作为正常过滤器运行。
+- 过滤候选取自已启用插件的声明快照和消息订阅，包含暂时不可投递的启用项；不能先用 `slotIsDeliverable` 删除候选，从而绕开失败停止策略。管理员显式停用后，新事件不再选择它。
+- 过滤插件不参与普通命令定向，不登记对话；本版不支持同插件兼任两个阶段。过滤插件的管理使用已有插件管理能力。
+- 业务候选保留命令定向优先的原则；有声明者时按每个声明分别检查权限，不把所有同名命令合并为最高权限。因权限不合格被排除不等于未声明该命令，不据此回退普通消息 fan-out。
+- 没有命令声明者时，业务阶段按消息订阅选择。带前缀但未知的命令、别名、默认权限和内置菜单均须有回归样例。
+- `priority`、`block`、`message_stage` 不参与 scheduler、管理 action、插件生命周期、身份广播与 webhook 的既有定向投递。
+
+### 4.2 顺序与授权
+
+```text
+入站身份与来源校验、元数据补全、回复目标记录
+→ 完整取消命令的归属校验与处理
+→ 只读解析命令、查看对话候选，冻结路由和授权来源
+→ 宿主准入检查（保留现有名单优先关系，不计冷却）
+→ 已授权的前置过滤阶段
+→ 对话输入：重新校验答复资格、认领、定向续接
+→ 普通输入：内置菜单或逐候选授权后的业务传播
 ```
 
-- `result` 与 `action` 帧新增可选 `propagation`（`enum: ["stop", "continue"]`）。非终态 action 上出现时忽略，文档写明。
-- 新增 `action_session_wait`（`action: "session.wait"`）：
+命令解析在此阶段只产生 metadata，不执行命令、不消耗冷却或对话轮次。
+
+- 对新业务命令，名单准入与各候选命令权限分别判断；确定可以交付后只计一次用户/群冷却，不按层或插件重复扣减。
+- 保留现有超管旁路、命令白名单与黑名单之间的关系。拆分 Checker 的授权检查和冷却计费，不通过伪造空命令绕过授权。
+- 对话保存发起时的插件命令引用和准入类别，不保存可永久复用的权限结论。续接按当前策略检查实际答复者；起始命令被禁用或移除时关闭对话。
+- 群级对话扩大可能匹配的成员范围，但不把发起者权限授予答复者，也不降低起始命令要求。多人业务必须声明与其参与者相符的交互权限。
+- 不合格参与者的消息不消耗轮次，也不取消他人的合法对话；所有者资格被撤销时关闭相应对话。已经选为对话输入的消息不得因授权失败而泄漏给普通 fan-out。
+- 对话只绕过新命令的重复冷却和普通菜单处理，仍通过宿主授权与前置过滤。
+
+### 4.3 阻断结果
+
+| 情形 | 过滤阶段 | 业务阶段 |
+| --- | --- | --- |
+| 成功终态显式 `propagation=stop` | 停止后续过滤、对话和业务处理 | 停止后续业务优先级 |
+| 成功终态显式 `propagation=continue` | 继续，覆盖静态 `block` | 继续，覆盖静态 `block` |
+| 成功终态未指定传播结果 | 使用 `block` | 使用 `block` |
+| `plugin.not_handled` | 正常放行，不使用失败策略 | 正常继续 |
+| 异常、超时、队列满、已启用但运行时不可用 | 使用 `on_error`，默认停止 | 记录失败或丢弃，继续剩余候选 |
+| 整条消息预算耗尽、宿主停止 | 结算剩余项并结束 | 结算剩余项并结束，不能无限继续 |
+
+过滤阶段按 `(priority 降序, plugin_id 升序)` 串行执行，避免同层已执行动作无法撤销。业务同优先级保持并发，等待本层全部完成后推进；同层一个插件停止不能撤回其他同层动作。插件 ID 只提供稳定的候选展示和入队顺序，不承诺并发完成顺序。
+
+终态动作的执行结果必须纳入完成结算：收到成功帧不等于发送等终态动作已经成功。`plugin.not_handled` 单独作为正常未处理结果，不增加失败计数、不打 Warn，也不据此报告此前故障已恢复。
+
+## 五、对话状态机
+
+### 5.1 身份、归属与冲突
+
+路由身份复用 `IdentityScope`：`source_protocol + source_adapter + bot_id + target.type + target.id`；`scope=user` 再包含实际 `actor.id`。插件 ID 是所有者信息，不放在跨插件仲裁的路由键里。
+
+- 默认 `scope=user`。同一聊天的不同用户可分别拥有对话；同一用户作用域只能有一个所有者。
+- `scope=conversation` 拟要求显式 `session.conversation` 权限。它与同聊天中的所有 user 等待项互斥，不能并存后再用“最近登记者”抢占。私聊统一按 user 作用域处理。
+- 默认冲突返回 `plugin.session_conflict`。显式 `replace=true` 只允许同进程所有者替换自己处于 `waiting` 的项；不能替换他人或正在处理的项。替换产生新 ID，旧项以 `replaced` 结束。
+- 所有者绑定具体插件进程代际，复用 `RuntimeDone` 的生命周期信息。停止、崩溃、停用、卸载与热重载只关闭对应旧代际；迟到登记必须再次检查所有者仍存活。
+- 适配器停用、移除或接收机器人身份改变时关闭相应对话；旧身份输入不能匹配新身份的等待项。
+- 独立保存发起者、目标和命令来源，不能从删除了 actor 的群级路由键重建这些信息。
+
+### 5.2 状态及转移
+
+| 状态 | 含义与允许转移 |
+| --- | --- |
+| `registered` | 首次登记已受理，发起事件尚未成功完成；预留归属，但不向插件启动回复事件 |
+| `waiting` | 可以认领下一条合格输入 |
+| `claimed` | 输入已通过检查并取得可提交的队列位置；尚未开始处理 |
+| `handling` | 本轮已开始投递，增加 `turn`；只允许本轮提出下一次等待或主动结束 |
+| `closed` | 完成、取消、超时、替换、权限变化、投递失败或所有者退出；释放索引、计时器、缓冲与票据 |
+
+`registered` 仅在发起事件及必要的终态动作成功完成后进入 `waiting`；失败、取消、超时则关闭。插件正常结束发起事件是续接前提，不能保留其并发名额等待输入。
+
+每次登记只等待一条输入。`max_turns` 是整个对话可投递的输入总数，候选默认 100、范围 1..100；校验失败后交给插件的输入也计数，它不是业务步骤数。
+
+- `max_turns=1` 明确表示只能答复一次，不允许同 ID 续接。默认多轮不靠自动重复消费实现。
+- `handling` 中使用同 ID 和当前 revision 提出重新等待，暂存下一轮 state 与期限；本轮成功终态时才提交并回到 `waiting`。
+- 本轮没有重新等待提案则正常结束；本轮失败时丢弃提案并关闭，不能留下新一轮孤立等待。
+- 达到总轮数上限后拒绝重新等待，本轮仍可完成回复；最后一轮结束后关闭。
+- 每轮最多一个重新等待提案；同父请求的相同提案可以幂等返回，参数不同或旧 revision 返回 `plugin.session_stale`。
+- 不允许在会话回复事件中省略 ID 重新创建对话来重置轮数或绝对存活上限。
+
+### 5.3 原子认领、缓冲与失败
+
+采用“只读查找 → 授权与过滤 → 确认已预留的目标队列位置 → 校验版本并认领 → 激活票据”的顺序。队列位置在 admission 阶段按第六节预留；认领时复用该位置，不能再次排队。认领不能先于授权，不能把尝试匹配等同于成功消费。
+
+- `Claim` 同时检查状态、完整路由、所有者代际、revision、截止时间与队列预留；提交失败释放认领，不能遗失等待项或增加轮次。
+- `turn` 在实际开始本轮投递时增加；无法投递时按原因释放或关闭，不伪装成收到一次有效答复。
+- 每个对话最多一个 `claimed/handling` 输入。处于 `registered` 或正在处理上一轮时，到达的后续输入只缓冲原消息与顺序，不提前绑定旧 state；首次登记生效或上一轮提交重新等待后，才按当前 revision 重新检查资格并认领。
+- 对话缓冲候选上限 8 条，计入现有队列容量及传播协调器总量/字节预算；不创建第二套无界队列。
+- 缓冲满时记录 `session_busy` 并拒绝该输入，不增加轮次。关闭时剩余输入以 `session_closed` 结算，不自动回放给普通插件，避免泄漏验证码等对话内容。
+- 进入普通链路的旧消息，不追溯分配给后来登记的对话。
+- `state` 为不超过 4096 UTF-8 序列化字节的 JSON object；存入与回显采用不可变快照或深拷贝，不能把受锁保护 map 的可写引用带出注册表。
+
+注册表分别维护 ID、路由作用域、进程所有者及截止时间索引。冲突检查不能遍历所有插件；群级冲突通过聊天级索引判断。过期堆每个活跃项保持有界节点，重新等待更新已有节点，不能靠无限积累失效节点实现续期。
+
+### 5.4 时间、结束与用户取消
+
+- 每轮期限从 `session.wait` 成功受理时开始，覆盖提示发送、过滤和回复排队；到开始处理前仍检查期限，不能因拥塞无限延长。
+- 进入 `handling` 后由事件执行预算约束；重新等待按新提案的受理时间计算期限。绝对存活上限从首次登记开始，不能通过续期重置。
+- 以 `now >= expires_at_ms` 为过期边界。认领、激活、重新等待提交和关闭使用同一状态版本仲裁；回退认领时若已过期或所有者失效，直接关闭。提案在本轮完成前已过期时不再激活，迟到输入不回放普通业务。
+- 参数超过上限直接返回 `platform.invalid_request`，不静默截断。返回的 `expires_at_ms` 是实际宿主截止时间，SDK 独立设置本地计时器。
+- 关闭是幂等操作。`session.finish` 对不存在、已经关闭或不属于当前进程的 ID 返回 `finished=false`，不披露其他所有者信息。
+- 提供按当前命令前缀识别的完整内置命令“取消对话”。用户可取消自己拥有的 user 对话；群级对话允许发起者、当前群管理员或超管取消。该控制入口先于过滤和对话输入处理，不能被对话或故障过滤器吞掉。
+- 不保留普通“取消”“0”等全局关键词；这些输入如何解释由插件决定。没有活动对话时取消命令给出明确反馈。
+- 取消终止消息占用、后续等待和可取消的宿主操作，不承诺抢占任意插件同步代码或回滚已发生副作用。
+- 拟采用统一的 `session.closed` 通知，原因包括 `finished`、`expired`、`canceled`、`replaced`、`policy_changed`、`delivery_failed`、`owner_stopped`、`turn_limit`。不另设语义重叠的过期事件。
+- `notify_on_close` 默认关闭；通知仅投递给原所有者代际，通过有界控制事件路径发送，属于尽力通知。所有者已退出时只做宿主清理与观测。
+- SDK 超时和关闭回收不能依赖通知送达。宿主不自动发送超时文案；插件只有持有有效的新事件上下文时才能按既有发送能力回复，QQ 官方等平台的回复窗口限制仍生效。
+
+## 六、分层调度与 FIFO
+
+### 6.1 队列位置先于执行层次
+
+不能在高层完成后才把低层消息放入队列。必须用以下反例验收：
+
+```text
+A 的候选：高优先级 P → Q
+B 的候选：仅 Q
+A 先进入调度器，P 尚未完成时 B 到达
+要求 Q 保持 A → B，不能因为 A 的延迟入队而变成 B → A
+```
+
+候选设计在短暂 admission 临界区内分配单调序号，冻结候选、阶段、优先级、失败策略与进程代际，并为所有潜在目标预留有界队列票据。顺序指调度器的接受顺序，不依据上游可乱序的时间戳。
+
+- 票据先占据各插件现有 lane 的 FIFO 位置，未到执行阶段时保持未激活；未激活项不占执行并发名额，不持锁等待网络或其他插件。
+- 高层完成后激活低层已有票据，而非创建新的低层入队操作。停止传播则结算并移除剩余票据，使后续消息能够推进。
+- 预留、激活、释放必须进入同一个调度协议；普通快速 fan-out 也必须遵守已经存在的票据，不能越过之前消息的未激活位置。
+- 会话路由使用完整身份，FIFO 本版保持现有每插件 lane 定义；不顺带修改跨适配器 lane 并行策略。
+- 过滤和业务阶段一个插件只出现一次，避免重复投递。A0 必须检验多层、多消息及跨 lane 依赖图没有循环等待。
+
+### 6.2 完成、取消与热重载
+
+- 每个候选恰好结算一次：拒绝入队、队列满、运行时不可用、清队列、正常终态、未处理、异常、终态动作失败、超时及取消均有结算入口，不能只依赖 worker 回调。
+- 回调只提交调度状态转换，不在 dispatcher、注册表或队列锁内执行插件、发送消息或等待下层。
+- 整条消息使用自己的取消和期限上下文。高层插件事件结束不能取消后续层；宿主停止、总预算耗尽应取消所有未完成票据。
+- 后续激活须验证候选代际仍一致；不能把旧消息交给同 ID 的替换进程。变更后的声明只影响新接收的消息。
+- Bridge 的 accepted/delivered 继续表示入队接受，不宣称业务完成；另记录传播终结、阻断者、未执行数量及耗时。
+- 观测覆盖活跃对话、缓冲与票据占用、关闭原因、过滤失败及阶段耗时；结构化日志关联事件 ID、对话 ID、轮次和所有者代际，不记录原始 state、答复正文或临时验证码。指标不以用户、对话 ID 作高基数标签。
+- 只保留普通默认业务行为时尽量复用现有 fan-out 路径，但必须通过顺序、并发与观测回归证明，不能仅以“只有一层”宣称零回归。
+
+### 6.3 候选预算
+
+| 项目 | 候选默认 | 约束 |
+| --- | --- | --- |
+| 单轮等待 | 60 秒，上限 600 秒 | 缺省值不大于上限；非法参数拒绝 |
+| 对话绝对存活 | 1800 秒 | 重新等待不能延长绝对期限 |
+| 活跃对话 | 每插件 256，全局 1024 | `registered`、`waiting`、`claimed`、`handling` 全部计入 |
+| 对话缓冲 | 每对话 8 条 | 同时计入已有插件队列和全局传播预算 |
+| 前置过滤执行 | 5 秒 | 包含其激活后的排队与终态动作，且不超过整条消息剩余预算 |
+| 消息传播总期限 | 120 秒 | 从 admission 开始，覆盖排队、所有阶段与终态动作 |
+| 待完成传播 | 全局 1024 条、序列化消息快照总量 16 MiB | 任一限制达到即拒绝新 admission；共享快照按实际存储计数 |
+
+A0 固定配置字段、合法范围与需要开放的运维选项；预算不是散落各包的魔数。新增配置的默认值只在 config 契约维护，经内嵌 schema 生成，继续使用 `default_roundtrip_test.go` 校验。
+
+配置热更新使用同一原子快照。容量降低先限制新 admission；已有对话不被随机驱逐。期限修改影响新登记/重新等待；已经给出的截止时间不被隐式拉长，既有对话的绝对期限不重置。
+
+## 七、协议与 Go SDK
+
+### 7.1 对话接口草案
+
+首次登记和重新等待采用可区分的两种 data 形状，均为父事件绑定的 `session.wait`：
 
 ```json
 {
   "type": "action",
-  "request_id": "act-1",
-  "parent_request_id": "evt-1",
+  "request_id": "wait-1",
+  "parent_request_id": "event-1",
   "action": "session.wait",
   "data": {
-    "timeout_seconds": 60,
     "scope": "user",
-    "max_turns": 1,
-    "notify_on_expire": true,
-    "state": {"step": "pick_role"},
-    "session_id": "sess-01J..."
+    "timeout_seconds": 60,
+    "max_turns": 100,
+    "notify_on_close": true,
+    "state": {"step": "select_role"}
   }
 }
 ```
 
-  `data` 全部字段可选；`session_id` 仅用于延续既有等待项。结果 `{"session_id": "...", "expires_at": 1757650000, "turn": 0}`。
+首次登记不含 `session_id` / `revision`，其余字段可省略，state 缺省为空对象。仅普通业务消息事件可以新建，消息身份和命令来源由宿主父事件推导，插件不能自行指定其他聊天。
 
-- 新增 `action_session_finish`（`action: "session.finish"`，`data: {"session_id": "..."}`），结果 `{"finished": true|false}`。
-- `action_storage_kv_set_data` 新增 `ttl_seconds`（`integer`，`minimum: 1`，`maximum: 31536000`）与 `if_not_exists`（`boolean`）。
-- `session.*` 属于隐式插件私有动作，不进入 `permission_name`。
-- fixtures：`ok.session-wait.yaml`（登记、终态、带 `payload.session` 的后续事件、带 `propagation` 的终态）、`ok.session-finish.yaml`、`ok.session-expired.yaml`、`invalid.session-wait-scope.yaml`、`ok.result-propagation.yaml`、`ok.storage-kv-ttl.yaml`、`invalid.storage-kv-ttl-zero.yaml`；`x-fixtures` 同步登记。
+重新等待必须包含 `session_id` 与当前 `revision`，并且父事件就是该 ID 的当前处理轮次；可以更新 `timeout_seconds` 和 `state`，省略 state 则保留。不能更改 scope、所有者、总轮数或绝对期限。
 
-### `contracts/error-codes.yaml`
+受理结果与消息 payload 使用同一单位：
 
-不新增错误码。复用：`platform.invalid_request`（scope、参数非法）、`platform.resource_not_found`（`finish` 未知 `session_id`）、`platform.rate_limited`（等待项超限）、`platform.value_too_large`（`state` 超限）。
-
-### `contracts/config.user.schema.json`
-
-`runtime` 新增三个键，默认值内嵌在 `server/internal/config/default_document.go`，`schema_version` 保持 `4`（实施时以 `default_roundtrip_test.go` 确认新增带默认值的键不需要升版）：
-
-| 键 | 默认 | 说明 |
-| --- | --- | --- |
-| `session_wait_default_seconds` | 60 | 未指定 `timeout_seconds` 时的等待时长 |
-| `session_wait_max_seconds` | 600 | 单次等待上限，超出按上限截断 |
-| `session_wait_max_active_per_plugin` | 256 | 每插件活跃等待项上限 |
-
-三个键在登记时读取当前配置，归类为 applied-now。
-
-### `contracts/backup-manifest.schema.json`
-
-`db_schema_version` 枚举新增 `000002`；对应 fixtures 更新。
-
-### `contracts/web-api.openapi.yaml` 与 `contracts/websocket-events.yaml`
-
-- 插件详情与摘要 schema 新增 `priority`、`block`（只读投影）。
-- `info.version` 由 `0.3.0` 递增为 `0.3.1`；fixtures 与 examples 同步。
-
-### 生成物
-
-`python scripts/generate-plugin-wire.py`、`node scripts/generate-runtime-schemas.mjs`、`python scripts/generate-error-codes.py`（无变化，仅 `--verify`）、`web` 的 `pnpm run generate:types`、`python scripts/generate-launcher-api.py --verify`（插件字段不在 Launcher 子集内，预期无变化）。
-
-## 五、技术设计
-
-### 5.1 对话会话等待
-
-新包 `server/internal/bot/pipeline/sessionwait`：
-
-```go
-type Key struct {
-    PluginID, SourceProtocol, SourceAdapter string
-    TargetType, TargetID string
-    ActorID string // scope=conversation 时为空
+```json
+{
+  "session_id": "session-example",
+  "revision": 1,
+  "turn": 0,
+  "expires_at_ms": 1789200060000
 }
-
-type Waiter struct {
-    ID             string
-    Key            Key
-    Scope          string
-    ExpiresAt      time.Time
-    MaxTurns, Turn int
-    State          map[string]any
-    NotifyOnExpire bool
-}
-
-type Registry struct{ /* mu、按 Key 索引、按 PluginID 索引、按 ExpiresAt 的最小堆 */ }
-
-func (r *Registry) Register(ctx context.Context, req RegisterRequest) (Waiter, error)
-func (r *Registry) Match(event chatevent.NormalizedEvent) (chatevent.SessionRef, bool)
-func (r *Registry) Finish(pluginID, sessionID string) bool
-func (r *Registry) CancelPlugin(pluginID string) int
-func (r *Registry) Run(ctx context.Context) // 过期清扫，触发 Notifier
 ```
 
-- `Register` 从 `ActionRequest.ParentEvent` 推导 `Key`；父事件不是消息事件或缺少 target / actor 时返回 `platform.invalid_request`。`session_id` 存在且属于同一插件时延续：重置 `ExpiresAt`，保留 `Turn`，替换 `State`。
-- `Match` 原子完成：查找（`user` 优先，再 `conversation`）、`Turn++`、达到 `MaxTurns` 时移除；返回 `chatevent.SessionRef{ID, Scope, Turn, State}`。
-- 过期项若 `NotifyOnExpire`，通过注入的 `Notifier` 构造 `event_type=session.expired` 的 `chatevent.Event`（`Target` 与 `Actor` 来自 `Key`，`PayloadFields["session"]` 同结构）并调用 `Dispatcher.DispatchToPlugin`；插件不可投递时按 drop 记录。
-- 所有共享状态由单一互斥锁保护；`Match` 在消息热路径上只做一次 map 查找。
+回复的 `payload.session` 包含 ID、scope、revision、turn、expires_at_ms 和 state。进程代际、路由所有者及认领凭证属于内部字段；适配器原始 payload 不能伪造宿主的会话路由。
 
-`chatevent`：`NormalizedEvent` 与 `Event` 新增 `Session *SessionRef`，`FromAdapter` 透传；`runtime/manager_delivery.go` 的 `buildEventPayload` 输出 `payload.session`。
+`session.finish` 接受 `{"session_id":"..."}`，返回 `{"finished":true|false}`。它是严格限于当前进程所有权的控制动作，允许不带 `parent_request_id`，以便原事件结束后取消等待。
 
-Ingress（`chatpolicy/ingress.go`）：
+- 仅这个明确声明的动作进入进程级控制分支；其他 local action 不获得隐式脱离父事件的能力。
+- 控制请求仍需独立 request ID、配额、取消、去重/迟到响应处理及 shutdown 回收；不能通过伪造父事件或放宽全部 action 路由实现。
+- `session.closed` 的 payload 复用会话标识并增加 `reason`；保留真实来源与发起者信息，通知不赋予新的业务权限。
+- `propagation` 只允许出现在插件事件的成功 `result` 或合法终态 `action` 中。出现在非终态 action 或其他不适用帧上应拒绝，不静默忽略。
 
-```text
-enrich metadata → replyTargets.Record
-→ if sessions.Match(event) 命中：
-     event.Session = ref
-     policy.ApplyBaseline(ctx, event)   // 超管旁路 + 黑名单；不解析策略、不冷却
-     policy.EnrichCommandEvent(event)   // 仅填充 command/args
-     bridge.HandleAdapterEvent(ctx, event)   // 不经内置菜单
-→ 否则走现有链路
-```
+复用现有参数、权限、配额和值大小错误；新增 `plugin.session_conflict` 与 `plugin.session_stale` 表达归属冲突和失效轮次。A 组固定错误码作用域、消息策略与 fixtures。未知 ID 的 finish 不使用 not-found 错误。
 
-Dispatcher：`Dispatch` 看到 `event.Session != nil` 时目标只有 `Session.PluginID`（由 Ingress 写入 `SessionRef.PluginID`，不进入协议 payload）；插件不可投递时以 `session_plugin_unavailable` 记 drop。
+### 7.2 首发 SDK
 
-Local action：`plugins/actions/session.go` 注册 `session.wait` 与 `session.finish`，`runtime/actions.go` 解析新帧类型；`Deps` 新增 `Sessions SessionRegistry`。
+- 提供 typed `SessionWait`、进程归属的 `SessionClient.Finish`、SessionRef、关闭原因与传播结果；保留登记式事件处理作为底层完整能力。
+- 提供回调式询问封装：登记并安装本地续接映射 → 非终态发送提示并等待发送结果 → 成功后正常结束当前事件；失败时撤销登记和本地映射。
+- 回复作为新请求进入常规 SDK 并发调度，使用新的 EventContext 调用续接处理器；自动终态、panic、局部 action 及名额释放都属于这个新请求。
+- 回调可显式重新等待；不能捕获旧 EventContext 继续发送。挂起的回调不持有事件执行名额，数量受宿主及 SDK 上限约束。
+- 本地截止时间依据宿主返回值和调用方更早的 deadline；手动取消通过进程级 finish 回收宿主占用。关闭通知丢失、延迟或重复都不能造成无限等待。
+- 发送失败、取消与回复同时发生时只交付一次续接结果。属于回调封装但已经没有有效续接者的迟到事件必须结束请求并释放名额，不调用普通业务 Handler 意外执行；直接使用登记式 API 的对话仍由插件的会话事件 Handler 处理。
+- 本地超时回调负责释放资源；需要发送超时文案时，使用实际收到的关闭事件上下文，并接受平台发送能力限制。
 
-生命周期：`plugins/lifecycle` 在停止、重载 swap 完成、禁用与进入失败状态时调用 `CancelPlugin`。
+### 7.3 阻塞式 Prompt 的独立准入
 
-日志与观测：`component=sessionwait` 记录登记、命中、延续、结束、过期与清空（含 `plugin_id`、`session_id`、`scope`、`turn`）；`MetricsObserver.IncEventPipelineStage("session", "matched"|"expired")`；`dispatcher_runtime` 的 drop 原因新增 `session_plugin_unavailable`。
+候选 `Prompt(...) -> 新 EventContext` 只有在下列原型全部通过后才能固定公开 API：
 
-平台限制：QQ 官方群消息只有 @ 机器人才会上报，因此群内回复仍需 @；私聊不受影响。文档写明。
+1. 处理调用有明确的“当前事件所有权”，旧事件终态后原 Context 继续拒绝动作；自动终态和 panic 收尾转移到当前新请求。
+2. 每个并发许可只释放一次；挂起时释放，恢复时取得新事件许可，外层 defer 不会再次释放旧许可或窃取其他请求许可。
+3. 普通事件、续接事件和关闭事件并发到达时，不抢错续体、不绕过并发上限。
+4. 超时、显式取消、替换、宿主关闭和通知丢失时均能回收；后台 goroutine、映射与 handler 等待计数均有上限。
+5. 不能在已关闭父事件上发送 finish、错误或提示；如果需要新增取消帧或能力协商，应先扩展 A0.6 和正式契约，不靠局部 SDK 特判掩盖。
 
-### 5.2 优先级与阻断
+未通过时首发只交付登记式与回调式，不把存在所有权缺口的阻塞 API 标记为可用。
 
-- `plugins/catalog/manifest.go` 解析 `priority` / `block` 到 `plugins.Snapshot`；`runtime.Spec` 与 `dispatch.SwapPlugin` 增加两个参数，`pluginSlot` 保存。
-- `plugins.Delivery` 新增 `Propagation string`；`runtime/manager_delivery.go` 的 `decodeTerminalResult` / `decodeTerminalAction` 读取帧字段；`error` 终态不读取。
-- `selectTargets` 返回 `[][]string`：命令定向集合或订阅集合按 `priority` 降序分层，层内按 `plugin_id` 升序；只有一层时行为与现在完全相同。
-- `Dispatch` 为多层事件创建 `propagation{remaining int32, stopped atomic.Bool, next func()}`，通过 `dispatchItem.onDone(outcome)` 回调驱动：`deliverLaneItem` 返回后在同一 goroutine 调用 `onDone`，最后一个完成者若未停止则入队下一层。停止判定：`Delivery.Propagation == "stop"`，或 `Propagation == ""` 且插件 `block=true` 且终态为 `result` / `action`。
-- 回调只向其他插件的队列做非阻塞 `tryEnqueue`，不持有 dispatcher 锁等待，不影响 lane FIFO。
-- Bridge 仍以第一层的入队结果判定 `DeliveryOutcomeDelivered`；后续层的结果通过 `recordOutcome` 与一条 `component=dispatch` 的 Debug 日志（`stopped_by`、`skipped_plugins`）呈现。
-- `worker.go` 中 `plugin.not_handled` 从失败追踪中豁免。
-- 管理面：`management` 插件摘要与详情投影新增两个字段；`web/src/views/plugins/PluginDetailView.vue` 在并发度旁展示优先级与阻断；`command_conflicts` 语义改为"同名命令由多个插件声明，按优先级与插件 ID 顺序投递"。
+## 八、KV TTL 与原子条件写入
 
-### 5.3 KV TTL 与存储迁移
+### 8.1 固定操作语义
 
-`storage` 迁移机制（`store_schema.go`）：
+`storage.kv set` 拟增加 `ttl_seconds`（整数 1..31536000）与 `if_not_exists`（默认 false）。公开结果统一使用 `expires_at_ms`，与数据库毫秒时间一致。
 
-```go
-type migration struct{ From, To string; Statements []string }
-
-var migrations = []migration{{
-    From: "000001", To: "000002",
-    Statements: []string{
-        "ALTER TABLE plugin_kv ADD COLUMN expires_at_ms INTEGER",
-        "CREATE INDEX IF NOT EXISTS idx_plugin_kv_expires_at ON plugin_kv (expires_at_ms) WHERE expires_at_ms IS NOT NULL",
-    },
-}}
-```
-
-- `initializeSchema` 遇到旧版本时沿迁移链逐步执行，每步一个事务并更新 `schema_metadata.version`；未知版本仍报错。
-- `schema.sql` 更新为 `000002` 的完整结构供全新初始化；新增测试比较"全新 `schema.sql`"与"`000001` 结构 + 迁移"的 `sqlite_master` 归一化结果，防止两条路径漂移。
-- `storage.IsRestorableSchemaVersion(v)` 覆盖 `000001` 与 `000002`；`recovery.EvaluateRestore` 用它替换等值比较；备份 manifest 记录归档实际版本。
-- 文档：`docs/architecture/platform-runtime.md`、`docs/user/recovery.md`、`docs/release/delivery-and-upgrade.md`、`contracts/README.md` 中"只处理当前格式"的表述改为"接受可前向迁移的旧结构"。
-
-KV 仓储（`plugins/storage/kv.go`、`sqlcqueries/pluginkv.sql`）：
-
-```sql
--- GetKV / GetKVSize：追加 AND (expires_at_ms IS NULL OR expires_at_ms > ?)
--- GetKVTotalSize：WHERE expires_at_ms IS NULL OR expires_at_ms > ?
--- UpsertKV：SET ... , expires_at_ms = excluded.expires_at_ms
--- UpsertKVIfAbsent :execresult
-INSERT INTO plugin_kv (...) VALUES (...)
-ON CONFLICT(plugin_id, key) DO UPDATE SET ...
-WHERE plugin_kv.expires_at_ms IS NOT NULL AND plugin_kv.expires_at_ms <= ?;
--- DeleteExpiredKV :execresult
-DELETE FROM plugin_kv WHERE rowid IN (
-  SELECT rowid FROM plugin_kv WHERE expires_at_ms IS NOT NULL AND expires_at_ms <= ? LIMIT ?);
-```
-
-- `KVRepository.Set` 签名扩展为 `Set(ctx, pluginID, key, value, KVSetOptions{TTL, IfNotExists}, limits) (KVSetResult{Stored bool, ExpiresAt *time.Time}, error)`；`Get` 返回 `expires_at`；手写的 `List` 追加过期过滤。
-- 清扫器作为 `app` 组装的后台 goroutine，每 60 秒调用 `DeleteExpiredKV` 直到单批不足 1000 行；关闭时随 App 停止。
-- `actions/storage.go` 与 `runtime/actions.go` 解析新字段并返回 `stored` / `expires_at`。
-
-### 5.4 Go SDK
-
-- 入站：`Event.Session *SessionRef`（`ID`、`Scope`、`Turn`、`State`）；`EventType == "session.expired"` 时同样携带。
-- 动作：`Actions().SessionWait(ctx, SessionWaitRequest) (SessionWaitResult, error)`、`Actions().SessionFinish(ctx, sessionID) (bool, error)`、`Actions().KVSetWithOptions(ctx, key, value, KVSetOptions{TTL time.Duration, IfNotExists bool}) (KVSetResult, error)`；既有 `KVSet` 保持不变。
-- 终态：`EventContext.SetPropagation(PropagationStop | PropagationContinue)` 在写终态帧时带上字段；`EventContext.NotHandled()` 等价于 `Fail("plugin.not_handled", ...)`。
-- 阻塞式糖：`EventContext.Prompt(ctx, text string, opts PromptOptions) (*EventContext, error)`：登记等待项（`notify_on_expire=true`）、以 `SendText` 结束当前事件、释放并发信号量后挂起当前 goroutine；后续带同一 `session_id` 的事件到达时，SDK 不再调用 `Handler`，而是把新的 `*EventContext` 交给挂起的续体；`session.expired` 到达时返回 `ErrPromptTimeout`；关闭时返回 `context.Canceled`。文档强调 `Prompt` 之后原事件已关闭，后续动作与终态必须使用返回的新上下文。
-- 示例插件 `examples/plugins/example-session-prompt`：命令 `/pick` 列出选项并等待序号；演示登记式与阻塞式两种写法、`state` 回显、超时处理与 `if_not_exists` 会话锁。
-
-## 六、执行清单
-
-| ID | 工作项 | 依赖 | 状态 | 完成情况 | 验证证据 |
-| --- | --- | --- | --- | --- | --- |
-| A1 | manifest 契约：`priority` / `block` 与 fixtures | — | ⬜ 待处理 | | `validate_contracts.py --mode=strict` |
-| A2 | 协议契约：`propagation`、`session.wait` / `session.finish`、`payload.session`、`session.expired` 与 fixtures | — | ⬜ 待处理 | | 同上；`generate-plugin-wire.py` 与 `generate-runtime-schemas.mjs --verify` |
-| A3 | 协议契约：`storage.kv set` 的 `ttl_seconds` / `if_not_exists` 与 fixtures | — | ⬜ 待处理 | | 同上 |
-| A4 | 配置契约：`runtime.session_wait_*` 三键、内嵌默认值、`docs/user/configuration.md` | — | ⬜ 待处理 | | `go test ./internal/config/...`；契约 strict |
-| A5 | backup manifest `000002`、Web API / WebSocket 插件字段、`info.version`、生成物 | A1 | ⬜ 待处理 | | 契约 strict；`pnpm run generate:types` 无 diff 之外的产物；`generate-launcher-api.py --verify` |
-| B1 | 存储前向迁移机制与恢复兼容（`000001 → 000002`） | A5 | ⬜ 待处理 | | 新增迁移测试与结构等价测试；`go test ./internal/storage/... ./internal/operations/...`；`check-server-structure.py` |
-| B2 | `plugin_kv` TTL 列、sqlc 查询、仓储、清扫器、action 解析与处理 | B1, A3 | ⬜ 待处理 | | `sqlc generate && sqlc diff`；仓储单测覆盖过期读、NX、配额排除、清扫；`go test ./internal/plugins/...` |
-| B3 | SDK KV 选项与协议文档 | B2 | ⬜ 待处理 | | `(cd sdk/go && GOWORK=off go test ./...)` |
-| C1 | manifest 解析、Snapshot、runtime Spec、`SwapPlugin` 参数 | A1 | ⬜ 待处理 | | `go test ./internal/plugins/... ./internal/bot/pipeline/dispatch/...` |
-| C2 | Dispatcher 分层链式投递、`not_handled` 豁免、观测字段 | C1 | ⬜ 待处理 | | 新增分层顺序、stop / continue、超时视为继续、单层零回归测试；`go test -race ./internal/bot/pipeline/dispatch/...` |
-| C3 | runtime 终态帧 `propagation` 解析进 `Delivery` | A2, C2 | ⬜ 待处理 | | `go test ./internal/plugins/runtime/...` |
-| C4 | SDK 传播控制、管理面与 Web 展示、架构与插件文档 | C3 | ⬜ 待处理 | | SDK 测试；`web` typecheck + unit；`check-doc-links.py` |
-| D1 | `sessionwait` 注册表（键、作用域优先、延续、上限、过期堆、清空） | A4 | ⬜ 待处理 | | 单测 + `go test -race ./internal/bot/pipeline/sessionwait/...` |
-| D2 | `session.wait` / `session.finish` local action、runtime 解析、`app` 组装 | D1, A2 | ⬜ 待处理 | | `go test ./internal/plugins/... ./internal/app/...` |
-| D3 | Ingress 命中路径、`chatevent.Session`、Bridge / Dispatcher 定向、菜单跳过、生命周期清空、过期通知 | D2, C2 | ⬜ 待处理 | | chatpolicy / bridge / dispatch / lifecycle 测试；`-race` |
-| D4 | SDK 会话 API、阻塞式 `Prompt`、示例插件 | D3 | ⬜ 待处理 | | SDK 测试含续体、超时、关闭；示例 `raylea-plugin build-go` 三平台 |
-| D5 | 文档：协议"对话会话"章节、SDK README、bot-core / message-flow / event-model、manifest 文档 | D4 | ⬜ 待处理 | | `check-doc-links.py`、`check-agent-docs.mjs` |
-| E1 | 集成测试：会话往返、分层阻断、KV TTL；全量门禁 | B3, C4, D5 | ⬜ 待处理 | | `server/tests/integration` 新用例；`go build/vet/test ./...`、golangci-lint、契约 strict、SDK、Web、Launcher `--verify` |
-| E2 | 发布整理：`docs/CHANGELOGS/v0.6.md`、发布说明 | E1 | ⬜ 待处理 | | 文档链接检查 |
-
-执行顺序：A1 → A2 → A3 → A4 → A5 → B1 → C1 → C2 → C3 → B2 → B3 → C4 → D1 → D2 → D3 → D4 → D5 → E1 → E2。
-
-- A 组先于一切：契约先行，生成物随契约提交。
-- B1 先于 B2：迁移机制是结构变更的前提，也独立于业务逻辑可单独验收。
-- C2 先于 D3：会话定向投递复用分层链路的"单目标、不 fan-out"路径。
-- 每个工作项一个或多个 Conventional Commit，标题与正文中文，直接提交到 `main`。
-
-## 七、验证基线
-
-每个工作项完成时至少运行：
-
-```text
-cd server && go build ./... && go vet ./... && go test ./...
-cd server && golangci-lint run --timeout=10m --default=none -E errcheck -E staticcheck -E govet -E unused -E ineffassign ./...
-python scripts/ci/validate_contracts.py --mode=strict
-python scripts/generate-plugin-wire.py --verify && node scripts/generate-runtime-schemas.mjs --verify
-(cd sdk/go && GOWORK=off go test ./...)
-python scripts/check-doc-links.py && node scripts/check-agent-docs.mjs
-```
-
-并发相关（C2、D1、D3）追加 `go test -race`，本机无 cgo 时由 CI nightly 覆盖；存储相关追加 `sqlc generate && sqlc diff` 与 `python scripts/check-server-structure.py`；Web 相关追加 `pnpm run typecheck && pnpm test`。
-
-## 八、风险与边界
-
-| 风险 | 处理 |
+| 操作 | 语义 |
 | --- | --- |
-| 分层投递引入回调后 lane 死锁或顺序破坏 | 回调只做非阻塞入队，不等待、不持锁；单层路径无回调；用 `-race` 与顺序测试锁定 |
-| 高优先级插件超时拖慢低优先级 | 超时上限即 `plugin_event_timeout_seconds`；超时视为继续；文档提示阻断插件应快速终态 |
-| 冷却或内置菜单吞掉会话回复 | 命中路径跳过命令策略与菜单，只保留超管旁路与黑名单 |
-| 插件长期独占用户消息 | 超时上限、每插件活跃上限、插件停止即清空；日志可追溯 |
-| 一次性等待项被消费后到重新登记之间漏消息 | 文档写明；需要连续多轮的场景使用 `max_turns > 1` |
-| 数据库结构升级导致现有安装无法启动或旧备份无法恢复 | 前向迁移在启动时执行；恢复接受可迁移版本；结构等价测试防止两条路径漂移 |
-| 过期行占用配额 | 配额与读取都排除过期行；清扫器限批、周期执行 |
-| 旧 SDK 插件收到未知字段 | 新字段只发给登记者；`propagation` 与 `session.*` 由插件主动发出；`min_core_version` 约束 |
-| 协议命名与既有"事件会话"混淆 | 文档统一"对话会话"术语并在协议文档首次出现处说明 |
+| 普通 set，省略 TTL | 写入永久值，清除该键已有的期限 |
+| 普通 set，指定 TTL | 覆盖值与期限；期限从本次写事务捕获的宿主时间计算 |
+| NX，已有未过期键 | 返回 `stored=false` 和已有键的期限（若有）；不返回已有值，不修改值或期限，不做新增容量扣减 |
+| NX，键不存在或已过期 | 作为可写入键，在同一事务中检查容量并写入 |
+| get 已过期键 | `exists=false`，不返回 value 或 expiry |
+| list | 仅列出有效键，保留现有前缀、转义与排序语义 |
+| delete 已过期键 | 逻辑上返回未删除有效键；物理过期行可以同时清理 |
 
-## 九、验收重点
+请求格式、键和值大小始终校验；NX 是否写入在事务内判定，不应因一个不会发生的写入先报总配额不足。每个事务只捕获一次 `now_ms`，用于存在性、旧值大小、有效总量、截止时间及写入条件。
 
-- 收到 `/pick` 后回复 "1"，登记插件收到带 `payload.session` 的 `message.*` 事件，其他插件与内置菜单未被触发，冷却计数未变化。
-- 等待超时后登记了通知的插件收到 `session.expired`，未登记通知的插件什么也不收到；插件停止后其等待项立即清空。
-- 两个插件声明同一命令且优先级不同时，高优先级先收到；它返回 `propagation: stop` 或声明 `block` 时低优先级不再收到；返回 `plugin.not_handled` 时低优先级照常收到且日志无 Warn。
-- 全部插件保持默认优先级与 `block=false` 时，投递顺序、并发与观测计数与 v0.5 一致。
-- 带 `ttl_seconds` 的键到期后 `get` 返回 `exists=false`、`list` 不再列出、配额随之释放；`if_not_exists` 在键存活期间返回 `stored=false`，到期后可再次写入。
-- v0.5 安装的数据库升级后自动迁移到 `000002`；v0.5 备份在 v0.6 恢复成功并完成迁移；全新初始化与迁移得到的结构一致。
-- 契约、fixtures、生成物、SDK、示例与文档只有一套字段语义。
+配额仍是现有的全局 KV 逻辑配额，不能无意改成每插件统计。新增 TTL 不意味着物理磁盘空间立即缩小，清扫后的 SQLite 页可以复用。
 
-## 十、待维护者确认的默认值
+### 8.2 SQLite 与清扫
 
-以下选择已在本计划中定案，若维护者偏好不同，改动只影响契约默认值与文档：
+- 当前结构新增 `plugin_kv.expires_at_ms INTEGER NULL` 和针对非 NULL 期限的索引；既有数据转换后期限为 NULL。
+- GetKV、GetKVSize、GetKVTotalSize、List 都按同一截止条件过滤；写入使用事务和条件 UPSERT，不采用先 Get 再独立 Set 的竞争实现。
+- NX 写入结果取实际受影响行数；读取、配额计算、写入必须使用同一个写事务中的视图。
+- 清扫器复用 App 生命周期，每 60 秒触发；每批最多 1000 行，每轮候选上限 5000 行或 250ms，先到即停止，余量留到下一轮。
+- 清扫按期限和 rowid 稳定选择，及时释放写事务，响应取消；用查询计划和批量数据确认索引生效，不长期占用唯一写连接。
+- 假时钟覆盖精确边界、覆盖写、重启与恢复后过期；并发测试验证只有一个 NX 成功，并覆盖 NX 未写入时不被总配额误拒绝。
 
-1. 优先级方向：数值大者先（AstrBot 风格），默认 0。
-2. manifest `block` 默认 `false`，保持现有 fan-out。
-3. 会话回复默认独占，且 `user` 作用域优先于 `conversation`。
-4. `max_turns` 默认 1。
-5. 引入数据库前向迁移机制作为 KV TTL 的前置；若不接受，B 组整体延后，A3 / B2 / B3 移出本版本。
+### 8.3 SDK 与示例边界
+
+增加 typed KV 选项，既有 KVSet 仍表达永久写入。SDK 把零 TTL 表示为省略；负数、非整秒的正时长和超上限值拒绝，不能静默截断。
+
+NX+TTL 示例只演示短期去重/占位，依赖到期释放，不作为可主动释放锁。A 过期、B 取得新值、A 再 delete 会删掉 B；需要这种锁时应另立所有者令牌与原子条件删除契约。宿主对话互斥直接使用注册表，不能依赖插件私有 KV 实现跨插件仲裁。
+
+## 九、一次性迁移、恢复与发行准入
+
+### 9.1 本计划采用的交付方式
+
+核心升级到 `000002` 后只接受当前结构；备份契约的正常支持集合为 `000002` 与 `absent`。不保留运行时自动迁移链、旧查询分支或旧备份双轨恢复。
+
+一次性维护流程作为独立交付项：
+
+1. 明确实际配置与数据根目录，停止服务并取得已有生命周期/数据库锁；保留完整可恢复备份和文件清单。
+2. 把 `000001` 数据复制到隔离工作区，在副本事务内新增列与索引；只有结构更新成功才写入 `000002` 元数据。
+3. 验证 quick_check、必要外键、原有数据与凭据数量/内容、全新结构等价性，并实际执行新版本 KV 读写与过期测试。
+4. 验证通过后采用同卷替换，保留失败回退材料；版本程序切换与数据替换顺序必须经过演练。
+5. 迁移完毕后正式运行路径只有当前格式；临时转换脚本、真实数据与兼容操作记录放在维护交付范围，不留在核心运行代码或普通使用说明中。
+
+需要保留旧备份数据时，先在隔离目录做同样转换并重建当前格式备份，校验真实内容、版本和摘要一致后再使用正式恢复。禁止只改 manifest 伪装版本，也禁止正式恢复已替换用户数据后才尝试迁移。
+
+### 9.2 发布限制
+
+- A0.5 必须先确定交付对象及现有 updater/Launcher 的准入点。发现未转换旧库时，应在正式切换前拒绝跨版本更新或转入明确的维护流程，不能把启动失败当成迁移方案。
+- 不把用户工作目录中的数据当作默认迁移目标；维护目标以当次明确配置路径为准。
+- 对外发布若要求无人值守原地升级，需要先补独立升级交付设计、契约与回退演练，再改变本节策略；不能在实现 TTL 时顺带加入未审阅的通用兼容框架。
+- 转换工具与本版实际数据格式绑定，要求失败不改原库、可识别已完成状态、重复运行不重复变更。一次性执行不等于没有验证或回退。
+
+## 十、契约、生成物与版本矩阵
+
+| 正式来源/消费者 | 拟变更与必须同步的内容 |
+| --- | --- |
+| `plugin-info.schema.json` | 消息阶段、优先级、block、过滤失败策略及条件约束；显式过滤/群级会话权限；安装权限确认 |
+| `plugin-protocol.schema.json` | 新建/重新等待、进程级 finish、session payload、closed 通知、仅终态传播字段、TTL/NX 请求与结果；拒绝非法组合 |
+| `error-codes.yaml` | 会话冲突/失效等错误的正式作用域与 fixtures；未处理与关闭原因不能混为失败 |
+| `config.user.schema.json` | A0 固定的期限与容量配置及交叉约束；从 schema 生成内嵌默认值和管理配置消费者 |
+| `backup-manifest.schema.json`、恢复与更新契约 | 当前格式、一次性转换的发行准入和回退边界；普通恢复只接受当前格式 |
+| Web API / WebSocket | 插件阶段、优先级、block、on_error 的只读投影和诊断；修改同名命令冲突提示，不承诺并发完成顺序 |
+| Wire 生成链 | 除运行生成命令外，还须更新 `generate-plugin-wire.py` 的 MODELS、终态帧与 payload 映射，以及 Server/SDK 的解析与验证入口 |
+| Go SDK / 示例 | 新类型、处理所有权、进程级取消客户端、KV 选项；独立模块依赖与发布标签 |
+
+候选保留协议 v3、manifest v3 与配置 schema v4；A0.6 必须证明下列矩阵后才能确认。不能仅凭“新增可选字段”宣称没有版本风险。
+
+| 组合 | 验收要求 |
+| --- | --- |
+| v0.5 SDK 普通插件 → v0.6 Core | 默认业务流量可处理；不会收到未经登记的 session payload 或关闭控制事件 |
+| 使用 v0.6 能力的插件 → 旧 Core | 通过 `min_core_version >= 0.6.0` 在正式安装/启动边界拒绝，不等到发送未知帧才失败 |
+| 新 SDK → v0.6 Core | 所有新请求、结果、通知与非法字段样例通过双端生成模型和运行时验证 |
+| 自行实现 JSONL 的插件 → v0.6 Core | 用 fixtures 验证相同边界，不依赖 Go SDK 的隐含行为 |
+
+API 文档版本按实际契约变化更新，A 组记录旧值、新值与消费者影响。当前功能说明只在实现后同步，不提前把候选功能写入用户可用能力列表。
+
+## 十一、执行清单
+
+工作项以独立可验收行为划分。代码、生成物与样例在依赖上保持一致；不要为了机械分目录提交而留下无法构建的中间状态。
+
+| ID | 工作项 | 依赖 | 状态 | 完成情况与证据 |
+| --- | --- | --- | --- | --- |
+| A0 | 完成第三节六项设计门槛，确定候选预算与版本矩阵 | — | ⬜ 待处理 | |
+| A1 | 会话、控制取消、关闭通知、权限与错误契约/fixtures | A0 | ⬜ 待处理 | |
+| A2 | 过滤/业务阶段、传播结果、逐候选授权与配置契约/fixtures | A0 | ⬜ 待处理 | |
+| A3 | TTL/NX、当前备份格式与升级准入契约/fixtures | A0 | ⬜ 待处理 | |
+| C1 | 统一投递完成结果及恰好一次结算，覆盖拒绝与清队列 | A2 | ⬜ 待处理 | |
+| C2 | 候选快照、队列预留/激活、顺序与总预算 | C1 | ⬜ 待处理 | |
+| C3 | 拆分授权与冷却、逐候选权限、过滤执行及失败策略 | C2 | ⬜ 待处理 | |
+| D1 | 对话状态机、完整身份与代际、作用域仲裁、索引及预算 | A1 | ⬜ 待处理 | |
+| D2 | 等待/重新等待 action、进程级 finish 路由及限额 | D1, A1 | ⬜ 待处理 | |
+| D3 | 认领与队列事务、输入缓冲、父事件完成提交、取消与关闭 | D2, C3 | ⬜ 待处理 | |
+| D4 | SDK 登记式/回调式、独立超时、幂等收尾与迟到事件处理 | D3 | ⬜ 待处理 | |
+| B1 | `000002` 当前结构、一次性转换与原库保护/回退演练 | A3 | ⬜ 待处理 | |
+| B2 | TTL/NX 仓储、sqlc、动作与有界清扫器 | B1 | ⬜ 待处理 | |
+| B3 | SDK KV 选项与去重示例 | B2 | ⬜ 待处理 | |
+| E1 | 三轮交互示例及订阅与解析插件的订阅向导，覆盖错误输入和取消 | D4, B3 | ⬜ 待处理 | |
+| E2 | Web 声明展示、诊断及当前架构/用户/插件文档 | C3, D4, B3 | ⬜ 待处理 | |
+| E3 | 跨层集成、性能/并发、旧消费者与发行准入总验收 | E1, E2, B1 | ⬜ 待处理 | |
+| R1 | 核心与 Go SDK 发布产物、标签及独立消费者验证 | E3 | ⬜ 待处理 | |
+| R2 | 用户授权的数据维护/部署、发布说明与执行期归档 | R1 | ⬜ 待处理 | |
+| S1 | 阻塞式 Prompt 运行时原型与公开 API 决策 | D4, A0.6 | ⬜ 待处理 | 不阻塞首发登记式能力 |
+
+优先推进 A0 → 对应契约 → C1/C2 调度基础与 D1/D2 对话基础 → C3/D3 接入 → D4 SDK → E/R 验收交付。B 组在自己的契约与迁移门槛通过后独立推进，不等待整个会话链路；S1 不强行并入普通 SDK 工作量。
+
+R1 明确包含 Go SDK 正式标签（目标 `sdk/go/v0.6.0`）和模块校验和发布。发布后使用 `GOWORK=off` 下载/测试消费者，禁止用本地 replace 的成功替代已发布 SDK 验证。示例和选定真实插件更新依赖后独立构建；不默认发布其他业务插件。
+
+E1 拟新增 `examples/plugins/example-conversation`，演示“选择角色 → 选择操作 → 最终确认”。真实消费者选用独立仓库 [订阅与解析](https://github.com/RayleaBot/plugin-subscription-hub)（`raylea.subscription-hub`）：在既有订阅命令中续接“选择搜索对象 → 选择推送类型 → 确认当前会话订阅”。保留现有超级管理员要求与当前会话目标约束，三次答复使用同一对话 ID；最终确认前不写入订阅。测试使用隔离数据、模拟搜索响应和消息适配器，断言确认只写入一次、取消和超时不写入，并验证权限中途撤销。
+
+## 十二、验证策略与发布验收
+
+### 12.1 按改动风险运行
+
+| 改动面 | 最小充分验证 |
+| --- | --- |
+| 契约与生成输入 | strict contracts、对应 wire/schema/类型生成与漂移检查、正反 fixtures、实际消费者编译 |
+| 状态机、队列与生命周期 | 相关包单测与 race，真实代际切换/拒绝入队/取消测试，确定性的顺序断言 |
+| KV 与数据转换 | sqlc generate/diff、仓储事务测试、边界时钟、结构及数据验证、停机/失败/重复转换演练 |
+| SDK | 独立模块测试、并发为 1 的往返、提示发送失败、通知丢失与迟到帧；不得只验证帧字面值 |
+| Web | 类型检查、受影响组件测试；存在交互变化时补对应浏览器验证 |
+| 文档 | 链接检查及职责/语义复核；指令文件未变时不机械运行指令检查 |
+| 发布集成 | Server 全量 build/vet/test/lint、正式生成门禁、SDK、受影响前端及支持平台的实际产物检查 |
+
+入口与冻结工具链从 [工程基线](./engineering/baseline.md) 和 [质量门禁](./engineering/quality-gates.md) 读取。新增状态机与调度 race 用例进入 PR 相关任务；Windows 进程与文件行为保留 Windows job。本机不支持 race 时记录缺口，要求对应 CI 结果通过，不能以将来 nightly 会运行作为验收证据。
+
+### 12.2 必须具备的反例
+
+| 类别 | 必须覆盖 |
+| --- | --- |
+| 多轮 | 选择角色 → 选择操作 → 最终确认；无效输入后重新等待；默认值、最大轮数与绝对存活上限 |
+| 输入时序 | 提示发送前后快速回复；上一轮处理期间连续输入；缓冲满；关闭时缓冲释放；不得使用旧 state |
+| 认领 | 黑名单/权限拒绝、队列满、目标停止均不增加轮次；同时消息只有一个成功认领 |
+| 归属 | 不同协议、适配器、BotID、用户和群不串线；群级与用户级冲突；显式替换；旧进程退出不删除新项 |
+| 取消与期限 | 用户取消、SDK 取消、超时与回复竞态、通知丢失、重复 finish、配置热更新；不存在无限等待 |
+| 授权 | 同名公共/管理员命令互不抬高权限；权限撤销；群级参与者没有继承发起者特权；名单旁路关系保持 |
+| 过滤 | 命令、普通消息、会话回复、菜单都经过过滤；过滤器队列满/失效按策略停止；用户取消仍可执行 |
+| 传播顺序 | A 命中 P→Q、B 仅命中 Q；同层并发；停止只影响后续层；混合快速路径、热重载和终态动作失败 |
+| 结算与资源 | 每候选恰好完成一次；清队列、未入队、总期限耗尽、停机均回收票据；inactive 票据不占执行名额 |
+| SDK | 新请求接力、回调异常自动终态、旧 Context 拒绝动作、并发许可无泄漏、本地映射有界 |
+| TTL | 精确过期边界、永久覆盖清除 TTL、NX 并发唯一成功、NX 无写入不误报总配额、过期 list/delete 与跨插件隔离 |
+| 存储负载 | 大量过期行下读取正确，清扫时间/行数有界，不持续挤占普通写入；不把逻辑配额释放当物理文件缩小 |
+| 升级与恢复 | 不改原库的失败转换、重复转换、旧库更新准入、备份重建校验、当前格式恢复与回退 |
+| 默认行为 | 未启用新能力的插件保留普通事件可用性；已有命令授权聚合的调整作为明确行为变更验证，不声称全部语义不变 |
+
+示例使用合成凭据与消息；真实消费者按 E1 场景在其独立仓库验证，记录核心与插件双方的提交和环境。三平台打包只证明产物成立，不能代替消息往返和错误路径验证。
+
+### 12.3 完成条件
+
+- A0 的关键反例、容量与权限决定全部有证据，对应正式契约不存在互相矛盾的状态或错误语义。
+- 三轮真实交互、过滤短路、FIFO、代际清理与 TTL 条件写入通过实际受影响路径验证。
+- 没有临时兼容分支、两套字段别名、无界等待、隐藏的多轮名额泄漏或未结算票据。
+- 一次性迁移交付与升级准入已演练，普通运行/恢复只处理当前格式；真实用户数据与维护备份不进入源码提交。
+- SDK 标签可下载并通过独立消费者验证，发布说明只描述实际交付能力；未验收的阻塞式 Prompt 不计入完成范围。
+- 本计划每个已交付项附有可复核证据，未交付项保留明确状态与后续归属。
