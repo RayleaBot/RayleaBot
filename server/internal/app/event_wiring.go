@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/onebot11"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/adapters/qqofficial"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/bridge"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/dispatch"
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/pipeline/outbound"
@@ -30,6 +32,7 @@ type EventState struct {
 	BotIdentity     botIdentitySource
 	Bridge          *bridge.Bridge
 	Dispatcher      *dispatch.Dispatcher
+	Conversations   *conversation.Registry
 	ReplyTargets    *outbound.ReplyTargetCache
 	OutboundSender  outbound.ActionSender
 	AdapterRouter   *outbound.Router
@@ -97,6 +100,9 @@ func buildEvents(deps eventDeps) EventState {
 		deps.Config.Runtime.MaxPendingEventsPerPlugin,
 		deps.Config.Runtime.MaxPendingControlEvents,
 	)
+	conversationRegistry := conversation.New(conversation.Options{NotifyExpired: func(owner conversation.Owner, event chatevent.Event) {
+		eventDispatcher.DispatchToProcess(context.Background(), owner.PluginID, owner.Done, event)
+	}})
 	outboundPolicy := outbound.NewMessagePolicy(deps.Config, func(scope chatevent.IdentityScope) chatevent.IdentityScope {
 		return outboundSender.ResolveScope(scope, identity.BotIdentities())
 	})
@@ -117,6 +123,7 @@ func buildEvents(deps eventDeps) EventState {
 		QQOfficial:      qqClients,
 		Bridge:          eventBridge,
 		Dispatcher:      eventDispatcher,
+		Conversations:   conversationRegistry,
 		ReplyTargets:    replyTargets,
 		OutboundSender:  outboundSender,
 		AdapterRouter:   outboundSender,
@@ -125,6 +132,10 @@ func buildEvents(deps eventDeps) EventState {
 }
 
 func (s *EventState) Close() {
+	if s.Conversations != nil {
+		s.Conversations.Close()
+		s.Conversations = nil
+	}
 	if s.Dispatcher == nil {
 		return
 	}

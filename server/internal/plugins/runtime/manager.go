@@ -94,6 +94,15 @@ func (m *Manager) Snapshot() Snapshot {
 	return cloneSnapshot(m.snap)
 }
 
+func (m *Manager) ProcessDone() <-chan struct{} {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.proc == nil {
+		return nil
+	}
+	return m.proc.Done()
+}
+
 func (m *Manager) cleanupComplete() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

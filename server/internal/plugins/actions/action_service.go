@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
 	"log/slog"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/config"
@@ -15,6 +16,7 @@ type Deps struct {
 	Settings             *settings.Service
 	PluginFiles          FileStore
 	PluginKV             KVRepository
+	Conversations        *conversation.Registry
 	Browser              BrowserSessionManager
 	Scheduler            SchedulerCreateFunc
 	MessageSender        MessageSendFunc

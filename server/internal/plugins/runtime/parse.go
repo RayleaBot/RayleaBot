@@ -31,6 +31,22 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 		return parseLoggerWriteAction(raw)
 	case "storage.kv":
 		return parseStorageKVAction(raw)
+	case "session.wait":
+		frame, err := decodeActionFrame[pluginwire.ProtocolActionSessionWaitFrame](raw, kind)
+		if err != nil {
+			return nil, err
+		}
+		action := &plugins.Action{Kind: kind, SessionID: frame.SessionID, SessionScope: frame.Scope, SessionNotifyOnExpire: frame.NotifyOnExpire}
+		if frame.TimeoutSeconds != nil {
+			action.SessionTimeoutSeconds = *frame.TimeoutSeconds
+		}
+		return action, nil
+	case "session.finish":
+		frame, err := decodeActionFrame[pluginwire.ProtocolActionSessionFinishFrame](raw, kind)
+		if err != nil {
+			return nil, err
+		}
+		return &plugins.Action{Kind: kind, SessionID: frame.SessionID}, nil
 	case "plugin.list":
 		return parsePluginListAction(raw)
 	case "secret.read":
@@ -78,6 +94,7 @@ func ParseLocalAction(kind string, raw json.RawMessage) (*plugins.Action, error)
 func isLocalActionKind(kind string) bool {
 	switch kind {
 	case "logger.write",
+		"session.wait", "session.finish",
 		"storage.kv",
 		"plugin.list",
 		"secret.read",

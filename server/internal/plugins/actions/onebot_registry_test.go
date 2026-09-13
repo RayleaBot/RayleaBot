@@ -107,7 +107,7 @@ func TestBaseActionHandlersMatchLocalActionPermissions(t *testing.T) {
 	}
 
 	basePermissionSet := stringSet(protocolBase)
-	for _, implicit := range []string{"logger.write", "config.write", "storage.kv", "storage.file"} {
+	for _, implicit := range []string{"logger.write", "config.write", "storage.kv", "storage.file", "session.wait", "session.finish"} {
 		basePermissionSet[implicit] = true
 	}
 	kinds := actions.NewDefaultRegistry(actions.Deps{}).Kinds()

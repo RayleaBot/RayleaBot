@@ -83,6 +83,7 @@ type layerGate struct {
 type enqueueOptions struct {
 	expected *pluginSlot
 	gate     *layerGate
+	owner    <-chan struct{}
 }
 type pluginSlot struct {
 	ctx           context.Context

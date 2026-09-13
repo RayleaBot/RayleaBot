@@ -138,6 +138,7 @@ func (m *Manager) parseLocalActionFrameLocked(handle *Handle, frame pluginwire.F
 }
 
 func (m *Manager) executeLocalAction(ctx context.Context, handle *Handle, parentRequestID string, requestID string, action plugins.Action, parentEvent chatevent.Event) {
+	ctx = plugins.WithParentRequestID(ctx, parentRequestID)
 	if m.opts.ExecuteLocalAction == nil {
 		if err := m.writeLocalError(handle, parentRequestID, requestID, codePluginInternalError, "plugin local action executor is not available", nil); err != nil {
 			_ = m.failRuntime(handle, err.Code, err.Message, err.Err)

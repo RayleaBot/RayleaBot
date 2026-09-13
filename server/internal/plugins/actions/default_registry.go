@@ -43,6 +43,7 @@ func defaultRegistrarItems() []registrar {
 	items = append(items, governanceRegistrars()...)
 	items = append(items, oneBotRegistrars()...)
 	items = append(items, storageRegistrars()...)
+	items = append(items, conversationRegistrars()...)
 	return items
 }
 

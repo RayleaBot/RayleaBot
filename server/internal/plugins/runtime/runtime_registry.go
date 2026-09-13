@@ -37,12 +37,18 @@ func NewManaged(
 	redactText func(string) string,
 	stderrRateLimitBytesPerSec int,
 	executeLocalAction LocalActionExecutor,
+	events ...EventHooks,
 ) *Registry {
+	var hooks EventHooks
+	if len(events) > 0 {
+		hooks = events[0]
+	}
 	return NewRegistry(logger, Options{
 		Console:                    consoleStream,
 		RedactText:                 redactText,
 		StderrRateLimitBytesPerSec: stderrRateLimitBytesPerSec,
 		ExecuteLocalAction:         executeLocalAction,
+		Events:                     hooks,
 	})
 }
 

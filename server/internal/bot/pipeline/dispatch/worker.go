@@ -149,6 +149,9 @@ func (d *Dispatcher) deliverLaneItem(pluginID string, slot *pluginSlot, laneKey 
 			return
 		case <-item.gate.done:
 		}
+		if item.ctx.Err() != nil || slot.ctx.Err() != nil {
+			return
+		}
 		if item.gate.skip {
 			completion = CompletionResult{Skipped: true}
 			d.recordOutcome(OutcomeIgnored, pluginID, "propagation_stopped")

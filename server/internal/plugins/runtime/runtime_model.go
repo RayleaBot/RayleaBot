@@ -105,4 +105,10 @@ type Options struct {
 	StderrRateLimitBytesPerSec int
 	OnCrash                    CrashCallback
 	ExecuteLocalAction         LocalActionExecutor
+	Events                     EventHooks
+}
+
+type EventHooks struct {
+	Before    func(string, <-chan struct{}, chatevent.Event) bool
+	Completed func(string, <-chan struct{}, string, chatevent.Event, bool)
 }

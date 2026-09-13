@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
+	"github.com/RayleaBot/RayleaBot/server/internal/bot/conversation"
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/governance"
 	menuext "github.com/RayleaBot/RayleaBot/server/internal/bot/menu"
@@ -51,12 +53,27 @@ func buildPluginRuntime(deps pluginRuntimeDeps) (pluginRuntime, error) {
 	}
 	permissionView := buildPluginPermissionView(deps.Plugins, deps.Events)
 	localActions := buildLocalActionService(deps.Runtime, deps.Platform, deps.Plugins, deps.Events, deps.Renderer, permissionView, deps.Governance, deps.Browser, settingsService)
+	var hooks pluginruntime.EventHooks
+	if registry := deps.Events.Conversations; registry != nil {
+		hooks = pluginruntime.EventHooks{
+			Before: func(id string, done <-chan struct{}, event chatevent.Event) bool {
+				if event.Session == nil || event.EventType != "message.group" && event.EventType != "message.private" {
+					return true
+				}
+				return registry.BeginInput(conversation.Owner{PluginID: id, Done: done}, event)
+			},
+			Completed: func(id string, done <-chan struct{}, requestID string, event chatevent.Event, success bool) {
+				registry.CompleteParent(conversation.Owner{PluginID: id, Done: done}, requestID, event, success)
+			},
+		}
+	}
 	runtimeRegistry := pluginruntime.NewManaged(
 		deps.Runtime.RuntimeLogger(),
 		deps.Platform.Console,
 		deps.ManagementRedact,
 		deps.Runtime.CurrentConfig().Runtime.StderrRateLimitBytesPerSec,
 		localActions.Execute,
+		hooks,
 	)
 	return pluginRuntime{
 		LocalActions:   localActions,
@@ -95,6 +112,7 @@ func buildLocalActionService(
 		Settings:             settingsService,
 		PluginFiles:          pluginStack.PluginFiles,
 		PluginKV:             pluginStack.PluginKV,
+		Conversations:        eventStack.Conversations,
 		Browser:              browserManager,
 		Scheduler:            localaction.Scheduler(platform.Scheduler),
 		MessageSender:        localaction.OutboundMessageSender(eventStack.Dispatcher),

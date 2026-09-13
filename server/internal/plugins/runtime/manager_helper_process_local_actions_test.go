@@ -11,6 +11,19 @@ import (
 
 func runHelperProcessRuntimePart2(scenario string, recordPath string, scanner *bufio.Scanner) bool {
 	switch scenario {
+	case "event-session-wait", "event-session-wait-failed":
+		init := helperReadFrame(scanner, 2)
+		writeHelperFrame(map[string]any{"type": "init_ack", "request_id": init["request_id"], "status": "ready"})
+		event := helperReadFrame(scanner, 3)
+		writeHelperFrame(map[string]any{"type": "action", "request_id": "session-wait", "parent_request_id": event["request_id"], "action": "session.wait", "data": map[string]any{}})
+		helperExpectFrameType(scanner, "session-wait", "result", 4)
+		if scenario == "event-session-wait-failed" {
+			writeHelperFrame(map[string]any{"type": "error", "request_id": event["request_id"], "code": "plugin.not_handled", "message": "fixture"})
+		} else {
+			writeHelperFrame(map[string]any{"type": "result", "request_id": event["request_id"], "status": "success", "data": map[string]any{}})
+		}
+		helperConsumeShutdown(scanner, 5)
+		os.Exit(0)
 	case "event-local-action-error-then-result":
 		if !scanner.Scan() {
 			os.Exit(2)

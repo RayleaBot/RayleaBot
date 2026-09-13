@@ -41,6 +41,10 @@ type Action struct {
 	StoragePrefix             string
 	StorageValue              any
 	StorageTTLSeconds         int
+	SessionID                 string
+	SessionScope              string
+	SessionTimeoutSeconds     int
+	SessionNotifyOnExpire     *bool
 	StorageContent            []byte
 	HTTPMethod                string
 	HTTPURL                   string

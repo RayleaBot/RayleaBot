@@ -6,6 +6,7 @@ import (
 
 	"github.com/RayleaBot/RayleaBot/server/internal/bot/chatevent"
 	"github.com/RayleaBot/RayleaBot/server/internal/platform/errorcodes"
+	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 	"github.com/RayleaBot/RayleaBot/server/internal/scheduler"
 )
 
@@ -33,6 +34,18 @@ func (d *Dispatcher) Dispatch(ctx context.Context, event chatevent.Event, comman
 // DispatchToPlugin delivers an event to one specific registered plugin.
 func (d *Dispatcher) DispatchToPlugin(ctx context.Context, pluginID string, event chatevent.Event) DeliveryResult {
 	return d.dispatchOne(ctx, pluginID, event, nil)
+}
+
+func (d *Dispatcher) DispatchToProcess(ctx context.Context, pluginID string, owner <-chan struct{}, event chatevent.Event) DeliveryResult {
+	if owner == nil {
+		completion := newCompletion()
+		completion.finish(CompletionResult{ErrorCode: errorcodes.PluginStopping})
+		return DeliveryResult{PluginID: pluginID, Outcome: OutcomeError, ErrorCode: errorcodes.PluginStopping, Completion: completion}
+	}
+	d.admissionMu.Lock()
+	defer d.admissionMu.Unlock()
+	ctx = plugins.WithExpectedRuntimeDone(ctx, owner)
+	return d.enqueueTarget(ctx, event, pluginID, nil, &enqueueOptions{owner: owner})
 }
 
 // DispatchScheduledEvent keeps run bookkeeping outside the event sent to a plugin.
@@ -80,6 +93,19 @@ func (d *Dispatcher) enqueueTarget(ctx context.Context, event chatevent.Event, p
 	if options != nil && options.expected != nil && options.expected != slot {
 		d.mu.RUnlock()
 		return reject(OutcomeError, errorcodes.PluginStopping, "plugin_replaced")
+	}
+	if options != nil && options.owner != nil {
+		select {
+		case <-options.owner:
+			d.mu.RUnlock()
+			return reject(OutcomeError, errorcodes.PluginStopping, "plugin_stopping")
+		default:
+		}
+		process, ok := slot.runtime.(interface{ ProcessDone() <-chan struct{} })
+		if !ok || process.ProcessDone() != options.owner {
+			d.mu.RUnlock()
+			return reject(OutcomeError, errorcodes.PluginStopping, "plugin_replaced")
+		}
 	}
 	control := isControlEvent(event.EventType)
 	var eventCtx context.Context = deliveryContext{Context: slot.ctx, values: ctx}

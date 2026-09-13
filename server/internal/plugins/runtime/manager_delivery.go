@@ -13,7 +13,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/internal/plugins"
 )
 
-func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (plugins.Delivery, error) {
+func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (delivery plugins.Delivery, deliveryErr error) {
 	if err := ctx.Err(); err != nil {
 		return plugins.Delivery{}, eventContextError(err)
 	}
@@ -34,12 +34,23 @@ func (m *Manager) DeliverEvent(ctx context.Context, event chatevent.Event) (plug
 	if handle == nil {
 		return plugins.Delivery{}, errorf(codePlatformInvalidRequest, "plugin runtime is not running", nil)
 	}
+	if expected := plugins.ExpectedRuntimeDone(ctx); expected != nil && expected != handle.Done() {
+		return plugins.Delivery{}, errorf(codePluginStopping, "event belongs to a retired process", nil)
+	}
+	if m.opts.Events.Before != nil && !m.opts.Events.Before(handle.Spec.PluginID, handle.Done(), event) {
+		return plugins.Delivery{}, errorf(codePluginEventCanceled, "conversation input is no longer waiting", nil)
+	}
 
 	requestID := m.deps.requestID()
 	session, runtimeErr := m.registerEventSession(ctx, handle, requestID, event)
 	if runtimeErr != nil {
 		return plugins.Delivery{}, runtimeErr
 	}
+	defer func() {
+		if m.opts.Events.Completed != nil {
+			m.opts.Events.Completed(handle.Spec.PluginID, handle.Done(), requestID, event, deliveryErr == nil)
+		}
+	}()
 
 	frame := BuildEventFrame(event, requestID)
 	if err := ctx.Err(); err != nil {
@@ -134,6 +145,10 @@ func BuildEventFrame(event chatevent.Event, requestID string) pluginwire.EventFr
 func buildEventPayload(event chatevent.Event) (*pluginwire.ProtocolPayloadFrame, bool) {
 	var payload pluginwire.ProtocolPayloadFrame
 	hasPayload := false
+	if event.Session != nil {
+		payload.Session = &pluginwire.ProtocolSessionFrame{SessionID: event.Session.SessionID, Scope: event.Session.Scope, ExpiresAtMs: event.Session.ExpiresAtMS}
+		hasPayload = true
+	}
 	if event.MessageID != "" {
 		payload.MessageID = event.MessageID
 		hasPayload = true
