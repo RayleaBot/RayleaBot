@@ -27,7 +27,7 @@ import (
 	"github.com/RayleaBot/RayleaBot/server/tests/testutil"
 )
 
-func TestKVTTLAndNXFromDecodedWireAction(t *testing.T) {
+func TestKVTTLFromDecodedWireAction(t *testing.T) {
 	t.Parallel()
 	store, err := storage.Open(filepath.Join(t.TempDir(), "state.db"))
 	if err != nil {
@@ -51,23 +51,23 @@ func TestKVTTLAndNXFromDecodedWireAction(t *testing.T) {
 		}
 		return result
 	}
-	first := call("p", `{"operation":"set","key":"once","value":1,"ttl_seconds":60,"if_not_exists":true}`)
-	if first["stored"] != true || first["expires_at_ms"] == nil {
+	first := call("p", `{"operation":"set","key":"once","value":1,"ttl_seconds":60}`)
+	if first["expires_at_ms"] == nil {
 		t.Fatalf("TTL response=%#v", first)
 	}
-	second := call("p", `{"operation":"set","key":"once","value":2,"ttl_seconds":1,"if_not_exists":true}`)
-	if second["stored"] != false || second["expires_at_ms"] != first["expires_at_ms"] {
-		t.Fatal("NX rewrote TTL")
+	second := call("p", `{"operation":"set","key":"once","value":2,"ttl_seconds":1}`)
+	if second["expires_at_ms"] == nil || second["expires_at_ms"].(int64) >= first["expires_at_ms"].(int64) {
+		t.Fatal("overwrite did not replace TTL")
 	}
 	entry := call("p", `{"operation":"get","key":"once"}`)
-	if entry["value"] != float64(1) || entry["expires_at_ms"] != first["expires_at_ms"] {
-		t.Fatal("NX winner value/expiry changed")
+	if entry["value"] != float64(2) || entry["expires_at_ms"] != second["expires_at_ms"] {
+		t.Fatal("overwrite value/expiry mismatch")
 	}
 	if entry := call("other", `{"operation":"get","key":"once"}`); entry["exists"] != false || entry["value"] != nil || entry["expires_at_ms"] != nil {
 		t.Fatal("KV namespace leaked")
 	}
 	permanent := call("p", `{"operation":"set","key":"once","value":null}`)
-	if permanent["stored"] != true || permanent["expires_at_ms"] != nil {
+	if permanent["expires_at_ms"] != nil {
 		t.Fatal("permanent set retained TTL")
 	}
 }

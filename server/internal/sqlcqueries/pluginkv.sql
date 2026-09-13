@@ -12,6 +12,15 @@ AND (expires_at_ms IS NULL OR expires_at_ms > sqlc.arg(now_ms));
 SELECT CAST(COALESCE(SUM(size_bytes), 0) AS INTEGER) FROM plugin_kv
 WHERE expires_at_ms IS NULL OR expires_at_ms > sqlc.arg(now_ms);
 
+-- name: UpsertKV :exec
+INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at, expires_at_ms)
+VALUES (sqlc.arg(plugin_id), sqlc.arg(key), sqlc.arg(value_json), sqlc.arg(size_bytes), sqlc.arg(updated_at), sqlc.narg(expires_at_ms))
+ON CONFLICT(plugin_id, key) DO UPDATE SET
+    value_json = excluded.value_json,
+    size_bytes = excluded.size_bytes,
+    updated_at = excluded.updated_at,
+    expires_at_ms = excluded.expires_at_ms;
+
 -- name: DeleteKV :execrows
 DELETE FROM plugin_kv WHERE plugin_id = sqlc.arg(plugin_id) AND key = sqlc.arg(key)
 AND (expires_at_ms IS NULL OR expires_at_ms > sqlc.arg(now_ms));
@@ -23,5 +32,4 @@ DELETE FROM plugin_kv WHERE rowid IN (
 );
 
 -- ListKVKeys uses ESCAPE clause not supported by sqlc's SQLite parser.
--- Conditional UPSERT WHERE bindings are also not traversed by that parser.
--- Both statements are kept in plugins/storage/kv.go and registered as SQL exceptions.
+-- Kept in plugins/storage/kv.go and registered as a SQL exception.

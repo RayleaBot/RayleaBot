@@ -5,12 +5,7 @@ frames:
   request_id: action-1
   parent_request_id: event-1
   action: session.wait
-  data: {}
-- type: result
-  request_id: action-1
-  status: success
   data:
-    session_id: session-fixture
-    scope: user
+    state: {}
 expect:
   valid: false

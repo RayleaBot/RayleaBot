@@ -382,7 +382,7 @@
                     "notice.bot_removed",
                     "notice.push_enabled",
                     "notice.push_disabled",
-                    "session.closed"
+                    "session.expired"
                   ]
                 },
                 "timestamp": {
@@ -798,12 +798,9 @@
                   "if": {
                     "properties": {
                       "event_type": {
-                        "const": "session.closed"
+                        "const": "session.expired"
                       }
-                    },
-                    "required": [
-                      "event_type"
-                    ]
+                    }
                   },
                   "then": {
                     "required": [
@@ -815,14 +812,7 @@
                       "payload": {
                         "required": [
                           "session"
-                        ],
-                        "properties": {
-                          "session": {
-                            "required": [
-                              "reason"
-                            ]
-                          }
-                        }
+                        ]
                       }
                     }
                   }
@@ -850,40 +840,8 @@
                         "enum": [
                           "message.private",
                           "message.group",
-                          "session.closed"
+                          "session.expired"
                         ]
-                      }
-                    }
-                  }
-                },
-                {
-                  "if": {
-                    "properties": {
-                      "event_type": {
-                        "enum": [
-                          "message.private",
-                          "message.group"
-                        ]
-                      }
-                    }
-                  },
-                  "then": {
-                    "properties": {
-                      "payload": {
-                        "properties": {
-                          "session": {
-                            "not": {
-                              "required": [
-                                "reason"
-                              ]
-                            },
-                            "properties": {
-                              "turn": {
-                                "minimum": 1
-                              }
-                            }
-                          }
-                        }
                       }
                     }
                   }
@@ -1488,13 +1446,9 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 31536000
-        },
-        "if_not_exists": {
-          "type": "boolean",
-          "default": false
         }
       },
-      "description": "Omitted TTL writes a permanent value and clears the previous deadline. if_not_exists atomically writes only absent/expired keys. Always validate key, value and single-value size; an unmodified existing key returns stored=false and its expiry without checking added global quota. Capture host time once per write transaction for expiry, live global quota, previous size and conditional UPSERT. Requires min_core_version >= 0.6.0 when TTL/NX is used. This is short-term deduplication, not an owner-safe lock."
+      "description": "Omitted TTL writes permanently and clears the previous deadline. Always validate key, value, single-value size and global live quota in the same write transaction; capture host time once. TTL requires min_core_version >= 0.6.0."
     },
     "action_storage_kv_delete_data": {
       "type": "object",
@@ -3038,28 +2992,13 @@
           "minimum": 1,
           "maximum": 600
         },
-        "max_turns": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 100
-        },
-        "notify_on_close": {
+        "notify_on_expire": {
           "type": "boolean",
           "default": false
-        },
-        "replace": {
-          "type": "boolean",
-          "default": false
-        },
-        "state": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Immutable JSON object snapshot, at most 4096 UTF-8 serialized bytes. The host checks serialized size and never exposes mutable registry references."
         }
       },
       "required": [],
-      "description": "Only an ordinary business message may create a session. Host derives full source protocol/adapter/bot, target, actor and command origin from its parent event. A filter plugin cannot register. Scope conversation becomes user in private chats. replace only replaces the same process owner in waiting, with a new ID."
+      "description": "Current message defines full protocol/adapter/bot, target and actor. A new registration becomes waiting after the parent terminal succeeds; inputs before then follow ordinary routing. Same-plugin registration replaces its previous item; other-plugin ownership conflicts. A new ID starts a new absolute lifetime."
     },
     "action_session_wait_resume_data": {
       "type": "object",
@@ -3069,26 +3008,19 @@
           "type": "string",
           "minLength": 1
         },
-        "revision": {
-          "type": "integer",
-          "minimum": 1
-        },
         "timeout_seconds": {
           "type": "integer",
           "minimum": 1,
           "maximum": 600
         },
-        "state": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Immutable JSON object snapshot, at most 4096 UTF-8 serialized bytes. The host checks serialized size and never exposes mutable registry references."
+        "notify_on_expire": {
+          "type": "boolean"
         }
       },
       "required": [
-        "session_id",
-        "revision"
+        "session_id"
       ],
-      "description": "Parent must be the current handling request of this session/revision. One pending proposal per round; identical retry is idempotent. Omitted state retains the previous snapshot. Commit on successful parent completion only; total turns and absolute lifetime cannot reset."
+      "description": "Only the current message event for this session may register its next wait. The parent event identifies the round; no revision or proposal protocol exists. The existing absolute deadline remains. Inputs during handling follow ordinary routing; successful parent completion activates the next wait."
     },
     "action_session_wait_data": {
       "oneOf": [
@@ -3121,14 +3053,12 @@
           "type": "string",
           "minLength": 1
         },
-        "revision": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "turn": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
+        "scope": {
+          "type": "string",
+          "enum": [
+            "user",
+            "conversation"
+          ]
         },
         "expires_at_ms": {
           "type": "integer",
@@ -3137,11 +3067,10 @@
       },
       "required": [
         "session_id",
-        "revision",
-        "turn",
+        "scope",
         "expires_at_ms"
       ],
-      "description": "Host deadline in Unix milliseconds, starting at acceptance and bounded by the immutable absolute lifetime. Default wait 60 seconds, configured maximum at most 600. Expired at now >= expires_at_ms. Receiving acceptance does not commit the parent event."
+      "description": "Host deadline in Unix milliseconds. Default per-wait timeout 60 seconds, maximum 600 seconds, absolute lifetime 1800 seconds. Expired at now >= expires_at_ms. Business state belongs to the plugin; there is no total turn limit."
     },
     "session_finish_result": {
       "type": "object",
@@ -3164,19 +3093,6 @@
           "type": "string",
           "minLength": 1
         },
-        "revision": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "turn": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
-        "expires_at_ms": {
-          "type": "integer",
-          "minimum": 1
-        },
         "scope": {
           "type": "string",
           "enum": [
@@ -3184,33 +3100,17 @@
             "conversation"
           ]
         },
-        "state": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Immutable JSON object snapshot, at most 4096 UTF-8 serialized bytes. The host checks serialized size and never exposes mutable registry references."
-        },
-        "reason": {
-          "type": "string",
-          "enum": [
-            "finished",
-            "expired",
-            "replaced",
-            "policy_changed",
-            "delivery_failed",
-            "owner_stopped",
-            "turn_limit"
-          ]
+        "expires_at_ms": {
+          "type": "integer",
+          "minimum": 1
         }
       },
       "required": [
         "session_id",
-        "revision",
-        "turn",
-        "expires_at_ms",
         "scope",
-        "state"
+        "expires_at_ms"
       ],
-      "description": "Host-owned routing metadata, delivered only to its registering process generation, never copied from adapter raw payload. Message input requires turn >= 1 and no reason; session.closed requires reason. Closure notification is best effort and opt-in, uses the ordinary target lane, retains source and initiator, and grants no additional authority."
+      "description": "Host-owned route reference, sent only to the registered owner process. Optional session.expired notification retains source/target/initiator and does not grant authority. Finish, replacement and owner shutdown do not notify."
     },
     "action_session_wait": {
       "allOf": [
@@ -3284,18 +3184,13 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "stored": {
-          "type": "boolean"
-        },
         "expires_at_ms": {
           "type": "integer",
           "minimum": 1,
           "description": "Unix milliseconds; absent for a permanent value. Expired at now_ms >= expires_at_ms."
         }
       },
-      "required": [
-        "stored"
-      ]
+      "required": []
     },
     "storage_kv_get_result": {
       "type": "object",
@@ -3519,23 +3414,6 @@
     "fixtures/plugin-protocol/invalid.storage-root.yaml",
     "fixtures/plugin-protocol/ok.bot-identities.yaml",
     "fixtures/plugin-protocol/invalid.bot-identities-missing-snapshot.yaml",
-    "fixtures/plugin-protocol/ok.session-wait.yaml",
-    "fixtures/plugin-protocol/ok.session-rewait.yaml",
-    "fixtures/plugin-protocol/ok.session-finish.yaml",
-    "fixtures/plugin-protocol/edge.session-finish-unknown.yaml",
-    "fixtures/plugin-protocol/invalid.session-wait-mixed.yaml",
-    "fixtures/plugin-protocol/invalid.session-wait-missing-revision.yaml",
-    "fixtures/plugin-protocol/invalid.session-wait-no-parent.yaml",
-    "fixtures/plugin-protocol/invalid.session-wait-limits.yaml",
-    "fixtures/plugin-protocol/invalid.session-wait-state.yaml",
-    "fixtures/plugin-protocol/invalid.session-wait-result.yaml",
-    "fixtures/plugin-protocol/ok.session-input.yaml",
-    "fixtures/plugin-protocol/ok.session-closed.yaml",
-    "fixtures/plugin-protocol/invalid.session-unrelated-event.yaml",
-    "fixtures/plugin-protocol/invalid.session-closed-reason.yaml",
-    "fixtures/plugin-protocol/invalid.session-closed-user-canceled.yaml",
-    "fixtures/plugin-protocol/ok.kv-ttl-nx.yaml",
-    "fixtures/plugin-protocol/edge.kv-nx-existing.yaml",
     "fixtures/plugin-protocol/edge.kv-expired-get.yaml",
     "fixtures/plugin-protocol/edge.kv-expired-delete.yaml",
     "fixtures/plugin-protocol/ok.kv-permanent.yaml",
@@ -3543,7 +3421,24 @@
     "fixtures/plugin-protocol/invalid.kv-ttl-fraction.yaml",
     "fixtures/plugin-protocol/invalid.kv-ttl-upper.yaml",
     "fixtures/plugin-protocol/invalid.kv-ttl-get.yaml",
-    "fixtures/plugin-protocol/invalid.kv-expired-value.yaml"
+    "fixtures/plugin-protocol/invalid.kv-expired-value.yaml",
+    "fixtures/plugin-protocol/ok.session-wait.yaml",
+    "fixtures/plugin-protocol/ok.session-rewait.yaml",
+    "fixtures/plugin-protocol/ok.session-finish.yaml",
+    "fixtures/plugin-protocol/edge.session-finish-unknown.yaml",
+    "fixtures/plugin-protocol/ok.session-input.yaml",
+    "fixtures/plugin-protocol/ok.session-expired.yaml",
+    "fixtures/plugin-protocol/invalid.session-state.yaml",
+    "fixtures/plugin-protocol/invalid.session-revision.yaml",
+    "fixtures/plugin-protocol/invalid.session-max-turns.yaml",
+    "fixtures/plugin-protocol/invalid.session-replace.yaml",
+    "fixtures/plugin-protocol/invalid.session-notify-on-close.yaml",
+    "fixtures/plugin-protocol/invalid.session-closed.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-no-parent.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-limits.yaml",
+    "fixtures/plugin-protocol/invalid.session-wait-result.yaml",
+    "fixtures/plugin-protocol/ok.kv-ttl.yaml",
+    "fixtures/plugin-protocol/invalid.kv-nx.yaml"
   ],
   "$comment": "Protocol v3 assigns identity and configuration during init, uses static manifest event subscriptions, keeps private config and storage actions namespace-isolated, and requires explicit permissions only for elevated host actions.",
   "x-action-result-schemas": {

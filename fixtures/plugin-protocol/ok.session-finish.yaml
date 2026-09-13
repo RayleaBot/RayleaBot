@@ -3,7 +3,7 @@ case: ok
 frames:
 - type: action
   request_id: action-1
-  parent_request_id: scheduler-event
+  parent_request_id: event-1
   action: session.finish
   data:
     session_id: session-fixture

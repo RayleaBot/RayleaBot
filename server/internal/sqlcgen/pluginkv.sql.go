@@ -99,3 +99,34 @@ func (q *Queries) GetKVTotalSize(ctx context.Context, nowMs sql.NullInt64) (int6
 	err := row.Scan(&column_1)
 	return column_1, err
 }
+
+const upsertKV = `-- name: UpsertKV :exec
+INSERT INTO plugin_kv (plugin_id, key, value_json, size_bytes, updated_at, expires_at_ms)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+ON CONFLICT(plugin_id, key) DO UPDATE SET
+    value_json = excluded.value_json,
+    size_bytes = excluded.size_bytes,
+    updated_at = excluded.updated_at,
+    expires_at_ms = excluded.expires_at_ms
+`
+
+type UpsertKVParams struct {
+	PluginID    string
+	Key         string
+	ValueJson   string
+	SizeBytes   int64
+	UpdatedAt   string
+	ExpiresAtMs sql.NullInt64
+}
+
+func (q *Queries) UpsertKV(ctx context.Context, arg UpsertKVParams) error {
+	_, err := q.db.ExecContext(ctx, upsertKV,
+		arg.PluginID,
+		arg.Key,
+		arg.ValueJson,
+		arg.SizeBytes,
+		arg.UpdatedAt,
+		arg.ExpiresAtMs,
+	)
+	return err
+}

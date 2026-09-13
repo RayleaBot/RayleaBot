@@ -154,7 +154,7 @@ jobs:
           CGO_ENABLED: "1"
         run: >-
           go test -race
-          ./internal/app ./internal/config/runtime ./internal/bot/pipeline/... ./tests/prototypes/conversation
+          ./internal/app ./internal/config/runtime ./internal/bot/pipeline/...
           ./internal/plugins/catalog ./internal/plugins/runtime ./internal/plugins/lifecycle ./internal/plugins/storage
           ./internal/plugins/actions ./internal/plugins/webhook ./internal/management ./internal/operations/system ./internal/render ./internal/browser
           ./internal/platform/pubsub ./internal/bot/adapters ./internal/management/events ./internal/bot/adapters/onebot11 ./internal/storage

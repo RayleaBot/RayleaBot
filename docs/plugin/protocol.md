@@ -92,13 +92,13 @@ Go SDK 的 `EventContext.Bots` 是隔离的列表副本，`EventContext.Bot` 根
 
 宿主使用 init 建立的插件身份选择命名空间。`storage.file` 请求只传相对 `path`，不能选择文件根或其他插件空间。配置读取不使用 action；插件读取当前 `EventContext.Config`。
 
-### KV 期限与条件写入
+### KV 期限
 
-`storage.kv` 的 `set` 可携带整数 `ttl_seconds`（1..31536000）和 `if_not_exists`。使用这些选项的插件声明 `min_core_version >= 0.6.0`。省略 TTL 会永久覆盖并清除旧期限；NX 只在键不存在或已过期时写入。结果的 `stored` 表示本次是否写入，`expires_at_ms` 是实际 Unix 毫秒截止时间，永久值省略该字段。NX 未写入时返回已有期限，不返回已有值。
+`storage.kv` 的 `set` 可携带整数 `ttl_seconds`（1..31536000）。使用 TTL 的插件声明 `min_core_version >= 0.6.0`。省略 TTL 会永久覆盖并清除旧期限；成功结果中的 `expires_at_ms` 是实际 Unix 毫秒截止时间，永久值省略该字段。
 
-在 `now >= expires_at_ms` 时，get 返回 `exists=false` 且不包含 value/expiry，list 不列出该键，delete 返回 `deleted=false`。全局逻辑配额也排除过期键；NX 未写入仍校验请求和单值大小，但不检查本次不会新增的总容量。空列表返回 `keys: []`。
+在 `now >= expires_at_ms` 时，get 返回 `exists=false` 且不包含 value/expiry，list 不列出该键，delete 返回 `deleted=false`。全局逻辑配额排除过期键，写入仍在事务内校验单值与总容量。空列表返回 `keys: []`。
 
-TTL 与 NX 适合短期去重和占位。不要把它作为可主动释放的锁：旧持有者到期后执行 delete，可能删除新持有者的值。过期行由宿主有界清理，逻辑配额释放不表示 SQLite 文件立即缩小。
+需要进程内条件写入时，由插件自行同步。宿主每 60 秒分批删除过期行，每批 1000 行；逻辑配额释放不表示 SQLite 文件立即缩小。
 
 ### 显式权限动作
 

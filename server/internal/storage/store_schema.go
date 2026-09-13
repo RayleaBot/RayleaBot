@@ -6,8 +6,6 @@ import (
 	_ "embed"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"slices"
 	"time"
 )
@@ -51,7 +49,7 @@ func ReadSchemaVersion(ctx context.Context, path string) (string, error) {
 	return version, nil
 }
 
-func initializeSchema(ctx context.Context, db *sql.DB, path string) error {
+func initializeSchema(ctx context.Context, db *sql.DB) error {
 	var hasMetadata int
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'schema_metadata'").Scan(&hasMetadata); err != nil {
 		return fmt.Errorf("inspect schema metadata: %w", err)
@@ -70,7 +68,7 @@ func initializeSchema(ctx context.Context, db *sql.DB, path string) error {
 		if !slices.Contains(SupportedSchemaVersions(), version) {
 			return fmt.Errorf("database schema version does not match the supported migration chain: %s", version)
 		}
-		return migrateSchema(ctx, db, path, version, schemaMigrations())
+		return migrateSchema(ctx, db, version, schemaMigrations())
 	}
 	var tableCount int
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").Scan(&tableCount); err != nil {
@@ -97,8 +95,8 @@ func initializeSchema(ctx context.Context, db *sql.DB, path string) error {
 }
 
 // Runs before connection pragmas can change an old database. Each registered
-// step has one transaction; a verified standalone copy precedes all steps.
-func migrateSchema(ctx context.Context, db *sql.DB, path, source string, steps []schemaMigration) error {
+// step has one transaction and preserves the original initialization timestamp.
+func migrateSchema(ctx context.Context, db *sql.DB, source string, steps []schemaMigration) error {
 	var chain []schemaMigration
 	version := source
 	for _, step := range steps {
@@ -110,41 +108,6 @@ func migrateSchema(ctx context.Context, db *sql.DB, path, source string, steps [
 	if version != currentSchemaVersion {
 		return fmt.Errorf("no forward migration from schema %s", source)
 	}
-	file, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".pre-migration-"+source+"-*.db")
-	if err != nil {
-		return fmt.Errorf("reserve pre-migration copy: %w", err)
-	}
-	backup := file.Name()
-	if err := file.Close(); err != nil {
-		_ = os.Remove(backup)
-		return err
-	}
-	validBackup := false
-	defer func() {
-		if !validBackup {
-			_ = os.Remove(backup)
-		}
-	}()
-	if _, err := db.ExecContext(ctx, "VACUUM INTO ?", backup); err != nil {
-		return fmt.Errorf("create pre-migration copy: %w", err)
-	}
-	if err := QuickCheckPath(ctx, backup); err != nil {
-		return fmt.Errorf("verify pre-migration copy: %w", err)
-	}
-	copyFile, err := os.OpenFile(backup, os.O_RDWR, 0)
-	if err != nil {
-		return err
-	}
-	syncErr := copyFile.Sync()
-	closeErr := copyFile.Close()
-	if syncErr != nil {
-		return fmt.Errorf("sync pre-migration copy: %w", syncErr)
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	validBackup = true
-	slog.Info("数据库迁移前副本已保存，确认新版正常后可手动删除", "component", "storage", "path", backup, "source_version", source, "target_version", currentSchemaVersion)
 	for _, step := range chain {
 		if err := WithTx(ctx, db, nil, func(tx *sql.Tx) error {
 			if _, err := tx.ExecContext(ctx, step.sql); err != nil {
@@ -163,9 +126,9 @@ func migrateSchema(ctx context.Context, db *sql.DB, path, source string, steps [
 			}
 			return nil
 		}); err != nil {
-			return fmt.Errorf("migrate schema %s to %s (pre-migration copy: %s): %w", step.from, step.to, backup, err)
+			return fmt.Errorf("migrate schema %s to %s: %w", step.from, step.to, err)
 		}
 	}
-	slog.Info("数据库结构迁移完成", "component", "storage", "source_version", source, "target_version", currentSchemaVersion, "backup_path", backup)
+	slog.Info("数据库结构迁移完成", "component", "storage", "source_version", source, "target_version", currentSchemaVersion)
 	return nil
 }

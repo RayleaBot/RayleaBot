@@ -1,28 +1,23 @@
 contract: contracts/plugin-protocol.schema.json
-case: invalid
+case: ok
 frames:
 - type: event
-  request_id: reply-1
+  request_id: reply
   event:
     event_id: fixture-reply
     source_protocol: onebot11
-    source_adapter: fixture-adapter
-    event_type: scheduler.trigger
+    source_adapter: fixture
+    event_type: session.expired
     timestamp: 1789299999
     actor:
       id: '10001'
-      role: member
     target:
       type: group
       id: '20001'
     payload:
       session:
         session_id: session-fixture
-        revision: 1
-        turn: 1
-        expires_at_ms: 1789300000000
         scope: user
-        state:
-          step: role
+        expires_at_ms: 1789300000000
 expect:
-  valid: false
+  valid: true

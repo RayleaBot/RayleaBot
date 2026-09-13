@@ -3,10 +3,8 @@ package storage
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -28,7 +26,7 @@ func TestKVExpiryBoundaryOverwriteAndPrefix(t *testing.T) {
 	repo, clock := timedRepository(t)
 	ctx := t.Context()
 	result, err := repo.SetWithOptions(ctx, "p", "%_\\:one", nil, KVLimits{}, KVSetOptions{TTLSeconds: 1})
-	if err != nil || !result.Stored || result.ExpiresAtMS == nil || *result.ExpiresAtMS != 1001000 {
+	if err != nil || result.ExpiresAtMS == nil || *result.ExpiresAtMS != 1001000 {
 		t.Fatalf("set=%#v err=%v", result, err)
 	}
 	clock.Store(1000999)
@@ -65,57 +63,19 @@ func TestKVExpiryBoundaryOverwriteAndPrefix(t *testing.T) {
 	}
 }
 
-func TestKVNXConcurrentUniqueAndGlobalQuota(t *testing.T) {
+func TestKVGlobalQuotaExcludesExpiredValues(t *testing.T) {
 	t.Parallel()
 	repo, clock := timedRepository(t)
 	ctx := t.Context()
-	var contenders sync.WaitGroup
-	var wins atomic.Int32
-	failures := make(chan error, 64)
-	for i := range 64 {
-		contenders.Go(func() {
-			result, err := repo.SetWithOptions(ctx, "p", "once", i, KVLimits{}, KVSetOptions{TTLSeconds: 1, IfNotExists: true})
-			if err != nil {
-				failures <- err
-				return
-			}
-			if result.Stored {
-				wins.Add(1)
-			}
-			if result.ExpiresAtMS == nil || *result.ExpiresAtMS != 1001000 {
-				failures <- fmt.Errorf("unexpected NX expiry: %#v", result)
-			}
-		})
+	if _, err := repo.SetWithOptions(ctx, "p", "first", 1, KVLimits{}, KVSetOptions{TTLSeconds: 1}); err != nil {
+		t.Fatal(err)
 	}
-	contenders.Wait()
-	close(failures)
-	for err := range failures {
-		t.Error(err)
-	}
-	if wins.Load() != 1 {
-		t.Fatalf("NX winners=%d", wins.Load())
-	}
-	before, _ := repo.GetEntry(ctx, "p", "once")
-	result, err := repo.SetWithOptions(ctx, "p", "once", "replacement", KVLimits{ValueMaxBytes: 64, TotalMaxBytes: 1}, KVSetOptions{TTLSeconds: 60, IfNotExists: true})
-	if err != nil || result.Stored || result.ExpiresAtMS == nil || *result.ExpiresAtMS != 1001000 {
-		t.Fatalf("NX no-op charged quota: %#v %v", result, err)
-	}
-	after, _ := repo.GetEntry(ctx, "p", "once")
-	if before.Value != after.Value {
-		t.Fatal("NX loser overwrote winner")
-	}
-	if _, err := repo.SetWithOptions(ctx, "p", "once", "too-large", KVLimits{ValueMaxBytes: 1}, KVSetOptions{IfNotExists: true}); !errors.Is(err, ErrKVValueTooLarge) {
-		t.Fatal("NX skipped single-value validation")
-	}
-	if _, err := repo.SetWithOptions(ctx, "other", "k", 0, KVLimits{TotalMaxBytes: 3}, KVSetOptions{}); !errors.Is(err, ErrKVQuotaExceeded) {
+	if err := repo.Set(ctx, "other", "k", 0, KVLimits{TotalMaxBytes: 3}); !errors.Is(err, ErrKVQuotaExceeded) {
 		t.Fatal("quota became per-plugin")
 	}
 	clock.Store(1001000)
-	if result, err := repo.SetWithOptions(ctx, "other", "k", 0, KVLimits{TotalMaxBytes: 3}, KVSetOptions{IfNotExists: true}); err != nil || !result.Stored {
-		t.Fatalf("expired row retained global quota: %#v %v", result, err)
-	}
-	if result, err := repo.SetWithOptions(ctx, "p", "once", 5, KVLimits{}, KVSetOptions{IfNotExists: true}); err != nil || !result.Stored || result.ExpiresAtMS != nil {
-		t.Fatal("expired NX did not become permanent")
+	if err := repo.Set(ctx, "other", "k", 0, KVLimits{TotalMaxBytes: 3}); err != nil {
+		t.Fatalf("expired row retained global quota: %v", err)
 	}
 }
 
@@ -167,7 +127,7 @@ func TestKVExpirySurvivesReopenAndSnapshotRestore(t *testing.T) {
 	}
 }
 
-func TestKVSweeperUsesExpiryIndexAndBoundedBatches(t *testing.T) {
+func TestKVSweeperUsesExpiryIndexAndSingleBatch(t *testing.T) {
 	t.Parallel()
 	repo, _ := timedRepository(t)
 	if _, err := repo.write.Exec(`WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n WHERE i<6200)
@@ -194,10 +154,9 @@ SELECT 'p',printf('k%05d',i),'1',8,'2026-09-13T00:00:00Z',1000000 FROM n`); err 
 	if !indexed {
 		t.Fatal("sweep would scan all KV rows")
 	}
-	start := time.Now()
 	count, err := repo.SweepExpired(t.Context())
-	if err != nil || count <= 0 || count > 5000 || time.Since(start) > time.Second {
-		t.Fatalf("unbounded sweep: rows=%d time=%v err=%v", count, time.Since(start), err)
+	if err != nil || count != 1000 {
+		t.Fatalf("unexpected batch: rows=%d err=%v", count, err)
 	}
 	var remaining int64
 	if err := repo.read.QueryRow("SELECT COUNT(*) FROM plugin_kv").Scan(&remaining); err != nil || remaining != 6200-count {

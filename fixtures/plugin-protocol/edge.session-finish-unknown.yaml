@@ -6,7 +6,7 @@ frames:
   parent_request_id: event-1
   action: session.finish
   data:
-    session_id: unknown
+    session_id: missing
 - type: result
   request_id: action-1
   status: success

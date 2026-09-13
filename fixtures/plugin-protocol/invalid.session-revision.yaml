@@ -6,8 +6,6 @@ frames:
   parent_request_id: event-1
   action: session.wait
   data:
-    session_id: session-fixture
     revision: 1
-    scope: user
 expect:
   valid: false

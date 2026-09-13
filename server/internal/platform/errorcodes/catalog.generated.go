@@ -138,8 +138,6 @@ const (
 	PluginProtocolViolationMessageKey                   = "errors.plugin.protocol_violation"
 	PluginSessionConflict                               = "plugin.session_conflict"
 	PluginSessionConflictMessageKey                     = "errors.plugin.session_conflict"
-	PluginSessionStale                                  = "plugin.session_stale"
-	PluginSessionStaleMessageKey                        = "errors.plugin.session_stale"
 	PluginSettingsApplyFailed                           = "plugin.settings_apply_failed"
 	PluginSettingsApplyFailedMessageKey                 = "errors.plugin.settings_apply_failed"
 	PluginShutdown                                      = "plugin.shutdown"
@@ -269,7 +267,6 @@ var catalog = map[string]Definition{
 	PluginPlatformMismatch:                    {Code: PluginPlatformMismatch, HTTPStatus: 409, MessageKey: PluginPlatformMismatchMessageKey, Message: "插件产物与当前平台不匹配", Retryable: false, Surfaces: "http,task,readiness"},
 	PluginProtocolViolation:                   {Code: PluginProtocolViolation, HTTPStatus: 0, MessageKey: PluginProtocolViolationMessageKey, Message: "插件协议违规", Retryable: false, Surfaces: "plugin_protocol,websocket,task"},
 	PluginSessionConflict:                     {Code: PluginSessionConflict, HTTPStatus: 0, MessageKey: PluginSessionConflictMessageKey, Message: "当前作用域已有对话，请先结束已有对话", Retryable: false, Surfaces: "plugin_protocol"},
-	PluginSessionStale:                        {Code: PluginSessionStale, HTTPStatus: 0, MessageKey: PluginSessionStaleMessageKey, Message: "对话轮次已失效，无法继续等待", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginSettingsApplyFailed:                 {Code: PluginSettingsApplyFailed, HTTPStatus: 409, MessageKey: PluginSettingsApplyFailedMessageKey, Message: "设置已保存，运行时应用失败，请重试保存或重载插件", Retryable: true, Surfaces: "http,plugin_protocol,task"},
 	PluginShutdown:                            {Code: PluginShutdown, HTTPStatus: 0, MessageKey: PluginShutdownMessageKey, Message: "插件运行时已关闭，本地动作结果未确认", Retryable: false, Surfaces: "plugin_protocol"},
 	PluginShutdownTimeout:                     {Code: PluginShutdownTimeout, HTTPStatus: 0, MessageKey: PluginShutdownTimeoutMessageKey, Message: "插件优雅退出超时", Retryable: true, Surfaces: "plugin_protocol,websocket,task"},

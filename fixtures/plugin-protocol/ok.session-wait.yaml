@@ -6,16 +6,13 @@ frames:
   parent_request_id: event-1
   action: session.wait
   data:
-    state:
-      step: role
-    notify_on_close: true
+    notify_on_expire: true
 - type: result
   request_id: action-1
   status: success
   data:
     session_id: session-fixture
-    revision: 1
-    turn: 0
+    scope: user
     expires_at_ms: 1789300000000
 expect:
   valid: true

@@ -97,24 +97,16 @@ type ProtocolPayloadFrame struct {
 }
 
 type ProtocolSessionFrame struct {
-	SessionID   string         `json:"session_id"`
-	Revision    int            `json:"revision"`
-	Turn        int            `json:"turn"`
-	ExpiresAtMs int64          `json:"expires_at_ms"`
-	Scope       string         `json:"scope"`
-	State       map[string]any `json:"state"`
-	Reason      string         `json:"reason,omitempty"`
+	SessionID   string `json:"session_id"`
+	Scope       string `json:"scope"`
+	ExpiresAtMs int64  `json:"expires_at_ms"`
 }
 
 type ProtocolActionSessionWaitFrame struct {
-	Scope          string          `json:"scope,omitempty"`
-	TimeoutSeconds *int            `json:"timeout_seconds,omitempty"`
-	MaxTurns       *int            `json:"max_turns,omitempty"`
-	NotifyOnClose  bool            `json:"notify_on_close,omitempty"`
-	Replace        bool            `json:"replace,omitempty"`
-	State          json.RawMessage `json:"state,omitempty"`
-	SessionID      string          `json:"session_id,omitempty"`
-	Revision       *int            `json:"revision,omitempty"`
+	Scope          string `json:"scope,omitempty"`
+	TimeoutSeconds *int   `json:"timeout_seconds,omitempty"`
+	NotifyOnExpire *bool  `json:"notify_on_expire,omitempty"`
+	SessionID      string `json:"session_id,omitempty"`
 }
 
 type ProtocolActionSessionFinishFrame struct {
@@ -123,8 +115,7 @@ type ProtocolActionSessionFinishFrame struct {
 
 type ProtocolSessionWaitResultFrame struct {
 	SessionID   string `json:"session_id"`
-	Revision    int    `json:"revision"`
-	Turn        int    `json:"turn"`
+	Scope       string `json:"scope"`
 	ExpiresAtMs int64  `json:"expires_at_ms"`
 }
 
@@ -133,7 +124,6 @@ type ProtocolSessionFinishResultFrame struct {
 }
 
 type ProtocolKVSetResultFrame struct {
-	Stored      bool   `json:"stored"`
 	ExpiresAtMs *int64 `json:"expires_at_ms,omitempty"`
 }
 
@@ -267,12 +257,11 @@ type ProtocolActionLoggerWriteFrame struct {
 }
 
 type ProtocolActionStorageKVFrame struct {
-	Operation   string          `json:"operation"`
-	Key         *string         `json:"key,omitempty"`
-	Value       json.RawMessage `json:"value,omitempty"`
-	TtlSeconds  *int            `json:"ttl_seconds,omitempty"`
-	IfNotExists bool            `json:"if_not_exists,omitempty"`
-	Prefix      *string         `json:"prefix,omitempty"`
+	Operation  string          `json:"operation"`
+	Key        *string         `json:"key,omitempty"`
+	Value      json.RawMessage `json:"value,omitempty"`
+	TtlSeconds *int            `json:"ttl_seconds,omitempty"`
+	Prefix     *string         `json:"prefix,omitempty"`
 }
 
 type ProtocolActionStorageFileFrame struct {

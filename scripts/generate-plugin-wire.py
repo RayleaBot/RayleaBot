@@ -64,7 +64,6 @@ MODELS = {
 }
 RAW_FIELDS = {
     ("ProtocolKVGetResultFrame", "value"),
-    ("ProtocolActionSessionWaitFrame", "state"),
     ("ProtocolPayloadFrame", "command"),
     ("ActionFrame", "data"), ("ProtocolActionStorageKVFrame", "value"),
     ("ProtocolActionSchedulerCreateFrame", "payload"), ("ProtocolActionRenderImageFrame", "data"),
@@ -73,9 +72,8 @@ PRESENCE_FIELDS = {
     ("ProtocolActionStorageKVFrame", "ttl_seconds"),
     ("ProtocolKVSetResultFrame", "expires_at_ms"),
     ("ProtocolKVGetResultFrame", "expires_at_ms"),
-    ("ProtocolActionSessionWaitFrame", "revision"),
+    ("ProtocolActionSessionWaitFrame", "notify_on_expire"),
     ("ProtocolActionSessionWaitFrame", "timeout_seconds"),
-    ("ProtocolActionSessionWaitFrame", "max_turns"),
     ("ProtocolWebhookFrame", "client_timestamp"), ("ProtocolPayloadFrame", "bots"),
     ("ProtocolPayloadFrame", "config"), ("ProtocolActionMessageSendFrame", "source_adapter"),
     ("ProtocolActionMessageSendFrame", "reply_to_event_id"),

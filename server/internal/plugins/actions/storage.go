@@ -65,7 +65,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 		}
 		return result, nil
 	case "set":
-		outcome, err := deps.PluginKV.SetWithOptions(ctx, req.PluginID, req.Action.StorageKey, req.Action.StorageValue, currentKVLimits(currentConfig(deps)), pluginstore.KVSetOptions{TTLSeconds: req.Action.StorageTTLSeconds, IfNotExists: req.Action.StorageIfNotExists})
+		outcome, err := deps.PluginKV.SetWithOptions(ctx, req.PluginID, req.Action.StorageKey, req.Action.StorageValue, currentKVLimits(currentConfig(deps)), pluginstore.KVSetOptions{TTLSeconds: req.Action.StorageTTLSeconds})
 		if errors.Is(err, pluginstore.ErrKVInvalidRequest) {
 			return nil, &plugins.Error{Code: errorcodes.PlatformInvalidRequest, Message: "storage.kv parameters are invalid"}
 		}
@@ -75,7 +75,7 @@ func executeStorageKV(ctx context.Context, deps Deps, req ActionRequest) (map[st
 		if err != nil {
 			return nil, &plugins.Error{Code: errorcodes.PluginInternalError, Message: "storage.kv set failed", Err: err}
 		}
-		result := map[string]any{"stored": outcome.Stored}
+		result := map[string]any{}
 		if outcome.ExpiresAtMS != nil {
 			result["expires_at_ms"] = *outcome.ExpiresAtMS
 		}

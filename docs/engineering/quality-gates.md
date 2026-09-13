@@ -66,7 +66,7 @@ Web 生产构建 E2E 只运行 `real-server` project，独立使用临时目录�
 
 Nightly 的 `release-dry-run` 在构建 Server 后执行 `python scripts/release/rehearse_current_recovery.py --server dist/server/raylea-server --output dist/current-recovery-rehearsal`。输出目录必须不存在，保存合成数据、恢复包、进程日志和结果 JSON；验证空目录初始化、当前格式备份、恢复到空目录、登录、配置与插件数据一致性，以及重复启动幂等。
 
-同一工作流另以 `--legacy-schema --output dist/legacy-recovery-rehearsal` 验证真实 `000001` 合成备份、首次启动迁移到当前结构及迁移前副本。迁移演练与当前结构恢复各使用独立输出目录。
+同一工作流另以 `--legacy-schema --output dist/legacy-recovery-rehearsal` 验证真实 `000001` 合成备份和首次启动迁移到当前结构。迁移演练与当前结构恢复各使用独立输出目录。
 
 ## 验证原则
 

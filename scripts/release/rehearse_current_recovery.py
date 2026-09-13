@@ -169,7 +169,7 @@ def package_hashes(root: Path) -> dict[str, str]:
 
 def legacy_archive(archive: Path, output: Path) -> tuple[Path, dict]:
     """Create a real 000001 synthetic database, never relabel a newer database."""
-    fixture_schema = Path(__file__).resolve().parents[2] / "server/tests/prototypes/conversation/testdata/schema-000001.sql"
+    fixture_schema = Path(__file__).resolve().parents[2] / "server/internal/storage/testdata/schema-000001.sql"
     archived_database = output / "archived-current.db"
     legacy_database = output / "archived-000001.db"
     with zipfile.ZipFile(archive) as package:
@@ -292,10 +292,6 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
                     wait_for_plugin(origin, session["session_token"], plugin_id)
                 time.sleep(min(1, max(0, deadline - time.monotonic())))
     assert database_facts(restored_database) == before
-    migration_copies = list(restored_database.parent.glob(restored_database.name + ".pre-migration-000001-*.db"))
-    if archived_facts["schema_version"] != before["schema_version"]:
-        assert len(migration_copies) == 1, migration_copies
-        assert database_facts(migration_copies[0]) == archived_facts
     assert hashlib.sha256(database.read_bytes()).hexdigest() == source_database_digest
     result = {"archive": str(archive), "schema_version": before["schema_version"],
               "initialized_at": before["initialized_at"], "fresh_setup": True,
@@ -304,8 +300,7 @@ def rehearse(binary: Path, output: Path, *, distribution_root: Path | None = Non
               "installed_plugin": plugin_id, "installed_package_files": len(installed_hashes),
               "database_layout": database_layout, "restored_database_path": expected_config["database"]["path"],
               "source_schema_version": archived_facts["schema_version"],
-              "target_schema_version": before["schema_version"],
-              "migration_copies": [str(path) for path in migration_copies]}
+              "target_schema_version": before["schema_version"]}
     (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result
 

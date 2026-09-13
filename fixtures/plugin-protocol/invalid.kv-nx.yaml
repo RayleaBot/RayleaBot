@@ -4,13 +4,11 @@ frames:
 - type: action
   request_id: action-1
   parent_request_id: event-1
-  action: session.wait
-  data: {}
-- type: result
-  request_id: action-1
-  status: success
+  action: storage.kv
   data:
-    session_id: session-fixture
-    scope: user
+    operation: set
+    key: temporary
+    value: 42
+    if_not_exists: true
 expect:
   valid: false

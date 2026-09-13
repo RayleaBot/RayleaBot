@@ -12,7 +12,6 @@ frames:
 - type: result
   request_id: kv-fixture
   status: success
-  data:
-    stored: true
+  data: {}
 expect:
   valid: true

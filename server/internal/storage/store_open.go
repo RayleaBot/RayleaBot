@@ -56,7 +56,7 @@ func openConfigured(path string, lock *filelock.Lock) (*Store, error) {
 		return nil, cause
 	}
 
-	if err := initializeSchema(context.Background(), writeDB, path); err != nil {
+	if err := initializeSchema(context.Background(), writeDB); err != nil {
 		return cleanup(fmt.Errorf("initialize sqlite schema: %w", err))
 	}
 	if err := configureHandle(context.Background(), writeDB); err != nil {

@@ -27,22 +27,8 @@ codes:
     message: 当前作用域已有对话，请先结束已有对话
     description: >
       A session.wait creation conflicts with the same full identity and scope.
-      Explicit replacement is allowed only for the same process owner's waiting
-      session. No other owner identity or state is disclosed.
-    http_status: null
-    retryable: false
-    applies_to: [plugin_protocol]
-
-  plugin.session_stale:
-    code: plugin.session_stale
-    domain: plugin
-    message_key: errors.plugin.session_stale
-    message: 对话轮次已失效，无法继续等待
-    description: >
-      A session.wait continuation refers to a non-current ID, revision, process
-      generation or handling parent, a conflicting proposal, exhausted turn count
-      or absolute lifetime. Recreating without an ID in a session input event is
-      also rejected. Unknown or foreign session.finish instead returns finished=false.
+      Registration by another plugin conflicts; the same plugin replaces its own
+      previous item. No other owner identity is disclosed.
     http_status: null
     retryable: false
     applies_to: [plugin_protocol]

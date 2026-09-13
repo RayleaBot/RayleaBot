@@ -12,7 +12,7 @@ import (
 
 func createLegacyDatabase(t *testing.T) string {
 	t.Helper()
-	data, err := os.ReadFile("../../tests/prototypes/conversation/testdata/schema-000001.sql")
+	data, err := os.ReadFile("testdata/schema-000001.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func createLegacyDatabase(t *testing.T) string {
 	return path
 }
 
-func TestOpenMigratesLegacyAndRetainsRestorableCopy(t *testing.T) {
+func TestOpenMigratesLegacyAndPreservesBusinessData(t *testing.T) {
 	t.Parallel()
 	path := createLegacyDatabase(t)
 	store, err := Open(path)
@@ -55,16 +55,6 @@ func TestOpenMigratesLegacyAndRetainsRestorableCopy(t *testing.T) {
 	if !reflect.DeepEqual(migrationSchemaSQL(t, store.Read), migrationSchemaSQL(t, fresh.Read)) {
 		t.Fatal("fresh and migrated sqlite_master differ")
 	}
-	copies, err := filepath.Glob(path + ".pre-migration-000001-*.db")
-	if err != nil || len(copies) != 1 {
-		t.Fatalf("copies=%v err=%v", copies, err)
-	}
-	if err := QuickCheckPath(t.Context(), copies[0]); err != nil {
-		t.Fatal(err)
-	}
-	if version, err := ReadSchemaVersion(t.Context(), copies[0]); err != nil || version != "000001" {
-		t.Fatalf("copy version=%s err=%v", version, err)
-	}
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -72,12 +62,11 @@ func TestOpenMigratesLegacyAndRetainsRestorableCopy(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if next, err := second.SchemaMetadata(t.Context()); err != nil || next != metadata {
+		t.Fatal("repeated startup changed metadata")
+	}
 	if err := second.Close(); err != nil {
 		t.Fatal(err)
-	}
-	after, _ := filepath.Glob(path + ".pre-migration-000001-*.db")
-	if !reflect.DeepEqual(copies, after) {
-		t.Fatal("repeated startup repeated migration")
 	}
 }
 
@@ -128,16 +117,9 @@ func TestOpenFailedMigrationDoesNotChangeLegacyDatabase(t *testing.T) {
 	if err != nil || !bytes.Equal(before, after) {
 		t.Fatal("failed startup changed original database")
 	}
-	copies, _ := filepath.Glob(path + ".pre-migration-000001-*.db")
-	if len(copies) != 1 {
-		t.Fatal("verified backup not retained after migration failure")
-	}
-	if version, err := ReadSchemaVersion(t.Context(), copies[0]); err != nil || version != "000001" {
-		t.Fatal("backup not readable with old structure")
-	}
 }
 
-func TestMigrationBackupFailureAndUnknownVersionDoNotWrite(t *testing.T) {
+func TestMigrationUnknownVersionDoesNotWrite(t *testing.T) {
 	t.Parallel()
 	path := createLegacyDatabase(t)
 	db, err := sql.Open(sqliteDriverName, path)
@@ -145,13 +127,6 @@ func TestMigrationBackupFailureAndUnknownVersionDoNotWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db.Close()
-	if err := migrateSchema(t.Context(), db, filepath.Join(t.TempDir(), "missing", "state.db"), "000001", schemaMigrations()); err == nil {
-		t.Fatal("migration proceeded without a backup")
-	}
-	var version string
-	if err := db.QueryRow("SELECT version FROM schema_metadata").Scan(&version); err != nil || version != "000001" {
-		t.Fatal("backup failure mutated version")
-	}
 	if _, err := db.Exec("UPDATE schema_metadata SET version='000003'"); err != nil {
 		t.Fatal(err)
 	}
@@ -166,9 +141,5 @@ func TestMigrationBackupFailureAndUnknownVersionDoNotWrite(t *testing.T) {
 	after, _ := os.ReadFile(path)
 	if !bytes.Equal(before, after) {
 		t.Fatal("unknown version changed database")
-	}
-	copies, _ := filepath.Glob(path + ".pre-migration-*")
-	if len(copies) != 0 {
-		t.Fatal("unknown version created migration artifacts")
 	}
 }

@@ -22,8 +22,7 @@ var (
 const MaxKVTTLSeconds = 31536000
 
 type KVSetOptions struct {
-	TTLSeconds  int
-	IfNotExists bool
+	TTLSeconds int
 }
 type KVEntry struct {
 	Value       any
@@ -31,7 +30,6 @@ type KVEntry struct {
 	ExpiresAtMS *int64
 }
 type KVSetResult struct {
-	Stored      bool
 	ExpiresAtMS *int64
 }
 
@@ -119,7 +117,7 @@ func (r *KVSQLiteRepository) SetWithOptions(ctx context.Context, pluginID, key s
 		now := r.now()
 		nowMS := sql.NullInt64{Int64: now.UnixMilli(), Valid: true}
 		q := r.writeQ.WithTx(tx)
-		previous, err := q.GetKV(ctx, sqlcgen.GetKVParams{
+		previousSize, err := q.GetKVSize(ctx, sqlcgen.GetKVSizeParams{
 			PluginID: pluginID,
 			Key:      key,
 			NowMs:    nowMS,
@@ -127,15 +125,11 @@ func (r *KVSQLiteRepository) SetWithOptions(ctx context.Context, pluginID, key s
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("query previous plugin kv size: %w", err)
 		}
-		if options.IfNotExists && err == nil {
-			result.ExpiresAtMS = kvExpiry(previous.ExpiresAtMs)
-			return nil
-		}
 		totalSize, err := q.GetKVTotalSize(ctx, nowMS)
 		if err != nil {
 			return fmt.Errorf("query global plugin kv total size: %w", err)
 		}
-		nextTotal := totalSize - previous.SizeBytes + int64(sizeBytes)
+		nextTotal := totalSize - previousSize + int64(sizeBytes)
 		if limits.TotalMaxBytes > 0 && nextTotal > int64(limits.TotalMaxBytes) {
 			return ErrKVQuotaExceeded
 		}
@@ -143,29 +137,10 @@ func (r *KVSQLiteRepository) SetWithOptions(ctx context.Context, pluginID, key s
 		if options.TTLSeconds > 0 {
 			expiry = sql.NullInt64{Int64: now.Add(time.Duration(options.TTLSeconds) * time.Second).UnixMilli(), Valid: true}
 		}
-		// Pinned sqlc does not traverse parameters in SQLite's UPSERT WHERE.
-		written, err := tx.ExecContext(ctx, `INSERT INTO plugin_kv (plugin_id,key,value_json,size_bytes,updated_at,expires_at_ms)
-VALUES (?,?,?,?,?,?) ON CONFLICT(plugin_id,key) DO UPDATE SET
-value_json=excluded.value_json,size_bytes=excluded.size_bytes,updated_at=excluded.updated_at,expires_at_ms=excluded.expires_at_ms
-WHERE ? = 0 OR (plugin_kv.expires_at_ms IS NOT NULL AND plugin_kv.expires_at_ms <= ?)`,
-			pluginID, key, string(valueJSON), sizeBytes, now.UTC().Format(time.RFC3339Nano), expiry, options.IfNotExists, nowMS.Int64)
-		if err != nil {
+		if err := q.UpsertKV(ctx, sqlcgen.UpsertKVParams{PluginID: pluginID, Key: key, ValueJson: string(valueJSON), SizeBytes: int64(sizeBytes), UpdatedAt: now.UTC().Format(time.RFC3339Nano), ExpiresAtMs: expiry}); err != nil {
 			return fmt.Errorf("upsert plugin kv value: %w", err)
 		}
-		count, err := written.RowsAffected()
-		if err != nil {
-			return err
-		}
-		result.Stored = count > 0
-		if result.Stored {
-			result.ExpiresAtMS = kvExpiry(expiry)
-		} else {
-			current, err := q.GetKV(ctx, sqlcgen.GetKVParams{PluginID: pluginID, Key: key, NowMs: nowMS})
-			if err != nil {
-				return err
-			}
-			result.ExpiresAtMS = kvExpiry(current.ExpiresAtMs)
-		}
+		result.ExpiresAtMS = kvExpiry(expiry)
 		return nil
 	})
 	if err != nil {

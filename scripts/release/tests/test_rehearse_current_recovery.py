@@ -20,7 +20,7 @@ import rehearse_current_recovery as recovery
 
 class LegacyArchiveTests(unittest.TestCase):
     def test_archive_contains_old_structure_and_preserves_business_data(self):
-        schema = ROOT / "server/tests/prototypes/conversation/testdata/schema-000001.sql"
+        schema = ROOT / "server/internal/storage/testdata/schema-000001.sql"
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
             database = root / "new.db"
